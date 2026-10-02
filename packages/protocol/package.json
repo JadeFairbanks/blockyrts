@@ -1,0 +1,13 @@
+{
+  "name": "@blockyrts/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Message codecs shared by client and server (stub until M9).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

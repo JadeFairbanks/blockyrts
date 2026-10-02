@@ -1,0 +1,16 @@
+{
+  "name": "@blockyrts/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Node.js API, WebSocket relay and save store (stub until M9).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@blockyrts/protocol": "workspace:*"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@blockyrts/sim",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The deterministic game simulation. Zero dependencies; never imports client, server or three.js.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+  }
+}
