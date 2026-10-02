@@ -6,13 +6,19 @@ import { ByteReader, ByteWriter, fnv1a32 } from './bytes.ts';
 import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
 import { RESOURCE_COUNT } from './economy/resources.ts';
-import { attachNav, EntityStore, UNIT_FIELDS, type PlayerState, type SimState } from './state.ts';
+import { attachNav, EntityStore, UNIT_FIELDS, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
+import { ITEM_COUNT } from './combat/items.ts';
+
+/** The fields of each record kind, in the order they are written (every one an i32). */
+const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
+const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
+const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 3;
+export const SNAPSHOT_VERSION = 4;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -54,11 +60,19 @@ export function serializeState(state: SimState): Uint8Array {
     const p = e.path[i]!;
     w.u16(p.length);
     for (const v of p) w.i32(v);
+    const h = e.hitters[i]!;
+    w.u16(h.length);
+    for (const v of h) w.u32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
     w.u8(p.pool.length);
     for (const v of p.pool) w.i32(v);
+    w.u8(p.items.length);
+    for (const v of p.items) w.i32(v);
+    w.u32(p.research);
+    w.u8(p.autoEquip);
+    w.u32(p.out);
   }
   writeBuildings(w, state.buildings);
   w.u32(state.enclosed.length);
@@ -67,6 +81,14 @@ export function serializeState(state: SimState): Uint8Array {
     w.u32(k % 0x100000000);
     w.u32(floorDiv(k, 0x100000000));
   }
+  w.u32(state.projectiles.length);
+  for (const p of state.projectiles) for (const f of PROJECTILE_FIELDS) w.i32(p[f]);
+  w.u32(state.spawns.length);
+  for (const p of state.spawns) for (const f of SPAWN_FIELDS) w.i32(p[f]);
+  w.u32(state.sites.length);
+  for (const p of state.sites) for (const f of SITE_FIELDS) w.i32(p[f]);
+  w.u32(state.over);
+  w.u8(state.peaceful);
   writeWorld(w, state.world);
   return w.finish();
 }
@@ -99,6 +121,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const p: number[] = [];
     for (let k = 0; k < np; k++) p.push(r.i32());
     e.path[i] = p;
+    const nh = r.u16();
+    const h: number[] = [];
+    for (let k = 0; k < nh; k++) h.push(r.u32());
+    e.hitters[i] = h;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -109,7 +135,13 @@ export function deserializeState(bytes: Uint8Array): SimState {
       const v = r.i32();
       if (j < RESOURCE_COUNT) pool[j] = v;
     }
-    players.push({ pool });
+    const items = new Int32Array(ITEM_COUNT);
+    const ni = r.u8();
+    for (let j = 0; j < ni; j++) {
+      const v = r.i32();
+      if (j < ITEM_COUNT) items[j] = v;
+    }
+    players.push({ pool, items, research: r.u32(), autoEquip: r.u8(), out: r.u32() });
   }
   const buildings = new BuildingStore();
   readBuildings(r, buildings, () => {});
@@ -119,10 +151,25 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const lo = r.u32();
     enclosed.push(r.u32() * 0x100000000 + lo);
   }
+  const readRecords = <T>(fields: readonly string[]): T[] => {
+    const out: T[] = [];
+    const n = r.u32();
+    for (let k = 0; k < n; k++) {
+      const rec: Record<string, number> = {};
+      for (const f of fields) rec[f] = r.i32();
+      out.push(rec as T);
+    }
+    return out;
+  };
+  const projectiles = readRecords<Projectile>(PROJECTILE_FIELDS);
+  const spawns = readRecords<PendingSpawn>(SPAWN_FIELDS);
+  const sites = readRecords<Site>(SITE_FIELDS);
+  const over = r.u32();
+  const peaceful = r.u8();
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed });
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, over, peaceful });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -171,14 +218,25 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const pa = JSON.stringify(ea.path[i]);
     const pb = JSON.stringify(eb.path[i]);
     if (pa !== pb) return `entities[${i}].path: ${pa} vs ${pb}`;
+    const ha = JSON.stringify(ea.hitters[i]);
+    const hb = JSON.stringify(eb.hitters[i]);
+    if (ha !== hb) return `entities[${i}].hitters: ${ha} vs ${hb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;
   for (let p = 0; p < a.players.length; p++) {
-    for (let k = 0; k < a.players[p]!.pool.length; k++) {
-      const d = scalar(`players[${p}].pool[${k}]`, a.players[p]!.pool[k]!, b.players[p]!.pool[k]!);
+    const pa = a.players[p]!;
+    const pb = b.players[p]!;
+    for (let k = 0; k < pa.pool.length; k++) {
+      const d = scalar(`players[${p}].pool[${k}]`, pa.pool[k]!, pb.pool[k]!);
       if (d) return d;
     }
+    for (let k = 0; k < pa.items.length; k++) {
+      const d = scalar(`players[${p}].items[${k}]`, pa.items[k]!, pb.items[k]!);
+      if (d) return d;
+    }
+    const d = scalar(`players[${p}].research`, pa.research, pb.research) ?? scalar(`players[${p}].autoEquip`, pa.autoEquip, pb.autoEquip) ?? scalar(`players[${p}].out`, pa.out, pb.out);
+    if (d) return d;
   }
   const bl = scalar('buildings.length', a.buildings.list.length, b.buildings.list.length);
   if (bl) return bl;
@@ -189,6 +247,13 @@ export function diffStates(a: SimState, b: SimState): string | null {
   }
   const en = JSON.stringify(a.enclosed) === JSON.stringify(b.enclosed) ? null : `enclosed: ${a.enclosed.length} tiles vs ${b.enclosed.length}`;
   if (en) return en;
+  for (const [name, la, lb] of [['projectiles', a.projectiles, b.projectiles], ['spawns', a.spawns, b.spawns], ['sites', a.sites, b.sites]] as const) {
+    const ja = JSON.stringify(la);
+    const jb = JSON.stringify(lb);
+    if (ja !== jb) return `${name}: ${la.length} vs ${lb.length} (${ja.slice(0, 120)} vs ${jb.slice(0, 120)})`;
+  }
+  const ov = scalar('over', a.over, b.over) ?? scalar('peaceful', a.peaceful, b.peaceful);
+  if (ov) return ov;
   return diffWorlds(a, b);
 }
 

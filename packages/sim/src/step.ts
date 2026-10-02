@@ -10,6 +10,16 @@ import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
 import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealAroundUnits, UnitKind, type SimState } from './state.ts';
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
+import { hurtHooks, settleDeaths } from './combat/combat.ts';
+import { installDeathHooks, updateElimination } from './combat/deaths.ts';
+import { onUnitHurt } from './combat/fight.ts';
+import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
+import { updateProjectiles } from './combat/projectiles.ts';
+import { updateSpawns } from './combat/spawn.ts';
+import { updateGear } from './units/gear.ts';
+
+installDeathHooks();
+hurtHooks.unit = onUnitHurt;
 
 /** How far a wanderer strays per leg, and how far from the origin it may roam. */
 const WANDER_LEG_WU = 15 * WU_PER_METRE;
@@ -93,16 +103,29 @@ function periodChange(state: SimState): void {
  */
 export function step(state: SimState, orders: readonly Order[] = []): StepResult {
   state.events = [];
+  state.hits = [];
+  state.dying = [];
+  state.falling = [];
   state.paths.searches = 0;
+  mobBudget.searches = 0;
+  const e = state.entities;
+  state.grid.rebuild(e);
   applyOrders(state, orders);
   periodChange(state);
-  const e = state.entities;
+  updateSpawns(state);
   for (let i = 0; i < e.count; i++) {
+    if (e.hp[i]! <= 0) continue;
     if (e.owner[i] === NEUTRAL && e.kind[i] === UnitKind.Wanderer) wander(state, i);
+    else if (e.kind[i] === UnitKind.Mob) runMob(state, i);
     else runUnit(state, i);
   }
+  updateProjectiles(state);
+  updateSun(state);
+  settleDeaths(state);
   updateBuildings(state);
   updateLights(state);
+  updateGear(state);
+  updateElimination(state);
   state.world.flowWater();
   state.step++;
   if (state.step % FOG_INTERVAL_STEPS === 0) revealAroundUnits(state);

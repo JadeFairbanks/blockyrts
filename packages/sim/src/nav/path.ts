@@ -61,7 +61,7 @@ export interface PathResult {
   reached: boolean;
 }
 
-const DIRS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+export const DIRS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 /** The opposite of each direction in DIRS. */
 const BACK = [1, 0, 3, 2, 7, 6, 5, 4] as const;
 
@@ -70,7 +70,7 @@ function sign(v: number): number {
 }
 
 /** A binary min-heap of (key, value) with ties broken by insertion order, so pops are the same everywhere. */
-class Heap {
+export class Heap {
   private keys: number[] = [];
   private vals: number[] = [];
   private seq: number[] = [];

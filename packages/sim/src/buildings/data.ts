@@ -5,7 +5,7 @@
 
 import { Res, type Cost } from '../economy/resources.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { STEPS_PER_SECOND } from '../fixed.ts';
+import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 
 export const BuildingKind = {
   MainBase: 0,
@@ -107,8 +107,8 @@ export interface BuildingSpec {
   /** Placeable now; when false, `comesWith` says why it is greyed. */
   live: boolean;
   comesWith: string;
-  /** Height of the solid part in metres: what projectiles hit and climbers climb (s). */
-  heightM: number;
+  /** Height of the solid part in centimetres: what projectiles hit and climbers climb (s). */
+  heightCm: number;
   /** Variant names for the build menu (gates: which way they face). */
   variants?: readonly string[];
   /** Variant 1 turns the footprint a quarter turn (gates running north to south). */
@@ -164,11 +164,18 @@ const M8 = 'Comes with gunpowder (milestone 8).';
 const box = (w: number, d: number): readonly [number, number, number, number] => [0, 0, w, d];
 
 /** A wall column (Table 4): 1 x 1, 3 m tall (stone 3.6 m). */
-function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightM: number, wooden: boolean): SpecInput {
+/** 360 as '3.6', 300 as '3'. */
+function metresText(cm: number): string {
+  const whole = floorDiv(cm, 100);
+  const rest = cm - whole * 100;
+  return rest === 0 ? `${whole}` : `${whole}.${rest % 10 === 0 ? floorDiv(rest, 10) : rest}`;
+}
+
+function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightCm: number, wooden: boolean): SpecInput {
   return {
-    kind, name, purpose: `A wall column ${heightM} m tall. Drag to place a line. Climbers go over it; breakers smash it.`,
+    kind, name, purpose: `A wall column ${metresText(heightCm)} m tall. Drag to place a line. Climbers go over it; breakers smash it.`,
     menu: 'basic', slot: 10, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    heightM, defence: 'wall', wooden,
+    heightCm, defence: 'wall', wooden,
     levels: [lvl(name, cost, ws, health)],
   };
 }
@@ -178,7 +185,7 @@ function gate(kind: BuildingKind, name: string, cost: Cost, ws: number, health: 
   return {
     kind, name, purpose: 'A gate 3 columns wide: your units walk through it, monsters must break it. Shut and lit by a torch, rats and spiders will not climb it.',
     menu: 'basic', slot: 10, w: 3, d: 1, solid: box(3, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    heightM: 3, defence: 'gate', wooden, turns: true,
+    heightCm: 300, defence: 'gate', wooden, turns: true,
     variants: [`${name} (east to west)`, `${name} (north to south)`],
     levels: [lvl(name, cost, ws, health, { gives: 'stops rats and spiders climbing when lit by a torch' })],
   };
@@ -189,20 +196,20 @@ function tower(kind: BuildingKind, name: string, cost: Cost, ws: number, health:
   return {
     kind, name, purpose: 'Ranged warriors inside shoot from the top (E to enter, U to unload): 4 slots, +10 m sight.',
     menu: 'basic', slot: 10, w: 3, d: 3, solid: box(3, 3), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    heightM: 5, defence: 'tower', wooden, slots: 4, sightBonusM: 10,
+    heightCm: 500, defence: 'tower', wooden, slots: 4, sightBonusM: 10,
     levels: [lvl(name, cost, ws, health, { gives: '4 ranged slots, +10 m sight' })],
   };
 }
 
-type SpecInput = Omit<BuildingSpec, 'heightM'> & { heightM?: number };
+type SpecInput = Omit<BuildingSpec, 'heightCm'> & { heightCm?: number };
 
 /** Every building stands 4 m tall unless its row says otherwise (s). */
-const withHeights = (specs: SpecInput[]): BuildingSpec[] => specs.map((sp) => ({ heightM: 4, ...sp }));
+const withHeights = (specs: SpecInput[]): BuildingSpec[] => specs.map((sp) => ({ heightCm: 400, ...sp }));
 
 export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
     kind: BuildingKind.MainBase, name: 'Big House', purpose: 'The main base: drop-off for every resource, trains workers, shelters workers at night. Upgrades to level 10.',
-    menu: 'basic', slot: 1, w: 14, d: 14, solid: [2, 2, 10, 10], dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightM: 6,
+    menu: 'basic', slot: 1, w: 14, d: 14, solid: [2, 2, 10, 10], dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightCm: 600,
     levels: [
       mainBase('Big House', [[S, 300], [ST, 150]], 1200, 1200, 8, 1),
       mainBase('Longhall', [[S, 100], [ST, 40]], 400, 1600, 12, 2),
@@ -277,7 +284,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.Cooking, name: 'Campfire', purpose: 'Cooking tier 1, and a light (8 m). Cooking comes with food and supply (milestone 4).',
-    menu: 'basic', slot: 8, w: 2, d: 2, solid: box(2, 2), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightM: 1,
+    menu: 'basic', slot: 8, w: 2, d: 2, solid: box(2, 2), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 100,
     light: { lightM: 8, claimM: 0, fuel: S, fuelSteps: DAY, outlyingHalves: 0 },
     levels: [
       lvl('Campfire', [[S, 5]], 10, 60, { gives: 'roast meat and fish; also a light' }),
@@ -292,18 +299,18 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     menu: 'basic', slot: 9, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M4,
     levels: [lvl('Herbalist hut', [[S, 30], [Res.Herbs, 10]], 150, 400, { workers: 2, gives: 'bandages, remedies, poison arrows' })],
   },
-  wall(BuildingKind.Wall, 'Softwood wall', [[S, 1]], 5, 300, 3, true),
+  wall(BuildingKind.Wall, 'Softwood wall', [[S, 1]], 5, 300, 300, true),
   gate(BuildingKind.Gate, 'Softwood gate', [[S, 6]], 30, 600, true),
   tower(BuildingKind.Tower, 'Softwood tower', [[S, 20]], 100, 800, true),
   {
     kind: BuildingKind.Earthworks, name: 'Earthworks', purpose: 'Earth banks, ramps and fill, heaped by workers from Earth in the pool: 1 Earth and 5 worker-seconds per column per 11 cm step. Drag to mark it.',
-    menu: 'basic', slot: 11, w: 1, d: 1, solid: box(0, 0), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightM: 0,
+    menu: 'basic', slot: 11, w: 1, d: 1, solid: box(0, 0), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightCm: 0,
     variants: ['Earth bank', 'Earth ramp', 'Fill'],
     levels: [lvl('Earthworks', [[Res.Earth, 1]], 5, 1, { gives: 'built on the spot' })],
   },
   {
     kind: BuildingKind.Ramp, name: 'Lumber or stone ramp', purpose: 'Ramps made at a workshop and placed by workers.',
-    menu: 'basic', slot: 11, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'Lumber and stone ramps are made at a Work Hut (milestone 4).', heightM: 0.5,
+    menu: 'basic', slot: 11, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'Lumber and stone ramps are made at a Work Hut (milestone 4).', heightCm: 50,
     levels: [lvl('Lumber ramp', [[S, 1]], 5, 300, { needs: 'Needs a Work Hut.' })],
   },
   {
@@ -318,19 +325,19 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light that claims the land 5 m around it while lit. Burns 1 softwood lumber every 3 days.',
-    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightM: 2.5,
+    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
     light: { lightM: 10, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 2 },
     levels: [lvl('Torch post', [[S, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
   },
   {
     kind: BuildingKind.WallTorch, name: 'Wall torch', purpose: 'A light in an iron bracket, placed against a wall; claims 5 m and falls with its wall.',
-    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightM: 2.5,
+    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
     light: { lightM: 6, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 1 },
     levels: [lvl('Wall torch', [[S, 1], [Res.Resin, 1]], 5, 30, { gives: 'light 6 m, claims 5 m' })],
   },
   {
     kind: BuildingKind.Brazier, name: 'Brazier', purpose: 'A bright light (14 m) that burns 1 coal a day. Claims no land.',
-    menu: 'basic', slot: 13, w: 2, d: 2, solid: box(2, 2), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightM: 1.5,
+    menu: 'basic', slot: 13, w: 2, d: 2, solid: box(2, 2), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
     light: { lightM: 14, claimM: 0, fuel: Res.Coal, fuelSteps: DAY, outlyingHalves: 2 },
     levels: [lvl('Brazier', [[ST, 10], [Res.BronzeIngot, 2]], 60, 150, { gives: 'light 14 m' })],
   },
@@ -403,8 +410,8 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     menu: 'advanced', slot: 10, w: 10, d: 10, solid: box(10, 10), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
     levels: [lvl('Foundry', [[H, 50], [ST, 75], [Res.Bricks, 50], [Res.BronzeIngot, 10], [Res.WroughtIron, 10]], 600, 1500, { needsBase: 8, gives: 'cannons, cannonballs' })],
   },
-  wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 3, true),
-  wall(BuildingKind.WallStone, 'Stone wall', [[ST, 2]], 20, 1500, 3.6, false),
+  wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 300, true),
+  wall(BuildingKind.WallStone, 'Stone wall', [[ST, 2]], 20, 1500, 360, false),
   gate(BuildingKind.GateHardwood, 'Hardwood gate', [[H, 6]], 45, 1200, true),
   gate(BuildingKind.GateStone, 'Stone gate', [[ST, 10], [H, 2]], 90, 3000, false),
   tower(BuildingKind.TowerHardwood, 'Hardwood tower', [[H, 20]], 150, 1600, true),

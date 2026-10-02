@@ -15,8 +15,14 @@ export const Product = {
   Worker: 0,
   PlanksSoftwood: 1,
   PlanksHardwood: 2,
+  /** Table 7: a new warrior, with a hardwood club from the stock. */
+  Warrior: 3,
 } as const;
-export type Product = (typeof Product)[keyof typeof Product];
+export type Product = number;
+/** Research step r is product RESEARCH_PRODUCT + r; crafting item n is CRAFT_PRODUCT + n; refurbishing it, REFURBISH_PRODUCT + n. */
+export const RESEARCH_PRODUCT = 8;
+export const CRAFT_PRODUCT = 16;
+export const REFURBISH_PRODUCT = 48;
 
 export interface QueueItem {
   product: Product;
@@ -293,7 +299,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     };
     const nq = r.u8();
     for (let q = 0; q < nq; q++) {
-      const product = r.u8() as Product;
+      const product = r.u8();
       const progress = r.i32();
       const np = r.u8();
       const paid: Array<[number, number]> = [];

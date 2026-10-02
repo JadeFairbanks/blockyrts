@@ -11,6 +11,8 @@ import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN
 import { NavGrid } from './nav/grid.ts';
 import { Pathfinder } from './nav/path.ts';
 import { createStreams, hash32, type Streams } from './rng.ts';
+import { Item, ITEM_COUNT } from './combat/items.ts';
+import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { Tool } from './world/props.ts';
 import { World } from './world/world.ts';
@@ -35,19 +37,33 @@ export const OrderKind = {
   Swim: 5,
   /** Walking with a load. */
   Carry: 6,
+  /** A melee swing (the clip follows the weapon in hand). */
+  Attack: 7,
+  /** Drawing and loosing a ranged weapon. */
+  Shoot: 8,
+  /** Climbing a wall or cliff face. */
+  Climb: 9,
+  /** Digging (the worker's hoe and pick clips). */
+  Dig: 10,
+  /** Running for the dark at dawn. */
+  Flee: 11,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
-/** What an entity is. Warriors join in M3; wanderers are M0's test of the RNG streams. */
+/** What an entity is. Wanderers are M0's test of the RNG streams; mobs are the night's monsters. */
 export const UnitKind = {
   Worker: 0,
   Warrior: 1,
   Wanderer: 2,
+  Mob: 3,
 } as const;
 export type UnitKind = (typeof UnitKind)[keyof typeof UnitKind];
 
-/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m; suggested). */
-export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE] as const;
+/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m; suggested; mobs see 12 m). */
+export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE] as const;
+
+/** Owner value for the night's monsters: hostile to every player. */
+export const MONSTERS = 254;
 
 /** Walking speed of a worker: 3 m/s, as wu per step (1,200). */
 export const WALK_SPEED_WU = floorDiv(3 * WU_PER_METRE, STEPS_PER_SECOND);
@@ -105,6 +121,58 @@ export const UNIT_FIELDS = [
   ['stuck', 'u8'],
   /** Step at which to try again when waiting. */
   ['waitUntil', 'u32'],
+  /** Mobs: which mob (combat/mobs.ts), the player it was sent against, and its strength per mille (+0.5% a night). */
+  ['mob', 'u8'],
+  ['foe', 'u8'],
+  ['power', 'u16'],
+  /** Combat experience in tenths (rules.ts). */
+  ['xp', 'i32'],
+  /** Trained skills: bit 0 archery. */
+  ['skills', 'u8'],
+  /** 0 switches by itself, 1 melee only, 2 ranged only (Warriors: the lock). */
+  ['lock', 'u8'],
+  /** Equipment (combat/items.ts Item ids, 0 for none). */
+  ['weapon', 'u8'],
+  ['backup', 'u8'],
+  ['ranged', 'u8'],
+  ['shield', 'u8'],
+  ['boots', 'u8'],
+  /** Shots left for the ranged weapon, and the arrows in the quiver (an item id) for a bow. */
+  ['ammo', 'u16'],
+  ['ammoItem', 'u8'],
+  /** A carried hand torch burns until this step. */
+  ['torchUntil', 'u32'],
+  /** Slots chosen by hand (bit per Slot), which Equip Best leaves alone. */
+  ['picked', 'u8'],
+  /** The unit or building it is fighting, or 0. */
+  ['target', 'u32'],
+  /** The step its current swing or shot lands (0 for none), the step it may start the next, and what it uses (Attack With). */
+  ['atkAt', 'u32'],
+  ['atkNext', 'u32'],
+  ['atkWith', 'u8'],
+  /** Where an auto-target chase began (the leash), and 1 while it chases one. */
+  ['homeX', 'i32'],
+  ['homeZ', 'i32'],
+  ['chasing', 'u8'],
+  /** Slowed (zombie grasp, web) and hastened (howl, shout), in bp, until a step. */
+  ['slowUntil', 'u32'],
+  ['slowBp', 'u16'],
+  ['fastUntil', 'u32'],
+  ['fastBp', 'u16'],
+  /** Held still (slime engulf) until this step. */
+  ['heldUntil', 'u32'],
+  /** The last step it was hurt, and who hurt it. */
+  ['hurtAt', 'u32'],
+  ['attacker', 'u32'],
+  /** Climbers on a wall face until this step, then over at (climbX, climbZ), wu. */
+  ['climbUntil', 'u32'],
+  ['climbX', 'i32'],
+  ['climbZ', 'i32'],
+  /** Ability cooldowns (web spit, howl), and a loose bomb's fuse. */
+  ['abilityAt', 'u32'],
+  ['fuseAt', 'u32'],
+  /** Mobs: 1 when running for the dark (dawn, or a goblin with loot). */
+  ['fleeing', 'u8'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -155,12 +223,49 @@ export class EntityStore implements Record<FieldName, Column> {
   declare pathOk: Uint8Array;
   declare stuck: Uint8Array;
   declare waitUntil: Uint32Array;
+  declare mob: Uint8Array;
+  declare foe: Uint8Array;
+  declare power: Uint16Array;
+  declare xp: Int32Array;
+  declare skills: Uint8Array;
+  declare lock: Uint8Array;
+  declare weapon: Uint8Array;
+  declare backup: Uint8Array;
+  declare ranged: Uint8Array;
+  declare shield: Uint8Array;
+  declare boots: Uint8Array;
+  declare ammo: Uint16Array;
+  declare ammoItem: Uint8Array;
+  declare torchUntil: Uint32Array;
+  declare picked: Uint8Array;
+  declare target: Uint32Array;
+  declare atkAt: Uint32Array;
+  declare atkNext: Uint32Array;
+  declare atkWith: Uint8Array;
+  declare homeX: Int32Array;
+  declare homeZ: Int32Array;
+  declare chasing: Uint8Array;
+  declare slowUntil: Uint32Array;
+  declare slowBp: Uint16Array;
+  declare fastUntil: Uint32Array;
+  declare fastBp: Uint16Array;
+  declare heldUntil: Uint32Array;
+  declare hurtAt: Uint32Array;
+  declare attacker: Uint32Array;
+  declare climbUntil: Uint32Array;
+  declare climbX: Int32Array;
+  declare climbZ: Int32Array;
+  declare abilityAt: Uint32Array;
+  declare fuseAt: Uint32Array;
+  declare fleeing: Uint8Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
   queue: UnitOrder[][] = [];
   /** Each unit's path: waypoints as x, z pairs in wu. */
   path: number[][] = [];
+  /** Mobs: the players' units that hit it, as (id, step) pairs, for sharing the kill's experience. */
+  hitters: number[][] = [];
 
   private readonly index = new Map<number, number>();
 
@@ -201,6 +306,8 @@ export class EntityStore implements Record<FieldName, Column> {
     this.pathOk[i] = 1;
     this.queue[i] = [];
     this.path[i] = [];
+    this.hitters[i] = [];
+    this.power[i] = 1000;
     this.index.set(id, i);
     return i;
   }
@@ -215,6 +322,7 @@ export class EntityStore implements Record<FieldName, Column> {
     }
     this.queue.splice(i, 1);
     this.path.splice(i, 1);
+    this.hitters.splice(i, 1);
     this.count--;
     this.reindex();
   }
@@ -234,13 +342,21 @@ export class EntityStore implements Record<FieldName, Column> {
 /** One player's side: the shared resource pool (Resources: all resources go into one shared pool). */
 export interface PlayerState {
   pool: Int32Array;
+  /** The equipment stock, by item id (Equipment). */
+  items: Int32Array;
+  /** Research done, a bit per step (combat/items.ts Research). */
+  research: number;
+  /** Auto-Equip (F4) on. */
+  autoEquip: number;
+  /** The step the player was eliminated, or 0 while still in the game. */
+  out: number;
 }
 
 /** Something the players should hear about: the message panel's alerts, built-and-trained notes, the idle gatherer cue. */
 export interface SimEvent {
   /** Player it is for, or -1 for everyone. */
   player: number;
-  kind: 'alert' | 'info' | 'idle' | 'period';
+  kind: 'alert' | 'info' | 'idle' | 'period' | 'speech';
   text: string;
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
@@ -259,6 +375,23 @@ export interface SimState {
   buildings: BuildingStore;
   /** Coarse tiles inside barrier-enclosed regions that hold a player building (claimed land), sorted; recomputed at dusk and when buildings finish. */
   enclosed: number[];
+  /** Arrows, stones, javelins and webs in flight. */
+  projectiles: Projectile[];
+  /** Tonight's mobs still to come (Table 8: how they arrive). */
+  spawns: PendingSpawn[];
+  /** Marked digs and earthworks. */
+  sites: Site[];
+  /** The step the game ended (every player eliminated), or 0. */
+  over: number;
+  /** 1 for no night mobs (tests and the debug tools). */
+  peaceful: number;
+  /** Not state: what was hit or died this step, for the hit particles and death animations. */
+  hits: HitEvent[];
+  /** Not state: where units stand this step (rebuilt each step). */
+  grid: UnitGrid;
+  /** Not state: units and buildings brought to 0 this step, settled at its end in this order. */
+  dying: number[];
+  falling: number[];
   /** Not state: the walk map and pathfinder over the land and buildings (pure caches). */
   nav: NavGrid;
   paths: Pathfinder;
@@ -271,19 +404,94 @@ export interface WorldOptions {
   players?: number;
   /** Workers each player starts with: 4 (Premise, Starting setup). */
   playerUnits?: number;
+  /** Warriors each player starts with: 1, with a flint-tipped spear and a hardwood club (Premise; Polearms). */
+  warriors?: number;
   /** Neutral units that wander on their own, drawing on the 'ai' stream (M0's test of the streams). */
   wanderers?: number;
   /** Start without the Big House (tests). */
   noBase?: boolean;
+  /** No night mobs (tests of the economy). */
+  peaceful?: boolean;
+}
+
+/** Something flying (How ranged attacks hit). Its place at age k is the launch point plus k steps of its velocity, less gravity. */
+export interface Projectile {
+  shot: number;
+  /** 0 the players' side, 1 the monsters'. */
+  side: number;
+  /** Who shot it (an entity id) and their player, for experience and drops. */
+  shooter: number;
+  owner: number;
+  x0: number;
+  y0: number;
+  z0: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  age: number;
+  damage: number;
+  /** Bit 0 blunt, bit 1 fire, bit 2 web. */
+  flags: number;
+}
+
+/** A mob still to come tonight: when, what, against whom, and its group's spawn point once chosen. */
+export interface PendingSpawn {
+  at: number;
+  mob: number;
+  player: number;
+  group: number;
+  x: number;
+  z: number;
+  placed: number;
+}
+
+/** Site kinds: a dig down, a tunnel into a hillside, earth heaped to a level, an earth ramp. */
+export const SiteKind = { Dig: 0, Tunnel: 1, Bank: 2, Ramp: 3 } as const;
+
+/** Marked land for workers to dig out or heap up (Digging and building up the land). Levels in terrain units. */
+export interface Site {
+  id: number;
+  owner: number;
+  kind: number;
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  /** Dig: the floor to dig down to. Bank and fill: the top to heap to. Ramp: the top at (x0, z0)'s end. */
+  level: number;
+  /** Ramp: the top at the far end; tunnels: the roof. */
+  level2: number;
+  /** Ramp: 0 rises along x, 1 along z. */
+  axis: number;
+}
+
+/** What a hit looks like (Generated rocks and trees: hit particles). */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing';
+
+export interface HitEvent {
+  look: HitLook;
+  x: number;
+  y: number;
+  z: number;
+  /** The entity hit, swinging or dying (0 for none). */
+  id: number;
+  /** Death: what died (UnitKind and mob), for the death animation. */
+  kind?: number;
+  mob?: number;
+  heading?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */
-export function attachNav(state: Omit<SimState, 'nav' | 'paths' | 'events'> & Partial<SimState>): SimState {
+export function attachNav(state: Omit<SimState, 'nav' | 'paths' | 'events' | 'hits' | 'grid' | 'dying' | 'falling'> & Partial<SimState>): SimState {
   const nav = new NavGrid(state.world, state.buildings);
   const s = state as SimState;
   s.nav = nav;
   s.paths = new Pathfinder(nav);
   s.events = [];
+  s.hits = [];
+  s.grid = new UnitGrid();
+  s.dying = [];
+  s.falling = [];
   state.world.builtOn = (x, z) => state.buildings.footprintAt(x, z) !== 0;
   return s;
 }
@@ -353,11 +561,16 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     players: [],
     buildings: new BuildingStore(),
     enclosed: [],
+    projectiles: [],
+    spawns: [],
+    sites: [],
+    over: 0,
+    peaceful: options.peaceful ? 1 : 0,
   });
   for (let p = 0; p < world.players; p++) {
     const pool = new Int32Array(RESOURCE_COUNT);
     for (const [res, n] of STARTING_STOCK) pool[res] = n;
-    state.players.push({ pool });
+    state.players.push({ pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0 });
   }
   // Workers first, so each player's units have the lowest ids (1 to 4 for the first player).
   for (const pocket of world.gen.start.pockets) {
@@ -370,6 +583,19 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       const x = px + ((h & 0xffff) % (2 * WU_PER_METRE)) - WU_PER_METRE + (n - (playerUnits >> 1)) * 2 * WU_PER_METRE;
       const z = pz + (((h >>> 16) & 0xffff) % (3 * WU_PER_METRE)) + 5 * WU_PER_METRE;
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
+    }
+  }
+  // Then the starting warrior, a little east of the workers.
+  const warriors = options.warriors ?? 1;
+  for (const pocket of world.gen.start.pockets) {
+    const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+    const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+    for (let n = 0; n < warriors; n++) {
+      const x = px + (playerUnits + 1 + n) * 2 * WU_PER_METRE - (playerUnits >> 1) * 2 * WU_PER_METRE;
+      const z = pz + 6 * WU_PER_METRE;
+      const i = addWarrior(state, pocket.player, x, z);
+      state.entities.weapon[i] = Item.SpearFlint;
+      state.entities.backup[i] = Item.Club;
     }
   }
   if (!options.noBase) {
@@ -389,6 +615,20 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
   return state;
 }
 
+/** Warrior health by rank (Table 1: Recruit 100 to Hero 180). */
+export const WARRIOR_HEALTH_BY_RANK: readonly number[] = [100, 100, 120, 140, 160, 180];
+
+/** A new warrior of rank 1 with nothing in hand; returns its index. */
+export function addWarrior(state: SimState, owner: number, x: number, z: number): number {
+  const id = state.nextEntityId++;
+  const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Warrior);
+  state.entities.hp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
+  state.entities.maxHp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
+  state.entities.homeX[i] = x;
+  state.entities.homeZ[i] = z;
+  return i;
+}
+
 /** The height a unit stands at on the column under (x, z), wu: its walk level, or lower in deep water (it swims). */
 export function standY(state: SimState, x: number, z: number): number {
   const cx = floorDiv(x, WU_PER_COLUMN);
@@ -403,7 +643,7 @@ export function revealAroundUnits(state: SimState): void {
   const e = state.entities;
   for (let i = 0; i < e.count; i++) {
     const owner = e.owner[i]!;
-    if (owner === NEUTRAL || e.inside[i] !== 0) continue;
+    if (owner >= state.players.length || e.inside[i] !== 0) continue;
     state.world.reveal(owner, e.x[i]!, e.z[i]!, SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0]);
   }
   for (const b of state.buildings.list) {

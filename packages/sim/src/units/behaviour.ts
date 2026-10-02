@@ -18,6 +18,10 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree, propInfo, PropShape, type Tool } from '../world/props.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
+import { fightStep, garrisonRoom, rangedOf } from '../combat/fight.ts';
+import { buildingTop } from '../combat/projectiles.ts';
+import { refundEquip, runEquip, runSkill } from './gear.ts';
+import { runDig } from './dig.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -88,7 +92,7 @@ export function resetWalk(state: SimState, i: number): void {
 }
 
 /** Next to a building's solid part (or on its walkable rim). */
-function besideBuilding(b: { kind: number; x: number; z: number }): Goal {
+export function besideBuilding(b: { kind: number; x: number; z: number }): Goal {
   const [x0, z0, x1, z1] = solidRect(b);
   return { x0, z0, x1, z1, min: 1, max: 2 };
 }
@@ -146,7 +150,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   const dz = tz - e.z[i]!;
   const flags = state.nav.flags(cx, cz);
   const wet = (flags & (Walk.Wade | Walk.Deep)) !== 0;
-  const speed = wet ? e.speed[i]! >> 1 : e.speed[i]!;
+  const speed = wet ? moveSpeed(state, i) >> 1 : moveSpeed(state, i);
   e.order[i] = flags & Walk.Deep ? OrderKind.Swim : e.carryAmt[i]! > 0 ? OrderKind.Carry : OrderKind.Move;
   if (dx === 0 && dz === 0) {
     e.pathAt[i] = e.pathAt[i]! + 1;
@@ -175,6 +179,15 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   e.y[i] = standY(state, nx, nz);
   if (nx === tx && nz === tz) e.pathAt[i] = e.pathAt[i]! + 1;
   return MOVING;
+}
+
+/** A unit's speed this step, wu: slowed by a grasp or a web, hastened by a howl or a shout. */
+export function moveSpeed(state: SimState, i: number): number {
+  const e = state.entities;
+  let bp = 10000;
+  if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
+  if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
+  return Math.max(1, floorDiv(e.speed[i]! * bp, 10000));
 }
 
 // ----- nodes -----
@@ -394,20 +407,29 @@ export function destroyBuilding(state: SimState, id: number): void {
   const b = state.buildings.get(id);
   if (!b) return;
   const e = state.entities;
-  const hurt: number[] = [];
   for (const j of unitsInside(state, id)) {
     e.inside[j] = 0;
-    e.queue[j] = [];
+    dropQueue(state, j);
     e.act[j] = Act.Start;
     resetWalk(state, j);
     e.hp[j] = e.hp[j]! - floorDiv(e.maxHp[j]! * SHELTER_LOSS_PER_MILLE, 1000);
-    if (e.hp[j]! <= 0) hurt.push(e.id[j]!);
+    // Killed by the fall: settled with the step's other deaths.
+    if (e.hp[j]! <= 0) {
+      e.hp[j] = 0;
+      state.dying.push(e.id[j]!);
+    }
   }
   state.buildings.remove(id, (key) => state.world.touchNav(key));
-  for (const uid of hurt) state.entities.remove(uid);
   const [x, z] = buildingCentre(b);
-  alert(state, b.owner, `${buildingName(b.kind, b.level, b.variant)} was destroyed.`, x, z);
+  if (!buildingSpec(b.kind).defence) alert(state, b.owner, `${buildingName(b.kind, b.level, b.variant)} was destroyed.`, x, z);
   computeEnclosed(state);
+}
+
+/** Clears a unit's orders, giving back any equipment set aside for it. */
+export function dropQueue(state: SimState, i: number): void {
+  const e = state.entities;
+  for (const o of e.queue[i]!) refundEquip(state, e.owner[i]!, o);
+  e.queue[i] = [];
 }
 
 /** Puts a unit to flight: it runs 10 m straight away from an attacker, then carries on with its orders (Table 1, workers). */
@@ -431,7 +453,7 @@ export function fleeFrom(state: SimState, i: number, ax: number, az: number): vo
 /** Whether an order keeps a unit inside the building it is in. */
 function keepsInside(o: UnitOrder | undefined, inside: number): boolean {
   if (!o || inside === 0) return false;
-  return (o.t === 'enter' || o.t === 'job' || o.t === 'train') && o.b === inside;
+  return (o.t === 'enter' || o.t === 'job' || o.t === 'train' || o.t === 'skill') && o.b === inside;
 }
 
 /** Gives a unit an order: added to the end with Shift, otherwise replacing everything it was doing. */
@@ -442,7 +464,10 @@ export function giveOrder(state: SimState, i: number, o: UnitOrder, queued: bool
     q.push(o);
     return;
   }
+  dropQueue(state, i);
   e.queue[i] = [o];
+  e.target[i] = 0;
+  e.chasing[i] = 0;
   e.act[i] = Act.Start;
   e.timer[i] = 0;
   resetWalk(state, i);
@@ -451,7 +476,9 @@ export function giveOrder(state: SimState, i: number, o: UnitOrder, queued: bool
 /** Clears a unit's orders (Stop). */
 export function stopUnit(state: SimState, i: number): void {
   const e = state.entities;
-  e.queue[i] = [];
+  dropQueue(state, i);
+  e.target[i] = 0;
+  e.chasing[i] = 0;
   e.act[i] = Act.Start;
   e.timer[i] = 0;
   resetWalk(state, i);
@@ -803,18 +830,30 @@ function runRepairAll(state: SimState, i: number): boolean {
 function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter' }>): boolean {
   const e = state.entities;
   const b = state.buildings.get(o.b);
-  if (!b || b.owner !== e.owner[i] || shelterRoom(b) === 0) return DONE;
+  const worker = e.kind[i] === UnitKind.Worker;
+  const room = !b ? 0 : worker ? shelterRoom(b) : rangedOf(state, i) ? garrisonRoom(b) : 0;
+  if (!b || b.owner !== e.owner[i] || room === 0) return DONE;
   if (e.inside[i] === b.id) return CONTINUE;
   const r = walkTo(state, i, besideBuilding(b));
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
-  if (unitsInside(state, b.id).length >= shelterRoom(b)) {
+  // Shelter and parapet places are counted apart: workers inside, and the ranged warriors on top.
+  if (unitsInside(state, b.id).filter((j) => (e.kind[j] === UnitKind.Worker) === worker).length >= room) {
     alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!);
     return DONE;
   }
   // Going in at a drop-off leaves the load there.
   if (e.carryAmt[i]! > 0 && accepts(buildingSpec(b.kind), e.carryRes[i]!)) unload(state, i);
   goInside(state, i, b);
+  // A garrison stands on the top: spread round it, at its height.
+  if (!worker) {
+    const [x0, z0, x1, z1] = solidRect(b);
+    const n = unitsInside(state, b.id).filter((j) => e.kind[j] !== UnitKind.Worker).length - 1;
+    const w = x1 - x0 + 1;
+    e.x[i] = columnCentre(x0 + (n % w));
+    e.z[i] = columnCentre(z0 + (floorDiv(n, w) % (z1 - z0 + 1)));
+    e.y[i] = buildingTop(b);
+  }
   e.act[i] = Act.Inside;
   return CONTINUE;
 }
@@ -987,13 +1026,44 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runRefuel(state, i, o);
     case 'train':
       return runTrain(state, i, o);
+    case 'attack':
+      // The fight layer carries an attack out; reaching here means its target is gone.
+      return DONE;
+    case 'hold':
+      return CONTINUE;
+    case 'attackMove':
+      return runMove(state, i, o as unknown as Extract<UnitOrder, { t: 'move' }>);
+    case 'patrol':
+      return runPatrol(state, i, o);
+    case 'equip':
+      return runEquip(state, i, o);
+    case 'dig':
+      return runDig(state, i, o);
+    case 'skill':
+      return runSkill(state, i, o);
   }
+}
+
+/** Patrol: walk to one end, then the other, forever. */
+function runPatrol(state: SimState, i: number, o: Extract<UnitOrder, { t: 'patrol' }>): boolean {
+  const e = state.entities;
+  const x = o.leg === 0 ? o.x : o.x2;
+  const z = o.leg === 0 ? o.z : o.z2;
+  if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
+  const r = walkTo(state, i, pointGoal(col(x), col(z)), x, z);
+  if (r === MOVING) return CONTINUE;
+  o.leg ^= 1;
+  resetWalk(state, i);
+  return CONTINUE;
 }
 
 /** One step for one of the players' units. */
 export function runUnit(state: SimState, i: number): void {
   const e = state.entities;
   e.order[i] = OrderKind.Idle;
+  // Held by a slime: it cannot act until let go.
+  if (e.heldUntil[i]! > state.step) return;
+  if (fightStep(state, i)) return;
   // A few orders in a row may finish at once (a drop-off with nothing carried); bounded so a step stays short.
   for (let guard = 0; guard < 4; guard++) {
     const q = e.queue[i]!;

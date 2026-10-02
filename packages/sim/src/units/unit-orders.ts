@@ -29,11 +29,33 @@ export type UnitOrder =
   /** Refuel or relight a light. */
   | { t: 'refuel'; b: number }
   /** Rank training at a main base (Table 7: Worker to Hand, to Master): the worker goes inside until it is done. */
-  | { t: 'train'; b: number };
+  | { t: 'train'; b: number }
+  /** Attack one target (an entity id), chasing it until it dies or is lost. */
+  | { t: 'attack'; id: number }
+  /** Attack-move: walk to a point (wu), stopping to fight whatever hostile comes in sight. */
+  | { t: 'attackMove'; x: number; z: number }
+  /** Patrol between two points (wu) forever, fighting like an attack-move; leg is the point it is walking to (0 or 1). */
+  | { t: 'patrol'; x: number; z: number; x2: number; z2: number; leg: number }
+  /** Hold Position: never move; fight only what is in reach. */
+  | { t: 'hold' }
+  /**
+   * Collect equipment at a main base (Equipment): an item id per slot, or
+   * KEEP. Slots in `reserved` (a bit per Slot) were taken from the stock when
+   * the order was given (Equip Best); the others are hand-picked and taken
+   * only on arrival, if still there.
+   */
+  | { t: 'equip'; b: number; tool: number; weapon: number; backup: number; ranged: number; shield: number; boots: number; ammo: number; torch: number; reserved: number }
+  /** Dig out, or heap up, a marked site (Digging and building up the land). */
+  | { t: 'dig'; site: number }
+  /** Specialist training at a building (Table 7: Archery at the Barracks): the unit goes inside until it is done. */
+  | { t: 'skill'; b: number; skill: number };
+
+/** An equip order's "leave this slot as it is". */
+export const KEEP = 255;
 
 export type UnitOrderType = UnitOrder['t'];
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -49,6 +71,13 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   job: ['b'],
   refuel: ['b'],
   train: ['b'],
+  attack: ['id'],
+  attackMove: ['x', 'z'],
+  patrol: ['x', 'z', 'x2', 'z2', 'leg'],
+  hold: [],
+  equip: ['b', 'tool', 'weapon', 'backup', 'ranged', 'shield', 'boots', 'ammo', 'torch', 'reserved'],
+  dig: ['site'],
+  skill: ['b', 'skill'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -98,6 +127,19 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'refuel':
       return 'Refuelling a light';
     case 'train':
+    case 'skill':
       return 'Training';
+    case 'attack':
+      return 'Attacking';
+    case 'attackMove':
+      return 'Attack-moving';
+    case 'patrol':
+      return 'Patrolling';
+    case 'hold':
+      return 'Holding position';
+    case 'equip':
+      return 'Fetching equipment';
+    case 'dig':
+      return 'Digging';
   }
 }
