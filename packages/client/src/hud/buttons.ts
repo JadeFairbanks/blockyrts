@@ -35,7 +35,7 @@ export class HudButton {
   /** Why it is greyed out, for the tooltip. */
   disabledReason = '';
 
-  constructor(readonly def: HudButtonDef) {
+  constructor(public def: HudButtonDef) {
     this.el = document.createElement('div');
     this.el.className = `hud-btn ${def.className ?? ''}`.trim();
     this.el.dataset.btn = def.id;
@@ -65,6 +65,17 @@ export class HudButton {
     return this;
   }
 
+  /** Gives the button a new meaning (the command card's slots change with the selection). */
+  redefine(def: HudButtonDef): this {
+    this.def = def;
+    this.faceEl.textContent = def.face;
+    this.keyEl.textContent = this.badge();
+    this.el.className = `hud-btn ${def.className ?? ''}`.trim();
+    this.el.classList.toggle('disabled', !this.enabled);
+    this.el.setAttribute('aria-label', def.name);
+    return this;
+  }
+
   setFace(text: string): this {
     this.faceEl.textContent = text;
     return this;
@@ -88,6 +99,13 @@ export class ButtonRegistry {
     const b = new HudButton(def);
     this.byId.set(def.id, b);
     return b;
+  }
+
+  remove(id: string): void {
+    const b = this.byId.get(id);
+    if (!b) return;
+    b.el.remove();
+    this.byId.delete(id);
   }
 
   get(id: string): HudButton | undefined {

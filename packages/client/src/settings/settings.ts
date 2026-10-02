@@ -1,6 +1,7 @@
 // Player settings (Controls > Camera > Settings; Browser requirements: cursor
 // lock). Kept in localStorage; every access is wrapped so a blocked or full
 // storage never breaks the game.
+import { sanitizeBindings } from '../input/bindings.ts';
 
 export interface Settings {
   /** Edge pan speed multiplier. */
@@ -13,6 +14,8 @@ export interface Settings {
   edgePan: boolean;
   /** Lock the cursor inside the window while playing. */
   cursorLock: boolean;
+  /** Rebound hotkeys by action id (input/bindings.ts); missing ones use the defaults. */
+  keys: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -21,6 +24,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   zoomSpeed: 1,
   edgePan: true,
   cursorLock: true,
+  keys: {},
 };
 
 /** Slider range for the three speed multipliers. */
@@ -43,6 +47,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     zoomSpeed: speed(r.zoomSpeed, d.zoomSpeed),
     edgePan: typeof r.edgePan === 'boolean' ? r.edgePan : d.edgePan,
     cursorLock: typeof r.cursorLock === 'boolean' ? r.cursorLock : d.cursorLock,
+    keys: sanitizeBindings(r.keys),
   };
 }
 

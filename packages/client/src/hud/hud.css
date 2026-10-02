@@ -243,7 +243,7 @@ body.playing * {
   transform: translateX(-50%);
   /* Centred, so it must clear the wider of the two bottom corner panels on both sides. */
   width: clamp(220px, calc(100vw - 2 * var(--mm-w) - 16px), 520px);
-  height: 150px;
+  height: 178px;
   display: flex;
   flex-direction: column;
   border-bottom: 0;
@@ -636,6 +636,150 @@ body.playing * {
   border: 0;
   border-top: 1px solid var(--panel-border);
   margin: 4px 0;
+}
+
+/* Milestone 2: control group tabs, subgroups, portraits, queues, messages that jump. */
+.group-tabs {
+  display: flex;
+  flex: none;
+  height: 22px;
+  border-bottom: 1px solid var(--panel-border);
+}
+.hud-btn.group-tab {
+  flex: 1;
+  border-width: 0 1px 0 0;
+  font-size: 11px;
+  justify-content: flex-end;
+  padding-right: 6px;
+}
+.hud-btn.group-tab .key {
+  left: 4px;
+  right: auto;
+  top: 4px;
+}
+.hud-btn.group-tab.empty .face {
+  color: transparent;
+}
+.sel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.hud-btn.sub-tab {
+  padding: 1px 8px;
+  font-size: 11.5px;
+}
+.sel-portraits,
+.sel-queue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.hud-btn.portrait {
+  width: 30px;
+  height: 30px;
+  font-size: 15px;
+  padding-bottom: 3px;
+}
+.hud-btn.portrait.active {
+  border-color: rgba(230, 240, 250, 0.85);
+}
+.hud-btn.portrait .hp {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  height: 3px;
+  width: 100%;
+  max-width: calc(100% - 4px);
+  background: var(--own);
+}
+.hud-btn.portrait .hp.low {
+  background: #e05a4a;
+}
+.hud-btn.queue-item .hp {
+  background: var(--accent);
+}
+.sel-row.label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.hud-btn.msg-btn {
+  display: block;
+  margin: 1px 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  overflow: visible;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.hud-btn.msg-btn.hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.hud-btn.msg-btn.alert {
+  color: #ffd27a;
+}
+.hud-btn.cmd.short:not(.disabled) .face {
+  color: #ff9a8a;
+}
+.hud-btn.cmd.grid .face {
+  font-size: 9.5px;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.1;
+  padding: 0 2px;
+}
+.res.food,
+.res.supply {
+  background: rgba(70, 90, 50, 0.4);
+}
+.res.supply.full .res-value {
+  color: #ff9a8a;
+}
+.clock-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+.clock-note:empty {
+  display: none;
+}
+.clock-note.over {
+  color: #ffb27a;
+}
+.clock[data-period='1'] .clock-day,
+.clock[data-period='3'] .clock-day {
+  color: #ffc27a;
+}
+.clock[data-period='2'] .clock-day {
+  color: #9ab4ff;
+}
+.dbg-tools .hud-btn.lit {
+  background: rgba(110, 92, 30, 0.95);
+}
+.hotkeys summary {
+  cursor: pointer;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.hotkey-group {
+  margin: 8px 0 2px;
+  font-size: 11.5px;
+  color: var(--accent);
+}
+.setting.hotkey {
+  grid-template-columns: 1fr 96px;
+  margin: 2px 0;
+}
+.setting.hotkey button.waiting {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.note.warn {
+  color: #ffb27a;
 }
 
 @media (max-width: 1180px) {
