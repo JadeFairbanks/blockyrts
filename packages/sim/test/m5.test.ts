@@ -223,7 +223,9 @@ describe('blood and fog nights', () => {
     // A torch at the site of each held cell (a claimed cell is one holding a building).
     const hold = (n: number): void => {
       const proto = bigHouse(s);
-      s.buildings.list = s.buildings.list.filter((b) => b.kind === BuildingKind.MainBase);
+      const keep = s.buildings.list.filter((b) => b.kind === BuildingKind.MainBase);
+      s.buildings.list.length = 0;
+      s.buildings.list.push(...keep);
       for (const id of cells.slice(0, n)) {
         const site = layout.site(id);
         s.buildings.list.push({ ...proto, id: 900000 + id, x: site.x, z: site.z });
