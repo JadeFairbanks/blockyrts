@@ -41,12 +41,12 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | id | path | cube count | texture size | deviation and reason |
 |---|---|---|---|---|
 | horse | models/animals/horse/horse.bbmodel | 25 | 128x256 + 5 variants (black, chestnut, foal, grey, wild) |  |
-| horse_tack | models/animals/horse_tack/horse_tack.bbmodel | 15 | 64x128 + 4 variants (blue, green, plain, yellow) | a tack layer for the horse rig (same skeleton and clips as horse) |
+| horse_tack | models/animals/horse_tack/horse_tack.bbmodel | 15 | 64x128 + 1 variant (plain) | a tack layer for the horse rig (same skeleton and clips as horse) |
 | horse_harness | models/animals/horse_harness/horse_harness.bbmodel | 13 | 64x128 | 13 cubes: a harness layer for the horse rig, not a standalone animal (the 15-40 range does not apply) |
-| ox | models/animals/ox/ox.bbmodel | 29 | 128x256 + 1 variants (young) |  |
-| halfling_war_ox | models/animals/halfling_war_ox/halfling_war_ox.bbmodel | 38 | 128x256 + 1 variants (young) |  |
-| cow | models/animals/cow/cow.bbmodel | 30 | 128x128 + 3 variants (black_white, calf, dun) | the calf texture still shows the horns (shared geometry) |
-| bull | models/animals/bull/bull.bbmodel | 29 | 128x256 + 3 variants (black_white, calf, dun) | the calf texture still shows the horns (shared geometry) |
+| ox | models/animals/ox/ox.bbmodel | 29 | 128x256 + 1 variants (young) | the game hides the `horns` group for the young texture |
+| halfling_war_ox | models/animals/halfling_war_ox/halfling_war_ox.bbmodel | 38 | 128x256 + 1 variants (young) | the game hides the `horns` group for the young texture |
+| cow | models/animals/cow/cow.bbmodel | 30 | 128x128 + 3 variants (black_white, calf, dun) | the game hides the `horns` group for the calf texture |
+| bull | models/animals/bull/bull.bbmodel | 29 | 128x256 + 3 variants (black_white, calf, dun) | the game hides the `horns` group for the calf texture |
 | chicken_hen | models/animals/chicken_hen/chicken_hen.bbmodel | 17 | 64x64 + 1 variants (chick) |  |
 | chicken_rooster | models/animals/chicken_rooster/chicken_rooster.bbmodel | 19 | 64x64 |  |
 | wolf | models/animals/wolf/wolf.bbmodel | 25 | 64x128 + 2 variants (runkin, young) |  |
@@ -168,7 +168,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cannonball_stack | models/items/cannonball_stack/cannonball_stack.bbmodel | 10 | 32x32 + 2 variants (iron, stone) |  |
 | shield_bronze | models/items/shield_bronze/shield_bronze.bbmodel | 8 | 64x64 |  |
 | shield_wicker | models/items/shield_wicker/shield_wicker.bbmodel | 6 | 64x64 |  |
-| shield_wood | models/items/shield_wood/shield_wood.bbmodel | 8 | 64x64 + 3 variants (iron_bloom, iron_refined, iron_wrought) |  |
+| shield_wood | models/items/shield_wood/shield_wood.bbmodel | 9 | 64x64 | wood and leather only, no metal and no tier variants (rebuilt in review to the newest spec) |
 | shield_iron_kite | models/items/shield_iron_kite/shield_iron_kite.bbmodel | 9 | 64x64 + 3 variants (iron_bloom, iron_refined, iron_wrought) |  |
 | shield_steel_heater | models/items/shield_steel_heater/shield_steel_heater.bbmodel | 7 | 64x64 + 2 variants (hq_steel, steel) | adds an hq_steel (high-quality steel) texture wherever steel is listed |
 | armour_leather | models/items/armour_leather/armour_leather.bbmodel | 8 | 64x64 |  |
@@ -200,9 +200,9 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | coal_lump | models/items/coal_lump/coal_lump.bbmodel | 3 | 32x32 |  |
 | marble_block | models/items/marble_block/marble_block.bbmodel | 2 | 32x32 |  |
 | clay_lump | models/items/clay_lump/clay_lump.bbmodel | 3 | 32x32 |  |
-| sand_sack | models/items/sand_sack/sand_sack.bbmodel | 7 | 32x32 |  |
-| gravel_sack | models/items/gravel_sack/gravel_sack.bbmodel | 7 | 32x32 |  |
-| earth_sack | models/items/earth_sack/earth_sack.bbmodel | 7 | 32x32 |  |
+| sand_sack | models/items/sand_sack/sand_sack.bbmodel | 6 | 32x64 | open sack with a heap of its contents on top, so the four sacks read apart |
+| gravel_sack | models/items/gravel_sack/gravel_sack.bbmodel | 6 | 32x64 | open sack with a heap of its contents on top, so the four sacks read apart |
+| earth_sack | models/items/earth_sack/earth_sack.bbmodel | 6 | 32x64 | open sack with a heap of its contents on top, so the four sacks read apart |
 | ore_copper | models/items/ore_copper/ore_copper.bbmodel | 3 | 32x32 |  |
 | ore_tin | models/items/ore_tin/ore_tin.bbmodel | 3 | 32x32 |  |
 | ore_bog_iron | models/items/ore_bog_iron/ore_bog_iron.bbmodel | 3 | 32x32 |  |
@@ -227,7 +227,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | herb_bundle | models/items/herb_bundle/herb_bundle.bbmodel | 6 | 32x32 |  |
 | flax_bundle | models/items/flax_bundle/flax_bundle.bbmodel | 4 | 64x64 |  |
 | wheat_sheaf | models/items/wheat_sheaf/wheat_sheaf.bbmodel | 5 | 64x64 |  |
-| potato_sack | models/items/potato_sack/potato_sack.bbmodel | 9 | 32x32 |  |
+| potato_sack | models/items/potato_sack/potato_sack.bbmodel | 8 | 32x64 | open sack with a heap of its contents on top, so the four sacks read apart |
 | carrot_bunch | models/items/carrot_bunch/carrot_bunch.bbmodel | 10 | 32x32 |  |
 | corn_bundle | models/items/corn_bundle/corn_bundle.bbmodel | 8 | 32x32 |  |
 | meat_haunch | models/items/meat_haunch/meat_haunch.bbmodel | 6 | 32x32 |  |
@@ -277,8 +277,8 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | ballista | models/mechanical/ballista/ballista.bbmodel | 53 | 256x256 | extra clip move_towed; fire ends released, so reload must follow; ballista_bolt is section H and comes later (slot_bolt is ready); slot_hitch at the trail (+Z); in destroyed the trail shoe dips slightly into the ground; spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
 | cart_hand | models/mechanical/cart_hand/cart_hand.bbmodel | 24 | 128x128 | slot_hitch at the handle grips (+Z): it is pushed, not pulled |
 | cart_ox | models/mechanical/cart_ox/cart_ox.bbmodel | 67 | 256x256 | 67 cubes: the wishlist sets no vehicle budget (above the 60 big-monster cap); the four spoked wheels are 13 cubes each; spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
-| elf_caravan_wagon | models/mechanical/elf_caravan_wagon/elf_caravan_wagon.bbmodel | 100 | 256x512 | 100 cubes: no vehicle budget in the wishlist; four wheels (44 cubes), carved trim, canopy and stall goods; `open` is its use clip (key 1.5 s); destroyed slumps about 15 degrees onto the broken wheels |
-| dwarf_sled | models/mechanical/dwarf_sled/dwarf_sled.bbmodel | 58 | 256x512 | move is a drag (no wheels) |
+| elf_caravan_wagon | models/mechanical/elf_caravan_wagon/elf_caravan_wagon.bbmodel | 100 | 256x512 | 100 cubes: no vehicle budget in the wishlist; four wheels (44 cubes), carved trim, canopy and stall goods; `open` is its use clip (key 1.5 s); destroyed slumps about 15 degrees onto the broken wheels; team stripes repainted in review (a neutral trader's vehicle carries no team colour) |
+| dwarf_sled | models/mechanical/dwarf_sled/dwarf_sled.bbmodel | 58 | 256x512 | move is a drag (no wheels); team stripes repainted in review (a neutral trader's vehicle carries no team colour) |
 
 ## buildings
 
