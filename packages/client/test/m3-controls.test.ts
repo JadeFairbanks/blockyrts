@@ -10,7 +10,6 @@ import {
   productsOf,
   Res,
   RESOURCE_COUNT,
-  Research,
   Slot,
   UnitKind,
   type Order,
@@ -62,6 +61,13 @@ function game(w: World = {}): GameInfo {
     data[o + S.maxHp] = 60;
     data[o + S.carryRes] = 255;
     if (kind === UnitKind.Warrior) data[o + S.weapon] = Item.Club;
+    // Worker 1 has a flint axe and knife, a stone maul and the hardwood mallet; worker 2 the hardwood set.
+    if (kind === UnitKind.Worker) {
+      data[o + S.toolChop] = id === 1 ? Item.ToolsFlint : Item.ToolsHardwood;
+      data[o + S.toolBreak] = id === 1 ? Item.MaulStone : Item.ToolsHardwood;
+      data[o + S.toolBuild] = Item.ToolsHardwood;
+      data[o + S.toolCut] = id === 1 ? Item.ToolsFlint : Item.ToolsHardwood;
+    }
   });
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: rows.length, data, shots: new Int32Array(0), hits: [] });
   const pool = new Int32Array(RESOURCE_COUNT);
@@ -116,7 +122,8 @@ describe('the warrior card', () => {
     expect(card[5]!.key).toBe('KeyQ');
     expect(card[6]!.key).toBe('KeyI');
     expect(card[6]!.enabled).toBe(false); // two selected
-    expect(card[8]!.reason).toContain('Flint tools');
+    // Archery needs no research now, only a Barracks.
+    expect(card[8]!.reason).toBe('Needs a Barracks.');
   });
 
   it('attacks a monster clicked with A, and attack-moves to ground', () => {
@@ -149,8 +156,8 @@ describe('the warrior card', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'equipBest', units: [3, 4] });
   });
 
-  it('sends untrained warriors to a Barracks for archery once flint tools are researched', () => {
-    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.Barracks)], pool: [[Res.Wheat, 100]], research: 1 << Research.FlintTools });
+  it('sends untrained warriors to a Barracks for archery, with no research', () => {
+    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.Barracks)], pool: [[Res.Wheat, 100]] });
     const { c, sent } = harness(g, warriors, 'warrior');
     const card = c.card();
     expect(card[8]!.enabled).toBe(true);
@@ -180,11 +187,19 @@ describe('the equipment panel (I)', () => {
   });
 
   it('gives a worker its tools, boots and torch slots, and the rank button', () => {
-    const { c } = harness(game(), [workers[0]!], 'worker');
+    const { c } = harness(game({ items: [[Item.HammerStone, 1]] }), [workers[0]!], 'worker');
     c.card()[14]!.run(PRESS);
     const card = c.card();
     expect(card.slice(0, 3).map((e) => e!.name)).toEqual(['Tools', 'Boots', 'Torch']);
     expect(card[13]!.action).toBe('rankUp');
+    // The tools slot lists the tool for every job, and the stock's tools say what they are for.
+    expect(card[0]!.description).toContain('flint axe and knife, stone maul, hardwood tools');
+    expect(card[0]!.description).toContain('Carrying 10 lb');
+    card[0]!.run(PRESS);
+    const tools = c.card();
+    expect(tools[0]!.name).toBe('Take off the tools');
+    const hammer = tools.find((e) => e?.face === 'Hammer S')!;
+    expect(hammer.description).toContain('For building and repair.');
   });
 });
 
@@ -193,7 +208,7 @@ describe('the Big House', () => {
     const g = game({ pool: [[Res.Wheat, 100], [Res.Sticks, 10], [Res.Flint, 5]], items: [[Item.Club, 1]] });
     // The sim worker sends what the Big House makes and why each one cannot be queued yet.
     const house = g.buildings.get(20)!;
-    house.products = productsOf({ kind: BuildingKind.MainBase, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, p === CRAFT_PRODUCT + Item.SpearFlint ? 'Needs Flint tools researched first.' : '']);
+    house.products = productsOf({ kind: BuildingKind.MainBase, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, p === CRAFT_PRODUCT + Item.SpearFlint ? 'Not enough flint (needs 1).' : '']);
     const { c, sent } = harness(g, [{ ...sel('b:20', 'building:0:1'), kind: 'building' }], 'building:0:1');
     const card = c.card();
     expect(card[1]!.face).toBe('Warrior');
@@ -204,7 +219,7 @@ describe('the Big House', () => {
     const craft = c.card();
     const spear = craft.find((e) => e?.face === 'Spear F')!;
     expect(spear.enabled).toBe(false);
-    expect(spear.reason).toContain('Flint tools');
+    expect(spear.reason).toContain('Not enough flint');
     const club = craft.find((e) => e?.face === 'Club')!;
     expect(club.grid).toBe(true);
     club.run(PRESS);
@@ -247,6 +262,33 @@ describe('digging and earthworks', () => {
     expect(c.areaPlan()!.tunnel).toBe(true);
     c.confirmArea();
     expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, level: 0, level2: 20 });
+  });
+
+  it('tunnels into a cliff face pressed on its side, from the ground in front, as far in as + and - set', () => {
+    // A 1.1 m (10 unit) cliff from x = 2 m: the press lands on its west side, 0.5 m up.
+    const units = 0.1125;
+    const cliff = (x: number): number => (x >= 2.25 ? 10 * units : 0);
+    const { c, sent } = harness(game(), workers, 'worker', cliff);
+    c.startArea('dig', 0);
+    c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
+    c.updateArea(new THREE.Vector3(2.25, 0.5, 1.2));
+    c.areaUp();
+    c.adjustArea(1);
+    const plan = c.areaPlan()!;
+    // Face column 5 (2.25 m / 0.45 m), into +x for 8 columns, 3 columns wide along the face.
+    expect(plan).toMatchObject({ tunnel: true, x0: 5, x1: 12, z0: 0, z1: 2, level: 0, level2: 20 });
+    expect(c.card()[0]!.description).toContain('3.6 m into the face');
+    c.confirmArea();
+    expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, x0: 5, x1: 12, level: 0, level2: 20 });
+  });
+
+  it('digs down, not sideways, when the press is on top of the ground or on a low step', () => {
+    const step = (x: number): number => (x >= 2.25 ? 3 * 0.1125 : 0);
+    const { c } = harness(game(), workers, 'worker', step);
+    c.startArea('dig', 0);
+    c.areaDown(new THREE.Vector3(2.25, 0.1, 0.2));
+    c.areaUp();
+    expect(c.areaPlan()!.tunnel).toBe(false);
   });
 
   it('offers banks, ramps and fill in the Earthworks submenu, and orders a ramp up a step', () => {

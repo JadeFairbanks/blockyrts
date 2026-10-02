@@ -15,8 +15,8 @@ import { length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixe
 import { isDark } from '../clock.ts';
 import { payNutrition } from '../economy/resources.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
-import { hasResearch, Item, ITEMS, itemSpec, RESEARCH, Research, Skill, Slot, toolItem, type ItemSpec } from '../combat/items.ts';
-import { Tool } from '../world/props.ts';
+import { hasResearch, Item, ITEMS, itemSpec, RESEARCH, Research, Skill, Slot, type ItemSpec } from '../combat/items.ts';
+import { bestTools, heldTools, putOnTool } from './tools.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import { KEEP, type UnitOrder } from './unit-orders.ts';
 
@@ -45,11 +45,11 @@ export const AUTO_EQUIP_M = 45;
 export const GEAR_CHECK_STEPS = 5 * STEPS_PER_SECOND;
 /** A unit this close to its main base's edge refills its quiver or sling stones there (s). */
 const REFILL_WU = 4 * WU_PER_METRE;
-/** Archery (Table 7): 40 food, 120 s at the Barracks, after Flint tools. */
+/** Archery (Table 7): 40 food, 120 s at the Barracks, no research. */
 export const ARCHERY = { food: 40, steps: 120 * STEPS_PER_SECOND };
 /** Specialist training at the Barracks by skill bit (Table 7): archery, and crossbow (15 food, 30 s, after Crossbows). */
 export const SKILL_TRAINING: Readonly<Record<number, { name: string; food: number; steps: number; research: number }>> = {
-  [Skill.Archery]: { name: 'archery', ...ARCHERY, research: Research.FlintTools },
+  [Skill.Archery]: { name: 'archery', ...ARCHERY, research: Research.None },
   [Skill.Crossbow]: { name: 'the crossbow', food: 15, steps: 30 * STEPS_PER_SECOND, research: Research.Crossbows },
 };
 
@@ -57,12 +57,12 @@ export function emptyEquip(b: number): EquipOrder {
   return { t: 'equip', b, tool: KEEP, weapon: KEEP, backup: KEEP, ranged: KEEP, shield: KEEP, boots: KEEP, ammo: KEEP, torch: KEEP, armour: KEEP, helmet: KEEP, boltCase: KEEP, kit: KEEP, reserved: 0 };
 }
 
-/** What a unit has in a slot now (a tool as its item). */
+/** What a unit has in a slot now (for tools, the first of its tools by job). */
 export function wornIn(state: SimState, i: number, slot: number): number {
   const e = state.entities;
   switch (slot) {
     case Slot.Tool:
-      return toolItem(e.tool[i]!);
+      return heldTools(e, i)[0] ?? Item.None;
     case Slot.Weapon:
       return e.weapon[i]!;
     case Slot.Backup:
@@ -93,13 +93,15 @@ export function wornIn(state: SimState, i: number, slot: number): number {
 function wear(state: SimState, i: number, slot: number, item: number): void {
   const e = state.entities;
   const stock = state.players[e.owner[i]!]!.items;
+  // A tool goes into every job it does, and hands in the tools it pushes out.
+  if (slot === Slot.Tool) {
+    putOnTool(e, i, item, stock);
+    return;
+  }
   const old = wornIn(state, i, slot);
   // A burning torch and spent arrows are not handed back.
   if (old && slot !== Slot.Torch && slot !== Slot.Ammo) stock[old] = stock[old]! + 1;
   switch (slot) {
-    case Slot.Tool:
-      e.tool[i] = item ? itemSpec(item).tool! : e.kind[i] === UnitKind.Worker ? Tool.None : Tool.None;
-      break;
     case Slot.Weapon:
       e.weapon[i] = item;
       break;
@@ -198,19 +200,22 @@ export function runEquip(state: SimState, i: number, o: EquipOrder): boolean {
   }
   const stock = state.players[e.owner[i]!]!.items;
   for (const slot of SLOTS) {
-    let v = o[SLOT_FIELD[slot]!] as number;
+    const v = o[SLOT_FIELD[slot]!] as number;
     if (v === KEEP) continue;
+    // Equip Best's tools: the best for each job still in the stock, first come, first served.
+    if (slot === Slot.Tool && v === BEST_TOOL) {
+      bestTools(e, i, stock, true);
+      continue;
+    }
     const reserved = (o.reserved & (1 << slot)) !== 0;
     if (!reserved && v !== 0) {
-      // Hand-picked: still in the stock? Workers' tools go first come, first served.
-      if (v === BEST_TOOL) v = bestToolInStock(state, e.owner[i]!, e.tool[i]!);
-      if (v === Item.None && o.tool === BEST_TOOL && slot === Slot.Tool) continue;
+      // Hand-picked: still in the stock?
       if (stock[v]! <= 0) {
-        if (o.tool !== BEST_TOOL || slot !== Slot.Tool) state.events.push({ player: e.owner[i]!, kind: 'speech', text: `That ${itemSpec(v).name.toLowerCase()} is gone!`, x: e.x[i]!, z: e.z[i]! });
+        state.events.push({ player: e.owner[i]!, kind: 'speech', text: `That ${itemSpec(v).name.toLowerCase()} is gone!`, x: e.x[i]!, z: e.z[i]! });
         continue;
       }
       stock[v] = stock[v]! - 1;
-      if (slot !== Slot.Tool || o.tool !== BEST_TOOL) e.picked[i] = e.picked[i]! | (1 << slot);
+      e.picked[i] = e.picked[i]! | (1 << slot);
     }
     wear(state, i, slot, v);
   }
@@ -219,22 +224,8 @@ export function runEquip(state: SimState, i: number, o: EquipOrder): boolean {
   return true;
 }
 
-/** Marks a worker's tool slot "the best tool in stock when it arrives". */
+/** Marks a worker's tool slot "the best tools in stock for each job when it arrives". */
 export const BEST_TOOL = 254;
-
-function bestToolInStock(state: SimState, player: number, current: number): number {
-  const stock = state.players[player]!.items;
-  let best = 0;
-  let bestTier = itemSpec(toolItem(current)).tier;
-  for (const it of ITEMS) {
-    if (it.slot !== Slot.Tool || !it.tool || stock[it.id]! <= 0) continue;
-    if (it.tier > bestTier) {
-      best = it.id;
-      bestTier = it.tier;
-    }
-  }
-  return best;
-}
 
 /** The best arrows or bolts in stock for a weapon: the highest tip first, poison and fire last (s). */
 function bestMunition(stock: Int32Array, kind: 'arrows' | 'bolts'): number {
@@ -333,7 +324,7 @@ export function equipBest(state: SimState, player: number, units: readonly numbe
     };
     if (e.kind[i] === UnitKind.Worker) {
       // Workers' tools: first come, first served at the main base.
-      if (free(Slot.Tool) && bestToolInStock(state, player, e.tool[i]!)) o.tool = BEST_TOOL;
+      if (free(Slot.Tool) && bestTools(e, i, stock, false) > 0) o.tool = BEST_TOOL;
     } else {
       if (free(Slot.Weapon)) take(Slot.Weapon, bestFor(state, i, Slot.Weapon, (it) => !!it.melee, has(Slot.Weapon)));
       const primary = o.weapon !== KEEP ? o.weapon : has(Slot.Weapon);

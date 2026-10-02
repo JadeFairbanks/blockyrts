@@ -8,7 +8,8 @@
 import { loadCapacity, RAW_CARRY_TENTHS_LB, type Res } from '../economy/resources.ts';
 import { floorDiv } from '../fixed.ts';
 import { NO_CARRY, UnitKind, type SimState } from '../state.ts';
-import { itemSpec, Item, toolItem } from '../combat/items.ts';
+import { itemSpec, Item } from '../combat/items.ts';
+import { heldTools } from './tools.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 
@@ -23,8 +24,7 @@ export const MAX_LOAD_SLOW_BP = 4000;
 export function gearTenthsLb(state: SimState, i: number): number {
   const e = state.entities;
   let w = 0;
-  const tool = e.kind[i] === UnitKind.Worker ? toolItem(e.tool[i]!) : Item.None;
-  for (const item of [tool, e.weapon[i]!, e.backup[i]!, e.ranged[i]!, e.shield[i]!, e.boots[i]!, e.armour[i]!, e.helmet[i]!, e.boltCase[i]!, e.kit[i]!]) if (item) w += itemSpec(item).weightTenthsLb;
+  for (const item of [...heldTools(e, i), e.weapon[i]!, e.backup[i]!, e.ranged[i]!, e.shield[i]!, e.boots[i]!, e.armour[i]!, e.helmet[i]!, e.boltCase[i]!, e.kit[i]!]) if (item) w += itemSpec(item).weightTenthsLb;
   if (e.torchUntil[i]! > state.step) w += itemSpec(Item.HandTorch).weightTenthsLb;
   // Arrows weigh a tenth of a pound each.
   if (e.ammoItem[i]) w += e.ammo[i]! * itemSpec(e.ammoItem[i]!).weightTenthsLb;

@@ -8,8 +8,20 @@ import { CYCLE_STEPS } from '../rules.ts';
 const MINUTE = 60 * STEPS_PER_SECOND;
 
 /** Tool tiers in the order of Table 10's rows, which Table 5's "Tool needed" column names. */
-export const Tool = { None: 0, Hardwood: 1, Flint: 2, Copper: 3, Bronze: 4, BloomIron: 5, WroughtIron: 6, RefinedIron: 7, Steel: 8, HighQualitySteel: 9 } as const;
+export const Tool = { None: 0, Hardwood: 1, Stone: 2, Flint: 3, Copper: 4, Bronze: 5, BloomIron: 6, WroughtIron: 7, RefinedIron: 8, Steel: 9, HighQualitySteel: 10 } as const;
 export type Tool = (typeof Tool)[keyof typeof Tool];
+
+/**
+ * What a worker's tool is for (Table 2c, Equip Best "tools by job"): the axe
+ * chops, the digging stick, maul or pickaxe quarries, digs and mines, the
+ * mallet or hammer builds and repairs, the knife or sickle cuts plants and
+ * butchers. A worker holds one tool per job; a tier's set covers all four.
+ */
+export const ToolJob = { Chop: 0, Break: 1, Build: 2, Cut: 3 } as const;
+export type ToolJob = (typeof ToolJob)[keyof typeof ToolJob];
+export const TOOL_JOBS = 4;
+/** A tool covering every job (the hardwood set and the forge's sets). */
+export const ALL_JOBS = (1 << TOOL_JOBS) - 1;
 
 export const PropKind = {
   Pine: 0,
@@ -110,9 +122,9 @@ export const PROPS: readonly PropInfo[] = [
   node(PropKind.WildFlax, 'Wild flax', PropShape.Plant, 'flax', 10, 10, 10, 1, Tool.Hardwood, 'Herbs / wild flax', ['10 / 10', '5 days'], 5 * CYCLE_STEPS),
   node(PropKind.LooseStone, 'Loose stone', PropShape.Rocks, 'stone', 40, 5, 10, 2, Tool.Hardwood, 'Loose stone / flint scatter', ['40 stone', '5 / 10']),
   node(PropKind.FlintScatter, 'Flint scatter', PropShape.Rocks, 'flint', 20, 10, 10, 2, Tool.Hardwood, 'Loose stone / flint scatter', ['20 flint', '5 / 10']),
-  node(PropKind.StoneOutcrop, 'Stone outcrop', PropShape.Rocks, 'stone', 200, 5, 15, 2, Tool.Flint, 'Stone outcrop'),
-  node(PropKind.CopperOutcrop, 'Copper outcrop', PropShape.Rocks, 'copper ore', 60, 5, 20, 2, Tool.Flint, 'Copper outcrop / tin outcrop', ['60 / 30']),
-  node(PropKind.TinOutcrop, 'Tin outcrop', PropShape.Rocks, 'tin ore', 30, 5, 20, 2, Tool.Flint, 'Copper outcrop / tin outcrop', ['60 / 30']),
+  node(PropKind.StoneOutcrop, 'Stone outcrop', PropShape.Rocks, 'stone', 200, 5, 15, 2, Tool.Hardwood, 'Stone outcrop'),
+  node(PropKind.CopperOutcrop, 'Copper outcrop', PropShape.Rocks, 'copper ore', 60, 5, 20, 2, Tool.Stone, 'Copper outcrop / tin outcrop', ['60 / 30']),
+  node(PropKind.TinOutcrop, 'Tin outcrop', PropShape.Rocks, 'tin ore', 30, 5, 20, 2, Tool.Stone, 'Copper outcrop / tin outcrop', ['60 / 30']),
   node(PropKind.CoalSeam, 'Coal seam', PropShape.Rocks, 'coal', 60, 5, 15, 2, Tool.Copper, 'Coal, surface seam'),
   node(PropKind.BogIron, 'Bog iron', PropShape.Patch, 'bog iron', 40, 5, 20, 2, Tool.Bronze, 'Bog iron patch'),
   node(PropKind.IronRock, 'Iron rock', PropShape.Rocks, 'iron rock', 80, 5, 25, 2, Tool.Bronze, 'Iron rock'),
@@ -175,4 +187,17 @@ export function fishAt(breedSteps: number, most: number, amount: number, since: 
   const periods = Math.min(64, floorDiv(step - since, breedSteps));
   for (let k = 0; k < periods && n < most; k++) n = Math.min(most, n + (n >> 1));
   return n;
+}
+
+/** The tool job a node is worked with: trees and bushes are chopped, plants and carcasses cut, rocks, patches and crystals broken. */
+export function propJob(kind: number): ToolJob {
+  const shape = propInfo(kind).shape;
+  if (shape === PropShape.Tree || shape === PropShape.Bush) return ToolJob.Chop;
+  if (shape === PropShape.Plant || shape === PropShape.Carcass || shape === PropShape.Fish) return ToolJob.Cut;
+  return ToolJob.Break;
+}
+
+/** The soft ores a stone maul mines at x1.0 rather than its x1.15 (Table 2c). */
+export function isSoftOre(kind: number): boolean {
+  return kind === PropKind.CopperOutcrop || kind === PropKind.TinOutcrop;
 }

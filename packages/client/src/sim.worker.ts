@@ -52,6 +52,7 @@ import {
   type SimEvent,
   type SimState,
   type UnitOrder,
+  toolInHand,
 } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
@@ -101,7 +102,7 @@ function postState(s: SimState): void {
     data[o + S.hp] = e.hp[i]!;
     data[o + S.maxHp] = e.maxHp[i]!;
     data[o + S.rank] = e.rank[i]!;
-    data[o + S.tool] = e.tool[i]!;
+    data[o + S.toolChop] = e.toolChop[i]!;
     data[o + S.carryRes] = e.carryRes[i]!;
     data[o + S.carryAmt] = e.carryAmt[i]!;
     data[o + S.inside] = e.inside[i]!;
@@ -134,6 +135,12 @@ function postState(s: SimState): void {
     data[o + S.kit] = e.kit[i]!;
     data[o + S.partner] = e.partner[i]!;
     data[o + S.ammoItem] = e.ammoItem[i]!;
+    data[o + S.hop] = Math.max(0, e.hopUntil[i]! - s.step);
+    data[o + S.hopRise] = e.hopRise[i]!;
+    data[o + S.toolBreak] = e.toolBreak[i]!;
+    data[o + S.toolBuild] = e.toolBuild[i]!;
+    data[o + S.toolCut] = e.toolCut[i]!;
+    data[o + S.toolHand] = e.kind[i] === UnitKind.Worker ? toolInHand(e, i) : 0;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {

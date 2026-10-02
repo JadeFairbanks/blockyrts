@@ -11,10 +11,10 @@ import { buildingCentre, dist2, isLit, snuffLight } from '../buildings/lights.ts
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { CLIMBER, WALKER, type Mover } from '../nav/grid.ts';
+import { BIG_WALKER, CLIMBER, WALKER, type Mover } from '../nav/grid.ts';
 import { pointGoal, TILE_COLUMNS } from '../nav/path.ts';
 import { burnThisStep } from '../rules.ts';
-import { MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
+import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
 import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
@@ -63,8 +63,11 @@ export function classOf(spec: MobSpec): MobClass | -1 {
   return -1;
 }
 
+/** Big walking monsters (2.5 m and up) jump higher rises (Moving over the land: "scale with size") (s). */
+const BIG_HEIGHT = floorDiv(250 * WU_PER_METRE, 100);
+
 function moverOf(spec: MobSpec): Mover {
-  return spec.moves === Moves.Climber ? CLIMBER : WALKER;
+  return spec.moves === Moves.Climber ? CLIMBER : spec.height >= BIG_HEIGHT ? BIG_WALKER : WALKER;
 }
 
 /** The middle of a player's town: their main base, else their first building, else null. */
@@ -87,6 +90,7 @@ function mobSpeed(state: SimState, i: number, spec: MobSpec): number {
   const e = state.entities;
   let bp = 10000;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
+  if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   if (spec.id === Mob.GoblinCutter || spec.id === Mob.GoblinSlinger) {
     for (const j of state.grid.near(e.x[i]!, e.z[i]!, SHOUT.radius)) {
       if (e.kind[j] === UnitKind.Mob && e.mob[j] === Mob.GoblinChief && e.hp[j]! > 0 && length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) <= SHOUT.radius) {
@@ -194,7 +198,8 @@ function stepMob(state: SimState, i: number, spec: MobSpec, px: number, pz: numb
   const ncz = floorDiv(nz, WU_PER_COLUMN);
   if (ncx !== cx || ncz !== cz) {
     const mover = moverOf(spec);
-    if (state.nav.stepCost(cx, cz, ncx, ncz, mover) < 0) {
+    const lv = floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT);
+    if (state.nav.stepCost(cx, cz, ncx, ncz, mover, lv) < 0) {
       // A building in the way (on the column ahead, or either side of a diagonal)?
       for (const [x, z] of [[ncx, ncz], [ncx, cz], [cx, ncz]] as const) {
         const b = state.buildings.solidAt(x, z);
@@ -204,23 +209,19 @@ function stepMob(state: SimState, i: number, spec: MobSpec, px: number, pz: numb
         }
       }
       // Slide along whichever axis is open.
-      if (ncx !== cx && state.nav.stepCost(cx, cz, ncx, cz, mover) >= 0) return slide(state, i, nx, e.z[i]!);
-      if (ncz !== cz && state.nav.stepCost(cx, cz, cx, ncz, mover) >= 0) return slide(state, i, e.x[i]!, nz);
+      if (ncx !== cx && state.nav.stepCost(cx, cz, ncx, cz, mover, lv) >= 0) return slide(state, i, nx, e.z[i]!);
+      if (ncz !== cz && state.nav.stepCost(cx, cz, cx, ncz, mover, lv) >= 0) return slide(state, i, e.x[i]!, nz);
       return BLOCKED_LAND;
     }
   }
-  e.x[i] = nx;
-  e.z[i] = nz;
-  e.y[i] = standY(state, nx, nz);
+  landAt(state, i, nx, nz);
   e.order[i] = OrderKind.Move;
   return MOVED;
 }
 
 function slide(state: SimState, i: number, x: number, z: number): number {
   const e = state.entities;
-  e.x[i] = x;
-  e.z[i] = z;
-  e.y[i] = standY(state, x, z);
+  landAt(state, i, x, z);
   e.order[i] = OrderKind.Move;
   return MOVED;
 }
@@ -250,7 +251,7 @@ function goToward(state: SimState, i: number, spec: MobSpec, px: number, pz: num
   mobBudget.searches++;
   const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
-  const found = state.paths.find(moverOf(spec), cx, cz, { ...pointGoal(floorDiv(px, WU_PER_COLUMN), floorDiv(pz, WU_PER_COLUMN)), max: 1 });
+  const found = state.paths.find(moverOf(spec), cx, cz, { ...pointGoal(floorDiv(px, WU_PER_COLUMN), floorDiv(pz, WU_PER_COLUMN)), max: 1 }, state.nav.layerAt(cx, cz, floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT)));
   if (found.points.length === 0) return BLOCKED_LAND;
   const out: number[] = [];
   for (let k = 0; k < found.points.length; k++) out.push(found.points[k]! * WU_PER_COLUMN + (WU_PER_COLUMN >> 1));
@@ -746,7 +747,6 @@ export function addMob(state: SimState, mob: number, foe: number, x: number, z: 
   e.hp[i] = Math.max(1, floorDiv(spec.hp * power, 1000));
   e.maxHp[i] = e.hp[i]!;
   e.rank[i] = 0;
-  e.tool[i] = 0;
   e.role[i] = spec.role;
   e.mana[i] = spec.mana * MANA_SCALE;
   e.homeX[i] = x;

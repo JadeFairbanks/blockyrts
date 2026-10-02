@@ -107,7 +107,8 @@ describe('world generation', () => {
 describe('Table 5 records', () => {
   const table = getTable('5');
   const col = (name: string): number => table.columns.indexOf(name);
-  const toolText: Record<number, string> = { [Tool.Hardwood]: 'hardwood', [Tool.Flint]: 'flint', [Tool.Copper]: 'copper', [Tool.Bronze]: 'bronze', [Tool.BloomIron]: 'bloom iron' };
+  // A stone outcrop takes the hardwood digging stick (or a stone maul); copper and tin take a stone maul (Table 2c).
+  const toolText: Record<number, RegExp> = { [Tool.Hardwood]: /^hardwood( digging stick or stone maul \(s\))?$/, [Tool.Stone]: /^stone maul \(s\)$/, [Tool.Flint]: /^flint$/, [Tool.Copper]: /^copper$/, [Tool.Bronze]: /^bronze$/, [Tool.BloomIron]: /^bloom iron$/ };
   for (const p of PROPS) {
     it(`${p.name} matches "${p.row}"`, () => {
       const row = table.rows.find((r) => r[0]!.text === p.row);
@@ -124,7 +125,7 @@ describe('Table 5 records', () => {
       if (!p.check.some((s) => text('Per load').includes(s))) expect(parseInt(text('Per load'), 10)).toBe(p.perLoad);
       if (!p.check.some((s) => text('Time per load').includes(s))) expect(text('Time per load')).toBe(`${p.loadSteps / 20} s`);
       expect(parseInt(text('Gatherers'), 10)).toBe(p.gatherers);
-      expect(text('Tool needed')).toBe(toolText[p.tool]);
+      expect(text('Tool needed')).toMatch(toolText[p.tool]!);
       const regrowth = text('Regrowth');
       const m = /(\d+) (min|hours|days)/.exec(regrowth);
       if (!m) {

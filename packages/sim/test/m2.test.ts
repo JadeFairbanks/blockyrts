@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   Act,
+  Item,
+  TOOL_FIELDS,
   atGoal,
   BuildingKind,
   buildingSpec,
@@ -99,7 +101,7 @@ describe('the starting camp', () => {
     expect(e.count).toBe(5);
     for (let i = 0; i < 4; i++) {
       expect(e.kind[i]).toBe(UnitKind.Worker);
-      expect(e.tool[i]).toBe(1);
+      for (const f of TOOL_FIELDS) expect(e[f][i]).toBe(Item.ToolsHardwood);
       expect(e.hp[i]).toBe(60);
       expect(e.id[i]).toBe(i + 1);
     }
@@ -213,11 +215,11 @@ describe('gathering', () => {
 
   it('refuses a node its tools are too poor for', () => {
     const s = createWorld(1, { peaceful: true });
-    s.entities.tool[0] = 2; // with flint tools it finds a hardwood tree
+    s.entities.toolChop[0] = Item.ToolsFlint; // with a flint axe it finds a hardwood tree
     const node = findNode(s, 0, Res.HardwoodLumber, col(s.entities.x[0]!), col(s.entities.z[0]!), 400);
     expect(node).not.toBeNull();
     if (!node) return;
-    s.entities.tool[0] = 1;
+    s.entities.toolChop[0] = Item.ToolsHardwood;
     run(s, 2, [{ kind: 'gather', player: 0, units: [1], cx: node.cx, cz: node.cz, index: node.i }]);
     expect(s.entities.queue[0]!.length).toBe(0);
   });
@@ -348,7 +350,7 @@ describe('training and production queues', () => {
     runUntil(s, () => ownUnits(s).length === 6, 700);
     const w = ownUnits(s)[5]!;
     expect(s.entities.kind[w]).toBe(UnitKind.Worker);
-    expect(s.entities.tool[w]).toBe(1);
+    expect(s.entities.toolChop[w]).toBe(Item.ToolsHardwood);
     run(s, 1);
     expect(s.entities.queue[w]![0]!.t).toBe('gather');
   });
