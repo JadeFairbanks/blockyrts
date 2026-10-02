@@ -3,7 +3,7 @@
 // (technical decision 11). Colours come from the land's materials, shaded by
 // height, with water in blue; cell edges show where their barriers are.
 //
-//   pnpm map-viewer --seed 1 --players 1 --size 2000 --metres-per-pixel 2 --out map.png
+//   pnpm --filter @blockyrts/tools map-viewer --seed 1 --players 1 --size 2000 --metres-per-pixel 2 --out map.png
 //
 // --centre-x and --centre-z (metres) move the window; --edges outlines the cells.
 import { writeFileSync } from 'node:fs';
@@ -11,6 +11,12 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { deflateSync } from 'node:zlib';
 import { COLUMNS_PER_CHUNK, MATERIALS, NO_WATER, WATER_PER_UNIT, WorldGen, WorldLayout } from '@blockyrts/sim';
+
+// Exit quietly when piped into head or similar.
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
 
 const { values } = parseArgs({
   options: {
