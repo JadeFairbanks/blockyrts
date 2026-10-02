@@ -6,6 +6,8 @@ import type { MinimapSource } from '../selection/types.ts';
 import { fitBounds, mapToWorld, normalizeBounds, sameBounds, worldToMap, type Bounds, type MapTransform } from './transform.ts';
 
 const UNEXPLORED = '#0b0e12';
+/** How long a ping shows, ms. */
+const PING_MS = 4000;
 
 /**
  * Two stacked canvases inside the minimap element: the land, repainted only
@@ -20,6 +22,8 @@ export class Minimap {
   private paintedBounds: Bounds | null = null;
   private bounds: Bounds = { minX: -150, minZ: -150, maxX: 150, maxZ: 150 };
   private t: MapTransform = { scale: 1, ox: 0, oy: 0 };
+  /** Urgent messages' pings: where (metres) and when they began (ms). */
+  private pings: Array<{ x: number; z: number; t0: number }> = [];
 
   constructor(
     readonly el: HTMLElement,
@@ -84,6 +88,30 @@ export class Minimap {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.25 * dpr;
       ctx.stroke();
+    }
+    this.drawPings(ctx, dpr);
+  }
+
+  /** Pings a spot (an urgent message): rings that grow and fade for a few seconds. */
+  ping(x: number, z: number): void {
+    this.pings.push({ x, z, t0: performance.now() });
+    if (this.pings.length > 8) this.pings.shift();
+  }
+
+  private drawPings(ctx: CanvasRenderingContext2D, dpr: number): void {
+    const now = performance.now();
+    this.pings = this.pings.filter((p) => now - p.t0 < PING_MS);
+    for (const p of this.pings) {
+      const at = worldToMap(this.t, p.x, p.z);
+      const k = (now - p.t0) / PING_MS;
+      for (const lag of [0, 0.35]) {
+        const f = (k * 3 + lag) % 1;
+        ctx.beginPath();
+        ctx.arc(at.x, at.y, (3 + f * 14) * dpr, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 210, 90, ${(1 - f) * (1 - k * 0.5)})`;
+        ctx.lineWidth = 2 * dpr;
+        ctx.stroke();
+      }
     }
   }
 
