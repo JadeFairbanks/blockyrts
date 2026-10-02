@@ -176,8 +176,10 @@ export interface ImpactParams {
   /** Seconds of lead-in before the strike (for swooshes). */
   readonly at?: number;
   readonly thud?: { f0: number; f1: number; decay: number; gain: number };
-  readonly noise?: { lp?: number; hp?: number; bp?: number; q?: number; decay: number; gain: number };
+  readonly noise?: { lp?: number; hp?: number; bp?: number; q?: number; attack?: number; decay: number; gain: number };
   readonly modes?: Modes & { gain: number };
+  /** Noise-excited resonances: a body that thuds or cracks without a pitch. */
+  readonly bands?: readonly { f: number; q: number; decay: number; gain: number }[];
   readonly swoosh?: { from: number; to: number; dur: number; gain: number };
   readonly grains?: { count: number; from: number; to: number; lo: number; hi: number; decay: number; gain: number };
   /** Random pitch spread across variants (0.05 = 5%). */
@@ -193,6 +195,7 @@ function impact(ctx: GenContext, p: ImpactParams): Float32Array {
   if (p.thud) addThud(ctx, out, at, p.thud.f0 * pitch, p.thud.f1 * pitch, p.thud.decay, p.thud.gain);
   if (p.noise) addNoise(ctx, out, at, p.noise);
   if (p.modes) addModes(ctx, out, at, p.modes, p.modes.gain, pitch);
+  for (const b of p.bands ?? []) addNoise(ctx, out, at, { bp: b.f * pitch, q: b.q, attack: 0.001, decay: b.decay, gain: b.gain });
   if (p.grains) addGrains(ctx, out, at + p.grains.from, at + p.grains.to, p.grains.count, p.grains);
   return out;
 }
@@ -533,8 +536,9 @@ function collapse(ctx: GenContext, p: CollapseParams): Float32Array {
   for (let k = 0; k < p.pieces; k++) {
     const t = Math.pow(rng(), 1.6) * p.dur * 0.7;
     const g = 0.7 * (1 - t / p.dur);
-    addModes(ctx, out, t, { freqs: [range(rng, 150, 260), range(rng, 380, 600), range(rng, 800, 1300)], decays: [0.08, 0.05, 0.03], amps: [1, 0.6, 0.4] }, g);
-    addNoise(ctx, out, t, { lp: 2500, decay: 0.03, gain: g * 0.6 });
+    addNoise(ctx, out, t, { bp: range(rng, 180, 320), q: 0.8, decay: 0.04, gain: g * 1.4 });
+    addNoise(ctx, out, t, { bp: range(rng, 600, 1100), q: 0.9, decay: 0.02, gain: g * 0.8 });
+    addNoise(ctx, out, t, { lp: 2500, decay: 0.02, gain: g * 0.5 });
   }
   addThud(ctx, out, 0.05, 70, 35, 0.35, 1);
   return out;
