@@ -1,22 +1,156 @@
 // Player orders. In lockstep every player sends the orders for step N in one
 // frame; the sim applies them at the start of step N in a fixed order (player
-// index, then the order each player gave them in).
+// index, then the order each player gave them in). Every order is plain
+// integers (and booleans), so it checks, copies and travels easily.
 
-export interface MoveOrder {
-  kind: 'move';
-  /** Player index, 0..7. */
+/** Orders given to some of a player's units; `queued` is Shift (added to the end of each unit's list). */
+interface UnitsOrder {
   player: number;
-  /** Entity ids to move. Ids the player does not own are ignored. */
+  /** Entity ids. Ids the player does not own, or units that cannot carry the order out, are ignored. */
   units: number[];
-  /** Destination in wu. */
+  queued?: boolean;
+}
+
+/** Walk to a point (wu). A group keeps its shape round the point. */
+export interface MoveOrder extends UnitsOrder {
+  kind: 'move';
   x: number;
   z: number;
 }
 
+/** Cancel every queued order (Stop). */
 export interface StopOrder {
   kind: 'stop';
   player: number;
   units: number[];
+}
+
+/** Stay close to a friendly unit. */
+export interface FollowOrder extends UnitsOrder {
+  kind: 'follow';
+  target: number;
+}
+
+/** Gather from a resource node: its chunk and its index there. */
+export interface GatherOrder extends UnitsOrder {
+  kind: 'gather';
+  cx: number;
+  cz: number;
+  index: number;
+}
+
+/** Build a building with its footprint corner at (x, z), global columns; variant picks a farm's crop. */
+export interface BuildOrder extends UnitsOrder {
+  kind: 'build';
+  building: number;
+  variant: number;
+  x: number;
+  z: number;
+}
+
+/** Continue building, upgrading or repairing a building. */
+export interface WorkOrder extends UnitsOrder {
+  kind: 'work';
+  building: number;
+}
+
+/** Double-tapped Repair: repair damaged buildings nearby, worst first. */
+export interface RepairAllOrder extends UnitsOrder {
+  kind: 'repairAll';
+}
+
+/** Return Cargo (C): to the nearest drop-off, then back to the node. */
+export interface ReturnCargoOrder extends UnitsOrder {
+  kind: 'returnCargo';
+}
+
+/** Drop the load at a given drop-off, then back to the node. */
+export interface DropoffOrder extends UnitsOrder {
+  kind: 'dropoff';
+  building: number;
+}
+
+/** E Enter: shelter in a building. */
+export interface EnterOrder extends UnitsOrder {
+  kind: 'enter';
+  building: number;
+}
+
+/** U Unload All, or let one unit out (unit set). */
+export interface UnloadOrder {
+  kind: 'unload';
+  player: number;
+  building: number;
+  /** One unit to let out, or 0 for all. */
+  unit: number;
+}
+
+/** Assign workers to a farm or a production building (right click on it). */
+export interface AssignOrder extends UnitsOrder {
+  kind: 'assign';
+  building: number;
+}
+
+/** Refuel or relight a light. */
+export interface RefuelOrder extends UnitsOrder {
+  kind: 'refuel';
+  building: number;
+}
+
+/** Train workers to the next rank at a main base (Table 7). */
+export interface TrainRankOrder extends UnitsOrder {
+  kind: 'trainRank';
+  building: number;
+}
+
+/** Add items to a building's production queue (1, or 5 with Shift). */
+export interface ProduceOrder {
+  kind: 'produce';
+  player: number;
+  building: number;
+  product: number;
+  count: number;
+}
+
+/** Cancel a queued item, refunded in full. */
+export interface CancelProduceOrder {
+  kind: 'cancelProduce';
+  player: number;
+  building: number;
+  index: number;
+}
+
+/** Upgrade a building to its next level (paid now; workers then build it). */
+export interface UpgradeOrder {
+  kind: 'upgrade';
+  player: number;
+  building: number;
+}
+
+/** X Cancel: an unfinished building (75% back) or an upgrade under way (75% back). */
+export interface CancelBuildOrder {
+  kind: 'cancelBuild';
+  player: number;
+  building: number;
+}
+
+/** Set (or with add, extend) a building's rally route: ground (wu), a unit, or a resource node. */
+export interface RallyOrder {
+  kind: 'rally';
+  player: number;
+  building: number;
+  add: boolean;
+  point: 'ground' | 'unit' | 'node';
+  x: number;
+  z: number;
+  /** For a unit: its id. For a node: cx, cz and index in x, z and id. */
+  id: number;
+}
+
+/** Everyone Home: every unit without a standing job goes to the nearest shelter. */
+export interface EveryoneHomeOrder {
+  kind: 'everyoneHome';
+  player: number;
 }
 
 /**
@@ -47,7 +181,7 @@ export interface DebugRevealOrder {
   radius: number;
 }
 
-/** Debug: takes from a prop, felling a tree or cutting a bush (gathering arrives in M2). */
+/** Debug: takes from a prop, felling a tree or cutting a bush. */
 export interface DebugHarvestOrder {
   kind: 'debugHarvest';
   player: number;
@@ -57,7 +191,32 @@ export interface DebugHarvestOrder {
   amount: number;
 }
 
-export type Order = MoveOrder | StopOrder | TerrainOrder | DebugRevealOrder | DebugHarvestOrder;
+export type Order =
+  | MoveOrder
+  | StopOrder
+  | FollowOrder
+  | GatherOrder
+  | BuildOrder
+  | WorkOrder
+  | RepairAllOrder
+  | ReturnCargoOrder
+  | DropoffOrder
+  | EnterOrder
+  | UnloadOrder
+  | AssignOrder
+  | RefuelOrder
+  | TrainRankOrder
+  | ProduceOrder
+  | CancelProduceOrder
+  | UpgradeOrder
+  | CancelBuildOrder
+  | RallyOrder
+  | EveryoneHomeOrder
+  | TerrainOrder
+  | DebugRevealOrder
+  | DebugHarvestOrder;
+
+export type OrderKindName = Order['kind'];
 
 /** The orders of every player for one step. */
 export interface InputFrame {
@@ -75,34 +234,63 @@ export function copyOrder(o: Order): Order {
   return 'units' in o ? { ...o, units: [...o.units] } : { ...o };
 }
 
-/** Checks that an order holds only integers in range, so a bad script fails loudly. */
+/** The integer fields each order kind must carry, besides player (and units, checked separately). */
+const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
+  move: ['x', 'z'],
+  stop: [],
+  follow: ['target'],
+  gather: ['cx', 'cz', 'index'],
+  build: ['building', 'variant', 'x', 'z'],
+  work: ['building'],
+  repairAll: [],
+  returnCargo: [],
+  dropoff: ['building'],
+  enter: ['building'],
+  unload: ['building', 'unit'],
+  assign: ['building'],
+  refuel: ['building'],
+  trainRank: ['building'],
+  produce: ['building', 'product', 'count'],
+  cancelProduce: ['building', 'index'],
+  upgrade: ['building'],
+  cancelBuild: ['building'],
+  rally: ['building', 'x', 'z', 'id'],
+  everyoneHome: [],
+  terrain: ['x0', 'z0', 'x1', 'z1', 'bottom', 'top', 'material'],
+  debugReveal: ['x', 'z', 'radius'],
+  debugHarvest: ['cx', 'cz', 'index', 'amount'],
+};
+
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank']);
+
+/** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
   const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
   if (!isInt(o.player) || o.player < 0 || o.player > 7) throw new Error(`bad player ${o.player}`);
-  const ints = (...vs: unknown[]): void => {
-    if (!vs.every(isInt)) throw new Error(`${o.kind} order values must be integers`);
-  };
+  const fields = INT_FIELDS[o.kind];
+  if (!fields) throw new Error(`unknown order kind ${String((o as { kind: unknown }).kind)}`);
+  const rec = o as unknown as Record<string, unknown>;
+  if (!fields.every((f) => isInt(rec[f]))) throw new Error(`${o.kind} order values must be integers`);
+  if (WITH_UNITS.has(o.kind)) {
+    const units = rec['units'];
+    if (!Array.isArray(units) || !units.every(isInt)) throw new Error('order units must be entity ids');
+    if (rec['queued'] !== undefined && typeof rec['queued'] !== 'boolean') throw new Error('queued must be true or false');
+  }
   switch (o.kind) {
-    case 'move':
-      ints(o.x, o.z);
-      if (!Array.isArray(o.units) || !o.units.every(isInt)) throw new Error('order units must be entity ids');
-      return;
-    case 'stop':
-      if (!Array.isArray(o.units) || !o.units.every(isInt)) throw new Error('order units must be entity ids');
-      return;
     case 'terrain':
-      ints(o.x0, o.z0, o.x1, o.z1, o.bottom, o.top, o.material);
       if (Math.abs(o.x1 - o.x0) > 64 || Math.abs(o.z1 - o.z0) > 64) throw new Error('a terrain edit covers at most 65 x 65 columns');
       if (o.top - o.bottom > 512 || o.material < 0 || o.material > 255) throw new Error('bad terrain edit range');
       return;
     case 'debugReveal':
-      ints(o.x, o.z, o.radius);
       if (o.radius < 0 || o.radius > 2000 * 8000) throw new Error('reveal radius out of range');
       return;
-    case 'debugHarvest':
-      ints(o.cx, o.cz, o.index, o.amount);
+    case 'produce':
+      if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
+      return;
+    case 'rally':
+      if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');
       return;
     default:
-      throw new Error(`unknown order kind ${String((o as { kind: unknown }).kind)}`);
+      return;
   }
 }

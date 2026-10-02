@@ -1,10 +1,15 @@
 // The step function: the only way the simulation advances. Inputs in, state
 // changed in place, a small result out.
 
-import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WORLD_EDGE_WU, WU_PER_METRE } from './fixed.ts';
-import { canonicalOrders, type Order } from './orders.ts';
+import { computeEnclosed, outlyingLights, updateLights } from './buildings/lights.ts';
+import { updateBuildings } from './buildings/production.ts';
+import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
+import { applyOrders } from './commands.ts';
+import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
+import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
-import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealAroundUnits, type SimState } from './state.ts';
+import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealAroundUnits, UnitKind, type SimState } from './state.ts';
+import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
 
 /** How far a wanderer strays per leg, and how far from the origin it may roam. */
 const WANDER_LEG_WU = 15 * WU_PER_METRE;
@@ -17,75 +22,68 @@ export interface StepResult {
   hash?: number;
 }
 
-function applyOrders(state: SimState, orders: readonly Order[]): void {
-  const e = state.entities;
-  for (const order of canonicalOrders(orders)) {
-    switch (order.kind) {
-      case 'move': {
-        const tx = clamp(order.x, -WORLD_EDGE_WU, WORLD_EDGE_WU);
-        const tz = clamp(order.z, -WORLD_EDGE_WU, WORLD_EDGE_WU);
-        for (const id of order.units) {
-          const i = e.indexOf(id);
-          if (i < 0 || e.owner[i] !== order.player) continue;
-          e.order[i] = OrderKind.Move;
-          e.targetX[i] = tx;
-          e.targetZ[i] = tz;
-        }
-        break;
-      }
-      case 'stop':
-        for (const id of order.units) {
-          const i = e.indexOf(id);
-          if (i < 0 || e.owner[i] !== order.player) continue;
-          e.order[i] = OrderKind.Idle;
-        }
-        break;
-      case 'terrain':
-        state.world.editBox(order.x0, order.z0, order.x1, order.z1, order.bottom, order.top, order.material);
-        break;
-      case 'debugReveal':
-        if (order.player < state.world.players) state.world.reveal(order.player, order.x, order.z, order.radius);
-        break;
-      case 'debugHarvest':
-        state.world.harvest(order.cx, order.cz, order.index, order.amount, state.step);
-        break;
-    }
-  }
-}
-
-function moveEntities(state: SimState): void {
+/** M0's wanderers: neutral units that walk straight to random points, drawing on the 'ai' stream. */
+function wander(state: SimState, i: number): void {
   const e = state.entities;
   const ai = state.rng.ai;
-  for (let i = 0; i < e.count; i++) {
-    if (e.order[i] === OrderKind.Idle) {
-      const at = e.wanderAt[i]!;
-      if (e.owner[i] === NEUTRAL && at !== 0 && state.step >= at) {
-        e.order[i] = OrderKind.Move;
-        e.targetX[i] = clamp(e.x[i]! + ai.range(-WANDER_LEG_WU, WANDER_LEG_WU), -WANDER_BOUND_WU, WANDER_BOUND_WU);
-        e.targetZ[i] = clamp(e.z[i]! + ai.range(-WANDER_LEG_WU, WANDER_LEG_WU), -WANDER_BOUND_WU, WANDER_BOUND_WU);
+  if (e.order[i] === OrderKind.Idle) {
+    const at = e.wanderAt[i]!;
+    if (at !== 0 && state.step >= at) {
+      e.order[i] = OrderKind.Move;
+      e.targetX[i] = clamp(e.x[i]! + ai.range(-WANDER_LEG_WU, WANDER_LEG_WU), -WANDER_BOUND_WU, WANDER_BOUND_WU);
+      e.targetZ[i] = clamp(e.z[i]! + ai.range(-WANDER_LEG_WU, WANDER_LEG_WU), -WANDER_BOUND_WU, WANDER_BOUND_WU);
+    }
+    return;
+  }
+  const dx = e.targetX[i]! - e.x[i]!;
+  const dz = e.targetZ[i]! - e.z[i]!;
+  if (dx === 0 && dz === 0) {
+    e.order[i] = OrderKind.Idle;
+    return;
+  }
+  e.heading[i] = headingTowards(dx, dz);
+  const speed = e.speed[i]!;
+  const dist = length2d(dx, dz);
+  if (dist <= speed) {
+    e.x[i] = e.targetX[i]!;
+    e.z[i] = e.targetZ[i]!;
+    e.order[i] = OrderKind.Idle;
+    e.wanderAt[i] = state.step + ai.range(20, 100);
+  } else {
+    e.x[i] = e.x[i]! + floorDiv(dx * speed, dist);
+    e.z[i] = e.z[i]! + floorDiv(dz * speed, dist);
+  }
+  e.y[i] = state.world.groundY(e.x[i]!, e.z[i]!, e.y[i]!);
+}
+
+/** What happens as a period begins: the alert, and at dusk the outlying count and enclosures, at day the shelters empty. */
+function periodChange(state: SimState): void {
+  const p = periodStarting(state.step);
+  if (p === -1) return;
+  const c = clockAt(state.step);
+  state.events.push({ player: -1, kind: 'period', text: periodMessage(c) });
+  if (p === Period.Dusk) {
+    computeEnclosed(state);
+    for (let player = 0; player < state.players.length; player++) {
+      const { halves, limit } = outlyingLights(state, player, c.cycle);
+      if (halves > limit * 2) {
+        const n = floorDiv(halves + 1, 2);
+        state.events.push({ player, kind: 'alert', text: `Too many lights burn outside the base: ${n}, and the limit tonight is ${limit}. Goblins will come for them.` });
       }
-      continue;
     }
-    const dx = e.targetX[i]! - e.x[i]!;
-    const dz = e.targetZ[i]! - e.z[i]!;
-    if (dx === 0 && dz === 0) {
-      e.order[i] = OrderKind.Idle;
-      continue;
+  }
+  if (p === Period.Day) {
+    // Units sent home at dusk come out at daybreak and carry on with what they were doing.
+    const e = state.entities;
+    for (let i = 0; i < e.count; i++) {
+      const h = e.queue[i]![0];
+      if (h?.t !== 'enter' || h.auto !== 1) continue;
+      e.queue[i]!.shift();
+      e.act[i] = Act.Start;
+      e.timer[i] = 0;
+      resetWalk(state, i);
+      if (e.inside[i] !== 0) leaveBuilding(state, i);
     }
-    e.heading[i] = headingTowards(dx, dz);
-    const speed = e.speed[i]!;
-    const dist = length2d(dx, dz);
-    if (dist <= speed) {
-      e.x[i] = e.targetX[i]!;
-      e.z[i] = e.targetZ[i]!;
-      e.order[i] = OrderKind.Idle;
-      if (e.owner[i] === NEUTRAL) e.wanderAt[i] = state.step + ai.range(20, 100);
-    } else {
-      e.x[i] = e.x[i]! + floorDiv(dx * speed, dist);
-      e.z[i] = e.z[i]! + floorDiv(dz * speed, dist);
-    }
-    // Stand on the land. Climbing, wading and blocking come with Moving over the land (M2).
-    e.y[i] = state.world.groundY(e.x[i]!, e.z[i]!, e.y[i]!);
   }
 }
 
@@ -94,8 +92,17 @@ function moveEntities(state: SimState): void {
  * player's orders for this step; they are applied before anything moves.
  */
 export function step(state: SimState, orders: readonly Order[] = []): StepResult {
+  state.events = [];
+  state.paths.searches = 0;
   applyOrders(state, orders);
-  moveEntities(state);
+  periodChange(state);
+  const e = state.entities;
+  for (let i = 0; i < e.count; i++) {
+    if (e.owner[i] === NEUTRAL && e.kind[i] === UnitKind.Wanderer) wander(state, i);
+    else runUnit(state, i);
+  }
+  updateBuildings(state);
+  updateLights(state);
   state.world.flowWater();
   state.step++;
   if (state.step % FOG_INTERVAL_STEPS === 0) revealAroundUnits(state);
