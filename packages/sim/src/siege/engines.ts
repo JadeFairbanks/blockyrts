@@ -188,11 +188,15 @@ function fire(state: SimState, i: number, t: number, spec: EngineSpec): boolean 
   return true;
 }
 
+const ENGINE_ORDERS: ReadonlySet<string> = new Set(['move', 'attackMove', 'port', 'attack', 'hold']);
+
 /** One step of an engine: its orders (move, attack, hold, a port), and firing at what it may. */
 export function runEngine(state: SimState, i: number): void {
   const e = state.entities;
   const spec = engineSpec(e.mob[i]!);
   e.order[i] = OrderKind.Idle;
+  // An engine takes only moves, attacks, holds and ports; anything else given to a mixed group is dropped.
+  while (e.queue[i]!.length > 0 && !ENGINE_ORDERS.has(e.queue[i]![0]!.t)) e.queue[i]!.shift();
   const o = e.queue[i]![0];
   if (o && (o.t === 'move' || o.t === 'attackMove' || o.t === 'port')) {
     if (e.inside[i] !== 0 && o.t !== 'port') leaveBuilding(state, i);

@@ -30,6 +30,8 @@ import { debugThreat } from './threats/debug.ts';
 import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
+import { freeHorse, mountProblem } from './mounts/riding.ts';
+import { crewWhy, haulWhy, hitchEngine, mendWhy, portWhy } from './siege/engines.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -252,8 +254,16 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'enter': {
         const b = ownBuilding(state, o.player, o.building);
+        if (!b) break;
+        // A cannon is hauled up into a Citadel's cannon port (Table 4).
+        const cannons = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine);
+        if (cannons.length > 0) {
+          const why = portWhy(state, cannons[0]!, b);
+          if (why) alert(state, o.player, why);
+          else for (const i of cannons) giveOrder(state, i, { t: 'port', b: b.id }, o.queued === true);
+        }
         // Workers shelter; ranged warriors and mages garrison towers and parapets.
-        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && canGarrison(state, i)) ? { t: 'enter', b: b.id, auto: 0 } : null));
+        giveAll(state, o, (i) => (e.kind[i] !== UnitKind.Engine && (e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && canGarrison(state, i)) ? { t: 'enter', b: b.id, auto: 0 } : null));
         break;
       }
       case 'unload': {
@@ -461,6 +471,15 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage ? { t: 'eat', b: o.building } : null));
         break;
       case 'hitch': {
+        // An engine takes a horse or an ox to haul it (Table 2f); target 0 lets it go.
+        const engines = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine);
+        if (engines.length > 0) {
+          const a = o.target ? e.indexOf(o.target) : -1;
+          const why = o.target ? haulWhy(state, engines[0]!, a) : '';
+          if (why) alert(state, o.player, why);
+          else hitchEngine(state, engines[0]!, a);
+          break;
+        }
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (o.target === 0) {
           for (const i of workers) unhitch(state, i);
@@ -479,6 +498,47 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'prospect':
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker ? { t: 'prospect', x: o.x, z: o.z } : null));
         break;
+      case 'mount': {
+        // Each rider walks to its own horse: the one named, else the nearest free one (Table 14).
+        const riders = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Warrior && e.mount[i] === 0);
+        const taken = new Set<number>();
+        for (const i of riders) {
+          const h = o.target && taken.size === 0 ? e.indexOf(o.target) : freeHorse(state, o.player, e.x[i]!, e.z[i]!, taken);
+          const why = mountProblem(state, i, h);
+          if (why) {
+            alert(state, o.player, why);
+            break;
+          }
+          taken.add(e.id[h]!);
+          giveOrder(state, i, { t: 'mount', id: e.id[h]! }, o.queued === true);
+        }
+        break;
+      }
+      case 'dismount':
+        giveAll(state, o, (i) => (e.mount[i] !== 0 ? { t: 'dismount' } : null));
+        break;
+      case 'crew': {
+        const i = e.indexOf(o.target);
+        const crew = ownUnits(state, o.player, o.units).filter((j) => e.kind[j] === UnitKind.Warrior);
+        const why = crew.length === 0 ? 'Only warriors crew engines and cannons.' : crewWhy(state, crew[0]!, i);
+        if (why) {
+          alert(state, o.player, why);
+          break;
+        }
+        for (const j of crew) if (!crewWhy(state, j, i)) giveOrder(state, j, { t: 'crew', id: o.target }, o.queued === true);
+        break;
+      }
+      case 'mend': {
+        const i = e.indexOf(o.target);
+        const workers = ownUnits(state, o.player, o.units).filter((j) => e.kind[j] === UnitKind.Worker);
+        const why = workers.length === 0 ? 'Only workers repair engines.' : mendWhy(state, workers[0]!, i);
+        if (why) {
+          alert(state, o.player, why);
+          break;
+        }
+        for (const j of workers) giveOrder(state, j, { t: 'mend', id: o.target }, o.queued === true);
+        break;
+      }
       case 'haul': {
         const b = ownBuilding(state, o.player, o.building);
         if (!b || !b.complete || b.kind !== BuildingKind.Mineshaft) break;

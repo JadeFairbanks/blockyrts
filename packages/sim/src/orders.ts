@@ -409,6 +409,29 @@ export interface HitchOrder extends UnitsOrder {
   target: number;
 }
 
+/** Milestone 8: warriors trained to ride mount tamed horses (target: one horse; 0: each the nearest free one). */
+export interface MountOrder extends UnitsOrder {
+  kind: 'mount';
+  target: number;
+}
+
+/** Riders get down and their horses go back to their Stables. */
+export interface DismountOrder extends UnitsOrder {
+  kind: 'dismount';
+}
+
+/** Warriors crew an engine or cannon (target): they stand by it, push it and work it. */
+export interface CrewOrder extends UnitsOrder {
+  kind: 'crew';
+  target: number;
+}
+
+/** Workers repair an engine or cannon (target). */
+export interface MendOrder extends UnitsOrder {
+  kind: 'mend';
+  target: number;
+}
+
 /** T Prospect a spot (global columns). */
 export interface ProspectOrder extends UnitsOrder {
   kind: 'prospect';
@@ -443,6 +466,10 @@ export type Order =
   | TameOrder
   | EatOrder
   | HitchOrder
+  | MountOrder
+  | DismountOrder
+  | CrewOrder
+  | MendOrder
   | ProspectOrder
   | HaulOrder
   | RationsOrder
@@ -556,6 +583,10 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   tame: ['target'],
   eat: ['building'],
   hitch: ['target'],
+  mount: ['target'],
+  dismount: [],
+  crew: ['target'],
+  mend: ['target'],
   prospect: ['x', 'z'],
   haul: ['building'],
   rations: ['rations'],
