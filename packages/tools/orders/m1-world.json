@@ -1,6 +1,6 @@
 {
   "description": "M1 check script, seed 1 with 2 players: cuts a hazel bush and fells trees (seeds drop), digs a trench from player 0's pond and one from player 1's stream that fill with water, raises a stone wall, digs a pit, walks units through the trenches and out of the basin, and uses the debug reveal. Move and reveal positions are world units (8,000 per metre); terrain edits are columns (45 cm) and terrain units (11.25 cm).",
-  "players": 2,
+  "players": 2, "peaceful": true,
   "frames": [
     { "step": 5, "orders": [{ "kind": "debugHarvest", "player": 0, "cx": 0, "cz": -2, "index": 1, "amount": 10 }] },
     { "step": 20, "orders": [{ "kind": "terrain", "player": 0, "x0": 103, "z0": -16, "x1": 130, "z1": -14, "bottom": -6, "top": 4, "material": 0 }] },

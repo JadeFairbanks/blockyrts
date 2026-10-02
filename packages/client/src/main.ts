@@ -56,8 +56,8 @@ async function main(): Promise<void> {
     issueOrder(order) {
       send({ type: 'order', order });
     },
-    askPlacement(kind, spots) {
-      send({ type: 'place', id: 0, kind, spots });
+    askPlacement(kind, variant, spots) {
+      send({ type: 'place', id: 0, kind, variant, spots });
     },
     onQuit() {
       leaving = true;

@@ -1,20 +1,22 @@
 // Messages between the page and the sim worker. Local to the client; the
 // network protocol lives in @blockyrts/protocol.
-import type { ChunkDelta, ClaimShapes, Order, RallyPoint, SimEvent, UnitOrder } from '@blockyrts/sim';
+import type { ChunkDelta, ClaimShapes, HitEvent, Order, RallyPoint, SimEvent, Site, UnitOrder } from '@blockyrts/sim';
 
 export type ToWorker =
   | { type: 'start'; seed: number; players: number }
   | { type: 'order'; order: Order }
   /** Placement tiles for a building at these footprint corners (global columns); answered with 'placed'. */
-  | { type: 'place'; id: number; kind: number; spots: Array<[number, number]> }
+  | { type: 'place'; id: number; kind: number; variant: number; spots: Array<[number, number]> }
   /** Debug: steps per tick multiplier (1, 4 or 16). */
   | { type: 'speed'; factor: number };
 
 /**
  * Per-entity record in a state message (all int32): id, owner, kind, x, y, z,
- * heading, order, hp, maxHp, rank, tool, carryRes, carryAmt, inside, act.
+ * heading, order, hp, maxHp, rank, tool, carryRes, carryAmt, inside, act,
+ * then what it fights with (mob kind, the items in each slot, a lit torch,
+ * the swing under way), its state flags, lock, skills, shots left and target.
  */
-export const STATE_STRIDE = 16;
+export const STATE_STRIDE = 29;
 export const S = {
   id: 0,
   owner: 1,
@@ -32,7 +34,27 @@ export const S = {
   carryAmt: 13,
   inside: 14,
   act: 15,
+  mob: 16,
+  weapon: 17,
+  backup: 18,
+  ranged: 19,
+  shield: 20,
+  boots: 21,
+  torch: 22,
+  /** 0, or 1 + the slot it is swinging or shooting with (Slot). */
+  swing: 23,
+  flags: 24,
+  lock: 25,
+  skills: 26,
+  ammo: 27,
+  target: 28,
 } as const;
+
+/** Bits of S.flags. */
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16 } as const;
+
+/** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
+export const SHOT_STRIDE = 8;
 
 export interface StateMessage {
   type: 'state';
@@ -43,6 +65,10 @@ export interface StateMessage {
   count: number;
   /** count * STATE_STRIDE int32 values, transferred. */
   data: Int32Array;
+  /** Projectiles in flight: SHOT_STRIDE int32 values each, transferred. */
+  shots: Int32Array;
+  /** Hits, swings and deaths since the last state message, for particles and sounds. */
+  hits: HitEvent[];
 }
 
 /** Land, water or props changed in these chunks; the mesh workers apply them to their mirror worlds. */
@@ -113,6 +139,18 @@ export interface InfoMessage {
   outlying: { halves: number; limit: number };
   /** Per building kind: why the local player cannot order one at all, or ''. */
   buildWhy: string[];
+  /** The equipment stock by item id. */
+  items: Int32Array;
+  /** Research done, a bit per Research id. */
+  research: number;
+  autoEquip: boolean;
+  /** Dig and earthwork sites of the local player. */
+  sites: Site[];
+  /** The step the game ended (0 while it goes on), and the nights survived. */
+  over: number;
+  nights: number;
+  /** The local player is out of the game. */
+  out: boolean;
 }
 
 export interface PlacedMessage {

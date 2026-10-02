@@ -11,7 +11,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { createWorld, hashHex, makeRecording, run } from '@blockyrts/sim';
-import { loadOrderScript, recordingToJson } from './script.ts';
+import { loadOrderScript, recordingToJson, type OrderScript } from './script.ts';
 
 // Exit quietly when piped into head or similar.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -36,12 +36,12 @@ const seed = Number(values.seed);
 const steps = Number(values.steps);
 if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new Error('--seed must be an integer 0..4294967295');
 if (!Number.isInteger(steps) || steps < 0) throw new Error('--steps must be a non-negative integer');
-const script = values.orders ? loadOrderScript(resolve(cwd, values.orders)) : { frames: [], players: 1 };
+const script: OrderScript = values.orders ? loadOrderScript(resolve(cwd, values.orders)) : { frames: [], players: 1 };
 const frames = script.frames;
 const players = values.players ? Number(values.players) : (script.players ?? 1);
 if (!Number.isInteger(players) || players < 1 || players > 8) throw new Error('--players must be 1 to 8');
 
-const state = createWorld(seed, { players });
+const state = createWorld(seed, { players, peaceful: script.peaceful === true });
 const recording = makeRecording(state);
 recording.frames = frames;
 const started = process.hrtime.bigint();

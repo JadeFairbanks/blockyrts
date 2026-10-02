@@ -21,6 +21,18 @@ export interface UnitInfo {
   inside: number;
   act: number;
   order: number;
+  mob: number;
+  weapon: number;
+  backup: number;
+  ranged: number;
+  shield: number;
+  boots: number;
+  torch: boolean;
+  flags: number;
+  lock: number;
+  skills: number;
+  ammo: number;
+  target: number;
 }
 
 export class GameInfo {
@@ -76,6 +88,18 @@ export class GameInfo {
       inside: d[o + S.inside]!,
       act: d[o + S.act]!,
       order: d[o + S.order]!,
+      mob: d[o + S.mob]!,
+      weapon: d[o + S.weapon]!,
+      backup: d[o + S.backup]!,
+      ranged: d[o + S.ranged]!,
+      shield: d[o + S.shield]!,
+      boots: d[o + S.boots]!,
+      torch: d[o + S.torch] === 1,
+      flags: d[o + S.flags]!,
+      lock: d[o + S.lock]!,
+      skills: d[o + S.skills]!,
+      ammo: d[o + S.ammo]!,
+      target: d[o + S.target]!,
     };
   }
 
@@ -87,6 +111,16 @@ export class GameInfo {
   /** How much of a resource the local player has. */
   have(res: number): number {
     return this.info?.pool[res] ?? 0;
+  }
+
+  /** How many of an item the local player has in the equipment stock. */
+  stock(item: number): number {
+    return this.info?.items[item] ?? 0;
+  }
+
+  /** Whether the local player has a research done. */
+  researched(r: number): boolean {
+    return r === 0 || ((this.info?.research ?? 0) & (1 << r)) !== 0;
   }
 
   /** Food items in the pool. */

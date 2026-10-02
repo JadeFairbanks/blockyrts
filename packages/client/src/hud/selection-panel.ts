@@ -3,7 +3,7 @@
 // health bar under each, subgroup tabs with the active one bright, and for a
 // building its production queue (click to cancel), the units inside (click to
 // let one out), its workers and its rally route.
-import { buildingSpec, PRODUCTS } from '@blockyrts/sim';
+import { buildingSpec, productSpec } from '@blockyrts/sim';
 import type { BuildingInfo } from '../messages.ts';
 import { isOwn } from '../selection/rules.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
@@ -159,20 +159,20 @@ export class SelectionPanel {
         q.className = 'sel-queue';
         this.row('label', 'Queue (click to cancel, refunded in full):');
         b.queue.forEach((item, k) => {
-          const ps = PRODUCTS[item.product];
-          const name = ps?.name ?? 'Item';
+          const ps = productSpec(item.product);
+          const name = ps.name;
           const btn = this.button(`queue${k}`, {
-            face: name.startsWith('Planks') ? 'P' : 'W',
+            face: name.startsWith('Planks') ? 'P' : name.startsWith('Refurbish') ? 'F' : name.slice(0, 1),
             name: `${name}: cancel`,
             keys: [],
-            description: k === 0 ? `In production: ${Math.floor((item.done * 100) / (ps?.steps ?? 1))}% done. Click to cancel; what it cost comes back.` : 'Waiting. Click to cancel; what it cost comes back.',
+            description: k === 0 ? `In production: ${Math.floor((item.done * 100) / ps.steps)}% done. Click to cancel; what it cost comes back.` : 'Waiting. Click to cancel; what it cost comes back.',
             className: 'portrait queue-item',
             onPress: () => this.a.cancelQueued(b.id, k),
           });
           if (k === 0) {
             const bar = document.createElement('span');
             bar.className = 'hp';
-            bar.style.width = `${Math.floor((item.done * 100) / (ps?.steps ?? 1))}%`;
+            bar.style.width = `${Math.floor((item.done * 100) / ps.steps)}%`;
             btn.el.append(bar);
           }
           q.append(btn.el);

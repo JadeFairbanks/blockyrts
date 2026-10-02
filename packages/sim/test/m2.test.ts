@@ -87,15 +87,17 @@ function freeSpot(s: SimState, kind: number): [number, number] {
 
 describe('the starting camp', () => {
   it('is a finished level 1 Big House, four workers with hardwood tools and the starting stock', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const e = s.entities;
-    expect(e.count).toBe(4);
+    expect(e.count).toBe(5);
     for (let i = 0; i < 4; i++) {
       expect(e.kind[i]).toBe(UnitKind.Worker);
       expect(e.tool[i]).toBe(1);
       expect(e.hp[i]).toBe(60);
       expect(e.id[i]).toBe(i + 1);
     }
+    expect(e.kind[4]).toBe(UnitKind.Warrior);
+    expect(e.hp[4]).toBe(100);
     const b = bigHouse(s);
     expect(b.complete).toBe(true);
     expect(b.level).toBe(1);
@@ -103,11 +105,11 @@ describe('the starting camp', () => {
     const pool = s.players[0]!.pool;
     expect([pool[Res.Meat], pool[Res.Fish], pool[Res.Eggs], pool[Res.SoftwoodLumber], pool[Res.Stone], pool[Res.Flint], pool[Res.Sticks]]).toEqual([15, 10, 10, 40, 20, 10, 20]);
     expect(supplyCap(s, 0)).toBe(8);
-    expect(supplyUsed(s, 0)).toBe(4);
+    expect(supplyUsed(s, 0)).toBe(5);
   });
 
   it('gives every player their own camp', () => {
-    const s = createWorld(2, { players: 3 });
+    const s = createWorld(2, { players: 3, peaceful: true });
     expect(s.buildings.list.map((b) => b.owner)).toEqual([0, 1, 2]);
     expect(s.players.length).toBe(3);
     for (let p = 0; p < 3; p++) expect([...s.entities.owner.slice(0, 12)].filter((o) => o === p).length).toBe(4);
@@ -125,7 +127,7 @@ describe('the clock', () => {
   });
 
   it('says so as each period begins', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const texts: string[] = [];
     for (let k = 0; k <= DAY_STEPS; k++) {
       step(s);
@@ -137,7 +139,7 @@ describe('the clock', () => {
 
 describe('gathering', () => {
   it('chops a tree, carries 5 lumber to the Big House and goes back for more', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const node = nearestNode(s, Res.SoftwoodLumber);
     const e = s.entities;
@@ -153,7 +155,7 @@ describe('gathering', () => {
   });
 
   it('fells the tree after 20 lumber, which also gives its resin, and moves on to the next tree', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const node = nearestNode(s, Res.SoftwoodLumber);
     run(s, 1, [{ kind: 'gather', player: 0, units: [1], ...node }]);
@@ -166,7 +168,7 @@ describe('gathering', () => {
   });
 
   it('crowds: a second worker on a one-gatherer tree works the closest free tree instead', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const node = nearestNode(s, Res.SoftwoodLumber);
     run(s, 1, [{ kind: 'gather', player: 0, units: [1, 2], ...node }]);
@@ -177,7 +179,7 @@ describe('gathering', () => {
   });
 
   it('goes idle with an alert when its trees run out and none are near', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const node = nearestNode(s, Res.SoftwoodLumber);
     // Clear every other softwood tree within 20 m of it.
     const view = s.world.prop(node.cx, node.cz, node.index, 0)!;
@@ -203,7 +205,7 @@ describe('gathering', () => {
   });
 
   it('refuses a node its tools are too poor for', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     s.entities.tool[0] = 2; // with flint tools it finds a hardwood tree
     const node = findNode(s, 0, Res.HardwoodLumber, col(s.entities.x[0]!), col(s.entities.z[0]!), 400);
     expect(node).not.toBeNull();
@@ -214,7 +216,7 @@ describe('gathering', () => {
   });
 
   it('Return Cargo takes the load home and then goes back to the node', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const node = nearestNode(s, Res.SoftwoodLumber);
     run(s, 1, [{ kind: 'gather', player: 0, units: [1], ...node }]);
@@ -229,7 +231,7 @@ describe('gathering', () => {
 
 describe('building', () => {
   it('takes the cost on arrival, builds, lights the torch and claims 5 m round it', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.TorchPost);
     run(s, 1, [{ kind: 'build', player: 0, units: [1], building: BuildingKind.TorchPost, variant: 0, x, z }]);
@@ -265,7 +267,7 @@ describe('building', () => {
   });
 
   it('shares one building between workers sent together, and refunds 75% when cancelled', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.Storehouse);
     run(s, 1, [{ kind: 'build', player: 0, units: [1, 2, 3], building: BuildingKind.Storehouse, variant: 0, x, z }]);
@@ -285,7 +287,7 @@ describe('building', () => {
   });
 
   it('marks ghost tiles red on another building, on unexplored land and on nodes', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     expect(placementBlocked(s, 0, BuildingKind.Storehouse, b.x + 2, b.z + 2)).toBe(Blocked.Building);
     expect(placementBlocked(s, 0, BuildingKind.Storehouse, b.x + 3000, b.z)).toBe(Blocked.Unexplored);
@@ -296,7 +298,7 @@ describe('building', () => {
   });
 
   it('upgrades the Big House to a Longhall: paid from the panel, built by workers', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     pool[Res.SoftwoodLumber] = 100;
     pool[Res.Stone] = 40;
@@ -312,7 +314,7 @@ describe('building', () => {
   });
 
   it('repairs a damaged building with a double-tapped Repair', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     b.hp = 1000;
     run(s, 1, [{ kind: 'repairAll', player: 0, units: [1] }]);
@@ -324,7 +326,7 @@ describe('building', () => {
 
 describe('training and production queues', () => {
   it('trains a worker for 20 food in 30 s, sends it along the rally route, and refunds a cancelled one in full', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const b = bigHouse(s);
     const node = nearestNode(s, Res.SoftwoodLumber);
@@ -336,15 +338,15 @@ describe('training and production queues', () => {
     expect(b.queue.length).toBe(1);
     run(s, 1, [{ kind: 'rally', player: 0, building: b.id, add: false, point: 'node', x: node.cx, z: node.cz, id: node.index }]);
     expect(food()).toBeLessThan(before[Res.Meat]! * 2 + before[Res.Fish]! * 3 + before[Res.Eggs]! * 2);
-    runUntil(s, () => s.entities.count === 5, 700);
-    expect(s.entities.kind[4]).toBe(UnitKind.Worker);
-    expect(s.entities.tool[4]).toBe(1);
+    runUntil(s, () => s.entities.count === 6, 700);
+    expect(s.entities.kind[5]).toBe(UnitKind.Worker);
+    expect(s.entities.tool[5]).toBe(1);
     run(s, 1);
-    expect(s.entities.queue[4]![0]!.t).toBe('gather');
+    expect(s.entities.queue[5]![0]!.t).toBe('gather');
   });
 
   it('will not start a worker without free supply', () => {
-    const s = createWorld(1, { playerUnits: 8 });
+    const s = createWorld(1, { playerUnits: 8, warriors: 0, peaceful: true });
     const b = bigHouse(s);
     run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: Product.Worker, count: 1 }]);
     run(s, 700);
@@ -353,7 +355,7 @@ describe('training and production queues', () => {
   });
 
   it('a lumber mill makes planks only with hands inside', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.LumberMill);
     const mill = placeBuilding(s, 0, BuildingKind.LumberMill, 0, x, z, true);
@@ -369,7 +371,7 @@ describe('training and production queues', () => {
 
 describe('farms', () => {
   it('a wheat field with two farmers puts wheat in the pool once its fallow days are over', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.CropField);
     const farm = placeBuilding(s, 0, BuildingKind.CropField, 0, x, z, true);
@@ -386,7 +388,7 @@ describe('farms', () => {
   });
 
   it('farmers go into their farmhouse at dusk and back to the field at day', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const [x, z] = freeSpot(s, BuildingKind.CropField);
     const farm = placeBuilding(s, 0, BuildingKind.CropField, 0, x, z, true);
     run(s, 1, [{ kind: 'assign', player: 0, units: [1], building: farm.id }]);
@@ -399,7 +401,7 @@ describe('farms', () => {
 
 describe('sheltering', () => {
   it('Everyone Home sends workers in; at daybreak they come out and carry on gathering', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const node = nearestNode(s, Res.SoftwoodLumber);
     run(s, 1, [{ kind: 'gather', player: 0, units: [1, 2], ...node }]);
     run(s, 100);
@@ -413,7 +415,7 @@ describe('sheltering', () => {
   });
 
   it('a destroyed shelter costs each worker inside 10% of its health', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     run(s, 1, [{ kind: 'enter', player: 0, units: [1, 2], building: b.id }]);
     runUntil(s, () => s.entities.inside[0] === b.id && s.entities.inside[1] === b.id, 1000);
@@ -425,7 +427,7 @@ describe('sheltering', () => {
   });
 
   it('a worker flees 10 m from an attacker', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const x0 = e.x[0]!;
     fleeFrom(s, 0, x0 - WU_PER_METRE, e.z[0]!);
@@ -436,7 +438,7 @@ describe('sheltering', () => {
 
 describe('lights and claimed land', () => {
   it('counts lights far from the base at dusk and burns fuel down', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     const far: Building[] = [];
     for (let k = 0; k < 6; k++) far.push(placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x + 120 + k * 3, b.z, false));
@@ -456,7 +458,7 @@ describe('lights and claimed land', () => {
   });
 
   it('claims 10 m round a building', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     const [x0, z0, x1] = footprintRect(b);
     const z = (z0 + 3) * WU_PER_COLUMN;
@@ -466,7 +468,7 @@ describe('lights and claimed land', () => {
   });
 
   it('claims a region closed off by cliffs that holds a building', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     // A ring of stone 3 m high, 30 columns out, all round the Big House.
     const [x0, z0, x1, z1] = footprintRect(b);
@@ -491,7 +493,7 @@ describe('lights and claimed land', () => {
 
 describe('moving over the land', () => {
   it('walks round a building in the way', () => {
-    const s = createWorld(1, { noBase: true });
+    const s = createWorld(1, { noBase: true, peaceful: true });
     const e = s.entities;
     const sx = col(e.x[0]!);
     const sz = col(e.z[0]!);
@@ -514,7 +516,7 @@ describe('moving over the land', () => {
   });
 
   it('finds the walk map changed where the land was dug', () => {
-    const s = createWorld(1, { noBase: true });
+    const s = createWorld(1, { noBase: true, peaceful: true });
     const e = s.entities;
     const sx = col(e.x[0]!);
     const sz = col(e.z[0]!);
@@ -527,7 +529,7 @@ describe('moving over the land', () => {
   });
 
   it('moves a group of 8 or more with one flow field and keeps them apart at the goal', () => {
-    const s = createWorld(1, { playerUnits: 10 });
+    const s = createWorld(1, { playerUnits: 10, peaceful: true });
     const e = s.entities;
     const units = Array.from({ length: 10 }, (_, k) => k + 1);
     run(s, 1, [{ kind: 'move', player: 0, units, x: e.x[0]! + 30 * WU_PER_METRE, z: e.z[0]! + 30 * WU_PER_METRE }]);
@@ -537,7 +539,7 @@ describe('moving over the land', () => {
   });
 
   it('queues orders with Shift', () => {
-    const s = createWorld(1);
+    const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const x = e.x[0]!;
     const z = e.z[0]!;
@@ -574,9 +576,9 @@ describe('snapshots in the middle of the work', () => {
       }
       return out;
     };
-    const whole = createWorld(7);
+    const whole = createWorld(7, { peaceful: true });
     const a = play(whole, 0, 1600);
-    const first = createWorld(7);
+    const first = createWorld(7, { peaceful: true });
     play(first, 0, 900);
     const resumed = deserializeState(serializeState(first));
     expect(hashState(resumed)).toBe(hashState(first));

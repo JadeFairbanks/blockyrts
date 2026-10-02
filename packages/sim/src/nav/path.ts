@@ -7,9 +7,7 @@
 
 import { floorDiv } from '../fixed.ts';
 import { chunkKey, CHUNK_SHIFT } from '../world/chunk.ts';
-import type { Mover, NavGrid } from './grid.ts';
-
-const SWIMMER: Mover = { canSwim: true };
+import { PERSON, type Mover, type NavGrid } from './grid.ts';
 
 /** Coarse tiles are 4 x 4 columns (1.8 m), 16 x 16 per chunk. */
 export const TILE_COLUMNS = 4;
@@ -63,7 +61,7 @@ export interface PathResult {
   reached: boolean;
 }
 
-const DIRS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+export const DIRS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 /** The opposite of each direction in DIRS. */
 const BACK = [1, 0, 3, 2, 7, 6, 5, 4] as const;
 
@@ -72,7 +70,7 @@ function sign(v: number): number {
 }
 
 /** A binary min-heap of (key, value) with ties broken by insertion order, so pops are the same everywhere. */
-class Heap {
+export class Heap {
   private keys: number[] = [];
   private vals: number[] = [];
   private seq: number[] = [];
@@ -169,9 +167,8 @@ export class Pathfinder {
   private mask = new Uint8Array(0);
   private readonly touched: number[] = [];
   private readonly heap = new Heap();
-  /** Coarse edge caches for swimmers and for walkers that cannot swim. */
-  private readonly coarse = new Map<number, CoarseChunk>();
-  private readonly coarseDry = new Map<number, CoarseChunk>();
+  /** Coarse edge caches, one per mover id. */
+  private readonly coarse = new Map<number, Map<number, CoarseChunk>>();
   /** Searches run since the counter was last reset (the step budget). */
   searches = 0;
 
@@ -272,7 +269,11 @@ export class Pathfinder {
 
   private coarseChunk(cx: number, cz: number, m: Mover): CoarseChunk {
     const key = chunkKey(cx, cz);
-    const cache = m.canSwim ? this.coarse : this.coarseDry;
+    let cache = this.coarse.get(m.id);
+    if (!cache) {
+      cache = new Map();
+      this.coarse.set(m.id, cache);
+    }
     const w = this.grid.world;
     const versions: number[] = [];
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) versions.push(w.navVersion(chunkKey(cx + dx, cz + dz)));
@@ -319,8 +320,8 @@ export class Pathfinder {
     return best < 0 ? 0 : best * 4;
   }
 
-  /** The cost of going from tile (tx, tz) in direction d (0 = none), for a mover (swimmers by default). */
-  edgeCost(tx: number, tz: number, d: number, m: Mover = SWIMMER): number {
+  /** The cost of going from tile (tx, tz) in direction d (0 = none), for a mover (the players' units by default). */
+  edgeCost(tx: number, tz: number, d: number, m: Mover = PERSON): number {
     const cx = tx >> 4;
     const cz = tz >> 4;
     const c = this.coarseChunk(cx, cz, m);
@@ -328,7 +329,7 @@ export class Pathfinder {
   }
 
   /** A* over coarse tiles from the start tile towards the goal's tiles. Returns the tiles on the way, start first. */
-  private coarsePath(sx: number, sz: number, goal: Goal, budget: number): { tiles: number[]; reached: boolean } {
+  private coarsePath(m: Mover, sx: number, sz: number, goal: Goal, budget: number): { tiles: number[]; reached: boolean } {
     const tg: Goal = {
       x0: (goal.x0 - goal.max) >> TILE_SHIFT,
       z0: (goal.z0 - goal.max) >> TILE_SHIFT,
@@ -378,7 +379,7 @@ export class Pathfinder {
         if (nx < win.x0 || nz < win.z0 || nx >= win.x0 + W || nz >= win.z0 + win.h) continue;
         const ni = idx(nx, nz);
         if (this.state[ni] === 2) continue;
-        const c = this.edgeCost(cx, cz, d);
+        const c = this.edgeCost(cx, cz, d, m);
         if (c === 0) continue;
         const ng = this.g[cur]! + c;
         if (this.state[ni] === 1 && ng >= this.g[ni]!) continue;
@@ -460,7 +461,7 @@ export class Pathfinder {
       const r = this.fine(m, sx, sz, goal, win, FINE_BUDGET_SHORT, null);
       if (r.reached) return { points: this.straighten(m, sx, sz, r.cols), reached: true };
     }
-    const cp = this.coarsePath(sx, sz, goal, COARSE_BUDGET);
+    const cp = this.coarsePath(m, sx, sz, goal, COARSE_BUDGET);
     return this.alongTiles(m, sx, sz, goal, cp.tiles, cp.reached);
   }
 

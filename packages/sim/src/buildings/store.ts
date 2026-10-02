@@ -6,7 +6,7 @@
 import type { ByteReader, ByteWriter } from '../bytes.ts';
 import { COLUMNS_PER_CHUNK, floorDiv } from '../fixed.ts';
 import { CHUNK_SHIFT, chunkKey } from '../world/chunk.ts';
-import { buildingSpec, levelSpec, workSteps, UNFINISHED_HEALTH_PER_MILLE } from './data.ts';
+import { buildingSpec, footprintDims, levelSpec, workSteps, UNFINISHED_HEALTH_PER_MILLE } from './data.ts';
 
 const N = COLUMNS_PER_CHUNK;
 
@@ -15,8 +15,14 @@ export const Product = {
   Worker: 0,
   PlanksSoftwood: 1,
   PlanksHardwood: 2,
+  /** Table 7: a new warrior, with a hardwood club from the stock. */
+  Warrior: 3,
 } as const;
-export type Product = (typeof Product)[keyof typeof Product];
+export type Product = number;
+/** Research step r is product RESEARCH_PRODUCT + r; crafting item n is CRAFT_PRODUCT + n; refurbishing it, REFURBISH_PRODUCT + n. */
+export const RESEARCH_PRODUCT = 8;
+export const CRAFT_PRODUCT = 16;
+export const REFURBISH_PRODUCT = 48;
 
 export interface QueueItem {
   product: Product;
@@ -74,17 +80,24 @@ export function constructionHealth(kind: number, progress: number): number {
   return floorDiv(max * pm, 1000);
 }
 
+/** Where a building stands: its kind, footprint corner and variant (gates turn with variant 1). */
+export interface Placed {
+  kind: number;
+  x: number;
+  z: number;
+  variant?: number;
+}
+
 /** The solid rectangle in global columns, inclusive: [x0, z0, x1, z1]. */
-export function solidRect(b: { kind: number; x: number; z: number }): [number, number, number, number] {
-  const s = buildingSpec(b.kind);
-  const [sx, sz, sw, sd] = s.solid;
+export function solidRect(b: Placed): [number, number, number, number] {
+  const [sx, sz, sw, sd] = footprintDims(b.kind, b.variant ?? 0).solid;
   return [b.x + sx, b.z + sz, b.x + sx + sw - 1, b.z + sz + sd - 1];
 }
 
 /** The whole footprint in global columns, inclusive. */
-export function footprintRect(b: { kind: number; x: number; z: number }): [number, number, number, number] {
-  const s = buildingSpec(b.kind);
-  return [b.x, b.z, b.x + s.w - 1, b.z + s.d - 1];
+export function footprintRect(b: Placed): [number, number, number, number] {
+  const d = footprintDims(b.kind, b.variant ?? 0);
+  return [b.x, b.z, b.x + d.w - 1, b.z + d.d - 1];
 }
 
 export class BuildingStore {
@@ -94,6 +107,8 @@ export class BuildingStore {
   private readonly solid = new Map<number, Map<number, number>>();
   /** Derived: footprint columns (global column key to building id), for placement. */
   private readonly foot = new Map<number, number>();
+  /** Derived: gate columns per chunk (local indices). */
+  private readonly gates = new Map<number, Set<number>>();
 
   get(id: number): Building | undefined {
     return this.byId.get(id);
@@ -125,6 +140,7 @@ export class BuildingStore {
       }
     }
     const [sx0, sz0, sx1, sz1] = solidRect(b);
+    const isGate = buildingSpec(b.kind).defence === 'gate';
     const touched = new Set<number>();
     for (let z = sz0; z <= sz1; z++) {
       for (let x = sx0; x <= sx1; x++) {
@@ -142,6 +158,19 @@ export class BuildingStore {
         } else if (m && m.get(i) === b.id) {
           m.delete(i);
           if (m.size === 0) this.solid.delete(key);
+        }
+        if (isGate) {
+          let g = this.gates.get(key);
+          if (on) {
+            if (!g) {
+              g = new Set();
+              this.gates.set(key, g);
+            }
+            g.add(i);
+          } else if (g) {
+            g.delete(i);
+            if (g.size === 0) this.gates.delete(key);
+          }
         }
         touched.add(key);
       }
@@ -165,6 +194,16 @@ export class BuildingStore {
   solidIn(chunk: number): ReadonlySet<number> | undefined {
     const m = this.solid.get(chunk);
     return m ? new Set(m.keys()) : undefined;
+  }
+
+  /** For the walk map: the gate columns of a chunk. */
+  gatesIn(chunk: number): ReadonlySet<number> | undefined {
+    return this.gates.get(chunk);
+  }
+
+  /** Whether any building's solid part lies in a chunk. */
+  hasSolidIn(chunk: number): boolean {
+    return this.solid.has(chunk);
   }
 }
 
@@ -260,7 +299,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     };
     const nq = r.u8();
     for (let q = 0; q < nq; q++) {
-      const product = r.u8() as Product;
+      const product = r.u8();
       const progress = r.i32();
       const np = r.u8();
       const paid: Array<[number, number]> = [];

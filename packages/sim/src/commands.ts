@@ -13,7 +13,15 @@ import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } fr
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, type Order } from './orders.ts';
-import { UnitKind, type SimState } from './state.ts';
+import { SiteKind, UnitKind, type SimState } from './state.ts';
+import { hostile } from './combat/combat.ts';
+import { garrisonRoom, rangedOf } from './combat/fight.ts';
+import { ITEM_COUNT, SLOT_COUNT } from './combat/items.ts';
+import { addMob } from './combat/mob-ai.ts';
+import { MOBS } from './combat/mobs.ts';
+import { clockAt } from './clock.ts';
+import { equipBest, handPick } from './units/gear.ts';
+import { markSite } from './units/dig.ts';
 import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 
@@ -53,6 +61,7 @@ function ownUnits(state: SimState, player: number, ids: readonly number[]): numb
 function groupTargets(state: SimState, units: readonly number[], x: number, z: number): Array<[number, number]> {
   const e = state.entities;
   const n = units.length;
+  if (n === 0) return [];
   if (n === 1) return [[x, z]];
   let sx = 0;
   let sz = 0;
@@ -171,7 +180,7 @@ export function everyoneHome(state: SimState, player: number): void {
   const taken = new Map<number, number>();
   for (const b of shelters) taken.set(b.id, unitsInside(state, b.id).length);
   for (let i = 0; i < e.count; i++) {
-    if (e.owner[i] !== player || e.kind[i] === UnitKind.Wanderer || e.inside[i] !== 0) continue;
+    if (e.owner[i] !== player || e.kind[i] !== UnitKind.Worker || e.inside[i] !== 0) continue;
     const head = e.queue[i]![0];
     // Standing jobs (farmers) shelter in their own building by themselves.
     if (head?.t === 'job' || head?.t === 'enter' || head?.t === 'train') continue;
@@ -201,6 +210,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
   for (const o of canonicalOrders(orders)) {
     if (o.player >= state.players.length && o.kind !== 'terrain' && o.kind !== 'debugHarvest') continue;
+    // An eliminated player gives no more orders.
+    if (o.player < state.players.length && state.players[o.player]!.out) continue;
     switch (o.kind) {
       case 'move':
         applyMove(state, o);
@@ -216,7 +227,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
-        if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.crops?.length ?? 1)) break;
+        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.crops?.length ?? spec.variants?.length ?? 1)) break;
         giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
         break;
       }
@@ -234,7 +245,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'enter': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b && shelterRoom(b) > 0) giveAll(state, o, () => ({ t: 'enter', b: b.id, auto: 0 }));
+        // Workers shelter; ranged warriors garrison towers and parapets.
+        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && rangedOf(state, i) !== null) ? { t: 'enter', b: b.id, auto: 0 } : null));
         break;
       }
       case 'unload': {
@@ -307,6 +319,72 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'debugHarvest':
         state.world.harvest(o.cx, o.cz, o.index, o.amount, state.step);
+        break;
+      case 'attack': {
+        const t = e.indexOf(o.target);
+        if (t < 0 || e.hp[t]! <= 0) break;
+        giveAll(state, o, (i) => (hostile(state, i, t) ? { t: 'attack', id: o.target } : null));
+        break;
+      }
+      case 'attackMove': {
+        const units = ownUnits(state, o.player, o.units);
+        const targets = groupTargets(state, units, clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU));
+        units.forEach((i, k) => giveOrder(state, i, { t: 'attackMove', x: targets[k]![0], z: targets[k]![1] }, o.queued === true));
+        break;
+      }
+      case 'patrol': {
+        const units = ownUnits(state, o.player, o.units);
+        const targets = groupTargets(state, units, clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU));
+        units.forEach((i, k) => giveOrder(state, i, { t: 'patrol', x: targets[k]![0], z: targets[k]![1], x2: e.x[i]!, z2: e.z[i]!, leg: 0 }, o.queued === true));
+        break;
+      }
+      case 'hold':
+        for (const i of ownUnits(state, o.player, o.units)) {
+          stopUnit(state, i);
+          giveOrder(state, i, { t: 'hold' }, false);
+        }
+        break;
+      case 'equipBest':
+        equipBest(state, o.player, ownUnits(state, o.player, o.units));
+        break;
+      case 'equipItem': {
+        const [i] = ownUnits(state, o.player, [o.unit]);
+        if (i === undefined || o.slot < 0 || o.slot >= SLOT_COUNT || o.item < 0 || o.item >= ITEM_COUNT) break;
+        handPick(state, i, o.slot, o.item);
+        break;
+      }
+      case 'autoEquip':
+        state.players[o.player]!.autoEquip = o.on ? 1 : 0;
+        break;
+      case 'lock':
+        if (o.lock < 0 || o.lock > 2) break;
+        for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
+        break;
+      case 'dig':
+      case 'earthwork': {
+        const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
+        if (workers.length === 0) break;
+        const kind = o.kind === 'dig' ? (o.tunnel ? SiteKind.Tunnel : SiteKind.Dig) : o.variant === 1 ? SiteKind.Ramp : SiteKind.Bank;
+        const axis = o.kind === 'earthwork' ? o.axis & 1 : 0;
+        const site = markSite(state, o.player, kind, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, axis);
+        if (typeof site === 'string') {
+          alert(state, o.player, site);
+          break;
+        }
+        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+        break;
+      }
+      case 'trainSkill': {
+        const b = ownBuilding(state, o.player, o.building);
+        if (!b || b.kind !== BuildingKind.Barracks || o.skill !== 1) break;
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & 1) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
+        break;
+      }
+      case 'debugGive':
+        if (o.item > 0 && o.item < ITEM_COUNT) state.players[o.player]!.items[o.item] = state.players[o.player]!.items[o.item]! + o.count;
+        break;
+      case 'debugSpawn':
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
         break;
     }
   }

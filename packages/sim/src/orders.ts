@@ -191,7 +191,127 @@ export interface DebugHarvestOrder {
   amount: number;
 }
 
+/** A Attack on a unit: chase it until it dies or is lost. */
+export interface AttackOrder extends UnitsOrder {
+  kind: 'attack';
+  target: number;
+}
+
+/** A Attack on the ground: attack-move to a point (wu). */
+export interface AttackMoveOrder extends UnitsOrder {
+  kind: 'attackMove';
+  x: number;
+  z: number;
+}
+
+/** P Patrol between where each unit stands and a point (wu). */
+export interface PatrolOrder extends UnitsOrder {
+  kind: 'patrol';
+  x: number;
+  z: number;
+}
+
+/** H Hold Position. */
+export interface HoldOrder {
+  kind: 'hold';
+  player: number;
+  units: number[];
+}
+
+/** Q Equip Best. */
+export interface EquipBestOrder {
+  kind: 'equipBest';
+  player: number;
+  units: number[];
+}
+
+/** The equipment panel (I): one item (or 0 to take it off) for one slot of one unit. */
+export interface EquipItemOrder {
+  kind: 'equipItem';
+  player: number;
+  unit: number;
+  slot: number;
+  item: number;
+}
+
+/** F4 Auto-Equip on (1) or off (0). */
+export interface AutoEquipOrder {
+  kind: 'autoEquip';
+  player: number;
+  on: number;
+}
+
+/** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
+export interface LockOrder {
+  kind: 'lock';
+  player: number;
+  units: number[];
+  lock: number;
+}
+
+/** D Dig: a box of columns down to a floor (terrain units), or a tunnel between a floor and a roof. */
+export interface DigOrder extends UnitsOrder {
+  kind: 'dig';
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  level: number;
+  level2: number;
+  tunnel: number;
+}
+
+/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill. */
+export interface EarthworkOrder extends UnitsOrder {
+  kind: 'earthwork';
+  variant: number;
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  level: number;
+  level2: number;
+  axis: number;
+}
+
+/** Specialist training at a building (Table 7: Archery at the Barracks is skill 1). */
+export interface TrainSkillOrder extends UnitsOrder {
+  kind: 'trainSkill';
+  building: number;
+  skill: number;
+}
+
+/** Debug: puts items into a player's equipment stock. */
+export interface DebugGiveOrder {
+  kind: 'debugGive';
+  player: number;
+  item: number;
+  count: number;
+}
+
+/** Debug: a night mob at a point (wu), sent against the player. */
+export interface DebugSpawnOrder {
+  kind: 'debugSpawn';
+  player: number;
+  mob: number;
+  x: number;
+  z: number;
+}
+
 export type Order =
+  | AttackOrder
+  | AttackMoveOrder
+  | PatrolOrder
+  | HoldOrder
+  | EquipBestOrder
+  | EquipItemOrder
+  | AutoEquipOrder
+  | LockOrder
+  | DigOrder
+  | EarthworkOrder
+  | TrainSkillOrder
+  | DebugGiveOrder
+  | DebugSpawnOrder
   | MoveOrder
   | StopOrder
   | FollowOrder
@@ -259,9 +379,22 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   terrain: ['x0', 'z0', 'x1', 'z1', 'bottom', 'top', 'material'],
   debugReveal: ['x', 'z', 'radius'],
   debugHarvest: ['cx', 'cz', 'index', 'amount'],
+  attack: ['target'],
+  attackMove: ['x', 'z'],
+  patrol: ['x', 'z'],
+  hold: [],
+  equipBest: [],
+  equipItem: ['unit', 'slot', 'item'],
+  autoEquip: ['on'],
+  lock: ['lock'],
+  dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
+  earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
+  trainSkill: ['building', 'skill'],
+  debugGive: ['item', 'count'],
+  debugSpawn: ['mob', 'x', 'z'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -286,6 +419,13 @@ export function validateOrder(o: Order): void {
       return;
     case 'produce':
       if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
+      return;
+    case 'dig':
+    case 'earthwork':
+      if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
+      return;
+    case 'debugGive':
+      if (o.count < 1 || o.count > 1000) throw new Error('debug give count out of range');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

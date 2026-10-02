@@ -37,6 +37,8 @@ export interface ModelData {
   clips: ReadonlyMap<string, BakedClip>;
   /** Rest-pose bounds of the body without parts, metres. */
   boundingBox: THREE.Box3;
+  /** Each bone's rest-pose world matrix (model space): where attachment slots sit. */
+  restWorld: readonly THREE.Matrix4[];
 }
 
 export interface ModelLibrary {
@@ -168,6 +170,7 @@ async function loadModel(loader: GLTFLoader, baseUrl: string, entry: ModelIndex[
     partNames: sidecar.parts,
     clips,
     boundingBox: new THREE.Box3(new THREE.Vector3(...min), new THREE.Vector3(...max)),
+    restWorld,
   };
 }
 

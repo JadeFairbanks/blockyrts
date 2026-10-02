@@ -7,9 +7,13 @@ import * as THREE from 'three';
 import {
   clockAt,
   COLUMNS_PER_CHUNK,
+  ITEMS,
+  Lock,
+  MONSTERS,
+  mobSpec,
+  RANK_NAMES as UNIT_RANK_NAMES,
   NEUTRAL,
   NO_CARRY,
-  OrderKind,
   Period,
   RESOURCES,
   unitOrderText,
@@ -26,16 +30,16 @@ import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
 import { S, STATE_STRIDE } from '../messages.ts';
-import { InstancedModel, loadModelLibrary, type ModelLibrary } from '../models/index.ts';
+import { loadModelLibrary, type ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { BuildingsView } from './buildings-view.ts';
+import { UnitsView } from './units-view.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
 
-const STEP_MS = 50;
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
 const FULL_DETAIL_RING = 2;
 const HALF_DETAIL_RING = 4;
@@ -46,33 +50,19 @@ const FOW_TILES = 256;
 const FOG_TILES_PER_CHUNK = 16;
 /** Seconds between redraws of full-detail chunks so growing trees and regrowing bushes show. */
 const GROWTH_REFRESH_S = 20;
-const MAX_UNITS = 2048;
 const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 
 /** Player colours (decision 8's placeholder blue is player 1). */
 export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
-const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer'];
+const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
 const TOOL_NAMES = ['no', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
-/** Animation clip by OrderKind. */
-const CLIPS = ['idle', 'walk', 'chop', 'chop', 'hoe', 'walk', 'walk'];
-const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer'];
+const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob'];
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
 const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
-/** Colour of a carried load by resource. */
-const LOAD_COLOURS = new Map<number, THREE.Color>();
-function loadColour(res: number): THREE.Color {
-  let c = LOAD_COLOURS.get(res);
-  if (!c) {
-    const name = RESOURCES[res]?.name.toLowerCase() ?? '';
-    c = new THREE.Color(name.includes('softwood') ? 0xb07a48 : name.includes('hardwood') ? 0x7a4e2a : name.includes('stone') ? 0x9a9a94 : name.includes('flint') ? 0x5a5a66 : name.includes('herb') ? 0x4a9a4a : name.includes('stick') ? 0x8a6a3a : 0xc8b070);
-    LOAD_COLOURS.set(res, c);
-  }
-  return c;
-}
 
 function geometryOf(a: MeshArrays): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
@@ -155,11 +145,7 @@ export class WorldView {
   private currAt = 0;
   private readonly units: Selectable[] = [];
   private models: ModelLibrary | null = null;
-  private readonly unitModels: InstancedModel[] = [];
-  private readonly fallback: THREE.InstancedMesh;
-  private readonly fallbackDummy = new THREE.Object3D();
-  /** Loads carried on the back: a small block in the resource's colour. */
-  private readonly loads: THREE.InstancedMesh;
+  private readonly unitsView: UnitsView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   readonly buildings: BuildingsView;
@@ -204,14 +190,7 @@ export class WorldView {
       this.inflight.push(0);
     }
 
-    this.fallback = new THREE.InstancedMesh(new THREE.BoxGeometry(0.45, 1.69, 0.45).translate(0, 0.845, 0), new THREE.MeshLambertMaterial(), MAX_UNITS);
-    this.fallback.count = 0;
-    this.fallback.frustumCulled = false;
-    scene.add(this.fallback);
-    this.loads = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.3, 0.2), new THREE.MeshLambertMaterial(), MAX_UNITS);
-    this.loads.count = 0;
-    this.loads.frustumCulled = false;
-    scene.add(this.loads);
+    this.unitsView = new UnitsView(scene);
     this.buildings = new BuildingsView(scene, this.fow, PLAYER_COLOURS);
     this.overlay = new Overlay(scene);
     void this.loadModels();
@@ -235,13 +214,7 @@ export class WorldView {
     try {
       const lib = await loadModelLibrary(`${import.meta.env.BASE_URL}models/`);
       this.models = lib;
-      for (const id of ['worker', 'warrior']) {
-        const m = new InstancedModel(lib.get(id), MAX_UNITS);
-        m.object.frustumCulled = false;
-        this.unitModels.push(m);
-        this.scene.add(m.object);
-      }
-      this.fallback.visible = false;
+      this.unitsView.setModels(lib);
       this.buildings.setModels(lib);
     } catch (err) {
       console.warn('unit models not loaded; drawing blocks', err);
@@ -279,19 +252,43 @@ export class WorldView {
         this.units[i] = u;
       }
       if (d[o + S.inside] !== 0) this.insideKeys.add(key);
+      const health = `Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`;
       if (kind === UnitKind.Worker) {
         const rank = d[o + S.rank]!;
         u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
-        const details = [`Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`, `${capital(TOOL_NAMES[d[o + S.tool]!] ?? '')} tools.`];
+        const details = [health, `${capital(TOOL_NAMES[d[o + S.tool]!] ?? '')} tools.`];
         const carry = d[o + S.carryRes]!;
         if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
+        if (d[o + S.torch] === 1) details.push('Carrying a lit torch.');
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
         }
         u.details = details;
-      } else if (kind === UnitKind.Warrior) u.details = ['Placeholder warrior until combat (M3).'];
+      } else if (kind === UnitKind.Warrior) {
+        const rank = d[o + S.rank]!;
+        u.label = `Warrior (${UNIT_RANK_NAMES.warrior[rank] ?? `rank ${rank}`})`;
+        const item = (slot: number): string => ITEMS[d[o + slot]!]?.name ?? '';
+        const gear = [item(S.weapon), d[o + S.backup] ? `${item(S.backup)} as backup` : '', d[o + S.ranged] ? `${item(S.ranged)} (${d[o + S.ammo]} shots)` : '', item(S.shield), item(S.boots)].filter((x) => x && x !== 'Nothing');
+        const details = [health, gear.length > 0 ? `${gear.join(', ')}.` : 'Unarmed.'];
+        if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
+        else if (d[o + S.lock] === Lock.Ranged) details.push('Locked to ranged.');
+        if (d[o + S.skills]! & 1) details.push('Trained in archery.');
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
+      } else if (kind === UnitKind.Mob) {
+        const spec = mobSpec(d[o + S.mob]!);
+        u.label = spec.name;
+        u.typeKey = `mob:${spec.id}`;
+        u.owner = MONSTERS;
+        u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
+        u.details = [health];
+      }
     }
+    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
   }
 
   /** The screen's copy of the game (buildings, order lists) for the buildings and the unit panels. */
@@ -581,63 +578,30 @@ export class WorldView {
   private updateUnits(now: number): void {
     const curr = this.curr;
     if (!curr) return;
-    const prev = this.prev && this.prev.count === curr.count ? this.prev : null;
-    const alpha = prev ? Math.min(1, (now - this.currAt) / STEP_MS) : 1;
-    const counts = [0, 0];
-    const t = now / 1000;
-    let drawn = 0;
-    let loads = 0;
-    const dummy = this.fallbackDummy;
-    for (let i = 0; i < curr.count; i++) {
-      const o = i * STATE_STRIDE;
-      const d = curr.data;
-      if (d[o + S.inside] !== 0) continue;
-      const p = prev && alpha < 1 && prev.data[o + S.id] === d[o + S.id] ? prev.data : d;
-      const x = (p[o + S.x]! + (d[o + S.x]! - p[o + S.x]!) * alpha) / WU_PER_METRE;
-      const y = (p[o + S.y]! + (d[o + S.y]! - p[o + S.y]!) * alpha) / WU_PER_METRE;
-      const z = (p[o + S.z]! + (d[o + S.z]! - p[o + S.z]!) * alpha) / WU_PER_METRE;
-      const heading = (d[o + S.heading]! / 65536) * Math.PI * 2;
-      const owner = d[o + S.owner]!;
-      const kind = d[o + S.kind]!;
-      const order = d[o + S.order]!;
-      const colour = owner === NEUTRAL ? NEUTRAL_COLOUR : (PLAYER_COLOURS[owner] ?? NEUTRAL_COLOUR);
-      this.units[i]?.centre.set(x, y + 0.85, z);
-      if (this.unitModels.length > 0) {
-        const m = kind === UnitKind.Warrior ? 1 : 0;
-        const model = this.unitModels[m]!;
-        model.setInstance(counts[m]!++, x, y, z, heading, CLIPS[order] ?? (order !== OrderKind.Idle ? 'walk' : 'idle'), t + (d[o + S.id]! % 7) * 0.37, colour);
-      } else {
-        dummy.position.set(x, y, z);
-        dummy.rotation.set(0, heading, 0);
-        dummy.updateMatrix();
-        this.fallback.setMatrixAt(drawn, dummy.matrix);
-        this.fallback.setColorAt(drawn, colour);
-      }
-      drawn++;
-      const carry = d[o + S.carryRes]!;
-      if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) {
-        // On the back: behind the unit (the model faces -Z at heading 0).
-        dummy.position.set(x + Math.sin(heading) * 0.22, y + 1.05, z + Math.cos(heading) * 0.22);
-        dummy.rotation.set(0, heading, 0);
-        dummy.updateMatrix();
-        this.loads.setMatrixAt(loads, dummy.matrix);
-        this.loads.setColorAt(loads, loadColour(carry));
-        loads++;
-      }
-    }
-    if (this.unitModels.length > 0) {
-      this.unitModels.forEach((m, k) => {
-        m.setCount(counts[k]!);
-        m.commit();
-      });
-    } else {
-      this.fallback.count = drawn;
-      this.fallback.instanceMatrix.needsUpdate = true;
-      if (this.fallback.instanceColor) this.fallback.instanceColor.needsUpdate = true;
-    }
-    this.loads.count = loads;
-    this.loads.instanceMatrix.needsUpdate = true;
-    if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
+    this.unitsView.update({
+      curr,
+      prev: this.prev,
+      sinceMs: now - this.currAt,
+      now,
+      player: this.player,
+      colours: PLAYER_COLOURS,
+      neutral: NEUTRAL_COLOUR,
+      seen: (x, z) => this.seenNow(x, z),
+      place: (i, x, y, z) => {
+        const u = this.units[i];
+        if (u) u.centre.set(x, y + u.halfSize.y, z);
+      },
+    });
+  }
+
+  /** Whether a point (metres) is in sight of the local player's units now; everything is, with the debug show-all. */
+  seenNow(x: number, z: number): boolean {
+    if (this.showAll) return true;
+    const a = this.fow.fowArea.value;
+    const tx = Math.floor((x - a.x) / FOW_TILE_M);
+    const tz = Math.floor((z - a.y) / FOW_TILE_M);
+    if (tx < 0 || tz < 0 || tx >= FOW_TILES || tz >= FOW_TILES) return false;
+    return this.fowData[tz * FOW_TILES + tx] === 255;
   }
 
   // ---- Day and night ----

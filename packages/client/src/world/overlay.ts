@@ -90,6 +90,22 @@ export class Overlay {
     }
   }
 
+  /** A see-through box: its twelve edges (metres). */
+  box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, c: THREE.Color): void {
+    this.rect(x0, z0, x1, z1, y0, c);
+    this.rect(x0, z0, x1, z1, y1, c);
+    this.reserve(8);
+    for (const [x, z] of [
+      [x0, z0],
+      [x1, z0],
+      [x1, z1],
+      [x0, z1],
+    ] as const) {
+      this.vertex(x, y0, z, c);
+      this.vertex(x, y1, z, c);
+    }
+  }
+
   /** A rectangle on the ground (metres). */
   rect(x0: number, z0: number, x1: number, z1: number, y: number, c: THREE.Color): void {
     const p = [

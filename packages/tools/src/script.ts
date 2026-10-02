@@ -6,6 +6,8 @@ export interface OrderScript {
   description?: string;
   /** Players in the game (1 to 8): the start basin and pockets depend on it. Default 1. */
   players?: number;
+  /** No night mobs: the scripts that check the world and the economy (milestones 0 to 2). */
+  peaceful?: boolean;
   frames: InputFrame[];
 }
 

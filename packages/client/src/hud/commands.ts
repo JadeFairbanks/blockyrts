@@ -6,20 +6,41 @@
 // world looks like comes from GameInfo and the selectables under the cursor.
 import * as THREE from 'three';
 import {
+  ARCHERY,
   BuildingKind,
   BUILDINGS,
   buildingSpec,
+  CRAFT_PRODUCT,
+  craftable,
+  footprintDims,
+  Item,
+  itemSpec,
+  ITEMS,
   levelSpec,
-  PRODUCTS,
+  MONSTERS,
   Product,
+  productSpec,
   RANK_TRAINING,
+  REFURBISH_PRODUCT,
+  RESEARCH,
+  RESEARCH_PRODUCT,
+  Research,
   RESOURCES,
+  SiteKind,
+  SITE_MAX_COLUMNS,
+  Slot,
+  SLOT_NAMES,
+  toolItem,
+  UnitKind,
   WU_PER_COLUMN,
   WU_PER_METRE,
+  WU_PER_TERRAIN_UNIT,
   type BuildingSpec,
   type Cost,
+  type ItemSpec,
   type Order,
 } from '@blockyrts/sim';
+import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import { GRID_CODES, keyFor } from '../input/bindings.ts';
 import type { BuildingInfo } from '../messages.ts';
@@ -52,7 +73,66 @@ export interface CardEntry {
 
 export type Card = Array<CardEntry | null>;
 
-type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally';
+type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol';
+
+/** Pages of the command card: the main card, the build menus, the K and F pages of a Big House, and the I equipment panel. */
+export type CardPage = 'main' | 'basic' | 'advanced' | 'craft' | 'refurbish' | 'equip';
+
+/** Dig (D) and earthworks: an area dragged on the ground, then confirmed with a left click (Dig: area, depth, preview, tunnels). */
+export interface Area {
+  mode: 'dig' | 'earthwork';
+  /** Earthworks: 0 earth bank, 1 earth ramp, 2 fill. */
+  variant: number;
+  /** Global columns where the drag started, and where it is now or ended. */
+  from: { x: number; z: number } | null;
+  to: { x: number; z: number } | null;
+  dragging: boolean;
+  /** Dig depth or bank height, terrain units. */
+  units: number;
+  /** A tunnel's height, terrain units. */
+  tunnelUnits: number;
+}
+
+/** What an area would mark, in the sim's terms, with the heights the preview draws. */
+export interface AreaPlan {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  /** Dig: the face is a hillside, so this is a tunnel. */
+  tunnel: boolean;
+  /** As in the dig and earthwork orders (terrain units). */
+  level: number;
+  level2: number;
+  axis: number;
+  /** Ground at the drag start, and the highest and lowest ground in the box (terrain units). */
+  start: number;
+  top: number;
+  low: number;
+  /** Earthworks: Earth it needs (one per column per terrain unit raised). */
+  earth: number;
+}
+
+/** A terrain unit in metres (about 11 cm). */
+export const TERRAIN_UNIT_M = WU_PER_TERRAIN_UNIT / WU_PER_METRE;
+/** Depth and height steps of the + and - buttons and the wheel: 3 units, about 34 cm (s). */
+export const AREA_STEP_UNITS = 3;
+/** Depth of a new dig and height of a new bank: 9 units, about 1 m (s). */
+export const AREA_DEFAULT_UNITS = 9;
+/** The dig limit: 3 m below the natural ground (Digging and building up the land). */
+export const AREA_MAX_UNITS = 27;
+/** A dig starts a tunnel when the box rises this far above where the drag started: a face about 2.25 m tall (s). */
+export const TUNNEL_FACE_UNITS = 20;
+/** Tunnel height: 2.25 m by default, at least 2 m of headroom (s). */
+export const TUNNEL_UNITS = 20;
+const TUNNEL_MIN_UNITS = 18;
+const TUNNEL_MAX_UNITS = 36;
+const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill'];
+
+/** Units by kind: which slots the I panel shows. */
+const WORKER_SLOTS: readonly Slot[] = [Slot.Tool, Slot.Boots, Slot.Torch];
+const WARRIOR_SLOTS: readonly Slot[] = [Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Ammo, Slot.Torch];
+const LOCK_FACES = ['Auto', 'Melee', 'Ranged'];
 
 export interface Targeting {
   command: TargetCommand;
@@ -86,7 +166,7 @@ export interface CommandDeps {
   message(text: string, kind?: 'system' | 'alert'): void;
   marker(at: THREE.Vector3, kind: 'move' | 'target'): void;
   /** Ask the sim for placement tiles at these corners; answers come back through onPlaced. */
-  askPlacement(kind: number, spots: Array<[number, number]>): void;
+  askPlacement(kind: number, variant: number, spots: Array<[number, number]>): void;
   /** A resource node's selectable by chunk and index, if it is loaded. */
   node(cx: number, cz: number, index: number): Selectable | undefined;
   /** Ground height in metres. */
@@ -110,11 +190,12 @@ export function menuSlots(menu: 'basic' | 'advanced'): BuildingSpec[][] {
   return out;
 }
 
-/** The choices of a submenu: each building, and each crop of a farm, in grid order. */
+/** The choices of a submenu: each building, each crop of a farm, each way of a gate or earthwork, in grid order. */
 export function submenuChoices(specs: readonly BuildingSpec[]): Array<{ spec: BuildingSpec; variant: number; name: string }> {
   const out: Array<{ spec: BuildingSpec; variant: number; name: string }> = [];
   for (const spec of specs) {
     if (spec.crops && spec.kind !== BuildingKind.HerbBed) spec.crops.forEach((c, v) => out.push({ spec, variant: v, name: c.name }));
+    else if (spec.variants) spec.variants.forEach((name, v) => out.push({ spec, variant: v, name }));
     else out.push({ spec, variant: 0, name: spec.name });
   }
   return out.slice(0, 14);
@@ -134,9 +215,11 @@ function seconds(ws: number): string {
 const SUBMENU_NAMES: Record<string, string> = { '2': 'Farms', '10': 'Walls', '11': 'Earthworks', '13': 'Lights' };
 
 export class Commands {
-  menu: { page: 'main' | 'basic' | 'advanced'; sub: number } = { page: 'main', sub: -1 };
+  menu: { page: CardPage; sub: number } = { page: 'main', sub: -1 };
   targeting: Targeting | null = null;
   placing: Placing | null = null;
+  area: Area | null = null;
+  private plan: { sig: string; plan: AreaPlan | null } = { sig: '', plan: null };
   private placeAsked = '';
   private lastPlaceAsk = 0;
 
@@ -178,6 +261,10 @@ export class Commands {
 
   /** Esc: back out of a target, a ghost or a submenu; true if there was one. */
   back(): boolean {
+    if (this.area) {
+      this.endArea();
+      return true;
+    }
     if (this.placing) {
       this.endPlacing();
       return true;
@@ -188,7 +275,8 @@ export class Commands {
       return true;
     }
     if (this.menu.page !== 'main') {
-      this.menu = this.menu.sub >= 0 ? { page: this.menu.page, sub: -1 } : { page: 'main', sub: -1 };
+      const menus = this.menu.page === 'basic' || this.menu.page === 'advanced' || this.menu.page === 'equip';
+      this.menu = this.menu.sub >= 0 && menus ? { page: this.menu.page, sub: -1 } : { page: 'main', sub: -1 };
       this.d.changed();
       return true;
     }
@@ -199,6 +287,7 @@ export class Commands {
   reset(): void {
     this.menu = { page: 'main', sub: -1 };
     this.targeting = null;
+    this.area = null;
     if (this.placing) this.endPlacing();
   }
 
@@ -207,15 +296,19 @@ export class Commands {
   card(): Card {
     const card: Card = Array.from({ length: 15 }, () => null);
     const active = this.d.activeType();
-    if (this.placing || this.targeting) {
+    if (this.placing || this.targeting || this.area) {
       card[14] = this.cancelEntry();
     }
     if (active === null) return card;
+    if (this.area && active === 'worker') return this.areaCard(card);
     if (active === 'worker' || active === 'warrior') {
-      if (this.menu.page !== 'main' && active === 'worker') return this.buildMenuCard(card);
+      if (this.menu.page === 'equip') return this.equipCard(card);
+      if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
       this.unitCard(card, active);
     } else if (active.startsWith('building:')) {
-      this.buildingCard(card, Number(active.split(':')[1]));
+      const kind = Number(active.split(':')[1]);
+      if (this.menu.page === 'craft' || this.menu.page === 'refurbish') return this.craftCard(card, kind, this.menu.page);
+      this.buildingCard(card, kind);
     }
     return card;
   }
@@ -226,7 +319,11 @@ export class Commands {
       face: 'Cancel',
       name: 'Cancel',
       key: 'Escape',
-      description: this.placing ? 'Put the building away without placing it. Right click does the same.' : 'Cancel the command waiting for a target. Right click does the same.',
+      description: this.placing
+        ? 'Put the building away without placing it. Right click does the same.'
+        : this.area
+          ? 'Stop marking the area. Right click does the same.'
+          : 'Cancel the command waiting for a target. Right click does the same.',
       enabled: true,
       reason: '',
       run: () => this.back(),
@@ -244,10 +341,10 @@ export class Commands {
 
   private unitCard(card: Card, active: string): void {
     const t = this.targeting?.command;
-    card[0] = this.off('attack', 'Attack', 'Click an enemy to attack it, or ground to attack-move.', 'Comes with combat (milestone 3).');
+    card[0] = this.entry('attack', 'Attack', 'Then left click an enemy to attack it, or ground to attack-move there: walk, and fight whatever comes in range on the way. Right click or Esc cancels.', () => this.target('attack', 'attack'), { lit: t === 'attack' });
     card[1] = this.entry('stop', 'Stop', 'Cancel every queued order; units stand still but fight back.', () => this.stop());
-    card[2] = this.off('hold', 'Hold', 'Cancel every order and never move, not even to chase.', 'Comes with combat (milestone 3).', 'Hold Position');
-    card[3] = this.off('patrol', 'Patrol', 'Walk back and forth between here and a point, fighting on the way.', 'Comes with combat (milestone 3).');
+    card[2] = this.entry('hold', 'Hold', 'Cancel every order and never move, not even to chase: they fight only what comes in reach.', () => this.hold(), { name: 'Hold Position' });
+    card[3] = this.entry('patrol', 'Patrol', 'Then left click ground: they walk back and forth between here and there, fighting whatever they meet.', () => this.target('patrol', 'patrol'), { lit: t === 'patrol' });
     card[4] = this.entry('move', 'Move', 'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several.', () => this.target('move', 'move'), { lit: t === 'move' });
     if (active === 'worker') {
       const workers = this.workerIds();
@@ -266,13 +363,77 @@ export class Commands {
         () => this.target('repair', 'repair'),
         { lit: t === 'repair', double: () => this.repairAll() },
       );
-      card[8] = this.off('dig', 'Dig', 'Mark an area to dig out or tunnel into.', 'Comes with digging (milestone 3).');
+      card[8] = this.entry(
+        'dig',
+        'Dig',
+        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Marking a hillside or cliff face digs a tunnel into it instead. Digging gives Earth, stone or what the ground is made of.',
+        () => this.startArea('dig', 0),
+      );
       card[9] = this.off('prospect', 'Prospect', 'Look for ore under the ground.', 'Comes with mining (milestone 4).');
       card[10] = this.entry('buildBasic', 'Build', 'Open the Basic Structures menu: homes, farms, storage, walls, lights. Grid keys pick a building; B is Back.', () => this.openMenu('basic'), { name: 'Build Basic Structures' });
       card[11] = this.entry('buildAdvanced', 'Adv.', 'Open the Advanced Structures menu: buildings that need rare resources or technology.', () => this.openMenu('advanced'), { name: 'Build Advanced Structures' });
-      card[13] = this.rankEntry(workers);
+      card[13] = this.equipBestEntry();
+      if (!card[14]) card[14] = this.equipmentEntry();
+    } else {
+      card[5] = this.equipBestEntry();
+      card[6] = this.equipmentEntry();
+      card[7] = this.lockEntry();
+      card[8] = this.archeryEntry();
     }
-    card[12] = this.entry('enter', 'Enter', 'Then left click a main base or farm to shelter inside. Sheltering units take 10% of the damage the building takes.', () => this.target('enter', 'enter'), { lit: t === 'enter' });
+    card[12] = this.entry(
+      'enter',
+      'Enter',
+      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors garrison towers (4) and the parapets of a level 3 main base (8) and shoot from the top.',
+      () => this.target('enter', 'enter'),
+      { lit: t === 'enter' },
+    );
+  }
+
+  private equipBestEntry(): CardEntry {
+    const units = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const desc =
+      'Every selected unit gets the best equipment in the stock that it can use, the highest ranks first, and walks to the nearest main base to collect it. Hand-picked items are left alone.';
+    const base = this.d.game.mainBases().some((b) => b.complete);
+    if (!base) return this.off('equipBest', 'Equip', desc, 'There is no main base to collect equipment at.', 'Equip Best');
+    return this.entry('equipBest', 'Equip', desc, () => {
+      if (units.length === 0) return;
+      this.d.send({ kind: 'equipBest', player: this.d.player, units });
+    }, { name: 'Equip Best' });
+  }
+
+  private equipmentEntry(): CardEntry {
+    const units = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const desc = 'With one unit selected: what it wears and holds, and the items in the stock that fit each slot. Pick one and the unit walks to the main base to collect it.';
+    if (units.length !== 1) return this.off('equipment', 'Gear', desc, 'Select a single unit.', 'Equipment');
+    return this.entry('equipment', 'Gear', desc, () => {
+      this.menu = { page: 'equip', sub: -1 };
+      this.d.changed();
+    }, { name: 'Equipment' });
+  }
+
+  private lockEntry(): CardEntry {
+    const warriors = this.unitIds((u) => u.typeKey === 'warrior');
+    const lock = this.d.game.unit(warriors[0] ?? -1)?.lock ?? 0;
+    const next = (lock + 1) % 3;
+    return this.entry(
+      'lock',
+      LOCK_FACES[lock]!,
+      `Now: ${LOCK_FACES[lock]!.toLowerCase()}${lock === 0 ? ' (ranged while the enemy is far, melee when it gets close)' : ' only'}. Press to switch to ${LOCK_FACES[next]!.toLowerCase()}${next === 0 ? ' (switches by itself)' : ' only'}.`,
+      () => this.d.send({ kind: 'lock', player: this.d.player, units: warriors, lock: next }),
+      { name: 'Ranged or melee lock', lit: lock !== 0 },
+    );
+  }
+
+  private archeryEntry(): CardEntry {
+    const name = 'Train in archery';
+    const desc = `Send them to a Barracks to learn the bow, one at a time: ${ARCHERY.food} food and ${ARCHERY.steps / 20} s each. Slings and javelins need no training.`;
+    const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & 1) === 0);
+    if (untrained.length === 0) return this.off('archery', 'Archery', desc, 'They are already trained in archery.', name);
+    if (!this.d.game.researched(Research.FlintTools)) return this.off('archery', 'Archery', desc, "Needs Flint tools researched first (Scholar's Lodge).", name);
+    const barracks = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === BuildingKind.Barracks && b.complete);
+    if (!barracks) return this.off('archery', 'Archery', desc, 'Needs a Barracks.', name);
+    if (this.d.game.food() < ARCHERY.food) return this.off('archery', 'Archery', desc, `Not enough food (needs ${ARCHERY.food}).`, name);
+    return this.entry('archery', 'Archery', desc, () => this.d.send({ kind: 'trainSkill', player: this.d.player, units: untrained, building: barracks.id, skill: 1, queued: this.d.queued() }), { name });
   }
 
   private rankEntry(workers: number[]): CardEntry {
@@ -353,8 +514,9 @@ export class Commands {
     if (l.gives) lines.push(`Gives: ${l.gives}.`);
     if (l.supply) lines.push(`Supply +${l.supply}.`);
     if (spec.light) lines.push(`Light ${spec.light.lightM} m${spec.light.claimM ? `, claims ${spec.light.claimM} m while lit` : ''}.`);
-    if (spec.w === 1 && spec.d === 1 && spec.light) lines.push('Drag to place a line of them.');
-    lines.push('Shift + click to place several.');
+    if (spec.site) lines.push(EARTHWORK_HELP[variant] ?? '');
+    else if (spec.w === 1 && spec.d === 1) lines.push(spec.light ? 'Drag to place a line of them, 8 m apart.' : 'Drag to place a line, a column at a time.');
+    if (!spec.site) lines.push('Shift + click to place several.');
     if (short) lines.push(short);
     return {
       action: `build-${spec.kind}-${variant}`,
@@ -366,7 +528,7 @@ export class Commands {
       enabled: why === '',
       reason: why,
       short: short !== '',
-      run: () => this.startPlacing(spec.kind, variant),
+      run: () => (spec.site ? this.startArea('earthwork', variant) : this.startPlacing(spec.kind, variant)),
     };
   }
 
@@ -375,30 +537,19 @@ export class Commands {
     if (all.length === 0) return;
     const spec = buildingSpec(kind);
     const first = all[0]!;
-    // Production: Workers at the Big House and farms, planks at the mill.
-    const products = first.complete ? (spec.trainsWorkers ? [Product.Worker] : kind === BuildingKind.LumberMill ? [Product.PlanksSoftwood, Product.PlanksHardwood] : []) : [];
-    const productAction = ['trainWorker', 'planksSoft', 'planksHard'];
-    products.forEach((p, i) => {
-      const ps = PRODUCTS[p]!;
-      const action = productAction[p]!;
-      const costs = ps.food > 0 ? `${ps.food} food` : costLine(ps.cost);
-      let reason = '';
-      if (ps.food > 0 && this.d.game.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
-      else if (ps.food === 0) reason = this.d.game.costProblem(ps.cost);
-      const info = this.d.game.info;
-      if (!reason && p === Product.Worker && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
-      if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
-      card[i] = {
-        action,
-        face: p === Product.Worker ? 'Worker' : p === Product.PlanksSoftwood ? 'Planks S' : 'Planks H',
-        name: ps.name,
-        key: this.key(action),
-        description: `${ps.tooltip} Cost: ${costs}. Time: ${ps.steps / 20} s. Shift: queue 5.`,
-        enabled: reason === '',
-        reason,
-        run: (press) => this.produce(all, p, press.shift ? 5 : 1),
-      };
-    });
+    // Production: workers and warriors at the Big House, workers at farms, planks at the mill, warriors at the Barracks, research at the lodge.
+    const rows: Array<[number, string, string, number]> = [];
+    if (first.complete) {
+      if (spec.trainsWorkers) rows.push([Product.Worker, 'trainWorker', 'Worker', 0]);
+      if (kind === BuildingKind.MainBase || kind === BuildingKind.Barracks) rows.push([Product.Warrior, 'trainWarrior', 'Warrior', 1]);
+      if (kind === BuildingKind.LumberMill) rows.push([Product.PlanksSoftwood, 'planksSoft', 'Planks S', 0], [Product.PlanksHardwood, 'planksHard', 'Planks H', 1]);
+      if (kind === BuildingKind.ScholarsLodge) rows.push([RESEARCH_PRODUCT + Research.FlintTools, 'research', 'Flint', 0]);
+    }
+    for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
+    if (first.complete && kind === BuildingKind.MainBase) {
+      card[5] = this.entry('craft', 'Craft', 'Open the crafting menu: tools, weapons, shields, boots, arrows and torches for the equipment stock. Grid keys pick an item; B is Back.', () => this.openMenu('craft'), { name: 'Craft' });
+      card[6] = this.entry('refurbish', 'Refurb.', 'Take items out of the stock and get back everything they were made from, ten times faster than making them.', () => this.openMenu('refurbish'), { name: 'Refurbish' });
+    }
     if (first.complete && spec.trainsWorkers) {
       card[9] = this.entry('rally', 'Rally', 'Then left click ground, a unit or a resource node: new workers go there (and gather, on a node). Shift adds a waypoint. Right click with the building selected does the same.', () => this.target('rally', 'rally'), {
         name: 'Set Rally Point',
@@ -439,6 +590,165 @@ export class Commands {
     }
   }
 
+  /** A training, making or research button, greyed out with the reason it cannot be queued. */
+  private productEntry(all: BuildingInfo[], p: number, action: string, face: string, grid?: number): CardEntry {
+    const ps = productSpec(p);
+    const g = this.d.game;
+    const info = g.info;
+    const making = ps.item !== undefined && p < REFURBISH_PRODUCT;
+    const costs = ps.food > 0 ? `${ps.food} food` : making ? itemSpec(ps.item!).recipes.map(costLine).join(', or ') : costLine(ps.cost);
+    const takes = making || ps.item === undefined ? (ps.items ?? []) : [];
+    let reason = '';
+    if (ps.research !== undefined && g.researched(ps.research)) reason = 'Already researched.';
+    else if (ps.research !== undefined && [...g.buildings.values()].some((b) => b.owner === this.d.player && b.queue.some((q) => q.product === p))) reason = 'Being researched.';
+    else if (making && !g.researched(itemSpec(ps.item!).research)) reason = `Needs ${RESEARCH[itemSpec(ps.item!).research]!.name} researched first (Scholar's Lodge).`;
+    else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
+    else if (making) reason = itemSpec(ps.item!).recipes.some((r) => g.shortOf(r) < 0) ? '' : g.costProblem(itemSpec(ps.item!).recipes[0] ?? []);
+    else if (ps.food === 0) reason = g.costProblem(ps.cost);
+    if (!reason && p >= REFURBISH_PRODUCT && g.stock(ps.item!) < (ps.items?.[0]?.[1] ?? 1)) reason = 'None in the equipment stock.';
+    for (const [it, n] of takes) if (!reason && g.stock(it) < n) reason = `Needs ${n === 1 ? 'a' : n} ${itemSpec(it).name.toLowerCase()} in the equipment stock.`;
+    if (!reason && (p === Product.Worker || p === Product.Warrior) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+    if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
+    const stock = ps.item !== undefined ? ` In stock: ${g.stock(ps.item)}.` : '';
+    const extra = takes.length > 0 ? ` and ${takes.map(([it, n]) => `${n} ${itemSpec(it).name.toLowerCase()}`).join(', ')} from the stock` : '';
+    const what = p >= REFURBISH_PRODUCT ? ps.tooltip : `${ps.tooltip} Cost: ${costs}${extra}.`;
+    return {
+      action,
+      face,
+      name: ps.name,
+      key: grid !== undefined ? GRID_CODES[grid]! : this.key(action),
+      grid: grid !== undefined,
+      description: `${what} Time: ${Math.round(ps.steps / 2) / 10} s.${stock} Shift: queue 5.`,
+      enabled: reason === '',
+      reason,
+      run: (press) => this.produce(all, p, press.shift ? 5 : 1),
+    };
+  }
+
+  /** K and F: one button per item, in its grid slot; B is Back. */
+  private craftCard(card: Card, kind: number, page: 'craft' | 'refurbish'): Card {
+    const all = this.buildings().filter((b) => b.kind === kind && b.complete);
+    if (all.length > 0) {
+      for (const id of craftable()) {
+        const it = itemSpec(id);
+        if (it.craftSlot < 0 || it.craftSlot >= 14) continue;
+        const p = (page === 'craft' ? CRAFT_PRODUCT : REFURBISH_PRODUCT) + id;
+        card[it.craftSlot] = this.productEntry(all, p, `${page}-${id}`, shortName(it), it.craftSlot);
+      }
+    }
+    card[14] = this.backEntry('Back to the building commands.');
+    return card;
+  }
+
+  private backEntry(description: string): CardEntry {
+    return { action: 'back', face: 'Back', name: 'Back', key: GRID_CODES[14], grid: true, description, enabled: true, reason: '', run: () => this.back() };
+  }
+
+  /** I: a button per slot of the one selected unit; a slot opens the items in stock that fit it. */
+  private equipCard(card: Card): Card {
+    const ids = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const u = ids.length === 1 ? this.d.game.unit(ids[0]!) : null;
+    card[14] = this.backEntry(this.menu.sub >= 0 ? 'Back to the slots.' : 'Back to the unit commands.');
+    if (!u) return card;
+    const slots = u.kind === UnitKind.Worker ? WORKER_SLOTS : WARRIOR_SLOTS;
+    const load = `Carrying ${carriedLb(u)} lb of gear (over 50 lb slows them down, up to 40% at 100 lb).`;
+    if (this.menu.sub < 0) {
+      slots.forEach((slot, k) => {
+        const worn = wornItem(u, slot);
+        const quiver = u.ranged === Item.Bow;
+        const now = slot === Slot.Ammo ? (quiver ? `${u.ammo} arrows in the quiver` : 'no quiver') : worn ? itemSpec(worn).name : 'nothing';
+        card[k] = {
+          action: `slot-${slot}`,
+          face: slot === Slot.Ammo ? `Arrows ${quiver ? u.ammo : '-'}` : worn ? shortName(itemSpec(worn)) : `(${SLOT_NAMES[slot]})`,
+          name: SLOT_NAMES[slot]!,
+          key: GRID_CODES[k]!,
+          grid: true,
+          description: `${SLOT_NAMES[slot]}: ${now}. Click to pick from the stock. ${load}`,
+          enabled: true,
+          reason: '',
+          run: () => {
+            this.menu = { page: 'equip', sub: slot };
+            this.d.changed();
+          },
+        };
+      });
+      card[12] = this.equipBestEntry();
+      if (u.kind === UnitKind.Worker) card[13] = this.rankEntry([u.id]);
+      return card;
+    }
+    const slot = this.menu.sub as Slot;
+    const worn = wornItem(u, slot);
+    if (worn && slot !== Slot.Ammo && slot !== Slot.Torch) {
+      card[0] = {
+        action: 'unequip',
+        face: 'Take off',
+        name: `Take off the ${itemSpec(worn).name.toLowerCase()}`,
+        key: GRID_CODES[0],
+        grid: true,
+        description: 'The unit hands it in at the main base, and Equip Best leaves the slot empty after this.',
+        enabled: true,
+        reason: '',
+        run: () => this.handPick(u, slot, 0),
+      };
+    }
+    let k = 1;
+    for (const it of ITEMS) {
+      if (k >= 14) break;
+      if (!fitsSlot(it, slot) || this.d.game.stock(it.id) <= 0) continue;
+      const untrained = it.ranged?.needsArchery === true && (u.skills & 1) === 0;
+      const at = k++;
+      card[at] = {
+        action: `pick-${it.id}`,
+        face: shortName(it),
+        name: it.name,
+        key: GRID_CODES[at]!,
+        grid: true,
+        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${untrained ? ' This unit cannot shoot it until it is trained in archery.' : ''} The unit walks to the main base to collect it.`,
+        enabled: true,
+        reason: '',
+        run: () => this.handPick(u, slot, it.id),
+      };
+    }
+    if (k === 1 && !card[0]) card[1] = this.off('none', 'None', `Nothing in the stock fits the ${SLOT_NAMES[slot]!.toLowerCase()} slot.`, 'Craft some at the Big House (K).');
+    return card;
+  }
+
+  private handPick(u: UnitInfo, slot: number, item: number): void {
+    this.d.send({ kind: 'equipItem', player: this.d.player, unit: u.id, slot, item });
+    this.d.message(item ? `Off to the main base to collect the ${itemSpec(item).name.toLowerCase()}.` : `Handing in the ${SLOT_NAMES[slot]!.toLowerCase()} at the main base.`);
+    this.menu = { page: 'equip', sub: -1 };
+    this.d.changed();
+  }
+
+  /** Dig and earthworks: + and - set the depth or height, Mark confirms, Esc cancels. */
+  private areaCard(card: Card): Card {
+    const a = this.area!;
+    const plan = this.areaPlan();
+    const tunnel = plan?.tunnel === true;
+    const what = a.mode === 'dig' ? (tunnel ? 'tunnel height' : 'depth') : 'height';
+    const fixed = a.mode === 'earthwork' && a.variant !== 0;
+    const m = ((tunnel ? a.tunnelUnits : a.units) * TERRAIN_UNIT_M).toFixed(2);
+    const down = a.mode === 'dig' && !tunnel;
+    if (!fixed) {
+      card[0] = this.entry('deeper', down ? 'Deeper' : 'Higher', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
+      card[1] = this.entry('shallower', down ? 'Shallower' : 'Lower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
+    }
+    const ready = plan !== null && !a.dragging;
+    const name = a.mode === 'dig' ? (tunnel ? 'Dig the tunnel' : 'Dig it out') : `Make the ${EARTHWORK_NAMES[a.variant]!.toLowerCase()}`;
+    const earth = a.mode === 'earthwork' && plan ? ` It needs ${plan.earth} Earth (you have ${this.d.game.have(EARTH)}).` : '';
+    card[4] = {
+      action: 'markArea',
+      face: 'Mark',
+      name,
+      key: '',
+      description: `Mark the area for the selected workers. Left clicking the ground does the same.${earth}`,
+      enabled: ready,
+      reason: ready ? '' : 'Drag over the ground first.',
+      run: () => this.confirmArea(),
+    };
+    return card;
+  }
+
   // ---- Orders ----
 
   private unitOrder(o: { kind: 'returnCargo' } | { kind: 'repairAll' } | { kind: 'trainRank'; building: number }, units = this.workerIds()): void {
@@ -449,6 +759,11 @@ export class Commands {
   private stop(): void {
     const units = this.unitIds();
     if (units.length > 0) this.d.send({ kind: 'stop', player: this.d.player, units });
+  }
+
+  private hold(): void {
+    const units = this.unitIds();
+    if (units.length > 0) this.d.send({ kind: 'hold', player: this.d.player, units });
   }
 
   private repairAll(): void {
@@ -475,7 +790,7 @@ export class Commands {
     this.d.changed();
   }
 
-  private openMenu(page: 'basic' | 'advanced'): void {
+  private openMenu(page: CardPage): void {
     this.menu = { page, sub: -1 };
     this.d.changed();
   }
@@ -503,11 +818,47 @@ export class Commands {
       case 'rally':
         ok = this.rally(item, ground);
         break;
+      case 'attack':
+        ok = item && this.enemy(item) ? this.attack(item) : ground ? this.attackMove(ground) : false;
+        break;
+      case 'patrol':
+        ok = ground ? this.patrol(ground) : false;
+        break;
     }
     if (ok && !this.d.held(t.key) && !this.d.queued()) {
       this.targeting = null;
       this.d.changed();
     }
+  }
+
+  /** A unit the local player's units fight: monsters (other players are allies in this co-op game). */
+  private enemy(item: Selectable): boolean {
+    return item.kind === 'unit' && item.owner === MONSTERS;
+  }
+
+  private attack(item: Selectable): boolean {
+    const target = entityIdOf(item.key);
+    const units = this.unitIds();
+    if (target === null || units.length === 0) return false;
+    this.d.send({ kind: 'attack', player: this.d.player, units, target, queued: this.d.queued() });
+    this.d.marker(item.centre, 'target');
+    return true;
+  }
+
+  private attackMove(at: THREE.Vector3): boolean {
+    const units = this.unitIds();
+    if (units.length === 0) return false;
+    this.d.send({ kind: 'attackMove', player: this.d.player, units, x: Math.round(at.x * WU_PER_METRE), z: Math.round(at.z * WU_PER_METRE), queued: this.d.queued() });
+    this.d.marker(at, 'target');
+    return true;
+  }
+
+  private patrol(at: THREE.Vector3): boolean {
+    const units = this.unitIds();
+    if (units.length === 0) return false;
+    this.d.send({ kind: 'patrol', player: this.d.player, units, x: Math.round(at.x * WU_PER_METRE), z: Math.round(at.z * WU_PER_METRE), queued: this.d.queued() });
+    this.d.marker(at, 'move');
+    return true;
   }
 
   private ownBuilding(item: Selectable | null): boolean {
@@ -562,9 +913,9 @@ export class Commands {
     const b = this.buildingOf(item);
     const units = this.unitIds();
     if (!b || units.length === 0) return false;
-    const room = b.complete ? levelSpec(b.kind, b.level).shelters : 0;
+    const room = b.complete ? levelSpec(b.kind, b.level).shelters + garrisonRoom(b) : 0;
     if (room === 0) {
-      this.d.message(`${b.name} cannot shelter anyone. Main bases and farms can.`, 'alert');
+      this.d.message(`${b.name} cannot take anyone in. Workers shelter in main bases and farms; ranged warriors garrison towers.`, 'alert');
       return false;
     }
     this.d.send({ kind: 'enter', player: this.d.player, units, building: b.id, queued: this.d.queued() });
@@ -632,9 +983,160 @@ export class Commands {
         if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
       }
     }
+    if (item && this.enemy(item) && this.attack(item)) return;
     if (item?.kind === 'unit' && item.owner === player && this.follow(item)) return;
+    if (!item && ground && workers.length > 0 && this.helpSite(workers, ground)) return;
     const at = item && item.kind !== 'unit' ? item.centre : ground;
     if (at) this.moveTo(at);
+  }
+
+  /** Right click on a marked dig or earthwork: the workers help with it. */
+  private helpSite(workers: number[], at: THREE.Vector3): boolean {
+    const x = Math.floor(at.x / COLUMN_M);
+    const z = Math.floor(at.z / COLUMN_M);
+    const site = this.d.game.info?.sites.find((s) => x >= s.x0 && x <= s.x1 && z >= s.z0 && z <= s.z1);
+    if (!site) return false;
+    const box = { player: this.d.player, units: workers, x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1, level: site.level, level2: site.level2, queued: this.d.queued() };
+    if (site.kind === SiteKind.Dig || site.kind === SiteKind.Tunnel) this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : 0 });
+    else this.d.send({ kind: 'earthwork', ...box, variant: site.kind === SiteKind.Ramp ? 1 : 0, axis: site.axis });
+    this.d.marker(at, 'target');
+    return true;
+  }
+
+  // ---- Dig and earthworks ----
+
+  startArea(mode: 'dig' | 'earthwork', variant: number): void {
+    if (this.workerIds().length === 0) return;
+    this.targeting = null;
+    if (this.placing) this.placing = null;
+    this.menu = { page: 'main', sub: -1 };
+    this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_UNITS };
+    this.d.changed();
+  }
+
+  endArea(): void {
+    this.area = null;
+    this.d.changed();
+  }
+
+  /** Each frame while marking: the column under the cursor while dragging. */
+  updateArea(ground: THREE.Vector3 | null): void {
+    const a = this.area;
+    if (!a || !a.dragging || !ground) return;
+    const x = Math.floor(ground.x / COLUMN_M);
+    const z = Math.floor(ground.z / COLUMN_M);
+    if (a.to && a.to.x === x && a.to.z === z) return;
+    a.to = { x, z };
+    this.d.changed();
+  }
+
+  /** Left button down while marking: start a drag, or confirm one already marked. */
+  areaDown(ground: THREE.Vector3 | null): void {
+    const a = this.area;
+    if (!a) return;
+    if (a.from && a.to && !a.dragging) {
+      this.confirmArea();
+      return;
+    }
+    if (!ground) return;
+    const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
+    a.from = c;
+    a.to = { ...c };
+    a.dragging = true;
+    this.d.changed();
+  }
+
+  areaUp(): void {
+    const a = this.area;
+    if (!a || !a.dragging) return;
+    a.dragging = false;
+    this.d.changed();
+  }
+
+  /** + / - and the wheel: deeper or shallower (higher or lower for banks and tunnels). */
+  adjustArea(dir: number): void {
+    const a = this.area;
+    if (!a) return;
+    if (this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
+    else a.units = Math.max(AREA_STEP_UNITS, Math.min(AREA_MAX_UNITS, a.units + dir * AREA_STEP_UNITS));
+    this.d.changed();
+  }
+
+  /** What the area would mark: its box, levels and the ground in it (cached until it changes). */
+  areaPlan(): AreaPlan | null {
+    const a = this.area;
+    if (!a || !a.from || !a.to) return null;
+    const sig = `${a.mode},${a.variant},${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits}`;
+    if (sig === this.plan.sig) return this.plan.plan;
+    const lim = SITE_MAX_COLUMNS - 1;
+    const tx = a.from.x + Math.max(-lim, Math.min(lim, a.to.x - a.from.x));
+    const tz = a.from.z + Math.max(-lim, Math.min(lim, a.to.z - a.from.z));
+    const x0 = Math.min(a.from.x, tx);
+    const x1 = Math.max(a.from.x, tx);
+    const z0 = Math.min(a.from.z, tz);
+    const z1 = Math.max(a.from.z, tz);
+    const g = (x: number, z: number): number => Math.round(this.d.heightAt((x + 0.5) * COLUMN_M, (z + 0.5) * COLUMN_M) / TERRAIN_UNIT_M);
+    const start = g(a.from.x, a.from.z);
+    let top = -Infinity;
+    let low = Infinity;
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const h = g(x, z);
+        top = Math.max(top, h);
+        low = Math.min(low, h);
+      }
+    }
+    const axis = Math.abs(tx - a.from.x) >= Math.abs(tz - a.from.z) ? 0 : 1;
+    const plan: AreaPlan = { x0, z0, x1, z1, tunnel: false, level: 0, level2: 0, axis: 0, start, top, low, earth: 0 };
+    if (a.mode === 'dig') {
+      plan.tunnel = top - start >= TUNNEL_FACE_UNITS;
+      plan.level = plan.tunnel ? start : start - a.units;
+      plan.level2 = plan.tunnel ? start + a.tunnelUnits : 0;
+    } else if (a.variant === 1) {
+      // A ramp from the ground where the drag started to the ground where it ended; level is at the low-x (or low-z) end.
+      const end = g(tx, tz);
+      const forward = axis === 0 ? tx >= a.from.x : tz >= a.from.z;
+      plan.axis = axis;
+      plan.level = forward ? start : end;
+      plan.level2 = forward ? end : start;
+    } else {
+      plan.level = a.variant === 2 ? start : start + a.units;
+    }
+    if (a.mode === 'earthwork') {
+      const len = plan.axis === 0 ? x1 - x0 : z1 - z0;
+      for (let z = z0; z <= z1; z++) {
+        for (let x = x0; x <= x1; x++) {
+          const at = plan.axis === 0 ? x - x0 : z - z0;
+          const want = a.variant === 1 && len > 0 ? plan.level + Math.floor(((plan.level2 - plan.level) * at) / len) : plan.level;
+          plan.earth += Math.max(0, want - g(x, z));
+        }
+      }
+    }
+    this.plan = { sig, plan };
+    return plan;
+  }
+
+  /** Sends the dig or earthwork order for the marked area. */
+  confirmArea(): void {
+    const a = this.area;
+    const plan = this.areaPlan();
+    const units = this.workerIds();
+    if (!a || !plan || units.length === 0) return;
+    const box = { player: this.d.player, units, x0: plan.x0, z0: plan.z0, x1: plan.x1, z1: plan.z1, level: plan.level, level2: plan.level2, queued: this.d.queued() };
+    if (a.mode === 'dig') {
+      this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
+      this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
+    } else {
+      if (this.d.game.have(EARTH) < plan.earth) this.d.message(`Not enough Earth yet (needs ${plan.earth}): the workers heap what there is and wait for more. Dig somewhere to get Earth.`, 'alert');
+      this.d.send({ kind: 'earthwork', ...box, variant: a.variant, axis: plan.axis });
+    }
+    const cx = ((plan.x0 + plan.x1 + 1) / 2) * COLUMN_M;
+    const cz = ((plan.z0 + plan.z1 + 1) / 2) * COLUMN_M;
+    this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'target');
+    // Shift keeps marking for the next area.
+    if (this.d.queued()) this.area = { ...a, from: null, to: null, dragging: false };
+    else this.area = null;
+    this.d.changed();
   }
 
   // ---- Placement ----
@@ -642,6 +1144,7 @@ export class Commands {
   startPlacing(kind: number, variant: number): void {
     if (this.workerIds().length === 0) return;
     this.targeting = null;
+    this.area = null;
     this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, spots: [] };
     this.placeAsked = '';
     this.d.changed();
@@ -662,7 +1165,7 @@ export class Commands {
   updatePlacing(ground: THREE.Vector3 | null, now: number): Ghost | null {
     const p = this.placing;
     if (!p) return null;
-    const s = buildingSpec(p.kind);
+    const s = footprintDims(p.kind, p.variant);
     if (ground) {
       p.x = Math.round(ground.x / COLUMN_M - s.w / 2);
       p.z = Math.round(ground.z / COLUMN_M - s.d / 2);
@@ -676,7 +1179,7 @@ export class Commands {
       p.spots = corners.map(([x, z]) => keep.get(`${x},${z}`) ?? { x, z, tiles: null });
       this.placeAsked = sig;
       this.lastPlaceAsk = now;
-      this.d.askPlacement(p.kind, corners);
+      this.d.askPlacement(p.kind, p.variant, corners);
     }
     const n = p.spots.length;
     const cost = levelSpec(p.kind, 1).cost.map(([r, k]) => [r, k * n] as const);
@@ -698,6 +1201,7 @@ export class Commands {
   private spotCorners(): Array<[number, number]> {
     const p = this.placing!;
     if (!p.dragFrom) return [[p.x, p.z]];
+    if (!buildingSpec(p.kind).light) return wallLine(p.dragFrom.x, p.dragFrom.z, p.x, p.z, WALL_LINE_MAX);
     const dx = p.x - p.dragFrom.x;
     const dz = p.z - p.dragFrom.z;
     const len = Math.hypot(dx, dz);
@@ -743,7 +1247,7 @@ export class Commands {
     spots.forEach((s, i) => {
       this.d.send({ kind: 'build', player: this.d.player, units, building: p.kind, variant: p.variant, x: s.x, z: s.z, queued: queued || i > 0 });
     });
-    const s = buildingSpec(p.kind);
+    const s = footprintDims(p.kind, p.variant);
     const last = spots[spots.length - 1]!;
     const cx = (last.x + s.w / 2) * COLUMN_M;
     const cz = (last.z + s.d / 2) * COLUMN_M;
@@ -751,6 +1255,114 @@ export class Commands {
     // Shift keeps the ghost for the next one; otherwise placement ends.
     if (!queued) this.endPlacing();
   }
+}
+
+/** Columns in one dragged wall line (s). */
+const WALL_LINE_MAX = 80;
+
+/**
+ * Columns from one corner to another, every column, stepping one axis at a
+ * time so the line has no diagonal gaps that a monster could squeeze through.
+ */
+export function wallLine(x0: number, z0: number, x1: number, z1: number, max: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [[x0, z0]];
+  const dx = Math.abs(x1 - x0);
+  const dz = Math.abs(z1 - z0);
+  const sx = Math.sign(x1 - x0);
+  const sz = Math.sign(z1 - z0);
+  let x = x0;
+  let z = z0;
+  let err = dx - dz;
+  while ((x !== x1 || z !== z1) && out.length < max) {
+    // Move along whichever axis keeps closest to the straight line.
+    if (2 * err >= dz - dx && x !== x1) {
+      err -= dz;
+      x += sx;
+    } else {
+      err += dx;
+      z += sz;
+    }
+    out.push([x, z]);
+  }
+  return out;
+}
+
+/** A garrison: a tower's slots, or the parapets of a level 3 main base (Table 4). */
+export function garrisonRoom(b: Pick<BuildingInfo, 'kind' | 'level' | 'complete'>): number {
+  if (!b.complete) return 0;
+  const spec = buildingSpec(b.kind);
+  if (spec.slots) return spec.slots;
+  return b.kind === BuildingKind.MainBase && b.level >= 3 ? 8 : 0;
+}
+
+const EARTH = RESOURCES.findIndex((r) => r.name === 'Earth');
+
+const EARTHWORK_HELP = [
+  'Drag over the ground to mark it; + and - set the height of the bank. Left click confirms. Earth comes from digging.',
+  'Drag from the bottom of the slope to the top: the ramp climbs from the ground where the drag starts to the ground where it ends.',
+  'Drag over a hole or ditch, starting on its rim: it is filled up to the ground where the drag starts.',
+];
+
+/** A short face for an item button. */
+export function shortName(it: ItemSpec): string {
+  const faces: Record<number, string> = {
+    [Item.ToolsHardwood]: 'Tools H',
+    [Item.ToolsFlint]: 'Tools F',
+    [Item.Club]: 'Club',
+    [Item.SpearHardwood]: 'Spear H',
+    [Item.AxeFlint]: 'Axe F',
+    [Item.SpearFlint]: 'Spear F',
+    [Item.Sling]: 'Sling',
+    [Item.JavelinsFlint]: 'Javelins',
+    [Item.Bow]: 'Bow',
+    [Item.ArrowsFlint]: 'Arrows',
+    [Item.ArrowsFire]: 'Fire arr.',
+    [Item.Boots]: 'Boots',
+    [Item.ShieldWicker]: 'Wicker',
+    [Item.ShieldWood]: 'Shield W',
+    [Item.HandTorch]: 'Torch',
+  };
+  return faces[it.id] ?? it.name;
+}
+
+/** Whether an item goes in a slot (a backup weapon is a one-handed melee weapon). */
+export function fitsSlot(it: ItemSpec, slot: Slot): boolean {
+  if (it.id === Item.None) return false;
+  if (slot === Slot.Backup) return it.slot === Slot.Weapon && it.melee?.oneHanded === true;
+  return it.slot === slot;
+}
+
+/** What a unit has in a slot, as the screen knows it. */
+export function wornItem(u: UnitInfo, slot: Slot): number {
+  switch (slot) {
+    case Slot.Tool:
+      return toolItem(u.tool);
+    case Slot.Weapon:
+      return u.weapon;
+    case Slot.Backup:
+      return u.backup;
+    case Slot.Ranged:
+      return u.ranged;
+    case Slot.Shield:
+      return u.shield;
+    case Slot.Boots:
+      return u.boots;
+    case Slot.Torch:
+      return u.torch ? Item.HandTorch : Item.None;
+    default:
+      return u.ranged === Item.Bow && u.ammo > 0 ? Item.ArrowsFlint : Item.None;
+  }
+}
+
+/** Pounds of gear a unit carries (Table 12 weights; arrows a tenth of a pound each). */
+export function carriedLb(u: UnitInfo): number {
+  let tenths = 0;
+  for (const slot of [Slot.Tool, Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Torch] as const) {
+    const it = wornItem(u, slot);
+    if (it) tenths += itemSpec(it).weightTenthsLb;
+  }
+  if (u.ranged === Item.Bow) tenths += u.ammo * itemSpec(Item.ArrowsFlint).weightTenthsLb;
+  return Math.round(tenths) / 10;
 }
 
 const BLOCKED_TEXT = ['', 'the ground is too steep.', 'it cannot be built on water.', 'another building is in the way.', 'a tree, rock or bush is in the way.', 'that land is unexplored.'];

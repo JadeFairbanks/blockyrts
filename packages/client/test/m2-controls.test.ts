@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, ITEM_COUNT, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { ACTIONS, clashes, GRID_CODES, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
 import { Commands, menuSlots, submenuChoices, type CommandDeps } from '../src/hud/commands.ts';
@@ -37,12 +37,13 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     data[o + S.carryRes] = i === 1 ? Res.SoftwoodLumber : 255;
     data[o + S.carryAmt] = i === 1 ? 5 : 0;
   }
-  g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: 2, data });
+  g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: 2, data, shots: new Int32Array(0), hits: [] });
   const p = new Int32Array(RESOURCE_COUNT);
   for (const [r, n] of pool) p[r] = n;
   const info: InfoMessage = {
     type: 'info', step: 10, pool: p, supplyUsed: 2, supplyCap: 8, buildings, queues: [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
+    items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
   };
   g.onInfo(info);
   return g;
@@ -63,7 +64,7 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
     held: () => false,
     message: (t) => messages.push(t),
     marker: () => undefined,
-    askPlacement: (kind, spots) => asks.push([kind, spots]),
+    askPlacement: (kind, _variant, spots) => asks.push([kind, spots]),
     node: () => undefined,
     heightAt: () => 0,
     changed: () => undefined,
@@ -90,10 +91,10 @@ describe('the worker card', () => {
   it('has the movement row, the gatherer row and the build row, greyed where a later milestone brings it', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Rank', '']);
-    expect(card[0]!.enabled).toBe(false);
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Equip', 'Gear']);
+    expect(card[9]!.enabled).toBe(false);
     expect(card[6]!.enabled).toBe(true); // worker 2 carries something
-    expect(card[13]!.reason).toContain('level 2 main base');
+    expect(card[14]!.reason).toContain('single unit');
     expect(card.map((e) => e?.key ?? '')).toContain('KeyG');
   });
 

@@ -65,7 +65,7 @@ describe('the step function', () => {
   });
 
   it("ignores orders for units the player does not own", () => {
-    const s = createWorld(5, { playerUnits: 1, wanderers: 1 });
+    const s = createWorld(5, { playerUnits: 1, wanderers: 1, warriors: 0 });
     expect(s.entities.owner[1]).toBe(NEUTRAL);
     const before = s.entities.x[0]!;
     step(s, [{ kind: 'move', player: 1, units: [1, 999], x: 0, z: 0 }]);

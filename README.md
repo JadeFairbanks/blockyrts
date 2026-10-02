@@ -88,14 +88,16 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 6c5e1226`. Run it again: the same hash.
+   prints `final step 10000 hash cef4baa9`. Run it again: the same hash. (The
+   M0, M1 and M2 scripts run with `"peaceful": true`, no night mobs, so they
+   keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
    Chromium, Firefox and WebKit, and fails if any of the 500 hashes differ.
    CI runs this on every push; the log prints each engine's final hash.
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `ba4d64fa`
+   step as the headless runner with no script: for seed 1 that is `69bea34f`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -125,9 +127,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `ba4d64fa` at step 40, with two players `99eb58e1`. The land matches too.
+   `69bea34f` at step 40, with two players `9644b1bb`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash eaefa3d4`: two players dig trenches from a
+   prints `final step 10000 hash f9a0b9cd`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -197,10 +199,78 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 8193e6b4`: workers chop and quarry, the Big
+   prints `final step 10000 hash fb451dfc`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
+   `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
+
+## How a tester checks milestone 3
+
+The build order's check for M3 is: *survive night 0 with the starting
+warrior, four workers and a softwood fence; skeleton archers shoot over it on
+night 5 and a bomber breaks a softwood column on night 10; a dug trench turns
+zombies aside; Equip Best hands out flint spears; losing every worker with no
+main base or farm left ends the game with the night count as the score.*
+
+1. `pnpm test` runs those six checks as scenario tests in
+   `packages/sim/test/m3.test.ts` (night 0 behind a fence on several seeds,
+   an archer on night 5 hurting a worker over an unbroken wall, a bomber on
+   night 10 breaking a column, a zombie walking round a trench where it walks
+   straight in without one, Equip Best giving two new warriors flint spears,
+   and the game ending with *Nights survived: 3*), plus a save taken in the
+   middle of a fight carrying on to the same hash.
+2. `pnpm dev`, open http://localhost:5173/?seed=1 and start. A warrior with a
+   flint-tipped spear (and a club as backup) stands by the Big House with the
+   four workers. The first night comes after 3 min of day and 40 s of dusk.
+   Without walls, night 0 is hard: the zombies, bats, rats and spiders that
+   come out of the dark edge will kill the warrior and chew down the Big
+   House. With **Speed** in the debug panel you can get there quickly.
+3. **Walls.** Workers, B then G (Walls): softwood, hardwood and stone walls,
+   gates (east to west or north to south) and towers. Drag with a wall to
+   place a line a column at a time; gates are 3 columns wide and let your
+   units through but not monsters. A ring of softwood wall round the Big
+   House (about 64 to 80 softwood) holds night 0. Climbers go over walls,
+   bats fly over, archers shoot over, and bombers blow columns apart; a
+   message says when a wall is broken, and workers repair it with R.
+4. **Fighting.** Select the warrior: A then a click on a monster attacks it, A
+   then ground attack-moves (the cursor turns red); a right click on a
+   monster attacks too. H holds position, P then ground patrols, S stops. Y
+   cycles the lock: Auto (bow while the enemy is far, spear when it is close),
+   Melee only, Ranged only. Spears stab over a wall; clubs and axes cannot
+   reach across it. Hits throw sparks, splinters or blood, units limp when
+   hurt, and the dead lie for a few seconds then sink.
+5. **Equipment.** Select the Big House: K opens the crafting menu on the grid
+   keys (K then A makes a hardwood club); F refurbishes items back into
+   resources; A trains a warrior for 30 food and a club from the stock. Select
+   units and press Q (Equip Best): they walk to the Big House and take the
+   best they can use, highest rank first. With one unit selected, I opens its
+   equipment: a slot, then an item, to hand-pick it, and the weight it
+   carries (over 50 lb slows it). Auto-Equip (F4, on the utility bar) hands
+   new gear out by day. Flint gear needs Flint tools researched at a
+   Scholar's Lodge (F); bows need archery, trained at a Barracks (U with
+   warriors selected).
+6. **Towers.** Build a tower, select ranged warriors (sling, javelins or a
+   bow) and press E then click the tower: up to 4 garrison it and shoot from
+   the top with 10 m more sight. U lets them out.
+7. **Digging.** Workers, D, then drag over the ground: a see-through box shows
+   the cut; + and - (or the wheel while marking) set the depth, about 34 cm a
+   step down to 3 m. Left click confirms. Marking a slope that rises more than
+   about 2 m starts a tunnel instead (+ and - then set its height). Digging
+   puts Earth (or stone, flint, sand...) in the pool. B, Z (Earthworks) heaps
+   an earth bank, a ramp (drag from the bottom to the top) or fill from that
+   Earth. Marked areas stay outlined until done; right-click one with workers
+   to help. Zombies walk round a trench they cannot climb out of.
+8. **Losing.** When every worker is dead and no main base or farm stands, the
+   game is over and the screen shows the nights survived.
+9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
+   prints `final step 10000 hash 85c4a8ef`: the Big House crafts a club and a
+   spear, two workers raise a gate and a softwood wall ring while two chop
+   and then join them, Equip Best and Auto-Equip, the warrior holds inside
+   the gate through night 0 while a debug skeleton archer and bomber come at
+   the camp (the warrior falls and some columns are broken, but the Big House
+   and all four workers come through), then at
+   dawn the workers dig a trench and heap an earth bank from its Earth.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)

@@ -73,6 +73,8 @@ export function keyLabel(id: string): string {
     PageDown: 'PgDn',
     ShiftLeft: 'Shift',
     Space: 'Space',
+    Equal: '+',
+    Minus: '−',
   };
   return names[id] ?? id;
 }

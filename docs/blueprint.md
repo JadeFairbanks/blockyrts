@@ -230,7 +230,7 @@ Clip names are the contract between sim and renderer: idle, walk, run, attack_*,
 
 **Desync tool:** every client keeps a ring buffer of the last 2 minutes of input frames plus the last agreeing snapshot; on a desync both sides upload them, and the tool replays them offline, reports the first diverging step and diffs the serialised state to the first differing field.
 
-**Balance harness:** the headless runner with fixture towns (night 0 camp, night 20 palisade town, night 50 stone fort, night 90 fortress with muskets) and a scripted defence; the night spawner spends the table 8 budget for a given night and player count, and the harness writes one CSV row per run: losses, time to first breach, mobs alive at dawn, resources spent. Run after every table change.
+**Balance harness:** the headless runner with fixture towns (night 0 camp, night 10 palisade town, night 25 stone fort, night 45 fortress with muskets) and a scripted defence; the night spawner spends the table 8 budget for a given night and player count, and the harness writes one CSV row per run: losses, time to first breach, mobs alive at dawn, resources spent. Run after every table change.
 
 **Map viewer:** a Vite dev page that runs the sim package's generation in the browser and draws a seed's cells, barrier edges, gaps, bands, villages and chunk heights on a 2D canvas, with a click to inspect any chunk's columns. Same code as the game, so what it shows is what players get.
 
@@ -291,7 +291,7 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 **Depends on:** nothing.
 
-**Risks:** a float leaking into the sim through Three.js or a library; Worker message overhead at 20 steps a second; fixed-point range for a world measured in 0.125 mm units and 100 km across.
+**Risks:** a float leaking into the sim through Three.js or a library; Worker message overhead at 20 steps a second; fixed-point range for a world measured in integer world units of 0.125 mm covering a 100 km world edge.
 
 #### M1: World generation, terrain, water, camera, controls shell, HUD shell and minimap
 
@@ -299,7 +299,7 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 **Builds:**
 
-- Technology, World generation and terrain: pure generation from the seed plus cell and chunk position, rings of growing cells, 28.8 m chunks (64 x 64 columns) requested a ring ahead, generation spread across steps in the sim Worker, terrain edits as stepped sim events.
+- Technology, World generation and terrain: pure generation from the seed plus cell and chunk position, rings of growing cells, 28.8 m chunks of 64 columns requested a ring ahead, generation spread across steps in the sim Worker, terrain edits as stepped sim events.
 - The world: cells, the seven barrier edge types and their 0 to 2 gaps, the no natural fortress rule, cell looks, the five depth bands with their trees and ores (including sulphur at the rare Barrens hot springs), the start basin and pockets (Table 9), fog of war, regrowth of trees and hazel, grassland thinning. Table 5 node placement, yields, gatherer limits and tool gates (its prospect and mineshaft rows are used in M4).
 - Terrain, What the land is made of: 45 cm columns of layers in 11 cm units, materials, face merging and chunk meshing on the drawing side, far chunks at less detail, scenery batches, chunk deltas (the save format's foundation, written out in M9).
 - Generated rocks and trees: seeded rock, ore, tree and hazel generators with growth stages and instanced parts, one reference tree per species from the wishlist. Hit feedback and hit particles are M3.
@@ -432,7 +432,7 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 **Builds:**
 
-- Multiplayer model (network side): the order relay each step, the state checksum compared between players, reload from the host's state on a desync. Server: Node.js with a plain WebSocket relay that also handles lobbies, invites and rejoining. Accounts and saved data: PostgreSQL, hashed passwords, HTTPS, expiring reset emails, saves as full state snapshots in a versioned compressed file.
+- Multiplayer model (network side): the order relay each step, the state checksum compared between players, reload from the host's state on a desync. Server: Node.js with a plain WebSocket relay (the lobby and reconnection are handled by the same Node server). Accounts and saved data: PostgreSQL, hashed passwords, HTTPS, expiring reset emails, saves as full state snapshots in a versioned compressed file.
 - Multiplayer and saving: up to 8 players, Allies panel (share control with coloured rings, send resources, map pings), When a player is eliminated or leaves (split resources, inherited buildings and technology access), Accounts and guests, Saving and disconnects (autosave at dawn, save at any time, pause and the host's choice). Chat with Enter and the Who sees what rule.
 - Outside the match: main menu, hosting and joining with links and codes, the lobby, load screen and save slots, settings (graphics, scale, shadows, view distance, volumes, hotkeys, camera sliders, the optional Ctrl layout), seeds, onboarding hints, browser support, the F11 reminder.
 
@@ -442,7 +442,7 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 #### M10: Audio, performance pass, balance pass against the pacing check, bug bash
 
-**You can now:** a single-player run reaches bronze by night 8 to 12, iron by 25 to 35, steel by 50 to 60 and gunpowder by 80 to 95 as in the pacing check, at the agreed frame rate on the minimum hardware; the Quick reference works end to end with the mouse alone; every sound in the Audio list plays.
+**You can now:** a single-player run reaches bronze by night 4 to 6, iron by 13 to 18, steel by 25 to 30 and gunpowder by 40 to 48 (s) as in the pacing check, at the agreed frame rate on the minimum hardware; the Quick reference works end to end with the mouse alone; every sound in the Audio list plays.
 
 **Builds:**
 
@@ -1668,7 +1668,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 | **Training** | **Where** | **Cost** | **Time** | **Needs** |
 |---|---|---|---|---|
-| New worker | Big House or any farm | 20 food | 30 s | free supply (s) |
+| New worker | Big House or any farm | 20 food | 15 s (s) | free supply (s) |
 | New warrior | Big House or Barracks | 30 food, 1 hardwood club | 45 s | free supply (s) |
 | New mage (Novice Acolyte) | Magi Sanctum or main base 6+ | 50 food, 1 wand (5 sticks, 1 copper ingot, made at the Sanctum in 20 s) | 60 s | free supply (s) |
 | Worker to Hand / to Master | Big House | 20 / 40 food | 60 / 120 s | base 2 / base 5 (s) |
@@ -1949,33 +1949,33 @@ Two **special trinkets** set a gem in a precious metal. Each has its own name:
 
 Key: a value followed by (s) is suggested; a row ending in (s) is suggested throughout except values marked (doc). Values marked (Jade) or (doc), or unmarked, are fixed values already in this blueprint.
 
-**How these were set:** table 2b for materials, and the pacing targets (bronze by night 8 to 12, iron by 25 to 35, steel by 50 to 60, gunpowder by 80 to 95), with each main base level gating the next forge level so the town has to grow to climb. Upgrades are ordered from the building's own panel; the menu slot is where the first level is placed. Footprints are in 45 cm columns.
+**How these were set:** table 2b for materials, and the pacing targets (bronze by night 4 to 6, iron by 13 to 18, steel by 25 to 30, gunpowder by 40 to 48 (s)), with each main base level gating the next forge level so the town has to grow to climb. Upgrades are ordered from the building's own panel; the menu slot is where the first level is placed. Footprints are in 45 cm columns.
 
 | **Building** | **Cost** | **Build (ws)** | **Health** | **Footprint** | **Menu slot** | **Supply** | **Needs** | **Gives or unlocks** |
 |---|---|---|---|---|---|---|---|---|
 | Main base 1 Big House | start; an extra one 300 softwood, 150 stone | 1200 | 1200 | 14 x 14 (6.3 m) | Basic 1 (doc) | 8 |  | drop-off, workers, warriors, hardwood and flint gear, bows, arrows, javelins, slings, rope, boots, hand carts; shelters 8 (s) |
 | 2 Longhall | 100 softwood, 40 stone | 400 | 1600 | same | upgrade | 12 |  | Barracks (s) |
-| 3 Hall | 150 softwood, 80 stone, 30 sticks | 600 | 2000 | same | upgrade | 16 |  | parapets, 8 slots (doc); Forge 2, Stables, Kiln, Workshop 2 (s) |
-| 4 Stockade Hall | 200 softwood, 120 stone, 50 hardwood, 10 bronze | 800 | 2500 | same | upgrade | 20 | Bronze | Magi Sanctum, Mineshaft 1, Scriptorium, Kitchen, farm tier 2 (s) |
-| 5 Marble Hall | 150 hardwood, 200 stone, 40 bricks, 40 marble, 20 bronze | 1200 | 3000 | same | upgrade | 25 |  | Forge 3, Great Workshop (catapults, carts), farm tier 3; the first marble level (Jade) (s) |
-| 6 Keep | 200 hardwood, 300 stone, 80 bricks, 60 marble, 30 wrought iron | 1600 | 3600 | same | upgrade | 30 |  | trains mages (doc); Mineshaft 2, Great Kitchen (s) |
-| 7 Fortified Keep | 250 hardwood, 400 stone, 120 bricks, 80 marble, 50 wrought iron | 2000 | 4200 | same | upgrade | 35 |  | Forge 4, Grand Academy, Manufactory, Powder mill (s) |
-| 8 Castle | 300 hardwood, 500 stone, 200 bricks, 100 marble, 60 refined iron | 2400 | 5000 | same | upgrade | 40 |  | Foundry, Gunnery yard, Mineshaft 3, Grand Kitchen (s) |
-| 9 Great Castle | 300 hardwood, 500 stone, 200 bricks, 150 marble, 60 steel | 3000 | 6000 | same | upgrade | 45 |  | marble facing and banners (s) |
-| 10 Citadel | 400 hardwood, 600 stone, 300 bricks, 250 marble, 100 steel, 10 gold | 4000 | 7500 | same | upgrade | 50 |  | 4 cannon ports on the roof (s) |
+| 3 Hall | 110 softwood, 45 stone, 15 sticks (s) | 420 (s) | 2000 | same | upgrade | 16 |  | parapets, 8 slots (doc); Forge 2, Stables, Kiln, Workshop 2 (s) |
+| 4 Stockade Hall | 120 softwood, 60 stone, 25 hardwood, 5 bronze (s) | 450 (s) | 2500 | same | upgrade | 20 | Bronze | Magi Sanctum, Mineshaft 1, Scriptorium, Kitchen, farm tier 2 (s) |
+| 5 Marble Hall | 75 hardwood, 100 stone, 20 bricks, 20 marble, 10 bronze (s) | 600 (s) | 3000 | same | upgrade | 25 |  | Forge 3, Great Workshop (catapults, carts), farm tier 3; the first marble level (Jade) (s) |
+| 6 Keep | 100 hardwood, 150 stone, 40 bricks, 30 marble, 15 wrought iron (s) | 800 (s) | 3600 | same | upgrade | 30 |  | trains mages (doc); Mineshaft 2, Great Kitchen (s) |
+| 7 Fortified Keep | 125 hardwood, 200 stone, 60 bricks, 40 marble, 25 wrought iron (s) | 1000 (s) | 4200 | same | upgrade | 35 |  | Forge 4, Grand Academy, Manufactory, Powder mill (s) |
+| 8 Castle | 150 hardwood, 250 stone, 100 bricks, 50 marble, 30 refined iron (s) | 1200 (s) | 5000 | same | upgrade | 40 |  | Foundry, Gunnery yard, Mineshaft 3, Grand Kitchen (s) |
+| 9 Great Castle | 150 hardwood, 250 stone, 100 bricks, 75 marble, 30 steel (s) | 1500 (s) | 6000 | same | upgrade | 45 |  | marble facing and banners (s) |
+| 10 Citadel | 200 hardwood, 300 stone, 150 bricks, 125 marble, 50 steel, 5 gold (s) | 2000 (s) | 7500 | same | upgrade | 50 |  | 4 cannon ports on the roof (s) |
 | Crop field 1 (wheat, corn or flax, chosen when built) | 30 softwood, 10 sticks | 150 | 400 | 12 x 12 | Basic 2, Farms | 4 |  | 2 farmers, trains workers, farmhouse shelters 4 (s) |
-| Crop field 2 / 3 | +40 softwood, +30 stone / +40 hardwood, +60 stone | 300 / 600 | 600 / 800 | same | upgrade | 6 / 8 | base 4 / base 5 | 3 / 4 farmers; yield x1.5 / x2 (s) |
+| Crop field 2 / 3 | +20 softwood, +15 stone / +20 hardwood, +30 stone (s) | 150 / 300 (s) | 600 / 800 | same | upgrade | 6 / 8 | base 4 / base 5 | 3 / 4 farmers; yield x1.5 / x2 (s) |
 | Vegetable farm 1 / 2 / 3 (potatoes or carrots) | as crop field | as crop field | as crop field | 12 x 12 | Basic 2, Farms | 3 / 5 / 7 | as crop field | full yield on thin grass (s) |
-| Herb bed 1 / 2 / 3 | 20 softwood, 10 herbs / +30 softwood, +20 stone / +30 hardwood, +40 stone | 100 / 200 / 400 | 300 / 500 / 700 | 8 x 8 | Basic 2, Farms | 1 / 2 / 3 | as crop field | 1 farmer; herbs 4 / 6 / 8 a day (s) |
-| Livestock farm 1 / 2 / 3 | as crop field but 40 softwood at tier 1 | 200 / 300 / 600 | 400 / 600 / 800 | 12 x 12 | Basic 2, Farms | 4 / 6 / 8 | as crop field | 6 / 10 / 16 animals, 1 worker, breeding, slaughter (s) |
+| Herb bed 1 / 2 / 3 | 20 softwood, 10 herbs / +15 softwood, +10 stone / +15 hardwood, +20 stone (s) | 100 / 100 / 200 (s) | 300 / 500 / 700 | 8 x 8 | Basic 2, Farms | 1 / 2 / 3 | as crop field | 1 farmer; herbs 4 / 6 / 8 a day (s) |
+| Livestock farm 1 / 2 / 3 | as crop field but 40 softwood at tier 1 | 200 / 150 / 300 (s) | 400 / 600 / 800 | 12 x 12 | Basic 2, Farms | 4 / 6 / 8 | as crop field | 6 / 10 / 16 animals, 1 worker, breeding, slaughter (s) |
 | Pen and barn | 30 softwood | 120 | 500 | 8 x 8 | Basic 3 | 0 |  | shelters 8 animals at night, no breeding (s) |
 | Lumber mill | 40 softwood, 10 stone; waterwheel upgrade +40 hardwood, +20 stone, on a stream, 300 ws | 200 | 600 | 8 x 8 | Basic 4 | 0 |  | wood drop-off, planks (table 2b), 2 workers (s) |
 | Storehouse | 40 softwood, 20 stone | 150 | 600 | 8 x 8 | Basic 5 | 0 |  | drop-off for everything (s) |
 | Fishing dock | 30 softwood lumber, 5 rope (doc: lumber and rope) | 150 | 400 | 6 x 4 | Basic 6 | 0 | shoreline | 3 workers fish at net speed in any depth and shelter inside (doc) (s) |
 | Tannery | 40 softwood, 20 stone | 200 | 500 | 8 x 8 | Basic 7 | 0 |  | leather, boots, leather armour and cap, carrying gear, 2 workers (s) |
 | Cooking 1 Campfire | 5 softwood | 10 | 60 | 2 x 2 | Basic 8 | 0 |  | roast meat and fish; also a light (table 18) (s) |
-| 2 Cook Hut / 3 Kitchen | 40 softwood, 20 stone / +60 hardwood, +60 stone, +20 bricks | 200 / 400 | 500 / 800 | 6 x 6 / 8 x 8 | upgrade | 0 | none / base 4 | smoked foods / bread, salted foods (s) |
-| 4 Great Kitchen / 5 Grand Kitchen | +100 hardwood, +100 stone, +60 bricks, +10 wrought iron / +150 hardwood, +200 stone, +100 bricks, +20 steel | 800 / 1500 | 1200 / 1800 | 10 x 10 / 12 x 12 | upgrade | 0 | base 6 / base 8 | stew / pie, and cooks twice as fast (s) |
+| 2 Cook Hut / 3 Kitchen | 40 softwood, 20 stone / +30 hardwood, +30 stone, +10 bricks (s) | 200 / 200 (s) | 500 / 800 | 6 x 6 / 8 x 8 | upgrade | 0 | none / base 4 | smoked foods / bread, salted foods (s) |
+| 4 Great Kitchen / 5 Grand Kitchen | +50 hardwood, +50 stone, +30 bricks, +5 wrought iron / +75 hardwood, +100 stone, +50 bricks, +10 steel (s) | 400 / 750 (s) | 1200 / 1800 | 10 x 10 / 12 x 12 | upgrade | 0 | base 6 / base 8 | stew / pie, and cooks twice as fast (s) |
 | Herbalist hut | 30 softwood, 10 herbs | 150 | 400 | 6 x 6 | Basic 9 | 0 |  | bandages, remedies, poison arrows (s) |
 | Wall, per column: softwood / hardwood / stone | 1 softwood / 1 hardwood / 2 stone | 5 / 8 / 20 | 300 / 600 / 1500 (roster) | 1 x 1, 3 m tall (stone 3.6 m) | Basic 10 Defences | 0 |  | (s) |
 | Gate, 3 columns: softwood / hardwood / stone | 6 softwood / 6 hardwood / 10 stone, 2 hardwood | 30 / 45 / 90 | 600 / 1200 / 3000 | 3 x 1 | Basic 10 | 0 |  | shut and lit by a torch it stops rats and spiders climbing (roster) (s) |
@@ -1983,22 +1983,22 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Earthworks: earth ramp, bank, fill | 1 Earth per column per 11 cm step | 5 per step | terrain | 1 column wide | Basic 11 | 0 |  | built on the spot (s) |
 | Lumber ramp / stone ramp | 1 lumber per 2 steps / 2 stone per 2 steps, made at any workshop in 10 / 15 s | 5 / 8 per step to place | 300 / 1500 per column | 1 column wide | Basic 11 | 0 | Work Hut | 1-, 2- and 4-step pieces (s) |
 | Workshop 1 Work Hut | 40 softwood, 20 stone | 200 | 600 | 8 x 8 | Basic 12 | 0 |  | gravel, sticks, ramps, Tokens, 2 workers (s) |
-| 2 Workshop / 3 Great Workshop | +60 hardwood, +40 stone, +10 bronze / +100 hardwood, +80 stone, +40 bricks, +20 wrought iron | 400 / 800 | 900 / 1200 | same | upgrade | 0 | base 3 / base 5 | Charms, hand carts, shapes bow staves so bows take half the time / Brooches, Moonleafs, ox and horse carts, catapults and their stones, crossbow stocks with the forge (doc), glass lanterns (s) |
-| 4 Manufactory | +150 hardwood, +150 stone, +100 bricks, +30 steel | 1500 | 1800 | same | upgrade | 0 | base 7 | Heirlooms, Sunhearts, ballistas and their bolts, musket stocks with the forge (doc); every workshop good at double speed (s) |
+| 2 Workshop / 3 Great Workshop | +30 hardwood, +20 stone, +5 bronze / +50 hardwood, +40 stone, +20 bricks, +10 wrought iron (s) | 200 / 400 (s) | 900 / 1200 | same | upgrade | 0 | base 3 / base 5 | Charms, hand carts, shapes bow staves so bows take half the time / Brooches, Moonleafs, ox and horse carts, catapults and their stones, crossbow stocks with the forge (doc), glass lanterns (s) |
+| 4 Manufactory | +75 hardwood, +75 stone, +50 bricks, +15 steel (s) | 750 (s) | 1800 | same | upgrade | 0 | base 7 | Heirlooms, Sunhearts, ballistas and their bolts, musket stocks with the forge (doc); every workshop good at double speed (s) |
 | Lights | table 18 |  |  |  | Basic 13 |  |  | torch post, wall torch, campfire, brazier, lantern |
 | Scholar's Lodge 1 | 60 softwood, 20 stone; every further research facility costs this much again on top (doc) | 240 | 500 | 8 x 8 | Advanced 1 | uses 1, eats 2 a day |  | one research at a time (s) |
-| 2 Scriptorium / 3 Grand Academy | +100 hardwood, +100 stone, +40 bricks / +150 hardwood, +200 stone, +100 bricks, +60 marble, +20 steel | 900 / 1800 | 900 / 1500 | same | upgrade | same | base 4 / base 7 | research 25% / 50% faster (s) |
-| Magi Sanctum | 80 hardwood, 120 stone, 40 bricks, 5 mana crystals | 900 | 1200 | 8 x 8 | Advanced 2 | 0 | base 4 | novices, ranks to Adept, rank wands (s) |
+| 2 Scriptorium / 3 Grand Academy | +50 hardwood, +50 stone, +20 bricks / +75 hardwood, +100 stone, +50 bricks, +30 marble, +10 steel (s) | 450 / 900 (s) | 900 / 1500 | same | upgrade | same | base 4 / base 7 | research 25% / 50% faster (s) |
+| Magi Sanctum | 40 hardwood, 60 stone, 20 bricks, 1 mana crystal (s) | 450 (s) | 1200 | 8 x 8 | Advanced 2 | 0 | base 4 | novices, ranks to Adept, rank wands (s) |
 | Barracks | 80 softwood, 40 stone, 20 sticks | 400 | 1000 | 10 x 10 | Advanced 3 | 0 | base 2 | warriors, archery, crossbow, rank training (s) |
-| Stables | 60 softwood, 20 stone, 10 sticks | 300 | 800 | 10 x 8 | Advanced 4 | 0 | base 3 | taming, 6 stalls, breeding, riding (s) |
-| Gunnery yard | 100 hardwood, 150 stone, 60 bricks, 20 steel | 1200 | 1500 | 12 x 12 | Advanced 5 | 0 | base 8 | musket and cannon crew training (s) |
-| Mineshaft 1 / 2 / 3 | 60 hardwood, 80 stone, 10 bronze / +80 hardwood, +100 stone, +30 wrought iron / +100 hardwood, +150 stone, +40 steel | 600 / 900 / 1200 | 800 / 1200 / 1600 | 6 x 6 on flat stone | Advanced 6 | 0 | base 4, 6, 8 and Deep Mining I, II, III at the lodge, fees 20 bronze ingots and 50 stone / 30 wrought iron, 100 stone and 5 silver / 30 steel, 200 stone, 5 gold and 5 silver (the higher tiers cost precious metals, doc) | 4 miners; output in table 5 (s) |
+| Stables | 30 softwood, 10 stone, 5 sticks (s) | 150 (s) | 800 | 10 x 8 | Advanced 4 | 0 | base 3 | taming, 6 stalls, breeding, riding (s) |
+| Gunnery yard | 50 hardwood, 75 stone, 30 bricks, 10 steel (s) | 600 (s) | 1500 | 12 x 12 | Advanced 5 | 0 | base 8 | musket and cannon crew training (s) |
+| Mineshaft 1 / 2 / 3 | 60 hardwood, 80 stone, 10 bronze / +40 hardwood, +50 stone, +15 wrought iron / +50 hardwood, +75 stone, +20 steel (s) | 600 / 450 / 600 (s) | 800 / 1200 / 1600 | 6 x 6 on flat stone | Advanced 6 | 0 | base 4, 6, 8 and Deep Mining I, II, III at the lodge, fees 20 bronze ingots and 50 stone / 30 wrought iron, 100 stone and 3 silver / 30 steel, 200 stone, 3 gold and 3 silver (s) (the higher tiers cost precious metals, doc) | 4 miners; output in table 5 (s) |
 | Kiln | 30 softwood, 40 stone, 20 clay | 300 | 600 | 6 x 6 | Advanced 7 | 0 | base 3 | charcoal, bricks, glass, 2 workers (s) |
 | Forge 1 Casting Hearth | 60 softwood, 40 stone | 300 | 600 | 8 x 8 | Advanced 8 | 0 |  | copper, tin, bronze, 2 workers (s) |
-| 2 Bloomery / 3 Ironworks | +60 softwood, +80 stone, +20 clay, +10 bronze / +100 hardwood, +120 stone, +40 bricks, +20 bronze | 600 / 900 | 900 / 1200 | same | upgrade | 0 | base 3 / base 5 | bloom iron / wrought and pig iron, crossbows, mail; 3 workers (s) |
-| 4 Steelworks | +150 hardwood, +200 stone, +120 bricks, +40 wrought iron | 1800 | 1800 | same | upgrade | 0 | base 7 | refined iron, steel, HQ steel; 4 workers (s) |
-| Powder mill | 40 hardwood, 80 stone, 40 bricks, 10 wrought iron | 600 | 600 | 6 x 6 | Advanced 9 | 0 | base 7 | gunpowder (s) |
-| Foundry | 100 hardwood, 150 stone, 100 bricks, 20 bronze, 20 wrought iron | 1200 | 1500 | 10 x 10 | Advanced 10 | 0 | base 8 | cannons, cannonballs (s) |
+| 2 Bloomery / 3 Ironworks | +30 softwood, +40 stone, +10 clay, +5 bronze / +50 hardwood, +60 stone, +20 bricks, +10 bronze (s) | 300 / 450 (s) | 900 / 1200 | same | upgrade | 0 | base 3 / base 5 | bloom iron / wrought and pig iron, crossbows, mail; 3 workers (s) |
+| 4 Steelworks | +75 hardwood, +100 stone, +60 bricks, +20 wrought iron (s) | 900 (s) | 1800 | same | upgrade | 0 | base 7 | refined iron, steel, HQ steel; 4 workers (s) |
+| Powder mill | 20 hardwood, 40 stone, 20 bricks, 5 wrought iron (s) | 300 (s) | 600 | 6 x 6 | Advanced 9 | 0 | base 7 | gunpowder (s) |
+| Foundry | 50 hardwood, 75 stone, 50 bricks, 10 bronze, 10 wrought iron (s) | 600 (s) | 1500 | 10 x 10 | Advanced 10 | 0 | base 8 | cannons, cannonballs (s) |
 
 Production buildings work only with workers assigned and each extra worker adds a full share up to the limit (doc); a building under construction has 10% of its health plus the share built (s).
 
@@ -2241,20 +2241,20 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Step** | **Needs first** | **Cost (s)** | **Time (s)** | **Opens** |
 |---|---|---|---|---|
 | Flint tools | Scholar's Lodge | 10 flint, 20 softwood lumber | 60 s | flint tier: flint tools, bow and flint arrows, sling, flint javelin, surface stone; flint picks are what the copper tier's ore mining needs (doc) |
-| Bronze | Forge level 1, 1 tin ingot made | 10 copper ingots, 2 tin ingots | 150 s | bronze tier, mining bog iron and iron rock |
-| Deep Mining I | Bronze | fee in table 4 (20 bronze ingots, 50 stone) | 180 s | mineshaft tier 1 |
-| Halberds | Forge level 2 | 10 bloom iron ingots | 120 s | iron halberd (steel halberd once Steel is done) |
-| Crossbows | Forge level 3 | 10 wrought iron, 20 hardwood lumber | 180 s | crossbow, bolts, bolt case |
-| Hexcraft (researched at the Magi Sanctum, not a lodge) | Magi Sanctum | 6 hexstone, 20 herbs (hexstone is the reagent: Jade) | 180 s | the Warding and Counterspell spells (table 13) |
-| Deep Mining II | Forge level 3 | fee in table 4 (30 wrought iron, 100 stone, 5 silver) | 240 s | mineshaft tier 2 |
-| Siege engines | Great Workshop | 40 hardwood lumber, 10 rope, 10 bronze ingots | 240 s | catapult; the ballista needs a Manufactory and Forge level 3 as well |
-| Steel | Forge level 4, 1 pig iron made | 10 pig iron, 20 charcoal | 300 s | steel tier |
-| High-quality steel | Steel | 5 steel, 50 charcoal | 420 s | high-quality steel items |
-| Steel crossbow | Steel | 10 steel | 180 s | steel crossbow |
-| Deep Mining III | Steel | fee in table 4 (30 steel, 200 stone, 5 gold, 5 silver) | 360 s | mineshaft tier 3 |
-| Gunpowder | Powder mill | 20 saltpetre, 10 sulphur, 10 charcoal | 300 s | gunpowder |
-| Muskets | Gunpowder, Gunnery yard | 10 steel, 10 gunpowder | 360 s | flintlock musket, lead shot, powder horn, shot pouch |
-| Cannons | Gunpowder, Foundry | 20 bronze ingots, 10 gunpowder, 20 hardwood lumber | 420 s | bronze cannon, cannonballs; iron cannon once Forge level 3 exists |
+| Bronze | Forge level 1, 1 tin ingot made | 10 copper ingots, 2 tin ingots | 75 s (s) | bronze tier, mining bog iron and iron rock |
+| Deep Mining I | Bronze | fee in table 4 (20 bronze ingots, 50 stone) | 90 s (s) | mineshaft tier 1 |
+| Halberds | Forge level 2 | 10 bloom iron ingots | 60 s (s) | iron halberd (steel halberd once Steel is done) |
+| Crossbows | Forge level 3 | 10 wrought iron, 20 hardwood lumber | 90 s (s) | crossbow, bolts, bolt case |
+| Hexcraft (researched at the Magi Sanctum, not a lodge) | Magi Sanctum | 6 hexstone, 20 herbs (hexstone is the reagent: Jade) | 90 s (s) | the Warding and Counterspell spells (table 13) |
+| Deep Mining II | Forge level 3 | fee in table 4 (30 wrought iron, 100 stone, 3 silver (s)) | 120 s (s) | mineshaft tier 2 |
+| Siege engines | Great Workshop | 40 hardwood lumber, 10 rope, 10 bronze ingots | 120 s (s) | catapult; the ballista needs a Manufactory and Forge level 3 as well |
+| Steel | Forge level 4, 1 pig iron made | 10 pig iron, 20 charcoal | 150 s (s) | steel tier |
+| High-quality steel | Steel | 5 steel, 50 charcoal | 210 s (s) | high-quality steel items |
+| Steel crossbow | Steel | 10 steel | 90 s (s) | steel crossbow |
+| Deep Mining III | Steel | fee in table 4 (30 steel, 200 stone, 3 gold, 3 silver (s)) | 180 s (s) | mineshaft tier 3 |
+| Gunpowder | Powder mill | 10 saltpetre, 5 sulphur (s), 10 charcoal | 150 s (s) | gunpowder |
+| Muskets | Gunpowder, Gunnery yard | 10 steel, 10 gunpowder | 180 s (s) | flintlock musket, lead shot, powder horn, shot pouch |
+| Cannons | Gunpowder, Foundry | 20 bronze ingots, 10 gunpowder, 20 hardwood lumber | 210 s (s) | bronze cannon, cannonballs; iron cannon once Forge level 3 exists |
 
 Copper, bloom, wrought and refined iron need no research: the forge level opens them, as Progression says. Research is paid up front and loads like a training order (doc).
 
@@ -2262,23 +2262,23 @@ Copper, bloom, wrought and refined iron need no research: the forge level opens 
 
 | **Product** | **Made at** | **Recipe** | **Time (1 worker)** |
 |---|---|---|---|
-| Copper or tin ingot | Forge 1+ | 2 ore, 1 fuel (1 lumber, 1 charcoal or 1 coal) | 10 s |
-| Bronze ingot | Forge 1+ | 9 copper ingots, 1 tin ingot gives 10 bronze | 60 s |
-| Bloom iron | Forge 2+ | 3 bog iron or iron rock (or vein ore), 2 charcoal | 20 s |
-| Wrought iron | Forge 3+ | 3 any iron ore, 2 charcoal or coal | 20 s |
-| Pig iron | Forge 3+ | 2 vein iron ore, 1 coal or charcoal, 1 stone | 15 s |
-| Refined iron | Forge 4 | 2 pig iron, 1 fuel | 20 s |
-| Steel | Forge 4 | 1 refined iron, 2 coal or charcoal | 30 s |
-| High-quality steel | Forge 4 | 2 refined iron, 6 charcoal | 120 s (batch of 1) |
-| Charcoal | Kiln | 2 hardwood lumber gives 3 charcoal | 20 s |
-| Bricks | Kiln | 2 clay, 1 fuel gives 4 bricks | 20 s |
-| Glass | Kiln | 2 sand, 1 fuel | 20 s |
+| Copper or tin ingot | Forge 1+ | 2 ore, 1 fuel (1 lumber, 1 charcoal or 1 coal) | 5 s (s) |
+| Bronze ingot | Forge 1+ | 9 copper ingots, 1 tin ingot gives 10 bronze | 30 s (s) |
+| Bloom iron | Forge 2+ | 3 bog iron or iron rock (or vein ore), 2 charcoal | 10 s (s) |
+| Wrought iron | Forge 3+ | 3 any iron ore, 2 charcoal or coal | 10 s (s) |
+| Pig iron | Forge 3+ | 2 vein iron ore, 1 coal or charcoal, 1 stone | 8 s (s) |
+| Refined iron | Forge 4 | 2 pig iron, 1 fuel | 10 s (s) |
+| Steel | Forge 4 | 1 refined iron, 2 coal or charcoal | 15 s (s) |
+| High-quality steel | Forge 4 | 2 refined iron, 6 charcoal | 60 s (batch of 1) (s) |
+| Charcoal | Kiln | 2 hardwood lumber gives 3 charcoal | 10 s (s) |
+| Bricks | Kiln | 2 clay, 1 fuel gives 4 bricks | 10 s (s) |
+| Glass | Kiln | 2 sand, 1 fuel | 10 s (s) |
 | Planks | Lumber mill | 1 lumber gives 1 plank (any wood); waterwheel upgrade: 2 per 1 lumber (s) | 5 s |
 | Leather | Tannery | 1 hide | 15 s |
 | Sinew / rope | Tannery or Big House | 1 leather, or 2 flax | 10 s |
-| Gunpowder (10 charges) | Powder mill | 2 saltpetre, 1 sulphur, 1 charcoal | 30 s |
-| Lead shot (10 balls) | Forge 3+ | 1 lead ore, 1 fuel | 15 s |
-| Cannonball | Foundry | 1 iron ingot (any grade) or 2 stone | 10 s |
+| Gunpowder (10 charges) | Powder mill | 2 saltpetre, 1 sulphur, 1 charcoal | 15 s (s) |
+| Lead shot (10 balls) | Forge 3+ | 1 lead ore, 1 fuel | 8 s (s) |
+| Cannonball | Foundry | 1 iron ingot (any grade) or 2 stone | 5 s (s) |
 | Catapult stone / ballista bolt (5) | Great Workshop / Manufactory | 1 stone / 2 hardwood lumber, 1 wrought iron | 10 s / 30 s |
 | Bandage / healing remedy | Herbalist hut | 1 herb, 1 flax (or leather) heals 30 over 15 s / 2 herbs, 1 glass bottle heals 60 over 5 s | 10 s / 20 s |
 
@@ -2380,25 +2380,25 @@ Not touched (outside the 19 tables): the exact carving size beyond the bite rule
 
 **Pacing check**
 
-Worker-day income with hardwood tools and a 30 m walk: 20 softwood lumber (15 s a load plus 20 s walking, about 5 loads in 3 minutes less overheads), 25 loose stone, 12 fish by rod; with flint tools 25 copper or tin ore. A tier 1 farmer makes 6 wheat (12 nutrition, feeds 6). A forge worker smelts 18 copper ingots a day if ore is there. Worker-minutes per building (ws / 60): Lodge 4, Forge 1 5, Kiln 5, main base 2 to 10: 7, 10, 13, 20, 27, 33, 40, 50, 67; Bloomery 10, Ironworks 15, Steelworks 30, Powder mill 10, Foundry 20, Gunnery yard 20, stone wall 1 per 3 columns.
+Worker-day income with hardwood tools and a 30 m walk: 20 softwood lumber (15 s a load plus 20 s walking, about 5 loads in 3 minutes less overheads), 25 loose stone, 12 fish by rod; with flint tools 25 copper or tin ore. A tier 1 farmer makes 6 wheat (12 nutrition, feeds 6). A forge worker smelts 36 copper ingots a day (s) if ore is there. Worker-minutes per building (ws / 60): Lodge 4, Forge 1 5, Kiln 5, main base 2 to 10: 7, 7, 8, 10, 13, 17, 20, 25, 33; Bloomery 5, Ironworks 8, Steelworks 15, Powder mill 5, Foundry 10, Gunnery yard 10 (s), stone wall 1 per 3 columns.
 
 Time to each tier, steady play, counting days (nights) from the start:
 
 - Flint: day 0 (Lodge 60 lumber from the 40 start stock plus 20 chopped, Flint tools 60 s, 4 flint tool sets 40 s).
-- Bronze: Forge 1 day 1; 2 miners on copper 2 days = 100 ore = 50 ingots, tin 30 ore = 15 ingots; Bronze research day 4 (10 copper, 2 tin, 150 s); 44 bronze ingots by day 7 arms 5 warriors with sword, scale and shield (8 each) and the workers with bronze tools: night 8 to 10. Target 8 to 12.
-- Iron: main base 3 (day 9 to 10, 6 workers), Kiln with 20 Fringe clay (day 11), Bloomery (day 12 to 14): bloom iron night 14 to 18; base 4 (day 16 to 18), base 5 with 40 bricks, 40 marble from a Fringe marble rock and 150 hardwood from the Fringe (day 22 to 26, 10 workers), Ironworks (day 26 to 30): wrought iron, crossbows and mail night 28 to 32. Target 25 to 35.
-- Steel: base 6 (day 34 to 38), base 7 (day 42 to 46), Steelworks (day 48 to 52), vein iron from a Deepwoods ridge by ox cart or a tier 2 mineshaft, Steel research 300 s: steel night 52 to 58. Target 50 to 60.
-- Gunpowder: base 8 (day 60 to 66), Powder mill, Foundry and Gunnery yard (day 68 to 74), sulphur from the Deadlands (a 16-minute run each way, one ox cart carries 240 sulphur, about 5 days a round trip) or skeleton bomber, cinderling and hellhound drops, then Gunpowder, Muskets and Cannons research (1080 s, 6 days on one lodge, 3 on two): muskets night 80 to 88, cannons night 85 to 92. Target 80 to 95.
+- Bronze: Forge 1 day 1; 2 miners on copper 2 days = 100 ore = 50 ingots, tin 30 ore = 15 ingots; Bronze research day 2 to 3 (10 copper, 2 tin, 75 s); 44 bronze ingots by day 4 arms 5 warriors with sword, scale and shield (8 each) and the workers with bronze tools: night 4 to 6. Target 4 to 6 (s).
+- Iron: main base 3 (day 5 to 6, 6 workers), Kiln with 20 Fringe clay (day 6), Bloomery (day 6 to 7): bloom iron night 7 to 9; base 4 (day 8 to 9), base 5 with 20 bricks, 20 marble from a Fringe marble rock and 75 hardwood from the Fringe (day 11 to 13, 10 workers), Ironworks (day 13 to 15): wrought iron, crossbows and mail night 14 to 16. Target 13 to 18 (s).
+- Steel: base 6 (day 17 to 19), base 7 (day 21 to 23), Steelworks (day 24 to 26), vein iron from a Deepwoods ridge by ox cart (the cart from a Great Workshop on day 15 to 16, the first 120-ore load home by about day 20) or a tier 2 mineshaft, Steel research 150 s: steel night 26 to 29. Target 25 to 30 (s).
+- Gunpowder: Powder mill (day 22 to 24), base 8 (day 30 to 33), Foundry and Gunnery yard (day 34 to 37), 5 sulphur for the research from one Barrens hot spring (a 10-minute run, 20 a spring) or the Deadlands (a 16-minute run each way, one ox cart carries 240 sulphur, about 5 days a round trip) or skeleton bomber drops, then Gunpowder, Muskets and Cannons research (540 s, 3 days on one lodge, about 2 at a Grand Academy): muskets night 40 to 44, cannons night 43 to 46. Target 40 to 48 (s).
 
 Wave versus a reasonable defence (single-player budgets without depth weighting; mob stats roster 5.0; damage after table 3 armour):
 
 - Night 0, budget 12: 4 zombies, 2 bats, 2 rats, 1 giant spider, 1 slime against 1 warrior (flint spear, 8.6 damage a second), 4 workers (2.7 each) and a 300 HP softwood fence. The warrior kills a zombie in 7 s stabbing over the fence (reach 2.5 m); 4 zombies chewing one column (2.5 a second each, 10 total) need 30 s to break it and are all dead at 28 s, so the fence holds. Rats climb in 4 to 6 s and die to the four workers in 3 s each; bats die to 3 stabs each; the spider is the danger (ruling 10 below: about 9 s and 60 damage with everyone on it, a dead warrior if it is met alone); the slime (half damage from stabs) takes 21 s. About 70 s of fighting in a 180 s night with the first arrival at about 35 s. Tight, survivable with the workers fighting, and it teaches the fence.
-- Night 10, budget 46: 2 bloated corpses, 2 bombers, 6 skeleton archers, 8 zombies, 3 rats, 2 bats, 1 slime (about 1570 HP) against 5 bronze warriors (14 damage a second each, 70 total: 22 s of pure damage, about 70 s real) behind a hardwood fence. A bloated corpse does 8 a second through bronze scale and bursts for 28; a bomber breaks a softwood column (220 vs 300) but not hardwood; 6 archers do about 14 a second between them to a bronze-shield bearer (20% block). Comfortable if the player has 5 warriors; 3 is a hard night.
-- Night 20, budget 88: about 3500 HP of hounds, goblins, bombers and corpses against 8 warriors in bloom or wrought iron (19 a second each) and 2 archers: 23 s pure, about 70 s real. Hounds at 5.5 m/s reach sheltered workers only if a gate is open.
-- Night 40, budget 196: about 8800 HP including a bone colossus (900 HP, 30%, 120 a hit on walls, 36 s per stone column) and a hollow priest raising zombies, against 12 warriors in wrought or refined iron (23 a second, 16 against the colossus: it dies in 5 s once reached), 6 crossbows and stone walls: 40 s pure.
-- Night 60, budget 336: about 13400 HP of fiends, hellhounds, scorchwings, cinderlings and Rift beasts against 20 steel warriors (29 a second, 20 against a 30% fiend: 400 total), 8 crossbows, 4 mages and stone walls (cinderlings burn wood): 34 s pure. A fiend does 7 a second through plate, sallet and boots (65%); 15 fiends on the line are 105 a second across 20 warriors of 160 to 180 HP with two support mages healing 10 a second each.
-- Night 80, budget 508: about 23000 HP including demon brutes (1400 HP, 35%, 180 a hit: a stone column in 22 s) and void stalkers (triple first strike of 90 on a 100 HP mage) against 25 HQ steel warriors (580 a second), 8 muskets (39 a second between them) and 2 cannons (98 a shot each): 37 s pure, over 100 s real. The hardest ordinary stretch; mages stand behind warriors.
-- Night 110, budget 826 plus Morvath (25000 HP, 50%, Violet ruin 300 in 20 m with 3 s warning, 105 through plate): 30 Hero warriors (about 540 a second after his armour, at +20%), 15 muskets (56), 4 cannons (25), 6 battle mages (about 90) make about 710 a second: Morvath falls in about 35 s of concentrated fire and the rest of the wave (about 37000 HP) in about 52 more. About 87 s of pure damage in a 180 s night, so he is beaten with losses on a good night and wins on a bad one, which is what a boss should do.
+- Night 10, budget 46: 2 bloated corpses, 2 bombers, 6 skeleton archers, 8 zombies, 3 rats, 2 bats, 1 slime (about 1570 HP) against 6 warriors in bronze or bloom iron behind a hardwood fence (s). A bloated corpse does 8 a second through bronze scale and bursts for 28; a bomber breaks a softwood column (220 vs 300) but not hardwood. The night-13 blood night now meets wrought iron (s).
+- Night 20, budget 88: about 3500 HP of hounds, goblins, bombers and corpses against 10 warriors in wrought iron and mail, 4 crossbows and the first stone walls (s). Hounds at 5.5 m/s reach sheltered workers only if a gate is open.
+- Night 40, budget 196: about 8800 HP including a bone colossus (900 HP, 30%, 120 a hit on walls, 36 s per stone column) and a hollow priest raising zombies, against 16 steel warriors (HQ steel from about night 30), 8 crossbows, 2 to 4 mages and stone walls; muskets land on nights 40 to 44 and are not counted (s).
+- Night 60, budget 336: about 13400 HP of fiends, hellhounds, scorchwings, cinderlings and Rift beasts against 25 HQ steel warriors, 8 muskets, 2 cannons, 4 mages and stone walls (cinderlings burn wood) (s).
+- Night 80, budget 508: about 23000 HP including demon brutes (1400 HP, 35%, 180 a hit: a stone column in 22 s) and void stalkers (triple first strike of 90 on a 100 HP mage) against 30 HQ steel warriors at about Elite rank, 15 muskets, 4 cannons, 6 mages and the Citadel ports (s). Mages stand behind warriors.
+- Night 110 (unchanged; gear is complete by about night 55, so only ranks, numbers and walls grow after that), budget 826 plus Morvath (25000 HP, 50%, Violet ruin 300 in 20 m with 3 s warning, 105 through plate): 30 Hero warriors (about 540 a second after his armour, at +20%), 15 muskets (56), 4 cannons (25), 6 battle mages (about 90) make about 710 a second: Morvath falls in about 35 s of concentrated fire and the rest of the wave (about 37000 HP) in about 52 more. About 87 s of pure damage in a 180 s night, so he is beaten with losses on a good night and wins on a bad one, which is what a boss should do.
 
 Supply and food at night 110: main base 10 (50) and 10 tier 3 farms (80) carry 130 units; 105 units eat 210 nutrition a day, which 7 tier 3 wheat farmers through the Grand Kitchen (12 wheat a day each, as bread 30 nutrition) provide.
 
@@ -2452,7 +2452,7 @@ Mana bar per rank (s): 100, 120, 140, 160, 180, 200; refill per second from the 
 | Warding (cast_area) | support | 2, with Hexcraft | 30 (s) | 30 s (s) | 10 m (s) | no | units within 8 m of the point take half damage from enemy spells for 30 s (Jade) |
 | Counterspell (cast_bolt) | battle | 2, with Hexcraft | 20 (s) | 8 s (s) | 18 m (s) | no | cancels one enemy spell while it is being cast within range (Jade); the enemy's mana and cooldown are still spent (s) |
 
-No ward item (Jade): mages do it as spells and hexstone is the research reagent. Hexcraft (the name is (s)): researched at the Magi Sanctum (not a lodge) for 6 hexstone and 20 herbs in 180 s, and opens Warding and Counterspell for every mage of rank 2 or higher (table 2a).
+No ward item (Jade): mages do it as spells and hexstone is the research reagent. Hexcraft (the name is (s)): researched at the Magi Sanctum (not a lodge) for 6 hexstone and 20 herbs in 90 s (s), and opens Warding and Counterspell for every mage of rank 2 or higher (table 2a).
 
 Elf Grovesinger (s): health 100, mana 150, refill 1.5 per s within 20 m of a living tree, 0.75 elsewhere, 0.3 in the Barrens and Deadlands. Rootbind: 30 mana, 12 s, 20 m, non-projectile, holds enemies within 4 m still for 3 s. Thorn volley: 20 mana, 4 s, 20 m, projectile, 5 thorns of 8 at up to 5 targets. Barkskin: 30 mana, 20 s, 10 m, allies within 6 m +25% armour for 10 s. Mending bloom: 30 mana, 15 s, 12 m, allies standing within 4 m regain 5 per s for 8 s. Call of the wild: 40 mana, 60 s, wild animals within 30 m fight for the Elves for 15 s.
 

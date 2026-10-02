@@ -1,5 +1,6 @@
 {
   "description": "M0 check script: player 0 moves its five units around the origin. Coordinates are world units (8,000 per metre).",
+  "peaceful": true,
   "frames": [
     { "step": 10, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3], "x": 240000, "z": -96000 }] },
     { "step": 200, "orders": [{ "kind": "move", "player": 0, "units": [4, 5], "x": -200000, "z": 200000 }] },
