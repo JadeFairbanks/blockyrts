@@ -10,9 +10,8 @@
 import { buildingSpec, BuildingKind } from '../buildings/data.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { PERSON } from '../nav/grid.ts';
 import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
-import { fleeFrom, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
+import { fleeFrom, moverOf, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
 import { canReach, dealt, flyingHigh, gap, hostile, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { Mob, mobSpec } from './mobs.ts';
@@ -164,7 +163,7 @@ export function stepToward(state: SimState, i: number, x: number, z: number, spe
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const ncx = floorDiv(nx, WU_PER_COLUMN);
   const ncz = floorDiv(nz, WU_PER_COLUMN);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, PERSON) < 0) return false;
+  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i)) < 0) return false;
   e.heading[i] = headingTowards(sign * dx, sign * dz);
   e.x[i] = nx;
   e.z[i] = nz;
@@ -224,6 +223,12 @@ function land(state: SimState, i: number): void {
   if (r.munition === 'arrows' && e.ammoItem[i] === Item.ArrowsFire) {
     damage += itemSpec(Item.ArrowsFire).fire!.extra;
     flags |= ProjectileFlag.Fire;
+  }
+  // Metal tips hit harder; venom poisons what it hits (Table 2e).
+  if ((r.munition === 'arrows' || r.munition === 'bolts') && e.ammoItem[i]) {
+    const ammo = itemSpec(e.ammoItem[i]!);
+    damage += ammo.tip ?? 0;
+    if (ammo.poison) flags |= ProjectileFlag.Poison;
   }
   const [x, y, z] = shotOrigin(state, i);
   const shot = flags & ProjectileFlag.Fire ? 6 : r.shot;

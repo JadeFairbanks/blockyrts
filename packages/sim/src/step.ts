@@ -17,6 +17,7 @@ import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
 import { updateProjectiles } from './combat/projectiles.ts';
 import { updateSpawns } from './combat/spawn.ts';
 import { updateGear } from './units/gear.ts';
+import { updateFood } from './economy/food.ts';
 
 installDeathHooks();
 hurtHooks.unit = onUnitHurt;
@@ -121,6 +122,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   }
   updateProjectiles(state);
   updateSun(state);
+  updateFood(state);
   settleDeaths(state);
   updateBuildings(state);
   updateLights(state);

@@ -44,7 +44,7 @@ export type UnitOrder =
    * the order was given (Equip Best); the others are hand-picked and taken
    * only on arrival, if still there.
    */
-  | { t: 'equip'; b: number; tool: number; weapon: number; backup: number; ranged: number; shield: number; boots: number; ammo: number; torch: number; reserved: number }
+  | { t: 'equip'; b: number; tool: number; weapon: number; backup: number; ranged: number; shield: number; boots: number; ammo: number; torch: number; armour: number; helmet: number; boltCase: number; kit: number; reserved: number }
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
   /** Specialist training at a building (Table 7: Archery at the Barracks): the unit goes inside until it is done. */
@@ -75,7 +75,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   attackMove: ['x', 'z'],
   patrol: ['x', 'z', 'x2', 'z2', 'leg'],
   hold: [],
-  equip: ['b', 'tool', 'weapon', 'backup', 'ranged', 'shield', 'boots', 'ammo', 'torch', 'reserved'],
+  equip: ['b', 'tool', 'weapon', 'backup', 'ranged', 'shield', 'boots', 'ammo', 'torch', 'armour', 'helmet', 'boltCase', 'kit', 'reserved'],
   dig: ['site'],
   skill: ['b', 'skill'],
 };

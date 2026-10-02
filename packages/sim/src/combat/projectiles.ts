@@ -25,7 +25,10 @@ const PIECE_WU = WU_PER_COLUMN >> 1;
 /** Shots leave a person's hand at 1.4 m. */
 export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
 
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4 } as const;
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8 } as const;
+
+/** Venom on an arrow or bolt: 15 more damage over 5 s (s), on top of the hit. */
+export const POISON = { damage: 15, steps: 5 * STEPS_PER_SECOND };
 
 /** Where a projectile is at a given age. */
 export function projectileAt(p: Projectile, age: number): [number, number, number] {
@@ -210,7 +213,12 @@ export function updateProjectiles(state: SimState): void {
           e.slowBp[hit] = WEB.slowBp;
           state.hits.push({ look: 'slime', x, y, z, id: e.id[hit]! });
         } else {
-          hurtUnit(state, hit, { damage: p.damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 });
+          const d = hurtUnit(state, hit, { damage: p.damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 });
+          if (d > 0 && p.flags & ProjectileFlag.Poison && e.hp[hit]! > 0) {
+            e.dotLeft[hit] = (e.dotUntil[hit]! > state.step ? e.dotLeft[hit]! : 0) + POISON.damage;
+            e.dotUntil[hit] = state.step + POISON.steps;
+            e.dotFrom[hit] = p.shooter;
+          }
         }
         done = true;
         break;

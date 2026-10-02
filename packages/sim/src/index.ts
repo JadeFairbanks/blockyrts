@@ -22,6 +22,7 @@ export * from './world/delta.ts';
 export * from './clock.ts';
 export * from './commands.ts';
 export * from './economy/resources.ts';
+export * from './economy/food.ts';
 export * from './buildings/data.ts';
 export * from './buildings/store.ts';
 export * from './buildings/placement.ts';

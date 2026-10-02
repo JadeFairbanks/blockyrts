@@ -56,11 +56,13 @@ export const UnitKind = {
   Warrior: 1,
   Wanderer: 2,
   Mob: 3,
+  /** Wild and tamed animals (Animals): the species is in the mob field (animals/species.ts). */
+  Animal: 4,
 } as const;
 export type UnitKind = (typeof UnitKind)[keyof typeof UnitKind];
 
-/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m; suggested; mobs see 12 m). */
-export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE] as const;
+/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m; suggested; mobs see 12 m, animals 16 m). */
+export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE] as const;
 
 /** Owner value for the night's monsters: hostile to every player. */
 export const MONSTERS = 254;
@@ -127,7 +129,7 @@ export const UNIT_FIELDS = [
   ['power', 'u16'],
   /** Combat experience in tenths (rules.ts). */
   ['xp', 'i32'],
-  /** Trained skills: bit 0 archery. */
+  /** Trained skills (combat/items.ts Skill): bit 0 archery, bit 1 crossbow. */
   ['skills', 'u8'],
   /** 0 switches by itself, 1 melee only, 2 ranged only (Warriors: the lock). */
   ['lock', 'u8'],
@@ -143,7 +145,7 @@ export const UNIT_FIELDS = [
   /** A carried hand torch burns until this step. */
   ['torchUntil', 'u32'],
   /** Slots chosen by hand (bit per Slot), which Equip Best leaves alone. */
-  ['picked', 'u8'],
+  ['picked', 'u16'],
   /** The unit or building it is fighting, or 0. */
   ['target', 'u32'],
   /** The step its current swing or shot lands (0 for none), the step it may start the next, and what it uses (Attack With). */
@@ -173,6 +175,25 @@ export const UNIT_FIELDS = [
   ['fuseAt', 'u32'],
   /** Mobs: 1 when running for the dark (dawn, or a goblin with loot). */
   ['fleeing', 'u8'],
+  /** More equipment (Table 3 body armour and helmet, a bolt case, a worker's kit). */
+  ['armour', 'u8'],
+  ['helmet', 'u8'],
+  ['boltCase', 'u8'],
+  ['kit', 'u8'],
+  /** Healing over time from eating and medicine (Food): health still to come, until this step. */
+  ['mendUntil', 'u32'],
+  ['mendLeft', 'i32'],
+  /** Poison from a venom-coated arrow or bolt: damage still to come, until this step, and who shot it. */
+  ['dotUntil', 'u32'],
+  ['dotLeft', 'i32'],
+  ['dotFrom', 'u32'],
+  /** Animals: the building a tamed animal belongs to; the step it was born (young for 2 days); its next breeding; 1 for a male. */
+  ['home', 'u32'],
+  ['born', 'u32'],
+  ['breedAt', 'u32'],
+  ['sex', 'u8'],
+  /** A worker and the working animal pulling its cart, each pointing at the other (an entity id), or 0. */
+  ['partner', 'u32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -237,7 +258,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare ammo: Uint16Array;
   declare ammoItem: Uint8Array;
   declare torchUntil: Uint32Array;
-  declare picked: Uint8Array;
+  declare picked: Uint16Array;
   declare target: Uint32Array;
   declare atkAt: Uint32Array;
   declare atkNext: Uint32Array;
@@ -258,6 +279,20 @@ export class EntityStore implements Record<FieldName, Column> {
   declare abilityAt: Uint32Array;
   declare fuseAt: Uint32Array;
   declare fleeing: Uint8Array;
+  declare armour: Uint8Array;
+  declare helmet: Uint8Array;
+  declare boltCase: Uint8Array;
+  declare kit: Uint8Array;
+  declare mendUntil: Uint32Array;
+  declare mendLeft: Int32Array;
+  declare dotUntil: Uint32Array;
+  declare dotLeft: Int32Array;
+  declare dotFrom: Uint32Array;
+  declare home: Uint32Array;
+  declare born: Uint32Array;
+  declare breedAt: Uint32Array;
+  declare sex: Uint8Array;
+  declare partner: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -356,9 +391,8 @@ export interface PlayerState {
   dontEat: number;
   /** Rations (F9): 0 feed everyone, 1 troops only, 2 workers only. */
   rations: number;
-  /** Nutrition already eaten beyond what was owed (whole foods are taken), and upkeep owed but not yet due, in quarters. */
+  /** Nutrition already eaten beyond what was owed (whole foods are taken), in quarters. */
   fed: number;
-  owed: number;
   /** The step each group began starving, or 0 while fed: workers (and working animals), and troops (warriors, research facilities). */
   starveWorkers: number;
   starveTroops: number;
@@ -366,11 +400,11 @@ export interface PlayerState {
 
 /** A player's side at the start of a game, with this pool. */
 export function newPlayer(pool: Int32Array): PlayerState {
-  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, owed: 0, starveWorkers: 0, starveTroops: 0 };
+  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0 };
 }
 
 /** The per-player scalars after the pool and stock, in the order they are serialised. */
-export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'owed', 'starveWorkers', 'starveTroops'] as const satisfies ReadonlyArray<keyof PlayerState>;
+export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /** Something the players should hear about: the message panel's alerts, built-and-trained notes, the idle gatherer cue. */
 export interface SimEvent {

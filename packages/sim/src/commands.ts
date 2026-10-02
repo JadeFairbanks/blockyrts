@@ -20,9 +20,9 @@ import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
-import { equipBest, handPick } from './units/gear.ts';
+import { equipBest, handPick, SKILL_TRAINING } from './units/gear.ts';
 import { markSite } from './units/dig.ts';
-import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
+import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
@@ -271,7 +271,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainRank': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b && b.kind === BuildingKind.MainBase) giveAll(state, o, () => ({ t: 'train', b: b.id }));
+        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) ? { t: 'train', b: b.id } : null));
         break;
       }
       case 'produce': {
@@ -377,8 +377,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainSkill': {
         const b = ownBuilding(state, o.player, o.building);
-        if (!b || b.kind !== BuildingKind.Barracks || o.skill !== 1) break;
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & 1) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
+        if (!b || b.kind !== BuildingKind.Barracks || !SKILL_TRAINING[o.skill]) break;
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & o.skill) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
         break;
       }
       case 'debugGive':

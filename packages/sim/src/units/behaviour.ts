@@ -6,23 +6,26 @@
 
 import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2 } from '../buildings/lights.ts';
+import { STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, maxHealth, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
-import { canAfford, costText, loadCapacity, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
+import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { PERSON, Walk } from '../nav/grid.ts';
+import { PERSON, PERSON_ARMOURED, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
-import { NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, type SimState } from '../state.ts';
+import { NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
+import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree, propInfo, PropShape, type Tool } from '../world/props.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
-import { loadSlowBp } from './weight.ts';
+import { carryCapacity, cartSpeed, loadSlowBp, onWheels } from './weight.ts';
 import { fightStep, garrisonRoom, rangedOf } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
 import { refundEquip, runEquip, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
+import { itemSpec } from '../combat/items.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -117,7 +120,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
       e.pathOk[i] = 1;
     } else {
       if (state.paths.searches >= PATH_SEARCHES_PER_STEP) return MOVING;
-      const r = state.paths.find(PERSON, cx, cz, goal);
+      const r = state.paths.find(moverOf(state, i), cx, cz, goal);
       const pts: number[] = [];
       for (let k = 0; k < r.points.length; k++) pts.push(columnCentre(r.points[k]!));
       if (exactX !== undefined && exactZ !== undefined && r.reached) {
@@ -170,7 +173,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   }
   const ncx = col(nx);
   const ncz = col(nz);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, PERSON) < 0) {
+  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i)) < 0) {
     if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
     e.pathOk[i] = 2;
     return MOVING;
@@ -182,13 +185,33 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   return MOVING;
 }
 
-/** A unit's speed this step, wu: slowed by a grasp or a web, hastened by a howl or a shout. */
+/**
+ * How a unit gets about: on wheels with a cart (and the animal pulling it),
+ * unable to swim in body armour (Water: Wading and swimming), wild animals
+ * as walkers that never pass gates, everyone else as a person.
+ */
+export function moverOf(state: SimState, i: number): Mover {
+  const e = state.entities;
+  if (e.kind[i] === UnitKind.Animal) {
+    if (e.owner[i]! >= state.players.length) return WALKER;
+    const w = e.partner[i] ? e.indexOf(e.partner[i]!) : -1;
+    return w >= 0 && onWheels(state, w) ? WHEELS : PERSON;
+  }
+  if (onWheels(state, i)) return WHEELS;
+  if (e.armour[i] && itemSpec(e.armour[i]!).heavy) return PERSON_ARMOURED;
+  return PERSON;
+}
+
+/** A unit's speed this step, wu: slowed by its load, by starving, by a grasp or a web, hastened by a howl or a shout. */
 export function moveSpeed(state: SimState, i: number): number {
   const e = state.entities;
+  const cart = cartSpeed(state, i);
+  const base = cart > 0 ? Math.min(cart, e.speed[i]!) : e.speed[i]!;
   let bp = 10000 - loadSlowBp(state, i);
+  if (starvingSince(state, i)) bp -= STARVING_SLOW_BP;
   if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
-  return Math.max(1, floorDiv(e.speed[i]! * bp, 10000));
+  return Math.max(1, floorDiv(base * bp, 10000));
 }
 
 // ----- nodes -----
@@ -573,7 +596,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
     case Act.Walk: {
       if (!gatherable(view, tool)) return runOut(lastRes, lastCol());
       const res = nodeResource(view.kind);
-      if (e.carryAmt[i]! > 0 && (e.carryRes[i] !== res || e.carryAmt[i]! >= loadCapacity(res as Res))) {
+      if (e.carryAmt[i]! > 0 && (e.carryRes[i] !== res || e.carryAmt[i]! >= carryCapacity(state, i, res))) {
         e.act[i] = Act.ToDrop;
         resetWalk(state, i);
         return CONTINUE;
@@ -627,7 +650,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       e.timer[i] = e.timer[i]! + (TOOL_SPEED_PER_MILLE[tool as Tool] ?? 1000);
       if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
       e.timer[i] = 0;
-      const room = loadCapacity(res as Res) - (e.carryRes[i] === res ? e.carryAmt[i]! : 0);
+      const room = carryCapacity(state, i, res) - (e.carryRes[i] === res ? e.carryAmt[i]! : 0);
       const want = Math.max(1, Math.min(info.perLoad, room));
       const before = view.amount;
       const taken = state.world.harvest(o.cx, o.cz, o.i, want, state.step);
@@ -643,6 +666,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
         const pool = state.players[e.owner[i]!]!.pool;
         pool[Res.Resin] = pool[Res.Resin]! + RESIN_PER_SOFTWOOD_TREE;
       }
+      // A cart or pack is filled at the node before the trip home.
+      if (e.carryAmt[i]! < carryCapacity(state, i, res) && before - taken > 0) return CONTINUE;
       e.act[i] = Act.ToDrop;
       resetWalk(state, i);
       return CONTINUE;
@@ -962,16 +987,28 @@ function runRefuel(state: SimState, i: number, o: Extract<UnitOrder, { t: 'refue
   return DONE;
 }
 
-/** The rank training a worker can take next, or undefined at rank 3 and above. */
-export function nextRankTraining(rank: number): (typeof RANK_TRAINING)[number] | undefined {
-  return RANK_TRAINING.find((t) => t.rank === rank + 1);
+/** Rank training at the Barracks (Table 7): to Soldier, to Veteran. */
+export const WARRIOR_RANK_TRAINING: ReadonlyArray<{ rank: number; food: number; steps: number; base: number; name: string }> = [
+  { rank: 2, food: 30, steps: 60 * STEPS_PER_SECOND, base: 0, name: 'Soldier' },
+  { rank: 3, food: 60, steps: 120 * STEPS_PER_SECOND, base: 0, name: 'Veteran' },
+];
+
+/** The rank training a unit can take next, or undefined at rank 3 and above: workers at a main base, warriors at the Barracks. */
+export function nextRankTraining(rank: number, warrior = false): (typeof RANK_TRAINING)[number] | undefined {
+  return (warrior ? WARRIOR_RANK_TRAINING : RANK_TRAINING).find((t) => t.rank === rank + 1);
+}
+
+/** Where a unit trains its rank: workers at a main base, warriors at the Barracks. */
+export function rankTrainedAt(kind: number): number {
+  return kind === UnitKind.Warrior ? BuildingKind.Barracks : BuildingKind.MainBase;
 }
 
 function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train' }>): boolean {
   const e = state.entities;
   const b = state.buildings.get(o.b);
-  const t = nextRankTraining(e.rank[i]!);
-  if (!b || !t || b.kind !== BuildingKind.MainBase || !b.complete || b.owner !== e.owner[i]) return DONE;
+  const warrior = e.kind[i] === UnitKind.Warrior;
+  const t = nextRankTraining(e.rank[i]!, warrior);
+  if (!b || !t || b.kind !== rankTrainedAt(e.kind[i]!) || !b.complete || b.owner !== e.owner[i]) return DONE;
   if (e.inside[i] !== b.id) {
     if (mainBaseLevel(state, b.owner) < t.base) {
       alert(state, b.owner, `Training to ${t.name} needs a level ${t.base} main base.`, e.x[i]!, e.z[i]!);
@@ -981,7 +1018,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
     if (!payNutrition(state.players[b.owner]!.pool, t.food, state.players[b.owner]!.dontEat)) {
-      alert(state, b.owner, `Not enough food to train a worker to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, `Not enough food to train a ${warrior ? 'warrior' : 'worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!);
       return DONE;
     }
     if (e.carryAmt[i]! > 0) unload(state, i);
@@ -992,11 +1029,13 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   e.timer[i] = e.timer[i]! + 1;
   if (e.timer[i]! < t.steps) return CONTINUE;
   e.rank[i] = t.rank;
-  const hp = WORKER_HEALTH_BY_RANK[t.rank]!;
+  const hp = warrior ? WARRIOR_HEALTH_BY_RANK[t.rank]! : WORKER_HEALTH_BY_RANK[t.rank]!;
   e.hp[i] = e.hp[i]! + hp - e.maxHp[i]!;
   e.maxHp[i] = hp;
+  // A trained warrior counts as having the experience of its rank, so combat carries on from there (s).
+  if (warrior) e.xp[i] = Math.max(e.xp[i]!, WARRIOR_XP_TENTHS[t.rank]!);
   leaveBuilding(state, i);
-  state.events.push({ player: b.owner, kind: 'info', text: `A worker has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
+  state.events.push({ player: b.owner, kind: 'info', text: `A ${warrior ? 'warrior' : 'worker'} has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
   return DONE;
 }
 

@@ -105,12 +105,12 @@ export function gapToBuilding(state: SimState, i: number, b: Building): number {
   return length2d(dx, dz);
 }
 
-/** Armour a unit wears, bp: the pieces add up, capped at 75% (Table 3: boots 3%). Mobs have the roster's. */
+/** Armour a unit wears, bp: boots, body armour and helmet add up, capped at 75% (Table 3). Mobs have the roster's. */
 export function armourOf(state: SimState, i: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mob) return mobSpec(e.mob[i]!).armourBp;
   const pieces: number[] = [];
-  if (e.boots[i]) pieces.push(itemSpec(e.boots[i]!).armourBp ?? 0);
+  for (const id of [e.boots[i]!, e.armour[i]!, e.helmet[i]!]) if (id) pieces.push(itemSpec(id).armourBp ?? 0);
   return totalArmourBp(pieces);
 }
 
@@ -177,6 +177,11 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const block = blow.projectile ? shieldBlock(state, i) : 0;
   const d = damageTaken({ damage: blow.damage, armourBp: armourOf(state, i), modifierBp, projectile: blow.projectile, shieldBlockBp: block });
   e.hp[i] = e.hp[i]! - d;
+  // Combat interrupts eating and the healing it brings (Food: Eating).
+  if (blow.from && e.mendUntil[i]! > state.step) {
+    e.mendUntil[i] = 0;
+    e.mendLeft[i] = 0;
+  }
   const fresh = e.hurtAt[i] === 0 || state.step - e.hurtAt[i]! > FRESH_HURT_STEPS;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;

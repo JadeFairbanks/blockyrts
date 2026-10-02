@@ -15,8 +15,7 @@ import { length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixe
 import { isDark } from '../clock.ts';
 import { payNutrition } from '../economy/resources.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
-import { SKILL_ARCHERY } from '../combat/fight.ts';
-import { Item, ITEMS, itemSpec, Slot, toolItem, type ItemSpec } from '../combat/items.ts';
+import { hasResearch, Item, ITEMS, itemSpec, RESEARCH, Research, Skill, Slot, toolItem, type ItemSpec } from '../combat/items.ts';
 import { Tool } from '../world/props.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import { KEEP, type UnitOrder } from './unit-orders.ts';
@@ -33,8 +32,12 @@ const SLOT_FIELD: Record<number, keyof EquipOrder> = {
   [Slot.Boots]: 'boots',
   [Slot.Ammo]: 'ammo',
   [Slot.Torch]: 'torch',
+  [Slot.Armour]: 'armour',
+  [Slot.Helmet]: 'helmet',
+  [Slot.Case]: 'boltCase',
+  [Slot.Kit]: 'kit',
 };
-const SLOTS = [Slot.Tool, Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Ammo, Slot.Torch] as const;
+const SLOTS = [Slot.Tool, Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Ammo, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case, Slot.Kit] as const;
 
 /** Auto-Equip hands out gear to idle units within about a 15 s run of a main base (Equipment): 45 m. */
 export const AUTO_EQUIP_M = 45;
@@ -44,9 +47,14 @@ export const GEAR_CHECK_STEPS = 5 * STEPS_PER_SECOND;
 const REFILL_WU = 4 * WU_PER_METRE;
 /** Archery (Table 7): 40 food, 120 s at the Barracks, after Flint tools. */
 export const ARCHERY = { food: 40, steps: 120 * STEPS_PER_SECOND };
+/** Specialist training at the Barracks by skill bit (Table 7): archery, and crossbow (15 food, 30 s, after Crossbows). */
+export const SKILL_TRAINING: Readonly<Record<number, { name: string; food: number; steps: number; research: number }>> = {
+  [Skill.Archery]: { name: 'archery', ...ARCHERY, research: Research.FlintTools },
+  [Skill.Crossbow]: { name: 'the crossbow', food: 15, steps: 30 * STEPS_PER_SECOND, research: Research.Crossbows },
+};
 
 export function emptyEquip(b: number): EquipOrder {
-  return { t: 'equip', b, tool: KEEP, weapon: KEEP, backup: KEEP, ranged: KEEP, shield: KEEP, boots: KEEP, ammo: KEEP, torch: KEEP, reserved: 0 };
+  return { t: 'equip', b, tool: KEEP, weapon: KEEP, backup: KEEP, ranged: KEEP, shield: KEEP, boots: KEEP, ammo: KEEP, torch: KEEP, armour: KEEP, helmet: KEEP, boltCase: KEEP, kit: KEEP, reserved: 0 };
 }
 
 /** What a unit has in a slot now (a tool as its item). */
@@ -69,6 +77,14 @@ export function wornIn(state: SimState, i: number, slot: number): number {
       return e.ammoItem[i]!;
     case Slot.Torch:
       return e.torchUntil[i]! > state.step ? Item.HandTorch : Item.None;
+    case Slot.Armour:
+      return e.armour[i]!;
+    case Slot.Helmet:
+      return e.helmet[i]!;
+    case Slot.Case:
+      return e.boltCase[i]!;
+    case Slot.Kit:
+      return e.kit[i]!;
   }
   return Item.None;
 }
@@ -91,12 +107,12 @@ function wear(state: SimState, i: number, slot: number, item: number): void {
       e.backup[i] = item;
       break;
     case Slot.Ranged: {
-      // Arrows left in a quiver go back when the bow does.
-      if (old === Item.Bow && e.ammo[i]! > 0 && e.ammoItem[i]) stock[e.ammoItem[i]!] = stock[e.ammoItem[i]!]! + e.ammo[i]!;
+      // Arrows left in a quiver, and bolts in a case, go back when the bow or crossbow does.
+      if (old && e.ammo[i]! > 0 && e.ammoItem[i]) stock[e.ammoItem[i]!] = stock[e.ammoItem[i]!]! + e.ammo[i]!;
       e.ranged[i] = item;
       e.ammo[i] = 0;
       e.ammoItem[i] = 0;
-      if (item === Item.JavelinsFlint) e.ammo[i] = itemSpec(item).ranged!.load;
+      if (item && itemSpec(item).ranged!.munition === 'self') e.ammo[i] = itemSpec(item).ranged!.load;
       break;
     }
     case Slot.Shield:
@@ -110,6 +126,24 @@ function wear(state: SimState, i: number, slot: number, item: number): void {
       break;
     case Slot.Torch:
       e.torchUntil[i] = item ? state.step + itemSpec(item).burnSteps! : 0;
+      break;
+    case Slot.Armour:
+      e.armour[i] = item;
+      break;
+    case Slot.Helmet:
+      e.helmet[i] = item;
+      break;
+    case Slot.Case:
+      // Bolts left in the case go back with it.
+      if (!item && e.ammo[i]! > 0 && e.ammoItem[i] && itemSpec(e.ammoItem[i]!).ammoFor === 'bolts') {
+        stock[e.ammoItem[i]!] = stock[e.ammoItem[i]!]! + e.ammo[i]!;
+        e.ammo[i] = 0;
+        e.ammoItem[i] = 0;
+      }
+      e.boltCase[i] = item;
+      break;
+    case Slot.Kit:
+      e.kit[i] = item;
       break;
   }
 }
@@ -202,19 +236,36 @@ function bestToolInStock(state: SimState, player: number, current: number): numb
   return best;
 }
 
-/** Fills a quiver from the arrows in stock, and a sling from the stone pool, at a main base. */
+/** The best arrows or bolts in stock for a weapon: the highest tip first, poison and fire last (s). */
+function bestMunition(stock: Int32Array, kind: 'arrows' | 'bolts'): number {
+  let best = 0;
+  let bestScore = -1;
+  for (const it of ITEMS) {
+    if (it.ammoFor !== kind || stock[it.id]! <= 0) continue;
+    const sc = it.poison || it.fire ? 0 : 1 + (it.tip ?? 0);
+    if (sc > bestScore) {
+      best = it.id;
+      bestScore = sc;
+    }
+  }
+  return best;
+}
+
+/** Fills a quiver or a bolt case from the stock, and a sling from the stone pool, at a main base. */
 export function refill(state: SimState, i: number): void {
   const e = state.entities;
   const p = state.players[e.owner[i]!]!;
   const id = e.ranged[i]!;
   if (!id) return;
   const r = itemSpec(id).ranged!;
-  if (r.munition === 'arrows') {
+  if (r.munition === 'arrows' || r.munition === 'bolts') {
     if (e.ammo[i]! >= r.load) return;
-    // The same arrows first, else the best tips in stock.
+    // Bolts are carried in a case (Table 2e).
+    if (r.munition === 'bolts' && !e.boltCase[i]) return;
+    // The same arrows first, else the best in stock.
     let kind = e.ammoItem[i]!;
-    if (!kind || (e.ammo[i] === 0 && p.items[kind]! <= 0)) kind = p.items[Item.ArrowsFire]! > 0 ? Item.ArrowsFire : Item.ArrowsFlint;
-    if (e.ammo[i]! > 0 && kind !== e.ammoItem[i]) return;
+    if (!kind || (e.ammo[i] === 0 && p.items[kind]! <= 0)) kind = bestMunition(p.items, r.munition);
+    if (!kind || (e.ammo[i]! > 0 && kind !== e.ammoItem[i])) return;
     const take = Math.min(r.load - e.ammo[i]!, p.items[kind]!);
     if (take <= 0) return;
     p.items[kind] = p.items[kind]! - take;
@@ -295,10 +346,16 @@ export function equipBest(state: SimState, player: number, units: readonly numbe
         // A thrown-out bundle of javelins is replaced like an empty hand.
         take(Slot.Ranged, bestFor(state, i, Slot.Ranged, (it) => (e.skills[i]! & it.ranged!.skill) === it.ranged!.skill, current));
       }
+      // A crossbow's bolts ride in a case.
+      const shoots = o.ranged !== KEEP ? o.ranged : has(Slot.Ranged);
+      if (shoots && itemSpec(shoots).ranged?.munition === 'bolts' && !has(Slot.Case) && free(Slot.Case)) take(Slot.Case, bestFor(state, i, Slot.Case, () => true, 0));
+      if (free(Slot.Armour)) take(Slot.Armour, bestFor(state, i, Slot.Armour, () => true, has(Slot.Armour)));
+      if (free(Slot.Helmet)) take(Slot.Helmet, bestFor(state, i, Slot.Helmet, () => true, has(Slot.Helmet)));
     }
     if (free(Slot.Boots)) take(Slot.Boots, bestFor(state, i, Slot.Boots, () => true, has(Slot.Boots)));
     const anything = o.reserved !== 0 || o.tool === BEST_TOOL;
-    const quiver = e.ranged[i] === Item.Bow && e.ammo[i]! < itemSpec(Item.Bow).ranged!.load && (stock[Item.ArrowsFlint]! > 0 || stock[Item.ArrowsFire]! > 0);
+    const shooter = e.ranged[i] ? itemSpec(e.ranged[i]!).ranged! : null;
+    const quiver = !!shooter && (shooter.munition === 'arrows' || shooter.munition === 'bolts') && e.ammo[i]! < shooter.load && bestMunition(stock, shooter.munition) !== 0;
     if (!anything && !quiver) continue;
     if (pending) {
       // Already on its way: fold the new picks into that trip.
@@ -393,12 +450,13 @@ function edgeGap(b: Building, x: number, z: number): number {
 
 // ----- specialist training -----
 
-/** Archery at the Barracks (Table 7): the unit goes in, pays 40 food, and comes out trained. */
+/** Specialist training at the Barracks (Table 7): the unit goes in, pays the food, and comes out trained. */
 export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 'skill' }>): boolean {
   const e = state.entities;
   const b = state.buildings.get(o.b);
-  if (!b || b.owner !== e.owner[i] || !b.complete || b.kind !== BuildingKind.Barracks || e.kind[i] !== UnitKind.Warrior) return true;
-  if ((e.skills[i]! & SKILL_ARCHERY) !== 0) return true;
+  const t = SKILL_TRAINING[o.skill];
+  if (!t || !b || b.owner !== e.owner[i] || !b.complete || b.kind !== BuildingKind.Barracks || e.kind[i] !== UnitKind.Warrior) return true;
+  if ((e.skills[i]! & o.skill) !== 0) return true;
   if (e.inside[i] !== b.id) {
     if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
     const r = walkTo(state, i, besideBuilding(b));
@@ -411,12 +469,13 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
         return false;
       }
     }
-    if ((state.players[b.owner]!.research & 2) === 0) {
-      state.events.push({ player: b.owner, kind: 'alert', text: 'Archery needs Flint tools researched first.', x: e.x[i]!, z: e.z[i]! });
+    const p = state.players[b.owner]!;
+    if (!hasResearch(p.research, t.research as Research)) {
+      state.events.push({ player: b.owner, kind: 'alert', text: `Training in ${t.name} needs ${RESEARCH[t.research]!.name} researched first.`, x: e.x[i]!, z: e.z[i]! });
       return true;
     }
-    if (!payNutrition(state.players[b.owner]!.pool, ARCHERY.food, state.players[b.owner]!.dontEat)) {
-      state.events.push({ player: b.owner, kind: 'alert', text: `Not enough food to train archery (${ARCHERY.food} food).`, x: e.x[i]!, z: e.z[i]! });
+    if (!payNutrition(p.pool, t.food, p.dontEat)) {
+      state.events.push({ player: b.owner, kind: 'alert', text: `Not enough food to train in ${t.name} (${t.food} food).`, x: e.x[i]!, z: e.z[i]! });
       return true;
     }
     e.inside[i] = b.id;
@@ -428,8 +487,8 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
   }
   e.order[i] = OrderKind.Idle;
   e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < ARCHERY.steps) return false;
-  e.skills[i] = e.skills[i]! | SKILL_ARCHERY;
-  state.events.push({ player: b.owner, kind: 'info', text: `A warrior has learned archery at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
+  if (e.timer[i]! < t.steps) return false;
+  e.skills[i] = e.skills[i]! | o.skill;
+  state.events.push({ player: b.owner, kind: 'info', text: `A warrior has learned ${t.name} at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
   return true;
 }

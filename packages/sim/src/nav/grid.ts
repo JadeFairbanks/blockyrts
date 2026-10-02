@@ -47,6 +47,8 @@ export interface Mover {
   ignoreBuildings?: boolean;
   /** Climbers ignore the climb limit and drops (Moving over the land; Threats: climbers). */
   climbs?: boolean;
+  /** Wheels (carts) take no clamber or drop: only steps and ramps (Inventory and carrying weight: carts). */
+  wheels?: boolean;
 }
 
 /** The players' units. */
@@ -59,6 +61,10 @@ export const MOB_PLAN: Mover = { id: 2, canSwim: false, ignoreBuildings: true };
 export const CLIMBER_PLAN: Mover = { id: 3, canSwim: false, ignoreBuildings: true, climbs: true };
 /** Climbing monsters on the ground (walls are climbed by their own rule). */
 export const CLIMBER: Mover = { id: 4, canSwim: false, climbs: true };
+/** The players' units in body armour: they wade but cannot swim (Water: Wading and swimming). */
+export const PERSON_ARMOURED: Mover = { id: 5, canSwim: false, passGates: true };
+/** A worker with a cart, and the animal pulling one: no clambering, no deep water. */
+export const WHEELS: Mover = { id: 6, canSwim: false, passGates: true, wheels: true };
 
 interface NavChunk {
   version: number;
@@ -167,6 +173,7 @@ export class NavGrid {
     if (!this.standable(bx, bz, m)) return -1;
     const rise = this.level(bx, bz) - this.level(ax, az);
     if (!m.climbs && (rise > CLAMBER_UNITS || rise < -DROP_UNITS)) return -1;
+    if (m.wheels && (rise > STEP_UNITS || rise < -STEP_UNITS)) return -1;
     const diagonal = ax !== bx && az !== bz;
     if (diagonal && (this.stepCost(ax, az, bx, az, m) < 0 || this.stepCost(ax, az, ax, bz, m) < 0)) return -1;
     let cost = diagonal ? 14 : 10;
