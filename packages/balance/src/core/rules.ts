@@ -23,6 +23,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding.' },
   { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
+  { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and torches, outlying lights and refuelling.' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
@@ -36,7 +37,7 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
   'data/tables.ts', 'data/table-types.ts', 'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
   'nav/path.ts', 'threats/debug.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
-  'magic/cast.ts',
+  'magic/cast.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
 ]);
 
 /** Single exports that are plumbing, ids or names rather than balance. */
@@ -89,6 +90,12 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'magic/mages.ts': 'magic',
   'magic/cast.ts': 'magic',
   'threats/burns.ts': 'lairs',
+  'peoples/data.ts': 'peoples',
+  'peoples/stock.ts': 'peoples',
+  'peoples/trade.ts': 'peoples',
+  'peoples/war.ts': 'peoples',
+  'peoples/ai.ts': 'peoples',
+  'peoples/factions.ts': 'peoples',
   'threats/nights.ts': 'mobs',
   'threats/fog.ts': 'mobs',
   'world/materials.ts': 'world',
@@ -150,7 +157,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'buildings/data.ts:BUILDINGS', 'combat/items.ts:RESEARCH', 'combat/items.ts:ITEMS', 'combat/items.ts:SHOTS', 'buildings/recipes.ts:RECIPES',
   'combat/mobs.ts:MOBS', 'animals/species.ts:SPECIES', 'economy/resources.ts:RESOURCES', 'threats/data.ts:LAIRS', 'threats/data.ts:TRIBES',
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
-  'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS',
+  'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS',
 ]);
 
 
