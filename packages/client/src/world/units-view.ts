@@ -5,7 +5,7 @@
 // clips, arrows, stones and webs in flight, and the little bursts of blood,
 // bone, slime, splinters and dust when something is hit.
 import * as THREE from 'three';
-import { Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -332,7 +332,8 @@ export class UnitsView {
       const id = d[o + S.id]!;
       const p = prev && alpha < 1 && prev.data[o + S.id] === id ? prev.data : d;
       const x = (p[o + S.x]! + (d[o + S.x]! - p[o + S.x]!) * alpha) / WU_PER_METRE;
-      const y = (p[o + S.y]! + (d[o + S.y]! - p[o + S.y]!) * alpha) / WU_PER_METRE;
+      const hop = hopAt(d, o, alpha);
+      const y = hop ? hop.y : (p[o + S.y]! + (d[o + S.y]! - p[o + S.y]!) * alpha) / WU_PER_METRE;
       const z = (p[o + S.z]! + (d[o + S.z]! - p[o + S.z]!) * alpha) / WU_PER_METRE;
       const heading = (d[o + S.heading]! / 65536) * Math.PI * 2;
       const owner = d[o + S.owner]!;
@@ -400,7 +401,7 @@ export class UnitsView {
       if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
-          slot.m.setInstance(slot.i, x, y, z, heading, look.clip, clipT, colour);
+          slot.m.setInstance(slot.i, x, y, z, heading, hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip, clipT, colour);
           for (const [item, bone] of look.attach) {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
@@ -551,6 +552,29 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   if (mobSpec(d[o + S.mob]!).moves === Moves.LowFlyer && has('fly')) return 'fly';
   if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : 'walk';
   return 'idle';
+}
+
+/** How high a hop arcs above the straight line from one level to the other, metres (s). */
+const HOP_ARC_M = 0.22;
+
+/**
+ * A hop up or down a rise under way (Moving over the land): the unit's
+ * height on an arc from the level it left to the one it lands on, and
+ * whether it goes up. Null when it is not hopping.
+ */
+export function hopAt(d: Int32Array, o: number, alpha: number): { y: number; up: boolean } | null {
+  const left = d[o + S.hop]!;
+  if (left <= 0) return null;
+  const t = Math.min(1, Math.max(0, (HOP_STEPS - left + alpha) / HOP_STEPS));
+  const rise = d[o + S.hopRise]! / WU_PER_METRE;
+  return { y: d[o + S.y]! / WU_PER_METRE - rise * (1 - t) + HOP_ARC_M * 4 * t * (1 - t), up: rise > 0 };
+}
+
+/** The pose of a hop: the body's climb clip going up (or a jump clip, if it has one), else what it was doing. */
+function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean): string {
+  if (clips.has('jump')) return 'jump';
+  if (up && clips.has('climb')) return 'climb';
+  return clip;
 }
 
 /** A worker's tool in hand while it works, a torch in the other, its clip. */

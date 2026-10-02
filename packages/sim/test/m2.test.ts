@@ -36,6 +36,7 @@ import {
   step,
   supplyCap,
   supplyUsed,
+  Tool,
   UnitKind,
   WU_PER_COLUMN,
   WU_PER_METRE,
@@ -213,7 +214,7 @@ describe('gathering', () => {
 
   it('refuses a node its tools are too poor for', () => {
     const s = createWorld(1, { peaceful: true });
-    s.entities.tool[0] = 2; // with flint tools it finds a hardwood tree
+    s.entities.tool[0] = Tool.Flint; // with flint tools it finds a hardwood tree
     const node = findNode(s, 0, Res.HardwoodLumber, col(s.entities.x[0]!), col(s.entities.z[0]!), 400);
     expect(node).not.toBeNull();
     if (!node) return;

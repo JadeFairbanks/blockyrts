@@ -1,7 +1,9 @@
 // The walk map on the 45 cm column grid (Terrain, Moving over the land;
 // technical decision 6). Per column: the level a person stands at, whether a
 // building's solid part fills it, and whether water there is shallow enough
-// to wade or deep enough to swim. Built per chunk from the world on demand
+// to wade or deep enough to swim; and under an overhang (a tunnel the workers
+// dug, a cave, an arch) a second, lower floor with its roof, where there is
+// headroom for a person. Built per chunk from the world on demand
 // and rebuilt only for chunks whose land, water or buildings changed (the
 // world bumps a chunk's walk-map version on every change). The walk map is a
 // pure function of the state, so caching it can never cause a desync.
@@ -22,6 +24,13 @@ export const DROP_UNITS = 9;
 export const WADE_UNITS = 9;
 /** A swimmer floats with the water surface this far above its feet's level, so it can climb out on a bank of about that height. */
 const FLOAT_UNITS = 4;
+/** Headroom a person needs to stand under a roof: 16 terrain units, 1.8 m (Moving over the land: headroom). */
+export const HEADROOM_UNITS = 16;
+/** No floor under an overhang on this column. */
+export const NO_FLOOR = -32768;
+/** Walk levels of a column: 0 its top, open to the sky; 1 the floor under its lowest overhang with headroom (a tunnel or cave). */
+export const TOP = 0;
+export const UNDER = 1;
 
 /** Column flags. */
 export const Walk = {
@@ -49,6 +58,8 @@ export interface Mover {
   climbs?: boolean;
   /** Wheels (carts) take no clamber or drop: only steps and ramps (Inventory and carrying weight: carts). */
   wheels?: boolean;
+  /** Big creatures step and jump higher (Moving over the land: "scale with size"): the largest rise they jump, terrain units. */
+  clamber?: number;
 }
 
 /** The players' units. */
@@ -67,12 +78,17 @@ export const PERSON_ARMOURED: Mover = { id: 5, canSwim: false, passGates: true }
 export const WHEELS: Mover = { id: 6, canSwim: false, passGates: true, wheels: true };
 /** Wild crocodiles and crabs: walkers that also swim. */
 export const SWIMMER: Mover = { id: 7, canSwim: true };
+/** Monsters 2.5 m tall and up on the ground: they jump rises of up to 6 units (67 cm) (s). */
+export const BIG_WALKER: Mover = { id: 8, canSwim: false, clamber: 6 };
 
 interface NavChunk {
   version: number;
   /** Level a unit stands at, terrain units. */
   level: Int16Array;
   flags: Uint8Array;
+  /** The floor under the highest overhang with a person's headroom, or NO_FLOOR, and the roof above it, terrain units. */
+  under: Int16Array;
+  roof: Int16Array;
 }
 
 /** Where buildings' solid parts are: per chunk, the solid local column indices, and which of them are gates. */
@@ -121,6 +137,8 @@ export class NavGrid {
     const cols = this.world.columns(cx, cz);
     const level = new Int16Array(N * N);
     const flags = new Uint8Array(N * N);
+    const under = new Int16Array(N * N).fill(NO_FLOOR);
+    const roof = new Int16Array(N * N);
     const solid = this.solids.solidIn(key);
     const gates = this.solids.gatesIn(key);
     for (let i = 0; i < N * N; i++) {
@@ -139,8 +157,19 @@ export class NavGrid {
       if (gates?.has(i)) f |= Walk.Gate;
       level[i] = lv;
       flags[i] = f;
+      // The highest gap between two layers that a person fits in.
+      const s = cols.start[i]! * 3;
+      for (let k = cols.count[i]! - 2; k >= 0; k--) {
+        const floor = cols.layers[s + k * 3 + 1]!;
+        const ceiling = cols.layers[s + (k + 1) * 3]!;
+        if (ceiling - floor >= HEADROOM_UNITS) {
+          under[i] = floor;
+          roof[i] = ceiling;
+          break;
+        }
+      }
     }
-    return { version, level, flags };
+    return { version, level, flags, under, roof };
   }
 
   /** The standing level of a global column, terrain units. */
@@ -150,6 +179,32 @@ export class NavGrid {
     return this.get(cx, cz).level[(z - cz * N) * N + (x - cx * N)]!;
   }
 
+  /** The floor under a column's overhang (a tunnel or cave), or NO_FLOOR. */
+  under(x: number, z: number): number {
+    const cx = x >> CHUNK_SHIFT;
+    const cz = z >> CHUNK_SHIFT;
+    return this.get(cx, cz).under[(z - cz * N) * N + (x - cx * N)]!;
+  }
+
+  /** The roof over a column's lower floor, terrain units. */
+  roof(x: number, z: number): number {
+    const cx = x >> CHUNK_SHIFT;
+    const cz = z >> CHUNK_SHIFT;
+    return this.get(cx, cz).roof[(z - cz * N) * N + (x - cx * N)]!;
+  }
+
+  /** The level of a walk level of a column (TOP or UNDER), or NO_FLOOR. */
+  levelOf(x: number, z: number, layer: number): number {
+    return layer === TOP ? this.level(x, z) : this.under(x, z);
+  }
+
+  /** Which walk level of a column a unit at height y (terrain units) is on: the nearer one. */
+  layerAt(x: number, z: number, y: number): number {
+    const u = this.under(x, z);
+    if (u === NO_FLOOR) return TOP;
+    return Math.abs(y - u) < Math.abs(y - this.level(x, z)) ? UNDER : TOP;
+  }
+
   /** The flags of a global column. */
   flags(x: number, z: number): number {
     const cx = x >> CHUNK_SHIFT;
@@ -157,42 +212,80 @@ export class NavGrid {
     return this.get(cx, cz).flags[(z - cz * N) * N + (x - cx * N)]!;
   }
 
-  /** Whether a mover can stand on a column at all. */
-  standable(x: number, z: number, m: Mover): boolean {
+  /** Whether a mover can stand on a column at all (on its top, or on the floor under its overhang). */
+  standable(x: number, z: number, m: Mover, layer = TOP): boolean {
+    if (layer === UNDER) return this.under(x, z) !== NO_FLOOR;
     const f = this.flags(x, z);
     if (f & Walk.Blocked && !m.ignoreBuildings && !(m.passGates && f & Walk.Gate)) return false;
     if (f & Walk.Deep && !m.canSwim) return false;
     return true;
   }
 
+  /** The rise from one walk level to another, if the mover may make it there with room for its head; else null. */
+  private rise(ax: number, az: number, la: number, bx: number, bz: number, lb: number, m: Mover): number | null {
+    if (!this.standable(bx, bz, m, lb)) return null;
+    const from = this.levelOf(ax, az, la);
+    const to = this.levelOf(bx, bz, lb);
+    const rise = to - from;
+    if (!m.climbs && (rise > (m.clamber ?? CLAMBER_UNITS) || rise < -DROP_UNITS)) return null;
+    if (m.wheels && (rise > STEP_UNITS || rise < -STEP_UNITS)) return null;
+    // Under a roof, a person needs headroom above the higher of the two floors.
+    const high = Math.max(from, to);
+    if (la === UNDER && this.roof(ax, az) - high < HEADROOM_UNITS) return null;
+    if (lb === UNDER && this.roof(bx, bz) - high < HEADROOM_UNITS) return null;
+    return rise;
+  }
+
   /**
-   * The cost of stepping from column (ax, az) to its neighbour (bx, bz), or
-   * -1 if the step is not allowed: 10 straight, 14 diagonal, +10 for a
-   * clamber, doubled in water. A diagonal step also needs both straight
-   * steps beside it to be open, so units never cut a corner.
+   * The walk level a mover reaches on column (bx, bz) stepping from walk
+   * level la of its neighbour (ax, az), or -1. A walker reaches at most one:
+   * the two floors of a column are at least 17 units apart and a step spans
+   * 13 at most; a climber takes the nearer.
    */
-  stepCost(ax: number, az: number, bx: number, bz: number, m: Mover): number {
-    if (!this.standable(bx, bz, m)) return -1;
-    const rise = this.level(bx, bz) - this.level(ax, az);
-    if (!m.climbs && (rise > CLAMBER_UNITS || rise < -DROP_UNITS)) return -1;
-    if (m.wheels && (rise > STEP_UNITS || rise < -STEP_UNITS)) return -1;
+  layerTo(ax: number, az: number, la: number, bx: number, bz: number, m: Mover): number {
+    const top = this.rise(ax, az, la, bx, bz, TOP, m);
+    const under = this.under(bx, bz) === NO_FLOOR ? null : this.rise(ax, az, la, bx, bz, UNDER, m);
+    if (top === null) return under === null ? -1 : UNDER;
+    if (under === null) return TOP;
+    return Math.abs(under) < Math.abs(top) ? UNDER : TOP;
+  }
+
+  /**
+   * The cost of stepping from walk level la of column (ax, az) to its
+   * neighbour (bx, bz), or -1 if the step is not allowed: 10 straight, 14
+   * diagonal, +10 for a clamber, doubled in water. A diagonal step also needs
+   * both straight steps beside it to be open, so units never cut a corner.
+   */
+  stepCostFrom(ax: number, az: number, la: number, bx: number, bz: number, m: Mover): number {
+    const lb = this.layerTo(ax, az, la, bx, bz, m);
+    if (lb < 0) return -1;
+    const rise = this.rise(ax, az, la, bx, bz, lb, m)!;
     const diagonal = ax !== bx && az !== bz;
-    if (diagonal && (this.stepCost(ax, az, bx, az, m) < 0 || this.stepCost(ax, az, ax, bz, m) < 0)) return -1;
+    if (diagonal && (this.layerTo(ax, az, la, bx, az, m) < 0 || this.layerTo(ax, az, la, ax, bz, m) < 0)) return -1;
     let cost = diagonal ? 14 : 10;
     if (rise > STEP_UNITS) cost += 10;
     // Climbing is slow: each terrain unit above a clamber costs a little more.
     if (rise > CLAMBER_UNITS) cost += (rise - CLAMBER_UNITS) * 4;
-    if (this.flags(bx, bz) & (Walk.Wade | Walk.Deep)) cost *= 2;
+    if (lb === TOP && this.flags(bx, bz) & (Walk.Wade | Walk.Deep)) cost *= 2;
     return cost;
   }
 
-  /** Whether a step is plain: dry, level enough to walk at full speed. Paths are only straightened over plain steps. */
-  plainStep(ax: number, az: number, bx: number, bz: number, m: Mover): boolean {
-    if (!this.standable(bx, bz, m)) return false;
-    if (this.flags(bx, bz) & (Walk.Wade | Walk.Deep)) return false;
-    const rise = this.level(bx, bz) - this.level(ax, az);
-    if (rise > STEP_UNITS || rise < -DROP_UNITS) return false;
-    if (ax !== bx && az !== bz) return this.plainStep(ax, az, bx, az, m) && this.plainStep(ax, az, ax, bz, m);
-    return true;
+  /**
+   * stepCostFrom for a unit standing at height y (terrain units) on (ax, az),
+   * or on the column's top when no height is given.
+   */
+  stepCost(ax: number, az: number, bx: number, bz: number, m: Mover, y?: number): number {
+    return this.stepCostFrom(ax, az, y === undefined ? TOP : this.layerAt(ax, az, y), bx, bz, m);
+  }
+
+  /** Whether a step is plain: dry, level enough to walk at full speed. Returns the walk level it reaches, or -1. Paths are only straightened over plain steps. */
+  plainStep(ax: number, az: number, la: number, bx: number, bz: number, m: Mover): number {
+    const lb = this.layerTo(ax, az, la, bx, bz, m);
+    if (lb < 0) return -1;
+    if (lb === TOP && this.flags(bx, bz) & (Walk.Wade | Walk.Deep)) return -1;
+    const rise = this.levelOf(bx, bz, lb) - this.levelOf(ax, az, la);
+    if (rise > STEP_UNITS || rise < -DROP_UNITS) return -1;
+    if (ax !== bx && az !== bz && (this.plainStep(ax, az, la, bx, az, m) < 0 || this.plainStep(ax, az, la, ax, bz, m) < 0)) return -1;
+    return lb;
   }
 }

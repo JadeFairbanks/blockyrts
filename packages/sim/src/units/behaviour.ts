@@ -16,7 +16,7 @@ import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, PERSON_ARMOURED, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
-import { NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
+import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isTree, propInfo, PropKind, PropShape, type Tool } from '../world/props.ts';
@@ -117,14 +117,14 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   const cx = col(e.x[i]!);
   const cz = col(e.z[i]!);
   if (e.pathOk[i] === 2) {
-    const there = atGoal(goal, cx, cz);
+    const there = atGoal(goal, cx, cz, unitLevel(state, i));
     if (there && (exactX === undefined || (e.x[i] === exactX && e.z[i] === exactZ))) return ARRIVED;
     if (there) {
       e.path[i] = [exactX!, exactZ!];
       e.pathOk[i] = 1;
     } else {
       if (state.paths.searches >= PATH_SEARCHES_PER_STEP) return MOVING;
-      const r = state.paths.find(moverOf(state, i), cx, cz, goal);
+      const r = state.paths.find(moverOf(state, i), cx, cz, goal, state.nav.layerAt(cx, cz, unitLevel(state, i)));
       const pts: number[] = [];
       for (let k = 0; k < r.points.length; k++) pts.push(columnCentre(r.points[k]!));
       if (exactX !== undefined && exactZ !== undefined && r.reached) {
@@ -145,7 +145,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   const pts = e.path[i]!;
   const k = e.pathAt[i]! * 2;
   if (k >= pts.length) {
-    if (atGoal(goal, cx, cz)) return ARRIVED;
+    if (atGoal(goal, cx, cz, unitLevel(state, i))) return ARRIVED;
     if (e.pathOk[i] === 0) return FAILED;
     // The land changed under the path: search again, a few times at most.
     if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
@@ -177,16 +177,19 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   }
   const ncx = col(nx);
   const ncz = col(nz);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i)) < 0) {
+  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) {
     if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
     e.pathOk[i] = 2;
     return MOVING;
   }
-  e.x[i] = nx;
-  e.z[i] = nz;
-  e.y[i] = standY(state, nx, nz);
+  landAt(state, i, nx, nz);
   if (nx === tx && nz === tz) e.pathAt[i] = e.pathAt[i]! + 1;
   return MOVING;
+}
+
+/** The level a unit stands at, terrain units (its height, rounded down). */
+export function unitLevel(state: SimState, i: number): number {
+  return floorDiv(state.entities.y[i]!, WU_PER_TERRAIN_UNIT);
 }
 
 /**
@@ -217,6 +220,8 @@ export function moveSpeed(state: SimState, i: number): number {
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
   // A goblin mage's Stumble hex: 20% slower.
   if (e.hexUntil[i]! > state.step) bp -= HEX_SLOW_BP;
+  // Hopping up a rise.
+  if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   return Math.max(1, floorDiv(base * bp, 10000));
 }
 

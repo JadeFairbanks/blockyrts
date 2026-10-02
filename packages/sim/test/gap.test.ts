@@ -3,6 +3,7 @@
 // building up the land), and hopping up 3 to 4 unit rises (Moving over the land).
 import { describe, expect, it } from 'vitest';
 import {
+  BIG_WALKER,
   BuildingKind,
   CHUNK_SHIFT,
   createWorld,
@@ -11,6 +12,8 @@ import {
   Item,
   itemSpec,
   Mat,
+  NO_FLOOR,
+  PERSON,
   PropKind,
   propInfo,
   Res,
@@ -18,6 +21,7 @@ import {
   Tool,
   toolItem,
   WU_PER_COLUMN,
+  WU_PER_TERRAIN_UNIT,
   type Building,
   type Order,
   type SimState,
@@ -141,5 +145,110 @@ describe('stone tools', () => {
     run(s, 1, [{ kind: 'equipBest', player: 0, units: ids }]);
     runUntil(s, () => e.tool[0] !== Tool.Hardwood && e.tool[1] !== Tool.Hardwood, 3000);
     expect([e.tool[0], e.tool[1]].sort()).toEqual([Tool.Stone, Tool.Flint]);
+  });
+});
+
+/** A flat, explored, empty patch of w x h columns near the first worker: its corner and ground level. */
+function flatSpot(s: SimState, w: number, h: number): { x: number; z: number; y: number } {
+  const x0 = col(s.entities.x[0]!);
+  const z0 = col(s.entities.z[0]!);
+  for (let r = 6; r < 120; r += 2) {
+    for (const [x, z] of [[x0 + r, z0], [x0 - r - w, z0], [x0, z0 + r], [x0, z0 - r - h], [x0 + r, z0 + r], [x0 - r - w, z0 - r - h]] as const) {
+      const y = s.world.topAt(x, z);
+      let ok = true;
+      for (let dz = -2; dz < h + 2 && ok; dz++) {
+        for (let dx = -2; dx < w + 2 && ok; dx++) {
+          const cx = x + dx;
+          const cz = z + dz;
+          if (s.world.topAt(cx, cz) !== y || s.nav.flags(cx, cz) !== 0 || !s.world.isExplored(0, cx >> 2, cz >> 2)) ok = false;
+        }
+      }
+      if (ok) return { x, z, y };
+    }
+  }
+  throw new Error('no flat spot');
+}
+
+/** Raises a box of columns to a level with soil. */
+function raise(s: SimState, x0: number, z0: number, x1: number, z1: number, from: number, to: number): void {
+  s.world.editBox(x0, z0, x1, z1, from, to, Mat.Soil);
+}
+
+const centre = (c: number): number => c * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+
+describe('moving over the land', () => {
+  it('walks up 2 units, jumps 3 to 4 at a cost, and is blocked by 5 (big monsters jump 6)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const { x, z, y } = flatSpot(s, 8, 2);
+    raise(s, x + 1, z, x + 1, z, y, y + 2);
+    raise(s, x + 3, z, x + 3, z, y, y + 4);
+    raise(s, x + 5, z, x + 5, z, y, y + 5);
+    raise(s, x + 7, z, x + 7, z, y, y + 6);
+    expect(s.nav.stepCost(x, z, x + 1, z, PERSON)).toBe(10);
+    expect(s.nav.stepCost(x + 2, z, x + 3, z, PERSON)).toBe(20);
+    expect(s.nav.stepCost(x + 4, z, x + 5, z, PERSON)).toBe(-1);
+    expect(s.nav.stepCost(x + 6, z, x + 7, z, PERSON)).toBe(-1);
+    expect(s.nav.stepCost(x + 6, z, x + 7, z, BIG_WALKER)).toBeGreaterThan(0);
+    // Down: a drop of up to 9 units is stepped or jumped down.
+    expect(s.nav.stepCost(x + 5, z, x + 4, z, PERSON)).toBe(10);
+  });
+
+  it('hops up onto a 4 unit platform, slowing for a moment, but cannot get onto a 5 unit one', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const { x, z, y } = flatSpot(s, 16, 7);
+    raise(s, x, z, x + 4, z + 4, y, y + 4);
+    raise(s, x + 10, z, x + 14, z + 4, y, y + 5);
+    const id = e.id[0]!;
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 2), z: centre(z + 2) }]);
+    let hopped = 0;
+    runUntil(s, () => {
+      if (e.hopUntil[0]! > s.step && e.hopRise[0] === 4 * WU_PER_TERRAIN_UNIT) hopped++;
+      return col(e.x[0]!) === x + 2 && col(e.z[0]!) === z + 2;
+    }, 4000);
+    expect(hopped).toBeGreaterThan(0);
+    expect(e.y[0]).toBe((y + 4) * WU_PER_TERRAIN_UNIT);
+    // Off it again and towards the 5 unit platform: it never gets on.
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 12), z: centre(z + 2) }]);
+    run(s, 1500);
+    expect(e.y[0]! < (y + 5) * WU_PER_TERRAIN_UNIT).toBe(true);
+  });
+});
+
+describe('digging into a cliff face', () => {
+  it('carves a tunnel through a hill that workers walk into, under the overhang', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const { x, z, y } = flatSpot(s, 20, 9);
+    // A soil hill 3.4 m tall and 10 columns deep, from x + 6 to x + 15.
+    const hx0 = x + 6;
+    const hx1 = x + 15;
+    raise(s, hx0, z, hx1, z + 8, y, y + 30);
+    const workers = [0, 1, 2, 3];
+    for (const i of workers) e.tool[i] = Tool.HighQualitySteel;
+    run(s, 1, [{ kind: 'move', player: 0, units: workers.map((i) => e.id[i]!), x: centre(x + 2), z: centre(z + 4) }]);
+    run(s, 400);
+    // Tunnel 2 columns wide, 2.25 m tall, all the way through.
+    run(s, 1, [{ kind: 'dig', player: 0, units: workers.map((i) => e.id[i]!), x0: hx0, z0: z + 4, x1: hx1, z1: z + 5, level: y, level2: y + 20, tunnel: 1 }]);
+    const site = s.sites[s.sites.length - 1]!.id;
+    const done = runUntil(s, () => !s.sites.some((t) => t.id === site), 12000);
+    expect(done).toBeGreaterThan(0);
+    for (let cx = hx0; cx <= hx1; cx++) {
+      expect(s.nav.under(cx, z + 4)).toBe(y);
+      expect(s.nav.roof(cx, z + 4)).toBe(y + 20);
+      // The hill above is still there.
+      expect(s.world.topAt(cx, z + 4)).toBe(y + 30);
+    }
+    expect(s.nav.under(hx0, z + 3)).toBe(NO_FLOOR);
+    expect(s.threats.tunnels.length).toBe(1);
+    // A worker walks into the middle of the tunnel and stands on its floor, under the hill.
+    const id = e.id[0]!;
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(hx0 + 5), z: centre(z + 4) }]);
+    runUntil(s, () => col(e.x[0]!) === hx0 + 5 && col(e.z[0]!) === z + 4, 3000);
+    expect(e.y[0]).toBe(y * WU_PER_TERRAIN_UNIT);
+    // And out of the far side.
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(hx1 + 3), z: centre(z + 4) }]);
+    runUntil(s, () => col(e.x[0]!) === hx1 + 3, 3000);
+    expect(e.y[0]).toBe(y * WU_PER_TERRAIN_UNIT);
   });
 });

@@ -8,7 +8,7 @@ import { BuildingKind, BUILDING_SIGHT_M, buildingSpec, footprintDims, levelSpec 
 import { BuildingStore, footprintRect, solidRect, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
-import { NavGrid } from './nav/grid.ts';
+import { NavGrid, STEP_UNITS, UNDER } from './nav/grid.ts';
 import { Pathfinder } from './nav/path.ts';
 import { createStreams, hash32, type Streams } from './rng.ts';
 import { Item, ITEM_COUNT } from './combat/items.ts';
@@ -204,6 +204,9 @@ export const UNIT_FIELDS = [
   ['mana', 'i32'],
   /** Stumble hex: moves and attacks 20% slower until this step. */
   ['hexUntil', 'u32'],
+  /** A hop up or down a rise of 3 units or more (Moving over the land) lasts until this step; the rise it made, wu. */
+  ['hopUntil', 'u32'],
+  ['hopRise', 'i32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -307,6 +310,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare group: Uint32Array;
   declare mana: Int32Array;
   declare hexUntil: Uint32Array;
+  declare hopUntil: Uint32Array;
+  declare hopRise: Int32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -734,12 +739,42 @@ export function addWarrior(state: SimState, owner: number, x: number, z: number)
 }
 
 /** The height a unit stands at on the column under (x, z), wu: its walk level, or lower in deep water (it swims). */
-export function standY(state: SimState, x: number, z: number): number {
+export function standY(state: SimState, x: number, z: number, fromY?: number): number {
   const cx = floorDiv(x, WU_PER_COLUMN);
   const cz = floorDiv(z, WU_PER_COLUMN);
+  // Under an overhang (a tunnel or cave), the floor nearer the unit's height.
+  if (fromY !== undefined && state.nav.layerAt(cx, cz, floorDiv(fromY, WU_PER_TERRAIN_UNIT)) === UNDER) return state.nav.under(cx, cz) * WU_PER_TERRAIN_UNIT;
   const level = state.nav.level(cx, cz);
   const deep = (state.nav.flags(cx, cz) & 4) !== 0;
   return (deep ? level - 6 : level) * WU_PER_TERRAIN_UNIT;
+}
+
+/** A hop up or down a rise takes 0.3 s; going up, the unit moves at half speed meanwhile (Moving over the land: "slows it down for a moment") (s). */
+export const HOP_STEPS = 6;
+export const HOP_SLOW_BP = 5000;
+
+/**
+ * Moves a unit on the ground to (x, z): it stands on the walk level it
+ * reaches there, and a rise or drop of more than a stair step (3 units or
+ * more) starts a hop.
+ */
+export function landAt(state: SimState, i: number, x: number, z: number): void {
+  const e = state.entities;
+  const before = e.y[i]!;
+  const y = standY(state, x, z, before);
+  e.x[i] = x;
+  e.z[i] = z;
+  e.y[i] = y;
+  const rise = y - before;
+  if (rise > STEP_UNITS * WU_PER_TERRAIN_UNIT || rise < -STEP_UNITS * WU_PER_TERRAIN_UNIT) {
+    e.hopUntil[i] = state.step + HOP_STEPS;
+    e.hopRise[i] = rise;
+  }
+}
+
+/** Whether a unit is hopping up a rise now (it moves at half speed). */
+export function hoppingUp(state: SimState, i: number): boolean {
+  return state.entities.hopUntil[i]! > state.step && state.entities.hopRise[i]! > 0;
 }
 
 /** Every player's units and buildings mark the land within their sight explored (fog of war). */

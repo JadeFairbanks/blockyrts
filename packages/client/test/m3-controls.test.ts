@@ -249,6 +249,33 @@ describe('digging and earthworks', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, level: 0, level2: 20 });
   });
 
+  it('tunnels into a cliff face pressed on its side, from the ground in front, as far in as + and - set', () => {
+    // A 1.1 m (10 unit) cliff from x = 2 m: the press lands on its west side, 0.5 m up.
+    const units = 0.1125;
+    const cliff = (x: number): number => (x >= 2.25 ? 10 * units : 0);
+    const { c, sent } = harness(game(), workers, 'worker', cliff);
+    c.startArea('dig', 0);
+    c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
+    c.updateArea(new THREE.Vector3(2.25, 0.5, 1.2));
+    c.areaUp();
+    c.adjustArea(1);
+    const plan = c.areaPlan()!;
+    // Face column 5 (2.25 m / 0.45 m), into +x for 8 columns, 3 columns wide along the face.
+    expect(plan).toMatchObject({ tunnel: true, x0: 5, x1: 12, z0: 0, z1: 2, level: 0, level2: 20 });
+    expect(c.card()[0]!.description).toContain('3.6 m into the face');
+    c.confirmArea();
+    expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, x0: 5, x1: 12, level: 0, level2: 20 });
+  });
+
+  it('digs down, not sideways, when the press is on top of the ground or on a low step', () => {
+    const step = (x: number): number => (x >= 2.25 ? 3 * 0.1125 : 0);
+    const { c } = harness(game(), workers, 'worker', step);
+    c.startArea('dig', 0);
+    c.areaDown(new THREE.Vector3(2.25, 0.1, 0.2));
+    c.areaUp();
+    expect(c.areaPlan()!.tunnel).toBe(false);
+  });
+
   it('offers banks, ramps and fill in the Earthworks submenu, and orders a ramp up a step', () => {
     const slot = menuSlots('basic').findIndex((specs) => specs.some((s) => s.kind === BuildingKind.Earthworks));
     expect(submenuChoices(menuSlots('basic')[slot]!).map((c) => c.name)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Lumber or stone ramp']);

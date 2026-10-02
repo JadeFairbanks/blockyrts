@@ -11,8 +11,8 @@ import { buildingSpec, BuildingKind } from '../buildings/data.ts';
 import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
-import { fleeFrom, moverOf, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
+import { landAt, OrderKind, SIGHT_WU, UnitKind, type SimState } from '../state.ts';
+import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
 import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { isStructure, Mob, mobSpec } from './mobs.ts';
@@ -174,11 +174,9 @@ export function stepToward(state: SimState, i: number, x: number, z: number, spe
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const ncx = floorDiv(nx, WU_PER_COLUMN);
   const ncz = floorDiv(nz, WU_PER_COLUMN);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i)) < 0) return false;
+  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) return false;
   e.heading[i] = headingTowards(sign * dx, sign * dz);
-  e.x[i] = nx;
-  e.z[i] = nz;
-  e.y[i] = standY(state, nx, nz);
+  landAt(state, i, nx, nz);
   e.order[i] = OrderKind.Move;
   return true;
 }

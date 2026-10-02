@@ -134,6 +134,8 @@ function postState(s: SimState): void {
     data[o + S.kit] = e.kit[i]!;
     data[o + S.partner] = e.partner[i]!;
     data[o + S.ammoItem] = e.ammoItem[i]!;
+    data[o + S.hop] = Math.max(0, e.hopUntil[i]! - s.step);
+    data[o + S.hopRise] = e.hopRise[i]!;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {

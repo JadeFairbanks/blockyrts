@@ -27,6 +27,8 @@ const BITE_MICRO_M3 = 22781;
 export const HEAP_STEPS = 5 * STEPS_PER_SECOND;
 /** A worker reaches columns up to 4 away (1.8 m) from where it stands (s). */
 const REACH_COLUMNS = 4;
+/** A tunnel's worker stands within 9 units (1 m) above or below its floor (s). */
+const TUNNEL_REACH_UNITS = 9;
 /** A box is at most 64 columns (29 m) a side, so one order stays a sensible size. */
 export const SITE_MAX_COLUMNS = 64;
 
@@ -190,7 +192,9 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const cx = e.climbX[i]!;
   const cz = e.climbZ[i]!;
   if (e.act[i] === Act.Walk) {
-    const r = walkTo(state, i, { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS });
+    // In a tunnel the worker stands near its floor, in the passage or at the face, not on the hill above it.
+    const goal = s.kind === SiteKind.Tunnel ? { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS, ylo: s.level - TUNNEL_REACH_UNITS, yhi: s.level + TUNNEL_REACH_UNITS } : { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS };
+    const r = walkTo(state, i, goal);
     if (r === 0) return false;
     if (r === 2) {
       // That column cannot be reached from here: try another next step.
