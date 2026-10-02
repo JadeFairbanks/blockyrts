@@ -507,28 +507,31 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | bone_boulder | models/projectiles-and-spells/bone_boulder/bone_boulder.bbmodel | 26 | 32x64 | 26 cubes (small-item cap 11): a lump of fused bones and skulls needs many small pieces; it is a thrown projectile, not a carried item |
 | chain_hook | models/projectiles-and-spells/chain_hook/chain_hook.bbmodel | 13 | 16x32 | 13 cubes (small-item cap 11): barbed hook plus a short run of chain; `chain_link` (the single link the game repeats) is a separate file in this folder |
 | chain_link | models/projectiles-and-spells/chain_hook/chain_link.bbmodel | 4 | 16x16 | extra file in chain_hook/: the single chain link the game draws in a line behind the hook |
-| spell_bolt | models/projectiles-and-spells/spell_bolt/spell_bolt.bbmodel | 12 | 16x32 |  |
-| spell_fireball | models/projectiles-and-spells/spell_fireball/spell_fireball.bbmodel | 24 | 32x32 |  |
+| spell_bolt | models/projectiles-and-spells/spell_bolt/spell_bolt.bbmodel | 12 | 16x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_fireball | models/projectiles-and-spells/spell_fireball/spell_fireball.bbmodel | 24 | 32x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_beam_segment | models/projectiles-and-spells/spell_beam_segment/spell_beam_segment.bbmodel | 6 | 32x32 |  |
-| spell_area_ring | models/projectiles-and-spells/spell_area_ring/spell_area_ring.bbmodel | 48 | 16x16 |  |
-| spell_heal_motes | models/projectiles-and-spells/spell_heal_motes/spell_heal_motes.bbmodel | 24 | 16x32 |  |
-| spell_quicken | models/projectiles-and-spells/spell_quicken/spell_quicken.bbmodel | 12 | 16x16 |  |
-| spell_fortify | models/projectiles-and-spells/spell_fortify/spell_fortify.bbmodel | 18 | 16x16 |  |
-| spell_rally | models/projectiles-and-spells/spell_rally/spell_rally.bbmodel | 65 | 64x64 |  |
-| spell_warding | models/projectiles-and-spells/spell_warding/spell_warding.bbmodel | 143 | 32x64 |  |
+| spell_area_ring | models/projectiles-and-spells/spell_area_ring/spell_area_ring.bbmodel | 48 | 16x16 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_heal_motes | models/projectiles-and-spells/spell_heal_motes/spell_heal_motes.bbmodel | 24 | 16x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_quicken | models/projectiles-and-spells/spell_quicken/spell_quicken.bbmodel | 12 | 16x16 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_fortify | models/projectiles-and-spells/spell_fortify/spell_fortify.bbmodel | 18 | 16x16 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_rally | models/projectiles-and-spells/spell_rally/spell_rally.bbmodel | 65 | 64x64 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_warding | models/projectiles-and-spells/spell_warding/spell_warding.bbmodel | 143 | 32x64 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_warding_mark | models/projectiles-and-spells/spell_warding/spell_warding_mark.bbmodel | 4 | 16x16 | extra file in spell_warding/: the small rune over each protected unit (wishlist id spell_warding_mark) |
-| spell_counterspell | models/projectiles-and-spells/spell_counterspell/spell_counterspell.bbmodel | 21 | 32x32 |  |
-| spell_thorn_volley | models/projectiles-and-spells/spell_thorn_volley/spell_thorn_volley.bbmodel | 20 | 32x32 |  |
-| spell_rootbind | models/projectiles-and-spells/spell_rootbind/spell_rootbind.bbmodel | 44 | 32x64 |  |
-| spell_mending_bloom | models/projectiles-and-spells/spell_mending_bloom/spell_mending_bloom.bbmodel | 148 | 64x64 |  |
+| spell_counterspell | models/projectiles-and-spells/spell_counterspell/spell_counterspell.bbmodel | 21 | 32x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_thorn_volley | models/projectiles-and-spells/spell_thorn_volley/spell_thorn_volley.bbmodel | 20 | 32x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_rootbind | models/projectiles-and-spells/spell_rootbind/spell_rootbind.bbmodel | 44 | 32x64 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_mending_bloom | models/projectiles-and-spells/spell_mending_bloom/spell_mending_bloom.bbmodel | 148 | 64x64 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_barkskin | models/projectiles-and-spells/spell_barkskin/spell_barkskin.bbmodel | 20 | 32x32 | made by the model thread (the bot's batches left it out); uses the humanoid baseline bones without head, hands or legs, so the game copies the unit's pose onto it; no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_call_of_the_wild | models/projectiles-and-spells/spell_call_of_the_wild/spell_call_of_the_wild.bbmodel | 48 | 16x16 | made by the model thread (the bot's batches left it out); `spread` moves each `spoke_<n>` outward to 356 u (10 m); no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_spark_toss | models/projectiles-and-spells/spell_spark_toss/spell_spark_toss.bbmodel | 8 | 16x16 |  |
-| spell_stumble_hex | models/projectiles-and-spells/spell_stumble_hex/spell_stumble_hex.bbmodel | 28 | 16x32 |  |
+| spell_stumble_hex | models/projectiles-and-spells/spell_stumble_hex/spell_stumble_hex.bbmodel | 28 | 16x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_snuff_wisp | models/projectiles-and-spells/spell_snuff_wisp/spell_snuff_wisp.bbmodel | 6 | 16x32 |  |
-| spell_curse_mark | models/projectiles-and-spells/spell_curse_mark/spell_curse_mark.bbmodel | 17 | 16x16 |  |
+| spell_curse_mark | models/projectiles-and-spells/spell_curse_mark/spell_curse_mark.bbmodel | 17 | 16x16 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_drain_beam_segment | models/projectiles-and-spells/spell_drain_beam_segment/spell_drain_beam_segment.bbmodel | 6 | 32x32 |  |
-| spell_mana_hex | models/projectiles-and-spells/spell_mana_hex/spell_mana_hex.bbmodel | 40 | 16x16 |  |
-| ruin_column | models/projectiles-and-spells/spell_violet_ruin/ruin_column.bbmodel | 88 | 256x1024 | one of the two parts of spell_violet_ruin (its folder): the 640 u (18 m) column |
-| ruin_warning | models/projectiles-and-spells/spell_violet_ruin/ruin_warning.bbmodel | 176 | 64x64 | one of the two parts of spell_violet_ruin (its folder): the warning ring on the ground |
+| spell_mana_hex | models/projectiles-and-spells/spell_mana_hex/spell_mana_hex.bbmodel | 40 | 16x16 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| ruin_column | models/projectiles-and-spells/spell_violet_ruin/ruin_column.bbmodel | 88 | 256x1024 | one of the two parts of spell_violet_ruin (its folder): the 640 u (18 m) column; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| ruin_warning | models/projectiles-and-spells/spell_violet_ruin/ruin_warning.bbmodel | 176 | 64x64 | one of the two parts of spell_violet_ruin (its folder): the warning ring on the ground; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| spell_crown_of_night | models/projectiles-and-spells/spell_crown_of_night/spell_crown_of_night.bbmodel | 72 | 16x16 | made by the model thread (the bot's batches left it out); `spread` stretches the `ring` bone in x and z to 66.75x (30 m radius); no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 
 ## textures
 
