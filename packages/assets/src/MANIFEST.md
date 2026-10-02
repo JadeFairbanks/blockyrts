@@ -435,3 +435,86 @@ Effect sprite strips, hit particles and order markers (section J). Frames run le
 | place_tile_bad | effects/place_tile_bad.png | 1 | 16x16 | place_tile_bad: 1 frames of 16 x 16 left to right, 1 fps, play once. Single 16 x 16 tile with a thin border and a light fill (alpha 70), placed under a building being positioned. |
 | place_tile_ok | effects/place_tile_ok.png | 1 | 16x16 | place_tile_ok: 1 frames of 16 x 16 left to right, 1 fps, play once. Single 16 x 16 tile with a thin border and a light fill (alpha 70), placed under a building being positioned. |
 | selection_ring | effects/selection_ring.png | 1 | 32x32 | selection_ring: 1 frames of 32 x 32 left to right, 1 fps, play once. Thin white ring drawn under a selected unit; tint it per side (team colour, yellow neutral, red enemy). |
+
+## ui
+
+Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-slice panels, bars, menus and screens. Slice sizes, hotspots and frame layouts are in each row and in the PNG tEXt Comment.
+
+Pending (not in the repo yet): portraits of `ash_golem` and `mana_wraith` (their models are not built yet), and of the 21 existing-set creatures other than giant_spider (their models were not supplied). They follow in a later PR.
+
+| id | path | frames | size | notes, deviations and reasons |
+|---|---|---|---|---|
+| icon_bandage | ui/icon_bandage.png | 1 | 32x32 | K1 resource icon bandage (rendered from bandage_roll.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bog_iron | ui/icon_bog_iron.png | 1 | 32x32 | K1 resource icon bog_iron (rendered from ore_bog_iron.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bone | ui/icon_bone.png | 1 | 32x32 | K1 resource icon bone (rendered from bone_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bread | ui/icon_bread.png | 1 | 32x32 | K1 resource icon bread (rendered from bread_loaf.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bricks | ui/icon_bricks.png | 1 | 32x32 | K1 resource icon bricks (rendered from bricks.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_carrots | ui/icon_carrots.png | 1 | 32x32 | K1 resource icon carrots (rendered from carrot_bunch.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_charcoal | ui/icon_charcoal.png | 1 | 32x32 | K1 resource icon charcoal: sack + heap of contents. |
+| icon_clay | ui/icon_clay.png | 1 | 32x32 | K1 resource icon clay (rendered from clay_lump.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_coal | ui/icon_coal.png | 1 | 32x32 | K1 resource icon coal (rendered from coal_lump.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_copper_ore | ui/icon_copper_ore.png | 1 | 32x32 | K1 resource icon copper_ore (rendered from ore_copper.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_corn | ui/icon_corn.png | 1 | 32x32 | K1 resource icon corn (rendered from corn_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_demon_horn | ui/icon_demon_horn.png | 1 | 32x32 | K1 resource icon demon_horn (rendered from demon_horn.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_diamond | ui/icon_diamond.png | 1 | 32x32 | K1 resource icon diamond (rendered from gem_diamond.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_earth | ui/icon_earth.png | 1 | 32x32 | K1 resource icon earth: sack + heap of contents. |
+| icon_eggs | ui/icon_eggs.png | 1 | 32x32 | K1 resource icon eggs (rendered from egg_basket.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_emerald | ui/icon_emerald.png | 1 | 32x32 | K1 resource icon emerald (rendered from gem_emerald.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_feathers | ui/icon_feathers.png | 1 | 32x32 | K1 resource icon feathers (rendered from feather_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_fish | ui/icon_fish.png | 1 | 32x32 | K1 resource icon fish (rendered from fish_carried.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_flax | ui/icon_flax.png | 1 | 32x32 | K1 resource icon flax (rendered from flax_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_flint | ui/icon_flint.png | 1 | 32x32 | K1 resource icon flint (rendered from flint_nodule.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_food | ui/icon_food.png | 1 | 32x32 | K1 food stock total (resource bar): a bread loaf and a roast drumstick together. |
+| icon_glass | ui/icon_glass.png | 1 | 32x32 | K1 resource icon glass (rendered from glass_bottle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_gold | ui/icon_gold.png | 1 | 32x32 | K1 resource icon gold (rendered from gold_nugget.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_gravel | ui/icon_gravel.png | 1 | 32x32 | K1 resource icon gravel: sack + heap of contents. |
+| icon_gunpowder | ui/icon_gunpowder.png | 1 | 32x32 | K1 resource icon gunpowder (rendered from gunpowder_keg.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hardwood_lumber | ui/icon_hardwood_lumber.png | 1 | 32x32 | K1 resource icon hardwood_lumber (rendered from log_hardwood.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hardwood_sticks | ui/icon_hardwood_sticks.png | 1 | 32x32 | K1 resource icon hardwood_sticks (rendered from sticks_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_healing_remedy | ui/icon_healing_remedy.png | 1 | 32x32 | K1 resource icon healing_remedy (rendered from healing_remedy.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hexstone | ui/icon_hexstone.png | 1 | 32x32 | K1 resource icon hexstone (rendered from hexstone.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hides | ui/icon_hides.png | 1 | 32x32 | K1 resource icon hides (rendered from hide_rolled.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_bronze | ui/icon_ingot_bronze.png | 1 | 32x32 | K1 resource icon ingot_bronze (rendered from ingot_bronze.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_copper | ui/icon_ingot_copper.png | 1 | 32x32 | K1 resource icon ingot_copper (rendered from ingot_copper.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_hq_steel | ui/icon_ingot_hq_steel.png | 1 | 32x32 | K1 resource icon ingot_hq_steel (rendered from ingot_hq_steel.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_iron_bloom | ui/icon_ingot_iron_bloom.png | 1 | 32x32 | K1 ingot iron_bloom; grade dots bottom-right = 1. |
+| icon_ingot_iron_refined | ui/icon_ingot_iron_refined.png | 1 | 32x32 | K1 ingot iron_refined; grade dots bottom-right = 3. |
+| icon_ingot_iron_wrought | ui/icon_ingot_iron_wrought.png | 1 | 32x32 | K1 ingot iron_wrought; grade dots bottom-right = 2. |
+| icon_ingot_pig_iron | ui/icon_ingot_pig_iron.png | 1 | 32x32 | K1 resource icon ingot_pig_iron (rendered from ingot_pig_iron.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_steel | ui/icon_ingot_steel.png | 1 | 32x32 | K1 resource icon ingot_steel (rendered from ingot_steel.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_tin | ui/icon_ingot_tin.png | 1 | 32x32 | K1 resource icon ingot_tin (rendered from ingot_tin.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_iron_rock | ui/icon_iron_rock.png | 1 | 32x32 | K1 resource icon iron_rock (rendered from ore_iron_rock.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_lead_ore | ui/icon_lead_ore.png | 1 | 32x32 | K1 resource icon lead_ore (rendered from ore_lead.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_lead_shot | ui/icon_lead_shot.png | 1 | 32x32 | K1 resource icon lead_shot (rendered from lead_shot_pouch.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_leather | ui/icon_leather.png | 1 | 32x32 | K1 resource icon leather (rendered from leather_folded.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_mana_crystal | ui/icon_mana_crystal.png | 1 | 32x32 | K1 resource icon mana_crystal (rendered from mana_crystal.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_marble | ui/icon_marble.png | 1 | 32x32 | K1 resource icon marble (rendered from marble_block.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_meat | ui/icon_meat.png | 1 | 32x32 | K1 resource icon meat (rendered from meat_haunch.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_medicinal_herbs | ui/icon_medicinal_herbs.png | 1 | 32x32 | K1 resource icon medicinal_herbs (rendered from herb_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_pie | ui/icon_pie.png | 1 | 32x32 | K1 resource icon pie (rendered from pie.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_planks | ui/icon_planks.png | 1 | 32x32 | K1 resource icon planks (rendered from planks.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_potatoes | ui/icon_potatoes.png | 1 | 32x32 | K1 resource icon potatoes: sack + heap of contents. |
+| icon_resin | ui/icon_resin.png | 1 | 32x32 | K1 resource icon resin (rendered from resin_pot.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_roast_fish | ui/icon_roast_fish.png | 1 | 32x32 | K1 resource icon roast_fish (rendered from roast_fish.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_roast_meat | ui/icon_roast_meat.png | 1 | 32x32 | K1 resource icon roast_meat (rendered from roast_meat.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_rope | ui/icon_rope.png | 1 | 32x32 | K1 resource icon rope (rendered from rope_coil.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ruby | ui/icon_ruby.png | 1 | 32x32 | K1 resource icon ruby (rendered from gem_ruby.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_salted_fish | ui/icon_salted_fish.png | 1 | 32x32 | K1 resource icon salted_fish (rendered from salted_fish_barrel.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_salted_meat | ui/icon_salted_meat.png | 1 | 32x32 | K1 resource icon salted_meat (rendered from salted_meat_barrel.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_saltpetre | ui/icon_saltpetre.png | 1 | 32x32 | K1 resource icon saltpetre (rendered from saltpetre_lump.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_sand | ui/icon_sand.png | 1 | 32x32 | K1 resource icon sand: sack + heap of contents. |
+| icon_silver | ui/icon_silver.png | 1 | 32x32 | K1 resource icon silver (rendered from ore_silver.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_sinew | ui/icon_sinew.png | 1 | 32x32 | K1 resource icon sinew (rendered from sinew_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_smoked_fish | ui/icon_smoked_fish.png | 1 | 32x32 | K1 resource icon smoked_fish (rendered from smoked_fish.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_smoked_meat | ui/icon_smoked_meat.png | 1 | 32x32 | K1 resource icon smoked_meat (rendered from smoked_meat.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_softwood_lumber | ui/icon_softwood_lumber.png | 1 | 32x32 | K1 resource icon softwood_lumber (rendered from log_softwood.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_spider_silk | ui/icon_spider_silk.png | 1 | 32x32 | K1 resource icon spider_silk (rendered from spider_silk.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_stew | ui/icon_stew.png | 1 | 32x32 | K1 resource icon stew (rendered from stew_pot.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_stone | ui/icon_stone.png | 1 | 32x32 | K1 resource icon stone (rendered from stone_chunk.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_stone_blocks | ui/icon_stone_blocks.png | 1 | 32x32 | K1 resource icon stone_blocks (rendered from stone_blocks.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_sulphur | ui/icon_sulphur.png | 1 | 32x32 | K1 resource icon sulphur (rendered from sulphur_lump.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_supply | ui/icon_supply.png | 1 | 32x32 | K1 supply total (resource bar): a small house with a figure beside it. |
+| icon_tin_ore | ui/icon_tin_ore.png | 1 | 32x32 | K1 resource icon tin_ore (rendered from ore_tin.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_vein_iron_ore | ui/icon_vein_iron_ore.png | 1 | 32x32 | K1 resource icon vein_iron_ore (rendered from ore_vein_iron.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_venom | ui/icon_venom.png | 1 | 32x32 | K1 resource icon venom (rendered from venom_vial.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_wheat | ui/icon_wheat.png | 1 | 32x32 | K1 resource icon wheat (rendered from wheat_sheaf.bbmodel), 32x32, 1px outline, top-left light. |
