@@ -10,25 +10,41 @@ import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { BP, damageTaken, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
-import { MONSTERS, OrderKind, UnitKind, WARRIOR_HEALTH_BY_RANK, type HitLook, type SimState } from '../state.ts';
+import { MONSTERS, OrderKind, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
+import { speciesSpec } from '../animals/species.ts';
 import { Hit, itemSpec, toolMelee, type MeleeStats } from './items.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
 
-/** The two sides: every player together, and the monsters (Winning, losing and score: player versus environment only). */
-export const Side = { Players: 0, Monsters: 1, None: -1 } as const;
+/** The two sides: every player together, and the monsters (Winning, losing and score: player versus environment only); wild animals stand apart. */
+export const Side = { Players: 0, Monsters: 1, Wild: 2, None: -1 } as const;
 
 export function sideOf(state: SimState, i: number): number {
   const o = state.entities.owner[i]!;
   if (o < state.players.length) return Side.Players;
   if (o === MONSTERS) return Side.Monsters;
+  if (o === WILD) return Side.Wild;
   return Side.None;
 }
 
-/** Whether two units are on opposite sides. */
+/**
+ * Whether two units are on opposite sides. A wild animal is an enemy only
+ * of the players' unit it is attacking, so warriors defend against a wolf
+ * but leave grazing deer alone unless told (Hunting); monsters ignore it.
+ */
 export function hostile(state: SimState, a: number, b: number): boolean {
   const sa = sideOf(state, a);
   const sb = sideOf(state, b);
+  if (sa === Side.Wild || sb === Side.Wild) {
+    const e = state.entities;
+    const [w, o] = sa === Side.Wild ? [a, b] : [b, a];
+    return sideOf(state, o) === Side.Players && e.target[w] === e.id[o];
+  }
   return sa !== Side.None && sb !== Side.None && sa !== sb;
+}
+
+/** Whether a unit is a wild animal the players may hunt (Hunting: an attack order on any wild animal). */
+export function huntable(state: SimState, t: number): boolean {
+  return state.entities.kind[t] === UnitKind.Animal && state.entities.owner[t] === WILD && state.entities.hp[t]! > 0;
 }
 
 const PERSON_HALF_WIDTH = floorDiv(WU_PER_METRE * 3, 10);
@@ -37,12 +53,19 @@ const PERSON_HEIGHT = floorDiv(WU_PER_METRE * 18, 10);
 /** Half the width of a unit's hit box, wu (Simple hit shapes). */
 export function halfWidth(state: SimState, i: number): number {
   const e = state.entities;
+  if (e.kind[i] === UnitKind.Animal) return animalSize(state, i, speciesSpec(e.mob[i]!).halfWidth);
   return e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).halfWidth : PERSON_HALF_WIDTH;
 }
 
 export function bodyHeight(state: SimState, i: number): number {
   const e = state.entities;
+  if (e.kind[i] === UnitKind.Animal) return animalSize(state, i, speciesSpec(e.mob[i]!).height);
   return e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).height : PERSON_HEIGHT;
+}
+
+/** A young animal is about half the adult's size (Young animals); `born` holds the step it grows up. */
+function animalSize(state: SimState, i: number, adult: number): number {
+  return state.entities.born[i]! > state.step ? adult >> 1 : adult;
 }
 
 export function isMob(state: SimState, i: number): boolean {
@@ -105,12 +128,13 @@ export function gapToBuilding(state: SimState, i: number, b: Building): number {
   return length2d(dx, dz);
 }
 
-/** Armour a unit wears, bp: the pieces add up, capped at 75% (Table 3: boots 3%). Mobs have the roster's. */
+/** Armour a unit wears, bp: boots, body armour and helmet add up, capped at 75% (Table 3). Mobs have the roster's. */
 export function armourOf(state: SimState, i: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mob) return mobSpec(e.mob[i]!).armourBp;
+  if (e.kind[i] === UnitKind.Animal) return speciesSpec(e.mob[i]!).armourBp;
   const pieces: number[] = [];
-  if (e.boots[i]) pieces.push(itemSpec(e.boots[i]!).armourBp ?? 0);
+  for (const id of [e.boots[i]!, e.armour[i]!, e.helmet[i]!]) if (id) pieces.push(itemSpec(id).armourBp ?? 0);
   return totalArmourBp(pieces);
 }
 
@@ -177,6 +201,11 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const block = blow.projectile ? shieldBlock(state, i) : 0;
   const d = damageTaken({ damage: blow.damage, armourBp: armourOf(state, i), modifierBp, projectile: blow.projectile, shieldBlockBp: block });
   e.hp[i] = e.hp[i]! - d;
+  // Combat interrupts eating and the healing it brings (Food: Eating).
+  if (blow.from && e.mendUntil[i]! > state.step) {
+    e.mendUntil[i] = 0;
+    e.mendLeft[i] = 0;
+  }
   const fresh = e.hurtAt[i] === 0 || state.step - e.hurtAt[i]! > FRESH_HURT_STEPS;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
@@ -350,7 +379,9 @@ export const deathHooks: {
   unit: (state: SimState, i: number) => void;
   /** A building fell. */
   building: (state: SimState, b: Building) => void;
-} = { mob: () => {}, unit: () => {}, building: () => {} };
+  /** An animal died: its carcass (animals/animals.ts). */
+  animal: (state: SimState, i: number) => void;
+} = { mob: () => {}, unit: () => {}, building: () => {}, animal: () => {} };
 
 /**
  * Settles everything that fell this step, in the order it fell: experience
@@ -376,6 +407,8 @@ export function settleDeaths(state: SimState): void {
       state.hits.push({ look: 'death', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id, kind: e.kind[i]!, mob: e.mob[i]!, heading: e.heading[i]! });
       if (e.kind[i] === UnitKind.Mob) {
         deathHooks.mob(state, i, shareKill(state, i));
+      } else if (e.kind[i] === UnitKind.Animal) {
+        deathHooks.animal(state, i);
       } else {
         deathHooks.unit(state, i);
         if (sideOf(state, i) === Side.Players) {

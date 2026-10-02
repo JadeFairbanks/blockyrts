@@ -3,6 +3,7 @@
 
 import { computeEnclosed, outlyingLights, updateLights } from './buildings/lights.ts';
 import { updateBuildings } from './buildings/production.ts';
+import { updateMines } from './buildings/mining.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
@@ -17,8 +18,11 @@ import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
 import { updateProjectiles } from './combat/projectiles.ts';
 import { updateSpawns } from './combat/spawn.ts';
 import { updateGear } from './units/gear.ts';
+import { updateFood } from './economy/food.ts';
+import { installAnimalHooks, runAnimal, updateAnimals } from './animals/animals.ts';
 
 installDeathHooks();
+installAnimalHooks();
 hurtHooks.unit = onUnitHurt;
 
 /** How far a wanderer strays per leg, and how far from the origin it may roam. */
@@ -113,16 +117,20 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   applyOrders(state, orders);
   periodChange(state);
   updateSpawns(state);
+  updateAnimals(state);
   for (let i = 0; i < e.count; i++) {
     if (e.hp[i]! <= 0) continue;
     if (e.owner[i] === NEUTRAL && e.kind[i] === UnitKind.Wanderer) wander(state, i);
     else if (e.kind[i] === UnitKind.Mob) runMob(state, i);
+    else if (e.kind[i] === UnitKind.Animal) runAnimal(state, i);
     else runUnit(state, i);
   }
   updateProjectiles(state);
   updateSun(state);
+  updateFood(state);
   settleDeaths(state);
   updateBuildings(state);
+  updateMines(state);
   updateLights(state);
   updateGear(state);
   updateElimination(state);

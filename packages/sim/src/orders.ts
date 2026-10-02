@@ -261,7 +261,7 @@ export interface DigOrder extends UnitsOrder {
   tunnel: number;
 }
 
-/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill. */
+/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill, 3 a lumber ramp, 4 a stone ramp. */
 export interface EarthworkOrder extends UnitsOrder {
   kind: 'earthwork';
   variant: number;
@@ -298,7 +298,69 @@ export interface DebugSpawnOrder {
   z: number;
 }
 
+/** N Hunt an animal; auto (double-tapped) keeps hunting game near where each warrior stands. Workers in the selection haul. */
+export interface HuntOrder extends UnitsOrder {
+  kind: 'hunt';
+  /** The animal, or 0 with auto for the nearest game. */
+  target: number;
+  auto: number;
+}
+
+/** Tame a wild animal (one worker stands by it with food). */
+export interface TameOrder extends UnitsOrder {
+  kind: 'tame';
+  target: number;
+}
+
+/** Eat at a building that keeps food (0: the nearest), healing and taking medicine. */
+export interface EatOrder extends UnitsOrder {
+  kind: 'eat';
+  building: number;
+}
+
+/** Hitch a tamed horse or ox to a worker's cart or pack; target 0 lets it go. */
+export interface HitchOrder extends UnitsOrder {
+  kind: 'hitch';
+  target: number;
+}
+
+/** T Prospect a spot (global columns). */
+export interface ProspectOrder extends UnitsOrder {
+  kind: 'prospect';
+  x: number;
+  z: number;
+}
+
+/** Haul what waits at a mineshaft to the drop-offs, over and over. */
+export interface HaulOrder extends UnitsOrder {
+  kind: 'haul';
+  building: number;
+}
+
+/** F9 Rations: 0 everyone eats, 1 troops only, 2 workers only. */
+export interface RationsOrder {
+  kind: 'rations';
+  player: number;
+  rations: number;
+}
+
+/** A food's Don't eat toggle (Food): on 1 keeps it out of meals. */
+export interface DontEatOrder {
+  kind: 'dontEat';
+  player: number;
+  res: number;
+  on: number;
+}
+
 export type Order =
+  | HuntOrder
+  | TameOrder
+  | EatOrder
+  | HitchOrder
+  | ProspectOrder
+  | HaulOrder
+  | RationsOrder
+  | DontEatOrder
   | AttackOrder
   | AttackMoveOrder
   | PatrolOrder
@@ -392,9 +454,17 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   trainSkill: ['building', 'skill'],
   debugGive: ['item', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
+  hunt: ['target', 'auto'],
+  tame: ['target'],
+  eat: ['building'],
+  hitch: ['target'],
+  prospect: ['x', 'z'],
+  haul: ['building'],
+  rations: ['rations'],
+  dontEat: ['res', 'on'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -426,6 +496,12 @@ export function validateOrder(o: Order): void {
       return;
     case 'debugGive':
       if (o.count < 1 || o.count > 1000) throw new Error('debug give count out of range');
+      return;
+    case 'rations':
+      if (o.rations < 0 || o.rations > 2) throw new Error('rations must be 0 to 2');
+      return;
+    case 'dontEat':
+      if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

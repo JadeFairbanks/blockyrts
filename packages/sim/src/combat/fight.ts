@@ -8,12 +8,12 @@
 // hurts one that is not fighting, it runs 10 m (Table 1).
 
 import { buildingSpec, BuildingKind } from '../buildings/data.ts';
+import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { PERSON } from '../nav/grid.ts';
 import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
-import { fleeFrom, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hostile, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
+import { fleeFrom, moverOf, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
+import { canReach, dealt, flyingHigh, gap, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
@@ -30,6 +30,8 @@ const FRIENDS_WU = 6 * WU_PER_METRE;
 const CROWD_WU = 5 * WU_PER_METRE;
 /** A target told to attack is given up once it is this much farther than the unit can see. */
 const LOST_WU = 20 * WU_PER_METRE;
+/** A double-tapped hunt lets quarry go once it is 60 m from where the hunt began: the 40 m leash plus 20 m of chase (s). */
+const HUNT_CHASE_WU = 60 * WU_PER_METRE;
 /** A chase looks again for its moving target this often. */
 const REPATH_STEPS = 10;
 /** Bit 0 of a unit's skills: trained in archery (Table 7). */
@@ -43,6 +45,8 @@ const enum Mode {
   Seek,
   Hold,
   Attack,
+  /** N Hunt: chase the quarry the hunt order names (an animal not hostile by itself). */
+  Hunt,
 }
 
 function modeOf(state: SimState, i: number): Mode {
@@ -52,6 +56,8 @@ function modeOf(state: SimState, i: number): Mode {
   switch (o.t) {
     case 'attack':
       return Mode.Attack;
+    case 'hunt':
+      return e.kind[i] === UnitKind.Warrior ? Mode.Hunt : Mode.None;
     case 'attackMove':
     case 'patrol':
       return Mode.Seek;
@@ -69,7 +75,7 @@ export function rangedOf(state: SimState, i: number): RangedStats | null {
   if (!id) return null;
   const r = itemSpec(id).ranged;
   if (!r || e.ammo[i]! <= 0) return null;
-  if (r.needsArchery && (e.skills[i]! & SKILL_ARCHERY) === 0) return null;
+  if (r.skill && (e.skills[i]! & r.skill) === 0) return null;
   return r;
 }
 
@@ -117,10 +123,10 @@ function canHarm(state: SimState, i: number, t: number): boolean {
   return !meleeOf(state, i, false).oneHanded;
 }
 
-/** Whether a target is one this unit may fight now. */
-function validTarget(state: SimState, i: number, t: number): boolean {
+/** Whether a target is one this unit may fight now; `chase` also allows a wild animal it was told to attack or hunt. */
+function validTarget(state: SimState, i: number, t: number, chase = false): boolean {
   const e = state.entities;
-  return t >= 0 && t !== i && e.hp[t]! > 0 && e.inside[t] === 0 && hostile(state, i, t);
+  return t >= 0 && t !== i && e.hp[t]! > 0 && e.inside[t] === 0 && (hostile(state, i, t) || (chase && sideOf(state, i) === Side.Players && huntable(state, t)));
 }
 
 /**
@@ -164,7 +170,7 @@ export function stepToward(state: SimState, i: number, x: number, z: number, spe
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const ncx = floorDiv(nx, WU_PER_COLUMN);
   const ncz = floorDiv(nz, WU_PER_COLUMN);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, PERSON) < 0) return false;
+  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i)) < 0) return false;
   e.heading[i] = headingTowards(sign * dx, sign * dz);
   e.x[i] = nx;
   e.z[i] = nz;
@@ -224,6 +230,12 @@ function land(state: SimState, i: number): void {
   if (r.munition === 'arrows' && e.ammoItem[i] === Item.ArrowsFire) {
     damage += itemSpec(Item.ArrowsFire).fire!.extra;
     flags |= ProjectileFlag.Fire;
+  }
+  // Metal tips hit harder; venom poisons what it hits (Table 2e).
+  if ((r.munition === 'arrows' || r.munition === 'bolts') && e.ammoItem[i]) {
+    const ammo = itemSpec(e.ammoItem[i]!);
+    damage += ammo.tip ?? 0;
+    if (ammo.poison) flags |= ProjectileFlag.Poison;
   }
   const [x, y, z] = shotOrigin(state, i);
   const shot = flags & ProjectileFlag.Fire ? 6 : r.shot;
@@ -380,9 +392,23 @@ export function fightStep(state: SimState, i: number): boolean {
     return false;
   }
   const o = e.queue[i]![0];
+  if (mode === Mode.Hunt && o?.t === 'hunt') {
+    // The hunt order itself handles a dead, lost or not yet chosen quarry.
+    const t = o.id ? e.indexOf(o.id) : -1;
+    // At dusk the hunt ends; on a double-tapped hunt, quarry that runs past the chase limit is let go.
+    const fled = o.auto !== 0 && t >= 0 && length2d(e.x[t]! - o.x, e.z[t]! - o.z) > HUNT_CHASE_WU;
+    if (fled) o.id = 0;
+    if (isDark(state.step) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+      if (e.target[i] !== 0) disengage(state, i);
+      return false;
+    }
+    e.target[i] = o.id;
+    engage(state, i, t, true);
+    return true;
+  }
   if (mode === Mode.Attack && o?.t === 'attack') {
     const t = e.indexOf(o.id);
-    if (!validTarget(state, i, t) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    if (!validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       // Dead, gone or lost: the order is done.
       e.queue[i]!.shift();
       disengage(state, i);

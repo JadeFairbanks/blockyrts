@@ -7,6 +7,7 @@ import {
   BuildingKind,
   buildingSpec,
   clockAt,
+  FOODS,
   Period,
   RESOURCES,
   SiteKind,
@@ -48,6 +49,9 @@ import { GameMenu } from './menu.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { FOOD, SUPPLY } from './resources.ts';
+
+/** The Rations button face by setting: everyone, troops only, workers only. */
+const RATIONS_FACES = ['▤', '⚔', '⚒'];
 import { SelectionPanel, subgroups } from './selection-panel.ts';
 
 /** What the shell needs from the world. */
@@ -368,6 +372,13 @@ export class GameShell {
     const p = clockAt(info.step).period;
     this.buttons.get('home')?.setLit(p === Period.Dusk);
     this.buttons.get('autoequip')?.setLit(info.autoEquip);
+    this.buttons.get('rations')?.setLit(info.rations !== 0).setFace(RATIONS_FACES[info.rations] ?? '▤');
+    FOODS.forEach((f, k) => {
+      const off = (info.dontEat & (1 << k)) !== 0;
+      this.layout.resourceAll.querySelector(`.res-row[data-res="${RESOURCES[f]!.name}"]`)?.classList.toggle('dont-eat', off);
+      this.buttons.get(`donteat-${f}`)?.setLit(off);
+    });
+    this.layout.resourceBar.querySelector('.res.food')?.classList.toggle('starving', info.starveWorkers || info.starveTroops);
     if ((info.over > 0 || info.out) && !this.overShown) this.showGameOver(info);
     this.groups.refresh((k) => this.exists(k));
     this.selection.retain((k) => this.exists(k) || k.startsWith('p:'));
@@ -502,7 +513,18 @@ export class GameShell {
         this.message(on ? 'Auto-Equip is on.' : 'Auto-Equip is off.');
       },
     });
-    util({ id: 'rations', face: '▤', name: 'Rations', keys: ['F9'], description: 'Cycle the food ration setting.' }, 'Comes with food and supply (milestone 4).');
+    util({
+      id: 'rations',
+      face: '▤',
+      name: 'Rations',
+      keys: k('rations'),
+      description: 'Who eats when food runs short: everyone, the troops only (the workers starve and slow down), or the workers only (the troops starve, warriors slow down and research stops). Click to cycle.',
+      onPress: () => {
+        const next = ((this.game.info?.rations ?? 0) + 1) % 3;
+        this.opts.issueOrder({ kind: 'rations', player: this.player, rations: next });
+        this.buttons.get('rations')?.setLit(next !== 0).setFace(RATIONS_FACES[next]!);
+      },
+    });
     util({
       id: 'home',
       face: '⇊',
@@ -556,6 +578,27 @@ export class GameShell {
       onPress: () => this.toggleResources(),
     });
     L.resourceBar.append(more.el);
+    // Don't eat (Food: keeping a food back): a toggle beside each food in the full list; right click on it does the same.
+    FOODS.forEach((f, k) => {
+      const row = L.resourceAll.querySelector(`.res-row[data-res="${RESOURCES[f]!.name}"]`);
+      if (!row) return;
+      const toggle = (): void => {
+        const on = ((this.game.info?.dontEat ?? 0) & (1 << k)) === 0;
+        this.opts.issueOrder({ kind: 'dontEat', player: this.player, res: f, on: on ? 1 : 0 });
+        this.message(on ? `${RESOURCES[f]!.name} is kept back: nobody eats it.` : `${RESOURCES[f]!.name} is eaten again.`);
+      };
+      const b = this.buttons.add({
+        id: `donteat-${f}`,
+        face: '⊘',
+        name: `Don't eat ${RESOURCES[f]!.name.toLowerCase()}`,
+        keys: [],
+        description: 'While lit, this food is kept back for other uses: meals, training and eating at a building skip it.',
+        className: 'donteat',
+        onPress: toggle,
+        onRightClick: toggle,
+      });
+      row.append(b.el);
+    });
 
     // Selection panel corner: clear the selection (mouse version of Esc / F3).
     const clear = this.buttons.add({
@@ -587,6 +630,7 @@ export class GameShell {
       ['follow', 'follow'],
       ['home', 'home'],
       ['autoequip', 'autoEquip'],
+      ['rations', 'rations'],
       ['clear', 'clear'],
     ] as const) {
       const b = this.buttons.get(id);
@@ -1092,7 +1136,7 @@ export class GameShell {
       const ground = h(cx, cz);
       const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel ? TUNNEL : HEAP;
       if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
-      else if (s.kind === SiteKind.Ramp) box(s.x0, s.z0, s.x1, s.z1, Math.min(s.level, s.level2) * tu, Math.max(s.level, s.level2) * tu, c);
+      else if (s.kind === SiteKind.Ramp || s.kind === SiteKind.LumberRamp || s.kind === SiteKind.StoneRamp) box(s.x0, s.z0, s.x1, s.z1, Math.min(s.level, s.level2) * tu, Math.max(s.level, s.level2) * tu, c);
       else box(s.x0, s.z0, s.x1, s.z1, s.level * tu, ground + 0.1, c);
     }
     const plan = this.commands.areaPlan();
@@ -1100,7 +1144,7 @@ export class GameShell {
     if (!plan || !a) return;
     const c = a.mode === 'earthwork' ? HEAP : plan.tunnel ? TUNNEL : DIG;
     if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, c);
-    else if (a.mode === 'earthwork' && a.variant === 1) box(plan.x0, plan.z0, plan.x1, plan.z1, Math.min(plan.level, plan.level2) * tu, Math.max(plan.level, plan.level2) * tu, c);
+    else if (a.mode === 'earthwork' && (a.variant === 1 || a.variant === 3 || a.variant === 4)) box(plan.x0, plan.z0, plan.x1, plan.z1, Math.min(plan.level, plan.level2) * tu, Math.max(plan.level, plan.level2) * tu, c);
     else box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, (a.mode === 'dig' ? plan.top : plan.low) * tu + 0.05, c);
   }
 

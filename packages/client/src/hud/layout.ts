@@ -117,6 +117,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     const grid = div('res-grid', resourceAll);
     for (const n of names) {
       const row = div('res-row', grid);
+      row.dataset.res = n;
       div('res-name', row, n);
       valueEl(n, row);
     }

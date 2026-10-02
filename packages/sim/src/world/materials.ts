@@ -26,6 +26,8 @@ export const Mat = {
   Basalt: 16,
   /** Dead, grey earth of the Barrens and Deadlands. */
   DeadEarth: 17,
+  /** Lumber ramp steps laid by workers (Earthworks). */
+  Timber: 18,
 } as const;
 export type Mat = (typeof Mat)[keyof typeof Mat];
 
@@ -61,6 +63,7 @@ export const MATERIALS: readonly MaterialInfo[] = [
   { name: 'ash', dig: DigClass.Soil, yields: 'earth', colour: 0x55504c },
   { name: 'basalt', dig: DigClass.Rock, yields: 'stone', colour: 0x3c3a3a },
   { name: 'dead earth', dig: DigClass.Soil, yields: 'earth', colour: 0x6d6457 },
+  { name: 'timber', dig: DigClass.Loose, yields: 'softwood lumber', colour: 0x9a6a3a },
 ];
 
 export const MATERIAL_COUNT = MATERIALS.length;

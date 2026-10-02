@@ -24,6 +24,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'equipment', name: 'Equipment panel', key: 'KeyI', group: 'Units' },
   { id: 'lock', name: 'Ranged or melee lock (warriors)', key: 'KeyY', group: 'Units' },
   { id: 'archery', name: 'Train in archery (warriors)', key: 'KeyU', group: 'Units' },
+  { id: 'hunt', name: 'Hunt (warriors; press twice to keep hunting)', key: 'KeyN', group: 'Units' },
+  { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather', key: 'KeyG', group: 'Workers' },
@@ -42,9 +44,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'planksSoft', name: 'Planks from softwood', key: 'KeyP', group: 'Buildings' },
   { id: 'planksHard', name: 'Planks from hardwood', key: 'KeyH', group: 'Buildings' },
   { id: 'trainWarrior', name: 'Train Warrior', key: 'KeyA', group: 'Buildings' },
-  { id: 'craft', name: 'Crafting menu', key: 'KeyK', group: 'Buildings' },
+  { id: 'craft', name: 'Crafting, cooking, research or slaughter menu', key: 'KeyK', group: 'Buildings' },
   { id: 'refurbish', name: 'Refurbish', key: 'KeyF', group: 'Buildings' },
-  { id: 'research', name: 'Research flint tools', key: 'KeyF', group: 'Buildings' },
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
@@ -53,6 +54,7 @@ export const ACTIONS: readonly Action[] = [
   { id: 'follow', name: 'Follow', key: 'KeyL', group: 'Camera and selection' },
   { id: 'home', name: 'Everyone Home', key: 'KeyJ', group: 'Camera and selection' },
   { id: 'autoEquip', name: 'Auto-Equip', key: 'F4', group: 'Camera and selection' },
+  { id: 'rations', name: 'Rations', key: 'F9', group: 'Camera and selection' },
   { id: 'subgroup', name: 'Next subgroup', key: 'Tab', group: 'Camera and selection' },
 ];
 

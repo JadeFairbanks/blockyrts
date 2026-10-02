@@ -8,7 +8,7 @@
 
 import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
-import { OrderKind, SiteKind, UnitKind, type SimState, type Site } from '../state.ts';
+import { OrderKind, rampSite, SiteKind, UnitKind, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
@@ -67,6 +67,8 @@ function yieldOf(mat: number): number {
       return Res.VeinIron;
     case Mat.Coal:
       return Res.Coal;
+    case Mat.Timber:
+      return Res.SoftwoodLumber;
     default:
       return Res.Earth;
   }
@@ -74,7 +76,7 @@ function yieldOf(mat: number): number {
 
 /** The top a bank, fill or ramp heaps a column to, terrain units. */
 function heapTop(s: Site, x: number, z: number): number {
-  if (s.kind !== SiteKind.Ramp) return s.level;
+  if (!rampSite(s.kind)) return s.level;
   const len = s.axis === 0 ? s.x1 - s.x0 : s.z1 - s.z0;
   const at = s.axis === 0 ? x - s.x0 : z - s.z0;
   if (len <= 0) return s.level;
@@ -160,7 +162,7 @@ function finishIfDone(state: SimState, s: Site): boolean {
   for (let z = s.z0; z <= s.z1; z++) for (let x = s.x0; x <= s.x1; x++) if (needsWork(state, s, x, z)) return false;
   state.sites = state.sites.filter((t) => t.id !== s.id);
   const [x, z] = [columnCentre((s.x0 + s.x1) >> 1), columnCentre((s.z0 + s.z1) >> 1)];
-  const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : 'The earth bank';
+  const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : s.kind === SiteKind.LumberRamp ? 'The lumber ramp' : s.kind === SiteKind.StoneRamp ? 'The stone ramp' : 'The earth bank';
   state.events.push({ player: s.owner, kind: 'info', text: `${what} is finished.`, x, z });
   return true;
 }
@@ -170,7 +172,7 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const e = state.entities;
   const s = siteOf(state, o.site);
   if (!s || s.owner !== e.owner[i] || e.kind[i] !== UnitKind.Worker) return true;
-  const heap = s.kind === SiteKind.Bank || s.kind === SiteKind.Ramp;
+  const heap = s.kind === SiteKind.Bank || rampSite(s.kind);
   if (e.act[i] === Act.Start || (e.act[i] === Act.Work && !needsWork(state, s, e.climbX[i]!, e.climbZ[i]!))) {
     const c = pickColumn(state, s, i);
     if (!c) {
@@ -231,20 +233,23 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   e.waitUntil[i] = 0;
   const pool = state.players[s.owner]!.pool;
   if (heap) {
-    if (pool[Res.Earth]! <= 0) {
-      state.events.push({ player: s.owner, kind: 'alert', text: 'Not enough earth for the earthworks. Dig soil to get earth.', x: tx, z: tz });
+    // Each terrain unit heaped takes 1 Earth, or 1 ramp step of lumber or stone (s).
+    const [res, mat, short] =
+      s.kind === SiteKind.LumberRamp ? [Res.LumberRamp, Mat.Timber, 'Not enough lumber ramp steps. Make them at a workshop.'] : s.kind === SiteKind.StoneRamp ? [Res.StoneRamp, Mat.Stone, 'Not enough stone ramp steps. Make them at a workshop.'] : [Res.Earth, Mat.Soil, 'Not enough earth for the earthworks. Dig soil to get earth.'];
+    if (pool[res]! <= 0) {
+      state.events.push({ player: s.owner, kind: 'alert', text: short, x: tx, z: tz });
       return true;
     }
     const top = state.world.topAt(cx, cz);
-    pool[Res.Earth] = pool[Res.Earth]! - 1;
-    state.world.editBox(cx, cz, cx, cz, top, top + 1, Mat.Soil);
+    pool[res] = pool[res]! - 1;
+    state.world.editBox(cx, cz, cx, cz, top, top + 1, mat);
   } else {
     const bite = nextBite(state, s, cx, cz);
     if (bite) {
       state.world.editBox(cx, cz, cx, cz, bite.y, bite.y + 1, Mat.Air);
       const res = yieldOf(bite.mat);
       pool[res] = pool[res]! + 1;
-      state.hits.push({ look: bite.mat >= Mat.Stone && bite.mat !== Mat.Ash && bite.mat !== Mat.DeadEarth ? 'stone' : 'shake', x: tx, y: bite.y * 900, z: tz, id: e.id[i]! });
+      state.hits.push({ look: bite.mat === Mat.Timber ? 'wood' : bite.mat >= Mat.Stone && bite.mat !== Mat.Ash && bite.mat !== Mat.DeadEarth ? 'stone' : 'shake', x: tx, y: bite.y * 900, z: tz, id: e.id[i]! });
     }
   }
   if (!needsWork(state, s, cx, cz)) {

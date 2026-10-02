@@ -165,14 +165,14 @@ export class SelectionPanel {
             face: name.startsWith('Planks') ? 'P' : name.startsWith('Refurbish') ? 'F' : name.slice(0, 1),
             name: `${name}: cancel`,
             keys: [],
-            description: k === 0 ? `In production: ${Math.floor((item.done * 100) / ps.steps)}% done. Click to cancel; what it cost comes back.` : 'Waiting. Click to cancel; what it cost comes back.',
+            description: k === 0 ? `In production: ${Math.floor(item.done / 10)}% done. Click to cancel; what it cost comes back.` : 'Waiting. Click to cancel; what it cost comes back.',
             className: 'portrait queue-item',
             onPress: () => this.a.cancelQueued(b.id, k),
           });
           if (k === 0) {
             const bar = document.createElement('span');
             bar.className = 'hp';
-            bar.style.width = `${Math.floor((item.done * 100) / ps.steps)}%`;
+            bar.style.width = `${Math.floor(item.done / 10)}%`;
             btn.el.append(bar);
           }
           q.append(btn.el);

@@ -19,10 +19,17 @@ export const Product = {
   Warrior: 3,
 } as const;
 export type Product = number;
-/** Research step r is product RESEARCH_PRODUCT + r; crafting item n is CRAFT_PRODUCT + n; refurbishing it, REFURBISH_PRODUCT + n. */
+/**
+ * Research step r is product RESEARCH_PRODUCT + r; crafting item n is
+ * CRAFT_PRODUCT + n; refurbishing it, REFURBISH_PRODUCT + n; a processing
+ * or cooking recipe (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal
+ * of a species at a livestock farm, SLAUGHTER_PRODUCT + species.
+ */
 export const RESEARCH_PRODUCT = 8;
-export const CRAFT_PRODUCT = 16;
-export const REFURBISH_PRODUCT = 48;
+export const CRAFT_PRODUCT = 64;
+export const REFURBISH_PRODUCT = 256;
+export const RECIPE_PRODUCT = 512;
+export const SLAUGHTER_PRODUCT = 1024;
 
 export interface QueueItem {
   product: Product;
@@ -66,6 +73,14 @@ export interface Building {
   farmAcc: number;
   /** Set when an alert about this building was sent, so it is sent once (bit 1: no supply). */
   alerted: number;
+  /** Research facilities: how many of them the player had when this one was paid for (each further one costs this much again on top). */
+  costMul: number;
+  /** Mineshafts: the prospect rating of the spot (mining.ts Rating), loads brought up so far, and what waits at the shaft to be hauled. */
+  rating: number;
+  mined: number;
+  stock: Array<[number, number]>;
+  /** Mineshafts: output carried between steps, per resource of the tier's list, in thousandths times steps per day. */
+  acc: number[];
 }
 
 export function maxHealth(b: Building): number {
@@ -255,7 +270,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     w.i32(b.repairAcc);
     w.u8(b.queue.length);
     for (const q of b.queue) {
-      w.u8(q.product);
+      w.u16(q.product);
       w.i32(q.progress);
       w.u8(q.paid.length);
       for (const [res, n] of q.paid) {
@@ -269,6 +284,16 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     w.u32(b.doneAt);
     w.i32(b.farmAcc);
     w.u8(b.alerted);
+    w.u8(b.costMul);
+    w.u8(b.rating);
+    w.i32(b.mined);
+    w.u8(b.stock.length);
+    for (const [res, n] of b.stock) {
+      w.u8(res);
+      w.i32(n);
+    }
+    w.u8(b.acc.length);
+    for (const v of b.acc) w.i32(v);
   }
 }
 
@@ -296,10 +321,15 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       doneAt: 0,
       farmAcc: 0,
       alerted: 0,
+      costMul: 1,
+      rating: 0,
+      mined: 0,
+      stock: [],
+      acc: [],
     };
     const nq = r.u8();
     for (let q = 0; q < nq; q++) {
-      const product = r.u8();
+      const product = r.u16();
       const progress = r.i32();
       const np = r.u8();
       const paid: Array<[number, number]> = [];
@@ -312,6 +342,13 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     b.doneAt = r.u32();
     b.farmAcc = r.i32();
     b.alerted = r.u8();
+    b.costMul = r.u8();
+    b.rating = r.u8();
+    b.mined = r.i32();
+    const ns = r.u8();
+    for (let k2 = 0; k2 < ns; k2++) b.stock.push([r.u8(), r.i32()]);
+    const na = r.u8();
+    for (let k2 = 0; k2 < na; k2++) b.acc.push(r.i32());
     store.add(b, touch);
   }
 }
@@ -322,5 +359,6 @@ export function buildingFields(b: Building): Record<string, number | string> {
     id: b.id, owner: b.owner, kind: b.kind, variant: b.variant, level: b.level, x: b.x, z: b.z, y: b.y, hp: b.hp,
     progress: b.progress, complete: b.complete ? 1 : 0, upgrading: b.upgrading, upProgress: b.upProgress, repairAcc: b.repairAcc,
     queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), fuelUntil: b.fuelUntil, doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
+    costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc),
   };
 }

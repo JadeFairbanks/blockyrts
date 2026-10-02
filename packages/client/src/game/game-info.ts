@@ -33,6 +33,12 @@ export interface UnitInfo {
   skills: number;
   ammo: number;
   target: number;
+  armour: number;
+  helmet: number;
+  boltCase: number;
+  kit: number;
+  partner: number;
+  ammoItem: number;
 }
 
 export class GameInfo {
@@ -100,6 +106,12 @@ export class GameInfo {
       skills: d[o + S.skills]!,
       ammo: d[o + S.ammo]!,
       target: d[o + S.target]!,
+      armour: d[o + S.armour]!,
+      helmet: d[o + S.helmet]!,
+      boltCase: d[o + S.boltCase]!,
+      kit: d[o + S.kit]!,
+      partner: d[o + S.partner]!,
+      ammoItem: d[o + S.ammoItem]!,
     };
   }
 

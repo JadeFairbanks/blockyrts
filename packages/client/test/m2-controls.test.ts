@@ -19,7 +19,7 @@ function sel(key: string, kind: Selectable['kind'], typeKey: string, owner = ME,
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', ...o,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, ...o,
   };
 }
 
@@ -44,6 +44,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     type: 'info', step: 10, pool: p, supplyUsed: 2, supplyCap: 8, buildings, queues: [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false,
   };
   g.onInfo(info);
   return g;
@@ -92,7 +93,7 @@ describe('the worker card', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
     expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Equip', 'Gear']);
-    expect(card[9]!.enabled).toBe(false);
+    expect(card[9]!.enabled).toBe(true); // Prospect (milestone 4)
     expect(card[6]!.enabled).toBe(true); // worker 2 carries something
     expect(card[14]!.reason).toContain('single unit');
     expect(card.map((e) => e?.key ?? '')).toContain('KeyG');

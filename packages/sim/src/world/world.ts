@@ -17,7 +17,7 @@ import { WorldGen, type PropRecord } from './generate.ts';
 import { WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { hash2 } from './noise.ts';
-import { growth, isTree, propInfo, PROPS } from './props.ts';
+import { fishAt, growth, isFish, isTree, propInfo, PROPS } from './props.ts';
 
 const N = COLUMNS_PER_CHUNK;
 /** Generated chunks kept in memory (technical decision 5: 2,048, least recently used first out). */
@@ -52,6 +52,8 @@ export interface PropView {
   /** Age at this step (trees). */
   age: number;
   amount: number;
+  /** Fish stretches: the most fish the water holds. */
+  most: number;
   /** Growth stage and size (per mille) for trees; regrowing bushes report their stump as size 0. */
   stage: number;
   size: number;
@@ -444,7 +446,9 @@ export class World {
     let amount = ch ? ch.amount : r.amount;
     let size = 1000;
     let stage = 2;
-    if (isTree(r.kind)) {
+    if (isFish(r.kind)) {
+      amount = fishAt(info.regrowSteps, r.amount, amount, ch ? ch.cutAt : -1, step);
+    } else if (isTree(r.kind)) {
       const gr = growth(r.kind, age);
       stage = gr.stage;
       size = gr.size;
@@ -454,7 +458,7 @@ export class World {
       if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
       else size = 0;
     }
-    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size };
+    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, most: r.amount, stage, size };
   }
 
   /**
@@ -472,6 +476,11 @@ export class World {
     const taken = Math.min(amount, view.amount);
     const left = view.amount - taken;
     const info = propInfo(r.kind);
+    // A fish stretch is never used up: what is left breeds again from now (Fish).
+    if (isFish(r.kind)) {
+      this.changeProp(cx, cz, index, { amount: left, cutAt: step, removed: false });
+      return taken;
+    }
     if (left > 0) {
       this.changeProp(cx, cz, index, { amount: left, cutAt: -1, removed: false });
       return taken;
@@ -485,6 +494,21 @@ export class World {
       this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: true });
     }
     return taken;
+  }
+
+  /** Puts a new prop on a column (a carcass where an animal fell, a fish stretch): its record joins the chunk's added props. */
+  addProp(gx: number, gz: number, kind: number, variant: number, amount: number, step: number): { cx: number; cz: number; i: number } {
+    const cx = gx >> CHUNK_SHIFT;
+    const cz = gz >> CHUNK_SHIFT;
+    const lx = gx - cx * N;
+    const lz = gz - cz * N;
+    const c = this.columns(cx, cz);
+    const key = chunkKey(cx, cz);
+    const list = this.addedProps.get(key) ?? [];
+    list.push({ kind, lx, lz, y: c.top(lz * N + lx), variant, age: -step, amount });
+    this.addedProps.set(key, list);
+    this.dirty.add(key);
+    return { cx, cz, i: this.generated(cx, cz).props.length + list.length - 1 };
   }
 
   /** Felled trees drop seeds around them that grow into saplings (The world, Regrowth). */

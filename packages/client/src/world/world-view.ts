@@ -25,11 +25,14 @@ import {
   WU_PER_COLUMN,
   WU_PER_METRE,
   type ChunkDelta,
+  isGame,
+  speciesSpec,
+  WILD,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
-import { S, STATE_STRIDE } from '../messages.ts';
+import { S, STATE_STRIDE, UnitFlag } from '../messages.ts';
 import { loadModelLibrary, type ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
@@ -55,10 +58,10 @@ const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 /** Player colours (decision 8's placeholder blue is player 1). */
 export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
-const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster'];
+const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
 const TOOL_NAMES = ['no', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
-const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob'];
+const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal'];
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
 const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
@@ -286,6 +289,22 @@ export class WorldView {
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
         u.details = [health];
+      } else if (kind === UnitKind.Animal) {
+        const spec = speciesSpec(d[o + S.mob]!);
+        const flags = d[o + S.flags]!;
+        const young = (flags & UnitFlag.Young) !== 0;
+        const wild = owner === WILD;
+        const name = spec.name.toLowerCase();
+        u.label = `${young ? 'Young ' : ''}${wild ? (young ? 'wild ' : 'Wild ') : ''}${young || wild ? name : spec.name}`;
+        u.typeKey = `animal:${wild ? 'wild' : 'own'}:${spec.id}`;
+        u.owner = wild ? NOBODY : owner;
+        const scale = young ? 0.5 : 1;
+        u.halfSize.set((spec.halfWidth * scale) / WU_PER_METRE, (spec.height * scale) / WU_PER_METRE / 2, (spec.halfWidth * scale) / WU_PER_METRE);
+        const details = [health];
+        if (!wild && d[o + S.partner]) details.push('Working with a worker.');
+        if (wild && spec.tameAt.length > 0) details.push('Can be tamed by a worker (Tame).');
+        else if (wild && isGame(spec.id)) details.push('Game: warriors hunt it with N.');
+        u.details = details;
       }
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());

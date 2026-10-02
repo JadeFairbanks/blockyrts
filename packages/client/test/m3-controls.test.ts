@@ -7,6 +7,7 @@ import {
   Item,
   ITEM_COUNT,
   MONSTERS,
+  productsOf,
   Res,
   RESOURCE_COUNT,
   Research,
@@ -29,7 +30,7 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', ...o,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, ...o,
   };
 }
 
@@ -71,6 +72,7 @@ function game(w: World = {}): GameInfo {
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: w.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     items, research: w.research ?? 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false,
   };
   g.onInfo(info);
   return g;
@@ -108,7 +110,7 @@ describe('the warrior card', () => {
   it('has the movement row, then Equip Best, Equipment, the lock and archery, and Enter', () => {
     const { c } = harness(game(), warriors, 'warrior');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Equip', 'Gear', 'Auto', 'Archery', '', '', '', 'Enter', '', '']);
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Equip', 'Gear', 'Auto', 'Archery', 'Hunt', 'Eat', '', 'Enter', '', '']);
     expect(card.slice(0, 5).every((e) => e!.enabled)).toBe(true);
     expect(card[0]!.key).toBe('KeyA');
     expect(card[5]!.key).toBe('KeyQ');
@@ -189,6 +191,9 @@ describe('the equipment panel (I)', () => {
 describe('the Big House', () => {
   it('trains warriors for a club from the stock, and crafts and refurbishes with grid keys', () => {
     const g = game({ pool: [[Res.Wheat, 100], [Res.Sticks, 10], [Res.Flint, 5]], items: [[Item.Club, 1]] });
+    // The sim worker sends what the Big House makes and why each one cannot be queued yet.
+    const house = g.buildings.get(20)!;
+    house.products = productsOf({ kind: BuildingKind.MainBase, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, p === CRAFT_PRODUCT + Item.SpearFlint ? 'Needs Flint tools researched first.' : '']);
     const { c, sent } = harness(g, [{ ...sel('b:20', 'building:0:1'), kind: 'building' }], 'building:0:1');
     const card = c.card();
     expect(card[1]!.face).toBe('Warrior');
@@ -246,7 +251,7 @@ describe('digging and earthworks', () => {
 
   it('offers banks, ramps and fill in the Earthworks submenu, and orders a ramp up a step', () => {
     const slot = menuSlots('basic').findIndex((specs) => specs.some((s) => s.kind === BuildingKind.Earthworks));
-    expect(submenuChoices(menuSlots('basic')[slot]!).map((c) => c.name)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber or stone ramp']);
+    expect(submenuChoices(menuSlots('basic')[slot]!).map((c) => c.name)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Lumber or stone ramp']);
     const step = (x: number): number => (x > 2 ? 0.9 : 0);
     const { c, sent } = harness(game({ pool: [[Res.Earth, 50]] }), workers, 'worker', step);
     c.startArea('earthwork', 1);

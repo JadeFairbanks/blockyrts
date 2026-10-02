@@ -68,10 +68,38 @@ export const Res = {
   HighQualitySteel: 57,
   Gunpowder: 58,
   LeadShot: 59,
+  // Cooked foods (Table 6, Cooking) and medicine (Food and medicine).
+  RoastMeat: 60,
+  RoastFish: 61,
+  SmokedMeat: 62,
+  SmokedFish: 63,
+  Bread: 64,
+  SaltedMeat: 65,
+  SaltedFish: 66,
+  Stew: 67,
+  Pie: 68,
+  Bandage: 69,
+  Remedy: 70,
+  // Workshop goods: ramp steps of lumber or stone, placed with Earthworks, and glass lanterns.
+  LumberRamp: 71,
+  StoneRamp: 72,
+  Lantern: 73,
+  // Trinkets (Trinkets): every metal in every tier, then the two special ones. TRINKET_BASE + metal * 4 + tier - 1.
+  Moonleaf: 102,
+  Sunheart: 103,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
-export const ResGroup = { Main: 0, Additional: 1, Goods: 2 } as const;
+/** The first trinket: metal m (TRINKET_METALS order) at tier t (1 to 4) is TRINKET_BASE + m * 4 + t - 1. */
+export const TRINKET_BASE = 74;
+export const TRINKET_METALS = ['Copper', 'Tin', 'Bronze', 'Iron', 'Steel', 'Silver', 'Gold'] as const;
+export const TRINKET_TIERS = ['Token', 'Charm', 'Brooch', 'Heirloom'] as const;
+
+export function trinketRes(metal: number, tier: number): Res {
+  return (TRINKET_BASE + metal * 4 + tier - 1) as Res;
+}
+
+export const ResGroup = { Main: 0, Additional: 1, Goods: 2, Food: 3, Trinkets: 4 } as const;
 export type ResGroup = (typeof ResGroup)[keyof typeof ResGroup];
 
 export interface ResourceInfo {
@@ -97,6 +125,20 @@ const r = (id: Res, name: string, short: string, group: ResGroup, weightTenthsLb
 const M = ResGroup.Main;
 const A = ResGroup.Additional;
 const G = ResGroup.Goods;
+const F = ResGroup.Food;
+const T = ResGroup.Trinkets;
+
+/** The 28 metal trinkets, in id order (Table 12 weights: (s) a tenth of a pound each). */
+function trinkets(): ResourceInfo[] {
+  const out: ResourceInfo[] = [];
+  TRINKET_METALS.forEach((metal, m) => {
+    TRINKET_TIERS.forEach((tier, t) => {
+      const name = `${metal} ${tier}`;
+      out.push(r(trinketRes(m, t + 1), name, name, T, 1, `Made at a workshop from ${metal.toLowerCase()} (tier ${t + 1}). For trading with villages.`, 0, false));
+    });
+  });
+  return out;
+}
 
 /** Every resource, indexed by id. Weights from Table 12; nutrition from Table 6. */
 export const RESOURCES: readonly ResourceInfo[] = [
@@ -160,6 +202,23 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.HighQualitySteel, 'High-quality steel', 'HQ steel', G, 50, 'Refined iron and charcoal at a Steelworks, slowly.', 0, false),
   r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at a powder mill.', 0, false),
   r(Res.LeadShot, 'Lead shot', 'Shot', G, 10, 'Lead ore at a forge.', 0, false),
+  r(Res.RoastMeat, 'Roast meat', 'Roast meat', F, 25, 'Meat roasted at a campfire or better.', 6, false),
+  r(Res.RoastFish, 'Roast fish', 'Roast fish', F, 25, 'Fish roasted at a campfire or better.', 5, false),
+  r(Res.SmokedMeat, 'Smoked meat', 'Smoked meat', F, 25, 'Meat smoked at a Cook Hut or better.', 7, false),
+  r(Res.SmokedFish, 'Smoked fish', 'Smoked fish', F, 25, 'Fish smoked at a Cook Hut or better.', 6, false),
+  r(Res.Bread, 'Bread', 'Bread', F, 10, 'Wheat baked at a Kitchen or better.', 5, false),
+  r(Res.SaltedMeat, 'Salted meat', 'Salted meat', F, 25, 'Meat salted at a Kitchen or better.', 8, false),
+  r(Res.SaltedFish, 'Salted fish', 'Salted fish', F, 25, 'Fish salted at a Kitchen or better.', 7, false),
+  r(Res.Stew, 'Stew', 'Stew', F, 25, 'Meat, potatoes and a carrot at a Great Kitchen or better.', 12, false),
+  r(Res.Pie, 'Pie', 'Pie', F, 25, 'Meat, wheat and an egg at a Grand Kitchen.', 16, false),
+  r(Res.Bandage, 'Bandage', 'Bandages', G, 5, 'An herb and flax or leather at a herbalist hut. Heals 30 over 15 s.', 0, false),
+  r(Res.Remedy, 'Healing remedy', 'Remedies', G, 5, 'Two herbs and a glass bottle at a herbalist hut. Heals 60 over 5 s.', 0, false),
+  r(Res.LumberRamp, 'Lumber ramp step', 'Lumber ramp', G, 25, 'Lumber at a workshop: two ramp steps from 1 lumber. Placed with Earthworks.', 0, false),
+  r(Res.StoneRamp, 'Stone ramp step', 'Stone ramp', G, 50, 'Stone at a workshop: two ramp steps from 2 stone. Placed with Earthworks.', 0, false),
+  r(Res.Lantern, 'Glass lantern', 'Lanterns', G, 30, 'Glass and wrought iron at a Great Workshop; hung as a light.', 0, false),
+  ...trinkets(),
+  r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at a Great Workshop or Manufactory. For trading with villages.', 0, false),
+  r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at a Manufactory. For trading with villages.', 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;
@@ -221,6 +280,10 @@ export function resourceByName(name: string): number {
       return Res.Emeralds;
     case 'mana crystal':
       return Res.ManaCrystal;
+    case 'meat':
+      return Res.Meat;
+    case 'fish':
+      return Res.Fish;
     default:
       return -1;
   }
@@ -266,28 +329,32 @@ export function costText(cost: Cost): string {
   return cost.map(([res, n]) => `${n} ${RESOURCES[res]!.name.toLowerCase()}`).join(', ');
 }
 
-/** Total nutrition in a pool's foods. */
-export function foodInPool(pool: Int32Array): number {
+/** Total nutrition in a pool's foods, leaving out those kept back (Don't eat: a bit per entry of FOODS). */
+export function foodInPool(pool: Int32Array, keep = 0): number {
   let n = 0;
-  for (const f of FOODS) n += pool[f]! * RESOURCES[f]!.nutrition;
+  FOODS.forEach((f, k) => {
+    if ((keep & (1 << k)) === 0) n += pool[f]! * RESOURCES[f]!.nutrition;
+  });
   return n;
 }
 
 /**
  * Takes foods worth at least `need` nutrition from the pool, one item of each
- * food in stock in turn (Food: units eat from all of them equally). Returns
- * what was taken, so a cancelled order can be refunded exactly, or null if
- * the pool holds too little food (and takes nothing).
+ * food in stock in turn (Food: units eat from all of them equally), skipping
+ * foods kept back with Don't eat. Returns what was taken, so a cancelled order
+ * can be refunded exactly, or null if the pool holds too little food (and
+ * takes nothing).
  */
-export function payNutrition(pool: Int32Array, need: number): Array<[Res, number]> | null {
+export function payNutrition(pool: Int32Array, need: number, keep = 0): Array<[Res, number]> | null {
   if (need <= 0) return [];
-  if (foodInPool(pool) < need) return null;
+  if (foodInPool(pool, keep) < need) return null;
   const taken = new Map<Res, number>();
   let got = 0;
   while (got < need) {
-    for (const f of FOODS) {
+    for (let k = 0; k < FOODS.length; k++) {
+      const f = FOODS[k]!;
       if (got >= need) break;
-      if (pool[f]! <= 0) continue;
+      if (pool[f]! <= 0 || (keep & (1 << k)) !== 0) continue;
       pool[f] = pool[f]! - 1;
       taken.set(f, (taken.get(f) ?? 0) + 1);
       got += RESOURCES[f]!.nutrition;
