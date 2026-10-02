@@ -452,6 +452,28 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | bone_boulder | models/projectiles-and-spells/bone_boulder/bone_boulder.bbmodel | 26 | 32x64 | 26 cubes (small-item cap 11): a lump of fused bones and skulls needs many small pieces; it is a thrown projectile, not a carried item |
 | chain_hook | models/projectiles-and-spells/chain_hook/chain_hook.bbmodel | 13 | 16x32 | 13 cubes (small-item cap 11): barbed hook plus a short run of chain; `chain_link` (the single link the game repeats) is a separate file in this folder |
 | chain_link | models/projectiles-and-spells/chain_hook/chain_link.bbmodel | 4 | 16x16 | extra file in chain_hook/: the single chain link the game draws in a line behind the hook |
+| spell_bolt | models/projectiles-and-spells/spell_bolt/spell_bolt.bbmodel | 12 | 16x32 |  |
+| spell_fireball | models/projectiles-and-spells/spell_fireball/spell_fireball.bbmodel | 24 | 32x32 |  |
+| spell_beam_segment | models/projectiles-and-spells/spell_beam_segment/spell_beam_segment.bbmodel | 6 | 32x32 |  |
+| spell_area_ring | models/projectiles-and-spells/spell_area_ring/spell_area_ring.bbmodel | 48 | 16x16 |  |
+| spell_heal_motes | models/projectiles-and-spells/spell_heal_motes/spell_heal_motes.bbmodel | 24 | 16x32 |  |
+| spell_quicken | models/projectiles-and-spells/spell_quicken/spell_quicken.bbmodel | 12 | 16x16 |  |
+| spell_fortify | models/projectiles-and-spells/spell_fortify/spell_fortify.bbmodel | 18 | 16x16 |  |
+| spell_rally | models/projectiles-and-spells/spell_rally/spell_rally.bbmodel | 65 | 64x64 |  |
+| spell_warding | models/projectiles-and-spells/spell_warding/spell_warding.bbmodel | 143 | 32x64 |  |
+| spell_warding_mark | models/projectiles-and-spells/spell_warding/spell_warding_mark.bbmodel | 4 | 16x16 | extra file in spell_warding/: the small rune over each protected unit (wishlist id spell_warding_mark) |
+| spell_counterspell | models/projectiles-and-spells/spell_counterspell/spell_counterspell.bbmodel | 21 | 32x32 |  |
+| spell_thorn_volley | models/projectiles-and-spells/spell_thorn_volley/spell_thorn_volley.bbmodel | 20 | 32x32 |  |
+| spell_rootbind | models/projectiles-and-spells/spell_rootbind/spell_rootbind.bbmodel | 44 | 32x64 |  |
+| spell_mending_bloom | models/projectiles-and-spells/spell_mending_bloom/spell_mending_bloom.bbmodel | 148 | 64x64 |  |
+| spell_spark_toss | models/projectiles-and-spells/spell_spark_toss/spell_spark_toss.bbmodel | 8 | 16x16 |  |
+| spell_stumble_hex | models/projectiles-and-spells/spell_stumble_hex/spell_stumble_hex.bbmodel | 28 | 16x32 |  |
+| spell_snuff_wisp | models/projectiles-and-spells/spell_snuff_wisp/spell_snuff_wisp.bbmodel | 6 | 16x32 |  |
+| spell_curse_mark | models/projectiles-and-spells/spell_curse_mark/spell_curse_mark.bbmodel | 17 | 16x16 |  |
+| spell_drain_beam_segment | models/projectiles-and-spells/spell_drain_beam_segment/spell_drain_beam_segment.bbmodel | 6 | 32x32 |  |
+| spell_mana_hex | models/projectiles-and-spells/spell_mana_hex/spell_mana_hex.bbmodel | 40 | 16x16 |  |
+| ruin_column | models/projectiles-and-spells/spell_violet_ruin/ruin_column.bbmodel | 88 | 256x1024 | one of the two parts of spell_violet_ruin (its folder): the 640 u (18 m) column |
+| ruin_warning | models/projectiles-and-spells/spell_violet_ruin/ruin_warning.bbmodel | 176 | 64x64 | one of the two parts of spell_violet_ruin (its folder): the warning ring on the ground |
 
 ## textures
 
