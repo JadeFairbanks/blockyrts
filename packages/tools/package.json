@@ -2,7 +2,7 @@
   "name": "@blockyrts/tools",
   "version": "0.0.0",
   "private": true,
-  "description": "Developer tools: headless runner, desync tool, balance harness, map viewer, model converter.",
+  "description": "Developer tools: headless runner, desync tool, two-player network test, balance harness, map viewer, model converter.",
   "type": "module",
   "scripts": {
     "sim:run": "tsx src/run-headless.ts",
@@ -13,10 +13,13 @@
     "typecheck": "tsc -p tsconfig.json",
     "assets:manifest": "tsx src/assets-manifest.ts",
     "gen:tables": "tsx scripts/gen-number-tables.ts",
-    "models:build": "tsx src/models/build-models.ts"
+    "models:build": "tsx src/models/build-models.ts",
+    "net:test": "tsx src/net/two-player.ts"
   },
   "dependencies": {
-    "@blockyrts/sim": "workspace:*"
+    "@blockyrts/sim": "workspace:*",
+    "@blockyrts/protocol": "workspace:*",
+    "@blockyrts/server": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
