@@ -1,0 +1,17 @@
+{
+ "description": "M5 check script, seed 1, one player, with night mobs: the debug tools hand out steel swords, steel plate, nasal helmets, heater shields and three clubs, put a barrow 60 m east of the Big House and a cave mouth 60 m west; the Big House trains three warriors while the workers chop pines; Equip Best gears all four warriors and they attack-move on the barrow: the first one there dies to its giant centipede, the other three wake its four sleeping zombies, break it, take its hoard into the pool and earn 20 XP each; fog rolls in for night 0 (debug), the warriors guard the Big House and the workers go home; at dawn a goblin village goes up 80 m north, a gnoll band 140 m south-east and a giant beetle 110 m north-west (debug); the warriors attack-move into the village, it declares war after the fifth kill and they walk home; late on day 1 a blood night is called for night 1 (debug). Debug threats: 0 to 7 lairs in Table 15's order, 10 village, 11 to 13 gnolls, kobolds, hobgoblins, 20 blood night, 21 fog, 30 to 35 beetle, hornets, viper, scorpion, griffin, minotaur. Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  { "step": 5, "orders": [ {"kind":"gather","player":0,"units":[1,2,3,4],"cx":-1,"cz":-1,"index":2}, {"kind":"debugGive","player":0,"item":3,"count":3}, {"kind":"produce","player":0,"building":6,"product":3,"count":3}, {"kind":"debugGive","player":0,"item":42,"count":4}, {"kind":"debugGive","player":0,"item":71,"count":4}, {"kind":"debugGive","player":0,"item":75,"count":4}, {"kind":"debugGive","player":0,"item":79,"count":4}, {"kind":"debugThreat","player":0,"what":0,"x":480000,"z":0}, {"kind":"debugThreat","player":0,"what":1,"x":-480000,"z":80000} ] },
+  { "step": 2750, "orders": [ {"kind":"equipBest","player":0,"units":[5,157,243,290]} ] },
+  { "step": 2760, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":480000,"z":0} ] },
+  { "step": 3300, "orders": [ {"kind":"debugThreat","player":0,"what":21,"x":0,"z":0} ] },
+  { "step": 3400, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":0,"z":24000} ] },
+  { "step": 3650, "orders": [ {"kind":"everyoneHome","player":0} ] },
+  { "step": 3700, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":0,"z":24000} ] },
+  { "step": 8000, "orders": [ {"kind":"debugThreat","player":0,"what":10,"x":0,"z":-640000}, {"kind":"debugThreat","player":0,"what":11,"x":800000,"z":800000}, {"kind":"debugThreat","player":0,"what":30,"x":-640000,"z":-640000} ] },
+  { "step": 8050, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":0,"z":-600000} ] },
+  { "step": 8850, "orders": [ {"kind":"move","player":0,"units":[5,157,243,290],"x":0,"z":24000} ] },
+  { "step": 9800, "orders": [ {"kind":"debugThreat","player":0,"what":20,"x":0,"z":0} ] }
+ ]
+}

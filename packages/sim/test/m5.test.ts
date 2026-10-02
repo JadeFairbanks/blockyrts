@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   Ability,
+  Band,
+  bandRings,
+  bloodBand,
+  CELL_RING_SHIFT,
   BuildingKind,
   buildingCentre,
   canUse,
@@ -207,6 +211,34 @@ describe('blood and fog nights', () => {
     toPeriod(s, 14, DUSK_START + NIGHT_STEPS);
     step(s);
     expect(s.blood).toEqual([13]);
+  });
+
+  it('falls when the players hold 60% of the Fringe, once the Heartland\'s is spent', () => {
+    const s = createWorld(1);
+    s.threats.bloodSpent = 1 << Band.Heartland;
+    const layout = s.world.layout;
+    const [r0, r1] = bandRings(layout, Band.Fringe);
+    const cells: number[] = [];
+    for (let r = r0; r < r1; r++) for (let k = 0; k < layout.ringCellCount(r); k++) cells.push(r * CELL_RING_SHIFT + k);
+    // A torch at the site of each held cell (a claimed cell is one holding a building).
+    const hold = (n: number): void => {
+      const proto = bigHouse(s);
+      s.buildings.list = s.buildings.list.filter((b) => b.kind === BuildingKind.MainBase);
+      for (const id of cells.slice(0, n)) {
+        const site = layout.site(id);
+        s.buildings.list.push({ ...proto, id: 900000 + id, x: site.x, z: site.z });
+      }
+    };
+    const need = Math.ceil((cells.length * 6) / 10);
+    hold(need - 1);
+    expect(bloodBand(s, 20)).toBe(-1);
+    hold(need);
+    expect(bloodBand(s, 20)).toBe(Band.Fringe);
+    toPeriod(s, 20, DUSK_START);
+    s.events = [];
+    step(s);
+    expect(s.blood).toEqual([20]);
+    expect(s.events.some((ev) => ev.text.includes('A blood night is coming') && ev.text.includes('Fringe') && ev.sound === 'double-horn')).toBe(true);
   });
 
   it('spends the doubled budget with the extra on the rarer kinds', () => {
