@@ -1,0 +1,634 @@
+/* HUD shell: dark translucent panels, crisp 1 px borders, small hotkey badges. */
+:root {
+  --panel-bg: rgba(16, 19, 24, 0.86);
+  --panel-bg-soft: rgba(16, 19, 24, 0.55);
+  --panel-border: rgba(170, 186, 204, 0.32);
+  --text: #e6e9ee;
+  --muted: #98a2b0;
+  --accent: #e8c25a;
+  --own: #63e06b;
+  --btn-bg: rgba(40, 46, 56, 0.92);
+  --btn-bg-hover: rgba(62, 71, 86, 0.95);
+  --btn-border: rgba(170, 186, 204, 0.38);
+  --mm-w: 352px;
+  --mm-h: 230px;
+  --util-h: 32px;
+  --font: 13px/1.35 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1b1f24;
+  color: var(--text);
+  font: var(--font);
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app {
+  position: fixed;
+  inset: 0;
+}
+#view {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* While playing the game draws its own cursor. */
+body.playing,
+body.playing * {
+  cursor: none !important;
+}
+
+#cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  pointer-events: none;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+#cursor[data-shape='pan'] {
+  transform-origin: 14px 14px;
+}
+#cursor svg {
+  display: block;
+}
+
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.hud > * {
+  pointer-events: auto;
+}
+
+.drag-box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border: 1px solid rgba(140, 255, 150, 0.9);
+  background: rgba(120, 230, 130, 0.12);
+  box-sizing: border-box;
+  pointer-events: none !important;
+}
+
+.panel {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+}
+
+/* Minimap and utility bar (bottom left). */
+.minimap-panel {
+  left: 0;
+  bottom: 0;
+  width: var(--mm-w);
+  height: calc(var(--mm-h) + var(--util-h));
+  display: flex;
+  flex-direction: column;
+  border-left: 0;
+  border-bottom: 0;
+}
+.utility-bar {
+  display: flex;
+  height: var(--util-h);
+  flex: none;
+  border-bottom: 1px solid var(--panel-border);
+}
+.minimap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #0b0e12;
+}
+.minimap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Buttons. */
+.hud-btn {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text);
+  overflow: hidden;
+}
+.hud-btn .key {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 9.5px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.hud-btn.hover {
+  background: var(--btn-bg-hover);
+  border-color: rgba(220, 230, 240, 0.7);
+}
+.hud-btn.pressed {
+  background: rgba(24, 28, 34, 0.98);
+}
+.hud-btn.lit {
+  background: rgba(110, 92, 30, 0.95);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 6px rgba(232, 194, 90, 0.5);
+}
+.hud-btn.disabled {
+  color: rgba(230, 233, 238, 0.35);
+  background: rgba(32, 36, 42, 0.85);
+}
+.hud-btn.disabled .key {
+  color: rgba(232, 194, 90, 0.45);
+}
+.hud-btn.util {
+  flex: 1 1 0;
+  min-width: 0;
+  border-width: 0 1px 0 0;
+}
+.hud-btn.util:last-child {
+  border-right: 0;
+}
+.hud-btn.util .face {
+  font-size: 15px;
+  margin-top: 9px;
+}
+.hud-btn.util .key {
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+}
+.hud-btn.util.cam .face {
+  font-size: 13px;
+  font-weight: 600;
+}
+.hud-btn.util.cam.saved .face {
+  color: var(--own);
+}
+
+/* Message panel (left, above the minimap). */
+.message-panel {
+  left: 8px;
+  bottom: calc(var(--mm-h) + var(--util-h) + 8px);
+  width: calc(var(--mm-w) - 16px);
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg-soft);
+  border-color: rgba(170, 186, 204, 0.2);
+  transition: background-color 0.15s;
+}
+.message-panel.hover {
+  background: var(--panel-bg);
+  border-color: var(--panel-border);
+}
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+  scrollbar-width: thin;
+}
+.msg {
+  margin: 1px 0;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.msg-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-right: 6px;
+  font-size: 11.5px;
+}
+.msg.alert {
+  color: #ffd27a;
+}
+.chat {
+  flex: none;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--panel-border);
+  padding: 5px 8px;
+  font: 12px/1.3 system-ui, sans-serif;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--muted);
+}
+
+/* Selection panel (bottom centre). */
+.selection-panel {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Centred, so it must clear the wider of the two bottom corner panels on both sides. */
+  width: clamp(220px, calc(100vw - 2 * var(--mm-w) - 16px), 520px);
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 0;
+}
+.sel-head {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  flex: none;
+  padding-left: 10px;
+  border-bottom: 1px solid var(--panel-border);
+}
+.sel-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sel-corner {
+  align-self: stretch;
+}
+.hud-btn.clear {
+  width: 40px;
+  height: 100%;
+  border-width: 0 0 0 1px;
+  justify-content: flex-start;
+  padding-left: 8px;
+  font-size: 12px;
+}
+.hud-btn.clear.idle {
+  color: rgba(230, 233, 238, 0.35);
+}
+.sel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+.sel-row {
+  margin: 1px 0;
+}
+.sel-row.hint {
+  color: var(--muted);
+}
+.sel-row.owner {
+  color: var(--muted);
+  font-size: 12px;
+}
+.sel-row.group {
+  display: inline-block;
+  margin: 2px 6px 2px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Command card (bottom right): 3 x 5. */
+.command-card {
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 4px;
+  padding: 8px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.slot {
+  position: relative;
+  border: 1px dashed rgba(170, 186, 204, 0.12);
+}
+.hud-btn.cmd {
+  position: absolute;
+  inset: -1px;
+  align-items: flex-end;
+  padding-bottom: 5px;
+  font-size: 11.5px;
+}
+.hud-btn.cmd .key {
+  font-size: 11px;
+  top: 2px;
+  right: 4px;
+  font-weight: 600;
+}
+.hud-btn.cmd.cancel {
+  border-color: rgba(255, 120, 110, 0.6);
+}
+
+/* Top right: Allies, Send resources and the resource bar. */
+.top-right {
+  top: 0;
+  right: 0;
+  display: flex;
+  height: 32px;
+  border-top: 0;
+  border-right: 0;
+}
+.top-right-buttons {
+  display: flex;
+}
+.hud-btn.top {
+  padding: 0 12px;
+  border-width: 0 1px 0 0;
+  font-size: 12px;
+}
+.resource-bar {
+  display: flex;
+  align-items: stretch;
+}
+.res {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-right: 1px solid rgba(170, 186, 204, 0.16);
+  white-space: nowrap;
+}
+.res-name {
+  color: var(--muted);
+  font-size: 12px;
+}
+.res-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.hud-btn.res-toggle {
+  width: 34px;
+  border-width: 0;
+  font-size: 13px;
+}
+.resource-all {
+  top: 36px;
+  right: 4px;
+  width: 360px;
+  max-height: calc(100vh - 36px - 200px);
+  min-height: 120px;
+  overflow-y: auto;
+  padding: 6px 10px 10px;
+}
+.res-section {
+  margin: 6px 0 4px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.res-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
+}
+.res-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+  border-bottom: 1px solid rgba(170, 186, 204, 0.08);
+}
+
+/* Clock (top centre). */
+.clock {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 150px;
+  padding: 3px 14px 4px;
+  text-align: center;
+  border-top: 0;
+}
+.clock-day {
+  font-weight: 600;
+  font-size: 14px;
+}
+.clock-time {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Debug readout (top left, small). */
+.debug {
+  top: 6px;
+  left: 6px;
+  padding: 4px 8px;
+  font: 11px/1.35 ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  background: rgba(10, 12, 16, 0.66);
+  border-color: rgba(170, 186, 204, 0.2);
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 8px;
+}
+.dbg-row {
+  display: contents;
+}
+.dbg-label {
+  color: var(--muted);
+}
+.dbg-value {
+  color: var(--text);
+  text-align: right;
+}
+
+/* Tooltip. */
+#tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  max-width: 280px;
+  padding: 6px 9px 7px;
+  background: rgba(10, 12, 16, 0.96);
+  border: 1px solid rgba(200, 212, 226, 0.45);
+  pointer-events: none;
+  font-size: 12.5px;
+}
+.tt-head {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.tt-key {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid rgba(232, 194, 90, 0.6);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.tt-body {
+  color: #c9cfd8;
+}
+.tt-reason {
+  margin-top: 4px;
+  color: #ffb37a;
+}
+
+/* Overlays: the start screen and the menu use the real cursor and native controls. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 13, 0.55);
+  user-select: auto;
+}
+.overlay[hidden] {
+  display: none;
+}
+.start-overlay {
+  background: radial-gradient(ellipse at 50% 40%, #2a3440 0%, #12161b 75%);
+}
+.dialog {
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 20px 22px;
+  background: rgba(18, 22, 28, 0.97);
+  border: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dialog h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.01em;
+}
+.dialog h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+.dialog h3 {
+  margin: 8px 0 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.tagline {
+  margin: -4px 0 6px;
+  color: var(--muted);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field > span:first-child {
+  font-weight: 600;
+}
+.field .row {
+  display: flex;
+  gap: 6px;
+}
+.field small {
+  color: var(--muted);
+}
+.field small.error {
+  color: #ff8a7a;
+}
+.dialog input:not([type]),
+.dialog input[type='text'],
+.dialog select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font: 14px/1.3 ui-monospace, 'DejaVu Sans Mono', monospace;
+  color: var(--text);
+  background: #0d1014;
+  border: 1px solid var(--btn-border);
+}
+.dialog select {
+  font: var(--font);
+  font-size: 14px;
+}
+.dialog button {
+  padding: 7px 12px;
+  font: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  cursor: pointer;
+}
+.dialog button:hover {
+  background: var(--btn-bg-hover);
+}
+.dialog button.primary {
+  background: #3b5d33;
+  border-color: #6fae5e;
+  font-weight: 600;
+}
+.dialog button.primary:hover {
+  background: #46703c;
+}
+.dialog button.danger {
+  border-color: rgba(255, 120, 110, 0.6);
+}
+.start-btn {
+  margin-top: 6px;
+  padding: 9px 12px !important;
+}
+.note {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.setting {
+  display: grid;
+  grid-template-columns: 140px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+}
+.setting output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.setting.toggle {
+  grid-template-columns: auto 1fr;
+  row-gap: 0;
+}
+.setting.toggle small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.dialog hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--panel-border);
+  margin: 4px 0;
+}
+
+@media (max-width: 1180px) {
+  :root {
+    --mm-h: 190px;
+  }
+  /* Keep the top right clear of the clock: two resources in the bar, the rest in the list. */
+  .resource-bar .res:nth-child(n + 3) {
+    display: none;
+  }
+}

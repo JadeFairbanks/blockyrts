@@ -5,10 +5,12 @@
   "description": "The browser game: sim worker host, three.js renderer, HUD and input.",
   "type": "module",
   "scripts": {
+    "predev": "pnpm --filter @blockyrts/tools models:build",
     "dev": "vite",
+    "prebuild": "pnpm --filter @blockyrts/tools models:build",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "@blockyrts/sim": "workspace:*",

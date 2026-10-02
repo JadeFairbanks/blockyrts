@@ -5,23 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Survive and Conquer</title>
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f24; font: 14px/1.4 system-ui, sans-serif; }
-      #view { display: block; width: 100%; height: 100%; }
-      #hud {
-        position: fixed; top: 8px; left: 8px; padding: 8px 12px; border-radius: 4px;
-        background: rgba(0, 0, 0, 0.6); color: #e8e8e8; pointer-events: none;
-      }
-      #hud b { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; font-weight: 600; }
-      #hud .hint { color: #aab; margin-top: 4px; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f24; }
     </style>
   </head>
   <body>
-    <canvas id="view"></canvas>
-    <div id="hud">
-      <div>Seed <b id="seed">-</b></div>
-      <div>Step <b id="step">0</b> <span id="rate"></span></div>
-      <div>Hash <b id="hash">--------</b> at step <b id="hash-step">-</b></div>
-      <div class="hint">Right-click the ground to move your blue units. Arrow keys pan, the wheel zooms.</div>
+    <div id="app">
+      <canvas id="view"></canvas>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
