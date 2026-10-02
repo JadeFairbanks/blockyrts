@@ -142,3 +142,14 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | rope_coil | models/items/rope_coil/rope_coil.bbmodel | 6 | 32x32 |  |
 | resin_pot | models/items/resin_pot/resin_pot.bbmodel | 8 | 32x32 |  |
 | leather_folded | models/items/leather_folded/leather_folded.bbmodel | 4 | 32x32 |  |
+| bread_loaf | models/items/bread_loaf/bread_loaf.bbmodel | 2 | 32x32 |  |
+| roast_meat | models/items/roast_meat/roast_meat.bbmodel | 4 | 32x32 |  |
+| roast_fish | models/items/roast_fish/roast_fish.bbmodel | 4 | 32x32 |  |
+| smoked_meat | models/items/smoked_meat/smoked_meat.bbmodel | 5 | 32x32 |  |
+| smoked_fish | models/items/smoked_fish/smoked_fish.bbmodel | 7 | 32x32 |  |
+| salted_meat_barrel | models/items/salted_meat_barrel/salted_meat_barrel.bbmodel | 9 | 64x32 |  |
+| salted_fish_barrel | models/items/salted_fish_barrel/salted_fish_barrel.bbmodel | 15 | 64x32 | 15 cubes (small-item cap 11): staves, hoops and lid plus the fish tails showing, as described |
+| stew_pot | models/items/stew_pot/stew_pot.bbmodel | 13 | 32x32 | 13 cubes (small-item cap 11): pot, rim, legs, bail handle, stew surface and carrot chunks |
+| pie | models/items/pie/pie.bbmodel | 4 | 32x32 |  |
+| bandage_roll | models/items/bandage_roll/bandage_roll.bbmodel | 3 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| healing_remedy | models/items/healing_remedy/healing_remedy.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
