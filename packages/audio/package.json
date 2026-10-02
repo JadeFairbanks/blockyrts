@@ -1,0 +1,21 @@
+{
+  "name": "@blockyrts/audio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Every sound and piece of music in the game, synthesised in code, plus the Web Audio playback engine and an audition page.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "render": "tsx scripts/render-wavs.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "vite": "^7.3.0"
+  }
+}

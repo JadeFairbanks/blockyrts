@@ -26,6 +26,7 @@ pnpm install
 | `pnpm typecheck` | `tsc` for every package |
 | `pnpm sim:run` | The headless runner (options below) |
 | `pnpm dev` | The client at http://localhost:5173 |
+| `pnpm audio:dev` | The audio audition page at http://localhost:5174 |
 | `pnpm assets:manifest` | Lists packages/assets/src/MANIFEST.md and checks it against the model files |
 
 The cross-browser test uses Playwright's Chromium, Firefox and WebKit. A
@@ -42,6 +43,7 @@ CI installs all three and fails if any is missing.
 | `packages/tools` | Headless runner, desync tool, cross-browser test; balance harness and map viewer placeholders |
 | `packages/protocol` | Network message codecs (stub until M9) |
 | `packages/server` | API, lockstep relay and save store (stub until M9) |
+| `packages/audio` | Every sound and the music, synthesised in code; the Web Audio engine and an audition page (`pnpm audio:dev`) |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
 ## The number tables
