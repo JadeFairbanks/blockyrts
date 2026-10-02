@@ -21,7 +21,7 @@ export function readManifest(text: string): ManifestRow[] {
   for (const line of text.split('\n')) {
     if (!line.startsWith('|') || line.startsWith('|---')) continue;
     const cells = line.split('|').slice(1, -1).map((c) => c.trim());
-    if (cells[0] === 'id') continue;
+    if (cells[0]?.toLowerCase() === 'id') continue;
     const [id = '', path = '', cubes = '', texture = '', deviation = ''] = cells;
     rows.push({ id, path, cubes, texture, deviation });
   }
@@ -41,7 +41,9 @@ function findModels(dir: string): string[] {
 
 const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
-  const rows = readManifest(readFileSync(join(root, 'MANIFEST.md'), 'utf8'));
+  const manifestPath = join(root, 'MANIFEST.md');
+  const rows = existsSync(manifestPath) ? readManifest(readFileSync(manifestPath, 'utf8')) : [];
+  if (!existsSync(manifestPath)) console.log('No MANIFEST.md yet: the first model batch adds it.');
   const files = findModels(join(root, 'models'));
   console.log(`${rows.length} manifest rows, ${files.length} model files`);
   for (const r of rows) {
