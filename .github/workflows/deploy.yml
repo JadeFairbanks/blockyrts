@@ -74,8 +74,8 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             # Not secret; when it was not saved, ask Cloudflare (as setup does).
-            CLOUDFLARE_ACCOUNT_ID=$(curl -fsS https://api.cloudflare.com/client/v4/accounts \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
+            CLOUDFLARE_ACCOUNT_ID=$(curl -fsS "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].account.id')
             export CLOUDFLARE_ACCOUNT_ID
           fi
           pnpm dlx wrangler@4 pages deploy packages/client/dist \

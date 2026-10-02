@@ -55,21 +55,16 @@ cname() {
 }
 
 echo "::group::Cloudflare"
-if [ -z "$acct" ]; then
-  # The account ID is not secret; when it was not saved, ask Cloudflare which
-  # account the token belongs to.
-  accounts=$(cfapi GET "/accounts")
-  if [ "$(jq '.result | length' <<<"$accounts")" != 1 ]; then
-    echo "::error::CLOUDFLARE_ACCOUNT_ID is not set and the token sees $(jq '.result | length' <<<"$accounts") accounts. Add CLOUDFLARE_ACCOUNT_ID under Settings > Secrets and variables > Actions."
-    exit 1
-  fi
-  acct=$(jq -r '.result[0].id' <<<"$accounts")
-  echo "Cloudflare account found from the token: $acct"
-fi
-zone=$(cfapi GET "/zones?name=$DOMAIN" | jq -r '.result[0].id // empty')
+zones=$(cfapi GET "/zones?name=$DOMAIN")
+zone=$(jq -r '.result[0].id // empty' <<<"$zones")
 if [ -z "$zone" ]; then
   echo "::error::$DOMAIN is not a site in this Cloudflare account, or the token lacks Zone Read on it."
   exit 1
+fi
+if [ -z "$acct" ]; then
+  # The account ID is not secret; when it was not saved, take it from the zone.
+  acct=$(jq -r '.result[0].account.id' <<<"$zones")
+  echo "Cloudflare account taken from the $DOMAIN zone: $acct"
 fi
 
 tunnel=$(cfapi GET "/accounts/$acct/cfd_tunnel?name=blockyrts&is_deleted=false" | jq -r '.result[0].id // empty')
