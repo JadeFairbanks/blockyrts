@@ -22,7 +22,7 @@ packages/assets/src/
   textures/                         terrain textures (wishlist section I)
   effects/                          effect sprites and particle textures (section J)
   ui/                               interface art and 32 x 32 icons (section K)
-  sky/                              sky and lighting images (section L)
+  sky/                              sky images and lighting.json (section L)
 ```
 
 Categories follow the wishlist sections A to H: `peoples`, `animals`,
@@ -33,7 +33,10 @@ all use it.
 
 ## What may be committed
 
-- Only `.bbmodel` and `.png` files, plus `MANIFEST.md`. No `.glb`, `.gltf`,
+- Only `.bbmodel` and `.png` files, plus `MANIFEST.md` and one data file,
+  `sky/lighting.json` (the day cycle, lighting and light-source values). The
+  converter and the client read that file, not the copy of it in the text
+  chunk of `sky/lighting.png`. No `.glb`, `.gltf`,
   `.obj`, GIFs, videos, renders or zip files: generated files are built, not
   committed.
 - Each model's notes (hit box, move speeds, key times, attachment points,
@@ -69,6 +72,14 @@ fails the build unless its manifest row names the deviation and the reason.
   model's notes.
 - **Cube budgets:** small items under 12 cubes; people and animals 15 to 40;
   big monsters up to 60; buildings as needed.
-- **Textures:** powers of two from 32 to 256 on a side.
+- **Textures:** 1 texture pixel per model unit, with each side a power of two
+  from 16 to 1024. Most models fit in 256 or less; 512 and 1024 are expected
+  only where 1 pixel per unit needs them (big mechanical pieces, big monsters,
+  buildings).
 - **Team colour:** the placeholder blue RGB (52, 96, 178) marks the areas the
   game tints with the player's colour; only player-owned things use it.
+- **Images outside `models/`:** the size and power-of-two rules are for model
+  textures only. Images under `textures/`, `effects/`, `ui/` and `sky/` keep
+  the natural sizes their wishlist entries give (frame strips, 16 x 4 lips,
+  8 x 8 icons, 9-slice pieces, 960 x 540 screens and so on), with no
+  power-of-two rule and no minimum; the client draws them with WebGL2.

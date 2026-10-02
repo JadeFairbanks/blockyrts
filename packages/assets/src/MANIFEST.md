@@ -274,7 +274,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cannon_rammer_ladle | models/mechanical/cannon_rammer/cannon_rammer_ladle.bbmodel | 6 | 64x64 | one piece of the cannon_rammer set, in its folder; extra file in cannon_rammer/: the powder ladle and sponge end |
 | cannon_dwarf | models/mechanical/cannon_dwarf/cannon_dwarf.bbmodel | 51 | 256x128 | extra clips move_towed and aim; fire ends recoiled, so reload must follow; slot_hitch at the trail eye (+Z, towed trail-first); spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
 | catapult | models/mechanical/catapult/catapult.bbmodel | 59 | 256x256 | fire ends with the arm up, so reload must follow; in destroyed the broken tongue dips slightly into the ground |
-| ballista | models/mechanical/ballista/ballista.bbmodel | 53 | 256x256 | extra clip move_towed; fire ends released, so reload must follow; ballista_bolt is section H and comes later (slot_bolt is ready); slot_hitch at the trail (+Z); in destroyed the trail shoe dips slightly into the ground; spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
+| ballista | models/mechanical/ballista/ballista.bbmodel | 53 | 256x256 | extra clip move_towed; fire ends released, so reload must follow; ballista_bolt is at models/projectiles-and-spells/ballista_bolt and sits in slot_bolt; slot_hitch at the trail (+Z); in destroyed the trail shoe dips slightly into the ground; spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
 | cart_hand | models/mechanical/cart_hand/cart_hand.bbmodel | 24 | 128x128 | slot_hitch at the handle grips (+Z): it is pushed, not pulled |
 | cart_ox | models/mechanical/cart_ox/cart_ox.bbmodel | 67 | 256x256 | 67 cubes: the wishlist sets no vehicle budget (above the 60 big-monster cap); the four spoked wheels are 13 cubes each; spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
 | elf_caravan_wagon | models/mechanical/elf_caravan_wagon/elf_caravan_wagon.bbmodel | 100 | 256x512 | 100 cubes: no vehicle budget in the wishlist; four wheels (44 cubes), carved trim, canopy and stall goods; `open` is its use clip (key 1.5 s); destroyed slumps about 15 degrees onto the broken wheels; team stripes repainted in review (a neutral trader's vehicle carries no team colour) |
@@ -1437,13 +1437,14 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 
 ## sky
 
-Sky and lighting (section L). The lighting values live in `lighting.png` (see its row); there is no lighting.json in the repo.
+Sky and lighting (section L). The lighting values live in `lighting.json`; `lighting.png` is the matching swatch sheet, and its tEXt Comment chunk carries a copy of the same JSON.
 
 | id | path | frames | size | notes, deviations and reasons |
 |---|---|---|---|---|
 | clouds | sky/clouds.png | 1 | 320x32 | size 320x32 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); clouds: 5 flat pixel clouds, each a 64x32 cell in a 320x32 strip (cell i at x=64*i). White-ish; tint by sky_edge_colour at dusk/dawn/night. |
 | fog_drift | sky/fog_drift.png | 4 | 256x32 | fog night ground sprite: 4 frames of 64x32 in a 256x32 strip, 4 fps loop, billboard flat on ground, drift ~0.5 tile/s, banded alpha 50/90. |
-| lighting | sky/lighting.png | 1 | 240x104 | The lighting values (the full lighting.json content: key moments, special nights, light sources) are stored as JSON in this PNG's tEXt Comment chunk; lighting.json itself is not committed (PNG-only rule); size 240x104 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); swatch chart: columns = key moments plus blood and fog night; rows = light, ambient, fog and sky-edge colours and an intensity bar; bottom row = light sources |
+| lighting | sky/lighting.png | 1 | 240x104 | Swatch sheet of the lighting values; the values themselves are in sky/lighting.json (added in review from this PNG's tEXt Comment chunk, which keeps a copy); size 240x104 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); swatch chart: columns = key moments plus blood and fog night; rows = light, ambient, fog and sky-edge colours and an intensity bar; bottom row = light sources |
+| lighting_json | sky/lighting.json | 1 | - | The lighting values: day cycle key times, the colours and intensities per moment, the special nights and the light sources. The game reads this file; it is the one non-image file allowed under packages/assets/src (see the README). |
 | moon | sky/moon.png | 1 | 32x32 | normal (waxing crescent/gibbous) moon 32x32; used on ordinary nights. |
 | moon_blood | sky/moon_blood.png | 1 | 32x32 | blood moon 32x32 deep red, for blood_night. |
 | moon_full | sky/moon_full.png | 1 | 32x32 | full moon 32x32, cool blue-white, 22px disc + faint halo. |
