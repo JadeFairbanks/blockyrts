@@ -15,6 +15,7 @@
     "sim:run": "pnpm --filter @blockyrts/tools sim:run",
     "dev": "pnpm --filter @blockyrts/client dev",
     "audio:dev": "pnpm --filter @blockyrts/audio dev",
+    "balance:dev": "pnpm --filter @blockyrts/balance dev",
     "assets:manifest": "pnpm --filter @blockyrts/tools assets:manifest"
   },
   "devDependencies": {
