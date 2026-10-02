@@ -124,7 +124,8 @@ class BodyPool {
 
 /** Items hanging from slot bones: the item's own model with full matrices, or a small block. */
 class AttachPool {
-  private readonly meshes = new Map<string, { mesh: THREE.InstancedMesh; n: number }>();
+  private readonly meshes = new Map<string, { mesh: THREE.InstancedMesh; n: number; standIn: boolean }>();
+  private readonly asked = new Set<string>();
   private readonly fallbackGeo = new THREE.BoxGeometry(0.08, 0.5, 0.08).translate(0, -0.1, 0);
 
   constructor(
@@ -138,15 +139,27 @@ class AttachPool {
 
   add(id: string, m: THREE.Matrix4): void {
     let e = this.meshes.get(id);
+    // A stand-in block gives way to the item's model once it has loaded.
+    if (e?.standIn && this.lib?.models.has(id)) {
+      this.scene.remove(e.mesh);
+      (e.mesh.material as THREE.Material).dispose();
+      e.mesh.dispose();
+      this.meshes.delete(id);
+      e = undefined;
+    }
     if (!e) {
       const model = this.lib?.models.get(id);
+      if (!model && this.lib && !this.asked.has(id)) {
+        this.asked.add(id);
+        this.lib.request(id);
+      }
       const mesh = model
         ? new THREE.InstancedMesh(model.geometry, new THREE.MeshLambertMaterial({ map: model.texture, alphaTest: 0.5 }), MAX_ATTACH)
         : new THREE.InstancedMesh(this.fallbackGeo, new THREE.MeshLambertMaterial({ color: id.includes('torch') ? 0xffa040 : id.includes('shield') ? 0x9a7a4a : 0x6a5a48 }), MAX_ATTACH);
       mesh.frustumCulled = false;
       mesh.count = 0;
       this.scene.add(mesh);
-      e = { mesh, n: 0 };
+      e = { mesh, n: 0, standIn: !model };
       this.meshes.set(id, e);
     }
     if (e.n >= MAX_ATTACH) return;
@@ -252,6 +265,7 @@ export interface UnitsFrame {
 export class UnitsView {
   private lib: ModelLibrary | null = null;
   private readonly bodies = new Map<string, BodyPool>();
+  private readonly asked = new Set<string>();
   private readonly attach: AttachPool;
   private readonly particles: Particles;
   private readonly blocks: THREE.InstancedMesh;
@@ -290,7 +304,14 @@ export class UnitsView {
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
-    if (!model) return null;
+    if (!model) {
+      // Came into view before its model loaded: load it next, and draw a block until then.
+      if (this.lib && !this.asked.has(id)) {
+        this.asked.add(id);
+        this.lib.request(id);
+      }
+      return null;
+    }
     b = new BodyPool(this.scene, model);
     this.bodies.set(id, b);
     return b;
