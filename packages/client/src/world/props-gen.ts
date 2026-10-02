@@ -234,6 +234,22 @@ export function propCubes(p: PropLike, out: number[]): void {
       }
       return;
     }
+    case PropKind.Carcass: {
+      // Where an animal fell, until its meat is taken: a body on its side and a little blood (s).
+      const big = p.variant === 13 ? 1.6 : p.variant === 1 || p.variant === 4 ? 0.35 : 1;
+      cube(0, 0, 0, 0.5 * big, 0.3 * big, 1 * big, shade(0x6a4a34, r.range(0.85, 1.1)));
+      cube(0, 0, 0.6 * big, 0.3 * big, 0.25 * big, 0.3 * big, shade(0x5a3e2a, r.range(0.85, 1.1)));
+      cube(r.range(-0.3, 0.3), 0, r.range(-0.3, 0.3), 0.6 * big, 0.02, 0.5 * big, 0x6a1010);
+      return;
+    }
+    case PropKind.FishTrout:
+    case PropKind.FishSalmon:
+    case PropKind.FishCatfish: {
+      // A fishing stretch: a few silver flashes at the water's edge.
+      const colour = p.kind === PropKind.FishTrout ? 0xb8c8c8 : p.kind === PropKind.FishSalmon ? 0xd89a80 : 0x6a705a;
+      for (let t = 0; t < r.int(3, 5); t++) cube(r.range(-0.6, 0.6), 0.02, r.range(-0.6, 0.6), 0.25, 0.05, 0.08, shade(colour, r.range(0.85, 1.15)));
+      return;
+    }
     case PropKind.SurfaceGem:
     case PropKind.ManaCrystal: {
       const colour = p.kind === PropKind.ManaCrystal ? 0x5ad8e8 : 0xc03a6a;

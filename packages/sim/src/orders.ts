@@ -261,7 +261,7 @@ export interface DigOrder extends UnitsOrder {
   tunnel: number;
 }
 
-/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill. */
+/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill, 3 a lumber ramp, 4 a stone ramp. */
 export interface EarthworkOrder extends UnitsOrder {
   kind: 'earthwork';
   variant: number;

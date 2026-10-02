@@ -507,7 +507,13 @@ export interface PendingSpawn {
 }
 
 /** Site kinds: a dig down, a tunnel into a hillside, earth heaped to a level, an earth ramp. */
-export const SiteKind = { Dig: 0, Tunnel: 1, Bank: 2, Ramp: 3 } as const;
+/** Ramps of lumber or stone (Earthworks) are placed from workshop-made ramp steps instead of Earth. */
+export const SiteKind = { Dig: 0, Tunnel: 1, Bank: 2, Ramp: 3, LumberRamp: 4, StoneRamp: 5 } as const;
+
+/** Whether a site is shaped as a ramp (rising from one end to the other). */
+export function rampSite(kind: number): boolean {
+  return kind === SiteKind.Ramp || kind === SiteKind.LumberRamp || kind === SiteKind.StoneRamp;
+}
 
 /** Marked land for workers to dig out or heap up (Digging and building up the land). Levels in terrain units. */
 export interface Site {

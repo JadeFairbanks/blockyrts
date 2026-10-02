@@ -16,6 +16,8 @@ import { buildingCentre } from './lights.ts';
 import { bandAt } from './placement.ts';
 import { CRAFT_PRODUCT, Product, RECIPE_PRODUCT, REFURBISH_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, type Building, type RallyPoint } from './store.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
+import { animalsAt } from '../animals/animals.ts';
+import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
 import { affordableRecipe, hasResearch, Item, ITEMS, itemSpec, Made, missingResearch, RESEARCH, Research, type ItemSpec, type ResearchSpec } from '../combat/items.ts';
 import { cookSteps, payableInputs, RECIPES, recipeLevelAt, recipeSpec } from './recipes.ts';
 import { addWarrior } from '../state.ts';
@@ -473,7 +475,17 @@ export function buildingStatus(state: SimState, b: Building): string {
   if (isFarm(b.kind)) {
     const left = b.doneAt + FARM_FALLOW_STEPS - state.step;
     if (left > 0) return `Lying fallow for ${floorDiv(left + 1199, 1200)} more minutes`;
-    return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work`;
+    const herd = b.kind === BuildingKind.LivestockFarm ? `; ${animalsAt(state, b.id).length} animals` : '';
+    return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work${herd}`;
   }
+  if (b.kind === BuildingKind.Stables) return `${animalsAt(state, b.id).length} of 6 stalls taken`;
+  if (b.kind === BuildingKind.Mineshaft) {
+    const miners = `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} miners at work`;
+    const rating = b.rating > 0 ? `; the spot is ${RATING_NAMES[b.rating - 1]}` : '';
+    const waiting = b.stock.length > 0 ? `; waiting to be hauled: ${costText(b.stock.map(([r, n]) => [r as Res, n] as const))}` : '';
+    return `${workedOut(b) ? 'Worked out' : miners}${rating}${waiting}`;
+  }
+  if (b.kind === BuildingKind.FishingDock) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} fishing${dockStretch(state, b) ? '' : '; no stretch within 30 m has fish to spare'}`;
+  if (needsHands(b.kind)) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} workers inside`;
   return '';
 }

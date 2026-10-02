@@ -5,7 +5,7 @@
 // clips, arrows, stones and webs in flight, and the little bursts of blood,
 // bone, slime, splinters and dust when something is hit.
 import * as THREE from 'three';
-import { Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Slot, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -33,6 +33,9 @@ const POLEARMS = new Set<number>([Item.SpearFlint, Item.SpearHardwood]);
 
 /** Colour of a monster's stand-in block. */
 const MOB_COLOURS = [0x6a7a5a, 0x3a3040, 0x6a5a4a, 0x2a2a2a, 0x7ac040, 0x9ad060, 0xd8d0b8, 0x8a9a6a, 0xc8c0a8, 0x5a3a20, 0x4a7a3a, 0x5a8a4a, 0x3a6a2a, 0x4a4a5a];
+
+/** Colour of an animal's stand-in block, by Species. */
+const ANIMAL_COLOURS = [0x6a4a30, 0xe8e0d0, 0x7a5030, 0x5a4030, 0xb09070, 0x9a6a3a, 0x4a3a30, 0x7a7a80, 0xc09a60, 0x6a9a40, 0x4a5a30, 0xc05030, 0x5a5a5a, 0x4a3020];
 
 /** Particle colours and counts by hit look. */
 const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: number }> = {
@@ -284,7 +287,8 @@ export class UnitsView {
       const y = h.y / WU_PER_METRE;
       const z = h.z / WU_PER_METRE;
       if (!seen(x, z)) continue;
-      if (h.look === 'death' && h.kind !== undefined) {
+      // An animal leaves a carcass where it fell, drawn with the props.
+      if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
         const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? 'warrior' : 'worker';
         this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1 });
       }
@@ -348,6 +352,27 @@ export class UnitsView {
           dummy.updateMatrix();
           this.blocks.setMatrixAt(blocks, dummy.matrix);
           this.blocks.setColorAt(blocks, new THREE.Color(MOB_COLOURS[mob] ?? 0x555555));
+          blocks++;
+        }
+        continue;
+      }
+      if (kind === UnitKind.Animal) {
+        if (!f.seen(x, z)) continue;
+        const spec = speciesSpec(d[o + S.mob]!);
+        const scale = (d[o + S.flags]! & UnitFlag.Young) !== 0 ? 0.5 : 1;
+        const moving = d[o + S.order] === OrderKind.Move;
+        const pool = this.body(spec.model);
+        if (pool) {
+          const slot = pool.take([]);
+          const clip = d[o + S.swing] !== 0 && pool.model.clips.has('attack') ? 'attack' : moving && pool.model.clips.has('walk') ? 'walk' : 'idle';
+          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, null);
+        } else {
+          dummy.position.set(x, y, z);
+          dummy.rotation.set(0, heading, 0);
+          dummy.scale.set((spec.halfWidth * 2 * scale) / WU_PER_METRE, (spec.height * scale) / WU_PER_METRE, (spec.halfWidth * 3 * scale) / WU_PER_METRE);
+          dummy.updateMatrix();
+          this.blocks.setMatrixAt(blocks, dummy.matrix);
+          this.blocks.setColorAt(blocks, new THREE.Color(ANIMAL_COLOURS[spec.id] ?? 0x8a7a60));
           blocks++;
         }
         continue;

@@ -38,6 +38,7 @@ export interface UnitInfo {
   boltCase: number;
   kit: number;
   partner: number;
+  ammoItem: number;
 }
 
 export class GameInfo {
@@ -110,6 +111,7 @@ export class GameInfo {
       boltCase: d[o + S.boltCase]!,
       kit: d[o + S.kit]!,
       partner: d[o + S.partner]!,
+      ammoItem: d[o + S.ammoItem]!,
     };
   }
 

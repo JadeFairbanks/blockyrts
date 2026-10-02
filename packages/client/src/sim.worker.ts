@@ -130,6 +130,7 @@ function postState(s: SimState): void {
     data[o + S.boltCase] = e.boltCase[i]!;
     data[o + S.kit] = e.kit[i]!;
     data[o + S.partner] = e.partner[i]!;
+    data[o + S.ammoItem] = e.ammoItem[i]!;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {

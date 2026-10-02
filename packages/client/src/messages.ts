@@ -16,7 +16,7 @@ export type ToWorker =
  * then what it fights with (mob kind, the items in each slot, a lit torch,
  * the swing under way), its state flags, lock, skills, shots left and target.
  */
-export const STATE_STRIDE = 34;
+export const STATE_STRIDE = 35;
 export const S = {
   id: 0,
   owner: 1,
@@ -54,6 +54,8 @@ export const S = {
   kit: 32,
   /** A worker's working animal, or an animal's worker (entity id), or 0. */
   partner: 33,
+  /** The arrows or bolts loaded (Item), or 0. */
+  ammoItem: 34,
 } as const;
 
 /** Bits of S.flags. */

@@ -368,7 +368,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'earthwork': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const kind = o.kind === 'dig' ? (o.tunnel ? SiteKind.Tunnel : SiteKind.Dig) : o.variant === 1 ? SiteKind.Ramp : SiteKind.Bank;
+        const kind = o.kind === 'dig' ? (o.tunnel ? SiteKind.Tunnel : SiteKind.Dig) : ([SiteKind.Bank, SiteKind.Ramp, SiteKind.Bank, SiteKind.LumberRamp, SiteKind.StoneRamp][o.variant] ?? SiteKind.Bank);
         const axis = o.kind === 'earthwork' ? o.axis & 1 : 0;
         const site = markSite(state, o.player, kind, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, axis);
         if (typeof site === 'string') {
