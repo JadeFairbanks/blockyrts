@@ -29,7 +29,18 @@ export interface HttpOptions {
   addressOf: (req: IncomingMessage) => string;
   now?: () => number;
   log?: (message: string) => void;
+  limits?: Partial<HttpLimits>;
 }
+
+/** Per address: attempts allowed per window. */
+export interface HttpLimits {
+  loginsPerMinute: number;
+  accountsPerHour: number;
+  resetsPerHour: number;
+  guestsPerHour: number;
+}
+
+export const DEFAULT_HTTP_LIMITS: HttpLimits = { loginsPerMinute: 10, accountsPerHour: 5, resetsPerHour: 5, guestsPerHour: 30 };
 
 const JSON_LIMIT = 16 * 1024;
 
@@ -91,12 +102,12 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 export function createHttpHandler(opts: HttpOptions): (req: IncomingMessage, res: ServerResponse) => void {
   const now = opts.now ?? Date.now;
   const log = opts.log ?? ((m: string) => console.log(m));
-  // Per address: 10 sign-ins a minute, 5 new accounts and 5 reset emails an hour, 30 guests an hour.
+  const l = { ...DEFAULT_HTTP_LIMITS, ...opts.limits };
   const limits = {
-    login: new RateLimiter(10, 60_000),
-    register: new RateLimiter(5, 3_600_000),
-    reset: new RateLimiter(5, 3_600_000),
-    guest: new RateLimiter(30, 3_600_000),
+    login: new RateLimiter(l.loginsPerMinute, 60_000),
+    register: new RateLimiter(l.accountsPerHour, 3_600_000),
+    reset: new RateLimiter(l.resetsPerHour, 3_600_000),
+    guest: new RateLimiter(l.guestsPerHour, 3_600_000),
   };
   const limit = (which: keyof typeof limits, req: IncomingMessage): void => {
     if (!limits[which].take(opts.addressOf(req), now())) {
@@ -127,7 +138,10 @@ export function createHttpHandler(opts: HttpOptions): (req: IncomingMessage, res
     const method = req.method ?? 'GET';
     const who = (): Promise<Identity | null> => opts.accounts.identify(tokenOf(req));
 
-    if (path === ApiRoutes.health && (method === 'GET' || method === 'HEAD')) return sendJson(res, 200, { ok: true, rooms: opts.relay.rooms.size });
+    if (path === ApiRoutes.health && (method === 'GET' || method === 'HEAD')) {
+      // The deploy workflow waits until this names the commit it shipped.
+      return sendJson(res, 200, { ok: true, build: process.env.BUILD_SHA ?? 'dev', rooms: opts.relay.rooms.size });
+    }
 
     if (path === ApiRoutes.accounts && method === 'POST') {
       limit('register', req);

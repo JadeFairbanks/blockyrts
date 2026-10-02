@@ -68,6 +68,8 @@ export interface TestPlayerOptions {
   token: string;
   label: string;
   log?: (line: string) => void;
+  /** Run at the real 20 steps a second, within a real server's message rate cap; otherwise as fast as frames allow. */
+  realTime?: boolean;
 }
 
 export class TestPlayer {
@@ -285,6 +287,9 @@ export class TestPlayer {
   async runUntil(target: number, opts: { stallMs?: number; script?: (step: number, p: TestPlayer) => void } = {}): Promise<number> {
     const stallMs = opts.stallMs ?? 10_000;
     let idleSince = Date.now();
+    const t0 = Date.now();
+    const s0 = this.state?.step ?? 0;
+    const allowed = (): number => (this.opts.realTime ? s0 + Math.floor((Date.now() - t0) / 50) + 1 : Number.MAX_SAFE_INTEGER);
     while (!this.closed) {
       await this.busy;
       const st = this.state;
@@ -296,7 +301,7 @@ export class TestPlayer {
       if (st.step >= target) return st.step;
       if (this.busyCount === 0 && !this.paused) {
         let ran = 0;
-        while (st.step < target) {
+        while (st.step < target && st.step < allowed()) {
           // Orders are queued just before a step runs, and go out in that step's frame batch.
           opts.script?.(st.step, this);
           for (const f of sch.outgoing(st.step)) this.send({ type: 'frame', step: f.step, orders: f.orders });

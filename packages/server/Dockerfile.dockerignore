@@ -1,0 +1,12 @@
+# Build context rules for packages/server/Dockerfile (built from the repo root).
+# Other packages keep only their package.json, which the workspace install needs.
+**/node_modules
+**/dist
+.git
+docs
+packages/assets/**
+!packages/assets/package.json
+packages/client/**
+!packages/client/package.json
+packages/audio/**
+!packages/audio/package.json

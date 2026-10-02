@@ -9,7 +9,7 @@
 // replay of the inputs must land on the same hash as both players.
 //
 //   pnpm --filter @blockyrts/tools net:test              (starts its own server in memory)
-//   SERVER_URL=http://localhost:8080 pnpm --filter @blockyrts/tools net:test
+//   SERVER_URL=http://localhost:8080 pnpm --filter @blockyrts/tools net:test   (a running server; real time, about 2 minutes)
 //
 // With DATABASE_URL, SAVE_STORE and the S3_* variables set, the built-in
 // server uses PostgreSQL and object storage instead of memory.
@@ -40,6 +40,8 @@ export interface ScenarioOptions {
   httpUrl: string;
   log?: (line: string) => void;
   seed?: number;
+  /** The server has its normal timeouts and rate cap (not the built-in test server): play at 20 steps a second and wait the real 30 s for the host's choice. */
+  realTime?: boolean;
 }
 
 class Check {
@@ -107,6 +109,7 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   const wsUrl = http.replace(/^http/, 'ws');
   const check = new Check(log);
   const seed = opts.seed ?? 1234;
+  const realTime = opts.realTime ?? false;
 
   // ---- accounts: the host makes an account, the guest plays as a guest
   const unique = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
@@ -120,8 +123,8 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   const guestToken = g.body.token;
 
   // ---- lobby: host by code, join, colours, ready, start
-  const host = new TestPlayer({ url: wsUrl, token: hostToken, label: 'host', log });
-  let guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest', log });
+  const host = new TestPlayer({ url: wsUrl, token: hostToken, label: 'host', log, realTime });
+  let guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest', log, realTime });
   await host.connect();
   await guest.connect();
   host.send({ type: 'createRoom', seed, saveId: '' });
@@ -159,9 +162,9 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   guest.drop();
   await host.waitFor(isMsg('pauseState', (m) => m.paused && m.reason === PauseReason.Disconnect && m.waitingFor === 0b10));
   check.ok(true, 'the match pauses while the guest is gone');
-  const stalled = await host.runUntil(600, { stallMs: 500 });
+  const stalled = await host.runUntil(600, { stallMs: opts.realTime ? 1500 : 500 });
   check.ok(stalled < 420, `the host cannot run on alone (stopped at step ${stalled})`);
-  await host.waitFor(isMsg('hostChoiceNeeded', (m) => m.slot === 1));
+  await host.waitFor(isMsg('hostChoiceNeeded', (m) => m.slot === 1), 45_000);
   check.ok(true, 'the host is asked to wait, carry on or save and quit');
   host.send({ type: 'hostChoice', slot: 1, choice: HostChoice.Wait });
   await guest.connect();
@@ -175,7 +178,7 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   const rejoinToken = guest.room!.rejoinToken;
   guest.drop();
   await host.waitFor(isMsg('pauseState', (m) => m.paused && m.waitingFor === 0b10));
-  guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest (new page)', log });
+  guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest (new page)', log, realTime });
   await guest.connect();
   guest.send({ type: 'joinRoom', code, rejoinToken, haveStep: -1 });
   await guest.waitFor(isMsg('loadSnapshot'));
@@ -217,7 +220,7 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   host.send({ type: 'startGame' });
   await host.waitFor(isMsg('error', (m) => m.code === 'not_everyone_back'));
   check.ok(true, 'the game cannot start until everyone who was in it is back');
-  guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest (next evening)', log });
+  guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest (next evening)', log, realTime });
   await guest.connect();
   guest.send({ type: 'joinRoom', code: code2, rejoinToken: '', haveStep: -1 });
   await guest.waitFor(isMsg('roomState'));
@@ -251,7 +254,7 @@ export const TEST_TIMINGS = { heartbeatMs: 200, dropAfterMs: 1500, hostChoiceAft
 
 /** Starts a server in this process on a free port: in memory unless DATABASE_URL and SAVE_STORE say otherwise. */
 export async function startTestServer(env: Record<string, string | undefined> = process.env): Promise<App> {
-  return startApp(loadConfig({ ...env, PORT: '0' }), { log: () => undefined, timings: TEST_TIMINGS, mailer: null });
+  return startApp(loadConfig({ ...env, PORT: '0' }), { log: () => undefined, timings: TEST_TIMINGS, mailer: null, limits: { accountsPerHour: 1000, guestsPerHour: 1000 } });
 }
 
 async function main(): Promise<void> {
@@ -260,7 +263,7 @@ async function main(): Promise<void> {
   const url = external ?? `http://127.0.0.1:${app!.port}`;
   console.log(`two-player test against ${url}${app ? ' (built-in server)' : ''}`);
   try {
-    const r = await runTwoPlayerScenario({ httpUrl: url, log: (l) => (l.startsWith('ok') ? console.log(l) : undefined) });
+    const r = await runTwoPlayerScenario({ httpUrl: url, realTime: Boolean(external), log: (l) => (l.startsWith('ok') ? console.log(l) : undefined) });
     console.log(`passed ${r.checks.length} checks; final step ${r.finalStep} hash ${r.finalHash}`);
   } finally {
     await app?.close();

@@ -40,9 +40,9 @@ CI installs all three and fails if any is missing.
 |---|---|
 | `packages/sim` | The game rules. Integer maths only, seeded random streams, zero dependencies, no DOM; never imports the client, the server or three.js |
 | `packages/client` | The browser game: runs the sim in a Web Worker, draws with three.js |
-| `packages/tools` | Headless runner, desync tool, cross-browser test; balance harness and map viewer placeholders |
-| `packages/protocol` | Network message codecs (stub until M9) |
-| `packages/server` | API, lockstep relay and save store (stub until M9) |
+| `packages/tools` | Headless runner, desync tool, cross-browser test, the headless two-player network test; balance harness and map viewer placeholders |
+| `packages/protocol` | Relay message codecs, the lockstep scheduler, the save file container and the HTTP API shapes; see its README |
+| `packages/server` | Accounts and save API, lobby and lockstep relay in one Node process; see its README for settings |
 | `packages/audio` | Every sound and the music, synthesised in code; the Web Audio engine and an audition page (`pnpm audio:dev`) |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
@@ -95,3 +95,30 @@ hashes; a scripted order list replays to the same hash.*
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). The blue blocks are your
    units: right-click the ground to move them, which changes the hash from
    then on. The grey ones wander on their own using the seeded random stream.
+
+## How a tester checks the multiplayer server (milestone 9, server side)
+
+The game screens for hosting, joining and saving come with a later client
+milestone; the server and its protocol are tested headless.
+
+1. `pnpm --filter @blockyrts/tools net:test` starts a server in memory and
+   drives two simulated players through it with the real sim: the host makes
+   an account and a guest joins by code; colours, ready and start; a few
+   hundred steps of relayed orders; one machine's state is corrupted and the
+   relay names it and reloads everyone from the host; the guest drops (the
+   match pauses and the host is asked what to do) and rejoins, then comes back
+   as a fresh page from a snapshot; the guest is told to make an account
+   before saving; the host saves, four dawn autosaves keep three, both quit,
+   the host loads the save and the guest rejoins by code. It ends with a
+   one-machine replay of the same inputs landing on the same hash. It prints
+   each check; all 27 pass.
+2. To run a server: `pnpm --filter @blockyrts/server dev` (port 8080, in
+   memory), then `SERVER_URL=http://localhost:8080 pnpm --filter
+   @blockyrts/tools net:test` against it. The host-choice step waits the real
+   30 s and plays at the real 20 steps a second against an outside server, so
+   that run takes about two minutes.
+3. With PostgreSQL and object storage: set `DATABASE_URL`, `SAVE_STORE=s3` and
+   the `S3_*` variables (or `SAVE_STORE=disk`) before either command. CI runs
+   the test against PostgreSQL 16 and MinIO, and builds the server's Docker
+   image and checks `/healthz`.
+

@@ -10,7 +10,7 @@ import type { Config } from './config.ts';
 import { MemoryDatabase } from './db/memory.ts';
 import { PostgresDatabase } from './db/postgres.ts';
 import type { Database } from './db/types.ts';
-import { addressReader, createHttpHandler, tokenOf } from './http.ts';
+import { addressReader, createHttpHandler, tokenOf, type HttpLimits } from './http.ts';
 import { HttpMailer, type Mailer } from './mailer.ts';
 import { Relay } from './relay/relay.ts';
 import type { RoomTimings } from './relay/room.ts';
@@ -24,6 +24,8 @@ export interface AppDeps {
   log?: (message: string) => void;
   /** Shorter room timeouts, for tests. */
   timings?: Partial<RoomTimings>;
+  /** Looser per-address API limits, for tests that sign many people up from one address. */
+  limits?: Partial<HttpLimits>;
 }
 
 export interface App {
@@ -59,6 +61,7 @@ export async function startApp(config: Config, deps: AppDeps = {}): Promise<App>
     secureCookie: config.publicUrl.startsWith('https:'),
     addressOf,
     log,
+    ...(deps.limits ? { limits: deps.limits } : {}),
   });
 
   const server = createServer(handler);
