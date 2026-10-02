@@ -3,7 +3,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// The only Math members the simulation may use (docs/technical-decisions.md, decision 2).
+// The only Math members the simulation may use (docs/blueprint.md, Technical decisions 2).
 const ALLOWED_MATH = 'imul|floor|trunc|min|max|abs';
 
 export default tseslint.config(

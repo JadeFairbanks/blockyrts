@@ -12,6 +12,12 @@ import { parseArgs } from 'node:util';
 import { createWorld, hashHex, makeRecording, run } from '@blockyrts/sim';
 import { loadOrderScript, recordingToJson } from './script.ts';
 
+// Exit quietly when piped into head or similar.
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
+
 const { values } = parseArgs({
   options: {
     seed: { type: 'string', default: '1' },

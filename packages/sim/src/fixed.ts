@@ -1,6 +1,6 @@
 // Fixed-point helpers. Every quantity in the simulation is an integer held in
-// an ordinary JS number (exact below 2^53). See docs/technical-decisions.md,
-// decision 2.
+// an ordinary JS number (exact below 2^53). See docs/blueprint.md,
+// Technical decisions 2.
 
 import { SIN_QUARTER } from './trig-table.ts';
 
