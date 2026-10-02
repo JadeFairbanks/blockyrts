@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 concurrency:
@@ -16,9 +17,9 @@ jobs:
       # The cross-engine determinism test fails, rather than skips, if one of these is missing.
       SIM_REQUIRE_BROWSERS: chromium,firefox,webkit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
