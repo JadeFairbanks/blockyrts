@@ -1,0 +1,39 @@
+:root {
+  --bg: #15181c; --panel: #1f242a; --line: #323a43; --text: #e7e9ec; --muted: #9aa4af;
+  --accent: #d9a441; --accent-text: #1b1406; --on: #4f8f5a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+header, main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 22px; margin: 8px 0 4px; }
+h2 { font-size: 16px; margin: 0 0 10px; }
+h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+.muted { color: var(--muted); }
+button {
+  background: #2a3139; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 10px; font: inherit; cursor: pointer; min-height: 32px;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button.on { background: var(--on); border-color: var(--on); }
+button.small { padding: 2px 7px; min-height: 26px; font-size: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.sliders { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.sliders label { display: flex; align-items: center; gap: 8px; }
+output { font-variant-numeric: tabular-nums; min-width: 3em; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.card .name { font-weight: 600; }
+.card .id { font: 12px ui-monospace, monospace; color: var(--muted); }
+.card .src { font-size: 12px; color: var(--muted); }
+.card .buttons { display: flex; gap: 4px; flex-wrap: wrap; }
+.pad-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+canvas { background: #111417; border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; max-width: 100%; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; }
+th, td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+@media (max-width: 600px) { header, main { padding: 12px; } }

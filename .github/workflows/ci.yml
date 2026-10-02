@@ -33,3 +33,5 @@ jobs:
         run: pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet
       - name: Client build
         run: pnpm --filter @blockyrts/client build
+      - name: Audio audition page build
+        run: pnpm --filter @blockyrts/audio build
