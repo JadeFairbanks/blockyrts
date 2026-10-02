@@ -518,3 +518,62 @@ Pending (not in the repo yet): portraits of `ash_golem` and `mana_wraith` (their
 | icon_vein_iron_ore | ui/icon_vein_iron_ore.png | 1 | 32x32 | K1 resource icon vein_iron_ore (rendered from ore_vein_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_venom | ui/icon_venom.png | 1 | 32x32 | K1 resource icon venom (rendered from venom_vial.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_wheat | ui/icon_wheat.png | 1 | 32x32 | K1 resource icon wheat (rendered from wheat_sheaf.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_axe_bronze | ui/icon_axe_bronze.png | 1 | 32x32 | K2 item icon axe_bronze (rendered from axe.bbmodel + axe_bronze.png), tier bronze. |
+| icon_axe_copper | ui/icon_axe_copper.png | 1 | 32x32 | K2 item icon axe_copper (rendered from axe.bbmodel + axe_copper.png), tier copper. |
+| icon_axe_flint | ui/icon_axe_flint.png | 1 | 32x32 | K2 item icon axe_flint (rendered from axe_flint.bbmodel), tier None. |
+| icon_axe_hardwood | ui/icon_axe_hardwood.png | 1 | 32x32 | K2 item icon axe_hardwood (rendered from axe_hardwood.bbmodel), tier None. |
+| icon_axe_hq_steel | ui/icon_axe_hq_steel.png | 1 | 32x32 | K2 item icon axe_hq_steel (rendered from axe.bbmodel + axe_hq_steel.png), tier hq_steel. |
+| icon_axe_iron_bloom | ui/icon_axe_iron_bloom.png | 1 | 32x32 | K2 item icon axe_iron_bloom (rendered from axe.bbmodel + axe_iron_bloom.png), tier iron_bloom. |
+| icon_axe_iron_refined | ui/icon_axe_iron_refined.png | 1 | 32x32 | K2 item icon axe_iron_refined (rendered from axe.bbmodel + axe_iron_refined.png), tier iron_refined. |
+| icon_axe_iron_wrought | ui/icon_axe_iron_wrought.png | 1 | 32x32 | K2 item icon axe_iron_wrought (rendered from axe.bbmodel + axe_iron_wrought.png), tier iron_wrought. |
+| icon_axe_steel | ui/icon_axe_steel.png | 1 | 32x32 | K2 item icon axe_steel (rendered from axe.bbmodel + axe_steel.png), tier steel. |
+| icon_digging_stick | ui/icon_digging_stick.png | 1 | 32x32 | K2 item icon digging_stick (rendered from digging_stick.bbmodel), tier None. |
+| icon_fishing_net | ui/icon_fishing_net.png | 1 | 32x32 | K2 item icon fishing_net (rendered from fishing_net.bbmodel), tier None. |
+| icon_fishing_rod | ui/icon_fishing_rod.png | 1 | 32x32 | K2 item icon fishing_rod (rendered from fishing_rod.bbmodel), tier None. |
+| icon_hoe_bronze | ui/icon_hoe_bronze.png | 1 | 32x32 | K2 item icon hoe_bronze (rendered from hoe.bbmodel + hoe_bronze.png), tier bronze. |
+| icon_hoe_copper | ui/icon_hoe_copper.png | 1 | 32x32 | K2 item icon hoe_copper (rendered from hoe.bbmodel + hoe_copper.png), tier copper. |
+| icon_hoe_hardwood | ui/icon_hoe_hardwood.png | 1 | 32x32 | K2 item icon hoe_hardwood (rendered from hoe.bbmodel + hoe_hardwood.png), tier hardwood. |
+| icon_hoe_hq_steel | ui/icon_hoe_hq_steel.png | 1 | 32x32 | K2 item icon hoe_hq_steel (rendered from hoe.bbmodel + hoe_hq_steel.png), tier hq_steel. |
+| icon_hoe_iron_bloom | ui/icon_hoe_iron_bloom.png | 1 | 32x32 | K2 item icon hoe_iron_bloom (rendered from hoe.bbmodel + hoe_iron_bloom.png), tier iron_bloom. |
+| icon_hoe_iron_refined | ui/icon_hoe_iron_refined.png | 1 | 32x32 | K2 item icon hoe_iron_refined (rendered from hoe.bbmodel + hoe_iron_refined.png), tier iron_refined. |
+| icon_hoe_iron_wrought | ui/icon_hoe_iron_wrought.png | 1 | 32x32 | K2 item icon hoe_iron_wrought (rendered from hoe.bbmodel + hoe_iron_wrought.png), tier iron_wrought. |
+| icon_hoe_steel | ui/icon_hoe_steel.png | 1 | 32x32 | K2 item icon hoe_steel (rendered from hoe.bbmodel + hoe_steel.png), tier steel. |
+| icon_knife | ui/icon_knife.png | 1 | 32x32 | K2 item icon knife (rendered from knife.bbmodel), tier None. |
+| icon_mallet | ui/icon_mallet.png | 1 | 32x32 | K2 item icon mallet (rendered from mallet.bbmodel), tier None. |
+| icon_pick_bronze | ui/icon_pick_bronze.png | 1 | 32x32 | K2 item icon pick_bronze (rendered from pick.bbmodel + pick_bronze.png), tier bronze. |
+| icon_pick_copper | ui/icon_pick_copper.png | 1 | 32x32 | K2 item icon pick_copper (rendered from pick.bbmodel + pick_copper.png), tier copper. |
+| icon_pick_flint | ui/icon_pick_flint.png | 1 | 32x32 | K2 item icon pick_flint (rendered from pick_flint.bbmodel), tier None. |
+| icon_pick_hq_steel | ui/icon_pick_hq_steel.png | 1 | 32x32 | K2 item icon pick_hq_steel (rendered from pick.bbmodel + pick_hq_steel.png), tier hq_steel. |
+| icon_pick_iron_bloom | ui/icon_pick_iron_bloom.png | 1 | 32x32 | K2 item icon pick_iron_bloom (rendered from pick.bbmodel + pick_iron_bloom.png), tier iron_bloom. |
+| icon_pick_iron_refined | ui/icon_pick_iron_refined.png | 1 | 32x32 | K2 item icon pick_iron_refined (rendered from pick.bbmodel + pick_iron_refined.png), tier iron_refined. |
+| icon_pick_iron_wrought | ui/icon_pick_iron_wrought.png | 1 | 32x32 | K2 item icon pick_iron_wrought (rendered from pick.bbmodel + pick_iron_wrought.png), tier iron_wrought. |
+| icon_pick_steel | ui/icon_pick_steel.png | 1 | 32x32 | K2 item icon pick_steel (rendered from pick.bbmodel + pick_steel.png), tier steel. |
+| icon_plough_hq_steel | ui/icon_plough_hq_steel.png | 1 | 32x32 | K2 item icon plough_hq_steel (rendered from plough.bbmodel + plough_hq_steel.png), tier hq_steel. |
+| icon_plough_iron_bloom | ui/icon_plough_iron_bloom.png | 1 | 32x32 | K2 item icon plough_iron_bloom (rendered from plough.bbmodel + plough_iron_bloom.png), tier iron_bloom. |
+| icon_plough_iron_refined | ui/icon_plough_iron_refined.png | 1 | 32x32 | K2 item icon plough_iron_refined (rendered from plough.bbmodel + plough_iron_refined.png), tier iron_refined. |
+| icon_plough_iron_wrought | ui/icon_plough_iron_wrought.png | 1 | 32x32 | K2 item icon plough_iron_wrought (rendered from plough.bbmodel + plough_iron_wrought.png), tier iron_wrought. |
+| icon_plough_steel | ui/icon_plough_steel.png | 1 | 32x32 | K2 item icon plough_steel (rendered from plough.bbmodel + plough_steel.png), tier steel. |
+| icon_prospecting_hammer_iron_bloom | ui/icon_prospecting_hammer_iron_bloom.png | 1 | 32x32 | K2 item icon prospecting_hammer_iron_bloom (rendered from prospecting_hammer.bbmodel + prospecting_hammer_iron_bloom.png), tier iron_bloom. |
+| icon_prospecting_hammer_iron_refined | ui/icon_prospecting_hammer_iron_refined.png | 1 | 32x32 | K2 item icon prospecting_hammer_iron_refined (rendered from prospecting_hammer.bbmodel + prospecting_hammer_iron_refined.png), tier iron_refined. |
+| icon_prospecting_hammer_iron_wrought | ui/icon_prospecting_hammer_iron_wrought.png | 1 | 32x32 | K2 item icon prospecting_hammer_iron_wrought (rendered from prospecting_hammer.bbmodel + prospecting_hammer_iron_wrought.png), tier iron_wrought. |
+| icon_saw_bronze | ui/icon_saw_bronze.png | 1 | 32x32 | K2 item icon saw_bronze (rendered from saw.bbmodel + saw_bronze.png), tier bronze. |
+| icon_saw_hq_steel | ui/icon_saw_hq_steel.png | 1 | 32x32 | K2 item icon saw_hq_steel (rendered from saw.bbmodel + saw_hq_steel.png), tier hq_steel. |
+| icon_saw_iron_bloom | ui/icon_saw_iron_bloom.png | 1 | 32x32 | K2 item icon saw_iron_bloom (rendered from saw.bbmodel + saw_iron_bloom.png), tier iron_bloom. |
+| icon_saw_iron_refined | ui/icon_saw_iron_refined.png | 1 | 32x32 | K2 item icon saw_iron_refined (rendered from saw.bbmodel + saw_iron_refined.png), tier iron_refined. |
+| icon_saw_iron_wrought | ui/icon_saw_iron_wrought.png | 1 | 32x32 | K2 item icon saw_iron_wrought (rendered from saw.bbmodel + saw_iron_wrought.png), tier iron_wrought. |
+| icon_saw_steel | ui/icon_saw_steel.png | 1 | 32x32 | K2 item icon saw_steel (rendered from saw.bbmodel + saw_steel.png), tier steel. |
+| icon_sickle_bronze | ui/icon_sickle_bronze.png | 1 | 32x32 | K2 item icon sickle_bronze (rendered from sickle.bbmodel + sickle_bronze.png), tier bronze. |
+| icon_sickle_copper | ui/icon_sickle_copper.png | 1 | 32x32 | K2 item icon sickle_copper (rendered from sickle.bbmodel + sickle_copper.png), tier copper. |
+| icon_sickle_hq_steel | ui/icon_sickle_hq_steel.png | 1 | 32x32 | K2 item icon sickle_hq_steel (rendered from sickle.bbmodel + sickle_hq_steel.png), tier hq_steel. |
+| icon_sickle_iron_bloom | ui/icon_sickle_iron_bloom.png | 1 | 32x32 | K2 item icon sickle_iron_bloom (rendered from sickle.bbmodel + sickle_iron_bloom.png), tier iron_bloom. |
+| icon_sickle_iron_refined | ui/icon_sickle_iron_refined.png | 1 | 32x32 | K2 item icon sickle_iron_refined (rendered from sickle.bbmodel + sickle_iron_refined.png), tier iron_refined. |
+| icon_sickle_iron_wrought | ui/icon_sickle_iron_wrought.png | 1 | 32x32 | K2 item icon sickle_iron_wrought (rendered from sickle.bbmodel + sickle_iron_wrought.png), tier iron_wrought. |
+| icon_sickle_steel | ui/icon_sickle_steel.png | 1 | 32x32 | K2 item icon sickle_steel (rendered from sickle.bbmodel + sickle_steel.png), tier steel. |
+| icon_tool_set_bronze | ui/icon_tool_set_bronze.png | 1 | 32x32 | K2 tool set icon, tier bronze: axe and pick crossed. |
+| icon_tool_set_copper | ui/icon_tool_set_copper.png | 1 | 32x32 | K2 tool set icon, tier copper: axe and pick crossed. |
+| icon_tool_set_flint | ui/icon_tool_set_flint.png | 1 | 32x32 | K2 tool set icon, tier flint: axe and pick crossed. |
+| icon_tool_set_hq_steel | ui/icon_tool_set_hq_steel.png | 1 | 32x32 | K2 tool set icon, tier hq_steel: axe and pick crossed. |
+| icon_tool_set_iron_bloom | ui/icon_tool_set_iron_bloom.png | 1 | 32x32 | K2 tool set icon, tier iron_bloom: axe and pick crossed. |
+| icon_tool_set_iron_refined | ui/icon_tool_set_iron_refined.png | 1 | 32x32 | K2 tool set icon, tier iron_refined: axe and pick crossed. |
+| icon_tool_set_iron_wrought | ui/icon_tool_set_iron_wrought.png | 1 | 32x32 | K2 tool set icon, tier iron_wrought: axe and pick crossed. |
+| icon_tool_set_steel | ui/icon_tool_set_steel.png | 1 | 32x32 | K2 tool set icon, tier steel: axe and pick crossed. |
