@@ -67,14 +67,24 @@ export type UnitOrder =
   /** Haul what waits at a mineshaft to a drop-off, over and over. */
   | { t: 'haul'; b: number }
   /** Cast a spell (magic/cast.ts) at a unit (id) or a spot (x, z wu); auto: the mage picks the target; until: the step she gives up (0 before she starts). */
-  | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number; until: number };
+  | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number; until: number }
+  /** Milestone 8: a warrior trained to ride walks to a tamed horse (id) and mounts it. */
+  | { t: 'mount'; id: number }
+  /** Get down and let the horse go back to its Stables. */
+  | { t: 'dismount' }
+  /** Crew a siege engine or cannon (id): stand by it, push it, and work it. */
+  | { t: 'crew'; id: number }
+  /** A worker repairs a siege engine or cannon (id). */
+  | { t: 'mend'; id: number }
+  /** A cannon is hauled into one of the Citadel's (building b) cannon ports. */
+  | { t: 'port'; b: number };
 
 /** An equip order's "leave this slot as it is". */
 export const KEEP = 255;
 
 export type UnitOrderType = UnitOrder['t'];
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'mount', 'dismount', 'crew', 'mend', 'port'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -104,6 +114,11 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   prospect: ['x', 'z'],
   haul: ['b'],
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
+  mount: ['id'],
+  dismount: [],
+  crew: ['id'],
+  mend: ['id'],
+  port: ['b'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -181,5 +196,15 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Hauling';
     case 'cast':
       return 'Casting';
+    case 'mount':
+      return 'Going to mount';
+    case 'dismount':
+      return 'Dismounting';
+    case 'crew':
+      return 'Crewing';
+    case 'mend':
+      return 'Repairing';
+    case 'port':
+      return 'Going to a cannon port';
   }
 }

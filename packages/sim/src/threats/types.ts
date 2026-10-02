@@ -93,10 +93,17 @@ export interface ThreatState {
   checked: Set<number>;
   /** The mouths of the tunnels the players dug, wu: unlit, they count as caves for lairs (Keeping digging fair). */
   tunnels: Array<{ x: number; z: number }>;
+  /** Milestone 8: Morvath (roster 5.25): the night he comes next (110 at first), the health he withdrew with (0 for full), and his entity while out. */
+  bossNext: number;
+  bossHp: number;
+  bossId: number;
 }
 
+/** Morvath's first night (roster 5.25). */
+export const BOSS_FIRST_NIGHT = 110;
+
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set(), tunnels: [] };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0 };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */

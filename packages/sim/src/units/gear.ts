@@ -11,7 +11,7 @@ import { BuildingKind, buildingName } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { Res } from '../economy/resources.ts';
-import { length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { ceilDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { isDark } from '../clock.ts';
 import { payNutrition } from '../economy/resources.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
@@ -20,6 +20,9 @@ import { bestTools, heldTools, putOnTool } from './tools.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import { KEEP, type UnitOrder } from './unit-orders.ts';
 import { Role } from '../threats/types.ts';
+import { animalsAt } from '../animals/animals.ts';
+import { Species } from '../animals/species.ts';
+import { RIDING } from '../mounts/data.ts';
 
 type EquipOrder = Extract<UnitOrder, { t: 'equip' }>;
 
@@ -48,11 +51,25 @@ export const GEAR_CHECK_STEPS = 5 * STEPS_PER_SECOND;
 const REFILL_WU = 4 * WU_PER_METRE;
 /** Archery (Table 7): 40 food, 120 s at the Barracks, no research. */
 export const ARCHERY = { food: 40, steps: 120 * STEPS_PER_SECOND };
-/** Specialist training at the Barracks by skill bit (Table 7): archery, and crossbow (15 food, 30 s, after Crossbows). */
-export const SKILL_TRAINING: Readonly<Record<number, { name: string; food: number; steps: number; research: number }>> = {
-  [Skill.Archery]: { name: 'archery', ...ARCHERY, research: Research.None },
-  [Skill.Crossbow]: { name: 'the crossbow', food: 15, steps: 30 * STEPS_PER_SECOND, research: Research.Crossbows },
+/**
+ * Specialist training by skill bit (Table 7): archery and the crossbow (15
+ * food, 30 s, after Crossbows) at the Barracks; riding at the Stables with a
+ * tamed horse in its stalls; the musket (after Muskets) and cannon crew
+ * (after Cannons) at the Gunnery yard.
+ */
+export const SKILL_TRAINING: Readonly<Record<number, { name: string; food: number; steps: number; research: number; at: number }>> = {
+  [Skill.Archery]: { name: 'archery', ...ARCHERY, research: Research.None, at: BuildingKind.Barracks },
+  [Skill.Crossbow]: { name: 'the crossbow', food: 15, steps: 30 * STEPS_PER_SECOND, research: Research.Crossbows, at: BuildingKind.Barracks },
+  [Skill.Riding]: { name: 'riding', food: RIDING.food, steps: RIDING.steps, research: Research.None, at: BuildingKind.Stables },
+  [Skill.Musket]: { name: 'the musket', food: 30, steps: 60 * STEPS_PER_SECOND, research: Research.Muskets, at: BuildingKind.GunneryYard },
+  [Skill.Cannon]: { name: 'cannon crew', food: 40, steps: 90 * STEPS_PER_SECOND, research: Research.Cannons, at: BuildingKind.GunneryYard },
 };
+
+/** Why a Stables can't teach riding now, or '' (Table 7: a tamed horse in the stalls). */
+export function ridingProblem(state: SimState, b: Building): string {
+  const e = state.entities;
+  return animalsAt(state, b.id).some((j) => e.mob[j] === Species.Horse) ? '' : 'Riding training needs a tamed horse in the Stables.';
+}
 
 export function emptyEquip(b: number): EquipOrder {
   return { t: 'equip', b, tool: KEEP, weapon: KEEP, backup: KEEP, ranged: KEEP, shield: KEEP, boots: KEEP, ammo: KEEP, torch: KEEP, armour: KEEP, helmet: KEEP, boltCase: KEEP, kit: KEEP, reserved: 0 };
@@ -267,8 +284,19 @@ export function refill(state: SimState, i: number): void {
     if (e.ammo[i]! > 0 || p.pool[Res.Stone]! <= 0) return;
     p.pool[Res.Stone] = p.pool[Res.Stone]! - 1;
     e.ammo[i] = r.load;
+  } else if (r.munition === 'powder') {
+    // A musket's charges ride in a powder horn and its balls in a shot pouch (Table 2e): each unit of gunpowder and of lead shot is 10 shots.
+    if (e.ammo[i]! >= r.load || e.boltCase[i] !== Item.PowderHorn || e.kit[i] !== Item.ShotPouch) return;
+    const units = Math.min(ceilDiv(r.load - e.ammo[i]!, SHOTS_PER_UNIT), p.pool[Res.Gunpowder]!, p.pool[Res.LeadShot]!);
+    if (units <= 0) return;
+    p.pool[Res.Gunpowder] = p.pool[Res.Gunpowder]! - units;
+    p.pool[Res.LeadShot] = p.pool[Res.LeadShot]! - units;
+    e.ammo[i] = Math.min(r.load, e.ammo[i]! + units * SHOTS_PER_UNIT);
   }
 }
+
+/** Shots in one gunpowder (10 charges) and one lead shot (10 balls) (Table 12). */
+export const SHOTS_PER_UNIT = 10;
 
 /** Tier, then damage (or block or armour), for comparing two items of a slot. */
 function score(it: ItemSpec): number {
@@ -348,9 +376,12 @@ export function equipBest(state: SimState, player: number, units: readonly numbe
         // A thrown-out bundle of javelins is replaced like an empty hand.
         take(Slot.Ranged, bestFor(state, i, Slot.Ranged, (it) => (e.skills[i]! & it.ranged!.skill) === it.ranged!.skill, current));
       }
-      // A crossbow's bolts ride in a case.
+      // A crossbow's bolts ride in a case; a musket's charges in a powder horn and its balls in a shot pouch.
       const shoots = o.ranged !== KEEP ? o.ranged : has(Slot.Ranged);
-      if (shoots && itemSpec(shoots).ranged?.munition === 'bolts' && !has(Slot.Case) && free(Slot.Case)) take(Slot.Case, bestFor(state, i, Slot.Case, () => true, 0));
+      const munition = shoots ? itemSpec(shoots).ranged?.munition : undefined;
+      const holder = munition === 'bolts' ? Item.BoltCase : munition === 'powder' ? Item.PowderHorn : Item.None;
+      if (holder && has(Slot.Case) !== holder && free(Slot.Case)) take(Slot.Case, bestFor(state, i, Slot.Case, (it) => it.id === holder, 0));
+      if (munition === 'powder' && has(Slot.Kit) !== Item.ShotPouch && free(Slot.Kit)) take(Slot.Kit, bestFor(state, i, Slot.Kit, (it) => it.id === Item.ShotPouch, 0));
       if (free(Slot.Armour)) take(Slot.Armour, bestFor(state, i, Slot.Armour, () => true, has(Slot.Armour)));
       if (free(Slot.Helmet)) take(Slot.Helmet, bestFor(state, i, Slot.Helmet, () => true, has(Slot.Helmet)));
     }
@@ -461,14 +492,14 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
   const e = state.entities;
   const b = state.buildings.get(o.b);
   const t = SKILL_TRAINING[o.skill];
-  if (!t || !b || b.owner !== e.owner[i] || !b.complete || b.kind !== BuildingKind.Barracks || e.kind[i] !== UnitKind.Warrior) return true;
+  if (!t || !b || b.owner !== e.owner[i] || !b.complete || b.kind !== t.at || e.kind[i] !== UnitKind.Warrior) return true;
   if ((e.skills[i]! & o.skill) !== 0) return true;
   if (e.inside[i] !== b.id) {
     if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
     const r = walkTo(state, i, besideBuilding(b));
     if (r === 0) return false;
     if (r === 2) return true;
-    // One warrior trains at a time; the next waits beside the Barracks (s).
+    // One warrior trains at a time; the next waits beside the building (s).
     for (let j = 0; j < e.count; j++) {
       if (j !== i && e.inside[j] === b.id && e.queue[j]![0]?.t === 'skill') {
         e.order[i] = OrderKind.Idle;
@@ -478,6 +509,11 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
     const p = state.players[b.owner]!;
     if (!hasResearch(p.research, t.research as Research)) {
       state.events.push({ player: b.owner, kind: 'alert', text: `Training in ${t.name} needs ${RESEARCH[t.research]!.name} researched first.`, x: e.x[i]!, z: e.z[i]! });
+      return true;
+    }
+    const horse = b.kind === BuildingKind.Stables ? ridingProblem(state, b) : '';
+    if (horse) {
+      state.events.push({ player: b.owner, kind: 'alert', text: horse, x: e.x[i]!, z: e.z[i]! });
       return true;
     }
     if (!payNutrition(p.pool, t.food, p.dontEat)) {

@@ -74,16 +74,55 @@ export const Mob = {
   DwarfMineshaft: 50,
   DwarfHall: 51,
   DwarfCityGate: 52,
+  // Milestone 8: the goblin village's wolf riders and their pen (roster 6.3; Table 17).
+  GoblinWolfRider: 53,
+  GoblinWolfPen: 54,
+  // Night mobs 25 to 110 (roster 5.7 to 5.25).
+  BarrowKnight: 55,
+  PlagueBearer: 56,
+  Gravewing: 57,
+  BoneColossus: 58,
+  HollowPriest: 59,
+  Cinderling: 60,
+  Hellhound: 61,
+  Fiend: 62,
+  Scorchwing: 63,
+  DemonBrute: 64,
+  Flamecaller: 65,
+  ChainFiend: 66,
+  VoidStalker: 67,
+  InfernalJuggernaut: 68,
+  VoidWitch: 69,
+  AbyssalDrake: 70,
+  Archfiend: 71,
+  RiftColossus: 72,
+  Morvath: 73,
+  // The Rift-touched beasts (roster 5.24): the creatures' models with the _rift look.
+  RiftScorpion: 74,
+  RiftCentipede: 75,
+  RiftHornet: 76,
+  RiftBeetle: 77,
+  RiftGriffin: 78,
+  RiftMinotaur: 79,
+  /** Morvath's second form: at half health he takes flight (roster 5.25). */
+  MorvathAloft: 80,
 } as const;
 export type Mob = (typeof Mob)[keyof typeof Mob];
 
-/** How a mob gets about (roster "Moves"). */
-export const Moves = { Walker: 0, Climber: 1, LowFlyer: 2, Breaker: 3, Still: 4 } as const;
+/** How a mob gets about (roster "Moves"). A high flyer is hit only by ranged attacks and magic while it circles. */
+export const Moves = { Walker: 0, Climber: 1, LowFlyer: 2, Breaker: 3, Still: 4, HighFlyer: 5 } as const;
 export type Moves = (typeof Moves)[keyof typeof Moves];
 
-/** What dawn does to it (roster "Sun"): sun-proof creatures, and everything that is out by day, stay. */
-export const Sun = { Burns: 0, Flees: 1, Proof: 2 } as const;
+/** What dawn does to it (roster "Sun"): sun-proof creatures, and everything that is out by day, stay; a barrow knight smoulders at half the burn. */
+export const Sun = { Burns: 0, Flees: 1, Proof: 2, Smoulders: 3 } as const;
 export type Sun = (typeof Sun)[keyof typeof Sun];
+
+/** How a ranged mob attacks: a shot that flies, or straight onto its target (a curse, a draining beam, a line of breath). */
+export const Strike = { Shot: 0, Curse: 1, Drain: 2, Breath: 3 } as const;
+export type Strike = (typeof Strike)[keyof typeof Strike];
+
+/** The demons (roster 2: red from night 45, purple from night 80): the archfiend's command lifts them. */
+export const Demon = { None: 0, Red: 1, Purple: 2 } as const;
 
 /** How it arrives (roster "Comes as"). */
 export const Comes = { Wave: 0, Pack: 1, Trickle: 2, Alone: 3, Never: 4 } as const;
@@ -148,6 +187,19 @@ export interface MobSpec {
   poison: number;
   /** Casters: the most mana it holds (goblin mage 60); 0 for none. */
   mana: number;
+  /** Milestone 8. How its ranged attack lands (Strike), and what kind of demon it is (Demon). */
+  strike: Strike;
+  demon: number;
+  /** At most this many a night (archfiend 1, Rift colossus 2), 0 for no cap. */
+  perNight: number;
+  /** A climber of wooden walls only (the cinderling). */
+  woodClimber: boolean;
+  /** Its melee hit knocks back units smaller than it this far (Rift beetle, Rift minotaur), wu. */
+  knockWu: number;
+  /** Its melee hit lands on every unit within this distance (the Rift colossus's slam), wu; 0 for one target or the arc. */
+  slamRadius: number;
+  /** A texture look on the model: '' or 'rift' (the Rift-touched beasts). */
+  tint: string;
 }
 
 /** Tenths of a second as steps. */
@@ -160,6 +212,7 @@ const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STE
 const BP = 10000;
 const base = {
   armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poison: 0, mana: 0,
+  strike: Strike.Shot, demon: Demon.None, perNight: 0, woodClimber: false, knockWu: 0, slamRadius: 0, tint: '',
 } as const;
 
 /** The role values of threats/types.ts Role, kept here so this data file imports nothing of the threats. */
@@ -181,6 +234,14 @@ const GOBLIN_LOOT: readonly Drop[] = [
   { res: Res.Hexstone, min: 1, max: 1, chancePm: 50 },
   { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 20 },
 ];
+
+/** The boss (roster 5.25), and his second form aloft: a high flyer at 4 m/s (s). */
+const MORVATH: MobSpec = {
+  // The boss (roster 5.25): never bought from the budget; threats/boss.ts brings him. XP by the header rule, health / 50 (s).
+  ...base, id: Mob.Morvath, name: 'Morvath, the Hollow Crown', model: 'morvath', firstNight: 110, hp: 25000, armourBp: 5000, damage: 80, attackSteps: ds(20), reach: cm(400), speed: v10(25), vsWalls: 400,
+  moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 5000, halfWidth: cm(80), height: cm(450), demon: Demon.Purple,
+  drops: [{ res: Res.ManaCrystal, min: 20, max: 20, chancePm: 1000 }, { res: Res.Gold, min: 10, max: 10, chancePm: 1000 }, { res: Res.Diamonds, min: 3, max: 3, chancePm: 1000 }],
+};
 
 export const MOBS: readonly MobSpec[] = [
   {
@@ -344,6 +405,147 @@ export const MOBS: readonly MobSpec[] = [
   stand(Mob.DwarfMineshaft, 'Dwarf mineshaft', 'dwarf_mineshaft', 0, 700, 600, 500),
   stand(Mob.DwarfHall, 'Pillared hall', 'dwarf_hall', 0, 2000, 1200, 800),
   stand(Mob.DwarfCityGate, 'City gate', 'dwarf_city_gate', 0, 3000, 1200, 1000),
+  // Milestone 8. A goblin wolf rider (roster 6.3, Table 14): the rider's 50 health with its wolf's 70 beside it (the entity's mount),
+  // the rider's spear 9 a second at 2 m and the wolf's bite; at a gallop of 5.5 m/s. Without its wolf it is a goblin on foot.
+  {
+    ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 50, armourBp: 1000, damage: 9, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 20, halfWidth: cm(45), height: cm(190), role: VILLAGE,
+    drops: [{ res: Res.Leather, item: Item.SpearBronze, min: 1, max: 1, chancePm: 150 }, { res: Res.Leather, min: 1, max: 2, chancePm: 300 }, { res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 30 }],
+  },
+  // The wolf pen of a village of 4 huts or more (Table 17, s: 300 health).
+  stand(Mob.GoblinWolfPen, 'Goblin wolf pen', 'goblin_wolf_pen', 0, 300, 500, 200),
+  // Night mobs 25 to 110 (roster 5.0 stats; abilities in threats/late-mobs.ts). Attack times the roster leaves open are (s).
+  {
+    ...base, id: Mob.BarrowKnight, name: 'Barrow knight', model: 'barrow_knight', firstNight: 25, hp: 320, armourBp: 3500, pierceBp: 5000, bluntBp: 15000, damage: 24, attackSteps: ds(16), reach: cm(150), speed: v10(24), vsWalls: 10,
+    moves: Moves.Walker, sun: Sun.Smoulders, comes: Comes.Trickle, threatTenths: 80, halfWidth: cm(35), height: cm(185), undead: true,
+    drops: [{ res: Res.BloomIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Bone, min: 2, max: 2, chancePm: 150 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.PlagueBearer, name: 'Plague bearer', model: 'plague_bearer', firstNight: 30, hp: 180, armourBp: 1000, damage: 10, attackSteps: ds(16), reach: cm(200), speed: v10(16), vsWalls: 5,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 60, halfWidth: cm(35), height: cm(180), arc: true, undead: true,
+    drops: [{ res: Res.Herbs, min: 1, max: 2, chancePm: 150 }, { res: Res.Bone, min: 1, max: 1, chancePm: 100 }],
+  },
+  {
+    ...base, id: Mob.Gravewing, name: 'Gravewing', model: 'gravewing', firstNight: 30, hp: 70, damage: 12, attackSteps: ds(12), reach: cm(150), speed: v10(70), vsWalls: 0,
+    moves: Moves.HighFlyer, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 40, halfWidth: cm(60), height: cm(80), undead: true,
+    drops: [{ res: Res.Feathers, min: 2, max: 4, chancePm: 250 }, { res: Res.Bone, min: 1, max: 1, chancePm: 100 }],
+  },
+  {
+    ...base, id: Mob.BoneColossus, name: 'Bone colossus', model: 'bone_colossus', firstNight: 35, hp: 900, armourBp: 3000, pierceBp: 5000, bluntBp: 15000, damage: 45, attackSteps: ds(28), reach: cm(250),
+    range: cm(2000), shot: Shot.BoneBoulder, spreadBp: 500, speed: v10(13), vsWalls: 120,
+    moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 250, halfWidth: cm(100), height: cm(340), arc: true, undead: true,
+    drops: [{ res: Res.Bone, min: 2, max: 4, chancePm: 500 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.HollowPriest, name: 'Hollow priest', model: 'hollow_priest', firstNight: 40, hp: 140, damage: 14, attackSteps: ds(25), reach: cm(120), range: cm(1600), strike: Strike.Curse, speed: v10(20), vsWalls: 0,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 100, halfWidth: cm(35), height: cm(190), undead: true,
+    drops: [{ res: Res.ManaCrystal, min: 1, max: 1, chancePm: 80 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 10 }],
+  },
+  {
+    ...base, id: Mob.Cinderling, name: 'Cinderling', model: 'cinderling', firstNight: 45, hp: 40, damage: 6, attackSteps: ds(8), reach: cm(100), speed: v10(45), climbSpeed: v10(8), vsWalls: 4,
+    moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Wave, threatTenths: 15, halfWidth: cm(30), height: cm(90), demon: Demon.Red, woodClimber: true,
+    drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 150 }, { res: Res.Coal, min: 1, max: 1, chancePm: 100 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.Hellhound, name: 'Hellhound', model: 'hellhound', firstNight: 50, hp: 160, armourBp: 1000, damage: 18, attackSteps: ds(10), reach: cm(120), speed: v10(60), vsWalls: 6,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Pack, threatTenths: 60, halfWidth: cm(40), height: cm(120), demon: Demon.Red,
+    drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 180 }, { res: Res.Coal, min: 1, max: 1, chancePm: 100 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
+  },
+  {
+    ...base, id: Mob.Fiend, name: 'Fiend', model: 'fiend', firstNight: 55, hp: 380, armourBp: 3000, damage: 30, attackSteps: ds(15), reach: cm(180), speed: v10(28), vsWalls: 15,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Wave, threatTenths: 100, halfWidth: cm(45), height: cm(220), arc: true, demon: Demon.Red,
+    drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 150 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 100 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 80 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
+  },
+  {
+    // Fire drop from above (s: every 2 s, from up to 8 m), the claw when it swoops.
+    ...base, id: Mob.Scorchwing, name: 'Scorchwing', model: 'scorchwing', firstNight: 60, hp: 150, armourBp: 1000, damage: 14, attackSteps: ds(20), reach: cm(150),
+    range: cm(800), shot: Shot.FirePitch, spreadBp: 400, speed: v10(65), vsWalls: 20,
+    moves: Moves.LowFlyer, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 60, halfWidth: cm(80), height: cm(160), demon: Demon.Red,
+    drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 150 }, { res: Res.Coal, min: 1, max: 1, chancePm: 100 }],
+  },
+  {
+    ...base, id: Mob.DemonBrute, name: 'Demon brute', model: 'demon_brute', firstNight: 65, hp: 1400, armourBp: 3500, damage: 50, attackSteps: ds(25), reach: cm(250), speed: v10(18), vsWalls: 180,
+    moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 350, halfWidth: cm(110), height: cm(300), arc: true, demon: Demon.Red, knockWu: cm(200),
+    drops: [{ res: Res.Sulphur, min: 2, max: 3, chancePm: 250 }, { res: Res.DemonHorn, min: 1, max: 2, chancePm: 200 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.Flamecaller, name: 'Flamecaller', model: 'flamecaller', firstNight: 70, hp: 220, armourBp: 1000, damage: 30, attackSteps: ds(30), reach: cm(120),
+    range: cm(2200), shot: Shot.Hellfire, spreadBp: 300, speed: v10(22), vsWalls: 30,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 100, halfWidth: cm(35), height: cm(210), demon: Demon.Red,
+    drops: [{ res: Res.Sulphur, min: 1, max: 2, chancePm: 200 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 80 }, { res: Res.ManaCrystal, min: 1, max: 1, chancePm: 50 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.ChainFiend, name: 'Chain fiend', model: 'chain_fiend', firstNight: 75, hp: 450, armourBp: 2500, damage: 26, attackSteps: ds(14), reach: cm(180), speed: v10(30), climbSpeed: v10(10), vsWalls: 10,
+    moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 140, halfWidth: cm(40), height: cm(240), demon: Demon.Red,
+    drops: [{ res: Res.WroughtIron, min: 1, max: 1, chancePm: 120 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 120 }],
+  },
+  {
+    ...base, id: Mob.VoidStalker, name: 'Void stalker', model: 'void_stalker', firstNight: 80, hp: 500, armourBp: 2000, damage: 30, attackSteps: ds(10), reach: cm(150), speed: v10(45), vsWalls: 5,
+    moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Trickle, threatTenths: 180, halfWidth: cm(35), height: cm(200), demon: Demon.Purple,
+    drops: [{ res: Res.ManaCrystal, min: 1, max: 2, chancePm: 200 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.InfernalJuggernaut, name: 'Infernal juggernaut', model: 'infernal_juggernaut', firstNight: 85, hp: 3000, armourBp: 5000, damage: 60, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 300,
+    moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 800, halfWidth: cm(150), height: cm(400), arc: true, demon: Demon.Red,
+    drops: [{ res: Res.RefinedIron, min: 1, max: 1, chancePm: 150 }, { res: Res.Sulphur, min: 1, max: 2, chancePm: 400 }, { res: Res.Coal, min: 1, max: 2, chancePm: 400 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    // Drain: 20 a second, so one strike a second (s).
+    ...base, id: Mob.VoidWitch, name: 'Void witch', model: 'void_witch', firstNight: 90, hp: 600, armourBp: 1000, damage: 20, attackSteps: ds(10), reach: cm(150), range: cm(2000), strike: Strike.Drain, speed: v10(25), vsWalls: 0,
+    moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Alone, threatTenths: 300, halfWidth: cm(40), height: cm(220), demon: Demon.Purple, mana: 0,
+    drops: [{ res: Res.ManaCrystal, min: 2, max: 3, chancePm: 300 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 10 }],
+  },
+  {
+    // Void breath: 40 a second along a 12 m line, so one strike a second (s).
+    ...base, id: Mob.AbyssalDrake, name: 'Abyssal drake', model: 'abyssal_drake', firstNight: 95, hp: 1800, armourBp: 3000, damage: 40, attackSteps: ds(10), reach: cm(200), range: cm(1200), strike: Strike.Breath, speed: v10(90), vsWalls: 40,
+    moves: Moves.HighFlyer, sun: Sun.Flees, comes: Comes.Alone, threatTenths: 600, halfWidth: cm(200), height: cm(250), demon: Demon.Purple,
+    drops: [{ res: Res.ManaCrystal, min: 1, max: 2, chancePm: 350 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.Archfiend, name: 'Archfiend', model: 'archfiend', firstNight: 100, hp: 4000, armourBp: 4500, damage: 70, attackSteps: ds(20), reach: cm(250), speed: v10(30), vsWalls: 60,
+    moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Alone, threatTenths: 1200, halfWidth: cm(60), height: cm(320), arc: true, demon: Demon.Purple, perNight: 1,
+    drops: [{ res: Res.ManaCrystal, min: 2, max: 2, chancePm: 400 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 300 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }, { res: Res.Rubies, alt: Res.Diamonds, min: 1, max: 1, chancePm: 50 }],
+  },
+  {
+    // The slam every 3 s (s) on everything within 6 m.
+    ...base, id: Mob.RiftColossus, name: 'Rift colossus', model: 'rift_colossus', firstNight: 105, hp: 8000, armourBp: 5000, damage: 60, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 600,
+    moves: Moves.Breaker, sun: Sun.Flees, comes: Comes.Alone, threatTenths: 2200, halfWidth: cm(200), height: cm(600), demon: Demon.Purple, perNight: 2, slamRadius: cm(600), knockWu: cm(200),
+    drops: [{ res: Res.ManaCrystal, min: 2, max: 2, chancePm: 500 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 50 }],
+  },
+  MORVATH,
+  // The Rift-touched beasts (roster 5.24): 1.5 times the creature's health and 1.25 times its damage; they burn at dawn.
+  {
+    // Pinch 12, and on every other hit the sting: 10 and 30 poison over 5 s.
+    ...base, id: Mob.RiftScorpion, name: 'Rift scorpion', model: 'giant_scorpion', tint: 'rift', firstNight: 50, hp: 165, armourBp: 3500, damage: 12, attackSteps: ds(12), reach: cm(150), speed: v10(30), climbSpeed: v10(8), vsWalls: 5,
+    moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Pack, threatTenths: 50, halfWidth: cm(60), height: cm(50),
+    drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 200 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 80 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
+  },
+  {
+    ...base, id: Mob.RiftCentipede, name: 'Rift centipede', model: 'giant_centipede', tint: 'rift', firstNight: 55, hp: 225, armourBp: 2500, damage: 17, poison: 12, attackSteps: ds(12), reach: cm(150), speed: v10(35), climbSpeed: v10(10), vsWalls: 5,
+    moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 60, halfWidth: cm(50), height: cm(50),
+    drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 150 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 80 }],
+  },
+  {
+    ...base, id: Mob.RiftHornet, name: 'Rift hornet', model: 'giant_hornet', tint: 'rift', firstNight: 60, hp: 60, damage: 15, attackSteps: ds(15), reach: cm(100), speed: v10(65), vsWalls: 0,
+    moves: Moves.LowFlyer, sun: Sun.Burns, comes: Comes.Wave, threatTenths: 25, halfWidth: cm(30), height: cm(30),
+    drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 100 }],
+  },
+  {
+    ...base, id: Mob.RiftBeetle, name: 'Rift beetle', model: 'giant_beetle', tint: 'rift', firstNight: 65, hp: 180, armourBp: 4000, damage: 17, attackSteps: ds(15), reach: cm(150), speed: v10(32), vsWalls: 40,
+    moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Pack, threatTenths: 70, halfWidth: cm(60), height: cm(60), knockWu: cm(100),
+    drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 10 }],
+  },
+  {
+    ...base, id: Mob.RiftGriffin, name: 'Rift griffin', model: 'griffin', tint: 'rift', firstNight: 70, hp: 900, armourBp: 2000, damage: 44, attackSteps: ds(15), reach: cm(200), speed: v10(100), vsWalls: 10,
+    moves: Moves.LowFlyer, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 300, halfWidth: cm(100), height: cm(180),
+    drops: [{ res: Res.Feathers, min: 2, max: 2, chancePm: 500 }, { res: Res.ManaCrystal, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
+  },
+  {
+    ...base, id: Mob.RiftMinotaur, name: 'Rift minotaur', model: 'minotaur', tint: 'rift', firstNight: 75, hp: 1350, armourBp: 3000, damage: 56, attackSteps: ds(20), reach: cm(250), speed: v10(35), vsWalls: 90,
+    moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 400, halfWidth: cm(80), height: cm(260), arc: true, knockWu: cm(200),
+    drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 500 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 250 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }],
+  },
+  { ...MORVATH, id: Mob.MorvathAloft, moves: Moves.HighFlyer, speed: v10(40) },
 ];
 
 /** Whether a mob is a lair (Table 15). */
@@ -354,6 +556,16 @@ export function isLair(mob: number): boolean {
 /** Whether a mob is a thing that stands and is broken (a lair or a village building). */
 export function isStructure(mob: number): boolean {
   return MOBS[mob]?.role === STRUCTURE;
+}
+
+/** Whether a mob flies (low or high): it goes over walls and the land. */
+export function flies(spec: MobSpec): boolean {
+  return spec.moves === Moves.LowFlyer || spec.moves === Moves.HighFlyer;
+}
+
+/** Breakers that blow themselves up against what blocks them (skeleton bombers); every other breaker smashes it. */
+export function bomber(spec: MobSpec): boolean {
+  return spec.id === Mob.SkeletonBomber;
 }
 
 export function mobSpec(id: number): MobSpec {
@@ -370,6 +582,8 @@ export function powerPm(mob: Mob, night: number): number {
 /** Cruising height of a low flyer above the ground (roster: about 4 m), and how low it swoops. */
 export const FLY_HEIGHT = cm(400);
 export const SWOOP_HEIGHT = cm(60);
+/** A high flyer circles at 12 m (s), out of reach of everything but bows, guns and magic. */
+export const HIGH_FLY_HEIGHT = cm(1200);
 
 /** Zombie grasp: a hit slows its target by 20% for 2 s. Web spit: 50% for 3 s, every 10 s. */
 export const GRASP = { slowBp: 2000, steps: ds(20) };

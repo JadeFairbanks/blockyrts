@@ -648,7 +648,25 @@ export function toolTierFor(item: number, job: number): number {
 }
 
 /** Horizontal speed (wu per step) and whether it arcs, for each flying thing (s). */
-export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; model: string; vsWalls: number }> = [
+/**
+ * What a shot is: its speed and whether it arcs, its model, its damage to
+ * walls and buildings; milestone 8 adds a splash round where it lands
+ * (damage and radius, wu), setting wood alight, and a multiplier against
+ * wooden buildings (bp, 0 for none).
+ */
+export interface ShotSpec {
+  speed: number;
+  arcs: boolean;
+  name: string;
+  model: string;
+  vsWalls: number;
+  splash?: number;
+  splashRadius?: number;
+  ignite?: boolean;
+  vsWoodBp?: number;
+}
+
+export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'arrow', model: 'arrow_flight', vsWalls: 0 },
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: true, name: 'sling stone', model: 'sling_stone', vsWalls: 0 },
   { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'javelin', model: 'javelin_flint', vsWalls: 1 },
@@ -667,13 +685,15 @@ export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; 
   // Milestone 8 (s): a cannonball flies at 40 m/s in a low arc, a catapult stone is lobbed at 20 m/s, a ballista bolt flies flat at 40 m/s
   // (their damage against walls is the engine's, siege/data.ts); a musket ball flies straight at 80 m/s; the bone colossus's boulder
   // (60 to the barrier, roster), the scorchwing's pitch and the flamecaller's fireball (x3 against wood is in the mob's rules).
-  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400 },
-  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200 },
+  // Splashes (Table 2f, roster): a cannonball 50 within 2 m, a catapult stone 80 within 3 m, the boulder 25 within 2 m, burning pitch
+  // 20 within 2 m and alight; the flamecaller's 30 with a 2 m splash of half that (s) and triple against wood.
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400, splash: 50, splashRadius: cm(200) },
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200, splash: 80, splashRadius: cm(300) },
   { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: false, name: 'ballista bolt', model: 'ballista_bolt', vsWalls: 20 },
   { speed: floorDiv(cm(8000), STEPS_PER_SECOND), arcs: false, name: 'musket ball', model: 'musket_ball', vsWalls: 2 },
-  { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_lump', vsWalls: 60 },
-  { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20 },
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'spell_fireball', vsWalls: 30 },
+  { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 25, splashRadius: cm(200) },
+  { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 20, splashRadius: cm(200), ignite: true },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'spell_fireball', vsWalls: 30, splash: 15, splashRadius: cm(200), vsWoodBp: 30000 },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */

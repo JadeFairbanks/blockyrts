@@ -26,13 +26,15 @@ export type Product = number;
  * Research step r is product RESEARCH_PRODUCT + r; crafting item n is
  * CRAFT_PRODUCT + n; refurbishing it, REFURBISH_PRODUCT + n; a processing
  * or cooking recipe (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal
- * of a species at a livestock farm, SLAUGHTER_PRODUCT + species.
+ * of a species at a livestock farm, SLAUGHTER_PRODUCT + species; making a
+ * siege engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine.
  */
 export const RESEARCH_PRODUCT = 8;
 export const CRAFT_PRODUCT = 64;
 export const REFURBISH_PRODUCT = 256;
 export const RECIPE_PRODUCT = 512;
 export const SLAUGHTER_PRODUCT = 1024;
+export const ENGINE_PRODUCT = 2048;
 
 export interface QueueItem {
   product: Product;

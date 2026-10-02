@@ -14,7 +14,9 @@ import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../u
 import { BuildingKind, buildingName, buildingSpec, FARM_FALLOW_STEPS, FARM_TIER_PER_MILLE, levelSpec, PLANK_STEPS, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre } from './lights.ts';
 import { bandAt } from './placement.ts';
-import { CRAFT_PRODUCT, Product, RECIPE_PRODUCT, REFURBISH_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, type Building, type RallyPoint } from './store.ts';
+import { CRAFT_PRODUCT, ENGINE_PRODUCT, Product, RECIPE_PRODUCT, REFURBISH_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, type Building, type RallyPoint } from './store.ts';
+import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
+import { spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { animalsAt } from '../animals/animals.ts';
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
@@ -42,6 +44,8 @@ export interface ProductSpec {
   recipe?: number;
   /** Slaughter: the species. */
   slaughter?: number;
+  /** A siege engine or cannon (siege/data.ts Engine). */
+  engine?: number;
   /** Equipment from the stock it takes (a new warrior's club; fire arrows' arrows; a refurbished item). */
   items?: ReadonlyArray<readonly [number, number]>;
 }
@@ -89,6 +93,10 @@ export function productSpec(product: Product): ProductSpec {
   if (product >= REFURBISH_PRODUCT && product < RECIPE_PRODUCT) {
     const it = itemSpec(product - REFURBISH_PRODUCT);
     return { product, name: `Refurbish ${it.name.toLowerCase()}`, key: '', steps: Math.max(1, floorDiv(it.steps, REFURBISH_SPEEDUP)), cost: [], food: 0, item: it.id, items: [[it.id, it.makes > 1 ? it.makes : 1]], tooltip: 'Takes one from the stock and gives back all the resources it was made from.' };
+  }
+  if (product >= ENGINE_PRODUCT) {
+    const s = engineSpec(product - ENGINE_PRODUCT);
+    return { product, name: s.name, key: '', steps: s.steps, cost: s.cost, food: 0, engine: s.id, tooltip: `A ${s.name.toLowerCase()} rolls out when it is done (Table 2f). Hitch a horse or an ox to it, or give it a crew.` };
   }
   if (product >= SLAUGHTER_PRODUCT) {
     const s = speciesSpec(product - SLAUGHTER_PRODUCT);
@@ -140,6 +148,8 @@ export function productsOf(b: Building): Product[] {
   for (const id of recipesAt(b.kind)) out.push(RECIPE_PRODUCT + id);
   for (const id of craftable(b.kind)) out.push(CRAFT_PRODUCT + id);
   for (const id of craftable(b.kind)) out.push(REFURBISH_PRODUCT + id);
+  // Siege engines at a Workshop, cannons at the Foundry (Table 2f).
+  for (const id of PLAYER_ENGINES) if (engineSpec(id).at[0] === b.kind) out.push(ENGINE_PRODUCT + id);
   return out;
 }
 
@@ -193,6 +203,12 @@ export function productProblem(state: SimState, b: Building, product: Product): 
   if (spec.research !== undefined) {
     const why = researchProblem(state, b.owner, RESEARCH[spec.research]!);
     if (why) return why;
+  } else if (spec.engine !== undefined) {
+    const s = engineSpec(spec.engine);
+    const why = levelProblem(b, s.at[1]);
+    if (why) return why;
+    if (!hasResearch(player.research, s.research as Research)) return `Needs ${RESEARCH[s.research]!.name} researched first.`;
+    if (s.forge && bestLevel(state, b.owner, BuildingKind.Forge) < s.forge) return `Needs a ${buildingName(BuildingKind.Forge, s.forge, 0)} in the town.`;
   } else if (spec.recipe !== undefined) {
     const r = recipeSpec(spec.recipe);
     if (r.later) return r.later;
@@ -368,6 +384,10 @@ function finishProduct(state: SimState, b: Building, product: number): void {
   const player = state.players[b.owner]!;
   const spec = productSpec(product);
   const [x, z] = buildingCentre(b);
+  if (spec.engine !== undefined) {
+    spawnEngine(state, b, spec.engine);
+    return;
+  }
   if (spec.slaughter !== undefined) {
     const j = slaughterable(state, b, spec.slaughter)[0];
     if (j === undefined) return;

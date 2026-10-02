@@ -90,6 +90,8 @@ export function pickMobs(state: SimState, budget: number, choices: ReadonlyArray
   for (let guard = 0; spent < budget && guard < 2000; guard++) {
     const open = choices.filter(([m]) => {
       const sp = mobSpec(m);
+      // The archfiend comes at most once a night, the Rift colossus twice (roster 5.22 and 5.23; s: per player).
+      if (sp.perNight > 0 && (count.get(m) ?? 0) >= sp.perNight) return false;
       // A mob's first night sends at most 3 of it; one that comes alone, 1 (Table 8, First appearance).
       if (sp.firstNight === night) return (count.get(m) ?? 0) < (sp.comes === Comes.Alone ? 1 : 3);
       return true;
@@ -153,7 +155,7 @@ export function nightMobs(state: SimState, player: number, night: number): Plann
   // Depth weighting: deeper assets draw extras from later nights, sent for the deepest of them.
   if (r && r.depthPm > 0) {
     const ahead = DEPTH_AHEAD[r.band] ?? 0;
-    for (const mob of pickMobs(state, floorDiv(base * r.depthPm, 1000), unlocked(night + ahead), night + ahead)) out.push({ mob, role: Role.Aimed, ax: r.ax, az: r.az, src: 0 });
+    for (const mob of pickMobs(state, floorDiv(base * r.depthPm, 1000), unlocked(night + ahead), night + ahead, count)) out.push({ mob, role: Role.Aimed, ax: r.ax, az: r.az, src: 0 });
   }
   return out;
 }

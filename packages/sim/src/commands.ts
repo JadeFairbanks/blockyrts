@@ -385,7 +385,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainSkill': {
         const b = ownBuilding(state, o.player, o.building);
-        if (!b || b.kind !== BuildingKind.Barracks || !SKILL_TRAINING[o.skill]) break;
+        if (!b || !SKILL_TRAINING[o.skill] || b.kind !== SKILL_TRAINING[o.skill]!.at) break;
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & o.skill) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
         break;
       }

@@ -93,5 +93,8 @@ export const KNOCKBACK = { far: 2 * WU_PER_METRE, near: WU_PER_METRE, farShareBp
 export const RUN_TURN = 2048;
 export const RUN_SPEED_BP = 8000;
 
+/** A ridden horse still eats as a working horse does (Table 6: 2 a cycle), with the workers' group. */
+export const HORSE_UPKEEP = 2;
+
 /** A mounted unit mounts and dismounts within this distance of its horse, wu (s). */
 export const MOUNT_REACH_WU = 2 * WU_PER_METRE;

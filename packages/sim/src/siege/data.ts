@@ -25,14 +25,10 @@ export interface EngineSpec {
   /** Catalogue model (review/batch-2 MANIFEST, models/mechanical). */
   model: string;
   hp: number;
-  /** Hit on a unit, and the splash round it (catapult and cannon), wu. */
+  /** Hit on a unit; the splash and the damage against walls are its shot's (combat/items.ts SHOTS). */
   damage: number;
-  splash: number;
-  splashRadius: number;
-  /** A ballista bolt goes on through this many more targets in a line. */
-  pierce: number;
-  /** Against walls, gates, buildings and the foes' structures (lairs, huts). */
-  vsWalls: number;
+  /** A ballista bolt goes on through one more target in a line (Table 2f: pierces 2). */
+  pierce: boolean;
   range: number;
   minRange: number;
   reloadSteps: number;
@@ -56,8 +52,6 @@ export interface EngineSpec {
   research: number;
   cost: Cost;
   steps: number;
-  /** Wooden engines burn (fire arrows, cinderlings, fireballs) (s). */
-  wooden: boolean;
   /** Hit box: half width and height, wu. */
   halfWidth: number;
   height: number;
@@ -73,39 +67,39 @@ export const ENGINE_SHOT = { Cannonball: 13, CatapultStone: 14, BallistaBolt: 15
 
 export const ENGINES: readonly EngineSpec[] = [
   {
-    id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, splash: 80, splashRadius: cm(300), pierce: 0, vsWalls: 200,
+    id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, pierce: false,
     range: cm(5000), minRange: cm(1500), reloadSteps: sec(15), crew: 2, crewSkill: 0, horse: v10(20), ox: v10(15), pushed: v10(8),
     munition: Res.CatapultStone, powder: false, shot: ENGINE_SHOT.CatapultStone, spreadBp: 600,
-    at: [BuildingKind.Workshop, 3], forge: 0, research: SIEGE_ENGINES, cost: [[H, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(240), wooden: true,
+    at: [BuildingKind.Workshop, 3], forge: 0, research: SIEGE_ENGINES, cost: [[H, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(240),
     halfWidth: cm(150), height: cm(300),
   },
   {
-    id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, splash: 0, splashRadius: 0, pierce: 1, vsWalls: 20,
+    id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, pierce: true,
     range: cm(4500), minRange: cm(500), reloadSteps: sec(8), crew: 1, crewSkill: 0, horse: v10(25), ox: v10(15), pushed: v10(10),
     munition: Res.BallistaBolt, powder: false, shot: ENGINE_SHOT.BallistaBolt, spreadBp: 200,
-    at: [BuildingKind.Workshop, 4], forge: 3, research: SIEGE_ENGINES, cost: [[H, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(240), wooden: true,
+    at: [BuildingKind.Workshop, 4], forge: 3, research: SIEGE_ENGINES, cost: [[H, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(240),
     halfWidth: cm(120), height: cm(180),
   },
   {
-    id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 150, splash: 50, splashRadius: cm(200), pierce: 0, vsWalls: 400,
+    id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: CANNON_SKILL, horse: v10(25), ox: v10(15), pushed: v10(10),
     munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
-    at: [BuildingKind.Foundry, 1], forge: 0, research: CANNONS, cost: [[Res.BronzeIngot, 20], [H, 10]], steps: sec(180), wooden: false,
+    at: [BuildingKind.Foundry, 1], forge: 0, research: CANNONS, cost: [[Res.BronzeIngot, 20], [H, 10]], steps: sec(180),
     halfWidth: cm(110), height: cm(150),
   },
   {
-    id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, splash: 50, splashRadius: cm(200), pierce: 0, vsWalls: 400,
+    id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: CANNON_SKILL, horse: v10(25), ox: v10(15), pushed: v10(10),
     munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
-    at: [BuildingKind.Foundry, 1], forge: 3, research: CANNONS, cost: [[Res.WroughtIron, 12], [H, 10]], steps: sec(150), wooden: false,
+    at: [BuildingKind.Foundry, 1], forge: 3, research: CANNONS, cost: [[Res.WroughtIron, 12], [H, 10]], steps: sec(150),
     halfWidth: cm(110), height: cm(150),
   },
   {
     // A Dwarf city's own cannon (Table 19: "its own Dwarf cannons are not for sale"): the iron cannon's numbers, never made by players.
-    id: Engine.DwarfCannon, name: 'Dwarf cannon', model: 'cannon_dwarf', hp: 500, damage: 150, splash: 50, splashRadius: cm(200), pierce: 0, vsWalls: 400,
+    id: Engine.DwarfCannon, name: 'Dwarf cannon', model: 'cannon_dwarf', hp: 500, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: 0, horse: 0, ox: 0, pushed: 0,
     munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
-    at: [-1, 0], forge: 0, research: 0, cost: [], steps: 0, wooden: false,
+    at: [-1, 0], forge: 0, research: 0, cost: [], steps: 0,
     halfWidth: cm(110), height: cm(150),
   },
 ];

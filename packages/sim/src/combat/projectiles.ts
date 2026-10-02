@@ -14,6 +14,8 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
 import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, shotMayHit, Side, sideOf } from './combat.ts';
 import { SHOTS } from './items.ts';
+import { isStructure } from './mobs.ts';
+import { buildingCentre } from '../buildings/lights.ts';
 import { WEB } from './mobs.ts';
 import { smoulder, SPARK } from '../threats/burns.ts';
 import { fireballBurst } from '../magic/cast.ts';
@@ -32,7 +34,9 @@ export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
  * Fireball): Warding halves it (Table 13). Burst: a Fireball, which bursts
  * where it stops (magic/cast.ts fireballBurst).
  */
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8, Spell: 16, Burst: 32 } as const;
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8, Spell: 16, Burst: 32, Siege: 64, Pierce: 128 } as const;
+
+/** Milestone 8. Siege: an engine's shot, which does its damage against walls to the foes' structures too (lairs, huts) (s). Pierce: a ballista bolt goes on through one more foe behind its first. */
 
 /** Venom on an arrow or bolt: 15 more damage over 5 s (s), on top of the hit. */
 export const POISON = { damage: 15, steps: 5 * STEPS_PER_SECOND };
@@ -248,7 +252,9 @@ export function updateProjectiles(state: SimState): void {
           state.hits.push({ look: 'slime', x, y, z, id: e.id[hit]! });
         } else {
           const spell = (p.flags & ProjectileFlag.Spell) !== 0;
-          const d = hurtUnit(state, hit, { damage: p.damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
+          const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
+          const d = hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
+          if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
           if (d > 0 && p.flags & ProjectileFlag.Poison && e.hp[hit]! > 0) {
             e.dotLeft[hit] = (e.dotUntil[hit]! > state.step ? e.dotLeft[hit]! : 0) + POISON.damage;
             e.dotUntil[hit] = state.step + POISON.steps;
@@ -256,6 +262,7 @@ export function updateProjectiles(state: SimState): void {
           }
         }
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, hit, null);
+        splash(state, p, x, y, z, hit);
         done = true;
         break;
       }
@@ -270,9 +277,12 @@ export function updateProjectiles(state: SimState): void {
             done = true;
             break;
           }
-          hurtBuilding(state, b, SHOTS[p.shot]!.vsWalls, x, y, z);
+          const sp = SHOTS[p.shot]!;
+          const wooden = buildingSpec(b.kind).wooden !== false;
+          hurtBuilding(state, b, wooden && sp.vsWoodBp ? floorDiv(sp.vsWalls * sp.vsWoodBp, 10000) : sp.vsWalls, x, y, z);
           // A fire bolt sets dry wood smouldering (Table 17: Spark toss).
           if (p.flags & ProjectileFlag.Fire && p.side !== Side.Players) smoulder(state, b, SPARK.smoulderPerSecond, SPARK.smoulderSteps);
+          splash(state, p, x, y, z, -1);
           done = true;
           break;
         }
@@ -281,12 +291,14 @@ export function updateProjectiles(state: SimState): void {
       if (tree > 0 && y < tree && y > state.world.topAt(cx, cz) * WU_PER_TERRAIN_UNIT) {
         state.hits.push({ look: 'wood', x, y, z, id: 0 }, { look: 'shake', x: cx * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), y, z: cz * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), id: 0 });
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, -1, null);
+        splash(state, p, x, y, z, -1);
         done = true;
         break;
       }
       if (y < state.world.topAt(cx, cz) * WU_PER_TERRAIN_UNIT) {
         state.hits.push({ look: 'stone', x, y, z, id: 0 });
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, -1, null);
+        splash(state, p, x, y, z, -1);
         done = true;
         break;
       }
@@ -296,3 +308,53 @@ export function updateProjectiles(state: SimState): void {
   state.projectiles = keep;
 }
 
+
+/**
+ * Where a shot with a splash lands (Table 2f's catapult and cannons; the
+ * roster's boulder, pitch and hellfire): every unit it may hit within the
+ * radius but the one it struck takes the splash; burning pitch sets wood
+ * within it alight.
+ */
+function splash(state: SimState, p: Projectile, x: number, y: number, z: number, struck: number): void {
+  const sp = SHOTS[p.shot]!;
+  if (!sp.splash || !sp.splashRadius) return;
+  const e = state.entities;
+  const r = sp.splashRadius;
+  state.hits.push({ look: 'blast', x, y, z, id: p.shooter });
+  for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
+    if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
+    if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
+    hurtUnit(state, j, { damage: sp.splash, from: p.shooter, projectile: false, blunt: true, pierce: false });
+  }
+  if (!sp.ignite || p.side === Side.Players) return;
+  for (const b of state.buildings.list) {
+    if (b.hp <= 0 || buildingSpec(b.kind).wooden === false) continue;
+    const [bx, bz] = buildingCentre(b);
+    if (length2d(bx - x, bz - z) <= r + 2 * WU_PER_METRE) smoulder(state, b, FIRE.perSecond, FIRE.steps);
+  }
+}
+
+/** Wood set alight by the demons' fire (roster: the cinderling's ignite, 8 a second for 10 s). */
+export const FIRE = { perSecond: 8, steps: 10 * STEPS_PER_SECOND };
+
+/** A ballista bolt goes on through the nearest foe within 10 m behind the one it hit, along its flight (s). */
+function pierceOn(state: SimState, p: Projectile, hit: number): void {
+  const e = state.entities;
+  const len = Math.max(1, length2d(p.vx, p.vz));
+  let best = -1;
+  let bestD = 0;
+  for (const j of state.grid.near(e.x[hit]!, e.z[hit]!, 10 * WU_PER_METRE)) {
+    if (j === hit || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
+    const dx = e.x[j]! - e.x[hit]!;
+    const dz = e.z[j]! - e.z[hit]!;
+    const along = floorDiv(dx * p.vx + dz * p.vz, len);
+    if (along <= 0 || along > 10 * WU_PER_METRE) continue;
+    const side = Math.abs(floorDiv(dx * p.vz - dz * p.vx, len));
+    if (side > halfWidth(state, j) + (WU_PER_METRE >> 1)) continue;
+    if (best < 0 || along < bestD) {
+      best = j;
+      bestD = along;
+    }
+  }
+  if (best >= 0) hurtUnit(state, best, { damage: p.damage, from: p.shooter, projectile: true, blunt: false, pierce: true });
+}
