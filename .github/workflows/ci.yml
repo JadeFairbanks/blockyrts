@@ -58,6 +58,8 @@ jobs:
         run: pnpm --filter @blockyrts/client build
       - name: Audio audition page build
         run: pnpm --filter @blockyrts/audio build
+      - name: Balance editor build
+        run: pnpm --filter @blockyrts/balance build
       - name: Two-player network test (built-in server, PostgreSQL, S3Mock)
         run: pnpm --filter @blockyrts/tools net:test
         env:
