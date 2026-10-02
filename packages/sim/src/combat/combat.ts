@@ -10,7 +10,8 @@ import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
-import { MONSTERS, OrderKind, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
+import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
+import { atWar } from '../peoples/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, itemSpec, type MeleeStats } from './items.ts';
 import { workerMelee } from '../units/tools.ts';
@@ -18,31 +19,65 @@ import { BLAST, BURST, CLIMBING_DAMAGE_BP, Mob, mobSpec, Moves, SWOOP_HEIGHT } f
 import { MAGE_RANK_NAMES, mageGainXp } from '../magic/mages.ts';
 import { Spell, spellSpec } from '../magic/spells.ts';
 
-/** The two sides: every player together, and the monsters (Winning, losing and score: player versus environment only); wild animals stand apart. */
-export const Side = { Players: 0, Monsters: 1, Wild: 2, None: -1 } as const;
+/**
+ * The sides: every player together, and the monsters (Winning, losing and
+ * score: player versus environment only); wild animals stand apart; and the
+ * neutral peoples (milestone 7), each faction at war only with the players
+ * it is at war with, and always with the monsters.
+ */
+export const Side = { Players: 0, Monsters: 1, Wild: 2, Peoples: 3, None: -1 } as const;
 
 export function sideOf(state: SimState, i: number): number {
   const o = state.entities.owner[i]!;
   if (o < state.players.length) return Side.Players;
   if (o === MONSTERS) return Side.Monsters;
   if (o === WILD) return Side.Wild;
+  if (o === PEOPLES) return Side.Peoples;
   return Side.None;
 }
 
 /**
  * Whether two units are on opposite sides. A wild animal is an enemy only
- * of the players' unit it is attacking, so warriors defend against a wolf
- * but leave grazing deer alone unless told (Hunting); monsters ignore it.
+ * of the unit it is attacking, so warriors defend against a wolf but leave
+ * grazing deer alone unless told (Hunting); monsters ignore it. A people's
+ * unit is an enemy of the monsters, and of a player only while its faction
+ * is at war with that player; peoples never fight each other.
  */
 export function hostile(state: SimState, a: number, b: number): boolean {
   const sa = sideOf(state, a);
   const sb = sideOf(state, b);
+  const e = state.entities;
   if (sa === Side.Wild || sb === Side.Wild) {
-    const e = state.entities;
     const [w, o] = sa === Side.Wild ? [a, b] : [b, a];
-    return sideOf(state, o) === Side.Players && e.target[w] === e.id[o];
+    const so = sideOf(state, o);
+    return (so === Side.Players || so === Side.Peoples) && e.target[w] === e.id[o];
+  }
+  if (sa === Side.Peoples || sb === Side.Peoples) {
+    if (sa === sb) return false;
+    const [p, o] = sa === Side.Peoples ? [a, b] : [b, a];
+    const so = sa === Side.Peoples ? sb : sa;
+    if (so === Side.Monsters) return true;
+    if (so === Side.Players) return atWar(state.peoples, e.group[p]!, e.owner[o]!);
+    return false;
   }
   return sa !== Side.None && sb !== Side.None && sa !== sb;
+}
+
+/** Whether a shot from a side (and a people's faction, and a player) may hit a unit: never its own side, a people's only at war. */
+export function shotMayHit(state: SimState, side: number, faction: number, owner: number, j: number): boolean {
+  const sj = sideOf(state, j);
+  if (sj === Side.None) return false;
+  const e = state.entities;
+  if (side === Side.Peoples) {
+    if (sj === Side.Peoples) return false;
+    if (sj === Side.Players) return atWar(state.peoples, faction, e.owner[j]!);
+    return true;
+  }
+  if (sj === Side.Peoples) {
+    if (side === Side.Players) return atWar(state.peoples, e.group[j]!, owner);
+    return side === Side.Monsters;
+  }
+  return sj !== side;
 }
 
 /** Whether a unit is a wild animal the players may hunt (Hunting: an attack order on any wild animal). */
@@ -138,8 +173,9 @@ export function armourOf(state: SimState, i: number): number {
   if (e.kind[i] === UnitKind.Animal) return speciesSpec(e.mob[i]!).armourBp;
   const pieces: number[] = [];
   for (const id of [e.boots[i]!, e.armour[i]!, e.helmet[i]!]) if (id) pieces.push(itemSpec(id).armourBp ?? 0);
-  // A support mage's Fortify: +15% on top, still capped at 75% (Table 13).
+  // A support mage's Fortify: +15% on top, still capped at 75% (Table 13); a Grovesinger's Barkskin +25%.
   if (e.fortUntil[i]! > state.step) pieces.push(spellSpec(Spell.Fortify).bp);
+  if (e.barkUntil[i]! > state.step) pieces.push(spellSpec(Spell.Barkskin).bp);
   return totalArmourBp(pieces);
 }
 
@@ -222,8 +258,8 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
   if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3), z: e.z[i]!, id: e.id[i]! });
-  // The players' units that hit a mob in the last 10 s share its experience.
-  if (e.kind[i] === UnitKind.Mob && blow.from) {
+  // The players' units that hit a mob or a people's unit in the last 10 s share its experience.
+  if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
     if (j >= 0 && sideOf(state, j) === Side.Players) noteHitter(state, i, blow.from);
   }
@@ -375,14 +411,19 @@ export function gainXp(state: SimState, i: number, tenths: number): void {
 
 /** The kill's experience, shared by the players' units that hit it in the last 10 s (rules: 2 x threat). */
 function shareKill(state: SimState, i: number): number {
-  const e = state.entities;
-  const spec = mobSpec(e.mob[i]!);
-  const list = e.hitters[i]!;
-  const ids: number[] = [];
-  for (let k = 0; k < list.length; k += 2) if (state.step - list[k + 1]! <= KILL_SHARE_WINDOW_STEPS) ids.push(list[k]!);
+  const spec = mobSpec(state.entities.mob[i]!);
   // A small slime has no threat of its own: it is worth its health / 50; a loose bomb is worth nothing.
   // Daytime foes have no threat: theirs is the roster's (health / 50); lairs and huts give none for the kill (a lair's clearing does).
   const total = spec.threatTenths > 0 ? killXpTenths(spec.threatTenths, spec.hp) : spec.id === Mob.SmallSlime ? killXpTenths(null, spec.hp) : spec.xpTenths;
+  return shareKillXp(state, i, total);
+}
+
+/** Shares a kill's experience among the players' units that hit it in the last 10 s; returns the player whose unit hit it last, or -1. */
+export function shareKillXp(state: SimState, i: number, total: number): number {
+  const e = state.entities;
+  const list = e.hitters[i]!;
+  const ids: number[] = [];
+  for (let k = 0; k < list.length; k += 2) if (state.step - list[k + 1]! <= KILL_SHARE_WINDOW_STEPS) ids.push(list[k]!);
   let owner = -1;
   for (const [id, share] of shareXp(total, ids)) {
     const j = e.indexOf(id);
@@ -457,12 +498,13 @@ export function settleDeaths(state: SimState): void {
   }
 }
 
-/** Units and buildings of the players' side within a radius of a point take a blast (monster blasts never hurt monsters). */
+/** Units of the players and the peoples, and buildings, within a radius of a point take a blast (monster blasts never hurt monsters). */
 export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number): void {
   const e = state.entities;
   state.hits.push({ look: buildings ? 'blast' : 'burst', x, y, z, id: from });
   for (const j of state.grid.near(x, z, units.radius)) {
-    if (e.hp[j]! <= 0 || sideOf(state, j) !== Side.Players) continue;
+    const side = sideOf(state, j);
+    if (e.hp[j]! <= 0 || (side !== Side.Players && side !== Side.Peoples)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > units.radius + halfWidth(state, j)) continue;
     hurtUnit(state, j, { damage: units.damage, from, projectile: false, blunt: true, pierce: false });
   }

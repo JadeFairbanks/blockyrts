@@ -153,7 +153,8 @@ export function inCombat(state: SimState, i: number): boolean {
 export function refillMages(state: SimState): void {
   const e = state.entities;
   for (let i = 0; i < e.count; i++) {
-    if (e.kind[i] !== UnitKind.Mage || e.hp[i]! <= 0) continue;
+    // A Grovesinger's mana comes from the trees (peoples/grove.ts).
+    if (e.kind[i] !== UnitKind.Mage || e.hp[i]! <= 0 || e.school[i] === School.Grove) continue;
     const max = mageMaxMana(e.rank[i]!);
     if (e.mana[i]! >= max) {
       e.manaAcc[i] = 0;

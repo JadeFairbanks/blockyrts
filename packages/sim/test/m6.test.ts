@@ -318,8 +318,10 @@ describe('the spell table', () => {
     const doc = readFileSync(new URL('../../../docs/blueprint.md', import.meta.url), 'utf8');
     const head = doc.indexOf('| **Spell', doc.indexOf('#### Table 13: Mage spells and mana'));
     const rows = doc.slice(head, doc.indexOf('\n\n', head)).split('\n').slice(2);
-    expect(rows.length).toBe(SPELLS.length);
-    for (const s of SPELLS) {
+    // The players' spells are the table's rows; the Grovesinger's five are its own row below it (milestone 7).
+    const players = SPELLS.filter((s) => s.school !== School.Grove);
+    expect(rows.length).toBe(players.length);
+    for (const s of players) {
       const row = rows.find((r) => r.startsWith(`| ${s.name} (${s.clip})`));
       expect(row, s.name).toBeDefined();
       const cells = row!.split('|').map((c) => c.trim());

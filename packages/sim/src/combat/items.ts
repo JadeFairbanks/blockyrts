@@ -99,6 +99,15 @@ export const Item = {
   WandMage: 83,
   WandMasterMage: 84,
   WandGrandMagician: 85,
+  // Milestone 7: the neutral peoples' gear (Table 11: Halfling shortbows, shortswords and bucklers, bought; Table 19: the Elves'
+  // glaive, bought; the rest carried by their fighters only).
+  Shortbow: 86,
+  Shortsword: 87,
+  Buckler: 88,
+  Glaive: 89,
+  ElfLongbow: 90,
+  DwarfWarAxe: 91,
+  DwarfWarHammer: 92,
 } as const;
 export type Item = (typeof Item)[keyof typeof Item];
 
@@ -156,6 +165,8 @@ export const Shot = {
   ArcaneBolt: 10,
   /** A battle mage's Fireball, lobbed (Table 13). */
   Fireball: 11,
+  /** An Elf Grovesinger's thorn (Thorn volley): flies like an arrow. */
+  Thorn: 12,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -561,6 +572,23 @@ export const ITEMS: readonly ItemSpec[] = [
   wand(Item.WandMage, "Mage's rank wand", 4, [[Res.ManaCrystal, 2]], 'wand_mage', 1),
   wand(Item.WandMasterMage, "Master Mage's rank wand", 5, [[Res.ManaCrystal, 5]], 'wand_master_mage', 2),
   wand(Item.WandGrandMagician, "Grand Magician's rank wand", 6, [[Res.ManaCrystal, 10]], 'wand_grand_magician', 3),
+  // Milestone 7: the peoples' gear, never made by the players (no recipe, no workshop). Table 11 gives the Halfling three their
+  // stats: the shortbow is the bow at 20 m, the shortsword bloom iron 16 / 1.1 s, the buckler blocks 10% at 4 lb. Table 19: the
+  // glaive is the steel halberd at 45. The rest are mine (s): the longest bow in the game (40 m, high-quality steel tips go
+  // on it), a Dwarf steel war axe (one-handed, beside a large shield) and a two-handed war hammer that breaks walls faster.
+  it({
+    id: Item.Shortbow, name: 'Halfling shortbow', slot: Slot.Ranged, tier: 2, weightTenthsLb: 20, recipes: [], makes: 1, steps: 0, research: 0, model: 'halfling_shortbow', madeAt: [], craftSlot: -1,
+    ranged: { damage: 10, attackSteps: ds(20), range: cm(2000), spreadBp: 600, shot: Shot.Arrow, blunt: false, skill: Skill.Archery, load: 24, munition: 'arrows' },
+  }),
+  melee(Item.Shortsword, 'Halfling shortsword', 5, 20, [], [], 0, 0, 'halfling_shortsword', -1, { ...sword(16, 110), attackSteps: ds(11) }),
+  it({ id: Item.Buckler, name: 'Halfling buckler', slot: Slot.Shield, tier: 2, weightTenthsLb: 40, recipes: [], makes: 1, steps: 0, research: 0, model: 'halfling_buckler', madeAt: [], craftSlot: -1, blockBp: 1000 }),
+  melee(Item.Glaive, 'Elf glaive', 8, 70, [], [], 0, 0, 'halberd', -1, halberd(45)),
+  it({
+    id: Item.ElfLongbow, name: 'Elf longbow', slot: Slot.Ranged, tier: 8, weightTenthsLb: 30, recipes: [], makes: 1, steps: 0, research: 0, model: 'bow', madeAt: [], craftSlot: -1,
+    ranged: { damage: 14, attackSteps: ds(20), range: cm(4000), spreadBp: 400, shot: Shot.Arrow, blunt: false, skill: Skill.Archery, load: 24, munition: 'arrows' },
+  }),
+  melee(Item.DwarfWarAxe, 'Dwarf war axe', 7, 40, [], [], 0, 0, 'axe_war', -1, { damage: 26, attackSteps: ds(13), reach: cm(120), min: 0, hit: Hit.Arc, blunt: false, oneHanded: true }),
+  melee(Item.DwarfWarHammer, 'Dwarf war hammer', 7, 90, [], [], 0, 0, 'mace', -1, { damage: 34, attackSteps: ds(18), reach: cm(160), min: 0, hit: Hit.Arc, blunt: true, oneHanded: false }),
 ];
 
 export const ITEM_COUNT = ITEMS.length;
@@ -605,9 +633,11 @@ export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; 
   // Milestone 6: the battle mages' projectiles (s): the orb flies straight at 20 m/s, the fireball is lobbed at 16 m/s.
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: false, name: 'arcane bolt', model: 'spell_bolt', vsWalls: 2 },
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'fireball', model: 'spell_fireball', vsWalls: 30 },
+  // Milestone 7: a Grovesinger's thorn flies as an arrow does (s).
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'thorn', model: 'spell_thorn_volley', vsWalls: 0 },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
 export function spellShot(shot: number): boolean {
-  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball;
+  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn;
 }

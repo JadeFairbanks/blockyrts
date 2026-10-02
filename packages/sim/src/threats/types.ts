@@ -113,5 +113,9 @@ export const Role = {
   Village: 4,
   /** A lair, hut, fire pit or totem: it stands and is broken. */
   Structure: 5,
+  /** One of a neutral people's units of faction `group` (peoples/): their fighters, villagers, beasts and caravan wagons. */
+  People: 6,
+  /** A mercenary of camp `group`, hired by its owner until dusk (peoples/). */
+  Mercenary: 7,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];

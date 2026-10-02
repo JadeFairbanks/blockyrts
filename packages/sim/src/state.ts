@@ -16,6 +16,7 @@ import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { World } from './world/world.ts';
 import { newThreats, type ThreatState } from './threats/types.ts';
+import { newPeoples, type PeoplesState } from './peoples/types.ts';
 
 /** Owner value for entities that belong to no player. */
 export const NEUTRAL = 255;
@@ -72,6 +73,8 @@ export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE
 export const MONSTERS = 254;
 /** The owner of wild animals (Animals): nobody's, fought only when they fight. */
 export const WILD = 253;
+/** The owner of the neutral peoples' units (Neutral villages and trade): their faction is the unit's group (peoples/). */
+export const PEOPLES = 252;
 
 /** Walking speed of a worker: 3 m/s, as wu per step (1,200). */
 export const WALK_SPEED_WU = floorDiv(3 * WU_PER_METRE, STEPS_PER_SECOND);
@@ -241,6 +244,10 @@ export const UNIT_FIELDS = [
   ['healFrom', 'u32'],
   /** A support mage's health healed in combat not yet worth a tenth of experience (1 XP per 25 healed). */
   ['healXp', 'u8'],
+  /** Milestone 7: an Elf Grovesinger's Barkskin on a unit until this step (Table 13: +25% armour). */
+  ['barkUntil', 'u32'],
+  /** A wild animal answering the Grovesinger's Call of the wild fights for her faction until this step, then goes wild again. */
+  ['calledUntil', 'u32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -367,6 +374,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare healLeft: Int32Array;
   declare healFrom: Uint32Array;
   declare healXp: Uint8Array;
+  declare barkUntil: Uint32Array;
+  declare calledUntil: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -489,12 +498,32 @@ export function newPlayer(pool: Int32Array): PlayerState {
 /** The per-player scalars after the pool and stock, in the order they are serialised. */
 export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
-/** Something the players should hear about: the message panel's alerts, built-and-trained notes, the idle gatherer cue. */
+/**
+ * Something the players should hear about: the message panel's alerts,
+ * built-and-trained notes, the idle gatherer cue, and what units say (Unit
+ * speech and the message panel).
+ */
 export interface SimEvent {
   /** Player it is for, or -1 for everyone. */
   player: number;
   kind: 'alert' | 'info' | 'idle' | 'period' | 'speech' | 'prospect';
   text: string;
+  /** Speech: the unit that said it (an entity id), and its name for the panel ("Halfling spearman", "Worker"). */
+  speaker?: number;
+  name?: string;
+  /** Speech: needs the player's attention (an order it cannot carry out, under attack): the minimap pings, the panel flashes. */
+  urgent?: boolean;
+  /**
+   * Speech by another people's unit: a bubble for whoever sees it. Their
+   * important speech (a greeting, a warning, war, a surrender offer) also
+   * goes in the message panel of each player with a unit near enough to
+   * hear it (bits by player in near), and of anyone who has it on screen.
+   */
+  foreign?: boolean;
+  important?: boolean;
+  near?: number;
+  /** A faction the speech or alert is about (an id), for the client's buttons (accept a surrender, open trade). */
+  faction?: number;
   /** A prospect's rating (mining.ts Rating), shown over the ground for a while. */
   rating?: number;
   /** Where it happened, wu (the Space key jumps there); absent for none. */
@@ -533,6 +562,8 @@ export interface SimState {
   blood: number[];
   /** Lairs, villages, tribes, the blood and fog nights (milestone 5). */
   threats: ThreatState;
+  /** The neutral peoples: villages, camps, the Elf kingdom and its caravans, Dwarf colonies and cities, mercenary camps (milestone 7). */
+  peoples: PeoplesState;
   /** Not state: what was hit or died this step, for the hit particles and death animations. */
   hits: HitEvent[];
   /** Not state: where units stand this step (rebuilt each step). */
@@ -565,8 +596,10 @@ export interface WorldOptions {
 /** Something flying (How ranged attacks hit). Its place at age k is the launch point plus k steps of its velocity, less gravity. */
 export interface Projectile {
   shot: number;
-  /** 0 the players' side, 1 the monsters'. */
+  /** combat.ts Side: 0 the players', 1 the monsters', 3 a neutral people's. */
   side: number;
+  /** A people's shot: the shooter's faction (its group), which decides whom it may hit; else 0. */
+  faction: number;
   /** Who shot it (an entity id) and their player, for experience and drops. */
   shooter: number;
   owner: number;
@@ -737,6 +770,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     peaceful: options.peaceful ? 1 : 0,
     blood: [],
     threats: newThreats(),
+    peoples: newPeoples(),
   });
   for (let p = 0; p < world.players; p++) {
     const pool = new Int32Array(RESOURCE_COUNT);
