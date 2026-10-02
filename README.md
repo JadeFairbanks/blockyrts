@@ -458,6 +458,14 @@ dawn.*
    WebKit too. `node packages/client/test-e2e/m5-look.mjs` (with the dev
    server on port 5198) takes screenshots of the debug threats in a browser.
 
+## How a tester checks the client gap fixes
+
+Client only: the sim and every hash above are unchanged. Run `pnpm dev` and open http://localhost:5173/?seed=1.
+
+1. **Edge panning beside the HUD.** Over the open game view the cursor pans in the outermost 4 px of the window, as before. Over a panel that touches the edge (the minimap and its button row at the bottom left, the command card at the bottom right, the selection panel at the bottom, the resource bar at the top right), slide the cursor along the panel: nothing pans. Push it into the outermost 2 px of the window and the camera pans that way; within 20 px of a corner it pans diagonally. Moving the cursor out of the window stops panning. Works the same in a window and in full screen (F11). Unit tests: `packages/client/test/edge-pan.test.ts`.
+2. **Trees and hazel bushes.** Tree crowns are about 20% smaller (they shrink from the top, so no trunk tip shows) and trunks about 20% thicker. Hazel sticks are about 10% shorter, and cut a little more where needed so every tip ends inside the leaves. Hit boxes and selection are unchanged. Unit tests: `packages/client/test/props-shape.test.ts` checks every stick tip and trunk tip lies inside a leaf cube.
+3. **Models load before the match starts.** Open the page with the browser cache cleared (DevTools, Network, Disable cache, and a throttled connection if you like). A short "Loading models..." card shows, then the match starts with workers and the warrior already drawn as models, never as blue blocks. Every other catalogue model loads in the background a few at a time; anything that comes into view before its model is in (a creature from the debug Creature button, a new building) jumps the queue and switches over as soon as it arrives. One broken model only leaves that one as a block. To try it with the full catalogue before PR #42 merges: `git archive origin/review/batch-2 packages/assets | tar -x -C /tmp/cat`, copy `packages/assets/base` into `/tmp/cat/packages/assets/`, then `pnpm --filter @blockyrts/tools models:build --assets /tmp/cat/packages/assets --out packages/client/public/models` and `pnpm --filter @blockyrts/client exec vite` (plain `pnpm dev` rebuilds the models from main first).
+
 ## How a tester checks the multiplayer server (milestone 9, server side)
 
 The game screens for hosting, joining and saving come with a later client

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { DebugThreat, hashHex, LAIRS, Mat, mobSpec, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import { GameInfo } from './game/game-info.ts';
 import { GameShell } from './hud/shell.ts';
+import { openModelLibrary, type ModelLibrary } from './models/index.ts';
 import { S, STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
 import { loadSettings } from './settings/settings.ts';
 import { chooseStart } from './start/start-screen.ts';
@@ -18,9 +19,24 @@ import { WorldView } from './world/world-view.ts';
 /** The local player. */
 const PLAYER = 0;
 
+/**
+ * Models on screen when a match starts: the three bodies, the level 1 main
+ * base and the hand torch. The match waits for these (at most
+ * START_MODELS_WAIT_MS), so nothing swaps from a block to its model in view;
+ * everything else loads behind them, and whatever comes into view first jumps
+ * the queue.
+ */
+const START_MODELS = ['worker', 'warrior', 'mage', 'main_base_l1', 'torch_hand'];
+const START_MODELS_WAIT_MS = 20000;
+
 async function main(): Promise<void> {
   const app = document.getElementById('app')!;
   const settings = loadSettings();
+  // Models start loading while the player is on the start screen.
+  const library: Promise<ModelLibrary | null> = openModelLibrary(`${import.meta.env.BASE_URL}models/`, START_MODELS).catch((err: unknown) => {
+    console.warn('model library not loaded; drawing blocks', err);
+    return null;
+  });
   const { seed, players } = await chooseStart(app);
   // A refresh (or a shared link) starts the same world again.
   history.replaceState(null, '', `${location.pathname}?seed=${seed}&players=${players}`);
@@ -134,6 +150,16 @@ async function main(): Promise<void> {
       shell.message('Select your workers and right-click trees and rocks to gather; press B to build.');
     }
   };
+  const lib = await library;
+  if (lib) {
+    world.setModels(lib);
+    const loading = document.createElement('div');
+    loading.className = 'overlay start-overlay';
+    loading.innerHTML = '<div class="dialog loading">Loading models\u2026</div>';
+    app.appendChild(loading);
+    await Promise.race([lib.ready(START_MODELS), new Promise((resolve) => setTimeout(resolve, START_MODELS_WAIT_MS))]);
+    loading.remove();
+  }
   send({ type: 'start', seed, players });
   shell.start();
   // For browser checks in development (test-e2e): the shell and the world are reachable from the console.

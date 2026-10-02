@@ -33,7 +33,7 @@ import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
 import { S, STATE_STRIDE, UnitFlag } from '../messages.ts';
-import { loadModelLibrary, type ModelLibrary } from '../models/index.ts';
+import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
@@ -203,7 +203,6 @@ export class WorldView {
     this.unitsView = new UnitsView(scene);
     this.buildings = new BuildingsView(scene, this.fow, PLAYER_COLOURS);
     this.overlay = new Overlay(scene);
-    void this.loadModels();
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -220,15 +219,11 @@ export class WorldView {
     };
   }
 
-  private async loadModels(): Promise<void> {
-    try {
-      const lib = await loadModelLibrary(`${import.meta.env.BASE_URL}models/`);
-      this.models = lib;
-      this.unitsView.setModels(lib);
-      this.buildings.setModels(lib);
-    } catch (err) {
-      console.warn('unit models not loaded; drawing blocks', err);
-    }
+  /** The model library (opened by main.ts before the match starts); models swap in as they load. */
+  setModels(lib: ModelLibrary): void {
+    this.models = lib;
+    this.unitsView.setModels(lib);
+    this.buildings.setModels(lib);
   }
 
   // ---- From the sim worker ----
