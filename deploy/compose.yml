@@ -1,0 +1,58 @@
+# The test server's containers. The Deploy workflow ships this file to the
+# Droplet inside the bundle image; the Droplet's update timer applies it.
+# Values in ${...} come from /opt/blockyrts/.env (written once by the setup
+# workflow) and /mnt/blockyrts-data/secrets.env (made on first boot).
+name: blockyrts
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blockyrts
+      POSTGRES_DB: blockyrts
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?}
+    volumes:
+      # On the DigitalOcean volume, so it survives a replaced Droplet.
+      - /mnt/blockyrts-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockyrts -d blockyrts"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  server:
+    image: ${REGISTRY:?}:server-live
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # The names packages/server reads; see deploy/README.md.
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DATABASE_URL: postgres://blockyrts:${DB_PASSWORD:?}@db:5432/blockyrts
+      SAVE_STORE: s3
+      S3_ENDPOINT: ${S3_ENDPOINT:?}
+      S3_BUCKET: ${S3_BUCKET:?}
+      S3_REGION: auto
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+      # Empty means password-reset email is off.
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:?}
+      PUBLIC_URL: https://play.${DOMAIN:?}
+      ALLOWED_ORIGINS: https://play.${DOMAIN:?}
+      SESSION_SECRET: ${SESSION_SECRET:?}
+      TRUSTED_PROXY: cloudflare
+
+  # Outbound-only link to Cloudflare: api.<domain> reaches the server through
+  # it, so the Droplet's firewall opens no inbound ports at all.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?}
+    depends_on:
+      - server
