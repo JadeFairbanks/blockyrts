@@ -113,7 +113,7 @@ describe('the model converter on the base bodies', () => {
     const s = results.get('worker')?.sidecar;
     expect(s?.bounds.min[1]).toBeCloseTo(0, 6);
     expect(s?.bounds.max[1]).toBeCloseTo(60 * 0.028125, 6);
-    expect(s?.parts).toEqual(['hardwood_axe', 'hoe', 'fishing_rod']);
+    expect(s?.parts).toEqual(['hardwood_axe', 'hoe', 'fishing_rod', 'iron_pick', 'spade', 'hammer']);
     expect(s?.clips.find((c) => c.name === 'walk')).toMatchObject({ length: 1, loop: true, keys: [] });
     expect(s?.clips.find((c) => c.name === 'death')).toMatchObject({ loop: false, mode: 'hold' });
   });
