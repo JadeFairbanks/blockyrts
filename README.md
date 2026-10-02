@@ -44,6 +44,22 @@ CI installs all three and fails if any is missing.
 | `packages/server` | API, lockstep relay and save store (stub until M9) |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
+## The number tables
+
+`packages/sim/src/data/number-tables.ts` holds the blueprint's tables 1 to 19
+(Table 2 as 2a to 2f) as data: every cell's text and whether it is a
+suggested value, marked (s), that the balance pass may retune. It is generated
+from `docs/blueprint.md`, which is itself generated from the canonical .docx:
+
+```sh
+python3 packages/tools/scripts/extract-blueprint.py <path to adventure-blueprint-controls.docx> docs/blueprint.md
+pnpm --filter @blockyrts/tools gen:tables
+```
+
+A test fails if the committed tables are out of date with `docs/blueprint.md`.
+The rules every table uses (armour cap, shields, fire, experience, ranks,
+nutrition and trade value) are integer functions in `packages/sim/src/rules.ts`.
+
 ## The headless runner
 
 ```sh

@@ -11,7 +11,8 @@
     "map-viewer": "tsx src/map-viewer.ts",
     "gen:trig": "tsx scripts/gen-trig-table.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "assets:manifest": "tsx src/assets-manifest.ts"
+    "assets:manifest": "tsx src/assets-manifest.ts",
+    "gen:tables": "tsx scripts/gen-number-tables.ts"
   },
   "dependencies": {
     "@blockyrts/sim": "workspace:*"
