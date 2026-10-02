@@ -10,16 +10,17 @@ import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { OrderKind, rampSite, SiteKind, UnitKind, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
-import { Tool } from '../world/props.ts';
+import { Tool, ToolJob } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
 import { Act, columnCentre, resetWalk, walkTo } from './behaviour.ts';
+import { toolTier } from './tools.ts';
 import type { UnitOrder } from './unit-orders.ts';
 
-/** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by tool tier (Tool order) and dig class. */
+/** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by the tier of the worker's digging tool (Tool order) and dig class; no flint tool digs. */
 const RATES: Record<number, readonly number[]> = {
-  [DigClass.Soil]: [0, 500, 520, 550, 600, 700, 750, 800, 900, 1000, 1100],
-  [DigClass.Loose]: [0, 400, 420, 450, 500, 550, 600, 650, 700, 800, 900],
-  [DigClass.Rock]: [0, 0, 3, 5, 10, 30, 50, 65, 90, 117, 130],
+  [DigClass.Soil]: [0, 500, 580, 0, 600, 700, 750, 800, 900, 1000, 1100],
+  [DigClass.Loose]: [0, 400, 460, 0, 500, 550, 600, 650, 700, 800, 900],
+  [DigClass.Rock]: [0, 0, 5, 0, 10, 30, 50, 65, 90, 117, 130],
 };
 /** One bite: a column 11.25 cm deep, 0.0228 m3, as millionths of a cubic metre (Table 10 (s)). */
 const BITE_MICRO_M3 = 22781;
@@ -225,9 +226,10 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
         e.act[i] = Act.Start;
         return false;
       }
-      const rate = digRate(e.tool[i]!, bite.mat);
+      const rate = digRate(toolTier(e, i, ToolJob.Break), bite.mat);
       if (rate === 0) {
-        state.events.push({ player: s.owner, kind: 'alert', text: `These tools cannot dig ${MATERIALS[bite.mat]!.name}.`, x: tx, z: tz });
+        const what = bite.mat === Mat.Marble ? 'Marble needs a bronze pickaxe or better.' : MATERIALS[bite.mat]!.dig === DigClass.Rock ? 'Rock needs a stone maul or better.' : 'Digging needs a digging stick, a stone maul or a pickaxe.';
+        state.events.push({ player: s.owner, kind: 'alert', text: `These tools cannot dig ${MATERIALS[bite.mat]!.name}. ${what}`, x: tx, z: tz });
         return true;
       }
       e.waitUntil[i] = biteSteps(rate, 750 + state.rng.ai.nextInt(501));

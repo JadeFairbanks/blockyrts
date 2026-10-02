@@ -45,6 +45,7 @@ export * from './combat/mob-ai.ts';
 export * from './combat/spawn.ts';
 export * from './combat/deaths.ts';
 export * from './units/gear.ts';
+export * from './units/tools.ts';
 export * from './units/dig.ts';
 export * from './units/weight.ts';
 export * from './animals/species.ts';

@@ -24,14 +24,13 @@ import {
   REFURBISH_PRODUCT,
   RESEARCH,
   RESEARCH_PRODUCT,
-  Research,
   RESOURCES,
   SiteKind,
   SITE_MAX_COLUMNS,
   Slot,
   SLOT_NAMES,
   speciesSpec,
-  toolItem,
+  ALL_JOBS,
   UnitKind,
   WU_PER_COLUMN,
   WU_PER_METRE,
@@ -378,7 +377,7 @@ export class Commands {
       card[8] = this.entry(
         'dig',
         'Dig',
-        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Pressing on the side of a cliff or hillside digs a tunnel into it instead, from the ground in front: drag along the face for its width, and + and - set how far in it goes. Digging gives Earth, stone or what the ground is made of.',
+        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Pressing on the side of a cliff or hillside digs a tunnel into it instead, from the ground in front: drag along the face for its width, and + and - set how far in it goes. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
         () => this.startArea('dig', 0),
       );
       card[9] = this.entry(
@@ -474,7 +473,6 @@ export class Commands {
     const desc = `Send them to a Barracks to learn the bow, one at a time: ${ARCHERY.food} food and ${ARCHERY.steps / 20} s each. Slings and javelins need no training.`;
     const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & 1) === 0);
     if (untrained.length === 0) return this.off('archery', 'Archery', desc, 'They are already trained in archery.', name);
-    if (!this.d.game.researched(Research.FlintTools)) return this.off('archery', 'Archery', desc, "Needs Flint tools researched first (Scholar's Lodge).", name);
     const barracks = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === BuildingKind.Barracks && b.complete);
     if (!barracks) return this.off('archery', 'Archery', desc, 'Needs a Barracks.', name);
     if (this.d.game.food() < ARCHERY.food) return this.off('archery', 'Archery', desc, `Not enough food (needs ${ARCHERY.food}).`, name);
@@ -736,7 +734,8 @@ export class Commands {
         const munition = u.ranged ? itemSpec(u.ranged).ranged?.munition : undefined;
         const quiver = munition === 'arrows' || munition === 'bolts';
         const shots = munition === 'bolts' ? 'bolts' : 'arrows';
-        const now = slot === Slot.Ammo ? (quiver ? `${u.ammo} ${shots} (${u.ammoItem ? itemSpec(u.ammoItem).name.toLowerCase() : 'none'})` : 'no quiver or bolt case') : worn ? itemSpec(worn).name : 'nothing';
+        const now =
+          slot === Slot.Ammo ? (quiver ? `${u.ammo} ${shots} (${u.ammoItem ? itemSpec(u.ammoItem).name.toLowerCase() : 'none'})` : 'no quiver or bolt case') : slot === Slot.Tool ? toolsText(u) : worn ? itemSpec(worn).name : 'nothing';
         card[k] = {
           action: `slot-${slot}`,
           face: slot === Slot.Ammo ? `${munition === 'bolts' ? 'Bolts' : 'Arrows'} ${quiver ? u.ammo : '-'}` : worn ? shortName(itemSpec(worn)) : `(${SLOT_NAMES[slot]})`,
@@ -760,13 +759,14 @@ export class Commands {
     const slot = this.menu.sub as Slot;
     const worn = wornItem(u, slot);
     if (worn && slot !== Slot.Ammo && slot !== Slot.Torch) {
+      const tools = slot === Slot.Tool;
       card[0] = {
         action: 'unequip',
         face: 'Take off',
-        name: `Take off the ${itemSpec(worn).name.toLowerCase()}`,
+        name: tools ? 'Take off the tools' : `Take off the ${itemSpec(worn).name.toLowerCase()}`,
         key: GRID_CODES[0],
         grid: true,
-        description: 'The unit hands it in at the main base, and Equip Best leaves the slot empty after this.',
+        description: tools ? `The unit hands in all its tools (${toolsText(u)}) at the main base, and Equip Best leaves them off after this.` : 'The unit hands it in at the main base, and Equip Best leaves the slot empty after this.',
         enabled: true,
         reason: '',
         run: () => this.handPick(u, slot, 0),
@@ -784,7 +784,7 @@ export class Commands {
         name: it.name,
         key: GRID_CODES[at]!,
         grid: true,
-        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${untrained ? ` This unit cannot shoot it until it is trained${it.ranged?.munition === 'bolts' ? ' with the crossbow' : ' in archery'}.` : ''} The unit walks to the main base to collect it.`,
+        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${it.jobs ? ` ${toolJobsText(it)}` : ''}${untrained ? ` This unit cannot shoot it until it is trained${it.ranged?.munition === 'bolts' ? ' with the crossbow' : ' in archery'}.` : ''} The unit walks to the main base to collect it.`,
         enabled: true,
         reason: '',
         run: () => this.handPick(u, slot, it.id),
@@ -1536,8 +1536,9 @@ export function shortFace(name: string): string {
 export function shortName(it: ItemSpec): string {
   const faces: Record<number, string> = {
     [Item.ToolsHardwood]: 'Tools H',
-    [Item.ToolsStone]: 'Tools S',
-    [Item.ToolsFlint]: 'Tools F',
+    [Item.MaulStone]: 'Maul S',
+    [Item.HammerStone]: 'Hammer S',
+    [Item.ToolsFlint]: 'Axe/knife F',
     [Item.Club]: 'Club',
     [Item.SpearHardwood]: 'Spear H',
     [Item.AxeFlint]: 'Axe F',
@@ -1566,7 +1567,7 @@ export function fitsSlot(it: ItemSpec, slot: Slot): boolean {
 export function wornItem(u: UnitInfo, slot: Slot): number {
   switch (slot) {
     case Slot.Tool:
-      return toolItem(u.tool);
+      return u.tools.find((t) => t !== 0) ?? Item.None;
     case Slot.Weapon:
       return u.weapon;
     case Slot.Backup:
@@ -1592,10 +1593,32 @@ export function wornItem(u: UnitInfo, slot: Slot): number {
   }
 }
 
+/** The distinct tool items a worker holds, in job order. */
+export function toolItems(u: UnitInfo): number[] {
+  return u.tools.filter((t, k) => t !== 0 && u.tools.indexOf(t) === k);
+}
+
+/** A worker's tools in words: "flint axe and knife, stone maul, stone hammer", or "no tools". */
+export function toolsText(u: UnitInfo): string {
+  const names = toolItems(u).map((t) => itemSpec(t).name.toLowerCase());
+  return names.length ? names.join(', ') : 'no tools';
+}
+
+const JOB_WORDS = ['chopping', 'quarrying, digging and mining', 'building and repair', 'cutting plants and butchering'];
+
+/** What a tool is for (Table 2c, tools by job). */
+export function toolJobsText(it: ItemSpec): string {
+  const jobs = it.jobs ?? 0;
+  if (jobs === ALL_JOBS) return 'A full set: every job.';
+  const words = JOB_WORDS.filter((_, j) => (jobs & (1 << j)) !== 0);
+  return `For ${words.join(', and ')}.`;
+}
+
 /** Pounds of gear a unit carries (Table 12 weights; arrows a tenth of a pound each). */
 export function carriedLb(u: UnitInfo): number {
   let tenths = 0;
-  for (const slot of [Slot.Tool, Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case, Slot.Kit] as const) {
+  for (const it of toolItems(u)) tenths += itemSpec(it).weightTenthsLb;
+  for (const slot of [Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case, Slot.Kit] as const) {
     const it = wornItem(u, slot);
     if (it) tenths += itemSpec(it).weightTenthsLb;
   }

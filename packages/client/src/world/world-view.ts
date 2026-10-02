@@ -8,6 +8,7 @@ import {
   clockAt,
   COLUMNS_PER_CHUNK,
   ITEMS,
+  itemSpec,
   Lock,
   MONSTERS,
   mobSpec,
@@ -18,7 +19,10 @@ import {
   RESOURCES,
   unitOrderText,
   propInfo,
+  propJob,
   PropShape,
+  Tool,
+  toolNeeded,
   SIGHT_WU,
   UnitKind,
   WORLD_EDGE_WU,
@@ -65,7 +69,6 @@ export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0,
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
 const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
-const TOOL_NAMES = ['no', 'hardwood', 'stone', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal'];
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
@@ -261,7 +264,8 @@ export class WorldView {
       if (kind === UnitKind.Worker) {
         const rank = d[o + S.rank]!;
         u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
-        const details = [health, `${capital(TOOL_NAMES[d[o + S.tool]!] ?? '')} tools.`];
+        const tools = [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!].filter((t, k, all) => t !== 0 && all.indexOf(t) === k);
+        const details = [health, tools.length ? `${capital(tools.map((t) => itemSpec(t).name.toLowerCase()).join(', '))}.` : 'No tools.'];
         const carry = d[o + S.carryRes]!;
         if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
         if (d[o + S.torch] === 1) details.push('Carrying a lit torch.');
@@ -529,7 +533,7 @@ export class WorldView {
     const details: string[] = [];
     if (info.resource) {
       details.push(`Gatherers: ${info.gatherers} at a time; ${info.perLoad} per load.`);
-      details.push(`Tool needed: ${TOOL_NAMES[info.tool] === 'no' ? 'none' : TOOL_NAMES[info.tool]}.`);
+      details.push(`Tool needed: ${info.tool === Tool.None ? 'none' : `a ${toolNeeded(propJob(p.kind), info.tool)} or better`}.`);
     }
     if (stage) details.push(`Growing: ${stage}.`);
     return {

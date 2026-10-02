@@ -19,7 +19,7 @@ import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
-import { isFish, isTree, propInfo, PropKind, PropShape, type Tool } from '../world/props.ts';
+import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
@@ -28,6 +28,7 @@ import { fightStep, garrisonRoom, rangedOf } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
 import { refundEquip, runEquip, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
+import { toolNeeded, toolTier } from './tools.ts';
 import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './field.ts';
 import { Item, itemSpec } from '../combat/items.ts';
 
@@ -60,7 +61,7 @@ export const FLEE_M = 10;
 export function builderLimit(kind: number): number {
   return kind === BuildingKind.MainBase ? 8 : 4;
 }
-/** Gather speed by tool tier, per mille (Table 2c). */
+/** Gather, dig and build speed by tool tier, per mille (Table 2c): a job goes at the pace of the worker's tool for it. */
 export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1150, 1250, 1500, 1750, 2000, 2250, 2500, 3000, 3500];
 /** Worker health by rank (Table 1). */
 export const WORKER_HEALTH_BY_RANK: readonly number[] = [60, 60, 70, 80, 90, 100];
@@ -237,11 +238,18 @@ export function nodeResource(kind: number): number {
   return resourceByName(propInfo(kind).resource);
 }
 
-/** Whether a node can be gathered now with a tool tier: grown, not empty, and the tool is good enough. */
-function gatherable(view: PropView | undefined, tool: number): view is PropView {
+/** Whether a worker can gather a node now: grown, not empty, and its tool for the node's job is good enough. */
+function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
   if (!view || view.amount <= 0 || view.stage !== 2) return false;
   const info = propInfo(view.kind);
-  return nodeResource(view.kind) >= 0 && tool >= info.tool;
+  return nodeResource(view.kind) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
+}
+
+/** A worker's pace at a node, per mille: its tool for the job, x1.0 for a stone maul on soft ore (Table 2c). */
+function gatherPace(state: SimState, i: number, kind: number): number {
+  const tier = toolTier(state.entities, i, propJob(kind));
+  if (tier === Tool.Stone && isSoftOre(kind)) return 1000;
+  return TOOL_SPEED_PER_MILLE[tier] ?? 1000;
 }
 
 /** Units working a node right now, not counting `except`. */
@@ -262,14 +270,13 @@ function workersOnNode(state: SimState, cx: number, cz: number, index: number, e
  * lowest chunk and index. Null when there is none.
  */
 export function findNode(state: SimState, i: number, res: number, x: number, z: number, radius: number, skip?: { cx: number; cz: number; i: number }): { cx: number; cz: number; i: number } | null {
-  const tool = state.entities.tool[i]!;
   let best: { cx: number; cz: number; i: number } | null = null;
   let bestD = 0;
   for (let cz = (z - radius) >> CHUNK_SHIFT; cz <= (z + radius) >> CHUNK_SHIFT; cz++) {
     for (let cx = (x - radius) >> CHUNK_SHIFT; cx <= (x + radius) >> CHUNK_SHIFT; cx++) {
       for (const p of state.world.props(cx, cz, state.step)) {
         if (skip && skip.cx === cx && skip.cz === cz && skip.i === p.index) continue;
-        if (nodeResource(p.kind) !== res || !gatherable(p, tool)) continue;
+        if (nodeResource(p.kind) !== res || !gatherable(state, i, p)) continue;
         const gx = (cx << CHUNK_SHIFT) + p.lx;
         const gz = (cz << CHUNK_SHIFT) + p.lz;
         const d = (gx - x) * (gx - x) + (gz - z) * (gz - z);
@@ -572,10 +579,11 @@ function idleAlert(state: SimState, i: number, res: number): void {
 function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gather' }>): boolean {
   const e = state.entities;
   let view = nodeView(state, o.cx, o.cz, o.i);
-  const tool = e.tool[i]!;
   if (e.act[i] === Act.Start) {
-    if (view && nodeResource(view.kind) >= 0 && view.stage === 2 && tool < propInfo(view.kind).tool) {
-      alert(state, e.owner[i]!, `${propInfo(view.kind).name}: needs better tools than these.`, e.x[i]!, e.z[i]!);
+    const kind = view?.kind ?? -1;
+    if (view && nodeResource(kind) >= 0 && view.stage === 2 && view.amount > 0 && !gatherable(state, i, view)) {
+      const info = propInfo(kind);
+      alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!);
       return DONE;
     }
     // Fishing from the shore needs a fishing rod or net in the worker's kit (Table 2c) (s).
@@ -611,7 +619,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   const lastCol = (): [number, number] => (view ? nodeColumn(o, view) : [(o.cx << CHUNK_SHIFT) + 32, (o.cz << CHUNK_SHIFT) + 32]);
   switch (e.act[i]) {
     case Act.Walk: {
-      if (!gatherable(view, tool)) return runOut(lastRes, lastCol());
+      if (!gatherable(state, i, view)) return runOut(lastRes, lastCol());
       const res = nodeResource(view.kind);
       if (e.carryAmt[i]! > 0 && (e.carryRes[i] !== res || e.carryAmt[i]! >= carryCapacity(state, i, res))) {
         e.act[i] = Act.ToDrop;
@@ -658,14 +666,14 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       }
       return CONTINUE;
     case Act.Work: {
-      if (!gatherable(view, tool)) return runOut(lastRes, lastCol());
+      if (!gatherable(state, i, view)) return runOut(lastRes, lastCol());
       const info = propInfo(view.kind);
       const res = nodeResource(view.kind);
       const [nx, nz] = nodeColumn(o, view);
       e.heading[i] = headingTowards(columnCentre(nx) - e.x[i]!, columnCentre(nz) - e.z[i]!);
       e.order[i] = info.shape === PropShape.Tree || info.shape === PropShape.Bush ? OrderKind.Chop : info.shape === PropShape.Plant ? OrderKind.Farm : OrderKind.Mine;
       // A net fishes in 10 s what a rod takes 15 s for (Table 2c); other nodes go at the tool's pace.
-      const pace = isFish(view.kind) ? (e.kit[i] === Item.FishingNet ? 1500 : 1000) : (TOOL_SPEED_PER_MILLE[tool as Tool] ?? 1000);
+      const pace = isFish(view.kind) ? (e.kit[i] === Item.FishingNet ? 1500 : 1000) : gatherPace(state, i, view.kind);
       e.timer[i] = e.timer[i]! + pace;
       if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
       e.timer[i] = 0;
@@ -705,7 +713,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       if (r === MOVING) return CONTINUE;
       if (r === FAILED) return DONE;
       view = nodeView(state, o.cx, o.cz, o.i);
-      if (!gatherable(view, tool)) return runOut(lastRes, lastCol());
+      if (!gatherable(state, i, view)) return runOut(lastRes, lastCol());
       e.act[i] = Act.Walk;
       resetWalk(state, i);
       return CONTINUE;
@@ -840,6 +848,7 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
       return DONE;
     }
     e.act[i] = Act.Work;
+    e.timer[i] = 0;
   }
   if (e.act[i] === Act.Wait) {
     if (state.step < e.waitUntil[i]!) return CONTINUE;
@@ -853,7 +862,12 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
   const [bx, bz] = buildingCentre(b);
   e.heading[i] = headingTowards(bx - e.x[i]!, bz - e.z[i]!);
   e.order[i] = OrderKind.Chop;
-  workOn(state, b);
+  // Work goes at the pace of the worker's mallet or hammer (Table 2c: a stone hammer x1.15), a step of work per 1000.
+  e.timer[i] = e.timer[i]! + (TOOL_SPEED_PER_MILLE[toolTier(e, i, ToolJob.Build)] ?? 1000);
+  while (e.timer[i]! >= 1000 && needsWork(b)) {
+    e.timer[i] = e.timer[i]! - 1000;
+    workOn(state, b);
+  }
   return needsWork(b) ? CONTINUE : DONE;
 }
 

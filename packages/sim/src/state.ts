@@ -14,7 +14,6 @@ import { createStreams, hash32, type Streams } from './rng.ts';
 import { Item, ITEM_COUNT } from './combat/items.ts';
 import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
-import { Tool } from './world/props.ts';
 import { World } from './world/world.ts';
 import { newThreats, type ThreatState } from './threats/types.ts';
 
@@ -103,8 +102,15 @@ export const UNIT_FIELDS = [
   ['maxHp', 'i32'],
   /** Rank 1 to 5 (Table 1). */
   ['rank', 'u8'],
-  /** Tool tier (props.ts Tool); every worker starts with hardwood tools. */
-  ['tool', 'u8'],
+  /**
+   * The tool item held for each job (props.ts ToolJob: chop, break, build,
+   * cut), or 0; one set item can fill several. Every worker starts with the
+   * hardwood set in all four.
+   */
+  ['toolChop', 'u8'],
+  ['toolBreak', 'u8'],
+  ['toolBuild', 'u8'],
+  ['toolCut', 'u8'],
   /** What it carries (a resource id) and how much; carryRes 255 when empty. */
   ['carryRes', 'u8'],
   ['carryAmt', 'u16'],
@@ -244,7 +250,10 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hp: Int32Array;
   declare maxHp: Int32Array;
   declare rank: Uint8Array;
-  declare tool: Uint8Array;
+  declare toolChop: Uint8Array;
+  declare toolBreak: Uint8Array;
+  declare toolBuild: Uint8Array;
+  declare toolCut: Uint8Array;
   declare carryRes: Uint8Array;
   declare carryAmt: Uint16Array;
   declare inside: Uint32Array;
@@ -356,7 +365,12 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hp[i] = WORKER_HEALTH;
     this.maxHp[i] = WORKER_HEALTH;
     this.rank[i] = 1;
-    this.tool[i] = kind === UnitKind.Worker ? Tool.Hardwood : Tool.None;
+    if (kind === UnitKind.Worker) {
+      this.toolChop[i] = Item.ToolsHardwood;
+      this.toolBreak[i] = Item.ToolsHardwood;
+      this.toolBuild[i] = Item.ToolsHardwood;
+      this.toolCut[i] = Item.ToolsHardwood;
+    }
     this.carryRes[i] = NO_CARRY;
     this.nodeI[i] = -1;
     this.pathOk[i] = 1;

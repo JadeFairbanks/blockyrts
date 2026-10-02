@@ -94,7 +94,7 @@ function threatsJson(t: ThreatState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 8;
+export const SNAPSHOT_VERSION = 9;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);

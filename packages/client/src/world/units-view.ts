@@ -5,7 +5,7 @@
 // clips, arrows, stones and webs in flight, and the little bursts of blood,
 // bone, slime, splinters and dust when something is hit.
 import * as THREE from 'three';
-import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -598,6 +598,9 @@ function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean)
   return clip;
 }
 
+/** Tools with a model of their own, attached to the right hand. */
+const TOOL_MODELS: Record<number, string> = { [Item.MaulStone]: 'maul_stone', [Item.HammerStone]: 'hammer_stone', [Item.ToolsFlint]: 'axe_flint' };
+
 /** A worker's tool in hand while it works, a torch in the other, its clip. */
 function workerLook(d: Int32Array, o: number): Look {
   const order = d[o + S.order]!;
@@ -605,14 +608,13 @@ function workerLook(d: Int32Array, o: number): Look {
   const parts: string[] = [];
   const attach: Array<[string, string]> = [];
   const working = order === OrderKind.Chop || order === OrderKind.Mine || order === OrderKind.Attack || order === OrderKind.Shoot;
-  const tool = d[o + S.tool]!;
-  if (order === OrderKind.Farm || order === OrderKind.Dig) parts.push('hoe');
-  else if (working) {
-    if (tool === Tool.Hardwood) parts.push('hardwood_axe');
-    else if (tool === Tool.Stone) attach.push(['axe_stone', 'slot_hand_r']);
-    else if (tool === Tool.Flint) attach.push(['axe_flint', 'slot_hand_r']);
-    else if (tool > Tool.Flint) parts.push('hardwood_axe');
-  }
+  // The tool for the job in hand (Table 2c): the stone maul and hammer and the flint axe have their own models; the
+  // hardwood set and the metal sets show the body's hoe for digging and farming and its hardwood axe otherwise.
+  const tool = d[o + S.toolHand]!;
+  const own = TOOL_MODELS[tool];
+  if (own && (working || order === OrderKind.Dig)) attach.push([own, 'slot_hand_r']);
+  else if (order === OrderKind.Farm || order === OrderKind.Dig) parts.push('hoe');
+  else if (working && tool) parts.push('hardwood_axe');
   if (d[o + S.torch] === 1) attach.push(['torch_hand', 'slot_hand_l']);
   let clip = WORKER_CLIPS[order] ?? (order !== OrderKind.Idle ? 'walk' : 'idle');
   if (flags & UnitFlag.Hurt && d[o + S.swing] === 0) clip = 'injured';

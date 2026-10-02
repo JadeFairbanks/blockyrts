@@ -1,6 +1,7 @@
-// The fixes between milestones 5 and 6: stone tools at the Big House and
-// stone outcrops (Table 2c, Table 5), digging into a cliff face (Digging and
-// building up the land), and hopping up 3 to 4 unit rises (Moving over the land).
+// The fixes between milestones 5 and 6: the early tools by job at the Big
+// House, none researched (Table 2c, Table 5: the stone maul, the stone hammer,
+// the flint axe and knife), digging into a cliff face (Digging and building up
+// the land), and hopping up 3 to 4 unit rises (Moving over the land).
 import { describe, expect, it } from 'vitest';
 import {
   BIG_WALKER,
@@ -18,8 +19,18 @@ import {
   propInfo,
   Res,
   step,
+  heldTools,
+  ITEMS,
+  propJob,
+  RESEARCH,
+  Research,
   Tool,
-  toolItem,
+  ToolJob,
+  toolMelee,
+  toolNeeded,
+  toolTierFor,
+  workerMelee,
+  ALL_JOBS,
   WU_PER_COLUMN,
   WU_PER_TERRAIN_UNIT,
   type Building,
@@ -80,71 +91,143 @@ function nearestProp(s: SimState, kind: number): { cx: number; cz: number; index
   return best;
 }
 
-describe('stone tools', () => {
-  it('sit between hardwood and flint in Table 2c', () => {
+describe('early tools by job', () => {
+  it('make stone the blunt tier and flint the edge tier, with no research (Table 2c)', () => {
     expect(Tool.Hardwood < Tool.Stone && Tool.Stone < Tool.Flint).toBe(true);
-    const stone = itemSpec(Item.ToolsStone);
-    expect(toolItem(Tool.Stone)).toBe(Item.ToolsStone);
-    expect(stone.tool).toBe(Tool.Stone);
-    expect(stone.research).toBe(0);
-    expect(stone.recipes).toEqual([[[Res.Sticks, 2], [Res.Stone, 2]]]);
-    expect(stone.steps).toBe(200);
-    expect(stone.weightTenthsLb).toBe(35);
-    expect(stone.model).toBe('axe_stone');
-    expect(itemSpec(Item.ToolsHardwood).tier).toBeLessThan(stone.tier);
-    expect(stone.tier).toBeLessThan(itemSpec(Item.ToolsFlint).tier);
-    // Table 2c recipes for the Big House's other two sets.
-    expect(itemSpec(Item.ToolsHardwood).recipes).toEqual([[[Res.Sticks, 3]]]);
-    expect(itemSpec(Item.ToolsFlint).recipes).toEqual([[[Res.Sticks, 2], [Res.Flint, 1]]]);
+    const maul = itemSpec(Item.MaulStone);
+    expect(maul.name).toBe('Stone maul');
+    expect(maul.tool).toBe(Tool.Stone);
+    expect(maul.jobs).toBe(1 << ToolJob.Break);
+    expect(maul.recipes).toEqual([[[Res.Sticks, 2], [Res.Stone, 3]]]);
+    expect(maul.steps).toBe(200);
+    expect(maul.weightTenthsLb).toBe(40);
+    expect(maul.model).toBe('maul_stone');
+    // Damage 4, and slow.
+    expect(toolMelee(Item.MaulStone).damage).toBe(4);
+    expect(toolMelee(Item.MaulStone).attackSteps).toBeGreaterThan(toolMelee(Item.ToolsHardwood).attackSteps);
+    const hammer = itemSpec(Item.HammerStone);
+    expect(hammer.name).toBe('Stone hammer');
+    expect(hammer.jobs).toBe(1 << ToolJob.Build);
+    expect(hammer.recipes).toEqual([[[Res.Sticks, 2], [Res.Stone, 2]]]);
+    expect(hammer.weightTenthsLb).toBe(30);
+    expect(hammer.model).toBe('hammer_stone');
+    const flint = itemSpec(Item.ToolsFlint);
+    expect(flint.name).toBe('Flint axe and knife');
+    expect(flint.jobs).toBe((1 << ToolJob.Chop) | (1 << ToolJob.Cut));
+    expect(flint.recipes).toEqual([[[Res.Sticks, 2], [Res.Flint, 1]]]);
+    expect(toolMelee(Item.ToolsFlint).damage).toBe(5);
+    expect(itemSpec(Item.ToolsHardwood).jobs).toBe(ALL_JOBS);
+    expect(itemSpec(Item.ToolsCopper).jobs).toBe(ALL_JOBS);
+    // No flint pick, no flint mallet, no stone axe: the jobs do not overlap.
+    expect(toolTierFor(Item.ToolsFlint, ToolJob.Break)).toBe(Tool.None);
+    expect(toolTierFor(Item.MaulStone, ToolJob.Chop)).toBe(Tool.None);
+    // Nothing the Big House makes needs research, and Flint tools research is gone from the Scholar's Lodge.
+    for (const it of ITEMS) if (it.madeAt.some(([k]) => k === BuildingKind.MainBase)) expect(it.research, it.name).toBe(0);
+    expect(RESEARCH[Research.FlintTools]!.retired).toBe(true);
+    expect(toolNeeded(ToolJob.Break, Tool.Stone)).toBe('stone maul');
+    expect(toolNeeded(ToolJob.Chop, Tool.Stone)).toBe('flint axe');
+    expect(toolNeeded(ToolJob.Break, Tool.Flint)).toBe('copper pickaxe');
   });
 
-  it('are made at the Big House on day 0 with no research, from 2 sticks and 2 stone in 10 s', () => {
+  it('are made at the Big House on day 0: a stone maul from 2 sticks and 3 stone in 10 s', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const sticks = pool[Res.Sticks]!;
     const stone = pool[Res.Stone]!;
-    run(s, 1, [{ kind: 'produce', player: 0, building: bigHouse(s).id, product: CRAFT_PRODUCT + Item.ToolsStone, count: 1 }]);
-    const took = runUntil(s, () => s.players[0]!.items[Item.ToolsStone]! >= 1, 400);
+    run(s, 1, [{ kind: 'produce', player: 0, building: bigHouse(s).id, product: CRAFT_PRODUCT + Item.MaulStone, count: 1 }]);
+    const took = runUntil(s, () => s.players[0]!.items[Item.MaulStone]! >= 1, 400);
     expect(took).toBeGreaterThan(190);
     expect(pool[Res.Sticks]).toBe(sticks - 2);
-    expect(pool[Res.Stone]).toBe(stone - 2);
+    expect(pool[Res.Stone]).toBe(stone - 3);
   });
 
-  it('quarry a stone outcrop, which hardwood tools cannot, but mine no ore', () => {
-    expect(propInfo(PropKind.StoneOutcrop).tool).toBe(Tool.Stone);
-    expect(propInfo(PropKind.CopperOutcrop).tool).toBe(Tool.Flint);
-    expect(propInfo(PropKind.TinOutcrop).tool).toBe(Tool.Flint);
+  it('quarry a stone outcrop with the digging stick, and mine copper only with a stone maul (Table 5)', () => {
+    expect(propInfo(PropKind.StoneOutcrop).tool).toBe(Tool.Hardwood);
+    expect(propInfo(PropKind.CopperOutcrop).tool).toBe(Tool.Stone);
+    expect(propInfo(PropKind.TinOutcrop).tool).toBe(Tool.Stone);
+    expect(propJob(PropKind.CopperOutcrop)).toBe(ToolJob.Break);
+    expect(propJob(PropKind.Birch)).toBe(ToolJob.Chop);
+    expect(propJob(PropKind.Herbs)).toBe(ToolJob.Cut);
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
     const outcrop = nearestProp(s, PropKind.StoneOutcrop);
-    // Hardwood tools: the worker says it needs better tools and stops.
-    expect(texts(s, 3, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...outcrop }])).toContain('Stone outcrop: needs better tools than these.');
-    // Stone tools: it quarries the outcrop.
-    e.tool[0] = Tool.Stone;
     const before = pool[Res.Stone]!;
     run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...outcrop }]);
     runUntil(s, () => pool[Res.Stone]! > before, 6000);
-    // Copper ore still needs flint.
+    // Copper ore: the hardwood digging stick and a flint axe cannot; the stone maul can.
     const copper = nearestProp(s, PropKind.CopperOutcrop);
-    expect(texts(s, 3, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...copper }])).toContain('Copper outcrop: needs better tools than these.');
+    e.toolChop[0] = Item.ToolsFlint;
+    expect(texts(s, 3, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...copper }])).toContain('Copper outcrop: needs a stone maul or better.');
+    e.toolBreak[0] = Item.MaulStone;
+    const ore = pool[Res.CopperOre]!;
+    run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...copper }]);
+    runUntil(s, () => pool[Res.CopperOre]! > ore, 8000);
   });
 
-  it('dig a little faster than hardwood and barely scratch stone (Table 10)', () => {
-    expect(digRate(Tool.Stone, Mat.Soil)).toBe(520);
-    expect(digRate(Tool.Stone, Mat.Stone)).toBe(3);
-    expect(digRate(Tool.Hardwood, Mat.Stone)).toBe(0);
-    expect(digRate(Tool.Flint, Mat.Soil)).toBe(550);
-  });
-
-  it('are what Equip Best hands out over hardwood, and flint over stone', () => {
+  it('chop birch only with a flint axe or better', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
-    const ids = [e.id[0]!, e.id[1]!];
-    run(s, 2, [{ kind: 'debugGive', player: 0, item: Item.ToolsStone, count: 1 }, { kind: 'debugGive', player: 0, item: Item.ToolsFlint, count: 1 }]);
-    run(s, 1, [{ kind: 'equipBest', player: 0, units: ids }]);
-    runUntil(s, () => e.tool[0] !== Tool.Hardwood && e.tool[1] !== Tool.Hardwood, 3000);
-    expect([e.tool[0], e.tool[1]].sort()).toEqual([Tool.Stone, Tool.Flint]);
+    e.toolBreak[0] = Item.MaulStone;
+    e.toolBuild[0] = Item.HammerStone;
+    const birch = nearestProp(s, PropKind.Birch);
+    expect(texts(s, 3, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...birch }])).toContain('Birch: needs a flint axe or better.');
+    e.toolChop[0] = Item.ToolsFlint;
+    run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...birch }]);
+    run(s, 2);
+    expect(e.queue[0]![0]?.t).toBe('gather');
+  });
+
+  it('dig with the maul a little faster than the digging stick, and break rock slowly (Table 10)', () => {
+    expect(digRate(Tool.Hardwood, Mat.Soil)).toBe(500);
+    expect(digRate(Tool.Stone, Mat.Soil)).toBe(580);
+    expect(digRate(Tool.Stone, Mat.Clay)).toBe(460);
+    expect(digRate(Tool.Stone, Mat.Stone)).toBe(5);
+    expect(digRate(Tool.Hardwood, Mat.Stone)).toBe(0);
+  });
+
+  it('build and repair 15% faster with a stone hammer than with the hardwood mallet', () => {
+    const work = (hammer: boolean): number => {
+      const s = createWorld(1, { peaceful: true });
+      const pool = s.players[0]!.pool;
+      pool[Res.SoftwoodLumber] = 100;
+      pool[Res.Stone] = 40;
+      if (hammer) s.entities.toolBuild[0] = Item.HammerStone;
+      const b = bigHouse(s);
+      run(s, 1, [{ kind: 'upgrade', player: 0, building: b.id }]);
+      run(s, 1, [{ kind: 'work', player: 0, units: [s.entities.id[0]!], building: b.id }]);
+      runUntil(s, () => b.upProgress > 0, 2000);
+      const start = b.upProgress;
+      run(s, 200);
+      return b.upProgress - start;
+    };
+    expect(work(false)).toBe(200);
+    expect(work(true)).toBe(230);
+  });
+
+  it('are handed out by job by Equip Best, and a copper set replaces them all', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const stock = s.players[0]!.items;
+    run(s, 2, [
+      { kind: 'debugGive', player: 0, item: Item.ToolsFlint, count: 1 },
+      { kind: 'debugGive', player: 0, item: Item.MaulStone, count: 1 },
+      { kind: 'debugGive', player: 0, item: Item.HammerStone, count: 1 },
+    ]);
+    const hardwood = stock[Item.ToolsHardwood]!;
+    run(s, 1, [{ kind: 'equipBest', player: 0, units: [e.id[0]!] }]);
+    runUntil(s, () => e.toolChop[0] === Item.ToolsFlint, 3000);
+    expect([e.toolChop[0], e.toolBreak[0], e.toolBuild[0], e.toolCut[0]]).toEqual([Item.ToolsFlint, Item.MaulStone, Item.HammerStone, Item.ToolsFlint]);
+    // The hardwood set does no job now and goes back to the stock.
+    expect(stock[Item.ToolsHardwood]).toBe(hardwood + 1);
+    expect(heldTools(e, 0)).toEqual([Item.ToolsFlint, Item.MaulStone, Item.HammerStone]);
+    // The worker fights with its best tool, the flint axe.
+    expect(workerMelee(e, 0).damage).toBe(5);
+    run(s, 2, [{ kind: 'debugGive', player: 0, item: Item.ToolsCopper, count: 1 }]);
+    run(s, 1, [{ kind: 'equipBest', player: 0, units: [e.id[0]!] }]);
+    runUntil(s, () => e.toolChop[0] === Item.ToolsCopper, 3000);
+    expect([e.toolChop[0], e.toolBreak[0], e.toolBuild[0], e.toolCut[0]]).toEqual([Item.ToolsCopper, Item.ToolsCopper, Item.ToolsCopper, Item.ToolsCopper]);
+    expect([stock[Item.ToolsFlint], stock[Item.MaulStone], stock[Item.HammerStone]]).toEqual([1, 1, 1]);
   });
 });
 
@@ -225,7 +308,7 @@ describe('digging into a cliff face', () => {
     const hx1 = x + 15;
     raise(s, hx0, z, hx1, z + 8, y, y + 30);
     const workers = [0, 1, 2, 3];
-    for (const i of workers) e.tool[i] = Tool.HighQualitySteel;
+    for (const i of workers) e.toolBreak[i] = Item.ToolsHQSteel;
     run(s, 1, [{ kind: 'move', player: 0, units: workers.map((i) => e.id[i]!), x: centre(x + 2), z: centre(z + 4) }]);
     run(s, 400);
     // Tunnel 2 columns wide, 2.25 m tall, all the way through.

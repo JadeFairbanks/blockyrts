@@ -15,7 +15,8 @@ export interface UnitInfo {
   hp: number;
   maxHp: number;
   rank: number;
-  tool: number;
+  /** The tool item held for each job (ToolJob order: chop, break, build, cut), 0 for none. */
+  tools: [number, number, number, number];
   carryRes: number;
   carryAmt: number;
   inside: number;
@@ -88,7 +89,7 @@ export class GameInfo {
       hp: d[o + S.hp]!,
       maxHp: d[o + S.maxHp]!,
       rank: d[o + S.rank]!,
-      tool: d[o + S.tool]!,
+      tools: [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!],
       carryRes: d[o + S.carryRes]!,
       carryAmt: d[o + S.carryAmt]!,
       inside: d[o + S.inside]!,

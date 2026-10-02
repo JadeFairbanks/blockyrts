@@ -12,9 +12,11 @@ import {
   hashState,
   hurtUnit,
   Item,
+  Made,
   MEAL_STEPS,
   placeBuilding,
   placementBlocked,
+  productsOf,
   PropKind,
   RATING_PER_MILLE,
   ratingAt,
@@ -95,14 +97,22 @@ function giveResearch(s: SimState, ...r: number[]): void {
 const recipe = (name: string): number => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === name);
 
 describe('research and the forge', () => {
-  it("researches Flint tools at a Scholar's Lodge", () => {
+  it("has no Flint tools research at a Scholar's Lodge (flint gear needs none), and researches Bronze there", () => {
     const s = createWorld(1, { peaceful: true });
     const lodge = built(s, BuildingKind.ScholarsLodge);
-    s.players[0]!.pool[Res.Flint] = 50;
-    s.players[0]!.pool[Res.Sticks] = 50;
+    built(s, BuildingKind.Forge);
+    const pool = s.players[0]!.pool;
+    pool[Res.Flint] = 50;
+    pool[Res.SoftwoodLumber] = 50;
+    expect(productsOf(lodge)).not.toContain(RESEARCH_PRODUCT + Research.FlintTools);
     run(s, 1, [{ kind: 'produce', player: 0, building: lodge.id, product: RESEARCH_PRODUCT + Research.FlintTools, count: 1 }]);
+    expect(lodge.queue.length).toBe(0);
+    pool[Res.CopperIngot] = 10;
+    pool[Res.TinIngot] = 2;
+    s.players[0]!.made |= Made.TinIngot;
+    run(s, 1, [{ kind: 'produce', player: 0, building: lodge.id, product: RESEARCH_PRODUCT + Research.Bronze, count: 1 }]);
     expect(lodge.queue.length).toBe(1);
-    runUntil(s, () => (s.players[0]!.research & (1 << Research.FlintTools)) !== 0, 3000);
+    runUntil(s, () => (s.players[0]!.research & (1 << Research.Bronze)) !== 0, 4000);
     expect(lodge.queue.length).toBe(0);
   });
 
@@ -276,7 +286,6 @@ describe('mining', () => {
     const hauler = e.add(s.nextEntityId++, 0, hx, 0, hz, e.speed[e.indexOf(a!)]!, UnitKind.Worker);
     e.hp[hauler] = 60;
     e.maxHp[hauler] = 60;
-    e.tool[hauler] = 1;
     e.kit[hauler] = Item.OxCart;
     const ox = addAnimal(s, Species.Ox, 0, hx + WU_PER_METRE, hz, 0, 1);
     run(s, 1, [{ kind: 'hitch', player: 0, units: [e.id[hauler]!], target: e.id[ox]! }]);

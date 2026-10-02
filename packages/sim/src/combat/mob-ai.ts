@@ -747,7 +747,6 @@ export function addMob(state: SimState, mob: number, foe: number, x: number, z: 
   e.hp[i] = Math.max(1, floorDiv(spec.hp * power, 1000));
   e.maxHp[i] = e.hp[i]!;
   e.rank[i] = 0;
-  e.tool[i] = 0;
   e.role[i] = spec.role;
   e.mana[i] = spec.mana * MANA_SCALE;
   e.homeX[i] = x;

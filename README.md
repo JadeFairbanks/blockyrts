@@ -88,7 +88,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash e0fe6439`. Run it again: the same hash. (The
+   prints `final step 10000 hash 25815a11`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -97,7 +97,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `9f3a74f7`
+   step as the headless runner with no script: for seed 1 that is `8035b5fb`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -127,9 +127,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `9f3a74f7` at step 40, with two players `9f56d389`. The land matches too.
+   `8035b5fb` at step 40, with two players `07dcfa34`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 051c37e5`: two players dig trenches from a
+   prints `final step 10000 hash fbc9382d`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -199,7 +199,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash be9c4ae6`: workers chop and quarry, the Big
+   prints `final step 10000 hash b5c69517`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -247,8 +247,8 @@ main base or farm left ends the game with the night count as the score.*
    best they can use, highest rank first. With one unit selected, I opens its
    equipment: a slot, then an item, to hand-pick it, and the weight it
    carries (over 50 lb slows it). Auto-Equip (F4, on the utility bar) hands
-   new gear out by day. Flint gear needs Flint tools researched at a
-   Scholar's Lodge (K, the research menu); bows need archery, trained at a Barracks (U with
+   new gear out by day. Flint gear needs no research (since the gap fixes
+   after milestone 5); bows need archery, trained at a Barracks (U with
    warriors selected).
 6. **Towers.** Build a tower, select ranged warriors (sling, javelins or a
    bow) and press E then click the tower: up to 4 garrison it and shoot from
@@ -264,7 +264,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 5ab75ed8`: the Big House crafts a club and a
+   prints `final step 10000 hash 71106c6a`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
@@ -275,15 +275,15 @@ main base or farm left ends the game with the night count as the score.*
 
 ## How a tester checks milestone 4
 
-The build order's check for M4 is: *research Flint tools at a Scholar's
-Lodge, smelt bronze at a Casting Hearth, climb through Bloomery and Ironworks
+The build order's check for M4 is: *research Bronze at a Scholar's
+Lodge (Flint tools research was removed after milestone 5), smelt bronze at a Casting Hearth, climb through Bloomery and Ironworks
 to a Steelworks fed with vein iron hauled by ox cart from a tier 2 mineshaft;
 stew from a Great Kitchen feeds the town; a wild horse is tamed at the
 Stables; warriors hunt deer with N and bring the meat home; Rations starves
 workers but not troops.*
 
 1. `pnpm test` runs those checks as scenario tests in
-   `packages/sim/test/m4.test.ts`: Flint tools researched at a Lodge; copper
+   `packages/sim/test/m4.test.ts`: Bronze researched at a Lodge; copper
    and tin smelted at a Casting Hearth with a worker inside, then bronze; a
    fishing rod crafted; stew cooked at a Great Kitchen; Rations on troops only
    starving the workers but not the warrior; Don't eat keeping eggs back;
@@ -301,8 +301,8 @@ workers but not troops.*
    Use **Speed** in the debug panel to move through the days.
 3. **Research.** Build a Scholar's Lodge (B, Advanced). Select it and press K:
    the research menu lists every step, greyed out with what it still needs.
-   Flint tools costs 10 flint and 20 softwood lumber; flint lies in small
-   scatters near the camp. Research shows on the Lodge's queue and stops
+   Bronze, the first step, needs a Casting Hearth and a tin ingot smelted
+   first; 10 copper ingots and 2 tin ingots. Research shows on the Lodge's queue and stops
    while the troops starve.
 4. **The forge and making things.** A Forge starts as a Casting Hearth.
    Put workers in it (E, then click it), select it and press K (Smelt):
@@ -342,13 +342,14 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash d9a7d536`: two workers pick flint while two
+   prints `final step 10000 hash 4de72b87`: two workers pick flint while two
    chop; the warrior hunts with N twice, wears down two deer north of the
    camp, brings their meat home and walks home at dusk; a worker prospects
    (Fair); Rations goes to troops only and the workers starve until it goes
-   back; eggs are kept back with Don't eat; a Scholar's Lodge goes up and
-   researches Flint tools at night; the Big House makes a sling and a fishing
-   rod from wild flax, and Equip Best hands the warrior the sling.
+   back; eggs are kept back with Don't eat; a Scholar's Lodge goes up; at
+   night the Big House makes a flint axe and knife (no research), then a
+   sling and a fishing rod from wild flax, and Equip Best hands the warrior
+   the sling and a chopper the flint axe and knife.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 5
@@ -444,7 +445,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash c4fbcdcc`: the debug tools hand out steel
+   prints `final step 10000 hash 25d16e18`: the debug tools hand out steel
    gear and three clubs and put a barrow 60 m east of the Big House and a
    cave mouth 60 m west; the Big House trains three warriors; all four
    attack the barrow, the first one there falls to its giant centipede, and
@@ -468,22 +469,35 @@ Client only: the sim and every hash above are unchanged. Run `pnpm dev` and open
 
 ## How a tester checks the gap fixes
 
-The sim fixes between milestones 5 and 6. The hashes above are updated: tool
-tiers moved (stone sits between hardwood and flint), units have a hop, and the
-walk map has a floor under overhangs. Run `pnpm dev` and open
-http://localhost:5173/?seed=1.
+The sim fixes between milestones 5 and 6. The hashes above are updated:
+workers hold a tool for each job, the M4 script makes flint tools instead of
+researching them, units have a hop, and the walk map has a floor under
+overhangs. Run `pnpm dev` and open http://localhost:5173/?seed=1.
 
-1. **Stone tools at the Big House.** Select the Big House and press K: the
-   second button is Stone tools (2 hardwood sticks and 2 stone, 10 s, no
-   research needed, so it works on day 0). Hand them out with Equip Best
-   (select workers, I, then Equip Best): a worker takes flint tools over
-   stone and stone over hardwood. Stone tools gather 15% faster than
-   hardwood, dig soil a little faster, barely scratch rock, and cannot mine
-   copper, tin or any ore (that still needs flint). The K menu's hardwood and
-   flint tools are back to Table 2c's recipes (3 sticks; 2 sticks and 1 flint).
-2. **Stone outcrops.** The large grey rocks (200 stone) need stone tools or
-   better now: with hardwood tools a worker says it needs better tools; with
-   stone tools it quarries them. Loose stone still takes hardwood tools.
+1. **Early tools by job, no research (Table 2c).** Select the Big House and
+   press K: Hardwood tools (the starting set: axe, digging stick, mallet and
+   hoe), Stone maul (2 sticks, 3 stone), Stone hammer (2 sticks, 2 stone) and
+   Flint axe and knife (2 sticks, 1 flint), all 10 s and all on day 0. The
+   Scholar's Lodge has no Flint tools research any more, and bows, flint
+   weapons and archery training need none. Stone is the blunt tier: the maul
+   quarries and digs 15% faster than the digging stick, breaks rock slowly
+   when tunnelling, and mines copper and tin ore (at the normal pace), but
+   not iron; the hammer builds and repairs 15% faster than the mallet. Flint
+   is the edge tier: the axe chops 25% faster and fells birch and hornbeam,
+   the knife cuts herbs and flax and butchers 25% faster. There is no stone
+   axe and no flint pick. From copper up each set is an axe, a pickaxe, a
+   hammer and a sickle and does every job at its own pace, building
+   included.
+2. **Equip Best picks by job.** Make one of each, select a worker and press
+   Q: it takes the flint axe and knife, the maul and the hammer, and hands
+   its hardwood set back (it no longer uses it for anything). The I panel's
+   Tools slot lists what it holds; picking a tool from the stock shows what
+   it is for. A copper set later replaces all three. The tool in a worker's
+   hand follows the job: maul for quarrying and digging, hammer for building.
+   A rock or tree a worker's tools cannot work names the tool it needs ("needs
+   a stone maul or better"), and so does the tooltip of the rock or tree.
+   The maul and hammer show as their models once the model thread's review
+   batch is merged (the ids are maul_stone and hammer_stone).
 3. **Digging into a cliff face.** Pan a little way from the camp and press the
    debug **Hill** button (a 3.4 m soil hill with a 45 cm ledge on its south
    side and a 56 cm ledge on its north side). Select the workers, press D,
@@ -506,8 +520,9 @@ http://localhost:5173/?seed=1.
    are walked as before, and a drop of up to 1 m is hopped down. Warriors and
    monsters follow the same rule; monsters 2.5 m tall and up (minotaurs) jump
    rises up to 67 cm (6 units).
-6. `pnpm test` runs `packages/sim/test/gap.test.ts` (stone tools, outcrops,
-   Equip Best, the rise rules, the hop, and a tunnel dug through a hill and
+6. `pnpm test` runs `packages/sim/test/gap.test.ts` (the early tools, which
+   tool works which rock and tree, the hammer's pace, Equip Best by job, the
+   rise rules, the hop, and a tunnel dug through a hill and
    walked) and the face-dig tests in `packages/client/test/m3-controls.test.ts`.
    `node packages/client/test-e2e/gap-look.mjs` (with the dev server on port
    5198) builds the Hill, marks a tunnel on its face with the mouse and takes

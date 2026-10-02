@@ -6,7 +6,7 @@
 import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { Tool } from '../world/props.ts';
+import { ALL_JOBS, Tool, ToolJob } from '../world/props.ts';
 import { BuildingKind } from '../buildings/data.ts';
 
 export const Item = {
@@ -91,8 +91,9 @@ export const Item = {
   ShieldBronze: 77,
   ShieldIronKite: 78,
   ShieldSteelHeater: 79,
-  // The gap between milestones 5 and 6: stone tools at the Big House (Table 2c).
-  ToolsStone: 80,
+  // The gap between milestones 5 and 6: the stone maul and stone hammer at the Big House (Table 2c).
+  MaulStone: 80,
+  HammerStone: 81,
 } as const;
 export type Item = (typeof Item)[keyof typeof Item];
 
@@ -203,8 +204,11 @@ export interface ItemSpec {
   needsWorkshop?: number;
   /** The catalogue model it shows as on the unit (Seeing equipment). */
   model: string;
-  /** Tools: the tier of tool it is (props.ts Tool). */
+  /** Tools: the tier of tool it is (props.ts Tool), and the jobs it does (a ToolJob bit each; a tier's set does all). */
   tool?: Tool;
+  jobs?: number;
+  /** Tools: a worker's damage with it, and its time between blows (Table 2c "Worker damage"; the maul is slow). */
+  toolHit?: { damage: number; attackSteps: number };
   melee?: MeleeStats;
   ranged?: RangedStats;
   /** Shields: projectile block, bp (Table 3). */
@@ -263,6 +267,8 @@ export interface ResearchSpec {
   made?: number;
   /** Researched elsewhere (Hexcraft at the Magi Sanctum) or in a later milestone: the reason it is greyed. */
   later?: string;
+  /** No longer a research step (its bit is kept so saved research masks still line up). */
+  retired?: boolean;
 }
 
 const M6R = 'Researched at the Magi Sanctum (milestone 6).';
@@ -272,8 +278,9 @@ const sec = (n: number): number => n * STEPS_PER_SECOND;
 export const RESEARCH: readonly ResearchSpec[] = [
   { id: Research.None, name: '', key: '', cost: [], steps: 0, opens: '' },
   {
-    id: Research.FlintTools, name: 'Flint tools', key: 'F', cost: [[Res.Flint, 10], [Res.SoftwoodLumber, 20]], steps: sec(60),
-    opens: 'The flint tier: flint tools, the flint axe and spear, bows and flint arrows, slings and flint javelins.',
+    // Retired: stone and flint gear needs no research (Table 2a, Table 2c).
+    id: Research.FlintTools, name: 'Flint tools', key: '', cost: [], steps: 0, retired: true,
+    opens: 'Nothing: flint gear is made at the Big House without research.',
   },
   {
     id: Research.Bronze, name: 'Bronze', key: 'B', cost: [[Res.CopperIngot, 10], [Res.TinIngot, 2]], steps: sec(75), forge: 1, made: Made.TinIngot,
@@ -391,9 +398,9 @@ const mace = (damage: number): MeleeStats => ({ damage, attackSteps: ds(14), rea
 const halberd = (damage: number): MeleeStats => ({ damage, attackSteps: ds(16), reach: cm(250), min: cm(80), hit: Hit.Arc, blunt: false, oneHanded: false });
 const pike = (damage: number): MeleeStats => ({ damage, attackSteps: ds(16), reach: cm(350), min: cm(150), hit: Hit.Stab, blunt: false, oneHanded: false });
 
-/** A worker tool set of Table 2c: its Equip Best tier is its tool tier. The forge's sets are the ingot and a hardwood lumber. */
-function tools(id: Item, name: string, tool: Tool, lb10s: number, ingot: Res, at: ReadonlyArray<readonly [number, number]>, secs10: number, research: number, model: string, slot: number, recipe: Cost = [[ingot, 1], [HW, 1]]): ItemSpec {
-  return it({ id, name, slot: Slot.Tool, tier: tool, weightTenthsLb: lb10s, recipes: [recipe], makes: 1, steps: ds(secs10), research, model, tool, madeAt: at, craftSlot: slot });
+/** A worker tool of Table 2c: its Equip Best tier is its tool tier. The forge's sets are the ingot and a hardwood lumber and do every job. */
+function tools(id: Item, name: string, tool: Tool, lb10s: number, ingot: Res, at: ReadonlyArray<readonly [number, number]>, secs10: number, research: number, model: string, slot: number, damage: number, recipe: Cost = [[ingot, 1], [HW, 1]], jobs = ALL_JOBS, attackSteps = ds(15)): ItemSpec {
+  return it({ id, name, slot: Slot.Tool, tier: tool, weightTenthsLb: lb10s, recipes: [recipe], makes: 1, steps: ds(secs10), research, model, tool, jobs, toolHit: { damage, attackSteps }, madeAt: at, craftSlot: slot });
 }
 
 /** Arrows or bolts tipped with a metal (Table 2e): 1 ingot tips 20. */
@@ -414,46 +421,47 @@ const R = Research;
 
 export const ITEMS: readonly ItemSpec[] = [
   it({ id: Item.None, name: 'Nothing', slot: Slot.Tool, tier: 0, weightTenthsLb: 0, recipes: [], makes: 0, steps: 0, research: 0, model: '', madeAt: [], craftSlot: -1 }),
-  // Table 2c: the Big House's tool sets, 3 hardwood sticks and 2 sticks and 1 flint (stone tools are at the end, item 80).
-  tools(Item.ToolsHardwood, 'Hardwood tools', Tool.Hardwood, 30, ST, BASE, 100, 0, 'axe_hardwood', 0, [[ST, 3]]),
-  tools(Item.ToolsFlint, 'Flint tools', Tool.Flint, 30, FL, BASE, 100, R.FlintTools, 'axe_flint', 2, [[ST, 2], [FL, 1]]),
-  melee(Item.Club, 'Hardwood club', 1, 20, [[[ST, 3]]], BASE, 100, 0, 'club', 6, { damage: 8, attackSteps: ds(13), reach: cm(120), min: 0, hit: Hit.Arc, blunt: true, oneHanded: true }),
-  melee(Item.SpearHardwood, 'Hardwood spear', 1, 30, [[[ST, 4]]], BASE, 100, 0, 'spear_hardwood', 7, { damage: 9, attackSteps: ds(14), reach: cm(250), min: cm(100), hit: Hit.Stab, blunt: false, oneHanded: false }),
-  melee(Item.AxeFlint, 'Flint axe', 2, 30, [[[ST, 2], [FL, 1]]], BASE, 100, R.FlintTools, 'axe_war_flint', 8, { damage: 10, attackSteps: ds(13), reach: cm(120), min: 0, hit: Hit.Arc, blunt: false, oneHanded: true }),
-  melee(Item.SpearFlint, 'Flint-tipped spear', 2, 35, [[[ST, 3], [FL, 1]]], BASE, 100, R.FlintTools, 'spear_flint', 9, { damage: 12, attackSteps: ds(14), reach: cm(250), min: cm(100), hit: Hit.Stab, blunt: false, oneHanded: false }),
+  // Table 2c: the Big House's tools, none researched. Hardwood is the starting set (axe, digging stick, mallet, hoe);
+  // flint is the edge tier, an axe and a knife for chopping and cutting (the stone maul and hammer are at the end, items 80 and 81).
+  tools(Item.ToolsHardwood, 'Hardwood tools', Tool.Hardwood, 30, ST, BASE, 100, 0, 'axe_hardwood', 0, 4, [[ST, 3]]),
+  tools(Item.ToolsFlint, 'Flint axe and knife', Tool.Flint, 30, FL, BASE, 100, 0, 'axe_flint', 3, 5, [[ST, 2], [FL, 1]], (1 << ToolJob.Chop) | (1 << ToolJob.Cut)),
+  melee(Item.Club, 'Hardwood club', 1, 20, [[[ST, 3]]], BASE, 100, 0, 'club', 7, { damage: 8, attackSteps: ds(13), reach: cm(120), min: 0, hit: Hit.Arc, blunt: true, oneHanded: true }),
+  melee(Item.SpearHardwood, 'Hardwood spear', 1, 30, [[[ST, 4]]], BASE, 100, 0, 'spear_hardwood', 8, { damage: 9, attackSteps: ds(14), reach: cm(250), min: cm(100), hit: Hit.Stab, blunt: false, oneHanded: false }),
+  melee(Item.AxeFlint, 'Flint axe', 2, 30, [[[ST, 2], [FL, 1]]], BASE, 100, 0, 'axe_war_flint', 9, { damage: 10, attackSteps: ds(13), reach: cm(120), min: 0, hit: Hit.Arc, blunt: false, oneHanded: true }),
+  melee(Item.SpearFlint, 'Flint-tipped spear', 2, 35, [[[ST, 3], [FL, 1]]], BASE, 100, 0, 'spear_flint', 10, { damage: 12, attackSteps: ds(14), reach: cm(250), min: cm(100), hit: Hit.Stab, blunt: false, oneHanded: false }),
   it({
-    id: Item.Sling, name: 'Sling', slot: Slot.Ranged, tier: 1, weightTenthsLb: 5, recipes: [[[LE, 1]], [[FX, 1]]], makes: 1, steps: ds(100), research: R.FlintTools, model: 'sling', madeAt: BASE, craftSlot: 11,
+    id: Item.Sling, name: 'Sling', slot: Slot.Ranged, tier: 1, weightTenthsLb: 5, recipes: [[[LE, 1]], [[FX, 1]]], makes: 1, steps: ds(100), research: 0, model: 'sling', madeAt: BASE, craftSlot: 12,
     ranged: { damage: 8, attackSteps: ds(20), range: cm(2000), spreadBp: 800, shot: Shot.SlingStone, blunt: true, skill: 0, load: 50, munition: 'stone' },
   }),
   it({
-    id: Item.JavelinsFlint, name: 'Flint javelins (bundle of 5)', slot: Slot.Ranged, tier: 2, weightTenthsLb: 100, recipes: [[[ST, 5], [FL, 1]]], makes: 1, steps: ds(150), research: R.FlintTools, model: 'javelin_flint', madeAt: BASE, craftSlot: 12,
+    id: Item.JavelinsFlint, name: 'Flint javelins (bundle of 5)', slot: Slot.Ranged, tier: 2, weightTenthsLb: 100, recipes: [[[ST, 5], [FL, 1]]], makes: 1, steps: ds(150), research: 0, model: 'javelin_flint', madeAt: BASE, craftSlot: 13,
     ranged: { damage: 14, attackSteps: ds(25), range: cm(1500), spreadBp: 500, shot: Shot.Javelin, blunt: false, skill: 0, load: 5, munition: 'self' },
   }),
   it({
     id: Item.Bow, name: 'Bow and quiver', slot: Slot.Ranged, tier: 2, weightTenthsLb: 30,
     recipes: [[[SW, 2], [FX, 1]], [[HW, 2], [FX, 1]], [[SW, 2], [Res.SpiderSilk, 1]], [[HW, 2], [Res.SpiderSilk, 1]], [[SW, 2], [Res.Rope, 1]]],
-    makes: 1, steps: ds(200), research: R.FlintTools, model: 'bow', madeAt: BASE, craftSlot: 13,
+    makes: 1, steps: ds(200), research: 0, model: 'bow', madeAt: BASE, craftSlot: 14,
     ranged: { damage: 10, attackSteps: ds(20), range: cm(2500), spreadBp: 600, shot: Shot.Arrow, blunt: false, skill: Skill.Archery, load: 24, munition: 'arrows' },
   }),
-  it({ id: Item.ArrowsFlint, name: 'Flint arrows', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[SW, 1], [FE, 1], [FL, 1]]], makes: 10, steps: ds(150), research: R.FlintTools, model: 'arrow', madeAt: BASE, craftSlot: 14, tip: 0, ammoFor: 'arrows' }),
+  it({ id: Item.ArrowsFlint, name: 'Flint arrows', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[SW, 1], [FE, 1], [FL, 1]]], makes: 10, steps: ds(150), research: 0, model: 'arrow', madeAt: BASE, craftSlot: 15, tip: 0, ammoFor: 'arrows' }),
   it({
-    id: Item.ArrowsFire, name: 'Fire arrows', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[Res.Resin, 1]]], itemInputs: [[Item.ArrowsFlint, 10]], makes: 10, steps: ds(100), research: R.FlintTools, model: 'arrow_bundle', madeAt: BASE, craftSlot: 15,
+    id: Item.ArrowsFire, name: 'Fire arrows', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[Res.Resin, 1]]], itemInputs: [[Item.ArrowsFlint, 10]], makes: 10, steps: ds(100), research: 0, model: 'arrow_bundle', madeAt: BASE, craftSlot: 16,
     tip: 0, ammoFor: 'arrows', fire: { extra: 5, perSecond: 4, seconds: 5 },
   }),
-  it({ id: Item.Boots, name: 'Boots', slot: Slot.Boots, tier: 1, weightTenthsLb: 15, recipes: [[[LE, 1]], [[FX, 1]]], makes: 1, steps: ds(100), research: 0, model: 'boots', madeAt: [...BASE, ...TANNERY], craftSlot: 3, armourBp: 300 }),
-  it({ id: Item.ShieldWicker, name: 'Wicker shield', slot: Slot.Shield, tier: 1, weightTenthsLb: 50, recipes: [[[ST, 6], [Res.Hides, 1]], [[ST, 6], [LE, 1]]], makes: 1, steps: ds(150), research: 0, model: 'shield_wicker', madeAt: BASE, craftSlot: 4, blockBp: 1000 }),
-  it({ id: Item.ShieldWood, name: 'Wood shield', slot: Slot.Shield, tier: 2, weightTenthsLb: 80, recipes: [[[Res.Planks, 3], [LE, 1]]], makes: 1, steps: ds(200), research: 0, model: 'shield_wood', madeAt: BASE, craftSlot: 5, blockBp: 1500 }),
-  it({ id: Item.HandTorch, name: 'Hand torch', slot: Slot.Torch, tier: 1, weightTenthsLb: 10, recipes: [[[SW, 1], [Res.Resin, 1]]], makes: 1, steps: ds(50), research: 0, model: 'torch_hand', madeAt: BASE, craftSlot: 10, burnSteps: CYCLE_STEPS }),
+  it({ id: Item.Boots, name: 'Boots', slot: Slot.Boots, tier: 1, weightTenthsLb: 15, recipes: [[[LE, 1]], [[FX, 1]]], makes: 1, steps: ds(100), research: 0, model: 'boots', madeAt: [...BASE, ...TANNERY], craftSlot: 4, armourBp: 300 }),
+  it({ id: Item.ShieldWicker, name: 'Wicker shield', slot: Slot.Shield, tier: 1, weightTenthsLb: 50, recipes: [[[ST, 6], [Res.Hides, 1]], [[ST, 6], [LE, 1]]], makes: 1, steps: ds(150), research: 0, model: 'shield_wicker', madeAt: BASE, craftSlot: 5, blockBp: 1000 }),
+  it({ id: Item.ShieldWood, name: 'Wood shield', slot: Slot.Shield, tier: 2, weightTenthsLb: 80, recipes: [[[Res.Planks, 3], [LE, 1]]], makes: 1, steps: ds(200), research: 0, model: 'shield_wood', madeAt: BASE, craftSlot: 6, blockBp: 1500 }),
+  it({ id: Item.HandTorch, name: 'Hand torch', slot: Slot.Torch, tier: 1, weightTenthsLb: 10, recipes: [[[SW, 1], [Res.Resin, 1]]], makes: 1, steps: ds(50), research: 0, model: 'torch_hand', madeAt: BASE, craftSlot: 11, burnSteps: CYCLE_STEPS }),
   // Table 2c: the forge's tool sets.
-  tools(Item.ToolsCopper, 'Copper tools', Tool.Copper, 40, CU, forge(1), 200, 0, 'axe', 0),
-  tools(Item.ToolsBronze, 'Bronze tools', Tool.Bronze, 45, BZ, forge(1), 200, R.Bronze, 'axe', 1),
-  tools(Item.ToolsBloom, 'Bloom iron tools', Tool.BloomIron, 40, BLOOM, forge(2), 250, 0, 'axe', 2),
-  tools(Item.ToolsWrought, 'Wrought iron tools', Tool.WroughtIron, 40, WROUGHT, forge(3), 250, 0, 'axe', 3),
-  tools(Item.ToolsRefined, 'Refined iron tools', Tool.RefinedIron, 40, REFINED, forge(4), 250, 0, 'axe', 4),
-  tools(Item.ToolsSteel, 'Steel tools', Tool.Steel, 40, STEEL, forge(4), 300, R.Steel, 'axe', 5),
-  tools(Item.ToolsHQSteel, 'High-quality steel tools', Tool.HighQualitySteel, 40, HQ, forge(4), 400, R.HQSteel, 'axe', 6),
-  it({ id: Item.FishingRod, name: 'Fishing rod', slot: Slot.Kit, tier: 1, weightTenthsLb: 10, recipes: [[[SW, 2], [FX, 1]], [[SW, 2], [LE, 1]]], makes: 1, steps: ds(100), research: 0, model: 'fishing_rod', madeAt: BASE, craftSlot: 16 }),
-  it({ id: Item.FishingNet, name: 'Fishing net', slot: Slot.Kit, tier: 2, weightTenthsLb: 30, recipes: [[[SW, 2], [FX, 1]], [[SW, 2], [LE, 1]]], makes: 1, steps: ds(100), research: 0, model: 'fishing_net', madeAt: BASE, craftSlot: 17 }),
+  tools(Item.ToolsCopper, 'Copper tools', Tool.Copper, 40, CU, forge(1), 200, 0, 'axe', 0, 6),
+  tools(Item.ToolsBronze, 'Bronze tools', Tool.Bronze, 45, BZ, forge(1), 200, R.Bronze, 'axe', 1, 7),
+  tools(Item.ToolsBloom, 'Bloom iron tools', Tool.BloomIron, 40, BLOOM, forge(2), 250, 0, 'axe', 2, 8),
+  tools(Item.ToolsWrought, 'Wrought iron tools', Tool.WroughtIron, 40, WROUGHT, forge(3), 250, 0, 'axe', 3, 8),
+  tools(Item.ToolsRefined, 'Refined iron tools', Tool.RefinedIron, 40, REFINED, forge(4), 250, 0, 'axe', 4, 9),
+  tools(Item.ToolsSteel, 'Steel tools', Tool.Steel, 40, STEEL, forge(4), 300, R.Steel, 'axe', 5, 10),
+  tools(Item.ToolsHQSteel, 'High-quality steel tools', Tool.HighQualitySteel, 40, HQ, forge(4), 400, R.HQSteel, 'axe', 6, 11),
+  it({ id: Item.FishingRod, name: 'Fishing rod', slot: Slot.Kit, tier: 1, weightTenthsLb: 10, recipes: [[[SW, 2], [FX, 1]], [[SW, 2], [LE, 1]]], makes: 1, steps: ds(100), research: 0, model: 'fishing_rod', madeAt: BASE, craftSlot: 17 }),
+  it({ id: Item.FishingNet, name: 'Fishing net', slot: Slot.Kit, tier: 2, weightTenthsLb: 30, recipes: [[[SW, 2], [FX, 1]], [[SW, 2], [LE, 1]]], makes: 1, steps: ds(100), research: 0, model: 'fishing_net', madeAt: BASE, craftSlot: 18 }),
   it({
     id: Item.ProspectingHammer, name: 'Prospecting hammer', slot: Slot.Kit, tier: 1, weightTenthsLb: 20,
     recipes: [CU, Res.TinIngot, BZ, BLOOM, WROUGHT, REFINED, STEEL, HQ].map((m): Cost => [[m, 1], [HW, 1]]), makes: 1, steps: ds(150), research: 0, model: 'prospecting_hammer', madeAt: forge(1), craftSlot: 7,
@@ -494,12 +502,12 @@ export const ITEMS: readonly ItemSpec[] = [
     ranged: { damage: 32, attackSteps: ds(45), range: cm(3400), spreadBp: 300, shot: Shot.Bolt, blunt: false, skill: Skill.Crossbow, load: 20, munition: 'bolts' },
   }),
   tipped(Item.ArrowsBronze, 'Bronze-tipped arrows', 4, 3, BZ, false, forge(1), R.Bronze, 'arrow', 30),
-  tipped(Item.ArrowsBloom, 'Bloom iron arrows', 5, 4, BLOOM, false, forge(2), R.FlintTools, 'arrow', 31),
-  tipped(Item.ArrowsWrought, 'Wrought iron arrows', 6, 5, WROUGHT, false, forge(3), R.FlintTools, 'arrow', 32),
-  tipped(Item.ArrowsRefined, 'Refined iron arrows', 7, 6, REFINED, false, forge(4), R.FlintTools, 'arrow', 33),
+  tipped(Item.ArrowsBloom, 'Bloom iron arrows', 5, 4, BLOOM, false, forge(2), 0, 'arrow', 31),
+  tipped(Item.ArrowsWrought, 'Wrought iron arrows', 6, 5, WROUGHT, false, forge(3), 0, 'arrow', 32),
+  tipped(Item.ArrowsRefined, 'Refined iron arrows', 7, 6, REFINED, false, forge(4), 0, 'arrow', 33),
   tipped(Item.ArrowsSteel, 'Steel-tipped arrows', 8, 8, STEEL, false, forge(4), R.Steel, 'arrow', 34),
   tipped(Item.ArrowsHQ, 'High-quality steel arrows', 9, 10, HQ, false, forge(4), R.HQSteel, 'arrow', 35),
-  it({ id: Item.ArrowsPoison, name: 'Poison arrows', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[Res.Venom, 1]]], itemInputs: [[Item.ArrowsFlint, 10]], makes: 10, steps: ds(100), research: R.FlintTools, model: 'arrow_poison', madeAt: HERBALIST, craftSlot: 0, tip: 0, poison: 15, ammoFor: 'arrows' }),
+  it({ id: Item.ArrowsPoison, name: 'Poison arrows', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[Res.Venom, 1]]], itemInputs: [[Item.ArrowsFlint, 10]], makes: 10, steps: ds(100), research: 0, model: 'arrow_poison', madeAt: HERBALIST, craftSlot: 0, tip: 0, poison: 15, ammoFor: 'arrows' }),
   it({ id: Item.BoltsFlint, name: 'Flint-tipped bolts', slot: Slot.Ammo, tier: 2, weightTenthsLb: 1, recipes: [[[HW, 1], [FE, 1], [FL, 1]]], makes: 10, steps: ds(150), research: R.Crossbows, model: 'bolt', madeAt: forge(3), craftSlot: 36, tip: 0, ammoFor: 'bolts' }),
   tipped(Item.BoltsBronze, 'Bronze-tipped bolts', 4, 3, BZ, true, forge(3), R.Crossbows, 'bolt', 37),
   tipped(Item.BoltsBloom, 'Bloom iron bolts', 5, 4, BLOOM, true, forge(3), R.Crossbows, 'bolt', 38),
@@ -524,8 +532,10 @@ export const ITEMS: readonly ItemSpec[] = [
   it({ id: Item.ShieldBronze, name: 'Bronze shield', slot: Slot.Shield, tier: 4, weightTenthsLb: 120, recipes: [[[BZ, 2], [HW, 1], [LE, 1]]], makes: 1, steps: ds(300), research: R.Bronze, model: 'shield_bronze', madeAt: forge(1), craftSlot: 52, blockBp: 2000 }),
   it({ id: Item.ShieldIronKite, name: 'Iron kite shield', slot: Slot.Shield, tier: 6, weightTenthsLb: 120, recipes: [[[WROUGHT, 3], [Res.Planks, 1], [LE, 1]]], makes: 1, steps: ds(400), research: 0, model: 'shield_iron_kite', madeAt: forge(3), craftSlot: 53, blockBp: 2500 }),
   it({ id: Item.ShieldSteelHeater, name: 'Steel heater shield', slot: Slot.Shield, tier: 7, weightTenthsLb: 100, recipes: [[[STEEL, 3], [LE, 1]]], makes: 1, steps: ds(450), research: R.Steel, model: 'shield_steel_heater', madeAt: forge(4), craftSlot: 54, blockBp: 3000 }),
-  // The gap between milestones 5 and 6: stone tools, 2 sticks and 2 stone, no research (Table 2c). ITEMS is indexed by item id.
-  tools(Item.ToolsStone, 'Stone tools', Tool.Stone, 35, Res.Stone, BASE, 100, 0, 'axe_stone', 1, [[ST, 2], [Res.Stone, 2]]),
+  // The gap between milestones 5 and 6 (Table 2c), no research; ITEMS is indexed by item id. Stone is the blunt tier:
+  // the maul breaks rock (quarrying, digging, the soft copper and tin ore), the hammer builds and repairs.
+  tools(Item.MaulStone, 'Stone maul', Tool.Stone, 40, Res.Stone, BASE, 100, 0, 'maul_stone', 1, 4, [[ST, 2], [Res.Stone, 3]], 1 << ToolJob.Break, ds(20)),
+  tools(Item.HammerStone, 'Stone hammer', Tool.Stone, 30, Res.Stone, BASE, 100, 0, 'hammer_stone', 2, 4, [[ST, 2], [Res.Stone, 2]], 1 << ToolJob.Build),
 ];
 
 export const ITEM_COUNT = ITEMS.length;
@@ -542,20 +552,17 @@ export function affordableRecipe(spec: ItemSpec, pool: Int32Array): Cost | null 
   return null;
 }
 
-/** The item a worker's tool tier is made from (Table 2c), or None. */
-export function toolItem(tool: number): Item {
-  return TOOL_ITEMS[tool] ?? Item.None;
+/** The punch of a unit with nothing in hand, or a worker's tool as a weapon (Table 1: hardwood 4, flint 5; Table 2c: the stone maul 4 and slow). */
+export function toolMelee(item: number): MeleeStats {
+  const hit = item ? itemSpec(item).toolHit : undefined;
+  return { damage: hit?.damage ?? 2, attackSteps: hit?.attackSteps ?? ds(15), reach: cm(120), min: 0, hit: Hit.Stab, blunt: item === Item.MaulStone || item === Item.HammerStone, oneHanded: item !== Item.MaulStone };
 }
 
-/** The tool set item of each tool tier (props.ts Tool order). */
-const TOOL_ITEMS: readonly Item[] = [Item.None, Item.ToolsHardwood, Item.ToolsStone, Item.ToolsFlint, Item.ToolsCopper, Item.ToolsBronze, Item.ToolsBloom, Item.ToolsWrought, Item.ToolsRefined, Item.ToolsSteel, Item.ToolsHQSteel];
-/** A worker's tool as a weapon, by tool tier (Table 2c "Worker damage"). */
-const TOOL_DAMAGE: readonly number[] = [2, 4, 4, 5, 6, 7, 8, 8, 9, 10, 11];
-
-/** The punch of a unit with nothing in hand, and a worker's tool as a weapon (Table 1: hardwood 4, flint 5; Table 2c: stone 4). */
-export function toolMelee(tool: number): MeleeStats {
-  const damage = TOOL_DAMAGE[tool] ?? 2;
-  return { damage, attackSteps: ds(15), reach: cm(120), min: 0, hit: Hit.Stab, blunt: false, oneHanded: true };
+/** The tier a tool item gives a job (props.ts ToolJob), or Tool.None when it does not do that job. */
+export function toolTierFor(item: number, job: number): number {
+  if (!item) return Tool.None;
+  const sp = itemSpec(item);
+  return sp.tool !== undefined && ((sp.jobs ?? 0) & (1 << job)) !== 0 ? sp.tool : Tool.None;
 }
 
 /** Horizontal speed (wu per step) and whether it arcs, for each flying thing (s). */

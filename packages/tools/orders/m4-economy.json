@@ -1,5 +1,5 @@
 {
- "description": "M4 check script, seed 1, one player, peaceful: two workers pick the flint scatters west of the Big House while two chop pines to the north; the warrior hunts with N double-tapped (auto): it wears the deer north of the camp down with its spear, carries the meat home and goes again until dusk, then walks home; one flint picker moves on to the wild flax and the other prospects the ground east of the camp (Fair); Rations goes to troops only (the workers starve) and back to everyone, and eggs are kept back with Don't eat; the choppers put up a Scholar's Lodge south of the Big House and go back to chopping; at night the Lodge researches Flint tools, then the Big House makes a sling and a fishing rod from the flax, and Equip Best hands the warrior the sling. Building spots are columns (45 cm). Products: 8 + research, 64 + item.",
+ "description": "M4 check script, seed 1, one player, peaceful: two workers pick the flint scatters west of the Big House while two chop pines to the north; the warrior hunts with N double-tapped (auto): it wears the deer north of the camp down with its spear, carries the meat home and goes again until dusk, then walks home; one flint picker moves on to the wild flax and the other prospects the ground east of the camp (Fair); Rations goes to troops only (the workers starve) and back to everyone, and eggs are kept back with Don't eat; the choppers put up a Scholar's Lodge south of the Big House and go back to chopping; at night the Big House makes a flint axe and knife (no research), then a sling and a fishing rod from the flax, and Equip Best hands the warrior the sling and a chopper the flint axe and knife. Building spots are columns (45 cm). Products: 8 + research, 64 + item.",
  "players": 1,
  "peaceful": true,
  "frames": [
@@ -8,8 +8,8 @@
   { "step":700, "orders":[{"kind":"gather", "player":0, "units":[2], "cx":-1, "cz":0, "index":4}, {"kind":"prospect", "player":0, "units":[1], "x":30, "z":10}]},
   { "step":1300, "orders":[{"kind":"build", "player":0, "units":[3, 4], "building":22, "variant":0, "x":0, "z":12}, {"kind":"gather", "player":0, "units":[3, 4], "cx":-1, "cz":-1, "index":2, "queued":true}, {"kind":"rations", "player":0, "rations":1}, {"kind":"dontEat", "player":0, "res":20, "on":1}]},
   { "step":2600, "orders":[{"kind":"rations", "player":0, "rations":0}]},
-  { "step":7000, "orders":[{"kind":"produce", "player":0, "building":255, "product":9, "count":1}]},
+  { "step":7000, "orders":[{"kind":"produce", "player":0, "building":6, "product":66, "count":1}]},
   { "step":8300, "orders":[{"kind":"produce", "player":0, "building":6, "product":71, "count":1}, {"kind":"produce", "player":0, "building":6, "product":87, "count":1}]},
-  { "step":8700, "orders":[{"kind":"equipBest", "player":0, "units":[5]}]}
+  { "step":8700, "orders":[{"kind":"equipBest", "player":0, "units":[5, 3]}]}
  ]
 }
