@@ -20,6 +20,8 @@ import {
   InputLog,
   isLit,
   levelSpec,
+  nightsSurvived,
+  projectileAt,
   maxHealth,
   outlyingLights,
   placementTiles,
@@ -34,12 +36,13 @@ import {
   STEPS_PER_SECOND,
   WU_PER_COLUMN,
   type ChunkDelta,
+  type HitEvent,
   type Order,
   type SimEvent,
   type SimState,
   type UnitOrder,
 } from '@blockyrts/sim';
-import { S, STATE_STRIDE, type BuildingInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ToWorker } from './messages.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -62,6 +65,10 @@ let clock = 0;
 let speed = 1;
 /** The local player's events since the last info post. */
 let events: SimEvent[] = [];
+/** Hits since the last state post. */
+let hits: HitEvent[] = [];
+/** A hurt unit plays its injured clip this long, steps. */
+const HURT_SHOW_STEPS = 8;
 
 function send(msg: FromWorker, transfer: Transferable[] = []): void {
   self.postMessage(msg, { transfer });
@@ -88,8 +95,43 @@ function postState(s: SimState): void {
     data[o + S.carryAmt] = e.carryAmt[i]!;
     data[o + S.inside] = e.inside[i]!;
     data[o + S.act] = e.act[i]!;
+    data[o + S.mob] = e.mob[i]!;
+    data[o + S.weapon] = e.weapon[i]!;
+    data[o + S.backup] = e.backup[i]!;
+    data[o + S.ranged] = e.ranged[i]!;
+    data[o + S.shield] = e.shield[i]!;
+    data[o + S.boots] = e.boots[i]!;
+    data[o + S.torch] = e.torchUntil[i]! > s.step ? 1 : 0;
+    data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
+    let flags = 0;
+    if (e.climbUntil[i]! > s.step) flags |= UnitFlag.Climbing;
+    if (e.fleeing[i]) flags |= UnitFlag.Fleeing;
+    if (e.slowUntil[i]! > s.step) flags |= UnitFlag.Slowed;
+    if (e.heldUntil[i]! > s.step) flags |= UnitFlag.Held;
+    if (e.hurtAt[i]! > 0 && s.step - e.hurtAt[i]! < HURT_SHOW_STEPS) flags |= UnitFlag.Hurt;
+    data[o + S.flags] = flags;
+    data[o + S.lock] = e.lock[i]!;
+    data[o + S.skills] = e.skills[i]!;
+    data[o + S.ammo] = e.ammo[i]!;
+    data[o + S.target] = e.target[i]!;
   }
-  send({ type: 'state', step: s.step, hash: lastHash, hashStep: lastHashStep, count: e.count, data }, [data.buffer]);
+  const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
+  s.projectiles.forEach((p, k) => {
+    const o = k * SHOT_STRIDE;
+    const [x, y, z] = projectileAt(p, p.age);
+    const [nx, ny, nz] = projectileAt(p, p.age + 1);
+    shots[o] = x;
+    shots[o + 1] = y;
+    shots[o + 2] = z;
+    shots[o + 3] = nx;
+    shots[o + 4] = ny;
+    shots[o + 5] = nz;
+    shots[o + 6] = p.shot;
+    shots[o + 7] = p.flags;
+  });
+  const out = hits;
+  hits = [];
+  send({ type: 'state', step: s.step, hash: lastHash, hashStep: lastHashStep, count: e.count, data, shots, hits: out }, [data.buffer, shots.buffer]);
 }
 
 /** Buildings, the pool, order lists and events: what the HUD shows besides the units. */
@@ -129,7 +171,9 @@ function postInfo(s: SimState): void {
   for (let i = 0; i < e.count; i++) if (e.owner[i] === PLAYER) queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
   const c = clockAt(s.step);
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
-  const pool = s.players[PLAYER]!.pool.slice();
+  const me = s.players[PLAYER]!;
+  const pool = me.pool.slice();
+  const items = me.items.slice();
   send(
     {
       type: 'info',
@@ -143,8 +187,15 @@ function postInfo(s: SimState): void {
       claims: claimShapes(s, PLAYER),
       outlying: outlyingLights(s, PLAYER, night),
       buildWhy: BUILDINGS.map((spec) => buildRequirement(s, PLAYER, spec.kind)),
+      items,
+      research: me.research,
+      autoEquip: me.autoEquip !== 0,
+      sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
+      over: s.over,
+      nights: nightsSurvived(s.over || s.step),
+      out: me.out !== 0,
     },
-    [pool.buffer],
+    [pool.buffer, items.buffer],
   );
   events = [];
 }
@@ -202,6 +253,7 @@ function tick(): void {
       lastHashStep = r.step;
     }
     for (const ev of state.events) if (ev.player === PLAYER || ev.player < 0) events.push(ev);
+    for (const h of state.hits) hits.push(h);
     postState(state);
     stepped = true;
   }

@@ -20,6 +20,8 @@ export const TEAM_KEY_CHROMA_TOLERANCE = 0.07;
 export const TEAM_KEY_MIN_BLUE = 96;
 
 const SHADER_KEY = 'blockyrts-instanced-model-1';
+const IDENTITY = new THREE.Matrix4();
+const PLACE = new THREE.Matrix4();
 
 const VERTEX_PARS = /* glsl */ `
 uniform highp sampler2D boneTexture_bf;
@@ -307,6 +309,40 @@ export class InstancedModel {
     this.team.clearUpdateRanges();
     this.team.addUpdateRange(0, this.count * 4);
     this.team.needsUpdate = true;
+  }
+
+  /**
+   * The world matrix of bone `bone` of instance i as set for the next commit:
+   * its animated pose, heading and position. Equipment that is not a part of
+   * the body hangs from slot bones this way.
+   */
+  boneWorld(i: number, bone: number, out: THREE.Matrix4): THREE.Matrix4 {
+    const bones = this.model.boneCount;
+    const o = i * 5;
+    const clip = this.clipList[this.instClip[i] ?? -1];
+    let a: Float32Array = this.restFrame;
+    let aOff = 0;
+    let bOff = 0;
+    let alpha = 0;
+    if (clip) {
+      let t = this.inst[o + 4] ?? 0;
+      if (clip.loop && clip.length > 0) t = ((t % clip.length) + clip.length) % clip.length;
+      else t = Math.min(Math.max(t, 0), clip.length);
+      const f = clip.length > 0 ? (t / clip.length) * (clip.frames - 1) : 0;
+      const f0 = Math.min(Math.floor(f), clip.frames - 1);
+      const f1 = Math.min(f0 + 1, clip.frames - 1);
+      alpha = f - f0;
+      a = clip.data;
+      aOff = f0 * bones * BAKED_STRIDE;
+      bOff = f1 * bones * BAKED_STRIDE;
+    }
+    const pa = aOff + bone * BAKED_STRIDE;
+    const pb = bOff + bone * BAKED_STRIDE;
+    const m = (k: number): number => (a[pa + k] ?? 0) + ((a[pb + k] ?? 0) - (a[pa + k] ?? 0)) * alpha;
+    out.set(m(0), m(3), m(6), m(9), m(1), m(4), m(7), m(10), m(2), m(5), m(8), m(11), 0, 0, 0, 1);
+    out.multiply(this.model.restWorld[bone] ?? IDENTITY);
+    PLACE.makeRotationY(this.inst[o + 3] ?? 0).setPosition(this.inst[o] ?? 0, this.inst[o + 1] ?? 0, this.inst[o + 2] ?? 0);
+    return out.premultiply(PLACE);
   }
 
   dispose(): void {
