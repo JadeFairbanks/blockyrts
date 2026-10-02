@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # The cross-engine determinism test fails, rather than skips, if one of these is missing.
+      SIM_REQUIRE_BROWSERS: chromium,firefox,webkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @blockyrts/tools exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Headless runner, M0 check script
+        run: pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet
+      - name: Client build
+        run: pnpm --filter @blockyrts/client build

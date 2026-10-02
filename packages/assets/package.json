@@ -1,0 +1,7 @@
+{
+  "name": "@blockyrts/assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Source models, textures, lighting sheet and icons (filled from M1).",
+  "type": "module"
+}
