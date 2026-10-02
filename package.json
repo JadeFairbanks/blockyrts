@@ -14,6 +14,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "sim:run": "pnpm --filter @blockyrts/tools sim:run",
     "dev": "pnpm --filter @blockyrts/client dev",
+    "audio:dev": "pnpm --filter @blockyrts/audio dev",
     "assets:manifest": "pnpm --filter @blockyrts/tools assets:manifest"
   },
   "devDependencies": {
