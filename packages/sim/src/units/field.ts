@@ -171,6 +171,8 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
     if (walkTo(state, i, { ...pointGoal(col(e.x[t]!), col(e.z[t]!)), max: 2 }) !== MOVING) resetWalk(state, i);
     return CONTINUE;
   }
+  // Just killed: it lies dying until the step's deaths settle and leave its carcass.
+  if (o.id !== 0 && t >= 0 && e.kind[t] === UnitKind.Animal && e.hp[t]! <= 0) return CONTINUE;
   if (o.id !== 0) {
     o.id = 0;
     // What it killed: carry what it can home, unless workers came along to haul it.
