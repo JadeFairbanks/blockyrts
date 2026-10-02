@@ -5,7 +5,7 @@
 // clips, arrows, stones and webs in flight, and the little bursts of blood,
 // bone, slime, splinters and dust when something is hit.
 import * as THREE from 'three';
-import { Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -31,11 +31,18 @@ interface Look {
 /** Item ids by what they look like in hand. */
 const POLEARMS = new Set<number>([Item.SpearFlint, Item.SpearHardwood]);
 
-/** Colour of a monster's stand-in block. */
-const MOB_COLOURS = [0x6a7a5a, 0x3a3040, 0x6a5a4a, 0x2a2a2a, 0x7ac040, 0x9ad060, 0xd8d0b8, 0x8a9a6a, 0xc8c0a8, 0x5a3a20, 0x4a7a3a, 0x5a8a4a, 0x3a6a2a, 0x4a4a5a];
+/** Colour of a monster's stand-in block: the night mobs, then (14 on) the lair guardians, the tribes, the village goblins, the lairs and the village's buildings. */
+const MOB_COLOURS = [
+  0x6a7a5a, 0x3a3040, 0x6a5a4a, 0x2a2a2a, 0x7ac040, 0x9ad060, 0xd8d0b8, 0x8a9a6a, 0xc8c0a8, 0x5a3a20, 0x4a7a3a, 0x5a8a4a, 0x3a6a2a, 0x4a4a5a,
+  0x8a3a20, 0xc8a8d0, 0x3a2a24, 0x6a9ad8, 0xa8885a, 0x7a8a3a, 0xa04a2a, 0x5a8a3a, 0x4a7a32, 0x6a4a8a,
+  0x7a7a68, 0x4a4440, 0xd8d8d0, 0x5a4a3a, 0x6a5030, 0x5a5a50, 0x8a2a1a, 0x3a1a4a, 0x7a6038, 0x3a3030, 0x8a6a3a,
+];
 
-/** Colour of an animal's stand-in block, by Species. */
-const ANIMAL_COLOURS = [0x6a4a30, 0xe8e0d0, 0x7a5030, 0x5a4030, 0xb09070, 0x9a6a3a, 0x4a3a30, 0x7a7a80, 0xc09a60, 0x6a9a40, 0x4a5a30, 0xc05030, 0x5a5a5a, 0x4a3020];
+/** Colour of an animal's stand-in block, by Species (14 on: the territorial creatures). */
+const ANIMAL_COLOURS = [
+  0x6a4a30, 0xe8e0d0, 0x7a5030, 0x5a4030, 0xb09070, 0x9a6a3a, 0x4a3a30, 0x7a7a80, 0xc09a60, 0x6a9a40, 0x4a5a30, 0xc05030, 0x5a5a5a, 0x4a3020,
+  0x2a3a4a, 0xd8b030, 0x6a7a30, 0x9a6a2a, 0xc8a050, 0x5a3020,
+];
 
 /** Particle colours and counts by hit look. */
 const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: number }> = {
@@ -60,6 +67,9 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.1, w: 0.1, colour: 0x7a7a70 },
   { len: 0.3, w: 0.3, colour: 0xf0f0e8 },
   { len: 0.7, w: 0.06, colour: 0xff8030 },
+  { len: 0.45, w: 0.05, colour: 0x6a6a70 },
+  { len: 0.25, w: 0.18, colour: 0xffa020 },
+  { len: 0.5, w: 0.22, colour: 0x7ab8ff },
 ];
 
 interface Corpse {
@@ -229,6 +239,12 @@ export interface UnitsFrame {
   neutral: THREE.Color;
   /** Whether a point (metres) is in sight of the local player now. */
   seen(x: number, z: number): boolean;
+  /** Whether a point (metres) is explored by the local player: lairs, huts and ruins stay drawn there. */
+  known(x: number, z: number): boolean;
+  /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
+  ruins: ReadonlyArray<readonly [number, number, number]>;
+  /** Ground height at a point, metres. */
+  groundAt(x: number, z: number): number;
   /** Tells the selection where unit i stands this frame (metres, its middle). */
   place(i: number, x: number, y: number, z: number): void;
 }
@@ -323,7 +339,9 @@ export class UnitsView {
       const kind = d[o + S.kind]!;
       f.place(i, x, y, z);
       const mobUnit = kind === UnitKind.Mob;
-      if (mobUnit && !f.seen(x, z)) continue;
+      // Lairs and the goblins' buildings stay on the map once found, like the land; creatures only while in sight.
+      const structure = mobUnit && mobSpec(d[o + S.mob]!).role === Role.Structure;
+      if (mobUnit && !(structure ? f.known(x, z) : f.seen(x, z))) continue;
       // How far into its swing: clips start when the swing does.
       const swing = d[o + S.swing]!;
       live.add(id);
@@ -341,7 +359,7 @@ export class UnitsView {
       if (mobUnit) {
         const mob = d[o + S.mob]!;
         const spec = mobSpec(mob);
-        const pool = this.body(spec.model);
+        const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           const slot = pool.take([]);
           if (slot) slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null);
@@ -411,6 +429,7 @@ export class UnitsView {
     }
     for (const id of this.swingStart.keys()) if (!live.has(id)) this.swingStart.delete(id);
     blocks = this.drawCorpses(t, blocks);
+    blocks = this.drawRuins(f, blocks);
     for (const b of this.bodies.values()) b.commit();
     this.attach.commit();
     this.blocks.count = blocks;
@@ -451,6 +470,33 @@ export class UnitsView {
     return blocks;
   }
 
+  /** Destroyed lairs on explored land: the lair's destroyed model, else a low dark block. */
+  private drawRuins(f: UnitsFrame, blocks: number): number {
+    const dummy = this.dummy;
+    for (const [mob, wx, wz] of f.ruins) {
+      const x = wx / WU_PER_METRE;
+      const z = wz / WU_PER_METRE;
+      if (!f.known(x, z)) continue;
+      const spec = mobSpec(mob);
+      const y = f.groundAt(x, z);
+      const pool = this.body(`${spec.model}_destroyed`);
+      if (pool) {
+        const slot = pool.take([]);
+        if (slot) slot.m.setInstance(slot.i, x, y, z, 0, 'idle', 0, null);
+        continue;
+      }
+      if (blocks >= MAX_UNITS) break;
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set((spec.halfWidth * 2) / WU_PER_METRE, 0.4, (spec.halfWidth * 2) / WU_PER_METRE);
+      dummy.updateMatrix();
+      this.blocks.setMatrixAt(blocks, dummy.matrix);
+      this.blocks.setColorAt(blocks, new THREE.Color(MOB_COLOURS[mob] ?? 0x555555).multiplyScalar(0.45));
+      blocks++;
+    }
+    return blocks;
+  }
+
   private drawShots(f: UnitsFrame, alpha: number): void {
     const s = f.curr.shots;
     const n = Math.min(MAX_SHOTS, Math.floor(s.length / SHOT_STRIDE));
@@ -486,6 +532,11 @@ export class UnitsView {
 }
 
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+/** The model a structure is drawn with: goblin huts come in three looks, picked by the hut's id. */
+function structureModel(model: string, id: number): string {
+  return model === 'goblin_hut_1' ? `goblin_hut_${1 + (id % 3)}` : model;
+}
 
 /** A monster's clip: its attack while it swings, climbing, flying, running away, hurt, walking or standing. */
 function mobClip(model: ModelData, d: Int32Array, o: number): string {

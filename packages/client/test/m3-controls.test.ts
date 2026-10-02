@@ -72,7 +72,7 @@ function game(w: World = {}): GameInfo {
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: w.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     items, research: w.research ?? 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false,
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [],
   };
   g.onInfo(info);
   return g;

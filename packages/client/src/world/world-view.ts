@@ -50,6 +50,11 @@ const QUARTER_DETAIL_RING = 7;
 /** Fog of war texture: 1.8 m tiles (4 columns), 256 a side (460 m), centred on the focus chunk. */
 const FOW_TILE_M = 4 * COLUMN_M;
 const FOW_TILES = 256;
+const FOG_COLOUR = 0x8a9098;
+/** Where the fog of a fog night starts and where it hides everything, metres from the camera; and the same far off when there is none. */
+const FOG_NEAR_M = 28;
+const FOG_FAR_M = 95;
+const FOG_OFF_M = 100000;
 const FOG_TILES_PER_CHUNK = 16;
 /** Seconds between redraws of full-detail chunks so growing trees and regrowing bushes show. */
 const GROWTH_REFRESH_S = 20;
@@ -165,6 +170,8 @@ export class WorldView {
 
     const scene = this.scene;
     scene.background = new THREE.Color(0x07080a);
+    // Fog nights (Table 8): a grey fog that closes in round the view; out of sight while there is none.
+    scene.fog = new THREE.Fog(FOG_COLOUR, FOG_OFF_M, FOG_OFF_M * 2);
     this.hemi = new THREE.HemisphereLight(0xdfefff, 0x4a4a3a, 1.15);
     scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff2dc, 1.7);
@@ -313,7 +320,17 @@ export class WorldView {
   /** The screen's copy of the game (buildings, order lists) for the buildings and the unit panels. */
   setGame(game: GameInfo): void {
     this.game = game;
+    // Lairs and villages found, a village going to war or a lair cleared repaint the minimap.
+    game.onInfoUpdate((info) => {
+      const sig = info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';');
+      if (sig !== this.marksSig) {
+        this.marksSig = sig;
+        this.minimapVersion++;
+      }
+    });
   }
+
+  private marksSig = '';
 
   onDeltas(msg: DeltasMessage): void {
     const deltas: ChunkDelta[] = msg.deltas;
@@ -606,11 +623,24 @@ export class WorldView {
       colours: PLAYER_COLOURS,
       neutral: NEUTRAL_COLOUR,
       seen: (x, z) => this.seenNow(x, z),
+      known: (x, z) => this.exploredNow(x, z),
+      ruins: this.game?.info?.ruins ?? [],
+      groundAt: (x, z) => this.groundAt(x, z),
       place: (i, x, y, z) => {
         const u = this.units[i];
         if (u) u.centre.set(x, y + u.halfSize.y, z);
       },
     });
+  }
+
+  /** Whether a point (metres) is explored by the local player (near the view; the debug show-all shows everything). */
+  exploredNow(x: number, z: number): boolean {
+    if (this.showAll) return true;
+    const a = this.fow.fowArea.value;
+    const tx = Math.floor((x - a.x) / FOW_TILE_M);
+    const tz = Math.floor((z - a.y) / FOW_TILE_M);
+    if (tx < 0 || tz < 0 || tx >= FOW_TILES || tz >= FOW_TILES) return false;
+    return this.fowData[tz * FOW_TILES + tx]! >= 128;
   }
 
   /** Whether a point (metres) is in sight of the local player's units now; everything is, with the debug show-all. */
@@ -631,10 +661,15 @@ export class WorldView {
   private readonly daySun = new THREE.Color(0xfff2dc);
   private readonly nightSun = new THREE.Color(0x8aa0d8);
   private readonly duskSun = new THREE.Color(0xff9a5a);
+  private readonly bloodHemi = new THREE.Color(0xb05048);
+  private readonly bloodSun = new THREE.Color(0xff5a40);
+  /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
+  private fogK = 0;
+  private lastSky = 0;
 
   /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
   darkness(): number {
-    const c = clockAt(this.simStep);
+    const c = clockAt(this.simStep, this.game?.info?.blood);
     const f = c.into / (c.into + c.left);
     switch (c.period) {
       case Period.Day:
@@ -656,7 +691,30 @@ export class WorldView {
     this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
     this.sun.intensity = 1.7 - 1.35 * k;
     this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
+    // A blood night: the night light turns red.
+    const info = this.game?.info;
+    const c = clockAt(this.simStep, info?.blood);
+    if (info?.blood.includes(c.cycle) && c.period !== Period.Day) {
+      this.hemi.color.lerp(this.bloodHemi, k * 0.55);
+      this.sun.color.lerp(this.bloodSun, k * 0.6);
+    }
     this.buildings.darkness = k;
+    // The fog rolls in and lifts over a few seconds.
+    const now = performance.now();
+    const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
+    this.lastSky = now;
+    const want = info?.fog ? 1 : 0;
+    this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
+    const fog = this.scene.fog as THREE.Fog;
+    if (this.fogK <= 0.001) {
+      fog.near = FOG_OFF_M;
+      fog.far = FOG_OFF_M * 2;
+    } else {
+      const off = (1 - this.fogK) * 400;
+      fog.near = FOG_NEAR_M + off;
+      fog.far = FOG_FAR_M + off;
+      fog.color.setHex(FOG_COLOUR).multiplyScalar(1 - 0.6 * k);
+    }
   }
 
   // ---- Hooks ----
@@ -757,6 +815,26 @@ export class WorldView {
     for (const t of this.minimapTiles.values()) {
       if (!t.rgba) continue;
       ctx.drawImage(t.canvas, t.cx * CHUNK_M, t.cz * CHUNK_M, CHUNK_M, CHUNK_M);
+    }
+    // Lairs (dark red squares) and goblin villages (ochre rings, red at war) the player has found (Table 15: minimap marks).
+    const px = 1 / Math.max(1e-6, ctx.getTransform().a);
+    for (const m of this.game?.info?.marks ?? []) {
+      const x = m.x / WU_PER_METRE;
+      const z = m.z / WU_PER_METRE;
+      ctx.lineWidth = 1.5 * px;
+      ctx.strokeStyle = '#000000';
+      if (m.mob >= 0) {
+        const r = 3.5 * px;
+        ctx.fillStyle = '#c0302a';
+        ctx.fillRect(x - r, z - r, r * 2, r * 2);
+        ctx.strokeRect(x - r, z - r, r * 2, r * 2);
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, z, 4.5 * px, 0, Math.PI * 2);
+        ctx.fillStyle = m.war ? '#ff4030' : '#d8a040';
+        ctx.fill();
+        ctx.stroke();
+      }
     }
   }
 

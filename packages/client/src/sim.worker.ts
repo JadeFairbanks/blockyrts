@@ -25,6 +25,8 @@ import {
   chunkKeyZ,
   COLUMNS_PER_CHUNK,
   createWorld,
+  fogged,
+  isLair,
   InputLog,
   isLit,
   levelSpec,
@@ -39,6 +41,7 @@ import {
   supplyUsed,
   unitsInside,
   upgradeProblem,
+  UnitKind,
   workersAt,
   workSteps,
   STEPS_PER_SECOND,
@@ -50,7 +53,7 @@ import {
   type SimState,
   type UnitOrder,
 } from '@blockyrts/sim';
-import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -190,7 +193,7 @@ function postInfo(s: SimState): void {
   const e = s.entities;
   const queues: Array<[number, UnitOrder[]]> = [];
   for (let i = 0; i < e.count; i++) if (e.owner[i] === PLAYER) queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
-  const c = clockAt(s.step);
+  const c = clockAt(s.step, s.blood);
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
   const me = s.players[PLAYER]!;
   const pool = me.pool.slice();
@@ -213,16 +216,32 @@ function postInfo(s: SimState): void {
       autoEquip: me.autoEquip !== 0,
       sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
       over: s.over,
-      nights: nightsSurvived(s.over || s.step),
+      nights: nightsSurvived(s.over || s.step, s.blood),
       out: me.out !== 0,
       rations: me.rations,
       dontEat: me.dontEat,
       starveWorkers: me.starveWorkers > 0,
       starveTroops: me.starveTroops > 0,
+      blood: s.blood.slice(),
+      fog: fogged(s),
+      ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
+      marks: threatMarks(s),
     },
     [pool.buffer, items.buffer],
   );
   events = [];
+}
+
+/** The lairs and goblin villages the local player has seen. */
+function threatMarks(s: SimState): ThreatMark[] {
+  const e = s.entities;
+  const bit = 1 << PLAYER;
+  const out: ThreatMark[] = [];
+  for (let i = 0; i < e.count; i++) {
+    if (e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && isLair(e.mob[i]!) && (e.picked[i]! & bit) !== 0) out.push({ mob: e.mob[i]!, x: e.x[i]!, z: e.z[i]!, war: false });
+  }
+  for (const v of s.threats.villages) if (v.seen & bit) out.push({ mob: -1, x: v.x, z: v.z, war: (v.war & bit) !== 0 });
+  return out;
 }
 
 /** Changed chunks and newly explored land since the last post. */
