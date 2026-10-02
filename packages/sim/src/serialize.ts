@@ -11,7 +11,7 @@ import { ITEM_COUNT } from './combat/items.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
-const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
+const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
@@ -55,6 +55,11 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
   const keys = [...t.checked].sort((a, b) => a - b);
   w.u32(keys.length);
   for (const k of keys) w.i32(k);
+  w.u32(t.tunnels.length);
+  for (const m of t.tunnels) {
+    w.i32(m.x);
+    w.i32(m.z);
+  }
 }
 
 function readThreats(r: ByteReader): ThreatState {
@@ -73,11 +78,19 @@ function readThreats(r: ByteReader): ThreatState {
   const checked = new Set<number>();
   const n = r.u32();
   for (let k = 0; k < n; k++) checked.add(r.i32());
-  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked };
+  const tunnels: Array<{ x: number; z: number }> = [];
+  const nt = r.u32();
+  for (let k = 0; k < nt; k++) tunnels.push({ x: r.i32(), z: r.i32() });
+  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels };
 }
 
+/** The threats as canonical text for diffing: each record as its fields in serialisation order. */
 function threatsJson(t: ThreatState): string {
-  return JSON.stringify({ ...t, checked: [...t.checked].sort((a, b) => a - b) });
+  const rows = <T,>(list: readonly T[], fields: ReadonlyArray<keyof T>): unknown[] => list.map((r) => fields.map((f) => r[f]));
+  return JSON.stringify({
+    ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
+    burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), bloodSpent: t.bloodSpent, fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
+  });
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian

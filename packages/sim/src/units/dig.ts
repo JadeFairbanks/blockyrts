@@ -164,6 +164,8 @@ function finishIfDone(state: SimState, s: Site): boolean {
   const [x, z] = [columnCentre((s.x0 + s.x1) >> 1), columnCentre((s.z0 + s.z1) >> 1)];
   const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : s.kind === SiteKind.LumberRamp ? 'The lumber ramp' : s.kind === SiteKind.StoneRamp ? 'The stone ramp' : 'The earth bank';
   state.events.push({ player: s.owner, kind: 'info', text: `${what} is finished.`, x, z });
+  // A finished tunnel is a cave while it stays unlit (Keeping digging fair: cave-type lairs can appear in it).
+  if (s.kind === SiteKind.Tunnel) state.threats.tunnels.push({ x, z });
   return true;
 }
 

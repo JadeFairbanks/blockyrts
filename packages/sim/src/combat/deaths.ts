@@ -13,7 +13,11 @@ import { NO_CARRY, UnitKind, type SimState } from '../state.ts';
 import { destroyBuilding, dropQueue, isFarm } from '../units/behaviour.ts';
 import { blast, BURST_BLAST, deathHooks, fallText } from './combat.ts';
 import { addMob } from './mob-ai.ts';
-import { BLAST, Mob, mobSpec } from './mobs.ts';
+import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
+import { clearLair } from '../threats/lairs.ts';
+import { rollDrops } from '../threats/loot.ts';
+import { Role } from '../threats/types.ts';
+import { onVillageLoss } from '../threats/villages.ts';
 
 /** A broken wall says so at most once every 5 s per player. */
 const WALL_ALERT_STEPS = 100;
@@ -28,14 +32,13 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   if (taker >= 0 && taker < state.players.length) {
     const pool = state.players[taker]!.pool;
     // Drops: now and then, never on every kill; one roll per row on the 'combat' stream.
-    for (const d of spec.drops) {
-      if (state.rng.combat.nextInt(1000) >= d.chancePm) continue;
-      const n = d.min + state.rng.combat.nextInt(d.max - d.min + 1);
-      pool[d.res] = pool[d.res]! + n;
-    }
+    rollDrops(state, spec.drops, taker);
     // A goblin gives back what it took from a worker.
     if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) pool[e.carryRes[i]!] = pool[e.carryRes[i]!]! + e.carryAmt[i]!;
   }
+  // A lair falls (its hoard and the warriors' experience); a village counts its losses towards war.
+  if (isLair(spec.id)) clearLair(state, i, taker);
+  else if (e.role[i] === Role.Village || (e.role[i] === Role.Structure && e.group[i] !== 0)) onVillageLoss(state, i, taker, hitByWorker(state, i));
   const x = e.x[i]!;
   const z = e.z[i]!;
   switch (spec.id) {
@@ -60,6 +63,17 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
       if (e.fuseAt[i] !== 1) blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: BLAST.unit, radius: BLAST.unitRadius }, { damage: BLAST.building, radius: BLAST.buildingRadius }, e.id[i]!);
       break;
   }
+}
+
+/** Whether a worker was among the units that hit it lately (workers breaking down a hut). */
+function hitByWorker(state: SimState, i: number): boolean {
+  const e = state.entities;
+  const list = e.hitters[i]!;
+  for (let k = 0; k < list.length; k += 2) {
+    const j = e.indexOf(list[k]!);
+    if (j >= 0 && e.kind[j] === UnitKind.Worker) return true;
+  }
+  return false;
 }
 
 function onUnitDeath(state: SimState, i: number): void {

@@ -126,6 +126,8 @@ export interface MobSpec {
   blockBp: number;
   /** Poison its hit adds over 5 s (giant centipede), 0 for none. */
   poison: number;
+  /** Casters: the most mana it holds (goblin mage 60); 0 for none. */
+  mana: number;
 }
 
 /** Tenths of a second as steps. */
@@ -137,7 +139,7 @@ const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STE
 
 const BP = 10000;
 const base = {
-  armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poison: 0,
+  armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poison: 0, mana: 0,
 } as const;
 
 /** The role values of threats/types.ts Role, kept here so this data file imports nothing of the threats. */
@@ -282,7 +284,7 @@ export const MOBS: readonly MobSpec[] = [
   },
   {
     ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 35, damage: 8, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
-    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE, mana: 60,
     drops: [{ res: Res.Hexstone, min: 1, max: 2, chancePm: 400 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 40 }],
   },
   // Lairs (Table 15): health, and a footprint to fit their models (s). The goblin camp is 4 huts of 200, kept as one lair of 800 (s).

@@ -91,10 +91,12 @@ export interface ThreatState {
   fog: number;
   /** Cells checked for a goblin village. */
   checked: Set<number>;
+  /** The mouths of the tunnels the players dug, wu: unlit, they count as caves for lairs (Keeping digging fair). */
+  tunnels: Array<{ x: number; z: number }>;
 }
 
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set() };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set(), tunnels: [] };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */

@@ -45,12 +45,39 @@ export function nearMainBase(state: SimState, b: Building, m: number): boolean {
   return false;
 }
 
+/** Bit 4 of a light's `alerted`: snuffed out, its fuel left kept in `farmAcc` (lights have no farm). */
+const SNUFFED = 4;
+
+export function isSnuffed(b: Building): boolean {
+  return (b.alerted & SNUFFED) !== 0;
+}
+
+/** Snuff puts a light out without damage (Table 18); the fuel it had left waits for a worker to relight it. Returns whether it was lit. */
+export function snuffLight(state: SimState, b: Building): boolean {
+  if (!isLit(b, state.step)) return false;
+  b.farmAcc = b.fuelUntil - state.step;
+  b.fuelUntil = state.step;
+  b.alerted |= SNUFFED;
+  return true;
+}
+
+/** A worker relights a snuffed light in 2 s at no cost (Table 18). Returns whether it was snuffed. */
+export function relight(state: SimState, b: Building): boolean {
+  if (!isSnuffed(b)) return false;
+  b.fuelUntil = state.step + Math.max(1, b.farmAcc);
+  b.farmAcc = 0;
+  b.alerted &= ~(SNUFFED | 2);
+  return true;
+}
+
 /** Lights burn down; those near a main base are topped up from the pool, and one that goes out says so once. */
 export function updateLights(state: SimState): void {
   for (const b of state.buildings.list) {
     const light = buildingSpec(b.kind).light;
     if (!light || !b.complete) continue;
     const left = b.fuelUntil - state.step;
+    // A snuffed light waits for a worker; it does not refuel itself.
+    if (isSnuffed(b)) continue;
     if (left < REFUEL_MARGIN_STEPS && nearMainBase(state, b, AUTO_REFUEL_M)) {
       const pool = state.players[b.owner]!.pool;
       if (pool[light.fuel]! > 0) {

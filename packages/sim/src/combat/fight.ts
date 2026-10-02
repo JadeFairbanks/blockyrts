@@ -13,10 +13,11 @@ import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
-import { Mob, mobSpec } from './mobs.ts';
+import { isStructure, Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
+import { throughFog } from '../threats/fog.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
 export const LEASH_WU = 20 * WU_PER_METRE;
@@ -105,7 +106,8 @@ export function sightOf(state: SimState, i: number): number {
   if (e.kind[i] === UnitKind.Warrior && e.rank[i]! > 3) base += (e.rank[i]! - 3) * 2 * WU_PER_METRE;
   const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
   const bonus = b ? (buildingSpec(b.kind).sightBonusM ?? 0) * WU_PER_METRE : 0;
-  return base + bonus;
+  // A fog night halves it.
+  return throughFog(state, base + bonus);
 }
 
 /** Where a unit's shots leave from: its hand, or the top of the building it garrisons. */
@@ -134,13 +136,15 @@ function validTarget(state: SimState, i: number, t: number, chase = false): bool
  * others that can fight back, then harmless ones (a loose bomb); the
  * closest within each tier, then the lowest id.
  */
-export function pickTarget(state: SimState, i: number, range: number): number {
+export function pickTarget(state: SimState, i: number, range: number, structures = false): number {
   const e = state.entities;
   let best = -1;
   let bestTier = 9;
   let bestD = 0;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, range)) {
     if (!validTarget(state, i, j) || !canHarm(state, i, j)) continue;
+    // Lairs and village buildings are broken on an order or an attack-move, never taken up by an idle unit (s).
+    if (!structures && isMob(state, j) && isStructure(e.mob[j]!)) continue;
     const d = gap(state, i, j);
     if (d > range) continue;
     const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damage === 0;
@@ -206,8 +210,9 @@ function face(state: SimState, i: number, t: number): void {
 function startShot(state: SimState, i: number, t: number, r: RangedStats): void {
   const e = state.entities;
   e.target[i] = e.id[t]!;
-  e.atkAt[i] = state.step + Math.max(1, floorDiv(r.attackSteps * 2, 5));
-  e.atkNext[i] = state.step + r.attackSteps;
+  const steps = hexed(state, i, r.attackSteps);
+  e.atkAt[i] = state.step + Math.max(1, floorDiv(steps * 2, 5));
+  e.atkNext[i] = state.step + steps;
   e.atkWith[i] = Slot.Ranged;
   e.order[i] = OrderKind.Shoot;
 }
@@ -434,7 +439,7 @@ export function fightStep(state: SimState, i: number): boolean {
     // Walking back from a leashed chase, it takes no new target until it is halfway home.
     const away = e.chasing[i] !== 0 && length2d(e.x[i]! - e.homeX[i]!, e.z[i]! - e.homeZ[i]!) > LEASH_WU >> 1;
     if (leashed) e.chasing[i] = mode === Mode.Idle ? 2 : 0;
-    t = leashed || (e.chasing[i] === 2 && away) ? -1 : pickTarget(state, i, acquire);
+    t = leashed || (e.chasing[i] === 2 && away) ? -1 : pickTarget(state, i, acquire, mode === Mode.Seek);
     if (t >= 0 && e.chasing[i] !== 1) {
       // Where the chase begins: the leash is measured from here, and an idle unit comes back here.
       if (e.chasing[i] === 0) {

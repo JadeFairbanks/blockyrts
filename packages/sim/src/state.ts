@@ -435,6 +435,8 @@ export interface SimEvent {
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
   z?: number;
+  /** A sound cue to play with it (the blood night's double horn), for the client. */
+  sound?: string;
 }
 
 export interface SimState {
@@ -524,6 +526,12 @@ export interface PendingSpawn {
   x: number;
   z: number;
   placed: number;
+  /** Role it comes as (threats/types.ts Role: Night, or Aimed at (ax, az)). */
+  role: number;
+  ax: number;
+  az: number;
+  /** The lair it comes out of (an entity id), or 0 for the dark edge. */
+  src: number;
 }
 
 /** Site kinds: a dig down, a tunnel into a hillside, earth heaped to a level, an earth ramp. */
@@ -740,7 +748,9 @@ export function revealAroundUnits(state: SimState): void {
   for (let i = 0; i < e.count; i++) {
     const owner = e.owner[i]!;
     if (owner >= state.players.length || e.inside[i] !== 0) continue;
-    state.world.reveal(owner, e.x[i]!, e.z[i]!, SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0]);
+    const sight = SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0];
+    // A fog night halves how far everyone sees.
+    state.world.reveal(owner, e.x[i]!, e.z[i]!, state.threats.fog !== 0 ? sight >> 1 : sight);
   }
   for (const b of state.buildings.list) {
     const s = footprintDims(b.kind, b.variant);

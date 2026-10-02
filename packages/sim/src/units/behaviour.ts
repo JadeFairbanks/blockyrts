@@ -5,13 +5,14 @@
 // the state and the seeded streams, and units are visited in index order.
 
 import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
-import { computeEnclosed, buildingCentre, dist2 } from '../buildings/lights.ts';
+import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
 import { STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, maxHealth, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, PERSON_ARMOURED, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
@@ -214,6 +215,8 @@ export function moveSpeed(state: SimState, i: number): number {
   if (starvingSince(state, i)) bp -= STARVING_SLOW_BP;
   if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
+  // A goblin mage's Stumble hex: 20% slower.
+  if (e.hexUntil[i]! > state.step) bp -= HEX_SLOW_BP;
   return Math.max(1, floorDiv(base * bp, 10000));
 }
 
@@ -993,10 +996,12 @@ function runRefuel(state: SimState, i: number, o: Extract<UnitOrder, { t: 'refue
   e.timer[i] = e.timer[i]! + 1;
   if (e.timer[i]! < REFUEL_STEPS) return CONTINUE;
   const pool = state.players[b.owner]!.pool;
-  if (pool[light.fuel]! <= 0) {
+  if (pool[light.fuel]! <= 0 && !isSnuffed(b)) {
     alert(state, b.owner, `Not enough ${RESOURCES[light.fuel]!.name.toLowerCase()} to refuel the ${buildingSpec(b.kind).name.toLowerCase()}.`, e.x[i]!, e.z[i]!);
     return DONE;
   }
+  // A light snuffed out is relit at no cost with the fuel it had left (Table 18).
+  if (relight(state, b)) return DONE;
   pool[light.fuel] = pool[light.fuel]! - 1;
   b.fuelUntil = Math.max(b.fuelUntil, state.step) + light.fuelSteps;
   b.alerted &= ~2;
