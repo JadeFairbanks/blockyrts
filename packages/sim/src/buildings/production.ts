@@ -164,6 +164,7 @@ export function researchProblem(state: SimState, player: number, r: ResearchSpec
   if (researchQueued(state, player, r.id)) return 'Being researched.';
   if (r.forge && bestLevel(state, player, BuildingKind.Forge) < r.forge) return `Needs a ${buildingName(BuildingKind.Forge, r.forge, 0)}.`;
   if (r.after && !hasResearch(p.research, r.after)) return `Needs ${RESEARCH[r.after]!.name} researched first.`;
+  if (r.building && bestLevel(state, player, r.building[0]) < r.building[1]) return `Needs a finished ${buildingName(r.building[0], r.building[1], 0)}.`;
   if (r.made && (p.made & r.made) === 0) return r.made === Made.TinIngot ? 'Smelt a tin ingot first.' : 'Smelt pig iron first.';
   return '';
 }

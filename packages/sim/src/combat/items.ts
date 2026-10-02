@@ -289,13 +289,14 @@ export interface ResearchSpec {
   made?: number;
   /** Researched in a later milestone: the reason it is greyed. */
   later?: string;
+  /** A finished building of a kind and level the player must have (Table 2a "Needs first": a Powder mill, a Great Workshop). */
+  building?: readonly [number, number];
   /** Researched at this building kind instead of a Scholar's Lodge (Hexcraft at the Magi Sanctum). */
   at?: number;
   /** No longer a research step (its bit is kept so saved research masks still line up). */
   retired?: boolean;
 }
 
-const M8R = 'Comes with siege engines and gunpowder (milestone 8).';
 const sec = (n: number): number => n * STEPS_PER_SECOND;
 
 export const RESEARCH: readonly ResearchSpec[] = [
@@ -330,8 +331,8 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Mineshaft tier 2.',
   },
   {
-    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), later: M8R,
-    opens: 'The catapult; the ballista with a Manufactory and Forge level 3.',
+    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), building: [BuildingKind.Workshop, 3],
+    opens: 'The catapult and catapult stones; the ballista and its bolts with a Manufactory and Forge level 3.',
   },
   {
     id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), forge: 4, made: Made.PigIron,
@@ -350,16 +351,16 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Mineshaft tier 3.',
   },
   {
-    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), later: M8R,
-    opens: 'Gunpowder.',
+    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), building: [BuildingKind.PowderMill, 1],
+    opens: 'Gunpowder at the Powder mill.',
   },
   {
-    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), later: M8R,
-    opens: 'The flintlock musket, lead shot, the powder horn and the shot pouch.',
+    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), after: Research.Gunpowder, building: [BuildingKind.GunneryYard, 1],
+    opens: 'The flintlock musket, lead shot, the powder horn and the shot pouch, and musket training at the Gunnery yard.',
   },
   {
-    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), later: M8R,
-    opens: 'The bronze cannon and cannonballs; the iron cannon once Forge level 3 exists.',
+    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), after: Research.Gunpowder, building: [BuildingKind.Foundry, 1],
+    opens: 'The bronze cannon and cannonballs, and cannon crew training; the iron cannon once Forge level 3 exists.',
   },
 ];
 
