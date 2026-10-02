@@ -29,6 +29,8 @@ pnpm install
 | `pnpm sim:run` | The headless runner (options below) |
 | `pnpm dev` | The client at http://localhost:5173 |
 | `pnpm audio:dev` | The audio audition page at http://localhost:5174 |
+| `pnpm balance:dev` | The balance editor at http://localhost:5175 |
+| `pnpm --filter @blockyrts/tools balance:apply <file>` | Applies a balance editor export to the sim's data files (`--dry-run`, `--force`) |
 | `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
 | `pnpm --filter @blockyrts/tools models:build` | Converts the Blockbench models to glb for the client (`pnpm dev` and the client build run it first) |
 | `pnpm assets:manifest` | Lists packages/assets/src/MANIFEST.md and checks it against the model files |
@@ -48,6 +50,7 @@ CI installs all three and fails if any is missing.
 | `packages/protocol` | Relay message codecs, the lockstep scheduler, the save file container and the HTTP API shapes; see its README |
 | `packages/server` | Accounts and save API, lobby and lockstep relay in one Node process; see its README for settings |
 | `packages/audio` | Every sound and the music, synthesised in code; the Web Audio engine and an audition page (`pnpm audio:dev`) |
+| `packages/balance` | The balance editor: every balance value in the sim, browsable and editable, exported as a JSON list of changes; see its README |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
 ## The number tables
@@ -527,6 +530,41 @@ overhangs. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    `node packages/client/test-e2e/gap-look.mjs` (with the dev server on port
    5198) builds the Hill, marks a tunnel on its face with the mouse and takes
    screenshots once it is dug.
+
+## How a tester checks the balance editor
+
+The editor reads the sim's own data modules when it is built, so what it shows
+is what the game runs on. Its build is one self-contained HTML file.
+
+1. `pnpm balance:dev` and open http://localhost:5175 (or
+   `pnpm --filter @blockyrts/balance build` and open
+   `packages/balance/dist/index.html` straight from disk). The left menu lists
+   13 groups, from Buildings and levels to Pacing, plus the blueprint's tables
+   read only; the header names the commit the tables came from.
+2. Buildings and levels > Basic build menu > Big House. Its "Unlocks and uses"
+   box lists what each main base level unlocks (Barracks at level 2, and so
+   on) and what is made there; click a chip and that entry opens. Research >
+   Bronze lists everything that needs it, and its "Forge level needed first"
+   names the Casting Hearth.
+3. Change Level 2: Longhall > Build work from 400 to 450. The row turns
+   yellow with "was 400 ws" and a Reset, the menu shows a count, and the
+   change appears on the right with a note box. Search "zombie health",
+   change it in the results, and add a note.
+4. Export: a file named balance-changes-YYYY-MM-DD.json downloads with only
+   those two changes, each with its module, path, label, old and new value,
+   plus the commit. Clear all, then Import that file: both changes come back.
+   Reloading the page keeps the session too.
+5. `pnpm --filter @blockyrts/tools balance:apply <that file> --dry-run` lists
+   both as "would apply" with the file and line it would edit. Without
+   `--dry-run` it edits `packages/sim/src`, re-reads the sim in a fresh
+   process to check every value landed, and lists anything it left for a
+   person (a value worked out by a formula, or written in a helper several
+   rows share) with the file and line. `git diff` shows the two literals
+   changed; `git checkout packages/sim` undoes it.
+6. `pnpm test` runs `packages/balance/test` (the tree, units, export and
+   import) and `packages/tools/test/balance-apply.test.ts`, which changes
+   every editable value at once on a copy of the sim, checks each one it
+   reports applied in a fresh process, and typechecks the result.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
 
