@@ -140,6 +140,10 @@ export const Shot = {
   FireArrow: 6,
   /** A crossbow bolt. */
   Bolt: 7,
+  /** A goblin mage's Spark toss: a small fire bolt. */
+  Spark: 8,
+  /** A mana wraith's bolt. */
+  ManaBolt: 9,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -559,4 +563,6 @@ export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; 
   { speed: floorDiv(cm(1400), STEPS_PER_SECOND), arcs: true, name: 'web', model: 'web_glob', vsWalls: 0 },
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'fire arrow', model: 'arrow_fire', vsWalls: 0 },
   { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt', vsWalls: 0 },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spell_spark_toss', vsWalls: 0 },
+  { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'spell_bolt', vsWalls: 0 },
 ];

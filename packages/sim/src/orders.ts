@@ -289,6 +289,15 @@ export interface DebugGiveOrder {
   count: number;
 }
 
+/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature, a blood night or fog (threats/debug.ts DebugThreat). */
+export interface DebugThreatOrder {
+  kind: 'debugThreat';
+  player: number;
+  what: number;
+  x: number;
+  z: number;
+}
+
 /** Debug: a night mob at a point (wu), sent against the player. */
 export interface DebugSpawnOrder {
   kind: 'debugSpawn';
@@ -374,6 +383,7 @@ export type Order =
   | TrainSkillOrder
   | DebugGiveOrder
   | DebugSpawnOrder
+  | DebugThreatOrder
   | MoveOrder
   | StopOrder
   | FollowOrder
@@ -454,6 +464,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   trainSkill: ['building', 'skill'],
   debugGive: ['item', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
+  debugThreat: ['what', 'x', 'z'],
   hunt: ['target', 'auto'],
   tame: ['target'],
   eat: ['building'],

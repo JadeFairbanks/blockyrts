@@ -24,10 +24,14 @@ import { PropKind } from '../world/props.ts';
 import { deathHooks, gap, hurtUnit, sideOf, Side } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
+import { rollDrops } from '../threats/loot.ts';
 import { BEAR_CAP, BREED_STEPS, breeds, Nature, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
 
 const COLUMN = WU_PER_COLUMN;
 const M = WU_PER_METRE;
+
+/** What else a cell holds the first time the players come near it (threats/villages.ts: a goblin village). */
+export const stockHooks: { cell: (state: SimState, cellId: number) => void } = { cell: () => {} };
 
 /** Cells are stocked when a player's unit is in one or next to it, looked at every second (s). */
 export const STOCK_CHECK_STEPS = STEPS_PER_SECOND;
@@ -43,6 +47,11 @@ const LONE_WU = 8 * M;
 /** Frogs and crocodiles guard 6 m round their spot (s); bears 2 m, a mother with a cub 15 m (doc). */
 const GUARD_WU = 6 * M;
 const BEAR_NEAR_WU = 2 * M;
+/** A hunter that killed its quarry looks for the next within 60 m (s). */
+const HUNTER_RESUME_WU = 60 * M;
+/** Venom works over 5 s; a hornet's sting slows by 30% for 3 s (roster 6.1). */
+const VENOM_STEPS = 5 * STEPS_PER_SECOND;
+const STING = { slowBp: 3000, steps: 3 * STEPS_PER_SECOND };
 const BEAR_MOTHER_WU = 15 * M;
 /** Badgers go for an outlying torch within 30 m every minute and run from units within 6 m (s). */
 const BADGER_REACH_WU = 30 * M;
@@ -133,6 +142,18 @@ function groupsIn(state: SimState, s: SpeciesSpec, cell: number, band: Band): nu
     case Species.Crocodile:
     case Species.GiantCrab:
       return roll < 60 ? s.perCell : 0;
+    // Territorial creatures (s): beetles in every other Fringe cell, a hornet nest in a third of the Deepwoods,
+    // vipers and scorpions in half the Barrens, a griffin in one cell in five, a minotaur in one in four.
+    case Species.GiantBeetle:
+    case Species.Viper:
+    case Species.GiantScorpion:
+      return roll < 50 ? s.perCell : 0;
+    case Species.GiantHornet:
+      return roll < 33 ? 1 : 0;
+    case Species.Griffin:
+      return roll < 20 ? 1 : 0;
+    case Species.Minotaur:
+      return roll < 25 ? 1 : 0;
     default:
       return s.perCell;
   }
@@ -140,7 +161,7 @@ function groupsIn(state: SimState, s: SpeciesSpec, cell: number, band: Band): nu
 
 /** The stocked-cells key for one species in one cell. */
 function stockKey(cellId: number, species: number): number {
-  return cellId * 16 + species;
+  return cellId * 32 + species;
 }
 
 /** The first species a cell has not been stocked with yet, or -1. */
@@ -278,6 +299,7 @@ function updateStocking(state: SimState): void {
   // Spread over the checks, as each needs fresh land generated: the cells the units stand in are stocked at once,
   // the cells next to them one species a check, and one chunk of fish a check (s).
   for (const c of [...cells].sort((a, b) => a - b)) stockCell(state, c);
+  for (const c of [...all].sort((a, b) => a - b)) stockHooks.cell(state, c);
   for (const c of [...all].sort((a, b) => a - b)) {
     const species = unstocked(state, c);
     if (species < 0) continue;
@@ -347,7 +369,19 @@ function fight(state: SimState, i: number, t: number): void {
   e.order[i] = OrderKind.Attack;
   if (state.step < e.atkNext[i]! || s.damage <= 0) return;
   e.atkNext[i] = state.step + s.attackSteps;
-  hurtUnit(state, t, { damage: s.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false });
+  const d = hurtUnit(state, t, { damage: s.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false });
+  if (d <= 0 || e.hp[t]! <= 0) return;
+  // Venom (vipers, scorpions): more over 5 s, renewed rather than piled up (s).
+  if (s.venom > 0) {
+    e.dotLeft[t] = Math.max(e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0, s.venom);
+    e.dotUntil[t] = state.step + VENOM_STEPS;
+    e.dotFrom[t] = e.id[i]!;
+  }
+  // A hornet's sting slows by 30% for 3 s (roster).
+  if (s.id === Species.GiantHornet) {
+    e.slowUntil[t] = state.step + STING.steps;
+    e.slowBp[t] = STING.slowBp;
+  }
 }
 
 /** The players' unit that hurt it in the last 8 s, if still there. */
@@ -439,18 +473,39 @@ function runWild(state: SimState, i: number): void {
       if (t >= 0) return fight(state, i, t);
       break;
     }
-    case Nature.Territorial: {
-      let t = a >= 0 && fromHome(state, i, a) <= GIVE_UP_WU ? a : keepTarget(state, i, GIVE_UP_WU);
-      if (t < 0) t = nearbyPrey(state, hx, hz, GUARD_WU)[0] ?? -1;
+    case Nature.Territorial:
+    case Nature.Nest: {
+      const chase = s.chase || GIVE_UP_WU;
+      let t = a >= 0 && fromHome(state, i, a) <= chase ? a : keepTarget(state, i, chase);
+      if (t < 0) t = nearbyPrey(state, s.roam ? e.x[i]! : hx, s.roam ? e.z[i]! : hz, s.guard || GUARD_WU)[0] ?? -1;
+      // A disturbed nest all comes out.
+      if (t < 0 && s.nature === Nature.Nest) t = mateTarget(state, i, s.id, chase);
       if (t >= 0) return fight(state, i, t);
-      // Back to its spot and wait there.
+      // Roamers wander round their spot; the rest go back to it and wait.
+      if (s.roam) {
+        e.target[i] = 0;
+        return graze(state, i, hx, hz, s.roam);
+      }
+      if (!goTo(state, i, hx, hz, false)) e.order[i] = OrderKind.Idle;
+      return;
+    }
+    case Nature.Hunter: {
+      // Once disturbed it hunts the players until one side is dead: its quarry, then the nearest of the same side within 60 m.
+      let t = a >= 0 ? a : keepTarget(state, i, Number.MAX_SAFE_INTEGER);
+      if (t < 0 && e.timer[i]! > 0) t = nearbyPrey(state, e.x[i]!, e.z[i]!, HUNTER_RESUME_WU)[0] ?? -1;
+      if (t < 0) t = nearbyPrey(state, hx, hz, s.guard || GUARD_WU)[0] ?? -1;
+      if (t >= 0) {
+        e.timer[i] = 1;
+        return fight(state, i, t);
+      }
+      e.timer[i] = 0;
       if (!goTo(state, i, hx, hz, false)) e.order[i] = OrderKind.Idle;
       return;
     }
     case Nature.TorchBreaker: {
       const near = nearbyPrey(state, e.x[i]!, e.z[i]!, BADGER_SHY_WU);
       if (near.length > 0) return flee(state, i, near[0]!);
-      if (state.step >= e.abilityAt[i]! && !isDark(state.step)) {
+      if (state.step >= e.abilityAt[i]! && !isDark(state.step, state.blood)) {
         const torch = outlyingTorch(state, e.x[i]!, e.z[i]!);
         if (torch) {
           const [tx, tz] = buildingCentre(torch);
@@ -475,6 +530,17 @@ function runWild(state: SimState, i: number): void {
   }
   e.target[i] = 0;
   graze(state, i, hx, hz, GRAZE_WU);
+}
+
+/** What a nest-mate of the same kind within reach is fighting, if one is; -1 for none. */
+function mateTarget(state: SimState, i: number, species: number, chase: number): number {
+  const e = state.entities;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, GIVE_UP_WU)) {
+    if (j === i || e.kind[j] !== UnitKind.Animal || e.mob[j] !== species || e.owner[j] !== WILD || !e.target[j]) continue;
+    const k = e.indexOf(e.target[j]!);
+    if (prey(state, k) && fromHome(state, i, k) <= chase) return k;
+  }
+  return -1;
 }
 
 /** A grown she-bear with a cub of her spot nearby (Bears: attacks anything within 15 m). */
@@ -579,7 +645,7 @@ function runTamed(state: SimState, i: number): void {
   const b = state.buildings.get(e.home[i]!);
   const a = recentAttacker(state, i) >= 0 ? recentAttacker(state, i) : monsterNear(state, i);
   if (a >= 0 && e.inside[i] === 0) return flee(state, i, a);
-  if (isDark(state.step) && b) {
+  if (isDark(state.step, state.blood) && b) {
     const shelter = shelterFor(state, i, b);
     if (shelter) {
       if (e.inside[i] === shelter.id) return;
@@ -595,7 +661,7 @@ function runTamed(state: SimState, i: number): void {
     }
   }
   if (e.inside[i] !== 0) {
-    if (isDark(state.step)) return;
+    if (isDark(state.step, state.blood)) return;
     goOutside(state, i);
   }
   if (!b) return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
@@ -771,7 +837,12 @@ function onAnimalDeath(state: SimState, i: number): void {
   const e = state.entities;
   const s = speciesSpec(e.mob[i]!);
   const meat = e.born[i]! > state.step ? Math.max(1, s.meat >> 1) : s.meat;
-  state.world.addProp(floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN), PropKind.Carcass, s.id, meat, state.step);
+  if (meat > 0 || s.extra.length > 0) state.world.addProp(floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN), PropKind.Carcass, s.id, meat, state.step);
+  // A creature's other drops go to the side whose unit last hurt it.
+  if (s.loot.length > 0 && e.attacker[i]) {
+    const a = e.indexOf(e.attacker[i]!);
+    if (a >= 0 && e.owner[a]! < state.players.length) rollDrops(state, s.loot, e.owner[a]!);
+  }
   const owner = e.owner[i]!;
   if (owner < state.players.length) state.events.push({ player: owner, kind: 'alert', text: `A tamed ${s.name.toLowerCase()} has been killed.`, x: e.x[i]!, z: e.z[i]! });
   // Its worker lets go of the cart.

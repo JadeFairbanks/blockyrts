@@ -15,6 +15,7 @@ import { isTree } from '../world/props.ts';
 import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, Side, sideOf } from './combat.ts';
 import { SHOTS } from './items.ts';
 import { WEB } from './mobs.ts';
+import { smoulder, SPARK } from '../threats/burns.ts';
 
 /** Gravity, wu per step per step: 9.8 m/s2 at 20 steps a second. Even, so half of it times k squared stays whole. */
 export const GRAVITY = 196;
@@ -230,6 +231,8 @@ export function updateProjectiles(state: SimState): void {
         const b = state.buildings.get(bid);
         if (b && y < buildingTop(b)) {
           hurtBuilding(state, b, SHOTS[p.shot]!.vsWalls, x, y, z);
+          // A fire bolt sets dry wood smouldering (Table 17: Spark toss).
+          if (p.flags & ProjectileFlag.Fire && p.side !== Side.Players) smoulder(state, b, SPARK.smoulderPerSecond, SPARK.smoulderSteps);
           done = true;
           break;
         }

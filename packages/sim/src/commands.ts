@@ -26,6 +26,7 @@ import { equipBest, handPick, SKILL_TRAINING } from './units/gear.ts';
 import { markSite } from './units/dig.ts';
 import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
+import { debugThreat } from './threats/debug.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -458,7 +459,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.item > 0 && o.item < ITEM_COUNT) state.players[o.player]!.items[o.item] = state.players[o.player]!.items[o.item]! + o.count;
         break;
       case 'debugSpawn':
-        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);
+        break;
+      case 'debugThreat':
+        debugThreat(state, o.player, o.what, o.x, o.z);
         break;
     }
   }

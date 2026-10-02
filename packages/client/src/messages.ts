@@ -171,6 +171,21 @@ export interface InfoMessage {
   dontEat: number;
   starveWorkers: boolean;
   starveTroops: boolean;
+  /** Blood nights called so far (they shift the clock), and whether a fog night lies now. */
+  blood: number[];
+  fog: boolean;
+  /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
+  ruins: Array<[number, number, number]>;
+  /** Lairs and goblin villages the local player has seen, for the minimap (wu). */
+  marks: ThreatMark[];
+}
+
+/** A lair (its mob kind) or a goblin village (mob -1) on the minimap; war: the village is at war with the local player. */
+export interface ThreatMark {
+  mob: number;
+  x: number;
+  z: number;
+  war: boolean;
 }
 
 export interface PlacedMessage {

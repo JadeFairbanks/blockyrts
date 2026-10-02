@@ -59,6 +59,8 @@ export const XP_TENTHS = 10;
 /** Clearing a lair gives 20 XP to every warrior within 20 m. */
 export const LAIR_CLEAR_XP_TENTHS = 20 * XP_TENTHS;
 export const LAIR_CLEAR_RADIUS_M = 20;
+/** A goblin mage's Stumble hex slows a unit's moves and attacks by 20% (Goblin mage). */
+export const HEX_SLOW_BP = 2000;
 /** Hitters in the last 10 s share a kill. */
 export const KILL_SHARE_WINDOW_STEPS = 10 * STEPS_PER_SECOND;
 /** A support mage earns 1 XP per 25 health healed in combat. */

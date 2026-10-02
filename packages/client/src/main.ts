@@ -6,7 +6,7 @@
 // (src/hud/shell.ts); WorldView (src/world/world-view.ts) implements it.
 import './hud/hud.css';
 import * as THREE from 'three';
-import { hashHex, Mat, WU_PER_METRE, type Order } from '@blockyrts/sim';
+import { DebugThreat, hashHex, LAIRS, Mat, mobSpec, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import { GameInfo } from './game/game-info.ts';
 import { GameShell } from './hud/shell.ts';
 import { S, STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
@@ -202,6 +202,29 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
     }
     shell.message(n > 0 ? `Felled ${n}.` : 'Select trees, bushes or rocks first.');
   });
+  // Milestone 5's threats, at the middle of the view (sim orders, so they are in the hash).
+  const threat = (what: number): void => {
+    const f = shell.cam.focus;
+    order({ kind: 'debugThreat', player: PLAYER, what, x: Math.round(f.x * WU_PER_METRE), z: Math.round(f.z * WU_PER_METRE) });
+  };
+  const cycler = (id: string, label: string, names: readonly string[], first: number, description: string): void => {
+    let k = 0;
+    add(id, `${label}: ${names[0]}`, `Debug: ${label.toLowerCase()}`, description, () => {
+      threat(first + k);
+      shell.message(`Debug: ${names[k]} placed in the middle of the view.`);
+      k = (k + 1) % names.length;
+      shell.buttons.get(id)?.setFace(`${label}: ${names[k]}`);
+    });
+  };
+  cycler('dbg-lair', 'Lair', LAIRS.map((l) => mobSpec(l.mob).name), DebugThreat.Lair, 'Puts the named lair (Table 15) in the middle of the view with its guardians, asleep sleepers inside; each press moves on to the next of the eight kinds.');
+  add('dbg-village', 'Village', 'Debug: goblin village', 'Puts a goblin village of 5 huts with a goblin mage in the middle of the view (Table 17).', () => {
+    threat(DebugThreat.Village);
+    shell.message('Debug: a goblin village placed in the middle of the view.');
+  });
+  cycler('dbg-tribe', 'Tribe', ['Gnolls', 'Kobolds', 'Hobgoblins'], DebugThreat.Gnolls, 'Puts a band of the named hostile tribe (Table 16) in the middle of the view; each press moves on to the next tribe.');
+  cycler('dbg-creature', 'Creature', ['Giant beetle', 'Giant hornets', 'Viper', 'Giant scorpion', 'Griffin', 'Minotaur'], DebugThreat.Creature, 'Puts the named territorial creature in the middle of the view; each press moves on to the next.');
+  add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
+  add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
 }
 
 void main();

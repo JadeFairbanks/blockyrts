@@ -88,7 +88,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash f1ae866b`. Run it again: the same hash. (The
+   prints `final step 10000 hash 592ef6b2`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -97,7 +97,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `44cda7eb`
+   step as the headless runner with no script: for seed 1 that is `3dedf807`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -127,9 +127,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `44cda7eb` at step 40, with two players `141caae4`. The land matches too.
+   `3dedf807` at step 40, with two players `cf37eaba`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 202b08c6`: two players dig trenches from a
+   prints `final step 10000 hash 3cc8322e`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -199,7 +199,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 355d619d`: workers chop and quarry, the Big
+   prints `final step 10000 hash d5c955ef`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -264,7 +264,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash b97189c3`: the Big House crafts a club and a
+   prints `final step 10000 hash a833ec17`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
@@ -342,7 +342,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash f65ef4d1`: two workers pick flint while two
+   prints `final step 10000 hash 5bfc5c86`: two workers pick flint while two
    chop; the warrior hunts with N twice, wears down two deer north of the
    camp, brings their meat home and walks home at dusk; a worker prospects
    (Fair); Rations goes to troops only and the workers starve until it goes
@@ -350,6 +350,113 @@ workers but not troops.*
    researches Flint tools at night; the Big House makes a sling and a fishing
    rod from wild flax, and Equip Best hands the warrior the sling.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
+
+## How a tester checks milestone 5
+
+The build order's check for M5 is: *by night 15 a barrow and a cave mouth sit
+at the frontier and send a fifth of the wave; clearing the barrow by day
+yields its hoard and 20 XP; 60% of the Fringe triggers a blood night with the
+warning; outlying torches over the limit bring the goblin horde at dusk; a
+Deepwoods village declares war on the fifth kill and marches 30 s after
+dawn.*
+
+1. `pnpm test` runs those checks as scenario tests in
+   `packages/sim/test/m5.test.ts`: the first lair placed at dusk on night 3,
+   40 m or more beyond claimed land, with its guardian, and Table 8's cadence
+   and cap after it; a fifth of the night coming out of a lair's mouth 20 s
+   after nightfall; a barrow attacked by day waking its sleepers, and when
+   broken leaving a ruin, a hoard in the pool and 20 XP for the warriors near
+   it; a blood night on night 13 once the Heartland is held, and one more
+   when 60% of the Fringe is held, each with the warning and the double horn,
+   twice as long and with the extra budget on the rarer kinds; fog halving
+   sight until the day; the dusk horde, 3 cutters and a slinger for each
+   outlying light over the limit; a village's huts, fire pit, totem, goblins,
+   archers and mage; its warning one kill before war, war on the fifth kill
+   and its warband marching 30 s after dawn; the mage's Stumble hex slowing a
+   unit for its mana, and its Snuff putting out a torch that a worker relights
+   for nothing; a tribe's band chasing what it sees and camping at dusk, and
+   the first band turning up on day 3; a griffin hunting down what disturbed
+   it; and a replay and a snapshot round trip landing on the same hash.
+2. `pnpm dev`, open http://localhost:5173/?seed=1 and start. The debug panel
+   has new buttons that act at the middle of the view (they are sim orders,
+   so they are in the hash): **Lair** puts down the lair it names and moves
+   on to the next of the eight kinds of Table 15; **Village** puts down a
+   goblin village of 5 huts with a mage; **Tribe** a band of gnolls, kobolds
+   or hobgoblins; **Creature** a giant beetle, giant hornets, a viper, a giant
+   scorpion, a griffin or a minotaur; **Blood night** makes the coming night a
+   blood night; **Fog** brings fog until the day. Lairs, huts and ruins stay
+   drawn on explored land. Until the model catalogue is merged, they and the
+   new creatures are coloured blocks.
+3. **Lairs.** In a normal game the first lair turns up at dusk on night 3 on
+   the frontier: a cell next to your land that nobody holds, 40 m or more
+   from claimed land and 30 m from your units, at a barrier's foot for a cave
+   mouth (finished unlit tunnels count as caves). Then one every 3 nights to
+   night 14, every 2 to night 44 and one a night after that, at most 2 + 1
+   per 15 nights alive per player. A lair shows on the minimap as a red
+   square once one of your units has seen it (rifts from 120 m at night).
+   Its guardians stand round it and its sleepers wait inside; each night a
+   fifth of your wave comes out of it 20 s after nightfall. Attack it by day:
+   "The barrow is stirring" means the sleepers are out. When it falls you
+   read "The barrow is cleared. Its hoard: …", the hoard goes into your pool,
+   warriors within 20 m earn 20 XP, and its ruin stays; no lair comes within
+   30 m of a ruin for 10 days.
+4. **Blood and fog nights.** From night 13, when your side holds 60% of a
+   band's cells (the Heartland first, then the Fringe and the Deepwoods, each
+   once, never the Deadlands), the coming night is a blood night: the warning
+   "A blood night is coming" at dusk (with the double horn once the sounds are
+   wired in), the clock reads "Blood night", the night light turns red, and it
+   lasts twice as long with more of the rarer monsters. From night 5 one
+   night in ten is a fog night: "Fog is rolling in", the clock adds "fog", a
+   grey fog closes in, and everyone's sight and every light's reach are
+   halved until the day.
+5. **Outlying lights and the dusk horde.** The clock's "Lights outside: n of
+   m" counts torches more than 40 m from a main base against the coming
+   night's limit. At dusk, for each light over the limit, 3 goblin cutters
+   and a slinger (and a goblin chief for every 5 over) come out of the dark
+   for those lights.
+6. **Rising difficulty.** At dusk each player's night is read again: more
+   than 10 buildings (not counting walls, defences and lights) add 2% each;
+   each village at war adds 10% and each hunting creature you stirred up 5%;
+   units and buildings out in deeper bands draw extra monsters from later
+   nights, sent for the deepest of them.
+7. **Hostile tribes.** From day 3, every other day, a band of 3 to 5 gnolls,
+   4 to 6 kobolds or 3 or 4 hobgoblins turns up in the Fringe or the
+   Deepwoods within 700 m of your town, while the world holds fewer than 20
+   tribesmen per player. Bands roam cell to cell by day, chase what they see until nobody
+   has seen it for 20 s (kobolds go for your torches) and camp round a fire
+   at dusk, fighting only what attacks them. They do not burn in the sun.
+8. **Goblin villages.** One Fringe cell in 12 and one Deepwoods cell in 4
+   hold a village (never the start basin), found the first time your units
+   come near: huts in a ring round a fire pit and a totem, 2 goblins a hut, 2
+   archers and a goblin mage (in every Deepwoods village and half the Fringe
+   ones). It shows on the minimap as an
+   ochre ring. Kill 4 of its goblins (or break a building) and you are warned;
+   the fifth kill, or a kill and a broken building, means war: the ring turns
+   red, and every day 30 s after dawn 60% of its fighters (at least 4) march
+   on your nearest building and go home at dusk. The mage snuffs lights on
+   the way (a worker on its refuel round relights them for nothing), hexes a
+   unit to stumble (slowed) and tosses sparks that leave wood smouldering.
+   At peace a village rebuilds a hut every 5 days. Workers who break down a
+   hut take 5 hardwood sticks and 2 hides from it.
+9. **Territorial creatures.** Giant beetles (Fringe) and giant hornet nests
+   (Deepwoods) see off what comes within 8 m; vipers and giant scorpions
+   (Barrens) strike what steps close and poison it; a griffin (Barrens and
+   Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
+   down.
+10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
+   prints `final step 10000 hash a7e3ef06`: the debug tools hand out steel
+   gear and three clubs and put a barrow 60 m east of the Big House and a
+   cave mouth 60 m west; the Big House trains three warriors; all four
+   attack the barrow, the first one there falls to its giant centipede, and
+   the other three wake its zombies, break it, take its hoard and earn 20 XP
+   each; fog rolls in for night 0 and the warriors guard the Big House; at
+   dawn a goblin village goes up 80 m north, a gnoll band to the south-east
+   and a giant beetle to the north-west; the warriors attack the village,
+   which declares war on the fifth kill, and walk home (one falls on the
+   way); then a blood night is
+   called for night 1. `pnpm test` runs it in Node, Chromium, Firefox and
+   WebKit too. `node packages/client/test-e2e/m5-look.mjs` (with the dev
+   server on port 5198) takes screenshots of the debug threats in a browser.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
 

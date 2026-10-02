@@ -11,14 +11,90 @@ import { ITEM_COUNT } from './combat/items.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
-const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
+const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
+import type { Burn, DuskReading, Ruin, ThreatState, TribeBand, Village } from './threats/types.ts';
+
+const RUIN_FIELDS = ['mob', 'x', 'z', 'at'] as const satisfies ReadonlyArray<keyof Ruin>;
+const VILLAGE_FIELDS = ['id', 'cell', 'x', 'z', 'band', 'size', 'mage', 'war', 'warned', 'razed', 'rebuildAt', 'raided', 'seen'] as const satisfies ReadonlyArray<keyof Village>;
+const BAND_FIELDS = ['id', 'tribe', 'x', 'z', 'camp', 'campX', 'campZ', 'target', 'sawAt'] as const satisfies ReadonlyArray<keyof TribeBand>;
+const BURN_FIELDS = ['building', 'until', 'perSecond'] as const satisfies ReadonlyArray<keyof Burn>;
+const DUSK_FIELDS = ['townPm', 'provokedPm', 'depthPm', 'ax', 'az', 'band', 'building'] as const satisfies ReadonlyArray<keyof DuskReading>;
+
+function writeRecords<T>(w: ByteWriter, list: readonly T[], fields: readonly string[]): void {
+  w.u32(list.length);
+  for (const rec of list) for (const f of fields) w.i32((rec as Record<string, number>)[f]!);
+}
+
+function readRecordList<T>(r: ByteReader, fields: readonly string[]): T[] {
+  const out: T[] = [];
+  const n = r.u32();
+  for (let k = 0; k < n; k++) {
+    const rec: Record<string, number> = {};
+    for (const f of fields) rec[f] = r.i32();
+    out.push(rec as T);
+  }
+  return out;
+}
+
+function writeThreats(w: ByteWriter, t: ThreatState): void {
+  writeRecords(w, t.ruins, RUIN_FIELDS);
+  writeRecords(w, t.villages, VILLAGE_FIELDS);
+  for (const v of t.villages) {
+    w.u8(v.kills.length);
+    for (const k of v.kills) w.i32(k);
+  }
+  writeRecords(w, t.bands, BAND_FIELDS);
+  writeRecords(w, t.burns, BURN_FIELDS);
+  writeRecords(w, t.dusk, DUSK_FIELDS);
+  w.i32(t.bloodSpent);
+  w.i32(t.fog);
+  const keys = [...t.checked].sort((a, b) => a - b);
+  w.u32(keys.length);
+  for (const k of keys) w.i32(k);
+  w.u32(t.tunnels.length);
+  for (const m of t.tunnels) {
+    w.i32(m.x);
+    w.i32(m.z);
+  }
+}
+
+function readThreats(r: ByteReader): ThreatState {
+  const ruins = readRecordList<Ruin>(r, RUIN_FIELDS);
+  const villages = readRecordList<Village>(r, VILLAGE_FIELDS);
+  for (const v of villages) {
+    const n = r.u8();
+    v.kills = [];
+    for (let k = 0; k < n; k++) v.kills.push(r.i32());
+  }
+  const bands = readRecordList<TribeBand>(r, BAND_FIELDS);
+  const burns = readRecordList<Burn>(r, BURN_FIELDS);
+  const dusk = readRecordList<DuskReading>(r, DUSK_FIELDS);
+  const bloodSpent = r.i32();
+  const fog = r.i32();
+  const checked = new Set<number>();
+  const n = r.u32();
+  for (let k = 0; k < n; k++) checked.add(r.i32());
+  const tunnels: Array<{ x: number; z: number }> = [];
+  const nt = r.u32();
+  for (let k = 0; k < nt; k++) tunnels.push({ x: r.i32(), z: r.i32() });
+  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels };
+}
+
+/** The threats as canonical text for diffing: each record as its fields in serialisation order. */
+function threatsJson(t: ThreatState): string {
+  const rows = <T,>(list: readonly T[], fields: ReadonlyArray<keyof T>): unknown[] => list.map((r) => fields.map((f) => r[f]));
+  return JSON.stringify({
+    ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
+    burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), bloodSpent: t.bloodSpent, fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
+  });
+}
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 6;
+export const SNAPSHOT_VERSION = 7;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -63,6 +139,9 @@ export function serializeState(state: SimState): Uint8Array {
     const h = e.hitters[i]!;
     w.u16(h.length);
     for (const v of h) w.u32(v);
+    const c = e.cools[i]!;
+    w.u16(c.length);
+    for (const v of c) w.u32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
@@ -95,6 +174,9 @@ export function serializeState(state: SimState): Uint8Array {
   }
   w.u32(state.over);
   w.u8(state.peaceful);
+  w.u16(state.blood.length);
+  for (const b of state.blood) w.u32(b);
+  writeThreats(w, state.threats);
   writeWorld(w, state.world);
   return w.finish();
 }
@@ -131,6 +213,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const h: number[] = [];
     for (let k = 0; k < nh; k++) h.push(r.u32());
     e.hitters[i] = h;
+    const nc = r.u16();
+    const c: number[] = [];
+    for (let k = 0; k < nc; k++) c.push(r.u32());
+    e.cools[i] = c;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -186,10 +272,14 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const stockedChunks = readKeys();
   const over = r.u32();
   const peaceful = r.u8();
+  const blood: number[] = [];
+  const nb = r.u16();
+  for (let k = 0; k < nb; k++) blood.push(r.u32());
+  const threats = readThreats(r);
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, stockedCells, stockedChunks, over, peaceful });
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, stockedCells, stockedChunks, over, peaceful, blood, threats });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -241,6 +331,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const ha = JSON.stringify(ea.hitters[i]);
     const hb = JSON.stringify(eb.hitters[i]);
     if (ha !== hb) return `entities[${i}].hitters: ${ha} vs ${hb}`;
+    const ca = JSON.stringify(ea.cools[i]);
+    const cb = JSON.stringify(eb.cools[i]);
+    if (ca !== cb) return `entities[${i}].cools: ${ca} vs ${cb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;
@@ -276,6 +369,10 @@ export function diffStates(a: SimState, b: SimState): string | null {
   }
   const ov = scalar('over', a.over, b.over) ?? scalar('peaceful', a.peaceful, b.peaceful);
   if (ov) return ov;
+  if (JSON.stringify(a.blood) !== JSON.stringify(b.blood)) return `blood: ${JSON.stringify(a.blood)} vs ${JSON.stringify(b.blood)}`;
+  const ta = threatsJson(a.threats);
+  const tb = threatsJson(b.threats);
+  if (ta !== tb) return `threats: ${ta.slice(0, 160)} vs ${tb.slice(0, 160)}`;
   return diffWorlds(a, b);
 }
 

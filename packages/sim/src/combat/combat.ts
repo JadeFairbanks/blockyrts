@@ -9,7 +9,7 @@ import { buildingName, buildingSpec } from '../buildings/data.ts';
 import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { BP, damageTaken, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
+import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
 import { MONSTERS, OrderKind, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, itemSpec, toolMelee, type MeleeStats } from './items.ts';
@@ -198,7 +198,8 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
     else if (blow.pierce) modifierBp = spec.pierceBp;
     if (e.climbUntil[i]! > state.step) modifierBp = floorDiv(modifierBp * CLIMBING_DAMAGE_BP, BP);
   }
-  const block = blow.projectile ? shieldBlock(state, i) : 0;
+  // A hobgoblin's shield blocks half of what is shot at it (Table 16).
+  const block = blow.projectile ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
   const d = damageTaken({ damage: blow.damage, armourBp: armourOf(state, i), modifierBp, projectile: blow.projectile, shieldBlockBp: block });
   e.hp[i] = e.hp[i]! - d;
   // Combat interrupts eating and the healing it brings (Food: Eating).
@@ -276,12 +277,18 @@ export function inArc(state: SimState, i: number, x: number, z: number): boolean
 /** A swing begins: it lands at 40% of the attack time, the next may start when the attack time is up (s). */
 export function startSwing(state: SimState, i: number, target: number, attackSteps: number, withSlot: number): void {
   const e = state.entities;
+  attackSteps = hexed(state, i, attackSteps);
   e.target[i] = target;
   e.atkAt[i] = state.step + Math.max(1, floorDiv(attackSteps * 2, 5));
   e.atkNext[i] = state.step + attackSteps;
   e.atkWith[i] = withSlot;
   e.order[i] = OrderKind.Attack;
   state.hits.push({ look: 'swing', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
+}
+
+/** A unit under a goblin mage's Stumble hex attacks 20% slower: its attack time grows by a quarter. */
+export function hexed(state: SimState, i: number, attackSteps: number): number {
+  return state.entities.hexUntil[i]! > state.step ? floorDiv(attackSteps * BP, BP - HEX_SLOW_BP) : attackSteps;
 }
 
 /** Whether a melee weapon can reach a target unit now (one-handed weapons only reach a flyer as it swoops). */
@@ -354,7 +361,8 @@ function shareKill(state: SimState, i: number): number {
   const ids: number[] = [];
   for (let k = 0; k < list.length; k += 2) if (state.step - list[k + 1]! <= KILL_SHARE_WINDOW_STEPS) ids.push(list[k]!);
   // A small slime has no threat of its own: it is worth its health / 50; a loose bomb is worth nothing.
-  const total = spec.threatTenths > 0 ? killXpTenths(spec.threatTenths, spec.hp) : spec.id === Mob.SmallSlime ? killXpTenths(null, spec.hp) : 0;
+  // Daytime foes have no threat: theirs is the roster's (health / 50); lairs and huts give none for the kill (a lair's clearing does).
+  const total = spec.threatTenths > 0 ? killXpTenths(spec.threatTenths, spec.hp) : spec.id === Mob.SmallSlime ? killXpTenths(null, spec.hp) : spec.xpTenths;
   let owner = -1;
   for (const [id, share] of shareXp(total, ids)) {
     const j = e.indexOf(id);
