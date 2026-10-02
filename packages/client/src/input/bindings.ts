@@ -4,7 +4,7 @@
 // gives them: letters by the character they type ('KeyA'), the rest by
 // physical code ('F1', 'Backspace'). The build menu grid keys follow the key
 // position instead and are not rebound.
-import { SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
+import { School, SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
 
 export interface Action {
   id: string;
@@ -38,7 +38,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'buildAdvanced', name: 'Build Advanced Structures', key: 'KeyV', group: 'Workers' },
   { id: 'rankUp', name: 'Upgrade rank (train at the main base)', key: 'KeyU', group: 'Workers' },
   // Each spell on its letter in Table 13; the two schools never share a card, so R, F and the rest serve both.
-  ...SPELLS.map((s): Action => ({ id: spellAction(s.id), name: `${s.name} (${SCHOOL_NAMES[s.school]!.toLowerCase()}s)`, key: `Key${s.key}`, group: 'Mages' })),
+  // The players' spells (the Elves' Grovesingers cast their own, never on a key).
+  ...SPELLS.filter((s) => s.school !== School.Grove).map((s): Action => ({ id: spellAction(s.id), name: `${s.name} (${SCHOOL_NAMES[s.school]!.toLowerCase()}s)`, key: `Key${s.key}`, group: 'Mages' })),
   { id: 'mageRank', name: 'Upgrade rank (train at a Magi Sanctum)', key: 'KeyU', group: 'Mages' },
   { id: 'rally', name: 'Set Rally Point', key: 'KeyR', group: 'Buildings' },
   { id: 'upgrade', name: 'Upgrade building', key: 'KeyG', group: 'Buildings' },

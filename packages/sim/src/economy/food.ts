@@ -11,6 +11,7 @@ import { CYCLE_STEPS, NUTRITION_PER_CYCLE } from '../rules.ts';
 import { UnitKind, type SimState } from '../state.ts';
 import { BuildingKind } from '../buildings/data.ts';
 import { RESOURCES, payNutrition, Res } from './resources.ts';
+import { Role } from '../threats/types.ts';
 
 /** Rations (F9): who is fed. */
 export const Rations = { Everyone: 0, TroopsOnly: 1, WorkersOnly: 2 } as const;
@@ -44,7 +45,8 @@ export function upkeep(state: SimState, player: number): { workers: number; troo
   let workers = 0;
   let troops = 0;
   for (let i = 0; i < e.count; i++) {
-    if (e.owner[i] !== player || e.hp[i]! <= 0) continue;
+    // Mercenaries are fed by their camp.
+    if (e.owner[i] !== player || e.hp[i]! <= 0 || e.role[i] === Role.Mercenary) continue;
     const k = e.kind[i];
     if (k === UnitKind.Worker) workers += NUTRITION_PER_CYCLE;
     else if (k === UnitKind.Warrior || k === UnitKind.Mage) troops += NUTRITION_PER_CYCLE;

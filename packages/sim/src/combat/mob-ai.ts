@@ -116,10 +116,12 @@ function mobSpeed(state: SimState, i: number, spec: MobSpec): number {
   return floorDiv(e.speed[i]! * bp, 10000);
 }
 
-/** Whether a unit is one of the players' that a mob may go for: alive, outside, not an animal. */
+/** Whether a unit is one a mob may go for: the players' or the neutral peoples' (never their buildings), alive and outside. */
 export function playerUnit(state: SimState, j: number): boolean {
   const e = state.entities;
-  return e.hp[j]! > 0 && e.inside[j] === 0 && sideOf(state, j) === Side.Players;
+  if (e.hp[j]! <= 0 || e.inside[j] !== 0) return false;
+  const side = sideOf(state, j);
+  return side === Side.Players || (side === Side.Peoples && e.role[j] !== Role.Structure);
 }
 
 /** The players' unit a mob goes for: the one that hurt it, else the closest in sight (hounds: workers and archers first). */

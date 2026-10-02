@@ -15,7 +15,8 @@ import { RESOURCES, Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep } from '../economy/food.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { OrderKind, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
 import { Band } from '../world/layout.ts';
@@ -324,7 +325,7 @@ function speedOf(state: SimState, i: number, running: boolean): number {
 }
 
 /** Steps an animal towards a point; a blocked step picks a new patch next time. */
-function goTo(state: SimState, i: number, x: number, z: number, running: boolean): boolean {
+export function goTo(state: SimState, i: number, x: number, z: number, running: boolean): boolean {
   const e = state.entities;
   if (length2d(x - e.x[i]!, z - e.z[i]!) <= (COLUMN >> 2)) return false;
   const ok = stepToward(state, i, x, z, speedOf(state, i, running));
@@ -332,7 +333,7 @@ function goTo(state: SimState, i: number, x: number, z: number, running: boolean
   return ok;
 }
 
-function graze(state: SimState, i: number, ax: number, az: number, radius: number): void {
+export function graze(state: SimState, i: number, ax: number, az: number, radius: number): void {
   const e = state.entities;
   if (state.step >= e.wanderAt[i]!) {
     const h = hash(state, e.id[i]!, state.step);
@@ -350,14 +351,16 @@ function flee(state: SimState, i: number, from: number): void {
   if (!ok) graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
 }
 
-/** Whether a unit is one of the players' that an animal may go for (outside, alive, not an animal). */
+/** Whether a unit is one of the players' or the peoples' that an animal may go for (outside, alive, not an animal). */
 function prey(state: SimState, j: number): boolean {
   const e = state.entities;
-  return j >= 0 && e.hp[j]! > 0 && e.inside[j] === 0 && sideOf(state, j) === Side.Players && e.kind[j] !== UnitKind.Animal;
+  if (j < 0 || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.kind[j] === UnitKind.Animal || e.kind[j] === UnitKind.Mob) return false;
+  const side = sideOf(state, j);
+  return side === Side.Players || side === Side.Peoples;
 }
 
 /** Fights a unit: closes in at a run and bites, gores or swipes at its own pace. */
-function fight(state: SimState, i: number, t: number): void {
+export function fight(state: SimState, i: number, t: number): void {
   const e = state.entities;
   const s = speciesSpec(e.mob[i]!);
   e.target[i] = e.id[t]!;
@@ -389,7 +392,8 @@ function recentAttacker(state: SimState, i: number): number {
   const e = state.entities;
   if (!e.attacker[i] || state.step - e.hurtAt[i]! > FLEE_STEPS) return -1;
   const a = e.indexOf(e.attacker[i]!);
-  return a >= 0 && e.hp[a]! > 0 && sideOf(state, a) === Side.Players ? a : -1;
+  const side = a >= 0 ? sideOf(state, a) : Side.None;
+  return a >= 0 && e.hp[a]! > 0 && (side === Side.Players || side === Side.Peoples) ? a : -1;
 }
 
 function fromHome(state: SimState, i: number, t: number): number {
@@ -707,6 +711,8 @@ export function runAnimal(state: SimState, i: number): void {
   const e = state.entities;
   e.order[i] = OrderKind.Idle;
   if (e.owner[i] === WILD) runWild(state, i);
+  // The peoples' beasts and livestock, and wild animals a Grovesinger called (peoples/ai.ts).
+  else if (e.owner[i] === PEOPLES) peoplesHooks.beast(state, i);
   else runTamed(state, i);
 }
 

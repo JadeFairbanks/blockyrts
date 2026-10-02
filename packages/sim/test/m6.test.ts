@@ -317,7 +317,11 @@ describe('the spell table', () => {
   it('matches Table 13 in docs/blueprint.md', () => {
     const doc = readFileSync(new URL('../../../docs/blueprint.md', import.meta.url), 'utf8');
     const head = doc.indexOf('| **Spell', doc.indexOf('#### Table 13: Mage spells and mana'));
-    const rows = doc.slice(head, doc.indexOf('\n\n', head)).split('\n').slice(2);
+    const lines = doc.slice(head, doc.indexOf('\n\n', head)).split('\n');
+    const header = lines[0]!.split('|').map((c) => c.replace(/\*/g, '').trim());
+    // Columns by their header, so a column added to the table (the keys) does not shift the checks.
+    const col = (name: string): number => header.findIndex((h) => h === name || h.startsWith(`${name} (`));
+    const rows = lines.slice(2);
     // The players' spells are the table's rows; the Grovesinger's five are its own row below it (milestone 7).
     const players = SPELLS.filter((s) => s.school !== School.Grove);
     expect(rows.length).toBe(players.length);
@@ -325,12 +329,13 @@ describe('the spell table', () => {
       const row = rows.find((r) => r.startsWith(`| ${s.name} (${s.clip})`));
       expect(row, s.name).toBeDefined();
       const cells = row!.split('|').map((c) => c.trim());
-      expect(cells[2]).toBe(s.school === School.Support ? 'support' : 'battle');
-      expect(cells[3]!.startsWith(String(s.rank))).toBe(true);
-      expect(cells[4]!.startsWith(String(s.mana))).toBe(true);
-      expect(cells[5]!.startsWith(`${s.cooldown / SEC} s`)).toBe(true);
-      expect(cells[6]!.startsWith(`${s.range / M} m`)).toBe(true);
-      expect(cells[7]).toBe(s.projectile ? 'yes' : 'no');
+      const at = (name: string): string => cells[col(name)]!;
+      expect(at('Mage')).toBe(s.school === School.Support ? 'support' : 'battle');
+      expect(at('From rank').startsWith(String(s.rank))).toBe(true);
+      expect(at('Mana').startsWith(String(s.mana))).toBe(true);
+      expect(at('Cooldown').startsWith(`${s.cooldown / SEC} s`)).toBe(true);
+      expect(at('Range').startsWith(`${s.range / M} m`)).toBe(true);
+      expect(at('Projectile')).toBe(s.projectile ? 'yes' : 'no');
     }
     for (const r of MAGE_RANKS) expect(doc).toContain(`| Support mage | ${r.rank} ${r.name} | ${r.xp === 0 ? '0' : `${r.xp} (s)`} | ${r.health} (s) |`);
   });

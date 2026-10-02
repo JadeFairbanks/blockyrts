@@ -12,6 +12,7 @@ import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_T
 import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
 import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { atWar } from '../peoples/types.ts';
+import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, itemSpec, type MeleeStats } from './items.ts';
 import { workerMelee } from '../units/tools.ts';
@@ -481,7 +482,7 @@ export function settleDeaths(state: SimState): void {
       } else {
         deathHooks.unit(state, i);
         if (sideOf(state, i) === Side.Players) {
-          const what = e.kind[i] === UnitKind.Warrior ? 'A warrior' : e.kind[i] === UnitKind.Mage ? 'A mage' : 'A worker';
+          const what = e.role[i] === Role.Mercenary ? 'A mercenary' : e.kind[i] === UnitKind.Warrior ? 'A warrior' : e.kind[i] === UnitKind.Mage ? 'A mage' : 'A worker';
           state.events.push({ player: e.owner[i]!, kind: 'alert', text: `${what} has been killed.`, x: e.x[i]!, z: e.z[i]! });
         }
       }

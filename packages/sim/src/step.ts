@@ -25,11 +25,25 @@ import { onFoeHurt, threatsAtPeriod, updateThreats } from './threats/update.ts';
 import { checkCell } from './threats/villages.ts';
 import { updateMagic } from './magic/cast.ts';
 import { refillMages } from './magic/mages.ts';
+import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
+import { checkPeoples } from './peoples/factions.ts';
+import { peoplesHooks } from './peoples/hooks.ts';
+import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts';
 
 installDeathHooks();
 installAnimalHooks();
 installFoes();
-stockHooks.cell = checkCell;
+stockHooks.cell = (state, cellId) => {
+  checkCell(state, cellId);
+  // Runkin who left a camp settle in the cell they went to; else the cell may hold one of the peoples.
+  if (recampIn(state, cellId)) state.peoples.checked.add(cellId);
+  else checkPeoples(state, cellId);
+};
+peoplesHooks.death = onPeoplesDeath;
+peoplesHooks.salvage = onSalvage;
+peoplesHooks.wagon = runWagon;
+peoplesHooks.beast = runBeast;
+peoplesHooks.treeCut = onTreeCut;
 hurtHooks.unit = (state, i, from, fresh) => {
   onUnitHurt(state, i, from, fresh);
   onFoeHurt(state, i, from);
@@ -87,6 +101,7 @@ function periodChange(state: SimState): void {
   const c = clockAt(state.step, state.blood);
   state.events.push({ player: -1, kind: 'period', text: periodMessage(c) });
   threatsAtPeriod(state, p, c.cycle);
+  peoplesAtPeriod(state, p);
   if (p === Period.Dusk) {
     computeEnclosed(state);
     for (let player = 0; player < state.players.length; player++) {
@@ -139,6 +154,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateProjectiles(state);
   updateSun(state);
   updateThreats(state);
+  updatePeoples(state);
   updateMagic(state);
   refillMages(state);
   updateFood(state);

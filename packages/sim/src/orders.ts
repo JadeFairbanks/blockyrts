@@ -298,6 +298,68 @@ export interface DebugThreatOrder {
   z: number;
 }
 
+/** Trade (Neutral villages and trade): the goods in the offer box for a faction, as pairs of good (peoples/data.ts goods codes) and count. It answers with three bundles. */
+export interface TradeOfferOrder {
+  kind: 'tradeOffer';
+  player: number;
+  faction: number;
+  goods: number[];
+}
+
+/** Take one of the three bundles the faction answered with (0 to 2). */
+export interface TradeTakeOrder {
+  kind: 'tradeTake';
+  player: number;
+  faction: number;
+  bundle: number;
+}
+
+/** Turn the faction's answer down (it counts towards its mood). */
+export interface TradeWithdrawOrder {
+  kind: 'tradeWithdraw';
+  player: number;
+  faction: number;
+}
+
+/** Declare war on a faction, after the confirmation pop-up; every player is drawn in. */
+export interface DeclareWarOrder {
+  kind: 'declareWar';
+  player: number;
+  faction: number;
+}
+
+/** Accept (1) or refuse (0) a faction's offer to surrender. */
+export interface SurrenderOrder {
+  kind: 'surrender';
+  player: number;
+  faction: number;
+  accept: number;
+}
+
+/** Pay a Dwarf faction's reparations from the stock. */
+export interface ReparationsOrder {
+  kind: 'reparations';
+  player: number;
+  faction: number;
+}
+
+/** Hire mercenaries from a camp for the day (2 silver each). */
+export interface HireOrder {
+  kind: 'hire';
+  player: number;
+  faction: number;
+  count: number;
+}
+
+/** Debug: one of the peoples at a point (wu): a faction kind (peoples/data.ts FactionKind), 7 an Elf caravan to the player now, 8 meet the Elves. */
+export interface DebugPeoplesOrder {
+  kind: 'debugPeoples';
+  player: number;
+  what: number;
+  x: number;
+  z: number;
+}
+
 /** Debug: a night mob at a point (wu), sent against the player. */
 export interface DebugSpawnOrder {
   kind: 'debugSpawn';
@@ -399,6 +461,14 @@ export type Order =
   | DebugGiveOrder
   | DebugSpawnOrder
   | DebugThreatOrder
+  | TradeOfferOrder
+  | TradeTakeOrder
+  | TradeWithdrawOrder
+  | DeclareWarOrder
+  | SurrenderOrder
+  | ReparationsOrder
+  | HireOrder
+  | DebugPeoplesOrder
   | MoveOrder
   | StopOrder
   | FollowOrder
@@ -438,6 +508,7 @@ export function canonicalOrders(orders: readonly Order[]): Order[] {
 
 /** A deep copy of an order (the input log keeps its own). */
 export function copyOrder(o: Order): Order {
+  if (o.kind === 'tradeOffer') return { ...o, goods: [...o.goods] };
   return 'units' in o ? { ...o, units: [...o.units] } : { ...o };
 }
 
@@ -489,6 +560,14 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   haul: ['building'],
   rations: ['rations'],
   dontEat: ['res', 'on'],
+  tradeOffer: ['faction'],
+  tradeTake: ['faction', 'bundle'],
+  tradeWithdraw: ['faction'],
+  declareWar: ['faction'],
+  surrender: ['faction', 'accept'],
+  reparations: ['faction'],
+  hire: ['faction', 'count'],
+  debugPeoples: ['what', 'x', 'z'],
 };
 
 const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast']);
@@ -532,6 +611,15 @@ export function validateOrder(o: Order): void {
       return;
     case 'cast':
       if (o.spell < 0 || o.spell > 255 || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad cast');
+      return;
+    case 'tradeOffer':
+      if (!Array.isArray(o.goods) || o.goods.length % 2 !== 0 || o.goods.length > 32 || !o.goods.every((v) => isInt(v) && v >= 0 && v < 0x10000)) throw new Error('trade goods must be up to 16 pairs of good and count');
+      return;
+    case 'tradeTake':
+      if (o.bundle < 0 || o.bundle > 2) throw new Error('a bundle is 0 to 2');
+      return;
+    case 'hire':
+      if (o.count < 1 || o.count > 6) throw new Error('hire 1 to 6');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

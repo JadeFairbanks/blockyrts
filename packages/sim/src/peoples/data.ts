@@ -7,9 +7,10 @@
 // The balance editor reads this module, so it holds data and pure helpers only.
 
 import { Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
-import { STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
+import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, TRINKET_MULTIPLIER_TENTHS, SPECIAL_TRINKET_MULTIPLIER_TENTHS } from '../rules.ts';
 import { Item } from '../combat/items.ts';
+import { TRINKET_INGOTS } from '../buildings/recipes.ts';
 import { Mob } from '../combat/mobs.ts';
 import { Species } from '../animals/species.ts';
 import { Band } from '../world/layout.ts';
@@ -444,13 +445,11 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.Moonleaf]: 7250, [Res.Sunheart]: 12000,
 };
 
-/** Cooked food is worth 0.75 x its nutrition (Table 11), tenths of a vp per point of nutrition. */
-export const COOKED_TENTHS_PER_NUTRITION = 7.5;
+/** Cooked food is worth 0.75 x its nutrition (Table 11): hundredths of a vp per point of nutrition. */
+export const COOKED_HUNDREDTHS_PER_NUTRITION = 75;
 
 /** A trinket's metal, by TRINKET_METALS order: copper 5, tin 7, bronze 6, iron 9, steel 30, silver 15, gold 40 vp (Table 11). */
 export const TRINKET_METAL_TENTHS: readonly number[] = [50, 70, 60, 90, 300, 150, 400];
-/** Ingots in each trinket tier (Table 11: Token 1, Charm 2, Brooch 4, Heirloom 6). */
-export const TRINKET_INGOTS: readonly number[] = [1, 2, 4, 6];
 
 /** Items with no recipe of their own, bought from the peoples: their worth, tenths (Table 11 and 19). */
 export const ITEM_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
@@ -472,7 +471,7 @@ export const LIVE_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
 /** Trinkets are made for trade (Trinkets): is this resource one, and is it silver or gold or one of the special pair? */
 export function trinketMetal(res: number): number {
   if (res < TRINKET_BASE || res >= TRINKET_BASE + TRINKET_METALS.length * 4) return -1;
-  return Math.floor((res - TRINKET_BASE) / 4);
+  return floorDiv(res - TRINKET_BASE, 4);
 }
 
 export function trinketTier(res: number): number {
@@ -484,7 +483,7 @@ export function trinketValueTenths(res: number): number {
   const m = trinketMetal(res);
   const t = trinketTier(res);
   const mult = TRINKET_MULTIPLIER_TENTHS[t - 1]!;
-  return Math.floor((TRINKET_METAL_TENTHS[m]! * TRINKET_INGOTS[t - 1]! * mult) / 10);
+  return floorDiv(TRINKET_METAL_TENTHS[m]! * TRINKET_INGOTS[t - 1]! * mult, 10);
 }
 
 /** The special pair's multiplier, for the balance editor's note. */

@@ -75,10 +75,12 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   // The mages' Arcane bolt (violet-white) and Fireball, until their spell models are in the library.
   { len: 0.32, w: 0.2, colour: 0xd8b8ff },
   { len: 0.45, w: 0.42, colour: 0xff7020 },
+  // A Grovesinger's thorn.
+  { len: 0.5, w: 0.06, colour: 0x5a8a30 },
 ];
 
 /** Shots drawn with a spell's catalogue model once it is listed. */
-const SHOT_MODELS: Record<number, string> = { [Shot.ArcaneBolt]: SPELLS[Spell.ArcaneBolt]!.model, [Shot.Fireball]: SPELLS[Spell.Fireball]!.model };
+const SHOT_MODELS: Record<number, string> = { [Shot.ArcaneBolt]: SPELLS[Spell.ArcaneBolt]!.model, [Shot.Fireball]: SPELLS[Spell.Fireball]!.model, [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model };
 
 /** Where a spell lands, by Spell: the colour of its motes, how many and how far they fly. */
 const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up: number }> = [
@@ -92,6 +94,12 @@ const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up:
   { colour: 0xb080ff, n: 60, speed: 6, up: 2.5 },
   { colour: 0x60a0ff, n: 24, speed: 2.4, up: 1.2 },
   { colour: 0xffffff, n: 16, speed: 2, up: 2 },
+  // The Grovesingers': Rootbind, Thorn volley, Barkskin, Mending bloom, Call of the wild.
+  { colour: 0x6a5a2a, n: 24, speed: 1.2, up: 0.6 },
+  { colour: 0x5a8a30, n: 10, speed: 2, up: 1 },
+  { colour: 0x8a6a40, n: 20, speed: 1, up: 1.6 },
+  { colour: 0xf0a0c8, n: 24, speed: 1, up: 1.8 },
+  { colour: 0xe0b040, n: 30, speed: 3, up: 1.2 },
 ];
 
 /** Motes rising off a unit with a spell on it, by SpellOn bit. */
