@@ -351,12 +351,12 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 #### M4: Economy to steel, food and supply, animals, research, mining and carrying
 
-**You can now:** research Flint tools at a Scholar's Lodge, smelt bronze at a Casting Hearth, climb through Bloomery and Ironworks to a Steelworks fed with vein iron hauled by ox cart from a tier 2 mineshaft; stew from a Great Kitchen feeds the town; a wild horse is tamed at the Stables; warriors hunt deer with N and bring the meat home; Rations starves workers but not troops.
+**You can now:** make stone and flint tools at the Big House without research, research Bronze at a Scholar's Lodge, smelt bronze at a Casting Hearth, climb through Bloomery and Ironworks to a Steelworks fed with vein iron hauled by ox cart from a tier 2 mineshaft; stew from a Great Kitchen feeds the town; a wild horse is tamed at the Stables; warriors hunt deer with N and bring the meat home; Rations starves workers but not troops.
 
 **Builds:**
 
 - Food, supply and health and Table 6: nutrition per food, even eating, Don't eat, upkeep for units and research facilities, starving and natural healing, Rations (F9), eating at a building, supply from main base levels and farms, the over-limit rule; the Food and medicine items.
-- Progression tiers 1 to 7 (tier 8 is M8); Research (Scholar's Lodge, Scriptorium, Grand Academy, the rising facility cost, the cap of 10, research loading like training) with Table 2a Flint tools, Bronze, Deep Mining I to III, Halberds, Crossbows, Steel, High-quality steel, Steel crossbow (Hexcraft is M6; Siege engines, Gunpowder, Muskets and Cannons are M8).
+- Progression tiers 1 to 7 (tier 8 is M8); Research (Scholar's Lodge, Scriptorium, Grand Academy, the rising facility cost, the cap of 10, research loading like training) with Table 2a Bronze, Deep Mining I to III, Halberds, Crossbows, Steel, High-quality steel, Steel crossbow (Hexcraft is M6; Siege engines, Gunpowder, Muskets and Cannons are M8).
 - Forge levels and Table 2b smelting; Items: Materials, Tools (Table 2c forge rows, prospecting hammer, carts), Weapons and armour forge and tannery rows (Table 2d tiers 3 to 7, 2e crossbow, steel crossbow, bolts, tips, poison arrows; Table 3 metal armour, helmets and shields), Bows and crossbows (the crossbow part).
 - Cooking tiers 1 to 5; Workshop tiers 1 to 4 and Trinkets (Tokens to Heirlooms, Moonleaf, Sunheart; siege engines are M8); Kiln, Tannery, Herbalist hut, Fishing dock, Barracks, Stables (taming, stalls, breeding; riding is M8); Mineshafts and prospecting with Prospect (T), tiers 1 to 3 and the Table 5 prospect and output rows.
 - Animals, Wild herds, Game and other wild animals (hare, deer, boar, wolves, lynx, giant frog, crocodile, giant crab, badgers smashing outlying torches, roster 6.1), Bears (never tamed, the 60 cap), Young animals, Fish (three species, crowding, young), livestock farms with breeding and slaughter, grazing and the crop fallback, working animals eating from stock, monsters killing animals left out. Semi-automation: Hunt (N) and fishing dock stretch rotation; Warriors' hunting.
@@ -1041,8 +1041,8 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Dead trees, thornwood | Barrens, Deadlands | nothing: dead and twisted, no lumber (Jade); cover and lair sites only |  |  |  |  | none |
 | Herbs / wild flax | Heartland, Fringe; rare deeper | 10 / 10 | 10 | 10 s | 1 | hardwood | 5 days (s) |
 | Loose stone / flint scatter | Heartland | 40 stone / 20 flint | 5 / 10 | 10 s | 2 | hardwood | none (s) |
-| Stone outcrop | Heartland (a few), Fringe | 200 stone | 5 | 15 s | 2 | stone (s) | none (s) |
-| Copper outcrop / tin outcrop | Heartland | 60 / 30 ore | 5 | 20 s | 2 | flint | none (s) |
+| Stone outcrop | Heartland (a few), Fringe | 200 stone | 5 | 15 s | 2 | hardwood digging stick or stone maul (s) | none (s) |
+| Copper outcrop / tin outcrop | Heartland | 60 / 30 ore | 5 | 20 s | 2 | stone maul (s) | none (s) |
 | Coal, surface seam | Fringe | 60 | 5 | 15 s | 2 | copper | none (s) |
 | Bog iron patch | Heartland bogs (giant frog guards it, roster) | 40 | 5 | 20 s | 2 | bronze | none (s) |
 | Iron rock | Fringe | 80 | 5 | 25 s | 2 | bronze | none (s) |
@@ -1565,7 +1565,7 @@ Resources not in the list above. Eggs and feathers come from livestock (see "Ani
 | Marble | Carved from marble rock, which appears in places in the land (see "Terrain") | Grand buildings, such as main base levels 5 and up (see "Main base"); also traded with the Elves. |
 | Earth | Digging soil (see "Terrain") | Building the land up: ramps, earth banks and filling holes and ditches. |
 | Gravel | Digging gravel (see "Terrain"), or crushing stone at a workshop | Paths, and fill for raising the land (suggested). |
-| Hardwood sticks | Gathered from hazel bushes near the start (they grow back after cutting), or made from hardwood lumber at a workshop | Hardwood and flint tools and weapons, so they can be made before large hardwood trees are within reach. |
+| Hardwood sticks | Gathered from hazel bushes near the start (they grow back after cutting), or made from hardwood lumber at a workshop | Hardwood, stone and flint tools and weapons, so they can be made before large hardwood trees are within reach. |
 | Clay (suggested) | Riverbanks and wetlands | Bricks, furnace linings, moulds for casting metal and cannons. |
 | Sand (suggested) | Beaches and riverbeds | Glass (lanterns, lenses, potion bottles) and casting moulds. |
 | Charcoal (suggested) | Made at a kiln from hardwood | The fuel for smelting until coal takes over, and one of the three gunpowder ingredients. |
@@ -1676,7 +1676,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Warrior to Soldier / to Veteran | Barracks | 30 / 60 food | 60 / 120 s | (s) |
 | Mage to Acolyte / to Adept Acolyte | Magi Sanctum | 40 food / 60 food, 2 mana crystals | 60 / 120 s | (s) |
 | Mage, Master Mage, Grand Magician (combat ranks) | Magi Sanctum | a rank wand of 2 / 5 / 10 mana crystals; the XP is banked until it is given | 30 s | XP from table 1 (s) |
-| Archery | Barracks | 40 food | 120 s | Flint tools (s) |
+| Archery | Barracks | 40 food | 120 s | none (s) |
 | Crossbow | Barracks | 15 food | 30 s | Crossbows (s) |
 | Riding | Stables | 30 food | 60 s | a tamed horse in the stalls (s) |
 | Musket | Gunnery yard | 30 food | 60 s | Muskets (s) |
@@ -2043,14 +2043,15 @@ Iron and steel items carry the grade of the metal they are made from, so a bloom
 | **Item** | **Made at** | **From** |
 |---|---|---|
 | Hardwood axe, digging stick, mallet | Big House | Hardwood sticks (starting tools) |
-| Stone axe, stone pick, stone mallet (suggested) | Big House, no research | Hardwood sticks and stone. A cheap step up from hardwood: the stone pick quarries stone and digs earth, but cannot mine copper, tin or any ore (that still needs flint or better). |
-| Flint axe, flint pick, flint knife | Big House | Hardwood sticks, flint |
+| Stone maul (suggested) | Big House, no research | Hardwood sticks and stone. The rock-breaking tool: quarries stone, digs earth, breaks rock when tunnelling, and mines the soft copper and tin ore near the start; it cannot mine iron or anything harder. |
+| Stone hammer (suggested) | Big House, no research | Hardwood sticks and stone. Builds and repairs a little faster than the hardwood mallet. |
+| Flint axe, flint knife | Big House, no research | Hardwood sticks, flint. Flint is the edge tier: axes and knives here, spearheads and arrowheads for weapons. There is no flint pick or mallet. |
 | Hardwood hoe | Big House | Hardwood sticks. For farm work. |
 | Hoe (copper, bronze, iron, steel) (suggested) | Forge | The metal ingot, hardwood lumber |
 | Prospecting hammer (suggested) | Forge | Any metal ingot, hardwood lumber. Used for T Prospect. |
-| Copper axe, pick, sickle | Forge | Copper ingot, hardwood lumber |
-| Bronze axe, pick, sickle, saw | Forge | Bronze ingot, hardwood lumber |
-| Iron axe, pick, sickle, plough, saw | Forge | Iron ingot, hardwood lumber |
+| Copper axe, pickaxe, hammer, sickle | Forge | Copper ingot, hardwood lumber |
+| Bronze axe, pickaxe, hammer, sickle, saw | Forge | Bronze ingot, hardwood lumber |
+| Iron axe, pickaxe, hammer, sickle, plough, saw | Forge | Iron ingot, hardwood lumber |
 | Steel tools | Forge | Steel ingot, hardwood lumber |
 | Ox or horse cart | Great Workshop | Hardwood lumber, planks, a little iron. Pulled by a horse or an ox. |
 | Hand cart | Workshop (tier 2) | Planks, hardwood lumber. A two-wheeled cart a worker pushes to haul loads; bigger carts are pulled by horses or oxen. |
@@ -2134,6 +2135,7 @@ Equipping must never be tedious. A large force can be upgraded with a couple of 
 #### Equipping units
 
 - **Equip Best (Q):** works on any selection, of any size. Every selected unit gets the best equipment in stock that it can use.
+- **Tools by job (suggested):** for workers, Equip Best picks the tool for the job: the axe for chopping, the maul or pickaxe for quarrying, digging and mining, and the hammer or mallet for building and repair.
 - **Picking up:** units walk to the nearest main base to collect their new gear, and hand in what it replaces there. This is one reason to build extra main bases away from the main settlement. Suggested: once they have their gear, units go back to what they were doing.
 - **What counts as "best":** the higher material tier first (copper, bronze, iron, steel), then the higher grade within it (see "Forge levels").
 - **When there is not enough to go round,** the best items go to the most capable units first. The most capable unit is the one with the highest experience rank. Specialist gear only goes to units trained to use it (for example, a musket only goes to a warrior trained with muskets). Example: 7 warriors fully equipped in bronze and 3 sets of bloom iron in stock. Equip Best on all 7 gives the iron to the 3 highest-ranked warriors, and the other 4 keep their bronze.
@@ -2208,6 +2210,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 - **Workers and warriors share one human body model.** Warriors only have a different skin, which is also unarmoured; armour is added as equipment. Warriors have their own animations for everything they do (fighting with each weapon type, shooting, hunting and so on). Workers also get animations for farming (with a hoe) and fishing.
 - **Mages** have their own model. All mages are female, with long hair, and the body is somewhat dimorphic from the worker body. They cast spells with **wands**.
+- **Stone tools (suggested):** the stone maul is a grooved, rounded stone head lashed with cord to a thick wooden handle, held in both hands; the stone hammer has a squarer stone head on a shorter handle, held in one hand. Neither looks like a pickaxe, which only exists from copper upward.
 - **Injured and death animations:** every unit has an injured animation and a death animation. Injured looks like being hit from the front and reacting; warriors also throw up their shield arm as if trying to block, but less composed than a real block.
 - **Other models needed:** the Halfling war ox needs two rider points (a spear rider in front, an archer behind). Young fish reuse the adult fish model at about half scale with their own texture. Elves are a slim, androgynous version of the human body with long hair; Dwarves a shorter, stockier version with beards; Elf mages are their own mage type. Goblin villages need standard goblins, goblin archers, goblin wolf riders (goblins on wolves) and a goblin mage.
 
@@ -2224,15 +2227,15 @@ The game moves through tiers of material, following the order the resource list 
 | **Tier** | **Unlocked by** | **What it opens up** |
 |---|---|---|
 | 1. Hardwood | Start of game | Chopping trees, gathering herbs, loose stone and flint, fishing from shore. (Hunting is done by warriors and depends on their weapons, not on worker tools.) |
-| 2. Flint | Collecting flint; research | Faster chopping, mining surface stone, bows (which also help warriors hunt). Flint picks are needed before copper and tin ore can be mined in the next tier. |
-| 3. Copper | Forge (level 1, Casting Hearth) | Mining copper and tin ore and smelting them; copper, tin and bronze tools and weapons; coal at the surface. |
+| 2. Stone and flint | Collecting stone and flint; no research | Stone is the blunt tier: the stone maul breaks rock and mines copper and tin ore, the stone hammer builds. Flint is the edge tier: faster chopping, knives, flint spearheads and arrowheads, and bows (which also help warriors hunt). |
+| 3. Copper | Forge (level 1, Casting Hearth) | Smelting copper and tin (the ore is mined with a stone maul or better); copper, tin and bronze tools and weapons, with the first pickaxes; coal at the surface. |
 | 4. Bronze | Copper and tin ingots; research | Stronger tools and weapons, the first tier of mineshaft, mining bog iron and iron rock. |
 | 5. Early iron | Forge level 2 (Bloomery) | Bloom iron tools and weapons. Mining vein iron ore. |
 | 6. Iron | Forge level 3 (Ironworks) | Wrought iron from any ore, pig iron from vein ore, crossbows, mail armour, iron cannonballs. |
 | 7. Steel | Forge level 4 (Steelworks); vein iron ore; research | Refined iron, steel and, slowly, high-quality steel. The best tools, weapons and armour. |
 | 8. Gunpowder | Saltpetre, sulphur and charcoal; powder mill | Flintlock muskets and cannons (the end of the tech tree). |
 
-**Stone tools (suggested)** are an optional cheap step between hardwood and flint: the Big House makes them from sticks and stone with no research, so they can be had on day 0. They gather a little faster than hardwood but cannot mine ore, so flint stays the first researched tier.
+**Stone and flint tools need no research** (Jade) and do not overlap, as in real life: stone makes blunt tools for breaking rock and building, flint makes edges for chopping, cutting and points. From copper upward every tier has an axe, a **pickaxe** and a hammer; a pickaxe needs metal, which is why the stone rock-breaking tool is a maul instead.
 
 Because sulphur, vein iron and other late resources are mostly found far from spawn, the later tiers push players to expand, in line with the Premise.
 
@@ -2244,7 +2247,6 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 | **Step** | **Needs first** | **Cost (s)** | **Time (s)** | **Opens** |
 |---|---|---|---|---|
-| Flint tools | Scholar's Lodge | 10 flint, 20 softwood lumber | 60 s | flint tier: flint tools, bow and flint arrows, sling, flint javelin, surface stone; flint picks are what the copper tier's ore mining needs (doc) |
 | Bronze | Forge level 1, 1 tin ingot made | 10 copper ingots, 2 tin ingots | 75 s (s) | bronze tier, mining bog iron and iron rock |
 | Deep Mining I | Bronze | fee in table 4 (20 bronze ingots, 50 stone) | 90 s (s) | mineshaft tier 1 |
 | Halberds | Forge level 2 | 10 bloom iron ingots | 60 s (s) | iron halberd (steel halberd once Steel is done) |
@@ -2292,12 +2294,13 @@ Building costs below are paid in lumber and stone straight from the pool (worker
 
 | **Tier** | **Gather speed** | **Worker damage** | **Weight** | **Recipe** | **Made at** | **Time** |
 |---|---|---|---|---|---|---|
-| Hardwood (axe, digging stick, mallet, hoe) | x1.0 (s) | 4 | 3 lb (s) | 3 hardwood sticks (s) | Big House | 10 s (s) |
-| Stone (axe, pick, mallet; no research; the pick quarries stone and digs earth but cannot mine any ore) | x1.15 (s) | 4 (s) | 3.5 lb (s) | 2 sticks, 2 stone (s) | Big House | 10 s (s) |
-| Flint (axe, pick, knife) | x1.25 (s) | 5 (s) | 3 lb (s) | 2 sticks, 1 flint (s) | Big House | 10 s (s) |
-| Copper (axe, pick, sickle, hoe) | x1.5 (s) | 6 (s) | 4 lb (s) | 1 copper ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
-| Bronze (axe, pick, sickle, saw, hoe) | x1.75 (s) | 7 (s) | 4.5 lb (s) | 1 bronze ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
-| Bloom iron (axe, pick, sickle, plough, saw, hoe) | x2.0 (s) | 8 (s) | 4 lb (s) | 1 bloom iron, 1 hardwood lumber (s) | Forge 2 | 25 s (s) |
+| Hardwood (axe, digging stick, mallet, hoe; the digging stick digs earth and quarries stone but mines no ore (s)) | x1.0 (s) | 4 | 3 lb (s) | 3 hardwood sticks (s) | Big House | 10 s (s) |
+| Stone maul (no research; the rock-breaking tool: quarries stone and digs earth, breaks rock when tunnelling, mines the soft copper and tin ore at x1.0, cannot mine iron or anything harder) | x1.15 quarrying and digging (s) | 4, slow (s) | 4 lb (s) | 2 sticks, 3 stone (s) | Big House | 10 s (s) |
+| Stone hammer (no research; building and repair) | x1.15 building and repair over the hardwood mallet (s) | 4 (s) | 3 lb (s) | 2 sticks, 2 stone (s) | Big House | 10 s (s) |
+| Flint (axe and knife; no research; the edge tier, with the flint spear and arrowheads in 2d and 2e; no pick and no mallet) | x1.25 chopping (s) | 5 (s) | 3 lb (s) | 2 sticks, 1 flint (s) | Big House | 10 s (s) |
+| Copper (axe, pickaxe, hammer, sickle, hoe) | x1.5 (s) | 6 (s) | 4 lb (s) | 1 copper ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
+| Bronze (axe, pickaxe, hammer, sickle, saw, hoe) | x1.75 (s) | 7 (s) | 4.5 lb (s) | 1 bronze ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
+| Bloom iron (axe, pickaxe, hammer, sickle, plough, saw, hoe) | x2.0 (s) | 8 (s) | 4 lb (s) | 1 bloom iron, 1 hardwood lumber (s) | Forge 2 | 25 s (s) |
 | Wrought iron | x2.25 (s) | 8 (s) | 4 lb (s) | 1 wrought iron, 1 hardwood lumber (s) | Forge 3 | 25 s (s) |
 | Refined iron | x2.5 (s) | 9 (s) | 4 lb (s) | 1 refined iron, 1 hardwood lumber (s) | Forge 4 | 25 s (s) |
 | Steel | x3.0 (s) | 10 (s) | 4 lb (s) | 1 steel, 1 hardwood lumber (s) | Forge 4 | 30 s (s) |
@@ -2305,7 +2308,7 @@ Building costs below are paid in lumber and stone straight from the pool (worker
 | Fishing rod / net | 1 fish per 15 s / per 10 s (s) | 1 (s) | 1 lb / 3 lb (s) | 2 softwood lumber, 1 flax or leather (s) | Big House | 10 s (s) |
 | Prospecting hammer | prospect in 20 s (s) | as tier | 2 lb (s) | 1 any metal ingot, 1 hardwood lumber (s) | Forge | 15 s (s) |
 
-What each tier may gather is the Progression table; dig speed has its own scale in table 10.
+Hardwood, stone and flint tools need no research; the three do not overlap: hardwood is the starting set, stone the blunt tier (maul for breaking rock, hammer for building), flint the edge tier (axes, knives, spearheads, arrowheads). Stone tools wear out faster than flint and slower than hardwood (s). From copper up every tier has an axe, a pickaxe and a hammer, and the pickaxe is the ore tool (iron ore still needs bronze or better, as in table 5). Equip Best picks by job: the axe for chopping, the maul or pickaxe for quarrying, digging and mining, the hammer or mallet for building and repair (s). What each tier may gather is the Progression table; dig speed has its own scale in table 10.
 
 **2d. Melee weapons (arc hits: main target full damage, others within reach in a 90 degree arc take half (s))**
 
@@ -2335,7 +2338,7 @@ What each tier may gather is the Progression table; dig speed has its own scale 
 |---|---|---|---|---|---|---|---|---|---|
 | Sling | 8 blunt (s) | 2.0 s (s) | 20 m (s) | 8% of range (s) | 1 stone = 50 shots (s) | 0.5 lb (s) | 1 leather or 1 flax (s) | Big House | 10 s (s) |
 | Javelin, flint / bronze | 14 / 20 (s) | 2.5 s (s) | 15 m (s) | 5% (s) | the javelin; a bundle of 5 is one item, thrown ones are used up (s) | 2 lb each (s) | 5 sticks, 1 flint gives 5 / 5 sticks, 1 bronze gives 5 (s) | Big House / Forge 1 | 15 s (s) |
-| Bow | 10 + tip (s) | 2.0 s (s) | 25 m; 28 m with a spider-silk string (s) | 6% (s) | arrows, quiver 24 | 2 lb (s) | 2 softwood or hardwood lumber, 1 sinew, flax or silk (s) | Big House, Flint tools; a Workshop (tier 2) shapes the stave and halves the time (doc) | 20 s (s) |
+| Bow | 10 + tip (s) | 2.0 s (s) | 25 m; 28 m with a spider-silk string (s) | 6% (s) | arrows, quiver 24 | 2 lb (s) | 2 softwood or hardwood lumber, 1 sinew, flax or silk (s) | Big House; a Workshop (tier 2) shapes the stave and halves the time (doc) | 20 s (s) |
 | Crossbow | 22 + tip (s) | 3.0 s (s) | 28 m (s) | 4% (s) | bolts, case 20 (s) | 8 lb (s) | 2 wrought iron, 2 planks, 1 flax or leather (s) | Forge 3 with a Great Workshop (doc), Crossbows | 45 s (s) |
 | Steel crossbow | 32 + tip (s) | 4.5 s (s) | 34 m (s) | 3% (s) | bolts | 15 lb (s) | 2 steel, 1 wrought iron, 2 planks, 1 flax (s) | Forge 4 with a Great Workshop (doc), Steel crossbow | 60 s (s) |
 | Flintlock musket, iron / steel barrel | 50 / 60 (s) | 8.0 s (s) | 40 m (s) | 5% / 4% (s) | 1 charge + 1 ball per shot (s) | 10 lb | 3 wrought iron or 1 steel, 2 planks, 1 flint (s) | Forge 3 / 4 with a Manufactory (doc), Muskets | 90 s (s) |
@@ -2385,11 +2388,11 @@ Not touched (outside the 19 tables): the exact carving size beyond the bite rule
 
 **Pacing check**
 
-Worker-day income with hardwood tools and a 30 m walk: 20 softwood lumber (15 s a load plus 20 s walking, about 5 loads in 3 minutes less overheads), 25 loose stone, 12 fish by rod; with flint tools 25 copper or tin ore. A tier 1 farmer makes 6 wheat (12 nutrition, feeds 6). A forge worker smelts 36 copper ingots a day (s) if ore is there. Worker-minutes per building (ws / 60): Lodge 4, Forge 1 5, Kiln 5, main base 2 to 10: 7, 7, 8, 10, 13, 17, 20, 25, 33; Bloomery 5, Ironworks 8, Steelworks 15, Powder mill 5, Foundry 10, Gunnery yard 10 (s), stone wall 1 per 3 columns.
+Worker-day income with hardwood tools and a 30 m walk: 20 softwood lumber (15 s a load plus 20 s walking, about 5 loads in 3 minutes less overheads), 25 loose stone, 12 fish by rod; with a stone maul 25 copper or tin ore (s). A tier 1 farmer makes 6 wheat (12 nutrition, feeds 6). A forge worker smelts 36 copper ingots a day (s) if ore is there. Worker-minutes per building (ws / 60): Lodge 4, Forge 1 5, Kiln 5, main base 2 to 10: 7, 7, 8, 10, 13, 17, 20, 25, 33; Bloomery 5, Ironworks 8, Steelworks 15, Powder mill 5, Foundry 10, Gunnery yard 10 (s), stone wall 1 per 3 columns.
 
 Time to each tier, steady play, counting days (nights) from the start:
 
-- Flint: day 0 (Lodge 60 lumber from the 40 start stock plus 20 chopped, Flint tools 60 s, 4 flint tool sets 40 s).
+- Stone and flint: day 0 (no research; 4 tool sets at the Big House in 40 s); the Lodge is built for Bronze (s).
 - Bronze: Forge 1 day 1; 2 miners on copper 2 days = 100 ore = 50 ingots, tin 30 ore = 15 ingots; Bronze research day 2 to 3 (10 copper, 2 tin, 75 s); 44 bronze ingots by day 4 arms 5 warriors with sword, scale and shield (8 each) and the workers with bronze tools: night 4 to 6. Target 4 to 6 (s).
 - Iron: main base 3 (day 5 to 6, 6 workers), Kiln with 20 Fringe clay (day 6), Bloomery (day 6 to 7): bloom iron night 7 to 9; base 4 (day 8 to 9), base 5 with 20 bricks, 20 marble from a Fringe marble rock and 75 hardwood from the Fringe (day 11 to 13, 10 workers), Ironworks (day 13 to 15): wrought iron, crossbows and mail night 14 to 16. Target 13 to 18 (s).
 - Steel: base 6 (day 17 to 19), base 7 (day 21 to 23), Steelworks (day 24 to 26), vein iron from a Deepwoods ridge by ox cart (the cart from a Great Workshop on day 15 to 16, the first 120-ore load home by about day 20) or a tier 2 mineshaft, Steel research 150 s: steel night 26 to 29. Target 25 to 30 (s).
@@ -2532,8 +2535,8 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Tool tier** | **Soil, m3 per worker-minute** | **Stone, marble and ore rock** | **Clay, sand, gravel** | **10 m3 trench, 4 workers** | **300 m3 moat, 4 workers** |
 |---|---|---|---|---|---|
 | Hardwood | 0.5 (s) | 0, cannot (Jade) | 0.4 (s) | 5 min (1.7 days) | 150 min (50 days of daylight) |
-| Stone | 0.52 (s) | 0.003, barely scratches it (s) | 0.42 (s) | 4.8 min (s) | 144 min (48 days) (s) |
-| Flint | 0.55 (s) | 0.005 (s) | 0.45 (s) | 4.5 min | 136 min (45 days) |
+| Stone maul | 0.58 (s) | 0.005, breaks rock slowly (s) | 0.46 (s) | 4.3 min (s) | 129 min (43 days) (s) |
+| Flint | no digging tool: the flint tier is axes and blades; dig with a digging stick or a stone maul (s) |  |  |  |  |
 | Copper | 0.6 (s) | 0.01 (s) | 0.5 (s) | 4.2 min | 125 min (42 days) |
 | Bronze | 0.7 (s) | 0.03 (s) | 0.55 (s) | 3.6 min | 107 min (36 days) |
 | Bloom / wrought / refined iron | 0.75 / 0.8 / 0.9 (s) | 0.05 / 0.065 / 0.09 (s) | 0.6 / 0.65 / 0.7 (s) | 3.3 / 3.1 / 2.8 min | 100 / 94 / 83 min (33 / 31 / 28 days) |
