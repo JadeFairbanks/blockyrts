@@ -40,6 +40,8 @@ const COOL_BASE = 100;
 const BEAM_SLACK_WU = 2 * M;
 /** A mage walks this much inside a spell's range before she casts, so a target taking a step does not send her walking again. */
 const RANGE_MARGIN_WU = M;
+/** How long a cast order waits for a clear line or for her to get there before it gives up (s). */
+const CAST_ORDER_STEPS = 30 * STEPS_PER_SECOND;
 /** A support mage heals a unit by herself when it misses at least half a heal (s). */
 const AUTO_HEAL_SHARE = 2;
 /** Healed health, in a support mage's tally, worth 2 tenths of experience: 1 XP per 25 healed in combat (rules HEAL_PER_XP). */
@@ -553,6 +555,9 @@ function runCastOrder(state: SimState, i: number, o: Extract<UnitOrder, { t: 'ca
     return false;
   };
   if (!s || !knowsSpell(state, i, o.spell)) return done();
+  // Given up after 30 s without a way to reach it (s), so an unreachable target never holds her for good.
+  if (o.until === 0) o.until = state.step + CAST_ORDER_STEPS;
+  else if (state.step >= o.until) return done(`Could not find a clear line to cast ${s.name}.`);
   let t = -1;
   let x = o.x;
   let z = o.z;
@@ -577,11 +582,16 @@ function runCastOrder(state: SimState, i: number, o: Extract<UnitOrder, { t: 'ca
   if (e.mana[i]! < s.mana * MANA_SCALE) return done(`Not enough mana for ${s.name}.`);
   if (!canReachWith(state, i, s, t, x, z)) {
     if (e.inside[i] !== 0) return done(`Out of range for ${s.name}.`);
-    if (t >= 0) chase(state, i, t, s.range - RANGE_MARGIN_WU);
-    else approach(state, i, x, z, s.range - RANGE_MARGIN_WU);
+    // In range but the line is blocked: she closes in until she can see it.
+    const d = t >= 0 ? gap(state, i, t) : length2d(x - e.x[i]!, z - e.z[i]!);
+    const reach = Math.max(M, Math.min(s.range - RANGE_MARGIN_WU, d - 2 * M));
+    if (t >= 0) chase(state, i, t, reach);
+    else approach(state, i, x, z, reach);
     return true;
   }
   if (spellReadyAt(state, i, s.id) > state.step) {
+    // Waiting out the cooldown in reach is not getting stuck.
+    o.until = state.step + CAST_ORDER_STEPS;
     if (t >= 0 && t !== i) face(state, i, t);
     e.order[i] = OrderKind.Idle;
     return true;

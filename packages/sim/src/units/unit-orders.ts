@@ -66,8 +66,8 @@ export type UnitOrder =
   | { t: 'prospect'; x: number; z: number }
   /** Haul what waits at a mineshaft to a drop-off, over and over. */
   | { t: 'haul'; b: number }
-  /** Cast a spell (magic/cast.ts) at a unit (id) or a spot (x, z wu); auto: the mage picks the target. */
-  | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number };
+  /** Cast a spell (magic/cast.ts) at a unit (id) or a spot (x, z wu); auto: the mage picks the target; until: the step she gives up (0 before she starts). */
+  | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number; until: number };
 
 /** An equip order's "leave this slot as it is". */
 export const KEEP = 255;
@@ -103,7 +103,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   hitch: ['id'],
   prospect: ['x', 'z'],
   haul: ['b'],
-  cast: ['spell', 'id', 'x', 'z', 'auto'],
+  cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {

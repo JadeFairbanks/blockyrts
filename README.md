@@ -4,11 +4,13 @@ A co-op browser RTS survival game: build by day, hold the walls by night, and
 see how many nights you last. The design spec is [docs/blueprint.md](docs/blueprint.md),
 a copy of the canonical blueprint document.
 
-This is milestone 1 of the build order: a generated world from the seed (cells,
-barriers, depth bands, rivers, ponds, start pockets, trees and rocks, fog of
-war, water that flows into dug land) drawn in the browser, with the camera,
-the mouse-only controls shell, the HUD panels and the minimap. Workers,
-gathering and building come in milestone 2.
+The build order's milestones 0 to 6 are in: the deterministic sim and its
+tools, the generated world with the camera, HUD and minimap, workers and
+building, warriors, combat and the nights, the economy (items, research,
+smelting, food, animals, mining), the threats beyond the nights (lairs,
+blood and fog nights, tribes, goblin villages, creatures) and the mages with
+their ten spells. Each milestone's checks are below; neutral peoples come in
+milestone 7.
 
 ## Setup
 
@@ -88,7 +90,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 25815a11`. Run it again: the same hash. (The
+   prints `final step 10000 hash ecf9327d`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -97,7 +99,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `8035b5fb`
+   step as the headless runner with no script: for seed 1 that is `c020169f`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -127,9 +129,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `8035b5fb` at step 40, with two players `07dcfa34`. The land matches too.
+   `c020169f` at step 40, with two players `c0d0b884`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash fbc9382d`: two players dig trenches from a
+   prints `final step 10000 hash 7bc6b6bd`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -199,7 +201,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash b5c69517`: workers chop and quarry, the Big
+   prints `final step 10000 hash 1b0fd103`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -264,7 +266,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 71106c6a`: the Big House crafts a club and a
+   prints `final step 10000 hash c29100de`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
@@ -342,7 +344,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 4de72b87`: two workers pick flint while two
+   prints `final step 10000 hash 8a133dd3`: two workers pick flint while two
    chop; the warrior hunts with N twice, wears down two deer north of the
    camp, brings their meat home and walks home at dusk; a worker prospects
    (Fair); Rations goes to troops only and the workers starve until it goes
@@ -445,7 +447,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 25d16e18`: the debug tools hand out steel
+   prints `final step 10000 hash 309d5d27`: the debug tools hand out steel
    gear and three clubs and put a barrow 60 m east of the Big House and a
    cave mouth 60 m west; the Big House trains three warriors; all four
    attack the barrow, the first one there falls to its giant centipede, and
@@ -527,6 +529,88 @@ overhangs. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    `node packages/client/test-e2e/gap-look.mjs` (with the dev server on port
    5198) builds the Hill, marks a tunnel on its face with the mouse and takes
    screenshots once it is dug.
+
+## How a tester checks milestone 6
+
+The build order's check for M6 is: *train a Novice Acolyte at a Magi
+Sanctum; Heal and Arcane bolt resolve inside the lockstep step with identical
+hashes on two machines; Hexcraft research adds Warding, and a Counterspell
+cancels a goblin mage's Snuff; a Grand Magician keeps up a bolt every 4 s.*
+Every hash above changed with this milestone (each unit now carries its mana
+and spells), and each script still plays out as its description says.
+
+1. `pnpm test` runs those checks as scenario tests in
+   `packages/sim/test/m6.test.ts`: the Sanctum training a battle Novice in
+   60 s from 50 food and a wand it made; Hexcraft researched there in 90 s,
+   teaching Warding and Counterspell from rank 2; rank training to Acolyte,
+   and a rank wand making a Mage (the old wand goes back to the stock); a
+   support mage healing a hurt warrior and a battle mage bolting a zombie by
+   themselves; two runs, and a save and load taken mid-cast, landing on the
+   same hash; a Counterspell keeping a torch lit against a goblin mage's
+   Snuff (its mana still spent); a Grand Magician from an empty bar firing 40
+   bolts in 160 s; the cast order sending the one mage with the mana and
+   walking her into range; and the spell table matching Table 13.
+   `packages/client/test/m6-controls.test.ts` checks the mage command card.
+2. `pnpm dev`, open http://localhost:5173/?seed=1 and start. The debug panel
+   has three new buttons: **Sanctum** puts a finished Magi Sanctum in the
+   middle of the view; **Mage kit** adds 2 wands and 2 of each rank wand to
+   the stock and 10 mana crystals, 200 bread, 6 hexstone and 20 herbs to the
+   pool; **Mage XP** gives every mage the experience for her next rank.
+   Without them a Sanctum needs a level 4 main base (Stockade Hall).
+3. **Training.** Select the Sanctum: **Support** (S) and **Battle** (M) each
+   train a Novice Acolyte for 50 food and a wand from the stock in 60 s.
+   **Make** (K) opens wands (20 s), the three rank wands and Hexcraft (6
+   hexstone, 20 herbs, 90 s). A main base of level 6 (Keep) trains mages too.
+4. **The mage card.** Select a mage: the movement row, then her school's five
+   spells, then Eat, **Rank**, Enter, Equip Best and Gear. Click a spell (or
+   its key), then click its target: one of your units for Heal and Quicken,
+   an enemy for Arcane bolt, Beam and Fireball, an enemy that is casting for
+   Counterspell, the ground for Fortify, Rally, Area blast and Warding. Of
+   the selected mages, the one with the mana and the spell ready goes,
+   walking into range and sight first. Pressed twice (or double clicked),
+   every selected mage casts it on the best target she can find. A greyed
+   button says why (rank, Hexcraft, mana); a spell cooling down shows its
+   seconds and can still be ordered. Keys: support R Heal, K Quicken, F
+   Fortify, Y Rally, W Warding; battle R Arcane bolt, B Beam, F Fireball, T
+   Area blast, C Counterspell; U Rank. Eat has no key on this card.
+5. **By themselves.** A support mage heals a hurt unit near her (Heal, at
+   least half a heal missing) and never chases; a battle mage bolts enemies
+   within 15 m of where she was told to stand, and taps with her wand up
+   close; one who knows Counterspell stops an enemy spell as it starts. The
+   portrait shows a purple mana bar under the health bar; the panel shows
+   "Mana x / y" and the spells on a unit. Mana refills at her rank's rate
+   unless she was hurt in the last 10 s, so a mage behind the line keeps
+   casting. Mana and the cooldown are paid when the spell lands, so a new
+   order breaks a cast for free.
+6. **Ranks.** Experience from fighting and healing raises a mage to Acolyte
+   and Adept Acolyte by herself; **Rank** at the Sanctum trains her there
+   sooner (40 food, 60 s; then 60 food and 2 mana crystals, 120 s). Mage,
+   Master Mage and Grand Magician each need her experience, then her rank
+   wand from the stock and 30 s at the Sanctum; the message "has the
+   experience for Mage" says when. Each rank adds health, mana, refill and
+   10% spell power. Mages wear leather at most, and Enter puts them on
+   towers and parapets, casting from the top.
+7. **The look.** Mages draw on the mage body with its wand, playing the
+   spell's clip while casting (cast_heal, cast_bolt, cast_beam, cast_area;
+   a wand tap plays cast_bolt). Once the model thread's PR #50 is merged
+   they wear their school and rank's look (mage_support_1 to 6,
+   mage_battle_1 to 6), and once PR #42 is merged the rank wands, the bolt
+   and the fireball use their own models; until then bolts and fireballs are
+   glowing blocks and a beam is a violet bar to the target. Landing spells
+   throw out motes in the spell's colour, and units with a spell on them
+   give off a few.
+8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
+   prints `final step 10000 hash 2936db3b`: the debug tools put a Magi
+   Sanctum by the Big House, the mage kit in the stock and steel gear on the
+   warrior; the Sanctum trains a support and a battle mage and researches
+   Hexcraft, and both train to Acolyte; in night 0 the support mage quickens
+   the warrior, wards the crowd and heals while the battle mage beams and
+   bolts the monsters; at dawn Mage XP takes both to Adept Acolyte and then
+   to Mage with their rank wands; at a goblin village 80 m north the
+   warrior and the battle mage attack while the support mage follows,
+   Rally, Fireball, Fortify and Area blast are cast, the battle mage counters
+   the goblin mage twice, and all three walk home. All ten spells land.
+   `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
 

@@ -421,12 +421,12 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (mages.length === 0) break;
         const knowers = mages.filter((i) => knowsSpell(state, i, s.id));
         if (knowers.length === 0) {
-          alert(state, o.player, spellProblem(state, mages[0]!, s.id));
+          alert(state, o.player, spellProblem(state, mages.find((i) => e.school[i] === s.school) ?? mages[0]!, s.id));
           break;
         }
         // Double-tapped: every mage that knows it picks her own target.
         if (o.auto) {
-          for (const i of knowers) giveOrder(state, i, { t: 'cast', spell: s.id, id: 0, x: 0, z: 0, auto: 1 }, o.queued === true);
+          for (const i of knowers) giveOrder(state, i, { t: 'cast', spell: s.id, id: 0, x: 0, z: 0, auto: 1, until: 0 }, o.queued === true);
           break;
         }
         const t = o.target ? e.indexOf(o.target) : -1;
@@ -452,7 +452,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
           alert(state, o.player, `Not enough mana for ${s.name} (${s.mana}).`);
           break;
         }
-        giveOrder(state, best, { t: 'cast', spell: s.id, id: t >= 0 ? o.target : 0, x: clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), z: clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU), auto: 0 }, o.queued === true);
+        giveOrder(state, best, { t: 'cast', spell: s.id, id: t >= 0 ? o.target : 0, x: clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), z: clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU), auto: 0, until: 0 }, o.queued === true);
         break;
       }
       case 'eat':

@@ -1,0 +1,350 @@
+{
+ "description": "M6 check script, seed 1, one player, with night mobs: the debug tools put a finished Magi Sanctum 20 m east of the Big House and a mage kit in the stock and pool (2 wands, 2 of each rank wand, 10 mana crystals, 200 bread, 6 hexstone, 20 herbs), and steel gear for the warrior; the Sanctum trains a support mage (id 165) and a battle mage (id 286) and researches Hexcraft; both train to Acolyte there; at dusk they stand by the Big House with the warrior; in night 0 the support mage quickens the warrior (Quicken on unit 5), wards the crowd (Warding pressed twice) and heals by herself, and the battle mage beams a monster (Beam pressed twice) and bolts by herself; at dawn the debug Mage XP button twice takes both to Adept Acolyte and then to the experience for Mage, and they train to Mage with their rank wands; a goblin village goes up 80 m north; the warrior and the battle mage attack-move on it with the support mage following the warrior; Rally, Fireball, Fortify and Area blast are pressed twice there, the support mage heals too, the battle mage counters the goblin mage's spells, the village declares war, and all three walk home. Debug threats 40 Sanctum, 41 mage kit, 42 mage experience. Spells: 0 Heal, 1 Quicken, 2 Fortify, 3 Rally, 4 Arcane bolt, 5 Beam, 6 Fireball, 7 Area blast, 8 Warding, 9 Counterspell. Products: 4 support mage, 5 battle mage, 14 Hexcraft. Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  {
+   "step": 0,
+   "orders": [
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 40,
+     "x": 160000,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 41,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 42,
+     "count": 1
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 71,
+     "count": 1
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 75,
+     "count": 1
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 79,
+     "count": 1
+    }
+   ]
+  },
+  {
+   "step": 1,
+   "orders": [
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 7,
+     "product": 4,
+     "count": 1
+    },
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 7,
+     "product": 5,
+     "count": 1
+    },
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 7,
+     "product": 14,
+     "count": 1
+    }
+   ]
+  },
+  {
+   "step": 5,
+   "orders": [
+    {
+     "kind": "gather",
+     "player": 0,
+     "units": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "cx": -1,
+     "cz": -1,
+     "index": 2
+    },
+    {
+     "kind": "equipBest",
+     "player": 0,
+     "units": [
+      5
+     ]
+    }
+   ]
+  },
+  {
+   "step": 2410,
+   "orders": [
+    {
+     "kind": "trainRank",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "building": 7
+    }
+   ]
+  },
+  {
+   "step": 3900,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      165,
+      286
+     ],
+     "x": 40000,
+     "z": 64000
+    }
+   ]
+  },
+  {
+   "step": 4500,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165
+     ],
+     "spell": 1,
+     "target": 5,
+     "x": 0,
+     "z": 0,
+     "auto": 0
+    }
+   ]
+  },
+  {
+   "step": 4900,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "spell": 8,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 5300,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "spell": 5,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 8000,
+   "orders": [
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 42,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 42,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 10,
+     "x": 0,
+     "z": -640000
+    }
+   ]
+  },
+  {
+   "step": 8010,
+   "orders": [
+    {
+     "kind": "trainRank",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "building": 7
+    }
+   ]
+  },
+  {
+   "step": 8800,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      165,
+      286
+     ],
+     "x": 0,
+     "z": -320000
+    }
+   ]
+  },
+  {
+   "step": 9150,
+   "orders": [
+    {
+     "kind": "attackMove",
+     "player": 0,
+     "units": [
+      5,
+      286
+     ],
+     "x": 0,
+     "z": -560000
+    },
+    {
+     "kind": "follow",
+     "player": 0,
+     "units": [
+      165
+     ],
+     "target": 5
+    }
+   ]
+  },
+  {
+   "step": 9300,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "spell": 3,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9320,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "spell": 6,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9340,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "spell": 2,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9400,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      165,
+      286
+     ],
+     "spell": 7,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9700,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      165,
+      286
+     ],
+     "x": 40000,
+     "z": 64000
+    }
+   ]
+  }
+ ]
+}
