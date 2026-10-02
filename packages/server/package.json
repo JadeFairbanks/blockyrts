@@ -11,6 +11,14 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@blockyrts/protocol": "workspace:*"
+    "@aws-sdk/client-s3": "^3.1145.0",
+    "@blockyrts/protocol": "workspace:*",
+    "@node-rs/argon2": "^2.2.1",
+    "pg": "^8.23.1",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2"
   }
 }
