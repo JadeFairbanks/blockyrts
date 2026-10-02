@@ -109,6 +109,9 @@ if [ -z "$volume" ]; then
   echo "Volume created: $volume"
 fi
 
+# The firewall attaches by tag, and the tag must exist first.
+doctl compute tag create blockyrts >/dev/null
+
 if [ -z "$(doctl compute firewall list --format Name --no-header | grep -x blockyrts || true)" ]; then
   # No inbound rules: the server is only reached through the Cloudflare tunnel.
   doctl compute firewall create --name blockyrts --tag-names blockyrts \
