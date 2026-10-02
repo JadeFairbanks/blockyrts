@@ -45,6 +45,12 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/unit-orders.ts:KEEP', 'units/gear.ts:BEST_TOOL', 'units/gear.ts:GEAR_CHECK_STEPS', 'units/tools.ts:TOOL_FIELDS',
+  // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
+  'peoples/data.ts:PEOPLE_NAMES', 'peoples/data.ts:PERSON_NAMES', 'peoples/data.ts:FACTION_KIND_NAMES', 'peoples/data.ts:KIND_PEOPLE',
+  'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:ITEM_GOODS', 'peoples/data.ts:LIVE_GOODS',
+  'peoples/data.ts:LINES', 'peoples/data.ts:TREE_WARNING_LINES', 'peoples/data.ts:REPARATIONS_PAID_LINE', 'peoples/data.ts:MERC_LINES',
+  'peoples/data.ts:REMARKS', 'peoples/data.ts:NAME_PARTS', 'peoples/data.ts:ELF_KINGDOM_NAME', 'peoples/data.ts:LEADER_NAMES',
+  'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'combat/fight.ts:SKILL_ARCHERY', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'combat/items.ts:ITEM_COUNT', 'combat/items.ts:SLOT_COUNT', 'combat/items.ts:SLOT_NAMES', 'economy/resources.ts:RESOURCE_COUNT',
   'economy/resources.ts:TRINKET_BASE', 'economy/resources.ts:FOODS', 'economy/resources.ts:TRINKET_METALS', 'economy/resources.ts:TRINKET_TIERS',
@@ -164,7 +170,8 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
 /** Kinds of thing a number can point at. Each has a list of names, and most have entries the editor can jump to. */
 export type RefKind =
   | 'res' | 'mob' | 'research' | 'building' | 'item' | 'shot' | 'tool' | 'slot' | 'nature' | 'moves' | 'sun' | 'comes' | 'role'
-  | 'lairSite' | 'band' | 'hit' | 'made' | 'species' | 'material' | 'digClass' | 'rations' | 'resGroup' | 'unitKind';
+  | 'lairSite' | 'band' | 'hit' | 'made' | 'species' | 'material' | 'digClass' | 'rations' | 'resGroup' | 'unitKind'
+  | 'people' | 'faction' | 'cat' | 'peopleUnit' | 'trinketMetal';
 
 /** Keys that hold a reference, wherever they appear; `EXPORT:key` overrides by export. */
 export const REF_KEYS: Readonly<Record<string, RefKind>> = {
@@ -173,13 +180,16 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   bands: 'band', tameAt: 'building', tameFoods: 'res', hit: 'hit', made: 'made', group: 'resGroup', dig: 'digClass',
   'ITEMS:slot': 'slot', 'ITEMS:tool': 'tool', 'PROPS:tool': 'tool', 'SLAUGHTERED:*': 'species', 'FOODS:*': 'res',
   'RESEARCH:at': 'building', 'MAGE_RANK_TRAINING:wand': 'item', 'RANK_WANDS:*': 'item',
+  'PEOPLE_UNITS:people': 'people', 'PEOPLE_UNITS:weapon': 'item', 'PEOPLE_UNITS:backup': 'item', 'PEOPLE_UNITS:ranged': 'item',
+  'PEOPLE_UNITS:ammo': 'item', 'PEOPLE_UNITS:armour': 'item', 'PEOPLE_UNITS:helmet': 'item', 'PEOPLE_UNITS:shield': 'item',
+  RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
 };
 
 /** Keys that are identity, layout or prose: shown, not edited. */
 export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'id', 'kind', 'live', 'comesWith', 'menu', 'slot', 'craftSlot', 'w', 'd', 'solid', 'variants', 'turns', 'product', 'key', 'colour',
   'defence', 'dropoff', 'site', 'raw', 'shape', 'trainsWorkers', 'heavy', 'oneHanded', 'tip', 'BUILDINGS:slot',
-  'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank',
+  'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank', 'PEOPLE_UNITS:people',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
@@ -188,11 +198,18 @@ export const TEXT_KEYS: Readonly<Record<string, string>> = {
   source: 'Where it comes from', tooltip: 'Tooltip', row: 'Blueprint row', yields: 'Yields', resource: 'Gives', munition: 'Loads',
   ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name', text: 'Tooltip',
 };
-/** Strings never shown. */
-export const HIDDEN_KEYS: ReadonlySet<string> = new Set(['name', 'model']);
+/** Strings never shown, and `EXPORT:key` values of any kind (a stock row's good: its title names it). */
+export const HIDDEN_KEYS: ReadonlySet<string> = new Set(['name', 'model', 'STOCK:good', 'CARAVAN_WEAPONS:good']);
 
 /** Readable names for keys, used before the generic split of camelCase. */
 export const KEY_LABELS: Readonly<Record<string, string>> = {
+  speed10: 'Walking speed', walkShoot: 'Shoots while walking', fighter: 'Fighter (villagers flee instead)', ringWu: 'Buildings stand this far out',
+  structures: 'Buildings', animals: 'Animals kept', good: 'Good', 'STOCK:count': 'Held when full', 'CARAVAN_WEAPONS:count': 'Held when full',
+  'STOCK:pct': 'Sells at (of its worth)', 'CARAVAN_WEAPONS:pct': 'Sells at (of its worth)', price: 'Set price', daily: 'Refills every dawn',
+  sells: 'Sells cheap', lacks: 'Pays extra for', LEAVE_WU: 'Leave distance', LEAVE_STEPS: 'Leave after', 'GROVESINGER:treeWu': 'Counts as near a tree within',
+  'GROVESINGER:nearTreeRefill': 'Refill near trees (hundredths a second)', 'GROVESINGER:barrenRefill': 'Refill in the Barrens (hundredths a second)',
+  'ONE_IN:runkin': 'Runkin camps', 'ONE_IN:colony': 'Dwarf colonies', 'ONE_IN:city': 'Dwarf cities', 'ONE_IN:merc': 'Mercenary camps', 'ONE_IN:caravan': 'Elf caravans',
+  RUNKIN_WOLF: 'Runkin camp animal', ELF_BEAR: 'Elf kingdom animal', ONE_IN: 'Found in one cell in so many (0 for never)',
   res: 'Resource', hexcraft: 'Needs Hexcraft', projectile: 'Flies (walls and trees stop it)', auto: 'Cast by herself', bp: 'Strength',
   refill: 'Refill (hundredths of a point a second)', crystals: 'Mana crystals', wand: 'Rank wand', amount: 'Healing or damage', 'RESEARCH:at': 'Researched at',
   'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
@@ -243,6 +260,7 @@ export const KEY_ORDER: readonly string[] = [
 
 /** Unit by key; `EXPORT:key` overrides by export, and a bare export name sets a scalar's unit. */
 export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
+  speed10: 'speedTenths', price: 'vpTenths',
   ws: 'workerSeconds', 'SPELLS:bp': 'percentBp', hp: 'health', health: 'health', damage: 'damage', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
   chancePm: 'percentPm', weightTenthsLb: 'lbTenths', needsBase: 'level', forge: 'level', supply: 'count', shelters: 'count', workers: 'count',
   reach: 'metresWu', range: 'metresWu', radius: 'metresWu', halfWidth: 'metresWu', height: 'metresWu', unitRadius: 'metresWu', buildingRadius: 'metresWu',
@@ -254,6 +272,33 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */
+/** Units for every number in a table, by export (after the key's own unit). */
+export const EXPORT_UNITS: Readonly<Record<string, UnitId>> = {
+  RES_VALUE_TENTHS: 'vpTenths', ITEM_VALUE_TENTHS: 'vpTenths', LIVE_VALUE_TENTHS: 'vpTenths', TRINKET_METAL_TENTHS: 'vpTenths',
+  DAILY_BUY_TENTHS: 'vpTenths', REPARATIONS_TENTHS: 'vpTenths', REPARATIONS_PER_KILL_TENTHS: 'vpTenths', PLUNDER_TENTHS_PER_PERSON: 'vpTenths',
+  MERC_UNITS: 'number', ONE_IN: 'number',
+};
+
+/** What the keys or indices of a table stand for, by export: one kind per level, null where they are plain positions. */
+export const INDEX_REFS: Readonly<Record<string, ReadonlyArray<RefKind | null>>> = {
+  BAND_SIZE_PCT: ['band'], BAND_STOCK_PCT: ['band'], ONE_IN: [null, 'band'], PAY_PCT: ['people', 'cat'], LEANS: ['people'],
+  STOCK: ['faction'], LAYOUTS: ['faction'], PLUNDER_GOODS: ['people'], RES_VALUE_TENTHS: ['res'], ITEM_VALUE_TENTHS: ['item'],
+  LIVE_VALUE_TENTHS: ['species'], SALVAGE: ['mob'], MERC_UNITS: ['band'], TRINKET_METAL_TENTHS: ['trinketMetal'],
+};
+
+/** Pair lists inside a table, by export (`EXPORT:*`) or key: what the first number of each pair names. */
+export const PAIR_KEY_REFS: Readonly<Record<string, RefKind>> = {
+  'SALVAGE:*': 'res', 'LAYOUTS:structures': 'mob', 'LAYOUTS:people': 'peopleUnit', 'LAYOUTS:animals': 'species',
+};
+
+/** Modules whose loose numbers split into one page per `// ----- section -----` comment. */
+export const SECTION_PAGES: ReadonlySet<string> = new Set(['peoples/data.ts']);
+/** Page titles for those sections, where the comment reads badly as one. */
+export const SECTION_TITLES: Readonly<Record<string, string>> = {
+  "the peoples' units": 'Grovesinger and beasts', "the peoples' buildings": 'Village sizes, buildings and salvage', 'where they are': 'Where they are found',
+  'trade (Table 11, Table 19)': 'Trade: worth, prices, stock and leans', war: 'War, raids, caravans and hiring', speech: 'Speech',
+};
+
 export const NAME_UNITS: ReadonlyArray<readonly [RegExp, UnitId]> = [
   [/_STEPS$|Steps$|^steps$|^cooldown$|^fuse$/, 'seconds'],
   [/HEALTH/, 'health'],

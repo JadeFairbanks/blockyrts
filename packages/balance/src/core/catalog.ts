@@ -7,8 +7,8 @@
 import { pathKey, type DataPath, type RawValue } from './schema.ts';
 import type { SimDocs } from './docs.ts';
 import {
-  ENTRY_ARRAYS, EXPORT_GROUPS, GROUPS, HIDDEN_KEYS, KEY_LABELS, KEY_ORDER, KEY_UNITS, MODULE_GROUPS, MODULE_TITLES, NAME_UNITS, READ_ONLY_KEYS, REF_KEYS,
-  SKIP_EXPORTS, SKIP_MODULES, TEXT_KEYS, humanise, type RefKind,
+  ENTRY_ARRAYS, EXPORT_GROUPS, EXPORT_UNITS, GROUPS, HIDDEN_KEYS, INDEX_REFS, KEY_LABELS, KEY_ORDER, KEY_UNITS, MODULE_GROUPS, MODULE_TITLES, NAME_UNITS,
+  PAIR_KEY_REFS, READ_ONLY_KEYS, REF_KEYS, SECTION_PAGES, SECTION_TITLES, SKIP_EXPORTS, SKIP_MODULES, TEXT_KEYS, humanise, type RefKind,
 } from './rules.ts';
 import type { UnitId } from './units.ts';
 
@@ -145,14 +145,55 @@ function buildRefNames(mods: SimModules): Record<RefKind, Map<number, string>> {
     comes: e('Comes'), role: e('Role'), lairSite: e('LairSite'), band: l('BAND_NAMES', null), hit: e('Hit'), made,
     species: l('SPECIES', 'id'), material: l('MATERIALS', null), digClass: e('DigClass'), rations: e('Rations'),
     resGroup: e('ResGroup'), unitKind: e('UnitKind'),
+    people: l('PEOPLE_NAMES', null), faction: l('FACTION_KIND_NAMES', null), cat: capitalised(l('CAT_NAMES', null)),
+    peopleUnit: peopleUnitNames(findExport(mods, 'PEOPLE_UNITS')), trinketMetal: l('TRINKET_METALS', null),
   };
+}
+
+function capitalised(m: Map<number, string>): Map<number, string> {
+  return new Map([...m].map(([k, v]) => [k, v.charAt(0).toUpperCase() + v.slice(1)]));
+}
+
+/** The peoples' units by id; two that share a name (the Halfling man and woman) are told apart by their model. */
+function peopleUnitNames(list: unknown): Map<number, string> {
+  const out = new Map<number, string>();
+  if (!Array.isArray(list)) return out;
+  const recs = list as ReadonlyArray<{ id: number; name: string; model?: string }>;
+  for (const r of recs) {
+    const twin = recs.some((o) => o !== r && o.name === r.name);
+    const m = /_(male|female)$/.exec(r.model ?? '');
+    out.set(r.id, twin && m ? `${r.name} (${m[1] === 'male' ? 'man' : 'woman'})` : r.name);
+  }
+  return out;
+}
+
+/** A trade good: a resource, an item (ITEM_GOODS + id) or a live animal (LIVE_GOODS + species). */
+function goodName(ctx: Ctx, good: number): string {
+  const items = findExport(ctx.mods, 'ITEM_GOODS') as number | undefined;
+  const live = findExport(ctx.mods, 'LIVE_GOODS') as number | undefined;
+  if (live !== undefined && good >= live) return `Live ${refName(ctx, 'species', good - live).toLowerCase()}`;
+  if (items !== undefined && good >= items) return refName(ctx, 'item', good - items);
+  return refName(ctx, 'res', good);
+}
+
+/** The label for a key or index of a table whose keys name something (INDEX_REFS), from its path. */
+function tableLabel(ctx: Ctx, path: DataPath): string | undefined {
+  const kinds = INDEX_REFS[ctx.exportName];
+  const k = path[path.length - 1];
+  if (!kinds || path.length < 2 || path[0] !== ctx.exportName) return undefined;
+  const kind = kinds[path.length - 2];
+  if (!kind || k === undefined || !/^\d+$/.test(String(k))) return undefined;
+  return refName(ctx, kind, Number(k));
 }
 
 /** Which array export each reference kind's entries come from, and the key holding the id. */
 const REF_SOURCES: Partial<Record<RefKind, readonly [string, string | null]>> = {
   res: ['RESOURCES', 'id'], mob: ['MOBS', 'id'], research: ['RESEARCH', 'id'], building: ['BUILDINGS', 'kind'], item: ['ITEMS', 'id'],
-  shot: ['SHOTS', null], species: ['SPECIES', 'id'], material: ['MATERIALS', null],
+  shot: ['SHOTS', null], species: ['SPECIES', 'id'], material: ['MATERIALS', null], peopleUnit: ['PEOPLE_UNITS', 'id'],
 };
+
+/** Names for the reference picker's label, where the kind's own name reads badly. */
+const REF_LABELS: Partial<Record<RefKind, string>> = { mob: 'Building or creature', peopleUnit: 'Unit', species: 'Animal' };
 
 const SLOT_MENUS = ['Tools', 'Weapons', 'Backup weapons', 'Ranged weapons', 'Shields', 'Boots', 'Ammunition', 'Torches', 'Armour', 'Helmets', 'Cases', 'Kits'];
 
@@ -174,6 +215,7 @@ function unitFor(key: string, parentKey: string, exportName: string): UnitId {
   const byParent = KEY_UNITS[`${parentKey}:${key}`];
   if (byParent) return byParent;
   if (key in KEY_UNITS) return KEY_UNITS[key]!;
+  if (exportName in EXPORT_UNITS) return EXPORT_UNITS[exportName]!;
   for (const name of [key, exportName]) for (const [re, u] of NAME_UNITS) if (re.test(name)) return u;
   return 'number';
 }
@@ -235,11 +277,13 @@ function recordLabel(ctx: Ctx, key: string, rec: Record<string, unknown>, i: num
   if (typeof rec.name === 'string' && rec.name !== '') return rec.name;
   if (typeof rec.res === 'number') return refName(ctx, 'res', rec.res);
   if (typeof rec.mob === 'number') return refName(ctx, 'mob', rec.mob);
+  if (typeof rec.good === 'number') return goodName(ctx, rec.good);
   return indexLabel(ctx, key, i);
 }
 
 function walk(ctx: Ctx, value: unknown, path: DataPath, key: string, parentKey: string, trail: string[], labelOverride?: string): CatNode | null {
-  const label = labelOverride ?? (typeof path[path.length - 1] === 'number' ? indexLabel(ctx, key, path[path.length - 1] as number) : labelFor(key));
+  const label = labelOverride ?? tableLabel(ctx, path) ?? (typeof path[path.length - 1] === 'number' ? indexLabel(ctx, key, path[path.length - 1] as number) : labelFor(key, parentKey));
+  if (HIDDEN_KEYS.has(`${ctx.exportName}:${key}`)) return null;
   if (typeof value === 'number' || typeof value === 'boolean') return field(ctx, path, label, value, key, parentKey, trail);
   if (typeof value === 'string') {
     if (HIDDEN_KEYS.has(key) || value === '') return null;
@@ -266,7 +310,7 @@ function walk(ctx: Ctx, value: unknown, path: DataPath, key: string, parentKey: 
 function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: string, parentKey: string, trail: string[], label: string): CatNode | null {
   if (value.length === 0) return null;
   const sub = [...trail, label];
-  const pairRef = PAIR_REFS[key] ?? PAIR_REFS[ctx.exportName === key ? key : ''];
+  const pairRef = PAIR_KEY_REFS[`${ctx.exportName}:${key}`] ?? PAIR_KEY_REFS[`${ctx.exportName}:*`] ?? PAIR_REFS[key] ?? PAIR_REFS[ctx.exportName === key ? key : ''];
   // A cost: [[resource, amount], ...].
   if (value.every(isNumberPair)) {
     const kind: RefKind | undefined = pairRef ?? (RES_PAIR_KEYS.has(key) ? 'res' : undefined);
@@ -274,7 +318,7 @@ function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: str
       const children: CatNode[] = value.map((p, i) => {
         const pair = p as readonly [number, number];
         const amountLabel = kind === 'building' ? 'Level' : 'Amount';
-        const refF = field(ctx, [...path, i, 0], kind === 'building' ? 'Building' : humanise(kind), pair[0], '', key, sub, kind);
+        const refF = field(ctx, [...path, i, 0], kind === 'building' ? 'Building' : REF_LABELS[kind] ?? humanise(kind), pair[0], '', key, sub, kind);
         const amt = field(ctx, [...path, i, 1], amountLabel, pair[1], kind === 'building' ? 'needsBase' : 'makes', key, sub);
         return { type: 'pair', label: refName(ctx, kind, pair[0]), ref: refF, amount: amt } satisfies PairNode;
       });
@@ -291,14 +335,14 @@ function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: str
   }
   // A list of numbers: references (spawns, bands) or values by index.
   if (value.every((x) => typeof x === 'number' || typeof x === 'boolean')) {
-    const ref = refFor(ctx, key) ?? REF_KEYS[`${key}:*`];
-    const children = value.map((x, i) => field(ctx, [...path, i], ref ? `${i + 1}` : indexLabel(ctx, key, i), x as RawValue, ref ? '' : key, key, sub, ref));
+    const ref = refFor(ctx, key) ?? REF_KEYS[`${key}:*`] ?? REF_KEYS[`${ctx.exportName}:*`];
+    const children = value.map((x, i) => field(ctx, [...path, i], tableLabel(ctx, [...path, i]) ?? (ref ? `${i + 1}` : indexLabel(ctx, key, i)), x as RawValue, ref ? '' : key, key, sub, ref));
     return { type: 'section', label, doc: docFor(ctx, key), children, open: value.length <= 12 };
   }
   // A list of records or lists.
   const children: CatNode[] = [];
   value.forEach((x, i) => {
-    const itemLabel = x && typeof x === 'object' && !Array.isArray(x) ? recordLabel(ctx, key, x as Record<string, unknown>, i) : indexLabel(ctx, key, i);
+    const itemLabel = tableLabel(ctx, [...path, i]) ?? (x && typeof x === 'object' && !Array.isArray(x) ? recordLabel(ctx, key, x as Record<string, unknown>, i) : indexLabel(ctx, key, i));
     const n = walk(ctx, x, [...path, i], key, parentKey, sub, itemLabel);
     if (n?.type === 'section') children.push({ ...n, open: key === 'levels' || value.length <= 4 });
     else if (n) children.push(n);
@@ -344,11 +388,13 @@ function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
       return [`${names?.[rec.school as number] ?? 'Other'} spells`];
     }
     case 'MAGE_RANKS': return ['Mage ranks'];
+    case 'PEOPLE_UNITS': return [refName(ctx, 'people', rec.people as number)];
     default: return [];
   }
 }
 
 function entryLabel(ctx: Ctx, rec: Record<string, unknown>, i: number): string {
+  if (ctx.exportName === 'PEOPLE_UNITS' && typeof rec.id === 'number') return refName(ctx, 'peopleUnit', rec.id);
   if (typeof rec.name === 'string' && rec.name !== '') return rec.name.charAt(0).toUpperCase() + rec.name.slice(1);
   if (typeof rec.mob === 'number') return refName(ctx, 'mob', rec.mob);
   return `${humanise(ctx.exportName)} ${i + 1}`;
@@ -361,6 +407,8 @@ export function buildCatalog(mods: SimModules, docs: SimDocs): Catalog {
   const entries = new Map<string, Entry>();
   const byGroup = new Map<string, Entry[]>(GROUPS.map((g) => [g.id, []]));
   const rules = new Map<string, Entry>();
+  // Where each section page starts in its module, so the pages keep the module's order.
+  const sectionLines = new Map<string, number>();
 
   const moduleNames = Object.keys(mods).filter((m) => !SKIP_MODULES.has(m) && !m.endsWith('.test.ts')).sort();
   for (const module of moduleNames) {
@@ -422,10 +470,14 @@ export function buildCatalog(mods: SimModules, docs: SimDocs): Catalog {
       }
 
       // Loose numbers and small tables: one entry per group and module.
-      const rulesId = `rules:${group}:${module}`;
+      const section = SECTION_PAGES.has(module) ? declared[name]?.section : undefined;
+      const rulesId = section ? `rules:${group}:${module}:${section}` : `rules:${group}:${module}`;
       let rulesEntry = rules.get(rulesId);
+      const line = declared[name]?.line ?? 0;
+      if (section && line < (sectionLines.get(rulesId) ?? Infinity)) sectionLines.set(rulesId, line);
       if (!rulesEntry) {
-        rulesEntry = { id: rulesId, group, menu: [], label: moduleTitle(module, docs, group), module: '', path: [rulesId], doc: docs[module]?.header ?? '', children: [], usedBy: [] };
+        const label = section ? SECTION_TITLES[section] ?? sectionTitle(section) : moduleTitle(module, docs, group);
+        rulesEntry = { id: rulesId, group, menu: [], label, module: '', path: [rulesId], doc: docs[module]?.header ?? '', children: [], usedBy: [] };
         rules.set(rulesId, rulesEntry);
       }
       const ctx: Ctx = { ...base, entryId: rulesEntry.id };
@@ -436,7 +488,14 @@ export function buildCatalog(mods: SimModules, docs: SimDocs): Catalog {
       } else if (n?.type === 'section') rulesEntry.children.push({ ...n, doc: doc || n.doc, open: n.children.length <= 8 });
     }
   }
-  for (const e of [...rules.values()].reverse()) {
+  // Section pages of one module sit together, in the module's order; everything else keeps its place.
+  const all = [...rules.values()];
+  const home = (e: Entry): number => all.findIndex((x) => x.id.split(':').slice(0, 3).join(':') === e.id.split(':').slice(0, 3).join(':'));
+  const ordered = all
+    .map((e, i) => ({ e, i, h: home(e), line: sectionLines.get(e.id) ?? 0 }))
+    .sort((a, b) => a.h - b.h || a.line - b.line || a.i - b.i)
+    .map((x) => x.e);
+  for (const e of ordered.reverse()) {
     entries.set(e.id, e);
     const list = byGroup.get(e.group)!;
     if (list.some((x) => !x.id.startsWith('rules:'))) e.menu = ['Rules and settings'];
@@ -462,6 +521,12 @@ export function buildCatalog(mods: SimModules, docs: SimDocs): Catalog {
 }
 
 /** A module's title for its section in a rules entry: the first sentence of its header comment. */
+/** A section comment as a page title: "trade (Table 11, Table 19)" reads "Trade (Table 11, Table 19)"; "(s)" marks drop. */
+function sectionTitle(section: string): string {
+  const t = section.replace(/\s*\(s\)\s*/g, ' ').trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 function moduleTitle(module: string, docs: SimDocs, group: string): string {
   const t = MODULE_TITLES[`${group}:${module}`] ?? MODULE_TITLES[module];
   if (t) return t;

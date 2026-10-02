@@ -52,6 +52,23 @@ describe('catalog', () => {
     expect(cat.entries.get(day.entryId)!.group).toBe('pacing');
     expect(toDisplay(day.value as number, day.unit)).toBe('180');
   });
+
+  it('names the peoples\' tables by what their keys stand for and pages them by section', () => {
+    const peoples = cat.groups.find((g) => g.id === 'peoples')!;
+    const woman = peoples.entries.find((e) => e.label === 'Halfling (woman)')!;
+    expect(woman.menu).toEqual(['Halflings']);
+    const trade = peoples.entries.find((e) => e.label.startsWith('Trade:'))!;
+    expect(trade.menu).toEqual(['Rules and settings']);
+    const labels = (n: { label?: string; children?: unknown[] }): string[] =>
+      [n.label ?? '', ...((n.children ?? []) as Array<{ label?: string; children?: unknown[] }>).flatMap(labels)];
+    const all = labels(trade as never);
+    expect(all).toContain('Steel ingot');
+    expect(all).toContain('Dwarf colony');
+    expect(all).toContain('Live chicken');
+    expect(all.some((l) => /Lines|Names/.test(l))).toBe(false);
+    const steel = [...cat.fields.values()].find((f) => f.module === 'peoples/data.ts' && f.path[0] === 'RES_VALUE_TENTHS' && f.label === 'Steel ingot')!;
+    expect(toDisplay(steel.value as number, steel.unit)).toBe('30');
+  });
 });
 
 describe('units', () => {
@@ -134,6 +151,7 @@ describe('docs', () => {
     ].join('\n'));
     expect(d.header).toBe('Header line one. Header line two.');
     expect(d.exports.THING_STEPS).toEqual({ doc: 'How long a thing takes.', line: 5 });
+    expect(extractDocs('const a = 1;\n// ----- trade -----\nexport const B = 2;').exports.B!.section).toBe('trade');
     expect(d.props.hp).toBe('The health.');
   });
 });

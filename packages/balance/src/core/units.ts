@@ -8,7 +8,7 @@ import { STEPS_PER_SECOND, WU_PER_METRE } from '@blockyrts/sim';
 export type UnitId =
   | 'number' | 'seconds' | 'workerSeconds' | 'percentBp' | 'percentPm' | 'percent' | 'metresWu' | 'speed'
   | 'metresCm' | 'metres' | 'squareMetres' | 'health' | 'damage' | 'lbTenths' | 'tenths' | 'xpTenths' | 'level'
-  | 'count' | 'nutrition' | 'night' | 'perMilleRaw';
+  | 'count' | 'nutrition' | 'night' | 'perMilleRaw' | 'vpTenths' | 'speedTenths';
 
 export interface UnitSpec {
   /** Shown after the value; '' for none. */
@@ -41,6 +41,8 @@ export const UNITS: Readonly<Record<UnitId, UnitSpec>> = {
   tenths: { suffix: '', scale: 10, hint: 'held in tenths' },
   xpTenths: { suffix: 'XP', scale: 10, hint: 'experience (held in tenths)' },
   nutrition: { suffix: 'nutrition', scale: 1, hint: 'nutrition points' },
+  vpTenths: { suffix: 'vp', scale: 10, hint: 'trade value points (held in tenths)' },
+  speedTenths: { suffix: 'm/s', scale: 10, hint: 'metres a second (held in tenths)' },
 };
 
 /** The raw value as shown, with no trailing zeros. */
