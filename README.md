@@ -93,7 +93,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 0dc48578`. Run it again: the same hash. (The
+   prints `final step 10000 hash 7f42196e`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -134,7 +134,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    hash in the debug panel at the same step: for seed 1 with one player it is
    `d8d06cd5` at step 40, with two players `23932524`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 55542c63`: two players dig trenches from a
+   prints `final step 10000 hash f6a0258c`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -204,7 +204,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash cb8d3ea4`: workers chop and quarry, the Big
+   prints `final step 10000 hash 91eff412`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -269,7 +269,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 19319055`: the Big House crafts a club and a
+   prints `final step 10000 hash 3a80cbfd`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
@@ -347,7 +347,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 03a6ea97`: two workers pick flint while two
+   prints `final step 10000 hash 13bded2d`: two workers pick flint while two
    chop; the warrior hunts with N twice, wears down two deer north of the
    camp, brings their meat home and walks home at dusk; a worker prospects
    (Fair); Rations goes to troops only and the workers starve until it goes
@@ -450,7 +450,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash b47f49c1`: the debug tools hand out steel
+   prints `final step 10000 hash 6e70f170`: the debug tools hand out steel
    gear and three clubs and put a barrow 60 m east of the Big House and a
    cave mouth 60 m west; the Big House trains three warriors; all four
    attack the barrow, the first one there falls to its giant centipede, and
@@ -458,8 +458,8 @@ dawn.*
    each; fog rolls in for night 0 and the warriors guard the Big House; at
    dawn a goblin village goes up 80 m north, a gnoll band to the south-east
    and a giant beetle to the north-west; the warriors attack the village,
-   which declares war on the fifth kill, and walk home (one falls on the
-   way); then a blood night is
+   which declares war on the fifth kill; its wolf riders take two of them
+   and the last walks home; then a blood night is
    called for night 1. `pnpm test` runs it in Node, Chromium, Firefox and
    WebKit too. `node packages/client/test-e2e/m5-look.mjs` (with the dev
    server on port 5198) takes screenshots of the debug threats in a browser.
@@ -603,16 +603,18 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 3d674bf2`: the debug tools put a Magi
-   Sanctum by the Big House, the mage kit in the stock and steel gear on the
-   warrior; the Sanctum trains a support and a battle mage and researches
+   prints `final step 10000 hash cf995e45`: the debug tools put a Magi
+   Sanctum by the Big House, the mage kit in the stock and steel gear for
+   two warriors, and the Big House trains the second (the goblin village
+   keeps wolf riders since milestone 8); the Sanctum trains a support and a
+   battle mage and researches
    Hexcraft, and both train to Acolyte; in night 0 the support mage quickens
    the warrior, wards the crowd and heals while the battle mage beams and
    bolts the monsters; at dawn Mage XP takes both to Adept Acolyte and then
    to Mage with their rank wands; at a goblin village 80 m north the
-   warrior and the battle mage attack while the support mage follows,
+   warriors and the battle mage attack while the support mage follows,
    Rally, Fireball, Fortify and Area blast are cast, the battle mage counters
-   the goblin mage twice, and all three walk home. All ten spells land.
+   the goblin mage, and all four walk home. All ten spells land.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 7
@@ -716,17 +718,133 @@ updated and still play out as they say).
    and warrior bodies tinted in their people's colour and their buildings
    are coloured blocks.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash bba69b89`: the debug tools put a Halfling
+    prints `final step 10000 hash 41103ee6`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east and the trade kit in the
     pool, and send an Elf caravan; two mercenaries are hired; the warrior
     trades 3 Copper Tokens to the village for 5 smoked fish, then a Bronze
     Charm to the caravan for a healing remedy, flax, wheat and herbs; the Big
-    House trains three warriors, Equip Best gears them, war is declared on
-    the village and the warriors and mercenaries take it (a worker and the
-    first warrior fall), and its plunder comes in; the mercenaries and the
+    House trains three warriors, Equip Best gears them, the workers shelter
+    in the Big House, war is declared on the village and the warriors and
+    mercenaries take it (since milestone 8 two of its spearmen ride out on
+    war oxen with an archer behind each, and three warriors and a mercenary
+    fall), the workers come out, and its plunder comes in; the mercenaries and the
     caravan leave at dusk; on day 2 three workers break down one of the
     abandoned houses for 20 softwood lumber. `pnpm test` runs it in Node,
     Chromium, Firefox and WebKit too.
+
+## How a tester checks milestone 8
+
+The build order's check for M8 is: *a warrior trained to ride charges a wave
+and knocks zombies back; an ox hauls a catapult that breaks a goblin hut; a
+Gunnery yard trains musketeers and cannon crew, and a bronze cannon fires
+from the Citadel's ports; by night 85 the budget buys juggernauts; Morvath
+arrives on night 110, withdraws at dawn if alive and returns ten nights after
+a defeat.* Every hash above changed with this milestone (riders, engines and
+the late mobs add fields to the hash; goblin villages now keep wolf riders
+and a pen, and Halfling villages ride out war oxen at war, so the M5, M6 and
+M7 scripts were updated and still play out as they say).
+
+1. `pnpm test` runs those checks as scenario tests in
+   `packages/sim/test/m8.test.ts`: a charge after a straight gallop doing
+   double damage and knocking a zombie back a metre, and the next blow
+   standing doing single; a blow on a rider landing on the horse while the
+   horse has more health; riding trained at a Stables with a horse in it,
+   then mounting the nearest free horse and getting down again; an ox
+   hauling a catapult that two warriors crew and that breaks a goblin hut;
+   workers repairing an engine that never heals by itself; a musketeer
+   trained once Muskets is researched; a bronze cannon hauled up into a
+   Citadel port and fired by its crew from the roof (one charge and one ball
+   a shot); a Dwarf city's gunners, cannon crew and two cannons, and one
+   cannon for sale a day, bronze or iron; a Halfling village riding its war oxen out when a war
+   starts; infernal juggernauts in the night 85 budget; Morvath coming on
+   night 110, withdrawing at dawn with his health and returning ten nights
+   after a defeat, and taking flight below half health; and riders, engines
+   and Morvath kept through a snapshot and replayed to the same hash.
+   `packages/client/test/m8-controls.test.ts` checks Ride and Dismount,
+   mounting by right click on a horse, the engine card, hitching and porting
+   by right click, and crewing and repairing by right click.
+2. `pnpm dev`, open http://localhost:5173/?seed=1 and start. The debug panel
+   has seven new buttons, each acting at the middle of the view:
+   **Stables** puts a finished Stables with 2 grown horses and an ox in its
+   stalls and 100 bread; **Siege kit** a catapult, a ballista and a bronze
+   cannon, 20 of each munition, and the Siege engines, Gunpowder, Muskets
+   and Cannons research; **Gun kit** 4 steel-barrel muskets with horns and
+   pouches, 20 gunpowder, 40 lead shot, the gun research, and musket and
+   cannon crew training for every warrior; **Citadel** makes your main base
+   a finished Citadel (level 10) with its four cannon ports; **Night mob:
+   Barrow knight** puts down the named night mob and moves on through every
+   mob from night 25 to Morvath's Rift-touched beasts; **Wave: night 30**
+   spawns what the dark edge's budget buys on that night and lists it in the
+   messages (then nights 50, 85 and 105; night 85 buys juggernauts);
+   **Morvath** brings the Hollow Crown now.
+3. **Riding.** Select warriors and press **Train (U)**: the skills page has
+   Archery, Crossbow, Riding, Musket and Cannon (Back returns). Riding is
+   trained at a Stables that has a tamed horse (60 s, 30 food). Then
+   **Ride (R)** mounts each on the nearest free horse, or right-click one
+   of your horses; with all of them mounted the button reads **Dismount**,
+   and the horses walk back to their Stables. A rider moves at a trot, and
+   at a gallop when closing on a foe; after a straight run of 6 m at gallop
+   (8 m for an ox) its next blow is a charge: double damage, and a foe
+   shorter than the mount is thrown back 1 m (2 m when it is no taller than
+   60% of the mount's shoulder). Blows on a rider land on the horse while it
+   has more health; the panel shows the horse's health.
+4. **Siege engines.** The catapult and ballista come from the Great Workshop
+   and the Manufactory, the cannons from the Foundry (Siege engines and
+   Cannons research). An engine's card has Attack, Stop, Hold, Move,
+   **Hitch (R)** and **Port (E)**: select the engine and right-click one of
+   your horses or oxen to hitch it (Hitch again lets it go); without an
+   animal its crew push it slowly. Right-click your engine with warriors to
+   crew it (cannons need cannon crew training at a Gunnery yard); it fires
+   only while its crew stand by it and it stands still, and the crew fight
+   whatever comes within 6 m and go back to it. Engines never heal by
+   themselves: right-click a damaged one with workers to repair it.
+5. **Guns and the Citadel.** The Powder mill makes gunpowder, the Gunnery
+   yard trains muskets (after Muskets) and cannon crew (after Cannons).
+   Select a cannon and right-click the Citadel (or **Port**): it is hauled
+   to the door and goes up into one of the four ports on the roof, and its
+   crew follow it in. It fires at what comes within 60 m, with smoke and a
+   flash.
+6. **The peoples' riders.** Goblin villages of four huts or more keep a
+   wolf pen and one wolf rider for every two huts; a Halfling village rides
+   its war oxen out when a war starts (a spearman in front, an archer
+   behind, who gets down if the ox falls); the Elf kingdom has bear riders;
+   Dwarf cities add gunners, cannon crew and two cannons of their own to
+   their garrison, and sell one cannon a day (bronze or iron, whichever you
+   buy first), muskets, horns, pouches, gunpowder, lead shot and
+   cannonballs.
+7. **The late nights.** A new night mob every five nights from night 25 to
+   110, each with its own trick (the Night mob button shows them one by one):
+   plague bearers' miasma, gravewings snatching lone workers, bone colossi
+   throwing boulders, hollow priests raising the dead, hellhounds' breath,
+   chain fiends' hooks, void stalkers seen only up close unless lit,
+   juggernauts that scorch what stands beside them and take double from
+   behind, void witches' hexes and
+   blinks, drakes' fire lines, archfiends that call cinderlings, the rift
+   colossus' beam, and the Rift-touched beasts. On night 110 Morvath comes
+   for the first player still in the game: his crown snuffs every light
+   within 30 m, he casts Ruin (3 s of warning, then 300 damage within 20 m)
+   and opens the Rift (a demon every 3 s for 30 s), and below half health
+   he takes to the air. Alive at dawn he withdraws and comes back the next
+   night with the health he had; killed, he returns ten nights later.
+8. **The look.** Riders sit on the horse, war ox, war bear and goblin wolf
+   models at their saddle points, with the riding clips from PR #50 once it
+   is merged; engines use their models (aim, fire, towed, damaged); void
+   stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
+   motes until their own textures arrive. Until PR #42 is merged everything
+   is drawn as coloured blocks.
+9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
+   prints `final step 10000 hash 2d276270`: the debug tools make the Big
+   House a Citadel, put a Stables 20 m east, a siege kit 20 m west and a
+   goblin village 80 m north; the Big House trains four warriors; the first
+   warrior trains in riding and mounts a horse; an ox hauls the catapult 40 m
+   north and a horse hauls the bronze cannon up into a Citadel port; at dusk
+   the gun kit trains the warriors, two crew the cannon in its port and two
+   crew the catapult, which breaks the goblin huts until the village goes to
+   war, and its crew fight off the goblins that reach it; through night 0
+   the port cannon fires at the night mobs, and the rider gallops at them
+   and his first blow on a zombie is a charge that throws it back; at dawn
+   he rides home, gets down, and his horse walks back to the Stables.
+   `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks the balance editor
 
