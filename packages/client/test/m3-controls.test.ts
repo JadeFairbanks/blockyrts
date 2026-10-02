@@ -113,17 +113,24 @@ const zombie = sel('e:9', 'mob:0', MONSTERS);
 const at = (x: number, z: number): THREE.Vector3 => new THREE.Vector3(x, 0, z);
 
 describe('the warrior card', () => {
-  it('has the movement row, then Equip Best, Equipment, the lock and archery, and Enter', () => {
+  it('has the movement row, then Equip Best, Equipment, the lock, Train, Hunt, Eat, Ride and Enter', () => {
     const { c } = harness(game(), warriors, 'warrior');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Equip', 'Gear', 'Auto', 'Archery', 'Hunt', 'Eat', '', 'Enter', '', '']);
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Equip', 'Gear', 'Auto', 'Train', 'Hunt', 'Eat', 'Ride', 'Enter', '', '']);
     expect(card.slice(0, 5).every((e) => e!.enabled)).toBe(true);
     expect(card[0]!.key).toBe('KeyA');
     expect(card[5]!.key).toBe('KeyQ');
     expect(card[6]!.key).toBe('KeyI');
     expect(card[6]!.enabled).toBe(false); // two selected
-    // Archery needs no research now, only a Barracks.
-    expect(card[8]!.reason).toBe('Needs a Barracks.');
+    // Train opens the skills page; archery needs no research now, only a Barracks.
+    expect(card[11]!.reason).toContain('riding training');
+    card[8]!.run(PRESS);
+    const skills = c.card();
+    expect(skills.slice(0, 5).map((e) => e!.face)).toEqual(['Archery', 'Crossbow', 'Riding', 'Musket', 'Cannon']);
+    expect(skills[0]!.reason).toBe('Needs a Barracks.');
+    expect(skills[2]!.reason).toBe('Needs a Stables.');
+    expect(skills[3]!.reason).toBe('Needs Muskets researched.');
+    expect(skills[14]!.face).toBe('Back');
   });
 
   it('attacks a monster clicked with A, and attack-moves to ground', () => {
@@ -159,9 +166,10 @@ describe('the warrior card', () => {
   it('sends untrained warriors to a Barracks for archery, with no research', () => {
     const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.Barracks)], pool: [[Res.Wheat, 100]] });
     const { c, sent } = harness(g, warriors, 'warrior');
+    c.card()[8]!.run(PRESS);
     const card = c.card();
-    expect(card[8]!.enabled).toBe(true);
-    card[8]!.run(PRESS);
+    expect(card[0]!.enabled).toBe(true);
+    card[0]!.run(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'trainSkill', building: 21, skill: 1, units: [3, 4] });
   });
 });

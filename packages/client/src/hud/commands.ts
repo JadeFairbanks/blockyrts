@@ -6,8 +6,12 @@
 // world looks like comes from GameInfo and the selectables under the cursor.
 import * as THREE from 'three';
 import {
-  ARCHERY,
   BuildingKind,
+  engineSpec,
+  Mount,
+  Research,
+  Skill,
+  SKILL_TRAINING,
   BUILDINGS,
   buildingSpec,
   CRAFT_PRODUCT,
@@ -84,10 +88,10 @@ export interface CardEntry {
 
 export type Card = Array<CardEntry | null>;
 
-type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt' | 'cast';
+type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt' | 'cast' | 'hitch';
 
 /** Pages of the command card: the main card, the build menus, the K and F pages of a Big House, and the I equipment panel. */
-export type CardPage = 'main' | 'basic' | 'advanced' | 'craft' | 'refurbish' | 'equip' | 'make';
+export type CardPage = 'main' | 'basic' | 'advanced' | 'craft' | 'refurbish' | 'equip' | 'make' | 'skills';
 
 /** Dig (D) and earthworks: an area dragged on the ground, then confirmed with a left click (Dig: area, depth, preview, tunnels). */
 export interface Area {
@@ -150,6 +154,18 @@ const TUNNEL_COLUMNS_STEP = 2;
 const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'];
 /** Earthworks variants shaped as a ramp: earth, lumber and stone. */
 const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
+
+/** The skills page: each skill, its face and what it is for. */
+const SKILL_BUTTONS: ReadonlyArray<readonly [number, string, string]> = [
+  [Skill.Archery, 'Archery', 'Bows need it; slings and javelins need no training.'],
+  [Skill.Crossbow, 'Crossbow', 'Crossbows need it; much quicker and cheaper than archery.'],
+  [Skill.Riding, 'Riding', 'Riders mount the town\'s tamed horses (R). The Stables needs a tamed horse in its stalls.'],
+  [Skill.Musket, 'Musket', 'Muskets need it, with a powder horn and a shot pouch.'],
+  [Skill.Cannon, 'Cannon', 'Cannon crew fire cannons; catapults and ballistas need no training.'],
+];
+
+/** animals/species.ts Species.Horse. */
+const HORSE_SPECIES = 2;
 
 /** Units by kind: which slots the I panel shows. */
 const WORKER_SLOTS: readonly Slot[] = [Slot.Tool, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Kit];
@@ -337,7 +353,10 @@ export class Commands {
     if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
       if (this.menu.page === 'equip') return this.equipCard(card);
       if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
+      if (this.menu.page === 'skills' && active === 'warrior') return this.skillsCard(card);
       this.unitCard(card, active);
+    } else if (active.startsWith('engine:')) {
+      this.engineCard(card);
     } else if (active.startsWith('building:')) {
       const kind = Number(active.split(':')[1]);
       if (this.menu.page === 'craft' || this.menu.page === 'refurbish' || this.menu.page === 'make') return this.makeCard(card, kind, this.menu.page);
@@ -419,7 +438,7 @@ export class Commands {
       card[5] = this.equipBestEntry();
       card[6] = this.equipmentEntry();
       card[7] = this.lockEntry();
-      card[8] = this.archeryEntry();
+      card[8] = this.entry('train', 'Train', 'Open the skills page: archery and the crossbow at a Barracks, riding at the Stables, the musket and cannon crew at a Gunnery yard. A warrior must be trained before it can use them.', () => this.openMenu('skills'), { name: 'Train a skill' });
       card[9] = this.entry(
         'hunt',
         'Hunt',
@@ -428,11 +447,12 @@ export class Commands {
         { lit: t === 'hunt', double: () => this.huntAuto() },
       );
       card[10] = this.eatEntry();
+      card[11] = this.rideEntry();
     }
     card[12] = this.entry(
       'enter',
       'Enter',
-      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors and mages garrison towers (4) and the parapets of a level 3 main base (8) and shoot or cast from the top.',
+      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors and mages garrison towers (4) and the parapets of a level 3 main base (8) and shoot or cast from the top. Warriors clicked onto one of your siege engines or cannons crew it.',
       () => this.target('enter', 'enter'),
       { lit: t === 'enter' },
     );
@@ -591,15 +611,64 @@ export class Commands {
     );
   }
 
-  private archeryEntry(): CardEntry {
-    const name = 'Train in archery';
-    const desc = `Send them to a Barracks to learn the bow, one at a time: ${ARCHERY.food} food and ${ARCHERY.steps / 20} s each. Slings and javelins need no training.`;
-    const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & 1) === 0);
-    if (untrained.length === 0) return this.off('archery', 'Archery', desc, 'They are already trained in archery.', name);
-    const barracks = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === BuildingKind.Barracks && b.complete);
-    if (!barracks) return this.off('archery', 'Archery', desc, 'Needs a Barracks.', name);
-    if (this.d.game.food() < ARCHERY.food) return this.off('archery', 'Archery', desc, `Not enough food (needs ${ARCHERY.food}).`, name);
-    return this.entry('archery', 'Archery', desc, () => this.d.send({ kind: 'trainSkill', player: this.d.player, units: untrained, building: barracks.id, skill: 1, queued: this.d.queued() }), { name });
+  /** The skills page (Training: Table 7): a button per skill, sending the untrained warriors to the building that teaches it, one at a time. */
+  private skillsCard(card: Card): Card {
+    SKILL_BUTTONS.forEach(([skill, face, why], k) => {
+      card[k] = { ...this.skillEntry(skill, face, why), key: GRID_CODES[k]!, grid: true };
+    });
+    card[14] = this.backEntry('Back to the unit commands.');
+    return card;
+  }
+
+  private skillEntry(skill: number, face: string, why: string): CardEntry {
+    const t = SKILL_TRAINING[skill]!;
+    const at = buildingSpec(t.at).name;
+    const name = `Train in ${t.name}`;
+    const action = skill === Skill.Archery ? 'archery' : `skill${skill}`;
+    const desc = `Send them to a ${at} to learn ${t.name}, one at a time: ${t.food} food and ${t.steps / 20} s each. ${why}`;
+    const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & skill) === 0);
+    if (untrained.length === 0) return this.off(action, face, desc, `They are already trained in ${t.name}.`, name);
+    if (t.research !== Research.None && !this.d.game.researched(t.research)) return this.off(action, face, desc, `Needs ${RESEARCH[t.research]!.name} researched.`, name);
+    const school = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === t.at && b.complete);
+    if (!school) return this.off(action, face, desc, `Needs a ${at}.`, name);
+    if (this.d.game.food() < t.food) return this.off(action, face, desc, `Not enough food (needs ${t.food}).`, name);
+    return this.entry(action, face, desc, () => this.d.send({ kind: 'trainSkill', player: this.d.player, units: untrained, building: school.id, skill, queued: this.d.queued() }), { name });
+  }
+
+  /** R: riders get on their own horses (the nearest free one each), or get down when all of them are mounted (Charges; Table 14). */
+  private rideEntry(): CardEntry {
+    const ids = this.unitIds((u) => u.typeKey === 'warrior');
+    const units = ids.map((id) => this.d.game.unit(id)).filter((u) => u !== null);
+    const desc = 'Warriors trained to ride get on the nearest free tamed horse (a horse in the Stables comes out to them); press again to get down. Mounted, they move fast, see 30 m and charge: after a 6 m straight gallop the next hit does double damage and throws smaller foes back. A rider cannot garrison or crew an engine.';
+    if (units.length > 0 && units.every((u) => u.mount !== Mount.None)) {
+      return this.entry('ride', 'Dismount', desc, () => this.d.send({ kind: 'dismount', player: this.d.player, units: ids, queued: this.d.queued() }), { name: 'Dismount' });
+    }
+    const riders = units.filter((u) => u.mount === Mount.None && (u.skills & Skill.Riding) !== 0).map((u) => u.id);
+    if (riders.length === 0) return this.off('ride', 'Ride', desc, 'They need riding training at the Stables first (Train, then Riding).', 'Mount');
+    return this.entry('ride', 'Ride', desc, () => this.d.send({ kind: 'mount', player: this.d.player, units: riders, target: 0, queued: this.d.queued() }), { name: 'Mount' });
+  }
+
+  /**
+   * A siege engine's or cannon's card (Table 2f): move, attack, stop and
+   * hold; Hitch a horse or ox to haul it, or let it go; Enter takes a
+   * cannon up into a Citadel's cannon port.
+   */
+  private engineCard(card: Card): void {
+    const t = this.targeting?.command;
+    const ids = this.unitIds((u) => u.typeKey.startsWith('engine:'));
+    card[0] = this.entry('attack', 'Attack', 'Then left click an enemy or one of its buildings to shoot at it (it closes in while hauled or pushed), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' });
+    card[1] = this.entry('stop', 'Stop', 'Cancel every queued order.', () => this.stop());
+    card[2] = this.entry('hold', 'Hold', 'Stay put and shoot what comes in range.', () => this.hold(), { name: 'Hold Position' });
+    card[4] = this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels need ramps, not steps.', () => this.target('move', 'move'), { lit: t === 'move' });
+    const u = ids.length > 0 ? this.d.game.unit(ids[0]!) : null;
+    const hauled = u !== null && u.partner !== 0;
+    card[5] = hauled
+      ? this.entry('hitch', 'Let go', 'Unhitch the horse or ox hauling it.', () => this.d.send({ kind: 'hitch', player: this.d.player, units: ids.slice(0, 1), target: 0, queued: false }), { name: 'Let the animal go' })
+      : this.entry('hitch', 'Hitch', 'Then left click one of your horses or oxen: it walks over and hauls the engine wherever it is sent (a horse is faster; an ox is slower but steadier). Right clicking the animal does the same.', () => this.target('hitch', 'hitch'), { lit: t === 'hitch', name: 'Hitch an animal' });
+    const powder = u !== null && engineSpec(u.mob).powder;
+    card[12] = powder
+      ? this.entry('enter', 'Port', 'Then left click your Citadel (main base level 10): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls.', () => this.target('enter', 'enter'), { lit: t === 'enter', name: 'Into a cannon port' })
+      : this.off('enter', 'Port', 'Cannons go up into a Citadel\'s cannon ports.', 'Only cannons go in the cannon ports.', 'Into a cannon port');
   }
 
   private rankEntry(workers: number[]): CardEntry {
@@ -1027,11 +1096,15 @@ export class Commands {
         if (!ok) this.d.message('Pick a tree, rock or bush to gather from.', 'alert');
         break;
       case 'repair':
-        ok = this.ownBuilding(item) ? this.work(item!) : false;
-        if (!ok) this.d.message('Pick one of your buildings to build or repair.', 'alert');
+        ok = this.ownBuilding(item) ? this.work(item!) : item && this.ownEngine(item) ? this.mend(item) : false;
+        if (!ok) this.d.message('Pick one of your buildings, siege engines or cannons to build or repair.', 'alert');
         break;
       case 'enter':
-        ok = this.ownBuilding(item) ? this.enter(item!) : false;
+        ok = this.ownBuilding(item) ? this.enter(item!) : item && this.ownEngine(item) ? this.crew(item) : false;
+        break;
+      case 'hitch':
+        ok = item ? this.hitchTo(item) : false;
+        if (!ok) this.d.message('Pick one of your tamed horses or oxen.', 'alert');
         break;
       case 'rally':
         ok = this.rally(item, ground);
@@ -1178,6 +1251,41 @@ export class Commands {
     return true;
   }
 
+  private ownEngine(item: Selectable): boolean {
+    return item.kind === 'unit' && item.owner === this.d.player && item.typeKey.startsWith('engine:');
+  }
+
+  /** Warriors in the selection crew an engine: they stand by it to fire it, and push it if nothing hauls it. */
+  private crew(item: Selectable): boolean {
+    const target = entityIdOf(item.key);
+    const units = this.unitIds((u) => u.typeKey === 'warrior');
+    if (target === null || units.length === 0) return false;
+    this.d.send({ kind: 'crew', player: this.d.player, units, target, queued: this.d.queued() });
+    this.d.marker(item.centre, 'target');
+    return true;
+  }
+
+  /** Workers repair an engine (they are the only ones who can; engines never heal by themselves). */
+  private mend(item: Selectable): boolean {
+    const target = entityIdOf(item.key);
+    const units = this.workerIds();
+    if (target === null || units.length === 0) return false;
+    this.d.send({ kind: 'mend', player: this.d.player, units, target, queued: this.d.queued() });
+    this.d.marker(item.centre, 'target');
+    return true;
+  }
+
+  /** An engine in the selection takes one of the player's horses or oxen to haul it. */
+  private hitchTo(item: Selectable): boolean {
+    if (item.kind !== 'unit' || item.owner !== this.d.player || !item.typeKey.startsWith('animal:own:')) return false;
+    const target = entityIdOf(item.key);
+    const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
+    if (target === null || engines.length === 0) return false;
+    this.d.send({ kind: 'hitch', player: this.d.player, units: engines.slice(0, 1), target, queued: false });
+    this.d.marker(item.centre, 'target');
+    return true;
+  }
+
   private ownBuilding(item: Selectable | null): boolean {
     return item !== null && item.kind === 'building' && item.owner === this.d.player;
   }
@@ -1308,6 +1416,25 @@ export class Commands {
         if (levelSpec(b.kind, b.level).workers > 0) return send({ kind: 'assign', player, units: workers, building: b.id, queued });
         if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
       }
+    }
+    // Engines and cannons: an own horse or ox hitches, the Citadel takes a cannon into a port.
+    const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
+    if (item && engines.length > 0 && engines.length === units.length) {
+      if (item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
+      if (this.ownBuilding(item) && this.enter(item)) return;
+    }
+    if (item && this.ownEngine(item)) {
+      // Warriors crew one of the player's engines; workers repair a damaged one.
+      const u = this.d.game.unit(entityIdOf(item.key) ?? -1);
+      if (workers.length > 0 && u && u.hp < u.maxHp && this.mend(item)) return;
+      if (this.crew(item)) return;
+    }
+    // Riders right clicking one of their own horses get on it.
+    if (item?.kind === 'unit' && item.owner === player && item.typeKey === `animal:own:${HORSE_SPECIES}` && units.length > workers.length) {
+      const riders = this.unitIds((u) => u.typeKey === 'warrior');
+      this.d.send({ kind: 'mount', player, units: riders.slice(0, 1), target: entityIdOf(item.key) ?? 0, queued });
+      this.d.marker(item.centre, 'target');
+      return;
     }
     if (item && this.enemy(item) && this.attack(item)) return;
     if (item && this.talkTo(item)) return;

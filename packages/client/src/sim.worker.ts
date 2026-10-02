@@ -60,6 +60,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
+import { cloaked, crewOf, haulerOf, Mount, mountSpec } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
@@ -131,6 +132,9 @@ function postState(s: SimState): void {
     if (e.born[i]! > s.step) flags |= UnitFlag.Young;
     if (e.sex[i] === 1) flags |= UnitFlag.Male;
     if (starvingSince(s, i)) flags |= UnitFlag.Starving;
+    if (e.mount[i] !== Mount.None && e.runWu[i]! >= mountSpec(e.mount[i]!).chargeRun) flags |= UnitFlag.Charging;
+    if (e.kind[i] === UnitKind.Mob && cloaked(s, i, Number.MAX_SAFE_INTEGER)) flags |= UnitFlag.Cloaked;
+    if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.skills] = e.skills[i]!;
@@ -165,6 +169,12 @@ function postState(s: SimState): void {
     if (e.hexUntil[i]! > s.step) on |= SpellOn.Hexed;
     data[o + S.spells] = on;
     data[o + S.group] = e.group[i]!;
+    if (e.mount[i] !== Mount.None) {
+      data[o + S.mount] = e.mount[i]!;
+      data[o + S.mountHp] = e.mountHp[i]!;
+      data[o + S.mountMax] = mountSpec(e.mount[i]!).hp;
+    }
+    if (e.kind[i] === UnitKind.Engine) data[o + S.crew] = crewOf(s, i).length + (haulerOf(s, i) >= 0 ? 1000 : 0);
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {

@@ -49,6 +49,11 @@ export interface UnitInfo {
   spells: number;
   /** The faction of one of the peoples' units or buildings (and of one they left), else 0. */
   group: number;
+  /** What it rides (Mount) and the mount's health and most; an engine's crew standing by (plus 1000 when hauled). */
+  mount: number;
+  mountHp: number;
+  mountMax: number;
+  crew: number;
 }
 
 export class GameInfo {
@@ -129,6 +134,10 @@ export class GameInfo {
       beam: d[o + S.beam]!,
       spells: d[o + S.spells]!,
       group: d[o + S.group]!,
+      mount: d[o + S.mount]!,
+      mountHp: d[o + S.mountHp]!,
+      mountMax: d[o + S.mountMax]!,
+      crew: d[o + S.crew]!,
     };
   }
 

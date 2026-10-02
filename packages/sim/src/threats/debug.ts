@@ -3,10 +3,13 @@
 // blood night for the coming night, and fog now. Also M6's mage tools: a
 // finished Magi Sanctum, a kit of wands and crystals, and experience for
 // every mage's next rank. And M8's: a Stables with horses, a siege kit, a
-// gun kit, a Citadel, each night mob from night 25 on, and Morvath.
+// gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
+// night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
+// 105) at once.
 
 import { clockOf, Period } from '../clock.ts';
-import { floorDiv, WU_PER_COLUMN } from '../fixed.ts';
+import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { pickNight } from '../combat/spawn.ts';
 import { placeBuilding, UnitKind, WILD, type SimState } from '../state.ts';
 import { BuildingKind, footprintDims } from '../buildings/data.ts';
 import { Res } from '../economy/resources.ts';
@@ -58,7 +61,12 @@ export const DebugThreat = {
   LateMob: 60,
   /** Morvath, the Hollow Crown. */
   Morvath: 90,
+  /** The dark edge's wave of one of WAVE_NIGHTS from 91, spawned at the spot now. */
+  Wave: 91,
 } as const;
+
+/** The nights the debug Wave button shows the budget of. */
+export const WAVE_NIGHTS = [30, 50, 85, 105] as const;
 
 /** The night mobs from night 25 on (roster 5.7 to 5.24), in the debug cycler's order. */
 export const LATE_MOBS: readonly Mob[] = [
@@ -164,6 +172,17 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
   if (late >= 0 && late < LATE_MOBS.length) {
     const mob = LATE_MOBS[late]!;
     addMob(state, mob, player, x, z, Math.max(nightNow(state), mobSpec(mob).firstNight));
+    return;
+  }
+  const wave = what - DebugThreat.Wave;
+  if (wave >= 0 && wave < WAVE_NIGHTS.length) {
+    const night = WAVE_NIGHTS[wave]!;
+    const mobs = pickNight(state, night);
+    mobs.forEach((mob, q) => addMob(state, mob, player, x + ((q % 8) - 4) * 2 * WU_PER_METRE, z + (floorDiv(q, 8) - 2) * 2 * WU_PER_METRE, night));
+    const count = new Map<number, number>();
+    for (const m of mobs) count.set(m, (count.get(m) ?? 0) + 1);
+    const list = [...count].map(([m, n]) => `${n} ${mobSpec(m).name.toLowerCase()}`).join(', ');
+    state.events.push({ player, kind: 'info', text: `Night ${night}'s wave: ${list}.`, x, z });
     return;
   }
   if (what === DebugThreat.Morvath) {

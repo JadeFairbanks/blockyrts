@@ -40,6 +40,10 @@ import {
   PEOPLES,
   peopleUnitSpec,
   TRADE_BUILDINGS,
+  engineSpec,
+  mountSpec,
+  Mount,
+  Skill,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
@@ -78,9 +82,17 @@ const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
 /** The minimap colour of each people (Halflings, Runkin, Elves, Dwarves). */
 const PEOPLE_MARKS = ['#8ac850', '#b08050', '#50c0a8', '#a8a8b8'];
 
-const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal', 'Mage'];
+const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal', 'Mage', 'Engine'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
-const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support'];
+const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support', 'engine'];
+/** Skills a warrior's details list (Skill bits). */
+const SKILL_TEXT: ReadonlyArray<readonly [number, string]> = [
+  [Skill.Archery, 'archery'],
+  [Skill.Crossbow, 'the crossbow'],
+  [Skill.Riding, 'riding'],
+  [Skill.Musket, 'the musket'],
+  [Skill.Cannon, 'cannon crew'],
+];
 
 /** "Quickened, fortified." for the spells on a unit, or ''. */
 export function spellsOnText(bits: number): string {
@@ -282,7 +294,8 @@ export class WorldView {
         };
         this.units[i] = u;
       }
-      if (d[o + S.inside] !== 0) this.insideKeys.add(key);
+      // A cannon in a Citadel's port stays on the roof, where it can be picked.
+      if (d[o + S.inside] !== 0 && kind !== UnitKind.Engine) this.insideKeys.add(key);
       const health = `Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`;
       if (kind === UnitKind.Worker) {
         const rank = d[o + S.rank]!;
@@ -305,7 +318,11 @@ export class WorldView {
         const details = [health, gear.length > 0 ? `${gear.join(', ')}.` : 'Unarmed.'];
         if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
         else if (d[o + S.lock] === Lock.Ranged) details.push('Locked to ranged.');
-        if (d[o + S.skills]! & 1) details.push('Trained in archery.');
+        const skills = SKILL_TEXT.filter(([bit]) => (d[o + S.skills]! & bit) !== 0).map(([, t]) => t);
+        if (skills.length > 0) details.push(`Trained in ${skills.join(', ')}.`);
+        const mount = d[o + S.mount]!;
+        if (mount !== Mount.None) details.push(`Riding a ${mountSpec(mount).name.toLowerCase()} (health ${d[o + S.mountHp]} / ${d[o + S.mountMax]}).`);
+        u.halfSize.set(mount !== Mount.None ? 0.6 : 0.3, mount !== Mount.None ? 1.3 : 0.85, mount !== Mount.None ? 0.6 : 0.3);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
@@ -332,6 +349,20 @@ export class WorldView {
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
         u.details = [health];
+      } else if (kind === UnitKind.Engine) {
+        const spec = engineSpec(d[o + S.mob]!);
+        u.label = spec.name;
+        u.typeKey = `engine:${spec.id}`;
+        u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
+        const crew = d[o + S.crew]! % 1000;
+        const hauled = d[o + S.crew]! >= 1000;
+        const details = [health, `Crew ${crew} of ${spec.crew}${spec.crewSkill ? ' (trained cannon crew)' : ''}.`, hauled ? 'Hauled by its animal.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
+        if (d[o + S.inside] !== 0) details.push('In a cannon port.');
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(`${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
       } else if (kind === UnitKind.Animal) {
         const spec = speciesSpec(d[o + S.mob]!);
         const flags = d[o + S.flags]!;

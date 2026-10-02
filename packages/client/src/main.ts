@@ -6,7 +6,7 @@
 // (src/hud/shell.ts); WorldView (src/world/world-view.ts) implements it.
 import './hud/hud.css';
 import * as THREE from 'three';
-import { DEBUG_CARAVAN, DEBUG_TRADE_KIT, DebugThreat, FACTION_KIND_NAMES, hashHex, LAIRS, Mat, mobSpec, WU_PER_METRE, type Order } from '@blockyrts/sim';
+import { DEBUG_CARAVAN, DEBUG_TRADE_KIT, DebugThreat, FACTION_KIND_NAMES, hashHex, LAIRS, LATE_MOBS, Mat, mobSpec, WAVE_NIGHTS, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import { GameInfo } from './game/game-info.ts';
 import { GameShell } from './hud/shell.ts';
 import { openModelLibrary, type ModelLibrary } from './models/index.ts';
@@ -286,6 +286,34 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
   });
   add('dbg-caravan', 'Caravan', 'Debug: Elf caravan', 'Meets the Elves and sends their caravan to your main base now (by day; it waits for the morning at night). It stops outside the base, trades, and leaves at dusk.', () => people(DEBUG_CARAVAN));
   add('dbg-tradekit', 'Trade kit', 'Debug: trade kit', 'Puts 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold in the pool, to trade with and to hire mercenaries.', () => people(DEBUG_TRADE_KIT));
+  // Milestone 8's mounts, engines, guns and the late nights, at the middle of the view.
+  add('dbg-stables', 'Stables', 'Debug: Stables', 'Puts a finished Stables in the middle of the view with 2 grown horses and an ox in its stalls, and 100 bread: train warriors to ride there (select warriors, U for Train, then Riding), then R mounts them.', () => {
+    threat(DebugThreat.Stables);
+    shell.message('Debug: a Stables with 2 horses and an ox placed in the middle of the view.');
+  });
+  add('dbg-siege', 'Siege kit', 'Debug: siege kit', 'Puts a catapult, a ballista and a bronze cannon in the middle of the view, 20 each of catapult stones, ballista bolts, cannonballs and gunpowder in the pool, and researches Siege engines, Gunpowder, Muskets and Cannons. Hitch a horse or an ox (select the engine, right click the animal) or crew it with warriors (right click it).', () => {
+    threat(DebugThreat.SiegeKit);
+    shell.message('Debug: a catapult, a ballista and a bronze cannon placed in the middle of the view.');
+  });
+  add('dbg-guns', 'Gun kit', 'Debug: gun kit', 'Puts 4 steel-barrel muskets, powder horns and shot pouches in the stock, 20 gunpowder and 40 lead shot in the pool, researches the guns and trains every warrior in the musket and cannon crew.', () => {
+    threat(DebugThreat.GunKit);
+    shell.message('Debug: muskets, horns, pouches and powder added; your warriors are trained in the musket and cannon crew.');
+  });
+  add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
+    threat(DebugThreat.Citadel);
+    shell.message('Debug: your main base is a Citadel now.');
+  });
+  cycler('dbg-late', 'Night mob', LATE_MOBS.map((m) => mobSpec(m).name), DebugThreat.LateMob, 'Puts the named night mob (nights 25 to 110, and the Rift-touched beasts) in the middle of the view; each press moves on to the next.');
+  let wave = 0;
+  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player, no blood night) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
+    threat(DebugThreat.Wave + wave);
+    wave = (wave + 1) % WAVE_NIGHTS.length;
+    shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);
+  });
+  add('dbg-morvath', 'Morvath', 'Debug: Morvath', 'Brings Morvath, the Hollow Crown, to the middle of the view now, as he comes on night 110: alive at dawn he withdraws and comes back the next night with the health he had; killed, he returns ten nights later.', () => {
+    threat(DebugThreat.Morvath);
+    shell.message('Debug: Morvath has come.');
+  });
 }
 
 void main();

@@ -17,9 +17,11 @@ export type ToWorker =
  * the swing under way), its state flags, lock, skills, shots left and target,
  * a hop under way, a worker's other tools by job and the one in its hand,
  * and a mage's school, mana, the spell she is casting, her beam and the
- * spells on her; the faction of one of the neutral peoples' units.
+ * spells on her; the faction of one of the neutral peoples' units; what it
+ * rides and the mount's health; an engine's crew standing by and whether
+ * something hauls it.
  */
-export const STATE_STRIDE = 48;
+export const STATE_STRIDE = 52;
 export const S = {
   id: 0,
   owner: 1,
@@ -80,13 +82,19 @@ export const S = {
   spells: 46,
   /** The faction id of one of the peoples' units or buildings (also of one they left, and a hired mercenary), else its group. */
   group: 47,
+  /** What the unit rides (Mount), or 0, and the mount's health and most. */
+  mount: 48,
+  mountHp: 49,
+  mountMax: 50,
+  /** Engines: the crew standing by it now, plus 1000 when a horse or ox hauls it. */
+  crew: 51,
 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
 /** Bits of S.flags. */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
