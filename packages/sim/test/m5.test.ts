@@ -8,8 +8,9 @@ import {
   BuildingKind,
   buildingCentre,
   canUse,
-  castSnuff,
-  castStumble,
+  snuffEffect,
+  stumbleEffect,
+  spend,
   settleDeaths,
   clockAt,
   createWorld,
@@ -346,7 +347,8 @@ describe('goblin villages', () => {
     const e = s.entities;
     expect(canUse(s, mage, Ability.StumbleHex)).toBe(true);
     const speed = moveSpeed(s, w);
-    castStumble(s, mage, w);
+    spend(s, mage, Ability.StumbleHex);
+    stumbleEffect(s, mage, w);
     expect(moveSpeed(s, w)).toBeLessThan(speed);
     expect(e.mana[mage]).toBe((60 - 10) * MANA_SCALE);
     expect(canUse(s, mage, Ability.StumbleHex)).toBe(false);
@@ -361,7 +363,7 @@ describe('goblin villages', () => {
     const [tx, tz] = buildingCentre(t);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: tx + 80 * M, z: tz }]);
     const mage = mobs(s, Mob.GoblinMage)[0]!;
-    castSnuff(s, mage, t);
+    snuffEffect(s, mage, t);
     expect(isLit(t, s.step)).toBe(false);
     const pool = s.players[0]!.pool[Res.SoftwoodLumber]!;
     let worker = -1;

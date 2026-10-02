@@ -18,10 +18,10 @@ import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, 
 import { Mat } from '../world/materials.ts';
 import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
-import { Shot } from './items.ts';
+import { Shot, spellShot } from './items.ts';
 import { BLAST, CLUSTER, ENGULF_STEPS, FLY_HEIGHT, GRASP, HOWL, Mob, mobSpec, Moves, SHOUT, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
 import { fireAt, hasClearLob, POISON, ProjectileFlag } from './projectiles.ts';
-import { Ability, canUse, castSparkAt, MANA_SCALE } from '../threats/abilities.ts';
+import { Ability, canUse, castSparkAt, castSparkAtBuilding, MANA_SCALE, snuffEffect, spend, stumbleEffect } from '../threats/abilities.ts';
 import { LAIR_LEASH_WU } from '../threats/data.ts';
 import { fogged } from '../threats/fog.ts';
 import { Role } from '../threats/types.ts';
@@ -45,8 +45,21 @@ const FLEE_GONE_WU = 80 * WU_PER_METRE;
 const BOMB_REACH_WU = floorDiv(WU_PER_METRE * 3, 2);
 /** Hit tolerance at the key moment, as for the players' units. */
 const TOLERANCE = WU_PER_METRE >> 1;
-/** What a mob's attack under way is aimed at (atkWith). */
-const With = { Unit: 0, Building: 1, Shot: 3, Web: 5, Snuff: 6 } as const;
+/** What a mob's attack under way is aimed at (atkWith): spells (a hex on a unit, a Snuff on a light) are cast like a shot. */
+const With = { Unit: 0, Building: 1, Shot: 3, Web: 5, Snuff: 6, HexSpell: 7, SnuffSpell: 8, SparkSpell: 9 } as const;
+
+/** The spells a goblin mage casts at a unit or a building (threats/foes.ts): Stumble hex, Snuff, and Spark toss at a building. */
+export const SpellWith = { Hex: With.HexSpell, Snuff: With.SnuffSpell, Spark: With.SparkSpell } as const;
+
+/** Whether an attack under way is a spell: the clip is the cast, and a Counterspell can stop it (Table 13). */
+function spellAttack(spec: MobSpec, what: number): boolean {
+  return what === With.HexSpell || what === With.SnuffSpell || what === With.SparkSpell || (what === With.Shot && spellShot(spec.shot));
+}
+
+/** A shot or spell under way shows the shooting clip. */
+function shooting(what: number): boolean {
+  return what === With.Shot || what === With.Web || what === With.HexSpell || what === With.SnuffSpell || what === With.SparkSpell;
+}
 /** An aimed mob (the depth weighting's extras, the dusk goblins) joins the night attack once this close to its point. */
 const AIM_REACHED_WU = 8 * WU_PER_METRE;
 
@@ -268,9 +281,31 @@ function begin(state: SimState, i: number, spec: MobSpec, target: number, withWh
   e.atkAt[i] = state.step + Math.max(1, floorDiv(steps * 2, 5));
   e.atkNext[i] = state.step + steps;
   e.atkWith[i] = withWhat;
-  e.order[i] = withWhat === With.Shot || withWhat === With.Web ? OrderKind.Shoot : OrderKind.Attack;
+  e.order[i] = shooting(withWhat) ? OrderKind.Shoot : OrderKind.Attack;
   // A bat swoops down to strike.
   if (spec.moves === Moves.LowFlyer && withWhat === With.Unit) e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + SWOOP_HEIGHT;
+}
+
+/** A mob begins casting a spell at a unit or a light (the target's entity or building id): it stands and casts for 40% of its attack time. */
+export function beginSpell(state: SimState, i: number, target: number, what: number): void {
+  begin(state, i, mobSpec(state.entities.mob[i]!), target, what);
+}
+
+/** Whether a mob is casting a spell now, one a Counterspell can stop. */
+export function castingSpell(state: SimState, i: number): boolean {
+  const e = state.entities;
+  if (e.kind[i] !== UnitKind.Mob || e.hp[i]! <= 0 || e.atkAt[i] === 0 || e.atkAt[i]! <= state.step) return false;
+  return spellAttack(mobSpec(e.mob[i]!), e.atkWith[i]!);
+}
+
+/** A Counterspell stops a mob's spell: nothing lands, and its mana and cooldown are still spent (Table 13). */
+export function cancelSpell(state: SimState, i: number): void {
+  const e = state.entities;
+  const spec = mobSpec(e.mob[i]!);
+  // Spark toss pays when it lands; stopped, it pays now.
+  if ((e.atkWith[i] === With.Shot && spec.shot === Shot.Spark) || e.atkWith[i] === With.SparkSpell) spend(state, i, Ability.SparkToss);
+  e.atkAt[i] = 0;
+  e.order[i] = OrderKind.Idle;
 }
 
 /** The key moment of a mob's attack. */
@@ -279,6 +314,22 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   const what = e.atkWith[i]!;
   e.atkAt[i] = 0;
   const id = e.target[i]!;
+  // A goblin mage's spells land when the cast is done (their mana went when it began).
+  if (what === With.SnuffSpell) {
+    const b = state.buildings.get(id);
+    if (b) snuffEffect(state, i, b);
+    return;
+  }
+  if (what === With.HexSpell) {
+    const t = e.indexOf(id);
+    if (t >= 0 && e.hp[t]! > 0) stumbleEffect(state, i, t);
+    return;
+  }
+  if (what === With.SparkSpell) {
+    const b = state.buildings.get(id);
+    if (b && b.hp > 0) castSparkAtBuilding(state, i, b);
+    return;
+  }
   if (what === With.Snuff) {
     // A raiding goblin puts a light out (Table 17: raids put out lights on the way).
     const b = state.buildings.get(id);
@@ -306,7 +357,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
       castSparkAt(state, i, t);
       return;
     }
-    const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : 0;
+    const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : spellShot(spec.shot) ? ProjectileFlag.Spell : 0;
     fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealt(state, i, spec.damage), spec.spreadBp, flags);
     return;
   }
@@ -572,7 +623,7 @@ export function runMob(state: SimState, i: number): void {
   }
   if (e.atkAt[i] !== 0) {
     if (state.step < e.atkAt[i]!) {
-      e.order[i] = e.atkWith[i] === With.Shot || e.atkWith[i] === With.Web ? OrderKind.Shoot : OrderKind.Attack;
+      e.order[i] = shooting(e.atkWith[i]!) ? OrderKind.Shoot : OrderKind.Attack;
       return;
     }
     land(state, i, spec);

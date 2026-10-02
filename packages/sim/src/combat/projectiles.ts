@@ -26,7 +26,8 @@ const PIECE_WU = WU_PER_COLUMN >> 1;
 /** Shots leave a person's hand at 1.4 m. */
 export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
 
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8 } as const;
+/** Spell: a spell that flies (Spark toss, a mana bolt, an Arcane bolt, a Fireball): Warding halves it (Table 13). */
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8, Spell: 16 } as const;
 
 /** Venom on an arrow or bolt: 15 more damage over 5 s (s), on top of the hit. */
 export const POISON = { damage: 15, steps: 5 * STEPS_PER_SECOND };

@@ -1,5 +1,9 @@
 // The shared core for abilities that cost mana and wait on a cooldown
-// (Goblin villages: the goblin mage; milestone 6's mages extend it). Mana is
+// (Goblin villages: the goblin mage; milestone 6's mages in magic/ use the
+// same mana scale and cooldown list). Snuff and Stumble hex are cast: the
+// mana goes when the cast begins and the effect lands 40% into the goblin
+// mage's attack time (combat/mob-ai.ts beginSpell), so a Counterspell can
+// stop them on the way. Mana is
 // kept in twentieths so it refills a whole twentieth each step (1 a second);
 // each unit's cooldowns are pairs of ability and the step it is ready again.
 // The goblin mage's three spells (Table 17): Snuff puts a light out from
@@ -87,19 +91,19 @@ export function refillMana(state: SimState): void {
 
 // ----- the goblin mage's spells -----
 
-/** Snuff: a lit light of the players goes out without damage. */
-export function castSnuff(state: SimState, i: number, b: Building): void {
-  spend(state, i, Ability.Snuff);
+/** Snuff lands: a lit light of the players goes out without damage (its mana went when the cast began). */
+export function snuffEffect(state: SimState, i: number, b: Building): void {
+  void i;
   if (!snuffLight(state, b)) return;
   const [x, z] = buildingCentre(b);
   state.hits.push({ look: 'burst', x, y: buildingTop(b), z, id: b.id });
   state.events.push({ player: b.owner, kind: 'alert', text: `A goblin mage snuffed out a ${buildingSpec(b.kind).name.toLowerCase()}. A worker can relight it.`, x, z });
 }
 
-/** Stumble hex: one unit moves and attacks 20% slower for 4 s. */
-export function castStumble(state: SimState, i: number, t: number): void {
+/** Stumble hex lands: one unit moves and attacks 20% slower for 4 s. */
+export function stumbleEffect(state: SimState, i: number, t: number): void {
   const e = state.entities;
-  spend(state, i, Ability.StumbleHex);
+  void i;
   e.hexUntil[t] = state.step + HEX_STEPS;
   state.hits.push({ look: 'spark', x: e.x[t]!, y: e.y[t]! + WU_PER_METRE, z: e.z[t]!, id: e.id[t]! });
 }
@@ -109,7 +113,7 @@ export function castSparkAt(state: SimState, i: number, t: number): void {
   const e = state.entities;
   spend(state, i, Ability.SparkToss);
   const spec = mobSpec(e.mob[i]!);
-  fireAt(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, t, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), spec.spreadBp, ProjectileFlag.Fire);
+  fireAt(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, t, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), spec.spreadBp, ProjectileFlag.Fire | ProjectileFlag.Spell);
 }
 
 /** Spark toss at a building: dry wood smoulders where it lands. */
@@ -118,5 +122,5 @@ export function castSparkAtBuilding(state: SimState, i: number, b: Building): vo
   spend(state, i, Ability.SparkToss);
   const spec = mobSpec(e.mob[i]!);
   const [x, z] = buildingCentre(b);
-  launch(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, x, floorDiv(b.y * 900 + buildingTop(b), 2), z, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), ProjectileFlag.Fire);
+  launch(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, x, floorDiv(b.y * 900 + buildingTop(b), 2), z, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), ProjectileFlag.Fire | ProjectileFlag.Spell);
 }

@@ -17,6 +17,9 @@ export const Product = {
   PlanksHardwood: 2,
   /** Table 7: a new warrior, with a hardwood club from the stock. */
   Warrior: 3,
+  /** Table 7: a new Novice Acolyte, support or battle, with a wand from the stock. */
+  SupportMage: 4,
+  BattleMage: 5,
 } as const;
 export type Product = number;
 /**
