@@ -283,6 +283,7 @@ function recordLabel(ctx: Ctx, key: string, rec: Record<string, unknown>, i: num
 
 function walk(ctx: Ctx, value: unknown, path: DataPath, key: string, parentKey: string, trail: string[], labelOverride?: string): CatNode | null {
   const label = labelOverride ?? tableLabel(ctx, path) ?? (typeof path[path.length - 1] === 'number' ? indexLabel(ctx, key, path[path.length - 1] as number) : labelFor(key, parentKey));
+  if (HIDDEN_KEYS.has(`${ctx.exportName}:${key}`)) return null;
   if (typeof value === 'number' || typeof value === 'boolean') return field(ctx, path, label, value, key, parentKey, trail);
   if (typeof value === 'string') {
     if (HIDDEN_KEYS.has(key) || value === '') return null;

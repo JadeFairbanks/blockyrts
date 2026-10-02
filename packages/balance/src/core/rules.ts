@@ -189,7 +189,7 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
 export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'id', 'kind', 'live', 'comesWith', 'menu', 'slot', 'craftSlot', 'w', 'd', 'solid', 'variants', 'turns', 'product', 'key', 'colour',
   'defence', 'dropoff', 'site', 'raw', 'shape', 'trainsWorkers', 'heavy', 'oneHanded', 'tip', 'BUILDINGS:slot',
-  'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank', 'PEOPLE_UNITS:people', 'STOCK:good', 'CARAVAN_WEAPONS:good',
+  'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank', 'PEOPLE_UNITS:people',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
@@ -198,8 +198,8 @@ export const TEXT_KEYS: Readonly<Record<string, string>> = {
   source: 'Where it comes from', tooltip: 'Tooltip', row: 'Blueprint row', yields: 'Yields', resource: 'Gives', munition: 'Loads',
   ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name', text: 'Tooltip',
 };
-/** Strings never shown. */
-export const HIDDEN_KEYS: ReadonlySet<string> = new Set(['name', 'model']);
+/** Strings never shown, and `EXPORT:key` values of any kind (a stock row's good: its title names it). */
+export const HIDDEN_KEYS: ReadonlySet<string> = new Set(['name', 'model', 'STOCK:good', 'CARAVAN_WEAPONS:good']);
 
 /** Readable names for keys, used before the generic split of camelCase. */
 export const KEY_LABELS: Readonly<Record<string, string>> = {
@@ -286,12 +286,12 @@ export const INDEX_REFS: Readonly<Record<string, ReadonlyArray<RefKind | null>>>
   LIVE_VALUE_TENTHS: ['species'], SALVAGE: ['mob'], MERC_UNITS: ['band'], TRINKET_METAL_TENTHS: ['trinketMetal'],
 };
 
-/** Pair lists inside a table, by export (\`EXPORT:*\`) or key: what the first number of each pair names. */
+/** Pair lists inside a table, by export (`EXPORT:*`) or key: what the first number of each pair names. */
 export const PAIR_KEY_REFS: Readonly<Record<string, RefKind>> = {
   'SALVAGE:*': 'res', 'LAYOUTS:structures': 'mob', 'LAYOUTS:people': 'peopleUnit', 'LAYOUTS:animals': 'species',
 };
 
-/** Modules whose loose numbers split into one page per \`// ----- section -----\` comment. */
+/** Modules whose loose numbers split into one page per `// ----- section -----` comment. */
 export const SECTION_PAGES: ReadonlySet<string> = new Set(['peoples/data.ts']);
 /** Page titles for those sections, where the comment reads badly as one. */
 export const SECTION_TITLES: Readonly<Record<string, string>> = {
