@@ -94,6 +94,11 @@ export const Item = {
   // The gap between milestones 5 and 6: the stone maul and stone hammer at the Big House (Table 2c).
   MaulStone: 80,
   HammerStone: 81,
+  // Milestone 6: the Magi Sanctum's wands (Table 7): a novice's wand, and the rank wands of mana crystals.
+  Wand: 82,
+  WandMage: 83,
+  WandMasterMage: 84,
+  WandGrandMagician: 85,
 } as const;
 export type Item = (typeof Item)[keyof typeof Item];
 
@@ -147,6 +152,10 @@ export const Shot = {
   Spark: 8,
   /** A mana wraith's bolt. */
   ManaBolt: 9,
+  /** A battle mage's Arcane bolt: a violet-white orb (Table 13). */
+  ArcaneBolt: 10,
+  /** A battle mage's Fireball, lobbed (Table 13). */
+  Fireball: 11,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -228,6 +237,8 @@ export interface ItemSpec {
   fire?: { extra: number; perSecond: number; seconds: number };
   /** Order in the building's craft menu (K), 0-based; -1 for items no building makes. */
   craftSlot: number;
+  /** Wands (Table 7): only mages hold them; a rank wand is the rank it is given for (4 to 6), a novice's wand 1. */
+  wand?: number;
 }
 
 /** Research steps (Table 2a): bit numbers in a player's research mask. */
@@ -265,13 +276,14 @@ export interface ResearchSpec {
   forge?: number;
   after?: Research;
   made?: number;
-  /** Researched elsewhere (Hexcraft at the Magi Sanctum) or in a later milestone: the reason it is greyed. */
+  /** Researched in a later milestone: the reason it is greyed. */
   later?: string;
+  /** Researched at this building kind instead of a Scholar's Lodge (Hexcraft at the Magi Sanctum). */
+  at?: number;
   /** No longer a research step (its bit is kept so saved research masks still line up). */
   retired?: boolean;
 }
 
-const M6R = 'Researched at the Magi Sanctum (milestone 6).';
 const M8R = 'Comes with siege engines and gunpowder (milestone 8).';
 const sec = (n: number): number => n * STEPS_PER_SECOND;
 
@@ -299,7 +311,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'The crossbow, bolts and the bolt case, and crossbow training at the Barracks.',
   },
   {
-    id: Research.Hexcraft, name: 'Hexcraft', key: 'X', cost: [[Res.Hexstone, 6], [Res.Herbs, 20]], steps: sec(90), later: M6R,
+    id: Research.Hexcraft, name: 'Hexcraft', key: 'X', cost: [[Res.Hexstone, 6], [Res.Herbs, 20]], steps: sec(90), at: BuildingKind.MagiSanctum,
     opens: 'The Warding and Counterspell spells.',
   },
   {
@@ -382,6 +394,14 @@ const forge = (level: number): ReadonlyArray<readonly [number, number]> => [[Bui
 const TANNERY = [[BuildingKind.Tannery, 1]] as const;
 const HERBALIST = [[BuildingKind.HerbalistHut, 1]] as const;
 const workshop = (tier: number): ReadonlyArray<readonly [number, number]> => [[BuildingKind.Workshop, tier]];
+const SANCTUM = [[BuildingKind.MagiSanctum, 1]] as const;
+/** A wand's tap (Table 1: 3 damage every 1.5 s, s). */
+const WAND_TAP: MeleeStats = { damage: 3, attackSteps: ds(15), reach: cm(120), min: 0, hit: Hit.Stab, blunt: true, oneHanded: true };
+
+/** A wand of the Magi Sanctum (Table 7): 20 s each (s), 1 lb (s). */
+function wand(id: Item, name: string, rank: number, recipe: Cost, model: string, slot: number): ItemSpec {
+  return it({ id, name, slot: Slot.Weapon, tier: 0, weightTenthsLb: 10, recipes: [recipe], makes: 1, steps: ds(200), research: 0, model, madeAt: SANCTUM, craftSlot: slot, melee: WAND_TAP, wand: rank });
+}
 
 /** The same recipe with leather, or flax instead (Table 3: "Flax instead of leather"). */
 const leatherOrFlax = (rest: Cost, n = 1): Cost[] => [[...rest, [LE, n]], [...rest, [FX, n]]];
@@ -536,6 +556,11 @@ export const ITEMS: readonly ItemSpec[] = [
   // the maul breaks rock (quarrying, digging, the soft copper and tin ore), the hammer builds and repairs.
   tools(Item.MaulStone, 'Stone maul', Tool.Stone, 40, Res.Stone, BASE, 100, 0, 'maul_stone', 1, 4, [[ST, 2], [Res.Stone, 3]], 1 << ToolJob.Break, ds(20)),
   tools(Item.HammerStone, 'Stone hammer', Tool.Stone, 30, Res.Stone, BASE, 100, 0, 'hammer_stone', 2, 4, [[ST, 2], [Res.Stone, 2]], 1 << ToolJob.Build),
+  // Milestone 6 (Table 7): a new mage takes a wand of 5 sticks and a copper ingot; the combat ranks take a rank wand of 2, 5 or 10 mana crystals.
+  wand(Item.Wand, 'Wand', 1, [[ST, 5], [CU, 1]], 'wand', 0),
+  wand(Item.WandMage, "Mage's rank wand", 4, [[Res.ManaCrystal, 2]], 'wand_mage', 1),
+  wand(Item.WandMasterMage, "Master Mage's rank wand", 5, [[Res.ManaCrystal, 5]], 'wand_master_mage', 2),
+  wand(Item.WandGrandMagician, "Grand Magician's rank wand", 6, [[Res.ManaCrystal, 10]], 'wand_grand_magician', 3),
 ];
 
 export const ITEM_COUNT = ITEMS.length;
@@ -577,4 +602,12 @@ export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; 
   { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt', vsWalls: 0 },
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spell_spark_toss', vsWalls: 0 },
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'spell_bolt', vsWalls: 0 },
+  // Milestone 6: the battle mages' projectiles (s): the orb flies straight at 20 m/s, the fireball is lobbed at 16 m/s.
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: false, name: 'arcane bolt', model: 'spell_bolt', vsWalls: 2 },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'fireball', model: 'spell_fireball', vsWalls: 30 },
 ];
+
+/** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
+export function spellShot(shot: number): boolean {
+  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball;
+}

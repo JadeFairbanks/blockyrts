@@ -15,6 +15,8 @@ import { speciesSpec } from '../animals/species.ts';
 import { Hit, itemSpec, type MeleeStats } from './items.ts';
 import { workerMelee } from '../units/tools.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
+import { MAGE_RANK_NAMES, mageGainXp } from '../magic/mages.ts';
+import { Spell, spellSpec } from '../magic/spells.ts';
 
 /** The two sides: every player together, and the monsters (Winning, losing and score: player versus environment only); wild animals stand apart. */
 export const Side = { Players: 0, Monsters: 1, Wild: 2, None: -1 } as const;
@@ -136,6 +138,8 @@ export function armourOf(state: SimState, i: number): number {
   if (e.kind[i] === UnitKind.Animal) return speciesSpec(e.mob[i]!).armourBp;
   const pieces: number[] = [];
   for (const id of [e.boots[i]!, e.armour[i]!, e.helmet[i]!]) if (id) pieces.push(itemSpec(id).armourBp ?? 0);
+  // A support mage's Fortify: +15% on top, still capped at 75% (Table 13).
+  if (e.fortUntil[i]! > state.step) pieces.push(spellSpec(Spell.Fortify).bp);
   return totalArmourBp(pieces);
 }
 
@@ -171,6 +175,10 @@ export interface Blow {
   blunt: boolean;
   /** Stabs, arrows, bolts and javelins: piercing (the roster's half damage for bones and slimes). */
   pierce: boolean;
+  /** An enemy spell: Warding halves it (Table 13). */
+  spell?: boolean;
+  /** Already worked out through armour (a Beam's share for the step): taken as it is, and shown only now and then. */
+  exact?: boolean;
 }
 
 function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
@@ -201,7 +209,9 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   }
   // A hobgoblin's shield blocks half of what is shot at it (Table 16).
   const block = blow.projectile ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
-  const d = damageTaken({ damage: blow.damage, armourBp: armourOf(state, i), modifierBp, projectile: blow.projectile, shieldBlockBp: block });
+  let d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: armourOf(state, i), modifierBp, projectile: blow.projectile, shieldBlockBp: block });
+  // Warding: half damage from enemy spells (Table 13).
+  if (blow.spell && e.wardUntil[i]! > state.step) d = Math.max(1, floorDiv(d * (BP - spellSpec(Spell.Warding).bp), BP));
   e.hp[i] = e.hp[i]! - d;
   // Combat interrupts eating and the healing it brings (Food: Eating).
   if (blow.from && e.mendUntil[i]! > state.step) {
@@ -211,7 +221,7 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const fresh = e.hurtAt[i] === 0 || state.step - e.hurtAt[i]! > FRESH_HURT_STEPS;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
-  state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3), z: e.z[i]!, id: e.id[i]! });
+  if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3), z: e.z[i]!, id: e.id[i]! });
   // The players' units that hit a mob in the last 10 s share its experience.
   if (e.kind[i] === UnitKind.Mob && blow.from) {
     const j = e.indexOf(blow.from);
@@ -252,11 +262,12 @@ export function hurtBuilding(state: SimState, b: Building, damage: number, x: nu
   }
 }
 
-/** Damage a player unit deals with a weapon: +5% per rank above the first. A mob's grows 0.5% a night (its power). */
+/** Damage a player unit deals with a weapon: +5% per rank above the first, +20% under Rally. A mob's grows 0.5% a night (its power). */
 export function dealt(state: SimState, i: number, base: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mob) return floorDiv(base * e.power[i]!, 1000);
-  return withBonus(base, rankDamageBonusBp(e.rank[i]!));
+  const rally = e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0;
+  return withBonus(base, rankDamageBonusBp(e.kind[i] === UnitKind.Mage ? 1 : e.rank[i]!) + rally);
 }
 
 /** The forward vector of a heading, scaled by 65536. */
@@ -287,9 +298,12 @@ export function startSwing(state: SimState, i: number, target: number, attackSte
   state.hits.push({ look: 'swing', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
 }
 
-/** A unit under a goblin mage's Stumble hex attacks 20% slower: its attack time grows by a quarter. */
+/** A unit under a goblin mage's Stumble hex attacks 20% slower (its attack time grows by a quarter); under Quicken 25% faster. */
 export function hexed(state: SimState, i: number, attackSteps: number): number {
-  return state.entities.hexUntil[i]! > state.step ? floorDiv(attackSteps * BP, BP - HEX_SLOW_BP) : attackSteps;
+  const e = state.entities;
+  let steps = e.hexUntil[i]! > state.step ? floorDiv(attackSteps * BP, BP - HEX_SLOW_BP) : attackSteps;
+  if (e.quickUntil[i]! > state.step) steps = floorDiv(steps * BP, BP + spellSpec(Spell.Quicken).bp);
+  return Math.max(1, steps);
 }
 
 /** Whether a melee weapon can reach a target unit now (one-handed weapons only reach a flyer as it swoops). */
@@ -332,11 +346,16 @@ export const WORKER_HEALTH_BY_RANK_COMBAT: readonly number[] = [60, 60, 70, 80, 
 export const RANK_NAMES = {
   warrior: ['', 'Recruit', 'Soldier', 'Veteran', 'Elite', 'Hero'],
   worker: ['', 'Labourer', 'Hand', 'Master worker', 'Foreman', 'Elder'],
+  mage: MAGE_RANK_NAMES,
 } as const;
 
 /** Adds experience and ranks the unit up as far as it reaches. */
 export function gainXp(state: SimState, i: number, tenths: number): void {
   const e = state.entities;
+  if (e.kind[i] === UnitKind.Mage) {
+    mageGainXp(state, i, tenths);
+    return;
+  }
   e.xp[i] = e.xp[i]! + tenths;
   for (;;) {
     const r = e.rank[i]!;
@@ -421,7 +440,7 @@ export function settleDeaths(state: SimState): void {
       } else {
         deathHooks.unit(state, i);
         if (sideOf(state, i) === Side.Players) {
-          const what = e.kind[i] === UnitKind.Warrior ? 'A warrior' : 'A worker';
+          const what = e.kind[i] === UnitKind.Warrior ? 'A warrior' : e.kind[i] === UnitKind.Mage ? 'A mage' : 'A worker';
           state.events.push({ player: e.owner[i]!, kind: 'alert', text: `${what} has been killed.`, x: e.x[i]!, z: e.z[i]! });
         }
       }

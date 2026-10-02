@@ -23,6 +23,8 @@ import { installAnimalHooks, runAnimal, stockHooks, updateAnimals } from './anim
 import { installFoes } from './threats/foes.ts';
 import { onFoeHurt, threatsAtPeriod, updateThreats } from './threats/update.ts';
 import { checkCell } from './threats/villages.ts';
+import { updateMagic } from './magic/cast.ts';
+import { refillMages } from './magic/mages.ts';
 
 installDeathHooks();
 installAnimalHooks();
@@ -137,6 +139,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateProjectiles(state);
   updateSun(state);
   updateThreats(state);
+  updateMagic(state);
+  refillMages(state);
   updateFood(state);
   settleDeaths(state);
   updateBuildings(state);

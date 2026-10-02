@@ -65,14 +65,16 @@ export type UnitOrder =
   /** T Prospect a spot (columns). */
   | { t: 'prospect'; x: number; z: number }
   /** Haul what waits at a mineshaft to a drop-off, over and over. */
-  | { t: 'haul'; b: number };
+  | { t: 'haul'; b: number }
+  /** Cast a spell (magic/cast.ts) at a unit (id) or a spot (x, z wu); auto: the mage picks the target; until: the step she gives up (0 before she starts). */
+  | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number; until: number };
 
 /** An equip order's "leave this slot as it is". */
 export const KEEP = 255;
 
 export type UnitOrderType = UnitOrder['t'];
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -101,6 +103,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   hitch: ['id'],
   prospect: ['x', 'z'],
   haul: ['b'],
+  cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -176,5 +179,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Prospecting';
     case 'haul':
       return 'Hauling';
+    case 'cast':
+      return 'Casting';
   }
 }

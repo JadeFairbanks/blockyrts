@@ -16,20 +16,27 @@ import {
   itemSpec,
   ITEMS,
   levelSpec,
+  mageWears,
+  MAGE_RANK_TRAINING,
   MONSTERS,
+  nextMageTraining,
   Product,
   productSpec,
   RANK_TRAINING,
   RECIPE_PRODUCT,
   REFURBISH_PRODUCT,
+  Res,
   RESEARCH,
   RESEARCH_PRODUCT,
   RESOURCES,
+  schoolSpells,
   SiteKind,
   SITE_MAX_COLUMNS,
   Slot,
   SLOT_NAMES,
   speciesSpec,
+  Spell,
+  SPELLS,
   ALL_JOBS,
   UnitKind,
   WU_PER_COLUMN,
@@ -42,7 +49,7 @@ import {
 } from '@blockyrts/sim';
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
-import { GRID_CODES, keyFor } from '../input/bindings.ts';
+import { GRID_CODES, keyFor, spellAction } from '../input/bindings.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { buildingIdOf, entityIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
@@ -73,7 +80,7 @@ export interface CardEntry {
 
 export type Card = Array<CardEntry | null>;
 
-type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt';
+type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt' | 'cast';
 
 /** Pages of the command card: the main card, the build menus, the K and F pages of a Big House, and the I equipment panel. */
 export type CardPage = 'main' | 'basic' | 'advanced' | 'craft' | 'refurbish' | 'equip' | 'make';
@@ -143,12 +150,19 @@ const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
 /** Units by kind: which slots the I panel shows. */
 const WORKER_SLOTS: readonly Slot[] = [Slot.Tool, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Kit];
 const WARRIOR_SLOTS: readonly Slot[] = [Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Ammo, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case];
+/** A mage wears boots, leather and a helmet, and carries a torch; her wand comes with her rank. */
+const MAGE_SLOTS: readonly Slot[] = [Slot.Boots, Slot.Armour, Slot.Helmet, Slot.Torch];
 const LOCK_FACES = ['Auto', 'Melee', 'Ranged'];
+
+/** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
+const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey.startsWith('mage:');
 
 export interface Targeting {
   command: TargetCommand;
   /** The hotkey that started it: holding it keeps the command for the next click. */
   key: string;
+  /** For 'cast': the spell waiting for its target. */
+  spell?: number;
 }
 
 export interface Placing {
@@ -312,7 +326,7 @@ export class Commands {
     }
     if (active === null) return card;
     if (this.area && active === 'worker') return this.areaCard(card);
-    if (active === 'worker' || active === 'warrior') {
+    if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
       if (this.menu.page === 'equip') return this.equipCard(card);
       if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
       this.unitCard(card, active);
@@ -391,6 +405,8 @@ export class Commands {
       card[11] = this.entry('buildAdvanced', 'Adv.', 'Open the Advanced Structures menu: buildings that need rare resources or technology.', () => this.openMenu('advanced'), { name: 'Build Advanced Structures' });
       card[13] = this.equipBestEntry();
       if (!card[14]) card[14] = this.equipmentEntry();
+    } else if (active.startsWith('mage:')) {
+      this.mageCard(card, active);
     } else {
       card[5] = this.equipBestEntry();
       card[6] = this.equipmentEntry();
@@ -408,14 +424,113 @@ export class Commands {
     card[12] = this.entry(
       'enter',
       'Enter',
-      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors garrison towers (4) and the parapets of a level 3 main base (8) and shoot from the top.',
+      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors and mages garrison towers (4) and the parapets of a level 3 main base (8) and shoot or cast from the top.',
       () => this.target('enter', 'enter'),
       { lit: t === 'enter' },
     );
   }
 
+  /**
+   * A mage's card (Magic): her school's five spells in the middle row, each
+   * waiting for a click on its target, or cast on the best target by every
+   * selected mage when pressed twice; then Eat, rank training, Enter and gear.
+   */
+  private mageCard(card: Card, active: string): void {
+    const ids = this.unitIds((u) => u.typeKey === active);
+    const school = active === 'mage:battle' ? 2 : 1;
+    schoolSpells(school).slice(0, 5).forEach((spell, k) => {
+      card[5 + k] = this.spellEntry(ids, spell);
+    });
+    // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
+    card[10] = { ...this.eatEntry(), key: '' };
+    card[11] = this.mageRankEntry(ids);
+    card[13] = this.equipBestEntry();
+    if (!card[14]) card[14] = this.equipmentEntry();
+  }
+
+  /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */
+  private spellEntry(ids: number[], spell: number): CardEntry {
+    const s = SPELLS[spell]!;
+    const action = spellAction(spell);
+    const states = ids.map((id) => this.d.game.spells(id).find(([sp]) => sp === spell)).filter((x) => x !== undefined);
+    const usable = states.filter(([, why]) => why === '' || why === 'Not ready yet.');
+    const ready = usable.filter(([, why]) => why === '');
+    const wait = usable.length > 0 && ready.length === 0 ? Math.min(...usable.map(([, , steps]) => steps)) : 0;
+    const aim =
+      s.target === 'ally'
+        ? 'Then left click one of your units.'
+        : s.target === 'point'
+          ? 'Then left click the ground where it lands.'
+          : s.target === 'counter'
+            ? 'Then left click an enemy that is casting.'
+            : 'Then left click an enemy.';
+    const pick = s.target === 'counter' ? 'Pressed twice, each mage stops the nearest enemy spell.' : 'Pressed twice (or double clicked), every selected mage casts it on the best target herself.';
+    const lines = [
+      s.text,
+      `Mana ${s.mana}, ready again after ${Math.round(s.cooldown / 2) / 10} s, range ${Math.round(s.range / WU_PER_METRE)} m. Learned at rank ${s.rank}${s.hexcraft ? ', with Hexcraft' : ''}.`,
+      aim,
+      pick,
+    ];
+    if (s.target === 'counter') lines.push('A mage who knows it also casts it by herself when an enemy spell starts in range.');
+    if (s.id === SPELLS[schoolSpells(s.school)[0]!]!.id) lines.push('She casts this one by herself too.');
+    if (wait > 0) lines.push(`Ready in ${Math.ceil(wait / 20)} s.`);
+    const reason = usable.length > 0 ? '' : (states[0]?.[1] ?? 'Only mages cast spells.');
+    const short = SPELL_FACES[spell] ?? shortFace(s.name);
+    const face = wait > 0 ? `${short} ${Math.ceil(wait / 20)}` : short;
+    return {
+      action,
+      face,
+      name: s.name,
+      key: this.key(action),
+      description: lines.join(' '),
+      enabled: reason === '',
+      reason,
+      lit: this.targeting?.command === 'cast' && this.targeting.spell === spell,
+      run: () => {
+        this.targeting = { command: 'cast', key: this.key(action), spell };
+        this.d.changed();
+      },
+      double: () => this.castAuto(spell),
+    };
+  }
+
+  /** A spell pressed twice: each mage that knows it picks her own target. */
+  private castAuto(spell: number): void {
+    const units = this.unitIds((u) => u.typeKey.startsWith('mage:'));
+    if (units.length === 0) return;
+    this.targeting = null;
+    this.d.send({ kind: 'cast', player: this.d.player, units, spell, target: 0, x: 0, z: 0, auto: 1, queued: this.d.queued() });
+    this.d.changed();
+  }
+
+  /** Rank training at a Magi Sanctum (Table 7): food and crystals for the first two ranks, a rank wand and her experience for the three above. */
+  private mageRankEntry(ids: number[]): CardEntry {
+    const name = 'Upgrade rank';
+    const desc = `Send them to train at a Magi Sanctum. ${MAGE_RANK_TRAINING.map((t) => `${t.name}: ${t.wand ? `her rank wand from the stock, once her experience is enough` : `${t.food} food${t.crystals ? ` and ${t.crystals} mana crystals` : ''}`}, ${t.steps / 20} s`).join('; ')}. Experience from combat also raises her to Acolyte and Adept Acolyte by itself.`;
+    const units = ids.map((id) => this.d.game.unit(id)).filter((u): u is UnitInfo => u !== null);
+    const why = (u: UnitInfo): string => {
+      const t = nextMageTraining(u.rank);
+      if (!t) return 'She is at the highest rank.';
+      const own = this.d.game.mageRankWhy(u.id);
+      if (own) return own;
+      if (t.wand && this.d.game.stock(t.wand) < 1) return `Needs a ${itemSpec(t.wand).name.toLowerCase()} in the equipment stock (make one at a Magi Sanctum).`;
+      if (this.d.game.food() < t.food) return `Not enough food (needs ${t.food}).`;
+      if (t.crystals && this.d.game.have(Res.ManaCrystal) < t.crystals) return `Needs ${t.crystals} mana crystals.`;
+      return '';
+    };
+    const able = units.filter((u) => why(u) === '');
+    const sanctum = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === BuildingKind.MagiSanctum && b.complete);
+    let reason = units.length === 0 ? 'Select a mage.' : able.length === 0 ? why(units[0]!) : '';
+    if (!reason && !sanctum) reason = 'Needs a Magi Sanctum.';
+    const next = able.length > 0 ? nextMageTraining(able[0]!.rank) : undefined;
+    if (reason) return this.off('mageRank', 'Rank', desc, reason, name);
+    return this.entry('mageRank', 'Rank', desc, () => this.d.send({ kind: 'trainRank', player: this.d.player, units: able.map((u) => u.id), building: sanctum!.id, queued: this.d.queued() }), {
+      name: next ? `${name} (to ${next.name})` : name,
+    });
+  }
+
   private eatEntry(): CardEntry {
-    const units = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const units = this.unitIds(geared);
     const desc = `Walk to the nearest main base, storehouse or kitchen and eat: 2 food heals half their health over 10 s, and a remedy or a bandage from the stock heals what is left.`;
     const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse || b.kind === BuildingKind.Cooking));
     if (!where) return this.off('eat', 'Eat', desc, 'There is no main base, storehouse or kitchen to eat at.');
@@ -434,7 +549,7 @@ export class Commands {
   }
 
   private equipBestEntry(): CardEntry {
-    const units = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const units = this.unitIds(geared);
     const desc =
       'Every selected unit gets the best equipment in the stock that it can use, the highest ranks first, and walks to the nearest main base to collect it. Hand-picked items are left alone.';
     const base = this.d.game.mainBases().some((b) => b.complete);
@@ -446,7 +561,7 @@ export class Commands {
   }
 
   private equipmentEntry(): CardEntry {
-    const units = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const units = this.unitIds(geared);
     const desc = 'With one unit selected: what it wears and holds, and the items in the stock that fit each slot. Pick one and the unit walks to the main base to collect it.';
     if (units.length !== 1) return this.off('equipment', 'Gear', desc, 'Select a single unit.', 'Equipment');
     return this.entry('equipment', 'Gear', desc, () => {
@@ -585,6 +700,11 @@ export class Commands {
     if (first.complete) {
       if (spec.trainsWorkers) rows.push([Product.Worker, 'trainWorker', 'Worker', 0]);
       if (kind === BuildingKind.MainBase || kind === BuildingKind.Barracks) rows.push([Product.Warrior, 'trainWarrior', 'Warrior', 1]);
+      // Mages at a Magi Sanctum, and at a main base of level 6 and up (Magic).
+      if (first.products.some(([p]) => p === Product.SupportMage)) {
+        const at = kind === BuildingKind.MainBase ? 2 : 0;
+        rows.push([Product.SupportMage, 'trainSupportMage', 'Support', at], [Product.BattleMage, 'trainBattleMage', 'Battle', at + 1]);
+      }
       if (kind === BuildingKind.LumberMill) rows.push([Product.PlanksSoftwood, 'planksSoft', 'Planks S', 0], [Product.PlanksHardwood, 'planksHard', 'Planks H', 1]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
@@ -655,7 +775,7 @@ export class Commands {
     else if (ps.food === 0) reason = g.costProblem(ps.cost);
     if (!reason && p >= REFURBISH_PRODUCT && g.stock(ps.item!) < (ps.items?.[0]?.[1] ?? 1)) reason = 'None in the equipment stock.';
     for (const [it, n] of takes) if (!reason && g.stock(it) < n) reason = `Needs ${n === 1 ? 'a' : n} ${itemSpec(it).name.toLowerCase()} in the equipment stock.`;
-    if (!reason && (p === Product.Worker || p === Product.Warrior) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+    if (!reason && (p === Product.Worker || p === Product.Warrior || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
     if (why !== undefined) reason = why;
     if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
     const stock = ps.item !== undefined ? ` In stock: ${g.stock(ps.item)}.` : '';
@@ -722,11 +842,12 @@ export class Commands {
 
   /** I: a button per slot of the one selected unit; a slot opens the items in stock that fit it. */
   private equipCard(card: Card): Card {
-    const ids = this.unitIds((u) => u.typeKey === 'worker' || u.typeKey === 'warrior');
+    const ids = this.unitIds(geared);
     const u = ids.length === 1 ? this.d.game.unit(ids[0]!) : null;
     card[14] = this.backEntry(this.menu.sub >= 0 ? 'Back to the slots.' : 'Back to the unit commands.');
     if (!u) return card;
-    const slots = u.kind === UnitKind.Worker ? WORKER_SLOTS : WARRIOR_SLOTS;
+    const mage = u.kind === UnitKind.Mage;
+    const slots = u.kind === UnitKind.Worker ? WORKER_SLOTS : mage ? MAGE_SLOTS : WARRIOR_SLOTS;
     const load = `Carrying ${carriedLb(u)} lb of gear (over 50 lb slows them down, up to 40% at 100 lb).`;
     if (this.menu.sub < 0) {
       slots.forEach((slot, k) => {
@@ -754,6 +875,7 @@ export class Commands {
       card[11] = this.eatEntry();
       card[12] = this.equipBestEntry();
       if (u.kind === UnitKind.Worker) card[13] = this.rankEntry([u.id]);
+      if (mage) card[13] = this.mageRankEntry([u.id]);
       return card;
     }
     const slot = this.menu.sub as Slot;
@@ -776,6 +898,8 @@ export class Commands {
     for (const it of ITEMS) {
       if (k >= 14) break;
       if (!fitsSlot(it, slot) || this.d.game.stock(it.id) <= 0) continue;
+      // Mages wear leather at most (s): nothing heavier is offered to them.
+      if (mage && slot !== Slot.Torch && !mageWears(it)) continue;
       const untrained = (it.ranged?.skill ?? 0) !== 0 && (u.skills & it.ranged!.skill) === 0;
       const at = k++;
       card[at] = {
@@ -917,11 +1041,41 @@ export class Commands {
         ok = item && this.wildAnimal(item) ? this.hunt(item) : false;
         if (!ok) this.d.message('Pick a wild animal to hunt.', 'alert');
         break;
+      case 'cast':
+        ok = this.cast(t.spell ?? 0, item, ground);
+        break;
     }
     if (ok && !this.d.held(t.key) && !this.d.queued()) {
       this.targeting = null;
       this.d.changed();
     }
+  }
+
+  /** A spell's click: one of the player's units for a support spell, an enemy for an attack, the ground for an area. */
+  private cast(spell: number, item: Selectable | null, ground: THREE.Vector3 | null): boolean {
+    const s = SPELLS[spell];
+    const units = this.unitIds((u) => u.typeKey.startsWith('mage:'));
+    if (!s || units.length === 0) return false;
+    const send = (target: number, at: THREE.Vector3): boolean => {
+      this.d.send({ kind: 'cast', player: this.d.player, units, spell, target, x: Math.round(at.x * WU_PER_METRE), z: Math.round(at.z * WU_PER_METRE), auto: 0, queued: this.d.queued() });
+      this.d.marker(at, s.target === 'ally' ? 'move' : 'target');
+      return true;
+    };
+    if (s.target === 'point') {
+      const at = ground ?? item?.centre ?? null;
+      if (at) return send(0, at);
+      this.d.message(`Pick a spot on the ground for ${s.name}.`, 'alert');
+      return false;
+    }
+    const target = item && item.kind === 'unit' ? entityIdOf(item.key) : null;
+    if (s.target === 'ally') {
+      if (target !== null && item!.owner !== MONSTERS && !item!.typeKey.startsWith('animal:')) return send(target, item!.centre);
+      this.d.message(`Pick one of your units for ${s.name}.`, 'alert');
+      return false;
+    }
+    if (target !== null && this.enemy(item!)) return send(target, item!.centre);
+    this.d.message(s.target === 'counter' ? 'Pick an enemy that is casting a spell.' : `Pick an enemy for ${s.name}.`, 'alert');
+    return false;
   }
 
   /** A unit the local player's units fight: monsters (other players are allies in this co-op game). */
@@ -1512,6 +1666,9 @@ const EARTHWORK_HELP = [
 /** Products on one page of the K menu (slot 13 is the next page, 14 Back). */
 const MAKE_PER_PAGE = 13;
 
+/** Spell button faces where the name is too long for the button. */
+const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell.AreaBlast]: 'Blast', [Spell.Counterspell]: 'Counter' };
+
 /** The K button by building kind: its face and tooltip. */
 const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.ScholarsLodge]: ['Research', 'Open the research menu: every step, greyed out with what it still needs. Research takes the lodge\'s time and stops while the troops starve. V shows the next page; B is Back.'],
@@ -1521,6 +1678,7 @@ const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.Kiln]: ['Fire', 'Open the kiln menu: charcoal, bricks and glass. Needs workers inside. B is Back.'],
   [BuildingKind.Tannery]: ['Tan', 'Open the tannery menu: leather, rope, boots, leather armour and caps, bolt cases. Needs workers inside. V shows the next page; B is Back.'],
   [BuildingKind.HerbalistHut]: ['Brew', 'Open the herbalist menu: bandages, remedies and poison. Needs workers inside. B is Back.'],
+  [BuildingKind.MagiSanctum]: ['Make', 'Open the Magi Sanctum menu: wands, the rank wands and Hexcraft research. V shows the next page; B is Back.'],
   [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: carts, crossbows, ramp steps, lanterns and trinkets. Needs workers inside. V shows the next page; B is Back.'],
 };
 

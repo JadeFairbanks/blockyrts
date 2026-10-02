@@ -164,7 +164,6 @@ const DEEP_MINING_1 = 3;
 const DEEP_MINING_2 = 7;
 const DEEP_MINING_3 = 12;
 const BRONZE = 2;
-const M6 = 'Comes with mages (milestone 6).';
 const M8 = 'Comes with gunpowder (milestone 8).';
 
 const box = (w: number, d: number): readonly [number, number, number, number] => [0, 0, w, d];
@@ -363,8 +362,8 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     ],
   },
   {
-    kind: BuildingKind.MagiSanctum, name: 'Magi Sanctum', purpose: 'Trains mages.',
-    menu: 'advanced', slot: 2, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M6,
+    kind: BuildingKind.MagiSanctum, name: 'Magi Sanctum', purpose: 'Trains support and battle mages and their ranks to Adept Acolyte, makes wands and rank wands, and researches Hexcraft.',
+    menu: 'advanced', slot: 2, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Magi Sanctum', [[H, 40], [ST, 60], [Res.Bricks, 20], [Res.ManaCrystal, 1]], 450, 1200, { needsBase: 4, gives: 'novices, ranks to Adept, rank wands' })],
   },
   {

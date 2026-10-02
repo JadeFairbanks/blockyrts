@@ -17,7 +17,7 @@ import { SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { garrisonRoom, rangedOf } from './combat/fight.ts';
+import { canGarrison, garrisonRoom } from './combat/fight.ts';
 import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
@@ -27,6 +27,8 @@ import { markSite } from './units/dig.ts';
 import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
+import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
+import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -249,8 +251,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'enter': {
         const b = ownBuilding(state, o.player, o.building);
-        // Workers shelter; ranged warriors garrison towers and parapets.
-        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && rangedOf(state, i) !== null) ? { t: 'enter', b: b.id, auto: 0 } : null));
+        // Workers shelter; ranged warriors and mages garrison towers and parapets.
+        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && canGarrison(state, i)) ? { t: 'enter', b: b.id, auto: 0 } : null));
         break;
       }
       case 'unload': {
@@ -412,8 +414,49 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         giveOrder(state, worker, { t: 'tame', id: o.target }, o.queued === true);
         break;
       }
+      case 'cast': {
+        const s = SPELLS[o.spell];
+        if (!s) break;
+        const mages = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Mage);
+        if (mages.length === 0) break;
+        const knowers = mages.filter((i) => knowsSpell(state, i, s.id));
+        if (knowers.length === 0) {
+          alert(state, o.player, spellProblem(state, mages.find((i) => e.school[i] === s.school) ?? mages[0]!, s.id));
+          break;
+        }
+        // Double-tapped: every mage that knows it picks her own target.
+        if (o.auto) {
+          for (const i of knowers) giveOrder(state, i, { t: 'cast', spell: s.id, id: 0, x: 0, z: 0, auto: 1, until: 0 }, o.queued === true);
+          break;
+        }
+        const t = o.target ? e.indexOf(o.target) : -1;
+        if (o.target && (t < 0 || e.hp[t]! <= 0)) break;
+        const tx = t >= 0 ? e.x[t]! : o.x;
+        const tz = t >= 0 ? e.z[t]! : o.z;
+        // One mage casts it (s): one with the mana and the spell ready, else the one ready soonest; the nearest breaks a tie.
+        let best = -1;
+        let bestKey = 0;
+        let bestD = 0;
+        for (const i of knowers) {
+          const enough = e.mana[i]! >= s.mana * MANA_SCALE;
+          const ready = Math.max(0, spellReadyAt(state, i, s.id) - state.step);
+          const key = (enough ? 0 : 1 << 24) + ready;
+          const d = dist2(e.x[i]!, e.z[i]!, tx, tz);
+          if (best < 0 || key < bestKey || (key === bestKey && d < bestD)) {
+            best = i;
+            bestKey = key;
+            bestD = d;
+          }
+        }
+        if (e.mana[best]! < s.mana * MANA_SCALE) {
+          alert(state, o.player, `Not enough mana for ${s.name} (${s.mana}).`);
+          break;
+        }
+        giveOrder(state, best, { t: 'cast', spell: s.id, id: t >= 0 ? o.target : 0, x: clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), z: clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU), auto: 0, until: 0 }, o.queued === true);
+        break;
+      }
       case 'eat':
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior ? { t: 'eat', b: o.building } : null));
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage ? { t: 'eat', b: o.building } : null));
         break;
       case 'hitch': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);

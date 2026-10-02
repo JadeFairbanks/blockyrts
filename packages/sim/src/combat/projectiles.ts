@@ -16,6 +16,7 @@ import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, Side, sideOf } 
 import { SHOTS } from './items.ts';
 import { WEB } from './mobs.ts';
 import { smoulder, SPARK } from '../threats/burns.ts';
+import { fireballBurst } from '../magic/cast.ts';
 
 /** Gravity, wu per step per step: 9.8 m/s2 at 20 steps a second. Even, so half of it times k squared stays whole. */
 export const GRAVITY = 196;
@@ -26,7 +27,12 @@ const PIECE_WU = WU_PER_COLUMN >> 1;
 /** Shots leave a person's hand at 1.4 m. */
 export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
 
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8 } as const;
+/**
+ * Spell: a spell that flies (Spark toss, a mana bolt, an Arcane bolt, a
+ * Fireball): Warding halves it (Table 13). Burst: a Fireball, which bursts
+ * where it stops (magic/cast.ts fireballBurst).
+ */
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8, Spell: 16, Burst: 32 } as const;
 
 /** Venom on an arrow or bolt: 15 more damage over 5 s (s), on top of the hit. */
 export const POISON = { damage: 15, steps: 5 * STEPS_PER_SECOND };
@@ -176,6 +182,34 @@ function clearPath(state: SimState, shot: number, x0: number, y0: number, z0: nu
   return true;
 }
 
+/**
+ * Line of sight from one point to another (Combat: non-projectile spells
+ * need it to cast): no ground, building or tree in between, checked every
+ * half column. The buildings the two ends stand on or in do not count.
+ */
+export function lineOfSight(state: SimState, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+  const n = Math.max(1, floorDiv(length2d(x1 - x0, z1 - z0) + PIECE_WU - 1, PIECE_WU));
+  const startBuilding = state.buildings.solidAt(floorDiv(x0, WU_PER_COLUMN), floorDiv(z0, WU_PER_COLUMN));
+  const endBuilding = state.buildings.solidAt(floorDiv(x1, WU_PER_COLUMN), floorDiv(z1, WU_PER_COLUMN));
+  for (let q = 1; q < n; q++) {
+    const x = x0 + floorDiv((x1 - x0) * q, n);
+    const y = y0 + floorDiv((y1 - y0) * q, n);
+    const z = z0 + floorDiv((z1 - z0) * q, n);
+    const cx = floorDiv(x, WU_PER_COLUMN);
+    const cz = floorDiv(z, WU_PER_COLUMN);
+    const ground = state.world.topAt(cx, cz) * WU_PER_TERRAIN_UNIT;
+    if (y < ground) return false;
+    const id = state.buildings.solidAt(cx, cz);
+    if (id !== 0 && id !== startBuilding && id !== endBuilding) {
+      const b = state.buildings.get(id);
+      if (b && b.hp > 0 && y < buildingTop(b)) return false;
+    }
+    const tree = treeAt(state, cx, cz);
+    if (tree > 0 && y < tree && y > ground) return false;
+  }
+  return true;
+}
+
 /** Moves every projectile one step and settles what it hits. */
 export function updateProjectiles(state: SimState): void {
   const e = state.entities;
@@ -214,13 +248,15 @@ export function updateProjectiles(state: SimState): void {
           e.slowBp[hit] = WEB.slowBp;
           state.hits.push({ look: 'slime', x, y, z, id: e.id[hit]! });
         } else {
-          const d = hurtUnit(state, hit, { damage: p.damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 });
+          const spell = (p.flags & ProjectileFlag.Spell) !== 0;
+          const d = hurtUnit(state, hit, { damage: p.damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
           if (d > 0 && p.flags & ProjectileFlag.Poison && e.hp[hit]! > 0) {
             e.dotLeft[hit] = (e.dotUntil[hit]! > state.step ? e.dotLeft[hit]! : 0) + POISON.damage;
             e.dotUntil[hit] = state.step + POISON.steps;
             e.dotFrom[hit] = p.shooter;
           }
         }
+        if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, hit, null);
         done = true;
         break;
       }
@@ -230,6 +266,11 @@ export function updateProjectiles(state: SimState): void {
       if (bid !== 0 && bid !== startBuilding) {
         const b = state.buildings.get(bid);
         if (b && y < buildingTop(b)) {
+          if (p.flags & ProjectileFlag.Burst) {
+            fireballBurst(state, p, x, y, z, -1, b);
+            done = true;
+            break;
+          }
           hurtBuilding(state, b, SHOTS[p.shot]!.vsWalls, x, y, z);
           // A fire bolt sets dry wood smouldering (Table 17: Spark toss).
           if (p.flags & ProjectileFlag.Fire && p.side !== Side.Players) smoulder(state, b, SPARK.smoulderPerSecond, SPARK.smoulderSteps);
@@ -240,11 +281,13 @@ export function updateProjectiles(state: SimState): void {
       const tree = treeAt(state, cx, cz);
       if (tree > 0 && y < tree && y > state.world.topAt(cx, cz) * WU_PER_TERRAIN_UNIT) {
         state.hits.push({ look: 'wood', x, y, z, id: 0 }, { look: 'shake', x: cx * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), y, z: cz * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), id: 0 });
+        if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, -1, null);
         done = true;
         break;
       }
       if (y < state.world.topAt(cx, cz) * WU_PER_TERRAIN_UNIT) {
         state.hits.push({ look: 'stone', x, y, z, id: 0 });
+        if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, -1, null);
         done = true;
         break;
       }

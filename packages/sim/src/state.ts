@@ -47,6 +47,8 @@ export const OrderKind = {
   Dig: 10,
   /** Running for the dark at dawn. */
   Flee: 11,
+  /** A mage casting or holding a beam (the clip follows the spell: castSpell, beamUntil). */
+  Cast: 12,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
@@ -58,11 +60,13 @@ export const UnitKind = {
   Mob: 3,
   /** Wild and tamed animals (Animals): the species is in the mob field (animals/species.ts). */
   Animal: 4,
+  /** Support and battle mages (Magic): the school is in the school field (magic/spells.ts). */
+  Mage: 5,
 } as const;
 export type UnitKind = (typeof UnitKind)[keyof typeof UnitKind];
 
-/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m; suggested; mobs see 12 m, animals 16 m). */
-export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE] as const;
+/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m, mage 24 m; suggested; mobs see 12 m, animals 16 m). */
+export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE, 24 * WU_PER_METRE] as const;
 
 /** Owner value for the night's monsters: hostile to every player. */
 export const MONSTERS = 254;
@@ -213,6 +217,30 @@ export const UNIT_FIELDS = [
   /** A hop up or down a rise of 3 units or more (Moving over the land) lasts until this step; the rise it made, wu. */
   ['hopUntil', 'u32'],
   ['hopRise', 'i32'],
+  /** Mages (milestone 6): support or battle (magic/spells.ts School); hundredths of a mana point still to come from the refill. */
+  ['school', 'u8'],
+  ['manaAcc', 'u8'],
+  /** A spell being cast: 1 + its id (0 for none), the step it lands, and its target unit or spot (wu). */
+  ['castSpell', 'u8'],
+  ['castAt', 'u32'],
+  ['castTarget', 'u32'],
+  ['castX', 'i32'],
+  ['castZ', 'i32'],
+  /** A Beam held on a unit until this step, and the damage it still has to do (worked out through armour when it starts). */
+  ['beamUntil', 'u32'],
+  ['beamTarget', 'u32'],
+  ['beamLeft', 'i32'],
+  /** The support spells on a unit, each until a step: Quicken, Fortify, Rally, Warding. */
+  ['quickUntil', 'u32'],
+  ['fortUntil', 'u32'],
+  ['rallyUntil', 'u32'],
+  ['wardUntil', 'u32'],
+  /** A Heal under way: health still to come, until this step, and the mage who cast it. */
+  ['healUntil', 'u32'],
+  ['healLeft', 'i32'],
+  ['healFrom', 'u32'],
+  /** A support mage's health healed in combat not yet worth a tenth of experience (1 XP per 25 healed). */
+  ['healXp', 'u8'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -321,6 +349,24 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hexUntil: Uint32Array;
   declare hopUntil: Uint32Array;
   declare hopRise: Int32Array;
+  declare school: Uint8Array;
+  declare manaAcc: Uint8Array;
+  declare castSpell: Uint8Array;
+  declare castAt: Uint32Array;
+  declare castTarget: Uint32Array;
+  declare castX: Int32Array;
+  declare castZ: Int32Array;
+  declare beamUntil: Uint32Array;
+  declare beamTarget: Uint32Array;
+  declare beamLeft: Int32Array;
+  declare quickUntil: Uint32Array;
+  declare fortUntil: Uint32Array;
+  declare rallyUntil: Uint32Array;
+  declare wardUntil: Uint32Array;
+  declare healUntil: Uint32Array;
+  declare healLeft: Int32Array;
+  declare healFrom: Uint32Array;
+  declare healXp: Uint8Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -329,7 +375,7 @@ export class EntityStore implements Record<FieldName, Column> {
   path: number[][] = [];
   /** Mobs: the players' units that hit it, as (id, step) pairs, for sharing the kill's experience. */
   hitters: number[][] = [];
-  /** Abilities cooling down, as (ability, step it is ready) pairs (threats/abilities.ts). */
+  /** Abilities cooling down, as (ability, step it is ready) pairs (threats/abilities.ts; a mage's are its spells, magic/spells.ts). */
   cools: number[][] = [];
 
   private readonly index = new Map<number, number>();
@@ -580,7 +626,7 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
 
 export interface HitEvent {
   look: HitLook;
@@ -593,6 +639,8 @@ export interface HitEvent {
   kind?: number;
   mob?: number;
   heading?: number;
+  /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
+  spell?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */

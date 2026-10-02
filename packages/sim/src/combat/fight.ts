@@ -18,6 +18,7 @@ import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items
 import { isStructure, Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
 import { throughFog } from '../threats/fog.ts';
+import { mageStep } from '../magic/cast.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
 export const LEASH_WU = 20 * WU_PER_METRE;
@@ -89,6 +90,11 @@ export function garrisonOf(state: SimState, i: number): Building | undefined {
   return rangedOf(state, i) ? b : undefined;
 }
 
+/** Whether a unit may stand on a tower or a level 3+ main base's parapets: one with a ranged weapon it can use, or a mage (Magic). */
+export function canGarrison(state: SimState, i: number): boolean {
+  return state.entities.kind[i] === UnitKind.Mage || rangedOf(state, i) !== null;
+}
+
 /** Ranged units a building takes on its top (Table 4: towers 4, a main base's parapets 8 from level 3). */
 export function garrisonRoom(b: Building): number {
   if (!b.complete) return 0;
@@ -121,12 +127,13 @@ function shotOrigin(state: SimState, i: number): [number, number, number] {
 /** Whether a unit can harm a target at all with what it carries (a club cannot reach a bat at its cruising height). */
 function canHarm(state: SimState, i: number, t: number): boolean {
   if (!flyingHigh(state, t)) return true;
-  if (rangedOf(state, i)) return true;
+  // Arrows, bolts and spells reach a flyer at its cruising height.
+  if (rangedOf(state, i) || state.entities.kind[i] === UnitKind.Mage) return true;
   return !meleeOf(state, i, false).oneHanded;
 }
 
 /** Whether a target is one this unit may fight now; `chase` also allows a wild animal it was told to attack or hunt. */
-function validTarget(state: SimState, i: number, t: number, chase = false): boolean {
+export function validTarget(state: SimState, i: number, t: number, chase = false): boolean {
   const e = state.entities;
   return t >= 0 && t !== i && e.hp[t]! > 0 && e.inside[t] === 0 && (hostile(state, i, t) || (chase && sideOf(state, i) === Side.Players && huntable(state, t)));
 }
@@ -182,7 +189,7 @@ export function stepToward(state: SimState, i: number, x: number, z: number, spe
 }
 
 /** Walks towards a moving target until within `reach` of it, looking again for it every half second. */
-function chase(state: SimState, i: number, t: number, reach: number): void {
+export function chase(state: SimState, i: number, t: number, reach: number): void {
   const e = state.entities;
   if (e.pathOk[i] !== 2 && state.step >= e.waitUntil[i]!) resetWalk(state, i);
   if (e.pathOk[i] === 2) e.waitUntil[i] = state.step + REPATH_STEPS;
@@ -197,7 +204,7 @@ function chase(state: SimState, i: number, t: number, reach: number): void {
   }
 }
 
-function face(state: SimState, i: number, t: number): void {
+export function face(state: SimState, i: number, t: number): void {
   const e = state.entities;
   const dx = e.x[t]! - e.x[i]!;
   const dz = e.z[t]! - e.z[i]!;
@@ -375,6 +382,8 @@ export function fightStep(state: SimState, i: number): boolean {
     }
     land(state, i);
   }
+  // Mages fight with spells, and their wands up close (magic/cast.ts).
+  if (e.kind[i] === UnitKind.Mage) return mageStep(state, i);
   if (e.inside[i] !== 0) {
     if (!garrisonOf(state, i)) return false;
     // On a tower or parapet: shoot whatever comes in range, never leave.

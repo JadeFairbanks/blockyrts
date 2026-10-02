@@ -15,9 +15,11 @@ export type ToWorker =
  * heading, order, hp, maxHp, rank, chopping tool, carryRes, carryAmt, inside, act,
  * then what it fights with (mob kind, the items in each slot, a lit torch,
  * the swing under way), its state flags, lock, skills, shots left and target,
- * a hop under way, and a worker's other tools by job and the one in its hand.
+ * a hop under way, a worker's other tools by job and the one in its hand,
+ * and a mage's school, mana, the spell she is casting, her beam and the
+ * spells on her.
  */
-export const STATE_STRIDE = 41;
+export const STATE_STRIDE = 47;
 export const S = {
   id: 0,
   owner: 1,
@@ -66,7 +68,20 @@ export const S = {
   toolCut: 39,
   /** The tool item a worker has in hand for what it is doing now, or 0. */
   toolHand: 40,
+  /** Mages: support or battle (School), mana and the bar's most (whole points). */
+  school: 41,
+  mana: 42,
+  maxMana: 43,
+  /** 0, or 1 + the spell being cast (Spell). */
+  cast: 44,
+  /** The unit a Beam is held on (entity id), or 0. */
+  beam: 45,
+  /** Spells on the unit now (SpellOn bits). */
+  spells: 46,
 } as const;
+
+/** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
+export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
 /** Bits of S.flags. */
 export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128 } as const;
@@ -188,6 +203,10 @@ export interface InfoMessage {
   ruins: Array<[number, number, number]>;
   /** Lairs and goblin villages the local player has seen, for the minimap (wu). */
   marks: ThreatMark[];
+  /** The local player's mages: per mage id, each spell of her school with why it cannot be cast now ('' when it can) and the steps until it is ready. */
+  spells: Array<[number, Array<[number, string, number]>]>;
+  /** The local player's mages: why each cannot start her next rank training for her experience or rank, or ''. */
+  mageRanks: Array<[number, string]>;
 }
 
 /** A lair (its mob kind) or a goblin village (mob -1) on the minimap; war: the village is at war with the local player. */

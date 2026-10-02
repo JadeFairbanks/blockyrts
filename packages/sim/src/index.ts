@@ -64,3 +64,6 @@ export * from './threats/villages.ts';
 export * from './threats/foes.ts';
 export * from './threats/debug.ts';
 export * from './threats/update.ts';
+export * from './magic/spells.ts';
+export * from './magic/mages.ts';
+export * from './magic/cast.ts';

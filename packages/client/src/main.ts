@@ -258,6 +258,19 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
   cycler('dbg-creature', 'Creature', ['Giant beetle', 'Giant hornets', 'Viper', 'Giant scorpion', 'Griffin', 'Minotaur'], DebugThreat.Creature, 'Puts the named territorial creature in the middle of the view; each press moves on to the next.');
   add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
   add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
+  // Milestone 6's mages.
+  add('dbg-sanctum', 'Sanctum', 'Debug: Magi Sanctum', 'Puts a finished Magi Sanctum in the middle of the view: it trains support and battle mages, makes wands and rank wands, and researches Hexcraft.', () => {
+    threat(DebugThreat.Sanctum);
+    shell.message('Debug: a Magi Sanctum placed in the middle of the view.');
+  });
+  add('dbg-magekit', 'Mage kit', 'Debug: mage kit', 'Puts 2 wands and 2 of each rank wand in the equipment stock, and 10 mana crystals, 200 bread, 6 hexstone and 20 herbs in the pool: enough for two mages, their rank training and Hexcraft.', () => {
+    threat(DebugThreat.MageKit);
+    shell.message('Debug: wands, rank wands, mana crystals and bread added.');
+  });
+  add('dbg-magexp', 'Mage XP', 'Debug: mage experience', 'Gives each of your mages the experience for her next rank: she rises by herself to Acolyte and Adept Acolyte, and above that is ready for her rank wand at the Sanctum.', () => {
+    threat(DebugThreat.MageXp);
+    shell.message('Debug: your mages have the experience for their next rank.');
+  });
 }
 
 void main();

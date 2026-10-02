@@ -292,6 +292,11 @@ function bestFor(state: SimState, i: number, slot: number, filter: (it: ItemSpec
   return best;
 }
 
+/** What a mage may wear (Table 1: leather at most): boots, leather armour and a leather cap. */
+export function mageWears(it: ItemSpec): boolean {
+  return (it.slot === Slot.Boots || it.slot === Slot.Armour || it.slot === Slot.Helmet) && it.tier <= 2;
+}
+
 /**
  * Equip Best (Q) on some units: the most capable first (highest rank, then
  * the lowest id), each gets the best item in stock it can use for every
@@ -325,12 +330,16 @@ export function equipBest(state: SimState, player: number, units: readonly numbe
     if (e.kind[i] === UnitKind.Worker) {
       // Workers' tools: first come, first served at the main base.
       if (free(Slot.Tool) && bestTools(e, i, stock, false) > 0) o.tool = BEST_TOOL;
+    } else if (e.kind[i] === UnitKind.Mage) {
+      // Mages keep their wands and wear leather at most (Table 1).
+      if (free(Slot.Armour)) take(Slot.Armour, bestFor(state, i, Slot.Armour, mageWears, has(Slot.Armour)));
+      if (free(Slot.Helmet)) take(Slot.Helmet, bestFor(state, i, Slot.Helmet, mageWears, has(Slot.Helmet)));
     } else {
-      if (free(Slot.Weapon)) take(Slot.Weapon, bestFor(state, i, Slot.Weapon, (it) => !!it.melee, has(Slot.Weapon)));
+      if (free(Slot.Weapon)) take(Slot.Weapon, bestFor(state, i, Slot.Weapon, (it) => !!it.melee && !it.wand, has(Slot.Weapon)));
       const primary = o.weapon !== KEEP ? o.weapon : has(Slot.Weapon);
       const polearm = primary ? (itemSpec(primary).melee?.min ?? 0) > 0 : false;
       // A polearm's backup is the best one-handed weapon; a one-handed fighter takes a shield instead.
-      if (polearm && free(Slot.Backup)) take(Slot.Backup, bestFor(state, i, Slot.Weapon, (it) => !!it.melee?.oneHanded, has(Slot.Backup)));
+      if (polearm && free(Slot.Backup)) take(Slot.Backup, bestFor(state, i, Slot.Weapon, (it) => !!it.melee?.oneHanded && !it.wand, has(Slot.Backup)));
       if (!polearm && free(Slot.Shield)) take(Slot.Shield, bestFor(state, i, Slot.Shield, () => true, has(Slot.Shield)));
       if (free(Slot.Ranged)) {
         const current = has(Slot.Ranged);
@@ -390,6 +399,9 @@ export function handPick(state: SimState, i: number, slot: number, item: number)
     return;
   }
   if (item && itemSpec(item).slot !== (slot === Slot.Backup ? Slot.Weapon : slot)) return;
+  // Wands are for mages, who wear nothing heavier than leather and keep the wand they trained with.
+  if (item && itemSpec(item).wand && e.kind[i] !== UnitKind.Mage) return;
+  if (e.kind[i] === UnitKind.Mage && slot !== Slot.Torch && (item ? !mageWears(itemSpec(item)) : slot !== Slot.Boots && slot !== Slot.Armour && slot !== Slot.Helmet)) return;
   if (slot === Slot.Backup && item && !itemSpec(item).melee?.oneHanded) return;
   const pending = e.queue[i]!.find((q) => q.t === 'equip') as EquipOrder | undefined;
   const o = pending ?? emptyEquip(base.id);

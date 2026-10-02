@@ -697,6 +697,15 @@ body.playing * {
 .hud-btn.portrait .hp.low {
   background: #e05a4a;
 }
+.hud-btn.portrait .mana {
+  position: absolute;
+  left: 2px;
+  bottom: 6px;
+  height: 2px;
+  width: 100%;
+  max-width: calc(100% - 4px);
+  background: #8a7aff;
+}
 .hud-btn.queue-item .hp {
   background: var(--accent);
 }

@@ -11,6 +11,8 @@ import {
   Period,
   RESOURCES,
   SiteKind,
+  SPELLS,
+  UnitKind,
   WU_PER_METRE,
   type Order,
   type SimEvent,
@@ -238,6 +240,11 @@ export class GameShell {
     this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionBody, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),
+      mana: (t) => {
+        const u = entityIdOf(t.key);
+        const info = u === null ? null : this.game.unit(u);
+        return info && info.kind === UnitKind.Mage ? [info.mana, info.maxMana] : null;
+      },
       building: (t) => this.buildingOf(t),
       portrait: (t, p) => this.portraitClick(t, p),
       portraitDouble: (t) => this.centreOn([t]),
@@ -727,8 +734,8 @@ export class GameShell {
 
   private selectArmy(): void {
     const army: Selectable[] = [];
-    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && t.typeKey === 'warrior') army.push(t);
-    if (army.length === 0) this.message('You have no warriors yet.');
+    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && (t.typeKey === 'warrior' || t.typeKey.startsWith('mage:'))) army.push(t);
+    if (army.length === 0) this.message('You have no warriors or mages yet.');
     else this.selection.set(army);
   }
 
@@ -1041,7 +1048,7 @@ export class GameShell {
     // Cursor shape.
     const overMinimap = playing && this.input.inWindow && this.overMinimapCanvas(pos);
     const t = this.commands.targeting;
-    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' ? TARGET_RED : TARGET_GREEN });
+    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
     else if (this.commands.area && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_YELLOW });
     else if (this.edgeDir) this.input.cursor.setShape({ kind: 'pan', dx: this.edgeDir.dx, dy: this.edgeDir.dy });
     else this.input.cursor.setShape({ kind: 'arrow' });

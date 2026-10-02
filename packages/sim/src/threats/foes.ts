@@ -12,9 +12,9 @@ import { clockOf, Period } from '../clock.ts';
 import { length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { OrderKind, type SimState } from '../state.ts';
 import { gap } from '../combat/combat.ts';
-import { attackBuilding, engageUnit, mobHooks, playerUnit, walkMob } from '../combat/mob-ai.ts';
-import { Mob, mobSpec, type MobSpec } from '../combat/mobs.ts';
-import { Ability, ABILITIES, canUse, castSnuff, castSparkAtBuilding, castStumble } from './abilities.ts';
+import { attackBuilding, beginSpell, engageUnit, mobHooks, playerUnit, SpellWith, walkMob } from '../combat/mob-ai.ts';
+import { Mob, type MobSpec } from '../combat/mobs.ts';
+import { Ability, ABILITIES, canUse, spend } from './abilities.ts';
 import { LAIR_AGGRO_WU, LAIR_LEASH_WU, TRIBE_SIGHT_WU, VILLAGE_AGGRO_WU, VILLAGE_CHASE_WU, HUT_RING_WU } from './data.ts';
 import { throughFog } from './fog.ts';
 import { Role, type TribeBand, type Village } from './types.ts';
@@ -247,12 +247,17 @@ export function raidFoe(v: Village): number {
   return -1;
 }
 
-/** A goblin mage's spells against a unit: Stumble hex when it is not hexed already. Returns true when it cast. */
+/**
+ * A goblin mage's spells against a unit: Stumble hex when it is not hexed
+ * already. Returns true when it began casting. Spells are cast over 40% of
+ * its attack time, standing (combat/mob-ai.ts beginSpell); the mana goes
+ * when the cast begins, so a Counterspell stops the hex but not the cost.
+ */
 function magic(state: SimState, i: number, t: number): boolean {
   const e = state.entities;
   if (e.hexUntil[t]! > state.step || !canUse(state, i, Ability.StumbleHex) || gap(state, i, t) > ABILITIES[Ability.StumbleHex]!.range) return false;
-  castStumble(state, i, t);
-  stand(state, i, mobSpec(e.mob[i]!).attackSteps);
+  spend(state, i, Ability.StumbleHex);
+  beginSpell(state, i, e.id[t]!, SpellWith.Hex);
   return true;
 }
 
@@ -260,25 +265,18 @@ function snuffNear(state: SimState, i: number, b: Building): boolean {
   const e = state.entities;
   const [x, z] = buildingCentre(b);
   if (!canUse(state, i, Ability.Snuff) || length2d(x - e.x[i]!, z - e.z[i]!) > ABILITIES[Ability.Snuff]!.range) return false;
-  castSnuff(state, i, b);
-  stand(state, i, STEPS_PER_SECOND);
+  spend(state, i, Ability.Snuff);
+  beginSpell(state, i, b.id, SpellWith.Snuff);
   return true;
 }
 
+/** Spark toss at a building: it pays when the spark flies (castSparkAtBuilding), as at a unit. */
 function sparkNear(state: SimState, i: number, b: Building): boolean {
   const e = state.entities;
   const [x, z] = buildingCentre(b);
   if (!canUse(state, i, Ability.SparkToss) || length2d(x - e.x[i]!, z - e.z[i]!) > ABILITIES[Ability.SparkToss]!.range) return false;
-  castSparkAtBuilding(state, i, b);
-  stand(state, i, mobSpec(e.mob[i]!).attackSteps);
+  beginSpell(state, i, b.id, SpellWith.Spark);
   return true;
-}
-
-/** Casting takes the caster's attack time, standing. */
-function stand(state: SimState, i: number, steps: number): void {
-  const e = state.entities;
-  e.atkNext[i] = state.step + steps;
-  e.order[i] = OrderKind.Shoot;
 }
 
 function runFoe(state: SimState, i: number, spec: MobSpec): void {

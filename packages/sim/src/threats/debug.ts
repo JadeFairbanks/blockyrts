@@ -1,9 +1,17 @@
 // The debug tools' threats (M5's tester checks): a lair of any kind, a
 // goblin village, a tribe's band or a territorial creature at a point, a
-// blood night for the coming night, and fog now.
+// blood night for the coming night, and fog now. Also M6's mage tools: a
+// finished Magi Sanctum, a kit of wands and crystals, and experience for
+// every mage's next rank.
 
 import { clockOf, Period } from '../clock.ts';
-import { WILD, type SimState } from '../state.ts';
+import { floorDiv, WU_PER_COLUMN } from '../fixed.ts';
+import { placeBuilding, UnitKind, WILD, type SimState } from '../state.ts';
+import { BuildingKind, footprintDims } from '../buildings/data.ts';
+import { Res } from '../economy/resources.ts';
+import { Item } from '../combat/items.ts';
+import { MAGE_XP_TENTHS, mageGainXp } from '../magic/mages.ts';
+import { MAGE_TOP_RANK } from '../magic/spells.ts';
 import { addAnimal } from '../animals/animals.ts';
 import { Species } from '../animals/species.ts';
 import { Mob } from '../combat/mobs.ts';
@@ -25,6 +33,12 @@ export const DebugThreat = {
   Fog: 21,
   /** Territorial creatures from 30: beetle, hornet nest, viper, scorpion, griffin, minotaur. */
   Creature: 30,
+  /** A finished Magi Sanctum centred on the spot. */
+  Sanctum: 40,
+  /** 2 wands and 2 of each rank wand in the stock; 10 mana crystals, 200 bread, and the hexstone and herbs for Hexcraft in the pool. */
+  MageKit: 41,
+  /** Every one of the player's mages gets the experience for her next rank (and rises to it by herself up to Adept Acolyte). */
+  MageXp: 42,
 } as const;
 
 const CREATURES = [Species.GiantBeetle, Species.GiantHornet, Species.Viper, Species.GiantScorpion, Species.Griffin, Species.Minotaur] as const;
@@ -57,6 +71,32 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
   }
   if (what === DebugThreat.Fog) {
     startFog(state, comingNight(state));
+    return;
+  }
+  if (what === DebugThreat.Sanctum) {
+    const d = footprintDims(BuildingKind.MagiSanctum, 0);
+    placeBuilding(state, player, BuildingKind.MagiSanctum, 0, floorDiv(x, WU_PER_COLUMN) - (d.w >> 1), floorDiv(z, WU_PER_COLUMN) - (d.d >> 1), true);
+    return;
+  }
+  const p = state.players[player];
+  if (what === DebugThreat.MageKit && p) {
+    p.items[Item.Wand] = p.items[Item.Wand]! + 2;
+    for (const w of [Item.WandMage, Item.WandMasterMage, Item.WandGrandMagician]) p.items[w] = p.items[w]! + 2;
+    p.pool[Res.ManaCrystal] = p.pool[Res.ManaCrystal]! + 10;
+    p.pool[Res.Bread] = p.pool[Res.Bread]! + 200;
+    // What Hexcraft costs at the Sanctum.
+    p.pool[Res.Hexstone] = p.pool[Res.Hexstone]! + 6;
+    p.pool[Res.Herbs] = p.pool[Res.Herbs]! + 20;
+    return;
+  }
+  if (what === DebugThreat.MageXp) {
+    const e = state.entities;
+    for (let i = 0; i < e.count; i++) {
+      if (e.owner[i] !== player || e.kind[i] !== UnitKind.Mage || e.rank[i]! >= MAGE_TOP_RANK) continue;
+      // As if earned in combat: she rises by herself to Adept Acolyte, and is told about her rank wand above that.
+      const need = MAGE_XP_TENTHS[e.rank[i]! + 1]! - e.xp[i]!;
+      if (need > 0) mageGainXp(state, i, need);
+    }
     return;
   }
   const k = what - DebugThreat.Creature;
