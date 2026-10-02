@@ -434,6 +434,25 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | grave_marker | models/world-props/grave_marker/grave_marker.bbmodel | 10 | 64x64 |  |
 | bone_pile | models/world-props/bone_pile/bone_pile.bbmodel | 29 | 32x64 |  |
 
+## projectiles-and-spells
+
+| id | path | cube count | texture size | deviation and reason |
+|---|---|---|---|---|
+| arrow_flight | models/projectiles-and-spells/arrow_flight/arrow_flight.bbmodel | 6 | 32x32 | the H flying `arrow`: named `arrow_flight` because `arrow` is the D2 hand model (models/items/arrow); same geometry and texture with the origin moved to the centre, so the `arrow_<tier>.png` tip textures in models/items/arrow/ apply; embedded texture renamed from arrow.png to arrow_flight.png so the PNG matches the file |
+| arrow_poison_flight | models/projectiles-and-spells/arrow_poison_flight/arrow_poison_flight.bbmodel | 7 | 32x32 | the H flying `arrow_poison`: named `arrow_poison_flight` because `arrow_poison` is the D2 hand model (models/items/arrow_poison); same geometry and texture with the origin moved to the centre, so the `arrow_poison_<tier>.png` tip textures in models/items/arrow_poison/ apply; embedded texture renamed from arrow_poison.png to arrow_poison_flight.png so the PNG matches the file |
+| bolt_flight | models/projectiles-and-spells/bolt_flight/bolt_flight.bbmodel | 5 | 32x16 | the H flying `bolt`: named `bolt_flight` because `bolt` is the D2 hand model (models/items/bolt); same geometry and texture with the origin moved to the centre, so the `bolt_<tier>.png` tip textures in models/items/bolt/ apply; embedded texture renamed from bolt.png to bolt_flight.png so the PNG matches the file |
+| bolt_poison_flight | models/projectiles-and-spells/bolt_poison_flight/bolt_poison_flight.bbmodel | 6 | 32x16 | the H flying `bolt_poison`: named `bolt_poison_flight` because `bolt_poison` is the D2 hand model (models/items/bolt_poison); same geometry and texture with the origin moved to the centre, so the `bolt_poison_<tier>.png` tip textures in models/items/bolt_poison/ apply; embedded texture renamed from bolt_poison.png to bolt_poison_flight.png so the PNG matches the file |
+| arrow_fire | models/projectiles-and-spells/arrow_fire/arrow_fire.bbmodel | 11 | 32x64 |  |
+| ballista_bolt | models/projectiles-and-spells/ballista_bolt/ballista_bolt.bbmodel | 10 | 64x64 | completes `ballista` (models/mechanical/ballista): it sits on the ballista's `slot_bolt` |
+| sling_stone | models/projectiles-and-spells/sling_stone/sling_stone.bbmodel | 3 | 16x16 |  |
+| musket_ball | models/projectiles-and-spells/musket_ball/musket_ball.bbmodel | 3 | 16x16 |  |
+| cannonball_stone | models/projectiles-and-spells/cannonball_stone/cannonball_stone.bbmodel | 4 | 16x16 |  |
+| cannonball_iron | models/projectiles-and-spells/cannonball_iron/cannonball_iron.bbmodel | 3 | 16x16 |  |
+| catapult_stone | models/projectiles-and-spells/catapult_stone/catapult_stone.bbmodel | 6 | 32x32 |  |
+| bone_boulder | models/projectiles-and-spells/bone_boulder/bone_boulder.bbmodel | 26 | 32x64 | 26 cubes (small-item cap 11): a lump of fused bones and skulls needs many small pieces; it is a thrown projectile, not a carried item |
+| chain_hook | models/projectiles-and-spells/chain_hook/chain_hook.bbmodel | 13 | 16x32 | 13 cubes (small-item cap 11): barbed hook plus a short run of chain; `chain_link` (the single link the game repeats) is a separate file in this folder |
+| chain_link | models/projectiles-and-spells/chain_hook/chain_link.bbmodel | 4 | 16x16 | extra file in chain_hook/: the single chain link the game draws in a line behind the hook |
+
 ## textures
 
 Terrain textures (wishlist section I), one PNG per file id. Top tiles may be rotated and mixed freely unless a row says otherwise.
