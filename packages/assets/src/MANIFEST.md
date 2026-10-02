@@ -93,3 +93,24 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | sand_sack | models/items/sand_sack/sand_sack.bbmodel | 7 | 32x32 |  |
 | gravel_sack | models/items/gravel_sack/gravel_sack.bbmodel | 7 | 32x32 |  |
 | earth_sack | models/items/earth_sack/earth_sack.bbmodel | 7 | 32x32 |  |
+| ore_copper | models/items/ore_copper/ore_copper.bbmodel | 3 | 32x32 |  |
+| ore_tin | models/items/ore_tin/ore_tin.bbmodel | 3 | 32x32 |  |
+| ore_bog_iron | models/items/ore_bog_iron/ore_bog_iron.bbmodel | 3 | 32x32 |  |
+| ore_iron_rock | models/items/ore_iron_rock/ore_iron_rock.bbmodel | 3 | 32x32 |  |
+| ore_vein_iron | models/items/ore_vein_iron/ore_vein_iron.bbmodel | 3 | 32x32 |  |
+| ore_lead | models/items/ore_lead/ore_lead.bbmodel | 3 | 32x32 |  |
+| ore_silver | models/items/ore_silver/ore_silver.bbmodel | 3 | 32x32 |  |
+| gold_nugget | models/items/gold_nugget/gold_nugget.bbmodel | 2 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| gem_emerald | models/items/gem_emerald/gem_emerald.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| gem_ruby | models/items/gem_ruby/gem_ruby.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| gem_diamond | models/items/gem_diamond/gem_diamond.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| mana_crystal | models/items/mana_crystal/mana_crystal.bbmodel | 4 | 32x32 | texture padded from 32x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| sulphur_lump | models/items/sulphur_lump/sulphur_lump.bbmodel | 3 | 32x32 |  |
+| saltpetre_lump | models/items/saltpetre_lump/saltpetre_lump.bbmodel | 3 | 32x32 |  |
+| ingot_copper | models/items/ingot_copper/ingot_copper.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| ingot_tin | models/items/ingot_tin/ingot_tin.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| ingot_bronze | models/items/ingot_bronze/ingot_bronze.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| ingot_pig_iron | models/items/ingot_pig_iron/ingot_pig_iron.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| ingot_iron | models/items/ingot_iron/ingot_iron.bbmodel | 12 | 64x64 + 3 variants (iron_bloom, iron_refined, iron_wrought) | textures are the iron grades (bloom, wrought, refined); 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| ingot_steel | models/items/ingot_steel/ingot_steel.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| ingot_hq_steel | models/items/ingot_hq_steel/ingot_hq_steel.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
