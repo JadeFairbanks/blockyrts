@@ -65,7 +65,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | skeleton_archer | models/monsters/skeleton_archer/skeleton_archer.bbmodel | 34 | 128x64 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (quiver in `slot_quiver`, recurve_bow in `slot_hand_l`) |
 | bloated_corpse | models/monsters/bloated_corpse/bloated_corpse.bbmodel | 23 | 256x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); `death` is a copy of `burst` (swells, bursts, leaves a deflated heap) |
 | skeleton_bomber | models/monsters/skeleton_bomber/skeleton_bomber.bbmodel | 29 | 128x64 | `burn` clip added (all the walking dead are taken to burn in sunlight); the loose keg after `drop_bomb` is the separate `bomb_keg` model |
-| bomb_keg | models/monsters/bomb_keg/bomb_keg.bbmodel | 4 | 128x64 |  |
+| bomb_keg | models/monsters/bomb_keg/bomb_keg.bbmodel | 4 | 128x64 | a dropped prop, not a creature: under the 15-cube creature floor and no walk, run, injured or death clips |
 | grave_hound | models/monsters/grave_hound/grave_hound.bbmodel | 28 | 128x64 | `burn` clip added (all the walking dead are taken to burn in sunlight) |
 | barrow_knight | models/monsters/barrow_knight/barrow_knight.bbmodel | 35 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (longsword in `slot_hand_r`, kite_shield in `slot_shield_l`) |
 | plague_bearer | models/monsters/plague_bearer/plague_bearer.bbmodel | 31 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (chain_1 in `slot_hand_r`) |
@@ -75,14 +75,14 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cinderling | models/monsters/cinderling/cinderling.bbmodel | 32 | 128x64 | "0.9 m" read as body length (nose to rump 33 u), 15 u at the shoulder, plus a 1.1 m tail |
 | hellhound | models/monsters/hellhound/hellhound.bbmodel | 39 | 128x128 |  |
 | fiend | models/monsters/fiend/fiend.bbmodel | 39 | 128x128 | held gear modelled as part of the monster, as a group inside its slot (cleaver in `slot_hand_r`) |
-| scorchwing | models/monsters/scorchwing/scorchwing.bbmodel | 42 | 128x128 |  |
+| scorchwing | models/monsters/scorchwing/scorchwing.bbmodel | 42 | 128x128 | no `run`: a flyer, `fly` is its fast move and `walk` its ground move |
 | demon_brute | models/monsters/demon_brute/demon_brute.bbmodel | 48 | 256x256 |  |
 | flamecaller | models/monsters/flamecaller/flamecaller.bbmodel | 41 | 128x128 | held gear modelled as part of the monster, as a group inside its slot (iron_staff in `slot_hand_r`) |
 | chain_fiend | models/monsters/chain_fiend/chain_fiend.bbmodel | 40 | 128x128 | scale keyframes (to 0 and back, linear) show/hide `held_hook`; held gear modelled as part of the monster, as a group inside its slot (held_hook in `slot_hand_r`); `throw_hook` / `pull` use the separate `chain_hook` model (models/projectiles-and-spells/chain_hook) |
 | infernal_juggernaut | models/monsters/infernal_juggernaut/infernal_juggernaut.bbmodel | 41 | 256x512 |  |
 | void_stalker | models/monsters/void_stalker/void_stalker.bbmodel | 31 | 128x128 | scale keyframes (to 0 and back, linear) show/hide `hood`; its only eye light is the single violet slit (`glow_slit`), as briefed (eyeless head) |
 | void_witch | models/monsters/void_witch/void_witch.bbmodel | 30 | 128x128 | scale keyframes (to 0 and back, linear) show/hide `root`; floats instead of walking: `float` replaces walk and run (smoke instead of legs) |
-| abyssal_drake | models/monsters/abyssal_drake/abyssal_drake.bbmodel | 53 | 256x256 |  |
+| abyssal_drake | models/monsters/abyssal_drake/abyssal_drake.bbmodel | 53 | 256x256 | no `run`: a flyer, `fly` is its fast move and `walk` its ground move |
 | archfiend | models/monsters/archfiend/archfiend.bbmodel | 49 | 256x256 | held gear modelled as part of the monster, as a group inside its slot (greatsword in `slot_hand_r`) |
 | rift_colossus | models/monsters/rift_colossus/rift_colossus.bbmodel | 36 | 512x1024 | no `run`: `walk` is its only move clip |
 | morvath | models/monsters/morvath/morvath.bbmodel | 59 | 256x512 | scale keyframes (to 0 and back, linear) show/hide `wing_l`, `wing_r`; held gear modelled as part of the monster, as a group inside its slot (bone_staff in `slot_hand_r`); no `run`: he walks, and `fly` is his second form |
@@ -96,21 +96,21 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | ash_golem | models/monsters/ash_golem/ash_golem.bbmodel | 36 | 512x512 + 1 variants (cold) |  |
 | mana_wraith | models/monsters/mana_wraith/mana_wraith.bbmodel | 28 | 128x128 + 1 variants (pale) | scale keyframes (to 0 and back, linear) show/hide `root`; floats instead of walking: `float` replaces walk and run; needs alpha cutout (the body fades out through alpha-0 texture pixels) |
 | lair_barrow | models/monsters/lair_barrow/lair_barrow.bbmodel | 19 | 512x512 | static lair; its destroyed version is the separate file `lair_barrow_destroyed.bbmodel` in this folder |
-| lair_barrow_destroyed | models/monsters/lair_barrow/lair_barrow_destroyed.bbmodel | 19 | 256x512 | the destroyed version of `lair_barrow`: a separate file in the lair_barrow/ folder |
+| lair_barrow_destroyed | models/monsters/lair_barrow/lair_barrow_destroyed.bbmodel | 19 | 256x512 | the destroyed version of `lair_barrow`: a separate file in the lair_barrow/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_great_barrow | models/monsters/lair_great_barrow/lair_great_barrow.bbmodel | 31 | 512x1024 | static lair; its destroyed version is the separate file `lair_great_barrow_destroyed.bbmodel` in this folder |
-| lair_great_barrow_destroyed | models/monsters/lair_great_barrow/lair_great_barrow_destroyed.bbmodel | 20 | 512x512 | the destroyed version of `lair_great_barrow`: a separate file in the lair_great_barrow/ folder |
+| lair_great_barrow_destroyed | models/monsters/lair_great_barrow/lair_great_barrow_destroyed.bbmodel | 20 | 512x512 | the destroyed version of `lair_great_barrow`: a separate file in the lair_great_barrow/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_mass_grave | models/monsters/lair_mass_grave/lair_mass_grave.bbmodel | 35 | 256x256 | static lair; its destroyed version is the separate file `lair_mass_grave_destroyed.bbmodel` in this folder |
-| lair_mass_grave_destroyed | models/monsters/lair_mass_grave/lair_mass_grave_destroyed.bbmodel | 10 | 256x256 | the destroyed version of `lair_mass_grave`: a separate file in the lair_mass_grave/ folder |
+| lair_mass_grave_destroyed | models/monsters/lair_mass_grave/lair_mass_grave_destroyed.bbmodel | 10 | 256x256 | the destroyed version of `lair_mass_grave`: a separate file in the lair_mass_grave/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_cave | models/monsters/lair_cave/lair_cave.bbmodel | 29 | 512x1024 | static lair; its destroyed version is the separate file `lair_cave_destroyed.bbmodel` in this folder |
-| lair_cave_destroyed | models/monsters/lair_cave/lair_cave_destroyed.bbmodel | 20 | 512x1024 | the destroyed version of `lair_cave`: a separate file in the lair_cave/ folder |
+| lair_cave_destroyed | models/monsters/lair_cave/lair_cave_destroyed.bbmodel | 20 | 512x1024 | the destroyed version of `lair_cave`: a separate file in the lair_cave/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_nest | models/monsters/lair_nest/lair_nest.bbmodel | 55 | 512x512 | static lair; its destroyed version is the separate file `lair_nest_destroyed.bbmodel` in this folder; needs alpha cutout (the web sheets are white strands on alpha-0 pixels) |
-| lair_nest_destroyed | models/monsters/lair_nest/lair_nest_destroyed.bbmodel | 18 | 256x512 | the destroyed version of `lair_nest`: a separate file in the lair_nest/ folder |
+| lair_nest_destroyed | models/monsters/lair_nest/lair_nest_destroyed.bbmodel | 18 | 256x512 | the destroyed version of `lair_nest`: a separate file in the lair_nest/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_goblin_camp | models/monsters/lair_goblin_camp/lair_goblin_camp.bbmodel | 46 | 256x512 | static lair; its destroyed version is the separate file `lair_goblin_camp_destroyed.bbmodel` in this folder |
-| lair_goblin_camp_destroyed | models/monsters/lair_goblin_camp/lair_goblin_camp_destroyed.bbmodel | 16 | 256x512 | the destroyed version of `lair_goblin_camp`: a separate file in the lair_goblin_camp/ folder |
+| lair_goblin_camp_destroyed | models/monsters/lair_goblin_camp/lair_goblin_camp_destroyed.bbmodel | 16 | 256x512 | the destroyed version of `lair_goblin_camp`: a separate file in the lair_goblin_camp/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_rift_scar | models/monsters/lair_rift_scar/lair_rift_scar.bbmodel | 38 | 256x512 | static lair; its destroyed version is the separate file `lair_rift_scar_destroyed.bbmodel` in this folder |
-| lair_rift_scar_destroyed | models/monsters/lair_rift_scar/lair_rift_scar_destroyed.bbmodel | 38 | 256x512 | the destroyed version of `lair_rift_scar`: a separate file in the lair_rift_scar/ folder |
+| lair_rift_scar_destroyed | models/monsters/lair_rift_scar/lair_rift_scar_destroyed.bbmodel | 38 | 256x512 | the destroyed version of `lair_rift_scar`: a separate file in the lair_rift_scar/ folder; static: no clips, and may fall under the 15-cube creature floor |
 | lair_void_rift | models/monsters/lair_void_rift/lair_void_rift.bbmodel | 54 | 256x512 | lair with a slow `pulse` loop; its destroyed version is the separate file `lair_void_rift_destroyed.bbmodel` in this folder |
-| lair_void_rift_destroyed | models/monsters/lair_void_rift/lair_void_rift_destroyed.bbmodel | 9 | 256x256 | the destroyed version of `lair_void_rift`: a separate file in the lair_void_rift/ folder |
+| lair_void_rift_destroyed | models/monsters/lair_void_rift/lair_void_rift_destroyed.bbmodel | 9 | 256x256 | the destroyed version of `lair_void_rift`: a separate file in the lair_void_rift/ folder; static: no clips, and may fall under the 15-cube creature floor |
 
 ## items
 
