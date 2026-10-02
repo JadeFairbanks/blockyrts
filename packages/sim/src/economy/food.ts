@@ -77,7 +77,7 @@ function feed(state: SimState, player: number, perCycle: number): boolean {
     p.fed -= need;
     return true;
   }
-  const whole = Math.ceil((need - p.fed) / 4);
+  const whole = floorDiv(need - p.fed + 3, 4);
   const taken = payNutrition(p.pool, whole, p.dontEat);
   if (!taken) return need === 0;
   let got = 0;
@@ -120,7 +120,7 @@ function health(state: SimState): void {
   for (let i = 0; i < e.count; i++) {
     if (e.hp[i]! <= 0) continue;
     if (e.dotUntil[i]! > state.step && e.dotLeft[i]! > 0) {
-      const d = Math.max(1, Math.ceil(e.dotLeft[i]! / (e.dotUntil[i]! - state.step)));
+      const d = Math.max(1, ceilDiv(e.dotLeft[i]!, e.dotUntil[i]! - state.step));
       e.dotLeft[i] = e.dotLeft[i]! - d;
       e.hp[i] = e.hp[i]! - d;
       if (e.hp[i]! <= 0) {
@@ -130,7 +130,7 @@ function health(state: SimState): void {
       }
     }
     if (e.mendUntil[i]! > state.step && e.mendLeft[i]! > 0) {
-      const h = Math.max(1, Math.ceil(e.mendLeft[i]! / (e.mendUntil[i]! - state.step)));
+      const h = Math.max(1, ceilDiv(e.mendLeft[i]!, e.mendUntil[i]! - state.step));
       e.mendLeft[i] = e.mendLeft[i]! - h;
       e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + h);
     }
@@ -147,6 +147,11 @@ function health(state: SimState): void {
       }
     }
   }
+}
+
+/** a / b rounded up, for positive b. */
+function ceilDiv(a: number, b: number): number {
+  return floorDiv(a + b - 1, b);
 }
 
 export function updateFood(state: SimState): void {
