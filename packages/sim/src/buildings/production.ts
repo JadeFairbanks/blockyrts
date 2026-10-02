@@ -118,7 +118,7 @@ export function productsOf(b: Building): Product[] {
   if (b.kind === BuildingKind.MainBase) out.push(Product.Worker, Product.Warrior);
   else if (b.kind === BuildingKind.Barracks) out.push(Product.Warrior);
   else if (b.kind === BuildingKind.ScholarsLodge) {
-    for (const r of RESEARCH) if (r.id !== Research.None) out.push(RESEARCH_PRODUCT + r.id);
+    for (const r of RESEARCH) if (r.id !== Research.None && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
   } else if (buildingSpec(b.kind).trainsWorkers) out.push(Product.Worker);
   if (b.kind === BuildingKind.LumberMill) out.push(Product.PlanksSoftwood, Product.PlanksHardwood);
   if (b.kind === BuildingKind.LivestockFarm) for (const s of SLAUGHTERED) out.push(SLAUGHTER_PRODUCT + s);
@@ -143,6 +143,7 @@ export function bestLevel(state: SimState, player: number, kind: number): number
 /** Why a research step cannot start yet, or ''. */
 export function researchProblem(state: SimState, player: number, r: ResearchSpec): string {
   const p = state.players[player]!;
+  if (r.retired) return 'No longer needs research.';
   if (r.later) return r.later;
   if (hasResearch(p.research, r.id)) return 'Already researched.';
   if (researchQueued(state, player, r.id)) return 'Being researched.';

@@ -5,7 +5,7 @@
 // clips, arrows, stones and webs in flight, and the little bursts of blood,
 // bone, slime, splinters and dust when something is hit.
 import * as THREE from 'three';
-import { Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, Tool, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -124,7 +124,8 @@ class BodyPool {
 
 /** Items hanging from slot bones: the item's own model with full matrices, or a small block. */
 class AttachPool {
-  private readonly meshes = new Map<string, { mesh: THREE.InstancedMesh; n: number }>();
+  private readonly meshes = new Map<string, { mesh: THREE.InstancedMesh; n: number; standIn: boolean }>();
+  private readonly asked = new Set<string>();
   private readonly fallbackGeo = new THREE.BoxGeometry(0.08, 0.5, 0.08).translate(0, -0.1, 0);
 
   constructor(
@@ -138,15 +139,27 @@ class AttachPool {
 
   add(id: string, m: THREE.Matrix4): void {
     let e = this.meshes.get(id);
+    // A stand-in block gives way to the item's model once it has loaded.
+    if (e?.standIn && this.lib?.models.has(id)) {
+      this.scene.remove(e.mesh);
+      (e.mesh.material as THREE.Material).dispose();
+      e.mesh.dispose();
+      this.meshes.delete(id);
+      e = undefined;
+    }
     if (!e) {
       const model = this.lib?.models.get(id);
+      if (!model && this.lib && !this.asked.has(id)) {
+        this.asked.add(id);
+        this.lib.request(id);
+      }
       const mesh = model
         ? new THREE.InstancedMesh(model.geometry, new THREE.MeshLambertMaterial({ map: model.texture, alphaTest: 0.5 }), MAX_ATTACH)
         : new THREE.InstancedMesh(this.fallbackGeo, new THREE.MeshLambertMaterial({ color: id.includes('torch') ? 0xffa040 : id.includes('shield') ? 0x9a7a4a : 0x6a5a48 }), MAX_ATTACH);
       mesh.frustumCulled = false;
       mesh.count = 0;
       this.scene.add(mesh);
-      e = { mesh, n: 0 };
+      e = { mesh, n: 0, standIn: !model };
       this.meshes.set(id, e);
     }
     if (e.n >= MAX_ATTACH) return;
@@ -252,6 +265,7 @@ export interface UnitsFrame {
 export class UnitsView {
   private lib: ModelLibrary | null = null;
   private readonly bodies = new Map<string, BodyPool>();
+  private readonly asked = new Set<string>();
   private readonly attach: AttachPool;
   private readonly particles: Particles;
   private readonly blocks: THREE.InstancedMesh;
@@ -290,7 +304,14 @@ export class UnitsView {
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
-    if (!model) return null;
+    if (!model) {
+      // Came into view before its model loaded: load it next, and draw a block until then.
+      if (this.lib && !this.asked.has(id)) {
+        this.asked.add(id);
+        this.lib.request(id);
+      }
+      return null;
+    }
     b = new BodyPool(this.scene, model);
     this.bodies.set(id, b);
     return b;
@@ -332,7 +353,8 @@ export class UnitsView {
       const id = d[o + S.id]!;
       const p = prev && alpha < 1 && prev.data[o + S.id] === id ? prev.data : d;
       const x = (p[o + S.x]! + (d[o + S.x]! - p[o + S.x]!) * alpha) / WU_PER_METRE;
-      const y = (p[o + S.y]! + (d[o + S.y]! - p[o + S.y]!) * alpha) / WU_PER_METRE;
+      const hop = hopAt(d, o, alpha);
+      const y = hop ? hop.y : (p[o + S.y]! + (d[o + S.y]! - p[o + S.y]!) * alpha) / WU_PER_METRE;
       const z = (p[o + S.z]! + (d[o + S.z]! - p[o + S.z]!) * alpha) / WU_PER_METRE;
       const heading = (d[o + S.heading]! / 65536) * Math.PI * 2;
       const owner = d[o + S.owner]!;
@@ -400,7 +422,7 @@ export class UnitsView {
       if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
-          slot.m.setInstance(slot.i, x, y, z, heading, look.clip, clipT, colour);
+          slot.m.setInstance(slot.i, x, y, z, heading, hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip, clipT, colour);
           for (const [item, bone] of look.attach) {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
@@ -553,6 +575,32 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   return 'idle';
 }
 
+/** How high a hop arcs above the straight line from one level to the other, metres (s). */
+const HOP_ARC_M = 0.22;
+
+/**
+ * A hop up or down a rise under way (Moving over the land): the unit's
+ * height on an arc from the level it left to the one it lands on, and
+ * whether it goes up. Null when it is not hopping.
+ */
+export function hopAt(d: Int32Array, o: number, alpha: number): { y: number; up: boolean } | null {
+  const left = d[o + S.hop]!;
+  if (left <= 0) return null;
+  const t = Math.min(1, Math.max(0, (HOP_STEPS - left + alpha) / HOP_STEPS));
+  const rise = d[o + S.hopRise]! / WU_PER_METRE;
+  return { y: d[o + S.y]! / WU_PER_METRE - rise * (1 - t) + HOP_ARC_M * 4 * t * (1 - t), up: rise > 0 };
+}
+
+/** The pose of a hop: the body's climb clip going up (or a jump clip, if it has one), else what it was doing. */
+function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean): string {
+  if (clips.has('jump')) return 'jump';
+  if (up && clips.has('climb')) return 'climb';
+  return clip;
+}
+
+/** Tools with a model of their own, attached to the right hand. */
+const TOOL_MODELS: Record<number, string> = { [Item.MaulStone]: 'maul_stone', [Item.HammerStone]: 'hammer_stone', [Item.ToolsFlint]: 'axe_flint' };
+
 /** A worker's tool in hand while it works, a torch in the other, its clip. */
 function workerLook(d: Int32Array, o: number): Look {
   const order = d[o + S.order]!;
@@ -560,13 +608,13 @@ function workerLook(d: Int32Array, o: number): Look {
   const parts: string[] = [];
   const attach: Array<[string, string]> = [];
   const working = order === OrderKind.Chop || order === OrderKind.Mine || order === OrderKind.Attack || order === OrderKind.Shoot;
-  const tool = d[o + S.tool]!;
-  if (order === OrderKind.Farm || order === OrderKind.Dig) parts.push('hoe');
-  else if (working) {
-    if (tool === Tool.Hardwood) parts.push('hardwood_axe');
-    else if (tool === Tool.Flint) attach.push(['axe_flint', 'slot_hand_r']);
-    else if (tool > Tool.Flint) parts.push('hardwood_axe');
-  }
+  // The tool for the job in hand (Table 2c): the stone maul and hammer and the flint axe have their own models; the
+  // hardwood set and the metal sets show the body's hoe for digging and farming and its hardwood axe otherwise.
+  const tool = d[o + S.toolHand]!;
+  const own = TOOL_MODELS[tool];
+  if (own && (working || order === OrderKind.Dig)) attach.push([own, 'slot_hand_r']);
+  else if (order === OrderKind.Farm || order === OrderKind.Dig) parts.push('hoe');
+  else if (working && tool) parts.push('hardwood_axe');
   if (d[o + S.torch] === 1) attach.push(['torch_hand', 'slot_hand_l']);
   let clip = WORKER_CLIPS[order] ?? (order !== OrderKind.Idle ? 'walk' : 'idle');
   if (flags & UnitFlag.Hurt && d[o + S.swing] === 0) clip = 'injured';

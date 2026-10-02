@@ -41,7 +41,7 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
 export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
-  'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/unit-orders.ts:KEEP', 'units/gear.ts:BEST_TOOL', 'units/gear.ts:GEAR_CHECK_STEPS',
+  'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/unit-orders.ts:KEEP', 'units/gear.ts:BEST_TOOL', 'units/gear.ts:GEAR_CHECK_STEPS', 'units/tools.ts:TOOL_FIELDS',
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'combat/fight.ts:SKILL_ARCHERY', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'combat/items.ts:ITEM_COUNT', 'combat/items.ts:SLOT_COUNT', 'combat/items.ts:SLOT_NAMES', 'economy/resources.ts:RESOURCE_COUNT',
   'economy/resources.ts:TRINKET_BASE', 'economy/resources.ts:FOODS', 'economy/resources.ts:TRINKET_METALS', 'economy/resources.ts:TRINKET_TIERS',

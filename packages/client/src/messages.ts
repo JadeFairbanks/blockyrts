@@ -12,11 +12,12 @@ export type ToWorker =
 
 /**
  * Per-entity record in a state message (all int32): id, owner, kind, x, y, z,
- * heading, order, hp, maxHp, rank, tool, carryRes, carryAmt, inside, act,
+ * heading, order, hp, maxHp, rank, chopping tool, carryRes, carryAmt, inside, act,
  * then what it fights with (mob kind, the items in each slot, a lit torch,
- * the swing under way), its state flags, lock, skills, shots left and target.
+ * the swing under way), its state flags, lock, skills, shots left and target,
+ * a hop under way, and a worker's other tools by job and the one in its hand.
  */
-export const STATE_STRIDE = 35;
+export const STATE_STRIDE = 41;
 export const S = {
   id: 0,
   owner: 1,
@@ -29,7 +30,8 @@ export const S = {
   hp: 8,
   maxHp: 9,
   rank: 10,
-  tool: 11,
+  /** A worker's tool item for each job (ToolJob: chop, break, build, cut), or 0. */
+  toolChop: 11,
   carryRes: 12,
   carryAmt: 13,
   inside: 14,
@@ -56,6 +58,14 @@ export const S = {
   partner: 33,
   /** The arrows or bolts loaded (Item), or 0. */
   ammoItem: 34,
+  /** Steps left of a hop up or down a rise (Moving over the land), or 0, and the rise it makes, wu. */
+  hop: 35,
+  hopRise: 36,
+  toolBreak: 37,
+  toolBuild: 38,
+  toolCut: 39,
+  /** The tool item a worker has in hand for what it is doing now, or 0. */
+  toolHand: 40,
 } as const;
 
 /** Bits of S.flags. */

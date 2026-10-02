@@ -8,6 +8,7 @@ import {
   clockAt,
   COLUMNS_PER_CHUNK,
   ITEMS,
+  itemSpec,
   Lock,
   MONSTERS,
   mobSpec,
@@ -18,7 +19,10 @@ import {
   RESOURCES,
   unitOrderText,
   propInfo,
+  propJob,
   PropShape,
+  Tool,
+  toolNeeded,
   SIGHT_WU,
   UnitKind,
   WORLD_EDGE_WU,
@@ -33,7 +37,7 @@ import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
 import { S, STATE_STRIDE, UnitFlag } from '../messages.ts';
-import { loadModelLibrary, type ModelLibrary } from '../models/index.ts';
+import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
@@ -65,7 +69,6 @@ export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0,
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
 const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
-const TOOL_NAMES = ['no', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal'];
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
@@ -203,7 +206,6 @@ export class WorldView {
     this.unitsView = new UnitsView(scene);
     this.buildings = new BuildingsView(scene, this.fow, PLAYER_COLOURS);
     this.overlay = new Overlay(scene);
-    void this.loadModels();
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -220,15 +222,11 @@ export class WorldView {
     };
   }
 
-  private async loadModels(): Promise<void> {
-    try {
-      const lib = await loadModelLibrary(`${import.meta.env.BASE_URL}models/`);
-      this.models = lib;
-      this.unitsView.setModels(lib);
-      this.buildings.setModels(lib);
-    } catch (err) {
-      console.warn('unit models not loaded; drawing blocks', err);
-    }
+  /** The model library (opened by main.ts before the match starts); models swap in as they load. */
+  setModels(lib: ModelLibrary): void {
+    this.models = lib;
+    this.unitsView.setModels(lib);
+    this.buildings.setModels(lib);
   }
 
   // ---- From the sim worker ----
@@ -266,7 +264,8 @@ export class WorldView {
       if (kind === UnitKind.Worker) {
         const rank = d[o + S.rank]!;
         u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
-        const details = [health, `${capital(TOOL_NAMES[d[o + S.tool]!] ?? '')} tools.`];
+        const tools = [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!].filter((t, k, all) => t !== 0 && all.indexOf(t) === k);
+        const details = [health, tools.length ? `${capital(tools.map((t) => itemSpec(t).name.toLowerCase()).join(', '))}.` : 'No tools.'];
         const carry = d[o + S.carryRes]!;
         if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
         if (d[o + S.torch] === 1) details.push('Carrying a lit torch.');
@@ -534,7 +533,7 @@ export class WorldView {
     const details: string[] = [];
     if (info.resource) {
       details.push(`Gatherers: ${info.gatherers} at a time; ${info.perLoad} per load.`);
-      details.push(`Tool needed: ${['none', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'][info.tool]}.`);
+      details.push(`Tool needed: ${info.tool === Tool.None ? 'none' : `a ${toolNeeded(propJob(p.kind), info.tool)} or better`}.`);
     }
     if (stage) details.push(`Growing: ${stage}.`);
     return {

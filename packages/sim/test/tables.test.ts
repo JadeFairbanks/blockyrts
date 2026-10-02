@@ -26,14 +26,16 @@ describe('the number tables', () => {
     const hand = lookup('1', ['Worker', '2 Hand'], 'Health');
     expect(hand).toEqual({ text: '70 (s)', suggested: true, marked: true });
     // A value marked (doc) in a suggested row stays fixed.
-    const t2a = getTable('2a');
-    const flint = t2a.rows.find((r) => r[0]!.text === 'Flint tools')!;
-    expect(flint[4]!.text).toMatch(/\(doc\)$/);
-    expect(flint[4]!.suggested).toBe(false);
+    const t2e = getTable('2e');
+    const bow = t2e.rows.find((r) => r[0]!.text === 'Bow')!;
+    const madeAt = bow[t2e.columns.indexOf('Made at')]!;
+    expect(madeAt.text).toMatch(/\(doc\)$/);
+    expect(madeAt.suggested).toBe(false);
     // A sub-table captioned "all (s)" is suggested in every cell with a number.
     expect(getTable('2b').rows.every((r) => r.every((c) => c.suggested === /\d/.test(c.text)))).toBe(true);
     // A column headed "Cost (s)" is suggested.
-    expect(flint[2]!).toEqual({ text: '10 flint, 20 softwood lumber', suggested: true, marked: false });
+    const bronze = getTable('2a').rows.find((r) => r[0]!.text === 'Bronze')!;
+    expect(bronze[2]!).toEqual({ text: '10 copper ingots, 2 tin ingots', suggested: true, marked: false });
     // Labels without numbers are never suggested by a row mark.
     expect(lookup('1', ['Worker', '2 Hand'], 'Unit').suggested).toBe(false);
   });

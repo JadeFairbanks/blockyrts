@@ -12,7 +12,8 @@ import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_T
 import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
 import { MONSTERS, OrderKind, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { speciesSpec } from '../animals/species.ts';
-import { Hit, itemSpec, toolMelee, type MeleeStats } from './items.ts';
+import { Hit, itemSpec, type MeleeStats } from './items.ts';
+import { workerMelee } from '../units/tools.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
 
 /** The two sides: every player together, and the monsters (Winning, losing and score: player versus environment only); wild animals stand apart. */
@@ -159,7 +160,7 @@ export function meleeOf(state: SimState, i: number, backup: boolean): MeleeStats
     const m = itemSpec(e.backup[i]!).melee;
     if (m) return m;
   }
-  return toolMelee(e.tool[i]!);
+  return workerMelee(e, i);
 }
 
 export interface Blow {

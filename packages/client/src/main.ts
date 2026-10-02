@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { DebugThreat, hashHex, LAIRS, Mat, mobSpec, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import { GameInfo } from './game/game-info.ts';
 import { GameShell } from './hud/shell.ts';
+import { openModelLibrary, type ModelLibrary } from './models/index.ts';
 import { S, STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
 import { loadSettings } from './settings/settings.ts';
 import { chooseStart } from './start/start-screen.ts';
@@ -18,9 +19,24 @@ import { WorldView } from './world/world-view.ts';
 /** The local player. */
 const PLAYER = 0;
 
+/**
+ * Models on screen when a match starts: the three bodies, the level 1 main
+ * base and the hand torch. The match waits for these (at most
+ * START_MODELS_WAIT_MS), so nothing swaps from a block to its model in view;
+ * everything else loads behind them, and whatever comes into view first jumps
+ * the queue.
+ */
+const START_MODELS = ['worker', 'warrior', 'mage', 'main_base_l1', 'torch_hand'];
+const START_MODELS_WAIT_MS = 20000;
+
 async function main(): Promise<void> {
   const app = document.getElementById('app')!;
   const settings = loadSettings();
+  // Models start loading while the player is on the start screen.
+  const library: Promise<ModelLibrary | null> = openModelLibrary(`${import.meta.env.BASE_URL}models/`, START_MODELS).catch((err: unknown) => {
+    console.warn('model library not loaded; drawing blocks', err);
+    return null;
+  });
   const { seed, players } = await chooseStart(app);
   // A refresh (or a shared link) starts the same world again.
   history.replaceState(null, '', `${location.pathname}?seed=${seed}&players=${players}`);
@@ -134,6 +150,16 @@ async function main(): Promise<void> {
       shell.message('Select your workers and right-click trees and rocks to gather; press B to build.');
     }
   };
+  const lib = await library;
+  if (lib) {
+    world.setModels(lib);
+    const loading = document.createElement('div');
+    loading.className = 'overlay start-overlay';
+    loading.innerHTML = '<div class="dialog loading">Loading models\u2026</div>';
+    app.appendChild(loading);
+    await Promise.race([lib.ready(START_MODELS), new Promise((resolve) => setTimeout(resolve, START_MODELS_WAIT_MS))]);
+    loading.remove();
+  }
   send({ type: 'start', seed, players });
   shell.start();
   // For browser checks in development (test-e2e): the shell and the world are reachable from the console.
@@ -185,6 +211,13 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
   add('dbg-raise', 'Raise', 'Debug: raise', 'Builds a 2 m stone block 1 m high in the middle of the view, as a terrain edit.', () => {
     const c = focusColumn();
     order({ kind: 'terrain', player: PLAYER, x0: c.x - 2, z0: c.z - 2, x1: c.x + 2, z1: c.z + 2, bottom: c.y, top: c.y + 9, material: Mat.Stone });
+  });
+  add('dbg-hill', 'Hill', 'Debug: hill', 'Builds a soil hill 3.4 m tall and 5 m across in the middle of the view, with a 45 cm ledge on its south side (units hop up it) and a 56 cm ledge on its north side (too tall to get up), as terrain edits. Dig (D) pressed on the hill side tunnels into it.', () => {
+    const c = focusColumn();
+    const soil = (z0: number, z1: number, top: number): void => order({ kind: 'terrain', player: PLAYER, x0: c.x - 5, z0: c.z + z0, x1: c.x + 5, z1: c.z + z1, bottom: c.y - 4, top: c.y + top, material: Mat.Soil });
+    soil(6, 10, 4);
+    soil(-10, -6, 5);
+    soil(-5, 5, 30);
   });
   let factor = 1;
   add('dbg-speed', 'Speed ×1', 'Debug: game speed', 'Runs the game at 1, 4 or 16 times speed, to see the day turn and farms grow without waiting. Every step is the same as at normal speed, so the hash does not change.', () => {

@@ -24,14 +24,13 @@ import {
   REFURBISH_PRODUCT,
   RESEARCH,
   RESEARCH_PRODUCT,
-  Research,
   RESOURCES,
   SiteKind,
   SITE_MAX_COLUMNS,
   Slot,
   SLOT_NAMES,
   speciesSpec,
-  toolItem,
+  ALL_JOBS,
   UnitKind,
   WU_PER_COLUMN,
   WU_PER_METRE,
@@ -92,6 +91,10 @@ export interface Area {
   units: number;
   /** A tunnel's height, terrain units. */
   tunnelUnits: number;
+  /** Dig pressed on a cliff face: the face column, the way out of the face (one of x or z is +-1) and the ground in front of it, terrain units. */
+  face: { x: number; z: number; nx: number; nz: number; floor: number } | null;
+  /** How far a tunnel into a face goes, columns. */
+  tunnelColumns: number;
 }
 
 /** What an area would mark, in the sim's terms, with the heights the preview draws. */
@@ -128,6 +131,11 @@ export const TUNNEL_FACE_UNITS = 20;
 export const TUNNEL_UNITS = 20;
 const TUNNEL_MIN_UNITS = 18;
 const TUNNEL_MAX_UNITS = 36;
+/** A press on the side of land at least this much taller than the ground in front of it (a rise nobody can jump, 5 units) marks a tunnel into that face (s). */
+export const FACE_MIN_UNITS = 5;
+/** How far a new tunnel into a face goes: 6 columns, 2.7 m; + and - change it 2 columns (90 cm) at a time (s). */
+export const TUNNEL_COLUMNS = 6;
+const TUNNEL_COLUMNS_STEP = 2;
 const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'];
 /** Earthworks variants shaped as a ramp: earth, lumber and stone. */
 const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
@@ -369,7 +377,7 @@ export class Commands {
       card[8] = this.entry(
         'dig',
         'Dig',
-        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Marking a hillside or cliff face digs a tunnel into it instead. Digging gives Earth, stone or what the ground is made of.',
+        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Pressing on the side of a cliff or hillside digs a tunnel into it instead, from the ground in front: drag along the face for its width, and + and - set how far in it goes. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
         () => this.startArea('dig', 0),
       );
       card[9] = this.entry(
@@ -465,7 +473,6 @@ export class Commands {
     const desc = `Send them to a Barracks to learn the bow, one at a time: ${ARCHERY.food} food and ${ARCHERY.steps / 20} s each. Slings and javelins need no training.`;
     const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & 1) === 0);
     if (untrained.length === 0) return this.off('archery', 'Archery', desc, 'They are already trained in archery.', name);
-    if (!this.d.game.researched(Research.FlintTools)) return this.off('archery', 'Archery', desc, "Needs Flint tools researched first (Scholar's Lodge).", name);
     const barracks = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === BuildingKind.Barracks && b.complete);
     if (!barracks) return this.off('archery', 'Archery', desc, 'Needs a Barracks.', name);
     if (this.d.game.food() < ARCHERY.food) return this.off('archery', 'Archery', desc, `Not enough food (needs ${ARCHERY.food}).`, name);
@@ -727,7 +734,8 @@ export class Commands {
         const munition = u.ranged ? itemSpec(u.ranged).ranged?.munition : undefined;
         const quiver = munition === 'arrows' || munition === 'bolts';
         const shots = munition === 'bolts' ? 'bolts' : 'arrows';
-        const now = slot === Slot.Ammo ? (quiver ? `${u.ammo} ${shots} (${u.ammoItem ? itemSpec(u.ammoItem).name.toLowerCase() : 'none'})` : 'no quiver or bolt case') : worn ? itemSpec(worn).name : 'nothing';
+        const now =
+          slot === Slot.Ammo ? (quiver ? `${u.ammo} ${shots} (${u.ammoItem ? itemSpec(u.ammoItem).name.toLowerCase() : 'none'})` : 'no quiver or bolt case') : slot === Slot.Tool ? toolsText(u) : worn ? itemSpec(worn).name : 'nothing';
         card[k] = {
           action: `slot-${slot}`,
           face: slot === Slot.Ammo ? `${munition === 'bolts' ? 'Bolts' : 'Arrows'} ${quiver ? u.ammo : '-'}` : worn ? shortName(itemSpec(worn)) : `(${SLOT_NAMES[slot]})`,
@@ -751,13 +759,14 @@ export class Commands {
     const slot = this.menu.sub as Slot;
     const worn = wornItem(u, slot);
     if (worn && slot !== Slot.Ammo && slot !== Slot.Torch) {
+      const tools = slot === Slot.Tool;
       card[0] = {
         action: 'unequip',
         face: 'Take off',
-        name: `Take off the ${itemSpec(worn).name.toLowerCase()}`,
+        name: tools ? 'Take off the tools' : `Take off the ${itemSpec(worn).name.toLowerCase()}`,
         key: GRID_CODES[0],
         grid: true,
-        description: 'The unit hands it in at the main base, and Equip Best leaves the slot empty after this.',
+        description: tools ? `The unit hands in all its tools (${toolsText(u)}) at the main base, and Equip Best leaves them off after this.` : 'The unit hands it in at the main base, and Equip Best leaves the slot empty after this.',
         enabled: true,
         reason: '',
         run: () => this.handPick(u, slot, 0),
@@ -775,7 +784,7 @@ export class Commands {
         name: it.name,
         key: GRID_CODES[at]!,
         grid: true,
-        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${untrained ? ` This unit cannot shoot it until it is trained${it.ranged?.munition === 'bolts' ? ' with the crossbow' : ' in archery'}.` : ''} The unit walks to the main base to collect it.`,
+        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${it.jobs ? ` ${toolJobsText(it)}` : ''}${untrained ? ` This unit cannot shoot it until it is trained${it.ranged?.munition === 'bolts' ? ' with the crossbow' : ' in archery'}.` : ''} The unit walks to the main base to collect it.`,
         enabled: true,
         reason: '',
         run: () => this.handPick(u, slot, it.id),
@@ -801,7 +810,11 @@ export class Commands {
     const fixed = a.mode === 'earthwork' && a.variant !== 0;
     const m = ((tunnel ? a.tunnelUnits : a.units) * TERRAIN_UNIT_M).toFixed(2);
     const down = a.mode === 'dig' && !tunnel;
-    if (!fixed) {
+    if (a.face) {
+      const far = (a.tunnelColumns * COLUMN_M).toFixed(1);
+      card[0] = this.entry('deeper', 'Further', `The tunnel goes ${far} m into the face. Press for 90 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: 'Tunnel further' });
+      card[1] = this.entry('shallower', 'Shorter', `The tunnel goes ${far} m into the face. Press for 90 cm less.`, () => this.adjustArea(-1), { name: 'Tunnel less far' });
+    } else if (!fixed) {
       card[0] = this.entry('deeper', down ? 'Deeper' : 'Higher', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
       card[1] = this.entry('shallower', down ? 'Shallower' : 'Lower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
     }
@@ -1150,7 +1163,7 @@ export class Commands {
     this.targeting = null;
     if (this.placing) this.placing = null;
     this.menu = { page: 'main', sub: -1 };
-    this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_UNITS };
+    this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_UNITS, face: null, tunnelColumns: TUNNEL_COLUMNS };
     this.d.changed();
   }
 
@@ -1182,8 +1195,33 @@ export class Commands {
     const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
     a.from = c;
     a.to = { ...c };
+    a.face = a.mode === 'dig' ? this.faceAt(ground, c.x, c.z) : null;
     a.dragging = true;
     this.d.changed();
+  }
+
+  /**
+   * Whether a point the cursor picked is on the side of a cliff or hillside
+   * rather than on top of the ground: below its column's top, on the edge of
+   * the column next to lower ground at least FACE_MIN_UNITS down. Returns the
+   * face and the ground in front of it, or null.
+   */
+  private faceAt(p: THREE.Vector3, x: number, z: number): Area['face'] {
+    const units = (wx: number, wz: number): number => Math.round(this.d.heightAt((wx + 0.5) * COLUMN_M, (wz + 0.5) * COLUMN_M) / TERRAIN_UNIT_M);
+    const top = units(x, z);
+    if (p.y / TERRAIN_UNIT_M > top - 1) return null;
+    // Which side of the column the point is on: the nearest edge with low ground beyond it.
+    const fx = p.x / COLUMN_M - x;
+    const fz = p.z / COLUMN_M - z;
+    let best: Area['face'] = null;
+    let bestD = 0.2;
+    for (const [nx, nz, d] of [[-1, 0, fx], [1, 0, 1 - fx], [0, -1, fz], [0, 1, 1 - fz]] as const) {
+      const floor = units(x + nx, z + nz);
+      if (top - floor < FACE_MIN_UNITS || d >= bestD) continue;
+      best = { x, z, nx, nz, floor };
+      bestD = d;
+    }
+    return best;
   }
 
   areaUp(): void {
@@ -1197,7 +1235,8 @@ export class Commands {
   adjustArea(dir: number): void {
     const a = this.area;
     if (!a) return;
-    if (this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
+    if (a.face) a.tunnelColumns = Math.max(TUNNEL_COLUMNS_STEP, Math.min(SITE_MAX_COLUMNS, a.tunnelColumns + dir * TUNNEL_COLUMNS_STEP));
+    else if (this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
     else a.units = Math.max(AREA_STEP_UNITS, Math.min(AREA_MAX_UNITS, a.units + dir * AREA_STEP_UNITS));
     this.d.changed();
   }
@@ -1206,9 +1245,25 @@ export class Commands {
   areaPlan(): AreaPlan | null {
     const a = this.area;
     if (!a || !a.from || !a.to) return null;
-    const sig = `${a.mode},${a.variant},${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits}`;
+    const f = a.face;
+    const sig = `${a.mode},${a.variant},${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits},${f ? `${f.x},${f.z},${f.nx},${f.nz},${a.tunnelColumns}` : ''}`;
     if (sig === this.plan.sig) return this.plan.plan;
     const lim = SITE_MAX_COLUMNS - 1;
+    if (f) {
+      // A tunnel into the face: as wide as the drag along the face, as long as tunnelColumns into it, floored at the ground in front.
+      const across = f.nx !== 0 ? a.to.z - f.z : a.to.x - f.x;
+      const span = Math.max(-lim, Math.min(lim, across));
+      const deep = (a.tunnelColumns - 1) * -(f.nx + f.nz);
+      const [ax0, ax1] = [Math.min(0, span), Math.max(0, span)];
+      const [d0, d1] = [Math.min(0, deep), Math.max(0, deep)];
+      const x0 = f.nx !== 0 ? f.x + d0 : f.x + ax0;
+      const x1 = f.nx !== 0 ? f.x + d1 : f.x + ax1;
+      const z0 = f.nx !== 0 ? f.z + ax0 : f.z + d0;
+      const z1 = f.nx !== 0 ? f.z + ax1 : f.z + d1;
+      const plan: AreaPlan = { x0, z0, x1, z1, tunnel: true, level: f.floor, level2: f.floor + a.tunnelUnits, axis: 0, start: f.floor, top: f.floor, low: f.floor, earth: 0 };
+      this.plan = { sig, plan };
+      return plan;
+    }
     const tx = a.from.x + Math.max(-lim, Math.min(lim, a.to.x - a.from.x));
     const tz = a.from.z + Math.max(-lim, Math.min(lim, a.to.z - a.from.z));
     const x0 = Math.min(a.from.x, tx);
@@ -1265,7 +1320,7 @@ export class Commands {
     const box = { player: this.d.player, units, x0: plan.x0, z0: plan.z0, x1: plan.x1, z1: plan.z1, level: plan.level, level2: plan.level2, queued: this.d.queued() };
     if (a.mode === 'dig') {
       this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
-      this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
+      this.d.message(a.face ? `Tunnelling ${(a.tunnelColumns * COLUMN_M).toFixed(1)} m into the face.` : plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
     } else {
       const [res, what, where] = HEAP_STUFF[a.variant] ?? HEAP_STUFF[0]!;
       if (this.d.game.have(res) < plan.earth) this.d.message(`Not enough ${what} yet (needs ${plan.earth}): the workers heap what there is and wait for more. ${where}`, 'alert');
@@ -1275,7 +1330,7 @@ export class Commands {
     const cz = ((plan.z0 + plan.z1 + 1) / 2) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'target');
     // Shift keeps marking for the next area.
-    if (this.d.queued()) this.area = { ...a, from: null, to: null, dragging: false };
+    if (this.d.queued()) this.area = { ...a, from: null, to: null, dragging: false, face: null };
     else this.area = null;
     this.d.changed();
   }
@@ -1481,7 +1536,9 @@ export function shortFace(name: string): string {
 export function shortName(it: ItemSpec): string {
   const faces: Record<number, string> = {
     [Item.ToolsHardwood]: 'Tools H',
-    [Item.ToolsFlint]: 'Tools F',
+    [Item.MaulStone]: 'Maul S',
+    [Item.HammerStone]: 'Hammer S',
+    [Item.ToolsFlint]: 'Axe/knife F',
     [Item.Club]: 'Club',
     [Item.SpearHardwood]: 'Spear H',
     [Item.AxeFlint]: 'Axe F',
@@ -1510,7 +1567,7 @@ export function fitsSlot(it: ItemSpec, slot: Slot): boolean {
 export function wornItem(u: UnitInfo, slot: Slot): number {
   switch (slot) {
     case Slot.Tool:
-      return toolItem(u.tool);
+      return u.tools.find((t) => t !== 0) ?? Item.None;
     case Slot.Weapon:
       return u.weapon;
     case Slot.Backup:
@@ -1536,10 +1593,32 @@ export function wornItem(u: UnitInfo, slot: Slot): number {
   }
 }
 
+/** The distinct tool items a worker holds, in job order. */
+export function toolItems(u: UnitInfo): number[] {
+  return u.tools.filter((t, k) => t !== 0 && u.tools.indexOf(t) === k);
+}
+
+/** A worker's tools in words: "flint axe and knife, stone maul, stone hammer", or "no tools". */
+export function toolsText(u: UnitInfo): string {
+  const names = toolItems(u).map((t) => itemSpec(t).name.toLowerCase());
+  return names.length ? names.join(', ') : 'no tools';
+}
+
+const JOB_WORDS = ['chopping', 'quarrying, digging and mining', 'building and repair', 'cutting plants and butchering'];
+
+/** What a tool is for (Table 2c, tools by job). */
+export function toolJobsText(it: ItemSpec): string {
+  const jobs = it.jobs ?? 0;
+  if (jobs === ALL_JOBS) return 'A full set: every job.';
+  const words = JOB_WORDS.filter((_, j) => (jobs & (1 << j)) !== 0);
+  return `For ${words.join(', and ')}.`;
+}
+
 /** Pounds of gear a unit carries (Table 12 weights; arrows a tenth of a pound each). */
 export function carriedLb(u: UnitInfo): number {
   let tenths = 0;
-  for (const slot of [Slot.Tool, Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case, Slot.Kit] as const) {
+  for (const it of toolItems(u)) tenths += itemSpec(it).weightTenthsLb;
+  for (const slot of [Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case, Slot.Kit] as const) {
     const it = wornItem(u, slot);
     if (it) tenths += itemSpec(it).weightTenthsLb;
   }
