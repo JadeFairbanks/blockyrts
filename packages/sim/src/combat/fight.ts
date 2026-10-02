@@ -94,7 +94,9 @@ export function garrisonRoom(b: Building): number {
 /** How far a unit sees, wu: its kind's sight, plus a tower's 10 m when on one. */
 export function sightOf(state: SimState, i: number): number {
   const e = state.entities;
-  const base = SIGHT_WU[e.kind[i]!] ?? SIGHT_WU[0];
+  let base = SIGHT_WU[e.kind[i]!] ?? SIGHT_WU[0];
+  // Table 1: warriors see 2 m farther at Elite and 4 m at Hero.
+  if (e.kind[i] === UnitKind.Warrior && e.rank[i]! > 3) base += (e.rank[i]! - 3) * 2 * WU_PER_METRE;
   const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
   const bonus = b ? (buildingSpec(b.kind).sightBonusM ?? 0) * WU_PER_METRE : 0;
   return base + bonus;

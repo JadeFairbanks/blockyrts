@@ -405,6 +405,13 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
     const r = walkTo(state, i, besideBuilding(b));
     if (r === 0) return false;
     if (r === 2) return true;
+    // One warrior trains at a time; the next waits beside the Barracks (s).
+    for (let j = 0; j < e.count; j++) {
+      if (j !== i && e.inside[j] === b.id && e.queue[j]![0]?.t === 'skill') {
+        e.order[i] = OrderKind.Idle;
+        return false;
+      }
+    }
     if ((state.players[b.owner]!.research & 2) === 0) {
       state.events.push({ player: b.owner, kind: 'alert', text: 'Archery needs Flint tools researched first.', x: e.x[i]!, z: e.z[i]! });
       return true;

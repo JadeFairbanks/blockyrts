@@ -18,6 +18,7 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree, propInfo, PropShape, type Tool } from '../world/props.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
+import { loadSlowBp } from './weight.ts';
 import { fightStep, garrisonRoom, rangedOf } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
 import { refundEquip, runEquip, runSkill } from './gear.ts';
@@ -184,7 +185,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
 /** A unit's speed this step, wu: slowed by a grasp or a web, hastened by a howl or a shout. */
 export function moveSpeed(state: SimState, i: number): number {
   const e = state.entities;
-  let bp = 10000;
+  let bp = 10000 - loadSlowBp(state, i);
   if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
   return Math.max(1, floorDiv(e.speed[i]! * bp, 10000));
