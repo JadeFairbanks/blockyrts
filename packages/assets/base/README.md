@@ -27,6 +27,12 @@ them with the clip; a catalogue item can be attached at `slot_hand_r` instead):
 | `prospect` | 2.4 s | loop | on one knee, two taps on the rock, then a chip held up to the eye (`hammer`, or the catalogue's `prospecting_hammer`) |
 | `carry` | 1.2 s | loop | walking with a load hugged at `slot_carry` (chest) |
 | `carry_shoulder` | 1.1 s | loop | walking with a log or beam on the right shoulder (`slot_shoulder_r`) |
+| `harvest` | 1.2 s | loop | bent over, sickle sweeps through the crop at knee height, left hand gathering (catalogue sickle at `slot_hand_r`) |
+| `pull_cart` | 1.2 s | loop | leaning forward, both hands on the shafts at hip height, slow steps |
+| `stir` | 1.6 s | loop | stirring a pot at hip height in a circle, left hand steadying it (a ladle at `slot_hand_r`) |
+| `light_torch` | 1.6 s | once | hand torch held up to the top of a torch post ahead from 0.5 s to 1.0 s, then lowered (`torch`) |
+| `tame` | 2.0 s | loop | crouched low, a hand held out to an animal ahead, leaning slowly in and back |
+| `cast_net` | 1.6 s | once | wind up to the right and throw a net with both hands, released at 0.7 s (the catalogue's net at `slot_hand_r`) |
 
 Warrior (`warrior`), new hidden parts `rammer` and `linstock`:
 
@@ -66,3 +72,31 @@ battle mages deep purple and ember red; novices wear undyed robes. Each rank
 adds to the last: 2 a sash, 3 a collar, 4 a mantle and shoulder trim, 5 a cape
 and clasp with gold trim, 6 a circlet with a glowing gem and a high collar. The
 wand's gem grows and brightens with rank. `mage` stays as the plain body.
+
+## Mage armour, rank marks and portraits (2 October, second round)
+
+Mages wear the same armour slots as everyone, but their body is shorter and
+narrower, so the catalogue's leather pieces float on them. These fit the mage
+body and carry its skeleton, like the catalogue's armour models:
+
+| model | fits | cubes |
+|---|---|---|
+| `models/items/armour_leather_mage` | cuirass over the robe, shoulders, a short skirt | 5 |
+| `models/items/boots_mage` | both feet and shins | 4 |
+| `models/items/helmet_leather_cap_mage` | leather cap and knot over the long hair | 2 |
+
+Worker and warrior rank marks: bands round the left upper arm, carrying the
+shared body's skeleton, shown over whatever armour is worn. Rank 1 has none.
+
+| model | rank | look |
+|---|---|---|
+| `models/items/rank_mark_2` | 2 (Hand) | one bronze band |
+| `models/items/rank_mark_3` | 3 (Master worker) | two bronze bands |
+| `models/items/rank_mark_4` | 4 | two steel bands |
+| `models/items/rank_mark_5` | 5 | three gold bands |
+
+Portraits: `ui/portrait_mage_support_1.png` to `_6` and
+`ui/portrait_mage_battle_1.png` to `_6`, 64 x 64, one per mage look, in the
+style of the catalogue's portraits (`tools/portrait.py`). The catalogue's own
+`portrait_mage_support` (green) and `portrait_mage_battle` (purple) predate the
+looks; these are the ones that match them.
