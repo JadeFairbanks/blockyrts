@@ -1,0 +1,86 @@
+name: Deploy
+
+# Ships the current main (or the branch picked when running it) to the test
+# server. Run by hand only, so the server never changes in the middle of a
+# game just because a milestone merged. Needs "Set up test server" first.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: test-server-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOMAIN: ${{ vars.DOMAIN }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check the server can be built
+        run: |
+          if [ -z "$DOMAIN" ]; then
+            echo "::error::The DOMAIN repository variable is not set (see deploy/README.md)."
+            exit 1
+          fi
+          if [ ! -f packages/server/Dockerfile ]; then
+            echo "::error::packages/server/Dockerfile does not exist yet; it arrives with the M9 server work."
+            exit 1
+          fi
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the game client
+        run: pnpm --filter @blockyrts/client build
+        env:
+          VITE_SERVER_URL: https://api.${{ vars.DOMAIN }}
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      - name: Build and push the server and the bundle
+        run: |
+          name=$(doctl registry get --format Name --no-header)
+          registry="registry.digitalocean.com/$name/blockyrts"
+          doctl registry login --expiry-seconds 1200
+          docker build -f packages/server/Dockerfile --build-arg "BUILD_SHA=$GITHUB_SHA" \
+            -t "$registry:server-live" .
+          docker push "$registry:server-live"
+          docker build -f deploy/bundle.Dockerfile -t "$registry:bundle-live" deploy
+          docker push "$registry:bundle-live"
+          # The free registry tier holds 500 MB; drop the old, now untagged images.
+          doctl registry garbage-collection start --include-untagged-manifests --force \
+            || echo "Garbage collection not started (one may already be running)."
+      - name: Wait for the server to run this commit
+        run: |
+          # The Droplet checks the registry every minute.
+          for _ in $(seq 60); do
+            if curl -fsS --max-time 10 "https://api.$DOMAIN/healthz" | grep -q "$GITHUB_SHA"; then
+              echo "Server is up on $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::https://api.$DOMAIN/healthz did not report $GITHUB_SHA within 10 minutes."
+          exit 1
+      - name: Publish the game client
+        run: >-
+          pnpm dlx wrangler@4 pages deploy packages/client/dist
+          --project-name blockyrts --branch main --commit-hash "$GITHUB_SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Summary
+        run: |
+          {
+            echo "## Deployed $GITHUB_SHA"
+            echo
+            echo "Play at https://play.$DOMAIN"
+          } >>"$GITHUB_STEP_SUMMARY"
