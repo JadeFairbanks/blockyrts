@@ -13,7 +13,7 @@ import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from 
 import { PERSON } from '../nav/grid.ts';
 import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { fleeFrom, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hostile, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hostile, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
@@ -271,6 +271,11 @@ function engage(state: SimState, i: number, t: number, canMove: boolean): boolea
   if (garrisoned) return false;
   let w: MeleeStats = meleeOf(state, i, false);
   let slot: number = Slot.Weapon;
+  if (w.min > 0 && d < w.min && canMove && wallBetween(state, i, t)) {
+    // Too close to stab over the fence: step back from it rather than reach for the club (s).
+    stepToward(state, i, e.x[t]!, e.z[t]!, -moveSpeed(state, i));
+    return true;
+  }
   if (w.min > 0 && d < w.min) {
     const backup = e.backup[i] ? itemSpec(e.backup[i]!).melee : undefined;
     if (backup) {
@@ -389,12 +394,19 @@ export function fightStep(state: SimState, i: number): boolean {
   const acquire = hold ? holdRange(state, i) : mode === Mode.Seek ? sightOf(state, i) : Math.max(IDLE_ACQUIRE_WU, rangedOf(state, i)?.range ?? 0);
   let t = e.indexOf(e.target[i]!);
   if (!validTarget(state, i, t) || !canHarm(state, i, t)) t = -1;
-  // The leash: a chase that has run too far from where it began gives up.
-  if (t >= 0 && !hold && e.chasing[i] === 1 && length2d(e.x[i]! - e.homeX[i]!, e.z[i]! - e.homeZ[i]!) > LEASH_WU && gap(state, i, t) > meleeOf(state, i, false).reach) t = -1;
+  // The leash: a chase that has run too far from where it began gives up and walks back.
+  let leashed = false;
+  if (t >= 0 && !hold && e.chasing[i] === 1 && length2d(e.x[i]! - e.homeX[i]!, e.z[i]! - e.homeZ[i]!) > LEASH_WU && gap(state, i, t) > meleeOf(state, i, false).reach) {
+    t = -1;
+    leashed = true;
+  }
   if (t >= 0 && gap(state, i, t) > acquire + LEASH_WU) t = -1;
   if (t < 0) {
     if (e.target[i] !== 0) disengage(state, i);
-    t = pickTarget(state, i, acquire);
+    // Walking back from a leashed chase, it takes no new target until it is halfway home.
+    const away = e.chasing[i] !== 0 && length2d(e.x[i]! - e.homeX[i]!, e.z[i]! - e.homeZ[i]!) > LEASH_WU >> 1;
+    if (leashed) e.chasing[i] = mode === Mode.Idle ? 2 : 0;
+    t = leashed || (e.chasing[i] === 2 && away) ? -1 : pickTarget(state, i, acquire);
     if (t >= 0 && e.chasing[i] !== 1) {
       // Where the chase begins: the leash is measured from here, and an idle unit comes back here.
       if (e.chasing[i] === 0) {

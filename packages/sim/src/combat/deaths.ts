@@ -123,7 +123,7 @@ function canMakeWorkers(state: SimState, player: number): boolean {
 
 function hasWorkers(state: SimState, player: number): boolean {
   const e = state.entities;
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.kind[i] === UnitKind.Worker) return true;
+  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.kind[i] === UnitKind.Worker && e.hp[i]! > 0) return true;
   return false;
 }
 

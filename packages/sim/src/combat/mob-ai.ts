@@ -16,11 +16,11 @@ import { pointGoal, TILE_COLUMNS } from '../nav/path.ts';
 import { burnThisStep } from '../rules.ts';
 import { MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
-import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
+import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot } from './items.ts';
 import { BLAST, CLUSTER, ENGULF_STEPS, FLY_HEIGHT, GRASP, HOWL, Mob, mobSpec, Moves, SHOUT, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
-import { fireAt, ProjectileFlag } from './projectiles.ts';
+import { fireAt, hasClearLob, ProjectileFlag } from './projectiles.ts';
 
 /** How far a mob notices the players' units: its sight, 12 m. */
 const AGGRO_WU = SIGHT_WU[UnitKind.Mob];
@@ -289,13 +289,13 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     e.abilityAt[i] = state.step + WEB.cooldown;
     return;
   }
-  if (gap(state, i, t) > spec.reach + TOLERANCE) return;
+  if (!inReach(state, i, t, { ...spec, reach: spec.reach + TOLERANCE })) return;
   const blow = { damage: dealt(state, i, spec.damage), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
   if (spec.arc) {
     // A bloated corpse's swing hits everything in front of it.
     const [fx, fz] = forward(e.heading[i]!);
     for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.reach + WU_PER_METRE)) {
-      if (!playerUnit(state, j) || gap(state, i, j) > spec.reach + TOLERANCE) continue;
+      if (!playerUnit(state, j) || gap(state, i, j) > spec.reach + TOLERANCE || wallBetween(state, i, j)) continue;
       const dx = e.x[j]! - e.x[i]!;
       const dz = e.z[j]! - e.z[i]!;
       if (j !== t && dx * fx + dz * fz < length2d(dx, dz) * 46341) continue;
@@ -360,7 +360,7 @@ export function caveIn(state: SimState, x: number, z: number, radius: number): v
 
 /** Whether a mob can reach a unit with its melee attack now. */
 function inReach(state: SimState, i: number, t: number, spec: MobSpec): boolean {
-  return gap(state, i, t) <= spec.reach;
+  return gap(state, i, t) <= spec.reach && (spec.reach >= OVER_WALL_REACH || !wallBetween(state, i, t));
 }
 
 /** A crowd of 5 or more of the players' units within 8 m: its middle, or null. */
@@ -588,6 +588,12 @@ export function runMob(state: SimState, i: number): void {
     return;
   }
   if (spec.range > 0 && spec.id !== Mob.GiantSpider && d <= spec.range && d > spec.reach + WU_PER_METRE) {
+    // A wall in the way of every arc: shoot at someone else in range it can hit, if there is one.
+    const better = shotAt(state, i, spec, t);
+    if (better !== t) {
+      t = better;
+      e.target[i] = e.id[t]!;
+    }
     face(state, i, t);
     begin(state, i, spec, e.id[t]!, With.Shot);
     return;
@@ -599,6 +605,26 @@ export function runMob(state: SimState, i: number): void {
   }
   const r = goToward(state, i, spec, e.x[t]!, e.z[t]!, blocker);
   if (r !== MOVED) blocked(state, i, spec, r, blocker);
+}
+
+/** How many other targets an archer tries for a clear shot in one step. */
+const CLEAR_SHOT_TRIES = 4;
+
+/** The target, or the nearest other unit in range with a clear arc when the target has none (the clear shot search). */
+function shotAt(state: SimState, i: number, spec: MobSpec, t: number): number {
+  const e = state.entities;
+  const fromY = e.y[i]! + floorDiv(spec.height * 2, 3);
+  const clear = (j: number): boolean => hasClearLob(state, spec.shot, e.x[i]!, fromY, e.z[i]!, e.x[j]!, e.y[j]! + floorDiv(bodyHeight(state, j), 2), e.z[j]!);
+  if (clear(t)) return t;
+  const near: Array<[number, number]> = [];
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.range)) {
+    if (j === t || !playerUnit(state, j)) continue;
+    const d = gap(state, i, j);
+    if (d <= spec.range) near.push([d, j]);
+  }
+  near.sort((a, b) => a[0] - b[0] || e.id[a[1]]! - e.id[b[1]]!);
+  for (const [, j] of near.slice(0, CLEAR_SHOT_TRIES)) if (clear(j)) return j;
+  return t;
 }
 
 function face(state: SimState, i: number, t: number): void {

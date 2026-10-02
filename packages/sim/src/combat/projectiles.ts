@@ -141,6 +141,13 @@ export function clearLob(state: SimState, shot: number, x0: number, y0: number, 
   return ownOnly ? 0 : 100;
 }
 
+/** Whether any lob clears every building in the way (monsters picking a target they can hit). */
+export function hasClearLob(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+  const lobs = SHOTS[shot]!.arcs ? LOBS : LOBS.slice(0, 1);
+  for (const lob of lobs) if (clearPath(state, shot, x0, y0, z0, x1, y1, z1, lob, false)) return true;
+  return false;
+}
+
 function clearPath(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, lob: number, ownOnly: boolean): boolean {
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lob);
   const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, flags: 0 };

@@ -141,12 +141,12 @@ export const MOBS: readonly MobSpec[] = [
     drops: [{ res: Res.Bone, min: 2, max: 2, chancePm: 200 }, { res: Res.CopperOre, min: 1, max: 1, chancePm: 20 }, { res: Res.Silver, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.SkeletonBomber, name: 'Skeleton bomber', model: 'skeleton_bomber', firstNight: 10, hp: 35, pierceBp: 5000, bluntBp: 15000, damage: 60, attackSteps: ds(10), reach: cm(120), speed: v10(32), vsWalls: 220,
+    ...base, id: Mob.SkeletonBomber, name: 'Skeleton bomber', model: 'skeleton_bomber', firstNight: 10, hp: 35, pierceBp: 5000, bluntBp: 15000, damage: 60, attackSteps: ds(10), reach: cm(120), speed: v10(32), vsWalls: 300,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 40, halfWidth: cm(35), height: cm(175), undead: true,
     drops: [{ res: Res.Saltpetre, min: 1, max: 1, chancePm: 100 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 50 }, { res: Res.Bone, min: 1, max: 1, chancePm: 100 }],
   },
   {
-    ...base, id: Mob.BombKeg, name: 'Loose bomb', model: 'bomb_keg', firstNight: 10, hp: 1, damage: 60, attackSteps: ds(20), reach: 0, speed: 0, vsWalls: 220,
+    ...base, id: Mob.BombKeg, name: 'Loose bomb', model: 'bomb_keg', firstNight: 10, hp: 1, damage: 60, attackSteps: ds(20), reach: 0, speed: 0, vsWalls: 300,
     moves: Moves.Still, sun: Sun.Burns, comes: Comes.Never, threatTenths: 0, halfWidth: cm(30), height: cm(65),
     drops: [],
   },
@@ -194,8 +194,8 @@ export const WEB = { slowBp: 5000, steps: ds(30), cooldown: ds(100) };
 export const ENGULF_STEPS = ds(20);
 /** Bloated corpse burst: 40 to the players' units within 3 m. */
 export const BURST = { damage: 40, radius: cm(300) };
-/** Bomber blast: 220 to walls and buildings within 2.5 m, 60 to units within 3 m; a loose bomb goes off 2 s after it falls. */
-export const BLAST = { building: 220, buildingRadius: cm(250), unit: 60, unitRadius: cm(300), fuse: ds(20) };
+/** Bomber blast: 300 to walls and buildings where it goes off, half that at 2.5 m (s: the roster had 220, which cannot break a 300 HP softwood column), 60 to units within 3 m; a loose bomb goes off 2 s after it falls. */
+export const BLAST = { building: 300, buildingRadius: cm(250), unit: 60, unitRadius: cm(300), fuse: ds(20) };
 /** A bomber goes for 5 or more of the players' units within 8 m of it on its way. */
 export const CLUSTER = { units: 5, radius: cm(800) };
 /** Goblins within 10 m of a chief run 20% faster. */

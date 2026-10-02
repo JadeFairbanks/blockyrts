@@ -8,7 +8,7 @@
 import { buildingName, buildingSpec } from '../buildings/data.ts';
 import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
-import { cos16, floorDiv, length2d, sin16, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { BP, damageTaken, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
 import { MONSTERS, OrderKind, UnitKind, WARRIOR_HEALTH_BY_RANK, type HitLook, type SimState } from '../state.ts';
 import { Hit, itemSpec, toolMelee, type MeleeStats } from './items.ts';
@@ -54,6 +54,36 @@ export function flyingHigh(state: SimState, i: number): boolean {
   const e = state.entities;
   if (e.kind[i] !== UnitKind.Mob || mobSpec(e.mob[i]!).moves !== Moves.LowFlyer) return false;
   return e.y[i]! - state.world.topAt(floorDiv(e.x[i]!, 3600), floorDiv(e.z[i]!, 3600)) * WU_PER_TERRAIN_UNIT > SWOOP_HEIGHT * 2;
+}
+
+/** A melee weapon reaching this far (polearms) stabs over a wall or gate; shorter ones cannot hit across one (s). */
+export const OVER_WALL_REACH = 2 * WU_PER_METRE;
+
+/**
+ * Whether a wall or gate column stands on the ground between two units
+ * (flyers go over). Melee shorter than a polearm cannot hit across one, so
+ * monsters at a fence chew the fence while spears stab over it (s).
+ */
+export function wallBetween(state: SimState, a: number, b: number): boolean {
+  const e = state.entities;
+  if (e.inside[a] !== 0 || e.inside[b] !== 0) return false;
+  for (const j of [a, b]) if (e.kind[j] === UnitKind.Mob && mobSpec(e.mob[j]!).moves === Moves.LowFlyer) return false;
+  const x0 = e.x[a]!;
+  const z0 = e.z[a]!;
+  const dx = e.x[b]! - x0;
+  const dz = e.z[b]! - z0;
+  const n = Math.max(1, floorDiv(length2d(dx, dz) * 4, WU_PER_COLUMN));
+  const own0 = state.buildings.solidAt(floorDiv(x0, WU_PER_COLUMN), floorDiv(z0, WU_PER_COLUMN));
+  const own1 = state.buildings.solidAt(floorDiv(e.x[b]!, WU_PER_COLUMN), floorDiv(e.z[b]!, WU_PER_COLUMN));
+  for (let q = 1; q < n; q++) {
+    const id = state.buildings.solidAt(floorDiv(x0 + floorDiv(dx * q, n), WU_PER_COLUMN), floorDiv(z0 + floorDiv(dz * q, n), WU_PER_COLUMN));
+    if (id === 0 || id === own0 || id === own1) continue;
+    const bd = state.buildings.get(id);
+    if (!bd || bd.hp <= 0) continue;
+    const d = buildingSpec(bd.kind).defence;
+    if (d === 'wall' || d === 'gate') return true;
+  }
+  return false;
 }
 
 /** Distance between two units' edges on the ground, wu (0 when touching). */
@@ -229,7 +259,8 @@ export function startSwing(state: SimState, i: number, target: number, attackSte
 export function canReach(state: SimState, i: number, t: number, w: MeleeStats): boolean {
   if (flyingHigh(state, t) && w.oneHanded) return false;
   const g = gap(state, i, t);
-  return g <= w.reach && g >= w.min;
+  if (g > w.reach || g < w.min) return false;
+  return w.reach >= OVER_WALL_REACH || !wallBetween(state, i, t);
 }
 
 /**
@@ -382,8 +413,10 @@ export function blast(state: SimState, x: number, y: number, z: number, units: {
     const c = 3600;
     const dx = x < x0 * c ? x0 * c - x : x > (x1 + 1) * c ? x - (x1 + 1) * c : 0;
     const dz = z < z0 * c ? z0 * c - z : z > (z1 + 1) * c ? z - (z1 + 1) * c : 0;
-    if (length2d(dx, dz) > r) continue;
-    hurtBuilding(state, b, buildings.damage, x, y, z);
+    const d = length2d(dx, dz);
+    if (d > r) continue;
+    // Full damage where it goes off, half at the edge of the blast (s).
+    hurtBuilding(state, b, buildings.damage - floorDiv(buildings.damage * d, r * 2), x, y, z);
   }
 }
 
