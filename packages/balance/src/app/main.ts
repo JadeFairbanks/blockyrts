@@ -69,7 +69,7 @@ const menuEl = h('nav', { class: 'menu', 'aria-label': 'Groups' });
 const mainEl = h('main', { class: 'view' });
 const sideEl = h('aside', { class: 'side', 'aria-label': 'Pending changes' });
 const fileInput = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', onchange: () => void importFile() });
-const exportBtn = h('button', { class: 'btn primary', onclick: () => exportFile() }, 'Export changes');
+const exportBtn = h('button', { class: 'btn primary', onclick: () => void exportFile() }, 'Export changes');
 
 app.append(
   h('header', { class: 'top' },
@@ -474,9 +474,9 @@ function renderSide(): void {
   const general = h('textarea', { rows: 3, placeholder: 'General notes for this round of balancing', value: session.notes, oninput: () => { session.notes = general.value; save(); } });
   sideEl.append(h('h2', { style: 'margin-top:14px' }, 'General notes'), general,
     h('div', { class: 'stack' },
-      h('button', { class: 'btn primary', onclick: () => exportFile() }, 'Export changes'),
+      h('button', { class: 'btn primary', onclick: () => void exportFile() }, 'Export changes'),
       h('button', { class: 'btn', onclick: () => fileInput.click() }, 'Import a file'),
-      h('button', { class: 'btn', disabled: n === 0 && session.entryNotes.size === 0 && !session.notes, onclick: () => clearAll() }, 'Clear all')));
+      h('button', { class: 'btn', disabled: n === 0 && session.entryNotes.size === 0 && !session.notes, onclick: (e: MouseEvent) => clearAll(e.currentTarget as HTMLButtonElement) }, 'Clear all')));
 }
 
 function reportBox(title: string, r: LoadReport): HTMLElement {
@@ -488,18 +488,61 @@ function reportBox(title: string, r: LoadReport): HTMLElement {
     h('button', { class: 'btn small', onclick: () => { lastReport = null; renderSide(); } }, 'Dismiss'));
 }
 
-function clearAll(): void {
-  if (!confirm('Clear every pending change and note? Export first if you want to keep them.')) return;
+let clearArmed = false;
+
+/** Clear all asks twice in the page itself (embedded viewers do not show confirm dialogs). */
+function clearAll(btn: HTMLButtonElement): void {
+  if (!clearArmed) {
+    clearArmed = true;
+    btn.textContent = 'Press again to clear everything';
+    setTimeout(() => {
+      clearArmed = false;
+      btn.textContent = 'Clear all';
+    }, 4000);
+    return;
+  }
+  clearArmed = false;
   session.clear();
   lastReport = null;
   save();
   renderAll();
 }
 
-function exportFile(): void {
+interface Downloads {
+  save(req: { filename: string; data: string }): Promise<unknown>;
+}
+interface ClaudeHost {
+  use(name: string): Promise<unknown>;
+}
+
+/** Inside a claude.ai Artifact a page cannot start downloads itself; the viewer's downloads capability offers the file instead. */
+async function hostDownloads(): Promise<Downloads | null> {
+  const host = (window as unknown as { claude?: ClaudeHost }).claude;
+  if (!host?.use) return null;
+  try {
+    return (await host.use('downloads')) as Downloads | null;
+  } catch {
+    return null;
+  }
+}
+
+async function exportFile(): Promise<void> {
   const file = session.toFile({ commit, builtAt, now: new Date() });
-  const blob = new Blob([`${JSON.stringify(file, null, 2)}\n`], { type: 'application/json' });
-  const a = h('a', { href: URL.createObjectURL(blob), download: exportFileName(new Date()) });
+  const text = `${JSON.stringify(file, null, 2)}\n`;
+  const name = exportFileName(new Date());
+  const downloads = await hostDownloads();
+  if (downloads) {
+    try {
+      await downloads.save({ filename: name, data: text });
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code !== 'declined') lastReport = { title: 'The file could not be saved here', report: { applied: 0, moved: [], same: [], missing: [String((err as { message?: string }).message ?? code)] } };
+      renderSide();
+    }
+    return;
+  }
+  const blob = new Blob([text], { type: 'application/json' });
+  const a = h('a', { href: URL.createObjectURL(blob), download: name });
   document.body.append(a);
   a.click();
   a.remove();
