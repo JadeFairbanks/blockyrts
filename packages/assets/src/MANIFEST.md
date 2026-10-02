@@ -385,6 +385,32 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | crop_corn | models/world-props/crop_corn/crop_corn.bbmodel | 52 | 32x128 | 46 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | crop_flax | models/world-props/crop_flax/crop_flax.bbmodel | 70 | 64x64 | 64 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | crop_herbs | models/world-props/crop_herbs/crop_herbs.bbmodel | 46 | 32x64 | 40 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_stone | models/world-props/rock_stone/rock_stone.bbmodel | 16 | 128x256 | 6 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_flint | models/world-props/rock_flint/rock_flint.bbmodel | 24 | 128x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_coal | models/world-props/rock_coal/rock_coal.bbmodel | 23 | 128x256 | 8 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_copper | models/world-props/rock_copper/rock_copper.bbmodel | 25 | 128x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_tin | models/world-props/rock_tin/rock_tin.bbmodel | 25 | 64x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_iron | models/world-props/rock_iron/rock_iron.bbmodel | 18 | 128x256 | 7 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_marble | models/world-props/rock_marble/rock_marble.bbmodel | 14 | 64x256 | 6 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_sulphur | models/world-props/rock_sulphur/rock_sulphur.bbmodel | 27 | 128x256 | 10 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_saltpetre | models/world-props/rock_saltpetre/rock_saltpetre.bbmodel | 19 | 128x256 | 5 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| vein_iron_face | models/world-props/vein_iron_face/vein_iron_face.bbmodel | 25 | 256x256 | 6 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| gem_glint | models/world-props/gem_glint/gem_glint.bbmodel | 9 | 64x64 | 2 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_lead | models/world-props/rock_lead/rock_lead.bbmodel | 22 | 128x256 | 8 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| gold_glint | models/world-props/gold_glint/gold_glint.bbmodel | 12 | 64x64 | 3 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| mana_crystal_node | models/world-props/mana_crystal_node/mana_crystal_node.bbmodel | 28 | 128x128 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| stone_scatter | models/world-props/stone_scatter/stone_scatter.bbmodel | 24 | 32x64 | 3 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| flint_scatter | models/world-props/flint_scatter/flint_scatter.bbmodel | 27 | 32x64 | 3 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| bog_iron_patch | models/world-props/bog_iron_patch/bog_iron_patch.bbmodel | 27 | 128x128 | 5 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| clay_bank | models/world-props/clay_bank/clay_bank.bbmodel | 11 | 128x256 | 6 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| herb_patch | models/world-props/herb_patch/herb_patch.bbmodel | 90 | 64x64 | 27 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| herb_patch_picked | models/world-props/herb_patch/herb_patch_picked.bbmodel | 27 | 16x32 | extra file in herb_patch/: the picked-clean state |
+| flax_wild | models/world-props/flax_wild/flax_wild.bbmodel | 123 | 32x128 | 35 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| carcass_bear | models/world-props/carcass/carcass_bear.bbmodel | 22 | 128x256 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from bear.png to carcass_bear.png so the PNG matches the file |
+| carcass_bones | models/world-props/carcass/carcass_bones.bbmodel | 33 | 64x128 | extra file in carcass/: the picked-clean bones (wishlist id carcass_bones) |
+| carcass_deer | models/world-props/carcass/carcass_deer.bbmodel | 30 | 128x128 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from deer.png to carcass_deer.png so the PNG matches the file |
+| carcass_hare | models/world-props/carcass/carcass_hare.bbmodel | 20 | 64x64 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from hare.png to carcass_hare.png so the PNG matches the file |
+| carcass_wolf | models/world-props/carcass/carcass_wolf.bbmodel | 25 | 64x128 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from wolf.png to carcass_wolf.png so the PNG matches the file |
 
 ## textures
 
