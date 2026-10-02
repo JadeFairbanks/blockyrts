@@ -72,6 +72,20 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | gravewing | models/monsters/gravewing/gravewing.bbmodel | 29 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight) |
 | bone_colossus | models/monsters/bone_colossus/bone_colossus.bbmodel | 38 | 256x256 | `burn` clip added (all the walking dead are taken to burn in sunlight); scale keyframes (to 0 and back, linear) show/hide `bone_lump` |
 | hollow_priest | models/monsters/hollow_priest/hollow_priest.bbmodel | 31 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (crooked_staff in `slot_hand_r`); `raise_dead` key 1.4 s = spawn a zombie and play its `rise` clip |
+| cinderling | models/monsters/cinderling/cinderling.bbmodel | 32 | 128x64 | "0.9 m" read as body length (nose to rump 33 u), 15 u at the shoulder, plus a 1.1 m tail |
+| hellhound | models/monsters/hellhound/hellhound.bbmodel | 39 | 128x128 |  |
+| fiend | models/monsters/fiend/fiend.bbmodel | 39 | 128x128 | held gear modelled as part of the monster, as a group inside its slot (cleaver in `slot_hand_r`) |
+| scorchwing | models/monsters/scorchwing/scorchwing.bbmodel | 42 | 128x128 |  |
+| demon_brute | models/monsters/demon_brute/demon_brute.bbmodel | 48 | 256x256 |  |
+| flamecaller | models/monsters/flamecaller/flamecaller.bbmodel | 41 | 128x128 | held gear modelled as part of the monster, as a group inside its slot (iron_staff in `slot_hand_r`) |
+| chain_fiend | models/monsters/chain_fiend/chain_fiend.bbmodel | 40 | 128x128 | scale keyframes (to 0 and back, linear) show/hide `held_hook`; held gear modelled as part of the monster, as a group inside its slot (held_hook in `slot_hand_r`); `throw_hook` / `pull` use the separate `chain_hook` model (models/projectiles-and-spells/chain_hook) |
+| infernal_juggernaut | models/monsters/infernal_juggernaut/infernal_juggernaut.bbmodel | 41 | 256x512 |  |
+| void_stalker | models/monsters/void_stalker/void_stalker.bbmodel | 31 | 128x128 | scale keyframes (to 0 and back, linear) show/hide `hood`; its only eye light is the single violet slit (`glow_slit`), as briefed (eyeless head) |
+| void_witch | models/monsters/void_witch/void_witch.bbmodel | 30 | 128x128 | scale keyframes (to 0 and back, linear) show/hide `root`; floats instead of walking: `float` replaces walk and run (smoke instead of legs) |
+| abyssal_drake | models/monsters/abyssal_drake/abyssal_drake.bbmodel | 53 | 256x256 |  |
+| archfiend | models/monsters/archfiend/archfiend.bbmodel | 49 | 256x256 | held gear modelled as part of the monster, as a group inside its slot (greatsword in `slot_hand_r`) |
+| rift_colossus | models/monsters/rift_colossus/rift_colossus.bbmodel | 36 | 512x1024 | no `run`: `walk` is its only move clip |
+| morvath | models/monsters/morvath/morvath.bbmodel | 59 | 256x512 | scale keyframes (to 0 and back, linear) show/hide `wing_l`, `wing_r`; held gear modelled as part of the monster, as a group inside its slot (bone_staff in `slot_hand_r`); no `run`: he walks, and `fly` is his second form |
 
 ## items
 
