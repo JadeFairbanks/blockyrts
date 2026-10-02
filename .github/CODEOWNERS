@@ -1,0 +1,3 @@
+# Asset pull requests (models and images from the modelling bot) touch only
+# packages/assets/src/; see packages/assets/README.md.
+/packages/assets/src/ @JadeFairbanks
