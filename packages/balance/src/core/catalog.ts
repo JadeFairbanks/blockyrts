@@ -339,6 +339,11 @@ function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
     case 'SPECIES': return [`${r.nature.get(rec.nature as number) ?? 'Other'} animals`];
     case 'RESOURCES': return [`${r.resGroup.get(rec.group as number) ?? 'Other'} resources`];
     case 'PRODUCTS': return ['Training and products'];
+    case 'SPELLS': {
+      const names = ctx.mods['magic/spells.ts']?.SCHOOL_NAMES as readonly string[] | undefined;
+      return [`${names?.[rec.school as number] ?? 'Other'} spells`];
+    }
+    case 'MAGE_RANKS': return ['Mage ranks'];
     default: return [];
   }
 }
