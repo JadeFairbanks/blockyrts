@@ -1,0 +1,514 @@
+// The world as the simulation holds it: generated chunks cached by position,
+// the chunks players have changed (the save's chunk deltas), prop changes and
+// regrowth, water that flows near changed land, and each player's explored
+// land (fog of war). Only the changes are state; everything else is
+// regenerated from the seed on demand and never affects a result
+// (Technology, World generation and terrain; technical decision 5).
+
+import { COLUMNS_PER_CHUNK, floorDiv, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import {
+  CHUNK_SHIFT,
+  chunkKey,
+  NO_WATER,
+  WATER_PER_UNIT,
+  type ChunkColumns,
+} from './chunk.ts';
+import { WorldGen, type PropRecord } from './generate.ts';
+import { WorldLayout } from './layout.ts';
+import { Mat } from './materials.ts';
+import { hash2 } from './noise.ts';
+import { growth, isTree, propInfo, PROPS } from './props.ts';
+
+const N = COLUMNS_PER_CHUNK;
+/** Generated chunks kept in memory (technical decision 5: 2,048, least recently used first out). */
+export const CHUNK_CACHE_BUDGET = 2048;
+/** Fog tiles: 4 x 4 columns (1.8 m), 16 x 16 per chunk, one bit each. */
+export const FOG_TILE_COLUMNS = 4;
+export const FOG_TILES_PER_CHUNK = 16;
+const FOG_BYTES = (FOG_TILES_PER_CHUNK * FOG_TILES_PER_CHUNK) >> 3;
+/** Dig limit: 3 m below sea level or below the natural ground where that is lower (Terrain, Digging). */
+export const DIG_LIMIT_UNITS = 27;
+/** Water flow work per step, in columns. */
+const WATER_BUDGET = 8192;
+
+/** A change to a generated or planted prop. */
+export interface PropChange {
+  /** What it holds now. */
+  amount: number;
+  /** Step it was cut down to the stump or picked bare, from which it regrows; -1 if not. */
+  cutAt: number;
+  /** Felled trees are gone (their seeds are new props). */
+  removed: boolean;
+}
+
+/** A prop as it stands at a step: its record with changes and growth applied. */
+export interface PropView {
+  index: number;
+  kind: number;
+  lx: number;
+  lz: number;
+  y: number;
+  variant: number;
+  /** Age at this step (trees). */
+  age: number;
+  amount: number;
+  /** Growth stage and size (per mille) for trees; regrowing bushes report their stump as size 0. */
+  stage: number;
+  size: number;
+}
+
+/** Global column key for water bookkeeping. */
+export function colKey(x: number, z: number): number {
+  return (x + 0x40000) * 0x80000 + (z + 0x40000);
+}
+export function colKeyX(k: number): number {
+  return floorDiv(k, 0x80000) - 0x40000;
+}
+export function colKeyZ(k: number): number {
+  return (k % 0x80000) - 0x40000;
+}
+
+export class World {
+  readonly seed: number;
+  readonly players: number;
+  readonly layout: WorldLayout;
+  readonly gen: WorldGen;
+  /** Generated chunks, least recently used first (a cache, not state). */
+  private readonly cache = new Map<number, { columns: ChunkColumns; props: PropRecord[] }>();
+  /** State: chunks with changed columns or water, as full copies. */
+  readonly edited = new Map<number, ChunkColumns>();
+  /** State: which columns of an edited chunk differ from the generated land. */
+  readonly editedColumns = new Map<number, Set<number>>();
+  /** State: edited chunks whose water differs from the generated water. */
+  readonly waterMoved = new Set<number>();
+  /** State: prop changes per chunk, by prop index. */
+  readonly propChanges = new Map<number, Map<number, PropChange>>();
+  /** State: props added to a chunk (dropped seeds), indexed after the generated ones. */
+  readonly addedProps = new Map<number, PropRecord[]>();
+  /** State: explored fog tiles per player, per chunk. */
+  readonly explored: Array<Map<number, Uint8Array>>;
+  /** State: columns where water may still move. */
+  readonly waterActive = new Set<number>();
+  /** Not state: chunks whose columns, water or props changed since the client last asked, for redrawing. */
+  readonly dirty = new Set<number>();
+  /** Not state: chunks whose explored tiles changed, per player. */
+  readonly fogDirty: Array<Set<number>>;
+
+  constructor(seed: number, players: number) {
+    this.seed = seed >>> 0;
+    this.layout = new WorldLayout(seed, players);
+    this.players = this.layout.players;
+    this.gen = new WorldGen(this.layout);
+    this.explored = [];
+    this.fogDirty = [];
+    for (let p = 0; p < this.players; p++) {
+      this.explored.push(new Map());
+      this.fogDirty.push(new Set());
+    }
+  }
+
+  // ----- chunks and columns -----
+
+  /** The generated chunk, from the cache or freshly made. */
+  generated(cx: number, cz: number): { columns: ChunkColumns; props: PropRecord[] } {
+    const key = chunkKey(cx, cz);
+    let g = this.cache.get(key);
+    if (g) {
+      this.cache.delete(key);
+      this.cache.set(key, g);
+      return g;
+    }
+    g = this.gen.generateChunk(cx, cz);
+    this.cache.set(key, g);
+    if (this.cache.size > CHUNK_CACHE_BUDGET) {
+      const oldest = this.cache.keys().next().value!;
+      this.cache.delete(oldest);
+    }
+    return g;
+  }
+
+  /** Whether a chunk is generated and cached already (for spreading generation over steps). */
+  isCached(cx: number, cz: number): boolean {
+    return this.cache.has(chunkKey(cx, cz)) || this.edited.has(chunkKey(cx, cz));
+  }
+
+  /** The chunk's columns as they stand now. */
+  columns(cx: number, cz: number): ChunkColumns {
+    return this.edited.get(chunkKey(cx, cz)) ?? this.generated(cx, cz).columns;
+  }
+
+  private editable(cx: number, cz: number): ChunkColumns {
+    const key = chunkKey(cx, cz);
+    let c = this.edited.get(key);
+    if (!c) {
+      c = this.generated(cx, cz).columns.clone();
+      this.edited.set(key, c);
+      this.editedColumns.set(key, new Set());
+    }
+    return c;
+  }
+
+  /** Chunk and index of a global column. */
+  private locate(x: number, z: number): { cx: number; cz: number; i: number } {
+    const cx = x >> CHUNK_SHIFT;
+    const cz = z >> CHUNK_SHIFT;
+    return { cx, cz, i: (z - cz * N) * N + (x - cx * N) };
+  }
+
+  /** Top of the highest layer of a global column, terrain units. */
+  topAt(x: number, z: number): number {
+    const l = this.locate(x, z);
+    return this.columns(l.cx, l.cz).top(l.i);
+  }
+
+  /** Water surface of a global column in 32nds of a terrain unit, or NO_WATER. */
+  waterAt(x: number, z: number): number {
+    const l = this.locate(x, z);
+    return this.columns(l.cx, l.cz).water[l.i]!;
+  }
+
+  /** The layers of a global column, as (bottom, top, material) triples. */
+  columnAt(x: number, z: number): number[] {
+    const l = this.locate(x, z);
+    return this.columns(l.cx, l.cz).column(l.i);
+  }
+
+  /**
+   * The height in world units a unit at (x, z) stands on: the top of the
+   * layer whose surface is nearest its current height and has room above it.
+   */
+  groundY(x: number, z: number, currentY: number): number {
+    const cxl = floorDiv(x, WU_PER_COLUMN);
+    const czl = floorDiv(z, WU_PER_COLUMN);
+    const l = this.locate(cxl, czl);
+    const c = this.columns(l.cx, l.cz);
+    const s = c.start[l.i]! * 3;
+    const n = c.count[l.i]!;
+    let best = c.layers[s + (n - 1) * 3 + 1]! * WU_PER_TERRAIN_UNIT;
+    let bestD = Math.abs(best - currentY);
+    for (let k = 0; k < n - 1; k++) {
+      const top = c.layers[s + k * 3 + 1]!;
+      const nextBottom = c.layers[s + (k + 1) * 3]!;
+      if (nextBottom - top < 16) continue; // no headroom for a person (1.8 m)
+      const y = top * WU_PER_TERRAIN_UNIT;
+      const d = Math.abs(y - currentY);
+      if (d < bestD) {
+        best = y;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** The natural ground of a column: the top of its generated land. */
+  naturalTop(x: number, z: number): number {
+    const l = this.locate(x, z);
+    return this.generated(l.cx, l.cz).columns.top(l.i);
+  }
+
+  /** Restores a chunk's saved changes onto its generated land (snapshots and saves). */
+  restoreChunk(cx: number, cz: number, columns: ReadonlyMap<number, readonly number[]>, water: Int16Array | null): void {
+    const key = chunkKey(cx, cz);
+    const c = this.editable(cx, cz);
+    const set = this.editedColumns.get(key)!;
+    for (const [i, triples] of columns) {
+      c.setColumn(i, triples);
+      set.add(i);
+    }
+    if (water) {
+      c.water.set(water);
+      this.waterMoved.add(key);
+    }
+  }
+
+  // ----- terrain edits -----
+
+  /**
+   * Sets the solid range [bottom, top) of every column in the box to a
+   * material, or carves it to air when material is Air. Carving never goes
+   * below the dig limit. Returns the number of columns changed.
+   */
+  editBox(x0: number, z0: number, x1: number, z1: number, bottom: number, top: number, material: number): number {
+    let changed = 0;
+    const xa = Math.min(x0, x1);
+    const xb = Math.max(x0, x1);
+    const za = Math.min(z0, z1);
+    const zb = Math.max(z0, z1);
+    for (let z = za; z <= zb; z++) {
+      for (let x = xa; x <= xb; x++) {
+        let lo = bottom;
+        if (material === Mat.Air) lo = Math.max(lo, Math.min(0, this.naturalTop(x, z)) - DIG_LIMIT_UNITS);
+        if (top <= lo) continue;
+        if (this.editColumn(x, z, lo, top, material)) changed++;
+      }
+    }
+    return changed;
+  }
+
+  private editColumn(x: number, z: number, lo: number, hi: number, material: number): boolean {
+    const l = this.locate(x, z);
+    const before = this.columns(l.cx, l.cz).column(l.i);
+    const out: number[] = [];
+    for (let k = 0; k < before.length; k += 3) {
+      const y0 = before[k]!;
+      const y1 = before[k + 1]!;
+      const m = before[k + 2]!;
+      if (y1 <= lo || y0 >= hi) out.push(y0, y1, m);
+      else {
+        if (y0 < lo) out.push(y0, lo, m);
+        if (y1 > hi) out.push(hi, y1, m);
+      }
+    }
+    if (material !== Mat.Air) {
+      // Insert the new solid range in order.
+      let at = 0;
+      while (at < out.length && out[at]! < lo) at += 3;
+      out.splice(at, 0, lo, hi, material);
+    }
+    // Merge touching layers of the same material.
+    const merged: number[] = [];
+    for (let k = 0; k < out.length; k += 3) {
+      const n = merged.length;
+      if (n > 0 && merged[n - 1] === out[k + 2] && merged[n - 2] === out[k]) merged[n - 2] = out[k + 1]!;
+      else merged.push(out[k]!, out[k + 1]!, out[k + 2]!);
+    }
+    if (merged.length === 0) return false; // never remove a column's last layer
+    if (merged.length === before.length && merged.every((v, k) => v === before[k])) return false;
+    const c = this.editable(l.cx, l.cz);
+    c.setColumn(l.i, merged);
+    const key = chunkKey(l.cx, l.cz);
+    this.editedColumns.get(key)!.add(l.i);
+    // Water on the column keeps its depth on the new top, so an edit never
+    // makes or loses water; water next to changed land may then move.
+    const oldTop = before[before.length - 2]!;
+    const top = merged[merged.length - 2]!;
+    const wl = c.water[l.i]!;
+    if (wl !== NO_WATER && top !== oldTop) {
+      c.water[l.i] = wl > oldTop * WATER_PER_UNIT ? wl + (top - oldTop) * WATER_PER_UNIT : NO_WATER;
+      this.waterMoved.add(key);
+    }
+    for (const [dx, dz] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const) this.waterActive.add(colKey(x + dx, z + dz));
+    this.dirty.add(key);
+    // Scenery and props on a dug or built column go.
+    this.removePropsOn(l.cx, l.cz, l.i);
+    return true;
+  }
+
+  private removePropsOn(cx: number, cz: number, i: number): void {
+    const lx = i % N;
+    const lz = floorDiv(i, N);
+    const list = this.propRecords(cx, cz);
+    for (let k = 0; k < list.length; k++) {
+      const p = list[k]!;
+      if (p.lx === lx && p.lz === lz) this.changeProp(cx, cz, k, { amount: 0, cutAt: -1, removed: true });
+    }
+  }
+
+  // ----- water -----
+
+  private setWater(x: number, z: number, w: number): void {
+    const l = this.locate(x, z);
+    const c = this.editable(l.cx, l.cz);
+    if (c.water[l.i] === w) return;
+    c.water[l.i] = w;
+    const key = chunkKey(l.cx, l.cz);
+    this.waterMoved.add(key);
+    this.dirty.add(key);
+  }
+
+  private isSource(x: number, z: number): { source: boolean; level: number } {
+    const l = this.locate(x, z);
+    const g = this.generated(l.cx, l.cz).columns;
+    return { source: g.source[l.i] === 1, level: g.water[l.i]! };
+  }
+
+  /**
+   * One step of water flow near changed land (Water: it flows downhill,
+   * fills low ground and settles; rivers and streams keep their level).
+   * Integer volumes in 32nds of a terrain unit. Columns are worked in key
+   * order and each one evens its level with each lower neighbour in turn,
+   * moving half the difference at once, so volume is kept, nothing
+   * overshoots and the water settles flat to within a 32nd.
+   */
+  flowWater(): void {
+    if (this.waterActive.size === 0) return;
+    const keys = [...this.waterActive].sort((a, b) => a - b);
+    const work = keys.slice(0, WATER_BUDGET);
+    for (const k of work) this.waterActive.delete(k);
+    const wake = (x: number, z: number): void => {
+      for (const [dx, dz] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const) this.waterActive.add(colKey(x + dx, z + dz));
+    };
+    for (const k of work) {
+      const x = colKeyX(k);
+      const z = colKeyZ(k);
+      const ground = this.topAt(x, z) * WATER_PER_UNIT;
+      const source = this.isSource(x, z);
+      for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+        const w = this.waterAt(x, z);
+        if (w === NO_WATER || w <= ground) break;
+        const nx = x + dx;
+        const nz = z + dz;
+        const nGround = this.topAt(nx, nz) * WATER_PER_UNIT;
+        const nw = this.waterAt(nx, nz);
+        const ln = nw === NO_WATER ? nGround : nw;
+        const f = Math.min((w - ln) >> 1, w - ground);
+        if (f <= 0) continue;
+        // A river or stream keeps its level: its inflow replaces what flows out.
+        if (!source.source) this.setWater(x, z, w - f > ground ? w - f : NO_WATER);
+        if (!this.isSource(nx, nz).source) this.setWater(nx, nz, ln + f);
+        wake(x, z);
+        wake(nx, nz);
+      }
+    }
+  }
+
+  // ----- props -----
+
+  /** The chunk's prop records: generated ones, then added ones. */
+  propRecords(cx: number, cz: number): PropRecord[] {
+    const gen = this.generated(cx, cz).props;
+    const added = this.addedProps.get(chunkKey(cx, cz));
+    return added ? gen.concat(added) : gen;
+  }
+
+  private changeProp(cx: number, cz: number, index: number, change: PropChange): void {
+    const key = chunkKey(cx, cz);
+    let m = this.propChanges.get(key);
+    if (!m) {
+      m = new Map();
+      this.propChanges.set(key, m);
+    }
+    m.set(index, change);
+    this.dirty.add(key);
+  }
+
+  /** The chunk's props as they stand at a step, with growth and regrowth applied. Felled ones are left out. */
+  props(cx: number, cz: number, step: number): PropView[] {
+    const records = this.propRecords(cx, cz);
+    const changes = this.propChanges.get(chunkKey(cx, cz));
+    const out: PropView[] = [];
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i]!;
+      const ch = changes?.get(i);
+      if (ch?.removed) continue;
+      const info = propInfo(r.kind);
+      // Added props store the step they were dropped as a negative age.
+      const age = r.age + step;
+      let amount = ch ? ch.amount : r.amount;
+      let size = 1000;
+      let stage = 2;
+      if (isTree(r.kind)) {
+        const gr = growth(r.kind, age);
+        stage = gr.stage;
+        size = gr.size;
+        if (gr.stage !== 2) amount = 0;
+      } else if (ch && ch.cutAt >= 0) {
+        // Bushes and plants grow back from the stump.
+        if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
+        else size = 0;
+      }
+      out.push({ index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size });
+    }
+    return out;
+  }
+
+  /**
+   * Takes up to `amount` from a prop (gathering arrives in M2; tests and the
+   * debug tools use this). Felling a tree removes it and drops its seeds
+   * around it; a hazel bush or a plant picked bare regrows from the stump.
+   * Returns what was taken.
+   */
+  harvest(cx: number, cz: number, index: number, amount: number, step: number): number {
+    const records = this.propRecords(cx, cz);
+    const r = records[index];
+    if (!r) return 0;
+    const view = this.props(cx, cz, step).find((v) => v.index === index);
+    if (!view || view.amount <= 0) return 0;
+    const taken = Math.min(amount, view.amount);
+    const left = view.amount - taken;
+    const info = propInfo(r.kind);
+    if (left > 0) {
+      this.changeProp(cx, cz, index, { amount: left, cutAt: -1, removed: false });
+      return taken;
+    }
+    if (isTree(r.kind)) {
+      this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: true });
+      this.dropSeeds(cx, cz, r, info.seeds, step);
+    } else if (info.regrowSteps > 0) {
+      this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: false });
+    } else {
+      this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: true });
+    }
+    return taken;
+  }
+
+  /** Felled trees drop seeds around them that grow into saplings (The world, Regrowth). */
+  private dropSeeds(cx: number, cz: number, tree: PropRecord, seeds: number, step: number): void {
+    for (let s = 0; s < seeds; s++) {
+      const h = hash2(tree.variant, step, s);
+      const dx = ((h & 15) - 7) | 0;
+      const dz = (((h >>> 4) & 15) - 7) | 0;
+      // Keep at least 3 columns away from the stump.
+      const gx = cx * N + tree.lx + (Math.abs(dx) < 3 ? (dx < 0 ? -3 : 3) : dx);
+      const gz = cz * N + tree.lz + dz;
+      const tcx = gx >> CHUNK_SHIFT;
+      const tcz = gz >> CHUNK_SHIFT;
+      const lx = gx - tcx * N;
+      const lz = gz - tcz * N;
+      const c = this.columns(tcx, tcz);
+      const i = lz * N + lx;
+      if (c.water[i] !== NO_WATER) continue;
+      const key = chunkKey(tcx, tcz);
+      const list = this.addedProps.get(key) ?? [];
+      list.push({ kind: tree.kind, lx, lz, y: c.top(i), variant: hash2(h, gx, gz), age: -step, amount: PROPS[tree.kind]!.yield });
+      this.addedProps.set(key, list);
+      this.dirty.add(key);
+    }
+  }
+
+  // ----- fog of war -----
+
+  /** Marks the fog tiles within `radius` world units of (x, z) explored for a player. */
+  reveal(player: number, x: number, z: number, radius: number): void {
+    const map = this.explored[player];
+    if (!map) return;
+    const tileWu = WU_PER_COLUMN * FOG_TILE_COLUMNS;
+    const tx0 = floorDiv(x - radius, tileWu);
+    const tx1 = floorDiv(x + radius, tileWu);
+    const tz0 = floorDiv(z - radius, tileWu);
+    const tz1 = floorDiv(z + radius, tileWu);
+    const r2 = radius * radius;
+    const dirty = this.fogDirty[player]!;
+    for (let tz = tz0; tz <= tz1; tz++) {
+      const cz = floorDiv(tz, FOG_TILES_PER_CHUNK);
+      const ccz = tz * tileWu + (tileWu >> 1) - z;
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const ccx = tx * tileWu + (tileWu >> 1) - x;
+        if (ccx * ccx + ccz * ccz > r2) continue;
+        const cx = floorDiv(tx, FOG_TILES_PER_CHUNK);
+        const key = chunkKey(cx, cz);
+        let bits = map.get(key);
+        if (!bits) {
+          bits = new Uint8Array(FOG_BYTES);
+          map.set(key, bits);
+        }
+        const t = (tz - cz * FOG_TILES_PER_CHUNK) * FOG_TILES_PER_CHUNK + (tx - cx * FOG_TILES_PER_CHUNK);
+        const b = 1 << (t & 7);
+        if ((bits[t >> 3]! & b) === 0) {
+          bits[t >> 3] = bits[t >> 3]! | b;
+          dirty.add(key);
+        }
+      }
+    }
+  }
+
+  /** Whether a fog tile (global tile coordinates) is explored by a player. */
+  isExplored(player: number, tx: number, tz: number): boolean {
+    const cx = floorDiv(tx, FOG_TILES_PER_CHUNK);
+    const cz = floorDiv(tz, FOG_TILES_PER_CHUNK);
+    const bits = this.explored[player]?.get(chunkKey(cx, cz));
+    if (!bits) return false;
+    const t = (tz - cz * FOG_TILES_PER_CHUNK) * FOG_TILES_PER_CHUNK + (tx - cx * FOG_TILES_PER_CHUNK);
+    return (bits[t >> 3]! & (1 << (t & 7))) !== 0;
+  }
+}

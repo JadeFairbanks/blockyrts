@@ -38,7 +38,7 @@ export interface LowResChunk {
   size: number;
   top: Int16Array;
   material: Uint8Array;
-  /** Water surface in eighths of a terrain unit, or NO_WATER. */
+  /** Water surface in 32nds of a terrain unit, or NO_WATER. */
   water: Int16Array;
 }
 
@@ -549,7 +549,7 @@ export class WorldGen {
 
     p.ground = ground;
     // Water.
-    if (waterLevel > ground) {
+    if (waterLevel > ground && waterLevel < 1000 && waterLevel > -1000) {
       p.water = waterLevel * WATER_PER_UNIT;
       p.source = source;
       p.flags |= F_WATER;

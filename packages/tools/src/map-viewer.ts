@@ -10,7 +10,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { deflateSync } from 'node:zlib';
-import { COLUMNS_PER_CHUNK, MATERIALS, NO_WATER, WorldGen, WorldLayout } from '@blockyrts/sim';
+import { COLUMNS_PER_CHUNK, MATERIALS, NO_WATER, WATER_PER_UNIT, WorldGen, WorldLayout } from '@blockyrts/sim';
 
 const { values } = parseArgs({
   options: {
@@ -71,8 +71,8 @@ for (let y = 0; y < px; y++) {
     let r: number;
     let g: number;
     let b: number;
-    if (s.water !== NO_WATER && s.water / 8 > s.top) {
-      const depth = s.water / 8 - s.top;
+    if (s.water !== NO_WATER && s.water / WATER_PER_UNIT > s.top) {
+      const depth = s.water / WATER_PER_UNIT - s.top;
       const k = Math.max(0.35, 1 - depth / 30);
       [r, g, b] = [40 * k, 90 * k, 170 * k + 30];
     } else {

@@ -3,10 +3,10 @@
 import { createWorld, run, type InputFrame } from '@blockyrts/sim';
 
 declare global {
-  var runSim: (seed: number, steps: number, frames: InputFrame[]) => { hashes: Array<[number, number]>; finalHash: number };
+  var runSim: (seed: number, steps: number, frames: InputFrame[], players: number) => { hashes: Array<[number, number]>; finalHash: number };
 }
 
-globalThis.runSim = (seed, steps, frames) => {
-  const r = run(createWorld(seed), steps, frames);
+globalThis.runSim = (seed, steps, frames, players) => {
+  const r = run(createWorld(seed, { players }), steps, frames);
   return { hashes: r.hashes, finalHash: r.finalHash };
 };

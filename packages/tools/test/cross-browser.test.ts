@@ -1,9 +1,12 @@
-// The M0 check: 10,000 steps from seed 1 with the demo order script give the
-// same hashes in Node and in every browser engine available.
+// The determinism check: each order script run from seed 1 gives the same
+// hashes in Node and in every browser engine available. The M0 script moves
+// units; the M1 script also generates the land they walk on, digs, builds,
+// lets water flow, fells trees and reveals land, so the hashes cover the
+// world's state too.
 //
 // Browsers come from Playwright. Locally a missing browser is skipped with a
-// warning; CI sets SIM_REQUIRE_BROWSERS=chromium,firefox so a missing browser
-// fails the run instead.
+// warning; CI sets SIM_REQUIRE_BROWSERS=chromium,firefox,webkit so a missing
+// browser fails the run instead.
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { chromium, firefox, webkit, type BrowserType } from 'playwright';
@@ -13,16 +16,19 @@ import { loadOrderScript } from '../src/script.ts';
 
 const SEED = 1;
 const STEPS = 10_000;
-const frames = loadOrderScript(fileURLToPath(new URL('../orders/m0-demo.json', import.meta.url))).frames;
 const required = new Set((process.env.SIM_REQUIRE_BROWSERS ?? '').split(',').filter(Boolean));
 const engines: Array<[string, BrowserType]> = [
   ['chromium', chromium],
   ['firefox', firefox],
   ['webkit', webkit],
 ];
+const scripts = ['m0-demo', 'm1-world'].map((name) => {
+  const script = loadOrderScript(fileURLToPath(new URL(`../orders/${name}.json`, import.meta.url)));
+  const players = script.players ?? 1;
+  return { name, players, frames: script.frames, node: run(createWorld(SEED, { players }), STEPS, script.frames) };
+});
 
 let bundle = '';
-const node = run(createWorld(SEED), STEPS, frames);
 
 beforeAll(async () => {
   const out = await build({
@@ -37,12 +43,14 @@ beforeAll(async () => {
 });
 
 describe('cross-engine determinism', () => {
-  it('runs the same script twice in Node with identical hashes', () => {
-    const again = run(createWorld(SEED), STEPS, frames);
-    expect(node.hashes.length).toBe(STEPS / 20);
-    expect(again.hashes).toEqual(node.hashes);
-    console.log(`node: seed ${SEED}, ${STEPS} steps, final hash ${hashHex(node.finalHash)}`);
-  });
+  for (const s of scripts) {
+    it(`runs ${s.name} twice in Node with identical hashes`, () => {
+      const again = run(createWorld(SEED, { players: s.players }), STEPS, s.frames);
+      expect(s.node.hashes.length).toBe(STEPS / 20);
+      expect(again.hashes).toEqual(s.node.hashes);
+      console.log(`node ${s.name}: seed ${SEED}, ${s.players} player(s), ${STEPS} steps, final hash ${hashHex(s.node.finalHash)}`);
+    });
+  }
 
   for (const [name, engine] of engines) {
     it(`gives the Node hashes in ${name}`, async (ctx) => {
@@ -59,13 +67,15 @@ describe('cross-engine determinism', () => {
         const page = await browser.newPage();
         await page.setContent('<!doctype html><title>sim</title>');
         await page.addScriptTag({ content: bundle });
-        const result = await page.evaluate(
-          ([seed, steps, f]) => globalThis.runSim(seed, steps, f),
-          [SEED, STEPS, frames] as const,
-        );
-        console.log(`${name} ${browser.version()}: final hash ${hashHex(result.finalHash)}`);
-        expect(result.hashes).toEqual(node.hashes);
-        expect(result.finalHash).toBe(node.finalHash);
+        for (const s of scripts) {
+          const result = await page.evaluate(
+            ([seed, steps, f, players]) => globalThis.runSim(seed, steps, f, players),
+            [SEED, STEPS, s.frames, s.players] as const,
+          );
+          console.log(`${name} ${browser.version()} ${s.name}: final hash ${hashHex(result.finalHash)}`);
+          expect(result.hashes).toEqual(s.node.hashes);
+          expect(result.finalHash).toBe(s.node.finalHash);
+        }
       } finally {
         await browser.close();
       }

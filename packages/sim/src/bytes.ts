@@ -39,6 +39,12 @@ export class ByteWriter {
     this.len += 4;
   }
 
+  i16(v: number): void {
+    this.ensure(2);
+    this.view.setInt16(this.len, v, true);
+    this.len += 2;
+  }
+
   i32(v: number): void {
     this.ensure(4);
     this.view.setInt32(this.len, v, true);
@@ -79,6 +85,12 @@ export class ByteReader {
   u32(): number {
     const v = this.view.getUint32(this.pos, true);
     this.pos += 4;
+    return v;
+  }
+
+  i16(): number {
+    const v = this.view.getInt16(this.pos, true);
+    this.pos += 2;
     return v;
   }
 

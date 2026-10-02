@@ -4,7 +4,7 @@
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WORLD_EDGE_WU, WU_PER_METRE } from './fixed.ts';
 import { canonicalOrders, type Order } from './orders.ts';
 import { hashState } from './serialize.ts';
-import { NEUTRAL, OrderKind, type SimState } from './state.ts';
+import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealAroundUnits, type SimState } from './state.ts';
 
 /** How far a wanderer strays per leg, and how far from the origin it may roam. */
 const WANDER_LEG_WU = 15 * WU_PER_METRE;
@@ -20,15 +20,35 @@ export interface StepResult {
 function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
   for (const order of canonicalOrders(orders)) {
-    // Only move orders exist in M0.
-    const tx = clamp(order.x, -WORLD_EDGE_WU, WORLD_EDGE_WU);
-    const tz = clamp(order.z, -WORLD_EDGE_WU, WORLD_EDGE_WU);
-    for (const id of order.units) {
-      const i = e.indexOf(id);
-      if (i < 0 || e.owner[i] !== order.player) continue;
-      e.order[i] = OrderKind.Move;
-      e.targetX[i] = tx;
-      e.targetZ[i] = tz;
+    switch (order.kind) {
+      case 'move': {
+        const tx = clamp(order.x, -WORLD_EDGE_WU, WORLD_EDGE_WU);
+        const tz = clamp(order.z, -WORLD_EDGE_WU, WORLD_EDGE_WU);
+        for (const id of order.units) {
+          const i = e.indexOf(id);
+          if (i < 0 || e.owner[i] !== order.player) continue;
+          e.order[i] = OrderKind.Move;
+          e.targetX[i] = tx;
+          e.targetZ[i] = tz;
+        }
+        break;
+      }
+      case 'stop':
+        for (const id of order.units) {
+          const i = e.indexOf(id);
+          if (i < 0 || e.owner[i] !== order.player) continue;
+          e.order[i] = OrderKind.Idle;
+        }
+        break;
+      case 'terrain':
+        state.world.editBox(order.x0, order.z0, order.x1, order.z1, order.bottom, order.top, order.material);
+        break;
+      case 'debugReveal':
+        if (order.player < state.world.players) state.world.reveal(order.player, order.x, order.z, order.radius);
+        break;
+      case 'debugHarvest':
+        state.world.harvest(order.cx, order.cz, order.index, order.amount, state.step);
+        break;
     }
   }
 }
@@ -64,6 +84,8 @@ function moveEntities(state: SimState): void {
       e.x[i] = e.x[i]! + floorDiv(dx * speed, dist);
       e.z[i] = e.z[i]! + floorDiv(dz * speed, dist);
     }
+    // Stand on the land. Climbing, wading and blocking come with Moving over the land (M2).
+    e.y[i] = state.world.groundY(e.x[i]!, e.z[i]!, e.y[i]!);
   }
 }
 
@@ -74,7 +96,9 @@ function moveEntities(state: SimState): void {
 export function step(state: SimState, orders: readonly Order[] = []): StepResult {
   applyOrders(state, orders);
   moveEntities(state);
+  state.world.flowWater();
   state.step++;
+  if (state.step % FOG_INTERVAL_STEPS === 0) revealAroundUnits(state);
   if (state.step % HASH_INTERVAL_STEPS === 0) return { step: state.step, hash: hashState(state) };
   return { step: state.step };
 }

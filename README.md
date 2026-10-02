@@ -82,7 +82,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash f19851d7`. Run it again: the same hash.
+   prints `final step 10000 hash dababc31`. Run it again: the same hash.
 2. `pnpm test` runs the same seed and script in Node twice and in headless
    Chromium, Firefox and WebKit, and fails if any of the 500 hashes differ.
    CI runs this on every push; the log prints each engine's final hash.

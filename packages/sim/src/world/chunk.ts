@@ -8,8 +8,8 @@ export const CHUNK_COLUMNS = COLUMNS_PER_CHUNK * COLUMNS_PER_CHUNK;
 export const CHUNK_SHIFT = 6;
 /** No water on this column. */
 export const NO_WATER = -32768;
-/** Water levels are kept in eighths of a terrain unit so thin layers can spread. */
-export const WATER_PER_UNIT = 8;
+/** Water levels are kept in 32nds of a terrain unit (0.35 cm) so thin layers can spread and settle nearly flat; Int16 then covers +-1,000 terrain units (+-115 m), well beyond the land's range. */
+export const WATER_PER_UNIT = 32;
 
 /** Packs chunk coordinates (each within +-2^20) into one integer key. */
 export function chunkKey(cx: number, cz: number): number {
@@ -35,7 +35,7 @@ export class ChunkColumns {
   count: Uint8Array;
   /** Triples: bottom, top, material. Heights are terrain units relative to sea level. */
   layers: Int16Array;
-  /** Water surface in eighths of a terrain unit, or NO_WATER. Water sits on the column's top layer. */
+  /** Water surface in 32nds of a terrain unit, or NO_WATER. Water sits on the column's top layer. */
   water: Int16Array;
   /** 1 where the water is a river or stream with a fixed inflow, which keeps its level. */
   source: Uint8Array;
