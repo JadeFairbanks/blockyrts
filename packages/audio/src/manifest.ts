@@ -57,7 +57,6 @@ function sfx<G extends GeneratorName>(
 }
 
 // Mode sets reused below.
-const WOOD = { freqs: [190, 420, 760, 1250], decays: [0.09, 0.06, 0.04, 0.025], amps: [1, 0.7, 0.5, 0.3] };
 const STONE_RING = { freqs: [1850, 4290, 7860], decays: [0.18, 0.1, 0.05], amps: [1, 0.5, 0.25] };
 const METAL = { freqs: [520, 1310, 2380, 3640, 5120], decays: [0.6, 0.4, 0.25, 0.15, 0.1], amps: [1, 0.7, 0.5, 0.35, 0.2] };
 const MARIMBA = { partials: [1, 3.93, 9.24], decays: [1, 0.25, 0.1] };
@@ -66,18 +65,16 @@ const GLASS = { partials: [1, 2.32, 4.25], decays: [1, 0.5, 0.25] };
 
 export const SFX: readonly SfxDef[] = [
   // ---- work
-  sfx('chop', 'Chopping wood', 'work', 'impact', {
-    dur: 0.5, thud: { f0: 130, f1: 75, decay: 0.05, gain: 0.7 }, noise: { hp: 2200, decay: 0.012, gain: 0.9 },
-    modes: { ...WOOD, gain: 0.9 }, grains: { count: 3, from: 0.03, to: 0.15, lo: 2000, hi: 4500, decay: 0.006, gain: 0.3 },
-  }, { level: 0.75 }),
+  sfx('chop', 'Chopping wood', 'work', 'chop', { dur: 0.35, body: 420, splinter: 1 }, { level: 0.75 }),
   sfx('mine', 'Mining stone and ore', 'work', 'impact', {
     dur: 0.8, thud: { f0: 100, f1: 60, decay: 0.04, gain: 0.6 }, noise: { bp: 1400, q: 0.8, decay: 0.03, gain: 1 },
     modes: { ...STONE_RING, gain: 0.7 }, grains: { count: 9, from: 0.05, to: 0.45, lo: 2000, hi: 5000, decay: 0.008, gain: 0.4 },
   }, { level: 0.75 }),
   sfx('dig', 'Digging earth', 'work', 'dig', { dur: 0.7, tone: 1100, dirt: 1 }, { level: 0.7 }),
   sfx('build', 'Building (hammer)', 'work', 'impact', {
-    dur: 0.45, thud: { f0: 160, f1: 110, decay: 0.03, gain: 0.5 }, noise: { hp: 1800, decay: 0.008, gain: 0.7 },
-    modes: { freqs: [310, 680, 1150, 2650], decays: [0.06, 0.04, 0.03, 0.07], amps: [1, 0.6, 0.4, 0.35], gain: 1 },
+    dur: 0.3, thud: { f0: 140, f1: 90, decay: 0.012, gain: 0.5 }, noise: { hp: 2000, decay: 0.005, gain: 1 },
+    bands: [{ f: 600, q: 1, decay: 0.025, gain: 1.4 }, { f: 1500, q: 1.2, decay: 0.015, gain: 0.7 }],
+    modes: { freqs: [3100], decays: [0.012], amps: [1], gain: 0.12 },
   }, { level: 0.75 }),
   sfx('build_complete', 'Building finished', 'work', 'chime', {
     notes: [67, 71, 74, 79], spacing: 0.09, ...MARIMBA, decay: 0.45, dur: 1.2,
@@ -89,27 +86,29 @@ export const SFX: readonly SfxDef[] = [
     noise: { hp: 1500, decay: 0.02, gain: 0.8 }, modes: { freqs: [3100, 4700], decays: [0.04, 0.025], amps: [1, 0.5], gain: 0.25 },
   }, { level: 0.75, maxInstances: 8 }),
   sfx('hit_blunt', 'Hit: blunt', 'combat', 'impact', {
-    dur: 0.4, thud: { f0: 160, f1: 55, decay: 0.06, gain: 1.1 }, noise: { lp: 1400, decay: 0.03, gain: 0.8 },
+    dur: 0.3, thud: { f0: 120, f1: 60, decay: 0.022, gain: 0.8 }, noise: { lp: 900, attack: 0.002, decay: 0.035, gain: 1.4 },
+    bands: [{ f: 250, q: 0.8, decay: 0.03, gain: 1.2 }, { f: 1200, q: 1, decay: 0.008, gain: 0.5 }],
   }, { level: 0.8, maxInstances: 8 }),
   sfx('hit_arrow', 'Hit: arrow or bolt', 'combat', 'impact', {
-    dur: 0.35, thud: { f0: 230, f1: 120, decay: 0.035, gain: 0.8 }, noise: { hp: 2500, decay: 0.006, gain: 0.8 },
-    modes: { freqs: [95, 410], decays: [0.08, 0.03], amps: [0.6, 0.4], gain: 0.5 },
+    dur: 0.25, noise: { hp: 2500, decay: 0.003, gain: 1 }, thud: { f0: 150, f1: 90, decay: 0.012, gain: 0.4 },
+    bands: [{ f: 450, q: 0.9, decay: 0.018, gain: 1.2 }, { f: 1800, q: 1.2, decay: 0.008, gain: 0.6 }],
   }, { level: 0.7, maxInstances: 8 }),
   sfx('hit_building', 'Hit: on a building or wall', 'combat', 'impact', {
-    dur: 0.6, thud: { f0: 110, f1: 60, decay: 0.07, gain: 0.9 }, noise: { lp: 2500, decay: 0.04, gain: 0.7 },
-    modes: { freqs: [140, 330, 610], decays: [0.1, 0.06, 0.04], amps: [1, 0.6, 0.4], gain: 0.8 },
-    grains: { count: 6, from: 0.04, to: 0.35, lo: 900, hi: 3000, decay: 0.01, gain: 0.35 },
+    dur: 0.5, thud: { f0: 100, f1: 55, decay: 0.025, gain: 0.7 }, noise: { lp: 2500, decay: 0.04, gain: 0.8 },
+    bands: [{ f: 220, q: 0.7, decay: 0.045, gain: 1.4 }, { f: 700, q: 0.9, decay: 0.025, gain: 0.9 }],
+    grains: { count: 7, from: 0.03, to: 0.3, lo: 900, hi: 3000, decay: 0.01, gain: 0.35 },
   }, { level: 0.8 }),
   sfx('block_wood', 'Block: wood or wicker shield', 'combat', 'impact', {
-    dur: 0.4, thud: { f0: 190, f1: 150, decay: 0.05, gain: 0.8 }, noise: { bp: 900, q: 0.8, decay: 0.02, gain: 0.8 },
-    modes: { freqs: [185, 370, 640], decays: [0.07, 0.05, 0.03], amps: [1, 0.6, 0.3], gain: 1 },
+    dur: 0.3, thud: { f0: 130, f1: 80, decay: 0.015, gain: 0.5 }, noise: { hp: 1500, decay: 0.004, gain: 0.8 },
+    bands: [{ f: 380, q: 1, decay: 0.03, gain: 1.5 }, { f: 1100, q: 1, decay: 0.015, gain: 0.7 }],
+    grains: { count: 3, from: 0.01, to: 0.06, lo: 1500, hi: 4000, decay: 0.004, gain: 0.3 },
   }, { level: 0.75, maxInstances: 8 }),
   sfx('block_metal', 'Block: metal', 'combat', 'impact', {
     dur: 1.6, noise: { hp: 2000, decay: 0.01, gain: 0.6 }, modes: { ...METAL, gain: 0.8 }, thud: { f0: 200, f1: 150, decay: 0.03, gain: 0.4 },
   }, { level: 0.7, maxInstances: 8, reverb: { mix: 0.15, room: 0.5 } }),
   sfx('death_body', 'Death: a body falls', 'combat', 'impact', {
-    dur: 0.7, at: 0.0, thud: { f0: 120, f1: 50, decay: 0.08, gain: 1 }, noise: { lp: 900, decay: 0.06, gain: 0.6 },
-    grains: { count: 5, from: 0.12, to: 0.4, lo: 500, hi: 2500, decay: 0.012, gain: 0.4 },
+    dur: 0.6, thud: { f0: 90, f1: 50, decay: 0.03, gain: 0.7 }, noise: { lp: 700, attack: 0.004, decay: 0.07, gain: 1.4 },
+    grains: { count: 5, from: 0.1, to: 0.35, lo: 400, hi: 2000, decay: 0.012, gain: 0.4 },
   }, { level: 0.75 }),
   sfx('death_monster', 'Death: a monster', 'combat', 'squelch', { from: 900, to: 180, length: 0.45, dur: 0.75 }, { level: 0.75 }),
   sfx('death_building', 'Death: a building collapses', 'combat', 'collapse', { dur: 2.4, pieces: 22 }, { level: 0.85, maxSeconds: 3, maxInstances: 3, variants: 3 }),
@@ -145,7 +144,7 @@ export const SFX: readonly SfxDef[] = [
   // ---- interface
   sfx('ui_click', 'Interface click', 'interface', 'click', { freq: 1700, decay: 0.012, dur: 0.08 }, { variants: 2, level: 0.4, maxInstances: 2, source: 'pick (HUD buttons)' }),
   sfx('ui_place', 'Building placed', 'interface', 'impact', {
-    dur: 0.3, thud: { f0: 180, f1: 120, decay: 0.03, gain: 0.8 }, modes: { freqs: [260, 590], decays: [0.04, 0.03], amps: [1, 0.5], gain: 0.7 },
+    dur: 0.2, thud: { f0: 150, f1: 100, decay: 0.012, gain: 0.5 }, bands: [{ f: 500, q: 1, decay: 0.02, gain: 1.2 }],
   }, { variants: 2, level: 0.55, maxInstances: 2, source: 'pick (Building placement)' }),
   sfx('ui_message', 'New message in the panel', 'interface', 'chime', { notes: [88], spacing: 0, ...GLASS, decay: 0.15, dur: 0.5 },
     { variants: 1, level: 0.35, maxInstances: 1, source: 'pick (message panel, chat)' }),

@@ -176,8 +176,10 @@ export interface ImpactParams {
   /** Seconds of lead-in before the strike (for swooshes). */
   readonly at?: number;
   readonly thud?: { f0: number; f1: number; decay: number; gain: number };
-  readonly noise?: { lp?: number; hp?: number; bp?: number; q?: number; decay: number; gain: number };
+  readonly noise?: { lp?: number; hp?: number; bp?: number; q?: number; attack?: number; decay: number; gain: number };
   readonly modes?: Modes & { gain: number };
+  /** Noise-excited resonances: a body that thuds or cracks without a pitch. */
+  readonly bands?: readonly { f: number; q: number; decay: number; gain: number }[];
   readonly swoosh?: { from: number; to: number; dur: number; gain: number };
   readonly grains?: { count: number; from: number; to: number; lo: number; hi: number; decay: number; gain: number };
   /** Random pitch spread across variants (0.05 = 5%). */
@@ -193,7 +195,37 @@ function impact(ctx: GenContext, p: ImpactParams): Float32Array {
   if (p.thud) addThud(ctx, out, at, p.thud.f0 * pitch, p.thud.f1 * pitch, p.thud.decay, p.thud.gain);
   if (p.noise) addNoise(ctx, out, at, p.noise);
   if (p.modes) addModes(ctx, out, at, p.modes, p.modes.gain, pitch);
+  for (const b of p.bands ?? []) addNoise(ctx, out, at, { bp: b.f * pitch, q: b.q, attack: 0.001, decay: b.decay, gain: b.gain });
   if (p.grains) addGrains(ctx, out, at + p.grains.from, at + p.grains.to, p.grains.count, p.grains);
+  return out;
+}
+
+export interface ChopParams {
+  readonly dur: number;
+  /** Centre of the dull wooden body in Hz; lower is a thicker trunk. */
+  readonly body: number;
+  /** Fibres tearing after the bite, 0 to 1. */
+  readonly splinter: number;
+}
+
+/**
+ * An axe biting into a trunk. The wood's body is noise through broad
+ * filters with a very short decay, never tuned sines, so it thuds instead
+ * of ringing like a xylophone bar.
+ */
+function chop(ctx: GenContext, p: ChopParams): Float32Array {
+  const { sr, rng } = ctx;
+  const out = new Float32Array(samples(p.dur, sr));
+  const body = jitter(rng, p.body, 0.12);
+  // The edge hitting: a very short bright crack.
+  addNoise(ctx, out, 0, { hp: 1800, decay: 0.004, gain: 1 });
+  // The trunk taking the blow: two broad noise bands that die in a few tens of milliseconds.
+  addNoise(ctx, out, 0, { bp: body, q: 0.9, attack: 0.0015, decay: 0.028, gain: 1.6 });
+  addNoise(ctx, out, 0.002, { bp: body * 2.6, q: 0.8, decay: 0.016, gain: 0.8 });
+  // Weight behind the axe.
+  addThud(ctx, out, 0, 105, 60, 0.035, 0.75);
+  // Fibres tearing as the blade wedges in.
+  addGrains(ctx, out, 0.012, 0.11, Math.round(7 * p.splinter), { lo: 900, hi: 3200, decay: 0.005, gain: 0.45 });
   return out;
 }
 
@@ -504,8 +536,9 @@ function collapse(ctx: GenContext, p: CollapseParams): Float32Array {
   for (let k = 0; k < p.pieces; k++) {
     const t = Math.pow(rng(), 1.6) * p.dur * 0.7;
     const g = 0.7 * (1 - t / p.dur);
-    addModes(ctx, out, t, { freqs: [range(rng, 150, 260), range(rng, 380, 600), range(rng, 800, 1300)], decays: [0.08, 0.05, 0.03], amps: [1, 0.6, 0.4] }, g);
-    addNoise(ctx, out, t, { lp: 2500, decay: 0.03, gain: g * 0.6 });
+    addNoise(ctx, out, t, { bp: range(rng, 180, 320), q: 0.8, decay: 0.04, gain: g * 1.4 });
+    addNoise(ctx, out, t, { bp: range(rng, 600, 1100), q: 0.9, decay: 0.02, gain: g * 0.8 });
+    addNoise(ctx, out, t, { lp: 2500, decay: 0.02, gain: g * 0.5 });
   }
   addThud(ctx, out, 0.05, 70, 35, 0.35, 1);
   return out;
@@ -529,6 +562,7 @@ function click(ctx: GenContext, p: ClickParams): Float32Array {
 
 export const GENERATORS = {
   impact,
+  chop,
   dig,
   chime,
   buzz,
