@@ -115,6 +115,8 @@ export function engineSpec(id: number): EngineSpec {
 
 /** Crew stand within this distance of their engine to work it or push it (s). */
 export const CREW_REACH_WU = 4 * WU_PER_METRE;
+/** Crew fight foes that come within this distance of them, then go back to their engine (s). */
+export const CREW_GUARD_WU = 6 * WU_PER_METRE;
 /** A hitched animal hauls while within this distance (s). */
 export const HAUL_REACH_WU = 5 * WU_PER_METRE;
 /** Engines see 20 m by themselves (s); their crew's eyes do the rest. */

@@ -17,6 +17,7 @@ import { sayAttacked } from '../peoples/speech.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
 import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing, wallBetween } from './combat.ts';
 import { MOUNTED } from '../mounts/data.ts';
+import { CREW_GUARD_WU } from '../siege/data.ts';
 import { cloaked } from '../threats/late-mobs.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { isStructure, Mob, mobSpec } from './mobs.ts';
@@ -53,6 +54,8 @@ const enum Mode {
   Attack,
   /** N Hunt: chase the quarry the hunt order names (an animal not hostile by itself). */
   Hunt,
+  /** An engine's crew: fight what comes close, then the crew order walks them back to it. */
+  Guard,
 }
 
 function modeOf(state: SimState, i: number): Mode {
@@ -69,6 +72,8 @@ function modeOf(state: SimState, i: number): Mode {
       return Mode.Seek;
     case 'hold':
       return Mode.Hold;
+    case 'crew':
+      return Mode.Guard;
     default:
       return Mode.None;
   }
@@ -446,6 +451,17 @@ export function fightStep(state: SimState, i: number): boolean {
     }
     e.target[i] = o.id;
     engage(state, i, t, true);
+    return true;
+  }
+  if (mode === Mode.Guard) {
+    let t = e.indexOf(e.target[i]!);
+    if (!validTarget(state, i, t) || !canHarm(state, i, t) || gap(state, i, t) > CREW_GUARD_WU) t = pickTarget(state, i, CREW_GUARD_WU);
+    if (t < 0) {
+      if (e.target[i] !== 0) disengage(state, i);
+      return false;
+    }
+    e.target[i] = e.id[t]!;
+    if (!engage(state, i, t, true)) e.target[i] = 0;
     return true;
   }
   const hold = mode === Mode.Hold;

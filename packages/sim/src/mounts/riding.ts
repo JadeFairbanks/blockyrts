@@ -24,7 +24,7 @@ import { fireAt } from '../combat/projectiles.ts';
 import { playerUnit } from '../combat/mob-ai.ts';
 import { Act, MOVING, resetWalk, walkTo, FAILED } from '../units/behaviour.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
-import { KNOCKBACK, Mount, MOUNT_REACH_WU, mountSpec, RUN_SPEED_BP, RUN_TURN } from './data.ts';
+import { CHARGE_CLOSE_WU, KNOCKBACK, Mount, MOUNT_REACH_WU, mountSpec, RUN_SPEED_BP, RUN_TURN } from './data.ts';
 
 const CONTINUE = false;
 const DONE = true;
@@ -54,12 +54,20 @@ export function trackRuns(state: SimState): void {
     const d = length2d(e.x[i]! - e.runX[i]!, e.z[i]! - e.runZ[i]!);
     const turn = Math.abs((((e.heading[i]! - e.runHeading[i]!) & 0xffff) << 16) >> 16);
     if (d * BP >= gallopOf(state, i) * RUN_SPEED_BP && turn < RUN_TURN && d <= 4 * gallopOf(state, i)) e.runWu[i] = e.runWu[i]! + d;
-    else e.runWu[i] = 0;
+    // Reining in at the end of the run, within reach of its foe, keeps the run for the blow about to fall.
+    else if (turn >= RUN_TURN || !closing(state, i)) e.runWu[i] = 0;
     e.runX[i] = e.x[i]!;
     e.runZ[i] = e.z[i]!;
     e.runHeading[i] = e.heading[i]!;
     mountStrike(state, i);
   }
+}
+
+/** Within a few metres of its foe (s: 4 m), as at the end of a charge. */
+function closing(state: SimState, i: number): boolean {
+  const e = state.entities;
+  const t = e.indexOf(e.target[i]!);
+  return t >= 0 && e.hp[t]! > 0 && gap(state, i, t) <= CHARGE_CLOSE_WU;
 }
 
 /** A swing begins: after a long enough run it is a charge, and the run must be made again for the next one (Table 14). */

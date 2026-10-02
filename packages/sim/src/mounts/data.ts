@@ -92,6 +92,8 @@ export const KNOCKBACK = { far: 2 * WU_PER_METRE, near: WU_PER_METRE, farShareBp
 /** A run stays straight while the heading turns less than this between steps (s: about 11 degrees), and fast while at 80% of gallop or more. */
 export const RUN_TURN = 2048;
 export const RUN_SPEED_BP = 8000;
+/** Reining in within this distance of its foe does not lose the run: the blow about to fall is still a charge (s). */
+export const CHARGE_CLOSE_WU = 4 * WU_PER_METRE;
 
 /** A ridden horse still eats as a working horse does (Table 6: 2 a cycle), with the workers' group. */
 export const HORSE_UPKEEP = 2;

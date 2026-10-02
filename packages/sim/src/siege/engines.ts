@@ -338,7 +338,7 @@ export function crewWhy(state: SimState, j: number, i: number): string {
   return '';
 }
 
-/** The crew order: walk to the engine and stand by it for good (into the Citadel with a port cannon). Crew do not fight. */
+/** The crew order: walk to the engine and stand by it for good (into the Citadel with a port cannon). Crew fight only what their weapons reach (combat/fight.ts). */
 export function runCrew(state: SimState, j: number, o: Extract<UnitOrder, { t: 'crew' }>): boolean {
   const e = state.entities;
   const i = e.indexOf(o.id);

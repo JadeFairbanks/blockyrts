@@ -21,6 +21,8 @@ import {
   ENGINE_GOODS,
   goodName,
   inStock,
+  landAt,
+  makeBundles,
   priceTenths,
   FactionKind,
   hashState,
@@ -293,6 +295,33 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     expect(goodName(ENGINE_GOODS + Engine.BronzeCannon)).toBe('Bronze cannon');
     expect(priceTenths(city, ENGINE_GOODS + Engine.BronzeCannon)).toBe(4200);
     expect(inStock(city, Res.Gunpowder)).toBeGreaterThan(0);
+  });
+
+  it('a Dwarf city sells one cannon a day, bronze or iron, whichever goes first', () => {
+    const s = createWorld(1, { peaceful: true });
+    const [x, z] = field(s);
+    run(s, 1, [{ kind: 'debugPeoples', player: 0, what: FactionKind.DwarfCity, x: x + 60 * M, z }]);
+    const city = s.peoples.factions.find((f) => f.kind === FactionKind.DwarfCity)!;
+    const bronze = ENGINE_GOODS + Engine.BronzeCannon;
+    const iron = ENGINE_GOODS + Engine.IronCannon;
+    expect([inStock(city, bronze), inStock(city, iron)]).toEqual([1, 1]);
+    // However rich the offer, no bundle holds two cannons.
+    for (const b of makeBundles(city, 100000)) {
+      let cannons = 0;
+      for (let k = 0; k < b.length; k += 2) if (b[k] === bronze || b[k] === iron) cannons += b[k + 1]!;
+      expect(cannons).toBeLessThanOrEqual(1);
+    }
+    // Bought: the other kind waits for the dawn restock. (The offer's answer is set to the cannon here; gold and gems pay for it.)
+    const w = warriors(s)[0]!;
+    landAt(s, w, city.x + 12 * M, city.z);
+    s.entities.queue[w] = [];
+    const pool = s.players[0]!.pool;
+    for (const r of [Res.Gold, Res.Rubies, Res.Emeralds]) pool[r] = 20;
+    run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: city.id, goods: [Res.Gold, 20, Res.Rubies, 20, Res.Emeralds, 20] }]);
+    s.peoples.offers.find((o) => o.faction === city.id)!.bundles[0] = [iron, 1];
+    run(s, 1, [{ kind: 'tradeTake', player: 0, faction: city.id, bundle: 0 }]);
+    expect(pool[Res.Gold]).toBe(0);
+    expect(inStock(city, bronze) + inStock(city, iron)).toBe(0);
   });
 
   it('a Halfling village rides its war oxen out only when a war starts', () => {

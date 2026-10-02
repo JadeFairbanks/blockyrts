@@ -460,7 +460,7 @@ export const STOCK: readonly (readonly StockRow[])[] = [
   [
     row(item(Item.PlateSteel), 1, 150), row(item(Item.SalletSteel), 2, 150), row(item(Item.ShieldSteelHeater), 1, 150), row(item(Item.MailWrought), 2, 150), row(item(Item.SwordSteel), 2, 150),
     row(Res.Gold, 10), row(Res.Emeralds, 5), row(Res.Rubies, 4), row(Res.Diamonds, 2), row(Res.HighQualitySteel, 2, 150, { daily: true }),
-    // Table 19's guns: a cannon of each kind and 3 muskets a day, with the horns, pouches, powder, shot and balls to use them (s: counts).
+    // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts), and 3 muskets a day, with the horns, pouches, powder, shot and balls to use them (s: counts).
     row(engine(Engine.BronzeCannon), 1, 100, { price: 4200, daily: true }), row(engine(Engine.IronCannon), 1, 100, { price: 3840, daily: true }),
     row(item(Item.MusketSteel), 3, 100, { price: 1020, daily: true }), row(item(Item.PowderHorn), 3, 150), row(item(Item.ShotPouch), 3, 150),
     row(Res.Gunpowder, 20, 100, { price: 480 }), row(Res.LeadShot, 100, 100, { price: 12 }), row(Res.Cannonball, 20, 100, { price: 300 }),
