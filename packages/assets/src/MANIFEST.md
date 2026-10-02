@@ -665,3 +665,68 @@ Pending (not in the repo yet): portraits of `ash_golem` and `mana_wraith` (their
 | icon_sword_short_bronze | ui/icon_sword_short_bronze.png | 1 | 32x32 | K2 item icon sword_short_bronze (rendered from sword_short.bbmodel + sword_short_bronze.png), tier bronze. |
 | icon_sword_steel_hq_steel | ui/icon_sword_steel_hq_steel.png | 1 | 32x32 | K2 item icon sword_steel_hq_steel (rendered from sword_steel.bbmodel + sword_steel_hq_steel.png), tier hq_steel. |
 | icon_sword_steel_steel | ui/icon_sword_steel_steel.png | 1 | 32x32 | K2 item icon sword_steel_steel (rendered from sword_steel.bbmodel + sword_steel_steel.png), tier steel. |
+| icon_armour_bronze_scale | ui/icon_armour_bronze_scale.png | 1 | 32x32 | K2 item icon armour_bronze_scale (rendered from armour_bronze_scale.bbmodel), tier None. |
+| icon_armour_iron_mail_iron_bloom | ui/icon_armour_iron_mail_iron_bloom.png | 1 | 32x32 | K2 item icon armour_iron_mail_iron_bloom (rendered from armour_iron_mail.bbmodel + armour_iron_mail_iron_bloom.png), tier iron_bloom. |
+| icon_armour_iron_mail_iron_refined | ui/icon_armour_iron_mail_iron_refined.png | 1 | 32x32 | K2 item icon armour_iron_mail_iron_refined (rendered from armour_iron_mail.bbmodel + armour_iron_mail_iron_refined.png), tier iron_refined. |
+| icon_armour_iron_mail_iron_wrought | ui/icon_armour_iron_mail_iron_wrought.png | 1 | 32x32 | K2 item icon armour_iron_mail_iron_wrought (rendered from armour_iron_mail.bbmodel + armour_iron_mail_iron_wrought.png), tier iron_wrought. |
+| icon_armour_leather | ui/icon_armour_leather.png | 1 | 32x32 | K2 item icon armour_leather (rendered from armour_leather.bbmodel), tier None. |
+| icon_armour_steel_plate_hq_steel | ui/icon_armour_steel_plate_hq_steel.png | 1 | 32x32 | K2 item icon armour_steel_plate_hq_steel (rendered from armour_steel_plate.bbmodel + armour_steel_plate_hq_steel.png), tier hq_steel. |
+| icon_armour_steel_plate_steel | ui/icon_armour_steel_plate_steel.png | 1 | 32x32 | K2 item icon armour_steel_plate_steel (rendered from armour_steel_plate.bbmodel + armour_steel_plate_steel.png), tier steel. |
+| icon_boots | ui/icon_boots.png | 1 | 32x32 | K2 item icon boots (rendered from boots.bbmodel), tier None. |
+| icon_boots_flax | ui/icon_boots_flax.png | 1 | 32x32 | K2 item icon boots_flax (rendered from boots.bbmodel + boots_flax.png), tier flax. |
+| icon_boots_leather | ui/icon_boots_leather.png | 1 | 32x32 | K2 item icon boots_leather (rendered from boots.bbmodel + boots_leather.png), tier leather. |
+| icon_helmet_bronze | ui/icon_helmet_bronze.png | 1 | 32x32 | K2 item icon helmet_bronze (rendered from helmet_bronze.bbmodel), tier None. |
+| icon_helmet_iron_nasal_iron_bloom | ui/icon_helmet_iron_nasal_iron_bloom.png | 1 | 32x32 | K2 item icon helmet_iron_nasal_iron_bloom (rendered from helmet_iron_nasal.bbmodel + helmet_iron_nasal_iron_bloom.png), tier iron_bloom. |
+| icon_helmet_iron_nasal_iron_refined | ui/icon_helmet_iron_nasal_iron_refined.png | 1 | 32x32 | K2 item icon helmet_iron_nasal_iron_refined (rendered from helmet_iron_nasal.bbmodel + helmet_iron_nasal_iron_refined.png), tier iron_refined. |
+| icon_helmet_iron_nasal_iron_wrought | ui/icon_helmet_iron_nasal_iron_wrought.png | 1 | 32x32 | K2 item icon helmet_iron_nasal_iron_wrought (rendered from helmet_iron_nasal.bbmodel + helmet_iron_nasal_iron_wrought.png), tier iron_wrought. |
+| icon_helmet_leather_cap | ui/icon_helmet_leather_cap.png | 1 | 32x32 | K2 item icon helmet_leather_cap (rendered from helmet_leather_cap.bbmodel), tier None. |
+| icon_helmet_steel_sallet_hq_steel | ui/icon_helmet_steel_sallet_hq_steel.png | 1 | 32x32 | K2 item icon helmet_steel_sallet_hq_steel (rendered from helmet_steel_sallet.bbmodel + helmet_steel_sallet_hq_steel.png), tier hq_steel. |
+| icon_helmet_steel_sallet_steel | ui/icon_helmet_steel_sallet_steel.png | 1 | 32x32 | K2 item icon helmet_steel_sallet_steel (rendered from helmet_steel_sallet.bbmodel + helmet_steel_sallet_steel.png), tier steel. |
+| icon_trinket_brooch_bronze | ui/icon_trinket_brooch_bronze.png | 1 | 32x32 | K2 item icon trinket_brooch_bronze (rendered from trinket_brooch.bbmodel + trinket_brooch_bronze.png), tier bronze. |
+| icon_trinket_brooch_copper | ui/icon_trinket_brooch_copper.png | 1 | 32x32 | K2 item icon trinket_brooch_copper (rendered from trinket_brooch.bbmodel + trinket_brooch_copper.png), tier copper. |
+| icon_trinket_brooch_gold | ui/icon_trinket_brooch_gold.png | 1 | 32x32 | K2 item icon trinket_brooch_gold (rendered from trinket_brooch.bbmodel + trinket_brooch_gold.png), tier gold. |
+| icon_trinket_brooch_iron | ui/icon_trinket_brooch_iron.png | 1 | 32x32 | K2 item icon trinket_brooch_iron (rendered from trinket_brooch.bbmodel + trinket_brooch_iron.png), tier iron. |
+| icon_trinket_brooch_silver | ui/icon_trinket_brooch_silver.png | 1 | 32x32 | K2 item icon trinket_brooch_silver (rendered from trinket_brooch.bbmodel + trinket_brooch_silver.png), tier silver. |
+| icon_trinket_brooch_steel | ui/icon_trinket_brooch_steel.png | 1 | 32x32 | K2 item icon trinket_brooch_steel (rendered from trinket_brooch.bbmodel + trinket_brooch_steel.png), tier steel. |
+| icon_trinket_brooch_tin | ui/icon_trinket_brooch_tin.png | 1 | 32x32 | K2 item icon trinket_brooch_tin (rendered from trinket_brooch.bbmodel + trinket_brooch_tin.png), tier tin. |
+| icon_trinket_charm_bronze | ui/icon_trinket_charm_bronze.png | 1 | 32x32 | K2 item icon trinket_charm_bronze (rendered from trinket_charm.bbmodel + trinket_charm_bronze.png), tier bronze. |
+| icon_trinket_charm_copper | ui/icon_trinket_charm_copper.png | 1 | 32x32 | K2 item icon trinket_charm_copper (rendered from trinket_charm.bbmodel + trinket_charm_copper.png), tier copper. |
+| icon_trinket_charm_gold | ui/icon_trinket_charm_gold.png | 1 | 32x32 | K2 item icon trinket_charm_gold (rendered from trinket_charm.bbmodel + trinket_charm_gold.png), tier gold. |
+| icon_trinket_charm_iron | ui/icon_trinket_charm_iron.png | 1 | 32x32 | K2 item icon trinket_charm_iron (rendered from trinket_charm.bbmodel + trinket_charm_iron.png), tier iron. |
+| icon_trinket_charm_silver | ui/icon_trinket_charm_silver.png | 1 | 32x32 | K2 item icon trinket_charm_silver (rendered from trinket_charm.bbmodel + trinket_charm_silver.png), tier silver. |
+| icon_trinket_charm_steel | ui/icon_trinket_charm_steel.png | 1 | 32x32 | K2 item icon trinket_charm_steel (rendered from trinket_charm.bbmodel + trinket_charm_steel.png), tier steel. |
+| icon_trinket_charm_tin | ui/icon_trinket_charm_tin.png | 1 | 32x32 | K2 item icon trinket_charm_tin (rendered from trinket_charm.bbmodel + trinket_charm_tin.png), tier tin. |
+| icon_trinket_heirloom_bronze | ui/icon_trinket_heirloom_bronze.png | 1 | 32x32 | K2 item icon trinket_heirloom_bronze (rendered from trinket_heirloom.bbmodel + trinket_heirloom_bronze.png), tier bronze. |
+| icon_trinket_heirloom_copper | ui/icon_trinket_heirloom_copper.png | 1 | 32x32 | K2 item icon trinket_heirloom_copper (rendered from trinket_heirloom.bbmodel + trinket_heirloom_copper.png), tier copper. |
+| icon_trinket_heirloom_gold | ui/icon_trinket_heirloom_gold.png | 1 | 32x32 | K2 item icon trinket_heirloom_gold (rendered from trinket_heirloom.bbmodel + trinket_heirloom_gold.png), tier gold. |
+| icon_trinket_heirloom_iron | ui/icon_trinket_heirloom_iron.png | 1 | 32x32 | K2 item icon trinket_heirloom_iron (rendered from trinket_heirloom.bbmodel + trinket_heirloom_iron.png), tier iron. |
+| icon_trinket_heirloom_silver | ui/icon_trinket_heirloom_silver.png | 1 | 32x32 | K2 item icon trinket_heirloom_silver (rendered from trinket_heirloom.bbmodel + trinket_heirloom_silver.png), tier silver. |
+| icon_trinket_heirloom_steel | ui/icon_trinket_heirloom_steel.png | 1 | 32x32 | K2 item icon trinket_heirloom_steel (rendered from trinket_heirloom.bbmodel + trinket_heirloom_steel.png), tier steel. |
+| icon_trinket_heirloom_tin | ui/icon_trinket_heirloom_tin.png | 1 | 32x32 | K2 item icon trinket_heirloom_tin (rendered from trinket_heirloom.bbmodel + trinket_heirloom_tin.png), tier tin. |
+| icon_trinket_moonleaf_bronze | ui/icon_trinket_moonleaf_bronze.png | 1 | 32x32 | K2 item icon trinket_moonleaf_bronze (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_bronze.png), tier bronze. |
+| icon_trinket_moonleaf_copper | ui/icon_trinket_moonleaf_copper.png | 1 | 32x32 | K2 item icon trinket_moonleaf_copper (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_copper.png), tier copper. |
+| icon_trinket_moonleaf_gold | ui/icon_trinket_moonleaf_gold.png | 1 | 32x32 | K2 item icon trinket_moonleaf_gold (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_gold.png), tier gold. |
+| icon_trinket_moonleaf_iron | ui/icon_trinket_moonleaf_iron.png | 1 | 32x32 | K2 item icon trinket_moonleaf_iron (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_iron.png), tier iron. |
+| icon_trinket_moonleaf_silver | ui/icon_trinket_moonleaf_silver.png | 1 | 32x32 | K2 item icon trinket_moonleaf_silver (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_silver.png), tier silver. |
+| icon_trinket_moonleaf_steel | ui/icon_trinket_moonleaf_steel.png | 1 | 32x32 | K2 item icon trinket_moonleaf_steel (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_steel.png), tier steel. |
+| icon_trinket_moonleaf_tin | ui/icon_trinket_moonleaf_tin.png | 1 | 32x32 | K2 item icon trinket_moonleaf_tin (rendered from trinket_moonleaf.bbmodel + trinket_moonleaf_tin.png), tier tin. |
+| icon_trinket_sunheart_bronze | ui/icon_trinket_sunheart_bronze.png | 1 | 32x32 | K2 item icon trinket_sunheart_bronze (rendered from trinket_sunheart.bbmodel + trinket_sunheart_bronze.png), tier bronze. |
+| icon_trinket_sunheart_copper | ui/icon_trinket_sunheart_copper.png | 1 | 32x32 | K2 item icon trinket_sunheart_copper (rendered from trinket_sunheart.bbmodel + trinket_sunheart_copper.png), tier copper. |
+| icon_trinket_sunheart_gold | ui/icon_trinket_sunheart_gold.png | 1 | 32x32 | K2 item icon trinket_sunheart_gold (rendered from trinket_sunheart.bbmodel + trinket_sunheart_gold.png), tier gold. |
+| icon_trinket_sunheart_iron | ui/icon_trinket_sunheart_iron.png | 1 | 32x32 | K2 item icon trinket_sunheart_iron (rendered from trinket_sunheart.bbmodel + trinket_sunheart_iron.png), tier iron. |
+| icon_trinket_sunheart_silver | ui/icon_trinket_sunheart_silver.png | 1 | 32x32 | K2 item icon trinket_sunheart_silver (rendered from trinket_sunheart.bbmodel + trinket_sunheart_silver.png), tier silver. |
+| icon_trinket_sunheart_steel | ui/icon_trinket_sunheart_steel.png | 1 | 32x32 | K2 item icon trinket_sunheart_steel (rendered from trinket_sunheart.bbmodel + trinket_sunheart_steel.png), tier steel. |
+| icon_trinket_sunheart_tin | ui/icon_trinket_sunheart_tin.png | 1 | 32x32 | K2 item icon trinket_sunheart_tin (rendered from trinket_sunheart.bbmodel + trinket_sunheart_tin.png), tier tin. |
+| icon_trinket_token_bronze | ui/icon_trinket_token_bronze.png | 1 | 32x32 | K2 item icon trinket_token_bronze (rendered from trinket_token.bbmodel + trinket_token_bronze.png), tier bronze. |
+| icon_trinket_token_copper | ui/icon_trinket_token_copper.png | 1 | 32x32 | K2 item icon trinket_token_copper (rendered from trinket_token.bbmodel + trinket_token_copper.png), tier copper. |
+| icon_trinket_token_gold | ui/icon_trinket_token_gold.png | 1 | 32x32 | K2 item icon trinket_token_gold (rendered from trinket_token.bbmodel + trinket_token_gold.png), tier gold. |
+| icon_trinket_token_iron | ui/icon_trinket_token_iron.png | 1 | 32x32 | K2 item icon trinket_token_iron (rendered from trinket_token.bbmodel + trinket_token_iron.png), tier iron. |
+| icon_trinket_token_silver | ui/icon_trinket_token_silver.png | 1 | 32x32 | K2 item icon trinket_token_silver (rendered from trinket_token.bbmodel + trinket_token_silver.png), tier silver. |
+| icon_trinket_token_steel | ui/icon_trinket_token_steel.png | 1 | 32x32 | K2 item icon trinket_token_steel (rendered from trinket_token.bbmodel + trinket_token_steel.png), tier steel. |
+| icon_trinket_token_tin | ui/icon_trinket_token_tin.png | 1 | 32x32 | K2 item icon trinket_token_tin (rendered from trinket_token.bbmodel + trinket_token_tin.png), tier tin. |
+| icon_wand_acolyte | ui/icon_wand_acolyte.png | 1 | 32x32 | K2 item icon wand_acolyte (rendered from wand_acolyte.bbmodel), tier None. |
+| icon_wand_adept_acolyte | ui/icon_wand_adept_acolyte.png | 1 | 32x32 | K2 item icon wand_adept_acolyte (rendered from wand_adept_acolyte.bbmodel), tier None. |
+| icon_wand_grand_magician | ui/icon_wand_grand_magician.png | 1 | 32x32 | K2 item icon wand_grand_magician (rendered from wand_grand_magician.bbmodel), tier None. |
+| icon_wand_mage | ui/icon_wand_mage.png | 1 | 32x32 | K2 item icon wand_mage (rendered from wand_mage.bbmodel), tier None. |
+| icon_wand_master_mage | ui/icon_wand_master_mage.png | 1 | 32x32 | K2 item icon wand_master_mage (rendered from wand_master_mage.bbmodel), tier None. |
+| icon_wand_novice_acolyte | ui/icon_wand_novice_acolyte.png | 1 | 32x32 | K2 item icon wand_novice_acolyte (rendered from wand.bbmodel), tier None. |
