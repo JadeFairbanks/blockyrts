@@ -13,10 +13,11 @@ const M = WU_PER_METRE;
 export const MANA_SCALE = 20;
 
 /** The two kinds of mage (Mage types); a unit's school field. */
-export const School = { None: 0, Support: 1, Battle: 2 } as const;
+export const School = { None: 0, Support: 1, Battle: 2, Grove: 3 } as const;
 export type School = (typeof School)[keyof typeof School];
 
-export const SCHOOL_NAMES = ['', 'Support mage', 'Battle mage'] as const;
+/** Grove: the Elf Grovesingers' nature magic (Elves; Table 13's Grovesinger row), never the players'. */
+export const SCHOOL_NAMES = ['', 'Support mage', 'Battle mage', 'Grovesinger'] as const;
 
 export interface MageRank {
   rank: number;
@@ -70,6 +71,11 @@ export const Spell = {
   AreaBlast: 7,
   Warding: 8,
   Counterspell: 9,
+  Rootbind: 10,
+  ThornVolley: 11,
+  Barkskin: 12,
+  MendingBloom: 13,
+  CallOfTheWild: 14,
 } as const;
 export type Spell = (typeof Spell)[keyof typeof Spell];
 
@@ -77,7 +83,7 @@ export type Spell = (typeof Spell)[keyof typeof Spell];
 export type SpellTarget = 'ally' | 'enemy' | 'point' | 'counter';
 
 /** The effect code that carries a spell out (magic/cast.ts EFFECTS). */
-export type SpellEffect = 'heal' | 'quicken' | 'fortify' | 'rally' | 'bolt' | 'beam' | 'fireball' | 'blast' | 'ward' | 'counter';
+export type SpellEffect = 'heal' | 'quicken' | 'fortify' | 'rally' | 'bolt' | 'beam' | 'fireball' | 'blast' | 'ward' | 'counter' | 'root' | 'thorns' | 'bark' | 'bloom' | 'wild';
 
 export interface SpellSpec {
   id: Spell;
@@ -104,7 +110,7 @@ export interface SpellSpec {
   radius: number;
   /** How long its effect lasts, steps. */
   steps: number;
-  /** A buff's strength, bp (Quicken 25%, Fortify 15% armour, Rally 20% damage). */
+  /** A buff's strength, bp (Quicken 25%, Fortify 15% armour, Rally 20% damage, Barkskin 25% armour); Thorn volley's thorns. */
   bp: number;
   /** Damage against walls and buildings, where it differs (Arcane bolt 2, Area blast 40). */
   vsWalls: number;
@@ -180,6 +186,37 @@ export const SPELLS: readonly SpellSpec[] = [
     mana: 20, cooldown: 8 * SEC, range: 18 * M, projectile: false, target: 'counter', effect: 'counter',
     amount: 0, radius: 0, steps: 0, bp: 0, vsWalls: 0, clip: 'cast_bolt', model: 'spell_counterspell', icon: 'icon_spell_counterspell', auto: true,
     text: 'Cancels one enemy spell while it is being cast within 18 m; the enemy still spends its mana and waits out its cooldown. Mages who know it do it by themselves.',
+  },
+  // The Elf Grovesinger's five (Table 13 Grovesinger row, s): she knows them all and casts them by herself.
+  {
+    id: Spell.Rootbind, name: 'Rootbind', key: 'R', school: School.Grove, rank: 1, hexcraft: false,
+    mana: 30, cooldown: 12 * SEC, range: 20 * M, projectile: false, target: 'point', effect: 'root',
+    amount: 0, radius: 4 * M, steps: 3 * SEC, bp: 0, vsWalls: 0, clip: 'cast_area', model: 'spell_rootbind', icon: 'icon_spell_rootbind', auto: true,
+    text: 'Roots burst from the ground and hold every enemy within 4 m of the spot in place for 3 s.',
+  },
+  {
+    id: Spell.ThornVolley, name: 'Thorn volley', key: 'T', school: School.Grove, rank: 1, hexcraft: false,
+    mana: 20, cooldown: 4 * SEC, range: 20 * M, projectile: true, target: 'enemy', effect: 'thorns',
+    amount: 8, radius: 6 * M, steps: 0, bp: 5, vsWalls: 0, clip: 'cast_bolt', model: 'spell_thorn_volley', icon: 'icon_spell_thorn_volley', auto: true,
+    text: 'A spray of 5 thorns of 8 at up to 5 enemies near the target; they fly like arrows and walls stop them.',
+  },
+  {
+    id: Spell.Barkskin, name: 'Barkskin', key: 'B', school: School.Grove, rank: 1, hexcraft: false,
+    mana: 30, cooldown: 20 * SEC, range: 10 * M, projectile: false, target: 'point', effect: 'bark',
+    amount: 0, radius: 6 * M, steps: 10 * SEC, bp: 2500, vsWalls: 0, clip: 'cast_area', model: 'spell_barkskin', icon: 'icon_spell_barkskin', auto: true,
+    text: 'Allies within 6 m of the spot get +25% armour for 10 s (armour still stops at 75%).',
+  },
+  {
+    id: Spell.MendingBloom, name: 'Mending bloom', key: 'M', school: School.Grove, rank: 1, hexcraft: false,
+    mana: 30, cooldown: 15 * SEC, range: 12 * M, projectile: false, target: 'point', effect: 'bloom',
+    amount: 40, radius: 4 * M, steps: 8 * SEC, bp: 0, vsWalls: 0, clip: 'cast_heal', model: 'spell_mending_bloom', icon: 'icon_spell_mending_bloom', auto: true,
+    text: 'Flowers spring up: allies standing within 4 m regain 5 health a second for 8 s.',
+  },
+  {
+    id: Spell.CallOfTheWild, name: 'Call of the wild', key: 'W', school: School.Grove, rank: 1, hexcraft: false,
+    mana: 40, cooldown: 60 * SEC, range: 30 * M, projectile: false, target: 'point', effect: 'wild',
+    amount: 0, radius: 30 * M, steps: 15 * SEC, bp: 0, vsWalls: 0, clip: 'cast_area', model: 'spell_rootbind', icon: 'icon_spell_call_wild', auto: true,
+    text: 'Wild animals within 30 m fight for the Elves for 15 s.',
   },
 ];
 

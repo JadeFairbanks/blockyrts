@@ -23,6 +23,7 @@ import { cookSteps, payableInputs, RECIPES, recipeLevelAt, recipeSpec } from './
 import { addWarrior } from '../state.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
+import { Role } from '../threats/types.ts';
 
 export interface ProductSpec {
   product: Product;
@@ -253,7 +254,8 @@ export function trainsUnit(product: number): boolean {
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
+  // Mercenaries use none: they are the camp's.
+  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.role[i] !== Role.Mercenary && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
   for (const b of state.buildings.list) {
     if (b.owner !== player) continue;
     if (b.kind === BuildingKind.ScholarsLodge && b.complete) n++;

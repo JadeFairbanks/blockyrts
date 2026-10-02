@@ -9,10 +9,10 @@ import { buildingSpec } from '../buildings/data.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, isqrt, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { rankSpreadReductionBp } from '../rules.ts';
-import { OrderKind, UnitKind, type Projectile, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, UnitKind, type Projectile, type SimState } from '../state.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
-import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, Side, sideOf } from './combat.ts';
+import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, shotMayHit, Side, sideOf } from './combat.ts';
 import { SHOTS } from './items.ts';
 import { WEB } from './mobs.ts';
 import { smoulder, SPARK } from '../threats/burns.ts';
@@ -132,7 +132,7 @@ export function launch(state: SimState, shooter: number, x0: number, y0: number,
   const e = state.entities;
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lobPct);
   state.projectiles.push({
-    shot, side: sideOf(state, shooter), shooter: e.id[shooter]!, owner: e.owner[shooter]!,
+    shot, side: sideOf(state, shooter), shooter: e.id[shooter]!, owner: e.owner[shooter]!, faction: e.owner[shooter] === PEOPLES ? e.group[shooter]! : 0,
     x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, flags,
   });
   state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]! });
@@ -160,7 +160,7 @@ export function hasClearLob(state: SimState, shot: number, x0: number, y0: numbe
 
 function clearPath(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, lob: number, ownOnly: boolean): boolean {
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lob);
-  const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, flags: 0 };
+  const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, faction: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, flags: 0 };
   const startBuilding = state.buildings.solidAt(floorDiv(x0, WU_PER_COLUMN), floorDiv(z0, WU_PER_COLUMN));
   const endBuilding = state.buildings.solidAt(floorDiv(x1, WU_PER_COLUMN), floorDiv(z1, WU_PER_COLUMN));
   for (let k = 0; k < s.t; k++) {
@@ -235,8 +235,7 @@ export function updateProjectiles(state: SimState): void {
       let hit = -1;
       for (const j of near) {
         if (e.hp[j]! <= 0 || j === shooter) continue;
-        const sj = sideOf(state, j);
-        if (sj === Side.None || sj === p.side) continue;
+        if (!shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
         const hw = halfWidth(state, j);
         if (Math.abs(e.x[j]! - x) > hw || Math.abs(e.z[j]! - z) > hw) continue;
         if (y < e.y[j]! || y > e.y[j]! + bodyHeight(state, j)) continue;

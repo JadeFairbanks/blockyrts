@@ -18,6 +18,7 @@ import { Ability, ABILITIES, canUse, spend } from './abilities.ts';
 import { LAIR_AGGRO_WU, LAIR_LEASH_WU, TRIBE_SIGHT_WU, VILLAGE_AGGRO_WU, VILLAGE_CHASE_WU, HUT_RING_WU } from './data.ts';
 import { throughFog } from './fog.ts';
 import { Role, type TribeBand, type Village } from './types.ts';
+import { peoplesHooks } from '../peoples/hooks.ts';
 
 const M = WU_PER_METRE;
 /** A foe that was hurt goes for its attacker for this long. */
@@ -284,6 +285,7 @@ function runFoe(state: SimState, i: number, spec: MobSpec): void {
   if (role === Role.Resident) runResident(state, i, spec);
   else if (role === Role.Tribe) runTribesman(state, i, spec);
   else if (role === Role.Village) runVillager(state, i, spec);
+  else if (role === Role.People) peoplesHooks.wagon(state, i, spec);
 }
 
 export function installFoes(): void {

@@ -19,6 +19,7 @@ import { hasResearch, Item, ITEMS, itemSpec, RESEARCH, Research, Skill, Slot, ty
 import { bestTools, heldTools, putOnTool } from './tools.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import { KEEP, type UnitOrder } from './unit-orders.ts';
+import { Role } from '../threats/types.ts';
 
 type EquipOrder = Extract<UnitOrder, { t: 'equip' }>;
 
@@ -305,7 +306,8 @@ export function mageWears(it: ItemSpec): boolean {
  */
 export function equipBest(state: SimState, player: number, units: readonly number[]): number {
   const e = state.entities;
-  const order = [...units].sort((a, b) => e.rank[b]! - e.rank[a]! || e.id[a]! - e.id[b]!);
+  // Mercenaries bring their own gear (Table 11): Equip Best passes them by.
+  const order = units.filter((i) => e.role[i] !== Role.Mercenary).sort((a, b) => e.rank[b]! - e.rank[a]! || e.id[a]! - e.id[b]!);
   const stock = state.players[player]!.items;
   let sent = 0;
   for (const i of order) {
@@ -393,6 +395,7 @@ export function collect(state: SimState, i: number, o: EquipOrder): void {
  */
 export function handPick(state: SimState, i: number, slot: number, item: number): void {
   const e = state.entities;
+  if (e.role[i] === Role.Mercenary) return;
   const base = nearestMainBase(state, i);
   if (!base) {
     state.events.push({ player: e.owner[i]!, kind: 'alert', text: 'There is no main base to collect equipment at.' });
@@ -429,7 +432,7 @@ export function updateGear(state: SimState): void {
   const r2 = AUTO_EQUIP_M * WU_PER_METRE;
   for (let i = 0; i < e.count; i++) {
     const p = e.owner[i]!;
-    if (p >= state.players.length || e.inside[i] !== 0 || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Mob) continue;
+    if (p >= state.players.length || e.inside[i] !== 0 || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Mob || e.role[i] === Role.Mercenary) continue;
     const base = nearestMainBase(state, i);
     if (!base) continue;
     const [bx, bz] = buildingCentre(base);

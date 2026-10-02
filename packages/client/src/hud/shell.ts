@@ -12,6 +12,7 @@ import {
   RESOURCES,
   SiteKind,
   SPELLS,
+  PEOPLE_UNITS,
   UnitKind,
   WU_PER_METRE,
   type Order,
@@ -47,10 +48,16 @@ import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './but
 import { Commands, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { buildLayout, type HudLayout } from './layout.ts';
+import { SpeechBubbles } from './bubbles.ts';
+import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
+import { PeoplesUi } from './peoples-ui.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { FOOD, SUPPLY } from './resources.ts';
+
+/** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
+const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
 
 /** The Rations button face by setting: everyone, troops only, workers only. */
 const RATIONS_FACES = ['▤', '⚔', '⚒'];
@@ -67,6 +74,8 @@ export interface WorldHooks {
 /** The rest of the world the M2 controls draw on: heights, nodes, the ghost, planned buildings and overlay lines. */
 export interface WorldExtras {
   heightAt(x: number, z: number): number;
+  /** Whether a point (metres) is in sight of the local player now. */
+  seen(x: number, z: number): boolean;
   node(cx: number, cz: number, index: number): Selectable | undefined;
   setGhost(g: Ghost | null): void;
   setPlanned(): void;
@@ -100,7 +109,6 @@ export interface SimInfo {
   hashStep: number;
 }
 
-const MAX_MESSAGES = 60;
 const CAMERA_SLOTS = 4;
 /** Urgent messages Space steps back through. */
 const URGENT_KEEP = 8;
@@ -129,6 +137,9 @@ export class GameShell {
   private readonly tooltip: Tooltip;
   private readonly menu: GameMenu;
   private readonly minimap: Minimap;
+  private readonly messages: MessagePanel;
+  private readonly bubbles: SpeechBubbles;
+  readonly peoples: PeoplesUi;
   private readonly visuals: SelectionVisuals;
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
@@ -165,7 +176,6 @@ export class GameShell {
   private townCycle = 0;
   private readonly urgent: Array<{ x: number; z: number; text: string }> = [];
   private urgentAt = -1;
-  private messageSeq = 0;
   private lastInfoStep = -1;
   private lastPlannedSig = '';
   private overShown = false;
@@ -186,6 +196,23 @@ export class GameShell {
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
     this.visuals = new SelectionVisuals(opts.scene);
     this.minimap = new Minimap(this.layout.minimapEl, this.world.minimap);
+    this.bubbles = new SpeechBubbles(this.layout.root);
+    this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
+      jumpTo: (x, z) => this.jumpTo(x, z),
+      jumpToUnit: (id) => {
+        const t = this.fresh.get(`e:${id}`);
+        if (!t || !this.game.unit(id)) return false;
+        this.jumpTo(t.centre.x, t.centre.z);
+        return true;
+      },
+      ping: (x, z) => this.minimap.ping(x, z),
+      clock: () => formatClock((performance.now() - this.startedAt) / 1000),
+    });
+    this.peoples = new PeoplesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      jumpTo: (x, z) => this.jumpTo(x, z),
+      message: (t, k) => this.message(t, k),
+    });
     this.selector = new SelectionController(this.cam, this.panels, this.selection, this.player, () => this.items, this.layout.dragBox);
     this.menu = new GameMenu(parent, this.settings, {
       resume: () => this.closeMenu(),
@@ -209,6 +236,8 @@ export class GameShell {
       changed: () => {
         this.cardDirty = true;
       },
+      confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
+      openPeople: (faction) => this.peoples.open(faction),
     });
     this.input = new InputManager(
       {
@@ -295,39 +324,9 @@ export class GameShell {
 
   // ---- Messages and readouts ----
 
-  /** Adds a message to the message panel. A message with a place can be clicked to jump there. */
+  /** Adds a message to the message panel. A message with a place can be clicked to jump there; an alert is urgent. */
   message(text: string, kind: 'system' | 'alert' = 'system', at?: { x: number; z: number }): void {
-    const list = this.layout.messageList;
-    let row: HTMLElement;
-    if (at) {
-      const id = `msg${this.messageSeq++}`;
-      const b = this.buttons.add({
-        id,
-        face: '',
-        name: 'Go there',
-        keys: [],
-        description: 'Click to jump the camera to where this happened. Space jumps to the latest urgent message.',
-        className: `msg msg-btn ${kind}`,
-        onPress: () => this.jumpTo(at.x, at.z),
-      });
-      row = b.el;
-      row.replaceChildren();
-    } else {
-      row = document.createElement('div');
-      row.className = `msg ${kind}`;
-    }
-    const t = document.createElement('span');
-    t.className = 'msg-time';
-    t.textContent = formatClock((performance.now() - this.startedAt) / 1000);
-    row.append(t, document.createTextNode(text));
-    const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
-    list.append(row);
-    while (list.childElementCount > MAX_MESSAGES) {
-      const first = list.firstElementChild as HTMLElement;
-      if (first.dataset.btn) this.buttons.remove(first.dataset.btn);
-      else first.remove();
-    }
-    if (atBottom) list.scrollTop = list.scrollHeight;
+    this.messages.add({ text, kind, urgent: kind === 'alert', at });
   }
 
   setSimInfo(info: SimInfo): void {
@@ -376,6 +375,7 @@ export class GameShell {
     this.layout.clockNote.classList.toggle('over', o.halves > o.limit * 2);
     // Events into the message panel.
     for (const ev of info.events) this.onEvent(ev);
+    this.peoples.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
@@ -447,8 +447,16 @@ export class GameShell {
 
   private onEvent(ev: SimEvent): void {
     const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
+    if (ev.kind === 'speech') {
+      this.onSpeech(ev, at);
+      return;
+    }
     const urgent = ev.kind === 'alert' || ev.kind === 'idle' || (ev.kind === 'period' && ev.text.startsWith('Night is falling'));
-    this.message(ev.text, urgent ? 'alert' : 'system', at);
+    // A unit's own alert ("I cannot reach that.") is speech too: its bubble, and its name in the panel.
+    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now());
+    const kind: MessageKind = urgent ? 'alert' : 'system';
+    this.messages.add({ text: ev.text, kind, name: ev.name, urgent, at, unit: ev.speaker });
+    if (ev.faction && (ev.urgent || urgent)) this.buttons.get('peoples')?.setLit(true);
     if (urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });
       this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
@@ -463,6 +471,59 @@ export class GameShell {
         this.urgentAt = -1;
       }
     }
+  }
+
+  /**
+   * Speech: a bubble over the speaker, and the panel. Another people's lines
+   * reach the panel when they are said to this player (the trade menu's
+   * answers), or are important and heard: one of the player's units is near
+   * enough, or the speaker is on screen.
+   */
+  private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
+    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+    if (ev.foreign) {
+      const to = ev.player === this.player;
+      const heard = ev.important === true && (((ev.near ?? 0) & (1 << this.player)) !== 0 || (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null));
+      if (!to && !heard) return;
+    }
+    this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker });
+    if (ev.urgent && at) {
+      this.urgent.unshift({ ...at, text: ev.text });
+      this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
+      this.urgentAt = -1;
+    }
+  }
+
+  /** The top of a unit's head on screen, px, or null when it is off screen or out of sight. */
+  private headOnScreen(id: number): { x: number; y: number } | null {
+    const t = this.fresh.get(`e:${id}`);
+    if (!t || !this.extras.seen(t.centre.x, t.centre.z)) return null;
+    const v = this.headTmp.set(t.centre.x, t.centre.y + t.halfSize.y + 0.25, t.centre.z);
+    const p = { x: 0, y: 0 };
+    if (!this.cam.project(v, p)) return null;
+    if (p.x < 0 || p.y < 0 || p.x > this.width || p.y > this.height) return null;
+    return p;
+  }
+
+  private readonly headTmp = new THREE.Vector3();
+
+  /** Units on screen that may make a random remark, with their list of remarks. */
+  private remarkers(): Array<[number, string]> {
+    const out: Array<[number, string]> = [];
+    for (const s of this.items) {
+      const t = s.item;
+      if (t.kind !== 'unit') continue;
+      const id = entityIdOf(t.key);
+      if (id === null) continue;
+      if (t.typeKey.startsWith('people:')) {
+        const spec = PEOPLE_UNITS[Number(t.typeKey.slice(7))];
+        if (spec) out.push([id, REMARK_KEYS[spec.people]!]);
+      } else if (t.owner === this.player) {
+        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey === 'warrior' ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
+        if (key) out.push([id, key]);
+      }
+    }
+    return out;
   }
 
   // ---- Buttons ----
@@ -577,6 +638,17 @@ export class GameShell {
       L.topRightButtons.append(b.el);
       return b;
     };
+    top({
+      id: 'peoples',
+      face: 'Peoples',
+      name: 'Peoples',
+      keys: k('peoples'),
+      description: 'The neutral peoples you have met: trade, hire, war, surrender and reparations. Lights up when one of them needs an answer.',
+      onPress: () => {
+        this.peoples.togglePanel();
+        this.buttons.get('peoples')?.setLit(false);
+      },
+    });
     top({ id: 'allies', face: 'Allies', name: 'Allies', keys: [], description: 'Diplomacy and shared control with the other players. No hotkey yet.' }, 'Comes with multiplayer (milestone 9).');
     top({ id: 'send', face: 'Send', name: 'Send resources', keys: [], description: 'Give resources to another player. No hotkey yet.' }, 'Comes with multiplayer (milestone 9).');
     const more = this.buttons.add({
@@ -847,6 +919,7 @@ export class GameShell {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
       if (this.selector.dragging) this.selector.cancel();
       else if (this.commands.back()) this.cardDirty = true;
+      else if (this.peoples.closeTop()) return;
       else if (this.resourcesOpen) this.toggleResources();
       else this.selection.clear();
       return;
@@ -1038,6 +1111,7 @@ export class GameShell {
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id) }, () => this.remarkers());
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);

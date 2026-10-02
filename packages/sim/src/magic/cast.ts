@@ -21,8 +21,9 @@ import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
 import { damageTaken, withBonus } from '../rules.ts';
-import { OrderKind, UnitKind, type Projectile, type SimState } from '../state.ts';
-import { armourOf, bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, Side, sideOf, startSwing } from '../combat/combat.ts';
+import { OrderKind, PEOPLES, UnitKind, WILD, type Projectile, type SimState } from '../state.ts';
+import { factionById, warFaction } from '../peoples/types.ts';
+import { armourOf, bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
 import { chase, face, garrisonRoom, pickTarget, sightOf, stepToward, validTarget } from '../combat/fight.ts';
 import { hasResearch, Research, Shot, Slot } from '../combat/items.ts';
 import { cancelSpell, castingSpell } from '../combat/mob-ai.ts';
@@ -108,10 +109,21 @@ function eye(state: SimState, i: number): [number, number, number] {
   return [e.x[i]!, e.y[i]! + HAND_HEIGHT, e.z[i]!];
 }
 
-/** A unit of the players' side a support spell may be cast on: alive and outside. */
-function ally(state: SimState, j: number): boolean {
+/** A unit on the caster's side a support spell may be cast on, alive and outside: the players' units for theirs, her own people for a Grovesinger. */
+function ally(state: SimState, i: number, j: number): boolean {
   const e = state.entities;
-  return j >= 0 && e.hp[j]! > 0 && e.inside[j] === 0 && sideOf(state, j) === Side.Players && e.kind[j] !== UnitKind.Wanderer;
+  if (j < 0 || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.kind[j] === UnitKind.Wanderer) return false;
+  const side = sideOf(state, i);
+  if (sideOf(state, j) !== side) return false;
+  return side !== Side.Peoples || sameFaction(state.peoples, e.group[i]!, e.group[j]!);
+}
+
+/** Whether two of the peoples' groups stand together (a caravan with its kingdom). */
+function sameFaction(ps: SimState['peoples'], a: number, b: number): boolean {
+  if (a === b) return true;
+  const fa = factionById(ps, a);
+  const fb = factionById(ps, b);
+  return !!fa && !!fb && warFaction(ps, fa).id === warFaction(ps, fb).id;
 }
 
 /** One of the players' fighting kinds, which support mages look after by themselves. */
@@ -123,7 +135,7 @@ function person(state: SimState, j: number): boolean {
 /** Whether a spell's target unit is still one it may land on. */
 function targetOk(state: SimState, i: number, s: SpellSpec, t: number, ordered: boolean): boolean {
   if (t < 0) return false;
-  if (s.target === 'ally') return ally(state, t);
+  if (s.target === 'ally') return ally(state, i, t);
   if (s.target === 'counter') return validTarget(state, i, t) && castingSpell(state, t);
   return validTarget(state, i, t, ordered);
 }
@@ -137,7 +149,7 @@ function canReachWith(state: SimState, i: number, s: SpellSpec, t: number, x: nu
   const [ox, oy, oz] = eye(state, i);
   if (t >= 0) {
     const ty = e.y[t]! + (bodyHeight(state, t) >> 1);
-    return s.projectile ? clearLob(state, s.id === Spell.Fireball ? Shot.Fireball : Shot.ArcaneBolt, ox, oy, oz, e.x[t]!, ty, e.z[t]!, true) > 0 : lineOfSight(state, ox, oy, oz, e.x[t]!, ty, e.z[t]!);
+    return s.projectile ? clearLob(state, s.id === Spell.Fireball ? Shot.Fireball : s.id === Spell.ThornVolley ? Shot.Thorn : Shot.ArcaneBolt, ox, oy, oz, e.x[t]!, ty, e.z[t]!, true) > 0 : lineOfSight(state, ox, oy, oz, e.x[t]!, ty, e.z[t]!);
   }
   const cx = floorDiv(x, WU_PER_COLUMN);
   const cz = floorDiv(z, WU_PER_COLUMN);
@@ -200,12 +212,12 @@ function resolveCast(state: SimState, i: number): void {
   }
 }
 
-/** Every unit of the players' side within a radius of a spot, in index order. */
-function alliesNear(state: SimState, x: number, z: number, radius: number): number[] {
+/** Every unit of the caster's side within a radius of a spot, in index order. */
+function alliesNear(state: SimState, i: number, x: number, z: number, radius: number): number[] {
   const e = state.entities;
   const out: number[] = [];
   for (const j of state.grid.near(x, z, radius)) {
-    if (!ally(state, j) || length2d(e.x[j]! - x, e.z[j]! - z) > radius + halfWidth(state, j)) continue;
+    if (!ally(state, i, j) || length2d(e.x[j]! - x, e.z[j]! - z) > radius + halfWidth(state, j)) continue;
     out.push(j);
   }
   return out.sort((a, b) => a - b);
@@ -237,13 +249,13 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
     state.entities.quickUntil[t] = state.step + s.steps;
   },
   fortify(state, i, s, _t, x, z) {
-    for (const j of alliesNear(state, x, z, s.radius)) {
+    for (const j of alliesNear(state, i, x, z, s.radius)) {
       state.entities.fortUntil[j] = state.step + s.steps;
     }
   },
   rally(state, i, s, _t, x, z) {
     const e = state.entities;
-    for (const j of alliesNear(state, x, z, s.radius)) {
+    for (const j of alliesNear(state, i, x, z, s.radius)) {
       e.rallyUntil[j] = state.step + s.steps;
       // Cured of poison and hexes.
       e.dotLeft[j] = 0;
@@ -252,7 +264,7 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
     }
   },
   ward(state, i, s, _t, x, z) {
-    for (const j of alliesNear(state, x, z, s.radius)) {
+    for (const j of alliesNear(state, i, x, z, s.radius)) {
       state.entities.wardUntil[j] = state.step + s.steps;
     }
   },
@@ -280,7 +292,51 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   counter(state, _i, _s, t) {
     cancelSpell(state, t);
   },
+  root(state, i, s, _t, x, z) {
+    const e = state.entities;
+    for (const j of enemiesNear(state, i, x, z, s.radius)) {
+      // Rooted where it stands: as a slime's hold, it cannot act until let go.
+      e.heldUntil[j] = Math.max(e.heldUntil[j]!, state.step + s.steps);
+      cancelSpell(state, j);
+    }
+  },
+  thorns(state, i, s, t) {
+    const e = state.entities;
+    const [x, y, z] = eye(state, i);
+    // One thorn at the target and one at each of the nearest others round it, the rest at the target again.
+    const near = enemiesNear(state, i, e.x[t]!, e.z[t]!, s.radius).filter((j) => j !== t);
+    near.sort((a, b) => gap(state, t, a) - gap(state, t, b) || e.id[a]! - e.id[b]!);
+    const targets = [t, ...near.slice(0, s.bp - 1)];
+    for (let k = 0; k < s.bp; k++) fireAt(state, i, x, y, z, targets[k % targets.length]!, Shot.Thorn, spellAmount(state, i, s), THORN_SPREAD_BP, ProjectileFlag.Spell);
+  },
+  bark(state, i, s, _t, x, z) {
+    for (const j of alliesNear(state, i, x, z, s.radius)) state.entities.barkUntil[j] = state.step + s.steps;
+  },
+  bloom(state, i, s, _t, x, z) {
+    const e = state.entities;
+    for (const j of alliesNear(state, i, x, z, s.radius)) {
+      e.healLeft[j] = (e.healUntil[j]! > state.step ? e.healLeft[j]! : 0) + spellAmount(state, i, s);
+      e.healUntil[j] = state.step + s.steps;
+      e.healFrom[j] = e.id[i]!;
+    }
+  },
+  wild(state, i, s, _t, x, z) {
+    const e = state.entities;
+    for (const j of state.grid.near(x, z, s.radius)) {
+      if (e.kind[j] !== UnitKind.Animal || e.owner[j] !== WILD || e.hp[j]! <= 0 || length2d(e.x[j]! - x, e.z[j]! - z) > s.radius) continue;
+      // It fights for her people for a while (peoples/ai.ts runs it), then goes wild again.
+      e.owner[j] = PEOPLES;
+      e.group[j] = e.group[i]!;
+      e.calledUntil[j] = state.step + s.steps;
+      e.target[j] = 0;
+      e.homeX[j] = e.x[i]!;
+      e.homeZ[j] = e.z[i]!;
+    }
+  },
 };
+
+/** Thorns spread a little as arrows do (s). */
+const THORN_SPREAD_BP = 500;
 
 /**
  * A Fireball bursts where it stops (projectiles.ts): 15 to every other
@@ -295,8 +351,7 @@ export function fireballBurst(state: SimState, p: Projectile, x: number, y: numb
   state.hits.push({ look: 'spell', spell: Spell.Fireball, x, y, z, id: p.shooter });
   for (const j of state.grid.near(x, z, s.radius)) {
     if (j === hit || e.hp[j]! <= 0 || e.inside[j] !== 0) continue;
-    const side = sideOf(state, j);
-    if (side === Side.None || side === p.side || side === Side.Wild) continue;
+    if (sideOf(state, j) === Side.Wild || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > s.radius + halfWidth(state, j)) continue;
     hurtUnit(state, j, { damage: splash, from: p.shooter, projectile: false, blunt: false, pierce: false, spell: true });
   }
@@ -368,7 +423,7 @@ function healTarget(state: SimState, i: number, s: SpellSpec, radius: number): n
   let best = -1;
   let bestMissing = 0;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, radius)) {
-    if (!ally(state, j) || !person(state, j)) continue;
+    if (!ally(state, i, j) || !person(state, j)) continue;
     const missing = e.maxHp[j]! - e.hp[j]! - (e.healUntil[j]! > state.step ? e.healLeft[j]! : 0);
     if (missing * AUTO_HEAL_SHARE < amount) continue;
     if (gap(state, i, j) > radius) continue;
@@ -386,9 +441,9 @@ function crowdSpot(state: SimState, i: number, s: SpellSpec, radius: number, ene
   let best = -1;
   let bestN = 0;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, radius)) {
-    const fits = enemies ? validTarget(state, i, j) : ally(state, j) && person(state, j);
+    const fits = enemies ? validTarget(state, i, j) : ally(state, i, j) && person(state, j);
     if (!fits || gap(state, i, j) > radius) continue;
-    const n = enemies ? enemiesNear(state, i, e.x[j]!, e.z[j]!, s.radius).length : alliesNear(state, e.x[j]!, e.z[j]!, s.radius).filter((k) => person(state, k)).length;
+    const n = enemies ? enemiesNear(state, i, e.x[j]!, e.z[j]!, s.radius).length : alliesNear(state, i, e.x[j]!, e.z[j]!, s.radius).filter((k) => person(state, k)).length;
     if (best < 0 || n > bestN || (n === bestN && e.id[j]! < e.id[best]!)) {
       best = j;
       bestN = n;
@@ -434,7 +489,7 @@ function autoTarget(state: SimState, i: number, s: SpellSpec, out: { x: number; 
       let best = -1;
       let bestScore = 0;
       for (const j of state.grid.near(e.x[i]!, e.z[i]!, radius)) {
-        if (!ally(state, j) || e.kind[j] !== UnitKind.Warrior || gap(state, i, j) > radius) continue;
+        if (!ally(state, i, j) || e.kind[j] !== UnitKind.Warrior || gap(state, i, j) > radius) continue;
         const score = (e.target[j] !== 0 ? 0 : radius * 2) + gap(state, i, j);
         if (best < 0 || score < bestScore || (score === bestScore && e.id[j]! < e.id[best]!)) {
           best = j;
@@ -647,6 +702,7 @@ export function mageStep(state: SimState, i: number): boolean {
     return false;
   }
   const hold = mode === Mode.Hold;
+  if (e.school[i] === School.Grove) return groveStep(state, i, hold);
   // A support mage heals by herself.
   if (e.school[i] === School.Support) {
     const s = spellSpec(Spell.Heal);
@@ -701,4 +757,87 @@ export function mageStep(state: SimState, i: number): boolean {
   const fought = fightWithBolts(state, i, t, !hold, false);
   if (!fought) e.target[i] = 0;
   return garrisoned ? false : fought || hold;
+}
+
+// ----- the Elf Grovesinger -----
+
+/** Mending bloom goes where at least this many of her people miss 20 health, or one misses half (s). */
+const BLOOM_CROWD = 2;
+const BLOOM_MISSING = 20;
+
+/** The ally of hers to centre a Mending bloom on: where the most hurt allies stand, lowest id on ties; -1 for none worth it. */
+function bloomSpot(state: SimState, i: number, s: SpellSpec): number {
+  const e = state.entities;
+  const hurt = (j: number): boolean => person(state, j) && e.maxHp[j]! - e.hp[j]! - (e.healUntil[j]! > state.step ? e.healLeft[j]! : 0) >= BLOOM_MISSING;
+  let best = -1;
+  let bestN = 0;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, s.range)) {
+    if (!ally(state, i, j) || !hurt(j) || gap(state, i, j) > s.range) continue;
+    const n = alliesNear(state, i, e.x[j]!, e.z[j]!, s.radius).filter(hurt).length;
+    const low = e.hp[j]! * 2 < e.maxHp[j]!;
+    if (n < BLOOM_CROWD && !low) continue;
+    if (best < 0 || n > bestN || (n === bestN && e.id[j]! < e.id[best]!)) {
+      best = j;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
+/** Whether a wild animal that can fight is within a radius of a point. */
+function wildNear(state: SimState, x: number, z: number, radius: number): boolean {
+  const e = state.entities;
+  for (const j of state.grid.near(x, z, radius)) {
+    if (e.kind[j] === UnitKind.Animal && e.owner[j] === WILD && e.hp[j]! > 0 && length2d(e.x[j]! - x, e.z[j]! - z) <= radius) return true;
+  }
+  return false;
+}
+
+/** Casts a spell on an ally's or enemy's spot if she can from here; true when she began. */
+function castAtUnit(state: SimState, i: number, spell: number, j: number): boolean {
+  const s = spellSpec(spell);
+  if (j < 0 || !canCast(state, i, spell)) return false;
+  const e = state.entities;
+  const x = e.x[j]!;
+  const z = e.z[j]!;
+  if (s.target !== 'point') {
+    if (!canReachWith(state, i, s, j, 0, 0)) return false;
+    beginCast(state, i, s, j, 0, 0);
+    return true;
+  }
+  if (!canReachWith(state, i, s, -1, x, z)) return false;
+  beginCast(state, i, s, -1, x, z);
+  return true;
+}
+
+/**
+ * An Elf Grovesinger fights by herself (Elves: they work differently from
+ * the players' mages): a Mending bloom where her people are hurt, then,
+ * with an enemy in reach, Barkskin where her people stand, Rootbind where
+ * most enemies stand, Call of the wild when wild beasts are near, and Thorn
+ * volleys; up close her wand. Her people's AI keeps her near her post.
+ */
+function groveStep(state: SimState, i: number, hold: boolean): boolean {
+  const e = state.entities;
+  if (castAtUnit(state, i, Spell.MendingBloom, canCast(state, i, Spell.MendingBloom) ? bloomSpot(state, i, spellSpec(Spell.MendingBloom)) : -1)) return true;
+  const thorns = spellSpec(Spell.ThornVolley);
+  let t = e.indexOf(e.target[i]!);
+  if (!validTarget(state, i, t) || gap(state, i, t) > thorns.range + MAGE_LEASH_WU) t = pickTarget(state, i, thorns.range);
+  if (t < 0) {
+    e.target[i] = 0;
+    return hold;
+  }
+  e.target[i] = e.id[t]!;
+  if (canCast(state, i, Spell.Barkskin) && castAtUnit(state, i, Spell.Barkskin, crowdSpot(state, i, spellSpec(Spell.Barkskin), spellSpec(Spell.Barkskin).range, false))) return true;
+  if (canCast(state, i, Spell.Rootbind) && castAtUnit(state, i, Spell.Rootbind, crowdSpot(state, i, spellSpec(Spell.Rootbind), spellSpec(Spell.Rootbind).range, true))) return true;
+  if (canCast(state, i, Spell.CallOfTheWild) && wildNear(state, e.x[i]!, e.z[i]!, spellSpec(Spell.CallOfTheWild).radius) && castAtUnit(state, i, Spell.CallOfTheWild, i)) return true;
+  if (castAtUnit(state, i, Spell.ThornVolley, t)) return true;
+  if (tap(state, i, t)) return true;
+  face(state, i, t);
+  if (hold || gap(state, i, t) <= thorns.range - RANGE_MARGIN_WU) {
+    e.order[i] = OrderKind.Idle;
+    return true;
+  }
+  chase(state, i, t, thorns.range - RANGE_MARGIN_WU);
+  return true;
 }

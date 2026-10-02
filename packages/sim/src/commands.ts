@@ -17,7 +17,7 @@ import { SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { canGarrison, garrisonRoom } from './combat/fight.ts';
+import { canGarrison, garrisonRoom, salvageable } from './combat/fight.ts';
 import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
@@ -27,6 +27,7 @@ import { markSite } from './units/dig.ts';
 import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
+import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 
@@ -330,7 +331,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         const t = e.indexOf(o.target);
         if (t < 0 || e.hp[t]! <= 0) break;
         // Animals are killed with an attack order first (Gathering resources); a wild one is fair game.
-        giveAll(state, o, (i) => (hostile(state, i, t) || huntable(state, t) ? { t: 'attack', id: o.target } : null));
+        // A building the peoples left is broken down by workers for its materials.
+        giveAll(state, o, (i) => (hostile(state, i, t) || huntable(state, t) || (e.kind[i] === UnitKind.Worker && salvageable(state, t)) ? { t: 'attack', id: o.target } : null));
         break;
       }
       case 'attackMove': {
@@ -506,6 +508,16 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'debugThreat':
         debugThreat(state, o.player, o.what, o.x, o.z);
+        break;
+      case 'tradeOffer':
+      case 'tradeTake':
+      case 'tradeWithdraw':
+      case 'declareWar':
+      case 'surrender':
+      case 'reparations':
+      case 'hire':
+      case 'debugPeoples':
+        peoplesOrder(state, o);
         break;
     }
   }

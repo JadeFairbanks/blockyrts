@@ -831,3 +831,246 @@ body.playing * {
   width: auto;
   color: var(--text);
 }
+
+/* Milestone 7: the message panel's tools, names, urgent rows and the collapsed button. */
+.msg-head {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 3px 4px 0;
+}
+.hud-btn.msg-tool {
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+  background: rgba(40, 46, 56, 0.6);
+}
+.hud-btn.msg-tool.lit {
+  color: var(--accent);
+}
+.msg-name {
+  color: #a8d0ff;
+  font-weight: 600;
+}
+.hud-btn.msg-btn.speech .msg-name {
+  color: #b8e0a0;
+}
+.hud-btn.msg-btn.player {
+  color: #9ad8ff;
+  background: rgba(60, 110, 160, 0.18);
+}
+.hud-btn.msg-btn.urgent {
+  color: #fff2c8;
+  background: rgba(200, 120, 30, 0.38);
+}
+.messages-open {
+  left: 8px;
+  bottom: calc(var(--mm-h) + var(--util-h) + 8px);
+  padding: 2px;
+}
+.hud-btn.msg-open {
+  width: 34px;
+  height: 28px;
+  font-size: 16px;
+}
+.messages-open.flash .hud-btn.msg-open {
+  animation: msg-flash 0.6s steps(2) infinite;
+}
+@keyframes msg-flash {
+  0% {
+    background: #c8501e;
+  }
+  100% {
+    background: var(--btn-bg);
+  }
+}
+
+/* Speech bubbles over the units' heads. */
+.bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 220px;
+  padding: 3px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #1c1f24;
+  background: rgba(250, 248, 240, 0.94);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: normal;
+  text-align: center;
+  will-change: transform;
+}
+.bubble.foreign {
+  background: rgba(236, 246, 226, 0.95);
+}
+.bubble.remark {
+  opacity: 0.88;
+  font-style: italic;
+}
+
+/* The Peoples panel, the trade menu, the hire box and the war pop-up. */
+.peoples-panel,
+.trade-dialog,
+.hire-dialog,
+.war-confirm {
+  z-index: 5;
+  padding: 10px 12px 12px;
+  overflow-y: auto;
+  background: rgba(18, 22, 28, 0.96);
+}
+.peoples-panel {
+  top: 44px;
+  right: 4px;
+  width: 380px;
+  max-height: calc(100vh - 44px - 250px);
+}
+.trade-dialog {
+  left: 50%;
+  top: 60px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 60px - 250px);
+}
+.hire-dialog,
+.war-confirm {
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+}
+.war-confirm {
+  z-index: 6;
+  border-color: rgba(255, 120, 110, 0.7);
+}
+.dlg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dlg-title {
+  margin: 0;
+  font-size: 15px;
+}
+.dlg-note {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.dlg-why {
+  margin: 6px 0;
+  color: #ffb08a;
+  font-size: 12px;
+}
+.dlg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.hud-btn.dlg-btn {
+  padding: 5px 10px;
+  min-height: 26px;
+  font-size: 12.5px;
+}
+.hud-btn.dlg-btn.primary {
+  background: #3b5d33;
+  border-color: #6fae5e;
+  font-weight: 600;
+}
+.hud-btn.dlg-btn.danger {
+  border-color: rgba(255, 120, 110, 0.6);
+  color: #ffc0b8;
+}
+.hud-btn.dlg-btn.bundle {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.hud-btn.dlg-close {
+  width: 24px;
+  height: 22px;
+  font-size: 15px;
+}
+.ppl-row {
+  padding: 8px 0;
+  border-top: 1px solid rgba(170, 186, 204, 0.18);
+}
+.ppl-name {
+  font-weight: 600;
+}
+.ppl-name.war {
+  color: #ff8a7a;
+}
+.ppl-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+.trade-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+.trade-head {
+  margin: 6px 0 4px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.trade-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trade-list.goods {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.trade-good {
+  font-size: 12.5px;
+}
+.trade-good.muted {
+  color: var(--muted);
+}
+.trade-good.refused {
+  color: #8a8f98;
+  text-decoration: line-through;
+}
+.hud-btn.trade-item {
+  justify-content: flex-start;
+  padding: 3px 8px;
+  font-size: 12.5px;
+}
+.hud-btn.trade-item.refused {
+  color: #7a808a;
+}
+.hud-btn.trade-item.in-box {
+  background: rgba(80, 110, 60, 0.5);
+}
+.worth-bar {
+  height: 8px;
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-border);
+}
+.worth-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8a6a2a, #e8c25a);
+}
+.worth-words {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}

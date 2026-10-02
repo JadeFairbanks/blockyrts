@@ -14,6 +14,7 @@ import {
   hashState,
   Item,
   Mob,
+  MONSTERS,
   nightBudgetTenths,
   NIGHT_STEPS,
   Period,
@@ -101,8 +102,8 @@ describe('night 0', () => {
     expect(bigHouse(s)!.hp).toBe(1200);
     expect(alive(s, UnitKind.Warrior)).toBe(1);
     expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob) expect(e.mob[i]).toBe(Mob.SmallSlime);
+    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs).
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect(e.mob[i]).toBe(Mob.SmallSlime);
   });
 
   it('never ends the game while the Big House stands', () => {

@@ -34,6 +34,12 @@ import {
   WILD,
   mageTitle,
   School,
+  FactionKind,
+  LEADER_NAMES,
+  Mob,
+  PEOPLES,
+  peopleUnitSpec,
+  TRADE_BUILDINGS,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
@@ -69,6 +75,9 @@ const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 /** Player colours (decision 8's placeholder blue is player 1). */
 export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
+/** The minimap colour of each people (Halflings, Runkin, Elves, Dwarves). */
+const PEOPLE_MARKS = ['#8ac850', '#b08050', '#50c0a8', '#a8a8b8'];
+
 const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal', 'Mage'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support'];
@@ -340,8 +349,53 @@ export class WorldView {
         else if (wild && isGame(spec.id)) details.push('Game: warriors hunt it with N.');
         u.details = details;
       }
+      const group = d[o + S.group]!;
+      if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
+  }
+
+  /** One of the neutral peoples' units or buildings, one they left standing, or a hired mercenary: its name, faction and what to do with it. */
+  private peoplesLabel(u: Selectable, d: Int32Array, o: number, owner: number, kind: number, group: number, health: string): void {
+    const f = this.game?.faction(group) ?? null;
+    const title = f ? f.title : 'One of the neutral peoples';
+    const mob = d[o + S.mob]!;
+    if (kind === UnitKind.Mob) {
+      const spec = mobSpec(mob);
+      if (owner === NEUTRAL) {
+        u.label = `Abandoned ${spec.name.toLowerCase()}`;
+        u.typeKey = `ruin:${mob}`;
+        u.owner = NOBODY;
+        u.details = [health, 'Its people left it. Workers can break it down for its materials: select workers, press A, then click it.'];
+        return;
+      }
+      u.label = spec.name;
+      u.typeKey = `peoples:${mob}`;
+      u.owner = PEOPLES;
+      const trade = TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon;
+      u.details = [title, health, f?.war ? 'At war with you.' : trade ? 'Right click it with one of your units to trade.' : ''].filter(Boolean);
+      return;
+    }
+    const spec = peopleUnitSpec(mob);
+    if (owner !== PEOPLES) {
+      // A mercenary the local player (or an ally) hired: theirs until dusk.
+      if (owner === NEUTRAL || owner >= 8) return;
+      u.label = `Mercenary ${spec.name.toLowerCase()}`;
+      u.typeKey = `merc:${mob}`;
+      u.details = [health, owner === this.player ? 'Hired until dusk, when it walks back to its camp.' : 'Hired by an ally until dusk.'];
+      return;
+    }
+    const id = d[o + S.id]!;
+    const leader = f !== null && f.leader === id;
+    u.label = leader ? `${LEADER_NAMES[f.kind] ?? 'Elder'} (${spec.name})` : spec.name;
+    u.typeKey = `people:${mob}`;
+    u.owner = PEOPLES;
+    u.halfSize.set(0.3, spec.heightCm / 200, 0.3);
+    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click with one of your units to hire mercenaries.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click with one of your units to trade.' : '';
+    const details = [title, health];
+    if (kind === UnitKind.Mage) details.push(`Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`);
+    if (what) details.push(what);
+    u.details = details;
   }
 
   /** The screen's copy of the game (buildings, order lists) for the buildings and the unit panels. */
@@ -349,7 +403,7 @@ export class WorldView {
     this.game = game;
     // Lairs and villages found, a village going to war or a lair cleared repaint the minimap.
     game.onInfoUpdate((info) => {
-      const sig = info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';');
+      const sig = `${info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';')}|${info.peoples.map((f) => `${f.id},${f.x >> 12},${f.z >> 12},${f.war ? 1 : 0},${f.status}`).join(';')}`;
       if (sig !== this.marksSig) {
         this.marksSig = sig;
         this.minimapVersion++;
@@ -862,6 +916,23 @@ export class WorldView {
         ctx.fill();
         ctx.stroke();
       }
+    }
+    // The neutral peoples found: a diamond in each people's colour, ringed red at war.
+    for (const f of this.game?.info?.peoples ?? []) {
+      const x = f.x / WU_PER_METRE;
+      const z = f.z / WU_PER_METRE;
+      const r = 4.5 * px;
+      ctx.beginPath();
+      ctx.moveTo(x, z - r);
+      ctx.lineTo(x + r, z);
+      ctx.lineTo(x, z + r);
+      ctx.lineTo(x - r, z);
+      ctx.closePath();
+      ctx.fillStyle = f.kind === FactionKind.MercCamp ? '#e09040' : (PEOPLE_MARKS[f.people] ?? '#c0c0c0');
+      ctx.fill();
+      ctx.lineWidth = (f.war ? 2 : 1.5) * px;
+      ctx.strokeStyle = f.war ? '#ff3020' : '#000000';
+      ctx.stroke();
     }
   }
 

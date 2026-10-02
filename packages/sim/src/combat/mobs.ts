@@ -54,6 +54,26 @@ export const Mob = {
   GoblinHut: 32,
   GoblinFirePit: 33,
   GoblinTotem: 34,
+  // Milestone 7: the neutral peoples' buildings (Halflings, Runkin, Elves, Dwarves); a mercenary camp is Runkin tents round a fire.
+  HalflingBurrow: 35,
+  HalflingMill: 36,
+  HalflingInn: 37,
+  HalflingBarn: 38,
+  RunkinTent: 39,
+  RunkinDryingRack: 40,
+  RunkinWolfDen: 41,
+  RunkinFire: 42,
+  ElfHall: 43,
+  ElfTreePlatform: 44,
+  ElfBearPen: 45,
+  ElfGate: 46,
+  /** An Elf caravan's wagon: it travels with its caravan and folds open into a market stall (it moves, so it is not a structure). */
+  ElfCaravanWagon: 47,
+  DwarfHouse: 48,
+  DwarfForge: 49,
+  DwarfMineshaft: 50,
+  DwarfHall: 51,
+  DwarfCityGate: 52,
 } as const;
 export type Mob = (typeof Mob)[keyof typeof Mob];
 
@@ -147,6 +167,8 @@ const RESIDENT = 2;
 const TRIBE = 3;
 const VILLAGE = 4;
 const STRUCTURE = 5;
+/** threats/types.ts Role.People: one of a neutral people's units. */
+const PEOPLE = 6;
 
 /** Something that stands and is broken: no attack, no move, never burnt by the sun, and no experience for it. */
 const stand = (id: Mob, name: string, model: string, firstNight: number, hp: number, widthCm: number, heightCm: number): MobSpec => ({
@@ -300,6 +322,28 @@ export const MOBS: readonly MobSpec[] = [
   stand(Mob.GoblinHut, 'Goblin hut', 'goblin_hut_1', 0, 200, 320, 260),
   stand(Mob.GoblinFirePit, 'Goblin fire pit', 'goblin_fire_pit', 0, 100, 200, 60),
   stand(Mob.GoblinTotem, 'Goblin totem', 'goblin_totem', 0, 150, 80, 300),
+  // Milestone 7: the peoples' buildings (s): health and a footprint to fit their models.
+  stand(Mob.HalflingBurrow, 'Halfling burrow', 'halfling_burrow', 0, 400, 600, 300),
+  stand(Mob.HalflingMill, 'Halfling windmill', 'halfling_mill', 0, 300, 400, 700),
+  stand(Mob.HalflingInn, 'Halfling inn', 'halfling_inn', 0, 600, 900, 600),
+  stand(Mob.HalflingBarn, 'Halfling barn', 'halfling_barn', 0, 400, 700, 500),
+  stand(Mob.RunkinTent, 'Hide tent', 'runkin_tent', 0, 120, 400, 300),
+  stand(Mob.RunkinDryingRack, 'Drying rack', 'runkin_drying_rack', 0, 60, 300, 200),
+  stand(Mob.RunkinWolfDen, 'Wolf den', 'runkin_wolf_den', 0, 100, 400, 200),
+  stand(Mob.RunkinFire, 'Fire ring', 'runkin_fire', 0, 80, 300, 100),
+  stand(Mob.ElfHall, 'Elf hall', 'elf_hall', 0, 1200, 1200, 1200),
+  stand(Mob.ElfTreePlatform, 'Tree platform', 'elf_tree_platform', 0, 500, 800, 900),
+  stand(Mob.ElfBearPen, 'Bear pen', 'elf_bear_pen', 0, 500, 900, 300),
+  stand(Mob.ElfGate, 'Leaf gate', 'elf_gate', 0, 1500, 900, 800),
+  {
+    ...stand(Mob.ElfCaravanWagon, 'Elf caravan wagon', 'elf_caravan_wagon', 0, 300, 300, 300),
+    speed: v10(25), moves: Moves.Walker, role: PEOPLE,
+  },
+  stand(Mob.DwarfHouse, 'Dwarf house', 'dwarf_house', 0, 800, 700, 500),
+  stand(Mob.DwarfForge, 'Dwarf forge', 'dwarf_forge', 0, 900, 700, 600),
+  stand(Mob.DwarfMineshaft, 'Dwarf mineshaft', 'dwarf_mineshaft', 0, 700, 600, 500),
+  stand(Mob.DwarfHall, 'Pillared hall', 'dwarf_hall', 0, 2000, 1200, 800),
+  stand(Mob.DwarfCityGate, 'City gate', 'dwarf_city_gate', 0, 3000, 1200, 1000),
 ];
 
 /** Whether a mob is a lair (Table 15). */

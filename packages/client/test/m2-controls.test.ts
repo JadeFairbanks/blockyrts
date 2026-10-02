@@ -44,7 +44,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     type: 'info', step: 10, pool: p, supplyUsed: 2, supplyCap: 8, buildings, queues: [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [],
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [],
   };
   g.onInfo(info);
   return g;
@@ -68,7 +68,7 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
     askPlacement: (kind, _variant, spots) => asks.push([kind, spots]),
     node: () => undefined,
     heightAt: () => 0,
-    changed: () => undefined,
+    changed: () => undefined, confirmWar: () => undefined, openPeople: () => undefined,
   };
   return { c: new Commands(deps), sent, messages, asks };
 }

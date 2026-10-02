@@ -1262,7 +1262,7 @@ Dead units drop out of their groups automatically. When a group of identical bui
 
 **Target choice.** Units that auto-target (attack-move, patrol, idle, stop) pick targets in this order: hostiles that are attacking them or can fight back; then other hostiles that can fight back; then harmless targets such as walls and passive creatures. Within the same tier, the closest wins. This stops an attack-moving army from wasting its time on a wall while monsters are hitting it.
 
-**Targeting mode.** After pressing A, P or M (or any ability that needs a target), the cursor changes to a reticle that is coloured by the command (red for Attack, yellow for Patrol, green for Move). The next left click in the game view or on the minimap confirms it. Right click or Esc cancels with no order given. Clicking a HUD panel other than the minimap also cancels. Holding the hotkey down and clicking repeatedly gives the same order to each click, so it can be spammed quickly.
+**Targeting mode.** After pressing A, P or M (or any ability that needs a target), the cursor changes to a reticle that is coloured by the command (red for Attack, yellow for Patrol, green for Move; red for a spell aimed at enemies and green for a spell aimed at allies (suggested)). The next left click in the game view or on the minimap confirms it. Right click or Esc cancels with no order given. Clicking a HUD panel other than the minimap also cancels. Holding the hotkey down and clicking repeatedly gives the same order to each click, so it can be spammed quickly.
 
 **Order feedback.** Every order the game accepts plays a short marker at the target point: a green ring for move, a red ring for attack, a yellow ring for patrol, and the outline of the target for a unit or resource. Selected units also play a short voice or sound cue. An order that cannot be carried out (no path, nothing selected can do that) plays an error sound and a short message at the top centre instead.
 
@@ -1275,6 +1275,7 @@ The command card is a grid of 15 buttons in 3 rows of 5 showing everything the s
 - Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row.
 - Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures.
 - Warriors also have N Hunt (suggested letter): click an animal to hunt it (see "Semi-automation").
+- **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Equip Best and I Equipment. Casting is described under "Casting spells" in "Magic".
 - E Enter: click a building to go inside it. Workers can shelter in farms, fishing docks and main bases. Ranged warriors and mages can garrison towers and the parapets of a level 3+ main base and fight from there. A building with units inside shows a U Unload All button, and clicking a unit's portrait in the building's panel lets just that unit out.
 - **Double-tap for auto-target:** press any targeted command twice (or click its button twice) and the unit picks the target itself instead of waiting for a click. This works for every targeted command (see "Semi-automation").
 - Buildings: what they train or research gets a letter taken from its name where possible (that letter is underlined on the button), plus R Set Rally Point and, while under construction, X Cancel. Two buttons on the same card never share a letter.
@@ -1282,7 +1283,7 @@ The command card is a grid of 15 buttons in 3 rows of 5 showing everything the s
 - Units that can carry equipment have Q Equip Best and I Equipment buttons (see "Equipment").
 - A button keeps the same position even when it is unavailable, so the layout never shifts. Unavailable buttons are greyed out; their tooltip says why (not enough resources, a missing building, a technology not yet researched).
 - Hovering any button shows a tooltip with its name, hotkey, cost in each resource, build time and any requirements.
-- All hotkeys can be rebound in the settings menu. Rebinding changes the key shown on each button.
+- All hotkeys can be rebound in the settings menu. Rebinding changes the key shown on each button. Spell keys have their own Mages group there (suggested).
 
 **Build and crafting menus use grid hotkeys.** Creating buildings and crafting equipment are the two places where hotkeys follow the grid instead of letters. When B (Basic) or V (Advanced) opens a build menu, or K opens a forge-type building's crafting menu, the command card is replaced by up to 15 items, and each one's hotkey is the key in the same position on the left side of the keyboard:
 
@@ -2437,9 +2438,34 @@ Every mage has its own mana bar, which spells use up and which refills over time
 | Master Mage | 40% faster | about 1 min 26 s |
 | Grand Magician | 55% faster | about 1 min 17 s |
 
-- Mages are trained at the **Magi Sanctum**, and at main bases of level 6 or higher.
+- Mages are trained at the **Magi Sanctum**, and at main bases of level 6 or higher. On both, S trains a Support mage and M a Battle mage (suggested). The Sanctum's K crafting menu makes wands and rank wands, and the Sanctum researches Hexcraft.
 - All mages are female, and they cast spells with wands (see "Unit models").
 - Mages with ranged spells can fight from towers and from the parapets of a level 3+ main base.
+- Mages wear leather armour at most (suggested).
+
+#### Casting spells (suggested)
+
+Added 2026-10-02 from what Milestone 6 built. Each spell has a letter on the mage's command card (see "Command card and hotkeys"); the keys can be rebound under a Mages group in settings.
+
+| **Spell** | **Key** | **Click on** | **Casts by herself** |
+|---|---|---|---|
+| Heal (support) | R | own unit | yes |
+| Quicken (support) | K | own unit | no |
+| Fortify (support) | F | ground | no |
+| Rally (support) | Y | ground | no |
+| Warding (support, Hexcraft) | W | ground | no |
+| Arcane bolt (battle) | R | enemy | yes |
+| Beam (battle) | B | enemy | no |
+| Fireball (battle) | F | enemy | no |
+| Area blast (battle) | T | ground | no |
+| Counterspell (battle, Hexcraft) | C | an enemy that is casting | yes |
+
+- **Casting:** press the spell, then click its target. The cursor is red for spells aimed at enemies and green for spells aimed at allies. Of the selected mages, one that has the mana and the spell ready casts it.
+- **Everyone casts:** press the spell twice, or double-click its button, and every selected mage casts it on her own best target.
+- **Cooldowns:** a spell that is cooling down shows its remaining seconds on the button and can still be ordered; the mage casts as soon as it is ready.
+- **Casting by herself:** support mages heal and battle mages fire arcane bolts on their own, and both counterspell on their own. Each spell has a "casts by herself" flag in the spell table (table 13).
+- **Timing:** a cast takes 1 second. Mana and the cooldown are paid when the spell lands, so a cast that is interrupted or cancelled costs nothing. A cast order gives up after 30 seconds if the mage cannot reach a spot to cast from.
+- **In combat** means hurt in the last 10 seconds; that is what stops the mana refill. A battle mage chases a target at most 15 m (her leash).
 
 #### Table 13: Mage spells and mana
 
@@ -2447,18 +2473,20 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 Mana bar per rank (s): 100, 120, 140, 160, 180, 200; refill per second from the doc's times: 0.83, 1.10, 1.40, 1.74, 2.09, 2.60. Each rank adds one spell and keeps the earlier ones, and Hexcraft research adds Warding and Counterspell at rank 2; spell power scales x1.0 to x1.5 by rank (table 1). Cast time 1.0 s (s). Non-projectile spells need line of sight to cast and then always land (doc).
 
-| **Spell (clip)** | **Mage** | **From rank** | **Mana** | **Cooldown** | **Range** | **Projectile** | **Effect** |
-|---|---|---|---|---|---|---|---|
-| Heal (cast_heal) | support | 1 | 15 (s) | 2 s (s) | 12 m (s) | no | one ally regains 30 over 3 s (s) |
-| Quicken (cast_bolt) | support | 2 | 20 (s) | 10 s (s) | 12 m (s) | no | one ally moves and attacks 25% faster for 8 s (s) |
-| Fortify (cast_area) | support | 3 | 30 (s) | 15 s (s) | 10 m (s) | no | allies within 5 m get +15% armour for 10 s (s) |
-| Rally (cast_beam) | support | 4 | 40 (s) | 20 s (s) | 12 m (s) | no | allies within 6 m do +20% damage for 10 s and are cured of poison and hexes (s) |
-| Arcane bolt (cast_bolt) | battle | 1 | 10 (s) | 1.5 s (s) | 18 m (s) | yes | 20 damage to one target; 2 vs walls (s) |
-| Beam (cast_beam) | battle | 2 | 25 (s) | 6 s (s) | 14 m (s) | no | 12 per second for 3 s to one target (s) |
-| Fireball (cast_bolt) | battle | 3 | 30 (s) | 8 s (s) | 22 m (s) | yes | 35 to the target, 15 to everything within 2 m; x3 vs wooden walls and buildings, 30 vs stone, sets wood burning 8 per s for 5 s (s) |
-| Area blast (cast_area) | battle | 4 | 50 (s) | 15 s (s) | 16 m (s) | no | 45 to everything within 4 m of the point, 40 vs walls (s) |
-| Warding (cast_area) | support | 2, with Hexcraft | 30 (s) | 30 s (s) | 10 m (s) | no | units within 8 m of the point take half damage from enemy spells for 30 s (Jade) |
-| Counterspell (cast_bolt) | battle | 2, with Hexcraft | 20 (s) | 8 s (s) | 18 m (s) | no | cancels one enemy spell while it is being cast within range (Jade); the enemy's mana and cooldown are still spent (s) |
+| **Spell (clip)** | **Key (s)** | **Casts by herself** | **Target** | **Mage** | **From rank** | **Mana** | **Cooldown** | **Range** | **Projectile** | **Effect** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Heal (cast_heal) | R | yes (s) | own unit | support | 1 | 15 (s) | 2 s (s) | 12 m (s) | no | one ally regains 30 over 3 s (s) |
+| Quicken (cast_bolt) | K | no | own unit | support | 2 | 20 (s) | 10 s (s) | 12 m (s) | no | one ally moves and attacks 25% faster for 8 s (s) |
+| Fortify (cast_area) | F | no | ground | support | 3 | 30 (s) | 15 s (s) | 10 m (s) | no | allies within 5 m get +15% armour for 10 s (s) |
+| Rally (cast_beam) | Y | no | ground | support | 4 | 40 (s) | 20 s (s) | 12 m (s) | no | allies within 6 m do +20% damage for 10 s and are cured of poison and hexes (s) |
+| Arcane bolt (cast_bolt) | R | yes (s) | enemy | battle | 1 | 10 (s) | 1.5 s (s) | 18 m (s) | yes | 20 damage to one target; 2 vs walls (s) |
+| Beam (cast_beam) | B | no | enemy | battle | 2 | 25 (s) | 6 s (s) | 14 m (s) | no | 12 per second for 3 s to one target (s) |
+| Fireball (cast_bolt) | F | no | enemy | battle | 3 | 30 (s) | 8 s (s) | 22 m (s) | yes | 35 to the target, 15 to everything within 2 m; x3 vs wooden walls and buildings, 30 vs stone, sets wood burning 8 per s for 5 s (s) |
+| Area blast (cast_area) | T | no | ground | battle | 4 | 50 (s) | 15 s (s) | 16 m (s) | no | 45 to everything within 4 m of the point, 40 vs walls (s) |
+| Warding (cast_area) | W | no | ground | support | 2, with Hexcraft | 30 (s) | 30 s (s) | 10 m (s) | no | units within 8 m of the point take half damage from enemy spells for 30 s (Jade) |
+| Counterspell (cast_bolt) | C | yes (s) | casting enemy | battle | 2, with Hexcraft | 20 (s) | 8 s (s) | 18 m (s) | no | cancels one enemy spell while it is being cast within range (Jade); the enemy's mana and cooldown are still spent (s) |
+
+Casting controls (s), added 2026-10-02 from what Milestone 6 built: keys are rebindable in a Mages hotkey group; press the spell, then click its target; of the selected mages, one with the mana and the spell ready casts it; press the spell twice (or double-click it) and every selected mage casts on her own best target; a cooling spell shows its seconds and can still be ordered. A mage is in combat when she was hurt in the last 10 s. Mana and cooldown are paid when the spell lands, not when the cast starts. A cast order gives up after 30 s without reaching its target. Battle mage leash 15 m; mages wear leather at most (table 1).
 
 No ward item (Jade): mages do it as spells and hexstone is the research reagent. Hexcraft (the name is (s)): researched at the Magi Sanctum (not a lodge) for 6 hexstone and 20 herbs in 90 s (s), and opens Warding and Counterspell for every mage of rank 2 or higher (table 2a).
 

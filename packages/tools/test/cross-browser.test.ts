@@ -23,7 +23,7 @@ const engines: Array<[string, BrowserType]> = [
   ['firefox', firefox],
   ['webkit', webkit],
 ];
-const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights', 'm4-economy', 'm5-threats', 'm6-mages'].map((name) => {
+const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights', 'm4-economy', 'm5-threats', 'm6-mages', 'm7-peoples'].map((name) => {
   const script = loadOrderScript(fileURLToPath(new URL(`../orders/${name}.json`, import.meta.url)));
   const players = script.players ?? 1;
   const peaceful = script.peaceful === true;

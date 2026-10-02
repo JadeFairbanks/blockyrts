@@ -2,7 +2,7 @@
 // sim worker, indexed for the HUD (buildings by id, units by id, order
 // lists). Read-only for everything but main.ts, which feeds it.
 import { BuildingKind, buildingSpec, FOODS, RESOURCES, UnitKind, type UnitOrder } from '@blockyrts/sim';
-import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type StateMessage } from '../messages.ts';
+import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type PeopleInfo, type StateMessage } from '../messages.ts';
 
 export interface UnitInfo {
   id: number;
@@ -47,6 +47,8 @@ export interface UnitInfo {
   cast: number;
   beam: number;
   spells: number;
+  /** The faction of one of the peoples' units or buildings (and of one they left), else 0. */
+  group: number;
 }
 
 export class GameInfo {
@@ -126,6 +128,7 @@ export class GameInfo {
       cast: d[o + S.cast]!,
       beam: d[o + S.beam]!,
       spells: d[o + S.spells]!,
+      group: d[o + S.group]!,
     };
   }
 
@@ -137,6 +140,12 @@ export class GameInfo {
   /** Why a mage cannot go for her next rank yet (experience, or the top rank), or ''. */
   mageRankWhy(id: number): string {
     return this.info?.mageRanks.find(([m]) => m === id)?.[1] ?? '';
+  }
+
+  /** One of the neutral peoples the local player knows, by faction id. */
+  faction(id: number): PeopleInfo | null {
+    if (!id) return null;
+    return this.info?.peoples.find((f) => f.id === id) ?? null;
   }
 
   /** Every unit id, in state order. */

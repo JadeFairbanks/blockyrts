@@ -9,9 +9,11 @@ import { wallBeside } from '../buildings/placement.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { floorDiv, WU_PER_METRE } from '../fixed.ts';
-import { NO_CARRY, UnitKind, type SimState } from '../state.ts';
+import { MONSTERS, NEUTRAL, NO_CARRY, PEOPLES, UnitKind, type SimState } from '../state.ts';
+import { peoplesHooks } from '../peoples/hooks.ts';
+import { killXpTenths } from '../rules.ts';
 import { destroyBuilding, dropQueue, isFarm } from '../units/behaviour.ts';
-import { blast, BURST_BLAST, deathHooks, fallText } from './combat.ts';
+import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp } from './combat.ts';
 import { addMob } from './mob-ai.ts';
 import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
 import { clearLair } from '../threats/lairs.ts';
@@ -36,9 +38,12 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
     // A goblin gives back what it took from a worker.
     if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) pool[e.carryRes[i]!] = pool[e.carryRes[i]!]! + e.carryAmt[i]!;
   }
+  // A people's building or wagon falls; one they left gives its materials to the workers who broke it down.
+  if (e.owner[i] === PEOPLES) peoplesHooks.death(state, i, taker);
+  else if (e.owner[i] === NEUTRAL && e.group[i] !== 0 && hitByWorker(state, i) && taker >= 0) peoplesHooks.salvage(state, i, taker);
   // A lair falls (its hoard and the warriors' experience); a village counts its losses towards war.
   if (isLair(spec.id)) clearLair(state, i, taker);
-  else if (e.role[i] === Role.Village || (e.role[i] === Role.Structure && e.group[i] !== 0)) onVillageLoss(state, i, taker, hitByWorker(state, i));
+  else if (e.owner[i] === MONSTERS && (e.role[i] === Role.Village || (e.role[i] === Role.Structure && e.group[i] !== 0))) onVillageLoss(state, i, taker, hitByWorker(state, i));
   const x = e.x[i]!;
   const z = e.z[i]!;
   switch (spec.id) {
@@ -78,6 +83,11 @@ function hitByWorker(state: SimState, i: number): boolean {
 
 function onUnitDeath(state: SimState, i: number): void {
   const e = state.entities;
+  // One of the peoples: their losses, the killers' experience (health / 50, as daytime foes) and their war.
+  if (e.owner[i] === PEOPLES) {
+    peoplesHooks.death(state, i, shareKillXp(state, i, killXpTenths(null, e.maxHp[i]!)));
+    return;
+  }
   // Gear set aside for it goes back to the stock; what it wore is lost with it.
   dropQueue(state, i);
   // A goblin that killed a worker takes its load.

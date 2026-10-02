@@ -1,5 +1,5 @@
 {
- "description": "M6 check script, seed 1, one player, with night mobs: the debug tools put a finished Magi Sanctum 20 m east of the Big House and a mage kit in the stock and pool (2 wands, 2 of each rank wand, 10 mana crystals, 200 bread, 6 hexstone, 20 herbs), and steel gear for the warrior; the Sanctum trains a support mage (id 165) and a battle mage (id 286) and researches Hexcraft; both train to Acolyte there; at dusk they stand by the Big House with the warrior; in night 0 the support mage quickens the warrior (Quicken on unit 5), wards the crowd (Warding pressed twice) and heals by herself, and the battle mage beams a monster (Beam pressed twice) and bolts by herself; at dawn the debug Mage XP button twice takes both to Adept Acolyte and then to the experience for Mage, and they train to Mage with their rank wands; a goblin village goes up 80 m north; the warrior and the battle mage attack-move on it with the support mage following the warrior; Rally, Fireball, Fortify and Area blast are pressed twice there, the support mage heals too, the battle mage counters the goblin mage's spells, the village declares war, and all three walk home. Debug threats 40 Sanctum, 41 mage kit, 42 mage experience. Spells: 0 Heal, 1 Quicken, 2 Fortify, 3 Rally, 4 Arcane bolt, 5 Beam, 6 Fireball, 7 Area blast, 8 Warding, 9 Counterspell. Products: 4 support mage, 5 battle mage, 14 Hexcraft. Moves are world units (8,000 per metre).",
+ "description": "M6 check script, seed 1, one player, with night mobs: the debug tools put a finished Magi Sanctum 20 m east of the Big House and a mage kit in the stock and pool (2 wands, 2 of each rank wand, 10 mana crystals, 200 bread, 6 hexstone, 20 herbs), and steel gear for the warrior; the Sanctum trains a support mage (id 173) and a battle mage (id 294) and researches Hexcraft; both train to Acolyte there; at dusk they stand by the Big House with the warrior; in night 0 the support mage quickens the warrior (Quicken on unit 5), wards the crowd (Warding pressed twice) and heals by herself, and the battle mage beams a monster (Beam pressed twice) and bolts by herself; at dawn the debug Mage XP button twice takes both to Adept Acolyte and then to the experience for Mage, and they train to Mage with their rank wands; a goblin village goes up 80 m north; the warrior and the battle mage attack-move on it with the support mage following the warrior; Rally, Fireball, Fortify and Area blast are pressed twice there, the support mage heals too, the battle mage counters the goblin mage's spells, the village declares war, and all three walk home. Debug threats 40 Sanctum, 41 mage kit, 42 mage experience. Spells: 0 Heal, 1 Quicken, 2 Fortify, 3 Rally, 4 Arcane bolt, 5 Beam, 6 Fireball, 7 Area blast, 8 Warding, 9 Counterspell. Products: 4 support mage, 5 battle mage, 14 Hexcraft. Moves are world units (8,000 per metre).",
  "players": 1,
  "frames": [
   {
@@ -103,8 +103,8 @@
      "kind": "trainRank",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "building": 7
     }
@@ -118,8 +118,8 @@
      "player": 0,
      "units": [
       5,
-      165,
-      286
+      173,
+      294
      ],
      "x": 40000,
      "z": 64000
@@ -133,7 +133,7 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165
+      173
      ],
      "spell": 1,
      "target": 5,
@@ -150,8 +150,8 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "spell": 8,
      "target": 0,
@@ -168,8 +168,8 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "spell": 5,
      "target": 0,
@@ -212,8 +212,8 @@
      "kind": "trainRank",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "building": 7
     }
@@ -227,8 +227,8 @@
      "player": 0,
      "units": [
       5,
-      165,
-      286
+      173,
+      294
      ],
      "x": 0,
      "z": -320000
@@ -243,7 +243,7 @@
      "player": 0,
      "units": [
       5,
-      286
+      294
      ],
      "x": 0,
      "z": -560000
@@ -252,7 +252,7 @@
      "kind": "follow",
      "player": 0,
      "units": [
-      165
+      173
      ],
      "target": 5
     }
@@ -265,8 +265,8 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "spell": 3,
      "target": 0,
@@ -283,8 +283,8 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "spell": 6,
      "target": 0,
@@ -301,8 +301,8 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "spell": 2,
      "target": 0,
@@ -319,8 +319,8 @@
      "kind": "cast",
      "player": 0,
      "units": [
-      165,
-      286
+      173,
+      294
      ],
      "spell": 7,
      "target": 0,
@@ -338,8 +338,8 @@
      "player": 0,
      "units": [
       5,
-      165,
-      286
+      173,
+      294
      ],
      "x": 40000,
      "z": 64000

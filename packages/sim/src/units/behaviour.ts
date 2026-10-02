@@ -33,6 +33,8 @@ import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './fiel
 import { Item, itemSpec } from '../combat/items.ts';
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
+import { peoplesHooks } from '../peoples/hooks.ts';
+import { speakerName } from '../peoples/speech.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -89,7 +91,13 @@ export function columnCentre(c: number): number {
   return c * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
 }
 
-function alert(state: SimState, player: number, text: string, x?: number, z?: number): void {
+/** An alert for a player; with a unit, it is that unit saying so (Unit speech: triggered speech), as a bubble over it and under its name in the panel. */
+function alert(state: SimState, player: number, text: string, x?: number, z?: number, unit = -1): void {
+  if (unit >= 0) {
+    const e = state.entities;
+    state.events.push({ player, kind: 'alert', text, x: e.x[unit]!, z: e.z[unit]!, speaker: e.id[unit]!, name: speakerName(state, unit), urgent: true });
+    return;
+  }
   state.events.push(x === undefined || z === undefined ? { player, kind: 'alert', text } : { player, kind: 'alert', text, x, z });
 }
 
@@ -589,7 +597,7 @@ function runFollow(state: SimState, i: number, o: Extract<UnitOrder, { t: 'follo
 
 function idleAlert(state: SimState, i: number, res: number): void {
   const e = state.entities;
-  state.events.push({ player: e.owner[i]!, kind: 'idle', text: `A worker has run out of ${RESOURCES[res]!.name.toLowerCase()} nearby and is idle.`, x: e.x[i]!, z: e.z[i]! });
+  state.events.push({ player: e.owner[i]!, kind: 'idle', text: `I have run out of ${RESOURCES[res]!.name.toLowerCase()} nearby.`, x: e.x[i]!, z: e.z[i]!, speaker: e.id[i]!, name: speakerName(state, i), urgent: true });
 }
 
 function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gather' }>): boolean {
@@ -599,12 +607,12 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
     const kind = view?.kind ?? -1;
     if (view && nodeResource(kind) >= 0 && view.stage === 2 && view.amount > 0 && !gatherable(state, i, view)) {
       const info = propInfo(kind);
-      alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!);
+      alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     // Fishing from the shore needs a fishing rod or net in the worker's kit (Table 2c) (s).
     if (view && isFish(view.kind) && e.kit[i] !== Item.FishingRod && e.kit[i] !== Item.FishingNet) {
-      alert(state, e.owner[i]!, 'Fishing needs a fishing rod or net. Make one at the Big House and equip it (I).', e.x[i]!, e.z[i]!);
+      alert(state, e.owner[i]!, 'Fishing needs a fishing rod or net. Make one at the Big House and equip it (I).', e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     e.act[i] = Act.Walk;
@@ -648,7 +656,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       if (r === FAILED) {
         const alt = findNode(state, i, res, nx, nz, NODE_SEARCH_COLUMNS, o);
         if (!alt) {
-          alert(state, e.owner[i]!, 'A worker cannot reach that.', e.x[i]!, e.z[i]!);
+          alert(state, e.owner[i]!, 'I cannot reach that.', e.x[i]!, e.z[i]!, i);
           return DONE;
         }
         o.cx = alt.cx;
@@ -697,6 +705,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       const want = Math.max(1, Math.min(info.perLoad, room));
       const before = view.amount;
       const taken = state.world.harvest(o.cx, o.cz, o.i, want, state.step);
+      // An Elf may be watching (Elves: tree warnings).
+      if (taken > 0 && isTree(view.kind)) peoplesHooks.treeCut(state, i, columnCentre(nx), columnCentre(nz));
       if (taken > 0) {
         e.carryAmt[i] = (e.carryRes[i] === res ? e.carryAmt[i]! : 0) + taken;
         e.carryRes[i] = res;
@@ -747,12 +757,12 @@ export function toDropoff(state: SimState, i: number, target: Building | null): 
   const res = e.carryRes[i]!;
   const b = target ?? nearestDropoff(state, i, res);
   if (!b) {
-    alert(state, e.owner[i]!, `There is nowhere to drop off ${RESOURCES[res]?.name.toLowerCase() ?? 'that'}. Build a storehouse.`, e.x[i]!, e.z[i]!);
+    alert(state, e.owner[i]!, `There is nowhere to drop off ${RESOURCES[res]?.name.toLowerCase() ?? 'that'}. Build a storehouse.`, e.x[i]!, e.z[i]!, i);
     return FAILED;
   }
   const r = walkTo(state, i, besideBuilding(b));
   if (r === ARRIVED) unload(state, i);
-  if (r === FAILED) alert(state, e.owner[i]!, 'A worker cannot reach a drop-off.', e.x[i]!, e.z[i]!);
+  if (r === FAILED) alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
   return r;
 }
 
@@ -802,25 +812,25 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
   const wx = columnCentre(x0);
   const wz = columnCentre(z0);
   if (r === FAILED) {
-    alert(state, owner, `A worker cannot reach the spot for the ${name.toLowerCase()}.`, wx, wz);
+    alert(state, owner, `I cannot reach the spot for the ${name.toLowerCase()}.`, wx, wz, i);
     return DONE;
   }
   // The cost is taken only now, when building begins; a blocked spot or a short pool cancels it with an alert.
   const why = buildRequirement(state, owner, o.kind);
   if (why) {
-    alert(state, owner, `${name}: ${why}`, wx, wz);
+    alert(state, owner, `${name}: ${why}`, wx, wz, i);
     return DONE;
   }
   const blocked = placementBlocked(state, owner, o.kind, o.x, o.z, o.variant);
   if (blocked !== Blocked.None) {
-    alert(state, owner, `The spot for the ${name.toLowerCase()} is blocked. ${BLOCKED_TEXT[blocked]}`, wx, wz);
+    alert(state, owner, `The spot for the ${name.toLowerCase()} is blocked. ${BLOCKED_TEXT[blocked]}`, wx, wz, i);
     return DONE;
   }
   const cost = buildCost(state, owner, o.kind);
   const costMul = costMultiplier(state, owner, o.kind);
   const pool = state.players[owner]!.pool;
   if (!canAfford(pool, cost)) {
-    alert(state, owner, `Not enough ${RESOURCES[shortOf(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz);
+    alert(state, owner, `Not enough ${RESOURCES[shortOf(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz, i);
     return DONE;
   }
   pay(pool, cost);
@@ -860,7 +870,7 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) {
-      alert(state, b.owner, 'A worker cannot reach that building.', e.x[i]!, e.z[i]!);
+      alert(state, b.owner, 'I cannot reach that building.', e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     e.act[i] = Act.Work;
@@ -921,7 +931,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   if (r === FAILED) return DONE;
   // Shelter and parapet places are counted apart: workers inside, and the ranged warriors on top.
   if (unitsInside(state, b.id).filter((j) => (e.kind[j] === UnitKind.Worker) === worker).length >= room) {
-    alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!);
+    alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
   // Going in at a drop-off leaves the load there.
@@ -975,7 +985,7 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   if (!b || b.owner !== e.owner[i] || !takesWorkers(b)) return DONE;
   const slot = assigned(state, b.id).indexOf(i);
   if (slot >= levelSpec(b.kind, b.level).workers) {
-    if (e.act[i] === Act.Start) alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} has all the workers it can take.`, e.x[i]!, e.z[i]!);
+    if (e.act[i] === Act.Start) alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} has all the workers it can take.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
@@ -1032,7 +1042,7 @@ function runRefuel(state: SimState, i: number, o: Extract<UnitOrder, { t: 'refue
   if (e.timer[i]! < REFUEL_STEPS) return CONTINUE;
   const pool = state.players[b.owner]!.pool;
   if (pool[light.fuel]! <= 0 && !isSnuffed(b)) {
-    alert(state, b.owner, `Not enough ${RESOURCES[light.fuel]!.name.toLowerCase()} to refuel the ${buildingSpec(b.kind).name.toLowerCase()}.`, e.x[i]!, e.z[i]!);
+    alert(state, b.owner, `Not enough ${RESOURCES[light.fuel]!.name.toLowerCase()} to refuel the ${buildingSpec(b.kind).name.toLowerCase()}.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
   // A light snuffed out is relit at no cost with the fuel it had left (Table 18).
@@ -1074,22 +1084,22 @@ function runMageTrain(state: SimState, i: number, b: Building): boolean {
   if (e.inside[i] !== b.id) {
     const why = mageTrainingProblem(state, i);
     if (why) {
-      alert(state, b.owner, why, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, why, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
     if (t.wand && player.items[t.wand]! < 1) {
-      alert(state, b.owner, `Training a ${who} to ${t.name} needs a ${itemSpec(t.wand).name} in the equipment stock.`, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, `Training a ${who} to ${t.name} needs a ${itemSpec(t.wand).name} in the equipment stock.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     if (player.pool[Res.ManaCrystal]! < t.crystals) {
-      alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals.`, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     if (t.food > 0 && !payNutrition(player.pool, t.food, player.dontEat)) {
-      alert(state, b.owner, `Not enough food to train a ${who} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, `Not enough food to train a ${who} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     player.pool[Res.ManaCrystal] = player.pool[Res.ManaCrystal]! - t.crystals;
@@ -1125,14 +1135,14 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   if (!b || !t || b.kind !== rankTrainedAt(e.kind[i]!) || !b.complete || b.owner !== e.owner[i]) return DONE;
   if (e.inside[i] !== b.id) {
     if (mainBaseLevel(state, b.owner) < t.base) {
-      alert(state, b.owner, `Training to ${t.name} needs a level ${t.base} main base.`, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, `Training to ${t.name} needs a level ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
     if (!payNutrition(state.players[b.owner]!.pool, t.food, state.players[b.owner]!.dontEat)) {
-      alert(state, b.owner, `Not enough food to train a ${warrior ? 'warrior' : 'worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!);
+      alert(state, b.owner, `Not enough food to train a ${warrior ? 'warrior' : 'worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     if (e.carryAmt[i]! > 0) unload(state, i);
