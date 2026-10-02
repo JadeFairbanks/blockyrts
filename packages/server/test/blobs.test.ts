@@ -1,5 +1,5 @@
 // The save-file stores. S3 runs against TEST_S3_ENDPOINT when set (CI starts
-// MinIO); a tiny fake S3 checks the client wiring everywhere else.
+// S3Mock); a tiny fake S3 checks the client wiring everywhere else.
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';

@@ -119,6 +119,6 @@ milestone; the server and its protocol are tested headless.
    that run takes about two minutes.
 3. With PostgreSQL and object storage: set `DATABASE_URL`, `SAVE_STORE=s3` and
    the `S3_*` variables (or `SAVE_STORE=disk`) before either command. CI runs
-   the test against PostgreSQL 16 and MinIO, and builds the server's Docker
+   the test against PostgreSQL 16 and S3Mock (an S3-compatible test server), and builds the server's Docker
    image and checks `/healthz`.
 
