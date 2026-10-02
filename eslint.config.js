@@ -17,7 +17,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['packages/client/**/*.ts', 'packages/audio/src/**/*.ts'],
+    files: ['packages/client/**/*.ts', 'packages/audio/src/**/*.ts', 'packages/balance/src/app/**/*.ts'],
     languageOptions: { globals: { ...globals.browser, ...globals.worker } },
   },
   {

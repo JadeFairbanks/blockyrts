@@ -1,0 +1,23 @@
+{
+  "name": "@blockyrts/balance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The balance editor: every balance number in the sim's data, browsable and editable, exported as a JSON list of changes.",
+  "type": "module",
+  "exports": {
+    ".": "./src/core/index.ts",
+    "./node": "./scripts/sim-node.ts"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@blockyrts/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
+}
