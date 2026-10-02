@@ -577,3 +577,91 @@ Pending (not in the repo yet): portraits of `ash_golem` and `mana_wraith` (their
 | icon_tool_set_iron_refined | ui/icon_tool_set_iron_refined.png | 1 | 32x32 | K2 tool set icon, tier iron_refined: axe and pick crossed. |
 | icon_tool_set_iron_wrought | ui/icon_tool_set_iron_wrought.png | 1 | 32x32 | K2 tool set icon, tier iron_wrought: axe and pick crossed. |
 | icon_tool_set_steel | ui/icon_tool_set_steel.png | 1 | 32x32 | K2 tool set icon, tier steel: axe and pick crossed. |
+| icon_arrow_bronze | ui/icon_arrow_bronze.png | 1 | 32x32 | K2 item icon arrow_bronze (rendered from arrow.bbmodel + arrow_bronze.png), tier bronze. |
+| icon_arrow_fire | ui/icon_arrow_fire.png | 1 | 32x32 | K2 item icon arrow_fire (rendered from arrow_fire.bbmodel), tier None. |
+| icon_arrow_flint | ui/icon_arrow_flint.png | 1 | 32x32 | K2 item icon arrow_flint (rendered from arrow.bbmodel + arrow_flint.png), tier flint. |
+| icon_arrow_hq_steel | ui/icon_arrow_hq_steel.png | 1 | 32x32 | K2 item icon arrow_hq_steel (rendered from arrow.bbmodel + arrow_hq_steel.png), tier hq_steel. |
+| icon_arrow_iron_bloom | ui/icon_arrow_iron_bloom.png | 1 | 32x32 | K2 item icon arrow_iron_bloom (rendered from arrow.bbmodel + arrow_iron_bloom.png), tier iron_bloom. |
+| icon_arrow_iron_refined | ui/icon_arrow_iron_refined.png | 1 | 32x32 | K2 item icon arrow_iron_refined (rendered from arrow.bbmodel + arrow_iron_refined.png), tier iron_refined. |
+| icon_arrow_iron_wrought | ui/icon_arrow_iron_wrought.png | 1 | 32x32 | K2 item icon arrow_iron_wrought (rendered from arrow.bbmodel + arrow_iron_wrought.png), tier iron_wrought. |
+| icon_arrow_poison_bronze | ui/icon_arrow_poison_bronze.png | 1 | 32x32 | K2 item icon arrow_poison_bronze (rendered from arrow_poison.bbmodel + arrow_poison_bronze.png), tier bronze. |
+| icon_arrow_poison_flint | ui/icon_arrow_poison_flint.png | 1 | 32x32 | K2 item icon arrow_poison_flint (rendered from arrow_poison.bbmodel + arrow_poison_flint.png), tier flint. |
+| icon_arrow_poison_hq_steel | ui/icon_arrow_poison_hq_steel.png | 1 | 32x32 | K2 item icon arrow_poison_hq_steel (rendered from arrow_poison.bbmodel + arrow_poison_hq_steel.png), tier hq_steel. |
+| icon_arrow_poison_iron_bloom | ui/icon_arrow_poison_iron_bloom.png | 1 | 32x32 | K2 item icon arrow_poison_iron_bloom (rendered from arrow_poison.bbmodel + arrow_poison_iron_bloom.png), tier iron_bloom. |
+| icon_arrow_poison_iron_refined | ui/icon_arrow_poison_iron_refined.png | 1 | 32x32 | K2 item icon arrow_poison_iron_refined (rendered from arrow_poison.bbmodel + arrow_poison_iron_refined.png), tier iron_refined. |
+| icon_arrow_poison_iron_wrought | ui/icon_arrow_poison_iron_wrought.png | 1 | 32x32 | K2 item icon arrow_poison_iron_wrought (rendered from arrow_poison.bbmodel + arrow_poison_iron_wrought.png), tier iron_wrought. |
+| icon_arrow_poison_steel | ui/icon_arrow_poison_steel.png | 1 | 32x32 | K2 item icon arrow_poison_steel (rendered from arrow_poison.bbmodel + arrow_poison_steel.png), tier steel. |
+| icon_arrow_steel | ui/icon_arrow_steel.png | 1 | 32x32 | K2 item icon arrow_steel (rendered from arrow.bbmodel + arrow_steel.png), tier steel. |
+| icon_axe_war_copper | ui/icon_axe_war_copper.png | 1 | 32x32 | K2 item icon axe_war_copper (rendered from axe_war.bbmodel + axe_war_copper.png), tier copper. |
+| icon_axe_war_flint | ui/icon_axe_war_flint.png | 1 | 32x32 | K2 item icon axe_war_flint (rendered from axe_war_flint.bbmodel), tier None. |
+| icon_ballista_bolt | ui/icon_ballista_bolt.png | 1 | 32x32 | K2 item icon ballista_bolt (rendered from ballista_bolt.bbmodel), tier None. |
+| icon_bolt_bronze | ui/icon_bolt_bronze.png | 1 | 32x32 | K2 item icon bolt_bronze (rendered from bolt.bbmodel + bolt_bronze.png), tier bronze. |
+| icon_bolt_case | ui/icon_bolt_case.png | 1 | 32x32 | K2 item icon bolt_case (rendered from bolt_case.bbmodel), tier None. |
+| icon_bolt_flint | ui/icon_bolt_flint.png | 1 | 32x32 | K2 item icon bolt_flint (rendered from bolt.bbmodel + bolt_flint.png), tier flint. |
+| icon_bolt_hq_steel | ui/icon_bolt_hq_steel.png | 1 | 32x32 | K2 item icon bolt_hq_steel (rendered from bolt.bbmodel + bolt_hq_steel.png), tier hq_steel. |
+| icon_bolt_iron_bloom | ui/icon_bolt_iron_bloom.png | 1 | 32x32 | K2 item icon bolt_iron_bloom (rendered from bolt.bbmodel + bolt_iron_bloom.png), tier iron_bloom. |
+| icon_bolt_iron_refined | ui/icon_bolt_iron_refined.png | 1 | 32x32 | K2 item icon bolt_iron_refined (rendered from bolt.bbmodel + bolt_iron_refined.png), tier iron_refined. |
+| icon_bolt_iron_wrought | ui/icon_bolt_iron_wrought.png | 1 | 32x32 | K2 item icon bolt_iron_wrought (rendered from bolt.bbmodel + bolt_iron_wrought.png), tier iron_wrought. |
+| icon_bolt_poison_bronze | ui/icon_bolt_poison_bronze.png | 1 | 32x32 | K2 item icon bolt_poison_bronze (rendered from bolt_poison.bbmodel + bolt_poison_bronze.png), tier bronze. |
+| icon_bolt_poison_flint | ui/icon_bolt_poison_flint.png | 1 | 32x32 | K2 item icon bolt_poison_flint (rendered from bolt_poison.bbmodel + bolt_poison_flint.png), tier flint. |
+| icon_bolt_poison_hq_steel | ui/icon_bolt_poison_hq_steel.png | 1 | 32x32 | K2 item icon bolt_poison_hq_steel (rendered from bolt_poison.bbmodel + bolt_poison_hq_steel.png), tier hq_steel. |
+| icon_bolt_poison_iron_bloom | ui/icon_bolt_poison_iron_bloom.png | 1 | 32x32 | K2 item icon bolt_poison_iron_bloom (rendered from bolt_poison.bbmodel + bolt_poison_iron_bloom.png), tier iron_bloom. |
+| icon_bolt_poison_iron_refined | ui/icon_bolt_poison_iron_refined.png | 1 | 32x32 | K2 item icon bolt_poison_iron_refined (rendered from bolt_poison.bbmodel + bolt_poison_iron_refined.png), tier iron_refined. |
+| icon_bolt_poison_iron_wrought | ui/icon_bolt_poison_iron_wrought.png | 1 | 32x32 | K2 item icon bolt_poison_iron_wrought (rendered from bolt_poison.bbmodel + bolt_poison_iron_wrought.png), tier iron_wrought. |
+| icon_bolt_poison_steel | ui/icon_bolt_poison_steel.png | 1 | 32x32 | K2 item icon bolt_poison_steel (rendered from bolt_poison.bbmodel + bolt_poison_steel.png), tier steel. |
+| icon_bolt_steel | ui/icon_bolt_steel.png | 1 | 32x32 | K2 item icon bolt_steel (rendered from bolt.bbmodel + bolt_steel.png), tier steel. |
+| icon_bow | ui/icon_bow.png | 1 | 32x32 | K2 item icon bow (rendered from bow.bbmodel), tier None. |
+| icon_cannonball_iron | ui/icon_cannonball_iron.png | 1 | 32x32 | K2 item icon cannonball_iron (rendered from cannonball_iron.bbmodel), tier None. |
+| icon_cannonball_stone | ui/icon_cannonball_stone.png | 1 | 32x32 | K2 item icon cannonball_stone (rendered from cannonball_stone.bbmodel), tier None. |
+| icon_catapult_stone | ui/icon_catapult_stone.png | 1 | 32x32 | K2 item icon catapult_stone (rendered from catapult_stone.bbmodel), tier None. |
+| icon_club | ui/icon_club.png | 1 | 32x32 | K2 item icon club (rendered from club.bbmodel), tier None. |
+| icon_crossbow_iron_bloom | ui/icon_crossbow_iron_bloom.png | 1 | 32x32 | K2 item icon crossbow_iron_bloom (rendered from crossbow.bbmodel + crossbow_iron_bloom.png), tier iron_bloom. |
+| icon_crossbow_iron_refined | ui/icon_crossbow_iron_refined.png | 1 | 32x32 | K2 item icon crossbow_iron_refined (rendered from crossbow.bbmodel + crossbow_iron_refined.png), tier iron_refined. |
+| icon_crossbow_iron_wrought | ui/icon_crossbow_iron_wrought.png | 1 | 32x32 | K2 item icon crossbow_iron_wrought (rendered from crossbow.bbmodel + crossbow_iron_wrought.png), tier iron_wrought. |
+| icon_crossbow_steel_hq_steel | ui/icon_crossbow_steel_hq_steel.png | 1 | 32x32 | K2 item icon crossbow_steel_hq_steel (rendered from crossbow_steel.bbmodel + crossbow_steel_hq_steel.png), tier hq_steel. |
+| icon_crossbow_steel_steel | ui/icon_crossbow_steel_steel.png | 1 | 32x32 | K2 item icon crossbow_steel_steel (rendered from crossbow_steel.bbmodel + crossbow_steel_steel.png), tier steel. |
+| icon_dagger | ui/icon_dagger.png | 1 | 32x32 | K2 item icon dagger (rendered from dagger.bbmodel), tier None. |
+| icon_dagger_copper | ui/icon_dagger_copper.png | 1 | 32x32 | K2 item icon dagger_copper (rendered from dagger.bbmodel + dagger_copper.png), tier copper. |
+| icon_halberd_hq_steel | ui/icon_halberd_hq_steel.png | 1 | 32x32 | K2 item icon halberd_hq_steel (rendered from halberd.bbmodel + halberd_hq_steel.png), tier hq_steel. |
+| icon_halberd_iron_bloom | ui/icon_halberd_iron_bloom.png | 1 | 32x32 | K2 item icon halberd_iron_bloom (rendered from halberd.bbmodel + halberd_iron_bloom.png), tier iron_bloom. |
+| icon_halberd_iron_refined | ui/icon_halberd_iron_refined.png | 1 | 32x32 | K2 item icon halberd_iron_refined (rendered from halberd.bbmodel + halberd_iron_refined.png), tier iron_refined. |
+| icon_halberd_iron_wrought | ui/icon_halberd_iron_wrought.png | 1 | 32x32 | K2 item icon halberd_iron_wrought (rendered from halberd.bbmodel + halberd_iron_wrought.png), tier iron_wrought. |
+| icon_halberd_steel | ui/icon_halberd_steel.png | 1 | 32x32 | K2 item icon halberd_steel (rendered from halberd.bbmodel + halberd_steel.png), tier steel. |
+| icon_javelin | ui/icon_javelin.png | 1 | 32x32 | K2 item icon javelin (rendered from javelin.bbmodel), tier None. |
+| icon_javelin_bronze | ui/icon_javelin_bronze.png | 1 | 32x32 | K2 item icon javelin_bronze (rendered from javelin.bbmodel + javelin_bronze.png), tier bronze. |
+| icon_javelin_flint | ui/icon_javelin_flint.png | 1 | 32x32 | K2 item icon javelin_flint (rendered from javelin_flint.bbmodel), tier None. |
+| icon_mace_iron_bloom | ui/icon_mace_iron_bloom.png | 1 | 32x32 | K2 item icon mace_iron_bloom (rendered from mace.bbmodel + mace_iron_bloom.png), tier iron_bloom. |
+| icon_mace_iron_refined | ui/icon_mace_iron_refined.png | 1 | 32x32 | K2 item icon mace_iron_refined (rendered from mace.bbmodel + mace_iron_refined.png), tier iron_refined. |
+| icon_mace_iron_wrought | ui/icon_mace_iron_wrought.png | 1 | 32x32 | K2 item icon mace_iron_wrought (rendered from mace.bbmodel + mace_iron_wrought.png), tier iron_wrought. |
+| icon_musket_hq_steel | ui/icon_musket_hq_steel.png | 1 | 32x32 | K2 item icon musket_hq_steel (rendered from musket.bbmodel + musket_hq_steel.png), tier hq_steel. |
+| icon_musket_iron_bloom | ui/icon_musket_iron_bloom.png | 1 | 32x32 | K2 item icon musket_iron_bloom (rendered from musket.bbmodel + musket_iron_bloom.png), tier iron_bloom. |
+| icon_musket_iron_refined | ui/icon_musket_iron_refined.png | 1 | 32x32 | K2 item icon musket_iron_refined (rendered from musket.bbmodel + musket_iron_refined.png), tier iron_refined. |
+| icon_musket_iron_wrought | ui/icon_musket_iron_wrought.png | 1 | 32x32 | K2 item icon musket_iron_wrought (rendered from musket.bbmodel + musket_iron_wrought.png), tier iron_wrought. |
+| icon_musket_steel | ui/icon_musket_steel.png | 1 | 32x32 | K2 item icon musket_steel (rendered from musket.bbmodel + musket_steel.png), tier steel. |
+| icon_pike_hq_steel | ui/icon_pike_hq_steel.png | 1 | 32x32 | K2 item icon pike_hq_steel (rendered from pike.bbmodel + pike_hq_steel.png), tier hq_steel. |
+| icon_pike_steel | ui/icon_pike_steel.png | 1 | 32x32 | K2 item icon pike_steel (rendered from pike.bbmodel + pike_steel.png), tier steel. |
+| icon_powder_horn | ui/icon_powder_horn.png | 1 | 32x32 | K2 item icon powder_horn (rendered from powder_horn.bbmodel), tier None. |
+| icon_quiver | ui/icon_quiver.png | 1 | 32x32 | K2 item icon quiver (rendered from quiver.bbmodel), tier None. |
+| icon_shield_bronze | ui/icon_shield_bronze.png | 1 | 32x32 | K2 item icon shield_bronze (rendered from shield_bronze.bbmodel), tier None. |
+| icon_shield_iron_kite_iron_bloom | ui/icon_shield_iron_kite_iron_bloom.png | 1 | 32x32 | K2 item icon shield_iron_kite_iron_bloom (rendered from shield_iron_kite.bbmodel + shield_iron_kite_iron_bloom.png), tier iron_bloom. |
+| icon_shield_iron_kite_iron_refined | ui/icon_shield_iron_kite_iron_refined.png | 1 | 32x32 | K2 item icon shield_iron_kite_iron_refined (rendered from shield_iron_kite.bbmodel + shield_iron_kite_iron_refined.png), tier iron_refined. |
+| icon_shield_iron_kite_iron_wrought | ui/icon_shield_iron_kite_iron_wrought.png | 1 | 32x32 | K2 item icon shield_iron_kite_iron_wrought (rendered from shield_iron_kite.bbmodel + shield_iron_kite_iron_wrought.png), tier iron_wrought. |
+| icon_shield_steel_heater_hq_steel | ui/icon_shield_steel_heater_hq_steel.png | 1 | 32x32 | K2 item icon shield_steel_heater_hq_steel (rendered from shield_steel_heater.bbmodel + shield_steel_heater_hq_steel.png), tier hq_steel. |
+| icon_shield_steel_heater_steel | ui/icon_shield_steel_heater_steel.png | 1 | 32x32 | K2 item icon shield_steel_heater_steel (rendered from shield_steel_heater.bbmodel + shield_steel_heater_steel.png), tier steel. |
+| icon_shield_wicker | ui/icon_shield_wicker.png | 1 | 32x32 | K2 item icon shield_wicker (rendered from shield_wicker.bbmodel), tier None. |
+| icon_shield_wood_iron_bloom | ui/icon_shield_wood_iron_bloom.png | 1 | 32x32 | K2 item icon shield_wood_iron_bloom (rendered from shield_wood.bbmodel + shield_wood_iron_bloom.png), tier iron_bloom. |
+| icon_shield_wood_iron_refined | ui/icon_shield_wood_iron_refined.png | 1 | 32x32 | K2 item icon shield_wood_iron_refined (rendered from shield_wood.bbmodel + shield_wood_iron_refined.png), tier iron_refined. |
+| icon_shield_wood_iron_wrought | ui/icon_shield_wood_iron_wrought.png | 1 | 32x32 | K2 item icon shield_wood_iron_wrought (rendered from shield_wood.bbmodel + shield_wood_iron_wrought.png), tier iron_wrought. |
+| icon_shot_pouch | ui/icon_shot_pouch.png | 1 | 32x32 | K2 item icon shot_pouch (rendered from lead_shot_pouch.bbmodel), tier None. |
+| icon_sling | ui/icon_sling.png | 1 | 32x32 | K2 item icon sling (rendered from sling.bbmodel), tier None. |
+| icon_spear | ui/icon_spear.png | 1 | 32x32 | K2 item icon spear (rendered from spear.bbmodel), tier None. |
+| icon_spear_bronze | ui/icon_spear_bronze.png | 1 | 32x32 | K2 item icon spear_bronze (rendered from spear.bbmodel + spear_bronze.png), tier bronze. |
+| icon_spear_flint | ui/icon_spear_flint.png | 1 | 32x32 | K2 item icon spear_flint (rendered from spear_flint.bbmodel), tier None. |
+| icon_spear_hardwood | ui/icon_spear_hardwood.png | 1 | 32x32 | K2 item icon spear_hardwood (rendered from spear_hardwood.bbmodel), tier None. |
+| icon_sword_iron_bloom | ui/icon_sword_iron_bloom.png | 1 | 32x32 | K2 item icon sword_iron_bloom (rendered from sword.bbmodel + sword_iron_bloom.png), tier iron_bloom. |
+| icon_sword_iron_refined | ui/icon_sword_iron_refined.png | 1 | 32x32 | K2 item icon sword_iron_refined (rendered from sword.bbmodel + sword_iron_refined.png), tier iron_refined. |
+| icon_sword_iron_wrought | ui/icon_sword_iron_wrought.png | 1 | 32x32 | K2 item icon sword_iron_wrought (rendered from sword.bbmodel + sword_iron_wrought.png), tier iron_wrought. |
+| icon_sword_short | ui/icon_sword_short.png | 1 | 32x32 | K2 item icon sword_short (rendered from sword_short.bbmodel), tier None. |
+| icon_sword_short_bronze | ui/icon_sword_short_bronze.png | 1 | 32x32 | K2 item icon sword_short_bronze (rendered from sword_short.bbmodel + sword_short_bronze.png), tier bronze. |
+| icon_sword_steel_hq_steel | ui/icon_sword_steel_hq_steel.png | 1 | 32x32 | K2 item icon sword_steel_hq_steel (rendered from sword_steel.bbmodel + sword_steel_hq_steel.png), tier hq_steel. |
+| icon_sword_steel_steel | ui/icon_sword_steel_steel.png | 1 | 32x32 | K2 item icon sword_steel_steel (rendered from sword_steel.bbmodel + sword_steel_steel.png), tier steel. |
