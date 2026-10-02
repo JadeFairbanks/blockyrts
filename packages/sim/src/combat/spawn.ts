@@ -278,7 +278,7 @@ function fallbackPoint(state: SimState, player: number, shapes: ReturnType<typeo
  * has not come yet never does.
  */
 export function updateSpawns(state: SimState): void {
-  const c = clockAt(state.step);
+  const c = clockAt(state.step, state.blood);
   if (c.period === Period.Night && c.into === 0 && !state.peaceful) {
     for (let p = 0; p < state.players.length; p++) {
       if (state.players[p]!.out) continue;

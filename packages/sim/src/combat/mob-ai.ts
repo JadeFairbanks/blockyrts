@@ -675,7 +675,7 @@ export function addMob(state: SimState, mob: number, foe: number, x: number, z: 
  * health a second in the sunlight; goblins and bats run for the dark.
  */
 export function updateSun(state: SimState): void {
-  const c = clockAt(state.step);
+  const c = clockAt(state.step, state.blood);
   if (c.period !== Period.Dawn && c.period !== Period.Day) return;
   const e = state.entities;
   const k = state.step % STEPS_PER_SECOND;

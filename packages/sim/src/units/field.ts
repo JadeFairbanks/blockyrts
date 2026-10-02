@@ -145,7 +145,7 @@ function hunting(state: SimState, j: number): boolean {
 
 export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: 'hunt' }>): boolean {
   const e = state.entities;
-  if (isDark(state.step)) return huntOver(state, i);
+  if (isDark(state.step, state.blood)) return huntOver(state, i);
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   if (e.kind[i] === UnitKind.Worker) {
     // A hauler: follows its hunter and butchers what falls.

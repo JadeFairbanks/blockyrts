@@ -458,7 +458,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.item > 0 && o.item < ITEM_COUNT) state.players[o.player]!.items[o.item] = state.players[o.player]!.items[o.item]! + o.count;
         break;
       case 'debugSpawn':
-        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);
         break;
     }
   }

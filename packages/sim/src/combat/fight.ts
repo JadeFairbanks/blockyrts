@@ -398,7 +398,7 @@ export function fightStep(state: SimState, i: number): boolean {
     // At dusk the hunt ends; on a double-tapped hunt, quarry that runs past the chase limit is let go.
     const fled = o.auto !== 0 && t >= 0 && length2d(e.x[t]! - o.x, e.z[t]! - o.z) > HUNT_CHASE_WU;
     if (fled) o.id = 0;
-    if (isDark(state.step) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    if (isDark(state.step, state.blood) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       if (e.target[i] !== 0) disengage(state, i);
       return false;
     }

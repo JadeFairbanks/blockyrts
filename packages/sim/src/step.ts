@@ -72,9 +72,9 @@ function wander(state: SimState, i: number): void {
 
 /** What happens as a period begins: the alert, and at dusk the outlying count and enclosures, at day the shelters empty. */
 function periodChange(state: SimState): void {
-  const p = periodStarting(state.step);
+  const p = periodStarting(state.step, state.blood);
   if (p === -1) return;
-  const c = clockAt(state.step);
+  const c = clockAt(state.step, state.blood);
   state.events.push({ player: -1, kind: 'period', text: periodMessage(c) });
   if (p === Period.Dusk) {
     computeEnclosed(state);

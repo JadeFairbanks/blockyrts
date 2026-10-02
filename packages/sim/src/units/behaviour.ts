@@ -942,7 +942,7 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   }
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   // Farmers work the field by day and shelter in their own farmhouse at dusk and night; mill hands work inside.
-  const indoors = !isFarm(b.kind) || isDark(state.step);
+  const indoors = !isFarm(b.kind) || isDark(state.step, state.blood);
   if (indoors) {
     if (e.inside[i] === b.id) {
       e.act[i] = Act.Work;

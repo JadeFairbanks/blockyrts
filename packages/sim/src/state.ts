@@ -16,6 +16,7 @@ import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { Tool } from './world/props.ts';
 import { World } from './world/world.ts';
+import { newThreats, type ThreatState } from './threats/types.ts';
 
 /** Owner value for entities that belong to no player. */
 export const NEUTRAL = 255;
@@ -196,6 +197,13 @@ export const UNIT_FIELDS = [
   ['sex', 'u8'],
   /** A worker and the working animal pulling its cart, each pointing at the other (an entity id), or 0. */
   ['partner', 'u32'],
+  /** Mobs: what it is doing besides the night attack (threats/types.ts Role) and its lair, band or village (an id). */
+  ['role', 'u8'],
+  ['group', 'u32'],
+  /** Casters: mana in twentieths (refills 1 a second, so a twentieth a step). */
+  ['mana', 'i32'],
+  /** Stumble hex: moves and attacks 20% slower until this step. */
+  ['hexUntil', 'u32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -295,6 +303,10 @@ export class EntityStore implements Record<FieldName, Column> {
   declare breedAt: Uint32Array;
   declare sex: Uint8Array;
   declare partner: Uint32Array;
+  declare role: Uint8Array;
+  declare group: Uint32Array;
+  declare mana: Int32Array;
+  declare hexUntil: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -303,6 +315,8 @@ export class EntityStore implements Record<FieldName, Column> {
   path: number[][] = [];
   /** Mobs: the players' units that hit it, as (id, step) pairs, for sharing the kill's experience. */
   hitters: number[][] = [];
+  /** Abilities cooling down, as (ability, step it is ready) pairs (threats/abilities.ts). */
+  cools: number[][] = [];
 
   private readonly index = new Map<number, number>();
 
@@ -344,6 +358,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.queue[i] = [];
     this.path[i] = [];
     this.hitters[i] = [];
+    this.cools[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
     return i;
@@ -360,6 +375,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.queue.splice(i, 1);
     this.path.splice(i, 1);
     this.hitters.splice(i, 1);
+    this.cools.splice(i, 1);
     this.count--;
     this.reindex();
   }
@@ -446,6 +462,10 @@ export interface SimState {
   over: number;
   /** 1 for no night mobs (tests and the debug tools). */
   peaceful: number;
+  /** The nights that were or are blood nights, ascending (Day and night: they last twice as long). */
+  blood: number[];
+  /** Lairs, villages, tribes, the blood and fog nights (milestone 5). */
+  threats: ThreatState;
   /** Not state: what was hit or died this step, for the hit particles and death animations. */
   hits: HitEvent[];
   /** Not state: where units stand this step (rebuilt each step). */
@@ -640,6 +660,8 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     stockedChunks: new Set(),
     over: 0,
     peaceful: options.peaceful ? 1 : 0,
+    blood: [],
+    threats: newThreats(),
   });
   for (let p = 0; p < world.players; p++) {
     const pool = new Int32Array(RESOURCE_COUNT);

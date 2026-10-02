@@ -421,7 +421,7 @@ export function handPick(state: SimState, i: number, slot: number, item: number)
 export function updateGear(state: SimState): void {
   if (state.step % GEAR_CHECK_STEPS !== 0) return;
   const e = state.entities;
-  const day = !isDark(state.step);
+  const day = !isDark(state.step, state.blood);
   const auto: number[][] = state.players.map(() => []);
   const r2 = AUTO_EQUIP_M * WU_PER_METRE;
   for (let i = 0; i < e.count; i++) {
