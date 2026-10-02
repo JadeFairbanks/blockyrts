@@ -9,7 +9,7 @@
 # optional: without it the server runs with password-reset email turned off.
 set -euo pipefail
 
-for key in DOMAIN CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID \
+for key in DOMAIN CLOUDFLARE_API_TOKEN R2_ACCESS_KEY_ID \
   R2_SECRET_ACCESS_KEY DROPLET_SIZE REPLACE_SERVER; do
   if [ -z "${!key:-}" ]; then
     echo "::error::$key is not set. Add it under Settings > Secrets and variables > Actions (see deploy/README.md)."
@@ -21,7 +21,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 region=tor1
 bucket=blockyrts-saves
 cf=https://api.cloudflare.com/client/v4
-acct=$CLOUDFLARE_ACCOUNT_ID
+acct=${CLOUDFLARE_ACCOUNT_ID:-}
 
 # Cloudflare API call; fails the run with Cloudflare's own error text.
 cfapi() {
@@ -55,6 +55,17 @@ cname() {
 }
 
 echo "::group::Cloudflare"
+if [ -z "$acct" ]; then
+  # The account ID is not secret; when it was not saved, ask Cloudflare which
+  # account the token belongs to.
+  accounts=$(cfapi GET "/accounts")
+  if [ "$(jq '.result | length' <<<"$accounts")" != 1 ]; then
+    echo "::error::CLOUDFLARE_ACCOUNT_ID is not set and the token sees $(jq '.result | length' <<<"$accounts") accounts. Add CLOUDFLARE_ACCOUNT_ID under Settings > Secrets and variables > Actions."
+    exit 1
+  fi
+  acct=$(jq -r '.result[0].id' <<<"$accounts")
+  echo "Cloudflare account found from the token: $acct"
+fi
 zone=$(cfapi GET "/zones?name=$DOMAIN" | jq -r '.result[0].id // empty')
 if [ -z "$zone" ]; then
   echo "::error::$DOMAIN is not a site in this Cloudflare account, or the token lacks Zone Read on it."
