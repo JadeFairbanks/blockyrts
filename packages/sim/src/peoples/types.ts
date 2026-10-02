@@ -72,6 +72,8 @@ export interface Faction {
   rebuildUntil: number;
   /** Mercenary camp: how many it hires out when full. */
   size: number;
+  /** Halfling village: war oxen still in its barn, ridden out when a war starts. */
+  oxen: number;
 }
 
 /** A player's open offer to a faction, with the three answers the faction gave (each a list of (good, count) pairs). */
@@ -100,7 +102,7 @@ export function newPeoples(): PeoplesState {
 /** The scalar fields of a faction in serialisation order, then its lists. */
 export const FACTION_FIELDS = [
   'id', 'kind', 'people', 'parent', 'cell', 'x', 'z', 'band', 'lean', 'seed', 'status', 'built', 'war', 'met', 'traded', 'seen', 'founded', 'dead', 'lastTaker',
-  'surrender', 'leader', 'day', 'nextAt', 'regrowAt', 'visits', 'leaveAt', 'leftAt', 'toX', 'toZ', 'toCell', 'survivors', 'rebuildUntil', 'size',
+  'surrender', 'leader', 'day', 'nextAt', 'regrowAt', 'visits', 'leaveAt', 'leftAt', 'toX', 'toZ', 'toCell', 'survivors', 'rebuildUntil', 'size', 'oxen',
 ] as const satisfies ReadonlyArray<keyof Faction>;
 export const FACTION_LISTS = ['kills', 'closedUntil', 'lastOffer', 'declines', 'warnings', 'warnedAt', 'stock', 'stockMax', 'bought', 'caravanAt'] as const satisfies ReadonlyArray<keyof Faction>;
 

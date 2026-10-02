@@ -29,7 +29,7 @@ import {
   PeopleUnit, peopleUnitSpec, PLUNDER_GOODS, PLUNDER_TENTHS_PER_PERSON, RAID_BAND, RAID_FROM_WU, RECAMP_SEARCH_CELLS, REPARATIONS_PAID_LINE, REPARATIONS_PER_KILL_TENTHS,
   REPARATIONS_TENTHS, SALVAGE, Status, SURRENDER_DEAD_PCT, TREE_WARN_GAP_STEPS, TREE_WARN_WU, TREE_WARNING_LINES, TREE_WARNINGS, LEADER_NAMES,
 } from './data.ts';
-import { addPerson, beastsOf, buildFaction, fightersOf, isPerson, peopleOf, spotIn, structuresOf } from './factions.ts';
+import { addPerson, beastsOf, buildFaction, fieldOxen, fightersOf, isPerson, peopleOf, spotIn, structuresOf } from './factions.ts';
 import { sayForeign } from './speech.ts';
 import { resValueTenths } from './stock.ts';
 import { factionById, warFaction, type Faction } from './types.ts';
@@ -105,6 +105,7 @@ export function declareWar(state: SimState, player: number, factionId: number, w
   for (const g of kin(state, f)) {
     state.peoples.offers = state.peoples.offers.filter((o) => o.faction !== g.id);
     g.met |= fresh;
+    fieldOxen(state, g);
   }
   if (f.kind === FactionKind.ElfKingdom && !f.nextAt) f.nextAt = state.step + ELF_RAID_EVERY_STEPS;
   for (let p = 0; p < state.players.length; p++) {

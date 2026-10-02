@@ -294,6 +294,30 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     expect(priceTenths(city, ENGINE_GOODS + Engine.BronzeCannon)).toBe(4200);
     expect(inStock(city, Res.Gunpowder)).toBeGreaterThan(0);
   });
+
+  it('a Halfling village rides its war oxen out only when a war starts', () => {
+    const s = createWorld(1, { peaceful: true });
+    const [x, z] = field(s);
+    run(s, 1, [{ kind: 'debugPeoples', player: 0, what: FactionKind.HalflingVillage, x, z: z - 60 * M }]);
+    const e = s.entities;
+    const village = s.peoples.factions.find((f) => f.kind === FactionKind.HalflingVillage)!;
+    const count = (unit: number): number => {
+      let n = 0;
+      for (let i = 0; i < e.count; i++) if (e.owner[i] === PEOPLES && e.group[i] === village.id && e.hp[i]! > 0 && e.mob[i] === unit) n++;
+      return n;
+    };
+    const before = [count(PeopleUnit.HalflingSpearman), count(PeopleUnit.HalflingArcher)];
+    expect(count(PeopleUnit.HalflingOxRider)).toBe(0);
+    expect(village.oxen).toBe(2);
+    run(s, 1, [{ kind: 'declareWar', player: 0, faction: village.id }]);
+    // A spearman in front and an archer behind on each ox.
+    expect([count(PeopleUnit.HalflingSpearman), count(PeopleUnit.HalflingArcher), count(PeopleUnit.HalflingOxRider)]).toEqual([before[0]! - 2, before[1]! - 2, 2]);
+    expect(village.oxen).toBe(0);
+    let rider = -1;
+    for (let i = 0; i < e.count; i++) if (e.mob[i] === PeopleUnit.HalflingOxRider && e.owner[i] === PEOPLES) rider = i;
+    expect(e.mount[rider]).toBe(Mount.WarOx);
+    expect(e.mountHp[rider]).toBe(mountSpec(Mount.WarOx).hp);
+  });
 });
 
 describe('the late nights and Morvath', () => {

@@ -206,6 +206,14 @@ export interface Layout {
 }
 
 /**
+ * A Halfling village's war oxen, kept in its barn and grown with the band like
+ * its people (s). The doc: "only in times of war, Halflings ride oxen into
+ * battle with two riders on each". When a war starts, a spearman takes each ox
+ * with an archer behind him (peoples/factions.ts fieldOxen).
+ */
+export const HALFLING_WAR_OXEN = 2;
+
+/**
  * The size of each kind (s). The doc: "the deeper they are, the larger and
  * grander they get". Halfling villages keep a little farm (hens, cattle and
  * an ox for sale and as plunder); the one Elf kingdom is very large.
@@ -213,7 +221,7 @@ export interface Layout {
 export const LAYOUTS: readonly Layout[] = [
   {
     structures: [[Mob.HalflingInn, 1], [Mob.HalflingMill, 1], [Mob.HalflingBarn, 1], [Mob.HalflingBurrow, 4]],
-    people: [[PeopleUnit.HalflingMale, 4], [PeopleUnit.HalflingFemale, 4], [PeopleUnit.HalflingSpearman, 4], [PeopleUnit.HalflingArcher, 2], [PeopleUnit.HalflingOxRider, 2]],
+    people: [[PeopleUnit.HalflingMale, 4], [PeopleUnit.HalflingFemale, 4], [PeopleUnit.HalflingSpearman, 4], [PeopleUnit.HalflingArcher, 2]],
     animals: [[Species.Chicken, 4], [Species.Cattle, 2], [Species.Ox, 1]],
     engines: [],
     ringWu: 14 * M,
