@@ -350,7 +350,27 @@ export interface PlayerState {
   autoEquip: number;
   /** The step the player was eliminated, or 0 while still in the game. */
   out: number;
+  /** Things made at least once (combat/items.ts Made), for research that needs one first. */
+  made: number;
+  /** Foods kept back from eating: a bit per entry of FOODS (Don't eat). */
+  dontEat: number;
+  /** Rations (F9): 0 feed everyone, 1 troops only, 2 workers only. */
+  rations: number;
+  /** Nutrition already eaten beyond what was owed (whole foods are taken), and upkeep owed but not yet due, in quarters. */
+  fed: number;
+  owed: number;
+  /** The step each group began starving, or 0 while fed: workers (and working animals), and troops (warriors, research facilities). */
+  starveWorkers: number;
+  starveTroops: number;
 }
+
+/** A player's side at the start of a game, with this pool. */
+export function newPlayer(pool: Int32Array): PlayerState {
+  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, owed: 0, starveWorkers: 0, starveTroops: 0 };
+}
+
+/** The per-player scalars after the pool and stock, in the order they are serialised. */
+export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'owed', 'starveWorkers', 'starveTroops'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /** Something the players should hear about: the message panel's alerts, built-and-trained notes, the idle gatherer cue. */
 export interface SimEvent {
@@ -522,6 +542,11 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     doneAt: complete ? state.step : 0,
     farmAcc: 0,
     alerted: 0,
+    costMul: 1,
+    rating: 0,
+    mined: 0,
+    stock: [],
+    acc: [],
   };
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);
@@ -570,7 +595,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
   for (let p = 0; p < world.players; p++) {
     const pool = new Int32Array(RESOURCE_COUNT);
     for (const [res, n] of STARTING_STOCK) pool[res] = n;
-    state.players.push({ pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0 });
+    state.players.push(newPlayer(pool));
   }
   // Workers first, so each player's units have the lowest ids (1 to 4 for the first player).
   for (const pocket of world.gen.start.pockets) {

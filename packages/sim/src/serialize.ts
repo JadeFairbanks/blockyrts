@@ -6,7 +6,7 @@ import { ByteReader, ByteWriter, fnv1a32 } from './bytes.ts';
 import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
 import { RESOURCE_COUNT } from './economy/resources.ts';
-import { attachNav, EntityStore, UNIT_FIELDS, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
+import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
 import { ITEM_COUNT } from './combat/items.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
@@ -18,7 +18,7 @@ import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 4;
+export const SNAPSHOT_VERSION = 5;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -70,9 +70,7 @@ export function serializeState(state: SimState): Uint8Array {
     for (const v of p.pool) w.i32(v);
     w.u8(p.items.length);
     for (const v of p.items) w.i32(v);
-    w.u32(p.research);
-    w.u8(p.autoEquip);
-    w.u32(p.out);
+    for (const f of PLAYER_FIELDS) w.i32(p[f]);
   }
   writeBuildings(w, state.buildings);
   w.u32(state.enclosed.length);
@@ -141,7 +139,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
       const v = r.i32();
       if (j < ITEM_COUNT) items[j] = v;
     }
-    players.push({ pool, items, research: r.u32(), autoEquip: r.u8(), out: r.u32() });
+    const p = newPlayer(pool);
+    p.items = items;
+    for (const f of PLAYER_FIELDS) p[f] = r.i32();
+    players.push(p);
   }
   const buildings = new BuildingStore();
   readBuildings(r, buildings, () => {});
@@ -235,8 +236,10 @@ export function diffStates(a: SimState, b: SimState): string | null {
       const d = scalar(`players[${p}].items[${k}]`, pa.items[k]!, pb.items[k]!);
       if (d) return d;
     }
-    const d = scalar(`players[${p}].research`, pa.research, pb.research) ?? scalar(`players[${p}].autoEquip`, pa.autoEquip, pb.autoEquip) ?? scalar(`players[${p}].out`, pa.out, pb.out);
-    if (d) return d;
+    for (const f of PLAYER_FIELDS) {
+      const d = scalar(`players[${p}].${f}`, pa[f], pb[f]);
+      if (d) return d;
+    }
   }
   const bl = scalar('buildings.length', a.buildings.list.length, b.buildings.list.length);
   if (bl) return bl;

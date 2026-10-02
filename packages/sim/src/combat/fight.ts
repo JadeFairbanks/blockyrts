@@ -69,7 +69,7 @@ export function rangedOf(state: SimState, i: number): RangedStats | null {
   if (!id) return null;
   const r = itemSpec(id).ranged;
   if (!r || e.ammo[i]! <= 0) return null;
-  if (r.needsArchery && (e.skills[i]! & SKILL_ARCHERY) === 0) return null;
+  if (r.skill && (e.skills[i]! & r.skill) === 0) return null;
   return r;
 }
 

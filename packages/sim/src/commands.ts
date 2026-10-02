@@ -16,7 +16,7 @@ import { canonicalOrders, type Order } from './orders.ts';
 import { SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile } from './combat/combat.ts';
 import { garrisonRoom, rangedOf } from './combat/fight.ts';
-import { ITEM_COUNT, SLOT_COUNT } from './combat/items.ts';
+import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
@@ -138,6 +138,7 @@ export function upgradeProblem(state: SimState, b: Building): string {
   if (!next) return 'It is at its highest level.';
   if (next.needs) return next.needs;
   if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
+  if (next.research && (state.players[b.owner]!.research & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
   if (b.kind === BuildingKind.LumberMill && b.level === 1 && !waterBeside(state, b)) return 'The waterwheel needs a stream beside the mill.';
   const pool = state.players[b.owner]!.pool;
   if (!canAfford(pool, next.cost)) return `Not enough ${RESOURCES[shortOf(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
@@ -161,7 +162,7 @@ function applyUpgrade(state: SimState, b: Building): void {
 function applyCancelBuild(state: SimState, b: Building): void {
   const pool = state.players[b.owner]!.pool;
   if (!b.complete) {
-    refund(pool, levelSpec(b.kind, 1).cost, CANCEL_REFUND_PER_MILLE);
+    refund(pool, levelSpec(b.kind, 1).cost.map(([r, n]) => [r, n * b.costMul] as const), CANCEL_REFUND_PER_MILLE);
     for (const j of unitsInside(state, b.id)) leaveBuilding(state, j);
     state.buildings.remove(b.id, (key) => state.world.touchNav(key));
     return;
@@ -277,7 +278,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         const b = ownBuilding(state, o.player, o.building);
         if (!b) break;
         for (let k = 0; k < o.count; k++) {
-          const why = queueProduct(state, b, o.product as 0 | 1 | 2);
+          const why = queueProduct(state, b, o.product);
           if (why) {
             alert(state, o.player, why);
             break;

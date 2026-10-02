@@ -9,6 +9,9 @@ import { CHUNK_SHIFT, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import type { SimState } from '../state.ts';
 import { BuildingKind, buildingSpec, footprintDims, levelSpec } from './data.ts';
+import { Mat } from '../world/materials.ts';
+import { RESEARCH } from '../combat/items.ts';
+import type { Cost } from '../economy/resources.ts';
 import { footprintRect } from './store.ts';
 
 /** Why a tile is red; 0 is green. */
@@ -20,10 +23,14 @@ export const Blocked = {
   Node: 4,
   Unexplored: 5,
   NoWall: 6,
+  /** A mineshaft stands on bare rock. */
+  NotStone: 7,
+  /** A fishing dock stands at the water's edge. */
+  NoShore: 8,
 } as const;
 export type Blocked = (typeof Blocked)[keyof typeof Blocked];
 
-export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', 'A wall torch must stand against a wall.'] as const;
+export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', 'A wall torch must stand against a wall.', 'A mineshaft must stand on flat bare stone.', 'A fishing dock must stand at the water\'s edge.'] as const;
 
 /** How far a column may stand above or below the building's floor, in terrain units (about 45 cm). */
 export const LEVEL_TOLERANCE_UNITS = 4;
@@ -70,7 +77,25 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
 export function placementBlocked(state: SimState, player: number, kind: number, x: number, z: number, variant = 0): Blocked {
   for (const r of placementTiles(state, player, kind, x, z, variant)) if (r !== Blocked.None) return r as Blocked;
   if (kind === BuildingKind.WallTorch && !wallBeside(state, x, z)) return Blocked.NoWall;
+  if (kind === BuildingKind.Mineshaft && !onStone(state, x, z, variant)) return Blocked.NotStone;
+  if (kind === BuildingKind.FishingDock && !waterBeside(state, { kind, x, z, variant })) return Blocked.NoShore;
   return Blocked.None;
+}
+
+/** Rock a mineshaft can be sunk through: stone, marble or an ore at the top of the column. */
+const ROCK: ReadonlySet<number> = new Set([Mat.Stone, Mat.Marble, Mat.CopperOre, Mat.TinOre, Mat.IronRock, Mat.VeinIron, Mat.Coal]);
+
+/** Whether at least half of a footprint's columns are bare rock (Mineshafts: built on flat stone; the half is (s)). */
+export function onStone(state: SimState, x: number, z: number, variant = 0): boolean {
+  const spec = footprintDims(BuildingKind.Mineshaft, variant);
+  let rock = 0;
+  for (let dz = 0; dz < spec.d; dz++) {
+    for (let dx = 0; dx < spec.w; dx++) {
+      const layers = state.world.columnAt(x + dx, z + dz);
+      if (ROCK.has(layers[layers.length - 1]!)) rock++;
+    }
+  }
+  return rock * 2 >= spec.w * spec.d;
 }
 
 /** Whether a wall column stands right next to a column (a wall torch hangs on it). */
@@ -99,7 +124,29 @@ export function buildRequirement(state: SimState, player: number, kind: number):
   const l = levelSpec(kind, 1);
   if (l.needs) return l.needs;
   if (l.needsBase > mainBaseLevel(state, player)) return `Needs a level ${l.needsBase} main base.`;
+  if (l.research && (state.players[player]!.research & (1 << l.research)) === 0) return `Needs ${RESEARCH[l.research]!.name} researched first.`;
+  if (kind === BuildingKind.ScholarsLodge && countOf(state, player, kind) >= RESEARCH_FACILITY_CAP) return `At most ${RESEARCH_FACILITY_CAP} research buildings.`;
   return '';
+}
+
+/** At most 10 research facilities (Research). */
+export const RESEARCH_FACILITY_CAP = 10;
+
+/** Buildings of a kind a player has, finished or not. */
+export function countOf(state: SimState, player: number, kind: number): number {
+  let n = 0;
+  for (const b of state.buildings.list) if (b.owner === player && b.kind === kind) n++;
+  return n;
+}
+
+/** What a new building costs: its level 1 cost, times one more than the research facilities already standing for a Scholar's Lodge (Research: rising facility cost). */
+export function costMultiplier(state: SimState, player: number, kind: number): number {
+  return kind === BuildingKind.ScholarsLodge ? countOf(state, player, kind) + 1 : 1;
+}
+
+export function buildCost(state: SimState, player: number, kind: number): Cost {
+  const m = costMultiplier(state, player, kind);
+  return levelSpec(kind, 1).cost.map(([r, n]) => [r, n * m] as const);
 }
 
 /** The band of the land under a column. */

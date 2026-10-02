@@ -290,11 +290,10 @@ export function equipBest(state: SimState, player: number, units: readonly numbe
       // A polearm's backup is the best one-handed weapon; a one-handed fighter takes a shield instead.
       if (polearm && free(Slot.Backup)) take(Slot.Backup, bestFor(state, i, Slot.Weapon, (it) => !!it.melee?.oneHanded, has(Slot.Backup)));
       if (!polearm && free(Slot.Shield)) take(Slot.Shield, bestFor(state, i, Slot.Shield, () => true, has(Slot.Shield)));
-      const archer = (e.skills[i]! & SKILL_ARCHERY) !== 0;
       if (free(Slot.Ranged)) {
         const current = has(Slot.Ranged);
         // A thrown-out bundle of javelins is replaced like an empty hand.
-        take(Slot.Ranged, bestFor(state, i, Slot.Ranged, (it) => !it.ranged!.needsArchery || archer, current));
+        take(Slot.Ranged, bestFor(state, i, Slot.Ranged, (it) => (e.skills[i]! & it.ranged!.skill) === it.ranged!.skill, current));
       }
     }
     if (free(Slot.Boots)) take(Slot.Boots, bestFor(state, i, Slot.Boots, () => true, has(Slot.Boots)));
@@ -416,7 +415,7 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
       state.events.push({ player: b.owner, kind: 'alert', text: 'Archery needs Flint tools researched first.', x: e.x[i]!, z: e.z[i]! });
       return true;
     }
-    if (!payNutrition(state.players[b.owner]!.pool, ARCHERY.food)) {
+    if (!payNutrition(state.players[b.owner]!.pool, ARCHERY.food, state.players[b.owner]!.dontEat)) {
       state.events.push({ player: b.owner, kind: 'alert', text: `Not enough food to train archery (${ARCHERY.food} food).`, x: e.x[i]!, z: e.z[i]! });
       return true;
     }

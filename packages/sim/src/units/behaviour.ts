@@ -6,7 +6,7 @@
 
 import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2 } from '../buildings/lights.ts';
-import { BLOCKED_TEXT, Blocked, buildRequirement, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
+import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, maxHealth, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { canAfford, costText, loadCapacity, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
@@ -743,7 +743,8 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
     alert(state, owner, `The spot for the ${name.toLowerCase()} is blocked. ${BLOCKED_TEXT[blocked]}`, wx, wz);
     return DONE;
   }
-  const cost = levelSpec(o.kind, 1).cost;
+  const cost = buildCost(state, owner, o.kind);
+  const costMul = costMultiplier(state, owner, o.kind);
   const pool = state.players[owner]!.pool;
   if (!canAfford(pool, cost)) {
     alert(state, owner, `Not enough ${RESOURCES[shortOf(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz);
@@ -752,6 +753,7 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
   pay(pool, cost);
   const b = placeBuilding(state, owner, o.kind, o.variant, o.x, o.z, false);
   b.hp = constructionHealth(o.kind, 0);
+  b.costMul = costMul;
   // Every worker on its way to this spot builds it now.
   for (let j = 0; j < e.count; j++) {
     const h = e.queue[j]![0];
@@ -861,7 +863,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
 
 /** Buildings that take assigned workers: farms of every kind and the lumber mill. */
 export function takesWorkers(b: Building): boolean {
-  return b.complete && levelSpec(b.kind, b.level).workers > 0 && (isFarm(b.kind) || b.kind === BuildingKind.LumberMill);
+  return b.complete && levelSpec(b.kind, b.level).workers > 0;
 }
 
 export function isFarm(kind: number): boolean {
@@ -978,7 +980,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
-    if (!payNutrition(state.players[b.owner]!.pool, t.food)) {
+    if (!payNutrition(state.players[b.owner]!.pool, t.food, state.players[b.owner]!.dontEat)) {
       alert(state, b.owner, `Not enough food to train a worker to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!);
       return DONE;
     }

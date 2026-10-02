@@ -27,6 +27,7 @@ export * from './buildings/store.ts';
 export * from './buildings/placement.ts';
 export * from './buildings/lights.ts';
 export * from './buildings/production.ts';
+export * from './buildings/recipes.ts';
 export * from './nav/grid.ts';
 export * from './nav/path.ts';
 export * from './units/unit-orders.ts';
