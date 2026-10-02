@@ -23,10 +23,11 @@ const engines: Array<[string, BrowserType]> = [
   ['firefox', firefox],
   ['webkit', webkit],
 ];
-const scripts = ['m0-demo', 'm1-world', 'm2-camp'].map((name) => {
+const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights'].map((name) => {
   const script = loadOrderScript(fileURLToPath(new URL(`../orders/${name}.json`, import.meta.url)));
   const players = script.players ?? 1;
-  return { name, players, frames: script.frames, node: run(createWorld(SEED, { players }), STEPS, script.frames) };
+  const peaceful = script.peaceful === true;
+  return { name, players, peaceful, frames: script.frames, node: run(createWorld(SEED, { players, peaceful }), STEPS, script.frames) };
 });
 
 let bundle = '';
@@ -46,7 +47,7 @@ beforeAll(async () => {
 describe('cross-engine determinism', () => {
   for (const s of scripts) {
     it(`runs ${s.name} twice in Node with identical hashes`, () => {
-      const again = run(createWorld(SEED, { players: s.players }), STEPS, s.frames);
+      const again = run(createWorld(SEED, { players: s.players, peaceful: s.peaceful }), STEPS, s.frames);
       expect(s.node.hashes.length).toBe(STEPS / 20);
       expect(again.hashes).toEqual(s.node.hashes);
       console.log(`node ${s.name}: seed ${SEED}, ${s.players} player(s), ${STEPS} steps, final hash ${hashHex(s.node.finalHash)}`);
@@ -70,8 +71,8 @@ describe('cross-engine determinism', () => {
         await page.addScriptTag({ content: bundle });
         for (const s of scripts) {
           const result = await page.evaluate(
-            ([seed, steps, f, players]) => globalThis.runSim(seed, steps, f, players),
-            [SEED, STEPS, s.frames, s.players] as const,
+            ([seed, steps, f, players, peaceful]) => globalThis.runSim(seed, steps, f, players, peaceful),
+            [SEED, STEPS, s.frames, s.players, s.peaceful] as const,
           );
           console.log(`${name} ${browser.version()} ${s.name}: final hash ${hashHex(result.finalHash)}`);
           expect(result.hashes).toEqual(s.node.hashes);

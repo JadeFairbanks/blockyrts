@@ -261,3 +261,29 @@ describe('determinism with monsters', () => {
     expect(hashState(copy)).toBe(hashState(s));
   });
 });
+
+describe('orders for units that are gone', () => {
+  it('are ignored, whatever the order', () => {
+    const s = createWorld(1, { peaceful: true });
+    const gone = [999];
+    const orders: Order[] = [
+      { kind: 'move', player: 0, units: gone, x: 0, z: 0 },
+      { kind: 'attackMove', player: 0, units: gone, x: 0, z: 0 },
+      { kind: 'patrol', player: 0, units: gone, x: 0, z: 0 },
+      { kind: 'attack', player: 0, units: gone, target: 999 },
+      { kind: 'hold', player: 0, units: gone },
+      { kind: 'equipBest', player: 0, units: gone },
+      { kind: 'equipItem', player: 0, unit: 999, slot: 1, item: 3 },
+      { kind: 'lock', player: 0, units: gone, lock: 1 },
+      { kind: 'dig', player: 0, units: gone, x0: 0, z0: 0, x1: 1, z1: 1, level: -4, level2: 0, tunnel: 0 },
+      { kind: 'earthwork', player: 0, units: gone, variant: 0, x0: 0, z0: 0, x1: 1, z1: 1, level: 4, level2: 0, axis: 0 },
+      { kind: 'trainSkill', player: 0, units: gone, building: 999, skill: 1 },
+    ];
+    const before = hashState(s);
+    expect(() => step(s, orders)).not.toThrow();
+    const fresh = createWorld(1, { peaceful: true });
+    step(fresh);
+    expect(hashState(s)).toBe(hashState(fresh));
+    expect(before).not.toBe(hashState(s));
+  });
+});

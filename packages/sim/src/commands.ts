@@ -61,6 +61,7 @@ function ownUnits(state: SimState, player: number, ids: readonly number[]): numb
 function groupTargets(state: SimState, units: readonly number[], x: number, z: number): Array<[number, number]> {
   const e = state.entities;
   const n = units.length;
+  if (n === 0) return [];
   if (n === 1) return [[x, z]];
   let sx = 0;
   let sz = 0;

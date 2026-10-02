@@ -160,7 +160,7 @@ function finishIfDone(state: SimState, s: Site): boolean {
   for (let z = s.z0; z <= s.z1; z++) for (let x = s.x0; x <= s.x1; x++) if (needsWork(state, s, x, z)) return false;
   state.sites = state.sites.filter((t) => t.id !== s.id);
   const [x, z] = [columnCentre((s.x0 + s.x1) >> 1), columnCentre((s.z0 + s.z1) >> 1)];
-  const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : 'The earthworks';
+  const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : 'The earth bank';
   state.events.push({ player: s.owner, kind: 'info', text: `${what} is finished.`, x, z });
   return true;
 }
