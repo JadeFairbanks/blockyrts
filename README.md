@@ -444,7 +444,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 8bf81638`: the debug tools hand out steel
+   prints `final step 10000 hash a7e3ef06`: the debug tools hand out steel
    gear and three clubs and put a barrow 60 m east of the Big House and a
    cave mouth 60 m west; the Big House trains three warriors; all four
    attack the barrow, the first one there falls to its giant centipede, and
@@ -452,7 +452,8 @@ dawn.*
    each; fog rolls in for night 0 and the warriors guard the Big House; at
    dawn a goblin village goes up 80 m north, a gnoll band to the south-east
    and a giant beetle to the north-west; the warriors attack the village,
-   which declares war on the fifth kill, and walk home; then a blood night is
+   which declares war on the fifth kill, and walk home (one falls on the
+   way); then a blood night is
    called for night 1. `pnpm test` runs it in Node, Chromium, Firefox and
    WebKit too. `node packages/client/test-e2e/m5-look.mjs` (with the dev
    server on port 5198) takes screenshots of the debug threats in a browser.
