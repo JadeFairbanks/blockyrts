@@ -44,6 +44,20 @@ Warrior (`warrior`), new hidden parts `rammer` and `linstock`:
 
 The riding clips keep the legs of `ride`, so they all sit the same saddle.
 
+Every human body (`worker`, `warrior`, `mage` and the twelve mage looks) also has:
+
+| clip | length | plays | use |
+|---|---|---|---|
+| `swim` | 1.2 s | loop | breaststroke, body flat with the back at y = 0 (the water line), head up (the sim's Swim order) |
+| `climb` | 1.2 s | loop | facing the wall ahead, hands and feet taking turns (the sim's Climb order; the sim moves the unit up) |
+
+The worker body also carries the warrior's fighting clips (`guard_1h`,
+`attack_1h_slash`, `attack_1h_stab`, `shield_block`, `guard_polearm`,
+`attack_polearm_thrust`, `attack_polearm_swing`, `bow_shoot`,
+`crossbow_shoot`, `crossbow_reload`, `musket_fire`, `musket_reload`,
+`throw_spear`, `sling_throw`) and `switch_weapon`, since workers can equip
+every weapon; they share the warrior's skeleton, so the same keys fit.
+
 Mage looks: `mage_support_1` to `mage_support_6` and `mage_battle_1` to
 `mage_battle_6`, one per rank (1 Novice Acolyte, 2 Acolyte, 3 Adept Acolyte,
 4 Mage, 5 Master Mage, 6 Grand Magician). Same body, bones, slots and clips as
