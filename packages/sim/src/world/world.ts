@@ -424,28 +424,37 @@ export class World {
     const changes = this.propChanges.get(chunkKey(cx, cz));
     const out: PropView[] = [];
     for (let i = 0; i < records.length; i++) {
-      const r = records[i]!;
-      const ch = changes?.get(i);
-      if (ch?.removed) continue;
-      const info = propInfo(r.kind);
-      // Added props store the step they were dropped as a negative age.
-      const age = r.age + step;
-      let amount = ch ? ch.amount : r.amount;
-      let size = 1000;
-      let stage = 2;
-      if (isTree(r.kind)) {
-        const gr = growth(r.kind, age);
-        stage = gr.stage;
-        size = gr.size;
-        if (gr.stage !== 2) amount = 0;
-      } else if (ch && ch.cutAt >= 0) {
-        // Bushes and plants grow back from the stump.
-        if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
-        else size = 0;
-      }
-      out.push({ index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size });
+      const v = this.viewOf(records[i]!, changes?.get(i), i, step);
+      if (v) out.push(v);
     }
     return out;
+  }
+
+  /** One prop as it stands at a step, or undefined if it is gone. */
+  prop(cx: number, cz: number, index: number, step: number): PropView | undefined {
+    const r = this.propRecords(cx, cz)[index];
+    return r ? this.viewOf(r, this.propChanges.get(chunkKey(cx, cz))?.get(index), index, step) : undefined;
+  }
+
+  private viewOf(r: PropRecord, ch: PropChange | undefined, i: number, step: number): PropView | undefined {
+    if (ch?.removed) return undefined;
+    const info = propInfo(r.kind);
+    // Added props store the step they were dropped as a negative age.
+    const age = r.age + step;
+    let amount = ch ? ch.amount : r.amount;
+    let size = 1000;
+    let stage = 2;
+    if (isTree(r.kind)) {
+      const gr = growth(r.kind, age);
+      stage = gr.stage;
+      size = gr.size;
+      if (gr.stage !== 2) amount = 0;
+    } else if (ch && ch.cutAt >= 0) {
+      // Bushes and plants grow back from the stump.
+      if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
+      else size = 0;
+    }
+    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size };
   }
 
   /**
@@ -458,7 +467,7 @@ export class World {
     const records = this.propRecords(cx, cz);
     const r = records[index];
     if (!r) return 0;
-    const view = this.props(cx, cz, step).find((v) => v.index === index);
+    const view = this.prop(cx, cz, index, step);
     if (!view || view.amount <= 0) return 0;
     const taken = Math.min(amount, view.amount);
     const left = view.amount - taken;

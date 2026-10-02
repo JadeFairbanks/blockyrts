@@ -53,11 +53,6 @@ export interface SolidSource {
   solidIn(chunk: number): ReadonlySet<number> | undefined;
 }
 
-/** Packs a global column into one integer key (the same packing as the world's water keys). */
-export function colKey(x: number, z: number): number {
-  return (x + 0x40000) * 0x80000 + (z + 0x40000);
-}
-
 export class NavGrid {
   private readonly chunks = new Map<number, NavChunk>();
   private last: NavChunk | null = null;

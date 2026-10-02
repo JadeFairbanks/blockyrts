@@ -5,7 +5,7 @@
 // has one shared resource pool.
 
 import { BuildingKind, BUILDING_SIGHT_M, buildingSpec, levelSpec } from './buildings/data.ts';
-import { BuildingStore, footprintRect, type Building } from './buildings/store.ts';
+import { BuildingStore, footprintRect, solidRect, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
 import { NavGrid } from './nav/grid.ts';
@@ -318,6 +318,19 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);
   state.buildings.add(b, (key) => state.world.touchNav(key));
+  // Units standing where its solid part goes step out to its south side.
+  const [sx0, sz0, sx1, sz1] = solidRect(b);
+  const e = state.entities;
+  for (let i = 0; i < e.count; i++) {
+    if (e.inside[i] !== 0) continue;
+    const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
+    const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
+    if (cx < sx0 || cx > sx1 || cz < sz0 || cz > sz1) continue;
+    e.z[i] = (sz1 + 1) * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+    e.y[i] = standY(state, e.x[i]!, e.z[i]!);
+    e.path[i] = [];
+    e.pathOk[i] = 2;
+  }
   return b;
 }
 
@@ -346,9 +359,8 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     for (const [res, n] of STARTING_STOCK) pool[res] = n;
     state.players.push({ pool });
   }
+  // Workers first, so each player's units have the lowest ids (1 to 4 for the first player).
   for (const pocket of world.gen.start.pockets) {
-    const spec = buildingSpec(BuildingKind.MainBase);
-    if (!options.noBase) placeBuilding(state, pocket.player, BuildingKind.MainBase, 0, pocket.x - (spec.w >> 1), pocket.z - (spec.d >> 1), true);
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     for (let n = 0; n < playerUnits; n++) {
@@ -359,6 +371,10 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       const z = pz + (((h >>> 16) & 0xffff) % (3 * WU_PER_METRE)) + 5 * WU_PER_METRE;
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
+  }
+  if (!options.noBase) {
+    const spec = buildingSpec(BuildingKind.MainBase);
+    for (const pocket of world.gen.start.pockets) placeBuilding(state, pocket.player, BuildingKind.MainBase, 0, pocket.x - (spec.w >> 1), pocket.z - (spec.d >> 1), true);
   }
   const spread = 40 * WU_PER_METRE;
   const half = 20 * WU_PER_METRE;

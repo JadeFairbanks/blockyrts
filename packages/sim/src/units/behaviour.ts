@@ -181,7 +181,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
 
 /** A prop as it stands now, or undefined if it is gone. */
 export function nodeView(state: SimState, cx: number, cz: number, index: number): PropView | undefined {
-  return state.world.props(cx, cz, state.step).find((p) => p.index === index);
+  return state.world.prop(cx, cz, index, state.step);
 }
 
 /** The resource a node gives, or -1. */
@@ -458,7 +458,29 @@ export function stopUnit(state: SimState, i: number): void {
   if (e.inside[i] !== 0) leaveBuilding(state, i);
 }
 
+/** The standable column nearest a column, searching rings out to `radius`; the column itself if none is found. */
+export function nearestStandable(state: SimState, x: number, z: number, radius = 12): [number, number] {
+  if (state.nav.standable(x, z, PERSON)) return [x, z];
+  for (let r = 1; r <= radius; r++) {
+    for (let k = -r; k <= r; k++) {
+      for (const [cx, cz] of [[x + k, z - r], [x + k, z + r], [x - r, z + k], [x + r, z + k]] as const) {
+        if (state.nav.standable(cx, cz, PERSON)) return [cx, cz];
+      }
+    }
+  }
+  return [x, z];
+}
+
 function runMove(state: SimState, i: number, o: Extract<UnitOrder, { t: 'move' }>): boolean {
+  if (state.entities.act[i] === Act.Start) {
+    // A point inside a building or a cliff: walk to the nearest place a unit can stand instead.
+    const [cx, cz] = nearestStandable(state, col(o.x), col(o.z));
+    if (cx !== col(o.x) || cz !== col(o.z)) {
+      o.x = columnCentre(cx);
+      o.z = columnCentre(cz);
+    }
+    state.entities.act[i] = Act.Walk;
+  }
   return walkTo(state, i, pointGoal(col(o.x), col(o.z)), o.x, o.z) !== MOVING;
 }
 
@@ -670,6 +692,8 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
     e.act[i] = Act.Start;
     return CONTINUE;
   }
+  // Someone else already finished it: nothing left to do here.
+  if (state.buildings.list.some((b) => b.owner === owner && b.kind === o.kind && b.x === o.x && b.z === o.z)) return DONE;
   const name = buildingName(o.kind, 1, o.variant);
   const r = walkTo(state, i, besideBuilding(o));
   if (r === MOVING) return CONTINUE;

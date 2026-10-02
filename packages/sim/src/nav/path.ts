@@ -158,8 +158,8 @@ interface CoarseChunk {
 
 /** Search limits (s): enough for a long walk round a barrier, small enough for the step budget. */
 export const FINE_BUDGET_SHORT = 6000;
-export const FINE_BUDGET_LONG = 40000;
-export const COARSE_BUDGET = 20000;
+export const FINE_BUDGET_LONG = 20000;
+export const COARSE_BUDGET = 6000;
 const SHORT_COLUMNS = 48;
 
 export class Pathfinder {
