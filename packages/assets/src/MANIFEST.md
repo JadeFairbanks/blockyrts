@@ -876,3 +876,82 @@ Pending (not in the repo yet): portraits of `ash_golem` and `mana_wraith` (their
 | icon_train_warrior_spear | ui/icon_train_warrior_spear.png | 1 | 32x32 | K4 training icon for warrior_spear: the K6 portrait framing re-rendered at 32x32 on the portrait background (game draws the hotkey letter bottom-right). |
 | icon_train_warrior_sword | ui/icon_train_warrior_sword.png | 1 | 32x32 | K4 training icon for warrior_sword: the K6 portrait framing re-rendered at 32x32 on the portrait background (game draws the hotkey letter bottom-right). |
 | icon_train_worker_labourer | ui/icon_train_worker_labourer.png | 1 | 32x32 | K4 training icon for worker_labourer: the K6 portrait framing re-rendered at 32x32 on the portrait background (game draws the hotkey letter bottom-right). |
+| cursor_attack | ui/cursor_attack.png | 1 | 32x32 | K9 cursor attack: red attack reticle (ring and cross-hair); hotspot at the centre. 32x32. Hotspot (click point) x=15, y=15 (pixels from top-left). |
+| cursor_dig | ui/cursor_dig.png | 1 | 32x32 | K9 cursor dig: dig: a shovel, blade tip at top-left; hotspot at the blade tip. 32x32. Hotspot (click point) x=1, y=1 (pixels from top-left). |
+| cursor_enter | ui/cursor_enter.png | 1 | 32x32 | K9 cursor enter: enter: an arrow pointing into a doorway; hotspot at the arrow's tail at top-left. 32x32. Hotspot (click point) x=1, y=1 (pixels from top-left). |
+| cursor_gather | ui/cursor_gather.png | 1 | 32x32 | K9 cursor gather: gather: an axe, blade at top-left; hotspot on the blade edge. 32x32. Hotspot (click point) x=14, y=4 (pixels from top-left). |
+| cursor_hunt | ui/cursor_hunt.png | 1 | 32x32 | K9 cursor hunt: hunt: a spear, point at top-left; hotspot at the spear point. 32x32. Hotspot (click point) x=1, y=1 (pixels from top-left). |
+| cursor_move | ui/cursor_move.png | 1 | 32x32 | K9 cursor move: green move reticle; hotspot at the centre. 32x32. Hotspot (click point) x=15, y=15 (pixels from top-left). |
+| cursor_not_allowed | ui/cursor_not_allowed.png | 1 | 32x32 | K9 cursor not_allowed: not allowed: a red barred circle; hotspot at the centre. 32x32. Hotspot (click point) x=15, y=15 (pixels from top-left). |
+| cursor_pan_e | ui/cursor_pan_e.png | 1 | 32x32 | K9 cursor pan_e: screen-edge pan arrow pointing E; hotspot at the arrow tip. 32x32. Hotspot (click point) x=28, y=16 (pixels from top-left). |
+| cursor_pan_n | ui/cursor_pan_n.png | 1 | 32x32 | K9 cursor pan_n: screen-edge pan arrow pointing N; hotspot at the arrow tip. 32x32. Hotspot (click point) x=16, y=2 (pixels from top-left). |
+| cursor_pan_ne | ui/cursor_pan_ne.png | 1 | 32x32 | K9 cursor pan_ne: screen-edge pan arrow pointing NE; hotspot at the arrow tip. 32x32. Hotspot (click point) x=27, y=4 (pixels from top-left). |
+| cursor_pan_nw | ui/cursor_pan_nw.png | 1 | 32x32 | K9 cursor pan_nw: screen-edge pan arrow pointing NW; hotspot at the arrow tip. 32x32. Hotspot (click point) x=4, y=4 (pixels from top-left). |
+| cursor_pan_s | ui/cursor_pan_s.png | 1 | 32x32 | K9 cursor pan_s: screen-edge pan arrow pointing S; hotspot at the arrow tip. 32x32. Hotspot (click point) x=16, y=28 (pixels from top-left). |
+| cursor_pan_se | ui/cursor_pan_se.png | 1 | 32x32 | K9 cursor pan_se: screen-edge pan arrow pointing SE; hotspot at the arrow tip. 32x32. Hotspot (click point) x=27, y=27 (pixels from top-left). |
+| cursor_pan_sw | ui/cursor_pan_sw.png | 1 | 32x32 | K9 cursor pan_sw: screen-edge pan arrow pointing SW; hotspot at the arrow tip. 32x32. Hotspot (click point) x=4, y=27 (pixels from top-left). |
+| cursor_pan_w | ui/cursor_pan_w.png | 1 | 32x32 | K9 cursor pan_w: screen-edge pan arrow pointing W; hotspot at the arrow tip. 32x32. Hotspot (click point) x=2, y=16 (pixels from top-left). |
+| cursor_patrol | ui/cursor_patrol.png | 1 | 32x32 | K9 cursor patrol: yellow patrol reticle; hotspot at the centre. 32x32. Hotspot (click point) x=15, y=15 (pixels from top-left). |
+| cursor_pointer | ui/cursor_pointer.png | 1 | 32x32 | K9 cursor pointer: default pointer arrow, pale parchment with a dark outline. 32x32. Hotspot (click point) x=1, y=1 (pixels from top-left). |
+| cursor_repair | ui/cursor_repair.png | 1 | 32x32 | K9 cursor repair: repair: a hammer, head at top-left; hotspot at the head's striking corner. 32x32. Hotspot (click point) x=3, y=3 (pixels from top-left). |
+| icon_rank_mage_acolyte | ui/icon_rank_mage_acolyte.png | 1 | 16x16 | K7 mage rank 2 (Acolyte): 2 small violet gem(s). 16x16 badge for portraits and above units. |
+| icon_rank_mage_adept_acolyte | ui/icon_rank_mage_adept_acolyte.png | 1 | 16x16 | K7 mage rank 3 (Adept Acolyte): 3 small violet gem(s). 16x16 badge for portraits and above units. |
+| icon_rank_mage_grand_magician | ui/icon_rank_mage_grand_magician.png | 1 | 16x16 | K7 mage rank 6 (Grand Magician): 6 small violet gem(s), gold border. 16x16 badge for portraits and above units. |
+| icon_rank_mage_mage | ui/icon_rank_mage_mage.png | 1 | 16x16 | K7 mage rank 4 (Mage): 4 small violet gem(s). 16x16 badge for portraits and above units. |
+| icon_rank_mage_master_mage | ui/icon_rank_mage_master_mage.png | 1 | 16x16 | K7 mage rank 5 (Master Mage): 5 small violet gem(s). 16x16 badge for portraits and above units. |
+| icon_rank_mage_novice_acolyte | ui/icon_rank_mage_novice_acolyte.png | 1 | 16x16 | K7 mage rank 1 (Novice Acolyte): 1 small violet gem(s). 16x16 badge for portraits and above units. |
+| icon_rank_warrior_champion | ui/icon_rank_warrior_champion.png | 1 | 16x16 | K7 warrior rank 5 (Champion): 3 silver chevrons. 16x16 badge for portraits and above units. |
+| icon_rank_warrior_elite | ui/icon_rank_warrior_elite.png | 1 | 16x16 | K7 warrior rank 4 (Elite): 2 silver chevrons. 16x16 badge for portraits and above units. |
+| icon_rank_warrior_hero | ui/icon_rank_warrior_hero.png | 1 | 16x16 | K7 warrior rank 6 (Hero): a gold star. 16x16 badge for portraits and above units. |
+| icon_rank_warrior_recruit | ui/icon_rank_warrior_recruit.png | 1 | 16x16 | K7 warrior rank 1 (Recruit): 1 bronze chevron. 16x16 badge for portraits and above units. |
+| icon_rank_warrior_soldier | ui/icon_rank_warrior_soldier.png | 1 | 16x16 | K7 warrior rank 2 (Soldier): 2 bronze chevrons. 16x16 badge for portraits and above units. |
+| icon_rank_warrior_veteran | ui/icon_rank_warrior_veteran.png | 1 | 16x16 | K7 warrior rank 3 (Veteran): 3 bronze chevrons. 16x16 badge for portraits and above units. |
+| icon_rank_worker_hand | ui/icon_rank_worker_hand.png | 1 | 16x16 | K7 worker rank 2 (Hand): 2 small tool mark(s). 16x16 badge for portraits and above units. |
+| icon_rank_worker_labourer | ui/icon_rank_worker_labourer.png | 1 | 16x16 | K7 worker rank 1 (Labourer): 1 small tool mark(s). 16x16 badge for portraits and above units. |
+| icon_rank_worker_master | ui/icon_rank_worker_master.png | 1 | 16x16 | K7 worker rank 3 (Master): 3 small tool mark(s). 16x16 badge for portraits and above units. |
+| icon_status_burning | ui/icon_status_burning.png | 1 | 16x16 | K7 status burning: a flame. 16x16 badge for portraits and above units. |
+| icon_status_carrying | ui/icon_status_carrying.png | 1 | 16x16 | K7 status carrying a load: a sack. 16x16 badge for portraits and above units. |
+| icon_status_cursed | ui/icon_status_cursed.png | 1 | 16x16 | K7 status cursed: a violet broken ring. 16x16 badge for portraits and above units. |
+| icon_status_fortified | ui/icon_status_fortified.png | 1 | 16x16 | K7 status fortified: a gold shield. 16x16 badge for portraits and above units. |
+| icon_status_hexed | ui/icon_status_hexed.png | 1 | 16x16 | K7 status hexed: a green spiral. 16x16 badge for portraits and above units. |
+| icon_status_hungry | ui/icon_status_hungry.png | 1 | 16x16 | K7 status hungry: an empty bowl. 16x16 badge for portraits and above units. |
+| icon_status_idle | ui/icon_status_idle.png | 1 | 16x16 | K7 status idle: zZ. 16x16 badge for portraits and above units. |
+| icon_status_mana_drained | ui/icon_status_mana_drained.png | 1 | 16x16 | K7 status mana drained: an empty blue drop. 16x16 badge for portraits and above units. |
+| icon_status_poisoned | ui/icon_status_poisoned.png | 1 | 16x16 | K7 status poisoned: a green drop. 16x16 badge for portraits and above units. |
+| icon_status_quickened | ui/icon_status_quickened.png | 1 | 16x16 | K7 status quickened: a blue boot. 16x16 badge for portraits and above units. |
+| icon_status_rallied | ui/icon_status_rallied.png | 1 | 16x16 | K7 status rallied: a gold banner. 16x16 badge for portraits and above units. |
+| icon_status_sheltered | ui/icon_status_sheltered.png | 1 | 16x16 | K7 status sheltered: a roof. 16x16 badge for portraits and above units. |
+| icon_status_starving | ui/icon_status_starving.png | 1 | 16x16 | K7 status starving: a cracked red bowl (danger red). 16x16 badge for portraits and above units. |
+| icon_util_allies | ui/icon_util_allies.png | 1 | 16x16 | K5 Allies: two hands clasped. 16x16 utility-bar icon. |
+| icon_util_auto_equip | ui/icon_util_auto_equip.png | 1 | 16x16 | K5 Auto-Equip: a helmet with a plus. 16x16 utility-bar icon. |
+| icon_util_camera | ui/icon_util_camera.png | 1 | 16x16 | K5 Camera Location (blank): a camera frame with a number slot at the bottom right (game draws the number). 16x16 utility-bar icon. |
+| icon_util_camera_1 | ui/icon_util_camera_1.png | 1 | 16x16 | K5 Camera Location 1: camera frame with the number 1 in the slot. 16x16 utility-bar icon. |
+| icon_util_camera_2 | ui/icon_util_camera_2.png | 1 | 16x16 | K5 Camera Location 2: camera frame with the number 2 in the slot. 16x16 utility-bar icon. |
+| icon_util_camera_3 | ui/icon_util_camera_3.png | 1 | 16x16 | K5 Camera Location 3: camera frame with the number 3 in the slot. 16x16 utility-bar icon. |
+| icon_util_camera_4 | ui/icon_util_camera_4.png | 1 | 16x16 | K5 Camera Location 4: camera frame with the number 4 in the slot. 16x16 utility-bar icon. |
+| icon_util_everyone_home | ui/icon_util_everyone_home.png | 1 | 16x16 | K5 Everyone Home: a house with a moon above it. 16x16 utility-bar icon. |
+| icon_util_follow | ui/icon_util_follow.png | 1 | 16x16 | K5 Follow: an eye. 16x16 utility-bar icon. |
+| icon_util_idle_gatherer | ui/icon_util_idle_gatherer.png | 1 | 16x16 | K5 Idle Gatherer: a worker leaning on an axe; the right 5 columns are left free for a small count number. 16x16 utility-bar icon. |
+| icon_util_menu | ui/icon_util_menu.png | 1 | 16x16 | K5 Menu: three bars. 16x16 utility-bar icon. |
+| icon_util_queue_mode | ui/icon_util_queue_mode.png | 1 | 16x16 | K5 Queue Mode: three stacked arrows. 16x16 utility-bar icon. |
+| icon_util_rations_all | ui/icon_util_rations_all.png | 1 | 16x16 | K5 Rations: Feed Everyone (a full bowl). 16x16 utility-bar icon. |
+| icon_util_rations_troops | ui/icon_util_rations_troops.png | 1 | 16x16 | K5 Rations: Troops Only (a bowl with a sword). 16x16 utility-bar icon. |
+| icon_util_rations_workers | ui/icon_util_rations_workers.png | 1 | 16x16 | K5 Rations: Workers Only (a bowl with an axe). 16x16 utility-bar icon. |
+| icon_util_reset_zoom | ui/icon_util_reset_zoom.png | 1 | 16x16 | K5 Reset Zoom: a magnifier. 16x16 utility-bar icon. |
+| icon_util_select_army | ui/icon_util_select_army.png | 1 | 16x16 | K5 Select Army: crossed swords. 16x16 utility-bar icon. |
+| icon_util_send_resources | ui/icon_util_send_resources.png | 1 | 16x16 | K5 Send Resources: a sack with an arrow to the right. 16x16 utility-bar icon. |
+| icon_util_town_hall | ui/icon_util_town_hall.png | 1 | 16x16 | K5 Town Hall: a little hall. 16x16 utility-bar icon. |
+| minimap_alert | ui/minimap_alert.png | 4 | 64x16 | K8 alert: 16x16 red ring pulsing outward, 4 frames left to right in a 64x16 strip, 8 fps, loop. |
+| minimap_dwarf_city | ui/minimap_dwarf_city.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap Dwarf city: 12x12 grey hall between two towers. |
+| minimap_elf_capital | ui/minimap_elf_capital.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap Elf capital: 12x12 pale-gold hall with a tall spire. |
+| minimap_gem | ui/minimap_gem.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap resource discovery (gems and gold): a small gem. |
+| minimap_goblin_village | ui/minimap_goblin_village.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap goblin village: crude hut in sickly green on black. |
+| minimap_lair | ui/minimap_lair.png | 1 | 10x10 | size 10x10 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap lair: 10x10 bone-white skull on dark red. |
+| minimap_main_base | ui/minimap_main_base.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap main base: 12x12 crown-roofed hall, greyscale for team-colour tinting (multiply by the team colour). |
+| minimap_main_base_p1 | ui/minimap_main_base_p1.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap main base pre-tinted in player-1 blue (52,96,178), for reference. |
+| minimap_ore | ui/minimap_ore.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap resource discovery (ore): a small pick. |
+| minimap_ping | ui/minimap_ping.png | 4 | 64x16 | K8 ping: 16x16 white-gold ring pulsing outward, 4 frames left to right in a 64x16 strip, 8 fps, loop. |
+| minimap_village_dwarf | ui/minimap_village_dwarf.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap neutral village (dwarfs): 8x8 house in that people's colour. |
+| minimap_village_elf | ui/minimap_village_elf.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap neutral village (elfs): 8x8 house in that people's colour. |
+| minimap_village_halfling | ui/minimap_village_halfling.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap neutral village (halflings): 8x8 house in that people's colour. |
+| minimap_village_runkin | ui/minimap_village_runkin.png | 1 | 8x8 | size 8x8 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K8 minimap neutral village (runkins): 8x8 house in that people's colour. |
