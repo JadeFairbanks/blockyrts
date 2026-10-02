@@ -812,8 +812,10 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 - Neutral villages are the tribes that can be traded with. The deeper they are, the larger and grander they get, and the better their trades.
 - Villages and mercenary camps are only generated when players discover them, so nothing can happen to them before that. Once discovered, they are attacked by monsters like the players are.
+- **Where they turn up (suggested):** each newly explored cell has a chance to hold one (one cell in N, table 11): Runkin camps 1 in 12 in the Heartland, 1 in 6 in the Fringe, 1 in 16 in the Deepwoods, none further out; Dwarf colonies 1 in 6 in the Barrens; Dwarf cities 1 in 120 in the Deadlands; mercenary camps 1 in 20 in the Fringe and Deepwoods; wandering Elf caravans 1 in 6 in the Fringe and Deepwoods until a player has met the Elves. Halfling villages are placed with the world (table 9) and the one Elf kingdom sits one ring into the Deepwoods at a seeded place around the ring. A new camp or village is at least 40 m from the players when found and 60 m from any other village, camp or goblin village.
+- **Bigger and richer further out (suggested):** by band (Heartland, Fringe, Deepwoods, Barrens, Deadlands) a village has 100, 100, 125, 150 and 175% of its usual people and 100, 125, 150, 175 and 200% of its usual stock. Usual sizes are in table 11.
 - Each village has a **specialisation**. Villages generally offer basic raw materials and basic equipment. Suggested: each Halfling village leans to one trade (crops, livestock, fishing or weaving), which sets what it sells cheaply and what it pays well for.
-- **Mercenary camps** are separate places where recruits can be hired. Suggested: small neutral camps in the Fringe and Deepwoods that hire out two to six warriors for one day, paid in silver. They fight for whoever paid last and walk home at dusk.
+- **Mercenary camps** are separate places where recruits can be hired. Suggested: small neutral camps in the Fringe and Deepwoods that hire out two to six warriors for one day, paid in silver (2 silver each until dusk). They fight for whoever paid last and walk home at dusk. Right click the camp with any unit to hire. A camp gains one recruit back every 2 days. Fringe camps hire out Runkin archers and Halfling spearmen; Deepwoods camps hire out Elf Bladewardens and Dwarf crossbowmen.
 - Once a village has been found, trade happens through a **trade menu**, opened by talking to the village leader or by using some of its buildings (right click the leader or building with any unit). Goods go straight between the player's resource pool and the village; nothing has to be carried.
 - Trade is barter. The player puts up an offer, and the village answers with a few choices of what it will give in return. The player picks one, or withdraws the offer.
 - Every item has a **hidden value** that drives what a village will offer.
@@ -821,7 +823,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - **How a trade works:**
   - **Opening:** right click the village leader, a trade building or an Elf caravan with any unit. Trade only opens while the player has a unit within about 15 m (suggested), and never during a war.
   - **The trade menu** has three parts: the village's stock (what it sells today), its wants (what it pays well for, with the goods it refuses greyed out), and the offer box. There are no coins and no prices on screen. Every good has a hidden value in value points (see table 11), and a rough worth bar under the offer box shows how good the deal is (suggested).
-  - **Making an offer:** the player drags goods from their pool into the offer box. The village weighs them by how much it wants each one (table 11) and answers with **3 bundles** of about that worth from its stock. The player takes one bundle, or withdraws the offer and loses nothing.
+  - **Making an offer:** the player drags goods from their pool into the offer box. The village weighs them by how much it wants each one (table 11) and answers with **3 bundles** of about that worth from its stock (each worth 85 to 100% of the offer (suggested)). The offer box takes up to 8 different goods (suggested). The player takes one bundle, or withdraws the offer and loses nothing.
   - **Limits:** a village buys at most about 300 value points of one kind of good a day, and its stock refills about 20% a day (table 11). Elf and Dwarf limits are in table 19.
   - **Mood (suggested):** offering a village the same goods again after turning down its answer three times in a day makes it close trade to that player until the next dawn. Refusing an answer otherwise costs nothing.
   - **What each people will not take:** Halflings refuse raw gold, silver and gems. Elves are insulted by lumber and close trade to that player for a day. Goods a people refuses are greyed out in its menu.
@@ -831,8 +833,10 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - An attack order on a neutral village never starts straight away. A pop-up first asks the player to confirm the war. If the player cancels, no order is given. Attack-move, patrol and idle units never target a neutral village.
 - In multiplayer, a war started by one player draws in **all of their allies** automatically, whether they wanted it or not.
 - **Surrender:** when a neutral people surrenders, the player gets their things as described for the Halflings (livestock, the remaining fighters' weapons and some loot). Elves and goblins never surrender. A Dwarf faction holds a grudge and starts attacking again once it has regained its strength in a new place.
-- **Plunder:** winning a war against a village that keeps livestock gives the player its livestock.
-- **Abandoned buildings** of other races cannot be used. The only thing players can do with them is send workers to break them down, which gives back the resources they were built from.
+- **Plunder:** winning a war against a village that keeps livestock gives the player its livestock. The loot also holds food and metal by people (suggested): Halflings bread and bloom iron, Runkin meat and flint, Elves bread and steel, Dwarves bread and wrought iron.
+- **How their fighters behave (suggested):** defenders go for enemies within 40 m of the middle of their village and chase up to 60 m. Raiders set out 70 m from their target. At war, the Elves send a band of 6 every 2 days. Villagers who flee or migrate vanish once 60 m from home or after 60 seconds.
+- **Daily life (suggested):** villagers wander up to 10 m from home; the peoples heal 1 health every 2 seconds after 10 seconds out of a fight; a faction at peace gains back one lost person every 3 days.
+- **Abandoned buildings** of other races cannot be used. The only thing players can do with them is send workers to break them down, which gives back the resources they were built from (right click or A the building with workers (suggested)).
 
 **Peoples.** Each neutral village belongs to a people with its own looks, homes, tastes in trade and way of fighting. The four peoples so far, the Halflings, Runkin, Elves and Dwarves, are below; more will be added in later iterations.
 
@@ -863,6 +867,30 @@ How a village pays (s): it values the player's offer at the share below and answ
 
 Specialisations (doc, suggested): each Halfling village leans to one trade (crops, livestock, fishing or weaving), selling that good at 80% and paying 130% for what it lacks (the percentages (s)); (s): Runkin camps lean to fish, hides or herbs, Dwarf colonies to one metal or gem, Elf caravans to one weapon. Surrender (doc): as for the Halflings (livestock, the fighters' weapons and some loot, which I set at 10 vp per villager in food and metal); Elves and goblins never surrender; a Dwarf faction holds its grudge and attacks again once it has rebuilt elsewhere.
 
+**Milestone 7 picks (s), added 2026-10-02 from what was built (blueprint/m7-picks.md)**
+
+| **Rule** | **Value (s)** |
+|---|---|
+| Discovery, one cell in N (Heartland, Fringe, Deepwoods, Barrens, Deadlands) | Runkin camps 12, 6, 16, never, never; Dwarf colonies Barrens 1 in 6; Dwarf cities Deadlands 1 in 120 (doc); mercenary camps Fringe and Deepwoods 1 in 20; wandering Elf caravans Fringe and Deepwoods 1 in 6 until a player meets the Elves; Halfling villages at table 9's sites |
+| Placement | Elf kingdom one ring into the Deepwoods at a seeded place round the ring; new factions at least 40 m from the players when found and 60 m from each other and from goblin villages |
+| Halfling village | 4 burrows, inn, mill, barn; 4 men, 4 women, 4 spearmen, 2 archers; 4 hens, 2 cattle, an ox |
+| Runkin camp | 3 tents, fire, drying rack, wolf den; 3 men, 3 women, 4 archers, 2 clubbers, 3 wolves |
+| Elf kingdom | 3 halls, gate, bear pen, 4 tree platforms; 8 villagers, 6 Bladewardens, 6 Longbow rangers, 2 Grovesingers, 3 bears |
+| Elf caravan | a wagon, a caravan master, 2 Bladewardens, 2 rangers |
+| Dwarf colony | forge, mineshaft, 3 houses; 4 villagers, 3 Shieldbearers, 2 Hammerguard, 3 Crossbowmen |
+| Dwarf city | hall, gate, 2 forges, 2 mineshafts, 6 houses; 10 villagers, 8 Shieldbearers, 6 Hammerguard, 8 Crossbowmen |
+| Deeper is larger and richer, by band | people 100, 100, 125, 150, 175%; stock 100, 125, 150, 175, 200% |
+| Payment by kind (food, tools and weapons, armour and shields, ingots, trinkets, silver and gold trinkets, lumber, raw gold and silver, gems, livestock, other) | Halflings 110, 70, 50, 60, 50, 35, 30, refuse, refuse, 50, 50; Runkin 100, 110, 50, 50, 80, 70, 40, 70, 50, 50, 50; Elves 100, 60, 60, 60, 130, 130, insulted, 100, 100, 60, 60; Dwarves 110, 50, 50, 80, 100, 100, 50, 110, 110, 50, 50 |
+| Bundles and offer | each of the 3 bundles is worth 85 to 100% of the offer; the offer box takes up to 8 different goods |
+| Specialisation | the lean good sells at 80% and is stocked double; what the lean lacks pays 130% |
+| Plunder food and metal | Halflings bread and bloom iron; Runkin meat and flint; Elves bread and steel; Dwarves bread and wrought iron |
+| Values not listed above | iron ingot as wrought iron; rope as two flax; ramp steps and a lantern as twice their inputs |
+| War | Elf war band of 6 every 2 days; raiders start 70 m out; defenders take enemies within 40 m of the middle and chase up to 60 m; leavers vanish 60 m from home or after 60 s; Runkin look up to 200 cells away for a new camp; Elf tree warnings from an Elf within 30 m, at most one every 20 s, the third is war |
+| Caravans | start 60 m out and stop 14 m from the main base; a wandering caravan leaves at the second dusk after it was found |
+| Mercenaries | 2 silver each until dusk; a camp hires out 2 to 6 and gains one back every 2 days; Fringe camps Runkin archers and Halfling spearmen, Deepwoods camps Elf Bladewardens and Dwarf crossbowmen |
+| Daily life | heal 1 health every 2 s after 10 s out of a fight; a faction at peace gains back one lost person every 3 days; villagers wander up to 10 m; important lines reach the panel when a player unit is within 30 m or the speaker is on screen; a Dwarf colony's first trade names the direction of the nearest city |
+| Speech | remarks about every 9 s from a unit on screen; bubbles 3.5 s plus 40 ms per letter, at most 10 at once; urgent messages are alerts, idle workers and nightfall |
+
 #### Halflings
 
 - **Where:** only in the Heartland. All Halfling villages are placed when the world is generated from the seed (they are drawn only once found). No new ones appear during a game, so once the Halflings are wiped out, they are gone for good. How many there are and where they sit is in table 9.
@@ -885,7 +913,7 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 - **What they sell:** their catch (fish and game), the kinds of sticks that grow near their camp, flint and medicinal herbs.
 - **Fighters:** mostly archers, who can walk (but not run) while shooting a bow. Some fight with hardwood clubs and flint spears.
 - **Wolves:** the Runkin keep friendly wolves. If the player goes to war with them, the wolves are turned against the player.
-- **War:** like the Halflings, they offer to surrender once more than half of them have died, and surrender or defeat gives the player their livestock, the weapons of their remaining fighters and a little loot from the village. The rest flee to the edge of the explored land and set up a new camp there, as long as that spot is in the Heartland, Fringe or Deepwoods. Once the players have explored every place in those three bands that could hold a village, the Runkin run off the map instead and disappear.
+- **War:** like the Halflings, they offer to surrender once more than half of them have died, and surrender or defeat gives the player their livestock, the weapons of their remaining fighters and a little loot from the village. The rest flee to the edge of the explored land and set up a new camp there (searching up to 200 cells away (suggested)), as long as that spot is in the Heartland, Fringe or Deepwoods. Once the players have explored every place in those three bands that could hold a village, the Runkin run off the map instead and disappear.
 - **Camp buildings:** hide tents, drying racks, a wolf den (a hide windbreak and scratched post) and a communal fire ring.
 
 #### Elves
@@ -893,13 +921,13 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 Rows and lines marked "(suggested)" are Claude's ideas to fill gaps, for Jade to keep, change or drop.
 
 - **Where:** only **one kingdom** in the whole game, somewhere in the Deepwoods, and it is very large. Its name (suggested): Sylvareth.
-- **Caravans:** the Elves send travelling caravans inland (the Deepwoods, Fringe and Heartland, never the Barrens or beyond), so players can trade with them before finding the kingdom. Suggested: attacking a caravan starts a war with the whole kingdom.
+- **Caravans:** the Elves send travelling caravans inland (the Deepwoods, Fringe and Heartland, never the Barrens or beyond), so players can trade with them before finding the kingdom. Suggested: attacking a caravan starts a war with the whole kingdom. A wandering caravan found in the Fringe or Deepwoods before the Elves are met leaves at the second dusk after it was found; once met, caravans set out 60 m from the main base and stop 14 m from it.
 - **Who they are:** androgynous-looking, with long hair. Suggested: tall (about 1.9 m) and slender, with pale grey-green and silver clothing.
 - **Homes:** they like wood and marble in their buildings but use other materials too. Suggested: tall marble-footed halls built around and up into giant living trees, linked by wooden walkways.
 - **What they want:** they value **trinkets** highly.
 - **Lumber offends them.** Offering lumber in trade insults them. Suggested: they close the trade menu to that player for one day.
 - **What they sell:** many kinds of goods, including food, and **high-quality steel melee weapons** at a very high price, so buying them is never a cost-effective way to equip an army.
-- **Cutting trees in the Deepwoods:** if an Elf (from the kingdom or a caravan) actually sees players cutting down trees in the Deepwoods, they warn them to stop. After a few warnings (suggested: three) they **declare war** and try to wipe the player out. Cutting trees where no Elf can see it, or outside the Deepwoods, does not bother them.
+- **Cutting trees in the Deepwoods:** if an Elf (from the kingdom or a caravan) actually sees players cutting down trees in the Deepwoods, they warn them to stop (suggested: an Elf within 30 m warns, at most once every 20 seconds). After a few warnings (suggested: three) they **declare war** and try to wipe the player out. Cutting trees where no Elf can see it, or outside the Deepwoods, does not bother them.
 - **War:** the Elves **never surrender**. A war with them lasts until one side is gone.
 
 **Elf units:** Jade's list is skilled warriors, archers, tamed bears and bear riders. Suggested units:
@@ -1275,6 +1303,7 @@ The command card is a grid of 15 buttons in 3 rows of 5 showing everything the s
 - Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row.
 - Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures.
 - Warriors also have N Hunt (suggested letter): click an animal to hunt it (see "Semi-automation").
+- **Neutral peoples (suggested, as built 2026-10-02):** O, or the Peoples button at the top right, opens the Peoples panel listing the peoples met. Right click a leader, a trade building (Halfling inn or barn, Runkin drying rack, Elf hall or caravan wagon, Dwarf forge or hall) or a caravan with any unit to trade; right click a mercenary camp to hire. A on their units while at peace asks before war (see "Neutral villages and trade").
 - **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Equip Best and I Equipment. Casting is described under "Casting spells" in "Magic".
 - E Enter: click a building to go inside it. Workers can shelter in farms, fishing docks and main bases. Ranged warriors and mages can garrison towers and the parapets of a level 3+ main base and fight from there. A building with units inside shows a U Unload All button, and clicking a unit's portrait in the building's panel lets just that unit out.
 - **Double-tap for auto-target:** press any targeted command twice (or click its button twice) and the unit picks the target itself instead of waiting for a click. This works for every targeted command (see "Semi-automation").
@@ -1397,11 +1426,11 @@ The camera looks down at the world at a fixed angle and can be panned and zoomed
 
 Units talk to their player. This is how the game tells the player what their units need, and it gives units personality. It is not used for players talking to each other.
 
-- **Speech bubbles:** when a unit speaks, a short text bubble appears above it for a few seconds.
-- **Random remarks:** now and then, a unit makes a remark or an observation about what it is doing or what it sees. Random remarks only appear as speech bubbles; they are never added to the message panel or kept anywhere.
+- **Speech bubbles:** when a unit speaks, a short text bubble appears above it for a few seconds (suggested: 3.5 s plus 40 ms per letter, at most 10 bubbles on screen at once).
+- **Random remarks:** now and then (suggested: about every 9 seconds, from a unit on screen), a unit makes a remark or an observation about what it is doing or what it sees. Random remarks only appear as speech bubbles; they are never added to the message panel or kept anywhere.
 - **Triggered speech:** units speak when something happens to them, for example when they are hungry, under attack, the resource they were gathering has run out, a hand-picked item was taken by someone else, or they cannot carry out an order.
 - **Other races talk too.** Units of other races speak in bubbles like the player's units, saying what you would expect from them: when players first find them, when trading, when they are attacked, and as random remarks. Examples are under each race in "Neutral villages and trade".
-- **When their speech reaches the message panel:** their random remarks never do. Their important speech (a greeting on first meeting, a warning, a declaration of war, a surrender offer) is added to a player's message panel if the player sees it on screen, or if one of the player's units is close enough that the speaker would be on screen if the camera were centred on that unit, even when the player is looking somewhere else.
+- **When their speech reaches the message panel:** their random remarks never do. Their important speech (a greeting on first meeting, a warning, a declaration of war, a surrender offer) is added to a player's message panel if the player sees it on screen, or if one of the player's units is close enough that the speaker would be on screen if the camera were centred on that unit (suggested: within 30 m), even when the player is looking somewhere else.
 
 **The message panel.** Everything units say, apart from random remarks, also appears in the message panel with the name of the unit that said it, along with game alerts (such as "Night is falling") and messages from other players.
 
@@ -1412,7 +1441,7 @@ Units talk to their player. This is how the game tells the player what their uni
 - Messages from other players are highlighted differently from unit speech and alerts.
 - A filter button switches between three views: everything; alerts and player messages only; and player messages only.
 
-**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources. For these:
+**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, idle workers and nightfall count as urgent, and Space steps through them). For these:
 
 - The minimap is always pinged at the spot where it happened.
 - If the panel is collapsed, its button flashes as an alarm.
@@ -1473,6 +1502,8 @@ Because the game runs in a web browser, some key combinations above are normally
 | A / S / H / P / M | Attack / Stop / Hold Position / Patrol / Move |
 | G / C / R (gatherers) | Gather / Return Cargo / Repair |
 | N (warriors) | Hunt (suggested letter) |
+| R, K, F, Y, W / R, B, F, T, C (mages) | Support spells / battle spells; U Rank (suggested) |
+| O | Peoples panel (suggested) |
 | Any targeted command twice | The unit picks its own target |
 | D / T (workers) | Dig / Prospect |
 | E / U | Enter a building (shelter or garrison) / Unload all |
