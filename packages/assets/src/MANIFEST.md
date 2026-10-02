@@ -1108,3 +1108,22 @@ Pending (not in the repo yet): portraits of `ash_golem` and `mana_wraith` (their
 | team_swatch_6 | ui/team_swatch_6.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 6 (orange, RGB (200, 104, 36)), 12x12 swatch. |
 | team_swatch_7 | ui/team_swatch_7.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 7 (green, RGB (64, 128, 52)), 12x12 swatch. |
 | team_swatch_8 | ui/team_swatch_8.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 8 (pink, RGB (196, 100, 140)), 12x12 swatch. |
+
+## sky
+
+Sky and lighting (section L). The lighting values live in `lighting.png` (see its row); there is no lighting.json in the repo.
+
+| id | path | frames | size | notes, deviations and reasons |
+|---|---|---|---|---|
+| clouds | sky/clouds.png | 1 | 320x32 | size 320x32 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); clouds: 5 flat pixel clouds, each a 64x32 cell in a 320x32 strip (cell i at x=64*i). White-ish; tint by sky_edge_colour at dusk/dawn/night. |
+| fog_drift | sky/fog_drift.png | 4 | 256x32 | fog night ground sprite: 4 frames of 64x32 in a 256x32 strip, 4 fps loop, billboard flat on ground, drift ~0.5 tile/s, banded alpha 50/90. |
+| lighting | sky/lighting.png | 1 | 240x104 | The lighting values (the full lighting.json content: key moments, special nights, light sources) are stored as JSON in this PNG's tEXt Comment chunk; lighting.json itself is not committed (PNG-only rule); size 240x104 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); swatch chart: columns = key moments plus blood and fog night; rows = light, ambient, fog and sky-edge colours and an intensity bar; bottom row = light sources |
+| moon | sky/moon.png | 1 | 32x32 | normal (waxing crescent/gibbous) moon 32x32; used on ordinary nights. |
+| moon_blood | sky/moon_blood.png | 1 | 32x32 | blood moon 32x32 deep red, for blood_night. |
+| moon_full | sky/moon_full.png | 1 | 32x32 | full moon 32x32, cool blue-white, 22px disc + faint halo. |
+| sky_dawn | sky/sky_dawn.png | 1 | 16x256 | sky_dawn: 16x256 vertical gradient top->bottom, 8 flat bands of 32px; bottom = horizon. Stretch horizontally. |
+| sky_day | sky/sky_day.png | 1 | 16x256 | sky_day: 16x256 vertical gradient top->bottom, 8 flat bands of 32px; bottom = horizon. Stretch horizontally. |
+| sky_dusk | sky/sky_dusk.png | 1 | 16x256 | sky_dusk: 16x256 vertical gradient top->bottom, 8 flat bands of 32px; bottom = horizon. Stretch horizontally. |
+| sky_night | sky/sky_night.png | 1 | 16x256 | sky_night: 16x256 vertical gradient top->bottom, 8 flat bands of 32px; bottom = horizon. Stretch horizontally. |
+| stars | sky/stars.png | 1 | 256x256 | stars 256x256 seamless tiling star field (transparent bg, alpha stars); 14 bright cross stars. Fade in from dusk_end to dawn_start. |
+| sun | sky/sun.png | 1 | 32x32 | sun 32x32, 22px disc + soft 4px halo (alpha). Additive OK. |
