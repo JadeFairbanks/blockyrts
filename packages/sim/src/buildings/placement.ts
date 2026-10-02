@@ -8,7 +8,7 @@ import { Band } from '../world/layout.ts';
 import { CHUNK_SHIFT, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import type { SimState } from '../state.ts';
-import { BuildingKind, buildingSpec, levelSpec } from './data.ts';
+import { BuildingKind, buildingSpec, footprintDims, levelSpec } from './data.ts';
 import { footprintRect } from './store.ts';
 
 /** Why a tile is red; 0 is green. */
@@ -19,10 +19,11 @@ export const Blocked = {
   Building: 3,
   Node: 4,
   Unexplored: 5,
+  NoWall: 6,
 } as const;
 export type Blocked = (typeof Blocked)[keyof typeof Blocked];
 
-export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.'] as const;
+export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', 'A wall torch must stand against a wall.'] as const;
 
 /** How far a column may stand above or below the building's floor, in terrain units (about 45 cm). */
 export const LEVEL_TOLERANCE_UNITS = 4;
@@ -31,14 +32,14 @@ export const LEVEL_TOLERANCE_UNITS = 4;
  * The tiles of a footprint with the corner at (x, z), row by row, each a
  * Blocked reason. The floor is the height of the footprint's middle column.
  */
-export function placementTiles(state: SimState, player: number, kind: number, x: number, z: number): Uint8Array {
-  const spec = buildingSpec(kind);
+export function placementTiles(state: SimState, player: number, kind: number, x: number, z: number, variant = 0): Uint8Array {
+  const spec = footprintDims(kind, variant);
   const world = state.world;
   const out = new Uint8Array(spec.w * spec.d);
   const floor = world.topAt(x + (spec.w >> 1), z + (spec.d >> 1));
   // Props per chunk, looked up once.
   const propCols = new Set<number>();
-  const [x0, z0, x1, z1] = footprintRect({ kind, x, z });
+  const [x0, z0, x1, z1] = footprintRect({ kind, x, z, variant });
   for (let cz = z0 >> CHUNK_SHIFT; cz <= z1 >> CHUNK_SHIFT; cz++) {
     for (let cx = x0 >> CHUNK_SHIFT; cx <= x1 >> CHUNK_SHIFT; cx++) {
       for (const p of world.props(cx, cz, state.step)) {
@@ -66,9 +67,20 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
 }
 
 /** The first red tile's reason, or None when every tile is green. */
-export function placementBlocked(state: SimState, player: number, kind: number, x: number, z: number): Blocked {
-  for (const r of placementTiles(state, player, kind, x, z)) if (r !== Blocked.None) return r as Blocked;
+export function placementBlocked(state: SimState, player: number, kind: number, x: number, z: number, variant = 0): Blocked {
+  for (const r of placementTiles(state, player, kind, x, z, variant)) if (r !== Blocked.None) return r as Blocked;
+  if (kind === BuildingKind.WallTorch && !wallBeside(state, x, z)) return Blocked.NoWall;
   return Blocked.None;
+}
+
+/** Whether a wall column stands right next to a column (a wall torch hangs on it). */
+export function wallBeside(state: SimState, x: number, z: number): boolean {
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    const id = state.buildings.solidAt(x + dx, z + dz);
+    const b = id ? state.buildings.get(id) : undefined;
+    if (b && buildingSpec(b.kind).defence === 'wall') return true;
+  }
+  return false;
 }
 
 /** The highest level of a complete main base the player has (0 for none). */
@@ -101,7 +113,7 @@ function hasWater(w: number, top: number): boolean {
 }
 
 /** Whether any column in the ring just outside a footprint holds water (a waterwheel needs a stream beside the mill). */
-export function waterBeside(state: SimState, b: { kind: number; x: number; z: number }, reach = 2): boolean {
+export function waterBeside(state: SimState, b: { kind: number; x: number; z: number; variant?: number }, reach = 2): boolean {
   const [x0, z0, x1, z1] = footprintRect(b);
   for (let z = z0 - reach; z <= z1 + reach; z++) {
     for (let x = x0 - reach; x <= x1 + reach; x++) {

@@ -31,15 +31,34 @@ export const Walk = {
   Wade: 2,
   /** Deeper water: only swimmers (unarmoured units) cross, at half speed. */
   Deep: 4,
+  /** A gate's solid part (also Blocked): the players' units pass, monsters and enclosures do not. */
+  Gate: 8,
 } as const;
 
 /** Movement abilities of a unit class. */
 export interface Mover {
+  /** One id per set of abilities: the pathfinder keeps a coarse edge cache per id. */
+  id: number;
   /** Unarmoured units swim; armoured ones cannot (Water: Wading and swimming). */
   canSwim: boolean;
+  /** The players' units walk through gates. */
+  passGates?: boolean;
+  /** Plans as if buildings were not there (monsters weigh breaking them separately). */
+  ignoreBuildings?: boolean;
+  /** Climbers ignore the climb limit and drops (Moving over the land; Threats: climbers). */
+  climbs?: boolean;
 }
 
-export const PERSON: Mover = { canSwim: true };
+/** The players' units. */
+export const PERSON: Mover = { id: 0, canSwim: true, passGates: true };
+/** A walker that cannot swim or pass gates: closed regions (claimed land) and walking monsters. */
+export const WALKER: Mover = { id: 1, canSwim: false };
+/** Monsters planning a route: buildings are weighed as break costs, not walls. */
+export const MOB_PLAN: Mover = { id: 2, canSwim: false, ignoreBuildings: true };
+/** Climbing monsters planning a route. */
+export const CLIMBER_PLAN: Mover = { id: 3, canSwim: false, ignoreBuildings: true, climbs: true };
+/** Climbing monsters on the ground (walls are climbed by their own rule). */
+export const CLIMBER: Mover = { id: 4, canSwim: false, climbs: true };
 
 interface NavChunk {
   version: number;
@@ -48,9 +67,10 @@ interface NavChunk {
   flags: Uint8Array;
 }
 
-/** Where buildings' solid parts are: per chunk, the solid local column indices. */
+/** Where buildings' solid parts are: per chunk, the solid local column indices, and which of them are gates. */
 export interface SolidSource {
   solidIn(chunk: number): ReadonlySet<number> | undefined;
+  gatesIn(chunk: number): ReadonlySet<number> | undefined;
 }
 
 export class NavGrid {
@@ -94,6 +114,7 @@ export class NavGrid {
     const level = new Int16Array(N * N);
     const flags = new Uint8Array(N * N);
     const solid = this.solids.solidIn(key);
+    const gates = this.solids.gatesIn(key);
     for (let i = 0; i < N * N; i++) {
       const top = cols.top(i);
       const w = cols.water[i]!;
@@ -107,6 +128,7 @@ export class NavGrid {
         } else f |= Walk.Wade;
       }
       if (solid?.has(i)) f |= Walk.Blocked;
+      if (gates?.has(i)) f |= Walk.Gate;
       level[i] = lv;
       flags[i] = f;
     }
@@ -130,7 +152,7 @@ export class NavGrid {
   /** Whether a mover can stand on a column at all. */
   standable(x: number, z: number, m: Mover): boolean {
     const f = this.flags(x, z);
-    if (f & Walk.Blocked) return false;
+    if (f & Walk.Blocked && !m.ignoreBuildings && !(m.passGates && f & Walk.Gate)) return false;
     if (f & Walk.Deep && !m.canSwim) return false;
     return true;
   }
@@ -144,11 +166,13 @@ export class NavGrid {
   stepCost(ax: number, az: number, bx: number, bz: number, m: Mover): number {
     if (!this.standable(bx, bz, m)) return -1;
     const rise = this.level(bx, bz) - this.level(ax, az);
-    if (rise > CLAMBER_UNITS || rise < -DROP_UNITS) return -1;
+    if (!m.climbs && (rise > CLAMBER_UNITS || rise < -DROP_UNITS)) return -1;
     const diagonal = ax !== bx && az !== bz;
     if (diagonal && (this.stepCost(ax, az, bx, az, m) < 0 || this.stepCost(ax, az, ax, bz, m) < 0)) return -1;
     let cost = diagonal ? 14 : 10;
     if (rise > STEP_UNITS) cost += 10;
+    // Climbing is slow: each terrain unit above a clamber costs a little more.
+    if (rise > CLAMBER_UNITS) cost += (rise - CLAMBER_UNITS) * 4;
     if (this.flags(bx, bz) & (Walk.Wade | Walk.Deep)) cost *= 2;
     return cost;
   }

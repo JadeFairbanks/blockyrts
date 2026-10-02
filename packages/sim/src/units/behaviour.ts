@@ -710,7 +710,7 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
     alert(state, owner, `${name}: ${why}`, wx, wz);
     return DONE;
   }
-  const blocked = placementBlocked(state, owner, o.kind, o.x, o.z);
+  const blocked = placementBlocked(state, owner, o.kind, o.x, o.z, o.variant);
   if (blocked !== Blocked.None) {
     alert(state, owner, `The spot for the ${name.toLowerCase()} is blocked. ${BLOCKED_TEXT[blocked]}`, wx, wz);
     return DONE;

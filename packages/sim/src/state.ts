@@ -4,7 +4,7 @@
 // Buildings are records in id order (buildings/store.ts) and every player
 // has one shared resource pool.
 
-import { BuildingKind, BUILDING_SIGHT_M, buildingSpec, levelSpec } from './buildings/data.ts';
+import { BuildingKind, BUILDING_SIGHT_M, buildingSpec, footprintDims, levelSpec } from './buildings/data.ts';
 import { BuildingStore, footprintRect, solidRect, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
@@ -290,7 +290,7 @@ export function attachNav(state: Omit<SimState, 'nav' | 'paths' | 'events'> & Pa
 
 /** Adds a building record with the next id. */
 export function placeBuilding(state: SimState, owner: number, kind: number, variant: number, x: number, z: number, complete: boolean): Building {
-  const spec = buildingSpec(kind);
+  const spec = footprintDims(kind, variant);
   // The floor stands at the height of the footprint's middle column.
   const y = state.world.topAt(x + (spec.w >> 1), z + (spec.d >> 1));
   const b: Building = {
@@ -407,7 +407,7 @@ export function revealAroundUnits(state: SimState): void {
     state.world.reveal(owner, e.x[i]!, e.z[i]!, SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0]);
   }
   for (const b of state.buildings.list) {
-    const s = buildingSpec(b.kind);
+    const s = footprintDims(b.kind, b.variant);
     const cx = (b.x * 2 + s.w) * (WU_PER_COLUMN >> 1);
     const cz = (b.z * 2 + s.d) * (WU_PER_COLUMN >> 1);
     state.world.reveal(b.owner, cx, cz, BUILDING_SIGHT_M * WU_PER_METRE + ((Math.max(s.w, s.d) * WU_PER_COLUMN) >> 1));

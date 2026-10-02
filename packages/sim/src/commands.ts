@@ -216,7 +216,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
-        if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.crops?.length ?? 1)) break;
+        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.crops?.length ?? spec.variants?.length ?? 1)) break;
         giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
         break;
       }
