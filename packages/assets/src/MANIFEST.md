@@ -330,6 +330,62 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | goblin_totem | models/buildings/goblin_totem/goblin_totem.bbmodel | 34 | 64x128 + 2 variants (abandoned, damaged) | open structure, so no door and no `slot_door`; F7 abandoned look = the `ruined` set with `goblin_totem_abandoned.png`, kept in this folder rather than as a separate id; 16 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | goblin_wolf_pen | models/buildings/goblin_wolf_pen/goblin_wolf_pen.bbmodel | 626 | 256x256 + 2 variants (abandoned, damaged) | F7 abandoned look = the `ruined` set with `goblin_wolf_pen_abandoned.png`, kept in this folder rather than as a separate id; 458 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 
+## world-props
+
+| id | path | cube count | texture size | deviation and reason |
+|---|---|---|---|---|
+| tree_pine | models/world-props/tree_pine/tree_pine.bbmodel | 19 | 256x1024 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_pine_log_pile | models/world-props/tree_pine/tree_pine_log_pile.bbmodel | 5 | 128x128 | extra file in tree_pine/: what is left after the tree is felled (log pile) |
+| tree_pine_stump | models/world-props/tree_pine/tree_pine_stump.bbmodel | 7 | 32x64 | extra file in tree_pine/: what is left after the tree is felled (stump) |
+| tree_spruce | models/world-props/tree_spruce/tree_spruce.bbmodel | 35 | 512x1024 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_spruce_log_pile | models/world-props/tree_spruce/tree_spruce_log_pile.bbmodel | 5 | 512x16 | extra file in tree_spruce/: what is left after the tree is felled (log pile) |
+| tree_spruce_stump | models/world-props/tree_spruce/tree_spruce_stump.bbmodel | 7 | 16x64 | extra file in tree_spruce/: what is left after the tree is felled (stump) |
+| tree_softwood_small | models/world-props/tree_softwood_small/tree_softwood_small.bbmodel | 13 | 256x256 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_softwood_small_log_pile | models/world-props/tree_softwood_small/tree_softwood_small_log_pile.bbmodel | 5 | 64x64 | extra file in tree_softwood_small/: what is left after the tree is felled (log pile) |
+| tree_softwood_small_stump | models/world-props/tree_softwood_small/tree_softwood_small_stump.bbmodel | 6 | 16x32 | extra file in tree_softwood_small/: what is left after the tree is felled (stump) |
+| tree_birch | models/world-props/tree_birch/tree_birch.bbmodel | 14 | 256x256 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_birch_log_pile | models/world-props/tree_birch/tree_birch_log_pile.bbmodel | 5 | 128x64 | extra file in tree_birch/: what is left after the tree is felled (log pile) |
+| tree_birch_stump | models/world-props/tree_birch/tree_birch_stump.bbmodel | 6 | 32x32 | extra file in tree_birch/: what is left after the tree is felled (stump) |
+| tree_hornbeam | models/world-props/tree_hornbeam/tree_hornbeam.bbmodel | 18 | 512x512 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_hornbeam_log_pile | models/world-props/tree_hornbeam/tree_hornbeam_log_pile.bbmodel | 5 | 128x128 | extra file in tree_hornbeam/: what is left after the tree is felled (log pile) |
+| tree_hornbeam_stump | models/world-props/tree_hornbeam/tree_hornbeam_stump.bbmodel | 7 | 32x64 | extra file in tree_hornbeam/: what is left after the tree is felled (stump) |
+| tree_oak_great | models/world-props/tree_oak_great/tree_oak_great.bbmodel | 125 | 512x256 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall; split-face texture (512x256 tile atlas, faces cut to fit): its 94 face regions (1,400,314 px) do not fit 1024 x 1024 at 1 px/unit |
+| tree_oak_great_log_pile | models/world-props/tree_oak_great/tree_oak_great_log_pile.bbmodel | 5 | 256x512 | extra file in tree_oak_great/: what is left after the tree is felled (log pile) |
+| tree_oak_great_stump | models/world-props/tree_oak_great/tree_oak_great_stump.bbmodel | 7 | 128x256 | extra file in tree_oak_great/: what is left after the tree is felled (stump) |
+| tree_beech_great | models/world-props/tree_beech_great/tree_beech_great.bbmodel | 104 | 512x128 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall; split-face texture (512x128 tile atlas, faces cut to fit): its 50 face regions (1,105,676 px) do not fit 1024 x 1024 at 1 px/unit |
+| tree_beech_great_log_pile | models/world-props/tree_beech_great/tree_beech_great_log_pile.bbmodel | 5 | 256x256 | extra file in tree_beech_great/: what is left after the tree is felled (log pile) |
+| tree_beech_great_stump | models/world-props/tree_beech_great/tree_beech_great_stump.bbmodel | 7 | 128x128 | extra file in tree_beech_great/: what is left after the tree is felled (stump) |
+| tree_dead | models/world-props/tree_dead/tree_dead.bbmodel | 12 | 64x256 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_dead_log_pile | models/world-props/tree_dead/tree_dead_log_pile.bbmodel | 5 | 128x128 | extra file in tree_dead/: what is left after the tree is felled (log pile) |
+| tree_dead_stump | models/world-props/tree_dead/tree_dead_stump.bbmodel | 7 | 32x64 | extra file in tree_dead/: what is left after the tree is felled (stump) |
+| tree_twisted | models/world-props/tree_twisted/tree_twisted.bbmodel | 17 | 128x128 | `fall` tips the tree over toward +X (sideways) about the trunk base edge; the game rotates the tree to aim the fall |
+| tree_twisted_log_pile | models/world-props/tree_twisted/tree_twisted_log_pile.bbmodel | 5 | 64x64 | extra file in tree_twisted/: what is left after the tree is felled (log pile) |
+| tree_twisted_stump | models/world-props/tree_twisted/tree_twisted_stump.bbmodel | 6 | 32x32 | extra file in tree_twisted/: what is left after the tree is felled (stump) |
+| bush_hazel | models/world-props/bush_hazel/bush_hazel.bbmodel | 92 | 128x256 | 48 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| sapling_beech_great | models/world-props/saplings/sapling_beech_great.bbmodel | 7 | 16x32 | in the shared saplings/ folder (wishlist id sapling_beech_great) |
+| sapling_birch | models/world-props/saplings/sapling_birch.bbmodel | 7 | 16x32 | in the shared saplings/ folder (wishlist id sapling_birch) |
+| sapling_hazel | models/world-props/saplings/sapling_hazel.bbmodel | 7 | 16x32 | in the shared saplings/ folder (wishlist id sapling_hazel) |
+| sapling_hornbeam | models/world-props/saplings/sapling_hornbeam.bbmodel | 7 | 16x32 | in the shared saplings/ folder (wishlist id sapling_hornbeam) |
+| sapling_oak_great | models/world-props/saplings/sapling_oak_great.bbmodel | 7 | 16x32 | in the shared saplings/ folder (wishlist id sapling_oak_great) |
+| sapling_pine | models/world-props/saplings/sapling_pine.bbmodel | 6 | 16x32 | in the shared saplings/ folder (wishlist id sapling_pine) |
+| sapling_softwood_small | models/world-props/saplings/sapling_softwood_small.bbmodel | 6 | 16x32 | in the shared saplings/ folder (wishlist id sapling_softwood_small) |
+| sapling_spruce | models/world-props/saplings/sapling_spruce.bbmodel | 6 | 16x32 | in the shared saplings/ folder (wishlist id sapling_spruce) |
+| sapling_twisted | models/world-props/saplings/sapling_twisted.bbmodel | 7 | 16x32 | in the shared saplings/ folder (wishlist id sapling_twisted) |
+| seed_hardwood | models/world-props/seeds/seed_hardwood.bbmodel | 8 | 16x16 | in the shared seeds/ folder (wishlist id seed_hardwood) |
+| seed_softwood | models/world-props/seeds/seed_softwood.bbmodel | 5 | 16x16 | in the shared seeds/ folder (wishlist id seed_softwood) |
+| torch_post | models/world-props/torch_post/torch_post.bbmodel | 11 | 16x128 | 1 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| torch_wall | models/world-props/torch_wall/torch_wall.bbmodel | 14 | 32x32 | 4 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| torch_hand | models/world-props/torch_hand/torch_hand.bbmodel | 19 | 32x32 | 19 cubes (small-item cap 11) across two state sets, `lit` and `snuffed`; only one set shows at a time; 7 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| brazier | models/world-props/brazier/brazier.bbmodel | 19 | 64x64 | 1 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| campfire | models/world-props/campfire/campfire.bbmodel | 33 | 64x128 | 10 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| lantern | models/world-props/lantern/lantern.bbmodel | 12 | 16x32 | 2 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| crop_wheat | models/world-props/crop_wheat/crop_wheat.bbmodel | 70 | 64x64 | 64 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| crop_potato | models/world-props/crop_potato/crop_potato.bbmodel | 62 | 64x64 | 56 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| crop_carrot | models/world-props/crop_carrot/crop_carrot.bbmodel | 70 | 32x64 | 64 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| crop_corn | models/world-props/crop_corn/crop_corn.bbmodel | 52 | 32x128 | 46 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| crop_flax | models/world-props/crop_flax/crop_flax.bbmodel | 70 | 64x64 | 64 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| crop_herbs | models/world-props/crop_herbs/crop_herbs.bbmodel | 46 | 32x64 | 40 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+
 ## textures
 
 Terrain textures (wishlist section I), one PNG per file id. Top tiles may be rotated and mixed freely unless a row says otherwise.
