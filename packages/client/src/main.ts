@@ -212,6 +212,13 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
     const c = focusColumn();
     order({ kind: 'terrain', player: PLAYER, x0: c.x - 2, z0: c.z - 2, x1: c.x + 2, z1: c.z + 2, bottom: c.y, top: c.y + 9, material: Mat.Stone });
   });
+  add('dbg-hill', 'Hill', 'Debug: hill', 'Builds a soil hill 3.4 m tall and 5 m across in the middle of the view, with a 45 cm ledge on its south side (units hop up it) and a 56 cm ledge on its north side (too tall to get up), as terrain edits. Dig (D) pressed on the hill side tunnels into it.', () => {
+    const c = focusColumn();
+    const soil = (z0: number, z1: number, top: number): void => order({ kind: 'terrain', player: PLAYER, x0: c.x - 5, z0: c.z + z0, x1: c.x + 5, z1: c.z + z1, bottom: c.y - 4, top: c.y + top, material: Mat.Soil });
+    soil(6, 10, 4);
+    soil(-10, -6, 5);
+    soil(-5, 5, 30);
+  });
   let factor = 1;
   add('dbg-speed', 'Speed ×1', 'Debug: game speed', 'Runs the game at 1, 4 or 16 times speed, to see the day turn and farms grow without waiting. Every step is the same as at normal speed, so the hash does not change.', () => {
     factor = factor === 1 ? 4 : factor === 4 ? 16 : 1;
