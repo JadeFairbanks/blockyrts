@@ -114,3 +114,31 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | ingot_iron | models/items/ingot_iron/ingot_iron.bbmodel | 12 | 64x64 + 3 variants (iron_bloom, iron_refined, iron_wrought) | textures are the iron grades (bloom, wrought, refined); 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
 | ingot_steel | models/items/ingot_steel/ingot_steel.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
 | ingot_hq_steel | models/items/ingot_hq_steel/ingot_hq_steel.bbmodel | 12 | 64x64 | 12 cubes (small-item cap 11): a 3/2/1 ground stack of six ingots, two cubes each |
+| herb_bundle | models/items/herb_bundle/herb_bundle.bbmodel | 6 | 32x32 |  |
+| flax_bundle | models/items/flax_bundle/flax_bundle.bbmodel | 4 | 64x64 |  |
+| wheat_sheaf | models/items/wheat_sheaf/wheat_sheaf.bbmodel | 5 | 64x64 |  |
+| potato_sack | models/items/potato_sack/potato_sack.bbmodel | 9 | 32x32 |  |
+| carrot_bunch | models/items/carrot_bunch/carrot_bunch.bbmodel | 10 | 32x32 |  |
+| corn_bundle | models/items/corn_bundle/corn_bundle.bbmodel | 8 | 32x32 |  |
+| meat_haunch | models/items/meat_haunch/meat_haunch.bbmodel | 6 | 32x32 |  |
+| hide_rolled | models/items/hide_rolled/hide_rolled.bbmodel | 5 | 64x32 |  |
+| fish_carried | models/items/fish_carried/fish_carried.bbmodel | 7 | 32x32 + 2 variants (catfish, salmon) |  |
+| fish_carried_catfish | models/items/fish_carried/fish_carried_catfish.bbmodel | 9 | 128x64 | extra file in fish_carried/: giant catfish version (carried over the shoulder) |
+| fish_carried_salmon | models/items/fish_carried/fish_carried_salmon.bbmodel | 8 | 32x64 | extra file in fish_carried/: salmon version |
+| egg_basket | models/items/egg_basket/egg_basket.bbmodel | 11 | 32x32 |  |
+| feather_bundle | models/items/feather_bundle/feather_bundle.bbmodel | 9 | 32x32 |  |
+| sinew_bundle | models/items/sinew_bundle/sinew_bundle.bbmodel | 5 | 32x32 |  |
+| bone_bundle | models/items/bone_bundle/bone_bundle.bbmodel | 11 | 64x32 |  |
+| spider_silk | models/items/spider_silk/spider_silk.bbmodel | 6 | 32x32 |  |
+| demon_horn | models/items/demon_horn/demon_horn.bbmodel | 7 | 32x32 |  |
+| venom_vial | models/items/venom_vial/venom_vial.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| hexstone | models/items/hexstone/hexstone.bbmodel | 7 | 32x32 | built about 8 cm across instead of the 4 cm in the brief so it reads at game zoom; texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| planks | models/items/planks/planks.bbmodel | 6 | 128x64 |  |
+| stone_blocks | models/items/stone_blocks/stone_blocks.bbmodel | 2 | 32x32 |  |
+| bricks | models/items/bricks/bricks.bbmodel | 6 | 32x32 |  |
+| charcoal_sack | models/items/charcoal_sack/charcoal_sack.bbmodel | 6 | 32x32 |  |
+| gunpowder_keg | models/items/gunpowder_keg/gunpowder_keg.bbmodel | 6 | 64x32 |  |
+| glass_bottle | models/items/glass_bottle/glass_bottle.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| rope_coil | models/items/rope_coil/rope_coil.bbmodel | 6 | 32x32 |  |
+| resin_pot | models/items/resin_pot/resin_pot.bbmodel | 8 | 32x32 |  |
+| leather_folded | models/items/leather_folded/leather_folded.bbmodel | 4 | 32x32 |  |
