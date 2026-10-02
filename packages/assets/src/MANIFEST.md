@@ -2,6 +2,28 @@
 
 One row per model file under `models/`. Cube counts include cubes hidden by default; texture sizes are the embedded texture (also committed as `<file>.png`), followed by any colour or material variants (`<file>_<variant>.png`, same UV layout). Each model's full notes (hit box, move speeds, key times, attachment points, second grip distances) are in its Blockbench description.
 
+## peoples
+
+| id | path | cube count | texture size | deviation and reason |
+|---|---|---|---|---|
+| halfling_male | models/peoples/halfling_male/halfling_male.bbmodel | 22 | 128x128 + 2 variants (brown, mustard) | 2 cubes hidden by default (game-swapped previews or alternates); held-item preview groups sit inside slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| halfling_female | models/peoples/halfling_female/halfling_female.bbmodel | 25 | 128x128 + 2 variants (brown, mustard) | 2 cubes hidden by default (game-swapped previews or alternates); held-item preview groups sit inside slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| halfling_spearman | models/peoples/halfling_spearman/halfling_spearman.bbmodel | 28 | 128x128 | held-item preview groups sit inside slot_hand_l, slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| halfling_archer | models/peoples/halfling_archer/halfling_archer.bbmodel | 32 | 128x128 | held-item preview groups sit inside slot_hand_l, slot_hip_l, slot_quiver (the game removes or swaps them; the slot pivots are unchanged) |
+| halfling_buckler | models/peoples/halfling_equipment/halfling_buckler.bbmodel | 3 | 32x32 | one piece of the halfling_equipment set, in its folder |
+| halfling_iron_cap | models/peoples/halfling_equipment/halfling_iron_cap.bbmodel | 2 | 32x32 | one piece of the halfling_equipment set, in its folder |
+| halfling_shortbow | models/peoples/halfling_equipment/halfling_shortbow.bbmodel | 6 | 64x64 | one piece of the halfling_equipment set, in its folder |
+| halfling_shortspear | models/peoples/halfling_equipment/halfling_shortspear.bbmodel | 3 | 64x64 | one piece of the halfling_equipment set, in its folder |
+| halfling_shortsword | models/peoples/halfling_equipment/halfling_shortsword.bbmodel | 4 | 32x32 | one piece of the halfling_equipment set, in its folder |
+| runkin_male | models/peoples/runkin_male/runkin_male.bbmodel | 31 | 128x128 + 2 variants (moss, ochre) | 5 cubes hidden by default (game-swapped previews or alternates); held-item preview groups sit inside slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| runkin_female | models/peoples/runkin_female/runkin_female.bbmodel | 30 | 128x128 + 2 variants (moss, ochre) | 5 cubes hidden by default (game-swapped previews or alternates); held-item preview groups sit inside slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| runkin_archer | models/peoples/runkin_archer/runkin_archer.bbmodel | 40 | 128x128 | held-item preview groups sit inside slot_hand_l, slot_hip_r (the game removes or swaps them; the slot pivots are unchanged) |
+| runkin_clubber | models/peoples/runkin_clubber/runkin_clubber.bbmodel | 34 | 128x128 | 3 cubes hidden by default (game-swapped previews or alternates); held-item preview groups sit inside slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| runkin_flint_spear | models/peoples/runkin_equipment/runkin_flint_spear.bbmodel | 3 | 128x64 | one piece of the runkin_equipment set, in its folder |
+| runkin_hardwood_club | models/peoples/runkin_equipment/runkin_hardwood_club.bbmodel | 4 | 32x32 | one piece of the runkin_equipment set, in its folder |
+| runkin_hide_quiver | models/peoples/runkin_equipment/runkin_hide_quiver.bbmodel | 2 | 32x32 | one piece of the runkin_equipment set, in its folder |
+| runkin_recurve_bow | models/peoples/runkin_equipment/runkin_recurve_bow.bbmodel | 8 | 64x64 | one piece of the runkin_equipment set, in its folder |
+
 ## items
 
 | id | path | cube count | texture size | deviation and reason |
