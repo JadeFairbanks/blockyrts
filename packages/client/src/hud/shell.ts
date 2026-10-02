@@ -38,13 +38,7 @@ export interface WorldHooks {
   limits(): CameraLimits;
 }
 
-// TODO: import StopOrder from @blockyrts/sim once the sim has the 'stop' order kind.
-export interface StopOrder {
-  kind: 'stop';
-  player: number;
-  units: number[];
-}
-export type ShellOrder = Order | StopOrder;
+export type ShellOrder = Order;
 
 export interface ShellOptions {
   scene: THREE.Scene;

@@ -110,8 +110,16 @@ export class StartBasin {
    */
   flatness(x: number, z: number): number {
     let best = 0;
-    for (const p of this.pockets) best = Math.max(best, falloff(length2d(x - p.x, z - p.z), POCKET_FLAT_COLUMNS, POCKET_BLEND_COLUMNS));
-    for (const v of this.villages) best = Math.max(best, falloff(length2d(x - v.x, z - v.z), v.radius, POCKET_BLEND_COLUMNS));
+    const far = POCKET_FLAT_COLUMNS + POCKET_BLEND_COLUMNS;
+    for (const p of this.pockets) {
+      if (Math.abs(x - p.x) >= far || Math.abs(z - p.z) >= far) continue;
+      best = Math.max(best, falloff(length2d(x - p.x, z - p.z), POCKET_FLAT_COLUMNS, POCKET_BLEND_COLUMNS));
+    }
+    for (const v of this.villages) {
+      const vfar = v.radius + POCKET_BLEND_COLUMNS;
+      if (Math.abs(x - v.x) >= vfar || Math.abs(z - v.z) >= vfar) continue;
+      best = Math.max(best, falloff(length2d(x - v.x, z - v.z), v.radius, POCKET_BLEND_COLUMNS));
+    }
     return best;
   }
 }

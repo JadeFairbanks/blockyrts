@@ -446,6 +446,7 @@ export class WorldGen {
     // Features inside the cell.
     const feat = this.cellFeatures(cell);
     for (const pond of feat.ponds) {
+      if (Math.abs(x - pond.x) > pond.r + 6 || Math.abs(z - pond.z) > pond.r + 6) continue;
       const d = length2d(x - pond.x, z - pond.z) + centred(valueNoise(s[15]!, x, z, 3), 3);
       if (d <= pond.r) {
         const prof = shoulder(floorDiv(d * 1024, pond.r), 400);
@@ -471,7 +472,7 @@ export class WorldGen {
         }
       }
     }
-    if (feat.spring) {
+    if (feat.spring && Math.abs(x - feat.spring.x) <= 8 && Math.abs(z - feat.spring.z) <= 8) {
       const d = length2d(x - feat.spring.x, z - feat.spring.z);
       if (d <= 5) {
         ground = feat.spring.level - 4 + (d >> 1);
@@ -628,6 +629,7 @@ export class WorldGen {
   }
 
   private bogEffect(bog: Bog, x: number, z: number, _smooth: number): boolean {
+    if (Math.abs(x - bog.x) > bog.r + 6 || Math.abs(z - bog.z) > bog.r + 6) return false;
     const d = length2d(x - bog.x, z - bog.z) + centred(valueNoise(this.s[20]!, x, z, 3), 6);
     return d <= bog.r;
   }

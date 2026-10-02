@@ -18,3 +18,4 @@ export * from './world/start.ts';
 export * from './world/generate.ts';
 export * from './world/world.ts';
 export * from './world/serialize-world.ts';
+export * from './world/delta.ts';

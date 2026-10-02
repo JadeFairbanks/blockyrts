@@ -43,10 +43,9 @@ export function floorMod(a: number, b: number): number {
 export function isqrt(n: number): number {
   if (n < 0) throw new RangeError('isqrt of a negative number');
   if (n < 2) return n;
-  // Start above the root: 2^ceil(bits/2) using an integer bit length.
-  let bits = 0;
-  for (let t = n; t > 0; t = floorDiv(t, 2)) bits++;
-  let x = 2 ** floorDiv(bits + 1, 2);
+  // Start above the root, within a factor of 16 of it, then Newton's method.
+  let x = 1;
+  while (x * x < n) x *= 16;
   for (;;) {
     const y = floorDiv(x + floorDiv(n, x), 2);
     if (y >= x) return x;

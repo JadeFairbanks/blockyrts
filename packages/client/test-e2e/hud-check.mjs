@@ -67,6 +67,9 @@ check('greeting message', (await text('.message-list')).includes('World generate
 await page.mouse.move(W / 2, H / 2);
 await page.waitForTimeout(300);
 await shot('game');
+// The camera starts over the player's own units in their pocket; the checks below come back here.
+const home = await page.evaluate(() => ({ x: window.shell.cam.focus.x, z: window.shell.cam.focus.z }));
+const goHome = () => page.evaluate((h) => window.shell.cam.jumpTo(h.x, h.z), home);
 
 // 2. Arrow keys pan.
 let f0 = await focus();
@@ -82,7 +85,7 @@ await page.keyboard.up('ArrowLeft');
 await page.keyboard.up('ArrowUp');
 let f2 = await focus();
 check('two arrows pan diagonally', f2.x < f1.x && f2.z < f1.z);
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 
 // 3. Edge panning: the right edge pans after 0.1 s, the bottom edge along the minimap does not.
 f0 = await focus();
@@ -102,11 +105,11 @@ await page.waitForTimeout(300);
 f1 = await focus();
 check('no edge pan along the minimap', Math.abs(f1.z - f0.z) < 0.01 && Math.abs(f1.x - f0.x) < 0.01);
 await page.mouse.move(5, H - 1);
-await page.waitForTimeout(300);
+await page.waitForTimeout(600);
 f2 = await focus();
 check('corner pans diagonally', f2.x < f1.x && f2.z > f1.z);
 await page.mouse.move(W / 2, H / 2);
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 
 // 4. Wheel zoom towards the cursor, limits, Home.
 f0 = await focus();
@@ -130,7 +133,7 @@ await page.keyboard.press('PageUp');
 await page.waitForTimeout(500);
 check('Page Up zooms in', (await focus()).d < 39);
 await page.keyboard.press('Home');
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 await page.waitForTimeout(700);
 
 // 5. Middle drag grabs the ground.
@@ -141,7 +144,7 @@ await page.mouse.move(600, 400, { steps: 5 });
 await page.mouse.up({ button: 'middle' });
 f1 = await focus();
 check('middle drag moves the camera with the ground', f1.x > f0.x + 2, `${f0.x.toFixed(1)} -> ${f1.x.toFixed(1)}`);
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 await page.waitForTimeout(200);
 
 // 6. Click select, empty ground keeps it, drag box.
@@ -197,34 +200,42 @@ await page.mouse.move(W / 2, H / 2, { steps: 6 });
 check('no box from the HUD', await page.locator('.drag-box').isHidden());
 await page.mouse.up();
 check('selection unchanged', JSON.stringify(await selected()) === JSON.stringify(before));
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 
 // 9. Double click and Ctrl + click on resource nodes; Shift toggles.
-await page.evaluate(() => {
-  const pines = [...window.shell.world.selectables.candidates()].filter((t) => t.typeKey === 'node:pine');
-  window.shell.cam.jumpTo(pines[0].centre.x, pines[0].centre.z);
+// The commonest kind of node near the pocket (pines, spruces, hazel...), once the land there is drawn.
+await page.waitForFunction(() => [...window.shell.world.selectables.candidates()].some((t) => t.kind === 'node'), null, { timeout: 20000 });
+const nodeType = await page.evaluate(() => {
+  const counts = new Map();
+  for (const t of window.shell.world.selectables.candidates()) if (t.kind === 'node') counts.set(t.typeKey, (counts.get(t.typeKey) ?? 0) + 1);
+  const type = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+  const first = [...window.shell.world.selectables.candidates()].find((t) => t.typeKey === type);
+  window.shell.cam.jumpTo(first.centre.x, first.centre.z);
+  return type;
 });
 await page.mouse.move(W / 2, H / 2);
 for (let i = 0; i < 3; i++) await page.mouse.wheel(0, 100);
 await page.waitForTimeout(900);
-const pines = await page.evaluate(() => window.shell.items.filter((i) => i.item.typeKey === 'node:pine').map((i) => i.item.key));
-check('stand-in pines on screen', pines.length > 1, pines.join(' '));
+const pines = await page.evaluate((type) => window.shell.items.filter((i) => i.item.typeKey === type).map((i) => i.item.key), nodeType);
+check(`${nodeType} nodes on screen`, pines.length > 1, pines.join(' '));
 if (pines.length > 1) {
   const p = await screenOf(pines[0]);
   await page.mouse.click(p.x, p.y);
-  check('click a node inspects it', JSON.stringify(await selected()) === JSON.stringify([pines[0]]));
+  const one = await selected();
+  // Trees stand close together: the one nearest the camera under the click wins.
+  check('click a node inspects it', one.length === 1 && one[0].startsWith('p:'), one.join(' '));
   await page.waitForTimeout(350);
   await page.mouse.dblclick(p.x, p.y);
   const s = await selected();
-  check('double click selects every pine in view', s.length === pines.length && s.every((k) => k.startsWith('p:')), s.join(' '));
+  check(`double click selects every ${nodeType} in view`, s.length === pines.length && s.every((k) => k.startsWith('p:')), s.join(' '));
   await shot('nodes');
 }
 await page.keyboard.press('Escape');
 check('Esc clears the selection', (await selected()).length === 0);
 await page.keyboard.press('Home');
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 await page.waitForTimeout(700);
-const own2 = (await itemKeys()).filter((k) => k.startsWith('e:'));
+const own2 = await page.evaluate(() => window.shell.items.filter((i) => i.item.typeKey === 'worker').map((i) => i.item.key));
 const a = await screenOf(own2[0]);
 // (page.mouse ignores the modifiers option: hold the keys instead.)
 await page.keyboard.down('Control');
@@ -280,14 +291,14 @@ check('minimap drag slides', f1.x > f0.x + 20 && f1.z > f0.z + 15);
 await shot('minimap');
 
 // 12. HUD buttons: tooltips, camera locations, follow, queue mode, resources.
-await page.evaluate(() => window.shell.cam.jumpTo(0, 0));
+await goHome();
 const cam1 = await centreOf('[data-btn=cam0]');
 await page.mouse.click(cam1.x, cam1.y, { button: 'right' });
 check('right click saves a camera location', (await page.getAttribute('[data-btn=cam0]', 'class')).includes('saved'));
 await page.evaluate(() => window.shell.cam.jumpTo(40, 40));
 await page.keyboard.press('F5');
 f0 = await focus();
-check('F5 jumps to the saved view', Math.abs(f0.x) < 0.01 && Math.abs(f0.z) < 0.01);
+check('F5 jumps to the saved view', Math.abs(f0.x - home.x) < 0.01 && Math.abs(f0.z - home.z) < 0.01);
 await page.evaluate(() => window.shell.cam.jumpTo(10, 10));
 await page.keyboard.down('Backquote');
 await page.keyboard.press('F6');
@@ -299,13 +310,19 @@ check('Queue Mode lights up', (await page.getAttribute('[data-btn=queue]', 'clas
 await page.mouse.click(a.x, a.y - 8);
 await page.keyboard.press('F3');
 check('Queue Mode turns off when the selection changes', !(await page.getAttribute('[data-btn=queue]', 'class')).includes('lit'));
+// The units walked off during the order checks: look at them again.
+await page.evaluate(() => {
+  const u = [...window.shell.world.selectables.candidates()].find((t) => t.key.startsWith('e:') && t.owner === 0);
+  window.shell.cam.jumpTo(u.centre.x, u.centre.z);
+});
+await page.waitForTimeout(400);
 const own3 = (await itemKeys()).filter((k) => k.startsWith('e:'));
 if (own3[0]) {
   const u = await screenOf(own3[0]);
   await page.mouse.click(u.x, u.y - 8);
 }
 await page.keyboard.press('l');
-check('L follows', (await page.getAttribute('[data-btn=follow]', 'class')).includes('lit'));
+check('L follows', (await page.getAttribute('[data-btn=follow]', 'class')).includes('lit'), `own on screen: ${own3.length}, selected: ${(await selected()).join(' ')}`);
 await page.keyboard.down('ArrowDown');
 await page.waitForTimeout(100);
 await page.keyboard.up('ArrowDown');

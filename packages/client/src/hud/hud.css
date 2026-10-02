@@ -447,6 +447,21 @@ body.playing * {
   color: var(--text);
   text-align: right;
 }
+/* M1 debug tools under the readout. */
+.dbg-tools {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+  max-width: 200px;
+}
+.dbg-tools .hud-btn.dbg-btn {
+  width: auto;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 10px;
+}
 
 /* Tooltip. */
 #tooltip {
