@@ -141,13 +141,12 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | axe | models/items/axe/axe.bbmodel | 6 | 32x64 + 7 variants (bronze, copper, hq_steel, iron_bloom, iron_refined, iron_wrought, steel) | adds an hq_steel (high-quality steel) texture wherever steel is listed |
 | axe_flint | models/items/axe/axe_flint.bbmodel | 6 | 32x64 | extra file in axe/: flint axe (knapped head lashed on) |
 | axe_hardwood | models/items/axe/axe_hardwood.bbmodel | 4 | 32x32 | extra file in axe/: hardwood axe |
-| axe_stone | models/items/axe/axe_stone.bbmodel | 7 | 32x64 | extra file in axe/: stone axe (ground stone head lashed on), the stone tools tier between hardwood and flint; added by the model thread |
 | digging_stick | models/items/digging_stick/digging_stick.bbmodel | 4 | 64x64 |  |
 | mallet | models/items/mallet/mallet.bbmodel | 4 | 32x32 |  |
-| mallet_stone | models/items/mallet/mallet_stone.bbmodel | 6 | 32x32 | extra file in mallet/: stone mallet (stone head bound on), stone tools tier; added by the model thread |
+| hammer_stone | models/items/hammer_stone/hammer_stone.bbmodel | 5 | 32x32 | stone hammer, the building tool of the stone tools (Big House, no research); added by the model thread |
+| maul_stone | models/items/maul_stone/maul_stone.bbmodel | 10 | 32x64 | stone maul, the rock breaker of the stone tools (a grooved cobble lashed to a thick handle; stone cannot make a pickaxe); added by the model thread |
 | pick | models/items/pick/pick.bbmodel | 7 | 32x64 + 7 variants (bronze, copper, hq_steel, iron_bloom, iron_refined, iron_wrought, steel) | adds an hq_steel (high-quality steel) texture wherever steel is listed |
 | pick_flint | models/items/pick/pick_flint.bbmodel | 6 | 32x64 | extra file in pick/: flint pick |
-| pick_stone | models/items/pick/pick_stone.bbmodel | 7 | 32x64 | extra file in pick/: stone pick (ground stone point lashed on), stone tools tier; added by the model thread |
 | knife | models/items/knife/knife.bbmodel | 5 | 32x32 | texture padded from 32x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
 | sickle | models/items/sickle/sickle.bbmodel | 7 | 32x32 + 7 variants (bronze, copper, hq_steel, iron_bloom, iron_refined, iron_wrought, steel) | adds an hq_steel (high-quality steel) texture wherever steel is listed |
 | saw | models/items/saw/saw.bbmodel | 6 | 64x32 + 6 variants (bronze, hq_steel, iron_bloom, iron_refined, iron_wrought, steel) | adds an hq_steel (high-quality steel) texture wherever steel is listed |
@@ -854,7 +853,6 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_axe_copper | ui/icon_axe_copper.png | 1 | 32x32 | K2 item icon axe_copper (rendered from axe.bbmodel + axe_copper.png), tier copper. |
 | icon_axe_flint | ui/icon_axe_flint.png | 1 | 32x32 | K2 item icon axe_flint (rendered from axe_flint.bbmodel), tier None. |
 | icon_axe_hardwood | ui/icon_axe_hardwood.png | 1 | 32x32 | K2 item icon axe_hardwood (rendered from axe_hardwood.bbmodel), tier None. |
-| icon_axe_stone | ui/icon_axe_stone.png | 1 | 32x32 | K2 item icon axe_stone (rendered from axe_stone.bbmodel), tier stone. |
 | icon_axe_hq_steel | ui/icon_axe_hq_steel.png | 1 | 32x32 | K2 item icon axe_hq_steel (rendered from axe.bbmodel + axe_hq_steel.png), tier hq_steel. |
 | icon_axe_iron_bloom | ui/icon_axe_iron_bloom.png | 1 | 32x32 | K2 item icon axe_iron_bloom (rendered from axe.bbmodel + axe_iron_bloom.png), tier iron_bloom. |
 | icon_axe_iron_refined | ui/icon_axe_iron_refined.png | 1 | 32x32 | K2 item icon axe_iron_refined (rendered from axe.bbmodel + axe_iron_refined.png), tier iron_refined. |
@@ -873,7 +871,8 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_hoe_steel | ui/icon_hoe_steel.png | 1 | 32x32 | K2 item icon hoe_steel (rendered from hoe.bbmodel + hoe_steel.png), tier steel. |
 | icon_knife | ui/icon_knife.png | 1 | 32x32 | K2 item icon knife (rendered from knife.bbmodel), tier None. |
 | icon_mallet | ui/icon_mallet.png | 1 | 32x32 | K2 item icon mallet (rendered from mallet.bbmodel), tier None. |
-| icon_mallet_stone | ui/icon_mallet_stone.png | 1 | 32x32 | K2 item icon mallet_stone (rendered from mallet_stone.bbmodel), tier stone. |
+| icon_hammer_stone | ui/icon_hammer_stone.png | 1 | 32x32 | K2 item icon hammer_stone (rendered from hammer_stone.bbmodel), tier stone. |
+| icon_maul_stone | ui/icon_maul_stone.png | 1 | 32x32 | K2 item icon maul_stone (rendered from maul_stone.bbmodel), tier stone. |
 | icon_pick_bronze | ui/icon_pick_bronze.png | 1 | 32x32 | K2 item icon pick_bronze (rendered from pick.bbmodel + pick_bronze.png), tier bronze. |
 | icon_pick_copper | ui/icon_pick_copper.png | 1 | 32x32 | K2 item icon pick_copper (rendered from pick.bbmodel + pick_copper.png), tier copper. |
 | icon_pick_flint | ui/icon_pick_flint.png | 1 | 32x32 | K2 item icon pick_flint (rendered from pick_flint.bbmodel), tier None. |
@@ -882,7 +881,6 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_pick_iron_refined | ui/icon_pick_iron_refined.png | 1 | 32x32 | K2 item icon pick_iron_refined (rendered from pick.bbmodel + pick_iron_refined.png), tier iron_refined. |
 | icon_pick_iron_wrought | ui/icon_pick_iron_wrought.png | 1 | 32x32 | K2 item icon pick_iron_wrought (rendered from pick.bbmodel + pick_iron_wrought.png), tier iron_wrought. |
 | icon_pick_steel | ui/icon_pick_steel.png | 1 | 32x32 | K2 item icon pick_steel (rendered from pick.bbmodel + pick_steel.png), tier steel. |
-| icon_pick_stone | ui/icon_pick_stone.png | 1 | 32x32 | K2 item icon pick_stone (rendered from pick_stone.bbmodel), tier stone. |
 | icon_plough_hq_steel | ui/icon_plough_hq_steel.png | 1 | 32x32 | K2 item icon plough_hq_steel (rendered from plough.bbmodel + plough_hq_steel.png), tier hq_steel. |
 | icon_plough_iron_bloom | ui/icon_plough_iron_bloom.png | 1 | 32x32 | K2 item icon plough_iron_bloom (rendered from plough.bbmodel + plough_iron_bloom.png), tier iron_bloom. |
 | icon_plough_iron_refined | ui/icon_plough_iron_refined.png | 1 | 32x32 | K2 item icon plough_iron_refined (rendered from plough.bbmodel + plough_iron_refined.png), tier iron_refined. |
@@ -912,7 +910,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_tool_set_iron_refined | ui/icon_tool_set_iron_refined.png | 1 | 32x32 | K2 tool set icon, tier iron_refined: axe and pick crossed. |
 | icon_tool_set_iron_wrought | ui/icon_tool_set_iron_wrought.png | 1 | 32x32 | K2 tool set icon, tier iron_wrought: axe and pick crossed. |
 | icon_tool_set_steel | ui/icon_tool_set_steel.png | 1 | 32x32 | K2 tool set icon, tier steel: axe and pick crossed. |
-| icon_tool_set_stone | ui/icon_tool_set_stone.png | 1 | 32x32 | K2 tool set icon, tier stone: axe and pick crossed. |
+| icon_tool_set_stone | ui/icon_tool_set_stone.png | 1 | 32x32 | K2 tool set icon, tier stone: maul and hammer crossed. |
 | icon_arrow_bronze | ui/icon_arrow_bronze.png | 1 | 32x32 | K2 item icon arrow_bronze (rendered from arrow.bbmodel + arrow_bronze.png), tier bronze. |
 | icon_arrow_fire | ui/icon_arrow_fire.png | 1 | 32x32 | K2 item icon arrow_fire (rendered from arrow_fire.bbmodel), tier None. |
 | icon_arrow_flint | ui/icon_arrow_flint.png | 1 | 32x32 | K2 item icon arrow_flint (rendered from arrow.bbmodel + arrow_flint.png), tier flint. |
