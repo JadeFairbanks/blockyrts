@@ -66,6 +66,8 @@ export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE
 
 /** Owner value for the night's monsters: hostile to every player. */
 export const MONSTERS = 254;
+/** The owner of wild animals (Animals): nobody's, fought only when they fight. */
+export const WILD = 253;
 
 /** Walking speed of a worker: 3 m/s, as wu per step (1,200). */
 export const WALK_SPEED_WU = floorDiv(3 * WU_PER_METRE, STEPS_PER_SECOND);
@@ -187,7 +189,7 @@ export const UNIT_FIELDS = [
   ['dotUntil', 'u32'],
   ['dotLeft', 'i32'],
   ['dotFrom', 'u32'],
-  /** Animals: the building a tamed animal belongs to; the step it was born (young for 2 days); its next breeding; 1 for a male. */
+  /** Animals: the building a tamed animal belongs to; the step it grows up (young until then, 0 for grown); its next breeding; 1 for a male. */
   ['home', 'u32'],
   ['born', 'u32'],
   ['breedAt', 'u32'],
@@ -435,6 +437,9 @@ export interface SimState {
   spawns: PendingSpawn[];
   /** Marked digs and earthworks. */
   sites: Site[];
+  /** Cells whose wild animals, and chunks whose fish, have been put in (stocked the first time the players come near). */
+  stockedCells: Set<number>;
+  stockedChunks: Set<number>;
   /** The step the game ended (every player eliminated), or 0. */
   over: number;
   /** 1 for no night mobs (tests and the debug tools). */
@@ -623,6 +628,8 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     projectiles: [],
     spawns: [],
     sites: [],
+    stockedCells: new Set(),
+    stockedChunks: new Set(),
     over: 0,
     peaceful: options.peaceful ? 1 : 0,
   });

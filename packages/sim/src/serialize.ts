@@ -18,7 +18,7 @@ import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 5;
+export const SNAPSHOT_VERSION = 6;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -85,6 +85,14 @@ export function serializeState(state: SimState): Uint8Array {
   for (const p of state.spawns) for (const f of SPAWN_FIELDS) w.i32(p[f]);
   w.u32(state.sites.length);
   for (const p of state.sites) for (const f of SITE_FIELDS) w.i32(p[f]);
+  for (const set of [state.stockedCells, state.stockedChunks]) {
+    const keys = [...set].sort((a, b) => a - b);
+    w.u32(keys.length);
+    for (const k of keys) {
+      w.u32(k % 0x100000000);
+      w.u32(floorDiv(k, 0x100000000));
+    }
+  }
   w.u32(state.over);
   w.u8(state.peaceful);
   writeWorld(w, state.world);
@@ -165,12 +173,23 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const projectiles = readRecords<Projectile>(PROJECTILE_FIELDS);
   const spawns = readRecords<PendingSpawn>(SPAWN_FIELDS);
   const sites = readRecords<Site>(SITE_FIELDS);
+  const readKeys = (): Set<number> => {
+    const out = new Set<number>();
+    const n = r.u32();
+    for (let k = 0; k < n; k++) {
+      const lo = r.u32();
+      out.add(r.u32() * 0x100000000 + lo);
+    }
+    return out;
+  };
+  const stockedCells = readKeys();
+  const stockedChunks = readKeys();
   const over = r.u32();
   const peaceful = r.u8();
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, over, peaceful });
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, stockedCells, stockedChunks, over, peaceful });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */

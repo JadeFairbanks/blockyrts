@@ -116,7 +116,8 @@ describe('Table 5 records', () => {
       const all = row!.map((c) => c.text).join(' | ');
       for (const s of p.check) expect(all).toContain(s);
       if (p.yield === 0) {
-        expect(text('Yield per node')).toContain('no lumber');
+        // Dead trees give no lumber; a carcass or a fish stretch holds what its animal or water gives.
+        expect(text('Yield per node')).toMatch(/no lumber|meat|per 4 m2/);
         return;
       }
       if (!p.check.some((s) => text('Yield per node').includes(s))) expect(parseInt(text('Yield per node'), 10)).toBe(p.yield);

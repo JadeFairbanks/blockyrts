@@ -51,6 +51,13 @@ function run(s: SimState, n: number, orders: Order[] = []): void {
   for (let k = 1; k < n; k++) step(s);
 }
 
+/** Player 0's units in order (wild animals share the list since M4). */
+function ownUnits(s: SimState): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < s.entities.count; i++) if (s.entities.owner[i] === 0) out.push(i);
+  return out;
+}
+
 function runUntil(s: SimState, done: () => boolean, max: number): number {
   for (let k = 0; k < max; k++) {
     if (done()) return k;
@@ -338,11 +345,12 @@ describe('training and production queues', () => {
     expect(b.queue.length).toBe(1);
     run(s, 1, [{ kind: 'rally', player: 0, building: b.id, add: false, point: 'node', x: node.cx, z: node.cz, id: node.index }]);
     expect(food()).toBeLessThan(before[Res.Meat]! * 2 + before[Res.Fish]! * 3 + before[Res.Eggs]! * 2);
-    runUntil(s, () => s.entities.count === 6, 700);
-    expect(s.entities.kind[5]).toBe(UnitKind.Worker);
-    expect(s.entities.tool[5]).toBe(1);
+    runUntil(s, () => ownUnits(s).length === 6, 700);
+    const w = ownUnits(s)[5]!;
+    expect(s.entities.kind[w]).toBe(UnitKind.Worker);
+    expect(s.entities.tool[w]).toBe(1);
     run(s, 1);
-    expect(s.entities.queue[5]![0]!.t).toBe('gather');
+    expect(s.entities.queue[w]![0]!.t).toBe('gather');
   });
 
   it('will not start a worker without free supply', () => {
@@ -350,7 +358,7 @@ describe('training and production queues', () => {
     const b = bigHouse(s);
     run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: Product.Worker, count: 1 }]);
     run(s, 700);
-    expect(s.entities.count).toBe(8);
+    expect(ownUnits(s).length).toBe(8);
     expect(b.queue[0]!.progress).toBe(0);
   });
 

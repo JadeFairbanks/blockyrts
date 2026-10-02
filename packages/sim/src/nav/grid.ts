@@ -65,6 +65,8 @@ export const CLIMBER: Mover = { id: 4, canSwim: false, climbs: true };
 export const PERSON_ARMOURED: Mover = { id: 5, canSwim: false, passGates: true };
 /** A worker with a cart, and the animal pulling one: no clambering, no deep water. */
 export const WHEELS: Mover = { id: 6, canSwim: false, passGates: true, wheels: true };
+/** Wild crocodiles and crabs: walkers that also swim. */
+export const SWIMMER: Mover = { id: 7, canSwim: true };
 
 interface NavChunk {
   version: number;

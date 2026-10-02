@@ -159,6 +159,11 @@ function hasWater(w: number, top: number): boolean {
   return w !== NO_WATER && w > top * WATER_PER_UNIT;
 }
 
+/** Whether a column holds open water. */
+export function hasWaterAt(state: SimState, x: number, z: number): boolean {
+  return hasWater(state.world.waterAt(x, z), state.world.topAt(x, z));
+}
+
 /** Whether any column in the ring just outside a footprint holds water (a waterwheel needs a stream beside the mill). */
 export function waterBeside(state: SimState, b: { kind: number; x: number; z: number; variant?: number }, reach = 2): boolean {
   const [x0, z0, x1, z1] = footprintRect(b);

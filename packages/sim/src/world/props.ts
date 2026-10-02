@@ -42,11 +42,17 @@ export const PropKind = {
   SurfaceGold: 27,
   SurfaceGem: 28,
   ManaCrystal: 29,
+  /** Milestone 4: what is left of a hunted animal (Table 5 carcass row); its variant is the species. */
+  Carcass: 30,
+  /** Fish stretches (Fish; Table 5): a few metres of bank where trout, salmon or giant catfish can be caught. */
+  FishTrout: 31,
+  FishSalmon: 32,
+  FishCatfish: 33,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
 /** How a prop is drawn and selected. */
-export const PropShape = { Tree: 0, Bush: 1, Plant: 2, Rocks: 3, Patch: 4, Crystal: 5 } as const;
+export const PropShape = { Tree: 0, Bush: 1, Plant: 2, Rocks: 3, Patch: 4, Crystal: 5, Carcass: 6, Fish: 7 } as const;
 export type PropShape = (typeof PropShape)[keyof typeof PropShape];
 
 export interface PropInfo {
@@ -83,6 +89,8 @@ const node = (kind: PropKind, name: string, shape: PropShape, resource: string, 
 });
 
 const SOFTWOOD_ROW = 'Softwood tree (pine, spruce, small softwood)';
+const FISH_ROW = 'Fish stretch: trout / salmon / giant catfish';
+const FISH_CHECK = ['1 per 4 m2', 'rod 15 s a fish', 'rod or net', 'a pair every 3 / 6 / 9 days'] as const;
 const SMALL_HW_ROW = 'Small hardwood (birch, hornbeam)';
 const LARGE_HW_ROW = 'Large hardwood (oak, beech)';
 
@@ -118,7 +126,18 @@ export const PROPS: readonly PropInfo[] = [
   node(PropKind.SurfaceGold, 'Surface gold', PropShape.Rocks, 'gold', 1, 1, 20, 1, Tool.Bronze, 'Surface gold / surface gem', ['1 to 3', '20 s / 30 s']),
   node(PropKind.SurfaceGem, 'Surface gem', PropShape.Crystal, 'gem', 1, 1, 30, 1, Tool.Bronze, 'Surface gold / surface gem', ['1 to 3 / 1', '20 s / 30 s']),
   node(PropKind.ManaCrystal, 'Mana crystal', PropShape.Crystal, 'mana crystal', 5, 1, 30, 1, Tool.Bronze, 'Mana crystal node'),
+  // Its yield is the animal's (animals/species.ts); the variant names the species.
+  node(PropKind.Carcass, 'Carcass', PropShape.Carcass, 'meat', 0, 10, 10, 2, Tool.None, 'Carcass', ['boar 3 meat', 'none']),
+  // A stretch's yield is what its water holds; load time is per fish with a rod (a net or a dock is 10 s); the regrowth is its breeding.
+  node(PropKind.FishTrout, 'Trout stretch', PropShape.Fish, 'fish', 0, 10, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 3 * CYCLE_STEPS),
+  node(PropKind.FishSalmon, 'Salmon stretch', PropShape.Fish, 'fish', 0, 10, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 6 * CYCLE_STEPS),
+  node(PropKind.FishCatfish, 'Giant catfish stretch', PropShape.Fish, 'fish', 0, 10, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 9 * CYCLE_STEPS),
 ];
+
+/** Whether a prop is a fish stretch. */
+export function isFish(kind: number): boolean {
+  return kind === PropKind.FishTrout || kind === PropKind.FishSalmon || kind === PropKind.FishCatfish;
+}
 
 export function propInfo(kind: number): PropInfo {
   const p = PROPS[kind];
@@ -143,4 +162,17 @@ export function growth(kind: number, age: number): { stage: Stage; size: number 
   // Seed for the first tenth, then a sapling that grows from a fifth of full size.
   if (age * 10 < t) return { stage: Stage.Seed, size: 60 };
   return { stage: Stage.Sapling, size: 200 + floorDiv(age * 800, t) };
+}
+
+/**
+ * Fish in a stretch at a step (Fish): every pair breeds once each breeding
+ * period until the water holds its most, counted from the last catch. A
+ * stretch fished out never breeds again; a lone fish has no pair.
+ */
+export function fishAt(breedSteps: number, most: number, amount: number, since: number, step: number): number {
+  if (amount <= 0 || since < 0 || breedSteps <= 0) return Math.max(0, amount);
+  let n = amount;
+  const periods = Math.min(64, floorDiv(step - since, breedSteps));
+  for (let k = 0; k < periods && n < most; k++) n = Math.min(most, n + (n >> 1));
+  return n;
 }

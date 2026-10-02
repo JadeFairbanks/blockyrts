@@ -12,7 +12,8 @@ import { constructionHealth, footprintRect, maxHealth, solidRect, type Building 
 import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { PERSON, PERSON_ARMOURED, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
+import { PERSON, PERSON_ARMOURED, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
+import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
@@ -193,7 +194,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
 export function moverOf(state: SimState, i: number): Mover {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Animal) {
-    if (e.owner[i]! >= state.players.length) return WALKER;
+    if (e.owner[i]! >= state.players.length) return e.mob[i] === Species.Crocodile || e.mob[i] === Species.GiantCrab ? SWIMMER : WALKER;
     const w = e.partner[i] ? e.indexOf(e.partner[i]!) : -1;
     return w >= 0 && onWheels(state, w) ? WHEELS : PERSON;
   }

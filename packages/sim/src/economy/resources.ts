@@ -280,6 +280,10 @@ export function resourceByName(name: string): number {
       return Res.Emeralds;
     case 'mana crystal':
       return Res.ManaCrystal;
+    case 'meat':
+      return Res.Meat;
+    case 'fish':
+      return Res.Fish;
     default:
       return -1;
   }
