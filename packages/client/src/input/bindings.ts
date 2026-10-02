@@ -62,6 +62,7 @@ export const ACTIONS: readonly Action[] = [
   { id: 'home', name: 'Everyone Home', key: 'KeyJ', group: 'Camera and selection' },
   { id: 'autoEquip', name: 'Auto-Equip', key: 'F4', group: 'Camera and selection' },
   { id: 'rations', name: 'Rations', key: 'F9', group: 'Camera and selection' },
+  { id: 'peoples', name: 'Peoples panel', key: 'KeyO', group: 'Camera and selection' },
   { id: 'subgroup', name: 'Next subgroup', key: 'Tab', group: 'Camera and selection' },
 ];
 

@@ -6,7 +6,7 @@
 // (src/hud/shell.ts); WorldView (src/world/world-view.ts) implements it.
 import './hud/hud.css';
 import * as THREE from 'three';
-import { DebugThreat, hashHex, LAIRS, Mat, mobSpec, WU_PER_METRE, type Order } from '@blockyrts/sim';
+import { DEBUG_CARAVAN, DEBUG_TRADE_KIT, DebugThreat, FACTION_KIND_NAMES, hashHex, LAIRS, Mat, mobSpec, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import { GameInfo } from './game/game-info.ts';
 import { GameShell } from './hud/shell.ts';
 import { openModelLibrary, type ModelLibrary } from './models/index.ts';
@@ -59,6 +59,7 @@ async function main(): Promise<void> {
     world: world.hooks,
     extras: {
       heightAt: (x, z) => world.groundAt(x, z),
+      seen: (x, z) => world.seenNow(x, z),
       node: (cx, cz, i) => world.node(cx, cz, i),
       setGhost: (g) => world.buildings.setGhost(g, PLAYER, (x, z) => world.groundAt(x, z)),
       setPlanned: () => world.buildings.setPlanned(game.queues, PLAYER, (x, z) => world.groundAt(x, z)),
@@ -271,6 +272,20 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
     threat(DebugThreat.MageXp);
     shell.message('Debug: your mages have the experience for their next rank.');
   });
+  // Milestone 7's neutral peoples, at the middle of the view (sim orders, so they are in the hash).
+  const people = (what: number): void => {
+    const f = shell.cam.focus;
+    order({ kind: 'debugPeoples', player: PLAYER, what, x: Math.round(f.x * WU_PER_METRE), z: Math.round(f.z * WU_PER_METRE) });
+  };
+  let kind = 0;
+  add('dbg-people', `People: ${FACTION_KIND_NAMES[0]}`, 'Debug: neutral people', 'Puts the named people in the middle of the view as if just found there: a Halfling village, a Runkin camp, the Elf kingdom (moved here if nobody has found it yet), a wandering Elf caravan, a Dwarf colony, a Dwarf city or a mercenary camp. Each press moves on to the next.', () => {
+    people(kind);
+    shell.message(`Debug: ${FACTION_KIND_NAMES[kind]} placed in the middle of the view.`);
+    kind = (kind + 1) % FACTION_KIND_NAMES.length;
+    shell.buttons.get('dbg-people')?.setFace(`People: ${FACTION_KIND_NAMES[kind]}`);
+  });
+  add('dbg-caravan', 'Caravan', 'Debug: Elf caravan', 'Meets the Elves and sends their caravan to your main base now (by day; it waits for the morning at night). It stops outside the base, trades, and leaves at dusk.', () => people(DEBUG_CARAVAN));
+  add('dbg-tradekit', 'Trade kit', 'Debug: trade kit', 'Puts 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold in the pool, to trade with and to hire mercenaries.', () => people(DEBUG_TRADE_KIT));
 }
 
 void main();

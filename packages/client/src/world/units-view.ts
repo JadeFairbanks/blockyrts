@@ -7,7 +7,7 @@
 // school and rank's look once it is in the library (else the plain mage
 // body), play the clip of the spell they cast, and hold a beam on a target.
 import * as THREE from 'three';
-import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -38,7 +38,14 @@ const MOB_COLOURS = [
   0x6a7a5a, 0x3a3040, 0x6a5a4a, 0x2a2a2a, 0x7ac040, 0x9ad060, 0xd8d0b8, 0x8a9a6a, 0xc8c0a8, 0x5a3a20, 0x4a7a3a, 0x5a8a4a, 0x3a6a2a, 0x4a4a5a,
   0x8a3a20, 0xc8a8d0, 0x3a2a24, 0x6a9ad8, 0xa8885a, 0x7a8a3a, 0xa04a2a, 0x5a8a3a, 0x4a7a32, 0x6a4a8a,
   0x7a7a68, 0x4a4440, 0xd8d8d0, 0x5a4a3a, 0x6a5030, 0x5a5a50, 0x8a2a1a, 0x3a1a4a, 0x7a6038, 0x3a3030, 0x8a6a3a,
+  // The peoples' buildings: Halfling burrow, mill, inn, barn; Runkin tent, drying rack, wolf den, fire;
+  // Elf hall, tree platform, bear pen, gate, caravan wagon; Dwarf house, forge, mineshaft, hall, city gate.
+  0x7a9a4a, 0xc8b890, 0xa0703a, 0x9a3a2a, 0x9a8060, 0x8a6a40, 0x5a4a38, 0xe08a30,
+  0xd8d0a0, 0x7a9a6a, 0x6a5a3a, 0x8ab070, 0xb89058, 0x8a8a90, 0x6a6a70, 0x4a4a50, 0xa0a0a8, 0x5a5a60,
 ];
+
+/** Each people's colour, for their units until their models are in (Halflings, Runkin, Elves, Dwarves). */
+const PEOPLE_COLOURS = [new THREE.Color(0x8ac850), new THREE.Color(0xb08050), new THREE.Color(0x50c0a8), new THREE.Color(0xa8a8b8)];
 
 /** Colour of an animal's stand-in block, by Species (14 on: the territorial creatures). */
 const ANIMAL_COLOURS = [
@@ -478,12 +485,20 @@ export class UnitsView {
       if (on !== 0 && f.seen(x, z)) {
         for (const [bit, c] of SPELL_ON_COLOURS) if (on & bit && Math.random() < dt * 4) this.particles.spawn(x, y + 0.3 + Math.random() * 1.2, z, c, 1, 0.3, 0.8);
       }
-      const look = kind === UnitKind.Warrior ? warriorLook(d, o) : kind === UnitKind.Mage ? mageLook(d, o, this.lib) : workerLook(d, o);
-      const pool = this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage ? mageBody(d, o, this.lib) : 'worker');
-      if (pool) {
+      // The neutral peoples (and the mercenaries they hire out): their own bodies once the models are in, until then a person's body in their people's colour.
+      const people = owner === PEOPLES || d[o + S.group] !== 0;
+      if (owner === PEOPLES && !f.seen(x, z)) continue;
+      const look = kind === UnitKind.Warrior ? warriorLook(d, o) : kind === UnitKind.Mage ? (people ? workerLook(d, o) : mageLook(d, o, this.lib)) : workerLook(d, o);
+      const own = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
+      const pool = own ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
+      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
+      if (own) {
+        const slot = own.take([]);
+        if (slot) slot.m.setInstance(slot.i, x, y, z, heading, own.model.clips.has(look.clip) ? look.clip : mobClip(own.model, d, o), clipT, tint);
+      } else if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
-          slot.m.setInstance(slot.i, x, y, z, heading, hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip, clipT, colour);
+          slot.m.setInstance(slot.i, x, y, z, heading, hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip, clipT, tint);
           for (const [item, bone] of look.attach) {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
@@ -492,10 +507,11 @@ export class UnitsView {
       } else {
         dummy.position.set(x, y, z);
         dummy.rotation.set(0, heading, 0);
-        dummy.scale.set(0.45, 1.69, 0.45);
+        const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
+        dummy.scale.set(0.45, tall, 0.45);
         dummy.updateMatrix();
         this.blocks.setMatrixAt(blocks, dummy.matrix);
-        this.blocks.setColorAt(blocks, colour ?? f.neutral);
+        this.blocks.setColorAt(blocks, tint ?? f.neutral);
         blocks++;
       }
       const carry = d[o + S.carryRes]!;

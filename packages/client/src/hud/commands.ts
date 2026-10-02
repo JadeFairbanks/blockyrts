@@ -19,6 +19,10 @@ import {
   mageWears,
   MAGE_RANK_TRAINING,
   MONSTERS,
+  FactionKind,
+  Mob,
+  PEOPLES,
+  TRADE_BUILDINGS,
   nextMageTraining,
   Product,
   productSpec,
@@ -50,7 +54,7 @@ import {
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import { GRID_CODES, keyFor, spellAction } from '../input/bindings.ts';
-import type { BuildingInfo } from '../messages.ts';
+import type { BuildingInfo, PeopleInfo } from '../messages.ts';
 import { buildingIdOf, entityIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
 import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
@@ -198,6 +202,10 @@ export interface CommandDeps {
   heightAt(x: number, z: number): number;
   /** Something changed that the card shows. */
   changed(): void;
+  /** The war pop-up for one of the neutral peoples; `then` runs once the player declares war. */
+  confirmWar(faction: number, then: () => void): void;
+  /** The trade menu, or a mercenary camp's hire box. */
+  openPeople(faction: number): void;
 }
 
 /** Spacing of lights placed along a dragged line: 8 m, so their 5 m claims overlap. */
@@ -1028,9 +1036,15 @@ export class Commands {
       case 'rally':
         ok = this.rally(item, ground);
         break;
-      case 'attack':
-        ok = item && this.enemy(item) ? this.attack(item) : ground ? this.attackMove(ground) : false;
+      case 'attack': {
+        // An attack on one of the neutral peoples at peace asks first (Neutral villages and trade: war); workers may break down what they left.
+        const f = item ? this.peopleAtPeace(item) : null;
+        if (f !== null && item) {
+          this.d.confirmWar(f, () => this.attack(item));
+          ok = true;
+        } else ok = item && (this.enemy(item) || this.ruin(item)) ? this.attack(item) : ground ? this.attackMove(ground) : false;
         break;
+      }
       case 'patrol':
         ok = ground ? this.patrol(ground) : false;
         break;
@@ -1078,9 +1092,43 @@ export class Commands {
     return false;
   }
 
-  /** A unit the local player's units fight: monsters (other players are allies in this co-op game). */
+  /** A unit the local player's units fight: monsters, and the neutral peoples at war with the player (other players are allies in this co-op game). */
   private enemy(item: Selectable): boolean {
-    return item.kind === 'unit' && item.owner === MONSTERS;
+    if (item.kind !== 'unit') return false;
+    if (item.owner === MONSTERS) return true;
+    if (item.owner !== PEOPLES) return false;
+    return this.factionOf(item)?.war === true;
+  }
+
+  /** The faction of one of the peoples' units or buildings. */
+  private factionOf(item: Selectable): PeopleInfo | null {
+    const id = entityIdOf(item.key);
+    const u = id === null ? null : this.d.game.unit(id);
+    return u && u.group ? this.d.game.faction(u.group) : null;
+  }
+
+  /** The faction id of one of the peoples' units or buildings while at peace with the player, else null. */
+  private peopleAtPeace(item: Selectable): number | null {
+    if (item.kind !== 'unit' || item.owner !== PEOPLES) return null;
+    const f = this.factionOf(item);
+    return f && !f.war ? f.id : null;
+  }
+
+  /** A building one of the peoples left (workers break it down for its materials). */
+  private ruin(item: Selectable): boolean {
+    return item.kind === 'unit' && item.typeKey.startsWith('ruin:');
+  }
+
+  /** Right click on the peoples at peace: their leader, a trade building or a caravan opens trade; a mercenary camp the hire box. */
+  private talkTo(item: Selectable): boolean {
+    const f = this.factionOf(item);
+    if (!f || f.war || item.owner !== PEOPLES) return false;
+    const id = entityIdOf(item.key);
+    const mob = Number(item.typeKey.split(':')[1]);
+    const trader = item.typeKey.startsWith('peoples:') ? TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon : id === f.leader;
+    if (!trader && f.kind !== FactionKind.ElfCaravan && f.kind !== FactionKind.MercCamp) return false;
+    this.d.openPeople(f.id);
+    return true;
   }
 
   /** A wild animal on screen. */
@@ -1262,6 +1310,8 @@ export class Commands {
       }
     }
     if (item && this.enemy(item) && this.attack(item)) return;
+    if (item && this.talkTo(item)) return;
+    if (item && this.ruin(item) && workers.length > 0 && this.attack(item)) return;
     if (item && this.animalOrder(item, units, workers)) return;
     if (item?.kind === 'unit' && item.owner === player && this.follow(item)) return;
     if (!item && ground && workers.length > 0 && this.helpSite(workers, ground)) return;

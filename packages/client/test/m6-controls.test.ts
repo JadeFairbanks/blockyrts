@@ -60,6 +60,7 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
       [7, [[Spell.ArcaneBolt, '', 0], [Spell.Beam, '', 0], [Spell.Fireball, '', 0], [Spell.AreaBlast, 'Learned at rank 4.', 0], [Spell.Counterspell, 'Needs Hexcraft researched at a Magi Sanctum.', 0]]],
     ],
     mageRanks: o.mageRanks ?? [[5, ''], [6, ''], [7, 'Training to Mage needs 300 experience from combat.']],
+    peoples: [],
   };
   g.onInfo(info);
   return g;
@@ -71,7 +72,7 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
   const deps: CommandDeps = {
     player: ME, game: g, settings: { ...DEFAULT_SETTINGS, keys: {} }, selection: () => selection, activeType: () => active,
     send: (o) => sent.push(o), queued: () => false, held: () => false, message: (t) => messages.push(t), marker: () => undefined,
-    askPlacement: () => undefined, node: () => undefined, heightAt: () => 0, changed: () => undefined,
+    askPlacement: () => undefined, node: () => undefined, heightAt: () => 0, changed: () => undefined, confirmWar: () => undefined, openPeople: () => undefined,
   };
   return { c: new Commands(deps), sent, messages };
 }
