@@ -411,6 +411,28 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | carcass_deer | models/world-props/carcass/carcass_deer.bbmodel | 30 | 128x128 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from deer.png to carcass_deer.png so the PNG matches the file |
 | carcass_hare | models/world-props/carcass/carcass_hare.bbmodel | 20 | 64x64 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from hare.png to carcass_hare.png so the PNG matches the file |
 | carcass_wolf | models/world-props/carcass/carcass_wolf.bbmodel | 25 | 64x128 | in the shared carcass/ folder: one carcass per huntable animal, baked from its death pose; embedded texture renamed from wolf.png to carcass_wolf.png so the PNG matches the file |
+| woodpile | models/world-props/woodpile/woodpile.bbmodel | 8 | 64x64 |  |
+| log_stack | models/world-props/log_stack/log_stack.bbmodel | 11 | 128x128 |  |
+| barrel | models/world-props/barrel/barrel.bbmodel | 9 | 64x64 |  |
+| crate | models/world-props/crate/crate.bbmodel | 7 | 32x64 |  |
+| sack_pile | models/world-props/sack_pile/sack_pile.bbmodel | 15 | 64x64 |  |
+| hay_bale | models/world-props/hay_bale/hay_bale.bbmodel | 6 | 64x64 |  |
+| cart_broken | models/world-props/cart_broken/cart_broken.bbmodel | 13 | 64x64 |  |
+| rail_fence | models/world-props/rail_fence/rail_fence.bbmodel | 5 | 16x64 |  |
+| stick_fence | models/world-props/stick_fence/stick_fence.bbmodel | 7 | 16x32 |  |
+| lean_to | models/world-props/lean_to/lean_to.bbmodel | 6 | 64x128 |  |
+| chopping_block | models/world-props/chopping_block/chopping_block.bbmodel | 8 | 32x64 |  |
+| well | models/world-props/well/well.bbmodel | 14 | 64x64 |  |
+| washing_line | models/world-props/washing_line/washing_line.bbmodel | 15 | 128x64 |  |
+| scarecrow | models/world-props/scarecrow/scarecrow.bbmodel | 13 | 64x64 |  |
+| signpost | models/world-props/signpost/signpost.bbmodel | 10 | 32x128 |  |
+| banner_pole | models/world-props/banner_pole/banner_pole.bbmodel | 8 | 32x128 |  |
+| weapon_rack | models/world-props/weapon_rack/weapon_rack.bbmodel | 14 | 64x64 |  |
+| straw_target | models/world-props/straw_target/straw_target.bbmodel | 11 | 64x128 |  |
+| anvil | models/world-props/anvil/anvil.bbmodel | 9 | 32x64 |  |
+| water_trough | models/world-props/water_trough/water_trough.bbmodel | 6 | 64x64 |  |
+| grave_marker | models/world-props/grave_marker/grave_marker.bbmodel | 10 | 64x64 |  |
+| bone_pile | models/world-props/bone_pile/bone_pile.bbmodel | 29 | 32x64 |  |
 
 ## textures
 
