@@ -2,7 +2,7 @@
 // and mouse zones, each registered as a solid rectangle. The shell fills in
 // the buttons and the live text.
 import type { HudPanels } from './panels.ts';
-import { ADDITIONAL_RESOURCES, BAR_RESOURCES, MAIN_RESOURCES } from './resources.ts';
+import { ADDITIONAL_RESOURCES, BAR_RESOURCES, FOOD, GOODS, MAIN_RESOURCES, SUPPLY } from './resources.ts';
 
 export interface HudLayout {
   root: HTMLElement;
@@ -17,6 +17,7 @@ export interface HudLayout {
   selectionTitle: HTMLElement;
   selectionCorner: HTMLElement;
   selectionBody: HTMLElement;
+  groupTabs: HTMLElement;
   commandCard: HTMLElement;
   commandSlots: HTMLElement[];
   topRight: HTMLElement;
@@ -27,6 +28,7 @@ export interface HudLayout {
   clock: HTMLElement;
   clockDay: HTMLElement;
   clockTime: HTMLElement;
+  clockNote: HTMLElement;
   debug: HTMLElement;
   debugFields: Record<'seed' | 'players' | 'step' | 'rate' | 'hash' | 'hashStep', HTMLElement>;
 }
@@ -66,6 +68,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
 
   // Selection panel (bottom centre).
   const selectionPanel = div('panel selection-panel', root);
+  const groupTabs = div('group-tabs', selectionPanel);
   const selHead = div('sel-head', selectionPanel);
   const selectionTitle = div('sel-title', selHead, 'Nothing selected');
   const selectionCorner = div('sel-corner', selHead);
@@ -95,6 +98,15 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     div('res-name', cell, r.short);
     valueEl(r.name, cell);
   }
+  for (const [name, tip] of [
+    [FOOD, 'Food: every kind of food in the pool. Workers cost 20 to train.'],
+    [SUPPLY, 'Supply: units you have, and how many your farms and main base support.'],
+  ] as const) {
+    const cell = div(`res ${name === SUPPLY ? 'supply' : 'food'}`, resourceBar);
+    cell.title = tip;
+    div('res-name', cell, name);
+    valueEl(name, cell);
+  }
 
   // The expanded resource list: its own panel, under the bar.
   const resourceAll = div('panel resource-all', root);
@@ -111,11 +123,13 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   };
   section('Resources', MAIN_RESOURCES);
   section('Additional resources', ADDITIONAL_RESOURCES);
+  section('Goods', GOODS);
 
   // Clock (top centre).
   const clock = div('panel clock', root);
   const clockDay = div('clock-day', clock, 'Day 1');
   const clockTime = div('clock-time', clock, '0:00');
+  const clockNote = div('clock-note', clock, '');
 
   // Debug readout (top left, small): the hash is what testers compare.
   const debug = div('panel debug', root);
@@ -154,6 +168,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     selectionTitle,
     selectionCorner,
     selectionBody,
+    groupTabs,
     commandCard,
     commandSlots,
     topRight,
@@ -164,6 +179,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     clock,
     clockDay,
     clockTime,
+    clockNote,
     debug,
     debugFields,
   };

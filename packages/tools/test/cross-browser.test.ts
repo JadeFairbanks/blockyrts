@@ -2,7 +2,8 @@
 // hashes in Node and in every browser engine available. The M0 script moves
 // units; the M1 script also generates the land they walk on, digs, builds,
 // lets water flow, fells trees and reveals land, so the hashes cover the
-// world's state too.
+// world's state too, and the M2 script covers workers, buildings, farms,
+// lights and the day.
 //
 // Browsers come from Playwright. Locally a missing browser is skipped with a
 // warning; CI sets SIM_REQUIRE_BROWSERS=chromium,firefox,webkit so a missing
@@ -22,7 +23,7 @@ const engines: Array<[string, BrowserType]> = [
   ['firefox', firefox],
   ['webkit', webkit],
 ];
-const scripts = ['m0-demo', 'm1-world'].map((name) => {
+const scripts = ['m0-demo', 'm1-world', 'm2-camp'].map((name) => {
   const script = loadOrderScript(fileURLToPath(new URL(`../orders/${name}.json`, import.meta.url)));
   const players = script.players ?? 1;
   return { name, players, frames: script.frames, node: run(createWorld(SEED, { players }), STEPS, script.frames) };

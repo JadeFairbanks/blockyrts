@@ -5,9 +5,14 @@
 // picking, selectable things, the minimap and the camera limits.
 import * as THREE from 'three';
 import {
+  clockAt,
   COLUMNS_PER_CHUNK,
   NEUTRAL,
+  NO_CARRY,
   OrderKind,
+  Period,
+  RESOURCES,
+  unitOrderText,
   propInfo,
   PropShape,
   SIGHT_WU,
@@ -18,13 +23,17 @@ import {
   type ChunkDelta,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
+import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
-import { STATE_STRIDE } from '../messages.ts';
+import { S, STATE_STRIDE } from '../messages.ts';
 import { InstancedModel, loadModelLibrary, type ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
+import { BuildingsView } from './buildings-view.ts';
+import { Overlay } from './overlay.ts';
+import { patchMaterial, type FowUniforms } from './fog-material.ts';
 
 const STEP_MS = 50;
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
@@ -44,70 +53,25 @@ const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
 const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer'];
+const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
+const TOOL_NAMES = ['no', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
+/** Animation clip by OrderKind. */
+const CLIPS = ['idle', 'walk', 'chop', 'chop', 'hoe', 'walk', 'walk'];
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer'];
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
+const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
-// ---------------------------------------------------------------------------
-// Shaders: the pixel texture and the fog of war, patched into Lambert.
-// ---------------------------------------------------------------------------
-
-interface FowUniforms {
-  fowTex: { value: THREE.DataTexture };
-  fowArea: { value: THREE.Vector3 };
-  fowAll: { value: number };
-}
-
-function patchMaterial(mat: THREE.Material, fow: FowUniforms, pixelNoise: boolean): void {
-  mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, fow);
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vFowWorld;\nvarying vec3 vFowN;')
-      .replace(
-        '#include <project_vertex>',
-        `#include <project_vertex>
-#ifdef USE_INSTANCING
-  vFowWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
-#else
-  vFowWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
-#endif
-  vFowN = objectNormal;`,
-      );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-uniform sampler2D fowTex;
-uniform vec3 fowArea;
-uniform float fowAll;
-varying vec3 vFowWorld;
-varying vec3 vFowN;`,
-      )
-      .replace(
-        '#include <color_fragment>',
-        pixelNoise
-          ? `#include <color_fragment>
-  {
-    vec3 cell = floor((vFowWorld - vFowN * 0.02) / 0.1125);
-    float n = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-    diffuseColor.rgb *= 0.9 + 0.18 * n;
-  }`
-          : '#include <color_fragment>',
-      )
-      .replace(
-        '#include <dithering_fragment>',
-        `{
-    vec2 fuv = (vFowWorld.xz - fowArea.xy) / fowArea.z;
-    float f = (fuv.x < 0.0 || fuv.y < 0.0 || fuv.x > 1.0 || fuv.y > 1.0) ? 0.0 : texture2D(fowTex, fuv).r;
-    f = max(f, fowAll);
-    float explored = smoothstep(0.08, 0.4, f);
-    float seen = smoothstep(0.6, 0.9, f);
-    vec3 grey = vec3(dot(gl_FragColor.rgb, vec3(0.3, 0.59, 0.11))) * 0.55;
-    gl_FragColor.rgb = mix(vec3(0.0), mix(grey, gl_FragColor.rgb, seen), explored);
+/** Colour of a carried load by resource. */
+const LOAD_COLOURS = new Map<number, THREE.Color>();
+function loadColour(res: number): THREE.Color {
+  let c = LOAD_COLOURS.get(res);
+  if (!c) {
+    const name = RESOURCES[res]?.name.toLowerCase() ?? '';
+    c = new THREE.Color(name.includes('softwood') ? 0xb07a48 : name.includes('hardwood') ? 0x7a4e2a : name.includes('stone') ? 0x9a9a94 : name.includes('flint') ? 0x5a5a66 : name.includes('herb') ? 0x4a9a4a : name.includes('stick') ? 0x8a6a3a : 0xc8b070);
+    LOAD_COLOURS.set(res, c);
   }
-#include <dithering_fragment>`,
-      );
-  };
+  return c;
 }
 
 function geometryOf(a: MeshArrays): THREE.BufferGeometry {
@@ -194,6 +158,15 @@ export class WorldView {
   private readonly unitModels: InstancedModel[] = [];
   private readonly fallback: THREE.InstancedMesh;
   private readonly fallbackDummy = new THREE.Object3D();
+  /** Loads carried on the back: a small block in the resource's colour. */
+  private readonly loads: THREE.InstancedMesh;
+  private readonly hemi: THREE.HemisphereLight;
+  private readonly sun: THREE.DirectionalLight;
+  readonly buildings: BuildingsView;
+  readonly overlay: Overlay;
+  private game: GameInfo | null = null;
+  /** Unit keys inside buildings this step (not drawn, not selectable). */
+  private readonly insideKeys = new Set<string>();
 
   constructor(opts: WorldViewOptions) {
     this.scene = opts.scene;
@@ -203,10 +176,12 @@ export class WorldView {
 
     const scene = this.scene;
     scene.background = new THREE.Color(0x07080a);
-    scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a4a3a, 1.15));
+    this.hemi = new THREE.HemisphereLight(0xdfefff, 0x4a4a3a, 1.15);
+    scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff2dc, 1.7);
     sun.position.set(40, 80, 25);
     scene.add(sun);
+    this.sun = sun;
 
     const tex = new THREE.DataTexture(this.fowData, FOW_TILES, FOW_TILES, THREE.RedFormat, THREE.UnsignedByteType);
     tex.magFilter = THREE.LinearFilter;
@@ -233,6 +208,12 @@ export class WorldView {
     this.fallback.count = 0;
     this.fallback.frustumCulled = false;
     scene.add(this.fallback);
+    this.loads = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.3, 0.2), new THREE.MeshLambertMaterial(), MAX_UNITS);
+    this.loads.count = 0;
+    this.loads.frustumCulled = false;
+    scene.add(this.loads);
+    this.buildings = new BuildingsView(scene, this.fow, PLAYER_COLOURS);
+    this.overlay = new Overlay(scene);
     void this.loadModels();
 
     const ground: GroundPicker = (ray) => this.pick(ray);
@@ -261,6 +242,7 @@ export class WorldView {
         this.scene.add(m.object);
       }
       this.fallback.visible = false;
+      this.buildings.setModels(lib);
     } catch (err) {
       console.warn('unit models not loaded; drawing blocks', err);
     }
@@ -275,11 +257,12 @@ export class WorldView {
     this.simStep = msg.step;
     const d = msg.data;
     this.units.length = msg.count;
+    this.insideKeys.clear();
     for (let i = 0; i < msg.count; i++) {
       const o = i * STATE_STRIDE;
-      const id = d[o]!;
-      const owner = d[o + 1]!;
-      const kind = d[o + 2]!;
+      const id = d[o + S.id]!;
+      const owner = d[o + S.owner]!;
+      const kind = d[o + S.kind]!;
       const key = `e:${id}`;
       let u = this.units[i];
       if (!u || u.key !== key) {
@@ -291,11 +274,29 @@ export class WorldView {
           centre: new THREE.Vector3(),
           halfSize: new THREE.Vector3(0.3, 0.85, 0.3),
           label: UNIT_NAMES[kind] ?? 'Unit',
-          details: kind === UnitKind.Warrior ? ['Placeholder warrior until combat (M3).'] : kind === UnitKind.Worker ? ['Gathering and building arrive in M2.'] : [],
+          details: [],
         };
         this.units[i] = u;
       }
+      if (d[o + S.inside] !== 0) this.insideKeys.add(key);
+      if (kind === UnitKind.Worker) {
+        const rank = d[o + S.rank]!;
+        u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
+        const details = [`Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`, `${capital(TOOL_NAMES[d[o + S.tool]!] ?? '')} tools.`];
+        const carry = d[o + S.carryRes]!;
+        if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
+      } else if (kind === UnitKind.Warrior) u.details = ['Placeholder warrior until combat (M3).'];
     }
+  }
+
+  /** The screen's copy of the game (buildings, order lists) for the buildings and the unit panels. */
+  setGame(game: GameInfo): void {
+    this.game = game;
   }
 
   onDeltas(msg: DeltasMessage): void {
@@ -351,6 +352,8 @@ export class WorldView {
 
   update(now: number, focus: THREE.Vector3): void {
     this.updateUnits(now);
+    this.updateSky();
+    if (this.game) this.buildings.update(this.game, now, focus);
     const fcx = Math.floor(focus.x / CHUNK_M);
     const fcz = Math.floor(focus.z / CHUNK_M);
     if (fcx !== this.focusChunk.cx || fcz !== this.focusChunk.cz) {
@@ -510,6 +513,7 @@ export class WorldView {
       halfSize: new THREE.Vector3(p.hx, p.hy, p.hz),
       label: holds ? `${info.name} (${holds})` : info.name,
       details,
+      resource: info.resource && p.stage === 2 && p.amount > 0 ? info.resource : '',
     };
   }
 
@@ -554,10 +558,10 @@ export class WorldView {
       const tileWu = WU_PER_COLUMN * 4;
       for (let i = 0; i < s.count; i++) {
         const o = i * STATE_STRIDE;
-        if (s.data[o + 1] !== this.player) continue;
-        const sight = SIGHT_WU[s.data[o + 2]! as 0 | 1 | 2] ?? SIGHT_WU[0];
-        const ux = s.data[o + 3]! / tileWu - ox;
-        const uz = s.data[o + 5]! / tileWu - oz;
+        if (s.data[o + S.owner] !== this.player) continue;
+        const sight = SIGHT_WU[s.data[o + S.kind]! as 0 | 1 | 2] ?? SIGHT_WU[0];
+        const ux = s.data[o + S.x]! / tileWu - ox;
+        const uz = s.data[o + S.z]! / tileWu - oz;
         const r = sight / tileWu;
         for (let tz = Math.max(0, Math.floor(uz - r)); tz <= Math.min(FOW_TILES - 1, Math.ceil(uz + r)); tz++) {
           for (let tx = Math.max(0, Math.floor(ux - r)); tx <= Math.min(FOW_TILES - 1, Math.ceil(ux + r)); tx++) {
@@ -581,30 +585,44 @@ export class WorldView {
     const alpha = prev ? Math.min(1, (now - this.currAt) / STEP_MS) : 1;
     const counts = [0, 0];
     const t = now / 1000;
+    let drawn = 0;
+    let loads = 0;
+    const dummy = this.fallbackDummy;
     for (let i = 0; i < curr.count; i++) {
       const o = i * STATE_STRIDE;
       const d = curr.data;
-      const p = prev && alpha < 1 ? prev.data : d;
-      const x = (p[o + 3]! + (d[o + 3]! - p[o + 3]!) * alpha) / WU_PER_METRE;
-      const y = (p[o + 4]! + (d[o + 4]! - p[o + 4]!) * alpha) / WU_PER_METRE;
-      const z = (p[o + 5]! + (d[o + 5]! - p[o + 5]!) * alpha) / WU_PER_METRE;
-      const heading = (d[o + 6]! / 65536) * Math.PI * 2;
-      const owner = d[o + 1]!;
-      const kind = d[o + 2]!;
-      const moving = d[o + 7] !== OrderKind.Idle;
+      if (d[o + S.inside] !== 0) continue;
+      const p = prev && alpha < 1 && prev.data[o + S.id] === d[o + S.id] ? prev.data : d;
+      const x = (p[o + S.x]! + (d[o + S.x]! - p[o + S.x]!) * alpha) / WU_PER_METRE;
+      const y = (p[o + S.y]! + (d[o + S.y]! - p[o + S.y]!) * alpha) / WU_PER_METRE;
+      const z = (p[o + S.z]! + (d[o + S.z]! - p[o + S.z]!) * alpha) / WU_PER_METRE;
+      const heading = (d[o + S.heading]! / 65536) * Math.PI * 2;
+      const owner = d[o + S.owner]!;
+      const kind = d[o + S.kind]!;
+      const order = d[o + S.order]!;
       const colour = owner === NEUTRAL ? NEUTRAL_COLOUR : (PLAYER_COLOURS[owner] ?? NEUTRAL_COLOUR);
       this.units[i]?.centre.set(x, y + 0.85, z);
       if (this.unitModels.length > 0) {
         const m = kind === UnitKind.Warrior ? 1 : 0;
         const model = this.unitModels[m]!;
-        model.setInstance(counts[m]!++, x, y, z, heading, moving ? 'walk' : 'idle', t + (d[o]! % 7) * 0.37, colour);
+        model.setInstance(counts[m]!++, x, y, z, heading, CLIPS[order] ?? (order !== OrderKind.Idle ? 'walk' : 'idle'), t + (d[o + S.id]! % 7) * 0.37, colour);
       } else {
-        const dummy = this.fallbackDummy;
         dummy.position.set(x, y, z);
-        dummy.rotation.y = heading;
+        dummy.rotation.set(0, heading, 0);
         dummy.updateMatrix();
-        this.fallback.setMatrixAt(i, dummy.matrix);
-        this.fallback.setColorAt(i, colour);
+        this.fallback.setMatrixAt(drawn, dummy.matrix);
+        this.fallback.setColorAt(drawn, colour);
+      }
+      drawn++;
+      const carry = d[o + S.carryRes]!;
+      if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) {
+        // On the back: behind the unit (the model faces -Z at heading 0).
+        dummy.position.set(x + Math.sin(heading) * 0.22, y + 1.05, z + Math.cos(heading) * 0.22);
+        dummy.rotation.set(0, heading, 0);
+        dummy.updateMatrix();
+        this.loads.setMatrixAt(loads, dummy.matrix);
+        this.loads.setColorAt(loads, loadColour(carry));
+        loads++;
       }
     }
     if (this.unitModels.length > 0) {
@@ -613,10 +631,49 @@ export class WorldView {
         m.commit();
       });
     } else {
-      this.fallback.count = curr.count;
+      this.fallback.count = drawn;
       this.fallback.instanceMatrix.needsUpdate = true;
       if (this.fallback.instanceColor) this.fallback.instanceColor.needsUpdate = true;
     }
+    this.loads.count = loads;
+    this.loads.instanceMatrix.needsUpdate = true;
+    if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
+  }
+
+  // ---- Day and night ----
+
+  private readonly dayHemi = new THREE.Color(0xdfefff);
+  private readonly nightHemi = new THREE.Color(0x5a6a9a);
+  private readonly duskHemi = new THREE.Color(0xffb880);
+  private readonly daySun = new THREE.Color(0xfff2dc);
+  private readonly nightSun = new THREE.Color(0x8aa0d8);
+  private readonly duskSun = new THREE.Color(0xff9a5a);
+
+  /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
+  darkness(): number {
+    const c = clockAt(this.simStep);
+    const f = c.into / (c.into + c.left);
+    switch (c.period) {
+      case Period.Day:
+        return 0;
+      case Period.Dusk:
+        return f;
+      case Period.Night:
+        return 1;
+      case Period.Dawn:
+        return 1 - f;
+    }
+  }
+
+  /** The light of the period: warm at dusk and dawn, dim and blue at night (still bright enough to play). */
+  private updateSky(): void {
+    const k = this.darkness();
+    const warm = Math.max(0, 1 - Math.abs(k - 0.5) * 2) * 0.8;
+    this.hemi.intensity = 1.15 - 0.72 * k;
+    this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
+    this.sun.intensity = 1.7 - 1.35 * k;
+    this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
+    this.buildings.darkness = k;
   }
 
   // ---- Hooks ----
@@ -662,7 +719,8 @@ export class WorldView {
   }
 
   private *candidates(): Iterable<Selectable> {
-    yield* this.units;
+    for (const u of this.units) if (!this.insideKeys.has(u.key)) yield u;
+    yield* this.buildings.selectables();
     for (const c of this.chunks.values()) if (c.lod === 1) yield* c.props;
   }
 
@@ -717,6 +775,17 @@ export class WorldView {
       if (!t.rgba) continue;
       ctx.drawImage(t.canvas, t.cx * CHUNK_M, t.cz * CHUNK_M, CHUNK_M, CHUNK_M);
     }
+  }
+
+  /** Ground height in metres, 0 where nothing is drawn. */
+  groundAt(x: number, z: number): number {
+    return this.heightAt(x, z) ?? 0;
+  }
+
+  /** A resource node's selectable by chunk and index, if its chunk is drawn at full detail. */
+  node(cx: number, cz: number, index: number): Selectable | undefined {
+    const c = this.chunks.get(ck(cx, cz));
+    return c?.props.find((p) => p.key === `p:${cx},${cz}:${index}`);
   }
 
   /** The props selected right now that a debug fell can take from: chunk and index. */

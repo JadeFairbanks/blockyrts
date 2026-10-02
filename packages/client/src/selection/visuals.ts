@@ -42,8 +42,9 @@ export class SelectionVisuals {
     return t.owner === player ? OWN : t.owner === 255 ? NOBODY_COL : OTHER;
   }
 
-  orderMarker(at: THREE.Vector3, kind: 'move' = 'move'): void {
-    this.markers.push({ x: at.x, y: at.y, z: at.z, colour: kind === 'move' ? OWN : OTHER, born: performance.now() });
+  /** A short ring at an accepted order's target: green for a move, yellow for a target (a node, a building, a unit). */
+  orderMarker(at: THREE.Vector3, kind: 'move' | 'target' = 'move'): void {
+    this.markers.push({ x: at.x, y: at.y, z: at.z, colour: kind === 'move' ? OWN : NOBODY_COL, born: performance.now() });
   }
 
   update(selected: readonly Selectable[], highlighted: readonly Selectable[], player: number, now: number): void {

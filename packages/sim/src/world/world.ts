@@ -93,6 +93,12 @@ export class World {
   readonly dirty = new Set<number>();
   /** Not state: chunks whose explored tiles changed, per player. */
   readonly fogDirty: Array<Set<number>>;
+  /** Not state: a counter per chunk, bumped whenever its land, water or buildings change, so walk maps know to rebuild. */
+  readonly navVersions = new Map<number, number>();
+  /** Whether a building stands on a column (set by the simulation); seeds never land there. */
+  builtOn: ((x: number, z: number) => boolean) | null = null;
+  /** Not state: bumped with every walk-map version, so a cache can tell nothing changed at all with one compare. */
+  navEpoch = 0;
 
   constructor(seed: number, players: number) {
     this.seed = seed >>> 0;
@@ -289,9 +295,27 @@ export class World {
     }
     for (const [dx, dz] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const) this.waterActive.add(colKey(x + dx, z + dz));
     this.dirty.add(key);
+    this.touchNav(key);
     // Scenery and props on a dug or built column go.
     this.removePropsOn(l.cx, l.cz, l.i);
     return true;
+  }
+
+  /** Clears every prop on the columns of a rectangle (inclusive, global columns): a building goes up there. */
+  clearProps(x0: number, z0: number, x1: number, z1: number): void {
+    for (let cz = z0 >> CHUNK_SHIFT; cz <= z1 >> CHUNK_SHIFT; cz++) {
+      for (let cx = x0 >> CHUNK_SHIFT; cx <= x1 >> CHUNK_SHIFT; cx++) {
+        const list = this.propRecords(cx, cz);
+        const changes = this.propChanges.get(chunkKey(cx, cz));
+        for (let k = 0; k < list.length; k++) {
+          const p = list[k]!;
+          const gx = cx * N + p.lx;
+          const gz = cz * N + p.lz;
+          if (gx < x0 || gx > x1 || gz < z0 || gz > z1 || changes?.get(k)?.removed) continue;
+          this.changeProp(cx, cz, k, { amount: 0, cutAt: -1, removed: true });
+        }
+      }
+    }
   }
 
   private removePropsOn(cx: number, cz: number, i: number): void {
@@ -314,6 +338,18 @@ export class World {
     const key = chunkKey(l.cx, l.cz);
     this.waterMoved.add(key);
     this.dirty.add(key);
+    this.touchNav(key);
+  }
+
+  /** Marks a chunk's walk map out of date (land, water or a building changed). */
+  touchNav(key: number): void {
+    this.navVersions.set(key, (this.navVersions.get(key) ?? 0) + 1);
+    this.navEpoch++;
+  }
+
+  /** The walk-map version of a chunk. */
+  navVersion(key: number): number {
+    return this.navVersions.get(key) ?? 0;
   }
 
   private isSource(x: number, z: number): { source: boolean; level: number } {
@@ -388,28 +424,37 @@ export class World {
     const changes = this.propChanges.get(chunkKey(cx, cz));
     const out: PropView[] = [];
     for (let i = 0; i < records.length; i++) {
-      const r = records[i]!;
-      const ch = changes?.get(i);
-      if (ch?.removed) continue;
-      const info = propInfo(r.kind);
-      // Added props store the step they were dropped as a negative age.
-      const age = r.age + step;
-      let amount = ch ? ch.amount : r.amount;
-      let size = 1000;
-      let stage = 2;
-      if (isTree(r.kind)) {
-        const gr = growth(r.kind, age);
-        stage = gr.stage;
-        size = gr.size;
-        if (gr.stage !== 2) amount = 0;
-      } else if (ch && ch.cutAt >= 0) {
-        // Bushes and plants grow back from the stump.
-        if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
-        else size = 0;
-      }
-      out.push({ index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size });
+      const v = this.viewOf(records[i]!, changes?.get(i), i, step);
+      if (v) out.push(v);
     }
     return out;
+  }
+
+  /** One prop as it stands at a step, or undefined if it is gone. */
+  prop(cx: number, cz: number, index: number, step: number): PropView | undefined {
+    const r = this.propRecords(cx, cz)[index];
+    return r ? this.viewOf(r, this.propChanges.get(chunkKey(cx, cz))?.get(index), index, step) : undefined;
+  }
+
+  private viewOf(r: PropRecord, ch: PropChange | undefined, i: number, step: number): PropView | undefined {
+    if (ch?.removed) return undefined;
+    const info = propInfo(r.kind);
+    // Added props store the step they were dropped as a negative age.
+    const age = r.age + step;
+    let amount = ch ? ch.amount : r.amount;
+    let size = 1000;
+    let stage = 2;
+    if (isTree(r.kind)) {
+      const gr = growth(r.kind, age);
+      stage = gr.stage;
+      size = gr.size;
+      if (gr.stage !== 2) amount = 0;
+    } else if (ch && ch.cutAt >= 0) {
+      // Bushes and plants grow back from the stump.
+      if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
+      else size = 0;
+    }
+    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size };
   }
 
   /**
@@ -422,7 +467,7 @@ export class World {
     const records = this.propRecords(cx, cz);
     const r = records[index];
     if (!r) return 0;
-    const view = this.props(cx, cz, step).find((v) => v.index === index);
+    const view = this.prop(cx, cz, index, step);
     if (!view || view.amount <= 0) return 0;
     const taken = Math.min(amount, view.amount);
     const left = view.amount - taken;
@@ -457,7 +502,7 @@ export class World {
       const lz = gz - tcz * N;
       const c = this.columns(tcx, tcz);
       const i = lz * N + lx;
-      if (c.water[i] !== NO_WATER) continue;
+      if (c.water[i] !== NO_WATER || this.builtOn?.(gx, gz)) continue;
       const key = chunkKey(tcx, tcz);
       const list = this.addedProps.get(key) ?? [];
       list.push({ kind: tree.kind, lx, lz, y: c.top(i), variant: hash2(h, gx, gz), age: -step, amount: PROPS[tree.kind]!.yield });

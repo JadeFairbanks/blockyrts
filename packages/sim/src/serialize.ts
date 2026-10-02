@@ -4,14 +4,32 @@
 
 import { ByteReader, ByteWriter, fnv1a32 } from './bytes.ts';
 import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
-import { EntityStore, type SimState } from './state.ts';
+import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
+import { RESOURCE_COUNT } from './economy/resources.ts';
+import { attachNav, EntityStore, UNIT_FIELDS, type PlayerState, type SimState } from './state.ts';
+import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
+import { floorDiv } from './fixed.ts';
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 2;
+export const SNAPSHOT_VERSION = 3;
+
+function writeField(w: ByteWriter, t: string, v: number): void {
+  if (t === 'u32') w.u32(v);
+  else if (t === 'i32') w.i32(v);
+  else if (t === 'u16') w.u16(v);
+  else w.u8(v);
+}
+
+function readField(r: ByteReader, t: string): number {
+  if (t === 'u32') return r.u32();
+  if (t === 'i32') return r.i32();
+  if (t === 'u16') return r.u16();
+  return r.u8();
+}
 
 export function serializeState(state: SimState): Uint8Array {
-  const w = new ByteWriter(256 + state.entities.count * 48);
+  const w = new ByteWriter(1024 + state.entities.count * 96);
   w.u32(MAGIC);
   w.u16(SNAPSHOT_VERSION);
   w.u32(state.seed);
@@ -25,18 +43,30 @@ export function serializeState(state: SimState): Uint8Array {
   const n = e.count;
   w.u32(n);
   // Column by column, in index order.
-  for (let i = 0; i < n; i++) w.u32(e.id[i]!);
-  for (let i = 0; i < n; i++) w.u8(e.owner[i]!);
-  for (let i = 0; i < n; i++) w.u8(e.kind[i]!);
-  for (let i = 0; i < n; i++) w.i32(e.x[i]!);
-  for (let i = 0; i < n; i++) w.i32(e.y[i]!);
-  for (let i = 0; i < n; i++) w.i32(e.z[i]!);
-  for (let i = 0; i < n; i++) w.u16(e.heading[i]!);
-  for (let i = 0; i < n; i++) w.i32(e.speed[i]!);
-  for (let i = 0; i < n; i++) w.u8(e.order[i]!);
-  for (let i = 0; i < n; i++) w.i32(e.targetX[i]!);
-  for (let i = 0; i < n; i++) w.i32(e.targetZ[i]!);
-  for (let i = 0; i < n; i++) w.u32(e.wanderAt[i]!);
+  for (const [name, t] of UNIT_FIELDS) {
+    const col = e[name];
+    for (let i = 0; i < n; i++) writeField(w, t, col[i]!);
+  }
+  for (let i = 0; i < n; i++) {
+    const q = e.queue[i]!;
+    w.u16(q.length);
+    for (const o of q) writeUnitOrder(w, o);
+    const p = e.path[i]!;
+    w.u16(p.length);
+    for (const v of p) w.i32(v);
+  }
+  w.u8(state.players.length);
+  for (const p of state.players) {
+    w.u8(p.pool.length);
+    for (const v of p.pool) w.i32(v);
+  }
+  writeBuildings(w, state.buildings);
+  w.u32(state.enclosed.length);
+  for (const k of state.enclosed) {
+    // Keys are below 2^51: written as two words.
+    w.u32(k % 0x100000000);
+    w.u32(floorDiv(k, 0x100000000));
+  }
   writeWorld(w, state.world);
   return w.finish();
 }
@@ -56,22 +86,43 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const n = r.u32();
   const e = new EntityStore(Math.max(64, n));
   e.count = n;
-  for (let i = 0; i < n; i++) e.id[i] = r.u32();
-  for (let i = 0; i < n; i++) e.owner[i] = r.u8();
-  for (let i = 0; i < n; i++) e.kind[i] = r.u8();
-  for (let i = 0; i < n; i++) e.x[i] = r.i32();
-  for (let i = 0; i < n; i++) e.y[i] = r.i32();
-  for (let i = 0; i < n; i++) e.z[i] = r.i32();
-  for (let i = 0; i < n; i++) e.heading[i] = r.u16();
-  for (let i = 0; i < n; i++) e.speed[i] = r.i32();
-  for (let i = 0; i < n; i++) e.order[i] = r.u8();
-  for (let i = 0; i < n; i++) e.targetX[i] = r.i32();
-  for (let i = 0; i < n; i++) e.targetZ[i] = r.i32();
-  for (let i = 0; i < n; i++) e.wanderAt[i] = r.u32();
+  for (const [name, t] of UNIT_FIELDS) {
+    const col = e[name];
+    for (let i = 0; i < n; i++) col[i] = readField(r, t);
+  }
+  for (let i = 0; i < n; i++) {
+    const q: UnitOrder[] = [];
+    const nq = r.u16();
+    for (let k = 0; k < nq; k++) q.push(readUnitOrder(r));
+    e.queue[i] = q;
+    const np = r.u16();
+    const p: number[] = [];
+    for (let k = 0; k < np; k++) p.push(r.i32());
+    e.path[i] = p;
+  }
+  const players: PlayerState[] = [];
+  const np = r.u8();
+  for (let k = 0; k < np; k++) {
+    const len = r.u8();
+    const pool = new Int32Array(RESOURCE_COUNT);
+    for (let j = 0; j < len; j++) {
+      const v = r.i32();
+      if (j < RESOURCE_COUNT) pool[j] = v;
+    }
+    players.push({ pool });
+  }
+  const buildings = new BuildingStore();
+  readBuildings(r, buildings, () => {});
+  const ne = r.u32();
+  const enclosed: number[] = [];
+  for (let k = 0; k < ne; k++) {
+    const lo = r.u32();
+    enclosed.push(r.u32() * 0x100000000 + lo);
+  }
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return { seed, step, nextEntityId, rng, entities: e, world };
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -109,13 +160,35 @@ export function diffStates(a: SimState, b: SimState): string | null {
   const eb = b.entities;
   const count = scalar('entities.count', ea.count, eb.count);
   if (count) return count;
-  const fields = ['id', 'owner', 'kind', 'x', 'y', 'z', 'heading', 'speed', 'order', 'targetX', 'targetZ', 'wanderAt'] as const;
   for (let i = 0; i < ea.count; i++) {
-    for (const f of fields) {
+    for (const [f] of UNIT_FIELDS) {
       const d = scalar(`entities[${i}].${f}`, ea[f][i]!, eb[f][i]!);
       if (d) return d;
     }
+    const qa = JSON.stringify(ea.queue[i]);
+    const qb = JSON.stringify(eb.queue[i]);
+    if (qa !== qb) return `entities[${i}].queue: ${qa} vs ${qb}`;
+    const pa = JSON.stringify(ea.path[i]);
+    const pb = JSON.stringify(eb.path[i]);
+    if (pa !== pb) return `entities[${i}].path: ${pa} vs ${pb}`;
   }
+  const players = scalar('players.length', a.players.length, b.players.length);
+  if (players) return players;
+  for (let p = 0; p < a.players.length; p++) {
+    for (let k = 0; k < a.players[p]!.pool.length; k++) {
+      const d = scalar(`players[${p}].pool[${k}]`, a.players[p]!.pool[k]!, b.players[p]!.pool[k]!);
+      if (d) return d;
+    }
+  }
+  const bl = scalar('buildings.length', a.buildings.list.length, b.buildings.list.length);
+  if (bl) return bl;
+  for (let k = 0; k < a.buildings.list.length; k++) {
+    const fa = buildingFields(a.buildings.list[k]!);
+    const fb = buildingFields(b.buildings.list[k]!);
+    for (const f of Object.keys(fa)) if (fa[f] !== fb[f]) return `buildings[${k}].${f}: ${fa[f]} vs ${fb[f]}`;
+  }
+  const en = JSON.stringify(a.enclosed) === JSON.stringify(b.enclosed) ? null : `enclosed: ${a.enclosed.length} tiles vs ${b.enclosed.length}`;
+  if (en) return en;
   return diffWorlds(a, b);
 }
 

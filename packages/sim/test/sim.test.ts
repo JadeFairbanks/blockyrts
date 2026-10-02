@@ -55,9 +55,10 @@ describe('the step function', () => {
     const goal = { x: e.x[0]! + 12 * WU_PER_METRE, z: e.z[0]! };
     step(s, [{ kind: 'move', player: 0, units: [1], x: goal.x, z: goal.z }]);
     expect(e.order[0]).toBe(OrderKind.Move);
-    expect(e.heading[0]).toBe(49152); // facing +X
-    // 12 m at 3 m/s is 4 s, 80 steps.
-    for (let n = 1; n < 80; n++) step(s);
+    // Facing roughly +X (49152); the path may bend round a rise.
+    expect(Math.abs(e.heading[0]! - 49152)).toBeLessThan(2048);
+    // 12 m at 3 m/s is 4 s, 80 steps, plus a little for the path's bends.
+    for (let n = 1; n < 90; n++) step(s);
     expect(e.x[0]).toBe(goal.x);
     expect(e.z[0]).toBe(goal.z);
     expect(e.order[0]).toBe(OrderKind.Idle);
@@ -157,10 +158,10 @@ describe('the desync tool', () => {
     const a = play(1, 100);
     const b = play(1, 100);
     const bad = deserializeState(b.snapshot);
-    bad.entities.z[4]! -= 8;
+    bad.entities.z[3]! -= 8;
     b.snapshot = serializeState(bad);
     b.hashes = run(cloneState(bad), 100, b.frames).hashes;
     const report = compareRecordings(a, b);
-    expect(report!.diff).toMatch(/entities\[4\]\.z/);
+    expect(report!.diff).toMatch(/entities\[3\]\.z/);
   });
 });

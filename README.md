@@ -88,14 +88,14 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash dababc31`. Run it again: the same hash.
+   prints `final step 10000 hash 6c5e1226`. Run it again: the same hash.
 2. `pnpm test` runs the same seed and script in Node twice and in headless
    Chromium, Firefox and WebKit, and fails if any of the 500 hashes differ.
    CI runs this on every push; the log prints each engine's final hash.
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `e7b36fd4`
+   step as the headless runner with no script: for seed 1 that is `ba4d64fa`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -108,7 +108,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
 
 1. `pnpm dev` and open http://localhost:5173. Type a seed (or press Random),
    pick the number of players and press Start. The camera starts over your
-   four workers and your warrior in your pocket: flat grass with a pond or a
+   Big House and four workers in your pocket: flat grass with a pond or a
    stream, hazel, trees, loose stone and flint nearby, and the rest of the
    land black until explored.
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
@@ -125,14 +125,83 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `e7b36fd4` at step 40, with two players `cd82d62c`. The land matches too.
+   `ba4d64fa` at step 40, with two players `99eb58e1`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 8eced6e9`: two players dig trenches from a
+   prints `final step 10000 hash eaefa3d4`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
    draws the land from above, with the cell edges in white and your pocket
    in red.
+
+## How a tester checks milestone 2
+
+The build order's check for M2 is: *start in a camp of a Big House and 4
+workers; chop, quarry and build; a crop field with farmers puts wheat in the
+pool; the Big House upgrades to a Longhall; the clock runs day, dusk, night
+and dawn; torches claim land; Idle Gatherer finds the worker whose trees ran
+out.* (The warrior joins in milestone 3.)
+
+1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Your Big House
+   stands in the pocket with four workers in front of it. The clock (top
+   centre) counts down the day: 3 min of day, 40 s of dusk, 3 min of night,
+   40 s of dawn, and says *Day 1*, *Dusk*, *Night 0*, *Dawn*. The light warms
+   at dusk, goes dim and blue at night and comes back at dawn. The resource
+   bar (top right) shows the shared pool, food and supply; ▾ opens the full
+   list.
+2. **Gather.** Select workers (drag a box) and right-click a tree, a rock, a
+   flint scatter or a hazel bush. They work it, carry 25 lb loads to the Big
+   House and come back; the load shows on their back and the pool goes up
+   when it is dropped off. Felling a softwood tree also gives 2 resin. A
+   node with no room left sends extra workers to the next one. When the
+   trees run out, the worker goes idle, a message says so, and the Idle
+   Gatherer button (F1, bottom left, with the number of idle workers)
+   selects it and centres on it. C returns cargo; G then a click gathers.
+3. **Build.** With workers selected press B (Basic Structures). Buildings
+   sit on the grid keys Q W E R T / A S D F G / Z X C V, with B for Back:
+   B then W opens Farms, B then C opens Lights. Pick one and a ghost follows
+   the cursor with a green or red tile per column, the 10 m of land it will
+   claim, and for lights their light and claim rings. Left click places it
+   (Shift + click places several and keeps the ghost); drag with a torch post
+   to place a line of them 8 m apart. Greyed buttons say why in their tooltip
+   (a later milestone, a missing research, the main base level); buttons in
+   red cannot be paid for yet. The cost is taken when a worker arrives and
+   starts; scaffolding goes up and the building rises as it is built. Select
+   an unfinished building and press X to take it down for 75% back.
+4. **Farm.** Build a wheat field (B, W, Q), then right-click it with two
+   workers: they become its farmers. A new field lies fallow for 2 days (the
+   panel counts it down), then wheat comes into the pool while they work.
+   Press **Speed** in the debug panel for 4 or 16 times speed. Farmers go into
+   their farmhouse at dusk by themselves.
+5. **Train and rally.** Select the Big House: W trains a worker (20 food;
+   Shift + W queues 5), the queue shows in the panel and a click on an item
+   cancels it for a full refund. R then a click (or right-click with the Big
+   House selected) sets the rally point: on a tree, new workers start
+   chopping it. Supply starts at 4 of 8; when it is full, training waits
+   until you build or upgrade farms.
+6. **Upgrade.** With 100 softwood and 40 stone, select the Big House and
+   press G: the Longhall is paid for, then right-click the Big House with
+   workers to build it. Each level up to the Citadel has its own look.
+7. **Lights and night.** A torch post (2 softwood, 1 resin) claims 5 m round
+   it while lit and burns a softwood every 3 days; near the Big House it
+   refuels itself from the pool. At dusk the Everyone Home button (J) lights
+   up: it sends everyone to shelter in the Big House or a farm, and at day
+   they come out and carry on. Lights more than 40 m from the main base are
+   counted under the clock against the night's limit.
+8. **Orders and groups.** Shift queues orders (hold Shift to see the queue
+   lines). M moves, S stops, E enters a building, R repairs (press R twice to
+   repair everything nearby), U sends workers to train a rank. The group key
+   (\`, left of 1) + a number saves a control group, the number selects it,
+   twice centres on it, and the tabs above the selection panel do the same
+   with the mouse. Tab cycles subgroups in a mixed selection; Backspace
+   centres on the Big House; Space jumps to the latest alert. Every hotkey
+   can be rebound in the menu (F10, Hotkeys).
+9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
+   prints `final step 10000 hash 8193e6b4`: workers chop and quarry, the Big
+   House trains a worker rallied onto the trees, a wheat field and a torch
+   post go up, farmers farm, everyone goes home at dusk and comes out at day,
+   a group walks out and chops further off, and the Longhall upgrade starts.
+   `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
 

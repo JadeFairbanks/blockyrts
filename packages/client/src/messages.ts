@@ -1,11 +1,38 @@
 // Messages between the page and the sim worker. Local to the client; the
 // network protocol lives in @blockyrts/protocol.
-import type { ChunkDelta, Order } from '@blockyrts/sim';
+import type { ChunkDelta, ClaimShapes, Order, RallyPoint, SimEvent, UnitOrder } from '@blockyrts/sim';
 
-export type ToWorker = { type: 'start'; seed: number; players: number } | { type: 'order'; order: Order };
+export type ToWorker =
+  | { type: 'start'; seed: number; players: number }
+  | { type: 'order'; order: Order }
+  /** Placement tiles for a building at these footprint corners (global columns); answered with 'placed'. */
+  | { type: 'place'; id: number; kind: number; spots: Array<[number, number]> }
+  /** Debug: steps per tick multiplier (1, 4 or 16). */
+  | { type: 'speed'; factor: number };
 
-/** Per-entity record in a state message: id, owner, kind, x, y, z, heading, order (all int32). */
-export const STATE_STRIDE = 8;
+/**
+ * Per-entity record in a state message (all int32): id, owner, kind, x, y, z,
+ * heading, order, hp, maxHp, rank, tool, carryRes, carryAmt, inside, act.
+ */
+export const STATE_STRIDE = 16;
+export const S = {
+  id: 0,
+  owner: 1,
+  kind: 2,
+  x: 3,
+  y: 4,
+  z: 5,
+  heading: 6,
+  order: 7,
+  hp: 8,
+  maxHp: 9,
+  rank: 10,
+  tool: 11,
+  carryRes: 12,
+  carryAmt: 13,
+  inside: 14,
+  act: 15,
+} as const;
 
 export interface StateMessage {
   type: 'state';
@@ -31,4 +58,69 @@ export interface FogMessage {
   chunks: Array<[number, number, Uint8Array]>;
 }
 
-export type FromWorker = StateMessage | DeltasMessage | FogMessage;
+/** A building as the screen sees it. */
+export interface BuildingInfo {
+  id: number;
+  owner: number;
+  kind: number;
+  variant: number;
+  level: number;
+  /** Footprint corner, global columns, and floor level in terrain units. */
+  x: number;
+  z: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  complete: boolean;
+  /** Construction done, per mille. */
+  built: number;
+  /** Level being built as an upgrade, or 0, and how far, per mille. */
+  upgrading: number;
+  upgraded: number;
+  /** Production queue: product and per mille done. */
+  queue: Array<{ product: number; done: number }>;
+  rally: RallyPoint[];
+  /** Lights: lit now, and steps of fuel left. */
+  lit: boolean;
+  fuelLeft: number;
+  /** Workers assigned (farmers, mill hands) and at work now. */
+  assigned: number;
+  working: number;
+  /** Units sheltering inside. */
+  inside: number[];
+  /** The panel's status line. */
+  status: string;
+  name: string;
+  /** Own buildings: why the next level cannot be ordered now, or ''. */
+  upgradeWhy: string;
+}
+
+/** Everything else the screen shows, once per tick. */
+export interface InfoMessage {
+  type: 'info';
+  step: number;
+  pool: Int32Array;
+  supplyUsed: number;
+  supplyCap: number;
+  buildings: BuildingInfo[];
+  /** The local player's units' order lists. */
+  queues: Array<[number, UnitOrder[]]>;
+  /** What happened since the last info, for the local player. */
+  events: SimEvent[];
+  /** The local player's claimed land, wu. */
+  claims: ClaimShapes;
+  /** Outlying lights (halves) against the coming night's limit. */
+  outlying: { halves: number; limit: number };
+  /** Per building kind: why the local player cannot order one at all, or ''. */
+  buildWhy: string[];
+}
+
+export interface PlacedMessage {
+  type: 'placed';
+  id: number;
+  kind: number;
+  /** Per spot: its corner, a tile per footprint column (0 free, else a Blocked reason) and the first reason. */
+  spots: Array<{ x: number; z: number; tiles: Uint8Array; blocked: number }>;
+}
+
+export type FromWorker = StateMessage | DeltasMessage | FogMessage | InfoMessage | PlacedMessage;

@@ -7,8 +7,9 @@
 import './hud/hud.css';
 import * as THREE from 'three';
 import { hashHex, Mat, WU_PER_METRE, type Order } from '@blockyrts/sim';
-import { GameShell, type ShellOrder } from './hud/shell.ts';
-import { STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
+import { GameInfo } from './game/game-info.ts';
+import { GameShell } from './hud/shell.ts';
+import { S, STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
 import { loadSettings } from './settings/settings.ts';
 import { chooseStart } from './start/start-screen.ts';
 import { COLUMN_M, UNIT_M } from './world/mesher.ts';
@@ -30,22 +31,33 @@ async function main(): Promise<void> {
   const scene = new THREE.Scene();
 
   const world = new WorldView({ scene, seed, players, player: PLAYER });
+  const game = new GameInfo(PLAYER);
+  world.setGame(game);
 
   const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
   const send = (msg: ToWorker): void => worker.postMessage(msg);
 
   let leaving = false;
-  const shell = new GameShell(app, {
+  const shell: GameShell = new GameShell(app, {
     scene,
     world: world.hooks,
+    extras: {
+      heightAt: (x, z) => world.groundAt(x, z),
+      node: (cx, cz, i) => world.node(cx, cz, i),
+      setGhost: (g) => world.buildings.setGhost(g, PLAYER, (x, z) => world.groundAt(x, z)),
+      setPlanned: () => world.buildings.setPlanned(game.queues, PLAYER, (x, z) => world.groundAt(x, z)),
+      overlay: world.overlay,
+    },
+    game,
     player: PLAYER,
     seed,
     players,
     settings,
-    issueOrder(order: ShellOrder, { queued }) {
-      // TODO: queued orders (Shift / Queue Mode) need an order queue in the sim; until then every order replaces.
-      void queued;
+    issueOrder(order) {
       send({ type: 'order', order });
+    },
+    askPlacement(kind, spots) {
+      send({ type: 'place', id: 0, kind, spots });
     },
     onQuit() {
       leaving = true;
@@ -69,7 +81,7 @@ async function main(): Promise<void> {
   window.addEventListener('resize', resize);
   resize();
 
-  addDebugTools(shell, world, (order) => send({ type: 'order', order }));
+  addDebugTools(shell, world, (order) => send({ type: 'order', order }), (factor) => send({ type: 'speed', factor }));
 
   let stepsSeen = 0;
   let rateFrom = performance.now();
@@ -85,6 +97,15 @@ async function main(): Promise<void> {
       world.onFog(msg);
       return;
     }
+    if (msg.type === 'info') {
+      game.onInfo(msg);
+      return;
+    }
+    if (msg.type === 'placed') {
+      shell.onPlaced(msg.kind, msg.spots);
+      return;
+    }
+    game.onState(msg);
     world.onState(msg);
     stepsSeen++;
     const now = performance.now();
@@ -102,14 +123,15 @@ async function main(): Promise<void> {
       let n = 0;
       for (let i = 0; i < msg.count; i++) {
         const o = i * STATE_STRIDE;
-        if (msg.data[o + 1] !== PLAYER) continue;
-        x += msg.data[o + 3]!;
-        z += msg.data[o + 5]!;
+        if (msg.data[o + S.owner] !== PLAYER) continue;
+        x += msg.data[o + S.x]!;
+        z += msg.data[o + S.z]!;
         n++;
       }
       if (n > 0) shell.cam.jumpTo(x / n / WU_PER_METRE, z / n / WU_PER_METRE);
       shell.message(`World generated from seed ${seed}.`);
       if (players > 1) shell.message(`${players} players: you are player 1.`);
+      shell.message('Select your workers and right-click trees and rocks to gather; press B to build.');
     }
   };
   send({ type: 'start', seed, players });
@@ -134,7 +156,7 @@ async function main(): Promise<void> {
  * to see the world. They act at the camera's focus (the middle of the view),
  * and the land changes go through the sim as orders, so they are in the hash.
  */
-function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => void): void {
+function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => void, speed: (factor: number) => void): void {
   const bar = document.createElement('div');
   bar.className = 'dbg-tools';
   shell.layout.debug.append(bar);
@@ -163,6 +185,12 @@ function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => 
   add('dbg-raise', 'Raise', 'Debug: raise', 'Builds a 2 m stone block 1 m high in the middle of the view, as a terrain edit.', () => {
     const c = focusColumn();
     order({ kind: 'terrain', player: PLAYER, x0: c.x - 2, z0: c.z - 2, x1: c.x + 2, z1: c.z + 2, bottom: c.y, top: c.y + 9, material: Mat.Stone });
+  });
+  let factor = 1;
+  add('dbg-speed', 'Speed ×1', 'Debug: game speed', 'Runs the game at 1, 4 or 16 times speed, to see the day turn and farms grow without waiting. Every step is the same as at normal speed, so the hash does not change.', () => {
+    factor = factor === 1 ? 4 : factor === 4 ? 16 : 1;
+    speed(factor);
+    shell.buttons.get('dbg-speed')?.setFace(`Speed ×${factor}`).setLit(factor > 1);
   });
   add('dbg-fell', 'Fell', 'Debug: fell', 'Takes everything from the selected trees, bushes and rocks: trees fall and drop seeds, hazel and herbs grow back from the stump.', () => {
     let n = 0;

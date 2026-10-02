@@ -1,0 +1,16 @@
+{
+ "description": "M2 check script, seed 1, one player: two workers chop softwood and one gathers stone, the Big House trains a worker rallied onto the trees, a fourth worker builds a wheat field and then a torch post (once a felled tree has given resin), farms the field, Everyone Home at dusk, the shelters empty at day, a group walks out at dawn and returns its cargo, chops the trees out there, and the Big House upgrade to a Longhall is paid for and started. Move positions are world units (8,000 per metre); building spots are columns (45 cm).",
+ "players": 1,
+ "frames": [
+  { "step": 5, "orders": [ { "kind": "gather", "player": 0, "units": [ 1, 2 ], "cx": -1, "cz": -1, "index": 2 }, { "kind": "gather", "player": 0, "units": [ 3 ], "cx": -1, "cz": -1, "index": 8 } ] },
+  { "step": 6, "orders": [ { "kind": "produce", "player": 0, "building": 5, "product": 0, "count": 1 }, { "kind": "rally", "player": 0, "building": 5, "add": false, "point": "node", "x": -1, "z": -1, "id": 2 } ] },
+  { "step": 10, "orders": [ { "kind": "build", "player": 0, "units": [ 4 ], "building": 1, "variant": 0, "x": 18, "z": 8 }, { "kind": "build", "player": 0, "units": [ 4 ], "building": 18, "variant": 0, "x": -13, "z": 11, "queued": true }, { "kind": "gather", "player": 0, "units": [ 4 ], "cx": 0, "cz": -1, "index": 11, "queued": true } ] },
+  { "step": 2600, "orders": [ { "kind": "build", "player": 0, "units": [ 3 ], "building": 18, "variant": 0, "x": -13, "z": 11 }, { "kind": "gather", "player": 0, "units": [ 3 ], "cx": -1, "cz": -1, "index": 8, "queued": true } ] },
+  { "step": 3100, "orders": [ { "kind": "assign", "player": 0, "units": [ 4 ], "building": 6 } ] },
+  { "step": 3700, "orders": [ { "kind": "everyoneHome", "player": 0 } ] },
+  { "step": 7400, "orders": [ { "kind": "move", "player": 0, "units": [ 1, 2, 3, 7 ], "x": 136051, "z": -151790 } ] },
+  { "step": 7900, "orders": [ { "kind": "returnCargo", "player": 0, "units": [ 1, 2, 3, 7 ] } ] },
+  { "step": 8900, "orders": [ { "kind": "gather", "player": 0, "units": [ 1, 2, 7 ], "cx": 0, "cz": -1, "index": 1 } ] },
+  { "step": 9950, "orders": [ { "kind": "upgrade", "player": 0, "building": 5 }, { "kind": "work", "player": 0, "units": [ 3 ], "building": 5 } ] }
+ ]
+}

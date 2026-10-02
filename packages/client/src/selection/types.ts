@@ -18,6 +18,8 @@ export interface Selectable {
   label: string;
   /** Extra lines for the panel when it is the only thing selected. */
   details?: string[];
+  /** Resource nodes: what gathering it gives ('' for nothing gatherable). */
+  resource?: string;
 }
 
 /** Everything near the view; the selection code filters by screen. */
@@ -51,6 +53,13 @@ export const NOBODY = 255;
 /** The entity id in a key of the form 'e:<id>', or null for anything else. */
 export function entityIdOf(key: string): number | null {
   if (!key.startsWith('e:')) return null;
+  const id = Number(key.slice(2));
+  return Number.isInteger(id) && id >= 0 ? id : null;
+}
+
+/** The building id in a key of the form 'b:<id>', or null for anything else. */
+export function buildingIdOf(key: string): number | null {
+  if (!key.startsWith('b:')) return null;
   const id = Number(key.slice(2));
   return Number.isInteger(id) && id >= 0 ? id : null;
 }
