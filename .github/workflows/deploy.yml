@@ -71,12 +71,18 @@ jobs:
           echo "::error::https://api.$DOMAIN/healthz did not report $GITHUB_SHA within 10 minutes."
           exit 1
       - name: Publish the game client
-        run: >-
-          pnpm dlx wrangler@4 pages deploy packages/client/dist
-          --project-name blockyrts --branch main --commit-hash "$GITHUB_SHA"
+        run: |
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            # Not secret; when it was not saved, ask Cloudflare (as setup does).
+            CLOUDFLARE_ACCOUNT_ID=$(curl -fsS "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].account.id')
+            export CLOUDFLARE_ACCOUNT_ID
+          fi
+          pnpm dlx wrangler@4 pages deploy packages/client/dist \
+            --project-name blockyrts --branch main --commit-hash "$GITHUB_SHA"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
       - name: Summary
         run: |
           {

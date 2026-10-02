@@ -9,7 +9,7 @@
 # optional: without it the server runs with password-reset email turned off.
 set -euo pipefail
 
-for key in DOMAIN CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID \
+for key in DOMAIN CLOUDFLARE_API_TOKEN R2_ACCESS_KEY_ID \
   R2_SECRET_ACCESS_KEY DROPLET_SIZE REPLACE_SERVER; do
   if [ -z "${!key:-}" ]; then
     echo "::error::$key is not set. Add it under Settings > Secrets and variables > Actions (see deploy/README.md)."
@@ -21,7 +21,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 region=tor1
 bucket=blockyrts-saves
 cf=https://api.cloudflare.com/client/v4
-acct=$CLOUDFLARE_ACCOUNT_ID
+acct=${CLOUDFLARE_ACCOUNT_ID:-}
 
 # Cloudflare API call; fails the run with Cloudflare's own error text.
 cfapi() {
@@ -55,10 +55,16 @@ cname() {
 }
 
 echo "::group::Cloudflare"
-zone=$(cfapi GET "/zones?name=$DOMAIN" | jq -r '.result[0].id // empty')
+zones=$(cfapi GET "/zones?name=$DOMAIN")
+zone=$(jq -r '.result[0].id // empty' <<<"$zones")
 if [ -z "$zone" ]; then
   echo "::error::$DOMAIN is not a site in this Cloudflare account, or the token lacks Zone Read on it."
   exit 1
+fi
+if [ -z "$acct" ]; then
+  # The account ID is not secret; when it was not saved, take it from the zone.
+  acct=$(jq -r '.result[0].account.id' <<<"$zones")
+  echo "Cloudflare account taken from the $DOMAIN zone: $acct"
 fi
 
 tunnel=$(cfapi GET "/accounts/$acct/cfd_tunnel?name=blockyrts&is_deleted=false" | jq -r '.result[0].id // empty')
@@ -102,6 +108,9 @@ if [ -z "$volume" ]; then
     --fs-type ext4 --desc "blockyrts database" --format ID --no-header)
   echo "Volume created: $volume"
 fi
+
+# The firewall attaches by tag, and the tag must exist first.
+doctl compute tag create blockyrts >/dev/null
 
 if [ -z "$(doctl compute firewall list --format Name --no-header | grep -x blockyrts || true)" ]; then
   # No inbound rules: the server is only reached through the Cloudflare tunnel.
