@@ -159,7 +159,9 @@ describe('the model converter on the base bodies', () => {
       const result = buildModels({ outDir: out });
       expect(result.ok).toBe(true);
       const index = JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')) as { models: { id: string }[] };
-      expect(index.models.map((m) => m.id).sort()).toEqual([...BASE].sort());
+      // The base bodies are always there; the modelling bot's catalogue (packages/assets/src) adds more once merged.
+      expect(index.models.map((m) => m.id)).toEqual(expect.arrayContaining(BASE));
+      expect(new Set(index.models.map((m) => m.id)).size).toBe(index.models.length);
       const sidecar = JSON.parse(readFileSync(join(out, 'mage.json'), 'utf8')) as { id: string };
       expect(sidecar.id).toBe('mage');
     } finally {
