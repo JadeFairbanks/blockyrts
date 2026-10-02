@@ -10,12 +10,15 @@ import { buildFaction, elfKingdom, foundFaction, wanderingCaravan } from './fact
 import { makeOffer, takeBundle, withdrawOffer } from './trade.ts';
 import { acceptSurrender, declareWar, payReparations, refuseSurrender } from './war.ts';
 import { hash32 } from '../rng.ts';
+import { Res, trinketRes } from '../economy/resources.ts';
 
 type PeoplesOrder = Extract<Order, { kind: 'tradeOffer' | 'tradeTake' | 'tradeWithdraw' | 'declareWar' | 'surrender' | 'reparations' | 'hire' | 'debugPeoples' }>;
 
 /** The debug button for an Elf caravan visiting now (beyond the faction kinds), and for meeting the Elves. */
 export const DEBUG_CARAVAN = 7;
 export const DEBUG_MEET_ELVES = 8;
+/** The debug button for goods to trade and hire with: silver, Copper Tokens, Bronze Charms and gold. */
+export const DEBUG_TRADE_KIT = 9;
 
 export function peoplesOrder(state: SimState, o: PeoplesOrder): void {
   switch (o.kind) {
@@ -57,6 +60,13 @@ export function debugPeoples(state: SimState, player: number, what: number, x: n
   const layout = state.world.layout;
   const cell = layout.cell(layout.nearest(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN)));
   const h = hash32(state.seed ^ 0x64656267, state.step, what);
+  if (what === DEBUG_TRADE_KIT) {
+    const p = state.players[player];
+    if (!p) return;
+    for (const [r, n] of [[Res.Silver, 20], [trinketRes(0, 1), 6], [trinketRes(2, 2), 2], [Res.Gold, 5]] as const) p.pool[r] = p.pool[r]! + n;
+    state.events.push({ player, kind: 'info', text: 'Debug: 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold added.' });
+    return;
+  }
   if (what === DEBUG_MEET_ELVES || what === DEBUG_CARAVAN) {
     const k = elfKingdom(state);
     k.met |= 1 << player;

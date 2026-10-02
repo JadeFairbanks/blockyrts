@@ -60,6 +60,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
+import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
@@ -163,6 +164,7 @@ function postState(s: SimState): void {
     if (e.healUntil[i]! > s.step) on |= SpellOn.Healing;
     if (e.hexUntil[i]! > s.step) on |= SpellOn.Hexed;
     data[o + S.spells] = on;
+    data[o + S.group] = e.group[i]!;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {
@@ -264,6 +266,7 @@ function postInfo(s: SimState): void {
       marks: threatMarks(s),
       spells,
       mageRanks,
+      peoples: peoplesInfo(s, PLAYER),
     },
     [pool.buffer, items.buffer],
   );

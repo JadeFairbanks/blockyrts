@@ -52,6 +52,11 @@ export function speakerOf(state: SimState, f: Faction, player: number): number {
   return factionMembers(state, f.id)[0] ?? -1;
 }
 
+/** Whether a player has a unit within trade range of a faction's people or buildings. */
+export function inReach(state: SimState, f: Faction, player: number): boolean {
+  return nearestMember(state, f, player).unit >= 0;
+}
+
 /** Why a player cannot trade with a faction now, or '' (for the greyed Trade button and its tooltip). */
 export function tradeProblem(state: SimState, f: Faction, player: number): string {
   if (f.kind === FactionKind.MercCamp) return 'Mercenaries only hire out their swords.';

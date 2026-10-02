@@ -17,9 +17,9 @@ export type ToWorker =
  * the swing under way), its state flags, lock, skills, shots left and target,
  * a hop under way, a worker's other tools by job and the one in its hand,
  * and a mage's school, mana, the spell she is casting, her beam and the
- * spells on her.
+ * spells on her; the faction of one of the neutral peoples' units.
  */
-export const STATE_STRIDE = 47;
+export const STATE_STRIDE = 48;
 export const S = {
   id: 0,
   owner: 1,
@@ -78,6 +78,8 @@ export const S = {
   beam: 45,
   /** Spells on the unit now (SpellOn bits). */
   spells: 46,
+  /** The faction id of one of the peoples' units or buildings (also of one they left, and a hired mercenary), else its group. */
+  group: 47,
 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
@@ -207,6 +209,52 @@ export interface InfoMessage {
   spells: Array<[number, Array<[number, string, number]>]>;
   /** The local player's mages: why each cannot start her next rank training for her experience or rank, or ''. */
   mageRanks: Array<[number, string]>;
+  /** The neutral peoples the local player has seen, met or is at war with. */
+  peoples: PeopleInfo[];
+}
+
+/** One of the neutral peoples' factions as the local player knows it (the trade menu and the Peoples panel). */
+export interface PeopleInfo {
+  id: number;
+  /** FactionKind, People and Status. */
+  kind: number;
+  people: number;
+  status: number;
+  /** "Appledell (Halfling village)", and its specialisation ('' for none). */
+  title: string;
+  lean: string;
+  /** Its middle, wu. */
+  x: number;
+  z: number;
+  war: boolean;
+  met: boolean;
+  traded: boolean;
+  /** The leader's entity id (right click to trade), or 0. */
+  leader: number;
+  /** Fighters standing, people standing, and how many it had. */
+  fighters: number;
+  standing: number;
+  founded: number;
+  /** It offers the local player its surrender. */
+  surrender: boolean;
+  /** Dwarves at war: the reparations owed, tenths of a value point; else 0. */
+  owed: number;
+  /** Why the trade menu cannot open now ('' when it can). */
+  tradeWhy: string;
+  /** What it sells today: (good, count) pairs. */
+  stock: number[];
+  /** What it pays, percent of value, by trade category (-1 refused). */
+  wants: number[];
+  /** What it will still buy today, tenths, by category. */
+  room: number[];
+  /** What it pays for each good the local player has (good, percent) pairs, refused -1. */
+  pays: number[];
+  /** The local player's open offer and its three answers. */
+  offer: { goods: number[]; worth: number; bundles: number[][] } | null;
+  /** Mercenary camps: how many are there to hire now and when full, and why none can be hired now ('' when they can). */
+  hire: { left: number; size: number; why: string } | null;
+  /** An Elf caravan come to the local player's main base. */
+  visiting: boolean;
 }
 
 /** A lair (its mob kind) or a goblin village (mob -1) on the minimap; war: the village is at war with the local player. */
