@@ -16,6 +16,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'buildings', label: 'Buildings and levels', blurb: 'Every building and each of its levels: cost, build work, health, supply, what it needs and what it unlocks.' },
   { id: 'research', label: 'Research', blurb: 'Research steps: what each needs first, its fee, its time and what it opens.' },
   { id: 'units', label: 'Units and ranks', blurb: 'Workers and warriors: health, speed, sight, training, ranks and experience, carrying.' },
+  { id: 'magic', label: 'Mages and spells', blurb: 'Mage ranks, mana and refill, the combat pause, training and rank wands at the Magi Sanctum, and every spell (Table 13): mana, cooldown, range, power, radius and duration.' },
   { id: 'equipment', label: 'Tools and equipment', blurb: 'Tools, weapons, armour and ammunition by tier: damage, speed, reach, weight and how they are made.' },
   { id: 'recipes', label: 'Recipes', blurb: 'What production buildings turn into what: inputs, outputs, time and where.' },
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving, cooking and the upkeep of units and facilities.' },
@@ -35,6 +36,7 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
   'data/tables.ts', 'data/table-types.ts', 'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
   'nav/path.ts', 'threats/debug.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
+  'magic/cast.ts',
 ]);
 
 /** Single exports that are plumbing, ids or names rather than balance. */
@@ -51,6 +53,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'clock.ts:NO_BLOOD', 'combat/combat.ts:RANK_NAMES', 'rules.ts:BP', 'rules.ts:XP_TENTHS', 'rules.ts:VP_SOFTWOOD_LUMBER',
   'commands.ts:FLOW_FIELD_GROUP', 'nav/grid.ts:WALKER', 'nav/grid.ts:PERSON', 'nav/grid.ts:PERSON_ARMOURED', 'nav/grid.ts:CLIMBER',
   'nav/grid.ts:CLIMBER_PLAN', 'nav/grid.ts:MOB_PLAN', 'nav/grid.ts:SWIMMER', 'nav/grid.ts:WHEELS', 'world/props.ts:PROPS:check',
+  // Mana's fixed-point scale, the rank count, and tables worked out from MAGE_RANKS.
+  'magic/spells.ts:MANA_SCALE', 'magic/spells.ts:MAGE_TOP_RANK', 'magic/mages.ts:MAGE_XP_TENTHS', 'magic/mages.ts:MAGE_RANK_NAMES',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -81,6 +85,9 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'animals/animals.ts': 'animals',
   'threats/data.ts': 'lairs',
   'threats/abilities.ts': 'lairs',
+  'magic/spells.ts': 'magic',
+  'magic/mages.ts': 'magic',
+  'magic/cast.ts': 'magic',
   'threats/burns.ts': 'lairs',
   'threats/nights.ts': 'mobs',
   'threats/fog.ts': 'mobs',
@@ -157,12 +164,14 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   shot: 'shot', nature: 'nature', moves: 'moves', sun: 'sun', comes: 'comes', role: 'role', site: 'lairSite', minBand: 'band',
   bands: 'band', tameAt: 'building', tameFoods: 'res', hit: 'hit', made: 'made', group: 'resGroup', dig: 'digClass',
   'ITEMS:slot': 'slot', 'ITEMS:tool': 'tool', 'PROPS:tool': 'tool', 'SLAUGHTERED:*': 'species', 'FOODS:*': 'res',
+  'RESEARCH:at': 'building', 'MAGE_RANK_TRAINING:wand': 'item', 'RANK_WANDS:*': 'item',
 };
 
 /** Keys that are identity, layout or prose: shown, not edited. */
 export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'id', 'kind', 'live', 'comesWith', 'menu', 'slot', 'craftSlot', 'w', 'd', 'solid', 'variants', 'turns', 'product', 'key', 'colour',
   'defence', 'dropoff', 'site', 'raw', 'shape', 'trainsWorkers', 'heavy', 'oneHanded', 'tip', 'BUILDINGS:slot',
+  'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
@@ -176,7 +185,9 @@ export const HIDDEN_KEYS: ReadonlySet<string> = new Set(['name', 'model']);
 
 /** Readable names for keys, used before the generic split of camelCase. */
 export const KEY_LABELS: Readonly<Record<string, string>> = {
-  res: 'Resource', 'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
+  res: 'Resource', hexcraft: 'Needs Hexcraft', projectile: 'Flies (walls and trees stop it)', auto: 'Cast by herself', bp: 'Strength',
+  refill: 'Refill (hundredths of a point a second)', crystals: 'Mana crystals', wand: 'Rank wand', amount: 'Healing or damage', 'RESEARCH:at': 'Researched at',
+  'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
   chancePm: 'Chance', weightTenthsLb: 'Weight', needsBase: 'Main base level needed', research: 'Research needed', research2: 'Also needs research',
   after: 'Research needed first', forge: 'Forge level needed first', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',
@@ -210,6 +221,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
+  'magic/spells.ts': 'Spells and mage ranks', 'magic/mages.ts': 'Mage training and mana', 'magic/cast.ts': 'Casting',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
 };

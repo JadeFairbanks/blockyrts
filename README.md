@@ -623,7 +623,7 @@ is what the game runs on. Its build is one self-contained HTML file.
 1. `pnpm balance:dev` and open http://localhost:5175 (or
    `pnpm --filter @blockyrts/balance build` and open
    `packages/balance/dist/index.html` straight from disk). The left menu lists
-   13 groups, from Buildings and levels to Pacing, plus the blueprint's tables
+   14 groups, from Buildings and levels to Pacing (Mages and spells among them), plus the blueprint's tables
    read only; the header names the commit the tables came from.
 2. Buildings and levels > Basic build menu > Big House. Its "Unlocks and uses"
    box lists what each main base level unlocks (Barracks at level 2, and so

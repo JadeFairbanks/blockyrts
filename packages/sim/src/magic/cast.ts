@@ -514,7 +514,8 @@ function fightWithBolts(state: SimState, i: number, t: number, canMove: boolean,
   const e = state.entities;
   const s = spellSpec(Spell.ArcaneBolt);
   const d = gap(state, i, t);
-  const known = knowsSpell(state, i, s.id);
+  // Bolts by herself only while the table says so (spells.ts auto); told to attack, she always may.
+  const known = knowsSpell(state, i, s.id) && (s.auto || ordered);
   const mana = e.mana[i]! >= s.mana * MANA_SCALE;
   if (known && mana) {
     if (d <= s.range && canReachWith(state, i, s, t, 0, 0)) {
@@ -608,7 +609,7 @@ function runCastOrder(state: SimState, i: number, o: Extract<UnitOrder, { t: 'ca
 export function mageStep(state: SimState, i: number): boolean {
   const e = state.entities;
   // Counterspell: by herself, whatever she is doing (her own cast is dropped for it, costing nothing), when she knows it and it is ready.
-  if (e.school[i] === School.Battle && e.castSpell[i] !== Spell.Counterspell + 1 && canCast(state, i, Spell.Counterspell) && !insideOther(state, i)) {
+  if (spellSpec(Spell.Counterspell).auto && e.school[i] === School.Battle && e.castSpell[i] !== Spell.Counterspell + 1 && canCast(state, i, Spell.Counterspell) && !insideOther(state, i)) {
     const c = casterNear(state, i, spellSpec(Spell.Counterspell).range);
     if (c >= 0) beginCast(state, i, spellSpec(Spell.Counterspell), c, 0, 0);
   }
@@ -649,7 +650,7 @@ export function mageStep(state: SimState, i: number): boolean {
   // A support mage heals by herself.
   if (e.school[i] === School.Support) {
     const s = spellSpec(Spell.Heal);
-    if (canCast(state, i, s.id)) {
+    if (s.auto && canCast(state, i, s.id)) {
       const t = healTarget(state, i, s, s.range);
       if (t >= 0 && canReachWith(state, i, s, t, 0, 0)) {
         beginCast(state, i, s, t, 0, 0);
