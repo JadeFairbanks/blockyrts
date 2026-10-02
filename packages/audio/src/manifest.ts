@@ -57,7 +57,6 @@ function sfx<G extends GeneratorName>(
 }
 
 // Mode sets reused below.
-const WOOD = { freqs: [190, 420, 760, 1250], decays: [0.09, 0.06, 0.04, 0.025], amps: [1, 0.7, 0.5, 0.3] };
 const STONE_RING = { freqs: [1850, 4290, 7860], decays: [0.18, 0.1, 0.05], amps: [1, 0.5, 0.25] };
 const METAL = { freqs: [520, 1310, 2380, 3640, 5120], decays: [0.6, 0.4, 0.25, 0.15, 0.1], amps: [1, 0.7, 0.5, 0.35, 0.2] };
 const MARIMBA = { partials: [1, 3.93, 9.24], decays: [1, 0.25, 0.1] };
@@ -66,10 +65,7 @@ const GLASS = { partials: [1, 2.32, 4.25], decays: [1, 0.5, 0.25] };
 
 export const SFX: readonly SfxDef[] = [
   // ---- work
-  sfx('chop', 'Chopping wood', 'work', 'impact', {
-    dur: 0.5, thud: { f0: 130, f1: 75, decay: 0.05, gain: 0.7 }, noise: { hp: 2200, decay: 0.012, gain: 0.9 },
-    modes: { ...WOOD, gain: 0.9 }, grains: { count: 3, from: 0.03, to: 0.15, lo: 2000, hi: 4500, decay: 0.006, gain: 0.3 },
-  }, { level: 0.75 }),
+  sfx('chop', 'Chopping wood', 'work', 'chop', { dur: 0.35, body: 420, splinter: 1 }, { level: 0.75 }),
   sfx('mine', 'Mining stone and ore', 'work', 'impact', {
     dur: 0.8, thud: { f0: 100, f1: 60, decay: 0.04, gain: 0.6 }, noise: { bp: 1400, q: 0.8, decay: 0.03, gain: 1 },
     modes: { ...STONE_RING, gain: 0.7 }, grains: { count: 9, from: 0.05, to: 0.45, lo: 2000, hi: 5000, decay: 0.008, gain: 0.4 },

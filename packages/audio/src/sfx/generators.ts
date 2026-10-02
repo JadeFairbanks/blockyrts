@@ -197,6 +197,35 @@ function impact(ctx: GenContext, p: ImpactParams): Float32Array {
   return out;
 }
 
+export interface ChopParams {
+  readonly dur: number;
+  /** Centre of the dull wooden body in Hz; lower is a thicker trunk. */
+  readonly body: number;
+  /** Fibres tearing after the bite, 0 to 1. */
+  readonly splinter: number;
+}
+
+/**
+ * An axe biting into a trunk. The wood's body is noise through broad
+ * filters with a very short decay, never tuned sines, so it thuds instead
+ * of ringing like a xylophone bar.
+ */
+function chop(ctx: GenContext, p: ChopParams): Float32Array {
+  const { sr, rng } = ctx;
+  const out = new Float32Array(samples(p.dur, sr));
+  const body = jitter(rng, p.body, 0.12);
+  // The edge hitting: a very short bright crack.
+  addNoise(ctx, out, 0, { hp: 1800, decay: 0.004, gain: 1 });
+  // The trunk taking the blow: two broad noise bands that die in a few tens of milliseconds.
+  addNoise(ctx, out, 0, { bp: body, q: 0.9, attack: 0.0015, decay: 0.028, gain: 1.6 });
+  addNoise(ctx, out, 0.002, { bp: body * 2.6, q: 0.8, decay: 0.016, gain: 0.8 });
+  // Weight behind the axe.
+  addThud(ctx, out, 0, 105, 60, 0.035, 0.75);
+  // Fibres tearing as the blade wedges in.
+  addGrains(ctx, out, 0.012, 0.11, Math.round(7 * p.splinter), { lo: 900, hi: 3200, decay: 0.005, gain: 0.45 });
+  return out;
+}
+
 export interface DigParams {
   readonly dur: number;
   /** Low-pass corner of the scrape; lower is wetter earth. */
@@ -529,6 +558,7 @@ function click(ctx: GenContext, p: ClickParams): Float32Array {
 
 export const GENERATORS = {
   impact,
+  chop,
   dig,
   chime,
   buzz,
