@@ -34,8 +34,13 @@ ENV_KEYS = [
 ]
 
 
+OPTIONAL_KEYS = {"EMAIL_API_KEY"}
+
+
 def need(key: str, plain: bool = True) -> str:
     value = os.environ.get(key, "")
+    if not value and key in OPTIONAL_KEYS:
+        return value
     if not value:
         sys.exit(f"render-cloud-init: {key} is missing")
     # The .env file is read by /bin/sh, so keep its values to one plain word.

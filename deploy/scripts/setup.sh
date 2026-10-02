@@ -5,11 +5,12 @@
 #
 # Needs: DOMAIN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
 # R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, RESEND_API_KEY, DROPLET_SIZE,
-# REPLACE_SERVER (true/false), and doctl already logged in.
+# REPLACE_SERVER (true/false), and doctl already logged in. RESEND_API_KEY is
+# optional: without it the server runs with password-reset email turned off.
 set -euo pipefail
 
 for key in DOMAIN CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID \
-  R2_SECRET_ACCESS_KEY RESEND_API_KEY DROPLET_SIZE REPLACE_SERVER; do
+  R2_SECRET_ACCESS_KEY DROPLET_SIZE REPLACE_SERVER; do
   if [ -z "${!key:-}" ]; then
     echo "::error::$key is not set. Add it under Settings > Secrets and variables > Actions (see deploy/README.md)."
     exit 1
@@ -131,7 +132,7 @@ fi
 export DOMAIN REGISTRY="$registry" TUNNEL_TOKEN="$tunnel_token" \
   S3_ENDPOINT="https://$acct.r2.cloudflarestorage.com" S3_BUCKET="$bucket" \
   S3_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" S3_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-  EMAIL_API_KEY="$RESEND_API_KEY" EMAIL_FROM="no-reply@mail.$DOMAIN" \
+  EMAIL_API_KEY="${RESEND_API_KEY:-}" EMAIL_FROM="no-reply@mail.$DOMAIN" \
   REGISTRY_DOCKER_CONFIG="$docker_config"
 user_data=$(mktemp)
 python3 "$here/render-cloud-init.py" >"$user_data"
@@ -146,5 +147,8 @@ echo "::endgroup::"
   echo
   echo "- Game page: https://play.$DOMAIN (live after the first Deploy run)"
   echo "- Server: https://api.$DOMAIN, Droplet size $DROPLET_SIZE in Toronto"
+  if [ -z "${RESEND_API_KEY:-}" ]; then
+    echo "- Password-reset email is off (no RESEND_API_KEY). Add the secret and re-run with 'Replace the server' to turn it on."
+  fi
   echo "- Next: run the **Deploy** workflow."
 } >>"${GITHUB_STEP_SUMMARY:-/dev/stdout}"

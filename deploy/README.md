@@ -40,7 +40,7 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 | `CLOUDFLARE_API_TOKEN` | secret | Custom token: Account Cloudflare Pages Edit, Account Cloudflare Tunnel Edit, Zone DNS Edit, Zone Zone Read (that zone) |
 | `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare account ID |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | secrets | R2 API token, Object Read & Write, bucket `blockyrts-saves` (create the bucket first) |
-| `RESEND_API_KEY` | secret | Resend sending key for `mail.<DOMAIN>` |
+| `RESEND_API_KEY` | secret, optional | Resend sending key for `mail.<DOMAIN>`; without it password-reset email is off |
 
 ## Contract with `packages/server` (owned by the server thread)
 
@@ -66,7 +66,7 @@ The workflows expect these, and do not create them:
 | `S3_BUCKET` | `blockyrts-saves` |
 | `S3_REGION` | `auto` |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | R2 key |
-| `EMAIL_API_KEY` | Resend key |
+| `EMAIL_API_KEY` | Resend key, or empty: the server must then run with password-reset email off (say so on the reset screen) |
 | `EMAIL_FROM` | `no-reply@mail.<DOMAIN>` |
 | `PUBLIC_URL` | `https://play.<DOMAIN>` (base for reset and invite links) |
 | `ALLOWED_ORIGINS` | `https://play.<DOMAIN>` |
