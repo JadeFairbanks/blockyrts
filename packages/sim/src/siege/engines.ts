@@ -204,8 +204,9 @@ export function runEngine(state: SimState, i: number): void {
       e.queue[i]!.shift();
       resetWalk(state, i);
     }
-    // Moving, it does not fire; an attack-move stops to fire at what comes in range.
-    if (o.t !== 'attackMove' || e.order[i] === OrderKind.Move) return;
+    // Moving, it does not fire; an attack-move stops to fire at what comes in range, and a cannon in its port fires from the roof.
+    const ported = o.t === 'port' && e.inside[i] === o.b;
+    if (!ported && (o.t !== 'attackMove' || e.order[i] === OrderKind.Move)) return;
   }
   if (o?.t === 'attack') {
     const t = e.indexOf(o.id);
