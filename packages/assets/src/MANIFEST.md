@@ -57,6 +57,22 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | hare | models/animals/hare/hare.bbmodel | 20 | 64x64 + 1 variants (young) |  |
 | deer | models/animals/deer/deer.bbmodel | 30 | 128x128 + 2 variants (hind, young) | the game hides the `antlers` group for the deer_hind and deer_young textures |
 
+## monsters
+
+| id | path | cube count | texture size | deviation and reason |
+|---|---|---|---|---|
+| zombie | models/monsters/zombie/zombie.bbmodel | 22 | 128x64 + 2 variants (soldier, woman) | `burn` clip added (all the walking dead are taken to burn in sunlight) |
+| skeleton_archer | models/monsters/skeleton_archer/skeleton_archer.bbmodel | 34 | 128x64 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (quiver in `slot_quiver`, recurve_bow in `slot_hand_l`) |
+| bloated_corpse | models/monsters/bloated_corpse/bloated_corpse.bbmodel | 23 | 256x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); `death` is a copy of `burst` (swells, bursts, leaves a deflated heap) |
+| skeleton_bomber | models/monsters/skeleton_bomber/skeleton_bomber.bbmodel | 29 | 128x64 | `burn` clip added (all the walking dead are taken to burn in sunlight); the loose keg after `drop_bomb` is the separate `bomb_keg` model |
+| bomb_keg | models/monsters/bomb_keg/bomb_keg.bbmodel | 4 | 128x64 |  |
+| grave_hound | models/monsters/grave_hound/grave_hound.bbmodel | 28 | 128x64 | `burn` clip added (all the walking dead are taken to burn in sunlight) |
+| barrow_knight | models/monsters/barrow_knight/barrow_knight.bbmodel | 35 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (longsword in `slot_hand_r`, kite_shield in `slot_shield_l`) |
+| plague_bearer | models/monsters/plague_bearer/plague_bearer.bbmodel | 31 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (chain_1 in `slot_hand_r`) |
+| gravewing | models/monsters/gravewing/gravewing.bbmodel | 29 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight) |
+| bone_colossus | models/monsters/bone_colossus/bone_colossus.bbmodel | 38 | 256x256 | `burn` clip added (all the walking dead are taken to burn in sunlight); scale keyframes (to 0 and back, linear) show/hide `bone_lump` |
+| hollow_priest | models/monsters/hollow_priest/hollow_priest.bbmodel | 31 | 128x128 | `burn` clip added (all the walking dead are taken to burn in sunlight); held gear modelled as part of the monster, as a group inside its slot (crooked_staff in `slot_hand_r`); `raise_dead` key 1.4 s = spawn a zombie and play its `rise` clip |
+
 ## items
 
 | id | path | cube count | texture size | deviation and reason |
