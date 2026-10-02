@@ -564,6 +564,7 @@ function workerLook(d: Int32Array, o: number): Look {
   if (order === OrderKind.Farm || order === OrderKind.Dig) parts.push('hoe');
   else if (working) {
     if (tool === Tool.Hardwood) parts.push('hardwood_axe');
+    else if (tool === Tool.Stone) attach.push(['axe_stone', 'slot_hand_r']);
     else if (tool === Tool.Flint) attach.push(['axe_flint', 'slot_hand_r']);
     else if (tool > Tool.Flint) parts.push('hardwood_axe');
   }

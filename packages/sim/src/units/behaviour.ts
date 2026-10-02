@@ -61,7 +61,7 @@ export function builderLimit(kind: number): number {
   return kind === BuildingKind.MainBase ? 8 : 4;
 }
 /** Gather speed by tool tier, per mille (Table 2c). */
-export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 3000, 3500];
+export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1150, 1250, 1500, 1750, 2000, 2250, 2500, 3000, 3500];
 /** Worker health by rank (Table 1). */
 export const WORKER_HEALTH_BY_RANK: readonly number[] = [60, 60, 70, 80, 90, 100];
 /** Rank training at a main base (Table 7): to Hand, to Master. */

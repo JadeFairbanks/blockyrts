@@ -1481,6 +1481,7 @@ export function shortFace(name: string): string {
 export function shortName(it: ItemSpec): string {
   const faces: Record<number, string> = {
     [Item.ToolsHardwood]: 'Tools H',
+    [Item.ToolsStone]: 'Tools S',
     [Item.ToolsFlint]: 'Tools F',
     [Item.Club]: 'Club',
     [Item.SpearHardwood]: 'Spear H',

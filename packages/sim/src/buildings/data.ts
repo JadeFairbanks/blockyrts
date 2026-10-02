@@ -144,7 +144,7 @@ const fieldLevels = (first: string, cost1: Cost, supplies: readonly number[], fa
 ];
 
 const MAIN_BASE_GIVES = [
-  'drop-off for everything, trains workers and warriors, hardwood and flint gear; shelters 8',
+  'drop-off for everything, trains workers and warriors, hardwood, stone and flint gear; shelters 8',
   'Barracks',
   'parapets with 8 slots; Forge 2, Stables, Kiln, Workshop 2',
   'Magi Sanctum, Mineshaft 1, Scriptorium, Kitchen, farm tier 2',

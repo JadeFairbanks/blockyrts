@@ -338,7 +338,7 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 - Units, Warriors (melee and backup weapon switching, ranged and melee switching with a lock, carcass nodes; hunting orders are M4); Experience and training (combat XP, five ranks; training at buildings is M4); Table 1 warrior rows.
 - Combat: Melee (stab versus 90 degree arc), One-handed weapons and shields, Polearms (reach, minimum range, the three fallbacks), Fighting flying enemies, Ranged attacks, How ranged attacks hit (swept projectiles, hit boxes, lead aiming with spread, first thing hit, friendly pass-through, the clear shot search), Walls, trees and ranged attacks, Bows and crossbows (bows, arrows, quivers, tip tiers; crossbows are M4). Unit orders: Attack and attack-move, Hold, Patrol, the leash, target choice, the targeting cursor.
-- Equipment: Making equipment (K crafting at the Big House: the Items rows for hardwood and flint tools, club, spears, flint axe, javelin, sling, bow and flint arrows, fire arrows, wicker and wood shields, boots, hand torch), Equipping units (Equip Best, pick-up at a main base, rank order, Auto-Equip F4), Choosing by hand (I panel), Seeing equipment, Unit models (the shared body, warrior skin, injured and death animations; other races' models arrive with their milestones), Refurbishing (F). Table 2c hardwood and flint rows, 2d tiers 1 and 2, 2e sling, javelin, bow, arrows, quiver, fire arrows; Table 3 boots, wicker and wood shields.
+- Equipment: Making equipment (K crafting at the Big House: the Items rows for hardwood, stone and flint tools, club, spears, flint axe, javelin, sling, bow and flint arrows, fire arrows, wicker and wood shields, boots, hand torch), Equipping units (Equip Best, pick-up at a main base, rank order, Auto-Equip F4), Choosing by hand (I panel), Seeing equipment, Unit models (the shared body, warrior skin, injured and death animations; other races' models arrive with their milestones), Refurbishing (F). Table 2c hardwood and flint rows, 2d tiers 1 and 2, 2e sling, javelin, bow, arrows, quiver, fire arrows; Table 3 boots, wicker and wood shields.
 - Table 4 Defences: walls, gates and towers in three materials, garrison with E and U, tower slots and parapets; Earthworks (ramps, banks, fill) with the dragged preview.
 - Digging and prospecting (Dig: area, depth, preview, tunnels), Digging and building up the land (Jade's dig rate, bites, the 3 m limit, carving yields, Earth), Table 10 dig speeds and break costs, Keeping digging fair (its unlit tunnel as cave rule is applied by M5's lairs), water reacting to digs through M1's water. Generated rocks and trees: hit feedback and hit particles.
 - Threats and Monsters and terrain: the dark edge, claimed land exclusion, the coarse 2 m navigation map with per-kind costs and flow fields, break cost versus walking with the x3 natural terrain rule. Table 8 rows: claimed land, dark edge, light and unit weights, first night, split and picking, first appearance, the base budget 12 + 3n + 0.04n^2 (the other rows are M5). Day and night: sunburn, fleeing and sun-proof behaviour at dawn.
@@ -1041,7 +1041,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Dead trees, thornwood | Barrens, Deadlands | nothing: dead and twisted, no lumber (Jade); cover and lair sites only |  |  |  |  | none |
 | Herbs / wild flax | Heartland, Fringe; rare deeper | 10 / 10 | 10 | 10 s | 1 | hardwood | 5 days (s) |
 | Loose stone / flint scatter | Heartland | 40 stone / 20 flint | 5 / 10 | 10 s | 2 | hardwood | none (s) |
-| Stone outcrop | Heartland (a few), Fringe | 200 stone | 5 | 15 s | 2 | flint | none (s) |
+| Stone outcrop | Heartland (a few), Fringe | 200 stone | 5 | 15 s | 2 | stone (s) | none (s) |
 | Copper outcrop / tin outcrop | Heartland | 60 / 30 ore | 5 | 20 s | 2 | flint | none (s) |
 | Coal, surface seam | Fringe | 60 | 5 | 15 s | 2 | copper | none (s) |
 | Bog iron patch | Heartland bogs (giant frog guards it, roster) | 40 | 5 | 20 s | 2 | bronze | none (s) |
@@ -1374,7 +1374,8 @@ The camera looks down at the world at a fixed angle and can be panned and zoomed
 **Edge panning (mouse).** Moving the cursor to the very edge of the screen pans the camera in that direction. To make sure players never pan by accident while using the HUD:
 
 - The pan zones are only the outermost 4 pixels of the screen on each side (the very edge of the monitor or browser window). They are not the edges of the HUD panels.
-- Where a HUD panel touches the screen edge (for example, the minimap at the bottom left), the pan zone along that panel is switched off, except at the 20-pixel corners. So the camera never pans while the cursor is on the minimap, the command card or the selection panel, even when it is at the bottom of the screen.
+- Where a HUD panel touches the screen edge (for example, the minimap at the bottom left), edge panning still works, but only in a thinner band: the outermost 2 pixels of the window (suggested), in that edge's direction, with the corners panning diagonally. Using the panel normally, anywhere inside that band, never pans the camera; pushing the cursor all the way to the edge of the screen does, just as it does over the game view.
+- A cursor that leaves the window stops edge panning. Players who never edge-pan still have the arrow keys, middle-mouse drag and the minimap.
 - Panning starts only after the cursor has stayed in a pan zone for 0.1 seconds, so the cursor briefly brushing the edge does nothing.
 - The cursor changes to a directional arrow while in a pan zone, so the player always knows it is panning.
 - In the corners, panning is diagonal.
@@ -1840,7 +1841,7 @@ A first list of buildings. Names in this list are working names, and buildings m
 
 | **Building** | **Build menu** | **Purpose** |
 |---|---|---|
-| Big House (main base) | Start; extra ones from the Basic menu | Drop-off point for every resource. Trains workers and warriors, and mages from level 6. Workers can shelter inside. Upgraded up to level 10 (see "Main base" below). |
+| Big House (main base) | Start; extra ones from the Basic menu | Drop-off point for every resource. Trains workers and warriors, and mages from level 6. Makes hardwood, stone (suggested) and flint tools. Workers can shelter inside. Upgraded up to level 10 (see "Main base" below). |
 | Farms | Basic | Suggested types: crop fields, vegetable farms, herb beds and livestock farms (a pen with a coop and trough), each with 3 tiers (stick fence, then rail fence and shed, then stone wall and well), plus a farmhouse (thatched, then timber, then stone) where assigned workers shelter. Grow crops or raise livestock when workers are assigned. Food comes in slowly but never runs out. Farms are the main source of supply, train workers, and shelter workers at night. There are different types and tiers that give different amounts of supply. |
 | Pen and barn (suggested) | Basic | Keep livestock safe at night, when monsters will kill animals left in the open. |
 | Lumber mill | Basic | Turns logs into planks for items such as carts, shields and gun stocks (buildings are paid in lumber, see table 4). Also a drop-off point for wood. Suggested: an upgrade adds a waterwheel and works faster. |
@@ -1953,7 +1954,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 | **Building** | **Cost** | **Build (ws)** | **Health** | **Footprint** | **Menu slot** | **Supply** | **Needs** | **Gives or unlocks** |
 |---|---|---|---|---|---|---|---|---|
-| Main base 1 Big House | start; an extra one 300 softwood, 150 stone | 1200 | 1200 | 14 x 14 (6.3 m) | Basic 1 (doc) | 8 |  | drop-off, workers, warriors, hardwood and flint gear, bows, arrows, javelins, slings, rope, boots, hand carts; shelters 8 (s) |
+| Main base 1 Big House | start; an extra one 300 softwood, 150 stone | 1200 | 1200 | 14 x 14 (6.3 m) | Basic 1 (doc) | 8 |  | drop-off, workers, warriors, hardwood, stone and flint gear, bows, arrows, javelins, slings, rope, boots, hand carts; shelters 8 (s) |
 | 2 Longhall | 100 softwood, 40 stone | 400 | 1600 | same | upgrade | 12 |  | Barracks (s) |
 | 3 Hall | 110 softwood, 45 stone, 15 sticks (s) | 420 (s) | 2000 | same | upgrade | 16 |  | parapets, 8 slots (doc); Forge 2, Stables, Kiln, Workshop 2 (s) |
 | 4 Stockade Hall | 120 softwood, 60 stone, 25 hardwood, 5 bronze (s) | 450 (s) | 2500 | same | upgrade | 20 | Bronze | Magi Sanctum, Mineshaft 1, Scriptorium, Kitchen, farm tier 2 (s) |
@@ -2042,6 +2043,7 @@ Iron and steel items carry the grade of the metal they are made from, so a bloom
 | **Item** | **Made at** | **From** |
 |---|---|---|
 | Hardwood axe, digging stick, mallet | Big House | Hardwood sticks (starting tools) |
+| Stone axe, stone pick, stone mallet (suggested) | Big House, no research | Hardwood sticks and stone. A cheap step up from hardwood: the stone pick quarries stone and digs earth, but cannot mine copper, tin or any ore (that still needs flint or better). |
 | Flint axe, flint pick, flint knife | Big House | Hardwood sticks, flint |
 | Hardwood hoe | Big House | Hardwood sticks. For farm work. |
 | Hoe (copper, bronze, iron, steel) (suggested) | Forge | The metal ingot, hardwood lumber |
@@ -2230,6 +2232,8 @@ The game moves through tiers of material, following the order the resource list 
 | 7. Steel | Forge level 4 (Steelworks); vein iron ore; research | Refined iron, steel and, slowly, high-quality steel. The best tools, weapons and armour. |
 | 8. Gunpowder | Saltpetre, sulphur and charcoal; powder mill | Flintlock muskets and cannons (the end of the tech tree). |
 
+**Stone tools (suggested)** are an optional cheap step between hardwood and flint: the Big House makes them from sticks and stone with no research, so they can be had on day 0. They gather a little faster than hardwood but cannot mine ore, so flint stays the first researched tier.
+
 Because sulphur, vein iron and other late resources are mostly found far from spawn, the later tiers push players to expand, in line with the Premise.
 
 #### Table 2: Tools and weapons per tier
@@ -2289,6 +2293,7 @@ Building costs below are paid in lumber and stone straight from the pool (worker
 | **Tier** | **Gather speed** | **Worker damage** | **Weight** | **Recipe** | **Made at** | **Time** |
 |---|---|---|---|---|---|---|
 | Hardwood (axe, digging stick, mallet, hoe) | x1.0 (s) | 4 | 3 lb (s) | 3 hardwood sticks (s) | Big House | 10 s (s) |
+| Stone (axe, pick, mallet; no research; the pick quarries stone and digs earth but cannot mine any ore) | x1.15 (s) | 4 (s) | 3.5 lb (s) | 2 sticks, 2 stone (s) | Big House | 10 s (s) |
 | Flint (axe, pick, knife) | x1.25 (s) | 5 (s) | 3 lb (s) | 2 sticks, 1 flint (s) | Big House | 10 s (s) |
 | Copper (axe, pick, sickle, hoe) | x1.5 (s) | 6 (s) | 4 lb (s) | 1 copper ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
 | Bronze (axe, pick, sickle, saw, hoe) | x1.75 (s) | 7 (s) | 4.5 lb (s) | 1 bronze ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
@@ -2392,8 +2397,8 @@ Time to each tier, steady play, counting days (nights) from the start:
 
 Wave versus a reasonable defence (single-player budgets without depth weighting; mob stats roster 5.0; damage after table 3 armour):
 
-- Night 0, budget 12: 4 zombies, 2 bats, 2 rats, 1 giant spider, 1 slime against 1 warrior (flint spear, 8.6 damage a second), 4 workers (2.7 each) and a 300 HP softwood fence. The warrior kills a zombie in 7 s stabbing over the fence (reach 2.5 m); 4 zombies chewing one column (2.5 a second each, 10 total) need 30 s to break it and are all dead at 28 s, so the fence holds. Rats climb in 4 to 6 s and die to the four workers in 3 s each; bats die to 3 stabs each; the spider is the danger (ruling 10 below: about 9 s and 60 damage with everyone on it, a dead warrior if it is met alone); the slime (half damage from stabs) takes 21 s. About 70 s of fighting in a 180 s night with the first arrival at about 35 s. Tight, survivable with the workers fighting, and it teaches the fence.
-- Night 10, budget 46: 2 bloated corpses, 2 bombers, 6 skeleton archers, 8 zombies, 3 rats, 2 bats, 1 slime (about 1570 HP) against 6 warriors in bronze or bloom iron behind a hardwood fence (s). A bloated corpse does 8 a second through bronze scale and bursts for 28; a bomber breaks a softwood column (220 vs 300) but not hardwood. The night-13 blood night now meets wrought iron (s).
+- Night 0, budget 12: 4 zombies, 2 bats, 2 rats, 1 giant spider, 1 slime against 1 warrior (flint spear, 8.6 damage a second), 4 workers (2.7 each) and a 300 HP softwood fence. The warrior kills a zombie in 7 s stabbing over the fence (reach 2.5 m); 4 zombies chewing one column (2.5 a second each, 10 total) need 30 s to break it and are all dead at 28 s, so the fence holds. Rats (26 HP) climb in 4 to 6 s and die to the four workers in about 2.5 s each (s); bats die to 3 stabs each; the spider (40 HP) dies on the fence in about 3.5 s to the warrior's stabs before it gets over (ruling 10 below) (s); the slime (half damage from stabs) takes 21 s. About 60 s of fighting in a 180 s night with the first arrival at about 35 s (s). The zombies at the fence are the real test, and it teaches the fence.
+- Night 10, budget 46: 2 bloated corpses, 2 bombers, 6 skeleton archers, 8 zombies, 3 rats, 2 bats, 1 slime (about 1560 HP (s)) against 6 warriors in bronze or bloom iron behind a hardwood fence (s). A bloated corpse does 8 a second through bronze scale and bursts for 28; a bomber breaks a softwood column (220 vs 300) but not hardwood. The night-13 blood night now meets wrought iron (s).
 - Night 20, budget 88: about 3500 HP of hounds, goblins, bombers and corpses against 10 warriors in wrought iron and mail, 4 crossbows and the first stone walls (s). Hounds at 5.5 m/s reach sheltered workers only if a gate is open.
 - Night 40, budget 196: about 8800 HP including a bone colossus (900 HP, 30%, 120 a hit on walls, 36 s per stone column) and a hollow priest raising zombies, against 16 steel warriors (HQ steel from about night 30), 8 crossbows, 2 to 4 mages and stone walls; muskets land on nights 40 to 44 and are not counted (s).
 - Night 60, budget 336: about 13400 HP of fiends, hellhounds, scorchwings, cinderlings and Rift beasts against 25 HQ steel warriors, 8 muskets, 2 cannons, 4 mages and stone walls (cinderlings burn wood) (s).
@@ -2527,6 +2532,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Tool tier** | **Soil, m3 per worker-minute** | **Stone, marble and ore rock** | **Clay, sand, gravel** | **10 m3 trench, 4 workers** | **300 m3 moat, 4 workers** |
 |---|---|---|---|---|---|
 | Hardwood | 0.5 (s) | 0, cannot (Jade) | 0.4 (s) | 5 min (1.7 days) | 150 min (50 days of daylight) |
+| Stone | 0.52 (s) | 0.003, barely scratches it (s) | 0.42 (s) | 4.8 min (s) | 144 min (48 days) (s) |
 | Flint | 0.55 (s) | 0.005 (s) | 0.45 (s) | 4.5 min | 136 min (45 days) |
 | Copper | 0.6 (s) | 0.01 (s) | 0.5 (s) | 4.2 min | 125 min (42 days) |
 | Bronze | 0.7 (s) | 0.03 (s) | 0.55 (s) | 3.6 min | 107 min (36 days) |

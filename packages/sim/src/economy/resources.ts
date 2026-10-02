@@ -145,7 +145,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.SoftwoodLumber, 'Softwood lumber', 'Softwood', M, 50, 'Softwood trees: pine, spruce, small softwood.'),
   r(Res.HardwoodLumber, 'Hardwood lumber', 'Hardwood', M, 50, 'Hardwood trees: birch and hornbeam (flint tools), oak and beech (copper tools).'),
   r(Res.Herbs, 'Medicinal herbs', 'Herbs', M, 5, 'Wild herbs and herb beds.'),
-  r(Res.Stone, 'Stone', 'Stone', M, 50, 'Loose stone, stone outcrops (flint tools) and digging rock.'),
+  r(Res.Stone, 'Stone', 'Stone', M, 50, 'Loose stone, stone outcrops (stone tools) and digging rock.'),
   r(Res.Flint, 'Flint', 'Flint', M, 10, 'Flint scatter.'),
   r(Res.Coal, 'Coal', 'Coal', M, 25, 'Surface coal seams (copper tools) and mineshafts.'),
   r(Res.Leather, 'Leather', 'Leather', M, 25, 'Cattle, and hides at a tannery.', 0, false),

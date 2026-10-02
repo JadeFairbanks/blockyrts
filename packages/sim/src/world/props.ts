@@ -8,7 +8,7 @@ import { CYCLE_STEPS } from '../rules.ts';
 const MINUTE = 60 * STEPS_PER_SECOND;
 
 /** Tool tiers in the order of Table 10's rows, which Table 5's "Tool needed" column names. */
-export const Tool = { None: 0, Hardwood: 1, Flint: 2, Copper: 3, Bronze: 4, BloomIron: 5, WroughtIron: 6, RefinedIron: 7, Steel: 8, HighQualitySteel: 9 } as const;
+export const Tool = { None: 0, Hardwood: 1, Stone: 2, Flint: 3, Copper: 4, Bronze: 5, BloomIron: 6, WroughtIron: 7, RefinedIron: 8, Steel: 9, HighQualitySteel: 10 } as const;
 export type Tool = (typeof Tool)[keyof typeof Tool];
 
 export const PropKind = {
@@ -110,7 +110,7 @@ export const PROPS: readonly PropInfo[] = [
   node(PropKind.WildFlax, 'Wild flax', PropShape.Plant, 'flax', 10, 10, 10, 1, Tool.Hardwood, 'Herbs / wild flax', ['10 / 10', '5 days'], 5 * CYCLE_STEPS),
   node(PropKind.LooseStone, 'Loose stone', PropShape.Rocks, 'stone', 40, 5, 10, 2, Tool.Hardwood, 'Loose stone / flint scatter', ['40 stone', '5 / 10']),
   node(PropKind.FlintScatter, 'Flint scatter', PropShape.Rocks, 'flint', 20, 10, 10, 2, Tool.Hardwood, 'Loose stone / flint scatter', ['20 flint', '5 / 10']),
-  node(PropKind.StoneOutcrop, 'Stone outcrop', PropShape.Rocks, 'stone', 200, 5, 15, 2, Tool.Flint, 'Stone outcrop'),
+  node(PropKind.StoneOutcrop, 'Stone outcrop', PropShape.Rocks, 'stone', 200, 5, 15, 2, Tool.Stone, 'Stone outcrop'),
   node(PropKind.CopperOutcrop, 'Copper outcrop', PropShape.Rocks, 'copper ore', 60, 5, 20, 2, Tool.Flint, 'Copper outcrop / tin outcrop', ['60 / 30']),
   node(PropKind.TinOutcrop, 'Tin outcrop', PropShape.Rocks, 'tin ore', 30, 5, 20, 2, Tool.Flint, 'Copper outcrop / tin outcrop', ['60 / 30']),
   node(PropKind.CoalSeam, 'Coal seam', PropShape.Rocks, 'coal', 60, 5, 15, 2, Tool.Copper, 'Coal, surface seam'),

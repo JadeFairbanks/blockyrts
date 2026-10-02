@@ -65,7 +65,7 @@ export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0,
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
 const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
-const TOOL_NAMES = ['no', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
+const TOOL_NAMES = ['no', 'hardwood', 'stone', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal'];
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
@@ -534,7 +534,7 @@ export class WorldView {
     const details: string[] = [];
     if (info.resource) {
       details.push(`Gatherers: ${info.gatherers} at a time; ${info.perLoad} per load.`);
-      details.push(`Tool needed: ${['none', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'][info.tool]}.`);
+      details.push(`Tool needed: ${TOOL_NAMES[info.tool] === 'no' ? 'none' : TOOL_NAMES[info.tool]}.`);
     }
     if (stage) details.push(`Growing: ${stage}.`);
     return {
