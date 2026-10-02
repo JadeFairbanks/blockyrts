@@ -50,18 +50,22 @@ function isQuarry(state: SimState, t: number): boolean {
   return t >= 0 && e.kind[t] === UnitKind.Animal && e.owner[t] === WILD && e.hp[t]! > 0;
 }
 
-/** The nearest game animal within the leash of (x, z): hares, deer, boar and crabs, never bears or the territorial ones (Semi-automation). */
+/** The game animal to hunt next within the leash of (x, z): hares, deer, boar and crabs, never bears or the territorial ones (Semi-automation). */
 export function nearestGame(state: SimState, i: number, x: number, z: number): number {
   const e = state.entities;
   let best = -1;
   let bestD = 0;
+  let bestHurt = 0;
   for (const j of state.grid.near(x, z, HUNT_LEASH_WU)) {
     if (!isQuarry(state, j) || !isGame(e.mob[j]!)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > HUNT_LEASH_WU) continue;
+    // A wounded animal first, so a hunt finishes what it started (s); then the nearest.
+    const hurt = e.hp[j]! < e.maxHp[j]! ? 1 : 0;
     const d = dist2(e.x[j]!, e.z[j]!, e.x[i]!, e.z[i]!);
-    if (best < 0 || d < bestD || (d === bestD && e.id[j]! < e.id[best]!)) {
+    if (best < 0 || hurt > bestHurt || (hurt === bestHurt && (d < bestD || (d === bestD && e.id[j]! < e.id[best]!)))) {
       best = j;
       bestD = d;
+      bestHurt = hurt;
     }
   }
   return best;

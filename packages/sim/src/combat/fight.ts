@@ -8,6 +8,7 @@
 // hurts one that is not fighting, it runs 10 m (Table 1).
 
 import { buildingSpec, BuildingKind } from '../buildings/data.ts';
+import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
@@ -29,6 +30,8 @@ const FRIENDS_WU = 6 * WU_PER_METRE;
 const CROWD_WU = 5 * WU_PER_METRE;
 /** A target told to attack is given up once it is this much farther than the unit can see. */
 const LOST_WU = 20 * WU_PER_METRE;
+/** A double-tapped hunt lets quarry go once it is 60 m from where the hunt began: the 40 m leash plus 20 m of chase (s). */
+const HUNT_CHASE_WU = 60 * WU_PER_METRE;
 /** A chase looks again for its moving target this often. */
 const REPATH_STEPS = 10;
 /** Bit 0 of a unit's skills: trained in archery (Table 7). */
@@ -392,7 +395,10 @@ export function fightStep(state: SimState, i: number): boolean {
   if (mode === Mode.Hunt && o?.t === 'hunt') {
     // The hunt order itself handles a dead, lost or not yet chosen quarry.
     const t = o.id ? e.indexOf(o.id) : -1;
-    if (!validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    // At dusk the hunt ends; on a double-tapped hunt, quarry that runs past the chase limit is let go.
+    const fled = o.auto !== 0 && t >= 0 && length2d(e.x[t]! - o.x, e.z[t]! - o.z) > HUNT_CHASE_WU;
+    if (fled) o.id = 0;
+    if (isDark(state.step) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       if (e.target[i] !== 0) disengage(state, i);
       return false;
     }

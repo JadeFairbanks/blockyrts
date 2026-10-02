@@ -136,7 +136,8 @@ describe('the fence against later nights', () => {
     const hp = new Map<number, number>();
     for (let i = 0; i < e.count; i++) hp.set(e.id[i]!, e.hp[i]!);
     step(s, [{ kind: 'debugSpawn', player: 0, mob: Mob.SkeletonArcher, x: cx + 16 * WU_PER_METRE, z: cz }]);
-    const archer = e.id[e.count - 1]!;
+    let archer = 0;
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.SkeletonArcher) archer = e.id[i]!;
     let hurt = 0;
     for (let k = 0; k < 600 && hurt === 0; k++) {
       step(s);
@@ -189,7 +190,8 @@ describe('digging', () => {
     if (trench) step(s, [{ kind: 'terrain', player: 0, x0: tx, z0, x1: tx + 2, z1, bottom: low - 14, top: high + 1, material: 0 }]);
     step(s, [{ kind: 'debugSpawn', player: 0, mob: Mob.Zombie, x: hx + 24 * WU_PER_METRE, z: hz }]);
     const e = s.entities;
-    const zombie = e.id[e.count - 1]!;
+    let zombie = 0;
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.Zombie) zombie = e.id[i]!;
     let inStrip = 0;
     let reached = false;
     for (let k = 0; k < 1200 && !reached; k++) {

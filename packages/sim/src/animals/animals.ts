@@ -29,8 +29,8 @@ import { BEAR_CAP, BREED_STEPS, breeds, Nature, Species, speciesSpec, SPECIES, Y
 const COLUMN = WU_PER_COLUMN;
 const M = WU_PER_METRE;
 
-/** Cells are stocked when a player's unit is in one or next to it, looked at every 5 s (s). */
-export const STOCK_CHECK_STEPS = 5 * STEPS_PER_SECOND;
+/** Cells are stocked when a player's unit is in one or next to it, looked at every second (s). */
+export const STOCK_CHECK_STEPS = STEPS_PER_SECOND;
 /** Grazing animals wander within 10 m of their spot (s), choosing a new patch every 6 to 20 s. */
 const GRAZE_WU = 10 * M;
 /** A hurt animal runs for 8 s (s); a fight is given up 20 m (pack: 40 m) from its spot. */
@@ -107,7 +107,7 @@ function landNear(state: SimState, x: number, z: number, water: boolean): [numbe
 
 /** Whether a column has water beside it (a bank: crabs, crocodiles). */
 function nearWater(state: SimState, x: number, z: number): boolean {
-  for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]] as const) if (hasWaterAt(state, x + dx, z + dz)) return true;
+  for (let r = 1; r <= 3; r++) for (const [dx, dz] of [[r, 0], [-r, 0], [0, r], [0, -r]] as const) if (hasWaterAt(state, x + dx, z + dz)) return true;
   return false;
 }
 
@@ -138,32 +138,58 @@ function groupsIn(state: SimState, s: SpeciesSpec, cell: number, band: Band): nu
   }
 }
 
+/** The stocked-cells key for one species in one cell. */
+function stockKey(cellId: number, species: number): number {
+  return cellId * 16 + species;
+}
+
+/** The first species a cell has not been stocked with yet, or -1. */
+function unstocked(state: SimState, cellId: number): number {
+  for (const s of SPECIES) if (!state.stockedCells.has(stockKey(cellId, s.id))) return s.id;
+  return -1;
+}
+
 /**
- * Stocks a cell with its wild animals: herds in pairs (one of each sex),
+ * Stocks a cell with its wild animals (or only one species of them): herds in pairs (one of each sex),
  * game, creatures, and in the Deepwoods a bear pair with a cub. Water
  * creatures need a bank, frogs a bog; a group finds its spot from the seed.
  */
-export function stockCell(state: SimState, cellId: number): void {
-  if (state.stockedCells.has(cellId)) return;
-  state.stockedCells.add(cellId);
+export function stockCell(state: SimState, cellId: number, only = -1): void {
   const cell = state.world.layout.cell(cellId);
   const spread = Math.max(20, floorDiv(cell.size * 2, 5));
+  // Water creatures look only along the cell's ponds and streams and frogs in its bogs, so a dry cell costs nothing to search.
+  const feats = state.world.gen.cellFeatures(cell);
+  const banks: Array<[number, number]> = [];
+  for (const p of feats.ponds) banks.push([p.x + p.r + 1, p.z], [p.x - p.r - 1, p.z], [p.x, p.z + p.r + 1], [p.x, p.z - p.r - 1]);
+  for (const st of feats.streams) for (const f of [-300, 0, 300]) banks.push([st.x + floorDiv(st.dx * f, 1000), st.z + floorDiv(st.dz * f, 1000)]);
+  const bogs: Array<[number, number]> = [];
+  for (const b of feats.bogs) bogs.push([b.x, b.z], [b.x + (b.r >> 1), b.z], [b.x - (b.r >> 1), b.z], [b.x, b.z + (b.r >> 1)], [b.x, b.z - (b.r >> 1)]);
   for (const s of SPECIES) {
+    if (only >= 0 && s.id !== only) continue;
+    const key = stockKey(cellId, s.id);
+    if (state.stockedCells.has(key)) continue;
+    state.stockedCells.add(key);
     const groups = groupsIn(state, s, cellId, cell.band);
     for (let g = 0; g < groups; g++) {
       if (s.id === Species.Bear && bearCount(state) + 3 > BEAR_CAP) break;
       const water = s.id === Species.Crocodile || s.id === Species.GiantCrab;
       const bog = s.id === Species.GiantFrog;
       let spot: [number, number] | null = null;
-      for (let t = 0; t < (water || bog ? 24 : 4) && !spot; t++) {
+      const places = water ? banks : bog ? bogs : null;
+      for (let t = 0; t < (places ? places.length : 4) && !spot; t++) {
         const h = hash(state, cellId, s.id, g, t);
+        if (places) {
+          const [px, pz] = places[(h + t) % places.length]!;
+          if (bog) {
+            const layers = state.world.columnAt(px, pz);
+            if (layers[layers.length - 1] !== Mat.Mud) continue;
+          }
+          const near = landNear(state, px, pz, false);
+          if (near && (bog || nearWater(state, near[0], near[1]))) spot = near;
+          continue;
+        }
         const cx = cell.x + ((h & 0xffff) % (spread * 2 + 1)) - spread;
         const cz = cell.z + (((h >>> 16) & 0xffff) % (spread * 2 + 1)) - spread;
-        if (water && !nearWater(state, cx, cz)) continue;
-        if (bog) {
-          const layers = state.world.columnAt(cx, cz);
-          if (layers[layers.length - 1] !== Mat.Mud) continue;
-        }
         spot = landNear(state, cx, cz, false);
       }
       if (!spot) continue;
@@ -230,7 +256,7 @@ export function stockChunk(state: SimState, cx: number, cz: number, key: number)
   }
 }
 
-/** Every 5 s: the cells and chunks the players' units are in or next to get their animals and fish. */
+/** Every second: the cells and chunks the players' units are in or next to get their animals and fish. */
 function updateStocking(state: SimState): void {
   const e = state.entities;
   const cells = new Set<number>();
@@ -249,16 +275,30 @@ function updateStocking(state: SimState): void {
     all.add(c);
     for (const n of state.world.layout.neighboursOf(c)) all.add(n);
   }
-  for (const c of [...all].sort((a, b) => a - b)) stockCell(state, c);
-  for (const [key, [kx, kz]] of [...chunks].sort((a, b) => a[0] - b[0])) stockChunk(state, kx, kz, key);
+  // Spread over the checks, as each needs fresh land generated: the cells the units stand in are stocked at once,
+  // the cells next to them one species a check, and one chunk of fish a check (s).
+  for (const c of [...cells].sort((a, b) => a - b)) stockCell(state, c);
+  for (const c of [...all].sort((a, b) => a - b)) {
+    const species = unstocked(state, c);
+    if (species < 0) continue;
+    stockCell(state, c, species);
+    break;
+  }
+  for (const [key, [kx, kz]] of [...chunks].sort((a, b) => a[0] - b[0])) {
+    if (state.stockedChunks.has(key)) continue;
+    stockChunk(state, kx, kz, key);
+    break;
+  }
 }
 
 // ----- behaviour -----
 
 function speedOf(state: SimState, i: number, running: boolean): number {
-  const s = speciesSpec(state.entities.mob[i]!);
-  const base = running ? s.run : s.walk;
-  return hasWaterAt(state, floorDiv(state.entities.x[i]!, COLUMN), floorDiv(state.entities.z[i]!, COLUMN)) && s.swim ? s.swim : base;
+  const e = state.entities;
+  const s = speciesSpec(e.mob[i]!);
+  // A wounded animal tires: it runs at its health's share of full pace, never slower than it walks (s).
+  const base = running ? Math.max(s.walk, floorDiv(s.run * e.hp[i]!, Math.max(1, e.maxHp[i]!))) : s.walk;
+  return hasWaterAt(state, floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN)) && s.swim ? s.swim : base;
 }
 
 /** Steps an animal towards a point; a blocked step picks a new patch next time. */

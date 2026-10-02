@@ -88,8 +88,8 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash cef4baa9`. Run it again: the same hash. (The
-   M0, M1 and M2 scripts run with `"peaceful": true`, no night mobs, so they
+   prints `final step 10000 hash f1ae866b`. Run it again: the same hash. (The
+   M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
    Chromium, Firefox and WebKit, and fails if any of the 500 hashes differ.
@@ -97,7 +97,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `69bea34f`
+   step as the headless runner with no script: for seed 1 that is `44cda7eb`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -127,9 +127,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `69bea34f` at step 40, with two players `9644b1bb`. The land matches too.
+   `44cda7eb` at step 40, with two players `141caae4`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash f9a0b9cd`: two players dig trenches from a
+   prints `final step 10000 hash 202b08c6`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -199,7 +199,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash fb451dfc`: workers chop and quarry, the Big
+   prints `final step 10000 hash 355d619d`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -248,7 +248,7 @@ main base or farm left ends the game with the night count as the score.*
    equipment: a slot, then an item, to hand-pick it, and the weight it
    carries (over 50 lb slows it). Auto-Equip (F4, on the utility bar) hands
    new gear out by day. Flint gear needs Flint tools researched at a
-   Scholar's Lodge (F); bows need archery, trained at a Barracks (U with
+   Scholar's Lodge (K, the research menu); bows need archery, trained at a Barracks (U with
    warriors selected).
 6. **Towers.** Build a tower, select ranged warriors (sling, javelins or a
    bow) and press E then click the tower: up to 4 garrison it and shoot from
@@ -264,13 +264,91 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 85c4a8ef`: the Big House crafts a club and a
+   prints `final step 10000 hash b97189c3`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
    the camp (the warrior falls and some columns are broken, but the Big House
    and all four workers come through), then at
    dawn the workers dig a trench and heap an earth bank from its Earth.
+   `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
+
+## How a tester checks milestone 4
+
+The build order's check for M4 is: *research Flint tools at a Scholar's
+Lodge, smelt bronze at a Casting Hearth, climb through Bloomery and Ironworks
+to a Steelworks fed with vein iron hauled by ox cart from a tier 2 mineshaft;
+stew from a Great Kitchen feeds the town; a wild horse is tamed at the
+Stables; warriors hunt deer with N and bring the meat home; Rations starves
+workers but not troops.*
+
+1. `pnpm test` runs those checks as scenario tests in
+   `packages/sim/test/m4.test.ts`: Flint tools researched at a Lodge; copper
+   and tin smelted at a Casting Hearth with a worker inside, then bronze; a
+   fishing rod crafted; stew cooked at a Great Kitchen; Rations on troops only
+   starving the workers but not the warrior; Don't eat keeping eggs back;
+   wild animals stocked round the camp; a wild horse tamed with 5 carrots and
+   stabled; a warrior hunting a deer and carrying the meat home; a carcass
+   left by a killed boar; a livestock farm breeding a calf and slaughtering
+   for meat; a prospect report, a tier 2 mineshaft bringing up vein iron and a
+   worker with an ox cart and a tamed ox hauling it to the Big House; and a
+   save taken with animals about carrying on to the same hash. The climb from
+   Bloomery to Steelworks is the same forge with its upgrades and recipes
+   (Table 2b), tested through the forge's smelting rows.
+2. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Herds of hares,
+   deer, chickens and cattle graze round the camp from the start; wolves,
+   boar, lynx and the rest live further out (the Deepwoods hold the bears).
+   Use **Speed** in the debug panel to move through the days.
+3. **Research.** Build a Scholar's Lodge (B, Advanced). Select it and press K:
+   the research menu lists every step, greyed out with what it still needs.
+   Flint tools costs 10 flint and 20 softwood lumber; flint lies in small
+   scatters near the camp. Research shows on the Lodge's queue and stops
+   while the troops starve.
+4. **The forge and making things.** A Forge starts as a Casting Hearth.
+   Put workers in it (E, then click it), select it and press K (Smelt):
+   copper and tin ingots from ore and charcoal, bronze from both, and the
+   tools and weapons that level makes. Its upgrades are the Bloomery,
+   Ironworks and Steelworks (Table 2b). The Kiln (charcoal, bricks, glass),
+   Tannery, Herbalist, Cooking huts up to the Great Kitchen (stew), Workshop
+   (carts, trinkets) and Barracks (training, Table 7) all open the same way
+   with K; the Big House's K menu crafts tools, weapons, fishing rods and nets.
+5. **Food.** The resource bar shows food and supply; click it for every
+   resource. In that list each food has a button to keep it back from meals
+   (Don't eat). F9 (or the Rations button on the utility bar) cycles Rations:
+   everyone eats, troops only, or workers only; whoever goes without starves,
+   slows and stops healing, and the food count turns red. A unit selected with
+   F walks to the nearest main base, storehouse or cooking building to eat
+   and heal (2 food for half its health over 10 s, plus medicine if badly
+   hurt).
+6. **Hunting.** Select a warrior and press N, then click a deer: it chases
+   and wears the deer down (a wounded animal tires), then butchers the
+   carcass and carries the meat home. Press N twice to keep hunting: it takes
+   the nearest game within 40 m of where it started, finishes wounded animals
+   first and walks home at dusk. Workers selected with it follow and haul the
+   carcasses. Boar fight back; wolves hunt in packs; bears are never game
+   unless clicked.
+7. **Animals.** Right click a wild animal with workers to tame it (a horse
+   wants 5 carrots and a Stables with room; Table 3 lists the rest). Tamed
+   cattle and chickens live at a Livestock farm, breed when a pair is home,
+   and K there slaughters one for meat, keeping the breeding pairs longest.
+   Badgers knock over torches far from the main base.
+8. **Mining and fishing.** Select workers and press T, then click the
+   ground: they prospect it (Poor, Fair, Good or Rich), which sets what a
+   mineshaft there brings up (Table 5). A Mineshaft goes on bare stone; four
+   miners inside bring up stone, ore, coal and at tier 2 vein iron, gold or
+   silver and gems, kept at the shaft. Right click the shaft with workers to
+   haul it home; a worker with an ox cart (crafted, then right click a tamed
+   ox to hitch it) carries far more. A Fishing dock's hands fish the nearest
+   stretch within 30 m that still has more than half its fish, moving on as
+   stretches run low; workers with a rod or net fish from the shore.
+9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
+   prints `final step 10000 hash f65ef4d1`: two workers pick flint while two
+   chop; the warrior hunts with N twice, wears down two deer north of the
+   camp, brings their meat home and walks home at dusk; a worker prospects
+   (Fair); Rations goes to troops only and the workers starve until it goes
+   back; eggs are kept back with Don't eat; a Scholar's Lodge goes up and
+   researches Flint tools at night; the Big House makes a sling and a fishing
+   rod from wild flax, and Equip Best hands the warrior the sling.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
