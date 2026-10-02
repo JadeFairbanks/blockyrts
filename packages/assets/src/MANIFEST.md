@@ -122,7 +122,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | corn_bundle | models/items/corn_bundle/corn_bundle.bbmodel | 8 | 32x32 |  |
 | meat_haunch | models/items/meat_haunch/meat_haunch.bbmodel | 6 | 32x32 |  |
 | hide_rolled | models/items/hide_rolled/hide_rolled.bbmodel | 5 | 64x32 |  |
-| fish_carried | models/items/fish_carried/fish_carried.bbmodel | 7 | 32x32 + 2 variants (catfish, salmon) |  |
+| fish_carried | models/items/fish_carried/fish_carried.bbmodel | 7 | 32x32 |  |
 | fish_carried_catfish | models/items/fish_carried/fish_carried_catfish.bbmodel | 9 | 128x64 | extra file in fish_carried/: giant catfish version (carried over the shoulder) |
 | fish_carried_salmon | models/items/fish_carried/fish_carried_salmon.bbmodel | 8 | 32x64 | extra file in fish_carried/: salmon version |
 | egg_basket | models/items/egg_basket/egg_basket.bbmodel | 11 | 32x32 |  |
