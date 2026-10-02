@@ -1,0 +1,47 @@
+name: Set up test server
+
+# Creates (or finds) everything the test server needs on Cloudflare and
+# DigitalOcean. Run by hand only; it never runs on a push. Safe to re-run.
+# See deploy/README.md for the secrets it reads.
+
+on:
+  workflow_dispatch:
+    inputs:
+      droplet_size:
+        description: Droplet size (s-1vcpu-2gb is $12 a month, s-2vcpu-4gb is $24)
+        type: choice
+        options: [s-1vcpu-2gb, s-2vcpu-4gb]
+        default: s-1vcpu-2gb
+      replace_server:
+        description: Replace the server if it already exists (the database is kept)
+        type: boolean
+        default: false
+
+concurrency:
+  group: test-server-infra
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      - run: python3 -m pip install --quiet pyyaml
+      - name: Set up Cloudflare and DigitalOcean
+        run: deploy/scripts/setup.sh
+        env:
+          DOMAIN: ${{ vars.DOMAIN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DROPLET_SIZE: ${{ inputs.droplet_size }}
+          REPLACE_SERVER: ${{ inputs.replace_server }}
