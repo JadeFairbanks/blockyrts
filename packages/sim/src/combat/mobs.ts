@@ -114,7 +114,7 @@ export const MOBS: readonly MobSpec[] = [
     drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 80 }, { res: Res.Meat, min: 1, max: 1, chancePm: 50 }],
   },
   {
-    ...base, id: Mob.GiantSpider, name: 'Giant spider', model: 'giant_spider', firstNight: 0, hp: 105, armourBp: 1000, damage: 16, attackSteps: ds(13), reach: cm(150),
+    ...base, id: Mob.GiantSpider, name: 'Giant spider', model: 'giant_spider', firstNight: 0, hp: 40, armourBp: 1000, damage: 16, attackSteps: ds(13), reach: cm(150),
     range: cm(800), shot: Shot.Web, spreadBp: 500, speed: v10(35), climbSpeed: v10(8), vsWalls: 5,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Trickle, threatTenths: 30, halfWidth: cm(60), height: cm(60),
     drops: [{ res: Res.SpiderSilk, min: 1, max: 2, chancePm: 200 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 10 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
