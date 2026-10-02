@@ -115,8 +115,8 @@ const DAY = CYCLE_STEPS;
 /** Farm upgrade costs and times: crop fields and vegetable farms share them (Table 4: "as crop field"). */
 const fieldLevels = (first: string, cost1: Cost, supplies: readonly number[], farmers: readonly number[], ws1: number, gives: string): LevelSpec[] => [
   lvl(`${first} 1`, cost1, ws1, 400, { supply: supplies[0]!, shelters: 4, workers: farmers[0]!, gives: `${gives}; trains workers; the farmhouse shelters 4` }),
-  lvl(`${first} 2`, [[S, 40], [ST, 30]], 300, 600, { supply: supplies[1]!, needsBase: 4, shelters: 4, workers: farmers[1]!, gives: 'rail fence and shed; yield x1.5' }),
-  lvl(`${first} 3`, [[H, 40], [ST, 60]], 600, 800, { supply: supplies[2]!, needsBase: 5, shelters: 4, workers: farmers[2]!, gives: 'stone wall and well; yield x2' }),
+  lvl(`${first} 2`, [[S, 20], [ST, 15]], 150, 600, { supply: supplies[1]!, needsBase: 4, shelters: 4, workers: farmers[1]!, gives: 'rail fence and shed; yield x1.5' }),
+  lvl(`${first} 3`, [[H, 20], [ST, 30]], 300, 800, { supply: supplies[2]!, needsBase: 5, shelters: 4, workers: farmers[2]!, gives: 'stone wall and well; yield x2' }),
 ];
 
 const MAIN_BASE_GIVES = [
@@ -149,14 +149,14 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     levels: [
       mainBase('Big House', [[S, 300], [ST, 150]], 1200, 1200, 8, 1),
       mainBase('Longhall', [[S, 100], [ST, 40]], 400, 1600, 12, 2),
-      mainBase('Hall', [[S, 150], [ST, 80], [Res.Sticks, 30]], 600, 2000, 16, 3),
-      mainBase('Stockade Hall', [[S, 200], [ST, 120], [H, 50], [Res.BronzeIngot, 10]], 800, 2500, 20, 4, 'Needs the Bronze research.'),
-      mainBase('Marble Hall', [[H, 150], [ST, 200], [Res.Bricks, 40], [Res.Marble, 40], [Res.BronzeIngot, 20]], 1200, 3000, 25, 5),
-      mainBase('Keep', [[H, 200], [ST, 300], [Res.Bricks, 80], [Res.Marble, 60], [Res.WroughtIron, 30]], 1600, 3600, 30, 6),
-      mainBase('Fortified Keep', [[H, 250], [ST, 400], [Res.Bricks, 120], [Res.Marble, 80], [Res.WroughtIron, 50]], 2000, 4200, 35, 7),
-      mainBase('Castle', [[H, 300], [ST, 500], [Res.Bricks, 200], [Res.Marble, 100], [Res.RefinedIron, 60]], 2400, 5000, 40, 8),
-      mainBase('Great Castle', [[H, 300], [ST, 500], [Res.Bricks, 200], [Res.Marble, 150], [Res.SteelIngot, 60]], 3000, 6000, 45, 9),
-      mainBase('Citadel', [[H, 400], [ST, 600], [Res.Bricks, 300], [Res.Marble, 250], [Res.SteelIngot, 100], [Res.Gold, 10]], 4000, 7500, 50, 10),
+      mainBase('Hall', [[S, 110], [ST, 45], [Res.Sticks, 15]], 420, 2000, 16, 3),
+      mainBase('Stockade Hall', [[S, 120], [ST, 60], [H, 25], [Res.BronzeIngot, 5]], 450, 2500, 20, 4, 'Needs the Bronze research.'),
+      mainBase('Marble Hall', [[H, 75], [ST, 100], [Res.Bricks, 20], [Res.Marble, 20], [Res.BronzeIngot, 10]], 600, 3000, 25, 5),
+      mainBase('Keep', [[H, 100], [ST, 150], [Res.Bricks, 40], [Res.Marble, 30], [Res.WroughtIron, 15]], 800, 3600, 30, 6),
+      mainBase('Fortified Keep', [[H, 125], [ST, 200], [Res.Bricks, 60], [Res.Marble, 40], [Res.WroughtIron, 25]], 1000, 4200, 35, 7),
+      mainBase('Castle', [[H, 150], [ST, 250], [Res.Bricks, 100], [Res.Marble, 50], [Res.RefinedIron, 30]], 1200, 5000, 40, 8),
+      mainBase('Great Castle', [[H, 150], [ST, 250], [Res.Bricks, 100], [Res.Marble, 75], [Res.SteelIngot, 30]], 1500, 6000, 45, 9),
+      mainBase('Citadel', [[H, 200], [ST, 300], [Res.Bricks, 150], [Res.Marble, 125], [Res.SteelIngot, 50], [Res.Gold, 5]], 2000, 7500, 50, 10),
     ],
   },
   {
@@ -177,8 +177,8 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     crops: [{ res: Res.Herbs, perDay: 4, name: 'Herb bed' }],
     levels: [
       lvl('Herb bed 1', [[S, 20], [Res.Herbs, 10]], 100, 300, { supply: 1, shelters: 4, workers: 1, gives: '1 farmer; herbs 4 a day' }),
-      lvl('Herb bed 2', [[S, 30], [ST, 20]], 200, 500, { supply: 2, needsBase: 4, shelters: 4, workers: 1, gives: 'herbs 6 a day' }),
-      lvl('Herb bed 3', [[H, 30], [ST, 40]], 400, 700, { supply: 3, needsBase: 5, shelters: 4, workers: 1, gives: 'herbs 8 a day' }),
+      lvl('Herb bed 2', [[S, 15], [ST, 10]], 100, 500, { supply: 2, needsBase: 4, shelters: 4, workers: 1, gives: 'herbs 6 a day' }),
+      lvl('Herb bed 3', [[H, 15], [ST, 20]], 200, 700, { supply: 3, needsBase: 5, shelters: 4, workers: 1, gives: 'herbs 8 a day' }),
     ],
   },
   {
@@ -186,8 +186,8 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     menu: 'basic', slot: 2, w: 12, d: 12, solid: [0, 0, 4, 4], dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
     levels: [
       lvl('Livestock farm 1', [[S, 40], [Res.Sticks, 10]], 200, 400, { supply: 4, shelters: 4, workers: 1, gives: '6 animals, 1 worker, breeding, slaughter' }),
-      lvl('Livestock farm 2', [[S, 40], [ST, 30]], 300, 600, { supply: 6, needsBase: 4, shelters: 4, workers: 1, gives: '10 animals' }),
-      lvl('Livestock farm 3', [[H, 40], [ST, 60]], 600, 800, { supply: 8, needsBase: 5, shelters: 4, workers: 1, gives: '16 animals' }),
+      lvl('Livestock farm 2', [[S, 20], [ST, 15]], 150, 600, { supply: 6, needsBase: 4, shelters: 4, workers: 1, gives: '10 animals' }),
+      lvl('Livestock farm 3', [[H, 20], [ST, 30]], 300, 800, { supply: 8, needsBase: 5, shelters: 4, workers: 1, gives: '16 animals' }),
     ],
   },
   {
@@ -225,9 +225,9 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     levels: [
       lvl('Campfire', [[S, 5]], 10, 60, { gives: 'roast meat and fish; also a light' }),
       lvl('Cook Hut', [[S, 40], [ST, 20]], 200, 500, { needs: 'Cooking comes with milestone 4.', gives: 'smoked foods' }),
-      lvl('Kitchen', [[H, 60], [ST, 60], [Res.Bricks, 20]], 400, 800, { needsBase: 4, needs: 'Cooking comes with milestone 4.', gives: 'bread, salted foods' }),
-      lvl('Great Kitchen', [[H, 100], [ST, 100], [Res.Bricks, 60], [Res.WroughtIron, 10]], 800, 1200, { needsBase: 6, needs: 'Cooking comes with milestone 4.', gives: 'stew' }),
-      lvl('Grand Kitchen', [[H, 150], [ST, 200], [Res.Bricks, 100], [Res.SteelIngot, 20]], 1500, 1800, { needsBase: 8, needs: 'Cooking comes with milestone 4.', gives: 'pie; cooks twice as fast' }),
+      lvl('Kitchen', [[H, 30], [ST, 30], [Res.Bricks, 10]], 200, 800, { needsBase: 4, needs: 'Cooking comes with milestone 4.', gives: 'bread, salted foods' }),
+      lvl('Great Kitchen', [[H, 50], [ST, 50], [Res.Bricks, 30], [Res.WroughtIron, 5]], 400, 1200, { needsBase: 6, needs: 'Cooking comes with milestone 4.', gives: 'stew' }),
+      lvl('Grand Kitchen', [[H, 75], [ST, 100], [Res.Bricks, 50], [Res.SteelIngot, 10]], 750, 1800, { needsBase: 8, needs: 'Cooking comes with milestone 4.', gives: 'pie; cooks twice as fast' }),
     ],
   },
   {
@@ -265,9 +265,9 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     menu: 'basic', slot: 12, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M4,
     levels: [
       lvl('Work Hut', [[S, 40], [ST, 20]], 200, 600, { workers: 2, gives: 'gravel, sticks, ramps, Tokens' }),
-      lvl('Workshop', [[H, 60], [ST, 40], [Res.BronzeIngot, 10]], 400, 900, { needsBase: 3, workers: 2, gives: 'Charms, hand carts, bow staves' }),
-      lvl('Great Workshop', [[H, 100], [ST, 80], [Res.Bricks, 40], [Res.WroughtIron, 20]], 800, 1200, { needsBase: 5, workers: 2, gives: 'Brooches, Moonleafs, carts, catapults, lanterns' }),
-      lvl('Manufactory', [[H, 150], [ST, 150], [Res.Bricks, 100], [Res.SteelIngot, 30]], 1500, 1800, { needsBase: 7, workers: 2, gives: 'Heirlooms, Sunhearts, ballistas; double speed' }),
+      lvl('Workshop', [[H, 30], [ST, 20], [Res.BronzeIngot, 5]], 200, 900, { needsBase: 3, workers: 2, gives: 'Charms, hand carts, bow staves' }),
+      lvl('Great Workshop', [[H, 50], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 10]], 400, 1200, { needsBase: 5, workers: 2, gives: 'Brooches, Moonleafs, carts, catapults, lanterns' }),
+      lvl('Manufactory', [[H, 75], [ST, 75], [Res.Bricks, 50], [Res.SteelIngot, 15]], 750, 1800, { needsBase: 7, workers: 2, gives: 'Heirlooms, Sunhearts, ballistas; double speed' }),
     ],
   },
   {
@@ -299,14 +299,14 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     menu: 'advanced', slot: 1, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M4,
     levels: [
       lvl("Scholar's Lodge", [[S, 60], [ST, 20]], 240, 500, { gives: 'one research at a time' }),
-      lvl('Scriptorium', [[H, 100], [ST, 100], [Res.Bricks, 40]], 900, 900, { needsBase: 4, gives: 'research 25% faster' }),
-      lvl('Grand Academy', [[H, 150], [ST, 200], [Res.Bricks, 100], [Res.Marble, 60], [Res.SteelIngot, 20]], 1800, 1500, { needsBase: 7, gives: 'research 50% faster' }),
+      lvl('Scriptorium', [[H, 50], [ST, 50], [Res.Bricks, 20]], 450, 900, { needsBase: 4, gives: 'research 25% faster' }),
+      lvl('Grand Academy', [[H, 75], [ST, 100], [Res.Bricks, 50], [Res.Marble, 30], [Res.SteelIngot, 10]], 900, 1500, { needsBase: 7, gives: 'research 50% faster' }),
     ],
   },
   {
     kind: BuildingKind.MagiSanctum, name: 'Magi Sanctum', purpose: 'Trains mages.',
     menu: 'advanced', slot: 2, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M6,
-    levels: [lvl('Magi Sanctum', [[H, 80], [ST, 120], [Res.Bricks, 40], [Res.ManaCrystal, 5]], 900, 1200, { needsBase: 4, gives: 'novices, ranks to Adept, rank wands' })],
+    levels: [lvl('Magi Sanctum', [[H, 40], [ST, 60], [Res.Bricks, 20], [Res.ManaCrystal, 1]], 450, 1200, { needsBase: 4, gives: 'novices, ranks to Adept, rank wands' })],
   },
   {
     kind: BuildingKind.Barracks, name: 'Barracks', purpose: 'Trains warriors.',
@@ -316,20 +316,20 @@ export const BUILDINGS: readonly BuildingSpec[] = [
   {
     kind: BuildingKind.Stables, name: 'Stables', purpose: 'Tames and breeds horses and oxen; riding.',
     menu: 'advanced', slot: 4, w: 10, d: 8, solid: box(10, 8), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
-    levels: [lvl('Stables', [[S, 60], [ST, 20], [Res.Sticks, 10]], 300, 800, { needsBase: 3, gives: 'taming, 6 stalls, breeding, riding' })],
+    levels: [lvl('Stables', [[S, 30], [ST, 10], [Res.Sticks, 5]], 150, 800, { needsBase: 3, gives: 'taming, 6 stalls, breeding, riding' })],
   },
   {
     kind: BuildingKind.GunneryYard, name: 'Gunnery yard', purpose: 'Musket and cannon crew training.',
     menu: 'advanced', slot: 5, w: 12, d: 12, solid: box(12, 12), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
-    levels: [lvl('Gunnery yard', [[H, 100], [ST, 150], [Res.Bricks, 60], [Res.SteelIngot, 20]], 1200, 1500, { needsBase: 8, gives: 'musket and cannon crew training' })],
+    levels: [lvl('Gunnery yard', [[H, 50], [ST, 75], [Res.Bricks, 30], [Res.SteelIngot, 10]], 600, 1500, { needsBase: 8, gives: 'musket and cannon crew training' })],
   },
   {
     kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Mines ore, coal, stone, gold and gems from underground.',
     menu: 'advanced', slot: 6, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M4,
     levels: [
       lvl('Mineshaft 1', [[H, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 4, workers: 4, gives: '4 miners' }),
-      lvl('Mineshaft 2', [[H, 80], [ST, 100], [Res.WroughtIron, 30]], 900, 1200, { needsBase: 6, workers: 4 }),
-      lvl('Mineshaft 3', [[H, 100], [ST, 150], [Res.SteelIngot, 40]], 1200, 1600, { needsBase: 8, workers: 4 }),
+      lvl('Mineshaft 2', [[H, 40], [ST, 50], [Res.WroughtIron, 15]], 450, 1200, { needsBase: 6, workers: 4 }),
+      lvl('Mineshaft 3', [[H, 50], [ST, 75], [Res.SteelIngot, 20]], 600, 1600, { needsBase: 8, workers: 4 }),
     ],
   },
   {
@@ -342,20 +342,20 @@ export const BUILDINGS: readonly BuildingSpec[] = [
     menu: 'advanced', slot: 8, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M4,
     levels: [
       lvl('Casting Hearth', [[S, 60], [ST, 40]], 300, 600, { workers: 2, gives: 'copper, tin, bronze' }),
-      lvl('Bloomery', [[S, 60], [ST, 80], [Res.Clay, 20], [Res.BronzeIngot, 10]], 600, 900, { needsBase: 3, workers: 3, gives: 'bloom iron' }),
-      lvl('Ironworks', [[H, 100], [ST, 120], [Res.Bricks, 40], [Res.BronzeIngot, 20]], 900, 1200, { needsBase: 5, workers: 3, gives: 'wrought and pig iron, crossbows, mail' }),
-      lvl('Steelworks', [[H, 150], [ST, 200], [Res.Bricks, 120], [Res.WroughtIron, 40]], 1800, 1800, { needsBase: 7, workers: 4, gives: 'refined iron, steel, HQ steel' }),
+      lvl('Bloomery', [[S, 30], [ST, 40], [Res.Clay, 10], [Res.BronzeIngot, 5]], 300, 900, { needsBase: 3, workers: 3, gives: 'bloom iron' }),
+      lvl('Ironworks', [[H, 50], [ST, 60], [Res.Bricks, 20], [Res.BronzeIngot, 10]], 450, 1200, { needsBase: 5, workers: 3, gives: 'wrought and pig iron, crossbows, mail' }),
+      lvl('Steelworks', [[H, 75], [ST, 100], [Res.Bricks, 60], [Res.WroughtIron, 20]], 900, 1800, { needsBase: 7, workers: 4, gives: 'refined iron, steel, HQ steel' }),
     ],
   },
   {
     kind: BuildingKind.PowderMill, name: 'Powder mill', purpose: 'Gunpowder.',
     menu: 'advanced', slot: 9, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
-    levels: [lvl('Powder mill', [[H, 40], [ST, 80], [Res.Bricks, 40], [Res.WroughtIron, 10]], 600, 600, { needsBase: 7, gives: 'gunpowder' })],
+    levels: [lvl('Powder mill', [[H, 20], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 5]], 300, 600, { needsBase: 7, gives: 'gunpowder' })],
   },
   {
     kind: BuildingKind.Foundry, name: 'Foundry', purpose: 'Cannons and cannonballs.',
     menu: 'advanced', slot: 10, w: 10, d: 10, solid: box(10, 10), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
-    levels: [lvl('Foundry', [[H, 100], [ST, 150], [Res.Bricks, 100], [Res.BronzeIngot, 20], [Res.WroughtIron, 20]], 1200, 1500, { needsBase: 8, gives: 'cannons, cannonballs' })],
+    levels: [lvl('Foundry', [[H, 50], [ST, 75], [Res.Bricks, 50], [Res.BronzeIngot, 10], [Res.WroughtIron, 10]], 600, 1500, { needsBase: 8, gives: 'cannons, cannonballs' })],
   },
 ];
 
@@ -389,9 +389,9 @@ export const FARM_TIER_PER_MILLE = [1000, 1500, 2000] as const;
 /** A new field gives nothing for its first 2 days (Table 6). */
 export const FARM_FALLOW_STEPS = 2 * CYCLE_STEPS;
 
-/** Table 7: a new worker costs 20 food (nutrition) and 30 s at the Big House or any farm. */
+/** Table 7: a new worker costs 20 food (nutrition) and 15 s (halved pacing) at the Big House or any farm. */
 export const WORKER_FOOD = 20;
-export const WORKER_TRAIN_STEPS = 30 * STEPS_PER_SECOND;
+export const WORKER_TRAIN_STEPS = 15 * STEPS_PER_SECOND;
 /** Units a building can have queued (Table 7 (s): a Barracks or Sanctum can queue 5; the same for every building here). */
 export const QUEUE_LIMIT = 5;
 
