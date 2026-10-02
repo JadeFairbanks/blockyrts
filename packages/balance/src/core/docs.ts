@@ -6,8 +6,8 @@
 export interface ModuleDocs {
   /** The module's opening comment, joined into one paragraph. */
   header: string;
-  /** Doc comment and 1-based line of each `export const`. */
-  exports: Record<string, { doc: string; line: number }>;
+  /** Doc comment, 1-based line and section (the `// ----- title -----` above it, if any) of each `export const`. */
+  exports: Record<string, { doc: string; line: number; section?: string }>;
   /** Doc comments on interface fields, by field name (the first one in the module wins). */
   props: Record<string, string>;
 }
@@ -48,7 +48,15 @@ export function extractDocs(source: string): ModuleDocs {
       // The module header is not this export's comment.
       if (!(comments.length && line - 1 - comments.length === 0)) doc = comments.join(' ');
     }
-    exports[m[1]!] = { doc, line };
+    let section: string | undefined;
+    for (let i = line - 2; i >= 0; i--) {
+      const head = /^\/\/ -{3,} (.+?) -{3,}\s*$/.exec(lines[i]!);
+      if (head) {
+        section = head[1]!;
+        break;
+      }
+    }
+    exports[m[1]!] = { doc, line, ...(section ? { section } : {}) };
   }
 
   const props: ModuleDocs['props'] = {};
