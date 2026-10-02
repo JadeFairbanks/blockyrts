@@ -113,7 +113,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cannonball_stack | models/items/cannonball_stack/cannonball_stack.bbmodel | 10 | 32x32 + 2 variants (iron, stone) |  |
 | shield_bronze | models/items/shield_bronze/shield_bronze.bbmodel | 8 | 64x64 |  |
 | shield_wicker | models/items/shield_wicker/shield_wicker.bbmodel | 6 | 64x64 |  |
-| shield_wood | models/items/shield_wood/shield_wood.bbmodel | 8 | 64x64 + 3 variants (iron_bloom, iron_refined, iron_wrought) |  |
+| shield_wood | models/items/shield_wood/shield_wood.bbmodel | 9 | 64x64 | wood and leather only, no metal and no tier variants (rebuilt in review to the newest spec) |
 | shield_iron_kite | models/items/shield_iron_kite/shield_iron_kite.bbmodel | 9 | 64x64 + 3 variants (iron_bloom, iron_refined, iron_wrought) |  |
 | shield_steel_heater | models/items/shield_steel_heater/shield_steel_heater.bbmodel | 7 | 64x64 + 2 variants (hq_steel, steel) | adds an hq_steel (high-quality steel) texture wherever steel is listed |
 | armour_leather | models/items/armour_leather/armour_leather.bbmodel | 8 | 64x64 |  |
