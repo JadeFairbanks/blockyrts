@@ -224,3 +224,155 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cart_ox | models/mechanical/cart_ox/cart_ox.bbmodel | 67 | 256x256 | 67 cubes: the wishlist sets no vehicle budget (above the 60 big-monster cap); the four spoked wheels are 13 cubes each; spoked wheels are octagons, so the rim dips up to 1.3 u below y = 0 at some rolling angles |
 | elf_caravan_wagon | models/mechanical/elf_caravan_wagon/elf_caravan_wagon.bbmodel | 100 | 256x512 | 100 cubes: no vehicle budget in the wishlist; four wheels (44 cubes), carved trim, canopy and stall goods; `open` is its use clip (key 1.5 s); destroyed slumps about 15 degrees onto the broken wheels |
 | dwarf_sled | models/mechanical/dwarf_sled/dwarf_sled.bbmodel | 58 | 256x512 | move is a drag (no wheels) |
+
+## textures
+
+Terrain textures (wishlist section I), one PNG per file id. Top tiles may be rotated and mixed freely unless a row says otherwise.
+
+| id | path | frames | size | notes, deviations and reasons |
+|---|---|---|---|---|
+| deadlands_volcanic_glow | textures/deadlands_volcanic_glow.png | 1 | 80x16 | size 80x16 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); glow masks (crack pixels only) for top_1, top_2, top_3, top_4 and side, as one 80 x 16 strip of 16 x 16 cells |
+| terrain_barrens_ground_side | textures/terrain_barrens_ground_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_barrens_ground_top_1 | textures/terrain_barrens_ground_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_barrens_ground_top_2 | textures/terrain_barrens_ground_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_barrens_ground_top_3 | textures/terrain_barrens_ground_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_barrens_ground_top_4 | textures/terrain_barrens_ground_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_barrens_rock_side | textures/terrain_barrens_rock_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_barrens_rock_top_1 | textures/terrain_barrens_rock_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_barrens_rock_top_2 | textures/terrain_barrens_rock_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_barrens_rock_top_3 | textures/terrain_barrens_rock_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_barrens_rock_top_4 | textures/terrain_barrens_rock_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_clay_side | textures/terrain_clay_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_clay_top_1 | textures/terrain_clay_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_clay_top_2 | textures/terrain_clay_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_clay_top_3 | textures/terrain_clay_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_clay_top_4 | textures/terrain_clay_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_deadlands_ash_side | textures/terrain_deadlands_ash_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_deadlands_ash_top_1 | textures/terrain_deadlands_ash_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_deadlands_ash_top_2 | textures/terrain_deadlands_ash_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_deadlands_ash_top_3 | textures/terrain_deadlands_ash_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_deadlands_ash_top_4 | textures/terrain_deadlands_ash_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_deadlands_volcanic_side | textures/terrain_deadlands_volcanic_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_deadlands_volcanic_top_1 | textures/terrain_deadlands_volcanic_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_deadlands_volcanic_top_2 | textures/terrain_deadlands_volcanic_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_deadlands_volcanic_top_3 | textures/terrain_deadlands_volcanic_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_deadlands_volcanic_top_4 | textures/terrain_deadlands_volcanic_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_forest_floor_side | textures/terrain_forest_floor_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_forest_floor_side_top | textures/terrain_forest_floor_side_top.png | 1 | 16x4 | size 16x4 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); 16 x 4 lip for the top step of a side (transparent under the hanging blades) |
+| terrain_forest_floor_top_1 | textures/terrain_forest_floor_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_forest_floor_top_2 | textures/terrain_forest_floor_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_forest_floor_top_3 | textures/terrain_forest_floor_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_forest_floor_top_4 | textures/terrain_forest_floor_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_grass_fringe_side | textures/terrain_grass_fringe_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_grass_fringe_side_top | textures/terrain_grass_fringe_side_top.png | 1 | 16x4 | size 16x4 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); 16 x 4 lip for the top step of a side (transparent under the hanging blades) |
+| terrain_grass_fringe_top_1 | textures/terrain_grass_fringe_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_grass_fringe_top_2 | textures/terrain_grass_fringe_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_grass_fringe_top_3 | textures/terrain_grass_fringe_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_grass_fringe_top_4 | textures/terrain_grass_fringe_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_grass_heartland_side | textures/terrain_grass_heartland_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_grass_heartland_side_top | textures/terrain_grass_heartland_side_top.png | 1 | 16x4 | size 16x4 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); 16 x 4 lip for the top step of a side (transparent under the hanging blades) |
+| terrain_grass_heartland_top_1 | textures/terrain_grass_heartland_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_grass_heartland_top_2 | textures/terrain_grass_heartland_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_grass_heartland_top_3 | textures/terrain_grass_heartland_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_grass_heartland_top_4 | textures/terrain_grass_heartland_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_gravel_side | textures/terrain_gravel_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_gravel_top_1 | textures/terrain_gravel_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_gravel_top_2 | textures/terrain_gravel_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_gravel_top_3 | textures/terrain_gravel_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_gravel_top_4 | textures/terrain_gravel_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_marble_side | textures/terrain_marble_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_marble_top_1 | textures/terrain_marble_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_marble_top_2 | textures/terrain_marble_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_marble_top_3 | textures/terrain_marble_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_marble_top_4 | textures/terrain_marble_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_mud_bog_side | textures/terrain_mud_bog_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_mud_bog_top_1 | textures/terrain_mud_bog_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_mud_bog_top_2 | textures/terrain_mud_bog_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_mud_bog_top_3 | textures/terrain_mud_bog_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_mud_bog_top_4 | textures/terrain_mud_bog_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_path_side | textures/terrain_path_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_path_top_1 | textures/terrain_path_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_path_top_2 | textures/terrain_path_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature); grassy edge along row 0: rotate it to face the grass |
+| terrain_path_top_3 | textures/terrain_path_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature); grassy edge along row 0: rotate it to face the grass |
+| terrain_path_top_4 | textures/terrain_path_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature); grassy edge along row 0: rotate it to face the grass |
+| terrain_preview | textures/terrain_preview.png | 1 | 256x256 | 256 x 256 check sheet: a patch of each material over a two-step cliff |
+| terrain_rock_coal_seam_side | textures/terrain_rock_coal_seam_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_coal_seam_top_1 | textures/terrain_rock_coal_seam_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_coal_seam_top_2 | textures/terrain_rock_coal_seam_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_coal_seam_top_3 | textures/terrain_rock_coal_seam_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_coal_seam_top_4 | textures/terrain_rock_coal_seam_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_copper_seam_side | textures/terrain_rock_copper_seam_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_copper_seam_top_1 | textures/terrain_rock_copper_seam_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_copper_seam_top_2 | textures/terrain_rock_copper_seam_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_copper_seam_top_3 | textures/terrain_rock_copper_seam_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_copper_seam_top_4 | textures/terrain_rock_copper_seam_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_flint_chalk_side | textures/terrain_rock_flint_chalk_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_flint_chalk_top_1 | textures/terrain_rock_flint_chalk_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_flint_chalk_top_2 | textures/terrain_rock_flint_chalk_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_flint_chalk_top_3 | textures/terrain_rock_flint_chalk_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_flint_chalk_top_4 | textures/terrain_rock_flint_chalk_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_gold_seam_side | textures/terrain_rock_gold_seam_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_gold_seam_top_1 | textures/terrain_rock_gold_seam_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_gold_seam_top_2 | textures/terrain_rock_gold_seam_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_gold_seam_top_3 | textures/terrain_rock_gold_seam_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_gold_seam_top_4 | textures/terrain_rock_gold_seam_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_iron_seam_side | textures/terrain_rock_iron_seam_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_iron_seam_top_1 | textures/terrain_rock_iron_seam_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_iron_seam_top_2 | textures/terrain_rock_iron_seam_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_iron_seam_top_3 | textures/terrain_rock_iron_seam_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_iron_seam_top_4 | textures/terrain_rock_iron_seam_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_lead_seam_side | textures/terrain_rock_lead_seam_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_lead_seam_top_1 | textures/terrain_rock_lead_seam_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_lead_seam_top_2 | textures/terrain_rock_lead_seam_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_lead_seam_top_3 | textures/terrain_rock_lead_seam_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_lead_seam_top_4 | textures/terrain_rock_lead_seam_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_saltpetre_side | textures/terrain_rock_saltpetre_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_saltpetre_top_1 | textures/terrain_rock_saltpetre_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_saltpetre_top_2 | textures/terrain_rock_saltpetre_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_saltpetre_top_3 | textures/terrain_rock_saltpetre_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_saltpetre_top_4 | textures/terrain_rock_saltpetre_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_tin_seam_side | textures/terrain_rock_tin_seam_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_tin_seam_top_1 | textures/terrain_rock_tin_seam_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_tin_seam_top_2 | textures/terrain_rock_tin_seam_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_tin_seam_top_3 | textures/terrain_rock_tin_seam_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_tin_seam_top_4 | textures/terrain_rock_tin_seam_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_rock_vein_iron_side | textures/terrain_rock_vein_iron_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_rock_vein_iron_top_1 | textures/terrain_rock_vein_iron_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_rock_vein_iron_top_2 | textures/terrain_rock_vein_iron_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_rock_vein_iron_top_3 | textures/terrain_rock_vein_iron_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_rock_vein_iron_top_4 | textures/terrain_rock_vein_iron_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_sand_side | textures/terrain_sand_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_sand_top_1 | textures/terrain_sand_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_sand_top_2 | textures/terrain_sand_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_sand_top_3 | textures/terrain_sand_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_sand_top_4 | textures/terrain_sand_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_soil_side | textures/terrain_soil_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_soil_tilled_side | textures/terrain_soil_tilled_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_soil_tilled_top_1 | textures/terrain_soil_tilled_top_1.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 1 (plain base) |
+| terrain_soil_tilled_top_2 | textures/terrain_soil_tilled_top_2.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 2 (one small feature) |
+| terrain_soil_tilled_top_3 | textures/terrain_soil_tilled_top_3.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 3 (one small feature) |
+| terrain_soil_tilled_top_4 | textures/terrain_soil_tilled_top_4.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 4 (one small feature) |
+| terrain_soil_tilled_wet_side | textures/terrain_soil_tilled_wet_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_soil_tilled_wet_top_1 | textures/terrain_soil_tilled_wet_top_1.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 1 (plain base) |
+| terrain_soil_tilled_wet_top_2 | textures/terrain_soil_tilled_wet_top_2.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 2 (one small feature) |
+| terrain_soil_tilled_wet_top_3 | textures/terrain_soil_tilled_wet_top_3.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 3 (one small feature) |
+| terrain_soil_tilled_wet_top_4 | textures/terrain_soil_tilled_wet_top_4.png | 1 | 16x16 | Deviation: the furrows run along X, so this top may only be rotated by 180 degrees (the wishlist asks for any rotation, which straight furrows cannot allow); top tile, variant 4 (one small feature) |
+| terrain_soil_top_1 | textures/terrain_soil_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_soil_top_2 | textures/terrain_soil_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_soil_top_3 | textures/terrain_soil_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_soil_top_4 | textures/terrain_soil_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_stone_side | textures/terrain_stone_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_stone_top_1 | textures/terrain_stone_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_stone_top_2 | textures/terrain_stone_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_stone_top_3 | textures/terrain_stone_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_stone_top_4 | textures/terrain_stone_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| terrain_sulphur_crust_side | textures/terrain_sulphur_crust_side.png | 1 | 16x16 | side tile, tiles vertically; features kept inside the 4 px step bands |
+| terrain_sulphur_crust_top_1 | textures/terrain_sulphur_crust_top_1.png | 1 | 16x16 | top tile, variant 1 (plain base) |
+| terrain_sulphur_crust_top_2 | textures/terrain_sulphur_crust_top_2.png | 1 | 16x16 | top tile, variant 2 (one small feature) |
+| terrain_sulphur_crust_top_3 | textures/terrain_sulphur_crust_top_3.png | 1 | 16x16 | top tile, variant 3 (one small feature) |
+| terrain_sulphur_crust_top_4 | textures/terrain_sulphur_crust_top_4.png | 1 | 16x16 | top tile, variant 4 (one small feature) |
+| water_bog_anim | textures/water_bog_anim.png | 8 | 128x16 | 8 frames of 16 x 16, 6 fps loop |
+| water_deep_anim | textures/water_deep_anim.png | 8 | 128x16 | 8 frames of 16 x 16, 6 fps loop; solid |
+| water_edge_foam | textures/water_edge_foam.png | 8 | 128x4 | size 128x4 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); shore foam, 8 frames of 16 x 4, 6 fps loop |
+| water_shallow_anim | textures/water_shallow_anim.png | 8 | 128x16 | 8 frames of 16 x 16, 6 fps loop; alpha 153 (60%) |
+| water_stream_anim | textures/water_stream_anim.png | 8 | 128x16 | 8 frames of 16 x 16, 6 fps loop; ripples drift along +X 2 px per frame |
