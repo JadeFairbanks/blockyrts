@@ -52,6 +52,8 @@ export interface PropView {
   /** Age at this step (trees). */
   age: number;
   amount: number;
+  /** Fish stretches: the most fish the water holds. */
+  most: number;
   /** Growth stage and size (per mille) for trees; regrowing bushes report their stump as size 0. */
   stage: number;
   size: number;
@@ -456,7 +458,7 @@ export class World {
       if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
       else size = 0;
     }
-    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, stage, size };
+    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, most: r.amount, stage, size };
   }
 
   /**

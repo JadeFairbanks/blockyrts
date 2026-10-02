@@ -18,7 +18,8 @@ import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
-import { isTree, propInfo, PropShape, type Tool } from '../world/props.ts';
+import { isFish, isTree, propInfo, PropKind, PropShape, type Tool } from '../world/props.ts';
+import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, loadSlowBp, onWheels } from './weight.ts';
@@ -26,7 +27,8 @@ import { fightStep, garrisonRoom, rangedOf } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
 import { refundEquip, runEquip, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
-import { itemSpec } from '../combat/items.ts';
+import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './field.ts';
+import { Item, itemSpec } from '../combat/items.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -67,10 +69,10 @@ export const RANK_TRAINING: ReadonlyArray<{ rank: number; food: number; steps: n
   { rank: 3, food: 40, steps: 120 * STEPS_PER_SECOND, base: 5, name: 'Master worker' },
 ];
 
-const MOVING = 0;
-const ARRIVED = 1;
-const FAILED = 2;
-type WalkResult = typeof MOVING | typeof ARRIVED | typeof FAILED;
+export const MOVING = 0;
+export const ARRIVED = 1;
+export const FAILED = 2;
+export type WalkResult = typeof MOVING | typeof ARRIVED | typeof FAILED;
 
 const CONTINUE = false;
 const DONE = true;
@@ -301,7 +303,7 @@ export function nearestDropoff(state: SimState, i: number, res: number): Buildin
 }
 
 /** Puts the unit's load into its owner's pool (the load counts only now). */
-function unload(state: SimState, i: number): void {
+export function unload(state: SimState, i: number): void {
   const e = state.entities;
   if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) {
     const pool = state.players[e.owner[i]!]!.pool;
@@ -568,6 +570,11 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       alert(state, e.owner[i]!, `${propInfo(view.kind).name}: needs better tools than these.`, e.x[i]!, e.z[i]!);
       return DONE;
     }
+    // Fishing from the shore needs a fishing rod or net in the worker's kit (Table 2c) (s).
+    if (view && isFish(view.kind) && e.kit[i] !== Item.FishingRod && e.kit[i] !== Item.FishingNet) {
+      alert(state, e.owner[i]!, 'Fishing needs a fishing rod or net. Make one at the Big House and equip it (I).', e.x[i]!, e.z[i]!);
+      return DONE;
+    }
     e.act[i] = Act.Walk;
   }
   // When a node has run out, go to the closest one of the same resource, or take the last load home and stand idle.
@@ -587,7 +594,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       e.nodeI[i] = -1;
       return CONTINUE;
     }
-    if (res >= 0) idleAlert(state, i, res);
+    // A hunter's or hauler's carcass is done: the hunt behind it carries on without an idle cue.
+    if (res >= 0 && e.queue[i]![1]?.t !== 'hunt') idleAlert(state, i, res);
     e.nodeI[i] = -1;
     return DONE;
   };
@@ -648,7 +656,9 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       const [nx, nz] = nodeColumn(o, view);
       e.heading[i] = headingTowards(columnCentre(nx) - e.x[i]!, columnCentre(nz) - e.z[i]!);
       e.order[i] = info.shape === PropShape.Tree || info.shape === PropShape.Bush ? OrderKind.Chop : info.shape === PropShape.Plant ? OrderKind.Farm : OrderKind.Mine;
-      e.timer[i] = e.timer[i]! + (TOOL_SPEED_PER_MILLE[tool as Tool] ?? 1000);
+      // A net fishes in 10 s what a rod takes 15 s for (Table 2c); other nodes go at the tool's pace.
+      const pace = isFish(view.kind) ? (e.kit[i] === Item.FishingNet ? 1500 : 1000) : (TOOL_SPEED_PER_MILLE[tool as Tool] ?? 1000);
+      e.timer[i] = e.timer[i]! + pace;
       if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
       e.timer[i] = 0;
       const room = carryCapacity(state, i, res) - (e.carryRes[i] === res ? e.carryAmt[i]! : 0);
@@ -667,8 +677,13 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
         const pool = state.players[e.owner[i]!]!.pool;
         pool[Res.Resin] = pool[Res.Resin]! + RESIN_PER_SOFTWOOD_TREE;
       }
-      // A cart or pack is filled at the node before the trip home.
-      if (e.carryAmt[i]! < carryCapacity(state, i, res) && before - taken > 0) return CONTINUE;
+      // The rest of an emptied carcass: hides, leather or feathers, straight to the pool (s).
+      if (before - taken <= 0 && view.kind === PropKind.Carcass) {
+        const pool = state.players[e.owner[i]!]!.pool;
+        for (const [r, n] of carcassExtra(view.variant)) pool[r] = pool[r]! + n;
+      }
+      // A cart or pack is filled at the node before the trip home, and so is a fisher's catch.
+      if (e.carryAmt[i]! < carryCapacity(state, i, res) && (before - taken > 0 || isFish(view.kind))) return CONTINUE;
       e.act[i] = Act.ToDrop;
       resetWalk(state, i);
       return CONTINUE;
@@ -695,7 +710,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
 export const RESIN_PER_SOFTWOOD_TREE = 2;
 
 /** Walks the unit's load to a drop-off (a given one, or the nearest that takes it) and unloads it there. */
-function toDropoff(state: SimState, i: number, target: Building | null): WalkResult {
+export function toDropoff(state: SimState, i: number, target: Building | null): WalkResult {
   const e = state.entities;
   const res = e.carryRes[i]!;
   const b = target ?? nearestDropoff(state, i, res);
@@ -1084,6 +1099,18 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runDig(state, i, o);
     case 'skill':
       return runSkill(state, i, o);
+    case 'hunt':
+      return runHunt(state, i, o);
+    case 'tame':
+      return runTame(state, i, o);
+    case 'eat':
+      return runEat(state, i, o);
+    case 'hitch':
+      return runHitch(state, i, o);
+    case 'prospect':
+      return runProspect(state, i, o);
+    case 'haul':
+      return runHaul(state, i, o);
   }
 }
 

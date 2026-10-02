@@ -8,13 +8,15 @@ import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { mainBaseLevel, waterBeside } from './buildings/placement.ts';
 import { cancelProduct, queueProduct } from './buildings/production.ts';
 import { type Building } from './buildings/store.ts';
-import { canAfford, costText, pay, refund, RESOURCES, shortOf } from './economy/resources.ts';
+import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, type Order } from './orders.ts';
 import { SiteKind, UnitKind, type SimState } from './state.ts';
-import { hostile } from './combat/combat.ts';
+import { hostile, huntable } from './combat/combat.ts';
+import { Rations } from './economy/food.ts';
+import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
 import { garrisonRoom, rangedOf } from './combat/fight.ts';
 import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
@@ -46,7 +48,7 @@ function ownUnits(state: SimState, player: number, ids: readonly number[]): numb
   const seen = new Set<number>();
   for (const id of ids) {
     const i = e.indexOf(id);
-    if (i < 0 || seen.has(i) || e.owner[i] !== player || e.kind[i] === UnitKind.Wanderer) continue;
+    if (i < 0 || seen.has(i) || e.owner[i] !== player || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Animal) continue;
     seen.add(i);
     out.push(i);
   }
@@ -324,7 +326,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'attack': {
         const t = e.indexOf(o.target);
         if (t < 0 || e.hp[t]! <= 0) break;
-        giveAll(state, o, (i) => (hostile(state, i, t) ? { t: 'attack', id: o.target } : null));
+        // Animals are killed with an attack order first (Gathering resources); a wild one is fair game.
+        giveAll(state, o, (i) => (hostile(state, i, t) || huntable(state, t) ? { t: 'attack', id: o.target } : null));
         break;
       }
       case 'attackMove': {
@@ -379,6 +382,76 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         const b = ownBuilding(state, o.player, o.building);
         if (!b || b.kind !== BuildingKind.Barracks || !SKILL_TRAINING[o.skill]) break;
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & o.skill) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
+        break;
+      }
+      case 'hunt': {
+        const t = o.target ? e.indexOf(o.target) : -1;
+        if (o.target && (t < 0 || !huntable(state, t))) break;
+        if (!o.target && !o.auto) break;
+        const units = ownUnits(state, o.player, o.units);
+        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior);
+        if (hunters.length === 0) {
+          alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
+          break;
+        }
+        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]! }, o.queued === true);
+        // Workers in the same selection follow and haul the carcasses, shared out between the hunters.
+        units.filter((i) => e.kind[i] === UnitKind.Worker).forEach((i, k) => giveOrder(state, i, { t: 'hunt', id: e.id[hunters[k % hunters.length]!]!, auto: 0, x: 0, z: 0 }, o.queued === true));
+        break;
+      }
+      case 'tame': {
+        const t = e.indexOf(o.target);
+        const worker = ownUnits(state, o.player, o.units).find((i) => e.kind[i] === UnitKind.Worker);
+        if (worker === undefined) break;
+        const why = tameProblem(state, o.player, t);
+        if (why) {
+          alert(state, o.player, why);
+          break;
+        }
+        giveOrder(state, worker, { t: 'tame', id: o.target }, o.queued === true);
+        break;
+      }
+      case 'eat':
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior ? { t: 'eat', b: o.building } : null));
+        break;
+      case 'hitch': {
+        const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
+        if (o.target === 0) {
+          for (const i of workers) unhitch(state, i);
+          break;
+        }
+        const w = workers[0];
+        if (w === undefined) break;
+        const why = hitchProblem(state, w, e.indexOf(o.target));
+        if (why) {
+          alert(state, o.player, why);
+          break;
+        }
+        giveOrder(state, w, { t: 'hitch', id: o.target }, o.queued === true);
+        break;
+      }
+      case 'prospect':
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker ? { t: 'prospect', x: o.x, z: o.z } : null));
+        break;
+      case 'haul': {
+        const b = ownBuilding(state, o.player, o.building);
+        if (!b || !b.complete || b.kind !== BuildingKind.Mineshaft) break;
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker ? { t: 'haul', b: b.id } : null));
+        break;
+      }
+      case 'rations': {
+        const p = state.players[o.player]!;
+        p.rations = o.rations;
+        const text = ['Rations: everyone eats.', 'Rations: only the troops eat. The workers will starve.', 'Rations: only the workers eat. The troops will starve and research stops.'][o.rations]!;
+        if (o.rations !== Rations.Everyone) alert(state, o.player, text);
+        else state.events.push({ player: o.player, kind: 'info', text });
+        break;
+      }
+      case 'dontEat': {
+        const k = FOODS.indexOf(o.res as Res);
+        if (k < 0) break;
+        const p = state.players[o.player]!;
+        p.dontEat = o.on ? p.dontEat | (1 << k) : p.dontEat & ~(1 << k);
         break;
       }
       case 'debugGive':

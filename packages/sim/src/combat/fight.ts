@@ -12,7 +12,7 @@ import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hostile, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
@@ -42,6 +42,8 @@ const enum Mode {
   Seek,
   Hold,
   Attack,
+  /** N Hunt: chase the quarry the hunt order names (an animal not hostile by itself). */
+  Hunt,
 }
 
 function modeOf(state: SimState, i: number): Mode {
@@ -51,6 +53,8 @@ function modeOf(state: SimState, i: number): Mode {
   switch (o.t) {
     case 'attack':
       return Mode.Attack;
+    case 'hunt':
+      return e.kind[i] === UnitKind.Warrior ? Mode.Hunt : Mode.None;
     case 'attackMove':
     case 'patrol':
       return Mode.Seek;
@@ -116,10 +120,10 @@ function canHarm(state: SimState, i: number, t: number): boolean {
   return !meleeOf(state, i, false).oneHanded;
 }
 
-/** Whether a target is one this unit may fight now. */
-function validTarget(state: SimState, i: number, t: number): boolean {
+/** Whether a target is one this unit may fight now; `chase` also allows a wild animal it was told to attack or hunt. */
+function validTarget(state: SimState, i: number, t: number, chase = false): boolean {
   const e = state.entities;
-  return t >= 0 && t !== i && e.hp[t]! > 0 && e.inside[t] === 0 && hostile(state, i, t);
+  return t >= 0 && t !== i && e.hp[t]! > 0 && e.inside[t] === 0 && (hostile(state, i, t) || (chase && sideOf(state, i) === Side.Players && huntable(state, t)));
 }
 
 /**
@@ -385,9 +389,20 @@ export function fightStep(state: SimState, i: number): boolean {
     return false;
   }
   const o = e.queue[i]![0];
+  if (mode === Mode.Hunt && o?.t === 'hunt') {
+    // The hunt order itself handles a dead, lost or not yet chosen quarry.
+    const t = o.id ? e.indexOf(o.id) : -1;
+    if (!validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+      if (e.target[i] !== 0) disengage(state, i);
+      return false;
+    }
+    e.target[i] = o.id;
+    engage(state, i, t, true);
+    return true;
+  }
   if (mode === Mode.Attack && o?.t === 'attack') {
     const t = e.indexOf(o.id);
-    if (!validTarget(state, i, t) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    if (!validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       // Dead, gone or lost: the order is done.
       e.queue[i]!.shift();
       disengage(state, i);

@@ -48,14 +48,31 @@ export type UnitOrder =
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
   /** Specialist training at a building (Table 7: Archery at the Barracks): the unit goes inside until it is done. */
-  | { t: 'skill'; b: number; skill: number };
+  | { t: 'skill'; b: number; skill: number }
+  /**
+   * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
+   * none yet); with auto (double-tapped) it takes the nearest game within its
+   * 40 m leash of (x, z) wu, carries what it can home and repeats. A worker
+   * follows the hunter `id` and hauls the carcasses. Ends at dusk.
+   */
+  | { t: 'hunt'; id: number; auto: number; x: number; z: number }
+  /** Tame a wild animal: stand by it with its food until it trusts the worker (Animals; Table 14). */
+  | { t: 'tame'; id: number }
+  /** Eat (and take medicine) at the nearest building that keeps food (Food and medicine), or at building b. */
+  | { t: 'eat'; b: number }
+  /** Hitch a tamed horse or ox to the worker's cart or pack (Table 12); id 0 lets it go. */
+  | { t: 'hitch'; id: number }
+  /** T Prospect a spot (columns). */
+  | { t: 'prospect'; x: number; z: number }
+  /** Haul what waits at a mineshaft to a drop-off, over and over. */
+  | { t: 'haul'; b: number };
 
 /** An equip order's "leave this slot as it is". */
 export const KEEP = 255;
 
 export type UnitOrderType = UnitOrder['t'];
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -78,6 +95,12 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   equip: ['b', 'tool', 'weapon', 'backup', 'ranged', 'shield', 'boots', 'ammo', 'torch', 'armour', 'helmet', 'boltCase', 'kit', 'reserved'],
   dig: ['site'],
   skill: ['b', 'skill'],
+  hunt: ['id', 'auto', 'x', 'z'],
+  tame: ['id'],
+  eat: ['b'],
+  hitch: ['id'],
+  prospect: ['x', 'z'],
+  haul: ['b'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -141,5 +164,17 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Fetching equipment';
     case 'dig':
       return 'Digging';
+    case 'hunt':
+      return 'Hunting';
+    case 'tame':
+      return 'Taming';
+    case 'eat':
+      return 'Going to eat';
+    case 'hitch':
+      return 'Fetching an animal';
+    case 'prospect':
+      return 'Prospecting';
+    case 'haul':
+      return 'Hauling';
   }
 }

@@ -129,9 +129,9 @@ export const PROPS: readonly PropInfo[] = [
   // Its yield is the animal's (animals/species.ts); the variant names the species.
   node(PropKind.Carcass, 'Carcass', PropShape.Carcass, 'meat', 0, 10, 10, 2, Tool.None, 'Carcass', ['boar 3 meat', 'none']),
   // A stretch's yield is what its water holds; load time is per fish with a rod (a net or a dock is 10 s); the regrowth is its breeding.
-  node(PropKind.FishTrout, 'Trout stretch', PropShape.Fish, 'fish', 0, 10, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 3 * CYCLE_STEPS),
-  node(PropKind.FishSalmon, 'Salmon stretch', PropShape.Fish, 'fish', 0, 10, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 6 * CYCLE_STEPS),
-  node(PropKind.FishCatfish, 'Giant catfish stretch', PropShape.Fish, 'fish', 0, 10, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 9 * CYCLE_STEPS),
+  node(PropKind.FishTrout, 'Trout stretch', PropShape.Fish, 'fish', 0, 1, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 3 * CYCLE_STEPS),
+  node(PropKind.FishSalmon, 'Salmon stretch', PropShape.Fish, 'fish', 0, 1, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 6 * CYCLE_STEPS),
+  node(PropKind.FishCatfish, 'Giant catfish stretch', PropShape.Fish, 'fish', 0, 1, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 9 * CYCLE_STEPS),
 ];
 
 /** Whether a prop is a fish stretch. */

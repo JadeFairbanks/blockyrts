@@ -695,7 +695,7 @@ export class Commands {
     for (const it of ITEMS) {
       if (k >= 14) break;
       if (!fitsSlot(it, slot) || this.d.game.stock(it.id) <= 0) continue;
-      const untrained = it.ranged?.needsArchery === true && (u.skills & 1) === 0;
+      const untrained = (it.ranged?.skill ?? 0) !== 0 && (u.skills & it.ranged!.skill) === 0;
       const at = k++;
       card[at] = {
         action: `pick-${it.id}`,
@@ -703,7 +703,7 @@ export class Commands {
         name: it.name,
         key: GRID_CODES[at]!,
         grid: true,
-        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${untrained ? ' This unit cannot shoot it until it is trained in archery.' : ''} The unit walks to the main base to collect it.`,
+        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${untrained ? ` This unit cannot shoot it until it is trained${it.ranged?.munition === 'bolts' ? ' with the crossbow' : ' in archery'}.` : ''} The unit walks to the main base to collect it.`,
         enabled: true,
         reason: '',
         run: () => this.handPick(u, slot, it.id),

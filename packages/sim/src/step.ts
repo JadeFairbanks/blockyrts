@@ -3,6 +3,7 @@
 
 import { computeEnclosed, outlyingLights, updateLights } from './buildings/lights.ts';
 import { updateBuildings } from './buildings/production.ts';
+import { updateMines } from './buildings/mining.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
@@ -129,6 +130,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateFood(state);
   settleDeaths(state);
   updateBuildings(state);
+  updateMines(state);
   updateLights(state);
   updateGear(state);
   updateElimination(state);

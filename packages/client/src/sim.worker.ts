@@ -5,7 +5,15 @@
 // generates the chunks around the units a ring ahead, so walking into new
 // land never stalls a step (the cache is not state, so this cannot desync).
 import {
+  animalsAt,
   assigned,
+  BuildingKind,
+  CRAFT_PRODUCT,
+  productProblem,
+  productsOf,
+  productSteps,
+  RESEARCH_PRODUCT,
+  starvingSince,
   BUILDINGS,
   buildingName,
   buildingStatus,
@@ -109,11 +117,19 @@ function postState(s: SimState): void {
     if (e.slowUntil[i]! > s.step) flags |= UnitFlag.Slowed;
     if (e.heldUntil[i]! > s.step) flags |= UnitFlag.Held;
     if (e.hurtAt[i]! > 0 && s.step - e.hurtAt[i]! < HURT_SHOW_STEPS) flags |= UnitFlag.Hurt;
+    if (e.born[i]! > s.step) flags |= UnitFlag.Young;
+    if (e.sex[i] === 1) flags |= UnitFlag.Male;
+    if (starvingSince(s, i)) flags |= UnitFlag.Starving;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.skills] = e.skills[i]!;
     data[o + S.ammo] = e.ammo[i]!;
     data[o + S.target] = e.target[i]!;
+    data[o + S.armour] = e.armour[i]!;
+    data[o + S.helmet] = e.helmet[i]!;
+    data[o + S.boltCase] = e.boltCase[i]!;
+    data[o + S.kit] = e.kit[i]!;
+    data[o + S.partner] = e.partner[i]!;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {
@@ -154,7 +170,7 @@ function postInfo(s: SimState): void {
       built: Math.min(1000, Math.floor((b.progress * 1000) / total)),
       upgrading: b.upgrading,
       upgraded: b.upgrading ? Math.min(1000, Math.floor((b.upProgress * 1000) / workSteps(b.kind, b.upgrading))) : 0,
-      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? q.progress : 0 })),
+      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < CRAFT_PRODUCT ? 4 : 1)))) : 0 })),
       rally: b.rally.map((r) => ({ ...r })),
       lit: isLit(b, s.step),
       fuelLeft: light && b.complete ? Math.max(0, b.fuelUntil - s.step) : 0,
@@ -164,6 +180,10 @@ function postInfo(s: SimState): void {
       status: buildingStatus(s, b),
       name: buildingName(b.kind, b.level, b.variant),
       upgradeWhy: b.owner === PLAYER ? upgradeProblem(s, b) : '',
+      products: b.owner === PLAYER && b.complete ? productsOf(b).map((p): [number, string] => [p, productProblem(s, b, p)]) : [],
+      stock: b.stock.map(([r, n]): [number, number] => [r, n]),
+      rating: b.rating,
+      herd: b.kind === BuildingKind.LivestockFarm || b.kind === BuildingKind.Stables ? animalsAt(s, b.id).length : 0,
     };
   });
   const e = s.entities;
@@ -194,6 +214,10 @@ function postInfo(s: SimState): void {
       over: s.over,
       nights: nightsSurvived(s.over || s.step),
       out: me.out !== 0,
+      rations: me.rations,
+      dontEat: me.dontEat,
+      starveWorkers: me.starveWorkers > 0,
+      starveTroops: me.starveTroops > 0,
     },
     [pool.buffer, items.buffer],
   );

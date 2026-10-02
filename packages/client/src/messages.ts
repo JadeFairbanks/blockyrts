@@ -16,7 +16,7 @@ export type ToWorker =
  * then what it fights with (mob kind, the items in each slot, a lit torch,
  * the swing under way), its state flags, lock, skills, shots left and target.
  */
-export const STATE_STRIDE = 29;
+export const STATE_STRIDE = 34;
 export const S = {
   id: 0,
   owner: 1,
@@ -48,10 +48,16 @@ export const S = {
   skills: 26,
   ammo: 27,
   target: 28,
+  armour: 29,
+  helmet: 30,
+  boltCase: 31,
+  kit: 32,
+  /** A worker's working animal, or an animal's worker (entity id), or 0. */
+  partner: 33,
 } as const;
 
 /** Bits of S.flags. */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -103,7 +109,7 @@ export interface BuildingInfo {
   /** Level being built as an upgrade, or 0, and how far, per mille. */
   upgrading: number;
   upgraded: number;
-  /** Production queue: product and per mille done. */
+  /** Production queue: product and per mille done (the first only). */
   queue: Array<{ product: number; done: number }>;
   rally: RallyPoint[];
   /** Lights: lit now, and steps of fuel left. */
@@ -119,6 +125,13 @@ export interface BuildingInfo {
   name: string;
   /** Own buildings: why the next level cannot be ordered now, or ''. */
   upgradeWhy: string;
+  /** Own finished buildings: everything they make, with why it cannot be queued now ('' when it can). */
+  products: Array<[number, string]>;
+  /** Mineshafts: what waits to be hauled, and the prospect rating (0 unknown, else 1 + Rating). */
+  stock: Array<[number, number]>;
+  rating: number;
+  /** Livestock farms and the Stables: animals that live there. */
+  herd: number;
 }
 
 /** Everything else the screen shows, once per tick. */
@@ -151,6 +164,11 @@ export interface InfoMessage {
   nights: number;
   /** The local player is out of the game. */
   out: boolean;
+  /** F9 Rations (0 everyone, 1 troops only, 2 workers only), the Don't eat bits (one per FOODS entry), and who is starving. */
+  rations: number;
+  dontEat: number;
+  starveWorkers: boolean;
+  starveTroops: boolean;
 }
 
 export interface PlacedMessage {

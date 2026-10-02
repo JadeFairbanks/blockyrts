@@ -412,8 +412,10 @@ export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat',
 export interface SimEvent {
   /** Player it is for, or -1 for everyone. */
   player: number;
-  kind: 'alert' | 'info' | 'idle' | 'period' | 'speech';
+  kind: 'alert' | 'info' | 'idle' | 'period' | 'speech' | 'prospect';
   text: string;
+  /** A prospect's rating (mining.ts Rating), shown over the ground for a while. */
+  rating?: number;
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
   z?: number;
