@@ -150,6 +150,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'buildings/data.ts:BUILDINGS', 'combat/items.ts:RESEARCH', 'combat/items.ts:ITEMS', 'combat/items.ts:SHOTS', 'buildings/recipes.ts:RECIPES',
   'combat/mobs.ts:MOBS', 'animals/species.ts:SPECIES', 'economy/resources.ts:RESOURCES', 'threats/data.ts:LAIRS', 'threats/data.ts:TRIBES',
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
+  'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS',
 ]);
 
 
@@ -178,7 +179,7 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
 export const TEXT_KEYS: Readonly<Record<string, string>> = {
   purpose: 'Purpose', gives: 'Gives or unlocks', opens: 'Opens', needs: 'Also needs', comesWith: 'Comes with', later: 'Comes later',
   source: 'Where it comes from', tooltip: 'Tooltip', row: 'Blueprint row', yields: 'Yields', resource: 'Gives', munition: 'Loads',
-  ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name',
+  ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name', text: 'Tooltip',
 };
 /** Strings never shown. */
 export const HIDDEN_KEYS: ReadonlySet<string> = new Set(['name', 'model']);
@@ -235,7 +236,7 @@ export const KEY_ORDER: readonly string[] = [
 
 /** Unit by key; `EXPORT:key` overrides by export, and a bare export name sets a scalar's unit. */
 export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
-  ws: 'workerSeconds', hp: 'health', health: 'health', damage: 'damage', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
+  ws: 'workerSeconds', 'SPELLS:bp': 'percentBp', hp: 'health', health: 'health', damage: 'damage', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
   chancePm: 'percentPm', weightTenthsLb: 'lbTenths', needsBase: 'level', forge: 'level', supply: 'count', shelters: 'count', workers: 'count',
   reach: 'metresWu', range: 'metresWu', radius: 'metresWu', halfWidth: 'metresWu', height: 'metresWu', unitRadius: 'metresWu', buildingRadius: 'metresWu',
   'melee:min': 'metresWu', speed: 'speed', climbSpeed: 'speed', walk: 'speed', run: 'speed', cartSpeed: 'speed', heightCm: 'metresCm', lightM: 'metres',
