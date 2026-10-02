@@ -77,11 +77,23 @@ importers:
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   packages/sim: {}
 
   packages/tools:
     dependencies:
+      '@blockyrts/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@blockyrts/server':
+        specifier: workspace:*
+        version: link:../server
       '@blockyrts/sim':
         specifier: workspace:*
         version: link:../sim

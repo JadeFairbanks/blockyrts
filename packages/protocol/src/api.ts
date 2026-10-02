@@ -14,7 +14,7 @@ export const ApiRoutes = {
   guests: '/api/guests',
   /** GET -> MeResponse. */
   me: '/api/me',
-  /** POST { email } -> 202 always, so it never reveals whether an address has an account. */
+  /** POST { email } -> 202 always, so it never reveals whether an address has an account; 503 email_not_configured on a server without email. */
   passwordResets: '/api/password-resets',
   /** POST { token, password } -> 204, or 400 reset_invalid when the link is used or expired. */
   passwordResetConfirm: '/api/password-resets/confirm',
@@ -113,6 +113,8 @@ export const ApiErrorCode = {
   SaveTooLarge: 'save_too_large',
   QuotaExceeded: 'quota_exceeded',
   RateLimited: 'rate_limited',
+  /** The server has no email service: password resets are done by its admin. */
+  EmailNotConfigured: 'email_not_configured',
 } as const;
 
 /** Account rules: usernames are 3 to 20 letters, digits, _ or -, and may not pose as a guest. */
