@@ -5,7 +5,10 @@ import {
   clockAt,
   createWorld,
   DAILY_BUY_TENTHS,
+  CARAVAN_EVERY_STEPS,
+  CYCLE_STEPS,
   DEBUG_CARAVAN,
+  DEBUG_MEET_ELVES,
   deserializeState,
   diffStates,
   elfKingdom,
@@ -399,6 +402,39 @@ describe('caravans and mercenaries', () => {
     run(s, 2);
     expect(c.status).toBe(Status.Leaving);
     expect(structuresOf(s, c.id).length).toBe(0);
+  });
+
+  it('sends the Elves\' caravan to a player five days after first meeting them', () => {
+    // Peaceful, so nobody is overrun in the nights between.
+    const s = createWorld(1, { players: 1, peaceful: true });
+    const [hx, hz] = home(s);
+    run(s, 1, [{ kind: 'debugPeoples', player: 0, what: DEBUG_MEET_ELVES, x: hx, z: hz }]);
+    const met = s.step;
+    expect(elfKingdom(s).caravanAt[0]).toBe(met - 1 + CARAVAN_EVERY_STEPS);
+    const waited = runUntil(s, () => s.peoples.factions.some((f) => f.kind === FactionKind.ElfCaravan && f.visits === 0 && f.status === Status.Settled), CARAVAN_EVERY_STEPS + CYCLE_STEPS);
+    // Five days on, or the next morning when that falls at night.
+    expect(waited).toBeGreaterThanOrEqual(CARAVAN_EVERY_STEPS - 2);
+    expect(clockAt(s.step).period === Period.Day || clockAt(s.step).period === Period.Dawn).toBe(true);
+  });
+
+  it('points the way to the nearest Dwarf city after a colony\'s first trade', () => {
+    const s = createWorld(1);
+    const f = place(s, FactionKind.DwarfColony);
+    const w = unit(s, UnitKind.Worker);
+    bring(s, w, f);
+    run(s, 2);
+    expect(tradeProblem(s, f, 0)).toBe('');
+    const tok = trinketRes(0, 1);
+    s.players[0]!.pool[tok] = 6;
+    // Only the first trade names the way.
+    for (const first of [true, false]) {
+      run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [tok, 3] }]);
+      expect(offerOf(s, f.id, 0)).toBeDefined();
+      run(s, 1, [{ kind: 'tradeTake', player: 0, faction: f.id, bundle: 0 }]);
+      const said = texts(s).filter((t) => t.startsWith('Our kin hold a city'));
+      expect(said.length).toBe(first ? 1 : 0);
+      if (first) expect(said[0]).toMatch(/^Our kin hold a city in the deep dead lands: .+ from here\.$/);
+    }
   });
 
   it('hires mercenaries for silver until dusk', () => {
