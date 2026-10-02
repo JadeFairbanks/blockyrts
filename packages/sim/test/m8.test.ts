@@ -18,6 +18,10 @@ import {
   DUSK_STEPS,
   Engine,
   engineSpec,
+  ENGINE_GOODS,
+  goodName,
+  inStock,
+  priceTenths,
   FactionKind,
   hashState,
   Mob,
@@ -283,6 +287,12 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
       if (e.kind[i] === UnitKind.Engine) cannons++;
     }
     expect([gunners, crew, cannons]).toEqual([6, 4, 2]);
+    // It sells a cannon of each kind and muskets, with the powder and shot to use them (Table 19).
+    const city = s.peoples.factions.find((f) => f.kind === FactionKind.DwarfCity)!;
+    expect(inStock(city, ENGINE_GOODS + Engine.BronzeCannon)).toBe(1);
+    expect(goodName(ENGINE_GOODS + Engine.BronzeCannon)).toBe('Bronze cannon');
+    expect(priceTenths(city, ENGINE_GOODS + Engine.BronzeCannon)).toBe(4200);
+    expect(inStock(city, Res.Gunpowder)).toBeGreaterThan(0);
   });
 });
 

@@ -14,6 +14,7 @@ import { TRINKET_INGOTS } from '../buildings/recipes.ts';
 import { Mob } from '../combat/mobs.ts';
 import { Species } from '../animals/species.ts';
 import { Band } from '../world/layout.ts';
+import { Engine } from '../siege/data.ts';
 
 const SEC = STEPS_PER_SECOND;
 const M = WU_PER_METRE;
@@ -297,6 +298,8 @@ export const APART_WU = 60 * M;
 /** Goods are coded as numbers: a resource id, ITEM_GOODS + an item id, or LIVE_GOODS + a species (live animals). */
 export const ITEM_GOODS = 200;
 export const LIVE_GOODS = 400;
+/** Siege engines and cannons for sale (siege/data.ts Engine), led out beside the buyer's unit: a Dwarf city's cannons. */
+export const ENGINE_GOODS = 600;
 
 /** What kind of good it is, for what a people pays (Table 11 "Pays for"). */
 export const Cat = {
@@ -369,6 +372,7 @@ export const LEAN_PAY_PCT = 130;
 const CROPS = [Res.Wheat, Res.Potatoes, Res.Carrots, Res.Corn];
 const live = (s: Species): number => LIVE_GOODS + s;
 const item = (i: number): number => ITEM_GOODS + i;
+const engine = (k: number): number => ENGINE_GOODS + k;
 
 export const LEANS: Readonly<Record<People, readonly Lean[]>> = {
   [People.Halfling]: [
@@ -414,8 +418,8 @@ const row = (good: number, count: number, pct = 100, extra: Partial<StockRow> = 
 
 /**
  * Table 11 and Table 19: what each kind sells and how many it holds when
- * full (counts (s)), before the band's richness. The Dwarf city's cannons,
- * muskets, gunpowder, shot and cannonballs come with gunpowder in milestone 8.
+ * full (counts (s)), before the band's richness. The Dwarf city sells its
+ * cannons, muskets, gunpowder, shot and cannonballs at Table 19's prices.
  */
 export const STOCK: readonly (readonly StockRow[])[] = [
   // Halfling village: farm goods, live animals, Halfling gear and bloom iron (Table 11).
@@ -448,6 +452,10 @@ export const STOCK: readonly (readonly StockRow[])[] = [
   [
     row(item(Item.PlateSteel), 1, 150), row(item(Item.SalletSteel), 2, 150), row(item(Item.ShieldSteelHeater), 1, 150), row(item(Item.MailWrought), 2, 150), row(item(Item.SwordSteel), 2, 150),
     row(Res.Gold, 10), row(Res.Emeralds, 5), row(Res.Rubies, 4), row(Res.Diamonds, 2), row(Res.HighQualitySteel, 2, 150, { daily: true }),
+    // Table 19's guns: a cannon of each kind and 3 muskets a day, with the horns, pouches, powder, shot and balls to use them (s: counts).
+    row(engine(Engine.BronzeCannon), 1, 100, { price: 4200, daily: true }), row(engine(Engine.IronCannon), 1, 100, { price: 3840, daily: true }),
+    row(item(Item.MusketSteel), 3, 100, { price: 1020, daily: true }), row(item(Item.PowderHorn), 3, 150), row(item(Item.ShotPouch), 3, 150),
+    row(Res.Gunpowder, 20, 100, { price: 480 }), row(Res.LeadShot, 100, 100, { price: 12 }), row(Res.Cannonball, 20, 100, { price: 300 }),
   ],
   // Mercenary camp: hires only.
   [],

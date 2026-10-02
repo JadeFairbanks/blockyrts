@@ -21,6 +21,15 @@ describe('catalog', () => {
     expect(count('LAIRS')).toBe(len('threats/data.ts', 'LAIRS'));
   });
 
+  it('files the mounts and the siege engines under Mounts, siege and guns, with their speeds in m/s', () => {
+    const siege = cat.groups.find((g) => g.id === 'siege')!;
+    const labels = siege.entries.map((e) => e.label);
+    expect(labels).toEqual(expect.arrayContaining(['Horse', 'Elf war bear', 'Catapult', 'Ballista', 'Bronze cannon', 'Iron cannon']));
+    const gallop = [...cat.fields.values()].find((f) => f.module === 'mounts/data.ts' && f.path.join('.') === 'MOUNTS.1.gallop')!;
+    expect(gallop.unit).toBe('speed');
+    expect(toDisplay(gallop.value as number, gallop.unit)).toBe('8');
+  });
+
   it('gives every value a path that reads back the same value from the sim', () => {
     for (const f of cat.fields.values()) expect(valueAt(mods[f.module]!, f.path), f.id).toBe(f.value);
     expect(cat.fields.size).toBeGreaterThan(3000);

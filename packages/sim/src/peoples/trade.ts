@@ -14,11 +14,12 @@ import { floorDiv, length2d, WU_PER_COLUMN } from '../fixed.ts';
 import { ITEM_COUNT } from '../combat/items.ts';
 import { RESOURCE_COUNT } from '../economy/resources.ts';
 import { addAnimal } from '../animals/animals.ts';
+import { addEngine } from '../siege/engines.ts';
 import { UnitKind, type SimState } from '../state.ts';
-import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, INSULT_STEPS, ITEM_GOODS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
+import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, ENGINE_GOODS, INSULT_STEPS, ITEM_GOODS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
 import { directions, factionMembers, nearestCity } from './factions.ts';
 import { sayForeign } from './speech.ts';
-import { catOf, inStock, isItem, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
+import { catOf, inStock, isEngineGood, isItem, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
 import { factionById, warFaction, type Faction, type Offer } from './types.ts';
 
 /** Closed until the next dawn (cleared when the day begins). */
@@ -71,7 +72,7 @@ export function tradeProblem(state: SimState, f: Faction, player: number): strin
 /** How many of a good a player has. */
 export function playerHas(state: SimState, player: number, good: number): number {
   const p = state.players[player]!;
-  if (isLive(good)) return 0;
+  if (isLive(good) || isEngineGood(good)) return 0;
   if (isItem(good)) {
     const it = good - ITEM_GOODS;
     return it > 0 && it < ITEM_COUNT ? p.items[it]! : 0;
@@ -282,6 +283,10 @@ function give(state: SimState, player: number, good: number, n: number, x: numbe
     for (let k = 0; k < n; k++) addAnimal(state, good - LIVE_GOODS, player, x + (k + 1) * WU_PER_COLUMN * 3, z, 0, k & 1);
     return;
   }
+  if (isEngineGood(good)) {
+    for (let k = 0; k < n; k++) addEngine(state, player, good - ENGINE_GOODS, x + (k + 1) * WU_PER_COLUMN * 5, z);
+    return;
+  }
   if (isItem(good)) p.items[good - ITEM_GOODS] = p.items[good - ITEM_GOODS]! + n;
   else p.pool[good] = p.pool[good]! + n;
 }
@@ -289,7 +294,7 @@ function give(state: SimState, player: number, good: number, n: number, x: numbe
 function take(state: SimState, player: number, good: number, n: number): void {
   const p = state.players[player]!;
   if (isItem(good)) p.items[good - ITEM_GOODS] = p.items[good - ITEM_GOODS]! - n;
-  else if (!isLive(good)) p.pool[good] = p.pool[good]! - n;
+  else if (!isLive(good) && !isEngineGood(good)) p.pool[good] = p.pool[good]! - n;
 }
 
 /** The player takes one of the three bundles: the goods change hands at once. */
