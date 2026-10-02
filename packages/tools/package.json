@@ -12,7 +12,8 @@
     "gen:trig": "tsx scripts/gen-trig-table.ts",
     "typecheck": "tsc -p tsconfig.json",
     "assets:manifest": "tsx src/assets-manifest.ts",
-    "gen:tables": "tsx scripts/gen-number-tables.ts"
+    "gen:tables": "tsx scripts/gen-number-tables.ts",
+    "models:build": "tsx src/models/build-models.ts"
   },
   "dependencies": {
     "@blockyrts/sim": "workspace:*"
