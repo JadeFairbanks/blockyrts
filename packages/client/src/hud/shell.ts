@@ -9,6 +9,7 @@ import {
   clockAt,
   Period,
   RESOURCES,
+  SiteKind,
   WU_PER_METRE,
   type Order,
   type SimEvent,
@@ -40,7 +41,7 @@ import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
-import { Commands, type Card } from './commands.ts';
+import { Commands, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { buildLayout, type HudLayout } from './layout.ts';
 import { GameMenu } from './menu.ts';
@@ -76,7 +77,7 @@ export interface ShellOptions {
   /** Sends an order to the sim. */
   issueOrder(order: ShellOrder): void;
   /** Asks the sim for placement tiles; the answer comes back through GameShell.onPlaced. */
-  askPlacement(kind: number, spots: Array<[number, number]>): void;
+  askPlacement(kind: number, variant: number, spots: Array<[number, number]>): void;
   settings: Settings;
   seed: number;
   players: number;
@@ -99,12 +100,16 @@ const CAMERA_SLOTS = 4;
 const URGENT_KEEP = 8;
 const TARGET_GREEN = '#5ee06a';
 const TARGET_YELLOW = '#f2d24b';
+const TARGET_RED = '#e8503a';
 /** Two presses of a command key within this time are a double tap (auto-target). */
 const DOUBLE_TAP_MS = 300;
 const RALLY = new THREE.Color(0xf2d24b);
 const QUEUE = new THREE.Color(0x63e06b);
 const CLAIM = new THREE.Color(0xf2d24b);
 const LIGHT = new THREE.Color(0xff9a40);
+const DIG = new THREE.Color(0xe08a3a);
+const HEAP = new THREE.Color(0x9ad05a);
+const TUNNEL = new THREE.Color(0xb48ae8);
 
 export class GameShell {
   readonly cam: RtsCamera;
@@ -157,11 +162,14 @@ export class GameShell {
   private messageSeq = 0;
   private lastInfoStep = -1;
   private lastPlannedSig = '';
+  private overShown = false;
+  private readonly parent: HTMLElement;
 
   constructor(
     parent: HTMLElement,
     private readonly opts: ShellOptions,
   ) {
+    this.parent = parent;
     this.world = opts.world;
     this.extras = opts.extras;
     this.game = opts.game;
@@ -189,7 +197,7 @@ export class GameShell {
       held: (k) => this.input.held(k),
       message: (t, k) => this.message(t, k),
       marker: (at, kind) => this.visuals.orderMarker(at, kind === 'move' ? 'move' : 'target'),
-      askPlacement: (kind, spots) => opts.askPlacement(kind, spots),
+      askPlacement: (kind, variant, spots) => opts.askPlacement(kind, variant, spots),
       node: (cx, cz, i) => this.extras.node(cx, cz, i),
       heightAt: (x, z) => this.extras.heightAt(x, z),
       changed: () => {
@@ -359,6 +367,8 @@ export class GameShell {
     idleBtn?.setFace(idle > 0 ? `⚒${idle}` : '⚒').setLit(idle > 0);
     const p = clockAt(info.step).period;
     this.buttons.get('home')?.setLit(p === Period.Dusk);
+    this.buttons.get('autoequip')?.setLit(info.autoEquip);
+    if ((info.over > 0 || info.out) && !this.overShown) this.showGameOver(info);
     this.groups.refresh((k) => this.exists(k));
     this.selection.retain((k) => this.exists(k) || k.startsWith('p:'));
     // Planned buildings move only when the order lists change.
@@ -372,6 +382,37 @@ export class GameShell {
       this.lastInfoStep = info.step;
       this.cardDirty = true;
     }
+  }
+
+  /** The end of the game: the score is the nights survived (Winning, losing and score). */
+  private showGameOver(info: InfoMessage): void {
+    this.overShown = true;
+    const el = document.createElement('div');
+    el.className = 'game-over';
+    Object.assign(el.style, {
+      position: 'absolute',
+      left: '50%',
+      top: '30%',
+      transform: 'translate(-50%, -50%)',
+      padding: '18px 32px',
+      background: 'rgba(20, 14, 10, 0.85)',
+      border: '2px solid #c9a24a',
+      color: '#f2e6c8',
+      textAlign: 'center',
+      font: '600 20px system-ui, sans-serif',
+      pointerEvents: 'none',
+      zIndex: '20',
+    });
+    const head = document.createElement('div');
+    head.style.fontSize = '30px';
+    head.textContent = info.over > 0 ? 'The game is over' : 'You are out of the game';
+    const score = document.createElement('div');
+    score.textContent = `Nights survived: ${info.nights}`;
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size: 14px; margin-top: 8px; opacity: 0.8';
+    hint.textContent = 'F10 opens the menu to quit.';
+    el.append(head, score, hint);
+    this.parent.append(el);
   }
 
   private exists(key: string): boolean {
@@ -448,7 +489,19 @@ export class GameShell {
       description: 'While lit, every order is added to the queue as if Shift were held. Click again to turn it off; it also turns off when the selection changes.',
       onPress: () => this.setQueueMode(!this.queueMode),
     });
-    util({ id: 'autoequip', face: '⚙', name: 'Auto-Equip', keys: ['F4'], description: 'Toggle units picking the best equipment from the pool by themselves.' }, 'Comes with equipment (milestone 3).');
+    util({
+      id: 'autoequip',
+      face: '⚙',
+      name: 'Auto-Equip',
+      keys: k('autoEquip'),
+      description: 'While lit, new equipment from the Big House is handed out by itself with the Equip Best rules: by day, to idle units within about a 15 second run of a main base. Hand-picked items are left alone.',
+      onPress: () => {
+        const on = !(this.game.info?.autoEquip ?? false);
+        this.opts.issueOrder({ kind: 'autoEquip', player: this.player, on: on ? 1 : 0 });
+        this.buttons.get('autoequip')?.setLit(on);
+        this.message(on ? 'Auto-Equip is on.' : 'Auto-Equip is off.');
+      },
+    });
     util({ id: 'rations', face: '▤', name: 'Rations', keys: ['F9'], description: 'Cycle the food ration setting.' }, 'Comes with food and supply (milestone 4).');
     util({
       id: 'home',
@@ -533,6 +586,7 @@ export class GameShell {
       ['townhall', 'townhall'],
       ['follow', 'follow'],
       ['home', 'home'],
+      ['autoequip', 'autoEquip'],
       ['clear', 'clear'],
     ] as const) {
       const b = this.buttons.get(id);
@@ -771,7 +825,10 @@ export class GameShell {
     return {
       down: (button, p) => {
         if (button === Btn.Left) {
-          if (this.commands.placing) {
+          if (this.commands.area) {
+            this.leftConsumed = true;
+            this.commands.areaDown(this.cam.pick(p));
+          } else if (this.commands.placing) {
             this.leftConsumed = true;
             this.commands.placeDown();
           } else if (this.commands.targeting) {
@@ -786,7 +843,8 @@ export class GameShell {
           this.setFollow(null);
           this.cam.grabStart(p);
         } else if (button === Btn.Right) {
-          if (this.commands.placing) this.commands.endPlacing();
+          if (this.commands.area) this.commands.endArea();
+          else if (this.commands.placing) this.commands.endPlacing();
           else if (this.commands.targeting) this.commands.back();
           else if (!this.selector.dragging) {
             const u = this.under(p);
@@ -802,7 +860,8 @@ export class GameShell {
         if (button === Btn.Left) {
           if (this.leftConsumed) {
             this.leftConsumed = false;
-            if (this.commands.placing) this.commands.placeUp();
+            if (this.commands.area) this.commands.areaUp();
+            else if (this.commands.placing) this.commands.placeUp();
           } else this.selector.up(p, mods);
         } else if (button === Btn.Middle) {
           this.middleDrag = false;
@@ -810,6 +869,11 @@ export class GameShell {
         }
       },
       wheel: (p, dy) => {
+        // While marking an area, the wheel sets the depth or height instead of zooming.
+        if (this.commands.area?.from) {
+          this.commands.adjustArea(dy < 0 ? 1 : -1);
+          return;
+        }
         this.cam.zoomBy(Math.pow(ZOOM_STEP, (dy / 100) * this.settings.zoomSpeed), p);
       },
     };
@@ -916,19 +980,21 @@ export class GameShell {
 
     const inGameView = playing && this.input.inWindow && this.panels.at(pos) === null;
     this.selector.hover(pos);
-    this.selector.frame(inGameView && !this.commands.placing);
+    this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
+    this.commands.updateArea(inGameView ? this.cam.pick(pos) : null);
     this.extras.setGhost(ghost);
     this.drawOverlay(ghost);
 
     // Cursor shape.
     const overMinimap = playing && this.input.inWindow && this.overMinimapCanvas(pos);
     const t = this.commands.targeting;
-    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : TARGET_GREEN });
+    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' ? TARGET_RED : TARGET_GREEN });
+    else if (this.commands.area && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_YELLOW });
     else if (this.edgeDir) this.input.cursor.setShape({ kind: 'pan', dx: this.edgeDir.dx, dy: this.edgeDir.dy });
     else this.input.cursor.setShape({ kind: 'arrow' });
 
@@ -982,6 +1048,7 @@ export class GameShell {
         }
       }
     }
+    this.drawSites(o, h);
     if (ghost) {
       // Claimed land: lit torches' circles and buildings' 10 m rectangles.
       const claims = this.game.info?.claims;
@@ -1013,6 +1080,30 @@ export class GameShell {
     o.end();
   }
 
+  /** Marked digs and earthworks stay outlined until done; the area being marked shows the cut or heap as a see-through box. */
+  private drawSites(o: Overlay, h: (x: number, z: number) => number): void {
+    const tu = TERRAIN_UNIT_M;
+    const box = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number, c: THREE.Color): void => {
+      o.box(x0 * COLUMN_M, Math.min(y0, y1), z0 * COLUMN_M, (x1 + 1) * COLUMN_M, Math.max(y0, y1), (z1 + 1) * COLUMN_M, c);
+    };
+    for (const s of this.game.info?.sites ?? []) {
+      const cx = ((s.x0 + s.x1 + 1) / 2) * COLUMN_M;
+      const cz = ((s.z0 + s.z1 + 1) / 2) * COLUMN_M;
+      const ground = h(cx, cz);
+      const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel ? TUNNEL : HEAP;
+      if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
+      else if (s.kind === SiteKind.Ramp) box(s.x0, s.z0, s.x1, s.z1, Math.min(s.level, s.level2) * tu, Math.max(s.level, s.level2) * tu, c);
+      else box(s.x0, s.z0, s.x1, s.z1, s.level * tu, ground + 0.1, c);
+    }
+    const plan = this.commands.areaPlan();
+    const a = this.commands.area;
+    if (!plan || !a) return;
+    const c = a.mode === 'earthwork' ? HEAP : plan.tunnel ? TUNNEL : DIG;
+    if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, c);
+    else if (a.mode === 'earthwork' && a.variant === 1) box(plan.x0, plan.z0, plan.x1, plan.z1, Math.min(plan.level, plan.level2) * tu, Math.max(plan.level, plan.level2) * tu, c);
+    else box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, (a.mode === 'dig' ? plan.top : plan.low) * tu + 0.05, c);
+  }
+
   private rallyPoint(r: { t: 'ground'; x: number; z: number } | { t: 'unit'; id: number } | { t: 'node'; cx: number; cz: number; i: number }): THREE.Vector3 | null {
     if (r.t === 'ground') return this.groundPoint(r.x / WU_PER_METRE, r.z / WU_PER_METRE);
     if (r.t === 'unit') {
@@ -1031,7 +1122,10 @@ export class GameShell {
   private orderPoint(o: import('@blockyrts/sim').UnitOrder): THREE.Vector3 | null {
     switch (o.t) {
       case 'move':
+      case 'attackMove':
+      case 'patrol':
         return this.groundPoint(o.x / WU_PER_METRE, o.z / WU_PER_METRE);
+      case 'attack':
       case 'follow': {
         const u = this.game.unit(o.id);
         return u ? this.groundPoint(u.x / WU_PER_METRE, u.z / WU_PER_METRE) : null;

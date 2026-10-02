@@ -4,7 +4,7 @@
 // upgraded, flames and point lights on lit lights, the placement ghost with
 // its green and red tiles, and the faint ghosts of planned buildings.
 import * as THREE from 'three';
-import { BuildingKind, buildingName, buildingSpec, NEUTRAL, RESOURCES, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, buildingName, buildingSpec, footprintDims, NEUTRAL, RESOURCES, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, type ModelLibrary } from '../models/index.ts';
@@ -355,7 +355,7 @@ export class BuildingsView {
     this.ghostMeshes.length = 0;
     let n = 0;
     if (g) {
-      const s = buildingSpec(g.kind);
+      const s = footprintDims(g.kind, g.variant);
       const look = this.look(g.kind, 1, g.variant, owner, false);
       const colour = new THREE.Color();
       const m4 = new THREE.Matrix4();
@@ -401,7 +401,7 @@ export class BuildingsView {
         const key = `${o.kind}:${o.x}:${o.z}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        const s = buildingSpec(o.kind);
+        const s = footprintDims(o.kind, o.variant);
         const look = this.look(o.kind, 1, o.variant, owner, false);
         const mesh = new THREE.Mesh(look.geometry, this.plannedMaterial);
         mesh.position.set(o.x * COLUMN_M, heightAt((o.x + (s.w >> 1) + 0.5) * COLUMN_M, (o.z + (s.d >> 1) + 0.5) * COLUMN_M), o.z * COLUMN_M);

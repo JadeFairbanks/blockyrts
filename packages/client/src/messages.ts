@@ -6,7 +6,7 @@ export type ToWorker =
   | { type: 'start'; seed: number; players: number }
   | { type: 'order'; order: Order }
   /** Placement tiles for a building at these footprint corners (global columns); answered with 'placed'. */
-  | { type: 'place'; id: number; kind: number; spots: Array<[number, number]> }
+  | { type: 'place'; id: number; kind: number; variant: number; spots: Array<[number, number]> }
   /** Debug: steps per tick multiplier (1, 4 or 16). */
   | { type: 'speed'; factor: number };
 

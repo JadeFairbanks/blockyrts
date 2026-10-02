@@ -8,7 +8,7 @@
 // floor, metres, x east, z south.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BuildingKind, buildingSpec } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, footprintDims } from '@blockyrts/sim';
 import { COLUMN_M } from './mesher.ts';
 
 export interface Look {
@@ -274,9 +274,57 @@ function farm(p: Parts, kind: number, level: number, variant: number, fallow: bo
 export function makeLook(kind: number, level: number, variant: number, team: number, fallow: boolean): Look {
   const p = new Parts();
   const spec = buildingSpec(kind);
-  const w = spec.w * COLUMN_M;
-  const d = spec.d * COLUMN_M;
+  const dims = footprintDims(kind, variant);
+  const w = dims.w * COLUMN_M;
+  const d = dims.d * COLUMN_M;
+  const tall = spec.heightCm / 100;
+  const timber = kind === BuildingKind.WallHardwood || kind === BuildingKind.TowerHardwood ? C.darkWood : C.wood;
   switch (kind) {
+    case BuildingKind.Wall:
+    case BuildingKind.WallHardwood:
+      // A palisade column: two sharpened logs side by side.
+      for (let k = 0; k < 2; k++) {
+        const cx = w * (k === 0 ? 0.27 : 0.73);
+        p.cyl(cx, 0, d / 2, w * 0.24, tall - 0.3, timber).cone(cx, tall - 0.3, d / 2, w * 0.24, 0.3, timber, 6);
+      }
+      p.box(0, tall * 0.55, d / 2 - 0.04, w, 0.12, 0.08, C.darkWood);
+      break;
+    case BuildingKind.WallStone:
+      p.box(0, 0, 0, w, tall - 0.3, d, C.stone);
+      p.box(0, tall - 0.3, 0, w * 0.45, 0.3, d, C.darkStone);
+      break;
+    case BuildingKind.Gate: {
+      // Posts at both ends and a plank door between them, turned with the footprint.
+      const along = w >= d;
+      const len = along ? w : d;
+      const post = 0.3;
+      const door = (a: number, la: number, h: number, colour: number, y = 0): void => {
+        if (along) p.box(a, y, d * 0.3, la, h, d * 0.4, colour);
+        else p.box(w * 0.3, y, a, w * 0.4, h, la, colour);
+      };
+      door(0, post, tall + 0.3, C.darkWood);
+      door(len - post, post, tall + 0.3, C.darkWood);
+      door(post, len - post * 2, tall - 0.2, C.plank);
+      door(post, len - post * 2, 0.15, C.darkWood, tall * 0.3);
+      door(post, len - post * 2, 0.15, C.darkWood, tall * 0.7);
+      break;
+    }
+    case BuildingKind.Tower:
+    case BuildingKind.TowerHardwood:
+    case BuildingKind.TowerStone: {
+      const deck = tall - 1.1;
+      const leg = 0.3;
+      if (kind === BuildingKind.TowerStone) p.box(0.1, 0, 0.1, w - 0.2, deck, d - 0.2, C.stone);
+      else {
+        for (const [x, z] of [[0, 0], [w - leg, 0], [0, d - leg], [w - leg, d - leg]] as const) p.box(x, 0, z, leg, deck, leg, timber);
+        p.box(0, deck * 0.45, 0, w, 0.12, 0.12, C.darkWood).box(0, deck * 0.45, d - 0.12, w, 0.12, 0.12, C.darkWood);
+      }
+      p.box(-0.1, deck, -0.1, w + 0.2, 0.2, d + 0.2, C.plank);
+      const wallC = kind === BuildingKind.TowerStone ? C.darkStone : timber;
+      p.box(-0.1, deck + 0.2, -0.1, w + 0.2, 0.9, 0.15, wallC).box(-0.1, deck + 0.2, d - 0.05, w + 0.2, 0.9, 0.15, wallC);
+      p.box(-0.1, deck + 0.2, -0.1, 0.15, 0.9, d + 0.2, wallC).box(w - 0.05, deck + 0.2, -0.1, 0.15, 0.9, d + 0.2, wallC);
+      break;
+    }
     case BuildingKind.MainBase:
       mainBase(p, level, team);
       break;

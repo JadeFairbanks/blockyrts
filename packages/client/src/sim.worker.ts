@@ -279,7 +279,7 @@ self.onmessage = (ev: MessageEvent<ToWorker>) => {
   } else if (msg.type === 'place' && state) {
     const s = state;
     const spots = msg.spots.map(([x, z]) => {
-      const tiles = placementTiles(s, PLAYER, msg.kind, x, z);
+      const tiles = placementTiles(s, PLAYER, msg.kind, x, z, msg.variant);
       return { x, z, tiles, blocked: tiles.find((t) => t !== 0) ?? 0 };
     });
     send({ type: 'placed', id: msg.id, kind: msg.kind, spots }, spots.map((p) => p.tiles.buffer));

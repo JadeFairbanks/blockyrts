@@ -64,7 +64,7 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
     held: () => false,
     message: (t) => messages.push(t),
     marker: () => undefined,
-    askPlacement: (kind, spots) => asks.push([kind, spots]),
+    askPlacement: (kind, _variant, spots) => asks.push([kind, spots]),
     node: () => undefined,
     heightAt: () => 0,
     changed: () => undefined,
@@ -91,10 +91,10 @@ describe('the worker card', () => {
   it('has the movement row, the gatherer row and the build row, greyed where a later milestone brings it', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Rank', '']);
-    expect(card[0]!.enabled).toBe(false);
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Equip', 'Gear']);
+    expect(card[9]!.enabled).toBe(false);
     expect(card[6]!.enabled).toBe(true); // worker 2 carries something
-    expect(card[13]!.reason).toContain('level 2 main base');
+    expect(card[14]!.reason).toContain('single unit');
     expect(card.map((e) => e?.key ?? '')).toContain('KeyG');
   });
 
