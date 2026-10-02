@@ -69,6 +69,9 @@ fails the build unless its manifest row names the deviation and the reason.
   model's notes.
 - **Cube budgets:** small items under 12 cubes; people and animals 15 to 40;
   big monsters up to 60; buildings as needed.
-- **Textures:** powers of two from 32 to 256 on a side.
+- **Textures:** 1 texture pixel per model unit, with each side a power of two
+  from 16 to 1024. Most models fit in 256 or less; 512 and 1024 are expected
+  only where 1 pixel per unit needs them (big mechanical pieces, big monsters,
+  buildings).
 - **Team colour:** the placeholder blue RGB (52, 96, 178) marks the areas the
   game tints with the player's colour; only player-owned things use it.
