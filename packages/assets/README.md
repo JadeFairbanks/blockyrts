@@ -10,6 +10,10 @@ files.
 Everything under `src/` arrives by pull request from the modelling bot, on one
 `assets/<batch>` branch per batch. Its first batch creates `src/MANIFEST.md`.
 
+The project's own base bodies (worker, warrior, mage) live in `base/models/`
+instead, outside the bot's reach; see [base/README.md](base/README.md). The
+converter reads both trees.
+
 ## Layout
 
 ```

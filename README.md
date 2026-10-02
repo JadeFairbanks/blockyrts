@@ -4,9 +4,11 @@ A co-op browser RTS survival game: build by day, hold the walls by night, and
 see how many nights you last. The design spec is [docs/blueprint.md](docs/blueprint.md),
 a copy of the canonical blueprint document.
 
-This is milestone 0 of the build order: the project skeleton, the deterministic
-simulation, the desync hash and the headless runner. There is no game to play
-yet.
+This is milestone 1 of the build order: a generated world from the seed (cells,
+barriers, depth bands, rivers, ponds, start pockets, trees and rocks, fog of
+war, water that flows into dug land) drawn in the browser, with the camera,
+the mouse-only controls shell, the HUD panels and the minimap. Workers,
+gathering and building come in milestone 2.
 
 ## Setup
 
@@ -27,6 +29,8 @@ pnpm install
 | `pnpm sim:run` | The headless runner (options below) |
 | `pnpm dev` | The client at http://localhost:5173 |
 | `pnpm audio:dev` | The audio audition page at http://localhost:5174 |
+| `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
+| `pnpm --filter @blockyrts/tools models:build` | Converts the Blockbench models to glb for the client (`pnpm dev` and the client build run it first) |
 | `pnpm assets:manifest` | Lists packages/assets/src/MANIFEST.md and checks it against the model files |
 
 The cross-browser test uses Playwright's Chromium, Firefox and WebKit. A
@@ -40,7 +44,7 @@ CI installs all three and fails if any is missing.
 |---|---|
 | `packages/sim` | The game rules. Integer maths only, seeded random streams, zero dependencies, no DOM; never imports the client, the server or three.js |
 | `packages/client` | The browser game: runs the sim in a Web Worker, draws with three.js |
-| `packages/tools` | Headless runner, desync tool, cross-browser test, the headless two-player network test; balance harness and map viewer placeholders |
+| `packages/tools` | Headless runner, desync tool, cross-browser test, the headless two-player network test, map viewer, model converter; balance harness placeholder |
 | `packages/protocol` | Relay message codecs, the lockstep scheduler, the save file container and the HTTP API shapes; see its README |
 | `packages/server` | Accounts and save API, lobby and lockstep relay in one Node process; see its README for settings |
 | `packages/audio` | Every sound and the music, synthesised in code; the Web Audio engine and an audition page (`pnpm audio:dev`) |
@@ -84,17 +88,51 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash f19851d7`. Run it again: the same hash.
+   prints `final step 10000 hash dababc31`. Run it again: the same hash.
 2. `pnpm test` runs the same seed and script in Node twice and in headless
    Chromium, Firefox and WebKit, and fails if any of the 500 hashes differ.
    CI runs this on every push; the log prints each engine's final hash.
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `2c8fc58e`
-   at step 40 (`pnpm sim:run --seed 1 --steps 40`). The blue blocks are your
-   units: right-click the ground to move them, which changes the hash from
-   then on. The grey ones wander on their own using the seeded random stream.
+   step as the headless runner with no script: for seed 1 that is `e7b36fd4`
+   at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
+   move your units, which changes the hash from then on.
+
+## How a tester checks milestone 1
+
+The build order's check for M1 is: *type a seed, start a game and pan and zoom
+across a generated world with cells, barrier edges, gaps, rivers with fords, a
+start basin and a pocket per player; the minimap fills in behind a debug
+reveal; two machines with the same seed show the same land and the same hash.*
+
+1. `pnpm dev` and open http://localhost:5173. Type a seed (or press Random),
+   pick the number of players and press Start. The camera starts over your
+   four workers and your warrior in your pocket: flat grass with a pond or a
+   stream, hazel, trees, loose stone and flint nearby, and the rest of the
+   land black until explored.
+2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
+   with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
+   to walk your units out: the land they see turns from black to colour,
+   and stays grey once they have left.
+3. The debug panel (top left) has the tools for looking around. **Reveal**
+   explores 150 m round the middle of the view, and the minimap fills in
+   behind it. **Show all** draws the land without fog on your screen only,
+   so you can pan across cells, barrier edges (low hills, ridges, cliffs,
+   ravines, rivers, marshes), their gaps, fords and the next pockets.
+   **Dig** and **Raise** change the land in the middle of the view, and water
+   next to a dug pit flows into it. **Fell** takes everything from the
+   selected trees, bushes and rocks: trees fall and drop seeds.
+4. Two machines: open the same seed and player count on both and compare the
+   hash in the debug panel at the same step: for seed 1 with one player it is
+   `e7b36fd4` at step 40, with two players `cd82d62c`. The land matches too.
+5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
+   prints `final step 10000 hash 8eced6e9`: two players dig trenches from a
+   pond and a stream, raise a wall, fell trees and walk out of the basin.
+   `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
+6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
+   draws the land from above, with the cell edges in white and your pocket
+   in red.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
 

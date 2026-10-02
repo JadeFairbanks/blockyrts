@@ -2,7 +2,7 @@
 // headless runner and the desync tool are built from.
 
 import { STEPS_PER_SECOND } from './fixed.ts';
-import { validateOrder, type InputFrame, type Order } from './orders.ts';
+import { copyOrder, validateOrder, type InputFrame, type Order } from './orders.ts';
 import { deserializeState, diffStates, hashState, serializeState } from './serialize.ts';
 import type { SimState } from './state.ts';
 import { step } from './step.ts';
@@ -54,7 +54,7 @@ export class InputLog {
   }
 
   record(stepNo: number, orders: readonly Order[]): void {
-    this.frames[stepNo % this.capacity] = { step: stepNo, orders: orders.map((o) => ({ ...o, units: [...o.units] })) };
+    this.frames[stepNo % this.capacity] = { step: stepNo, orders: orders.map(copyOrder) };
   }
 
   /** Frames with orders for steps from..to inclusive that are still in the buffer, oldest first. */

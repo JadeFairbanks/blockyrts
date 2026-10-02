@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "assets:manifest": "tsx src/assets-manifest.ts",
     "gen:tables": "tsx scripts/gen-number-tables.ts",
+    "models:build": "tsx src/models/build-models.ts",
     "net:test": "tsx src/net/two-player.ts"
   },
   "dependencies": {

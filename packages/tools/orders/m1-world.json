@@ -1,0 +1,17 @@
+{
+  "description": "M1 check script, seed 1 with 2 players: cuts a hazel bush and fells trees (seeds drop), digs a trench from player 0's pond and one from player 1's stream that fill with water, raises a stone wall, digs a pit, walks units through the trenches and out of the basin, and uses the debug reveal. Move and reveal positions are world units (8,000 per metre); terrain edits are columns (45 cm) and terrain units (11.25 cm).",
+  "players": 2,
+  "frames": [
+    { "step": 5, "orders": [{ "kind": "debugHarvest", "player": 0, "cx": 0, "cz": -2, "index": 1, "amount": 10 }] },
+    { "step": 20, "orders": [{ "kind": "terrain", "player": 0, "x0": 103, "z0": -16, "x1": 130, "z1": -14, "bottom": -6, "top": 4, "material": 0 }] },
+    { "step": 30, "orders": [{ "kind": "terrain", "player": 1, "x0": -80, "z0": 13, "x1": -55, "z1": 15, "bottom": -6, "top": 4, "material": 0 }] },
+    { "step": 40, "orders": [{ "kind": "terrain", "player": 0, "x0": 0, "z0": -110, "x1": 0, "z1": -70, "bottom": -2, "top": 9, "material": 8 }] },
+    { "step": 60, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 5], "x": 432000, "z": -54000 }] },
+    { "step": 80, "orders": [{ "kind": "move", "player": 1, "units": [6, 7, 8, 9, 10], "x": -216000, "z": 50400 }] },
+    { "step": 300, "orders": [{ "kind": "debugReveal", "player": 0, "x": 3200000, "z": 0, "radius": 800000 }] },
+    { "step": 600, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3], "x": 1600000, "z": -400000 }, { "kind": "debugHarvest", "player": 1, "cx": 0, "cz": -2, "index": 0, "amount": 20 }] },
+    { "step": 1200, "orders": [{ "kind": "debugHarvest", "player": 0, "cx": -2, "cz": -4, "index": 0, "amount": 20 }, { "kind": "terrain", "player": 1, "x0": -30, "z0": 80, "x1": -22, "z1": 88, "bottom": -40, "top": 0, "material": 0 }] },
+    { "step": 2500, "orders": [{ "kind": "move", "player": 0, "units": [4, 5], "x": -1200000, "z": 1600000 }, { "kind": "stop", "player": 1, "units": [6, 7] }] },
+    { "step": 4000, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 5], "x": 0, "z": 0 }] }
+  ]
+}

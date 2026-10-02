@@ -5,9 +5,10 @@
 import { ByteReader, ByteWriter, fnv1a32 } from './bytes.ts';
 import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { EntityStore, type SimState } from './state.ts';
+import { readWorld, writeWorld } from './world/serialize-world.ts';
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
 
 export function serializeState(state: SimState): Uint8Array {
   const w = new ByteWriter(256 + state.entities.count * 48);
@@ -26,6 +27,7 @@ export function serializeState(state: SimState): Uint8Array {
   // Column by column, in index order.
   for (let i = 0; i < n; i++) w.u32(e.id[i]!);
   for (let i = 0; i < n; i++) w.u8(e.owner[i]!);
+  for (let i = 0; i < n; i++) w.u8(e.kind[i]!);
   for (let i = 0; i < n; i++) w.i32(e.x[i]!);
   for (let i = 0; i < n; i++) w.i32(e.y[i]!);
   for (let i = 0; i < n; i++) w.i32(e.z[i]!);
@@ -35,6 +37,7 @@ export function serializeState(state: SimState): Uint8Array {
   for (let i = 0; i < n; i++) w.i32(e.targetX[i]!);
   for (let i = 0; i < n; i++) w.i32(e.targetZ[i]!);
   for (let i = 0; i < n; i++) w.u32(e.wanderAt[i]!);
+  writeWorld(w, state.world);
   return w.finish();
 }
 
@@ -55,6 +58,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   e.count = n;
   for (let i = 0; i < n; i++) e.id[i] = r.u32();
   for (let i = 0; i < n; i++) e.owner[i] = r.u8();
+  for (let i = 0; i < n; i++) e.kind[i] = r.u8();
   for (let i = 0; i < n; i++) e.x[i] = r.i32();
   for (let i = 0; i < n; i++) e.y[i] = r.i32();
   for (let i = 0; i < n; i++) e.z[i] = r.i32();
@@ -64,9 +68,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
   for (let i = 0; i < n; i++) e.targetX[i] = r.i32();
   for (let i = 0; i < n; i++) e.targetZ[i] = r.i32();
   for (let i = 0; i < n; i++) e.wanderAt[i] = r.u32();
+  const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return { seed, step, nextEntityId, rng, entities: e };
+  return { seed, step, nextEntityId, rng, entities: e, world };
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -104,12 +109,38 @@ export function diffStates(a: SimState, b: SimState): string | null {
   const eb = b.entities;
   const count = scalar('entities.count', ea.count, eb.count);
   if (count) return count;
-  const fields = ['id', 'owner', 'x', 'y', 'z', 'heading', 'speed', 'order', 'targetX', 'targetZ', 'wanderAt'] as const;
+  const fields = ['id', 'owner', 'kind', 'x', 'y', 'z', 'heading', 'speed', 'order', 'targetX', 'targetZ', 'wanderAt'] as const;
   for (let i = 0; i < ea.count; i++) {
     for (const f of fields) {
       const d = scalar(`entities[${i}].${f}`, ea[f][i]!, eb[f][i]!);
       if (d) return d;
     }
   }
-  return null;
+  return diffWorlds(a, b);
+}
+
+/** The first difference in the world section, named by the part it falls in. */
+function diffWorlds(a: SimState, b: SimState): string | null {
+  const bytesOf = (s: SimState): Uint8Array => {
+    const w = new ByteWriter(1024);
+    writeWorld(w, s.world);
+    return w.finish();
+  };
+  const wa = bytesOf(a);
+  const wb = bytesOf(b);
+  const counts = (s: SimState): [string, number][] => [
+    ['edited chunks', s.world.edited.size],
+    ['prop changes', s.world.propChanges.size],
+    ['dropped seeds', s.world.addedProps.size],
+    ['explored chunks', s.world.explored.reduce((t, m) => t + m.size, 0)],
+    ['water settling', s.world.waterActive.size],
+  ];
+  const ca = counts(a);
+  const cb = counts(b);
+  for (let k = 0; k < ca.length; k++) {
+    if (ca[k]![1] !== cb[k]![1]) return `world.${ca[k]![0]}: ${ca[k]![1]} vs ${cb[k]![1]}`;
+  }
+  const len = Math.min(wa.length, wb.length);
+  for (let i = 0; i < len; i++) if (wa[i] !== wb[i]) return `world byte ${i}: ${wa[i]} vs ${wb[i]}`;
+  return wa.length === wb.length ? null : `world length: ${wa.length} vs ${wb.length}`;
 }

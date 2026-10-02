@@ -1,191 +1,179 @@
-// M0 client: starts the sim worker, shows the step and hash, and draws a flat
-// plane with one placeholder block per entity, interpolated between steps.
+// Client entry: the start screen, then the renderer, the sim worker, the
+// generated world on screen and the game shell (input, camera, HUD,
+// selection, minimap).
+//
+// The world plugs into the shell through the WorldHooks interface
+// (src/hud/shell.ts); WorldView (src/world/world-view.ts) implements it.
+import './hud/hud.css';
 import * as THREE from 'three';
-import { ANGLE_TURN, hashHex, STEPS_PER_SECOND, WU_PER_METRE } from '@blockyrts/sim';
-import { STATE_STRIDE, type FromWorker, type StateMessage, type ToWorker } from './messages.ts';
+import { hashHex, Mat, WU_PER_METRE, type Order } from '@blockyrts/sim';
+import { GameShell, type ShellOrder } from './hud/shell.ts';
+import { STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
+import { loadSettings } from './settings/settings.ts';
+import { chooseStart } from './start/start-screen.ts';
+import { COLUMN_M, UNIT_M } from './world/mesher.ts';
+import { WorldView } from './world/world-view.ts';
 
-const STEP_MS = 1000 / STEPS_PER_SECOND;
-/** Placeholder team colour from the model pipeline (decision 8). */
-const TEAM_BLUE = new THREE.Color(52 / 255, 96 / 255, 178 / 255);
-const NEUTRAL_GREY = new THREE.Color(0.55, 0.55, 0.5);
+/** The local player. */
+const PLAYER = 0;
 
-const params = new URLSearchParams(location.search);
-const seed = Number(params.get('seed') ?? 1) >>> 0;
+async function main(): Promise<void> {
+  const app = document.getElementById('app')!;
+  const settings = loadSettings();
+  const { seed, players } = await chooseStart(app);
+  // A refresh (or a shared link) starts the same world again.
+  history.replaceState(null, '', `${location.pathname}?seed=${seed}&players=${players}`);
 
-const el = (id: string): HTMLElement => document.getElementById(id)!;
-el('seed').textContent = String(seed);
+  const canvas = document.getElementById('view') as HTMLCanvasElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const scene = new THREE.Scene();
 
-// Scene: a 4 x 4 chunk ground plane (115.2 m) with chunk lines.
-const canvas = el('view') as HTMLCanvasElement;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9fb8c8);
-scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a4a3a, 1.2));
-const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-sun.position.set(30, 60, 20);
-scene.add(sun);
+  const world = new WorldView({ scene, seed, players, player: PLAYER });
 
-const GROUND = 4 * 28.8;
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(GROUND, GROUND).rotateX(-Math.PI / 2),
-  new THREE.MeshLambertMaterial({ color: 0x5d7a3a }),
-);
-scene.add(ground);
-const grid = new THREE.GridHelper(GROUND, 4, 0x2c3a1c, 0x2c3a1c);
-grid.position.y = 0.01;
-scene.add(grid);
+  const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
+  const send = (msg: ToWorker): void => worker.postMessage(msg);
 
-// Camera: fixed angle, limited zoom (Controls > Camera); pan with the arrow keys.
-const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 1000);
-const PITCH = THREE.MathUtils.degToRad(55);
-const focus = new THREE.Vector3(0, 0, 0);
-let distance = 45;
-const MIN_DISTANCE = 15;
-const MAX_DISTANCE = 90;
-function placeCamera(): void {
-  camera.position.set(focus.x, focus.y + Math.sin(PITCH) * distance, focus.z + Math.cos(PITCH) * distance);
-  camera.lookAt(focus);
-}
-placeCamera();
-
-function resize(): void {
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / Math.max(1, h);
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', resize);
-resize();
-
-// Entities: one instanced block each, 0.45 m square and 1.69 m tall.
-const MAX_ENTITIES = 1024;
-const blockGeometry = new THREE.BoxGeometry(0.45, 1.69, 0.45).translate(0, 0.845, 0);
-// A nose so the heading is visible.
-const blocks = new THREE.InstancedMesh(blockGeometry, new THREE.MeshLambertMaterial(), MAX_ENTITIES);
-blocks.count = 0;
-scene.add(blocks);
-const noses = new THREE.InstancedMesh(
-  new THREE.BoxGeometry(0.15, 0.15, 0.2).translate(0, 1.45, -0.3),
-  new THREE.MeshLambertMaterial({ color: 0xffe08a }),
-  MAX_ENTITIES,
-);
-noses.count = 0;
-scene.add(noses);
-
-// Interpolation keeps the last two states and blends by the time since the newest arrived.
-let prev: StateMessage | null = null;
-let curr: StateMessage | null = null;
-let currAt = 0;
-let ownIds: number[] = [];
-let stepsSeen = 0;
-let rateFrom = performance.now();
-
-const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
-const send = (msg: ToWorker): void => worker.postMessage(msg);
-worker.onmessage = (ev: MessageEvent<FromWorker>) => {
-  const msg = ev.data;
-  prev = curr;
-  curr = msg;
-  currAt = performance.now();
-  ownIds = msg.ownIds;
-  stepsSeen++;
-  el('step').textContent = String(msg.step);
-  if (msg.hashStep > 0) {
-    el('hash').textContent = hashHex(msg.hash);
-    el('hash-step').textContent = String(msg.hashStep);
-  }
-  if (msg.count > 0 && blocks.count === 0) colourBlocks(msg);
-};
-send({ type: 'start', seed });
-
-function colourBlocks(msg: StateMessage): void {
-  for (let i = 0; i < msg.count; i++) {
-    blocks.setColorAt(i, msg.data[i * STATE_STRIDE + 3] === 0 ? TEAM_BLUE : NEUTRAL_GREY);
-  }
-  if (blocks.instanceColor) blocks.instanceColor.needsUpdate = true;
-}
-
-// Right-click on the ground: move all of the player's units there.
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
-canvas.addEventListener('pointerdown', (ev) => {
-  if (ev.button !== 2 || ownIds.length === 0) return;
-  pointer.set((ev.offsetX / canvas.clientWidth) * 2 - 1, -(ev.offsetY / canvas.clientHeight) * 2 + 1);
-  raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObject(ground)[0];
-  if (!hit) return;
-  send({
-    type: 'order',
-    order: {
-      kind: 'move',
-      player: 0,
-      units: ownIds,
-      x: Math.round(hit.point.x * WU_PER_METRE),
-      z: Math.round(hit.point.z * WU_PER_METRE),
+  let leaving = false;
+  const shell = new GameShell(app, {
+    scene,
+    world: world.hooks,
+    player: PLAYER,
+    seed,
+    players,
+    settings,
+    issueOrder(order: ShellOrder, { queued }) {
+      // TODO: queued orders (Shift / Queue Mode) need an order queue in the sim; until then every order replaces.
+      void queued;
+      send({ type: 'order', order });
+    },
+    onQuit() {
+      leaving = true;
+      location.href = location.pathname;
     },
   });
-});
 
-canvas.addEventListener(
-  'wheel',
-  (ev) => {
-    ev.preventDefault();
-    distance = THREE.MathUtils.clamp(distance * Math.exp(ev.deltaY * 0.001), MIN_DISTANCE, MAX_DISTANCE);
-    placeCamera();
-  },
-  { passive: false },
-);
+  // Leaving or refreshing the page during a match asks first.
+  window.addEventListener('beforeunload', (e) => {
+    if (leaving) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 
-const keys = new Set<string>();
-window.addEventListener('keydown', (ev) => keys.add(ev.key));
-window.addEventListener('keyup', (ev) => keys.delete(ev.key));
+  function resize(): void {
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    shell.resize(w, h);
+  }
+  window.addEventListener('resize', resize);
+  resize();
 
-const dummy = new THREE.Object3D();
-let lastFrame = performance.now();
+  addDebugTools(shell, world, (order) => send({ type: 'order', order }));
 
-function frame(now: number): void {
-  const dt = Math.min(0.1, (now - lastFrame) / 1000);
-  lastFrame = now;
-
-  const pan = distance * 0.8 * dt;
-  if (keys.has('ArrowLeft')) focus.x -= pan;
-  if (keys.has('ArrowRight')) focus.x += pan;
-  if (keys.has('ArrowUp')) focus.z -= pan;
-  if (keys.has('ArrowDown')) focus.z += pan;
-  focus.x = THREE.MathUtils.clamp(focus.x, -GROUND / 2, GROUND / 2);
-  focus.z = THREE.MathUtils.clamp(focus.z, -GROUND / 2, GROUND / 2);
-  placeCamera();
-
-  if (curr) {
-    const alpha = prev && prev.count === curr.count ? Math.min(1, (now - currAt) / STEP_MS) : 1;
-    for (let i = 0; i < curr.count; i++) {
-      const o = i * STATE_STRIDE;
-      const cx = curr.data[o]!;
-      const cz = curr.data[o + 1]!;
-      const px = prev && alpha < 1 ? prev.data[o]! : cx;
-      const pz = prev && alpha < 1 ? prev.data[o + 1]! : cz;
-      dummy.position.set((px + (cx - px) * alpha) / WU_PER_METRE, 0, (pz + (cz - pz) * alpha) / WU_PER_METRE);
-      dummy.rotation.y = (curr.data[o + 2]! / ANGLE_TURN) * Math.PI * 2;
-      dummy.updateMatrix();
-      blocks.setMatrixAt(i, dummy.matrix);
-      noses.setMatrixAt(i, dummy.matrix);
+  let stepsSeen = 0;
+  let rateFrom = performance.now();
+  let stepsPerSecond = 0;
+  let placed = false;
+  worker.onmessage = (ev: MessageEvent<FromWorker>) => {
+    const msg = ev.data;
+    if (msg.type === 'deltas') {
+      world.onDeltas(msg);
+      return;
     }
-    blocks.count = curr.count;
-    noses.count = curr.count;
-    blocks.instanceMatrix.needsUpdate = true;
-    noses.instanceMatrix.needsUpdate = true;
-  }
+    if (msg.type === 'fog') {
+      world.onFog(msg);
+      return;
+    }
+    world.onState(msg);
+    stepsSeen++;
+    const now = performance.now();
+    if (now - rateFrom >= 1000) {
+      stepsPerSecond = Math.round((stepsSeen * 1000) / (now - rateFrom));
+      stepsSeen = 0;
+      rateFrom = now;
+    }
+    shell.setSimInfo({ step: msg.step, stepsPerSecond, hash: hashHex(msg.hash), hashStep: msg.hashStep });
+    if (!placed) {
+      // Start the camera over the player's own units, in their pocket.
+      placed = true;
+      let x = 0;
+      let z = 0;
+      let n = 0;
+      for (let i = 0; i < msg.count; i++) {
+        const o = i * STATE_STRIDE;
+        if (msg.data[o + 1] !== PLAYER) continue;
+        x += msg.data[o + 3]!;
+        z += msg.data[o + 5]!;
+        n++;
+      }
+      if (n > 0) shell.cam.jumpTo(x / n / WU_PER_METRE, z / n / WU_PER_METRE);
+      shell.message(`World generated from seed ${seed}.`);
+      if (players > 1) shell.message(`${players} players: you are player 1.`);
+    }
+  };
+  send({ type: 'start', seed, players });
+  shell.start();
+  // For browser checks in development (test-e2e): the shell and the world are reachable from the console.
+  if (import.meta.env.DEV) Object.assign(window as object, { shell, world });
 
-  if (now - rateFrom >= 1000) {
-    el('rate').textContent = `(${Math.round((stepsSeen * 1000) / (now - rateFrom))} steps/s)`;
-    stepsSeen = 0;
-    rateFrom = now;
+  let lastFrame = performance.now();
+  function frame(now: number): void {
+    const dt = Math.min(0.1, Math.max(0, (now - lastFrame) / 1000));
+    lastFrame = now;
+    world.update(now, shell.cam.focus);
+    shell.frame(dt, now);
+    renderer.render(scene, shell.cam.camera);
+    requestAnimationFrame(frame);
   }
-
-  renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+
+/**
+ * Debug buttons in the debug readout (top left): the M1 tools a tester uses
+ * to see the world. They act at the camera's focus (the middle of the view),
+ * and the land changes go through the sim as orders, so they are in the hash.
+ */
+function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => void): void {
+  const bar = document.createElement('div');
+  bar.className = 'dbg-tools';
+  shell.layout.debug.append(bar);
+  const focusColumn = (): { x: number; z: number; y: number } => {
+    const f = shell.cam.focus;
+    const x = Math.floor(f.x / COLUMN_M);
+    const z = Math.floor(f.z / COLUMN_M);
+    return { x, z, y: Math.round((world.heightAt(f.x, f.z) ?? 0) / UNIT_M) };
+  };
+  const add = (id: string, face: string, name: string, description: string, onPress: () => void): void => {
+    const b = shell.buttons.add({ id, face, name, keys: [], description, className: 'dbg-btn', onPress });
+    bar.append(b.el);
+  };
+  add('dbg-reveal', 'Reveal', 'Debug: reveal', 'Marks the land within 150 m of the middle of the view explored (a sim order, so it is in the hash). The minimap fills in behind it.', () => {
+    const f = shell.cam.focus;
+    order({ kind: 'debugReveal', player: PLAYER, x: Math.round(f.x * WU_PER_METRE), z: Math.round(f.z * WU_PER_METRE), radius: 150 * WU_PER_METRE });
+  });
+  add('dbg-all', 'Show all', 'Debug: show all', 'Draws the land without fog of war, on this screen only; the sim and the minimap still keep to what is explored.', () => {
+    world.setShowAll(!world.showingAll);
+    shell.buttons.get('dbg-all')?.setLit(world.showingAll);
+  });
+  add('dbg-dig', 'Dig', 'Debug: dig', 'Digs a 3 m square pit 1 m deep in the middle of the view, as a terrain edit. Water nearby flows in.', () => {
+    const c = focusColumn();
+    order({ kind: 'terrain', player: PLAYER, x0: c.x - 3, z0: c.z - 3, x1: c.x + 3, z1: c.z + 3, bottom: c.y - 9, top: c.y + 40, material: Mat.Air });
+  });
+  add('dbg-raise', 'Raise', 'Debug: raise', 'Builds a 2 m stone block 1 m high in the middle of the view, as a terrain edit.', () => {
+    const c = focusColumn();
+    order({ kind: 'terrain', player: PLAYER, x0: c.x - 2, z0: c.z - 2, x1: c.x + 2, z1: c.z + 2, bottom: c.y, top: c.y + 9, material: Mat.Stone });
+  });
+  add('dbg-fell', 'Fell', 'Debug: fell', 'Takes everything from the selected trees, bushes and rocks: trees fall and drop seeds, hazel and herbs grow back from the stump.', () => {
+    let n = 0;
+    for (const s of shell.selection.list()) {
+      const p = WorldView.propKey(s.key);
+      if (!p) continue;
+      order({ kind: 'debugHarvest', player: PLAYER, cx: p.cx, cz: p.cz, index: p.index, amount: 100000 });
+      n++;
+    }
+    shell.message(n > 0 ? `Felled ${n}.` : 'Select trees, bushes or rocks first.');
+  });
+}
+
+void main();
