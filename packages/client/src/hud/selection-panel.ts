@@ -15,6 +15,8 @@ const MAX_PORTRAITS = 40;
 export interface PanelActions {
   player: number;
   health(t: Selectable): [number, number] | null;
+  /** A mage's mana and the bar's most, or null for everything else. */
+  mana(t: Selectable): [number, number] | null;
   building(t: Selectable): BuildingInfo | undefined;
   /** Left click a portrait; Shift removes it, Ctrl keeps its type, Ctrl + Shift removes its type. */
   portrait(t: Selectable, p: ButtonPress): void;
@@ -33,6 +35,8 @@ export interface PanelActions {
 export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
+  if (typeKey === 'mage:support') return 2;
+  if (typeKey === 'mage:battle') return 3;
   if (typeKey.startsWith('building:')) return 100 + Number(typeKey.split(':')[1]);
   return 1000;
 }
@@ -51,6 +55,8 @@ export function subgroups(list: readonly Selectable[]): Array<{ typeKey: string;
 function glyph(t: Selectable): string {
   if (t.typeKey === 'worker') return '⚒';
   if (t.typeKey === 'warrior') return '⚔';
+  if (t.typeKey === 'mage:support') return '✚';
+  if (t.typeKey === 'mage:battle') return '✦';
   if (t.kind === 'building') return '⌂';
   if (t.kind === 'node') return '♣';
   return '•';
@@ -72,6 +78,7 @@ export class SelectionPanel {
   private used = new Set<string>();
   private sig = '';
   private readonly bars = new Map<string, HTMLElement>();
+  private readonly manaBars = new Map<string, HTMLElement>();
 
   constructor(
     private readonly title: HTMLElement,
@@ -83,6 +90,7 @@ export class SelectionPanel {
   private clear(): void {
     this.used = new Set();
     this.bars.clear();
+    this.manaBars.clear();
     this.body.replaceChildren();
   }
 
@@ -244,6 +252,12 @@ export class SelectionPanel {
         bar.className = 'hp';
         p.el.append(bar);
         this.bars.set(t.key, bar);
+        if (t.typeKey.startsWith('mage:')) {
+          const mana = document.createElement('span');
+          mana.className = 'mana';
+          p.el.append(mana);
+          this.manaBars.set(t.key, mana);
+        }
         grid.append(p.el);
       }
     }
@@ -260,6 +274,12 @@ export class SelectionPanel {
       const w = `${pct}%`;
       if (bar.style.width !== w) bar.style.width = w;
       bar.classList.toggle('low', pct < 35);
+      const manaBar = this.manaBars.get(t.key);
+      const m = manaBar ? this.a.mana(t) : null;
+      if (manaBar && m) {
+        const mw = `${m[1] > 0 ? Math.max(0, Math.min(100, Math.round((m[0] * 100) / m[1]))) : 0}%`;
+        if (manaBar.style.width !== mw) manaBar.style.width = mw;
+      }
     }
   }
 }

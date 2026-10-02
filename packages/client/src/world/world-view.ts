@@ -32,11 +32,13 @@ import {
   isGame,
   speciesSpec,
   WILD,
+  mageTitle,
+  School,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
-import { S, STATE_STRIDE, UnitFlag } from '../messages.ts';
+import { S, SpellOn, STATE_STRIDE, UnitFlag } from '../messages.ts';
 import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
@@ -67,9 +69,21 @@ const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 /** Player colours (decision 8's placeholder blue is player 1). */
 export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
-const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal'];
+const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal', 'Mage'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
-const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal'];
+const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support'];
+
+/** "Quickened, fortified." for the spells on a unit, or ''. */
+export function spellsOnText(bits: number): string {
+  const out: string[] = [];
+  if (bits & SpellOn.Quicken) out.push('quickened');
+  if (bits & SpellOn.Fortify) out.push('fortified');
+  if (bits & SpellOn.Rally) out.push('rallied');
+  if (bits & SpellOn.Warding) out.push('warded');
+  if (bits & SpellOn.Healing) out.push('being healed');
+  if (bits & SpellOn.Hexed) out.push('hexed');
+  return out.length ? `${capital(out.join(', '))}.` : '';
+}
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
 const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
@@ -283,6 +297,20 @@ export class WorldView {
         if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
         else if (d[o + S.lock] === Lock.Ranged) details.push('Locked to ranged.');
         if (d[o + S.skills]! & 1) details.push('Trained in archery.');
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
+      } else if (kind === UnitKind.Mage) {
+        const rank = d[o + S.rank]!;
+        const school = d[o + S.school]!;
+        u.label = mageTitle(school, rank);
+        u.typeKey = school === School.Battle ? 'mage:battle' : 'mage:support';
+        const worn = [ITEMS[d[o + S.weapon]!]?.name ?? '', d[o + S.armour] ? (ITEMS[d[o + S.armour]!]?.name ?? '') : '', d[o + S.helmet] ? (ITEMS[d[o + S.helmet]!]?.name ?? '') : '', d[o + S.boots] ? (ITEMS[d[o + S.boots]!]?.name ?? '') : ''].filter((x) => x && x !== 'Nothing');
+        const details = [health, `Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`, worn.length ? `${worn.join(', ')}.` : 'No wand.'];
+        const on = spellsOnText(d[o + S.spells]!);
+        if (on) details.push(on);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);

@@ -3,10 +3,12 @@
 // carry hanging from its slots, every night mob on its catalogue model (a
 // coloured block until the model is in the library), the injured and death
 // clips, arrows, stones and webs in flight, and the little bursts of blood,
-// bone, slime, splinters and dust when something is hit.
+// bone, slime, splinters and dust when something is hit. Mages wear their
+// school and rank's look once it is in the library (else the plain mage
+// body), play the clip of the spell they cast, and hold a beam on a target.
 import * as THREE from 'three';
-import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Slot, speciesSpec, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
-import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
+import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
 const STEP_MS = 50;
@@ -70,7 +72,41 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.45, w: 0.05, colour: 0x6a6a70 },
   { len: 0.25, w: 0.18, colour: 0xffa020 },
   { len: 0.5, w: 0.22, colour: 0x7ab8ff },
+  // The mages' Arcane bolt (violet-white) and Fireball, until their spell models are in the library.
+  { len: 0.32, w: 0.2, colour: 0xd8b8ff },
+  { len: 0.45, w: 0.42, colour: 0xff7020 },
 ];
+
+/** Shots drawn with a spell's catalogue model once it is listed. */
+const SHOT_MODELS: Record<number, string> = { [Shot.ArcaneBolt]: SPELLS[Spell.ArcaneBolt]!.model, [Shot.Fireball]: SPELLS[Spell.Fireball]!.model };
+
+/** Where a spell lands, by Spell: the colour of its motes, how many and how far they fly. */
+const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up: number }> = [
+  { colour: 0x8ae070, n: 10, speed: 0.8, up: 1.8 },
+  { colour: 0xf0e060, n: 10, speed: 1.2, up: 1.2 },
+  { colour: 0x9ab0c8, n: 24, speed: 2.4, up: 1 },
+  { colour: 0xff6040, n: 24, speed: 2.4, up: 1.4 },
+  { colour: 0xd8b8ff, n: 8, speed: 1.8, up: 1.4 },
+  { colour: 0xc8a0ff, n: 4, speed: 1.2, up: 1 },
+  { colour: 0xff8020, n: 40, speed: 4.5, up: 3 },
+  { colour: 0xb080ff, n: 60, speed: 6, up: 2.5 },
+  { colour: 0x60a0ff, n: 24, speed: 2.4, up: 1.2 },
+  { colour: 0xffffff, n: 16, speed: 2, up: 2 },
+];
+
+/** Motes rising off a unit with a spell on it, by SpellOn bit. */
+const SPELL_ON_COLOURS: ReadonlyArray<readonly [number, number]> = [
+  [SpellOn.Healing, 0x8ae070],
+  [SpellOn.Quicken, 0xf0e060],
+  [SpellOn.Fortify, 0x9ab0c8],
+  [SpellOn.Rally, 0xff6040],
+  [SpellOn.Warding, 0x60a0ff],
+  [SpellOn.Hexed, 0x6a3a8a],
+];
+
+/** A rank wand's model in a Mage's, Master Mage's or Grand Magician's hand, by Item. */
+const WAND_MODELS: Record<number, string> = { [Item.WandMage]: 'wand_mage', [Item.WandMasterMage]: 'wand_master_mage', [Item.WandGrandMagician]: 'wand_grand_magician' };
+const SCHOOL_LOOKS = ['support', 'support', 'battle'];
 
 interface Corpse {
   model: string;
@@ -271,6 +307,9 @@ export class UnitsView {
   private readonly blocks: THREE.InstancedMesh;
   private readonly loads: THREE.InstancedMesh;
   private readonly shots: THREE.InstancedMesh;
+  private readonly beams: THREE.InstancedMesh;
+  /** Where each unit stands this frame (metres), by entity id, while a beam is held. */
+  private readonly where = new Map<number, THREE.Vector3>();
   private readonly dummy = new THREE.Object3D();
   private readonly mat = new THREE.Matrix4();
   private readonly corpses: Corpse[] = [];
@@ -293,6 +332,10 @@ export class UnitsView {
     this.shots.count = 0;
     this.shots.frustumCulled = false;
     scene.add(this.shots);
+    this.beams = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: 0xd8b8ff, transparent: true, opacity: 0.85 }), 256);
+    this.beams.count = 0;
+    this.beams.frustumCulled = false;
+    scene.add(this.beams);
   }
 
   setModels(lib: ModelLibrary): void {
@@ -326,12 +369,14 @@ export class UnitsView {
       if (!seen(x, z)) continue;
       // An animal leaves a carcass where it fell, drawn with the props.
       if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
-        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? 'warrior' : 'worker';
+        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? 'warrior' : h.kind === UnitKind.Mage ? 'mage' : 'worker';
         this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1 });
       }
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
       if (h.look === 'blast') this.particles.spawn(x, y, z, 0x505050, 24, 3, 3);
+      const spell = h.look === 'spell' ? SPELL_LOOKS[h.spell ?? 0] : undefined;
+      if (spell) this.particles.spawn(x, y, z, spell.colour, spell.n, spell.speed, spell.up);
     }
   }
 
@@ -347,6 +392,9 @@ export class UnitsView {
     let loads = 0;
     const dummy = this.dummy;
     const live = new Set<number>();
+    this.where.clear();
+    let beaming = false;
+    for (let i = 0; i < curr.count && !beaming; i++) beaming = d[i * STATE_STRIDE + S.beam] !== 0;
     for (let i = 0; i < curr.count; i++) {
       const o = i * STATE_STRIDE;
       if (d[o + S.inside] !== 0) continue;
@@ -360,6 +408,7 @@ export class UnitsView {
       const owner = d[o + S.owner]!;
       const kind = d[o + S.kind]!;
       f.place(i, x, y, z);
+      if (beaming) this.where.set(id, new THREE.Vector3(x, y, z));
       const mobUnit = kind === UnitKind.Mob;
       // Lairs and the goblins' buildings stay on the map once found, like the land; creatures only while in sight.
       const structure = mobUnit && mobSpec(d[o + S.mob]!).role === Role.Structure;
@@ -417,8 +466,12 @@ export class UnitsView {
         }
         continue;
       }
-      const look = kind === UnitKind.Warrior ? warriorLook(d, o) : workerLook(d, o);
-      const pool = this.body(kind === UnitKind.Warrior ? 'warrior' : 'worker');
+      const on = d[o + S.spells]!;
+      if (on !== 0 && f.seen(x, z)) {
+        for (const [bit, c] of SPELL_ON_COLOURS) if (on & bit && Math.random() < dt * 4) this.particles.spawn(x, y + 0.3 + Math.random() * 1.2, z, c, 1, 0.3, 0.8);
+      }
+      const look = kind === UnitKind.Warrior ? warriorLook(d, o) : kind === UnitKind.Mage ? mageLook(d, o, this.lib) : workerLook(d, o);
+      const pool = this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage ? mageBody(d, o, this.lib) : 'worker');
       if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
@@ -461,7 +514,39 @@ export class UnitsView {
     this.loads.instanceMatrix.needsUpdate = true;
     if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
     this.drawShots(f, prev ? alpha : 1);
+    this.drawBeams(f);
     this.particles.update(dt);
+  }
+
+  /** A held Beam: a violet-white bar from the mage's hand to her target, flickering a little. */
+  private drawBeams(f: UnitsFrame): void {
+    const d = f.curr.data;
+    const dummy = this.dummy;
+    const dir = new THREE.Vector3();
+    let k = 0;
+    for (let i = 0; i < f.curr.count && k < 256; i++) {
+      const o = i * STATE_STRIDE;
+      const target = d[o + S.beam]!;
+      if (target === 0 || d[o + S.kind] !== UnitKind.Mage) continue;
+      const a = this.where.get(d[o + S.id]!);
+      const b = this.where.get(target);
+      if (!a || !b) continue;
+      // From her wand hand to the target's chest.
+      const from = new THREE.Vector3(a.x, a.y + 1.1, a.z);
+      const to = new THREE.Vector3(b.x, b.y + 0.9, b.z);
+      dir.subVectors(to, from);
+      const len = dir.length();
+      if (len < 0.1) continue;
+      dummy.position.copy(from);
+      dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
+      const w = 0.07 + Math.random() * 0.04;
+      dummy.scale.set(w, w, len);
+      dummy.updateMatrix();
+      this.beams.setMatrixAt(k++, dummy.matrix);
+      if (Math.random() < 0.3) this.particles.spawn(to.x, to.y, to.z, 0xc8a0ff, 1, 1, 1);
+    }
+    this.beams.count = k;
+    this.beams.instanceMatrix.needsUpdate = true;
   }
 
   private drawCorpses(t: number, blocks: number): number {
@@ -541,6 +626,13 @@ export class UnitsView {
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
+      const model = SHOT_MODELS[s[o + 6]!];
+      if (model && this.lib?.listed(model)) {
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        this.attach.add(model, dummy.matrix);
+        continue;
+      }
       dummy.scale.set(look.w, look.w, look.len);
       dummy.updateMatrix();
       this.shots.setMatrixAt(k, dummy.matrix);
@@ -618,6 +710,36 @@ function workerLook(d: Int32Array, o: number): Look {
   if (d[o + S.torch] === 1) attach.push(['torch_hand', 'slot_hand_l']);
   let clip = WORKER_CLIPS[order] ?? (order !== OrderKind.Idle ? 'walk' : 'idle');
   if (flags & UnitFlag.Hurt && d[o + S.swing] === 0) clip = 'injured';
+  return { parts, attach, clip };
+}
+
+/** A mage's body: her school and rank's look once it is in the library, else the plain mage. */
+function mageBody(d: Int32Array, o: number, lib: ModelLibrary | null): string {
+  const look = `mage_${SCHOOL_LOOKS[d[o + S.school]!] ?? 'support'}_${d[o + S.rank]!}`;
+  return lib?.listed(look) ? look : 'mage';
+}
+
+/**
+ * A mage's wand (her rank wand's own model once listed) and clip: the
+ * spell's own clip while she casts (Table 13), the beam clip while she holds
+ * one, the bolt clip for a tap of the wand, then hurt, walking or standing.
+ */
+function mageLook(d: Int32Array, o: number, lib: ModelLibrary | null): Look {
+  const parts: string[] = [];
+  const attach: Array<[string, string]> = [];
+  const wand = WAND_MODELS[d[o + S.weapon]!];
+  if (wand && lib?.listed(wand)) attach.push([wand, 'slot_hand_r']);
+  else parts.push('wand');
+  if (d[o + S.torch] === 1) attach.push(['torch_hand', 'slot_hand_l']);
+  const cast = d[o + S.cast]!;
+  const flags = d[o + S.flags]!;
+  const order = d[o + S.order]!;
+  let clip = 'idle';
+  if (cast !== 0) clip = SPELLS[cast - 1]?.clip ?? 'cast_bolt';
+  else if (d[o + S.beam] !== 0) clip = 'cast_beam';
+  else if (d[o + S.swing] !== 0) clip = 'cast_bolt';
+  else if (flags & UnitFlag.Hurt) clip = 'injured';
+  else if (order !== OrderKind.Idle) clip = flags & UnitFlag.Fleeing ? 'run' : 'walk';
   return { parts, attach, clip };
 }
 

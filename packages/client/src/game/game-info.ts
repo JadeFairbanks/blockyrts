@@ -40,6 +40,13 @@ export interface UnitInfo {
   kit: number;
   partner: number;
   ammoItem: number;
+  /** Mages: School, mana and the bar's most (whole points), 1 + the spell being cast or 0, the beam's target or 0; spells on the unit (SpellOn bits). */
+  school: number;
+  mana: number;
+  maxMana: number;
+  cast: number;
+  beam: number;
+  spells: number;
 }
 
 export class GameInfo {
@@ -113,7 +120,23 @@ export class GameInfo {
       kit: d[o + S.kit]!,
       partner: d[o + S.partner]!,
       ammoItem: d[o + S.ammoItem]!,
+      school: d[o + S.school]!,
+      mana: d[o + S.mana]!,
+      maxMana: d[o + S.maxMana]!,
+      cast: d[o + S.cast]!,
+      beam: d[o + S.beam]!,
+      spells: d[o + S.spells]!,
     };
+  }
+
+  /** A mage's spells: each with why it cannot be cast now ('' when it can) and the steps until it is ready. */
+  spells(id: number): Array<[number, string, number]> {
+    return this.info?.spells.find(([m]) => m === id)?.[1] ?? [];
+  }
+
+  /** Why a mage cannot go for her next rank yet (experience, or the top rank), or ''. */
+  mageRankWhy(id: number): string {
+    return this.info?.mageRanks.find(([m]) => m === id)?.[1] ?? '';
   }
 
   /** Every unit id, in state order. */

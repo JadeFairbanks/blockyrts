@@ -216,6 +216,52 @@ describe('Heal and Arcane bolt', () => {
   });
 });
 
+describe('the cast order', () => {
+  it('sends one mage with the mana, walks her into range, and double-tapped sends every mage', () => {
+    const s = createPeaceful();
+    const e = s.entities;
+    const w = warrior(s);
+    const a = addMage(s, 0, e.x[w]! + 2 * M, e.z[w]!, School.Support);
+    const b = addMage(s, 0, e.x[w]! - 2 * M, e.z[w]!, School.Support);
+    const battle = addMage(s, 0, e.x[w]!, e.z[w]! + 2 * M, School.Battle);
+    setMageRank(s, a, 2);
+    setMageRank(s, b, 2);
+    // The nearer mage is short of mana, so the other one goes.
+    e.mana[a] = 5 * MANA_SCALE;
+    const ids = [a, b, battle].map((i) => e.id[i]!);
+    run(s, 1, [{ kind: 'cast', player: 0, units: ids, spell: Spell.Quicken, target: e.id[w]!, x: 0, z: 0, auto: 0 }]);
+    runUntil(s, () => e.quickUntil[w]! > s.step, 3 * SEC);
+    expect(spellReadyAt(s, b, Spell.Quicken)).toBeGreaterThan(0);
+    expect(spellReadyAt(s, a, Spell.Quicken)).toBe(0);
+    expect(e.mana[a]).toBeLessThan(15 * MANA_SCALE);
+
+    // A target 30 m off: she walks until it is in range, then casts.
+    e.quickUntil[w] = 0;
+    e.x[w] = e.x[w]! + 30 * M;
+    e.mana[a] = 100 * MANA_SCALE;
+    e.hp[w] = 40;
+    run(s, 1, [{ kind: 'cast', player: 0, units: [e.id[a]!], spell: Spell.Heal, target: e.id[w]!, x: 0, z: 0, auto: 0 }]);
+    const x0 = e.x[a]!;
+    runUntil(s, () => e.healLeft[w]! > 0 || e.hp[w]! > 40, 20 * SEC);
+    expect(e.x[a]!).toBeGreaterThan(x0 + 10 * M);
+
+    // Double-tapped Heal: every support mage that knows it picks a target herself.
+    run(s, 1, [{ kind: 'cast', player: 0, units: ids, spell: Spell.Heal, target: 0, x: 0, z: 0, auto: 1 }]);
+    expect(e.queue[a]!.length + e.queue[b]!.length).toBeGreaterThan(0);
+    expect(e.queue[battle]!.some((o) => o.t === 'cast')).toBe(false);
+  });
+
+  it('tells the player when none of the mages knows the spell', () => {
+    const s = createPeaceful();
+    const e = s.entities;
+    const w = warrior(s);
+    const m = addMage(s, 0, e.x[w]! + 2 * M, e.z[w]!, School.Battle);
+    run(s, 1, [{ kind: 'cast', player: 0, units: [e.id[m]!], spell: Spell.Fireball, target: e.id[w]!, x: 0, z: 0, auto: 0 }]);
+    expect(s.events.some((v) => v.kind === 'alert' && v.text === 'Learned at rank 3.')).toBe(true);
+    expect(e.queue[m]!.length).toBe(0);
+  });
+});
+
 describe('Counterspell', () => {
   it("cancels a goblin mage's Snuff while it is cast; its mana is still spent", () => {
     for (const counter of [false, true]) {

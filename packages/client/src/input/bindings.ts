@@ -4,13 +4,14 @@
 // gives them: letters by the character they type ('KeyA'), the rest by
 // physical code ('F1', 'Backspace'). The build menu grid keys follow the key
 // position instead and are not rebound.
+import { SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
 
 export interface Action {
   id: string;
   name: string;
   key: string;
   /** Where it applies, for the settings list. */
-  group: 'Units' | 'Workers' | 'Buildings' | 'Camera and selection';
+  group: 'Units' | 'Workers' | 'Mages' | 'Buildings' | 'Camera and selection';
 }
 
 export const ACTIONS: readonly Action[] = [
@@ -36,6 +37,9 @@ export const ACTIONS: readonly Action[] = [
   { id: 'buildBasic', name: 'Build Basic Structures', key: 'KeyB', group: 'Workers' },
   { id: 'buildAdvanced', name: 'Build Advanced Structures', key: 'KeyV', group: 'Workers' },
   { id: 'rankUp', name: 'Upgrade rank (train at the main base)', key: 'KeyU', group: 'Workers' },
+  // Each spell on its letter in Table 13; the two schools never share a card, so R, F and the rest serve both.
+  ...SPELLS.map((s): Action => ({ id: spellAction(s.id), name: `${s.name} (${SCHOOL_NAMES[s.school]!.toLowerCase()}s)`, key: `Key${s.key}`, group: 'Mages' })),
+  { id: 'mageRank', name: 'Upgrade rank (train at a Magi Sanctum)', key: 'KeyU', group: 'Mages' },
   { id: 'rally', name: 'Set Rally Point', key: 'KeyR', group: 'Buildings' },
   { id: 'upgrade', name: 'Upgrade building', key: 'KeyG', group: 'Buildings' },
   { id: 'unload', name: 'Unload All', key: 'KeyU', group: 'Buildings' },
@@ -44,6 +48,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'planksSoft', name: 'Planks from softwood', key: 'KeyP', group: 'Buildings' },
   { id: 'planksHard', name: 'Planks from hardwood', key: 'KeyH', group: 'Buildings' },
   { id: 'trainWarrior', name: 'Train Warrior', key: 'KeyA', group: 'Buildings' },
+  { id: 'trainSupportMage', name: 'Train Support mage', key: 'KeyS', group: 'Buildings' },
+  { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
   { id: 'craft', name: 'Crafting, cooking, research or slaughter menu', key: 'KeyK', group: 'Buildings' },
   { id: 'refurbish', name: 'Refurbish', key: 'KeyF', group: 'Buildings' },
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
@@ -57,6 +63,11 @@ export const ACTIONS: readonly Action[] = [
   { id: 'rations', name: 'Rations', key: 'F9', group: 'Camera and selection' },
   { id: 'subgroup', name: 'Next subgroup', key: 'Tab', group: 'Camera and selection' },
 ];
+
+/** The binding name of a spell's button. */
+export function spellAction(spell: number): string {
+  return `spell${spell}`;
+}
 
 const DEFAULTS = new Map(ACTIONS.map((a) => [a.id, a.key]));
 

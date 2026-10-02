@@ -53,8 +53,14 @@ import {
   type SimState,
   type UnitOrder,
   toolInHand,
+  MANA_SCALE,
+  mageRank,
+  mageTrainingProblem,
+  schoolSpells,
+  spellProblem,
+  spellReadyAt,
 } from '@blockyrts/sim';
-import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -141,6 +147,22 @@ function postState(s: SimState): void {
     data[o + S.toolBuild] = e.toolBuild[i]!;
     data[o + S.toolCut] = e.toolCut[i]!;
     data[o + S.toolHand] = e.kind[i] === UnitKind.Worker ? toolInHand(e, i) : 0;
+    if (e.kind[i] === UnitKind.Mage) {
+      data[o + S.school] = e.school[i]!;
+      data[o + S.mana] = Math.floor(e.mana[i]! / MANA_SCALE);
+      data[o + S.maxMana] = mageRank(e.rank[i]!).mana;
+      data[o + S.cast] = e.castSpell[i]!;
+      data[o + S.beam] = e.beamUntil[i]! > s.step ? e.beamTarget[i]! : 0;
+      // A wand tap shows as a swing; a cast or a beam as the cast.
+    }
+    let on = 0;
+    if (e.quickUntil[i]! > s.step) on |= SpellOn.Quicken;
+    if (e.fortUntil[i]! > s.step) on |= SpellOn.Fortify;
+    if (e.rallyUntil[i]! > s.step) on |= SpellOn.Rally;
+    if (e.wardUntil[i]! > s.step) on |= SpellOn.Warding;
+    if (e.healUntil[i]! > s.step) on |= SpellOn.Healing;
+    if (e.hexUntil[i]! > s.step) on |= SpellOn.Hexed;
+    data[o + S.spells] = on;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {
@@ -199,7 +221,14 @@ function postInfo(s: SimState): void {
   });
   const e = s.entities;
   const queues: Array<[number, UnitOrder[]]> = [];
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === PLAYER) queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
+  const spells: Array<[number, Array<[number, string, number]>]> = [];
+  const mageRanks: Array<[number, string]> = [];
+  for (let i = 0; i < e.count; i++) {
+    if (e.owner[i] !== PLAYER) continue;
+    queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
+    if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
+    if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
+  }
   const c = clockAt(s.step, s.blood);
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
   const me = s.players[PLAYER]!;
@@ -233,6 +262,8 @@ function postInfo(s: SimState): void {
       fog: fogged(s),
       ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
       marks: threatMarks(s),
+      spells,
+      mageRanks,
     },
     [pool.buffer, items.buffer],
   );
