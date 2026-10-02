@@ -24,13 +24,15 @@ import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, loadSlowBp, onWheels } from './weight.ts';
-import { fightStep, garrisonRoom, rangedOf } from '../combat/fight.ts';
+import { canGarrison, fightStep, garrisonRoom } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
 import { refundEquip, runEquip, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './field.ts';
 import { Item, itemSpec } from '../combat/items.ts';
+import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
+import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -221,6 +223,8 @@ export function moveSpeed(state: SimState, i: number): number {
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
   // A goblin mage's Stumble hex: 20% slower.
   if (e.hexUntil[i]! > state.step) bp -= HEX_SLOW_BP;
+  // A support mage's Quicken: 25% faster.
+  if (e.quickUntil[i]! > state.step) bp += spellSpec(Spell.Quicken).bp;
   // Hopping up a rise.
   if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   return Math.max(1, floorDiv(base * bp, 10000));
@@ -507,6 +511,7 @@ export function giveOrder(state: SimState, i: number, o: UnitOrder, queued: bool
     return;
   }
   dropQueue(state, i);
+  breakCast(state, i);
   e.queue[i] = [o];
   e.target[i] = 0;
   e.chasing[i] = 0;
@@ -519,12 +524,23 @@ export function giveOrder(state: SimState, i: number, o: UnitOrder, queued: bool
 export function stopUnit(state: SimState, i: number): void {
   const e = state.entities;
   dropQueue(state, i);
+  breakCast(state, i);
   e.target[i] = 0;
   e.chasing[i] = 0;
   e.act[i] = Act.Start;
   e.timer[i] = 0;
   resetWalk(state, i);
   if (e.inside[i] !== 0) leaveBuilding(state, i);
+}
+
+/** A new order (not queued) or Stop breaks off a spell being cast (nothing is paid until it lands) or a Beam being held. */
+function breakCast(state: SimState, i: number): void {
+  const e = state.entities;
+  e.castSpell[i] = 0;
+  e.castAt[i] = 0;
+  e.beamUntil[i] = 0;
+  e.beamTarget[i] = 0;
+  e.beamLeft[i] = 0;
 }
 
 /** The standable column nearest a column, searching rings out to `radius`; the column itself if none is found. */
@@ -897,7 +913,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   const e = state.entities;
   const b = state.buildings.get(o.b);
   const worker = e.kind[i] === UnitKind.Worker;
-  const room = !b ? 0 : worker ? shelterRoom(b) : rangedOf(state, i) ? garrisonRoom(b) : 0;
+  const room = !b ? 0 : worker ? shelterRoom(b) : canGarrison(state, i) ? garrisonRoom(b) : 0;
   if (!b || b.owner !== e.owner[i] || room === 0) return DONE;
   if (e.inside[i] === b.id) return CONTINUE;
   const r = walkTo(state, i, besideBuilding(b));
@@ -1038,13 +1054,71 @@ export function nextRankTraining(rank: number, warrior = false): (typeof RANK_TR
   return (warrior ? WARRIOR_RANK_TRAINING : RANK_TRAINING).find((t) => t.rank === rank + 1);
 }
 
-/** Where a unit trains its rank: workers at a main base, warriors at the Barracks. */
+/** Where a unit trains its rank: workers at a main base, warriors at the Barracks, mages at the Magi Sanctum. */
 export function rankTrainedAt(kind: number): number {
+  if (kind === UnitKind.Mage) return BuildingKind.MagiSanctum;
   return kind === UnitKind.Warrior ? BuildingKind.Barracks : BuildingKind.MainBase;
+}
+
+/**
+ * A mage's rank training at the Magi Sanctum (Table 7): food, and mana
+ * crystals for Adept Acolyte, are paid on arrival; the combat ranks take
+ * her rank wand from the stock, and her old wand goes back into it.
+ */
+function runMageTrain(state: SimState, i: number, b: Building): boolean {
+  const e = state.entities;
+  const t = nextMageTraining(e.rank[i]!);
+  const player = state.players[b.owner]!;
+  const who = SCHOOL_NAMES[e.school[i]!]!.toLowerCase();
+  if (!t) return DONE;
+  if (e.inside[i] !== b.id) {
+    const why = mageTrainingProblem(state, i);
+    if (why) {
+      alert(state, b.owner, why, e.x[i]!, e.z[i]!);
+      return DONE;
+    }
+    const r = walkTo(state, i, besideBuilding(b));
+    if (r === MOVING) return CONTINUE;
+    if (r === FAILED) return DONE;
+    if (t.wand && player.items[t.wand]! < 1) {
+      alert(state, b.owner, `Training a ${who} to ${t.name} needs a ${itemSpec(t.wand).name} in the equipment stock.`, e.x[i]!, e.z[i]!);
+      return DONE;
+    }
+    if (player.pool[Res.ManaCrystal]! < t.crystals) {
+      alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals.`, e.x[i]!, e.z[i]!);
+      return DONE;
+    }
+    if (t.food > 0 && !payNutrition(player.pool, t.food, player.dontEat)) {
+      alert(state, b.owner, `Not enough food to train a ${who} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!);
+      return DONE;
+    }
+    player.pool[Res.ManaCrystal] = player.pool[Res.ManaCrystal]! - t.crystals;
+    if (t.wand) {
+      player.items[t.wand] = player.items[t.wand]! - 1;
+      if (e.weapon[i]) player.items[e.weapon[i]!] = player.items[e.weapon[i]!]! + 1;
+      e.weapon[i] = t.wand;
+    }
+    goInside(state, i, b);
+    e.act[i] = Act.Inside;
+    e.timer[i] = 0;
+  }
+  e.timer[i] = e.timer[i]! + 1;
+  if (e.timer[i]! < t.steps) return CONTINUE;
+  setMageRank(state, i, t.rank);
+  // Trained to Acolyte or Adept, she counts as having that rank's experience (s), as warriors do.
+  e.xp[i] = Math.max(e.xp[i]!, MAGE_XP_TENTHS[t.rank]!);
+  leaveBuilding(state, i);
+  state.events.push({ player: b.owner, kind: 'info', text: `A ${who} has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
+  return DONE;
 }
 
 function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train' }>): boolean {
   const e = state.entities;
+  if (e.kind[i] === UnitKind.Mage) {
+    const b = state.buildings.get(o.b);
+    if (!b || b.kind !== BuildingKind.MagiSanctum || !b.complete || b.owner !== e.owner[i]) return DONE;
+    return runMageTrain(state, i, b);
+  }
   const b = state.buildings.get(o.b);
   const warrior = e.kind[i] === UnitKind.Warrior;
   const t = nextRankTraining(e.rank[i]!, warrior);
@@ -1135,6 +1209,9 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runProspect(state, i, o);
     case 'haul':
       return runHaul(state, i, o);
+    case 'cast':
+      // The fight layer carries a cast out (magic/cast.ts); reaching here means it is over.
+      return DONE;
   }
 }
 

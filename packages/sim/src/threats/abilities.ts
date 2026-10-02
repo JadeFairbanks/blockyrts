@@ -19,11 +19,10 @@ import { Shot } from '../combat/items.ts';
 import { mobSpec } from '../combat/mobs.ts';
 import { buildingTop, fireAt, launch, ProjectileFlag } from '../combat/projectiles.ts';
 import { SPARK } from './burns.ts';
+import { MANA_SCALE, mageRank } from '../magic/spells.ts';
 
 const M = WU_PER_METRE;
 const SEC = STEPS_PER_SECOND;
-/** Mana is held in twentieths of a point. */
-export const MANA_SCALE = 20;
 
 export const Ability = { Snuff: 0, StumbleHex: 1, SparkToss: 2 } as const;
 export type Ability = (typeof Ability)[keyof typeof Ability];
@@ -50,6 +49,7 @@ export const HEX_STEPS = 4 * SEC;
 /** The most mana a unit holds, in twentieths. */
 export function maxMana(state: SimState, i: number): number {
   const e = state.entities;
+  if (e.kind[i] === UnitKind.Mage) return mageRank(e.rank[i]!).mana * MANA_SCALE;
   return e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).mana * MANA_SCALE : 0;
 }
 

@@ -47,6 +47,8 @@ export const OrderKind = {
   Dig: 10,
   /** Running for the dark at dawn. */
   Flee: 11,
+  /** A mage casting or holding a beam (the clip follows the spell: castSpell, beamUntil). */
+  Cast: 12,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
@@ -218,17 +220,16 @@ export const UNIT_FIELDS = [
   /** Mages (milestone 6): support or battle (magic/spells.ts School); hundredths of a mana point still to come from the refill. */
   ['school', 'u8'],
   ['manaAcc', 'u8'],
-  /** The last step a mage cast at an enemy or helped a unit that was fighting: in combat for 10 s after it. */
-  ['fightAt', 'u32'],
   /** A spell being cast: 1 + its id (0 for none), the step it lands, and its target unit or spot (wu). */
   ['castSpell', 'u8'],
   ['castAt', 'u32'],
   ['castTarget', 'u32'],
   ['castX', 'i32'],
   ['castZ', 'i32'],
-  /** A Beam held on a unit until this step. */
+  /** A Beam held on a unit until this step, and the damage it still has to do (worked out through armour when it starts). */
   ['beamUntil', 'u32'],
   ['beamTarget', 'u32'],
+  ['beamLeft', 'i32'],
   /** The support spells on a unit, each until a step: Quicken, Fortify, Rally, Warding. */
   ['quickUntil', 'u32'],
   ['fortUntil', 'u32'],
@@ -350,7 +351,6 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hopRise: Int32Array;
   declare school: Uint8Array;
   declare manaAcc: Uint8Array;
-  declare fightAt: Uint32Array;
   declare castSpell: Uint8Array;
   declare castAt: Uint32Array;
   declare castTarget: Uint32Array;
@@ -358,6 +358,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare castZ: Int32Array;
   declare beamUntil: Uint32Array;
   declare beamTarget: Uint32Array;
+  declare beamLeft: Int32Array;
   declare quickUntil: Uint32Array;
   declare fortUntil: Uint32Array;
   declare rallyUntil: Uint32Array;
@@ -625,7 +626,7 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
 
 export interface HitEvent {
   look: HitLook;
@@ -638,6 +639,8 @@ export interface HitEvent {
   kind?: number;
   mob?: number;
   heading?: number;
+  /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
+  spell?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */

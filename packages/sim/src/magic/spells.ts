@@ -9,6 +9,9 @@ import { STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 const SEC = STEPS_PER_SECOND;
 const M = WU_PER_METRE;
 
+/** Mana is held in twentieths of a point (the goblin mage's too), so a refill of 1 a second is a twentieth a step. */
+export const MANA_SCALE = 20;
+
 /** The two kinds of mage (Mage types); a unit's school field. */
 export const School = { None: 0, Support: 1, Battle: 2 } as const;
 export type School = (typeof School)[keyof typeof School];

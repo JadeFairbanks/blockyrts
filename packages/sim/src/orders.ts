@@ -315,6 +315,20 @@ export interface HuntOrder extends UnitsOrder {
   auto: number;
 }
 
+/**
+ * Cast a spell (Magic; Table 13): at a unit (target, an entity id), or at a
+ * spot on the ground (x, z wu) for an area spell. auto (a double-tapped
+ * spell button) lets each mage pick the best target herself.
+ */
+export interface CastOrder extends UnitsOrder {
+  kind: 'cast';
+  spell: number;
+  target: number;
+  x: number;
+  z: number;
+  auto: number;
+}
+
 /** Tame a wild animal (one worker stands by it with food). */
 export interface TameOrder extends UnitsOrder {
   kind: 'tame';
@@ -362,6 +376,7 @@ export interface DontEatOrder {
 }
 
 export type Order =
+  | CastOrder
   | HuntOrder
   | TameOrder
   | EatOrder
@@ -466,6 +481,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   debugSpawn: ['mob', 'x', 'z'],
   debugThreat: ['what', 'x', 'z'],
   hunt: ['target', 'auto'],
+  cast: ['spell', 'target', 'x', 'z', 'auto'],
   tame: ['target'],
   eat: ['building'],
   hitch: ['target'],
@@ -475,7 +491,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   dontEat: ['res', 'on'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -513,6 +529,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'dontEat':
       if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
+      return;
+    case 'cast':
+      if (o.spell < 0 || o.spell > 255 || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad cast');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

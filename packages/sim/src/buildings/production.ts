@@ -21,6 +21,8 @@ import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
 import { affordableRecipe, hasResearch, Item, ITEMS, itemSpec, Made, missingResearch, RESEARCH, Research, type ItemSpec, type ResearchSpec } from '../combat/items.ts';
 import { cookSteps, payableInputs, RECIPES, recipeLevelAt, recipeSpec } from './recipes.ts';
 import { addWarrior } from '../state.ts';
+import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
+import { School } from '../magic/spells.ts';
 
 export interface ProductSpec {
   product: Product;
@@ -67,6 +69,12 @@ export function productSpec(product: Product): ProductSpec {
   if (fixed) return fixed;
   if (product === Product.Warrior) {
     return { product, name: 'Warrior', key: 'A', steps: WARRIOR_TRAIN_STEPS, cost: [], food: WARRIOR_FOOD, items: [[Item.Club, 1]], tooltip: 'A new warrior (Table 7): 30 food and a hardwood club from the equipment stock. Needs free supply.' };
+  }
+  if (product === Product.SupportMage) {
+    return { product, name: 'Support mage', key: 'S', steps: MAGE_TRAIN_STEPS, cost: [], food: MAGE_FOOD, items: [[Item.Wand, 1]], tooltip: 'A new Novice Acolyte who heals and strengthens your units (Table 7): 50 food and a wand from the equipment stock. Needs free supply.' };
+  }
+  if (product === Product.BattleMage) {
+    return { product, name: 'Battle mage', key: 'M', steps: MAGE_TRAIN_STEPS, cost: [], food: MAGE_FOOD, items: [[Item.Wand, 1]], tooltip: 'A new Novice Acolyte who attacks with spells (Table 7): 50 food and a wand from the equipment stock. Needs free supply.' };
   }
   if (product >= RESEARCH_PRODUCT && product < CRAFT_PRODUCT) {
     const r = RESEARCH[product - RESEARCH_PRODUCT]!;
@@ -115,10 +123,16 @@ export function needsHands(kind: number): boolean {
 export function productsOf(b: Building): Product[] {
   if (!b.complete) return [];
   const out: Product[] = [];
-  if (b.kind === BuildingKind.MainBase) out.push(Product.Worker, Product.Warrior);
-  else if (b.kind === BuildingKind.Barracks) out.push(Product.Warrior);
-  else if (b.kind === BuildingKind.ScholarsLodge) {
-    for (const r of RESEARCH) if (r.id !== Research.None && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
+  if (b.kind === BuildingKind.MainBase) {
+    out.push(Product.Worker, Product.Warrior);
+    // Main bases of level 6 or higher train mages too (Magic).
+    if (b.level >= MAGE_MAIN_BASE_LEVEL) out.push(Product.SupportMage, Product.BattleMage);
+  } else if (b.kind === BuildingKind.Barracks) out.push(Product.Warrior);
+  else if (b.kind === BuildingKind.MagiSanctum) {
+    out.push(Product.SupportMage, Product.BattleMage);
+    for (const r of RESEARCH) if (r.at === b.kind && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
+  } else if (b.kind === BuildingKind.ScholarsLodge) {
+    for (const r of RESEARCH) if (r.id !== Research.None && !r.retired && r.at === undefined) out.push(RESEARCH_PRODUCT + r.id);
   } else if (buildingSpec(b.kind).trainsWorkers) out.push(Product.Worker);
   if (b.kind === BuildingKind.LumberMill) out.push(Product.PlanksSoftwood, Product.PlanksHardwood);
   if (b.kind === BuildingKind.LivestockFarm) for (const s of SLAUGHTERED) out.push(SLAUGHTER_PRODUCT + s);
@@ -213,7 +227,6 @@ export function productSteps(state: SimState, b: Building, product: Product): nu
   }
   // A Workshop of tier 2 or more cuts bow staves for the Big House: bows take half the time (s).
   if (product === CRAFT_PRODUCT + Item.Bow && bestLevel(state, b.owner, BuildingKind.Workshop) >= 2) return floorDiv(spec.steps, 2);
-  if (product === Product.Worker || product === Product.Warrior) return spec.steps;
   return spec.steps;
 }
 
@@ -231,16 +244,21 @@ export function researchFacilities(state: SimState, player: number): number {
   return n;
 }
 
-/** Supply in use: one per worker and warrior, one per research facility, plus each unit being trained (animals use none). */
+/** Products that are new units: workers, warriors and mages. */
+export function trainsUnit(product: number): boolean {
+  return product === Product.Worker || product === Product.Warrior || product === Product.SupportMage || product === Product.BattleMage;
+}
+
+/** Supply in use: one per worker, warrior and mage, one per research facility, plus each unit being trained (animals use none). */
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior)) n++;
+  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
   for (const b of state.buildings.list) {
     if (b.owner !== player) continue;
     if (b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
     const h = b.queue[0];
-    if (h && (h.product === Product.Worker || h.product === Product.Warrior) && h.progress > 0) n++;
+    if (h && trainsUnit(h.product) && h.progress > 0) n++;
   }
   return n;
 }
@@ -315,6 +333,17 @@ function spawnWarrior(state: SimState, b: Building): void {
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
   state.events.push({ player: b.owner, kind: 'info', text: 'A new warrior is ready.', x, z });
+}
+
+function spawnMage(state: SimState, b: Building, school: number): void {
+  const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
+  const x = columnCentre(cx);
+  const z = columnCentre(cz);
+  const i = addMage(state, b.owner, x, z, school);
+  state.entities.heading[i] = 32768;
+  const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
+  for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
+  state.events.push({ player: b.owner, kind: 'info', text: `A new ${school === School.Battle ? 'battle' : 'support'} mage is ready.`, x, z });
 }
 
 /** Grown animals of a species at a farm that are not out working, males last (s: the herd keeps its breeding pairs longest). */
@@ -408,20 +437,22 @@ export function updateBuildings(state: SimState): void {
     const pool = state.players[b.owner]!.pool;
     const head = b.queue[0];
     if (head) {
-      if (head.product === Product.Worker || head.product === Product.Warrior) {
-        const warrior = head.product === Product.Warrior;
+      if (trainsUnit(head.product)) {
+        const what = productSpec(head.product).name.toLowerCase();
         if (head.progress === 0 && supplyUsed(state, b.owner) >= supplyCap(state, b.owner)) {
           if ((b.alerted & 1) === 0) {
             b.alerted |= 1;
             const [x, z] = buildingCentre(b);
-            state.events.push({ player: b.owner, kind: 'alert', text: `Not enough supply to train a ${warrior ? 'warrior' : 'worker'}. Build or upgrade farms.`, x, z });
+            state.events.push({ player: b.owner, kind: 'alert', text: `Not enough supply to train a ${what}. Build or upgrade farms.`, x, z });
           }
         } else {
           b.alerted &= ~1;
           head.progress++;
-          if (head.progress >= (warrior ? WARRIOR_TRAIN_STEPS : WORKER_TRAIN_STEPS)) {
+          if (head.progress >= productSpec(head.product).steps) {
             b.queue.shift();
-            if (warrior) spawnWarrior(state, b);
+            if (head.product === Product.Warrior) spawnWarrior(state, b);
+            else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support);
+            else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle);
             else spawnWorker(state, b);
           }
         }

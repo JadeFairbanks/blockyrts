@@ -78,7 +78,7 @@ export function readDusk(state: SimState, player: number): DuskReading {
   const e = state.entities;
   for (let i = 0; i < e.count; i++) {
     if (e.owner[i] !== player || e.hp[i]! <= 0 || e.inside[i] !== 0) continue;
-    if (e.kind[i] !== UnitKind.Worker && e.kind[i] !== UnitKind.Warrior) continue;
+    if (e.kind[i] !== UnitKind.Worker && e.kind[i] !== UnitKind.Warrior && e.kind[i] !== UnitKind.Mage) continue;
     note(e.x[i]!, e.z[i]!, 0);
   }
   for (const b of state.buildings.list) {

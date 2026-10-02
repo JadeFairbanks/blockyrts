@@ -17,7 +17,7 @@ import { SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { garrisonRoom, rangedOf } from './combat/fight.ts';
+import { canGarrison, garrisonRoom } from './combat/fight.ts';
 import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
@@ -249,8 +249,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'enter': {
         const b = ownBuilding(state, o.player, o.building);
-        // Workers shelter; ranged warriors garrison towers and parapets.
-        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && rangedOf(state, i) !== null) ? { t: 'enter', b: b.id, auto: 0 } : null));
+        // Workers shelter; ranged warriors and mages garrison towers and parapets.
+        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && canGarrison(state, i)) ? { t: 'enter', b: b.id, auto: 0 } : null));
         break;
       }
       case 'unload': {
@@ -413,7 +413,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'eat':
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior ? { t: 'eat', b: o.building } : null));
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage ? { t: 'eat', b: o.building } : null));
         break;
       case 'hitch': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);

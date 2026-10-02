@@ -47,7 +47,7 @@ export function upkeep(state: SimState, player: number): { workers: number; troo
     if (e.owner[i] !== player || e.hp[i]! <= 0) continue;
     const k = e.kind[i];
     if (k === UnitKind.Worker) workers += NUTRITION_PER_CYCLE;
-    else if (k === UnitKind.Warrior) troops += NUTRITION_PER_CYCLE;
+    else if (k === UnitKind.Warrior || k === UnitKind.Mage) troops += NUTRITION_PER_CYCLE;
     else if (k === UnitKind.Animal) workers += animalUpkeep.of(state, i);
   }
   for (const b of state.buildings.list) if (b.owner === player && b.complete && b.kind === BuildingKind.ScholarsLodge) troops += FACILITY_UPKEEP;
@@ -59,7 +59,7 @@ export function starvingSince(state: SimState, i: number): number {
   const e = state.entities;
   const p = state.players[e.owner[i]!];
   if (!p) return 0;
-  if (e.kind[i] === UnitKind.Warrior) return p.starveTroops;
+  if (e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage) return p.starveTroops;
   if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Animal) return p.starveWorkers;
   return 0;
 }

@@ -276,13 +276,14 @@ export interface ResearchSpec {
   forge?: number;
   after?: Research;
   made?: number;
-  /** Researched elsewhere (Hexcraft at the Magi Sanctum) or in a later milestone: the reason it is greyed. */
+  /** Researched in a later milestone: the reason it is greyed. */
   later?: string;
+  /** Researched at this building kind instead of a Scholar's Lodge (Hexcraft at the Magi Sanctum). */
+  at?: number;
   /** No longer a research step (its bit is kept so saved research masks still line up). */
   retired?: boolean;
 }
 
-const M6R = 'Researched at the Magi Sanctum (milestone 6).';
 const M8R = 'Comes with siege engines and gunpowder (milestone 8).';
 const sec = (n: number): number => n * STEPS_PER_SECOND;
 
@@ -310,7 +311,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'The crossbow, bolts and the bolt case, and crossbow training at the Barracks.',
   },
   {
-    id: Research.Hexcraft, name: 'Hexcraft', key: 'X', cost: [[Res.Hexstone, 6], [Res.Herbs, 20]], steps: sec(90), later: M6R,
+    id: Research.Hexcraft, name: 'Hexcraft', key: 'X', cost: [[Res.Hexstone, 6], [Res.Herbs, 20]], steps: sec(90), at: BuildingKind.MagiSanctum,
     opens: 'The Warding and Counterspell spells.',
   },
   {
@@ -557,9 +558,9 @@ export const ITEMS: readonly ItemSpec[] = [
   tools(Item.HammerStone, 'Stone hammer', Tool.Stone, 30, Res.Stone, BASE, 100, 0, 'hammer_stone', 2, 4, [[ST, 2], [Res.Stone, 2]], 1 << ToolJob.Build),
   // Milestone 6 (Table 7): a new mage takes a wand of 5 sticks and a copper ingot; the combat ranks take a rank wand of 2, 5 or 10 mana crystals.
   wand(Item.Wand, 'Wand', 1, [[ST, 5], [CU, 1]], 'wand', 0),
-  wand(Item.WandMage, 'Rank wand: Mage', 4, [[Res.ManaCrystal, 2]], 'wand_mage', 1),
-  wand(Item.WandMasterMage, 'Rank wand: Master Mage', 5, [[Res.ManaCrystal, 5]], 'wand_master_mage', 2),
-  wand(Item.WandGrandMagician, 'Rank wand: Grand Magician', 6, [[Res.ManaCrystal, 10]], 'wand_grand_magician', 3),
+  wand(Item.WandMage, "Mage's rank wand", 4, [[Res.ManaCrystal, 2]], 'wand_mage', 1),
+  wand(Item.WandMasterMage, "Master Mage's rank wand", 5, [[Res.ManaCrystal, 5]], 'wand_master_mage', 2),
+  wand(Item.WandGrandMagician, "Grand Magician's rank wand", 6, [[Res.ManaCrystal, 10]], 'wand_grand_magician', 3),
 ];
 
 export const ITEM_COUNT = ITEMS.length;
