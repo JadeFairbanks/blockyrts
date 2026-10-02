@@ -3,15 +3,15 @@
  "players": 1,
  "frames": [
   { "step": 5, "orders": [ {"kind":"gather","player":0,"units":[1,2,3,4],"cx":-1,"cz":-1,"index":2}, {"kind":"debugGive","player":0,"item":3,"count":3}, {"kind":"produce","player":0,"building":6,"product":3,"count":3}, {"kind":"debugGive","player":0,"item":42,"count":4}, {"kind":"debugGive","player":0,"item":71,"count":4}, {"kind":"debugGive","player":0,"item":75,"count":4}, {"kind":"debugGive","player":0,"item":79,"count":4}, {"kind":"debugThreat","player":0,"what":0,"x":480000,"z":0}, {"kind":"debugThreat","player":0,"what":1,"x":-480000,"z":80000} ] },
-  { "step": 2750, "orders": [ {"kind":"equipBest","player":0,"units":[5,157,243,290]} ] },
-  { "step": 2760, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":480000,"z":0} ] },
+  { "step": 2750, "orders": [ {"kind":"equipBest","player":0,"units":[5,165,251,298]} ] },
+  { "step": 2760, "orders": [ {"kind":"attackMove","player":0,"units":[5,165,251,298],"x":480000,"z":0} ] },
   { "step": 3300, "orders": [ {"kind":"debugThreat","player":0,"what":21,"x":0,"z":0} ] },
-  { "step": 3400, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":0,"z":24000} ] },
+  { "step": 3400, "orders": [ {"kind":"attackMove","player":0,"units":[5,165,251,298],"x":0,"z":24000} ] },
   { "step": 3650, "orders": [ {"kind":"everyoneHome","player":0} ] },
-  { "step": 3700, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":0,"z":24000} ] },
+  { "step": 3700, "orders": [ {"kind":"attackMove","player":0,"units":[5,165,251,298],"x":0,"z":24000} ] },
   { "step": 8000, "orders": [ {"kind":"debugThreat","player":0,"what":10,"x":0,"z":-640000}, {"kind":"debugThreat","player":0,"what":11,"x":800000,"z":800000}, {"kind":"debugThreat","player":0,"what":30,"x":-640000,"z":-640000} ] },
-  { "step": 8050, "orders": [ {"kind":"attackMove","player":0,"units":[5,157,243,290],"x":0,"z":-600000} ] },
-  { "step": 8850, "orders": [ {"kind":"move","player":0,"units":[5,157,243,290],"x":0,"z":24000} ] },
+  { "step": 8050, "orders": [ {"kind":"attackMove","player":0,"units":[5,165,251,298],"x":0,"z":-600000} ] },
+  { "step": 8850, "orders": [ {"kind":"move","player":0,"units":[5,165,251,298],"x":0,"z":24000} ] },
   { "step": 9800, "orders": [ {"kind":"debugThreat","player":0,"what":20,"x":0,"z":0} ] }
  ]
 }

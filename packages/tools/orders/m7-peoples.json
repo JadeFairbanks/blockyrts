@@ -1,0 +1,263 @@
+{
+ "description": "M7 check script, seed 1, one player, with night mobs: the debug tools put a Halfling village 40 m north of the Big House (faction 7), a mercenary camp 15 m east (faction 36) and the trade kit in the pool (20 silver, 6 Copper Tokens, 2 Bronze Charms, 5 gold), send an Elf caravan to the main base (faction 76), and hand out steel gear and three clubs; the Big House trains three warriors (ids 196, 282, 329) while the workers chop pines; two mercenaries are hired for 2 silver each (ids 83, 84; the camp had two); the warrior walks to the village, whose elder greets him, offers 3 Copper Tokens and takes the first bundle (5 smoked fish); he walks back to the caravan, which has stopped 15 m west of the Big House, offers a Bronze Charm and takes the second bundle (a healing remedy, 6 flax, 10 wheat and medicinal herbs); Equip Best gears the four warriors, war is declared on the village and the warriors and mercenaries attack-move into it; a worker and the first warrior are killed, then the village is defeated, its plunder goes into the pool (7 head of livestock, its fighters' weapons and shields, bread and bloom iron) and its people walk off; the warriors guard the Big House, Everyone Home at dusk, the mercenaries and the caravan leave at dusk; night 0 passes; on day 2 three workers break down one of the abandoned houses for 20 softwood lumber. Debug peoples (debugPeoples what): 0 to 6 the faction kinds (0 Halfling village, 6 mercenary camp), 7 an Elf caravan to the player now, 9 the trade kit. Goods are resource numbers (74 Copper Token, 83 Bronze Charm). Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  {
+   "step": 0,
+   "orders": [
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 0,
+     "x": 0,
+     "z": -320000
+    },
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 6,
+     "x": 120000,
+     "z": 40000
+    },
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 9,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 7,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 42,
+     "count": 4
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 71,
+     "count": 4
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 75,
+     "count": 4
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 79,
+     "count": 4
+    },
+    {
+     "kind": "debugGive",
+     "player": 0,
+     "item": 3,
+     "count": 3
+    }
+   ]
+  },
+  {
+   "step": 5,
+   "orders": [
+    {
+     "kind": "gather",
+     "player": 0,
+     "units": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "cx": -1,
+     "cz": -1,
+     "index": 2
+    },
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 6,
+     "product": 3,
+     "count": 3
+    }
+   ]
+  },
+  {
+   "step": 20,
+   "orders": [
+    {
+     "kind": "hire",
+     "player": 0,
+     "faction": 36,
+     "count": 3
+    }
+   ]
+  },
+  {
+   "step": 30,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5
+     ],
+     "x": 0,
+     "z": -224000
+    }
+   ]
+  },
+  {
+   "step": 600,
+   "orders": [
+    {
+     "kind": "tradeOffer",
+     "player": 0,
+     "faction": 7,
+     "goods": [
+      74,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "step": 620,
+   "orders": [
+    {
+     "kind": "tradeTake",
+     "player": 0,
+     "faction": 7,
+     "bundle": 0
+    }
+   ]
+  },
+  {
+   "step": 700,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5
+     ],
+     "x": -80000,
+     "z": 56000
+    }
+   ]
+  },
+  {
+   "step": 1500,
+   "orders": [
+    {
+     "kind": "tradeOffer",
+     "player": 0,
+     "faction": 76,
+     "goods": [
+      83,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "step": 1520,
+   "orders": [
+    {
+     "kind": "tradeTake",
+     "player": 0,
+     "faction": 76,
+     "bundle": 1
+    }
+   ]
+  },
+  {
+   "step": 2710,
+   "orders": [
+    {
+     "kind": "equipBest",
+     "player": 0,
+     "units": [
+      5,
+      196,
+      282,
+      329
+     ]
+    }
+   ]
+  },
+  {
+   "step": 2720,
+   "orders": [
+    {
+     "kind": "declareWar",
+     "player": 0,
+     "faction": 7
+    },
+    {
+     "kind": "attackMove",
+     "player": 0,
+     "units": [
+      5,
+      196,
+      282,
+      329,
+      83,
+      84
+     ],
+     "x": 0,
+     "z": -320000
+    }
+   ]
+  },
+  {
+   "step": 3300,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      196,
+      282,
+      329
+     ],
+     "x": 0,
+     "z": 24000
+    }
+   ]
+  },
+  {
+   "step": 3650,
+   "orders": [
+    {
+     "kind": "everyoneHome",
+     "player": 0
+    }
+   ]
+  },
+  {
+   "step": 8850,
+   "orders": [
+    {
+     "kind": "attack",
+     "player": 0,
+     "units": [
+      2,
+      3,
+      4
+     ],
+     "target": 10
+    }
+   ]
+  }
+ ]
+}
