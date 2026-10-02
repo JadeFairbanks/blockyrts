@@ -93,7 +93,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash ecf9327d`. Run it again: the same hash. (The
+   prints `final step 10000 hash 0dc48578`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -102,7 +102,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `c020169f`
+   step as the headless runner with no script: for seed 1 that is `d8d06cd5`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -132,9 +132,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `c020169f` at step 40, with two players `c0d0b884`. The land matches too.
+   `d8d06cd5` at step 40, with two players `23932524`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 7bc6b6bd`: two players dig trenches from a
+   prints `final step 10000 hash 55542c63`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -204,7 +204,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 1b0fd103`: workers chop and quarry, the Big
+   prints `final step 10000 hash cb8d3ea4`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -269,7 +269,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash c29100de`: the Big House crafts a club and a
+   prints `final step 10000 hash 19319055`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
@@ -347,7 +347,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 8a133dd3`: two workers pick flint while two
+   prints `final step 10000 hash 03a6ea97`: two workers pick flint while two
    chop; the warrior hunts with N twice, wears down two deer north of the
    camp, brings their meat home and walks home at dusk; a worker prospects
    (Fair); Rations goes to troops only and the workers starve until it goes
@@ -450,7 +450,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 309d5d27`: the debug tools hand out steel
+   prints `final step 10000 hash b47f49c1`: the debug tools hand out steel
    gear and three clubs and put a barrow 60 m east of the Big House and a
    cave mouth 60 m west; the Big House trains three warriors; all four
    attack the barrow, the first one there falls to its giant centipede, and
@@ -603,7 +603,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 2936db3b`: the debug tools put a Magi
+   prints `final step 10000 hash 3d674bf2`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and steel gear on the
    warrior; the Sanctum trains a support and a battle mage and researches
    Hexcraft, and both train to Acolyte; in night 0 the support mage quickens
@@ -614,6 +614,119 @@ and spells), and each script still plays out as its description says.
    Rally, Fireball, Fortify and Area blast are cast, the battle mage counters
    the goblin mage twice, and all three walk home. All ten spells land.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
+
+## How a tester checks milestone 7
+
+The build order's check for M7 is: *find a Halfling village and trade a
+Copper Token for grain through the barter menu; an Elf caravan stops outside
+the base five days after first contact; chopping Deepwoods trees in sight of
+an Elf gives three warnings and then war; a Dwarf colony names the direction
+of the nearest city after the first trade; the message panel records a
+declaration of war and clicking it jumps the camera.* Every hash above changed
+with this milestone (the peoples are placed as the land is explored, so the
+units trained later in the M5 and M6 scripts have new ids; those scripts were
+updated and still play out as they say).
+
+1. `pnpm test` runs those checks as scenario tests in
+   `packages/sim/test/m7.test.ts`: each of the seven kinds (Halfling village,
+   Runkin camp, the Elf kingdom, an Elf caravan, Dwarf colony and city, a
+   mercenary camp) placed with its buildings, people, beasts and stock; the
+   peoples found as the players explore, by the seed alone; an offer answered
+   with three bundles worth about what it is worth to them, and one taken;
+   the 15 m rule and the Halflings refusing gold; the 300 value point daily
+   limit for one kind of good; the same offer turned down three times
+   closing trade until dawn; lumber insulting the Elves; a declaration of
+   war, the Halflings' surrender at half strength, plunder and breaking down
+   what they left; war that comes by itself when a player kills one of theirs
+   at peace; the Runkin defeated and camping again in a cell nobody has seen;
+   the Dwarves migrating, raiding and stopping once paid reparations; the
+   Elves' three tree warnings and then war; the caravan coming five days
+   after meeting the Elves, trading near the main base and leaving at dusk; a
+   Dwarf colony's first trade naming the way to the nearest city; mercenaries
+   hired for silver until dusk; Grovesingers casting at monsters; and a save
+   taken mid-war replaying to the same hash.
+   `packages/client/test/m7-peoples.test.ts` checks the message filters and
+   the 60 message limit, the worth bar's sums (the same as the sim's), the
+   war question before an attack and right click to trade.
+2. `pnpm dev`, open http://localhost:5173/?seed=1 and start. The debug panel
+   has three new buttons: **People: Halfling village** puts that people in
+   the middle of the view, as if just found there; each press moves on to the
+   next (Runkin camp, the Elf kingdom, an Elf caravan, a Dwarf colony, a Dwarf
+   city, a mercenary camp). **Caravan** sends an Elf caravan to your main base
+   now (by day). **Trade kit** adds 20 silver, 6 Copper Tokens, 2 Bronze
+   Charms and 5 gold to the pool. Without them the peoples turn up as you
+   explore: Halfling villages at the sites Table 9 keeps for them, Runkin
+   camps from the Heartland to the Deepwoods, mercenary camps and wandering
+   Elf caravans in the Fringe and Deepwoods, the one Elf kingdom in the
+   Deepwoods, Dwarf colonies in the Barrens and Dwarf cities in the
+   Deadlands.
+3. **Meeting them.** The first time one of your units sees one of their
+   people, their leader greets you in a speech bubble and the message panel,
+   and they appear on the minimap as a diamond in their people's colour
+   (ringed red at war). Hover over any of their units or buildings for its
+   name and its people. **O** (or the **Peoples** button at the top right)
+   opens the Peoples panel: every people you know, how it stands, its
+   specialisation, and **Go there**, **Trade**, **Hire** and **War**.
+4. **Trading.** Right-click their leader, an inn, barn, drying rack, hall,
+   forge or a caravan's wagon with a unit selected (or press **Trade** in
+   the panel). A unit of yours must be within 15 m. The trade menu shows what
+   they sell today, what they want (by kind of good), your goods with what
+   they would pay for each, the offer box and the worth bar. Click goods into
+   the box (Shift + click or right click puts ten; click one in the box to
+   take it back out), then **Make offer**: they answer with
+   three bundles and you take one, or **Withdraw**. Values are hidden; the
+   worth bar only says small, fair, good or rich. Each people buys at most
+   300 value points of one kind of good a day and restocks at dawn; the same
+   offer turned down three times closes trade until dawn; Halflings refuse
+   gold, and lumber offered to Elves insults them for a day.
+5. **Caravans.** After you meet the Elves, a caravan comes every five days
+   by day, stops about 14 m from your main base and leaves at dusk. Trade
+   with it as with a village.
+6. **War.** **A** on one of their units, or **War** in the panel, asks first
+   ("Declare war on …?"); your allies are drawn in. Killing one of theirs at
+   peace starts a war by itself. Halflings offer to surrender at half
+   strength (**Accept surrender** or **Refuse** in the panel); a surrender or
+   a defeat brings plunder into the pool (livestock, their fighters' weapons
+   and shields, some of their stock) and they walk off, leaving their
+   buildings: select workers and right-click one (or A on it) to break it
+   down for its materials. Runkin camp again somewhere unexplored; Dwarves
+   migrate and raid you until you pay reparations (**Pay reparations** in the
+   panel);
+   Elves never surrender, and chopping Deepwoods trees in sight of an Elf
+   earns three warnings and then war.
+7. **Mercenaries.** Right-click a mercenary camp (or **Hire** in the panel)
+   with a unit within 15 m: up to 6 at 2 silver each for the day, by day
+   only. They take your orders like warriors and walk home at dusk.
+8. **Speech and the message panel.** Your units say short lines in bubbles
+   (under attack, out of resources, idle) and now and then a random remark;
+   the peoples answer in their own words. The message panel keeps the latest
+   60 messages with the time and who said them. Its filter button switches
+   between everything, alerts and player messages, and player messages only;
+   **–** collapses it to a small button that flashes when something urgent
+   comes in. Urgent messages (attacks, war, deaths, idle workers, nightfall)
+   are highlighted and
+   ping the minimap; clicking any message with a place jumps the camera to
+   it, or to the unit that said it; **Space** jumps to the latest urgent
+   message and again steps back through the last 8. Another people's line
+   reaches the panel when it is said to you, or when it matters and you can
+   see the speaker. The panel shows "Chat with other players comes with
+   multiplayer" where chat will go in milestone 9.
+9. **The look.** Once PR #42 is merged the peoples use their own models
+   (people, buildings, wagons, beasts); until then their people are worker
+   and warrior bodies tinted in their people's colour and their buildings
+   are coloured blocks.
+10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
+    prints `final step 10000 hash bba69b89`: the debug tools put a Halfling
+    village 40 m north, a mercenary camp 15 m east and the trade kit in the
+    pool, and send an Elf caravan; two mercenaries are hired; the warrior
+    trades 3 Copper Tokens to the village for 5 smoked fish, then a Bronze
+    Charm to the caravan for a healing remedy, flax, wheat and herbs; the Big
+    House trains three warriors, Equip Best gears them, war is declared on
+    the village and the warriors and mercenaries take it (a worker and the
+    first warrior fall), and its plunder comes in; the mercenaries and the
+    caravan leave at dusk; on day 2 three workers break down one of the
+    abandoned houses for 20 softwood lumber. `pnpm test` runs it in Node,
+    Chromium, Firefox and WebKit too.
 
 ## How a tester checks the balance editor
 
