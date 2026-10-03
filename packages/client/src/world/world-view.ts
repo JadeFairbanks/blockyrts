@@ -26,8 +26,9 @@ import {
   PropShape,
   Tool,
   toolNeeded,
-  SIGHT_WU,
+  floorDiv,
   UnitKind,
+  VISION_STRIDE,
   WORLD_EDGE_WU,
   WU_PER_COLUMN,
   WU_PER_METRE,
@@ -50,7 +51,7 @@ import {
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
-import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
+import type { DeltasMessage, FogMessage, StateMessage, VisionMessage } from '../messages.ts';
 import { S, SpellOn, STATE_STRIDE, UnitFlag } from '../messages.ts';
 import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
@@ -187,7 +188,13 @@ export class WorldView {
   private readonly fowData = new Uint8Array(FOW_TILES * FOW_TILES);
   private fowDirty = true;
   private fowLastSeen = 0;
-  /** Explored fog bits of the local player, per chunk. */
+  /** The fog texture's explored layer (0 or 128) for the current window, kept until the land explored or the window changes. */
+  private readonly exploredLayer = new Uint8Array(FOW_TILES * FOW_TILES);
+  private exploredLayerDirty = true;
+  /** What the players' side sees now (VisionMessage sources), and whether it changed since the fog was last drawn. */
+  private vision: Int32Array = new Int32Array(0);
+  private visionFresh = false;
+  /** Explored fog bits, the whole side's, per chunk. */
   private readonly explored = new Map<string, Uint8Array>();
   private exploredBounds = { minX: 0, minZ: 0, maxX: 0, maxZ: 0, any: false };
   private showAll = false;
@@ -516,7 +523,14 @@ export class WorldView {
       else this.maskTile(t);
     }
     this.fowDirty = true;
+    this.exploredLayerDirty = true;
     this.minimapVersion++;
+  }
+
+  /** What the players' side sees now: drawn into the fog on the next frame or two. */
+  onVision(msg: VisionMessage): void {
+    this.vision = msg.sources;
+    this.visionFresh = true;
   }
 
   /** Debug: draw the whole land with no fog (the sim's fog is unchanged). */
@@ -575,13 +589,15 @@ export class WorldView {
       this.focusChunk = { cx: fcx, cz: fcz };
       this.chooseChunks(fcx, fcz);
       this.fowDirty = true;
+      this.exploredLayerDirty = true;
     }
     if (now - this.lastGrowth > GROWTH_REFRESH_S * 1000) {
       this.lastGrowth = now;
       for (const c of this.chunks.values()) if (c.lod === 1) c.version++;
     }
     this.pump();
-    if (this.fowDirty || now - this.fowLastSeen > 200) {
+    // Sight moves with the units: redrawn at most ten times a second as the sim reports it.
+    if (this.fowDirty || (this.visionFresh && now - this.fowLastSeen > 100)) {
       this.fowLastSeen = now;
       this.rebuildFog();
     }
@@ -747,43 +763,56 @@ export class WorldView {
 
   private rebuildFog(): void {
     this.fowDirty = false;
+    this.visionFresh = false;
     const f = this.focusChunk;
     if (Number.isNaN(f.cx)) return;
     const half = FOW_TILES / FOG_TILES_PER_CHUNK / 2;
     const ox = (f.cx - half) * FOG_TILES_PER_CHUNK;
     const oz = (f.cz - half) * FOG_TILES_PER_CHUNK;
-    const data = this.fowData;
-    data.fill(0);
-    const chunksAcross = FOW_TILES / FOG_TILES_PER_CHUNK;
-    for (let j = 0; j < chunksAcross; j++) {
-      for (let i = 0; i < chunksAcross; i++) {
-        const bits = this.explored.get(ck(f.cx - half + i, f.cz - half + j));
-        if (!bits) continue;
-        for (let t = 0; t < 256; t++) {
-          if ((bits[t >> 3]! & (1 << (t & 7))) === 0) continue;
-          const tx = i * FOG_TILES_PER_CHUNK + (t & 15);
-          const tz = j * FOG_TILES_PER_CHUNK + (t >> 4);
-          data[tz * FOW_TILES + tx] = 128;
+    if (this.exploredLayerDirty) {
+      this.exploredLayerDirty = false;
+      const layer = this.exploredLayer;
+      layer.fill(0);
+      const chunksAcross = FOW_TILES / FOG_TILES_PER_CHUNK;
+      for (let j = 0; j < chunksAcross; j++) {
+        for (let i = 0; i < chunksAcross; i++) {
+          const bits = this.explored.get(ck(f.cx - half + i, f.cz - half + j));
+          if (!bits) continue;
+          for (let t = 0; t < 256; t++) {
+            if ((bits[t >> 3]! & (1 << (t & 7))) === 0) continue;
+            const tx = i * FOG_TILES_PER_CHUNK + (t & 15);
+            const tz = j * FOG_TILES_PER_CHUNK + (t >> 4);
+            layer[tz * FOW_TILES + tx] = 128;
+          }
         }
       }
     }
-    // Seen now: within sight of the player's units.
-    const s = this.curr;
-    if (s) {
-      const tileWu = WU_PER_COLUMN * 4;
-      for (let i = 0; i < s.count; i++) {
-        const o = i * STATE_STRIDE;
-        if (s.data[o + S.owner] !== this.player) continue;
-        const sight = SIGHT_WU[s.data[o + S.kind]! as 0 | 1 | 2] ?? SIGHT_WU[0];
-        const ux = s.data[o + S.x]! / tileWu - ox;
-        const uz = s.data[o + S.z]! / tileWu - oz;
-        const r = sight / tileWu;
-        for (let tz = Math.max(0, Math.floor(uz - r)); tz <= Math.min(FOW_TILES - 1, Math.ceil(uz + r)); tz++) {
-          for (let tx = Math.max(0, Math.floor(ux - r)); tx <= Math.min(FOW_TILES - 1, Math.ceil(ux + r)); tx++) {
-            const dx = tx + 0.5 - ux;
-            const dz = tz + 0.5 - uz;
-            if (dx * dx + dz * dz <= r * r) data[tz * FOW_TILES + tx] = 255;
-          }
+    const data = this.fowData;
+    data.set(this.exploredLayer);
+    // Seen now: within the sight of any player's units or buildings (the players share their vision).
+    // The same integer test as the sim's World.revealRect, so seen land is the land the sim explores.
+    const v = this.vision;
+    const tileWu = WU_PER_COLUMN * 4;
+    const halfTile = tileWu >> 1;
+    for (let o = 0; o < v.length; o += VISION_STRIDE) {
+      const x0 = v[o + 1]!;
+      const z0 = v[o + 2]!;
+      const x1 = v[o + 3]!;
+      const z1 = v[o + 4]!;
+      const r = v[o + 5]!;
+      const r2 = r * r;
+      const tx0 = Math.max(ox, floorDiv(x0 - r, tileWu));
+      const tx1 = Math.min(ox + FOW_TILES - 1, floorDiv(x1 + r, tileWu));
+      const tz0 = Math.max(oz, floorDiv(z0 - r, tileWu));
+      const tz1 = Math.min(oz + FOW_TILES - 1, floorDiv(z1 + r, tileWu));
+      for (let tz = tz0; tz <= tz1; tz++) {
+        const ccz = tz * tileWu + halfTile;
+        const dz = ccz < z0 ? z0 - ccz : ccz > z1 ? ccz - z1 : 0;
+        const row = (tz - oz) * FOW_TILES - ox;
+        for (let tx = tx0; tx <= tx1; tx++) {
+          const ccx = tx * tileWu + halfTile;
+          const dx = ccx < x0 ? x0 - ccx : ccx > x1 ? ccx - x1 : 0;
+          if (dx * dx + dz * dz <= r2) data[row + tx] = 255;
         }
       }
     }
@@ -815,7 +844,7 @@ export class WorldView {
     });
   }
 
-  /** Whether a point (metres) is explored by the local player (near the view; the debug show-all shows everything). */
+  /** Whether a point (metres) is explored by the players (near the view; the debug show-all shows everything). */
   exploredNow(x: number, z: number): boolean {
     if (this.showAll) return true;
     const a = this.fow.fowArea.value;
@@ -825,7 +854,7 @@ export class WorldView {
     return this.fowData[tz * FOW_TILES + tx]! >= 128;
   }
 
-  /** Whether a point (metres) is in sight of the local player's units now; everything is, with the debug show-all. */
+  /** Whether a point (metres) is in sight of the players' units or buildings now; everything is, with the debug show-all. */
   seenNow(x: number, z: number): boolean {
     if (this.showAll) return true;
     const a = this.fow.fowArea.value;
