@@ -163,7 +163,8 @@ export function orderUpgrade(state: SimState, player: number, units: readonly nu
     }
     pay(p.pool, t.plan.cost);
     inFront(state, i, { t: 'kitUp', line, to: t.to, ways: t.plan.ways, paid: 1, b: place.id });
-    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for a ${pieceName(h, line, t.to)}.`);
+    // Information, not an alert: a bubble only (Jade's play-test notes).
+    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for a ${pieceName(h, line, t.to)}.`, false, true);
     sent++;
   }
   if (sent === 0 && why) {
@@ -244,7 +245,7 @@ function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): v
   if (o.line === Line.Weapon) e.wTier[i] = o.to;
   else e.aTier[i] = o.to;
   applyKit(e, i, h.kind);
-  say(state, i, h.kind === 'worker' ? `New tools: ${pieceName(h, o.line, o.to)}.` : `Upgraded to ${pieceName(h, o.line, o.to)}.`);
+  say(state, i, h.kind === 'worker' ? `New tools: ${pieceName(h, o.line, o.to)}.` : `Upgraded to ${pieceName(h, o.line, o.to)}.`, false, true);
 }
 
 /** The text an upgrade would cost, for tooltips: the new kit's main cost. */

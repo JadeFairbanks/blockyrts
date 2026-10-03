@@ -27,6 +27,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'recipes', label: 'Recipes', blurb: 'What production buildings turn into what: inputs, outputs, time and where.' },
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving, cooking and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding.' },
+  { id: 'loot', label: 'Loot, hunting and gathering', blurb: 'What kills drop and who carries it: the loot bag, how near units pick loot up by themselves, how long it lies, when a find is remarked on; how far Hunt and Gather go from home (back by nightfall), what Gather fetches and how far into the unknown it looks, and fighters coming to a worker\'s help.' },
   { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
@@ -100,6 +101,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
   'units/field.ts': 'animals',
+  'units/loot.ts': 'loot',
+  'units/forage.ts': 'loot',
   'units/dig.ts': 'world',
   'state.ts': 'units',
   'economy/food.ts': 'food',
@@ -195,6 +198,10 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'units/kits.ts:WAND_KITS': 'wands',
   'units/kits.ts:ROBE_KITS': 'wands',
   'economy/food.ts:FACILITY_UPKEEP': 'food',
+  // Jade's play-test notes: the Hunt button's reach and trips home, and fighters guarding workers, go with loot and gathering.
+  'units/field.ts:HUNT_LEASH_WU': 'loot',
+  'units/field.ts:HUNT_HOME_PCT': 'loot',
+  'combat/fight.ts:GUARD_HELP_M': 'loot',
 };
 
 /** Arrays of named records: each record is an entry in the menu. The value says how to file it in a sub-menu. */
@@ -319,6 +326,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'CRIT:outerPm': 'Outer share of reach that crits', 'CRIT:bonusPct': 'Critical damage bonus', troopFood: 'Troop food', troopS: 'Troop training time',
   upgradeTimePm: 'Upgrade time (of the new piece\'s time to make)', upgradeRefundPm: 'Refund of the old piece on upgrade',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
+  // Gather (units/forage.ts).
+  'FORAGE_GOODS:base': 'Main base level needed', 'FORAGE_GOODS:forge': 'Forge level needed', 'FORAGE_GOODS:plenty': 'Wanted until the stock holds',
+  LOOT_BOSS_HP: 'Rare and powerful from this much health',
   // Plants' growth stages (world/props.ts).
   fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
   buildOver: 'Buildings can go over it', clearSteps: 'Time a builder takes to pull it up (0: trampled)',
@@ -343,6 +353,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
+  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
 };
 
@@ -370,6 +381,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   timeS: 'wholeSeconds', troopS: 'wholeSeconds', swingDs: 'deciseconds', attackDs: 'deciseconds',
   reachCm: 'metresCm', rangeM: 'metres', troopFood: 'nutrition', fromArmour: 'level',
   'WAND_KITS:mana': 'number', PROSPECT_TOOL_TIER: 'level',
+  'FORAGE_GOODS:base': 'level', 'FORAGE_GOODS:forge': 'level', 'FORAGE_GOODS:plenty': 'count', LOOT_BOSS_HP: 'health',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */

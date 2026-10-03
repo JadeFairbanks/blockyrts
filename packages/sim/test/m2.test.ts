@@ -7,6 +7,7 @@ import {
   ToolJob,
   Troop,
   atGoal,
+  basicMaterial,
   BuildingKind,
   buildingSpec,
   claimShapes,
@@ -24,6 +25,7 @@ import {
   hashState,
   isClaimed,
   isLit,
+  nodeResource,
   Mat,
   NIGHT_STEPS,
   outlyingLights,
@@ -199,18 +201,56 @@ describe('gathering', () => {
     expect(JSON.stringify(a)).not.toBe(JSON.stringify(b));
   });
 
-  it('goes idle with an alert when its trees run out and none are near', () => {
-    const s = createWorld(1, { peaceful: true });
-    const node = nearestNode(s, Res.SoftwoodLumber);
-    // Clear every other softwood tree within 20 m of it.
+  /** Clears every node of the given resources within r columns of a node (harvests them out). */
+  function clearAround(s: SimState, node: { cx: number; cz: number; index: number }, r: number, take: (res: number) => boolean): void {
     const view = s.world.prop(node.cx, node.cz, node.index, 0)!;
     const gx = node.cx * 64 + view.lx;
     const gz = node.cz * 64 + view.lz;
-    for (let k = 0; k < 50; k++) {
-      const other = findNode(s, 0, Res.SoftwoodLumber, gx, gz, 50, { cx: node.cx, cz: node.cz, i: node.index });
-      if (!other) break;
-      s.world.harvest(other.cx, other.cz, other.i, 1000, 0);
+    for (let cz = (gz - r) >> 6; cz <= (gz + r) >> 6; cz++) {
+      for (let cx = (gx - r) >> 6; cx <= (gx + r) >> 6; cx++) {
+        for (const p of s.world.props(cx, cz, s.step)) {
+          if (cx === node.cx && cz === node.cz && p.index === node.index) continue;
+          if (!take(nodeResource(p.kind))) continue;
+          if (Math.max(Math.abs(cx * 64 + p.lx - gx), Math.abs(cz * 64 + p.lz - gz)) > r) continue;
+          for (let k = 0; k < 20 && s.world.prop(cx, cz, p.index, s.step); k++) s.world.harvest(cx, cz, p.index, 1000, s.step);
+        }
+      }
     }
+  }
+
+  it('when its trees run out and none are near, says so and gathers another material the camp needs', () => {
+    const s = createWorld(1, { peaceful: true });
+    const node = nearestNode(s, Res.SoftwoodLumber);
+    clearAround(s, node, 50, (res) => res === Res.SoftwoodLumber);
+    run(s, 1, [{ kind: 'gather', player: 0, units: [1], ...node }]);
+    let line = '';
+    runUntil(
+      s,
+      () => {
+        for (const ev of s.events) {
+          if (ev.kind === 'speech' && ev.speaker === s.entities.id[0] && ev.text.startsWith('No more softwood here')) {
+            line = ev.text;
+            // Only a bubble: the line tells what it does, it is not an alert.
+            expect(ev.quiet).toBe(true);
+          }
+        }
+        expect(s.events.some((ev) => ev.kind === 'idle')).toBe(false);
+        return line !== '';
+      },
+      14000,
+    );
+    const o = s.entities.queue[0]![0]!;
+    expect(o.t).toBe('gather');
+    if (o.t !== 'gather') return;
+    const p = s.world.prop(o.cx, o.cz, o.i, s.step)!;
+    expect(nodeResource(p.kind)).not.toBe(Res.SoftwoodLumber);
+    expect(line).toMatch(/^No more softwood here\. (I'll gather \w[\w ]* instead\.|We're (out of|low on) [\w ]+, so I'll gather that\.)$|^No more softwood here, and we're/);
+  });
+
+  it('goes idle with an alert when its trees run out and nothing the camp gathers is near', () => {
+    const s = createWorld(1, { peaceful: true });
+    const node = nearestNode(s, Res.SoftwoodLumber);
+    clearAround(s, node, 120, (res) => res >= 0 && basicMaterial(res));
     run(s, 1, [{ kind: 'gather', player: 0, units: [1], ...node }]);
     let idle = false;
     runUntil(

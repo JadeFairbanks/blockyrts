@@ -11,6 +11,7 @@ import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
 import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealVision, UnitKind, visionSources, type SimState } from './state.ts';
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
+import { updateLoot } from './units/loot.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
 import { forgetSideSight, onUnitHurt } from './combat/fight.ts';
@@ -169,6 +170,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   refillMages(state);
   updateFood(state);
   settleDeaths(state);
+  updateLoot(state);
   updateBuildings(state);
   updateMines(state);
   updateLights(state);
