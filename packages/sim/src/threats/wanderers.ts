@@ -85,14 +85,17 @@ export const WILD_LEASH_M = 30;
 export const WILD_PROVOKED_STEPS = 5 * SEC;
 /** Its group's monsters within this many metres join its fight. */
 export const WILD_ASSIST_M = 10;
-/** Idle, it strolls to a spot within this many metres of its own every 4 to 12 s, so a unit standing still in the wild is found too. */
+/** Idle, it strolls on to a spot up to this many metres off (at least a third of it) every 4 to 12 s, mostly ahead, so it drifts through the wild and a unit standing still there is found too. */
 export const WILD_ROAM_M = 20;
+/** How far a stroll may turn from where it faces, degrees either way. */
+export const WILD_TURN_DEG = 90;
 export const WILD_REST_MIN_STEPS = 4 * SEC;
 export const WILD_REST_MAX_STEPS = 12 * SEC;
 /** An idle wanderer looks round for prey every this many steps (each on its own beat). */
 export const WILD_LOOK_STEPS = 4;
 
 const PATCH_WU = WILD_PATCH_M * M;
+const WILD_TURN_STEPS = floorDiv(WILD_TURN_DEG * 65536, 360);
 const FOG_TILE_WU = FOG_TILE_COLUMNS * WU_PER_COLUMN;
 const NAV_TILE_WU = TILE_COLUMNS * WU_PER_COLUMN;
 /** A tag mixed into the patches' hashes so they draw on nothing else's numbers. */
@@ -232,7 +235,13 @@ function fight(state: SimState, i: number, spec: MobSpec, t: number): void {
   engageUnit(state, i, spec, t);
 }
 
-/** Strolls round its spot: a new point every few seconds, only one it can run to straight; back home first if it chased far. */
+/**
+ * Strolls through the wild: every few seconds a new spot up to 20 m on,
+ * mostly ahead (within 90 degrees of where it faces), taken only if it is
+ * wild and it can run there straight; the spot becomes its home, so it
+ * drifts slowly through the wild and finds a unit standing still there
+ * too. Where the wild ends it turns round. After a chase it goes back home.
+ */
 function roam(state: SimState, i: number, spec: MobSpec): void {
   const e = state.entities;
   const hx = e.homeX[i]!;
@@ -245,12 +254,22 @@ function roam(state: SimState, i: number, spec: MobSpec): void {
   } else if (state.step >= e.wanderAt[i]!) {
     const h = hash32(state.seed, SALT, e.id[i]!, state.step);
     const r = WILD_ROAM_M * M;
-    const x = hx + ((h & 0xffff) % (2 * r + 1)) - r;
-    const z = hz + (hash32(h, 1) % (2 * r + 1)) - r;
-    e.wanderAt[i] = state.step + WILD_REST_MIN_STEPS + (hash32(h, 2) % (WILD_REST_MAX_STEPS - WILD_REST_MIN_STEPS + 1));
-    const ok = flies(spec) || clearRun(state, mobMover(spec), e.x[i]!, e.y[i]!, e.z[i]!, x, z);
-    e.targetX[i] = ok ? x : e.x[i]!;
-    e.targetZ[i] = ok ? z : e.z[i]!;
+    const turn = (h & 0xffff) % (2 * WILD_TURN_STEPS + 1) - WILD_TURN_STEPS;
+    const [fx, fz] = forward((e.heading[i]! + turn) & 0xffff);
+    const d = floorDiv(r, 3) + (hash32(h, 1) % (r - floorDiv(r, 3) + 1));
+    const x = e.x[i]! + floorDiv(fx * d, 65536);
+    const z = e.z[i]! + floorDiv(fz * d, 65536);
+    if (wildSpot(state, wildsNow(state), x, z) && (flies(spec) || clearRun(state, mobMover(spec), e.x[i]!, e.y[i]!, e.z[i]!, x, z))) {
+      e.homeX[i] = x;
+      e.homeZ[i] = z;
+      e.targetX[i] = x;
+      e.targetZ[i] = z;
+      e.wanderAt[i] = state.step + WILD_REST_MIN_STEPS + (hash32(h, 2) % (WILD_REST_MAX_STEPS - WILD_REST_MIN_STEPS + 1));
+    } else {
+      // The wild ends that way (or a cliff is in the way): it turns round and tries again in a second.
+      e.heading[i] = (e.heading[i]! + 0x8000) & 0xffff;
+      e.wanderAt[i] = state.step + SEC;
+    }
   }
   if (walkMob(state, i, spec, e.targetX[i]!, e.targetZ[i]!)) {
     e.targetX[i] = e.x[i]!;
@@ -347,6 +366,16 @@ function wilds(state: SimState): Wilds {
   }
   for (const v of state.threats.villages) sites.push([v.x, v.z]);
   return { claims, lights, sites };
+}
+
+/** The wild for this step, worked out once and shared by every wanderer that strolls in it (a cache: the same state on the same step gives the same answer). */
+const wildsCache = new WeakMap<SimState, { step: number; w: Wilds }>();
+function wildsNow(state: SimState): Wilds {
+  const c = wildsCache.get(state);
+  if (c && c.step === state.step) return c.w;
+  const w = wilds(state);
+  wildsCache.set(state, { step: state.step, w });
+  return w;
 }
 
 function grow(box: [number, number, number, number], x0: number, z0: number, x1: number, z1: number): void {
@@ -476,13 +505,24 @@ export function updateWild(state: SimState): void {
   fill(state, spots, groups, c.cycle);
 }
 
-/** Empties patches no one has come near, whose monsters are all there and untouched: they slip away unseen and come back when someone does. */
+/**
+ * Empties patches no one has come near: a patch's monsters slip away unseen
+ * when none of them is within 100 m of a waker (judged by the patches they
+ * stand in now, for they drift) and all of them are there and untouched;
+ * the patch fills again when someone comes back. An empty patch is judged
+ * afresh then too.
+ */
 function emptyQuiet(state: SimState, spots: ReadonlyArray<readonly [number, number]>, groups: Map<number, number[]>): void {
   const near = patchesNear(spots, WILD_SLEEP_M * M);
+  const e = state.entities;
   const keep: WildPatch[] = [];
   for (const p of state.threats.wild) {
     const members = p.group ? (groups.get(p.group) ?? []) : [];
-    if (near.has(patchKey(p.px, p.pz)) || members.length !== p.size || !members.every((i) => untouched(state, i))) {
+    const awake =
+      p.size === 0
+        ? near.has(patchKey(p.px, p.pz))
+        : members.length !== p.size || members.some((i) => !untouched(state, i) || near.has(patchKey(floorDiv(e.x[i]!, PATCH_WU), floorDiv(e.z[i]!, PATCH_WU))));
+    if (awake) {
       keep.push(p);
       continue;
     }
@@ -501,7 +541,7 @@ function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, 
   let live = 0;
   for (const list of groups.values()) live += list.length;
   const cap = WILD_CAP_PER_PLAYER * Math.max(1, state.players.filter((p) => !p.out).length);
-  const w = wilds(state);
+  const w = wildsNow(state);
   const step = floorDiv(PATCH_WU, WILD_SAMPLES);
   for (const [, [px, pz]] of todo) {
     if (live >= cap) return;
@@ -538,19 +578,31 @@ function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, 
       const ox = floorDiv(fx * r, 65536);
       const oz = floorDiv(fz * r, 65536);
       const ok = state.nav.standable(floorDiv(x + ox, WU_PER_COLUMN), floorDiv(z + oz, WU_PER_COLUMN), WALKER);
-      const i = addMob(state, mob, foe, ok ? x + ox : x, ok ? z + oz : z, night);
-      const e = state.entities;
-      e.role[i] = Role.Wild;
-      e.group[i] = group;
-      e.homeX[i] = x;
-      e.homeZ[i] = z;
-      e.targetX[i] = e.x[i]!;
-      e.targetZ[i] = e.z[i]!;
-      e.wanderAt[i] = state.step + 1 + (hash32(state.seed, SALT, group, k) % WILD_REST_MAX_STEPS);
+      const i = addWanderer(state, mob, ok ? x + ox : x, ok ? z + oz : z, night, group, foe);
+      state.entities.homeX[i] = x;
+      state.entities.homeZ[i] = z;
     }
     t.wild.push({ px, pz, group, size: n });
     live += n;
   }
+}
+
+/**
+ * Sets down one wandering monster at a spot (its home), out of a group (0
+ * for none), running from a player's town at dawn (the nearest when not
+ * given). Its first stroll starts within 12 s.
+ */
+export function addWanderer(state: SimState, mob: number, x: number, z: number, night: number, group = 0, foe = nearestTown(state, x, z)): number {
+  const i = addMob(state, mob, foe, x, z, night);
+  const e = state.entities;
+  e.role[i] = Role.Wild;
+  e.group[i] = group;
+  e.homeX[i] = x;
+  e.homeZ[i] = z;
+  e.targetX[i] = x;
+  e.targetZ[i] = z;
+  e.wanderAt[i] = state.step + 1 + (hash32(state.seed, SALT, e.id[i]!) % WILD_REST_MAX_STEPS);
+  return i;
 }
 
 /** The player whose town is nearest a point (whom a wanderer runs from at dawn), else the first still in the game. */

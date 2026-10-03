@@ -67,7 +67,7 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
   writeRecords(w, t.wild, WILD_FIELDS);
 }
 
-function readThreats(r: ByteReader): ThreatState {
+function readThreats(r: ByteReader, version: number): ThreatState {
   const ruins = readRecordList<Ruin>(r, RUIN_FIELDS);
   const villages = readRecordList<Village>(r, VILLAGE_FIELDS);
   for (const v of villages) {
@@ -89,7 +89,8 @@ function readThreats(r: ByteReader): ThreatState {
   const bossNext = r.i32();
   const bossHp = r.i32();
   const bossId = r.i32();
-  const wild = readRecordList<WildPatch>(r, WILD_FIELDS);
+  // Version 13 (before the wandering night monsters) has no wild: its patches fill afresh.
+  const wild = version >= 14 ? readRecordList<WildPatch>(r, WILD_FIELDS) : [];
   return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
 }
 
@@ -163,6 +164,8 @@ function peoplesJson(ps: PeoplesState): string {
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
 export const SNAPSHOT_VERSION = 14;
+/** The oldest snapshot still read: 13 (milestone 11's troop rework) reads with no wandering monsters' patches. */
+export const OLDEST_SNAPSHOT_VERSION = 13;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -252,7 +255,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const r = new ByteReader(bytes);
   if (r.u32() !== MAGIC) throw new Error('not a simulation snapshot');
   const version = r.u16();
-  if (version !== SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version ${version}`);
+  if (version < OLDEST_SNAPSHOT_VERSION || version > SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version ${version}`);
   const seed = r.u32();
   const step = r.u32();
   const nextEntityId = r.u32();
@@ -335,7 +338,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const blood: number[] = [];
   const nb = r.u16();
   for (let k = 0; k < nb; k++) blood.push(r.u32());
-  const threats = readThreats(r);
+  const threats = readThreats(r, version);
   const peoples = readPeoples(r);
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');

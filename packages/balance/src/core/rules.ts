@@ -136,6 +136,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'siege/engines.ts': 'siege',
   'threats/late-mobs.ts': 'mobs',
   'threats/boss.ts': 'mobs',
+  'threats/wanderers.ts': 'mobs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
@@ -317,6 +318,12 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'CRIT:outerPm': 'Outer share of reach that crits', 'CRIT:bonusPct': 'Critical damage bonus', troopFood: 'Troop food', troopS: 'Troop training time',
   upgradeTimePm: 'Upgrade time (of the new piece\'s time to make)', upgradeRefundPm: 'Refund of the old piece on upgrade',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
+  'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
+  'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',
+  'SWOOP:closePct': 'Comes in to (of its striking distance)', WILD_PATCH_M: 'Wild patch size', WILD_SAMPLES: 'Spots tested per side of a patch',
+  WILD_PAIR_PCT: 'Chance of a pair', WILD_RARITY_POWER: 'Rarity power (weight 1 / threat to this)', WILD_HORDE_GROW_NIGHTS: 'Group grows by one every (nights)',
+  WILD_WEAK_THREAT_TENTHS: 'Weak enough to come as a group (threat at most)', WILD_LIGHT_TIMES: 'Keeps outside this many light radii',
+  WILD_TURN_DEG: 'Stroll turns at most (degrees)', WILD_LOOK_STEPS: 'Looks round for prey every',
 };
 
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */
@@ -339,6 +346,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
+  'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
 };
 
 /** Keys shown first in a record, in this order; the rest follow in source order. */
@@ -365,6 +373,10 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   timeS: 'wholeSeconds', troopS: 'wholeSeconds', swingDs: 'deciseconds', attackDs: 'deciseconds',
   reachCm: 'metresCm', rangeM: 'metres', troopFood: 'nutrition', fromArmour: 'level',
   'WAND_KITS:mana': 'number', PROSPECT_TOOL_TIER: 'level',
+  // The swoop (Jade's patch notes 1) and the wandering night monsters.
+  'SWOOP:diveSpeed': 'speed', 'SWOOP:climbSpeed': 'speed', 'SWOOP:pullLowCm': 'metresCm', 'SWOOP:pullHighCm': 'metresCm',
+  WILD_FROM_NIGHT: 'night', WILD_HORDE_FROM_NIGHT: 'night', WILD_HORDE_PCT_PER_NIGHT: 'percent', WILD_HORDE_MIN: 'count', WILD_HORDE_MAX: 'count',
+  WILD_CAP_PER_PLAYER: 'count',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */
