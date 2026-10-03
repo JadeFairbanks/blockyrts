@@ -210,7 +210,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 902e3c72`: workers chop and quarry, the Big
+   prints `final step 10000 hash 37400eb7`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
