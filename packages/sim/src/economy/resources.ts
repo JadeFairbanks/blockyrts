@@ -62,12 +62,15 @@ export const Res = {
   Bricks: 51,
   Glass: 52,
   Rope: 53,
-  BloomIron: 54,
+  /** Leather hardened at the Tannery (Troops and gear); id 54 was bloom iron, which went with the rework. */
+  HardenedLeather: 54,
   WroughtIron: 55,
-  RefinedIron: 56,
-  HighQualitySteel: 57,
+  /** Carts made at a workshop (Table 2f), taken by workers with X; ids 56 and 59 were refined iron and lead shot. */
+  HandCart: 56,
+  /** Carbon steel, which replaced high-quality steel (Troops and gear). */
+  CarbonSteel: 57,
   Gunpowder: 58,
-  LeadShot: 59,
+  OxCart: 59,
   // Cooked foods (Table 6, Cooking) and medicine (Food and medicine).
   RoastMeat: 60,
   RoastFish: 61,
@@ -162,12 +165,12 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.BronzeIngot, 'Bronze ingot', 'Bronze', M, 50, 'Copper and tin at a forge.', 0, false),
   r(Res.BogIron, 'Bog iron', 'Bog iron', M, 50, 'Bog iron patches (bronze tools).'),
   r(Res.IronRock, 'Iron rock', 'Iron rock', M, 50, 'Iron rock (bronze tools).'),
-  r(Res.VeinIron, 'Vein iron ore', 'Vein iron', M, 50, 'Seams inside ridges (bloom iron tools) and mineshafts.'),
+  r(Res.VeinIron, 'Vein iron ore', 'Vein iron', M, 50, 'Seams inside ridges (wrought iron tools) and mineshafts.'),
   r(Res.PigIron, 'Pig iron ingot', 'Pig iron', M, 50, 'Vein iron at an Ironworks.', 0, false),
-  r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Iron ore at a forge.', 0, false),
-  r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Refined iron at a Steelworks.', 0, false),
+  r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Pig iron at an Ironworks (forge level 3).', 0, false),
+  r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at a Steelworks (forge level 4), after Steel.', 0, false),
   r(Res.Eggs, 'Eggs', 'Eggs', A, 5, 'Chickens.', 1),
-  r(Res.Feathers, 'Feathers', 'Feathers', A, 1, 'Chickens.'),
+  r(Res.Feathers, 'Feathers', 'Feathers', A, 1, 'Chickens, hunted wild geese and pheasants, and Runkin traders. Bow and crossbow rangers need them.'),
   r(Res.Gold, 'Gold', 'Gold', A, 10, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Emeralds, 'Emeralds', 'Emeralds', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Rubies, 'Rubies', 'Rubies', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
@@ -200,12 +203,12 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at a kiln.', 0, false),
   r(Res.Glass, 'Glass', 'Glass', G, 25, 'Sand at a kiln.', 0, false),
   r(Res.Rope, 'Rope', 'Rope', G, 10, 'Leather or flax at a tannery or the Big House.', 0, false),
-  r(Res.BloomIron, 'Bloom iron', 'Bloom iron', G, 50, 'Any iron ore at a Bloomery.', 0, false),
-  r(Res.WroughtIron, 'Wrought iron', 'Wrought iron', G, 50, 'Any iron ore at an Ironworks.', 0, false),
-  r(Res.RefinedIron, 'Refined iron', 'Refined iron', G, 50, 'Pig iron at a Steelworks.', 0, false),
-  r(Res.HighQualitySteel, 'High-quality steel', 'HQ steel', G, 50, 'Refined iron and charcoal at a Steelworks, slowly.', 0, false),
-  r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at a powder mill.', 0, false),
-  r(Res.LeadShot, 'Lead shot', 'Shot', G, 10, 'Lead ore at a forge.', 0, false),
+  r(Res.HardenedLeather, 'Hardened leather', 'Hard leather', G, 25, 'Leather hardened at a tannery.', 0, false),
+  r(Res.WroughtIron, 'Wrought iron', 'Wrought iron', G, 50, 'Any iron ore at a Bloomery (forge level 2).', 0, false),
+  r(Res.HandCart, 'Hand cart', 'Hand carts', G, 500, 'Planks and hardwood at a Workshop (tier 2). A worker takes one with X.', 0, false),
+  r(Res.CarbonSteel, 'Carbon steel ingot', 'Carbon steel', G, 50, 'Iron and plenty of charcoal at a Steelworks, slowly, after Carbon steel.', 0, false),
+  r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at a powder mill. Musket rangers and brawlers need it.', 0, false),
+  r(Res.OxCart, 'Ox or horse cart', 'Ox carts', G, 500, 'Planks, hardwood, leather and wrought iron at a Great Workshop. A worker takes one with X.', 0, false),
   r(Res.RoastMeat, 'Roast meat', 'Roast meat', F, 25, 'Meat roasted at a campfire or better.', 6, false),
   r(Res.RoastFish, 'Roast fish', 'Roast fish', F, 25, 'Fish roasted at a campfire or better.', 5, false),
   r(Res.SmokedMeat, 'Smoked meat', 'Smoked meat', F, 25, 'Meat smoked at a Cook Hut or better.', 7, false),
@@ -299,9 +302,14 @@ export function resourceByName(name: string): number {
 /** A list of (resource, amount) pairs: costs, refunds, stock. */
 export type Cost = ReadonlyArray<readonly [Res, number]>;
 
-/** Starting stock (Table 6 note and Table 9): 15 meat, 10 fish, 10 eggs, 40 softwood lumber, 20 stone, 10 flint, 20 sticks. */
+/**
+ * Starting stock (Table 6 note and Table 9): food for the four workers and
+ * three warriors for 10 days, 140 nutrition (Troops and gear: starting units
+ * (s)): 25 meat, 10 fish, 10 eggs; and 40 softwood lumber, 20 stone, 10 flint,
+ * 20 sticks.
+ */
 export const STARTING_STOCK: Cost = [
-  [Res.Meat, 15],
+  [Res.Meat, 25],
   [Res.Fish, 10],
   [Res.Eggs, 10],
   [Res.SoftwoodLumber, 40],

@@ -1,31 +1,52 @@
-// What buildings do each step: production queues (training workers and
-// warriors, planks at the lumber mill, research at a Scholar's Lodge,
-// smelting, crafting and cooking: Table 2a, 2b, 6), farm yields (Table 6)
-// and supply (Table 4). Production costs are taken when an item is queued and
-// refunded in full if it is cancelled (Controls: Production queues).
+// What buildings do each step: production queues (training workers,
+// troops and mages: Table 7; planks at the lumber mill, research at a
+// Scholar's Lodge, smelting and cooking: Table 2a, 2b, 6), farm yields
+// (Table 6) and supply (Table 4). Production costs are taken when an item is
+// queued and refunded in full if it is cancelled (Controls: Production
+// queues). A new unit pays its food and its kit (Troops and gear).
 
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { costText, foodInPool, payNutrition, Res, type Cost } from '../economy/resources.ts';
-import { UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
+import { addWarrior, UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
 import { Band } from '../world/layout.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
 import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../units/behaviour.ts';
 import { BuildingKind, buildingName, buildingSpec, FARM_FALLOW_STEPS, FARM_TIER_PER_MILLE, levelSpec, PLANK_STEPS, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre } from './lights.ts';
 import { bandAt } from './placement.ts';
-import { CRAFT_PRODUCT, ENGINE_PRODUCT, Product, RECIPE_PRODUCT, REFURBISH_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, type Building, type RallyPoint } from './store.ts';
+import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type RallyPoint } from './store.ts';
 import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
-import { animalsAt } from '../animals/animals.ts';
+import { addAnimal, animalsAt } from '../animals/animals.ts';
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
-import { affordableRecipe, hasResearch, Item, ITEMS, itemSpec, Made, missingResearch, RESEARCH, Research, type ItemSpec, type ResearchSpec } from '../combat/items.ts';
+import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../combat/items.ts';
 import { cookSteps, payableInputs, RECIPES, recipeLevelAt, recipeSpec } from './recipes.ts';
-import { addWarrior } from '../state.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
+import {
+  kitName,
+  mainCost,
+  pieceProblem,
+  piecesTime,
+  planPieces,
+  ROBE_KITS,
+  TOOL_KITS,
+  TOP_TIER,
+  TRAINING,
+  Troop,
+  TROOP_KEYS,
+  TROOP_NAMES,
+  troopPieces,
+  WAND_KITS,
+  weaponPiece,
+  weaponTiers,
+  type Piece,
+} from '../units/kits.ts';
+import { Mount } from '../mounts/data.ts';
+import { seatOnHorse } from '../mounts/riding.ts';
 
 export interface ProductSpec {
   product: Product;
@@ -34,65 +55,66 @@ export interface ProductSpec {
   key: string;
   /** Time with one worker, or with the building alone where no hands are needed; cooking and research vary by building (productSteps). */
   steps: number;
-  /** A fixed cost; workers cost nutrition instead, drawn from every food in turn. */
+  /** A fixed cost; for a new unit, the main way of paying its kit (the kit's pieces may be paid other ways: pieces). */
   cost: Cost;
+  /** Food, as nutrition drawn from every food in turn: new units. */
   food: number;
   tooltip: string;
-  /** Crafting and refurbishing: the item; research: the step; processing and cooking: the recipe. */
-  item?: number;
+  /** Research: the step; processing and cooking: the recipe. */
   research?: number;
   recipe?: number;
   /** Slaughter: the species. */
   slaughter?: number;
   /** A siege engine or cannon (siege/data.ts Engine). */
   engine?: number;
-  /** Equipment from the stock it takes (a new warrior's club; fire arrows' arrows; a refurbished item). */
-  items?: ReadonlyArray<readonly [number, number]>;
+  /** A new troop: its type and tiers. */
+  troop?: { troop: number; w: number; a: number };
+  /** A new unit's kit (units/kits.ts), paid when queued, whichever way the stock allows. */
+  pieces?: readonly Piece[];
 }
 
-/** Table 7: a new warrior costs 30 food and a hardwood club from the stock, and takes 45 s. */
-export const WARRIOR_FOOD = 30;
-export const WARRIOR_TRAIN_STEPS = 45 * STEPS_PER_SECOND;
 /** Slaughter takes 10 s at the farm (Table 6). */
 export const SLAUGHTER_STEPS = 10 * STEPS_PER_SECOND;
 /** Animals a livestock farm slaughters (Table 6): cattle, chickens and oxen. */
 export const SLAUGHTERED: readonly number[] = [Species.Cattle, Species.Chicken, Species.Ox];
-/** Refurbishing is 10 times faster than making the item (Refurbishing). */
-export const REFURBISH_SPEEDUP = 10;
 /** Research speed by the facility's level, in quarters: Lodge 1, Scriptorium 1.25, Grand Academy 1.5 (Table 4). */
 const RESEARCH_QUARTERS: readonly number[] = [4, 5, 6];
 
+/** A new worker's kit (Table 7): a tier 1 tool kit. */
+const WORKER_KIT: readonly Piece[] = [TOOL_KITS[1]!];
+/** A new mage's kit (Table 7): a hazel wand and a homespun robe. */
+const MAGE_KIT: readonly Piece[] = [WAND_KITS[1]!, ROBE_KITS[1]!];
+const kitSteps = (pieces: readonly Piece[]): number => piecesTime(pieces) * STEPS_PER_SECOND;
+
 export const PRODUCTS: readonly ProductSpec[] = [
-  { product: Product.Worker, name: 'Worker', key: 'W', steps: WORKER_TRAIN_STEPS, cost: [], food: WORKER_FOOD, tooltip: 'A new worker with hardwood tools (Table 7). Needs free supply.' },
+  { product: Product.Worker, name: 'Worker', key: 'W', steps: WORKER_TRAIN_STEPS + kitSteps(WORKER_KIT), cost: mainCost(WORKER_KIT), pieces: WORKER_KIT, food: WORKER_FOOD, tooltip: 'A new worker with a hardwood tool kit (Table 7). Needs free supply.' },
   { product: Product.PlanksSoftwood, name: 'Planks from softwood', key: 'P', steps: PLANK_STEPS, cost: [[Res.SoftwoodLumber, 1]], food: 0, tooltip: '1 softwood lumber makes 1 plank (2 with the waterwheel). Needs workers in the mill.' },
   { product: Product.PlanksHardwood, name: 'Planks from hardwood', key: 'H', steps: PLANK_STEPS, cost: [[Res.HardwoodLumber, 1]], food: 0, tooltip: '1 hardwood lumber makes 1 plank (2 with the waterwheel). Needs workers in the mill.' },
 ];
 
-/** Every product's description: training, planks, research, crafting, refurbishing and recipes. */
+/** Every product's description: training, planks, research, recipes, slaughter and engines. */
 export function productSpec(product: Product): ProductSpec {
   const fixed = PRODUCTS[product];
   if (fixed) return fixed;
-  if (product === Product.Warrior) {
-    return { product, name: 'Warrior', key: 'A', steps: WARRIOR_TRAIN_STEPS, cost: [], food: WARRIOR_FOOD, items: [[Item.Club, 1]], tooltip: 'A new warrior (Table 7): 30 food and a hardwood club from the equipment stock. Needs free supply.' };
+  if (product === Product.SupportMage || product === Product.BattleMage) {
+    const support = product === Product.SupportMage;
+    return {
+      product, name: support ? 'Support mage' : 'Battle mage', key: support ? 'S' : 'M', steps: MAGE_TRAIN_STEPS + kitSteps(MAGE_KIT), cost: mainCost(MAGE_KIT), pieces: MAGE_KIT, food: MAGE_FOOD,
+      tooltip: `A new Novice Acolyte who ${support ? 'heals and strengthens your units' : 'attacks with spells'}, with a hazel wand and a homespun robe (Table 7). Needs free supply.`,
+    };
   }
-  if (product === Product.SupportMage) {
-    return { product, name: 'Support mage', key: 'S', steps: MAGE_TRAIN_STEPS, cost: [], food: MAGE_FOOD, items: [[Item.Wand, 1]], tooltip: 'A new Novice Acolyte who heals and strengthens your units (Table 7): 50 food and a wand from the equipment stock. Needs free supply.' };
+  const t = troopOf(product);
+  if (t) {
+    const pieces = troopPieces(t.troop, t.w, t.a);
+    const horse = t.troop === Troop.Cavalry ? ' and a tamed horse from the stalls' : '';
+    return {
+      product, name: TROOP_NAMES[t.troop] ?? 'Troop', key: TROOP_KEYS[t.troop] ?? '', steps: (TRAINING.troopS + piecesTime(pieces)) * STEPS_PER_SECOND, cost: mainCost(pieces), pieces, food: TRAINING.troopFood, troop: t,
+      tooltip: `A new ${(TROOP_NAMES[t.troop] ?? 'troop').toLowerCase()} troop: ${kitName(t.troop, t.w, t.a).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply.`,
+    };
   }
-  if (product === Product.BattleMage) {
-    return { product, name: 'Battle mage', key: 'M', steps: MAGE_TRAIN_STEPS, cost: [], food: MAGE_FOOD, items: [[Item.Wand, 1]], tooltip: 'A new Novice Acolyte who attacks with spells (Table 7): 50 food and a wand from the equipment stock. Needs free supply.' };
-  }
-  if (product >= RESEARCH_PRODUCT && product < CRAFT_PRODUCT) {
+  if (product >= RESEARCH_PRODUCT && product < RECIPE_PRODUCT) {
     const r = RESEARCH[product - RESEARCH_PRODUCT]!;
     return { product, name: r.name, key: r.key, steps: r.steps, cost: r.cost, food: 0, research: r.id, tooltip: `Research. Opens ${r.opens}` };
-  }
-  if (product >= CRAFT_PRODUCT && product < REFURBISH_PRODUCT) {
-    const it = itemSpec(product - CRAFT_PRODUCT);
-    const made = it.makes > 1 ? ` (${it.makes})` : '';
-    return { product, name: `${it.name}${made}`, key: '', steps: it.steps, cost: it.recipes[0] ?? [], food: 0, item: it.id, items: it.itemInputs ?? [], tooltip: `Made into the equipment stock.` };
-  }
-  if (product >= REFURBISH_PRODUCT && product < RECIPE_PRODUCT) {
-    const it = itemSpec(product - REFURBISH_PRODUCT);
-    return { product, name: `Refurbish ${it.name.toLowerCase()}`, key: '', steps: Math.max(1, floorDiv(it.steps, REFURBISH_SPEEDUP)), cost: [], food: 0, item: it.id, items: [[it.id, it.makes > 1 ? it.makes : 1]], tooltip: 'Takes one from the stock and gives back all the resources it was made from.' };
   }
   if (product >= ENGINE_PRODUCT) {
     const s = engineSpec(product - ENGINE_PRODUCT);
@@ -107,15 +129,87 @@ export function productSpec(product: Product): ProductSpec {
   return { product, name: r.name, key: '', steps: r.steps, cost: r.inputs[0] ?? [], food: 0, recipe: r.id, tooltip: `Makes ${costText(r.outputs)}.` };
 }
 
-/** Whether a building kind makes an item. */
-function madeAtKind(it: ItemSpec, kind: number): number {
-  for (const [k, l] of it.madeAt) if (k === kind) return l;
-  return 0;
+// ----- troops (Troops and gear: Barracks and Stables panel) -----
+
+/** Troop types a building trains: the Barracks close melee, long melee, rangers and brawlers; the Stables cavalry; a main base tier 1 close melee, long melee and rangers. */
+export function troopTypesAt(b: Building): Troop[] {
+  if (!b.complete) return [];
+  if (b.kind === BuildingKind.Barracks) return [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler];
+  if (b.kind === BuildingKind.Stables) return [Troop.Cavalry];
+  if (b.kind === BuildingKind.MainBase) return [Troop.Close, Troop.Long, Troop.Ranger];
+  return [];
 }
 
-/** Items a building kind crafts (K), in craft-menu order. */
-export function craftable(kind: number = BuildingKind.MainBase): number[] {
-  return ITEMS.filter((it) => it.craftSlot >= 0 && madeAtKind(it, kind) > 0).sort((a, b) => a.craftSlot - b.craftSlot).map((it) => it.id);
+/** The tiers a building offers a troop type: a main base tier 1 at most (Jade), the rest the whole ladder. */
+export function troopTiersAt(b: Building, troop: number): { w: readonly [number, number]; a: readonly [number, number] } {
+  const [lo, hi] = weaponTiers(troop);
+  if (b.kind === BuildingKind.MainBase) return { w: [lo, Math.min(hi, 1)], a: [0, 1] };
+  return { w: [lo, hi], a: [0, TOP_TIER] };
+}
+
+/** Whether a building trains a troop of a type and tiers at all. */
+export function troopOffered(b: Building, troop: number, w: number, a: number): boolean {
+  if (!troopTypesAt(b).includes(troop as Troop)) return false;
+  const t = troopTiersAt(b, troop);
+  return w >= t.w[0] && w <= t.w[1] && a >= t.a[0] && a <= t.a[1] && weaponPiece(troop, w) !== undefined;
+}
+
+/** A Stables' tamed, grown horses that are not out working: the first is the next cavalry's. */
+export function stalledHorses(state: SimState, b: Building): number[] {
+  const e = state.entities;
+  return animalsAt(state, b.id).filter((j) => e.mob[j] === Species.Horse && e.born[j]! <= state.step && !e.partner[j]);
+}
+
+/** Why a troop's kit cannot be had (research and forge), or ''. */
+function kitProblem(state: SimState, user: number, research: number, pieces: readonly Piece[]): string {
+  const forge = bestLevel(state, user, BuildingKind.Forge);
+  for (const p of pieces) {
+    const why = pieceProblem(p, research, forge, (r) => RESEARCH[r]?.name ?? 'research');
+    if (why) return why;
+  }
+  return '';
+}
+
+/**
+ * The panel's default for a troop type at a building (Barracks and Stables
+ * panel): its Lock if ticked; else the highest weapon tier the player can
+ * make and afford, then the highest armour tier the rest of the stock
+ * pays for, so a short metal goes to the weapon first. With nothing
+ * affordable, the lowest tiers.
+ */
+export function troopDefault(state: SimState, b: Building, troop: number, user = b.owner): { w: number; a: number } {
+  const lock = b.locks[troop] ?? 0;
+  if (lock > 0) return { w: floorDiv(lock - 1, 10), a: (lock - 1) % 10 };
+  const t = troopTiersAt(b, troop);
+  const p = state.players[user]!;
+  const research = p.research | b.tech;
+  let w = t.w[0];
+  for (let k = t.w[1]; k >= t.w[0]; k--) {
+    const pieces = troopPieces(troop, k, 0);
+    if (!weaponPiece(troop, k) || kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    w = k;
+    break;
+  }
+  let a = 0;
+  for (let k = t.a[1]; k > t.a[0]; k--) {
+    const pieces = troopPieces(troop, w, k);
+    if (kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    a = k;
+    break;
+  }
+  return { w, a };
+}
+
+/** The product a troop button queues now: the building's default for the type. */
+export function defaultTroopProduct(state: SimState, b: Building, troop: number, user = b.owner): Product {
+  const d = troopDefault(state, b, troop, user);
+  return troopProduct(troop, d.w, d.a);
+}
+
+/** Whether a building offers a product at all (troops by type and tiers, the rest by productsOf). */
+export function offers(b: Building, product: Product): boolean {
+  const t = troopOf(product);
+  return t ? troopOffered(b, t.troop, t.w, t.a) : productsOf(b).includes(product);
 }
 
 /** Recipes a building kind works, in table order. */
@@ -128,16 +222,15 @@ export function needsHands(kind: number): boolean {
   return kind === BuildingKind.Forge || kind === BuildingKind.Kiln || kind === BuildingKind.Tannery || kind === BuildingKind.HerbalistHut || kind === BuildingKind.Workshop || kind === BuildingKind.LumberMill;
 }
 
-/** Everything a building can be asked to make, whatever it lacks now (the reasons come from productProblem). */
+/** Everything a building can be asked to make but troops (troopTypesAt), whatever it lacks now (the reasons come from productProblem). */
 export function productsOf(b: Building): Product[] {
   if (!b.complete) return [];
   const out: Product[] = [];
   if (b.kind === BuildingKind.MainBase) {
-    out.push(Product.Worker, Product.Warrior);
+    out.push(Product.Worker);
     // Main bases of level 6 or higher train mages too (Magic).
     if (b.level >= MAGE_MAIN_BASE_LEVEL) out.push(Product.SupportMage, Product.BattleMage);
-  } else if (b.kind === BuildingKind.Barracks) out.push(Product.Warrior);
-  else if (b.kind === BuildingKind.MagiSanctum) {
+  } else if (b.kind === BuildingKind.MagiSanctum) {
     out.push(Product.SupportMage, Product.BattleMage);
     for (const r of RESEARCH) if (r.at === b.kind && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
   } else if (b.kind === BuildingKind.ScholarsLodge) {
@@ -146,8 +239,6 @@ export function productsOf(b: Building): Product[] {
   if (b.kind === BuildingKind.LumberMill) out.push(Product.PlanksSoftwood, Product.PlanksHardwood);
   if (b.kind === BuildingKind.LivestockFarm) for (const s of SLAUGHTERED) out.push(SLAUGHTER_PRODUCT + s);
   for (const id of recipesAt(b.kind)) out.push(RECIPE_PRODUCT + id);
-  for (const id of craftable(b.kind)) out.push(CRAFT_PRODUCT + id);
-  for (const id of craftable(b.kind)) out.push(REFURBISH_PRODUCT + id);
   // Siege engines at a Workshop, cannons at the Foundry (Table 2f).
   for (const id of PLAYER_ENGINES) if (engineSpec(id).at[0] === b.kind) out.push(ENGINE_PRODUCT + id);
   return out;
@@ -207,7 +298,7 @@ function levelProblem(b: Building, level: number): string {
  * at an inherited building, where the research it brings counts too.
  */
 export function productProblem(state: SimState, b: Building, product: Product, user = b.owner): string {
-  if (!productsOf(b).includes(product)) return 'This building cannot make that.';
+  if (!offers(b, product)) return 'This building cannot make that.';
   const player = state.players[user]!;
   const pool = player.pool;
   const research = player.research | b.tech;
@@ -234,18 +325,14 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     if (!hasResearch(research, r.research as Research)) return `Needs ${RESEARCH[r.research]!.name} researched first.`;
     if (!payableInputs(r, pool)) return `Not enough resources (${costText(r.inputs[0] ?? [])}).`;
     return '';
-  } else if (spec.item !== undefined && product < REFURBISH_PRODUCT) {
-    const it = itemSpec(spec.item);
-    const why = levelProblem(b, madeAtKind(it, b.kind));
-    if (why) return why;
-    const missing = missingResearch(research, it);
-    if (missing !== Research.None) return `Needs ${RESEARCH[missing]!.name} researched first.`;
-    if (it.needsWorkshop && bestLevel(state, user, BuildingKind.Workshop) < it.needsWorkshop) return `Needs a ${buildingName(BuildingKind.Workshop, it.needsWorkshop, 0)} in the town.`;
   }
-  for (const [it, n] of spec.items ?? []) if (player.items[it]! < n) return `Needs ${n === 1 ? 'a' : n} ${itemSpec(it).name.toLowerCase()} in the equipment stock.`;
-  if (spec.item !== undefined && product < REFURBISH_PRODUCT) {
-    if (!affordableRecipe(itemSpec(spec.item), pool)) return `Not enough resources (${costText(itemSpec(spec.item).recipes[0] ?? [])}).`;
-  } else if (spec.food > 0) {
+  if (spec.pieces) {
+    const why = kitProblem(state, user, research, spec.pieces);
+    if (why) return why;
+    if (spec.troop?.troop === Troop.Cavalry && stalledHorses(state, b).length === 0) return 'Cavalry needs a tamed horse in the stalls.';
+    if (!planPieces(spec.pieces, pool)) return `Not enough resources (${costText(spec.cost)}).`;
+  }
+  if (spec.food > 0) {
     if (foodInPool(pool, player.dontEat) < spec.food) return `Not enough food (${spec.food} food).`;
   } else {
     for (const [res, n] of spec.cost) if (pool[res]! < n) return `Not enough resources (${costText(spec.cost)}).`;
@@ -260,8 +347,6 @@ export function productSteps(state: SimState, b: Building, product: Product): nu
     const r = recipeSpec(spec.recipe);
     return r.cooked ? cookSteps(r, b.level) : r.steps;
   }
-  // A Workshop of tier 2 or more cuts bow staves for the Big House: bows take half the time (s).
-  if (product === CRAFT_PRODUCT + Item.Bow && bestLevel(state, b.owner, BuildingKind.Workshop) >= 2) return floorDiv(spec.steps, 2);
   return spec.steps;
 }
 
@@ -279,9 +364,9 @@ export function researchFacilities(state: SimState, player: number): number {
   return n;
 }
 
-/** Products that are new units: workers, warriors and mages. */
+/** Products that are new units: workers, troops and mages. */
 export function trainsUnit(product: number): boolean {
-  return product === Product.Worker || product === Product.Warrior || product === Product.SupportMage || product === Product.BattleMage;
+  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product >= TROOP_PRODUCT;
 }
 
 /** Supply in use: one per worker, warrior and mage, one per research facility, plus each unit being trained for the player (animals use none). */
@@ -300,40 +385,66 @@ export function supplyUsed(state: SimState, player: number): number {
 
 /** Queues an item for `by` (the owner unless set), who pays for it now. Returns '' or why it could not be queued. */
 export function queueProduct(state: SimState, b: Building, product: Product, by = b.owner): string {
-  if (!productsOf(b).includes(product)) return 'This building cannot make that.';
+  if (!offers(b, product)) return 'This building cannot make that.';
   if (b.queue.length >= QUEUE_LIMIT) return 'The queue is full.';
   const why = productProblem(state, b, product, by);
   if (why) return why;
   const spec = productSpec(product);
   const player = state.players[by]!;
   const pool = player.pool;
-  let paid: Array<[number, number]>;
+  const paid: Array<[number, number]> = [];
+  const take = (cost: ReadonlyArray<readonly [number, number]>): void => {
+    for (const [res, n] of cost) {
+      pool[res] = pool[res]! - n;
+      const at = paid.findIndex(([r]) => r === res);
+      if (at >= 0) paid[at] = [res, paid[at]![1] + n];
+      else paid.push([res, n]);
+    }
+  };
   if (spec.recipe !== undefined) {
-    paid = payableInputs(recipeSpec(spec.recipe), pool)!.map(([r, n]) => [r, n]);
-    for (const [res, n] of paid) pool[res] = pool[res]! - n;
-  } else if (spec.item !== undefined && product < REFURBISH_PRODUCT) {
-    paid = affordableRecipe(itemSpec(spec.item), pool)!.map(([r, n]) => [r, n]);
-    for (const [res, n] of paid) pool[res] = pool[res]! - n;
+    take(payableInputs(recipeSpec(spec.recipe), pool)!);
   } else if (spec.food > 0) {
-    const taken = payNutrition(pool, spec.food, player.dontEat);
-    if (!taken) return `Not enough food (${spec.food} food).`;
-    paid = taken;
+    // The kit first (it was checked), then the food.
+    const kit = spec.pieces ? planPieces(spec.pieces, pool) : null;
+    if (spec.pieces && !kit) return `Not enough resources (${costText(spec.cost)}).`;
+    if (kit) take(kit.cost);
+    const food = payNutrition(pool, spec.food, player.dontEat);
+    if (!food) {
+      for (const [res, n] of paid) pool[res] = pool[res]! + n;
+      return `Not enough food (${spec.food} food).`;
+    }
+    for (const [res, n] of food) {
+      const at = paid.findIndex(([r]) => r === res);
+      if (at >= 0) paid[at] = [res, paid[at]![1] + n];
+      else paid.push([res, n]);
+    }
   } else {
-    paid = spec.cost.map(([r, n]) => [r, n]);
-    for (const [res, n] of paid) pool[res] = pool[res]! - n;
+    take(spec.cost);
   }
-  for (const [it, n] of spec.items ?? []) player.items[it] = player.items[it]! - n;
-  b.queue.push({ product, paid, progress: 0, by });
+  // New cavalry: the horse leaves its stall now, and comes back if the troop is cancelled.
+  let horse = 0;
+  if (spec.troop?.troop === Troop.Cavalry) {
+    const e = state.entities;
+    const h = stalledHorses(state, b)[0]!;
+    horse = 1 + e.sex[h]!;
+    e.hp[h] = -1;
+    state.dying.push(e.id[h]!);
+  }
+  b.queue.push({ product, paid, progress: 0, by, horse });
   return '';
 }
 
-/** Cancels a queued item and refunds what was paid, in full. */
+/** Cancels a queued item and refunds what was paid, in full (and a new cavalry's horse goes back to its stall). */
 export function cancelProduct(state: SimState, b: Building, index: number): void {
   const item = b.queue[index];
   if (!item) return;
   const player = state.players[item.by]!;
   for (const [res, n] of item.paid) player.pool[res] = player.pool[res]! + n;
-  for (const [it, n] of productSpec(item.product).items ?? []) player.items[it] = player.items[it]! + n;
+  if (item.horse) {
+    const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
+    const h = addAnimal(state, Species.Horse, item.by, columnCentre(cx), columnCentre(cz), 0, item.horse - 1);
+    state.entities.home[h] = b.id;
+  }
   b.queue.splice(index, 1);
 }
 
@@ -358,16 +469,18 @@ function spawnWorker(state: SimState, b: Building, owner: number): void {
   state.events.push({ player: owner, kind: 'info', text: 'A new worker is ready.', x, z });
 }
 
-function spawnWarrior(state: SimState, b: Building, owner: number): void {
+function spawnTroop(state: SimState, b: Building, product: number, owner: number, horse: number): void {
+  const t = troopOf(product)!;
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  const i = addWarrior(state, owner, x, z);
-  state.entities.weapon[i] = Item.Club;
+  const i = addWarrior(state, owner, x, z, t.troop as Troop, t.w, t.a);
   state.entities.heading[i] = 32768;
+  // Cavalry rides out on the horse it was given (Jade: the horse is used up).
+  if (t.troop === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, b.id, Math.max(0, horse - 1));
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
-  state.events.push({ player: owner, kind: 'info', text: 'A new warrior is ready.', x, z });
+  state.events.push({ player: owner, kind: 'info', text: `A new ${(TROOP_NAMES[t.troop] ?? 'troop').toLowerCase()} troop is ready.`, x, z });
 }
 
 function spawnMage(state: SimState, b: Building, school: number, owner: number): void {
@@ -395,7 +508,7 @@ export function slaughterable(state: SimState, b: Building, species: number): nu
   return out.sort((p, q) => (e.sex[q] === spare ? 1 : 0) - (e.sex[p] === spare ? 1 : 0) || e.id[q]! - e.id[p]!);
 }
 
-/** A research step, a crafted batch, a refurbished item, a recipe or a slaughter is done, for the player who queued it. */
+/** A research step, a recipe, a slaughter or an engine is done, for the player who queued it. */
 function finishProduct(state: SimState, b: Building, product: number, by: number): void {
   const player = state.players[by]!;
   const spec = productSpec(product);
@@ -424,16 +537,6 @@ function finishProduct(state: SimState, b: Building, product: number, by: number
     if (r.made) player.made |= r.made;
     return;
   }
-  const it = itemSpec(spec.item!);
-  if (product < REFURBISH_PRODUCT) {
-    player.items[it.id] = player.items[it.id]! + it.makes;
-    state.events.push({ player: by, kind: 'info', text: `${it.name} made${it.makes > 1 ? ` (${it.makes})` : ''}.`, x, z });
-    return;
-  }
-  // Refurbished: everything it was made from comes back (the first recipe), the time does not.
-  for (const [res, n] of it.recipes[0] ?? []) player.pool[res] = player.pool[res]! + n;
-  for (const [inner, n] of it.itemInputs ?? []) player.items[inner] = player.items[inner]! + n;
-  state.events.push({ player: by, kind: 'info', text: `${it.name} refurbished.`, x, z });
 }
 
 /** Workers at work in a building now (farmers in the field or sheltering in their farmhouse, mill hands inside). */
@@ -489,7 +592,7 @@ export function updateBuildings(state: SimState): void {
           head.progress++;
           if (head.progress >= productSpec(head.product).steps) {
             b.queue.shift();
-            if (head.product === Product.Warrior) spawnWarrior(state, b, head.by);
+            if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
             else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
             else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
             else spawnWorker(state, b, head.by);
@@ -501,7 +604,7 @@ export function updateBuildings(state: SimState): void {
         // the Manufactory works twice as fast. The Big House and cooking need none.
         let rate = 1;
         let whole = productSteps(state, b, head.product);
-        if (head.product < CRAFT_PRODUCT) {
+        if (head.product < RECIPE_PRODUCT) {
           rate = state.players[b.owner]!.starveTroops > 0 ? 0 : RESEARCH_QUARTERS[b.level - 1]!;
           whole *= 4;
         } else if (needsHands(b.kind)) {

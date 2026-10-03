@@ -15,26 +15,36 @@ export const Product = {
   Worker: 0,
   PlanksSoftwood: 1,
   PlanksHardwood: 2,
-  /** Table 7: a new warrior, with a hardwood club from the stock. */
-  Warrior: 3,
-  /** Table 7: a new Novice Acolyte, support or battle, with a wand from the stock. */
+  /** Table 7: a new Novice Acolyte, support or battle, with a hazel wand and a homespun robe. */
   SupportMage: 4,
   BattleMage: 5,
 } as const;
 export type Product = number;
 /**
- * Research step r is product RESEARCH_PRODUCT + r; crafting item n is
- * CRAFT_PRODUCT + n; refurbishing it, REFURBISH_PRODUCT + n; a processing
- * or cooking recipe (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal
- * of a species at a livestock farm, SLAUGHTER_PRODUCT + species; making a
- * siege engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine.
+ * Research step r is product RESEARCH_PRODUCT + r; a processing or cooking
+ * recipe (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a
+ * species at a livestock farm, SLAUGHTER_PRODUCT + species; making a siege
+ * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine; a new troop
+ * (units/kits.ts) TROOP_PRODUCT + type x 100 + weapon tier x 10 + armour
+ * tier (troopProduct).
  */
 export const RESEARCH_PRODUCT = 8;
-export const CRAFT_PRODUCT = 64;
-export const REFURBISH_PRODUCT = 256;
 export const RECIPE_PRODUCT = 512;
 export const SLAUGHTER_PRODUCT = 1024;
 export const ENGINE_PRODUCT = 2048;
+export const TROOP_PRODUCT = 4096;
+
+/** The product for a new troop of a type with a weapon tier and an armour tier. */
+export function troopProduct(troop: number, weapon: number, armour: number): Product {
+  return TROOP_PRODUCT + troop * 100 + weapon * 10 + armour;
+}
+
+/** A troop product's type and tiers, or undefined for any other product. */
+export function troopOf(product: Product): { troop: number; w: number; a: number } | undefined {
+  if (product < TROOP_PRODUCT) return undefined;
+  const n = product - TROOP_PRODUCT;
+  return { troop: floorDiv(n, 100), w: floorDiv(n, 10) % 10, a: n % 10 };
+}
 
 export interface QueueItem {
   product: Product;
@@ -44,6 +54,8 @@ export interface QueueItem {
   progress: number;
   /** The player who queued and paid for it: the building's owner, or another player using an inherited building (Multiplayer and saving). */
   by: number;
+  /** New cavalry: the tamed horse taken from the stalls, 1 + its sex (given back if cancelled), or 0. */
+  horse: number;
 }
 
 /** A rally point: ground (wu), a unit to follow, or a resource node to gather from. */
@@ -96,6 +108,12 @@ export interface Building {
   shared: number;
   /** Research the players it was inherited from had (a bit per step), which anyone using it may build on. */
   tech: number;
+  /**
+   * Barracks, Stables and main bases: the Lock per troop type (Barracks and
+   * Stables panel), by type: 0 unlocked, else 1 + weapon tier x 10 + armour
+   * tier, the combination this building keeps making.
+   */
+  locks: number[];
 }
 
 export function maxHealth(b: Building): number {
@@ -292,6 +310,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
       w.u16(q.product);
       w.i32(q.progress);
       w.u8(q.by);
+      w.u8(q.horse);
       w.u8(q.paid.length);
       for (const [res, n] of q.paid) {
         w.u8(res);
@@ -316,6 +335,8 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     for (const v of b.acc) w.i32(v);
     w.u8(b.shared);
     w.u32(b.tech);
+    w.u8(b.locks.length);
+    for (const v of b.locks) w.u8(v);
   }
 }
 
@@ -350,16 +371,18 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       acc: [],
       shared: 0,
       tech: 0,
+      locks: [],
     };
     const nq = r.u8();
     for (let q = 0; q < nq; q++) {
       const product = r.u16();
       const progress = r.i32();
       const by = r.u8();
+      const horse = r.u8();
       const np = r.u8();
       const paid: Array<[number, number]> = [];
       for (let p = 0; p < np; p++) paid.push([r.u8(), r.i32()]);
-      b.queue.push({ product, progress, paid, by });
+      b.queue.push({ product, progress, paid, by, horse });
     }
     const nr = r.u8();
     for (let p = 0; p < nr; p++) b.rally.push(readRally(r));
@@ -376,6 +399,8 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     for (let k2 = 0; k2 < na; k2++) b.acc.push(r.i32());
     b.shared = r.u8();
     b.tech = r.u32();
+    const nl = r.u8();
+    for (let k2 = 0; k2 < nl; k2++) b.locks.push(r.u8());
     store.add(b, touch);
   }
 }
@@ -386,6 +411,6 @@ export function buildingFields(b: Building): Record<string, number | string> {
     id: b.id, owner: b.owner, kind: b.kind, variant: b.variant, level: b.level, x: b.x, z: b.z, y: b.y, hp: b.hp,
     progress: b.progress, complete: b.complete ? 1 : 0, upgrading: b.upgrading, upProgress: b.upProgress, repairAcc: b.repairAcc,
     queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), fuelUntil: b.fuelUntil, doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
-    costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech,
+    costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech, locks: JSON.stringify(b.locks),
   };
 }

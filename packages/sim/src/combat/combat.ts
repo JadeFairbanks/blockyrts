@@ -14,7 +14,8 @@ import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, t
 import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
-import { Hit, itemSpec, type MeleeStats } from './items.ts';
+import { Hit, type MeleeStats } from './items.ts';
+import { CRIT, gearSpec } from '../units/kits.ts';
 import { workerMelee } from '../units/tools.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
 import { engineSpec } from '../siege/data.ts';
@@ -184,13 +185,13 @@ export function gapToBuilding(state: SimState, i: number, b: Building): number {
   return length2d(dx, dz);
 }
 
-/** Armour a unit wears, bp: boots, body armour and helmet add up, capped at 75% (Table 3). Mobs have the roster's. */
+/** Armour a unit wears, bp: its armour tier's protection (body, helmet and boots together), capped at 75% (Table 3). Mobs have the roster's. */
 export function armourOf(state: SimState, i: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mob) return mobSpec(e.mob[i]!).armourBp;
   if (e.kind[i] === UnitKind.Animal) return speciesSpec(e.mob[i]!).armourBp;
   const pieces: number[] = [];
-  for (const id of [e.boots[i]!, e.armour[i]!, e.helmet[i]!]) if (id) pieces.push(itemSpec(id).armourBp ?? 0);
+  if (e.armour[i]) pieces.push(gearSpec(e.armour[i]!).armourBp ?? 0);
   // A support mage's Fortify: +15% on top, still capped at 75% (Table 13); a Grovesinger's Barkskin +25%.
   if (e.fortUntil[i]! > state.step) pieces.push(spellSpec(Spell.Fortify).bp);
   if (e.barkUntil[i]! > state.step) pieces.push(spellSpec(Spell.Barkskin).bp);
@@ -202,26 +203,22 @@ export function shieldBlock(state: SimState, i: number): number {
   const e = state.entities;
   if (!e.shield[i]) return 0;
   const w = e.weapon[i]!;
-  if (w && !itemSpec(w).melee?.oneHanded) return 0;
-  return itemSpec(e.shield[i]!).blockBp ?? 0;
+  if (w && !gearSpec(w).melee?.oneHanded) return 0;
+  return gearSpec(e.shield[i]!).blockBp ?? 0;
 }
 
-/** The melee weapon a unit of the players fights with now: its weapon, its backup, or its tool or fists. */
-export function meleeOf(state: SimState, i: number, backup: boolean): MeleeStats {
-  const w = handMelee(state, i, backup);
+/** The melee weapon a unit of the players fights with now: its weapon, or its tool or fists. */
+export function meleeOf(state: SimState, i: number): MeleeStats {
+  const w = handMelee(state, i);
   // From the saddle a weapon reaches 0.5 m farther (Table 1's mounted row).
   return state.entities.mount[i] ? { ...w, reach: w.reach + MOUNTED.reachBonus } : w;
 }
 
-function handMelee(state: SimState, i: number, backup: boolean): MeleeStats {
+function handMelee(state: SimState, i: number): MeleeStats {
   const e = state.entities;
-  const id = backup ? e.backup[i]! : e.weapon[i]!;
+  const id = e.weapon[i]!;
   if (id) {
-    const m = itemSpec(id).melee;
-    if (m) return m;
-  }
-  if (!backup && e.backup[i]) {
-    const m = itemSpec(e.backup[i]!).melee;
+    const m = gearSpec(id).melee;
     if (m) return m;
   }
   return workerMelee(e, i);
@@ -397,14 +394,26 @@ export function hexed(state: SimState, i: number, attackSteps: number): number {
 export function canReach(state: SimState, i: number, t: number, w: MeleeStats): boolean {
   if (flyingHigh(state, t) && (w.oneHanded || soaring(state, t))) return false;
   const g = gap(state, i, t);
-  if (g > w.reach || g < w.min) return false;
+  if (g > w.reach) return false;
   return w.reach >= OVER_WALL_REACH || !wallBetween(state, i, t);
+}
+
+/**
+ * A long weapon's critical hit (Long melee: the edge of reach): a blow on a
+ * unit in the outer third of the weapon's reach deals 30% more (Jade). Long
+ * melee and cavalry have no minimum range: closer in they hit as usual.
+ */
+export function critDamage(state: SimState, i: number, t: number, w: MeleeStats, damage: number): number {
+  if (!w.crit) return damage;
+  const edge = w.reach - floorDiv(w.reach * CRIT.outerPm, 1000);
+  return gap(state, i, t) >= edge ? floorDiv(damage * (100 + CRIT.bonusPct), 100) : damage;
 }
 
 /**
  * The key moment of a player unit's swing: a stab hits its target if it is
  * still in reach; any other swing hits the target in full and every other
- * enemy in reach within the 90 degree arc for half (Table 2d).
+ * enemy in reach within the 90 degree arc for half (Table 2d). A long
+ * weapon's blow at the edge of its reach is a critical (critDamage).
  */
 export function landPlayerSwing(state: SimState, i: number, w: MeleeStats): void {
   const e = state.entities;
@@ -415,16 +424,16 @@ export function landPlayerSwing(state: SimState, i: number, w: MeleeStats): void
   const damage = dealt(state, i, w.damage) * (charge ? 2 : 1);
   const blow = (d: number): Blow => ({ damage: d, from: e.id[i]!, projectile: false, blunt: w.blunt, pierce: w.hit === Hit.Stab });
   const tolerance = floorDiv(WU_PER_METRE, 2);
-  const reach = { ...w, reach: w.reach + tolerance, min: Math.max(0, w.min - tolerance) };
+  const reach = { ...w, reach: w.reach + tolerance };
   if (t >= 0 && e.hp[t]! > 0 && canReach(state, i, t, reach)) {
-    hurtUnit(state, t, blow(damage));
+    hurtUnit(state, t, blow(critDamage(state, i, t, w, damage)));
     if (charge) chargeKnock(state, i, t);
   }
   if (w.hit !== Hit.Arc) return;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, w.reach + WU_PER_METRE)) {
     if (j === t || j === i || e.hp[j]! <= 0 || !hostile(state, i, j)) continue;
     if (!canReach(state, i, j, w) || !inArc(state, i, e.x[j]!, e.z[j]!)) continue;
-    hurtUnit(state, j, blow(Math.max(1, damage >> 1)));
+    hurtUnit(state, j, blow(Math.max(1, critDamage(state, i, j, w, damage) >> 1)));
     if (charge) chargeKnock(state, i, j);
   }
 }

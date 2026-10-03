@@ -17,7 +17,6 @@ import { onUnitHurt } from './combat/fight.ts';
 import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
 import { updateProjectiles } from './combat/projectiles.ts';
 import { updateSpawns } from './combat/spawn.ts';
-import { updateGear } from './units/gear.ts';
 import { updateFood } from './economy/food.ts';
 import { installAnimalHooks, runAnimal, stockHooks, updateAnimals } from './animals/animals.ts';
 import { installFoes } from './threats/foes.ts';
@@ -171,7 +170,6 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateBuildings(state);
   updateMines(state);
   updateLights(state);
-  updateGear(state);
   updateElimination(state);
   state.world.flowWater();
   state.step++;

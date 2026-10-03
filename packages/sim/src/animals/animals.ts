@@ -115,7 +115,7 @@ function landNear(state: SimState, x: number, z: number, water: boolean): [numbe
   return null;
 }
 
-/** Whether a column has water beside it (a bank: crabs, crocodiles). */
+/** Whether a column has water beside it (a bank: crabs, crocodiles, wild geese). */
 function nearWater(state: SimState, x: number, z: number): boolean {
   for (let r = 1; r <= 3; r++) for (const [dx, dz] of [[r, 0], [-r, 0], [0, r], [0, -r]] as const) if (hasWaterAt(state, x + dx, z + dz)) return true;
   return false;
@@ -142,6 +142,7 @@ function groupsIn(state: SimState, s: SpeciesSpec, cell: number, band: Band): nu
     case Species.GiantFrog:
     case Species.Crocodile:
     case Species.GiantCrab:
+    case Species.WildGoose:
       return roll < 60 ? s.perCell : 0;
     // Territorial creatures (s): beetles in every other Fringe cell, a hornet nest in a third of the Deepwoods,
     // vipers and scorpions in half the Barrens, a griffin in one cell in five, a minotaur in one in four.
@@ -194,7 +195,7 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
     const groups = groupsIn(state, s, cellId, cell.band);
     for (let g = 0; g < groups; g++) {
       if (s.id === Species.Bear && bearCount(state) + 3 > BEAR_CAP) break;
-      const water = s.id === Species.Crocodile || s.id === Species.GiantCrab;
+      const water = s.id === Species.Crocodile || s.id === Species.GiantCrab || s.id === Species.WildGoose;
       const bog = s.id === Species.GiantFrog;
       let spot: [number, number] | null = null;
       const places = water ? banks : bog ? bogs : null;

@@ -13,7 +13,7 @@ import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
-import { PERSON, PERSON_ARMOURED, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
+import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
@@ -23,19 +23,18 @@ import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
-import { carryCapacity, cartSpeed, loadSlowBp, onWheels } from './weight.ts';
+import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep, garrisonRoom } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
-import { refundEquip, runEquip, runSkill } from './gear.ts';
+import { refundKit, runCart, runKitUp, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './field.ts';
-import { Item, itemSpec } from '../combat/items.ts';
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { speakerName } from '../peoples/speech.ts';
-import { dismount, mountedSpeed, runMount } from '../mounts/riding.ts';
+import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend } from '../siege/engines.ts';
 
 /** Phases of an order. */
@@ -68,7 +67,9 @@ export function builderLimit(kind: number): number {
   return kind === BuildingKind.MainBase ? 8 : 4;
 }
 /** Gather, dig and build speed by tool tier, per mille (Table 2c): a job goes at the pace of the worker's tool for it. */
-export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1150, 1250, 1500, 1750, 2000, 2250, 2500, 3000, 3500];
+/** Fishing's pace per mille against a node's own load time: 1 fish per 10 s with any tool kit (Table 2c). */
+const FISH_PACE = 1500;
+export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1150, 1250, 1500, 1750, 2250, 2500, 3000, 3500];
 /** Worker health by rank (Table 1). */
 export const WORKER_HEALTH_BY_RANK: readonly number[] = [60, 60, 70, 80, 90, 100];
 /** Rank training at a main base (Table 7): to Hand, to Master. */
@@ -207,8 +208,8 @@ export function unitLevel(state: SimState, i: number): number {
 
 /**
  * How a unit gets about: on wheels with a cart (and the animal pulling it),
- * unable to swim in body armour (Water: Wading and swimming), wild animals
- * as walkers that never pass gates, everyone else as a person.
+ * wild animals as walkers that never pass gates, everyone else as a person.
+ * Armour no longer stops anyone swimming (Jade, 2026-10-03).
  */
 export function moverOf(state: SimState, i: number): Mover {
   const e = state.entities;
@@ -218,18 +219,17 @@ export function moverOf(state: SimState, i: number): Mover {
     return w >= 0 && onWheels(state, w) ? WHEELS : PERSON;
   }
   if (onWheels(state, i)) return WHEELS;
-  if (e.armour[i] && itemSpec(e.armour[i]!).heavy) return PERSON_ARMOURED;
   return PERSON;
 }
 
-/** A unit's speed this step, wu: slowed by its load, by starving, by a grasp or a web, hastened by a howl or a shout. */
+/** A unit's speed this step, wu: slowed by starving, by a grasp or a web, hastened by a howl or a shout (gear and loads weigh nothing, Jade). */
 export function moveSpeed(state: SimState, i: number): number {
   const e = state.entities;
   const cart = cartSpeed(state, i);
-  // A mount carries its rider's gear without slowing (Table 14 speeds: a trot, a gallop at a foe).
+  // A mount goes at its own pace (Table 14 speeds: a trot, a gallop at a foe).
   const mounted = e.mount[i] !== 0;
   const base = mounted ? mountedSpeed(state, i) : cart > 0 ? Math.min(cart, e.speed[i]!) : e.speed[i]!;
-  let bp = 10000 - (mounted ? 0 : loadSlowBp(state, i));
+  let bp = 10000;
   if (starvingSince(state, i)) bp -= STARVING_SLOW_BP;
   if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
@@ -484,10 +484,10 @@ export function destroyBuilding(state: SimState, id: number): void {
   computeEnclosed(state);
 }
 
-/** Clears a unit's orders, giving back any equipment set aside for it. */
+/** Clears a unit's orders, giving back what was paid for an upgrade it had not started. */
 export function dropQueue(state: SimState, i: number): void {
   const e = state.entities;
-  for (const o of e.queue[i]!) refundEquip(state, e.owner[i]!, o);
+  for (const o of e.queue[i]!) refundKit(state, i, o);
   e.queue[i] = [];
 }
 
@@ -615,11 +615,6 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
-    // Fishing from the shore needs a fishing rod or net in the worker's kit (Table 2c) (s).
-    if (view && isFish(view.kind) && e.kit[i] !== Item.FishingRod && e.kit[i] !== Item.FishingNet) {
-      alert(state, e.owner[i]!, 'Fishing needs a fishing rod or net. Make one at the Big House and equip it (I).', e.x[i]!, e.z[i]!, i);
-      return DONE;
-    }
     e.act[i] = Act.Walk;
   }
   // When a node has run out, go to the closest one of the same resource, or take the last load home and stand idle.
@@ -701,8 +696,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       const [nx, nz] = nodeColumn(o, view);
       e.heading[i] = headingTowards(columnCentre(nx) - e.x[i]!, columnCentre(nz) - e.z[i]!);
       e.order[i] = info.shape === PropShape.Tree || info.shape === PropShape.Bush ? OrderKind.Chop : info.shape === PropShape.Plant ? OrderKind.Farm : OrderKind.Mine;
-      // A net fishes in 10 s what a rod takes 15 s for (Table 2c); other nodes go at the tool's pace.
-      const pace = isFish(view.kind) ? (e.kit[i] === Item.FishingNet ? 1500 : 1000) : gatherPace(state, i, view.kind);
+      // Every tool kit fishes 1 fish per 10 s (Table 2c); other nodes go at the tool's pace.
+      const pace = isFish(view.kind) ? FISH_PACE : gatherPace(state, i, view.kind);
       e.timer[i] = e.timer[i]! + pace;
       if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
       e.timer[i] = 0;
@@ -1076,9 +1071,8 @@ export function rankTrainedAt(kind: number): number {
 }
 
 /**
- * A mage's rank training at the Magi Sanctum (Table 7): food, and mana
- * crystals for Adept Acolyte, are paid on arrival; the combat ranks take
- * her rank wand from the stock, and her old wand goes back into it.
+ * A mage's rank training at the Magi Sanctum (Table 7): food and mana
+ * crystals (Adept Acolyte 2; the combat ranks 2, 5 and 10) are paid on arrival.
  */
 function runMageTrain(state: SimState, i: number, b: Building): boolean {
   const e = state.entities;
@@ -1095,10 +1089,6 @@ function runMageTrain(state: SimState, i: number, b: Building): boolean {
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
-    if (t.wand && player.items[t.wand]! < 1) {
-      alert(state, b.owner, `Training a ${who} to ${t.name} needs a ${itemSpec(t.wand).name} in the equipment stock.`, e.x[i]!, e.z[i]!, i);
-      return DONE;
-    }
     if (player.pool[Res.ManaCrystal]! < t.crystals) {
       alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals.`, e.x[i]!, e.z[i]!, i);
       return DONE;
@@ -1108,11 +1098,6 @@ function runMageTrain(state: SimState, i: number, b: Building): boolean {
       return DONE;
     }
     player.pool[Res.ManaCrystal] = player.pool[Res.ManaCrystal]! - t.crystals;
-    if (t.wand) {
-      player.items[t.wand] = player.items[t.wand]! - 1;
-      if (e.weapon[i]) player.items[e.weapon[i]!] = player.items[e.weapon[i]!]! + 1;
-      e.weapon[i] = t.wand;
-    }
     goInside(state, i, b);
     e.act[i] = Act.Inside;
     e.timer[i] = 0;
@@ -1206,8 +1191,10 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runMove(state, i, o as unknown as Extract<UnitOrder, { t: 'move' }>);
     case 'patrol':
       return runPatrol(state, i, o);
-    case 'equip':
-      return runEquip(state, i, o);
+    case 'kitUp':
+      return runKitUp(state, i, o);
+    case 'cart':
+      return runCart(state, i, o);
     case 'dig':
       return runDig(state, i, o);
     case 'skill':
@@ -1226,11 +1213,6 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runHaul(state, i, o);
     case 'cast':
       // The fight layer carries a cast out (magic/cast.ts); reaching here means it is over.
-      return DONE;
-    case 'mount':
-      return runMount(state, i, o);
-    case 'dismount':
-      dismount(state, i);
       return DONE;
     case 'crew':
       return runCrew(state, i, o);

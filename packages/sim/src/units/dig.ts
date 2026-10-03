@@ -18,9 +18,9 @@ import type { UnitOrder } from './unit-orders.ts';
 
 /** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by the tier of the worker's digging tool (Tool order) and dig class; no flint tool digs. */
 const RATES: Record<number, readonly number[]> = {
-  [DigClass.Soil]: [0, 500, 580, 0, 600, 700, 750, 800, 900, 1000, 1100],
-  [DigClass.Loose]: [0, 400, 460, 0, 500, 550, 600, 650, 700, 800, 900],
-  [DigClass.Rock]: [0, 0, 5, 0, 10, 30, 50, 65, 90, 117, 130],
+  [DigClass.Soil]: [0, 500, 580, 0, 600, 700, 800, 900, 1000, 1100],
+  [DigClass.Loose]: [0, 400, 460, 0, 500, 550, 650, 700, 800, 900],
+  [DigClass.Rock]: [0, 0, 5, 0, 10, 30, 65, 90, 117, 130],
 };
 /** One bite: a column 11.25 cm deep, 0.0228 m3, as millionths of a cubic metre (Table 10 (s)). */
 const BITE_MICRO_M3 = 22781;

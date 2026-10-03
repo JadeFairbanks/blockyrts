@@ -6,7 +6,7 @@
 import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { mainBaseLevel, waterBeside } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
 import { type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
@@ -18,11 +18,11 @@ import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
 import { canGarrison, garrisonRoom, pickTarget, salvageable, sightOf } from './combat/fight.ts';
-import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
+import { RESEARCH } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
-import { equipBest, handPick, SKILL_TRAINING } from './units/gear.ts';
+import { orderCart, orderUpgrade, SKILL_TRAINING } from './units/gear.ts';
 import { markSite } from './units/dig.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
@@ -31,7 +31,6 @@ import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
-import { freeHorse, mountProblem } from './mounts/riding.ts';
 import { crewWhy, haulWhy, hitchEngine, mendWhy, portWhy } from './siege/engines.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
@@ -462,18 +461,25 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'pickOwn':
         pickOwn(state, o.player, ownUnits(state, o.player, o.units, true), o.command, o.queued === true);
         break;
-      case 'equipBest':
-        equipBest(state, o.player, ownUnits(state, o.player, o.units));
+      case 'upgradeKit':
+        orderUpgrade(state, o.player, ownUnits(state, o.player, o.units), o.line, o.max === 1);
         break;
-      case 'equipItem': {
-        const [i] = ownUnits(state, o.player, [o.unit]);
-        if (i === undefined || o.slot < 0 || o.slot >= SLOT_COUNT || o.item < 0 || o.item >= ITEM_COUNT) break;
-        handPick(state, i, o.slot, o.item);
+      case 'cart':
+        orderCart(state, o.player, ownUnits(state, o.player, o.units), o.back === 1);
+        break;
+      case 'troopLock': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (!b || !(troopTypesAt(b) as number[]).includes(o.troop)) break;
+        if (o.lock > 0) {
+          const t = troopTiersAt(b, o.troop);
+          const w = floorDiv(o.lock - 1, 10);
+          const a = (o.lock - 1) % 10;
+          if (w < t.w[0] || w > t.w[1] || a < t.a[0] || a > t.a[1]) break;
+        }
+        while (b.locks.length <= o.troop) b.locks.push(0);
+        b.locks[o.troop] = o.lock;
         break;
       }
-      case 'autoEquip':
-        state.players[o.player]!.autoEquip = o.on ? 1 : 0;
-        break;
       case 'lock':
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
@@ -597,25 +603,6 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'prospect':
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker ? { t: 'prospect', x: o.x, z: o.z } : null));
         break;
-      case 'mount': {
-        // Each rider walks to its own horse: the one named, else the nearest free one (Table 14).
-        const riders = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Warrior && e.mount[i] === 0);
-        const taken = new Set<number>();
-        for (const i of riders) {
-          const h = o.target && taken.size === 0 ? e.indexOf(o.target) : freeHorse(state, o.player, e.x[i]!, e.z[i]!, taken);
-          const why = mountProblem(state, i, h);
-          if (why) {
-            alert(state, o.player, why);
-            break;
-          }
-          taken.add(e.id[h]!);
-          giveOrder(state, i, { t: 'mount', id: e.id[h]! }, o.queued === true);
-        }
-        break;
-      }
-      case 'dismount':
-        giveAll(state, o, (i) => (e.mount[i] !== 0 ? { t: 'dismount' } : null));
-        break;
       case 'crew': {
         const i = e.indexOf(o.target);
         const crew = ownUnits(state, o.player, o.units).filter((j) => e.kind[j] === UnitKind.Warrior);
@@ -660,7 +647,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'debugGive':
-        if (o.item > 0 && o.item < ITEM_COUNT) state.players[o.player]!.items[o.item] = state.players[o.player]!.items[o.item]! + o.count;
+        if (o.res < RESOURCES.length) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
         if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);

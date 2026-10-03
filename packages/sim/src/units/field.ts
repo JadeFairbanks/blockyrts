@@ -9,7 +9,8 @@ import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, prospectText, ratingAt, shaftStock, takeStock } from '../buildings/mining.ts';
 import type { Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
-import { Item } from '../combat/items.ts';
+import { Res } from '../economy/resources.ts';
+import { PROSPECT_TOOL_TIER } from './kits.ts';
 import { eatAt, servesFood } from '../economy/food.ts';
 import { RESOURCES } from '../economy/resources.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
@@ -365,7 +366,7 @@ export function runHitch(state: SimState, i: number, o: Extract<UnitOrder, { t: 
   e.partner[i] = e.id[a]!;
   e.partner[a] = e.id[i]!;
   const s = speciesSpec(e.mob[a]!);
-  const how = e.kit[i] === Item.OxCart ? 'pulls the cart' : 'carries a pack';
+  const how = e.kit[i] === Res.OxCart ? 'pulls the cart' : 'carries a pack';
   state.events.push({ player: e.owner[i]!, kind: 'info', text: `The ${s.name.toLowerCase()} ${how} for the worker.`, x: e.x[i]!, z: e.z[i]! });
   return DONE;
 }
@@ -387,7 +388,7 @@ export function runProspect(state: SimState, i: number, o: Extract<UnitOrder, { 
   }
   e.order[i] = OrderKind.Mine;
   e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < (e.kit[i] === Item.ProspectingHammer ? PROSPECT_HAMMER_STEPS : PROSPECT_STEPS)) return CONTINUE;
+  if (e.timer[i]! < (e.wTier[i]! >= PROSPECT_TOOL_TIER ? PROSPECT_HAMMER_STEPS : PROSPECT_STEPS)) return CONTINUE;
   const rating = ratingAt(state, o.x, o.z);
   state.events.push({ player: e.owner[i]!, kind: 'prospect', text: prospectText(rating), x: o.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), z: o.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), rating });
   return DONE;

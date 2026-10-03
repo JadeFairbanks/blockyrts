@@ -9,7 +9,7 @@
 import { Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, TRINKET_MULTIPLIER_TENTHS, SPECIAL_TRINKET_MULTIPLIER_TENTHS } from '../rules.ts';
-import { Item } from '../combat/items.ts';
+import { CLOSE_GEAR, LONG_GEAR, PeopleGear, RANGER_GEAR, SHIELD_GEAR, shieldRow } from '../units/kits.ts';
 import { TRINKET_INGOTS } from '../buildings/recipes.ts';
 import { Mob } from '../combat/mobs.ts';
 import { Species } from '../animals/species.ts';
@@ -92,13 +92,10 @@ export interface PeopleUnitSpec {
   speed10: number;
   /** A fighter (counts towards defeat when none are left); villagers flee instead. */
   fighter: boolean;
-  /** Equipment it carries (combat/items.ts), 0 for none. */
+  /** The fixed kit it carries (units/kits.ts gear ids), 0 for none: a melee weapon, a bow or gun, one armour row (body and helmet together) and a shield. Ammunition is unlimited. */
   weapon: number;
-  backup: number;
   ranged: number;
-  ammo: number;
   armour: number;
-  helmet: number;
   shield: number;
   /** Shoots while walking (Runkin archers, Elf longbow rangers): the doc's "can walk (but not run) while shooting". */
   walkShoot: boolean;
@@ -114,15 +111,24 @@ const WAR_BEAR = 4;
 /** siege/data.ts Engine.DwarfCannon. */
 const DWARF_CANNON = 4;
 
-const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'backup' | 'ranged' | 'ammo' | 'armour' | 'helmet' | 'shield' | 'walkShoot' | 'mount'> & Partial<PeopleUnitSpec>): PeopleUnitSpec => ({
-  weapon: 0, backup: 0, ranged: 0, ammo: 0, armour: 0, helmet: 0, shield: 0, walkShoot: false, mount: 0, ...o,
+const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'ranged' | 'armour' | 'shield' | 'walkShoot' | 'mount'> & Partial<PeopleUnitSpec>): PeopleUnitSpec => ({
+  weapon: 0, ranged: 0, armour: 0, shield: 0, walkShoot: false, mount: 0, ...o,
 });
+
+/** The players' kit rows the peoples carry too (Troops and gear): a hardwood cudgel, a flint and a bronze spear, a longbow, a steel side-sword, a flintlock musket and a steel heater. */
+const CUDGEL = CLOSE_GEAR[1]!;
+const SPEAR_FLINT = LONG_GEAR[2]!;
+const SPEAR_BRONZE = LONG_GEAR[4]!;
+const LONGBOW = RANGER_GEAR[2]!;
+const SWORD_STEEL = CLOSE_GEAR[7]!;
+const MUSKET = RANGER_GEAR[8]!;
+const STEEL_HEATER = SHIELD_GEAR[shieldRow(7).tier]!;
 
 /**
  * The peoples' units (s throughout, from the doc's descriptions): Halfling
  * spearmen wear an iron cap and carry a short spear; Runkin archers walk
  * and shoot, clubbers carry flint spears and hardwood clubs; Bladewardens a
- * high-quality steel glaive and a long knife, lightly armoured; Longbow
+ * carbon-steel glaive, lightly armoured; Longbow
  * rangers the longest bow in the game with high-quality steel tips;
  * Shieldbearers heavily armoured with an axe and a large shield;
  * Hammerguards a two-handed war hammer; crossbowmen short range, hard-hitting.
@@ -130,28 +136,28 @@ const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'backup' | 'ranged' | 'ammo' | 
 export const PEOPLE_UNITS: readonly PeopleUnitSpec[] = [
   unit({ id: PeopleUnit.HalflingMale, name: 'Halfling', people: People.Halfling, model: 'halfling_male', hp: 60, speed10: 26, fighter: false, heightCm: 150 }),
   unit({ id: PeopleUnit.HalflingFemale, name: 'Halfling', people: People.Halfling, model: 'halfling_female', hp: 50, speed10: 26, fighter: false, heightCm: 100 }),
-  unit({ id: PeopleUnit.HalflingSpearman, name: 'Halfling spearman', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: Item.SpearBronze, helmet: Item.HelmetNasal, shield: Item.Buckler, heightCm: 150 }),
-  unit({ id: PeopleUnit.HalflingArcher, name: 'Halfling archer', people: People.Halfling, model: 'halfling_archer', hp: 70, speed10: 26, fighter: true, ranged: Item.Shortbow, ammo: Item.ArrowsBloom, backup: Item.Shortsword, heightCm: 150 }),
+  unit({ id: PeopleUnit.HalflingSpearman, name: 'Halfling spearman', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: SPEAR_BRONZE, armour: PeopleGear.HalflingHelm, shield: PeopleGear.Buckler, heightCm: 150 }),
+  unit({ id: PeopleUnit.HalflingArcher, name: 'Halfling archer', people: People.Halfling, model: 'halfling_archer', hp: 70, speed10: 26, fighter: true, ranged: PeopleGear.Shortbow, weapon: PeopleGear.Shortsword, heightCm: 150 }),
   unit({ id: PeopleUnit.RunkinMale, name: 'Runkin', people: People.Runkin, model: 'runkin_male', hp: 70, speed10: 30, fighter: false, heightCm: 150 }),
   unit({ id: PeopleUnit.RunkinFemale, name: 'Runkin', people: People.Runkin, model: 'runkin_female', hp: 70, speed10: 30, fighter: false, heightCm: 150 }),
-  unit({ id: PeopleUnit.RunkinArcher, name: 'Runkin archer', people: People.Runkin, model: 'runkin_archer', hp: 80, speed10: 30, fighter: true, ranged: Item.Bow, ammo: Item.ArrowsFlint, backup: Item.Club, armour: Item.ArmourLeather, walkShoot: true, heightCm: 150 }),
-  unit({ id: PeopleUnit.RunkinClubber, name: 'Runkin clubber', people: People.Runkin, model: 'runkin_clubber', hp: 100, speed10: 30, fighter: true, weapon: Item.SpearFlint, backup: Item.Club, armour: Item.ArmourLeather, heightCm: 150 }),
+  unit({ id: PeopleUnit.RunkinArcher, name: 'Runkin archer', people: People.Runkin, model: 'runkin_archer', hp: 80, speed10: 30, fighter: true, ranged: LONGBOW, weapon: CUDGEL, armour: PeopleGear.Leathers, walkShoot: true, heightCm: 150 }),
+  unit({ id: PeopleUnit.RunkinClubber, name: 'Runkin clubber', people: People.Runkin, model: 'runkin_clubber', hp: 100, speed10: 30, fighter: true, weapon: SPEAR_FLINT, armour: PeopleGear.Leathers, heightCm: 150 }),
   unit({ id: PeopleUnit.ElfVillager, name: 'Elf', people: People.Elf, model: 'elf_villager', hp: 80, speed10: 32, fighter: false, heightCm: 190 }),
-  unit({ id: PeopleUnit.ElfBladewarden, name: 'Elf Bladewarden', people: People.Elf, model: 'elf_bladewarden', hp: 160, speed10: 34, fighter: true, weapon: Item.Glaive, backup: Item.SwordSteel, armour: Item.ArmourLeather, heightCm: 190 }),
-  unit({ id: PeopleUnit.ElfRanger, name: 'Elf Longbow ranger', people: People.Elf, model: 'elf_longbow_ranger', hp: 120, speed10: 34, fighter: true, ranged: Item.ElfLongbow, ammo: Item.ArrowsHQ, backup: Item.SwordSteel, armour: Item.ArmourLeather, walkShoot: true, heightCm: 190 }),
+  unit({ id: PeopleUnit.ElfBladewarden, name: 'Elf Bladewarden', people: People.Elf, model: 'elf_bladewarden', hp: 160, speed10: 34, fighter: true, weapon: PeopleGear.Glaive, armour: PeopleGear.Leathers, heightCm: 190 }),
+  unit({ id: PeopleUnit.ElfRanger, name: 'Elf Longbow ranger', people: People.Elf, model: 'elf_longbow_ranger', hp: 120, speed10: 34, fighter: true, ranged: PeopleGear.ElfLongbow, weapon: SWORD_STEEL, armour: PeopleGear.Leathers, walkShoot: true, heightCm: 190 }),
   unit({ id: PeopleUnit.ElfGrovesinger, name: 'Elf Grovesinger', people: People.Elf, model: 'elf_grovesinger', hp: 100, speed10: 30, fighter: true, heightCm: 190 }),
   unit({ id: PeopleUnit.DwarfVillager, name: 'Dwarf', people: People.Dwarf, model: 'dwarf_villager', hp: 90, speed10: 24, fighter: false, heightCm: 130 }),
-  unit({ id: PeopleUnit.DwarfShieldbearer, name: 'Dwarf Shieldbearer', people: People.Dwarf, model: 'dwarf_shieldbearer', hp: 200, speed10: 22, fighter: true, weapon: Item.DwarfWarAxe, shield: Item.ShieldSteelHeater, armour: Item.PlateSteel, helmet: Item.SalletSteel, heightCm: 130 }),
-  unit({ id: PeopleUnit.DwarfHammerguard, name: 'Dwarf Hammerguard', people: People.Dwarf, model: 'dwarf_hammerguard', hp: 170, speed10: 22, fighter: true, weapon: Item.DwarfWarHammer, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
-  unit({ id: PeopleUnit.DwarfCrossbowman, name: 'Dwarf Crossbowman', people: People.Dwarf, model: 'dwarf_crossbowman', hp: 130, speed10: 22, fighter: true, ranged: Item.Crossbow, ammo: Item.BoltsSteel, backup: Item.SwordSteel, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
+  unit({ id: PeopleUnit.DwarfShieldbearer, name: 'Dwarf Shieldbearer', people: People.Dwarf, model: 'dwarf_shieldbearer', hp: 200, speed10: 22, fighter: true, weapon: PeopleGear.DwarfWarAxe, shield: STEEL_HEATER, armour: PeopleGear.DwarfPlate, heightCm: 130 }),
+  unit({ id: PeopleUnit.DwarfHammerguard, name: 'Dwarf Hammerguard', people: People.Dwarf, model: 'dwarf_hammerguard', hp: 170, speed10: 22, fighter: true, weapon: PeopleGear.DwarfWarHammer, armour: PeopleGear.DwarfMail, heightCm: 130 }),
+  unit({ id: PeopleUnit.DwarfCrossbowman, name: 'Dwarf Crossbowman', people: People.Dwarf, model: 'dwarf_crossbowman', hp: 130, speed10: 22, fighter: true, ranged: PeopleGear.DwarfCrossbow, weapon: SWORD_STEEL, armour: PeopleGear.DwarfMail, heightCm: 130 }),
   // Milestone 8. The war ox's front rider carries the spearman's bronze spear, and its rear rider's shortbow is the ox's own attack
   // (mounts/data.ts); the bear rider the Bladewarden's glaive; both ride at the mount's speeds (Table 14).
-  unit({ id: PeopleUnit.HalflingOxRider, name: 'Halfling ox rider', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: Item.SpearBronze, helmet: Item.HelmetNasal, heightCm: 150, mount: WAR_OX }),
-  unit({ id: PeopleUnit.ElfBearRider, name: 'Elf bear rider', people: People.Elf, model: 'elf_bear_rider', hp: 160, speed10: 34, fighter: true, weapon: Item.Glaive, armour: Item.ArmourLeather, heightCm: 190, mount: WAR_BEAR }),
-  // Gunner: "Cities only. Musket, slow to reload." Cannon crew: "Cities only. Defends the city walls." (s: a steel-barrel musket, 20 shots;
+  unit({ id: PeopleUnit.HalflingOxRider, name: 'Halfling ox rider', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: SPEAR_BRONZE, armour: PeopleGear.HalflingHelm, heightCm: 150, mount: WAR_OX }),
+  unit({ id: PeopleUnit.ElfBearRider, name: 'Elf bear rider', people: People.Elf, model: 'elf_bear_rider', hp: 160, speed10: 34, fighter: true, weapon: PeopleGear.Glaive, armour: PeopleGear.Leathers, heightCm: 190, mount: WAR_BEAR }),
+  // Gunner: "Cities only. Musket, slow to reload." Cannon crew: "Cities only. Defends the city walls." (s: a flintlock musket;
   // the crew carry steel swords and work the city's two cannons at the gate.)
-  unit({ id: PeopleUnit.DwarfGunner, name: 'Dwarf Gunner', people: People.Dwarf, model: 'dwarf_gunner', hp: 140, speed10: 22, fighter: true, ranged: Item.MusketSteel, backup: Item.SwordSteel, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
-  unit({ id: PeopleUnit.DwarfCannonCrew, name: 'Dwarf cannon crew', people: People.Dwarf, model: 'dwarf_cannon_crew', hp: 130, speed10: 22, fighter: true, weapon: Item.SwordSteel, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
+  unit({ id: PeopleUnit.DwarfGunner, name: 'Dwarf Gunner', people: People.Dwarf, model: 'dwarf_gunner', hp: 140, speed10: 22, fighter: true, ranged: MUSKET, weapon: SWORD_STEEL, armour: PeopleGear.DwarfMail, heightCm: 130 }),
+  unit({ id: PeopleUnit.DwarfCannonCrew, name: 'Dwarf cannon crew', people: People.Dwarf, model: 'dwarf_cannon_crew', hp: 130, speed10: 22, fighter: true, weapon: SWORD_STEEL, armour: PeopleGear.DwarfMail, heightCm: 130 }),
 ];
 
 export function peopleUnitSpec(id: number): PeopleUnitSpec {
@@ -303,8 +309,7 @@ export const APART_WU = 60 * M;
 
 // ----- trade (Table 11, Table 19) -----
 
-/** Goods are coded as numbers: a resource id, ITEM_GOODS + an item id, or LIVE_GOODS + a species (live animals). */
-export const ITEM_GOODS = 200;
+/** Goods are coded as numbers: a resource id, or LIVE_GOODS + a species (live animals). There are no items (Troops and gear). */
 export const LIVE_GOODS = 400;
 /** Siege engines and cannons for sale (siege/data.ts Engine), led out beside the buyer's unit: a Dwarf city's cannons. */
 export const ENGINE_GOODS = 600;
@@ -312,9 +317,9 @@ export const ENGINE_GOODS = 600;
 /** What kind of good it is, for what a people pays (Table 11 "Pays for"). */
 export const Cat = {
   Food: 0,
-  /** Tools, weapons and munitions ("tools and weapons", "tools, bows, metal weapons"). */
+  /** Tools, weapons and munitions ("tools and weapons", "tools, bows, metal weapons"): now carts, engines and gunpowder. */
   Gear: 1,
-  /** Armour, helmets, shields and boots. */
+  /** Armour, helmets, shields and boots: now hardened leather. */
   Armour: 2,
   /** Metal ingots. */
   Ingots: 3,
@@ -379,7 +384,6 @@ export const LEAN_PAY_PCT = 130;
 
 const CROPS = [Res.Wheat, Res.Potatoes, Res.Carrots, Res.Corn];
 const live = (s: Species): number => LIVE_GOODS + s;
-const item = (i: number): number => ITEM_GOODS + i;
 const engine = (k: number): number => ENGINE_GOODS + k;
 
 export const LEANS: Readonly<Record<People, readonly Lean[]>> = {
@@ -394,14 +398,15 @@ export const LEANS: Readonly<Record<People, readonly Lean[]>> = {
     { name: 'hides', sells: [Res.Hides], lacks: [Res.Fish] },
     { name: 'herbs', sells: [Res.Herbs], lacks: [Res.Meat] },
   ],
+  // The Elf caravans' one weapon becomes what it was made of (Troops and gear: weapons in trade become their materials) (s).
   [People.Elf]: [
-    { name: 'swords', sells: [item(Item.SwordHQ)], lacks: [] },
-    { name: 'pikes', sells: [item(Item.PikeHQ)], lacks: [] },
-    { name: 'glaives', sells: [item(Item.Glaive)], lacks: [] },
+    { name: 'carbon steel', sells: [Res.CarbonSteel], lacks: [] },
+    { name: 'steel', sells: [Res.SteelIngot], lacks: [] },
+    { name: 'hardened leather', sells: [Res.HardenedLeather], lacks: [] },
   ],
   [People.Dwarf]: [
     { name: 'bronze', sells: [Res.BronzeIngot], lacks: [] },
-    { name: 'bloom iron', sells: [Res.BloomIron], lacks: [] },
+    { name: 'iron', sells: [Res.IronIngot], lacks: [] },
     { name: 'wrought iron', sells: [Res.WroughtIron], lacks: [] },
     { name: 'steel', sells: [Res.SteelIngot], lacks: [] },
     { name: 'emeralds', sells: [Res.Emeralds], lacks: [] },
@@ -427,51 +432,50 @@ const row = (good: number, count: number, pct = 100, extra: Partial<StockRow> = 
 /**
  * Table 11 and Table 19: what each kind sells and how many it holds when
  * full (counts (s)), before the band's richness. The Dwarf city sells its
- * cannons, muskets, gunpowder, shot and cannonballs at Table 19's prices.
+ * cannons, gunpowder and cannonballs at Table 19's prices. Weapons, armour
+ * and shields that were sold as items are now the ingots and materials that
+ * made them, at the same value (Troops and gear) (s).
  */
 export const STOCK: readonly (readonly StockRow[])[] = [
-  // Halfling village: farm goods, live animals, Halfling gear and bloom iron (Table 11).
+  // Halfling village: farm goods, live animals, the leather and feathers of their gear, and wrought iron (Table 11).
   [
     row(Res.Wheat, 30), row(Res.Potatoes, 30), row(Res.Carrots, 30), row(Res.Corn, 20), row(Res.Eggs, 20), row(Res.Meat, 15), row(Res.Bread, 10),
     row(live(Species.Chicken), 4, 100, { price: 80 }), row(live(Species.Cattle), 2, 100, { price: 400 }), row(live(Species.Ox), 1, 100, { price: 600 }),
-    row(item(Item.Shortbow), 2, 100, { price: 100 }), row(item(Item.Shortsword), 2, 100, { price: 200 }), row(item(Item.Buckler), 2, 100, { price: 80 }),
-    row(Res.BloomIron, 10),
+    row(Res.Leather, 6), row(Res.Feathers, 20),
+    row(Res.WroughtIron, 10),
   ],
   // Runkin camp: the catch, sticks, flint and herbs (Table 11).
   [row(Res.Fish, 20), row(Res.Meat, 15), row(Res.Hides, 10), row(Res.Sticks, 40), row(Res.Flint, 20), row(Res.Herbs, 15), row(Res.Bone, 15), row(Res.Feathers, 30)],
-  // Elf kingdom: food at 120%, and 3 high-quality steel weapons a day at 4 x their value (Table 19).
+  // Elf kingdom: food at 120%, and the carbon steel of 3 weapons a day at 4 x its value (Table 19).
   [
     row(Res.Bread, 20, 120), row(Res.RoastMeat, 15, 120), row(Res.SmokedFish, 15, 120), row(Res.Wheat, 30, 120), row(Res.Flax, 20, 120), row(Res.Herbs, 15, 120),
     row(Res.Bandage, 10, 120), row(Res.Remedy, 4, 120),
-    row(item(Item.SwordHQ), 1, 100, { price: 15000, daily: true }), row(item(Item.PikeHQ), 1, 100, { price: 16000, daily: true }), row(item(Item.Glaive), 1, 100, { price: 18000, daily: true }),
+    row(Res.CarbonSteel, 9, 400, { daily: true }),
   ],
-  // Elf caravan: 1 weapon (its lean) and about 200 vp of food a visit (Table 19).
+  // Elf caravan: one weapon's materials (its lean) and about 200 vp of food a visit (Table 19).
   [
     row(Res.Bread, 12, 120), row(Res.RoastMeat, 8, 120), row(Res.SmokedFish, 8, 120), row(Res.Wheat, 10, 120), row(Res.Flax, 6, 120), row(Res.Herbs, 6, 120), row(Res.Bandage, 3, 120), row(Res.Remedy, 1, 120),
   ],
-  // Dwarf colony: a little good steel (at most 5 a day at 1.5 x), lower metals, bronze and iron weapons and shields at 1.5 x, gems (Table 19).
+  // Dwarf colony: a little good steel (at most 5 a day at 1.5 x), lower metals, the iron of its weapons and shields at 1.5 x, gems (Table 19).
   [
-    row(Res.SteelIngot, 5, 150, { daily: true }), row(Res.BronzeIngot, 20), row(Res.BloomIron, 20), row(Res.WroughtIron, 15),
-    row(item(Item.SwordBronze), 2, 150), row(item(Item.SwordBloom), 2, 150), row(item(Item.SwordWrought), 1, 150), row(item(Item.MaceBloom), 1, 150), row(item(Item.HalberdBloom), 1, 150),
-    row(item(Item.ShieldBronze), 1, 150), row(item(Item.ShieldIronKite), 1, 150),
+    row(Res.SteelIngot, 5, 150, { daily: true }), row(Res.BronzeIngot, 26), row(Res.WroughtIron, 35), row(Res.IronIngot, 6, 150),
     row(Res.Emeralds, 3), row(Res.Rubies, 2), row(Res.Diamonds, 1),
   ],
-  // Dwarf city: high-quality armour and steel weapons at about 3 x make cost (1.5 x value), gold, gems, and 2 high-quality steel ingots a day (Table 19).
+  // Dwarf city: the steel and hardened leather of its armour and weapons at about 3 x make cost (1.5 x value), gold, gems, and 2 carbon steel ingots a day (Table 19).
   [
-    row(item(Item.PlateSteel), 1, 150), row(item(Item.SalletSteel), 2, 150), row(item(Item.ShieldSteelHeater), 1, 150), row(item(Item.MailWrought), 2, 150), row(item(Item.SwordSteel), 2, 150),
-    row(Res.Gold, 10), row(Res.Emeralds, 5), row(Res.Rubies, 4), row(Res.Diamonds, 2), row(Res.HighQualitySteel, 2, 150, { daily: true }),
-    // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts), and 3 muskets a day, with the horns, pouches, powder, shot and balls to use them (s: counts).
+    row(Res.SteelIngot, 12, 150), row(Res.HardenedLeather, 6, 150),
+    row(Res.Gold, 10), row(Res.Emeralds, 5), row(Res.Rubies, 4), row(Res.Diamonds, 2), row(Res.CarbonSteel, 2, 150, { daily: true }),
+    // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts); 3 muskets' carbon steel a day, with powder and cannonballs (s: counts).
     row(engine(Engine.BronzeCannon), 1, 100, { price: 4200, daily: true }), row(engine(Engine.IronCannon), 1, 100, { price: 3840, daily: true }),
-    row(item(Item.MusketSteel), 3, 100, { price: 1020, daily: true }), row(item(Item.PowderHorn), 3, 150), row(item(Item.ShotPouch), 3, 150),
-    row(Res.Gunpowder, 20, 100, { price: 480 }), row(Res.LeadShot, 100, 100, { price: 12 }), row(Res.Cannonball, 20, 100, { price: 300 }),
+    row(Res.Gunpowder, 20, 100, { price: 480 }), row(Res.Cannonball, 20, 100, { price: 300 }),
   ],
   // Mercenary camp: hires only.
   [],
 ];
 
-/** The Elf caravan's one weapon, by its lean (sword, pike, glaive), at the kingdom's price. */
-export const CARAVAN_WEAPONS: readonly StockRow[] = [
-  row(item(Item.SwordHQ), 1, 100, { price: 15000 }), row(item(Item.PikeHQ), 1, 100, { price: 16000 }), row(item(Item.Glaive), 1, 100, { price: 18000 }),
+/** The Elf caravan's one weapon's materials, by its lean (carbon steel, steel, hardened leather), at the kingdom's 4 x. */
+export const CARAVAN_GOODS: readonly StockRow[] = [
+  row(Res.CarbonSteel, 3, 400), row(Res.SteelIngot, 3, 400), row(Res.HardenedLeather, 4, 400),
 ];
 
 /** The worth of each resource, tenths of a vp (Table 11). Cooked foods are 0.75 x their nutrition. */
@@ -482,12 +486,12 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.Saltpetre]: 40, [Res.Sulphur]: 60, [Res.Marble]: 60,
   [Res.Meat]: 30, [Res.Fish]: 20, [Res.Eggs]: 10, [Res.Wheat]: 15, [Res.Potatoes]: 10, [Res.Carrots]: 10, [Res.Corn]: 15, [Res.Flax]: 10, [Res.Herbs]: 20,
   [Res.Hides]: 30, [Res.Leather]: 40, [Res.Feathers]: 5, [Res.Bandage]: 50, [Res.Remedy]: 150,
-  [Res.CopperIngot]: 50, [Res.TinIngot]: 70, [Res.BronzeIngot]: 60, [Res.BloomIron]: 80, [Res.WroughtIron]: 90, [Res.PigIron]: 110, [Res.RefinedIron]: 240,
-  [Res.SteelIngot]: 300, [Res.HighQualitySteel]: 600, [Res.Gunpowder]: 16, [Res.LeadShot]: 4,
+  [Res.CopperIngot]: 50, [Res.TinIngot]: 70, [Res.BronzeIngot]: 60, [Res.WroughtIron]: 90, [Res.PigIron]: 110, [Res.IronIngot]: 240,
+  [Res.SteelIngot]: 300, [Res.CarbonSteel]: 600, [Res.Gunpowder]: 16,
   [Res.Gold]: 400, [Res.Silver]: 150, [Res.Emeralds]: 500, [Res.Rubies]: 600, [Res.Diamonds]: 1000, [Res.ManaCrystal]: 300, [Res.DemonHorn]: 200,
   [Res.Hexstone]: 100, [Res.Venom]: 50, [Res.SpiderSilk]: 30,
-  // Not in Table 11 (s): an iron ingot as wrought iron; rope as two flax; ramp steps and a lantern as twice their inputs.
-  [Res.IronIngot]: 90, [Res.Rope]: 20, [Res.LumberRamp]: 40, [Res.StoneRamp]: 40, [Res.Lantern]: 240,
+  // Not in Table 11 (s): rope as two flax; hardened leather, carts, ramp steps and a lantern as twice their inputs.
+  [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20, [Res.LumberRamp]: 40, [Res.StoneRamp]: 40, [Res.Lantern]: 240,
   [Res.Moonleaf]: 7250, [Res.Sunheart]: 12000,
 };
 
@@ -496,18 +500,6 @@ export const COOKED_HUNDREDTHS_PER_NUTRITION = 75;
 
 /** A trinket's metal, by TRINKET_METALS order: copper 5, tin 7, bronze 6, iron 9, steel 30, silver 15, gold 40 vp (Table 11). */
 export const TRINKET_METAL_TENTHS: readonly number[] = [50, 70, 60, 90, 300, 150, 400];
-
-/** Items with no recipe of their own, bought from the peoples: their worth, tenths (Table 11 and 19). */
-export const ITEM_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
-  [Item.Shortbow]: 100,
-  [Item.Shortsword]: 200,
-  [Item.Buckler]: 80,
-  // Table 19: the glaive sells at 1800, 4 x its value.
-  [Item.Glaive]: 4500,
-  [Item.ElfLongbow]: 1200,
-  [Item.DwarfWarAxe]: 1200,
-  [Item.DwarfWarHammer]: 1400,
-};
 
 /** Live animals' worth, tenths (Table 11: live hen 8, cow 40, ox 60; the rest (s)). */
 export const LIVE_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
@@ -539,11 +531,11 @@ export const SPECIAL_TRINKET_MULT_TENTHS = SPECIAL_TRINKET_MULTIPLIER_TENTHS;
 
 /** Halflings and Runkin offer to surrender once more than half of them have died (doc); Dwarves migrate at half (doc). */
 export const SURRENDER_DEAD_PCT = 50;
-/** Plunder (Table 11): livestock, the fighters' weapons and 10 vp of loot per villager in food and metal. */
+/** Plunder (Table 11): livestock, the metal of the fighters' weapons and 10 vp of loot per villager in food and metal. */
 export const PLUNDER_TENTHS_PER_PERSON = 100;
 /** The loot's food and metal by people (s). */
 export const PLUNDER_GOODS: Readonly<Record<People, readonly [Res, Res]>> = {
-  [People.Halfling]: [Res.Bread, Res.BloomIron],
+  [People.Halfling]: [Res.Bread, Res.WroughtIron],
   [People.Runkin]: [Res.Meat, Res.Flint],
   [People.Elf]: [Res.Bread, Res.SteelIngot],
   [People.Dwarf]: [Res.Bread, Res.WroughtIron],

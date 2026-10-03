@@ -80,9 +80,6 @@ export function mountSpec(id: number): MountSpec {
   return MOUNTS[id] ?? MOUNTS[0]!;
 }
 
-/** Table 7: riding, 30 food and 60 s at the Stables, with a tamed horse in its stalls. */
-export const RIDING = { food: 30, steps: 60 * STEPS_PER_SECOND };
-
 /** Table 1's mounted row (s): 0.5 m more reach from the saddle, 30 m sight, a 60 m leash; a bow shoots with double spread. */
 export const MOUNTED = { reachBonus: cm(50), sight: 30 * WU_PER_METRE, leash: 60 * WU_PER_METRE, bowSpreadMul: 2 };
 
@@ -97,6 +94,3 @@ export const CHARGE_CLOSE_WU = 4 * WU_PER_METRE;
 
 /** A ridden horse still eats as a working horse does (Table 6: 2 a cycle), with the workers' group. */
 export const HORSE_UPKEEP = 2;
-
-/** A mounted unit mounts and dismounts within this distance of its horse, wu (s). */
-export const MOUNT_REACH_WU = 2 * WU_PER_METRE;

@@ -11,7 +11,7 @@ import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN
 import { NavGrid, STEP_UNITS, UNDER } from './nav/grid.ts';
 import { Pathfinder } from './nav/path.ts';
 import { createStreams, hash32, type Streams } from './rng.ts';
-import { Item, ITEM_COUNT } from './combat/items.ts';
+import { applyKit, Troop } from './units/kits.ts';
 import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { World } from './world/world.ts';
@@ -112,9 +112,8 @@ export const UNIT_FIELDS = [
   /** Rank 1 to 5 (Table 1). */
   ['rank', 'u8'],
   /**
-   * The tool item held for each job (props.ts ToolJob: chop, break, build,
-   * cut), or 0; one set item can fill several. Every worker starts with the
-   * hardwood set in all four.
+   * The tool held for each job (props.ts ToolJob: chop, break, build, cut):
+   * gear ids from the worker's tool kit tier (units/kits.ts), set by applyKit.
    */
   ['toolChop', 'u8'],
   ['toolBreak', 'u8'],
@@ -147,22 +146,25 @@ export const UNIT_FIELDS = [
   ['power', 'u16'],
   /** Combat experience in tenths (rules.ts). */
   ['xp', 'i32'],
-  /** Trained skills (combat/items.ts Skill): bit 0 archery, bit 1 crossbow. */
+  /** Trained skills (combat/items.ts Skill): cannon crew. */
   ['skills', 'u8'],
   /** 0 switches by itself, 1 melee only, 2 ranged only (Warriors: the lock). */
   ['lock', 'u8'],
-  /** Equipment (combat/items.ts Item ids, 0 for none). */
+  /**
+   * The kit (Troops and gear): a troop's type (units/kits.ts Troop, fixed
+   * when it is trained) and its weapon and armour tiers; a worker's tool
+   * kit tier in wTier; a mage's wand and robe tiers.
+   */
+  ['troop', 'u8'],
+  ['wTier', 'u8'],
+  ['aTier', 'u8'],
+  /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. */
   ['weapon', 'u8'],
-  ['backup', 'u8'],
   ['ranged', 'u8'],
   ['shield', 'u8'],
-  ['boots', 'u8'],
-  /** Shots left for the ranged weapon, and the arrows in the quiver (an item id) for a bow. */
+  /** An engine's loaded shots (siege/engines.ts). */
   ['ammo', 'u16'],
-  ['ammoItem', 'u8'],
-  /** A carried hand torch burns until this step. */
-  ['torchUntil', 'u32'],
-  /** Slots chosen by hand (bit per Slot), which Equip Best leaves alone. */
+  /** Lair structures: what they hold (threats/lairs.ts). */
   ['picked', 'u16'],
   /** The unit or building it is fighting, or 0. */
   ['target', 'u32'],
@@ -193,10 +195,8 @@ export const UNIT_FIELDS = [
   ['fuseAt', 'u32'],
   /** Mobs: 1 when running for the dark (dawn, or a goblin with loot). */
   ['fleeing', 'u8'],
-  /** More equipment (Table 3 body armour and helmet, a bolt case, a worker's kit). */
+  /** Armour (or a mage's robe), a gear id; and a worker's cart (economy Res.HandCart or Res.OxCart, 0 for none). */
   ['armour', 'u8'],
-  ['helmet', 'u8'],
-  ['boltCase', 'u8'],
   ['kit', 'u8'],
   /** Healing over time from eating and medicine (Food): health still to come, until this step. */
   ['mendUntil', 'u32'],
@@ -332,14 +332,13 @@ export class EntityStore implements Record<FieldName, Column> {
   declare xp: Int32Array;
   declare skills: Uint8Array;
   declare lock: Uint8Array;
+  declare troop: Uint8Array;
+  declare wTier: Uint8Array;
+  declare aTier: Uint8Array;
   declare weapon: Uint8Array;
-  declare backup: Uint8Array;
   declare ranged: Uint8Array;
   declare shield: Uint8Array;
-  declare boots: Uint8Array;
   declare ammo: Uint16Array;
-  declare ammoItem: Uint8Array;
-  declare torchUntil: Uint32Array;
   declare picked: Uint16Array;
   declare target: Uint32Array;
   declare atkAt: Uint32Array;
@@ -362,8 +361,6 @@ export class EntityStore implements Record<FieldName, Column> {
   declare fuseAt: Uint32Array;
   declare fleeing: Uint8Array;
   declare armour: Uint8Array;
-  declare helmet: Uint8Array;
-  declare boltCase: Uint8Array;
   declare kit: Uint8Array;
   declare mendUntil: Uint32Array;
   declare mendLeft: Int32Array;
@@ -460,11 +457,10 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hp[i] = WORKER_HEALTH;
     this.maxHp[i] = WORKER_HEALTH;
     this.rank[i] = 1;
+    // Every worker starts with a tier 1 (hardwood) tool kit (Table 7).
     if (kind === UnitKind.Worker) {
-      this.toolChop[i] = Item.ToolsHardwood;
-      this.toolBreak[i] = Item.ToolsHardwood;
-      this.toolBuild[i] = Item.ToolsHardwood;
-      this.toolCut[i] = Item.ToolsHardwood;
+      this.wTier[i] = 1;
+      applyKit(this, i, 'worker');
     }
     this.carryRes[i] = NO_CARRY;
     this.nodeI[i] = -1;
@@ -509,12 +505,8 @@ export class EntityStore implements Record<FieldName, Column> {
 /** One player's side: the shared resource pool (Resources: all resources go into one shared pool). */
 export interface PlayerState {
   pool: Int32Array;
-  /** The equipment stock, by item id (Equipment). */
-  items: Int32Array;
   /** Research done, a bit per step (combat/items.ts Research). */
   research: number;
-  /** Auto-Equip (F4) on. */
-  autoEquip: number;
   /** The step the player was eliminated, or 0 while still in the game. */
   out: number;
   /** Things made at least once (combat/items.ts Made), for research that needs one first. */
@@ -534,11 +526,11 @@ export interface PlayerState {
 
 /** A player's side at the start of a game, with this pool. */
 export function newPlayer(pool: Int32Array): PlayerState {
-  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0, share: 0 };
+  return { pool, research: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0, share: 0 };
 }
 
 /** The per-player scalars after the pool and stock, in the order they are serialised. */
-export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
+export const PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /**
  * Something the players should hear about: the message panel's alerts,
@@ -625,7 +617,7 @@ export interface WorldOptions {
   players?: number;
   /** Workers each player starts with: 4 (Premise, Starting setup). */
   playerUnits?: number;
-  /** Warriors each player starts with: 1, with a flint-tipped spear and a hardwood club (Premise; Polearms). */
+  /** Warriors each player starts with: 3 close-melee troops with hardwood cudgels and no armour (Troops and gear: starting units). */
   warriors?: number;
   /** Neutral units that wander on their own, drawing on the 'ai' stream (M0's test of the streams). */
   wanderers?: number;
@@ -766,6 +758,7 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     acc: [],
     shared: 0,
     tech: 0,
+    locks: [],
   };
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);
@@ -834,17 +827,15 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
   }
-  // Then the starting warrior, a little east of the workers.
-  const warriors = options.warriors ?? 1;
+  // Then the starting warriors, a little east of the workers: close melee, a hardwood cudgel, no armour (Jade).
+  const warriors = options.warriors ?? 3;
   for (const pocket of world.gen.start.pockets) {
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     for (let n = 0; n < warriors; n++) {
       const x = px + (playerUnits + 1 + n) * 2 * WU_PER_METRE - (playerUnits >> 1) * 2 * WU_PER_METRE;
       const z = pz + 6 * WU_PER_METRE;
-      const i = addWarrior(state, pocket.player, x, z);
-      state.entities.weapon[i] = Item.SpearFlint;
-      state.entities.backup[i] = Item.Club;
+      addWarrior(state, pocket.player, x, z, Troop.Close, 1, 0);
     }
   }
   if (!options.noBase) {
@@ -867,10 +858,14 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
 /** Warrior health by rank (Table 1: Recruit 100 to Hero 180). */
 export const WARRIOR_HEALTH_BY_RANK: readonly number[] = [100, 100, 120, 140, 160, 180];
 
-/** A new warrior of rank 1 with nothing in hand; returns its index. */
-export function addWarrior(state: SimState, owner: number, x: number, z: number): number {
+/** A new troop of rank 1 of a type, with its weapon and armour tiers (a fist fighter by default); returns its index. */
+export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0): number {
   const id = state.nextEntityId++;
   const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Warrior);
+  state.entities.troop[i] = troop;
+  state.entities.wTier[i] = weapon;
+  state.entities.aTier[i] = armour;
+  applyKit(state.entities, i, 'warrior');
   state.entities.hp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.maxHp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.homeX[i] = x;

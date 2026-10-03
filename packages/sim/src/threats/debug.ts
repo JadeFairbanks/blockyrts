@@ -1,7 +1,7 @@
 // The debug tools' threats (M5's tester checks): a lair of any kind, a
 // goblin village, a tribe's band or a territorial creature at a point, a
 // blood night for the coming night, and fog now. Also M6's mage tools: a
-// finished Magi Sanctum, a kit of wands and crystals, and experience for
+// finished Magi Sanctum, two mages' kit materials and crystals, and experience for
 // every mage's next rank. And M8's: a Stables with horses, a siege kit, a
 // gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
 // night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
@@ -13,7 +13,7 @@ import { pickNight } from '../combat/spawn.ts';
 import { placeBuilding, UnitKind, WILD, type SimState } from '../state.ts';
 import { BuildingKind, footprintDims } from '../buildings/data.ts';
 import { Res } from '../economy/resources.ts';
-import { Item, Research, Skill } from '../combat/items.ts';
+import { Research, Skill } from '../combat/items.ts';
 import { addMob } from '../combat/mob-ai.ts';
 import { maxHealth } from '../buildings/store.ts';
 import { CITADEL_LEVEL, Engine } from '../siege/data.ts';
@@ -114,9 +114,10 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
   }
   const p = state.players[player];
   if (what === DebugThreat.MageKit && p) {
-    p.items[Item.Wand] = p.items[Item.Wand]! + 2;
-    for (const w of [Item.WandMage, Item.WandMasterMage, Item.WandGrandMagician]) p.items[w] = p.items[w]! + 2;
-    p.pool[Res.ManaCrystal] = p.pool[Res.ManaCrystal]! + 10;
+    // Two new mages' hazel wands and homespun robes, and the crystals for their rank-ups.
+    p.pool[Res.Sticks] = p.pool[Res.Sticks]! + 10;
+    p.pool[Res.Flax] = p.pool[Res.Flax]! + 6;
+    p.pool[Res.ManaCrystal] = p.pool[Res.ManaCrystal]! + 20;
     p.pool[Res.Bread] = p.pool[Res.Bread]! + 200;
     // What Hexcraft costs at the Sanctum.
     p.pool[Res.Hexstone] = p.pool[Res.Hexstone]! + 6;
@@ -127,7 +128,7 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     const e = state.entities;
     for (let i = 0; i < e.count; i++) {
       if (e.owner[i] !== player || e.kind[i] !== UnitKind.Mage || e.rank[i]! >= MAGE_TOP_RANK) continue;
-      // As if earned in combat: she rises by herself to Adept Acolyte, and is told about her rank wand above that.
+      // As if earned in combat: she rises by herself to Adept Acolyte, and is told to train at a Sanctum above that.
       const need = MAGE_XP_TENTHS[e.rank[i]! + 1]! - e.xp[i]!;
       if (need > 0) mageGainXp(state, i, need);
     }
@@ -150,12 +151,11 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     return;
   }
   if (what === DebugThreat.GunKit && p) {
-    for (const it of [Item.MusketSteel, Item.PowderHorn, Item.ShotPouch]) p.items[it] = p.items[it]! + 4;
-    p.pool[Res.Gunpowder] = p.pool[Res.Gunpowder]! + 20;
-    p.pool[Res.LeadShot] = p.pool[Res.LeadShot]! + 40;
-    for (const r of [Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
+    // Four musket rangers' kits (Table 2e) and the research for them and for cannons; the warriors learn cannon crew.
+    for (const [r, n] of [[Res.CarbonSteel, 4], [Res.Planks, 8], [Res.Flint, 4], [Res.Gunpowder, 24]] as const) p.pool[r] = p.pool[r]! + n;
+    for (const r of [Research.Steel, Research.CarbonSteel, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
     const e = state.entities;
-    for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.kind[i] === UnitKind.Warrior) e.skills[i] = e.skills[i]! | Skill.Musket | Skill.Cannon;
+    for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.kind[i] === UnitKind.Warrior) e.skills[i] = e.skills[i]! | Skill.Cannon;
     return;
   }
   if (what === DebugThreat.Citadel) {

@@ -9,7 +9,7 @@
 
 import { Res } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
-import { Item, Shot } from './items.ts';
+import { Shot } from './items.ts';
 
 export const Mob = {
   Zombie: 0,
@@ -136,8 +136,6 @@ export interface Drop {
   chancePm: number;
   /** "Silver or gold": half the time this resource instead. */
   alt?: Res;
-  /** An item for the equipment stock instead of a resource (a goblin's club, its arrows). */
-  item?: Item;
 }
 
 export interface MobSpec {
@@ -342,7 +340,7 @@ export const MOBS: readonly MobSpec[] = [
   {
     ...base, id: Mob.Gnoll, name: 'Gnoll', model: 'gnoll', firstNight: 0, hp: 140, armourBp: 1500, damage: 18, attackSteps: ds(13), reach: cm(200), speed: v10(35), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 30, halfWidth: cm(35), height: cm(190), role: TRIBE,
-    drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.BloomIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 30 }],
+    drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 30 }],
   },
   {
     ...base, id: Mob.Kobold, name: 'Kobold', model: 'kobold', firstNight: 0, hp: 35, armourBp: 500, damage: 8, attackSteps: ds(10), reach: cm(200), speed: v10(35), climbSpeed: v10(8), vsWalls: 2,
@@ -358,12 +356,12 @@ export const MOBS: readonly MobSpec[] = [
   {
     ...base, id: Mob.VillageGoblin, name: 'Goblin', model: 'goblin', firstNight: 0, hp: 40, armourBp: 1000, damage: 7, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
-    drops: [{ res: Res.Leather, item: Item.Club, min: 1, max: 1, chancePm: 100 }, ...GOBLIN_LOOT],
+    drops: [{ res: Res.Sticks, min: 3, max: 3, chancePm: 100 }, ...GOBLIN_LOOT],
   },
   {
     ...base, id: Mob.GoblinArcher, name: 'Goblin archer', model: 'goblin_archer', firstNight: 0, hp: 30, damage: 7, attackSteps: ds(20), reach: cm(100), range: cm(1600), shot: Shot.Arrow, spreadBp: 800, speed: v10(34), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
-    drops: [{ res: Res.Leather, min: 2, max: 4, chancePm: 300, item: Item.ArrowsFlint }, { res: Res.Leather, min: 1, max: 1, chancePm: 150 }, { res: Res.Hexstone, min: 1, max: 1, chancePm: 50 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 20 }],
+    drops: [{ res: Res.Feathers, min: 2, max: 4, chancePm: 300 }, { res: Res.Leather, min: 1, max: 1, chancePm: 150 }, { res: Res.Hexstone, min: 1, max: 1, chancePm: 50 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
     ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 35, damage: 8, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
@@ -410,7 +408,7 @@ export const MOBS: readonly MobSpec[] = [
   {
     ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 50, armourBp: 1000, damage: 9, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, threatTenths: 0, xpTenths: 20, halfWidth: cm(45), height: cm(190), role: VILLAGE,
-    drops: [{ res: Res.Leather, item: Item.SpearBronze, min: 1, max: 1, chancePm: 150 }, { res: Res.Leather, min: 1, max: 2, chancePm: 300 }, { res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 30 }],
+    drops: [{ res: Res.BronzeIngot, min: 1, max: 1, chancePm: 150 }, { res: Res.Leather, min: 1, max: 2, chancePm: 300 }, { res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 30 }],
   },
   // The wolf pen of a village of 4 huts or more (Table 17, s: 300 health).
   stand(Mob.GoblinWolfPen, 'Goblin wolf pen', 'goblin_wolf_pen', 0, 300, 500, 200),
@@ -418,7 +416,7 @@ export const MOBS: readonly MobSpec[] = [
   {
     ...base, id: Mob.BarrowKnight, name: 'Barrow knight', model: 'barrow_knight', firstNight: 25, hp: 320, armourBp: 3500, pierceBp: 5000, bluntBp: 15000, damage: 24, attackSteps: ds(16), reach: cm(150), speed: v10(24), vsWalls: 10,
     moves: Moves.Walker, sun: Sun.Smoulders, comes: Comes.Trickle, threatTenths: 80, halfWidth: cm(35), height: cm(185), undead: true,
-    drops: [{ res: Res.BloomIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Bone, min: 2, max: 2, chancePm: 150 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }],
+    drops: [{ res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Bone, min: 2, max: 2, chancePm: 150 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }],
   },
   {
     ...base, id: Mob.PlagueBearer, name: 'Plague bearer', model: 'plague_bearer', firstNight: 30, hp: 180, armourBp: 1000, damage: 10, attackSteps: ds(16), reach: cm(200), speed: v10(16), vsWalls: 5,
@@ -487,7 +485,7 @@ export const MOBS: readonly MobSpec[] = [
   {
     ...base, id: Mob.InfernalJuggernaut, name: 'Infernal juggernaut', model: 'infernal_juggernaut', firstNight: 85, hp: 3000, armourBp: 5000, damage: 60, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 300,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, threatTenths: 800, halfWidth: cm(150), height: cm(400), arc: true, demon: Demon.Red,
-    drops: [{ res: Res.RefinedIron, min: 1, max: 1, chancePm: 150 }, { res: Res.Sulphur, min: 1, max: 2, chancePm: 400 }, { res: Res.Coal, min: 1, max: 2, chancePm: 400 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
+    drops: [{ res: Res.IronIngot, min: 1, max: 1, chancePm: 150 }, { res: Res.Sulphur, min: 1, max: 2, chancePm: 400 }, { res: Res.Coal, min: 1, max: 2, chancePm: 400 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
     // Drain: 20 a second, so one strike a second (s).

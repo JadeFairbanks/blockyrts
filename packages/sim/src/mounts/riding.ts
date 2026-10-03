@@ -6,28 +6,21 @@
 // in a straight line, long enough, makes the next hit a charge: double
 // damage, and anything smaller than the mount is knocked back 1 or 2 m. The
 // goblins' wolves, the Halflings' war oxen and the Elves' bears also attack
-// by themselves beside their riders. A player's warrior trained to ride
-// mounts one of its town's tamed horses, and lets it go home when it gets
-// down.
+// by themselves beside their riders. A player's cavalry is trained at the
+// Stables on one of its tamed horses and rides it for good (Troops and gear).
 
 import { floorDiv, length2d, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { landAt, OrderKind, UnitKind, type SimState } from '../state.ts';
-import { pointGoal } from '../nav/path.ts';
+import { landAt, UnitKind, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
 import { PropKind } from '../world/props.ts';
-import { addAnimal } from '../animals/animals.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { bodyHeight, dealt, forward, gap, hostile, hurtUnit, inArc, sideOf, Side } from '../combat/combat.ts';
-import { Skill } from '../combat/items.ts';
 import { flies, isStructure, Mob, mobSpec, Moves } from '../combat/mobs.ts';
 import { fireAt } from '../combat/projectiles.ts';
 import { playerUnit } from '../combat/mob-ai.ts';
-import { Act, MOVING, resetWalk, walkTo, FAILED } from '../units/behaviour.ts';
-import type { UnitOrder } from '../units/unit-orders.ts';
-import { CHARGE_CLOSE_WU, KNOCKBACK, Mount, MOUNT_REACH_WU, mountSpec, RUN_SPEED_BP, RUN_TURN } from './data.ts';
+import { resetWalk } from '../units/behaviour.ts';
+import { CHARGE_CLOSE_WU, KNOCKBACK, Mount, mountSpec, RUN_SPEED_BP, RUN_TURN } from './data.ts';
 
-const CONTINUE = false;
-const DONE = true;
 const BP = 10000;
 
 /** Hooks other modules fill in (peoples/: the war ox's rear rider gets down when the ox falls). */
@@ -222,89 +215,22 @@ function mountStrike(state: SimState, i: number): void {
   }
 }
 
-// ----- the players' horses -----
+// ----- the players' cavalry -----
 
-/** Why a warrior cannot ride a horse, or ''. */
-export function mountProblem(state: SimState, i: number, h: number): string {
+/**
+ * Up on a mount for good: new cavalry rides out of the Stables on the tamed
+ * horse it was given, which is used up (Troops and gear). Its health, its
+ * Stables and its sex are kept with the rider.
+ */
+export function seatOnHorse(state: SimState, i: number, mount: number, hp: number, home: number, sex: number): void {
   const e = state.entities;
-  if (e.kind[i] !== UnitKind.Warrior) return 'Only warriors ride.';
-  if ((e.skills[i]! & Skill.Riding) === 0) return 'It needs riding training at the Stables first.';
-  if (e.mount[i] !== Mount.None) return 'It is already mounted.';
-  if (h < 0 || e.kind[h] !== UnitKind.Animal || e.mob[h] !== Species.Horse || e.owner[h] !== e.owner[i] || e.hp[h]! <= 0) return 'Only your own tamed horses can be ridden.';
-  if (e.born[h]! > state.step) return 'The horse is too young to ride.';
-  if (e.partner[h]) return 'The horse is working. Let it go first.';
-  return '';
-}
-
-/** The nearest of a player's tamed, grown, free horses to a point, not in `taken`, or -1. */
-export function freeHorse(state: SimState, player: number, x: number, z: number, taken: ReadonlySet<number>): number {
-  const e = state.entities;
-  let best = -1;
-  let bestD = 0;
-  for (let j = 0; j < e.count; j++) {
-    if (e.kind[j] !== UnitKind.Animal || e.mob[j] !== Species.Horse || e.owner[j] !== player || e.hp[j]! <= 0) continue;
-    if (e.born[j]! > state.step || e.partner[j] || taken.has(e.id[j]!)) continue;
-    const d = length2d(e.x[j]! - x, e.z[j]! - z);
-    if (best < 0 || d < bestD || (d === bestD && e.id[j]! < e.id[best]!)) {
-      best = j;
-      bestD = d;
-    }
-  }
-  return best;
-}
-
-/** The mount order: walk to the horse (fetching it from its stall's door), then up. */
-export function runMount(state: SimState, i: number, o: Extract<UnitOrder, { t: 'mount' }>): boolean {
-  const e = state.entities;
-  const h = e.indexOf(o.id);
-  const why = mountProblem(state, i, h);
-  if (why) {
-    if (e.mount[i] === Mount.None) state.events.push({ player: e.owner[i]!, kind: 'alert', text: why, x: e.x[i]!, z: e.z[i]! });
-    return DONE;
-  }
-  if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
-  const hx = e.x[h]!;
-  const hz = e.z[h]!;
-  if (length2d(hx - e.x[i]!, hz - e.z[i]!) > MOUNT_REACH_WU && e.inside[h] === 0) {
-    if (e.pathOk[i] !== 2 && state.step >= e.waitUntil[i]!) resetWalk(state, i);
-    if (e.pathOk[i] === 2) e.waitUntil[i] = state.step + 20;
-    const r = walkTo(state, i, { ...pointGoal(floorDiv(hx, WU_PER_COLUMN), floorDiv(hz, WU_PER_COLUMN)), max: 1 });
-    if (r === FAILED) return DONE;
-    if (r === MOVING) return CONTINUE;
-  }
-  mountHorse(state, i, h);
-  return DONE;
-}
-
-/** Up on the horse: the horse's entity goes, its health, Stables and sex are kept with the rider. */
-export function mountHorse(state: SimState, i: number, h: number): void {
-  const e = state.entities;
-  e.mount[i] = Mount.Horse;
-  e.mountHp[i] = e.hp[h]!;
-  e.mountHome[i] = e.home[h]!;
-  e.mountSex[i] = e.sex[h]!;
+  e.mount[i] = mount;
+  e.mountHp[i] = hp;
+  e.mountHome[i] = home;
+  e.mountSex[i] = sex;
   e.runWu[i] = 0;
   e.runX[i] = e.x[i]!;
   e.runZ[i] = e.z[i]!;
-  // The horse leaves the world quietly (no death, no carcass) while it is ridden.
-  e.hp[h] = -1;
-  state.dying.push(e.id[h]!);
-  e.order[i] = OrderKind.Idle;
-}
-
-/** Down from the horse: it stands beside the rider again and goes back to its Stables. */
-export function dismount(state: SimState, i: number): void {
-  const e = state.entities;
-  if (e.mount[i] !== Mount.Horse) return;
-  const h = addAnimal(state, Species.Horse, e.owner[i]!, e.x[i]! + WU_PER_METRE, e.z[i]!, 0, e.mountSex[i]!);
-  e.hp[h] = Math.max(1, Math.min(e.maxHp[h]!, e.mountHp[i]!));
-  const home = state.buildings.get(e.mountHome[i]!);
-  if (home && home.owner === e.owner[i]) e.home[h] = home.id;
-  e.mount[i] = Mount.None;
-  e.mountHp[i] = 0;
-  e.mountHome[i] = 0;
-  e.runWu[i] = 0;
-  e.charge[i] = 0;
 }
 
 /** A mounted unit's speed (Table 14): at a gallop when closing on a foe, at a trot otherwise. */

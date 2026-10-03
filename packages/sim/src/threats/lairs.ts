@@ -20,7 +20,6 @@ import { hash32 } from '../rng.ts';
 import { MONSTERS, UnitKind, type SimState } from '../state.ts';
 import { Band, Look } from '../world/layout.ts';
 import { gainXp } from '../combat/combat.ts';
-import { itemSpec } from '../combat/items.ts';
 import { addMob } from '../combat/mob-ai.ts';
 import { isLair, mobSpec } from '../combat/mobs.ts';
 import { barrierSpot, cellAt, occupiedCells } from './cells.ts';
@@ -280,14 +279,7 @@ export function clearLair(state: SimState, l: number, taker: number): void {
 }
 
 function hoardText(got: Map<number, number>): string {
-  const res: Array<[Res, number]> = [];
-  const items: string[] = [];
-  for (const [k, n] of [...got].sort((a, b) => a[0] - b[0])) {
-    if (k >= 0) res.push([k as Res, n]);
-    else items.push(`${n} ${itemSpec(-1 - k).name.toLowerCase()}`);
-  }
-  const parts = [res.length > 0 ? costText(res as Cost) : '', ...items].filter((t) => t !== '');
-  return parts.join(', ');
+  return costText([...got].sort((a, b) => a[0] - b[0]) as Cost);
 }
 
 /** The lairs of a player standing tonight, for the night's share. */
