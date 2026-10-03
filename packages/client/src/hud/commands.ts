@@ -521,7 +521,7 @@ export class Commands {
       card[9] = this.entry(
         'hunt',
         'Hunt',
-        'The warriors go out after game, hares, deer, boar and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Bears and creatures that guard their ground are left alone. To hunt one animal, right-click it.',
+        'The warriors go out after game, hares, deer and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you right-click one. To hunt one animal, right-click it.',
         () => this.huntAuto(),
       );
       card[10] = this.eatEntry();

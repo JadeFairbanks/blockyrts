@@ -18,7 +18,7 @@ import { RESOURCES } from '../economy/resources.ts';
 import { atan2Angle, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
 import { NO_CARRY, OrderKind, UnitKind, WILD, type SimState } from '../state.ts';
-import { isGame, speciesSpec } from '../animals/species.ts';
+import { isGame, Nature, speciesSpec } from '../animals/species.ts';
 import { newHome } from '../animals/animals.ts';
 import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, toDropoff, walkTo } from './behaviour.ts';
 import { exploreTarget, fromBuilding, HOME_SLACK_M, homeOf, homeBaseNear, wanderTarget, type Home } from './forage.ts';
@@ -79,9 +79,11 @@ function huntedByOthers(state: SimState, i: number): Set<number> {
 }
 
 /**
- * The game to hunt next (Semi-automation: hunting): hares, deer, boar, crabs
- * and wild birds the players' side can see, within the hunter's reach, never
- * bears or the territorial beasts. A wounded one first, so a hunt finishes
+ * The game to hunt next (Semi-automation: hunting): hares, deer and wild
+ * birds the players' side can see, within the hunter's reach. Never bears or
+ * the territorial beasts, and not the game that fights back, wild boar and
+ * giant crabs: those only when right-clicked (s), so a lone hunter does not
+ * walk into a fight it may lose. A wounded one first, so a hunt finishes
  * what it started; then the nearest, leaving what other hunters are after
  * unless nothing else is in sight.
  */
@@ -95,7 +97,8 @@ export function nearestGame(state: SimState, i: number, h: Home | undefined, fro
   let bestKey = 0;
   let bestD = 0;
   for (const j of state.grid.near(x, z, r)) {
-    if (!isQuarry(state, j) || !isGame(e.mob[j]!) || !inReach(h, from, e.x[j]!, e.z[j]!) || !sideSees(state, j)) continue;
+    if (!isQuarry(state, j) || !isGame(e.mob[j]!) || speciesSpec(e.mob[j]!).nature === Nature.FightsBack) continue;
+    if (!inReach(h, from, e.x[j]!, e.z[j]!) || !sideSees(state, j)) continue;
     // Lower is better: untaken before taken, wounded before whole, then the distance, then the id.
     const key = (taken.has(e.id[j]!) ? 2 : 0) + (e.hp[j]! < e.maxHp[j]! ? 0 : 1);
     const d = length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!);
