@@ -718,4 +718,28 @@ export const NUMBER_TABLES: readonly NumberTable[] = [
       "Break cost for monsters, in the same points as wall health, per cubic metre (s): soil 200, clay 250, sand 120, gravel 150, stone 1500, marble 2000, ore-bearing rock 1500; a breaker must deal that much \"vs walls\" damage to open a 1 m wide crossing through each cubic metre, so a 2 m deep soil trench costs 400 (between a softwood wall at 300 and stone at 1500, as the doc wants), and the x3 comparison rule of the doc applies when it chooses between the trench and a wall. Earth from digging goes straight to the pool with no hauling (s). Marble carving needs bronze or better, ore rock needs the tool of its ore (table 5) (s).",
     ],
   },
+  {
+    id: "20",
+    table: 20,
+    title: "Multiplayer, saving and settings",
+    caption: "",
+    columns: ["Rule","Value (s)"],
+    rows: [
+      [{"text":"Invite","suggested":false,"marked":false},{"text":"6-letter code or the link /join/CODE; spaces, dashes and case ignored","suggested":true,"marked":false}],
+      [{"text":"Lobby","suggested":false,"marked":false},{"text":"8 colours, one each; host starts once everyone else is ready, or alone","suggested":true,"marked":false}],
+      [{"text":"Missing player","suggested":false,"marked":false},{"text":"\"Waiting for NAME\" after 1 s; host choices (Wait, Carry on without them, Save and quit) after 30 s","suggested":true,"marked":false}],
+      [{"text":"Autosave","suggested":false,"marked":false},{"text":"every dawn; newest 5 matches kept in the browser; also on the server with an account (online, the host's only)","suggested":true,"marked":false}],
+      [{"text":"Save file","suggested":false,"marked":false},{"text":".sac, with a SEAT section (each seat's name, colour and account); loading gives the saved hash","suggested":false,"marked":false}],
+      [{"text":"Graphics presets","suggested":false,"marked":false},{"text":"Low: resolution 75%, no shadows, view near; Medium (default): 100%, shadows, medium; High: 100%, shadows, far","suggested":true,"marked":false}],
+      [{"text":"Graphics ranges","suggested":false,"marked":false},{"text":"resolution scale 50 to 100%; sun shadows cover 45 m round the camera; view distance near, medium, far = 5, 7, 9 chunk rings","suggested":true,"marked":false}],
+      [{"text":"Volumes (default)","suggested":false,"marked":false},{"text":"music 70%, effects 80%, voices 80%","suggested":true,"marked":false}],
+      [{"text":"First-day hints","suggested":false,"marked":false},{"text":"5, one at a time: select a worker, gather wood, build, light a torch, Everyone Home at dusk","suggested":true,"marked":false}],
+      [{"text":"Accounts","suggested":false,"marked":false},{"text":"email, name, password of 8 or more characters; forgot password by email link","suggested":true,"marked":false}],
+      [{"text":"Keys","suggested":false,"marked":false},{"text":"[ Allies, ] Send resources, \\ Map ping, Pause key, Enter chat; all rebindable except Enter","suggested":false,"marked":false}],
+      [{"text":"Send resources","suggested":false,"marked":false},{"text":"+10, +100, All or a typed amount; arrives at once","suggested":true,"marked":false}],
+      [{"text":"Relay protocol","suggested":false,"marked":false},{"text":"version 2: each player's account id travels with their name in the room state","suggested":true,"marked":false}],
+    ],
+    notes: [
+    ],
+  },
 ];
