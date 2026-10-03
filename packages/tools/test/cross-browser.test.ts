@@ -3,7 +3,8 @@
 // units; the M1 script also generates the land they walk on, digs, builds,
 // lets water flow, fells trees and reveals land, so the hashes cover the
 // world's state too, and the M2 script covers workers, buildings, farms,
-// lights and the day.
+// lights and the day. The chain scripts cover wall chains and tunnel chains,
+// one order per stretch.
 //
 // Browsers come from Playwright. Locally a missing browser is skipped with a
 // warning; CI sets SIM_REQUIRE_BROWSERS=chromium,firefox,webkit so a missing
@@ -23,7 +24,7 @@ const engines: Array<[string, BrowserType]> = [
   ['firefox', firefox],
   ['webkit', webkit],
 ];
-const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights', 'm4-economy', 'm5-threats', 'm6-mages', 'm7-peoples', 'm8-siege'].map((name) => {
+const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights', 'm4-economy', 'm5-threats', 'm6-mages', 'm7-peoples', 'm8-siege', 'chain-walls', 'chain-tunnel'].map((name) => {
   const script = loadOrderScript(fileURLToPath(new URL(`../orders/${name}.json`, import.meta.url)));
   const players = script.players ?? 1;
   const peaceful = script.peaceful === true;
@@ -81,8 +82,8 @@ describe('cross-engine determinism', () => {
       } finally {
         await browser.close();
       }
-      // Nine 10,000-step scripts in one page: a slow engine, or a busy machine, needs minutes.
-    }, 300_000);
+      // Eleven 10,000-step scripts in one page: a slow engine, or a busy machine, needs minutes.
+    }, 420_000);
   }
 });
 

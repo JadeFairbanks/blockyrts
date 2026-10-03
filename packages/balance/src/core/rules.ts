@@ -50,7 +50,7 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
 export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
-  'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS',
+  'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
   // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
   'peoples/data.ts:PEOPLE_NAMES', 'peoples/data.ts:PERSON_NAMES', 'peoples/data.ts:FACTION_KIND_NAMES', 'peoples/data.ts:KIND_PEOPLE',
   'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:LIVE_GOODS', 'peoples/data.ts:ENGINE_GOODS',
@@ -82,6 +82,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
 export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'buildings/data.ts': 'buildings',
   'buildings/placement.ts': 'buildings',
+  'buildings/chains.ts': 'buildings',
   'buildings/production.ts': 'units',
   'buildings/recipes.ts': 'recipes',
   'buildings/lights.ts': 'land',
@@ -138,6 +139,12 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
+  // Tunnel chains go with digging; the wall chain's stretch stays with the buildings.
+  'buildings/chains.ts:TUNNEL_STRETCH_MAX_COLUMNS': 'world',
+  'buildings/chains.ts:TUNNEL_WIDTH_COLUMNS': 'world',
+  'buildings/chains.ts:TUNNEL_HEIGHT_UNITS': 'world',
+  'buildings/chains.ts:TUNNEL_MIN_UNITS': 'world',
+  'buildings/chains.ts:TUNNEL_MAX_UNITS': 'world',
   'buildings/data.ts:WORKER_TRAIN_STEPS': 'training',
   'buildings/data.ts:WORKER_FOOD': 'training',
   'buildings/data.ts:BUILDING_CLAIM_M': 'land',
@@ -330,7 +337,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': 'Siege engines and cannon ports', 'threats/late-mobs.ts': 'Late night mobs\' abilities',
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
-  'buildings/placement.ts': 'Placement', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
+  'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
 };
 

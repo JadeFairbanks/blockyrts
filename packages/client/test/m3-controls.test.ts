@@ -17,7 +17,7 @@ import {
   type Order,
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { AREA_DEFAULT_UNITS, Commands, menuSlots, submenuChoices, wallLine, type CommandDeps } from '../src/hud/commands.ts';
+import { AREA_DEFAULT_UNITS, Commands, menuSlots, submenuChoices, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -316,22 +316,17 @@ describe('digging and earthworks', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, level: 0, level2: 20 });
   });
 
-  it('tunnels into a cliff face pressed on its side, from the ground in front, as far in as + and - set', () => {
+  it('starts a tunnel chain from a cliff face pressed on its side, floored at the ground in front (chains-controls.test.ts has the rest)', () => {
     // A 1.1 m (10 unit) cliff from x = 2 m: the press lands on its west side, 0.5 m up.
     const units = 0.1125;
     const cliff = (x: number): number => (x >= 2.25 ? 10 * units : 0);
     const { c, sent } = harness(game(), workers, 'worker', cliff);
     c.startArea('dig', 0);
     c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
-    c.updateArea(new THREE.Vector3(2.25, 0.5, 1.2));
-    c.areaUp();
-    c.adjustArea(1);
-    const plan = c.areaPlan()!;
-    // Face column 5 (2.25 m / 0.45 m), into +x for 8 columns, 3 columns wide along the face.
-    expect(plan).toMatchObject({ tunnel: true, x0: 5, x1: 12, z0: 0, z1: 2, level: 0, level2: 20 });
-    expect(c.card()[0]!.description).toContain('3.6 m into the face');
-    c.confirmArea();
-    expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, x0: 5, x1: 12, level: 0, level2: 20 });
+    // Face column 5 (2.25 m / 0.45 m); nothing is dug until the next click.
+    expect(c.area!.chain).toEqual({ x: 5, z: 0, floor: 0 });
+    expect(c.areaPlan()).toBeNull();
+    expect(sent).toEqual([]);
   });
 
   it('digs down, not sideways, when the press is on top of the ground or on a low step', () => {
@@ -355,17 +350,5 @@ describe('digging and earthworks', () => {
     c.confirmArea();
     // Dragged from high (x 4 m) to low: the low-x end is the bottom.
     expect(sent.at(-1)).toMatchObject({ kind: 'earthwork', variant: 1, axis: 0, x0: 0, x1: 8, level: 0, level2: 8 });
-  });
-
-  it('places walls a column at a time with no diagonal gaps', () => {
-    const line = wallLine(0, 0, 5, 3, 80);
-    expect(line[0]).toEqual([0, 0]);
-    expect(line.at(-1)).toEqual([5, 3]);
-    for (let i = 1; i < line.length; i++) {
-      const [ax, az] = line[i - 1]!;
-      const [bx, bz] = line[i]!;
-      expect(Math.abs(ax - bx) + Math.abs(az - bz)).toBe(1);
-    }
-    expect(line.length).toBe(9);
   });
 });

@@ -1079,6 +1079,26 @@ body.playing * {
   border: 1px solid rgba(160, 210, 120, 0.6);
   pointer-events: none;
 }
+.chain-label {
+  position: absolute;
+  z-index: 5;
+  padding: 3px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: #f4ecd2;
+  background: rgba(20, 18, 12, 0.85);
+  border: 1px solid rgba(242, 210, 75, 0.55);
+  pointer-events: none;
+}
+.chain-label.short {
+  color: #ffb0a0;
+  border-color: rgba(230, 110, 90, 0.7);
+}
+.chain-hint {
+  margin-top: 1px;
+  font-size: 11px;
+  color: rgba(244, 236, 210, 0.7);
+}
 .chat:not(:disabled) {
   color: var(--text);
   cursor: text;

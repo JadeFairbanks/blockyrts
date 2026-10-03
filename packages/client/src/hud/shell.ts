@@ -12,6 +12,8 @@ import {
   SiteKind,
   SPELLS,
   PEOPLE_UNITS,
+  stretchBetween,
+  TUNNEL_WIDTH_COLUMNS,
   UnitKind,
   WU_PER_METRE,
   type Order,
@@ -47,7 +49,7 @@ import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
 import { ChatBox } from './chat.ts';
-import { Commands, TERRAIN_UNIT_M, type Card } from './commands.ts';
+import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { buildLayout, type HudLayout } from './layout.ts';
 import { SpeechBubbles } from './bubbles.ts';
@@ -223,6 +225,10 @@ export class GameShell {
   private lastPlannedSig = '';
   private overShown = false;
   private readonly parent: HTMLElement;
+  /** Beside the cursor during a wall or tunnel chain: what the next click builds and costs, and below it how to go on or stop. */
+  private readonly chainLabel: HTMLElement;
+  private readonly chainText: HTMLElement;
+  private readonly chainHint: HTMLElement;
 
   constructor(
     parent: HTMLElement,
@@ -235,6 +241,14 @@ export class GameShell {
     this.settings = opts.settings;
     this.player = opts.player;
     this.layout = buildLayout(parent, this.panels);
+    this.chainLabel = document.createElement('div');
+    this.chainLabel.className = 'chain-label';
+    this.chainLabel.hidden = true;
+    this.chainText = document.createElement('div');
+    this.chainHint = document.createElement('div');
+    this.chainHint.className = 'chain-hint';
+    this.chainLabel.append(this.chainText, this.chainHint);
+    this.layout.root.append(this.chainLabel);
     this.tooltip = new Tooltip(parent);
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
     this.visuals = new SelectionVisuals(opts.scene);
@@ -1093,6 +1107,7 @@ export class GameShell {
             this.commands.areaDown(this.cam.pick(p));
           } else if (this.commands.placing) {
             this.leftConsumed = true;
+            this.commands.aimPlacing(this.cam.pick(p));
             this.commands.placeDown();
           } else if (this.commands.targeting) {
             this.leftConsumed = true;
@@ -1106,9 +1121,8 @@ export class GameShell {
           this.setFollow(null);
           this.cam.grabStart(p);
         } else if (button === Btn.Right) {
-          if (this.commands.area) this.commands.endArea();
-          else if (this.commands.placing) this.commands.endPlacing();
-          else if (this.commands.targeting) this.commands.back();
+          // Right click ends a wall or tunnel chain, or puts the ghost or the dig away.
+          if (this.commands.area || this.commands.placing || this.commands.targeting) this.commands.back();
           else if (!this.selector.dragging) {
             const u = this.under(p);
             this.commands.smart(u.item, u.ground);
@@ -1124,7 +1138,10 @@ export class GameShell {
           if (this.leftConsumed) {
             this.leftConsumed = false;
             if (this.commands.area) this.commands.areaUp();
-            else if (this.commands.placing) this.commands.placeUp();
+            else if (this.commands.placing) {
+              this.commands.aimPlacing(this.cam.pick(p));
+              this.commands.placeUp();
+            }
           } else this.selector.up(p, mods);
         } else if (button === Btn.Middle) {
           this.middleDrag = false;
@@ -1132,8 +1149,8 @@ export class GameShell {
         }
       },
       wheel: (p, dy) => {
-        // While marking an area, the wheel sets the depth or height instead of zooming.
-        if (this.commands.area?.from) {
+        // While marking an area or a tunnel chain, the wheel sets the depth or height instead of zooming.
+        if (this.commands.area?.from || this.commands.area?.chain) {
           this.commands.adjustArea(dy < 0 ? 1 : -1);
           return;
         }
@@ -1164,8 +1181,7 @@ export class GameShell {
           this.setFollow(null);
           this.cam.jumpTo(at.x, at.z);
         } else if (button === Btn.Right) {
-          if (this.commands.placing) this.commands.endPlacing();
-          else if (this.commands.targeting) this.commands.back();
+          if (this.commands.placing || this.commands.area || this.commands.targeting) this.commands.back();
           else this.commands.smart(null, at);
         }
       },
@@ -1258,6 +1274,15 @@ export class GameShell {
     this.commands.updateArea(inGameView ? this.cam.pick(pos) : null);
     this.extras.setGhost(ghost);
     this.drawOverlay(ghost);
+    const label = inGameView ? this.commands.chainLabel() : null;
+    this.chainLabel.hidden = label === null;
+    if (label) {
+      setText(this.chainText, label.text);
+      setText(this.chainHint, label.hint);
+      this.chainLabel.classList.toggle('short', label.short);
+      this.chainLabel.style.left = `${pos.x + 18}px`;
+      this.chainLabel.style.top = `${pos.y + 14}px`;
+    }
 
     // Cursor shape.
     const overMinimap = playing && this.input.inWindow && this.overMinimapCanvas(pos);
@@ -1355,17 +1380,31 @@ export class GameShell {
     const box = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number, c: THREE.Color): void => {
       o.box(x0 * COLUMN_M, Math.min(y0, y1), z0 * COLUMN_M, (x1 + 1) * COLUMN_M, Math.max(y0, y1), (z1 + 1) * COLUMN_M, c);
     };
+    const stretch = (x: number, z: number, dir: number, length: number, width: number, y0: number, y1: number, c: THREE.Color): void => {
+      for (const [x0, z0, x1, z1] of stretchBoxes(x, z, dir, length, width)) box(x0, z0, x1, z1, y0, y1, c);
+    };
     for (const s of this.game.info?.sites ?? []) {
       const cx = ((s.x0 + s.x1 + 1) / 2) * COLUMN_M;
       const cz = ((s.z0 + s.z1 + 1) / 2) * COLUMN_M;
       const ground = h(cx, cz);
-      const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel ? TUNNEL : HEAP;
-      if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
+      const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel || s.kind === SiteKind.TunnelLine ? TUNNEL : HEAP;
+      if (s.kind === SiteKind.TunnelLine) {
+        const { dir, length } = stretchBetween(s.x0, s.z0, s.x1, s.z1);
+        stretch(s.x0, s.z0, dir, length, s.axis, s.level * tu, s.level2 * tu, c);
+      } else if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
       else if (s.kind === SiteKind.Ramp || s.kind === SiteKind.LumberRamp || s.kind === SiteKind.StoneRamp) box(s.x0, s.z0, s.x1, s.z1, Math.min(s.level, s.level2) * tu, Math.max(s.level, s.level2) * tu, c);
       else box(s.x0, s.z0, s.x1, s.z1, s.level * tu, ground + 0.1, c);
     }
-    const plan = this.commands.areaPlan();
+    // A tunnel chain: its anchor, and the next stretch towards the cursor.
     const a = this.commands.area;
+    if (a?.chain) {
+      const t = this.commands.tunnelPlan();
+      const y1 = (a.chain.floor + a.tunnelUnits) * tu;
+      if (t && t.length > 0) stretch(t.x, t.z, t.dir, t.length, TUNNEL_WIDTH_COLUMNS, a.chain.floor * tu, y1, TUNNEL);
+      else box(a.chain.x, a.chain.z, a.chain.x, a.chain.z, a.chain.floor * tu, y1, TUNNEL);
+      return;
+    }
+    const plan = this.commands.areaPlan();
     if (!plan || !a) return;
     const c = a.mode === 'earthwork' ? HEAP : plan.tunnel ? TUNNEL : DIG;
     if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, c);

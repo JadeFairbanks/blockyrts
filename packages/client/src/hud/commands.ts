@@ -2,7 +2,8 @@
 // hotkeys; Building placement; Queuing orders with Shift; Production queues).
 // Works out the 15 buttons for the active subgroup, the targeted commands and
 // their clicks, the smart right click, and the placement ghost with Shift
-// chains and dragged lines of lights. Orders go out through `issue`; what the
+// chains, wall chains clicked from point to point, and dragged lines of
+// lights; and the dig area, with tunnel chains clicked the same way. Orders go out through `issue`; what the
 // world looks like comes from GameInfo and the selectables under the cursor.
 import * as THREE from 'three';
 import { cue } from '../audio/cues.ts';
@@ -38,9 +39,23 @@ import {
   RESEARCH_PRODUCT,
   RESOURCES,
   schoolSpells,
+  plannedSpots,
+  siteCells,
   SiteKind,
   SITE_MAX_COLUMNS,
+  snapStretch,
   speciesSpec,
+  stretchBetween,
+  stretchCells,
+  stretchEnd,
+  stretchRoom,
+  STRETCH_DIRS,
+  TUNNEL_HEIGHT_UNITS,
+  TUNNEL_MAX_UNITS,
+  TUNNEL_MIN_UNITS,
+  TUNNEL_STRETCH_MAX_COLUMNS,
+  TUNNEL_WIDTH_COLUMNS,
+  WALL_STRETCH_MAX_COLUMNS,
   Spell,
   SPELLS,
   Troop,
@@ -100,7 +115,11 @@ type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack'
 /** Pages of the command card: the main card, the build menus and a building's K menu (smelting, cooking, research and the rest). */
 export type CardPage = 'main' | 'basic' | 'advanced' | 'make';
 
-/** Dig (D) and earthworks: an area dragged on the ground, then confirmed with a left click (Dig: area, depth, preview, tunnels). */
+/**
+ * Dig (D) and earthworks: an area dragged on the ground, then confirmed with
+ * a left click (Dig: area, depth, preview); or, for Dig, a tunnel chain
+ * clicked from point to point (Digging: tunnel chains).
+ */
 export interface Area {
   mode: 'dig' | 'earthwork';
   /** Earthworks: 0 earth bank, 1 earth ramp, 2 fill, 3 lumber ramp, 4 stone ramp. */
@@ -113,10 +132,23 @@ export interface Area {
   units: number;
   /** A tunnel's height, terrain units. */
   tunnelUnits: number;
-  /** Dig pressed on a cliff face: the face column, the way out of the face (one of x or z is +-1) and the ground in front of it, terrain units. */
-  face: { x: number; z: number; nx: number; nz: number; floor: number } | null;
-  /** How far a tunnel into a face goes, columns. */
-  tunnelColumns: number;
+  /** Tunnel (D again on the dig card): presses start a tunnel chain on flat ground too, not only on a face. */
+  tunnel: boolean;
+  /** A tunnel chain under way: the anchor the next stretch runs from, and the floor every stretch keeps (terrain units). */
+  chain: { x: number; z: number; floor: number } | null;
+  /** Stretches of this chain ordered so far: the first goes in with Shift or not, the rest after it. */
+  stretches: number;
+  /** The column under the cursor, while a chain waits for its next click. */
+  cursor: { x: number; z: number } | null;
+}
+
+/** A stretch being previewed: from its anchor, its direction and length, and the columns it covers. */
+export interface StretchPlan {
+  x: number;
+  z: number;
+  dir: number;
+  length: number;
+  cells: Array<[number, number]>;
 }
 
 /** What an area would mark, in the sim's terms, with the heights the preview draws. */
@@ -149,15 +181,8 @@ export const AREA_DEFAULT_UNITS = 9;
 export const AREA_MAX_UNITS = 27;
 /** A dig starts a tunnel when the box rises this far above where the drag started: a face about 2.25 m tall (s). */
 export const TUNNEL_FACE_UNITS = 20;
-/** Tunnel height: 2.25 m by default, at least 2 m of headroom (s). */
-export const TUNNEL_UNITS = 20;
-const TUNNEL_MIN_UNITS = 18;
-const TUNNEL_MAX_UNITS = 36;
-/** A press on the side of land at least this much taller than the ground in front of it (a rise nobody can jump, 5 units) marks a tunnel into that face (s). */
+/** A press on the side of land at least this much taller than the ground in front of it (a rise nobody can jump, 5 units) starts a tunnel chain into that face (s). */
 export const FACE_MIN_UNITS = 5;
-/** How far a new tunnel into a face goes: 6 columns, 2.7 m; + and - change it 2 columns (90 cm) at a time (s). */
-export const TUNNEL_COLUMNS = 6;
-const TUNNEL_COLUMNS_STEP = 2;
 const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'];
 /** Earthworks variants shaped as a ramp: earth, lumber and stone. */
 const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
@@ -196,6 +221,11 @@ export interface Placing {
   z: number;
   /** A dragged line of lights: where the drag started, or null. */
   dragFrom: { x: number; z: number } | null;
+  /** A wall chain under way: the anchor the next stretch runs from (the end of the last), or null before the first click. */
+  chain: { x: number; z: number } | null;
+  /** Stretches ordered since the chain's first wall, and whether that first click placed a wall (not an old one clicked to go on from). */
+  stretches: number;
+  placed: boolean;
   /** The spots being shown, with the sim's answers once they arrive. */
   spots: GhostSpot[];
 }
@@ -311,14 +341,21 @@ export class Commands {
     return out;
   }
 
-  /** Esc: back out of a target, a ghost or a submenu; true if there was one. */
+  /** Esc (and right click): back out of a chain, a target, a ghost or a submenu; true if there was one. Ending a chain with Shift held keeps the ghost or Dig for another. */
   back(): boolean {
     if (this.area) {
-      this.endArea();
+      if (this.area.chain && this.d.queued()) {
+        this.area = { ...this.area, chain: null, stretches: 0, cursor: null };
+        this.d.changed();
+      } else this.endArea();
       return true;
     }
     if (this.placing) {
-      this.endPlacing();
+      if (this.placing.chain && this.d.queued()) {
+        this.placing.chain = null;
+        this.placing.stretches = 0;
+        this.d.changed();
+      } else this.endPlacing();
       return true;
     }
     if (this.targeting) {
@@ -384,13 +421,29 @@ export class Commands {
   }
 
   private cancelEntry(): CardEntry {
+    const chain = this.placing?.chain ?? this.area?.chain ?? null;
+    if (chain) {
+      const walls = this.placing !== null;
+      return {
+        action: 'cancel',
+        face: 'Done',
+        name: walls ? 'End the wall chain' : 'End the tunnel',
+        key: 'Escape',
+        description: `${walls ? 'End the wall chain: the walls already placed stay planned and the workers build them.' : 'End the tunnel: the stretches already marked stay marked and the workers dig them.'} Right click, or a click on the chain's last point, does the same. With Shift held, ${walls ? 'the wall stays on the cursor' : 'Dig stays on'} for a new chain.`,
+        enabled: true,
+        reason: '',
+        run: () => this.back(),
+      };
+    }
     return {
       action: 'cancel',
       face: 'Cancel',
       name: 'Cancel',
       key: 'Escape',
       description: this.placing
-        ? 'Put the building away without placing it. Right click does the same.'
+        ? Commands.chained(this.placing.kind)
+          ? 'Put the wall away without placing it. Right click does the same.'
+          : 'Put the building away without placing it. Right click does the same.'
         : this.area
           ? 'Stop marking the area. Right click does the same.'
           : 'Cancel the command waiting for a target. Right click does the same.',
@@ -436,7 +489,7 @@ export class Commands {
       card[8] = this.entry(
         'dig',
         'Dig',
-        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Pressing on the side of a cliff or hillside digs a tunnel into it instead, from the ground in front: drag along the face for its width, and + and - set how far in it goes. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
+        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Clicking the side of a cliff or hillside starts a tunnel instead (D again, or Tunnel, for one on flat ground): click where it goes and each click digs the stretch from the last point, level, straight or diagonal; keep clicking to turn corners, right click ends it. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
         () => this.startArea('dig', 0),
       );
       card[9] = this.entry(
@@ -836,8 +889,9 @@ export class Commands {
     if (l.supply) lines.push(`Supply +${l.supply}.`);
     if (spec.light) lines.push(`Light ${spec.light.lightM} m${spec.light.claimM ? `, claims ${spec.light.claimM} m while lit` : ''}.`);
     if (spec.site) lines.push(EARTHWORK_HELP[variant] ?? '');
-    else if (spec.w === 1 && spec.d === 1) lines.push(spec.light ? 'Drag to place a line of them, 8 m apart.' : 'Drag to place a line, a column at a time.');
-    if (!spec.site) lines.push('Shift + click to place several.');
+    else if (Commands.chained(spec.kind)) lines.push(WALL_CHAIN_HELP);
+    else if (spec.w === 1 && spec.d === 1) lines.push('Drag to place a line of them, 8 m apart.');
+    if (!spec.site && !Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
     if (short) lines.push(short);
     return {
       action: `build-${spec.kind}-${variant}`,
@@ -1034,23 +1088,22 @@ export class Commands {
     return { action: 'back', face: 'Back', name: 'Back', key: GRID_CODES[14], grid: true, description, enabled: true, reason: '', run: () => this.back() };
   }
 
-  /** Dig and earthworks: + and - set the depth or height, Mark confirms, Esc cancels. */
+  /** Dig and earthworks: + and - set the depth or height, Tunnel (D again) clicks out a tunnel chain, Mark confirms, Esc cancels. */
   private areaCard(card: Card): Card {
     const a = this.area!;
     const plan = this.areaPlan();
-    const tunnel = plan?.tunnel === true;
+    const chain = a.mode === 'dig' && (a.tunnel || a.chain !== null);
+    const tunnel = chain || plan?.tunnel === true;
     const what = a.mode === 'dig' ? (tunnel ? 'tunnel height' : 'depth') : 'height';
     const fixed = a.mode === 'earthwork' && a.variant !== 0;
     const m = ((tunnel ? a.tunnelUnits : a.units) * TERRAIN_UNIT_M).toFixed(2);
     const down = a.mode === 'dig' && !tunnel;
-    if (a.face) {
-      const far = (a.tunnelColumns * COLUMN_M).toFixed(1);
-      card[0] = this.entry('deeper', 'Further', `The tunnel goes ${far} m into the face. Press for 90 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: 'Tunnel further' });
-      card[1] = this.entry('shallower', 'Shorter', `The tunnel goes ${far} m into the face. Press for 90 cm less.`, () => this.adjustArea(-1), { name: 'Tunnel less far' });
-    } else if (!fixed) {
+    if (!fixed) {
       card[0] = this.entry('deeper', down ? 'Deeper' : 'Higher', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
       card[1] = this.entry('shallower', down ? 'Shallower' : 'Lower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
     }
+    if (a.mode === 'dig') card[2] = this.entry('tunnel', 'Tunnel', TUNNEL_CHAIN_HELP, () => this.toggleTunnel(), { key: this.key('dig'), lit: chain, name: 'Dig a tunnel' });
+    if (chain) return card;
     const ready = plan !== null && !a.dragging;
     const name = a.mode === 'dig' ? (tunnel ? 'Dig the tunnel' : 'Dig it out') : `Make the ${EARTHWORK_NAMES[a.variant]!.toLowerCase()}`;
     const stuff = HEAP_STUFF[a.variant] ?? HEAP_STUFF[0]!;
@@ -1500,8 +1553,15 @@ export class Commands {
   private helpSite(workers: number[], at: THREE.Vector3): boolean {
     const x = Math.floor(at.x / COLUMN_M);
     const z = Math.floor(at.z / COLUMN_M);
-    const site = this.d.game.info?.sites.find((s) => x >= s.x0 && x <= s.x1 && z >= s.z0 && z <= s.z1);
+    const site = this.d.game.info?.sites.find((s) => siteCells(s).some(([cx, cz]) => cx === x && cz === z));
     if (!site) return false;
+    if (site.kind === SiteKind.TunnelLine) {
+      // The same stretch again: the sim gives these workers the one already marked.
+      const { dir, length } = stretchBetween(site.x0, site.z0, site.x1, site.z1);
+      this.d.send({ kind: 'tunnelStretch', player: this.d.player, units: workers, x: site.x0, z: site.z0, dir, length, level: site.level, level2: site.level2, queued: this.d.queued() });
+      this.d.marker(at, 'target');
+      return true;
+    }
     const box = { player: this.d.player, units: workers, x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1, level: site.level, level2: site.level2, queued: this.d.queued() };
     if (site.kind === SiteKind.Dig || site.kind === SiteKind.Tunnel) this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : 0 });
     else this.d.send({ kind: 'earthwork', ...box, variant: site.kind === SiteKind.Ramp ? 1 : site.kind === SiteKind.LumberRamp ? 3 : site.kind === SiteKind.StoneRamp ? 4 : 0, axis: site.axis });
@@ -1516,7 +1576,7 @@ export class Commands {
     this.targeting = null;
     if (this.placing) this.placing = null;
     this.menu = { page: 'main', sub: -1 };
-    this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_UNITS, face: null, tunnelColumns: TUNNEL_COLUMNS };
+    this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_HEIGHT_UNITS, tunnel: false, chain: null, stretches: 0, cursor: null };
     this.d.changed();
   }
 
@@ -1525,51 +1585,125 @@ export class Commands {
     this.d.changed();
   }
 
-  /** Each frame while marking: the column under the cursor while dragging. */
+  /** Each frame while marking: the column under the cursor while dragging, or while a tunnel chain waits for its next click. */
   updateArea(ground: THREE.Vector3 | null): void {
     const a = this.area;
-    if (!a || !a.dragging || !ground) return;
+    if (!a || !ground) return;
     const x = Math.floor(ground.x / COLUMN_M);
     const z = Math.floor(ground.z / COLUMN_M);
+    if (a.chain) {
+      if (!a.cursor || a.cursor.x !== x || a.cursor.z !== z) a.cursor = { x, z };
+      return;
+    }
+    if (!a.dragging) return;
     if (a.to && a.to.x === x && a.to.z === z) return;
     a.to = { x, z };
     this.d.changed();
   }
 
-  /** Left button down while marking: start a drag, or confirm one already marked. */
+  /** Left button down while marking: start a drag, confirm one already marked, or a click of a tunnel chain. */
   areaDown(ground: THREE.Vector3 | null): void {
     const a = this.area;
     if (!a) return;
+    if (a.mode === 'dig' && (a.chain || a.tunnel)) {
+      this.tunnelClick(ground);
+      return;
+    }
     if (a.from && a.to && !a.dragging) {
       this.confirmArea();
       return;
     }
     if (!ground) return;
     const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
+    // A press on the side of a cliff or hillside starts a tunnel chain into it instead.
+    if (a.mode === 'dig' && this.faceAt(ground, c.x, c.z)) {
+      this.tunnelClick(ground);
+      return;
+    }
     a.from = c;
     a.to = { ...c };
-    a.face = a.mode === 'dig' ? this.faceAt(ground, c.x, c.z) : null;
     a.dragging = true;
     this.d.changed();
+  }
+
+  /**
+   * One click of a tunnel chain (Digging: tunnel chains). The first sets the
+   * anchor: on a cliff or hillside face the tunnel's floor is the ground in
+   * front of it, elsewhere the ground clicked. Each later click digs the
+   * stretch from the anchor to the click, snapped to the nearest of the eight
+   * directions and level with the anchor, and its end is the next anchor.
+   */
+  private tunnelClick(ground: THREE.Vector3 | null): void {
+    const a = this.area;
+    if (!a || !ground) return;
+    const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
+    if (!a.chain) {
+      const face = this.faceAt(ground, c.x, c.z);
+      a.chain = face ? { x: face.x, z: face.z, floor: face.floor } : { x: c.x, z: c.z, floor: this.groundUnits(c.x, c.z) };
+      a.cursor = c;
+      a.from = null;
+      a.to = null;
+      a.dragging = false;
+      this.d.changed();
+      return;
+    }
+    a.cursor = c;
+    const plan = this.tunnelPlan();
+    const units = this.workerIds();
+    if (!plan || units.length === 0) return;
+    // A click on the chain's last point finishes it.
+    if (plan.length === 0) {
+      this.back();
+      return;
+    }
+    this.d.send({ kind: 'tunnelStretch', player: this.d.player, units, x: plan.x, z: plan.z, dir: plan.dir, length: plan.length, level: a.chain.floor, level2: a.chain.floor + a.tunnelUnits, queued: a.stretches > 0 || this.d.queued() });
+    const [ex, ez] = stretchEnd(plan.x, plan.z, plan.dir, plan.length);
+    a.chain = { x: ex, z: ez, floor: a.chain.floor };
+    a.stretches++;
+    const wx = (ex + 0.5) * COLUMN_M;
+    const wz = (ez + 0.5) * COLUMN_M;
+    this.d.marker(new THREE.Vector3(wx, this.d.heightAt(wx, wz), wz), 'target');
+    this.d.changed();
+  }
+
+  /** The next stretch of the tunnel chain, from its anchor towards the cursor. */
+  tunnelPlan(): StretchPlan | null {
+    const a = this.area;
+    if (!a?.chain || !a.cursor) return null;
+    const { dir, length } = snapStretch(a.chain.x, a.chain.z, a.cursor.x, a.cursor.z, TUNNEL_STRETCH_MAX_COLUMNS);
+    return { x: a.chain.x, z: a.chain.z, dir, length, cells: stretchCells(a.chain.x, a.chain.z, dir, length, TUNNEL_WIDTH_COLUMNS) };
+  }
+
+  /** D again on the dig card: tunnel chains on flat ground too, or back to digging down. */
+  private toggleTunnel(): void {
+    const a = this.area;
+    if (!a) return;
+    const on = !(a.tunnel || a.chain);
+    this.area = { ...a, tunnel: on, chain: null, stretches: 0, cursor: null, from: null, to: null, dragging: false };
+    this.d.changed();
+  }
+
+  /** The ground at a column, terrain units, as the client draws it. */
+  private groundUnits(x: number, z: number): number {
+    return Math.round(this.d.heightAt((x + 0.5) * COLUMN_M, (z + 0.5) * COLUMN_M) / TERRAIN_UNIT_M);
   }
 
   /**
    * Whether a point the cursor picked is on the side of a cliff or hillside
    * rather than on top of the ground: below its column's top, on the edge of
    * the column next to lower ground at least FACE_MIN_UNITS down. Returns the
-   * face and the ground in front of it, or null.
+   * face column, the way out of it and the ground in front of it, or null.
    */
-  private faceAt(p: THREE.Vector3, x: number, z: number): Area['face'] {
-    const units = (wx: number, wz: number): number => Math.round(this.d.heightAt((wx + 0.5) * COLUMN_M, (wz + 0.5) * COLUMN_M) / TERRAIN_UNIT_M);
-    const top = units(x, z);
+  private faceAt(p: THREE.Vector3, x: number, z: number): { x: number; z: number; nx: number; nz: number; floor: number } | null {
+    const top = this.groundUnits(x, z);
     if (p.y / TERRAIN_UNIT_M > top - 1) return null;
     // Which side of the column the point is on: the nearest edge with low ground beyond it.
     const fx = p.x / COLUMN_M - x;
     const fz = p.z / COLUMN_M - z;
-    let best: Area['face'] = null;
+    let best: { x: number; z: number; nx: number; nz: number; floor: number } | null = null;
     let bestD = 0.2;
     for (const [nx, nz, d] of [[-1, 0, fx], [1, 0, 1 - fx], [0, -1, fz], [0, 1, 1 - fz]] as const) {
-      const floor = units(x + nx, z + nz);
+      const floor = this.groundUnits(x + nx, z + nz);
       if (top - floor < FACE_MIN_UNITS || d >= bestD) continue;
       best = { x, z, nx, nz, floor };
       bestD = d;
@@ -1588,8 +1722,7 @@ export class Commands {
   adjustArea(dir: number): void {
     const a = this.area;
     if (!a) return;
-    if (a.face) a.tunnelColumns = Math.max(TUNNEL_COLUMNS_STEP, Math.min(SITE_MAX_COLUMNS, a.tunnelColumns + dir * TUNNEL_COLUMNS_STEP));
-    else if (this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
+    if (a.chain || a.tunnel || this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
     else a.units = Math.max(AREA_STEP_UNITS, Math.min(AREA_MAX_UNITS, a.units + dir * AREA_STEP_UNITS));
     this.d.changed();
   }
@@ -1598,32 +1731,16 @@ export class Commands {
   areaPlan(): AreaPlan | null {
     const a = this.area;
     if (!a || !a.from || !a.to) return null;
-    const f = a.face;
-    const sig = `${a.mode},${a.variant},${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits},${f ? `${f.x},${f.z},${f.nx},${f.nz},${a.tunnelColumns}` : ''}`;
+    const sig = `${a.mode},${a.variant},${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits}`;
     if (sig === this.plan.sig) return this.plan.plan;
     const lim = SITE_MAX_COLUMNS - 1;
-    if (f) {
-      // A tunnel into the face: as wide as the drag along the face, as long as tunnelColumns into it, floored at the ground in front.
-      const across = f.nx !== 0 ? a.to.z - f.z : a.to.x - f.x;
-      const span = Math.max(-lim, Math.min(lim, across));
-      const deep = (a.tunnelColumns - 1) * -(f.nx + f.nz);
-      const [ax0, ax1] = [Math.min(0, span), Math.max(0, span)];
-      const [d0, d1] = [Math.min(0, deep), Math.max(0, deep)];
-      const x0 = f.nx !== 0 ? f.x + d0 : f.x + ax0;
-      const x1 = f.nx !== 0 ? f.x + d1 : f.x + ax1;
-      const z0 = f.nx !== 0 ? f.z + ax0 : f.z + d0;
-      const z1 = f.nx !== 0 ? f.z + ax1 : f.z + d1;
-      const plan: AreaPlan = { x0, z0, x1, z1, tunnel: true, level: f.floor, level2: f.floor + a.tunnelUnits, axis: 0, start: f.floor, top: f.floor, low: f.floor, earth: 0 };
-      this.plan = { sig, plan };
-      return plan;
-    }
     const tx = a.from.x + Math.max(-lim, Math.min(lim, a.to.x - a.from.x));
     const tz = a.from.z + Math.max(-lim, Math.min(lim, a.to.z - a.from.z));
     const x0 = Math.min(a.from.x, tx);
     const x1 = Math.max(a.from.x, tx);
     const z0 = Math.min(a.from.z, tz);
     const z1 = Math.max(a.from.z, tz);
-    const g = (x: number, z: number): number => Math.round(this.d.heightAt((x + 0.5) * COLUMN_M, (z + 0.5) * COLUMN_M) / TERRAIN_UNIT_M);
+    const g = (x: number, z: number): number => this.groundUnits(x, z);
     const start = g(a.from.x, a.from.z);
     let top = -Infinity;
     let low = Infinity;
@@ -1673,7 +1790,7 @@ export class Commands {
     const box = { player: this.d.player, units, x0: plan.x0, z0: plan.z0, x1: plan.x1, z1: plan.z1, level: plan.level, level2: plan.level2, queued: this.d.queued() };
     if (a.mode === 'dig') {
       this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
-      this.d.message(a.face ? `Tunnelling ${(a.tunnelColumns * COLUMN_M).toFixed(1)} m into the face.` : plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
+      this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
     } else {
       const [res, what, where] = HEAP_STUFF[a.variant] ?? HEAP_STUFF[0]!;
       if (this.d.game.have(res) < plan.earth) this.d.message(`Not enough ${what} yet (needs ${plan.earth}): the workers heap what there is and wait for more. ${where}`, 'alert');
@@ -1683,9 +1800,41 @@ export class Commands {
     const cz = ((plan.z0 + plan.z1 + 1) / 2) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'target');
     // Shift keeps marking for the next area.
-    if (this.d.queued()) this.area = { ...a, from: null, to: null, dragging: false, face: null };
+    if (this.d.queued()) this.area = { ...a, from: null, to: null, dragging: false };
     else this.area = null;
     this.d.changed();
+  }
+
+  /**
+   * The words beside the cursor during a chain: what the next click builds or
+   * digs and what it costs, and a hint on how to go on or stop (Controls:
+   * wall chains; a click on the chain's last point, right click, Esc or Done
+   * ends it, so a double click places one wall).
+   */
+  chainLabel(): { text: string; hint: string; short: boolean } | null {
+    const a = this.area;
+    if (a && (a.tunnel || a.chain)) {
+      const t = this.tunnelPlan();
+      if (!t) return { text: 'Click where the tunnel starts', hint: 'Right click to stop', short: false };
+      if (t.length === 0) return a.stretches > 0 ? { text: 'Click here again to finish the tunnel', hint: 'Or click further on to dig on', short: false } : { text: 'Click where the tunnel goes', hint: 'Right click to stop', short: false };
+      return { text: `${(t.length * COLUMN_M).toFixed(1)} m of tunnel, ${(a.tunnelUnits * TERRAIN_UNIT_M).toFixed(2)} m tall`, hint: 'Click to dig to here, right click to finish', short: false };
+    }
+    const p = this.placing;
+    const plan = this.wallPlan();
+    if (!p || !plan || !Commands.chained(p.kind)) return null;
+    if (p.chain && plan.length === 0) {
+      if (p.stretches > 0) return { text: 'Click here again to finish the wall', hint: 'Or click further on to build on', short: false };
+      return { text: p.placed ? 'Click again for just this one' : 'Click again to stop here', hint: 'Or click further on to build a stretch', short: false };
+    }
+    const est = this.chainEstimate(plan);
+    if (est.open === 0 && est.blocked === 0) return p.chain ? { text: 'Walled already', hint: 'Click to go on from its end, right click to finish', short: false } : { text: 'Click to go on from this wall', hint: 'Then click further on to build a stretch', short: false };
+    const name = buildingSpec(p.kind).name.toLowerCase();
+    const n = Math.min(est.open, est.room);
+    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${est.open} walls: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
+    if (est.blocked > 0) parts.push(`${est.blocked} skipped`);
+    if (n < est.open) parts.push(n === 0 ? `not enough ${RESOURCES[est.short]!.name.toLowerCase()}` : `enough for ${n}`);
+    const hint = p.chain ? 'Click to build to here, right click to finish' : 'Click to place it, then click further on for a stretch';
+    return { text: parts.join(', '), hint, short: n < est.open };
   }
 
   // ---- Placement ----
@@ -1694,7 +1843,7 @@ export class Commands {
     if (this.workerIds().length === 0) return;
     this.targeting = null;
     this.area = null;
-    this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, spots: [] };
+    this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, chain: null, stretches: 0, placed: false, spots: [] };
     this.placeAsked = '';
     this.d.changed();
   }
@@ -1704,21 +1853,23 @@ export class Commands {
     this.d.changed();
   }
 
-  /** Whether a building kind is placed in lines by dragging (1 x 1 lights and walls). */
+  /** Whether a building kind is placed in lines by dragging (1 x 1 lights). */
   static draggable(kind: number): boolean {
     const s = buildingSpec(kind);
-    return s.w === 1 && s.d === 1;
+    return s.w === 1 && s.d === 1 && !Commands.chained(kind);
+  }
+
+  /** Whether a building kind is placed in chains of stretches, click by click (walls; Building placement: wall chains). */
+  static chained(kind: number): boolean {
+    const s = buildingSpec(kind);
+    return s.defence === 'wall' && s.w === 1 && s.d === 1;
   }
 
   /** Each frame while placing: the corner under the cursor and the spots of a drag; asks the sim for tiles when they change. */
   updatePlacing(ground: THREE.Vector3 | null, now: number): Ghost | null {
     const p = this.placing;
     if (!p) return null;
-    const s = footprintDims(p.kind, p.variant);
-    if (ground) {
-      p.x = Math.round(ground.x / COLUMN_M - s.w / 2);
-      p.z = Math.round(ground.z / COLUMN_M - s.d / 2);
-    }
+    this.aimPlacing(ground);
     if (Number.isNaN(p.x)) return null;
     const corners = this.spotCorners();
     const sig = corners.map(([x, z]) => `${x},${z}`).join(';');
@@ -1730,9 +1881,25 @@ export class Commands {
       this.lastPlaceAsk = now;
       this.d.askPlacement(p.kind, p.variant, corners);
     }
+    if (Commands.chained(p.kind)) {
+      // A stretch is cut short where the stock runs out: the walls past that point show greyed.
+      const plan = this.wallPlan();
+      const est = plan ? this.chainEstimate(plan) : null;
+      for (const sp of p.spots) sp.short = est !== null && !est.takes.has(`${sp.x},${sp.z}`);
+      return { kind: p.kind, variant: p.variant, spots: p.spots, affordable: est !== null && est.room > 0 };
+    }
     const n = p.spots.length;
     const cost = levelSpec(p.kind, 1).cost.map(([r, k]) => [r, k * n] as const);
     return { kind: p.kind, variant: p.variant, spots: p.spots, affordable: this.d.game.shortOf(cost) < 0 };
+  }
+
+  /** The footprint corner under a ground point; the shell calls it on each press and release too, so a click lands where it was made even when frames are slow. */
+  aimPlacing(ground: THREE.Vector3 | null): void {
+    const p = this.placing;
+    if (!p || !ground) return;
+    const s = footprintDims(p.kind, p.variant);
+    p.x = Math.round(ground.x / COLUMN_M - s.w / 2);
+    p.z = Math.round(ground.z / COLUMN_M - s.d / 2);
   }
 
   /** The sim's answer about placement tiles. */
@@ -1746,11 +1913,15 @@ export class Commands {
     }
   }
 
-  /** The corners being placed: one, or a line from the drag start to the cursor. */
+  /** The corners being placed: one, a line from the drag start to the cursor, or a wall chain's next stretch (without its anchor, placed already). */
   private spotCorners(): Array<[number, number]> {
     const p = this.placing!;
+    if (Commands.chained(p.kind)) {
+      const plan = this.wallPlan()!;
+      const walled = this.walledColumns();
+      return (p.chain ? plan.cells.slice(1) : plan.cells).filter(([x, z]) => !walled.has(`${x},${z}`));
+    }
     if (!p.dragFrom) return [[p.x, p.z]];
-    if (!buildingSpec(p.kind).light) return wallLine(p.dragFrom.x, p.dragFrom.z, p.x, p.z, WALL_LINE_MAX);
     const dx = p.x - p.dragFrom.x;
     const dz = p.z - p.dragFrom.z;
     const len = Math.hypot(dx, dz);
@@ -1764,6 +1935,60 @@ export class Commands {
     return out;
   }
 
+  /** The columns with a wall standing or started on them: a stretch passes over them without a word, as the sim does, so a chain can close on its anchor or go on from a wall built before. */
+  private walledColumns(): Set<string> {
+    return new Set([...this.d.game.buildings.values()].filter((b) => buildingSpec(b.kind).defence === 'wall').map((b) => `${b.x},${b.z}`));
+  }
+
+  /** The wall chain's next stretch: from the anchor towards the cursor, or the one wall under the cursor before the first click. */
+  private wallPlan(): StretchPlan | null {
+    const p = this.placing;
+    if (!p || Number.isNaN(p.x)) return null;
+    if (!p.chain) return { x: p.x, z: p.z, dir: 0, length: 0, cells: [[p.x, p.z]] };
+    const { dir, length } = snapStretch(p.chain.x, p.chain.z, p.x, p.z, WALL_STRETCH_MAX_COLUMNS);
+    return { x: p.chain.x, z: p.chain.z, dir, length, cells: stretchCells(p.chain.x, p.chain.z, dir, length) };
+  }
+
+  /**
+   * What a wall stretch would place, worked out as the sim will: the columns
+   * that take a wall (not red, not planned already), how many the stock less
+   * the planned buildings pays for, and which ones those are.
+   */
+  private chainEstimate(plan: StretchPlan): { open: number; blocked: number; room: number; short: number; cost: Cost; takes: Set<string>; last: [number, number] | null } {
+    const p = this.placing!;
+    const game = this.d.game;
+    const units = new Set(this.workerIds());
+    const queued = p.chain !== null || this.d.queued();
+    const queues = [...game.queues].filter(([id]) => queued || !units.has(id)).map(([, q]) => q);
+    const standing = (kind: number, x: number, z: number): boolean => [...game.buildings.values()].some((b) => b.owner === this.d.player && b.kind === kind && b.x === x && b.z === z);
+    const planned = plannedSpots(queues, standing);
+    const owed = new Map<number, number>();
+    for (const kind of planned.values()) for (const [r, n] of levelSpec(kind, 1).cost) owed.set(r, (owed.get(r) ?? 0) + n);
+    const cost = levelSpec(p.kind, 1).cost;
+    const { room, short } = stretchRoom((r) => game.have(r), owed, cost);
+    const tiles = new Map(p.spots.map((sp) => [`${sp.x},${sp.z}`, sp.tiles]));
+    const walled = this.walledColumns();
+    let open = 0;
+    let blocked = 0;
+    const takes = new Set<string>();
+    let last: [number, number] | null = null;
+    for (const [x, z] of p.chain ? plan.cells.slice(1) : plan.cells) {
+      const k = `${x},${z}`;
+      if (planned.has(k) || walled.has(k)) continue;
+      const t = tiles.get(k);
+      if (t && t.some((r) => r !== 0)) {
+        blocked++;
+        continue;
+      }
+      open++;
+      if (takes.size < room) {
+        takes.add(k);
+        last = [x, z];
+      }
+    }
+    return { open, blocked, room, short, cost, takes, last };
+  }
+
   /** Left button down while placing: start a line drag for lights. */
   placeDown(): void {
     const p = this.placing;
@@ -1771,10 +1996,11 @@ export class Commands {
     if (Commands.draggable(p.kind)) p.dragFrom = { x: p.x, z: p.z };
   }
 
-  /** Left button up while placing: place if every tile is green and it can be paid for. */
+  /** Left button up while placing: place if every tile is green and it can be paid for; for walls, a click of the chain. */
   placeUp(): void {
     const p = this.placing;
     if (!p || Number.isNaN(p.x)) return;
+    if (Commands.chained(p.kind)) return this.chainClick();
     const spots = p.dragFrom ? p.spots : p.spots.filter((s) => s.x === p.x && s.z === p.z);
     p.dragFrom = null;
     if (spots.length === 0 || spots.some((s) => !s.tiles)) return;
@@ -1805,34 +2031,87 @@ export class Commands {
     // Shift keeps the ghost for the next one; otherwise placement ends.
     if (!queued) this.endPlacing();
   }
+
+  /**
+   * One click of a wall chain (Building placement: wall chains). The first
+   * places one wall and makes it the anchor; each later click places the
+   * stretch from the anchor to the click, snapped to the nearest of the eight
+   * directions, and its far end is the next anchor (or the last wall the
+   * stock paid for, if it ran out, so clicking the same end again later goes
+   * on from there). The ghost stays until right click, Esc or Done.
+   */
+  private chainClick(): void {
+    const p = this.placing!;
+    const units = this.workerIds();
+    if (units.length === 0) return this.endPlacing();
+    const plan = this.wallPlan();
+    if (!plan) return;
+    // A click on the chain's last point finishes it: a double click places one wall.
+    if (p.chain && plan.length === 0) {
+      this.back();
+      return;
+    }
+    const est = this.chainEstimate(plan);
+    if (est.open === 0 && est.blocked === 0) {
+      // Walled or planned all along: nothing to send, and the chain goes on from its end.
+      const [ex, ez] = stretchEnd(plan.x, plan.z, plan.dir, plan.length);
+      if (!p.chain) p.placed = false;
+      this.anchorChain(ex, ez);
+      return;
+    }
+    if (est.open === 0) {
+      const red = p.spots.find((s) => s.tiles?.some((t) => t !== 0));
+      const reason = red?.tiles?.find((t) => t !== 0);
+      this.d.message(`Cannot build there: ${BLOCKED_TEXT[reason ?? -1] ?? 'blocked.'}`, 'alert');
+      return;
+    }
+    if (est.room === 0) {
+      this.d.message(`Not enough ${RESOURCES[est.short]!.name.toLowerCase()} for another ${buildingSpec(p.kind).name.toLowerCase()} (${costLine(est.cost)} each, counting what is already planned).`, 'alert');
+      return;
+    }
+    this.d.send({ kind: 'wallStretch', player: this.d.player, units, building: p.kind, x: plan.x, z: plan.z, dir: plan.dir, length: plan.length, skip: p.chain ? 1 : 0, queued: p.chain !== null || this.d.queued() });
+    if (p.chain) p.stretches++;
+    else p.placed = true;
+    const [ex, ez] = est.room < est.open && est.last ? est.last : stretchEnd(plan.x, plan.z, plan.dir, plan.length);
+    this.anchorChain(ex, ez);
+  }
+
+  /** The wall chain's next anchor, marked on the ground. */
+  private anchorChain(x: number, z: number): void {
+    this.placing!.chain = { x, z };
+    const cx = (x + 0.5) * COLUMN_M;
+    const cz = (z + 0.5) * COLUMN_M;
+    this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'move');
+    cue('ui_place');
+    this.d.changed();
+  }
 }
 
-/** Columns in one dragged wall line (s). */
-const WALL_LINE_MAX = 80;
+/** The help line of a wall in the build menu. */
+const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
+
+/** The Tunnel button's help on the dig card. */
+const TUNNEL_CHAIN_HELP = 'Dig a tunnel, level: click where it starts (on a cliff or hillside, the floor is the ground in front of it; on flat ground, the ground you click), then click where it goes; each click digs the stretch from the last point, straight or diagonal, 90 cm wide. Keep clicking to turn corners. + and - set its height. A click on the last point, right click, Esc or Done ends it. Press again to dig down instead.';
 
 /**
- * Columns from one corner to another, every column, stepping one axis at a
- * time so the line has no diagonal gaps that a monster could squeeze through.
+ * Boxes that outline a stretch for the overlay: one round a straight run,
+ * one round each step of a diagonal.
  */
-export function wallLine(x0: number, z0: number, x1: number, z1: number, max: number): Array<[number, number]> {
-  const out: Array<[number, number]> = [[x0, z0]];
-  const dx = Math.abs(x1 - x0);
-  const dz = Math.abs(z1 - z0);
-  const sx = Math.sign(x1 - x0);
-  const sz = Math.sign(z1 - z0);
-  let x = x0;
-  let z = z0;
-  let err = dx - dz;
-  while ((x !== x1 || z !== z1) && out.length < max) {
-    // Move along whichever axis keeps closest to the straight line.
-    if (2 * err >= dz - dx && x !== x1) {
-      err -= dz;
-      x += sx;
-    } else {
-      err += dx;
-      z += sz;
-    }
-    out.push([x, z]);
+export function stretchBoxes(x: number, z: number, dir: number, length: number, width: number): Array<[number, number, number, number]> {
+  const [dx, dz] = STRETCH_DIRS[dir]!;
+  const cells = stretchCells(x, z, dir, length, width);
+  if (dx === 0 || dz === 0) {
+    const xs = cells.map(([cx]) => cx);
+    const zs = cells.map(([, cz]) => cz);
+    return [[Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)]];
+  }
+  const out: Array<[number, number, number, number]> = [[x, z, x, z]];
+  for (let k = 1; k <= length; k++) {
+    const ax = x + dx * (k - 1);
+    const az = z + dz * (k - 1);
+    const bx = x + dx * k;
+    const bz = z + dz * k;
+    out.push(width > 1 ? [Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz)] : [bx, Math.min(az, bz), bx, Math.max(az, bz)]);
   }
   return out;
 }

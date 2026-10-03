@@ -52,7 +52,11 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
       for (const p of world.props(cx, cz, state.step)) {
         // Seeds are trampled; saplings and anything grown block.
         if (p.stage === 0) continue;
-        propCols.add(((cz << CHUNK_SHIFT) + p.lz - z0) * spec.w + ((cx << CHUNK_SHIFT) + p.lx - x0));
+        // Only props on the footprint: one beside it would otherwise land on a tile of the row before or after.
+        const dx = (cx << CHUNK_SHIFT) + p.lx - x0;
+        const dz = (cz << CHUNK_SHIFT) + p.lz - z0;
+        if (dx < 0 || dz < 0 || dx >= spec.w || dz >= spec.d) continue;
+        propCols.add(dz * spec.w + dx);
       }
     }
   }

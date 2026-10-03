@@ -5,10 +5,12 @@
 // material, varying a quarter either way. Every bite gives one of what it
 // carved straight to the pool (Earth from soil). Earthworks heap Earth
 // back up: a bank or fill to a level, a ramp from one level to another.
+// A tunnel chain's stretch is a line of columns instead of a box.
 
+import { stretchBetween, stretchCells, stretchEnd, TUNNEL_WIDTH_COLUMNS } from '../buildings/chains.ts';
 import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
-import { OrderKind, rampSite, SiteKind, UnitKind, type SimState, type Site } from '../state.ts';
+import { OrderKind, rampSite, SiteKind, tunnelSite, UnitKind, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool, ToolJob } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
@@ -110,7 +112,7 @@ function nextBite(state: SimState, s: Site, x: number, z: number): { mat: number
 /** Whether a column of a site still needs work, and can take it now (no unit or building on it). */
 function needsWork(state: SimState, s: Site, x: number, z: number): boolean {
   if (state.buildings.footprintAt(x, z) !== 0) return false;
-  if (s.kind === SiteKind.Dig || s.kind === SiteKind.Tunnel) return nextBite(state, s, x, z) !== null;
+  if (s.kind === SiteKind.Dig || tunnelSite(s.kind)) return nextBite(state, s, x, z) !== null;
   return state.world.topAt(x, z) < heapTop(s, x, z);
 }
 
@@ -121,6 +123,17 @@ function occupied(state: SimState, x: number, z: number, except: number): boolea
     if (floorDiv(e.x[j]!, WU_PER_COLUMN) === x && floorDiv(e.z[j]!, WU_PER_COLUMN) === z) return true;
   }
   return false;
+}
+
+/** The columns of a site: its box, or a tunnel stretch's line from its anchor. */
+export function siteCells(s: Site): Array<[number, number]> {
+  if (s.kind === SiteKind.TunnelLine) {
+    const { dir, length } = stretchBetween(s.x0, s.z0, s.x1, s.z1);
+    return stretchCells(s.x0, s.z0, dir, length, s.axis);
+  }
+  const out: Array<[number, number]> = [];
+  for (let z = s.z0; z <= s.z1; z++) for (let x = s.x0; x <= s.x1; x++) out.push([x, z]);
+  return out;
 }
 
 /** Columns other diggers on the same site are working now. */
@@ -143,15 +156,13 @@ function pickColumn(state: SimState, s: Site, i: number): [number, number] | nul
   const busy = taken(state, s.id, i);
   let best: [number, number] | null = null;
   let bestD = 0;
-  for (let z = s.z0; z <= s.z1; z++) {
-    for (let x = s.x0; x <= s.x1; x++) {
-      if (busy.has(z * 0x100000 + x)) continue;
-      const d = (x - ux) * (x - ux) + (z - uz) * (z - uz);
-      if (best && d >= bestD) continue;
-      if (!needsWork(state, s, x, z)) continue;
-      best = [x, z];
-      bestD = d;
-    }
+  for (const [x, z] of siteCells(s)) {
+    if (busy.has(z * 0x100000 + x)) continue;
+    const d = (x - ux) * (x - ux) + (z - uz) * (z - uz);
+    if (best && d >= bestD) continue;
+    if (!needsWork(state, s, x, z)) continue;
+    best = [x, z];
+    bestD = d;
   }
   return best;
 }
@@ -162,13 +173,15 @@ export function siteOf(state: SimState, id: number): Site | undefined {
 
 /** Ends a site once nothing in it needs work. */
 function finishIfDone(state: SimState, s: Site): boolean {
-  for (let z = s.z0; z <= s.z1; z++) for (let x = s.x0; x <= s.x1; x++) if (needsWork(state, s, x, z)) return false;
+  const cells = siteCells(s);
+  for (const [x, z] of cells) if (needsWork(state, s, x, z)) return false;
   state.sites = state.sites.filter((t) => t.id !== s.id);
   const [x, z] = [columnCentre((s.x0 + s.x1) >> 1), columnCentre((s.z0 + s.z1) >> 1)];
-  const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : s.kind === SiteKind.LumberRamp ? 'The lumber ramp' : s.kind === SiteKind.StoneRamp ? 'The stone ramp' : 'The earth bank';
+  const what = s.kind === SiteKind.Dig ? 'The dig' : tunnelSite(s.kind) ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : s.kind === SiteKind.LumberRamp ? 'The lumber ramp' : s.kind === SiteKind.StoneRamp ? 'The stone ramp' : 'The earth bank';
   state.events.push({ player: s.owner, kind: 'info', text: `${what} is finished.`, x, z });
-  // A finished tunnel is a cave while it stays unlit (Keeping digging fair: cave-type lairs can appear in it).
-  if (s.kind === SiteKind.Tunnel) state.threats.tunnels.push({ x, z });
+  // A finished tunnel is a cave while it stays unlit (Keeping digging fair: cave-type lairs can appear in it);
+  // a chain's stretch only where it runs under ground, not where it cut through open land.
+  if (s.kind === SiteKind.Tunnel || (s.kind === SiteKind.TunnelLine && cells.some(([cx, cz]) => state.world.topAt(cx, cz) >= s.level2))) state.threats.tunnels.push({ x, z });
   return true;
 }
 
@@ -194,7 +207,7 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const cz = e.climbZ[i]!;
   if (e.act[i] === Act.Walk) {
     // In a tunnel the worker stands near its floor, in the passage or at the face, not on the hill above it.
-    const goal = s.kind === SiteKind.Tunnel ? { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS, ylo: s.level - TUNNEL_REACH_UNITS, yhi: s.level + TUNNEL_REACH_UNITS } : { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS };
+    const goal = tunnelSite(s.kind) ? { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS, ylo: s.level - TUNNEL_REACH_UNITS, yhi: s.level + TUNNEL_REACH_UNITS } : { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS };
     const r = walkTo(state, i, goal);
     if (r === 0) return false;
     if (r === 2) {
@@ -275,8 +288,30 @@ export function markSite(state: SimState, owner: number, kind: number, x0: numbe
   const zb = Math.max(z0, z1);
   if (xb - xa >= SITE_MAX_COLUMNS || zb - za >= SITE_MAX_COLUMNS) return 'That area is too big to mark at once.';
   for (let z = za; z <= zb; z += 4) for (let x = xa; x <= xb; x += 4) if (!state.world.isExplored(x >> 2, z >> 2)) return 'You can only dig where you have explored.';
-  const s: Site = { id: state.nextEntityId++, owner, kind, x0: xa, z0: za, x1: xb, z1: zb, level, level2, axis };
+  return addSite(state, { owner, kind, x0: xa, z0: za, x1: xb, z1: zb, level, level2, axis });
+}
+
+/** Adds a site, or gives back the player's identical one already marked (more workers right-clicked onto it). */
+function addSite(state: SimState, want: Omit<Site, 'id'>): Site {
+  const same = state.sites.find((t) => t.owner === want.owner && t.kind === want.kind && t.x0 === want.x0 && t.z0 === want.z0 && t.x1 === want.x1 && t.z1 === want.z1 && t.level === want.level && t.level2 === want.level2 && t.axis === want.axis);
+  if (same) return same;
+  const s: Site = { id: state.nextEntityId++, ...want };
   state.sites.push(s);
   return s;
+}
+
+/**
+ * Marks one stretch of a tunnel chain (Digging: tunnel chains): level from
+ * (x, z), `length` columns in direction `dir`, between a floor and a roof,
+ * TUNNEL_WIDTH_COLUMNS wide. Returns it, or a reason it cannot be marked.
+ */
+export function markTunnelStretch(state: SimState, owner: number, x: number, z: number, dir: number, length: number, level: number, level2: number): Site | string {
+  const width = TUNNEL_WIDTH_COLUMNS;
+  const cells = stretchCells(x, z, dir, length, width);
+  for (const [cx, cz] of cells) if (!state.world.isExplored(cx >> 2, cz >> 2)) return 'You can only dig where you have explored.';
+  const [x1, z1] = stretchEnd(x, z, dir, length);
+  const want = { owner, kind: SiteKind.TunnelLine, x0: x, z0: z, x1, z1, level, level2, axis: width };
+  if (!cells.some(([cx, cz]) => needsWork(state, { id: 0, ...want }, cx, cz))) return 'Nothing to dig along that stretch at the tunnel\'s height.';
+  return addSite(state, want);
 }
 
