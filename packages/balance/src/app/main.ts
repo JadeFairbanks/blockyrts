@@ -3,10 +3,14 @@
 // right. Mouse-only works throughout; "/" jumps to search.
 
 import { buildCatalog, forgeKind, type CatNode, type Entry, type FieldNode, type PairNode, type SectionNode } from '../core/catalog.ts';
-import { exportFileName, parseBalanceFile, type RawValue } from '../core/schema.ts';
+import { exportFileName, parseBalanceFile, pathKey, type RawValue } from '../core/schema.ts';
 import { Session, type LoadReport } from '../core/session.ts';
 import { displayStep, fromDisplay, toDisplay, UNITS } from '../core/units.ts';
 import { builtAt, commit, simDocs, simModules } from './sim-data.ts';
+import { h, put } from './dom.ts';
+import { groupIcon, spreadBar, treeIcon } from './visuals.ts';
+import { pickInTree, renderTree, type TreeDeps } from './tree-view.ts';
+import { buildTree } from '../core/tree.ts';
 
 const cat = buildCatalog(simModules, simDocs);
 const session = new Session(cat);
@@ -15,26 +19,6 @@ const STORE_KEY = 'blockyrts-balance-session';
 let selected = '';
 let query = '';
 let lastReport: { title: string; report: LoadReport } | null = null;
-
-// ---------- small DOM helpers
-
-type Kids = Array<Node | string | null | false | undefined>;
-function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...kids: Kids): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (v === undefined || v === null || v === false) continue;
-    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v as EventListener);
-    else if (k === 'class') el.className = String(v);
-    else if (k in el && k !== 'list') (el as unknown as Record<string, unknown>)[k] = v;
-    else el.setAttribute(k, String(v));
-  }
-  for (const c of kids) if (c !== null && c !== false && c !== undefined) el.append(c);
-  return el;
-}
-
-function put(el: HTMLElement, ...kids: Kids): void {
-  for (const c of kids) if (c !== null && c !== false && c !== undefined) el.append(c);
-}
 
 // ---------- saving the session in this browser
 
@@ -132,12 +116,13 @@ function renderMenu(): void {
   const q = query.toLowerCase();
   const scroll = menuEl.scrollTop;
   menuEl.replaceChildren();
+  if (!q) menuEl.append(h('button', { class: `entry special${selected === TREE ? ' selected' : ''}`, onclick: () => openEntry(TREE) }, treeIcon(), 'Building tree'));
   for (const g of cat.groups) {
     const entries = q ? g.entries.filter((e) => matches(e, q) || fieldHits(q, e.id) > 0) : g.entries;
     if (q && entries.length === 0) continue;
     const changed = g.entries.reduce((s, e) => s + changedIn(e.id), 0);
     const det = h('details', { class: 'group', open: !!q || openGroups.has(g.id) || entries.some((e) => e.id === selected) },
-      h('summary', { title: g.blurb }, g.label, badge(changed) ?? h('span', { class: 'count' }, String(g.entries.length))));
+      h('summary', { title: g.blurb }, groupIcon(g.id), g.label, badge(changed) ?? h('span', { class: 'count' }, String(g.entries.length))));
     det.addEventListener('toggle', () => (det.open ? openGroups.add(g.id) : openGroups.delete(g.id)));
     const subs = new Map<string, Entry[]>();
     for (const e of entries) {
@@ -206,6 +191,54 @@ function renderSearch(): void {
 
 // ---------- entry view
 
+const TREE = 'view:tree';
+
+const treeDeps: TreeDeps = {
+  mods: simModules,
+  current: (key) => {
+    const f = cat.fields.get(key);
+    return f ? session.current(f) : undefined;
+  },
+  changed: (key) => session.changes.has(key),
+  field: (key) => cat.fields.get(key),
+  fieldRow: (f) => fieldRow(f, false),
+  entryOf: (kind, id) => cat.refEntry(kind, id),
+  openEntry: (id, fieldId) => openEntry(id, fieldId),
+};
+
+/** The tree node an entry stands for: a building's first tier or a research step. */
+function treeNodeOf(e: Entry): string | undefined {
+  const rec = (simModules[e.module]?.[e.path[0] as string] as Array<Record<string, unknown>> | undefined)?.[e.path[1] as number];
+  if (!rec || e.path.length !== 2) return undefined;
+  if (e.path[0] === 'BUILDINGS') return `b:${rec.kind as number}:1`;
+  if (e.path[0] === 'RESEARCH') return `r:${rec.id as number}`;
+  return undefined;
+}
+
+/** A building's tiers as steps, each with the main base level it can first be had at. */
+function tierLadder(e: Entry): HTMLElement | null {
+  const node = treeNodeOf(e);
+  if (!node) return null;
+  const tree = buildTree(simModules, treeDeps.current);
+  const showTree = h('button', { class: 'btn small', onclick: () => { pickInTree(node); openEntry(TREE); } }, treeIcon(), ' See it in the building tree');
+  if (node.startsWith('r:')) {
+    const r = tree.research.find((x) => x.id === node);
+    if (!r) return null;
+    return h('div', { class: 'ladder' }, h('div', { class: 'step research' }, h('span', { class: 'mb', title: 'Earliest main base level' }, `MB ${r.column}`), r.name, h('small', {}, r.waits.length ? `needs ${r.waits.join(', ')}` : 'needs nothing first')), showTree);
+  }
+  const row = tree.rows.find((x) => `b:${x.kind}:1` === node);
+  if (!row) return null;
+  const steps: HTMLElement[] = [];
+  row.tiers.forEach((t, i) => {
+    if (i) steps.push(h('span', { class: 'arrow', 'aria-hidden': 'true' }, '→'));
+    const changed = ['needsBase', 'research', 'ws'].some((k) => session.changes.has(pathKey(e.module, [...t.path, k])));
+    const ws = cat.fields.get(pathKey(e.module, [...t.path, 'ws']));
+    steps.push(h('button', { class: `step${changed ? ' changed' : ''}`, title: 'Earliest main base level, then the tier', onclick: () => ws && openEntry(e.id, ws.id) },
+      h('span', { class: 'mb' }, `MB ${t.column}`), t.name));
+  });
+  return h('div', { class: 'ladder' }, ...steps, showTree);
+}
+
 function openEntry(id: string, fieldId?: string): void {
   selected = id;
   if (query) {
@@ -228,6 +261,7 @@ function openEntry(id: string, fieldId?: string): void {
 function renderMain(): void {
   mainEl.replaceChildren();
   if (query) return renderSearch();
+  if (selected === TREE) return renderTree(mainEl, treeDeps);
   const e = cat.entries.get(selected);
   if (!e) return renderWelcome();
   const group = cat.groups.find((g) => g.id === e.group);
@@ -238,6 +272,8 @@ function renderMain(): void {
   );
   const texts = e.children.filter((c) => c.type === 'text');
   if (texts.length) mainEl.append(h('div', { class: 'texts' }, ...texts.map((t) => textNode(t))));
+  const ladder = tierLadder(e);
+  if (ladder) mainEl.append(ladder);
   const links = linksPanel(e);
   if (links) mainEl.append(links);
   for (const c of e.children) if (c.type !== 'text') mainEl.append(node(c));
@@ -388,7 +424,7 @@ function fieldRow(f: FieldNode, withTrail: boolean): HTMLElement {
         withTrail && f.trail.length ? h('span', { class: 'trail' }, f.trail.join(' › ')) : null,
         f.label,
         f.doc && !withTrail ? h('span', { class: 'info' }, f.doc) : null),
-      h('div', { class: 'ctl' }, valueInput(f, set), !f.ref && unit.suffix ? h('span', { class: 'unit' }, unit.suffix) : null,
+      h('div', { class: 'ctl' }, valueInput(f, set), !f.ref && unit.suffix ? h('span', { class: 'unit' }, unit.suffix) : null, spreadFor(f),
         go && go !== f.entryId ? h('button', { class: 'go', title: 'Open it', onclick: () => openEntry(go) }, 'Open ›') : null),
       h('div', { class: 'ctl' },
         changed ? h('span', { class: 'was' }, `was ${session.show(f, f.value)}`) : null,
@@ -398,6 +434,45 @@ function fieldRow(f: FieldNode, withTrail: boolean): HTMLElement {
   };
   draw();
   return row;
+}
+
+// ---------- how a value compares with the same value on its neighbours (every mob's health, say)
+
+const spreadCache = new Map<string, FieldNode[]>();
+
+function spreadKey(f: FieldNode): string | null {
+  const e = cat.entries.get(f.entryId);
+  if (!e || e.path.length !== 2 || f.ref || typeof f.value !== 'number' || f.readOnly) return null;
+  return `${f.module}#${String(f.path[0])}.*.${f.path.slice(2).join('.')}`;
+}
+
+function spreadFor(f: FieldNode): HTMLElement | null {
+  const key = spreadKey(f);
+  if (!key) return null;
+  if (!spreadCache.size) {
+    for (const g of cat.fields.values()) {
+      const k = spreadKey(g);
+      if (!k) continue;
+      if (!spreadCache.has(k)) spreadCache.set(k, []);
+      spreadCache.get(k)!.push(g);
+    }
+  }
+  const peers = spreadCache.get(key) ?? [];
+  if (peers.length < 3) return null;
+  const vals = peers.map((p) => session.current(p) as number);
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  if (lo === hi) return null;
+  const v = session.current(f) as number;
+  const rank = vals.filter((x) => x > v).length + 1;
+  const kind = cat.entries.get(f.entryId)?.menu[0] ?? cat.groups.find((g) => g.id === cat.entries.get(f.entryId)?.group)?.label ?? '';
+  const title = `${f.label}: ${session.show(f, v)}, ${ordinal(rank)} highest of ${peers.length}${kind ? ` (${kind.toLowerCase()} and their neighbours)` : ''}. Lowest ${session.show(f, lo)}, highest ${session.show(f, hi)}.`;
+  return spreadBar((v - lo) / (hi - lo), title);
+}
+
+function ordinal(n: number): string {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
+  return `${n}${s}`;
 }
 
 function pairRow(p: PairNode): HTMLElement {
@@ -440,9 +515,10 @@ function renderWelcome(): void {
     h('h2', { class: 'title' }, 'Survive and Conquer balance editor'),
     h('p', { class: 'doc' }, `Every balance value the game runs on, ${editable.toLocaleString()} of them, read straight from the game's tables. Pick a group on the left or search above. Change a value and it turns yellow and appears on the right; the right-hand list is what gets exported.`),
     h('p', { class: 'doc' }, 'When you are done, press Export changes. It downloads a small JSON file listing only what you changed, with the old and new value of each, which you hand back in the project. Import loads such a file again so you can carry on. Your edits are also kept in this browser between visits.'),
+    h('button', { class: 'card wide', onclick: () => openEntry(TREE) }, h('b', {}, treeIcon(), ' Building tree'), h('span', {}, 'Every building and its tiers by the main base level they open at, with the research between them. Hover to see what unlocks what; click to edit.')),
     h('div', { class: 'groups' }, ...cat.groups.map((g) => h('button', {
       class: 'card', onclick: () => { openGroups.add(g.id); const first = g.entries[0]; if (first) openEntry(first.id); },
-    }, h('b', {}, `${g.label} (${g.entries.length})`), h('span', {}, g.blurb)))),
+    }, h('b', {}, groupIcon(g.id), ` ${g.label} (${g.entries.length})`), h('span', {}, g.blurb)))),
   ));
 }
 
@@ -462,7 +538,7 @@ function renderSide(): void {
     sideEl.append(h('div', { class: 'change' },
       h('button', { class: 'what', onclick: () => openEntry(f.entryId, f.id) }, session.labelOf(f).split(' > ').slice(1).join(' › ')),
       h('div', { class: 'bar' },
-        h('div', { class: 'vals' }, h('span', { class: 'old' }, session.show(f, f.value)), ' → ', session.show(f, p.value)),
+        h('div', { class: 'vals' }, h('span', { class: 'old' }, session.show(f, f.value)), ' → ', session.show(f, p.value), delta(f, p.value)),
         h('button', { class: 'btn small', title: 'Undo this change', onclick: () => { session.reset(f.id); save(); renderAll(); } }, 'Reset')),
       ta));
   }
@@ -477,6 +553,14 @@ function renderSide(): void {
       h('button', { class: 'btn primary', onclick: () => void exportFile() }, 'Export changes'),
       h('button', { class: 'btn', onclick: () => fileInput.click() }, 'Import a file'),
       h('button', { class: 'btn', disabled: n === 0 && session.entryNotes.size === 0 && !session.notes, onclick: (e: MouseEvent) => clearAll(e.currentTarget as HTMLButtonElement) }, 'Clear all')));
+}
+
+/** "+20%" or "−15%" for a number, coloured by direction. */
+function delta(f: FieldNode, v: RawValue): HTMLElement | null {
+  if (f.ref || typeof v !== 'number' || typeof f.value !== 'number' || f.value === 0) return null;
+  const pct = Math.round(((v - f.value) / Math.abs(f.value)) * 100);
+  if (pct === 0) return null;
+  return h('span', { class: `delta ${pct > 0 ? 'up' : 'down'}` }, `${pct > 0 ? '▲ +' : '▼ −'}${Math.abs(pct)}%`);
 }
 
 function reportBox(title: string, r: LoadReport): HTMLElement {
