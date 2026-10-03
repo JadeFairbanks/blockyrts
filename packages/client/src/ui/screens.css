@@ -325,6 +325,12 @@
   flex: none;
 }
 
+/* The game version, under the menu. */
+.main-menu .note.version {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 /* ---- Forms ---- */
 .field {
   display: flex;
