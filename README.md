@@ -159,9 +159,9 @@ out.* (The warrior joins in milestone 3.)
    stands in the pocket with four workers in front of it. The clock (top
    centre) counts down the day: 3 min of day, 40 s of dusk, 3 min of night,
    40 s of dawn, and says *Day 1*, *Dusk*, *Night 0*, *Dawn*. The light warms
-   at dusk, goes dim and blue at night and comes back at dawn. The resource
-   bar (top right) shows the shared pool, food and supply; ▾ opens the full
-   list.
+   at dusk, goes dim and blue at night and comes back at dawn. The
+   stockpile (top right) shows food, supply and the shared pool as an
+   inventory of square slots (see "How a tester checks the inventory grid").
 2. **Gather.** Select workers (drag a box) and right-click a tree, a rock, a
    flint scatter or a hazel bush. They work it, carry 25 lb loads to the Big
    House and come back; the load shows on their back and the pool goes up
@@ -327,9 +327,9 @@ workers but not troops.*
    Tannery, Herbalist, Cooking huts up to the Great Kitchen (stew), Workshop
    (carts, trinkets) and Barracks (training, Table 7) all open the same way
    with K; the Big House's K menu crafts tools, weapons, fishing rods and nets.
-5. **Food.** The resource bar shows food and supply; click it for every
-   resource. In that list each food has a button to keep it back from meals
-   (Don't eat). F9 (or the Rations button on the utility bar) cycles Rations:
+5. **Food.** The stockpile shows food and supply beside the inventory grid.
+   Right click a food's slot to keep it back from meals (Don't eat): it is
+   crossed out until you right click it again. F9 (or the Rations button on the utility bar) cycles Rations:
    everyone eats, troops only, or workers only; whoever goes without starves,
    slows and stops healing, and the food count turns red. A unit selected with
    F walks to the nearest main base, storehouse or cooking building to eat
@@ -1105,6 +1105,35 @@ control, label and flow of milestone 9 stays as it was.
    `/art.html?scene=battle` (or `map`, with `&w=1600&h=900`) shows one in the
    browser while staging; the battle takes `cam`, `look` and `fov` in the URL
    to try a camera, the map `pitch`, `yaw`, `dist`, `lx` and `lz`.
+
+## How a tester checks the inventory grid
+
+Client only: the sim, the server and every hash are unchanged.
+
+1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. The top right
+   shows Food and Supply, then 16 square slots, 8 across and 2 down, with
+   Peoples, Allies, Send, Ping and Pause under them. The starting goods
+   (softwood, sticks, stone, flint, meat and the rest) each sit in a slot with
+   their pixel icon and the count in the corner; the other slots are empty.
+2. Hover a slot: the tooltip names the good, gives the exact count, where it
+   comes from and its change over the last minute of game time.
+3. Gather or build: counts change, but no slot moves. Slots keep a fixed order
+   by category (woods, stone and flint, ores, metals, foods, crafting goods,
+   trinkets, crystals), and a new kind of good takes its place in that order.
+   Spend a good to zero and its slot stays, greyed.
+4. Hold more than 16 kinds of goods (in a dev build, from the browser
+   console: `[3,5,9,10,11,12,13,20,21,22,23,49,50,51,58].forEach((res) =>
+   shell.opts.issueOrder({ kind: 'debugGive', player: 0, res, count: 50 }))`).
+   The ▼ arrow lights; the wheel over the slots or the arrows scroll a row of
+   8 at a time, and the thumb between the arrows shows where you are. Counts
+   past 9999 read 12k, 1.2M.
+5. Right click the meat slot: it is crossed out in red and a message says
+   nobody eats it; right click again to eat it. With the cursor locked
+   (Settings) the tooltips, arrows, wheel and right click work the same.
+6. Unit tests: `packages/client/test/inventory.test.ts` (slot order, an icon
+   in the catalogue for every good, scrolling, counts, the wheel, the change
+   over a minute). `node packages/client/test-e2e/hud-check.mjs` checks the
+   grid in a browser.
 
 ## How a tester checks the balance editor
 

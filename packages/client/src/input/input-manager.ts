@@ -67,6 +67,7 @@ export class InputManager {
   private readonly heldCodes = new Map<string, string>(); // code -> binding name
   private readonly captures = new Map<number, Capture>();
   private readonly areas = new Map<string, MouseTarget>();
+  private readonly wheels = new Map<string, (dy: number) => void>();
   private hoverBtn: HudButton | null = null;
   private hoverPanel: HTMLElement | null = null;
   private lastButtonClick: (ClickRecord & { id: string }) | null = null;
@@ -112,6 +113,12 @@ export class InputManager {
   addArea(id: string, el: HTMLElement, target: MouseTarget): void {
     el.dataset.area = id;
     this.areas.set(id, target);
+  }
+
+  /** Sends the wheel over an element inside a panel to a handler of its own (the inventory scrolls by rows); the element gets data-wheel. */
+  addWheel(id: string, el: HTMLElement, onWheel: (dy: number) => void): void {
+    el.dataset.wheel = id;
+    this.wheels.set(id, onWheel);
   }
 
   setMode(mode: InputMode): void {
@@ -334,7 +341,14 @@ export class InputManager {
     const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
     if (this.panels.at(this.pos)) {
       // Scrollable HUD lists scroll by hand, since the event target is meaningless under pointer lock.
-      const el = document.elementFromPoint(this.pos.x, this.pos.y)?.closest<HTMLElement>('[data-scroll]');
+      const under = document.elementFromPoint(this.pos.x, this.pos.y);
+      const own = under?.closest<HTMLElement>('[data-wheel]');
+      if (own) {
+        this.wheels.get(own.dataset.wheel!)?.(dy);
+        this.refreshHover();
+        return;
+      }
+      const el = under?.closest<HTMLElement>('[data-scroll]');
       if (el) el.scrollTop += dy;
       return;
     }
