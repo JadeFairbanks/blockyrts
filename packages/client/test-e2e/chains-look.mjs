@@ -3,12 +3,14 @@
 //   pnpm --filter @blockyrts/client exec vite --port 5198
 //   node packages/client/test-e2e/chains-look.mjs http://localhost:5198 /tmp/shots
 //
-// Starts seed 1, builds the debug Hill, selects the four workers, clicks Dig
-// on its south face, then into the hill and out of its east side, clicks the
-// last point to finish, and runs at x16 until the first stretch is dug; then
-// clicks out a softwood wall chain with the mouse south of the camp (east,
-// south, south-west, west and north back to the anchor), right-clicks to end
-// it, runs at x4 until the ring stands and double-clicks a lone wall.
+// Starts seed 1, selects the four workers and clicks out a softwood wall
+// chain with the mouse south of the camp (east, south, south-west, west and
+// north back to the anchor), right-clicks to end it, runs at x4 until the
+// ring stands and double-clicks a lone wall; then builds the debug Hill,
+// clicks Dig on its south face, then into the hill and out of its east side,
+// clicks the last point to finish, and runs at x16 until the first stretch
+// is dug. All before night 0: a worker killed at night changes the selection,
+// which puts a ghost or Dig away.
 // Saves chains-*.png and prints what it checked.
 /* global window, document -- used inside page.evaluate callbacks */
 import { mkdirSync } from 'node:fs';
@@ -60,53 +62,9 @@ const selectWorkers = () => page.evaluate(() => window.shell.selection.set(windo
 await page.goto(`${base}/?seed=1`);
 await page.waitForFunction(() => Number(document.querySelector('.debug .dbg-row:nth-child(3) .dbg-value')?.textContent) > 45, null, { timeout: 120000 });
 await page.waitForTimeout(1000);
-// ---- A tunnel chain into the debug Hill, by mouse. ----
+
+// The camp, where the camera starts: the Hill goes 14 m east and north of it.
 const home = await page.evaluate(() => ({ x: window.shell.cam.focus.x, z: window.shell.cam.focus.z }));
-const hx = home.x + 14;
-const hz = home.z - 14;
-await jump(hx, hz);
-await press('dbg-reveal');
-await page.waitForTimeout(600);
-const c = await page.evaluate(() => {
-  const f = window.shell.cam.focus;
-  return { x: Math.floor(f.x / 0.45), z: Math.floor(f.z / 0.45), y: Math.round((window.world.heightAt(f.x, f.z) ?? 0) / 0.1125) };
-});
-await press('dbg-hill');
-await page.waitForFunction((q) => (window.world.heightAt((q.x + 0.5) * 0.45, (q.z + 0.5) * 0.45) ?? 0) > 3, c, { timeout: 60000 });
-await page.waitForTimeout(500);
-await selectWorkers();
-await page.evaluate(() => window.shell.commands.startArea('dig', 0));
-// On the hill's south face, 1 m above its ledge: the anchor, floored at the ledge.
-await click({ x: (c.x + 0.5) * COLUMN, y: (c.y + 4) * UNIT + 1, z: (c.z + 6) * COLUMN - 0.001 });
-const anchor = await page.evaluate(() => window.shell.commands.area?.chain);
-check('a click on the face anchors the tunnel at the ground in front', anchor?.x === c.x && anchor?.z === c.z + 5 && anchor?.floor === c.y + 4, JSON.stringify(anchor));
-// North into the hill, the cursor on its top.
-const into = { x: (c.x + 0.5) * COLUMN, y: (c.y + 30) * UNIT, z: (c.z + 3.5) * COLUMN };
-await hover(into);
-const north = await label();
-check('the label gives the tunnel stretch', /^0\.9 m of tunnel, 2\.25 m tall \//.test(north), north);
-await shot('tunnel-north');
-await click(into);
-// Then east, out of the hill's side.
-await hover(await ground(c.x + 7, c.z + 3));
-await shot('tunnel-east');
-await click(await ground(c.x + 7, c.z + 3));
-await page.waitForTimeout(1000);
-const sent = await page.evaluate(() => (window.shell.game.info?.sites ?? []).filter((s) => s.kind === 6).length);
-const last = await label();
-check('on the tunnel\'s last point the label says a click finishes it', last.startsWith('Click here again to finish the tunnel'), last);
-await click(await ground(c.x + 7, c.z + 3));
-check('two stretches marked, then a click on the last point ends the tunnel', sent === 2 && (await page.evaluate(() => window.shell.commands.area === null)), String(sent));
-// The first stretch is dug well before dusk at x16 (the order scripts and sim tests dig whole chains and walk them).
-await press('dbg-speed');
-await press('dbg-speed');
-await page.waitForFunction(() => /tunnel is finished/.test(document.querySelector('.message-list')?.textContent ?? '') || (window.shell.game.info?.step ?? 0) > 3000, null, { timeout: 120000 }).catch(() => undefined);
-await press('dbg-speed');
-const done = await page.evaluate(() => (document.querySelector('.message-list')?.textContent?.match(/tunnel is finished/g) ?? []).length);
-check('the first stretch dug', done >= 1, String(done));
-await jump(c.x * COLUMN, (c.z + 9) * COLUMN);
-await page.waitForTimeout(800);
-await shot('tunnel-dug');
 
 // ---- A wall chain: the ring of the chain-walls order script, by mouse. ----
 await jump(4.5 * COLUMN, 24 * COLUMN);
@@ -161,6 +119,53 @@ await press('dbg-speed');
 await press('dbg-speed');
 await page.waitForTimeout(500);
 await shot('walls-ring');
+
+// ---- A tunnel chain into the debug Hill, by mouse. ----
+const hx = home.x + 14;
+const hz = home.z - 14;
+await jump(hx, hz);
+await press('dbg-reveal');
+await page.waitForTimeout(600);
+const c = await page.evaluate(() => {
+  const f = window.shell.cam.focus;
+  return { x: Math.floor(f.x / 0.45), z: Math.floor(f.z / 0.45), y: Math.round((window.world.heightAt(f.x, f.z) ?? 0) / 0.1125) };
+});
+await press('dbg-hill');
+await page.waitForFunction((q) => (window.world.heightAt((q.x + 0.5) * 0.45, (q.z + 0.5) * 0.45) ?? 0) > 3, c, { timeout: 60000 });
+await page.waitForTimeout(500);
+await selectWorkers();
+await page.evaluate(() => window.shell.commands.startArea('dig', 0));
+// On the hill's south face, 1 m above its ledge: the anchor, floored at the ledge.
+await click({ x: (c.x + 0.5) * COLUMN, y: (c.y + 4) * UNIT + 1, z: (c.z + 6) * COLUMN - 0.001 });
+const anchor = await page.evaluate(() => window.shell.commands.area?.chain);
+check('a click on the face anchors the tunnel at the ground in front', anchor?.x === c.x && anchor?.z === c.z + 5 && anchor?.floor === c.y + 4, JSON.stringify(anchor));
+// North into the hill, the cursor on its top.
+const into = { x: (c.x + 0.5) * COLUMN, y: (c.y + 30) * UNIT, z: (c.z + 3.5) * COLUMN };
+await hover(into);
+const north = await label();
+check('the label gives the tunnel stretch', /^0\.9 m of tunnel, 2\.25 m tall \//.test(north), north);
+await shot('tunnel-north');
+await click(into);
+// Then east, out of the hill's side.
+await hover(await ground(c.x + 7, c.z + 3));
+await shot('tunnel-east');
+await click(await ground(c.x + 7, c.z + 3));
+await page.waitForTimeout(1000);
+const sent = await page.evaluate(() => (window.shell.game.info?.sites ?? []).filter((s) => s.kind === 6).length);
+const last = await label();
+check('on the tunnel\'s last point the label says a click finishes it', last.startsWith('Click here again to finish the tunnel'), last);
+await click(await ground(c.x + 7, c.z + 3));
+check('two stretches marked, then a click on the last point ends the tunnel', sent === 2 && (await page.evaluate(() => window.shell.commands.area === null)), String(sent));
+// The first stretch is dug by dusk at x16 (the order scripts and sim tests dig whole chains and walk them).
+await press('dbg-speed');
+await press('dbg-speed');
+await page.waitForFunction(() => /tunnel is finished/.test(document.querySelector('.message-list')?.textContent ?? '') || window.shell.game.step > 4300, null, { timeout: 120000 }).catch(() => undefined);
+await press('dbg-speed');
+const done = await page.evaluate(() => (document.querySelector('.message-list')?.textContent?.match(/tunnel is finished/g) ?? []).length);
+check('the first stretch dug', done >= 1, String(done));
+await jump(c.x * COLUMN, (c.z + 9) * COLUMN);
+await page.waitForTimeout(800);
+await shot('tunnel-dug');
 
 for (const r of results) console.log(r);
 console.log(problems.length ? problems.join('\n') : 'no page errors');
