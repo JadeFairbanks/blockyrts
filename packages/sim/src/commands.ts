@@ -25,6 +25,8 @@ import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
 import { orderCart, orderUpgrade, SKILL_TRAINING } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
+import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
+import { startForage } from './units/forage.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
@@ -367,6 +369,27 @@ function applyTunnelStretch(state: SimState, o: Extract<Order, { kind: 'tunnelSt
   for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
 }
 
+/**
+ * A right-click on loot (Jade's play-test notes: any living unit picks loot
+ * up): the selected units nearest it with room in their bags walk over, as
+ * many as it takes to carry it all; the rest stay where they are.
+ */
+function orderPickUp(state: SimState, o: Extract<Order, { kind: 'pickUp' }>): void {
+  const k = lootIndex(state, o.target);
+  if (k < 0) return;
+  const units = ownUnits(state, o.player, o.units, true).filter((i) => canLoot(state, i));
+  if (units.length === 0) {
+    alert(state, o.player, 'Only living units pick up loot: an engine needs its crew to.');
+    return;
+  }
+  const pickers = pickersFor(state, units, state.loot[k]!);
+  if (pickers.length === 0) {
+    alert(state, o.player, 'No room for it: their bags are full. Hand the loot in first (Return Cargo).');
+    return;
+  }
+  for (const i of pickers) giveOrder(state, i, { t: 'loot', id: o.target, hand: 0, back: 0, x: 0, z: 0 }, o.queued === true);
+}
+
 /** Applies one step's orders, in the canonical order. */
 export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
@@ -400,8 +423,18 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         giveAll(state, o, () => ({ t: 'repairAll' }));
         break;
       case 'returnCargo':
-        giveAll(state, o, (i) => (e.carryAmt[i]! > 0 ? { t: 'return' } : null), true);
+        // A gatherer takes its load (and its loot with it); any other unit hands in its loot.
+        giveAll(state, o, (i) => (e.carryAmt[i]! > 0 ? { t: 'return' } : bagEmpty(state, i) ? null : { t: 'loot', id: 0, hand: 1, back: 0, x: 0, z: 0 }), true);
         break;
+      case 'pickUp':
+        orderPickUp(state, o);
+        break;
+      case 'forage': {
+        const workers = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] === UnitKind.Worker);
+        if (workers.length === 0) alert(state, o.player, 'Only workers gather. Select workers.');
+        for (const i of workers) giveOrder(state, i, startForage(state, i), o.queued === true);
+        break;
+      }
       case 'dropoff': {
         // A shared unit drops off and shelters only at its own owner's buildings (and its load goes to its owner's pool).
         const b = state.buildings.get(o.building);

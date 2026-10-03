@@ -150,6 +150,14 @@ describe('catalog', () => {
     expect(toDisplay(day.value as number, day.unit)).toBe('180');
   });
 
+  it("files loot, Hunt, Gather and guarding workers under their own group (Jade's play-test notes)", () => {
+    const group = (id: string): string => cat.entries.get(cat.fields.get(id)!.entryId)!.group;
+    for (const id of ['units/loot.ts#LOOT_BAG_TENTHS_LB', 'units/loot.ts#LOOT_NOTICE_M', 'units/forage.ts#FORAGE_DARK_M', 'units/field.ts#HUNT_HOME_PCT', 'combat/fight.ts#GUARD_HELP_M']) expect(group(id), id).toBe('loot');
+    expect(toDisplay(cat.fields.get('units/loot.ts#LOOT_BAG_TENTHS_LB')!.value as number, cat.fields.get('units/loot.ts#LOOT_BAG_TENTHS_LB')!.unit)).toBe('25');
+    const plenty = [...cat.fields.values()].find((f) => f.module === 'units/forage.ts' && f.path.join('.') === 'FORAGE_GOODS.0.plenty')!;
+    expect(plenty.label).toBe('Wanted until the stock holds');
+  });
+
   it('names the peoples\' tables by what their keys stand for and pages them by section', () => {
     const peoples = cat.groups.find((g) => g.id === 'peoples')!;
     const woman = peoples.entries.find((e) => e.label === 'Halfling (woman)')!;

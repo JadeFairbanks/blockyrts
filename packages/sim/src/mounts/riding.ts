@@ -12,13 +12,13 @@
 import { floorDiv, length2d, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { landAt, UnitKind, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
-import { PropKind } from '../world/props.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { bodyHeight, dealt, forward, gap, hostile, hurtUnit, inArc, sideOf, Side } from '../combat/combat.ts';
 import { flies, isStructure, Mob, mobSpec, Moves } from '../combat/mobs.ts';
 import { fireAt } from '../combat/projectiles.ts';
 import { playerUnit } from '../combat/mob-ai.ts';
 import { resetWalk } from '../units/behaviour.ts';
+import { dropLoot, meatOf } from '../units/loot.ts';
 import { CHARGE_CLOSE_WU, KNOCKBACK, Mount, mountSpec, RUN_SPEED_BP, RUN_TURN } from './data.ts';
 
 const BP = 10000;
@@ -158,9 +158,11 @@ export function loseMount(state: SimState, i: number): void {
   e.charge[i] = 0;
   state.hits.push({ look: 'blood', x: e.x[i]!, y: e.y[i]! + floorDiv(spec.shoulderCm * WU_PER_METRE, 200), z: e.z[i]!, id: e.id[i]! });
   if (m === Mount.Horse) {
-    // A horse leaves its carcass.
+    // A horse leaves its meat and hides as loot (Jade's play-test notes: no carcasses), for its rider's side, or whoever killed it.
     const s = speciesSpec(Species.Horse);
-    state.world.addProp(floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN), PropKind.Carcass, s.id, s.meat, state.step);
+    const a = e.attacker[i] ? e.indexOf(e.attacker[i]!) : -1;
+    const side = a >= 0 && e.owner[a]! < state.players.length ? e.owner[a]! : e.owner[i]! < state.players.length ? e.owner[i]! : -1;
+    dropLoot(state, e.x[i]!, e.z[i]!, [[meatOf(s.id), s.meat], ...s.extra.map(([r, n]) => [r, n] as [number, number])], { killer: -1, owner: side, brag: 0, src: 0 });
     if (e.owner[i]! < state.players.length) state.events.push({ player: e.owner[i]!, kind: 'alert', text: 'A warrior\'s horse has been killed. It fights on foot.', x: e.x[i]!, z: e.z[i]! });
   }
   if (e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.GoblinWolfRider) {

@@ -26,7 +26,8 @@ import { barrierSpot, cellAt, occupiedCells } from './cells.ts';
 import {
   CLEARED_RADIUS_WU, CLEARED_WAIT_STEPS, HOARD_ROLLS, LAIR_CLAIM_GAP_WU, LAIR_GAP_WU, LAIR_UNIT_GAP_WU, lairCap, lairDue, LAIRS, lairSpec, LairSite, RIFT_SEEN_WU, type LairSpec,
 } from './data.ts';
-import { rollDrops } from './loot.ts';
+import { rollDropList } from './loot.ts';
+import { dropLoot } from '../units/loot.ts';
 import { Role } from './types.ts';
 
 const M = WU_PER_METRE;
@@ -250,10 +251,11 @@ export function wakeLair(state: SimState, l: number, by: number): void {
 }
 
 /**
- * A lair fell: its ruin stays, its hoard goes to the side that broke it (s:
- * straight into their pool), and every warrior within 20 m gains 20 XP.
+ * A lair fell: its ruin stays, its hoard goes to the side that broke it (as
+ * loot where the lair stood, for its units to carry home: Jade's play-test
+ * notes), and every warrior within 20 m gains 20 XP.
  */
-export function clearLair(state: SimState, l: number, taker: number): void {
+export function clearLair(state: SimState, l: number, taker: number, killer = -1): void {
   const e = state.entities;
   const spec = lairSpec(e.mob[l]!);
   const x = e.x[l]!;
@@ -264,12 +266,13 @@ export function clearLair(state: SimState, l: number, taker: number): void {
     const got = new Map<number, number>();
     const night = nightNow(state);
     const kinds = spec.sleepers(night).length > 0 ? spec.sleepers(night) : spec.guardians;
-    for (let k = 0; k < HOARD_ROLLS && kinds.length > 0; k++) rollDrops(state, mobSpec(kinds[k % kinds.length]!).drops, taker, got);
+    for (let k = 0; k < HOARD_ROLLS && kinds.length > 0; k++) rollDropList(state, mobSpec(kinds[k % kinds.length]!).drops, got);
     const band = state.world.layout.cell(cellAt(state, x, z)).band;
     const gem = HOARD_VALUABLE[band]!;
-    state.players[taker]!.pool[gem] = state.players[taker]!.pool[gem]! + 1;
     got.set(gem, (got.get(gem) ?? 0) + 1);
     state.events.push({ player: taker, kind: 'alert', text: `The ${mobSpec(e.mob[l]!).name.toLowerCase()} is cleared. Its hoard: ${hoardText(got)}.`, x, z });
+    // A hoard is always worth remarking on.
+    dropLoot(state, x, z, [...got].sort((a, b) => a[0] - b[0]), { killer, owner: taker, brag: 1, src: e.mob[l]! + 1 });
   }
   const r = LAIR_CLEAR_RADIUS_M * M;
   for (const j of state.grid.near(x, z, r)) {
