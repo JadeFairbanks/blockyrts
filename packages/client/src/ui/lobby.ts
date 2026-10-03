@@ -4,7 +4,7 @@
 // it is back. It ends when the relay starts the match, and hands the match
 // what it needs.
 import { PLAYER_COLOURS, Presence, RoomPhase, type RoomStateMessage, type ServerMessage } from '@blockyrts/protocol';
-import { colourHex, seatsOf, type MatchPlan } from '../game/match.ts';
+import { seatsOf, type MatchPlan } from '../game/match.ts';
 import { inviteLink } from '../net/api.ts';
 import type { RelayClient } from '../net/relay.ts';
 import { openSave } from '../net/saves.ts';
@@ -44,7 +44,7 @@ export function lobby(screen: Screen, relay: RelayClient, first: RoomStateMessag
       resolve(plan);
     };
     const begin = async (m: Extract<ServerMessage, { type: 'gameStart' } | { type: 'loadSnapshot' }>): Promise<void> => {
-      const box = screen.page('Starting…');
+      const box = screen.page('Starting…', 'lobby');
       el('p', 'note', 'Building the world and loading the models.', box);
       let plan: MatchPlan;
       if (m.type === 'gameStart' && m.snapshot.length === 0) {
@@ -132,8 +132,10 @@ export function lobby(screen: Screen, relay: RelayClient, first: RoomStateMessag
       const list = el('div', 'lobby-players', undefined, box);
       for (const p of room.players) {
         const row = el('div', 'lobby-player', undefined, list);
-        const sw = el('span', 'ally-swatch', undefined, row);
-        sw.style.background = colourHex(p.colour);
+        // The player's banner in their colour (screens.css draws it).
+        const banner = el('span', 'lobby-banner', undefined, row);
+        banner.dataset.colour = String(p.colour);
+        banner.setAttribute('aria-hidden', 'true');
         el('span', 'lobby-name', `${p.name}${p.slot === room.yourSlot ? ' (you)' : ''}${p.slot === room.hostSlot ? ' — host' : ''}`, row);
         const state =
           p.presence === Presence.Reserved

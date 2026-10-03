@@ -37,13 +37,18 @@ export function input(name: string, type = 'text', autocomplete = 'off'): HTMLIn
   return i;
 }
 
-/** A full-window screen with one dialog box; `replace` swaps what is in the box. */
+/**
+ * A full-window screen with one dialog box; `page` swaps what is in the box.
+ * The overlay's data-page names the page's kind (main-menu, lobby, ...), which
+ * picks the picture behind it (screens.css).
+ */
 export class Screen {
   readonly overlay: HTMLElement;
   readonly box: HTMLElement;
 
   constructor(parent: HTMLElement, cls = '') {
     this.overlay = el('div', 'overlay start-overlay', undefined, parent);
+    this.overlay.dataset.page = cls;
     this.box = el('div', `dialog ${cls}`.trim(), undefined, this.overlay);
   }
 
@@ -51,6 +56,7 @@ export class Screen {
   page(title: string, cls = ''): HTMLElement {
     this.box.replaceChildren();
     this.box.className = `dialog ${cls}`.trim();
+    this.overlay.dataset.page = cls;
     el('h2', '', title, this.box);
     return this.box;
   }

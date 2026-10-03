@@ -43,6 +43,8 @@ describe('the number tables', () => {
   it('have unique ids, Table 2 in its parts and Tables 3 and 13 in two each', () => {
     const ids = NUMBER_TABLES.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
+    // Unit stats, then building sight (shared vision patch).
+    expect(tablesNumbered(1).map((t) => t.id)).toEqual(['1.1', '1.2']);
     // Melee is close melee (2d.1) and long melee and cavalry (2d.2) (Troops and gear).
     expect(tablesNumbered(2).map((t) => t.id)).toEqual(['2a', '2b', '2c', '2d.1', '2d.2', '2e', '2f']);
     // Armour and shields; spells, then wands and robes.
@@ -60,7 +62,7 @@ describe('the number tables', () => {
 
   it('carry the suggested flags from the key', () => {
     // Own mark.
-    const hand = lookup('1', ['Worker', '2 Hand'], 'Health');
+    const hand = lookup('1.1', ['Worker', '2 Hand'], 'Health');
     expect(hand).toEqual({ text: '70 (s)', suggested: true, marked: true });
     // A value marked (doc) in a suggested row stays fixed.
     const t2f = getTable('2f');
@@ -75,11 +77,11 @@ describe('the number tables', () => {
     const bronze = getTable('2a').rows.find((r) => r[0]!.text === 'Bronze')!;
     expect(bronze[2]!).toEqual({ text: '10 copper ingots, 2 tin ingots', suggested: true, marked: false });
     // Labels without numbers are never suggested by a row mark.
-    expect(lookup('1', ['Worker', '2 Hand'], 'Unit').suggested).toBe(false);
+    expect(lookup('1.1', ['Worker', '2 Hand'], 'Unit').suggested).toBe(false);
   });
 
   it('strip markdown from headers', () => {
-    expect(getTable('1').columns[0]).toBe('Unit');
+    expect(getTable('1.1').columns[0]).toBe('Unit');
     expect(getTable('8').title).toBe('Night spawn geometry');
   });
 });

@@ -1,0 +1,697 @@
+/*
+ * The screens outside the match (main menu, its pages, the lobby, loading)
+ * and the overlays that share their look over a match (the F10 menu, the
+ * account box, "the game has closed"). Wood-and-iron frames and buttons are
+ * the catalogue's interface art (K10/K11), drawn at twice their pixel size;
+ * headings and buttons use Jersey 10. The pictures behind the main menu and
+ * the lobby are staged from the game's own models and world (src/art/,
+ * remade with `pnpm --filter @blockyrts/client art`).
+ */
+@font-face {
+  font-family: 'Jersey 10';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/jersey-10-latin-400-normal.woff2') format('woff2');
+}
+
+:root {
+  --display: 'Jersey 10', 'Trebuchet MS', system-ui, sans-serif;
+  --parchment: #efe3c8;
+  --parchment-muted: #b9a988;
+  --gold: #f0c860;
+  --gold-deep: #c8963c;
+  --ink: #140c06;
+  --frame-panel: url('../../../assets/src/ui/menu_panel.png');
+  --frame-popup: url('../../../assets/src/ui/popup_box.png');
+  --frame-list: url('../../../assets/src/ui/menu_list.png');
+  --frame-slot: url('../../../assets/src/ui/menu_save_slot.png');
+  --btn-normal: url('../../../assets/src/ui/menu_button_normal.png');
+  --btn-hover: url('../../../assets/src/ui/menu_button_hover.png');
+  --btn-pressed: url('../../../assets/src/ui/menu_button_pressed.png');
+  --btn-disabled: url('../../../assets/src/ui/menu_button_disabled.png');
+}
+
+/* ---- Overlays ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 7, 12, 0.6);
+  user-select: auto;
+  -webkit-user-select: auto;
+  isolation: isolate;
+}
+.overlay[hidden] {
+  display: none;
+}
+
+/* The full-window screens: the battle at the camp behind the main menu and
+   its pages, the world from above behind the lobby and the loading screen. */
+.start-overlay {
+  --art: url('./art/menu-battle.webp');
+  --art-at: 62% 50%;
+  background: #0c0d16;
+  overflow: hidden;
+}
+.start-overlay[data-page='lobby'],
+.start-overlay[data-page='loading'] {
+  --art: url('./art/lobby-map.webp');
+  --art-at: 50% 50%;
+}
+.start-overlay::before,
+.start-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.start-overlay::before {
+  background: var(--art) var(--art-at) / cover no-repeat;
+  animation: art-drift 70s ease-in-out infinite alternate;
+  transform-origin: 70% 55%;
+}
+/* Shade under the column of boxes on the left; a veil round the centred loading box. */
+.start-overlay::after {
+  background:
+    linear-gradient(90deg, rgba(6, 6, 12, 0.9) 0%, rgba(6, 6, 12, 0.72) 26%, rgba(6, 6, 12, 0.18) 52%, rgba(6, 6, 12, 0) 70%),
+    linear-gradient(0deg, rgba(6, 6, 12, 0.55) 0%, rgba(6, 6, 12, 0) 30%);
+}
+.start-overlay[data-page='loading']::after {
+  background: radial-gradient(ellipse at 50% 50%, rgba(6, 8, 14, 0.25) 0%, rgba(6, 8, 14, 0.5) 55%, rgba(6, 8, 14, 0.85) 100%);
+}
+@keyframes art-drift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06) translate(-0.6%, -0.4%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .start-overlay::before {
+    animation: none;
+  }
+}
+/* The menu, its pages and the lobby sit in a column on the left, over the shaded side. */
+.start-overlay:not([data-page='loading']) {
+  justify-content: flex-start;
+  padding-left: clamp(16px, 6vw, 112px);
+}
+
+/* ---- Boxes ---- */
+.dialog {
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 10px 14px 12px;
+  border: 14px solid transparent;
+  border-image: var(--frame-panel) 12 fill / 24px round;
+  image-rendering: pixelated;
+  color: var(--parchment);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #8a6a3c rgba(10, 6, 3, 0.6);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+  animation: box-in 0.25s ease-out;
+}
+@keyframes box-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog {
+    animation: none;
+  }
+}
+.dialog.lobby,
+.dialog.settings-page,
+.dialog.load-page {
+  width: min(600px, calc(100vw - 32px));
+}
+.dialog.lobby,
+.dialog.menu {
+  border-image-source: var(--frame-popup);
+}
+.dialog.loading {
+  width: auto;
+  padding: 6px 22px 8px;
+  font: 30px/1.1 var(--display);
+  color: var(--parchment);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+/* The front page: no box, just the title, the choices and the small print. */
+.dialog.main-menu {
+  width: min(500px, calc(100vw - 32px));
+  border: 0;
+  border-image: none;
+  padding: 8px 0 0;
+  gap: 12px;
+  filter: none;
+  overflow-x: hidden;
+}
+
+/* ---- Text ---- */
+.dialog h1,
+.dialog h2,
+.dialog h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+.dialog h2 {
+  margin: 0 0 2px;
+  font-size: 38px;
+  line-height: 1;
+  color: var(--gold);
+}
+.dialog h3 {
+  margin: 6px 0 -2px;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #d9b878;
+}
+/* The game's name, drawn as the catalogue logo (the words stay for readers). */
+.dialog h1.game-logo {
+  align-self: flex-start;
+  width: min(512px, 100%);
+  aspect-ratio: 2 / 1;
+  margin: 0 0 -10px -6px;
+  background: url('../../../assets/src/ui/logo_512x256.png') center / contain no-repeat;
+  color: transparent;
+  text-shadow: none;
+  font-size: 1px;
+  overflow: hidden;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+}
+.tagline {
+  margin: 0 0 6px;
+  font: 30px/1.05 var(--display);
+  color: var(--parchment);
+  text-shadow: 2px 2px 0 var(--ink), 0 0 18px rgba(0, 0, 0, 0.8);
+}
+.note {
+  margin: -4px 0 0;
+  color: var(--parchment-muted);
+  font-size: 12.5px;
+}
+.note.warn {
+  color: #ffd27a;
+}
+.note.error,
+.status.error {
+  color: #ff9a86;
+}
+.note.lead {
+  margin: 0;
+  color: var(--parchment);
+  font-size: 13.5px;
+}
+.main-menu .note {
+  margin: 0;
+  font-size: 13px;
+  color: #d6c8a8;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.dialog hr {
+  width: 100%;
+  height: 4px;
+  margin: 4px 0;
+  border: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0 50%, rgba(214, 170, 96, 0.22) 50% 100%);
+}
+.main-menu hr {
+  width: min(380px, 100%);
+}
+
+/* ---- Buttons ---- */
+.dialog button {
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 3px 14px 5px;
+  border: 6px solid transparent;
+  border-image: var(--btn-normal) 8 fill / 16px round;
+  background: none;
+  font: 23px/1 var(--display);
+  letter-spacing: 0.02em;
+  color: var(--parchment);
+  text-shadow: 2px 2px 0 var(--ink);
+  cursor: pointer;
+}
+.dialog button:hover {
+  border-image-source: var(--btn-hover);
+  color: #fff4d8;
+}
+.dialog button:active {
+  border-image-source: var(--btn-pressed);
+  padding: 4px 14px 4px;
+}
+.dialog button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.dialog button:disabled {
+  border-image-source: var(--btn-disabled);
+  color: #8a7e6a;
+  cursor: not-allowed;
+}
+.dialog button.primary {
+  border-image-source: var(--btn-hover);
+  color: var(--gold);
+}
+.dialog button.primary:hover {
+  filter: brightness(1.18);
+}
+.dialog button.primary:disabled {
+  border-image-source: var(--btn-disabled);
+  color: #8a7e6a;
+  filter: none;
+}
+.dialog button.danger {
+  color: #ffab94;
+}
+.dialog button.big {
+  min-height: 56px;
+  padding: 6px 20px 9px;
+  font-size: 32px;
+  border-width: 10px;
+}
+.main-menu button.big {
+  width: min(380px, 100%);
+  text-align: left;
+}
+.dialog button.small {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 1px 10px 3px;
+  font-size: 19px;
+}
+.dialog .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* The F11 reminder, with its keycap. */
+.fullscreen-row {
+  width: min(380px, 100%);
+}
+.fullscreen-row .f11 {
+  flex: 1 1 200px;
+  margin: 0;
+  padding-left: 58px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  background: url('../../../assets/src/ui/keycap_f11.png') left center / 48px 44px no-repeat;
+}
+.fullscreen-row .f11.mac {
+  padding-left: 0;
+  background: none;
+}
+.fullscreen-row button {
+  flex: none;
+}
+
+/* ---- Forms ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field > span:first-child {
+  font: 22px/1 var(--display);
+  color: #e6cf98;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.field .row {
+  display: flex;
+  gap: 6px;
+}
+.field small {
+  color: var(--parchment-muted);
+}
+.field small.error {
+  color: #ff9a86;
+}
+.dialog input:not([type]),
+.dialog input[type='text'],
+.dialog input[type='email'],
+.dialog input[type='password'],
+.dialog select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 4px solid transparent;
+  border-image: var(--frame-list) 4 fill / 8px round;
+  background: none;
+  font: 15px/1.3 ui-monospace, 'DejaVu Sans Mono', monospace;
+  color: var(--parchment);
+  outline: none;
+}
+.dialog input:focus-visible,
+.dialog select:focus-visible {
+  border-image-source: url('../../../assets/src/ui/menu_list_row_selected.png');
+}
+.dialog select {
+  font: var(--font);
+  font-size: 14px;
+}
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 20px !important;
+}
+
+/* ---- Lists: saves and players ---- */
+.save-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border: 8px solid transparent;
+  border-image: var(--frame-slot) 8 fill / 16px round;
+}
+.save-text {
+  flex: 1;
+  min-width: 0;
+}
+.save-title {
+  font: 24px/1 var(--display);
+  color: var(--gold);
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.save-text .note {
+  margin: 2px 0 0;
+}
+.save-row button {
+  min-height: 34px;
+  padding: 1px 10px 3px;
+  font-size: 20px;
+}
+
+/* ---- The lobby ---- */
+.invite {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.invite-label {
+  font: 24px/1 var(--display);
+  color: #d9b878;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.invite-code {
+  padding: 2px 14px 6px;
+  border: 4px solid transparent;
+  border-image: var(--frame-list) 4 fill / 8px round;
+  font: 56px/1 var(--display);
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--ink);
+  user-select: all;
+  -webkit-user-select: all;
+}
+.lobby-players {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 4px solid transparent;
+  border-image: var(--frame-list) 4 fill / 8px round;
+}
+.lobby-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 8px 0 4px;
+  border: 4px solid transparent;
+  border-image: url('../../../assets/src/ui/menu_list_row_normal.png') 4 fill / 8px round;
+}
+.lobby-banner {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  background: center / 32px 32px no-repeat;
+}
+.lobby-banner[data-colour='0'] {
+  background-image: url('../../../assets/src/ui/team_banner_1.png');
+}
+.lobby-banner[data-colour='1'] {
+  background-image: url('../../../assets/src/ui/team_banner_2.png');
+}
+.lobby-banner[data-colour='2'] {
+  background-image: url('../../../assets/src/ui/team_banner_7.png');
+}
+.lobby-banner[data-colour='3'] {
+  background-image: url('../../../assets/src/ui/team_banner_5.png');
+}
+.lobby-banner[data-colour='4'] {
+  background-image: url('../../../assets/src/ui/team_banner_4.png');
+}
+.lobby-banner[data-colour='5'] {
+  background-image: url('../../../assets/src/ui/team_banner_6.png');
+}
+.lobby-banner[data-colour='6'] {
+  background-image: url('../../../assets/src/ui/team_banner_3.png');
+}
+.lobby-banner[data-colour='7'] {
+  background-image: url('../../../assets/src/ui/team_banner_8.png');
+}
+.lobby-name {
+  flex: 1;
+  font: 24px/1 var(--display);
+  color: var(--parchment);
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.lobby-state {
+  font: 20px/1 var(--display);
+  color: var(--parchment-muted);
+}
+.lobby-state.ready {
+  color: #9be58f;
+}
+.colour-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dialog .colour-picker button.colour {
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0;
+  border: 4px solid transparent;
+  border-image: url('../../../assets/src/ui/menu_list_row_normal.png') 4 / 8px round;
+  background-clip: padding-box;
+}
+.dialog .colour-picker button.colour:hover {
+  filter: brightness(1.15);
+}
+.dialog .colour-picker button.colour.picked {
+  border-image-source: url('../../../assets/src/ui/menu_list_row_selected.png');
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.dialog .colour-picker button.colour:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* ---- Settings (the Settings page and the F10 menu) ---- */
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.setting {
+  display: grid;
+  grid-template-columns: 140px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+}
+.setting output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--parchment-muted);
+}
+.setting.toggle {
+  grid-template-columns: auto 1fr;
+  row-gap: 0;
+}
+.setting.toggle small {
+  grid-column: 2;
+  color: var(--parchment-muted);
+  font-size: 11.5px;
+}
+.settings-panel .choice {
+  display: flex;
+  gap: 4px;
+  grid-column: 2 / 4;
+}
+.settings-panel .choice button {
+  flex: 1;
+  min-height: 32px;
+  padding: 1px 8px 3px;
+  font-size: 19px;
+}
+.settings-panel .choice button.lit {
+  border-image-source: var(--btn-hover);
+  color: var(--gold);
+}
+.dialog input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  background: url('../../../assets/src/ui/menu_checkbox_off.png') center / 24px 24px no-repeat;
+  cursor: pointer;
+}
+.dialog input[type='checkbox']:checked {
+  background-image: url('../../../assets/src/ui/menu_checkbox_on.png');
+}
+.dialog input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.dialog input[type='range'] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 24px;
+  margin: 0;
+  background: none;
+  cursor: pointer;
+}
+.dialog input[type='range']::-webkit-slider-runnable-track {
+  height: 12px;
+  border: 0 solid transparent;
+  border-width: 0 8px;
+  border-image: url('../../../assets/src/ui/menu_slider_track.png') 0 4 fill / 0 8px round;
+}
+.dialog input[type='range']::-moz-range-track {
+  height: 12px;
+  border: 0 solid transparent;
+  border-width: 0 8px;
+  border-image: url('../../../assets/src/ui/menu_slider_track.png') 0 4 fill / 0 8px round;
+}
+.dialog input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 24px;
+  margin-top: -6px;
+  border: 0;
+  background: url('../../../assets/src/ui/menu_slider_knob.png') center / 16px 24px no-repeat;
+}
+.dialog input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 24px;
+  border: 0;
+  border-radius: 0;
+  background: url('../../../assets/src/ui/menu_slider_knob.png') center / 16px 24px no-repeat;
+}
+.dialog input[type='range']:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.dialog summary {
+  cursor: pointer;
+  list-style: none;
+  font: 24px/1.1 var(--display);
+  color: #d9b878;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.dialog summary::-webkit-details-marker {
+  display: none;
+}
+.dialog summary::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: url('../../../assets/src/ui/menu_dropdown_arrow.png') center / 16px 16px no-repeat;
+  transform: rotate(-90deg);
+  transition: transform 0.15s;
+}
+.dialog details[open] > summary::before {
+  transform: none;
+}
+.hotkey-group {
+  margin: 8px 0 2px;
+  font: 20px/1 var(--display);
+  color: var(--gold);
+}
+.setting.hotkey {
+  grid-template-columns: 1fr 112px;
+  margin: 2px 0;
+}
+.setting.hotkey button {
+  min-height: 30px;
+  padding: 0 8px 2px;
+  font-size: 18px;
+}
+.setting.hotkey button.waiting {
+  border-image-source: var(--btn-hover);
+  color: var(--gold);
+}
+.menu-seed {
+  margin: -4px 0 4px;
+}
+
+/* ---- Small screens: the column fills the width and the battle shifts to show the fight. ---- */
+@media (max-width: 760px) {
+  .start-overlay:not([data-page='loading']) {
+    justify-content: center;
+    padding-left: 0;
+  }
+  .start-overlay {
+    --art-at: 72% 50%;
+  }
+  .start-overlay::after {
+    background: rgba(6, 6, 12, 0.62);
+  }
+  .tagline {
+    font-size: 24px;
+  }
+  .dialog button.big {
+    min-height: 48px;
+    font-size: 27px;
+  }
+  .invite-code {
+    font-size: 44px;
+  }
+}
+@media (max-height: 760px) {
+  .dialog.main-menu {
+    gap: 8px;
+  }
+  .dialog h1.game-logo {
+    width: min(384px, 100%);
+  }
+  .dialog button.big {
+    min-height: 46px;
+    padding: 3px 18px 6px;
+    font-size: 27px;
+  }
+}

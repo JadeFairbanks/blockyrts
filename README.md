@@ -39,6 +39,7 @@ pnpm install
 | `pnpm --filter @blockyrts/tools balance:apply <file>` | Applies a balance editor export to the sim's data files (`--dry-run`, `--force`) |
 | `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
 | `pnpm --filter @blockyrts/tools models:build` | Converts the Blockbench models to glb for the client (`pnpm dev` and the client build run it first) |
+| `pnpm --filter @blockyrts/client art` | Renders the main menu's battle and the lobby's map from the game's models and world into `packages/client/src/ui/art/` (`battle` or `map` for one; needs `models:build` first) |
 | `pnpm assets:manifest` | Lists packages/assets/src/MANIFEST.md and checks it against the model files |
 
 The cross-browser test uses Playwright's Chromium, Firefox and WebKit. A
@@ -1075,6 +1076,35 @@ still load, with every player's explored land joined into one.
 4. **Attacks.** Order a warrior to attack a monster far off that only a
    tower (or an ally's unit) can see: the warrior keeps chasing it. Once
    nothing on your side sees it, the order drops as before.
+
+## How a tester checks the menu and lobby look
+
+Client only: the sim, the server and every hash are unchanged, and every
+control, label and flow of milestone 9 stays as it was.
+
+1. `pnpm dev` and open http://localhost:5173. The main menu stands in a
+   column on the left over a dusk battle at the camp: the game's logo, the
+   six choices on wooden buttons, the F11 keycap. The picture drifts slowly
+   (not when the system asks for reduced motion).
+2. New game, Load game, Join game, Settings and Account open in a wooden
+   panel in the same column. Inputs, checkboxes, sliders and the save slots
+   use the catalogue's interface art; headings and buttons use the Jersey 10
+   pixel font (`packages/client/src/ui/fonts/`, SIL Open Font License).
+3. Host a game for friends: the lobby shows a four-player world seen from
+   high above, the camps lit in the basin, with the invite code large in its
+   own inset and a team banner by each player. The loading screen keeps the
+   map behind it.
+4. In a game, F10 opens the menu in the same wooden pop-up; a guest's Save
+   game opens the account form in it too.
+5. The pictures are `packages/client/src/ui/art/menu-battle.webp` and
+   `lobby-map.webp`, 2560 x 1440. To render them again after models or world
+   generation change: `pnpm --filter @blockyrts/tools models:build`, then
+   `pnpm --filter @blockyrts/client art` (about 3 minutes; `battle` or `map`
+   for one). The scenes are `packages/client/src/art/scenes/battle.ts` and
+   `map.ts`; `pnpm --filter @blockyrts/client exec vite` then
+   `/art.html?scene=battle` (or `map`, with `&w=1600&h=900`) shows one in the
+   browser while staging; the battle takes `cam`, `look` and `fov` in the URL
+   to try a camera, the map `pitch`, `yaw`, `dist`, `lx` and `lz`.
 
 ## How a tester checks the balance editor
 

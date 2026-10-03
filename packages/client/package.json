@@ -10,7 +10,8 @@
     "prebuild": "pnpm --filter @blockyrts/tools models:build",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "art": "node scripts/make-art.mjs"
   },
   "dependencies": {
     "@blockyrts/audio": "workspace:*",

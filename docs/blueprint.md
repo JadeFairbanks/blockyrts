@@ -470,6 +470,8 @@ Done (merged 2026-10-03, PR #63): picks in m10-picks.md, now in the docx (Audio,
 
 #### M11: Troop rework
 
+Done (merged 2026-10-03, PR #65): picks in m11-picks.md, now in the docx (Troops and gear, Controls, tables 4, 5, 7, 9, 11, 19 and 20, Known imbalances, Open questions). Upgrades refund the replaced kit in full (Jade, 22:52 2026-10-02); old saves are refused (save format 2).
+
 Agreed by Jade on 2026-10-03 (go at 05:25 UTC). The full design is in troop-rework.md and the docx section "Troops and gear (agreed 2026-10-03)"; the numbers are in Tables 2a to 2e, 3, 7, 12 and 13.
 
 **You can now:** click a Barracks, pick a weapon tier and an armour tier for close melee, long melee, ranger or brawler, tick Lock, and train troops that come out already armed; train cavalry at the Stables; select warriors and press Upgrade Weapon or Upgrade Armour (or the Max twins) and watch them walk to a forge, Barracks or main base and come back better armed; upgrade a worker's whole tool kit with Q; see a long-melee troop land 30% critical hits at the tip of its reach.
@@ -481,7 +483,7 @@ Agreed by Jade on 2026-10-03 (go at 05:25 UTC). The full design is in troop-rewo
 - Forge as smelting only (Casting Hearth, Bloomery, Ironworks, Steelworks with carbon steel); Tannery with no tiers making hardened leather; research list without Halberds and Steel crossbow; wild geese and pheasants hunted for meat and feathers.
 - Client: the Barracks, Stables and main base training panel (picture buttons, tier dropdowns with icons, Lock, best-affordable default favouring the weapon); the four Upgrade buttons (Q, X, Z, V (s)) and Q Upgrade on workers; K, F, I, F4, the Equipment panel, the inventory panel, the Train skills page entries for Archery, Crossbow, Musket and Riding, and the Ride button removed; Hitch and Cannon crew kept; start with 4 workers and 3 unarmoured close-melee warriors with hardwood cudgels.
 - Balance editor: a group per new table (kits, armour and shields, tools, training and upgrading, wands and robes); no tuning, numbers stay Jade's.
-- Models: tinted bodies per tier until the model thread makes the per-tier looks and the brawler's pistol; wild geese and pheasants borrow the hen's model, sized to each bird, until theirs are made.
+- Models: tinted bodies per tier until the model thread makes the per-tier looks, the brawler's pistol and the birds.
 
 **Depends on:** M10.
 
@@ -575,7 +577,7 @@ The land shapes the town. Grassland, which herds and most crops need, thins out 
 - 4 **workers**.
 - 3 **warriors** (Jade, 2026-10-03), all close melee with a tier 1 weapon (a hardwood cudgel) and no armour, so no shield (see "Troops and gear").
 - Tier 1 **hardwood tools** for the workers: hardwood axes, digging sticks and mallets. Workers upgrade their tool kit one tier at a time (see "Troops and gear").
-- Extra starting food and supply for the three warriors (Jade, 2026-10-03).
+- Extra starting food and supply for the three warriors (Jade, 2026-10-03): 25 meat, 10 fish and 10 eggs, and a Big House giving 10 supply (suggested, Milestone 11; tables 4 and 9).
 
 ### What makes it fun
 
@@ -663,7 +665,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Rule** | **Value** |
 |---|---|
 | Claimed land | 5 m around a lit torch and 10 m around a player building measured from its outer edge (Jade), plus any region enclosed by barriers that holds a player building (doc); no other light claims (Jade) |
-| Dark edge | the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; if no such point exists the nearest unexplored spot 50 m from claimed land is used (s) |
+| Dark edge | the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; in co-op the explored land and so the dark edge are shared, and the 50 m keeps off every player's claimed land, not only the target player's (s, shared vision); each player's night mobs may come from any part of the shared dark edge, ally-scouted land included, and march to the player they were sent for (s); if no such point exists the nearest unexplored spot 50 m from claimed land is used (s) |
 | Light and units out in the dark | spawn weight x0.25 within twice a light's radius, x0.5 within three times; x0.5 within 20 m of a player unit; weights multiply (s) |
 | Lair cadence | per player (Jade: the lair count and the cap multiply by the player count): 1 new lair every 3 nights to night 14, every 2 nights to night 44, 1 a night from 45, placed at dusk in a cell with no player building, preferring one next to claimed land, at least 40 m from claimed land; live lairs capped at 2 + night / 15 per player; a cleared site waits 10 days (doc, suggested) (s) |
 | Outlying torches | lights more than 40 m from any main base count (wall torches count half); limit 4 + night / 5; dusk goblins: 3 cutters and 1 slinger per light over the limit, 1 chief per 5 over, at most 40 (s) |
@@ -700,7 +702,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Campfire (cooking tier 1) | 8 m (s) | none (Jade) | 1 lumber per day | 5 softwood lumber | 10 ws | 60 | x0.25 to 16 m, x0.5 to 24 m | badger, wild boar, goblins (s) |
 | Brazier | 14 m (s) | none (Jade) | 1 coal per day | 10 stone, 2 bronze ingots | 60 ws | 150 | x0.25 to 28 m, x0.5 to 42 m | goblins and hobgoblins only (s) |
 | Lantern | 6 m (s) | none (Jade) | 1 resin per 5 days | 1 glass, 1 wrought iron, made at a Great Workshop in 20 s | 5 ws to hang | 20; 1 lb carried | as the wall torch | goblins (s) |
-| Hand torch (carried, the Items table's torch) | 4 m (s) | none (Jade) | burns one day, then is used up (s) | 1 softwood lumber, 1 resin (doc) | 5 s at the Big House | 1 lb carried (s) | x0.5 within 8 m of the carrier (s) |  |
+| Hand torch: gone with the items (M11, 2026-10-03); row kept for history | 4 m (s) | none (Jade) | burns one day, then is used up (s) | 1 softwood lumber, 1 resin (doc) | 5 s at the Big House | 1 lb carried (s) | x0.5 within 8 m of the carrier (s) |  |
 
 Snuff and Morvath's Crown of night put lights out without damage; a worker relights one in 2 s at no cost; a destroyed light is rebuilt from scratch (s). Which lights count against the dusk limit is in table 8.
 
@@ -926,7 +928,7 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 | Daily life | heal 1 health every 2 s after 10 s out of a fight; a faction at peace gains back one lost person every 3 days; villagers wander up to 10 m; important lines reach the panel when a player unit is within 30 m or the speaker is on screen; a Dwarf colony's first trade names the direction of the nearest city |
 | Speech | remarks about every 9 s from a unit on screen; bubbles 3.5 s plus 40 ms per letter, at most 10 at once; urgent messages are alerts, idle workers and nightfall |
 
-Troop rework (2026-10-03, (s), Open for Jade's rebalance): weapons, armour and tools are no longer items, so wherever a people above or in table 19 sold or bought one, it now trades the ingots and materials that made it at the same value: Halfling shortbows, shortswords and bucklers become their wood, leather and wrought iron (bloom iron is gone), and their bloom iron ingots become wrought iron.
+Troop rework (2026-10-03, (s), Open for Jade's rebalance): weapons, armour and tools are no longer items, so wherever a people above or in table 19 sold or bought one, it now trades the ingots and materials that made it at the same value: Halfling shortbows, shortswords and bucklers become their wood, leather and wrought iron (bloom iron is gone), and their bloom iron ingots become wrought iron. As built in Milestone 11 (s): Halflings sell 6 leather, 20 feathers and 10 wrought iron; plundering a people gives the metal of the weapons and shields its fighters carried; the peoples' own fighters keep fixed kits from the new gear catalogue. Goblin drops that were items: a goblin club gives 3 sticks (1 in 10), goblin arrows 2 to 4 feathers (3 in 10), a bronze spear 1 bronze ingot (15 in 100).
 
 #### Halflings
 
@@ -1044,7 +1046,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Dwarf city (Deadlands, about 1 in 120 cells) | at 3 x make cost: bronze cannon 420, iron cannon 384, musket 102, steel plate 564, steel sallet 102, steel heater shield 282, wrought iron mail 120, steel sword 288; gold 40, gems at value, gunpowder (10 charges) 48, lead shot (10) 12, cannonballs 30; HQ steel ingot 90 (1.5 x), at most 2 a day (the doc's richer-far-out rule, still rare) | as the colony | 1 cannon a day in total (bronze or iron, whichever is bought first; the other waits for the dawn restock) and 3 steel muskets a day; powder horns and shot pouches at 1.5 x value; its own 2 Dwarf cannons inside the gate are not for sale |
 | Reparations (either faction) | 2000 vp plus 100 per Dwarf killed, in gold, silver, gems, trinkets or food |  | a migrated group rebuilds for 10 days (doc, suggested), then raids with a band of 6 every 3 days until paid |
 
-Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality steel weapons become carbon steel ingots at the same 4 x value, and Dwarf muskets and armour become the carbon steel or steel that made them at the same 3 x make cost; cannons, gunpowder and cannonballs are unchanged. Lead shot is gone, since ammunition is unlimited.
+Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality steel weapons become carbon steel ingots at the same 4 x value, and Dwarf muskets and armour become the carbon steel or steel that made them at the same 3 x make cost; cannons, gunpowder and cannonballs are unchanged. Lead shot is gone, since ammunition is unlimited; the brawler's pistol fires musket balls. As built in Milestone 11 (s): the Elf kingdom sells 9 carbon steel a day and its lean moved to carbon steel, steel and hardened leather; Dwarf colonies sell steel, bronze, wrought iron and iron; Dwarf cities steel, hardened leather and carbon steel.
 
 **How these were set:** a Gold Heirloom (960) and a Copper Token do not buy one Elf sword (1500), and a Dwarf city cannon (420) is about two days of a tier 3 mineshaft's gold at Fair; both keep the doc's "very expensive" and "about three times".
 
@@ -1052,7 +1054,9 @@ Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality stee
 
 - The map is **endless** in practice. It is procedurally generated as the players explore, out to a world edge 100 km from the start, a nine-hour run that no game will reach. An advanced AI system (Fable) will be used to help design procedural generation that fits the game.
 - **Fog of war:** unexplored land is black, and land that has been explored but is not currently seen is greyed out.
-- **Vision as built (shared vision patch, 2026-10-03, (s)):** a player's buildings see as units do, out from their outer edge: the main base and towers 20 m, braziers 14 m, every other building 10 m (BUILDING_SIGHT_M, halved on a fog night), from the moment the foundation is laid. The players are one side with one picture: land any player explores is explored for all, everyone sees what any player's units and buildings see now, and lairs, villages and peoples one player finds are marked for all. Units sheltering or working inside a building see nothing of their own; a tower's or parapet's garrison and a cannon in a port still do. An Attack keeps its target while anyone on the side sees it. Night spawns keep their stand-off from every player's claimed land, since the dark edge is shared.
+  - **Buildings see (suggested)** (Jade asked, 2026-10-03, for buildings to grant map vision as units do; built in PR #68): every building a player owns sees round it, measured out from its outer edge like claimed land. The main base and towers see 20 m, a brazier 14 m, and every other building, wall, gate, torch post, wall torch and lantern 10 m; earthworks and ramps are land and see nothing (table 1, building sight). A fog night halves it, as it halves all sight.
+  - What a building sees is explored and in sight now, exactly as for a unit, so lairs and goblin villages in its sight are marked found. A paid foundation sees its full radius from the moment a worker lays it, and torch posts, wall torches and lanterns see whether lit or not (suggested).
+  - Units sheltering, working or training inside a building see nothing of their own; the building sees for them. A garrison in a tower or on a main base's parapets, and a cannon in a port, still see, with the tower's +10 m.
 - **Cells:** the world is laid out as a network first and filled in afterwards. It is divided into **cells**, like a slightly uneven honeycomb. Near the start, each cell is roughly 150 to 200 m across (about 50 to 67 seconds of running at a warrior's base speed of 3 m/s, see "Warriors"), and cells get bigger farther out. Every cell can be worked out from the world seed and its own position alone, so the world can be generated in any order and comes out the same on every computer.
 - **Cell sizes:** the first two rings of cells around the start basin are 150 to 200 m across. Each ring after that is about 10 to 30% larger than the one before, until cells are about 2.5 times the starting size (about 375 to 500 m across). From there on, cells stay around that size, give or take 30%. The Barrens begin where cells reach this full size.
 - **Scale:** with cells growing by about 20% per ring on average, they reach full size about 7 rings out, so the Barrens begin roughly 1.6 km from the start: about a 10-minute run at a warrior's base speed.
@@ -1127,10 +1131,10 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Surface gold / surface gem | Barrens and deeper | 1 to 3 / 1 | 1 | 20 s / 30 s | 1 | bronze | none (s) |
 | Mana crystal node | Deadlands | 5 | 1 | 30 s | 1 | bronze | none (s) |
 | Fish stretch: trout / salmon / giant catfish | Heartland streams / Fringe streams / Deepwoods pools | 1 per 4 m2 / 1 per 8 m2 / 1 per 8 m2 (doc) | 10 | rod 15 s a fish, net or dock 10 s | 1 per 4 m of bank (s) | rod or net | a pair every 3 / 6 / 9 days (doc) |
-| Carcass | where it fell | boar 3 meat, 1 hide (roster); deer 4 meat, 2 hide; hare 1 meat, 1 hide; cow 6 meat, 2 leather; bear 8 meat, 2 hide; others roster 6.1 | 10 | 10 s | 2 | none | none (s) |
+| Carcass | where it fell | boar 3 meat, 1 hide (roster); deer 4 meat, 2 hide; hare 1 meat, 1 hide; cow 6 meat, 2 leather; bear 8 meat, 2 hide; wild goose 1 meat, 3 feathers; pheasant 1 meat, 2 feathers (s, M11); others roster 6.1 | 10 | 10 s | 2 | none | none (s) |
 | Wild herds per cell | cattle: Heartland, 3 pairs; chickens: Heartland and Fringe, 4 pairs; horses and oxen: Fringe, 2 pairs each; bears: Deepwoods, 1 pair plus cubs (doc) |  |  |  |  |  | pairs breed every 10 days (doc) (s) |
 
-Prospect (20 s with a prospecting hammer, 40 s without): Poor x0.5, Fair x1, Good x1.5, Rich x2.5 on mineshaft output (s). Mineshaft output per miner-day at Fair (s): tier 1, 10 stone and 8 ore (copper, tin, iron rock or coal in a mix set by the seed), 600 loads before it is worked out; tier 2, 10 stone, 12 ore including vein iron, 4 coal, 1 silver or gold every 2 days, 1 gem every 5 days, 2400 loads; tier 3, 10 stone, 16 vein iron, 8 coal, 1 lead ore, 1 gold a day, 1 gem every 2 days, never worked out. Richer farther out but still rare (doc): surface gold and gems come as 2 to 5 in the Deadlands, and mineshaft gold, silver and gem output is x1.5 in the Barrens and x2 in the Deadlands (s).
+Prospect (20 s with a tool kit of tier 3, copper, or better; 40 s below that): Poor x0.5, Fair x1, Good x1.5, Rich x2.5 on mineshaft output (s). Mineshaft output per miner-day at Fair (s): tier 1, 10 stone and 8 ore (copper, tin, iron rock or coal in a mix set by the seed), 600 loads before it is worked out; tier 2, 10 stone, 12 ore including vein iron, 4 coal, 1 silver or gold every 2 days, 1 gem every 5 days, 2400 loads; tier 3, 10 stone, 16 vein iron, 8 coal, 1 lead ore, 1 gold a day, 1 gem every 2 days, never worked out. Richer farther out but still rare (doc): surface gold and gems come as 2 to 5 in the Deadlands, and mineshaft gold, silver and gem output is x1.5 in the Barrens and x2 in the Deadlands (s).
 
 #### Table 9: Start pocket contents
 
@@ -1144,8 +1148,8 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Copper outcrops / tin outcrop | 2 of 60 ore / 1 of 30 ore |
 | Stone | loose stone 60 and one 200 outcrop |
 | Flint scatter / herbs / wild flax | 40 / 20 / 20 |
-| Water | one stream stretch of at least 60 m2 (15 trout) or a pond of 40 m2, within 60 m |
-| Food | 15 meat, 10 fish, 10 eggs: 100 nutrition, 10 days for the starting five (Jade confirmed); with 3 starting warriors now (Jade, 2026-10-03), the extra starting food Jade set covers the seven (s: 140 nutrition, Open for Jade's rebalance) |
+| Water | one stream stretch of at least 60 m2 (15 trout) or a pond of 40 m2, within 60 m, with its own flock of 3 to 5 wild geese (s, M11) |
+| Food | 25 meat, 10 fish, 10 eggs: 140 nutrition, 10 days for the starting seven (4 workers and 3 warriors, Jade, 2026-10-03; the earlier 15 meat for five was Jade's; 25 meat (s, M11), Open for Jade's rebalance) |
 | Iron | a bog of 40 bog iron (80% of pockets) or an iron rock of 60 (20%) |
 | Wild cattle / chickens | 1 pair / 2 pairs within 90 m, shared with neighbouring pockets |
 | Basin size | 1 to 2 players 1 cell (150 to 200 m); 3 to 5 players 2 cells; 6 to 8 players 3 cells (doc); pockets at least 80 m apart |
@@ -1184,13 +1188,14 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Stew | 12 | 1 meat, 2 potatoes, 1 carrot | 4 Great Kitchen (s) |
 | Pie | 16 | 1 meat, 2 wheat, 1 egg | 5 Grand Kitchen (s) |
 
-Cooking takes 10 / 8 / 6 / 5 / 4 s per item by tier, 1 lumber or coal per 5 items (s). Upkeep per cycle: every unit 2, every research facility 2, a working horse 2, a working ox 3, mechanical units 0 (s). Eating at a building heals 50% of maximum health over 10 s and costs 2 nutrition (s). Farm yield per farmer-day at tier 1 (x1.5 at tier 2, x2 at tier 3): wheat 6, corn 6, flax 6, potatoes 8, carrots 8, herbs 4; a new field gives nothing for its first 2 days; crop fields yield half outside the Heartland and nothing in the Barrens or Deadlands, vegetable farms and herb beds yield in full anywhere with soil (s). Livestock: a hen lays 1 egg a day and gives 1 meat and 2 feathers; a cow gives 6 meat and 2 leather; tamed pairs breed every 10 days (doc) and the young are adult after 2 days (doc); slaughter takes 10 s at the farm (s). Grazing need: cattle, horses and oxen 20 m2 of grass within 30 m of their farm each, chickens 2 m2; short of grass they eat 2 (cattle, horse, ox) or 1 (chicken) nutrition a day from crops (s). Supply is in table 4 (main base 8 to 50, farms 1 to 8). Starting stock: 15 meat, 10 fish, 10 eggs (100 nutrition, 10 days for 4 workers and 1 warrior; Jade confirmed), plus 40 softwood lumber, 20 stone, 10 flint, 20 sticks (s). The tier 1 foods are my pick (s). Game (s): hare 20 HP, 6 m/s, runs; deer 80 HP, 7 m/s, runs; boar fights (roster 6.1).
+Cooking takes 10 / 8 / 6 / 5 / 4 s per item by tier, 1 lumber or coal per 5 items (s). Upkeep per cycle: every unit 2, every research facility 2, a working horse 2, a working ox 3, mechanical units 0 (s). Eating at a building heals 50% of maximum health over 10 s and costs 2 nutrition (s). Farm yield per farmer-day at tier 1 (x1.5 at tier 2, x2 at tier 3): wheat 6, corn 6, flax 6, potatoes 8, carrots 8, herbs 4; a new field gives nothing for its first 2 days; crop fields yield half outside the Heartland and nothing in the Barrens or Deadlands, vegetable farms and herb beds yield in full anywhere with soil (s). Livestock: a hen lays 1 egg a day and gives 1 meat and 2 feathers; a cow gives 6 meat and 2 leather; tamed pairs breed every 10 days (doc) and the young are adult after 2 days (doc); slaughter takes 10 s at the farm (s). Grazing need: cattle, horses and oxen 20 m2 of grass within 30 m of their farm each, chickens 2 m2; short of grass they eat 2 (cattle, horse, ox) or 1 (chicken) nutrition a day from crops (s). Supply is in table 4 (main base 10 to 50, farms 1 to 8). Starting stock: 25 meat, 10 fish, 10 eggs (140 nutrition, 10 days for 4 workers and 3 warriors; 15 meat for five was Jade's, 25 is (s, M11)), plus 40 softwood lumber, 20 stone, 10 flint, 20 sticks (s). The tier 1 foods are my pick (s). Game (s): hare 20 HP, 6 m/s, runs; deer 80 HP, 7 m/s, runs; boar fights (roster 6.1).
 
 ### Open questions
 
 - More tribe and village peoples (the Halflings and Runkin are the first), and which ones can be traded with.
 - **Battle mages behind walls (suggested)** (found by the Milestone 10 balance harness, awaiting Jade's word): a battle mage standing on the ground cannot shoot over a wall, because Arcane bolt flies flat, so she walks out of the gate and dies. Should spells arc over walls, should mages refuse to leave the walls, or is placing them on parapets the player's job?
 - **Warriors on hold against archers (suggested)** (found by the Milestone 10 balance harness, awaiting Jade's word): skeleton archers stand off out of reach of a closed wall, and warriors on Hold Position never answer them. Should held warriors step out to answer ranged attackers, or is that left to the player?
+- **Rangers and mercenaries standing still (suggested)** (unverified, from the Milestone 11 checks): in the Milestone 7 check a mercenary and a ranger stood still under attack-move until the spot where troops collect their kit was moved. Worth confirming in play.
 
 ## Gameplay Mechanics
 
@@ -1345,18 +1350,18 @@ Dead units drop out of their groups automatically. When a group of identical bui
 
 The command card is a grid of 15 buttons in 3 rows of 5 showing everything the selection can do. Each button shows its hotkey in the corner. Outside the build menus, hotkeys are letters named after the command:
 
-- Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row.
-- Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures.
+- Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row. Workers have no Patrol: that slot holds U Upgrade rank (suggested, Milestone 11).
+- Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures, Q Upgrade tools and X Fetch a cart (pressed again, hand it back) (suggested, Milestone 11).
 - Warriors also have N Hunt (suggested letter): click an animal to hunt it (see "Semi-automation").
 - **Engines (suggested, as built 2026-10-03):** an engine's card has A Attack, S Stop, H Hold Position, M Move, R Hitch (Let go when hitched) and E Port (send it into a free Citadel port). Right clicks with an engine: on one of your horses or oxen, hitch it; on the Citadel, go to a port. Warriors right click your engine to crew it; workers right click a damaged engine to repair it. The Gunnery yard has U Train for Cannon crew training, the only skill training left. There is no Ride button: cavalry is a troop type trained at the Stables (Jade, 2026-10-03).
 - **Neutral peoples (suggested, as built 2026-10-02):** O, or the Peoples button at the top right, opens the Peoples panel listing the peoples met. Right click a leader, a trade building (Halfling inn or barn, Runkin drying rack, Elf hall or caravan wagon, Dwarf forge or hall) or a caravan with any unit to trade; right click a mercenary camp to hire. A on their units while at peace asks before war (see "Neutral villages and trade").
-- **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Upgrade Wand, X Upgrade Robe and their Max twins Z and V (see "Upgrading units"). Casting is described under "Casting spells" in "Magic".
+- **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Upgrade Wand and X Upgrade Robe; the card has no room for Max twins, so pressing an upgrade twice (or double clicking it) goes to the best (suggested, Milestone 11; see "Upgrading units"). Casting is described under "Casting spells" in "Magic".
 - E Enter: click a building to go inside it. Workers can shelter in farms, fishing docks and main bases. Ranged warriors and mages can garrison towers and the parapets of a level 3+ main base and fight from there. A building with units inside shows a U Unload All button, and clicking a unit's portrait in the building's panel lets just that unit out.
 - **Double-tap for auto-target:** press any targeted command twice (or click its button twice) and the unit picks the target itself instead of waiting for a click. This works for every targeted command (see "Semi-automation").
   - Double-tap in detail (suggested, as built 2026-10-03): A, each unit attacks the nearest enemy it can see; G, each worker gathers the nearest node it can within 15 m, more of what it already carries first; E, each unit goes into the nearest of its player's buildings with room for it (workers shelter, ranged warriors and mages garrison); T, each worker prospects the column it stands on. Repair, Hunt and spells work as described elsewhere. When a unit has nothing to pick, the player is told once: "No enemy in sight.", "Nothing they can gather nearby.", "No building with room for them." or "Only workers prospect." Move and Patrol have no target of their own, so pressing them twice only keeps the targeting.
 - Buildings: what they train or research gets a letter taken from its name where possible (that letter is underlined on the button), plus R Set Rally Point and, while under construction, X Cancel. Two buttons on the same card never share a letter.
-- **Training troops (Jade, 2026-10-03):** a Barracks card shows one picture button per troop type (a small head-to-toe picture of the unit with its weapons, greyed out when it cannot be afforded), each with a weapon-tier and an armour-tier dropdown and a Lock checkbox; the Stables shows the same for cavalry, and a main base the same limited to tier 1. Without a lock, each type defaults to the best tiers the player can afford, the weapon first. Hotkeys (suggested): C Close melee, L Long melee, G Ranger, B Brawler; C Cavalry at the Stables. Choose the tiers once, then click or press the type as often as supply and resources allow. See "Troops and gear".
-- **Upgrading units (Jade, 2026-10-03):** warriors have Upgrade Weapon and Upgrade Armour, one tier each, plus Upgrade Weapon Max and Upgrade Armour Max to the best tier researched and affordable; a Max button shows only when it would do more than the plain one. Keys (suggested): Q Upgrade Weapon, X Upgrade Armour, Z Weapon Max, V Armour Max. Workers have one Q Upgrade for their tool kit; mages use the same four keys for wand and robe. The units walk to the nearest Forge, Barracks or main base (cavalry also the Stables, mages also the Magi Sanctum) and pay from stock.
+- **Training troops (Jade, 2026-10-03):** a Barracks card shows one picture button per troop type (a small head-to-toe picture of the unit with its weapons, greyed out when it cannot be afforded), each with a weapon-tier and an armour-tier dropdown and a Lock checkbox; the Stables shows the same for cavalry, and a main base the same limited to tier 1. Without a lock, each type defaults to the best tiers the player can afford, the weapon first. Hotkeys (suggested, Milestone 11): A Close melee, Q Long melee, N Ranger, B Brawler, C Cavalry, at a Barracks, the Stables and a main base (L is the camera's Follow and G a building's own upgrade). The first dropdown entry, Best affordable, goes back to the default; the Lock is saved with the game and allies see it. Choose the tiers once, then click or press the type as often as supply and resources allow; Shift + click trains five. See "Troops and gear".
+- **Upgrading units (Jade, 2026-10-03):** warriors have Upgrade Weapon and Upgrade Armour, one tier each, plus Upgrade Weapon Max and Upgrade Armour Max to the best tier researched and affordable; a Max button shows only when it would do more than the plain one. Keys (suggested): Q Upgrade Weapon, X Upgrade Armour, Z Weapon Max, V Armour Max; pressing an upgrade twice also goes to the best. Workers have one Q Upgrade for their tool kit; mages have Q for the wand and X for the robe. On troops, U is Cannon crew training. The units walk to the nearest Forge, Barracks or main base (cavalry also the Stables, mages also the Magi Sanctum) and pay from stock.
 - A button keeps the same position even when it is unavailable, so the layout never shifts. Unavailable buttons are greyed out; their tooltip says why (not enough resources, a missing building, a technology not yet researched).
 - Hovering any button shows a tooltip with its name, hotkey, cost in each resource, build time and any requirements.
 - All hotkeys can be rebound in the settings menu. Rebinding changes the key shown on each button. Spell keys have their own Mages group there (suggested).
@@ -1560,9 +1565,10 @@ Because the game runs in a web browser, some key combinations above are normally
 | B / V (gatherers) | Basic Structures / Advanced Structures build menu |
 | Q to T, A to G, Z to B (in a build menu) | Pick the building in that grid position (B is Back) |
 | R / X (buildings) | Set Rally Point / Cancel construction |
-| C / L / G / B (Barracks), C (Stables) (suggested) | Train Close melee / Long melee / Ranger / Brawler, Cavalry |
-| Q / X / Z / V (warriors and mages) (suggested) | Upgrade Weapon / Upgrade Armour / Weapon Max / Armour Max (wand and robe on a mage) |
-| Q (workers) (suggested) | Upgrade tool kit |
+| A / Q / N / B / C (Barracks, Stables, main base) (suggested) | Train Close melee / Long melee / Ranger / Brawler / Cavalry |
+| Q / X / Z / V (troops) (suggested) | Upgrade Weapon / Upgrade Armour / Weapon Max / Armour Max; an upgrade pressed twice goes to the best |
+| Q / X (mages) (suggested) | Upgrade Wand / Upgrade Robe; pressed twice, to the best |
+| Q / X / U (workers) (suggested) | Upgrade tools / Fetch or hand back a cart / Upgrade rank |
 | Esc | Cancel order, ghost or menu; then clear selection |
 | Tab / Shift + Tab | Next / previous subgroup |
 | Double click, Ctrl + click | Select all of that type on screen |
@@ -1700,7 +1706,7 @@ Warriors (troops) fight and hunt. Each troop is one of five types and keeps that
 
 - **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Gear has no weight, so nothing it wears slows it down or stops it swimming (Jade, 2026-10-03).
 - **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel: bronze swords are short swords, since long bronze blades bend, and bronze armour stops at scale.
-- **Hunting:** warriors kill animals for meat and leather. Once an animal dies, its carcass becomes a resource node. The warrior can carry meat back, within its carrying limit (table 12), or leave the carcass for workers to collect. Some animals run away; some fight back.
+- **Hunting:** warriors kill animals for meat and leather. Once an animal dies, its carcass becomes a resource node. The warrior can carry meat back, within its carrying limit (table 12), or leave the carcass for workers to collect. A ranger kills game from range, so its hunt remembers where the quarry was last seen and the ranger, or its haulers, walk over to butcher it (suggested, Milestone 11). Some animals run away; some fight back.
 
 Troops are trained at the Barracks, cavalry at the Stables, and tier 1 close melee, long melee and rangers also at main bases (Jade, 2026-10-03). Rangers and brawlers can fight from towers, and from the parapets of a main base of level 3 or higher.
 
@@ -1739,6 +1745,17 @@ Warriors and workers have 5 ranks (Jade: about five levels) and mages the doc's 
 
 **How these were set:** health steps of 20 per warrior rank put the roster's "veteran about 180" at rank 5 (Hero); the XP ladder is set so that one warrior who takes most of night 0's kills (budget 12, so about 24 XP) reaches Soldier on night 1, and a 30-warrior army averages Hero around night 80 (table 8 budgets, 2 XP per threat). Mage health is 10 below a warrior at every step because they wear no metal.
 
+Building sight (s, shared vision patch, PR #68, 2026-10-03; Jade asked that buildings grant map vision like units): unit sight above is unchanged (with the Elite and Hero bonus, the mounted 30 m and a tower's +10 m for its garrison). Measured out from the building's outer edge, the way claimed land is measured; halved on a fog night. Balance editor: BUILDING_SIGHT_M in the Buildings group.
+
+| **Building** | **Sight (s)** |
+|---|---|
+| Main base (every level) | 20 m, so the town keeps watch at night while the workers shelter |
+| Tower (softwood, hardwood, stone) | 20 m, the same +10 m it gives its garrison |
+| Brazier | 14 m, as far as it lights |
+| Every other building, wall, gate, torch post, wall torch and lantern | 10 m, how far a building claims land; torch posts, wall torches and lanterns see 10 m lit or unlit |
+| Earthworks and ramps | none (they are land, not buildings) |
+| A paid foundation | its full radius while it is being built, as it already claims land |
+
 #### Table 7: Training and upgrading
 
 Key: a value followed by (s) is suggested; a row ending in (s) is suggested throughout except values marked (doc). Values marked (Jade) or (doc), or unmarked, are fixed values already in this blueprint.
@@ -1752,7 +1769,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | New troop, any type and tiers | Barracks; cavalry at the Stables (Jade) | 30 food, the kit; feathers and gunpowder as table 2e | 45 s plus the kit's time (s) | free supply; the tier's forge or research (troops and gear table) |
 | New cavalry | Stables (Jade) | 30 food, the kit, a tamed horse in the stalls, used up (Jade) | 45 s plus the kit's time (s) | free supply |
 | New mage (Novice Acolyte) | Magi Sanctum or main base 6+ | 50 food, a hazel wand and a homespun robe (table 13) | 60 s plus the kit's time (s) | free supply |
-| Upgrade weapon, armour, tools, wand or robe (one tier) | beside the nearest Forge, Barracks or main base; cavalry also the Stables; mages also the Magi Sanctum | the new tier's kit cost; the old kit comes back in full (Jade) | half the new piece's time to make (s) | the tier's forge or research |
+| Upgrade weapon, armour, tools, wand or robe (one tier) | beside the nearest Forge, Barracks or main base; cavalry also the Stables; mages also the Magi Sanctum | the new tier's kit cost, paid when the order is given; the replaced kit is refunded in full, so a step costs the difference (Jade, 22:52 2026-10-02: old gear is scrapped with full refund); cancelling the order (Stop or a new order) gives the payment back (s) | half the new piece's time to make, at least 1 s; the bar fills only beside the building (s) | the tier's forge or research |
 | Worker to Hand / to Master | Big House | 20 / 40 food | 60 / 120 s | base 2 / base 5 (s) |
 | Troop to Soldier / to Veteran | Barracks | 30 / 60 food | 60 / 120 s | (s) |
 | Mage to Acolyte / to Adept Acolyte | Magi Sanctum | 40 food / 60 food, 2 mana crystals | 60 / 120 s | (s) |
@@ -1760,6 +1777,8 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Cannon crew | Gunnery yard | 40 food | 90 s | Cannons (s) |
 
 Training stops two levels above the start (Jade): rank 3 (Veteran, Adept Acolyte, Master worker); the ranks above are combat only. Archery, Crossbow, Musket and Riding training are gone: a troop's type is chosen when it is trained (Jade, 2026-10-03). One unit trains at a time per building; a Barracks, Stables or Sanctum can queue 5 (s). Every time here is Open for Jade's rebalance.
+
+Milestone 11 picks (s), 2026-10-03 (blueprint/m11-picks.md): a troop's product is its type, weapon tier and armour tier together, so one queue can hold different kits side by side; training time is 45 s plus every kit piece's old make time, summed; food 30 nutrition a troop; a fist fighter (close melee, weapon tier 0) costs only food and supply; cavalry takes the first grown tamed horse in the stalls when queued, and cancelling sends the horse back out; a main base trains weapon tier 1 at most and armour tier 0 or 1. Upgrades go highest rank first, then oldest, skipping a unit with that upgrade already on its way; close melee pays for a shield only when an armour upgrade changes it.
 
 ### Combat
 
@@ -1860,8 +1879,8 @@ Direct collision works well, with a few additions so that it stays fair, fast an
 | Horse | Tamed in the wild (Fringe) | Used up to train cavalry at the Stables (Jade, 2026-10-03). Pulls carts for hauling, and hauls catapults, ballistas and cannons. |
 | Ox | Tamed in the wild (Fringe) or bred | Hauling: pulls carts, catapults, ballistas and cannons. Slower than a horse but stronger. Oxen are a separate, bigger wild breed, not trained cattle, and are domesticated just like cattle. |
 | Chicken | Tamed in the wild (Heartland and Fringe), then raised on farms | Meat, eggs and feathers. |
-| Wild goose (suggested) | Hunted with N by Heartland water | Meat and feathers (Jade: a wild source of feathers). |
-| Pheasant (suggested) | Hunted with N in the Fringe woods | Meat and feathers. |
+| Wild goose (suggested) | Flocks of 3 to 5 on Heartland banks: one at every start pocket's water, and on other Heartland ponds and streams 6 times in 10. Hunted with N. | 15 health; 1 meat and 3 feathers (Jade: a wild source of feathers). |
+| Pheasant (suggested) | Alone or in pairs in the Fringe woods. Hunted with N. | 10 health; 1 meat and 2 feathers. |
 | Cattle (cows and bulls) | Tamed in the wild (Heartland), then raised on farms | Meat and leather. Leather is used in armour kits and can be made into sinew (rope) or hardened leather. Grazes on grassland (see below). |
 
 Livestock can also be bought live from Halfling villages, or taken as plunder by winning a war against a village that keeps livestock (see "Neutral villages and trade").
@@ -2059,7 +2078,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 | **Building** | **Cost** | **Build (ws)** | **Health** | **Footprint** | **Menu slot** | **Supply** | **Needs** | **Gives or unlocks** |
 |---|---|---|---|---|---|---|---|---|
-| Main base 1 Big House | start; an extra one 300 softwood, 150 stone | 1200 | 1200 | 14 x 14 (6.3 m) | Basic 1 (doc) | 8 |  | drop-off, workers, warriors, hardwood, stone and flint gear, bows, arrows, javelins, slings, rope, boots, hand carts; shelters 8 (s) |
+| Main base 1 Big House | start; an extra one 300 softwood, 150 stone | 1200 | 1200 | 14 x 14 (6.3 m) | Basic 1 (doc) | 10 (s, M11: Jade's extra starting supply for the 3 starting warriors) |  | drop-off, workers, tier 1 close melee, long melee and rangers (armour tier 0 or 1), rope, hand carts; shelters 8 (s) |
 | 2 Longhall | 100 softwood, 40 stone | 400 | 1600 | same | upgrade | 12 |  | Barracks (s) |
 | 3 Hall | 110 softwood, 45 stone, 15 sticks (s) | 420 (s) | 2000 | same | upgrade | 16 |  | parapets, 8 slots (doc); Forge 2, Stables, Kiln, Workshop 2 (s) |
 | 4 Stockade Hall | 120 softwood, 60 stone, 25 hardwood, 5 bronze (s) | 450 (s) | 2500 | same | upgrade | 20 | Bronze | Magi Sanctum, Mineshaft 1, Scriptorium, Kitchen, farm tier 2 (s) |
@@ -2140,13 +2159,12 @@ There are no tools, weapons, armour or ammunition items (Jade, 2026-10-03): gear
 | Gunpowder (suggested) | Powder mill | Saltpetre, sulphur, charcoal |
 | Glass (suggested) | Kiln | Sand, fuel |
 
-#### Carts, engines and torches
+#### Carts and engines
 
 | **Thing** | **Made at** | **From** |
 |---|---|---|
-| Torch | Big House | Softwood lumber, resin or pitch (suggested). Placed as a light; see "Light and torches". |
-| Hand cart | Workshop (tier 2) | Planks, hardwood lumber. A two-wheeled cart a worker pushes to haul loads. |
-| Ox or horse cart | Great Workshop | Hardwood lumber, planks, a little iron. Pulled by a horse or an ox. |
+| Hand cart | Workshop (tier 2) | Planks, hardwood lumber. A two-wheeled cart a worker pushes to haul loads. Carts are kept in the stock; X sends a worker to the main base for one and hands it back (suggested, Milestone 11). |
+| Ox or horse cart | Great Workshop | Hardwood lumber, planks, a little iron. Pulled by a horse or an ox; a worker with an ox hitched takes an ox cart when one is in stock. |
 | Cannon | Foundry | Bronze ingots (early, lighter) or iron ingots (later, cheaper), hardwood lumber (carriage) |
 | Cannonballs | Foundry | Iron ingot or stone |
 | Catapult, ballista | Great Workshop, Manufactory | See table 2f. |
@@ -2163,7 +2181,7 @@ There are no tools, weapons, armour or ammunition items (Jade, 2026-10-03): gear
 
 ### Troops and gear (agreed 2026-10-03)
 
-Agreed by Jade on 2026-10-03 (designed in the project chat from 04:20 UTC; Jade's go at 05:25 UTC). This is canon. It replaces the old items, equipment panel and gear tables: Tables 2c, 2d, 2e, 3 and 7 now hold the kit, armour, shield, tool and training numbers below, and Table 13 holds the mage wand and robe ladders. Values marked (Jade) are Jade's; values marked (s) are suggested. Costs are today's old item recipes carried across as kit costs, summed, with no tuning; a number marked "Open for Jade's rebalance" is only a placeholder. Built in Milestone 11 ("Troop rework").
+Agreed by Jade on 2026-10-03 (designed in the project chat from 04:20 UTC; Jade's go at 05:25 UTC). This is canon. It replaces the old items, equipment panel and gear tables: Tables 2c, 2d, 2e, 3 and 7 now hold the kit, armour, shield, tool and training numbers below, and Table 13 holds the mage wand and robe ladders. Values marked (Jade) are Jade's; values marked (s) are suggested. Costs are today's old item recipes carried across as kit costs, summed, with no tuning; a number marked "Open for Jade's rebalance" is only a placeholder. Built in Milestone 11 ("Troop rework", merged 2026-10-03 as PR #65); its picks, marked (s, M11), are folded in below from blueprint/m11-picks.md.
 
 #### Aim
 
@@ -2186,7 +2204,7 @@ To vastly increase the simplicity and usability of building an army (Jade).
   - Brawler: a hybrid that exists only at tier 8 (flintlock pistol plus sword), with any armour.
   - Cavalry: trained at the Stables, not the Barracks; a tamed horse at the Stables is used up as the rider builds (Jade). One cavalry type for now, carrying the long-melee weapon ladder only (tiers 1 to 8, same names) with any armour tier (Jade).
 - A troop is always the type it was created as: no retraining and no type change (Jade).
-- Main bases train only tier 1 close melee, long melee and ranger troops (Jade); every other troop comes from the Barracks or, for cavalry, the Stables.
+- Main bases train only tier 1 close melee, long melee and ranger troops (Jade), with armour tier 0 or 1 (s, M11); every other troop comes from the Barracks or, for cavalry, the Stables.
 - Each type's button is a small head-to-toe picture of the unit with its weapons instead of text, greyed out when it cannot be afforded (Jade).
 
 #### Tiers
@@ -2208,7 +2226,7 @@ Weapon and armour tiers are chosen independently, so any weapon can go with any 
 - The ranger ladder's repeats are deliberate: the same recurve bow at tiers 3 to 6, the crossbow only at 7 and the musket only at 8 (Jade). One ranger upgrades along this ladder. Each recurve tier fits arrowheads of its own metal, which is all that changes between them (s).
 - Brawler, tier 8 only: flintlock pistol and cutlass (s), with a new pistol model to be made when it is time (Jade). Needs Gunpowder, Muskets and Carbon steel (s).
 - Shields come with the armour on close melee only; no other type gets a shield (Jade). Shield tech deliberately lags behind armour and weapons, so some tiers repeat a shield (Jade): wooden shield at armour tiers 1 and 2, a wooden shield faced with hardened leather at 3 to 5 (named the boiled-leather targe (s)), then the coordinator's picks at 6 to 8 (Jade asked for them). No armour means no shield.
-- The fist fighter (tier 0 weapon, no armour) can only be built when there is not enough material for anything else (Jade).
+- The fist fighter (tier 0 weapon, no armour) can only be built when there is not enough material for anything else (Jade); it costs only food and supply (s, M11).
 - Numbers for every tier (damage, swing time, reach, range, protection, shield block, cost and time) are in Tables 2c (tools), 2d (melee), 2e (ranged), 3 (armour and shields), 7 (training) and 13 (wands and robes).
 
 #### Long melee: reach and the edge of reach
@@ -2224,9 +2242,11 @@ Weapon and armour tiers are chosen independently, so any weapon can go with any 
 
 #### Cost
 
-- A unit costs its food plus the materials its kit used to need: ingots, sticks, leather, hardened leather and so on (Jade). It takes 1 supply (Jade).
+- A unit costs its food plus the materials its kit used to need: ingots, sticks, leather, hardened leather and so on (Jade). It takes 1 supply (Jade). Food is 30 nutrition a troop, and training takes 45 s plus the old make time of every piece of its kit, summed (s, M11).
 - Ammunition is unlimited (Jade). Gunpowder is needed to train musket rangers and brawlers, and feathers to train bow and crossbow rangers (Jade); feathers from the longbow up (s).
-- Feathers come from hens, the Runkin traders and hunted wild birds (Jade). Wild geese by Heartland water and pheasants in the Fringe woods, hunted with N like deer, give meat and feathers (s).
+- Feathers come from hens, the Runkin traders and hunted wild birds (Jade). Wild geese by Heartland water and pheasants in the Fringe woods, hunted with N like deer, give meat and feathers (s). As built (s, M11): a wild goose has 15 health and gives 1 meat and 3 feathers, in flocks of 3 to 5 on Heartland banks, with one flock at every start pocket's water and one on the Heartland's other ponds and streams 6 times in 10; a pheasant has 10 health and gives 1 meat and 2 feathers, alone or in pairs in the Fringe woods.
+- The brawler's pistol fires musket balls; lead shot is gone (s, M11).
+- A ranger's hunt remembers where the quarry was last seen, and the ranger or its haulers walk over to butcher it, since rangers kill game from range (s, M11).
 
 #### Barracks and Stables panel
 
@@ -2234,26 +2254,30 @@ Weapon and armour tiers are chosen independently, so any weapon can go with any 
 - A Lock checkbox per type locks that one Barracks into making that combination (Jade).
 - With no lock, each type defaults to the highest weapon and armour tier the player can afford. When short of a metal, the weapon gets the best material first. The default refreshes as queued troops spend resources (Jade).
 - The Stables shows the same picture button, dropdowns and Lock for cavalry (s). Main bases show the same panel limited to tier 1 (s).
+- Keys (s, M11, rebindable): A Close melee, Q Long melee, N Ranger, B Brawler, C Cavalry, at a Barracks, the Stables and a main base (L is the camera's Follow and G a building's own upgrade, so they are not used).
+- As built (s, M11): a troop's product is its type, weapon tier and armour tier together, so one queue can hold different kits side by side. The dropdown's first entry, "Best affordable", goes back to the default; a pick lasts for the session on that screen. The Lock is a game order, so it is saved with the game and allies see it. The cost line, the reasons a button is greyed and the default come from the same rules the game uses. A click trains one and Shift + click five; with several Barracks selected, each trains its own pick and the shortest queue goes first. Cavalry takes the first grown tamed horse in the Stables' stalls when it is queued, and cancelling sends the horse back out.
 
 #### Upgrading units
 
-- Select one warrior or a group and click Upgrade on the command card. Each unit walks to the nearest Forge, Barracks or main base and stands beside it; speech bubbles tell the player what is happening (Jade). Cavalry can also upgrade at the Stables (s).
+- Select one warrior or a group and click Upgrade on the command card. Each unit walks to the nearest Forge, Barracks or main base and stands beside it; speech bubbles tell the player what is happening (Jade), such as "Off to the Forge for a bronze spear." on the way, "Upgraded to ..." when done, and the first unit's reason when none can go (s, M11). Cavalry can also upgrade at the Stables, and mages at a Magi Sanctum (s).
 - There are separate Upgrade Weapon and Upgrade Armour buttons (Jade). Each moves the unit up one tier and pays the ingots or other materials from stock (Jade).
 - An Upgrade Max twin of each takes the unit to the best tier researched and affordable; it appears only when it would give a different result from the plain button, so there can be up to 4 buttons (Jade).
-- Keys (s, rebindable): Q Upgrade Weapon (tools on a worker, wand on a mage), X Upgrade Armour (robe on a mage), Z Upgrade Weapon Max, V Upgrade Armour Max.
-- A bar on the unit fills once it is near the building. Better gear takes longer, with a preset time per item tied to how long a unit starting with it takes to build, but much shorter than making a new unit (Jade). Times are in Table 7.
-- An upgrade pays the new tier's full kit cost; the old kit is scrapped with a full refund (Jade), so a step costs the difference.
-- When stock runs short (s): the highest rank upgrades first, a unit only takes a whole step, and as many units upgrade as can be paid for.
+- Keys (s, rebindable): Q Upgrade Weapon, X Upgrade Armour, Z Upgrade Weapon Max, V Upgrade Armour Max on troops. Workers: Q Upgrade tools, X Fetch a cart or hand it back, U Upgrade rank; workers no longer have Patrol, so rank training has that slot (s, M11). Mages: Q Upgrade wand, X Upgrade robe; a mage's card has no room for the Max twins, so pressing an upgrade twice (or double clicking it) goes to the best, and troops can do the same (s, M11). On troops, U is Cannon crew training, the one skill left (s, M11).
+- A bar on the unit fills once it is near the building. Better gear takes longer, with a preset time per item tied to how long a unit starting with it takes to build, but much shorter than making a new unit (Jade). An upgrade takes half the new piece's make time, at least 1 s (s). Times are in Table 7.
+- An upgrade pays the new tier's kit cost and the replaced kit is refunded in full, so a step costs the difference (Jade, 22:52 on 2026-10-02: "The old gear is scrapped with FULL REFUND"). The unit pays when the order is given, so two clicks never spend the same stock twice, and cancelling the order (Stop, or a new order) gives the payment back in full (s, M11). Close melee pays for a shield only when an armour upgrade changes it (s, M11).
+- When stock runs short: the highest rank upgrades first, a unit only takes a whole step, and as many units upgrade as can be paid for; the rest keep their gear and their button stays lit (Jade, 22:52 on 2026-10-02). Ties go to the oldest unit, and a unit with that upgrade already on its way is skipped (s, M11).
 
 #### Starting units
 
-- 4 workers with tier 1 tools and 3 warriors, all close melee with a tier 1 weapon (hardwood cudgel) and no armour, so no shield (Jade), plus the extra starting food and supply set earlier (Jade). Starting food covers the seven for 10 days (s: 140 nutrition, Open for Jade's rebalance).
+- 4 workers with tier 1 tools and 3 warriors, all close melee with a tier 1 weapon (hardwood cudgel) and no armour, so no shield (Jade), plus the extra starting food and supply set earlier (Jade). Starting food covers the seven for 10 days: 25 meat, 10 fish and 10 eggs, 140 nutrition (s, Open for Jade's rebalance). The Big House gives 10 supply, so the seven use 7 of 10 (s, M11).
+- Open for Jade's rebalance (M11 observation): in a fenced test fort the old 2 m starting spears stabbed over the fence, but the 1.2 m cudgels cannot, so on night 0 a zombie chews through a corner and kills 2 of the 3 starting warriors while the workers and Big House come through.
 
 #### Workers' tools
 
 - Workers' tools move to the same tiers and upgrading as weapons; there are no tool items (Jade).
 - One tool tier per worker covering every tool it uses (axe, pick or maul, hammer, hoe, sickle, fishing gear and prospecting hammer); one Upgrade button on Q pays the whole kit (Jade agreed with the suggestion).
-- Tool tiers (s): 1 hardwood; 2 stone and flint (flint axe and knife, stone maul, stone hammer); 3 copper; 4 bronze; 5 wrought iron; 6 iron; 7 steel; 8 carbon steel. What each tier may gather is in Progression; numbers in Table 2c.
+- Tool tiers (s): 1 hardwood; 2 stone and flint (flint axe and knife, stone maul, stone hammer); 3 copper; 4 bronze; 5 wrought iron; 6 iron; 7 steel; 8 carbon steel. What each tier may gather is in Progression; numbers in Table 2c. Prospecting takes 20 s instead of 40 s from tool tier 3, copper (s, M11).
+- Carts are resources in the stock now (hand cart, ox cart). X sends workers to the main base for one: an ox cart when the worker has an ox hitched and one is in stock, else a hand cart; pressing X again hands it back (s, M11).
 
 #### Mages
 
@@ -2263,13 +2287,15 @@ Weapon and armour tiers are chosen independently, so any weapon can go with any 
   - Robes: 1 homespun robe of flax, 2 leather-trimmed robe, 3 hardened-leather robe, 4 warded robe with a mana crystal sewn in, 5 rune-stitched vestments with copper thread and crystals, 6 archmage's mantle with steel thread and crystals.
   - The wand tier sets spell power and mana; the robe tier sets protection and mana regain. Numbers in Table 13.
   - Ranks stay earned by experience; the rank-ups at 4, 5 and 6 pay their mana crystals from stock, with no rank-wand item.
-- A new mage starts with a hazel wand and a homespun robe (s). Mages upgrade with the same buttons at the Magi Sanctum, a Forge or a main base (s).
+- A new mage starts with a hazel wand and a homespun robe (s). Robes have no model yet; the mage bodies show them (s, M11). Mages upgrade with the same buttons at the Magi Sanctum, a Forge or a main base (s).
 
 #### What goes, what stays
 
 - Goes: Craft (K), Refurbish (F), Equip Best (Q on warriors), the Equipment panel (I), Auto-Equip (F4), forge item queues, arrows, bolts, quivers, shot and powder horns (s, following Jade's "no more items"); poison and fire arrows (s, since ammunition is unlimited; venom and resin keep their other uses); Archery, Crossbow and Musket training, since the type is chosen at the Barracks (s); Riding training and the Ride button, since cavalry is a type (Jade); the load slowdown, the armoured swimming rule and the inventory panel (Jade); the backup weapon (s).
 - Stays (s): Cannon crew training at the Gunnery yard, the siege engines, cannons and cannonballs, carts, and Hitch for oxen, horses and engines.
-- Weapons, armour and tools in trade and plunder become the ingots and materials that made them, at the same value (s).
+- Weapons, armour and tools in trade and plunder become the ingots and materials that made them, at the same value (s). As built (s, M11): Halflings sell 6 leather, 20 feathers and 10 wrought iron; the Elf kingdom 9 carbon steel a day, its lean moved to carbon steel, steel and hardened leather; Dwarf colonies steel, bronze, wrought iron and iron; Dwarf cities steel, hardened leather and carbon steel. Plundering a people gives the metal of the weapons and shields its fighters carried, and the peoples' own fighters keep fixed kits from the new gear catalogue. Monster drops that were items: a goblin club gives 3 sticks (1 in 10), goblin arrows 2 to 4 feathers (3 in 10), a bronze spear 1 bronze ingot (15 in 100).
+- Hand torches went with the items; torch posts and wall torches are unchanged (s, M11).
+- Saves: save format 2 and relay protocol 3; a save from before the troop rework is refused with "That save is from before the troop rework ... Start a new game." (s, M11).
 - Each tier needs its own look, made by the model thread; tinted bodies until then (s).
 - Numbers stay Jade's: today's item costs carry across as kit costs, and the balance editor gets a group per new table, with no tuning (s).
 
@@ -2557,6 +2583,8 @@ From the Milestone 10 balance pass; details in the repo's docs/balance-pass.md. 
 - 4. Skeleton archers stand off out of reach of a closed wall, and warriors on hold never answer them. Also an open question for Jade.
 - 5. Night 10 breaks a hardwood wall on 2 seeds of 3 (bloated corpses, small slimes, and archers on seed 3).
 - 6. On night 0, a bat or the giant spider sometimes kills a worker.
+- 7. Night 0 with the starting cudgels (Milestone 11): in the fenced test fort the old starting spears (2 m) stabbed over the fence, but the hardwood cudgels (1.2 m) cannot, so a zombie chews through a corner and kills 2 of the 3 starting warriors while the workers and the Big House come through. Open for Jade's rebalance (the start tier, or a long-melee starter).
+- 8. Shared vision (PR #68): none of the building sight radii were tested against the night pacing, and shared exploring means a co-op side uncovers the map faster, which moves the shared dark edge (and so the spawn ring) outward sooner. Open for Jade's rebalance through BUILDING_SIGHT_M.
 
 ### Magic
 
@@ -2792,6 +2820,13 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - **Who sees what (suggested):** chat lines, pings, joins, leaves and pauses go to every player. A player's own alerts (attacks, deaths, trades, sent resources) go only to them. Messages name players by their names, never "Player 2".
 - **Pause (suggested):** the Pause key or the ❚❚ button. Alone, the game also pauses while the F10 menu or the account page is open. Online, anyone may pause and anyone may carry on; a banner says who paused.
 
+#### Shared vision
+
+- All players share vision from all their units and buildings (Jade, 2026-10-03). The players are one side with one picture: land any player explores is explored for every player, and every player sees what any player's units and buildings see now.
+- Lairs, goblin villages and the peoples' settlements one player finds show on every player's minimap. Meeting a people (its greeting, trade and war) stays each player's own, since that is diplomacy, not sight (suggested).
+- A player can build and dig on land an ally explored. An explicit Attack keeps its target while anyone on the side sees it, so archers can be sent at what a tower spots; once no one sees it, the order drops (suggested).
+- The dark edge is shared too, so night spawn points keep table 8's distance from every player's claimed land, and each player's night mobs may come from any part of the shared edge and march to the player they were sent for (suggested).
+
 #### When a player is eliminated or leaves
 
 - Their resources are split evenly between the remaining players.
@@ -2819,6 +2854,7 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - If the player does not come back, the host chooses: save and quit, or carry on without them, in which case their resources, buildings and units are shared out as if they had been eliminated.
 - Suggested, as built 2026-10-03: everyone sees "Waiting for NAME" after 1 s; after 30 s the host gets three choices: Wait, Carry on without them, or Save and quit (saves first, then closes the room for everyone). A player who leaves from the menu leaves for good and their side is shared out at once. Shared-out buildings keep the research their old owner had.
 - Suggested, as built: the dawn autosave keeps the newest 5 matches in this browser and, with an account, on the server too (online, only the host's). Download a save file (F10 menu) writes a .sac file that Load game can open. A save carries each seat's name, colour and account, so a loaded game puts the same people back in the same seats, and loading gives the same game state as when it was saved. Online, only the host may save; the others see why the button is off.
+- Suggested, as built in PR #68: a save from before shared vision loads with every player's explored land joined into one.
 
 ### Outside the match
 
@@ -2856,7 +2892,9 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Accounts | email, name, password of 8 or more characters; forgot password by email link |
 | Keys | [ Allies, ] Send resources, \ Map ping, Pause key, Enter chat; all rebindable except Enter |
 | Send resources | +10, +100, All or a typed amount; arrives at once |
-| Relay protocol | version 2: each player's account id travels with their name in the room state |
+| Relay protocol | version 3 since Milestone 11 (version 2 added each player's account id to the room state) |
+| Shared vision | the players are one side with one picture: explored land, what is in sight now, and found lairs, goblin villages and settlements on every minimap are shared; meeting a people stays each player's own; an Attack keeps its target while anyone on the side sees it (s, PR #68) |
+| Save format | a save from before the shared vision patch loads with every player's explored land joined into one; version 2 since Milestone 11; a save from before the troop rework is refused with "That save is from before the troop rework ... Start a new game." |
 
 ### Audio
 

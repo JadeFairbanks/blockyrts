@@ -12,6 +12,7 @@ import { SettingsPanel } from '../settings/settings-panel.ts';
 import type { Settings } from '../settings/settings.ts';
 import { MAX_SEED, parseSeed, randomSeed } from '../start/seed.ts';
 import { accountPage } from './account.ts';
+import lobbyMap from './art/lobby-map.webp';
 import { button, el, field, input, Screen, status, whenText } from './dom.ts';
 import { lobby } from './lobby.ts';
 import { supportFacts, supportProblems } from './support.ts';
@@ -44,6 +45,8 @@ export function newSoloPlan(seed: number, name: string, accountId: string, playe
 export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = { page: 'main' }): Promise<MatchPlan> {
   const { api, settings } = ctx;
   const screen = new Screen(app, 'main-menu');
+  // The lobby's picture, fetched now so it is there when a lobby opens.
+  new Image().src = lobbyMap;
   return new Promise((resolve) => {
     const play = (plan: MatchPlan): void => {
       screen.remove();
@@ -58,7 +61,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
     const main = (): void => {
       const box = screen.page('', 'main-menu');
       box.replaceChildren();
-      el('h1', '', 'Survive and Conquer', box);
+      el('h1', 'game-logo', 'Survive and Conquer', box);
       el('p', 'tagline', 'Build by day, hold the walls by night.', box);
       for (const p of supportProblems(supportFacts())) el('p', 'note warn', p, box);
       const who = el('p', 'note who', '', box);
@@ -75,7 +78,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
       button(box, 'Quit', quit, 'big');
       el('hr', '', undefined, box);
       const fs = el('div', 'row fullscreen-row', undefined, box);
-      el('span', 'note f11', `Press ${IS_MAC ? 'Ctrl + Cmd + F' : 'F11'} for full screen: some controls, such as Ctrl + number groups, only work in full screen.`, fs);
+      el('span', `note f11${IS_MAC ? ' mac' : ''}`, `Press ${IS_MAC ? 'Ctrl + Cmd + F' : 'F11'} for full screen: some controls, such as Ctrl + number groups, only work in full screen.`, fs);
       button(fs, 'Full screen', () => void document.documentElement.requestFullscreen?.().catch(() => undefined));
     };
 
@@ -175,7 +178,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
 
     // ---- Load game ----
     const load = (): void => {
-      const box = screen.page('Load game');
+      const box = screen.page('Load game', 'load-page');
       const st = status(box);
       const list = el('div', 'save-list', undefined, box);
       const local = el('div', 'save-list', undefined, box);
