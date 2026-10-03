@@ -10,8 +10,9 @@
 import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, isqrt, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { buildingSight, footprintWu, landAt, NEUTRAL, OrderKind, seesForSide, sightOf, UnitKind, type SimState } from '../state.ts';
+import { buildingSight, landAt, NEUTRAL, OrderKind, seesForSide, sightOf, UnitKind, type SimState } from '../state.ts';
 import { garrisonRoom } from '../buildings/store.ts';
+import { footprintDims } from '../buildings/data.ts';
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked } from '../peoples/speech.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
@@ -82,11 +83,38 @@ export function rangedOf(state: SimState, i: number): RangedStats | null {
 }
 
 /**
+ * Not state: what sideSees answered during this step, by the target's id, so
+ * a crowd chasing one far target looks round the side once a step, not once
+ * each. Forgotten at the start and the end of every step (step.ts), so it
+ * never outlives the step that filled it.
+ */
+const seenThisStep = new WeakMap<SimState, Map<number, boolean>>();
+
+export function forgetSideSight(state: SimState): void {
+  seenThisStep.delete(state);
+}
+
+/**
  * Whether the players' side sees a unit now: within the sight of any of
  * their units or buildings (Fog of war: the players share their vision). A
  * cloaked void stalker is seen only as close as its cloak lets it be.
  */
 export function sideSees(state: SimState, t: number): boolean {
+  let seen = seenThisStep.get(state);
+  if (!seen) {
+    seen = new Map();
+    seenThisStep.set(state, seen);
+  }
+  const id = state.entities.id[t]!;
+  let v = seen.get(id);
+  if (v === undefined) {
+    v = sideSeesNow(state, t);
+    seen.set(id, v);
+  }
+  return v;
+}
+
+function sideSeesNow(state: SimState, t: number): boolean {
   const e = state.entities;
   const x = e.x[t]!;
   const z = e.z[t]!;
@@ -101,7 +129,12 @@ export function sideSees(state: SimState, t: number): boolean {
   for (const b of state.buildings.list) {
     if (b.owner >= state.players.length) continue;
     const r = buildingSight(state, b);
-    const [x0, z0, x1, z1] = footprintWu(b);
+    // Its footprint in wu, as footprintWu, without building the arrays.
+    const d = footprintDims(b.kind, b.variant);
+    const x0 = b.x * WU_PER_COLUMN;
+    const z0 = b.z * WU_PER_COLUMN;
+    const x1 = (b.x + d.w) * WU_PER_COLUMN;
+    const z1 = (b.z + d.d) * WU_PER_COLUMN;
     const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
     const dz = z < z0 ? z0 - z : z > z1 ? z - z1 : 0;
     const d2 = dx * dx + dz * dz;

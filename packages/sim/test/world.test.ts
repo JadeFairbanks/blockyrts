@@ -27,6 +27,7 @@ import {
   stockCell,
   Tool,
   Troop,
+  revealVision,
   UnitKind,
   WILD,
   World,
@@ -261,9 +262,21 @@ describe('terrain edits, water, regrowth and fog', () => {
   it('marks land explored around every player\'s units, one picture for the side, and the debug reveal', () => {
     const state = createWorld(2, { players: 2 });
     const w = state.world;
+    const e = state.entities;
     const tile = (x: number): number => Math.floor(x / 4);
     // Both pockets are explored in the one picture the players share.
     for (const p of w.gen.start.pockets) expect(w.isExplored(tile(p.x), tile(p.z + 20))).toBe(true);
+    // A worker of each player 45 m north of its Big House, far past the house's 20 m: the land
+    // 15 m beyond it is explored by the worker alone, in the same picture.
+    for (const p of w.gen.start.pockets) {
+      let worker = -1;
+      for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Worker && e.owner[i] === p.player) worker = i;
+      e.x[worker] = p.x * WU_PER_COLUMN;
+      e.z[worker] = (p.z + 100) * WU_PER_COLUMN;
+      expect(w.isExplored(tile(p.x), tile(p.z + 133))).toBe(false);
+    }
+    revealVision(state);
+    for (const p of w.gen.start.pockets) expect(w.isExplored(tile(p.x), tile(p.z + 133))).toBe(true);
     expect(w.isExplored(tile(5000), tile(0))).toBe(false);
     w.reveal(5000 * WU_PER_COLUMN, 0, 50 * 8000);
     expect(w.isExplored(tile(5000), tile(0))).toBe(true);

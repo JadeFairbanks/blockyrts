@@ -157,9 +157,29 @@ describe('the players share their vision', () => {
   it('every player\'s units and buildings are sources, and what one explores the others have', () => {
     const s = createWorld(3, { players: 2, peaceful: true });
     const v = visionSources(s);
-    const owners = new Set<number>();
-    for (let o = 0; o < v.length; o += VISION_STRIDE) owners.add(v[o]!);
-    expect([...owners].sort()).toEqual([0, 1]);
+    // Each unit of either player in the open is a point source with its own sight.
+    const e = s.entities;
+    for (const owner of [0, 1]) {
+      let units = 0;
+      let points = 0;
+      let rects = 0;
+      for (let i = 0; i < e.count; i++) if (e.owner[i] === owner && e.hp[i]! > 0 && e.inside[i] === 0) units++;
+      for (let o = 0; o < v.length; o += VISION_STRIDE) {
+        if (v[o] !== owner) continue;
+        if (v[o + 1] === v[o + 3] && v[o + 2] === v[o + 4]) points++;
+        else rects++;
+      }
+      expect(units).toBeGreaterThan(0);
+      expect(points).toBe(units);
+      expect(rects).toBe(1);
+    }
+    let w = -1;
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Warrior && e.owner[i] === 1) w = i;
+    let found = false;
+    for (let o = 0; o < v.length; o += VISION_STRIDE) {
+      if (v[o] === 1 && v[o + 1] === e.x[w] && v[o + 2] === e.z[w]) found = v[o + 5] === sightOf(s, w);
+    }
+    expect(found).toBe(true);
     // Player 1's far building explores land in the one picture.
     const b = farBuilding(s, BuildingKind.Storehouse, 1);
     const [, z0, x1, z1] = footprintWu(b);
@@ -192,19 +212,41 @@ describe('the players share their vision', () => {
 });
 
 describe('night spawns on the shared dark edge', () => {
-  it('keep 50 m off every player\'s claimed land', () => {
-    const s = createWorld(5, { players: 2 });
+  it('keep 50 m off every player\'s claimed land, not only the land of the player they come for', () => {
+    const s = createWorld(5, { players: 2, peaceful: true });
+    const [p0, p1] = [0, 1].map((p) => s.world.gen.start.pockets.find((q) => q.player === p)!);
+    // The pockets lie about 80 m apart, player 0's to the north (+z). Player 1 explores 40 m round
+    // its Big House, so the dark edge there runs 25 to 30 m from its claimed land; player 0 explores
+    // a patch 100 m north of its own, well clear of both.
+    const reveal = (player: number, x: number, z: number, m: number): Order =>
+      ({ kind: 'debugReveal', player, x: x * WU_PER_COLUMN, z: z * WU_PER_COLUMN, radius: m * M });
+    run(s, 1, [reveal(1, p1!.x, p1!.z, 40), reveal(0, p0!.x, p0!.z + 222, 30)]);
     const shapes = [claimShapes(s, 0), claimShapes(s, 1)];
-    const reach = 50 * M;
-    for (let n = 0; n < 12; n++) {
-      const [x, z] = spawnPoint(s, n & 1);
-      for (const sh of shapes) {
-        for (const [x0, z0, x1, z1] of sh.rects) {
-          const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
-          const dz = z < z0 ? z0 - z : z > z1 ? z - z1 : 0;
-          expect(dx * dx + dz * dz).toBeGreaterThanOrEqual(reach * reach);
-        }
+    const fromClaims = (sh: (typeof shapes)[number], x: number, z: number): number => {
+      let best = Infinity;
+      for (const [x0, z0, x1, z1] of sh.rects) {
+        const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
+        const dz = z < z0 ? z0 - z : z > z1 ? z - z1 : 0;
+        best = Math.min(best, Math.hypot(dx, dz));
       }
+      for (const [cx, cz, r] of sh.circles) best = Math.min(best, Math.max(0, Math.hypot(x - cx, z - cz) - r));
+      return best;
+    };
+    const edge = new Set<string>();
+    const d = s.world.darkEdge();
+    let nearOne = 0;
+    for (let k = 0; k < d.length; k += 2) {
+      edge.add(`${d[k]},${d[k + 1]}`);
+      const x = d[k]! * TILE + (TILE >> 1);
+      const z = d[k + 1]! * TILE + (TILE >> 1);
+      if (fromClaims(shapes[0]!, x, z) >= 50 * M && fromClaims(shapes[1]!, x, z) < 50 * M) nearOne++;
+    }
+    // The case this guards: edge far from player 0's land but close to player 1's.
+    expect(nearOne).toBeGreaterThan(20);
+    for (let n = 0; n < 12; n++) {
+      const [x, z] = spawnPoint(s, 0);
+      expect(edge.has(`${tileOf(x)},${tileOf(z)}`)).toBe(true);
+      for (const sh of shapes) expect(fromClaims(sh, x, z)).toBeGreaterThanOrEqual(50 * M);
     }
   });
 });

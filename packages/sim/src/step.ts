@@ -13,7 +13,7 @@ import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealVision, UnitKind, visionS
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
-import { onUnitHurt } from './combat/fight.ts';
+import { forgetSideSight, onUnitHurt } from './combat/fight.ts';
 import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
 import { updateProjectiles } from './combat/projectiles.ts';
 import { updateSpawns } from './combat/spawn.ts';
@@ -145,6 +145,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   state.falling = [];
   state.paths.searches = 0;
   mobBudget.searches = 0;
+  forgetSideSight(state);
   const e = state.entities;
   state.grid.rebuild(e);
   applyOrders(state, orders);
@@ -173,6 +174,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateLights(state);
   updateElimination(state);
   state.world.flowWater();
+  forgetSideSight(state);
   state.step++;
   // What the players' side sees: the land in sight explored, and the lairs and villages in it found (shared by every player).
   if (state.step % FOG_INTERVAL_STEPS === 0) {
