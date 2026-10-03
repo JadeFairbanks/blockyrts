@@ -170,6 +170,39 @@ describe('the model converter on the base bodies', () => {
   });
 });
 
+describe('the model converter on state sets hidden by default', () => {
+  const source = 'src/models/buildings/main_base_l1/main_base_l1.bbmodel';
+  const raw = JSON.parse(readFileSync(join(ASSETS_DIR, source), 'utf8')) as {
+    elements: { uuid: string; faces: Record<string, { texture: unknown } | undefined> }[];
+    outliner: Array<{ name: string; visibility?: boolean; children: unknown[] }>;
+  };
+  const r = convertModel(raw, { id: 'main_base_l1', category: 'buildings', source });
+
+  /** Cubes under a group, however deep. */
+  const cubesIn = (node: { children: unknown[] }): string[] =>
+    node.children.flatMap((c) => (typeof c === 'string' ? [c] : cubesIn(c as { children: unknown[] })));
+
+  it('draws only the finished Big House, not its scaffolds and ruin', () => {
+    const root = raw.outliner[0]!;
+    const groups = root.children.filter((c): c is { name: string; visibility?: boolean; children: unknown[] } => typeof c !== 'string');
+    const finished = groups.find((g) => g.name === 'finished')!;
+    expect(groups.filter((g) => g.visibility === false).map((g) => g.name)).toEqual(['construction_0', 'construction_33', 'construction_66', 'ruined']);
+    const drawn = new Set(cubesIn(finished));
+    // Four vertices per drawn face, faces of the finished set only.
+    const faces = raw.elements.filter((e) => drawn.has(e.uuid)).reduce((n, e) => n + Object.values(e.faces).filter((f) => f && f.texture !== null && f.texture !== undefined).length, 0);
+    expect(r.errors).toEqual([]);
+    expect(r.sidecar?.cubes).toBe(drawn.size);
+    expect(r.sidecar?.vertices).toBe(faces * 4);
+    // The bones of the hidden sets stay, so clip and bone indices do not move.
+    expect(r.sidecar?.bones.map((b) => b.name)).toEqual(expect.arrayContaining(['construction_0', 'ruined']));
+  });
+
+  it('keeps stowed equipment under a slot as a part the game shows on demand', () => {
+    const w = convertBase('warrior');
+    expect(w.sidecar?.parts).toEqual(expect.arrayContaining(['quiver', 'bow']));
+  });
+});
+
 function syntheticBadModel(): unknown {
   const png = encodePng({ width: 300, height: 300, data: new Uint8Array(300 * 300 * 4).fill(200) });
   const face = { uv: [0, 0, 4, 4], texture: 0 };

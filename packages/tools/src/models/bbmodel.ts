@@ -33,6 +33,8 @@ export interface BbGroup {
   name: string;
   origin: Vec3;
   rotation: Vec3;
+  /** False for a group hidden by default in Blockbench (a state set such as `construction_33` or `ruined`, or a stowed item). */
+  visible: boolean;
   /** Child groups and cube uuids, in outliner order. */
   children: (BbGroup | string)[];
 }
@@ -174,6 +176,7 @@ export function parseBbmodel(raw: unknown, problems: string[]): BbModel {
       name: str(g.name),
       origin: vec3(g.origin),
       rotation: vec3(g.rotation),
+      visible: g.visibility !== false,
       children: (Array.isArray(g.children) ? g.children : []).map(readNode).filter((c) => c !== null),
     };
   };
