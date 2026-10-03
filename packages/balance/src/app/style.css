@@ -311,6 +311,10 @@ nav.menu .entry.special .icon { color: var(--accent); }
   position: sticky; bottom: 0; z-index: 5; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 10px; background: var(--panel);
   box-shadow: 0 -4px 14px rgb(0 0 0 / 0.12);
 }
-.tree-details .head { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 4px; }
-.tree-details h3 { margin: 0; font-size: 15px; }
+.tree-details .head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.tree-details h3 { margin: 0; font-size: 15px; margin-right: auto; }
+.tree-details .close {
+  flex: none; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2); color: var(--muted); font-size: 14px; line-height: 1;
+}
+.tree-details .close:hover { color: var(--ink); border-color: var(--muted); }
 .tree-details h3 small { color: var(--muted); font-weight: 400; }
