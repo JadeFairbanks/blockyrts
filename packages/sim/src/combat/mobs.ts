@@ -582,6 +582,16 @@ export const FLY_HEIGHT = cm(400);
 export const SWOOP_HEIGHT = cm(60);
 /** A high flyer circles at 12 m (s), out of reach of everything but bows, guns and magic. */
 export const HIGH_FLY_HEIGHT = cm(1200);
+/**
+ * The swoop (Jade's patch notes 1): a flyer dives at up to 8 m/s and climbs
+ * at up to 5 m/s, so it glides down onto its prey and pulls away rather than
+ * dropping in one step. Between strikes it pulls off to a point round its
+ * prey, 55% to 95% of its striking distance out, 1.4 m to 2.2 m up, picked
+ * afresh for each swoop, and comes in to 35% of that distance to strike. A
+ * club still reaches it all through the swoop, as it did when it hovered low
+ * (s).
+ */
+export const SWOOP = { diveSpeed: v10(80), climbSpeed: v10(50), pullMinPct: 55, pullMaxPct: 95, pullLowCm: 140, pullHighCm: 220, closePct: 35 };
 
 /** Zombie grasp: a hit slows its target by 20% for 2 s. Web spit: 50% for 3 s, every 10 s. */
 export const GRASP = { slowBp: 2000, steps: ds(20) };

@@ -15,7 +15,7 @@ const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'le
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
-import type { Burn, DuskReading, Ruin, ThreatState, TribeBand, Village } from './threats/types.ts';
+import type { Burn, DuskReading, Ruin, ThreatState, TribeBand, Village, WildPatch } from './threats/types.ts';
 import { FACTION_FIELDS, FACTION_LISTS, type Faction, type Offer, type PeoplesState } from './peoples/types.ts';
 
 const RUIN_FIELDS = ['mob', 'x', 'z', 'at'] as const satisfies ReadonlyArray<keyof Ruin>;
@@ -23,6 +23,7 @@ const VILLAGE_FIELDS = ['id', 'cell', 'x', 'z', 'band', 'size', 'mage', 'war', '
 const BAND_FIELDS = ['id', 'tribe', 'x', 'z', 'camp', 'campX', 'campZ', 'target', 'sawAt'] as const satisfies ReadonlyArray<keyof TribeBand>;
 const BURN_FIELDS = ['building', 'until', 'perSecond'] as const satisfies ReadonlyArray<keyof Burn>;
 const DUSK_FIELDS = ['townPm', 'provokedPm', 'depthPm', 'ax', 'az', 'band', 'building'] as const satisfies ReadonlyArray<keyof DuskReading>;
+const WILD_FIELDS = ['px', 'pz', 'group', 'size'] as const satisfies ReadonlyArray<keyof WildPatch>;
 
 function writeRecords<T>(w: ByteWriter, list: readonly T[], fields: readonly string[]): void {
   w.u32(list.length);
@@ -63,6 +64,7 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
   w.i32(t.bossNext);
   w.i32(t.bossHp);
   w.i32(t.bossId);
+  writeRecords(w, t.wild, WILD_FIELDS);
 }
 
 function readThreats(r: ByteReader): ThreatState {
@@ -87,7 +89,8 @@ function readThreats(r: ByteReader): ThreatState {
   const bossNext = r.i32();
   const bossHp = r.i32();
   const bossId = r.i32();
-  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId };
+  const wild = readRecordList<WildPatch>(r, WILD_FIELDS);
+  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
 }
 
 /** The threats as canonical text for diffing: each record as its fields in serialisation order. */
@@ -96,7 +99,7 @@ function threatsJson(t: ThreatState): string {
   return JSON.stringify({
     ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
     burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), bloodSpent: t.bloodSpent, fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
-    boss: [t.bossNext, t.bossHp, t.bossId],
+    boss: [t.bossNext, t.bossHp, t.bossId], wild: rows(t.wild, WILD_FIELDS),
   });
 }
 
@@ -159,7 +162,7 @@ function peoplesJson(ps: PeoplesState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 13;
+export const SNAPSHOT_VERSION = 14;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
