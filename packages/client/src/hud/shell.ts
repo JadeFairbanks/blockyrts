@@ -844,6 +844,7 @@ export class GameShell {
       ['autoequip', 'autoEquip'],
       ['rations', 'rations'],
       ['clear', 'clear'],
+      ['peoples', 'peoples'],
       ['allies', 'allies'],
       ['send', 'send'],
       ['ping', 'ping'],
