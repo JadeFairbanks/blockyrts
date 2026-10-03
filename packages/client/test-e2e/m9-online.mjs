@@ -7,7 +7,8 @@
 //
 // Player 1 hosts from the main menu, player 2 opens the invite link, picks a
 // colour and is ready, the host starts; then chat, Share control, Send
-// resources, a map ping, pause, the hashes agreeing, a guest's Save asking
+// resources, a map ping, pause and resume by either player (patch notes 1),
+// the hashes agreeing, a guest's Save asking
 // for an account and the game saving. Screenshots go to the
 // output folder as m9-*.png.
 /* global window, document, requestAnimationFrame -- used inside page.evaluate callbacks */
@@ -196,17 +197,41 @@ for (let k = 0; k < 3 && !pinged; k++) {
 }
 check('a map ping reaches the other player', pinged);
 
-// 9. Pause for everyone.
-await hudClick(a, 'pause');
-await b.locator('.net-banner').filter({ hasText: 'Paused by' }).waitFor({ timeout: 10000 });
+// 9. Pause for everyone (patch notes 1). Online, opening the menu stops nothing.
+await a.keyboard.press('F10');
+await a.locator('.menu').waitFor();
+const r0 = (await debug(b)).step;
+await b.waitForTimeout(1500);
+check('online, an open menu does not pause', (await debug(b)).step > r0);
+check('the menu has one Pause button', (await a.locator('.menu > button', { hasText: /^(Pause|Resume)$/ }).allTextContents()).join() === 'Pause');
+// The host presses Pause: both menus open with Resume, and both are told who.
+await a.locator('.menu > button', { hasText: /^Pause$/ }).click();
+await b.locator('.menu').waitFor({ timeout: 10000 });
+check('the guest\'s menu opens by itself', await b.locator('.menu').isVisible());
+await b.locator('.menu > button', { hasText: /^Resume$/ }).waitFor({ timeout: 5000 });
+check('both menus read Resume', (await a.locator('.menu > button', { hasText: /^Resume$/ }).count()) === 1);
+check('the guest is told who paused', await until(b, () => seen(b, 'paused the game')));
+check('the banner says who paused', (await b.locator('.net-banner').textContent()).includes('paused the game'));
 const s1 = (await debug(b)).step;
 await b.waitForTimeout(1500);
 const s2 = (await debug(b)).step;
 check('pause stops both', s1 === s2, `${s1} -> ${s2}`);
 await shot(b, 'paused');
-await hudClick(a, 'pause');
+// The guest presses Resume: both menus close, and both are told who.
+await b.locator('.menu > button', { hasText: /^Resume$/ }).click();
+await a.locator('.menu-overlay').waitFor({ state: 'hidden', timeout: 10000 });
+await b.locator('.menu-overlay').waitFor({ state: 'hidden', timeout: 10000 });
+check('Resume closes both menus', true);
+check('the host is told who resumed', await until(a, () => seen(a, 'resumed the game')));
 await b.waitForTimeout(1500);
-check('carry on starts both again', (await debug(b)).step > s2);
+check('resume starts both again', (await debug(b)).step > s2);
+await shot(a, 'resumed');
+// The Pause key works the same way, and anyone may undo it.
+await b.keyboard.press('Pause');
+await a.locator('.menu').waitFor({ timeout: 10000 });
+await a.keyboard.press('Pause');
+await b.locator('.menu-overlay').waitFor({ state: 'hidden', timeout: 10000 });
+check('the Pause key pauses and resumes for both', await a.locator('.menu-overlay').isHidden());
 
 // 10. A guest's Save offers an account; making one saves.
 await a.keyboard.press('F10');

@@ -1,12 +1,17 @@
-// The in-game menu (F10 or the Menu button): resume, pause, save, the
-// settings, full screen, the world seed and leaving. While it is open the
-// cursor lock is released and the page's own controls work with the real
-// cursor.
+// The in-game menu (F10 or the Menu button): pausing, saving, the settings,
+// full screen, the world seed and leaving. While it is open the cursor lock
+// is released and the page's own controls work with the real cursor.
+//
+// Pausing (Jade's patch notes 1): alone, the open menu is the pause, so it
+// has no Pause or Resume button, only the ✕ that closes it. Online, opening
+// it stops nothing; its one Pause button stops the game for every player and
+// opens every player's menu, and then reads Resume.
 import { IS_MAC } from '../input/platform.ts';
 import { SettingsPanel } from '../settings/settings-panel.ts';
 import type { Settings } from '../settings/settings.ts';
 
 export interface MenuActions {
+  /** Closes the menu (alone, the game carries on). */
   resume(): void;
   quit(): void;
   /** A hotkey was rebound: buttons show the new key. */
@@ -15,9 +20,10 @@ export interface MenuActions {
   save(): void;
   /** Hands the game to the browser as a .sac file. */
   download(): void;
-  /** Pauses or carries on (for everyone, online). */
+  /** Online: pauses or resumes for every player. */
   togglePause(): void;
-  paused(): boolean;
+  /** Online: the player who holds the pause, or null while nobody does. */
+  pausedBy(): string | null;
   /** Why saving is not possible here, or ''. */
   saveBlocked(): string;
 }
@@ -33,7 +39,8 @@ export class GameMenu {
   readonly el: HTMLElement;
   private open = false;
   private readonly settingsPanel: SettingsPanel;
-  private readonly pauseBtn: HTMLButtonElement;
+  private readonly pauseBtn: HTMLButtonElement | null = null;
+  private readonly pauseNote: HTMLElement;
   private readonly saveBtn: HTMLButtonElement;
   private readonly saveNote: HTMLElement;
 
@@ -50,7 +57,17 @@ export class GameMenu {
 
     const h = document.createElement('h2');
     h.textContent = 'Menu';
-    box.append(h);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'menu-close';
+    close.textContent = '✕';
+    close.title = 'Close the menu (F10 or Esc)';
+    close.setAttribute('aria-label', 'Close the menu');
+    close.addEventListener('click', () => actions.resume());
+    const head = document.createElement('div');
+    head.className = 'menu-head';
+    head.append(h, close);
+    box.append(head);
     const seed = document.createElement('p');
     seed.className = 'note menu-seed';
     seed.textContent = `World seed ${info.seed}: type it in New game to play this world again.${info.code ? ` Invite code ${info.code}.` : ''}`;
@@ -72,12 +89,9 @@ export class GameMenu {
       box.append(p);
       return p;
     };
-    button('Resume', () => actions.resume(), 'primary');
-    this.pauseBtn = button('Pause game', () => {
-      actions.togglePause();
-      this.refresh();
-    });
-    note(info.online ? 'Pauses the game for every player (the Pause key too).' : 'The game also pauses while this menu is open.');
+    if (info.online) this.pauseBtn = button('Pause', () => actions.togglePause(), 'primary');
+    this.pauseNote = note(info.online ? '' : 'The game is paused while this menu is open; closing it carries on.');
+    this.pauseNote.classList.add('lead');
     this.saveBtn = button('Save game', () => actions.save());
     this.saveNote = note('');
     button('Download a save file', () => actions.download());
@@ -128,7 +142,14 @@ export class GameMenu {
 
   /** The pause and save buttons say what they would do now. */
   refresh(): void {
-    this.pauseBtn.textContent = this.actions.paused() ? 'Carry on (unpause)' : 'Pause game';
+    if (this.pauseBtn) {
+      const by = this.actions.pausedBy();
+      this.pauseBtn.textContent = by === null ? 'Pause' : 'Resume';
+      this.pauseNote.textContent =
+        by === null
+          ? 'The game carries on while this menu is open. Pause stops it for every player and opens their menus; anyone can resume.'
+          : `${by} paused the game. Anyone can resume it, and everyone's menu closes.`;
+    }
     const why = this.actions.saveBlocked();
     this.saveBtn.disabled = why !== '';
     this.saveNote.textContent = why || 'Saved to your account; a guest is offered an account first.';
