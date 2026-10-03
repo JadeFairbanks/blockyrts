@@ -715,3 +715,47 @@
     font-size: 27px;
   }
 }
+
+/* The first-load touchscreen question (patch notes 1): a large box with two large answers. */
+.start-overlay[data-page='touch-ask'] {
+  justify-content: center;
+  padding-left: 0;
+}
+.dialog.touch-ask {
+  width: min(620px, calc(100vw - 24px));
+}
+.touch-list {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.touch-answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.touch-answers button.big {
+  flex: 1 1 240px;
+  min-height: 72px;
+}
+@media (max-height: 480px) {
+  .dialog.touch-ask {
+    gap: 6px;
+  }
+  .dialog.touch-ask h2 {
+    font-size: 30px;
+  }
+  .touch-list {
+    gap: 2px;
+    font-size: 13px;
+    line-height: 1.25;
+  }
+  .touch-answers button.big {
+    min-height: 50px;
+    font-size: 24px;
+  }
+}

@@ -11,6 +11,7 @@ import { startFromUrl } from './start/seed.ts';
 import { resetPasswordPage } from './ui/account.ts';
 import { Screen } from './ui/dom.ts';
 import { mainMenu, newSoloPlan, type MenuStart } from './ui/main-menu.ts';
+import { askTouch, hasTouchScreen, touchQuestionDue } from './ui/touch-ask.ts';
 
 async function main(): Promise<void> {
   const app = document.getElementById('app')!;
@@ -33,6 +34,9 @@ async function main(): Promise<void> {
     await resetPasswordPage(screen, api, token);
     screen.remove();
   }
+
+  // A touchscreen, first time here: ask whether to play by touch (patch notes 1).
+  if (touchQuestionDue(settings, hasTouchScreen())) await askTouch(app, settings);
 
   const quick = startFromUrl(location.search);
   let plan;

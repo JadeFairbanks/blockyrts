@@ -16,6 +16,7 @@ import {
   TUNNEL_WIDTH_COLUMNS,
   UnitKind,
   WU_PER_METRE,
+  troopOf,
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
@@ -25,7 +26,7 @@ import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
-import { Btn, InputManager, type Mods, type MouseTarget } from '../input/input-manager.ts';
+import { Btn, InputManager, type Mods, type MouseTarget, type TouchHooks } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
 import { Minimap } from '../minimap/minimap.ts';
@@ -43,16 +44,18 @@ import {
   type SelectableSource,
 } from '../selection/types.ts';
 import { SelectionVisuals } from '../selection/visuals.ts';
-import type { Settings } from '../settings/settings.ts';
+import { onSettingsChange, type Settings } from '../settings/settings.ts';
 import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
+import { guessSteps, QueueClock } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
-import { buildLayout, type HudLayout } from './layout.ts';
+import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
+import { hudLayout, rowsFor, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles } from './bubbles.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -60,6 +63,13 @@ import { PeoplesUi } from './peoples-ui.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
+import { typeWorth } from './worth.ts';
+import { actionIcon } from './card-icons.ts';
+import { doingActions } from './doing.ts';
+import { speechToPanel } from './wording.ts';
+import { goodIcon } from './inventory-icons.ts';
+import { kitUrl } from './kit-icons.ts';
+import type { PortraitSubject } from '../world/portrait-view.ts';
 
 /** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
 const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
@@ -196,6 +206,13 @@ export class GameShell {
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
+  /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
+  private cardDoing: string[] = [];
+  /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
+  private portraitKey: string | null = null;
+  private portraitRect: DOMRect | null = null;
+  /** The pace of every own building's head item, for the queue's countdown. */
+  private readonly queueClock = new QueueClock();
   private world: WorldHooks;
   private readonly extras: WorldExtras;
   private readonly game: GameInfo;
@@ -213,12 +230,21 @@ export class GameShell {
   private edgeDir: PanDir | null = null;
   private followKey: string | null = null;
   private queueMode = false;
+  /** The phone layout was in force at the last layout (the message panel folds once on the way in). */
+  private phoneFolded = false;
+  /** Touch controls: the next one-finger drag draws the selection box (the Box button). */
+  private boxMode = false;
   private readonly cameraSlots: (CameraView | null)[] = Array.from({ length: CAMERA_SLOTS }, () => null);
   private selectionDirty = true;
   private cardDirty = true;
   private lastPanelText = 0;
   private width = 1;
   private height = 1;
+  /** Where the panels go for this screen size, and the rows the card shows now. */
+  private geometry: HudGeometry;
+  private cardRows = 0;
+  /** The phone's unfolded panels. */
+  private readonly folds: Folds = { map: false, info: true, stock: false, debug: false };
   private readonly startedAt = performance.now();
   /** The active subgroup's type. */
   private active: string | null = null;
@@ -247,6 +273,7 @@ export class GameShell {
     this.settings = opts.settings;
     this.player = opts.player;
     this.layout = buildLayout(parent, this.panels);
+    this.geometry = hudLayout({ width: window.innerWidth, height: window.innerHeight, topRight: 112 });
     this.chainLabel = document.createElement('div');
     this.chainLabel.className = 'chain-label';
     this.chainLabel.hidden = true;
@@ -310,6 +337,7 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
+      slots: () => ({ cols: this.geometry.cols, rows: this.geometry.rows, maxRows: this.geometry.maxRows }),
     });
     this.input = new InputManager(
       {
@@ -323,6 +351,7 @@ export class GameShell {
         },
         keyDown: (id, ev) => this.keyDown(id, ev),
         keyUp: () => undefined,
+        touch: this.touchHooks(),
       },
       this.panels,
       this.buttons,
@@ -331,6 +360,8 @@ export class GameShell {
       parent,
     );
     this.input.addArea('minimap', this.layout.minimapEl, this.minimapMouse());
+    // Touch controls turned on or off in Settings: the page follows at once.
+    onSettingsChange(() => this.input.syncTouch());
     this.allies = new AlliesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
       send: (o) => opts.issueOrder(o),
       message: (t) => this.message(t),
@@ -409,6 +440,17 @@ export class GameShell {
         this.selectionDirty = true;
         this.cardDirty = true;
       },
+      worth: this.worth,
+      look: (t) => {
+        const u = entityIdOf(t.key);
+        const info = u === null ? null : this.game.unit(u);
+        return info ? { troop: info.troop, wTier: info.wTier } : null;
+      },
+      queueLeft: (b) => {
+        const head = b.queue[0];
+        if (!head) return null;
+        return this.queueClock.secondsLeft(b.id, head.product, head.done, this.game.step, guessSteps(head.product, b.kind, b.level, b.working));
+      },
     });
     this.buildButtons();
     this.selection.onChange(() => {
@@ -440,6 +482,43 @@ export class GameShell {
     this.width = w;
     this.height = h;
     this.cam.resize(w, h);
+    this.relayout();
+  }
+
+  /** Puts the panels where the screen size says (hud-layout.ts), then redraws the card for its new size. */
+  private relayout(): void {
+    const s = this.geometry.scale;
+    this.geometry = hudLayout({ width: this.width, height: this.height, topRight: this.layout.topRight.offsetHeight || 112 });
+    this.layout.root.classList.toggle('phone', this.geometry.phone);
+    // A phone starts with the message panel folded (its button flashes on an urgent message), so the view stays clear.
+    if (this.geometry.phone !== this.phoneFolded) {
+      this.phoneFolded = this.geometry.phone;
+      if (this.phoneFolded) this.messages.setCollapsed(true);
+    }
+    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    fitDebug(this.layout, this.geometry);
+    this.portraitRect = null;
+    this.panels.measure();
+    if (s !== this.geometry.scale) this.selectionDirty = true;
+    this.cardDirty = true;
+  }
+
+  /** The debug tools were added or changed: the readout fits itself in again (layout.ts fitDebug). */
+  debugChanged(): void {
+    fitDebug(this.layout, this.geometry);
+    this.panels.measure();
+  }
+
+  /** Phone: unfolds or folds a panel; the minimap and the selection share the strip, so one closes the other. */
+  private toggleFold(which: keyof Folds): void {
+    const on = !this.folds[which];
+    this.folds[which] = on;
+    if (on && which === 'map') this.folds.info = false;
+    if (on && which === 'info') this.folds.map = false;
+    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    this.portraitRect = null;
+    this.panels.measure();
+    for (const k of ['map', 'info', 'stock', 'debug'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
   }
 
   /** The sim's answer about placement tiles. */
@@ -491,6 +570,15 @@ export class GameShell {
   }
 
   private onInfo(info: InfoMessage): void {
+    // The pace of what each own building makes, for the queue's countdown.
+    const making = new Set<number>();
+    for (const b of info.buildings) {
+      const head = b.owner === this.player ? b.queue[0] : undefined;
+      if (!head) continue;
+      making.add(b.id);
+      this.queueClock.note(b.id, head.product, head.done, info.step);
+    }
+    this.queueClock.keep(making);
     // The stockpile: food, supply and the inventory grid.
     this.inventory.update(info, this.game.foodValue());
     // Outlying lights against the coming night's limit (Table 8).
@@ -600,10 +688,12 @@ export class GameShell {
   }
 
   /**
-   * Speech: a bubble over the speaker, and the panel. Another people's lines
-   * reach the panel when they are said to this player (the trade menu's
-   * answers), or are important and heard: one of the player's units is near
-   * enough, or the speaker is on screen.
+   * Speech: a bubble over the speaker, and the panel only when it needs the
+   * player (patch notes 1: lines the sim marks quiet, such as eating, hunting
+   * and gathering, stay bubbles, as random remarks do; wording.ts
+   * speechToPanel). Another people's lines reach it when they are said to
+   * this player (the trade menu's answers), or are important and heard: one
+   * of the player's units is near enough, or the speaker is on screen.
    */
   private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
     if (ev.bubble) {
@@ -616,13 +706,7 @@ export class GameShell {
       // Only a unit's first missed meal, an alert, goes on to the message panel.
       if (!ev.urgent) return;
     } else if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
-    // Lines that only tell what a unit is doing are bubbles, not messages (Jade's play-test notes).
-    if (ev.quiet) return;
-    if (ev.foreign) {
-      const to = ev.player === this.player;
-      const heard = ev.important === true && (((ev.near ?? 0) & (1 << this.player)) !== 0 || (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null));
-      if (!to && !heard) return;
-    }
+    if (!speechToPanel(ev, this.player, ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null)) return;
     this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker });
     if (ev.urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });
@@ -818,11 +902,62 @@ export class GameShell {
     });
     L.selectionCorner.append(clear.el);
 
-    // Command card: 15 slots whose meaning follows the selection.
-    for (let i = 0; i < 15; i++) {
+    // Command card: a button per slot whose meaning follows the selection (more are made as the card grows).
+    this.ensureCardButtons();
+
+    // The phone's fold buttons: the menu, the minimap, the selection, the stockpile and the messages.
+    const fold = (id: string, face: string, name: string, description: string, onPress: () => void): HudButton => {
+      const b = this.buttons.add({ id, face, name, keys: [], description, className: 'fold', onPress });
+      L.folds.append(b.el);
+      return b;
+    };
+    // The portrait's window: a click centres the camera on what it shows.
+    L.portraitWindow.append(this.buttons.add({ ...PORTRAIT_VIEW }).el);
+    fold('fold-menu', '☰', 'Menu', 'Settings, saving, full screen and quitting.', () => this.openMenu());
+    fold('fold-map', '◫', 'Map', 'Show or hide the minimap and the buttons along its top (idle gatherer, army, camera spots).', () => this.toggleFold('map'));
+    fold('fold-info', 'ⓘ', 'Selection', 'Show or hide the portrait and what is selected.', () => this.toggleFold('info')).setLit(this.folds.info);
+    fold('fold-stock', '▦', 'Stock', 'Show or hide the inventory: what you have of every good.', () => this.toggleFold('stock'));
+    fold('fold-debug', '⚙', 'Tester tools', 'Show or hide the debug readout and the tester buttons.', () => this.toggleFold('debug'));
+    fold('fold-chat', '✉', 'Messages', 'Show or hide the message panel. It flashes when something urgent comes in.', () => this.messages.setCollapsed(!this.messages.isCollapsed()));
+    // Touch controls: a drag moves the camera, so the selection box waits for this button.
+    const boxText = 'Touch controls: light it, then drag to draw a selection box round your units. A drag otherwise moves the camera.';
+    fold('fold-box', '⬚', 'Box select', boxText, () => this.setBoxMode(!this.boxMode)).el.classList.add('touch-only');
+    util({ id: 'box', face: '⬚', name: 'Box select', keys: [], description: boxText, className: 'touch-only', onPress: () => this.setBoxMode(!this.boxMode) });
+  }
+
+  private setBoxMode(on: boolean): void {
+    this.boxMode = on;
+    this.buttons.get('box')?.setLit(on);
+    this.buttons.get('fold-box')?.setLit(on);
+  }
+
+  /**
+   * Touch controls (patch notes 1): what a finger means here. A tap gives
+   * the right click's order when something of the player's is selected and
+   * the tap is not on something of theirs; otherwise it selects.
+   */
+  private touchHooks(): TouchHooks {
+    return {
+      on: () => this.settings.touch,
+      aiming: () => this.pinging || this.commands.targeting !== null || this.commands.placing !== null || this.commands.area !== null,
+      orders: (p) => {
+        if (!this.selection.list().some((t) => isOwn(t, this.player))) return false;
+        const u = this.under(p);
+        return u.item === null ? u.ground !== null : !isOwn(u.item, this.player);
+      },
+      boxing: () => this.boxMode,
+      boxed: () => this.setBoxMode(false),
+      zoom: (factor, p) => this.cam.zoomBy(factor, p),
+    };
+  }
+
+  /** One button in each card slot. */
+  private ensureCardButtons(): void {
+    const slots = this.layout.commandSlots;
+    for (let i = this.cardButtons.length; i < slots.length; i++) {
       const b = this.buttons.add({ id: `card${i}`, face: '', name: '', keys: [], description: '', className: 'cmd' });
       b.el.hidden = true;
-      L.commandSlots[i]!.append(b.el);
+      slots[i]!.append(b.el);
       this.cardButtons.push(b);
     }
   }
@@ -851,10 +986,21 @@ export class GameShell {
 
   // ---- Selection helpers ----
 
+  /** A type's worth for the subgroup order: what it cost, the dearest kit for troops. */
+  private readonly worth = (typeKey: string, items: readonly Selectable[]): number =>
+    typeWorth(typeKey, () =>
+      items.map((t) => {
+        const id = entityIdOf(t.key);
+        const u = id === null ? null : this.game.unit(id);
+        return { troop: u?.troop ?? 0, wTier: u?.wTier ?? 0, aTier: u?.aTier ?? 0 };
+      }),
+    );
+
+  /** The active subgroup's type: the one picked with a tab or Tab, else the most valuable type selected. */
   private activeType(): string | null {
     const list = this.selection.list().filter((t) => isOwn(t, this.player));
     if (list.length === 0) return null;
-    const groups = subgroups(list);
+    const groups = subgroups(list, this.worth);
     if (this.active && groups.some((g) => g.typeKey === this.active)) return this.active;
     return groups[0]!.typeKey;
   }
@@ -868,7 +1014,7 @@ export class GameShell {
 
   /** Tab / Shift + Tab: the next or previous subgroup. */
   private cycleSubgroup(back: boolean): void {
-    const groups = subgroups(this.selection.list().filter((t) => isOwn(t, this.player)));
+    const groups = subgroups(this.selection.list().filter((t) => isOwn(t, this.player)), this.worth);
     if (groups.length < 2) return;
     const cur = groups.findIndex((g) => g.typeKey === this.activeType());
     const next = groups[(cur + (back ? groups.length - 1 : 1)) % groups.length]!;
@@ -888,6 +1034,46 @@ export class GameShell {
   private buildingOf(t: Selectable): ReturnType<GameInfo['buildings']['get']> {
     const id = buildingIdOf(t.key);
     return id === null ? undefined : this.game.buildings.get(id);
+  }
+
+  /**
+   * The portrait (patch notes 1): the first of the active type (the most
+   * valuable selected, or the one Tab picked), else the one thing selected
+   * (an enemy's or a neutral's looks the same). Units and buildings are drawn
+   * live through the window (match.ts, after the world); a resource node
+   * shows its good's picture.
+   */
+  private refreshPortrait(list: readonly Selectable[]): void {
+    const active = this.activeType();
+    const t = (active ? list.find((x) => x.typeKey === active && isOwn(x, this.player)) : undefined) ?? list[0];
+    const live = t !== undefined && t.kind !== 'node';
+    this.portraitKey = live ? t.key : null;
+    this.layout.portraitWindow.classList.toggle('live', live);
+    // A node shows its good; loot on the ground ("Raw meat (4)") the good it is.
+    const good = t?.typeKey === 'loot' ? t.label.replace(/ \(\d+\)$/, '') : t?.resource;
+    const icon = t && t.kind === 'node' ? goodIcon(RESOURCES.find((r) => r.name === good)?.id ?? -1) : undefined;
+    const url = icon ? kitUrl(icon.file) : '';
+    this.layout.portraitIcon.hidden = url === '';
+    if (url && this.layout.portraitIcon.getAttribute('src') !== url) this.layout.portraitIcon.src = url;
+    const view = this.buttons.get('portrait-view');
+    if (view) {
+      view.redefine({
+        ...PORTRAIT_VIEW,
+        name: t ? t.label : 'Portrait',
+        description: t ? 'Click to centre the camera on it.' : 'Select something to see it here.',
+        onPress: () => {
+          if (t) this.centreOn([t]);
+        },
+      });
+      view.setEnabled(t !== undefined, '');
+    }
+  }
+
+  /** What the portrait draws this frame and where, or null (nothing selected, a resource node, the panel folded away on a phone). */
+  portraitSubject(): PortraitSubject | null {
+    if (!this.portraitKey || this.layout.portraitPanel.hidden) return null;
+    this.portraitRect ??= this.layout.portraitWindow.getBoundingClientRect();
+    return { key: this.portraitKey, rect: this.portraitRect };
   }
 
   private portraitClick(t: Selectable, p: ButtonPress): void {
@@ -1287,6 +1473,7 @@ export class GameShell {
     const edgeOk =
       playing &&
       this.settings.edgePan &&
+      !this.settings.touch &&
       this.input.inWindow &&
       !this.selector.dragging &&
       !this.middleDrag &&
@@ -1366,10 +1553,14 @@ export class GameShell {
       // Labels and health change: refresh the text now and then.
       this.lastPanelText = now;
       this.refreshSelectionPanel();
+      this.markDoing();
+      // The hovered button's words may have changed (the queue's countdown).
+      this.input.refreshHover();
     }
     if (this.cardDirty) {
       this.cardDirty = false;
       this.refreshCommandCard();
+      this.markDoing();
     }
   }
 
@@ -1522,6 +1713,7 @@ export class GameShell {
 
   private refreshSelectionPanel(): void {
     const list = this.selection.list();
+    this.refreshPortrait(list);
     this.buttons.get('clear')?.el.classList.toggle('idle', list.length === 0);
     this.panel.render(list, this.activeType(), [
       `Left click or drag to select. Double click or ${CTRL_NAME} + click: all of that type on screen.`,
@@ -1530,11 +1722,61 @@ export class GameShell {
     ]);
   }
 
+  /**
+   * The doing-now marker (patch notes 1): an animated mark on the card button
+   * of what the active subgroup is doing or walking to do, from each unit's
+   * current order; for a building, what it makes now or its upgrade.
+   */
+  private markDoing(): void {
+    const active = this.activeType();
+    const doing = new Set<string>();
+    if (active && !this.commands.targeting && !this.commands.placing && !this.commands.area) {
+      if (active.startsWith('building:')) {
+        for (const b of this.commands.buildings()) {
+          if (b.kind !== Number(active.split(':')[1])) continue;
+          const head = b.queue[0];
+          if (head) {
+            doing.add(`product:${head.product}`);
+            const t = troopOf(head.product);
+            if (t) doing.add(`troop:${t.troop}`);
+          }
+          if (b.upgrading) doing.add('upgrade');
+        }
+      } else {
+        const heads = this.commands.unitIds((t) => t.typeKey === active).map((id) => this.game.queues.get(id)?.[0]);
+        for (const a of doingActions(heads, active)) doing.add(a);
+      }
+    }
+    for (let i = 0; i < this.cardButtons.length; i++) {
+      const b = this.cardButtons[i]!;
+      const on = !b.el.hidden && doing.has(this.cardDoing[i] ?? '');
+      if (b.el.classList.contains('doing') !== on) b.el.classList.toggle('doing', on);
+    }
+  }
+
   private refreshCommandCard(): void {
     const card: Card = this.commands.card();
-    for (let i = 0; i < 15; i++) {
+    // A long menu grows the card upward, as far as the screen allows.
+    let last = -1;
+    for (let i = card.length - 1; i >= 0; i--) {
+      if (card[i]) {
+        last = i;
+        break;
+      }
+    }
+    const g = this.geometry;
+    const rows = rowsFor(last, g.cols, g.rows, g.maxRows);
+    if (rows !== Math.max(this.cardRows, g.rows)) {
+      this.cardRows = rows;
+      applyGeometry(this.layout, g, rows, this.folds);
+      this.portraitRect = null;
+      this.panels.measure();
+      this.ensureCardButtons();
+    }
+    const shown = g.cols * Math.max(rows, g.rows);
+    for (let i = 0; i < this.cardButtons.length; i++) {
       const b = this.cardButtons[i]!;
-      const e = card[i];
+      const e = i < shown ? card[i] : null;
       if (!e) {
         b.el.hidden = true;
         continue;
@@ -1545,10 +1787,12 @@ export class GameShell {
         name: e.name,
         keys: [e.key],
         description: e.description,
-        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}`,
+        icon: e.icon ?? actionIcon(e.action, e.face),
+        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}${i >= 15 ? ' extra' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
       });
+      this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);
       b.el.hidden = false;
@@ -1556,6 +1800,9 @@ export class GameShell {
     this.input.refreshHover();
   }
 }
+
+/** The portrait's window is a button: its tooltip names what is shown, a click centres the camera on it. */
+const PORTRAIT_VIEW = { id: 'portrait-view', face: '', name: 'Portrait', keys: [], description: '', className: 'portrait-view' };
 
 function formatClock(seconds: number): string {
   const s = Math.floor(seconds);

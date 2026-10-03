@@ -1532,6 +1532,58 @@ before. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    the distances, the talk rules, Gather's goods by stage and the guards'
    reach.
 
+## How a tester checks the HUD revamp and touch controls
+
+Jade's patch notes 1, the HUD items. Client only: the sim, the server, saves
+and every hash are unchanged. Picks in blueprint/hud-picks.md.
+
+1. **The strip.** `pnpm dev`, open http://localhost:5173/?seed=1 at 1920 x
+   1080. Along the bottom edge, touching: the minimap with the utility bar
+   on top, the portrait, the selection panel, the command card. The card is
+   4 rows tall and 10 columns wide here; the usual 5 x 3 block with the grid
+   keys is its bottom right corner. At 1280 x 720 the card has 5 columns; at
+   1024 x 768 the whole HUD is drawn smaller and nothing is cut off.
+2. **Portrait.** Click a warrior: its head and shoulders, in its kit,
+   breathing in its idle clip. Click the Big House: the house from about 45
+   degrees. A deer or a beetle (debug "Creature") shows whole; a tree shows
+   its good. Click the portrait: the camera centres on it.
+3. **Mixed selection.** Drag a box round the workers and the warriors (a
+   box takes units before buildings), then hold Shift and click the Big
+   House: the middle has a tab per type, the Big House first (it cost
+   most), with its card and portrait. Tab steps to the
+   warriors, then the workers. Right click the ground: the units walk, the
+   house stays. The group key (`) + 1 keeps the mix as control group 1.
+4. **Card pictures.** Every card button is a picture; hover one for its
+   name, key and what it does. The Big House's queue shows troop pictures,
+   no letters. Hover the first item of a queue: "Complete in 36 seconds.
+   Click to cancel; full refund.", counting down.
+5. **Doing now.** Select workers and send them to gather: a gold arrow bobs
+   over Gather, with a gold ring round it. Attack-move warriors: the arrow
+   sits on Attack while they walk and fight.
+6. **Messages.** Hunting, gathering, loot and upgrade lines show only as
+   bubbles; "I cannot reach that." and other alerts also reach the message
+   panel. No line says "1 more minutes", "1 eggs" or "0 of 1 workers".
+7. **The skin.** Panels in dark wood with iron edges and rivets, buttons in
+   iron frames (gold when lit), titles, hotkeys and counts in the menus'
+   pixel font. The debug readout keeps its plain look.
+8. **Touch.** Open the page on a phone or tablet, or in Chrome's device
+   toolbar with a touch device: a box asks "Playing on a touchscreen?". Yes:
+   tap a worker to select it, tap the ground to send it there, drag one
+   finger to pan, pinch to zoom, hold a finger on a button for its tooltip,
+   tap Box (in the utility bar, or the fold column on a phone) and drag for
+   a selection box. On a phone (under 700 px wide or 480 px tall) the panels
+   fold under buttons in the bottom left; the card stays. The answer is kept;
+   Settings > Camera > Touch controls changes it. A desktop without a
+   touchscreen is never asked.
+9. Unit tests: `hud-layout.test.ts` (the strip at every size, card columns
+   and rows, the phone folds), `hud-mixed.test.ts`, `selection-rules.test.ts`,
+   `hud-icons.test.ts`, `hud-wording.test.ts`, `portrait.test.ts`,
+   `hud-rects.test.ts` and `settings-start.test.ts` in packages/client/test.
+   In a browser (with the dev server on port 5198):
+   `node packages/client/test-e2e/hud-check.mjs` (desktop, 68 checks) and
+   `node packages/client/test-e2e/touch-check.mjs` (phone and tablet with a
+   touchscreen, 23 checks).
+
 ## How a tester checks wandering night monsters and the bats' swoop
 
 Jade's patch notes 1: monsters roam the explored wild at night, and flyers

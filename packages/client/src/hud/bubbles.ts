@@ -4,6 +4,7 @@
 // the message panel, never kept, and never while the game is paused (Jade's
 // patch notes 1: the wait for the next one stands still too).
 import { REMARKS } from '@blockyrts/sim';
+import { oneIsSingular } from './wording.ts';
 
 /** How long a bubble stays, ms: a base and a little more per character (s). */
 const BUBBLE_MS = 3500;
@@ -41,7 +42,7 @@ export class SpeechBubbles {
     this.drop(id);
     const el = document.createElement('div');
     el.className = `bubble ${kind}`;
-    el.textContent = text;
+    el.textContent = oneIsSingular(text);
     el.hidden = true;
     this.layer.append(el);
     this.bubbles.push({ id, el, until: now + BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR });

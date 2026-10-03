@@ -97,9 +97,14 @@ f0 = await focus();
 await page.waitForTimeout(300);
 f1 = await focus();
 check('no edge pan along the minimap', Math.abs(f1.z - f0.z) < 0.01 && Math.abs(f1.x - f0.x) < 0.01);
-await page.mouse.move(5, H - 1);
-await page.waitForTimeout(600);
-f2 = await focus();
+// The corner over the minimap: both sides there are thinned to the outermost 2 px.
+await page.mouse.move(1, H - 1);
+// A software renderer can draw as few as 2 frames a second: wait for the pan rather than a fixed time.
+for (let k = 0; k < 30; k++) {
+  await page.waitForTimeout(100);
+  f2 = await focus();
+  if (f2.x < f1.x && f2.z > f1.z) break;
+}
 check('corner pans diagonally', f2.x < f1.x && f2.z > f1.z);
 await page.mouse.move(W / 2, H / 2);
 await goHome();
@@ -143,7 +148,24 @@ await page.waitForTimeout(200);
 // 6. Click select, empty ground keeps it, drag box.
 const own = (await itemKeys()).filter((k) => k.startsWith('e:'));
 check('own units on screen', own.length >= 3, own.join(' '));
-// The units mill about: aim again if the click caught a neighbour.
+// The units mill about and stand close: aim at the one with the most room round it, again if the click caught a neighbour.
+const loner = (among) =>
+  page.evaluate((keys) => {
+    const at = window.shell.items.map((i) => ({ k: i.item.key, x: i.x, y: i.y }));
+    const room = (k) => {
+      const me = at.find((a) => a.k === k);
+      return Math.min(...at.filter((a) => a.k !== k).map((a) => Math.hypot(a.x - me.x, a.y - me.y)));
+    };
+    // First the ones a click 8 px above their middle picks (not a building behind them), then by room.
+    const picks = (k) => {
+      const me = at.find((a) => a.k === k);
+      return window.shell.under({ x: me.x, y: me.y - 8 }).item?.key === k ? 1 : 0;
+    };
+    // Only the ones still on screen this frame (a unit can walk off between reads).
+    const here = keys.filter((k) => at.some((a) => a.k === k));
+    return [...here].sort((p, q) => picks(q) - picks(p) || room(q) - room(p))[0] ?? keys[0];
+  }, among);
+own.unshift(...own.splice(own.indexOf(await loner(own)), 1));
 for (let k = 0; k < 3; k++) {
   const u0 = await screenOf(own[0]);
   await page.mouse.click(u0.x, u0.y - 8);
@@ -151,9 +173,20 @@ for (let k = 0; k < 3; k++) {
   await page.waitForTimeout(350);
 }
 check('click selects one unit', JSON.stringify(await selected()) === JSON.stringify([own[0]]), (await selected()).join(' '));
-await page.mouse.click(40, 200);
+// Bare ground: no panel over it (the debug tools grow as threads add them) and nothing to pick there.
+const ground = await page.evaluate(() => {
+  for (let y = 160; y < 440; y += 20) {
+    for (let x = 300; x < 1000; x += 20) {
+      if (document.elementFromPoint(x, y)?.tagName === 'CANVAS' && !window.shell.under({ x, y }).item) return { x, y };
+    }
+  }
+  return { x: 640, y: 160 };
+});
+await page.mouse.click(ground.x, ground.y);
 check('click on empty ground keeps the selection', (await selected()).length === 1);
-await page.mouse.move(W / 2 - 330, H / 2 - 230);
+// From just right of the debug readout if it reaches that far (a box can not start on the HUD).
+const dbgRight = await page.evaluate(() => document.querySelector('.debug').getBoundingClientRect().right);
+await page.mouse.move(Math.max(W / 2 - 330, dbgRight + 16), H / 2 - 230);
 await page.mouse.down();
 await page.mouse.move(W / 2 + 330, H / 2 + 160, { steps: 8 });
 await page.waitForTimeout(100);
@@ -168,6 +201,7 @@ const boxAfter = await page.evaluate(() => document.querySelector('.drag-box').g
 check('arrows pan during a drag, start corner pinned', boxAfter.left < boxBefore.left - 20, `${boxBefore.left} -> ${boxAfter.left}`);
 await page.mouse.up();
 const sel = await selected();
+// Own units come before buildings in a box; Shift adds buildings to them (patch notes 1, mixed selections).
 check('box selects only own units', sel.length >= 3 && sel.every((k) => k.startsWith('e:')), sel.join(' '));
 check('selection panel shows the count', (await text('.sel-title')).includes('selected'), await text('.sel-title'));
 await shot('selected');
@@ -213,11 +247,20 @@ const nodeType = await page.evaluate(() => {
 });
 await page.mouse.move(W / 2, H / 2);
 for (let i = 0; i < 3; i++) await page.mouse.wheel(0, 100);
-await page.waitForTimeout(900);
-const pines = await page.evaluate((type) => window.shell.items.filter((i) => i.item.typeKey === type).map((i) => i.item.key), nodeType);
+// The zoom eases in over several frames at software-rendering speed: wait until the camera holds still.
+for (let last = -1, i = 0; i < 40; i++) {
+  await page.waitForTimeout(250);
+  const d = (await focus()).d;
+  if (Math.abs(d - last) < 1e-3) break;
+  last = d;
+}
+// Its keys and where the first one is on screen, read in the same frame.
+const [pines, p] = await page.evaluate((type) => {
+  const list = window.shell.items.filter((i) => i.item.typeKey === type);
+  return [list.map((i) => i.item.key), list[0] ? { x: list[0].x, y: list[0].y } : null];
+}, nodeType);
 check(`${nodeType} nodes on screen`, pines.length > 1, pines.join(' '));
 if (pines.length > 1) {
-  const p = await screenOf(pines[0]);
   await page.mouse.click(p.x, p.y);
   const one = await selected();
   // Trees stand close together: the one nearest the camera under the click wins.
@@ -234,18 +277,21 @@ await page.keyboard.press('Home');
 await goHome();
 await page.waitForTimeout(700);
 const own2 = await page.evaluate(() => window.shell.items.filter((i) => i.item.typeKey === 'worker').map((i) => i.item.key));
-const a = await screenOf(own2[0]);
+// A worker standing in front of the Big House would be clicked through to it: aim at the one with the most room.
+const a = await screenOf(await loner(own2));
 // (page.mouse ignores the modifiers option: hold the keys instead.)
 await page.keyboard.down('Control');
 await page.mouse.click(a.x, a.y - 8);
 await page.keyboard.up('Control');
 const ctrlSel = await selected();
-check('Ctrl + click selects every own worker in view', ctrlSel.length === own2.length, `${ctrlSel.length} of ${own2.length}`);
+// Workers walking in or out at the screen's edge change the count between frames: count again as of the click.
+const inView = await page.evaluate(() => window.shell.items.filter((i) => i.item.typeKey === 'worker').length);
+check('Ctrl + click selects every own worker in view', ctrlSel.length >= 2 && (ctrlSel.length === own2.length || ctrlSel.length === inView), `${ctrlSel.join(' ')} of ${own2.join(' ')} (${inView} now)`);
 await page.waitForTimeout(350); // not a double click
 await page.keyboard.down('Shift');
 await page.mouse.click(a.x, a.y - 8);
 await page.keyboard.up('Shift');
-check('Shift + click removes one', (await selected()).length === own2.length - 1);
+check('Shift + click removes one', (await selected()).length === ctrlSel.length - 1);
 
 // 10. Orders: right click moves; Move (M) targets, Esc cancels, the minimap confirms.
 const orders = [];
@@ -272,7 +318,7 @@ await page.mouse.click(moveBtn.x, moveBtn.y);
 check('the Move button enters targeting', (await page.getAttribute('#cursor', 'data-shape')) === 'arrow' && (await page.getAttribute('[data-btn=card4]', 'class')).includes('lit'));
 const n = orders.length;
 await page.mouse.click(mm.x + 30, mm.y + 20);
-check('minimap click confirms the move', orders.length === n + 1 && orders.at(-1).kind === 'move', JSON.stringify(orders.at(-1)));
+check('minimap click confirms the move', orders.length === n + 1 && orders.at(-1).kind === 'move', JSON.stringify(orders.slice(n)));
 await page.keyboard.press('s');
 check('S gives a stop order', orders.at(-1)?.kind === 'stop');
 

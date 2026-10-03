@@ -502,6 +502,7 @@ In development now (Jade, 14:57 and 14:58 UTC 2026-10-03; picks to follow in inv
 
 Jade's play-test patch notes 1 (2026-10-03):
 
+- HUD revamp and touch play (PR #78; picks in hud-picks.md): the bottom strip runs edge to edge with a live portrait between the minimap and the selection panel; the command card is a row taller, takes spare room as extra columns (up to 10) and grows upward before it pages; units and buildings join in one selection with Shift, the most valuable type first, Tab through the rest (a plain box still takes units before buildings); pictures on the card with the words in tooltips, a doing-now marker and a live queue countdown; quiet speech stays in bubbles; one of anything is singular; the HUD wears the wooden kit and Jersey 10 (the HUD skin pass); smaller screens scale the HUD, phones fold its panels, and a first-load question on a touchscreen turns on tap controls (see Screen layout and mouse zones and Selecting units and buildings).
 - Hunting, loot and gathering (PR #81; picks in hunting-picks.md): kills drop loot instead of carcasses, picked up by right click and by idle units and handed in at dawn and in the day; Hunt and Gather each start with one press and bring units home by nightfall; a worker whose node runs out says what it gathers instead; idle fighters guard workers; information stays in bubbles (see Loot, Semi-automation and Unit speech).
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
@@ -510,7 +511,6 @@ Waiting on Jade's word, in no set order (s, 2026-10-03):
 - Spells: new spells for every mage, ours first, then goblin mages and Elf Grovesingers, with their projectiles and effects coded and modelled.
 - Merge PR #50 and a wiring pass: its worker, warrior, riding, swim and climb clips replace the Milestone 4 and 6 stand-ins, and the catalogue's tree, stump and hazel models replace the procedural trees.
 - The two behaviour fixes from Milestone 10: a ground battle mage that cannot shoot over a wall, and warriors on hold that ignore archers standing off.
-- A HUD skin pass that dresses the in-game panels (selection, command card, minimap frame, messages, resource bar, tooltips, buttons) in the interface kit, as the menus now are (from PR #69).
 - Kit pieces drawn on troops in play (helmets, armour, shields and per-tier weapons), so troops in a match look as they do in the main menu picture (from PR #69).
 
 #### Completeness check: where every section and table is built
@@ -1248,9 +1248,10 @@ The screen is split into two zones, and almost every control rule below depends 
 - **HUD:** every panel drawn over the game view. The HUD panels are:
   - Minimap (bottom left): the whole explored map, with the current camera view drawn as an outlined box.
   - Selection panel (bottom centre): portraits of the selected units, or detailed stats when only one thing is selected.
-  - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys").
+  - Portrait (patch notes 1, PR #78): between the minimap and the selection panel, as tall as the command card; a live idle headshot of the selected unit, or a still of the building from about 45 degrees, for enemy and neutral things too. The minimap, portrait, selection panel and command card touch along the whole bottom edge.
+  - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys"). Since patch notes 1 it is a row taller, spare room beside the selection panel becomes extra columns (up to 10, click only), and a long menu grows it upward before it pages (s).
   - Resource bar (top right): stockpiled resources, expandable to show every resource type (see "Resources" below).
-  - **Inventory grid (Jade, 2026-10-03; in development):** the stockpile is shown in a more Minecraft-style inventory of equal square slots, each with the good's picture and its count in the corner; hovering a slot gives its name and rate (suggested). 16 slots are visible, and it scrolls once there are more than 16 types of goods (Jade), by mouse wheel and by visible arrows (suggested). Slots keep a fixed order by category: woods, stone and flint, ores, metals, foods, crafting goods, crystals; a good held at any point in the match keeps its slot, greyed at zero (suggested). It keeps the current HUD look until the HUD skin pass (suggested).
+  - **Inventory grid (Jade, 2026-10-03; in development):** the stockpile is shown in a more Minecraft-style inventory of equal square slots, each with the good's picture and its count in the corner; hovering a slot gives its name and rate (suggested). 16 slots are visible, and it scrolls once there are more than 16 types of goods (Jade), by mouse wheel and by visible arrows (suggested). Slots keep a fixed order by category: woods, stone and flint, ores, metals, foods, crafting goods, crystals; a good held at any point in the match keeps its slot, greyed at zero (suggested). It wears the HUD's wooden kit since the HUD skin pass (PR #78).
   - Clock (top centre): the current day or night, time remaining, and the night count.
   - Top-right buttons, under the resource bar (suggested, as built 2026-10-03): Peoples (O), Allies ([), Send (]), Ping (\) and Pause (❚❚). Allies and Send are greyed when playing alone (see "Allies panel").
   - Message panel (left side, above the minimap): what the player's units say, game alerts such as "Night is falling", and chat between players (see "Unit speech and the message panel").

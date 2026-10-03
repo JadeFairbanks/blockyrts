@@ -60,8 +60,10 @@ export function clampBoxCorner(start: Pt, cursor: Pt, panels: readonly Rect[], w
     if (start.y >= panel.y1) walls.push({ x: p.x, y: panel.y1 });
     if (start.x <= panel.x0) walls.push({ x: panel.x0, y: p.y });
     if (start.x >= panel.x1) walls.push({ x: panel.x1, y: p.y });
+    // A wall point on a neighbouring panel's border is no wall: the panels touch there (the bottom strip runs edge to edge).
+    const free = walls.filter((c) => !panels.some((r) => r !== panel && c.x >= r.x0 && c.x <= r.x1 && c.y >= r.y0 && c.y <= r.y1));
     let best: Pt | undefined;
-    for (const c of walls) {
+    for (const c of free.length > 0 ? free : walls) {
       if (!best || Math.abs(c.x - p.x) + Math.abs(c.y - p.y) < Math.abs(best.x - p.x) + Math.abs(best.y - p.y)) best = c;
     }
     if (!best) break; // The start itself is under this panel (the view was panned): nothing to clamp against.

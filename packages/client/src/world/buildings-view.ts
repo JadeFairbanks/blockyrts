@@ -52,7 +52,7 @@ export interface Ghost {
 const MODEL_UNITS_PER_COLUMN = 16;
 
 /** Catalogue models for a building at its level and where they go from its anchor, metres (the footprint table, footprints.ts). */
-function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number }> {
+export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number }> {
   const d = footprintDims(b.kind, b.variant, b.level);
   return (levelFootprint(b.kind, b.level).models ?? []).map((m) => ({
     id: m.id,

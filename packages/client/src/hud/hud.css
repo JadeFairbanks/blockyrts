@@ -197,10 +197,12 @@ body.playing * {
 
 /* Message panel (left, above the minimap). */
 .message-panel {
-  left: 8px;
-  bottom: calc(var(--mm-h) + var(--util-h) + 8px);
+  left: calc(var(--strip-left, 0px) + 8px);
+  bottom: calc(var(--strip-h, calc(var(--mm-h) + var(--util-h))) + 8px);
   width: calc(var(--mm-w) - 16px);
   height: 160px;
+  transform: scale(var(--hud-s, 1));
+  transform-origin: 0 100%;
   display: flex;
   flex-direction: column;
   background: var(--panel-bg-soft);
@@ -241,17 +243,55 @@ body.playing * {
   color: var(--muted);
 }
 
-/* Selection panel (bottom centre). */
+/* Selection panel (the middle of the bottom strip; hud-layout.ts sizes and places the strip). */
 .selection-panel {
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  /* Centred, so it must clear the wider of the two bottom corner panels on both sides. */
-  width: clamp(220px, calc(100vw - 2 * var(--mm-w) - 16px), 520px);
-  height: 178px;
+  left: calc(var(--mm-w) + 196px);
+  width: 520px;
+  height: 190px;
   display: flex;
   flex-direction: column;
   border-bottom: 0;
+}
+
+/* Portrait (between the minimap and the middle): a frame round a window the 3D portrait is drawn through. */
+.portrait-panel {
+  bottom: 0;
+  left: var(--mm-w);
+  width: 196px;
+  height: 244px;
+  background: none;
+  border: 0;
+}
+.portrait-window {
+  position: absolute;
+  inset: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2016;
+}
+/* A unit or building is drawn on the canvas under the window (world/portrait-view.ts): let it through. */
+.portrait-window.live {
+  background: none;
+}
+.hud-btn.portrait-view {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.hud-btn.portrait-view.hover {
+  outline: 1px solid rgba(242, 210, 75, 0.45);
+  outline-offset: -1px;
+}
+.portrait-icon {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
 }
 .sel-head {
   display: flex;
@@ -306,15 +346,16 @@ body.playing * {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Command card (bottom right): 3 x 5. */
+/* Command card (bottom right): the fixed 5 x 3 block at the bottom right, extra slots round it (hud-layout.ts). */
 .command-card {
+  --card-slot: 52px;
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(5, 52px);
-  grid-template-rows: repeat(3, 52px);
+  grid-template-columns: repeat(5, var(--card-slot));
+  grid-template-rows: repeat(4, var(--card-slot));
   gap: 4px;
-  padding: 8px;
+  padding: 12px;
   border-right: 0;
   border-bottom: 0;
 }
@@ -768,18 +809,6 @@ body.playing * {
 .dbg-tools .hud-btn.lit {
   background: rgba(110, 92, 30, 0.95);
 }
-@media (max-width: 1180px) {
-  :root {
-    --mm-h: 190px;
-  }
-  /* Keep the top right clear of the clock: smaller slots (the icons stay 32 px). */
-  :root {
-    --slot: 34px;
-  }
-  .hud-btn.stock-cell {
-    width: 66px;
-  }
-}
 
 /* Milestone 7: the message panel's tools, names, urgent rows and the collapsed button. */
 .msg-head {
@@ -814,9 +843,14 @@ body.playing * {
   background: rgba(200, 120, 30, 0.38);
 }
 .messages-open {
-  left: 8px;
-  bottom: calc(var(--mm-h) + var(--util-h) + 8px);
+  left: calc(var(--strip-left, 0px) + 8px);
+  bottom: calc(var(--strip-h, calc(var(--mm-h) + var(--util-h))) + 8px);
   padding: 2px;
+  transform: scale(var(--hud-s, 1));
+  transform-origin: 0 100%;
+}
+.phone .messages-open {
+  display: none;
 }
 .hud-btn.msg-open {
   width: 34px;
@@ -880,15 +914,16 @@ body.playing * {
 .peoples-panel {
   top: calc(var(--top-right-h) + 6px);
   right: 4px;
-  width: 380px;
-  max-height: calc(100vh - var(--top-right-h) - 6px - 250px);
+  width: min(380px, calc(100vw - 8px));
+  max-height: calc(100vh - var(--top-right-h) - 6px - var(--card-top, 250px) - 8px);
+  box-sizing: border-box;
 }
 .trade-dialog {
   left: 50%;
   top: calc(var(--top-right-h) + 4px);
   transform: translateX(-50%);
   width: min(760px, calc(100vw - 32px));
-  max-height: calc(100vh - var(--top-right-h) - 4px - 250px);
+  max-height: calc(100vh - var(--top-right-h) - 4px - var(--card-top, 250px) - 8px);
 }
 .hire-dialog,
 .war-confirm {
@@ -1036,15 +1071,16 @@ body.playing * {
 .allies-panel {
   top: calc(var(--top-right-h) + 6px);
   right: 4px;
-  width: 360px;
-  max-height: calc(100vh - var(--top-right-h) - 6px - 250px);
+  width: min(360px, calc(100vw - 8px));
+  max-height: calc(100vh - var(--top-right-h) - 6px - var(--card-top, 250px) - 8px);
+  box-sizing: border-box;
 }
 .send-dialog {
   left: 50%;
   top: calc(var(--top-right-h) + 4px);
   transform: translateX(-50%);
   width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - var(--top-right-h) - 4px - 250px);
+  max-height: calc(100vh - var(--top-right-h) - 4px - var(--card-top, 250px) - 8px);
 }
 .host-choice {
   z-index: 7;
@@ -1160,8 +1196,10 @@ body.playing * {
   align-items: center;
   flex: none;
 }
-.icon-host svg {
+.icon-host svg,
+.icon-host img {
   display: block;
+  image-rendering: pixelated;
 }
 .troop-row {
   display: flex;
@@ -1217,4 +1255,483 @@ body.playing * {
 }
 .hud-btn.troop-opt.short:not(.disabled) .face {
   color: #e8a090;
+}
+
+/* HUD revamp: the phone's fold buttons (bottom left) and the card's extra slots. */
+.folds {
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 4px;
+  background: none;
+  border: 0;
+  height: auto !important;
+}
+.hud-btn.fold {
+  width: 100%;
+  aspect-ratio: 1;
+  font-size: 18px;
+}
+.hud-btn.fold .key {
+  display: none;
+}
+/* Touch controls (patch notes 1): the Box button only shows with them; no browser gestures, callouts or text selection over the game. */
+body:not(.touch) .touch-only {
+  display: none;
+}
+body.playing.touch,
+body.playing.touch #view,
+body.playing.touch .hud {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.slot.extra {
+  border-style: dotted;
+}
+
+/* Pictures on buttons (patch notes 1): kit icons at their own pixel size, a
+   badge in the top left (better, best, worse, off, confirm, next) and a tag in
+   the bottom right (a page, a mode). The words are in the tooltip. */
+.btn-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.btn-icon img {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.btn-icon img.mirror {
+  transform: scaleX(-1);
+}
+.btn-badge {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  line-height: 0;
+}
+.btn-badge svg {
+  display: block;
+}
+.btn-tag {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font: 14px/1 var(--display);
+  color: var(--parchment, #efe3c8);
+  text-shadow: 1px 1px 0 #000;
+}
+.hud-btn.has-icon > .face {
+  display: none;
+}
+.hud-btn.disabled .btn-icon {
+  filter: grayscale(1) brightness(0.75);
+  opacity: 0.55;
+}
+
+/* The doing-now marker (patch notes 1): a gold arrow bobbing over the action
+   the selection is doing or walking to do, and a slow glow round the button. */
+.hud-btn.doing::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 7px);
+  top: 1px;
+  width: 14px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z' fill='%231a120c'/%3E%3Cpath d='M1 0h5v1h-1v1h-1v1h-1v-1h-1v-1h-1z' fill='%23ffd84a'/%3E%3C/svg%3E") center / contain no-repeat;
+  image-rendering: pixelated;
+  animation: doing-bob 0.8s steps(2, jump-none) infinite alternate;
+  pointer-events: none;
+  z-index: 2;
+}
+.hud-btn.doing {
+  animation: doing-glow 1.6s ease-in-out infinite;
+}
+@keyframes doing-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+@keyframes doing-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(255, 216, 74, 0.35);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px rgba(255, 216, 74, 0.9), 0 0 6px rgba(255, 216, 74, 0.45);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn.doing,
+  .hud-btn.doing::after {
+    animation: none;
+  }
+  .hud-btn.doing {
+    box-shadow: inset 0 0 0 2px rgba(255, 216, 74, 0.8);
+  }
+}
+
+/* ---- The wooden kit (patch notes 1: "beautify the HUD in the theme of the
+   game"). The HUD's own frames from the art kit (K10: dark oiled wood, iron
+   edging, round rivets) drawn at their pixel size, and Jersey 10 for titles
+   and numbers, as on the screens outside the match. The frames sit where the
+   1 px borders and paddings were, so the panels keep their size. The debug
+   readout keeps its plain look (it leaves before release). ---- */
+:root {
+  --kit-thin: url('../../../assets/src/ui/panel_resource_bar.png');
+  --kit-tip: url('../../../assets/src/ui/panel_tooltip.png');
+  --kit-card: url('../../../assets/src/ui/panel_command_card.png');
+  --kit-frame: url('../../../assets/src/ui/panel_selection.png');
+  --kit-popup: url('../../../assets/src/ui/popup_box.png');
+  --kit-btn: url('../../../assets/src/ui/button_normal.png');
+  --kit-btn-hover: url('../../../assets/src/ui/button_hover.png');
+  --kit-btn-pressed: url('../../../assets/src/ui/button_pressed.png');
+  --kit-btn-lit: url('../../../assets/src/ui/button_active.png');
+  --kit-btn-off: url('../../../assets/src/ui/button_unavailable.png');
+  --kit-pop-btn: url('../../../assets/src/ui/popup_button_normal.png');
+  --kit-pop-btn-hover: url('../../../assets/src/ui/popup_button_hover.png');
+  --kit-pop-btn-pressed: url('../../../assets/src/ui/popup_button_pressed.png');
+  --kit-well: url('../../../assets/src/ui/menu_list.png');
+  --kit-tab: url('../../../assets/src/ui/tab_page_normal.png');
+  --kit-tab-on: url('../../../assets/src/ui/tab_page_active.png');
+  --kit-bar: url('../../../assets/src/ui/bar_progress.png');
+  --kit-trough: url('../../../assets/src/ui/bar_back.png');
+  --parchment: #efe3c8;
+  --text: #ece4d2;
+  --muted: #a99f8c;
+  --panel-border: rgba(0, 0, 0, 0.45);
+}
+
+/* Panels: the thin wood and iron frame, the wood showing through the middle. */
+.hud .panel:not(.debug),
+.top-right-buttons,
+.stockpile {
+  border: 6px solid transparent;
+  border-image: var(--kit-thin) 6 fill / 6px round;
+  background: none;
+  image-rendering: pixelated;
+}
+.hud .panel.top-right,
+.hud .panel.folds {
+  border: 0;
+  border-image: none;
+}
+/* The top right block reads as one board: the buttons hang under the stockpile. */
+.top-right-buttons {
+  border-top-width: 0;
+  border-image-width: 0 6px 6px 6px;
+}
+/* The bottom strip: the frames run to the screen's edges. */
+.minimap-panel,
+.selection-panel {
+  border-width: 6px;
+}
+.utility-bar {
+  border-bottom: 0;
+  gap: 2px;
+  padding-bottom: 3px;
+}
+.minimap {
+  border: 2px solid transparent;
+  border-image: var(--kit-well) 4 fill / 4px;
+  background: #0b0e12;
+}
+/* The card: the heavy frame in the 12 px its padding gave. */
+.hud .panel.command-card {
+  padding: 0;
+  border: 12px solid transparent;
+  border-image: var(--kit-card) 12 fill / 12px round;
+}
+/* The portrait: the heavy frame round its window (no fill: the portrait is drawn on the canvas under it). */
+.hud .panel.portrait-panel {
+  border: 0;
+  border-image: var(--kit-frame) 12 / 12px round;
+}
+.portrait-window {
+  inset: 12px;
+  background: #1c150e;
+}
+.message-panel {
+  border-image-source: var(--kit-thin);
+  opacity: 0.94;
+}
+.message-panel.hover {
+  opacity: 1;
+}
+.hud .panel.debug {
+  image-rendering: auto;
+}
+
+/* Buttons: the command button frames (normal, hover, pressed, lit, unavailable). */
+.hud-btn:not(.dbg-btn):not(.msg-btn):not(.inv-slot):not(.portrait-view) {
+  background: none;
+  border: 2px solid transparent;
+  border-image: var(--kit-btn) 4 fill / 4px stretch;
+  image-rendering: pixelated;
+}
+.hud-btn:not(.dbg-btn):not(.msg-btn):not(.inv-slot):not(.portrait-view).hover {
+  border-image-source: var(--kit-btn-hover);
+}
+.hud-btn:not(.dbg-btn):not(.msg-btn):not(.inv-slot):not(.portrait-view).pressed {
+  border-image-source: var(--kit-btn-pressed);
+}
+.hud-btn:not(.dbg-btn):not(.msg-btn):not(.inv-slot):not(.portrait-view).lit {
+  border-image-source: var(--kit-btn-lit);
+  box-shadow: none;
+}
+.hud-btn:not(.dbg-btn):not(.msg-btn):not(.inv-slot):not(.portrait-view).disabled {
+  border-image-source: var(--kit-btn-off);
+}
+.hud-btn.cmd {
+  inset: 0;
+}
+.hud-btn.cmd.cancel {
+  filter: sepia(0.35) hue-rotate(-25deg) saturate(1.6);
+}
+/* Empty card slots: a faint well in the wood. */
+.slot,
+.slot.extra {
+  border: 0;
+  background: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.35), inset -1px -1px 0 rgba(255, 236, 200, 0.06);
+}
+/* Dialog buttons: the pop-up button frames. */
+.hud-btn.dlg-btn,
+.hud-btn.dlg-close,
+.hud-btn.sub-tab,
+.hud-btn.troop-pick,
+.hud-btn.troop-opt,
+.hud-btn.troop-lock {
+  border-image: var(--kit-pop-btn) 6 fill / 6px stretch !important;
+}
+.hud-btn.dlg-btn.hover,
+.hud-btn.dlg-close.hover,
+.hud-btn.sub-tab.hover,
+.hud-btn.troop-pick.hover,
+.hud-btn.troop-opt.hover,
+.hud-btn.troop-lock.hover,
+.hud-btn.sub-tab.lit,
+.hud-btn.troop-lock.lit {
+  border-image-source: var(--kit-pop-btn-hover) !important;
+}
+.hud-btn.dlg-btn.pressed,
+.hud-btn.sub-tab.pressed,
+.hud-btn.troop-pick.pressed,
+.hud-btn.troop-opt.pressed {
+  border-image-source: var(--kit-pop-btn-pressed) !important;
+}
+/* Control group tabs: the page tabs. */
+.group-tabs {
+  border-bottom: 0;
+  gap: 1px;
+}
+.hud-btn.group-tab {
+  border-image: var(--kit-tab) 3 fill / 3px stretch !important;
+}
+.hud-btn.group-tab.lit,
+.hud-btn.group-tab.hover {
+  border-image-source: var(--kit-tab-on) !important;
+}
+.sel-head {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.06);
+}
+.hud-btn.clear {
+  border-image: none !important;
+  border: 0;
+}
+
+/* The stockpile's slots: wells in the wood. */
+.inv-cell {
+  border: 0;
+  border-image: var(--kit-well) 4 fill / 4px;
+  background: none;
+}
+.hud-btn.stock-cell {
+  border-image: var(--kit-well) 4 fill / 4px !important;
+}
+.inv-track {
+  background: rgba(0, 0, 0, 0.35);
+}
+.inv-thumb {
+  background: rgba(232, 194, 90, 0.6);
+}
+
+/* Bars: the gold progress bar in its trough. */
+.farm-bar {
+  border: 0;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+  image-rendering: pixelated;
+}
+.farm-bar > span {
+  background: var(--kit-bar) 0 0 / 100% 100%;
+}
+
+/* Tooltip and the boxes that float over the game. */
+#tooltip {
+  border: 6px solid transparent;
+  border-image: var(--kit-tip) 6 fill / 6px;
+  background: none;
+  padding: 2px 4px 3px;
+  image-rendering: pixelated;
+}
+.hint-box,
+.chain-label {
+  border: 6px solid transparent;
+  border-image: var(--kit-thin) 6 fill / 6px round;
+  background: none;
+  padding: 1px 6px;
+  image-rendering: pixelated;
+}
+.hud .panel.war-confirm,
+.hud .panel.host-choice {
+  border: 12px solid transparent;
+  border-image: var(--kit-popup) 12 fill / 12px round;
+}
+
+/* Jersey 10 for titles and numbers. */
+.sel-title,
+.clock-day,
+.tt-head,
+.dlg-title,
+.ally-name,
+.ppl-name {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.sel-title {
+  font-size: 21px;
+}
+.clock-day {
+  font-size: 21px;
+  line-height: 1;
+}
+.tt-head {
+  font-size: 19px;
+  line-height: 1.05;
+}
+.dlg-title {
+  font-size: 21px;
+}
+.hud-btn .key,
+.tt-key {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 14px;
+}
+.hud-btn.cmd .key {
+  font-size: 15px;
+  top: 1px;
+  right: 4px;
+}
+.hud-btn.util .key {
+  font-size: 12px;
+}
+.hud-btn.inv-slot .face,
+.stock-cell .face,
+.hud-btn.group-tab .face,
+.hud-btn.util.cam .face {
+  font-family: var(--display);
+  font-weight: 400;
+}
+.hud-btn.inv-slot .face {
+  font-size: 17px;
+  line-height: 1;
+  right: 3px;
+  bottom: 1px;
+}
+.stock-cell .face {
+  font-size: 19px;
+}
+.hud-btn.util.cam .face {
+  font-size: 18px;
+}
+.hud-btn.group-tab .face {
+  font-size: 15px;
+}
+/* The portrait drawn under the window shows through it. */
+.portrait-window.live {
+  background: none;
+}
+/* The stockpile's frame takes the slots' outer padding. */
+:root {
+  --stock-h: calc(var(--slot) * 2 + 2px + 12px);
+}
+.stock-sum {
+  padding: 0 2px 0 0;
+}
+.inv-grid {
+  padding: 0 2px;
+}
+.inv-scroll {
+  padding: 0;
+}
+/* Top right buttons: the key beside the name, not over it. */
+.hud-btn.top {
+  padding: 0 8px;
+  gap: 3px;
+}
+.hud-btn.top .key {
+  position: static;
+  order: 2;
+  font-size: 13px;
+  line-height: 1;
+}
+/* States the old borders showed, as frames. */
+.hud-btn.portrait.active,
+.hud-btn.trade-item.in-box,
+.hud-btn.dlg-btn.primary {
+  border-image-source: var(--kit-btn-lit) !important;
+}
+.hud-btn.dlg-btn.primary {
+  border-image: var(--kit-pop-btn-hover) 6 fill / 6px stretch !important;
+}
+.hud-btn.dlg-btn.danger {
+  filter: sepia(0.35) hue-rotate(-25deg) saturate(1.6);
+}
+/* The doing-now glow as an outline: the frame's wood would cover an inset shadow. */
+.hud-btn.doing {
+  animation: doing-ring 1.6s ease-in-out infinite;
+  outline: 2px solid rgba(255, 216, 74, 0.35);
+  outline-offset: -3px;
+}
+@keyframes doing-ring {
+  0%,
+  100% {
+    outline-color: rgba(255, 216, 74, 0.3);
+  }
+  50% {
+    outline-color: rgba(255, 216, 74, 0.95);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn.doing {
+    animation: none;
+    outline-color: rgba(255, 216, 74, 0.8);
+  }
+}
+/* The hunger line's bar (patch 1, food): the kit's trough and gold fill; red while starving. */
+.sel-row.hunger .hunger-bar {
+  height: 6px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+  image-rendering: pixelated;
+}
+.sel-row.hunger .hunger-bar > span {
+  background: var(--kit-bar) 0 0 / 100% 100%;
+}
+.sel-row.hunger.starving .hunger-bar > span {
+  background: #e05a4a;
 }

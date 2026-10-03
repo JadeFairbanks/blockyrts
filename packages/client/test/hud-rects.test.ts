@@ -31,6 +31,11 @@ describe('the drag box corner', () => {
   it('stops under a top panel', () => {
     expect(clampBoxCorner({ x: 800, y: 200 }, { x: 900, y: 10 }, panels, W, H)).toEqual({ x: 900, y: 30 });
   });
+  it('takes the top of the strip where panels touch side by side', () => {
+    // A portrait panel taller than the selection panel, touching it: from above the portrait, the corner stops on the selection panel's top, not on the seam.
+    const portrait: Rect = { x0: 300, y0: 420, x1: 350, y1: 600 };
+    expect(clampBoxCorner({ x: 340, y: 200 }, { x: 460, y: 580 }, [...panels, portrait], W, H)).toEqual({ x: 460, y: 450 });
+  });
   it('leaves the corner alone when the start itself was panned under a panel', () => {
     expect(clampBoxCorner({ x: 400, y: 500 }, { x: 420, y: 520 }, panels, W, H)).toEqual({ x: 420, y: 520 });
   });

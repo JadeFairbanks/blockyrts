@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, sanitizeSettings, SPEED_MAX, SPEED_MIN } from '../src/settings/settings.ts';
 import { MAX_SEED, parsePlayers, parseSeed, randomSeed, startFromUrl } from '../src/start/seed.ts';
+import { touchQuestionDue } from '../src/ui/touch-ask.ts';
 
 describe('settings', () => {
   it('fills in defaults and clamps speeds', () => {
@@ -8,6 +9,13 @@ describe('settings', () => {
     expect(sanitizeSettings('junk')).toEqual(DEFAULT_SETTINGS);
     const s = sanitizeSettings({ edgePanSpeed: 99, arrowPanSpeed: -1, zoomSpeed: 'fast', edgePan: false, cursorLock: 1 });
     expect(s).toEqual({ ...DEFAULT_SETTINGS, edgePanSpeed: SPEED_MAX, arrowPanSpeed: SPEED_MIN, zoomSpeed: 1, edgePan: false, cursorLock: true, keys: {} });
+  });
+  it('touch controls start off, and the touchscreen question is asked once', () => {
+    expect(DEFAULT_SETTINGS.touch).toBe(false);
+    expect(sanitizeSettings({ touch: true, touchAsked: true })).toMatchObject({ touch: true, touchAsked: true });
+    expect(touchQuestionDue(sanitizeSettings(null), true)).toBe(true);
+    expect(touchQuestionDue(sanitizeSettings(null), false)).toBe(false);
+    expect(touchQuestionDue(sanitizeSettings({ touchAsked: true }), true)).toBe(false);
   });
 });
 

@@ -585,6 +585,10 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     shell.frame(dt, now);
     audio.frame(shell.cam.focus.x, shell.cam.focus.z, now);
     renderer.render(scene, shell.cam.camera);
+    // The draw calls are the world's: read them before the portrait's own render resets them.
+    const drawCalls = renderer.info.render.calls;
+    const triangles = renderer.info.render.triangles;
+    world.portrait.render(renderer, shell.portraitSubject(), game, now);
     perfBusy += performance.now() - t0;
     perfFrames++;
     if (now - perfFrom >= 1000) {
@@ -592,8 +596,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
       shell.setPerfInfo({
         fps: Math.round((perfFrames * 1000) / (now - perfFrom)),
         frameMs: perfBusy / perfFrames,
-        drawCalls: renderer.info.render.calls,
-        triangles: renderer.info.render.triangles,
+        drawCalls,
+        triangles,
         units: lastUnits,
         heapMb: heap ? Math.round(heap.usedJSHeapSize / 1048576) : -1,
       });

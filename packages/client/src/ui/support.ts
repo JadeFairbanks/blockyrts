@@ -1,6 +1,6 @@
 // Browsers (Outside the match): the latest two versions of Chrome, Edge,
-// Firefox and Safari on desktop computers; phones and tablets are not
-// supported. The game checks the features it needs (technical decision:
+// Firefox and Safari; phones and tablets play with touch controls (patch
+// notes 1). The game checks the features it needs (technical decision:
 // WebGL2, module workers, CompressionStream, pointer lock, full screen)
 // rather than browser names, and says plainly what is missing.
 
@@ -31,10 +31,10 @@ export function supportFacts(): SupportFacts {
   };
 }
 
-/** The problems to show on the main menu, most serious first; empty when all is well. */
-export function supportProblems(f: SupportFacts): string[] {
+/** The problems to show on the main menu, most serious first; empty when all is well. With touch controls on, a phone or tablet is fine. */
+export function supportProblems(f: SupportFacts, touch = false): string[] {
   const out: string[] = [];
-  if (f.touchOnly) out.push('Phones and tablets are not supported: the game needs a mouse and a keyboard.');
+  if (f.touchOnly && !touch) out.push('On a phone or tablet, turn on Touch controls in Settings (under Camera) to play by tapping.');
   if (!f.webgl2) out.push('This browser cannot draw the game (it has no WebGL2). Use the latest Chrome, Edge, Firefox or Safari on a desktop computer.');
   if (!f.compression) out.push('This browser cannot read or write saved games. Update it to the latest version.');
   if (!f.pointerLock) out.push('This browser cannot keep the cursor in the window, so edge panning may not reach a second screen.');
