@@ -175,7 +175,8 @@ export class BuildingsView {
     const seen = new Set<number>();
     for (const b of info.buildings.values()) {
       seen.add(b.id);
-      const fallow = b.status.startsWith('Lying fallow');
+      // A field where nothing grows (a crop field in the Barrens or Deadlands) lies bare.
+      const fallow = b.farm !== null && !b.farm.grows;
       const sig = `${b.kind}:${b.level}:${b.variant}:${b.owner}:${fallow ? 1 : 0}:${b.complete ? 1 : 0}:${b.upgrading}`;
       let e = this.entries.get(b.id);
       if (!e || e.sig !== sig) {

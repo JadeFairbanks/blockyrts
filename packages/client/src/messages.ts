@@ -221,6 +221,23 @@ export interface BuildingInfo {
   troops: Array<{ troop: number; w: number; a: number; lock: number }>;
   /** The Stables: tamed, grown horses free in the stalls (each new cavalry takes one). */
   horses: number;
+  /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */
+  farm: FarmInfo | null;
+}
+
+/** A farm's next harvest as the panel shows it (Jade, patch notes 1). */
+export interface FarmInfo {
+  /** What comes in: the resource, how many, and their food value (0 for flax and herbs). */
+  res: number;
+  items: number;
+  food: number;
+  /** False where nothing grows (a crop field in the Barrens or Deadlands): no bar, only the band line. */
+  grows: boolean;
+  /** The bar filled, per mille, and the steps until it is full at the present pace (0 while it stands still). */
+  done: number;
+  stepsLeft: number;
+  /** What the band does to the yield (crop fields: half in the Fringe and Deepwoods, nothing further out), or ''. */
+  band: string;
 }
 
 /** Everything else the screen shows, once per tick. */

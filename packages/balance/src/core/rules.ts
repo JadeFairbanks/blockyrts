@@ -152,7 +152,7 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'buildings/data.ts:OUTLYING_M': 'land',
   'buildings/data.ts:AUTO_REFUEL_M': 'land',
   'buildings/data.ts:REFUEL_STEPS': 'land',
-  'buildings/data.ts:FARM_FALLOW_STEPS': 'food',
+  'buildings/data.ts:FARM_HARVEST_STEPS': 'food',
   'buildings/data.ts:FARM_TIER_PER_MILLE': 'food',
   'buildings/production.ts:SLAUGHTER_STEPS': 'food',
   'buildings/production.ts:SLAUGHTERED': 'food',
