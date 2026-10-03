@@ -32,6 +32,8 @@ import {
   productSteps,
   RESEARCH_PRODUCT,
   starvingSince,
+  mealQuarters,
+  FOODS,
   BUILDINGS,
   buildingName,
   buildingStatus,
@@ -209,6 +211,8 @@ function postState(s: SimState): void {
       data[o + S.mountMax] = mountSpec(e.mount[i]!).hp;
     }
     if (e.kind[i] === UnitKind.Engine) data[o + S.crew] = crewOf(s, i).length + (haulerOf(s, i) >= 0 ? 1000 : 0);
+    data[o + S.meal] = mealQuarters(s, i);
+    data[o + S.hungry] = starvingSince(s, i);
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {
@@ -288,6 +292,7 @@ function postInfo(s: SimState): void {
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
   const me = s.players[PLAYER]!;
   const pool = me.pool.slice();
+  const open = me.open.slice();
   send(
     {
       type: 'info',
@@ -308,7 +313,8 @@ function postInfo(s: SimState): void {
       nights: nightsSurvived(s.over || s.step, s.blood),
       out: me.out !== 0,
       rations: me.rations,
-      dontEat: me.dontEat,
+      kept: FOODS.filter((f) => me.kept[f]),
+      open,
       starveWorkers: me.starveWorkers > 0,
       starveTroops: me.starveTroops > 0,
       blood: s.blood.slice(),
@@ -320,7 +326,7 @@ function postInfo(s: SimState): void {
       peoples: peoplesInfo(s, PLAYER),
       players: s.players.map((ps) => ({ share: ps.share, out: ps.out !== 0 })),
     },
-    [pool.buffer],
+    [pool.buffer, open.buffer],
   );
   events = [];
 }

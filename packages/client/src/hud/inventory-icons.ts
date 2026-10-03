@@ -23,8 +23,28 @@ set(Res.Stone, 'stone');
 set(Res.Flint, 'flint');
 set(Res.Coal, 'coal');
 set(Res.Leather, 'leather');
-set(Res.Meat, 'meat');
-set(Res.Fish, 'fish');
+// Each kind of meat and fish its own picture (patch 1); trout keeps the old fish.
+set(Res.Venison, 'meat_venison');
+set(Res.BoarMeat, 'meat_boar');
+set(Res.HareMeat, 'meat_hare');
+set(Res.GooseMeat, 'meat_goose');
+set(Res.PheasantMeat, 'meat_pheasant');
+set(Res.Beef, 'meat_beef');
+set(Res.Chicken, 'meat_chicken');
+set(Res.HorseMeat, 'meat_horse');
+set(Res.WolfMeat, 'meat_wolf');
+set(Res.LynxMeat, 'meat_lynx');
+set(Res.BadgerMeat, 'meat_badger');
+set(Res.BearMeat, 'meat_bear');
+set(Res.FrogLegs, 'meat_frog');
+set(Res.CrabMeat, 'meat_crab');
+set(Res.CrocodileMeat, 'meat_crocodile');
+set(Res.GriffinMeat, 'meat_griffin');
+set(Res.MinotaurMeat, 'meat_minotaur');
+set(Res.RatMeat, 'meat_rat');
+set(Res.Trout, 'fish');
+set(Res.Salmon, 'fish_salmon');
+set(Res.Catfish, 'fish_catfish');
 set(Res.CopperOre, 'copper_ore');
 set(Res.TinOre, 'tin_ore');
 set(Res.CopperIngot, 'ingot_copper');
@@ -115,7 +135,9 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,stone,flint,marble,gravel,earth,clay,sand,coal,charcoal}.png',
     '../../../assets/src/ui/icon_{copper_ore,tin_ore,bog_iron,iron_rock,vein_iron_ore,lead_ore,saltpetre,sulphur,silver,gold,emerald,ruby,diamond,hexstone,mana_crystal}.png',
     '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
-    '../../../assets/src/ui/icon_{meat,fish,eggs,wheat,corn,potatoes,carrots,roast_meat,roast_fish,smoked_meat,smoked_fish,bread,salted_meat,salted_fish,stew,pie,bandage,healing_remedy}.png',
+    '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
+    '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
+    '../../../assets/src/ui/icon_{eggs,wheat,corn,potatoes,carrots,roast_meat,roast_fish,smoked_meat,smoked_fish,bread,salted_meat,salted_fish,stew,pie,bandage,healing_remedy}.png',
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone,lantern}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,cannonball_iron,catapult_stone,ballista_bolt,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',

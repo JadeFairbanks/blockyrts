@@ -4,8 +4,9 @@
 // the good's picture, its count in the corner and a tooltip; then the scroll
 // arrows with a thumb between them. The mouse wheel over the grid scrolls a
 // row at a time. Right click on a food keeps it back from meals (Food,
-// supply and health: Don't eat), shown crossed out.
-import { FOODS, RESOURCES, type Res } from '@blockyrts/sim';
+// supply and health: Don't eat), shown crossed out. Food counts are whole
+// items; the Food cell is the food value of them all (patch 1).
+import { foodAmountText, FOODS, RESOURCES, type Res } from '@blockyrts/sim';
 import type { InfoMessage } from '../messages.ts';
 import type { ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
 import { FOOD_ICON, goodIcon, iconUrl, SUPPLY_ICON, type GoodIcon } from './inventory-icons.ts';
@@ -123,7 +124,7 @@ export class InventoryUi {
       face: '0',
       name: 'Food',
       keys: [],
-      description: 'Every kind of food in the pool. Workers cost 20 to train. Red while someone is starving.',
+      description: 'The food value of every food in stock, in whole food, kept back or not. Each unit eats ½ food four times a day (a rider and horse 1), from every kind in turn. Workers cost 20 to train. Red while someone is starving.',
       className: 'stock-cell food',
     }, FOOD_ICON);
     this.supply = this.cell(sum, {
@@ -227,22 +228,23 @@ export class InventoryUi {
       return;
     }
     const have = info.pool[res] ?? 0;
-    const k = FOODS.indexOf(res as Res);
-    const kept = k >= 0 && (info.dontEat & (1 << k)) !== 0;
+    const food = FOODS.includes(res as Res);
+    const kept = food && info.kept.includes(res);
+    const open = food ? (info.open[res] ?? 0) : 0;
     const change = changeText(this.history.change(res, info.step, have));
     const icon = goodIcon(res);
     const src = icon ? iconSrc(icon, () => this.render()) : '';
-    const sig = `${res}|${have}|${kept ? 1 : 0}|${change}|${src.length}`;
+    const sig = `${res}|${have}|${kept ? 1 : 0}|${open}|${change}|${src.length}`;
     if (sig === slot.sig) return;
     slot.sig = sig;
     const r = RESOURCES[res]!;
     const parts = [`${have.toLocaleString('en-GB')} in the pool. ${r.source}`];
+    if (food) parts.push(`Each is ${r.nutrition} food.`);
+    // The started item is out of the count until it is eaten up; its food still counts on the Food cell.
+    if (open > 0) parts.push(`One more is started: ${foodAmountText(open)} of it is left for the next meals.`);
     if (change) parts.push(change);
-    if (k >= 0) parts.push(kept ? 'Kept back: nobody eats it. Right click to eat it again.' : 'Right click to keep it back from meals (Don\'t eat).');
-    const toggle = (): void => {
-      const on = ((this.info?.dontEat ?? 0) & (1 << k)) === 0;
-      this.actions.dontEat(res, on);
-    };
+    if (food) parts.push(kept ? 'Kept back: nobody eats it. Right click to eat it again.' : 'Right click to keep it back from meals (Don\'t eat).');
+    const toggle = (): void => this.actions.dontEat(res, !(this.info?.kept.includes(res) ?? false));
     slot.btn.redefine({
       id: slot.btn.def.id,
       face: slotCount(have),
@@ -250,7 +252,7 @@ export class InventoryUi {
       keys: [],
       description: parts.join(' '),
       className: `inv-slot${have === 0 ? ' zero' : ''}${kept ? ' dont-eat' : ''}`,
-      ...(k >= 0 ? { onRightClick: toggle } : {}),
+      ...(food ? { onRightClick: toggle } : {}),
     });
     if (slot.pic.getAttribute('src') !== src) slot.pic.src = src;
     slot.pic.style.filter = icon?.tint ?? '';

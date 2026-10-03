@@ -7,6 +7,7 @@ import {
   BuildingKind,
   buildingSpec,
   clockAt,
+  nextMealIn,
   Period,
   RESOURCES,
   SiteKind,
@@ -153,6 +154,8 @@ export interface PerfInfo {
 const CAMERA_SLOTS = 4;
 /** Urgent messages Space steps back through. */
 const URGENT_KEEP = 8;
+/** Meal bubbles at most this often, ms (patch 1, s): a hundred units eat about once a second between them. */
+const MEAL_BUBBLE_GAP_MS = 1000;
 const TARGET_GREEN = '#5ee06a';
 const TARGET_YELLOW = '#f2d24b';
 const TARGET_RED = '#e8503a';
@@ -378,6 +381,13 @@ export class GameShell {
         const info = u === null ? null : this.game.unit(u);
         return info && info.kind === UnitKind.Mage ? [info.mana, info.maxMana] : null;
       },
+      hunger: (t) => {
+        const u = entityIdOf(t.key);
+        const info = u === null ? null : this.game.unit(u);
+        if (!info || info.owner !== this.player || info.meal <= 0) return null;
+        const step = this.game.step;
+        return { left: nextMealIn(step, info.id), meal: info.meal, since: info.hungry > 0 ? Math.max(0, step - info.hungry) : 0, maxHp: info.maxHp };
+      },
       building: (t) => this.buildingOf(t),
       portrait: (t, p) => this.portraitClick(t, p),
       portraitDouble: (t) => this.centreOn([t]),
@@ -478,7 +488,7 @@ export class GameShell {
 
   private onInfo(info: InfoMessage): void {
     // The stockpile: food, supply and the inventory grid.
-    this.inventory.update(info, this.game.food());
+    this.inventory.update(info, this.game.foodValue());
     // Outlying lights against the coming night's limit (Table 8).
     const o = info.outlying;
     setText(this.layout.clockNote, o.halves > 0 ? `Lights outside: ${o.halves / 2} of ${o.limit}` : '');
@@ -592,6 +602,17 @@ export class GameShell {
    * enough, or the speaker is on screen.
    */
   private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
+    if (ev.bubble) {
+      // A meal or hunger (patch 1) is a bubble only, over a unit on screen; meal lines at most one a second, so a big army's meals do not crowd the screen.
+      if (ev.speaker === undefined || this.headOnScreen(ev.speaker) === null) return;
+      const now = performance.now();
+      if (ev.bubble === 'meal') {
+        if (now < this.mealBubbleAt) return;
+        this.mealBubbleAt = now + MEAL_BUBBLE_GAP_MS;
+      }
+      this.bubbles.say(ev.speaker, ev.text, now, 'own');
+      return;
+    }
     if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
     if (ev.foreign) {
       const to = ev.player === this.player;
@@ -618,6 +639,8 @@ export class GameShell {
   }
 
   private readonly headTmp = new THREE.Vector3();
+  /** When the next meal bubble may show, ms. */
+  private mealBubbleAt = 0;
 
   /** Units on screen that may make a random remark, with their list of remarks. */
   private remarkers(): Array<[number, string]> {
@@ -689,7 +712,7 @@ export class GameShell {
       face: '▤',
       name: 'Rations',
       keys: k('rations'),
-      description: 'Who eats when food runs short: everyone, the troops only (the workers starve and slow down), or the workers only (the troops starve, warriors slow down and research stops). Click to cycle.',
+      description: 'Who eats when food runs short: everyone, the troops only (the workers and working animals starve and slow down), or the workers only (the troops starve and slow down, and the Scholar\'s Lodge goes unfed, so research stops). Click to cycle.',
       onPress: () => {
         const next = ((this.game.info?.rations ?? 0) + 1) % 3;
         this.opts.issueOrder({ kind: 'rations', player: this.player, rations: next });
