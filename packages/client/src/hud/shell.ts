@@ -51,7 +51,8 @@ import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './but
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
-import { buildLayout, type HudLayout } from './layout.ts';
+import { applyGeometry, buildLayout, type Folds, type HudLayout } from './layout.ts';
+import { hudLayout, rowsFor, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles } from './bubbles.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -213,6 +214,11 @@ export class GameShell {
   private lastPanelText = 0;
   private width = 1;
   private height = 1;
+  /** Where the panels go for this screen size, and the rows the card shows now. */
+  private geometry: HudGeometry;
+  private cardRows = 0;
+  /** The phone's unfolded panels. */
+  private readonly folds: Folds = { map: false, info: true, stock: false };
   private readonly startedAt = performance.now();
   /** The active subgroup's type. */
   private active: string | null = null;
@@ -241,6 +247,7 @@ export class GameShell {
     this.settings = opts.settings;
     this.player = opts.player;
     this.layout = buildLayout(parent, this.panels);
+    this.geometry = hudLayout({ width: window.innerWidth, height: window.innerHeight, topRight: 112 });
     this.chainLabel = document.createElement('div');
     this.chainLabel.className = 'chain-label';
     this.chainLabel.hidden = true;
@@ -304,6 +311,7 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
+      slots: () => ({ cols: this.geometry.cols, rows: this.geometry.rows, maxRows: this.geometry.maxRows }),
     });
     this.input = new InputManager(
       {
@@ -426,6 +434,29 @@ export class GameShell {
     this.width = w;
     this.height = h;
     this.cam.resize(w, h);
+    this.relayout();
+  }
+
+  /** Puts the panels where the screen size says (hud-layout.ts), then redraws the card for its new size. */
+  private relayout(): void {
+    const s = this.geometry.scale;
+    this.geometry = hudLayout({ width: this.width, height: this.height, topRight: this.layout.topRight.offsetHeight || 112 });
+    this.layout.root.classList.toggle('phone', this.geometry.phone);
+    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    this.panels.measure();
+    if (s !== this.geometry.scale) this.selectionDirty = true;
+    this.cardDirty = true;
+  }
+
+  /** Phone: unfolds or folds a panel; the minimap and the selection share the strip, so one closes the other. */
+  private toggleFold(which: keyof Folds): void {
+    const on = !this.folds[which];
+    this.folds[which] = on;
+    if (on && which === 'map') this.folds.info = false;
+    if (on && which === 'info') this.folds.map = false;
+    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    this.panels.measure();
+    for (const k of ['map', 'info', 'stock'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
   }
 
   /** The sim's answer about placement tiles. */
@@ -789,11 +820,29 @@ export class GameShell {
     });
     L.selectionCorner.append(clear.el);
 
-    // Command card: 15 slots whose meaning follows the selection.
-    for (let i = 0; i < 15; i++) {
+    // Command card: a button per slot whose meaning follows the selection (more are made as the card grows).
+    this.ensureCardButtons();
+
+    // The phone's fold buttons: the menu, the minimap, the selection, the stockpile and the messages.
+    const fold = (id: string, face: string, name: string, description: string, onPress: () => void): HudButton => {
+      const b = this.buttons.add({ id, face, name, keys: [], description, className: 'fold', onPress });
+      L.folds.append(b.el);
+      return b;
+    };
+    fold('fold-menu', '☰', 'Menu', 'Settings, saving, full screen and quitting.', () => this.openMenu());
+    fold('fold-map', '◫', 'Map', 'Show or hide the minimap and the buttons along its top (idle gatherer, army, camera spots).', () => this.toggleFold('map'));
+    fold('fold-info', 'ⓘ', 'Selection', 'Show or hide the portrait and what is selected.', () => this.toggleFold('info')).setLit(this.folds.info);
+    fold('fold-stock', '▦', 'Stock', 'Show or hide the inventory: what you have of every good.', () => this.toggleFold('stock'));
+    fold('fold-chat', '✉', 'Messages', 'Show or hide the message panel. It flashes when something urgent comes in.', () => this.messages.setCollapsed(!this.messages.isCollapsed()));
+  }
+
+  /** One button in each card slot. */
+  private ensureCardButtons(): void {
+    const slots = this.layout.commandSlots;
+    for (let i = this.cardButtons.length; i < slots.length; i++) {
       const b = this.buttons.add({ id: `card${i}`, face: '', name: '', keys: [], description: '', className: 'cmd' });
       b.el.hidden = true;
-      L.commandSlots[i]!.append(b.el);
+      slots[i]!.append(b.el);
       this.cardButtons.push(b);
     }
   }
@@ -1481,9 +1530,26 @@ export class GameShell {
 
   private refreshCommandCard(): void {
     const card: Card = this.commands.card();
-    for (let i = 0; i < 15; i++) {
+    // A long menu grows the card upward, as far as the screen allows.
+    let last = -1;
+    for (let i = card.length - 1; i >= 0; i--) {
+      if (card[i]) {
+        last = i;
+        break;
+      }
+    }
+    const g = this.geometry;
+    const rows = rowsFor(last, g.cols, g.rows, g.maxRows);
+    if (rows !== Math.max(this.cardRows, g.rows)) {
+      this.cardRows = rows;
+      applyGeometry(this.layout, g, rows, this.folds);
+      this.panels.measure();
+      this.ensureCardButtons();
+    }
+    const shown = g.cols * Math.max(rows, g.rows);
+    for (let i = 0; i < this.cardButtons.length; i++) {
       const b = this.cardButtons[i]!;
-      const e = card[i];
+      const e = i < shown ? card[i] : null;
       if (!e) {
         b.el.hidden = true;
         continue;
@@ -1494,7 +1560,7 @@ export class GameShell {
         name: e.name,
         keys: [e.key],
         description: e.description,
-        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}`,
+        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}${i >= 15 ? ' extra' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
       });

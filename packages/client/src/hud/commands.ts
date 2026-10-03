@@ -83,6 +83,7 @@ import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonPress } from './buttons.ts';
 import { troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
+import { CLASSIC_SLOTS } from './hud-layout.ts';
 
 /** One button of the command card. */
 export interface CardEntry {
@@ -255,7 +256,17 @@ export interface CommandDeps {
   confirmWar(faction: number, then: () => void): void;
   /** The trade menu, or a mercenary camp's hire box. */
   openPeople(faction: number): void;
+  /** The card's size now: columns, rows by default, and the most rows a long menu may grow to (hud-layout.ts); the fixed 5 x 3 when left out. */
+  slots?(): CardSize;
 }
+
+export interface CardSize {
+  cols: number;
+  rows: number;
+  maxRows: number;
+}
+
+const CLASSIC_SIZE: CardSize = { cols: 5, rows: 3, maxRows: 3 };
 
 /** Spacing of lights placed along a dragged line: 8 m, so their 5 m claims overlap. */
 export const LIGHT_LINE_SPACING_M = 8;
@@ -309,6 +320,10 @@ export class Commands {
 
   private key(action: string): string {
     return keyFor(this.d.settings.keys, action);
+  }
+
+  private size(): CardSize {
+    return this.d.slots?.() ?? CLASSIC_SIZE;
   }
 
   // ---- What is selected ----
@@ -382,8 +397,15 @@ export class Commands {
 
   // ---- The card ----
 
+  /**
+   * The card for the active subgroup: entries 0 to 14 are the fixed 5 x 3
+   * block with the grid keys, and any after that go in the extra slots round
+   * it (hud-layout.ts cardCells), click only. A long menu may run past the
+   * default rows; the shell grows the card upward to show it.
+   */
   card(): Card {
-    const card: Card = Array.from({ length: 15 }, () => null);
+    const size = this.size();
+    const card: Card = Array.from({ length: Math.max(CLASSIC_SLOTS, size.cols * size.rows) }, () => null);
     const active = this.d.activeType();
     if (this.placing || this.targeting || this.area) {
       card[14] = this.cancelEntry();
@@ -548,9 +570,13 @@ export class Commands {
     // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
     card[10] = { ...this.eatEntry(), key: '' };
     card[11] = this.mageRankEntry(ids);
-    // No room for Max twins on a mage's card: pressing an upgrade twice goes to the best.
     card[13] = this.upgradeEntry(ids, Line.Weapon, false);
     if (!card[14]) card[14] = this.upgradeEntry(ids, Line.Armour, false);
+    // The Max twins go in the extra slots when the card has them (a phone's has none: pressing an upgrade twice goes to the best).
+    if (card.length > CLASSIC_SLOTS + 1) {
+      card[CLASSIC_SLOTS] = this.maxEntry(ids, Line.Weapon, card[13]);
+      card[CLASSIC_SLOTS + 1] = card[14]?.action === 'cancel' ? null : this.maxEntry(ids, Line.Armour, card[14] ?? null);
+    }
   }
 
   /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */
@@ -1047,8 +1073,10 @@ export class Commands {
 
   /**
    * K (smelt, cook, research, make, slaughter): a button per product the
-   * building makes, 13 to a page, greyed out with the sim's reason; V shows
-   * the next page and B is Back.
+   * building makes, greyed out with the sim's reason. The first 13 sit in the
+   * fixed block with the grid keys; the rest fill the extra slots, and the
+   * card grows upward for them as far as the screen allows (HUD revamp).
+   * Past that, V shows the next page. B is Back.
    */
   private makeCard(card: Card, kind: number): Card {
     const page = 'make';
@@ -1056,12 +1084,15 @@ export class Commands {
     const first = all[0];
     if (first) {
       const list = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
-      const pages = Math.max(1, Math.ceil(list.length / MAKE_PER_PAGE));
+      const size = this.size();
+      const perPage = MAKE_PER_PAGE + Math.max(0, size.cols * size.maxRows - CLASSIC_SLOTS);
+      const pages = Math.max(1, Math.ceil(list.length / perPage));
       const at = Math.max(0, this.menu.sub) % pages;
-      list.slice(at * MAKE_PER_PAGE, (at + 1) * MAKE_PER_PAGE).forEach(([p, why], k) => {
+      list.slice(at * perPage, (at + 1) * perPage).forEach(([p, why], k) => {
         const ps = productSpec(p);
         const face = shortFace(ps.name);
-        card[k] = this.productEntry(all, p, `make-${p}`, face, k, why);
+        if (k < MAKE_PER_PAGE) card[k] = this.productEntry(all, p, `make-${p}`, face, k, why);
+        else card[CLASSIC_SLOTS + k - MAKE_PER_PAGE] = { ...this.productEntry(all, p, `make-${p}`, face, undefined, why), key: '' };
       });
       if (pages > 1) {
         card[13] = {
