@@ -435,6 +435,18 @@ export interface HuntOrder extends UnitsOrder {
   auto: number;
 }
 
+/** Pick up loot lying on the ground (a right-click on it): the units walk over, and those with room take it. */
+export interface PickUpOrder extends UnitsOrder {
+  kind: 'pickUp';
+  /** The loot's id. */
+  target: number;
+}
+
+/** Gather: workers fetch the basic materials the side can use, by themselves, and come home at dusk. */
+export interface ForageOrder extends UnitsOrder {
+  kind: 'forage';
+}
+
 /**
  * Cast a spell (Magic; Table 13): at a unit (target, an entity id), or at a
  * spot on the ground (x, z wu) for an area spell. auto (a double-tapped
@@ -536,6 +548,8 @@ export interface LeaveOrder {
 
 export type Order =
   | PickOwnOrder
+  | PickUpOrder
+  | ForageOrder
   | ShareControlOrder
   | SendResourcesOrder
   | LeaveOrder
@@ -681,9 +695,11 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   sendResources: ['to', 'res', 'amount'],
   leave: [],
   pickOwn: ['command'],
+  pickUp: ['target'],
+  forage: [],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {

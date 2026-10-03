@@ -25,7 +25,8 @@ import { PropKind } from '../world/props.ts';
 import { deathHooks, gap, hurtUnit, sideOf, Side } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
-import { rollDrops } from '../threats/loot.ts';
+import { rollDropList } from '../threats/loot.ts';
+import { dropLoot, lootBrag, meatOf } from '../units/loot.ts';
 import { BEAR_CAP, BREED_STEPS, breeds, Nature, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
 
 const COLUMN = WU_PER_COLUMN;
@@ -862,18 +863,32 @@ export function updateAnimals(state: SimState): void {
 
 // ----- deaths -----
 
-/** An animal fell: its carcass is left where it lay (Hunting), a young one's half the meat. */
+/**
+ * An animal fell (Hunting, as Jade's play-test notes redid it): no carcass is
+ * left to butcher. Its meat (a young one's half), hides or feathers, and a
+ * creature's other drops are loot: the unit that killed it takes what fits,
+ * and the rest lies on the ground for the killer's side, or anyone's when no
+ * player's unit killed it (a tamed animal's for its owner).
+ */
 function onAnimalDeath(state: SimState, i: number): void {
   const e = state.entities;
   const s = speciesSpec(e.mob[i]!);
   const meat = e.born[i]! > state.step ? Math.max(1, s.meat >> 1) : s.meat;
-  if (meat > 0 || s.extra.length > 0) state.world.addProp(floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN), PropKind.Carcass, s.id, meat, state.step);
-  // A creature's other drops go to the side whose unit last hurt it.
-  if (s.loot.length > 0 && e.attacker[i]) {
-    const a = e.indexOf(e.attacker[i]!);
-    if (a >= 0 && e.owner[a]! < state.players.length) rollDrops(state, s.loot, e.owner[a]!);
-  }
+  const a = e.attacker[i] ? e.indexOf(e.attacker[i]!) : -1;
+  const killer = a >= 0 && e.owner[a]! < state.players.length ? a : -1;
   const owner = e.owner[i]!;
+  const items: Array<[number, number]> = [];
+  if (meat > 0) items.push([meatOf(s.id), meat]);
+  for (const [r, n] of s.extra) items.push([r, n]);
+  let brag = 0;
+  // A creature's other drops, for the side whose unit last hurt it.
+  if (s.loot.length > 0 && killer >= 0) {
+    const rolled = rollDropList(state, s.loot);
+    items.push(...rolled.items);
+    brag = lootBrag(s.loot, rolled, false);
+  }
+  const side = killer >= 0 ? e.owner[killer]! : owner < state.players.length ? owner : -1;
+  dropLoot(state, e.x[i]!, e.z[i]!, items, { killer, owner: side, brag, src: 0, prey: s.id + 1 });
   if (owner < state.players.length) state.events.push({ player: owner, kind: 'alert', text: `A tamed ${s.name.toLowerCase()} has been killed.`, x: e.x[i]!, z: e.z[i]! });
   // Its worker lets go of the cart.
   if (e.partner[i]) {

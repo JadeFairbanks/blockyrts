@@ -531,6 +531,8 @@ const enum Mode {
 
 function modeOf(o: UnitOrder | undefined): Mode {
   if (!o) return Mode.Idle;
+  // Fetching loot or handing it in by herself, she still fights back as an idle mage does.
+  if (o.t === 'loot' && o.back !== 0) return Mode.Idle;
   if (o.t === 'attackMove' || o.t === 'patrol') return Mode.Seek;
   if (o.t === 'hold') return Mode.Hold;
   return Mode.None;
