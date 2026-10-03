@@ -14,7 +14,7 @@ import type { Pt } from '../hud/rects.ts';
 import { isDoubleClick, type ClickRecord } from '../selection/rules.ts';
 import type { Settings } from '../settings/settings.ts';
 import { VirtualCursor } from './cursor.ts';
-import { keyId, shouldBlockKey } from './keys.ts';
+import { keyId, MENU_KEYS, shouldBlockKey } from './keys.ts';
 import { IS_MAC } from './platform.ts';
 
 export interface Mods {
@@ -343,7 +343,7 @@ export class InputManager {
 
   private onKeyDown(e: KeyboardEvent): void {
     const field = isTextField(document.activeElement);
-    if (this.mode !== 'off' && shouldBlockKey(e, field)) e.preventDefault();
+    if (this.mode !== 'off' && shouldBlockKey(e, field) && !(this.mode === 'menu' && MENU_KEYS.has(e.code))) e.preventDefault();
     this.modsOf(e);
     if (field || this.mode === 'off') return;
     const id = keyId(e);
