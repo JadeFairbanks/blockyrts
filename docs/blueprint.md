@@ -274,7 +274,7 @@ Clip names are the contract between sim and renderer: idle, walk, run, attack_*,
 
 ### Build order
 
-Decided (Jade accepted the coordinator's picks on 2026-10-02). The order in which the first playable is programmed, in eleven milestones, M0 to M10.
+Decided (Jade accepted the coordinator's picks on 2026-10-02). The order in which the first playable is programmed, in eleven milestones, M0 to M10, followed by Milestone 11 (the troop rework) and the open items after the first iteration.
 
 **Rule (Jade):** the first playable iteration contains all content in the blueprint; nothing is cut or deferred. This document only sequences that work, it never trims it, and every system in the doc appears in exactly one milestone below.
 
@@ -488,6 +488,22 @@ Agreed by Jade on 2026-10-03 (go at 05:25 UTC). The full design is in troop-rewo
 **Depends on:** M10.
 
 **Risks:** old saves carry items (a save from before M11 either converts each unit's best gear to tiers or is refused with a clear message (s)); trade and plunder rows that sold items now give ingots at the same value.
+
+#### Open items after the first iteration
+
+In development now (Jade, 14:57 and 14:58 UTC 2026-10-03; picks to follow in inventory-picks.md and wall-chain-picks.md):
+
+- Inventory grid: the stockpile shown as a more Minecraft-style inventory of square slots, scrollable past 16 types of goods.
+- Wall and tunnel chains (done, PR #71; picks in wall-chain-picks.md): click to click wall stretches chained in several directions, and the same for digging tunnels; a double click places just one wall, and a click on the last point, right click, Esc or Done ends a chain (see Building placement and Digging and prospecting).
+
+Waiting on Jade's word, in no set order (s, 2026-10-03):
+
+- Redeploy the live site with the latest main.
+- Spells: new spells for every mage, ours first, then goblin mages and Elf Grovesingers, with their projectiles and effects coded and modelled.
+- Merge PR #50 and a wiring pass: its worker, warrior, riding, swim and climb clips replace the Milestone 4 and 6 stand-ins, and the catalogue's tree, stump and hazel models replace the procedural trees.
+- The two behaviour fixes from Milestone 10: a ground battle mage that cannot shoot over a wall, and warriors on hold that ignore archers standing off.
+- A HUD skin pass that dresses the in-game panels (selection, command card, minimap frame, messages, resource bar, tooltips, buttons) in the interface kit, as the menus now are (from PR #69).
+- Kit pieces drawn on troops in play (helmets, armour, shields and per-tier weapons), so troops in a match look as they do in the main menu picture (from PR #69).
 
 #### Completeness check: where every section and table is built
 
@@ -1222,6 +1238,7 @@ The screen is split into two zones, and almost every control rule below depends 
   - Selection panel (bottom centre): portraits of the selected units, or detailed stats when only one thing is selected.
   - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys").
   - Resource bar (top right): stockpiled resources, expandable to show every resource type (see "Resources" below).
+  - **Inventory grid (Jade, 2026-10-03; in development):** the stockpile is shown in a more Minecraft-style inventory of equal square slots, each with the good's picture and its count in the corner; hovering a slot gives its name and rate (suggested). 16 slots are visible, and it scrolls once there are more than 16 types of goods (Jade), by mouse wheel and by visible arrows (suggested). Slots keep a fixed order by category: woods, stone and flint, ores, metals, foods, crafting goods, crystals; a good held at any point in the match keeps its slot, greyed at zero (suggested). It keeps the current HUD look until the HUD skin pass (suggested).
   - Clock (top centre): the current day or night, time remaining, and the night count.
   - Top-right buttons, under the resource bar (suggested, as built 2026-10-03): Peoples (O), Allies ([), Send (]), Ping (\) and Pause (❚❚). Allies and Send are greyed when playing alone (see "Allies panel").
   - Message panel (left side, above the minimap): what the player's units say, game alerts such as "Night is falling", and chat between players (see "Unit speech and the message panel").
@@ -2875,6 +2892,15 @@ Jade approved these as written. The details are Claude's suggestions.
 - **Browser check (suggested):** the menu checks the browser's features, not its name, and says plainly what is missing (a phone or tablet, no WebGL2, no save compression, no pointer lock).
 - **Browsers:** the latest two versions of Chrome, Edge, Firefox and Safari on desktop computers. Phones and tablets are not supported.
 - **Full screen:** the game reminds the player to press F11 for full screen when it starts, since some controls (such as Ctrl + number) only work in full screen.
+- **How the screens look (suggested)** (Jade asked on 2026-10-03 for beautiful start, lobby and other screens, with an action picture made from the game's models behind the main menu and a zoomed-out map behind the lobby; built in PR #69, client only, with every control, label, key and flow above unchanged). Screenshots are in the project files under screens/: main-menu.png, lobby.png, load-game.png, settings.png, f10-menu.png, and the two pictures as menu-battle and lobby-map.
+  - **Main menu picture:** a night attack on the camp at dusk. The Big House under scaffolding, torch posts, a campfire, a brazier and the team banner stand behind a line of defenders facing right (two knights, an axeman, a pikeman, two rangers loosing arrows, a battle mage throwing a fireball and a worker running with a torch). Out of the dark forest come a minotaur, zombies, two grave hounds, a pouncing giant spider, two skeleton archers and a bone colossus, under a low red sun, a pixel moon and stars, with glowing eyes in the trees. The action sits right of the middle, clear of the menu boxes on the left.
+  - The troops in the picture wear the model catalogue's kit looks (mail, helmets, kite and wicker shields, bronze scale, bows and quivers), which the game does not yet draw on troops in play; the wiring pass closes that gap. The minotaur, giant spider, bone colossus and arrows are drawn larger than game size (1.6, 1.6, 1.3 and 1.5 times) so they read at menu size.
+  - **Lobby picture:** a generated world for four players seen from high above, with the start basin and its four pockets, a Big House and a warm light in each, the Fringe's forests, rivers and ridges round it, late sun from the west and haze at the far edge. It is always the same world (seed 20261003, four players), not the lobby's own seed, because a world takes about 3 minutes to render. The loading screen keeps this map under a soft veil, and the main menu fetches it early so a new lobby opens on it at once.
+  - **Making the pictures:** both are rendered by the game's own renderer from the catalogue's models and the game's world generation, at twice the size and halved for smooth edges, and saved as 2560 x 1440 WebP (about 190 KB and 350 KB). The command pnpm --filter @blockyrts/client art makes them again in about 3 minutes (add battle or map for just one).
+  - **Interface kit:** the model catalogue's interface art dresses the screens, drawn at twice size with hard pixel edges: menu_panel for the boxes; popup_box for the lobby and the in-game F10 menu; menu_button pieces for buttons, the main choice of each page with the gold hover frame; menu_list for inputs and the player list; menu_save_slot for save rows; the menu checkbox, slider and dropdown pieces in Settings; keycap_f11 beside the full-screen reminder; logo_512x256 as the title; and team_banner_1 to 8 for each lobby player, each colour taking the nearest banner (blue 1, red 2, green 7, yellow 5, purple 4, orange 6, teal 3, pink 8).
+  - **Font:** headings, buttons, the tagline, save titles and the invite code use the Jersey 10 pixel font (SIL Open Font License, shipped with its licence); help text stays in the HUD's plain sans so it reads at small sizes.
+  - **Layout:** every page stands in one column on the left over a shade, with the picture filling the rest and drifting very slowly (a 70 s zoom), still when the system asks for reduced motion. The lobby, Settings and Load game boxes are 600 px wide so each save and player row keeps to one line, and the invite code is large in its own inset. Below 760 px of window height the logo and buttons shrink, and a long page scrolls inside its box.
+  - **In the match:** the Allies panel, Send resources, chat, the pause banner and the Peoples panel keep the HUD's dark slate to match the panels beside them; only the F10 menu and the in-game account form take the new wood. The kit's full HUD skin (selection, command card, minimap frame, message, resource bar and tooltip panels and buttons) is unused for now, as are its menu_background picture and its four loading screens.
 
 #### Table 20: Multiplayer, saving and settings
 

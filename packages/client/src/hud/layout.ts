@@ -2,7 +2,6 @@
 // and mouse zones, each registered as a solid rectangle. The shell fills in
 // the buttons and the live text.
 import type { HudPanels } from './panels.ts';
-import { ADDITIONAL_RESOURCES, BAR_RESOURCES, FOOD, GOODS, MAIN_RESOURCES, SUPPLY } from './resources.ts';
 
 export interface HudLayout {
   root: HTMLElement;
@@ -24,9 +23,8 @@ export interface HudLayout {
   commandSlots: HTMLElement[];
   topRight: HTMLElement;
   topRightButtons: HTMLElement;
-  resourceBar: HTMLElement;
-  resourceAll: HTMLElement;
-  resourceValues: Map<string, HTMLElement[]>;
+  /** The stockpile: Food, Supply and the inventory grid (inventory-ui.ts fills it). */
+  stockpile: HTMLElement;
   clock: HTMLElement;
   clockDay: HTMLElement;
   clockTime: HTMLElement;
@@ -83,51 +81,10 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const commandSlots: HTMLElement[] = [];
   for (let i = 0; i < 15; i++) commandSlots.push(div('slot', commandCard));
 
-  // Top right: Allies and Send resources, then the resource bar.
+  // Top right: the stockpile, with Peoples, Allies, Send, Ping and Pause under it.
   const topRight = div('panel top-right', root);
   const topRightButtons = div('top-right-buttons', topRight);
-  const resourceBar = div('resource-bar', topRight);
-  const resourceValues = new Map<string, HTMLElement[]>();
-  const valueEl = (name: string, parentEl: HTMLElement): HTMLElement => {
-    const v = div('res-value', parentEl, '0');
-    const list = resourceValues.get(name) ?? [];
-    list.push(v);
-    resourceValues.set(name, list);
-    return v;
-  };
-  for (const r of BAR_RESOURCES) {
-    const cell = div('res', resourceBar);
-    cell.title = r.name;
-    div('res-name', cell, r.short);
-    valueEl(r.name, cell);
-  }
-  for (const [name, tip] of [
-    [FOOD, 'Food: every kind of food in the pool. Workers cost 20 to train.'],
-    [SUPPLY, 'Supply: units you have, and how many your farms and main base support.'],
-  ] as const) {
-    const cell = div(`res ${name === SUPPLY ? 'supply' : 'food'}`, resourceBar);
-    cell.title = tip;
-    div('res-name', cell, name);
-    valueEl(name, cell);
-  }
-
-  // The expanded resource list: its own panel, under the bar.
-  const resourceAll = div('panel resource-all', root);
-  resourceAll.hidden = true;
-  resourceAll.dataset.scroll = '';
-  const section = (title: string, names: readonly string[]): void => {
-    div('res-section', resourceAll, title);
-    const grid = div('res-grid', resourceAll);
-    for (const n of names) {
-      const row = div('res-row', grid);
-      row.dataset.res = n;
-      div('res-name', row, n);
-      valueEl(n, row);
-    }
-  };
-  section('Resources', MAIN_RESOURCES);
-  section('Additional resources', ADDITIONAL_RESOURCES);
-  section('Goods', GOODS);
+  const stockpile = div('stockpile', topRight);
 
   // Clock (top centre).
   const clock = div('panel clock', root);
@@ -163,7 +120,6 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   panels.register('top-right', topRight);
   panels.register('clock', clock);
   panels.register('debug', debug);
-  panels.register('resources-all', resourceAll);
 
   return {
     root,
@@ -183,9 +139,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     commandSlots,
     topRight,
     topRightButtons,
-    resourceBar,
-    resourceAll,
-    resourceValues,
+    stockpile,
     clock,
     clockDay,
     clockTime,

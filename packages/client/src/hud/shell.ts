@@ -7,7 +7,6 @@ import {
   BuildingKind,
   buildingSpec,
   clockAt,
-  FOODS,
   Period,
   RESOURCES,
   SiteKind,
@@ -59,7 +58,7 @@ import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
-import { FOOD, SUPPLY } from './resources.ts';
+import { InventoryUi } from './inventory-ui.ts';
 
 /** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
 const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
@@ -183,6 +182,7 @@ export class GameShell {
   private readonly bubbles: SpeechBubbles;
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
+  readonly inventory: InventoryUi;
   readonly chat: ChatBox;
   /** Waiting for a spot to ping (the Ping button). */
   private pinging = false;
@@ -208,7 +208,6 @@ export class GameShell {
   private followKey: string | null = null;
   private queueMode = false;
   private readonly cameraSlots: (CameraView | null)[] = Array.from({ length: CAMERA_SLOTS }, () => null);
-  private resourcesOpen = false;
   private selectionDirty = true;
   private cardDirty = true;
   private lastPanelText = 0;
@@ -334,6 +333,14 @@ export class GameShell {
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
     this.chat = new ChatBox(this.layout.chat, session.chat);
+    this.inventory = new InventoryUi(this.layout.stockpile, this.buttons, {
+      // Don't eat (Food: keeping a food back): right click on a food's slot.
+      dontEat: (res, on) => {
+        opts.issueOrder({ kind: 'dontEat', player: this.player, res, on: on ? 1 : 0 });
+        this.message(on ? `${RESOURCES[res]!.name} is kept back: nobody eats it.` : `${RESOURCES[res]!.name} is eaten again.`);
+      },
+      addWheel: (id, el, onWheel) => this.input.addWheel(id, el, onWheel),
+    });
     // Another player's units this player may order: shared with them, or inherited from a player who left.
     setSharedControl((t, player) => {
       const info = this.game.info;
@@ -470,19 +477,8 @@ export class GameShell {
   }
 
   private onInfo(info: InfoMessage): void {
-    // Resources: the shared pool, food and supply.
-    for (const [name, els] of this.layout.resourceValues) {
-      let v: string;
-      if (name === FOOD) v = String(this.game.food());
-      else if (name === SUPPLY) v = `${info.supplyUsed}/${info.supplyCap}`;
-      else {
-        const r = RESOURCES.findIndex((x) => x.name === name);
-        v = r >= 0 ? String(info.pool[r] ?? 0) : '0';
-      }
-      for (const el of els) setText(el, v);
-    }
-    const supply = this.layout.resourceBar.querySelector('.res.supply');
-    supply?.classList.toggle('full', info.supplyUsed >= info.supplyCap);
+    // The stockpile: food, supply and the inventory grid.
+    this.inventory.update(info, this.game.food());
     // Outlying lights against the coming night's limit (Table 8).
     const o = info.outlying;
     setText(this.layout.clockNote, o.halves > 0 ? `Lights outside: ${o.halves / 2} of ${o.limit}` : '');
@@ -498,12 +494,6 @@ export class GameShell {
     const p = clockAt(info.step, info.blood).period;
     this.buttons.get('home')?.setLit(p === Period.Dusk);
     this.buttons.get('rations')?.setLit(info.rations !== 0).setFace(RATIONS_FACES[info.rations] ?? '▤');
-    FOODS.forEach((f, k) => {
-      const off = (info.dontEat & (1 << k)) !== 0;
-      this.layout.resourceAll.querySelector(`.res-row[data-res="${RESOURCES[f]!.name}"]`)?.classList.toggle('dont-eat', off);
-      this.buttons.get(`donteat-${f}`)?.setLit(off);
-    });
-    this.layout.resourceBar.querySelector('.res.food')?.classList.toggle('starving', info.starveWorkers || info.starveTroops);
     if ((info.over > 0 || info.out) && !this.overShown) this.showGameOver(info);
     this.groups.refresh((k) => this.exists(k));
     this.selection.retain((k) => this.exists(k) || k.startsWith('p:'));
@@ -740,7 +730,7 @@ export class GameShell {
     }
     util({ id: 'menu', face: '☰', name: 'Menu', keys: ['F10'], description: 'Settings, hotkeys, full screen and quitting. Releases the cursor.', onPress: () => this.openMenu() });
 
-    // Top right: Allies and Send resources (multiplayer), and the resource list toggle.
+    // Top right: Peoples, Allies and Send resources (multiplayer), Ping and Pause.
     const top = (def: Parameters<ButtonRegistry['add']>[0], reason?: string): HudButton => {
       const b = this.buttons.add({ ...def, className: `top ${def.className ?? ''}` });
       if (reason) b.setEnabled(false, reason);
@@ -787,38 +777,6 @@ export class GameShell {
       description: this.opts.session.online ? 'Pause the game for every player; again to carry on.' : 'Pause the game; again to carry on.',
       onPress: () => this.opts.session.togglePause(),
     });
-    const more = this.buttons.add({
-      id: 'resources',
-      face: '▾',
-      name: 'All resources',
-      keys: [],
-      description: 'Show or hide every resource type. No hotkey yet.',
-      className: 'res-toggle',
-      onPress: () => this.toggleResources(),
-    });
-    L.resourceBar.append(more.el);
-    // Don't eat (Food: keeping a food back): a toggle beside each food in the full list; right click on it does the same.
-    FOODS.forEach((f, k) => {
-      const row = L.resourceAll.querySelector(`.res-row[data-res="${RESOURCES[f]!.name}"]`);
-      if (!row) return;
-      const toggle = (): void => {
-        const on = ((this.game.info?.dontEat ?? 0) & (1 << k)) === 0;
-        this.opts.issueOrder({ kind: 'dontEat', player: this.player, res: f, on: on ? 1 : 0 });
-        this.message(on ? `${RESOURCES[f]!.name} is kept back: nobody eats it.` : `${RESOURCES[f]!.name} is eaten again.`);
-      };
-      const b = this.buttons.add({
-        id: `donteat-${f}`,
-        face: '⊘',
-        name: `Don't eat ${RESOURCES[f]!.name.toLowerCase()}`,
-        keys: [],
-        description: 'While lit, this food is kept back for other uses: meals, training and eating at a building skip it.',
-        className: 'donteat',
-        onPress: toggle,
-        onRightClick: toggle,
-      });
-      row.append(b.el);
-    });
-
     // Selection panel corner: clear the selection (mouse version of Esc / F3).
     const clear = this.buttons.add({
       id: 'clear',
@@ -1025,13 +983,6 @@ export class GameShell {
     this.cam.setView(v);
   }
 
-  private toggleResources(): void {
-    this.resourcesOpen = !this.resourcesOpen;
-    this.layout.resourceAll.hidden = !this.resourcesOpen;
-    this.buttons.get('resources')?.setLit(this.resourcesOpen).setFace(this.resourcesOpen ? '▴' : '▾');
-    this.panels.measure();
-  }
-
   private openMenu(): void {
     if (this.menu.isOpen) return;
     this.selector.cancel();
@@ -1108,7 +1059,6 @@ export class GameShell {
       else if (this.commands.back()) this.cardDirty = true;
       else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
-      else if (this.resourcesOpen) this.toggleResources();
       else this.selection.clear();
       return;
     }

@@ -330,11 +330,16 @@ await page.mouse.move(idle.x, idle.y);
 await page.waitForTimeout(100);
 check('a button shows its tooltip', (await text('#tooltip')).includes('Idle Gatherer'), await text('#tooltip'));
 await shot('tooltip');
-const res = await centreOf('[data-btn=resources]');
-await page.mouse.click(res.x, res.y);
-check('resource list expands', await page.locator('.resource-all').isVisible());
+// The stockpile's inventory grid: 16 slots, the goods held so far with their pictures, a tooltip on each.
+check('inventory has 16 slots', (await page.locator('.inv-cell').count()) === 16);
+const held = await page.locator('.inv-slot:not([hidden])').count();
+check('inventory shows the starting goods', held > 0, `${held} slots filled`);
+const slot = await centreOf('.inv-slot:not([hidden])');
+await page.mouse.move(slot.x, slot.y);
+await page.waitForTimeout(100);
+check('a slot names its good', (await text('#tooltip')).includes('in the pool'), await text('#tooltip'));
+check('nothing to scroll yet', (await page.getAttribute('[data-btn=inv-down]', 'class')).includes('disabled'));
 await shot('resources');
-await page.mouse.click(res.x, res.y);
 
 // 13. Menu.
 await page.keyboard.press('F10');
