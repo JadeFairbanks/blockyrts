@@ -96,7 +96,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
     ['advanced', 'Advanced build menu', tree.rows.filter((r) => r.menu === 'advanced' && (showSimple || !simple.includes(r)))],
   ];
   for (const [cls, title, rows] of sections) {
-    grid.append(h('div', { class: `band ${cls}` }, title));
+    grid.append(h('div', { class: `band ${cls}` }, h('span', {}, title)));
     for (const r of rows.sort((a, b) => (a.tiers[0]?.column ?? 0) - (b.tiers[0]?.column ?? 0))) {
       const cells = new Map<number, HTMLElement[]>();
       for (const t of r.tiers) {
@@ -110,7 +110,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
     }
   }
 
-  grid.append(h('div', { class: 'band research' }, 'Research'));
+  grid.append(h('div', { class: 'band research' }, h('span', {}, 'Research')));
   const atName = (kind: number): string => tree.rows.find((r) => r.kind === kind)?.name ?? '';
   for (const r of tree.research) {
     const chip = researchChip(r, atName(r.at), deps, () => renderTree(root, deps));
@@ -167,7 +167,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
 
   const intro = h('p', { class: 'doc' },
     'Each building\'s tiers sit under the earliest main base level they can be had at: after their own main base level, the tier before them and any research. ',
-    'Hover a tier to draw what it waits on (green, from the left) and what it opens (blue, to the right). Click a tier to change its numbers below the tree; the tree moves as you edit.');
+    'Hover a tier to draw what it waits on (red lines, from the left) and what it opens (blue dashed lines, to the right). Click a tier to change its numbers below the tree; the tree moves as you edit.');
   const legend = h('div', { class: 'legend' },
     h('span', { class: 'tier main' }, 'Main base'), h('span', { class: 'tier basic' }, 'Basic build menu'), h('span', { class: 'tier advanced' }, 'Advanced build menu'),
     h('span', { class: 'tier research' }, 'Research'), h('span', { class: 'tier basic' }, h('span', { class: 'rs' }, flask(), 'needs research')),
