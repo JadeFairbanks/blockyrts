@@ -56,6 +56,9 @@ importers:
 
   packages/client:
     dependencies:
+      '@blockyrts/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@blockyrts/sim':
         specifier: workspace:*
         version: link:../sim

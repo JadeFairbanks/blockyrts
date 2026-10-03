@@ -1,319 +1,51 @@
-// Client entry: the start screen, then the renderer, the sim worker, the
-// generated world on screen and the game shell (input, camera, HUD,
-// selection, minimap).
-//
-// The world plugs into the shell through the WorldHooks interface
-// (src/hud/shell.ts); WorldView (src/world/world-view.ts) implements it.
+// Client entry: the main menu (or a page an emailed or invite link opens),
+// then the match (game/match.ts). Testers skip the menu with ?seed=N (and
+// &players=N for extra start pockets), which starts a game alone at once.
 import './hud/hud.css';
-import * as THREE from 'three';
-import { DEBUG_CARAVAN, DEBUG_TRADE_KIT, DebugThreat, FACTION_KIND_NAMES, hashHex, LAIRS, LATE_MOBS, Mat, mobSpec, WAVE_NIGHTS, WU_PER_METRE, type Order } from '@blockyrts/sim';
-import { GameInfo } from './game/game-info.ts';
-import { GameShell } from './hud/shell.ts';
+import { runMatch, START_MODELS } from './game/match.ts';
 import { openModelLibrary, type ModelLibrary } from './models/index.ts';
-import { S, STATE_STRIDE, type FromWorker, type ToWorker } from './messages.ts';
+import { Api, joinCodeOf } from './net/api.ts';
 import { loadSettings } from './settings/settings.ts';
-import { chooseStart } from './start/start-screen.ts';
-import { COLUMN_M, UNIT_M } from './world/mesher.ts';
-import { WorldView } from './world/world-view.ts';
-
-/** The local player. */
-const PLAYER = 0;
-
-/**
- * Models on screen when a match starts: the three bodies, the level 1 main
- * base and the hand torch. The match waits for these (at most
- * START_MODELS_WAIT_MS), so nothing swaps from a block to its model in view;
- * everything else loads behind them, and whatever comes into view first jumps
- * the queue.
- */
-const START_MODELS = ['worker', 'warrior', 'mage', 'main_base_l1', 'torch_hand'];
-const START_MODELS_WAIT_MS = 20000;
+import { startFromUrl } from './start/seed.ts';
+import { resetPasswordPage } from './ui/account.ts';
+import { Screen } from './ui/dom.ts';
+import { mainMenu, newSoloPlan, type MenuStart } from './ui/main-menu.ts';
 
 async function main(): Promise<void> {
   const app = document.getElementById('app')!;
   const settings = loadSettings();
-  // Models start loading while the player is on the start screen.
+  const api = new Api();
+  // Models start loading while the player is in the menu.
   const library: Promise<ModelLibrary | null> = openModelLibrary(`${import.meta.env.BASE_URL}models/`, START_MODELS).catch((err: unknown) => {
     console.warn('model library not loaded; drawing blocks', err);
     return null;
   });
-  const { seed, players } = await chooseStart(app);
-  // A refresh (or a shared link) starts the same world again.
-  history.replaceState(null, '', `${location.pathname}?seed=${seed}&players=${players}`);
+  const toMenu = (): void => {
+    location.href = '/';
+  };
 
-  const canvas = document.getElementById('view') as HTMLCanvasElement;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-
-  const world = new WorldView({ scene, seed, players, player: PLAYER });
-  const game = new GameInfo(PLAYER);
-  world.setGame(game);
-
-  const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
-  const send = (msg: ToWorker): void => worker.postMessage(msg);
-
-  let leaving = false;
-  const shell: GameShell = new GameShell(app, {
-    scene,
-    world: world.hooks,
-    extras: {
-      heightAt: (x, z) => world.groundAt(x, z),
-      seen: (x, z) => world.seenNow(x, z),
-      node: (cx, cz, i) => world.node(cx, cz, i),
-      setGhost: (g) => world.buildings.setGhost(g, PLAYER, (x, z) => world.groundAt(x, z)),
-      setPlanned: () => world.buildings.setPlanned(game.queues, PLAYER, (x, z) => world.groundAt(x, z)),
-      overlay: world.overlay,
-    },
-    game,
-    player: PLAYER,
-    seed,
-    players,
-    settings,
-    issueOrder(order) {
-      send({ type: 'order', order });
-    },
-    askPlacement(kind, variant, spots) {
-      send({ type: 'place', id: 0, kind, variant, spots });
-    },
-    onQuit() {
-      leaving = true;
-      location.href = location.pathname;
-    },
-  });
-
-  // Leaving or refreshing the page during a match asks first.
-  window.addEventListener('beforeunload', (e) => {
-    if (leaving) return;
-    e.preventDefault();
-    e.returnValue = '';
-  });
-
-  function resize(): void {
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    renderer.setSize(w, h, false);
-    shell.resize(w, h);
+  // The link in a password reset email.
+  if (location.pathname === '/reset-password') {
+    const token = new URLSearchParams(location.hash.slice(1)).get('token') ?? '';
+    history.replaceState(null, '', '/');
+    const screen = new Screen(app);
+    await resetPasswordPage(screen, api, token);
+    screen.remove();
   }
-  window.addEventListener('resize', resize);
-  resize();
 
-  addDebugTools(shell, world, (order) => send({ type: 'order', order }), (factor) => send({ type: 'speed', factor }));
-
-  let stepsSeen = 0;
-  let rateFrom = performance.now();
-  let stepsPerSecond = 0;
-  let placed = false;
-  worker.onmessage = (ev: MessageEvent<FromWorker>) => {
-    const msg = ev.data;
-    if (msg.type === 'deltas') {
-      world.onDeltas(msg);
-      return;
-    }
-    if (msg.type === 'fog') {
-      world.onFog(msg);
-      return;
-    }
-    if (msg.type === 'info') {
-      game.onInfo(msg);
-      return;
-    }
-    if (msg.type === 'placed') {
-      shell.onPlaced(msg.kind, msg.spots);
-      return;
-    }
-    game.onState(msg);
-    world.onState(msg);
-    stepsSeen++;
-    const now = performance.now();
-    if (now - rateFrom >= 1000) {
-      stepsPerSecond = Math.round((stepsSeen * 1000) / (now - rateFrom));
-      stepsSeen = 0;
-      rateFrom = now;
-    }
-    shell.setSimInfo({ step: msg.step, stepsPerSecond, hash: hashHex(msg.hash), hashStep: msg.hashStep });
-    if (!placed) {
-      // Start the camera over the player's own units, in their pocket.
-      placed = true;
-      let x = 0;
-      let z = 0;
-      let n = 0;
-      for (let i = 0; i < msg.count; i++) {
-        const o = i * STATE_STRIDE;
-        if (msg.data[o + S.owner] !== PLAYER) continue;
-        x += msg.data[o + S.x]!;
-        z += msg.data[o + S.z]!;
-        n++;
-      }
-      if (n > 0) shell.cam.jumpTo(x / n / WU_PER_METRE, z / n / WU_PER_METRE);
-      shell.message(`World generated from seed ${seed}.`);
-      if (players > 1) shell.message(`${players} players: you are player 1.`);
-      shell.message('Select your workers and right-click trees and rocks to gather; press B to build.');
-    }
-  };
-  const lib = await library;
-  if (lib) {
-    world.setModels(lib);
-    const loading = document.createElement('div');
-    loading.className = 'overlay start-overlay';
-    loading.innerHTML = '<div class="dialog loading">Loading models\u2026</div>';
-    app.appendChild(loading);
-    await Promise.race([lib.ready(START_MODELS), new Promise((resolve) => setTimeout(resolve, START_MODELS_WAIT_MS))]);
-    loading.remove();
+  const quick = startFromUrl(location.search);
+  let plan;
+  if (quick) {
+    plan = newSoloPlan(quick.seed, 'Player 1', '', quick.players);
+  } else {
+    // Who this page is: the stored session, or a new guest (the menu works without the server).
+    await api.ensureSession().catch(() => undefined);
+    const code = joinCodeOf(location.pathname, location.search);
+    const start: MenuStart = code ? { page: 'join', code } : { page: 'main' };
+    if (code) history.replaceState(null, '', '/');
+    plan = await mainMenu(app, { api, settings }, start);
   }
-  send({ type: 'start', seed, players });
-  shell.start();
-  // For browser checks in development (test-e2e): the shell and the world are reachable from the console.
-  if (import.meta.env.DEV) Object.assign(window as object, { shell, world });
-
-  let lastFrame = performance.now();
-  function frame(now: number): void {
-    const dt = Math.min(0.1, Math.max(0, (now - lastFrame) / 1000));
-    lastFrame = now;
-    world.update(now, shell.cam.focus);
-    shell.frame(dt, now);
-    renderer.render(scene, shell.cam.camera);
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
-/**
- * Debug buttons in the debug readout (top left): the M1 tools a tester uses
- * to see the world. They act at the camera's focus (the middle of the view),
- * and the land changes go through the sim as orders, so they are in the hash.
- */
-function addDebugTools(shell: GameShell, world: WorldView, order: (o: Order) => void, speed: (factor: number) => void): void {
-  const bar = document.createElement('div');
-  bar.className = 'dbg-tools';
-  shell.layout.debug.append(bar);
-  const focusColumn = (): { x: number; z: number; y: number } => {
-    const f = shell.cam.focus;
-    const x = Math.floor(f.x / COLUMN_M);
-    const z = Math.floor(f.z / COLUMN_M);
-    return { x, z, y: Math.round((world.heightAt(f.x, f.z) ?? 0) / UNIT_M) };
-  };
-  const add = (id: string, face: string, name: string, description: string, onPress: () => void): void => {
-    const b = shell.buttons.add({ id, face, name, keys: [], description, className: 'dbg-btn', onPress });
-    bar.append(b.el);
-  };
-  add('dbg-reveal', 'Reveal', 'Debug: reveal', 'Marks the land within 150 m of the middle of the view explored (a sim order, so it is in the hash). The minimap fills in behind it.', () => {
-    const f = shell.cam.focus;
-    order({ kind: 'debugReveal', player: PLAYER, x: Math.round(f.x * WU_PER_METRE), z: Math.round(f.z * WU_PER_METRE), radius: 150 * WU_PER_METRE });
-  });
-  add('dbg-all', 'Show all', 'Debug: show all', 'Draws the land without fog of war, on this screen only; the sim and the minimap still keep to what is explored.', () => {
-    world.setShowAll(!world.showingAll);
-    shell.buttons.get('dbg-all')?.setLit(world.showingAll);
-  });
-  add('dbg-dig', 'Dig', 'Debug: dig', 'Digs a 3 m square pit 1 m deep in the middle of the view, as a terrain edit. Water nearby flows in.', () => {
-    const c = focusColumn();
-    order({ kind: 'terrain', player: PLAYER, x0: c.x - 3, z0: c.z - 3, x1: c.x + 3, z1: c.z + 3, bottom: c.y - 9, top: c.y + 40, material: Mat.Air });
-  });
-  add('dbg-raise', 'Raise', 'Debug: raise', 'Builds a 2 m stone block 1 m high in the middle of the view, as a terrain edit.', () => {
-    const c = focusColumn();
-    order({ kind: 'terrain', player: PLAYER, x0: c.x - 2, z0: c.z - 2, x1: c.x + 2, z1: c.z + 2, bottom: c.y, top: c.y + 9, material: Mat.Stone });
-  });
-  add('dbg-hill', 'Hill', 'Debug: hill', 'Builds a soil hill 3.4 m tall and 5 m across in the middle of the view, with a 45 cm ledge on its south side (units hop up it) and a 56 cm ledge on its north side (too tall to get up), as terrain edits. Dig (D) pressed on the hill side tunnels into it.', () => {
-    const c = focusColumn();
-    const soil = (z0: number, z1: number, top: number): void => order({ kind: 'terrain', player: PLAYER, x0: c.x - 5, z0: c.z + z0, x1: c.x + 5, z1: c.z + z1, bottom: c.y - 4, top: c.y + top, material: Mat.Soil });
-    soil(6, 10, 4);
-    soil(-10, -6, 5);
-    soil(-5, 5, 30);
-  });
-  let factor = 1;
-  add('dbg-speed', 'Speed ×1', 'Debug: game speed', 'Runs the game at 1, 4 or 16 times speed, to see the day turn and farms grow without waiting. Every step is the same as at normal speed, so the hash does not change.', () => {
-    factor = factor === 1 ? 4 : factor === 4 ? 16 : 1;
-    speed(factor);
-    shell.buttons.get('dbg-speed')?.setFace(`Speed ×${factor}`).setLit(factor > 1);
-  });
-  add('dbg-fell', 'Fell', 'Debug: fell', 'Takes everything from the selected trees, bushes and rocks: trees fall and drop seeds, hazel and herbs grow back from the stump.', () => {
-    let n = 0;
-    for (const s of shell.selection.list()) {
-      const p = WorldView.propKey(s.key);
-      if (!p) continue;
-      order({ kind: 'debugHarvest', player: PLAYER, cx: p.cx, cz: p.cz, index: p.index, amount: 100000 });
-      n++;
-    }
-    shell.message(n > 0 ? `Felled ${n}.` : 'Select trees, bushes or rocks first.');
-  });
-  // Milestone 5's threats, at the middle of the view (sim orders, so they are in the hash).
-  const threat = (what: number): void => {
-    const f = shell.cam.focus;
-    order({ kind: 'debugThreat', player: PLAYER, what, x: Math.round(f.x * WU_PER_METRE), z: Math.round(f.z * WU_PER_METRE) });
-  };
-  const cycler = (id: string, label: string, names: readonly string[], first: number, description: string): void => {
-    let k = 0;
-    add(id, `${label}: ${names[0]}`, `Debug: ${label.toLowerCase()}`, description, () => {
-      threat(first + k);
-      shell.message(`Debug: ${names[k]} placed in the middle of the view.`);
-      k = (k + 1) % names.length;
-      shell.buttons.get(id)?.setFace(`${label}: ${names[k]}`);
-    });
-  };
-  cycler('dbg-lair', 'Lair', LAIRS.map((l) => mobSpec(l.mob).name), DebugThreat.Lair, 'Puts the named lair (Table 15) in the middle of the view with its guardians, asleep sleepers inside; each press moves on to the next of the eight kinds.');
-  add('dbg-village', 'Village', 'Debug: goblin village', 'Puts a goblin village of 5 huts with a goblin mage in the middle of the view (Table 17).', () => {
-    threat(DebugThreat.Village);
-    shell.message('Debug: a goblin village placed in the middle of the view.');
-  });
-  cycler('dbg-tribe', 'Tribe', ['Gnolls', 'Kobolds', 'Hobgoblins'], DebugThreat.Gnolls, 'Puts a band of the named hostile tribe (Table 16) in the middle of the view; each press moves on to the next tribe.');
-  cycler('dbg-creature', 'Creature', ['Giant beetle', 'Giant hornets', 'Viper', 'Giant scorpion', 'Griffin', 'Minotaur'], DebugThreat.Creature, 'Puts the named territorial creature in the middle of the view; each press moves on to the next.');
-  add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
-  add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
-  // Milestone 6's mages.
-  add('dbg-sanctum', 'Sanctum', 'Debug: Magi Sanctum', 'Puts a finished Magi Sanctum in the middle of the view: it trains support and battle mages, makes wands and rank wands, and researches Hexcraft.', () => {
-    threat(DebugThreat.Sanctum);
-    shell.message('Debug: a Magi Sanctum placed in the middle of the view.');
-  });
-  add('dbg-magekit', 'Mage kit', 'Debug: mage kit', 'Puts 2 wands and 2 of each rank wand in the equipment stock, and 10 mana crystals, 200 bread, 6 hexstone and 20 herbs in the pool: enough for two mages, their rank training and Hexcraft.', () => {
-    threat(DebugThreat.MageKit);
-    shell.message('Debug: wands, rank wands, mana crystals and bread added.');
-  });
-  add('dbg-magexp', 'Mage XP', 'Debug: mage experience', 'Gives each of your mages the experience for her next rank: she rises by herself to Acolyte and Adept Acolyte, and above that is ready for her rank wand at the Sanctum.', () => {
-    threat(DebugThreat.MageXp);
-    shell.message('Debug: your mages have the experience for their next rank.');
-  });
-  // Milestone 7's neutral peoples, at the middle of the view (sim orders, so they are in the hash).
-  const people = (what: number): void => {
-    const f = shell.cam.focus;
-    order({ kind: 'debugPeoples', player: PLAYER, what, x: Math.round(f.x * WU_PER_METRE), z: Math.round(f.z * WU_PER_METRE) });
-  };
-  let kind = 0;
-  add('dbg-people', `People: ${FACTION_KIND_NAMES[0]}`, 'Debug: neutral people', 'Puts the named people in the middle of the view as if just found there: a Halfling village, a Runkin camp, the Elf kingdom (moved here if nobody has found it yet), a wandering Elf caravan, a Dwarf colony, a Dwarf city or a mercenary camp. Each press moves on to the next.', () => {
-    people(kind);
-    shell.message(`Debug: ${FACTION_KIND_NAMES[kind]} placed in the middle of the view.`);
-    kind = (kind + 1) % FACTION_KIND_NAMES.length;
-    shell.buttons.get('dbg-people')?.setFace(`People: ${FACTION_KIND_NAMES[kind]}`);
-  });
-  add('dbg-caravan', 'Caravan', 'Debug: Elf caravan', 'Meets the Elves and sends their caravan to your main base now (by day; it waits for the morning at night). It stops outside the base, trades, and leaves at dusk.', () => people(DEBUG_CARAVAN));
-  add('dbg-tradekit', 'Trade kit', 'Debug: trade kit', 'Puts 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold in the pool, to trade with and to hire mercenaries.', () => people(DEBUG_TRADE_KIT));
-  // Milestone 8's mounts, engines, guns and the late nights, at the middle of the view.
-  add('dbg-stables', 'Stables', 'Debug: Stables', 'Puts a finished Stables in the middle of the view with 2 grown horses and an ox in its stalls, and 100 bread: train warriors to ride there (select warriors, U for Train, then Riding), then R mounts them.', () => {
-    threat(DebugThreat.Stables);
-    shell.message('Debug: a Stables with 2 horses and an ox placed in the middle of the view.');
-  });
-  add('dbg-siege', 'Siege kit', 'Debug: siege kit', 'Puts a catapult, a ballista and a bronze cannon in the middle of the view, 20 each of catapult stones, ballista bolts, cannonballs and gunpowder in the pool, and researches Siege engines, Gunpowder, Muskets and Cannons. Hitch a horse or an ox (select the engine, right click the animal) or crew it with warriors (right click it).', () => {
-    threat(DebugThreat.SiegeKit);
-    shell.message('Debug: a catapult, a ballista and a bronze cannon placed in the middle of the view.');
-  });
-  add('dbg-guns', 'Gun kit', 'Debug: gun kit', 'Puts 4 steel-barrel muskets, powder horns and shot pouches in the stock, 20 gunpowder and 40 lead shot in the pool, researches the guns and trains every warrior in the musket and cannon crew.', () => {
-    threat(DebugThreat.GunKit);
-    shell.message('Debug: muskets, horns, pouches and powder added; your warriors are trained in the musket and cannon crew.');
-  });
-  add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
-    threat(DebugThreat.Citadel);
-    shell.message('Debug: your main base is a Citadel now.');
-  });
-  cycler('dbg-late', 'Night mob', LATE_MOBS.map((m) => mobSpec(m).name), DebugThreat.LateMob, 'Puts the named night mob (nights 25 to 110, and the Rift-touched beasts) in the middle of the view; each press moves on to the next.');
-  let wave = 0;
-  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player, no blood night) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
-    threat(DebugThreat.Wave + wave);
-    wave = (wave + 1) % WAVE_NIGHTS.length;
-    shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);
-  });
-  add('dbg-morvath', 'Morvath', 'Debug: Morvath', 'Brings Morvath, the Hollow Crown, to the middle of the view now, as he comes on night 110: alive at dawn he withdraws and comes back the next night with the health he had; killed, he returns ten nights later.', () => {
-    threat(DebugThreat.Morvath);
-    shell.message('Debug: Morvath has come.');
-  });
+  await runMatch(app, plan, { api, settings, library, toMenu });
 }
 
 void main();

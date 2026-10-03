@@ -41,6 +41,8 @@ export interface PlayerInfo {
   ready: boolean;
   presence: Presence;
   guest: boolean;
+  /** The player's account id ('' for a guest): the host writes it into a save so each returning player gets their own place. */
+  accountId: string;
 }
 
 // ---------------------------------------------------------------- client to server
@@ -329,7 +331,7 @@ export function encodeServer(m: ServerMessage): Uint8Array {
     case 'roomState':
       w.str(m.code).str(m.matchId).u8(m.phase).u32(m.seed).bool(m.fromSave).u8(m.hostSlot);
       w.u8(m.yourSlot).str(m.rejoinToken).u8(m.players.length);
-      for (const p of m.players) w.u8(p.slot).str(p.name).u8(p.colour).bool(p.ready).u8(p.presence).bool(p.guest);
+      for (const p of m.players) w.u8(p.slot).str(p.name).u8(p.colour).bool(p.ready).u8(p.presence).bool(p.guest).str(p.accountId);
       break;
     case 'gameStart':
       w.u32(m.startStep).u8(m.inputDelay).u16(m.epoch).u8(m.activeSlots).bytes(m.snapshot);
@@ -408,6 +410,7 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
           ready: r.bool(),
           presence: enumValue<Presence>(r.u8(), 3, 'presence'),
           guest: r.bool(),
+          accountId: r.str(),
         });
       }
       m = { type: 'roomState', code, matchId, phase, seed, fromSave, hostSlot, yourSlot, rejoinToken, players };

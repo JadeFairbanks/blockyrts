@@ -46,9 +46,21 @@ export function isDoubleClick(prev: ClickRecord | null, cur: ClickRecord): boole
   );
 }
 
-/** Owned by the player and so can be ordered: own units and buildings (nodes never are). */
+/**
+ * Another player's unit or building this player may order (Allies panel:
+ * shared control; When a player is eliminated or leaves: shared by everyone).
+ * Set by the game shell; nothing is shared until it is.
+ */
+let sharedWith: (t: SelInfo, player: number) => boolean = () => false;
+
+export function setSharedControl(f: (t: SelInfo, player: number) => boolean): void {
+  sharedWith = f;
+}
+
+/** Can be ordered by the player: own units and buildings, and those shared with them (nodes never are). */
 export function isOwn(t: SelInfo, player: number): boolean {
-  return t.owner === player && t.kind !== 'node';
+  if (t.kind === 'node') return false;
+  return t.owner === player || sharedWith(t, player);
 }
 
 /** The thing under a screen point: the nearest to the camera among those whose padded box holds the point. */

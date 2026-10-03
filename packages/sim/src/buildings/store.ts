@@ -42,6 +42,8 @@ export interface QueueItem {
   paid: Array<[number, number]>;
   /** Steps of work done. */
   progress: number;
+  /** The player who queued and paid for it: the building's owner, or another player using an inherited building (Multiplayer and saving). */
+  by: number;
 }
 
 /** A rally point: ground (wu), a unit to follow, or a resource node to gather from. */
@@ -86,6 +88,14 @@ export interface Building {
   stock: Array<[number, number]>;
   /** Mineshafts: output carried between steps, per resource of the tier's list, in thousandths times steps per day. */
   acc: number[];
+  /**
+   * 1 once inherited from a player who was eliminated or left: every player
+   * still in may use it, paying with their own resources (When a player is
+   * eliminated or leaves).
+   */
+  shared: number;
+  /** Research the players it was inherited from had (a bit per step), which anyone using it may build on. */
+  tech: number;
 }
 
 export function maxHealth(b: Building): number {
@@ -277,6 +287,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     for (const q of b.queue) {
       w.u16(q.product);
       w.i32(q.progress);
+      w.u8(q.by);
       w.u8(q.paid.length);
       for (const [res, n] of q.paid) {
         w.u8(res);
@@ -299,6 +310,8 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     }
     w.u8(b.acc.length);
     for (const v of b.acc) w.i32(v);
+    w.u8(b.shared);
+    w.u32(b.tech);
   }
 }
 
@@ -331,15 +344,18 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       mined: 0,
       stock: [],
       acc: [],
+      shared: 0,
+      tech: 0,
     };
     const nq = r.u8();
     for (let q = 0; q < nq; q++) {
       const product = r.u16();
       const progress = r.i32();
+      const by = r.u8();
       const np = r.u8();
       const paid: Array<[number, number]> = [];
       for (let p = 0; p < np; p++) paid.push([r.u8(), r.i32()]);
-      b.queue.push({ product, progress, paid });
+      b.queue.push({ product, progress, paid, by });
     }
     const nr = r.u8();
     for (let p = 0; p < nr; p++) b.rally.push(readRally(r));
@@ -354,6 +370,8 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     for (let k2 = 0; k2 < ns; k2++) b.stock.push([r.u8(), r.i32()]);
     const na = r.u8();
     for (let k2 = 0; k2 < na; k2++) b.acc.push(r.i32());
+    b.shared = r.u8();
+    b.tech = r.u32();
     store.add(b, touch);
   }
 }
@@ -364,6 +382,6 @@ export function buildingFields(b: Building): Record<string, number | string> {
     id: b.id, owner: b.owner, kind: b.kind, variant: b.variant, level: b.level, x: b.x, z: b.z, y: b.y, hp: b.hp,
     progress: b.progress, complete: b.complete ? 1 : 0, upgrading: b.upgrading, upProgress: b.upProgress, repairAcc: b.repairAcc,
     queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), fuelUntil: b.fuelUntil, doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
-    costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc),
+    costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech,
   };
 }

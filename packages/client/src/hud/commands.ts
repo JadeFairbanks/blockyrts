@@ -59,6 +59,7 @@ import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import { GRID_CODES, keyFor, spellAction } from '../input/bindings.ts';
 import type { BuildingInfo, PeopleInfo } from '../messages.ts';
+import { isOwn } from '../selection/rules.ts';
 import { buildingIdOf, entityIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
 import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
@@ -87,6 +88,9 @@ export interface CardEntry {
 }
 
 export type Card = Array<CardEntry | null>;
+
+/** The card's commands that work on another player's shared units (the sim's allied orders). */
+const ALLIED_ACTIONS = new Set(['attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'returnCargo', 'cancel']);
 
 type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt' | 'cast' | 'hitch';
 
@@ -289,7 +293,7 @@ export class Commands {
   unitIds(filter: (t: Selectable) => boolean = () => true): number[] {
     const out: number[] = [];
     for (const t of this.d.selection()) {
-      if (t.kind !== 'unit' || t.owner !== this.d.player || !filter(t)) continue;
+      if (t.kind !== 'unit' || !isOwn(t, this.d.player) || !filter(t)) continue;
       const id = entityIdOf(t.key);
       if (id !== null) out.push(id);
     }
@@ -300,7 +304,7 @@ export class Commands {
   buildings(): BuildingInfo[] {
     const out: BuildingInfo[] = [];
     for (const t of this.d.selection()) {
-      if (t.kind !== 'building' || t.owner !== this.d.player) continue;
+      if (t.kind !== 'building' || !isOwn(t, this.d.player)) continue;
       const id = buildingIdOf(t.key);
       const b = id === null ? undefined : this.d.game.buildings.get(id);
       if (b) out.push(b);
@@ -351,6 +355,7 @@ export class Commands {
     if (active === null) return card;
     if (this.area && active === 'worker') return this.areaCard(card);
     if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
+      if (this.alliedOnly(active)) return this.alliedCard(card, active);
       if (this.menu.page === 'equip') return this.equipCard(card);
       if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
       if (this.menu.page === 'skills' && active === 'warrior') return this.skillsCard(card);
@@ -361,6 +366,22 @@ export class Commands {
       const kind = Number(active.split(':')[1]);
       if (this.menu.page === 'craft' || this.menu.page === 'refurbish' || this.menu.page === 'make') return this.makeCard(card, kind, this.menu.page);
       this.buildingCard(card, kind);
+    }
+    return card;
+  }
+
+  /** Whether every selected unit of the active type is another player's, shared with this one. */
+  private alliedOnly(active: string): boolean {
+    const list = this.d.selection().filter((t) => t.kind === 'unit' && t.typeKey === active);
+    return list.length > 0 && list.every((t) => t.owner !== this.d.player);
+  }
+
+  /** Shared units take the shared orders only (Allies panel): move, attack, patrol, hold, gather, shelter and garrison. */
+  private alliedCard(card: Card, active: string): Card {
+    this.unitCard(card, active);
+    for (let i = 0; i < card.length; i++) {
+      const e = card[i];
+      if (e && !ALLIED_ACTIONS.has(e.action)) card[i] = null;
     }
     return card;
   }
