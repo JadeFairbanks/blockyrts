@@ -87,13 +87,20 @@ jobs:
           exit 1
 
   # The cross-engine determinism test is the longest single test file, so it
-  # runs in parallel with the job above instead of after the other tests.
+  # runs alongside the job above, one job per browser engine. Each job installs
+  # and requires only its own engine; the test skips engines that are not
+  # installed, and the three jobs together cover all three.
   cross-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
+    name: cross-browser (${{ matrix.engine }})
     env:
-      # Fails, rather than skips, if one of these is missing.
-      SIM_REQUIRE_BROWSERS: chromium,firefox,webkit
+      # Fails, rather than skips, if this engine is missing.
+      SIM_REQUIRE_BROWSERS: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -102,7 +109,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install Playwright browsers
-        run: pnpm --filter @blockyrts/tools exec playwright install --with-deps chromium firefox webkit
-      - name: Cross-browser determinism test (Node, Chromium, Firefox, WebKit)
+      - name: Install Playwright ${{ matrix.engine }}
+        run: pnpm --filter @blockyrts/tools exec playwright install --with-deps ${{ matrix.engine }}
+      - name: Cross-browser determinism test (Node and ${{ matrix.engine }})
         run: pnpm test packages/tools/test/cross-browser.test.ts

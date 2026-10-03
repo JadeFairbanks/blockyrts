@@ -49,7 +49,7 @@ CI installs all three and fails if any is missing.
 
 CI (`.github/workflows/ci.yml`) runs all of the above, the builds, the
 two-player network test and the server image on every push to a pull request
-and to `main`, with the cross-browser test in a second job alongside the rest. A new push cancels the run its branch's previous push started,
+and to `main`, with the cross-browser test alongside the rest in one job per browser engine. A new push cancels the run its branch's previous push started,
 and pnpm's package store is cached between runs. It can also be run by hand
 on any branch from the Actions tab.
 
