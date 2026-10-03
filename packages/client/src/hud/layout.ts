@@ -32,7 +32,7 @@ export interface HudLayout {
   clockTime: HTMLElement;
   clockNote: HTMLElement;
   debug: HTMLElement;
-  debugFields: Record<'seed' | 'players' | 'step' | 'rate' | 'hash' | 'hashStep', HTMLElement>;
+  debugFields: Record<'seed' | 'players' | 'step' | 'rate' | 'hash' | 'hashStep' | 'fps' | 'draws' | 'units' | 'memory', HTMLElement>;
 }
 
 function div(className: string, parent?: HTMLElement, text?: string): HTMLElement {
@@ -149,6 +149,11 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     rate: field('steps/s'),
     hash: field('hash'),
     hashStep: field('at step'),
+    // How the page runs (Technical decisions 10): frames a second and the frame's own time, draw calls, units, memory.
+    fps: field('fps'),
+    draws: field('draws'),
+    units: field('units'),
+    memory: field('memory'),
   };
 
   panels.register('minimap', minimapPanel);

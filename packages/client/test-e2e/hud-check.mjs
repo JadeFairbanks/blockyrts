@@ -66,7 +66,7 @@ const goHome = () => page.evaluate((h) => window.shell.cam.jumpTo(h.x, h.z), hom
 // 2. Arrow keys pan.
 let f0 = await focus();
 await page.keyboard.down('ArrowRight');
-await page.waitForTimeout(500);
+await page.waitForTimeout(1000); // long enough for a few frames on a software renderer
 await page.keyboard.up('ArrowRight');
 let f1 = await focus();
 check('ArrowRight pans east', f1.x > f0.x + 5, `${f0.x.toFixed(1)} -> ${f1.x.toFixed(1)}`);
@@ -90,8 +90,9 @@ f1 = await focus();
 check('right edge pans', f1.x > f0.x + 3, `${f0.x.toFixed(1)} -> ${f1.x.toFixed(1)}`);
 check('pan arrow cursor', (await page.getAttribute('#cursor', 'data-shape')) === 'pan');
 await shot('edge-pan');
-await page.mouse.move(150, H - 1);
-await page.waitForTimeout(50);
+// Over the minimap the pan zone thins to the outermost 2 px (Camera: edge panning), so 3 px in never pans.
+await page.mouse.move(150, H - 3);
+await page.waitForTimeout(300);
 f0 = await focus();
 await page.waitForTimeout(300);
 f1 = await focus();
@@ -119,8 +120,8 @@ await page.waitForTimeout(900);
 check('farthest zoom limit', Math.abs((await focus()).d - 80) < 0.05, String((await focus()).d));
 await shot('zoomed-out');
 await page.keyboard.press('Home');
-await page.waitForTimeout(700);
-check('Home resets zoom', Math.abs((await focus()).d - 40) < 0.05);
+for (let k = 0; k < 30 && Math.abs((await focus()).d - 40) >= 0.05; k++) await page.waitForTimeout(100);
+check('Home resets zoom', Math.abs((await focus()).d - 40) < 0.05, String((await focus()).d));
 await page.keyboard.press('PageUp');
 await page.waitForTimeout(500);
 check('Page Up zooms in', (await focus()).d < 39);
@@ -142,8 +143,13 @@ await page.waitForTimeout(200);
 // 6. Click select, empty ground keeps it, drag box.
 const own = (await itemKeys()).filter((k) => k.startsWith('e:'));
 check('own units on screen', own.length >= 3, own.join(' '));
-const u0 = await screenOf(own[0]);
-await page.mouse.click(u0.x, u0.y - 8);
+// The units mill about: aim again if the click caught a neighbour.
+for (let k = 0; k < 3; k++) {
+  const u0 = await screenOf(own[0]);
+  await page.mouse.click(u0.x, u0.y - 8);
+  if (JSON.stringify(await selected()) === JSON.stringify([own[0]])) break;
+  await page.waitForTimeout(350);
+}
 check('click selects one unit', JSON.stringify(await selected()) === JSON.stringify([own[0]]), (await selected()).join(' '));
 await page.mouse.click(40, 200);
 check('click on empty ground keeps the selection', (await selected()).length === 1);
@@ -261,9 +267,9 @@ check('Cancel is in the bottom right slot', await page.locator('.slot:nth-child(
 await shot('targeting');
 await page.keyboard.press('Escape');
 check('Esc cancels targeting first', (await selected()).length > 0 && (await page.getAttribute('#cursor', 'data-shape')) !== 'target');
-const moveBtn = await centreOf('[data-btn=cmd-move]');
+const moveBtn = await centreOf('[data-btn=card4]');
 await page.mouse.click(moveBtn.x, moveBtn.y);
-check('the Move button enters targeting', (await page.getAttribute('#cursor', 'data-shape')) === 'arrow' && (await page.getAttribute('[data-btn=cmd-move]', 'class')).includes('lit'));
+check('the Move button enters targeting', (await page.getAttribute('#cursor', 'data-shape')) === 'arrow' && (await page.getAttribute('[data-btn=card4]', 'class')).includes('lit'));
 const n = orders.length;
 await page.mouse.click(mm.x + 30, mm.y + 20);
 check('minimap click confirms the move', orders.length === n + 1 && orders.at(-1).kind === 'move', JSON.stringify(orders.at(-1)));
@@ -322,7 +328,7 @@ check('panning ends follow', !(await page.getAttribute('[data-btn=follow]', 'cla
 const idle = await centreOf('[data-btn=idle]');
 await page.mouse.move(idle.x, idle.y);
 await page.waitForTimeout(100);
-check('tooltip for a disabled button', (await text('#tooltip')).includes('M2'), await text('#tooltip'));
+check('a button shows its tooltip', (await text('#tooltip')).includes('Idle Gatherer'), await text('#tooltip'));
 await shot('tooltip');
 const res = await centreOf('[data-btn=resources]');
 await page.mouse.click(res.x, res.y);

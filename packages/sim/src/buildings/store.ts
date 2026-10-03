@@ -139,12 +139,15 @@ export class BuildingStore {
   private readonly foot = new Map<number, number>();
   /** Derived: gate columns per chunk (local indices). */
   private readonly gates = new Map<number, Set<number>>();
+  /** Not state: bumped whenever a building is added or removed or changes hands, so a cache can tell nothing changed with one compare. */
+  rev = 0;
 
   get(id: number): Building | undefined {
     return this.byId.get(id);
   }
 
   add(b: Building, touch: (chunk: number) => void): void {
+    this.rev++;
     this.list.push(b);
     this.list.sort((a, c) => a.id - c.id);
     this.byId.set(b.id, b);
@@ -154,6 +157,7 @@ export class BuildingStore {
   remove(id: number, touch: (chunk: number) => void): void {
     const b = this.byId.get(id);
     if (!b) return;
+    this.rev++;
     this.mark(b, false, touch);
     this.byId.delete(id);
     const i = this.list.indexOf(b);

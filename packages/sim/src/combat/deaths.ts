@@ -213,6 +213,7 @@ export function eliminate(state: SimState, p: number, text: string): void {
     }
   }
   const heir = left[0]!;
+  state.buildings.rev++;
   for (const b of state.buildings.list) {
     if (b.owner === p) {
       b.owner = heir;

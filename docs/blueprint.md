@@ -442,6 +442,8 @@ Built (2026-10-03, PR #59): picks in m8-picks.md, now in the docx and number-tab
 
 **Risks:** 100 hour saves with every edited chunk; rejoin ordering; hosting cost and account email delivery.
 
+Done (merged 2026-10-03, PR #61): picks in m9-picks.md, now in the docx (Multiplayer and saving, Outside the match, Controls) and number-tables.md table 20.
+
 #### M10: Audio, performance pass, balance pass against the pacing check, bug bash
 
 **You can now:** a single-player run reaches bronze by night 4 to 6, iron by 13 to 18, steel by 25 to 30 and gunpowder by 40 to 48 (s) as in the pacing check, at the agreed frame rate on the minimum hardware; the Quick reference works end to end with the mouse alone; every sound in the Audio list plays.
@@ -1180,7 +1182,7 @@ The screen is split into two zones, and almost every control rule below depends 
   - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys").
   - Resource bar (top right): stockpiled resources, expandable to show every resource type (see "Resources" below).
   - Clock (top centre): the current day or night, time remaining, and the night count.
-  - Allies and Send resources buttons (next to the resource bar): the multiplayer tools (see "Allies panel").
+  - Top-right buttons, under the resource bar (suggested, as built 2026-10-03): Peoples (O), Allies ([), Send (]), Ping (\) and Pause (❚❚). Allies and Send are greyed when playing alone (see "Allies panel").
   - Message panel (left side, above the minimap): what the player's units say, game alerts such as "Night is falling", and chat between players (see "Unit speech and the message panel").
   - Utility bar (a slim row of buttons along the top edge of the minimap): Idle Gatherer, Select Army, Town Hall, Follow, Queue Mode, Auto-Equip (F4, suggested), Rations (F9, suggested), Everyone Home (J, suggested), Reset Zoom, four Camera Location buttons, and Menu. Each button does the same as its hotkey (see "Playing with the mouse only").
 
@@ -1535,11 +1537,13 @@ Because the game runs in a web browser, some key combinations above are normally
 | Backspace | Centre on town hall (cycles) |
 | Space | Jump to latest urgent message (cycles through last 8) |
 | Enter | Type a message to other players (Enter to send, Esc to cancel) |
+| [ / ] / \ (suggested) | Allies panel / Send resources / Map ping |
+| Pause (suggested) | Pause or carry on (anyone may, online) |
 | L | Follow selected unit |
 | F4 / F9 / J (suggested) | Auto-Equip toggle / Rations / Everyone Home (during dusk) |
 | Arrow keys, edge of screen, middle drag | Pan camera |
 | Mouse wheel, Page Up / Page Down, Home | Zoom in / out, reset zoom |
-| F10 | Game menu |
+| F10 | Game menu: Resume, Pause or Carry on, Save game, Download a save file, Full screen, Settings, Quit (Leave the game online) (suggested) |
 
 ### Resources
 
@@ -2691,7 +2695,7 @@ Up to 8 players play together against the world. Single player is the same game 
 
 #### Allies panel
 
-Two buttons next to the resource bar open the multiplayer tools. Both are clickable, like every other control.
+Two buttons next to the resource bar open the multiplayer tools. Both are clickable, like every other control. Suggested, as built 2026-10-03: they sit under the resource bar with Peoples, Ping and Pause; [ opens the Allies panel and ] Send resources, and both are greyed when playing alone.
 
 - **Allies** opens a list of the other players, with a "Share control" checkbox next to each. Ticking it lets that player command your units.
 - **Send resources** opens a window with a row for each ally. The player picks a resource, enters an amount (or clicks +10, +100 or All), and clicks Send. Resources arrive immediately. There is no cooldown, no limit and nothing is lost in transit.
@@ -2702,7 +2706,10 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - Allies can never use your buildings or spend your resources. They cannot start buildings with your workers, train units at your buildings, or start research for you.
 - You keep full control of your units too. If two players order the same unit, the latest order wins.
 - Resources gathered by your units always go to your own pool, whoever ordered them to gather.
-- Map pings (suggested): a player can click a Ping button and then a spot on the map or minimap to flash it for everyone, with a sound, to point out a threat or a target.
+- Map pings (suggested): a player can click a Ping button (or press \) and then a spot on the map or minimap to flash it for everyone, with a sound and "Look here" with their name, to point out a threat or a target. Right click or Esc cancels.
+- Selecting only allied units shows a short command card (suggested): Attack, Stop, Hold, Patrol, Move, Gather, Return cargo.
+- **Who sees what (suggested):** chat lines, pings, joins, leaves and pauses go to every player. A player's own alerts (attacks, deaths, trades, sent resources) go only to them. Messages name players by their names, never "Player 2".
+- **Pause (suggested):** the Pause key or the ❚❚ button. Alone, the game also pauses while the F10 menu or the account page is open. Online, anyone may pause and anyone may carry on; a banner says who paused.
 
 #### When a player is eliminated or leaves
 
@@ -2729,19 +2736,46 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - In single player the player can save at any time, even at night. In multiplayer the host can save at any time.
 - A multiplayer game only runs with every player present. If someone disconnects, the game pauses and waits for them.
 - If the player does not come back, the host chooses: save and quit, or carry on without them, in which case their resources, buildings and units are shared out as if they had been eliminated.
+- Suggested, as built 2026-10-03: everyone sees "Waiting for NAME" after 1 s; after 30 s the host gets three choices: Wait, Carry on without them, or Save and quit (saves first, then closes the room for everyone). A player who leaves from the menu leaves for good and their side is shared out at once. Shared-out buildings keep the research their old owner had.
+- Suggested, as built: the dawn autosave keeps the newest 5 matches in this browser and, with an account, on the server too (online, only the host's). Download a save file (F10 menu) writes a .sac file that Load game can open. A save carries each seat's name, colour and account, so a loaded game puts the same people back in the same seats, and loading gives the same game state as when it was saved. Online, only the host may save; the others see why the button is off.
 
 ### Outside the match
 
 Jade approved these as written. The details are Claude's suggestions.
 
 - **Main menu:** New game, Load game, Join game, Settings, Account, and Quit. A reminder on the menu tells players to press **F11** for full screen.
+  - Suggested, as built 2026-10-03: the reminder also gives Ctrl + Cmd + F for a Mac, with a Full screen button. New game has a seed box (blank picks one), then Play alone or Host a game for friends. Join game takes the 6-letter code or the whole invite link, ignoring spaces, dashes and case. Opening an invite link goes straight to that lobby, and during an online match the address bar shows the same link, so a refresh rejoins the same seat. Quit in a browser goes back to the menu, since a page cannot close its own tab.
 - **Hosting and joining:** the host creates a game, picks a seed (or a random one) and gets an invite link and a short code. Friends open the link or type the code to join the lobby. In the lobby, players see each other, pick their colours and mark themselves ready; the host starts the game when everyone is ready.
+  - Suggested, as built: the lobby shows the code and the link, each with a Copy button, the player list (name, colour, ready, host marked), 8 colours with taken ones greyed, and Ready, Start the game (host only) and Leave. A host alone in the lobby may start too. Players are seated in slot order.
 - **Loading and save slots:** the Load screen lists the player's saved games, newest first, with the night count, players and last played date. Multiplayer saves sit under the host's account; to continue one, the host loads it and the other players rejoin by invite, and the game starts once everyone who was in it is back (as in "Saving and disconnects").
+  - Suggested, as built: Load game lists account saves (Continue, Delete), then this browser's autosaves; a save with more than one player shows Host to continue, which opens a lobby for those players to join by invite.
 - **Settings:** graphics quality (low, medium, high), resolution scale, shadows on or off, view distance, music, effects and voice volume, hotkeys, and the camera sliders.
+  - Suggested, as built: the quality presets are in table 20, and each setting can still be changed after picking one. Hotkeys can rebind any key, except that Enter is kept for chat. Settings never change the game itself.
 - **Seeds:** every game has a seed shown in the pause menu. Players can type a seed when starting a game to play the same world again or share it with friends.
-- **Onboarding:** there is no tutorial. Instead, a short series of hints guides the first day: select a worker, gather wood, build, light a torch, shelter at dusk. Hints can be turned off in Settings.
+- **Onboarding:** there is no tutorial. Instead, a short series of hints guides the first day: select a worker, gather wood, build, light a torch, shelter at dusk. Hints can be turned off in Settings. Suggested, as built: one hint at a time, each gone once done; the last is Everyone Home at dusk, and dusk skips straight to it.
+- **Browser check (suggested):** the menu checks the browser's features, not its name, and says plainly what is missing (a phone or tablet, no WebGL2, no save compression, no pointer lock).
 - **Browsers:** the latest two versions of Chrome, Edge, Firefox and Safari on desktop computers. Phones and tablets are not supported.
 - **Full screen:** the game reminds the player to press F11 for full screen when it starts, since some controls (such as Ctrl + number) only work in full screen.
+
+#### Table 20: Multiplayer, saving and settings
+
+Key: a value followed by (s) is suggested; a row ending in (s) is suggested throughout except values marked (doc). Values marked (Jade) or (doc), or unmarked, are fixed values already in this blueprint.
+
+| **Rule** | **Value (s)** |
+|---|---|
+| Invite | 6-letter code or the link /join/CODE; spaces, dashes and case ignored |
+| Lobby | 8 colours, one each; host starts once everyone else is ready, or alone |
+| Missing player | "Waiting for NAME" after 1 s; host choices (Wait, Carry on without them, Save and quit) after 30 s |
+| Autosave | every dawn; newest 5 matches kept in the browser; also on the server with an account (online, the host's only) |
+| Save file | .sac, with a SEAT section (each seat's name, colour and account); loading gives the saved hash |
+| Graphics presets | Low: resolution 75%, no shadows, view near; Medium (default): 100%, shadows, medium; High: 100%, shadows, far |
+| Graphics ranges | resolution scale 50 to 100%; sun shadows cover 45 m round the camera; view distance near, medium, far = 5, 7, 9 chunk rings |
+| Volumes (default) | music 70%, effects 80%, voices 80% |
+| First-day hints | 5, one at a time: select a worker, gather wood, build, light a torch, Everyone Home at dusk |
+| Accounts | email, name, password of 8 or more characters; forgot password by email link |
+| Keys | [ Allies, ] Send resources, \ Map ping, Pause key, Enter chat; all rebindable except Enter |
+| Send resources | +10, +100, All or a typed amount; arrives at once |
+| Relay protocol | version 2: each player's account id travels with their name in the room state |
 
 ### Audio
 

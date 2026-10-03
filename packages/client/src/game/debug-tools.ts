@@ -2,10 +2,14 @@
 // to see the world and to bring each milestone's threats and kits to the
 // middle of the view. Every land change and threat is a sim order, so it is
 // in the hash (and online it reaches every player).
-import { DEBUG_CARAVAN, DEBUG_TRADE_KIT, DebugThreat, FACTION_KIND_NAMES, LAIRS, LATE_MOBS, Mat, mobSpec, WAVE_NIGHTS, WU_PER_METRE, type Order } from '@blockyrts/sim';
+import { DEBUG_CARAVAN, DEBUG_TRADE_KIT, DebugThreat, FACTION_KIND_NAMES, LAIRS, LATE_MOBS, Mat, Mob, mobSpec, WAVE_NIGHTS, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import type { GameShell } from '../hud/shell.ts';
 import { COLUMN_M, UNIT_M } from '../world/mesher.ts';
 import { WorldView } from '../world/world-view.ts';
+
+/** Monsters each press of Crowd sets down, and their kinds: walkers, archers, a climber and a fast runner. */
+const CROWD = 200;
+const CROWD_MOBS = [Mob.Zombie, Mob.SkeletonArcher, Mob.GiantRat, Mob.GraveHound] as const;
 
 /**
  * Debug buttons in the debug readout (top left): the M1 tools a tester uses
@@ -139,6 +143,21 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.Wave + wave);
     wave = (wave + 1) % WAVE_NIGHTS.length;
     shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);
+  });
+  // Milestone 10's performance check: a crowd to watch the fps line with (Technical decisions 10: 400 and 800 animated units).
+  let crowd = 0;
+  add('dbg-crowd', 'Crowd +200', 'Debug: crowd', 'Sets down 200 night mobs (zombies, skeleton archers, giant rats and grave hounds) on a ring 15 to 40 m round the middle of the view, all coming for your town; press twice for 400 and four times for 800 units, and watch the fps, draws, units and memory lines above. Use it at night: by day they burn.', () => {
+    const f = shell.cam.focus;
+    for (let k = 0; k < CROWD; k++) {
+      // A whole-number spread round the ring, as the sim would place them: no trig.
+      const r = 15 + ((k * 7) % 26);
+      const side = k % 4;
+      const u = ((Math.floor(k / 4) * 13) % (2 * r)) - r;
+      const [dx, dz] = side === 0 ? [u, -r] : side === 1 ? [r, u] : side === 2 ? [-u, r] : [-r, -u];
+      order({ kind: 'debugSpawn', player: PLAYER, mob: CROWD_MOBS[k % CROWD_MOBS.length]!, x: Math.round((f.x + dx) * WU_PER_METRE), z: Math.round((f.z + dz) * WU_PER_METRE) });
+    }
+    crowd += CROWD;
+    shell.message(`Debug: ${crowd} night mobs set down so far.`);
   });
   add('dbg-morvath', 'Morvath', 'Debug: Morvath', 'Brings Morvath, the Hollow Crown, to the middle of the view now, as he comes on night 110: alive at dawn he withdraws and comes back the next night with the health he had; killed, he returns ten nights later.', () => {
     threat(DebugThreat.Morvath);

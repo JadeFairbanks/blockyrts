@@ -156,6 +156,8 @@ interface Window {
 /** Edge costs between coarse tiles, cached per chunk with the walk-map versions it was built from. */
 interface CoarseChunk {
   versions: number[];
+  /** The walk-map epoch it was last found current at: while the epoch stands, no version can have moved. */
+  epoch: number;
   /** Per tile, 8 costs in DIRS order; 0 = no way through. */
   edges: Uint16Array;
 }
@@ -294,17 +296,21 @@ export class Pathfinder {
       this.coarse.set(m.id, cache);
     }
     const w = this.grid.world;
+    const c = cache.get(key);
+    if (c && c.epoch === w.navEpoch) return c;
     const versions: number[] = [];
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) versions.push(w.navVersion(chunkKey(cx + dx, cz + dz)));
-    const c = cache.get(key);
-    if (c && c.versions.every((v, i) => v === versions[i])) return c;
+    if (c && c.versions.every((v, i) => v === versions[i])) {
+      c.epoch = w.navEpoch;
+      return c;
+    }
     const edges = new Uint16Array(TILES_PER_CHUNK * TILES_PER_CHUNK * 8);
     for (let t = 0; t < TILES_PER_CHUNK * TILES_PER_CHUNK; t++) {
       const tx = (cx << 4) + (t & 15);
       const tz = (cz << 4) + (t >> 4);
       for (let d = 0; d < 8; d++) edges[t * 8 + d] = this.tileEdge(tx, tz, d, m);
     }
-    const out = { versions, edges };
+    const out = { versions, epoch: w.navEpoch, edges };
     cache.set(key, out);
     if (cache.size > 2048) cache.delete(cache.keys().next().value!);
     return out;

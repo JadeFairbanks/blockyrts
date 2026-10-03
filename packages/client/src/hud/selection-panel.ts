@@ -5,6 +5,7 @@
 // let one out), its workers and its rally route.
 import { buildingSpec, productSpec } from '@blockyrts/sim';
 import type { BuildingInfo } from '../messages.ts';
+import { CTRL_NAME } from '../input/platform.ts';
 import { isOwn } from '../selection/rules.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
 import type { ButtonPress, ButtonRegistry, HudButton } from './buttons.ts';
@@ -242,7 +243,7 @@ export class SelectionPanel {
           face: glyph(t),
           name: t.label,
           keys: [],
-          description: 'Click: select only this. Shift + click or right click: remove it. Ctrl + click: only this type. Double click: centre on it.',
+          description: `Click: select only this. Shift + click or right click: remove it. ${CTRL_NAME} + click: only this type. Double click: centre on it.`,
           className: `portrait${g.typeKey === active ? ' active' : ''}`,
           onPress: (pr) => this.a.portrait(t, pr),
           onDoubleClick: () => this.a.portraitDouble(t),

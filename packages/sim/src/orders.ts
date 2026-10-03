@@ -216,6 +216,8 @@ export interface HoldOrder {
   kind: 'hold';
   player: number;
   units: number[];
+  /** Shift + H: hold where the unit is once its earlier orders are done. */
+  queued?: boolean;
 }
 
 /** Q Equip Best. */
@@ -369,6 +371,24 @@ export interface DebugSpawnOrder {
   z: number;
 }
 
+/** What a targeted command pressed twice asks each unit to pick for itself (Controls: "Double-tap for auto-target"). */
+export const PickOwn = {
+  /** A: the nearest enemy it can see. */
+  Attack: 0,
+  /** G: the nearest node it can gather (of what it carries, if anything). */
+  Gather: 1,
+  /** E: the nearest of its player's buildings with room for it (workers shelter, ranged units and mages garrison). */
+  Enter: 2,
+  /** T: the ground it stands on. */
+  Prospect: 3,
+} as const;
+
+/** A targeted command pressed twice: each unit picks its own target (PickOwn). */
+export interface PickOwnOrder extends UnitsOrder {
+  kind: 'pickOwn';
+  command: number;
+}
+
 /** N Hunt an animal; auto (double-tapped) keeps hunting game near where each warrior stands. Workers in the selection haul. */
 export interface HuntOrder extends UnitsOrder {
   kind: 'hunt';
@@ -488,6 +508,7 @@ export interface LeaveOrder {
 }
 
 export type Order =
+  | PickOwnOrder
   | ShareControlOrder
   | SendResourcesOrder
   | LeaveOrder
@@ -632,9 +653,10 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   shareControl: ['with', 'on'],
   sendResources: ['to', 'res', 'amount'],
   leave: [],
+  pickOwn: ['command'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'mount', 'dismount', 'crew', 'mend']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'mount', 'dismount', 'crew', 'mend', 'pickOwn']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -672,6 +694,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'dontEat':
       if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
+      return;
+    case 'pickOwn':
+      if (o.command < 0 || o.command > 3) throw new Error('bad pick-own command');
       return;
     case 'cast':
       if (o.spell < 0 || o.spell > 255 || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad cast');

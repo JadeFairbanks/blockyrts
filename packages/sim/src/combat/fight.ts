@@ -170,11 +170,13 @@ export function pickTarget(state: SimState, i: number, range: number, structures
   let bestTier = 9;
   let bestD = 0;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, range)) {
+    // The distance first: it is the cheapest test and rules out most of a crowd.
+    const d = gap(state, i, j);
+    if (d > range) continue;
     if (!validTarget(state, i, j) || !canHarm(state, i, j)) continue;
     // Lairs and village buildings are broken on an order or an attack-move, never taken up by an idle unit (s).
     if (!structures && isMob(state, j) && isStructure(e.mob[j]!)) continue;
-    const d = gap(state, i, j);
-    if (d > range || cloaked(state, j, d)) continue;
+    if (cloaked(state, j, d)) continue;
     const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damage === 0;
     const attacking = e.target[j] === e.id[i] || (e.attacker[i] === e.id[j] && state.step - e.hurtAt[i]! < 100);
     const tier = attacking ? 0 : e.mob[j] === Mob.BombKeg && isMob(state, j) ? 2 : harmless ? 2 : 1;

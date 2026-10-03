@@ -18,6 +18,7 @@ import {
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
+import { cue } from '../audio/cues.ts';
 import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.ts';
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
@@ -133,6 +134,19 @@ export interface SimInfo {
   stepsPerSecond: number;
   hash: string;
   hashStep: number;
+}
+
+/** How the page is running, for the debug readout: averaged over the last second. */
+export interface PerfInfo {
+  fps: number;
+  /** Main-thread time per frame (update and render), ms. */
+  frameMs: number;
+  drawCalls: number;
+  triangles: number;
+  /** Units in the latest state, and how many of them are drawn. */
+  units: number;
+  /** JavaScript heap in use, MB (Chromium only), or -1. */
+  heapMb: number;
 }
 
 const CAMERA_SLOTS = 4;
@@ -395,6 +409,8 @@ export class GameShell {
 
   /** Adds a message to the message panel. A message with a place can be clicked to jump there; an alert is urgent. */
   message(text: string, kind: 'system' | 'alert' = 'system', at?: { x: number; z: number }): void {
+    // Something the player asked for cannot be done (Order feedback: an error sound and a message).
+    if (kind === 'alert') cue('error');
     this.messages.add({ text, kind, urgent: kind === 'alert', at });
   }
 
@@ -409,6 +425,14 @@ export class GameShell {
       setText(f.hashStep, String(info.hashStep));
     }
     this.updateClock(info.step);
+  }
+
+  setPerfInfo(p: PerfInfo): void {
+    const f = this.layout.debugFields;
+    setText(f.fps, `${p.fps} (${p.frameMs.toFixed(1)} ms)`);
+    setText(f.draws, `${p.drawCalls} (${Math.round(p.triangles / 1000)}k tris)`);
+    setText(f.units, String(p.units));
+    setText(f.memory, p.heapMb < 0 ? '-' : `${p.heapMb} MB`);
   }
 
   /** Day N and the time left in the period; Dusk, Night N, Dawn (Day and night: 3 min, 40 s, 3 min, 40 s). */
@@ -820,6 +844,7 @@ export class GameShell {
       ['autoequip', 'autoEquip'],
       ['rations', 'rations'],
       ['clear', 'clear'],
+      ['peoples', 'peoples'],
       ['allies', 'allies'],
       ['send', 'send'],
       ['ping', 'ping'],
@@ -1043,6 +1068,7 @@ export class GameShell {
 
   /** A player pinged a spot (metres): it flashes on the minimap and in the view, and the panel says who. */
   pinged(name: string, x: number, z: number): void {
+    cue('ping');
     this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z } });
     this.visuals.orderMarker(new THREE.Vector3(x, this.extras.heightAt(x, z), z), 'target');
     this.urgent.unshift({ x, z, text: `${name} pinged the map.` });

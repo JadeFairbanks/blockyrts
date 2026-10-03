@@ -56,7 +56,7 @@ export const Act = {
 export const PATH_SEARCHES_PER_STEP = 8;
 /** How far a gatherer looks for another node of the same resource when one runs out or is full (s): 15 m. */
 export const NODE_SEARCH_M = 15;
-const NODE_SEARCH_COLUMNS = floorDiv(NODE_SEARCH_M * WU_PER_METRE, WU_PER_COLUMN);
+export const NODE_SEARCH_COLUMNS = floorDiv(NODE_SEARCH_M * WU_PER_METRE, WU_PER_COLUMN);
 /** Double-tapped Repair looks this far for damaged buildings (s). */
 export const REPAIR_SEARCH_M = 30;
 /** A follower stays within this distance of its leader. */
@@ -292,7 +292,8 @@ export function findNode(state: SimState, i: number, res: number, x: number, z: 
     for (let cx = (x - radius) >> CHUNK_SHIFT; cx <= (x + radius) >> CHUNK_SHIFT; cx++) {
       for (const p of state.world.props(cx, cz, state.step)) {
         if (skip && skip.cx === cx && skip.cz === cz && skip.i === p.index) continue;
-        if (nodeResource(p.kind) !== res || !gatherable(state, i, p)) continue;
+        // res -1: a node of anything the worker can gather.
+        if ((res >= 0 && nodeResource(p.kind) !== res) || !gatherable(state, i, p)) continue;
         const gx = (cx << CHUNK_SHIFT) + p.lx;
         const gz = (cz << CHUNK_SHIFT) + p.lz;
         const d = (gx - x) * (gx - x) + (gz - z) * (gz - z);
