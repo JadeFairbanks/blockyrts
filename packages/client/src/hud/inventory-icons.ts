@@ -1,8 +1,7 @@
 // Each good's picture in the inventory grid: the catalogue's 32 x 32 interface
 // icons (packages/assets/src/ui, wishlist section K), drawn at their own size
-// so the pixels stay crisp. Two goods have no icon of their own yet and borrow
-// a near one with a tint; the carts' icons are training buttons with a dark
-// square behind them, which is keyed out when they load.
+// so the pixels stay crisp. An icon may still take a tint (a good borrowing a
+// near one's icon) or have a solid background keyed out; none does today.
 import { Res, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
 
 export interface GoodIcon {
@@ -71,14 +70,12 @@ set(Res.Planks, 'planks');
 set(Res.Bricks, 'bricks');
 set(Res.Glass, 'glass');
 set(Res.Rope, 'rope');
-// No hardened leather icon yet: the leather one, darker and harder.
-set(Res.HardenedLeather, 'leather', { tint: 'brightness(0.62) contrast(1.35) saturate(0.8)' });
+set(Res.HardenedLeather, 'hardened_leather');
 set(Res.WroughtIron, 'ingot_iron_wrought');
-set(Res.HandCart, 'train_hand_cart', { keyed: true });
-// Carbon steel replaced high-quality steel (Troops and gear): its ingot, blued so it reads apart from steel.
-set(Res.CarbonSteel, 'ingot_hq_steel', { tint: 'sepia(0.5) hue-rotate(175deg) saturate(2.2) brightness(0.8)' });
+set(Res.HandCart, 'hand_cart');
+set(Res.CarbonSteel, 'ingot_carbon_steel');
 set(Res.Gunpowder, 'gunpowder');
-set(Res.OxCart, 'train_ox_cart', { keyed: true });
+set(Res.OxCart, 'ox_cart');
 set(Res.RoastMeat, 'roast_meat');
 set(Res.RoastFish, 'roast_fish');
 set(Res.SmokedMeat, 'smoked_meat');
@@ -117,10 +114,10 @@ const URLS = import.meta.glob<string>(
   [
     '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,stone,flint,marble,gravel,earth,clay,sand,coal,charcoal}.png',
     '../../../assets/src/ui/icon_{copper_ore,tin_ore,bog_iron,iron_rock,vein_iron_ore,lead_ore,saltpetre,sulphur,silver,gold,emerald,ruby,diamond,hexstone,mana_crystal}.png',
-    '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,hq_steel}.png',
+    '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
     '../../../assets/src/ui/icon_{meat,fish,eggs,wheat,corn,potatoes,carrots,roast_meat,roast_fish,smoked_meat,smoked_fish,bread,salted_meat,salted_fish,stew,pie,bandage,healing_remedy}.png',
-    '../../../assets/src/ui/icon_{hides,leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone,lantern}.png',
-    '../../../assets/src/ui/icon_{train_hand_cart,train_ox_cart,cannonball_iron,catapult_stone,ballista_bolt,food,supply}.png',
+    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone,lantern}.png',
+    '../../../assets/src/ui/icon_{hand_cart,ox_cart,cannonball_iron,catapult_stone,ballista_bolt,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
     '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',
   ],
