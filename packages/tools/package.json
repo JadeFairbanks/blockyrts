@@ -8,6 +8,7 @@
     "sim:run": "tsx src/run-headless.ts",
     "desync": "tsx src/desync.ts",
     "balance": "tsx src/balance-harness.ts",
+    "perf:sim": "tsx src/perf-sim.ts",
     "map-viewer": "tsx src/map-viewer.ts",
     "gen:trig": "tsx scripts/gen-trig-table.ts",
     "typecheck": "tsc -p tsconfig.json",
