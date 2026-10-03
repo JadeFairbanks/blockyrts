@@ -705,6 +705,30 @@ body.playing * {
 .hud-btn.queue-item .hp {
   background: var(--accent);
 }
+/* The single selection's hunger line (patch 1): the countdown to its next meal and a bar that fills towards it; red while it starves. */
+.sel-row.hunger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sel-row.hunger .hunger-bar {
+  flex: 1;
+  max-width: 120px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.sel-row.hunger .hunger-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #d9a441;
+}
+.sel-row.hunger.starving .hunger-bar > span {
+  background: #e05a4a;
+}
+.sel-row.hunger-status {
+  color: #e8806f;
+}
 .sel-row.label {
   color: var(--muted);
   font-size: 12px;
@@ -1698,4 +1722,16 @@ body.playing.touch .hud {
     animation: none;
     outline-color: rgba(255, 216, 74, 0.8);
   }
+}
+/* The hunger line's bar (patch 1, food): the kit's trough and gold fill; red while starving. */
+.sel-row.hunger .hunger-bar {
+  height: 6px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+  image-rendering: pixelated;
+}
+.sel-row.hunger .hunger-bar > span {
+  background: var(--kit-bar) 0 0 / 100% 100%;
+}
+.sel-row.hunger.starving .hunger-bar > span {
+  background: #e05a4a;
 }

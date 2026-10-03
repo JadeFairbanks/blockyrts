@@ -7,7 +7,6 @@
 import {
   ARMOUR_KITS,
   costText,
-  foodInPool,
   mainCost,
   pieceProblem,
   planPieces,
@@ -115,7 +114,7 @@ export function troopWhy(g: GameInfo, b: BuildingInfo, troop: number, w: number,
   if (troop === Troop.Cavalry && b.horses === 0) return 'Cavalry needs a tamed, grown horse in the stalls.';
   if (!planPieces(pieces, g.pool())) return `Not enough resources (${costText(mainCost(pieces))}).`;
   const info = g.info;
-  if (info && foodInPool(info.pool, info.dontEat) < TRAINING.troopFood) return `Not enough food (${TRAINING.troopFood} food).`;
+  if (info && g.food() < TRAINING.troopFood) return `Not enough food (${TRAINING.troopFood} food).`;
   if (info && info.supplyUsed >= info.supplyCap) return `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
   if (b.queue.length >= 5) return 'The queue is full (5).';
   return '';

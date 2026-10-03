@@ -9,7 +9,7 @@ import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, buildCost, buildRequirement, mainBaseLevel, placementBlocked, waterBeside } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
-import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
+import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf } from './economy/resources.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
@@ -746,14 +746,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'dontEat': {
-        const k = FOODS.indexOf(o.res as Res);
-        if (k < 0) break;
-        const p = state.players[o.player]!;
-        p.dontEat = o.on ? p.dontEat | (1 << k) : p.dontEat & ~(1 << k);
+        if (!FOODS.includes(o.res as Res)) break;
+        state.players[o.player]!.kept[o.res] = o.on ? 1 : 0;
         break;
       }
       case 'debugGive':
-        if (o.res < RESOURCES.length) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
+        // "Meat" and "fish" stand for every kind in a recipe and are never held themselves.
+        if (o.res < RESOURCES.length && o.res !== Res.AnyMeat && o.res !== Res.AnyFish) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
         if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);

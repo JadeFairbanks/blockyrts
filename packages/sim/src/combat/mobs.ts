@@ -255,7 +255,7 @@ export const MOBS: readonly MobSpec[] = [
   {
     ...base, id: Mob.GiantRat, name: 'Giant rat', model: 'giant_rat', firstNight: 0, hp: 26, damage: 5, attackSteps: ds(8), reach: cm(100), speed: v10(45), climbSpeed: v10(5), vsWalls: 3,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Pack, threatTenths: 7, halfWidth: cm(30), height: cm(50),
-    drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 80 }, { res: Res.Meat, min: 1, max: 1, chancePm: 50 }],
+    drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 80 }, { res: Res.RatMeat, min: 1, max: 1, chancePm: 50 }],
   },
   {
     ...base, id: Mob.GiantSpider, name: 'Giant spider', model: 'giant_spider', firstNight: 0, hp: 40, armourBp: 1000, damage: 16, attackSteps: ds(13), reach: cm(150),

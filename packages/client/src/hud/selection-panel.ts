@@ -18,6 +18,7 @@ import { isOwn } from '../selection/rules.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
 import type { ButtonIcon, ButtonPress, ButtonRegistry, HudButton } from './buttons.ts';
 import { productIcon } from './card-icons.ts';
+import { hungerLine, type HungerView } from './hunger.ts';
 import { queueText } from './queue-clock.ts';
 import { BATTLE_MAGE_ICON, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
@@ -30,6 +31,8 @@ export interface PanelActions {
   health(t: Selectable): [number, number] | null;
   /** A mage's mana and the bar's most, or null for everything else. */
   mana(t: Selectable): [number, number] | null;
+  /** One of the player's units that eats: its next meal and its starving, or null. */
+  hunger(t: Selectable): HungerView | null;
   building(t: Selectable): BuildingInfo | undefined;
   /** Left click a portrait; Shift removes it, Ctrl keeps its type, Ctrl + Shift removes its type. */
   portrait(t: Selectable, p: ButtonPress): void;
@@ -115,6 +118,8 @@ export class SelectionPanel {
   private sig = '';
   private readonly bars = new Map<string, HTMLElement>();
   private readonly manaBars = new Map<string, HTMLElement>();
+  /** The single selection's hunger line (patch 1): the text, the bar's fill and the starving status, kept to update in place. */
+  private hunger: { next: HTMLElement; fill: HTMLElement; status: HTMLElement } | null = null;
   /** An open tier dropdown of the troop panel. */
   private menu: { b: number; troop: number; line: 'w' | 'a' } | null = null;
   /** The shown queue's head: its button and bar, updated live (patch notes 1). */
@@ -182,6 +187,7 @@ export class SelectionPanel {
     if (sig === this.sig) {
       this.updateBars(list);
       if (b) this.updateHead(b);
+      if (one) this.updateHunger(one);
       if (this.farm && b?.farm) this.farm.update(b.farm);
       return;
     }
@@ -207,6 +213,18 @@ export class SelectionPanel {
 
   private single(t: Selectable, b: BuildingInfo | undefined): void {
     for (const d of t.details ?? []) this.row('', d);
+    this.hunger = null;
+    if (this.a.hunger(t)) {
+      const box = this.row('hunger', '');
+      const next = document.createElement('span');
+      const bar = document.createElement('span');
+      bar.className = 'hunger-bar';
+      const fill = document.createElement('span');
+      bar.append(fill);
+      box.append(next, bar);
+      this.hunger = { next, fill, status: this.row('hunger-status', '') };
+      this.updateHunger(t);
+    }
     if (b && b.owner === this.a.player) {
       const spec = buildingSpec(b.kind);
       if (b.queue.length > 0) {
@@ -476,6 +494,20 @@ export class SelectionPanel {
     if (h.bar.style.width !== w) h.bar.style.width = w;
     const text = queueText(true, this.a.queueLeft?.(b) ?? null);
     if (h.btn.def.description !== text) h.btn.def = { ...h.btn.def, description: text };
+  }
+
+  /** The hunger line, every frame: the countdown moves without redrawing the panel. */
+  private updateHunger(t: Selectable): void {
+    const h = this.hunger;
+    const v = h ? this.a.hunger(t) : null;
+    if (!h || !v) return;
+    const line = hungerLine(v);
+    if (h.next.textContent !== line.next) h.next.textContent = line.next;
+    const w = `${line.pct}%`;
+    if (h.fill.style.width !== w) h.fill.style.width = w;
+    if (h.status.textContent !== line.status) h.status.textContent = line.status;
+    h.status.hidden = line.status === '';
+    h.next.parentElement!.classList.toggle('starving', line.status !== '');
   }
 
   private updateBars(list: readonly Selectable[]): void {

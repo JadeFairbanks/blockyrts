@@ -14,8 +14,9 @@ export const Res = {
   Flint: 4,
   Coal: 5,
   Leather: 6,
-  Meat: 7,
-  Fish: 8,
+  /** Raw meat and fish come in kinds (food-kinds.ts): id 7 was the one generic meat and is now venison, id 8 the one fish and is now trout. */
+  Venison: 7,
+  Trout: 8,
   CopperOre: 9,
   TinOre: 10,
   CopperIngot: 11,
@@ -94,6 +95,32 @@ export const Res = {
   Cannonball: 104,
   CatapultStone: 105,
   BallistaBolt: 106,
+  // Patch 1: raw meat by the animal it came from, and fish by species (food-kinds.ts says which animal gives which).
+  Beef: 107,
+  Chicken: 108,
+  HorseMeat: 109,
+  HareMeat: 110,
+  BoarMeat: 111,
+  WolfMeat: 112,
+  LynxMeat: 113,
+  BadgerMeat: 114,
+  BearMeat: 115,
+  FrogLegs: 116,
+  CrabMeat: 117,
+  CrocodileMeat: 118,
+  GooseMeat: 119,
+  PheasantMeat: 120,
+  GriffinMeat: 121,
+  MinotaurMeat: 122,
+  RatMeat: 123,
+  Salmon: 124,
+  Catfish: 125,
+  /**
+   * Any kind of raw meat or fish, for what a recipe or a trade asks for: never
+   * held in a pool, paid with whatever kinds are in stock (haveOf, payAny).
+   */
+  AnyMeat: 126,
+  AnyFish: 127,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -156,8 +183,8 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Flint, 'Flint', 'Flint', M, 10, 'Flint scatter.'),
   r(Res.Coal, 'Coal', 'Coal', M, 25, 'Surface coal seams (copper tools) and mineshafts.'),
   r(Res.Leather, 'Leather', 'Leather', M, 25, 'Cattle, and hides at a tannery.', 0, false),
-  r(Res.Meat, 'Meat', 'Meat', M, 25, 'Hunting and livestock.', 4),
-  r(Res.Fish, 'Fish', 'Fish', M, 25, 'Fishing.', 3),
+  r(Res.Venison, 'Venison', 'Venison', M, 25, 'Hunting deer.', 4),
+  r(Res.Trout, 'Trout', 'Trout', M, 25, 'Fishing Heartland streams.', 3),
   r(Res.CopperOre, 'Copper ore', 'Copper ore', M, 50, 'Copper outcrops (a stone maul).'),
   r(Res.TinOre, 'Tin ore', 'Tin ore', M, 50, 'Tin outcrops (a stone maul).'),
   r(Res.CopperIngot, 'Copper ingot', 'Copper', M, 50, 'Smelted at a forge.', 0, false),
@@ -229,6 +256,28 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Cannonball, 'Cannonball', 'Cannonballs', G, 60, 'An iron ingot or 2 stone at a Foundry. A cannon shot also burns 1 gunpowder charge.', 0, false),
   r(Res.CatapultStone, 'Catapult stone', 'Catapult stones', G, 400, 'A stone shaped at a Great Workshop.', 0, false),
   r(Res.BallistaBolt, 'Ballista bolt', 'Ballista bolts', G, 50, 'Hardwood and wrought iron at a Manufactory, 5 at a time.', 0, false),
+  // Raw meat by animal and fish by species (Table 6: every meat 4, every fish 3; Table 12: 2.5 lb each).
+  r(Res.Beef, 'Beef', 'Beef', F, 25, 'Slaughtering or hunting cattle and oxen.', 4),
+  r(Res.Chicken, 'Chicken', 'Chicken', F, 25, 'Slaughtering or hunting chickens.', 4),
+  r(Res.HorseMeat, 'Horse meat', 'Horse', F, 25, 'Horses that fall or are hunted.', 4),
+  r(Res.HareMeat, 'Hare meat', 'Hare', F, 25, 'Hunting hares.', 4),
+  r(Res.BoarMeat, 'Boar meat', 'Boar', F, 25, 'Hunting wild boar.', 4),
+  r(Res.WolfMeat, 'Wolf meat', 'Wolf', F, 25, 'Killing wolves.', 4),
+  r(Res.LynxMeat, 'Lynx meat', 'Lynx', F, 25, 'Killing lynxes.', 4),
+  r(Res.BadgerMeat, 'Badger meat', 'Badger', F, 25, 'Killing badgers.', 4),
+  r(Res.BearMeat, 'Bear meat', 'Bear', F, 25, 'Killing bears.', 4),
+  r(Res.FrogLegs, 'Frog legs', 'Frog legs', F, 25, 'Killing giant frogs.', 4),
+  r(Res.CrabMeat, 'Crab meat', 'Crab', F, 25, 'Killing giant crabs.', 4),
+  r(Res.CrocodileMeat, 'Crocodile meat', 'Crocodile', F, 25, 'Killing crocodiles.', 4),
+  r(Res.GooseMeat, 'Goose meat', 'Goose', F, 25, 'Hunting wild geese.', 4),
+  r(Res.PheasantMeat, 'Pheasant meat', 'Pheasant', F, 25, 'Hunting pheasants.', 4),
+  r(Res.GriffinMeat, 'Griffin meat', 'Griffin', F, 25, 'Killing a griffin.', 4),
+  r(Res.MinotaurMeat, 'Minotaur meat', 'Minotaur', F, 25, 'Killing a minotaur.', 4),
+  r(Res.RatMeat, 'Rat meat', 'Rat', F, 25, 'Now and then from a giant rat of the night.', 4),
+  r(Res.Salmon, 'Salmon', 'Salmon', F, 25, 'Fishing Fringe streams.', 3),
+  r(Res.Catfish, 'Giant catfish', 'Catfish', F, 25, 'Fishing Deepwoods pools.', 3),
+  r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
+  r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;
@@ -290,10 +339,11 @@ export function resourceByName(name: string): number {
       return Res.Emeralds;
     case 'mana crystal':
       return Res.ManaCrystal;
+    // A carcass gives its animal's meat and a fish stretch its species (units/behaviour.ts nodeResource): these stand for the kind.
     case 'meat':
-      return Res.Meat;
+      return Res.AnyMeat;
     case 'fish':
-      return Res.Fish;
+      return Res.AnyFish;
     default:
       return -1;
   }
@@ -305,12 +355,12 @@ export type Cost = ReadonlyArray<readonly [Res, number]>;
 /**
  * Starting stock (Table 6 note and Table 9): food for the four workers and
  * three warriors for 10 days, 140 nutrition (Troops and gear: starting units
- * (s)): 25 meat, 10 fish, 10 eggs; and 40 softwood lumber, 20 stone, 10 flint,
- * 20 sticks.
+ * (s)): 25 meat (venison, patch 1), 10 fish (trout, patch 1), 10 eggs; and 40
+ * softwood lumber, 20 stone, 10 flint, 20 sticks.
  */
 export const STARTING_STOCK: Cost = [
-  [Res.Meat, 25],
-  [Res.Fish, 10],
+  [Res.Venison, 25],
+  [Res.Trout, 10],
   [Res.Eggs, 10],
   [Res.SoftwoodLumber, 40],
   [Res.Stone, 20],
@@ -342,38 +392,4 @@ export function refund(pool: Int32Array, cost: Cost, perMille: number): void {
 /** "2 softwood lumber, 1 resin" for messages and tooltips. */
 export function costText(cost: Cost): string {
   return cost.map(([res, n]) => `${n} ${RESOURCES[res]!.name.toLowerCase()}`).join(', ');
-}
-
-/** Total nutrition in a pool's foods, leaving out those kept back (Don't eat: a bit per entry of FOODS). */
-export function foodInPool(pool: Int32Array, keep = 0): number {
-  let n = 0;
-  FOODS.forEach((f, k) => {
-    if ((keep & (1 << k)) === 0) n += pool[f]! * RESOURCES[f]!.nutrition;
-  });
-  return n;
-}
-
-/**
- * Takes foods worth at least `need` nutrition from the pool, one item of each
- * food in stock in turn (Food: units eat from all of them equally), skipping
- * foods kept back with Don't eat. Returns what was taken, so a cancelled order
- * can be refunded exactly, or null if the pool holds too little food (and
- * takes nothing).
- */
-export function payNutrition(pool: Int32Array, need: number, keep = 0): Array<[Res, number]> | null {
-  if (need <= 0) return [];
-  if (foodInPool(pool, keep) < need) return null;
-  const taken = new Map<Res, number>();
-  let got = 0;
-  while (got < need) {
-    for (let k = 0; k < FOODS.length; k++) {
-      const f = FOODS[k]!;
-      if (got >= need) break;
-      if (pool[f]! <= 0 || (keep & (1 << k)) !== 0) continue;
-      pool[f] = pool[f]! - 1;
-      taken.set(f, (taken.get(f) ?? 0) + 1);
-      got += RESOURCES[f]!.nutrition;
-    }
-  }
-  return [...taken].sort((a, b) => a[0] - b[0]);
 }

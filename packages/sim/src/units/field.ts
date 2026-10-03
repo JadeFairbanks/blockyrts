@@ -22,7 +22,8 @@ import { isGame, Nature, speciesSpec } from '../animals/species.ts';
 import { newHome } from '../animals/animals.ts';
 import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, toDropoff, walkTo } from './behaviour.ts';
 import { exploreTarget, fromBuilding, HOME_SLACK_M, homeOf, homeBaseNear, wanderTarget, type Home } from './forage.ts';
-import { bagEmpty, bagRoom, bagTenthsLb, LOOT_BAG_TENTHS_LB, LOOT_CLAIM_M, meatOf, preyName } from './loot.ts';
+import { bagEmpty, bagRoom, bagTenthsLb, LOOT_BAG_TENTHS_LB, LOOT_CLAIM_M, preyName } from './loot.ts';
+import { meatOf } from '../economy/food-kinds.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { carryCapacity } from './weight.ts';
 

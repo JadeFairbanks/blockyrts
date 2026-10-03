@@ -1,7 +1,7 @@
 // The screen's copy of the game: the latest state and info messages from the
 // sim worker, indexed for the HUD (buildings by id, units by id, order
 // lists). Read-only for everything but main.ts, which feeds it.
-import { BuildingKind, buildingSpec, FOODS, RESEARCH, RESOURCES, UnitKind, type Research, type TechView, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, FOODS, haveOf, itemQuarters, QUARTERS, RESEARCH, RESOURCES, UnitKind, type Research, type TechView, type UnitOrder } from '@blockyrts/sim';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type PeopleInfo, type StateMessage } from '../messages.ts';
 
 export interface UnitInfo {
@@ -57,6 +57,9 @@ export interface UnitInfo {
   mountHp: number;
   mountMax: number;
   crew: number;
+  /** A unit that eats: its meal in quarters of nutrition, else 0; and the step it began starving, or 0. */
+  meal: number;
+  hungry: number;
 }
 
 const EMPTY_POOL = new Int32Array(RESOURCES.length);
@@ -151,6 +154,8 @@ export class GameInfo {
       mountHp: d[o + S.mountHp]!,
       mountMax: d[o + S.mountMax]!,
       crew: d[o + S.crew]!,
+      meal: d[o + S.meal]!,
+      hungry: d[o + S.hungry]!,
     };
   }
 
@@ -175,9 +180,9 @@ export class GameInfo {
     return [...this.unitIndex.keys()];
   }
 
-  /** How much of a resource the local player has. */
+  /** How much of a resource the local player has (of every kind together for a recipe's "meat" or "fish"). */
   have(res: number): number {
-    return this.info?.pool[res] ?? 0;
+    return this.info ? haveOf(this.info.pool, res) : 0;
   }
 
   /** The local player's pool, for the kit plans (an empty one before the first info). */
@@ -195,10 +200,21 @@ export class GameInfo {
     return r === 0 || ((this.info?.research ?? 0) & (1 << r)) !== 0;
   }
 
-  /** Food items in the pool. */
+  /** Food (nutrition) that can be spent on training and eating: every food not kept back, the rest of started items included, in whole food. */
   food(): number {
+    return Math.floor(this.foodQuarters(true) / QUARTERS);
+  }
+
+  /** The Food counter: the food value of everything in stock, kept back or not, in whole food (rounded down). */
+  foodValue(): number {
+    return Math.floor(this.foodQuarters(false) / QUARTERS);
+  }
+
+  private foodQuarters(eatable: boolean): number {
+    const info = this.info;
+    if (!info) return 0;
     let n = 0;
-    for (const f of FOODS) n += this.have(f);
+    for (const f of FOODS) if (!eatable || !info.kept.includes(f)) n += (info.pool[f] ?? 0) * itemQuarters(f) + (info.open[f] ?? 0);
     return n;
   }
 

@@ -18,7 +18,8 @@ import { flies, isStructure, Mob, mobSpec, Moves } from '../combat/mobs.ts';
 import { fireAt } from '../combat/projectiles.ts';
 import { playerUnit } from '../combat/mob-ai.ts';
 import { resetWalk } from '../units/behaviour.ts';
-import { dropLoot, meatOf } from '../units/loot.ts';
+import { dropLoot } from '../units/loot.ts';
+import { meatOf } from '../economy/food-kinds.ts';
 import { CHARGE_CLOSE_WU, KNOCKBACK, Mount, mountSpec, RUN_SPEED_BP, RUN_TURN } from './data.ts';
 
 const BP = 10000;

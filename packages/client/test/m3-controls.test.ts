@@ -82,7 +82,7 @@ function game(w: World = {}): GameInfo {
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: w.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: w.research ?? 0, forge: w.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -377,7 +377,7 @@ describe("Hunt, Gather and loot (Jade's play-test notes)", () => {
     const g = game();
     const { c } = harness(g, workers, 'worker');
     expect(c.card()[6]!.enabled).toBe(false);
-    g.info!.bags = [[1, [[Res.Meat, 4]]]];
+    g.info!.bags = [[1, [[Res.Venison, 4]]]];
     expect(c.card()[6]!.enabled).toBe(true);
   });
 });
