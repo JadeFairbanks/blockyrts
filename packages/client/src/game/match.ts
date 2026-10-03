@@ -124,21 +124,25 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   const worker = new Worker(new URL('../sim.worker.ts', import.meta.url), { type: 'module' });
   const send = (msg: ToWorker, transfer: Transferable[] = []): void => worker.postMessage(msg, transfer);
 
-  // ---- Pausing ----
-  // Alone: the Pause button, the open menu and the account form each hold the game. Online: the relay's pause.
+  // ---- Pausing (Jade's patch notes 1) ----
+  // Alone: the open menu and the account form each hold the game; there is no
+  // Pause button. Online: the relay's pause. Any player pauses or resumes for
+  // everyone; the relay passes each press on, and every page then opens or
+  // closes its menu and says who did it.
   const holds = new Set<string>();
-  let netPause: { paused: boolean; reason: number; by: number; waiting: number } = { paused: false, reason: PauseReason.None, by: 0, waiting: 0 };
+  let netPause: { paused: boolean; reason: number; held: boolean; by: number; waiting: number } = { paused: false, reason: PauseReason.None, held: false, by: 0, waiting: 0 };
   const hold = (why: string, on: boolean): void => {
     if (online) return;
     if (on) holds.add(why);
     else holds.delete(why);
     send({ type: 'pause', paused: holds.size > 0 });
-    showPause();
   };
-  const pausedNow = (): boolean => (online ? netPause.paused : holds.has('button'));
+  /** The game is stopped, for whatever reason. */
+  const stopped = (): boolean => (online ? netPause.paused : holds.size > 0);
+  /** Online, the player holding the pause. */
+  const pausedBy = (): string | null => (online && netPause.held ? slotName(netPause.by) : null);
   const togglePause = (): void => {
-    if (online) relay!.send({ type: 'pause', paused: !(netPause.paused && netPause.reason === PauseReason.Player) });
-    else hold('button', !holds.has('button'));
+    if (online) relay!.send({ type: 'pause', paused: !netPause.held });
   };
 
   // ---- Snapshots from the worker ----
@@ -256,7 +260,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     save: () => void save(),
     download: () => void download(),
     togglePause,
-    paused: pausedNow,
+    pausedBy,
+    stopped,
     saveBlocked,
     menuOpened: (open) => hold('menu', open),
   };
@@ -288,16 +293,17 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   });
   shell.selection.onChange(() => audio.onSelection(shell.selection.list()));
   const net = new NetUi(shell.layout.root, shell.panels, shell.buttons);
+  /** Online: the banner says why the game is stopped, with Resume while a player holds the pause. */
   const showPause = (): void => {
-    if (online) {
-      const p = netPause;
-      if (!p.paused) net.setPaused(null);
-      else if (p.reason === PauseReason.Player) net.setPaused(`Paused by ${slotName(p.by)}.`, () => togglePause());
-      else if (p.reason === PauseReason.Disconnect) net.setPaused(`${maskSlots(p.waiting).map(slotName).join(' and ')} lost the connection. The game waits for them.`);
-      else if (p.reason === PauseReason.Desync) net.setPaused('The game went out of step; reloading everyone from one copy…');
-      else net.setPaused(`${maskSlots(p.waiting).map(slotName).join(' and ') || 'A player'} is catching up…`);
-    } else net.setPaused(holds.has('button') ? 'Paused.' : null, () => togglePause());
-    shell.buttons.get('pause')?.setLit(pausedNow());
+    if (!online) return;
+    const p = netPause;
+    const resume = p.held ? () => togglePause() : null;
+    if (!p.paused) net.setPaused(null);
+    else if (p.reason === PauseReason.Player) net.setPaused(`${slotName(p.by)} paused the game.`, resume);
+    else if (p.reason === PauseReason.Disconnect) net.setPaused(`${maskSlots(p.waiting).map(slotName).join(' and ')} lost the connection. The game waits for them.`, resume);
+    else if (p.reason === PauseReason.Desync) net.setPaused('The game went out of step; reloading everyone from one copy…');
+    else net.setPaused(`${maskSlots(p.waiting).map(slotName).join(' and ') || 'A player'} is catching up…`);
+    shell.pauseChanged();
   };
 
   // Leaving or refreshing the page during a match asks first.
@@ -432,10 +438,17 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         send({ type: 'inputDelay', steps: m.steps });
         break;
       case 'pauseState':
-        netPause = { paused: m.paused, reason: m.reason, by: m.bySlot, waiting: m.waitingFor };
+        netPause = { paused: m.paused, reason: m.reason, held: m.held, by: m.bySlot, waiting: m.waitingFor };
         send({ type: 'pause', paused: m.paused });
         showPause();
         break;
+      case 'pauseToggled': {
+        // Someone pressed Pause or Resume: every menu opens or closes, and everyone is told who.
+        const text = `${slotName(m.slot)} ${m.paused ? 'paused' : 'resumed'} the game.`;
+        shell.pauseToggled(m.paused, text);
+        if (!m.paused) net.notice(text);
+        break;
+      }
       case 'roomState': {
         room = m;
         // Names change when a guest makes an account; the panel says who left for good.

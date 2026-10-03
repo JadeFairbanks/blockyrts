@@ -1,5 +1,6 @@
 // What the match shows about the other players' connections (Saving and
-// disconnects): the pause banner ("Paused by Jade", "Waiting for Sam"), the
+// disconnects): the pause banner ("Jade paused the game", "Waiting for Sam",
+// a few seconds of "Sam resumed the game"), the
 // host's choice when a player has been gone 30 seconds, and the notice when
 // the game closes. The banner and the choice are HUD panels with HUD
 // buttons, so they work with the cursor locked.
@@ -8,6 +9,8 @@ import type { HudPanels } from './panels.ts';
 
 /** How long a stall lasts before the banner names who the game waits for (technical decision 3: after 1 s). */
 export const WAITING_NOTICE_MS = 1000;
+/** How long a passing notice ("Sam resumed the game.") stays on the banner, ms (s). */
+export const NOTICE_MS = 4000;
 
 export interface ChoiceOption {
   face: string;
@@ -27,6 +30,8 @@ export class NetUi {
   private pauseText = '';
   private waitText = '';
   private waitTimer: ReturnType<typeof setTimeout> | undefined;
+  private noticeText = '';
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
   private resume: (() => void) | null = null;
 
   constructor(
@@ -50,10 +55,24 @@ export class NetUi {
     panels.register('host-choice', this.choice);
   }
 
-  /** The game is paused (text says by whom), or not (null); `resume` puts a Carry on button on the banner. */
+  /** The game is paused (text says by whom), or not (null); `resume` puts a Resume button on the banner. */
   setPaused(text: string | null, resume: (() => void) | null = null): void {
     this.pauseText = text ?? '';
     this.resume = text ? resume : null;
+    if (text) this.notice(null);
+    this.draw();
+  }
+
+  /** A passing notice for a few seconds when nothing else is on the banner ("Sam resumed the game."); null clears it. */
+  notice(text: string | null): void {
+    clearTimeout(this.noticeTimer);
+    this.noticeText = text ?? '';
+    if (text) {
+      this.noticeTimer = setTimeout(() => {
+        this.noticeText = '';
+        this.draw();
+      }, NOTICE_MS);
+    }
     this.draw();
   }
 
@@ -73,14 +92,14 @@ export class NetUi {
   }
 
   private draw(): void {
-    const text = this.pauseText || this.waitText;
+    const text = this.pauseText || this.waitText || this.noticeText;
     this.banner.hidden = text === '';
     this.bannerText.textContent = text;
     for (const id of this.bannerIds) this.buttons.remove(id);
     this.bannerIds = [];
     const resume = this.resume;
     if (this.pauseText && resume) {
-      const b = this.buttons.add({ id: 'net-resume', face: 'Carry on', name: 'Carry on', keys: [], description: 'Unpause the game.', className: 'dlg-btn primary', onPress: () => resume() });
+      const b = this.buttons.add({ id: 'net-resume', face: 'Resume', name: 'Resume', keys: [], description: 'Resume the game for every player.', className: 'dlg-btn primary', onPress: () => resume() });
       this.bannerIds.push('net-resume');
       this.bannerButtons.replaceChildren(b.el);
     } else this.bannerButtons.replaceChildren();
