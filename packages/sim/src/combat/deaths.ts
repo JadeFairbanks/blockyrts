@@ -16,7 +16,7 @@ import { peoplesHooks } from '../peoples/hooks.ts';
 import { killXpTenths } from '../rules.ts';
 import { destroyBuilding, dropQueue, isFarm } from '../units/behaviour.ts';
 import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp } from './combat.ts';
-import { addMob } from './mob-ai.ts';
+import { addMob, inheritRole } from './mob-ai.ts';
 import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
 import { clearLair } from '../threats/lairs.ts';
 import { rollDropList } from '../threats/loot.ts';
@@ -65,7 +65,7 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   switch (spec.id) {
     case Mob.Slime: {
       // Splits into two small slimes.
-      for (const dx of [-WU_PER_METRE >> 1, WU_PER_METRE >> 1]) addMob(state, Mob.SmallSlime, e.foe[i]!, x + dx, z, Math.max(0, night));
+      for (const dx of [-WU_PER_METRE >> 1, WU_PER_METRE >> 1]) inheritRole(state, i, addMob(state, Mob.SmallSlime, e.foe[i]!, x + dx, z, Math.max(0, night)));
       break;
     }
     case Mob.BloatedCorpse:

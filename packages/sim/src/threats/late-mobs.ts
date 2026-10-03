@@ -18,7 +18,7 @@ import { UnitKind, standY, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
 import { bodyHeight, dealt, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
-import { addMob, engageUnit, lateHooks, playerUnit } from '../combat/mob-ai.ts';
+import { addMob, engageUnit, inheritRole, lateHooks, playerUnit } from '../combat/mob-ai.ts';
 import { Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
 import { buildingTop, FIRE, launch, POISON } from '../combat/projectiles.ts';
 import { knockBack } from '../mounts/riding.ts';
@@ -196,6 +196,8 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
       const a = state.rng.combat.nextInt(65536);
       const [fx, fz] = forward(a);
       const z0 = addMob(state, Mob.Zombie, e.foe[i]!, e.x[i]! + floorDiv(fx * LATE.raise.within, 65536), e.z[i]! + floorDiv(fz * LATE.raise.within, 65536), nightOf(state));
+      // A wandering priest's dead wander with it; the group counts what it raised.
+      inheritRole(state, i, z0);
       e.group[z0] = e.id[i]!;
       state.hits.push({ look: 'burst', x: e.x[z0]!, y: e.y[z0]!, z: e.z[z0]!, id: e.id[z0]! });
       return false;

@@ -23,9 +23,10 @@ describe('balance harness', () => {
     const r = runNight(1, 0);
     expect(r.night).toBe(0);
     expect(r.mobs).toBeGreaterThanOrEqual(10);
-    // Since patch notes 1 the Big House's sheds are solid and two workers set down on them step off: the band
-    // fights a little apart and the zombies chew through one column of fence at the north-east corner before
-    // they die. Before, those two stood inside the shed walls and the fence held. Flagged for Jade's rebalance.
+    // Since patch notes 1 the Big House's sheds are solid and two workers set down on them step off, and the
+    // bats swoop and pull off, so the band ends the bat fight a little apart. The spear then walks right up to
+    // its stabbing spot (not to within 1.5 m of it, where it stood out of reach of the north-east corner and the
+    // zombies chewed through the fence), stabs over and the fence holds. A column lost is allowed for.
     expect(r.outcome).not.toBe('lost');
     expect(r.wallsLost).toBeLessThanOrEqual(1);
     expect(r.baseHpLostPct).toBe(0);

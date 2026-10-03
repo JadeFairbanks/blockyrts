@@ -1,0 +1,9 @@
+{
+ "description": "Wandering night monsters check script, seed 1, one player: the debug tools mark the land within 200 m of the Big House explored at step 2; at step 3600, late in the first dusk, the three starting warriors (units 5 to 7) walk 90 m east into the explored wild, out of reach of the town's claimed land and lights, and stand there through night 0 while the waves go for the town. The wild's patches round them fill with night 0's kinds (giant rats, cave bats, zombies, slimes) out of their sight, at least 35 m off; the wanderers stroll, and those that come within their 2 s run (3 m at least) go for the warriors. At step 8200, in the dawn, the warriors walk home; every wanderer has burned or fled by then. Columns are 45 cm, heights terrain units (11.25 cm); moves are world units (8,000 per metre); ids as of M11: workers are units 1 to 4, warriors 5 to 7.",
+ "players": 1,
+ "frames": [
+  { "step": 2, "orders": [ {"kind":"debugReveal","player":0,"x":0,"z":0,"radius":1600000} ] },
+  { "step": 3600, "orders": [ {"kind":"move","player":0,"units":[5,6,7],"x":720000,"z":0} ] },
+  { "step": 8200, "orders": [ {"kind":"move","player":0,"units":[5,6,7],"x":40000,"z":40000} ] }
+ ]
+}

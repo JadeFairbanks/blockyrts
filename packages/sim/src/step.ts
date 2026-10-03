@@ -15,8 +15,8 @@ import { updateLoot } from './units/loot.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
 import { forgetSideSight, onUnitHurt } from './combat/fight.ts';
-import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
-import { updateProjectiles } from './combat/projectiles.ts';
+import { flyerAhead, mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
+import { aimHooks, updateProjectiles } from './combat/projectiles.ts';
 import { updateSpawns } from './combat/spawn.ts';
 import { updateFood } from './economy/food.ts';
 import { installAnimalHooks, runAnimal, stockHooks, updateAnimals } from './animals/animals.ts';
@@ -53,6 +53,7 @@ peoplesHooks.salvage = onSalvage;
 peoplesHooks.wagon = runWagon;
 peoplesHooks.beast = runBeast;
 peoplesHooks.treeCut = onTreeCut;
+aimHooks.ahead = flyerAhead;
 hurtHooks.unit = (state, i, from, fresh) => {
   onUnitHurt(state, i, from, fresh);
   onFoeHurt(state, i, from);

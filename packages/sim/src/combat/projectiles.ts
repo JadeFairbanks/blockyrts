@@ -107,27 +107,84 @@ function velocityOf(state: SimState, t: number): [number, number] {
 }
 
 /**
+ * Where each flyer was before its move this step (runMob notes it), so a
+ * shot meets a flyer in its swoop wherever it is along the step, as it
+ * meets one holding still, not only where it ends the step.
+ */
+const flights = new WeakMap<SimState, { step: number; from: Map<number, readonly [number, number, number]> }>();
+
+/** Notes where a flyer is before it moves this step. */
+export function noteFlight(state: SimState, i: number): void {
+  let f = flights.get(state);
+  if (!f || f.step !== state.step) {
+    f = { step: state.step, from: new Map() };
+    flights.set(state, f);
+  }
+  const e = state.entities;
+  f.from.set(e.id[i]!, [e.x[i]!, e.y[i]!, e.z[i]!]);
+}
+
+/** Where a flyer was before its move this step, if noted. */
+function flightFrom(state: SimState, i: number): readonly [number, number, number] | undefined {
+  const f = flights.get(state);
+  return f && f.step === state.step ? f.from.get(state.entities.id[i]!) : undefined;
+}
+
+/** Where a flyer will be after some more steps of its own, the first at a step given (mob-ai.ts flyerAhead, set in step.ts): its swoop is no straight run to lead. */
+export const aimHooks: { ahead: (state: SimState, t: number, from: number, moves: number) => [number, number, number] | null } = { ahead: () => null };
+
+/**
  * Fires a shot at a target unit: it aims at where the target will be when
- * the shot arrives (two passes of the lead), plus a random miss up to the
- * spread share of the distance, less 10% a rank for the players' units.
+ * the shot arrives (two passes of the lead; a flyer where its swoop takes
+ * it when the shot gets there), plus a random miss up to the spread share
+ * of the distance, less 10% a rank for the players' units.
  */
 export function fireAt(state: SimState, shooter: number, fromX: number, fromY: number, fromZ: number, t: number, shot: number, damage: number, spreadBp: number, flags: number): void {
   const e = state.entities;
   let ax = e.x[t]!;
   let az = e.z[t]!;
-  const ay = e.y[t]! + (bodyHeight(state, t) >> 1);
-  const [vx, vz] = velocityOf(state, t);
-  for (let pass = 0; pass < 2; pass++) {
-    const s = solve(shot, fromX, fromY, fromZ, ax, ay, az);
-    ax = e.x[t]! + vx * s.t;
-    az = e.z[t]! + vz * s.t;
+  const mid = bodyHeight(state, t) >> 1;
+  let ay = e.y[t]! + mid;
+  // A flyer's spot after a flight of so many steps: a shot reaches its mark in its flight's last step, and a target later in the step's order than the shooter has its own move this step still to come.
+  const flyerAt = (steps: number): [number, number, number] | null => (t > shooter ? aimHooks.ahead(state, t, state.step, steps) : aimHooks.ahead(state, t, state.step + 1, steps - 1));
+  let steps = solve(shot, fromX, fromY, fromZ, ax, ay, az).t;
+  const ahead = flyerAt(steps);
+  if (ahead) {
+    // A swoop changes its height step by step: lead it until the flight time to the spot settles.
+    let at = ahead;
+    for (let pass = 0; pass < 4; pass++) {
+      const next = solve(shot, fromX, fromY, fromZ, at[0], at[1] + mid, at[2]).t;
+      if (next === steps) break;
+      steps = next;
+      at = flyerAt(steps)!;
+    }
+    ax = at[0];
+    ay = at[1] + mid;
+    az = at[2];
+  } else {
+    const [vx, vz] = velocityOf(state, t);
+    for (let pass = 0; pass < 2; pass++) {
+      const s = solve(shot, fromX, fromY, fromZ, ax, ay, az);
+      ax = e.x[t]! + vx * s.t;
+      az = e.z[t]! + vz * s.t;
+    }
   }
   const d = length2d(ax - fromX, az - fromZ);
   let spread = floorDiv(d * spreadBp, 10000);
   if (sideOf(state, shooter) === Side.Players) spread = floorDiv(spread * (10000 - Math.min(9000, rankSpreadReductionBp(e.rank[shooter]!))), 10000);
   if (spread > 0) {
-    ax += state.rng.combat.range(-spread, spread);
-    az += state.rng.combat.range(-spread, spread);
+    const ox = state.rng.combat.range(-spread, spread);
+    const oz = state.rng.combat.range(-spread, spread);
+    // The miss is to the side of where a flyer is when the shot gets there.
+    const final = ahead ? solve(shot, fromX, fromY, fromZ, ax + ox, ay, az + oz).t : steps;
+    const at = final !== steps ? flyerAt(final) : null;
+    if (at) {
+      ax = at[0];
+      ay = at[1] + mid;
+      az = at[2];
+    }
+    ax += ox;
+    az += oz;
   }
   launch(state, shooter, fromX, fromY, fromZ, ax, ay, az, shot, damage, flags, clearLob(state, shot, fromX, fromY, fromZ, ax, ay, az, false));
 }
@@ -240,9 +297,19 @@ export function updateProjectiles(state: SimState): void {
       for (const j of near) {
         if (e.hp[j]! <= 0 || j === shooter) continue;
         if (!shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
+        let jx = e.x[j]!;
+        let jy = e.y[j]!;
+        let jz = e.z[j]!;
+        // A flyer in its swoop is where it is at that point of its move this step.
+        const was = e.lowUntil[j]! > state.step ? flightFrom(state, j) : undefined;
+        if (was) {
+          jx = was[0] + floorDiv((jx - was[0]) * q, n);
+          jy = was[1] + floorDiv((jy - was[1]) * q, n);
+          jz = was[2] + floorDiv((jz - was[2]) * q, n);
+        }
         const hw = halfWidth(state, j);
-        if (Math.abs(e.x[j]! - x) > hw || Math.abs(e.z[j]! - z) > hw) continue;
-        if (y < e.y[j]! || y > e.y[j]! + bodyHeight(state, j)) continue;
+        if (Math.abs(jx - x) > hw || Math.abs(jz - z) > hw) continue;
+        if (y < jy || y > jy + bodyHeight(state, j)) continue;
         if (hit < 0 || e.id[j]! < e.id[hit]!) hit = j;
       }
       if (hit >= 0) {

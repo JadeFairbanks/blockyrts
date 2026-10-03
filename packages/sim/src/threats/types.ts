@@ -58,6 +58,14 @@ export interface TribeBand {
   sawAt: number;
 }
 
+/** A patch of the wild filled with wandering monsters tonight (threats/wanderers.ts): where it is (patch coordinates), the group its monsters came out as (0 for none), and how many came. */
+export interface WildPatch {
+  px: number;
+  pz: number;
+  group: number;
+  size: number;
+}
+
 /** Wood smouldering after a fire bolt or a fire arrow: burn per second until a step. */
 export interface Burn {
   building: number;
@@ -97,13 +105,15 @@ export interface ThreatState {
   bossNext: number;
   bossHp: number;
   bossId: number;
+  /** Patches of the wild filled with wandering monsters tonight, in the order they were filled; emptied at dawn (Jade's patch notes 1). */
+  wild: WildPatch[];
 }
 
 /** Morvath's first night (roster 5.25). */
 export const BOSS_FIRST_NIGHT = 110;
 
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0 };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [] };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */
@@ -124,5 +134,7 @@ export const Role = {
   People: 6,
   /** A mercenary of camp `group`, hired by its owner until dusk (peoples/). */
   Mercenary: 7,
+  /** A wandering night monster of band `group` (threats/wanderers.ts): it roams round its spot (homeX, homeZ) in the wild and goes only for prey close by. */
+  Wild: 8,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];

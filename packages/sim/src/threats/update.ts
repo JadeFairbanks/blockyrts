@@ -19,6 +19,7 @@ import { rebuildVillages, recallRaids, sendRaids } from './villages.ts';
 import { Role } from './types.ts';
 import { bossAtDawn, bossAtDusk, updateBoss } from './boss.ts';
 import { updateLateMobs } from './late-mobs.ts';
+import { updateWild } from './wanderers.ts';
 
 /** What a period's start brings. */
 export function threatsAtPeriod(state: SimState, period: Period, cycle: number): void {
@@ -44,6 +45,7 @@ export function updateThreats(state: SimState): void {
   updateLateMobs(state);
   updateBoss(state);
   if (state.step % STEPS_PER_SECOND === 0) updateBands(state);
+  updateWild(state);
   const c = clockOf(state);
   if (c.period === Period.Dawn && c.into === RAID_AFTER_DAWN_STEPS) sendRaids(state, c.cycle);
 }

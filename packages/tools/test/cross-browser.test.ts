@@ -4,7 +4,8 @@
 // lets water flow, fells trees and reveals land, so the hashes cover the
 // world's state too, and the M2 script covers workers, buildings, farms,
 // lights and the day. The chain scripts cover wall chains and tunnel chains,
-// one order per stretch.
+// one order per stretch, and the wanderers script the monsters of the wild
+// at night and the bats' swoop.
 //
 // Browsers come from Playwright. Locally a missing browser is skipped with a
 // warning; CI sets SIM_REQUIRE_BROWSERS=chromium,firefox,webkit so a missing
@@ -24,7 +25,7 @@ const engines: Array<[string, BrowserType]> = [
   ['firefox', firefox],
   ['webkit', webkit],
 ];
-const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights', 'm4-economy', 'm5-threats', 'm6-mages', 'm7-peoples', 'm8-siege', 'chain-walls', 'chain-tunnel'].map((name) => {
+const scripts = ['m0-demo', 'm1-world', 'm2-camp', 'm3-nights', 'm4-economy', 'm5-threats', 'm6-mages', 'm7-peoples', 'm8-siege', 'chain-walls', 'chain-tunnel', 'wanderers'].map((name) => {
   const script = loadOrderScript(fileURLToPath(new URL(`../orders/${name}.json`, import.meta.url)));
   const players = script.players ?? 1;
   const peaceful = script.peaceful === true;
