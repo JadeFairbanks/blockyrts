@@ -367,6 +367,13 @@ export class GameShell {
       cancelQueued: (b, index) => opts.issueOrder({ kind: 'cancelProduce', player: this.player, building: b, index }),
       letOut: (b, unit) => opts.issueOrder({ kind: 'unload', player: this.player, building: b, unit }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
+      game: this.game,
+      trainTroop: (b, troop, count) => this.commands.trainTroop(b, troop, count),
+      lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),
+      troopsChanged: () => {
+        this.selectionDirty = true;
+        this.cardDirty = true;
+      },
     });
     this.buildButtons();
     this.selection.onChange(() => {
@@ -476,7 +483,6 @@ export class GameShell {
     idleBtn?.setFace(idle > 0 ? `⚒${idle}` : '⚒').setLit(idle > 0);
     const p = clockAt(info.step, info.blood).period;
     this.buttons.get('home')?.setLit(p === Period.Dusk);
-    this.buttons.get('autoequip')?.setLit(info.autoEquip);
     this.buttons.get('rations')?.setLit(info.rations !== 0).setFace(RATIONS_FACES[info.rations] ?? '▤');
     FOODS.forEach((f, k) => {
       const off = (info.dontEat & (1 << k)) !== 0;
@@ -675,19 +681,6 @@ export class GameShell {
       onPress: () => this.setQueueMode(!this.queueMode),
     });
     util({
-      id: 'autoequip',
-      face: '⚙',
-      name: 'Auto-Equip',
-      keys: k('autoEquip'),
-      description: 'While lit, new equipment from the Big House is handed out by itself with the Equip Best rules: by day, to idle units within about a 15 second run of a main base. Hand-picked items are left alone.',
-      onPress: () => {
-        const on = !(this.game.info?.autoEquip ?? false);
-        this.opts.issueOrder({ kind: 'autoEquip', player: this.player, on: on ? 1 : 0 });
-        this.buttons.get('autoequip')?.setLit(on);
-        this.message(on ? 'Auto-Equip is on.' : 'Auto-Equip is off.');
-      },
-    });
-    util({
       id: 'rations',
       face: '▤',
       name: 'Rations',
@@ -841,7 +834,6 @@ export class GameShell {
       ['townhall', 'townhall'],
       ['follow', 'follow'],
       ['home', 'home'],
-      ['autoequip', 'autoEquip'],
       ['rations', 'rations'],
       ['clear', 'clear'],
       ['peoples', 'peoples'],

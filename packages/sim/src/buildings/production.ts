@@ -132,7 +132,7 @@ export function productSpec(product: Product): ProductSpec {
 // ----- troops (Troops and gear: Barracks and Stables panel) -----
 
 /** Troop types a building trains: the Barracks close melee, long melee, rangers and brawlers; the Stables cavalry; a main base tier 1 close melee, long melee and rangers. */
-export function troopTypesAt(b: Building): Troop[] {
+export function troopTypesAt(b: Pick<Building, 'kind' | 'complete'>): Troop[] {
   if (!b.complete) return [];
   if (b.kind === BuildingKind.Barracks) return [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler];
   if (b.kind === BuildingKind.Stables) return [Troop.Cavalry];
@@ -141,7 +141,7 @@ export function troopTypesAt(b: Building): Troop[] {
 }
 
 /** The tiers a building offers a troop type: a main base tier 1 at most (Jade), the rest the whole ladder. */
-export function troopTiersAt(b: Building, troop: number): { w: readonly [number, number]; a: readonly [number, number] } {
+export function troopTiersAt(b: Pick<Building, 'kind'>, troop: number): { w: readonly [number, number]; a: readonly [number, number] } {
   const [lo, hi] = weaponTiers(troop);
   if (b.kind === BuildingKind.MainBase) return { w: [lo, Math.min(hi, 1)], a: [0, 1] };
   return { w: [lo, hi], a: [0, TOP_TIER] };

@@ -8,20 +8,20 @@ import * as THREE from 'three';
 import { cue } from '../audio/cues.ts';
 import {
   BuildingKind,
+  costText,
   engineSpec,
-  Mount,
+  holderKind,
+  Line,
+  linePiece,
+  mainCost,
   Research,
   Skill,
   SKILL_TRAINING,
   BUILDINGS,
   buildingSpec,
-  CRAFT_PRODUCT,
   footprintDims,
-  Item,
-  itemSpec,
-  ITEMS,
+  kitName,
   levelSpec,
-  mageWears,
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
@@ -33,8 +33,6 @@ import {
   Product,
   productSpec,
   RANK_TRAINING,
-  RECIPE_PRODUCT,
-  REFURBISH_PRODUCT,
   Res,
   RESEARCH,
   RESEARCH_PRODUCT,
@@ -42,19 +40,21 @@ import {
   schoolSpells,
   SiteKind,
   SITE_MAX_COLUMNS,
-  Slot,
-  SLOT_NAMES,
   speciesSpec,
   Spell,
   SPELLS,
-  ALL_JOBS,
-  UnitKind,
+  Troop,
+  TROOP_PRODUCT,
+  troopProduct,
+  TOOL_KITS,
+  upgradePieces,
+  upgradeTarget,
+  type KitHolder,
   WU_PER_COLUMN,
   WU_PER_METRE,
   WU_PER_TERRAIN_UNIT,
   type BuildingSpec,
   type Cost,
-  type ItemSpec,
   type Order,
 } from '@blockyrts/sim';
 import type { UnitInfo } from '../game/game-info.ts';
@@ -67,6 +67,7 @@ import type { Settings } from '../settings/settings.ts';
 import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonPress } from './buttons.ts';
+import { troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 
 /** One button of the command card. */
 export interface CardEntry {
@@ -96,8 +97,8 @@ const ALLIED_ACTIONS = new Set(['attack', 'stop', 'hold', 'patrol', 'move', 'gat
 
 type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt' | 'cast' | 'hitch';
 
-/** Pages of the command card: the main card, the build menus, the K and F pages of a Big House, and the I equipment panel. */
-export type CardPage = 'main' | 'basic' | 'advanced' | 'craft' | 'refurbish' | 'equip' | 'make' | 'skills';
+/** Pages of the command card: the main card, the build menus and a building's K menu (smelting, cooking, research and the rest). */
+export type CardPage = 'main' | 'basic' | 'advanced' | 'make';
 
 /** Dig (D) and earthworks: an area dragged on the ground, then confirmed with a left click (Dig: area, depth, preview, tunnels). */
 export interface Area {
@@ -161,31 +162,23 @@ const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Sto
 /** Earthworks variants shaped as a ramp: earth, lumber and stone. */
 const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
 
-/** The skills page: each skill, its face and what it is for. */
-const SKILL_BUTTONS: ReadonlyArray<readonly [number, string, string]> = [
-  [Skill.Archery, 'Archery', 'Bows need it; slings and javelins need no training.'],
-  [Skill.Crossbow, 'Crossbow', 'Crossbows need it; much quicker and cheaper than archery.'],
-  [Skill.Riding, 'Riding', 'Riders mount the town\'s tamed horses (R). The Stables needs a tamed horse in its stalls.'],
-  [Skill.Musket, 'Musket', 'Muskets need it, with a powder horn and a shot pouch.'],
-  [Skill.Cannon, 'Cannon', 'Cannon crew fire cannons; catapults and ballistas need no training.'],
-];
-
-/** animals/species.ts Species.Horse. */
-const HORSE_SPECIES = 2;
-
-/** Units by kind: which slots the I panel shows. */
-const WORKER_SLOTS: readonly Slot[] = [Slot.Tool, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Kit];
-const WARRIOR_SLOTS: readonly Slot[] = [Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Ammo, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case];
-/** A mage wears boots, leather and a helmet, and carries a torch; her wand comes with her rank. */
-const MAGE_SLOTS: readonly Slot[] = [Slot.Boots, Slot.Armour, Slot.Helmet, Slot.Torch];
 const LOCK_FACES = ['Auto', 'Melee', 'Ranged'];
+
+/** The troop types' card actions, their buttons' faces and slots on a Barracks or Stables card (a main base shifts them one along for Worker). */
+const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>> = {
+  [Troop.Close]: ['trainClose', 'Close', 0],
+  [Troop.Long]: ['trainLong', 'Long', 1],
+  [Troop.Ranger]: ['trainRanger', 'Ranger', 2],
+  [Troop.Brawler]: ['trainBrawler', 'Brawler', 3],
+  [Troop.Cavalry]: ['trainCavalry', 'Cavalry', 0],
+};
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
 const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey.startsWith('mage:');
 
 /** Whether a building trains workers, warriors or mages, which come out to its rally point. */
 const trainsUnits = (b: BuildingInfo): boolean =>
-  buildingSpec(b.kind).trainsWorkers || b.products.some(([p]) => p === Product.Warrior || p === Product.SupportMage || p === Product.BattleMage);
+  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage);
 
 export interface Targeting {
   command: TargetCommand;
@@ -334,7 +327,7 @@ export class Commands {
       return true;
     }
     if (this.menu.page !== 'main') {
-      const menus = this.menu.page === 'basic' || this.menu.page === 'advanced' || this.menu.page === 'equip';
+      const menus = this.menu.page === 'basic' || this.menu.page === 'advanced';
       this.menu = this.menu.sub >= 0 && menus ? { page: this.menu.page, sub: -1 } : { page: 'main', sub: -1 };
       this.d.changed();
       return true;
@@ -362,15 +355,13 @@ export class Commands {
     if (this.area && active === 'worker') return this.areaCard(card);
     if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(card, active);
-      if (this.menu.page === 'equip') return this.equipCard(card);
       if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
-      if (this.menu.page === 'skills' && active === 'warrior') return this.skillsCard(card);
       this.unitCard(card, active);
     } else if (active.startsWith('engine:')) {
       this.engineCard(card);
     } else if (active.startsWith('building:')) {
       const kind = Number(active.split(':')[1]);
-      if (this.menu.page === 'craft' || this.menu.page === 'refurbish' || this.menu.page === 'make') return this.makeCard(card, kind, this.menu.page);
+      if (this.menu.page === 'make') return this.makeCard(card, kind);
       this.buildingCard(card, kind);
     }
     return card;
@@ -457,15 +448,18 @@ export class Commands {
       );
       card[10] = this.entry('buildBasic', 'Build', 'Open the Basic Structures menu: homes, farms, storage, walls, lights. Grid keys pick a building; B is Back.', () => this.openMenu('basic'), { name: 'Build Basic Structures' });
       card[11] = this.entry('buildAdvanced', 'Adv.', 'Open the Advanced Structures menu: buildings that need rare resources or technology.', () => this.openMenu('advanced'), { name: 'Build Advanced Structures' });
-      card[13] = this.equipBestEntry();
-      if (!card[14]) card[14] = this.equipmentEntry();
+      // Workers never patrol (s): the slot is their rank training, which the equipment panel used to hold.
+      card[3] = this.rankEntry(workers);
+      card[13] = this.upgradeEntry(workers, Line.Weapon, false);
+      if (!card[14]) card[14] = this.cartEntry(workers);
     } else if (active.startsWith('mage:')) {
       this.mageCard(card, active);
     } else {
-      card[5] = this.equipBestEntry();
-      card[6] = this.equipmentEntry();
+      const troops = this.unitIds((u) => u.typeKey === 'warrior');
+      card[5] = this.upgradeEntry(troops, Line.Weapon, false);
+      card[6] = this.upgradeEntry(troops, Line.Armour, false);
       card[7] = this.lockEntry();
-      card[8] = this.entry('train', 'Train', 'Open the skills page: archery and the crossbow at a Barracks, riding at the Stables, the musket and cannon crew at a Gunnery yard. A warrior must be trained before it can use them.', () => this.openMenu('skills'), { name: 'Train a skill' });
+      card[8] = this.cannonEntry();
       card[9] = this.entry(
         'hunt',
         'Hunt',
@@ -474,7 +468,9 @@ export class Commands {
         { lit: t === 'hunt', double: () => this.huntAuto() },
       );
       card[10] = this.eatEntry();
-      card[11] = this.rideEntry();
+      // The Max twins show only when they would go further than the plain buttons.
+      card[11] = this.maxEntry(troops, Line.Weapon, card[5]);
+      card[13] = this.maxEntry(troops, Line.Armour, card[6]);
     }
     card[12] = this.entry(
       'enter',
@@ -499,8 +495,9 @@ export class Commands {
     // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
     card[10] = { ...this.eatEntry(), key: '' };
     card[11] = this.mageRankEntry(ids);
-    card[13] = this.equipBestEntry();
-    if (!card[14]) card[14] = this.equipmentEntry();
+    // No room for Max twins on a mage's card: pressing an upgrade twice goes to the best.
+    card[13] = this.upgradeEntry(ids, Line.Weapon, false);
+    if (!card[14]) card[14] = this.upgradeEntry(ids, Line.Armour, false);
   }
 
   /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */
@@ -561,14 +558,13 @@ export class Commands {
   /** Rank training at a Magi Sanctum (Table 7): food and crystals for the first two ranks, a rank wand and her experience for the three above. */
   private mageRankEntry(ids: number[]): CardEntry {
     const name = 'Upgrade rank';
-    const desc = `Send them to train at a Magi Sanctum. ${MAGE_RANK_TRAINING.map((t) => `${t.name}: ${t.wand ? `her rank wand from the stock, once her experience is enough` : `${t.food} food${t.crystals ? ` and ${t.crystals} mana crystals` : ''}`}, ${t.steps / 20} s`).join('; ')}. Experience from combat also raises her to Acolyte and Adept Acolyte by itself.`;
+    const desc = `Send them to train at a Magi Sanctum. ${MAGE_RANK_TRAINING.map((t) => `${t.name}: ${[t.food ? `${t.food} food` : '', t.crystals ? `${t.crystals} mana crystals` : ''].filter((x) => x).join(' and ')}${t.combat ? ', once her experience from combat is enough' : ''}, ${t.steps / 20} s`).join('; ')}. Experience from combat also raises her to Acolyte and Adept Acolyte by itself.`;
     const units = ids.map((id) => this.d.game.unit(id)).filter((u): u is UnitInfo => u !== null);
     const why = (u: UnitInfo): string => {
       const t = nextMageTraining(u.rank);
       if (!t) return 'She is at the highest rank.';
       const own = this.d.game.mageRankWhy(u.id);
       if (own) return own;
-      if (t.wand && this.d.game.stock(t.wand) < 1) return `Needs a ${itemSpec(t.wand).name.toLowerCase()} in the equipment stock (make one at a Magi Sanctum).`;
       if (this.d.game.food() < t.food) return `Not enough food (needs ${t.food}).`;
       if (t.crystals && this.d.game.have(Res.ManaCrystal) < t.crystals) return `Needs ${t.crystals} mana crystals.`;
       return '';
@@ -613,28 +609,6 @@ export class Commands {
     this.d.changed();
   }
 
-  private equipBestEntry(): CardEntry {
-    const units = this.unitIds(geared);
-    const desc =
-      'Every selected unit gets the best equipment in the stock that it can use, the highest ranks first, and walks to the nearest main base to collect it. Hand-picked items are left alone.';
-    const base = this.d.game.mainBases().some((b) => b.complete);
-    if (!base) return this.off('equipBest', 'Equip', desc, 'There is no main base to collect equipment at.', 'Equip Best');
-    return this.entry('equipBest', 'Equip', desc, () => {
-      if (units.length === 0) return;
-      this.d.send({ kind: 'equipBest', player: this.d.player, units });
-    }, { name: 'Equip Best' });
-  }
-
-  private equipmentEntry(): CardEntry {
-    const units = this.unitIds(geared);
-    const desc = 'With one unit selected: what it wears and holds, and the items in the stock that fit each slot. Pick one and the unit walks to the main base to collect it.';
-    if (units.length !== 1) return this.off('equipment', 'Gear', desc, 'Select a single unit.', 'Equipment');
-    return this.entry('equipment', 'Gear', desc, () => {
-      this.menu = { page: 'equip', sub: -1 };
-      this.d.changed();
-    }, { name: 'Equipment' });
-  }
-
   private lockEntry(): CardEntry {
     const warriors = this.unitIds((u) => u.typeKey === 'warrior');
     const lock = this.d.game.unit(warriors[0] ?? -1)?.lock ?? 0;
@@ -648,41 +622,116 @@ export class Commands {
     );
   }
 
-  /** The skills page (Training: Table 7): a button per skill, sending the untrained warriors to the building that teaches it, one at a time. */
-  private skillsCard(card: Card): Card {
-    SKILL_BUTTONS.forEach(([skill, face, why], k) => {
-      card[k] = { ...this.skillEntry(skill, face, why), key: GRID_CODES[k]!, grid: true };
-    });
-    card[14] = this.backEntry('Back to the unit commands.');
-    return card;
-  }
-
-  private skillEntry(skill: number, face: string, why: string): CardEntry {
+  /** Cannon crew training at a Gunnery yard (Table 7): the one skill left; every other weapon comes with its troop type. */
+  private cannonEntry(): CardEntry {
+    const skill = Skill.Cannon;
     const t = SKILL_TRAINING[skill]!;
     const at = buildingSpec(t.at).name;
     const name = `Train in ${t.name}`;
-    const action = skill === Skill.Archery ? 'archery' : `skill${skill}`;
-    const desc = `Send them to a ${at} to learn ${t.name}, one at a time: ${t.food} food and ${t.steps / 20} s each. ${why}`;
+    const face = 'Cannon';
+    const desc = `Send them to a ${at} to learn ${t.name}, one at a time: ${t.food} food and ${t.steps / 20} s each. Cannon crew fire cannons; catapults and ballistas need no training.`;
     const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & skill) === 0);
-    if (untrained.length === 0) return this.off(action, face, desc, `They are already trained in ${t.name}.`, name);
-    if (t.research !== Research.None && !this.d.game.researched(t.research)) return this.off(action, face, desc, `Needs ${RESEARCH[t.research]!.name} researched.`, name);
+    if (untrained.length === 0) return this.off('train', face, desc, `They are already trained in ${t.name}.`, name);
+    if (t.research !== Research.None && !this.d.game.researched(t.research)) return this.off('train', face, desc, `Needs ${RESEARCH[t.research]!.name} researched.`, name);
     const school = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === t.at && b.complete);
-    if (!school) return this.off(action, face, desc, `Needs a ${at}.`, name);
-    if (this.d.game.food() < t.food) return this.off(action, face, desc, `Not enough food (needs ${t.food}).`, name);
-    return this.entry(action, face, desc, () => this.d.send({ kind: 'trainSkill', player: this.d.player, units: untrained, building: school.id, skill, queued: this.d.queued() }), { name });
+    if (!school) return this.off('train', face, desc, `Needs a ${at}.`, name);
+    if (this.d.game.food() < t.food) return this.off('train', face, desc, `Not enough food (needs ${t.food}).`, name);
+    return this.entry('train', face, desc, () => this.d.send({ kind: 'trainSkill', player: this.d.player, units: untrained, building: school.id, skill, queued: this.d.queued() }), { name });
   }
 
-  /** R: riders get on their own horses (the nearest free one each), or get down when all of them are mounted (Charges; Table 14). */
-  private rideEntry(): CardEntry {
-    const ids = this.unitIds((u) => u.typeKey === 'warrior');
-    const units = ids.map((id) => this.d.game.unit(id)).filter((u) => u !== null);
-    const desc = 'Warriors trained to ride get on the nearest free tamed horse (a horse in the Stables comes out to them); press again to get down. Mounted, they move fast, see 30 m and charge: after a 6 m straight gallop the next hit does double damage and throws smaller foes back. A rider cannot garrison or crew an engine.';
-    if (units.length > 0 && units.every((u) => u.mount !== Mount.None)) {
-      return this.entry('ride', 'Dismount', desc, () => this.d.send({ kind: 'dismount', player: this.d.player, units: ids, queued: this.d.queued() }), { name: 'Dismount' });
+  /** The selected units as the kit rules see them, with their ids. */
+  private holders(ids: number[]): Holder[] {
+    const out: Holder[] = [];
+    for (const id of ids) {
+      const u = this.d.game.unit(id);
+      const kind = u ? holderKind(u.kind) : undefined;
+      if (!u || !kind) continue;
+      out.push({ id, h: { kind, troop: u.troop, w: u.wTier, a: u.aTier }, rank: u.rank, pending: u.upLine !== 0 });
     }
-    const riders = units.filter((u) => u.mount === Mount.None && (u.skills & Skill.Riding) !== 0).map((u) => u.id);
-    if (riders.length === 0) return this.off('ride', 'Ride', desc, 'They need riding training at the Stables first (Train, then Riding).', 'Mount');
-    return this.entry('ride', 'Ride', desc, () => this.d.send({ kind: 'mount', player: this.d.player, units: riders, target: 0, queued: this.d.queued() }), { name: 'Mount' });
+    return out;
+  }
+
+  /**
+   * Upgrade weapon (tools, wand) or armour (robe) (Troops and gear:
+   * Upgrading): each unit the stock pays for, highest rank first, walks to
+   * the nearest Forge, Barracks or main base (cavalry the Stables, mages a
+   * Magi Sanctum) and gets its next tier there; Max goes to the best tier
+   * researched and paid for. Pressing it twice is Max too.
+   */
+  private upgradeEntry(ids: number[], line: number, max: boolean): CardEntry {
+    const list = this.holders(ids);
+    const kind = list[0]?.h.kind ?? 'warrior';
+    const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
+    const action = line === Line.Weapon ? (max ? 'upgradeWeaponMax' : 'upgradeWeapon') : max ? 'upgradeArmourMax' : 'upgradeArmour';
+    const where = kind === 'mage' ? 'a Magi Sanctum' : kind === 'worker' ? 'the nearest Forge, Barracks or main base' : 'the nearest Forge, Barracks or main base (cavalry: the Stables)';
+    const name = max ? `Upgrade ${what} to the best` : `Upgrade ${what}`;
+    const face = max ? `${capital(what)} max` : `${capital(what)} +`;
+    const plans = this.upgradePlans(list, line, max);
+    const sent = plans.filter((p) => p.to > 0);
+    const lines = [
+      max ? `Each one gets the best ${what} researched that the stock pays for.` : `Each one gets the next tier of ${what}.`,
+      `They walk to ${where}, the highest ranks first, and pay there from the stock; the old kit gives nothing back.`,
+    ];
+    if (sent.length > 0) {
+      const p = sent[0]!;
+      const holder = list.find((x) => x.id === p.id)!;
+      const piece = linePiece(holder.h, line, p.to);
+      lines.push(`${sent.length === list.length ? 'All of them' : `${sent.length} of ${list.length}`} can go${piece ? `: the first to ${piece.name} (tier ${p.to}) for ${p.cost}` : ''}.`);
+    }
+    if (!max && kind !== 'worker') lines.push('Press twice (or double click) for the best.');
+    const reason = list.length === 0 ? 'Select a unit.' : sent.length === 0 ? (plans[0]?.why ?? 'Nothing to upgrade.') : '';
+    const run = (best: boolean): void => {
+      const units = list.map((x) => x.id);
+      if (units.length > 0) this.d.send({ kind: 'upgradeKit', player: this.d.player, units, line, max: best ? 1 : 0 });
+    };
+    if (reason) return this.off(action, face, lines.join(' '), reason, name);
+    const extra: Partial<CardEntry> = { name };
+    if (!max && kind !== 'worker') extra.double = () => run(true);
+    return this.entry(action, face, lines.join(' '), () => run(max), extra);
+  }
+
+  /** The Max twin of an upgrade button, or null when it would go no further than the plain one. */
+  private maxEntry(ids: number[], line: number, plain: CardEntry | null): CardEntry | null {
+    if (!plain) return null;
+    const list = this.holders(ids);
+    const one = this.upgradePlans(list, line, false);
+    const best = this.upgradePlans(list, line, true);
+    const differs = best.some((b, k) => b.to > (one[k]?.to ?? 0));
+    return differs ? this.upgradeEntry(ids, line, true) : null;
+  }
+
+  /** Where each unit's upgrade would go, as the sim works it out: the stock set aside unit by unit, highest rank first. */
+  private upgradePlans(list: readonly Holder[], line: number, max: boolean): Array<{ id: number; to: number; cost: string; why: string }> {
+    const pool = this.d.game.pool();
+    const tech = this.d.game.tech();
+    const held: Array<[number, number]> = [];
+    const order = [...list].sort((a, b) => b.rank - a.rank || a.id - b.id);
+    return order.map(({ id, h, pending }) => {
+      if (pending) return { id, to: 0, cost: '', why: 'Already on the way to an upgrade.' };
+      const t = upgradeTarget(h, line, max, pool, tech, held as Cost);
+      if ('why' in t) return { id, to: 0, cost: '', why: t.why };
+      for (const [r, n] of t.plan.cost) {
+        const at = held.findIndex(([x]) => x === r);
+        if (at >= 0) held[at] = [r, held[at]![1] + n];
+        else held.push([r, n]);
+      }
+      return { id, to: t.to, cost: costText(mainCost(upgradePieces(h, line, t.to))), why: '' };
+    });
+  }
+
+  /** X: workers fetch a cart from the main base (an ox cart when their ox is hitched), or hand theirs back. */
+  private cartEntry(workers: number[]): CardEntry {
+    const units = workers.map((id) => this.d.game.unit(id)).filter((u): u is UnitInfo => u !== null);
+    const back = units.length > 0 && units.every((u) => u.kit !== 0);
+    const desc = back
+      ? 'Take the carts back to the main base and hand them in to the stock.'
+      : 'Walk to the main base and take a cart from the stock: a hand cart carries 150 lb, an ox cart (for a worker with an ox hitched) much more. Make carts at a Workshop.';
+    const name = back ? 'Hand the cart back' : 'Fetch a cart';
+    const base = this.d.game.mainBases().some((b) => b.complete);
+    if (!base) return this.off('cart', 'Cart', desc, 'There is no main base.', name);
+    if (!back && this.d.game.have(Res.HandCart) + this.d.game.have(Res.OxCart) === 0) return this.off('cart', 'Cart', desc, 'There are no carts in the stock (make one at a Workshop).', name);
+    const ids = units.filter((u) => (back ? u.kit !== 0 : u.kit === 0)).map((u) => u.id);
+    return this.entry('cart', back ? 'Cart back' : 'Cart', desc, () => this.d.send({ kind: 'cart', player: this.d.player, units: ids, back: back ? 1 : 0 }), { name });
   }
 
   /**
@@ -809,28 +858,29 @@ export class Commands {
     if (all.length === 0) return;
     const spec = buildingSpec(kind);
     const first = all[0]!;
-    // Production: workers and warriors at the Big House, workers at farms, planks at the mill, warriors at the Barracks, research at the lodge.
+    // Production: workers at the main base and farms, troops at the Barracks, the Stables and (tier 1) the main base, planks at the mill, mages at the Sanctum.
     const rows: Array<[number, string, string, number]> = [];
+    const main = kind === BuildingKind.MainBase;
     if (first.complete) {
       if (spec.trainsWorkers) rows.push([Product.Worker, 'trainWorker', 'Worker', 0]);
-      if (kind === BuildingKind.MainBase || kind === BuildingKind.Barracks) rows.push([Product.Warrior, 'trainWarrior', 'Warrior', 1]);
-      // Mages at a Magi Sanctum, and at a main base of level 6 and up (Magic).
+      // Mages at a Magi Sanctum, and at a main base of level 6 and up (Magic), after the main base's troops.
       if (first.products.some(([p]) => p === Product.SupportMage)) {
-        const at = kind === BuildingKind.MainBase ? 2 : 0;
+        const at = main ? 4 : 0;
         rows.push([Product.SupportMage, 'trainSupportMage', 'Support', at], [Product.BattleMage, 'trainBattleMage', 'Battle', at + 1]);
       }
       if (kind === BuildingKind.LumberMill) rows.push([Product.PlanksSoftwood, 'planksSoft', 'Planks S', 0], [Product.PlanksHardwood, 'planksHard', 'Planks H', 1]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
-    if (first.complete && kind === BuildingKind.MainBase) {
-      card[5] = this.entry('craft', 'Craft', 'Open the crafting menu: tools, weapons, shields, boots, arrows, torches, fishing gear and carts for the equipment stock. Grid keys pick an item; V shows the next page; B is Back.', () => this.openMenu('craft'), { name: 'Craft' });
-      card[6] = this.entry('refurbish', 'Refurb.', 'Take items out of the stock and get back everything they were made from, ten times faster than making them.', () => this.openMenu('refurbish'), { name: 'Refurbish' });
-    } else if (first.complete && first.products.some(([p]) => p >= RESEARCH_PRODUCT && (p < REFURBISH_PRODUCT || p >= RECIPE_PRODUCT))) {
-      const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Grid keys pick one; V shows the next page; B is Back.'];
-      card[5] = this.entry('craft', what[0], what[1], () => this.openMenu('make'), { name: what[0] });
-      if (first.products.some(([p]) => p >= REFURBISH_PRODUCT && p < RECIPE_PRODUCT)) {
-        card[6] = this.entry('refurbish', 'Refurb.', 'Take items out of the stock and get back everything they were made from, ten times faster than making them.', () => this.openMenu('refurbish'), { name: 'Refurbish' });
+    if (first.complete) {
+      for (const t of first.troops) {
+        const [action, face, slot] = TROOP_ACTIONS[t.troop]!;
+        card[slot + (main ? 1 : 0)] = this.troopEntry(all, t.troop, action, face);
       }
+    }
+    if (first.complete && first.products.some(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)) {
+      const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Grid keys pick one; V shows the next page; B is Back.'];
+      // A main base's mages sit on 4 and 5, so its K menu (rope) moves along.
+      card[main ? 7 : 5] = this.entry('craft', what[0], what[1], () => this.openMenu('make'), { name: what[0] });
     }
     if (first.complete && trainsUnits(first)) {
       card[9] = this.entry('rally', 'Rally', 'Then left click ground, a unit or a resource node: new units go there (workers gather, on a node). Shift adds a waypoint. Right click with the building selected does the same.', () => this.target('rally', 'rally'), {
@@ -877,56 +927,86 @@ export class Commands {
     const ps = productSpec(p);
     const g = this.d.game;
     const info = g.info;
-    const making = ps.item !== undefined && p < REFURBISH_PRODUCT;
-    const costs = ps.food > 0 ? `${ps.food} food` : making ? itemSpec(ps.item!).recipes.map(costLine).join(', or ') : costLine(ps.cost);
-    const takes = making || ps.item === undefined ? (ps.items ?? []) : [];
+    const costs = [ps.cost.length > 0 ? costLine(ps.cost) : '', ps.food > 0 ? `${ps.food} food` : ''].filter((x) => x).join(', ') || 'free';
     let reason = '';
     if (ps.research !== undefined && g.researched(ps.research)) reason = 'Already researched.';
     else if (ps.research !== undefined && [...g.buildings.values()].some((b) => b.owner === this.d.player && b.queue.some((q) => q.product === p))) reason = 'Being researched.';
-    else if (making && !g.researched(itemSpec(ps.item!).research)) reason = `Needs ${RESEARCH[itemSpec(ps.item!).research]!.name} researched first (Scholar's Lodge).`;
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
-    else if (making) reason = itemSpec(ps.item!).recipes.some((r) => g.shortOf(r) < 0) ? '' : g.costProblem(itemSpec(ps.item!).recipes[0] ?? []);
     else if (ps.food === 0) reason = g.costProblem(ps.cost);
-    if (!reason && p >= REFURBISH_PRODUCT && g.stock(ps.item!) < (ps.items?.[0]?.[1] ?? 1)) reason = 'None in the equipment stock.';
-    for (const [it, n] of takes) if (!reason && g.stock(it) < n) reason = `Needs ${n === 1 ? 'a' : n} ${itemSpec(it).name.toLowerCase()} in the equipment stock.`;
-    if (!reason && (p === Product.Worker || p === Product.Warrior || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+    if (!reason && (p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
     if (why !== undefined) reason = why;
     if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
-    const stock = ps.item !== undefined ? ` In stock: ${g.stock(ps.item)}.` : '';
-    const extra = takes.length > 0 ? ` and ${takes.map(([it, n]) => `${n} ${itemSpec(it).name.toLowerCase()}`).join(', ')} from the stock` : '';
-    const what = p >= REFURBISH_PRODUCT ? ps.tooltip : `${ps.tooltip} Cost: ${costs}${extra}.`;
     return {
       action,
       face,
       name: ps.name,
       key: grid !== undefined ? GRID_CODES[grid]! : this.key(action),
       grid: grid !== undefined,
-      description: `${what} Time: ${Math.round(ps.steps / 2) / 10} s.${stock} Shift: queue 5.`,
+      description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / 2) / 10} s. Shift: queue 5.`,
       enabled: reason === '',
       reason,
       run: (press) => this.produce(all, p, press.shift ? 5 : 1),
     };
   }
 
+  /** A troop type's button: trains the kit picked in the panel (or the building's default), greyed out with why it cannot. */
+  private troopEntry(all: BuildingInfo[], troop: number, action: string, face: string): CardEntry {
+    const first = all[0]!;
+    const c = troopChoice(first, troop);
+    const why = troopWhy(this.d.game, first, troop, c.w, c.a);
+    const others = all.length > 1 ? ' With several selected, each trains its own pick and the shortest queue goes first.' : '';
+    const any = all.some((b) => {
+      const k = troopChoice(b, troop);
+      return troopWhy(this.d.game, b, troop, k.w, k.a) === '';
+    });
+    return {
+      action,
+      face,
+      name: `Train ${troopName(troop).toLowerCase()}`,
+      key: this.key(action),
+      description: `${kitName(troop, c.w, c.a)} (weapon tier ${c.w}, armour tier ${c.a}). Cost: ${troopCostText(first, troop, c.w, c.a)}. Pick the kit in the panel.${others} Shift: queue 5.`,
+      enabled: any,
+      reason: any ? '' : why,
+      run: (press) => this.trainTroopAt(all, troop, press.shift ? 5 : 1),
+    };
+  }
+
+  /** The panel's picture button: train a troop type at one building. */
+  trainTroop(building: number, troop: number, count: number): void {
+    const b = this.d.game.buildings.get(building);
+    if (b) this.trainTroopAt([b], troop, count);
+  }
+
+  /** Spreads troops over the buildings with the shortest queues, each with its own pick. */
+  private trainTroopAt(all: BuildingInfo[], troop: number, count: number): void {
+    const ready = all.filter((b) => b.complete && b.troops.some((t) => t.troop === troop));
+    for (let k = 0; k < count && ready.length > 0; k++) {
+      ready.sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
+      const b = ready[0]!;
+      const c = troopChoice(b, troop);
+      const product = troopProduct(troop, c.w, c.a);
+      this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count: 1 });
+      b.queue.push({ product, done: 0 });
+    }
+    this.d.changed();
+  }
+
   /**
-   * K (craft, cook, research, slaughter) and F (refurbish): a button per
-   * product the building makes, 13 to a page, greyed out with the sim's
-   * reason; V shows the next page and B is Back.
+   * K (smelt, cook, research, make, slaughter): a button per product the
+   * building makes, 13 to a page, greyed out with the sim's reason; V shows
+   * the next page and B is Back.
    */
-  private makeCard(card: Card, kind: number, page: 'craft' | 'refurbish' | 'make'): Card {
+  private makeCard(card: Card, kind: number): Card {
+    const page = 'make';
     const all = this.buildings().filter((b) => b.kind === kind && b.complete);
     const first = all[0];
     if (first) {
-      const list = first.products.filter(([p]) => {
-        if (page === 'refurbish') return p >= REFURBISH_PRODUCT && p < RECIPE_PRODUCT;
-        if (page === 'craft') return p >= CRAFT_PRODUCT && p < REFURBISH_PRODUCT;
-        return p >= RESEARCH_PRODUCT && (p < REFURBISH_PRODUCT || p >= RECIPE_PRODUCT);
-      });
+      const list = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
       const pages = Math.max(1, Math.ceil(list.length / MAKE_PER_PAGE));
       const at = Math.max(0, this.menu.sub) % pages;
       list.slice(at * MAKE_PER_PAGE, (at + 1) * MAKE_PER_PAGE).forEach(([p, why], k) => {
         const ps = productSpec(p);
-        const face = ps.item !== undefined ? shortName(itemSpec(ps.item)) : shortFace(ps.name);
+        const face = shortFace(ps.name);
         card[k] = this.productEntry(all, p, `make-${p}`, face, k, why);
       });
       if (pages > 1) {
@@ -952,91 +1032,6 @@ export class Commands {
 
   private backEntry(description: string): CardEntry {
     return { action: 'back', face: 'Back', name: 'Back', key: GRID_CODES[14], grid: true, description, enabled: true, reason: '', run: () => this.back() };
-  }
-
-  /** I: a button per slot of the one selected unit; a slot opens the items in stock that fit it. */
-  private equipCard(card: Card): Card {
-    const ids = this.unitIds(geared);
-    const u = ids.length === 1 ? this.d.game.unit(ids[0]!) : null;
-    card[14] = this.backEntry(this.menu.sub >= 0 ? 'Back to the slots.' : 'Back to the unit commands.');
-    if (!u) return card;
-    const mage = u.kind === UnitKind.Mage;
-    const slots = u.kind === UnitKind.Worker ? WORKER_SLOTS : mage ? MAGE_SLOTS : WARRIOR_SLOTS;
-    const load = `Carrying ${carriedLb(u)} lb of gear (over 50 lb slows them down, up to 40% at 100 lb).`;
-    if (this.menu.sub < 0) {
-      slots.forEach((slot, k) => {
-        const worn = wornItem(u, slot);
-        const munition = u.ranged ? itemSpec(u.ranged).ranged?.munition : undefined;
-        const quiver = munition === 'arrows' || munition === 'bolts';
-        const shots = munition === 'bolts' ? 'bolts' : 'arrows';
-        const now =
-          slot === Slot.Ammo ? (quiver ? `${u.ammo} ${shots} (${u.ammoItem ? itemSpec(u.ammoItem).name.toLowerCase() : 'none'})` : 'no quiver or bolt case') : slot === Slot.Tool ? toolsText(u) : worn ? itemSpec(worn).name : 'nothing';
-        card[k] = {
-          action: `slot-${slot}`,
-          face: slot === Slot.Ammo ? `${munition === 'bolts' ? 'Bolts' : 'Arrows'} ${quiver ? u.ammo : '-'}` : worn ? shortName(itemSpec(worn)) : `(${SLOT_NAMES[slot]})`,
-          name: SLOT_NAMES[slot]!,
-          key: GRID_CODES[k]!,
-          grid: true,
-          description: `${SLOT_NAMES[slot]}: ${now}. Click to pick from the stock. ${load}`,
-          enabled: true,
-          reason: '',
-          run: () => {
-            this.menu = { page: 'equip', sub: slot };
-            this.d.changed();
-          },
-        };
-      });
-      card[11] = this.eatEntry();
-      card[12] = this.equipBestEntry();
-      if (u.kind === UnitKind.Worker) card[13] = this.rankEntry([u.id]);
-      if (mage) card[13] = this.mageRankEntry([u.id]);
-      return card;
-    }
-    const slot = this.menu.sub as Slot;
-    const worn = wornItem(u, slot);
-    if (worn && slot !== Slot.Ammo && slot !== Slot.Torch) {
-      const tools = slot === Slot.Tool;
-      card[0] = {
-        action: 'unequip',
-        face: 'Take off',
-        name: tools ? 'Take off the tools' : `Take off the ${itemSpec(worn).name.toLowerCase()}`,
-        key: GRID_CODES[0],
-        grid: true,
-        description: tools ? `The unit hands in all its tools (${toolsText(u)}) at the main base, and Equip Best leaves them off after this.` : 'The unit hands it in at the main base, and Equip Best leaves the slot empty after this.',
-        enabled: true,
-        reason: '',
-        run: () => this.handPick(u, slot, 0),
-      };
-    }
-    let k = 1;
-    for (const it of ITEMS) {
-      if (k >= 14) break;
-      if (!fitsSlot(it, slot) || this.d.game.stock(it.id) <= 0) continue;
-      // Mages wear leather at most (s): nothing heavier is offered to them.
-      if (mage && slot !== Slot.Torch && !mageWears(it)) continue;
-      const untrained = (it.ranged?.skill ?? 0) !== 0 && (u.skills & it.ranged!.skill) === 0;
-      const at = k++;
-      card[at] = {
-        action: `pick-${it.id}`,
-        face: shortName(it),
-        name: it.name,
-        key: GRID_CODES[at]!,
-        grid: true,
-        description: `In stock: ${this.d.game.stock(it.id)}. Weighs ${it.weightTenthsLb / 10} lb${it.makes > 1 ? ' each' : ''}.${it.jobs ? ` ${toolJobsText(it)}` : ''}${untrained ? ` This unit cannot shoot it until it is trained${it.ranged?.munition === 'bolts' ? ' with the crossbow' : ' in archery'}.` : ''} The unit walks to the main base to collect it.`,
-        enabled: true,
-        reason: '',
-        run: () => this.handPick(u, slot, it.id),
-      };
-    }
-    if (k === 1 && !card[0]) card[1] = this.off('none', 'None', `Nothing in the stock fits the ${SLOT_NAMES[slot]!.toLowerCase()} slot.`, 'Craft some at the Big House (K).');
-    return card;
-  }
-
-  private handPick(u: UnitInfo, slot: number, item: number): void {
-    this.d.send({ kind: 'equipItem', player: this.d.player, unit: u.id, slot, item });
-    this.d.message(item ? `Off to the main base to collect the ${itemSpec(item).name.toLowerCase()}.` : `Handing in the ${SLOT_NAMES[slot]!.toLowerCase()} at the main base.`);
-    this.menu = { page: 'equip', sub: -1 };
-    this.d.changed();
   }
 
   /** Dig and earthworks: + and - set the depth or height, Mark confirms, Esc cancels. */
@@ -1443,10 +1438,7 @@ export class Commands {
         if (carriers.length > 0) return send({ kind: 'dropoff', player, units: carriers, building: b.id, queued });
         // A mineshaft with all its miners, or workers with a cart: they haul what waits there.
         if (b.kind === BuildingKind.Mineshaft && b.complete) {
-          const carts = workers.filter((id) => {
-            const k = this.d.game.unit(id)?.kit ?? 0;
-            return k === Item.HandCart || k === Item.OxCart;
-          });
+          const carts = workers.filter((id) => (this.d.game.unit(id)?.kit ?? 0) !== 0);
           const full = b.assigned >= levelSpec(b.kind, b.level).workers;
           if (full || carts.length > 0) return send({ kind: 'haul', player, units: full ? workers : carts, building: b.id, queued });
         }
@@ -1465,13 +1457,6 @@ export class Commands {
       const u = this.d.game.unit(entityIdOf(item.key) ?? -1);
       if (workers.length > 0 && u && u.hp < u.maxHp && this.mend(item)) return;
       if (this.crew(item)) return;
-    }
-    // Riders right clicking one of their own horses get on it.
-    if (item?.kind === 'unit' && item.owner === player && item.typeKey === `animal:own:${HORSE_SPECIES}` && units.length > workers.length) {
-      const riders = this.unitIds((u) => u.typeKey === 'warrior');
-      this.d.send({ kind: 'mount', player, units: riders.slice(0, 1), target: entityIdOf(item.key) ?? 0, queued });
-      this.d.marker(item.centre, 'target');
-      return;
     }
     if (item && this.enemy(item) && this.attack(item)) return;
     if (item && this.talkTo(item)) return;
@@ -1887,14 +1872,14 @@ const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell
 /** The K button by building kind: its face and tooltip. */
 const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.ScholarsLodge]: ['Research', 'Open the research menu: every step, greyed out with what it still needs. Research takes the lodge\'s time and stops while the troops starve. V shows the next page; B is Back.'],
-  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: smelting ore into ingots, and the tools, weapons and armour this level can make. Needs workers inside. V shows the next page; B is Back.'],
+  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: smelting ore into ingots (copper, tin and bronze at a Casting Hearth, wrought iron at a Bloomery, iron at an Ironworks, steel and carbon steel at a Steelworks). Kit is made where a unit trains or upgrades, not here. Needs workers inside. B is Back.'],
   [BuildingKind.Cooking]: ['Cook', 'Open the cooking menu: raw food into food with more nutrition, burning lumber or coal. V shows the next page; B is Back.'],
   [BuildingKind.LivestockFarm]: ['Slaughter', 'Slaughter one of the grown animals of the farm for its meat and hides. The farm keeps its breeding pairs longest. B is Back.'],
   [BuildingKind.Kiln]: ['Fire', 'Open the kiln menu: charcoal, bricks and glass. Needs workers inside. B is Back.'],
-  [BuildingKind.Tannery]: ['Tan', 'Open the tannery menu: leather, rope, boots, leather armour and caps, bolt cases. Needs workers inside. V shows the next page; B is Back.'],
+  [BuildingKind.Tannery]: ['Tan', 'Open the tannery menu: leather, hardened leather and rope. Needs workers inside. B is Back.'],
   [BuildingKind.HerbalistHut]: ['Brew', 'Open the herbalist menu: bandages, remedies and poison. Needs workers inside. B is Back.'],
-  [BuildingKind.MagiSanctum]: ['Make', 'Open the Magi Sanctum menu: wands, the rank wands and Hexcraft research. V shows the next page; B is Back.'],
-  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: carts, crossbows, ramp steps, lanterns and trinkets. Needs workers inside. V shows the next page; B is Back.'],
+  [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. B is Back.'],
+  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: carts, ramp steps, siege engines and the rest. Needs workers inside. V shows the next page; B is Back.'],
 };
 
 /** A short button face from a product name. */
@@ -1905,98 +1890,23 @@ export function shortFace(name: string): string {
   return words.length > 1 ? `${words[0]!.slice(0, 8)} ${words[words.length - 1]![0]}.` : plain.slice(0, 10);
 }
 
-/** A short face for an item button. */
-export function shortName(it: ItemSpec): string {
-  const faces: Record<number, string> = {
-    [Item.ToolsHardwood]: 'Tools H',
-    [Item.MaulStone]: 'Maul S',
-    [Item.HammerStone]: 'Hammer S',
-    [Item.ToolsFlint]: 'Axe/knife F',
-    [Item.Club]: 'Club',
-    [Item.SpearHardwood]: 'Spear H',
-    [Item.AxeFlint]: 'Axe F',
-    [Item.SpearFlint]: 'Spear F',
-    [Item.Sling]: 'Sling',
-    [Item.JavelinsFlint]: 'Javelins',
-    [Item.Bow]: 'Bow',
-    [Item.ArrowsFlint]: 'Arrows',
-    [Item.ArrowsFire]: 'Fire arr.',
-    [Item.Boots]: 'Boots',
-    [Item.ShieldWicker]: 'Wicker',
-    [Item.ShieldWood]: 'Shield W',
-    [Item.HandTorch]: 'Torch',
-  };
-  return faces[it.id] ?? it.name;
+/** "Weapon" from "weapon". */
+function capital(t: string): string {
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-/** Whether an item goes in a slot (a backup weapon is a one-handed melee weapon). */
-export function fitsSlot(it: ItemSpec, slot: Slot): boolean {
-  if (it.id === Item.None) return false;
-  if (slot === Slot.Backup) return it.slot === Slot.Weapon && it.melee?.oneHanded === true;
-  return it.slot === slot;
-}
-
-/** What a unit has in a slot, as the screen knows it. */
-export function wornItem(u: UnitInfo, slot: Slot): number {
-  switch (slot) {
-    case Slot.Tool:
-      return u.tools.find((t) => t !== 0) ?? Item.None;
-    case Slot.Weapon:
-      return u.weapon;
-    case Slot.Backup:
-      return u.backup;
-    case Slot.Ranged:
-      return u.ranged;
-    case Slot.Shield:
-      return u.shield;
-    case Slot.Boots:
-      return u.boots;
-    case Slot.Torch:
-      return u.torch ? Item.HandTorch : Item.None;
-    case Slot.Armour:
-      return u.armour;
-    case Slot.Helmet:
-      return u.helmet;
-    case Slot.Case:
-      return u.boltCase;
-    case Slot.Kit:
-      return u.kit;
-    default:
-      return u.ammo > 0 ? u.ammoItem : Item.None;
-  }
-}
-
-/** The distinct tool items a worker holds, in job order. */
-export function toolItems(u: UnitInfo): number[] {
-  return u.tools.filter((t, k) => t !== 0 && u.tools.indexOf(t) === k);
-}
-
-/** A worker's tools in words: "flint axe and knife, stone maul, stone hammer", or "no tools". */
-export function toolsText(u: UnitInfo): string {
-  const names = toolItems(u).map((t) => itemSpec(t).name.toLowerCase());
-  return names.length ? names.join(', ') : 'no tools';
-}
-
-const JOB_WORDS = ['chopping', 'quarrying, digging and mining', 'building and repair', 'cutting plants and butchering'];
-
-/** What a tool is for (Table 2c, tools by job). */
-export function toolJobsText(it: ItemSpec): string {
-  const jobs = it.jobs ?? 0;
-  if (jobs === ALL_JOBS) return 'A full set: every job.';
-  const words = JOB_WORDS.filter((_, j) => (jobs & (1 << j)) !== 0);
-  return `For ${words.join(', and ')}.`;
-}
-
-/** Pounds of gear a unit carries (Table 12 weights; arrows a tenth of a pound each). */
-export function carriedLb(u: UnitInfo): number {
-  let tenths = 0;
-  for (const it of toolItems(u)) tenths += itemSpec(it).weightTenthsLb;
-  for (const slot of [Slot.Weapon, Slot.Backup, Slot.Ranged, Slot.Shield, Slot.Boots, Slot.Torch, Slot.Armour, Slot.Helmet, Slot.Case, Slot.Kit] as const) {
-    const it = wornItem(u, slot);
-    if (it) tenths += itemSpec(it).weightTenthsLb;
-  }
-  if (u.ammoItem) tenths += u.ammo * itemSpec(u.ammoItem).weightTenthsLb;
-  return Math.round(tenths) / 10;
+/** A worker's tool kit in words, by tier (Table 2c). */
+export function toolKitText(tier: number): string {
+  return TOOL_KITS[tier]?.name ?? 'no tools';
 }
 
 const BLOCKED_TEXT = ['', 'the ground is too steep.', 'it cannot be built on water.', 'another building is in the way.', 'a tree, rock or bush is in the way.', 'that land is unexplored.'];
+
+/** A selected unit as the upgrade buttons see it. */
+interface Holder {
+  id: number;
+  h: KitHolder;
+  rank: number;
+  /** An upgrade already under way. */
+  pending: boolean;
+}

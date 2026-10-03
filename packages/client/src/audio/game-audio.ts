@@ -39,7 +39,6 @@ export class GameAudio {
   private readonly voiceAt = new Map<string, number>();
   private readonly alertAt = new Map<string, number>();
   private readonly nextStrike = new Map<number, number>();
-  private readonly torches = new Map<number, boolean>();
   private readonly lit = new Map<number, boolean>();
   private readonly built = new Map<number, { complete: boolean; hp: number; maxHp: number; x: number; z: number; owner: number }>();
   private starving = false;
@@ -103,7 +102,6 @@ export class GameAudio {
     }
     this.hits(msg);
     this.last = msg;
-    this.unitTorches(msg);
     this.engine.setMusicIntensity(this.fightNear(msg));
     this.prevShots = msg.shots;
   }
@@ -164,27 +162,6 @@ export class GameAudio {
       const id = hitSound(h.look, this.who(h.id), h.look !== 'shot' && this.arrowNear(h.x, h.y, h.z));
       if (id && this.engine.play(id, at)) n++;
     }
-  }
-
-  /** A hand torch lit or put out (Audio: a torch being lit and snuffed out). */
-  private unitTorches(msg: StateMessage): void {
-    const d = msg.data;
-    const seen = new Set<number>();
-    for (let i = 0; i < msg.count; i++) {
-      const o = i * STATE_STRIDE;
-      const id = d[o + S.id]!;
-      const on = d[o + S.torch] === 1;
-      const was = this.torches.get(id);
-      if (on || was !== undefined) seen.add(id);
-      if (was === undefined) {
-        if (on) this.torches.set(id, true);
-        continue;
-      }
-      if (was !== on && this.near(d[o + S.x]!, d[o + S.z]!)) this.engine.play(on ? 'torch_light' : 'torch_snuff', { x: d[o + S.x]! / WU_PER_METRE, z: d[o + S.z]! / WU_PER_METRE });
-      if (on) this.torches.set(id, true);
-      else this.torches.delete(id);
-    }
-    for (const id of this.torches.keys()) if (!seen.has(id)) this.torches.delete(id);
   }
 
   /** 0 to 1: how many hostile units stand near the camera. */

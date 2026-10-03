@@ -2,9 +2,15 @@
 // name and details, or a portrait for each thing grouped by type with a
 // health bar under each, subgroup tabs with the active one bright, and for a
 // building its production queue (click to cancel), the units inside (click to
-// let one out), its workers and its rally route.
-import { buildingSpec, productSpec } from '@blockyrts/sim';
+// let one out), its workers and its rally route; at a Barracks, the Stables
+// or a main base, the troop panel (Troops and gear: Training troops): a
+// picture button per troop type, weapon and armour tier dropdowns with icons,
+// a Lock, and what the choice costs.
+import { buildingSpec, kitName, productSpec, troopOf, Troop } from '@blockyrts/sim';
+import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
+import { armourIcon, autoIcon, setIcon, troopIcon, weaponIcon } from './icons.ts';
+import { armourOptions, pickTier, troopChoice, troopCostText, troopName, troopWhy, weaponOptions, type TierOption } from './troops.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { isOwn } from '../selection/rules.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
@@ -30,6 +36,11 @@ export interface PanelActions {
   cancelQueued(building: number, index: number): void;
   letOut(building: number, unit: number): void;
   unitName(id: number): string;
+  /** The troop panel: the game it reads, training (Shift: 5), the Lock, and a pick that changes the card. */
+  game: GameInfo;
+  trainTroop(building: number, troop: number, count: number): void;
+  lockTroop(building: number, troop: number, lock: number): void;
+  troopsChanged(): void;
 }
 
 /** Fixed order of types in the panel, so the same army always looks the same. */
@@ -80,6 +91,8 @@ export class SelectionPanel {
   private sig = '';
   private readonly bars = new Map<string, HTMLElement>();
   private readonly manaBars = new Map<string, HTMLElement>();
+  /** An open tier dropdown of the troop panel. */
+  private menu: { b: number; troop: number; line: 'w' | 'a' } | null = null;
 
   constructor(
     private readonly title: HTMLElement,
@@ -133,6 +146,7 @@ export class SelectionPanel {
       list.map((t) => `${t.key}:${t.label}:${(t.details ?? []).join('|')}`).join(','),
       active,
       b ? `${b.queue.map((q) => `${q.product}`).join('.')}/${b.inside.join('.')}/${b.rally.length}/${b.assigned}/${b.working}` : '',
+      b && b.owner === this.a.player ? this.troopSig(b) : '',
       hints.join('|'),
     ].join('#');
     if (sig === this.sig) {
@@ -169,15 +183,17 @@ export class SelectionPanel {
         this.row('label', 'Queue (click to cancel, refunded in full):');
         b.queue.forEach((item, k) => {
           const ps = productSpec(item.product);
-          const name = ps.name;
+          const t = troopOf(item.product);
+          const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a).toLowerCase()})` : ps.name;
           const btn = this.button(`queue${k}`, {
-            face: name.startsWith('Planks') ? 'P' : name.startsWith('Refurbish') ? 'F' : name.slice(0, 1),
+            face: t ? '' : name.startsWith('Planks') ? 'P' : name.slice(0, 1),
             name: `${name}: cancel`,
             keys: [],
             description: k === 0 ? `In production: ${Math.floor(item.done / 10)}% done. Click to cancel; what it cost comes back.` : 'Waiting. Click to cancel; what it cost comes back.',
             className: 'portrait queue-item',
             onPress: () => this.a.cancelQueued(b.id, k),
           });
+          if (t) setIcon(btn.el, troopIcon(t.troop, 20));
           if (k === 0) {
             const bar = document.createElement('span');
             bar.className = 'hp';
@@ -188,6 +204,7 @@ export class SelectionPanel {
         });
         this.body.append(q);
       }
+      if (b.complete && b.troops.length > 0) this.troopPanel(b);
       if (b.inside.length > 0) {
         this.row('label', `Inside (${b.inside.length}; click one to let it out):`);
         const q = document.createElement('div');
@@ -211,6 +228,143 @@ export class SelectionPanel {
     }
     this.row('owner', ownerText(t.owner, this.a.player));
     if (!isOwn(t, this.a.player)) this.row('hint', 'Not yours: you can look but not give orders.');
+  }
+
+  /** What the troop panel shows, so it redraws when a choice, a Lock or what the pool pays for changes. */
+  private troopSig(b: BuildingInfo): string {
+    if (!b.complete || b.troops.length === 0) return '';
+    const g = this.a.game;
+    const m = this.menu && this.menu.b === b.id ? `${this.menu.troop}${this.menu.line}` : '';
+    const rows = b.troops.map((t) => {
+      const c = troopChoice(b, t.troop);
+      const opts = [...weaponOptions(g, b, t.troop), ...armourOptions(g, b, t.troop)].map((o) => (o.why ? (o.short ? 's' : 'n') : 'y')).join('');
+      return `${t.troop}:${c.w}.${c.a}.${t.lock}:${troopWhy(g, b, t.troop, c.w, c.a)}:${opts}`;
+    });
+    return `${m}|${b.horses}|${rows.join(';')}`;
+  }
+
+  /** The troop panel, or the open dropdown's list of tiers. */
+  private troopPanel(b: BuildingInfo): void {
+    const g = this.a.game;
+    const menu = this.menu && this.menu.b === b.id && b.troops.some((t) => t.troop === this.menu!.troop) ? this.menu : null;
+    if (menu) {
+      this.tierMenu(b, menu.troop, menu.line);
+      return;
+    }
+    this.row('label', b.troops.some((t) => t.troop === Troop.Cavalry) ? `Train cavalry (${b.horses} tamed horse${b.horses === 1 ? '' : 's'} in the stalls):` : 'Train troops (pick the kit, then click the picture; Shift: 5):');
+    for (const t of b.troops) {
+      const c = troopChoice(b, t.troop);
+      const why = troopWhy(g, b, t.troop, c.w, c.a);
+      const row = document.createElement('div');
+      row.className = 'troop-row';
+      const name = troopName(t.troop);
+      const cost = troopCostText(b, t.troop, c.w, c.a);
+      const pic = this.button(`troop-${t.troop}`, {
+        face: '',
+        name: `Train ${name.toLowerCase()}`,
+        keys: [],
+        description: `${kitName(t.troop, c.w, c.a)}. Cost: ${cost}. The kit is made here while it trains. Shift + click: 5.`,
+        className: 'portrait troop-pic',
+        onPress: (p) => this.a.trainTroop(b.id, t.troop, p.shift ? 5 : 1),
+      });
+      pic.setEnabled(why === '', why);
+      setIcon(pic.el, troopIcon(t.troop));
+      const weapons = weaponOptions(g, b, t.troop);
+      const wName = weapons.find((o) => o.tier === c.w)?.name ?? '';
+      const wBtn = this.button(`troopw-${t.troop}`, {
+        face: `${c.w} ${shortKit(wName)}`,
+        name: `${name}: weapon`,
+        keys: [],
+        description: `Weapon tier ${c.w}: ${wName}. Click to pick another tier.${weapons.length < 2 ? ' This type has only the one.' : ''}`,
+        className: 'troop-pick',
+        onPress: () => this.openMenu(b, t.troop, 'w'),
+      });
+      wBtn.setEnabled(weapons.length > 1 && t.lock === 0, t.lock ? 'Locked: unlock to change it.' : 'There is only the one.');
+      setIcon(wBtn.el, weaponIcon(t.troop, c.w));
+      const armours = armourOptions(g, b, t.troop);
+      const aName = armours.find((o) => o.tier === c.a)?.name ?? '';
+      const aBtn = this.button(`troopa-${t.troop}`, {
+        face: `${c.a} ${shortKit(aName)}`,
+        name: `${name}: armour`,
+        keys: [],
+        description: `Armour tier ${c.a}: ${aName}. Click to pick another tier.`,
+        className: 'troop-pick',
+        onPress: () => this.openMenu(b, t.troop, 'a'),
+      });
+      aBtn.setEnabled(t.lock === 0, 'Locked: unlock to change it.');
+      setIcon(aBtn.el, armourIcon(c.a));
+      const lock = this.button(`troopl-${t.troop}`, {
+        face: t.lock ? 'Locked' : 'Lock',
+        name: t.lock ? 'Unlock' : 'Lock this kit',
+        keys: [],
+        description: t.lock
+          ? 'This building always trains this kit. Click to unlock: it goes back to the best the stock pays for.'
+          : 'Keep this weapon and armour for this troop type at this building, even when the stock could pay for better or worse. Allies see it too.',
+        className: 'troop-lock',
+        onPress: () => this.a.lockTroop(b.id, t.troop, t.lock ? 0 : 1 + c.w * 10 + c.a),
+      });
+      lock.setLit(t.lock !== 0);
+      row.append(pic.el, wBtn.el, aBtn.el, lock.el);
+      this.body.append(row);
+      const line = this.row(why ? 'troop-cost short' : 'troop-cost', `${name}: ${cost}${c.picked || t.lock ? '' : ' (best the stock pays for)'}${why ? `. ${why}` : ''}`);
+      line.title = why;
+    }
+  }
+
+  private openMenu(b: BuildingInfo, troop: number, line: 'w' | 'a'): void {
+    this.menu = { b: b.id, troop, line };
+    this.sig = '';
+    this.a.troopsChanged();
+  }
+
+  private closeMenu(): void {
+    this.menu = null;
+    this.sig = '';
+    this.a.troopsChanged();
+  }
+
+  /** A dropdown's tiers as buttons: Best affordable first, each tier with its icon, greyed with what it needs. */
+  private tierMenu(b: BuildingInfo, troop: number, line: 'w' | 'a'): void {
+    const g = this.a.game;
+    const opts: TierOption[] = line === 'w' ? weaponOptions(g, b, troop) : armourOptions(g, b, troop);
+    const c = troopChoice(b, troop);
+    this.row('label', `${troopName(troop)}: pick the ${line === 'w' ? 'weapon' : 'armour'} (red: the stock is short of it now).`);
+    const list = document.createElement('div');
+    list.className = 'troop-menu';
+    const auto = this.button('tier-auto', {
+      face: 'Best affordable',
+      name: 'Best affordable',
+      keys: [],
+      description: 'The best weapon the stock pays for, then the best armour with it. It changes as the stock does.',
+      className: 'troop-opt',
+      onPress: () => {
+        pickTier(b, troop, line, null);
+        this.closeMenu();
+      },
+    });
+    auto.setLit(!c.picked);
+    setIcon(auto.el, autoIcon());
+    list.append(auto.el);
+    for (const o of opts) {
+      const btn = this.button(`tier-${o.tier}`, {
+        face: `${o.tier} ${o.name}`,
+        name: o.name,
+        keys: [],
+        description: `Tier ${o.tier}.${o.why ? ` ${o.why}` : ''}`,
+        className: `troop-opt${o.short ? ' short' : ''}`,
+        onPress: () => {
+          pickTier(b, troop, line, o.tier);
+          this.closeMenu();
+        },
+      });
+      btn.setEnabled(o.why === '' || o.short, o.why);
+      btn.setLit(c.picked && (line === 'w' ? c.w : c.a) === o.tier);
+      setIcon(btn.el, line === 'w' ? weaponIcon(troop, o.tier) : armourIcon(o.tier));
+      list.append(btn.el);
+    }
+    const back = this.button('tier-back', { face: 'Back', name: 'Back', keys: [], description: 'Close the list.', className: 'troop-opt', onPress: () => this.closeMenu() });
+    list.append(back.el);
+    this.body.append(list);
   }
 
   private multi(list: readonly Selectable[], active: string | null): void {
@@ -283,4 +437,11 @@ export class SelectionPanel {
       }
     }
   }
+}
+
+/** A kit name short enough for a dropdown button: "Recurve bow, iron arrowheads" to "Recurve bow (iron)". */
+function shortKit(name: string): string {
+  const m = /^(.*), (.*) arrowheads$/.exec(name);
+  if (m) return `${m[1]} (${m[2]})`;
+  return name.replace(/, .*$/, '');
 }

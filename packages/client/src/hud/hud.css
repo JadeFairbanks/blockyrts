@@ -1338,3 +1338,68 @@ body.playing * {
 .menu-seed {
   margin: -4px 0 4px;
 }
+
+/* Milestone 11: the troop panel (picture buttons, tier dropdowns with icons, the Lock). */
+.icon-host {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.icon-host svg {
+  display: block;
+}
+.troop-row {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  margin-top: 3px;
+}
+.hud-btn.troop-pic {
+  width: 34px;
+  height: 30px;
+  flex: none;
+}
+.hud-btn.troop-pick {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 0 6px;
+  font-size: 11.5px;
+}
+.hud-btn.troop-pick .face,
+.hud-btn.troop-opt .face {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-btn.troop-lock {
+  flex: none;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.sel-row.troop-cost {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sel-row.troop-cost.short {
+  color: #e8a090;
+}
+.troop-menu {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 3px;
+}
+.hud-btn.troop-opt {
+  justify-content: flex-start;
+  gap: 5px;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11.5px;
+}
+.hud-btn.troop-opt.short:not(.disabled) .face {
+  color: #e8a090;
+}

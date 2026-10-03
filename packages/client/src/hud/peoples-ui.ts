@@ -12,7 +12,6 @@ import {
   FactionKind,
   goodName,
   HIRE_SILVER,
-  ITEM_GOODS,
   MERC_MAX,
   OFFER_SLOTS,
   People,
@@ -323,16 +322,13 @@ export class PeoplesUi {
     info.pool.forEach((n, r) => {
       if (n > 0) out.push([r, n]);
     });
-    info.items.forEach((n, it) => {
-      if (n > 0 && it > 0) out.push([ITEM_GOODS + it, n]);
-    });
     return out;
   }
 
   private have(good: number): number {
     const info = this.game.info;
     if (!info) return 0;
-    return good >= ITEM_GOODS ? (info.items[good - ITEM_GOODS] ?? 0) : (info.pool[good] ?? 0);
+    return info.pool[good] ?? 0;
   }
 
   private pays(f: PeopleInfo, good: number): number {

@@ -7,9 +7,12 @@ import * as THREE from 'three';
 import {
   clockAt,
   COLUMNS_PER_CHUNK,
-  ITEMS,
-  itemSpec,
+  gearSpec,
+  Line,
+  linePiece,
   Lock,
+  Troop,
+  TROOP_NAMES,
   MONSTERS,
   mobSpec,
   RANK_NAMES as UNIT_RANK_NAMES,
@@ -87,12 +90,22 @@ const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5']
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support', 'engine'];
 /** Skills a warrior's details list (Skill bits). */
 const SKILL_TEXT: ReadonlyArray<readonly [number, string]> = [
-  [Skill.Archery, 'archery'],
-  [Skill.Crossbow, 'the crossbow'],
-  [Skill.Riding, 'riding'],
-  [Skill.Musket, 'the musket'],
   [Skill.Cannon, 'cannon crew'],
 ];
+
+/** A gear id's name, or '' for an empty slot. */
+const gearName = (id: number): string => (id ? gearSpec(id).name : '');
+
+/** "Upgrading the weapon to Bronze spear: 40%." for a unit with an upgrade under way, or ''. */
+function upgradeText(d: Int32Array, o: number, kind: 'worker' | 'warrior' | 'mage'): string {
+  const line = d[o + S.upLine]! - 1;
+  if (line < 0) return '';
+  const h = { kind, troop: d[o + S.troop]!, w: d[o + S.wTier]!, a: d[o + S.aTier]! };
+  const piece = linePiece(h, line, d[o + S.upTo]!);
+  const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
+  const done = d[o + S.upDone]!;
+  return `Upgrading the ${what}${piece ? ` to ${piece.name}` : ''}${done > 0 ? `: ${Math.floor(done / 10)}%` : ' (on the way)'}.`;
+}
 
 /** "Quickened, fortified." for the spells on a unit, or ''. */
 export function spellsOnText(bits: number): string {
@@ -318,10 +331,11 @@ export class WorldView {
         const rank = d[o + S.rank]!;
         u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
         const tools = [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!].filter((t, k, all) => t !== 0 && all.indexOf(t) === k);
-        const details = [health, tools.length ? `${capital(tools.map((t) => itemSpec(t).name.toLowerCase()).join(', '))}.` : 'No tools.'];
+        const details = [health, tools.length ? `${capital(tools.map((t) => gearName(t).toLowerCase()).join(', '))} (tool tier ${d[o + S.wTier]}).` : 'No tools.'];
         const carry = d[o + S.carryRes]!;
         if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
-        if (d[o + S.torch] === 1) details.push('Carrying a lit torch.');
+        const up = upgradeText(d, o, 'worker');
+        if (up) details.push(up);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
@@ -329,10 +343,14 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
         const rank = d[o + S.rank]!;
-        u.label = `Warrior (${UNIT_RANK_NAMES.warrior[rank] ?? `rank ${rank}`})`;
-        const item = (slot: number): string => ITEMS[d[o + slot]!]?.name ?? '';
-        const gear = [item(S.weapon), d[o + S.backup] ? `${item(S.backup)} as backup` : '', d[o + S.ranged] ? `${item(S.ranged)} (${d[o + S.ammo]} shots)` : '', item(S.shield), item(S.boots)].filter((x) => x && x !== 'Nothing');
-        const details = [health, gear.length > 0 ? `${gear.join(', ')}.` : 'Unarmed.'];
+        const troop = d[o + S.troop]!;
+        u.label = `${TROOP_NAMES[troop] ?? 'Warrior'} (${UNIT_RANK_NAMES.warrior[rank] ?? `rank ${rank}`})`;
+        // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
+        const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
+        const gear = [gearName(d[o + S.ranged]!), weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
+        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}.`];
+        const up = upgradeText(d, o, 'warrior');
+        if (up) details.push(up);
         if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
         else if (d[o + S.lock] === Lock.Ranged) details.push('Locked to ranged.');
         const skills = SKILL_TEXT.filter(([bit]) => (d[o + S.skills]! & bit) !== 0).map(([, t]) => t);
@@ -350,8 +368,10 @@ export class WorldView {
         const school = d[o + S.school]!;
         u.label = mageTitle(school, rank);
         u.typeKey = school === School.Battle ? 'mage:battle' : 'mage:support';
-        const worn = [ITEMS[d[o + S.weapon]!]?.name ?? '', d[o + S.armour] ? (ITEMS[d[o + S.armour]!]?.name ?? '') : '', d[o + S.helmet] ? (ITEMS[d[o + S.helmet]!]?.name ?? '') : '', d[o + S.boots] ? (ITEMS[d[o + S.boots]!]?.name ?? '') : ''].filter((x) => x && x !== 'Nothing');
+        const worn = [gearName(d[o + S.weapon]!), gearName(d[o + S.armour]!)].filter((x) => x);
         const details = [health, `Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`, worn.length ? `${worn.join(', ')}.` : 'No wand.'];
+        const up = upgradeText(d, o, 'mage');
+        if (up) details.push(up);
         const on = spellsOnText(d[o + S.spells]!);
         if (on) details.push(on);
         if (owner === this.player) {
