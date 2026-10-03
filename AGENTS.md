@@ -5,3 +5,4 @@ Shared instructions for AI coding agents (Claude Code and Grok Build) working in
 - Work on a feature branch and open a pull request; don't push straight to `main`.
 - Keep commits small with clear messages.
 - Pull before starting work, since more than one agent may be committing here.
+- Run `pnpm check` before pushing. CI minutes are limited: the cross-browser test only runs once a pull request is ready for review, so mark it ready (and wait for green) before merging. README.md "Continuous integration" has the rules.
