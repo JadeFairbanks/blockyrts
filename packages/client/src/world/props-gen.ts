@@ -1,7 +1,10 @@
 // Generated rocks and trees (Terrain, Generated rocks and trees): every prop
 // is a few unrotated cuboids built from its seeded variant, so every machine
 // draws the same tree, and all of them draw as one instanced cube per chunk.
-// Also the scenery: grass tufts, pebbles and flowers, decoration only.
+// Plants are drawn at their growth stage (sim world/props.ts): a seed, a
+// sapling with its own look, then the full look at each stage's size, so they
+// grow in steps like crops. Also the scenery: grass tufts, pebbles and
+// flowers, decoration only.
 //
 // Cubes go into a flat list, CUBE_STRIDE numbers each: centre x, bottom y,
 // centre z, size x, y, z (metres, relative to the chunk corner), colour.
@@ -79,6 +82,55 @@ export const TRUNK_SCALE = 1.2;
 export const HAZEL_STICK_SCALE = 0.9;
 export const HAZEL_STICK_MIN_SCALE = 0.82;
 
+/** Hazel stick colour. */
+export const HAZEL_STICK = 0x7a5a3a;
+const HAZEL_LEAF = 0x6a9a40;
+
+type CubeFn = (cx: number, by: number, cz: number, sx: number, sy: number, sz: number, rgb: number) => void;
+
+/**
+ * A tree sapling: a thin stem with a little crown of its species' leaves,
+ * about an eighth of the grown tree's height (a conifer's crown in small
+ * tiers, a broadleaf's in tufts). The stem's tip stays inside the crown.
+ */
+function saplingCubes(species: Species, r: Rand, s: number, cube: CubeFn): void {
+  const h = Math.max(0.35, r.range(species.height[0], species.height[1]) * s);
+  const leaves = shade(species.leaves, r.range(1.0, 1.15));
+  const stem = Math.max(0.04, species.trunkWidth * 0.18);
+  cube(0, 0, 0, stem, h * 0.94, stem, species.trunk);
+  if (species.form === 'tiers') {
+    for (let t = 0; t < 3; t++) {
+      const w = h * (0.42 - t * 0.11);
+      cube(r.range(-0.02, 0.02), h * (0.28 + t * 0.22), r.range(-0.02, 0.02), w, h * 0.26, w, shade(leaves, 0.94 + t * 0.05));
+    }
+    return;
+  }
+  const w = h * 0.5;
+  cube(0, h * 0.5, 0, w, h * 0.5, w, leaves);
+  for (let t = 0; t < 2; t++) {
+    const side = t === 0 ? -1 : 1;
+    cube(side * w * r.range(0.35, 0.5), h * r.range(0.35, 0.5), r.range(-0.2, 0.2) * w, w * 0.5, h * 0.25, w * 0.5, shade(leaves, r.range(0.9, 1.05)));
+  }
+}
+
+/**
+ * A hazel sapling: what grows back from the stump of a bush picked bare. A
+ * low root clump with three to five young shoots, each with a tuft of leaves
+ * at its tip, knee-high (Jade's patch notes 1: more than a stick nub).
+ */
+function hazelSaplingCubes(r: Rand, cube: CubeFn): void {
+  cube(0, 0, 0, 0.3, 0.1, 0.3, 0x5e4630);
+  const shoots = r.int(3, 5);
+  for (let t = 0; t < shoots; t++) {
+    const ox = r.range(-0.14, 0.14);
+    const oz = r.range(-0.14, 0.14);
+    const len = r.range(0.35, 0.6);
+    cube(ox, 0, oz, 0.04, len, 0.04, HAZEL_STICK);
+    const tuft = r.range(0.16, 0.24);
+    cube(ox + r.range(-0.03, 0.03), len - tuft * 0.6, oz + r.range(-0.03, 0.03), tuft, tuft * 0.8, tuft, shade(HAZEL_LEAF, r.range(0.95, 1.15)));
+  }
+}
+
 /** Ore colours on a stone outcrop. */
 const ORE: Record<number, number> = {
   [PropKind.CopperOutcrop]: 0x4f9a7a,
@@ -115,6 +167,10 @@ export function propCubes(p: PropLike, out: number[]): void {
       return;
     }
     const s = p.size / 1000;
+    if (p.stage === Stage.Sapling) {
+      saplingCubes(species, r, s, cube);
+      return;
+    }
     const height = r.range(species.height[0], species.height[1]) * s;
     const tw = Math.max(0.08, species.trunkWidth * TRUNK_SCALE * Math.sqrt(s));
     const tint = r.range(0.9, 1.1);
@@ -188,6 +244,10 @@ export function propCubes(p: PropLike, out: number[]): void {
   }
   switch (p.kind) {
     case PropKind.Hazel: {
+      if (p.stage === Stage.Sapling) {
+        hazelSaplingCubes(r, cube);
+        return;
+      }
       const s = p.size / 1000;
       const stems = r.int(4, 6);
       // Sticks stand inside the lower leaf clump (1.6 s wide), so a small bush keeps them in too.
@@ -196,30 +256,27 @@ export function propCubes(p: PropLike, out: number[]): void {
       for (let t = 0; t < stems; t++) {
         const ox = r.range(-spread, spread);
         const oz = r.range(-spread, spread);
-        sticks.push([ox, oz, s > 0 ? r.range(1.6, 2.4) * s : 0.25]);
+        sticks.push([ox, oz, r.range(1.6, 2.4) * s]);
       }
-      if (s > 0) {
-        const lowTop = 2.1 * s;
-        cube(0, 0.9 * s, 0, 1.6 * s, 1.2 * s, 1.6 * s, shade(0x5a8a35, r.range(0.9, 1.1)));
-        const tx = r.range(-0.3, 0.3);
-        const tz = r.range(-0.3, 0.3);
-        const topTop = 2.3 * s;
-        cube(tx, 1.6 * s, tz, 1.0 * s, 0.7 * s, 1.0 * s, shade(0x6a9a40, r.range(0.95, 1.1)));
-        for (const [ox, oz, len] of sticks) {
-          // A tip ends a little below the top of the clump it is under.
-          const underTop = Math.abs(ox - tx) < 0.5 * s && Math.abs(oz - tz) < 0.5 * s;
-          const cap = (underTop ? topTop : lowTop) - 0.08 * s;
-          const h = Math.max(len * HAZEL_STICK_MIN_SCALE, Math.min(len * HAZEL_STICK_SCALE, cap));
-          cube(ox, 0, oz, 0.06, h, 0.06, 0x7a5a3a);
-        }
-      } else {
-        for (const [ox, oz, len] of sticks) cube(ox, 0, oz, 0.06, len, 0.06, 0x7a5a3a);
+      const lowTop = 2.1 * s;
+      cube(0, 0.9 * s, 0, 1.6 * s, 1.2 * s, 1.6 * s, shade(0x5a8a35, r.range(0.9, 1.1)));
+      const tx = r.range(-0.3, 0.3);
+      const tz = r.range(-0.3, 0.3);
+      const topTop = 2.3 * s;
+      cube(tx, 1.6 * s, tz, 1.0 * s, 0.7 * s, 1.0 * s, shade(0x6a9a40, r.range(0.95, 1.1)));
+      for (const [ox, oz, len] of sticks) {
+        // A tip ends a little below the top of the clump it is under.
+        const underTop = Math.abs(ox - tx) < 0.5 * s && Math.abs(oz - tz) < 0.5 * s;
+        const cap = (underTop ? topTop : lowTop) - 0.08 * s;
+        const h = Math.max(len * HAZEL_STICK_MIN_SCALE, Math.min(len * HAZEL_STICK_SCALE, cap));
+        cube(ox, 0, oz, 0.06, h, 0.06, HAZEL_STICK);
       }
       return;
     }
     case PropKind.Herbs:
     case PropKind.WildFlax: {
-      const s = Math.max(0.15, p.size / 1000);
+      // Sprouting: short green stems; half-grown: taller; grown: in flower.
+      const s = p.size / 1000;
       const leaf = p.kind === PropKind.Herbs ? 0x4f8a3a : 0x6f9a5a;
       const flower = p.kind === PropKind.Herbs ? 0xe8e0f0 : 0x7a9ae0;
       for (let t = 0; t < 5; t++) {
@@ -227,7 +284,7 @@ export function propCubes(p: PropLike, out: number[]): void {
         const oz = r.range(-0.25, 0.25);
         const h = r.range(0.25, 0.5) * s;
         cube(ox, 0, oz, 0.05, h, 0.05, leaf);
-        if (p.size > 0) cube(ox, h, oz, 0.08, 0.06, 0.08, flower);
+        if (p.stage === Stage.Grown) cube(ox, h, oz, 0.08, 0.06, 0.08, flower);
       }
       return;
     }

@@ -3,9 +3,10 @@
 // colours, ready up and play a few hundred steps of relayed orders with the
 // M0 sim; one machine's state is corrupted and the relay reloads everyone
 // from the host; the guest drops and rejoins from the relay's log, then
-// comes back as a fresh page from a host snapshot; the host saves (and the
-// guest is told to make an account first), both quit, the host reloads the
-// save and the guest rejoins by code. At the end a plain single-machine
+// comes back as a fresh page from a host snapshot; the host pauses and the
+// guest resumes, both told who; the host saves (and the guest is told to make
+// an account first), both quit, the host reloads the save and the guest
+// rejoins by code. At the end a plain single-machine
 // replay of the inputs must land on the same hash as both players.
 //
 //   pnpm --filter @blockyrts/tools net:test              (starts its own server in memory)
@@ -185,6 +186,16 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   check.ok(guest.state !== null && guest.slot === 1, `a fresh page rejoins from the host's snapshot at step ${guest.state?.step}`);
   await both(host, guest, 800);
   check.ok(host.hash() === guest.hash(), 'both agree at step 800');
+
+  // ---- pause and resume (patch notes 1): the host pauses, the guest resumes, both are told who
+  host.send({ type: 'pause', paused: true });
+  await Promise.all([host, guest].map((p) => p.waitFor(isMsg('pauseToggled', (m) => m.paused && m.slot === 0))));
+  const pausedAt = await guest.runUntil(1000, { stallMs: opts.realTime ? 1500 : 500 });
+  check.ok(host.paused && guest.paused && pausedAt === 800, `the host's pause stops both, and both are told who paused (the guest stays at step ${pausedAt})`);
+  guest.send({ type: 'pause', paused: false });
+  await Promise.all([host, guest].map((p) => p.waitFor(isMsg('pauseToggled', (m) => !m.paused && m.slot === 1))));
+  await both(host, guest, 900);
+  check.ok(host.hash() === guest.hash(), 'the guest resumes the host\'s pause, the host is told who, and both agree at step 900');
 
   // ---- saving: the guest is asked to make an account; the host saves; the dawn autosave hook keeps three
   host.send({ type: 'pause', paused: true });

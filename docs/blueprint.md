@@ -188,6 +188,8 @@ Decided (Jade accepted these on 2026-10-02). JavaScript (as TypeScript) and Thre
 
 Clip names are the contract between sim and renderer: idle, walk, run, attack_*, injured, death, climb, burn and the extras listed in the wishlist; the sim only ever says "clip X from step S". UI icons (32 x 32, whole-number scaling) are packed into one atlas with a JSON map and drawn by the DOM HUD as CSS sprites with image-rendering: pixelated.
 
+**State sets (built in PR #76):** a world prop's other looks are groups Blockbench hides by default (bush_hazel's cut and regrown, a crop's sprout to harvested, a rock's depleted, a light's unlit). The converter leaves hidden groups out of a model and writes each set as a model of its own, `<id>@<set>`, with that set shown and the look it replaces hidden; the game picks the drawn id from the prop's state.
+
 **Rules out:** loading .bbmodel at runtime (an editor format that would have to be parsed, validated and fixed in the browser on every load) and per-model draw calls per bone.
 
 #### 9. Hosting and accounts
@@ -495,6 +497,7 @@ In development now (Jade, 14:57 and 14:58 UTC 2026-10-03; picks to follow in inv
 
 - Inventory grid: the stockpile shown as a more Minecraft-style inventory of square slots, scrollable past 16 types of goods.
 - Wall and tunnel chains (done, PR #71; picks in wall-chain-picks.md): click to click wall stretches chained in several directions, and the same for digging tunnels; a double click places just one wall, and a click on the last point, right click, Esc or Done ends a chain (see Building placement and Digging and prospecting).
+- Plant growth and saplings (play-test notes 1; done, PR #76; picks in plants-picks.md): plants grow in steps, saplings hold nothing, the hazel stub is a hazel sapling, and buildings go over small things the builder pulls up (see Regrowth and Building placement).
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
@@ -1116,6 +1119,7 @@ Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality stee
 - **Shaping the land:** workers can clear obstacles, dig trenches and moats, build the land up, and given enough time tunnel through a cliff wall or a mountain. Rivers can be dug and redirected. See "Terrain".
 - **Grassland and the heartland:** grassland becomes thinner the farther it is from the start basin, until the land is eventually barren. Agriculture, and especially grazing herds, therefore has to be centred in the heartland. Some vegetable farms can still work in poorer land.
 - **Regrowth:** fish breed, so fishing spots refill over time (see "Fish"). Felled trees drop seeds around them. Seeds left on the ground grow into saplings; workers can also pick them up and plant them. The smallest softwood tree takes about an hour to grow to full size, and other trees take much longer. Hazel bushes grow back from the stump after they are cut. All other resources are used up for good.
+- **Growing in steps** (Jade, play-test notes 1, 2026-10-03; built in PR #76, picks in plants-picks.md): every plant that grows back grows in visible steps, like crops in Minecraft, and holds only its stage's share of what it gives when grown. Trees go seed, sapling, young, half-grown and grown, reached at 10%, 35%, 65% and all of their growing time and drawn at 6%, 12%, 40%, 70% and full size (suggested); a young tree holds 35% of its lumber and a half-grown one 65%, so felling early gives no more lumber per hour (suggested). Seeds and saplings hold nothing (Jade): a tree gives lumber only once it looks like a small tree, and a young or half-grown tree felled still drops its seeds (suggested). A hazel bush picked bare is a **Hazel sapling** (Jade), a low clump of shoots that holds no sticks, then a young bush at 30% of its 2 days (3 sticks), half-grown at 65% (6) and a full bush (suggested). Herbs and wild flax picked bare sprout, are half-grown at half their 5 days (5) and full at the end (suggested). Growing times and yields are unchanged; the stage tables (Tree growth, Hazel growth, Plant growth) are in the balance editor's World group.
 - **Exploration rewards:** richer resources the farther out players go, such as more gold and the ores for carbon steel. These stay rare even far out; the world is never brimming with metals. Trading with the peoples found along the way is the other reward. There are no blueprints or magic sites to find.
 
 #### Table 5: Resource nodes per band
@@ -1324,7 +1328,8 @@ Dead units drop out of their groups automatically. When a group of identical bui
 **Other camera and selection keys:**
 
 - Backspace: centre the camera on the player's town hall. Pressing again cycles to the next town hall if the player has more than one.
-- Space: jump to the most recent urgent message (for example, a building under attack, a unit that is stuck, or the night warning at dusk). Pressing again steps back through the last 8.
+- Space: centre the camera on the current selection (Jade's patch notes 1, 2026-10-03).
+- F4: jump to the most recent urgent message (for example, a building under attack, a unit that is stuck, or the night warning at dusk). Pressing again steps back through the last 8. (Space until patch notes 1; F4 suggested, as built 2026-10-03.)
 - F1: select an idle gatherer and centre on it; pressing again cycles to the next. Shift + F1 selects all idle gatherers at once.
 - F2: select every combat unit the player owns (gatherers excluded).
 - F3: clear the selection.
@@ -1400,6 +1405,7 @@ So "B then Q" means "open Basic Structures, then pick the building in the top-le
 Any unit that is able to build does so by choosing a building from its command card (by click or hotkey). The cursor then carries a **ghost** of the building: a see-through copy of the model at full size, which follows the cursor and snaps to the building grid.
 
 - The ghost's footprint is drawn on the ground as a grid of tiles. Each tile is green if it can be built on and red if it is blocked (by terrain that is too steep, water, another building, a unit that will not move, a resource node, or unexplored map).
+- **Small things in the way** (Jade, play-test notes 1, 2026-10-03; built in PR #76): seeds, tree saplings, hazel saplings and sprouting herbs and flax do not block a building. The builder pulls each one up before construction starts (2 s a sapling, 1 s a sprouting plant; seeds are trampled) (suggested), then pays and builds as usual. Which things count is a column of the growth stage tables (see "Regrowth"); grown and young trees, bushes with sticks, herbs, stone and flint still block.
 - A building can only be placed when every tile is green. Left click on a red ghost plays an error sound and keeps the ghost on the cursor.
 - Things that matter to placement are shown while the ghost is out: for example the range of a defensive tower, the reach of a drop-off building, or the area a farm covers.
 - If the player cannot afford the building, the ghost still appears (so they can plan), but placing it gives a "Not enough [resource]" message and nothing is ordered.
@@ -1514,7 +1520,7 @@ Units talk to their player. This is how the game tells the player what their uni
 - Messages from other players are highlighted differently from unit speech and alerts.
 - A filter button switches between three views: everything; alerts and player messages only; and player messages only.
 
-**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, idle workers and nightfall count as urgent, and Space steps through them). For these:
+**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, idle workers and nightfall count as urgent, and F4 steps through them). For these:
 
 - The minimap is always pinged at the spot where it happened.
 - If the panel is collapsed, its button flashes as an alarm.
@@ -1542,7 +1548,8 @@ The game must be fully playable without touching the keyboard. Keyboard controls
 | F1 / Shift + F1 (idle gatherers) | Click the Idle Gatherer button (left click: next one; double-click: all of them). |
 | F2 (select army) | Click Select Army on the utility bar. |
 | Backspace (town hall) | Click Town Hall on the utility bar. |
-| Space (latest urgent message) | Click the message in the message panel; the camera jumps to where it happened. |
+| Space (centre on the selection) | Double-click a portrait in the selection panel (that unit), or a group tab (that group) (suggested, as built 2026-10-03). |
+| F4 (latest urgent message) | Click the message in the message panel; the camera jumps to where it happened. |
 | Enter (chat with players) | Click the text box at the bottom of the message panel. |
 | A, G, E or T twice (each unit picks its own target) | Double-click the button on the command card (suggested, as built 2026-10-03). |
 | Tab, Enter and Space in menus and dialogues | Click the button; Tab moves between buttons and Enter or Space presses the one in focus, while Esc and F10 still close the menu (suggested, as built 2026-10-03). |
@@ -1604,15 +1611,16 @@ Because the game runs in a web browser, some key combinations above are normally
 | F3 | Clear selection |
 | F5 to F8 / group key + F5 to F8 | Jump to / save camera location |
 | Backspace | Centre on town hall (cycles) |
-| Space | Jump to latest urgent message (cycles through last 8) |
+| Space | Centre the camera on the selection |
+| F4 (suggested) | Jump to latest urgent message (cycles through last 8) |
 | Enter | Type a message to other players (Enter to send, Esc to cancel) |
 | [ / ] / \ (suggested) | Allies panel / Send resources / Map ping |
-| Pause (suggested) | Pause or carry on (anyone may, online) |
+| Pause (suggested) | Alone: open the menu, which pauses. Online: pause or resume for every player (anyone may) |
 | L | Follow selected unit |
 | F9 / J (suggested) | Rations / Everyone Home (during dusk) |
 | Arrow keys, edge of screen, middle drag | Pan camera |
 | Mouse wheel, Page Up / Page Down, Home | Zoom in / out, reset zoom |
-| F10 | Game menu: Resume, Pause or Carry on, Save game, Download a save file, Full screen, Settings, Quit (Leave the game online) (suggested) |
+| F10 | Game menu: Pause or Resume (online only), Save game, Download a save file, Full screen, Settings, Quit (Leave the game online), and a ✕ to close it (suggested). Alone, the open menu is the pause |
 
 ### Resources
 
@@ -2721,7 +2729,7 @@ The land is natural-looking ground that players can dig into, tunnel through and
 #### Generated rocks and trees
 
 - **Rocks and ore outcrops** are small clusters of stone cuboids in the terrain's own style, with an ore texture where they hold ore. Each is generated from the world seed, so every one looks different and sits naturally in the land.
-- **Trees** are generated in code from a set of settings for each species: tall, tiered softwood; small hardwood; thick, broad large hardwood; and multi-stemmed hazel bushes that grow back from the stump. The generator also gives the growth stages (seed, sapling, full size) from the tree's age.
+- **Trees** are generated in code from a set of settings for each species: tall, tiered softwood; small hardwood; thick, broad large hardwood; and multi-stemmed hazel bushes that grow back from the stump. The generator also gives the growth stages from the tree's age (seed, sapling, young, half-grown, grown; see "Regrowth"), each drawn as a step in size, with its own sapling form; a hazel bush picked bare is drawn as a hazel sapling, a clump of shoots, never a stub. Which catalogue model and state set draws each stage is named in the client's prop-models.ts, for the wiring pass.
 - Generation is **deterministic** from the world seed, so every player's computer grows exactly the same tree, which lockstep multiplayer needs. Each tree is built from a small set of parts so trees can be drawn with instancing.
 - **Species (suggested):** pine, spruce and small softwood (Heartland and Fringe); birch and hornbeam (Fringe); great oak and great beech (Deepwoods); dead trees and twisted thornwood (Barrens and Deadlands).
 - One **reference tree per species** is made in Blockbench to set the look, which the generator then varies. These are on the models wishlist (see "Visuals").
@@ -2840,7 +2848,8 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - Map pings (suggested): a player can click a Ping button (or press \) and then a spot on the map or minimap to flash it for everyone, with a sound and "Look here" with their name, to point out a threat or a target. Right click or Esc cancels.
 - Selecting only allied units shows a short command card (suggested): Attack, Stop, Hold, Patrol, Move, Gather, Return cargo.
 - **Who sees what (suggested):** chat lines, pings, joins, leaves and pauses go to every player. A player's own alerts (attacks, deaths, trades, sent resources) go only to them. Messages name players by their names, never "Player 2".
-- **Pause (suggested):** the Pause key or the ❚❚ button. Alone, the game also pauses while the F10 menu or the account page is open. Online, anyone may pause and anyone may carry on; a banner says who paused.
+- **Pause (Jade's patch notes 1, 2026-10-03):** alone, opening the F10 menu pauses the game and closing it carries on, with no Pause or Resume button (the account page holds the game too); the Pause key and the ❚❚ button open the menu. Online, opening the menu does not pause. The menu has one Pause button, and any player may press it, or the Pause key or ❚❚: the game stops for everyone, every player's menu opens with the button reading Resume, and everyone is told who paused (a message, a line in the menu and the banner). When any player presses Resume, everyone is told who resumed and every menu closes. Suggested, as built: a player's pause stays in force if they lose the connection, so the others can resume it; the banner keeps a Resume button for a player who closed their menu.
+- **Random remarks (patch notes 1):** units make no random remarks while the game is paused, and the wait for the next one stands still.
 
 #### Shared vision
 

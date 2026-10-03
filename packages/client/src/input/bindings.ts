@@ -66,7 +66,9 @@ export const ACTIONS: readonly Action[] = [
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
   { id: 'townhall', name: 'Town Hall', key: 'Backspace', group: 'Camera and selection' },
-  { id: 'urgent', name: 'Latest urgent message', key: 'Space', group: 'Camera and selection' },
+  // Jade's patch notes 1: Space centres the camera on the selection, so the latest urgent message moves to F4 (s).
+  { id: 'centre', name: 'Centre on the selection', key: 'Space', group: 'Camera and selection' },
+  { id: 'urgent', name: 'Latest urgent message', key: 'F4', group: 'Camera and selection' },
   { id: 'follow', name: 'Follow', key: 'KeyL', group: 'Camera and selection' },
   { id: 'home', name: 'Everyone Home', key: 'KeyJ', group: 'Camera and selection' },
   { id: 'rations', name: 'Rations', key: 'F9', group: 'Camera and selection' },

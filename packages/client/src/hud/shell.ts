@@ -122,8 +122,12 @@ export interface ShellSession {
   ping(x: number, z: number): void;
   save(): void;
   download(): void;
+  /** Online: Pause or Resume for every player (alone, the menu is the pause). */
   togglePause(): void;
-  paused(): boolean;
+  /** Online: the player holding the pause, or null while nobody does. */
+  pausedBy(): string | null;
+  /** The game is stopped now, for whatever reason (alone: while the menu or the account form is open). */
+  stopped(): boolean;
   /** Why saving is not possible here, or ''. */
   saveBlocked(): string;
   /** The menu opened or closed (alone, it pauses the game). */
@@ -151,7 +155,7 @@ export interface PerfInfo {
 }
 
 const CAMERA_SLOTS = 4;
-/** Urgent messages Space steps back through. */
+/** Urgent messages F4 steps back through. */
 const URGENT_KEEP = 8;
 const TARGET_GREEN = '#5ee06a';
 const TARGET_YELLOW = '#f2d24b';
@@ -282,7 +286,7 @@ export class GameShell {
       },
       download: () => session.download(),
       togglePause: () => session.togglePause(),
-      paused: () => session.paused(),
+      pausedBy: () => session.pausedBy(),
       saveBlocked: () => session.saveBlocked(),
     });
     this.commands = new Commands({
@@ -574,7 +578,7 @@ export class GameShell {
       this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
       this.urgentAt = -1;
     } else if (urgent && ev.kind === 'period') {
-      // The dusk warning has no place: Space centres on the main base.
+      // The dusk warning has no place: F4 centres on the main base.
       const base = this.game.mainBases()[0];
       if (base) {
         const c = GameInfo.centre(base, COLUMN_M);
@@ -774,8 +778,10 @@ export class GameShell {
       face: '❚❚',
       name: 'Pause',
       keys: k('pause'),
-      description: this.opts.session.online ? 'Pause the game for every player; again to carry on.' : 'Pause the game; again to carry on.',
-      onPress: () => this.opts.session.togglePause(),
+      description: this.opts.session.online
+        ? 'Pause the game for every player and open everyone’s menu; again, or Resume in the menu, carries on for everyone.'
+        : 'Opens the menu: the game waits while it is open.',
+      onPress: () => this.pausePressed(),
     });
     // Selection panel corner: clear the selection (mouse version of Esc / F3).
     const clear = this.buttons.add({
@@ -938,7 +944,17 @@ export class GameShell {
     this.jumpTo(c.x, c.z);
   }
 
-  /** Space: the latest urgent message; again to step back through the last 8. */
+  /** Space (Jade's patch notes 1): the camera jumps to the middle of the selection. */
+  private centreSelection(): void {
+    const list = this.selection.list();
+    if (list.length === 0) {
+      this.message('Nothing is selected to centre the camera on.');
+      return;
+    }
+    this.centreOn(list);
+  }
+
+  /** F4: the latest urgent message; again to step back through the last 8. */
   private jumpUrgent(): void {
     if (this.urgent.length === 0) {
       this.message('No urgent messages.');
@@ -981,6 +997,30 @@ export class GameShell {
     }
     this.setFollow(null);
     this.cam.setView(v);
+  }
+
+  /** The Pause key or ❚❚: online, Pause or Resume for everyone; alone, the menu opens (it is the pause) or closes. */
+  private pausePressed(): void {
+    if (this.opts.session.online) this.opts.session.togglePause();
+    else if (this.menu.isOpen) this.closeMenu();
+    else this.openMenu();
+  }
+
+  /**
+   * Online, a player pressed Pause or Resume (`text` says who): the menu
+   * opens with Resume on it, or closes, on every page.
+   */
+  pauseToggled(paused: boolean, text: string): void {
+    this.message(text);
+    if (paused) this.openMenu();
+    else this.closeMenu();
+    this.pauseChanged();
+  }
+
+  /** The pause changed: the menu's Pause or Resume and the ❚❚ button follow. */
+  pauseChanged(): void {
+    if (this.menu.isOpen) this.menu.refresh();
+    this.buttons.get('pause')?.setLit(this.opts.session.pausedBy() !== null);
   }
 
   private openMenu(): void {
@@ -1050,6 +1090,7 @@ export class GameShell {
     if (this.menu.isOpen) {
       if (this.menu.capturing) return;
       if (id === 'Escape' || id === 'F10') this.closeMenu();
+      else if (id === keyFor(this.settings.keys, 'pause') && !ev.repeat) this.pausePressed();
       return;
     }
     if (id === 'Escape') {
@@ -1076,6 +1117,7 @@ export class GameShell {
     if (this.groups.key(id, this.input.held('Backquote'), ev.shiftKey)) return;
     const k = (action: string): string => keyFor(this.settings.keys, action);
     if (id === k('subgroup')) return this.cycleSubgroup(ev.shiftKey);
+    if (id === k('centre')) return this.centreSelection();
     if (id === k('urgent')) return this.jumpUrgent();
     const press: ButtonPress = { shift: ev.shiftKey, ctrl: false };
     // In a build menu the grid keys go by key position.
@@ -1267,7 +1309,8 @@ export class GameShell {
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id) }, () => this.remarkers());
+    // No random remarks while the game is paused (Jade's patch notes 1).
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped());
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);

@@ -207,7 +207,8 @@ out.* (The warrior joins in milestone 3.)
    (\`, left of 1) + a number saves a control group, the number selects it,
    twice centres on it, and the tabs above the selection panel do the same
    with the mouse. Tab cycles subgroups in a mixed selection; Backspace
-   centres on the Big House; Space jumps to the latest alert. Every hotkey
+   centres on the Big House; F4 jumps to the latest alert (Space until patch
+   notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
    prints `final step 10000 hash 902e3c72`: workers chop and quarry, the Big
@@ -720,8 +721,8 @@ updated and still play out as they say).
    comes in. Urgent messages (attacks, war, deaths, idle workers, nightfall)
    are highlighted and
    ping the minimap; clicking any message with a place jumps the camera to
-   it, or to the unit that said it; **Space** jumps to the latest urgent
-   message and again steps back through the last 8. Another people's line
+   it, or to the unit that said it; **F4** (Space until patch notes 1) jumps
+   to the latest urgent message and again steps back through the last 8. Another people's line
    reaches the panel when it is said to you, or when it matters and you can
    see the speaker. Chat with other players came with milestone 9; playing
    alone the chat line says there is nobody to chat with.
@@ -897,7 +898,8 @@ flag are in the hash, and production queues record who paid).
    **\** (or Ping) then a left click on the view or the minimap flashes the
    spot for both players.
 5. **Pause and a missing player.** The Pause key (or ❚❚) pauses both, with a
-   banner naming who paused; again carries on. Close the guest's window: the
+   banner naming who paused; again carries on (patch notes 1 changed this:
+   see "How a tester checks pause, the menu and Space"). Close the guest's window: the
    host sees "Waiting for" the guest, and after 30 s chooses Wait, Carry on
    without them, or Save and quit. Reopening the invite link (or refreshing
    the page during the match) rejoins the same seat.
@@ -1207,6 +1209,103 @@ Client only: the sim, the server and every hash are unchanged.
    in the catalogue for every good, scrolling, counts, the wheel, the change
    over a minute). `node packages/client/test-e2e/hud-check.mjs` checks the
    grid in a browser.
+
+## How a tester checks plant growth and saplings
+
+Trees, hazel bushes, herbs and wild flax grow in steps, like crops in
+Minecraft: each stage is a jump in size, and a plant holds only its stage's
+share of what it gives when grown. Growing times, yields and the save format
+are as they were, so old saves load. The stages are three tables in the
+balance editor's World group (Tree growth, Hazel growth, Plant growth). Run
+`pnpm dev`, open http://localhost:5173/?seed=1 and start.
+
+1. **The hazel sapling.** Select the workers and right-click a hazel bush.
+   One load of 10 sticks takes the whole bush, and where it stood is now a
+   **Hazel sapling**: a low clump of 3 to 5 thin shoots with a green tuft on
+   each, not a bare stub. Click it: the panel says "Holds nothing to gather
+   yet: it grows hardwood sticks once it is bigger.", how long until it is a
+   young hazel bush, and "Buildings can go over it: the builder pulls it up
+   first." Workers find nothing to gather on it.
+2. **Stepped growth.** Press **Speed** in the debug panel for 16 times speed
+   and watch the sapling. It becomes a **Young hazel bush** (3 sticks) at 30%
+   of its 2 days (about 4 minutes 24 seconds of game time), a **Half-grown
+   hazel bush** (6) at 65% (about 9.5 minutes) and a **Hazel bush** (10) at
+   2 days (14 minutes 40 seconds), each time in one jump. The panel's name,
+   count and "Grows into ..." line follow it. A young bush can be gathered
+   for what it holds; picked bare, it starts again as a sapling. Herbs and
+   wild flax do the same over their 5 days: **Sprouting herbs** (nothing to
+   gather, no flowers), **Half-grown herbs** (5) at half, then **Herbs** (10).
+3. **Trees.** Select a pine and press **Fell**: it falls and drops 2 seeds
+   beside it, small specks that hold nothing. At 6 minutes of game time each
+   is a **Pine sapling** (a thin stem with three small green tiers, holding
+   nothing), at 21 minutes a **Young pine** (a small tree, 7 softwood lumber),
+   at 39 minutes a **Half-grown pine** (13) and at 60 minutes a **Pine** (20).
+   Hardwoods do the same over 3 and 6 hours. The world also starts with a few
+   seeds, saplings and young trees among the grown ones. Seeds and saplings
+   cannot be chopped; a young or half-grown tree can be felled for what it
+   holds and drops its seeds like a grown one.
+4. **Building over small things.** Pick a building with workers (B) and hold
+   its ghost over seeds, saplings, a hazel sapling or sprouting herbs: their
+   tiles stay green, where a grown tree, a young tree, a bush with sticks on
+   it, herbs, stone or flint still turn them red. Place it: the worker walks
+   over, faces each sapling in the footprint and pulls it up (2 seconds a
+   sapling, 1 second for sprouting herbs or flax; seeds are trampled), then
+   pays and starts the building as before. Which things count, and how long
+   each takes, are the stage tables' "Buildings can go over it" and "Time a
+   builder takes to pull it up".
+5. **Models.** `pnpm --filter @blockyrts/tools models:build` now also writes
+   every world prop's state sets as models of their own, named
+   `<id>@<set>`: `bush_hazel@regrown`, `crop_wheat@sprout`, `torch_post@unlit`
+   and the rest, 572 models from the 519 files. Nothing draws them in play
+   yet; `packages/client/src/world/prop-models.ts` names the model and scale
+   for each growth stage, ready for the wiring pass.
+6. `pnpm test` runs `packages/sim/test/plants.test.ts` (the stage tables, a
+   hazel growing back from bare in steps, a young pine from seed to grown, a
+   part-chopped young tree, placement over saplings and a builder pulling
+   them up), `packages/client/test/plant-text.test.ts` (the panel's names and
+   lines), `packages/client/test/props-shape.test.ts` (each stage drawn
+   bigger than the last, the hazel sapling's shoots),
+   `packages/client/test/prop-models.test.ts` (every stage names a catalogue
+   model or state set) and `packages/tools/test/state-sets.test.ts` (the
+   hazel's three looks, the unlit torch, a crop's stages).
+
+## How a tester checks pause, the menu and Space
+
+Jade's patch notes 1. The sim and every hash are unchanged: pausing only
+stops the steps, and the lockstep frames decide the game. The relay protocol
+is now version 4 (a pause carries who pressed it), so a page from before
+this change is asked to reload when it joins.
+
+1. **Alone.** `pnpm dev`, open http://localhost:5173/?seed=1. Press F10: the
+   menu says the game is paused while it is open, the step count in the
+   debug readout stops, and there is no Pause or Resume button, only the ✕ in
+   the corner. F10, Esc or the ✕ closes it and the game carries on. The
+   Pause key and the ❚❚ button top right open the same menu.
+2. **Online.** Two players as in milestone 9 step 3. Opening F10 stops
+   nothing; the menu has one Pause button. Either player presses it (or the
+   Pause key, or ❚❚): the game stops for both, both menus open with the
+   button reading Resume, and both see "NAME paused the game." in the
+   message panel, in the menu and on the banner. The other player presses
+   Resume: both menus close and both see "NAME resumed the game." A player
+   who closed their menu while paused still has Resume on the banner. Close
+   the window of the player who paused: their pause stays (the other may
+   lift it with Resume), and the game waits for them as before.
+3. **No remarks while paused.** Watch your units with the menu open alone,
+   or paused online: nobody makes a random remark, and the next one comes
+   at its usual gap after you carry on.
+4. **Space.** Select some units or a building, pan away, press Space: the
+   camera centres on the selection. With nothing selected the message panel
+   says so. The latest urgent message moved from Space to F4; both can be
+   rebound in F10 > Settings > Hotkeys.
+5. `pnpm test` runs `packages/server/test/room.test.ts` (any player pauses,
+   any player resumes, each press told to everyone with who pressed it, a
+   second Pause ignored, a pause kept while its player is away),
+   `packages/protocol/test/protocol.test.ts` and
+   `packages/client/test/pause-controls.test.ts` (the keys, and no remark
+   while paused). `pnpm --filter @blockyrts/tools net:test` has the host
+   pause and the guest resume. In a browser:
+   `node packages/client/test-e2e/hud-check.mjs` (the menu alone, ❚❚, Space)
+   and `node packages/client/test-e2e/m9-online.mjs` (both players' menus).
 
 ## How a tester checks farm harvests
 
