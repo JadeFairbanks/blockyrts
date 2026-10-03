@@ -46,9 +46,12 @@ class FakeEl {
 describe('patch notes 1: no random remarks while paused', () => {
   beforeEach(() => {
     vi.stubGlobal('document', { createElement: () => new FakeEl() });
+    // The gap between remarks is 0.6 to 1.4 times 9 s at random: pin it to 9 s so the count below is exact.
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   const anchor = { head: () => ({ x: 100, y: 100 }) };
@@ -63,11 +66,10 @@ describe('patch notes 1: no random remarks while paused', () => {
     // A minute paused, frame by frame: nobody speaks.
     for (let t = 1000; t <= 61000; t += 50) bubbles.update(t, anchor, speakers, true);
     expect(say).toHaveBeenCalledTimes(1);
-    // Carrying on, the next remark still waits its 5.4 to 12.6 s from before the pause.
-    bubbles.update(61050, anchor, speakers);
-    bubbles.update(65000, anchor, speakers);
+    // Carrying on, the next remark still waits its 9 s from before the pause: due at 70 s, the one after at 79 s.
+    for (let t = 61050; t < 70000; t += 50) bubbles.update(t, anchor, speakers);
     expect(say).toHaveBeenCalledTimes(1);
-    for (let t = 65050; t <= 75000; t += 50) bubbles.update(t, anchor, speakers);
+    for (let t = 70000; t <= 75000; t += 50) bubbles.update(t, anchor, speakers);
     expect(say).toHaveBeenCalledTimes(2);
   });
 });
