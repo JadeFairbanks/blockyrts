@@ -8,8 +8,8 @@ import { Walk, WALKER } from '../nav/grid.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
 import type { SimState } from '../state.ts';
 import type { World } from '../world/world.ts';
-import { AUTO_REFUEL_M, BUILDING_CLAIM_M, BuildingKind, buildingSpec, footprintDims, OUTLYING_M } from './data.ts';
-import { footprintRect, type Building, type Placed } from './store.ts';
+import { AUTO_REFUEL_M, BUILDING_CLAIM_M, BuildingKind, buildingSpec, OUTLYING_M } from './data.ts';
+import { footprintRect, placedDims, type Building, type Placed } from './store.ts';
 
 /** A region bigger than this many coarse tiles (about 13,000 m2) is open land, not an enclosure. */
 export const ENCLOSURE_MAX_TILES = 4096;
@@ -23,8 +23,8 @@ export function isLit(b: Building, step: number): boolean {
 
 /** The middle of a building's footprint, wu. */
 export function buildingCentre(b: Placed): [number, number] {
-  const s = footprintDims(b.kind, b.variant ?? 0);
-  return [(b.x * 2 + s.w) * (WU_PER_COLUMN >> 1), (b.z * 2 + s.d) * (WU_PER_COLUMN >> 1)];
+  const s = placedDims(b);
+  return [((b.x + s.ox) * 2 + s.w) * (WU_PER_COLUMN >> 1), ((b.z + s.oz) * 2 + s.d) * (WU_PER_COLUMN >> 1)];
 }
 
 /** Squared distance between two points in wu, as a float-free integer (fits in a double up to about 9e15). */
@@ -194,10 +194,10 @@ export function computeEnclosed(state: SimState): void {
   for (const b of state.buildings.list) {
     const s = buildingSpec(b.kind);
     if (!b.complete || s.light || s.defence) continue;
-    const d = footprintDims(b.kind, b.variant);
+    const d = placedDims(b);
     // The column in front of the building: just south of its footprint's middle.
-    const sx = b.x + (d.w >> 1);
-    let sz = b.z + d.d;
+    const sx = b.x + d.ox + (d.w >> 1);
+    let sz = b.z + d.oz + d.d;
     if (nav.flags(sx, sz) & Walk.Blocked) sz++;
     const k0 = colKey(sx, sz);
     if (open.has(k0)) continue;

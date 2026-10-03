@@ -89,13 +89,21 @@ export function isOwn(t: SelInfo, player: number): boolean {
   return t.owner === player || sharedWith(t, player);
 }
 
-/** The thing under a screen point: the nearest to the camera among those whose padded box holds the point. */
+/**
+ * The thing under a screen point: the nearest to the camera among those whose
+ * padded box holds the point, except that a unit wins over a building, so a
+ * worker standing behind the Big House can still be clicked (Jade's patch
+ * notes 1).
+ */
 export function pickAt<T extends SelInfo>(items: readonly ScreenItem<T>[], p: Pt, pad = HIT_PAD_PX): ScreenItem<T> | null {
   let best: ScreenItem<T> | null = null;
+  let unit: ScreenItem<T> | null = null;
   for (const s of items) {
-    if (pointInRect(p, padRect(s.rect, pad)) && (!best || s.depth < best.depth)) best = s;
+    if (!pointInRect(p, padRect(s.rect, pad))) continue;
+    if (!best || s.depth < best.depth) best = s;
+    if (s.item.kind === 'unit' && (!unit || s.depth < unit.depth)) unit = s;
   }
-  return best;
+  return best && best.item.kind === 'building' && unit ? unit : best;
 }
 
 /** Everything any part of whose padded box is inside the drag box. */

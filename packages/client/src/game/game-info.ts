@@ -1,7 +1,7 @@
 // The screen's copy of the game: the latest state and info messages from the
 // sim worker, indexed for the HUD (buildings by id, units by id, order
 // lists). Read-only for everything but main.ts, which feeds it.
-import { BuildingKind, buildingSpec, FOODS, haveOf, itemQuarters, QUARTERS, RESEARCH, RESOURCES, UnitKind, type Research, type TechView, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, footprintRect, FOODS, haveOf, itemQuarters, QUARTERS, RESEARCH, RESOURCES, UnitKind, type Research, type TechView, type UnitOrder } from '@blockyrts/sim';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type PeopleInfo, type StateMessage } from '../messages.ts';
 
 export interface UnitInfo {
@@ -256,8 +256,9 @@ export class GameInfo {
   }
 
   /** A building's centre in metres. */
-  static centre(b: Pick<BuildingInfo, 'kind' | 'x' | 'z'>, columnM: number): { x: number; z: number } {
-    const s = buildingSpec(b.kind);
-    return { x: (b.x + s.w / 2) * columnM, z: (b.z + s.d / 2) * columnM };
+  static centre(b: Pick<BuildingInfo, 'kind' | 'x' | 'z'> & Partial<Pick<BuildingInfo, 'variant' | 'level' | 'upgrading'>>, columnM: number): { x: number; z: number } {
+    // The footprint its level (or upgrade) takes, which may have grown round where it was placed.
+    const [x0, z0, x1, z1] = footprintRect(b);
+    return { x: ((x0 + x1 + 1) / 2) * columnM, z: ((z0 + z1 + 1) / 2) * columnM };
   }
 }

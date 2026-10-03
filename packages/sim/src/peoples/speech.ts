@@ -4,7 +4,7 @@
 // important lines reach the panel of each player with a unit near enough
 // to hear them. Random remarks are the client's alone (never state).
 
-import { length2d, STEPS_PER_SECOND } from '../fixed.ts';
+import { floorDiv, length2d, STEPS_PER_SECOND } from '../fixed.ts';
 import { PEOPLES, UnitKind, type SimEvent, type SimState } from '../state.ts';
 import { mobSpec } from '../combat/mobs.ts';
 import { RANK_NAMES } from '../combat/combat.ts';
@@ -119,4 +119,54 @@ export function sayAttacked(state: SimState, i: number): void {
   if (t.units.size > 512) t.units.clear();
   const line = e.kind[i] === UnitKind.Worker ? 'Help! I am being attacked!' : e.kind[i] === UnitKind.Mage ? 'I am under attack!' : 'We are under attack!';
   say(state, i, line, true);
+}
+
+/** A man up top with nothing to shoot says so while monsters are at the base: a player's men at most once per 20 s, one man at most once per 90 s (s). */
+const UP_TOP_PLAYER_GAP = 20 * STEPS_PER_SECOND;
+const UP_TOP_UNIT_GAP = 90 * STEPS_PER_SECOND;
+
+/** Not state: when each player's men up top and each of them last spoke up. */
+const upTopAt = new WeakMap<SimState, { players: number[]; units: Map<number, number> }>();
+
+/**
+ * A man on a tower or a main base's top with no bow or gun sees an enemy
+ * close (Jade's patch notes 1): "I'm not much help up here!", and a warrior
+ * one time in three wants to get down to foe, the nearest enemy on the
+ * ground, instead (-1 when only flyers are near: they are not down there).
+ */
+export function sayUpTop(state: SimState, i: number, foe: number): void {
+  const e = state.entities;
+  const player = e.owner[i]!;
+  if (player >= state.players.length) return;
+  let t = upTopAt.get(state);
+  if (!t) {
+    t = { players: [], units: new Map() };
+    upTopAt.set(state, t);
+  }
+  if (state.step - (t.players[player] ?? -UP_TOP_PLAYER_GAP) < UP_TOP_PLAYER_GAP) return;
+  if (state.step - (t.units.get(e.id[i]!) ?? -UP_TOP_UNIT_GAP) < UP_TOP_UNIT_GAP) return;
+  t.players[player] = state.step;
+  t.units.set(e.id[i]!, state.step);
+  if (t.units.size > 512) t.units.clear();
+  const eager = foe >= 0 && e.kind[i] === UnitKind.Warrior && (e.id[i]! + floorDiv(state.step, UP_TOP_UNIT_GAP)) % 3 === 0;
+  say(state, i, eager ? `Let me get down there to fight ${foesName(state, foe)}!` : "I'm not much help up here!");
+}
+
+/** What a man calls the enemy he sees: "those zombies", or a boss by name. */
+function foesName(state: SimState, j: number): string {
+  const e = state.entities;
+  if (e.kind[j] !== UnitKind.Mob) return 'them';
+  const name = e.owner[j] === PEOPLES ? speakerName(state, j) : mobSpec(e.mob[j]!).name;
+  // Morvath, the Hollow Crown: one of him, by his name.
+  const comma = name.indexOf(',');
+  if (comma >= 0) return name.slice(0, comma);
+  return `those ${plural(name.toLowerCase())}`;
+}
+
+/** An English plural for a monster's name. */
+function plural(name: string): string {
+  if (name.endsWith('us')) return `${name.slice(0, -2)}i`;
+  if (/(s|sh|ch|x)$/.test(name)) return `${name}es`;
+  if (/[^aeiou]y$/.test(name)) return `${name.slice(0, -1)}ies`;
+  return `${name}s`;
 }

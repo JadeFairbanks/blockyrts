@@ -4,7 +4,7 @@
 // upgraded, flames and point lights on lit lights, the placement ghost with
 // its green and red tiles, and the faint ghosts of planned buildings.
 import * as THREE from 'three';
-import { BuildingKind, buildingName, buildingSpec, footprintDims, NEUTRAL, RESOURCES, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, RESOURCES, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, type ModelLibrary } from '../models/index.ts';
@@ -48,40 +48,17 @@ export interface Ghost {
   affordable: boolean;
 }
 
-/** Catalogue model ids for a building, if the library has them; the field and its farmhouse are two models. */
-export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level'>): Array<{ id: string; dx: number; dz: number }> {
-  const s = buildingSpec(b.kind);
-  const mid = { dx: (s.w * COLUMN_M) / 2, dz: (s.d * COLUMN_M) / 2 };
-  switch (b.kind) {
-    case BuildingKind.MainBase:
-      return [{ id: `main_base_l${b.level}`, ...mid }];
-    case BuildingKind.CropField:
-    case BuildingKind.VegetableFarm: {
-      const [, , hw, hd] = s.solid;
-      return [
-        { id: `farm_field_t${b.level}`, ...mid },
-        { id: `farmhouse_t${b.level}`, dx: (hw * COLUMN_M) / 2, dz: (hd * COLUMN_M) / 2 },
-      ];
-    }
-    case BuildingKind.LivestockFarm:
-      return [{ id: 'livestock_farm', ...mid }];
-    case BuildingKind.PenBarn:
-      return [{ id: 'pen_barn', ...mid }];
-    case BuildingKind.LumberMill:
-      return [{ id: b.level >= 2 ? 'lumber_mill_t2' : 'lumber_mill', ...mid }];
-    case BuildingKind.Storehouse:
-      return [{ id: 'storehouse', ...mid }];
-    case BuildingKind.TorchPost:
-      return [{ id: 'torch_post', ...mid }];
-    case BuildingKind.WallTorch:
-      return [{ id: 'torch_wall', ...mid }];
-    case BuildingKind.Brazier:
-      return [{ id: 'brazier', ...mid }];
-    case BuildingKind.Cooking:
-      return [{ id: ['cooking_campfire', 'cook_hut', 'kitchen', 'great_kitchen', 'grand_kitchen'][b.level - 1]!, ...mid }];
-    default:
-      return [];
-  }
+/** Blockbench units to a column: where the footprint table puts a model's origin. */
+const MODEL_UNITS_PER_COLUMN = 16;
+
+/** Catalogue models for a building at its level and where they go from its anchor, metres (the footprint table, footprints.ts). */
+export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number }> {
+  const d = footprintDims(b.kind, b.variant, b.level);
+  return (levelFootprint(b.kind, b.level).models ?? []).map((m) => ({
+    id: m.id,
+    dx: (d.ox + m.x / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
+    dz: (d.oz + m.z / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
+  }));
 }
 
 export class BuildingsView {
@@ -184,14 +161,16 @@ export class BuildingsView {
         e = this.make(b, sig, fallow);
         this.entries.set(b.id, e);
       }
-      const ox = b.x * COLUMN_M;
-      const oz = b.z * COLUMN_M;
+      // The look is drawn from its level's corner (a kitchen's footprint grows round the anchor); the scaffold from the anchor.
+      const d = footprintDims(b.kind, b.variant, b.level);
+      const ox = (b.x + d.ox) * COLUMN_M;
+      const oz = (b.z + d.oz) * COLUMN_M;
       const oy = b.y * UNIT_M;
       if (e.mesh) {
         e.mesh.position.set(ox, oy, oz);
         e.mesh.scale.y = b.complete ? 1 : Math.max(0.08, b.built / 1000);
       }
-      if (e.scaffold) e.scaffold.position.set(ox, oy, oz);
+      if (e.scaffold) e.scaffold.position.set(b.x * COLUMN_M, oy, b.z * COLUMN_M);
       for (let k = 0; k < e.flames.length; k++) {
         const f = e.flames[k]!;
         const p = e.look.flames[k]!;
@@ -223,7 +202,7 @@ export class BuildingsView {
     }
     let scaffold: THREE.Mesh | null = null;
     if (!b.complete || b.upgrading) {
-      scaffold = new THREE.Mesh(this.scaffoldGeometry(b.kind, Math.max(1.6, look.height + 0.3)), this.scaffoldMaterial);
+      scaffold = new THREE.Mesh(this.scaffoldGeometry(b, Math.max(1.6, look.height + 0.3)), this.scaffoldMaterial);
       this.scene.add(scaffold);
     }
     const flames = look.flames.map(() => {
@@ -231,7 +210,8 @@ export class BuildingsView {
       this.scene.add(f);
       return f;
     });
-    const s = buildingSpec(b.kind);
+    // The click box covers the footprint it takes, an upgrade's while one is under way.
+    const s = placedDims(b);
     const selectable: Selectable = {
       key: `b:${b.id}`,
       kind: 'building',
@@ -246,17 +226,17 @@ export class BuildingsView {
   }
 
   private readonly scaffoldCache = new Map<string, THREE.BufferGeometry>();
-  /** Poles at the corners and every 1.8 m round the footprint, with two rails. */
-  private scaffoldGeometry(kind: number, h: number): THREE.BufferGeometry {
-    const key = `${kind}:${h.toFixed(1)}`;
+  /** Poles at the corners and every 1.8 m round the solid part it is taking (an upgrade's), with two rails; from the anchor. */
+  private scaffoldGeometry(b: BuildingInfo, h: number): THREE.BufferGeometry {
+    const s = placedDims(b);
+    const key = `${b.kind}:${b.variant}:${Math.max(b.level, b.upgrading)}:${h.toFixed(1)}`;
     let g = this.scaffoldCache.get(key);
     if (g) return g;
-    const s = buildingSpec(kind);
     const [sx, sz, sw, sd] = s.solid;
-    const x0 = sx * COLUMN_M - 0.15;
-    const z0 = sz * COLUMN_M - 0.15;
-    const x1 = (sx + sw) * COLUMN_M + 0.05;
-    const z1 = (sz + sd) * COLUMN_M + 0.05;
+    const x0 = (s.ox + sx) * COLUMN_M - 0.15;
+    const z0 = (s.oz + sz) * COLUMN_M - 0.15;
+    const x1 = (s.ox + sx + sw) * COLUMN_M + 0.05;
+    const z1 = (s.oz + sz + sd) * COLUMN_M + 0.05;
     const parts: THREE.BufferGeometry[] = [];
     const pole = (x: number, z: number): void => {
       parts.push(new THREE.BoxGeometry(0.1, h, 0.1).translate(x + 0.05, h / 2, z + 0.05));
@@ -289,7 +269,8 @@ export class BuildingsView {
   private fillSelectable(t: Selectable, b: BuildingInfo, info: GameInfo): void {
     const s = buildingSpec(b.kind);
     const h = t.halfSize.y;
-    t.centre.set((b.x + s.w / 2) * COLUMN_M, b.y * UNIT_M + h, (b.z + s.d / 2) * COLUMN_M);
+    const [x0, z0, x1, z1] = footprintRect(b);
+    t.centre.set(((x0 + x1 + 1) / 2) * COLUMN_M, b.y * UNIT_M + h, ((z0 + z1 + 1) / 2) * COLUMN_M);
     t.label = b.complete ? b.name : `${buildingName(b.kind, 1, b.variant)} (unfinished)`;
     const d: string[] = [];
     d.push(`Health ${b.hp} / ${b.maxHp}`);
@@ -299,7 +280,8 @@ export class BuildingsView {
       d.push(b.lit ? `Lit: ${Math.ceil(b.fuelLeft / 20 / 60)} min of fuel left (${RESOURCES[light.fuel]!.name.toLowerCase()}).` : 'Out: send a worker to refuel it.');
       d.push(`Light ${light.lightM} m${light.claimM > 0 ? `, claims ${light.claimM} m while lit` : ''}.`);
     }
-    if (b.inside.length > 0) d.push(`${b.inside.length} inside.`);
+    if (b.up.length > 0) d.push(`${b.up.length} up top.`);
+    if (b.inside.length > b.up.length) d.push(`${b.inside.length - b.up.length} inside.`);
     void info;
     t.details = d;
   }

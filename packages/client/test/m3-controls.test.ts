@@ -31,7 +31,7 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
     troops: [], horses: 0, farm: null, ...o,
   };
 }
@@ -286,6 +286,24 @@ describe('the Big House', () => {
     c.card()[12]!.run(PRESS);
     c.confirmTarget({ ...sel('b:22', 'building:14:1'), kind: 'building' }, at(0, 0));
     expect(sent.at(-1)).toMatchObject({ kind: 'enter', building: 22 });
+  });
+
+  it('sends warriors and workers up a tower with a right click, but only walks them to a main base (patch notes 1)', () => {
+    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 3, name: 'Hall' }), building(22, BuildingKind.Tower, { name: 'Softwood tower' })] });
+    const tower = { ...sel('b:22', 'building:14:1'), kind: 'building' as const };
+    const house = { ...sel('b:20', 'building:0:3'), kind: 'building' as const };
+    const men = harness(g, warriors, 'warrior');
+    men.c.smart(tower, at(0, 0));
+    expect(men.sent.at(-1)).toMatchObject({ kind: 'enter', units: [3, 4], building: 22 });
+    men.c.smart(house, at(0, 0));
+    expect(men.sent.at(-1)).toMatchObject({ kind: 'move', units: [3, 4] });
+    const hands = harness(g, workers, 'worker');
+    hands.c.smart(tower, at(0, 0));
+    expect(hands.sent.at(-1)).toMatchObject({ kind: 'enter', units: [1, 2], building: 22 });
+    // A tower still going up is built, not climbed.
+    g.buildings.get(22)!.complete = false;
+    hands.c.smart(tower, at(0, 0));
+    expect(hands.sent.at(-1)).toMatchObject({ kind: 'work', building: 22 });
   });
 });
 

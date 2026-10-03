@@ -75,8 +75,8 @@ export function unitFrame(row: Int32Array): PortraitFrame {
 }
 
 /** A building's still: the whole footprint and its height from the front corner, about 45 degrees round and 30 up. */
-export function buildingFrame(kind: number, variant: number, height: number): PortraitFrame {
-  const dims = footprintDims(kind, variant);
+export function buildingFrame(kind: number, variant: number, height: number, level = 1): PortraitFrame {
+  const dims = footprintDims(kind, variant, level);
   const w = dims.w * COLUMN_M;
   const d = dims.d * COLUMN_M;
   return { target: [w / 2, height * 0.45, d / 2], radius: 0.5 * Math.hypot(w, d, height) * 0.8, azimuth: Math.PI / 4, elevation: 0.5 };
@@ -253,17 +253,19 @@ export class PortraitView {
     const team = this.colours[b.owner] ?? this.neutral;
     const look = makeLook(b.kind, Math.max(1, b.level), b.variant, team.getHex(), b.status.startsWith('Lying fallow'));
     const lib = this.lib;
-    const ids = lib ? catalogueIds({ kind: b.kind, level: Math.max(1, b.level) }) : [];
+    const ids = lib ? catalogueIds({ kind: b.kind, level: Math.max(1, b.level), variant: b.variant }) : [];
     for (const m of ids) if (lib && !lib.models.has(m.id)) lib.request(m.id);
     const ready = lib !== null && ids.length > 0 && ids.every((m) => lib.models.has(m.id));
     const models: InstancedModel[] = [];
     let mesh: THREE.Mesh | null = null;
     let height = look.height;
     if (ready) {
+      // The models sit from the anchor; the still is framed from this level's corner, where the blocks are drawn.
+      const at = footprintDims(b.kind, b.variant, Math.max(1, b.level));
       for (const m of ids) {
         const model = new InstancedModel(lib.get(m.id), 1);
         model.object.frustumCulled = false;
-        model.setInstance(0, m.dx, 0, m.dz, 0, '', 0, team);
+        model.setInstance(0, m.dx - at.ox * COLUMN_M, 0, m.dz - at.oz * COLUMN_M, 0, '', 0, team);
         model.setCount(1);
         model.commit();
         this.scene.add(model.object);
@@ -275,7 +277,7 @@ export class PortraitView {
       mesh = new THREE.Mesh(look.geometry, this.material);
       this.scene.add(mesh);
     }
-    const frame = buildingFrame(b.kind, b.variant, Math.max(0.6, height));
+    const frame = buildingFrame(b.kind, b.variant, Math.max(0.6, height), Math.max(1, b.level));
     // Blocks stand in while its models load; setModels' onLoad clears the signature so it switches over.
     this.building = { sig, mesh, models, frame };
     return frame;
