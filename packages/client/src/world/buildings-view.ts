@@ -36,6 +36,8 @@ export interface GhostSpot {
   z: number;
   /** Tile reasons, row by row; null while the sim has not answered. */
   tiles: Uint8Array | null;
+  /** A wall of a chain's stretch past where the stock runs out: drawn greyed. */
+  short?: boolean;
 }
 
 export interface Ghost {
@@ -362,7 +364,7 @@ export class BuildingsView {
   /** The placement ghost: the look at each spot and a tile per footprint column, green or red. */
   setGhost(g: Ghost | null, owner: number, heightAt: (x: number, z: number) => number): void {
     // Rebuilt only when the ghost changes: where it is, the sim's answers, whether it can be paid for.
-    const sig = g ? `${g.kind}:${g.variant}:${g.affordable}:${g.spots.map((s) => `${s.x},${s.z},${s.tiles ? s.tiles.reduce((a, t, i) => a + t * (i + 1), 1) : 0}`).join(';')}` : '';
+    const sig = g ? `${g.kind}:${g.variant}:${g.affordable}:${g.spots.map((s) => `${s.x},${s.z},${s.short ? 1 : 0},${s.tiles ? s.tiles.reduce((a, t, i) => a + t * (i + 1), 1) : 0}`).join(';')}` : '';
     if (sig === this.ghostSig) return;
     this.ghostSig = sig;
     for (const m of this.ghostMeshes) this.scene.remove(m);
@@ -392,7 +394,7 @@ export class BuildingsView {
             m4.makeTranslation(cx, heightAt(cx, cz) + 0.04, cz);
             this.tiles.setMatrixAt(n, m4);
             colour.copy(spot.tiles ? (t === 0 ? GREEN : RED) : GREEN);
-            if (!g.affordable) colour.lerp(new THREE.Color(0x808080), 0.4);
+            if (!g.affordable || spot.short) colour.lerp(new THREE.Color(0x808080), 0.4);
             this.tiles.setColorAt(n, colour);
             n++;
           }
