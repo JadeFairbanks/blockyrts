@@ -14,6 +14,10 @@
   --mm-w: 352px;
   --mm-h: 230px;
   --util-h: 32px;
+  /* The stockpile's slots (inside the 1 px bevel) and the height of the top right block. */
+  --slot: 38px;
+  --stock-h: calc(var(--slot) * 2 + 2px + 8px);
+  --top-right-h: calc(var(--stock-h) + 26px);
   --font: 13px/1.35 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
@@ -335,8 +339,8 @@ body.playing * {
   border-color: rgba(255, 120, 110, 0.6);
 }
 
-/* Top right: the resource bar, with Peoples, Allies, Send, Ping and Pause in a
-   row under it so the bar never runs under the clock on a 1280 px screen. */
+/* Top right: the stockpile, with Peoples, Allies, Send, Ping and Pause in a
+   row under it so it never runs under the clock on a 1280 px screen. */
 .top-right {
   top: 0;
   right: 0;
@@ -347,7 +351,7 @@ body.playing * {
   border: 0;
 }
 .top-right-buttons,
-.resource-bar {
+.stockpile {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-top: 0;
@@ -362,59 +366,139 @@ body.playing * {
   border-width: 0 0 0 1px;
   font-size: 12px;
 }
-.resource-bar {
+/* The stockpile as a Minecraft-style inventory (Inventory grid): Food and
+   Supply, then 8 x 2 square slots with the good's picture and its count in the
+   corner, then the scroll arrows. Slots are sunk into the panel like
+   Minecraft's: dark on the top and left edges, light on the bottom and right. */
+.stockpile {
   display: flex;
   align-items: stretch;
-  height: 32px;
+  height: var(--stock-h);
+  box-sizing: border-box;
 }
-.res {
+.stock-sum {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 10px;
-  border-right: 1px solid rgba(170, 186, 204, 0.16);
-  white-space: nowrap;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 4px 4px;
 }
-.res-name {
-  color: var(--muted);
-  font-size: 12px;
+.hud-btn.stock-cell {
+  flex: 1 1 0;
+  width: 78px;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 0 6px 0 3px;
+  background: rgba(70, 90, 50, 0.4);
+  border-color: rgba(170, 186, 204, 0.2);
 }
-.res-value {
+.hud-btn.stock-cell .key {
+  display: none;
+}
+.stock-icon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+.stock-cell .face {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  white-space: nowrap;
 }
-.hud-btn.res-toggle {
-  width: 34px;
-  border-width: 0;
-  font-size: 13px;
+.stock-cell.supply.full .face,
+.stock-cell.food.starving .face {
+  color: #ff7060;
 }
-.resource-all {
-  top: 64px;
-  right: 4px;
-  width: 360px;
-  max-height: calc(100vh - 64px - 200px);
-  min-height: 120px;
-  overflow-y: auto;
-  padding: 6px 10px 10px;
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(8, var(--slot));
+  grid-auto-rows: var(--slot);
+  gap: 2px;
+  padding: 4px;
 }
-.res-section {
-  margin: 6px 0 4px;
-  font-weight: 600;
+.inv-cell {
+  position: relative;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid;
+  border-color: rgba(0, 0, 0, 0.55) rgba(200, 212, 226, 0.22) rgba(200, 212, 226, 0.22) rgba(0, 0, 0, 0.55);
+}
+.hud-btn.inv-slot {
+  position: absolute;
+  inset: 0;
+  background: none;
+  border: 0;
+}
+.hud-btn.inv-slot.hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.inv-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.hud-btn.inv-slot .face {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 1px 1px 0 #2a2a2a;
+}
+.hud-btn.inv-slot .key {
+  display: none;
+}
+/* Held earlier in the match, none now: greyed. */
+.hud-btn.inv-slot.zero .inv-icon {
+  opacity: 0.32;
+  filter: grayscale(1) !important;
+}
+.hud-btn.inv-slot.zero .face {
   color: var(--muted);
 }
-.res-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 14px;
+/* A food kept back from meals (Don't eat): crossed out. */
+.hud-btn.inv-slot.dont-eat .inv-icon {
+  opacity: 0.5;
 }
-.res-row {
+.hud-btn.inv-slot.dont-eat::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: linear-gradient(to top right, transparent calc(50% - 1.5px), #ff5a4a calc(50% - 1.5px), #ff5a4a calc(50% + 1.5px), transparent calc(50% + 1.5px));
+  pointer-events: none;
+}
+.inv-scroll {
   display: flex;
-  justify-content: space-between;
-  padding: 1px 0;
-  border-bottom: 1px solid rgba(170, 186, 204, 0.08);
+  flex-direction: column;
+  gap: 2px;
+  width: 18px;
+  padding: 4px 4px 4px 0;
+}
+.hud-btn.inv-arrow {
+  flex: none;
+  height: 20px;
+  font-size: 9px;
+}
+.hud-btn.inv-arrow .key {
+  display: none;
+}
+.inv-track {
+  position: relative;
+  flex: 1 1 auto;
+  background: rgba(0, 0, 0, 0.34);
+}
+.inv-thumb {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: rgba(200, 212, 226, 0.55);
+}
+.inv-track.idle .inv-thumb {
+  background: rgba(200, 212, 226, 0.18);
 }
 
 /* Clock (top centre). */
@@ -611,13 +695,6 @@ body.playing * {
   line-height: 1.1;
   padding: 0 2px;
 }
-.res.food,
-.res.supply {
-  background: rgba(70, 90, 50, 0.4);
-}
-.res.supply.full .res-value {
-  color: #ff9a8a;
-}
 .clock-note {
   font-size: 11px;
   color: var(--muted);
@@ -649,31 +726,15 @@ body.playing * {
   :root {
     --mm-h: 190px;
   }
-  /* Keep the top right clear of the clock: two resources in the bar, the rest in the list. */
-  .resource-bar .res:nth-child(n + 3) {
-    display: none;
+  /* Keep the top right clear of the clock: smaller slots (the icons stay 32 px). */
+  :root {
+    --slot: 34px;
+  }
+  .hud-btn.stock-cell {
+    width: 66px;
   }
 }
 
-/* Food: starving shows in red; a food kept back (Don't eat) is crossed out. */
-.res.food.starving .res-value {
-  color: #ff7060;
-}
-.res-row.dont-eat .res-name,
-.res-row.dont-eat .res-value {
-  text-decoration: line-through;
-  opacity: 0.6;
-}
-.res-row .hud-btn.donteat {
-  width: 18px;
-  height: 18px;
-  min-width: 0;
-  font-size: 11px;
-  margin-left: 4px;
-}
-.res-row .hud-btn.donteat .key {
-  display: none;
-}
 /* Milestone 7: the message panel's tools, names, urgent rows and the collapsed button. */
 .msg-head {
   flex: none;
@@ -771,17 +832,17 @@ body.playing * {
   background: rgba(18, 22, 28, 0.96);
 }
 .peoples-panel {
-  top: 64px;
+  top: calc(var(--top-right-h) + 6px);
   right: 4px;
   width: 380px;
-  max-height: calc(100vh - 64px - 250px);
+  max-height: calc(100vh - var(--top-right-h) - 6px - 250px);
 }
 .trade-dialog {
   left: 50%;
-  top: 60px;
+  top: calc(var(--top-right-h) + 4px);
   transform: translateX(-50%);
   width: min(760px, calc(100vw - 32px));
-  max-height: calc(100vh - 60px - 250px);
+  max-height: calc(100vh - var(--top-right-h) - 4px - 250px);
 }
 .hire-dialog,
 .war-confirm {
@@ -927,17 +988,17 @@ body.playing * {
   background: rgba(18, 22, 28, 0.96);
 }
 .allies-panel {
-  top: 64px;
+  top: calc(var(--top-right-h) + 6px);
   right: 4px;
   width: 360px;
-  max-height: calc(100vh - 64px - 250px);
+  max-height: calc(100vh - var(--top-right-h) - 6px - 250px);
 }
 .send-dialog {
   left: 50%;
-  top: 60px;
+  top: calc(var(--top-right-h) + 4px);
   transform: translateX(-50%);
   width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - 60px - 250px);
+  max-height: calc(100vh - var(--top-right-h) - 4px - 250px);
 }
 .host-choice {
   z-index: 7;
