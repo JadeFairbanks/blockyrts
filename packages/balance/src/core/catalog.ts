@@ -338,6 +338,12 @@ function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: str
     if (value.length === 1 && children[0]?.type === 'section') return { ...children[0], label };
     return { type: 'section', label, doc: docFor(ctx, key), children, open: true };
   }
+  // One [building, level] pair where lists of them are usual (an engine's madeAt).
+  if (pairRef === 'building' && isNumberPair(value)) {
+    const refF = field(ctx, [...path, 0], 'Building', value[0], '', key, sub, 'building');
+    const amt = field(ctx, [...path, 1], 'Level', value[1], 'needsBase', key, sub);
+    return { type: 'section', label, doc: docFor(ctx, key), children: [{ type: 'pair', label: refName(ctx, 'building', value[0]), ref: refF, amount: amt }], open: true };
+  }
   // A list of numbers: references (spawns, bands) or values by index.
   if (value.every((x) => typeof x === 'number' || typeof x === 'boolean')) {
     const ref = refFor(ctx, key) ?? REF_KEYS[`${key}:*`] ?? REF_KEYS[`${ctx.exportName}:*`];
@@ -394,6 +400,8 @@ function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
     }
     case 'MAGE_RANKS': return ['Mage ranks'];
     case 'PEOPLE_UNITS': return [refName(ctx, 'people', rec.people as number)];
+    case 'MOUNTS': return ['Mounts'];
+    case 'ENGINES': return ['Siege engines and cannons'];
     default: return [];
   }
 }
