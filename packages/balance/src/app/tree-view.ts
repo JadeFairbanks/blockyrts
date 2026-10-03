@@ -26,6 +26,13 @@ const TIER_KEYS = ['needsBase', 'research', 'ws', 'health', 'supply', 'shelters'
 const RESEARCH_KEYS = ['steps', 'forge', 'after', 'at'];
 
 let picked = '';
+// Esc closes the picked tier's panel while the tree is on screen.
+let closeTree: (() => void) | null = null;
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !picked || !closeTree || !document.querySelector('.tree-details')) return;
+  if (e.target instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) e.target.blur();
+  closeTree();
+});
 let showSimple = false;
 let scrollLeft = 0;
 
@@ -181,6 +188,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
       return h('button', { class: 'chip', onclick: () => entry && deps.openEntry(entry) }, r.name);
     }));
 
+  closeTree = () => { picked = ''; renderTree(root, deps); };
   const top = root.scrollTop;
   root.replaceChildren(
     h('div', { class: 'crumbs' }, 'Buildings and levels'),
@@ -208,12 +216,13 @@ function details(tree: BuildingTree, deps: TreeDeps, redraw: () => void): HTMLEl
   const tier = tree.rows.flatMap((r) => r.tiers.map((t) => ({ r, t }))).find((x) => x.t.id === picked);
   const research = tree.research.find((r) => r.id === picked);
   const box = h('div', { class: 'tree-details' });
+  const close = h('button', { class: 'close', title: 'Close (Esc)', 'aria-label': 'Close', onclick: () => { picked = ''; redraw(); } }, '✕');
   // Values change on "change"; redraw the tree once the row has saved it.
   box.addEventListener('change', () => setTimeout(redraw, 0));
   if (tier) {
     const entry = deps.entryOf('building', tier.r.kind);
     box.append(h('div', { class: 'head' }, h('h3', {}, `${tier.t.name}`, h('small', {}, ` ${tier.r.name}, tier ${tier.t.level}`)),
-      entry ? h('button', { class: 'btn small', onclick: () => deps.openEntry(entry, deps.field(pathKey(BUILDINGS, [...tier.t.path, 'ws']))?.id) }, 'Costs and everything else ›') : null));
+      entry ? h('button', { class: 'btn small', onclick: () => deps.openEntry(entry, deps.field(pathKey(BUILDINGS, [...tier.t.path, 'ws']))?.id) }, 'Costs and everything else ›') : null, close));
     for (const k of TIER_KEYS) {
       const f = deps.field(pathKey(BUILDINGS, [...tier.t.path, k]));
       if (f && !f.readOnly) box.append(deps.fieldRow(f));
@@ -221,7 +230,7 @@ function details(tree: BuildingTree, deps: TreeDeps, redraw: () => void): HTMLEl
   } else if (research) {
     const entry = deps.entryOf('research', research.research);
     box.append(h('div', { class: 'head' }, h('h3', {}, research.name, h('small', {}, ' research')),
-      entry ? h('button', { class: 'btn small', onclick: () => deps.openEntry(entry) }, 'Cost and everything else ›') : null));
+      entry ? h('button', { class: 'btn small', onclick: () => deps.openEntry(entry) }, 'Cost and everything else ›') : null, close));
     for (const k of [...RESEARCH_KEYS, 'building']) {
       const key = pathKey(ITEMS, [...research.path, k]);
       const fs = k === 'building' ? [deps.field(pathKey(ITEMS, [...research.path, k, 0])), deps.field(pathKey(ITEMS, [...research.path, k, 1]))] : [deps.field(key)];
