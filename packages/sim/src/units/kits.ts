@@ -336,15 +336,16 @@ export const TOP_MAGE_TIER = 6;
  * plus the kit's time and 1 supply. Workers and mages keep their own rows
  * (buildings/data.ts WORKER_FOOD, magic/mages.ts MAGE_FOOD). An upgrade pays
  * the new tier's kit and takes half the new piece's time to make; the old
- * piece gives nothing back (the docx's (s); Open for Jade's rebalance).
+ * piece is scrapped with a full refund (Jade, 22:52 UTC 2026-10-02), so a
+ * step costs the difference.
  */
 export const TRAINING = {
   troopFood: 30,
   troopS: 45,
   /** An upgrade's time as a share of the new piece's time to make, per mille. */
   upgradeTimePm: 500,
-  /** How much of the old piece's main cost an upgrade gives back, per mille: nothing (s, Troops and gear; open for Jade's rebalance). */
-  upgradeRefundPm: 0,
+  /** How much of the old piece's main cost an upgrade gives back when the new one goes on, per mille: all of it (Jade). */
+  upgradeRefundPm: 1000,
 };
 
 // ----- the gear catalogue -----

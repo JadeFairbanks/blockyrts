@@ -275,7 +275,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 7512564e`: two workers raise a gate and a
+   prints `final step 10000 hash 11ed2297`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -355,7 +355,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 6545388f`: two workers pick flint while two
+   prints `final step 10000 hash 19575f09`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -458,7 +458,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 7cd1640a`: the debug tools put a Barracks
+   prints `final step 10000 hash 761676b7`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -611,7 +611,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 33b6766e`: the debug tools put a Magi
+   prints `final step 10000 hash f0907a64`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -726,7 +726,7 @@ updated and still play out as they say).
    and warrior bodies tinted in their people's colour and their buildings
    are coloured blocks.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash ded288d9`: the debug tools put a Halfling
+    prints `final step 10000 hash cd2f7096`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -1007,7 +1007,9 @@ milestone are refused with a message saying why.
 4. **Upgrades.** Select warriors: Q Upgrade weapon and X Upgrade armour on the
    card; Z and V (Max) show only when they would go further. Press Q: each
    walks to the nearest Forge, Barracks or main base saying where it is going,
-   stands beside it while a bar fills, and says what it got. Workers have Q
+   stands beside it while a bar fills, and says what it got. The new kit is
+   paid when you press the button and the old kit's cost comes back to the
+   stock in full when the new one goes on. Workers have Q
    (tools), X (fetch a cart or hand it back) and U (rank); mages Q (wand) and
    X (robe), pressed twice for the best.
 5. **Long melee.** Train a long-melee troop and let a monster close in: it
