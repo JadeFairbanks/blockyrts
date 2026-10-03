@@ -13,6 +13,8 @@ export interface HudLayout {
   minimapEl: HTMLElement;
   messagePanel: HTMLElement;
   messageList: HTMLElement;
+  /** The chat box at the bottom of the message panel. */
+  chat: HTMLInputElement;
   selectionPanel: HTMLElement;
   selectionTitle: HTMLElement;
   selectionCorner: HTMLElement;
@@ -62,8 +64,9 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const chat = document.createElement('input');
   chat.className = 'chat';
   chat.disabled = true;
-  chat.placeholder = 'Chat with other players comes with multiplayer';
   chat.tabIndex = -1;
+  chat.spellcheck = false;
+  chat.autocomplete = 'off';
   messagePanel.append(chat);
 
   // Selection panel (bottom centre).
@@ -165,6 +168,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     minimapEl,
     messagePanel,
     messageList,
+    chat,
     selectionPanel,
     selectionTitle,
     selectionCorner,

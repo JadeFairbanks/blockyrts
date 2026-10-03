@@ -7,7 +7,7 @@ describe('settings', () => {
     expect(sanitizeSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(sanitizeSettings('junk')).toEqual(DEFAULT_SETTINGS);
     const s = sanitizeSettings({ edgePanSpeed: 99, arrowPanSpeed: -1, zoomSpeed: 'fast', edgePan: false, cursorLock: 1 });
-    expect(s).toEqual({ edgePanSpeed: SPEED_MAX, arrowPanSpeed: SPEED_MIN, zoomSpeed: 1, edgePan: false, cursorLock: true, keys: {} });
+    expect(s).toEqual({ ...DEFAULT_SETTINGS, edgePanSpeed: SPEED_MAX, arrowPanSpeed: SPEED_MIN, zoomSpeed: 1, edgePan: false, cursorLock: true, keys: {} });
   });
 });
 

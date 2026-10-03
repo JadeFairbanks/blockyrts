@@ -1,13 +1,37 @@
 // Messages between the page and the sim worker. Local to the client; the
 // network protocol lives in @blockyrts/protocol.
+import type { OutgoingFrame, WireFrame } from '@blockyrts/protocol';
 import type { ChunkDelta, ClaimShapes, HitEvent, Order, RallyPoint, SimEvent, Site, UnitOrder } from '@blockyrts/sim';
 
+/** An online match's lockstep set-up: this client's relay slot, each sim player's slot, the epoch, the playing slots and the input delay. */
+export interface NetStart {
+  slot: number;
+  seats: number[];
+  epoch: number;
+  activeSlots: number;
+  inputDelay: number;
+  /** Joining a match under way: the first step this page still sends, and the frames already relayed. */
+  nextFrameStep?: number | undefined;
+  frames?: WireFrame[] | undefined;
+}
+
 export type ToWorker =
-  | { type: 'start'; seed: number; players: number }
+  /** A new world from the seed, or `snapshot` (the sim's serialised state) to carry on from; `player` is the local player's index. */
+  | { type: 'start'; seed: number; players: number; player: number; snapshot?: Uint8Array | undefined; net?: NetStart | undefined }
+  /** Replace the state with a snapshot and carry on from the relay's frames (a rejoin, or a reload after a desync). */
+  | ({ type: 'load'; snapshot: Uint8Array; frames: WireFrame[]; nextFrameStep: number } & NetStart)
+  /** A rejoin that keeps this state: the frames missed. */
+  | { type: 'resume'; epoch: number; frames: WireFrame[]; nextFrameStep: number; activeSlots: number; inputDelay: number }
+  | { type: 'frames'; frames: WireFrame[] }
+  | { type: 'inputDelay'; steps: number }
+  /** Alone: the menu's pause; online: the relay's. */
+  | { type: 'pause'; paused: boolean }
+  /** The state now, serialised, for a save or another player's rejoin. */
+  | { type: 'snapshot'; id: number }
   | { type: 'order'; order: Order }
   /** Placement tiles for a building at these footprint corners (global columns); answered with 'placed'. */
   | { type: 'place'; id: number; kind: number; variant: number; spots: Array<[number, number]> }
-  /** Debug: steps per tick multiplier (1, 4 or 16). */
+  /** Debug: steps per tick multiplier (1, 4 or 16); alone only. */
   | { type: 'speed'; factor: number };
 
 /**
@@ -94,7 +118,7 @@ export const S = {
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
 /** Bits of S.flags. */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -164,6 +188,8 @@ export interface BuildingInfo {
   upgradeWhy: string;
   /** Own finished buildings: everything they make, with why it cannot be queued now ('' when it can). */
   products: Array<[number, string]>;
+  /** Inherited from a player who left: every player still in may use it (When a player is eliminated or leaves). */
+  shared: boolean;
   /** Mineshafts: what waits to be hauled, and the prospect rating (0 unknown, else 1 + Rating). */
   stock: Array<[number, number]>;
   rating: number;
@@ -219,6 +245,8 @@ export interface InfoMessage {
   mageRanks: Array<[number, string]>;
   /** The neutral peoples the local player has seen, met or is at war with. */
   peoples: PeopleInfo[];
+  /** Every player by sim index: whom they share control with (a bit per player), and whether they are out. */
+  players: Array<{ share: number; out: boolean }>;
 }
 
 /** One of the neutral peoples' factions as the local player knows it (the trade menu and the Peoples panel). */
@@ -281,4 +309,19 @@ export interface PlacedMessage {
   spots: Array<{ x: number; z: number; tiles: Uint8Array; blocked: number }>;
 }
 
-export type FromWorker = StateMessage | DeltasMessage | FogMessage | InfoMessage | PlacedMessage;
+/** The worker's online traffic: this player's frames to send, a hash to report, who a stalled step waits on. */
+export type NetMessage =
+  | { type: 'frames'; frames: OutgoingFrame[] }
+  | { type: 'hash'; epoch: number; step: number; hash: number }
+  | { type: 'waiting'; slots: number[]; step: number };
+
+/** A serialised state: asked for (snapshot), or the dawn autosave. */
+export interface SnapshotMessage {
+  type: 'snapshot' | 'dawn';
+  id?: number;
+  step: number;
+  night: number;
+  data: Uint8Array;
+}
+
+export type FromWorker = StateMessage | DeltasMessage | FogMessage | InfoMessage | PlacedMessage | NetMessage | SnapshotMessage;

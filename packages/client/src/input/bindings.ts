@@ -11,7 +11,7 @@ export interface Action {
   name: string;
   key: string;
   /** Where it applies, for the settings list. */
-  group: 'Units' | 'Workers' | 'Mages' | 'Buildings' | 'Camera and selection';
+  group: 'Units' | 'Workers' | 'Mages' | 'Buildings' | 'Camera and selection' | 'Players';
 }
 
 export const ACTIONS: readonly Action[] = [
@@ -66,6 +66,11 @@ export const ACTIONS: readonly Action[] = [
   { id: 'rations', name: 'Rations', key: 'F9', group: 'Camera and selection' },
   { id: 'peoples', name: 'Peoples panel', key: 'KeyO', group: 'Camera and selection' },
   { id: 'subgroup', name: 'Next subgroup', key: 'Tab', group: 'Camera and selection' },
+  // Milestone 9 (s): keys no unit or building card uses. Chat stays on Enter.
+  { id: 'allies', name: 'Allies panel', key: 'BracketLeft', group: 'Players' },
+  { id: 'send', name: 'Send resources', key: 'BracketRight', group: 'Players' },
+  { id: 'ping', name: 'Map ping', key: 'Backslash', group: 'Players' },
+  { id: 'pause', name: 'Pause', key: 'Pause', group: 'Players' },
 ];
 
 /** The binding name of a spell's button. */

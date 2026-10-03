@@ -35,6 +35,10 @@ const BLOCK_CODES = new Set([
   'F8',
   'F9',
   'F10',
+  'BracketLeft',
+  'BracketRight',
+  'Backslash',
+  'Pause',
 ]);
 
 /**
@@ -75,6 +79,10 @@ export function keyLabel(id: string): string {
     Space: 'Space',
     Equal: '+',
     Minus: '−',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Enter: 'Enter',
   };
   return names[id] ?? id;
 }

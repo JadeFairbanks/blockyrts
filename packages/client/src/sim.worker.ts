@@ -4,6 +4,19 @@
 // chunks whose land changed and the land newly explored. Between steps it
 // generates the chunks around the units a ring ahead, so walking into new
 // land never stalls a step (the cache is not state, so this cannot desync).
+//
+// Alone, the worker steps on its own clock with the orders given since the
+// last step. In an online match (milestone 9) it runs the lockstep: the
+// page relays every player's frames in and this player's frames out, and a
+// step runs only once every playing slot's frame for it has arrived.
+import { LockstepScheduler, type WireFrame } from '@blockyrts/protocol';
+import {
+  deserializeState,
+  periodStarting,
+  serializeState,
+  usableBy,
+  validateOrder,
+} from '@blockyrts/sim';
 import {
   animalsAt,
   assigned,
@@ -69,8 +82,8 @@ const STEP_MS = 1000 / STEPS_PER_SECOND;
 const MAX_CATCH_UP = 5;
 /** Generating a chunk takes a few milliseconds; only start one with this much time left before the next step. */
 const PREFETCH_MARGIN_MS = 25;
-/** The local player. */
-const PLAYER = 0;
+/** The local player's index in the sim (0 alone; in an online match, their seat). */
+let PLAYER = 0;
 const CHUNK_WU = COLUMNS_PER_CHUNK * WU_PER_COLUMN;
 
 let state: SimState | null = null;
@@ -87,6 +100,16 @@ let speed = 1;
 let events: SimEvent[] = [];
 /** Hits since the last state post. */
 let hits: HitEvent[] = [];
+/** Paused: alone from the menu, online by the relay (a player missing, a manual pause, a reload). */
+let paused = false;
+/**
+ * The online match: the lockstep scheduler, which sim player sits in each
+ * relay slot (seats[p] is player p's slot), and the snapshot epoch the
+ * page tags this worker's hashes with.
+ */
+let net: { sched: LockstepScheduler<Order>; seats: number[]; epoch: number } | null = null;
+/** The slots the last stall waited on, as posted. */
+let waitingOn = '';
 /** A hurt unit plays its injured clip this long, steps. */
 const HURT_SHOW_STEPS = 8;
 
@@ -135,6 +158,7 @@ function postState(s: SimState): void {
     if (e.mount[i] !== Mount.None && e.runWu[i]! >= mountSpec(e.mount[i]!).chargeRun) flags |= UnitFlag.Charging;
     if (e.kind[i] === UnitKind.Mob && cloaked(s, i, Number.MAX_SAFE_INTEGER)) flags |= UnitFlag.Cloaked;
     if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
+    if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.skills] = e.skills[i]!;
@@ -224,8 +248,9 @@ function postInfo(s: SimState): void {
       inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
       status: buildingStatus(s, b),
       name: buildingName(b.kind, b.level, b.variant),
-      upgradeWhy: b.owner === PLAYER ? upgradeProblem(s, b) : '',
-      products: b.owner === PLAYER && b.complete ? productsOf(b).map((p): [number, string] => [p, productProblem(s, b, p)]) : [],
+      upgradeWhy: usableBy(s, b, PLAYER) ? upgradeProblem(s, b, PLAYER) : '',
+      products: usableBy(s, b, PLAYER) && b.complete ? productsOf(b).map((p): [number, string] => [p, productProblem(s, b, p, PLAYER)]) : [],
+      shared: b.shared !== 0,
       stock: b.stock.map(([r, n]): [number, number] => [r, n]),
       rating: b.rating,
       herd: b.kind === BuildingKind.LivestockFarm || b.kind === BuildingKind.Stables ? animalsAt(s, b.id).length : 0,
@@ -277,6 +302,7 @@ function postInfo(s: SimState): void {
       spells,
       mageRanks,
       peoples: peoplesInfo(s, PLAYER),
+      players: s.players.map((ps) => ({ share: ps.share, out: ps.out !== 0 })),
     },
     [pool.buffer, items.buffer],
   );
@@ -331,25 +357,103 @@ function prefetch(s: SimState): void {
   }
 }
 
+/** Runs one step with these orders and posts what the page needs. */
+function runStep(s: SimState, orders: Order[]): void {
+  log.record(s.step, orders);
+  const r = step(s, orders);
+  if (r.hash !== undefined) {
+    lastHash = r.hash;
+    lastHashStep = r.step;
+    if (net) send({ type: 'hash', epoch: net.epoch, step: r.step, hash: r.hash });
+  }
+  for (const ev of s.events) if (heard(s, ev)) events.push(ev);
+  for (const h of s.hits) hits.push(h);
+  postState(s);
+  // Autosave at every dawn (Saving and disconnects): the same bytes on every machine.
+  if (periodStarting(s.step - 1, s.blood) === Period.Dawn) {
+    const data = serializeState(s);
+    send({ type: 'dawn', step: s.step, night: nightOf(s), data }, [data.buffer]);
+  }
+}
+
+/**
+ * Who sees what (Chat between players): a player sees their own events and
+ * everyone's, and the speech of units inherited from a player who left;
+ * never another active player's units' speech, even under shared control.
+ */
+function heard(s: SimState, ev: SimEvent): boolean {
+  if (ev.player === PLAYER || ev.player < 0) return true;
+  if (ev.kind !== 'speech' || ev.speaker === undefined || s.players[PLAYER]?.out) return false;
+  const i = s.entities.indexOf(ev.speaker);
+  return i >= 0 && s.entities.shared[i] !== 0;
+}
+
+/** The night count for a save's header and the Load screen: the nights survived so far. */
+function nightOf(s: SimState): number {
+  return nightsSurvived(s.step, s.blood);
+}
+
+/** One online step's orders: each slot's, stamped with its seat (the relay says who sent a frame), then the leavers. */
+function netOrders(sched: LockstepScheduler<Order>, seats: readonly number[], at: number): Order[] {
+  const input = sched.take(at);
+  const orders: Order[] = [];
+  for (const { slot, orders: list } of input.bySlot) {
+    const player = seats.indexOf(slot);
+    if (player < 0) continue;
+    for (const o of list) {
+      const stamped = { ...o, player } as Order;
+      try {
+        validateOrder(stamped);
+      } catch {
+        continue; // every machine drops the same bad order
+      }
+      orders.push(stamped);
+    }
+  }
+  for (const slot of input.left) {
+    const player = seats.indexOf(slot);
+    if (player >= 0) orders.push({ kind: 'leave', player });
+  }
+  return orders;
+}
+
 function tick(): void {
   if (!state) return;
   const now = performance.now();
+  if (paused) {
+    clock = now;
+    return;
+  }
   const stepMs = STEP_MS / speed;
   if (now - clock > stepMs * MAX_CATCH_UP * speed) clock = now - stepMs * MAX_CATCH_UP * speed;
   let stepped = false;
   while (now - clock >= stepMs) {
-    clock += stepMs;
-    const orders = pending;
-    pending = [];
-    log.record(state.step, orders);
-    const r = step(state, orders);
-    if (r.hash !== undefined) {
-      lastHash = r.hash;
-      lastHashStep = r.step;
+    if (net) {
+      const out = net.sched.outgoing(state.step);
+      if (out.length > 0) send({ type: 'frames', frames: out });
+      const missing = net.sched.waitingOn(state.step);
+      if (missing.length > 0) {
+        // Lockstep: wait for every player's frame; the page shows who after a second.
+        clock = now;
+        const key = missing.join(',');
+        if (key !== waitingOn) {
+          waitingOn = key;
+          send({ type: 'waiting', slots: missing, step: state.step });
+        }
+        break;
+      }
+      if (waitingOn) {
+        waitingOn = '';
+        send({ type: 'waiting', slots: [], step: state.step });
+      }
+      clock += stepMs;
+      runStep(state, netOrders(net.sched, net.seats, state.step));
+    } else {
+      clock += stepMs;
+      const orders = pending;
+      pending = [];
+      runStep(state, orders);
     }
-    for (const ev of state.events) if (ev.player === PLAYER || ev.player < 0) events.push(ev);
-    for (const h of state.hits) hits.push(h);
-    postState(state);
     stepped = true;
   }
   if (stepped) {
@@ -358,25 +462,87 @@ function tick(): void {
   } else if (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) prefetch(state);
 }
 
+/** Starts (or restarts) from a state: everything the page draws is sent again. */
+function begin(s: SimState): void {
+  state = s;
+  clock = performance.now();
+  lastHash = 0;
+  lastHashStep = 0;
+  pending = [];
+  events = [];
+  hits = [];
+  waitingOn = '';
+  postState(s);
+  postWorld(s, true);
+  postInfo(s);
+  if (timer === undefined) timer = setInterval(tick, 4);
+}
+
+function netFrom(msg: { slot: number; seats: number[]; epoch: number; step: number; activeSlots: number; inputDelay: number; nextFrameStep: number; frames: WireFrame[] }): void {
+  const sched = new LockstepScheduler<Order>({ slot: msg.slot, startStep: msg.step, activeSlots: msg.activeSlots, inputDelay: msg.inputDelay, nextFrameStep: msg.nextFrameStep });
+  for (const f of msg.frames) sched.receive(f);
+  net = { sched, seats: msg.seats, epoch: msg.epoch };
+}
+
 self.onmessage = (ev: MessageEvent<ToWorker>) => {
   const msg = ev.data;
-  if (msg.type === 'start') {
-    state = createWorld(msg.seed, { players: msg.players });
-    clock = performance.now();
-    postState(state);
-    postWorld(state, true);
-    postInfo(state);
-    if (timer === undefined) timer = setInterval(tick, 4);
-  } else if (msg.type === 'order') {
-    pending.push(msg.order);
-  } else if (msg.type === 'speed') {
-    speed = Math.max(1, Math.min(16, Math.floor(msg.factor)));
-  } else if (msg.type === 'place' && state) {
-    const s = state;
-    const spots = msg.spots.map(([x, z]) => {
-      const tiles = placementTiles(s, PLAYER, msg.kind, x, z, msg.variant);
-      return { x, z, tiles, blocked: tiles.find((t) => t !== 0) ?? 0 };
-    });
-    send({ type: 'placed', id: msg.id, kind: msg.kind, spots }, spots.map((p) => p.tiles.buffer));
+  switch (msg.type) {
+    case 'start': {
+      PLAYER = msg.player;
+      const s = msg.snapshot ? deserializeState(msg.snapshot) : createWorld(msg.seed, { players: msg.players });
+      net = null;
+      if (msg.net) netFrom({ ...msg.net, step: s.step, nextFrameStep: msg.net.nextFrameStep ?? s.step, frames: msg.net.frames ?? [] });
+      paused = false;
+      begin(s);
+      break;
+    }
+    case 'load': {
+      // A snapshot replaces the state (a rejoin or a reload after a desync).
+      const s = deserializeState(msg.snapshot);
+      netFrom({ ...msg, step: s.step });
+      paused = false;
+      begin(s);
+      break;
+    }
+    case 'resume':
+      // A rejoin that keeps this state: the frames missed since.
+      if (net && state) {
+        net.epoch = msg.epoch;
+        net.sched.reset({ step: state.step, frames: msg.frames, nextFrameStep: msg.nextFrameStep, activeSlots: msg.activeSlots, inputDelay: msg.inputDelay });
+      }
+      break;
+    case 'frames':
+      if (net) for (const f of msg.frames) net.sched.receive(f);
+      break;
+    case 'inputDelay':
+      if (net) net.sched.inputDelay = msg.steps;
+      break;
+    case 'pause':
+      paused = msg.paused;
+      break;
+    case 'order':
+      if (net) net.sched.queue(msg.order);
+      else pending.push(msg.order);
+      break;
+    case 'speed':
+      speed = net ? 1 : Math.max(1, Math.min(16, Math.floor(msg.factor)));
+      break;
+    case 'snapshot':
+      // For a save or a peer's rejoin: the state as it is between steps.
+      if (state) {
+        const data = serializeState(state);
+        send({ type: 'snapshot', id: msg.id, step: state.step, night: nightOf(state), data }, [data.buffer]);
+      }
+      break;
+    case 'place': {
+      if (!state) break;
+      const s = state;
+      const spots = msg.spots.map(([x, z]) => {
+        const tiles = placementTiles(s, PLAYER, msg.kind, x, z, msg.variant);
+        return { x, z, tiles, blocked: tiles.find((t) => t !== 0) ?? 0 };
+      });
+      send({ type: 'placed', id: msg.id, kind: msg.kind, spots }, spots.map((p) => p.tiles.buffer));
+      break;
+    }
   }
 };

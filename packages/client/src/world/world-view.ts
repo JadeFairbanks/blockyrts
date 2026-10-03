@@ -150,6 +150,8 @@ export interface WorldViewOptions {
   seed: number;
   players: number;
   player: number;
+  /** Each player's colour from the lobby (by sim player); the default order otherwise. */
+  colours?: readonly string[] | undefined;
 }
 
 export class WorldView {
@@ -158,6 +160,7 @@ export class WorldView {
   private readonly seed: number;
   private readonly players: number;
   private readonly player: number;
+  private readonly colours: THREE.Color[];
   private readonly workers: Worker[] = [];
   private readonly inflight: number[] = [];
   private readonly requests = new Map<number, { key: string; worker: number }>();
@@ -194,6 +197,9 @@ export class WorldView {
   private readonly unitsView: UnitsView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
+  private viewRing = QUARTER_DETAIL_RING;
+  private shadows = false;
+  private lastShadowSweep = 0;
   readonly buildings: BuildingsView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
@@ -205,6 +211,7 @@ export class WorldView {
     this.seed = opts.seed;
     this.players = opts.players;
     this.player = opts.player;
+    this.colours = PLAYER_COLOURS.map((c, p) => (opts.colours?.[p] ? new THREE.Color(opts.colours[p]) : c));
 
     const scene = this.scene;
     scene.background = new THREE.Color(0x07080a);
@@ -214,7 +221,17 @@ export class WorldView {
     scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff2dc, 1.7);
     sun.position.set(40, 80, 25);
-    scene.add(sun);
+    // Shadows (Settings: graphics), when on: a 90 m square round the camera's focus.
+    sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera;
+    sc.left = -45;
+    sc.right = 45;
+    sc.top = 45;
+    sc.bottom = -45;
+    sc.near = 1;
+    sc.far = 260;
+    sun.shadow.bias = -0.0005;
+    scene.add(sun, sun.target);
     this.sun = sun;
 
     const tex = new THREE.DataTexture(this.fowData, FOW_TILES, FOW_TILES, THREE.RedFormat, THREE.UnsignedByteType);
@@ -239,7 +256,7 @@ export class WorldView {
     }
 
     this.unitsView = new UnitsView(scene);
-    this.buildings = new BuildingsView(scene, this.fow, PLAYER_COLOURS);
+    this.buildings = new BuildingsView(scene, this.fow, this.colours);
     this.overlay = new Overlay(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
@@ -495,7 +512,40 @@ export class WorldView {
 
   // ---- Per frame ----
 
+  /** Graphics settings: how many chunk rings are drawn round the camera, and sun shadows. */
+  setGraphics(g: { viewRing: number; shadows: boolean }): void {
+    if (g.viewRing !== this.viewRing) {
+      this.viewRing = g.viewRing;
+      if (Number.isFinite(this.focusChunk.cx)) this.chooseChunks(this.focusChunk.cx, this.focusChunk.cz);
+    }
+    if (g.shadows !== this.shadows) {
+      this.shadows = g.shadows;
+      this.sun.castShadow = g.shadows;
+      this.markShadows();
+    }
+  }
+
+  /** Every mesh casts and takes shadows while they are on (new ones join on the next sweep). */
+  private markShadows(): void {
+    const on = this.shadows;
+    this.scene.traverse((o) => {
+      if (!(o as THREE.Mesh).isMesh) return;
+      const m = o as THREE.Mesh;
+      const see = (Array.isArray(m.material) ? m.material[0] : m.material)?.transparent !== true;
+      m.castShadow = on && see;
+      m.receiveShadow = on;
+    });
+  }
+
   update(now: number, focus: THREE.Vector3): void {
+    if (this.shadows) {
+      this.sun.target.position.set(focus.x, focus.y, focus.z);
+      this.sun.position.set(focus.x + 40, focus.y + 80, focus.z + 25);
+      if (now - this.lastShadowSweep > 1000) {
+        this.lastShadowSweep = now;
+        this.markShadows();
+      }
+    }
     this.updateUnits(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
@@ -520,7 +570,7 @@ export class WorldView {
   /** Which chunks to draw at which detail around the focus; explored land and its edge only, unless showing all. */
   private chooseChunks(fcx: number, fcz: number): void {
     const want = new Map<string, number>();
-    const r = QUARTER_DETAIL_RING;
+    const r = this.viewRing;
     for (let dz = -r; dz <= r; dz++) {
       for (let dx = -r; dx <= r; dx++) {
         const cx = fcx + dx;
@@ -732,7 +782,7 @@ export class WorldView {
       sinceMs: now - this.currAt,
       now,
       player: this.player,
-      colours: PLAYER_COLOURS,
+      colours: this.colours,
       neutral: NEUTRAL_COLOUR,
       seen: (x, z) => this.seenNow(x, z),
       known: (x, z) => this.exploredNow(x, z),
