@@ -800,12 +800,15 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_gold | ui/icon_gold.png | 1 | 32x32 | K1 resource icon gold (rendered from gold_nugget.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_gravel | ui/icon_gravel.png | 1 | 32x32 | K1 resource icon gravel: sack + heap of contents. |
 | icon_gunpowder | ui/icon_gunpowder.png | 1 | 32x32 | K1 resource icon gunpowder (rendered from gunpowder_keg.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hand_cart | ui/icon_hand_cart.png | 1 | 32x32 | K1 resource icon hand_cart (rendered from cart_hand.bbmodel), 32x32, 1px outline, top-left light; the plain item icon for the inventory grid (icon_train_hand_cart is the training button). |
+| icon_hardened_leather | ui/icon_hardened_leather.png | 1 | 32x32 | K1 resource icon hardened_leather: icon_leather recoloured to dark oxblood boiled leather with a waxed gloss and a stitched hem. |
 | icon_hardwood_lumber | ui/icon_hardwood_lumber.png | 1 | 32x32 | K1 resource icon hardwood_lumber (rendered from log_hardwood.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hardwood_sticks | ui/icon_hardwood_sticks.png | 1 | 32x32 | K1 resource icon hardwood_sticks (rendered from sticks_bundle.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_healing_remedy | ui/icon_healing_remedy.png | 1 | 32x32 | K1 resource icon healing_remedy (rendered from healing_remedy.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hexstone | ui/icon_hexstone.png | 1 | 32x32 | K1 resource icon hexstone (rendered from hexstone.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hides | ui/icon_hides.png | 1 | 32x32 | K1 resource icon hides (rendered from hide_rolled.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_ingot_bronze | ui/icon_ingot_bronze.png | 1 | 32x32 | K1 resource icon ingot_bronze (rendered from ingot_bronze.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ingot_carbon_steel | ui/icon_ingot_carbon_steel.png | 1 | 32x32 | K1 resource icon ingot_carbon_steel: icon_ingot_hq_steel recoloured to blued gunmetal, so it reads apart from steel and iron. |
 | icon_ingot_copper | ui/icon_ingot_copper.png | 1 | 32x32 | K1 resource icon ingot_copper (rendered from ingot_copper.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_ingot_hq_steel | ui/icon_ingot_hq_steel.png | 1 | 32x32 | K1 resource icon ingot_hq_steel (rendered from ingot_hq_steel.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_ingot_iron_bloom | ui/icon_ingot_iron_bloom.png | 1 | 32x32 | K1 ingot iron_bloom; grade dots bottom-right = 1. |
@@ -822,6 +825,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_marble | ui/icon_marble.png | 1 | 32x32 | K1 resource icon marble (rendered from marble_block.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_meat | ui/icon_meat.png | 1 | 32x32 | K1 resource icon meat (rendered from meat_haunch.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_medicinal_herbs | ui/icon_medicinal_herbs.png | 1 | 32x32 | K1 resource icon medicinal_herbs (rendered from herb_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_ox_cart | ui/icon_ox_cart.png | 1 | 32x32 | K1 resource icon ox_cart (rendered from cart_ox.bbmodel, shafts drawn at 30% length), 32x32, 1px outline, top-left light; the plain item icon for the inventory grid (icon_train_ox_cart is the training button). |
 | icon_pie | ui/icon_pie.png | 1 | 32x32 | K1 resource icon pie (rendered from pie.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_planks | ui/icon_planks.png | 1 | 32x32 | K1 resource icon planks (rendered from planks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_potatoes | ui/icon_potatoes.png | 1 | 32x32 | K1 resource icon potatoes: sack + heap of contents. |
