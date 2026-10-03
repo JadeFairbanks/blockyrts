@@ -86,9 +86,9 @@ export interface Building {
   rally: RallyPoint[];
   /** Lights: the step it burns until (lit while the step is below it). */
   fuelUntil: number;
-  /** Step construction finished (farms lie fallow for 2 days from it). */
+  /** Step construction finished. */
   doneAt: number;
-  /** Farms: yield carried between steps, in thousandths of a unit times steps per day. */
+  /** Farms: the harvest's progress, in farmer-steps of work (full at FARM_HARVEST_STEPS); the yield's thousandths carried between harvests are in `acc[0]`. */
   farmAcc: number;
   /** Set when an alert about this building was sent, so it is sent once (bit 1: no supply). */
   alerted: number;
@@ -98,7 +98,7 @@ export interface Building {
   rating: number;
   mined: number;
   stock: Array<[number, number]>;
-  /** Mineshafts: output carried between steps, per resource of the tier's list, in thousandths times steps per day. */
+  /** Mineshafts: output carried between steps, per resource of the tier's list, in thousandths times steps per day. Farms: [the thousandths of an item carried to the next harvest]. */
   acc: number[];
   /**
    * 1 once inherited from a player who was eliminated or left: every player

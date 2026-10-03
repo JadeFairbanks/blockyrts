@@ -825,6 +825,12 @@ function breed(state: SimState): void {
   }
 }
 
+/** Grown hens at a livestock farm, each laying an egg at the next day's turn (Table 6). */
+export function layingHens(state: SimState, b: Building): number {
+  const e = state.entities;
+  return animalsAt(state, b.id).filter((j) => !e.partner[j] && e.mob[j] === Species.Chicken && e.sex[j] === 0 && e.born[j] === 0).length;
+}
+
 /** Hens lay an egg a day at a livestock farm; herds short of grass eat crops or go hungry (Table 6). */
 function livestockDay(state: SimState): void {
   const e = state.entities;
@@ -833,10 +839,7 @@ function livestockDay(state: SimState): void {
     const herd = animalsAt(state, b.id).filter((j) => !e.partner[j]);
     if (herd.length === 0) continue;
     const pool = state.players[b.owner]!.pool;
-    if (b.kind === BuildingKind.LivestockFarm) {
-      const hens = herd.filter((j) => e.mob[j] === Species.Chicken && e.sex[j] === 0 && e.born[j] === 0).length;
-      pool[Res.Eggs] = pool[Res.Eggs]! + hens;
-    }
+    if (b.kind === BuildingKind.LivestockFarm) pool[Res.Eggs] = pool[Res.Eggs]! + layingHens(state, b);
     let need = 0;
     for (const j of herd) need += speciesSpec(e.mob[j]!).grassM2;
     const grass = grassNear(state, b);
