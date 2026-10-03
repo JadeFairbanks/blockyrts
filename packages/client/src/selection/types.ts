@@ -57,6 +57,13 @@ export function entityIdOf(key: string): number | null {
   return Number.isInteger(id) && id >= 0 ? id : null;
 }
 
+/** The loot id in a key of the form 'l:<id>' (loot on the ground), or null for anything else. */
+export function lootIdOf(key: string): number | null {
+  if (!key.startsWith('l:')) return null;
+  const id = Number(key.slice(2));
+  return Number.isInteger(id) && id >= 0 ? id : null;
+}
+
 /** The building id in a key of the form 'b:<id>', or null for anything else. */
 export function buildingIdOf(key: string): number | null {
   if (!key.startsWith('b:')) return null;

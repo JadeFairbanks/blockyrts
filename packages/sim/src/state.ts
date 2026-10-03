@@ -427,6 +427,8 @@ export class EntityStore implements Record<FieldName, Column> {
   hitters: number[][] = [];
   /** Abilities cooling down, as (ability, step it is ready) pairs (threats/abilities.ts; a mage's are its spells, magic/spells.ts). */
   cools: number[][] = [];
+  /** The players' units: loot carried to hand in, as (resource, count) pairs (units/loot.ts). */
+  bag: number[][] = [];
 
   private readonly index = new Map<number, number>();
 
@@ -473,6 +475,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.path[i] = [];
     this.hitters[i] = [];
     this.cools[i] = [];
+    this.bag[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
     return i;
@@ -490,6 +493,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.path.splice(i, 1);
     this.hitters.splice(i, 1);
     this.cools.splice(i, 1);
+    this.bag.splice(i, 1);
     this.count--;
     this.reindex();
   }
@@ -551,6 +555,8 @@ export interface SimEvent {
   name?: string;
   /** Speech: needs the player's attention (an order it cannot carry out, under attack): the minimap pings, the panel flashes. */
   urgent?: boolean;
+  /** Speech that only tells what a unit is doing (loot it picked up, a hunt, a gatherer heading home): a bubble, not a line in the panel. */
+  quiet?: boolean;
   /**
    * Speech by another people's unit: a bubble for whoever sees it. Their
    * important speech (a greeting, a warning, war, a surrender offer) also
@@ -589,6 +595,8 @@ export interface SimState {
   spawns: PendingSpawn[];
   /** Marked digs and earthworks. */
   sites: Site[];
+  /** Loot lying on the ground (units/loot.ts), oldest first. */
+  loot: Loot[];
   /** Cells whose wild animals, and chunks whose fish, have been put in (stocked the first time the players come near). */
   stockedCells: Set<number>;
   stockedChunks: Set<number>;
@@ -667,6 +675,31 @@ export interface PendingSpawn {
   ax: number;
   az: number;
   /** The lair it comes out of (an entity id), or 0 for the dark edge. */
+  src: number;
+}
+
+/**
+ * Loot on the ground (units/loot.ts): what a kill dropped where no unit near
+ * it had room. Units walk over and pick it up, on a right-click or by
+ * themselves; it lies there until then, or until it rots away.
+ */
+export interface Loot {
+  id: number;
+  res: number;
+  amt: number;
+  /** Where it lies, wu. */
+  x: number;
+  y: number;
+  z: number;
+  /** The step it fell. */
+  at: number;
+  /** The unit that made the kill (an entity id, 0 for none): it goes back for its own kill from farther away. */
+  by: number;
+  /** The player it fell for (whose units pick it up by themselves), or -1 for anyone. */
+  owner: number;
+  /** 1 when it is worth remarking on: rare or valuable for what dropped it, a boss's, or a lair's hoard. */
+  brag: number;
+  /** What dropped it, for what the unit says: a mob (combat/mobs.ts) + 1, or 0. */
   src: number;
 }
 
@@ -872,6 +905,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     projectiles: [],
     spawns: [],
     sites: [],
+    loot: [],
     stockedCells: new Set(),
     stockedChunks: new Set(),
     over: 0,

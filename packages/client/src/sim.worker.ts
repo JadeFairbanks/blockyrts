@@ -20,6 +20,8 @@ import {
 import {
   animalsAt,
   assigned,
+  bagItems,
+  FOG_TILE_COLUMNS,
   BuildingKind,
   bestLevel,
   productProblem,
@@ -299,9 +301,11 @@ function postInfo(s: SimState): void {
   const queues: Array<[number, UnitOrder[]]> = [];
   const spells: Array<[number, Array<[number, string, number]>]> = [];
   const mageRanks: Array<[number, string]> = [];
+  const bags: Array<[number, Array<[number, number]>]> = [];
   for (let i = 0; i < e.count; i++) {
     if (e.owner[i] !== PLAYER) continue;
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
+    if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
     if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
   }
@@ -340,11 +344,18 @@ function postInfo(s: SimState): void {
       mageRanks,
       peoples: peoplesInfo(s, PLAYER),
       players: s.players.map((ps) => ({ share: ps.share, out: ps.out !== 0 })),
+      loot: s.loot
+        .filter((l) => s.world.isExplored(Math.floor(l.x / FOG_TILE_WU), Math.floor(l.z / FOG_TILE_WU)))
+        .map((l) => ({ id: l.id, res: l.res, amt: l.amt, x: l.x, y: l.y, z: l.z, own: l.owner < 0 || l.owner === PLAYER })),
+      bags,
     },
     [pool.buffer],
   );
   events = [];
 }
+
+/** A fog tile's width, wu. */
+const FOG_TILE_WU = FOG_TILE_COLUMNS * WU_PER_COLUMN;
 
 /** The lairs and goblin villages any player has seen (the players share what they see); war is the local player's. */
 function threatMarks(s: SimState): ThreatMark[] {
