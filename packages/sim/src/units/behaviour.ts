@@ -7,7 +7,7 @@
 import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
 import { STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
-import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
+import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
@@ -36,6 +36,8 @@ import { peoplesHooks } from '../peoples/hooks.ts';
 import { speakerName } from '../peoples/speech.ts';
 import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend } from '../siege/engines.ts';
+import { bagEmpty, handIn, lootIdle, runLoot } from './loot.ts';
+import { nextNode, runForage } from './forage.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -264,9 +266,9 @@ export function nodeResource(kind: number): number {
   return resourceByName(propInfo(kind).resource);
 }
 
-/** Whether a worker can gather a node now: grown, not empty, and its tool for the node's job is good enough. */
-function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
-  if (!view || view.amount <= 0 || view.stage !== 2) return false;
+/** Whether a worker can gather a node now: holding something (a sapling holds nothing yet), and its tool for the node's job is good enough. */
+export function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
+  if (!view || view.amount <= 0) return false;
   const info = propInfo(view.kind);
   return nodeResource(view.kind) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
 }
@@ -279,7 +281,7 @@ function gatherPace(state: SimState, i: number, kind: number): number {
 }
 
 /** Units working a node right now, not counting `except`. */
-function workersOnNode(state: SimState, cx: number, cz: number, index: number, except: number): number {
+export function workersOnNode(state: SimState, cx: number, cz: number, index: number, except: number): number {
   const e = state.entities;
   let n = 0;
   for (let j = 0; j < e.count; j++) {
@@ -322,6 +324,7 @@ function nodeColumn(o: { cx: number; cz: number; i: number }, view: PropView): [
   return [(o.cx << CHUNK_SHIFT) + view.lx, (o.cz << CHUNK_SHIFT) + view.lz];
 }
 
+/** Whether a drop-off takes a resource; res -1 asks for one that takes everything (loot is handed in only there). */
 function accepts(spec: BuildingSpec, res: number): boolean {
   if (spec.dropoff === 'all') return true;
   return spec.dropoff === 'wood' && (res === Res.SoftwoodLumber || res === Res.HardwoodLumber);
@@ -344,8 +347,8 @@ export function nearestDropoff(state: SimState, i: number, res: number): Buildin
   return best;
 }
 
-/** Puts the unit's load into its owner's pool (the load counts only now). */
-export function unload(state: SimState, i: number): void {
+/** Puts the unit's load into its owner's pool (the load counts only now), and its loot bag too at a drop-off that takes everything. */
+export function unload(state: SimState, i: number, at?: Building): void {
   const e = state.entities;
   if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) {
     const pool = state.players[e.owner[i]!]!.pool;
@@ -353,6 +356,7 @@ export function unload(state: SimState, i: number): void {
   }
   e.carryAmt[i] = 0;
   e.carryRes[i] = NO_CARRY;
+  if (at && buildingSpec(at.kind).dropoff === 'all') handIn(state, i);
 }
 
 // ----- buildings -----
@@ -617,23 +621,28 @@ function idleAlert(state: SimState, i: number, res: number): void {
 
 function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gather' }>): boolean {
   const e = state.entities;
+  // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home.
+  const after = e.queue[i]![1]?.t;
+  if (after === 'forage' && isDark(state.step, state.blood)) return DONE;
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
     const kind = view?.kind ?? -1;
-    if (view && nodeResource(kind) >= 0 && view.stage === 2 && view.amount > 0 && !gatherable(state, i, view)) {
+    if (view && nodeResource(kind) >= 0 && view.amount > 0 && !gatherable(state, i, view)) {
       const info = propInfo(kind);
       alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     e.act[i] = Act.Walk;
   }
-  // When a node has run out, go to the closest one of the same resource, or take the last load home and stand idle.
+  // When a node has run out, go to the closest one of the same resource; with none nearby, a basic material
+  // gives way to what the side needs most for the walk (saying why), else the last load goes home and it stands idle.
   const runOut = (res: number, near: [number, number]): boolean => {
     const alt = res >= 0 ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
-    if (alt) {
-      o.cx = alt.cx;
-      o.cz = alt.cz;
-      o.i = alt.i;
+    const next = alt ?? (res >= 0 && after !== 'hunt' ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);
+    if (next) {
+      o.cx = next.cx;
+      o.cz = next.cz;
+      o.i = next.i;
       e.act[i] = Act.Walk;
       resetWalk(state, i);
       return CONTINUE;
@@ -644,8 +653,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       e.nodeI[i] = -1;
       return CONTINUE;
     }
-    // A hunter's or hauler's carcass is done: the hunt behind it carries on without an idle cue.
-    if (res >= 0 && e.queue[i]![1]?.t !== 'hunt') idleAlert(state, i, res);
+    // A hunter's or hauler's carcass is done: the hunt behind it carries on without an idle cue; a gatherer working by itself looks farther.
+    if (res >= 0 && after !== 'hunt' && after !== 'forage') idleAlert(state, i, res);
     e.nodeI[i] = -1;
     return DONE;
   };
@@ -748,6 +757,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       const r = toDropoff(state, i, null);
       if (r === MOVING) return CONTINUE;
       if (r === FAILED) return DONE;
+      // Gathering by itself, it weighs what to fetch again after every load (the stock has changed).
+      if (after === 'forage') return DONE;
       view = nodeView(state, o.cx, o.cz, o.i);
       if (!gatherable(state, i, view)) return runOut(lastRes, lastCol());
       e.act[i] = Act.Walk;
@@ -761,17 +772,17 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
 /** Resin from felling one softwood tree (s): torches need it and no node gives it. */
 export const RESIN_PER_SOFTWOOD_TREE = 2;
 
-/** Walks the unit's load to a drop-off (a given one, or the nearest that takes it) and unloads it there. */
+/** Walks the unit's load (or, with none, its loot bag) to a drop-off (a given one, or the nearest that takes it) and unloads it there. */
 export function toDropoff(state: SimState, i: number, target: Building | null): WalkResult {
   const e = state.entities;
-  const res = e.carryRes[i]!;
+  const res = e.carryAmt[i]! > 0 ? e.carryRes[i]! : -1;
   const b = target ?? nearestDropoff(state, i, res);
   if (!b) {
     alert(state, e.owner[i]!, `There is nowhere to drop off ${RESOURCES[res]?.name.toLowerCase() ?? 'that'}. Build a storehouse.`, e.x[i]!, e.z[i]!, i);
     return FAILED;
   }
   const r = walkTo(state, i, besideBuilding(b));
-  if (r === ARRIVED) unload(state, i);
+  if (r === ARRIVED) unload(state, i, b);
   if (r === FAILED) alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
   return r;
 }
@@ -791,7 +802,7 @@ function backToNode(state: SimState, i: number): boolean {
 
 function runReturn(state: SimState, i: number, target: Building | null): boolean {
   const e = state.entities;
-  if (e.carryAmt[i] === 0) return backToNode(state, i);
+  if (e.carryAmt[i] === 0 && bagEmpty(state, i)) return backToNode(state, i);
   const r = toDropoff(state, i, target);
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
@@ -842,6 +853,22 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
   if (!canAfford(pool, cost)) {
     alert(state, owner, `Not enough ${RESOURCES[shortOf(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz, i);
     return DONE;
+  }
+  // Saplings and sprouting plants on the spot are pulled up first, one at a time (Building placement; seeds are trampled).
+  const clear = clearingOn(state, o.kind, o.x, o.z, o.variant);
+  if (clear) {
+    if (e.act[i] !== Act.Work) {
+      e.act[i] = Act.Work;
+      e.timer[i] = 0;
+    }
+    e.heading[i] = headingTowards(columnCentre(clear.gx) - e.x[i]!, columnCentre(clear.gz) - e.z[i]!);
+    e.order[i] = OrderKind.Farm;
+    e.timer[i] = e.timer[i]! + 1;
+    if (e.timer[i]! >= clear.steps) {
+      state.world.removeProp(clear.cx, clear.cz, clear.i);
+      e.timer[i] = 0;
+    }
+    return CONTINUE;
   }
   pay(pool, cost);
   const b = placeBuilding(state, owner, o.kind, o.variant, o.x, o.z, false);
@@ -944,8 +971,9 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
     alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
-  // Going in at a drop-off leaves the load there.
-  if (e.carryAmt[i]! > 0 && accepts(buildingSpec(b.kind), e.carryRes[i]!)) unload(state, i);
+  // Going in at a drop-off leaves the load (and the loot) there.
+  if (e.carryAmt[i]! > 0 && accepts(buildingSpec(b.kind), e.carryRes[i]!)) unload(state, i, b);
+  else if (buildingSpec(b.kind).dropoff === 'all') handIn(state, i);
   goInside(state, i, b);
   // A garrison stands on the top: spread round it, at its height.
   if (!worker) {
@@ -1145,7 +1173,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
       alert(state, b.owner, `Not enough food to train a ${warrior ? 'warrior' : 'worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
-    if (e.carryAmt[i]! > 0) unload(state, i);
+    if (e.carryAmt[i]! > 0 || !bagEmpty(state, i)) unload(state, i, b);
     goInside(state, i, b);
     e.act[i] = Act.Inside;
     e.timer[i] = 0;
@@ -1231,6 +1259,10 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
     case 'port':
       // Only an engine takes a cannon port (siege/engines.ts runEngine).
       return DONE;
+    case 'loot':
+      return runLoot(state, i, o);
+    case 'forage':
+      return runForage(state, i, o);
   }
 }
 
@@ -1260,6 +1292,8 @@ export function runUnit(state: SimState, i: number): void {
     const o = q[0];
     if (!o) {
       if (e.inside[i] !== 0) leaveBuilding(state, i);
+      // Idle: loot near by is picked up, and in the day the bag handed in.
+      else if (guard === 0) lootIdle(state, i);
       return;
     }
     if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(o, e.inside[i]!)) leaveBuilding(state, i);

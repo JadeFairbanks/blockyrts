@@ -43,9 +43,10 @@ describe('one is singular', () => {
 
 describe('speech in the message panel', () => {
   it('keeps an own unit\'s informational lines as bubbles and lets its alerts through', () => {
-    expect(speechToPanel({ urgent: false }, 0, true)).toBe(false);
-    expect(speechToPanel({}, 0, true)).toBe(false);
+    expect(speechToPanel({ quiet: true }, 0, true)).toBe(false);
     expect(speechToPanel({ urgent: true }, 0, false)).toBe(true);
+    expect(speechToPanel({}, 0, false)).toBe(true);
+    expect(speechToPanel({ foreign: true, player: 0, quiet: true }, 0, true)).toBe(false);
   });
 
   it('lets another people\'s lines through when said to the player, or important and heard', () => {

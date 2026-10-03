@@ -672,12 +672,11 @@ export class GameShell {
 
   /**
    * Speech: a bubble over the speaker, and the panel only when it needs the
-   * player (patch notes 1: informational lines such as eating, hunting and
-   * gathering stay bubbles, as random remarks do). The player's own units
-   * reach the panel with urgent lines (attacked, cannot reach, nowhere to
-   * upgrade). Another people's lines reach it when they are said to this
-   * player (the trade menu's answers), or are important and heard: one of the
-   * player's units is near enough, or the speaker is on screen.
+   * player (patch notes 1: lines the sim marks quiet, such as eating, hunting
+   * and gathering, stay bubbles, as random remarks do; wording.ts
+   * speechToPanel). Another people's lines reach it when they are said to
+   * this player (the trade menu's answers), or are important and heard: one
+   * of the player's units is near enough, or the speaker is on screen.
    */
   private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
     if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
@@ -1022,7 +1021,9 @@ export class GameShell {
     const live = t !== undefined && t.kind !== 'node';
     this.portraitKey = live ? t.key : null;
     this.layout.portraitWindow.classList.toggle('live', live);
-    const icon = t && t.kind === 'node' ? goodIcon(RESOURCES.find((r) => r.name === t.resource)?.id ?? -1) : undefined;
+    // A node shows its good; loot on the ground ("Raw meat (4)") the good it is.
+    const good = t?.typeKey === 'loot' ? t.label.replace(/ \(\d+\)$/, '') : t?.resource;
+    const icon = t && t.kind === 'node' ? goodIcon(RESOURCES.find((r) => r.name === good)?.id ?? -1) : undefined;
     const url = icon ? kitUrl(icon.file) : '';
     this.layout.portraitIcon.hidden = url === '';
     if (url && this.layout.portraitIcon.getAttribute('src') !== url) this.layout.portraitIcon.src = url;
@@ -1669,6 +1670,10 @@ export class GameShell {
       case 'gather': {
         const n = this.extras.node(o.cx, o.cz, o.i);
         return n ? this.groundPoint(n.centre.x, n.centre.z) : null;
+      }
+      case 'loot': {
+        const l = o.id ? this.game.info?.loot.find((p) => p.id === o.id) : undefined;
+        return l ? this.groundPoint(l.x / WU_PER_METRE, l.z / WU_PER_METRE) : null;
       }
       case 'build': {
         const s = buildingSpec(o.kind);

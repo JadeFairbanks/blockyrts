@@ -49,6 +49,7 @@ describe('patch notes 1: no random remarks while paused', () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   const anchor = { head: () => ({ x: 100, y: 100 }) };
@@ -58,6 +59,8 @@ describe('patch notes 1: no random remarks while paused', () => {
     const root = new FakeEl();
     const bubbles = new SpeechBubbles(root as unknown as HTMLElement);
     const say = vi.spyOn(bubbles, 'say');
+    // Each wait is 9 s, the middle of its 5.4 to 12.6 s: with short waits drawn, a third remark could come before 75 s.
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     bubbles.update(0, anchor, speakers);
     expect(say).toHaveBeenCalledTimes(1); // the first remark is due at once
     // A minute paused, frame by frame: nobody speaks.

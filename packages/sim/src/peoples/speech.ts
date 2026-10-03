@@ -5,7 +5,7 @@
 // to hear them. Random remarks are the client's alone (never state).
 
 import { length2d, STEPS_PER_SECOND } from '../fixed.ts';
-import { PEOPLES, UnitKind, type SimState } from '../state.ts';
+import { PEOPLES, UnitKind, type SimEvent, type SimState } from '../state.ts';
 import { mobSpec } from '../combat/mobs.ts';
 import { RANK_NAMES } from '../combat/combat.ts';
 import { Role } from '../threats/types.ts';
@@ -36,12 +36,42 @@ export function speakerName(state: SimState, i: number): string {
   return `Worker (${RANK_NAMES.worker[rank] ?? 'Labourer'})`;
 }
 
-/** One of the players' units says something to its player; urgent lines ping the minimap and flash the panel. */
-export function say(state: SimState, i: number, text: string, urgent = false): void {
+/**
+ * One of the players' units says something to its player; urgent lines ping
+ * the minimap and flash the panel. A quiet line only tells what the unit is
+ * doing: it shows as a bubble and stays out of the panel, as random remarks
+ * do (Jade's play-test notes).
+ */
+export function say(state: SimState, i: number, text: string, urgent = false, quiet = false): void {
   const e = state.entities;
   const player = e.owner[i]!;
   if (player >= state.players.length) return;
-  state.events.push({ player, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), urgent, x: e.x[i]!, z: e.z[i]! });
+  const ev: SimEvent = { player, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), urgent, x: e.x[i]!, z: e.z[i]! };
+  if (quiet) ev.quiet = true;
+  state.events.push(ev);
+}
+
+/** Not state: when each unit last said each kind of quiet line (chatter). */
+const chatterAt = new WeakMap<SimState, Map<number, number>>();
+
+/**
+ * A quiet line from a unit, unless that unit said a line of the same kind
+ * (`kind`, a small number) less than `gap` steps ago; returns whether it was
+ * said. What units say is not state, so neither is when they said it.
+ */
+export function chatter(state: SimState, i: number, kind: number, gap: number, text: string): boolean {
+  let m = chatterAt.get(state);
+  if (!m) {
+    m = new Map();
+    chatterAt.set(state, m);
+  }
+  const key = state.entities.id[i]! * 16 + kind;
+  const last = m.get(key);
+  if (last !== undefined && state.step - last < gap && state.step >= last) return false;
+  m.set(key, state.step);
+  if (m.size > 4096) m.clear();
+  say(state, i, text, false, true);
+  return true;
 }
 
 /** The players with a unit within hearing of a point (bits). */

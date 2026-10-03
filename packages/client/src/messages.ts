@@ -288,6 +288,23 @@ export interface InfoMessage {
   peoples: PeopleInfo[];
   /** Every player by sim index: whom they share control with (a bit per player), and whether they are out. */
   players: Array<{ share: number; out: boolean }>;
+  /** Loot lying on explored ground (Jade's play-test notes): what and how much, where (wu), and whether the local player's side picks it up by itself. */
+  loot: LootInfo[];
+  /** The local player's units' loot bags: per unit id, (resource, count) pairs. */
+  bags: Array<[number, Array<[number, number]>]>;
+}
+
+/** A piece of loot on the ground as the screen sees it. */
+export interface LootInfo {
+  id: number;
+  res: number;
+  amt: number;
+  /** wu */
+  x: number;
+  y: number;
+  z: number;
+  /** The local player's side's (or anyone's): its units pick it up by themselves. */
+  own: boolean;
 }
 
 /** One of the neutral peoples' factions as the local player knows it (the trade menu and the Peoples panel). */

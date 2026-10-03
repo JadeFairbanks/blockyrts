@@ -61,15 +61,17 @@ export function count(n: number, singular: string, plural = pluralOf(singular)):
 }
 
 /**
- * Whether a line of speech goes to the message panel as well as its bubble:
- * an own unit's urgent line (attacked, cannot reach, nowhere to upgrade); a
- * foreign line said to this player (the trade menu's answers); or an
- * important foreign line heard, with one of the player's units near or the
- * speaker on screen. Informational lines (eating, hunting, gathering, an
- * upgrade done) stay bubbles.
+ * Whether a line of speech goes to the message panel as well as its bubble.
+ * Lines the sim marks quiet only tell what a unit is doing (eating, hunting,
+ * gathering, loot picked up, an upgrade done) and stay bubbles, as random
+ * remarks do. An own unit's other lines go (attacked, cannot reach, nowhere
+ * to upgrade); a foreign line goes when said to this player (the trade
+ * menu's answers), or when important and heard: one of the player's units
+ * near, or the speaker on screen.
  */
-export function speechToPanel(ev: Pick<SimEvent, 'foreign' | 'urgent' | 'player' | 'important' | 'near'>, player: number, onScreen: boolean): boolean {
-  if (!ev.foreign) return ev.urgent === true;
+export function speechToPanel(ev: Pick<SimEvent, 'foreign' | 'urgent' | 'quiet' | 'player' | 'important' | 'near'>, player: number, onScreen: boolean): boolean {
+  if (ev.quiet) return false;
+  if (!ev.foreign) return true;
   if (ev.player === player) return true;
   return ev.important === true && (((ev.near ?? 0) & (1 << player)) !== 0 || onScreen);
 }
