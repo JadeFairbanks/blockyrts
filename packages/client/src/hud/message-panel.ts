@@ -7,6 +7,7 @@
 // it happened. Urgent messages stand out and ping the minimap.
 import type { ButtonRegistry, HudButton } from './buttons.ts';
 import type { HudPanels } from './panels.ts';
+import { oneIsSingular } from './wording.ts';
 
 /** Kept messages, player messages aside (doc: the latest 60). */
 export const MESSAGES_KEPT = 60;
@@ -152,7 +153,7 @@ export class MessagePanel {
       n.textContent = `${m.name}: `;
       row.append(n);
     }
-    row.append(document.createTextNode(m.text));
+    row.append(document.createTextNode(oneIsSingular(m.text)));
     row.hidden = !shownUnder(this.filter, m);
     const atBottom = this.list.scrollTop + this.list.clientHeight >= this.list.scrollHeight - 4;
     this.list.append(row);

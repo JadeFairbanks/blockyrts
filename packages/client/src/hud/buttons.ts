@@ -3,6 +3,7 @@
 // DOM click events, so they work the same with the cursor locked or not.
 import { keyLabel } from '../input/keys.ts';
 import { kitUrl } from './kit-icons.ts';
+import { oneIsSingular } from './wording.ts';
 
 export interface ButtonPress {
   shift: boolean;
@@ -222,7 +223,8 @@ export class Tooltip {
   }
 
   private fill(b: HudButton): void {
-    const t = b.tooltip();
+    const raw = b.tooltip();
+    const t = { title: oneIsSingular(raw.title), key: raw.key, body: oneIsSingular(raw.body), reason: oneIsSingular(raw.reason) };
     const sig = `${t.title}|${t.key}|${t.body}|${t.reason}`;
     if (sig === this.sig) return;
     this.sig = sig;

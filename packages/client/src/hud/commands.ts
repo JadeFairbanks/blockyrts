@@ -86,6 +86,7 @@ import { buildIcon, buildingUpgradeIcon, productIcon, trainTroopIcon, upgradeIco
 import { buildingIconFile } from './unit-icons.ts';
 import { troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { CLASSIC_SLOTS } from './hud-layout.ts';
+import { count } from './wording.ts';
 
 /** One button of the command card. */
 export interface CardEntry {
@@ -1876,7 +1877,7 @@ export class Commands {
     if (est.open === 0 && est.blocked === 0) return p.chain ? { text: 'Walled already', hint: 'Click to go on from its end, right click to finish', short: false } : { text: 'Click to go on from this wall', hint: 'Then click further on to build a stretch', short: false };
     const name = buildingSpec(p.kind).name.toLowerCase();
     const n = Math.min(est.open, est.room);
-    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${est.open} walls: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
+    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${count(est.open, 'wall')}: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
     if (est.blocked > 0) parts.push(`${est.blocked} skipped`);
     if (n < est.open) parts.push(n === 0 ? `not enough ${RESOURCES[est.short]!.name.toLowerCase()}` : `enough for ${n}`);
     const hint = p.chain ? 'Click to build to here, right click to finish' : 'Click to place it, then click further on for a stretch';

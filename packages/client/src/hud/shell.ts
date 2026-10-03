@@ -65,6 +65,7 @@ import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
 import { doingActions } from './doing.ts';
+import { speechToPanel } from './wording.ts';
 
 /** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
 const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
@@ -646,18 +647,17 @@ export class GameShell {
   }
 
   /**
-   * Speech: a bubble over the speaker, and the panel. Another people's lines
-   * reach the panel when they are said to this player (the trade menu's
-   * answers), or are important and heard: one of the player's units is near
-   * enough, or the speaker is on screen.
+   * Speech: a bubble over the speaker, and the panel only when it needs the
+   * player (patch notes 1: informational lines such as eating, hunting and
+   * gathering stay bubbles, as random remarks do). The player's own units
+   * reach the panel with urgent lines (attacked, cannot reach, nowhere to
+   * upgrade). Another people's lines reach it when they are said to this
+   * player (the trade menu's answers), or are important and heard: one of the
+   * player's units is near enough, or the speaker is on screen.
    */
   private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
     if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
-    if (ev.foreign) {
-      const to = ev.player === this.player;
-      const heard = ev.important === true && (((ev.near ?? 0) & (1 << this.player)) !== 0 || (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null));
-      if (!to && !heard) return;
-    }
+    if (!speechToPanel(ev, this.player, ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null)) return;
     this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker });
     if (ev.urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });

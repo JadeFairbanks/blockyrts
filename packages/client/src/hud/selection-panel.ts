@@ -18,6 +18,7 @@ import type { ButtonIcon, ButtonPress, ButtonRegistry, HudButton } from './butto
 import { productIcon } from './card-icons.ts';
 import { queueText } from './queue-clock.ts';
 import { BATTLE_MAGE_ICON, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
+import { oneIsSingular } from './wording.ts';
 
 /** Most portraits shown at once; the rest are counted. */
 const MAX_PORTRAITS = 40;
@@ -157,7 +158,7 @@ export class SelectionPanel {
   private row(cls: string, text: string, parent: HTMLElement = this.body): HTMLElement {
     const d = document.createElement('div');
     d.className = `sel-row ${cls}`.trim();
-    d.textContent = text;
+    d.textContent = oneIsSingular(text);
     parent.append(d);
     return d;
   }
