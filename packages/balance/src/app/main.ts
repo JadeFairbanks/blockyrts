@@ -327,6 +327,9 @@ function linksPanel(e: Entry): HTMLElement | null {
       const forge = forgeKind(simModules);
       target = forge === undefined ? undefined : cat.refEntry('building', forge);
       text = `${forge === undefined ? 'Forge' : cat.refNames.building.get(forge) ?? 'Forge'} level ${v}`;
+    } else if (f.ref === 'tierNeed') {
+      target = cat.refEntry('tierNeed', v);
+      text = `Material tier ${cat.refNames.tierNeed.get(v) ?? v}`;
     } else if (f.ref === 'building' && f.path.includes('madeAt') || f.ref === 'building' && f.path.includes('at')) {
       target = cat.refEntry('building', v);
       text = `Made at: ${cat.refNames.building.get(v) ?? v}`;

@@ -333,20 +333,14 @@ export const TOP_MAGE_TIER = 6;
 
 /**
  * Training and upgrading (Table 7): a troop is 30 food and its kit, 45 s
- * plus the kit's time and 1 supply; a worker 20 food and a tier 1 tool kit,
- * 15 s plus the kit's; a mage 50 food, a hazel wand and a homespun robe,
- * 60 s plus the kit's. An upgrade pays the new tier's kit and takes half the
- * new piece's time to make. The old piece comes back in full (Jade, 22:52
- * UTC 2026-10-02, "the old gear is scrapped with FULL REFUND"; the docx's (s)
- * says nothing comes back: Open for Jade's rebalance).
+ * plus the kit's time and 1 supply. Workers and mages keep their own rows
+ * (buildings/data.ts WORKER_FOOD, magic/mages.ts MAGE_FOOD). An upgrade pays
+ * the new tier's kit and takes half the new piece's time to make; the old
+ * piece gives nothing back (the docx's (s); Open for Jade's rebalance).
  */
 export const TRAINING = {
   troopFood: 30,
   troopS: 45,
-  workerFood: 20,
-  workerS: 15,
-  mageFood: 50,
-  mageS: 60,
   /** An upgrade's time as a share of the new piece's time to make, per mille. */
   upgradeTimePm: 500,
   /** How much of the old piece's main cost an upgrade gives back, per mille: nothing (s, Troops and gear; open for Jade's rebalance). */
@@ -469,7 +463,7 @@ export function gearSpec(id: number): GearSpec {
 /** A worker's or anyone's blow with a tool, or with nothing in hand (Table 1: fists 2; Table 2c worker damage). */
 export function toolMelee(gear: number): MeleeStats {
   const hit = gear ? gearSpec(gear).toolHit : undefined;
-  return { damage: hit?.damage ?? 2, attackSteps: hit?.attackSteps ?? ds(15), reach: cm(120), hit: Hit.Stab, blunt: true, oneHanded: true, crit: false };
+  return { damage: hit?.damage ?? TOOL_KITS[0]!.damage, attackSteps: hit?.attackSteps ?? ds(15), reach: cm(120), hit: Hit.Stab, blunt: true, oneHanded: true, crit: false };
 }
 
 /** The tool tier a piece of gear gives a job (props.ts ToolJob), or Tool.None when it does not do that job. */

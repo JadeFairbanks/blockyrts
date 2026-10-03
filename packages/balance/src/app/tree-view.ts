@@ -21,7 +21,8 @@ export interface TreeDeps {
 }
 
 const BUILDINGS = 'buildings/data.ts';
-const ITEMS = 'combat/items.ts';
+/** Where the research steps live. */
+const RESEARCH_MODULE = 'combat/items.ts';
 const TIER_KEYS = ['needsBase', 'research', 'ws', 'health', 'supply', 'shelters', 'workers'];
 const RESEARCH_KEYS = ['steps', 'forge', 'after', 'at'];
 
@@ -73,7 +74,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
     grid.append(h('div', { class: 'colhead' }, h('span', { class: 'lvl' }, String(i + 1)), h('span', { class: 'nm' }, name))));
 
   const tierChip = (t: TreeTier, menu: string, live: boolean): HTMLElement => {
-    const researchName = t.research ? deps.mods[ITEMS] && ((deps.mods[ITEMS].RESEARCH as Array<{ id: number; name: string }>).find((r) => r.id === t.research)?.name ?? '') : '';
+    const researchName = t.research ? deps.mods[RESEARCH_MODULE] && ((deps.mods[RESEARCH_MODULE].RESEARCH as Array<{ id: number; name: string }>).find((r) => r.id === t.research)?.name ?? '') : '';
     const chip = h('button', {
       class: `tier ${menu}${anyChanged(t.path, BUILDINGS, TIER_KEYS) ? ' changed' : ''}${live ? '' : ' later'}${picked === t.id ? ' picked' : ''}`,
       'data-node': t.id,
@@ -201,7 +202,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
 }
 
 function researchChip(r: TreeResearch, at: string, deps: TreeDeps, redraw: () => void): HTMLElement {
-  const changed = RESEARCH_KEYS.some((k) => deps.changed(pathKey(ITEMS, [...r.path, k])));
+  const changed = RESEARCH_KEYS.some((k) => deps.changed(pathKey(RESEARCH_MODULE, [...r.path, k])));
   return h('button', {
     class: `tier research${changed ? ' changed' : ''}${picked === r.id ? ' picked' : ''}`,
     'data-node': r.id,
@@ -232,8 +233,8 @@ function details(tree: BuildingTree, deps: TreeDeps, redraw: () => void): HTMLEl
     box.append(h('div', { class: 'head' }, h('h3', {}, research.name, h('small', {}, ' research')),
       entry ? h('button', { class: 'btn small', onclick: () => deps.openEntry(entry) }, 'Cost and everything else ›') : null, close));
     for (const k of [...RESEARCH_KEYS, 'building']) {
-      const key = pathKey(ITEMS, [...research.path, k]);
-      const fs = k === 'building' ? [deps.field(pathKey(ITEMS, [...research.path, k, 0])), deps.field(pathKey(ITEMS, [...research.path, k, 1]))] : [deps.field(key)];
+      const key = pathKey(RESEARCH_MODULE, [...research.path, k]);
+      const fs = k === 'building' ? [deps.field(pathKey(RESEARCH_MODULE, [...research.path, k, 0])), deps.field(pathKey(RESEARCH_MODULE, [...research.path, k, 1]))] : [deps.field(key)];
       for (const f of fs) if (f && !f.readOnly) box.append(deps.fieldRow(f));
     }
   } else return h('p', { class: 'hint tree-hint' }, 'Click any tier or research step to change its numbers here.');

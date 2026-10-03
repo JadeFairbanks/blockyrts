@@ -13,7 +13,7 @@ import type { Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { RESOURCES, Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep } from '../economy/food.ts';
-import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
@@ -185,6 +185,27 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
   const banks: Array<[number, number]> = [];
   for (const p of feats.ponds) banks.push([p.x + p.r + 1, p.z], [p.x - p.r - 1, p.z], [p.x, p.z + p.r + 1], [p.x, p.z - p.r - 1]);
   for (const st of feats.streams) for (const f of [-300, 0, 300]) banks.push([st.x + floorDiv(st.dx * f, 1000), st.z + floorDiv(st.dz * f, 1000)]);
+  // Wild geese also take the start pockets' water (Table 9), most of the Heartland's water, a flock at each (s).
+  const pocketBanks: Array<Array<[number, number]>> = [];
+  for (const pk of state.world.gen.start.pockets) {
+    const pw = pk.water;
+    if (state.world.layout.nearest(pw.x, pw.z) !== cellId) continue;
+    const own: Array<[number, number]> = [];
+    pocketBanks.push(own);
+    const r = pw.radius + 2;
+    const across = pw.kind === 'pond' ? 0 : (pw.angle + 16384) & 0xffff;
+    for (const a of [across, across + 32768]) {
+      for (const f of pw.kind === 'pond' ? [0, 16384] : [-500, 0, 500]) {
+        const along = floorDiv(pw.halfLength * f, 1000);
+        const b = (a + f) & 0xffff;
+        own.push(
+          pw.kind === 'pond'
+            ? [pw.x + floorDiv(r * cos16(b), 65536), pw.z + floorDiv(r * sin16(b), 65536)]
+            : [pw.x + floorDiv(r * cos16(a) + along * cos16(pw.angle), 65536), pw.z + floorDiv(r * sin16(a) + along * sin16(pw.angle), 65536)],
+        );
+      }
+    }
+  }
   const bogs: Array<[number, number]> = [];
   for (const b of feats.bogs) bogs.push([b.x, b.z], [b.x + (b.r >> 1), b.z], [b.x - (b.r >> 1), b.z], [b.x, b.z + (b.r >> 1)], [b.x, b.z - (b.r >> 1)]);
   for (const s of SPECIES) {
@@ -192,13 +213,15 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
     const key = stockKey(cellId, s.id);
     if (state.stockedCells.has(key)) continue;
     state.stockedCells.add(key);
-    const groups = groupsIn(state, s, cellId, cell.band);
+    const goose = s.id === Species.WildGoose;
+    // Every start pocket's water has its own flock of geese (s), so feathers for longbows are always to be had.
+    const groups = goose ? pocketBanks.length + groupsIn(state, s, cellId, cell.band) : groupsIn(state, s, cellId, cell.band);
     for (let g = 0; g < groups; g++) {
       if (s.id === Species.Bear && bearCount(state) + 3 > BEAR_CAP) break;
       const water = s.id === Species.Crocodile || s.id === Species.GiantCrab || s.id === Species.WildGoose;
       const bog = s.id === Species.GiantFrog;
       let spot: [number, number] | null = null;
-      const places = water ? banks : bog ? bogs : null;
+      const places = goose && g < pocketBanks.length ? pocketBanks[g]! : water ? banks : bog ? bogs : null;
       for (let t = 0; t < (places ? places.length : 4) && !spot; t++) {
         const h = hash(state, cellId, s.id, g, t);
         if (places) {

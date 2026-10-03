@@ -7,8 +7,9 @@
 import { pathKey, type DataPath, type RawValue } from './schema.ts';
 import type { SimDocs } from './docs.ts';
 import {
-  ENTRY_ARRAYS, EXPORT_GROUPS, EXPORT_UNITS, GROUPS, HIDDEN_KEYS, INDEX_REFS, KEY_LABELS, KEY_ORDER, KEY_UNITS, MODULE_GROUPS, MODULE_TITLES, NAME_UNITS,
-  PAIR_KEY_REFS, READ_ONLY_KEYS, REF_KEYS, SECTION_PAGES, SECTION_TITLES, SKIP_EXPORTS, SKIP_MODULES, TEXT_KEYS, humanise, type RefKind,
+  ENTRY_ARRAYS, ENTRY_RECORDS, EXPORT_GROUPS, EXPORT_UNITS, GROUPS, HIDDEN_KEYS, INDEX_REFS, KEY_LABELS, KEY_ORDER, KEY_UNITS, KIT_MENUS, MODULE_GROUPS,
+  MODULE_TITLES, NAME_UNITS, PAIR_KEY_REFS, PLACEHOLDER_ROWS, READ_ONLY_KEYS, REF_KEYS, SECTION_PAGES, SECTION_TITLES, SKIP_EXPORTS, SKIP_MODULES, TEXT_KEYS,
+  UNTIERED_KITS, humanise, type RefKind,
 } from './rules.ts';
 import type { UnitId } from './units.ts';
 
@@ -95,7 +96,7 @@ export interface Catalog {
 
 const RES_PAIR_KEYS = new Set(['cost', 'inputs', 'outputs', 'extra', 'recipes', 'STARTING_STOCK', 'crops']);
 const PAIR_REFS: Readonly<Record<string, RefKind>> = {
-  cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res', itemInputs: 'item',
+  cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res',
   at: 'building', madeAt: 'building', FIRST_NIGHT: 'mob',
 };
 
@@ -140,14 +141,22 @@ function buildRefNames(mods: SimModules): Record<RefKind, Map<number, string>> {
   const research = l('RESEARCH', 'id');
   research.set(0, 'none');
   return {
-    res: l('RESOURCES', 'id'), mob: l('MOBS', 'id'), research, building: l('BUILDINGS', 'kind'), item: l('ITEMS', 'id'),
-    shot: l('SHOTS', null), tool: e('Tool'), slot: l('SLOT_NAMES', null), nature: e('Nature'), moves: e('Moves'), sun: e('Sun'),
+    res: l('RESOURCES', 'id'), mob: l('MOBS', 'id'), research, building: l('BUILDINGS', 'kind'), gear: l('GEAR', 'id'),
+    shot: l('SHOTS', null), tool: e('Tool'), toolJob: e('ToolJob'), tierNeed: tierNames(findExport(mods, 'TIER_NEEDS')),
+    nature: e('Nature'), moves: e('Moves'), sun: e('Sun'),
     comes: e('Comes'), role: e('Role'), lairSite: e('LairSite'), band: l('BAND_NAMES', null), hit: e('Hit'), made,
     species: l('SPECIES', 'id'), material: l('MATERIALS', null), digClass: e('DigClass'), rations: e('Rations'),
     resGroup: e('ResGroup'), unitKind: e('UnitKind'),
     people: l('PEOPLE_NAMES', null), faction: l('FACTION_KIND_NAMES', null), cat: capitalised(l('CAT_NAMES', null)),
     peopleUnit: peopleUnitNames(findExport(mods, 'PEOPLE_UNITS')), trinketMetal: l('TRINKET_METALS', null),
   };
+}
+
+/** The material tiers (Troops and gear) as "3: copper". */
+function tierNames(list: unknown): Map<number, string> {
+  const out = new Map<number, string>();
+  if (Array.isArray(list)) for (const r of list as ReadonlyArray<{ tier: number; name: string }>) out.set(r.tier, `${r.tier}: ${r.name}`);
+  return out;
 }
 
 function capitalised(m: Map<number, string>): Map<number, string> {
@@ -167,9 +176,8 @@ function peopleUnitNames(list: unknown): Map<number, string> {
   return out;
 }
 
-/** A trade good: a resource, an item (ITEM_GOODS + id), a live animal (LIVE_GOODS + species) or an engine (ENGINE_GOODS + kind). */
+/** A trade good: a resource, a live animal (LIVE_GOODS + species) or an engine (ENGINE_GOODS + kind). */
 function goodName(ctx: Ctx, good: number): string {
-  const items = findExport(ctx.mods, 'ITEM_GOODS') as number | undefined;
   const live = findExport(ctx.mods, 'LIVE_GOODS') as number | undefined;
   const engines = findExport(ctx.mods, 'ENGINE_GOODS') as number | undefined;
   if (engines !== undefined && good >= engines) {
@@ -177,7 +185,6 @@ function goodName(ctx: Ctx, good: number): string {
     return list?.find((r) => r.id === good - engines)?.name ?? `Engine ${good - engines}`;
   }
   if (live !== undefined && good >= live) return `Live ${refName(ctx, 'species', good - live).toLowerCase()}`;
-  if (items !== undefined && good >= items) return refName(ctx, 'item', good - items);
   return refName(ctx, 'res', good);
 }
 
@@ -193,14 +200,12 @@ function tableLabel(ctx: Ctx, path: DataPath): string | undefined {
 
 /** Which array export each reference kind's entries come from, and the key holding the id. */
 const REF_SOURCES: Partial<Record<RefKind, readonly [string, string | null]>> = {
-  res: ['RESOURCES', 'id'], mob: ['MOBS', 'id'], research: ['RESEARCH', 'id'], building: ['BUILDINGS', 'kind'], item: ['ITEMS', 'id'],
+  res: ['RESOURCES', 'id'], mob: ['MOBS', 'id'], research: ['RESEARCH', 'id'], building: ['BUILDINGS', 'kind'], tierNeed: ['TIER_NEEDS', 'tier'],
   shot: ['SHOTS', null], species: ['SPECIES', 'id'], material: ['MATERIALS', null], peopleUnit: ['PEOPLE_UNITS', 'id'],
 };
 
 /** Names for the reference picker's label, where the kind's own name reads badly. */
 const REF_LABELS: Partial<Record<RefKind, string>> = { mob: 'Building or creature', peopleUnit: 'Unit', species: 'Animal' };
-
-const SLOT_MENUS = ['Tools', 'Weapons', 'Backup weapons', 'Ranged weapons', 'Shields', 'Boots', 'Ammunition', 'Torches', 'Armour', 'Helmets', 'Cases', 'Kits'];
 
 interface Ctx {
   mods: SimModules;
@@ -262,6 +267,7 @@ function indexLabel(ctx: Ctx, key: string, i: number): string {
     case 'WARRIOR_HEALTH_BY_RANK': case 'WARRIOR_XP_TENTHS': return rank('warrior');
     case 'WORKER_HEALTH_BY_RANK': case 'WORKER_HEALTH_BY_RANK_COMBAT': case 'WORKER_COMBAT_XP_TENTHS': return rank('worker');
     case 'TOOL_SPEED_PER_MILLE': return r.tool.get(i) ?? `Tier ${i}`;
+    case 'tools': return r.toolJob.get(i) ?? `${i + 1}`;
     case 'DEPTH_PM': case 'DEPTH_AHEAD': return r.band.get(i) ?? `Band ${i}`;
     case 'SIGHT_WU': return r.unitKind.get(i) ?? `Kind ${i}`;
     case 'FARM_TIER_PER_MILLE': case 'COOK_STEPS_PER_ITEM': return `Tier ${i + 1}`;
@@ -335,6 +341,8 @@ function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: str
     const children = value
       .map((alt, i) => walkArray(ctx, alt as unknown[], [...path, i], key, parentKey, sub, value.length > 1 ? `Way ${i + 1}` : 'Inputs'))
       .filter((n): n is CatNode => n !== null);
+    // Nothing to pay (fists, no armour): nothing to show.
+    if (children.length === 0) return null;
     if (value.length === 1 && children[0]?.type === 'section') return { ...children[0], label };
     return { type: 'section', label, doc: docFor(ctx, key), children, open: true };
   }
@@ -347,7 +355,8 @@ function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: str
   // A list of numbers: references (spawns, bands) or values by index.
   if (value.every((x) => typeof x === 'number' || typeof x === 'boolean')) {
     const ref = refFor(ctx, key) ?? REF_KEYS[`${key}:*`] ?? REF_KEYS[`${ctx.exportName}:*`];
-    const children = value.map((x, i) => field(ctx, [...path, i], tableLabel(ctx, [...path, i]) ?? (ref ? `${i + 1}` : indexLabel(ctx, key, i)), x as RawValue, ref ? '' : key, key, sub, ref));
+    const byIndex = (i: number): string => (ref && !INDEXED_REFS.has(key) ? `${i + 1}` : indexLabel(ctx, key, i));
+    const children = value.map((x, i) => field(ctx, [...path, i], tableLabel(ctx, [...path, i]) ?? byIndex(i), x as RawValue, ref ? '' : key, key, sub, ref));
     return { type: 'section', label, doc: docFor(ctx, key), children, open: value.length <= 12 };
   }
   // A list of records or lists.
@@ -360,6 +369,9 @@ function walkArray(ctx: Ctx, value: readonly unknown[], path: DataPath, key: str
   });
   return children.length ? { type: 'section', label, doc: docFor(ctx, key), children, open: true } : null;
 }
+
+/** Lists of references whose positions mean something (a tool kit's tool for each job), labelled by indexLabel. */
+const INDEXED_REFS: ReadonlySet<string> = new Set(['tools']);
 
 /** A record's keys with the ones people tune most first, the rest in source order. */
 function orderedEntries(r: Record<string, unknown>): Array<[string, unknown]> {
@@ -385,7 +397,6 @@ function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
   const r = ctx.refs;
   switch (ctx.exportName) {
     case 'BUILDINGS': return [rec.menu === 'advanced' ? 'Advanced build menu' : 'Basic build menu'];
-    case 'ITEMS': return [SLOT_MENUS[rec.slot as number] ?? 'Other'];
     case 'RECIPES': {
       const at = (rec.at as ReadonlyArray<readonly [number, number]>)[0];
       return [at ? `At the ${r.building.get(at[0]) ?? 'building'}` : 'Anywhere'];
@@ -402,12 +413,17 @@ function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
     case 'PEOPLE_UNITS': return [refName(ctx, 'people', rec.people as number)];
     case 'MOUNTS': return ['Mounts'];
     case 'ENGINES': return ['Siege engines and cannons'];
-    default: return [];
+    case 'SHOTS': return ['Shots and projectiles'];
+    default: return KIT_MENUS[ctx.exportName] ? [KIT_MENUS[ctx.exportName]!] : [];
   }
 }
 
 function entryLabel(ctx: Ctx, rec: Record<string, unknown>, i: number): string {
   if (ctx.exportName === 'PEOPLE_UNITS' && typeof rec.id === 'number') return refName(ctx, 'peopleUnit', rec.id);
+  // A kit row (Troops and gear): "Tier 4: Bronze shortsword".
+  if (KIT_MENUS[ctx.exportName] && !UNTIERED_KITS.has(ctx.exportName) && typeof rec.tier === 'number' && typeof rec.name === 'string') {
+    return `Tier ${rec.tier}: ${rec.name.charAt(0).toUpperCase()}${rec.name.slice(1)}`;
+  }
   if (typeof rec.name === 'string' && rec.name !== '') return rec.name.charAt(0).toUpperCase() + rec.name.slice(1);
   if (typeof rec.mob === 'number') return refName(ctx, 'mob', rec.mob);
   return `${humanise(ctx.exportName)} ${i + 1}`;
@@ -454,31 +470,40 @@ export function buildCatalog(mods: SimModules, docs: SimDocs): Catalog {
         continue;
       }
 
+      // One entry per record: a row of an entry array, or a single record (the brawler's kit).
+      const addRecord = (r: Record<string, unknown>, path: DataPath, id: string, i: number): void => {
+        const ctx: Ctx = { ...base, entryId: id };
+        const label = entryLabel(ctx, r, i);
+        const texts: CatNode[] = [];
+        const live: CatNode[] = [];
+        const fixed: CatNode[] = [];
+        for (const [k, v] of orderedEntries(r)) {
+          const n = walk(ctx, v, [...path, k], k, name, []);
+          if (!n) continue;
+          if (n.type === 'text' && !(k in TEXT_KEYS)) fixed.push(n);
+          else if (n.type === 'text') texts.push(n);
+          else if (allReadOnly(n)) fixed.push(n);
+          else live.push(n);
+        }
+        const children = [...texts, ...live];
+        if (fixed.length) children.push({ type: 'section', label: 'Fixed details', doc: 'Identity and layout: shown for reference, not balance.', children: fixed, open: false });
+        const e: Entry = { id, group, menu: entryMenu(ctx, r), label, module, path, doc, children, usedBy: [] };
+        entries.set(id, e);
+        byGroup.get(group)!.push(e);
+      };
+
       if (ENTRY_ARRAYS.has(`${module}:${name}`) && Array.isArray(value)) {
         value.forEach((rec, i) => {
           if (!rec || typeof rec !== 'object') return;
           const r = rec as Record<string, unknown>;
-          if (r.name === '' || (name === 'ITEMS' && r.id === 0)) return; // "none" placeholders
-          const id = `${module}:${name}:${i}`;
-          const ctx: Ctx = { ...base, entryId: id };
-          const label = entryLabel(ctx, r, i);
-          const texts: CatNode[] = [];
-          const live: CatNode[] = [];
-          const fixed: CatNode[] = [];
-          for (const [k, v] of orderedEntries(r)) {
-            const n = walk(ctx, v, [name, i, k], k, name, []);
-            if (!n) continue;
-            if (n.type === 'text' && !(k in TEXT_KEYS)) fixed.push(n);
-            else if (n.type === 'text') texts.push(n);
-            else if (allReadOnly(n)) fixed.push(n);
-            else live.push(n);
-          }
-          const children = [...texts, ...live];
-          if (fixed.length) children.push({ type: 'section', label: 'Fixed details', doc: 'Identity and layout: shown for reference, not balance.', children: fixed, open: false });
-          const e: Entry = { id, group, menu: entryMenu(ctx, r), label, module, path: [name, i], doc, children, usedBy: [] };
-          entries.set(id, e);
-          byGroup.get(group)!.push(e);
+          // "none" placeholders, empty kit tiers and retired research.
+          if (r.name === '' || r.retired === true || PLACEHOLDER_ROWS.has(`${module}:${name}:${i}`)) return;
+          addRecord(r, [name, i], `${module}:${name}:${i}`, i);
         });
+        continue;
+      }
+      if (ENTRY_RECORDS.has(`${module}:${name}`) && value && typeof value === 'object' && !Array.isArray(value)) {
+        addRecord(value as Record<string, unknown>, [name], `${module}:${name}`, 0);
         continue;
       }
 
@@ -583,6 +608,9 @@ function linkRelations(mods: SimModules, entries: Map<string, Entry>, fields: Ma
     } else if (f.ref === 'mob' && (via === 'guardians' || via === 'spawns' || via === 'mob')) {
       target = refEntry('mob', f.value);
       how = HOW[via]!;
+    } else if (f.ref === 'tierNeed') {
+      target = refEntry('tierNeed', f.value);
+      how = 'is of this material tier';
     }
     if (key === 'needsBase' && f.value > 0 && bigHouse) {
       target = bigHouse;

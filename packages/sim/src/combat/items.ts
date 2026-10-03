@@ -10,6 +10,7 @@ import { BuildingKind } from '../buildings/data.ts';
 
 /** The one specialist skill left (Experience and training): crewing a cannon, trained at the Gunnery yard; a bit in a unit's skills. */
 export const Skill = { Cannon: 16 } as const;
+export type Skill = (typeof Skill)[keyof typeof Skill];
 
 /** How a melee weapon hits (Combat, Melee): a stab hits one target, an arc everything in front. */
 export const Hit = { Stab: 0, Arc: 1 } as const;

@@ -2,6 +2,7 @@
 // every value has one stable id, and units turn back into the sim's integers.
 import { describe, expect, it } from 'vitest';
 import { buildCatalog, extractDocs, fromDisplay, parseBalanceFile, pathKey, toDisplay, UNITS, valueAt, type UnitId } from '../src/core/index.ts';
+import { ENTRY_ARRAYS, ENTRY_RECORDS, EXPORT_GROUPS, GROUPS, PLACEHOLDER_ROWS, SKIP_EXPORTS } from '../src/core/rules.ts';
 import { Session } from '../src/core/session.ts';
 import { importSimModules, readSimDocs } from '../scripts/sim-node.ts';
 
@@ -9,12 +10,22 @@ const mods = await importSimModules();
 const cat = buildCatalog(mods, readSimDocs());
 
 describe('catalog', () => {
-  it('has an entry for every building, research step, item, recipe, mob, animal and lair', () => {
+  it('has an entry for every building, research step, kit tier, recipe, mob, animal and lair', () => {
     const count = (exportName: string): number => [...cat.entries.values()].filter((e) => e.path[0] === exportName).length;
     const len = (module: string, name: string): number => (mods[module]![name] as unknown[]).length;
     expect(count('BUILDINGS')).toBe(len('buildings/data.ts', 'BUILDINGS'));
-    expect(count('RESEARCH')).toBe(len('combat/items.ts', 'RESEARCH') - 1); // "none" left out
-    expect(count('ITEMS')).toBe(len('combat/items.ts', 'ITEMS') - 1);
+    // "none" and the steps the troop rework retired are left out.
+    const retired = (mods['combat/items.ts']!.RESEARCH as Array<{ retired?: boolean }>).filter((r) => r.retired).length;
+    expect(retired).toBeGreaterThan(0);
+    expect(count('RESEARCH')).toBe(len('combat/items.ts', 'RESEARCH') - 1 - retired);
+    // Troops and gear: a tier each, the empty tier 0 rows left out (close melee's tier 0 is the fists, and stays).
+    expect(count('CLOSE_KITS')).toBe(len('units/kits.ts', 'CLOSE_KITS'));
+    for (const name of ['LONG_KITS', 'RANGER_KITS', 'ARMOUR_KITS', 'SHIELD_KITS', 'TOOL_KITS', 'WAND_KITS', 'ROBE_KITS']) {
+      expect(count(name), name).toBe(len('units/kits.ts', name) - 1);
+    }
+    expect(count('TIER_NEEDS')).toBe(len('units/kits.ts', 'TIER_NEEDS'));
+    expect(count('BRAWLER_KIT')).toBe(1);
+    expect(count('ITEMS')).toBe(0);
     expect(count('RECIPES')).toBe(len('buildings/recipes.ts', 'RECIPES'));
     expect(count('MOBS')).toBe(len('combat/mobs.ts', 'MOBS'));
     expect(count('SPECIES')).toBe(len('animals/species.ts', 'SPECIES'));
@@ -50,7 +61,84 @@ describe('catalog', () => {
     expect(bronze.label).toBe('Bronze');
     const users = bronze.usedBy.map((r) => cat.entries.get(r.from)!.label);
     expect(users).toContain('Deep Mining I');
-    expect(users).toContain('Bronze tools');
+    // Bronze kit needs the bronze material tier, which needs the research (Troops and gear: Tiers).
+    expect(users).toContain('Tier 4: Bronze');
+    const crossbows = cat.entries.get(cat.refEntry('research', 5)!)!;
+    expect(crossbows.usedBy.map((r) => cat.entries.get(r.from)!.label)).toContain('Tier 7: Steel-prod crossbow');
+  });
+
+  it('gives the kit tables a group each, in the blueprint\'s order (Tables 2c, 2d, 2e, 3, 7, 13)', () => {
+    const ids = cat.groups.map((g) => g.id);
+    const kitGroups = ['tools', 'melee', 'ranged', 'armour', 'training', 'wands'];
+    const at = ids.indexOf('tools');
+    expect(ids.slice(at, at + kitGroups.length)).toEqual(kitGroups);
+    expect(ids).not.toContain('equipment');
+    const menus = (group: string): string[] => [...new Set(cat.groups.find((g) => g.id === group)!.entries.flatMap((e) => (e.module === 'units/kits.ts' ? e.menu : [])))];
+    expect(menus('tools')).toEqual(['Tool kits']);
+    expect(menus('melee')).toEqual(['Close melee', 'Long melee and cavalry']);
+    expect(menus('ranged')).toEqual(['Rangers', 'Brawlers']);
+    expect(menus('armour')).toEqual(['Armour', 'Shields (close melee)']);
+    expect(menus('training')).toEqual(['Material tiers']);
+    expect(menus('wands')).toEqual(['Wands', 'Robes']);
+    // Every kit table and rule has a home: none is left under Other numbers.
+    const other = cat.groups.find((g) => g.id === 'other')?.entries ?? [];
+    expect([...cat.fields.values()].filter((f) => f.module === 'units/kits.ts' && other.some((e) => e.id === f.entryId))).toEqual([]);
+    expect(cat.entries.get('units/kits.ts:LONG_KITS:0')).toBeUndefined();
+    expect(cat.entries.get('units/kits.ts:CLOSE_KITS:0')!.label).toBe('Tier 0: Fists');
+    expect(cat.entries.get('units/kits.ts:SHIELD_KITS:1')!.label).toBe('Wooden shield');
+  });
+
+  it('shows a kit row in the blueprint\'s units, its tier fixed and its material tier linked', () => {
+    const at = (path: Array<string | number>) => cat.fields.get(pathKey('units/kits.ts', path))!;
+    const bronze = cat.entries.get('units/kits.ts:CLOSE_KITS:4')!;
+    expect(bronze.label).toBe('Tier 4: Bronze shortsword');
+    expect(bronze.group).toBe('melee');
+    const swing = at(['CLOSE_KITS', 4, 'swingDs']);
+    expect([swing.label, swing.unit, toDisplay(swing.value as number, swing.unit)]).toEqual(['Swing time', 'deciseconds', '1.2']);
+    const reach = at(['LONG_KITS', 6, 'reachCm']);
+    expect([reach.unit, toDisplay(reach.value as number, reach.unit)]).toEqual(['metresCm', '3.5']);
+    expect(at(['CLOSE_KITS', 4, 'timeS']).unit).toBe('wholeSeconds');
+    expect(at(['RANGER_KITS', 8, 'rangeM']).unit).toBe('metres');
+    expect(at(['ARMOUR_KITS', 5, 'protectionPct']).unit).toBe('percent');
+    expect(at(['CRIT', 'outerPm']).unit).toBe('percentPm');
+    expect(at(['TRAINING', 'troopFood']).unit).toBe('nutrition');
+    expect(at(['CLOSE_KITS', 4, 'tier']).readOnly).toBe(true);
+    const need = at(['WAND_KITS', 5, 'need']);
+    expect([need.ref, need.readOnly, cat.refNames.tierNeed.get(need.value as number)]).toEqual(['tierNeed', true, '7: steel']);
+    // The material tier lists what is made of it.
+    const steel = cat.entries.get(cat.refEntry('tierNeed', 7)!)!;
+    const made = steel.usedBy.map((r) => cat.entries.get(r.from)!.label);
+    expect(made).toEqual(expect.arrayContaining(['Tier 7: Steel side-sword', 'Tier 7: Steel halberd', 'Tier 7: Steel plate harness', 'Tier 5: Crystal staff']));
+    // A tool kit's tool for each job, by job.
+    const chop = at(['TOOL_KITS', 2, 'tools', 0]);
+    expect([chop.label, chop.ref, cat.refNames.tool.get(chop.value as number)]).toEqual(['Chop', 'tool', 'Flint']);
+    // Kit costs read as resources, every way of paying shown.
+    const sling = cat.entries.get('units/kits.ts:RANGER_KITS:1')!;
+    expect(sling.children.find((n) => n.type === 'section' && n.label === 'Cost')).toMatchObject({ children: [{ label: 'Way 1' }, { label: 'Way 2' }] });
+    // The brawler's one kit is an entry of its own.
+    expect(cat.entries.get('units/kits.ts:BRAWLER_KIT')).toMatchObject({ group: 'ranged', label: 'Tier 8: Flintlock pistol and cutlass', path: ['BRAWLER_KIT'] });
+  });
+
+  it('leaves the gear catalogue out: it is worked out from the kit rows', () => {
+    const derived = ['GEAR', 'PeopleGear', 'CLOSE_GEAR', 'LONG_GEAR', 'RANGER_GEAR', 'PISTOL_GEAR', 'ARMOUR_GEAR', 'SHIELD_GEAR', 'TOOL_GEAR', 'WAND_GEAR', 'ROBE_GEAR'];
+    for (const name of derived) expect(name in mods['units/kits.ts']!, name).toBe(true);
+    expect([...cat.fields.values()].filter((f) => f.module === 'units/kits.ts' && derived.includes(String(f.path[0]))).map((f) => f.id)).toEqual([]);
+    // Nor do products repeat the kit pieces they carry.
+    expect([...cat.fields.keys()].some((id) => id.includes('.pieces.'))).toBe(false);
+    // The peoples' fixed gear is named from the catalogue, and not edited here.
+    const row = (mods['peoples/data.ts']!.PEOPLE_UNITS as Array<{ name: string }>).findIndex((u) => u.name === 'Halfling spearman');
+    const spearman = cat.fields.get(pathKey('peoples/data.ts', ['PEOPLE_UNITS', row, 'weapon']))!;
+    expect([spearman.ref, spearman.readOnly, cat.refNames.gear.get(spearman.value as number)]).toEqual(['gear', true, 'Bronze spear']);
+  });
+
+  it('keeps its rules in step with the sim: every export they name exists', () => {
+    const has = (key: string): boolean => {
+      const [module, name] = key.split(/(?<=\.ts):/);
+      return !!mods[module!] && name!.split(':')[0]! in mods[module!]!;
+    };
+    const named = [...SKIP_EXPORTS, ...Object.keys(EXPORT_GROUPS), ...ENTRY_ARRAYS, ...ENTRY_RECORDS, ...[...PLACEHOLDER_ROWS].map((k) => k.replace(/:\d+$/, ''))];
+    expect(named.filter((k) => !has(k))).toEqual([]);
+    expect(Object.values(EXPORT_GROUPS).filter((g) => !GROUPS.some((x) => x.id === g))).toEqual([]);
   });
 
   it('files loose rules under their groups and leaves no plumbing in', () => {
@@ -116,6 +204,39 @@ describe('session', () => {
     expect(report).toEqual({ applied: 1, moved: [], missing: [], same: [] });
     expect(again.current(hp)).toBe(75);
     expect(again.entryNotes.get(hp.entryId)).toBe('look at the speed too');
+  });
+
+  it('exports a kit row\'s numbers with the path balance:apply follows into units/kits.ts', () => {
+    const s = new Session(cat);
+    const damage = cat.fields.get(pathKey('units/kits.ts', ['CLOSE_KITS', 4, 'damage']))!;
+    const swing = cat.fields.get(pathKey('units/kits.ts', ['CLOSE_KITS', 4, 'swingDs']))!;
+    const flax = cat.fields.get(pathKey('units/kits.ts', ['ARMOUR_KITS', 3, 'cost', 1, 2, 1]))!;
+    s.set(damage.id, 17);
+    s.set(swing.id, fromDisplay('1.1', swing.unit)!);
+    s.set(flax.id, 2);
+    s.entryNotes.set('units/kits.ts:BRAWLER_KIT', 'pistol feels weak');
+    const file = s.toFile({ commit: 'abc', builtAt: '', now: new Date(Date.UTC(2026, 9, 3)) });
+    expect(file.changes).toEqual([
+      {
+        module: 'units/kits.ts', path: ['ARMOUR_KITS', 3, 'cost', 1, 2, 1], label: 'Armour and shields > Tier 3: Copper scale jack > Cost > Way 2 > Amount',
+        old: 1, new: 2, unit: 'a count', oldDisplay: '1', newDisplay: '2',
+      },
+      {
+        module: 'units/kits.ts', path: ['CLOSE_KITS', 4, 'damage'], label: 'Melee weapons > Tier 4: Bronze shortsword > Damage',
+        old: 16, new: 17, unit: 'damage per hit, before armour', oldDisplay: '16 dmg', newDisplay: '17 dmg',
+      },
+      {
+        module: 'units/kits.ts', path: ['CLOSE_KITS', 4, 'swingDs'], label: 'Melee weapons > Tier 4: Bronze shortsword > Swing time',
+        old: 12, new: 11, unit: 'seconds (held in tenths of a second)', oldDisplay: '1.2 s', newDisplay: '1.1 s',
+      },
+    ]);
+    expect(file.entryNotes).toEqual([{ module: 'units/kits.ts', path: ['BRAWLER_KIT'], label: 'Ranged weapons > Tier 8: Flintlock pistol and cutlass', note: 'pistol feels weak' }]);
+    for (const c of file.changes) expect(valueAt(mods[c.module]!, c.path)).toBe(c.old);
+
+    const again = new Session(cat);
+    expect(again.load(parseBalanceFile(JSON.parse(JSON.stringify(file))))).toEqual({ applied: 3, moved: [], missing: [], same: [] });
+    expect(again.current(swing)).toBe(11);
+    expect(again.entryNotes.get('units/kits.ts:BRAWLER_KIT')).toBe('pistol feels weak');
   });
 
   it('setting a value back to the table drops the change', () => {

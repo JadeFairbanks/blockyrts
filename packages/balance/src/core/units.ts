@@ -8,7 +8,7 @@ import { STEPS_PER_SECOND, WU_PER_METRE } from '@blockyrts/sim';
 export type UnitId =
   | 'number' | 'seconds' | 'workerSeconds' | 'percentBp' | 'percentPm' | 'percent' | 'metresWu' | 'speed'
   | 'metresCm' | 'metres' | 'squareMetres' | 'health' | 'damage' | 'lbTenths' | 'tenths' | 'xpTenths' | 'level'
-  | 'count' | 'nutrition' | 'night' | 'perMilleRaw' | 'vpTenths' | 'speedTenths';
+  | 'count' | 'nutrition' | 'night' | 'perMilleRaw' | 'vpTenths' | 'speedTenths' | 'wholeSeconds' | 'deciseconds';
 
 export interface UnitSpec {
   /** Shown after the value; '' for none. */
@@ -25,6 +25,8 @@ export const UNITS: Readonly<Record<UnitId, UnitSpec>> = {
   level: { suffix: '', scale: 1, hint: 'a level' },
   night: { suffix: '', scale: 1, hint: 'a night number (the first night is night 0)' },
   seconds: { suffix: 's', scale: STEPS_PER_SECOND, hint: `seconds (the sim counts ${STEPS_PER_SECOND} steps a second)` },
+  wholeSeconds: { suffix: 's', scale: 1, hint: 'seconds (whole seconds, as the kit tables write them)' },
+  deciseconds: { suffix: 's', scale: 10, hint: 'seconds (held in tenths of a second)' },
   workerSeconds: { suffix: 'ws', scale: 1, hint: 'worker-seconds: one worker for this many seconds, two workers for half' },
   percentBp: { suffix: '%', scale: 100, hint: 'percent (held as basis points, 1% = 100)' },
   percentPm: { suffix: '%', scale: 10, hint: 'percent (held per mille, 1% = 10)' },
