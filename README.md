@@ -147,7 +147,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    hash in the debug panel at the same step: for seed 1 with one player it is
    `38f7d02b` at step 40, with two players `a46535dd`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash f6251630`: two players dig trenches from a
+   prints `final step 10000 hash 98ed757d`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -218,7 +218,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 2dbcc2b2`: workers chop and quarry, the Big
+   prints `final step 10000 hash 59f883f0`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -288,7 +288,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 1da5d349`: two workers raise a gate and a
+   prints `final step 10000 hash 775e9e68`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -369,7 +369,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash fdc51c46`: two workers pick flint while two
+   prints `final step 10000 hash a8a6f947`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -472,7 +472,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 5dafa5aa`: the debug tools put a Barracks
+   prints `final step 10000 hash 3109706c`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -625,7 +625,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash e1999443`: the debug tools put a Magi
+   prints `final step 10000 hash ffd99362`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -738,7 +738,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash be305e8e`: the debug tools put a Halfling
+    prints `final step 10000 hash 55764b2d`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -853,7 +853,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash b4ba7392`: the debug tools make the Big
+   prints `final step 10000 hash de198e59`: the debug tools make the Big
    House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
    village 80 m north and a troop kit to the south-east; the Big House
    trains a long-melee spearman and the Stables a bronze cavalry rider, who
@@ -1033,7 +1033,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash b4ba7392`, as in milestone 8 above.
+   prints `final step 10000 hash de198e59`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1567,12 +1567,12 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash 338ff6f9`: the debug tools explore 200 m round the
+   prints `final step 10000 hash 2c0bb7e4`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk and stand there
-   through night 0. About 40 monsters are out at nightfall, round them and
-   round the workers at the camp, up to 68 at once later and 99 over the
-   night; 12 of them go for a unit, and the warriors end the night at half
-   to three quarters of their health. They walk home at step 8200.
+   through night 0. About 43 monsters are out at nightfall, round them and
+   round the workers at the camp, up to 68 at once later and 108 over the
+   night; 11 of them go for a unit, and the warriors end the night at about
+   half to five sixths of their health. They walk home at step 8200.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm test` also runs `packages/sim/test/wanderers.test.ts`: where they
    come out (claimed land, lights, units, unexplored land, a peaceful game, a
