@@ -47,6 +47,12 @@ browser that is not installed is skipped locally with a warning; install them
 with `pnpm --filter @blockyrts/tools exec playwright install chromium firefox webkit`.
 CI installs all three and fails if any is missing.
 
+CI (`.github/workflows/ci.yml`) runs all of the above, the builds, the
+two-player network test and the server image on every push to a pull request
+and to `main`, with the cross-browser test alongside the rest in one job per browser engine. A new push cancels the run its branch's previous push started,
+and pnpm's package store is cached between runs. It can also be run by hand
+on any branch from the Actions tab.
+
 ## Packages
 
 | Package | Role |
@@ -1485,3 +1491,6 @@ and its protocol are tested headless.
    the test against PostgreSQL 16 and S3Mock (an S3-compatible test server), and builds the server's Docker
    image and checks `/healthz`.
 
+## License
+
+Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).
