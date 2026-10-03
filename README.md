@@ -32,6 +32,8 @@ pnpm install
 | `pnpm dev` | The client at http://localhost:5173 |
 | `pnpm audio:dev` | The audio audition page at http://localhost:5174 |
 | `pnpm balance:dev` | The balance editor at http://localhost:5175 |
+| `pnpm --filter @blockyrts/tools balance` | The balance harness: pacing, supply at night 110 and the wave checks (`--pacing`, `--nights`, `--seeds`, `--blood`, `--csv`; docs/balance-pass.md) |
+| `pnpm --filter @blockyrts/tools perf:sim` | Sim step time with thousands of monsters (`--units`, `--steps`, `--seed`; docs/performance.md) |
 | `pnpm --filter @blockyrts/tools balance:apply <file>` | Applies a balance editor export to the sim's data files (`--dry-run`, `--force`) |
 | `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
 | `pnpm --filter @blockyrts/tools models:build` | Converts the Blockbench models to glb for the client (`pnpm dev` and the client build run it first) |
@@ -48,7 +50,7 @@ CI installs all three and fails if any is missing.
 |---|---|
 | `packages/sim` | The game rules. Integer maths only, seeded random streams, zero dependencies, no DOM; never imports the client, the server or three.js |
 | `packages/client` | The browser game: runs the sim in a Web Worker, draws with three.js |
-| `packages/tools` | Headless runner, desync tool, cross-browser test, the headless two-player network test, map viewer, model converter; balance harness placeholder |
+| `packages/tools` | Headless runner, desync tool, cross-browser test, the headless two-player network test, map viewer, model converter, balance harness, sim speed check |
 | `packages/protocol` | Relay message codecs, the lockstep scheduler, the save file container and the HTTP API shapes; see its README |
 | `packages/server` | Accounts and save API, lobby and lockstep relay in one Node process; see its README for settings |
 | `packages/audio` | Every sound and the music, synthesised in code; the Web Audio engine and an audition page (`pnpm audio:dev`) |
@@ -904,6 +906,47 @@ flag are in the hash, and production queues record who paid).
 8. `node packages/client/test-e2e/m9-online.mjs http://localhost:5173 <folder>`
    (with both servers running) plays steps 2 to 6 in two headless browsers
    and saves screenshots; it is not part of `pnpm test`.
+
+## How a tester checks milestone 10
+
+The build order's check for M10 is: *the performance targets are measured and
+written down, the balance harness runs the pacing, wave and supply checks,
+the sounds play, and the Quick reference and "Playing with the mouse only"
+work as written.* No hash changed with this milestone: every check script
+above prints the same trace as on milestone 9 (the speed-ups were checked
+against it step by step).
+
+1. `pnpm test` runs `packages/client/test/m10-audio.test.ts` (a track for
+   each time of day and the blood night, each unit's voice, blades against
+   arrows and blocks, work sounds, only sounds the audio package has, and a
+   match playing every sound in the Audio list from what the sim reports at
+   the Settings volumes) and `packages/tools/test/balance-harness.test.ts`
+   (every pacing tier timed from the sim tables, the night 110 supply, and
+   night 0 held with the warrior alive).
+2. **Sound.** `pnpm dev`, open http://localhost:5173/?seed=1 and click once
+   (browsers start sound only after a click). Day music plays; at dusk a horn
+   and the dusk track, at night the night track, and the fight layers come in
+   when monsters are near the camera. Select workers and order them about:
+   they answer. Chopping, mining, hits, blocks, deaths and torches sound where
+   they happen and fade with distance. F10 > Settings: the music, effects and
+   voice sliders change the sound at once.
+3. **Performance readout.** The debug readout (top left) now shows fps, frame
+   time, draw calls and triangles, units and memory. At night press Citadel,
+   then **Crowd +200** a few times on the debug bar: draw calls stay at about
+   80 whatever the crowd. `node packages/client/test-e2e/perf-look.mjs
+   http://localhost:5173 <folder> [--gpu]` does this by script.
+4. **Sim speed.** `pnpm --filter @blockyrts/tools perf:sim` prints the step
+   time with 3,000 and 6,000 monsters on the night 80 town (about 19 and 30 ms
+   a step on a 4-core cloud machine; the target is 25 ms) and the end hash.
+   See [docs/performance.md](docs/performance.md).
+5. **Balance harness.** `pnpm --filter @blockyrts/tools balance --pacing`
+   prints the pacing check and supply at night 110 in a second;
+   `pnpm --filter @blockyrts/tools balance` adds the wave checks at nights 0,
+   10, 20, 40, 60, 80 and 110 on seeds 1 to 3 (about 10 minutes; `--nights`,
+   `--seeds`, `--blood`, `--csv`). Nights 0 to 80 hold, night 110 falls. See
+   [docs/balance-pass.md](docs/balance-pass.md) for what each column means
+   and what looked off. No (s) value was retuned (Jade's rebalance comes
+   next).
 
 ## How a tester checks the balance editor
 
