@@ -162,46 +162,72 @@ export function nightsSurvived(step: number, blood: readonly number[] = []): num
 }
 
 /**
- * Each step: a player with no workers and no main base or farm is out.
- * Their resources and equipment are split evenly among the players left
- * (any remainder to the lowest-numbered), and their buildings and units go
- * to the next player still in (s: shared control is the Allies panel's, M9).
- * When every player is out the game is over, with the nights survived as
- * the score.
+ * Each step: a player with no workers and no main base or farm is out
+ * (eliminate). When every player is out the game is over, with the nights
+ * survived as the score.
  */
 export function updateElimination(state: SimState): void {
   if (state.over) return;
   for (let p = 0; p < state.players.length; p++) {
     const ps = state.players[p]!;
     if (ps.out || hasWorkers(state, p) || canMakeWorkers(state, p)) continue;
-    ps.out = state.step;
-    const left: number[] = [];
-    for (let q = 0; q < state.players.length; q++) if (!state.players[q]!.out) left.push(q);
-    state.events.push({ player: -1, kind: 'alert', text: state.players.length > 1 ? `Player ${p + 1} has been eliminated.` : 'Your last worker has fallen and nothing is left to train more.' });
-    if (left.length === 0) continue;
-    for (const [list, from] of [[ps.pool, 'pool'], [ps.items, 'items']] as const) {
-      for (let r = 0; r < list.length; r++) {
-        const n = list[r]!;
-        if (n <= 0) continue;
-        const each = floorDiv(n, left.length);
-        left.forEach((q, k) => {
-          const to = from === 'pool' ? state.players[q]!.pool : state.players[q]!.items;
-          to[r] = to[r]! + each + (k < n - each * left.length ? 1 : 0);
-        });
-        list[r] = 0;
-      }
-    }
-    const heir = left[0]!;
-    for (const b of state.buildings.list) if (b.owner === p) b.owner = heir;
-    const e = state.entities;
-    for (let i = 0; i < e.count; i++) {
-      if (e.owner[i] === p) e.owner[i] = heir;
-      if (e.kind[i] === UnitKind.Mob && e.foe[i] === p) e.foe[i] = heir;
-    }
+    eliminate(state, p, state.players.length > 1 ? `Player ${p + 1} has been eliminated.` : 'Your last worker has fallen and nothing is left to train more.');
   }
   if (state.players.every((ps) => ps.out)) {
     state.over = state.step;
     const n = nightsSurvived(state.step, state.blood);
     state.events.push({ player: -1, kind: 'alert', text: `The game is over. Nights survived: ${n}.` });
+  }
+}
+
+/**
+ * A player leaves the match for good: eliminated, or gone with the host
+ * choosing to carry on without them (When a player is eliminated or leaves).
+ * Their resources and equipment are split evenly among the players left (any
+ * remainder to the lowest-numbered). Their buildings and units become shared
+ * by every remaining player: the next player still in owns them (and feeds
+ * the units and gets what they gather, s), and any remaining player may
+ * command the units and use the buildings, paying with their own resources;
+ * the buildings keep the research their old owner had, for anyone using them.
+ */
+export function eliminate(state: SimState, p: number, text: string): void {
+  const ps = state.players[p];
+  if (!ps || ps.out) return;
+  // The step it happened (at least 1: 0 means still in).
+  ps.out = Math.max(1, state.step);
+  ps.share = 0;
+  const left: number[] = [];
+  for (let q = 0; q < state.players.length; q++) if (!state.players[q]!.out) left.push(q);
+  state.events.push({ player: -1, kind: 'alert', text });
+  if (left.length === 0) return;
+  for (const [list, from] of [[ps.pool, 'pool'], [ps.items, 'items']] as const) {
+    for (let r = 0; r < list.length; r++) {
+      const n = list[r]!;
+      if (n <= 0) continue;
+      const each = floorDiv(n, left.length);
+      left.forEach((q, k) => {
+        const to = from === 'pool' ? state.players[q]!.pool : state.players[q]!.items;
+        to[r] = to[r]! + each + (k < n - each * left.length ? 1 : 0);
+      });
+      list[r] = 0;
+    }
+  }
+  const heir = left[0]!;
+  for (const b of state.buildings.list) {
+    if (b.owner === p) {
+      b.owner = heir;
+      b.shared = 1;
+      b.tech |= ps.research;
+    }
+    // What they had queued anywhere is finished for the heir.
+    for (const q of b.queue) if (q.by === p) q.by = heir;
+  }
+  const e = state.entities;
+  for (let i = 0; i < e.count; i++) {
+    if (e.owner[i] === p) {
+      e.owner[i] = heir;
+      e.shared[i] = 1;
+    }
+    if (e.kind[i] === UnitKind.Mob && e.foe[i] === p) e.foe[i] = heir;
   }
 }

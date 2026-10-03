@@ -3,7 +3,7 @@
 //   pnpm --filter @blockyrts/client exec vite --port 5198
 //   node packages/client/test-e2e/hud-check.mjs http://localhost:5198 /tmp/shots
 //
-// Drives the start screen, panning, zoom, the drag box (including onto the
+// Drives panning, zoom, the drag box (including onto the
 // HUD), HUD buttons, the menu and orders, saves screenshots as hud-*.png in
 // the output folder and prints what it checked. Pointer lock does not work
 // headless, so this exercises the unlocked path.
@@ -51,19 +51,11 @@ const centreOf = (sel) =>
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }, sel);
 
-// 1. Start screen.
-await page.goto(base);
-await page.waitForSelector('.start');
-await shot('start');
-await page.fill('input[name=seed]', 'not a number');
-await page.click('.start-btn');
-check('bad seed rejected', await page.locator('.field .error').isVisible());
-await page.fill('input[name=seed]', '1');
-await page.selectOption('select[name=players]', '3');
-await page.click('.start-btn');
+// 1. The tester route: ?seed=N&players=K skips the main menu (milestone 9's menu has its own check, m9-online.mjs).
+await page.goto(`${base}/?seed=1&players=3`);
 await page.waitForFunction(() => Number(document.querySelector('.debug .dbg-row:nth-child(3) .dbg-value')?.textContent) > 45);
 check('URL keeps the seed', page.url().includes('seed=1&players=3'), page.url());
-check('greeting message', (await text('.message-list')).includes('World generated from seed 1'));
+check('greeting message', (await text('.message-list')).includes('World seed 1.'));
 await page.mouse.move(W / 2, H / 2);
 await page.waitForTimeout(300);
 await shot('game');

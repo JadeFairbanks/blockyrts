@@ -460,7 +460,37 @@ export interface DontEatOrder {
   on: number;
 }
 
+/** Allies panel: let another player command this player's units (on 1), or stop (on 0). */
+export interface ShareControlOrder {
+  kind: 'shareControl';
+  player: number;
+  with: number;
+  on: number;
+}
+
+/** Send resources (Allies panel): an amount of one resource (a Res id) to another player. */
+export interface SendResourcesOrder {
+  kind: 'sendResources';
+  player: number;
+  to: number;
+  res: number;
+  amount: number;
+}
+
+/**
+ * The player leaves the match for good (the relay's leave marker, when the
+ * host carries on without a player who is gone): their side is shared out
+ * as if eliminated.
+ */
+export interface LeaveOrder {
+  kind: 'leave';
+  player: number;
+}
+
 export type Order =
+  | ShareControlOrder
+  | SendResourcesOrder
+  | LeaveOrder
   | CastOrder
   | HuntOrder
   | TameOrder
@@ -599,6 +629,9 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   reparations: ['faction'],
   hire: ['faction', 'count'],
   debugPeoples: ['what', 'x', 'z'],
+  shareControl: ['with', 'on'],
+  sendResources: ['to', 'res', 'amount'],
+  leave: [],
 };
 
 const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'mount', 'dismount', 'crew', 'mend']);
@@ -651,6 +684,12 @@ export function validateOrder(o: Order): void {
       return;
     case 'hire':
       if (o.count < 1 || o.count > 6) throw new Error('hire 1 to 6');
+      return;
+    case 'shareControl':
+      if (o.with < 0 || o.with > 7 || (o.on !== 0 && o.on !== 1)) throw new Error('bad share control');
+      return;
+    case 'sendResources':
+      if (o.to < 0 || o.to > 7 || o.res < 0 || o.res > 255 || o.amount < 1 || o.amount > 1_000_000_000) throw new Error('bad send resources');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

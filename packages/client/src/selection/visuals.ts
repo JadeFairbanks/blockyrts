@@ -47,11 +47,14 @@ export class SelectionVisuals {
     this.markers.push({ x: at.x, y: at.y, z: at.z, colour: kind === 'move' ? OWN : NOBODY_COL, born: performance.now() });
   }
 
+  /** Another player's unit this player may command (Allies panel): a ring in that player's colour, else null. */
+  sharedColour: (t: Selectable) => THREE.Color | null = () => null;
+
   update(selected: readonly Selectable[], highlighted: readonly Selectable[], player: number, now: number): void {
     this.n = 0;
     for (const t of selected) {
       const r = Math.max(t.halfSize.x, t.halfSize.z) * 1.35 + 0.2;
-      this.ring(t.centre.x, t.centre.y - t.halfSize.y + 0.05, t.centre.z, r, SelectionVisuals.colourFor(t, player));
+      this.ring(t.centre.x, t.centre.y - t.halfSize.y + 0.05, t.centre.z, r, (t.owner !== player ? this.sharedColour(t) : null) ?? SelectionVisuals.colourFor(t, player));
     }
     for (const t of highlighted) this.box(t);
     for (let i = this.markers.length - 1; i >= 0; i--) {

@@ -112,8 +112,8 @@ describe('messages', () => {
       yourSlot: 1,
       rejoinToken: 'r',
       players: [
-        { slot: 0, name: 'Jade', colour: 0, ready: true, presence: 0, guest: false },
-        { slot: 1, name: 'Guest 1234', colour: 3, ready: false, presence: 1, guest: true },
+        { slot: 0, name: 'Jade', colour: 0, ready: true, presence: 0, guest: false, accountId: 'a1' },
+        { slot: 1, name: 'Guest 1234', colour: 3, ready: false, presence: 1, guest: true, accountId: '' },
       ],
     },
     { type: 'gameStart', startStep: 0, inputDelay: 4, epoch: 0, activeSlots: 3, snapshot: new Uint8Array() },

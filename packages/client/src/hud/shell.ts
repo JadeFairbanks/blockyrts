@@ -24,11 +24,11 @@ import { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
 import { Btn, InputManager, type Mods, type MouseTarget } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
-import type { InfoMessage } from '../messages.ts';
+import { UnitFlag, type InfoMessage } from '../messages.ts';
 import { Minimap } from '../minimap/minimap.ts';
 import { SelectionController } from '../selection/controller.ts';
 import { projectCandidates } from '../selection/project.ts';
-import { isOwn, pickAt, type ScreenItem } from '../selection/rules.ts';
+import { isOwn, pickAt, setSharedControl, type ScreenItem } from '../selection/rules.ts';
 import { SelectionSet } from '../selection/selection.ts';
 import {
   buildingIdOf,
@@ -44,7 +44,9 @@ import type { Settings } from '../settings/settings.ts';
 import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
+import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
+import { ChatBox } from './chat.ts';
 import { Commands, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { buildLayout, type HudLayout } from './layout.ts';
@@ -98,8 +100,32 @@ export interface ShellOptions {
   players: number;
   /** The local player's index (0 is player 1). */
   player: number;
-  /** Quit to the start screen (after the player confirmed). */
+  /** Quit to the main menu, or leave an online game (after the player confirmed). */
   onQuit(): void;
+  /** Online play, the players' names and colours, saving and pausing (game/match.ts). */
+  session: ShellSession;
+}
+
+/** What the shell needs from the match around it. */
+export interface ShellSession {
+  online: boolean;
+  /** The room's invite code, online. */
+  code?: string | undefined;
+  /** A player's name and CSS colour, by sim player. */
+  name(p: number): string;
+  colour(p: number): string;
+  /** Sends a chat line to the other players; null when playing alone. */
+  chat: ((text: string) => void) | null;
+  /** Flashes a spot for every player (metres). */
+  ping(x: number, z: number): void;
+  save(): void;
+  download(): void;
+  togglePause(): void;
+  paused(): boolean;
+  /** Why saving is not possible here, or ''. */
+  saveBlocked(): string;
+  /** The menu opened or closed (alone, it pauses the game). */
+  menuOpened(open: boolean): void;
 }
 
 export interface SimInfo {
@@ -140,6 +166,10 @@ export class GameShell {
   private readonly messages: MessagePanel;
   private readonly bubbles: SpeechBubbles;
   readonly peoples: PeoplesUi;
+  readonly allies: AlliesUi;
+  readonly chat: ChatBox;
+  /** Waiting for a spot to ping (the Ping button). */
+  private pinging = false;
   private readonly visuals: SelectionVisuals;
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
@@ -214,10 +244,19 @@ export class GameShell {
       message: (t, k) => this.message(t, k),
     });
     this.selector = new SelectionController(this.cam, this.panels, this.selection, this.player, () => this.items, this.layout.dragBox);
-    this.menu = new GameMenu(parent, this.settings, {
+    const session = opts.session;
+    this.menu = new GameMenu(parent, this.settings, { seed: opts.seed, online: session.online, code: session.code }, {
       resume: () => this.closeMenu(),
       quit: () => opts.onQuit(),
       keysChanged: () => this.rebind(),
+      save: () => {
+        this.closeMenu();
+        session.save();
+      },
+      download: () => session.download(),
+      togglePause: () => session.togglePause(),
+      paused: () => session.paused(),
+      saveBlocked: () => session.saveBlocked(),
     });
     this.commands = new Commands({
       player: this.player,
@@ -259,6 +298,36 @@ export class GameShell {
       parent,
     );
     this.input.addArea('minimap', this.layout.minimapEl, this.minimapMouse());
+    this.allies = new AlliesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      message: (t) => this.message(t),
+      name: (p) => session.name(p),
+      colour: (p) => session.colour(p),
+      addArea: (id, el, target) => this.input.addArea(id, el, target),
+    });
+    this.chat = new ChatBox(this.layout.chat, session.chat);
+    // Another player's units this player may order: shared with them, or inherited from a player who left.
+    setSharedControl((t, player) => {
+      const info = this.game.info;
+      if (!info || info.players[player]?.out) return false;
+      if (t.kind === 'building') {
+        const id = buildingIdOf(t.key);
+        return id !== null && this.game.buildings.get(id)?.shared === true;
+      }
+      if (t.kind !== 'unit' || t.owner >= info.players.length) return false;
+      if (((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
+      const id = entityIdOf(t.key);
+      const u = id === null ? null : this.game.unit(id);
+      return u !== null && (u.flags & UnitFlag.Shared) !== 0;
+    });
+    const rings = new Map<number, THREE.Color>();
+    this.visuals.sharedColour = (t) => {
+      if (t.owner >= 8 || !isOwn(t, this.player)) return null;
+      let c = rings.get(t.owner);
+      if (!c) rings.set(t.owner, (c = new THREE.Color(session.colour(t.owner))));
+      return c;
+    };
+    this.input.addArea('chat', this.layout.chat, { down: () => this.chat.open(), move: () => undefined, up: () => undefined });
     this.groups = new ControlGroups(this.layout.groupTabs, this.buttons, {
       selection: () => this.selection.list(),
       lookup: (k) => this.fresh.get(k),
@@ -376,6 +445,7 @@ export class GameShell {
     // Events into the message panel.
     for (const ev of info.events) this.onEvent(ev);
     this.peoples.refresh();
+    this.allies.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
@@ -437,6 +507,14 @@ export class GameShell {
     this.parent.append(el);
   }
 
+  /** "Player 2" in the sim's messages becomes that player's name. */
+  private named(text: string): string {
+    return text.replace(/\bPlayer ([1-8])\b/g, (m, n: string) => {
+      const p = Number(n) - 1;
+      return p < this.opts.players ? this.opts.session.name(p) : m;
+    });
+  }
+
   private exists(key: string): boolean {
     const u = entityIdOf(key);
     if (u !== null) return this.game.unit(u) !== null;
@@ -455,7 +533,7 @@ export class GameShell {
     // A unit's own alert ("I cannot reach that.") is speech too: its bubble, and its name in the panel.
     if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now());
     const kind: MessageKind = urgent ? 'alert' : 'system';
-    this.messages.add({ text: ev.text, kind, name: ev.name, urgent, at, unit: ev.speaker });
+    this.messages.add({ text: this.named(ev.text), kind, name: ev.name, urgent, at, unit: ev.speaker });
     if (ev.faction && (ev.urgent || urgent)) this.buttons.get('peoples')?.setLit(true);
     if (urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });
@@ -649,8 +727,35 @@ export class GameShell {
         this.buttons.get('peoples')?.setLit(false);
       },
     });
-    top({ id: 'allies', face: 'Allies', name: 'Allies', keys: [], description: 'Diplomacy and shared control with the other players. No hotkey yet.' }, 'Comes with multiplayer (milestone 9).');
-    top({ id: 'send', face: 'Send', name: 'Send resources', keys: [], description: 'Give resources to another player. No hotkey yet.' }, 'Comes with multiplayer (milestone 9).');
+    const alone = this.opts.players < 2 ? 'You are playing alone.' : undefined;
+    top(
+      {
+        id: 'allies',
+        face: 'Allies',
+        name: 'Allies',
+        keys: k('allies'),
+        description: 'The other players, with a Share control box for each: ticked, that player may order your units.',
+        onPress: () => this.allies.toggleAllies(),
+      },
+      alone,
+    );
+    top({ id: 'send', face: 'Send', name: 'Send resources', keys: k('send'), description: 'Give resources to another player: they arrive at once, all of them.', onPress: () => this.allies.toggleSend() }, alone);
+    top({
+      id: 'ping',
+      face: 'Ping',
+      name: 'Ping',
+      keys: k('ping'),
+      description: 'Then left click a spot in the view or on the minimap: it flashes for every player, to point out a threat or a target. Right click or Esc cancels.',
+      onPress: () => this.startPing(),
+    });
+    top({
+      id: 'pause',
+      face: '❚❚',
+      name: 'Pause',
+      keys: k('pause'),
+      description: this.opts.session.online ? 'Pause the game for every player; again to carry on.' : 'Pause the game; again to carry on.',
+      onPress: () => this.opts.session.togglePause(),
+    });
     const more = this.buttons.add({
       id: 'resources',
       face: '▾',
@@ -715,6 +820,10 @@ export class GameShell {
       ['autoequip', 'autoEquip'],
       ['rations', 'rations'],
       ['clear', 'clear'],
+      ['allies', 'allies'],
+      ['send', 'send'],
+      ['ping', 'ping'],
+      ['pause', 'pause'],
     ] as const) {
       const b = this.buttons.get(id);
       if (b) b.redefine({ ...b.def, keys: [keyFor(this.settings.keys, action)] });
@@ -898,6 +1007,7 @@ export class GameShell {
     this.commands.reset();
     this.menu.show(true);
     this.input.setMode('menu');
+    this.opts.session.menuOpened(true);
   }
 
   private closeMenu(): void {
@@ -905,6 +1015,50 @@ export class GameShell {
     this.menu.show(false);
     this.input.setMode('game');
     this.input.requestLock();
+    this.opts.session.menuOpened(false);
+  }
+
+  /** Opens the in-game menu (the host's choice and the save prompts use the real cursor too). */
+  showMenu(): void {
+    this.openMenu();
+  }
+
+  /** Hands the real cursor to a page dialog (an account form over the game), or takes it back. */
+  releaseInput(on: boolean): void {
+    if (on) {
+      this.selector.cancel();
+      this.input.setMode('menu');
+    } else if (!this.menu.isOpen) {
+      this.input.setMode('game');
+      this.input.requestLock();
+    }
+  }
+
+  // ---- Players ----
+
+  /** Another player's chat line (only the panel, never a bubble). */
+  chatLine(name: string, text: string): void {
+    this.messages.addPlayer(name, text);
+  }
+
+  /** A player pinged a spot (metres): it flashes on the minimap and in the view, and the panel says who. */
+  pinged(name: string, x: number, z: number): void {
+    this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z } });
+    this.visuals.orderMarker(new THREE.Vector3(x, this.extras.heightAt(x, z), z), 'target');
+    this.urgent.unshift({ x, z, text: `${name} pinged the map.` });
+    this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
+    this.urgentAt = -1;
+  }
+
+  private startPing(): void {
+    this.pinging = !this.pinging;
+    this.buttons.get('ping')?.setLit(this.pinging);
+    if (this.pinging) this.message('Ping: left click a spot in the view or on the minimap. Right click or Esc cancels.');
+  }
+
+  private endPing(): void {
+    this.pinging = false;
+    this.buttons.get('ping')?.setLit(false);
   }
 
   // ---- Keyboard ----
@@ -918,7 +1072,9 @@ export class GameShell {
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
       if (this.selector.dragging) this.selector.cancel();
+      else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
+      else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
       else if (this.resourcesOpen) this.toggleResources();
       else this.selection.clear();
@@ -929,6 +1085,10 @@ export class GameShell {
       return;
     }
     if (ev.repeat) return;
+    if (id === 'Enter') {
+      this.chat.open();
+      return;
+    }
     // Ctrl, Cmd and Alt combinations belong to the browser (no game control uses them).
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (this.groups.key(id, this.input.held('Backquote'), ev.shiftKey)) return;
@@ -952,6 +1112,13 @@ export class GameShell {
   private gameMouse(): MouseTarget {
     return {
       down: (button, p) => {
+        if (this.pinging) {
+          this.leftConsumed = button === Btn.Left;
+          const at = this.cam.pick(p);
+          if (button === Btn.Left && at) this.opts.session.ping(at.x, at.z);
+          this.endPing();
+          return;
+        }
         if (button === Btn.Left) {
           if (this.commands.area) {
             this.leftConsumed = true;
@@ -1015,6 +1182,11 @@ export class GameShell {
     return {
       down: (button, p) => {
         const at = groundAt(p);
+        if (this.pinging) {
+          if (button === Btn.Left) this.opts.session.ping(at.x, at.z);
+          this.endPing();
+          return;
+        }
         if (button === Btn.Left) {
           if (this.commands.targeting) {
             this.commands.confirmTarget(null, at);

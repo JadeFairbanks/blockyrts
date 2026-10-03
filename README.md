@@ -93,7 +93,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 7f42196e`. Run it again: the same hash. (The
+   prints `final step 10000 hash 9d747a1f`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -102,7 +102,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `d8d06cd5`
+   step as the headless runner with no script: for seed 1 that is `65ef6f02`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -132,9 +132,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `d8d06cd5` at step 40, with two players `23932524`. The land matches too.
+   `65ef6f02` at step 40, with two players `5782246c`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash f6a0258c`: two players dig trenches from a
+   prints `final step 10000 hash 4f2d2953`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -204,7 +204,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 91eff412`: workers chop and quarry, the Big
+   prints `final step 10000 hash 0ec502e9`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, everyone goes home at dusk and comes out at day,
    a group walks out and chops further off, and the Longhall upgrade starts.
@@ -269,7 +269,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 3a80cbfd`: the Big House crafts a club and a
+   prints `final step 10000 hash e71a5dd0`: the Big House crafts a club and a
    spear, two workers raise a gate and a softwood wall ring while two chop
    and then join them, Equip Best and Auto-Equip, the warrior holds inside
    the gate through night 0 while a debug skeleton archer and bomber come at
@@ -347,7 +347,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 13bded2d`: two workers pick flint while two
+   prints `final step 10000 hash c1031e10`: two workers pick flint while two
    chop; the warrior hunts with N twice, wears down two deer north of the
    camp, brings their meat home and walks home at dusk; a worker prospects
    (Fair); Rations goes to troops only and the workers starve until it goes
@@ -450,7 +450,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 6e70f170`: the debug tools hand out steel
+   prints `final step 10000 hash 4faee677`: the debug tools hand out steel
    gear and three clubs and put a barrow 60 m east of the Big House and a
    cave mouth 60 m west; the Big House trains three warriors; all four
    attack the barrow, the first one there falls to its giant centipede, and
@@ -603,7 +603,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash cf995e45`: the debug tools put a Magi
+   prints `final step 10000 hash 030814ea`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and steel gear for
    two warriors, and the Big House trains the second (the goblin village
    keeps wolf riders since milestone 8); the Sanctum trains a support and a
@@ -711,14 +711,14 @@ updated and still play out as they say).
    it, or to the unit that said it; **Space** jumps to the latest urgent
    message and again steps back through the last 8. Another people's line
    reaches the panel when it is said to you, or when it matters and you can
-   see the speaker. The panel shows "Chat with other players comes with
-   multiplayer" where chat will go in milestone 9.
+   see the speaker. Chat with other players came with milestone 9; playing
+   alone the chat line says there is nobody to chat with.
 9. **The look.** Once PR #42 is merged the peoples use their own models
    (people, buildings, wagons, beasts); until then their people are worker
    and warrior bodies tinted in their people's colour and their buildings
    are coloured blocks.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 41103ee6`: the debug tools put a Halfling
+    prints `final step 10000 hash ac0ceb6b`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east and the trade kit in the
     pool, and send an Elf caravan; two mercenaries are hired; the warrior
     trades 3 Copper Tokens to the village for 5 smoked fish, then a Bronze
@@ -833,7 +833,7 @@ M7 scripts were updated and still play out as they say).
    motes until their own textures arrive. Until PR #42 is merged everything
    is drawn as coloured blocks.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 2d276270`: the debug tools make the Big
+   prints `final step 10000 hash abfd874f`: the debug tools make the Big
    House a Citadel, put a Stables 20 m east, a siege kit 20 m west and a
    goblin village 80 m north; the Big House trains four warriors; the first
    warrior trains in riding and mounts a horse; an ox hauls the catapult 40 m
@@ -845,6 +845,65 @@ M7 scripts were updated and still play out as they say).
    and his first blow on a zombie is a charge that throws it back; at dawn
    he rides home, gets down, and his horse walks back to the Stables.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
+
+## How a tester checks milestone 9
+
+The build order's check for M9 is: *two players on two machines host and join
+by link, pick colours, ready and start, chat, share control and send
+resources, ping the map, pause, save, quit, and load the game back to the same
+hash; a guest who saves is asked to make an account first.* Every hash above
+changed with this milestone (each player's share mask and each unit's shared
+flag are in the hash, and production queues record who paid).
+
+1. `pnpm test` runs `packages/sim/test/m9.test.ts`: Share control letting an
+   ally move, stop and gather with your units but not build with them or
+   equip them; Send resources arriving at once; a player leaving, their resources
+   split between the rest and their units and buildings shared by everyone,
+   building on the research they had; and all of it kept through a snapshot
+   to the same hash. `packages/client/test/m9-online.test.ts` checks invite
+   codes and pasted links, the Send amounts (+10, +100, All), when the host
+   may start, the seats of a new and a loaded game, the account form, the
+   browser check, the quality presets, and a save file with its seats read
+   back.
+2. **The menu.** `pnpm dev` and open http://localhost:5173. The main menu has
+   New game, Load game, Join game, Settings, Account and Quit, with the F11
+   reminder (Ctrl + Cmd + F on a Mac) and a Full screen button. New game >
+   Play alone starts a game with first-day hints (Settings > Help turns them
+   off). `?seed=N` (and `&players=K`) still skips the menu for testers.
+3. **Two players on one machine.** Run the game server too
+   (`pnpm --filter @blockyrts/server dev`, port 8080, in memory; `pnpm dev`
+   passes `/api` and `/relay` to it). In one window: New game > Host a game
+   for friends. Copy the invite link and open it in a private window (or a
+   second browser). Pick a colour, click Ready; the host clicks Start the
+   game. Both debug panels show the same hash at the same step.
+4. **Allies, chat and pings.** Enter opens the chat line, Enter sends and Esc
+   cancels; the line shows for both, with the sender's name, and game keys do
+   nothing while typing. **[** (or Allies, top right under the resources)
+   opens the Allies panel: tick Share control and the other player can
+   select your units (ringed in your colour) and move, attack and gather with
+   them. **]** (or Send) opens Send resources: pick a player and a resource,
+   +10, +100 or All, Send; it arrives at once with a message for both.
+   **\** (or Ping) then a left click on the view or the minimap flashes the
+   spot for both players.
+5. **Pause and a missing player.** The Pause key (or ❚❚) pauses both, with a
+   banner naming who paused; again carries on. Close the guest's window: the
+   host sees "Waiting for" the guest, and after 30 s chooses Wait, Carry on
+   without them, or Save and quit. Reopening the invite link (or refreshing
+   the page during the match) rejoins the same seat.
+6. **Saving.** F10 > Save game. As a guest the account page opens first; make
+   an account and the save goes through ("Game saved"). Online only the host
+   may save. Each dawn autosaves (kept in this browser, and on the account
+   when signed in). F10 > Download a save file writes a `.sac` file. Quit,
+   then Load game lists the save: Continue (alone) or Host to continue (it
+   opens a lobby for the same players), and the game comes back at the same
+   step and hash it was saved with.
+7. **Settings.** F10 > Settings: Quality Low, Medium or High, resolution
+   scale, shadows and view distance change the look at once and never the
+   hash; three volume sliders; camera speeds; hotkeys, where the new keys
+   ([, ], \, Pause) can be rebound.
+8. `node packages/client/test-e2e/m9-online.mjs http://localhost:5173 <folder>`
+   (with both servers running) plays steps 2 to 6 in two headless browsers
+   and saves screenshots; it is not part of `pnpm test`.
 
 ## How a tester checks the balance editor
 
@@ -883,8 +942,8 @@ is what the game runs on. Its build is one self-contained HTML file.
 
 ## How a tester checks the multiplayer server (milestone 9, server side)
 
-The game screens for hosting, joining and saving come with a later client
-milestone; the server and its protocol are tested headless.
+The screens that use the server are checked in milestone 9 above; the server
+and its protocol are tested headless.
 
 1. `pnpm --filter @blockyrts/tools net:test` starts a server in memory and
    drives two simulated players through it with the real sim: the host makes

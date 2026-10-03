@@ -17,7 +17,7 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, level = 1): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Citadel', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Citadel', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
   };
 }
 
@@ -53,7 +53,7 @@ function game(): GameInfo {
     type: 'info', step: 10, pool: new Int32Array(RESOURCE_COUNT), supplyUsed: 4, supplyCap: 8, buildings: [building(20, BuildingKind.MainBase, 10)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [],
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
   };
   g.onInfo(info);
   return g;

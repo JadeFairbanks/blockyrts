@@ -160,7 +160,7 @@ function peoplesJson(ps: PeoplesState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 11;
+export const SNAPSHOT_VERSION = 12;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
