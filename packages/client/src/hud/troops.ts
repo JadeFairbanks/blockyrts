@@ -56,6 +56,7 @@ export function pickTier(b: BuildingInfo, troop: number, line: 'w' | 'a', tier: 
 }
 
 function tiersOffered(b: BuildingInfo, troop: number, w: number, a: number): boolean {
+  if (!b.troops.some((r) => r.troop === troop)) return false;
   const t = troopTiersAt(b, troop);
   return w >= t.w[0] && w <= t.w[1] && a >= t.a[0] && a <= t.a[1] && weaponPiece(troop, w) !== undefined;
 }

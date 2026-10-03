@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SFX, soundDef } from '@blockyrts/audio';
-import { BuildingKind, DAY_STEPS, DUSK_STEPS, Engine, Item, Mob, MONSTERS, NIGHT_STEPS, OrderKind, PEOPLES, PeopleUnit, Period, UnitKind, WU_PER_METRE, type HitEvent, type SimEvent } from '@blockyrts/sim';
+import { BuildingKind, DAY_STEPS, DUSK_STEPS, Engine, Mob, MONSTERS, NIGHT_STEPS, OrderKind, PEOPLES, PeopleUnit, Period, PISTOL_GEAR, RANGER_GEAR, SHIELD_GEAR, UnitKind, WU_PER_METRE, type HitEvent, type SimEvent } from '@blockyrts/sim';
 import type { AudioEngine } from '@blockyrts/audio';
 import { cue } from '../src/audio/cues.ts';
 import { GameAudio } from '../src/audio/game-audio.ts';
@@ -43,17 +43,20 @@ describe('the sound map (Audio)', () => {
     expect(hitSound('blood', unitWho(UnitKind.Mob), true)).toBe('hit_arrow');
     expect(hitSound('bone', unitWho(UnitKind.Mob), false)).toBe('hit_blunt');
     expect(hitSound('wood', { kind: 'building', owner: 0, mob: 0, ranged: 0, shield: 0, order: 0 }, false)).toBe('hit_building');
-    expect(hitSound('wood', unitWho(UnitKind.Warrior, { shield: Item.ShieldWicker }), false)).toBe('block_wood');
-    expect(hitSound('wood', unitWho(UnitKind.Warrior, { shield: Item.ShieldBronze }), false)).toBe('block_metal');
+    // Milestone 11: shields are gear ids from the kit tables; the boiled-leather targe thuds, the iron-rimmed heater rings.
+    expect(hitSound('wood', unitWho(UnitKind.Warrior, { shield: SHIELD_GEAR[2]! }), false)).toBe('block_wood');
+    expect(hitSound('wood', unitWho(UnitKind.Warrior, { shield: SHIELD_GEAR[3]! }), false)).toBe('block_metal');
     expect(hitSound('wood', null, false)).toBeNull();
     expect(hitSound('shake', unitWho(UnitKind.Worker, { order: OrderKind.Dig }), false)).toBeNull();
     expect(hitSound('blast', unitWho(UnitKind.Engine, { mob: Engine.BronzeCannon }), false)).toBe('explosion_large');
     expect(hitSound('blast', unitWho(UnitKind.Mob, { owner: MONSTERS, mob: Mob.SkeletonBomber }), false)).toBe('explosion_small');
     expect(hitSound('burst', { kind: 'building', owner: 0, mob: 0, ranged: 0, shield: 0, order: 0 }, false)).toBe('torch_snuff');
     expect(hitSound('spell', null, false)).toBe('spell_cast');
-    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: Item.MusketIron }))).toBe('shot_musket');
-    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: Item.Sling }))).toBe('shot_sling');
-    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: Item.Crossbow }))).toBe('shot_bow');
+    // A ranger's weapon by tier: 8 the musket, 1 the sling, 7 the crossbow; the brawler's pistol bangs like a musket.
+    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: RANGER_GEAR[8]! }))).toBe('shot_musket');
+    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: PISTOL_GEAR }))).toBe('shot_musket');
+    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: RANGER_GEAR[1]! }))).toBe('shot_sling');
+    expect(shotSound(unitWho(UnitKind.Warrior, { ranged: RANGER_GEAR[7]! }))).toBe('shot_bow');
     expect(shotSound(unitWho(UnitKind.Engine, { mob: Engine.IronCannon }))).toBe('shot_cannon');
     expect(deathSounds(UnitKind.Mob, MONSTERS, Mob.Zombie)).toEqual({ sound: 'death_monster', voice: null });
     expect(deathSounds(UnitKind.Worker, 0, 0)).toEqual({ sound: 'death_body', voice: 'worker' });
@@ -116,7 +119,6 @@ interface U {
   z?: number;
   order?: number;
   mob?: number;
-  torch?: number;
   shield?: number;
 }
 
@@ -131,7 +133,6 @@ function state(step: number, units: U[], hits: HitEvent[] = []): StateMessage {
     data[o + S.z] = u.z ?? 0;
     data[o + S.order] = u.order ?? OrderKind.Idle;
     data[o + S.mob] = u.mob ?? 0;
-    data[o + S.torch] = u.torch ?? 0;
     data[o + S.shield] = u.shield ?? 0;
     data[o + S.hp] = 10;
   });
@@ -139,7 +140,7 @@ function state(step: number, units: U[], hits: HitEvent[] = []): StateMessage {
 }
 
 function building(id: number, extra: Partial<BuildingInfo>): BuildingInfo {
-  return { id, owner: 0, kind: BuildingKind.TorchPost, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 40, maxHp: 40, complete: true, built: 1000, upgrading: 0, upgraded: 0, queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: '', upgradeWhy: '', products: [], shared: false, stock: [], rating: 0, herd: 0, ...extra };
+  return { id, owner: 0, kind: BuildingKind.TorchPost, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 40, maxHp: 40, complete: true, built: 1000, upgrading: 0, upgraded: 0, queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: '', upgradeWhy: '', products: [], shared: false, stock: [], rating: 0, herd: 0, troops: [], horses: 0, ...extra };
 }
 
 function info(step: number, buildings: BuildingInfo[], events: SimEvent[] = [], extra: Partial<InfoMessage> = {}): InfoMessage {
@@ -162,8 +163,8 @@ describe('the match plays every sound in the Audio list', () => {
       { id: 2, kind: UnitKind.Worker, order: OrderKind.Mine, x: 3 * M },
       { id: 3, kind: UnitKind.Worker, order: OrderKind.Dig, x: 4 * M },
       { id: 4, kind: UnitKind.Worker, order: OrderKind.Chop, x: 5 * M },
-      { id: 5, kind: UnitKind.Warrior, x: 6 * M, shield: Item.ShieldWicker },
-      { id: 6, kind: UnitKind.Warrior, x: 7 * M, shield: Item.ShieldSteelHeater },
+      { id: 5, kind: UnitKind.Warrior, x: 6 * M, shield: SHIELD_GEAR[1]! },
+      { id: 6, kind: UnitKind.Warrior, x: 7 * M, shield: SHIELD_GEAR[4]! },
     ];
     let msg = state(10, workers);
     game.onState(msg);

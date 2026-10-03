@@ -1,5 +1,5 @@
 {
- "description": "M7 check script, seed 1, one player, with night mobs: the debug tools put a Halfling village 40 m north of the Big House (faction 7), a mercenary camp 15 m east (faction 36) and the trade kit in the pool (20 silver, 6 Copper Tokens, 2 Bronze Charms, 5 gold), send an Elf caravan to the main base (faction 76), and hand out steel gear and three clubs; the Big House trains three warriors (ids 196, 282, 329) while the workers chop pines; two mercenaries are hired for 2 silver each (ids 83, 84; the camp had two); the warrior walks to the village, whose elder greets him, offers 3 Copper Tokens and takes the first bundle (5 smoked fish); he walks back to the caravan, which has stopped 15 m west of the Big House, offers a Bronze Charm and takes the second bundle (a healing remedy, 6 flax, 10 wheat and medicinal herbs); Equip Best gears the four warriors, the workers shelter in the Big House, war is declared on the village and the warriors and mercenaries attack-move into it; at war two of its spearmen ride out on its war oxen with an archer behind each (milestone 8), and when an ox falls its archer gets down; three warriors and a mercenary are killed, the last warrior fights the village's last spearman back to the Big House, then the village is defeated, the workers come out, its plunder goes into the pool (7 head of livestock, its fighters' weapons and shields, bread and bloom iron) and its people walk off; the warriors guard the Big House, Everyone Home at dusk, the mercenaries and the caravan leave at dusk; night 0 passes; on day 2 three workers break down one of the abandoned houses for 20 softwood lumber. Building 6 is the Big House. Debug peoples (debugPeoples what): 0 to 6 the faction kinds (0 Halfling village, 6 mercenary camp), 7 an Elf caravan to the player now, 9 the trade kit. Goods are resource numbers (74 Copper Token, 83 Bronze Charm). Moves are world units (8,000 per metre).",
+ "description": "M7 check script, seed 1, one player, with night mobs: the debug tools put a Halfling village 40 m north of the Big House (faction 9), a mercenary camp 15 m east (faction 38) and the trade kit in the pool (20 silver, 6 Copper Tokens, 2 Bronze Charms, 5 gold), send an Elf caravan to the main base (faction 85), and put a troop kit (a Barracks, building 43, a level 4 forge, the materials and research of every tier) 20 m west; the Barracks trains a ranger with wrought-iron arrowheads (troop product 4446; id 262) and starting warriors 5 and 6 press Upgrade Weapon Max and Upgrade Armour Max (Troops and gear) while the workers chop pines; two mercenaries are hired for 2 silver each (ids 92, 93; the camp had two); starting warrior 7 walks to the village, whose elder greets him, offers 3 Copper Tokens and takes the first bundle (5 smoked fish); he walks back to the caravan, which has stopped 15 m west of the Big House, offers a Bronze Charm and takes the second bundle, then upgrades his weapon (Max); the workers shelter in the Big House, war is declared on the village and the warriors, the ranger and the mercenaries attack-move into it; at war two of its spearmen ride out on its war oxen with an archer behind each (milestone 8), and when an ox falls its archer gets down; most of the warriors and a mercenary are killed, then the village is defeated, the workers come out, its plunder goes into the pool (7 head of livestock, bread and wrought iron) and its people walk off; the survivors guard the Big House, Everyone Home at dusk, the mercenaries and the caravan leave at dusk; night 0 passes; on day 2 three workers break down the village's abandoned barn (id 12) for 20 softwood lumber. Building 8 is the Big House. Debug peoples (debugPeoples what): 0 to 6 the faction kinds (0 Halfling village, 6 mercenary camp), 7 an Elf caravan to the player now, 9 the trade kit; debug threat 54 the troop kit. Goods are resource numbers (74 Copper Token, 83 Bronze Charm). Products: 4096 + troop x 100 + weapon tier x 10 + armour tier. Moves are world units (8,000 per metre).",
  "players": 1,
  "frames": [
   {
@@ -34,34 +34,11 @@
      "z": 0
     },
     {
-     "kind": "debugGive",
+     "kind": "debugThreat",
      "player": 0,
-     "item": 42,
-     "count": 4
-    },
-    {
-     "kind": "debugGive",
-     "player": 0,
-     "item": 71,
-     "count": 4
-    },
-    {
-     "kind": "debugGive",
-     "player": 0,
-     "item": 75,
-     "count": 4
-    },
-    {
-     "kind": "debugGive",
-     "player": 0,
-     "item": 79,
-     "count": 4
-    },
-    {
-     "kind": "debugGive",
-     "player": 0,
-     "item": 3,
-     "count": 3
+     "what": 54,
+     "x": -160000,
+     "z": 40000
     }
    ]
   },
@@ -84,9 +61,29 @@
     {
      "kind": "produce",
      "player": 0,
-     "building": 6,
-     "product": 3,
-     "count": 3
+     "building": 43,
+     "product": 4446,
+     "count": 1
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "line": 0,
+     "max": 1
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "line": 1,
+     "max": 1
     }
    ]
   },
@@ -96,7 +93,7 @@
     {
      "kind": "hire",
      "player": 0,
-     "faction": 36,
+     "faction": 38,
      "count": 3
     }
    ]
@@ -108,7 +105,7 @@
      "kind": "move",
      "player": 0,
      "units": [
-      5
+      7
      ],
      "x": 0,
      "z": -224000
@@ -121,7 +118,7 @@
     {
      "kind": "tradeOffer",
      "player": 0,
-     "faction": 7,
+     "faction": 9,
      "goods": [
       74,
       3
@@ -135,7 +132,7 @@
     {
      "kind": "tradeTake",
      "player": 0,
-     "faction": 7,
+     "faction": 9,
      "bundle": 0
     }
    ]
@@ -147,7 +144,7 @@
      "kind": "move",
      "player": 0,
      "units": [
-      5
+      7
      ],
      "x": -80000,
      "z": 56000
@@ -160,7 +157,7 @@
     {
      "kind": "tradeOffer",
      "player": 0,
-     "faction": 76,
+     "faction": 85,
      "goods": [
       83,
       1
@@ -174,23 +171,17 @@
     {
      "kind": "tradeTake",
      "player": 0,
-     "faction": 76,
+     "faction": 85,
      "bundle": 1
-    }
-   ]
-  },
-  {
-   "step": 2710,
-   "orders": [
+    },
     {
-     "kind": "equipBest",
+     "kind": "upgradeKit",
      "player": 0,
      "units": [
-      5,
-      196,
-      282,
-      329
-     ]
+      7
+     ],
+     "line": 0,
+     "max": 1
     }
    ]
   },
@@ -206,23 +197,23 @@
       3,
       4
      ],
-     "building": 6
+     "building": 8
     },
     {
      "kind": "declareWar",
      "player": 0,
-     "faction": 7
+     "faction": 9
     },
     {
      "kind": "attackMove",
      "player": 0,
      "units": [
       5,
-      196,
-      282,
-      329,
-      83,
-      84
+      6,
+      7,
+      92,
+      93,
+      262
      ],
      "x": 0,
      "z": -320000
@@ -237,9 +228,9 @@
      "player": 0,
      "units": [
       5,
-      196,
-      282,
-      329
+      6,
+      7,
+      262
      ],
      "x": 0,
      "z": 24000
@@ -252,7 +243,7 @@
     {
      "kind": "unload",
      "player": 0,
-     "building": 6,
+     "building": 8,
      "unit": 0
     }
    ]
@@ -277,7 +268,7 @@
       3,
       4
      ],
-     "target": 10
+     "target": 12
     }
    ]
   }

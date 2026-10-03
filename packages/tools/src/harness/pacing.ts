@@ -26,9 +26,11 @@ import {
   DUSK_STEPS,
   FACILITY_UPKEEP,
   FARM_TIER_PER_MILLE,
-  Item,
-  itemSpec,
+  ARMOUR_KITS,
+  CLOSE_KITS,
   levelSpec,
+  mainCost,
+  piecesTime,
   PLANK_STEPS,
   PROPS,
   RECIPES,
@@ -36,9 +38,13 @@ import {
   RESEARCH,
   Research,
   RESOURCES,
+  RANGER_KITS,
   buildingSpec,
   STEPS_PER_SECOND,
+  troopPieces,
+  Troop,
   type Cost,
+  type Piece,
 } from '@blockyrts/sim';
 
 /** A walk to the node and back with each load: 30 m out (s; the doc's pacing check uses 20 s). */
@@ -52,8 +58,8 @@ const FAR_S: Partial<Record<number, number>> = {
   [Res.Sulphur]: 600,
   [Res.Coal]: 40,
 };
-/** Things with no node or recipe to time them by (s): vein iron from a ridge seam or a mineshaft (about 60 s a load of 5 with the walk), a hide from a hunt. */
-const FIXED_S: Partial<Record<number, number>> = { [Res.VeinIron]: 12, [Res.Hides]: 40 };
+/** Things with no node or recipe to time them by (s): vein iron from a ridge seam or a mineshaft (about 60 s a load of 5 with the walk), a hide from a hunt, a feather from a hunted goose or pheasant (2 a bird). */
+const FIXED_S: Partial<Record<number, number>> = { [Res.VeinIron]: 12, [Res.Hides]: 40, [Res.Feathers]: 20 };
 
 /** Worker-seconds per working day: the day, dusk and dawn (workers shelter at night). */
 export const WORK_S_PER_DAY = (DAY_STEPS + DUSK_STEPS + DAWN_STEPS) / STEPS_PER_SECOND;
@@ -112,8 +118,8 @@ function costOf(c: Cost, unit: (res: number) => number): number {
   return s;
 }
 
-/** One rung: a building level, a research step, or kits made. */
-type Rung = { building: number; level: number } | { research: number } | { item: number; count: number };
+/** One rung: a building level, a research step, or kits made (Troops and gear: the pieces of a kit, made for so many troops). */
+type Rung = { building: number; level: number } | { research: number } | { pieces: readonly Piece[]; count: number };
 
 /** A tier the pacing check times: its target nights (Balance notes) and the ladder up to it. */
 export interface Tier {
@@ -125,27 +131,30 @@ export interface Tier {
 
 const B = (building: number, level: number): Rung => ({ building, level });
 const R = (research: number): Rung => ({ research });
-const K = (item: number, count: number): Rung => ({ item, count });
+const K = (pieces: readonly Piece[], count: number): Rung => ({ pieces, count });
 /** Main base levels 2 to n (the Big House is level 1 and comes with the start). */
 const base = (n: number): Rung[] => Array.from({ length: n - 1 }, (_, k) => B(BuildingKind.MainBase, k + 2));
 
 /** The ladder (only its structure; every cost, time and rate comes from the sim). Each tier includes the ones before. */
 export const TIERS: readonly Tier[] = [
   {
+    // Close melee in bronze: the shortsword, bronze scale and the targe that comes with it.
     name: 'Bronze', target: [4, 6],
-    rungs: [B(BuildingKind.Forge, 1), B(BuildingKind.ScholarsLodge, 1), R(Research.Bronze), K(Item.SwordBronze, 5), K(Item.ArmourBronzeScale, 5), K(Item.ShieldBronze, 5)],
+    rungs: [B(BuildingKind.Forge, 1), B(BuildingKind.ScholarsLodge, 1), R(Research.Bronze), K(troopPieces(Troop.Close, 4, 4), 5)],
   },
   {
-    name: 'Wrought iron, crossbows and mail', target: [13, 18],
-    rungs: [...base(5), B(BuildingKind.Kiln, 1), B(BuildingKind.Forge, 2), B(BuildingKind.Forge, 3), R(Research.Crossbows), K(Item.Crossbow, 4), K(Item.MailWrought, 10)],
+    // Rangers with wrought-iron arrowheads, and wrought-iron mail (the crossbow is steel now, tier 7).
+    name: 'Wrought iron and mail', target: [13, 18],
+    rungs: [...base(5), B(BuildingKind.Kiln, 1), B(BuildingKind.Forge, 2), B(BuildingKind.Forge, 3), K([RANGER_KITS[5]!], 4), K([ARMOUR_KITS[5]!], 10)],
   },
   {
-    name: 'Steel', target: [25, 30],
-    rungs: [B(BuildingKind.MainBase, 6), B(BuildingKind.MainBase, 7), B(BuildingKind.Forge, 4), R(Research.Steel), K(Item.SwordSteel, 8)],
+    name: 'Steel and crossbows', target: [25, 30],
+    rungs: [B(BuildingKind.MainBase, 6), B(BuildingKind.MainBase, 7), B(BuildingKind.Forge, 4), R(Research.Steel), R(Research.Crossbows), K([CLOSE_KITS[7]!], 8), K([RANGER_KITS[7]!], 4)],
   },
   {
+    // The musket is a carbon-steel ranger kit (tier 8).
     name: 'Muskets and cannons', target: [40, 48],
-    rungs: [B(BuildingKind.PowderMill, 1), B(BuildingKind.MainBase, 8), B(BuildingKind.Foundry, 1), B(BuildingKind.GunneryYard, 1), R(Research.Gunpowder), R(Research.Muskets), R(Research.Cannons), K(Item.MusketSteel, 8)],
+    rungs: [B(BuildingKind.PowderMill, 1), B(BuildingKind.MainBase, 8), B(BuildingKind.Foundry, 1), B(BuildingKind.GunneryYard, 1), R(Research.CarbonSteel), R(Research.Gunpowder), R(Research.Muskets), R(Research.Cannons), K([RANGER_KITS[8]!], 8)],
   },
 ];
 
@@ -184,9 +193,8 @@ export function pacingCheck(a: PacingAssumptions = DEFAULT_ASSUMPTIONS): TierRow
         researchS += sec(spec.steps);
         materialS += costOf(spec.cost, unit);
       } else {
-        const it = itemSpec(r.item);
-        const recipe = it.recipes[0] ?? [];
-        materialS += r.count * (costOf(recipe, unit) + sec(it.steps)) / Math.max(1, it.makes);
+        // A kit's main way of paying and its time to make, once per troop.
+        materialS += r.count * (costOf(mainCost(r.pieces), unit) + piecesTime(r.pieces));
       }
     }
     if (!Number.isFinite(buildS + materialS)) throw new Error(`pacing: a cost on the ${t.name} ladder cannot be made from anything`);

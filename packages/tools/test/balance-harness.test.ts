@@ -19,7 +19,7 @@ describe('balance harness', () => {
     expect(s).toMatchObject({ supplyCap: 130, supplyUsed: 105, nutritionPerDay: 210, farmersNeeded: 7, ok: true });
   });
 
-  it('runs night 0 against its fixture: the fence holds and the warrior lives', () => {
+  it('runs night 0 against its fixture: the fence holds and the warriors live (the three starting cudgels and a spear)', () => {
     const r = runNight(1, 0);
     expect(r.night).toBe(0);
     expect(r.mobs).toBeGreaterThanOrEqual(10);

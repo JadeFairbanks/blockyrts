@@ -4,13 +4,15 @@ A co-op browser RTS survival game: build by day, hold the walls by night, and
 see how many nights you last. The design spec is [docs/blueprint.md](docs/blueprint.md),
 a copy of the canonical blueprint document.
 
-The build order's milestones 0 to 6 are in: the deterministic sim and its
+The build order's milestones 0 to 11 are in: the deterministic sim and its
 tools, the generated world with the camera, HUD and minimap, workers and
-building, warriors, combat and the nights, the economy (items, research,
-smelting, food, animals, mining), the threats beyond the nights (lairs,
-blood and fog nights, tribes, goblin villages, creatures) and the mages with
-their ten spells. Each milestone's checks are below; neutral peoples come in
-milestone 7.
+building, warriors, combat and the nights, the economy (research, smelting,
+food, animals, mining), the threats beyond the nights (lairs, blood and fog
+nights, tribes, goblin villages, creatures), the mages with their ten
+spells, the neutral peoples, the Stables and siege, the menus and online
+play, audio and the balance pass, and the troop rework (five troop types
+trained at their tier, weapon and armour upgrades, no items). Each
+milestone's checks are below.
 
 ## Setup
 
@@ -95,7 +97,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 9d747a1f`. Run it again: the same hash. (The
+   prints `final step 10000 hash 5d423a09`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -104,7 +106,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `65ef6f02`
+   step as the headless runner with no script: for seed 1 that is `ea86b10e`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -134,9 +136,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `65ef6f02` at step 40, with two players `5782246c`. The land matches too.
+   `ea86b10e` at step 40, with two players `fa616a90`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 4f2d2953`: two players dig trenches from a
+   prints `final step 10000 hash 63fc3bd8`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -206,10 +208,12 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 0ec502e9`: workers chop and quarry, the Big
+   prints `final step 10000 hash 170958b8`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
-   post go up, farmers farm, everyone goes home at dusk and comes out at day,
-   a group walks out and chops further off, and the Longhall upgrade starts.
+   post go up, farmers farm, the choppers move on to more pines when their
+   first trees fall, everyone goes home at dusk and comes out at day, a group
+   walks out and chops further off, and the Longhall upgrade starts. The
+   three starting warriors stay home.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 3
@@ -271,13 +275,15 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash e71a5dd0`: the Big House crafts a club and a
-   spear, two workers raise a gate and a softwood wall ring while two chop
-   and then join them, Equip Best and Auto-Equip, the warrior holds inside
-   the gate through night 0 while a debug skeleton archer and bomber come at
-   the camp (the warrior falls and some columns are broken, but the Big House
-   and all four workers come through), then at
-   dawn the workers dig a trench and heap an earth bank from its Earth.
+   prints `final step 10000 hash 7512564e`: two workers raise a gate and a
+   softwood wall ring while two chop and then join them; the Big House
+   trains a long-melee spearman and the three starting warriors walk to it
+   to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
+   11); they hold inside the gate through night 0 while a debug skeleton
+   archer and bomber come at the camp (the spearman comes through, the
+   axemen fall and some columns are broken, but the Big House and all four
+   workers come through), then at dawn the workers dig a trench and heap an
+   earth bank from its Earth.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 4
@@ -349,14 +355,14 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash c1031e10`: two workers pick flint while two
-   chop; the warrior hunts with N twice, wears down two deer north of the
-   camp, brings their meat home and walks home at dusk; a worker prospects
-   (Fair); Rations goes to troops only and the workers starve until it goes
-   back; eggs are kept back with Don't eat; a Scholar's Lodge goes up; at
-   night the Big House makes a flint axe and knife (no research), then a
-   sling and a fishing rod from wild flax, and Equip Best hands the warrior
-   the sling and a chopper the flint axe and knife.
+   prints `final step 10000 hash 6545388f`: two workers pick flint while two
+   chop; a starting warrior hunts with N double-tapped, wears down the deer
+   north of the camp with its cudgel, brings the meat home and walks home at
+   dusk; a worker prospects (Fair); Rations goes to troops only and the
+   workers starve until it goes back; eggs are kept back with Don't eat; a
+   Scholar's Lodge goes up; at night the Big House trains a ranger with a
+   leather sling paid in flax, and at dawn the choppers upgrade their
+   hardwood tools to stone and flint (Upgrade Tools, milestone 11).
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 5
@@ -452,16 +458,16 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 4faee677`: the debug tools hand out steel
-   gear and three clubs and put a barrow 60 m east of the Big House and a
-   cave mouth 60 m west; the Big House trains three warriors; all four
-   attack the barrow, the first one there falls to its giant centipede, and
-   the other three wake its zombies, break it, take its hoard and earn 20 XP
-   each; fog rolls in for night 0 and the warriors guard the Big House; at
-   dawn a goblin village goes up 80 m north, a gnoll band to the south-east
-   and a giant beetle to the north-west; the warriors attack the village,
-   which declares war on the fifth kill; its wolf riders take two of them
-   and the last walks home; then a blood night is
+   prints `final step 10000 hash 7cd1640a`: the debug tools put a Barracks
+   and a level 4 forge 44 m north with the stock for every tier (Troop kit),
+   a barrow 60 m east of the Big House and a cave mouth 60 m west; the
+   Barracks trains a crossbow ranger while the three starting warriors
+   press Upgrade Weapon Max and Upgrade Armour Max and come back in carbon
+   steel and steel; the four wake the barrow's dwellers, break it, take its
+   hoard and earn XP; fog rolls in for night 0 and they guard the Big House;
+   at dawn a goblin village goes up 80 m north, a gnoll band to the
+   south-east and a giant beetle to the north-west; they attack the village,
+   which declares war on the fifth kill, and walk home; then a blood night is
    called for night 1. `pnpm test` runs it in Node, Chromium, Firefox and
    WebKit too. `node packages/client/test-e2e/m5-look.mjs` (with the dev
    server on port 5198) takes screenshots of the debug threats in a browser.
@@ -605,18 +611,18 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 030814ea`: the debug tools put a Magi
-   Sanctum by the Big House, the mage kit in the stock and steel gear for
-   two warriors, and the Big House trains the second (the goblin village
-   keeps wolf riders since milestone 8); the Sanctum trains a support and a
-   battle mage and researches
-   Hexcraft, and both train to Acolyte; in night 0 the support mage quickens
-   the warrior, wards the crowd and heals while the battle mage beams and
-   bolts the monsters; at dawn Mage XP takes both to Adept Acolyte and then
-   to Mage with their rank wands; at a goblin village 80 m north the
-   warriors and the battle mage attack while the support mage follows,
-   Rally, Fireball, Fortify and Area blast are cast, the battle mage counters
-   the goblin mage, and all four walk home. All ten spells land.
+   prints `final step 10000 hash 33b6766e`: the debug tools put a Magi
+   Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
+   west, and two starting warriors upgrade to carbon steel and steel (Max);
+   the Sanctum trains a support and a battle mage and researches Hexcraft,
+   and both train to Acolyte; in night 0 the support mage quickens the
+   warrior, wards the crowd and heals while the battle mage beams and bolts
+   the monsters; at dawn Mage XP takes both to Adept Acolyte and then to
+   Mage, paying 2 mana crystals each (milestone 11: no rank wands); at a
+   goblin village 80 m north the warriors and the battle mage attack while
+   the support mage follows, Rally, Fireball, Fortify and Area blast are
+   cast, the battle mage counters the goblin mage, and all four walk home.
+   All ten spells land.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 7
@@ -720,18 +726,19 @@ updated and still play out as they say).
    and warrior bodies tinted in their people's colour and their buildings
    are coloured blocks.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash ac0ceb6b`: the debug tools put a Halfling
-    village 40 m north, a mercenary camp 15 m east and the trade kit in the
-    pool, and send an Elf caravan; two mercenaries are hired; the warrior
-    trades 3 Copper Tokens to the village for 5 smoked fish, then a Bronze
-    Charm to the caravan for a healing remedy, flax, wheat and herbs; the Big
-    House trains three warriors, Equip Best gears them, the workers shelter
-    in the Big House, war is declared on the village and the warriors and
-    mercenaries take it (since milestone 8 two of its spearmen ride out on
-    war oxen with an archer behind each, and three warriors and a mercenary
-    fall), the workers come out, and its plunder comes in; the mercenaries and the
-    caravan leave at dusk; on day 2 three workers break down one of the
-    abandoned houses for 20 softwood lumber. `pnpm test` runs it in Node,
+    prints `final step 10000 hash ded288d9`: the debug tools put a Halfling
+    village 40 m north, a mercenary camp 15 m east, the trade kit in the
+    pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
+    trains a ranger with wrought-iron arrowheads and two starting warriors
+    upgrade to the best; two mercenaries are hired; the third warrior trades
+    3 Copper Tokens to the village for 5 smoked fish, then a Bronze Charm to
+    the caravan; the workers shelter in the Big House, war is declared on
+    the village and the troops and mercenaries take it (two of its spearmen
+    ride out on war oxen with an archer behind each, and most of the troops
+    and a mercenary fall), the workers come out, and its plunder comes in
+    (livestock, bread and wrought iron); the mercenaries and the caravan
+    leave at dusk; on day 2 three workers break down the village's abandoned
+    barn for 20 softwood lumber. `pnpm test` runs it in Node,
     Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 8
@@ -835,17 +842,18 @@ M7 scripts were updated and still play out as they say).
    motes until their own textures arrive. Until PR #42 is merged everything
    is drawn as coloured blocks.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash abfd874f`: the debug tools make the Big
-   House a Citadel, put a Stables 20 m east, a siege kit 20 m west and a
-   goblin village 80 m north; the Big House trains four warriors; the first
-   warrior trains in riding and mounts a horse; an ox hauls the catapult 40 m
-   north and a horse hauls the bronze cannon up into a Citadel port; at dusk
-   the gun kit trains the warriors, two crew the cannon in its port and two
-   crew the catapult, which breaks the goblin huts until the village goes to
-   war, and its crew fight off the goblins that reach it; through night 0
-   the port cannon fires at the night mobs, and the rider gallops at them
-   and his first blow on a zombie is a charge that throws it back; at dawn
-   he rides home, gets down, and his horse walks back to the Stables.
+   prints `final step 10000 hash 06dabf32`: the debug tools make the Big
+   House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
+   village 80 m north and a troop kit to the south-east; the Big House
+   trains a long-melee spearman and the Stables a bronze cavalry rider, who
+   uses up a horse from its stalls and comes out mounted (milestone 11); an
+   ox hauls the catapult 40 m north and a horse hauls the bronze cannon up
+   into a Citadel port; at dusk the gun kit trains the warriors, two crew
+   the cannon in its port and two crew the catapult, which breaks the goblin
+   huts until the village goes to war, and its crew fight off the goblins
+   that reach it; through night 0 the port cannon fires at the night mobs,
+   and the rider gallops at them and his first blow on a zombie is a charge
+   that throws it back; at dawn he rides home to the Stables.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 9
@@ -956,6 +964,62 @@ against it step by step).
    F10 menu, Tab and Enter work. `node packages/client/test-e2e/hud-check.mjs
    http://localhost:5173 <folder>` runs the milestone 1 controls check again
    (brought up to date).
+
+## How a tester checks milestone 11
+
+The check for M11 is the docx section *Troops and gear (agreed 2026-10-03)*:
+*there are no items; a Barracks trains close melee, long melee, rangers and
+brawlers at the weapon and armour tiers picked in its panel, the Stables
+trains cavalry on a tamed horse, units upgrade their weapon and armour at a
+Forge, Barracks or main base, long melee hits 30% harder at the edge of its
+reach, and the Forge only smelts.* Every hash above changed with this
+milestone (troop types and tiers replace the item slots, the start has three
+warriors, and the item stock is gone), and each script still plays out as its
+description says. The equipment steps in the milestone 3, 4, 6 and 8 sections
+(Equip Best, the I panel, Auto-Equip, crafting and refurbishing, riding
+training) are history: what replaced them is below. Saves from before this
+milestone are refused with a message saying why.
+
+1. `pnpm test` runs the troop checks in `packages/sim/test/m3.test.ts` and
+   `m4.test.ts` (training each type and tier and what it pays, the main base
+   limited to tier 1, Upgrade and Upgrade Max walking to a Forge, no minimum
+   range and the +30% at the outer third of a spear's reach, the worker's
+   cart, the smelting-only Forge), `m8.test.ts` (cavalry at the Stables using
+   up a horse, musket rangers after Gunpowder and Muskets), `m6.test.ts`
+   (wand and robe tiers, rank-ups paying mana crystals), `tables.test.ts`
+   (every kit table) and `packages/client/test` (the panel's picks and
+   reasons, the Max twins, an old save refused).
+2. **The start.** `pnpm dev`, open http://localhost:5173/?seed=1. Four
+   workers and three warriors with hardwood cudgels stand by the Big House.
+   Select a warrior: the panel reads "Close melee (Recruit)", its cudgel, no
+   armour, weapon tier 1 and armour tier 0.
+3. **The troop panel.** On the debug bar press **Troop kit**: a Barracks and
+   a Steelworks appear in the middle of the view with the stock for every tier
+   (press **Citadel** too for the supply). Select the Barracks: one row per type (Close, Long,
+   Ranger, Brawler) with a picture button, a weapon dropdown and an armour
+   dropdown with drawn icons tinted by material, a Lock, and the cost line
+   under it. Open a dropdown: each tier with its icon, red where the stock is
+   short, greyed with what it needs (a forge level or research). Pick one,
+   click the picture: it queues; Shift + click queues five. Tick Lock and the
+   building keeps that kit as the stock changes. The card's A, Q, N and B do
+   the same as the pictures. The Big House shows the same panel at tier 1 and
+   below; the Stables shows cavalry with the tamed horses in its stalls.
+4. **Upgrades.** Select warriors: Q Upgrade weapon and X Upgrade armour on the
+   card; Z and V (Max) show only when they would go further. Press Q: each
+   walks to the nearest Forge, Barracks or main base saying where it is going,
+   stands beside it while a bar fills, and says what it got. Workers have Q
+   (tools), X (fetch a cart or hand it back) and U (rank); mages Q (wand) and
+   X (robe), pressed twice for the best.
+5. **Long melee.** Train a long-melee troop and let a monster close in: it
+   keeps fighting point-blank (no backing off, no backup weapon), and hits at
+   the edge of its reach land 30% harder.
+6. **Smelting and birds.** A Forge's K menu lists only smelting at its level:
+   copper, tin and bronze at a Casting Hearth, wrought iron at a Bloomery,
+   pig iron and iron at an Ironworks, steel and carbon steel at a Steelworks.
+   Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
+   meat and feathers, which bow and crossbow rangers need.
+7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
+   prints `final step 10000 hash 06dabf32`, as in milestone 8 above.
 
 ## How a tester checks the balance editor
 

@@ -13,6 +13,7 @@ import {
   addEngine,
   addMage,
   addWarrior,
+  applyKit,
   Band,
   Blocked,
   BuildingKind,
@@ -25,8 +26,7 @@ import {
   DUSK_STEPS,
   Engine,
   floorDiv,
-  Item,
-  itemSpec,
+  gearSpec,
   maxHealth,
   OVER_WALL_REACH,
   Mob,
@@ -42,10 +42,12 @@ import {
   Research,
   School,
   setMageRank,
+  Shot,
   Skill,
   standY,
   startBlood,
   step,
+  Troop,
   UnitKind,
   WARRIOR_HEALTH_BY_RANK,
   WU_PER_COLUMN,
@@ -55,20 +57,12 @@ import {
   type SimState,
 } from '@blockyrts/sim';
 
-/** A warrior's kit: what is in each slot. */
+/** A troop's kit (Troops and gear): its type, weapon and armour tiers, and whether it is trained to crew a cannon. */
 export interface Kit {
+  troop: number;
   weapon: number;
-  backup?: number;
-  shield?: number;
-  armour?: number;
-  helmet?: number;
-  ranged?: number;
-  /** Bolt case or powder horn, and the shot pouch. */
-  boltCase?: number;
-  kit?: number;
-  /** Arrows or bolts loaded. */
-  ammoItem?: number;
-  skills?: number;
+  armour: number;
+  cannon?: boolean;
 }
 
 /** The defence the Balance notes set against a night (s, from "Wave versus a reasonable defence"). */
@@ -95,23 +89,28 @@ export interface Defence {
   note: string;
 }
 
-const FLINT_SPEAR: Kit = { weapon: Item.SpearFlint, backup: Item.Club };
-const BRONZE_SWORD: Kit = { weapon: Item.SwordBronze, shield: Item.ShieldBronze, armour: Item.ArmourBronzeScale, helmet: Item.HelmetBronze };
-const BRONZE_SPEAR: Kit = { weapon: Item.SpearBronze, armour: Item.ArmourBronzeScale, helmet: Item.HelmetBronze };
-const WROUGHT_SWORD: Kit = { weapon: Item.SwordWrought, shield: Item.ShieldIronKite, armour: Item.MailWrought, helmet: Item.HelmetNasal };
-const WROUGHT_HALBERD: Kit = { weapon: Item.HalberdWrought, armour: Item.MailWrought, helmet: Item.HelmetNasal };
-const STEEL_SWORD: Kit = { weapon: Item.SwordHQ, shield: Item.ShieldSteelHeater, armour: Item.PlateHQ, helmet: Item.SalletSteel };
-const STEEL_HALBERD: Kit = { weapon: Item.HalberdHQ, armour: Item.PlateHQ, helmet: Item.SalletSteel };
-const CROSSBOW: Kit = { weapon: Item.SwordWrought, armour: Item.MailWrought, helmet: Item.HelmetNasal, ranged: Item.Crossbow, boltCase: Item.BoltCase, ammoItem: Item.BoltsWrought, skills: Skill.Crossbow };
-const STEEL_CROSSBOW: Kit = { weapon: Item.SwordSteel, armour: Item.PlateSteel, helmet: Item.SalletSteel, ranged: Item.CrossbowSteel, boltCase: Item.BoltCase, ammoItem: Item.BoltsHQ, skills: Skill.Crossbow };
-const MUSKET: Kit = { weapon: Item.SwordSteel, armour: Item.PlateSteel, helmet: Item.SalletSteel, ranged: Item.MusketSteel, boltCase: Item.PowderHorn, kit: Item.ShotPouch, skills: Skill.Musket | Skill.Cannon };
+// The Balance notes' kits as troop types and tiers (Troops and gear; the notes were written with the old items:
+// flint spear, bronze, wrought iron and mail, high-quality steel, which is carbon steel, tier 8, now).
+const CUDGEL: Kit = { troop: Troop.Close, weapon: 1, armour: 0 };
+/** Night 0's spear, to stab over the fence: long melee tier 1, which the Big House trains (the notes' flint spear is tier 2). */
+const HARDWOOD_SPEAR: Kit = { troop: Troop.Long, weapon: 1, armour: 0 };
+const BRONZE_SWORD: Kit = { troop: Troop.Close, weapon: 4, armour: 4 };
+const BRONZE_SPEAR: Kit = { troop: Troop.Long, weapon: 4, armour: 4 };
+const WROUGHT_SWORD: Kit = { troop: Troop.Close, weapon: 5, armour: 5 };
+const WROUGHT_SPEAR: Kit = { troop: Troop.Long, weapon: 5, armour: 5 };
+const STEEL_SWORD: Kit = { troop: Troop.Close, weapon: 8, armour: 8 };
+const STEEL_HALBERD: Kit = { troop: Troop.Long, weapon: 8, armour: 8 };
+/** Night 20's archers: the crossbow is steel (ranger tier 7) now, so wrought-iron arrowheads on a recurve bow. */
+const WROUGHT_BOW: Kit = { troop: Troop.Ranger, weapon: 5, armour: 5 };
+const CROSSBOW: Kit = { troop: Troop.Ranger, weapon: 7, armour: 7 };
+const MUSKET: Kit = { troop: Troop.Ranger, weapon: 8, armour: 7, cannon: true };
 
 /** The Balance notes' reasonable defence for each checked night (s). */
 export const DEFENCES: readonly Defence[] = [
   {
-    night: 0, baseLevel: 1, wall: BuildingKind.Wall, tower: 0, pad: 4, melee: [[1, FLINT_SPEAR]], rank: 1, ranged: [],
+    night: 0, baseLevel: 1, wall: BuildingKind.Wall, tower: 0, pad: 4, melee: [[3, CUDGEL], [1, HARDWOOD_SPEAR]], rank: 1, ranged: [],
     mages: { support: 0, battle: 0, rank: 1 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: true,
-    note: '1 warrior (flint spear), 4 workers, softwood fence',
+    note: 'the 3 starting warriors (hardwood cudgels), 1 fire-hardened spear trained at the Big House, 4 workers, softwood fence',
   },
   {
     night: 10, baseLevel: 3, wall: BuildingKind.WallHardwood, tower: 0, pad: 4, melee: [[3, BRONZE_SWORD], [3, BRONZE_SPEAR]], rank: 2, ranged: [],
@@ -119,24 +118,24 @@ export const DEFENCES: readonly Defence[] = [
     note: '6 warriors in bronze behind a hardwood fence',
   },
   {
-    night: 20, baseLevel: 5, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 5, melee: [[5, WROUGHT_SWORD], [5, WROUGHT_HALBERD]], rank: 2,
-    ranged: [[4, CROSSBOW]], mages: { support: 0, battle: 0, rank: 1 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
-    note: '10 warriors in wrought iron and mail, 4 crossbows, the first stone walls',
+    night: 20, baseLevel: 5, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 5, melee: [[5, WROUGHT_SWORD], [5, WROUGHT_SPEAR]], rank: 2,
+    ranged: [[4, WROUGHT_BOW]], mages: { support: 0, battle: 0, rank: 1 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
+    note: '10 warriors in wrought iron and mail, 4 rangers (wrought-iron arrowheads), the first stone walls',
   },
   {
     night: 40, baseLevel: 7, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 6, melee: [[8, STEEL_SWORD], [8, STEEL_HALBERD]], rank: 3,
-    ranged: [[8, STEEL_CROSSBOW]], mages: { support: 1, battle: 2, rank: 3 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
+    ranged: [[8, CROSSBOW]], mages: { support: 1, battle: 2, rank: 3 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
     note: '16 steel warriors, 8 crossbows, 3 mages, stone walls',
   },
   {
     night: 60, baseLevel: 9, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 7, melee: [[12, STEEL_SWORD], [13, STEEL_HALBERD]], rank: 4,
     ranged: [[8, MUSKET]], mages: { support: 2, battle: 2, rank: 4 }, cannons: { kind: Engine.IronCannon, count: 2, ports: false }, workersFight: false,
-    note: '25 HQ steel warriors, 8 muskets, 2 cannons, 4 mages, stone walls',
+    note: '25 carbon steel warriors, 8 muskets, 2 cannons, 4 mages, stone walls',
   },
   {
     night: 80, baseLevel: 10, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 8, melee: [[15, STEEL_SWORD], [15, STEEL_HALBERD]], rank: 4,
     ranged: [[15, MUSKET]], mages: { support: 2, battle: 4, rank: 5 }, cannons: { kind: Engine.IronCannon, count: 4, ports: true }, workersFight: false,
-    note: '30 HQ steel warriors at Elite, 15 muskets, 4 cannons in the Citadel ports, 6 mages',
+    note: '30 carbon steel warriors at Elite, 15 muskets, 4 cannons in the Citadel ports, 6 mages',
   },
   {
     night: 110, baseLevel: 10, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 8, melee: [[15, STEEL_SWORD], [15, STEEL_HALBERD]], rank: 5,
@@ -178,8 +177,9 @@ export interface NightRow {
   /** Morvath (night 110): killed in the night, and his health left at dawn (per mille). */
   bossKilled: boolean;
   bossHpPm: number;
-  /** What the night used up: crossbow bolts, musket shots, cannon shots, and gunpowder from the stock (units of 10 charges). */
-  boltsSpent: number;
+  /** What the night used: arrows, crossbow bolts and musket balls shot (ammunition is unlimited, Troops and gear), cannon shots, and gunpowder from the stock (units of 10 charges). */
+  arrowsShot: number;
+  boltsShot: number;
   musketShots: number;
   cannonShots: number;
   gunpowderUsed: number;
@@ -218,7 +218,7 @@ const GATE_FOR: Record<number, number> = {
 /** Monsters that go off when they die or reach the wall: one warrior meets them, not a crowd. */
 const GOES_OFF: ReadonlySet<number> = new Set([Mob.BloatedCorpse, Mob.SkeletonBomber]);
 
-/** Columns inside the wall a spear or halberd stands to stab over it: past its 1 m minimum, inside its reach. */
+/** Columns inside the wall a spear or halberd stands to stab over it, inside its reach (there is no minimum range now). */
 const STAB_INSET = 3;
 
 /** How far out (columns) the warriors sally against an archer: about 20 m. */
@@ -236,21 +236,11 @@ function setDown(s: SimState, i: number, cx: number, cz: number): void {
 
 function giveKit(s: SimState, i: number, kit: Kit, rank: number): void {
   const e = s.entities;
-  e.weapon[i] = kit.weapon;
-  e.backup[i] = kit.backup ?? 0;
-  e.shield[i] = kit.shield ?? 0;
-  e.armour[i] = kit.armour ?? 0;
-  e.helmet[i] = kit.helmet ?? 0;
-  e.boots[i] = Item.Boots;
-  e.ranged[i] = kit.ranged ?? 0;
-  e.boltCase[i] = kit.boltCase ?? 0;
-  e.kit[i] = kit.kit ?? 0;
-  e.skills[i] = kit.skills ?? 0;
-  if (kit.ranged) {
-    const r = itemSpec(kit.ranged).ranged!;
-    e.ammo[i] = r.load;
-    e.ammoItem[i] = kit.ammoItem ?? 0;
-  }
+  e.troop[i] = kit.troop;
+  e.wTier[i] = kit.weapon;
+  e.aTier[i] = kit.armour;
+  applyKit(e, i, 'warrior');
+  e.skills[i] = kit.cannon ? Skill.Cannon : 0;
   e.rank[i] = rank;
   e.hp[i] = WARRIOR_HEALTH_BY_RANK[rank]!;
   e.maxHp[i] = WARRIOR_HEALTH_BY_RANK[rank]!;
@@ -310,7 +300,7 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
       else if (s.buildings.footprintAt(x, z) === 0) gaps++;
     }
   }
-  // The start warrior and four workers: the warrior joins the defence; workers fight on night 0, else shelter.
+  // The three start warriors and four workers: the warriors join the defence; workers fight on night 0, else shelter.
   const e = s.entities;
   const starters: number[] = [];
   for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Warrior) starters.push(i);
@@ -384,13 +374,11 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
     }
   }
   // Stock: munitions, food and mana crystals, and the research the gear needs.
+  // (Arrows, bolts and musket balls are unlimited: Troops and gear.)
   p.pool[Res.Gunpowder] = p.pool[Res.Gunpowder]! + 400;
-  p.pool[Res.LeadShot] = p.pool[Res.LeadShot]! + 400;
   p.pool[Res.Cannonball] = p.pool[Res.Cannonball]! + 200;
   p.pool[Res.Bread] = p.pool[Res.Bread]! + 2000;
-  p.items[Item.BoltsWrought] = p.items[Item.BoltsWrought]! + 400;
-  p.items[Item.BoltsHQ] = p.items[Item.BoltsHQ]! + 400;
-  for (const r of [Research.Bronze, Research.Halberds, Research.Crossbows, Research.Steel, Research.HQSteel, Research.SteelCrossbow, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
+  for (const r of [Research.Bronze, Research.Crossbows, Research.Steel, Research.CarbonSteel, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
   // Workers shelter in the main base unless they fight (night 0).
   const workers: number[] = [];
   for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) workers.push(e.id[i]!);
@@ -435,7 +423,7 @@ export class ScriptedDefence {
       if (e.owner[i] !== 0 || e.hp[i]! <= 0 || e.inside[i] !== 0) continue;
       if (e.kind[i] === UnitKind.Warrior && !e.ranged[i] && !isCrew(s, i)) {
         this.home.set(e.id[i]!, [e.x[i]!, e.z[i]!]);
-        if ((itemSpec(e.weapon[i]!).melee?.reach ?? 0) >= OVER_WALL_REACH) this.poles.add(e.id[i]!);
+        if ((gearSpec(e.weapon[i]!).melee?.reach ?? 0) >= OVER_WALL_REACH) this.poles.add(e.id[i]!);
       }
       if (e.kind[i] === UnitKind.Worker && workersFight) this.workerHome.set(e.id[i]!, [e.x[i]!, e.z[i]!]);
     }
@@ -583,20 +571,19 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
   const mages = countIn(s, UnitKind.Mage);
   const workers = countIn(s, UnitKind.Worker);
   const walls = wallCount(s, d.wall);
-  const stock = { bolts: p.items[Item.BoltsWrought]! + p.items[Item.BoltsHQ]!, powder: p.pool[Res.Gunpowder]!, shot: p.pool[Res.LeadShot]!, balls: p.pool[Res.Cannonball]! };
-  // Shots already loaded count as spent when fired: add what the units carry.
-  const carried = (): { bolts: number; powder: number } => {
-    let bolts = 0;
-    let powder = 0;
-    for (let i = 0; i < e.count; i++) {
-      if (e.owner[i] !== 0 || !e.ranged[i]) continue;
-      const r = itemSpec(e.ranged[i]!).ranged!;
-      if (r.munition === 'bolts') bolts += e.ammo[i]!;
-      else if (r.munition === 'powder') powder += e.ammo[i]!;
+  const stock = { powder: p.pool[Res.Gunpowder]!, balls: p.pool[Res.Cannonball]! };
+  // Ammunition is unlimited (Troops and gear): the player's shots are counted as they leave.
+  const shots = { arrows: 0, bolts: 0, balls: 0 };
+  const counted = new WeakSet<object>();
+  const countShots = (): void => {
+    for (const pr of s.projectiles) {
+      if (pr.owner !== 0 || counted.has(pr)) continue;
+      counted.add(pr);
+      if (pr.shot === Shot.Arrow || pr.shot === Shot.SlingStone) shots.arrows++;
+      else if (pr.shot === Shot.Bolt) shots.bolts++;
+      else if (pr.shot === Shot.MusketBall) shots.balls++;
     }
-    return { bolts, powder };
   };
-  const carriedBefore = carried();
   const nightStart = d.night * CYCLE_STEPS + DAY_STEPS + DUSK_STEPS;
   // Through dusk to nightfall, when the spawner plans the night.
   while (s.step < nightStart + 1) step(s);
@@ -628,6 +615,7 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
   const script = new ScriptedDefence(s, ring, d.workersFight);
   while (clockAt(s.step, s.blood).period === Period.Night && s.over === 0) {
     step(s, s.step % 10 === 0 ? script.orders() : undefined);
+    countShots();
     const t = s.step - nightStart;
     if (firstWall < 0 && wallCount(s, d.wall) < walls) firstWall = t;
     const now = new Set<number>();
@@ -653,7 +641,6 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
     live.clear();
     for (let i = 0; i < e.count; i++) if (ofTheNight(i)) live.set(e.id[i]!, e.mob[i]!);
   }
-  const carriedAfter = carried();
   const lost = (before: number, kind: number): number => before - countIn(s, kind);
   const wallsLost = walls - wallCount(s, d.wall);
   const baseLost = b.hp > 0 ? floorDiv((baseHp - b.hp) * 100, baseHp) : 100;
@@ -680,9 +667,9 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
     baseHpLostPct: baseLost,
     bossKilled,
     bossHpPm: bossKilled ? 0 : bossHpPm,
-    boltsSpent: stock.bolts + carriedBefore.bolts - (p.items[Item.BoltsWrought]! + p.items[Item.BoltsHQ]!) - carriedAfter.bolts,
-    // Lead shot goes only into shot pouches, 10 balls a unit.
-    musketShots: carriedBefore.powder - carriedAfter.powder + (stock.shot - p.pool[Res.LeadShot]!) * 10,
+    arrowsShot: shots.arrows,
+    boltsShot: shots.bolts,
+    musketShots: shots.balls,
     cannonShots: stock.balls - p.pool[Res.Cannonball]!,
     gunpowderUsed: stock.powder - p.pool[Res.Gunpowder]!,
     nightSeconds: Math.round(length / 20),
@@ -694,5 +681,5 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
 
 export const NIGHT_COLUMNS: ReadonlyArray<keyof NightRow> = [
   'seed', 'night', 'blood', 'budgetTenths', 'plannedTenths', 'mobs', 'mobsHp', 'killed', 'aliveAtDawn', 'warriors', 'warriorsLost', 'mages', 'magesLost', 'workersLost',
-  'wallColumns', 'wallsLost', 'gaps', 'firstWallBreakS', 'firstInsideS', 'baseHpLostPct', 'bossKilled', 'bossHpPm', 'boltsSpent', 'musketShots', 'cannonShots', 'gunpowderUsed', 'nightSeconds', 'outcome',
+  'wallColumns', 'wallsLost', 'gaps', 'firstWallBreakS', 'firstInsideS', 'baseHpLostPct', 'bossKilled', 'bossHpPm', 'arrowsShot', 'boltsShot', 'musketShots', 'cannonShots', 'gunpowderUsed', 'nightSeconds', 'outcome',
 ];

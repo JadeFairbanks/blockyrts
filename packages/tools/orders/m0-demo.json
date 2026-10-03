@@ -1,12 +1,12 @@
 {
-  "description": "M0 check script: player 0 moves its five units around the origin. Coordinates are world units (8,000 per metre).",
+  "description": "M0 check script: player 0 moves its seven units (four workers, units 1 to 4, and the three starting warriors, 5 to 7) around the origin. Coordinates are world units (8,000 per metre).",
   "peaceful": true,
   "frames": [
     { "step": 10, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3], "x": 240000, "z": -96000 }] },
-    { "step": 200, "orders": [{ "kind": "move", "player": 0, "units": [4, 5], "x": -200000, "z": 200000 }] },
-    { "step": 900, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 5], "x": 0, "z": 0 }] },
-    { "step": 2500, "orders": [{ "kind": "move", "player": 0, "units": [2, 4], "x": 160000, "z": 160000 }, { "kind": "move", "player": 0, "units": [1], "x": -80000, "z": -240000 }] },
-    { "step": 6000, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 5], "x": 400000, "z": 0 }] },
-    { "step": 9000, "orders": [{ "kind": "move", "player": 0, "units": [3, 5], "x": -320000, "z": -320000 }] }
+    { "step": 200, "orders": [{ "kind": "move", "player": 0, "units": [4, 5, 6, 7], "x": -200000, "z": 200000 }] },
+    { "step": 900, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 5, 6, 7], "x": 0, "z": 0 }] },
+    { "step": 2500, "orders": [{ "kind": "move", "player": 0, "units": [2, 4, 6], "x": 160000, "z": 160000 }, { "kind": "move", "player": 0, "units": [1], "x": -80000, "z": -240000 }] },
+    { "step": 6000, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 5, 6, 7], "x": 400000, "z": 0 }] },
+    { "step": 9000, "orders": [{ "kind": "move", "player": 0, "units": [3, 5, 7], "x": -320000, "z": -320000 }] }
   ]
 }
