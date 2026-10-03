@@ -29,6 +29,7 @@ import {
   PEOPLES,
   TRADE_BUILDINGS,
   nextMageTraining,
+  PickOwn,
   Product,
   productSpec,
   RANK_TRAINING,
@@ -181,6 +182,10 @@ const LOCK_FACES = ['Auto', 'Melee', 'Ranged'];
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
 const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey.startsWith('mage:');
+
+/** Whether a building trains workers, warriors or mages, which come out to its rally point. */
+const trainsUnits = (b: BuildingInfo): boolean =>
+  buildingSpec(b.kind).trainsWorkers || b.products.some(([p]) => p === Product.Warrior || p === Product.SupportMage || p === Product.BattleMage);
 
 export interface Targeting {
   command: TargetCommand;
@@ -415,9 +420,9 @@ export class Commands {
 
   private unitCard(card: Card, active: string): void {
     const t = this.targeting?.command;
-    card[0] = this.entry('attack', 'Attack', 'Then left click an enemy to attack it, or ground to attack-move there: walk, and fight whatever comes in range on the way. Right click or Esc cancels.', () => this.target('attack', 'attack'), { lit: t === 'attack' });
+    card[0] = this.entry('attack', 'Attack', 'Then left click an enemy to attack it, or ground to attack-move there: walk, and fight whatever comes in range on the way. Right click or Esc cancels. Press twice (or double click) and each one attacks the nearest enemy it can see.', () => this.target('attack', 'attack'), { lit: t === 'attack', double: () => this.pickOwn(PickOwn.Attack, 'Each one attacks the nearest enemy it can see.') });
     card[1] = this.entry('stop', 'Stop', 'Cancel every queued order; units stand still but fight back.', () => this.stop());
-    card[2] = this.entry('hold', 'Hold', 'Cancel every order and never move, not even to chase: they fight only what comes in reach.', () => this.hold(), { name: 'Hold Position' });
+    card[2] = this.entry('hold', 'Hold', 'Cancel every order and never move, not even to chase: they fight only what comes in reach. With Shift, they hold once their earlier orders are done.', () => this.hold(), { name: 'Hold Position' });
     card[3] = this.entry('patrol', 'Patrol', 'Then left click ground: they walk back and forth between here and there, fighting whatever they meet.', () => this.target('patrol', 'patrol'), { lit: t === 'patrol' });
     card[4] = this.entry('move', 'Move', 'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several.', () => this.target('move', 'move'), { lit: t === 'move' });
     if (active === 'worker') {
@@ -426,7 +431,7 @@ export class Commands {
         const u = this.d.game.unit(id);
         return u !== null && u.carryAmt > 0;
       });
-      card[5] = this.entry('gather', 'Gather', 'Then left click a tree, rock or bush. Gatherers carry 25 lb loads to the nearest drop-off and come back until it runs out, then try the nearest node of the same kind.', () => this.target('gather', 'gather'), { lit: t === 'gather' });
+      card[5] = this.entry('gather', 'Gather', 'Then left click a tree, rock or bush. Gatherers carry 25 lb loads to the nearest drop-off and come back until it runs out, then try the nearest node of the same kind. Press twice (or double click) and each one gathers the nearest node it can within 15 m, more of what it carries first.', () => this.target('gather', 'gather'), { lit: t === 'gather', double: () => this.pickOwn(PickOwn.Gather, 'Each one gathers the nearest node it can.') });
       card[6] = carrying
         ? this.entry('returnCargo', 'Return', 'Take what they carry to the nearest drop-off, then go back to the node.', () => this.unitOrder({ kind: 'returnCargo' }), { name: 'Return Cargo' })
         : this.off('returnCargo', 'Return', 'Take what they carry to the nearest drop-off, then go back to the node.', 'They are not carrying anything.', 'Return Cargo');
@@ -446,9 +451,9 @@ export class Commands {
       card[9] = this.entry(
         'prospect',
         'Prospect',
-        'Then left click the ground: a worker walks there and spends 40 s (20 s with a prospecting hammer) finding out what lies under it. The rating, Poor, Fair, Good or Rich, sets what a mineshaft there brings up (x0.5 to x2.5).',
+        'Then left click the ground: a worker walks there and spends 40 s (20 s with a prospecting hammer) finding out what lies under it. The rating, Poor, Fair, Good or Rich, sets what a mineshaft there brings up (x0.5 to x2.5). Press twice (or double click) and each worker prospects where it stands.',
         () => this.target('prospect', 'prospect'),
-        { lit: t === 'prospect' },
+        { lit: t === 'prospect', double: () => this.pickOwn(PickOwn.Prospect, 'Prospecting where they stand.') },
       );
       card[10] = this.entry('buildBasic', 'Build', 'Open the Basic Structures menu: homes, farms, storage, walls, lights. Grid keys pick a building; B is Back.', () => this.openMenu('basic'), { name: 'Build Basic Structures' });
       card[11] = this.entry('buildAdvanced', 'Adv.', 'Open the Advanced Structures menu: buildings that need rare resources or technology.', () => this.openMenu('advanced'), { name: 'Build Advanced Structures' });
@@ -474,9 +479,9 @@ export class Commands {
     card[12] = this.entry(
       'enter',
       'Enter',
-      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors and mages garrison towers (4) and the parapets of a level 3 main base (8) and shoot or cast from the top. Warriors clicked onto one of your siege engines or cannons crew it.',
+      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors and mages garrison towers (4) and the parapets of a level 3 main base (8) and shoot or cast from the top. Warriors clicked onto one of your siege engines or cannons crew it. Press twice (or double click) and each one goes into the nearest building with room for it.',
       () => this.target('enter', 'enter'),
-      { lit: t === 'enter' },
+      { lit: t === 'enter', double: () => this.pickOwn(PickOwn.Enter, 'Each one goes into the nearest building with room for it.') },
     );
   }
 
@@ -586,6 +591,16 @@ export class Commands {
     if (!where) return this.off('eat', 'Eat', desc, 'There is no main base, storehouse or kitchen to eat at.');
     if (this.d.game.food() < 1) return this.off('eat', 'Eat', desc, 'There is no food.');
     return this.entry('eat', 'Eat', desc, () => this.d.send({ kind: 'eat', player: this.d.player, units, building: 0, queued: this.d.queued() }));
+  }
+
+  /** A, G, E or T pressed twice: each unit picks its own target (PickOwn). */
+  private pickOwn(command: number, text: string): void {
+    const units = command === PickOwn.Gather || command === PickOwn.Prospect ? this.workerIds() : this.unitIds();
+    if (units.length === 0) return;
+    this.targeting = null;
+    this.d.send({ kind: 'pickOwn', player: this.d.player, units, command, queued: this.d.queued() });
+    this.d.message(text);
+    this.d.changed();
   }
 
   /** N pressed twice: hunt the nearest game, over and over, until dusk. */
@@ -817,8 +832,8 @@ export class Commands {
         card[6] = this.entry('refurbish', 'Refurb.', 'Take items out of the stock and get back everything they were made from, ten times faster than making them.', () => this.openMenu('refurbish'), { name: 'Refurbish' });
       }
     }
-    if (first.complete && spec.trainsWorkers) {
-      card[9] = this.entry('rally', 'Rally', 'Then left click ground, a unit or a resource node: new workers go there (and gather, on a node). Shift adds a waypoint. Right click with the building selected does the same.', () => this.target('rally', 'rally'), {
+    if (first.complete && trainsUnits(first)) {
+      card[9] = this.entry('rally', 'Rally', 'Then left click ground, a unit or a resource node: new units go there (workers gather, on a node). Shift adds a waypoint. Right click with the building selected does the same.', () => this.target('rally', 'rally'), {
         name: 'Set Rally Point',
         lit: this.targeting?.command === 'rally',
       });
@@ -1072,7 +1087,7 @@ export class Commands {
 
   private hold(): void {
     const units = this.unitIds();
-    if (units.length > 0) this.d.send({ kind: 'hold', player: this.d.player, units });
+    if (units.length > 0) this.d.send({ kind: 'hold', player: this.d.player, units, queued: this.d.queued() });
   }
 
   private repairAll(): void {
@@ -1372,7 +1387,7 @@ export class Commands {
 
   /** Rally for the selected buildings that train: a node, a unit, or ground. */
   rally(item: Selectable | null, ground: THREE.Vector3 | null): boolean {
-    const bs = this.buildings().filter((b) => b.complete && buildingSpec(b.kind).trainsWorkers);
+    const bs = this.buildings().filter((b) => b.complete && trainsUnits(b));
     if (bs.length === 0) return false;
     const add = this.d.queued();
     for (const b of bs) {

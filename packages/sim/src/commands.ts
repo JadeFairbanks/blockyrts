@@ -12,19 +12,19 @@ import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf }
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
-import { canonicalOrders, type Order } from './orders.ts';
-import { SiteKind, UnitKind, type SimState } from './state.ts';
+import { canonicalOrders, PickOwn, type Order } from './orders.ts';
+import { NO_CARRY, SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { canGarrison, garrisonRoom, salvageable } from './combat/fight.ts';
+import { canGarrison, garrisonRoom, pickTarget, salvageable, sightOf } from './combat/fight.ts';
 import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
 import { equipBest, handPick, SKILL_TRAINING } from './units/gear.ts';
 import { markSite } from './units/dig.ts';
-import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { eliminate } from './combat/deaths.ts';
@@ -237,6 +237,70 @@ export function everyoneHome(state: SimState, player: number): void {
   }
 }
 
+/**
+ * A targeted command pressed twice (Controls: "Double-tap for auto-target"):
+ * each unit picks its own target instead of waiting for a click. Units with
+ * nothing to pick are left as they were; the player hears why once.
+ */
+function pickOwn(state: SimState, player: number, units: number[], command: number, queued: boolean): void {
+  const e = state.entities;
+  let none = 0;
+  const taken = new Map<number, number>();
+  for (const i of units) {
+    let u: UnitOrder | null = null;
+    switch (command) {
+      case PickOwn.Attack: {
+        if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Engine) break;
+        const t = pickTarget(state, i, sightOf(state, i));
+        if (t >= 0) u = { t: 'attack', id: e.id[t]! };
+        break;
+      }
+      case PickOwn.Gather: {
+        if (e.kind[i] !== UnitKind.Worker) break;
+        const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
+        const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
+        // More of what it carries first, else the nearest node of anything.
+        const n = (e.carryRes[i] !== NO_CARRY ? findNode(state, i, e.carryRes[i]!, cx, cz, NODE_SEARCH_COLUMNS) : null) ?? findNode(state, i, -1, cx, cz, NODE_SEARCH_COLUMNS);
+        if (n) u = { t: 'gather', cx: n.cx, cz: n.cz, i: n.i };
+        break;
+      }
+      case PickOwn.Enter: {
+        if (e.kind[i] === UnitKind.Engine) break;
+        const worker = e.kind[i] === UnitKind.Worker;
+        if (!worker && !canGarrison(state, i)) break;
+        let best: Building | null = null;
+        let bestD = 0;
+        for (const b of state.buildings.list) {
+          if (b.owner !== e.owner[i]) continue;
+          const room = worker ? shelterRoom(b) : garrisonRoom(b);
+          if (room === 0) continue;
+          if (!taken.has(b.id)) taken.set(b.id, unitsInside(state, b.id).length);
+          if (taken.get(b.id)! >= room) continue;
+          const [bx, bz] = buildingCentre(b);
+          const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
+          if (!best || d < bestD) {
+            best = b;
+            bestD = d;
+          }
+        }
+        if (best) {
+          taken.set(best.id, taken.get(best.id)! + 1);
+          u = { t: 'enter', b: best.id, auto: 0 };
+        }
+        break;
+      }
+      case PickOwn.Prospect:
+        if (e.kind[i] === UnitKind.Worker) u = { t: 'prospect', x: floorDiv(e.x[i]!, WU_PER_COLUMN), z: floorDiv(e.z[i]!, WU_PER_COLUMN) };
+        break;
+    }
+    if (u) giveOrder(state, i, u, queued);
+    else none++;
+  }
+  if (none === 0 || units.length === 0) return;
+  const why = ['No enemy in sight.', 'Nothing they can gather nearby.', 'No building with room for them.', 'Only workers prospect.'][command]!;
+  alert(state, player, none === units.length ? why : `${why} (${none} of ${units.length})`);
+}
+
 /** Applies one step's orders, in the canonical order. */
 export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
@@ -386,9 +450,17 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'hold':
         for (const i of ownUnits(state, o.player, o.units, true)) {
+          // Shift + H: hold once the earlier orders are done.
+          if (o.queued === true && e.queue[i]!.length > 0) {
+            giveOrder(state, i, { t: 'hold' }, true);
+            continue;
+          }
           stopUnit(state, i);
           giveOrder(state, i, { t: 'hold' }, false);
         }
+        break;
+      case 'pickOwn':
+        pickOwn(state, o.player, ownUnits(state, o.player, o.units, true), o.command, o.queued === true);
         break;
       case 'equipBest':
         equipBest(state, o.player, ownUnits(state, o.player, o.units));
