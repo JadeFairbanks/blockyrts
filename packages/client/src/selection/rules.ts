@@ -104,16 +104,19 @@ export function inBox<T extends SelInfo>(items: readonly ScreenItem<T>[], box: R
 }
 
 /**
- * What a drag box picks up: own units and own buildings together (patch notes
- * 1), leaving out a wall line's pieces and the lights unless nothing else of
- * the player's is in the box; else the single thing nearest to where the drag
- * started (inspect only).
+ * What a drag box picks up: own units if there are any (so a box round troops
+ * beside the Big House takes the troops), else own buildings, leaving out a
+ * wall line's pieces and the lights unless they are all the box holds; else
+ * the single thing nearest to where the drag started (inspect only). Units
+ * and buildings join in one selection with Shift (patch notes 1).
  */
 export function priorityFilter<T extends SelInfo>(items: readonly ScreenItem<T>[], player: number, dragStart: Pt): T[] {
-  const own = items.filter((s) => isOwn(s.item, player) && (s.item.kind === 'unit' || s.item.kind === 'building'));
-  if (own.length > 0) {
-    const main = own.filter((s) => !lineStructure(s.item));
-    return (main.length > 0 ? main : own).map((s) => s.item);
+  const units = items.filter((s) => isOwn(s.item, player) && s.item.kind === 'unit');
+  if (units.length > 0) return units.map((s) => s.item);
+  const buildings = items.filter((s) => isOwn(s.item, player) && s.item.kind === 'building');
+  if (buildings.length > 0) {
+    const main = buildings.filter((s) => !lineStructure(s.item));
+    return (main.length > 0 ? main : buildings).map((s) => s.item);
   }
   let best: ScreenItem<T> | null = null;
   let bestD = Infinity;

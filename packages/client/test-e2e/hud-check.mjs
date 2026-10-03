@@ -188,8 +188,8 @@ const boxAfter = await page.evaluate(() => document.querySelector('.drag-box').g
 check('arrows pan during a drag, start corner pinned', boxAfter.left < boxBefore.left - 20, `${boxBefore.left} -> ${boxAfter.left}`);
 await page.mouse.up();
 const sel = await selected();
-// Patch notes 1: a box takes units and buildings together (the Big House here); wall pieces and lights stay out.
-check('box selects own units and buildings', sel.filter((k) => k.startsWith('e:')).length >= 3 && sel.every((k) => k.startsWith('e:') || k.startsWith('b:')), sel.join(' '));
+// Own units come before buildings in a box; Shift adds buildings to them (patch notes 1, mixed selections).
+check('box selects only own units', sel.length >= 3 && sel.every((k) => k.startsWith('e:')), sel.join(' '));
 check('selection panel shows the count', (await text('.sel-title')).includes('selected'), await text('.sel-title'));
 await shot('selected');
 

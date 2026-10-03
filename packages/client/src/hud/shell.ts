@@ -228,6 +228,8 @@ export class GameShell {
   private edgeDir: PanDir | null = null;
   private followKey: string | null = null;
   private queueMode = false;
+  /** The phone layout was in force at the last layout (the message panel folds once on the way in). */
+  private phoneFolded = false;
   /** Touch controls: the next one-finger drag draws the selection box (the Box button). */
   private boxMode = false;
   private readonly cameraSlots: (CameraView | null)[] = Array.from({ length: CAMERA_SLOTS }, () => null);
@@ -478,6 +480,11 @@ export class GameShell {
     const s = this.geometry.scale;
     this.geometry = hudLayout({ width: this.width, height: this.height, topRight: this.layout.topRight.offsetHeight || 112 });
     this.layout.root.classList.toggle('phone', this.geometry.phone);
+    // A phone starts with the message panel folded (its button flashes on an urgent message), so the view stays clear.
+    if (this.geometry.phone !== this.phoneFolded) {
+      this.phoneFolded = this.geometry.phone;
+      if (this.phoneFolded) this.messages.setCollapsed(true);
+    }
     applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
     fitDebug(this.layout, this.geometry);
     this.portraitRect = null;
