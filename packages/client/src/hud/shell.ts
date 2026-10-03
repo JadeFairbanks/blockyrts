@@ -77,7 +77,7 @@ export interface WorldHooks {
 /** The rest of the world the M2 controls draw on: heights, nodes, the ghost, planned buildings and overlay lines. */
 export interface WorldExtras {
   heightAt(x: number, z: number): number;
-  /** Whether a point (metres) is in sight of the local player now. */
+  /** Whether a point (metres) is in sight of the players now (they share their vision). */
   seen(x: number, z: number): boolean;
   node(cx: number, cz: number, index: number): Selectable | undefined;
   setGhost(g: Ghost | null): void;

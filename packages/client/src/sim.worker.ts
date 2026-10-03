@@ -60,6 +60,7 @@ import {
   unitsInside,
   upgradeProblem,
   UnitKind,
+  visionSources,
   workersAt,
   workSteps,
   STEPS_PER_SECOND,
@@ -324,19 +325,26 @@ function postInfo(s: SimState): void {
   events = [];
 }
 
-/** The lairs and goblin villages the local player has seen. */
+/** The lairs and goblin villages any player has seen (the players share what they see); war is the local player's. */
 function threatMarks(s: SimState): ThreatMark[] {
   const e = s.entities;
   const bit = 1 << PLAYER;
+  const side = (1 << s.players.length) - 1;
   const out: ThreatMark[] = [];
   for (let i = 0; i < e.count; i++) {
-    if (e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && isLair(e.mob[i]!) && (e.picked[i]! & bit) !== 0) out.push({ mob: e.mob[i]!, x: e.x[i]!, z: e.z[i]!, war: false });
+    if (e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && isLair(e.mob[i]!) && (e.picked[i]! & side) !== 0) out.push({ mob: e.mob[i]!, x: e.x[i]!, z: e.z[i]!, war: false });
   }
-  for (const v of s.threats.villages) if (v.seen & bit) out.push({ mob: -1, x: v.x, z: v.z, war: (v.war & bit) !== 0 });
+  for (const v of s.threats.villages) if (v.seen & side) out.push({ mob: -1, x: v.x, z: v.z, war: (v.war & bit) !== 0 });
   return out;
 }
 
-/** Changed chunks and newly explored land since the last post. */
+/** What the players' side sees now, for the fog of war: every player's units and buildings (sim/state.ts visionSources). */
+function postVision(s: SimState): void {
+  const sources = visionSources(s);
+  send({ type: 'vision', step: s.step, sources }, [sources.buffer]);
+}
+
+/** Changed chunks and newly explored land (the whole side's) since the last post. */
 function postWorld(s: SimState, all = false): void {
   const w = s.world;
   const keys = all ? new Set([...w.edited.keys(), ...w.propChanges.keys(), ...w.addedProps.keys()]) : w.dirty;
@@ -346,11 +354,11 @@ function postWorld(s: SimState, all = false): void {
     w.dirty.clear();
     send({ type: 'deltas', step: s.step, deltas });
   }
-  const fogKeys = all ? new Set(w.explored[PLAYER]!.keys()) : w.fogDirty[PLAYER]!;
+  const fogKeys = all ? new Set(w.explored.keys()) : w.fogDirty;
   if (fogKeys.size > 0) {
     const chunks: Array<[number, number, Uint8Array]> = [];
-    for (const key of fogKeys) chunks.push([chunkKeyX(key), chunkKeyZ(key), w.explored[PLAYER]!.get(key)!.slice()]);
-    for (const set of w.fogDirty) set.clear();
+    for (const key of fogKeys) chunks.push([chunkKeyX(key), chunkKeyZ(key), w.explored.get(key)!.slice()]);
+    w.fogDirty.clear();
     send({ type: 'fog', chunks });
   }
 }
@@ -473,6 +481,7 @@ function tick(): void {
   }
   if (stepped) {
     postWorld(state);
+    postVision(state);
     postInfo(state);
   } else if (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) prefetch(state);
 }
@@ -489,6 +498,7 @@ function begin(s: SimState): void {
   waitingOn = '';
   postState(s);
   postWorld(s, true);
+  postVision(s);
   postInfo(s);
   if (timer === undefined) timer = setInterval(tick, 4);
 }

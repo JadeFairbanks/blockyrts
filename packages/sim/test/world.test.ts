@@ -27,6 +27,7 @@ import {
   stockCell,
   Tool,
   Troop,
+  revealVision,
   UnitKind,
   WILD,
   World,
@@ -258,17 +259,28 @@ describe('terrain edits, water, regrowth and fog', () => {
     expect(at(2001 + 60 * 60 * 20).every((s) => s === Stage.Full)).toBe(true);
   });
 
-  it('marks land explored around units and the debug reveal', () => {
+  it('marks land explored around every player\'s units, one picture for the side, and the debug reveal', () => {
     const state = createWorld(2, { players: 2 });
     const w = state.world;
-    const p = w.gen.start.pockets[0]!;
+    const e = state.entities;
     const tile = (x: number): number => Math.floor(x / 4);
-    expect(w.isExplored(0, tile(p.x), tile(p.z + 20))).toBe(true);
-    expect(w.isExplored(1, tile(p.x), tile(p.z + 20))).toBe(false);
-    expect(w.isExplored(0, tile(5000), tile(0))).toBe(false);
-    w.reveal(0, 5000 * WU_PER_COLUMN, 0, 50 * 8000);
-    expect(w.isExplored(0, tile(5000), tile(0))).toBe(true);
-    expect(w.isExplored(0, tile(5000 + 150), tile(0))).toBe(false);
+    // Both pockets are explored in the one picture the players share.
+    for (const p of w.gen.start.pockets) expect(w.isExplored(tile(p.x), tile(p.z + 20))).toBe(true);
+    // A worker of each player 45 m north of its Big House, far past the house's 20 m: the land
+    // 15 m beyond it is explored by the worker alone, in the same picture.
+    for (const p of w.gen.start.pockets) {
+      let worker = -1;
+      for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Worker && e.owner[i] === p.player) worker = i;
+      e.x[worker] = p.x * WU_PER_COLUMN;
+      e.z[worker] = (p.z + 100) * WU_PER_COLUMN;
+      expect(w.isExplored(tile(p.x), tile(p.z + 133))).toBe(false);
+    }
+    revealVision(state);
+    for (const p of w.gen.start.pockets) expect(w.isExplored(tile(p.x), tile(p.z + 133))).toBe(true);
+    expect(w.isExplored(tile(5000), tile(0))).toBe(false);
+    w.reveal(5000 * WU_PER_COLUMN, 0, 50 * 8000);
+    expect(w.isExplored(tile(5000), tile(0))).toBe(true);
+    expect(w.isExplored(tile(5000 + 150), tile(0))).toBe(false);
   });
 });
 
@@ -283,9 +295,10 @@ describe('world state in the snapshot', () => {
     expect(w.waterActive.size).toBeGreaterThan(0);
     const v = w.props(0, -2, 0)[0]!;
     w.harvest(0, -2, v.index, 1000, 10);
-    w.reveal(1, 400000, 400000, 80000);
+    w.reveal(400000, 400000, 80000);
     const copy = cloneState(state);
     expect(hashState(copy)).toBe(hashState(state));
+    expect(copy.world.explored.size).toBe(w.explored.size);
     expect(copy.world.topAt(2, 2)).toBe(12);
     expect(copy.world.waterAt(pond.x + 12, pond.z)).toBe(w.waterAt(pond.x + 12, pond.z));
     expect(copy.world.props(0, -2, 10).length).toBe(w.props(0, -2, 10).length);

@@ -62,7 +62,7 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
       const gz = z + dz;
       let r: Blocked = Blocked.None;
       const top = world.topAt(gx, gz);
-      if (!world.isExplored(player, floorDiv(gx, FOG_TILE_COLUMNS), floorDiv(gz, FOG_TILE_COLUMNS))) r = Blocked.Unexplored;
+      if (!world.isExplored(floorDiv(gx, FOG_TILE_COLUMNS), floorDiv(gz, FOG_TILE_COLUMNS))) r = Blocked.Unexplored;
       else if (state.buildings.footprintAt(gx, gz) !== 0) r = Blocked.Building;
       else if (hasWater(world.waterAt(gx, gz), top)) r = Blocked.Water;
       else if (top > floor + LEVEL_TOLERANCE_UNITS || top < floor - LEVEL_TOLERANCE_UNITS) r = Blocked.Steep;

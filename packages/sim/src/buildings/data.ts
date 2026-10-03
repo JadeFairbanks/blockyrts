@@ -484,5 +484,22 @@ export const UNFINISHED_HEALTH_PER_MILLE = 100;
 export const CANCEL_REFUND_PER_MILLE = 750;
 /** Workers inside a shelter that is destroyed take 10% of their maximum health (Workers: sheltering). */
 export const SHELTER_LOSS_PER_MILLE = 100;
-/** Sight of buildings (s): 10 m, so the land round a building stays seen. */
-export const BUILDING_SIGHT_M = 10;
+/**
+ * How far each building sees (s), in metres out from its footprint's edge,
+ * by building kind: what a building sees is in sight of every player, as a
+ * unit's sight is (Fog of war). 10 m, as far as a building claims land; the
+ * main base 20 m, so the town keeps its watch at night while its workers
+ * shelter; a tower 20 m, the +10 m sight it gives its garrison (Table 4); a
+ * brazier 14 m, as far as it lights. A fog night halves it, as all sight.
+ */
+export const BUILDING_SIGHT_M: Readonly<Partial<Record<number, number>>> = {
+  [BuildingKind.MainBase]: 20, [BuildingKind.CropField]: 10, [BuildingKind.VegetableFarm]: 10, [BuildingKind.HerbBed]: 10,
+  [BuildingKind.LivestockFarm]: 10, [BuildingKind.PenBarn]: 10, [BuildingKind.LumberMill]: 10, [BuildingKind.Storehouse]: 10,
+  [BuildingKind.FishingDock]: 10, [BuildingKind.Tannery]: 10, [BuildingKind.Cooking]: 10, [BuildingKind.HerbalistHut]: 10,
+  [BuildingKind.Wall]: 10, [BuildingKind.Gate]: 10, [BuildingKind.Tower]: 20, [BuildingKind.Workshop]: 10,
+  [BuildingKind.TorchPost]: 10, [BuildingKind.WallTorch]: 10, [BuildingKind.Brazier]: 14, [BuildingKind.Lantern]: 10,
+  [BuildingKind.ScholarsLodge]: 10, [BuildingKind.MagiSanctum]: 10, [BuildingKind.Barracks]: 10, [BuildingKind.Stables]: 10,
+  [BuildingKind.GunneryYard]: 10, [BuildingKind.Mineshaft]: 10, [BuildingKind.Kiln]: 10, [BuildingKind.Forge]: 10,
+  [BuildingKind.PowderMill]: 10, [BuildingKind.Foundry]: 10, [BuildingKind.WallHardwood]: 10, [BuildingKind.WallStone]: 10,
+  [BuildingKind.GateHardwood]: 10, [BuildingKind.GateStone]: 10, [BuildingKind.TowerHardwood]: 20, [BuildingKind.TowerStone]: 20,
+};

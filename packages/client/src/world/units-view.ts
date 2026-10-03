@@ -315,9 +315,9 @@ export interface UnitsFrame {
   player: number;
   colours: readonly THREE.Color[];
   neutral: THREE.Color;
-  /** Whether a point (metres) is in sight of the local player now. */
+  /** Whether a point (metres) is in sight of the players now (they share their vision). */
   seen(x: number, z: number): boolean;
-  /** Whether a point (metres) is explored by the local player: lairs, huts and ruins stay drawn there. */
+  /** Whether a point (metres) is explored by the players: lairs, huts and ruins stay drawn there. */
   known(x: number, z: number): boolean;
   /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
   ruins: ReadonlyArray<readonly [number, number, number]>;

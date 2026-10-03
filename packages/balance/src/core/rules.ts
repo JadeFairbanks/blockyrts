@@ -373,6 +373,7 @@ export const INDEX_REFS: Readonly<Record<string, ReadonlyArray<RefKind | null>>>
   BAND_SIZE_PCT: ['band'], BAND_STOCK_PCT: ['band'], ONE_IN: [null, 'band'], PAY_PCT: ['people', 'cat'], LEANS: ['people'],
   STOCK: ['faction'], LAYOUTS: ['faction'], PLUNDER_GOODS: ['people'], RES_VALUE_TENTHS: ['res'],
   LIVE_VALUE_TENTHS: ['species'], SALVAGE: ['mob'], MERC_UNITS: ['band'], TRINKET_METAL_TENTHS: ['trinketMetal'],
+  BUILDING_SIGHT_M: ['building'],
 };
 
 /** Pair lists inside a table, by export (`EXPORT:*`) or key: what the first number of each pair names. */
