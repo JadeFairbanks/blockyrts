@@ -52,6 +52,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
+  // Building shapes (one per level) and an enter order's flag: layout and plumbing, not balance.
+  'buildings/footprints.ts:FOOTPRINTS', 'units/unit-orders.ts:ENTER_TOP',
   // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
   'peoples/data.ts:PEOPLE_NAMES', 'peoples/data.ts:PERSON_NAMES', 'peoples/data.ts:FACTION_KIND_NAMES', 'peoples/data.ts:KIND_PEOPLE',
   'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:LIVE_GOODS', 'peoples/data.ts:ENGINE_GOODS',
