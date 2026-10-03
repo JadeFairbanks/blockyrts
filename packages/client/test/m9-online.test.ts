@@ -1,12 +1,13 @@
 // Milestone 9's client pieces that need no browser: invite codes, the Send
 // window's amounts, the lobby's start rule, account checks, browser support,
-// the graphics settings, seats, and a save file's round trip with its seats.
+// the graphics settings, seats, and a save file's round trip with its seats
+// (and, since Milestone 11, the refusal of a save from before the troop rework).
 import { describe, expect, it } from 'vitest';
-import { Presence, readSaveHeader, RoomPhase, type RoomStateMessage } from '@blockyrts/protocol';
+import { Presence, readSaveHeader, RoomPhase, SaveSection, writeSaveFile, type RoomStateMessage } from '@blockyrts/protocol';
 import { createWorld, deserializeState, hashState, serializeState, step } from '@blockyrts/sim';
 import { addAmount, parseAmount } from '../src/hud/allies.ts';
 import { joinCodeOf, normaliseCode } from '../src/net/api.ts';
-import { makeSave, openSave, seatSlots, type Seat } from '../src/net/saves.ts';
+import { makeSave, OLD_SAVE_TEXT, openSave, SAVE_FORMAT_VERSION, seatSlots, type Seat } from '../src/net/saves.ts';
 import { applyQuality, DEFAULT_SETTINGS, sanitizeSettings, VIEW_RINGS } from '../src/settings/settings.ts';
 import { accountProblem } from '../src/ui/account.ts';
 import { startProblem } from '../src/ui/lobby.ts';
@@ -136,6 +137,19 @@ describe('Milestone 9: save files', () => {
 
   it('refuses what is not a save file', async () => {
     await expect(openSave(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]))).rejects.toThrow('not a Survive and Conquer save');
+  });
+
+  it('refuses a save from before the troop rework (format 1), saying why', async () => {
+    // Milestone 11 made the format 2: a format 1 save holds items, which this version cannot read.
+    expect(SAVE_FORMAT_VERSION).toBe(2);
+    const s = createWorld(11, { players: 1, peaceful: true });
+    const header = { formatVersion: 1, gameVersion: '0.10.0', matchId: 'old', seed: 11, step: s.step, night: 0, label: 'Night 0', players: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] };
+    const old = await writeSaveFile(header, [{ tag: SaveSection.SimState, version: 1, data: serializeState(s) }]);
+    await expect(openSave(old)).rejects.toThrow(OLD_SAVE_TEXT);
+    // The same game written now opens.
+    const now = await makeSave({ matchId: 'new', seed: 11, seats: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] }, { step: s.step, night: 0, data: serializeState(s) }, 'Night 0');
+    expect(readSaveHeader(now).formatVersion).toBe(2);
+    expect((await openSave(now)).header.matchId).toBe('new');
   });
 
   it('starts a game alone with one seat, or empty pockets for testing', () => {

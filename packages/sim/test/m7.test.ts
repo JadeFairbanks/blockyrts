@@ -19,10 +19,9 @@ import {
   hashState,
   hurtUnit,
   isPerson,
-  ITEM_GOODS,
-  Item,
   landAt,
   LINES,
+  LIVE_GOODS,
   MANA_SCALE,
   MERC_LINES,
   Mob,
@@ -34,10 +33,12 @@ import {
   PEOPLES,
   peopleOf,
   Period,
+  PLUNDER_GOODS,
   priceTenths,
   recampIn,
   reparationsOwed,
   Res,
+  RESOURCES,
   Role,
   School,
   serializeState,
@@ -179,16 +180,34 @@ describe('trade', () => {
       expect(worthOf(f, b)).toBeLessThanOrEqual(o.worth);
       expect(worthOf(f, b) * 100).toBeGreaterThanOrEqual(o.worth * 85 - 100 * priceTenths(f, b[b.length - 2]!));
     }
+    // Every good is a material or food for the pool (Troops and gear: no items).
     const [good, n] = o.bundles[0]!;
-    const had = good! >= ITEM_GOODS ? s.players[0]!.items[good! - ITEM_GOODS]! : s.players[0]!.pool[good!]!;
+    expect(good!).toBeLessThan(RESOURCES.length);
+    const had = s.players[0]!.pool[good!]!;
     const stock = f.stock[f.stock.indexOf(good!) + 1]!;
     run(s, 1, [{ kind: 'tradeTake', player: 0, faction: f.id, bundle: 0 }]);
     expect(s.players[0]!.pool[tok]).toBe(0);
-    expect(good! >= ITEM_GOODS ? s.players[0]!.items[good! - ITEM_GOODS] : s.players[0]!.pool[good!]).toBe(had + n!);
+    expect(s.players[0]!.pool[good!]).toBe(had + n!);
     expect(f.stock[f.stock.indexOf(good!) + 1]).toBe(stock - n!);
     expect(f.traded & 1).toBe(1);
     expect(texts(s)).toContain(LINES[People.Halfling].trade);
     expect(offerOf(s, f.id, 0)).toBeUndefined();
+  });
+
+  it('stocks materials, food, live animals and engines, never items; the Elves sell steel, carbon steel and hardened leather', () => {
+    const s = createWorld(1);
+    const kinds = [FactionKind.HalflingVillage, FactionKind.RunkinCamp, FactionKind.ElfCaravan, FactionKind.DwarfColony, FactionKind.DwarfCity];
+    const elfGoods = new Set<number>();
+    kinds.forEach((kind, k) => {
+      const f = place(s, kind, 80 + 90 * (k % 4), k < 4 ? -60 : 60);
+      for (let q = 0; q < f.stock.length; q += 2) {
+        const good = f.stock[q]!;
+        expect(good < RESOURCES.length || good >= LIVE_GOODS, `faction ${kind} good ${good}`).toBe(true);
+        if (kind === FactionKind.ElfCaravan) elfGoods.add(good);
+      }
+    });
+    // One of the three leans per caravan (Troops and gear: weapons in trade become their materials).
+    expect([Res.SteelIngot, Res.CarbonSteel, Res.HardenedLeather].some((r) => elfGoods.has(r))).toBe(true);
   });
 
   it('needs a unit within 15 m, and the Halflings will not take gold', () => {
@@ -266,13 +285,16 @@ describe('war', () => {
     expect(f.kills[0]).toBe(half);
     expect(f.surrender).toBe(1);
     expect(texts(s).some((t) => t.includes('offer to surrender'))).toBe(true);
-    const wheat = s.players[0]!.pool[Res.Wheat]!;
-    const spears = s.players[0]!.items[Item.SpearFlint]!;
+    // Plunder is food and metal for the pool: the Halflings' bread and wrought iron, their weapons as their metal.
+    const [food, metal] = PLUNDER_GOODS[People.Halfling];
+    expect([food, metal]).toEqual([Res.Bread, Res.WroughtIron]);
+    const had = [s.players[0]!.pool[food]!, s.players[0]!.pool[metal]!];
     run(s, 1, [{ kind: 'surrender', player: 0, faction: f.id, accept: 1 }]);
     expect(f.war).toBe(0);
     expect(f.status).toBe(Status.Leaving);
-    expect(s.players[0]!.pool[Res.Wheat]! + s.players[0]!.items.reduce((a, b) => a + b, 0)).toBeGreaterThan(wheat + spears);
-    expect(texts(s).some((t) => t.startsWith('Plunder from'))).toBe(true);
+    expect(s.players[0]!.pool[food]!).toBeGreaterThan(had[0]!);
+    expect(s.players[0]!.pool[metal]!).toBeGreaterThan(had[1]!);
+    expect(texts(s).some((t) => t.startsWith('Plunder from') && t.includes('wrought iron'))).toBe(true);
     // Its buildings stand empty.
     const e = s.entities;
     const left = factionMembers(s, f.id).filter((j) => e.kind[j] === UnitKind.Mob);

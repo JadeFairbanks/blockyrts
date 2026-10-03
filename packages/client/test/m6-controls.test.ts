@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, FOODS, ITEM_COUNT, Item, MONSTERS, Product, RESOURCE_COUNT, Spell, UnitKind, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, FOODS, Line, MONSTERS, Product, Res, RESOURCE_COUNT, Spell, UnitKind, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type CommandDeps } from '../src/hud/commands.ts';
 import { ACTIONS, clashes, keyFor } from '../src/input/bindings.ts';
@@ -18,12 +18,12 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, ...o,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, ...o,
   };
 }
 
-/** Support mages 5 (rank 2) and 6 (rank 1), battle mage 7 (rank 3), warrior 3, a zombie 9. */
-function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; mageRanks?: InfoMessage['mageRanks']; food?: number; items?: Array<[number, number]> } = {}): GameInfo {
+/** Support mages 5 (rank 2) and 6 (rank 1), battle mage 7 (rank 3), each with a hazel wand and a homespun robe (tier 1), warrior 3, a zombie 9. */
+function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; mageRanks?: InfoMessage['mageRanks']; food?: number; pool?: Array<[number, number]>; forge?: number } = {}): GameInfo {
   const g = new GameInfo(ME);
   const rows: Array<[number, number, number, number, number]> = [
     [3, ME, UnitKind.Warrior, 1, 0],
@@ -43,16 +43,19 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
     data[b + S.hp] = 60;
     data[b + S.maxHp] = 60;
     data[b + S.carryRes] = 255;
+    if (kind === UnitKind.Mage) {
+      data[b + S.wTier] = 1;
+      data[b + S.aTier] = 1;
+    }
   });
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: rows.length, data, shots: new Int32Array(0), hits: [] });
   const pool = new Int32Array(RESOURCE_COUNT);
   pool[FOODS[0]!] = o.food ?? 100;
-  const items = new Int32Array(ITEM_COUNT);
-  for (const [it, n] of o.items ?? []) items[it] = n;
+  for (const [r, n] of o.pool ?? []) pool[r] = n;
   const info: InfoMessage = {
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: o.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
-    items, research: 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
+    research: 0, forge: o.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [],
     spells: o.spells ?? [
       [5, [[Spell.Heal, '', 0], [Spell.Quicken, 'Not ready yet.', 60], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Needs Hexcraft researched at a Magi Sanctum.', 0]]],
@@ -84,10 +87,10 @@ const warrior = sel('e:3', 'warrior');
 const zombie = sel('e:9', 'mob:0', MONSTERS);
 
 describe('the mage card', () => {
-  it('has the movement row, her five spells, then Eat, Rank, Enter and gear, each with a button', () => {
+  it('has the movement row, her five spells, then Eat, Rank, Enter and her wand and robe upgrades, each with a button', () => {
     const { c } = harness(game(), support, 'mage:support');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Rank', 'Enter', 'Equip', 'Gear']);
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Rank', 'Enter', 'Wand +', 'Robe +']);
     expect(card.slice(5, 10).map((e) => e!.key)).toEqual(['KeyR', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
     // A cooldown only delays a spell; rank and research grey it out with the reason.
     expect(card[6]!.enabled).toBe(true);
@@ -95,8 +98,26 @@ describe('the mage card', () => {
     expect(card[9]!.reason).toBe('Needs Hexcraft researched at a Magi Sanctum.');
     // F is Fortify here, so Eat is a click only.
     expect(card[10]!.key).toBe('');
+    // No room for Max twins: the upgrades are Q and X, and pressing one twice goes to the best.
+    expect([card[13]!.key, card[14]!.key]).toEqual(['KeyQ', 'KeyX']);
+    // A copper-tipped wand and a leather-trimmed robe (tier 2) are copper-age work.
+    expect(card[13]!.reason).toBe('Needs a Casting Hearth.');
+    expect(card[14]!.reason).toBe('Needs a Casting Hearth.');
     const keys = card.filter((e) => e && e.key).map((e) => e!.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('upgrades a wand or a robe a tier at a time, or to the best when pressed twice', () => {
+    const g = game({ pool: [[Res.Sticks, 10], [Res.CopperIngot, 2], [Res.Flax, 6], [Res.Leather, 2]], forge: 1 });
+    const { c, sent } = harness(g, support, 'mage:support');
+    const card = c.card();
+    expect(card[13]).toMatchObject({ action: 'upgradeWeapon', name: 'Upgrade wand', enabled: true });
+    expect(card[13]!.description).toContain('the first to Copper-tipped wand (tier 2)');
+    expect(card[14]).toMatchObject({ action: 'upgradeArmour', name: 'Upgrade robe', enabled: true });
+    card[13]!.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [5, 6], line: Line.Weapon, max: 0 });
+    card[14]!.double!(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [5, 6], line: Line.Armour, max: 1 });
   });
 
   it('casts on the unit clicked, and on the best targets when pressed twice', () => {
@@ -142,7 +163,7 @@ describe('the mage card', () => {
 
   it('trains support and battle mages at the Sanctum on S and M', () => {
     const products: Array<[number, string]> = [[Product.SupportMage, ''], [Product.BattleMage, '']];
-    const g = game({ buildings: [building(21, BuildingKind.MagiSanctum, { products })], items: [[Item.Wand, 2]] });
+    const g = game({ buildings: [building(21, BuildingKind.MagiSanctum, { products })] });
     const { c, sent } = harness(g, [{ ...sel('b:21', 'building'), kind: 'building' }], `building:${BuildingKind.MagiSanctum}:0`);
     const card = c.card();
     expect(card[0]!.name).toBe('Support mage');

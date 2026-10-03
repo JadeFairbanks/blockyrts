@@ -11,7 +11,7 @@
 // roof), the Rift-touched beasts shed violet motes and a cloaked void
 // stalker shows only as a shimmer.
 import * as THREE from 'three';
-import { engineSpec, HOP_STEPS, Item, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -34,8 +34,10 @@ interface Look {
   clip: string;
 }
 
-/** Item ids by what they look like in hand. */
-const POLEARMS = new Set<number>([Item.SpearFlint, Item.SpearHardwood, Item.SpearBronze, Item.HalberdBloom, Item.HalberdWrought, Item.HalberdRefined, Item.PikeSteel, Item.HalberdSteel, Item.PikeHQ, Item.HalberdHQ, Item.Glaive]);
+/** The catalogue model of a gear id ('' for none). */
+const gearModel = (id: number): string => (id ? gearSpec(id).model : '');
+/** Whether a gear id is held like a polearm: spears, pikes and halberds. */
+const polearm = (id: number): boolean => /^(spear|pike|halberd)/.test(gearModel(id));
 
 /** Colour of a monster's stand-in block: the night mobs, then (14 on) the lair guardians, the tribes, the village goblins, the lairs and the village's buildings. */
 const MOB_COLOURS = [
@@ -133,7 +135,6 @@ const SPELL_ON_COLOURS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /** A rank wand's model in a Mage's, Master Mage's or Grand Magician's hand, by Item. */
-const WAND_MODELS: Record<number, string> = { [Item.WandMage]: 'wand_mage', [Item.WandMasterMage]: 'wand_master_mage', [Item.WandGrandMagician]: 'wand_grand_magician' };
 const SCHOOL_LOOKS = ['support', 'support', 'battle'];
 
 interface Corpse {
@@ -824,9 +825,9 @@ const MOUNT_COLOURS = [0, 0x6a4a30, 0x5a4030, 0x7a7a80, 0x4a3020];
 function rideClip(clips: ReadonlyMap<string, unknown>, d: Int32Array, o: number): string {
   const swing = d[o + S.swing]!;
   const flags = d[o + S.flags]!;
-  const inHand = swing === Slot.Backup + 1 ? d[o + S.backup]! : d[o + S.weapon]!;
+  const inHand = d[o + S.weapon]!;
   if (swing === Slot.Ranged + 1) return firstClip(clips, ['ride_bow_shoot', 'ride_attack_1h', 'ride']);
-  if (swing !== 0) return POLEARMS.has(inHand) ? firstClip(clips, ['ride_attack_polearm', 'ride_thrust', 'ride']) : firstClip(clips, ['ride_attack_1h', 'ride_slash', 'ride']);
+  if (swing !== 0) return polearm(inHand) ? firstClip(clips, ['ride_attack_polearm', 'ride_thrust', 'ride']) : firstClip(clips, ['ride_attack_1h', 'ride_slash', 'ride']);
   if (flags & UnitFlag.Charging) return firstClip(clips, ['ride_charge', 'ride']);
   return firstClip(clips, ['ride_idle', 'ride', 'idle']);
 }
@@ -864,7 +865,7 @@ function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean)
 }
 
 /** Tools with a model of their own, attached to the right hand. */
-const TOOL_MODELS: Record<number, string> = { [Item.MaulStone]: 'maul_stone', [Item.HammerStone]: 'hammer_stone', [Item.ToolsFlint]: 'axe_flint' };
+const TOOL_MODELS = new Set(['maul_stone', 'hammer_stone', 'axe_flint']);
 
 /** A worker's tool in hand while it works, a torch in the other, its clip. */
 function workerLook(d: Int32Array, o: number): Look {
@@ -876,11 +877,10 @@ function workerLook(d: Int32Array, o: number): Look {
   // The tool for the job in hand (Table 2c): the stone maul and hammer and the flint axe have their own models; the
   // hardwood set and the metal sets show the body's hoe for digging and farming and its hardwood axe otherwise.
   const tool = d[o + S.toolHand]!;
-  const own = TOOL_MODELS[tool];
+  const own = TOOL_MODELS.has(gearModel(tool)) ? gearModel(tool) : '';
   if (own && (working || order === OrderKind.Dig)) attach.push([own, 'slot_hand_r']);
   else if (order === OrderKind.Farm || order === OrderKind.Dig) parts.push('hoe');
   else if (working && tool) parts.push('hardwood_axe');
-  if (d[o + S.torch] === 1) attach.push(['torch_hand', 'slot_hand_l']);
   let clip = WORKER_CLIPS[order] ?? (order !== OrderKind.Idle ? 'walk' : 'idle');
   if (flags & UnitFlag.Hurt && d[o + S.swing] === 0) clip = 'injured';
   return { parts, attach, clip };
@@ -900,10 +900,9 @@ function mageBody(d: Int32Array, o: number, lib: ModelLibrary | null): string {
 function mageLook(d: Int32Array, o: number, lib: ModelLibrary | null): Look {
   const parts: string[] = [];
   const attach: Array<[string, string]> = [];
-  const wand = WAND_MODELS[d[o + S.weapon]!];
-  if (wand && lib?.listed(wand)) attach.push([wand, 'slot_hand_r']);
+  const wand = gearModel(d[o + S.weapon]!);
+  if (wand.startsWith('wand_') && lib?.listed(wand)) attach.push([wand, 'slot_hand_r']);
   else parts.push('wand');
-  if (d[o + S.torch] === 1) attach.push(['torch_hand', 'slot_hand_l']);
   const cast = d[o + S.cast]!;
   const flags = d[o + S.flags]!;
   const order = d[o + S.order]!;
@@ -916,51 +915,41 @@ function mageLook(d: Int32Array, o: number, lib: ModelLibrary | null): Look {
   return { parts, attach, clip };
 }
 
-/** A warrior's gear on its body: the weapon in hand, the shield, the backup at the hip, the quiver or javelins on the back. */
+/** A warrior's gear on its body: the weapon or the ranged weapon in hand, the other carried, the shield, the quiver. */
 function warriorLook(d: Int32Array, o: number): Look {
   const parts: string[] = [];
   const attach: Array<[string, string]> = [];
   const swing = d[o + S.swing]!;
   const weapon = d[o + S.weapon]!;
-  const backup = d[o + S.backup]!;
   const ranged = d[o + S.ranged]!;
-  const shield = d[o + S.shield]!;
   const shooting = swing === Slot.Ranged + 1;
-  const usingBackup = swing === Slot.Backup + 1;
-  const inHand = shooting ? ranged : usingBackup ? backup : weapon;
-  const hand = (item: number): void => {
-    if (POLEARMS.has(item)) parts.push('flint_spear');
-    else if (item === Item.Sling) parts.push('sling');
-    else if (item === Item.Bow) parts.push('bow', 'quiver');
-    else if (item === Item.JavelinsFlint) parts.push('flint_spear');
-    else if (item === Item.Club) attach.push(['club', 'slot_hand_r']);
-    else if (item === Item.AxeFlint) attach.push(['axe_war_flint', 'slot_hand_r']);
+  // A ranger's close weapon is its fists: its bow, sling or gun stays in hand.
+  const inHand = shooting || (ranged && !gearModel(weapon)) ? ranged : weapon;
+  const hand = (model: string): void => {
+    if (/^(spear|pike|halberd)/.test(model)) parts.push('flint_spear');
+    else if (model === 'sling') parts.push('sling');
+    else if (model === 'bow') parts.push('bow', 'quiver');
+    else if (model === 'club' || model === 'axe_war_flint') attach.push([model, 'slot_hand_r']);
   };
-  hand(inHand);
+  hand(gearModel(inHand));
   // What is not in hand is carried.
-  if (ranged && !shooting) {
-    if (ranged === Item.Bow) parts.push('quiver');
-    else if (ranged === Item.JavelinsFlint) attach.push(['javelin_flint', 'slot_back']);
-  }
-  const side = usingBackup ? weapon : backup;
-  if (side === Item.Club) attach.push(['club', 'slot_hip_r']);
-  else if (side === Item.AxeFlint) attach.push(['axe_war_flint', 'slot_hip_r']);
-  else if (POLEARMS.has(side)) attach.push(['spear_flint', 'slot_back']);
-  if (shield === Item.ShieldWood) parts.push('wood_shield');
-  else if (shield === Item.ShieldWicker) attach.push(['shield_wicker', 'slot_shield_l']);
-  if (d[o + S.torch] === 1 && inHand !== Item.Bow) attach.push(['torch_hand', 'slot_hand_l']);
+  if (ranged && inHand !== ranged && gearModel(ranged) === 'bow') parts.push('quiver');
+  const shield = gearModel(d[o + S.shield]!);
+  if (shield === 'shield_wood') parts.push('wood_shield');
+  else if (shield === 'shield_wicker') attach.push(['shield_wicker', 'slot_shield_l']);
   return { parts, attach, clip: warriorClip(d, o, inHand) };
 }
 
 function warriorClip(d: Int32Array, o: number, inHand: number): string {
   const swing = d[o + S.swing]!;
   const flags = d[o + S.flags]!;
-  if (swing === Slot.Ranged + 1) return inHand === Item.Bow ? 'bow_shoot' : inHand === Item.Sling ? 'sling_throw' : 'throw_spear';
-  if (swing !== 0) return POLEARMS.has(inHand) ? 'attack_polearm_thrust' : 'attack_1h_slash';
+  const model = gearModel(inHand);
+  if (swing === Slot.Ranged + 1) return model === 'bow' ? 'bow_shoot' : model === 'sling' ? 'sling_throw' : 'throw_spear';
+  if (swing !== 0) return polearm(inHand) ? 'attack_polearm_thrust' : 'attack_1h_slash';
   if (flags & UnitFlag.Hurt) return 'injured';
   const order = d[o + S.order]!;
   if (order !== OrderKind.Idle) return flags & UnitFlag.Fleeing ? 'run' : 'walk';
-  if (d[o + S.target] !== 0) return POLEARMS.has(inHand) ? 'guard_polearm' : 'guard_1h';
+  if (d[o + S.target] !== 0) return polearm(inHand) ? 'guard_polearm' : 'guard_1h';
   return 'idle';
 }
 

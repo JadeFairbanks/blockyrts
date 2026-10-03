@@ -9,7 +9,6 @@ import {
   fightersOf,
   inReach,
   isDark,
-  ITEM_GOODS,
   LEANS,
   offerOf,
   PAY_PCT,
@@ -57,9 +56,6 @@ export function peoplesInfo(s: SimState, player: number): PeopleInfo[] {
   const mine: number[] = [];
   me.pool.forEach((n, r) => {
     if (n > 0) mine.push(r);
-  });
-  me.items.forEach((n, it) => {
-    if (n > 0 && it > 0) mine.push(ITEM_GOODS + it);
   });
   const e = s.entities;
   for (const f of s.peoples.factions) {

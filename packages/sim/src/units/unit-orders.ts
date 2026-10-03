@@ -39,23 +39,29 @@ export type UnitOrder =
   /** Hold Position: never move; fight only what is in reach. */
   | { t: 'hold' }
   /**
-   * Collect equipment at a main base (Equipment): an item id per slot, or
-   * KEEP. Slots in `reserved` (a bit per Slot) were taken from the stock when
-   * the order was given (Equip Best); the others are hand-picked and taken
-   * only on arrival, if still there.
+   * Upgrade Weapon or Upgrade Armour (Troops and gear: upgrading units): walk
+   * to the nearest Forge, Barracks or main base (cavalry also the Stables,
+   * mages also the Magi Sanctum; b once chosen), wait out the bar, and come
+   * away with `line` (units/kits.ts Line: weapon, tools or wand; armour or
+   * robe) at tier `to`. The new piece was paid when the order was given, the
+   * ways it was paid in `ways` (kits.ts planPieces), and is given back if the
+   * order is dropped first; `paid` is 0 once it is spent.
    */
-  | { t: 'equip'; b: number; tool: number; weapon: number; backup: number; ranged: number; shield: number; boots: number; ammo: number; torch: number; armour: number; helmet: number; boltCase: number; kit: number; reserved: number }
+  | { t: 'kitUp'; line: number; to: number; ways: number; paid: number; b: number }
+  /** A worker takes a cart from the pool at a main base (res: economy Res.HandCart or Res.OxCart), or hands its cart back there (res 0). */
+  | { t: 'cart'; b: number; res: number }
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
-  /** Specialist training at a building (Table 7: Archery at the Barracks): the unit goes inside until it is done. */
+  /** Specialist training at a building (Table 7: cannon crew at the Gunnery yard): the unit goes inside until it is done. */
   | { t: 'skill'; b: number; skill: number }
   /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
    * 40 m leash of (x, z) wu, carries what it can home and repeats. A worker
-   * follows the hunter `id` and hauls the carcasses. Ends at dusk.
+   * follows the hunter `id` and hauls the carcasses. (kx, kz) wu is where its
+   * quarry was last seen when k is 1. Ends at dusk.
    */
-  | { t: 'hunt'; id: number; auto: number; x: number; z: number }
+  | { t: 'hunt'; id: number; auto: number; x: number; z: number; k: number; kx: number; kz: number }
   /** Tame a wild animal: stand by it with its food until it trusts the worker (Animals; Table 14). */
   | { t: 'tame'; id: number }
   /** Eat (and take medicine) at the nearest building that keeps food (Food and medicine), or at building b. */
@@ -68,10 +74,6 @@ export type UnitOrder =
   | { t: 'haul'; b: number }
   /** Cast a spell (magic/cast.ts) at a unit (id) or a spot (x, z wu); auto: the mage picks the target; until: the step she gives up (0 before she starts). */
   | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number; until: number }
-  /** Milestone 8: a warrior trained to ride walks to a tamed horse (id) and mounts it. */
-  | { t: 'mount'; id: number }
-  /** Get down and let the horse go back to its Stables. */
-  | { t: 'dismount' }
   /** Crew a siege engine or cannon (id): stand by it, push it, and work it. */
   | { t: 'crew'; id: number }
   /** A worker repairs a siege engine or cannon (id). */
@@ -79,12 +81,9 @@ export type UnitOrder =
   /** A cannon is hauled into one of the Citadel's (building b) cannon ports. */
   | { t: 'port'; b: number };
 
-/** An equip order's "leave this slot as it is". */
-export const KEEP = 255;
-
 export type UnitOrderType = UnitOrder['t'];
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'equip', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'mount', 'dismount', 'crew', 'mend', 'port'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'port'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -104,18 +103,17 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   attackMove: ['x', 'z'],
   patrol: ['x', 'z', 'x2', 'z2', 'leg'],
   hold: [],
-  equip: ['b', 'tool', 'weapon', 'backup', 'ranged', 'shield', 'boots', 'ammo', 'torch', 'armour', 'helmet', 'boltCase', 'kit', 'reserved'],
+  kitUp: ['line', 'to', 'ways', 'paid', 'b'],
+  cart: ['b', 'res'],
   dig: ['site'],
   skill: ['b', 'skill'],
-  hunt: ['id', 'auto', 'x', 'z'],
+  hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],
   hitch: ['id'],
   prospect: ['x', 'z'],
   haul: ['b'],
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
-  mount: ['id'],
-  dismount: [],
   crew: ['id'],
   mend: ['id'],
   port: ['b'],
@@ -178,8 +176,10 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Patrolling';
     case 'hold':
       return 'Holding position';
-    case 'equip':
-      return 'Fetching equipment';
+    case 'kitUp':
+      return 'Going to upgrade';
+    case 'cart':
+      return 'Fetching a cart';
     case 'dig':
       return 'Digging';
     case 'hunt':
@@ -196,10 +196,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Hauling';
     case 'cast':
       return 'Casting';
-    case 'mount':
-      return 'Going to mount';
-    case 'dismount':
-      return 'Dismounting';
     case 'crew':
       return 'Crewing';
     case 'mend':

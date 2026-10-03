@@ -3,7 +3,7 @@
 // copies of the state, so they can be checked without a browser. The
 // engine that plays them is @blockyrts/audio.
 import type { MusicStateId, VoiceEventId, VoiceFamilyId } from '@blockyrts/audio';
-import { Engine, itemSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
+import { Engine, gearSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
 
 /** What the client knows about the thing a hit, death or shot names. */
 export interface Who {
@@ -12,7 +12,7 @@ export interface Who {
   owner: number;
   /** The mob, species, people unit or engine kind (S.mob). */
   mob: number;
-  /** Its ranged weapon and shield (Item), or 0. */
+  /** Its ranged weapon and shield (gear ids), or 0. */
   ranged: number;
   shield: number;
   order: number;
@@ -73,8 +73,8 @@ export function voiceFamily(kind: number, owner: number, mob: number): VoiceFami
 export function shotSound(who: Who | null): string {
   if (who?.kind === UnitKind.Engine) return who.mob === Engine.Catapult ? 'shot_sling' : who.mob === Engine.Ballista ? 'shot_bow' : 'shot_cannon';
   if (who && who.ranged > 0) {
-    const name = itemSpec(who.ranged).name.toLowerCase();
-    if (name.includes('musket')) return 'shot_musket';
+    const name = gearSpec(who.ranged).name.toLowerCase();
+    if (name.includes('musket') || name.includes('pistol')) return 'shot_musket';
     if (name.includes('sling') || name.includes('javelin')) return 'shot_sling';
     return 'shot_bow';
   }
@@ -113,7 +113,8 @@ export function hitSound(look: HitLook, who: Who | null, arrow: boolean): string
       // A worker's own bites into the land are its dig sound (workSound), and a charge's knock-back is a thump.
       if (who.kind === UnitKind.Worker && who.order === OrderKind.Dig) return null;
       if (look === 'stone') return 'hit_blunt';
-      return who.shield > 0 && itemSpec(who.shield).tier >= 4 ? 'block_metal' : 'block_wood';
+      // Iron-rimmed heaters and up ring; wood and boiled leather thud (Table 3).
+      return who.shield > 0 && gearSpec(who.shield).tier >= 6 ? 'block_metal' : 'block_wood';
     case 'spark':
       return 'block_metal';
     case 'blast':

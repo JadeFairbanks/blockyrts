@@ -1,7 +1,7 @@
 // The screen's copy of the game: the latest state and info messages from the
 // sim worker, indexed for the HUD (buildings by id, units by id, order
 // lists). Read-only for everything but main.ts, which feeds it.
-import { BuildingKind, buildingSpec, FOODS, RESOURCES, UnitKind, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, FOODS, RESEARCH, RESOURCES, UnitKind, type Research, type TechView, type UnitOrder } from '@blockyrts/sim';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type PeopleInfo, type StateMessage } from '../messages.ts';
 
 export interface UnitInfo {
@@ -15,7 +15,7 @@ export interface UnitInfo {
   hp: number;
   maxHp: number;
   rank: number;
-  /** The tool item held for each job (ToolJob order: chop, break, build, cut), 0 for none. */
+  /** The tool (gear id) held for each job (ToolJob order: chop, break, build, cut), 0 for none. */
   tools: [number, number, number, number];
   carryRes: number;
   carryAmt: number;
@@ -23,23 +23,26 @@ export interface UnitInfo {
   act: number;
   order: number;
   mob: number;
+  /** Gear ids (GEAR) in the weapon, ranged, shield and armour slots. */
   weapon: number;
-  backup: number;
   ranged: number;
   shield: number;
-  boots: number;
-  torch: boolean;
+  /** Troops: the type (Troop); 0 for everything else. Weapon (tool kit, wand) and armour (robe) tiers. */
+  troop: number;
+  wTier: number;
+  aTier: number;
+  /** An upgrade under way: per mille of its bar, its line + 1 (0 for none), the tier it goes to. */
+  upDone: number;
+  upLine: number;
+  upTo: number;
   flags: number;
   lock: number;
   skills: number;
   ammo: number;
   target: number;
   armour: number;
-  helmet: number;
-  boltCase: number;
   kit: number;
   partner: number;
-  ammoItem: number;
   /** Mages: School, mana and the bar's most (whole points), 1 + the spell being cast or 0, the beam's target or 0; spells on the unit (SpellOn bits). */
   school: number;
   mana: number;
@@ -55,6 +58,8 @@ export interface UnitInfo {
   mountMax: number;
   crew: number;
 }
+
+const EMPTY_POOL = new Int32Array(RESOURCES.length);
 
 export class GameInfo {
   step = 0;
@@ -111,22 +116,22 @@ export class GameInfo {
       order: d[o + S.order]!,
       mob: d[o + S.mob]!,
       weapon: d[o + S.weapon]!,
-      backup: d[o + S.backup]!,
       ranged: d[o + S.ranged]!,
       shield: d[o + S.shield]!,
-      boots: d[o + S.boots]!,
-      torch: d[o + S.torch] === 1,
+      troop: d[o + S.troop]!,
+      wTier: d[o + S.wTier]!,
+      aTier: d[o + S.aTier]!,
+      upDone: d[o + S.upDone]!,
+      upLine: d[o + S.upLine]!,
+      upTo: d[o + S.upTo]!,
       flags: d[o + S.flags]!,
       lock: d[o + S.lock]!,
       skills: d[o + S.skills]!,
       ammo: d[o + S.ammo]!,
       target: d[o + S.target]!,
       armour: d[o + S.armour]!,
-      helmet: d[o + S.helmet]!,
-      boltCase: d[o + S.boltCase]!,
       kit: d[o + S.kit]!,
       partner: d[o + S.partner]!,
-      ammoItem: d[o + S.ammoItem]!,
       school: d[o + S.school]!,
       mana: d[o + S.mana]!,
       maxMana: d[o + S.maxMana]!,
@@ -167,9 +172,14 @@ export class GameInfo {
     return this.info?.pool[res] ?? 0;
   }
 
-  /** How many of an item the local player has in the equipment stock. */
-  stock(item: number): number {
-    return this.info?.items[item] ?? 0;
+  /** The local player's pool, for the kit plans (an empty one before the first info). */
+  pool(): Int32Array {
+    return this.info?.pool ?? EMPTY_POOL;
+  }
+
+  /** The research and best forge the kit needs are checked against. */
+  tech(): TechView {
+    return { research: this.info?.research ?? 0, forge: this.info?.forge ?? 0, researchName: (r: Research) => RESEARCH[r]!.name };
   }
 
   /** Whether the local player has a research done. */

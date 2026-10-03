@@ -7,7 +7,6 @@ import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
 import { RESOURCE_COUNT } from './economy/resources.ts';
 import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
-import { ITEM_COUNT } from './combat/items.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
@@ -160,7 +159,7 @@ function peoplesJson(ps: PeoplesState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 12;
+export const SNAPSHOT_VERSION = 13;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -213,8 +212,6 @@ export function serializeState(state: SimState): Uint8Array {
   for (const p of state.players) {
     w.u8(p.pool.length);
     for (const v of p.pool) w.i32(v);
-    w.u8(p.items.length);
-    for (const v of p.items) w.i32(v);
     for (const f of PLAYER_FIELDS) w.i32(p[f]);
   }
   writeBuildings(w, state.buildings);
@@ -294,14 +291,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
       const v = r.i32();
       if (j < RESOURCE_COUNT) pool[j] = v;
     }
-    const items = new Int32Array(ITEM_COUNT);
-    const ni = r.u8();
-    for (let j = 0; j < ni; j++) {
-      const v = r.i32();
-      if (j < ITEM_COUNT) items[j] = v;
-    }
     const p = newPlayer(pool);
-    p.items = items;
     for (const f of PLAYER_FIELDS) p[f] = r.i32();
     players.push(p);
   }
@@ -410,10 +400,6 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const pb = b.players[p]!;
     for (let k = 0; k < pa.pool.length; k++) {
       const d = scalar(`players[${p}].pool[${k}]`, pa.pool[k]!, pb.pool[k]!);
-      if (d) return d;
-    }
-    for (let k = 0; k < pa.items.length; k++) {
-      const d = scalar(`players[${p}].items[${k}]`, pa.items[k]!, pb.items[k]!);
       if (d) return d;
     }
     for (const f of PLAYER_FIELDS) {

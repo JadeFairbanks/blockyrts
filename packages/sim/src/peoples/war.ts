@@ -16,7 +16,6 @@
 import { buildingCentre } from '../buildings/lights.ts';
 import { floorDiv, isqrt, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { NEUTRAL, PEOPLES, UnitKind, WILD, type SimState } from '../state.ts';
-import type { Item } from '../combat/items.ts';
 import { vanish } from '../combat/mob-ai.ts';
 import { Mob } from '../combat/mobs.ts';
 import { RESOURCES, Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
@@ -189,20 +188,20 @@ export function refuseSurrender(state: SimState, player: number, factionId: numb
   state.events.push({ player, kind: 'info', text: `You refused the surrender of ${factionTitle(f)}. They will fight to the last.`, faction: f.id });
 }
 
-/** The fighters' weapons a faction of its size carries, item by item (plunder). */
-function fightersArms(f: Faction): Item[] {
-  const out: Item[] = [];
+/** How many weapons and shields a faction of its size carries (plunder: each gives one ingot of its people's metal). */
+function fightersArms(f: Faction): number {
+  let out = 0;
   const layout = LAYOUTS[f.kind];
   if (!layout) return out;
   for (const [unit, n] of layout.people) {
     const s = peopleUnitSpec(unit);
     if (!s.fighter) continue;
-    for (let k = 0; k < n; k++) for (const it of [s.weapon, s.backup, s.ranged, s.shield]) if (it) out.push(it as Item);
+    for (const it of [s.weapon, s.ranged, s.shield]) if (it) out += n;
   }
   return out;
 }
 
-/** Plunder (Table 11): the livestock, the fighters' weapons, and 10 vp of loot per person in food and metal. */
+/** Plunder (Table 11): the livestock, the fighters' weapons as their metal (Troops and gear), and 10 vp of loot per person in food and metal. */
 export function plunder(state: SimState, f: Faction, player: number): void {
   const e = state.entities;
   const p = state.players[player];
@@ -217,10 +216,10 @@ export function plunder(state: SimState, f: Faction, player: number): void {
     beasts++;
   }
   if (beasts) parts.push(`${beasts} head of livestock`);
-  const arms = fightersArms(f);
-  for (const it of arms) p.items[it] = p.items[it]! + 1;
-  if (arms.length) parts.push(`${arms.length} weapons and shields`);
   const [food, metal] = PLUNDER_GOODS[f.people as People];
+  const arms = fightersArms(f);
+  p.pool[metal] = p.pool[metal]! + arms;
+  if (arms) parts.push(`the metal of ${arms} weapons and shields`);
   const half = floorDiv(PLUNDER_TENTHS_PER_PERSON * Math.max(1, f.founded), 2);
   const nf = floorDiv(half, resValueTenths(food));
   const nm = floorDiv(half, resValueTenths(metal));

@@ -220,27 +220,34 @@ export interface HoldOrder {
   queued?: boolean;
 }
 
-/** Q Equip Best. */
-export interface EquipBestOrder {
-  kind: 'equipBest';
+/**
+ * Upgrading units (Troops and gear): line 0 Upgrade Weapon (tools on a
+ * worker, wand on a mage), 1 Upgrade Armour (robe on a mage); max 1 is the
+ * Max twin, to the best tier researched and affordable.
+ */
+export interface UpgradeKitOrder {
+  kind: 'upgradeKit';
   player: number;
   units: number[];
+  line: number;
+  max: number;
 }
 
-/** The equipment panel (I): one item (or 0 to take it off) for one slot of one unit. */
-export interface EquipItemOrder {
-  kind: 'equipItem';
+/** Workers fetch a cart from a main base's stock (back 0) or hand theirs in (back 1). */
+export interface CartOrder {
+  kind: 'cart';
   player: number;
-  unit: number;
-  slot: number;
-  item: number;
+  units: number[];
+  back: number;
 }
 
-/** F4 Auto-Equip on (1) or off (0). */
-export interface AutoEquipOrder {
-  kind: 'autoEquip';
+/** The Lock on a Barracks, Stables or main base panel for one troop type: 0 off, else 1 + weapon tier x 10 + armour tier. */
+export interface TroopLockOrder {
+  kind: 'troopLock';
   player: number;
-  on: number;
+  building: number;
+  troop: number;
+  lock: number;
 }
 
 /** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
@@ -276,18 +283,18 @@ export interface EarthworkOrder extends UnitsOrder {
   axis: number;
 }
 
-/** Specialist training at a building (Table 7: Archery at the Barracks is skill 1). */
+/** Specialist training at a building (Table 7: cannon crew at the Gunnery yard is skill 16). */
 export interface TrainSkillOrder extends UnitsOrder {
   kind: 'trainSkill';
   building: number;
   skill: number;
 }
 
-/** Debug: puts items into a player's equipment stock. */
+/** Debug: puts resources into a player's pool. */
 export interface DebugGiveOrder {
   kind: 'debugGive';
   player: number;
-  item: number;
+  res: number;
   count: number;
 }
 
@@ -429,17 +436,6 @@ export interface HitchOrder extends UnitsOrder {
   target: number;
 }
 
-/** Milestone 8: warriors trained to ride mount tamed horses (target: one horse; 0: each the nearest free one). */
-export interface MountOrder extends UnitsOrder {
-  kind: 'mount';
-  target: number;
-}
-
-/** Riders get down and their horses go back to their Stables. */
-export interface DismountOrder extends UnitsOrder {
-  kind: 'dismount';
-}
-
 /** Warriors crew an engine or cannon (target): they stand by it, push it and work it. */
 export interface CrewOrder extends UnitsOrder {
   kind: 'crew';
@@ -517,8 +513,6 @@ export type Order =
   | TameOrder
   | EatOrder
   | HitchOrder
-  | MountOrder
-  | DismountOrder
   | CrewOrder
   | MendOrder
   | ProspectOrder
@@ -529,9 +523,9 @@ export type Order =
   | AttackMoveOrder
   | PatrolOrder
   | HoldOrder
-  | EquipBestOrder
-  | EquipItemOrder
-  | AutoEquipOrder
+  | UpgradeKitOrder
+  | CartOrder
+  | TroopLockOrder
   | LockOrder
   | DigOrder
   | EarthworkOrder
@@ -619,14 +613,14 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   attackMove: ['x', 'z'],
   patrol: ['x', 'z'],
   hold: [],
-  equipBest: [],
-  equipItem: ['unit', 'slot', 'item'],
-  autoEquip: ['on'],
+  upgradeKit: ['line', 'max'],
+  cart: ['back'],
+  troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
   trainSkill: ['building', 'skill'],
-  debugGive: ['item', 'count'],
+  debugGive: ['res', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
   debugThreat: ['what', 'x', 'z'],
   hunt: ['target', 'auto'],
@@ -634,8 +628,6 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   tame: ['target'],
   eat: ['building'],
   hitch: ['target'],
-  mount: ['target'],
-  dismount: [],
   crew: ['target'],
   mend: ['target'],
   prospect: ['x', 'z'],
@@ -656,7 +648,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   pickOwn: ['command'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'mount', 'dismount', 'crew', 'mend', 'pickOwn']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -687,7 +679,16 @@ export function validateOrder(o: Order): void {
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
       return;
     case 'debugGive':
-      if (o.count < 1 || o.count > 1000) throw new Error('debug give count out of range');
+      if (o.count < 1 || o.count > 100000 || o.res < 0 || o.res > 255) throw new Error('debug give out of range');
+      return;
+    case 'upgradeKit':
+      if ((o.line !== 0 && o.line !== 1) || (o.max !== 0 && o.max !== 1)) throw new Error('bad upgrade');
+      return;
+    case 'cart':
+      if (o.back !== 0 && o.back !== 1) throw new Error('bad cart order');
+      return;
+    case 'troopLock':
+      if (o.troop < 1 || o.troop > 5 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
       return;
     case 'rations':
       if (o.rations < 0 || o.rations > 2) throw new Error('rations must be 0 to 2');

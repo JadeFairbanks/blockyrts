@@ -7,15 +7,20 @@ import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 const MINUTE = 60 * STEPS_PER_SECOND;
 
-/** Tool tiers in the order of Table 10's rows, which Table 5's "Tool needed" column names. */
-export const Tool = { None: 0, Hardwood: 1, Stone: 2, Flint: 3, Copper: 4, Bronze: 5, BloomIron: 6, WroughtIron: 7, RefinedIron: 8, Steel: 9, HighQualitySteel: 10 } as const;
+/**
+ * Tool tiers in the order of Table 10's rows, which Table 5's "Tool needed"
+ * column names. A worker's tool kit (units/kits.ts, Table 2c) gives each job
+ * one of these: tier 2's kit is flint for chopping and cutting and stone for
+ * breaking and building, and kit tiers 3 to 8 are Copper to CarbonSteel.
+ */
+export const Tool = { None: 0, Hardwood: 1, Stone: 2, Flint: 3, Copper: 4, Bronze: 5, WroughtIron: 6, Iron: 7, Steel: 8, CarbonSteel: 9 } as const;
 export type Tool = (typeof Tool)[keyof typeof Tool];
 
 /**
- * What a worker's tool is for (Table 2c, Equip Best "tools by job"): the axe
- * chops, the digging stick, maul or pickaxe quarries, digs and mines, the
- * mallet or hammer builds and repairs, the knife or sickle cuts plants and
- * butchers. A worker holds one tool per job; a tier's set covers all four.
+ * What a worker's tool is for (Table 2c): the axe chops, the digging stick,
+ * maul or pickaxe quarries, digs and mines, the mallet or hammer builds and
+ * repairs, the knife or sickle cuts plants and butchers. A worker's one tool
+ * kit has a tool for every job.
  */
 export const ToolJob = { Chop: 0, Break: 1, Build: 2, Cut: 3 } as const;
 export type ToolJob = (typeof ToolJob)[keyof typeof ToolJob];

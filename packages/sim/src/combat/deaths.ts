@@ -183,7 +183,7 @@ export function updateElimination(state: SimState): void {
 /**
  * A player leaves the match for good: eliminated, or gone with the host
  * choosing to carry on without them (When a player is eliminated or leaves).
- * Their resources and equipment are split evenly among the players left (any
+ * Their resources are split evenly among the players left (any
  * remainder to the lowest-numbered). Their buildings and units become shared
  * by every remaining player: the next player still in owns them (and feeds
  * the units and gets what they gather, s), and any remaining player may
@@ -200,17 +200,16 @@ export function eliminate(state: SimState, p: number, text: string): void {
   for (let q = 0; q < state.players.length; q++) if (!state.players[q]!.out) left.push(q);
   state.events.push({ player: -1, kind: 'alert', text });
   if (left.length === 0) return;
-  for (const [list, from] of [[ps.pool, 'pool'], [ps.items, 'items']] as const) {
-    for (let r = 0; r < list.length; r++) {
-      const n = list[r]!;
-      if (n <= 0) continue;
-      const each = floorDiv(n, left.length);
-      left.forEach((q, k) => {
-        const to = from === 'pool' ? state.players[q]!.pool : state.players[q]!.items;
-        to[r] = to[r]! + each + (k < n - each * left.length ? 1 : 0);
-      });
-      list[r] = 0;
-    }
+  const list = ps.pool;
+  for (let r = 0; r < list.length; r++) {
+    const n = list[r]!;
+    if (n <= 0) continue;
+    const each = floorDiv(n, left.length);
+    left.forEach((q, k) => {
+      const to = state.players[q]!.pool;
+      to[r] = to[r]! + each + (k < n - each * left.length ? 1 : 0);
+    });
+    list[r] = 0;
   }
   const heir = left[0]!;
   state.buildings.rev++;

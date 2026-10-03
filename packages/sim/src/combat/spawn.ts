@@ -237,7 +237,6 @@ function claimDistance2(shapes: ReturnType<typeof claimShapes>, x: number, z: nu
 interface Weights {
   lights: Array<[number, number, number]>;
   units: Array<[number, number]>;
-  torches: Array<[number, number]>;
 }
 
 function weightsFor(state: SimState): Weights {
@@ -250,16 +249,14 @@ function weightsFor(state: SimState): Weights {
   }
   const e = state.entities;
   const units: Array<[number, number]> = [];
-  const torches: Array<[number, number]> = [];
   for (let i = 0; i < e.count; i++) {
     if (e.owner[i]! >= state.players.length || e.kind[i] === UnitKind.Wanderer) continue;
     units.push([e.x[i]!, e.z[i]!]);
-    if (e.torchUntil[i]! > state.step) torches.push([e.x[i]!, e.z[i]!]);
   }
-  return { lights, units, torches };
+  return { lights, units };
 }
 
-/** A spot's spawn weight in 64ths (Table 8): x0.25 within twice a light's radius, x0.5 within three times; x0.5 near units and hand torches. */
+/** A spot's spawn weight in 64ths (Table 8): x0.25 within twice a light's radius, x0.5 within three times; x0.5 near units (hand torches went with the items). */
 function weightAt(w: Weights, x: number, z: number): number {
   let wt = 64;
   for (const [lx, lz, r] of w.lights) {
@@ -270,13 +267,6 @@ function weightAt(w: Weights, x: number, z: number): number {
   const near = 20 * WU_PER_METRE;
   for (const [ux, uz] of w.units) {
     if (dist2(x, z, ux, uz) <= near * near) {
-      wt = wt >> 1;
-      break;
-    }
-  }
-  const torch = 8 * WU_PER_METRE;
-  for (const [tx, tz] of w.torches) {
-    if (dist2(x, z, tx, tz) <= torch * torch) {
       wt = wt >> 1;
       break;
     }

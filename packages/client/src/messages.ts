@@ -37,8 +37,9 @@ export type ToWorker =
 /**
  * Per-entity record in a state message (all int32): id, owner, kind, x, y, z,
  * heading, order, hp, maxHp, rank, chopping tool, carryRes, carryAmt, inside, act,
- * then what it fights with (mob kind, the items in each slot, a lit torch,
- * the swing under way), its state flags, lock, skills, shots left and target,
+ * then what it fights with (mob kind, the gear in each slot, its troop type
+ * and its weapon and armour tiers, the swing under way), its state flags,
+ * lock, skills, an engine's shots left and target, an upgrade under way,
  * a hop under way, a worker's other tools by job and the one in its hand,
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
@@ -58,19 +59,22 @@ export const S = {
   hp: 8,
   maxHp: 9,
   rank: 10,
-  /** A worker's tool item for each job (ToolJob: chop, break, build, cut), or 0. */
+  /** A worker's tool for each job (ToolJob: chop, break, build, cut), a gear id, or 0. */
   toolChop: 11,
   carryRes: 12,
   carryAmt: 13,
   inside: 14,
   act: 15,
   mob: 16,
+  /** Gear ids (units/kits.ts GEAR) in the weapon, ranged, shield and armour slots. */
   weapon: 17,
-  backup: 18,
+  /** Troops: the type (Troop), fixed when trained; 0 for everything else. */
+  troop: 18,
   ranged: 19,
   shield: 20,
-  boots: 21,
-  torch: 22,
+  /** The weapon (tool kit, wand) and armour (robe) tiers of a troop, worker or mage. */
+  wTier: 21,
+  aTier: 22,
   /** 0, or 1 + the slot it is swinging or shooting with (Slot). */
   swing: 23,
   flags: 24,
@@ -79,20 +83,21 @@ export const S = {
   ammo: 27,
   target: 28,
   armour: 29,
-  helmet: 30,
-  boltCase: 31,
+  /** An upgrade under way (Upgrading units): per mille of its bar (0 until the unit is beside the building), its line + 1 (0 for none) and the tier it goes to. */
+  upDone: 30,
+  upLine: 31,
+  /** A worker's cart (Res.HandCart or Res.OxCart), or 0. */
   kit: 32,
   /** A worker's working animal, or an animal's worker (entity id), or 0. */
   partner: 33,
-  /** The arrows or bolts loaded (Item), or 0. */
-  ammoItem: 34,
+  upTo: 34,
   /** Steps left of a hop up or down a rise (Moving over the land), or 0, and the rise it makes, wu. */
   hop: 35,
   hopRise: 36,
   toolBreak: 37,
   toolBuild: 38,
   toolCut: 39,
-  /** The tool item a worker has in hand for what it is doing now, or 0. */
+  /** The tool a worker has in hand for what it is doing now (gear id), or 0. */
   toolHand: 40,
   /** Mages: support or battle (School), mana and the bar's most (whole points). */
   school: 41,
@@ -195,6 +200,15 @@ export interface BuildingInfo {
   rating: number;
   /** Livestock farms and the Stables: animals that live there. */
   herd: number;
+  /**
+   * Barracks, Stables and main bases (own and usable): each troop type it
+   * trains, with the panel's default weapon and armour tiers (the Lock's
+   * combination, else the best the stock pays for) and the Lock (0 off, else
+   * 1 + weapon x 10 + armour).
+   */
+  troops: Array<{ troop: number; w: number; a: number; lock: number }>;
+  /** The Stables: tamed, grown horses free in the stalls (each new cavalry takes one). */
+  horses: number;
 }
 
 /** Everything else the screen shows, once per tick. */
@@ -215,11 +229,9 @@ export interface InfoMessage {
   outlying: { halves: number; limit: number };
   /** Per building kind: why the local player cannot order one at all, or ''. */
   buildWhy: string[];
-  /** The equipment stock by item id. */
-  items: Int32Array;
-  /** Research done, a bit per Research id. */
+  /** Research done, a bit per Research id, and the best finished forge level (what kit tiers need). */
   research: number;
-  autoEquip: boolean;
+  forge: number;
   /** Dig and earthwork sites of the local player. */
   sites: Site[];
   /** The step the game ended (0 while it goes on), and the nights survived. */

@@ -36,6 +36,7 @@ export * from './nav/path.ts';
 export * from './units/unit-orders.ts';
 export * from './units/behaviour.ts';
 export * from './combat/items.ts';
+export * from './units/kits.ts';
 export * from './combat/mobs.ts';
 export * from './combat/combat.ts';
 export * from './combat/projectiles.ts';

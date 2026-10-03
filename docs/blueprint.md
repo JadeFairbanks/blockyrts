@@ -222,6 +222,11 @@ Clip names are the contract between sim and renderer: idle, walk, run, attack_*,
 
 **F11:** a page cannot press F11 itself, so the reminder stays text and the main menu also gets a "Full screen" button that calls requestFullscreen, which has the same effect. On a Mac the key is Ctrl + Cmd + F and the reminder says so there.
 
+- **Measured in Milestone 10 (2026-10-03):** on a 4-core cloud container, slower than either target machine. The sim runs 3,000 live monsters at about 19 ms a step (target 25 ms; it was 95 to 99 ms before) and 6,000 at about 30 ms. The client draws about 80 draw calls whatever the crowd (budget 200 / 300). The heap is 37 to 67 MB with 291 to 1,086 units (budget 1 / 1.5 GB). Frames per second need a real GPU to measure.
+- **Wall breaks:** a step that breaks a wall costs about 150 ms with 6,000 monsters (about 220 ms before the last fix). Most of it is the claimed-land enclosure flood after a breach, and the flow field's coarse tiles are rebuilt the next step; both are the next things to cut.
+- **Hashes:** every speed-up left every hash identical (all the M0 to M8 check scripts, step by step).
+- **Debug tools:** new readout lines for fps, frame ms, draw calls and triangles, units, and memory (Chrome only); a Crowd +200 button sets down 200 night mobs (zombies, skeleton archers, giant rats, grave hounds) on a ring 15 to 40 m round the view; pnpm --filter @blockyrts/tools perf:sim with --units, --steps and --seed. Notes in the repo's docs/performance.md.
+
 #### 11. Testing and tooling
 
 **Question:** how is determinism proven, a desync found, balance checked and a seed inspected?
@@ -231,6 +236,8 @@ Clip names are the contract between sim and renderer: idle, walk, run, attack_*,
 **Desync tool:** every client keeps a ring buffer of the last 2 minutes of input frames plus the last agreeing snapshot; on a desync both sides upload them, and the tool replays them offline, reports the first diverging step and diffs the serialised state to the first differing field.
 
 **Balance harness:** the headless runner with fixture towns (night 0 camp, night 10 palisade town, night 25 stone fort, night 45 fortress with muskets) and a scripted defence; the night spawner spends the table 8 budget for a given night and player count, and the harness writes one CSV row per run: losses, time to first breach, mobs alive at dawn, resources spent. Run after every table change.
+
+- **Balance harness as built (Milestone 10, 2026-10-03):** pnpm --filter @blockyrts/tools balance prints the pacing check and the night 110 supply from the sim's own tables, then runs nights 0, 10, 20, 40, 60, 80 and 110 on seeds 1 to 3 against fixture towns with a scripted defence, one CSV row per run; options --pacing, --nights, --seeds, --blood, --csv. Its suggested assumptions and today's results are in the Balance notes (number tables, Pacing check). Harness fixture note, not a defence rule: mages stand on the main base's parapets from level 3.
 
 **Map viewer:** a Vite dev page that runs the sim package's generation in the browser and draws a seed's cells, barrier edges, gaps, bands, villages and chunk heights on a 2D canvas, with a click to inspect any chunk's columns. Same code as the game, so what it shows is what players get.
 
@@ -446,6 +453,8 @@ Done (merged 2026-10-03, PR #61): picks in m9-picks.md, now in the docx (Multipl
 
 #### M10: Audio, performance pass, balance pass against the pacing check, bug bash
 
+Done (merged 2026-10-03, PR #63): picks in m10-picks.md, now in the docx (Audio, Controls, technical decisions 10 and 11, Balance notes, Open questions). The first iteration (M0 to M10) is complete.
+
 **You can now:** a single-player run reaches bronze by night 4 to 6, iron by 13 to 18, steel by 25 to 30 and gunpowder by 40 to 48 (s) as in the pacing check, at the agreed frame rate on the minimum hardware; the Quick reference works end to end with the mouse alone; every sound in the Audio list plays.
 
 **Builds:**
@@ -458,6 +467,25 @@ Done (merged 2026-10-03, PR #61): picks in m9-picks.md, now in the docx (Multipl
 **Depends on:** M9.
 
 **Risks:** retuning one table shifting another; performance fixes breaking determinism.
+
+#### M11: Troop rework
+
+Agreed by Jade on 2026-10-03 (go at 05:25 UTC). The full design is in troop-rework.md and the docx section "Troops and gear (agreed 2026-10-03)"; the numbers are in Tables 2a to 2e, 3, 7, 12 and 13.
+
+**You can now:** click a Barracks, pick a weapon tier and an armour tier for close melee, long melee, ranger or brawler, tick Lock, and train troops that come out already armed; train cavalry at the Stables; select warriors and press Upgrade Weapon or Upgrade Armour (or the Max twins) and watch them walk to a forge, Barracks or main base and come back better armed; upgrade a worker's whole tool kit with Q; see a long-melee troop land 30% critical hits at the tip of its reach.
+
+**Builds:**
+
+- Sim: no tool, weapon, armour or ammunition items; a weapon tier, armour tier and type on every troop, a tool tier on every worker, a wand and robe tier on every mage; five troop types fixed at training; kit costs (today's item costs carried across, summed, no tuning) plus food and 1 supply; feathers and gunpowder paid at training; unlimited ammunition; Upgrade Weapon, Upgrade Armour and their Max twins with the walk to the nearest forge, Barracks, main base (Stables for cavalry, Magi Sanctum for mages) and a fill bar; shortage rule (highest rank first, whole steps only).
+- Combat: long melee and cavalry with no minimum range and +30% damage in the outer third of reach (Jade; outer third (s)); shields only on close melee, from the armour tier; no backup weapon; no load slowdown and no armoured swimming rule; worker carrying limit kept for the walk back only.
+- Forge as smelting only (Casting Hearth, Bloomery, Ironworks, Steelworks with carbon steel); Tannery with no tiers making hardened leather; research list without Halberds and Steel crossbow; wild geese and pheasants hunted for meat and feathers.
+- Client: the Barracks, Stables and main base training panel (picture buttons, tier dropdowns with icons, Lock, best-affordable default favouring the weapon); the four Upgrade buttons (Q, X, Z, V (s)) and Q Upgrade on workers; K, F, I, F4, the Equipment panel, the inventory panel, the Train skills page entries for Archery, Crossbow, Musket and Riding, and the Ride button removed; Hitch and Cannon crew kept; start with 4 workers and 3 unarmoured close-melee warriors with hardwood cudgels.
+- Balance editor: a group per new table (kits, armour and shields, tools, training and upgrading, wands and robes); no tuning, numbers stay Jade's.
+- Models: tinted bodies per tier until the model thread makes the per-tier looks, the brawler's pistol and the birds.
+
+**Depends on:** M10.
+
+**Risks:** old saves carry items (a save from before M11 either converts each unit's best gear to tiers or is refused with a clear message (s)); trade and plunder rows that sold items now give ingots at the same value.
 
 #### Completeness check: where every section and table is built
 
@@ -485,6 +513,7 @@ Done (merged 2026-10-03, PR #61): picks in m9-picks.md, now in the docx (Multipl
 | Table 5: Resource nodes per band | M1 (prospect and mineshaft rows M4) |
 | Food, supply and health, Table 6: Food and supply, Food and medicine | M4 (farm yield rows M2) |
 | Open questions | M7 (noted for later iterations) |
+| Troops and gear, Tables 2c to 2e, 3, 7 and 13 (wands and robes), Unit looks | M11 |
 | Gameplay Mechanics (heading), Controls, Screen layout and mouse zones, Camera, Browser requirements, Playing with the mouse only | M1 |
 | Selecting units and buildings | M1 (selection panel and subgroups M2) |
 | Control groups and camera hotkeys, Command card and hotkeys, Building placement, Gathering resources, Queuing orders with Shift | M2 |
@@ -542,11 +571,11 @@ The land shapes the town. Grassland, which herds and most crops need, thins out 
 
 **Starting setup:** Every player starts with:
 
-- A level 1 **Big House**, the main base. It is a drop-off point for every resource, trains workers and warriors, and can be upgraded up to level 10 (see "Main base").
+- A level 1 **Big House**, the main base. It is a drop-off point for every resource, trains workers and tier 1 troops, and can be upgraded up to level 10 (see "Main base").
 - 4 **workers**.
-- 1 **warrior**.
-- Basic **hardwood tools** only for the workers: hardwood axes, hardwood digging sticks and mallets. Better tools have to be made (see "Progression").
-- The warrior starts with a **flint-tipped spear**, and a **hardwood club** that it switches to when an enemy gets too close (see "Polearms").
+- 3 **warriors** (Jade, 2026-10-03), all close melee with a tier 1 weapon (a hardwood cudgel) and no armour, so no shield (see "Troops and gear").
+- Tier 1 **hardwood tools** for the workers: hardwood axes, digging sticks and mallets. Workers upgrade their tool kit one tier at a time (see "Troops and gear").
+- Extra starting food and supply for the three warriors (Jade, 2026-10-03).
 
 ### What makes it fun
 
@@ -562,7 +591,7 @@ The strategy comes from a set of tensions. None of them has one right answer; th
 |---|---|---|
 | Expand or stay close | Richer resources and rare materials are only found far from spawn. A small settlement that never expands will eventually be wiped out. | Distance means more danger. Isolated buildings are destroyed at night, and discovered tribes may start raiding. |
 | Army or economy | More warriors and mages survive harder nights. | Every unit costs supply and eats food every day. Farms give the supply, so the army is only as big as the farmland. |
-| Train or work | Training at a building makes units stronger and unlocks riding, ranged weapons, muskets and cannons. | A unit in training is stuck inside the building, costs time and food, and does no other work. |
+| Train or work | Training at a building makes units stronger and unlocks cannon crews; better gear comes from upgrading at a forge, Barracks or main base. | A unit in training is stuck inside the building, costs time and food, and does no other work. |
 | Light the land or not | Torches and light make monsters far less likely to spawn nearby. | Isolated torches get smashed by day creatures, and too many torches outside the base call a goblin horde at dusk. |
 | Clear lairs or build | Clearing lairs removes about 20% of each night's monsters. | It costs daylight that could go to gathering and building, and new lairs keep appearing. |
 | Disturb the world or not | Tribes and territorial creatures guard rare resources and some tribes can be traded with. | Provoking them raises difficulty. Some give up when you leave their territory; others hunt you until one side is dead. |
@@ -820,7 +849,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - Villages and mercenary camps are only generated when players discover them, so nothing can happen to them before that. Once discovered, they are attacked by monsters like the players are.
 - **Where they turn up (suggested):** each newly explored cell has a chance to hold one (one cell in N, table 11): Runkin camps 1 in 12 in the Heartland, 1 in 6 in the Fringe, 1 in 16 in the Deepwoods, none further out; Dwarf colonies 1 in 6 in the Barrens; Dwarf cities 1 in 120 in the Deadlands; mercenary camps 1 in 20 in the Fringe and Deepwoods; wandering Elf caravans 1 in 6 in the Fringe and Deepwoods until a player has met the Elves. Halfling villages are placed with the world (table 9) and the one Elf kingdom sits one ring into the Deepwoods at a seeded place around the ring. A new camp or village is at least 40 m from the players when found and 60 m from any other village, camp or goblin village.
 - **Bigger and richer further out (suggested):** by band (Heartland, Fringe, Deepwoods, Barrens, Deadlands) a village has 100, 100, 125, 150 and 175% of its usual people and 100, 125, 150, 175 and 200% of its usual stock. Usual sizes are in table 11.
-- Each village has a **specialisation**. Villages generally offer basic raw materials and basic equipment. Suggested: each Halfling village leans to one trade (crops, livestock, fishing or weaving), which sets what it sells cheaply and what it pays well for.
+- Each village has a **specialisation**. Villages generally offer basic raw materials and ingots. Suggested: each Halfling village leans to one trade (crops, livestock, fishing or weaving), which sets what it sells cheaply and what it pays well for.
 - **Mercenary camps** are separate places where recruits can be hired. Suggested: small neutral camps in the Fringe and Deepwoods that hire out two to six warriors for one day, paid in silver (2 silver each until dusk). They fight for whoever paid last and walk home at dusk. Right click the camp with any unit to hire. A camp gains one recruit back every 2 days. Fringe camps hire out Runkin archers and Halfling spearmen; Deepwoods camps hire out Elf Bladewardens and Dwarf crossbowmen.
 - Once a village has been found, trade happens through a **trade menu**, opened by talking to the village leader or by using some of its buildings (right click the leader or building with any unit). Goods go straight between the player's resource pool and the village; nothing has to be carried.
 - Trade is barter. The player puts up an offer, and the village answers with a few choices of what it will give in return. The player picks one, or withdraws the offer.
@@ -839,7 +868,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - An attack order on a neutral village never starts straight away. A pop-up first asks the player to confirm the war. If the player cancels, no order is given. Attack-move, patrol and idle units never target a neutral village.
 - In multiplayer, a war started by one player draws in **all of their allies** automatically, whether they wanted it or not.
 - **Surrender:** when a neutral people surrenders, the player gets their things as described for the Halflings (livestock, the remaining fighters' weapons and some loot). Elves and goblins never surrender. A Dwarf faction holds a grudge and starts attacking again once it has regained its strength in a new place.
-- **Plunder:** winning a war against a village that keeps livestock gives the player its livestock. The loot also holds food and metal by people (suggested): Halflings bread and bloom iron, Runkin meat and flint, Elves bread and steel, Dwarves bread and wrought iron.
+- **Plunder:** winning a war against a village that keeps livestock gives the player its livestock. The loot also holds food and metal by people (suggested): Halflings bread and wrought iron, Runkin meat and flint, Elves bread and steel, Dwarves bread and wrought iron.
 - **How their fighters behave (suggested):** defenders go for enemies within 40 m of the middle of their village and chase up to 60 m. Raiders set out 70 m from their target. At war, the Elves send a band of 6 every 2 days. Villagers who flee or migrate vanish once 60 m from home or after 60 seconds.
 - **Daily life (suggested):** villagers wander up to 10 m from home; the peoples heal 1 health every 2 seconds after 10 seconds out of a fight; a faction at peace gains back one lost person every 3 days.
 - **Abandoned buildings** of other races cannot be used. The only thing players can do with them is send workers to break them down, which gives back the resources they were built from (right click or A the building with workers (suggested)).
@@ -857,9 +886,9 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Softwood lumber 1, hardwood lumber 2, sticks 0.5, planks 1.5, stone 1, flint 1, clay 1, sand 1, gravel 0.5, Earth 0.2, bricks 1, glass 3, resin 1, bone 1 | raw and simple goods |
 | Coal 2, charcoal 1.5, copper ore 2, tin ore 3, bog iron 2, iron rock 2, vein iron 4, lead ore 3, saltpetre 4, sulphur 6, marble 6 | minerals |
 | Meat 3, fish 2, eggs 1, wheat 1.5, potatoes 1, carrots 1, corn 1.5, flax 1, herbs 2, hides 3, leather 4, feathers 0.5; cooked foods 0.75 x nutrition (bread 4, roast meat 5, stew 9, pie 12); bandage 5, remedy 15 | food and farm goods |
-| Copper 5, tin 7, bronze 6, bloom iron 8, wrought iron 9, pig iron 11, refined iron 24, steel 30, HQ steel 60; gunpowder (10 charges) 16, lead shot (10) 4 | ingots and powder |
+| Copper 5, tin 7, bronze 6, wrought iron 9, pig iron 11, iron 24, steel 30, carbon steel 60; gunpowder (10 charges) 16 | ingots and powder |
 | Gold 40, silver 15, emerald 50, ruby 60, diamond 100, mana crystal 30, demon horn 20, hexstone 10, venom 5, spider silk 3 | valuables and monster goods |
-| Any tool, weapon, armour, shield, engine or cart: 2 x the sum of its recipe (bronze sword 36, wrought iron mail 80, steel sword 192, HQ steel sword 372, steel plate 376, musket 68, bronze cannon 280, iron cannon 256) | made equipment |
+| Any engine or cart: 2 x the sum of its recipe (bronze cannon 280, iron cannon 256); weapons, armour and tools are no longer items (2026-10-03) | made goods |
 | Token 1 ingot x2.5 (copper 12, gold 100); Charm 2 ingots x3 (copper 30, gold 240); Brooch 4 ingots x3.5 (copper 70, gold 560); Heirloom 6 ingots x4 (copper 120, gold 960); Moonleaf 3 silver + 2 emeralds x5 = 725; Sunheart 3 gold + 2 rubies x5 = 1200; made in 15 / 30 / 60 / 120 / 180 / 240 s | trinkets |
 
 How a village pays (s): it values the player's offer at the share below and answers with 3 bundles of that worth from its stock; it sells at 100% of value; it buys at most 300 vp of one category a day and its stock refills 20% a day.
@@ -889,13 +918,15 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 | Payment by kind (food, tools and weapons, armour and shields, ingots, trinkets, silver and gold trinkets, lumber, raw gold and silver, gems, livestock, other) | Halflings 110, 70, 50, 60, 50, 35, 30, refuse, refuse, 50, 50; Runkin 100, 110, 50, 50, 80, 70, 40, 70, 50, 50, 50; Elves 100, 60, 60, 60, 130, 130, insulted, 100, 100, 60, 60; Dwarves 110, 50, 50, 80, 100, 100, 50, 110, 110, 50, 50 |
 | Bundles and offer | each of the 3 bundles is worth 85 to 100% of the offer; the offer box takes up to 8 different goods |
 | Specialisation | the lean good sells at 80% and is stocked double; what the lean lacks pays 130% |
-| Plunder food and metal | Halflings bread and bloom iron; Runkin meat and flint; Elves bread and steel; Dwarves bread and wrought iron |
+| Plunder food and metal | Halflings bread and wrought iron; Runkin meat and flint; Elves bread and steel; Dwarves bread and wrought iron |
 | Values not listed above | iron ingot as wrought iron; rope as two flax; ramp steps and a lantern as twice their inputs |
 | War | Elf war band of 6 every 2 days; raiders start 70 m out; defenders take enemies within 40 m of the middle and chase up to 60 m; leavers vanish 60 m from home or after 60 s; Runkin look up to 200 cells away for a new camp; Elf tree warnings from an Elf within 30 m, at most one every 20 s, the third is war |
 | Caravans | start 60 m out and stop 14 m from the main base; a wandering caravan leaves at the second dusk after it was found |
 | Mercenaries | 2 silver each until dusk; a camp hires out 2 to 6 and gains one back every 2 days; Fringe camps Runkin archers and Halfling spearmen, Deepwoods camps Elf Bladewardens and Dwarf crossbowmen |
 | Daily life | heal 1 health every 2 s after 10 s out of a fight; a faction at peace gains back one lost person every 3 days; villagers wander up to 10 m; important lines reach the panel when a player unit is within 30 m or the speaker is on screen; a Dwarf colony's first trade names the direction of the nearest city |
 | Speech | remarks about every 9 s from a unit on screen; bubbles 3.5 s plus 40 ms per letter, at most 10 at once; urgent messages are alerts, idle workers and nightfall |
+
+Troop rework (2026-10-03, (s), Open for Jade's rebalance): weapons, armour and tools are no longer items, so wherever a people above or in table 19 sold or bought one, it now trades the ingots and materials that made it at the same value: Halfling shortbows, shortswords and bucklers become their wood, leather and wrought iron (bloom iron is gone), and their bloom iron ingots become wrought iron.
 
 #### Halflings
 
@@ -904,7 +935,7 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 - **Homes:** burrows with wooden doors and little windows, plus some stone and wooden buildings above ground, mostly for farming.
 - **What they want:** food and trinkets. They undersell trinkets, giving much less than a trinket is worth, especially for trinkets of the more valuable metals. A gold trinket still gets more in return than a copper one, just nowhere near its value.
 - **What they refuse:** gold and silver, raw or as ingots, and gems. They do not value them at all and will not accept them.
-- **What they sell:** farm goods, including live livestock for the player's own farms, and Halfling weapons such as shortbows, shortswords and bucklers. They can make iron, but only the lowest grade (bloom iron).
+- **What they sell:** farm goods, including live livestock for the player's own farms, and leather, hardened leather and wrought iron ingots. They can make iron, but only the lowest grade (wrought iron).
 - **Buildings:** a little windmill, a two-storey inn half dug into the hill, and barns. Halfling spearmen wear an iron cap and carry a short spear.
 - **War oxen (suggested):** a village keeps 2 war oxen in its barn (more in richer villages). When a war starts, a spearman takes each ox with an archer behind him; the archer gets down if the ox falls.
 - **Ox riders:** only in times of war, Halflings ride oxen into battle with two riders on each: a spear-wielding Halfling in front and an archer behind. An ox rider can attack in melee and at range while it moves.
@@ -933,7 +964,7 @@ Rows and lines marked "(suggested)" are Claude's ideas to fill gaps, for Jade to
 - **Homes:** they like wood and marble in their buildings but use other materials too. Suggested: tall marble-footed halls built around and up into giant living trees, linked by wooden walkways.
 - **What they want:** they value **trinkets** highly.
 - **Lumber offends them.** Offering lumber in trade insults them. Suggested: they close the trade menu to that player for one day.
-- **What they sell:** many kinds of goods, including food, and **high-quality steel melee weapons** at a very high price, so buying them is never a cost-effective way to equip an army.
+- **What they sell:** many kinds of goods, including food, and **carbon steel ingots** at a very high price, so buying them is never a cost-effective way to arm an army.
 - **Cutting trees in the Deepwoods:** if an Elf (from the kingdom or a caravan) actually sees players cutting down trees in the Deepwoods, they warn them to stop (suggested: an Elf within 30 m warns, at most once every 20 seconds). After a few warnings (suggested: three) they **declare war** and try to wipe the player out. Cutting trees where no Elf can see it, or outside the Deepwoods, does not bother them.
 - **War:** the Elves **never surrender**. A war with them lasts until one side is gone.
 
@@ -941,8 +972,8 @@ Rows and lines marked "(suggested)" are Claude's ideas to fill gaps, for Jade to
 
 | **Unit** | **What it does (suggested)** |
 |---|---|
-| Bladewarden | Skilled warrior with a high-quality steel glaive (a polearm) and a long knife as its backup weapon. Fast and hard-hitting, lightly armoured. |
-| Longbow ranger | Archer with the longest bow range in the game. Can walk while shooting, like the Runkin, and its arrows have high-quality steel tips. |
+| Bladewarden | Skilled warrior with a carbon steel glaive (a polearm). Fast and hard-hitting, lightly armoured. |
+| Longbow ranger | Archer with the longest bow range in the game. Can walk while shooting, like the Runkin, and its arrows have carbon steel tips. |
 | Tamed bear | Fights on foot alongside the Elves. Big, tough, and swipes in an arc. |
 | Bear rider | An Elf warrior riding a bear. Charges like cavalry (see "Charges"), knocking back anything smaller than the bear. |
 | Grovesinger | Elf mage (see below). |
@@ -1009,9 +1040,11 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Seller** | **Sells (price in vp) (s)** | **Pays for (s)** | **Limits (s)** |
 |---|---|---|---|
 | Elf caravan (every 5 days once met; also at the kingdom) | bread 5, roast meat 5, smoked fish 7, wheat 2, flax 1, herbs 2, bandage 5, healing remedy 15 (all 120% of value); HQ steel sword 1500, HQ steel pike 1600, HQ steel glaive (steel halberd stats, 45 damage) 1800 (4 x their value, so never cost-effective, as the doc wants) | trinkets 130%; food 100%; gold, silver, gems 100%; else 60% | a caravan carries 1 weapon and 200 vp of food a visit; the kingdom 3 weapons a day; lumber offered closes trade to that player for 1 day |
-| Dwarf colony (Barrens) | steel ingot 45 (1.5 x), at most 5 a day; bronze 6, bloom iron 8, wrought iron 9; bronze and iron weapons and shields at 1.5 x value; emerald 50, ruby 60, diamond 100 | food 110%; gold, silver, gems 110%; trinkets 100%; metal 80%; lumber 50% (more than anyone else, still not much); else 50% | after the first trade it gives the direction and distance of the nearest city (doc) |
+| Dwarf colony (Barrens) | steel ingot 45 (1.5 x), at most 5 a day; bronze 6, wrought iron 9; bronze, wrought iron and iron at 1.5 x value (weapons and shields are no longer items, 2026-10-03); emerald 50, ruby 60, diamond 100 | food 110%; gold, silver, gems 110%; trinkets 100%; metal 80%; lumber 50% (more than anyone else, still not much); else 50% | after the first trade it gives the direction and distance of the nearest city (doc) |
 | Dwarf city (Deadlands, about 1 in 120 cells) | at 3 x make cost: bronze cannon 420, iron cannon 384, musket 102, steel plate 564, steel sallet 102, steel heater shield 282, wrought iron mail 120, steel sword 288; gold 40, gems at value, gunpowder (10 charges) 48, lead shot (10) 12, cannonballs 30; HQ steel ingot 90 (1.5 x), at most 2 a day (the doc's richer-far-out rule, still rare) | as the colony | 1 cannon a day in total (bronze or iron, whichever is bought first; the other waits for the dawn restock) and 3 steel muskets a day; powder horns and shot pouches at 1.5 x value; its own 2 Dwarf cannons inside the gate are not for sale |
 | Reparations (either faction) | 2000 vp plus 100 per Dwarf killed, in gold, silver, gems, trinkets or food |  | a migrated group rebuilds for 10 days (doc, suggested), then raids with a band of 6 every 3 days until paid |
+
+Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality steel weapons become carbon steel ingots at the same 4 x value, and Dwarf muskets and armour become the carbon steel or steel that made them at the same 3 x make cost; cannons, gunpowder and cannonballs are unchanged. Lead shot is gone, since ammunition is unlimited.
 
 **How these were set:** a Gold Heirloom (960) and a Copper Token do not buy one Elf sword (1500), and a Dwarf city cannon (420) is about two days of a tier 3 mineshaft's gold at Fair; both keep the doc's "very expensive" and "about three times".
 
@@ -1060,7 +1093,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - **Shaping the land:** workers can clear obstacles, dig trenches and moats, build the land up, and given enough time tunnel through a cliff wall or a mountain. Rivers can be dug and redirected. See "Terrain".
 - **Grassland and the heartland:** grassland becomes thinner the farther it is from the start basin, until the land is eventually barren. Agriculture, and especially grazing herds, therefore has to be centred in the heartland. Some vegetable farms can still work in poorer land.
 - **Regrowth:** fish breed, so fishing spots refill over time (see "Fish"). Felled trees drop seeds around them. Seeds left on the ground grow into saplings; workers can also pick them up and plant them. The smallest softwood tree takes about an hour to grow to full size, and other trees take much longer. Hazel bushes grow back from the stump after they are cut. All other resources are used up for good.
-- **Exploration rewards:** richer resources the farther out players go, such as more gold and the ores for high-quality steel. These stay rare even far out; the world is never brimming with metals. Trading with the peoples found along the way is the other reward. There are no blueprints or magic sites to find.
+- **Exploration rewards:** richer resources the farther out players go, such as more gold and the ores for carbon steel. These stay rare even far out; the world is never brimming with metals. Trading with the peoples found along the way is the other reward. There are no blueprints or magic sites to find.
 
 #### Table 5: Resource nodes per band
 
@@ -1082,7 +1115,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Coal, surface seam | Fringe | 60 | 5 | 15 s | 2 | copper | none (s) |
 | Bog iron patch | Heartland bogs (giant frog guards it, roster) | 40 | 5 | 20 s | 2 | bronze | none (s) |
 | Iron rock | Fringe | 80 | 5 | 25 s | 2 | bronze | none (s) |
-| Vein iron seam, inside a ridge; exposed by a tunnel | Deepwoods and deeper | 150 | 5 | 30 s | 2 | bloom iron | none (s) |
+| Vein iron seam, inside a ridge; exposed by a tunnel | Deepwoods and deeper | 150 | 5 | 30 s | 2 | wrought iron | none (s) |
 | Clay bank | Fringe riverbanks and wetlands | 100 | 5 | 15 s | 2 | hardwood | none (s) |
 | Sand | riverbeds and beaches, any band | 100 | 5 | 10 s | 2 | hardwood | none (s) |
 | Marble rock | Fringe (rare, about 1 rock in 6 cells), common from the Deepwoods | 80 | 2 | 30 s | 2 | bronze | none (s) |
@@ -1111,7 +1144,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Stone | loose stone 60 and one 200 outcrop |
 | Flint scatter / herbs / wild flax | 40 / 20 / 20 |
 | Water | one stream stretch of at least 60 m2 (15 trout) or a pond of 40 m2, within 60 m |
-| Food | 15 meat, 10 fish, 10 eggs: 100 nutrition, 10 days for the starting five (Jade confirmed) |
+| Food | 15 meat, 10 fish, 10 eggs: 100 nutrition, 10 days for the starting five (Jade confirmed); with 3 starting warriors now (Jade, 2026-10-03), the extra starting food Jade set covers the seven (s: 140 nutrition, Open for Jade's rebalance) |
 | Iron | a bog of 40 bog iron (80% of pockets) or an iron rock of 60 (20%) |
 | Wild cattle / chickens | 1 pair / 2 pairs within 90 m, shared with neighbouring pockets |
 | Basin size | 1 to 2 players 1 cell (150 to 200 m); 3 to 5 players 2 cells; 6 to 8 players 3 cells (doc); pockets at least 80 m apart |
@@ -1155,6 +1188,8 @@ Cooking takes 10 / 8 / 6 / 5 / 4 s per item by tier, 1 lumber or coal per 5 item
 ### Open questions
 
 - More tribe and village peoples (the Halflings and Runkin are the first), and which ones can be traded with.
+- **Battle mages behind walls (suggested)** (found by the Milestone 10 balance harness, awaiting Jade's word): a battle mage standing on the ground cannot shoot over a wall, because Arcane bolt flies flat, so she walks out of the gate and dies. Should spells arc over walls, should mages refuse to leave the walls, or is placing them on parapets the player's job?
+- **Warriors on hold against archers (suggested)** (found by the Milestone 10 balance harness, awaiting Jade's word): skeleton archers stand off out of reach of a closed wall, and warriors on Hold Position never answer them. Should held warriors step out to answer ranged attackers, or is that left to the player?
 
 ## Gameplay Mechanics
 
@@ -1184,7 +1219,7 @@ The screen is split into two zones, and almost every control rule below depends 
   - Clock (top centre): the current day or night, time remaining, and the night count.
   - Top-right buttons, under the resource bar (suggested, as built 2026-10-03): Peoples (O), Allies ([), Send (]), Ping (\) and Pause (❚❚). Allies and Send are greyed when playing alone (see "Allies panel").
   - Message panel (left side, above the minimap): what the player's units say, game alerts such as "Night is falling", and chat between players (see "Unit speech and the message panel").
-  - Utility bar (a slim row of buttons along the top edge of the minimap): Idle Gatherer, Select Army, Town Hall, Follow, Queue Mode, Auto-Equip (F4, suggested), Rations (F9, suggested), Everyone Home (J, suggested), Reset Zoom, four Camera Location buttons, and Menu. Each button does the same as its hotkey (see "Playing with the mouse only").
+  - Utility bar (a slim row of buttons along the top edge of the minimap): Idle Gatherer, Select Army, Town Hall, Follow, Queue Mode, Rations (F9, suggested), Everyone Home (J, suggested), Reset Zoom, four Camera Location buttons, and Menu. Each button does the same as its hotkey (see "Playing with the mouse only").
 
 The HUD is solid: a click on any HUD panel, including its transparent padding, is handled by the HUD and never passes through to the world behind it. Panels have a defined rectangle, and that rectangle (not the visible artwork) is what counts.
 
@@ -1232,6 +1267,7 @@ Every HUD button shows its hotkey in a corner and in its tooltip, so mouse playe
 - Ctrl + Shift + left click a portrait: remove all units of that type.
 - Double-click a portrait: centre the camera on that unit.
 - Right click a portrait: remove that unit from the selection (mouse-only version of Shift + click).
+- On a Mac, the selection panel's hint says Cmd + click in place of Ctrl + click (suggested, as built 2026-10-03).
 
 **Subgroups and Tab.** A mixed selection is split into subgroups by unit type. Each subgroup has a small tab above its portraits showing the unit type and count. Clicking a tab makes that subgroup active, double-clicking it keeps only that type selected, and right clicking it removes that type from the selection. One subgroup is "active" and is shown with a brighter border in the panel; the command card shows the buttons of the active subgroup. Tab moves to the next subgroup and Shift + Tab to the previous one. Pressing a hotkey or clicking a command card button sends the order to every selected unit that can carry it out, not just the active subgroup. Units that cannot carry it out ignore it. For example, with gatherers and fighters selected, Attack goes to both, but Build only to the gatherers.
 
@@ -1253,7 +1289,7 @@ Control groups let the player save a selection to a number key and get it back i
 
 **Group tabs (mouse).** Each group shows its number and unit count in a row of small tabs above the selection panel, with an empty tab for each unused number. Left click a tab selects the group and double-click centres on it. Right click a tab saves the current selection to it, and Shift + right click adds to it. So a player can manage groups entirely with the mouse if they want to.
 
-**Optional Ctrl layout.** In settings, players can switch the group key to Ctrl (Ctrl + number to save). This option can only be turned on while the game is full screen in a browser that lets a page claim the keyboard (currently Chrome and Edge). If the player leaves full screen, the game switches back to the group key and says so on screen.
+**Optional Ctrl layout.** In settings, players can switch the group key to Ctrl (Ctrl + number to save). This option can only be turned on while the game is full screen in a browser that lets a page claim the keyboard (currently Chrome and Edge). If the player leaves full screen, the game switches back to the group key and says so on screen. Not built yet (Milestone 10, 2026-10-03): claiming the keyboard in full screen and this Ctrl layout. Until it is, a quick Esc in full screen also leaves full screen, because the browser takes Esc there.
 
 Dead units drop out of their groups automatically. When a group of identical buildings is told to train or produce something, the order goes to whichever building in the group has the shortest queue, so work is spread evenly across them.
 
@@ -1311,26 +1347,27 @@ The command card is a grid of 15 buttons in 3 rows of 5 showing everything the s
 - Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row.
 - Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures.
 - Warriors also have N Hunt (suggested letter): click an animal to hunt it (see "Semi-automation").
-- **Riding and engines (suggested, as built 2026-10-03):** R Ride mounts each selected warrior on the nearest free horse, and reads Dismount when all are mounted; right clicking one of your horses mounts it. An engine's card has A Attack, S Stop, H Hold Position, M Move, R Hitch (Let go when hitched) and E Port (send it into a free Citadel port). Right clicks with an engine: on one of your horses or oxen, hitch it; on the Citadel, go to a port. Warriors right click your engine to crew it; workers right click a damaged engine to repair it. Training buildings have U Train, which opens a skills page (Archery, Crossbow, Riding, Musket, Cannon, Back) in place of a separate Archery button.
+- **Engines (suggested, as built 2026-10-03):** an engine's card has A Attack, S Stop, H Hold Position, M Move, R Hitch (Let go when hitched) and E Port (send it into a free Citadel port). Right clicks with an engine: on one of your horses or oxen, hitch it; on the Citadel, go to a port. Warriors right click your engine to crew it; workers right click a damaged engine to repair it. The Gunnery yard has U Train for Cannon crew training, the only skill training left. There is no Ride button: cavalry is a troop type trained at the Stables (Jade, 2026-10-03).
 - **Neutral peoples (suggested, as built 2026-10-02):** O, or the Peoples button at the top right, opens the Peoples panel listing the peoples met. Right click a leader, a trade building (Halfling inn or barn, Runkin drying rack, Elf hall or caravan wagon, Dwarf forge or hall) or a caravan with any unit to trade; right click a mercenary camp to hire. A on their units while at peace asks before war (see "Neutral villages and trade").
-- **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Equip Best and I Equipment. Casting is described under "Casting spells" in "Magic".
+- **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Upgrade Wand, X Upgrade Robe and their Max twins Z and V (see "Upgrading units"). Casting is described under "Casting spells" in "Magic".
 - E Enter: click a building to go inside it. Workers can shelter in farms, fishing docks and main bases. Ranged warriors and mages can garrison towers and the parapets of a level 3+ main base and fight from there. A building with units inside shows a U Unload All button, and clicking a unit's portrait in the building's panel lets just that unit out.
 - **Double-tap for auto-target:** press any targeted command twice (or click its button twice) and the unit picks the target itself instead of waiting for a click. This works for every targeted command (see "Semi-automation").
+  - Double-tap in detail (suggested, as built 2026-10-03): A, each unit attacks the nearest enemy it can see; G, each worker gathers the nearest node it can within 15 m, more of what it already carries first; E, each unit goes into the nearest of its player's buildings with room for it (workers shelter, ranged warriors and mages garrison); T, each worker prospects the column it stands on. Repair, Hunt and spells work as described elsewhere. When a unit has nothing to pick, the player is told once: "No enemy in sight.", "Nothing they can gather nearby.", "No building with room for them." or "Only workers prospect." Move and Patrol have no target of their own, so pressing them twice only keeps the targeting.
 - Buildings: what they train or research gets a letter taken from its name where possible (that letter is underlined on the button), plus R Set Rally Point and, while under construction, X Cancel. Two buttons on the same card never share a letter.
-- Forge-type buildings (the ones that make tools, weapons and armour) also have a K Craft button that opens a crafting menu, and an F Refurbish button (see "Equipment").
-- Units that can carry equipment have Q Equip Best and I Equipment buttons (see "Equipment").
+- **Training troops (Jade, 2026-10-03):** a Barracks card shows one picture button per troop type (a small head-to-toe picture of the unit with its weapons, greyed out when it cannot be afforded), each with a weapon-tier and an armour-tier dropdown and a Lock checkbox; the Stables shows the same for cavalry, and a main base the same limited to tier 1. Without a lock, each type defaults to the best tiers the player can afford, the weapon first. Hotkeys (suggested): C Close melee, L Long melee, G Ranger, B Brawler; C Cavalry at the Stables. Choose the tiers once, then click or press the type as often as supply and resources allow. See "Troops and gear".
+- **Upgrading units (Jade, 2026-10-03):** warriors have Upgrade Weapon and Upgrade Armour, one tier each, plus Upgrade Weapon Max and Upgrade Armour Max to the best tier researched and affordable; a Max button shows only when it would do more than the plain one. Keys (suggested): Q Upgrade Weapon, X Upgrade Armour, Z Weapon Max, V Armour Max. Workers have one Q Upgrade for their tool kit; mages use the same four keys for wand and robe. The units walk to the nearest Forge, Barracks or main base (cavalry also the Stables, mages also the Magi Sanctum) and pay from stock.
 - A button keeps the same position even when it is unavailable, so the layout never shifts. Unavailable buttons are greyed out; their tooltip says why (not enough resources, a missing building, a technology not yet researched).
 - Hovering any button shows a tooltip with its name, hotkey, cost in each resource, build time and any requirements.
 - All hotkeys can be rebound in the settings menu. Rebinding changes the key shown on each button. Spell keys have their own Mages group there (suggested).
 
-**Build and crafting menus use grid hotkeys.** Creating buildings and crafting equipment are the two places where hotkeys follow the grid instead of letters. When B (Basic) or V (Advanced) opens a build menu, or K opens a forge-type building's crafting menu, the command card is replaced by up to 15 items, and each one's hotkey is the key in the same position on the left side of the keyboard:
+**Build menus use grid hotkeys.** Creating buildings is the one place where hotkeys follow the grid instead of letters. When B (Basic) or V (Advanced) opens a build menu, the command card is replaced by up to 15 buildings, and each one's hotkey is the key in the same position on the left side of the keyboard:
 
 | Q | W | E | R | T |
 |---|---|---|---|---|
 | A | S | D | F | G |
 | Z | X | C | V | B |
 
-So "B then Q" means "open Basic Structures, then pick the building in the top-left slot". The player does not have to learn a letter for each building, only where it sits. Inside a build menu, the grid keys only pick buildings (they do not issue unit commands), and Esc returns to the main card. Crafting menus work the same way: "K then Q" crafts the item in the top-left slot. The bottom-right slot (B) is always Back, so the player can never lose track of how to get out. Buildings are assigned to slots as the building list for this blueprint is written; basic buildings (homes, storage, walls, simple workshops) go in the Basic menu and buildings that need rare resources or technology go in the Advanced menu.
+So "B then Q" means "open Basic Structures, then pick the building in the top-left slot". The player does not have to learn a letter for each building, only where it sits. Inside a build menu, the grid keys only pick buildings (they do not issue unit commands), and Esc returns to the main card. The bottom-right slot (B) is always Back, so the player can never lose track of how to get out. Buildings are assigned to slots as the building list for this blueprint is written; basic buildings (homes, storage, walls, simple workshops) go in the Basic menu and buildings that need rare resources or technology go in the Advanced menu.
 
 #### Building placement
 
@@ -1354,7 +1391,7 @@ Only units with the gatherer role can collect resources. A gatherer that is told
 
 - Walk to the resource node.
 - Work the node for that resource's gather time (for example, chopping a tree or mining a rock), with a matching animation.
-- Pick up one load: as much of the resource as the gatherer can carry, up to the 25 lb limit for raw materials (see "Inventory and carrying weight"). The load is shown as an item in the gatherer's hands or on its back.
+- Pick up one load: as much of the resource as the gatherer can carry, up to the 25 lb limit for raw materials (table 12). The load is shown in the gatherer's hands or on its back.
 - Walk to the nearest drop-off building that accepts that resource.
 - Drop the load. It is added to the player's stockpile at that moment, not before.
 - Walk back to the same node and repeat.
@@ -1375,13 +1412,12 @@ Only units with the gatherer role can collect resources. A gatherer that is told
 
 #### Semi-automation
 
-Like Equip Best, these let units pick sensible targets on their own, while the player's own orders always win. They use one rule (double-tap a targeted command) and one dusk button, rather than new buttons for each job.
+These let units pick sensible targets on their own, while the player's own orders always win. They use one rule (double-tap a targeted command) and one dusk button, rather than new buttons for each job.
 
 - **Fishing:** G Gather on water fishes that stretch like any other node. Workers assigned to a fishing dock fish the nearest stretch and move to another once it falls to half the fish it can hold, so no stretch is ever fished out (a stretch with no fish left never breeds again).
 - **Hunting:** N Hunt sends warriors after an animal. Double-tapped, they take the nearest game animal within their leash, carry what they can to the nearest drop-off and repeat. Bears and territorial creatures are skipped unless ordered directly. Workers in the same selection follow and haul the carcasses. A hunt ends at dusk, and the hunters walk home.
 - **Repair:** double-tap R and workers repair every damaged building and mechanical unit nearby, worst first.
 - **Everyone Home:** a one-shot button on the utility bar that lights up during dusk. Clicking it sends every unit without a standing job to the nearest shelter. Workers assigned to a farm or fishing dock shelter in their own building without being told. It is not a toggle, so it never pulls units out of a fight later.
-- **No repeating forge recipes for now:** a repeat toggle together with Auto-Equip would quietly use up food, so forges only make what is queued.
 
 #### Digging and prospecting
 
@@ -1402,9 +1438,9 @@ Holding Shift while giving any order adds it to the end of the unit's list of or
 - Queued builds keep their place markers on the ground, and their cost is only taken when each one is started.
 - If a queued order becomes impossible (its target is dead, its spot is blocked), it is skipped and the unit moves on to the next one.
 
-**Production queues.** Buildings that train units or craft items have their own queue, shown as icons in the selection panel. Each press of a production hotkey adds one item and takes its cost immediately; Shift + the hotkey adds five. Clicking a queued icon cancels it and refunds it in full.
+**Production queues.** Buildings that train units or make goods have their own queue, shown as icons in the selection panel. Each press of a production hotkey adds one item and takes its cost immediately; Shift + the hotkey adds five. Clicking a queued icon cancels it and refunds it in full.
 
-**Rally points.** With a building selected, a right click sets where its new units go (ground, a unit to follow, or a resource node). Shift + right click adds further rally points, so new units follow a whole route. The rally route is drawn while the building is selected.
+**Rally points.** With a building selected, a right click sets where its new units go (ground, a unit to follow, or a resource node). Shift + right click adds further rally points, so new units follow a whole route. The rally route is drawn while the building is selected. Buildings that train warriors or mages (the Barracks, the Magi Sanctum, a main base from level 6) have Set Rally Point (R) and the right click too (suggested, as built 2026-10-03).
 
 #### Camera
 
@@ -1456,7 +1492,7 @@ Units talk to their player. This is how the game tells the player what their uni
 - If the panel is collapsed, its button flashes as an alarm.
 - If the panel is open, the message is shown in a way that makes it stand out from the rest (for example, a bright background).
 
-**Chat between players.** The same panel is used for players to talk to each other. Player messages appear only in the panel, never as speech bubbles. Press Enter (or click the text box at the bottom of the panel) to type, Enter to send, and Esc to cancel. Game hotkeys are paused while typing.
+**Chat between players.** The same panel is used for players to talk to each other. Player messages appear only in the panel, never as speech bubbles. Press Enter (or click the text box at the bottom of the panel) to type, Enter to send, and Esc to cancel. The keypad Enter works like Enter (suggested, as built 2026-10-03). Game hotkeys are paused while typing.
 
 **Who sees what.** A player only sees speech from their own units, and from units they inherited from an eliminated or departed player. They never see speech from another active player's units, even when that player has shared control of them.
 
@@ -1466,10 +1502,10 @@ The game must be fully playable without touching the keyboard. Keyboard controls
 
 | **Keyboard control** | **Mouse equivalent** |
 |---|---|
-| Unit command hotkeys (A, S, H, P, M, G, C, R, D, T, E, U, Q, I) | Click the matching button on the command card. Commands that need a target then work the same way (click a spot or a unit). |
+| Unit command hotkeys (A, S, H, P, M, G, C, R, D, T, E, U, Q, X, Z, V) | Click the matching button on the command card. Commands that need a target then work the same way (click a spot or a unit). |
 | Build menus (B, V) and grid keys in a build menu | Click Build Basic or Build Advanced on the command card, then click the building. |
 | Production hotkeys in buildings | Click the item's button. Each click adds one to the queue. |
-| Crafting menu (K, then grid keys) | Click Craft on the building, then click the item. |
+| Troop tiers and Lock at a Barracks, Stables or main base | Pick the tiers in the dropdowns and tick Lock with the mouse; there are no keys for them. |
 | Shift (queue orders, place several buildings, add rally points) | Click the Queue Mode button on the utility bar. While it is lit, every order, building placement and rally point is added to the queue exactly as if Shift were held. Click it again to turn it off. It also turns off by itself when the selection changes. |
 | Esc (cancel) | Right click, or click the Cancel button that appears in the bottom-right slot of the command card while targeting or placing a building. |
 | Esc / F3 (clear selection) | Click the small "x" in the corner of the selection panel. |
@@ -1480,6 +1516,8 @@ The game must be fully playable without touching the keyboard. Keyboard controls
 | Backspace (town hall) | Click Town Hall on the utility bar. |
 | Space (latest urgent message) | Click the message in the message panel; the camera jumps to where it happened. |
 | Enter (chat with players) | Click the text box at the bottom of the message panel. |
+| A, G, E or T twice (each unit picks its own target) | Double-click the button on the command card (suggested, as built 2026-10-03). |
+| Tab, Enter and Space in menus and dialogues | Click the button; Tab moves between buttons and Enter or Space presses the one in focus, while Esc and F10 still close the menu (suggested, as built 2026-10-03). |
 | L (follow unit) | Click Follow on the utility bar. |
 | Control group keys | Use the group tabs above the selection panel (left click to select, double-click to centre, right click to save, Shift + right click to add). |
 | Camera location keys (F5 to F8) | Use the four Camera Location buttons on the utility bar (left click to jump, right click to save the current view). |
@@ -1512,16 +1550,18 @@ Because the game runs in a web browser, some key combinations above are normally
 | G / C / R (gatherers) | Gather / Return Cargo / Repair |
 | N (warriors) | Hunt (suggested letter) |
 | R, K, F, Y, W / R, B, F, T, C (mages) | Support spells / battle spells; U Rank (suggested) |
-| O | Peoples panel (suggested) |
-| R (warriors) / R, E (engines) / U (training buildings) | Ride or Dismount / Hitch, Port / Train skills page (suggested) |
-| Any targeted command twice | The unit picks its own target |
+| O | Peoples panel (suggested; rebinding it moves its badge) |
+| R, E (engines) / U (Gunnery yard) | Hitch, Port / Cannon crew training (suggested) |
+| Any targeted command twice | The unit picks its own target (A, G, E, T, R, N and spells; Move and Patrol only keep targeting) (suggested) |
+| Shift + H | Queue Hold Position after earlier orders |
 | D / T (workers) | Dig / Prospect |
 | E / U | Enter a building (shelter or garrison) / Unload all |
 | B / V (gatherers) | Basic Structures / Advanced Structures build menu |
 | Q to T, A to G, Z to B (in a build menu) | Pick the building in that grid position (B is Back) |
 | R / X (buildings) | Set Rally Point / Cancel construction |
-| K / F (forge-type buildings) | Crafting menu (grid keys inside) / Refurbish |
-| Q / I (units) | Equip Best / Equipment panel |
+| C / L / G / B (Barracks), C (Stables) (suggested) | Train Close melee / Long melee / Ranger / Brawler, Cavalry |
+| Q / X / Z / V (warriors and mages) (suggested) | Upgrade Weapon / Upgrade Armour / Weapon Max / Armour Max (wand and robe on a mage) |
+| Q (workers) (suggested) | Upgrade tool kit |
 | Esc | Cancel order, ghost or menu; then clear selection |
 | Tab / Shift + Tab | Next / previous subgroup |
 | Double click, Ctrl + click | Select all of that type on screen |
@@ -1540,7 +1580,7 @@ Because the game runs in a web browser, some key combinations above are normally
 | [ / ] / \ (suggested) | Allies panel / Send resources / Map ping |
 | Pause (suggested) | Pause or carry on (anyone may, online) |
 | L | Follow selected unit |
-| F4 / F9 / J (suggested) | Auto-Equip toggle / Rations / Everyone Home (during dusk) |
+| F9 / J (suggested) | Rations / Everyone Home (during dusk) |
 | Arrow keys, edge of screen, middle drag | Pan camera |
 | Mouse wheel, Page Up / Page Down, Home | Zoom in / out, reset zoom |
 | F10 | Game menu: Resume, Pause or Carry on, Save game, Download a save file, Full screen, Settings, Quit (Leave the game online) (suggested) |
@@ -1600,7 +1640,7 @@ Resources not in the list above. Eggs and feathers come from livestock (see "Ani
 | **Resource** | **Where it comes from** | **Why it is needed** |
 |---|---|---|
 | Eggs | Chickens | Food. |
-| Feathers | Chickens | Fletching for arrows and crossbow bolts, bedding, quills for research. |
+| Feathers | Chickens, hunted wild geese and pheasants (Jade: wild birds), and Runkin traders | Needed to train bow and crossbow rangers (see "Troops and gear"); bedding, quills for research. |
 | Gold | Mostly mineshafts; very rarely, tiny amounts on the surface | Trading with villages, directly or made into gold trinkets and Sunhearts (see "Trinkets"); the Deep Mining III fee and the level 10 main base (see tables 2a and 4). |
 | Emeralds | Mostly mineshafts; very rarely, tiny amounts on the surface | Trading with villages, directly or set into Moonleafs (see "Trinkets"). |
 | Rubies | Mostly mineshafts; very rarely, tiny amounts on the surface | Trading with villages, directly or set into Sunhearts (see "Trinkets"). |
@@ -1609,7 +1649,7 @@ Resources not in the list above. Eggs and feathers come from livestock (see "Ani
 | Marble | Carved from marble rock, which appears in places in the land (see "Terrain") | Grand buildings, such as main base levels 5 and up (see "Main base"); also traded with the Elves. |
 | Earth | Digging soil (see "Terrain") | Building the land up: ramps, earth banks and filling holes and ditches. |
 | Gravel | Digging gravel (see "Terrain"), or crushing stone at a workshop | Paths, and fill for raising the land (suggested). |
-| Hardwood sticks | Gathered from hazel bushes near the start (they grow back after cutting), or made from hardwood lumber at a workshop | Hardwood, stone and flint tools and weapons, so they can be made before large hardwood trees are within reach. |
+| Hardwood sticks | Gathered from hazel bushes near the start (they grow back after cutting), or made from hardwood lumber at a workshop | Tier 1 and 2 tool kits and weapons, so they can be made before large hardwood trees are within reach. |
 | Clay (suggested) | Riverbanks and wetlands | Bricks, furnace linings, moulds for casting metal and cannons. |
 | Sand (suggested) | Beaches and riverbeds | Glass (lanterns, lenses, potion bottles) and casting moulds. |
 | Charcoal (suggested) | Made at a kiln from hardwood | The fuel for smelting until coal takes over, and one of the three gunpowder ingredients. |
@@ -1619,16 +1659,16 @@ Resources not in the list above. Eggs and feathers come from livestock (see "Ani
 | Potatoes | Vegetable farms | Food. Some vegetable farms can grow in poorer land where grass is thin. |
 | Carrots | Vegetable farms | Food. |
 | Corn | Farms | Food. |
-| Flax | Farms and wild plants (suggested) | Another way to make rope and boots besides leather, and the fabric in metal armour instead of leather (see "Weapons and armour"). Suggested: bowstrings, cloth, sails, bandages. |
-| Hides (suggested) | Hunting wild animals | Raw skins that a tannery turns into leather. (Cattle give leather directly.) |
+| Flax | Farms and wild plants (suggested) | Another way to make rope besides leather, robes for mages, and the fabric in metal armour instead of leather (see "Troops and gear"). Suggested: bowstrings, cloth, sails, bandages. |
+| Hides (suggested) | Hunting wild animals | Raw skins that a tannery turns into leather, and leather into hardened leather. (Cattle give leather directly.) |
 | Bone (suggested) | Hunting and some monsters | Early tools, arrowheads, glue, and fertiliser for farms. |
-| Resin / pitch (suggested) | Softwood trees | Waterproofing, torches, fire arrows, glue. |
+| Resin / pitch (suggested) | Softwood trees | Waterproofing, torches, glue. |
 | Spider silk | Dropped by giant spiders | Bowstrings and rope, like flax and sinew. Suggested: a silk bowstring gives a bow a little more range. |
 | Demon horn | Dropped by red demons and the archfiend | Trinkets and wands. |
 | Hexstone (suggested) | Dropped by goblins | A dull green pebble scratched with crude goblin runes that still hums with stolen magic. Used at the Magi Sanctum to research the **Warding** and **Counterspell** spells (suggested), and spells that break curses and hexes (suggested). There is no ward item: mages do this with spells (Jade). |
-| Venom | Dropped by vipers, scorpions, centipedes and hornets | Poison arrows (see "Bows and crossbows"). |
-| Lead ore (suggested) | Mineral deposits, often near silver-grey rock | Musket balls (shot) for flintlocks; easy to melt and cast. |
-| Mana crystal (working name) (suggested) | Rare nodes far from spawn, or dropped by certain magical creatures | Training higher-tier mages and magic research. Spells themselves use the mage's own mana (see "Magic"). |
+| Venom | Dropped by vipers, scorpions, centipedes and hornets | Trading and later uses (poison arrows went with the troop rework, since ammunition is unlimited (suggested)). |
+| Lead ore (suggested) | Mineral deposits, often near silver-grey rock | Trading and later uses (ammunition is unlimited since the troop rework, so shot is no longer made). |
+| Mana crystal (working name) (suggested) | Rare nodes far from spawn, or dropped by certain magical creatures | Rank-ups for higher-tier mages, top wands and robes, and magic research. Spells themselves use the mage's own mana (see "Magic"). |
 
 ### Units
 
@@ -1649,33 +1689,26 @@ Workers do every non-combat job. A worker's current job decides its animation, w
 - **Hauling:** carrying meat back from a hunt (within the 25 lb limit for raw materials), and driving carts pulled by horses or oxen for heavier loads.
 - **Sheltering:** at night, workers can shelter inside farms, fishing docks and main bases. If the building is destroyed while they are inside, each worker takes damage equal to 10% of its maximum health and is left standing where the building was.
 
-Workers can defend themselves weakly with whatever tool they are holding but are not meant to fight. A worker's **tool tier** decides how fast it works and which resources it can work at all (see "Progression"). Tools are equipment and are handed out the same way as weapons and armour (see "Equipment").
+Workers can defend themselves weakly with whatever tool they are holding but are not meant to fight. A worker's **tool tier** decides how fast it works and which resources it can work at all (see "Progression"). Tools are not items: each worker has one tool kit for its tier and upgrades it with Q (see "Troops and gear").
 
 Workers are trained at main bases and at farms.
 
 #### Warriors
 
-Warriors fight and hunt. Every warrior carries a melee weapon, and can keep a backup melee weapon in its inventory, such as a one-handed weapon for a polearm fighter (see "Polearms"). Once a warrior has been trained in ranged combat, it can also carry a ranged weapon, and it switches between them by itself: ranged while the target is far, melee when it gets close. The player can lock a warrior to melee or ranged only.
+Warriors (troops) fight and hunt. Each troop is one of five types and keeps that type for good: close melee, long melee, ranger, brawler and cavalry. Its weapon and armour are not items: they are tiers chosen when it is trained and raised with the Upgrade buttons (see "Troops and gear" (Jade, 2026-10-03)).
 
-- **One-handed melee weapons** by tier: hardwood club, flint axe, copper axe and dagger, bronze sword, iron sword and mace, steel sword. They can be paired with a shield (see "Combat").
-- **Polearms** (two-handed) by tier: hardwood spear, flint-tipped spear, bronze spear, steel pike. Halberds are polearms too, made in iron or steel (suggested).
-- **Ranged weapons** by tier: thrown spear and sling, bow, crossbow (iron), steel crossbow (suggested), and finally the flintlock musket. Bows shoot arrows and crossbows shoot bolts, with better tips at each material tier (see "Bows and crossbows").
-- **Armour** by tier: none, leather, bronze scale, iron mail, steel plate.
-- **Flax instead of leather:** metal armour (bronze scale, iron mail, steel plate) can use flax as its fabric instead of leather, and the armour comes out exactly the same. Flax can never replace leather in hardened leather armour.
-- **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel, so it cannot be used for everything: there are no bronze longswords (bronze swords are short swords, since long bronze blades bend), and no bronze full plate armour (it would be far too heavy). Bronze armour stops at scale.
-- **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Heavy loads slow it down (see "Inventory and carrying weight").
-- **Shields** (one-handed fighters only) blunt damage from projectile attacks. Shield tiers (suggested): wicker (woven sticks and hide), wood (a basic shield of just wood and leather), bronze, iron kite shield, steel heater shield (with a team-colour field). The best shield in the game blocks **30%** of projectile damage; lower tiers block less (see table 3).
-- **Helmets:** leather cap, bronze helmet with cheek guards, iron helm with a nose guard, steel sallet with a visor slit.
-- **Hunting:** warriors kill animals for meat and leather. Once an animal dies, its carcass becomes a resource node. The warrior can carry meat back, within its carrying limit (see "Inventory and carrying weight"), or leave the carcass for workers to collect. Some animals run away; some fight back.
+- **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Gear has no weight, so nothing it wears slows it down or stops it swimming (Jade, 2026-10-03).
+- **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel: bronze swords are short swords, since long bronze blades bend, and bronze armour stops at scale.
+- **Hunting:** warriors kill animals for meat and leather. Once an animal dies, its carcass becomes a resource node. The warrior can carry meat back, within its carrying limit (table 12), or leave the carcass for workers to collect. Some animals run away; some fight back.
 
-Warriors are trained at main bases and at the barracks. Ranged warriors can fight from towers, and from the parapets of a main base of level 3 or higher.
+Troops are trained at the Barracks, cavalry at the Stables, and tier 1 close melee, long melee and rangers also at main bases (Jade, 2026-10-03). Rangers and brawlers can fight from towers, and from the parapets of a main base of level 3 or higher.
 
 #### Experience and training
 
 - Units gain **experience** in combat and grow stronger as they rank up, so losing a veteran hurts.
 - Units can also be **trained** at a training building. Training costs time and food, and the unit stays inside the building and cannot do anything else until it finishes. Training can be cancelled early in an emergency, but the unit gains nothing.
-- Training has a **limit**. Out of about five levels, training buildings can raise a unit at most **two levels above its starting level**; everything beyond that comes only from combat experience. For specialist skills (cannon, musket, crossbow, archery), training only makes the unit able to use the weapon at all; getting good with it comes from combat.
-- **Specialist skills must be trained before a warrior can use them at all:** riding, archery (bows), crossbows, firing a musket, and crewing a cannon. Crossbow training is much quicker and cheaper than archery training. Suggested, as built: a training building's U Train button opens a skills page (Archery, Crossbow, Riding, Musket, Cannon, Back); riding training needs a tamed horse in the Stables. Suggested training buildings: barracks (archery and crossbows), stables (riding), and gunnery yard (muskets and cannons).
+- Training has a **limit**. Out of about five levels, training buildings can raise a unit at most **two levels above its starting level**; everything beyond that comes only from combat experience. Crewing a cannon is the one specialist skill left: training only makes the unit able to crew one; getting good comes from combat.
+- **No specialist weapon training (Jade, 2026-10-03):** archery, crossbow, musket and riding training are gone, because a troop's type (ranger, brawler, cavalry and so on) is chosen when it is trained. Cannon crews are still trained at the Gunnery yard.
 
 #### Table 1: Player unit stats
 
@@ -1685,48 +1718,47 @@ Warriors and workers have 5 ranks (Jade: about five levels) and mages the doc's 
 
 | **Unit** | **Rank** | **XP to reach** | **Health** | **Damage** | **Attack time** | **Move** | **Armour** | **Sight** | **Leash** | **Reach / min range** |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Worker | 1 Labourer | training only (s) | 60 | tool (4 hardwood) | 1.5 s | 3.0 | gear only (boots) (s) | 20 m (s) | none; flees 10 m from attackers (s) | 1.2 m (s) |
+| Worker | 1 Labourer | training only (s) | 60 | tool (4 hardwood) | 1.5 s | 3.0 | none | 20 m (s) | none; flees 10 m from attackers (s) | 1.2 m (s) |
 | Worker | 2 Hand | training (s) | 70 (s) | tool +5% (s) | 1.5 s | 3.0 | gear | 20 m (s) | as above | 1.2 m (s) |
 | Worker | 3 Master | training (s) | 80 (s) | tool +10% (s) | 1.5 s | 3.0 | gear | 20 m (s) | as above | 1.2 m (s) |
 | Worker | 4 Foreman / 5 Elder | combat XP 400 / 1000, which workers rarely earn (s) | 90 / 100 (s) | tool +15% / +20% (s) | 1.5 s | 3.0 | gear | 20 m (s) | as above | 1.2 m (s) |
-| Warrior | 1 Recruit | 0 | 100 | weapon (flint spear 12) | weapon (spear 1.4 s) | 3.0 | gear | 24 m (s) | 20 m idle, 40 m Hunt (s) | one-handed 1.2 m; spear 2.5 / 1.0 m; pike 3.5 / 1.5 m; halberd 2.5 / 0.8 m (s) |
+| Warrior (any troop type) | 1 Recruit | 0 | 100 | weapon (tables 2d, 2e) | weapon | 3.0 | gear | 24 m (s) | 20 m idle, 40 m Hunt (s) | close melee 1.2 to 1.3 m; long melee 2.5 m (pike 3.5 m), no minimum range, +30% at the outer third (Jade) |
 | Warrior | 2 Soldier | 50 (s) | 120 (s) | weapon +5% (s) | weapon | 3.0 | gear | 24 m (s) | same | same |
 | Warrior | 3 Veteran | 150 (s) | 140 (s) | weapon +10% (s) | weapon | 3.0 | gear | 24 m (s) | same | same |
 | Warrior | 4 Elite | 400 (s) | 160 (s) | weapon +15% (s) | weapon | 3.0 | gear | 26 m (s) | same | same |
 | Warrior | 5 Hero | 1000 (s) | 180 (s) | weapon +20% (steel sword 36) (s) | weapon (sword 1.2 s) | 3.0 | gear | 28 m (s) | same | same |
-| Mounted warrior | rider's | rider's | rider's; horse 160 (s) | rider's weapon, +0.5 m reach from the saddle (s) | weapon | horse: walk 2, trot 5, gallop 8 (s) | rider's; horse 0 (s) | 30 m (s) | 60 m (s) | melee, or bow with double spread if trained in both (s) |
-| Support mage | 1 Novice Acolyte | 0 | 70 (s) | wand tap 3 (s) | 1.5 s (s) | 3.0 | leather at most (s) | 24 m (s) | 15 m (s) | spells, table 13 |
+| Cavalry (Jade: a type trained at the Stables) | rider's | rider's | rider's; horse 160 (s) | rider's weapon, +0.5 m reach from the saddle (s) | weapon | horse: walk 2, trot 5, gallop 8 (s) | rider's; horse 0 (s) | 30 m (s) | 60 m (s) | long melee only (Jade) |
+| Support mage | 1 Novice Acolyte | 0 | 70 (s) | wand tap 3 (s) | 1.5 s (s) | 3.0 | robe (table 13) | 24 m (s) | 15 m (s) | spells, table 13 |
 | Support mage | 2 Acolyte | 40 (s) | 80 (s) | spells x1.1 |  | 3.0 |  |  |  |  |
 | Support mage | 3 Adept Acolyte | 120 (s) | 90 (s) | x1.2 |  | 3.0 |  |  |  |  |
 | Support mage | 4 Mage | 300 (s) | 100 (s) | x1.3 |  | 3.0 |  |  |  |  |
 | Support mage | 5 Master Mage | 800 (s) | 110 (s) | x1.4 |  | 3.0 |  |  |  |  |
 | Support mage | 6 Grand Magician | 2000 (s) | 120 (s) | x1.5 |  | 3.0 |  |  |  |  |
-| Battle mage | 1 to 6 | as support (s) | as support (s) | spells, table 13, same multipliers | 1.0 s cast (s) | 3.0 | leather at most (s) | 24 m (s) | 15 m (s) | spells |
+| Battle mage | 1 to 6 | as support (s) | as support (s) | spells, table 13, same multipliers | 1.0 s cast (s) | 3.0 | robe (table 13) | 24 m (s) | 15 m (s) | spells |
 
 **How these were set:** health steps of 20 per warrior rank put the roster's "veteran about 180" at rank 5 (Hero); the XP ladder is set so that one warrior who takes most of night 0's kills (budget 12, so about 24 XP) reaches Soldier on night 1, and a 30-warrior army averages Hero around night 80 (table 8 budgets, 2 XP per threat). Mage health is 10 below a warrior at every step because they wear no metal.
 
-#### Table 7: Training
+#### Table 7: Training and upgrading
 
 Key: a value followed by (s) is suggested; a row ending in (s) is suggested throughout except values marked (doc). Values marked (Jade) or (doc), or unmarked, are fixed values already in this blueprint.
 
-**How these were set:** table 1 ranks; the food costs are nutrition (header rule).
+**How these were set:** table 1 ranks; the food costs are nutrition (header rule). A unit's kit is the weapon (table 2c, 2d or 2e), the armour and, for close melee, the shield (table 3), or for a mage the wand and robe (table 13).
 
 | **Training** | **Where** | **Cost** | **Time** | **Needs** |
 |---|---|---|---|---|
-| New worker | Big House or any farm | 20 food | 15 s (s) | free supply (s) |
-| New warrior | Big House or Barracks | 30 food, 1 hardwood club | 45 s | free supply (s) |
-| New mage (Novice Acolyte) | Magi Sanctum or main base 6+ | 50 food, 1 wand (5 sticks, 1 copper ingot, made at the Sanctum in 20 s) | 60 s | free supply (s) |
+| New worker | Big House or any farm | 20 food, a tier 1 tool kit | 15 s plus the kit's time (s) | free supply |
+| New close melee, long melee or ranger, tier 1 | main base (Jade) or Barracks | 30 food, the kit | 45 s plus the kit's time (s) | free supply |
+| New troop, any type and tiers | Barracks; cavalry at the Stables (Jade) | 30 food, the kit; feathers and gunpowder as table 2e | 45 s plus the kit's time (s) | free supply; the tier's forge or research (troops and gear table) |
+| New cavalry | Stables (Jade) | 30 food, the kit, a tamed horse in the stalls, used up (Jade) | 45 s plus the kit's time (s) | free supply |
+| New mage (Novice Acolyte) | Magi Sanctum or main base 6+ | 50 food, a hazel wand and a homespun robe (table 13) | 60 s plus the kit's time (s) | free supply |
+| Upgrade weapon, armour, tools, wand or robe (one tier) | beside the nearest Forge, Barracks or main base; cavalry also the Stables; mages also the Magi Sanctum | the new tier's kit cost; the old kit gives nothing back (s) | half the new piece's time to make (s) | the tier's forge or research |
 | Worker to Hand / to Master | Big House | 20 / 40 food | 60 / 120 s | base 2 / base 5 (s) |
-| Warrior to Soldier / to Veteran | Barracks | 30 / 60 food | 60 / 120 s | (s) |
+| Troop to Soldier / to Veteran | Barracks | 30 / 60 food | 60 / 120 s | (s) |
 | Mage to Acolyte / to Adept Acolyte | Magi Sanctum | 40 food / 60 food, 2 mana crystals | 60 / 120 s | (s) |
-| Mage, Master Mage, Grand Magician (combat ranks) | Magi Sanctum | a rank wand of 2 / 5 / 10 mana crystals; the XP is banked until it is given | 30 s | XP from table 1 (s) |
-| Archery | Barracks | 40 food | 120 s | none (s) |
-| Crossbow | Barracks | 15 food | 30 s | Crossbows (s) |
-| Riding | Stables | 30 food | 60 s | a tamed horse in the stalls (s) |
-| Musket | Gunnery yard | 30 food | 60 s | Muskets (s) |
+| Mage, Master Mage, Grand Magician (combat ranks) | Magi Sanctum | 2 / 5 / 10 mana crystals from stock (no rank-wand item); the XP is banked until it is given | 30 s | XP from table 1 (s) |
 | Cannon crew | Gunnery yard | 40 food | 90 s | Cannons (s) |
 
-Training stops two levels above the start (Jade): rank 3 (Veteran, Adept Acolyte, Master worker); the ranks above are combat only. Specialist training only lets the unit use the weapon (Jade). One unit trains at a time per building; a Barracks or Sanctum can queue 5 (s).
+Training stops two levels above the start (Jade): rank 3 (Veteran, Adept Acolyte, Master worker); the ranks above are combat only. Archery, Crossbow, Musket and Riding training are gone: a troop's type is chosen when it is trained (Jade, 2026-10-03). One unit trains at a time per building; a Barracks, Stables or Sanctum can queue 5 (s). Every time here is Open for Jade's rebalance.
 
 ### Combat
 
@@ -1736,8 +1768,8 @@ Every attack is either **melee** (the attacker strikes with what it holds, nothi
 
 Melee fighters use one of two kinds of weapon:
 
-- **One-handed weapons** (clubs, axes, swords, maces and so on), which can be paired with a **shield**.
-- **Polearms:** two-handed spears, pikes, halberds and similar. In this blueprint "polearm" means all of these.
+- **One-handed weapons** (cudgels, axes, swords and so on), used by close-melee troops, who carry a **shield** with any armour.
+- **Polearms:** the two-handed spears, pikes, halberds and great swords of long-melee troops and cavalry. In this blueprint "polearm" means all of these, the zweihänder included.
 
 **How melee hits land.** Melee damage does not need the weapon model to physically touch the enemy. At the moment of the hit in the attack animation, everything inside the attack's area takes damage:
 
@@ -1752,10 +1784,10 @@ Melee fighters use one of two kinds of weapon:
 
 **Riding in detail (suggested)** (as built, 2026-10-03):
 
-- A rider and its mount are one unit. A blow lands on whichever of the two has more health (the mount on a tie), through the mount's armour. When the mount dies, the rider fights on foot.
-- Mounted, a warrior gets +0.5 m reach, 30 m sight and a 60 m leash, and a bow's spread is doubled. A rider must get down to garrison a building or crew an engine. A ridden horse still eats.
+- A rider and its mount are one unit. A blow lands on whichever of the two has more health (the mount on a tie), through the mount's armour. When the mount dies, the rider fights on foot with the same weapon.
+- Cavalry is its own troop type, trained at the Stables with a long-melee weapon (Jade); it gets +0.5 m reach, 30 m sight and a 60 m leash. Cavalry cannot garrison a building or crew an engine. A cavalry horse still eats.
 - A rider trots on orders and gallops when closing on a foe. The run stays straight while the heading turns less than about 11 degrees a step and the speed stays at 80% of a gallop or more. Reining in within 4 m of the foe keeps the run, so the blow that ends a gallop is a charge.
-- A warrior mounts and dismounts within 2 m of the horse; a horse left without its rider walks back to its Stables.
+- There is no mounting or dismounting: a horse at the Stables is used up when the cavalry unit is trained, and a rider whose horse dies stays a cavalry unit on foot (suggested).
 
 #### Siege engines and cannons (suggested)
 
@@ -1765,26 +1797,20 @@ As built, 2026-10-03. Numbers are in tables 2f and 14.
 - A hitched horse or ox hauls an engine while within 5 m of it. Crew stand within 4 m of their engine to work it or push it, fight whatever comes within 6 m of them, then go back to it.
 - An engine sees 20 m by itself; its crew's eyes do the rest.
 - The Citadel's 4 cannon ports are the four corners of its roof. A cannon hauled to the door goes up into a free port; its animal is let go at the door and its crew follow it in.
-- One gunpowder makes 10 charges. A cannon or musket shot uses one charge and one ball.
+- One gunpowder makes 10 cannon charges; a cannon shot uses one charge and one cannonball. Muskets and pistols need no ammunition after training (unlimited ammunition, Jade).
 
 #### One-handed weapons and shields
 
 - One-handed weapons have to get in close to deal damage, but have no minimum range: they can always hit an enemy right next to them.
-- A one-handed fighter can carry a **shield**, which blunts damage from **projectile** ranged attacks. Suggested: a shield reduces projectile damage by a set percentage that depends on its material.
+- A close-melee troop carries the **shield** that comes with its armour tier (none with no armour), which blunts damage from **projectile** ranged attacks by a percentage set by the shield (table 3). No other troop type has a shield (Jade).
 
 #### Polearms
 
 - Polearms have **reach**: they hit from a short distance away. This is still a melee attack, with no projectile.
-- Polearms have a **minimum range**. A close, fast attacker can get inside it and attack the polearm unit without being hit back.
-- **Backup weapon:** a polearm unit that also carries a one-handed weapon switches to it when an enemy gets inside its minimum range, and back to the polearm once it has room again. The starting warrior does this with its hardwood club.
-
-When an enemy is inside its minimum range, a polearm unit without a backup weapon does the first of these that it can:
-
-- Attacks any other enemy that is still within its reach.
-- If there is nothing it can hit, moves back towards friendly troops close by so it can keep fighting alongside them.
-- If there are no friendly troops very close, moves away from groups of enemies.
-
-A polearm unit on Hold Position never moves, so it only does the first of these.
+- Polearms have **no minimum range** and no close-in penalty: they can always attack, even an enemy right next to them (Jade, 2026-10-03).
+- **Edge of reach:** a polearm hit landing in the outer third of the weapon's reach (suggested) is a **critical hit** for **30% extra damage** (Jade). Cavalry, who carry long-melee weapons, get the same rule (Jade). So a long-melee troop does best holding an enemy at the tip of its weapon.
+- The price of a polearm is no shield and a slower swing than a close-melee weapon of the same tier (Jade), which makes long melee the damage-focused, versatile attacking type. Numbers are in table 2d.
+- There is no backup weapon: every troop fights with the one weapon of its type and tier.
 
 #### Fighting flying enemies
 
@@ -1816,27 +1842,26 @@ Direct collision works well, with a few additions so that it stays fair, fast an
 - Walls, trees and other obstacles block projectiles, and take damage when they do. They only stop non-projectile attacks by blocking the line of sight needed to cast them.
 - Each attack has a separate damage value against barriers. An arrow or bolt does a completely negligible amount, even to the weakest barrier. A fireball does substantial damage, with a bonus against wooden targets.
 
-#### Bows and crossbows
+#### Rangers (agreed 2026-10-03)
 
-- **Crossbows are harder to make than bows:** they need iron, and are made at a forge.
-- **Crossbows need much less specialist training than bows.** A warrior can be trained to use a crossbow far more quickly and cheaply than to use a bow, as in real life.
-- **Arrows and crossbow bolts are different munitions.** Any arrow can be shot from any bow, and any bolt from any crossbow. Better tips are better: a steel-tipped arrow does more than a flint-tipped one. Tips follow the material tiers (for example flint, bronze, iron, steel).
-- **Arrows and bolts are used up** as they are fired, and come out of the player's stock. Each archer or crossbowman carries a supply in its inventory (a quiver), which counts towards its carrying weight, and refills it from the stock at a main base, the same way it collects equipment. Arrows and bolts are light, so a full quiver is never a big weight burden, although bronze tips are heavy for what they do, as in real life.
-- **Poison arrows and bolts** are coated with venom. Suggested: a poisoned hit adds 15 damage over 5 seconds, and the undead, slimes, golems and the bone colossus are immune.
+- A ranger climbs one ladder (Jade): leather sling (tier 1), yew longbow (2), recurve bow (3 to 6, each tier with arrowheads of its own metal), steel-prod crossbow (7, needs the Crossbows research) and flintlock musket (8, needs Gunpowder and Muskets). Numbers are in table 2e.
+- **Ammunition is unlimited** (Jade): there are no arrows, bolts, quivers, shot or powder horns. Feathers are paid when a bow or crossbow ranger is trained or upgraded, and gunpowder when a musket ranger or brawler is (Jade).
+- There are no poison or fire arrows (suggested, since ammunition is unlimited). Venom and resin keep their other uses.
+- A crossbow hits much harder than a recurve bow but reloads slowly; the musket hits hardest of all and reloads slowest.
+- **Brawler** (tier 8 only): a flintlock pistol for a close shot, then a cutlass in melee (suggested).
 
-**Iron or steel? (research)** The earliest crossbows, in ancient China and Greece, used no iron at all: the bow part (the "prod") was wood or horn, and Chinese trigger mechanisms were bronze. Medieval European crossbows added iron fittings such as the trigger lever and the foot stirrup used for loading. From around 1400, steel prods made crossbows much more powerful, so powerful that they had to be drawn with a crank or winch. Suggested for the game, following that history:
-
-- **Crossbow:** needs iron (a level 3 forge, the Ironworks), as in "Progression".
-- **Steel crossbow (suggested):** needs steel (a level 4 forge, the Steelworks). Hits harder and reaches farther, but is slower to reload.
+**Iron or steel? (history)** The earliest crossbows, in ancient China and Greece, used no iron at all: the bow part (the "prod") was wood or horn, and Chinese trigger mechanisms were bronze. Medieval European crossbows added iron fittings such as the trigger lever and the foot stirrup used for loading. From around 1400, steel prods made crossbows much more powerful. The game uses the steel-prod crossbow only, at tier 7, behind one Crossbows research (Jade).
 
 ### Animals
 
 | **Animal** | **How you get it** | **What it gives** |
 |---|---|---|
-| Horse | Tamed in the wild (Fringe) | Mounts for warriors trained to ride. Pulls carts for hauling, and hauls catapults, ballistas and cannons. |
+| Horse | Tamed in the wild (Fringe) | Used up to train cavalry at the Stables (Jade, 2026-10-03). Pulls carts for hauling, and hauls catapults, ballistas and cannons. |
 | Ox | Tamed in the wild (Fringe) or bred | Hauling: pulls carts, catapults, ballistas and cannons. Slower than a horse but stronger. Oxen are a separate, bigger wild breed, not trained cattle, and are domesticated just like cattle. |
 | Chicken | Tamed in the wild (Heartland and Fringe), then raised on farms | Meat, eggs and feathers. |
-| Cattle (cows and bulls) | Tamed in the wild (Heartland), then raised on farms | Meat and leather. Leather is used in armour and can be made into sinew (rope). Grazes on grassland (see below). |
+| Wild goose (suggested) | Hunted with N by Heartland water | Meat and feathers (Jade: a wild source of feathers). |
+| Pheasant (suggested) | Hunted with N in the Fringe woods | Meat and feathers. |
+| Cattle (cows and bulls) | Tamed in the wild (Heartland), then raised on farms | Meat and leather. Leather is used in armour kits and can be made into sinew (rope) or hardened leather. Grazes on grassland (see below). |
 
 Livestock can also be bought live from Halfling villages, or taken as plunder by winning a war against a village that keeps livestock (see "Neutral villages and trade").
 
@@ -1920,36 +1945,36 @@ A first list of buildings. Names in this list are working names, and buildings m
 
 | **Building** | **Build menu** | **Purpose** |
 |---|---|---|
-| Big House (main base) | Start; extra ones from the Basic menu | Drop-off point for every resource. Trains workers and warriors, and mages from level 6. Makes hardwood, stone (suggested) and flint tools. Workers can shelter inside. Upgraded up to level 10 (see "Main base" below). |
+| Big House (main base) | Start; extra ones from the Basic menu | Drop-off point for every resource. Trains workers and tier 1 close melee, long melee and rangers (Jade, 2026-10-03), and mages from level 6. Workers can shelter inside. Upgraded up to level 10 (see "Main base" below). |
 | Farms | Basic | Suggested types: crop fields, vegetable farms, herb beds and livestock farms (a pen with a coop and trough), each with 3 tiers (stick fence, then rail fence and shed, then stone wall and well), plus a farmhouse (thatched, then timber, then stone) where assigned workers shelter. Grow crops or raise livestock when workers are assigned. Food comes in slowly but never runs out. Farms are the main source of supply, train workers, and shelter workers at night. There are different types and tiers that give different amounts of supply. |
 | Pen and barn (suggested) | Basic | Keep livestock safe at night, when monsters will kill animals left in the open. |
-| Lumber mill | Basic | Turns logs into planks for items such as carts, shields and gun stocks (buildings are paid in lumber, see table 4). Also a drop-off point for wood. Suggested: an upgrade adds a waterwheel and works faster. |
+| Lumber mill | Basic | Turns logs into planks for carts, shields and gun stocks (buildings are paid in lumber, see table 4). Also a drop-off point for wood. Suggested: an upgrade adds a waterwheel and works faster. |
 | Storehouse (suggested) | Basic | A drop-off point for all resources, built near far-off gathering spots so workers walk less. |
 | Fishing dock | Basic | Built on a shoreline from lumber and rope, or lumber and a little metal. Lets workers fish faster and in deeper water. Workers assigned to it shelter in it at night. |
 | Torch post and wall torch | Basic | Lights that claim land around them (see "Light and torches"). Built from softwood lumber and resin or pitch (suggested). |
-| Tannery (suggested) | Basic | Turns hides from hunting into leather. |
+| Tannery (suggested) | Basic | Turns hides from hunting into leather, and leather into hardened leather. It has no tiers and does all leather work (Jade). |
 | Cooking building (5 tiers) | Basic | Cooks raw food into food with more nutrition. Burns lumber or coal. See "Cooking" below. |
 | Herbalist hut (suggested) | Basic | Turns medicinal herbs into bandages and remedies that heal units. |
 | Walls, gates and towers | Basic | Defences for chokepoints. Walls can be built from any type of lumber or from stone. Softwood walls are the weakest, and stone walls take much longer to build. Ranged warriors and mages can fight from towers. |
 | Earthworks | Basic | Ramps, earth banks and filling holes and ditches. Ramps can be built from Earth, any type of lumber or stone (lumber and stone ramps are made at a workshop); banks and fill are made from Earth (see "Digging and building up the land"). |
 | Scholar's Lodge | Advanced | Research building (see "Research" below). |
 | Magi Sanctum | Advanced | Trains novice mages and trains mages up through the lower ranks. |
-| Stables (suggested) | Advanced | Tames and breeds horses and oxen, and trains warriors to ride. |
-| Gunnery yard (suggested) | Advanced | Trains warriors to fire muskets and crew cannons. |
+| Stables (suggested) | Advanced | Tames and breeds horses and oxen, and trains cavalry, using up a tamed horse for each (Jade, 2026-10-03). |
+| Gunnery yard (suggested) | Advanced | Trains cannon crews. Muskets need it for their research. |
 | Mineshaft | Advanced | Built on flat stone. Lets workers mine ore, coal, stone, gold and gems from underground, which lasts much longer than surface rocks. Comes in tiers (suggested: 3) that dig deeper, each unlocked by research (see "Research") (see "Mineshafts and prospecting"). |
 | Workshop | Basic | Crushes stone into gravel, turns hardwood lumber into hardwood sticks, makes ramps from lumber or stone, and makes trinkets for trading with villages. Has 4 tiers, and each tier makes a higher tier of trinket; the upper tiers' other uses are still to be added (see "Workshop" below). |
 | Kiln / charcoal pit (suggested) | Advanced | Burns hardwood into charcoal and fires clay into bricks. |
-| Forge | Advanced | Smelts ore into ingots and makes tools, weapons, armour and building parts. Has 4 levels that decide which metals it can work (see "Forge levels" below). |
+| Forge | Advanced | Only smelts ore into ingots (Jade, 2026-10-03); it makes no items. Has 4 levels that decide which metals it can smelt (see "Forge levels" below). Units can upgrade their gear beside it. |
 | Powder mill (suggested) | Advanced | Mixes saltpetre, sulphur and charcoal into gunpowder. |
 | Foundry (suggested) | Advanced | Casts cannons and cannonballs from bronze or iron. |
-| Barracks | Advanced | Trains warriors and trains them in ranged combat. |
+| Barracks | Advanced | Trains close melee, long melee, rangers and brawlers at any weapon and armour tier, with a Lock per type (see "Troops and gear" (Jade, 2026-10-03)). |
 
 #### Main base
 
 - The main base starts as the level 1 Big House and can be upgraded up to **level 10**. Each level looks grander and larger, following the technology of the time: from a log hut (clubs and stone tools) to a large, tall fortress (steel and early gunpowder) at level 10. Each level has its own name. Suggested names: 1 Big House, 2 Longhall, 3 Hall (first parapets), 4 Stockade Hall, 5 Marble Hall, 6 Keep (with a mage balcony), 7 Fortified Keep, 8 Castle, 9 Great Castle, 10 Citadel (with gun ports).
 - **The footprint never changes.** Every level takes up the same floor space. On early levels the unused space is filled with decorative items (woodpiles, fences, campfire and so on) that units can walk through but nothing can be built on, so the space is kept free for the bigger buildings to come.
 - Each upgrade costs more than the last, so players will usually keep one high-level main base in the centre of their town and smaller main bases farther out as drop-off points. Extra main bases are expensive to build.
-- Main bases train workers and warriors. From level 6 they also train mages.
+- Main bases train workers and tier 1 close melee, long melee and rangers (Jade, 2026-10-03). From level 6 they also train mages.
 - From level 3, the main base has parapets that ranged warriors and mages can fight from.
 - From **level 5** upward, the main base is a grand building built with **marble**.
 - Workers can shelter inside at night.
@@ -1964,18 +1989,18 @@ A first list of buildings. Names in this list are working names, and buildings m
 
 #### Forge levels
 
-The forge is upgraded through 4 levels. Level 1 only works the casting metals; levels 2 to 4 each unlock a better grade of iron. The grade of iron also depends on the ore: bog iron and iron rock are the low-quality ores (the forge treats them the same), and vein iron ore is the high-quality ore.
+The forge is upgraded through 4 levels, and higher levels smelt higher ores (Jade, 2026-10-03). The forge only makes ingots; the grade of iron depends on the ore: bog iron and iron rock are the low-quality ores, and vein iron ore is the high-quality ore.
 
-| **Level** | **Name** | **What it can make** |
+| **Level** | **Name** | **What it smelts** |
 |---|---|---|
-| 1 | Casting Hearth | Copper, tin and bronze ingots from ore, and items made from them. |
-| 2 | Bloomery | Bloom iron (iron grade 1, low) from any iron ore. |
-| 3 | Ironworks | Wrought iron (iron grade 2, standard) from any iron ore. Pig iron from vein iron ore. |
-| 4 | Steelworks | Refined iron (iron grade 3, fine) from pig iron, so vein iron ore is needed. Steel from refined iron. High-quality steel. |
+| 1 | Casting Hearth | Copper, tin and bronze ingots (tiers 3 and 4). |
+| 2 | Bloomery | Wrought iron from any iron ore (tier 5). Bloom iron is gone. |
+| 3 | Ironworks | Pig iron from vein iron ore, and iron from pig iron (tier 6). |
+| 4 | Steelworks | Steel (tier 7) and, after the Carbon steel research, carbon steel (tier 8). |
 
-**Iron and steel grades, from worst to best:** bloom iron, wrought iron, refined iron, steel, high-quality steel. Low-quality ores can never go higher than wrought iron, so the better grades need vein iron ore, which lies inside the rock of ridges and mountains from the Deepwoods outwards, and in mineshafts (see "The world").
+**Iron and steel, from worst to best:** wrought iron, iron, steel, carbon steel. Low-quality ores can never go higher than wrought iron, so iron and better need vein iron ore, which lies inside the rock of ridges and mountains from the Deepwoods outwards, and in mineshafts (see "The world").
 
-**High-quality steel** is meant to be a prized, hard-won asset. It can only be made at a level 4 forge, from refined iron, using large amounts of charcoal, very slowly and in small batches.
+**Carbon steel** replaces high-quality steel (suggested) as the prized, hard-won top metal. It needs its own research and a level 4 forge, and is made slowly, in small batches, with large amounts of charcoal.
 
 #### Cooking
 
@@ -2075,8 +2100,8 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Mineshaft 1 / 2 / 3 | 60 hardwood, 80 stone, 10 bronze / +40 hardwood, +50 stone, +15 wrought iron / +50 hardwood, +75 stone, +20 steel (s) | 600 / 450 / 600 (s) | 800 / 1200 / 1600 | 6 x 6 on flat stone | Advanced 6 | 0 | base 4, 6, 8 and Deep Mining I, II, III at the lodge, fees 20 bronze ingots and 50 stone / 30 wrought iron, 100 stone and 3 silver / 30 steel, 200 stone, 3 gold and 3 silver (s) (the higher tiers cost precious metals, doc) | 4 miners; output in table 5 (s) |
 | Kiln | 30 softwood, 40 stone, 20 clay | 300 | 600 | 6 x 6 | Advanced 7 | 0 | base 3 | charcoal, bricks, glass, 2 workers (s) |
 | Forge 1 Casting Hearth | 60 softwood, 40 stone | 300 | 600 | 8 x 8 | Advanced 8 | 0 |  | copper, tin, bronze, 2 workers (s) |
-| 2 Bloomery / 3 Ironworks | +30 softwood, +40 stone, +10 clay, +5 bronze / +50 hardwood, +60 stone, +20 bricks, +10 bronze (s) | 300 / 450 (s) | 900 / 1200 | same | upgrade | 0 | base 3 / base 5 | bloom iron / wrought and pig iron, crossbows, mail; 3 workers (s) |
-| 4 Steelworks | +75 hardwood, +100 stone, +60 bricks, +20 wrought iron (s) | 900 (s) | 1800 | same | upgrade | 0 | base 7 | refined iron, steel, HQ steel; 4 workers (s) |
+| 2 Bloomery / 3 Ironworks | +30 softwood, +40 stone, +10 clay, +5 bronze / +50 hardwood, +60 stone, +20 bricks, +10 bronze (s) | 300 / 450 (s) | 900 / 1200 | same | upgrade | 0 | base 3 / base 5 | wrought iron / pig iron and iron; 3 workers (s) |
+| 4 Steelworks | +75 hardwood, +100 stone, +60 bricks, +20 wrought iron (s) | 900 (s) | 1800 | same | upgrade | 0 | base 7 | steel and, with research, carbon steel; 4 workers (s) |
 | Powder mill | 20 hardwood, 40 stone, 20 bricks, 5 wrought iron (s) | 300 (s) | 600 | 6 x 6 | Advanced 9 | 0 | base 7 | gunpowder (s) |
 | Foundry | 50 hardwood, 75 stone, 50 bricks, 10 bronze, 10 wrought iron (s) | 600 (s) | 1500 | 10 x 10 | Advanced 10 | 0 | base 8 | cannons, cannonballs (s) |
 
@@ -2084,14 +2109,14 @@ Production buildings work only with workers assigned and each extra worker adds 
 
 ### Items
 
-Items that can be made from the resources so far. "Made at" is the building from the list above.
+There are no tools, weapons, armour or ammunition items (Jade, 2026-10-03): gear is a tier on each unit (see "Troops and gear"). What is still made is materials, food and medicine, carts, siege engines and cannons. "Made at" is the building from the list above.
 
 #### Materials (used to make other things)
 
 | **Item** | **Made at** | **From** |
 |---|---|---|
 | Sinew / rope | Tannery or Big House | Leather (sinew) or flax (rope) |
-| Planks | Lumber mill | Softwood or hardwood lumber. Used for items only; buildings are paid in lumber (see table 2b). |
+| Planks | Lumber mill | Softwood or hardwood lumber. Used in gear kits, carts and engines; buildings are paid in lumber (see table 2b). |
 | Stone blocks | Worker on site | Stone |
 | Gravel | Workshop | Stone (crushed) |
 | Hardwood sticks | Workshop (or gathered from hazel bushes) | Hardwood lumber only |
@@ -2102,93 +2127,28 @@ Items that can be made from the resources so far. "Made at" is the building from
 | Charcoal (suggested) | Kiln | Hardwood lumber |
 | Bricks (suggested) | Kiln | Clay, fuel (charcoal or coal) |
 | Leather | Tannery | Hides (or directly from hunting until hides are added) |
+| Hardened leather (Jade) | Tannery | Leather |
 | Copper ingot | Forge (level 1+) | Copper ore, fuel |
 | Tin ingot | Forge (level 1+) | Tin ore, fuel |
 | Bronze ingot | Forge (level 1+) | Copper ingots and tin ingots (roughly 9 copper to 1 tin) |
-| Iron ingot, bloom (grade 1) | Forge (level 2+) | Bog iron, iron rock or vein iron ore, charcoal. The first iron a player can make. |
-| Iron ingot, wrought (grade 2) | Forge (level 3+) | Any iron ore, charcoal or coal. |
-| Pig iron ingot | Forge (level 3+) | Vein iron ore, coal or charcoal, stone (flux). Brittle; only used to make refined iron. |
-| Iron ingot, refined (grade 3) | Forge (level 4) | Pig iron ingot, fuel. |
-| Steel ingot | Forge (level 4) | Refined iron ingot, coal or charcoal. |
-| High-quality steel ingot | Forge (level 4) | Refined iron ingot, large amounts of charcoal. Very slow, small batches. |
+| Wrought iron ingot | Forge (level 2+, Bloomery) | Any iron ore, charcoal or coal. The first iron a player can make. |
+| Pig iron ingot | Forge (level 3+) | Vein iron ore, coal or charcoal, stone (flux). Brittle; only used to make iron. |
+| Iron ingot | Forge (level 3+, Ironworks) | Pig iron ingot, fuel. |
+| Steel ingot | Forge (level 4) | Iron ingot, coal or charcoal. |
+| Carbon steel ingot | Forge (level 4), Carbon steel research | Iron ingots, large amounts of charcoal. Very slow, small batches. |
 | Gunpowder (suggested) | Powder mill | Saltpetre, sulphur, charcoal |
 | Glass (suggested) | Kiln | Sand, fuel |
-| Lead shot (suggested) | Forge | Lead ore, fuel. Ammunition for flintlock muskets. |
 
-Iron and steel items carry the grade of the metal they are made from, so a bloom-iron sword is weaker than a wrought-iron one, and a high-quality steel sword is the best of all.
+#### Carts, engines and torches
 
-#### Tools (for workers)
-
-| **Item** | **Made at** | **From** |
+| **Thing** | **Made at** | **From** |
 |---|---|---|
-| Hardwood axe, digging stick, mallet | Big House | Hardwood sticks (starting tools) |
-| Stone maul (suggested) | Big House, no research | Hardwood sticks and stone. The rock-breaking tool: quarries stone, digs earth, breaks rock when tunnelling, and mines the soft copper and tin ore near the start; it cannot mine iron or anything harder. |
-| Stone hammer (suggested) | Big House, no research | Hardwood sticks and stone. Builds and repairs a little faster than the hardwood mallet. |
-| Flint axe, flint knife | Big House, no research | Hardwood sticks, flint. Flint is the edge tier: axes and knives here, spearheads and arrowheads for weapons. There is no flint pick or mallet. |
-| Hardwood hoe | Big House | Hardwood sticks. For farm work. |
-| Hoe (copper, bronze, iron, steel) (suggested) | Forge | The metal ingot, hardwood lumber |
-| Prospecting hammer (suggested) | Forge | Any metal ingot, hardwood lumber. Used for T Prospect. |
-| Copper axe, pickaxe, hammer, sickle | Forge | Copper ingot, hardwood lumber |
-| Bronze axe, pickaxe, hammer, sickle, saw | Forge | Bronze ingot, hardwood lumber |
-| Iron axe, pickaxe, hammer, sickle, plough, saw | Forge | Iron ingot, hardwood lumber |
-| Steel tools | Forge | Steel ingot, hardwood lumber |
+| Torch | Big House | Softwood lumber, resin or pitch (suggested). Placed as a light; see "Light and torches". |
+| Hand cart | Workshop (tier 2) | Planks, hardwood lumber. A two-wheeled cart a worker pushes to haul loads. |
 | Ox or horse cart | Great Workshop | Hardwood lumber, planks, a little iron. Pulled by a horse or an ox. |
-| Hand cart | Workshop (tier 2) | Planks, hardwood lumber. A two-wheeled cart a worker pushes to haul loads; bigger carts are pulled by horses or oxen. |
-| Fishing rod / net | Big House | Softwood lumber, flax or leather |
-
-#### Weapons and armour (for warriors)
-
-| **Item** | **Made at** | **From** |
-|---|---|---|
-| Hardwood club (starting weapon), hardwood spear | Big House | Hardwood sticks |
-| Flint-tipped spear (starting weapon), flint axe | Big House | Hardwood sticks, flint |
-| Torch | Big House | Softwood lumber, resin or pitch (suggested). Carried or placed; see "Light and torches". |
-| Sling | Big House | Leather or flax. Throws stones. |
-| Thrown spear (javelin) | Big House (flint), forge (bronze) | Hardwood sticks, flint or bronze |
-| Shortbow, shortsword, buckler | Bought from Halfling villages | Halfling-made light weapons: a short bow, a short bloom-iron sword and a small round shield. Players cannot make them (suggested). |
-| Bow and flint arrows | Big House | Softwood or hardwood lumber, flint, feathers, sinew or flax |
-| Leather armour (hardened leather) | Tannery | Leather only; flax cannot replace it |
-| Boots | Tannery or Big House (suggested) | Leather or flax. A small piece of armour. |
-| Copper axe and dagger | Forge | Copper ingot, hardwood lumber |
-| Bronze sword, spear, shield, scale armour | Forge | Bronze ingot, hardwood lumber, leather (flax can replace it in the scale armour) |
-| Iron sword, mace, mail armour, arrowheads | Forge | Iron ingot, leather (flax can replace it in the mail armour) |
-| Crossbow | Forge (level 3+, Ironworks) | Iron ingot, hardwood lumber, flax or leather |
-| Poison arrows or bolts | Herbalist hut (suggested) | Arrows or bolts, venom. Suggested: 1 venom coats 10. |
-| Crossbow bolts | Forge | Hardwood lumber, feathers, and metal for the tips |
-| Steel sword, pike, plate armour | Forge | Steel ingot, leather (flax can replace it in the plate armour) |
-| Steel crossbow (suggested) | Forge (level 4, Steelworks) | Steel ingot (the bow part), iron ingot (fittings), hardwood lumber, flax |
-| Flintlock musket | Forge | Steel or iron ingot (barrel), hardwood lumber (stock), flint (the lock's striker). Fires using gunpowder and lead shot. |
 | Cannon | Foundry | Bronze ingots (early, lighter) or iron ingots (later, cheaper), hardwood lumber (carriage) |
 | Cannonballs | Foundry | Iron ingot or stone |
-| Shields (wicker, wood, bronze, iron kite, steel heater) (suggested) | Big House (wicker, wood), forge (metal) | Hardwood sticks and hide (wicker); planks and leather (wood); the metal ingot and leather (metal shields) |
-| Helmets (leather cap, bronze, iron nasal helm, steel sallet) | Tannery (leather), forge (metal) | Leather, or the metal ingot and leather |
-| Halberd (suggested) | Forge | Iron or steel ingot, hardwood lumber |
-| Javelin (thrown spear), sling | Big House (flint javelin, sling), forge (bronze javelin) | Hardwood sticks and flint or bronze (javelin); leather or flax (sling) |
-| Carrying gear: bolt case, powder horn, shot pouch | Tannery | Leather. Hold bolts, gunpowder and lead shot, like a quiver holds arrows. |
-| Fire arrows (suggested) | Big House | Arrows, resin or pitch |
-
-#### Table 3: Armour, helmets, boots and shields
-
-Key: a value followed by (s) is suggested; a row ending in (s) is suggested throughout except values marked (doc). Values marked (Jade) or (doc), or unmarked, are fixed values already in this blueprint.
-
-| **Piece** | **Reduction** | **Weight** | **Recipe** | **Flax instead of leather** | **Made at** | **Time** |
-|---|---|---|---|---|---|---|
-| Boots | 3% (s) | 1.5 lb (s) | 1 leather or 1 flax (s) | yes | Tannery or Big House | 10 s (s) |
-| Leather armour (hardened) | 15% | 10 lb (s) | 3 leather (s) | never | Tannery | 30 s (s) |
-| Leather cap | 2% (s) | 1 lb (s) | 1 leather (s) | never (s) | Tannery | 10 s (s) |
-| Bronze scale | 30% | 30 lb (s) | 4 bronze, 1 leather (s) | yes | Forge 1 | 60 s (s) |
-| Bronze helmet | 4% (s) | 3.5 lb (s) | 1 bronze, 1 leather (s) | yes | Forge 1 | 20 s (s) |
-| Iron mail (bloom / wrought / refined) | 35% / 40% / 45% (s) | 25 lb (s) | 4 iron of that grade, 1 leather (s) | yes | Forge 2 / 3 / 4 | 60 s (s) |
-| Iron nasal helm (any grade) | 5% (s) | 3 lb (s) | 1 iron, 1 leather (s) | yes | Forge 2+ | 20 s (s) |
-| Steel plate | 55%; HQ steel 60% (s) | 45 lb (s) | 6 steel, 2 leather (s) | yes | Forge 4 | 120 s (s) |
-| Steel sallet | 7% (s) | 3 lb (s) | 1 steel, 1 leather (s) | yes | Forge 4 | 30 s (s) |
-| Wicker shield | blocks 10% of projectile damage (s) | 5 lb (s) | 6 sticks, 1 hide or leather (s) |  | Big House | 15 s (s) |
-| Wood shield (basic: wood and leather, Jade) | 15% (s) | 8 lb (s) | 3 planks, 1 leather (s) |  | Big House (s) | 20 s (s) |
-| Bronze shield | 20% (s) | 12 lb (s) | 2 bronze, 1 hardwood lumber, 1 leather (s) |  | Forge 1 | 30 s (s) |
-| Iron kite shield | 25% (s) | 12 lb (s) | 3 wrought iron, 1 plank, 1 leather (s) |  | Forge 3 | 40 s (s) |
-| Steel heater shield | 30% (Jade: the best shield in the game) | 10 lb (s) | 3 steel, 1 leather (s) |  | Forge 4 | 45 s (s) |
-
-**How these were set:** Jade set the best shield at 30%; the lower tiers step down by 5 points. A full steel set (plate, sallet, boots, sword, heater) is 62.5 lb, so a foot soldier in it runs about 10% slower by the doc's load rule; mounted units are not slowed. Mages wear boots and leather only (s). Protection from spells is the Warding spell in table 13.
+| Catapult, ballista | Great Workshop, Manufactory | See table 2f. |
 
 #### Food and medicine
 
@@ -2200,63 +2160,148 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Bandages | Herbalist hut | Medicinal herbs, flax (or leather strips early on). Heals units slowly. |
 | Healing remedy | Herbalist hut | Medicinal herbs, glass bottle. Heals more and faster. |
 
-### Equipment
+### Troops and gear (agreed 2026-10-03)
 
-Tools, weapons and armour are equipment. Equipment is made at forge-type buildings from resources and kept in the player's equipment stock until a unit uses it.
+Agreed by Jade on 2026-10-03 (designed in the project chat from 04:20 UTC; Jade's go at 05:25 UTC). This is canon. It replaces the old items, equipment panel and gear tables: Tables 2c, 2d, 2e, 3 and 7 now hold the kit, armour, shield, tool and training numbers below, and Table 13 holds the mage wand and robe ladders. Values marked (Jade) are Jade's; values marked (s) are suggested. Costs are today's old item recipes carried across as kit costs, summed, with no tuning; a number marked "Open for Jade's rebalance" is only a placeholder. Built in Milestone 11 ("Troop rework").
 
-Equipping must never be tedious. A large force can be upgraded with a couple of clicks, and players who want to can still choose gear unit by unit. **The player's own choices always win over the automatic ones.**
+#### Aim
 
-#### Making equipment
+To vastly increase the simplicity and usability of building an army (Jade).
 
-- Select a forge-type building, open its crafting menu (click Craft, or press K) and click the item (or press its grid key). Items go into the building's production queue like anything else.
-- Finished items go into the player's equipment stock.
+#### Forges, items and leather
 
-#### Equipping units
+- The Forge only turns ore into ingots, and higher forge tiers are needed to smelt higher ores (Jade). Casting Hearth (level 1): copper, tin and bronze. Bloomery (level 2): wrought iron, from any iron ore (bloom iron goes). Ironworks (level 3): iron, from pig iron, so vein iron ore is needed. Steelworks (level 4): steel and carbon steel (s).
+- Carbon steel replaces high-quality steel and is a research at the Scholar's Lodge (s).
+- Weapons, armour, workers' tools and ammunition are no longer items. There are no items at all (Jade).
+- The Tannery has no tiers. The one Tannery does all leather work, including turning leather into hardened leather (Jade). Any higher-tier tannery models stay on disk, unused, for later (Jade).
+- Research: Bronze, Steel, Carbon steel, Gunpowder and Muskets; one Crossbows research stays (Jade); Halberds and Steel crossbow research go (Jade).
 
-- **Equip Best (Q):** works on any selection, of any size. Every selected unit gets the best equipment in stock that it can use.
-- **Tools by job (suggested):** for workers, Equip Best picks the tool for the job: the axe for chopping, the maul or pickaxe for quarrying, digging and mining, and the hammer or mallet for building and repair.
-- **Picking up:** units walk to the nearest main base to collect their new gear, and hand in what it replaces there. This is one reason to build extra main bases away from the main settlement. Suggested: once they have their gear, units go back to what they were doing.
-- **What counts as "best":** the higher material tier first (copper, bronze, iron, steel), then the higher grade within it (see "Forge levels").
-- **When there is not enough to go round,** the best items go to the most capable units first. The most capable unit is the one with the highest experience rank. Specialist gear only goes to units trained to use it (for example, a musket only goes to a warrior trained with muskets). Example: 7 warriors fully equipped in bronze and 3 sets of bloom iron in stock. Equip Best on all 7 gives the iron to the 3 highest-ranked warriors, and the other 4 keep their bronze.
-- **Workers' tools are first come, first served:** the worker who reaches the main base first gets the best tool available. There are no specialised workers. The one exception: if two workers arrive at about the same time and one of them is starving, the healthy worker gets the better tool.
-- **Auto-Equip (toggle):** a button on the utility bar. While it is on, new equipment from the forges is handed out automatically, using the same rules as Equip Best. It only happens during the day, and only to idle units that are within about a 15-second run of a main base. Hand-picked items are still left alone.
-- Any item a unit hands in goes back into the equipment stock.
+#### Troop types
 
-#### Choosing by hand
+- Five types (Jade): four trained at the Barracks, and cavalry at the Stables:
+  - Close melee: a one-handed weapon and a shield; weapon tiers 0 to 8.
+  - Long melee: a two-handed weapon; weapon tiers 1 to 8.
+  - Ranger: one ladder with deliberate repeats; tier 8 is the top.
+  - Brawler: a hybrid that exists only at tier 8 (flintlock pistol plus sword), with any armour.
+  - Cavalry: trained at the Stables, not the Barracks; a tamed horse at the Stables is used up as the rider builds (Jade). One cavalry type for now, carrying the long-melee weapon ladder only (tiers 1 to 8, same names) with any armour tier (Jade).
+- A troop is always the type it was created as: no retraining and no type change (Jade).
+- Main bases train only tier 1 close melee, long melee and ranger troops (Jade); every other troop comes from the Barracks or, for cavalry, the Stables.
+- Each type's button is a small head-to-toe picture of the unit with its weapons instead of text, greyed out when it cannot be afforded (Jade).
 
-- **Equipment panel (I):** with a single unit selected, the panel shows what it is wearing and holding, and the items in stock that fit each slot. Click an item to give it to that unit, which then walks to the nearest main base to collect it.
-- **Hand-picked items are never overridden.** A later Equip Best leaves any hand-picked item on a unit alone.
-- **Hand-picking does not reserve the item.** If Equip Best hands the item to another unit before the hand-picked unit reaches the main base, the hand-picked unit stops at the main base and says so in a speech bubble (for example, "That bronze sword is gone!").
+#### Tiers
 
-#### Inventory and carrying weight
+Weapon and armour tiers are chosen independently, so any weapon can go with any armour (Jade). Examples Jade gave: bronze armour with a carbon steel sword; no armour with a musket; a sling with carbon steel armour.
 
-- Every unit has an **inventory** for items it is not using: spare weapons, munitions, gathered resources and so on.
-- Every item has a **weight**, set in advance to match its real-world weight.
-- A unit can carry **100 lb** in total, including everything it has equipped. Of that, at most **25 lb** can be raw materials (gathered resources such as lumber, stone, ore and meat).
-- **Heavy loads slow units down.** Up to 50 lb there is no effect. Above 50 lb the unit slows down steadily, reaching 40% slower at the 100 lb limit (for example, 75 lb makes it 20% slower). 40% is the most a load can ever slow a unit.
-- **Mounted units** are not slowed: a horse carries its rider just as fast whatever the rider is wearing and carrying, which makes heavily armoured cavalry strong.
-- Equip Best, Auto-Equip and hand-picking never give a unit more than it can carry.
-- The equipment panel (I) also shows the unit's inventory and how much it is carrying, for example "64 / 100 lb" and "raw materials 10 / 25 lb".
+| **Tier** | **Material (Jade)** | **Needs (s)** | **Armour (Jade's material; names s)** | **Shield, close melee only (Jade; names 3 to 8 s)** | **Long melee and cavalry (s; tiers 4 and 5 Jade)** | **Close melee (s; tiers 4 and 5 Jade)** | **Ranger (Jade; names s)** |
+|---|---|---|---|---|---|---|---|
+| 0 | fists, no armour | nothing | none | none | none | fists (the fist fighter) | none |
+| 1 | wood, leather | nothing | leather jerkin | wooden shield | fire-hardened spear | hardwood cudgel | leather sling |
+| 2 | flint, hardened leather | a Tannery for hardened leather | boiled-leather cuirass | wooden shield | flint-headed spear | flint hand-axe | yew longbow |
+| 3 | copper | Casting Hearth | copper scale jack (copper over hardened leather) | boiled-leather targe (wood faced with hardened leather) | copper leaf-blade spear | copper short sword | recurve bow |
+| 4 | bronze | Bronze research | bronze scale armour (bronze over hardened leather) | boiled-leather targe | bronze spear | bronze shortsword | recurve bow |
+| 5 | wrought iron | Bloomery | wrought-iron mail | boiled-leather targe | crude iron spear | wrought iron sword | recurve bow |
+| 6 | iron | Ironworks, vein iron ore | iron coat of plates | iron-rimmed heater shield | iron pike | iron broadsword | recurve bow |
+| 7 | steel | Steelworks, Steel research | steel plate harness | steel heater shield | steel halberd | steel side-sword | steel-prod crossbow (also Crossbows research) |
+| 8 | carbon steel | Carbon steel research | fluted Gothic harness | steel rotella | zweihänder | basket-hilted broadsword | flintlock musket (also Gunpowder and Muskets) |
 
-Approximate real-world weights, as a starting point:
+- The ranger ladder's repeats are deliberate: the same recurve bow at tiers 3 to 6, the crossbow only at 7 and the musket only at 8 (Jade). One ranger upgrades along this ladder. Each recurve tier fits arrowheads of its own metal, which is all that changes between them (s).
+- Brawler, tier 8 only: flintlock pistol and cutlass (s), with a new pistol model to be made when it is time (Jade). Needs Gunpowder, Muskets and Carbon steel (s).
+- Shields come with the armour on close melee only; no other type gets a shield (Jade). Shield tech deliberately lags behind armour and weapons, so some tiers repeat a shield (Jade): wooden shield at armour tiers 1 and 2, a wooden shield faced with hardened leather at 3 to 5 (named the boiled-leather targe (s)), then the coordinator's picks at 6 to 8 (Jade asked for them). No armour means no shield.
+- The fist fighter (tier 0 weapon, no armour) can only be built when there is not enough material for anything else (Jade).
+- Numbers for every tier (damage, swing time, reach, range, protection, shield block, cost and time) are in Tables 2c (tools), 2d (melee), 2e (ranged), 3 (armour and shields), 7 (training) and 13 (wands and robes).
 
-| **Item** | **Approximate weight** |
-|---|---|
-| Arrow or crossbow bolt | About 2 oz each (24 arrows weigh about 3 lb) |
-| Bow | 1.5 to 3 lb |
-| Crossbow | 7 to 10 lb (a steel crossbow with its winch: 12 to 18 lb) |
-| Flintlock musket | About 10 lb |
-| One-handed sword | 2.5 to 3.5 lb |
-| Mace or war axe | 2 to 4 lb |
-| Spear | 3 to 5 lb |
-| Pike or halberd | 6 to 8 lb |
-| Shield | 7 to 15 lb, depending on size and material |
-| Leather armour | 8 to 15 lb |
-| Mail shirt | 20 to 30 lb |
-| Full steel plate armour | 35 to 55 lb |
-| Woodcutting axe or pick | 3 to 7 lb |
+#### Long melee: reach and the edge of reach
 
-Bronze is denser than iron and steel, so a bronze item weighs about 10 to 15% more than the same item in iron.
+- Long-melee weapons (and cavalry, who carry them) have no close-in penalty and no minimum range: they can always attack, even when an enemy is right next to them (Jade).
+- A hit at the edge of their reach is a critical hit for 30% extra damage (Jade). The edge is the outer third of the weapon's reach (s).
+- Their drawback is no shield and a slower swing than close melee at every tier (Jade). So long melee is the damage-focused, versatile attacking type, and close melee the shielded one (Jade).
+
+#### Weight
+
+- Gear has no weight and no consequences: the load slowdown and the rule that armoured units cannot swim go, for every unit (Jade).
+- A worker's carrying limit stays only to decide when it walks back to base, and is tuned for that alone (Jade). The inventory panel goes (Jade).
+
+#### Cost
+
+- A unit costs its food plus the materials its kit used to need: ingots, sticks, leather, hardened leather and so on (Jade). It takes 1 supply (Jade).
+- Ammunition is unlimited (Jade). Gunpowder is needed to train musket rangers and brawlers, and feathers to train bow and crossbow rangers (Jade); feathers from the longbow up (s).
+- Feathers come from hens, the Runkin traders and hunted wild birds (Jade). Wild geese by Heartland water and pheasants in the Fringe woods, hunted with N like deer, give meat and feathers (s).
+
+#### Barracks and Stables panel
+
+- Clicking a Barracks shows each type with a weapon-tier and an armour-tier dropdown, each entry with a small icon of an example weapon or armour of that tier (Jade). The player chooses once, then clicks the unit button as many times as supply and resources allow (Jade).
+- A Lock checkbox per type locks that one Barracks into making that combination (Jade).
+- With no lock, each type defaults to the highest weapon and armour tier the player can afford. When short of a metal, the weapon gets the best material first. The default refreshes as queued troops spend resources (Jade).
+- The Stables shows the same picture button, dropdowns and Lock for cavalry (s). Main bases show the same panel limited to tier 1 (s).
+
+#### Upgrading units
+
+- Select one warrior or a group and click Upgrade on the command card. Each unit walks to the nearest Forge, Barracks or main base and stands beside it; speech bubbles tell the player what is happening (Jade). Cavalry can also upgrade at the Stables (s).
+- There are separate Upgrade Weapon and Upgrade Armour buttons (Jade). Each moves the unit up one tier and pays the ingots or other materials from stock (Jade).
+- An Upgrade Max twin of each takes the unit to the best tier researched and affordable; it appears only when it would give a different result from the plain button, so there can be up to 4 buttons (Jade).
+- Keys (s, rebindable): Q Upgrade Weapon (tools on a worker, wand on a mage), X Upgrade Armour (robe on a mage), Z Upgrade Weapon Max, V Upgrade Armour Max.
+- A bar on the unit fills once it is near the building. Better gear takes longer, with a preset time per item tied to how long a unit starting with it takes to build, but much shorter than making a new unit (Jade). Times are in Table 7.
+- An upgrade pays the new tier's full kit cost; the old kit gives nothing back (s, Open for Jade's rebalance).
+- When stock runs short (s): the highest rank upgrades first, a unit only takes a whole step, and as many units upgrade as can be paid for.
+
+#### Starting units
+
+- 4 workers with tier 1 tools and 3 warriors, all close melee with a tier 1 weapon (hardwood cudgel) and no armour, so no shield (Jade), plus the extra starting food and supply set earlier (Jade). Starting food covers the seven for 10 days (s: 140 nutrition, Open for Jade's rebalance).
+
+#### Workers' tools
+
+- Workers' tools move to the same tiers and upgrading as weapons; there are no tool items (Jade).
+- One tool tier per worker covering every tool it uses (axe, pick or maul, hammer, hoe, sickle, fishing gear and prospecting hammer); one Upgrade button on Q pays the whole kit (Jade agreed with the suggestion).
+- Tool tiers (s): 1 hardwood; 2 stone and flint (flint axe and knife, stone maul, stone hammer); 3 copper; 4 bronze; 5 wrought iron; 6 iron; 7 steel; 8 carbon steel. What each tier may gather is in Progression; numbers in Table 2c.
+
+#### Mages
+
+- Mages do not climb the armour ladder. They have their own wand and robe tiers, mixed freely like weapon and armour (Jade).
+- The coordinator's ladders, kept by Jade (names s):
+  - Wands: 1 hazel wand, 2 copper-tipped wand, 3 bronze-bound staff, 4 iron-shod staff, 5 crystal staff (steel-shod and set with mana crystals), 6 archstaff (carbon steel with more crystals).
+  - Robes: 1 homespun robe of flax, 2 leather-trimmed robe, 3 hardened-leather robe, 4 warded robe with a mana crystal sewn in, 5 rune-stitched vestments with copper thread and crystals, 6 archmage's mantle with steel thread and crystals.
+  - The wand tier sets spell power and mana; the robe tier sets protection and mana regain. Numbers in Table 13.
+  - Ranks stay earned by experience; the rank-ups at 4, 5 and 6 pay their mana crystals from stock, with no rank-wand item.
+- A new mage starts with a hazel wand and a homespun robe (s). Mages upgrade with the same buttons at the Magi Sanctum, a Forge or a main base (s).
+
+#### What goes, what stays
+
+- Goes: Craft (K), Refurbish (F), Equip Best (Q on warriors), the Equipment panel (I), Auto-Equip (F4), forge item queues, arrows, bolts, quivers, shot and powder horns (s, following Jade's "no more items"); poison and fire arrows (s, since ammunition is unlimited; venom and resin keep their other uses); Archery, Crossbow and Musket training, since the type is chosen at the Barracks (s); Riding training and the Ride button, since cavalry is a type (Jade); the load slowdown, the armoured swimming rule and the inventory panel (Jade); the backup weapon (s).
+- Stays (s): Cannon crew training at the Gunnery yard, the siege engines, cannons and cannonballs, carts, and Hitch for oxen, horses and engines.
+- Weapons, armour and tools in trade and plunder become the ingots and materials that made them, at the same value (s).
+- Each tier needs its own look, made by the model thread; tinted bodies until then (s).
+- Numbers stay Jade's: today's item costs carry across as kit costs, and the balance editor gets a group per new table, with no tuning (s).
+
+#### Table 3: Armour and shields by tier
+
+Key: a value followed by (s) is suggested; a row ending in (s) is suggested throughout except values marked (doc). Values marked (Jade) or (doc), or unmarked, are fixed values already in this blueprint.
+
+| **Tier** | **Armour (body, helmet and boots)** | **Protection** | **Kit cost** | **Flax instead of leather** | **Time to make** |
+|---|---|---|---|---|---|
+| 0 | none | 0% | nothing |  | 0 s |
+| 1 | leather jerkin | 10% (s, Open for Jade's rebalance) | 3 leather | never | 30 s (s) |
+| 2 | boiled-leather cuirass | 20% (hardened leather 15%, cap 2%, boots 3%) | 3 hardened leather, 2 leather | never | 50 s |
+| 3 | copper scale jack | 25% (s, Open for Jade's rebalance) | 5 copper ingots, 2 hardened leather, 1 leather | the leather only | 80 s (s) |
+| 4 | bronze scale armour | 37% (scale 30%, helmet 4%, boots 3%) | 5 bronze, 2 hardened leather, 1 leather | the leather only | 90 s |
+| 5 | wrought-iron mail | 48% (mail 40%, nasal helm 5%, boots 3%) | 5 wrought iron, 3 leather | yes | 90 s |
+| 6 | iron coat of plates | 53% (45%, 5%, 3%) | 5 iron, 3 leather | yes | 90 s |
+| 7 | steel plate harness | 65% (plate 55%, sallet 7%, boots 3%) | 7 steel, 4 leather | yes | 160 s |
+| 8 | fluted Gothic harness | 70% (60%, 7%, 3%) | 7 carbon steel, 4 leather | yes | 160 s |
+
+Shields, close melee only, paid with the armour tier (Jade: shield tech lags on purpose):
+
+| **Armour tier** | **Shield** | **Blocks projectile damage** | **Kit cost** | **Time to make** |
+|---|---|---|---|---|
+| 0 | none |  |  |  |
+| 1 and 2 | wooden shield (Jade) | 15% | 3 planks, 1 leather | 20 s |
+| 3 to 5 | boiled-leather targe: wood faced with hardened leather (Jade; name s) | 20% (s, Open for Jade's rebalance) | 3 planks, 1 hardened leather | 25 s (s) |
+| 6 | iron-rimmed heater shield (s) | 25% | 3 iron, 1 plank, 1 leather | 40 s |
+| 7 | steel heater shield (s) | 30% (Jade: the best shield in the game) | 3 steel, 1 leather | 45 s |
+| 8 | steel rotella (s) | 30% (Jade's cap) | 3 carbon steel, 1 leather | 45 s |
+
+**How these were set:** each armour kit is the old body armour, helmet and boots of that metal summed, with hardened leather in place of leather where Jade's tiers put it; each shield is the old shield of the nearest material. Gear has no weight (Jade), so armour never slows a unit or stops it swimming. Mages wear robes instead (table 13). Protection from spells is the Warding spell in table 13.
+
+### Unit looks
 
 #### Table 12: Carrying weights and capacities
 
@@ -2270,51 +2315,45 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Herbs, flax, carrots, mana crystal, spider silk, venom, hexstone, eggs, feathers | 0.5 lb (feathers 0.1) | 50 |
 | Marble block | 10 lb | 2 |
 | Gold, silver (a nugget), lead ore (5), demon horn (2) | 1 lb | 25 |
-| Gems, lead shot (10 balls), gunpowder (10 charges) | 0.1 lb per gem; 1 lb | by node |
+| Gems, gunpowder (10 charges) | 0.1 lb per gem; 1 lb | by node |
 | Copper, tin, bronze, pig, iron, steel ingots | 5 lb | 5 (made goods, not raw) |
 | Cannonball iron / stone; catapult stone; ballista bolt | 6 / 4 lb; 40 lb; 5 lb | carried by the engine's crew or cart |
-| Quiver / bolt case / powder horn / shot pouch | 24 arrows (3 lb) / 20 bolts / 20 charges / 20 balls | refilled at a main base (doc) |
 | Hand cart | 150 lb raw, pushed at 2.0 m/s by a worker | wheels only (doc) |
 | Ox cart | 600 lb behind an ox at 1.5 m/s; 400 lb behind a horse at 2.5 m/s | wheels only |
 | Pack animal without a cart | ox 150 lb, horse 100 lb, led by a worker |  |
 | Siege engine haul | table 2f speeds; a horse or ox hauls one engine at a time |  |
 
-**How these were set:** a worker's trip is one load of 5 lumber, stone or ore, which with table 5 times gives the per-day income used in the pacing check; an ox cart moves 24 worker-loads at once, which is what makes a far-off mine or the Deepwoods vein iron worth the walk.
+Gear has no weight (Jade, 2026-10-03): these weights only set how much a worker carries per trip, and nothing slows a unit or stops it swimming. Derived from: a worker's trip is one load of 5 lumber, stone or ore, which with table 5 times gives the per-day income used in the pacing check; an ox cart moves 24 worker-loads at once, which is what makes a far-off mine or the Deepwoods vein iron worth the walk.
 
-#### Seeing equipment
+#### Seeing gear
 
-- Tools, weapons and armour are attached to the character model, so players can see at a glance who has what.
+- Each unit's weapon, armour, shield and tool tiers are drawn on its model, so players can see at a glance who has what. Every tier needs its own look, made by the model thread; until then units show tinted bodies (suggested).
 
 #### Unit models
 
-- **Workers and warriors share one human body model.** Warriors only have a different skin, which is also unarmoured; armour is added as equipment. Warriors have their own animations for everything they do (fighting with each weapon type, shooting, hunting and so on). Workers also get animations for farming (with a hoe) and fishing.
-- **Mages** have their own model. All mages are female, with long hair, and the body is somewhat dimorphic from the worker body. They cast spells with **wands**.
-- **Stone tools (suggested):** the stone maul is a grooved, rounded stone head lashed with cord to a thick wooden handle, held in both hands; the stone hammer has a squarer stone head on a shorter handle, held in one hand. Neither looks like a pickaxe, which only exists from copper upward.
+- **Workers and warriors share one human body model.** Warriors only have a different skin, which is also unarmoured; the armour tier is drawn over it. Warriors have their own animations for everything they do (fighting with each weapon type, shooting, hunting and so on). Workers also get animations for farming (with a hoe) and fishing.
+- **Mages** have their own model. All mages are female, with long hair, and the body is somewhat dimorphic from the worker body. They cast spells with **wands** and wear **robes**, each with its own tiers (see "Troops and gear").
+- **Stone tools (suggested):** the stone maul is a grooved, rounded stone head lashed with cord to a thick wooden handle, held in both hands; the stone hammer has a squarer stone head on a shorter handle, held in one hand. Neither looks like a pickaxe, which only exists from copper upward. They are part of the tier 2 tool kit.
 - **Injured and death animations:** every unit has an injured animation and a death animation. Injured looks like being hit from the front and reacting; warriors also throw up their shield arm as if trying to block, but less composed than a real block.
 - **Other models needed:** the Halfling war ox needs two rider points (a spear rider in front, an archer behind). Young fish reuse the adult fish model at about half scale with their own texture. Elves are a slim, androgynous version of the human body with long hair; Dwarves a shorter, stockier version with beards; Elf mages are their own mage type. Goblin villages need standard goblins, goblin archers, goblin wolf riders (goblins on wolves) and a goblin mage.
 
-#### Refurbishing
-
-- Old equipment in stock can be refurbished at a forge-type building (Refurbish, or F). Refurbishing gives back **all** of the raw resources used to make the item.
-- Refurbishing takes time and uses the building like any other job, so it goes into the building's queue alongside crafting. It is fast: 10 times faster than making the item was.
-- The time spent making the item, and the food the forge used while making it, are not given back.
-
 ### Progression
 
-The game moves through tiers of material, following the order the resource list already has. Each tier needs the one before it, a research step at a research facility, and usually a building or an upgrade. Tool tiers also decide what workers can gather, so moving up a tier opens up new resources rather than only being faster.
+The game moves through tiers of material. The tier numbers are the troop and tool tiers (Jade, 2026-10-03): each tier needs a forge level or a research, and tool tiers also decide what workers can gather, so moving up a tier opens up new resources rather than only being faster.
 
 | **Tier** | **Unlocked by** | **What it opens up** |
 |---|---|---|
-| 1. Hardwood | Start of game | Chopping trees, gathering herbs, loose stone and flint, fishing from shore. (Hunting is done by warriors and depends on their weapons, not on worker tools.) |
-| 2. Stone and flint | Collecting stone and flint; no research | Stone is the blunt tier: the stone maul breaks rock and mines copper and tin ore, the stone hammer builds. Flint is the edge tier: faster chopping, knives, flint spearheads and arrowheads, and bows (which also help warriors hunt). |
-| 3. Copper | Forge (level 1, Casting Hearth) | Smelting copper and tin (the ore is mined with a stone maul or better); copper, tin and bronze tools and weapons, with the first pickaxes; coal at the surface. |
-| 4. Bronze | Copper and tin ingots; research | Stronger tools and weapons, the first tier of mineshaft, mining bog iron and iron rock. |
-| 5. Early iron | Forge level 2 (Bloomery) | Bloom iron tools and weapons. Mining vein iron ore. |
-| 6. Iron | Forge level 3 (Ironworks) | Wrought iron from any ore, pig iron from vein ore, crossbows, mail armour, iron cannonballs. |
-| 7. Steel | Forge level 4 (Steelworks); vein iron ore; research | Refined iron, steel and, slowly, high-quality steel. The best tools, weapons and armour. |
-| 8. Gunpowder | Saltpetre, sulphur and charcoal; powder mill | Flintlock muskets and cannons (the end of the tech tree). |
+| 0. Fists | Always | The fist fighter, only when nothing else is affordable (Jade). |
+| 1. Wood and leather | Start of game | Hardwood tools, cudgels and spears, slings, leather jerkins and wooden shields. Chopping trees, gathering herbs, loose stone and flint, fishing from shore. |
+| 2. Flint, stone and hardened leather | No research; hardened leather from the Tannery | Stone is the blunt tool (the stone maul breaks rock and mines copper and tin ore, the stone hammer builds) and flint the edge (axes, knives, spearheads, arrowheads). Longbows, boiled-leather cuirasses. |
+| 3. Copper | Forge level 1 (Casting Hearth) | Smelting copper and tin; copper tools with the first pickaxes, copper weapons and scale; recurve bows; coal at the surface. |
+| 4. Bronze | Copper and tin ingots; Bronze research | Bronze tools, weapons and scale; the first tier of mineshaft; mining bog iron and iron rock. |
+| 5. Wrought iron | Forge level 2 (Bloomery) | Wrought iron from any ore; mail; mining vein iron ore. |
+| 6. Iron | Forge level 3 (Ironworks); vein iron ore | Pig iron and iron; coats of plates, iron-rimmed heater shields, iron cannonballs. |
+| 7. Steel | Forge level 4 (Steelworks); Steel research; Crossbows research for the crossbow | Steel tools, weapons and plate; the steel-prod crossbow. |
+| 8. Carbon steel and gunpowder | Carbon steel research; saltpetre, sulphur and charcoal at a powder mill; Gunpowder and Muskets research | The best tools, weapons and armour, the flintlock musket and the brawler; cannons (the end of the tech tree). |
 
-**Stone and flint tools need no research** (Jade) and do not overlap, as in real life: stone makes blunt tools for breaking rock and building, flint makes edges for chopping, cutting and points. From copper upward every tier has an axe, a **pickaxe** and a hammer; a pickaxe needs metal, which is why the stone rock-breaking tool is a maul instead.
+**Stone and flint need no research** (Jade) and do not overlap, as in real life: stone makes blunt tools for breaking rock and building, flint makes edges for chopping, cutting and points. From copper upward every tool kit has an axe, a **pickaxe** and a hammer; a pickaxe needs metal, which is why the stone rock-breaking tool is a maul instead.
 
 Because sulphur, vein iron and other late resources are mostly found far from spawn, the later tiers push players to expand, in line with the Premise.
 
@@ -2328,20 +2367,18 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 |---|---|---|---|---|
 | Bronze | Forge level 1, 1 tin ingot made | 10 copper ingots, 2 tin ingots | 75 s (s) | bronze tier, mining bog iron and iron rock |
 | Deep Mining I | Bronze | fee in table 4 (20 bronze ingots, 50 stone) | 90 s (s) | mineshaft tier 1 |
-| Halberds | Forge level 2 | 10 bloom iron ingots | 60 s (s) | iron halberd (steel halberd once Steel is done) |
-| Crossbows | Forge level 3 | 10 wrought iron, 20 hardwood lumber | 90 s (s) | crossbow, bolts, bolt case |
+| Crossbows (one research, Jade) | Steel (s) | 10 wrought iron, 20 hardwood lumber | 90 s (s) | the tier 7 steel-prod crossbow for rangers |
 | Hexcraft (researched at the Magi Sanctum, not a lodge) | Magi Sanctum | 6 hexstone, 20 herbs (hexstone is the reagent: Jade) | 90 s (s) | the Warding and Counterspell spells (table 13) |
 | Deep Mining II | Forge level 3 | fee in table 4 (30 wrought iron, 100 stone, 3 silver (s)) | 120 s (s) | mineshaft tier 2 |
 | Siege engines | Great Workshop | 40 hardwood lumber, 10 rope, 10 bronze ingots | 120 s (s) | catapult; the ballista needs a Manufactory and Forge level 3 as well |
-| Steel | Forge level 4, 1 pig iron made | 10 pig iron, 20 charcoal | 150 s (s) | steel tier |
-| High-quality steel | Steel | 5 steel, 50 charcoal | 210 s (s) | high-quality steel items |
-| Steel crossbow | Steel | 10 steel | 90 s (s) | steel crossbow |
+| Steel | Forge level 4, 1 pig iron made | 10 pig iron, 20 charcoal | 150 s (s) | tier 7 (steel) |
+| Carbon steel (replaces high-quality steel) | Steel | 5 steel, 50 charcoal | 210 s (s) | carbon steel ingots and tier 8 |
 | Deep Mining III | Steel | fee in table 4 (30 steel, 200 stone, 3 gold, 3 silver (s)) | 180 s (s) | mineshaft tier 3 |
 | Gunpowder | Powder mill | 10 saltpetre, 5 sulphur (s), 10 charcoal | 150 s (s) | gunpowder |
-| Muskets | Gunpowder, Gunnery yard | 10 steel, 10 gunpowder | 180 s (s) | flintlock musket, lead shot, powder horn, shot pouch |
+| Muskets | Gunpowder, Gunnery yard | 10 steel, 10 gunpowder | 180 s (s) | the tier 8 flintlock musket ranger and the brawler (with Carbon steel) |
 | Cannons | Gunpowder, Foundry | 20 bronze ingots, 10 gunpowder, 20 hardwood lumber | 210 s (s) | bronze cannon, cannonballs; iron cannon once Forge level 3 exists |
 
-Copper, bloom, wrought and refined iron need no research: the forge level opens them, as Progression says. Research is paid up front and loads like a training order (doc).
+Copper, wrought iron and iron need no research: the forge level opens them, as Progression says. Halberds and Steel crossbow research are gone (Jade, 2026-10-03). Research is paid up front and loads like a training order (doc).
 
 **2b. Smelting and processing (needed by every recipe below; all (s) except the 9:1 bronze ratio)**
 
@@ -2349,86 +2386,86 @@ Copper, bloom, wrought and refined iron need no research: the forge level opens 
 |---|---|---|---|
 | Copper or tin ingot | Forge 1+ | 2 ore, 1 fuel (1 lumber, 1 charcoal or 1 coal) | 5 s (s) |
 | Bronze ingot | Forge 1+ | 9 copper ingots, 1 tin ingot gives 10 bronze | 30 s (s) |
-| Bloom iron | Forge 2+ | 3 bog iron or iron rock (or vein ore), 2 charcoal | 10 s (s) |
-| Wrought iron | Forge 3+ | 3 any iron ore, 2 charcoal or coal | 10 s (s) |
+| Wrought iron | Forge 2+ (Bloomery) | 3 any iron ore, 2 charcoal or coal | 10 s (s) |
 | Pig iron | Forge 3+ | 2 vein iron ore, 1 coal or charcoal, 1 stone | 8 s (s) |
-| Refined iron | Forge 4 | 2 pig iron, 1 fuel | 10 s (s) |
+| Iron (refined) | Forge 3+ (Ironworks) | 2 pig iron, 1 fuel | 10 s (s) |
 | Steel | Forge 4 | 1 refined iron, 2 coal or charcoal | 15 s (s) |
-| High-quality steel | Forge 4 | 2 refined iron, 6 charcoal | 60 s (batch of 1) (s) |
+| Carbon steel | Forge 4, Carbon steel research | 2 iron, 6 charcoal | 60 s (batch of 1) (s) |
 | Charcoal | Kiln | 2 hardwood lumber gives 3 charcoal | 10 s (s) |
 | Bricks | Kiln | 2 clay, 1 fuel gives 4 bricks | 10 s (s) |
 | Glass | Kiln | 2 sand, 1 fuel | 10 s (s) |
 | Planks | Lumber mill | 1 lumber gives 1 plank (any wood); waterwheel upgrade: 2 per 1 lumber (s) | 5 s |
 | Leather | Tannery | 1 hide | 15 s |
+| Hardened leather (Jade: the Tannery) | Tannery | 2 leather (s, Open for Jade's rebalance) | 20 s (s) |
 | Sinew / rope | Tannery or Big House | 1 leather, or 2 flax | 10 s |
 | Gunpowder (10 charges) | Powder mill | 2 saltpetre, 1 sulphur, 1 charcoal | 15 s (s) |
-| Lead shot (10 balls) | Forge 3+ | 1 lead ore, 1 fuel | 8 s (s) |
 | Cannonball | Foundry | 1 iron ingot (any grade) or 2 stone | 5 s (s) |
 | Catapult stone / ballista bolt (5) | Great Workshop / Manufactory | 1 stone / 2 hardwood lumber, 1 wrought iron | 10 s / 30 s |
 | Bandage / healing remedy | Herbalist hut | 1 herb, 1 flax (or leather) heals 30 over 15 s / 2 herbs, 1 glass bottle heals 60 over 5 s | 10 s / 20 s |
 
-Building costs below are paid in lumber and stone straight from the pool (workers hew on site, as the doc says for stone blocks); planks are only for items (s).
+Building costs below are paid in lumber and stone straight from the pool (workers hew on site, as the doc says for stone blocks); planks are only for kits, carts and engines (s). The forges only smelt; they make no items (Jade, 2026-10-03).
 
-**2c. Worker tools (one tool set per tier is one equipment item covering axe, pick, hoe, sickle and so on; the worker shows the right one for its job (s))**
+**2c. Worker tool kits (one kit per tier covers every tool a worker uses: axe, pick or maul, hammer, hoe, sickle, fishing gear and, from copper, the prospecting hammer (Jade: one kit, upgraded on Q); costs are the old tool items summed (s))**
 
-| **Tier** | **Gather speed** | **Worker damage** | **Weight** | **Recipe** | **Made at** | **Time** |
-|---|---|---|---|---|---|---|
-| Hardwood (axe, digging stick, mallet, hoe; the digging stick digs earth and quarries stone but mines no ore (s)) | x1.0 (s) | 4 | 3 lb (s) | 3 hardwood sticks (s) | Big House | 10 s (s) |
-| Stone maul (no research; the rock-breaking tool: quarries stone and digs earth, breaks rock when tunnelling, mines the soft copper and tin ore at x1.0, cannot mine iron or anything harder) | x1.15 quarrying and digging (s) | 4, slow (s) | 4 lb (s) | 2 sticks, 3 stone (s) | Big House | 10 s (s) |
-| Stone hammer (no research; building and repair) | x1.15 building and repair over the hardwood mallet (s) | 4 (s) | 3 lb (s) | 2 sticks, 2 stone (s) | Big House | 10 s (s) |
-| Flint (axe and knife; no research; the edge tier, with the flint spear and arrowheads in 2d and 2e; no pick and no mallet) | x1.25 chopping (s) | 5 (s) | 3 lb (s) | 2 sticks, 1 flint (s) | Big House | 10 s (s) |
-| Copper (axe, pickaxe, hammer, sickle, hoe) | x1.5 (s) | 6 (s) | 4 lb (s) | 1 copper ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
-| Bronze (axe, pickaxe, hammer, sickle, saw, hoe) | x1.75 (s) | 7 (s) | 4.5 lb (s) | 1 bronze ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
-| Bloom iron (axe, pickaxe, hammer, sickle, plough, saw, hoe) | x2.0 (s) | 8 (s) | 4 lb (s) | 1 bloom iron, 1 hardwood lumber (s) | Forge 2 | 25 s (s) |
-| Wrought iron | x2.25 (s) | 8 (s) | 4 lb (s) | 1 wrought iron, 1 hardwood lumber (s) | Forge 3 | 25 s (s) |
-| Refined iron | x2.5 (s) | 9 (s) | 4 lb (s) | 1 refined iron, 1 hardwood lumber (s) | Forge 4 | 25 s (s) |
-| Steel | x3.0 (s) | 10 (s) | 4 lb (s) | 1 steel, 1 hardwood lumber (s) | Forge 4 | 30 s (s) |
-| High-quality steel | x3.5 (s) | 11 (s) | 4 lb (s) | 1 HQ steel, 1 hardwood lumber (s) | Forge 4 | 40 s (s) |
-| Fishing rod / net | 1 fish per 15 s / per 10 s (s) | 1 (s) | 1 lb / 3 lb (s) | 2 softwood lumber, 1 flax or leather (s) | Big House | 10 s (s) |
-| Prospecting hammer | prospect in 20 s (s) | as tier | 2 lb (s) | 1 any metal ingot, 1 hardwood lumber (s) | Forge | 15 s (s) |
+| **Tier** | **Kit** | **Gather speed** | **Worker damage** | **Kit cost** | **Time to make** |
+|---|---|---|---|---|---|
+| 1 | Hardwood (axe, digging stick, mallet, hoe; the digging stick digs earth and quarries stone but mines no ore) | x1.0 | 4 | 3 hardwood sticks | 10 s |
+| 2 | Stone and flint (flint axe and knife for chopping, stone maul for quarrying, digging and breaking rock, stone hammer for building; mines copper and tin at x1.0, no iron) | chopping x1.25; quarrying, digging, building and repair x1.15 | 5 | 6 hardwood sticks, 1 flint, 5 stone | 30 s |
+| 3 | Copper (the first pickaxe) | x1.5 | 6 | 2 copper ingots, 2 hardwood lumber | 35 s |
+| 4 | Bronze (mines bog iron and iron rock) | x1.75 | 7 | 2 bronze ingots, 2 hardwood lumber | 35 s |
+| 5 | Wrought iron (mines vein iron) | x2.25 | 8 | 2 wrought iron, 2 hardwood lumber | 40 s |
+| 6 | Iron | x2.5 | 9 | 2 iron, 2 hardwood lumber | 40 s |
+| 7 | Steel | x3.0 | 10 | 2 steel, 2 hardwood lumber | 45 s |
+| 8 | Carbon steel | x3.5 | 11 | 2 carbon steel, 2 hardwood lumber | 55 s |
 
-Hardwood, stone and flint tools need no research; the three do not overlap: hardwood is the starting set, stone the blunt tier (maul for breaking rock, hammer for building), flint the edge tier (axes, knives, spearheads, arrowheads). Stone tools wear out faster than flint and slower than hardwood (s). From copper up every tier has an axe, a pickaxe and a hammer, and the pickaxe is the ore tool (iron ore still needs bronze or better, as in table 5). Equip Best picks by job: the axe for chopping, the maul or pickaxe for quarrying, digging and mining, the hammer or mallet for building and repair (s). What each tier may gather is the Progression table; dig speed has its own scale in table 10.
+All (s), carried across from the old tool items. Prospecting takes 20 s with a tier 3 kit or better; fishing gives 1 fish per 10 s. What each tier may gather is the Progression table; dig speed has its own scale in table 10.
 
-**2d. Melee weapons (arc hits: main target full damage, others within reach in a 90 degree arc take half (s))**
+**2d. Melee kits: close melee, long melee and cavalry (costs are the old weapon items carried across (s); arc hits: main target full damage, others within reach in a 90 degree arc take half (s))**
 
-| **Weapon** | **Tier** | **Damage** | **Attack time** | **Reach / min** | **Hit** | **Weight** | **Recipe** | **Made at** | **Time** |
-|---|---|---|---|---|---|---|---|---|---|
-| Hardwood club | 1 | 8 (s) | 1.3 s (s) | 1.2 m | arc, blunt | 2 lb (s) | 3 sticks (s) | Big House | 10 s (s) |
-| Hardwood spear | 1 | 9 (s) | 1.4 s (s) | 2.5 / 1.0 m | stab | 3 lb (s) | 4 sticks (s) | Big House | 10 s (s) |
-| Flint axe | 2 | 10 (s) | 1.3 s (s) | 1.2 m | arc | 3 lb (s) | 2 sticks, 1 flint (s) | Big House | 10 s (s) |
-| Flint-tipped spear | 2 | 12 | 1.4 s | 2.5 / 1.0 m (s) | stab | 3.5 lb (s) | 3 sticks, 1 flint (s) | Big House | 10 s (s) |
-| Copper axe | 3 | 12 (s) | 1.3 s (s) | 1.2 m | arc | 3.5 lb (s) | 1 copper ingot, 1 hardwood lumber (s) | Forge 1 | 20 s (s) |
-| Copper dagger | 3 | 9 (s) | 0.8 s (s) | 1.0 m (s) | stab | 1 lb (s) | 1 copper ingot (s) | Forge 1 | 15 s (s) |
-| Bronze sword (short) | 4 | 16 (s) | 1.2 s (s) | 1.2 m | arc | 3 lb (s) | 2 bronze, 1 hardwood lumber, 1 leather (s) | Forge 1 | 30 s (s) |
-| Bronze spear | 4 | 18 (s) | 1.4 s (s) | 2.5 / 1.0 m | stab | 4 lb (s) | 1 bronze, 1 hardwood lumber (s) | Forge 1 | 25 s (s) |
-| Iron sword (bloom / wrought / refined) | 5, 6, 7 | 18 / 21 / 24 (s) | 1.2 s (s) | 1.2 m | arc | 3 lb (s) | 2 iron of that grade, 1 hardwood lumber, 1 leather (s) | Forge 2 / 3 / 4 | 30 s (s) |
-| Iron mace (bloom / wrought / refined) | 5, 6, 7 | 17 / 20 / 23 (s) | 1.4 s (s) | 1.2 m | arc, blunt | 3.5 lb (s) | 2 iron, 1 hardwood lumber (s) | Forge 2 / 3 / 4 | 30 s (s) |
-| Iron halberd (bloom / wrought / refined) | 5, 6, 7 | 24 / 28 / 32 (s) | 1.6 s (s) | 2.5 / 0.8 m (s) | arc; hits low flyers | 7 lb (s) | 3 iron, 2 hardwood lumber (s) | Forge 2 / 3 / 4, Halberds | 40 s (s) |
-| Steel sword | 7 | 30 (s) | 1.2 s | 1.3 m (s) | arc | 3 lb (s) | 3 steel, 1 hardwood lumber, 1 leather (s) | Forge 4 | 45 s (s) |
-| Steel pike | 7 | 34 (s) | 1.6 s (s) | 3.5 / 1.5 m (s) | stab | 7 lb (s) | 2 steel, 3 hardwood lumber (s) | Forge 4 | 40 s (s) |
-| Steel halberd | 7 | 38 (s) | 1.6 s (s) | 2.5 / 0.8 m (s) | arc | 7 lb (s) | 3 steel, 2 hardwood lumber (s) | Forge 4, Halberds | 45 s (s) |
-| High-quality steel sword / pike / halberd | 7+ | 36 / 40 / 45 (s) | as steel | as steel | as steel | as steel | same recipe in HQ steel (s) | Forge 4, HQ steel | 60 s (s) |
+Close melee (a one-handed weapon; the shield comes with the armour, table 3):
 
-**How these were set:** the roster's "about 35" for a veteran's steel sword is the steel sword 30 x1.2 at Hero; everything else is spaced so each metal tier adds about 25% and each iron grade about 15%. Refurbishing any item returns its full recipe in a tenth of its make time (doc).
+| **Tier** | **Weapon** | **Damage** | **Swing time** | **Reach** | **Hit** | **Kit cost** | **Time to make** |
+|---|---|---|---|---|---|---|---|
+| 0 | fists (the fist fighter, only when nothing else is affordable: Jade) | 4 (s, Open for Jade's rebalance) | 1.2 s (s) | 1.0 m | blunt | nothing | 0 s |
+| 1 | hardwood cudgel | 8 | 1.3 s | 1.2 m | arc, blunt | 3 hardwood sticks | 10 s |
+| 2 | flint hand-axe | 10 | 1.3 s | 1.2 m | arc | 2 hardwood sticks, 1 flint | 10 s |
+| 3 | copper short sword | 12 | 1.3 s | 1.2 m | arc | 1 copper ingot, 1 hardwood lumber | 20 s |
+| 4 | bronze shortsword | 16 | 1.2 s | 1.2 m | arc | 2 bronze, 1 hardwood lumber, 1 leather | 30 s |
+| 5 | wrought iron sword | 21 | 1.2 s | 1.2 m | arc | 2 wrought iron, 1 hardwood lumber, 1 leather | 30 s |
+| 6 | iron broadsword | 24 | 1.2 s | 1.2 m | arc | 2 iron, 1 hardwood lumber, 1 leather | 30 s |
+| 7 | steel side-sword | 30 | 1.2 s | 1.3 m | arc | 3 steel, 1 hardwood lumber, 1 leather | 45 s |
+| 8 | basket-hilted broadsword | 36 | 1.2 s | 1.3 m | arc | 3 carbon steel, 1 hardwood lumber, 1 leather | 60 s |
 
-**2e. Ranged weapons and munitions (a shooter reloads only while standing still (s))**
+Long melee and cavalry (a two-handed weapon; no shield; a slower swing than close melee at every tier; no minimum range and no close-in penalty; a hit at the outer third of reach is a critical for +30% damage (Jade; the outer third is (s))):
 
-| **Weapon** | **Damage** | **Attack time** | **Range** | **Spread** | **Munition** | **Weight** | **Recipe** | **Made at** | **Time** |
-|---|---|---|---|---|---|---|---|---|---|
-| Sling | 8 blunt (s) | 2.0 s (s) | 20 m (s) | 8% of range (s) | 1 stone = 50 shots (s) | 0.5 lb (s) | 1 leather or 1 flax (s) | Big House | 10 s (s) |
-| Javelin, flint / bronze | 14 / 20 (s) | 2.5 s (s) | 15 m (s) | 5% (s) | the javelin; a bundle of 5 is one item, thrown ones are used up (s) | 2 lb each (s) | 5 sticks, 1 flint gives 5 / 5 sticks, 1 bronze gives 5 (s) | Big House / Forge 1 | 15 s (s) |
-| Bow | 10 + tip (s) | 2.0 s (s) | 25 m; 28 m with a spider-silk string (s) | 6% (s) | arrows, quiver 24 | 2 lb (s) | 2 softwood or hardwood lumber, 1 sinew, flax or silk (s) | Big House; a Workshop (tier 2) shapes the stave and halves the time (doc) | 20 s (s) |
-| Crossbow | 22 + tip (s) | 3.0 s (s) | 28 m (s) | 4% (s) | bolts, case 20 (s) | 8 lb (s) | 2 wrought iron, 2 planks, 1 flax or leather (s) | Forge 3 with a Great Workshop (doc), Crossbows | 45 s (s) |
-| Steel crossbow | 32 + tip (s) | 4.5 s (s) | 34 m (s) | 3% (s) | bolts | 15 lb (s) | 2 steel, 1 wrought iron, 2 planks, 1 flax (s) | Forge 4 with a Great Workshop (doc), Steel crossbow | 60 s (s) |
-| Flintlock musket, iron / steel barrel | 50 / 60 (s) | 8.0 s (s) | 40 m (s) | 5% / 4% (s) | 1 charge + 1 ball per shot (s) | 10 lb | 3 wrought iron or 1 steel, 2 planks, 1 flint (s) | Forge 3 / 4 with a Manufactory (doc), Muskets | 90 s (s) |
-| Arrows (batch of 10) | bow + tip |  |  |  |  | 2 oz each | 1 softwood lumber, 1 feather, plus tips: 1 flint per 10, or 1 ingot per 20 (s) | Big House (flint), Forge (metal) | 15 s (s) |
-| Bolts (batch of 10) | crossbow + tip |  |  |  |  | 2 oz each | 1 hardwood lumber, 1 feather, plus tips as arrows (s) | Forge 3+ | 15 s (s) |
-| Tip bonus | flint +0, bronze +3, bloom +4, wrought +5, refined +6, steel +8, HQ steel +10 (s) |  |  |  |  |  |  |  |  |
-| Poison arrows or bolts | +15 over 5 s |  |  |  |  |  | 1 venom coats 10 | Herbalist hut | 10 s (s) |
-| Fire arrows | +5 and sets wood burning 4 per s for 5 s (s) |  |  |  |  |  | 1 resin coats 10 (s) | Big House | 10 s (s) |
-| Quiver / bolt case / powder horn (20 charges) / shot pouch (20 balls) |  |  |  |  |  | 1 lb each empty (s) | 1 leather each (s) | Tannery | 10 s (s) |
+| **Tier** | **Weapon** | **Damage** | **Swing time** | **Reach** | **Hit** | **Kit cost** | **Time to make** |
+|---|---|---|---|---|---|---|---|
+| 1 | fire-hardened spear | 9 | 1.4 s | 2.5 m | stab | 4 hardwood sticks | 10 s |
+| 2 | flint-headed spear | 12 | 1.4 s | 2.5 m | stab | 3 hardwood sticks, 1 flint | 10 s |
+| 3 | copper leaf-blade spear | 15 (Open for Jade's rebalance: no old copper spear) | 1.4 s | 2.5 m | stab | 1 copper ingot, 1 hardwood lumber | 20 s |
+| 4 | bronze spear | 18 | 1.4 s | 2.5 m | stab | 1 bronze, 1 hardwood lumber | 25 s |
+| 5 | crude iron spear | 28 | 1.6 s | 2.5 m | stab | 3 wrought iron, 2 hardwood lumber | 40 s |
+| 6 | iron pike | 32 | 1.6 s | 3.5 m | stab | 3 iron, 2 hardwood lumber | 40 s |
+| 7 | steel halberd | 38 | 1.6 s | 2.5 m | arc; hits low flyers | 3 steel, 2 hardwood lumber | 45 s |
+| 8 | zweihänder | 45 | 1.6 s | 2.0 m | arc | 3 carbon steel, 2 hardwood lumber | 60 s |
 
-Damage to walls and buildings: arrows, bolts and sling stones 0; javelin 1; musket ball 2; fire arrow the burn only (s). Blunt hits follow the roster's skeleton rule (+50%).
+**How these were set:** the old weapon items of the same metal (copper axe, bronze sword and spear, the wrought, refined, steel and high-quality steel swords and halberds, the steel pike's reach); each metal tier adds about 25%. Cavalry use the long-melee row from the saddle with +0.5 m reach and double damage on a charge (table 14). Open for Jade's rebalance: every damage and time here is carried across untouched.
+
+**2e. Ranged kits: the ranger ladder and the brawler (ammunition is unlimited (Jade); a shooter reloads only while standing still (s))**
+
+| **Tier** | **Weapon** | **Damage** | **Attack time** | **Range** | **Spread** | **Kit cost (s)** | **Time to make** |
+|---|---|---|---|---|---|---|---|
+| 1 | leather sling | 8 blunt | 2.0 s | 20 m | 8% of range | 1 leather or 1 flax | 10 s |
+| 2 | yew longbow | 10 | 2.0 s | 25 m | 6% | 3 lumber, 1 sinew or flax, 1 flint, 1 feather | 35 s |
+| 3 | recurve bow, copper arrowheads | 12 (copper tip +2, Open for Jade's rebalance) | 2.0 s | 25 m | 6% | 3 lumber, 1 sinew or flax, 1 copper ingot, 1 feather | 35 s |
+| 4 | recurve bow, bronze arrowheads | 13 | 2.0 s | 25 m | 6% | 3 lumber, 1 sinew or flax, 1 bronze, 1 feather | 35 s |
+| 5 | recurve bow, wrought-iron arrowheads | 15 | 2.0 s | 25 m | 6% | 3 lumber, 1 sinew or flax, 1 wrought iron, 1 feather | 35 s |
+| 6 | recurve bow, iron arrowheads | 16 | 2.0 s | 25 m | 6% | 3 lumber, 1 sinew or flax, 1 iron, 1 feather | 35 s |
+| 7 | steel-prod crossbow (Crossbows research) | 40 | 4.5 s | 34 m | 3% | 3 steel, 1 wrought iron, 2 planks, 1 flax, 1 hardwood lumber, 1 feather | 75 s |
+| 8 | flintlock musket (Muskets, Carbon steel) | 60 | 8.0 s | 40 m | 4% | 1 carbon steel, 2 planks, 1 flint, 1 gunpowder | 90 s |
+| 8, brawler only | flintlock pistol and cutlass (the cutlass is the tier 8 close-melee row) | pistol 40 (s, Open for Jade's rebalance) | pistol 6.0 s (s) | 15 m (s) | 6% (s) | 4 carbon steel, 1 plank, 1 flint, 1 hardwood lumber, 1 leather, 1 gunpowder | 120 s (s) |
+
+Feathers are needed from the longbow up and gunpowder for the musket and the brawler (Jade). Each kit's cost is the old weapon plus one batch of its old ammunition (arrows, bolts, a powder charge), since the troop never needs ammunition again (s). The brawler fires the pistol at range and fights with the cutlass when close (s). Damage to walls and buildings: arrows, bolts and sling stones 0; musket ball and pistol ball 2 (s). Blunt hits follow the roster's skeleton rule (+50%).
 
 **2f. Mechanical units (do not eat, never heal, repaired by workers; wheels need ramps (doc))**
 
@@ -2467,6 +2504,8 @@ Not touched (outside the 19 tables): the exact carving size beyond the bite rule
 
 **Pacing check**
 
+Written before the troop rework of 2026-10-03, so it names the old items (flint spear, bloom iron, HQ steel); the metal tiers it tracks are unchanged, bloom iron is now wrought iron and HQ steel carbon steel.
+
 Worker-day income with hardwood tools and a 30 m walk: 20 softwood lumber (15 s a load plus 20 s walking, about 5 loads in 3 minutes less overheads), 25 loose stone, 12 fish by rod; with a stone maul 25 copper or tin ore (s). A tier 1 farmer makes 6 wheat (12 nutrition, feeds 6). A forge worker smelts 36 copper ingots a day (s) if ore is there. Worker-minutes per building (ws / 60): Lodge 4, Forge 1 5, Kiln 5, main base 2 to 10: 7, 7, 8, 10, 13, 17, 20, 25, 33; Bloomery 5, Ironworks 8, Steelworks 15, Powder mill 5, Foundry 10, Gunnery yard 10 (s), stone wall 1 per 3 columns.
 
 Time to each tier, steady play, counting days (nights) from the start:
@@ -2488,6 +2527,35 @@ Wave versus a reasonable defence (single-player budgets without depth weighting;
 - Night 110 (unchanged; gear is complete by about night 55, so only ranks, numbers and walls grow after that), budget 826 plus Morvath (25000 HP, 50%, Violet ruin 300 in 20 m with 3 s warning, 105 through plate): 30 Hero warriors (about 540 a second after his armour, at +20%), 15 muskets (56), 4 cannons (25), 6 battle mages (about 90) make about 710 a second: Morvath falls in about 35 s of concentrated fire and the rest of the wave (about 37000 HP) in about 52 more. About 87 s of pure damage in a 180 s night, so he is beaten with losses on a good night and wins on a bad one, which is what a boss should do.
 
 Supply and food at night 110: main base 10 (50) and 10 tier 3 farms (80) carry 130 units; 105 units eat 210 nutrition a day, which 7 tier 3 wheat farmers through the Grand Kitchen (12 wheat a day each, as bread 30 nutrition) provide.
+
+**Balance harness results (Milestone 10, 2026-10-03; no table value changed)**
+
+How to run: `pnpm --filter @blockyrts/tools balance` prints this pacing check and the night 110 supply, both worked out from the sim's own tables, then runs the wave versus defence on nights 0, 10, 20, 40, 60, 80 and 110 on seeds 1 to 3 against fixture towns with a scripted defence, one CSV row per run. Options: --pacing alone, --nights, --seeds, --blood, --csv.
+
+The harness's own assumptions (s):
+
+- The town starts with 4 workers and gains 0.5 a day, up to 40, and spends half its working day on the tech ladder.
+- Each load costs a 20 s walk, plus extra for far resources: hardwood, clay and coal 40 s; marble and saltpetre 60 s; sulphur 600 s.
+- Vein iron costs 12 worker-seconds a unit and a hide 40.
+- The night 110 supply town: 45 warriors, 6 mages, 52 workers, 2 Lodges, a level 10 main base and 10 tier 3 wheat fields.
+- Fixture towns follow the defences above. Harness fixture note only, not a defence rule: in the harness, mages stand on the main base's parapets from level 3.
+
+Results with today's tables:
+
+- Bronze lands on night 8, wrought iron on 22, steel on 34, and muskets and cannons on 46.
+- Supply carries 105 of 130, with 7 farmers needed.
+- Nights 0 to 80 hold; night 10 breaks the hardwood wall on 2 seeds of 3; night 110 falls on every seed.
+
+**Known imbalances, for Jade's rebalance (s) observations**
+
+From the Milestone 10 balance pass; details in the repo's docs/balance-pass.md. None of these deviates from a table value; they wait for Jade's rebalance.
+
+- 1. Night 110 falls on every seed: walls break 27 to 43 s in, Morvath ends at 60 to 70% health, and 27 to 33 of 45 warriors die.
+- 2. Bronze, wrought iron and steel land 2 to 4 nights after their targets in this pacing check.
+- 3. A battle mage on the ground cannot shoot over a wall (Arcane bolt flies flat); she walks out of the gate and dies. Also an open question for Jade.
+- 4. Skeleton archers stand off out of reach of a closed wall, and warriors on hold never answer them. Also an open question for Jade.
+- 5. Night 10 breaks a hardwood wall on 2 seeds of 3 (bloated corpses, small slimes, and archers on seed 3).
+- 6. On night 0, a bat or the giant spider sometimes kills a worker.
 
 ### Magic
 
@@ -2516,7 +2584,7 @@ Every mage has its own mana bar, which spells use up and which refills over time
 | Master Mage | 40% faster | about 1 min 26 s |
 | Grand Magician | 55% faster | about 1 min 17 s |
 
-- Mages are trained at the **Magi Sanctum**, and at main bases of level 6 or higher. On both, S trains a Support mage and M a Battle mage (suggested). The Sanctum's K crafting menu makes wands and rank wands, and the Sanctum researches Hexcraft.
+- Mages are trained at the **Magi Sanctum**, and at main bases of level 6 or higher. On both, S trains a Support mage and M a Battle mage (suggested). Mages upgrade their wand and robe beside the Sanctum, a Forge or a main base (see "Troops and gear"), and the Sanctum researches Hexcraft.
 - All mages are female, and they cast spells with wands (see "Unit models").
 - Mages with ranged spells can fight from towers and from the parapets of a level 3+ main base.
 - Mages wear leather armour at most (suggested).
@@ -2569,6 +2637,19 @@ Casting controls (s), added 2026-10-02 from what Milestone 6 built: keys are reb
 No ward item (Jade): mages do it as spells and hexstone is the research reagent. Hexcraft (the name is (s)): researched at the Magi Sanctum (not a lodge) for 6 hexstone and 20 herbs in 90 s (s), and opens Warding and Counterspell for every mage of rank 2 or higher (table 2a).
 
 Elf Grovesinger (s): health 100, mana 150, refill 1.5 per s within 20 m of a living tree, 0.75 elsewhere, 0.3 in the Barrens and Deadlands. Rootbind: 30 mana, 12 s, 20 m, non-projectile, holds enemies within 4 m still for 3 s. Thorn volley: 20 mana, 4 s, 20 m, projectile, 5 thorns of 8 at up to 5 targets. Barkskin: 30 mana, 20 s, 10 m, allies within 6 m +25% armour for 10 s. Mending bloom: 30 mana, 15 s, 12 m, allies standing within 4 m regain 5 per s for 8 s. Call of the wild: 40 mana, 60 s, wild animals within 30 m fight for the Elves for 15 s.
+
+**Wands and robes (Jade: mages have their own two ladders, mixed freely; names and numbers (s), Open for Jade's rebalance)**
+
+| **Tier** | **Wand** | **Spell power, mana bar** | **Wand cost** | **Robe** | **Protection, mana regain** | **Robe cost** | **Time to make (wand / robe)** | **Needs** |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hazel wand | x1.0, +0 | 5 hardwood sticks | homespun robe of flax | 0%, +0% | 3 flax | 10 / 10 s | nothing |
+| 2 | copper-tipped wand | x1.05, +10 | 5 hardwood sticks, 1 copper ingot | leather-trimmed robe | 5%, +5% | 3 flax, 1 leather | 20 / 20 s | Casting Hearth |
+| 3 | bronze-bound staff | x1.10, +20 | 2 hardwood lumber, 2 bronze | hardened-leather robe | 10%, +10% | 3 flax, 2 hardened leather | 30 / 30 s | Bronze |
+| 4 | iron-shod staff | x1.15, +30 | 2 hardwood lumber, 2 iron | warded robe, a mana crystal sewn in | 15%, +15% | 3 flax, 2 hardened leather, 1 mana crystal | 30 / 30 s | Ironworks |
+| 5 | crystal staff, steel-shod and set with mana crystals | x1.20, +40 | 2 hardwood lumber, 2 steel, 2 mana crystals | rune-stitched vestments, copper thread and crystals | 20%, +20% | 3 flax, 2 hardened leather, 2 copper, 2 mana crystals | 45 / 45 s | Steel |
+| 6 | archstaff, carbon steel with more crystals | x1.25, +50 | 2 hardwood lumber, 2 carbon steel, 5 mana crystals | archmage's mantle, steel thread and crystals | 25%, +25% | 3 flax, 2 hardened leather, 2 steel, 5 mana crystals | 60 / 60 s | Carbon steel |
+
+The wand multiplies with the rank's spell power (table 1). The tier 2 wand is the old novice wand; the mana crystals at tiers 5 and 6 echo the old rank wands.
 
 **How these were set:** an Arcane bolt every 1.5 s costs 6.7 mana per second, so a Novice (0.83 per s refill) empties a 100 bar in about 20 s of casting and then fires one bolt every 12 s; a Grand Magician (2.6 per s, 200 bar) keeps up a bolt every 4 s indefinitely. Battle mages are support for the line, not a replacement for it, until the top ranks.
 
@@ -2641,13 +2722,12 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Tool tier** | **Soil, m3 per worker-minute** | **Stone, marble and ore rock** | **Clay, sand, gravel** | **10 m3 trench, 4 workers** | **300 m3 moat, 4 workers** |
 |---|---|---|---|---|---|
 | Hardwood | 0.5 (s) | 0, cannot (Jade) | 0.4 (s) | 5 min (1.7 days) | 150 min (50 days of daylight) |
-| Stone maul | 0.58 (s) | 0.005, breaks rock slowly (s) | 0.46 (s) | 4.3 min (s) | 129 min (43 days) (s) |
-| Flint | no digging tool: the flint tier is axes and blades; dig with a digging stick or a stone maul (s) |  |  |  |  |
+| Tier 2 kit (stone maul) | 0.58 (s) | 0.005, breaks rock slowly (s) | 0.46 (s) | 4.3 min (s) | 129 min (43 days) (s) |
 | Copper | 0.6 (s) | 0.01 (s) | 0.5 (s) | 4.2 min | 125 min (42 days) |
 | Bronze | 0.7 (s) | 0.03 (s) | 0.55 (s) | 3.6 min | 107 min (36 days) |
-| Bloom / wrought / refined iron | 0.75 / 0.8 / 0.9 (s) | 0.05 / 0.065 / 0.09 (s) | 0.6 / 0.65 / 0.7 (s) | 3.3 / 3.1 / 2.8 min | 100 / 94 / 83 min (33 / 31 / 28 days) |
+| Wrought iron / iron | 0.8 / 0.9 (s) | 0.065 / 0.09 (s) | 0.65 / 0.7 (s) | 3.1 / 2.8 min | 94 / 83 min (31 / 28 days) |
 | Steel | 1.0 (Jade: 3 m3 a day) | 0.117 (Jade: 0.35 m3 a day) | 0.8 (s) | 2.5 min | 75 min (25 days) |
-| High-quality steel | 1.1 (s) | 0.13 (s) | 0.9 (s) | 2.3 min | 68 min (23 days) |
+| Carbon steel | 1.1 (s) | 0.13 (s) | 0.9 (s) | 2.3 min | 68 min (23 days) |
 
 Bite (s): the mean bite is one column 11 cm deep (0.022 m3), varying a quarter either way; a swing takes volume / rate, so about 1.3 s in soil and 11 s in stone with steel. A 2 m by 2 m tunnel 20 m long through a ridge (80 m3 of stone) is 285 worker-days with steel tools, so a pass is a mid-game town's project, not a trick.
 
@@ -2669,7 +2749,7 @@ Digging and earthworks are a resource economy: time, pieces of work, materials o
 - Water is one more layer in a column. It flows to lower neighbouring columns, fills low ground and settles. To keep this fast, water only moves near places where the land has changed, and it stops once it is level.
 - **Rivers** are barrier edges between cells (see "The world"), fed from a source uphill with a fixed inflow, so they keep flowing. A channel dug from a river fills and keeps flowing. **Ponds** hold a fixed amount: a channel dug from a small pond only drains it into a thin layer, so a small pond will never fill a long river.
 - **Fords** are a river's gaps, where it can be waded across.
-- **Wading and swimming:** units wade through water up to about waist height (about 1 m). Deeper water blocks walking units. Unarmoured units can swim; armoured units cannot. Some monsters can swim.
+- **Wading and swimming:** units wade through water up to about waist height (about 1 m). Deeper water blocks walking units. All player units can swim, whatever they wear, since gear has no weight (Jade, 2026-10-03). Some monsters can swim.
 - Rivers can be dug, redirected and drained. Draining or redirecting a river by digging a new channel is slow and easy to see, because it can reshape a defence for both sides.
 
 #### Monsters and terrain
@@ -2782,6 +2862,17 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - **Music:** separate tracks for day, dusk, night and dawn, plus a blood-night track.
 - **Unit voices:** short voice cues when units get orders, are hungry, are under attack, or run out of a resource.
 - **Sounds:** chopping, mining, digging, building, hits, blocks, deaths, explosions, a torch being lit and snuffed out, horns at dusk and dawn, the idle-worker alert, map pings and an error sound.
+
+**As built (suggested)** (Milestone 10, 2026-10-03):
+
+- Music follows the time of day: a day, dusk, night and dawn track, with the blood-night track in place of night on a blood night. Fight layers come in when hostile units are within 45 m of the camera's ground point, reaching the full fight at 12 of them.
+- The dusk horn sounds at dusk (a double horn instead when tonight is a blood night) and the dawn horn at dawn.
+- World sounds (work, hits, blocks, deaths, explosions, shots, spells and torches) play where they happen, and nothing more than 70 m from the camera's ground point is played. At most 24 hit and death sounds start per game update; the rest are capped.
+- Hits are told apart: blades, arrows and bolts landing, blocks on a shield, and blows on walls. Big blasts (bombers, cannons) sound different from small ones.
+- Unit voices play on select, on an order, on attack, under attack, hungry, out of a resource and on a refused order. Each unit kind and people has its own voice; beasts, the dead and engines have none. The same cue is not repeated within its gap, so a crowd never chants: 0.25 s for select and orders, 0.4 s for attack, 3 s for under attack, 20 s for hungry, 2 s for a resource running out, 1 s for a refused order.
+- Interface sounds: button clicks, building placement, pings, the idle-worker alert and the error sound. The same alert sound is not repeated within 1.5 s.
+- The music, effects and voice sliders apply at once. Sound starts after the player's first click, because browsers require it.
+- Sound only listens to what the game reports. It never changes the game or its state hash.
 
 ## Visuals
 

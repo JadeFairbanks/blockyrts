@@ -2,25 +2,30 @@ import { describe, expect, it } from 'vitest';
 import {
   addAnimal,
   addWarrior,
+  applyKit,
   Blocked,
   BuildingKind,
   createWorld,
   CHUNK_SHIFT,
-  CRAFT_PRODUCT,
   CYCLE_STEPS,
   deserializeState,
   hashState,
   hurtUnit,
-  Item,
   Made,
   MEAL_STEPS,
   placeBuilding,
   placementBlocked,
+  productProblem,
   productsOf,
+  PROSPECT_HAMMER_STEPS,
+  PROSPECT_STEPS,
+  PROSPECT_TOOL_TIER,
   PropKind,
   RATING_PER_MILLE,
   ratingAt,
+  RANGER_GEAR,
   RECIPE_PRODUCT,
+  recipeSpec,
   RECIPES,
   Res,
   Research,
@@ -31,6 +36,7 @@ import {
   SLAUGHTER_PRODUCT,
   Species,
   step,
+  Troop,
   UnitKind,
   WILD,
   WU_PER_COLUMN,
@@ -139,11 +145,83 @@ describe('research and the forge', () => {
     runUntil(s, () => pool[Res.BronzeIngot]! >= 10, 3000);
   });
 
-  it('crafts a fishing rod at the Big House', () => {
+  it('only smelts: every forge product is a recipe that makes ingots, each metal at its level', () => {
     const s = createWorld(1, { peaceful: true });
-    s.players[0]!.pool[Res.Flax] = 1;
-    run(s, 1, [{ kind: 'produce', player: 0, building: bigHouse(s).id, product: CRAFT_PRODUCT + Item.FishingRod, count: 1 }]);
-    runUntil(s, () => s.players[0]!.items[Item.FishingRod]! >= 1, 1000);
+    const forge = built(s, BuildingKind.Forge, 4);
+    const ingots = [Res.CopperIngot, Res.TinIngot, Res.BronzeIngot, Res.WroughtIron, Res.PigIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel];
+    const made = productsOf(forge).map((p) => {
+      // No troops, no weapons, no tools: recipes only (Troops and gear: no items).
+      expect(p).toBeGreaterThanOrEqual(RECIPE_PRODUCT);
+      const r = recipeSpec(p - RECIPE_PRODUCT);
+      expect(r.outputs.length).toBe(1);
+      expect(ingots).toContain(r.outputs[0]![0]);
+      return r.name;
+    });
+    expect(made).toEqual(['Copper ingot', 'Tin ingot', 'Bronze ingots (10)', 'Wrought iron', 'Pig iron', 'Iron ingot', 'Steel ingot', 'Carbon steel ingot']);
+    // The Casting Hearth smelts copper, the Bloomery wrought iron, the Ironworks pig iron, the Steelworks steel.
+    const pool = s.players[0]!.pool;
+    pool[Res.CopperOre] = 10;
+    pool[Res.BogIron] = 10;
+    pool[Res.VeinIron] = 10;
+    pool[Res.IronIngot] = 10;
+    pool[Res.Charcoal] = 20;
+    giveResearch(s, Research.Steel);
+    const need = (level: number, name: string): string => {
+      forge.level = level;
+      return productProblem(s, forge, recipe(name));
+    };
+    expect(need(1, 'Copper ingot')).toBe('');
+    expect(need(1, 'Wrought iron')).toBe('Needs a Bloomery.');
+    expect(need(2, 'Wrought iron')).toBe('');
+    expect(need(2, 'Pig iron')).toBe('Needs a Ironworks.');
+    expect(need(3, 'Pig iron')).toBe('');
+    expect(need(3, 'Steel ingot')).toBe('Needs a Steelworks.');
+    expect(need(4, 'Steel ingot')).toBe('');
+  });
+
+  it('smelts wrought iron from bog iron at a Bloomery with a worker inside', () => {
+    const s = createWorld(1, { peaceful: true });
+    const forge = built(s, BuildingKind.Forge, 2);
+    const pool = s.players[0]!.pool;
+    pool[Res.BogIron] = 6;
+    pool[Res.Charcoal] = 4;
+    run(s, 1, [{ kind: 'produce', player: 0, building: forge.id, product: recipe('Wrought iron'), count: 2 }]);
+    expect(forge.queue.length).toBe(2);
+    expect([pool[Res.BogIron], pool[Res.Charcoal]]).toEqual([0, 0]);
+    // No hands inside, no iron.
+    run(s, 300);
+    expect(pool[Res.WroughtIron]).toBe(0);
+    const [w] = workers(s);
+    run(s, 1, [{ kind: 'assign', player: 0, units: [w!], building: forge.id }]);
+    runUntil(s, () => pool[Res.WroughtIron]! >= 2, 3000);
+  });
+
+  it('makes rope at the Big House from 2 flax', () => {
+    const s = createWorld(1, { peaceful: true });
+    const pool = s.players[0]!.pool;
+    pool[Res.Flax] = 2;
+    run(s, 1, [{ kind: 'produce', player: 0, building: bigHouse(s).id, product: recipe('Rope'), count: 1 }]);
+    expect(pool[Res.Flax]).toBe(0);
+    runUntil(s, () => pool[Res.Rope]! >= 1, 1000);
+  });
+});
+
+describe('the tannery', () => {
+  it('tans hides into leather and hardens 2 leather into 1 hardened leather, with a worker inside', () => {
+    const s = createWorld(1, { peaceful: true });
+    const tannery = built(s, BuildingKind.Tannery);
+    const pool = s.players[0]!.pool;
+    pool[Res.Hides] = 4;
+    expect(productsOf(tannery)).toEqual([recipe('Leather'), recipe('Hardened leather'), recipe('Rope')]);
+    const [w] = workers(s);
+    run(s, 1, [{ kind: 'assign', player: 0, units: [w!], building: tannery.id }]);
+    run(s, 1, [{ kind: 'produce', player: 0, building: tannery.id, product: recipe('Leather'), count: 4 }]);
+    expect(pool[Res.Hides]).toBe(0);
+    runUntil(s, () => pool[Res.Leather]! >= 4, 4000);
+    run(s, 1, [{ kind: 'produce', player: 0, building: tannery.id, product: recipe('Hardened leather'), count: 2 }]);
+    expect(pool[Res.Leather]).toBe(0);
+    runUntil(s, () => pool[Res.HardenedLeather]! >= 2, 3000);
+    expect(pool[Res.Leather]).toBe(0);
   });
 });
 
@@ -208,15 +286,16 @@ describe('animals', () => {
     expect(s.players[0]!.pool[Res.Carrots]).toBe(0);
   });
 
-  it('warriors hunt a deer with N and bring the meat home', () => {
+  it('rangers hunt a deer with N and bring the meat home', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const base = bigHouse(s);
     const wx = base.x * WU_PER_COLUMN - 4 * WU_PER_METRE;
     const wz = base.z * WU_PER_COLUMN;
-    const a = addWarrior(s, 0, wx, wz);
-    e.ranged[a] = Item.JavelinsFlint;
-    e.ammo[a] = 5;
+    // A ranger with a leather sling: its weapon comes with the troop type, and its stones never run out (Troops and gear).
+    const a = addWarrior(s, 0, wx, wz, Troop.Ranger, 1);
+    expect(e.ranged[a]).toBe(RANGER_GEAR[1]);
+    // It shoots from as far as its 20 m reach, then walks over to butcher what it killed and carries the meat home.
     const deer = addAnimal(s, Species.Deer, WILD, wx + 12 * WU_PER_METRE, wz + 4 * WU_PER_METRE, 0, 0);
     const meat = s.players[0]!.pool[Res.Meat]!;
     // Kept back from meals so the haul shows in the pool.
@@ -279,21 +358,68 @@ describe('mining', () => {
     run(s, 1, [{ kind: 'assign', player: 0, units: [a!, b!, c!, d!], building: shaft.id }]);
     runUntil(s, () => shaft.stock.some(([r]) => r === Res.VeinIron), CYCLE_STEPS);
     expect(RATING_PER_MILLE[shaft.rating - 1]).toBe(RATING_PER_MILLE[ratingAt(s, shaft.x, shaft.z)]);
-    // A hauler with an ox cart and a tamed ox takes it to the Big House.
+    // A hauler leads a tamed ox, fetches the ox cart from the Big House's stock and takes the iron home.
     const base = bigHouse(s);
     const hx = base.x * WU_PER_COLUMN - 3 * WU_PER_METRE;
     const hz = base.z * WU_PER_COLUMN;
     const hauler = e.add(s.nextEntityId++, 0, hx, 0, hz, e.speed[e.indexOf(a!)]!, UnitKind.Worker);
     e.hp[hauler] = 60;
     e.maxHp[hauler] = 60;
-    e.kit[hauler] = Item.OxCart;
+    s.players[0]!.pool[Res.OxCart] = 1;
     const ox = addAnimal(s, Species.Ox, 0, hx + WU_PER_METRE, hz, 0, 1);
     run(s, 1, [{ kind: 'hitch', player: 0, units: [e.id[hauler]!], target: e.id[ox]! }]);
     runUntil(s, () => e.partner[hauler] === e.id[ox], 400);
+    run(s, 1, [{ kind: 'cart', player: 0, units: [e.id[hauler]!], back: 0 }]);
+    runUntil(s, () => e.kit[hauler] === Res.OxCart, 1000);
+    expect(s.players[0]!.pool[Res.OxCart]).toBe(0);
     const before = s.players[0]!.pool[Res.VeinIron]!;
     run(s, 1, [{ kind: 'haul', player: 0, units: [e.id[hauler]!], building: shaft.id }]);
     runUntil(s, () => s.players[0]!.pool[Res.VeinIron]! > before, 4000);
     expect(shaftStock(shaft)).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('carts and tools (Troops and gear: workers)', () => {
+  it('fetches a hand cart from the main base with the cart order, and hands it back in', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const pool = s.players[0]!.pool;
+    const [a, b] = workers(s);
+    const ia = e.indexOf(a!);
+    const ib = e.indexOf(b!);
+    // None in stock: nobody goes, and the player hears where carts are made.
+    const texts: string[] = [];
+    step(s, [{ kind: 'cart', player: 0, units: [a!], back: 0 }]);
+    texts.push(...s.events.map((ev) => ev.text));
+    expect(texts).toContain('No cart in stock. Hand carts are made at a Workshop, ox and horse carts at a Great Workshop.');
+    expect(e.queue[ia]!.length).toBe(0);
+    // One in stock and two workers asking: the first takes it.
+    pool[Res.HandCart] = 1;
+    run(s, 1, [{ kind: 'cart', player: 0, units: [a!, b!], back: 0 }]);
+    expect(e.queue[ia]![0]?.t).toBe('cart');
+    expect(e.queue[ib]!.length).toBe(0);
+    runUntil(s, () => e.kit[ia] === Res.HandCart, 1000);
+    expect(pool[Res.HandCart]).toBe(0);
+    // Back into the stock.
+    run(s, 1, [{ kind: 'cart', player: 0, units: [a!], back: 1 }]);
+    runUntil(s, () => e.kit[ia] === 0, 1000);
+    expect(pool[Res.HandCart]).toBe(1);
+  });
+
+  it('prospects in 20 s with a copper tool kit or better, 40 s without', () => {
+    const took = (tier: number): number => {
+      const s = createWorld(1, { peaceful: true });
+      const e = s.entities;
+      const [a] = workers(s);
+      const i = e.indexOf(a!);
+      e.wTier[i] = tier;
+      applyKit(e, i, 'worker');
+      const shaft = freeSpot(s, BuildingKind.Stables);
+      run(s, 1, [{ kind: 'prospect', player: 0, units: [a!], x: shaft[0] - 3, z: shaft[1] - 3 }]);
+      return runUntil(s, () => s.events.some((ev) => ev.kind === 'prospect'), 3000);
+    };
+    expect(PROSPECT_TOOL_TIER).toBe(3);
+    expect(took(PROSPECT_TOOL_TIER - 1) - took(PROSPECT_TOOL_TIER)).toBe(PROSPECT_STEPS - PROSPECT_HAMMER_STEPS);
   });
 });
 

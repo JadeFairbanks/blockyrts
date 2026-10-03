@@ -11,6 +11,7 @@ import {
   buildingCentre,
   buildingTop,
   createWorld,
+  CRIT,
   CYCLE_STEPS,
   DAY_STEPS,
   DebugThreat,
@@ -25,7 +26,10 @@ import {
   makeBundles,
   priceTenths,
   FactionKind,
+  gearSpec,
   hashState,
+  LONG_GEAR,
+  LONG_KITS,
   Mob,
   mobSpec,
   Mount,
@@ -34,16 +38,25 @@ import {
   PeopleUnit,
   pickNight,
   placeBuilding,
+  productProblem,
+  RANGER_GEAR,
   Res,
   Research,
+  RESEARCH,
   seat,
   serializeState,
+  Shot,
   Skill,
   Species,
+  speciesSpec,
   step,
   summonBoss,
+  Troop,
+  troopProduct,
+  troopTypesAt,
   UnitKind,
   unlocked,
+  validateOrder,
   WU_PER_METRE,
   type Building,
   type Order,
@@ -77,12 +90,10 @@ function warriors(s: SimState): number[] {
   return out;
 }
 
-/** A warrior of the player's at a point (the first one, moved there), with a club. */
-function warriorAt(s: SimState, x: number, z: number): number {
-  const e = s.entities;
-  const w = warriors(s)[0]!;
-  e.x[w] = x;
-  e.z[w] = z;
+/** A tier 1 cavalry troop (a fire-hardened spear) on a horse at a point: riders are cavalry now (Troops and gear). */
+function riderAt(s: SimState, x: number, z: number): number {
+  const w = addWarrior(s, 0, x, z, Troop.Cavalry, 1, 0);
+  seat(s, w, Mount.Horse);
   return w;
 }
 
@@ -111,9 +122,7 @@ describe('riding and charges (Table 14)', () => {
     toNight(s, 1);
     const [x, z] = field(s);
     const e = s.entities;
-    const w = warriorAt(s, x, z);
-    e.skills[w] = e.skills[w]! | Skill.Riding;
-    seat(s, w, Mount.Horse);
+    const w = riderAt(s, x, z);
     const zombie = spawn(s, Mob.Zombie, x + 25 * M, z);
     e.hp[zombie] = 1000;
     e.maxHp[zombie] = 1000;
@@ -137,7 +146,10 @@ describe('riding and charges (Table 14)', () => {
     const now = e.hp[t]!;
     runUntil(s, () => e.hp[e.indexOf(zid)]! < now, 10 * SEC);
     const second = now - e.hp[e.indexOf(zid)]!;
-    expect(first).toBe(2 * second);
+    // Both blows land at the spear's outer third of reach, a critical (+30%, Troops and gear): the charge doubles the blow before it.
+    const crit = (d: number): number => Math.floor((d * (100 + CRIT.bonusPct)) / 100);
+    expect(second).toBe(crit(LONG_KITS[1]!.damage));
+    expect(first).toBe(crit(2 * LONG_KITS[1]!.damage));
   });
 
   it('a blow on a rider lands on the horse while the horse has the more health', () => {
@@ -145,8 +157,7 @@ describe('riding and charges (Table 14)', () => {
     toNight(s, 1);
     const [x, z] = field(s);
     const e = s.entities;
-    const w = warriorAt(s, x, z);
-    seat(s, w, Mount.Horse);
+    const w = riderAt(s, x, z);
     expect(e.mountHp[w]).toBe(mountSpec(Mount.Horse).hp);
     const hp = e.hp[w]!;
     spawn(s, Mob.Zombie, x + 2 * M, z);
@@ -154,32 +165,64 @@ describe('riding and charges (Table 14)', () => {
     expect(e.hp[w]).toBe(hp);
   });
 
-  it('trains riding at a Stables with a tamed horse, then mounts the nearest free horse and gets down again', () => {
+  it('trains cavalry at the Stables on a tamed horse from its stalls: the horse is used up and the rider comes out mounted', () => {
     const s = createWorld(1, { peaceful: true });
     const [x, z] = field(s);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Stables, x, z }]);
     const stables = s.buildings.list.find((b) => b.kind === BuildingKind.Stables)!;
     expect(stables.complete).toBe(true);
+    expect(troopTypesAt(stables)).toEqual([Troop.Cavalry]);
     const e = s.entities;
-    const w = warriors(s)[0]!;
-    const id = e.id[w]!;
-    run(s, 1, [{ kind: 'mount', player: 0, units: [id], target: 0 }]);
-    expect(s.events.some((ev) => ev.text.includes('riding training'))).toBe(true);
-    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: stables.id, skill: Skill.Riding }]);
-    runUntil(s, () => (e.skills[e.indexOf(id)]! & Skill.Riding) !== 0, 120 * SEC);
+    const p = s.players[0]!;
     const horses = (): number => {
       let n = 0;
       for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Animal && e.mob[i] === Species.Horse && e.owner[i] === 0 && e.hp[i]! > 0) n++;
       return n;
     };
+    const cavalry = (): number[] => warriors(s).filter((i) => e.troop[i] === Troop.Cavalry);
     expect(horses()).toBe(2);
-    run(s, 1, [{ kind: 'mount', player: 0, units: [id], target: 0 }]);
-    runUntil(s, () => e.mount[e.indexOf(id)] === Mount.Horse, 60 * SEC);
-    run(s, 2);
+    // A fire-hardened spear (4 sticks) and no armour: the kit, the food and one of the horses.
+    const product = troopProduct(Troop.Cavalry, 1, 0);
+    p.pool[Res.Sticks] = 12;
+    expect(productProblem(s, stables, product)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
+    expect(stables.queue.length).toBe(1);
+    expect(p.pool[Res.Sticks]).toBe(8);
+    run(s, 1);
     expect(horses()).toBe(1);
-    run(s, 2, [{ kind: 'dismount', player: 0, units: [id] }]);
-    expect(e.mount[e.indexOf(id)]).toBe(Mount.None);
-    expect(horses()).toBe(2);
+    // The horse leaves quietly: no carcass alert.
+    expect(s.events.some((ev) => ev.text.includes('has been killed'))).toBe(false);
+    runUntil(s, () => cavalry().length > 0, 60 * SEC);
+    const [c] = cavalry();
+    expect(e.mount[c!]).toBe(Mount.Horse);
+    expect(e.mountHp[c!]).toBe(speciesSpec(Species.Horse).hp);
+    expect(e.weapon[c!]).toBe(LONG_GEAR[1]);
+    expect(e.shield[c!]).toBe(0);
+    expect(horses()).toBe(1);
+    // The second takes the last horse; a third is refused with the reason, and cancelling gives the horse back.
+    run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
+    run(s, 1);
+    expect(horses()).toBe(0);
+    expect(productProblem(s, stables, product)).toBe('Cavalry needs a tamed horse in the stalls.');
+    run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
+    expect(s.events.some((ev) => ev.kind === 'alert' && ev.text === 'Cavalry needs a tamed horse in the stalls.')).toBe(true);
+    expect(stables.queue.length).toBe(1);
+    run(s, 1, [{ kind: 'cancelProduce', player: 0, building: stables.id, index: 0 }]);
+    expect(stables.queue.length).toBe(0);
+    expect(horses()).toBe(1);
+    expect(p.pool[Res.Sticks]).toBe(8);
+    expect(productProblem(s, stables, product)).toBe('');
+  });
+
+  it('has no riding training and no mount or dismount order: a troop\'s type is fixed', () => {
+    expect(Object.keys(Skill)).toEqual(['Cannon']);
+    for (const kind of ['mount', 'dismount']) expect(() => validateOrder({ kind, player: 0, units: [1], target: 0 } as unknown as Order)).toThrow(/unknown order kind/);
+    // A close-melee troop cannot be trained at the Stables, nor cavalry at the Barracks.
+    const s = createWorld(1, { peaceful: true });
+    const base = bigHouse(s);
+    const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
+    expect(troopTypesAt(barracks)).not.toContain(Troop.Cavalry);
+    expect(productProblem(s, barracks, troopProduct(Troop.Cavalry, 1, 0))).toBe('This building cannot make that.');
   });
 });
 
@@ -226,7 +269,38 @@ describe('siege engines (Table 2f)', () => {
 });
 
 describe('tier 8: the Gunnery yard and the Citadel ports', () => {
-  it('trains a musketeer once Muskets is researched', () => {
+  it('trains a musketeer, a tier 8 ranger, at the Barracks once Gunpowder and Muskets are researched and there is a Steelworks', () => {
+    const s = createWorld(1, { peaceful: true });
+    const base = bigHouse(s);
+    const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
+    const p = s.players[0]!;
+    p.pool[Res.Meat] = 200;
+    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder.
+    for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1]] as const) p.pool[r] = n;
+    const product = troopProduct(Troop.Ranger, 8, 0);
+    expect(productProblem(s, barracks, product)).toBe('Needs a Steelworks.');
+    const forge = placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 18, base.z, true);
+    forge.level = 4;
+    expect(productProblem(s, barracks, product)).toBe(`Needs ${RESEARCH[Research.CarbonSteel]!.name} researched first.`);
+    p.research |= 1 << Research.Steel;
+    p.research |= 1 << Research.CarbonSteel;
+    expect(productProblem(s, barracks, product)).toBe(`Needs ${RESEARCH[Research.Gunpowder]!.name} researched first.`);
+    p.research |= 1 << Research.Gunpowder;
+    expect(productProblem(s, barracks, product)).toBe(`Needs ${RESEARCH[Research.Muskets]!.name} researched first.`);
+    p.research |= 1 << Research.Muskets;
+    expect(productProblem(s, barracks, product)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: barracks.id, product, count: 1 }]);
+    expect(p.pool[Res.Gunpowder]).toBe(0);
+    const e = s.entities;
+    const rangers = (): number[] => warriors(s).filter((i) => e.troop[i] === Troop.Ranger);
+    runUntil(s, () => rangers().length > 0, (45 + 90) * SEC + 5);
+    const [r] = rangers();
+    expect(e.wTier[r!]).toBe(8);
+    expect(e.ranged[r!]).toBe(RANGER_GEAR[8]);
+    expect(gearSpec(e.ranged[r!]!).ranged!.shot).toBe(Shot.MusketBall);
+  });
+
+  it('trains cannon crew at the Gunnery yard once Cannons is researched', () => {
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
     const yard = placeBuilding(s, 0, BuildingKind.GunneryYard, 0, base.x + 18, base.z, true);
@@ -234,12 +308,12 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     p.pool[Res.Meat] = 200;
     const e = s.entities;
     const id = e.id[warriors(s)[0]!]!;
-    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Musket }]);
+    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Cannon }]);
     run(s, 30 * SEC);
-    expect(e.skills[e.indexOf(id)]! & Skill.Musket).toBe(0);
-    p.research |= 1 << Research.Muskets;
-    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Musket }]);
-    runUntil(s, () => (e.skills[e.indexOf(id)]! & Skill.Musket) !== 0, 120 * SEC);
+    expect(e.skills[e.indexOf(id)]! & Skill.Cannon).toBe(0);
+    p.research |= 1 << Research.Cannons;
+    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Cannon }]);
+    runUntil(s, () => (e.skills[e.indexOf(id)]! & Skill.Cannon) !== 0, 120 * SEC);
   });
 
   it('hauls a bronze cannon into a Citadel port, where its crew fire it from the roof', () => {
@@ -406,9 +480,7 @@ describe('the late nights and Morvath', () => {
     toNight(s, 30);
     const [x, z] = field(s);
     const e = s.entities;
-    const w = warriorAt(s, x, z);
-    e.skills[w] = e.skills[w]! | Skill.Riding;
-    seat(s, w, Mount.Horse);
+    const w = riderAt(s, x, z);
     addEngine(s, 0, Engine.Catapult, x + 5 * M, z);
     addMob(s, Mob.BarrowKnight, 0, x + 30 * M, z, 30);
     summonBoss(s, 0, x + 60 * M, z, 110);

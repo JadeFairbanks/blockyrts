@@ -100,7 +100,7 @@ It then answers at https://play.surviveandconquer.cc/balance/.
 ## Tests
 
 `packages/balance/test` checks the tree against the real sim (every value's
-path reads back its value, every building, research step, item, recipe, mob,
+path reads back its value, every building, research step, kit tier, recipe, mob,
 animal and lair has an entry, units round-trip) and the export and import.
 `packages/tools/test/balance-apply.test.ts` applies single changes to a copy
 of the sim and checks the exact edits, then changes every editable value at

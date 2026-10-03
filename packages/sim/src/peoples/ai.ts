@@ -96,7 +96,7 @@ function raid(state: SimState, f: Faction, i: number): void {
   if (e.target[i] !== 0 || e.queue[i]![0]?.t === 'attack') return;
   const b = nearestBuilding(state, e.x[i]!, e.z[i]!, RAID_LOOK_WU, (o) => o.owner === player) ?? nearestBuilding(state, e.x[i]!, e.z[i]!, 0, (o) => o.owner === player);
   if (!b) return;
-  const w = meleeOf(state, i, false);
+  const w = meleeOf(state, i);
   if (gapToBuilding(state, i, b) <= w.reach + (M >> 1)) {
     e.queue[i] = [];
     if (state.step < e.atkNext[i]!) return;

@@ -21,8 +21,13 @@ import {
   animalsAt,
   assigned,
   BuildingKind,
-  CRAFT_PRODUCT,
+  bestLevel,
   productProblem,
+  RECIPE_PRODUCT,
+  stalledHorses,
+  troopDefault,
+  troopTypesAt,
+  upgradeProgress,
   productsOf,
   productSteps,
   RESEARCH_PRODUCT,
@@ -67,7 +72,7 @@ import {
   type UnitOrder,
   toolInHand,
   MANA_SCALE,
-  mageRank,
+  mageMaxMana,
   mageTrainingProblem,
   schoolSpells,
   spellProblem,
@@ -140,11 +145,11 @@ function postState(s: SimState): void {
     data[o + S.act] = e.act[i]!;
     data[o + S.mob] = e.mob[i]!;
     data[o + S.weapon] = e.weapon[i]!;
-    data[o + S.backup] = e.backup[i]!;
+    data[o + S.troop] = e.troop[i]!;
     data[o + S.ranged] = e.ranged[i]!;
     data[o + S.shield] = e.shield[i]!;
-    data[o + S.boots] = e.boots[i]!;
-    data[o + S.torch] = e.torchUntil[i]! > s.step ? 1 : 0;
+    data[o + S.wTier] = e.wTier[i]!;
+    data[o + S.aTier] = e.aTier[i]!;
     data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
     let flags = 0;
     if (e.climbUntil[i]! > s.step) flags |= UnitFlag.Climbing;
@@ -165,11 +170,15 @@ function postState(s: SimState): void {
     data[o + S.ammo] = e.ammo[i]!;
     data[o + S.target] = e.target[i]!;
     data[o + S.armour] = e.armour[i]!;
-    data[o + S.helmet] = e.helmet[i]!;
-    data[o + S.boltCase] = e.boltCase[i]!;
+    const head = e.queue[i]![0];
+    if (head?.t === 'kitUp') {
+      const [done, total] = upgradeProgress(s, i);
+      data[o + S.upDone] = total > 0 ? Math.min(1000, Math.floor((done * 1000) / total)) : 0;
+      data[o + S.upLine] = head.line + 1;
+      data[o + S.upTo] = head.to;
+    }
     data[o + S.kit] = e.kit[i]!;
     data[o + S.partner] = e.partner[i]!;
-    data[o + S.ammoItem] = e.ammoItem[i]!;
     data[o + S.hop] = Math.max(0, e.hopUntil[i]! - s.step);
     data[o + S.hopRise] = e.hopRise[i]!;
     data[o + S.toolBreak] = e.toolBreak[i]!;
@@ -179,7 +188,7 @@ function postState(s: SimState): void {
     if (e.kind[i] === UnitKind.Mage) {
       data[o + S.school] = e.school[i]!;
       data[o + S.mana] = Math.floor(e.mana[i]! / MANA_SCALE);
-      data[o + S.maxMana] = mageRank(e.rank[i]!).mana;
+      data[o + S.maxMana] = Math.floor(mageMaxMana(e.rank[i]!, e.wTier[i]!) / MANA_SCALE);
       data[o + S.cast] = e.castSpell[i]!;
       data[o + S.beam] = e.beamUntil[i]! > s.step ? e.beamTarget[i]! : 0;
       // A wand tap shows as a swing; a cast or a beam as the cast.
@@ -239,7 +248,7 @@ function postInfo(s: SimState): void {
       built: Math.min(1000, Math.floor((b.progress * 1000) / total)),
       upgrading: b.upgrading,
       upgraded: b.upgrading ? Math.min(1000, Math.floor((b.upProgress * 1000) / workSteps(b.kind, b.upgrading))) : 0,
-      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < CRAFT_PRODUCT ? 4 : 1)))) : 0 })),
+      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < RECIPE_PRODUCT ? 4 : 1)))) : 0 })),
       rally: b.rally.map((r) => ({ ...r })),
       lit: isLit(b, s.step),
       fuelLeft: light && b.complete ? Math.max(0, b.fuelUntil - s.step) : 0,
@@ -254,6 +263,14 @@ function postInfo(s: SimState): void {
       stock: b.stock.map(([r, n]): [number, number] => [r, n]),
       rating: b.rating,
       herd: b.kind === BuildingKind.LivestockFarm || b.kind === BuildingKind.Stables ? animalsAt(s, b.id).length : 0,
+      troops:
+        usableBy(s, b, PLAYER) && b.complete
+          ? troopTypesAt(b).map((troop) => {
+              const { w, a } = troopDefault(s, b, troop, PLAYER);
+              return { troop, w, a, lock: b.locks[troop] ?? 0 };
+            })
+          : [],
+      horses: b.kind === BuildingKind.Stables && b.complete ? stalledHorses(s, b).length : 0,
     };
   });
   const e = s.entities;
@@ -270,7 +287,6 @@ function postInfo(s: SimState): void {
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
   const me = s.players[PLAYER]!;
   const pool = me.pool.slice();
-  const items = me.items.slice();
   send(
     {
       type: 'info',
@@ -284,9 +300,8 @@ function postInfo(s: SimState): void {
       claims: claimShapes(s, PLAYER),
       outlying: outlyingLights(s, PLAYER, night),
       buildWhy: BUILDINGS.map((spec) => buildRequirement(s, PLAYER, spec.kind)),
-      items,
       research: me.research,
-      autoEquip: me.autoEquip !== 0,
+      forge: bestLevel(s, PLAYER, BuildingKind.Forge),
       sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
       over: s.over,
       nights: nightsSurvived(s.over || s.step, s.blood),
@@ -304,7 +319,7 @@ function postInfo(s: SimState): void {
       peoples: peoplesInfo(s, PLAYER),
       players: s.players.map((ps) => ({ share: ps.share, out: ps.out !== 0 })),
     },
-    [pool.buffer, items.buffer],
+    [pool.buffer],
   );
   events = [];
 }

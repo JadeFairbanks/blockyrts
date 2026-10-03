@@ -38,7 +38,7 @@ function mainBase(s: SimState, player: number): number {
 }
 
 describe('Milestone 9: shared control', () => {
-  it('lets an ally move, stop and gather with shared units, but not build with them or equip them', () => {
+  it('lets an ally move, stop and gather with shared units, but not build with them or upgrade their kit', () => {
     const s = createWorld(3, { players: 2, peaceful: true });
     const [w] = unitsOf(s, 0);
     const [x0, z0] = at(s, w!);
@@ -53,10 +53,14 @@ describe('Milestone 9: shared control', () => {
     step(s, [move(1)]);
     for (let k = 0; k < 40; k++) step(s);
     expect(at(s, w!)[0]).toBeGreaterThan(x0);
-    // Equipping and building are not shared.
+    // Upgrading their kit (Troops and gear) and building are not shared.
     const queueBefore = s.entities.queue[s.entities.indexOf(w!)]!.length;
     step(s, [{ kind: 'build', player: 1, units: [w!], building: BuildingKind.TorchPost, variant: 0, x: 0, z: 0 }]);
     expect(s.entities.queue[s.entities.indexOf(w!)]!.length).toBeLessThanOrEqual(queueBefore);
+    const pool = [...s.players[1]!.pool];
+    step(s, [{ kind: 'upgradeKit', player: 1, units: [w!], line: 0, max: 1 }]);
+    expect(s.entities.queue[s.entities.indexOf(w!)]!.some((o) => o.t === 'kitUp')).toBe(false);
+    expect([...s.players[1]!.pool]).toEqual(pool);
     // Unticking stops it again.
     step(s, [{ kind: 'shareControl', player: 0, with: 1, on: 0 }]);
     expect(s.players[0]!.share).toBe(0);

@@ -14,7 +14,8 @@ import { WALKER } from '../nav/grid.ts';
 import { hash32 } from '../rng.ts';
 import { PEOPLES, standY, UnitKind, type SimState } from '../state.ts';
 import { addAnimal } from '../animals/animals.ts';
-import { Item, itemSpec, Skill } from '../combat/items.ts';
+import { Skill } from '../combat/items.ts';
+import { WAND_GEAR } from '../units/kits.ts';
 import { addMob, vanish } from '../combat/mob-ai.ts';
 import { MANA_SCALE, School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
@@ -140,22 +141,16 @@ export function addPerson(state: SimState, f: Faction, unit: number, x: number, 
   e.toolBuild[i] = 0;
   e.toolCut[i] = 0;
   e.weapon[i] = spec.weapon;
-  e.backup[i] = spec.backup;
   e.armour[i] = spec.armour;
-  e.helmet[i] = spec.helmet;
   e.shield[i] = spec.shield;
   e.ranged[i] = spec.ranged;
-  // The peoples are born to their weapons: every skill a unit of theirs may need.
-  e.skills[i] = Skill.Archery | Skill.Crossbow | Skill.Riding | Skill.Musket | Skill.Cannon;
+  // The peoples are born to their weapons: the cannon crew's skill too.
+  e.skills[i] = Skill.Cannon;
   if (spec.mount) seat(state, i, spec.mount);
-  if (spec.ranged) {
-    e.ammoItem[i] = spec.ammo;
-    e.ammo[i] = itemSpec(spec.ranged).ranged!.load;
-  }
   if (grove) {
     e.school[i] = School.Grove;
     e.mana[i] = GROVESINGER.mana * MANA_SCALE;
-    e.weapon[i] = Item.Wand;
+    e.weapon[i] = WAND_GEAR[1]!;
   }
   state.grid.insert(e, i);
   return i;
@@ -191,7 +186,6 @@ export function fieldOxen(state: SimState, f: Faction): void {
     e.weapon[i] = rider.weapon;
     e.shield[i] = rider.shield;
     e.armour[i] = rider.armour;
-    e.helmet[i] = rider.helmet;
     e.speed[i] = speedOf(rider.speed10);
     seat(state, i, rider.mount);
     f.oxen--;

@@ -11,15 +11,14 @@
 // for a day. Taking a bundle swaps the goods at once.
 
 import { floorDiv, length2d, WU_PER_COLUMN } from '../fixed.ts';
-import { ITEM_COUNT } from '../combat/items.ts';
 import { RESOURCE_COUNT } from '../economy/resources.ts';
 import { addAnimal } from '../animals/animals.ts';
 import { addEngine } from '../siege/engines.ts';
 import { UnitKind, type SimState } from '../state.ts';
-import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, ENGINE_GOODS, INSULT_STEPS, ITEM_GOODS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
+import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, ENGINE_GOODS, INSULT_STEPS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
 import { directions, factionMembers, nearestCity } from './factions.ts';
 import { sayForeign } from './speech.ts';
-import { catOf, inStock, isEngineGood, isItem, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
+import { catOf, inStock, isEngineGood, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
 import { factionById, warFaction, type Faction, type Offer } from './types.ts';
 
 /** Closed until the next dawn (cleared when the day begins). */
@@ -73,10 +72,6 @@ export function tradeProblem(state: SimState, f: Faction, player: number): strin
 export function playerHas(state: SimState, player: number, good: number): number {
   const p = state.players[player]!;
   if (isLive(good) || isEngineGood(good)) return 0;
-  if (isItem(good)) {
-    const it = good - ITEM_GOODS;
-    return it > 0 && it < ITEM_COUNT ? p.items[it]! : 0;
-  }
   return good >= 0 && good < RESOURCE_COUNT ? p.pool[good]! : 0;
 }
 
@@ -282,7 +277,7 @@ export function withdrawOffer(state: SimState, player: number, faction: number):
   dropOffer(state, faction, player);
 }
 
-/** Puts a good in a player's stock: a resource, an item, or a live animal led out beside their unit. */
+/** Puts a good in a player's stock: a resource, or a live animal or engine led out beside their unit. */
 function give(state: SimState, player: number, good: number, n: number, x: number, z: number): void {
   const p = state.players[player]!;
   if (isLive(good)) {
@@ -293,14 +288,12 @@ function give(state: SimState, player: number, good: number, n: number, x: numbe
     for (let k = 0; k < n; k++) addEngine(state, player, good - ENGINE_GOODS, x + (k + 1) * WU_PER_COLUMN * 5, z);
     return;
   }
-  if (isItem(good)) p.items[good - ITEM_GOODS] = p.items[good - ITEM_GOODS]! + n;
-  else p.pool[good] = p.pool[good]! + n;
+  p.pool[good] = p.pool[good]! + n;
 }
 
 function take(state: SimState, player: number, good: number, n: number): void {
   const p = state.players[player]!;
-  if (isItem(good)) p.items[good - ITEM_GOODS] = p.items[good - ITEM_GOODS]! - n;
-  else if (!isLive(good) && !isEngineGood(good)) p.pool[good] = p.pool[good]! - n;
+  if (!isLive(good) && !isEngineGood(good)) p.pool[good] = p.pool[good]! - n;
 }
 
 /** The player takes one of the three bundles: the goods change hands at once. */

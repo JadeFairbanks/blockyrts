@@ -1,7 +1,7 @@
 // Numbers and names the client and the server must agree on.
 
 /** Bumped whenever a message layout changes, so mismatched clients refuse to join. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Up to 8 players play together (Multiplayer and saving). */
 export const MAX_PLAYERS = 8;

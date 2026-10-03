@@ -25,7 +25,8 @@ import { OrderKind, PEOPLES, UnitKind, WILD, type Projectile, type SimState } fr
 import { factionById, warFaction } from '../peoples/types.ts';
 import { armourOf, bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
 import { chase, face, garrisonRoom, pickTarget, sightOf, stepToward, validTarget } from '../combat/fight.ts';
-import { hasResearch, Research, Shot, Slot } from '../combat/items.ts';
+import { hasResearch, Research, Shot } from '../combat/items.ts';
+import { Slot } from '../units/kits.ts';
 import { cancelSpell, castingSpell } from '../combat/mob-ai.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, lineOfSight, ProjectileFlag } from '../combat/projectiles.ts';
 import { smoulder } from '../threats/burns.ts';
@@ -538,7 +539,7 @@ function modeOf(o: UnitOrder | undefined): Mode {
 /** The wand tap: up close only (Table 1: 3 every 1.5 s). */
 function tap(state: SimState, i: number, t: number): boolean {
   const e = state.entities;
-  const w = meleeOf(state, i, false);
+  const w = meleeOf(state, i);
   if (!canReach(state, i, t, w)) return false;
   face(state, i, t);
   if (state.step >= e.atkNext[i]!) startSwing(state, i, e.id[t]!, w.attackSteps, Slot.Weapon);
@@ -580,7 +581,7 @@ function fightWithBolts(state: SimState, i: number, t: number, canMove: boolean,
       return true;
     }
     if (!canMove) return tap(state, i, t);
-    chase(state, i, t, Math.max(meleeOf(state, i, false).reach, Math.min(s.range - RANGE_MARGIN_WU, d - 2 * M)));
+    chase(state, i, t, Math.max(meleeOf(state, i).reach, Math.min(s.range - RANGE_MARGIN_WU, d - 2 * M)));
     return true;
   }
   if (tap(state, i, t)) return true;
@@ -588,7 +589,7 @@ function fightWithBolts(state: SimState, i: number, t: number, canMove: boolean,
   if (!canMove) return false;
   // Waiting in range for her mana; told to attack, she walks up and taps instead.
   if (!ordered && d <= s.range) return true;
-  chase(state, i, t, meleeOf(state, i, false).reach);
+  chase(state, i, t, meleeOf(state, i).reach);
   return true;
 }
 
@@ -692,7 +693,7 @@ export function mageStep(state: SimState, i: number): boolean {
     e.target[i] = o.id;
     if (e.school[i] === School.Battle) return fightWithBolts(state, i, t, true, true);
     if (tap(state, i, t)) return true;
-    chase(state, i, t, meleeOf(state, i, false).reach);
+    chase(state, i, t, meleeOf(state, i).reach);
     return true;
   }
   const mode = garrisoned ? Mode.Hold : modeOf(o);
@@ -715,7 +716,7 @@ export function mageStep(state: SimState, i: number): boolean {
     }
     if (garrisoned) return false;
     // Up close she taps with her wand; she never goes looking for a fight.
-    const t = pickTarget(state, i, meleeOf(state, i, false).reach + M);
+    const t = pickTarget(state, i, meleeOf(state, i).reach + M);
     if (t >= 0 && tap(state, i, t)) return true;
     return hold;
   }

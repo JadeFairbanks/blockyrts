@@ -58,7 +58,8 @@ export interface BuildingTree {
 }
 
 const MODULE = 'buildings/data.ts';
-const ITEMS = 'combat/items.ts';
+/** Where the research steps live. */
+const RESEARCH_MODULE = 'combat/items.ts';
 
 interface LevelRec { name: string; needsBase: number; research: number }
 interface BuildingRec { kind: number; name: string; menu: 'basic' | 'advanced'; live: boolean; levels: readonly LevelRec[] }
@@ -70,7 +71,7 @@ interface ResearchRec { id: number; name: string; steps: number; forge?: number;
  */
 export function buildTree(mods: SimModules, value: (key: string) => RawValue | undefined = () => undefined): BuildingTree {
   const buildings = (mods[MODULE]?.BUILDINGS ?? []) as readonly BuildingRec[];
-  const research = ((mods[ITEMS]?.RESEARCH ?? []) as readonly ResearchRec[]).filter((r) => r.id !== 0 && !r.retired && r.name);
+  const research = ((mods[RESEARCH_MODULE]?.RESEARCH ?? []) as readonly ResearchRec[]).filter((r) => r.id !== 0 && !r.retired && r.name);
   const kinds = (mods[MODULE]?.BuildingKind ?? {}) as Record<string, number>;
   const stepsPerSecond = (mods['fixed.ts']?.STEPS_PER_SECOND ?? mods['rules.ts']?.STEPS_PER_SECOND ?? 20) as number;
   const mainKind = kinds.MainBase ?? 0;
@@ -82,7 +83,7 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
     return typeof v === 'number' ? v : typeof fallback === 'number' ? fallback : 0;
   };
   const bIndex = new Map(buildings.map((b, i) => [b.kind, i]));
-  const rIndex = new Map(((mods[ITEMS]?.RESEARCH ?? []) as readonly ResearchRec[]).map((r, i) => [r.id, i]));
+  const rIndex = new Map(((mods[RESEARCH_MODULE]?.RESEARCH ?? []) as readonly ResearchRec[]).map((r, i) => [r.id, i]));
   const main = buildings[bIndex.get(mainKind) ?? 0];
   const baseCount = Math.max(1, main?.levels.length ?? 1);
 
@@ -135,29 +136,29 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
     if (busy.has(id)) return 1;
     busy.add(id);
     const ri = rIndex.get(rid);
-    const all = (mods[ITEMS]?.RESEARCH ?? []) as readonly ResearchRec[];
+    const all = (mods[RESEARCH_MODULE]?.RESEARCH ?? []) as readonly ResearchRec[];
     const r = ri === undefined ? undefined : all[ri];
     let col = 1;
     const needs: string[] = [];
     if (r) {
       const path = ['RESEARCH', ri!];
-      const forge = num(ITEMS, [...path, 'forge'], r.forge);
+      const forge = num(RESEARCH_MODULE, [...path, 'forge'], r.forge);
       if (forge > 0 && forgeKind !== undefined) {
         col = Math.max(col, tierColumn(forgeKind, forge));
         needs.push(`b:${forgeKind}:${forge}`);
       }
-      const after = num(ITEMS, [...path, 'after'], r.after);
+      const after = num(RESEARCH_MODULE, [...path, 'after'], r.after);
       if (after > 0 && rIndex.has(after)) {
         col = Math.max(col, researchColumn(after));
         needs.push(`r:${after}`);
       }
       if (r.building) {
-        const bk = num(ITEMS, [...path, 'building', 0], r.building[0]);
-        const bl = num(ITEMS, [...path, 'building', 1], r.building[1]);
+        const bk = num(RESEARCH_MODULE, [...path, 'building', 0], r.building[0]);
+        const bl = num(RESEARCH_MODULE, [...path, 'building', 1], r.building[1]);
         col = Math.max(col, tierColumn(bk, Math.max(1, bl)));
         needs.push(`b:${bk}:${Math.max(1, bl)}`);
       }
-      const at = num(ITEMS, [...path, 'at'], r.at ?? lodgeKind);
+      const at = num(RESEARCH_MODULE, [...path, 'at'], r.at ?? lodgeKind);
       if (at !== undefined && bIndex.has(at)) {
         col = Math.max(col, tierColumn(at, 1));
         needs.push(`b:${at}:1`);
@@ -187,25 +188,25 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
       };
     }),
   }));
-  const all = (mods[ITEMS]?.RESEARCH ?? []) as readonly ResearchRec[];
+  const all = (mods[RESEARCH_MODULE]?.RESEARCH ?? []) as readonly ResearchRec[];
   const tree: TreeResearch[] = research.map((r) => {
     const ri = rIndex.get(r.id)!;
     const path = ['RESEARCH', ri];
     const column = researchColumn(r.id);
     const waits: string[] = [];
-    const forge = num(ITEMS, [...path, 'forge'], r.forge);
+    const forge = num(RESEARCH_MODULE, [...path, 'forge'], r.forge);
     if (forge > 0 && forgeKind !== undefined) waits.push(`${names.get(forgeKind) ?? 'Forge'} level ${forge}`);
-    const after = num(ITEMS, [...path, 'after'], r.after);
+    const after = num(RESEARCH_MODULE, [...path, 'after'], r.after);
     if (after > 0) waits.push(`after ${rNames.get(after) ?? all[rIndex.get(after) ?? -1]?.name ?? after}`);
     if (r.building) {
-      const bk = num(ITEMS, [...path, 'building', 0], r.building[0]);
-      const bl = num(ITEMS, [...path, 'building', 1], r.building[1]);
+      const bk = num(RESEARCH_MODULE, [...path, 'building', 0], r.building[0]);
+      const bl = num(RESEARCH_MODULE, [...path, 'building', 1], r.building[1]);
       const lvName = buildings[bIndex.get(bk) ?? -1]?.levels[bl - 1]?.name;
       waits.push(lvName ?? `${names.get(bk) ?? bk} level ${bl}`);
     }
-    const at = num(ITEMS, [...path, 'at'], r.at ?? lodgeKind);
+    const at = num(RESEARCH_MODULE, [...path, 'at'], r.at ?? lodgeKind);
     return {
-      id: `r:${r.id}`, research: r.id, name: r.name, column, seconds: Math.round(num(ITEMS, [...path, 'steps'], r.steps) / stepsPerSecond),
+      id: `r:${r.id}`, research: r.id, name: r.name, column, seconds: Math.round(num(RESEARCH_MODULE, [...path, 'steps'], r.steps) / stepsPerSecond),
       waits, needs: needsOf.get(`r:${r.id}`) ?? [], at, path,
     };
   }).sort((a, b) => a.column - b.column || a.research - b.research);

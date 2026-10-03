@@ -5,37 +5,32 @@
 
 import { floorDiv } from '../fixed.ts';
 import { RESOURCES, Res } from '../economy/resources.ts';
-import { itemSpec, Slot } from '../combat/items.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { engineSpec } from '../siege/data.ts';
 import {
-  BAND_STOCK_PCT, CARAVAN_WEAPONS, Cat, COOKED_HUNDREDTHS_PER_NUTRITION, FactionKind, ITEM_GOODS, ITEM_VALUE_TENTHS, ENGINE_GOODS, LEAN_PAY_PCT, LEAN_SELL_PCT, LEANS, LIVE_GOODS,
+  BAND_STOCK_PCT, CARAVAN_GOODS, Cat, COOKED_HUNDREDTHS_PER_NUTRITION, FactionKind, ENGINE_GOODS, LEAN_PAY_PCT, LEAN_SELL_PCT, LEANS, LIVE_GOODS,
   LIVE_VALUE_TENTHS, PAY_PCT, REFUSE, RES_VALUE_TENTHS, RESTOCK_PCT, STOCK, trinketMetal, trinketValueTenths, type StockRow,
 } from './data.ts';
 import type { Faction } from './types.ts';
 
-const INGOTS: readonly number[] = [Res.CopperIngot, Res.TinIngot, Res.BronzeIngot, Res.PigIron, Res.IronIngot, Res.SteelIngot, Res.BloomIron, Res.WroughtIron, Res.RefinedIron, Res.HighQualitySteel];
+const INGOTS: readonly number[] = [Res.CopperIngot, Res.TinIngot, Res.BronzeIngot, Res.PigIron, Res.IronIngot, Res.SteelIngot, Res.WroughtIron, Res.CarbonSteel];
 const LUMBER: readonly number[] = [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Planks];
 const GEMS: readonly number[] = [Res.Emeralds, Res.Rubies, Res.Diamonds];
 /** Trinket metals 5 and 6 are silver and gold. */
 const SILVER_METAL = 5;
 
-/** Whether a good is a live animal, an item, or a resource. */
+/** Whether a good is a live animal, an engine, or a resource. */
 export function isLive(good: number): boolean {
   return good >= LIVE_GOODS && good < ENGINE_GOODS;
 }
 export function isEngineGood(good: number): boolean {
   return good >= ENGINE_GOODS;
 }
-export function isItem(good: number): boolean {
-  return good >= ITEM_GOODS && good < LIVE_GOODS;
-}
 
 /** What a good is called in the trade menu. */
 export function goodName(good: number): string {
   if (isLive(good)) return `Live ${speciesName(good - LIVE_GOODS)}`;
   if (isEngineGood(good)) return engineSpec(good - ENGINE_GOODS).name;
-  if (isItem(good)) return itemSpec(good - ITEM_GOODS).name;
   return RESOURCES[good]?.name ?? `Good ${good}`;
 }
 
@@ -47,10 +42,8 @@ export function speciesName(species: number): string {
 export function catOf(good: number): Cat {
   if (isLive(good)) return Cat.Livestock;
   if (isEngineGood(good)) return Cat.Gear;
-  if (isItem(good)) {
-    const slot = itemSpec(good - ITEM_GOODS).slot;
-    return slot === Slot.Armour || slot === Slot.Helmet || slot === Slot.Shield || slot === Slot.Boots ? Cat.Armour : Cat.Gear;
-  }
+  if (good === Res.HandCart || good === Res.OxCart || good === Res.Gunpowder) return Cat.Gear;
+  if (good === Res.HardenedLeather) return Cat.Armour;
   if (INGOTS.includes(good)) return Cat.Ingots;
   if (LUMBER.includes(good)) return Cat.Lumber;
   if (good === Res.Gold || good === Res.Silver) return Cat.Precious;
@@ -72,35 +65,11 @@ export function resValueTenths(res: number): number {
   return 10;
 }
 
-/** Not state: made items' worth, worked out once. */
-const itemValues: number[] = [];
-
-/**
- * An item's worth, tenths: the table's where it names one, else what goes
- * into it at twice its value (Table 11: "made things are worth about twice
- * their inputs"), shared over what one batch makes, plus any items in it.
- */
-export function itemValueTenths(item: number): number {
-  const set = ITEM_VALUE_TENTHS[item];
-  if (set !== undefined) return set;
-  if (itemValues[item] !== undefined) return itemValues[item]!;
-  itemValues[item] = 0;
-  const spec = itemSpec(item);
-  const recipe = spec.recipes[0] ?? [];
-  let raw = 0;
-  for (const [res, n] of recipe) raw += resValueTenths(res) * n;
-  let v = floorDiv(raw * 2, Math.max(1, spec.makes));
-  for (const [it, n] of spec.itemInputs ?? []) v += floorDiv(itemValueTenths(it) * n, Math.max(1, spec.makes));
-  itemValues[item] = Math.max(1, v);
-  return itemValues[item]!;
-}
-
 /** A good's worth, tenths. */
 export function valueTenths(good: number): number {
   if (isLive(good)) return LIVE_VALUE_TENTHS[good - LIVE_GOODS] ?? 300;
   // An engine's worth as half the Dwarf city's price (3 x make cost is 1.5 x worth).
   if (isEngineGood(good)) return floorDiv((STOCK[FactionKind.DwarfCity]!.find((r) => r.good === good)?.price ?? 0) * 2, 3);
-  if (isItem(good)) return itemValueTenths(good - ITEM_GOODS);
   return resValueTenths(good);
 }
 
@@ -120,10 +89,10 @@ export function priceTenths(f: Faction, good: number): number {
   return Math.max(1, lean?.sells.includes(good) ? floorDiv(base * LEAN_SELL_PCT, 100) : base);
 }
 
-/** The rows a faction's stock comes from: its kind's, a caravan's one weapon, and its lean's goods. */
+/** The rows a faction's stock comes from: its kind's, a caravan's one weapon's materials, and its lean's goods. */
 export function stockRows(f: Faction): StockRow[] {
   const rows = [...(STOCK[f.kind] ?? [])];
-  if (f.kind === FactionKind.ElfCaravan && f.lean >= 0) rows.push(CARAVAN_WEAPONS[f.lean]!);
+  if (f.kind === FactionKind.ElfCaravan && f.lean >= 0) rows.push(CARAVAN_GOODS[f.lean]!);
   const lean = f.lean >= 0 && f.kind !== FactionKind.ElfCaravan ? LEANS[f.people as 0 | 1 | 2 | 3][f.lean] : undefined;
   for (const good of lean?.sells ?? []) if (!rows.some((r) => r.good === good)) rows.push({ good, count: 10, pct: 100 });
   return rows;
