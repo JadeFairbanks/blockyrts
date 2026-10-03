@@ -24,6 +24,7 @@ import { Res } from '../economy/resources.ts';
 import { inCombat } from '../magic/mages.ts';
 import { MANA_SCALE, School } from '../magic/spells.ts';
 import { giveOrder } from '../units/behaviour.ts';
+import { handIn } from '../units/loot.ts';
 import { nearestBuilding } from '../threats/foes.ts';
 import { Role } from '../threats/types.ts';
 import { Band } from '../world/layout.ts';
@@ -310,6 +311,8 @@ function mercenariesHome(state: SimState): void {
       told.add(player * 65536 + e.group[i]!);
       state.events.push({ player, kind: 'speech', text: MERC_LINES.home, speaker: e.id[i]!, name: `Mercenary ${peopleUnitSpec(e.mob[i]!).name.toLowerCase()}`, x: e.x[i]!, z: e.z[i]! });
     }
+    // Whatever loot it picked up is handed over to its hirer as it leaves (s).
+    handIn(state, i);
     e.owner[i] = PEOPLES;
     e.foe[i] = HOMEWARD;
     e.queue[i] = [];

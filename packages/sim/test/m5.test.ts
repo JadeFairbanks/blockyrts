@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bagItems,
   Ability,
   Band,
   bandRings,
@@ -177,7 +178,6 @@ describe('lairs', () => {
     // Nothing near it but the warrior: the guardian and sleepers are put out of the way so the warrior lives to break it.
     for (let i = 0; i < e.count; i++) if (e.role[i] === Role.Resident) e.hp[i] = 1;
     e.hp[l] = 40;
-    const silver = s.players[0]!.pool[Res.Silver]!;
     const xp = e.xp[w]!;
     const texts: string[] = [];
     step(s, [{ kind: 'attack', player: 0, units: [e.id[w]!], target: lairId }]);
@@ -192,7 +192,9 @@ describe('lairs', () => {
     expect(texts.some((t) => t.startsWith('The barrow is cleared'))).toBe(true);
     expect(s.threats.ruins.length).toBe(1);
     expect(s.threats.ruins[0]!.mob).toBe(Mob.LairBarrow);
-    expect(s.players[0]!.pool[Res.Silver]!).toBeGreaterThan(silver);
+    // The hoard is loot (Jade's play-test notes): in the warrior's bag, or on the ground for its side.
+    const silver = (bagItems(s, w).find(([r]) => r === Res.Silver)?.[1] ?? 0) + s.loot.filter((l) => l.res === Res.Silver && l.owner === 0).reduce((n, l) => n + l.amt, 0);
+    expect(silver).toBeGreaterThan(0);
     expect(e.xp[w]!).toBeGreaterThanOrEqual(xp + 200);
   });
 });

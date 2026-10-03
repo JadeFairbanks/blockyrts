@@ -3,6 +3,8 @@ import {
   addAnimal,
   addWarrior,
   applyKit,
+  bagEmpty,
+  bagItems,
   Blocked,
   DAY_STEPS,
   BuildingKind,
@@ -305,10 +307,10 @@ describe('animals', () => {
     runUntil(s, () => s.players[0]!.pool[Res.Venison]! > meat, 6000);
   });
 
-  it('a warrior that butchers a cow by a rock walks round it and hands the meat in at the Big House', () => {
+  it('a warrior that kills a cow by a rock takes the meat and walks round the rock to hand it in at the Big House', () => {
     // Seed 1: the cow runs north-east and falls with a raised column just north of where the warrior
-    // kneels at the edge of its column. The straight line home clipped that corner, so the warrior
-    // stood there with the meat until dusk and never handed it in (Jade, 2026-10-03).
+    // stands at the edge of its column. The straight line home clipped that corner, so the warrior
+    // once stood there with the meat until dusk and never handed it in (Jade, 2026-10-03).
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const base = bigHouse(s);
@@ -321,17 +323,19 @@ describe('animals', () => {
     run(s, 1, [{ kind: 'hunt', player: 0, units: [e.id[a]!], target: e.id[cow]!, auto: 0 }]);
     // Kept back from meals so the haul shows in the pool.
     run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Beef, on: 1 }]);
-    runUntil(s, () => e.carryAmt[a]! > 0, 3000);
-    const load = e.carryAmt[a]!;
-    // Home with the whole load well before dusk, and the hunt is over.
-    runUntil(s, () => e.carryAmt[a] === 0, 1500);
+    // No carcass to butcher: the meat goes straight into the bag of the warrior that killed it (Jade's play-test notes).
+    const inBag = (): number => bagItems(s, a).find(([r]) => r === Res.Beef)?.[1] ?? 0;
+    runUntil(s, () => inBag() > 0, 3000);
+    const load = inBag();
+    expect(s.loot.filter((l) => l.res === Res.Beef)).toEqual([]);
+    // With nothing else to do it hands the meat in, well before dusk, and walks back to where it stood.
+    runUntil(s, () => bagEmpty(s, a), 1500);
     expect(s.players[0]!.pool[Res.Beef]).toBe(meat + load);
     expect(s.step).toBeLessThan(DAY_STEPS);
-    run(s, 20);
-    expect(e.queue[a]).toEqual([]);
+    runUntil(s, () => e.queue[a]!.length === 0, 1500);
   });
 
-  it('a killed animal leaves a carcass that workers butcher for meat and hides', () => {
+  it('a killed animal leaves no carcass: its meat and hide lie on the ground until a unit picks them up', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const w = e.indexOf(workers(s)[0]!);
@@ -339,8 +343,17 @@ describe('animals', () => {
     const [bx, bz] = [col(e.x[boar]!), col(e.z[boar]!)];
     hurtUnit(s, boar, { damage: 10000, from: 0, projectile: false, blunt: false, pierce: false });
     settleDeaths(s);
-    const view = s.world.props(bx >> CHUNK_SHIFT, bz >> CHUNK_SHIFT, s.step).find((p) => p.kind === PropKind.Carcass);
-    expect(view?.amount).toBe(3);
+    expect(s.world.props(bx >> CHUNK_SHIFT, bz >> CHUNK_SHIFT, s.step).some((p) => p.kind === PropKind.Carcass)).toBe(false);
+    const meat = s.loot.find((l) => l.res === Res.BoarMeat)!;
+    expect(meat.amt).toBe(3);
+    expect(s.loot.some((l) => l.res === Res.Hides)).toBe(true);
+    // A right-click on it: the worker walks over and takes both, then hands them in.
+    const hides = s.players[0]!.pool[Res.Hides]!;
+    run(s, 1, [{ kind: 'pickUp', player: 0, units: [e.id[w]!], target: meat.id }]);
+    runUntil(s, () => s.loot.length === 0, 600);
+    expect(bagItems(s, w).find(([r]) => r === Res.BoarMeat)?.[1]).toBe(3);
+    runUntil(s, () => s.players[0]!.pool[Res.Hides]! > hides, 1500);
+    expect(bagEmpty(s, w)).toBe(true);
   });
 
   it('a livestock farm breeds its pair and slaughters for meat', () => {

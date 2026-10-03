@@ -257,4 +257,25 @@ describe('saves', () => {
     expect(p.starveWorkers).toBe(2200);
     expect(hashState(deserializeState(serializeState(s)))).toBe(hashState(s));
   });
+
+  it('loads a save from the hunting patch (version 14): its loot and bags stay, its food carries over', () => {
+    // Made on main after loot came in: seed 7, 3 meat and 5 eggs kept back, everyone starving since step 2200,
+    // the first warrior carrying 2 meat and a hide, 4 meat lying on the ground.
+    const bytes = new Uint8Array(gunzipSync(readFileSync(new URL('./fixtures/save-v14-loot-starving.bin.gz', import.meta.url))));
+    const s = deserializeState(bytes);
+    const p = s.players[0]!;
+    expect([p.kept[Res.Venison], p.kept[Res.Eggs], p.kept[Res.Trout]]).toEqual([1, 1, 0]);
+    expect(p.pool[Res.Venison]).toBe(3);
+    expect([p.starveWorkers, p.starveTroops, p.starveLodge]).toEqual([2200, 2200, 2200]);
+    const e = s.entities;
+    expect(e.bag[e.indexOf(5)]).toEqual([Res.Venison, 2, Res.Hides, 1]);
+    expect(s.loot.map((l) => [l.res, l.amt])).toEqual([[Res.Venison, 4]]);
+    for (let i = 0; i < e.count; i++) {
+      if (e.owner[i] !== 0) continue;
+      const eats = e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior;
+      expect(starvingSince(s, i)).toBe(eats ? 2200 : 0);
+    }
+    run(s, MEAL_STEPS);
+    expect(hashState(deserializeState(serializeState(s)))).toBe(hashState(s));
+  });
 });

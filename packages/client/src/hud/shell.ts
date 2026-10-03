@@ -616,6 +616,8 @@ export class GameShell {
       // Only a unit's first missed meal, an alert, goes on to the message panel.
       if (!ev.urgent) return;
     } else if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+    // Lines that only tell what a unit is doing are bubbles, not messages (Jade's play-test notes).
+    if (ev.quiet) return;
     if (ev.foreign) {
       const to = ev.player === this.player;
       const heard = ev.important === true && (((ev.near ?? 0) & (1 << this.player)) !== 0 || (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null));
@@ -1505,6 +1507,10 @@ export class GameShell {
       case 'gather': {
         const n = this.extras.node(o.cx, o.cz, o.i);
         return n ? this.groundPoint(n.centre.x, n.centre.z) : null;
+      }
+      case 'loot': {
+        const l = o.id ? this.game.info?.loot.find((p) => p.id === o.id) : undefined;
+        return l ? this.groundPoint(l.x / WU_PER_METRE, l.z / WU_PER_METRE) : null;
       }
       case 'build': {
         const s = buildingSpec(o.kind);

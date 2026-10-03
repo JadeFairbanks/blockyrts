@@ -7,12 +7,13 @@ import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
 import { FOODS, Res, RESOURCE_COUNT } from './economy/resources.ts';
 import { giveFood, hungerFromGroups } from './economy/food.ts';
-import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
+import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loot, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
 const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
+const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
@@ -160,14 +161,17 @@ function peoplesJson(ps: PeoplesState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 14;
 /**
- * The version before patch 1's food (its saves still load): no unit hunger
- * column, Don't eat as a bit per FOODS entry, and the town's meal credit in
- * quarters instead of each food's started item.
+ * 14: each unit's loot bag and the loot on the ground. 15: patch 1's food,
+ * each unit's hunger, Don't eat per kind and each food's started item.
+ * Versions 13 and 14 still load: 13 with no loot, both with their food
+ * carried over.
  */
-const FOOD_V13 = 13;
-const V13_PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const;
+export const SNAPSHOT_VERSION = 15;
+const OLDEST_VERSION = 13;
+/** The last version before patch 1's food: no unit hunger column, Don't eat as a bit per FOODS entry, and the town's meal credit in quarters instead of each food's started item. */
+const OLD_FOOD_VERSION = 14;
+const OLD_FOOD_PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -215,6 +219,9 @@ export function serializeState(state: SimState): Uint8Array {
     const c = e.cools[i]!;
     w.u16(c.length);
     for (const v of c) w.u32(v);
+    const g = e.bag[i]!;
+    w.u16(g.length);
+    for (const v of g) w.i32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
@@ -237,6 +244,8 @@ export function serializeState(state: SimState): Uint8Array {
   for (const p of state.spawns) for (const f of SPAWN_FIELDS) w.i32(p[f]);
   w.u32(state.sites.length);
   for (const p of state.sites) for (const f of SITE_FIELDS) w.i32(p[f]);
+  w.u32(state.loot.length);
+  for (const p of state.loot) for (const f of LOOT_FIELDS) w.i32(p[f]);
   for (const set of [state.stockedCells, state.stockedChunks]) {
     const keys = [...set].sort((a, b) => a - b);
     w.u32(keys.length);
@@ -259,8 +268,8 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const r = new ByteReader(bytes);
   if (r.u32() !== MAGIC) throw new Error('not a simulation snapshot');
   const version = r.u16();
-  if (version !== SNAPSHOT_VERSION && version !== FOOD_V13) throw new Error(`unsupported snapshot version ${version}`);
-  const v13 = version === FOOD_V13;
+  if (version < OLDEST_VERSION || version > SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version ${version}`);
+  const oldFood = version <= OLD_FOOD_VERSION;
   const seed = r.u32();
   const step = r.u32();
   const nextEntityId = r.u32();
@@ -272,7 +281,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const e = new EntityStore(Math.max(64, n));
   e.count = n;
   for (const [name, t] of UNIT_FIELDS) {
-    if (v13 && name === 'hungry') continue;
+    if (oldFood && name === 'hungry') continue;
     const col = e[name];
     for (let i = 0; i < n; i++) col[i] = readField(r, t);
   }
@@ -293,6 +302,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const c: number[] = [];
     for (let k = 0; k < nc; k++) c.push(r.u32());
     e.cools[i] = c;
+    const g: number[] = [];
+    const ng = version >= 14 ? r.u16() : 0;
+    for (let k = 0; k < ng; k++) g.push(r.i32());
+    e.bag[i] = g;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -304,9 +317,9 @@ export function deserializeState(bytes: Uint8Array): SimState {
       if (j < RESOURCE_COUNT) pool[j] = v;
     }
     const p = newPlayer(pool);
-    if (v13) {
+    if (oldFood) {
       const old: Record<string, number> = {};
-      for (const f of V13_PLAYER_FIELDS) old[f] = r.i32();
+      for (const f of OLD_FOOD_PLAYER_FIELDS) old[f] = r.i32();
       for (const f of PLAYER_FIELDS) if (f in old) p[f] = old[f]!;
       // Don't eat was a bit per FOODS entry (the first 32, whose order is unchanged); the research facilities starved with the troops.
       for (let k = 0; k < 32 && k < FOODS.length; k++) if ((old.dontEat! >>> k) & 1) p.kept[FOODS[k]!] = 1;
@@ -347,6 +360,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const projectiles = readRecords<Projectile>(PROJECTILE_FIELDS);
   const spawns = readRecords<PendingSpawn>(SPAWN_FIELDS);
   const sites = readRecords<Site>(SITE_FIELDS);
+  const loot = version >= 14 ? readRecords<Loot>(LOOT_FIELDS) : [];
   const readKeys = (): Set<number> => {
     const out = new Set<number>();
     const n = r.u32();
@@ -368,9 +382,9 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  const state = attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
+  const state = attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
   // Units starve one by one now: each starts from when its group began.
-  if (v13) hungerFromGroups(state);
+  if (oldFood) hungerFromGroups(state);
   return state;
 }
 
@@ -426,6 +440,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const ca = JSON.stringify(ea.cools[i]);
     const cb = JSON.stringify(eb.cools[i]);
     if (ca !== cb) return `entities[${i}].cools: ${ca} vs ${cb}`;
+    const ga = JSON.stringify(ea.bag[i]);
+    const gb = JSON.stringify(eb.bag[i]);
+    if (ga !== gb) return `entities[${i}].bag: ${ga} vs ${gb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;
@@ -454,7 +471,7 @@ export function diffStates(a: SimState, b: SimState): string | null {
   }
   const en = JSON.stringify(a.enclosed) === JSON.stringify(b.enclosed) ? null : `enclosed: ${a.enclosed.length} tiles vs ${b.enclosed.length}`;
   if (en) return en;
-  for (const [name, la, lb] of [['projectiles', a.projectiles, b.projectiles], ['spawns', a.spawns, b.spawns], ['sites', a.sites, b.sites]] as const) {
+  for (const [name, la, lb] of [['projectiles', a.projectiles, b.projectiles], ['spawns', a.spawns, b.spawns], ['sites', a.sites, b.sites], ['loot', a.loot, b.loot]] as const) {
     const ja = JSON.stringify(la);
     const jb = JSON.stringify(lb);
     if (ja !== jb) return `${name}: ${la.length} vs ${lb.length} (${ja.slice(0, 120)} vs ${jb.slice(0, 120)})`;

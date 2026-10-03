@@ -83,6 +83,7 @@ function game(w: World = {}): GameInfo {
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: w.research ?? 0, forge: w.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    loot: [], bags: [],
   };
   g.onInfo(info);
   return g;
@@ -350,5 +351,33 @@ describe('digging and earthworks', () => {
     c.confirmArea();
     // Dragged from high (x 4 m) to low: the low-x end is the bottom.
     expect(sent.at(-1)).toMatchObject({ kind: 'earthwork', variant: 1, axis: 0, x0: 0, x1: 8, level: 0, level2: 8 });
+  });
+});
+
+describe("Hunt, Gather and loot (Jade's play-test notes)", () => {
+  it('sends the warriors out hunting with one press of Hunt, and the workers gathering with one press of Gather', () => {
+    const g = game();
+    const h = harness(g, warriors, 'warrior');
+    h.c.card()[9]!.run(PRESS);
+    expect(h.sent.at(-1)).toMatchObject({ kind: 'hunt', units: [3, 4], target: 0, auto: 1 });
+    const w = harness(g, workers, 'worker');
+    expect(w.c.card()[5]!.face).toBe('Gather');
+    w.c.card()[5]!.run(PRESS);
+    expect(w.sent.at(-1)).toMatchObject({ kind: 'forage', units: [1, 2] });
+  });
+
+  it('right-clicking loot on the ground sends the selected units to pick it up', () => {
+    const { c, sent } = harness(game(), [...warriors, ...workers], 'warrior');
+    const loot: Selectable = { key: 'l:77', kind: 'node', owner: 255, typeKey: 'loot', centre: at(5, 5), halfSize: new THREE.Vector3(0.3, 0.3, 0.3), label: 'Meat (4)', resource: '' };
+    c.smart(loot, at(5, 5));
+    expect(sent.at(-1)).toMatchObject({ kind: 'pickUp', target: 77 });
+  });
+
+  it('lets workers carrying loot hand it in with Return', () => {
+    const g = game();
+    const { c } = harness(g, workers, 'worker');
+    expect(c.card()[6]!.enabled).toBe(false);
+    g.info!.bags = [[1, [[Res.Venison, 4]]]];
+    expect(c.card()[6]!.enabled).toBe(true);
   });
 });

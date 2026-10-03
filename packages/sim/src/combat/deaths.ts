@@ -19,7 +19,8 @@ import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp } from './combat.
 import { addMob } from './mob-ai.ts';
 import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
 import { clearLair } from '../threats/lairs.ts';
-import { rollDrops } from '../threats/loot.ts';
+import { rollDropList } from '../threats/loot.ts';
+import { bagEmpty, bagItems, dropLoot, lootBrag, notableMob } from '../units/loot.ts';
 import { Role } from '../threats/types.ts';
 import { onVillageLoss } from '../threats/villages.ts';
 
@@ -28,23 +29,36 @@ const WALL_ALERT_STEPS = 100;
 /** Not state: when each player last heard that a wall broke. */
 const wallAlerts = new WeakMap<SimState, number[]>();
 
+/** The players' unit that hit a mob last (its kill), by index, or -1. */
+function killerOf(state: SimState, i: number, taker: number): number {
+  const e = state.entities;
+  const list = e.hitters[i]!;
+  for (let k = list.length - 2; k >= 0; k -= 2) {
+    const j = e.indexOf(list[k]!);
+    if (j >= 0 && e.owner[j] === taker) return j;
+  }
+  return -1;
+}
+
 function onMobDeath(state: SimState, i: number, taker: number): void {
   const e = state.entities;
   const spec = mobSpec(e.mob[i]!);
   const now = clockAt(state.step, state.blood);
   const night = now.cycle - (now.period === Period.Night || now.period === Period.Dusk ? 0 : 1);
+  const killer = taker >= 0 && taker < state.players.length ? killerOf(state, i, taker) : -1;
   if (taker >= 0 && taker < state.players.length) {
-    const pool = state.players[taker]!.pool;
-    // Drops: now and then, never on every kill; one roll per row on the 'combat' stream.
-    rollDrops(state, spec.drops, taker);
+    // Drops: now and then, never on every kill; one roll per row on the 'combat' stream. They are loot for the killer to carry home.
+    const rolled = rollDropList(state, spec.drops);
+    const items = rolled.items.slice();
     // A goblin gives back what it took from a worker.
-    if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) pool[e.carryRes[i]!] = pool[e.carryRes[i]!]! + e.carryAmt[i]!;
+    if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) items.push([e.carryRes[i]!, e.carryAmt[i]!]);
+    dropLoot(state, e.x[i]!, e.z[i]!, items, { killer, owner: taker, brag: lootBrag(spec.drops, rolled, notableMob(spec)), src: spec.id + 1 });
   }
   // A people's building or wagon falls; one they left gives its materials to the workers who broke it down.
   if (e.owner[i] === PEOPLES) peoplesHooks.death(state, i, taker);
   else if (e.owner[i] === NEUTRAL && e.group[i] !== 0 && hitByWorker(state, i) && taker >= 0) peoplesHooks.salvage(state, i, taker);
   // A lair falls (its hoard and the warriors' experience); a village counts its losses towards war.
-  if (isLair(spec.id)) clearLair(state, i, taker);
+  if (isLair(spec.id)) clearLair(state, i, taker, killer);
   else if (e.owner[i] === MONSTERS && (e.role[i] === Role.Village || (e.role[i] === Role.Structure && e.group[i] !== 0))) onVillageLoss(state, i, taker, hitByWorker(state, i));
   const x = e.x[i]!;
   const z = e.z[i]!;
@@ -90,8 +104,13 @@ function onUnitDeath(state: SimState, i: number): void {
     peoplesHooks.death(state, i, shareKillXp(state, i, killXpTenths(null, e.maxHp[i]!)));
     return;
   }
-  // Gear set aside for it goes back to the stock; what it wore is lost with it.
+  // Gear set aside for it goes back to the stock; what it wore is lost with it, and the loot it carried falls where it fell.
   dropQueue(state, i);
+  if (!bagEmpty(state, i)) {
+    const items = bagItems(state, i);
+    e.bag[i] = [];
+    dropLoot(state, e.x[i]!, e.z[i]!, items, { killer: -1, owner: e.owner[i]! < state.players.length ? e.owner[i]! : -1, brag: 0, src: 0 });
+  }
   // A goblin that killed a worker takes its load.
   if (e.kind[i] === UnitKind.Worker && e.carryAmt[i]! > 0) {
     const a = e.indexOf(e.attacker[i]!);
