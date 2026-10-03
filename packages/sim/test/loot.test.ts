@@ -95,7 +95,7 @@ function isExploredAt(s: SimState, x: number, z: number): boolean {
 const GUARD_LINES = ['Leave our worker alone!', 'Hands off our worker!', "I've got you, hold on!", 'Over here, you brute!'];
 
 const speech = (seen: SimEvent[], unit?: number): SimEvent[] => seen.filter((ev) => ev.kind === 'speech' && (unit === undefined || ev.speaker === unit));
-const meatIn = (s: SimState, i: number): number => bagItems(s, i).find(([r]) => r === Res.Meat)?.[1] ?? 0;
+const meatIn = (s: SimState, i: number): number => bagItems(s, i).find(([r]) => r === Res.Venison)?.[1] ?? 0;
 
 describe('loot from kills', () => {
   it('goes into the killer\'s 25 lb bag, then to its side\'s units beside it, and the rest lies on the ground for its side', () => {
@@ -155,7 +155,7 @@ describe('loot from kills', () => {
     const c = addEngine(s, 0, Engine.BronzeCannon, bx + 14 * M, bz);
     expect(canLoot(s, c)).toBe(false);
     // Anyone's loot: no unit of the side beside it takes it.
-    dropLoot(s, e.x[c]!, e.z[c]! + 6 * M, [[Res.Meat, 2]], { killer: c, owner: -1, brag: 0, src: 0 });
+    dropLoot(s, e.x[c]!, e.z[c]! + 6 * M, [[Res.Venison, 2]], { killer: c, owner: -1, brag: 0, src: 0 });
     expect(bagEmpty(s, c)).toBe(true);
     run(s, 1, [{ kind: 'pickUp', player: 0, units: [e.id[c]!], target: s.loot[0]!.id }]);
     expect(s.events.some((ev) => ev.kind === 'alert' && ev.text.startsWith('Only living units pick up loot'))).toBe(true);
@@ -167,8 +167,8 @@ describe('loot from kills', () => {
     const a = own(s, UnitKind.Warrior)[0]!;
     const [lx, lz] = outFrom(s, a, 6 * M);
     // 30 meat is 75 lb: three bags' worth.
-    dropLoot(s, lx, lz, [[Res.Meat, 30]], { killer: -1, owner: -1, brag: 0, src: 0 });
-    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
+    dropLoot(s, lx, lz, [[Res.Venison, 30]], { killer: -1, owner: -1, brag: 0, src: 0 });
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Venison, on: 1 }]);
     const id = s.loot[0]!.id;
     const all: number[] = [];
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0) all.push(e.id[i]!);
@@ -238,8 +238,8 @@ describe('Hunt', () => {
     const [bx, bz] = buildingCentre(b);
     addAnimal(s, Species.Deer, WILD, bx + 18 * M, bz + 6 * M, 0, 0);
     const hunters = own(s, UnitKind.Warrior).map((i) => e.id[i]!);
-    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
-    const meat = s.players[0]!.pool[Res.Meat]!;
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Venison, on: 1 }]);
+    const meat = s.players[0]!.pool[Res.Venison]!;
     const seen: SimEvent[] = [];
     run(s, 1, [{ kind: 'hunt', player: 0, units: hunters, target: 0, auto: 1 }], seen);
     runUntil(s, () => s.step >= NIGHT_START, 3000, seen);
@@ -252,7 +252,7 @@ describe('Hunt', () => {
     }
     expect(speech(seen).some((ev) => ev.text === 'Spotted a deer.' && ev.quiet)).toBe(true);
     expect(speech(seen).some((ev) => ev.text === 'Getting dark. Heading home.' && ev.quiet)).toBe(true);
-    expect(s.players[0]!.pool[Res.Meat]).toBeGreaterThan(meat);
+    expect(s.players[0]!.pool[Res.Venison]).toBeGreaterThan(meat);
     // Out again at daybreak.
     s.step = CYCLE_STEPS - 2;
     const morning: SimEvent[] = [];

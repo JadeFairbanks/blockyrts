@@ -11,11 +11,11 @@ import { BuildingKind, buildingName, OUTLYING_M } from '../buildings/data.ts';
 import { buildingCentre, dist2, nearMainBase } from '../buildings/lights.ts';
 import { placedDims, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
-import { RESOURCES, Res, type Cost } from '../economy/resources.ts';
-import { animalUpkeep } from '../economy/food.ts';
+import { Res, type Cost } from '../economy/resources.ts';
+import { animalUpkeep, QUARTERS, takeFood } from '../economy/food.ts';
 import { cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, standY, UnitKind, WILD, type PlayerState, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
@@ -26,7 +26,8 @@ import { deathHooks, gap, hurtUnit, sideOf, Side } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
 import { rollDropList } from '../threats/loot.ts';
-import { dropLoot, lootBrag, meatOf } from '../units/loot.ts';
+import { dropLoot, lootBrag } from '../units/loot.ts';
+import { meatOf } from '../economy/food-kinds.ts';
 import { BEAR_CAP, BREED_STEPS, breeds, Nature, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
 
 const COLUMN = WU_PER_COLUMN;
@@ -743,23 +744,11 @@ export function runAnimal(state: SimState, i: number): void {
 
 // ----- each day -----
 
-/** Raw crops a short-of-grass animal eats instead (Table 6), items counted by nutrition. */
+/** Raw crops a short-of-grass animal eats instead (Table 6), by nutrition, exact to the quarter (a started crop waits for the next). */
 const CROPS: readonly Res[] = [Res.Wheat, Res.Potatoes, Res.Carrots, Res.Corn];
 
-function eatCrops(pool: Int32Array, need: number): boolean {
-  let have = 0;
-  for (const c of CROPS) have += pool[c]! * RESOURCES[c]!.nutrition;
-  if (have < need) return false;
-  let got = 0;
-  while (got < need) {
-    for (const c of CROPS) {
-      if (got >= need) break;
-      if (pool[c]! <= 0) continue;
-      pool[c] = pool[c]! - 1;
-      got += RESOURCES[c]!.nutrition;
-    }
-  }
-  return true;
+function eatCrops(p: PlayerState, need: number): boolean {
+  return takeFood(p, need * QUARTERS, { only: CROPS, kept: true }) !== null;
 }
 
 /** Grass within 30 m of a building, square metres, from a sample of every third column. */
@@ -838,7 +827,8 @@ function livestockDay(state: SimState): void {
     if (!b.complete || (b.kind !== BuildingKind.LivestockFarm && b.kind !== BuildingKind.Stables)) continue;
     const herd = animalsAt(state, b.id).filter((j) => !e.partner[j]);
     if (herd.length === 0) continue;
-    const pool = state.players[b.owner]!.pool;
+    const player = state.players[b.owner]!;
+    const pool = player.pool;
     if (b.kind === BuildingKind.LivestockFarm) pool[Res.Eggs] = pool[Res.Eggs]! + layingHens(state, b);
     let need = 0;
     for (const j of herd) need += speciesSpec(e.mob[j]!).grassM2;
@@ -849,7 +839,7 @@ function livestockDay(state: SimState): void {
       const j = herd[k]!;
       const s = speciesSpec(e.mob[j]!);
       short -= s.grassM2;
-      if (!eatCrops(pool, s.cropNutrition)) e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]!, 10));
+      if (!eatCrops(player, s.cropNutrition)) e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]!, 10));
     }
   }
 }

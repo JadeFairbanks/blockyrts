@@ -23,6 +23,7 @@ export * from './clock.ts';
 export * from './commands.ts';
 export * from './economy/resources.ts';
 export * from './economy/food.ts';
+export * from './economy/food-kinds.ts';
 export * from './buildings/data.ts';
 export * from './buildings/footprints.ts';
 export * from './buildings/store.ts';

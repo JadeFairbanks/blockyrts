@@ -52,7 +52,11 @@ export function troopOf(product: Product): { troop: number; w: number; a: number
 
 export interface QueueItem {
   product: Product;
-  /** What was paid, refunded in full if cancelled. */
+  /**
+   * What was paid, refunded in full if cancelled: resources and counts; food
+   * paid for a "food" cost is exact to the quarter (economy/food.ts takeFood),
+   * so it is written as minus its quarters of nutrition.
+   */
   paid: Array<[number, number]>;
   /** Steps of work done. */
   progress: number;

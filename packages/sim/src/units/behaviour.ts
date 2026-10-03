@@ -6,11 +6,12 @@
 
 import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
-import { STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
+import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
+import { fishOf, meatOf } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
-import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
+import { canAfford, costText, pay, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
@@ -261,8 +262,10 @@ export function nodeView(state: SimState, cx: number, cz: number, index: number)
   return state.world.prop(cx, cz, index, state.step);
 }
 
-/** The resource a node gives, or -1. */
-export function nodeResource(kind: number): number {
+/** The resource a node gives, or -1: a carcass its animal's meat (its variant is the species), a fish stretch its fish (economy/food-kinds.ts). */
+export function nodeResource(kind: number, variant = 0): number {
+  if (kind === PropKind.Carcass) return meatOf(variant);
+  if (isFish(kind)) return fishOf(kind);
   return resourceByName(propInfo(kind).resource);
 }
 
@@ -270,7 +273,7 @@ export function nodeResource(kind: number): number {
 export function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
   if (!view || view.amount <= 0) return false;
   const info = propInfo(view.kind);
-  return nodeResource(view.kind) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
+  return nodeResource(view.kind, view.variant) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
 }
 
 /** A worker's pace at a node, per mille: its tool for the job, x1.0 for a stone maul on soft ore (Table 2c). */
@@ -305,7 +308,7 @@ export function findNode(state: SimState, i: number, res: number, x: number, z: 
       for (const p of state.world.props(cx, cz, state.step)) {
         if (skip && skip.cx === cx && skip.cz === cz && skip.i === p.index) continue;
         // res -1: a node of anything the worker can gather.
-        if ((res >= 0 && nodeResource(p.kind) !== res) || !gatherable(state, i, p)) continue;
+        if ((res >= 0 && nodeResource(p.kind, p.variant) !== res) || !gatherable(state, i, p)) continue;
         const gx = (cx << CHUNK_SHIFT) + p.lx;
         const gz = (cz << CHUNK_SHIFT) + p.lz;
         const d = (gx - x) * (gx - x) + (gz - z) * (gz - z);
@@ -632,7 +635,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
     const kind = view?.kind ?? -1;
-    if (view && nodeResource(kind) >= 0 && view.amount > 0 && !gatherable(state, i, view)) {
+    if (view && nodeResource(kind, view.variant) >= 0 && view.amount > 0 && !gatherable(state, i, view)) {
       const info = propInfo(kind);
       alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!, i);
       return DONE;
@@ -663,12 +666,12 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
     e.nodeI[i] = -1;
     return DONE;
   };
-  const lastRes = e.carryRes[i] !== NO_CARRY ? e.carryRes[i]! : view ? nodeResource(view.kind) : -1;
+  const lastRes = e.carryRes[i] !== NO_CARRY ? e.carryRes[i]! : view ? nodeResource(view.kind, view.variant) : -1;
   const lastCol = (): [number, number] => (view ? nodeColumn(o, view) : [(o.cx << CHUNK_SHIFT) + 32, (o.cz << CHUNK_SHIFT) + 32]);
   switch (e.act[i]) {
     case Act.Walk: {
       if (!gatherable(state, i, view)) return runOut(lastRes, lastCol());
-      const res = nodeResource(view.kind);
+      const res = nodeResource(view.kind, view.variant);
       if (e.carryAmt[i]! > 0 && (e.carryRes[i] !== res || e.carryAmt[i]! >= carryCapacity(state, i, res))) {
         e.act[i] = Act.ToDrop;
         resetWalk(state, i);
@@ -716,7 +719,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
     case Act.Work: {
       if (!gatherable(state, i, view)) return runOut(lastRes, lastCol());
       const info = propInfo(view.kind);
-      const res = nodeResource(view.kind);
+      const res = nodeResource(view.kind, view.variant);
       const [nx, nz] = nodeColumn(o, view);
       e.heading[i] = headingTowards(columnCentre(nx) - e.x[i]!, columnCentre(nz) - e.z[i]!);
       e.order[i] = info.shape === PropShape.Tree || info.shape === PropShape.Bush ? OrderKind.Chop : info.shape === PropShape.Plant ? OrderKind.Farm : OrderKind.Mine;
@@ -1177,7 +1180,7 @@ function runMageTrain(state: SimState, i: number, b: Building): boolean {
       alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
-    if (t.food > 0 && !payNutrition(player.pool, t.food, player.dontEat)) {
+    if (t.food > 0 && !payFood(player, t.food)) {
       alert(state, b.owner, `Not enough food to train a ${who} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
@@ -1215,7 +1218,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
-    if (!payNutrition(state.players[b.owner]!.pool, t.food, state.players[b.owner]!.dontEat)) {
+    if (!payFood(state.players[b.owner]!, t.food)) {
       alert(state, b.owner, `Not enough food to train a ${warrior ? 'warrior' : 'worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
