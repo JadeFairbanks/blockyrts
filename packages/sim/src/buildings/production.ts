@@ -7,21 +7,21 @@
 
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { costText, Res, type Cost } from '../economy/resources.ts';
+import { costText, Res, RESOURCES, type Cost } from '../economy/resources.ts';
 import { eatableFood, giveFood, payFood } from '../economy/food.ts';
 import { meatOf, payAny } from '../economy/food-kinds.ts';
 import { addWarrior, UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
-import { Band } from '../world/layout.ts';
+import { Band, BAND_NAMES } from '../world/layout.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
 import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../units/behaviour.ts';
-import { BuildingKind, buildingName, buildingSpec, FARM_FALLOW_STEPS, FARM_TIER_PER_MILLE, levelSpec, PLANK_STEPS, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
+import { BuildingKind, buildingName, buildingSpec, FARM_HARVEST_STEPS, FARM_TIER_PER_MILLE, levelSpec, PLANK_STEPS, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre } from './lights.ts';
 import { bandAt } from './placement.ts';
 import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type RallyPoint } from './store.ts';
 import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
-import { addAnimal, animalsAt } from '../animals/animals.ts';
+import { addAnimal, animalsAt, layingHens } from '../animals/animals.ts';
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
 import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../combat/items.ts';
 import { cookSteps, payableInputs, RECIPES, recipeLevelAt, recipeSpec } from './recipes.ts';
@@ -560,19 +560,109 @@ export function bandYieldPerMille(band: Band): number {
 /** Not state: each building's band, which never changes. */
 const bandCache = new WeakMap<Building, Band>();
 
-/** Items a farm makes per farmer-day at its level and place, in thousandths. */
-export function farmRatePerMille(state: SimState, b: Building): number {
-  const spec = buildingSpec(b.kind);
-  const crop = spec.crops?.[b.variant];
-  if (!crop) return 0;
+/** The band a building stands in (where its middle is). */
+function bandOf(state: SimState, b: Building): Band {
   let band = bandCache.get(b);
   if (band === undefined) {
     const [x, z] = buildingCentre(b);
     band = bandAt(state, floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN));
     bandCache.set(b, band);
   }
-  const bandPm = spec.cropBands ? bandYieldPerMille(band) : 1000;
+  return band;
+}
+
+/** Items a farm makes per farmer-day at its level and place, in thousandths. */
+export function farmRatePerMille(state: SimState, b: Building): number {
+  const spec = buildingSpec(b.kind);
+  const crop = spec.crops?.[b.variant];
+  if (!crop) return 0;
+  const bandPm = spec.cropBands ? bandYieldPerMille(bandOf(state, b)) : 1000;
   return floorDiv(crop.perDay * FARM_TIER_PER_MILLE[b.level - 1]! * bandPm, 1000);
+}
+
+/** What one full harvest bar brings in, in thousandths of an item: one farmer's yield for FARM_HARVEST_STEPS of work. */
+export function harvestPerMille(state: SimState, b: Building): number {
+  return floorDiv(farmRatePerMille(state, b) * FARM_HARVEST_STEPS, CYCLE_STEPS);
+}
+
+/**
+ * A farm's work for one step (Jade, patch notes 1): each farmer at work adds a
+ * step to the harvest bar, and a full bar puts the harvest straight into the
+ * pool, whole items only, the thousandths carried to the next one.
+ */
+function growFarm(state: SimState, b: Building, pool: Int32Array): void {
+  const crop = buildingSpec(b.kind).crops?.[b.variant];
+  if (!crop) return;
+  const whole = harvestSteps();
+  // A save from before harvest bars kept thousandths times steps here: start its bar afresh.
+  if (b.farmAcc >= 2 * whole) b.farmAcc = 0;
+  const per = harvestPerMille(state, b);
+  if (per <= 0) return;
+  b.farmAcc += workersAt(state, b);
+  while (b.farmAcc >= whole) {
+    b.farmAcc -= whole;
+    const total = (b.acc[0] ?? 0) + per;
+    const items = floorDiv(total, 1000);
+    b.acc[0] = total - items * 1000;
+    pool[crop.res] = pool[crop.res]! + items;
+  }
+}
+
+/** The harvest bar's length in farmer-steps, never below one. */
+function harvestSteps(): number {
+  return Math.max(1, FARM_HARVEST_STEPS);
+}
+
+/** What the panel's harvest bar shows (Jade, patch notes 1): what the next harvest brings in and how far along it is. */
+export interface FarmHarvest {
+  /** What comes in: the resource, how many and their food value (0 for flax and herbs). */
+  res: Res;
+  items: number;
+  food: number;
+  /** False where the band gives nothing (a crop field in the Barrens or Deadlands): the bar never fills. */
+  grows: boolean;
+  /** The bar: work done of the whole, and how much more each step adds now (0: it stands still). */
+  done: number;
+  whole: number;
+  perStep: number;
+}
+
+/**
+ * The next harvest of a finished farm, or null: crop fields, vegetable farms
+ * and herb beds fill their bar with their farmers' work; a livestock farm's
+ * hens lay at each day's turn (animals.ts), so its bar runs with the clock.
+ */
+export function farmHarvest(state: SimState, b: Building): FarmHarvest | null {
+  if (!b.complete || !isFarm(b.kind)) return null;
+  const crop = buildingSpec(b.kind).crops?.[b.variant];
+  if (crop) {
+    const per = harvestPerMille(state, b);
+    const items = floorDiv((b.acc[0] ?? 0) + per, 1000);
+    const whole = harvestSteps();
+    const done = Math.min(b.farmAcc, whole);
+    return { res: crop.res, items, food: items * RESOURCES[crop.res]!.nutrition, grows: per > 0, done, whole, perStep: per > 0 ? workersAt(state, b) : 0 };
+  }
+  if (b.kind !== BuildingKind.LivestockFarm) return null;
+  const hens = layingHens(state, b);
+  if (hens === 0) return null;
+  // The hens lay in the step that starts on the day's turn, so the bar is full just before it.
+  const done = (state.step + CYCLE_STEPS - 1) % CYCLE_STEPS;
+  return { res: Res.Eggs, items: hens, food: hens * RESOURCES[Res.Eggs]!.nutrition, grows: true, done, whole: CYCLE_STEPS, perStep: 1 };
+}
+
+/** The panel's line on what the band does to a farm's yield (Table 6), or '' for farms without crops. */
+export function farmBandLine(state: SimState, b: Building): string {
+  const spec = buildingSpec(b.kind);
+  if (!spec.crops) return '';
+  const band = bandOf(state, b);
+  const where = BAND_NAMES[band];
+  const kinds = spec.kind === BuildingKind.HerbBed ? 'Herb beds' : spec.kind === BuildingKind.VegetableFarm ? 'Vegetable farms' : 'Crop fields';
+  if (!spec.cropBands) return `Full yield in the ${where}: ${kinds.toLowerCase()} grow in full in every band.`;
+  const pm = bandYieldPerMille(band);
+  const rule = 'crop fields make half in the Fringe and Deepwoods and nothing in the Barrens or Deadlands';
+  if (pm >= 1000) return `Full yield in the ${where}: ${rule}.`;
+  if (pm <= 0) return `Nothing grows in the ${where}: ${rule}.`;
+  return `${pm === 500 ? 'Half' : `${floorDiv(pm, 10)}%`} yield in the ${where}: ${rule}.`;
 }
 
 /** One step of every building's own work. */
@@ -628,20 +718,8 @@ export function updateBuildings(state: SimState): void {
         }
       }
     }
-    // Farms: yield goes straight into the pool, one item at a time, after the first 2 fallow days.
-    if (isFarm(b.kind) && state.step >= b.doneAt + FARM_FALLOW_STEPS) {
-      const n = workersAt(state, b);
-      if (n > 0) {
-        b.farmAcc += farmRatePerMille(state, b) * n;
-        const whole = CYCLE_STEPS * 1000;
-        if (b.farmAcc >= whole) {
-          const crop = buildingSpec(b.kind).crops![b.variant]!;
-          const items = floorDiv(b.farmAcc, whole);
-          pool[crop.res] = pool[crop.res]! + items;
-          b.farmAcc -= items * whole;
-        }
-      }
-    }
+    // Farms: the harvest bar fills from the first step a farmer works the field (no fallow days).
+    if (isFarm(b.kind)) growFarm(state, b, pool);
   }
 }
 
@@ -650,8 +728,6 @@ export function buildingStatus(state: SimState, b: Building): string {
   if (!b.complete) return `Under construction: ${floorDiv(b.progress * 100, levelSpec(b.kind, 1).ws * 20)}%`;
   if (b.upgrading) return `Upgrading to ${buildingName(b.kind, b.upgrading, b.variant)}: ${floorDiv(b.upProgress * 100, levelSpec(b.kind, b.upgrading).ws * 20)}%`;
   if (isFarm(b.kind)) {
-    const left = b.doneAt + FARM_FALLOW_STEPS - state.step;
-    if (left > 0) return `Lying fallow for ${floorDiv(left + 1199, 1200)} more minutes`;
     const herd = b.kind === BuildingKind.LivestockFarm ? `; ${animalsAt(state, b.id).length} animals` : '';
     return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work${herd}`;
   }
