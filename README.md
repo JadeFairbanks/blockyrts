@@ -399,8 +399,7 @@ dawn.*
    or hobgoblins; **Creature** a giant beetle, giant hornets, a viper, a giant
    scorpion, a griffin or a minotaur; **Blood night** makes the coming night a
    blood night; **Fog** brings fog until the day. Lairs, huts and ruins stay
-   drawn on explored land. Until the model catalogue is merged, they and the
-   new creatures are coloured blocks.
+   drawn on explored land, with their catalogue models.
 3. **Lairs.** In a normal game the first lair turns up at dusk on night 3 on
    the frontier: a cell next to your land that nobody holds, 40 m or more
    from claimed land and 30 m from your units, at a barrier's foot for a cave
@@ -478,7 +477,7 @@ Client only: the sim and every hash above are unchanged. Run `pnpm dev` and open
 
 1. **Edge panning beside the HUD.** Over the open game view the cursor pans in the outermost 4 px of the window, as before. Over a panel that touches the edge (the minimap and its button row at the bottom left, the command card at the bottom right, the selection panel at the bottom, the resource bar at the top right), slide the cursor along the panel: nothing pans. Push it into the outermost 2 px of the window and the camera pans that way; within 20 px of a corner it pans diagonally. Moving the cursor out of the window stops panning. Works the same in a window and in full screen (F11). Unit tests: `packages/client/test/edge-pan.test.ts`.
 2. **Trees and hazel bushes.** Tree crowns are about 20% smaller (they shrink from the top, so no trunk tip shows) and trunks about 20% thicker. Hazel sticks are about 10% shorter, and cut a little more where needed so every tip ends inside the leaves. Hit boxes and selection are unchanged. Unit tests: `packages/client/test/props-shape.test.ts` checks every stick tip and trunk tip lies inside a leaf cube.
-3. **Models load before the match starts.** Open the page with the browser cache cleared (DevTools, Network, Disable cache, and a throttled connection if you like). A short "Loading models..." card shows, then the match starts with workers and the warrior already drawn as models, never as blue blocks. Every other catalogue model loads in the background a few at a time; anything that comes into view before its model is in (a creature from the debug Creature button, a new building) jumps the queue and switches over as soon as it arrives. One broken model only leaves that one as a block. To try it with the full catalogue before PR #42 merges: `git archive origin/review/batch-2 packages/assets | tar -x -C /tmp/cat`, copy `packages/assets/base` into `/tmp/cat/packages/assets/`, then `pnpm --filter @blockyrts/tools models:build --assets /tmp/cat/packages/assets --out packages/client/public/models` and `pnpm --filter @blockyrts/client exec vite` (plain `pnpm dev` rebuilds the models from main first).
+3. **Models load before the match starts.** Open the page with the browser cache cleared (DevTools, Network, Disable cache, and a throttled connection if you like). A short "Loading models..." card shows, then the match starts with workers and the warrior already drawn as models, never as blue blocks. Every other catalogue model loads in the background a few at a time; anything that comes into view before its model is in (a creature from the debug Creature button, a new building) jumps the queue and switches over as soon as it arrives. One broken model only leaves that one as a block. The full catalogue (PR #42) is on main, so plain `pnpm dev` builds all of it.
 
 ## How a tester checks the gap fixes
 
@@ -605,9 +604,8 @@ and spells), and each script still plays out as its description says.
    spell's clip while casting (cast_heal, cast_bolt, cast_beam, cast_area;
    a wand tap plays cast_bolt). Once the model thread's PR #50 is merged
    they wear their school and rank's look (mage_support_1 to 6,
-   mage_battle_1 to 6), and once PR #42 is merged the rank wands, the bolt
-   and the fireball use their own models; until then bolts and fireballs are
-   glowing blocks and a beam is a violet bar to the target. Landing spells
+   mage_battle_1 to 6); the rank wands, the bolt and the fireball use their
+   own models, and a beam is a violet bar to the target. Landing spells
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
@@ -721,10 +719,8 @@ updated and still play out as they say).
    reaches the panel when it is said to you, or when it matters and you can
    see the speaker. Chat with other players came with milestone 9; playing
    alone the chat line says there is nobody to chat with.
-9. **The look.** Once PR #42 is merged the peoples use their own models
-   (people, buildings, wagons, beasts); until then their people are worker
-   and warrior bodies tinted in their people's colour and their buildings
-   are coloured blocks.
+9. **The look.** The peoples use their own models (people, buildings,
+   wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
     prints `final step 10000 hash cd2f7096`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
@@ -839,8 +835,7 @@ M7 scripts were updated and still play out as they say).
    models at their saddle points, with the riding clips from PR #50 once it
    is merged; engines use their models (aim, fire, towed, damaged); void
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
-   motes until their own textures arrive. Until PR #42 is merged everything
-   is drawn as coloured blocks.
+   motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
    prints `final step 10000 hash 06dabf32`: the debug tools make the Big
    House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
@@ -1022,6 +1017,25 @@ milestone are refused with a message saying why.
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
    prints `final step 10000 hash 06dabf32`, as in milestone 8 above.
+
+## How a tester checks the model catalogue on mobs
+
+Client and assets only: the sim and every hash are unchanged.
+
+1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Wild animals,
+   night mobs, creatures, lairs, goblin villages, tribes and the peoples all
+   draw with their catalogue models and clips, not as coloured blocks. A
+   creature seen for the first time can show as a block for a moment while
+   its model streams in.
+2. Young animals are the adult model at half size; the small slime is the
+   slime model at its own size. Wild geese and pheasants use the hen's
+   model, sized to each bird, until the model thread makes theirs.
+3. `node packages/client/test-e2e/models-look.mjs http://localhost:5198 <folder>`
+   (with `pnpm --filter @blockyrts/client exec vite --port 5198` running)
+   puts down night mobs, creatures, a lair, a village, a tribe and a people
+   with the debug buttons, visits the nearest animals of several kinds and
+   brings a crowd of night mobs at night, saving `models-*.png`. It prints
+   anything still drawn as a block; it should print none.
 
 ## How a tester checks the balance editor
 

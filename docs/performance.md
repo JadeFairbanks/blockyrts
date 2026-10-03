@@ -57,7 +57,7 @@ These figures are from SwiftShader at 1920 by 1080, with the Citadel at night, t
 - The page has no console errors.
 - The main thread spends 5 to 6 ms a frame on the scene. That leaves room for 60 fps on any machine whose GPU keeps up.
 - The GPU side (fps itself) needs a real GPU. Use `--gpu` on a desktop, or watch the debug readout in play.
-- Mobs still draw as coloured blocks until the model PRs (#39, #42) merge. The real models add vertices per instance, not draw calls.
+- Mobs draw with their catalogue models since the catalogue merged (PR #67). The real models add vertices per instance, not draw calls.
 
 ## What M10 changed
 

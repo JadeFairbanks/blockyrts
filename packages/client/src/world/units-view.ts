@@ -11,7 +11,7 @@
 // roof), the Rift-touched beasts shed violet motes and a cloaked void
 // stalker shows only as a shimmer.
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -374,7 +374,9 @@ export class UnitsView {
     this.attach.setLibrary(lib);
   }
 
-  private body(id: string): BodyPool | null {
+  private body(wanted: string): BodyPool | null {
+    // A model still to be made borrows a near kin's until it is in the catalogue.
+    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted) : wanted;
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
@@ -472,7 +474,7 @@ export class UnitsView {
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           const slot = pool.take([]);
-          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null);
+          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null, mobScale(spec.model, spec.height));
         } else {
           dummy.position.set(x, y, z);
           dummy.rotation.set(0, heading, 0);
@@ -496,8 +498,9 @@ export class UnitsView {
         const pool = this.body(spec.model);
         if (pool) {
           const slot = pool.take([]);
-          const clip = d[o + S.swing] !== 0 && pool.model.clips.has('attack') ? 'attack' : moving && pool.model.clips.has('walk') ? 'walk' : 'idle';
-          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, null);
+          // A stand-in model is sized to the animal's own height; the young are the adult model at half size.
+          const fit = pool.model.id === spec.model ? 1 : spec.height / WU_PER_METRE / Math.max(0.05, pool.model.boundingBox.max.y - pool.model.boundingBox.min.y);
+          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, animalClip(pool.model, d, o, moving), clipT, null, fit * scale);
         } else {
           dummy.position.set(x, y, z);
           dummy.rotation.set(0, heading, 0);
@@ -696,7 +699,7 @@ export class UnitsView {
       const pool = this.body(c.model);
       if (pool) {
         const slot = pool.take([]);
-        if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, 'death', age, c.colour);
+        if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, 'death', age, c.colour, c.mob >= 0 ? mobScale(c.model, mobSpec(c.mob).height) : 1);
       } else if (c.mob >= 0) {
         const spec = mobSpec(c.mob);
         const dummy = this.dummy;
@@ -787,6 +790,34 @@ const Z_AXIS = new THREE.Vector3(0, 0, 1);
 /** The model a structure is drawn with: goblin huts come in three looks, picked by the hut's id. */
 function structureModel(model: string, id: number): string {
   return model === 'goblin_hut_1' ? `goblin_hut_${1 + (id % 3)}` : model;
+}
+
+/**
+ * Models still to be made (models/troop_kits_models.md), drawn with a near
+ * kin's model until theirs is in the catalogue (s).
+ */
+const STAND_IN_MODELS: Readonly<Record<string, string>> = { wild_goose: 'chicken_hen', pheasant: 'chicken_hen' };
+
+/** Each model's height as drawn for the first mob that uses it, metres. */
+const MOB_MODEL_HEIGHT = new Map<string, number>();
+for (const m of MOBS) if (!MOB_MODEL_HEIGHT.has(m.model)) MOB_MODEL_HEIGHT.set(m.model, m.height);
+
+/** A mob sharing another's model (the small slime) is that model sized to its own height. */
+function mobScale(model: string, height: number): number {
+  const first = MOB_MODEL_HEIGHT.get(model);
+  return first ? height / first : 1;
+}
+
+/** An animal's clip: its attack while it swings, hurt, running away, walking or standing. */
+function animalClip(model: ModelData, d: Int32Array, o: number, moving: boolean): string {
+  const flags = d[o + S.flags]!;
+  if (d[o + S.swing] !== 0) {
+    for (const n of model.clips.keys()) if (n.startsWith('attack') || n === 'bite' || n === 'peck' || n === 'swipe' || n === 'charge') return n;
+  }
+  if (flags & UnitFlag.Hurt && model.clips.has('injured')) return 'injured';
+  // Hornets and griffins fly from place to place.
+  if (moving) return flags & UnitFlag.Fleeing ? firstClip(model.clips, ['fly', 'run', 'walk']) : firstClip(model.clips, ['fly', 'walk', 'run']);
+  return 'idle';
 }
 
 /** A monster's clip: its attack while it swings, climbing, flying, running away, hurt, walking or standing. */
