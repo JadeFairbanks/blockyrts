@@ -241,8 +241,14 @@ export type ServerMessage =
    */
   | { type: 'gameStart'; startStep: number; inputDelay: number; epoch: number; activeSlots: number; snapshot: Uint8Array }
   | { type: 'frame'; frame: WireFrame }
-  /** `waitingFor` is a bitmask of the slots the match is waiting on. */
-  | { type: 'pauseState'; paused: boolean; reason: PauseReason; bySlot: number; waitingFor: number }
+  /**
+   * Whether the match is stopped and why. `held`: a player's pause is in
+   * force (whatever else the match also waits on), put there by `bySlot`.
+   * `waitingFor` is a bitmask of the slots the match is waiting on.
+   */
+  | { type: 'pauseState'; paused: boolean; reason: PauseReason; held: boolean; bySlot: number; waitingFor: number }
+  /** A player pressed Pause or Resume and it took: every page says who, and opens or closes its menu. */
+  | { type: 'pauseToggled'; slot: number; paused: boolean }
   /** Sent to the host when `slot` has been gone 30 s: wait, carry on without them, or save and quit. */
   | { type: 'hostChoiceNeeded'; slot: number }
   | { type: 'inputDelay'; steps: number }
@@ -289,6 +295,7 @@ const S = {
   roomClosed: 113,
   chat: 114,
   mapPing: 115,
+  pauseToggled: 116,
 } as const;
 
 function writeFrame(w: Writer, f: WireFrame): void {
@@ -340,7 +347,10 @@ export function encodeServer(m: ServerMessage): Uint8Array {
       writeFrame(w, m.frame);
       break;
     case 'pauseState':
-      w.bool(m.paused).u8(m.reason).u8(m.bySlot).u8(m.waitingFor);
+      w.bool(m.paused).u8(m.reason).bool(m.held).u8(m.bySlot).u8(m.waitingFor);
+      break;
+    case 'pauseToggled':
+      w.u8(m.slot).bool(m.paused);
       break;
     case 'hostChoiceNeeded':
       w.u8(m.slot);
@@ -427,6 +437,7 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
         type: 'pauseState',
         paused: r.bool(),
         reason: enumValue<PauseReason>(r.u8(), 4, 'pause reason'),
+        held: r.bool(),
         bySlot: r.u8(),
         waitingFor: r.u8(),
       };
@@ -476,6 +487,9 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
       break;
     case S.mapPing:
       m = { type: 'mapPing', slot: r.u8(), x: r.i32(), z: r.i32() };
+      break;
+    case S.pauseToggled:
+      m = { type: 'pauseToggled', slot: r.u8(), paused: r.bool() };
       break;
     default:
       throw new WireError(`unknown server message ${tag}`);

@@ -256,7 +256,7 @@ function farm(p: Parts, kind: number, level: number, variant: number, fallow: bo
   const [, , hw, hd] = footprintDims(kind, variant, level).solid;
   const houseW = hw * COLUMN_M;
   const houseD = hd * COLUMN_M;
-  // The field: soil with furrows, crops in rows unless it lies fallow.
+  // The field: soil with furrows, crops in rows unless it lies bare (nothing grows there).
   p.box(0, 0, 0, w, 0.06, d, C.soil);
   const crop = CROP[kind]?.[variant];
   if (kind === BuildingKind.LivestockFarm) {

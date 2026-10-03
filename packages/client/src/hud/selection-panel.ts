@@ -2,13 +2,15 @@
 // name and details, or a portrait for each thing grouped by type with a
 // health bar under each, subgroup tabs with the active one bright, and for a
 // building its production queue (click to cancel), the units inside (click to
-// let one out), its workers and its rally route; at a Barracks, the Stables
+// let one out), its workers and its rally route; at a farm, the harvest bar
+// (farm-panel.ts); at a Barracks, the Stables
 // or a main base, the troop panel (Troops and gear: Training troops): a
 // picture button per troop type, weapon and armour tier dropdowns with icons,
 // a Lock, and what the choice costs.
 import { buildingSpec, kitName, productSpec, troopOf, Troop } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
+import { FarmBlock } from './farm-panel.ts';
 import { armourIcon, autoIcon, setIcon, troopIcon, weaponIcon } from './icons.ts';
 import { armourOptions, pickTier, troopChoice, troopCostText, troopName, troopWhy, weaponOptions, type TierOption } from './troops.ts';
 import { CTRL_NAME } from '../input/platform.ts';
@@ -96,6 +98,8 @@ export class SelectionPanel {
   private readonly manaBars = new Map<string, HTMLElement>();
   /** An open tier dropdown of the troop panel. */
   private menu: { b: number; troop: number; line: 'w' | 'a' } | null = null;
+  /** A farm's harvest bar, moved in place between redraws. */
+  private farm: FarmBlock | null = null;
 
   constructor(
     private readonly title: HTMLElement,
@@ -108,6 +112,7 @@ export class SelectionPanel {
     this.used = new Set();
     this.bars.clear();
     this.manaBars.clear();
+    this.farm = null;
     this.body.replaceChildren();
   }
 
@@ -166,12 +171,13 @@ export class SelectionPanel {
     const sig = [
       list.map((t) => `${t.key}:${t.label}:${(t.details ?? []).join('|')}`).join(','),
       active,
-      b ? `${b.queue.map((q) => `${q.product}`).join('.')}/${b.inside.join('.')}/${b.up.join('.')}/${b.rally.length}/${b.assigned}/${b.working}` : '',
+      b ? `${b.queue.map((q) => `${q.product}`).join('.')}/${b.inside.join('.')}/${b.up.join('.')}/${b.rally.length}/${b.assigned}/${b.working}/${b.farm ? Number(b.farm.grows) : ''}` : '',
       b && b.owner === this.a.player ? this.troopSig(b) : '',
       hints.join('|'),
     ].join('#');
     if (sig === this.sig) {
       this.updateBars(list);
+      if (this.farm && b?.farm) this.farm.update(b.farm);
       return;
     }
     this.sig = sig;
@@ -225,6 +231,8 @@ export class SelectionPanel {
         });
         this.body.append(q);
       }
+      // A farm's harvest under its queue, above the farmers sheltering inside at night.
+      this.farmRows(b);
       if (b.complete && b.troops.length > 0) this.troopPanel(b);
       // Up top (towers, a main base from level 3) and sheltering inside, each a row of portraits that let one out.
       const top = garrisonRoom(b);
@@ -240,9 +248,16 @@ export class SelectionPanel {
       const workers = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
       if (workers > 0) this.row('', `Workers: ${b.assigned} of ${workers} assigned (right-click it with workers to assign them).`);
       if (b.rally.length > 0) this.row('owner', `Rally route: ${b.rally.length} point${b.rally.length > 1 ? 's' : ''}.`);
-    }
+    } else if (b) this.farmRows(b);
     this.row('owner', ownerText(t.owner, this.a.player));
     if (!isOwn(t, this.a.player)) this.row('hint', 'Not yours: you can look but not give orders.');
+  }
+
+  /** A farm's harvest bar, its line and its band line (farm-panel.ts). */
+  private farmRows(b: BuildingInfo): void {
+    if (!b.farm) return;
+    this.farm = new FarmBlock(this.body);
+    this.farm.update(b.farm);
   }
 
   /** What the troop panel shows, so it redraws when a choice, a Lock or what the pool pays for changes. */

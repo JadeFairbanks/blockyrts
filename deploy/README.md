@@ -32,6 +32,42 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 `compose.yml` and `droplet/backup.sh`. Every minute, a timer on the Droplet
 (`droplet/update.sh`) pulls both images and runs `docker compose up -d`.
 
+## Indev password gate and delisting
+
+While the game is indev, every page of the Pages project (`play.<DOMAIN>`,
+the `blockyrts.pages.dev` mirror and `/balance/`) asks for a browser login
+(username `admin`, password from Jade's patch notes 1). It is a deterrent,
+not security. The pieces, all in `deploy/pages/`:
+
+- `functions/_middleware.ts`: the gate. It keeps only a SHA-256 of
+  `<username>:<password>`; to change the login, put
+  `printf 'admin:NEW' | sha256sum` into `LOGIN_SHA256`. It also answers
+  `/robots.txt` with `Disallow: /` and marks every page `noindex`.
+- `static/_routes.json`: the game's data files (`/assets/`, `/models/`) skip
+  the gate, because a page load fetches about a thousand of them and each
+  gated request would count against the free plan's 100,000 Functions
+  requests a day. Without the page they are just files.
+- `static/_headers`: `noindex` on those data files too.
+
+Deploy copies the two static files into the site and publishes from
+`deploy/pages` so Wrangler picks up `functions/`.
+
+**REMINDER: when the password gate comes off, remove the delisting at the
+same time and add SEO** (title and description meta tags, a sitemap, an
+open `robots.txt`). Taking the gate off means deleting `deploy/pages/functions`,
+`static/_headers` and the `robots.txt` answer together.
+
+## Game version
+
+The main menu shows the version, such as `indev 0.1`. `version.json` at the
+repository root holds the stage (`indev`, later `alpha` and `beta`) and the
+lowest number the next deploy may take. Each Deploy run tags its commit
+`live-<number>` and goes up by 0.1 from the highest such tag
+(`deploy/scripts/game-version.ts`); running Deploy again on a commit that is
+already live keeps its number. For a bigger step or a new stage, edit
+`version.json` (for example `"stage": "alpha", "next": "1.0"`) before the
+deploy. Local builds show the next number marked as a dev build.
+
 ## Secrets and variables (repository Settings > Secrets and variables > Actions)
 
 | Name | Kind | What it is |

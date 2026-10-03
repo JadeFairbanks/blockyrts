@@ -446,8 +446,17 @@ export function workSteps(kind: number, level: number): number {
 
 /** Farm yield multiplier by tier, in per mille (Table 6: x1.5 at tier 2, x2 at tier 3). */
 export const FARM_TIER_PER_MILLE = [1000, 1500, 2000] as const;
-/** A new field gives nothing for its first 2 days (Table 6). */
-export const FARM_FALLOW_STEPS = 2 * CYCLE_STEPS;
+/**
+ * A farm's harvest (Jade, patch notes 1, 2026-10-03): its progress bar fills
+ * by one step of work for each farmer at work, so two farmers fill it twice as
+ * fast as one, and a full bar brings in what one farmer grows in that much
+ * work (Table 6's yield per farmer-day, by tier and band), whatever the number
+ * of farmers. A new field grows from the first step a farmer works it: the old
+ * 2 fallow days are gone. One farmer-day by default, so a harvest is Table 6's
+ * yield per farmer-day; a shorter bar brings in less each time, at the same
+ * yield per day.
+ */
+export const FARM_HARVEST_STEPS = CYCLE_STEPS;
 
 /** Table 7: a new worker costs 20 food (nutrition) and 15 s (halved pacing) at the Big House or any farm. */
 export const WORKER_FOOD = 20;

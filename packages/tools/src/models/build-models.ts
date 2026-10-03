@@ -2,6 +2,7 @@
 // packages/assets/base/models (the project's own bodies) and
 // packages/assets/src/models (the modelling bot's pull requests) into
 // packages/client/public/models/<id>.glb and <id>.json, plus index.json.
+// A world prop's state sets (state-sets.ts) are written as <id>@<set> too.
 //
 //   pnpm --filter @blockyrts/tools models:build [--out <dir>] [--assets <dir>]
 //
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { convertModel, type ConvertedModel } from './convert.ts';
 import { deviationsFor, parseManifestDeviations } from './manifest.ts';
 import { CATEGORIES } from './rules.ts';
+import { STATE_SEP, STATE_SET_CATEGORIES, stateSetVariants } from './state-sets.ts';
 
 export const ASSETS_DIR = fileURLToPath(new URL('../../../assets/', import.meta.url));
 export const DEFAULT_OUT_DIR = fileURLToPath(new URL('../../../client/public/models/', import.meta.url));
@@ -95,6 +97,15 @@ export function buildModels(options: { assetsDir?: string; outDir?: string | nul
       models.push(result);
       if (result.errors.length === 0 && result.glb && result.sidecar) {
         index.push({ id, category, glb: `${id}.glb`, json: `${id}.json` });
+        // Each state set as a drawn model of its own, under the same rules and waivers.
+        if (STATE_SET_CATEGORIES.includes(category)) {
+          for (const v of stateSetVariants(raw)) {
+            const vid = `${id}${STATE_SEP}${v.set}`;
+            const variant = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
+            models.push(variant);
+            if (variant.errors.length === 0 && variant.glb && variant.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json` });
+          }
+        }
       }
     }
   }
