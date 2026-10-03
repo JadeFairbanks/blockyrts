@@ -184,14 +184,14 @@ describe('loot from kills', () => {
 });
 
 describe('what units say about loot', () => {
-  it('always remarks on a rare or a boss\'s drop with an exclamation, in the panel; an ordinary find is a bubble at most', () => {
+  it('always remarks on a rare or a boss\'s drop with an exclamation, an ordinary find now and then; both are bubbles only', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const a = own(s, UnitKind.Warrior)[0]!;
     dropLoot(s, e.x[a]!, e.z[a]!, [[Res.Rubies, 1], [Res.Gold, 4]], { killer: a, owner: 0, brag: 1, src: Mob.Morvath + 1 });
     const brag = speech(s.events, e.id[a]).at(-1)!;
     expect(brag.text).toBe('A ruby and 4 gold from Morvath!');
-    expect(brag.quiet).toBeFalsy();
+    expect(brag.quiet).toBe(true);
     s.events = [];
     for (let k = 0; k < 40; k++) dropLoot(s, e.x[a]!, e.z[a]!, [[Res.Bone, 1]], { killer: a, owner: 0, brag: 0, src: 0 });
     expect(speech(s.events).every((ev) => ev.quiet === true)).toBe(true);

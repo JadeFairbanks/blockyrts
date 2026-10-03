@@ -224,9 +224,9 @@ function hunting(state: SimState, i: number): boolean {
 
 /**
  * A unit picked loot up: a find worth remarking on always gets an
- * exclamation, in the panel too; an ordinary one now and then, as a bubble
- * only (Jade: informational lines stay out of the chat). A hunter says what
- * prey it got instead (`prey`: its species + 1).
+ * exclamation; an ordinary one now and then. Both are bubbles only (Jade:
+ * informational lines stay out of the chat, and a find is not an alert). A
+ * hunter says what prey it got instead (`prey`: its species + 1).
  */
 function found(state: SimState, i: number, got: Items, brag: number, src: number, prey: number): void {
   const e = state.entities;
@@ -236,7 +236,7 @@ function found(state: SimState, i: number, got: Items, brag: number, src: number
     return;
   }
   if (brag) {
-    say(state, i, src ? `${capital(text)} from ${mobName(src - 1)}!` : `Look at this: ${text}!`);
+    say(state, i, src ? `${capital(text)} from ${mobName(src - 1)}!` : `Look at this: ${text}!`, false, true);
     return;
   }
   if (hunting(state, i)) return;
