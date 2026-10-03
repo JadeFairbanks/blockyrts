@@ -92,6 +92,14 @@ export class GameInfo {
     this.listeners.push(fn);
   }
 
+  /** A unit's row of the latest state message (STATE_STRIDE values, a view: copy it to keep it), or null when it is gone. */
+  unitRow(id: number): Int32Array | null {
+    const i = this.unitIndex.get(id);
+    const s = this.state;
+    if (i === undefined || !s) return null;
+    return s.data.subarray(i * STATE_STRIDE, (i + 1) * STATE_STRIDE);
+  }
+
   unit(id: number): UnitInfo | null {
     const i = this.unitIndex.get(id);
     const s = this.state;

@@ -66,6 +66,9 @@ import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
 import { doingActions } from './doing.ts';
 import { speechToPanel } from './wording.ts';
+import { goodIcon } from './inventory-icons.ts';
+import { kitUrl } from './kit-icons.ts';
+import type { PortraitSubject } from '../world/portrait-view.ts';
 
 /** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
 const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
@@ -199,6 +202,9 @@ export class GameShell {
   private readonly cardButtons: HudButton[] = [];
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
+  /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
+  private portraitKey: string | null = null;
+  private portraitRect: DOMRect | null = null;
   /** The pace of every own building's head item, for the queue's countdown. */
   private readonly queueClock = new QueueClock();
   private world: WorldHooks;
@@ -464,6 +470,7 @@ export class GameShell {
     this.geometry = hudLayout({ width: this.width, height: this.height, topRight: this.layout.topRight.offsetHeight || 112 });
     this.layout.root.classList.toggle('phone', this.geometry.phone);
     applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    this.portraitRect = null;
     this.panels.measure();
     if (s !== this.geometry.scale) this.selectionDirty = true;
     this.cardDirty = true;
@@ -476,6 +483,7 @@ export class GameShell {
     if (on && which === 'map') this.folds.info = false;
     if (on && which === 'info') this.folds.map = false;
     applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    this.portraitRect = null;
     this.panels.measure();
     for (const k of ['map', 'info', 'stock'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
   }
@@ -858,6 +866,8 @@ export class GameShell {
       L.folds.append(b.el);
       return b;
     };
+    // The portrait's window: a click centres the camera on what it shows.
+    L.portraitWindow.append(this.buttons.add({ ...PORTRAIT_VIEW }).el);
     fold('fold-menu', '☰', 'Menu', 'Settings, saving, full screen and quitting.', () => this.openMenu());
     fold('fold-map', '◫', 'Map', 'Show or hide the minimap and the buttons along its top (idle gatherer, army, camera spots).', () => this.toggleFold('map'));
     fold('fold-info', 'ⓘ', 'Selection', 'Show or hide the portrait and what is selected.', () => this.toggleFold('info')).setLit(this.folds.info);
@@ -948,6 +958,44 @@ export class GameShell {
   private buildingOf(t: Selectable): ReturnType<GameInfo['buildings']['get']> {
     const id = buildingIdOf(t.key);
     return id === null ? undefined : this.game.buildings.get(id);
+  }
+
+  /**
+   * The portrait (patch notes 1): the first of the active type (the most
+   * valuable selected, or the one Tab picked), else the one thing selected
+   * (an enemy's or a neutral's looks the same). Units and buildings are drawn
+   * live through the window (match.ts, after the world); a resource node
+   * shows its good's picture.
+   */
+  private refreshPortrait(list: readonly Selectable[]): void {
+    const active = this.activeType();
+    const t = (active ? list.find((x) => x.typeKey === active && isOwn(x, this.player)) : undefined) ?? list[0];
+    const live = t !== undefined && t.kind !== 'node';
+    this.portraitKey = live ? t.key : null;
+    this.layout.portraitWindow.classList.toggle('live', live);
+    const icon = t && t.kind === 'node' ? goodIcon(RESOURCES.find((r) => r.name === t.resource)?.id ?? -1) : undefined;
+    const url = icon ? kitUrl(icon.file) : '';
+    this.layout.portraitIcon.hidden = url === '';
+    if (url && this.layout.portraitIcon.getAttribute('src') !== url) this.layout.portraitIcon.src = url;
+    const view = this.buttons.get('portrait-view');
+    if (view) {
+      view.redefine({
+        ...PORTRAIT_VIEW,
+        name: t ? t.label : 'Portrait',
+        description: t ? 'Click to centre the camera on it.' : 'Select something to see it here.',
+        onPress: () => {
+          if (t) this.centreOn([t]);
+        },
+      });
+      view.setEnabled(t !== undefined, '');
+    }
+  }
+
+  /** What the portrait draws this frame and where, or null (nothing selected, a resource node, the panel folded away on a phone). */
+  portraitSubject(): PortraitSubject | null {
+    if (!this.portraitKey || this.layout.portraitPanel.hidden) return null;
+    this.portraitRect ??= this.layout.portraitWindow.getBoundingClientRect();
+    return { key: this.portraitKey, rect: this.portraitRect };
   }
 
   private portraitClick(t: Selectable, p: ButtonPress): void {
@@ -1564,6 +1612,7 @@ export class GameShell {
 
   private refreshSelectionPanel(): void {
     const list = this.selection.list();
+    this.refreshPortrait(list);
     this.buttons.get('clear')?.el.classList.toggle('idle', list.length === 0);
     this.panel.render(list, this.activeType(), [
       `Left click or drag to select. Double click or ${CTRL_NAME} + click: all of that type on screen.`,
@@ -1619,6 +1668,7 @@ export class GameShell {
     if (rows !== Math.max(this.cardRows, g.rows)) {
       this.cardRows = rows;
       applyGeometry(this.layout, g, rows, this.folds);
+      this.portraitRect = null;
       this.panels.measure();
       this.ensureCardButtons();
     }
@@ -1649,6 +1699,9 @@ export class GameShell {
     this.input.refreshHover();
   }
 }
+
+/** The portrait's window is a button: its tooltip names what is shown, a click centres the camera on it. */
+const PORTRAIT_VIEW = { id: 'portrait-view', face: '', name: 'Portrait', keys: [], description: '', className: 'portrait-view' };
 
 function formatClock(seconds: number): string {
   const s = Math.floor(seconds);

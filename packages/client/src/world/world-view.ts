@@ -60,6 +60,7 @@ import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { UnitsView } from './units-view.ts';
+import { PortraitView } from './portrait-view.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
 
@@ -215,6 +216,8 @@ export class WorldView {
   private readonly units: Selectable[] = [];
   private models: ModelLibrary | null = null;
   private readonly unitsView: UnitsView;
+  /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
+  readonly portrait: PortraitView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -277,6 +280,7 @@ export class WorldView {
 
     this.unitsView = new UnitsView(scene);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
+    this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
@@ -299,6 +303,7 @@ export class WorldView {
     this.models = lib;
     this.unitsView.setModels(lib);
     this.buildings.setModels(lib);
+    this.portrait.setModels(lib);
   }
 
   // ---- From the sim worker ----

@@ -269,6 +269,24 @@ body.playing * {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #2a2016;
+}
+/* A unit or building is drawn on the canvas under the window (world/portrait-view.ts): let it through. */
+.portrait-window.live {
+  background: none;
+}
+.hud-btn.portrait-view {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.hud-btn.portrait-view.hover {
+  outline: 1px solid rgba(242, 210, 75, 0.45);
+  outline-offset: -1px;
 }
 .portrait-icon {
   width: 96px;

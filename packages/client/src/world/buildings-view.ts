@@ -49,7 +49,7 @@ export interface Ghost {
 }
 
 /** Catalogue model ids for a building, if the library has them; the field and its farmhouse are two models. */
-function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level'>): Array<{ id: string; dx: number; dz: number }> {
+export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level'>): Array<{ id: string; dx: number; dz: number }> {
   const s = buildingSpec(b.kind);
   const mid = { dx: (s.w * COLUMN_M) / 2, dz: (s.d * COLUMN_M) / 2 };
   switch (b.kind) {
