@@ -214,6 +214,19 @@ describe('wall chains', () => {
     expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 20, z: 20, dir: 0, length: 5, skip: 1, queued: true }]);
   });
 
+  it('takes a click where it was made, even before a frame has moved the ghost there', () => {
+    const { c, sent, asks } = harness(game({ pool: [[Res.SoftwoodLumber, 100]] }));
+    c.startPlacing(BuildingKind.Wall, 0);
+    c.updatePlacing(at(4, 4), 0);
+    answer(c, asks);
+    c.placeUp();
+    // The mouse moved east and clicked between frames: the press aims the chain there, it does not finish it on the anchor.
+    c.aimPlacing(at(9, 4));
+    c.placeUp();
+    expect(sent.at(-1)).toMatchObject({ kind: 'wallStretch', x: 4, z: 4, dir: 0, length: 5, skip: 1 });
+    expect(c.placing!.chain).toEqual({ x: 9, z: 4 });
+  });
+
   it('draws a straight stretch as one box and a diagonal as a box a step', () => {
     expect(stretchBoxes(0, 0, 0, 5, 2)).toEqual([[0, 0, 5, 1]]);
     expect(stretchBoxes(0, 0, 1, 2, 2)).toEqual([[0, 0, 0, 0], [0, 0, 1, 1], [1, 1, 2, 2]]);

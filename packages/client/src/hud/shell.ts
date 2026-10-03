@@ -1157,6 +1157,7 @@ export class GameShell {
             this.commands.areaDown(this.cam.pick(p));
           } else if (this.commands.placing) {
             this.leftConsumed = true;
+            this.commands.aimPlacing(this.cam.pick(p));
             this.commands.placeDown();
           } else if (this.commands.targeting) {
             this.leftConsumed = true;
@@ -1187,7 +1188,10 @@ export class GameShell {
           if (this.leftConsumed) {
             this.leftConsumed = false;
             if (this.commands.area) this.commands.areaUp();
-            else if (this.commands.placing) this.commands.placeUp();
+            else if (this.commands.placing) {
+              this.commands.aimPlacing(this.cam.pick(p));
+              this.commands.placeUp();
+            }
           } else this.selector.up(p, mods);
         } else if (button === Btn.Middle) {
           this.middleDrag = false;

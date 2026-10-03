@@ -1869,11 +1869,7 @@ export class Commands {
   updatePlacing(ground: THREE.Vector3 | null, now: number): Ghost | null {
     const p = this.placing;
     if (!p) return null;
-    const s = footprintDims(p.kind, p.variant);
-    if (ground) {
-      p.x = Math.round(ground.x / COLUMN_M - s.w / 2);
-      p.z = Math.round(ground.z / COLUMN_M - s.d / 2);
-    }
+    this.aimPlacing(ground);
     if (Number.isNaN(p.x)) return null;
     const corners = this.spotCorners();
     const sig = corners.map(([x, z]) => `${x},${z}`).join(';');
@@ -1895,6 +1891,15 @@ export class Commands {
     const n = p.spots.length;
     const cost = levelSpec(p.kind, 1).cost.map(([r, k]) => [r, k * n] as const);
     return { kind: p.kind, variant: p.variant, spots: p.spots, affordable: this.d.game.shortOf(cost) < 0 };
+  }
+
+  /** The footprint corner under a ground point; the shell calls it on each press and release too, so a click lands where it was made even when frames are slow. */
+  aimPlacing(ground: THREE.Vector3 | null): void {
+    const p = this.placing;
+    if (!p || !ground) return;
+    const s = footprintDims(p.kind, p.variant);
+    p.x = Math.round(ground.x / COLUMN_M - s.w / 2);
+    p.z = Math.round(ground.z / COLUMN_M - s.d / 2);
   }
 
   /** The sim's answer about placement tiles. */

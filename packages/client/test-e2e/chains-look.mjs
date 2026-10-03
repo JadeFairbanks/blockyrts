@@ -44,7 +44,8 @@ const ground = (x, z) => page.evaluate(([a, b]) => ({ x: (a + 0.5) * 0.45, y: wi
 const hover = async (p) => {
   const s = await screen(p);
   await page.mouse.move(s.x, s.y, { steps: 4 });
-  await page.waitForTimeout(250);
+  // Software rendering draws about 2 frames a second: give the label a frame or two.
+  await page.waitForTimeout(1100);
   return s;
 };
 const click = async (p) => {
