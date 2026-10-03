@@ -532,6 +532,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     world.setModels(lib);
     const loading = document.createElement('div');
     loading.className = 'overlay start-overlay';
+    loading.dataset.page = 'loading';
     loading.innerHTML = '<div class="dialog loading">Loading models…</div>';
     app.appendChild(loading);
     await Promise.race([lib.ready(START_MODELS), new Promise((resolve) => setTimeout(resolve, START_MODELS_WAIT_MS))]);

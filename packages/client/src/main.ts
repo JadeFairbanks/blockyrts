@@ -2,6 +2,7 @@
 // then the match (game/match.ts). Testers skip the menu with ?seed=N (and
 // &players=N for extra start pockets), which starts a game alone at once.
 import './hud/hud.css';
+import './ui/screens.css';
 import { runMatch, START_MODELS } from './game/match.ts';
 import { openModelLibrary, type ModelLibrary } from './models/index.ts';
 import { Api, joinCodeOf } from './net/api.ts';
