@@ -8,11 +8,12 @@ import { Band } from '../world/layout.ts';
 import { CHUNK_SHIFT, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import type { SimState } from '../state.ts';
-import { BuildingKind, buildingSpec, footprintDims, levelSpec } from './data.ts';
+import { BuildingKind, buildingSpec, levelSpec } from './data.ts';
+import { footprintDims } from './footprints.ts';
 import { Mat } from '../world/materials.ts';
 import { RESEARCH } from '../combat/items.ts';
 import type { Cost } from '../economy/resources.ts';
-import { footprintRect } from './store.ts';
+import { footprintRect, type Building } from './store.ts';
 
 /** Why a tile is red; 0 is green. */
 export const Blocked = {
@@ -41,40 +42,67 @@ export const LEVEL_TOLERANCE_UNITS = 4;
  */
 export function placementTiles(state: SimState, player: number, kind: number, x: number, z: number, variant = 0): Uint8Array {
   const spec = footprintDims(kind, variant);
-  const world = state.world;
   const out = new Uint8Array(spec.w * spec.d);
-  const floor = world.topAt(x + (spec.w >> 1), z + (spec.d >> 1));
-  // Props per chunk, looked up once.
-  const propCols = new Set<number>();
+  const floor = state.world.topAt(x + (spec.w >> 1), z + (spec.d >> 1));
   const [x0, z0, x1, z1] = footprintRect({ kind, x, z, variant });
+  const props = propColumns(state, x0, z0, x1, z1);
+  for (let dz = 0; dz < spec.d; dz++) {
+    for (let dx = 0; dx < spec.w; dx++) out[dz * spec.w + dx] = tileBlocked(state, x + dx, z + dz, floor, props.has(dz * spec.w + dx));
+  }
+  return out;
+}
+
+/** The columns of a rectangle (inclusive) with a plant or resource node on them, as (z - z0) x width + (x - x0). */
+function propColumns(state: SimState, x0: number, z0: number, x1: number, z1: number): Set<number> {
+  const out = new Set<number>();
+  const w = x1 - x0 + 1;
   for (let cz = z0 >> CHUNK_SHIFT; cz <= z1 >> CHUNK_SHIFT; cz++) {
     for (let cx = x0 >> CHUNK_SHIFT; cx <= x1 >> CHUNK_SHIFT; cx++) {
-      for (const p of world.props(cx, cz, state.step)) {
+      for (const p of state.world.props(cx, cz, state.step)) {
         // Seeds are trampled; saplings and anything grown block.
         if (p.stage === 0) continue;
         // Only props on the footprint: one beside it would otherwise land on a tile of the row before or after.
         const dx = (cx << CHUNK_SHIFT) + p.lx - x0;
         const dz = (cz << CHUNK_SHIFT) + p.lz - z0;
-        if (dx < 0 || dz < 0 || dx >= spec.w || dz >= spec.d) continue;
-        propCols.add(dz * spec.w + dx);
+        if (dx < 0 || dz < 0 || dx > x1 - x0 || dz > z1 - z0) continue;
+        out.add(dz * w + dx);
       }
     }
   }
-  for (let dz = 0; dz < spec.d; dz++) {
-    for (let dx = 0; dx < spec.w; dx++) {
-      const gx = x + dx;
-      const gz = z + dz;
-      let r: Blocked = Blocked.None;
-      const top = world.topAt(gx, gz);
-      if (!world.isExplored(floorDiv(gx, FOG_TILE_COLUMNS), floorDiv(gz, FOG_TILE_COLUMNS))) r = Blocked.Unexplored;
-      else if (state.buildings.footprintAt(gx, gz) !== 0) r = Blocked.Building;
-      else if (hasWater(world.waterAt(gx, gz), top)) r = Blocked.Water;
-      else if (top > floor + LEVEL_TOLERANCE_UNITS || top < floor - LEVEL_TOLERANCE_UNITS) r = Blocked.Steep;
-      else if (propCols.has(dz * spec.w + dx)) r = Blocked.Node;
-      out[dz * spec.w + dx] = r;
+  return out;
+}
+
+/** Why one column cannot be built on, for a building whose floor is at `floor` terrain units. */
+function tileBlocked(state: SimState, x: number, z: number, floor: number, prop: boolean): Blocked {
+  const world = state.world;
+  const top = world.topAt(x, z);
+  if (!world.isExplored(floorDiv(x, FOG_TILE_COLUMNS), floorDiv(z, FOG_TILE_COLUMNS))) return Blocked.Unexplored;
+  if (state.buildings.footprintAt(x, z) !== 0) return Blocked.Building;
+  if (hasWater(world.waterAt(x, z), top)) return Blocked.Water;
+  if (top > floor + LEVEL_TOLERANCE_UNITS || top < floor - LEVEL_TOLERANCE_UNITS) return Blocked.Steep;
+  if (prop) return Blocked.Node;
+  return Blocked.None;
+}
+
+/**
+ * Why an upgrade cannot take the land its bigger footprint needs (a
+ * kitchen's grows round it, Table 4), or None: the columns it adds are
+ * checked as a new building's would be, against the building's own floor.
+ */
+export function growthBlocked(state: SimState, b: Building, level: number): Blocked {
+  const [ox0, oz0, ox1, oz1] = footprintRect(b);
+  const [x0, z0, x1, z1] = footprintRect({ kind: b.kind, x: b.x, z: b.z, variant: b.variant, level });
+  if (x0 === ox0 && z0 === oz0 && x1 === ox1 && z1 === oz1) return Blocked.None;
+  const props = propColumns(state, x0, z0, x1, z1);
+  const w = x1 - x0 + 1;
+  for (let z = z0; z <= z1; z++) {
+    for (let x = x0; x <= x1; x++) {
+      if (x >= ox0 && x <= ox1 && z >= oz0 && z <= oz1) continue;
+      const r = tileBlocked(state, x, z, b.y, props.has((z - z0) * w + (x - x0)));
+      if (r !== Blocked.None) return r;
     }
   }
-  return out;
+  return Blocked.None;
 }
 
 /** The first red tile's reason, or None when every tile is green. */

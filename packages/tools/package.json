@@ -15,6 +15,7 @@
     "assets:manifest": "tsx src/assets-manifest.ts",
     "gen:tables": "tsx scripts/gen-number-tables.ts",
     "models:build": "tsx src/models/build-models.ts",
+    "footprints": "tsx src/models/footprints-cli.ts",
     "net:test": "tsx src/net/two-player.ts",
     "balance:apply": "tsx src/balance-apply.ts"
   },

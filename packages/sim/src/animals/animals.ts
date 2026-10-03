@@ -7,9 +7,9 @@
 // a farm or the Stables, graze round it by day, shelter in a pen and barn
 // or the Stables by night, breed there and can be slaughtered.
 
-import { BuildingKind, buildingName, footprintDims, OUTLYING_M } from '../buildings/data.ts';
+import { BuildingKind, buildingName, OUTLYING_M } from '../buildings/data.ts';
 import { buildingCentre, dist2, nearMainBase } from '../buildings/lights.ts';
-import type { Building } from '../buildings/store.ts';
+import { placedDims, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { RESOURCES, Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep } from '../economy/food.ts';
@@ -634,7 +634,7 @@ function goOutside(state: SimState, i: number): void {
   e.inside[i] = 0;
   if (!b) return;
   const [x, z] = buildingCentre(b);
-  const { d } = footprintDims(b.kind, b.variant);
+  const { d } = placedDims(b);
   e.x[i] = x;
   e.z[i] = z + ((d >> 1) + 2) * COLUMN;
   e.y[i] = standY(state, e.x[i]!, e.z[i]!);

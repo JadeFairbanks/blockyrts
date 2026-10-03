@@ -90,11 +90,9 @@ export interface BuildingSpec {
   menu: 'basic' | 'advanced';
   /** Table 4 "Menu slot", 1-based. */
   slot: number;
-  /** Footprint in 45 cm columns. */
+  /** Footprint in 45 cm columns at level 1; which columns are solid, and how it grows, is in footprints.ts. */
   w: number;
   d: number;
-  /** The solid part units cannot walk through, relative to the footprint; the rest is walkable but cannot be built on. */
-  solid: readonly [number, number, number, number];
   levels: readonly LevelSpec[];
   /** Which resources it accepts as a drop-off. */
   dropoff: 'all' | 'wood' | 'none';
@@ -119,7 +117,7 @@ export interface BuildingSpec {
   defence?: 'wall' | 'gate' | 'tower';
   /** Wooden (softwood or hardwood): chips of wood when hit, rats gnaw wooden gates. */
   wooden?: boolean;
-  /** Ranged units it takes in (Table 4: tower 4 slots; parapets 8 from main base level 3). */
+  /** Men it takes on its top (Table 4: tower 4 slots; parapets 8 from main base level 3), anyone on foot (units/top.ts). */
   slots?: number;
   /** Extra sight for the units inside, metres (towers +10 m). */
   sightBonusM?: number;
@@ -146,7 +144,7 @@ const fieldLevels = (first: string, cost1: Cost, supplies: readonly number[], fa
 const MAIN_BASE_GIVES = [
   'drop-off for everything, trains workers and tier 1 troops; shelters 8',
   'Barracks',
-  'parapets with 8 slots; Forge 2, Stables, Kiln, Workshop 2',
+  'parapets with room for 8 up top; Forge 2, Stables, Kiln, Workshop 2',
   'Magi Sanctum, Mineshaft 1, Scriptorium, Kitchen, farm tier 2',
   'Forge 3, Great Workshop, farm tier 3; the first marble level',
   'trains mages; Mineshaft 2, Great Kitchen',
@@ -165,8 +163,6 @@ const DEEP_MINING_2 = 7;
 const DEEP_MINING_3 = 12;
 const BRONZE = 2;
 
-const box = (w: number, d: number): readonly [number, number, number, number] => [0, 0, w, d];
-
 /** A wall column (Table 4): 1 x 1, 3 m tall (stone 3.6 m). */
 /** 360 as '3.6', 300 as '3'. */
 function metresText(cm: number): string {
@@ -178,7 +174,7 @@ function metresText(cm: number): string {
 function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightCm: number, wooden: boolean): SpecInput {
   return {
     kind, name, purpose: `A wall column ${metresText(heightCm)} m tall, placed a stretch at a time from point to point. Climbers go over it; breakers smash it.`,
-    menu: 'basic', slot: 10, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 10, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm, defence: 'wall', wooden,
     levels: [lvl(name, cost, ws, health)],
   };
@@ -188,20 +184,20 @@ function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: 
 function gate(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, wooden: boolean): SpecInput {
   return {
     kind, name, purpose: 'A gate 3 columns wide: your units walk through it, monsters must break it. Shut and lit by a torch, rats and spiders will not climb it.',
-    menu: 'basic', slot: 10, w: 3, d: 1, solid: box(3, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 10, w: 3, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm: 300, defence: 'gate', wooden, turns: true,
     variants: [`${name} (east to west)`, `${name} (north to south)`],
     levels: [lvl(name, cost, ws, health, { gives: 'stops rats and spiders climbing when lit by a torch' })],
   };
 }
 
-/** A tower (Table 4): 4 ranged slots and +10 m sight. */
+/** A tower (Table 4): 4 places on its top and +10 m sight. */
 function tower(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, wooden: boolean): SpecInput {
   return {
-    kind, name, purpose: 'Ranged warriors inside shoot from the top (E to enter, U to unload): 4 slots, +10 m sight.',
-    menu: 'basic', slot: 10, w: 3, d: 3, solid: box(3, 3), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    kind, name, purpose: 'Men sent up (E and click it, or right click it) stand on its top: archers shoot and mages cast from there, the rest strike only at flyers that swoop down. 4 places, +10 m sight; U lets them down.',
+    menu: 'basic', slot: 10, w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm: 500, defence: 'tower', wooden, slots: 4, sightBonusM: 10,
-    levels: [lvl(name, cost, ws, health, { gives: '4 ranged slots, +10 m sight' })],
+    levels: [lvl(name, cost, ws, health, { gives: '4 places up top, +10 m sight' })],
   };
 }
 
@@ -212,8 +208,8 @@ const withHeights = (specs: SpecInput[]): BuildingSpec[] => specs.map((sp) => ({
 
 export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
-    kind: BuildingKind.MainBase, name: 'Big House', purpose: 'The main base: drop-off for every resource, trains workers and tier 1 troops, shelters workers at night. Upgrades to level 10.',
-    menu: 'basic', slot: 1, w: 14, d: 14, solid: [2, 2, 10, 10], dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightCm: 600,
+    kind: BuildingKind.MainBase, name: 'Big House', purpose: 'The main base: drop-off for every resource, trains workers and tier 1 troops, shelters workers at night; from level 3 men go up on its parapets (E and click it). Upgrades to level 10.',
+    menu: 'basic', slot: 1, w: 14, d: 14, dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightCm: 600,
     levels: [
       // Supply 10, not Table 4's 8 (s): Jade's extra starting supply for the three starting warriors (Troops and gear: starting units).
       mainBase('Big House', [[S, 300], [ST, 150]], 1200, 1200, 10, 1),
@@ -230,19 +226,19 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.CropField, name: 'Crop field', purpose: 'Grows wheat, corn or flax (chosen when built) with assigned farmers. Gives supply, trains workers, shelters its farmers.',
-    menu: 'basic', slot: 2, w: 12, d: 12, solid: [0, 0, 4, 4], dropoff: 'none', trainsWorkers: true, live: true, comesWith: '', cropBands: true,
+    menu: 'basic', slot: 2, w: 12, d: 12, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '', cropBands: true,
     crops: [{ res: Res.Wheat, perDay: 6, name: 'Wheat field' }, { res: Res.Corn, perDay: 6, name: 'Corn field' }, { res: Res.Flax, perDay: 6, name: 'Flax field' }],
     levels: fieldLevels('Crop field', [[S, 30], [Res.Sticks, 10]], [4, 6, 8], [2, 3, 4], 150, '2 farmers'),
   },
   {
     kind: BuildingKind.VegetableFarm, name: 'Vegetable farm', purpose: 'Grows potatoes or carrots (chosen when built), in full on thin grass too. Gives supply, trains workers.',
-    menu: 'basic', slot: 2, w: 12, d: 12, solid: [0, 0, 4, 4], dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
+    menu: 'basic', slot: 2, w: 12, d: 12, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
     crops: [{ res: Res.Potatoes, perDay: 8, name: 'Potato farm' }, { res: Res.Carrots, perDay: 8, name: 'Carrot farm' }],
     levels: fieldLevels('Vegetable farm', [[S, 30], [Res.Sticks, 10]], [3, 5, 7], [2, 3, 4], 150, '2 farmers; full yield on thin grass'),
   },
   {
     kind: BuildingKind.HerbBed, name: 'Herb bed', purpose: 'Grows medicinal herbs with one farmer.',
-    menu: 'basic', slot: 2, w: 8, d: 8, solid: [0, 0, 3, 3], dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
+    menu: 'basic', slot: 2, w: 8, d: 8, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
     crops: [{ res: Res.Herbs, perDay: 4, name: 'Herb bed' }],
     levels: [
       lvl('Herb bed 1', [[S, 20], [Res.Herbs, 10]], 100, 300, { supply: 1, shelters: 4, workers: 1, gives: '1 farmer; herbs 4 a day' }),
@@ -252,7 +248,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.LivestockFarm, name: 'Livestock farm', purpose: 'A pen with a coop and trough for tamed animals (animals come with milestone 4). Gives supply, trains workers.',
-    menu: 'basic', slot: 2, w: 12, d: 12, solid: [0, 0, 4, 4], dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
+    menu: 'basic', slot: 2, w: 12, d: 12, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
     levels: [
       lvl('Livestock farm 1', [[S, 40], [Res.Sticks, 10]], 200, 400, { supply: 4, shelters: 4, workers: 1, gives: '6 animals, 1 worker, breeding, slaughter' }),
       lvl('Livestock farm 2', [[S, 20], [ST, 15]], 150, 600, { supply: 6, needsBase: 4, shelters: 4, workers: 1, gives: '10 animals' }),
@@ -261,12 +257,12 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.PenBarn, name: 'Pen and barn', purpose: 'Keeps livestock safe at night (animals come with milestone 4).',
-    menu: 'basic', slot: 3, w: 8, d: 8, solid: [0, 0, 4, 8], dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 3, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Pen and barn', [[S, 30]], 120, 500, { gives: 'shelters 8 animals at night, no breeding' })],
   },
   {
     kind: BuildingKind.LumberMill, name: 'Lumber mill', purpose: 'A drop-off for wood; turns lumber into planks with assigned workers.',
-    menu: 'basic', slot: 4, w: 8, d: 8, solid: box(8, 8), dropoff: 'wood', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 4, w: 8, d: 8, dropoff: 'wood', trainsWorkers: false, live: true, comesWith: '',
     levels: [
       lvl('Lumber mill', [[S, 40], [ST, 10]], 200, 600, { workers: 2, gives: 'wood drop-off, planks, 2 workers' }),
       lvl('Lumber mill with waterwheel', [[H, 40], [ST, 20]], 300, 600, { workers: 2, needs: '', gives: 'built on a stream; 2 planks from each lumber' }),
@@ -274,22 +270,22 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.Storehouse, name: 'Storehouse', purpose: 'A drop-off for every resource, for far-off gathering spots.',
-    menu: 'basic', slot: 5, w: 8, d: 8, solid: box(8, 8), dropoff: 'all', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 5, w: 8, d: 8, dropoff: 'all', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Storehouse', [[S, 40], [ST, 20]], 150, 600, { gives: 'drop-off for everything' })],
   },
   {
     kind: BuildingKind.FishingDock, name: 'Fishing dock', purpose: 'Workers fish faster and in deeper water, and shelter inside.',
-    menu: 'basic', slot: 6, w: 6, d: 4, solid: box(6, 4), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 6, w: 6, d: 4, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Fishing dock', [[S, 30], [Res.Rope, 5]], 150, 400, { shelters: 3, workers: 3, gives: '3 workers fish at net speed in any depth and shelter inside' })],
   },
   {
     kind: BuildingKind.Tannery, name: 'Tannery', purpose: 'Does all leather work with assigned workers: hides into leather, leather into hardened leather, and rope.',
-    menu: 'basic', slot: 7, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 7, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Tannery', [[S, 40], [ST, 20]], 200, 500, { workers: 2, gives: 'leather, hardened leather, rope' })],
   },
   {
     kind: BuildingKind.Cooking, name: 'Campfire', purpose: 'Cooks raw food into food with more nutrition, burning lumber or coal; the campfire is also a light (8 m). Upgrades to a Grand Kitchen.',
-    menu: 'basic', slot: 8, w: 2, d: 2, solid: box(2, 2), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 100,
+    menu: 'basic', slot: 8, w: 2, d: 2, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 100,
     light: { lightM: 8, claimM: 0, fuel: S, fuelSteps: DAY, outlyingHalves: 0 },
     levels: [
       lvl('Campfire', [[S, 5]], 10, 60, { gives: 'roast meat and fish; also a light' }),
@@ -301,7 +297,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.HerbalistHut, name: 'Herbalist hut', purpose: 'Turns herbs into bandages and remedies, and coats arrows and bolts with venom, with assigned workers.',
-    menu: 'basic', slot: 9, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 9, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Herbalist hut', [[S, 30], [Res.Herbs, 10]], 150, 400, { workers: 2, gives: 'bandages, remedies, poison arrows' })],
   },
   wall(BuildingKind.Wall, 'Softwood wall', [[S, 1]], 5, 300, 300, true),
@@ -309,18 +305,18 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   tower(BuildingKind.Tower, 'Softwood tower', [[S, 20]], 100, 800, true),
   {
     kind: BuildingKind.Earthworks, name: 'Earthworks', purpose: 'Earth banks, ramps and fill, heaped by workers from Earth in the pool: 1 Earth and 5 worker-seconds per column per 11 cm step. Lumber and stone ramps use ramp steps made at a workshop (5 and 8 worker-seconds a step). Drag to mark it.',
-    menu: 'basic', slot: 11, w: 1, d: 1, solid: box(0, 0), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightCm: 0,
+    menu: 'basic', slot: 11, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightCm: 0,
     variants: ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'],
     levels: [lvl('Earthworks', [[Res.Earth, 1]], 5, 1, { gives: 'built on the spot' })],
   },
   {
     kind: BuildingKind.Ramp, name: 'Lumber or stone ramp', purpose: 'Ramps made at a workshop and placed by workers: choose Lumber ramp or Stone ramp under Earthworks.',
-    menu: 'basic', slot: 11, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'Placed from Earthworks: choose Lumber ramp or Stone ramp there.', heightCm: 50, site: true,
+    menu: 'basic', slot: 11, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'Placed from Earthworks: choose Lumber ramp or Stone ramp there.', heightCm: 50, site: true,
     levels: [lvl('Lumber ramp', [[Res.LumberRamp, 1]], 5, 300, { gives: 'a ramp step of lumber' })],
   },
   {
     kind: BuildingKind.Workshop, name: 'Work Hut', purpose: 'Crushes stone into gravel, cuts hardwood into sticks, makes ramp steps, trinkets, carts and lanterns, with assigned workers.',
-    menu: 'basic', slot: 12, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 12, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [
       lvl('Work Hut', [[S, 40], [ST, 20]], 200, 600, { workers: 2, gives: 'gravel, sticks, ramps, Tokens' }),
       lvl('Workshop', [[H, 30], [ST, 20], [Res.BronzeIngot, 5]], 200, 900, { needsBase: 3, workers: 2, gives: 'Charms, hand carts' }),
@@ -330,31 +326,31 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light that claims the land 5 m around it while lit. Burns 1 softwood lumber every 3 days.',
-    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
+    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
     light: { lightM: 10, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 2 },
     levels: [lvl('Torch post', [[S, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
   },
   {
     kind: BuildingKind.WallTorch, name: 'Wall torch', purpose: 'A light in an iron bracket, placed against a wall; claims 5 m and falls with its wall.',
-    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
+    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
     light: { lightM: 6, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 1 },
     levels: [lvl('Wall torch', [[S, 1], [Res.Resin, 1]], 5, 30, { gives: 'light 6 m, claims 5 m' })],
   },
   {
     kind: BuildingKind.Brazier, name: 'Brazier', purpose: 'A bright light (14 m) that burns 1 coal a day. Claims no land.',
-    menu: 'basic', slot: 13, w: 2, d: 2, solid: box(2, 2), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
+    menu: 'basic', slot: 13, w: 2, d: 2, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
     light: { lightM: 14, claimM: 0, fuel: Res.Coal, fuelSteps: DAY, outlyingHalves: 2 },
     levels: [lvl('Brazier', [[ST, 10], [Res.BronzeIngot, 2]], 60, 150, { gives: 'light 14 m' })],
   },
   {
     kind: BuildingKind.Lantern, name: 'Lantern', purpose: 'A glass-and-iron lantern, made at a Great Workshop and hung by a worker. Burns 1 resin every 5 days.',
-    menu: 'basic', slot: 13, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     light: { lightM: 6, claimM: 0, fuel: Res.Resin, fuelSteps: 5 * DAY, outlyingHalves: 1 },
     levels: [lvl('Lantern', [[Res.Lantern, 1]], 5, 20, { gives: 'light 6 m' })],
   },
   {
     kind: BuildingKind.ScholarsLodge, name: "Scholar's Lodge", purpose: 'Research, one step at a time: pay the fee and it loads like training. Eats 2 food a day and uses 1 supply. Each further one costs more; at most 10.',
-    menu: 'advanced', slot: 1, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 1, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [
       lvl("Scholar's Lodge", [[S, 60], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' }),
       lvl('Scriptorium', [[H, 50], [ST, 50], [Res.Bricks, 20]], 450, 900, { needsBase: 4, gives: 'research 25% faster' }),
@@ -363,27 +359,27 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.MagiSanctum, name: 'Magi Sanctum', purpose: 'Trains support and battle mages and their ranks, upgrades their wands and robes, and researches Hexcraft.',
-    menu: 'advanced', slot: 2, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 2, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Magi Sanctum', [[H, 40], [ST, 60], [Res.Bricks, 20], [Res.ManaCrystal, 1]], 450, 1200, { needsBase: 4, gives: 'novices, mage ranks, wand and robe upgrades' })],
   },
   {
     kind: BuildingKind.Barracks, name: 'Barracks', purpose: 'Trains troops of every type and tier (close melee, long melee, ranger, brawler), trains them to Soldier and Veteran, and upgrades their gear.',
-    menu: 'advanced', slot: 3, w: 10, d: 10, solid: box(10, 10), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 3, w: 10, d: 10, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Barracks', [[S, 80], [ST, 40], [Res.Sticks, 20]], 400, 1000, { needsBase: 2, gives: 'troops of every type and tier, rank training' })],
   },
   {
     kind: BuildingKind.Stables, name: 'Stables', purpose: 'Workers tame wild horses and oxen once a Stables stands; it houses 6 in its stalls and breeds them, and trains cavalry on its tamed horses.',
-    menu: 'advanced', slot: 4, w: 10, d: 8, solid: box(10, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 4, w: 10, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Stables', [[S, 30], [ST, 10], [Res.Sticks, 5]], 150, 800, { needsBase: 3, gives: 'taming, 6 stalls, breeding, cavalry' })],
   },
   {
     kind: BuildingKind.GunneryYard, name: 'Gunnery yard', purpose: 'Trains warriors to crew cannons (after Cannons).',
-    menu: 'advanced', slot: 5, w: 12, d: 12, solid: box(12, 12), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 5, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Gunnery yard', [[H, 50], [ST, 75], [Res.Bricks, 30], [Res.SteelIngot, 10]], 600, 1500, { needsBase: 8, gives: 'cannon crew training' })],
   },
   {
     kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on flat stone. 4 assigned miners bring up stone, ore, coal, gold and gems from underground, kept at the shaft until workers or carts haul it away (right-click it with workers). Prospect first (T) to see how rich the spot is.',
-    menu: 'advanced', slot: 6, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 6, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [
       lvl('Mineshaft 1', [[H, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 4, workers: 4, research: DEEP_MINING_1, gives: '4 miners: stone and copper, tin, iron rock or coal' }),
       lvl('Mineshaft 2', [[H, 40], [ST, 50], [Res.WroughtIron, 15]], 450, 1200, { needsBase: 6, workers: 4, research: DEEP_MINING_2, gives: 'vein iron, coal, silver or gold, gems' }),
@@ -392,12 +388,12 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.Kiln, name: 'Kiln', purpose: 'Burns hardwood into charcoal and fires clay into bricks and sand into glass, with assigned workers.',
-    menu: 'advanced', slot: 7, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 7, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Kiln', [[S, 30], [ST, 40], [Res.Clay, 20]], 300, 600, { needsBase: 3, workers: 2, gives: 'charcoal, bricks, glass' })],
   },
   {
     kind: BuildingKind.Forge, name: 'Casting Hearth', purpose: 'Smelts ore into ingots with assigned workers; each level smelts a better metal. Troops and workers upgrade their gear beside it.',
-    menu: 'advanced', slot: 8, w: 8, d: 8, solid: box(8, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 8, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [
       lvl('Casting Hearth', [[S, 60], [ST, 40]], 300, 600, { workers: 2, gives: 'copper, tin, bronze' }),
       lvl('Bloomery', [[S, 30], [ST, 40], [Res.Clay, 10], [Res.BronzeIngot, 5]], 300, 900, { needsBase: 3, workers: 3, gives: 'wrought iron' }),
@@ -407,12 +403,12 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     kind: BuildingKind.PowderMill, name: 'Powder mill', purpose: 'Mixes saltpetre, sulphur and charcoal into gunpowder once Gunpowder is researched (which needs a Powder mill first).',
-    menu: 'advanced', slot: 9, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 9, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Powder mill', [[H, 20], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 5]], 300, 600, { needsBase: 7, gives: 'gunpowder' })],
   },
   {
     kind: BuildingKind.Foundry, name: 'Foundry', purpose: 'Casts bronze and iron cannons and cannonballs once Cannons is researched.',
-    menu: 'advanced', slot: 10, w: 10, d: 10, solid: box(10, 10), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    menu: 'advanced', slot: 10, w: 10, d: 10, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Foundry', [[H, 50], [ST, 75], [Res.Bricks, 50], [Res.BronzeIngot, 10], [Res.WroughtIron, 10]], 600, 1500, { needsBase: 8, gives: 'cannons, cannonballs' })],
   },
   wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 300, true),
@@ -427,14 +423,6 @@ export function buildingSpec(kind: number): BuildingSpec {
   const s = BUILDINGS[kind];
   if (!s) throw new Error(`unknown building kind ${kind}`);
   return s;
-}
-
-/** A building's footprint and solid part for a variant: a turned gate swaps its width and depth. */
-export function footprintDims(kind: number, variant: number): { w: number; d: number; solid: readonly [number, number, number, number] } {
-  const s = buildingSpec(kind);
-  if (!s.turns || variant !== 1) return s;
-  const [sx, sz, sw, sd] = s.solid;
-  return { w: s.d, d: s.w, solid: [sz, sx, sd, sw] };
 }
 
 export function levelSpec(kind: number, level: number): LevelSpec {
