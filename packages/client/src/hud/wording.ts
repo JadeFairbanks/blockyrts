@@ -69,7 +69,7 @@ export function count(n: number, singular: string, plural = pluralOf(singular)):
  * menu's answers), or when important and heard: one of the player's units
  * near, or the speaker on screen.
  */
-export function speechToPanel(ev: Pick<SimEvent, 'foreign' | 'urgent' | 'quiet' | 'player' | 'important' | 'near'>, player: number, onScreen: boolean): boolean {
+export function speechToPanel(ev: Partial<Pick<SimEvent, 'foreign' | 'urgent' | 'quiet' | 'player' | 'important' | 'near'>>, player: number, onScreen: boolean): boolean {
   if (ev.quiet) return false;
   if (!ev.foreign) return true;
   if (ev.player === player) return true;
