@@ -98,7 +98,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 5d423a09`. Run it again: the same hash. (The
+   prints `final step 10000 hash ee32a192`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -107,7 +107,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `2bef3041`
+   step as the headless runner with no script: for seed 1 that is `e3003f52`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -138,9 +138,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `2bef3041` at step 40, with two players `2cc48c2e`. The land matches too.
+   `e3003f52` at step 40, with two players `08353dc5`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 4d77e6b8`: two players dig trenches from a
+   prints `final step 10000 hash 9ef4731b`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -210,7 +210,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 902e3c72`: workers chop and quarry, the Big
+   prints `final step 10000 hash ddaa3bb2`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -280,7 +280,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash ca960742`: two workers raise a gate and a
+   prints `final step 10000 hash 959f9bf3`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -306,8 +306,9 @@ workers but not troops.*
    fishing rod crafted; stew cooked at a Great Kitchen; Rations on troops only
    starving the workers but not the warrior; Don't eat keeping eggs back;
    wild animals stocked round the camp; a wild horse tamed with 5 carrots and
-   stabled; a warrior hunting a deer and carrying the meat home; a carcass
-   left by a killed boar; a livestock farm breeding a calf and slaughtering
+   stabled; a warrior hunting a deer and carrying the meat home; a killed
+   boar's meat and hide lying as loot (no carcass since Jade's play-test
+   notes); a livestock farm breeding a calf and slaughtering
    for meat; a prospect report, a tier 2 mineshaft bringing up vein iron and a
    worker with an ox cart and a tamed ox hauling it to the Big House; and a
    save taken with animals about carrying on to the same hash. The climb from
@@ -338,13 +339,13 @@ workers but not troops.*
    F walks to the nearest main base, storehouse or cooking building to eat
    and heal (2 food for half its health over 10 s, plus medicine if badly
    hurt).
-6. **Hunting.** Select a warrior and press N, then click a deer: it chases
-   and wears the deer down (a wounded animal tires), then butchers the
-   carcass and carries the meat home. Press N twice to keep hunting: it takes
-   the nearest game within 40 m of where it started, finishes wounded animals
-   first and walks home at dusk. Workers selected with it follow and haul the
-   carcasses. Boar fight back; wolves hunt in packs; bears are never game
-   unless clicked.
+6. **Hunting.** Right-click a deer with a warrior: it chases and wears the
+   deer down (a wounded animal tires), takes the meat into its bag and hands
+   it in at the main base. Press N (Hunt) and it keeps hunting by itself and
+   comes home by nightfall (Jade's play-test notes changed both; see "How a
+   tester checks loot, Hunt and Gather" below). Workers selected with it
+   follow and carry the meat. Boar fight back; wolves hunt in packs; bears
+   are never game unless clicked.
 7. **Animals.** Right click a wild animal with workers to tame it (a horse
    wants 5 carrots and a Stables with room; Table 3 lists the rest). Tamed
    cattle and chickens live at a Livestock farm, breed when a pair is home,
@@ -360,7 +361,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 19575f09`: two workers pick flint while two
+   prints `final step 10000 hash 717c0472`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -384,7 +385,7 @@ dawn.*
    40 m or more beyond claimed land, with its guardian, and Table 8's cadence
    and cap after it; a fifth of the night coming out of a lair's mouth 20 s
    after nightfall; a barrow attacked by day waking its sleepers, and when
-   broken leaving a ruin, a hoard in the pool and 20 XP for the warriors near
+   broken leaving a ruin, a hoard as loot and 20 XP for the warriors near
    it; a blood night on night 13 once the Heartland is held, and one more
    when 60% of the Fringe is held, each with the warning and the double horn,
    twice as long and with the extra budget on the rarer kinds; fog halving
@@ -415,7 +416,8 @@ dawn.*
    Its guardians stand round it and its sleepers wait inside; each night a
    fifth of your wave comes out of it 20 s after nightfall. Attack it by day:
    "The barrow is stirring" means the sleepers are out. When it falls you
-   read "The barrow is cleared. Its hoard: …", the hoard goes into your pool,
+   read "The barrow is cleared. Its hoard: …", the hoard is loot your
+   warriors carry home (or pick up where it lies),
    warriors within 20 m earn 20 XP, and its ruin stays; no lair comes within
    30 m of a ruin for 10 days.
 4. **Blood and fog nights.** From night 13, when your side holds 60% of a
@@ -462,7 +464,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 761676b7`: the debug tools put a Barracks
+   prints `final step 10000 hash e98832ef`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -615,7 +617,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 6ffbcd3f`: the debug tools put a Magi
+   prints `final step 10000 hash ec9669d8`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -728,7 +730,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash cd2f7096`: the debug tools put a Halfling
+    prints `final step 10000 hash c922062b`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -843,7 +845,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 51915831`: the debug tools make the Big
+   prints `final step 10000 hash 12781363`: the debug tools make the Big
    House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
    village 80 m north and a troop kit to the south-east; the Big House
    trains a long-melee spearman and the Stables a bronze cavalry rider, who
@@ -1022,7 +1024,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 51915831`, as in milestone 8 above.
+   prints `final step 10000 hash 12781363`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1154,7 +1156,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash 6d357b86`: the four workers are given a
+   prints `final step 10000 hash 00ab3a59`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1162,7 +1164,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash e42ed368`: the debug tools heap a soil hill
+   prints `final step 10000 hash bc14b939`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1245,6 +1247,83 @@ format did not, and a save's fields start their bars afresh.
    plurals). The balance editor's Food group has **Farm harvest** (440 s):
    the bar's length in one farmer's work; a shorter bar brings in less each
    time at the same yield a day.
+
+## How a tester checks loot, Hunt and Gather
+
+Jade's patch notes 1: hunting, loot and gathering. A kill drops loot instead
+of a carcass, units carry it in a bag and hand it in, and Hunt and Gather
+each start with one press and bring everyone home by nightfall. The sim
+changed: every unit's bag and the loot on the ground are in the hash, so every
+hash above moved (they are updated). Saves from before load with empty bags
+and nothing on the ground; a carcass in an old save is still gathered as
+before. Run `pnpm dev` and open http://localhost:5173/?seed=1.
+
+1. **Loot from prey.** Select a warrior and right-click a deer. It chases the
+   deer down and kills it: no carcass is left, the meat and hides go into its
+   bag ("Got a deer: 4 meat and 2 hides." in its bubble), and its panel shows
+   a "Loot:" line. When it is idle again, in the day, it walks the bag to the
+   main base, hands it in (the meat lands in the inventory grid) and walks
+   back to where it stood.
+2. **Loot on the ground.** Kill something with a ranger from afar, or with a
+   unit whose bag is full (25 lb, a worker's load counting against it): the
+   loot falls where the animal fell, as the good's icon bobbing on the ground
+   (hover it for what and how much). Right-click it with units: the nearest
+   with room walk over and pick it up, as many as it takes to carry it all.
+   Right-click it with only a cannon selected: the message says an engine
+   needs its crew to pick loot up.
+3. **Picking up by themselves.** Idle units pick up their own side's loot
+   within 15 m (40 m for the unit that made the kill, so a ranger goes back
+   for what it shot), but only when the fighting is done and no enemy is
+   within 15 m of them or of the loot. Units with orders finish them first.
+   At dusk and at night they only pick up what lies within 5 m, and they hand
+   bags in only at dawn and in the day. Fight a night: the monsters' drops lie
+   where they fell, and at dawn the units nearby fetch them and carry them
+   home. Loot left lying rots after 3 days and nights.
+4. **Talk.** Now and then a unit says what it picked up ("Picked up 2 bones."),
+   in a bubble only; it never says "1 bones". A rare or valuable find is
+   always remarked on with an exclamation ("A ruby and 4 gold from Morvath!"),
+   also as a bubble: the message panel only gets lines that need you, such as
+   "I cannot reach that."
+5. **Hunt.** Select warriors (and workers to carry the meat) and press **Hunt**
+   (N) once. They say what they are doing ("Spotted a deer.", "Taking the meat
+   home.", "No game in sight. Looking farther out.") and what they got, hunt
+   hares, deer and wild birds their side can see, and take the meat home when
+   their bags are half full. They never go farther than they could walk back
+   from in dusk's 40 s (about 100 m from the Big House at a warrior's 3 m/s):
+   at dusk they say "Getting dark. Heading home." and are within 4 m of the
+   main base by nightfall, and at daybreak they go out again. Wild boar, giant
+   crabs, bears and creatures that guard their ground are left alone: a
+   right-click on one hunts it, and only it.
+6. **Gather.** Select workers and press **Gather** (G) once: no click on a
+   node is needed (a right-click on a node still gathers that one). They fetch
+   the basic materials the camp can use, most of what the stock is shortest
+   of, the nearest first, choosing again after each load: softwood, hardwood,
+   sticks, stone and flint at first; clay, sand and coal from main base level
+   3; copper and tin ore once a forge stands; marble from level 4. They only
+   go for what their side has seen; with nothing of use in sight they walk to
+   the edge of the explored land, nearest the base first and sweeping round,
+   no more than 25 m into the dark. At dusk they drop off their loads, say
+   so ("Getting dark. Back to the base."), and go into the main base for the
+   night; at daybreak they go out again.
+7. **Running out.** Right-click a small flint rock with a worker and let it
+   run out with no flint near: the worker says what it gathers instead, and
+   why (for example "No more flint here, and we're out of stone. I'll fetch
+   stone, though there's softwood closer."), and goes for it, but only to a
+   node its side has seen.
+8. **Guarding workers.** Let a wolf or a night monster go for a worker with an
+   idle warrior within 20 m: the warrior calls out ("Leave our worker
+   alone!") and goes for it, then walks back.
+9. Unit tests: `packages/sim/test/loot.test.ts` (who takes a kill's loot, the
+   ground, idle pick-up and hand-in, the 5 m rule at dusk, the cannon, three
+   pickers for 30 meat, what units say, Hunt's reach and its dusk return and
+   morning start, a right-clicked hare, Gather's dusk shelter and morning
+   start, the 25 m into the dark, the guards, a save round trip) and the
+   loot steps in `m2.test.ts`, `m4.test.ts` and `m5.test.ts`;
+   `packages/client/test/m3-controls.test.ts` ("Hunt, Gather and loot": one
+   press each, the right-click on loot, Return with loot in the bag). The
+   balance editor's new **Loot, hunting and gathering** group holds the bag,
+   the distances, the talk rules, Gather's goods by stage and the guards'
+   reach.
 
 ## How a tester checks the balance editor
 
