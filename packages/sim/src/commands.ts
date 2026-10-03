@@ -514,9 +514,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
           alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
           break;
         }
-        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]! }, o.queued === true);
+        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]!, k: 0, kx: 0, kz: 0 }, o.queued === true);
         // Workers in the same selection follow and haul the carcasses, shared out between the hunters.
-        units.filter((i) => e.kind[i] === UnitKind.Worker).forEach((i, k) => giveOrder(state, i, { t: 'hunt', id: e.id[hunters[k % hunters.length]!]!, auto: 0, x: 0, z: 0 }, o.queued === true));
+        units.filter((i) => e.kind[i] === UnitKind.Worker).forEach((i, k) => giveOrder(state, i, { t: 'hunt', id: e.id[hunters[k % hunters.length]!]!, auto: 0, x: 0, z: 0, k: 0, kx: 0, kz: 0 }, o.queued === true));
         break;
       }
       case 'tame': {

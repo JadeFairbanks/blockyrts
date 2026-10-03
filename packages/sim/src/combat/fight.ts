@@ -359,6 +359,10 @@ export function fightStep(state: SimState, i: number): boolean {
       return false;
     }
     e.target[i] = o.id;
+    // Where the quarry is, so the hunter finds the carcass even when it shot it from afar.
+    o.k = 1;
+    o.kx = e.x[t]!;
+    o.kz = e.z[t]!;
     engage(state, i, t, true);
     return true;
   }

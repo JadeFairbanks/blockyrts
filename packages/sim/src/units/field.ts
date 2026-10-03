@@ -158,7 +158,7 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
       resetWalk(state, i);
       return CONTINUE;
     }
-    const meat = carcassNear(state, e.x[h]!, e.z[h]!) ?? carcassNear(state, e.x[i]!, e.z[i]!);
+    const meat = carcassNear(state, e.x[h]!, e.z[h]!) ?? carcassNear(state, e.x[i]!, e.z[i]!) ?? lastKill(state, h);
     if (meat) return butcher(state, i, meat);
     if (length2d(e.x[h]! - e.x[i]!, e.z[h]! - e.z[i]!) <= HAULER_FOLLOW_WU) {
       resetWalk(state, i);
@@ -180,8 +180,9 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
   if (o.id !== 0 && t >= 0 && e.kind[t] === UnitKind.Animal && e.hp[t]! <= 0) return CONTINUE;
   if (o.id !== 0) {
     o.id = 0;
-    // What it killed: carry what it can home, unless workers came along to haul it.
-    const meat = carcassNear(state, e.x[i]!, e.z[i]!);
+    // What it killed: carry what it can home, unless workers came along to haul it. A ranger may have
+    // shot it from well away, so it also looks where the quarry was last seen (the fight layer keeps that).
+    const meat = carcassNear(state, e.x[i]!, e.z[i]!) ?? (o.k ? carcassNear(state, o.kx, o.kz) : null);
     if (meat && !haulersWith(state, i)) return butcher(state, i, meat);
   }
   if (e.carryAmt[i]! > 0) {
@@ -202,6 +203,12 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
   o.id = e.id[next]!;
   resetWalk(state, i);
   return CONTINUE;
+}
+
+/** The carcass where a hunter's last kill fell, for its haulers (rangers kill from afar). */
+function lastKill(state: SimState, h: number): { cx: number; cz: number; i: number } | null {
+  const o = state.entities.queue[h]![0];
+  return o && o.t === 'hunt' && o.k ? carcassNear(state, o.kx, o.kz) : null;
 }
 
 /** Whether workers are hauling for this hunter. */

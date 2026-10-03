@@ -58,9 +58,10 @@ export type UnitOrder =
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
    * 40 m leash of (x, z) wu, carries what it can home and repeats. A worker
-   * follows the hunter `id` and hauls the carcasses. Ends at dusk.
+   * follows the hunter `id` and hauls the carcasses. (kx, kz) wu is where its
+   * quarry was last seen when k is 1. Ends at dusk.
    */
-  | { t: 'hunt'; id: number; auto: number; x: number; z: number }
+  | { t: 'hunt'; id: number; auto: number; x: number; z: number; k: number; kx: number; kz: number }
   /** Tame a wild animal: stand by it with its food until it trusts the worker (Animals; Table 14). */
   | { t: 'tame'; id: number }
   /** Eat (and take medicine) at the nearest building that keeps food (Food and medicine), or at building b. */
@@ -106,7 +107,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   cart: ['b', 'res'],
   dig: ['site'],
   skill: ['b', 'skill'],
-  hunt: ['id', 'auto', 'x', 'z'],
+  hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],
   hitch: ['id'],
