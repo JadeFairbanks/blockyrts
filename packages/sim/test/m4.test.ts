@@ -4,6 +4,7 @@ import {
   addWarrior,
   applyKit,
   Blocked,
+  DAY_STEPS,
   BuildingKind,
   createWorld,
   CHUNK_SHIFT,
@@ -302,6 +303,32 @@ describe('animals', () => {
     run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
     run(s, 1, [{ kind: 'hunt', player: 0, units: [e.id[a]!], target: e.id[deer]!, auto: 0 }]);
     runUntil(s, () => s.players[0]!.pool[Res.Meat]! > meat, 6000);
+  });
+
+  it('a warrior that butchers a cow by a rock walks round it and hands the meat in at the Big House', () => {
+    // Seed 1: the cow runs north-east and falls with a raised column just north of where the warrior
+    // kneels at the edge of its column. The straight line home clipped that corner, so the warrior
+    // stood there with the meat until dusk and never handed it in (Jade, 2026-10-03).
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const base = bigHouse(s);
+    const wx = base.x * WU_PER_COLUMN - 4 * WU_PER_METRE;
+    const wz = base.z * WU_PER_COLUMN;
+    const a = 4;
+    expect(e.troop[a]).toBe(Troop.Close);
+    const cow = addAnimal(s, Species.Cattle, WILD, wx + 15 * WU_PER_METRE, wz + 6 * WU_PER_METRE, 0, 0);
+    const meat = s.players[0]!.pool[Res.Meat]!;
+    run(s, 1, [{ kind: 'hunt', player: 0, units: [e.id[a]!], target: e.id[cow]!, auto: 0 }]);
+    // Kept back from meals so the haul shows in the pool.
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
+    runUntil(s, () => e.carryAmt[a]! > 0, 3000);
+    const load = e.carryAmt[a]!;
+    // Home with the whole load well before dusk, and the hunt is over.
+    runUntil(s, () => e.carryAmt[a] === 0, 1500);
+    expect(s.players[0]!.pool[Res.Meat]).toBe(meat + load);
+    expect(s.step).toBeLessThan(DAY_STEPS);
+    run(s, 20);
+    expect(e.queue[a]).toEqual([]);
   });
 
   it('a killed animal leaves a carcass that workers butcher for meat and hides', () => {
