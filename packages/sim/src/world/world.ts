@@ -36,7 +36,11 @@ const WATER_BUDGET = 8192;
 
 /** A change to a generated or planted prop. */
 export interface PropChange {
-  /** What it holds now. */
+  /**
+   * What it holds now. For a plant still growing, what it would hold when
+   * grown less everything taken from it, so a part-taken young plant keeps
+   * growing; 0 with cutAt set is a plant picked bare, nothing taken since.
+   */
   amount: number;
   /** Step it was cut down to the stump or picked bare, from which it regrows; -1 if not. */
   cutAt: number;
@@ -466,9 +470,9 @@ export class World {
         stage = g.stage;
         size = g.size;
         next = g.next;
-        // It holds its stage's share of its yield, less what was taken from it since it was cut (an amount of 0 while regrowing is a stump picked bare).
-        const holds = floorDiv(r.amount * g.yieldPm, 1000);
-        amount = ch && (tree || ch.amount > 0) ? Math.min(ch.amount, holds) : holds;
+        // It holds its stage's share of its yield, less what was taken from it since it was picked bare (an amount of 0 while regrowing: nothing taken yet).
+        const taken = ch && (tree || ch.amount > 0) ? r.amount - ch.amount : 0;
+        amount = Math.max(0, floorDiv(r.amount * g.yieldPm, 1000) - taken);
       }
     }
     return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, most: r.amount, stage, size, next };
@@ -496,9 +500,12 @@ export class World {
       return taken;
     }
     if (left > 0) {
-      // A bush still growing back keeps growing from when it was picked bare.
-      const since = isTree(r.kind) ? -1 : (this.propChanges.get(chunkKey(cx, cz))?.get(index)?.cutAt ?? -1);
-      this.changeProp(cx, cz, index, { amount: left, cutAt: since, removed: false });
+      // Stored as what it would hold when grown, less what has been taken (PropChange), so a plant part-taken
+      // while still growing grows on; a bush growing back keeps growing from when it was picked bare.
+      const ch = this.propChanges.get(chunkKey(cx, cz))?.get(index);
+      const untaken = ch && !(ch.amount === 0 && ch.cutAt >= 0) ? ch.amount : r.amount;
+      const since = isTree(r.kind) ? -1 : (ch?.cutAt ?? -1);
+      this.changeProp(cx, cz, index, { amount: untaken - taken, cutAt: since, removed: false });
       return taken;
     }
     if (isTree(r.kind)) {

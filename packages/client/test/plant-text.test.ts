@@ -22,6 +22,8 @@ describe('what the panel says about growing plants', () => {
     expect(propLabel(PropKind.DeadTree, Stage.Grown, 0)).toBe('Dead tree (no lumber)');
     const young = propDetails(PropKind.Pine, Stage.Young, 7, 20, 30);
     expect(young).toContain('Still growing: 7 of the 20 softwood lumber it holds when grown.');
+    // Part-chopped young: 2 of its 7 left, so 15 when grown.
+    expect(propDetails(PropKind.Pine, Stage.Young, 2, 20, 30)).toContain('Still growing: 2 of the 15 softwood lumber it holds when grown.');
     expect(young).toContain('Grows into a half-grown pine in under a minute.');
     expect(young.some((l) => l.startsWith('Buildings can go over'))).toBe(false);
     expect(propDetails(PropKind.Pine, Stage.Grown, 20, 20, -1).some((l) => l.startsWith('Grows'))).toBe(false);

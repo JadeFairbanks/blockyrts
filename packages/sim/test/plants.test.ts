@@ -112,13 +112,15 @@ describe('a hazel bush picked bare', () => {
     const h = findProp(w, PropKind.Hazel);
     w.harvest(h.cx, h.cz, h.i, 100, 0);
     const young = Math.ceil(2 * CYCLE_STEPS * 0.3);
-    // Part of a young bush: one stick taken, two left, and it keeps growing from when it was picked bare.
+    // Part of a young bush: one stick taken, two left, and it keeps growing from when it was picked bare,
+    // to its full 10 less the one taken.
     expect(w.harvest(h.cx, h.cz, h.i, 1, young)).toBe(1);
     expect(viewAt(w, h, young)!.amount).toBe(2);
+    expect(viewAt(w, h, Math.ceil(2 * CYCLE_STEPS * 0.65))!.amount).toBe(5);
     expect(viewAt(w, h, 2 * CYCLE_STEPS)!.stage).toBe(Stage.Grown);
-    expect(viewAt(w, h, 2 * CYCLE_STEPS)!.amount).toBe(2);
+    expect(viewAt(w, h, 2 * CYCLE_STEPS)!.amount).toBe(9);
     // Picked bare again: a sapling once more.
-    expect(w.harvest(h.cx, h.cz, h.i, 100, 2 * CYCLE_STEPS)).toBe(2);
+    expect(w.harvest(h.cx, h.cz, h.i, 100, 2 * CYCLE_STEPS)).toBe(9);
     expect(viewAt(w, h, 2 * CYCLE_STEPS + 1)!.stage).toBe(Stage.Sapling);
   });
 });
@@ -143,11 +145,16 @@ describe('young trees', () => {
     expect([...w.addedProps.values()].flat().length - before).toBeGreaterThanOrEqual(1);
   });
 
-  it('a part-chopped young tree holds only what is left as it grows', () => {
+  it('a part-chopped young tree grows on, to its full yield less what was taken', () => {
     const w = new World(1, 2);
     const at = w.addProp(3, -100, PropKind.Spruce, 777, PROPS[PropKind.Spruce]!.yield, 0);
     expect(w.harvest(at.cx, at.cz, at.i, 5, 25 * MINUTE)).toBe(5);
-    expect(w.prop(at.cx, at.cz, at.i, 70 * MINUTE)!.amount).toBe(2);
+    expect(w.prop(at.cx, at.cz, at.i, 25 * MINUTE)!.amount).toBe(2);
+    expect(w.prop(at.cx, at.cz, at.i, 45 * MINUTE)!.amount).toBe(8);
+    expect(w.prop(at.cx, at.cz, at.i, 70 * MINUTE)!.amount).toBe(15);
+    // A grown tree part-chopped holds what is left, as before.
+    expect(w.harvest(at.cx, at.cz, at.i, 5, 70 * MINUTE)).toBe(5);
+    expect(w.prop(at.cx, at.cz, at.i, 80 * MINUTE)!.amount).toBe(10);
   });
 });
 

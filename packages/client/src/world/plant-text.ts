@@ -35,10 +35,12 @@ export function propDetails(kind: number, stage: number, amount: number, most: n
   }
   const stages = growthStages(kind);
   if (!stages || stage === Stage.Grown) return lines;
-  if (info.resource) {
-    lines.push(amount > 0 ? `Still growing: ${amount} of the ${most} ${info.resource} it holds when grown.` : `Holds nothing to gather yet: it grows ${info.resource} once it is bigger.`);
-  }
   const k = stages.findIndex((g) => g.stage === stage);
+  if (info.resource) {
+    // What it holds when grown: its full yield less what has been taken from it (the sim keeps a part-taken plant growing).
+    const taken = Math.max(0, Math.floor((most * (stages[k]?.yieldPm ?? 1000)) / 1000) - amount);
+    lines.push(amount > 0 ? `Still growing: ${amount} of the ${most - taken} ${info.resource} it holds when grown.` : `Holds nothing to gather yet: it grows ${info.resource} once it is bigger.`);
+  }
   const next = k >= 0 ? stages[k + 1] : undefined;
   if (next && stepsToNext > 0) lines.push(`Grows into ${article(stageName(kind, next.stage))} in ${minutesText(stepsToNext)}.`);
   if (canBuildOver(kind, stage)) lines.push(stage === Stage.Seed ? 'Buildings can go over it: it is trampled.' : 'Buildings can go over it: the builder pulls it up first.');
