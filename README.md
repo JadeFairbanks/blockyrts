@@ -207,7 +207,8 @@ out.* (The warrior joins in milestone 3.)
    (\`, left of 1) + a number saves a control group, the number selects it,
    twice centres on it, and the tabs above the selection panel do the same
    with the mouse. Tab cycles subgroups in a mixed selection; Backspace
-   centres on the Big House; Space jumps to the latest alert. Every hotkey
+   centres on the Big House; F4 jumps to the latest alert (Space until patch
+   notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
    prints `final step 10000 hash 902e3c72`: workers chop and quarry, the Big
@@ -720,8 +721,8 @@ updated and still play out as they say).
    comes in. Urgent messages (attacks, war, deaths, idle workers, nightfall)
    are highlighted and
    ping the minimap; clicking any message with a place jumps the camera to
-   it, or to the unit that said it; **Space** jumps to the latest urgent
-   message and again steps back through the last 8. Another people's line
+   it, or to the unit that said it; **F4** (Space until patch notes 1) jumps
+   to the latest urgent message and again steps back through the last 8. Another people's line
    reaches the panel when it is said to you, or when it matters and you can
    see the speaker. Chat with other players came with milestone 9; playing
    alone the chat line says there is nobody to chat with.
@@ -897,7 +898,8 @@ flag are in the hash, and production queues record who paid).
    **\** (or Ping) then a left click on the view or the minimap flashes the
    spot for both players.
 5. **Pause and a missing player.** The Pause key (or ❚❚) pauses both, with a
-   banner naming who paused; again carries on. Close the guest's window: the
+   banner naming who paused; again carries on (patch notes 1 changed this:
+   see "How a tester checks pause, the menu and Space"). Close the guest's window: the
    host sees "Waiting for" the guest, and after 30 s chooses Wait, Carry on
    without them, or Save and quit. Reopening the invite link (or refreshing
    the page during the match) rejoins the same seat.
@@ -1207,6 +1209,44 @@ Client only: the sim, the server and every hash are unchanged.
    in the catalogue for every good, scrolling, counts, the wheel, the change
    over a minute). `node packages/client/test-e2e/hud-check.mjs` checks the
    grid in a browser.
+
+## How a tester checks pause, the menu and Space
+
+Jade's patch notes 1. The sim and every hash are unchanged: pausing only
+stops the steps, and the lockstep frames decide the game. The relay protocol
+is now version 4 (a pause carries who pressed it), so a page from before
+this change is asked to reload when it joins.
+
+1. **Alone.** `pnpm dev`, open http://localhost:5173/?seed=1. Press F10: the
+   menu says the game is paused while it is open, the step count in the
+   debug readout stops, and there is no Pause or Resume button, only the ✕ in
+   the corner. F10, Esc or the ✕ closes it and the game carries on. The
+   Pause key and the ❚❚ button top right open the same menu.
+2. **Online.** Two players as in milestone 9 step 3. Opening F10 stops
+   nothing; the menu has one Pause button. Either player presses it (or the
+   Pause key, or ❚❚): the game stops for both, both menus open with the
+   button reading Resume, and both see "NAME paused the game." in the
+   message panel, in the menu and on the banner. The other player presses
+   Resume: both menus close and both see "NAME resumed the game." A player
+   who closed their menu while paused still has Resume on the banner. Close
+   the window of the player who paused: their pause stays (the other may
+   lift it with Resume), and the game waits for them as before.
+3. **No remarks while paused.** Watch your units with the menu open alone,
+   or paused online: nobody makes a random remark, and the next one comes
+   at its usual gap after you carry on.
+4. **Space.** Select some units or a building, pan away, press Space: the
+   camera centres on the selection. With nothing selected the message panel
+   says so. The latest urgent message moved from Space to F4; both can be
+   rebound in F10 > Settings > Hotkeys.
+5. `pnpm test` runs `packages/server/test/room.test.ts` (any player pauses,
+   any player resumes, each press told to everyone with who pressed it, a
+   second Pause ignored, a pause kept while its player is away),
+   `packages/protocol/test/protocol.test.ts` and
+   `packages/client/test/pause-controls.test.ts` (the keys, and no remark
+   while paused). `pnpm --filter @blockyrts/tools net:test` has the host
+   pause and the guest resume. In a browser:
+   `node packages/client/test-e2e/hud-check.mjs` (the menu alone, ❚❚, Space)
+   and `node packages/client/test-e2e/m9-online.mjs` (both players' menus).
 
 ## How a tester checks farm harvests
 

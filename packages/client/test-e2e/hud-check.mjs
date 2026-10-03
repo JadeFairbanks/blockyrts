@@ -341,20 +341,53 @@ check('a slot names its good', (await text('#tooltip')).includes('in the pool'),
 check('nothing to scroll yet', (await page.getAttribute('[data-btn=inv-down]', 'class')).includes('disabled'));
 await shot('resources');
 
-// 13. Menu.
+// 13. Space centres the camera on the selection (patch notes 1).
+await page.evaluate(() => {
+  const u = [...window.shell.world.selectables.candidates()].find((t) => t.key.startsWith('e:') && t.owner === 0);
+  window.shell.selection.set([u]);
+  window.shell.cam.jumpTo(u.centre.x + 60, u.centre.z + 45);
+});
+await page.waitForTimeout(200);
+await page.keyboard.press('Space');
+await page.waitForTimeout(100);
+const centred = await page.evaluate(() => {
+  const u = window.shell.selection.list()[0];
+  return { dx: window.shell.cam.focus.x - u.centre.x, dz: window.shell.cam.focus.z - u.centre.z };
+});
+check('Space centres the camera on the selection', Math.hypot(centred.dx, centred.dz) < 3, `${centred.dx.toFixed(1)}, ${centred.dz.toFixed(1)} m off`);
+await page.keyboard.press('F3');
+await goHome();
+
+// 14. Menu. Alone it is the pause: no Pause or Resume button, the game waits while it is open (patch notes 1).
+const simStep = () => page.evaluate(() => Number(window.shell.layout.debugFields.step.textContent));
 await page.keyboard.press('F10');
 check('F10 opens the menu', await page.locator('.menu').isVisible());
 check('real cursor in the menu', !(await page.evaluate(() => document.body.classList.contains('playing'))));
+const menuButtons = await page.locator('.menu > button, .menu-head button').allTextContents();
+check('no Pause or Resume button alone', !menuButtons.some((t) => /pause|resume|carry on/i.test(t)), menuButtons.join(' | '));
+check('the menu says it holds the game', (await text('.menu')).includes('paused while this menu is open'));
+await page.waitForTimeout(300);
+const held1 = await simStep();
+await page.waitForTimeout(1200);
+const held2 = await simStep();
+check('the game waits while the menu is open', held1 === held2, `${held1} -> ${held2}`);
 await shot('menu');
 await page.keyboard.press('Escape');
 check('Esc closes the menu', await page.locator('.menu-overlay').isHidden());
+await page.waitForTimeout(1200);
+check('closing it carries on', (await simStep()) > held2);
 const menuBtn = await centreOf('[data-btn=menu]');
 await page.mouse.click(menuBtn.x, menuBtn.y);
 check('Menu button opens the menu', await page.locator('.menu').isVisible());
-await page.click('.menu button.primary');
-check('Resume closes it', await page.locator('.menu-overlay').isHidden());
+await page.click('.menu button.menu-close');
+check('the ✕ closes it', await page.locator('.menu-overlay').isHidden());
+const pauseBtn = await centreOf('[data-btn=pause]');
+await page.mouse.click(pauseBtn.x, pauseBtn.y);
+check('❚❚ opens the menu alone', await page.locator('.menu').isVisible());
+await page.keyboard.press('F10');
+check('F10 closes it again', await page.locator('.menu-overlay').isHidden());
 
-// 14. Key blocking and the context menu.
+// 15. Key blocking and the context menu.
 const blocked = await page.evaluate(() => {
   const ev = new KeyboardEvent('keydown', { key: 'F5', code: 'F5', cancelable: true, bubbles: true });
   window.dispatchEvent(ev);

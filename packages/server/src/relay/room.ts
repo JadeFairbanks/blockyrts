@@ -262,10 +262,11 @@ export class Room {
       type: 'pauseState',
       paused: reason !== PauseReason.None,
       reason,
+      held: this.manualPauseBy >= 0,
       bySlot: this.manualPauseBy >= 0 ? this.manualPauseBy : 0,
       waitingFor: waiting,
     };
-    const key = `${m.paused}|${m.reason}|${m.bySlot}|${m.waitingFor}`;
+    const key = `${m.paused}|${m.reason}|${m.held}|${m.bySlot}|${m.waitingFor}`;
     if (!force && key === this.lastPause) return;
     this.lastPause = key;
     this.broadcast(m, (p) => !p.syncing);
@@ -458,7 +459,7 @@ export class Room {
           this.requestSnapshot(r.purpose, now);
         }
       }
-      if (this.manualPauseBy === p.slot) this.manualPauseBy = -1;
+      // A player's pause outlives their connection: anyone may resume it (Jade's patch notes 1).
     }
     this.hooks.log(`room ${this.code}: ${p.name} disconnected from slot ${p.slot}`);
     if (p.slot === this.hostSlot) this.passHost();
@@ -769,11 +770,19 @@ export class Room {
     p.rtt = p.rtt < 0 ? rtt : Math.round((p.rtt * 3 + rtt) / 4);
   }
 
+  /**
+   * Pause or Resume from any player (Jade's patch notes 1): a press that
+   * changes the player's pause is passed on to everyone with who pressed it,
+   * so every page opens or closes its menu and says who; a press that
+   * changes nothing (two players pausing at once) is dropped.
+   */
   private onPause(p: Player, paused: boolean): void {
     if (this.phase !== RoomPhase.Running) return;
-    if (paused) this.manualPauseBy = p.slot;
-    else if (this.manualPauseBy === p.slot || p.slot === this.hostSlot) this.manualPauseBy = -1;
+    if (paused === (this.manualPauseBy >= 0)) return;
+    this.manualPauseBy = paused ? p.slot : -1;
+    this.hooks.log(`room ${this.code}: ${p.name} ${paused ? 'paused' : 'resumed'} the game`);
     this.sendPause();
+    this.broadcast({ type: 'pauseToggled', slot: p.slot, paused }, (o) => !o.syncing);
   }
 
   private onHostChoice(p: Player, slot: number, choice: HostChoice, now: number): void {
