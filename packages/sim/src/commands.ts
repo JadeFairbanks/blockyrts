@@ -6,7 +6,7 @@
 import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
-import { Blocked, buildCost, buildRequirement, mainBaseLevel, placementBlocked, waterBeside } from './buildings/placement.ts';
+import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked, waterBeside } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
@@ -14,7 +14,7 @@ import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } fr
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, PickOwn, type Order } from './orders.ts';
-import { NO_CARRY, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
+import { NO_CARRY, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
@@ -25,8 +25,9 @@ import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
 import { orderCart, orderUpgrade, SKILL_TRAINING } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
-import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
-import type { UnitOrder } from './units/unit-orders.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
+import { unitsOnTop } from './units/top.ts';
+import { ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
@@ -171,6 +172,8 @@ export function upgradeProblem(state: SimState, b: Building, by = b.owner): stri
   if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
   if (next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
   if (b.kind === BuildingKind.LumberMill && b.level === 1 && !waterBeside(state, b)) return 'The waterwheel needs a stream beside the mill.';
+  const room = growthBlocked(state, b, b.level + 1);
+  if (room !== Blocked.None) return `It needs more room round it to grow: ${BLOCKED_TEXT[room].charAt(0).toLowerCase()}${BLOCKED_TEXT[room].slice(1)}`;
   const pool = state.players[by]!.pool;
   if (!canAfford(pool, next.cost)) return `Not enough ${RESOURCES[shortOf(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
   return '';
@@ -186,6 +189,7 @@ function applyUpgrade(state: SimState, b: Building, by: number): void {
   pay(state.players[by]!.pool, next.cost);
   b.upgrading = b.level + 1;
   b.upProgress = 0;
+  refitBuilding(state, b);
   const [x, z] = buildingCentre(b);
   state.events.push({ player: by, kind: 'info', text: `Upgrade to ${next.name} paid for. Right-click it with workers to build it.`, x, z });
 }
@@ -202,6 +206,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
     refund(pool, levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
     b.upgrading = 0;
     b.upProgress = 0;
+    refitBuilding(state, b);
   }
 }
 
@@ -210,7 +215,7 @@ export function everyoneHome(state: SimState, player: number): void {
   const e = state.entities;
   const shelters = state.buildings.list.filter((b) => b.owner === player && shelterRoom(b) > 0);
   const taken = new Map<number, number>();
-  for (const b of shelters) taken.set(b.id, unitsInside(state, b.id).length);
+  for (const b of shelters) taken.set(b.id, shelteredIn(state, b.id).length);
   for (let i = 0; i < e.count; i++) {
     if (e.owner[i] !== player || e.kind[i] !== UnitKind.Worker || e.inside[i] !== 0) continue;
     const head = e.queue[i]![0];
@@ -235,6 +240,13 @@ export function everyoneHome(state: SimState, player: number): void {
     e.timer[i] = 0;
     resetWalk(state, i);
   }
+}
+
+/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and level 3+ main bases), else shelter inside (workers), else nothing. */
+export function enterOrder(state: SimState, i: number, b: Building): UnitOrder | null {
+  if (garrisonRoom(b) > 0 && canGarrison(state, i)) return { t: 'enter', b: b.id, auto: ENTER_TOP };
+  if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: 0 };
+  return null;
 }
 
 /**
@@ -266,6 +278,7 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
       }
       case PickOwn.Enter: {
         if (e.kind[i] === UnitKind.Engine) break;
+        // Workers shelter in the nearest building with room; everyone else goes up the nearest top with room.
         const worker = e.kind[i] === UnitKind.Worker;
         if (!worker && !canGarrison(state, i)) break;
         let best: Building | null = null;
@@ -274,7 +287,7 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
           if (b.owner !== e.owner[i]) continue;
           const room = worker ? shelterRoom(b) : garrisonRoom(b);
           if (room === 0) continue;
-          if (!taken.has(b.id)) taken.set(b.id, unitsInside(state, b.id).length);
+          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : unitsOnTop(state, b.id).length);
           if (taken.get(b.id)! >= room) continue;
           const [bx, bz] = buildingCentre(b);
           const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
@@ -285,7 +298,7 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
         }
         if (best) {
           taken.set(best.id, taken.get(best.id)! + 1);
-          u = { t: 'enter', b: best.id, auto: 0 };
+          u = { t: 'enter', b: best.id, auto: worker ? 0 : ENTER_TOP };
         }
         break;
       }
@@ -418,8 +431,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
           if (why) alert(state, o.player, why);
           else for (const i of cannons) giveOrder(state, i, { t: 'port', b: b.id }, o.queued === true);
         }
-        // Workers shelter; ranged warriors and mages garrison towers and parapets.
-        giveAll(state, o, (i) => (e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner && (e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && canGarrison(state, i)) ? { t: 'enter', b: b.id, auto: 0 } : null), true);
+        // Anyone on foot goes up a tower or a main base's top; workers shelter where there is no top (units/top.ts).
+        giveAll(state, o, (i) => (e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner ? enterOrder(state, i, b) : null), true);
         break;
       }
       case 'unload': {

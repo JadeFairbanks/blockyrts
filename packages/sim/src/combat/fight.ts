@@ -9,12 +9,11 @@
 
 import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
-import { floorDiv, headingTowards, isqrt, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { floorDiv, headingTowards, isqrt, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { buildingSight, landAt, NEUTRAL, OrderKind, seesForSide, sightOf, UnitKind, type SimState } from '../state.ts';
-import { garrisonRoom } from '../buildings/store.ts';
-import { footprintDims } from '../buildings/data.ts';
+import { placedDims } from '../buildings/store.ts';
 import { SALVAGE } from '../peoples/data.ts';
-import { sayAttacked } from '../peoples/speech.ts';
+import { sayAttacked, sayUpTop } from '../peoples/speech.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
 import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing } from './combat.ts';
 import { MOUNTED } from '../mounts/data.ts';
@@ -22,9 +21,10 @@ import { CREW_GUARD_WU } from '../siege/data.ts';
 import { cloaked } from '../threats/late-mobs.ts';
 import { Shot, type MeleeStats, type RangedStats } from './items.ts';
 import { gearSpec, Slot } from '../units/kits.ts';
-import { isStructure, Mob, mobSpec } from './mobs.ts';
-import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
+import { flies, isStructure, Mob, mobSpec } from './mobs.ts';
+import { clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
 import { mageStep } from '../magic/cast.ts';
+import { mayMan, onTop, topOf } from '../units/top.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
 export const LEASH_WU = 20 * WU_PER_METRE;
@@ -130,11 +130,11 @@ function sideSeesNow(state: SimState, t: number): boolean {
     if (b.owner >= state.players.length) continue;
     const r = buildingSight(state, b);
     // Its footprint in wu, as footprintWu, without building the arrays.
-    const d = footprintDims(b.kind, b.variant);
-    const x0 = b.x * WU_PER_COLUMN;
-    const z0 = b.z * WU_PER_COLUMN;
-    const x1 = (b.x + d.w) * WU_PER_COLUMN;
-    const z1 = (b.z + d.d) * WU_PER_COLUMN;
+    const d = placedDims(b);
+    const x0 = (b.x + d.ox) * WU_PER_COLUMN;
+    const z0 = (b.z + d.oz) * WU_PER_COLUMN;
+    const x1 = x0 + d.w * WU_PER_COLUMN;
+    const z1 = z0 + d.d * WU_PER_COLUMN;
     const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
     const dz = z < z0 ? z0 - z : z > z1 ? z - z1 : 0;
     const d2 = dx * dx + dz * dz;
@@ -153,28 +153,21 @@ export function targetLost(state: SimState, i: number, t: number): boolean {
   return sideOf(state, i) !== Side.Players || !sideSees(state, t);
 }
 
-/** The building a unit garrisons and shoots from (a tower, or a level 3+ main base's parapets), or undefined. */
+/** The building a unit shoots from the top of (a tower, or a level 3+ main base), or undefined. */
 export function garrisonOf(state: SimState, i: number): Building | undefined {
-  const e = state.entities;
-  if (e.inside[i] === 0) return undefined;
-  const b = state.buildings.get(e.inside[i]!);
-  if (!b || garrisonRoom(b) === 0) return undefined;
-  return rangedOf(state, i) ? b : undefined;
+  const b = topOf(state, i);
+  return b && rangedOf(state, i) ? b : undefined;
 }
 
-/** Whether a unit may stand on a tower or a level 3+ main base's parapets: one with a ranged weapon it can use, or a mage (Magic). */
+/** Whether a unit may go up on a tower or a level 3+ main base (units/top.ts): anyone on foot. */
 export function canGarrison(state: SimState, i: number): boolean {
-  // A rider stays in the saddle: it gets down first (Table 1's mounted row).
-  if (state.entities.mount[i]) return false;
-  return state.entities.kind[i] === UnitKind.Mage || rangedOf(state, i) !== null;
+  return mayMan(state, i);
 }
 
 
 /** Where a unit's shots leave from: its hand, or the top of the building it garrisons. */
 function shotOrigin(state: SimState, i: number): [number, number, number] {
   const e = state.entities;
-  const b = garrisonOf(state, i);
-  if (b) return [e.x[i]!, buildingTop(b) + HAND_HEIGHT, e.z[i]!];
   return [e.x[i]!, e.y[i]! + HAND_HEIGHT, e.z[i]!];
 }
 
@@ -198,6 +191,44 @@ export function validTarget(state: SimState, i: number, t: number, chase = false
 export function salvageable(state: SimState, t: number): boolean {
   const e = state.entities;
   return e.kind[t] === UnitKind.Mob && e.owner[t] === NEUTRAL && e.group[t] !== 0 && SALVAGE[e.mob[t]!] !== undefined;
+}
+
+/** How near an enemy must come for a man up top with no ranged weapon to speak up about it (s): 12 m. */
+export const UP_TOP_FOE_WU = 12 * WU_PER_METRE;
+
+/** The nearest enemy within r of a unit, or -1; with grounded, only one that does not fly. */
+function nearestFoe(state: SimState, i: number, r: number, grounded = false): number {
+  const e = state.entities;
+  let best = -1;
+  let bestD = 0;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, r)) {
+    if (!validTarget(state, i, j)) continue;
+    if (grounded && e.kind[j] === UnitKind.Mob && flies(mobSpec(e.mob[j]!))) continue;
+    const d = gap(state, i, j);
+    if (d > r) continue;
+    if (best < 0 || d < bestD || (d === bestD && e.id[j]! < e.id[best]!)) {
+      best = j;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** For a man up top with no ranged weapon: the nearest flyer swooping within his reach, or -1. */
+function pickSwooper(state: SimState, i: number): number {
+  const e = state.entities;
+  const w = meleeOf(state, i);
+  let best = -1;
+  let bestD = 0;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, w.reach + WU_PER_METRE)) {
+    if (!validTarget(state, i, j) || !canReach(state, i, j, w)) continue;
+    const d = gap(state, i, j);
+    if (best < 0 || d < bestD || (d === bestD && e.id[j]! < e.id[best]!)) {
+      best = j;
+      bestD = d;
+    }
+  }
+  return best;
 }
 
 /**
@@ -342,14 +373,14 @@ function engage(state: SimState, i: number, t: number, canMove: boolean): boolea
       return true;
     }
   }
-  if (garrisoned) return false;
   const w: MeleeStats = meleeOf(state, i);
+  // Up top only a swooping flyer comes within reach (combat.ts canReach); nobody climbs down to chase.
   if (canReach(state, i, t, w)) {
     face(state, i, t);
     if (state.step >= e.atkNext[i]!) startSwing(state, i, e.id[t]!, w.attackSteps, Slot.Weapon);
     return true;
   }
-  if (!canMove) return false;
+  if (!canMove || garrisoned) return false;
   chase(state, i, t, w.reach);
   return true;
 }
@@ -378,15 +409,23 @@ export function fightStep(state: SimState, i: number): boolean {
   // Mages fight with spells, and their wands up close (magic/cast.ts).
   if (e.kind[i] === UnitKind.Mage) return mageStep(state, i);
   if (e.inside[i] !== 0) {
-    if (!garrisonOf(state, i)) return false;
-    // On a tower or parapet: shoot whatever comes in range, never leave.
-    const r = rangedOf(state, i)!;
+    if (!onTop(state, i)) return false;
+    // On a tower or a main base's top: shoot whatever comes in range, never leave; without a bow or gun,
+    // strike only a flyer that swoops down within reach (Jade's patch notes 1).
+    const r = rangedOf(state, i);
+    const range = r ? Math.min(r.range, sightOf(state, i)) : meleeOf(state, i).reach;
     let t = e.indexOf(e.target[i]!);
-    if (!validTarget(state, i, t) || gap(state, i, t) > r.range) t = pickTarget(state, i, Math.min(r.range, sightOf(state, i)));
+    if (!validTarget(state, i, t) || gap(state, i, t) > range || (!r && !canReach(state, i, t, meleeOf(state, i)))) t = r ? pickTarget(state, i, range) : pickSwooper(state, i);
     if (t < 0) {
       e.target[i] = 0;
+      // Nothing he can reach: with enemies at the base he says so now and then (peoples/speech.ts).
+      if (!r && (state.step + e.id[i]!) % STEPS_PER_SECOND === 0) {
+        // A warrior wants to get down only to what walks: flyers are not "down there".
+        if (nearestFoe(state, i, UP_TOP_FOE_WU) >= 0) sayUpTop(state, i, nearestFoe(state, i, UP_TOP_FOE_WU, true));
+      }
       return false;
     }
+    e.target[i] = e.id[t]!;
     if (!engage(state, i, t, false)) e.target[i] = 0;
     return false;
   }

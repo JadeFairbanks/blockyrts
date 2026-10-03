@@ -28,7 +28,7 @@ import { chase, face, pickTarget, stepToward, targetLost, validTarget } from '..
 import { hasResearch, Research, Shot } from '../combat/items.ts';
 import { Slot } from '../units/kits.ts';
 import { cancelSpell, castingSpell } from '../combat/mob-ai.ts';
-import { buildingTop, clearLob, fireAt, HAND_HEIGHT, lineOfSight, ProjectileFlag } from '../combat/projectiles.ts';
+import { clearLob, fireAt, HAND_HEIGHT, lineOfSight, ProjectileFlag } from '../combat/projectiles.ts';
 import { smoulder } from '../threats/burns.ts';
 import { moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
@@ -102,11 +102,9 @@ export function spellAmount(state: SimState, i: number, s: SpellSpec): number {
 
 // ----- targets -----
 
-/** Where a mage's spells leave from: her wand hand, or the top of the tower or parapet she stands on. */
+/** Where a mage's spells leave from: her wand hand, on the ground or on the top she stands on (units/top.ts). */
 function eye(state: SimState, i: number): [number, number, number] {
   const e = state.entities;
-  const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
-  if (b) return [e.x[i]!, buildingTop(b) + HAND_HEIGHT, e.z[i]!];
   return [e.x[i]!, e.y[i]! + HAND_HEIGHT, e.z[i]!];
 }
 
