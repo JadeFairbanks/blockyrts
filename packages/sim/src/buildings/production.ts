@@ -155,25 +155,39 @@ export function productsOf(b: Building): Product[] {
 
 /** Whether a research step is done or already queued somewhere. */
 function researchQueued(state: SimState, player: number, r: number): boolean {
-  return state.buildings.list.some((b) => b.owner === player && b.queue.some((q) => q.product === RESEARCH_PRODUCT + r));
+  return state.buildings.list.some((b) => b.queue.some((q) => q.by === player && q.product === RESEARCH_PRODUCT + r));
 }
 
-/** The best finished building of a kind a player has (its level), or 0. */
+/**
+ * Whether a player may use a building: their own, or one inherited from a
+ * player who was eliminated or left while they are still in (When a player
+ * is eliminated or leaves: any remaining player can use those buildings).
+ */
+export function usableBy(state: SimState, b: Building, player: number): boolean {
+  if (b.owner === player) return true;
+  const p = state.players[player];
+  return b.shared !== 0 && p !== undefined && p.out === 0;
+}
+
+/** The best finished building of a kind a player has (its level), or 0; inherited buildings count for everyone still in. */
 export function bestLevel(state: SimState, player: number, kind: number): number {
   let best = 0;
-  for (const b of state.buildings.list) if (b.owner === player && b.complete && b.kind === kind && b.level > best) best = b.level;
+  for (const b of state.buildings.list) if (b.complete && b.kind === kind && b.level > best && usableBy(state, b, player)) best = b.level;
   return best;
 }
 
-/** Why a research step cannot start yet, or ''. */
-export function researchProblem(state: SimState, player: number, r: ResearchSpec): string {
+/**
+ * Why a research step cannot start yet, or ''. `tech` is research an
+ * inherited building brings with it, which counts for what must come first.
+ */
+export function researchProblem(state: SimState, player: number, r: ResearchSpec, tech = 0): string {
   const p = state.players[player]!;
   if (r.retired) return 'No longer needs research.';
   if (r.later) return r.later;
   if (hasResearch(p.research, r.id)) return 'Already researched.';
   if (researchQueued(state, player, r.id)) return 'Being researched.';
   if (r.forge && bestLevel(state, player, BuildingKind.Forge) < r.forge) return `Needs a ${buildingName(BuildingKind.Forge, r.forge, 0)}.`;
-  if (r.after && !hasResearch(p.research, r.after)) return `Needs ${RESEARCH[r.after]!.name} researched first.`;
+  if (r.after && !hasResearch(p.research | tech, r.after)) return `Needs ${RESEARCH[r.after]!.name} researched first.`;
   if (r.building && bestLevel(state, player, r.building[0]) < r.building[1]) return `Needs a finished ${buildingName(r.building[0], r.building[1], 0)}.`;
   if (r.made && (p.made & r.made) === 0) return r.made === Made.TinIngot ? 'Smelt a tin ingot first.' : 'Smelt pig iron first.';
   return '';
@@ -189,11 +203,14 @@ function levelProblem(b: Building, level: number): string {
 /**
  * Why a product cannot be queued at a building now, or '' if it can:
  * the building's level, research, a workshop in town, the stock, the pool.
+ * `user` is the player queueing it, who pays: the owner, or anyone still in
+ * at an inherited building, where the research it brings counts too.
  */
-export function productProblem(state: SimState, b: Building, product: Product): string {
+export function productProblem(state: SimState, b: Building, product: Product, user = b.owner): string {
   if (!productsOf(b).includes(product)) return 'This building cannot make that.';
-  const player = state.players[b.owner]!;
+  const player = state.players[user]!;
   const pool = player.pool;
+  const research = player.research | b.tech;
   const spec = productSpec(product);
   if (spec.slaughter !== undefined) {
     const queued = b.queue.filter((q) => q.product === product).length;
@@ -201,29 +218,29 @@ export function productProblem(state: SimState, b: Building, product: Product): 
     return '';
   }
   if (spec.research !== undefined) {
-    const why = researchProblem(state, b.owner, RESEARCH[spec.research]!);
+    const why = researchProblem(state, user, RESEARCH[spec.research]!, b.tech);
     if (why) return why;
   } else if (spec.engine !== undefined) {
     const s = engineSpec(spec.engine);
     const why = levelProblem(b, s.at[1]);
     if (why) return why;
-    if (!hasResearch(player.research, s.research as Research)) return `Needs ${RESEARCH[s.research]!.name} researched first.`;
-    if (s.forge && bestLevel(state, b.owner, BuildingKind.Forge) < s.forge) return `Needs a ${buildingName(BuildingKind.Forge, s.forge, 0)} in the town.`;
+    if (!hasResearch(research, s.research as Research)) return `Needs ${RESEARCH[s.research]!.name} researched first.`;
+    if (s.forge && bestLevel(state, user, BuildingKind.Forge) < s.forge) return `Needs a ${buildingName(BuildingKind.Forge, s.forge, 0)} in the town.`;
   } else if (spec.recipe !== undefined) {
     const r = recipeSpec(spec.recipe);
     if (r.later) return r.later;
     const why = levelProblem(b, recipeLevelAt(r, b.kind));
     if (why) return why;
-    if (!hasResearch(player.research, r.research as Research)) return `Needs ${RESEARCH[r.research]!.name} researched first.`;
+    if (!hasResearch(research, r.research as Research)) return `Needs ${RESEARCH[r.research]!.name} researched first.`;
     if (!payableInputs(r, pool)) return `Not enough resources (${costText(r.inputs[0] ?? [])}).`;
     return '';
   } else if (spec.item !== undefined && product < REFURBISH_PRODUCT) {
     const it = itemSpec(spec.item);
     const why = levelProblem(b, madeAtKind(it, b.kind));
     if (why) return why;
-    const missing = missingResearch(player.research, it);
+    const missing = missingResearch(research, it);
     if (missing !== Research.None) return `Needs ${RESEARCH[missing]!.name} researched first.`;
-    if (it.needsWorkshop && bestLevel(state, b.owner, BuildingKind.Workshop) < it.needsWorkshop) return `Needs a ${buildingName(BuildingKind.Workshop, it.needsWorkshop, 0)} in the town.`;
+    if (it.needsWorkshop && bestLevel(state, user, BuildingKind.Workshop) < it.needsWorkshop) return `Needs a ${buildingName(BuildingKind.Workshop, it.needsWorkshop, 0)} in the town.`;
   }
   for (const [it, n] of spec.items ?? []) if (player.items[it]! < n) return `Needs ${n === 1 ? 'a' : n} ${itemSpec(it).name.toLowerCase()} in the equipment stock.`;
   if (spec.item !== undefined && product < REFURBISH_PRODUCT) {
@@ -267,29 +284,28 @@ export function trainsUnit(product: number): boolean {
   return product === Product.Worker || product === Product.Warrior || product === Product.SupportMage || product === Product.BattleMage;
 }
 
-/** Supply in use: one per worker, warrior and mage, one per research facility, plus each unit being trained (animals use none). */
+/** Supply in use: one per worker, warrior and mage, one per research facility, plus each unit being trained for the player (animals use none). */
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
   // Mercenaries use none: they are the camp's.
   for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.role[i] !== Role.Mercenary && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
   for (const b of state.buildings.list) {
-    if (b.owner !== player) continue;
-    if (b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
+    if (b.owner === player && b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
     const h = b.queue[0];
-    if (h && trainsUnit(h.product) && h.progress > 0) n++;
+    if (h && h.by === player && trainsUnit(h.product) && h.progress > 0) n++;
   }
   return n;
 }
 
-/** Queues an item, paying for it now. Returns '' or why it could not be queued. */
-export function queueProduct(state: SimState, b: Building, product: Product): string {
+/** Queues an item for `by` (the owner unless set), who pays for it now. Returns '' or why it could not be queued. */
+export function queueProduct(state: SimState, b: Building, product: Product, by = b.owner): string {
   if (!productsOf(b).includes(product)) return 'This building cannot make that.';
   if (b.queue.length >= QUEUE_LIMIT) return 'The queue is full.';
-  const why = productProblem(state, b, product);
+  const why = productProblem(state, b, product, by);
   if (why) return why;
   const spec = productSpec(product);
-  const player = state.players[b.owner]!;
+  const player = state.players[by]!;
   const pool = player.pool;
   let paid: Array<[number, number]>;
   if (spec.recipe !== undefined) {
@@ -307,7 +323,7 @@ export function queueProduct(state: SimState, b: Building, product: Product): st
     for (const [res, n] of paid) pool[res] = pool[res]! - n;
   }
   for (const [it, n] of spec.items ?? []) player.items[it] = player.items[it]! - n;
-  b.queue.push({ product, paid, progress: 0 });
+  b.queue.push({ product, paid, progress: 0, by });
   return '';
 }
 
@@ -315,7 +331,7 @@ export function queueProduct(state: SimState, b: Building, product: Product): st
 export function cancelProduct(state: SimState, b: Building, index: number): void {
   const item = b.queue[index];
   if (!item) return;
-  const player = state.players[b.owner]!;
+  const player = state.players[item.by]!;
   for (const [res, n] of item.paid) player.pool[res] = player.pool[res]! + n;
   for (const [it, n] of productSpec(item.product).items ?? []) player.items[it] = player.items[it]! + n;
   b.queue.splice(index, 1);
@@ -330,39 +346,39 @@ function rallyOrders(points: readonly RallyPoint[]): UnitOrder[] {
   });
 }
 
-function spawnWorker(state: SimState, b: Building): void {
+function spawnWorker(state: SimState, b: Building, owner: number): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
   const id = state.nextEntityId++;
-  const i = state.entities.add(id, b.owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
+  const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
   state.entities.heading[i] = 32768;
   const orders = rallyOrders(b.rally);
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
-  state.events.push({ player: b.owner, kind: 'info', text: 'A new worker is ready.', x, z });
+  state.events.push({ player: owner, kind: 'info', text: 'A new worker is ready.', x, z });
 }
 
-function spawnWarrior(state: SimState, b: Building): void {
+function spawnWarrior(state: SimState, b: Building, owner: number): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  const i = addWarrior(state, b.owner, x, z);
+  const i = addWarrior(state, owner, x, z);
   state.entities.weapon[i] = Item.Club;
   state.entities.heading[i] = 32768;
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
-  state.events.push({ player: b.owner, kind: 'info', text: 'A new warrior is ready.', x, z });
+  state.events.push({ player: owner, kind: 'info', text: 'A new warrior is ready.', x, z });
 }
 
-function spawnMage(state: SimState, b: Building, school: number): void {
+function spawnMage(state: SimState, b: Building, school: number, owner: number): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  const i = addMage(state, b.owner, x, z, school);
+  const i = addMage(state, owner, x, z, school);
   state.entities.heading[i] = 32768;
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
-  state.events.push({ player: b.owner, kind: 'info', text: `A new ${school === School.Battle ? 'battle' : 'support'} mage is ready.`, x, z });
+  state.events.push({ player: owner, kind: 'info', text: `A new ${school === School.Battle ? 'battle' : 'support'} mage is ready.`, x, z });
 }
 
 /** Grown animals of a species at a farm that are not out working, males last (s: the herd keeps its breeding pairs longest). */
@@ -379,13 +395,13 @@ export function slaughterable(state: SimState, b: Building, species: number): nu
   return out.sort((p, q) => (e.sex[q] === spare ? 1 : 0) - (e.sex[p] === spare ? 1 : 0) || e.id[q]! - e.id[p]!);
 }
 
-/** A research step, a crafted batch, a refurbished item, a recipe or a slaughter is done. */
-function finishProduct(state: SimState, b: Building, product: number): void {
-  const player = state.players[b.owner]!;
+/** A research step, a crafted batch, a refurbished item, a recipe or a slaughter is done, for the player who queued it. */
+function finishProduct(state: SimState, b: Building, product: number, by: number): void {
+  const player = state.players[by]!;
   const spec = productSpec(product);
   const [x, z] = buildingCentre(b);
   if (spec.engine !== undefined) {
-    spawnEngine(state, b, spec.engine);
+    spawnEngine(state, b, spec.engine, by);
     return;
   }
   if (spec.slaughter !== undefined) {
@@ -399,7 +415,7 @@ function finishProduct(state: SimState, b: Building, product: number): void {
   }
   if (spec.research !== undefined) {
     player.research |= 1 << spec.research;
-    state.events.push({ player: b.owner, kind: 'info', text: `Research done: ${spec.name}.`, x, z });
+    state.events.push({ player: by, kind: 'info', text: `Research done: ${spec.name}.`, x, z });
     return;
   }
   if (spec.recipe !== undefined) {
@@ -411,13 +427,13 @@ function finishProduct(state: SimState, b: Building, product: number): void {
   const it = itemSpec(spec.item!);
   if (product < REFURBISH_PRODUCT) {
     player.items[it.id] = player.items[it.id]! + it.makes;
-    state.events.push({ player: b.owner, kind: 'info', text: `${it.name} made${it.makes > 1 ? ` (${it.makes})` : ''}.`, x, z });
+    state.events.push({ player: by, kind: 'info', text: `${it.name} made${it.makes > 1 ? ` (${it.makes})` : ''}.`, x, z });
     return;
   }
   // Refurbished: everything it was made from comes back (the first recipe), the time does not.
   for (const [res, n] of it.recipes[0] ?? []) player.pool[res] = player.pool[res]! + n;
   for (const [inner, n] of it.itemInputs ?? []) player.items[inner] = player.items[inner]! + n;
-  state.events.push({ player: b.owner, kind: 'info', text: `${it.name} refurbished.`, x, z });
+  state.events.push({ player: by, kind: 'info', text: `${it.name} refurbished.`, x, z });
 }
 
 /** Workers at work in a building now (farmers in the field or sheltering in their farmhouse, mill hands inside). */
@@ -462,21 +478,21 @@ export function updateBuildings(state: SimState): void {
     if (head) {
       if (trainsUnit(head.product)) {
         const what = productSpec(head.product).name.toLowerCase();
-        if (head.progress === 0 && supplyUsed(state, b.owner) >= supplyCap(state, b.owner)) {
+        if (head.progress === 0 && supplyUsed(state, head.by) >= supplyCap(state, head.by)) {
           if ((b.alerted & 1) === 0) {
             b.alerted |= 1;
             const [x, z] = buildingCentre(b);
-            state.events.push({ player: b.owner, kind: 'alert', text: `Not enough supply to train a ${what}. Build or upgrade farms.`, x, z });
+            state.events.push({ player: head.by, kind: 'alert', text: `Not enough supply to train a ${what}. Build or upgrade farms.`, x, z });
           }
         } else {
           b.alerted &= ~1;
           head.progress++;
           if (head.progress >= productSpec(head.product).steps) {
             b.queue.shift();
-            if (head.product === Product.Warrior) spawnWarrior(state, b);
-            else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support);
-            else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle);
-            else spawnWorker(state, b);
+            if (head.product === Product.Warrior) spawnWarrior(state, b, head.by);
+            else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
+            else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
+            else spawnWorker(state, b, head.by);
           }
         }
       } else if (head.product >= RESEARCH_PRODUCT) {
@@ -494,7 +510,7 @@ export function updateBuildings(state: SimState): void {
         head.progress += rate;
         if (head.progress >= whole) {
           b.queue.shift();
-          finishProduct(state, b, head.product);
+          finishProduct(state, b, head.product, head.by);
         }
       } else {
         // Planks: the mill works only with hands inside, faster with more of them.

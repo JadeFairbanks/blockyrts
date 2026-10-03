@@ -50,12 +50,12 @@ export function addEngine(state: SimState, owner: number, kind: number, x: numbe
 }
 
 /** A finished engine rolls out of the building that made it. */
-export function spawnEngine(state: SimState, b: Building, kind: number): void {
+export function spawnEngine(state: SimState, b: Building, kind: number, owner = b.owner): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  addEngine(state, b.owner, kind, x, z);
-  state.events.push({ player: b.owner, kind: 'info', text: `A ${engineSpec(kind).name.toLowerCase()} is ready. Hitch a horse or an ox to it, or give it a crew.`, x, z });
+  addEngine(state, owner, kind, x, z);
+  state.events.push({ player: owner, kind: 'info', text: `A ${engineSpec(kind).name.toLowerCase()} is ready. Hitch a horse or an ox to it, or give it a crew.`, x, z });
 }
 
 export function isEngine(state: SimState, i: number): boolean {

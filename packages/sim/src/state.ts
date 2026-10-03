@@ -271,6 +271,8 @@ export const UNIT_FIELDS = [
   ['ability2At', 'u32'],
   /** A high flyer swooping is a low flyer until this step (roster: the gravewing's snatch). */
   ['lowUntil', 'u32'],
+  /** 1 once inherited from a player who was eliminated or left: every player still in may command it (Multiplayer and saving). */
+  ['shared', 'u8'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -400,6 +402,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare barkUntil: Uint32Array;
   declare calledUntil: Uint32Array;
   declare mount: Uint8Array;
+  declare shared: Uint8Array;
   declare mountHp: Int32Array;
   declare mountHome: Uint32Array;
   declare mountSex: Uint8Array;
@@ -525,15 +528,17 @@ export interface PlayerState {
   /** The step each group began starving, or 0 while fed: workers (and working animals), and troops (warriors, research facilities). */
   starveWorkers: number;
   starveTroops: number;
+  /** Allies panel: the players this player lets command their units, a bit per player ("Share control"). */
+  share: number;
 }
 
 /** A player's side at the start of a game, with this pool. */
 export function newPlayer(pool: Int32Array): PlayerState {
-  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0 };
+  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0, share: 0 };
 }
 
 /** The per-player scalars after the pool and stock, in the order they are serialised. */
-export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops'] as const satisfies ReadonlyArray<keyof PlayerState>;
+export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /**
  * Something the players should hear about: the message panel's alerts,
@@ -759,6 +764,8 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     mined: 0,
     stock: [],
     acc: [],
+    shared: 0,
+    tech: 0,
   };
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);
