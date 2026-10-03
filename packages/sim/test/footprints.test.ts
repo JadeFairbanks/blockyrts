@@ -240,9 +240,11 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     const b = addMob(s, Mob.CaveBat, 0, e.x[i]! + 6 * WU_PER_METRE, e.z[i]!, 0);
     const bat = e.id[b]!;
     const hp = e.hp[i]!;
-    // It swoops down to him (not to the ground below), they trade blows, and he brings it down.
-    runUntil(s, () => e.target[b] === w && e.y[b]! > e.y[i]!, 20 * 20);
-    expect(e.target[i]).toBe(bat);
+    // It swoops down to him (not to the ground below): he can strike it once it comes down within his reach.
+    runUntil(s, () => e.target[i] === bat, 20 * 20);
+    expect(e.target[b]).toBe(w);
+    expect(e.y[b]).toBeGreaterThan(e.y[i]!);
+    // They trade blows, and he brings it down.
     runUntil(s, () => e.indexOf(bat) < 0, 60 * 20);
     expect(e.hp[i]).toBeLessThan(hp);
     expect(onTop(s, i)).toBe(true);

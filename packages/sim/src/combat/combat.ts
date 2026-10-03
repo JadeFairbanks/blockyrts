@@ -128,6 +128,8 @@ export function isMob(state: SimState, i: number): boolean {
 export function flyingHigh(state: SimState, i: number): boolean {
   const e = state.entities;
   if (e.kind[i] !== UnitKind.Mob || !flies(mobSpec(e.mob[i]!))) return false;
+  // In its swoop it is within reach whatever height its path has reached (mob-ai.ts fly()).
+  if (e.lowUntil[i]! > state.step) return false;
   return e.y[i]! - swoopFloor(state, i) > SWOOP_HEIGHT * 2;
 }
 

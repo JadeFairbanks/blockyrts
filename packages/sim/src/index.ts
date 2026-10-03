@@ -69,6 +69,7 @@ export * from './threats/nights.ts';
 export * from './threats/tribes.ts';
 export * from './threats/villages.ts';
 export * from './threats/foes.ts';
+export * from './threats/wanderers.ts';
 export * from './threats/debug.ts';
 export * from './threats/update.ts';
 export * from './magic/spells.ts';
