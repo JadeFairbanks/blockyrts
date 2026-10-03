@@ -7,7 +7,9 @@
 
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { costText, foodInPool, payNutrition, Res, type Cost } from '../economy/resources.ts';
+import { costText, Res, type Cost } from '../economy/resources.ts';
+import { eatableFood, giveFood, payFood } from '../economy/food.ts';
+import { meatOf, payAny } from '../economy/food-kinds.ts';
 import { addWarrior, UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
 import { Band } from '../world/layout.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
@@ -123,7 +125,7 @@ export function productSpec(product: Product): ProductSpec {
   if (product >= SLAUGHTER_PRODUCT) {
     const s = speciesSpec(product - SLAUGHTER_PRODUCT);
     const name = s.name.toLowerCase();
-    return { product, name: `Slaughter ${name === 'cattle' ? 'a cow' : `a ${name}`}`, key: '', steps: SLAUGHTER_STEPS, cost: [], food: 0, slaughter: s.id, tooltip: `Gives ${costText([[Res.Meat, s.meat], ...s.extra])}.` };
+    return { product, name: `Slaughter ${name === 'cattle' ? 'a cow' : `a ${name}`}`, key: '', steps: SLAUGHTER_STEPS, cost: [], food: 0, slaughter: s.id, tooltip: `Gives ${costText([[meatOf(s.id), s.meat], ...s.extra])}.` };
   }
   const r = recipeSpec(product - RECIPE_PRODUCT);
   return { product, name: r.name, key: '', steps: r.steps, cost: r.inputs[0] ?? [], food: 0, recipe: r.id, tooltip: `Makes ${costText(r.outputs)}.` };
@@ -333,7 +335,7 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     if (!planPieces(spec.pieces, pool)) return `Not enough resources (${costText(spec.cost)}).`;
   }
   if (spec.food > 0) {
-    if (foodInPool(pool, player.dontEat) < spec.food) return `Not enough food (${spec.food} food).`;
+    if (eatableFood(player) < spec.food) return `Not enough food (${spec.food} food).`;
   } else {
     for (const [res, n] of spec.cost) if (pool[res]! < n) return `Not enough resources (${costText(spec.cost)}).`;
   }
@@ -402,22 +404,19 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
     }
   };
   if (spec.recipe !== undefined) {
-    take(payableInputs(recipeSpec(spec.recipe), pool)!);
+    // "Meat" or "fish" in a recipe is paid with the kinds in stock, and those come back if it is cancelled.
+    for (const [res, n] of payAny(pool, payableInputs(recipeSpec(spec.recipe), pool)!)) paid.push([res, n]);
   } else if (spec.food > 0) {
-    // The kit first (it was checked), then the food.
+    // The kit first (it was checked), then the food, exact to the quarter (written as minus its quarters).
     const kit = spec.pieces ? planPieces(spec.pieces, pool) : null;
     if (spec.pieces && !kit) return `Not enough resources (${costText(spec.cost)}).`;
     if (kit) take(kit.cost);
-    const food = payNutrition(pool, spec.food, player.dontEat);
+    const food = payFood(player, spec.food);
     if (!food) {
       for (const [res, n] of paid) pool[res] = pool[res]! + n;
       return `Not enough food (${spec.food} food).`;
     }
-    for (const [res, n] of food) {
-      const at = paid.findIndex(([r]) => r === res);
-      if (at >= 0) paid[at] = [res, paid[at]![1] + n];
-      else paid.push([res, n]);
-    }
+    for (const [res, q] of food) paid.push([res, -q]);
   } else {
     take(spec.cost);
   }
@@ -439,7 +438,10 @@ export function cancelProduct(state: SimState, b: Building, index: number): void
   const item = b.queue[index];
   if (!item) return;
   const player = state.players[item.by]!;
-  for (const [res, n] of item.paid) player.pool[res] = player.pool[res]! + n;
+  for (const [res, n] of item.paid) {
+    if (n < 0) giveFood(player, [[res, -n]]);
+    else player.pool[res] = player.pool[res]! + n;
+  }
   if (item.horse) {
     const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
     const h = addAnimal(state, Species.Horse, item.by, columnCentre(cx), columnCentre(cz), 0, item.horse - 1);
@@ -521,7 +523,8 @@ function finishProduct(state: SimState, b: Building, product: number, by: number
     const j = slaughterable(state, b, spec.slaughter)[0];
     if (j === undefined) return;
     const s = speciesSpec(spec.slaughter);
-    player.pool[Res.Meat] = player.pool[Res.Meat]! + s.meat;
+    const meat = meatOf(s.id);
+    player.pool[meat] = player.pool[meat]! + s.meat;
     for (const [res, n] of s.extra) player.pool[res] = player.pool[res]! + n;
     state.entities.remove(state.entities.id[j]!);
     return;
@@ -599,13 +602,13 @@ export function updateBuildings(state: SimState): void {
           }
         }
       } else if (head.product >= RESEARCH_PRODUCT) {
-        // Research loads at its facility's pace, and stops while the troops go unfed (Research; Food).
+        // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
         // Smithing, processing and crafting at a forge, kiln, tannery, herbalist or workshop need hands inside (s);
         // the Manufactory works twice as fast. The Big House and cooking need none.
         let rate = 1;
         let whole = productSteps(state, b, head.product);
         if (head.product < RECIPE_PRODUCT) {
-          rate = state.players[b.owner]!.starveTroops > 0 ? 0 : RESEARCH_QUARTERS[b.level - 1]!;
+          rate = state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS[b.level - 1]!;
           whole *= 4;
         } else if (needsHands(b.kind)) {
           rate = workersAt(state, b) * (b.kind === BuildingKind.Workshop && b.level >= 4 ? 2 : 1);

@@ -6,6 +6,7 @@
 // 1 charcoal or 1 coal"); the first the pool can pay is used.
 
 import { Res, TRINKET_METALS, trinketRes, type Cost } from '../economy/resources.ts';
+import { haveOf } from '../economy/food-kinds.ts';
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { BuildingKind } from './data.ts';
 
@@ -136,16 +137,16 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   ...trinketRecipes(),
   { name: 'Moonleaf', at: workshop(3), inputs: [[[Res.Silver, 3], [Res.Emeralds, 2]]], outputs: [[Res.Moonleaf, 1]], steps: sec(180), research: 0 },
   { name: 'Sunheart', at: workshop(4), inputs: [[[Res.Gold, 3], [Res.Rubies, 2]]], outputs: [[Res.Sunheart, 1]], steps: sec(240), research: 0 },
-  // Cooking (Table 6).
-  cook('Roast meat', 1, [[Res.Meat, 1]], Res.RoastMeat),
-  cook('Roast fish', 1, [[Res.Fish, 1]], Res.RoastFish),
-  cook('Smoked meat', 2, [[Res.Meat, 1]], Res.SmokedMeat),
-  cook('Smoked fish', 2, [[Res.Fish, 1]], Res.SmokedFish),
+  // Cooking (Table 6). "Meat" and "fish" are any kind, mixed as the stock has them (patch 1: meat and fish come in kinds).
+  cook('Roast meat', 1, [[Res.AnyMeat, 1]], Res.RoastMeat),
+  cook('Roast fish', 1, [[Res.AnyFish, 1]], Res.RoastFish),
+  cook('Smoked meat', 2, [[Res.AnyMeat, 1]], Res.SmokedMeat),
+  cook('Smoked fish', 2, [[Res.AnyFish, 1]], Res.SmokedFish),
   cook('Bread', 3, [[Res.Wheat, 2]], Res.Bread),
-  cook('Salted meat', 3, [[Res.Meat, 1]], Res.SaltedMeat),
-  cook('Salted fish', 3, [[Res.Fish, 1]], Res.SaltedFish),
-  cook('Stew', 4, [[Res.Meat, 1], [Res.Potatoes, 2], [Res.Carrots, 1]], Res.Stew),
-  cook('Pie', 5, [[Res.Meat, 1], [Res.Wheat, 2], [Res.Eggs, 1]], Res.Pie),
+  cook('Salted meat', 3, [[Res.AnyMeat, 1]], Res.SaltedMeat),
+  cook('Salted fish', 3, [[Res.AnyFish, 1]], Res.SaltedFish),
+  cook('Stew', 4, [[Res.AnyMeat, 1], [Res.Potatoes, 2], [Res.Carrots, 1]], Res.Stew),
+  cook('Pie', 5, [[Res.AnyMeat, 1], [Res.Wheat, 2], [Res.Eggs, 1]], Res.Pie),
 ];
 
 export const RECIPES: readonly RecipeSpec[] = LIST.map((r, id) => ({ ...r, id }));
@@ -156,9 +157,9 @@ export function recipeSpec(id: number): RecipeSpec {
   return r;
 }
 
-/** The first way of paying for a recipe the pool covers, or null. */
-export function payableInputs(r: RecipeSpec, pool: Int32Array): Cost | null {
-  for (const c of r.inputs) if (c.every(([res, n]) => pool[res]! >= n)) return c;
+/** The first way of paying for a recipe the pool covers, or null ("meat" and "fish" counting every kind). */
+export function payableInputs(r: RecipeSpec, pool: ArrayLike<number>): Cost | null {
+  for (const c of r.inputs) if (c.every(([res, n]) => haveOf(pool, res) >= n)) return c;
   return null;
 }
 

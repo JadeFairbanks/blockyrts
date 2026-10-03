@@ -37,6 +37,7 @@ import {
   WU_PER_METRE,
   type GeneratedChunk,
   type SimState,
+  meatOf,
 } from '../src/index.ts';
 
 const passable = (e: { type: number; gaps: readonly unknown[] }): boolean => !blocksWalking(e.type as never) || e.gaps.length > 0;
@@ -373,13 +374,14 @@ describe('wild birds (Troops and gear: feathers for arrows and bolts)', () => {
       expect(spec.extra).toEqual([[Res.Feathers, species === Species.WildGoose ? 3 : 2]]);
       const pool = s.players[0]!.pool;
       const feathers = pool[Res.Feathers]!;
-      step(s, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
-      const meat = pool[Res.Meat]!;
+      const kind = meatOf(species);
+      step(s, [{ kind: 'dontEat', player: 0, res: kind, on: 1 }]);
+      const meat = pool[kind]!;
       step(s, [{ kind: 'hunt', player: 0, units: [e.id[slinger]!, e.id[worker]!], target: e.id[bird]!, auto: 0 }]);
       for (let k = 0; k < 6000 && pool[Res.Feathers] === feathers; k++) step(s);
       expect(pool[Res.Feathers]).toBe(feathers + spec.extra[0]![1]);
-      for (let k = 0; k < 2000 && pool[Res.Meat] === meat; k++) step(s);
-      expect(pool[Res.Meat]).toBe(meat + spec.meat);
+      for (let k = 0; k < 2000 && pool[kind] === meat; k++) step(s);
+      expect(pool[kind]).toBe(meat + spec.meat);
     });
   }
 });

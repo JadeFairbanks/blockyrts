@@ -15,7 +15,7 @@ import type { Building } from '../buildings/store.ts';
 import { bestLevel } from '../buildings/production.ts';
 import { costText, pay, refund, Res } from '../economy/resources.ts';
 import { STEPS_PER_SECOND } from '../fixed.ts';
-import { payNutrition } from '../economy/resources.ts';
+import { payFood } from '../economy/food.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
 import { hasResearch, RESEARCH, Research, Skill } from '../combat/items.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
@@ -347,7 +347,7 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
       state.events.push({ player: b.owner, kind: 'alert', text: `Training in ${t.name} needs ${RESEARCH[t.research]!.name} researched first.`, x: e.x[i]!, z: e.z[i]! });
       return true;
     }
-    if (!payNutrition(p.pool, t.food, p.dontEat)) {
+    if (!payFood(p, t.food)) {
       state.events.push({ player: b.owner, kind: 'alert', text: `Not enough food to train in ${t.name} (${t.food} food).`, x: e.x[i]!, z: e.z[i]! });
       return true;
     }

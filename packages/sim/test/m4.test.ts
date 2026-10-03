@@ -233,7 +233,7 @@ describe('food', () => {
     const pool = s.players[0]!.pool;
     pool[Res.Potatoes] = 20;
     pool[Res.Carrots] = 10;
-    pool[Res.Meat] = 20;
+    pool[Res.Venison] = 20;
     pool[Res.SoftwoodLumber] = 20;
     run(s, 1, [{ kind: 'produce', player: 0, building: kitchen.id, product: recipe(RECIPES.find((r) => r.outputs[0]![0] === Res.Stew)!.name), count: 1 }]);
     expect(kitchen.queue.length).toBe(1);
@@ -244,8 +244,8 @@ describe('food', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     // Food for the warrior's meals only.
-    pool[Res.Meat] = 0;
-    pool[Res.Fish] = 0;
+    pool[Res.Venison] = 0;
+    pool[Res.Trout] = 0;
     pool[Res.Eggs] = 4;
     run(s, 1, [{ kind: 'rations', player: 0, rations: 1 }]);
     run(s, MEAL_STEPS + 2);
@@ -298,11 +298,11 @@ describe('animals', () => {
     expect(e.ranged[a]).toBe(RANGER_GEAR[1]);
     // It shoots from as far as its 20 m reach, then walks over to butcher what it killed and carries the meat home.
     const deer = addAnimal(s, Species.Deer, WILD, wx + 12 * WU_PER_METRE, wz + 4 * WU_PER_METRE, 0, 0);
-    const meat = s.players[0]!.pool[Res.Meat]!;
+    const meat = s.players[0]!.pool[Res.Venison]!;
     // Kept back from meals so the haul shows in the pool.
-    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Venison, on: 1 }]);
     run(s, 1, [{ kind: 'hunt', player: 0, units: [e.id[a]!], target: e.id[deer]!, auto: 0 }]);
-    runUntil(s, () => s.players[0]!.pool[Res.Meat]! > meat, 6000);
+    runUntil(s, () => s.players[0]!.pool[Res.Venison]! > meat, 6000);
   });
 
   it('a warrior that butchers a cow by a rock walks round it and hands the meat in at the Big House', () => {
@@ -317,15 +317,15 @@ describe('animals', () => {
     const a = 4;
     expect(e.troop[a]).toBe(Troop.Close);
     const cow = addAnimal(s, Species.Cattle, WILD, wx + 15 * WU_PER_METRE, wz + 6 * WU_PER_METRE, 0, 0);
-    const meat = s.players[0]!.pool[Res.Meat]!;
+    const meat = s.players[0]!.pool[Res.Beef]!;
     run(s, 1, [{ kind: 'hunt', player: 0, units: [e.id[a]!], target: e.id[cow]!, auto: 0 }]);
     // Kept back from meals so the haul shows in the pool.
-    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Beef, on: 1 }]);
     runUntil(s, () => e.carryAmt[a]! > 0, 3000);
     const load = e.carryAmt[a]!;
     // Home with the whole load well before dusk, and the hunt is over.
     runUntil(s, () => e.carryAmt[a] === 0, 1500);
-    expect(s.players[0]!.pool[Res.Meat]).toBe(meat + load);
+    expect(s.players[0]!.pool[Res.Beef]).toBe(meat + load);
     expect(s.step).toBeLessThan(DAY_STEPS);
     run(s, 20);
     expect(e.queue[a]).toEqual([]);
@@ -359,9 +359,9 @@ describe('animals', () => {
       return n;
     };
     expect(herd()).toBe(3);
-    const meat = s.players[0]!.pool[Res.Meat]!;
+    const meat = s.players[0]!.pool[Res.Beef]!;
     run(s, 1, [{ kind: 'produce', player: 0, building: farm.id, product: SLAUGHTER_PRODUCT + Species.Cattle, count: 1 }]);
-    runUntil(s, () => s.players[0]!.pool[Res.Meat]! >= meat + 6, 400);
+    runUntil(s, () => s.players[0]!.pool[Res.Beef]! >= meat + 6, 400);
     expect(herd()).toBe(2);
   });
 });

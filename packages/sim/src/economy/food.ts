@@ -1,18 +1,26 @@
-// Food, supply and health (Food, supply and health; Table 6): the town eats
-// from the food stock four times a day, every kind of food evenly and never
-// one kept back with Don't eat. Workers (with working animals) and troops
-// (warriors and research facilities) are fed as two groups, so Rations (F9)
-// can feed one and starve the other. Starving units are slowed and, after
-// three days of it, lose health; fed units heal by themselves. Eating at a
-// building heals half of a unit's health over 10 s.
+// Food, supply and health (Food, supply and health; Table 6). Every unit
+// that eats has its meal four times a day, each at its own moment of the
+// 110 s round (staggered by its id, so a big army does not eat, or talk, all
+// at once), and research facilities eat at the top of the round. A meal is a
+// quarter of the eater's daily upkeep, taken from the foods in stock in turn
+// (one kind after another, never one kept back with Don't eat), so every
+// kind is eaten evenly (patch 1). Nutrition is counted in quarters here and a
+// started item's rest waits for the next meal of its kind, so no food value
+// is ever lost or gained in splitting it (patch 1). Rations (F9) feed workers
+// (with working animals) or troops (warriors, mages and hired mercenaries)
+// only. A unit that misses a meal starves: slowed, no healing, and after
+// three days of it, health lost every 15 s; fed units heal by themselves.
+// Eating at a building heals half of a unit's health over 10 s.
 
 import { ceilDiv, floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { HORSE_UPKEEP, Mount, mountSpec } from '../mounts/data.ts';
 import { CYCLE_STEPS, NUTRITION_PER_CYCLE } from '../rules.ts';
-import { UnitKind, type SimState } from '../state.ts';
+import { hash32 } from '../rng.ts';
+import { UnitKind, type PlayerState, type SimState } from '../state.ts';
 import { BuildingKind } from '../buildings/data.ts';
-import { RESOURCES, payNutrition, Res } from './resources.ts';
+import { FOODS, RESOURCES, Res } from './resources.ts';
 import { Role } from '../threats/types.ts';
+import { speakerName } from '../peoples/speech.ts';
 
 /** Rations (F9): who is fed. */
 export const Rations = { Everyone: 0, TroopsOnly: 1, WorkersOnly: 2 } as const;
@@ -20,8 +28,14 @@ export const RATIONS_TEXT = ['Feed everyone', 'Troops only', 'Workers only'] as 
 
 /** The town eats four times a day (s), so a shortage shows within a quarter of a day. */
 export const MEAL_STEPS = floorDiv(CYCLE_STEPS, 4);
-/** Natural healing and starving harm come every 15 s, 1% of maximum health each (doc). */
+/** Nutrition inside the meal accounts is counted in quarters, so a meal (a quarter of a day's upkeep) is always whole. */
+export const QUARTERS = 4;
+/** Natural healing and starving harm come every 15 s (doc). */
 export const HEALTH_TICK_STEPS = 15 * STEPS_PER_SECOND;
+/** Natural healing per tick: 1% of maximum health (doc), rounded, at least 1 (patch 1). */
+export const HEAL_PER_MILLE = 10;
+/** Starving harm per tick: 2% of maximum health, rounded, at least 1 (patch 1, Jade; the doc had 1%). */
+export const STARVE_HARM_PER_MILLE = 20;
 /** Starving units move 20% slower (s). */
 export const STARVING_SLOW_BP = 2000;
 /** Three full day-night cycles of starving before health is lost (doc). */
@@ -40,81 +54,302 @@ export const REMEDY_HEAL_PER_MILLE = 500;
 /** Food upkeep per cycle of a working animal: set by animals/species.ts, which knows the species. */
 export const animalUpkeep: { of: (state: SimState, i: number) => number } = { of: () => 0 };
 
-/** Per-cycle upkeep of each group: workers and working animals, and troops with research facilities. */
-export function upkeep(state: SimState, player: number): { workers: number; troops: number } {
+// ----- the food in stock -----
+
+/** One item of a food, in quarters of nutrition. */
+export function itemQuarters(res: number): number {
+  return (RESOURCES[res]?.nutrition ?? 0) * QUARTERS;
+}
+
+/** A player's food in quarters of nutrition: every whole item and the rest of each started one; with `eatable`, leaving out foods kept back. */
+export function foodQuarters(p: PlayerState, eatable = false): number {
+  let n = 0;
+  for (const f of FOODS) if (!eatable || !p.kept[f]) n += p.pool[f]! * itemQuarters(f) + p.open[f]!;
+  return n;
+}
+
+/** What the Food counter shows: the food value of everything in stock, in whole food (rounded down, so it never shows food that is not there). */
+export function foodValue(p: PlayerState): number {
+  return floorDiv(foodQuarters(p), QUARTERS);
+}
+
+/** Food (nutrition) that can be spent now on meals, training and the like: everything not kept back, in whole food. */
+export function eatableFood(p: PlayerState): number {
+  return floorDiv(foodQuarters(p, true), QUARTERS);
+}
+
+/** What a meal or a payment took: quarters of nutrition by food. */
+export type FoodTaken = Array<[Res, number]>;
+
+/**
+ * Takes exactly `quarters` of nutrition from a player's foods, or nothing if
+ * there is not that much. The kinds are visited in turn from the player's
+ * meal turn (FOODS order), a piece at a time: what is left of a started item,
+ * else a new item, opened. A kind kept back with Don't eat is skipped unless
+ * `kept` says otherwise; `only` limits it to some foods (an animal's crops).
+ * Whatever is left of the last item opened stays for the next meal of that
+ * kind. The turn moves on past the first kind eaten from.
+ */
+export function takeFood(p: PlayerState, quarters: number, opts: { only?: readonly Res[]; kept?: boolean } = {}): FoodTaken | null {
+  if (quarters <= 0) return [];
+  const list = opts.only ?? FOODS;
+  const usable = (f: Res): boolean => (opts.kept === true || !p.kept[f]) && (p.pool[f]! > 0 || p.open[f]! > 0);
+  let have = 0;
+  for (const f of list) if (usable(f)) have += p.pool[f]! * itemQuarters(f) + p.open[f]!;
+  if (have < quarters || list.length === 0) return null;
+  const taken = new Map<Res, number>();
+  const start = opts.only ? 0 : p.mealTurn % list.length;
+  let first = -1;
+  let left = quarters;
+  for (let k = start; left > 0; k = (k + 1) % list.length) {
+    const f = list[k]!;
+    if (!usable(f)) continue;
+    if (p.open[f]! === 0) {
+      p.pool[f] = p.pool[f]! - 1;
+      p.open[f] = itemQuarters(f);
+    }
+    const t = Math.min(left, p.open[f]!);
+    p.open[f] = p.open[f]! - t;
+    left -= t;
+    taken.set(f, (taken.get(f) ?? 0) + t);
+    if (first < 0) first = k;
+  }
+  if (!opts.only) p.mealTurn = (first + 1) % list.length;
+  return [...taken];
+}
+
+/** Gives back what takeFood took (a cancelled order): into each food's started item, whole items going back to the pool. */
+export function giveFood(p: PlayerState, taken: ReadonlyArray<readonly [number, number]>): void {
+  for (const [f, q] of taken) {
+    const item = itemQuarters(f);
+    if (item <= 0) continue;
+    const all = p.open[f]! + q;
+    p.pool[f] = p.pool[f]! + floorDiv(all, item);
+    p.open[f] = all - floorDiv(all, item) * item;
+  }
+}
+
+/** Takes whole food (nutrition) for a cost that says "food": training, eating at a building. */
+export function payFood(p: PlayerState, food: number): FoodTaken | null {
+  return takeFood(p, food * QUARTERS);
+}
+
+// ----- who eats -----
+
+/** Whether a unit is in the troops' group for rations (warriors, mages, hired mercenaries) rather than the workers' (workers, working animals). */
+function isTroop(state: SimState, i: number): boolean {
+  const k = state.entities.kind[i];
+  return k === UnitKind.Warrior || k === UnitKind.Mage;
+}
+
+/**
+ * A unit's meal, in quarters of nutrition: a quarter of its daily upkeep.
+ * Only units that eat have one: a player's workers, warriors and mages (a
+ * hired mercenary while it is in the player's service), a cavalry rider's
+ * horse with it, and working horses and oxen; never engines, animals that
+ * graze or anything of the monsters', the wild's or the peoples'.
+ */
+export function mealQuarters(state: SimState, i: number): number {
+  const e = state.entities;
+  const owner = e.owner[i]!;
+  if (owner >= state.players.length || e.hp[i]! <= 0 || state.players[owner]!.out) return 0;
+  const k = e.kind[i];
+  let perCycle = 0;
+  if (k === UnitKind.Worker || k === UnitKind.Warrior || k === UnitKind.Mage) {
+    // The peoples' units are never a player's; a hired mercenary is, until dusk, and eats while it is.
+    if (e.role[i] === Role.People) return 0;
+    perCycle = NUTRITION_PER_CYCLE;
+    // A ridden horse eats as a working one (Table 6).
+    if (e.mount[i] === Mount.Horse) perCycle += HORSE_UPKEEP;
+  } else if (k === UnitKind.Animal) perCycle = animalUpkeep.of(state, i);
+  // Four meals a cycle: a meal is a quarter of the daily upkeep, which in quarters of nutrition is the upkeep's number.
+  return perCycle;
+}
+
+/** Where in the meal round a unit eats: its own moment, by its id (s). */
+export function mealPhase(id: number): number {
+  return (hash32(0x6d65616c, id) >>> 0) % MEAL_STEPS;
+}
+
+/** Steps until a unit's next meal (1 to MEAL_STEPS). */
+export function nextMealIn(step: number, id: number): number {
+  const d = (mealPhase(id) - (step % MEAL_STEPS) + MEAL_STEPS) % MEAL_STEPS;
+  return d === 0 ? MEAL_STEPS : d;
+}
+
+/** When a unit began starving, or 0 while it is fed or does not eat. */
+export function starvingSince(state: SimState, i: number): number {
+  const h = state.entities.hungry[i]!;
+  return h > 0 && mealQuarters(state, i) > 0 ? h : 0;
+}
+
+/** A save from before patch 1 kept starving by group: each unit that eats takes its group's. */
+export function hungerFromGroups(state: SimState): void {
+  const e = state.entities;
+  for (let i = 0; i < e.count; i++) {
+    if (mealQuarters(state, i) === 0) continue;
+    const p = state.players[e.owner[i]!]!;
+    e.hungry[i] = isTroop(state, i) ? p.starveTroops : p.starveWorkers;
+  }
+}
+
+/** Health back (or lost) per 15 s tick: a share of maximum health in per mille, rounded, at least 1 (patch 1). */
+export function healthPerTick(maxHp: number, perMille: number): number {
+  return Math.max(1, floorDiv(maxHp * perMille + 500, 1000));
+}
+
+// ----- what they say -----
+
+/** "½ food", "1 food", "1¾ food" for quarters of nutrition. */
+export function foodAmountText(quarters: number): string {
+  const whole = floorDiv(quarters, QUARTERS);
+  const part = ['', '¼', '½', '¾'][quarters - whole * QUARTERS]!;
+  return `${whole > 0 || !part ? whole : ''}${part} food`;
+}
+
+/** "venison", "venison and trout", "venison, trout and eggs". */
+function kindsText(taken: FoodTaken): string {
+  const names = taken.map(([f]) => RESOURCES[f]!.name.toLowerCase());
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** "1 minute", "4 minutes", "45 seconds" for a span of steps (rounded down; a minute or more is told in minutes). */
+export function spanText(steps: number): string {
+  const s = floorDiv(Math.max(0, steps), STEPS_PER_SECOND);
+  if (s < 60) return `${s} second${s === 1 ? '' : 's'}`;
+  const m = floorDiv(s, 60);
+  return `${m} minute${m === 1 ? '' : 's'}`;
+}
+
+const MEAL_LINES: ReadonlyArray<(amount: string, kinds: string) => string> = [
+  (a, k) => `Ate ${a} of ${k}.`,
+  (a, k) => `Mealtime: ${a} of ${k}.`,
+  (a, k) => `Had my ${a} of ${k}. That hits the spot.`,
+  (a, k) => `${a.charAt(0).toUpperCase()}${a.slice(1)} of ${k}. Back to it.`,
+];
+
+const NO_FOOD_LINES: readonly string[] = [
+  'There wasn\'t enough food for me! I\'m starving.',
+  'Not a crumb left for me. How am I meant to work on an empty belly?',
+  'The stores are bare and my stomach is growling. There wasn\'t enough food for me!',
+];
+
+/** A unit's line, bubble only (the message panel has the starving alerts): a meal, or hunger. */
+function chatter(state: SimState, i: number, text: string, bubble: 'meal' | 'hungry'): void {
+  const e = state.entities;
+  // Animals do not talk; working horses and oxen eat and starve quietly.
+  if (e.kind[i] === UnitKind.Animal) return;
+  state.events.push({ player: e.owner[i]!, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), x: e.x[i]!, z: e.z[i]!, bubble });
+}
+
+function ateLine(state: SimState, i: number, taken: FoodTaken, quarters: number, starved: boolean): string {
+  const e = state.entities;
+  const amount = foodAmountText(quarters);
+  const kinds = kindsText(taken);
+  const line = starved ? `Food at last! ${amount} of ${kinds}.` : MEAL_LINES[(hash32(e.id[i]!, floorDiv(state.step, MEAL_STEPS)) >>> 0) % MEAL_LINES.length]!(amount, kinds);
+  if (e.mount[i] !== Mount.Horse) return line;
+  return `${line} ${foodAmountText(HORSE_UPKEEP)} of it went to my horse.`;
+}
+
+/** What a starving unit says at a meal it misses: the first time, that there was no food; after that, how it is. */
+function hungryLine(state: SimState, i: number, rations: boolean, first: boolean): string {
+  const e = state.entities;
+  if (first) {
+    if (rations) return `No food for me: the rations feed only the ${isTroop(state, i) ? 'workers' : 'troops'}. I'm starving.`;
+    return NO_FOOD_LINES[(hash32(e.id[i]!, floorDiv(state.step, MEAL_STEPS)) >>> 0) % NO_FOOD_LINES.length]!;
+  }
+  const since = state.step - e.hungry[i]!;
+  const slow = floorDiv(STARVING_SLOW_BP, 100);
+  if (since < STARVE_HARM_AFTER_STEPS) {
+    return `Still no food. Starving for ${spanText(since)}: I'm ${slow}% slower and can't heal. I start losing health in ${spanText(STARVE_HARM_AFTER_STEPS - since)}.`;
+  }
+  const harm = healthPerTick(e.maxHp[i]!, STARVE_HARM_PER_MILLE);
+  return `Starving for ${spanText(since)}! I'm losing ${harm} health every ${floorDiv(HEALTH_TICK_STEPS, STEPS_PER_SECOND)} seconds. Feed me!`;
+}
+
+// ----- meals -----
+
+/** Whether the rations feed a unit's group. */
+function rationsFeed(p: PlayerState, troop: boolean): boolean {
+  return troop ? p.rations !== Rations.WorkersOnly : p.rations !== Rations.TroopsOnly;
+}
+
+/** One unit's meal: it eats its share, says what it ate, or goes hungry and says so. Returns whether it changed anyone's starving. */
+function unitMeal(state: SimState, i: number): boolean {
+  const e = state.entities;
+  const quarters = mealQuarters(state, i);
+  const was = e.hungry[i]!;
+  if (quarters === 0) {
+    e.hungry[i] = 0;
+    return was !== 0;
+  }
+  const p = state.players[e.owner[i]!]!;
+  const troop = isTroop(state, i);
+  const fed = rationsFeed(p, troop);
+  const taken = fed ? takeFood(p, quarters) : null;
+  if (taken) {
+    chatter(state, i, ateLine(state, i, taken, quarters, was !== 0), 'meal');
+    e.hungry[i] = 0;
+    return was !== 0;
+  }
+  if (!was) e.hungry[i] = Math.max(1, state.step);
+  chatter(state, i, hungryLine(state, i, !fed, was === 0), 'hungry');
+  return was === 0;
+}
+
+/** The research facilities' meal, at the top of each round: research stops while they go without. */
+function facilityMeal(state: SimState, player: number): void {
+  const p = state.players[player]!;
+  let n = 0;
+  for (const b of state.buildings.list) if (b.owner === player && b.complete && b.kind === BuildingKind.ScholarsLodge) n++;
+  const quarters = n * FACILITY_UPKEEP;
+  const fed = quarters === 0 || (rationsFeed(p, true) && takeFood(p, quarters) !== null);
+  const was = p.starveLodge;
+  p.starveLodge = fed ? 0 : was || Math.max(1, state.step);
+  if (!was && p.starveLodge) state.events.push({ player, kind: 'alert', text: 'Research has stopped: the Scholar\'s Lodge has had no food.' });
+  else if (was && !p.starveLodge) state.events.push({ player, kind: 'info', text: 'The Scholar\'s Lodge is fed again, and research goes on.' });
+}
+
+/** Each group's starving, from its units: the alerts when a group starts or stops starving. */
+function groupStarving(state: SimState, player: number): void {
   const e = state.entities;
   let workers = 0;
   let troops = 0;
   for (let i = 0; i < e.count; i++) {
-    // Mercenaries are fed by their camp.
-    if (e.owner[i] !== player || e.hp[i]! <= 0 || e.role[i] === Role.Mercenary) continue;
-    const k = e.kind[i];
-    if (k === UnitKind.Worker) workers += NUTRITION_PER_CYCLE;
-    else if (k === UnitKind.Warrior || k === UnitKind.Mage) troops += NUTRITION_PER_CYCLE;
-    // A ridden horse eats as a working one (Table 6).
-    if (e.mount[i] === Mount.Horse) workers += HORSE_UPKEEP;
-    else if (k === UnitKind.Animal) workers += animalUpkeep.of(state, i);
+    if (e.owner[i] !== player) continue;
+    const since = starvingSince(state, i);
+    if (!since) continue;
+    if (isTroop(state, i)) troops = troops ? Math.min(troops, since) : since;
+    else workers = workers ? Math.min(workers, since) : since;
   }
-  for (const b of state.buildings.list) if (b.owner === player && b.complete && b.kind === BuildingKind.ScholarsLodge) troops += FACILITY_UPKEEP;
-  return { workers, troops };
-}
-
-/** Whether the group a unit belongs to is starving now (and since when), or 0. */
-export function starvingSince(state: SimState, i: number): number {
-  const e = state.entities;
-  const p = state.players[e.owner[i]!];
-  if (!p) return 0;
-  if (e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage) return p.starveTroops;
-  if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Animal) return p.starveWorkers;
-  return 0;
-}
-
-/**
- * One group's meal: a quarter of its daily upkeep, paid from what was eaten
- * beyond need at the last meal, then from whole foods. Returns whether the
- * group was fed.
- */
-function feed(state: SimState, player: number, perCycle: number): boolean {
   const p = state.players[player]!;
-  // Upkeep per meal is a quarter of the daily upkeep; `fed` holds what is left of whole foods, in quarters.
-  const need = perCycle;
-  if (p.fed >= need) {
-    p.fed -= need;
-    return true;
-  }
-  const whole = floorDiv(need - p.fed + 3, 4);
-  const taken = payNutrition(p.pool, whole, p.dontEat);
-  if (!taken) return need === 0;
-  let got = 0;
-  for (const [res, n] of taken) got += RESOURCES[res]!.nutrition * n;
-  p.fed += got * 4 - need;
-  return true;
+  const was = [p.starveWorkers, p.starveTroops];
+  p.starveWorkers = workers;
+  p.starveTroops = troops;
+  if (!was[0] && workers) state.events.push({ player, kind: 'alert', text: 'Your workers are starving and slowed. Find more food or change the rations.' });
+  else if (was[0] && !workers) state.events.push({ player, kind: 'info', text: 'Your workers are fed again.' });
+  if (!was[1] && troops) state.events.push({ player, kind: 'alert', text: 'Your troops are starving and slowed. Find more food or change the rations.' });
+  else if (was[1] && !troops) state.events.push({ player, kind: 'info', text: 'Your troops are fed again.' });
 }
 
-function setStarving(state: SimState, player: number, troops: boolean, fed: boolean): void {
-  const p = state.players[player]!;
-  const was = troops ? p.starveTroops : p.starveWorkers;
-  const now = fed ? 0 : was || Math.max(1, state.step);
-  if (troops) p.starveTroops = now;
-  else p.starveWorkers = now;
-  if (!was && now) {
-    state.events.push({ player, kind: 'alert', text: troops ? 'Your troops are starving: warriors are slowed and research has stopped.' : 'Your workers are starving and slowed. Find more food or change the rations.' });
-  } else if (was && !now) {
-    state.events.push({ player, kind: 'info', text: troops ? 'Your troops are fed again.' : 'Your workers are fed again.' });
-  }
-}
-
-/** Every meal time: each player's groups eat, or starve. */
+/** Every step: the units whose moment it is eat (or go hungry), and at the top of the round the research facilities. */
 function meals(state: SimState): void {
+  if (state.step === 0) return;
+  const e = state.entities;
+  const at = state.step % MEAL_STEPS;
+  let changed = 0;
+  for (let i = 0; i < e.count; i++) {
+    // A unit no player owns has no meal; one that starved in a player's service (a mercenary let go) is no longer hungry.
+    if (e.owner[i]! >= state.players.length && e.hungry[i] === 0) continue;
+    if (mealPhase(e.id[i]!) !== at) continue;
+    if (unitMeal(state, i) && e.owner[i]! < state.players.length) changed |= 1 << e.owner[i]!;
+  }
   for (let player = 0; player < state.players.length; player++) {
-    const p = state.players[player]!;
-    if (p.out) continue;
-    const u = upkeep(state, player);
-    const feedWorkers = p.rations !== Rations.TroopsOnly;
-    const feedTroops = p.rations !== Rations.WorkersOnly;
-    // Workers eat first (s), so the town that grows the food keeps working.
-    setStarving(state, player, false, feedWorkers ? feed(state, player, u.workers) : u.workers === 0);
-    setStarving(state, player, true, feedTroops ? feed(state, player, u.troops) : u.troops === 0);
+    if (state.players[player]!.out) continue;
+    if (at === 0) facilityMeal(state, player);
+    // A death or a unit that stopped eating also ends a group's starving: checked at each health tick.
+    if ((changed & (1 << player)) !== 0 || state.step % HEALTH_TICK_STEPS === 0) groupStarving(state, player);
   }
 }
 
@@ -142,14 +377,16 @@ function health(state: SimState): void {
     // Engines are repaired by workers, never mended by time (Table 2f).
     if (!tick || e.owner[i]! >= state.players.length || e.kind[i] === UnitKind.Engine) continue;
     const since = starvingSince(state, i);
-    const pm = Math.max(1, floorDiv(e.maxHp[i]!, 100));
     if (!since) {
       // In a plague bearer's miasma nothing heals by itself (roster 5.8).
-      if (e.hp[i]! < e.maxHp[i]! && e.sickUntil[i]! <= state.step) e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + pm);
+      if (e.hp[i]! < e.maxHp[i]! && e.sickUntil[i]! <= state.step) e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + healthPerTick(e.maxHp[i]!, HEAL_PER_MILLE));
       // A ridden horse heals as the rider does (s).
-      if (e.mount[i] === Mount.Horse) e.mountHp[i] = Math.min(mountSpec(Mount.Horse).hp, e.mountHp[i]! + Math.max(1, floorDiv(mountSpec(Mount.Horse).hp, 100)));
+      if (e.mount[i] === Mount.Horse) {
+        const max = mountSpec(Mount.Horse).hp;
+        e.mountHp[i] = Math.min(max, e.mountHp[i]! + healthPerTick(max, HEAL_PER_MILLE));
+      }
     } else if (state.step - since >= STARVE_HARM_AFTER_STEPS) {
-      e.hp[i] = e.hp[i]! - pm;
+      e.hp[i] = e.hp[i]! - healthPerTick(e.maxHp[i]!, STARVE_HARM_PER_MILLE);
       if (e.hp[i]! <= 0) {
         e.hp[i] = 0;
         state.dying.push(e.id[i]!);
@@ -159,7 +396,7 @@ function health(state: SimState): void {
 }
 
 export function updateFood(state: SimState): void {
-  if (state.step > 0 && state.step % MEAL_STEPS === 0) meals(state);
+  meals(state);
   health(state);
 }
 
@@ -175,7 +412,9 @@ export function mend(state: SimState, i: number, amount: number, steps: number):
 export function eatAt(state: SimState, i: number): string {
   const e = state.entities;
   const p = state.players[e.owner[i]!]!;
-  if (!payNutrition(p.pool, EAT_NUTRITION, p.dontEat)) return `Not enough food to eat (${EAT_NUTRITION} food).`;
+  const taken = payFood(p, EAT_NUTRITION);
+  if (!taken) return `Not enough food to eat (${EAT_NUTRITION} food).`;
+  chatter(state, i, `Ate ${foodAmountText(EAT_NUTRITION * QUARTERS)} of ${kindsText(taken)} at the table.`, 'meal');
   const max = e.maxHp[i]!;
   const missing = max - e.hp[i]!;
   mend(state, i, floorDiv(max * EAT_HEAL_PER_MILLE, 1000), EAT_STEPS);
