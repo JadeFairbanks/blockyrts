@@ -136,6 +136,19 @@ export interface SimInfo {
   hashStep: number;
 }
 
+/** How the page is running, for the debug readout: averaged over the last second. */
+export interface PerfInfo {
+  fps: number;
+  /** Main-thread time per frame (update and render), ms. */
+  frameMs: number;
+  drawCalls: number;
+  triangles: number;
+  /** Units in the latest state, and how many of them are drawn. */
+  units: number;
+  /** JavaScript heap in use, MB (Chromium only), or -1. */
+  heapMb: number;
+}
+
 const CAMERA_SLOTS = 4;
 /** Urgent messages Space steps back through. */
 const URGENT_KEEP = 8;
@@ -412,6 +425,14 @@ export class GameShell {
       setText(f.hashStep, String(info.hashStep));
     }
     this.updateClock(info.step);
+  }
+
+  setPerfInfo(p: PerfInfo): void {
+    const f = this.layout.debugFields;
+    setText(f.fps, `${p.fps} (${p.frameMs.toFixed(1)} ms)`);
+    setText(f.draws, `${p.drawCalls} (${Math.round(p.triangles / 1000)}k tris)`);
+    setText(f.units, String(p.units));
+    setText(f.memory, p.heapMb < 0 ? '-' : `${p.heapMb} MB`);
   }
 
   /** Day N and the time left in the period; Dusk, Night N, Dawn (Day and night: 3 min, 40 s, 3 min, 40 s). */

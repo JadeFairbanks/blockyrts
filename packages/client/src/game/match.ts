@@ -332,6 +332,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   let stepsPerSecond = 0;
   let placed = false;
   let lastStep = -1;
+  let lastUnits = 0;
   if (relay) relay.haveStep = () => lastStep;
   const hints = new FirstDayHints(shell, game, settings);
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
@@ -370,6 +371,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     game.onState(msg);
     world.onState(msg);
     audio.onState(msg);
+    lastUnits = msg.count;
     lastStep = msg.step;
     stepsSeen++;
     const now = performance.now();
@@ -553,13 +555,34 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   if (import.meta.env.DEV) Object.assign(window as object, { shell, world, relay });
 
   let lastFrame = performance.now();
+  // The debug readout's fps line: frames, main-thread time and draw calls over the last second.
+  let perfFrom = lastFrame;
+  let perfFrames = 0;
+  let perfBusy = 0;
   function frame(now: number): void {
     const dt = Math.min(0.1, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
+    const t0 = performance.now();
     world.update(now, shell.cam.focus);
     shell.frame(dt, now);
     audio.frame(shell.cam.focus.x, shell.cam.focus.z, now);
     renderer.render(scene, shell.cam.camera);
+    perfBusy += performance.now() - t0;
+    perfFrames++;
+    if (now - perfFrom >= 1000) {
+      const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+      shell.setPerfInfo({
+        fps: Math.round((perfFrames * 1000) / (now - perfFrom)),
+        frameMs: perfBusy / perfFrames,
+        drawCalls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        units: lastUnits,
+        heapMb: heap ? Math.round(heap.usedJSHeapSize / 1048576) : -1,
+      });
+      perfFrom = now;
+      perfFrames = 0;
+      perfBusy = 0;
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
