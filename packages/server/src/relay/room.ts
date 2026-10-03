@@ -216,7 +216,7 @@ export class Room {
   private playerInfos(): PlayerInfo[] {
     const out: PlayerInfo[] = [];
     for (const p of this.players) {
-      if (p) out.push({ slot: p.slot, name: p.name, colour: p.colour, ready: p.ready, presence: p.presence, guest: p.guest });
+      if (p) out.push({ slot: p.slot, name: p.name, colour: p.colour, ready: p.ready, presence: p.presence, guest: p.guest, accountId: p.accountId });
     }
     return out;
   }
