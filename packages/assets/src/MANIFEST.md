@@ -453,7 +453,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | seed_hardwood | models/world-props/seeds/seed_hardwood.bbmodel | 8 | 16x16 | in the shared seeds/ folder (wishlist id seed_hardwood) |
 | seed_softwood | models/world-props/seeds/seed_softwood.bbmodel | 5 | 16x16 | in the shared seeds/ folder (wishlist id seed_softwood) |
 | torch_post | models/world-props/torch_post/torch_post.bbmodel | 11 | 16x128 | 1 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
-| torch_wall | models/world-props/torch_wall/torch_wall.bbmodel | 14 | 32x32 | 4 cubes in state sets hidden by default (construction stages, ruined, alternate states); placement: hangs on a wall, pivot at the wall bracket |
+| torch_wall | models/world-props/torch_wall/torch_wall.bbmodel | 14 | 32x32 | 4 cubes in state sets hidden by default (construction stages, ruined, alternate states); placement: hangs on a wall, origin on the ground under the bracket (the bracket is 2 m up) |
 | torch_hand | models/world-props/torch_hand/torch_hand.bbmodel | 19 | 32x32 | 19 cubes (small-item cap 11) across two state sets, `lit` and `snuffed`; only one set shows at a time; 7 cubes in state sets hidden by default (construction stages, ruined, alternate states); placement: a held torch, pivot at the grip |
 | brazier | models/world-props/brazier/brazier.bbmodel | 19 | 64x64 | 1 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | campfire | models/world-props/campfire/campfire.bbmodel | 33 | 64x128 | 10 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
