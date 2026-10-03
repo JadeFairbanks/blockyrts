@@ -17,6 +17,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'research', label: 'Research', blurb: 'Research steps: what each needs first, its fee, its time and what it opens.' },
   { id: 'units', label: 'Units and ranks', blurb: 'Workers and warriors: health, speed, sight, training, ranks and experience, carrying.' },
   { id: 'magic', label: 'Mages and spells', blurb: 'Mage ranks, mana and refill, the combat pause, training and rank wands at the Magi Sanctum, and every spell (Table 13): mana, cooldown, range, power, radius and duration.' },
+  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, munitions, recipes, and the Citadel\'s cannon ports.' },
   { id: 'equipment', label: 'Tools and equipment', blurb: 'Tools, weapons, armour and ammunition by tier: damage, speed, reach, weight and how they are made.' },
   { id: 'recipes', label: 'Recipes', blurb: 'What production buildings turn into what: inputs, outputs, time and where.' },
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving, cooking and the upkeep of units and facilities.' },
@@ -47,7 +48,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/unit-orders.ts:KEEP', 'units/gear.ts:BEST_TOOL', 'units/gear.ts:GEAR_CHECK_STEPS', 'units/tools.ts:TOOL_FIELDS',
   // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
   'peoples/data.ts:PEOPLE_NAMES', 'peoples/data.ts:PERSON_NAMES', 'peoples/data.ts:FACTION_KIND_NAMES', 'peoples/data.ts:KIND_PEOPLE',
-  'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:ITEM_GOODS', 'peoples/data.ts:LIVE_GOODS',
+  'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:ITEM_GOODS', 'peoples/data.ts:LIVE_GOODS', 'peoples/data.ts:ENGINE_GOODS',
   'peoples/data.ts:LINES', 'peoples/data.ts:TREE_WARNING_LINES', 'peoples/data.ts:REPARATIONS_PAID_LINE', 'peoples/data.ts:MERC_LINES',
   'peoples/data.ts:REMARKS', 'peoples/data.ts:NAME_PARTS', 'peoples/data.ts:ELF_KINGDOM_NAME', 'peoples/data.ts:LEADER_NAMES',
   'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
@@ -62,6 +63,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'nav/grid.ts:CLIMBER_PLAN', 'nav/grid.ts:MOB_PLAN', 'nav/grid.ts:SWIMMER', 'nav/grid.ts:WHEELS', 'world/props.ts:PROPS:check',
   // Mana's fixed-point scale, the rank count, and tables worked out from MAGE_RANKS.
   'magic/spells.ts:MANA_SCALE', 'magic/spells.ts:MAGE_TOP_RANK', 'magic/mages.ts:MAGE_XP_TENTHS', 'magic/mages.ts:MAGE_RANK_NAMES',
+  // The engines' shot ids and the list of engines a player can make.
+  'siege/data.ts:ENGINE_SHOT', 'siege/data.ts:PLAYER_ENGINES',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -114,6 +117,12 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'clock.ts': 'pacing',
   'rules.ts': 'units',
   'data/number-tables.ts': 'tables',
+  'mounts/data.ts': 'siege',
+  'mounts/riding.ts': 'siege',
+  'siege/data.ts': 'siege',
+  'siege/engines.ts': 'siege',
+  'threats/late-mobs.ts': 'mobs',
+  'threats/boss.ts': 'mobs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
@@ -163,7 +172,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'buildings/data.ts:BUILDINGS', 'combat/items.ts:RESEARCH', 'combat/items.ts:ITEMS', 'combat/items.ts:SHOTS', 'buildings/recipes.ts:RECIPES',
   'combat/mobs.ts:MOBS', 'animals/species.ts:SPECIES', 'economy/resources.ts:RESOURCES', 'threats/data.ts:LAIRS', 'threats/data.ts:TRIBES',
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
-  'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS',
+  'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS', 'mounts/data.ts:MOUNTS', 'siege/data.ts:ENGINES',
 ]);
 
 
@@ -179,7 +188,7 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   shot: 'shot', nature: 'nature', moves: 'moves', sun: 'sun', comes: 'comes', role: 'role', site: 'lairSite', minBand: 'band',
   bands: 'band', tameAt: 'building', tameFoods: 'res', hit: 'hit', made: 'made', group: 'resGroup', dig: 'digClass',
   'ITEMS:slot': 'slot', 'ITEMS:tool': 'tool', 'PROPS:tool': 'tool', 'SLAUGHTERED:*': 'species', 'FOODS:*': 'res',
-  'RESEARCH:at': 'building', 'MAGE_RANK_TRAINING:wand': 'item', 'RANK_WANDS:*': 'item',
+  'RESEARCH:at': 'building', 'MAGE_RANK_TRAINING:wand': 'item', 'RANK_WANDS:*': 'item', 'ENGINES:munition': 'res', 'MOUNTS:species': 'species',
   'PEOPLE_UNITS:people': 'people', 'PEOPLE_UNITS:weapon': 'item', 'PEOPLE_UNITS:backup': 'item', 'PEOPLE_UNITS:ranged': 'item',
   'PEOPLE_UNITS:ammo': 'item', 'PEOPLE_UNITS:armour': 'item', 'PEOPLE_UNITS:helmet': 'item', 'PEOPLE_UNITS:shield': 'item',
   RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
@@ -228,6 +237,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   bonusBp: 'Bonus', slowBp: 'Slow', poison: 'Poison', undead: 'Undead', arc: 'Shoots in an arc', arcs: 'Flies in an arc', guard: 'Guards', chase: 'Chases', roam: 'Roams',
   venom: 'Venom', swim: 'Swims', food: 'Food', load: 'Load', skill: 'Skill needed', blunt: 'Blunt', units: 'Units', glows: 'Glows', nutrition: 'Nutrition',
   crops: 'Crops', cropBands: 'Crop yield falls outside the Heartland', sightBonusM: 'Extra sight inside', slots: 'Ranged slots', wooden: 'Wooden', light: 'Light',
+  trot: 'Trot', gallop: 'Gallop', chargeRun: 'Straight gallop before a charge', shoulderCm: 'Shoulder height', minRange: 'Shortest range', reloadSteps: 'Reload',
+  crew: 'Crew needed', crewSkill: 'Crew skill needed (16 = cannon crew)', pushed: 'Pushed by its crew', pierce: 'Pierces a second target', powder: 'Uses gunpowder',
+  reachBonus: 'Extra reach mounted', leash: 'Chases no farther than', bowSpreadMul: 'Bow spread times', farShareBp: 'Thrown 2 m when no taller than this share of the shoulder',
   dig: 'Dig class', regrow: 'Regrows', smoulderPerSecond: 'Smoulder damage a second', smoulderSteps: 'Smoulder time', perSecond: 'Burn a second', seconds: 'Burn seconds',
   base: 'Base level needed', rank: 'Rank', minBand: 'Shallowest band', guardians: 'Guardians', spawns: 'Spawns at night', bands: 'Bands', nature: 'Nature',
   moves: 'Moves as', sun: 'In the sun', comes: 'Comes', role: 'Role', shot: 'Shot', hit: 'Hit', tool: 'Tool tier', group: 'Group',
@@ -247,6 +259,9 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
   'magic/spells.ts': 'Spells and mage ranks', 'magic/mages.ts': 'Mage training and mana', 'magic/cast.ts': 'Casting',
+  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': 'Siege engines and cannon ports', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': 'Siege engines and cannon ports', 'threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
 };
@@ -269,6 +284,8 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   meat: 'count', makes: 'count', perCell: 'count', groupMin: 'count', groupMax: 'count', tameFood: 'nutrition', upkeep: 'nutrition', cropNutrition: 'nutrition',
   nutrition: 'nutrition', food: 'nutrition', tier: 'level', base: 'level', rank: 'level', mana: 'number', smoulderPerSecond: 'damage', perSecond: 'damage',
   seconds: 'number', extra: 'number',
+  trot: 'speed', gallop: 'speed', chargeRun: 'metresWu', shoulderCm: 'metresCm', minRange: 'metresWu', reachBonus: 'metresWu', sight: 'metresWu', leash: 'metresWu',
+  far: 'metresWu', near: 'metresWu', 'ENGINES:horse': 'speed', 'ENGINES:ox': 'speed', 'ENGINES:pushed': 'speed', 'ENGINES:crew': 'count',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */

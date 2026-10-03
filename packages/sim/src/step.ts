@@ -29,10 +29,17 @@ import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai
 import { checkPeoples } from './peoples/factions.ts';
 import { peoplesHooks } from './peoples/hooks.ts';
 import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts';
+import { trackRuns } from './mounts/riding.ts';
+import { runEngine } from './siege/engines.ts';
+import { installLateMobs } from './threats/late-mobs.ts';
+import { mountHooks } from './mounts/riding.ts';
+import { rearRider } from './peoples/factions.ts';
 
 installDeathHooks();
 installAnimalHooks();
 installFoes();
+installLateMobs();
+mountHooks.rearRider = rearRider;
 stockHooks.cell = (state, cellId) => {
   checkCell(state, cellId);
   // Runkin who left a camp settle in the cell they went to; else the cell may hold one of the peoples.
@@ -149,8 +156,10 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
     if (e.owner[i] === NEUTRAL && e.kind[i] === UnitKind.Wanderer) wander(state, i);
     else if (e.kind[i] === UnitKind.Mob) runMob(state, i);
     else if (e.kind[i] === UnitKind.Animal) runAnimal(state, i);
+    else if (e.kind[i] === UnitKind.Engine) runEngine(state, i);
     else runUnit(state, i);
   }
+  trackRuns(state);
   updateProjectiles(state);
   updateSun(state);
   updateThreats(state);

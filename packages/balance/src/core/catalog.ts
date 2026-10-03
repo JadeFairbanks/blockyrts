@@ -167,10 +167,15 @@ function peopleUnitNames(list: unknown): Map<number, string> {
   return out;
 }
 
-/** A trade good: a resource, an item (ITEM_GOODS + id) or a live animal (LIVE_GOODS + species). */
+/** A trade good: a resource, an item (ITEM_GOODS + id), a live animal (LIVE_GOODS + species) or an engine (ENGINE_GOODS + kind). */
 function goodName(ctx: Ctx, good: number): string {
   const items = findExport(ctx.mods, 'ITEM_GOODS') as number | undefined;
   const live = findExport(ctx.mods, 'LIVE_GOODS') as number | undefined;
+  const engines = findExport(ctx.mods, 'ENGINE_GOODS') as number | undefined;
+  if (engines !== undefined && good >= engines) {
+    const list = findExport(ctx.mods, 'ENGINES') as ReadonlyArray<{ id: number; name: string }> | undefined;
+    return list?.find((r) => r.id === good - engines)?.name ?? `Engine ${good - engines}`;
+  }
   if (live !== undefined && good >= live) return `Live ${refName(ctx, 'species', good - live).toLowerCase()}`;
   if (items !== undefined && good >= items) return refName(ctx, 'item', good - items);
   return refName(ctx, 'res', good);

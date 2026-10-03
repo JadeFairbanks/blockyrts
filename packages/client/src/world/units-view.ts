@@ -6,8 +6,12 @@
 // bone, slime, splinters and dust when something is hit. Mages wear their
 // school and rank's look once it is in the library (else the plain mage
 // body), play the clip of the spell they cast, and hold a beam on a target.
+// Riders sit on their mount's model at its rider slot, siege engines and
+// cannons stand on their own models (a cannon in a Citadel's port on the
+// roof), the Rift-touched beasts shed violet motes and a cloaked void
+// stalker shows only as a shimmer.
 import * as THREE from 'three';
-import { HOP_STEPS, Item, mobSpec, Moves, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, HOP_STEPS, Item, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -31,7 +35,7 @@ interface Look {
 }
 
 /** Item ids by what they look like in hand. */
-const POLEARMS = new Set<number>([Item.SpearFlint, Item.SpearHardwood]);
+const POLEARMS = new Set<number>([Item.SpearFlint, Item.SpearHardwood, Item.SpearBronze, Item.HalberdBloom, Item.HalberdWrought, Item.HalberdRefined, Item.PikeSteel, Item.HalberdSteel, Item.PikeHQ, Item.HalberdHQ, Item.Glaive]);
 
 /** Colour of a monster's stand-in block: the night mobs, then (14 on) the lair guardians, the tribes, the village goblins, the lairs and the village's buildings. */
 const MOB_COLOURS = [
@@ -84,6 +88,15 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.45, w: 0.42, colour: 0xff7020 },
   // A Grovesinger's thorn.
   { len: 0.5, w: 0.06, colour: 0x5a8a30 },
+  // Cannonball, catapult stone, ballista bolt, musket ball.
+  { len: 0.16, w: 0.16, colour: 0x2a2a2e },
+  { len: 0.5, w: 0.5, colour: 0x8a8a84 },
+  { len: 1.5, w: 0.08, colour: 0x6a4a28 },
+  { len: 0.05, w: 0.05, colour: 0x5a5a60 },
+  // A bone colossus's boulder, a scorchwing's burning pitch, a flamecaller's hellfire.
+  { len: 0.7, w: 0.7, colour: 0xd8d0b8 },
+  { len: 0.35, w: 0.35, colour: 0xff5010 },
+  { len: 0.5, w: 0.45, colour: 0xff3010 },
 ];
 
 /** Shots drawn with a spell's catalogue model once it is listed. */
@@ -330,6 +343,8 @@ export class UnitsView {
   private readonly corpses: Corpse[] = [];
   /** When each unit's current swing began on screen (ms), by entity id. */
   private readonly swingStart = new Map<number, number>();
+  /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
+  private readonly fired = new Map<number, number>();
   private lastFrame = 0;
 
   constructor(private readonly scene: THREE.Scene) {
@@ -412,7 +427,8 @@ export class UnitsView {
     for (let i = 0; i < curr.count && !beaming; i++) beaming = d[i * STATE_STRIDE + S.beam] !== 0;
     for (let i = 0; i < curr.count; i++) {
       const o = i * STATE_STRIDE;
-      if (d[o + S.inside] !== 0) continue;
+      // A cannon in a Citadel's port stands on the roof; everything else inside a building is hidden.
+      if (d[o + S.inside] !== 0 && d[o + S.kind] !== UnitKind.Engine) continue;
       const id = d[o + S.id]!;
       const p = prev && alpha < 1 && prev.data[o + S.id] === id ? prev.data : d;
       const x = (p[o + S.x]! + (d[o + S.x]! - p[o + S.x]!) * alpha) / WU_PER_METRE;
@@ -445,6 +461,13 @@ export class UnitsView {
       if (mobUnit) {
         const mob = d[o + S.mob]!;
         const spec = mobSpec(mob);
+        const flags = d[o + S.flags]!;
+        // A cloaked void stalker is only a shimmer in the dark until it strikes or comes into the light.
+        if (flags & UnitFlag.Cloaked) {
+          if (Math.random() < dt * 6) this.particles.spawn(x + (Math.random() - 0.5) * 0.8, y + Math.random() * 1.8, z + (Math.random() - 0.5) * 0.8, 0x2a1a3a, 1, 0.2, 0.3);
+          continue;
+        }
+        if (spec.tint === 'rift' && Math.random() < dt * 5) this.particles.spawn(x, y + spec.height / WU_PER_METRE, z, 0xb040ff, 1, 0.6, 1.2);
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           const slot = pool.take([]);
@@ -455,9 +478,13 @@ export class UnitsView {
           dummy.scale.set((spec.halfWidth * 2) / WU_PER_METRE, spec.height / WU_PER_METRE, (spec.halfWidth * 2) / WU_PER_METRE);
           dummy.updateMatrix();
           this.blocks.setMatrixAt(blocks, dummy.matrix);
-          this.blocks.setColorAt(blocks, new THREE.Color(MOB_COLOURS[mob] ?? 0x555555));
+          this.blocks.setColorAt(blocks, new THREE.Color(mobColour(mob)));
           blocks++;
         }
+        continue;
+      }
+      if (kind === UnitKind.Engine) {
+        blocks = this.drawEngine(f, d, o, x, y, z, heading, colour, clipT, blocks);
         continue;
       }
       if (kind === UnitKind.Animal) {
@@ -489,23 +516,34 @@ export class UnitsView {
       const people = owner === PEOPLES || d[o + S.group] !== 0;
       if (owner === PEOPLES && !f.seen(x, z)) continue;
       const look = kind === UnitKind.Warrior ? warriorLook(d, o) : kind === UnitKind.Mage ? (people ? workerLook(d, o) : mageLook(d, o, this.lib)) : workerLook(d, o);
+      // A rider sits at its mount's rider slot, its hips on the saddle.
+      const mount = d[o + S.mount]!;
+      let ry = y;
+      if (mount !== 0) {
+        const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
+        const seat = this.drawMount(d, o, mount, x, y, z, heading, clipT, owner === PEOPLES ? null : colour, blocks);
+        blocks = seat.blocks;
+        ry = seat.y - tall * HIP_SHARE;
+      }
       const own = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
       const pool = own ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       if (own) {
         const slot = own.take([]);
-        if (slot) slot.m.setInstance(slot.i, x, y, z, heading, own.model.clips.has(look.clip) ? look.clip : mobClip(own.model, d, o), clipT, tint);
+        const clip = mount !== 0 ? rideClip(own.model.clips, d, o) : own.model.clips.has(look.clip) ? look.clip : mobClip(own.model, d, o);
+        if (slot) slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
       } else if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
-          slot.m.setInstance(slot.i, x, y, z, heading, hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip, clipT, tint);
+          const clip = mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip;
+          slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
           for (const [item, bone] of look.attach) {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
           }
         }
       } else {
-        dummy.position.set(x, y, z);
+        dummy.position.set(x, ry, z);
         dummy.rotation.set(0, heading, 0);
         const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
         dummy.scale.set(0.45, tall, 0.45);
@@ -527,6 +565,7 @@ export class UnitsView {
       }
     }
     for (const id of this.swingStart.keys()) if (!live.has(id)) this.swingStart.delete(id);
+    for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     blocks = this.drawCorpses(t, blocks);
     blocks = this.drawRuins(f, blocks);
     for (const b of this.bodies.values()) b.commit();
@@ -540,6 +579,79 @@ export class UnitsView {
     this.drawShots(f, prev ? alpha : 1);
     this.drawBeams(f);
     this.particles.update(dt);
+  }
+
+  /**
+   * A mount under its rider: its own model with the clip for its pace (a
+   * gallop or charge once the run counts as a charge), else a block the
+   * mount's size. Returns the height of the rider's seat, metres.
+   */
+  private drawMount(d: Int32Array, o: number, mount: number, x: number, y: number, z: number, heading: number, clipT: number, colour: THREE.Color | null, blocks: number): { y: number; blocks: number } {
+    const spec = mountSpec(mount);
+    const pool = this.body(spec.model);
+    const flags = d[o + S.flags]!;
+    const moving = d[o + S.order] !== OrderKind.Idle;
+    if (pool) {
+      const slot = pool.take(spec.model === 'elf_war_bear' ? ['saddle'] : []);
+      if (slot) {
+        const clips = pool.model.clips;
+        const clip = flags & UnitFlag.Charging ? firstClip(clips, ['charge', 'gallop', 'run', 'walk']) : moving ? firstClip(clips, ['trot', 'walk']) : 'idle';
+        slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, colour);
+        const b = pool.bone('slot_rider');
+        if (b >= 0) {
+          const at = new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, b, this.mat));
+          return { y: at.y, blocks };
+        }
+      }
+      return { y: y + spec.shoulderCm / 100, blocks };
+    }
+    if (blocks < MAX_UNITS) {
+      const dummy = this.dummy;
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(0, heading, 0);
+      dummy.scale.set(0.7, spec.shoulderCm / 100, 2.1);
+      dummy.updateMatrix();
+      this.blocks.setMatrixAt(blocks, dummy.matrix);
+      this.blocks.setColorAt(blocks, new THREE.Color(MOUNT_COLOURS[mount] ?? 0x6a4a30));
+      blocks++;
+    }
+    return { y: y + spec.shoulderCm / 100, blocks };
+  }
+
+  /** A siege engine or cannon: its model with the clip for what it does (towed, aimed, firing), smoke when it fires, else a wooden block its size. */
+  private drawEngine(f: UnitsFrame, d: Int32Array, o: number, x: number, y: number, z: number, heading: number, colour: THREE.Color | null, clipT: number, blocks: number): number {
+    if (!f.seen(x, z)) return blocks;
+    const spec = engineSpec(d[o + S.mob]!);
+    const id = d[o + S.id]!;
+    const firing = d[o + S.order] === OrderKind.Shoot;
+    if (firing && this.fired.get(id) !== f.curr.step) {
+      this.fired.set(id, f.curr.step);
+      const ahead = 1.2;
+      const sx = x - Math.sin(heading) * ahead;
+      const sz = z - Math.cos(heading) * ahead;
+      if (spec.powder) {
+        this.particles.spawn(sx, y + 1, sz, 0xffd060, 10, 3, 1.5);
+        this.particles.spawn(sx, y + 1, sz, 0x8a8a8a, 20, 1.2, 1.6);
+      } else this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
+    }
+    const pool = this.body(spec.model);
+    if (pool) {
+      const slot = pool.take([]);
+      const clips = pool.model.clips;
+      const hauled = d[o + S.crew]! >= 1000;
+      const clip = firing ? 'fire' : d[o + S.order] === OrderKind.Move ? (hauled ? 'move_towed' : firstClip(clips, ['move', 'move_towed'])) : d[o + S.target] !== 0 ? 'aim' : d[o + S.hp]! * 3 < d[o + S.maxHp]! ? firstClip(clips, ['damaged', 'idle']) : 'idle';
+      if (slot) slot.m.setInstance(slot.i, x, y, z, heading, clip, firing ? 0 : clipT, colour);
+      return blocks;
+    }
+    if (blocks >= MAX_UNITS) return blocks;
+    const dummy = this.dummy;
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, heading, 0);
+    dummy.scale.set((spec.halfWidth * 2) / WU_PER_METRE, spec.height / WU_PER_METRE / 2, (spec.halfWidth * 3) / WU_PER_METRE);
+    dummy.updateMatrix();
+    this.blocks.setMatrixAt(blocks, dummy.matrix);
+    this.blocks.setColorAt(blocks, new THREE.Color(spec.powder ? 0xb08a40 : 0x7a5a30));
+    return blocks + 1;
   }
 
   /** A held Beam: a violet-white bar from the mage's hand to her target, flickering a little. */
@@ -686,10 +798,47 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   if (flags & UnitFlag.Climbing && has('climb')) return 'climb';
   if (flags & UnitFlag.Hurt && has('injured')) return 'injured';
   const moving = d[o + S.order] !== OrderKind.Idle;
-  if (mobSpec(d[o + S.mob]!).moves === Moves.LowFlyer && has('fly')) return 'fly';
-  if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : 'walk';
-  return 'idle';
+  const moves = mobSpec(d[o + S.mob]!).moves;
+  // A high flyer stooping on a lone worker dives; circling, it flies.
+  if (flags & UnitFlag.Swooping && has('dive')) return 'dive';
+  if ((moves === Moves.LowFlyer || moves === Moves.HighFlyer) && has('fly')) return 'fly';
+  // A goblin wolf rider's model rides (charge, ride, ride_idle) where others walk.
+  if (flags & UnitFlag.Charging && has('charge')) return 'charge';
+  if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : firstClip(model.clips, ['walk', 'ride']);
+  return firstClip(model.clips, ['idle', 'ride_idle']);
 }
+
+/** The first of some clips a model has, else the last named. */
+function firstClip(clips: ReadonlyMap<string, unknown>, names: readonly string[]): string {
+  for (const n of names) if (clips.has(n)) return n;
+  return names[names.length - 1]!;
+}
+
+/** Where a rider's hips sit up its height (s): the seat is at the mount's rider slot. */
+const HIP_SHARE = 0.53;
+
+/** Mount stand-in colours by Mount: horse, war ox, wolf, war bear. */
+const MOUNT_COLOURS = [0, 0x6a4a30, 0x5a4030, 0x7a7a80, 0x4a3020];
+
+/** A rider's clip (the riding clips of the warrior body, or a people's rider's own): shooting, a thrust or slash, the charge, else sitting. */
+function rideClip(clips: ReadonlyMap<string, unknown>, d: Int32Array, o: number): string {
+  const swing = d[o + S.swing]!;
+  const flags = d[o + S.flags]!;
+  const inHand = swing === Slot.Backup + 1 ? d[o + S.backup]! : d[o + S.weapon]!;
+  if (swing === Slot.Ranged + 1) return firstClip(clips, ['ride_bow_shoot', 'ride_attack_1h', 'ride']);
+  if (swing !== 0) return POLEARMS.has(inHand) ? firstClip(clips, ['ride_attack_polearm', 'ride_thrust', 'ride']) : firstClip(clips, ['ride_attack_1h', 'ride_slash', 'ride']);
+  if (flags & UnitFlag.Charging) return firstClip(clips, ['ride_charge', 'ride']);
+  return firstClip(clips, ['ride_idle', 'ride', 'idle']);
+}
+
+/** A monster's stand-in block colour: its own for the early ones, else a colour from its id (violet for the Rift-touched). */
+function mobColour(mob: number): number {
+  const c = MOB_COLOURS[mob];
+  if (c !== undefined) return c;
+  if (mobSpec(mob).tint === 'rift') return 0x8a40c0;
+  return LATE_COLOURS[mob % LATE_COLOURS.length]!;
+}
+const LATE_COLOURS = [0x5a2a2a, 0x8a3a1a, 0x3a3a4a, 0x6a5a40, 0x9a2a1a, 0x2a2a3a, 0x7a4a2a, 0x4a2a4a];
 
 /** How high a hop arcs above the straight line from one level to the other, metres (s). */
 const HOP_ARC_M = 0.22;

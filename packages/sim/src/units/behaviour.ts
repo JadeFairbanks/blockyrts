@@ -35,6 +35,8 @@ import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } fr
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { speakerName } from '../peoples/speech.ts';
+import { dismount, mountedSpeed, runMount } from '../mounts/riding.ts';
+import { runCrew, runMend } from '../siege/engines.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -224,8 +226,10 @@ export function moverOf(state: SimState, i: number): Mover {
 export function moveSpeed(state: SimState, i: number): number {
   const e = state.entities;
   const cart = cartSpeed(state, i);
-  const base = cart > 0 ? Math.min(cart, e.speed[i]!) : e.speed[i]!;
-  let bp = 10000 - loadSlowBp(state, i);
+  // A mount carries its rider's gear without slowing (Table 14 speeds: a trot, a gallop at a foe).
+  const mounted = e.mount[i] !== 0;
+  const base = mounted ? mountedSpeed(state, i) : cart > 0 ? Math.min(cart, e.speed[i]!) : e.speed[i]!;
+  let bp = 10000 - (mounted ? 0 : loadSlowBp(state, i));
   if (starvingSince(state, i)) bp -= STARVING_SLOW_BP;
   if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
@@ -1221,6 +1225,18 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runHaul(state, i, o);
     case 'cast':
       // The fight layer carries a cast out (magic/cast.ts); reaching here means it is over.
+      return DONE;
+    case 'mount':
+      return runMount(state, i, o);
+    case 'dismount':
+      dismount(state, i);
+      return DONE;
+    case 'crew':
+      return runCrew(state, i, o);
+    case 'mend':
+      return runMend(state, i, o);
+    case 'port':
+      // Only an engine takes a cannon port (siege/engines.ts runEngine).
       return DONE;
   }
 }

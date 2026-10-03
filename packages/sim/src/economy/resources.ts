@@ -87,6 +87,10 @@ export const Res = {
   // Trinkets (Trinkets): every metal in every tier, then the two special ones. TRINKET_BASE + metal * 4 + tier - 1.
   Moonleaf: 102,
   Sunheart: 103,
+  // Milestone 8: siege munitions (Table 2b, Table 12).
+  Cannonball: 104,
+  CatapultStone: 105,
+  BallistaBolt: 106,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -219,6 +223,9 @@ export const RESOURCES: readonly ResourceInfo[] = [
   ...trinkets(),
   r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at a Great Workshop or Manufactory. For trading with villages.', 0, false),
   r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at a Manufactory. For trading with villages.', 0, false),
+  r(Res.Cannonball, 'Cannonball', 'Cannonballs', G, 60, 'An iron ingot or 2 stone at a Foundry. A cannon shot also burns 1 gunpowder charge.', 0, false),
+  r(Res.CatapultStone, 'Catapult stone', 'Catapult stones', G, 400, 'A stone shaped at a Great Workshop.', 0, false),
+  r(Res.BallistaBolt, 'Ballista bolt', 'Ballista bolts', G, 50, 'Hardwood and wrought iron at a Manufactory, 5 at a time.', 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

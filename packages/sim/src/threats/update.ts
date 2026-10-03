@@ -18,13 +18,18 @@ import { atDusk } from './nights.ts';
 import { campBands, spawnBand, updateBands } from './tribes.ts';
 import { rebuildVillages, recallRaids, sendRaids } from './villages.ts';
 import { Role } from './types.ts';
+import { bossAtDawn, bossAtDusk, updateBoss } from './boss.ts';
+import { updateLateMobs } from './late-mobs.ts';
 
 /** What a period's start brings. */
 export function threatsAtPeriod(state: SimState, period: Period, cycle: number): void {
   if (period === Period.Dusk) {
     atDusk(state, cycle);
+    bossAtDusk(state, cycle);
     campBands(state, true);
     recallRaids(state);
+  } else if (period === Period.Dawn) {
+    bossAtDawn(state, cycle);
   } else if (period === Period.Day) {
     state.threats.fog = 0;
     campBands(state, false);
@@ -37,6 +42,8 @@ export function threatsAtPeriod(state: SimState, period: Period, cycle: number):
 export function updateThreats(state: SimState): void {
   updateBurns(state);
   refillMana(state);
+  updateLateMobs(state);
+  updateBoss(state);
   if (state.step % STEPS_PER_SECOND === 0) updateBands(state);
   if (state.step % FOG_INTERVAL_STEPS === 0) updateSeen(state, (j) => sightOf(state, j));
   const c = clockOf(state);

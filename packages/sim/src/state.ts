@@ -63,11 +63,13 @@ export const UnitKind = {
   Animal: 4,
   /** Support and battle mages (Magic): the school is in the school field (magic/spells.ts). */
   Mage: 5,
+  /** Milestone 8: siege engines and cannons (siege/data.ts): the engine kind is in the mob field. */
+  Engine: 6,
 } as const;
 export type UnitKind = (typeof UnitKind)[keyof typeof UnitKind];
 
-/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m, mage 24 m; suggested; mobs see 12 m, animals 16 m). */
-export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE, 24 * WU_PER_METRE] as const;
+/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m, mage 24 m; suggested; mobs see 12 m, animals 16 m, engines 20 m). */
+export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE, 24 * WU_PER_METRE, 20 * WU_PER_METRE] as const;
 
 /** Owner value for the night's monsters: hostile to every player. */
 export const MONSTERS = 254;
@@ -248,6 +250,27 @@ export const UNIT_FIELDS = [
   ['barkUntil', 'u32'],
   /** A wild animal answering the Grovesinger's Call of the wild fights for her faction until this step, then goes wild again. */
   ['calledUntil', 'u32'],
+  /** Milestone 8: what the unit rides (mounts/data.ts Mount) and its mount's health; a player's horse remembers its Stables and sex for when it is let go. */
+  ['mount', 'u8'],
+  ['mountHp', 'i32'],
+  ['mountHome', 'u32'],
+  ['mountSex', 'u8'],
+  /** A mounted unit's straight run at gallop so far (the charge rule), where it was last step and its heading then; 1 while a charge is under way. */
+  ['runWu', 'i32'],
+  ['runX', 'i32'],
+  ['runZ', 'i32'],
+  ['runHeading', 'u16'],
+  ['charge', 'u8'],
+  /** When the mount's own attack (a bear's swipe, a war ox's rear archer, a wolf's bite) is next ready. */
+  ['mountAtkNext', 'u32'],
+  /** Hits a mob has struck (a void stalker's ambush, a Rift scorpion's sting on every other hit); an engine: 1 once it said why it cannot move. */
+  ['strikes', 'u8'],
+  /** In a plague bearer's miasma until this step: no natural healing. */
+  ['sickUntil', 'u32'],
+  /** A late night mob's second ability clock (a void witch's blink, Morvath's rift and ruin, a Rift colossus's beam). */
+  ['ability2At', 'u32'],
+  /** A high flyer swooping is a low flyer until this step (roster: the gravewing's snatch). */
+  ['lowUntil', 'u32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -376,6 +399,20 @@ export class EntityStore implements Record<FieldName, Column> {
   declare healXp: Uint8Array;
   declare barkUntil: Uint32Array;
   declare calledUntil: Uint32Array;
+  declare mount: Uint8Array;
+  declare mountHp: Int32Array;
+  declare mountHome: Uint32Array;
+  declare mountSex: Uint8Array;
+  declare runWu: Int32Array;
+  declare runX: Int32Array;
+  declare runZ: Int32Array;
+  declare runHeading: Uint16Array;
+  declare charge: Uint8Array;
+  declare mountAtkNext: Uint32Array;
+  declare strikes: Uint8Array;
+  declare sickUntil: Uint32Array;
+  declare ability2At: Uint32Array;
+  declare lowUntil: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */

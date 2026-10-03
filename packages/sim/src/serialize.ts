@@ -61,6 +61,9 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
     w.i32(m.x);
     w.i32(m.z);
   }
+  w.i32(t.bossNext);
+  w.i32(t.bossHp);
+  w.i32(t.bossId);
 }
 
 function readThreats(r: ByteReader): ThreatState {
@@ -82,7 +85,10 @@ function readThreats(r: ByteReader): ThreatState {
   const tunnels: Array<{ x: number; z: number }> = [];
   const nt = r.u32();
   for (let k = 0; k < nt; k++) tunnels.push({ x: r.i32(), z: r.i32() });
-  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels };
+  const bossNext = r.i32();
+  const bossHp = r.i32();
+  const bossId = r.i32();
+  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId };
 }
 
 /** The threats as canonical text for diffing: each record as its fields in serialisation order. */
@@ -91,6 +97,7 @@ function threatsJson(t: ThreatState): string {
   return JSON.stringify({
     ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
     burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), bloodSpent: t.bloodSpent, fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
+    boss: [t.bossNext, t.bossHp, t.bossId],
   });
 }
 
@@ -153,7 +160,7 @@ function peoplesJson(ps: PeoplesState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 10;
+export const SNAPSHOT_VERSION = 11;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);

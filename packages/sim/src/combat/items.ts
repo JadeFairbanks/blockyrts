@@ -108,6 +108,11 @@ export const Item = {
   ElfLongbow: 90,
   DwarfWarAxe: 91,
   DwarfWarHammer: 92,
+  // Milestone 8: flintlock muskets (Table 2e) and what carries their powder and balls.
+  MusketIron: 93,
+  MusketSteel: 94,
+  PowderHorn: 95,
+  ShotPouch: 96,
 } as const;
 export type Item = (typeof Item)[keyof typeof Item];
 
@@ -127,17 +132,17 @@ export const Slot = {
   /** Body armour (Table 3). */
   Armour: 8,
   Helmet: 9,
-  /** A bolt case: a crossbow's bolts are carried in one (Table 2e). */
+  /** A bolt case for a crossbow's bolts, or a powder horn for a musket's charges (Table 2e). */
   Case: 10,
-  /** A worker's kit: a fishing rod or net, a prospecting hammer, or a cart. */
+  /** A worker's kit (a fishing rod or net, a prospecting hammer, or a cart), or a musketeer's shot pouch. */
   Kit: 11,
 } as const;
 export type Slot = (typeof Slot)[keyof typeof Slot];
 export const SLOT_COUNT = 12;
-export const SLOT_NAMES = ['Tools', 'Weapon', 'Backup weapon', 'Ranged weapon', 'Shield', 'Boots', 'Arrows', 'Torch', 'Armour', 'Helmet', 'Bolt case', 'Kit'] as const;
+export const SLOT_NAMES = ['Tools', 'Weapon', 'Backup weapon', 'Ranged weapon', 'Shield', 'Boots', 'Arrows', 'Torch', 'Armour', 'Helmet', 'Case or horn', 'Kit or pouch'] as const;
 
 /** Specialist skills (Experience and training: bit per skill in a unit's skills). */
-export const Skill = { Archery: 1, Crossbow: 2 } as const;
+export const Skill = { Archery: 1, Crossbow: 2, Riding: 4, Musket: 8, Cannon: 16 } as const;
 
 /** How a melee weapon hits (Combat, Melee): a stab hits one target, an arc everything in front. */
 export const Hit = { Stab: 0, Arc: 1 } as const;
@@ -167,6 +172,17 @@ export const Shot = {
   Fireball: 11,
   /** An Elf Grovesinger's thorn (Thorn volley): flies like an arrow. */
   Thorn: 12,
+  // Milestone 8: the siege engines' shots (siege/data.ts ENGINE_SHOT), the musket ball, and the late roster's.
+  Cannonball: 13,
+  CatapultStone: 14,
+  BallistaBolt: 15,
+  MusketBall: 16,
+  /** A bone colossus's lump of bone, thrown at a tower or parapet. */
+  BoneBoulder: 17,
+  /** A scorchwing's ball of burning pitch, dropped from above. */
+  FirePitch: 18,
+  /** A flamecaller's fireball. */
+  Hellfire: 19,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -195,8 +211,8 @@ export interface RangedStats {
   skill: number;
   /** Shots a full load holds: a quiver of 24 arrows, a case of 20 bolts, a bundle of 5 javelins, 50 sling stones per stone. */
   load: number;
-  /** What a load is made of: arrows or bolts from the stock, the javelins themselves, or stone from the pool. */
-  munition: 'arrows' | 'bolts' | 'self' | 'stone';
+  /** What a load is made of: arrows or bolts from the stock, the javelins themselves, stone from the pool, or a musket's gunpowder and lead shot from the pool. */
+  munition: 'arrows' | 'bolts' | 'self' | 'stone' | 'powder';
 }
 
 export interface ItemSpec {
@@ -289,13 +305,14 @@ export interface ResearchSpec {
   made?: number;
   /** Researched in a later milestone: the reason it is greyed. */
   later?: string;
+  /** A finished building of a kind and level the player must have (Table 2a "Needs first": a Powder mill, a Great Workshop). */
+  building?: readonly [number, number];
   /** Researched at this building kind instead of a Scholar's Lodge (Hexcraft at the Magi Sanctum). */
   at?: number;
   /** No longer a research step (its bit is kept so saved research masks still line up). */
   retired?: boolean;
 }
 
-const M8R = 'Comes with siege engines and gunpowder (milestone 8).';
 const sec = (n: number): number => n * STEPS_PER_SECOND;
 
 export const RESEARCH: readonly ResearchSpec[] = [
@@ -330,8 +347,8 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Mineshaft tier 2.',
   },
   {
-    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), later: M8R,
-    opens: 'The catapult; the ballista with a Manufactory and Forge level 3.',
+    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), building: [BuildingKind.Workshop, 3],
+    opens: 'The catapult and catapult stones; the ballista and its bolts with a Manufactory and Forge level 3.',
   },
   {
     id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), forge: 4, made: Made.PigIron,
@@ -350,16 +367,16 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Mineshaft tier 3.',
   },
   {
-    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), later: M8R,
-    opens: 'Gunpowder.',
+    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), building: [BuildingKind.PowderMill, 1],
+    opens: 'Gunpowder at the Powder mill.',
   },
   {
-    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), later: M8R,
-    opens: 'The flintlock musket, lead shot, the powder horn and the shot pouch.',
+    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), after: Research.Gunpowder, building: [BuildingKind.GunneryYard, 1],
+    opens: 'The flintlock musket, lead shot, the powder horn and the shot pouch, and musket training at the Gunnery yard.',
   },
   {
-    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), later: M8R,
-    opens: 'The bronze cannon and cannonballs; the iron cannon once Forge level 3 exists.',
+    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), after: Research.Gunpowder, building: [BuildingKind.Foundry, 1],
+    opens: 'The bronze cannon and cannonballs, and cannon crew training; the iron cannon once Forge level 3 exists.',
   },
 ];
 
@@ -589,6 +606,18 @@ export const ITEMS: readonly ItemSpec[] = [
   }),
   melee(Item.DwarfWarAxe, 'Dwarf war axe', 7, 40, [], [], 0, 0, 'axe_war', -1, { damage: 26, attackSteps: ds(13), reach: cm(120), min: 0, hit: Hit.Arc, blunt: false, oneHanded: true }),
   melee(Item.DwarfWarHammer, 'Dwarf war hammer', 7, 90, [], [], 0, 0, 'mace', -1, { damage: 34, attackSteps: ds(18), reach: cm(160), min: 0, hit: Hit.Arc, blunt: true, oneHanded: false }),
+  // Milestone 8 (Table 2e): the flintlock musket, iron or steel barrel, at a Forge 3 or 4 with a Manufactory in the town, after Muskets.
+  // A shot takes 1 gunpowder charge and 1 lead ball (a powder horn and a shot pouch hold 20 each, refilled at a main base).
+  it({
+    id: Item.MusketIron, name: 'Flintlock musket (iron barrel)', slot: Slot.Ranged, tier: 6, weightTenthsLb: 100, recipes: [[[WROUGHT, 3], [Res.Planks, 2], [FL, 1]]], makes: 1, steps: ds(900), research: R.Muskets, model: 'musket', madeAt: forge(3), needsWorkshop: 4, craftSlot: 55,
+    ranged: { damage: 50, attackSteps: ds(80), range: cm(4000), spreadBp: 500, shot: Shot.MusketBall, blunt: false, skill: Skill.Musket, load: 20, munition: 'powder' },
+  }),
+  it({
+    id: Item.MusketSteel, name: 'Flintlock musket (steel barrel)', slot: Slot.Ranged, tier: 7, weightTenthsLb: 100, recipes: [[[STEEL, 1], [Res.Planks, 2], [FL, 1]]], makes: 1, steps: ds(900), research: R.Muskets, model: 'musket', madeAt: forge(4), needsWorkshop: 4, craftSlot: 56,
+    ranged: { damage: 60, attackSteps: ds(80), range: cm(4000), spreadBp: 400, shot: Shot.MusketBall, blunt: false, skill: Skill.Musket, load: 20, munition: 'powder' },
+  }),
+  it({ id: Item.PowderHorn, name: 'Powder horn', slot: Slot.Case, tier: 1, weightTenthsLb: 10, recipes: [[[LE, 1]]], makes: 1, steps: ds(100), research: R.Muskets, model: 'powder_horn', madeAt: TANNERY, craftSlot: 5 }),
+  it({ id: Item.ShotPouch, name: 'Shot pouch', slot: Slot.Kit, tier: 1, weightTenthsLb: 10, recipes: [[[LE, 1]]], makes: 1, steps: ds(100), research: R.Muskets, model: 'lead_shot_pouch', madeAt: TANNERY, craftSlot: 6 }),
 ];
 
 export const ITEM_COUNT = ITEMS.length;
@@ -619,7 +648,25 @@ export function toolTierFor(item: number, job: number): number {
 }
 
 /** Horizontal speed (wu per step) and whether it arcs, for each flying thing (s). */
-export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; model: string; vsWalls: number }> = [
+/**
+ * What a shot is: its speed and whether it arcs, its model, its damage to
+ * walls and buildings; milestone 8 adds a splash round where it lands
+ * (damage and radius, wu), setting wood alight, and a multiplier against
+ * wooden buildings (bp, 0 for none).
+ */
+export interface ShotSpec {
+  speed: number;
+  arcs: boolean;
+  name: string;
+  model: string;
+  vsWalls: number;
+  splash?: number;
+  splashRadius?: number;
+  ignite?: boolean;
+  vsWoodBp?: number;
+}
+
+export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'arrow', model: 'arrow_flight', vsWalls: 0 },
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: true, name: 'sling stone', model: 'sling_stone', vsWalls: 0 },
   { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'javelin', model: 'javelin_flint', vsWalls: 1 },
@@ -635,6 +682,18 @@ export const SHOTS: ReadonlyArray<{ speed: number; arcs: boolean; name: string; 
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'fireball', model: 'spell_fireball', vsWalls: 30 },
   // Milestone 7: a Grovesinger's thorn flies as an arrow does (s).
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'thorn', model: 'spell_thorn_volley', vsWalls: 0 },
+  // Milestone 8 (s): a cannonball flies at 40 m/s in a low arc, a catapult stone is lobbed at 20 m/s, a ballista bolt flies flat at 40 m/s
+  // (their damage against walls is the engine's, siege/data.ts); a musket ball flies straight at 80 m/s; the bone colossus's boulder
+  // (60 to the barrier, roster), the scorchwing's pitch and the flamecaller's fireball (x3 against wood is in the mob's rules).
+  // Splashes (Table 2f, roster): a cannonball 50 within 2 m, a catapult stone 80 within 3 m, the boulder 25 within 2 m, burning pitch
+  // 20 within 2 m and alight; the flamecaller's 30 with a 2 m splash of half that (s) and triple against wood.
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400, splash: 50, splashRadius: cm(200) },
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200, splash: 80, splashRadius: cm(300) },
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: false, name: 'ballista bolt', model: 'ballista_bolt', vsWalls: 20 },
+  { speed: floorDiv(cm(8000), STEPS_PER_SECOND), arcs: false, name: 'musket ball', model: 'musket_ball', vsWalls: 2 },
+  { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 25, splashRadius: cm(200) },
+  { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 20, splashRadius: cm(200), ignite: true },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'spell_fireball', vsWalls: 30, splash: 15, splashRadius: cm(200), vsWoodBp: 30000 },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */

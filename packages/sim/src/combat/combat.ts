@@ -16,7 +16,11 @@ import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, itemSpec, type MeleeStats } from './items.ts';
 import { workerMelee } from '../units/tools.ts';
-import { BLAST, BURST, CLIMBING_DAMAGE_BP, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
+import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
+import { engineSpec } from '../siege/data.ts';
+import { MOUNTED, mountSpec } from '../mounts/data.ts';
+import { chargeKnock, loseMount, mountArmourBp, mountTakes, startCharge, takeCharge } from '../mounts/riding.ts';
+import { facingBp } from '../threats/late-mobs.ts';
 import { MAGE_RANK_NAMES, mageGainXp } from '../magic/mages.ts';
 import { Spell, spellSpec } from '../magic/spells.ts';
 
@@ -89,16 +93,23 @@ export function huntable(state: SimState, t: number): boolean {
 const PERSON_HALF_WIDTH = floorDiv(WU_PER_METRE * 3, 10);
 const PERSON_HEIGHT = floorDiv(WU_PER_METRE * 18, 10);
 
+/** A mounted unit's hit box: 0.6 m half width (s), and its rider's head a metre above the mount's shoulder (s). */
+const MOUNTED_HALF_WIDTH = floorDiv(WU_PER_METRE * 6, 10);
+
 /** Half the width of a unit's hit box, wu (Simple hit shapes). */
 export function halfWidth(state: SimState, i: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Animal) return animalSize(state, i, speciesSpec(e.mob[i]!).halfWidth);
+  if (e.kind[i] === UnitKind.Engine) return engineSpec(e.mob[i]!).halfWidth;
+  if (e.mount[i]) return MOUNTED_HALF_WIDTH;
   return e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).halfWidth : PERSON_HALF_WIDTH;
 }
 
 export function bodyHeight(state: SimState, i: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Animal) return animalSize(state, i, speciesSpec(e.mob[i]!).height);
+  if (e.kind[i] === UnitKind.Engine) return engineSpec(e.mob[i]!).height;
+  if (e.mount[i]) return Math.max(e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).height : PERSON_HEIGHT, floorDiv((mountSpec(e.mount[i]!).shoulderCm + 100) * WU_PER_METRE, 100));
   return e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).height : PERSON_HEIGHT;
 }
 
@@ -111,11 +122,17 @@ export function isMob(state: SimState, i: number): boolean {
   return state.entities.kind[i] === UnitKind.Mob;
 }
 
-/** A flying mob up at its cruising height (only ranged attacks and polearms reach it there). */
+/** A flying mob up at its cruising height (only ranged attacks and polearms reach it there; a high flyer, only ranged attacks and magic). */
 export function flyingHigh(state: SimState, i: number): boolean {
   const e = state.entities;
-  if (e.kind[i] !== UnitKind.Mob || mobSpec(e.mob[i]!).moves !== Moves.LowFlyer) return false;
+  if (e.kind[i] !== UnitKind.Mob || !flies(mobSpec(e.mob[i]!))) return false;
   return e.y[i]! - state.world.topAt(floorDiv(e.x[i]!, 3600), floorDiv(e.z[i]!, 3600)) * WU_PER_TERRAIN_UNIT > SWOOP_HEIGHT * 2;
+}
+
+/** A high flyer circling (not swooping): nothing in hand reaches it, not even a polearm (roster: high flyer). */
+export function soaring(state: SimState, i: number): boolean {
+  const e = state.entities;
+  return e.kind[i] === UnitKind.Mob && mobSpec(e.mob[i]!).moves === Moves.HighFlyer && e.lowUntil[i]! <= state.step;
 }
 
 /** A melee weapon reaching this far (polearms) stabs over a wall or gate; shorter ones cannot hit across one (s). */
@@ -129,7 +146,7 @@ export const OVER_WALL_REACH = 2 * WU_PER_METRE;
 export function wallBetween(state: SimState, a: number, b: number): boolean {
   const e = state.entities;
   if (e.inside[a] !== 0 || e.inside[b] !== 0) return false;
-  for (const j of [a, b]) if (e.kind[j] === UnitKind.Mob && mobSpec(e.mob[j]!).moves === Moves.LowFlyer) return false;
+  for (const j of [a, b]) if (e.kind[j] === UnitKind.Mob && flies(mobSpec(e.mob[j]!))) return false;
   const x0 = e.x[a]!;
   const z0 = e.z[a]!;
   const dx = e.x[b]! - x0;
@@ -191,6 +208,12 @@ export function shieldBlock(state: SimState, i: number): number {
 
 /** The melee weapon a unit of the players fights with now: its weapon, its backup, or its tool or fists. */
 export function meleeOf(state: SimState, i: number, backup: boolean): MeleeStats {
+  const w = handMelee(state, i, backup);
+  // From the saddle a weapon reaches 0.5 m farther (Table 1's mounted row).
+  return state.entities.mount[i] ? { ...w, reach: w.reach + MOUNTED.reachBonus } : w;
+}
+
+function handMelee(state: SimState, i: number, backup: boolean): MeleeStats {
   const e = state.entities;
   const id = backup ? e.backup[i]! : e.weapon[i]!;
   if (id) {
@@ -220,7 +243,7 @@ export interface Blow {
 
 function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
   const e = state.entities;
-  if (blocked) return 'wood';
+  if (blocked || e.kind[i] === UnitKind.Engine) return 'wood';
   if (e.kind[i] !== UnitKind.Mob) return 'blood';
   const mob = e.mob[i]!;
   if (mob === Mob.Slime || mob === Mob.SmallSlime) return 'slime';
@@ -237,12 +260,16 @@ function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
 export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const e = state.entities;
   if (e.hp[i]! <= 0 || blow.damage <= 0) return 0;
+  if (mountTakes(state, i, blow.damage)) return hurtMount(state, i, blow);
   let modifierBp = BP;
   if (e.kind[i] === UnitKind.Mob) {
     const spec = mobSpec(e.mob[i]!);
     if (blow.blunt) modifierBp = spec.bluntBp;
     else if (blow.pierce) modifierBp = spec.pierceBp;
     if (e.climbUntil[i]! > state.step) modifierBp = floorDiv(modifierBp * CLIMBING_DAMAGE_BP, BP);
+    // A juggernaut's weak back, a barrow knight's shield wall (roster 5.19, 5.7).
+    const a = blow.from ? e.indexOf(blow.from) : -1;
+    if (a >= 0) modifierBp = floorDiv(modifierBp * facingBp(state, i, e.x[a]!, e.z[a]!, blow.projectile), BP);
   }
   // A hobgoblin's shield blocks half of what is shot at it (Table 16).
   const block = blow.projectile ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
@@ -268,6 +295,23 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
     e.hp[i] = 0;
     state.dying.push(e.id[i]!);
   } else if (blow.from) hurtHooks.unit(state, i, blow.from, fresh);
+  return d;
+}
+
+/** A blow its mount takes for a mounted unit (it has the more health, or as much): through the mount's armour; at 0 the rider is on foot. */
+function hurtMount(state: SimState, i: number, blow: Blow): number {
+  const e = state.entities;
+  const d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: mountArmourBp(state, i), modifierBp: BP, projectile: blow.projectile, shieldBlockBp: 0 });
+  e.mountHp[i] = e.mountHp[i]! - d;
+  e.hurtAt[i] = state.step;
+  if (blow.from) e.attacker[i] = blow.from;
+  if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: 'blood', x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i), 3), z: e.z[i]!, id: e.id[i]! });
+  if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
+    const j = e.indexOf(blow.from);
+    if (j >= 0 && sideOf(state, j) === Side.Players) noteHitter(state, i, blow.from);
+  }
+  if (e.mountHp[i]! <= 0) loseMount(state, i);
+  else if (blow.from) hurtHooks.unit(state, i, blow.from, false);
   return d;
 }
 
@@ -302,7 +346,11 @@ export function hurtBuilding(state: SimState, b: Building, damage: number, x: nu
 /** Damage a player unit deals with a weapon: +5% per rank above the first, +20% under Rally. A mob's grows 0.5% a night (its power). */
 export function dealt(state: SimState, i: number, base: number): number {
   const e = state.entities;
-  if (e.kind[i] === UnitKind.Mob) return floorDiv(base * e.power[i]!, 1000);
+  if (e.kind[i] === UnitKind.Mob) {
+    const d = floorDiv(base * e.power[i]!, 1000);
+    // An archfiend's command: 20% more (roster 5.22).
+    return e.rallyUntil[i]! > state.step ? withBonus(d, 2000) : d;
+  }
   const rally = e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0;
   return withBonus(base, rankDamageBonusBp(e.kind[i] === UnitKind.Mage ? 1 : e.rank[i]!) + rally);
 }
@@ -332,6 +380,8 @@ export function startSwing(state: SimState, i: number, target: number, attackSte
   e.atkNext[i] = state.step + attackSteps;
   e.atkWith[i] = withSlot;
   e.order[i] = OrderKind.Attack;
+  // After a long enough run at a gallop this swing is a charge (Table 14).
+  startCharge(state, i);
   state.hits.push({ look: 'swing', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
 }
 
@@ -345,7 +395,7 @@ export function hexed(state: SimState, i: number, attackSteps: number): number {
 
 /** Whether a melee weapon can reach a target unit now (one-handed weapons only reach a flyer as it swoops). */
 export function canReach(state: SimState, i: number, t: number, w: MeleeStats): boolean {
-  if (flyingHigh(state, t) && w.oneHanded) return false;
+  if (flyingHigh(state, t) && (w.oneHanded || soaring(state, t))) return false;
   const g = gap(state, i, t);
   if (g > w.reach || g < w.min) return false;
   return w.reach >= OVER_WALL_REACH || !wallBetween(state, i, t);
@@ -360,16 +410,22 @@ export function landPlayerSwing(state: SimState, i: number, w: MeleeStats): void
   const e = state.entities;
   e.atkAt[i] = 0;
   const t = e.indexOf(e.target[i]!);
-  const damage = dealt(state, i, w.damage);
+  // A charge: double damage on everything the swing hits, and the smaller knocked back (Table 14).
+  const charge = takeCharge(state, i);
+  const damage = dealt(state, i, w.damage) * (charge ? 2 : 1);
   const blow = (d: number): Blow => ({ damage: d, from: e.id[i]!, projectile: false, blunt: w.blunt, pierce: w.hit === Hit.Stab });
   const tolerance = floorDiv(WU_PER_METRE, 2);
   const reach = { ...w, reach: w.reach + tolerance, min: Math.max(0, w.min - tolerance) };
-  if (t >= 0 && e.hp[t]! > 0 && canReach(state, i, t, reach)) hurtUnit(state, t, blow(damage));
+  if (t >= 0 && e.hp[t]! > 0 && canReach(state, i, t, reach)) {
+    hurtUnit(state, t, blow(damage));
+    if (charge) chargeKnock(state, i, t);
+  }
   if (w.hit !== Hit.Arc) return;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, w.reach + WU_PER_METRE)) {
     if (j === t || j === i || e.hp[j]! <= 0 || !hostile(state, i, j)) continue;
     if (!canReach(state, i, j, w) || !inArc(state, i, e.x[j]!, e.z[j]!)) continue;
     hurtUnit(state, j, blow(Math.max(1, damage >> 1)));
+    if (charge) chargeKnock(state, i, j);
   }
 }
 
@@ -483,7 +539,8 @@ export function settleDeaths(state: SimState): void {
         deathHooks.unit(state, i);
         if (sideOf(state, i) === Side.Players) {
           const what = e.role[i] === Role.Mercenary ? 'A mercenary' : e.kind[i] === UnitKind.Warrior ? 'A warrior' : e.kind[i] === UnitKind.Mage ? 'A mage' : 'A worker';
-          state.events.push({ player: e.owner[i]!, kind: 'alert', text: `${what} has been killed.`, x: e.x[i]!, z: e.z[i]! });
+          const text = e.kind[i] === UnitKind.Engine ? `A ${engineSpec(e.mob[i]!).name.toLowerCase()} has been destroyed.` : `${what} has been killed.`;
+          state.events.push({ player: e.owner[i]!, kind: 'alert', text, x: e.x[i]!, z: e.z[i]! });
         }
       }
       e.remove(id);

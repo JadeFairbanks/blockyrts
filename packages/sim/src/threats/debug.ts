@@ -2,19 +2,29 @@
 // goblin village, a tribe's band or a territorial creature at a point, a
 // blood night for the coming night, and fog now. Also M6's mage tools: a
 // finished Magi Sanctum, a kit of wands and crystals, and experience for
-// every mage's next rank.
+// every mage's next rank. And M8's: a Stables with horses, a siege kit, a
+// gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
+// night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
+// 105) at once.
 
 import { clockOf, Period } from '../clock.ts';
-import { floorDiv, WU_PER_COLUMN } from '../fixed.ts';
+import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { pickNight } from '../combat/spawn.ts';
 import { placeBuilding, UnitKind, WILD, type SimState } from '../state.ts';
 import { BuildingKind, footprintDims } from '../buildings/data.ts';
 import { Res } from '../economy/resources.ts';
-import { Item } from '../combat/items.ts';
+import { Item, Research, Skill } from '../combat/items.ts';
+import { addMob } from '../combat/mob-ai.ts';
+import { maxHealth } from '../buildings/store.ts';
+import { CITADEL_LEVEL, Engine } from '../siege/data.ts';
+import { addEngine } from '../siege/engines.ts';
+import { summonBoss } from './boss.ts';
+import { BOSS_FIRST_NIGHT } from './types.ts';
 import { MAGE_XP_TENTHS, mageGainXp } from '../magic/mages.ts';
 import { MAGE_TOP_RANK } from '../magic/spells.ts';
 import { addAnimal } from '../animals/animals.ts';
 import { Species } from '../animals/species.ts';
-import { Mob } from '../combat/mobs.ts';
+import { Mob, mobSpec } from '../combat/mobs.ts';
 import { cellAt } from './cells.ts';
 import { LAIRS } from './data.ts';
 import { addLair, nightNow } from './lairs.ts';
@@ -39,7 +49,31 @@ export const DebugThreat = {
   MageKit: 41,
   /** Every one of the player's mages gets the experience for her next rank (and rises to it by herself up to Adept Acolyte). */
   MageXp: 42,
+  /** A finished Stables centred on the spot with 2 grown horses and an ox in its stalls, and 100 bread. */
+  Stables: 50,
+  /** A catapult, a ballista and a bronze cannon at the spot; 20 catapult stones, ballista bolts, cannonballs and gunpowder; Siege engines, Gunpowder, Muskets and Cannons researched. */
+  SiegeKit: 51,
+  /** 4 steel-barrel muskets, powder horns and shot pouches in the stock, 20 gunpowder and 40 lead shot; the gun research done; every warrior trained in the musket and cannon crew. */
+  GunKit: 52,
+  /** The player's main base becomes a finished Citadel (level 10) with its 4 cannon ports. */
+  Citadel: 53,
+  /** Night mobs from night 25 on, in roster order from 60 (LATE_MOBS). */
+  LateMob: 60,
+  /** Morvath, the Hollow Crown. */
+  Morvath: 90,
+  /** The dark edge's wave of one of WAVE_NIGHTS from 91, spawned at the spot now. */
+  Wave: 91,
 } as const;
+
+/** The nights the debug Wave button shows the budget of. */
+export const WAVE_NIGHTS = [30, 50, 85, 105] as const;
+
+/** The night mobs from night 25 on (roster 5.7 to 5.24), in the debug cycler's order. */
+export const LATE_MOBS: readonly Mob[] = [
+  Mob.BarrowKnight, Mob.PlagueBearer, Mob.Gravewing, Mob.BoneColossus, Mob.HollowPriest, Mob.Cinderling, Mob.Hellhound, Mob.Fiend, Mob.Scorchwing,
+  Mob.DemonBrute, Mob.Flamecaller, Mob.ChainFiend, Mob.VoidStalker, Mob.InfernalJuggernaut, Mob.VoidWitch, Mob.AbyssalDrake, Mob.Archfiend, Mob.RiftColossus,
+  Mob.RiftScorpion, Mob.RiftCentipede, Mob.RiftHornet, Mob.RiftBeetle, Mob.RiftGriffin, Mob.RiftMinotaur,
+];
 
 const CREATURES = [Species.GiantBeetle, Species.GiantHornet, Species.Viper, Species.GiantScorpion, Species.Griffin, Species.Minotaur] as const;
 const TRIBE_MOBS = [Mob.Gnoll, Mob.Kobold, Mob.Hobgoblin] as const;
@@ -97,6 +131,62 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
       const need = MAGE_XP_TENTHS[e.rank[i]! + 1]! - e.xp[i]!;
       if (need > 0) mageGainXp(state, i, need);
     }
+    return;
+  }
+  if (what === DebugThreat.Stables && p) {
+    const d = footprintDims(BuildingKind.Stables, 0);
+    const b = placeBuilding(state, player, BuildingKind.Stables, 0, floorDiv(x, WU_PER_COLUMN) - (d.w >> 1), floorDiv(z, WU_PER_COLUMN) - (d.d >> 1), true);
+    for (const [species, k2] of [[Species.Horse, 0], [Species.Horse, 1], [Species.Ox, 2]] as const) {
+      const h = addAnimal(state, species, player, x + (k2 - 1) * 2 * WU_PER_COLUMN, z + (d.d + 2) * (WU_PER_COLUMN >> 1), 0, k2 & 1);
+      state.entities.home[h] = b.id;
+    }
+    p.pool[Res.Bread] = p.pool[Res.Bread]! + 100;
+    return;
+  }
+  if (what === DebugThreat.SiegeKit && p) {
+    for (const [kind, k2] of [[Engine.Catapult, -1], [Engine.Ballista, 0], [Engine.BronzeCannon, 1]] as const) addEngine(state, player, kind, x + k2 * 5 * WU_PER_COLUMN, z);
+    for (const r of [Res.CatapultStone, Res.BallistaBolt, Res.Cannonball, Res.Gunpowder]) p.pool[r] = p.pool[r]! + 20;
+    for (const r of [Research.SiegeEngines, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
+    return;
+  }
+  if (what === DebugThreat.GunKit && p) {
+    for (const it of [Item.MusketSteel, Item.PowderHorn, Item.ShotPouch]) p.items[it] = p.items[it]! + 4;
+    p.pool[Res.Gunpowder] = p.pool[Res.Gunpowder]! + 20;
+    p.pool[Res.LeadShot] = p.pool[Res.LeadShot]! + 40;
+    for (const r of [Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
+    const e = state.entities;
+    for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.kind[i] === UnitKind.Warrior) e.skills[i] = e.skills[i]! | Skill.Musket | Skill.Cannon;
+    return;
+  }
+  if (what === DebugThreat.Citadel) {
+    const b = state.buildings.list.find((q) => q.owner === player && q.kind === BuildingKind.MainBase);
+    if (b) {
+      b.level = CITADEL_LEVEL;
+      b.complete = true;
+      b.upgrading = 0;
+      b.hp = maxHealth(b);
+    }
+    return;
+  }
+  const late = what - DebugThreat.LateMob;
+  if (late >= 0 && late < LATE_MOBS.length) {
+    const mob = LATE_MOBS[late]!;
+    addMob(state, mob, player, x, z, Math.max(nightNow(state), mobSpec(mob).firstNight));
+    return;
+  }
+  const wave = what - DebugThreat.Wave;
+  if (wave >= 0 && wave < WAVE_NIGHTS.length) {
+    const night = WAVE_NIGHTS[wave]!;
+    const mobs = pickNight(state, night);
+    mobs.forEach((mob, q) => addMob(state, mob, player, x + ((q % 8) - 4) * 2 * WU_PER_METRE, z + (floorDiv(q, 8) - 2) * 2 * WU_PER_METRE, night));
+    const count = new Map<number, number>();
+    for (const m of mobs) count.set(m, (count.get(m) ?? 0) + 1);
+    const list = [...count].map(([m, n]) => `${n} ${mobSpec(m).name.toLowerCase()}`).join(', ');
+    state.events.push({ player, kind: 'info', text: `Night ${night}'s wave: ${list}.`, x, z });
+    return;
+  }
+  if (what === DebugThreat.Morvath) {
+    summonBoss(state, player, x, z, Math.max(nightNow(state), BOSS_FIRST_NIGHT));
     return;
   }
   const k = what - DebugThreat.Creature;

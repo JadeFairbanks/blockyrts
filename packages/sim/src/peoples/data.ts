@@ -14,6 +14,7 @@ import { TRINKET_INGOTS } from '../buildings/recipes.ts';
 import { Mob } from '../combat/mobs.ts';
 import { Species } from '../animals/species.ts';
 import { Band } from '../world/layout.ts';
+import { Engine } from '../siege/data.ts';
 
 const SEC = STEPS_PER_SECOND;
 const M = WU_PER_METRE;
@@ -72,6 +73,11 @@ export const PeopleUnit = {
   DwarfShieldbearer: 13,
   DwarfHammerguard: 14,
   DwarfCrossbowman: 15,
+  // Milestone 8: mounted and gun units.
+  HalflingOxRider: 16,
+  ElfBearRider: 17,
+  DwarfGunner: 18,
+  DwarfCannonCrew: 19,
 } as const;
 export type PeopleUnit = (typeof PeopleUnit)[keyof typeof PeopleUnit];
 
@@ -98,10 +104,18 @@ export interface PeopleUnitSpec {
   walkShoot: boolean;
   /** Body height, cm, for the hit box (Halflings 1.5 m and 1 m, Elves 1.9 m, Dwarves 1.3 m). */
   heightCm: number;
+  /** What it rides (mounts/data.ts Mount), 0 for none: Table 14's war ox and war bear. */
+  mount: number;
 }
 
-const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'backup' | 'ranged' | 'ammo' | 'armour' | 'helmet' | 'shield' | 'walkShoot'> & Partial<PeopleUnitSpec>): PeopleUnitSpec => ({
-  weapon: 0, backup: 0, ranged: 0, ammo: 0, armour: 0, helmet: 0, shield: 0, walkShoot: false, ...o,
+/** mounts/data.ts Mount ids, kept as numbers so the balance editor's import of this module stays light. */
+const WAR_OX = 2;
+const WAR_BEAR = 4;
+/** siege/data.ts Engine.DwarfCannon. */
+const DWARF_CANNON = 4;
+
+const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'backup' | 'ranged' | 'ammo' | 'armour' | 'helmet' | 'shield' | 'walkShoot' | 'mount'> & Partial<PeopleUnitSpec>): PeopleUnitSpec => ({
+  weapon: 0, backup: 0, ranged: 0, ammo: 0, armour: 0, helmet: 0, shield: 0, walkShoot: false, mount: 0, ...o,
 });
 
 /**
@@ -130,6 +144,14 @@ export const PEOPLE_UNITS: readonly PeopleUnitSpec[] = [
   unit({ id: PeopleUnit.DwarfShieldbearer, name: 'Dwarf Shieldbearer', people: People.Dwarf, model: 'dwarf_shieldbearer', hp: 200, speed10: 22, fighter: true, weapon: Item.DwarfWarAxe, shield: Item.ShieldSteelHeater, armour: Item.PlateSteel, helmet: Item.SalletSteel, heightCm: 130 }),
   unit({ id: PeopleUnit.DwarfHammerguard, name: 'Dwarf Hammerguard', people: People.Dwarf, model: 'dwarf_hammerguard', hp: 170, speed10: 22, fighter: true, weapon: Item.DwarfWarHammer, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
   unit({ id: PeopleUnit.DwarfCrossbowman, name: 'Dwarf Crossbowman', people: People.Dwarf, model: 'dwarf_crossbowman', hp: 130, speed10: 22, fighter: true, ranged: Item.Crossbow, ammo: Item.BoltsSteel, backup: Item.SwordSteel, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
+  // Milestone 8. The war ox's front rider carries the spearman's bronze spear, and its rear rider's shortbow is the ox's own attack
+  // (mounts/data.ts); the bear rider the Bladewarden's glaive; both ride at the mount's speeds (Table 14).
+  unit({ id: PeopleUnit.HalflingOxRider, name: 'Halfling ox rider', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: Item.SpearBronze, helmet: Item.HelmetNasal, heightCm: 150, mount: WAR_OX }),
+  unit({ id: PeopleUnit.ElfBearRider, name: 'Elf bear rider', people: People.Elf, model: 'elf_bear_rider', hp: 160, speed10: 34, fighter: true, weapon: Item.Glaive, armour: Item.ArmourLeather, heightCm: 190, mount: WAR_BEAR }),
+  // Gunner: "Cities only. Musket, slow to reload." Cannon crew: "Cities only. Defends the city walls." (s: a steel-barrel musket, 20 shots;
+  // the crew carry steel swords and work the city's two cannons at the gate.)
+  unit({ id: PeopleUnit.DwarfGunner, name: 'Dwarf Gunner', people: People.Dwarf, model: 'dwarf_gunner', hp: 140, speed10: 22, fighter: true, ranged: Item.MusketSteel, backup: Item.SwordSteel, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
+  unit({ id: PeopleUnit.DwarfCannonCrew, name: 'Dwarf cannon crew', people: People.Dwarf, model: 'dwarf_cannon_crew', hp: 130, speed10: 22, fighter: true, weapon: Item.SwordSteel, armour: Item.MailWrought, helmet: Item.SalletSteel, heightCm: 130 }),
 ];
 
 export function peopleUnitSpec(id: number): PeopleUnitSpec {
@@ -177,9 +199,19 @@ export interface Layout {
   people: ReadonlyArray<readonly [PeopleUnit, number]>;
   /** Animals it keeps: livestock, wolves, bears. */
   animals: ReadonlyArray<readonly [Species, number]>;
+  /** Engines it fields beside its gate (siege/data.ts Engine): a Dwarf city's own cannons. */
+  engines: ReadonlyArray<readonly [number, number]>;
   /** Buildings stand this far from the middle, wu; fighters keep posts at half that. */
   ringWu: number;
 }
+
+/**
+ * A Halfling village's war oxen, kept in its barn and grown with the band like
+ * its people (s). The doc: "only in times of war, Halflings ride oxen into
+ * battle with two riders on each". When a war starts, a spearman takes each ox
+ * with an archer behind him (peoples/factions.ts fieldOxen).
+ */
+export const HALFLING_WAR_OXEN = 2;
 
 /**
  * The size of each kind (s). The doc: "the deeper they are, the larger and
@@ -191,42 +223,49 @@ export const LAYOUTS: readonly Layout[] = [
     structures: [[Mob.HalflingInn, 1], [Mob.HalflingMill, 1], [Mob.HalflingBarn, 1], [Mob.HalflingBurrow, 4]],
     people: [[PeopleUnit.HalflingMale, 4], [PeopleUnit.HalflingFemale, 4], [PeopleUnit.HalflingSpearman, 4], [PeopleUnit.HalflingArcher, 2]],
     animals: [[Species.Chicken, 4], [Species.Cattle, 2], [Species.Ox, 1]],
+    engines: [],
     ringWu: 14 * M,
   },
   {
     structures: [[Mob.RunkinFire, 1], [Mob.RunkinDryingRack, 1], [Mob.RunkinWolfDen, 1], [Mob.RunkinTent, 3]],
     people: [[PeopleUnit.RunkinMale, 3], [PeopleUnit.RunkinFemale, 3], [PeopleUnit.RunkinArcher, 4], [PeopleUnit.RunkinClubber, 2]],
     animals: [[RUNKIN_WOLF, 3]],
+    engines: [],
     ringWu: 10 * M,
   },
   {
     structures: [[Mob.ElfHall, 3], [Mob.ElfGate, 1], [Mob.ElfBearPen, 1], [Mob.ElfTreePlatform, 4]],
-    people: [[PeopleUnit.ElfVillager, 8], [PeopleUnit.ElfBladewarden, 6], [PeopleUnit.ElfRanger, 6], [PeopleUnit.ElfGrovesinger, 2]],
+    people: [[PeopleUnit.ElfVillager, 8], [PeopleUnit.ElfBladewarden, 6], [PeopleUnit.ElfRanger, 6], [PeopleUnit.ElfGrovesinger, 2], [PeopleUnit.ElfBearRider, 3]],
     animals: [[ELF_BEAR, 3]],
+    engines: [],
     ringWu: 28 * M,
   },
   {
     structures: [[Mob.ElfCaravanWagon, 1]],
     people: [[PeopleUnit.ElfVillager, 1], [PeopleUnit.ElfBladewarden, 2], [PeopleUnit.ElfRanger, 2]],
     animals: [],
+    engines: [],
     ringWu: 5 * M,
   },
   {
     structures: [[Mob.DwarfForge, 1], [Mob.DwarfMineshaft, 1], [Mob.DwarfHouse, 3]],
     people: [[PeopleUnit.DwarfVillager, 4], [PeopleUnit.DwarfShieldbearer, 3], [PeopleUnit.DwarfHammerguard, 2], [PeopleUnit.DwarfCrossbowman, 3]],
     animals: [],
+    engines: [],
     ringWu: 14 * M,
   },
   {
     structures: [[Mob.DwarfHall, 1], [Mob.DwarfCityGate, 1], [Mob.DwarfForge, 2], [Mob.DwarfMineshaft, 2], [Mob.DwarfHouse, 6]],
-    people: [[PeopleUnit.DwarfVillager, 10], [PeopleUnit.DwarfShieldbearer, 8], [PeopleUnit.DwarfHammerguard, 6], [PeopleUnit.DwarfCrossbowman, 8]],
+    people: [[PeopleUnit.DwarfVillager, 10], [PeopleUnit.DwarfShieldbearer, 8], [PeopleUnit.DwarfHammerguard, 6], [PeopleUnit.DwarfCrossbowman, 8], [PeopleUnit.DwarfGunner, 6], [PeopleUnit.DwarfCannonCrew, 4]],
     animals: [],
+    engines: [[DWARF_CANNON, 2]],
     ringWu: 26 * M,
   },
   {
     structures: [[Mob.RunkinFire, 1], [Mob.RunkinTent, 2]],
     people: [],
     animals: [],
+    engines: [],
     ringWu: 7 * M,
   },
 ];
@@ -267,6 +306,8 @@ export const APART_WU = 60 * M;
 /** Goods are coded as numbers: a resource id, ITEM_GOODS + an item id, or LIVE_GOODS + a species (live animals). */
 export const ITEM_GOODS = 200;
 export const LIVE_GOODS = 400;
+/** Siege engines and cannons for sale (siege/data.ts Engine), led out beside the buyer's unit: a Dwarf city's cannons. */
+export const ENGINE_GOODS = 600;
 
 /** What kind of good it is, for what a people pays (Table 11 "Pays for"). */
 export const Cat = {
@@ -339,6 +380,7 @@ export const LEAN_PAY_PCT = 130;
 const CROPS = [Res.Wheat, Res.Potatoes, Res.Carrots, Res.Corn];
 const live = (s: Species): number => LIVE_GOODS + s;
 const item = (i: number): number => ITEM_GOODS + i;
+const engine = (k: number): number => ENGINE_GOODS + k;
 
 export const LEANS: Readonly<Record<People, readonly Lean[]>> = {
   [People.Halfling]: [
@@ -384,8 +426,8 @@ const row = (good: number, count: number, pct = 100, extra: Partial<StockRow> = 
 
 /**
  * Table 11 and Table 19: what each kind sells and how many it holds when
- * full (counts (s)), before the band's richness. The Dwarf city's cannons,
- * muskets, gunpowder, shot and cannonballs come with gunpowder in milestone 8.
+ * full (counts (s)), before the band's richness. The Dwarf city sells its
+ * cannons, muskets, gunpowder, shot and cannonballs at Table 19's prices.
  */
 export const STOCK: readonly (readonly StockRow[])[] = [
   // Halfling village: farm goods, live animals, Halfling gear and bloom iron (Table 11).
@@ -418,6 +460,10 @@ export const STOCK: readonly (readonly StockRow[])[] = [
   [
     row(item(Item.PlateSteel), 1, 150), row(item(Item.SalletSteel), 2, 150), row(item(Item.ShieldSteelHeater), 1, 150), row(item(Item.MailWrought), 2, 150), row(item(Item.SwordSteel), 2, 150),
     row(Res.Gold, 10), row(Res.Emeralds, 5), row(Res.Rubies, 4), row(Res.Diamonds, 2), row(Res.HighQualitySteel, 2, 150, { daily: true }),
+    // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts), and 3 muskets a day, with the horns, pouches, powder, shot and balls to use them (s: counts).
+    row(engine(Engine.BronzeCannon), 1, 100, { price: 4200, daily: true }), row(engine(Engine.IronCannon), 1, 100, { price: 3840, daily: true }),
+    row(item(Item.MusketSteel), 3, 100, { price: 1020, daily: true }), row(item(Item.PowderHorn), 3, 150), row(item(Item.ShotPouch), 3, 150),
+    row(Res.Gunpowder, 20, 100, { price: 480 }), row(Res.LeadShot, 100, 100, { price: 12 }), row(Res.Cannonball, 20, 100, { price: 300 }),
   ],
   // Mercenary camp: hires only.
   [],

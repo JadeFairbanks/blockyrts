@@ -17,10 +17,12 @@ import { UnitKind, type SimState } from '../state.ts';
 import { Band } from '../world/layout.ts';
 import { addMob } from '../combat/mob-ai.ts';
 import { Mob } from '../combat/mobs.ts';
-import { HUT_RING_WU, HUT_SALVAGE, RAID_MIN, RAID_SHARE_PCT, REBUILD_STEPS, VILLAGE_ONE_IN, WAR_KILLS } from './data.ts';
+import { HUTS_PER_WOLF_RIDER, HUT_RING_WU, HUT_SALVAGE, WOLF_PEN_HUTS, RAID_MIN, RAID_SHARE_PCT, REBUILD_STEPS, VILLAGE_ONE_IN, WAR_KILLS } from './data.ts';
 import { nightNow } from './lairs.ts';
 import { raidFoe } from './foes.ts';
 import { Role, type Village } from './types.ts';
+import { Mount } from '../mounts/data.ts';
+import { seat } from '../mounts/riding.ts';
 
 const M = WU_PER_METRE;
 const COL = WU_PER_COLUMN;
@@ -78,6 +80,14 @@ export function buildVillage(state: SimState, cell: number, x: number, z: number
   for (let k = 0; k < size; k++) addHut(state, v, k);
   for (const d of [-2, 2]) addVillager(state, v, Mob.GoblinArcher, x + d * M, z - 2 * M);
   if (mage) addVillager(state, v, Mob.GoblinMage, x - 2 * M, z + 2 * M);
+  // A village of 4 huts or more keeps a wolf pen, and 1 wolf rider for every 2 huts (Table 17).
+  if (size >= WOLF_PEN_HUTS) {
+    addVillager(state, v, Mob.GoblinWolfPen, x - TOTEM_WU, z - (TOTEM_WU >> 1));
+    for (let k = 0; k < floorDiv(size, HUTS_PER_WOLF_RIDER); k++) {
+      const j = addVillager(state, v, Mob.GoblinWolfRider, x - TOTEM_WU + (k - 1) * 2 * M, z - TOTEM_WU);
+      seat(state, j, Mount.Wolf);
+    }
+  }
   return v;
 }
 

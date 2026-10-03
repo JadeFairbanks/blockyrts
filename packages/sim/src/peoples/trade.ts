@@ -14,11 +14,12 @@ import { floorDiv, length2d, WU_PER_COLUMN } from '../fixed.ts';
 import { ITEM_COUNT } from '../combat/items.ts';
 import { RESOURCE_COUNT } from '../economy/resources.ts';
 import { addAnimal } from '../animals/animals.ts';
+import { addEngine } from '../siege/engines.ts';
 import { UnitKind, type SimState } from '../state.ts';
-import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, INSULT_STEPS, ITEM_GOODS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
+import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, ENGINE_GOODS, INSULT_STEPS, ITEM_GOODS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
 import { directions, factionMembers, nearestCity } from './factions.ts';
 import { sayForeign } from './speech.ts';
-import { catOf, inStock, isItem, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
+import { catOf, inStock, isEngineGood, isItem, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
 import { factionById, warFaction, type Faction, type Offer } from './types.ts';
 
 /** Closed until the next dawn (cleared when the day begins). */
@@ -71,7 +72,7 @@ export function tradeProblem(state: SimState, f: Faction, player: number): strin
 /** How many of a good a player has. */
 export function playerHas(state: SimState, player: number, good: number): number {
   const p = state.players[player]!;
-  if (isLive(good)) return 0;
+  if (isLive(good) || isEngineGood(good)) return 0;
   if (isItem(good)) {
     const it = good - ITEM_GOODS;
     return it > 0 && it < ITEM_COUNT ? p.items[it]! : 0;
@@ -134,11 +135,17 @@ function total(rows: ReadonlyArray<{ price: number }>, bundle: readonly number[]
   return t;
 }
 
+/** Whether a bundle being made already holds a cannon: a Dwarf city sells one a day, bronze or iron (doc, Table 19). */
+function hasEngine(used: ReadonlyMap<number, number>): boolean {
+  for (const [good, n] of used) if (n > 0 && isEngineGood(good)) return true;
+  return false;
+}
+
 /** Adds as many of each row (in the order given) as still fit under the worth. */
 function fill(rows: ReadonlyArray<{ good: number; count: number; price: number }>, w: number, used: Map<number, number>, out: number[]): number {
   let left = w;
   for (const r of rows) {
-    const have = r.count - (used.get(r.good) ?? 0);
+    const have = isEngineGood(r.good) ? (hasEngine(used) ? 0 : 1) : r.count - (used.get(r.good) ?? 0);
     const n = Math.min(have, floorDiv(left, r.price));
     if (n <= 0) continue;
     used.set(r.good, (used.get(r.good) ?? 0) + n);
@@ -165,7 +172,7 @@ export function makeBundles(f: Faction, w: number): number[][] {
   let best: number[] = [];
   let bestT = 0;
   for (const r of rows) {
-    const n = Math.min(r.count, floorDiv(w, r.price));
+    const n = Math.min(isEngineGood(r.good) ? 1 : r.count, floorDiv(w, r.price));
     if (n > 0 && n * r.price > bestT) {
       best = [r.good, n];
       bestT = n * r.price;
@@ -187,7 +194,7 @@ export function makeBundles(f: Faction, w: number): number[][] {
   for (let more = true; more; ) {
     more = false;
     for (const r of rows) {
-      if ((used.get(r.good) ?? 0) >= r.count || r.price > left) continue;
+      if ((used.get(r.good) ?? 0) >= r.count || r.price > left || (isEngineGood(r.good) && hasEngine(used))) continue;
       used.set(r.good, (used.get(r.good) ?? 0) + 1);
       const at = mix.indexOf(r.good);
       if (at >= 0 && at % 2 === 0) mix[at + 1] = mix[at + 1]! + 1;
@@ -282,6 +289,10 @@ function give(state: SimState, player: number, good: number, n: number, x: numbe
     for (let k = 0; k < n; k++) addAnimal(state, good - LIVE_GOODS, player, x + (k + 1) * WU_PER_COLUMN * 3, z, 0, k & 1);
     return;
   }
+  if (isEngineGood(good)) {
+    for (let k = 0; k < n; k++) addEngine(state, player, good - ENGINE_GOODS, x + (k + 1) * WU_PER_COLUMN * 5, z);
+    return;
+  }
   if (isItem(good)) p.items[good - ITEM_GOODS] = p.items[good - ITEM_GOODS]! + n;
   else p.pool[good] = p.pool[good]! + n;
 }
@@ -289,7 +300,7 @@ function give(state: SimState, player: number, good: number, n: number, x: numbe
 function take(state: SimState, player: number, good: number, n: number): void {
   const p = state.players[player]!;
   if (isItem(good)) p.items[good - ITEM_GOODS] = p.items[good - ITEM_GOODS]! - n;
-  else if (!isLive(good)) p.pool[good] = p.pool[good]! - n;
+  else if (!isLive(good) && !isEngineGood(good)) p.pool[good] = p.pool[good]! - n;
 }
 
 /** The player takes one of the three bundles: the goods change hands at once. */
@@ -318,6 +329,8 @@ export function takeBundle(state: SimState, player: number, faction: number, bun
     for (let s = 0; s < f.stock.length; s += 2) if (f.stock[s] === b[k]) f.stock[s + 1] = f.stock[s + 1]! - b[k + 1]!;
     give(state, player, b[k]!, b[k + 1]!, x, z);
   }
+  // One cannon a day, bronze or iron: once one is sold the other waits for the dawn restock.
+  if (b.some((g, k) => k % 2 === 0 && isEngineGood(g))) for (let s = 0; s < f.stock.length; s += 2) if (isEngineGood(f.stock[s]!)) f.stock[s + 1] = 0;
   const first = (f.traded & (1 << player)) === 0;
   f.traded |= 1 << player;
   f.met |= 1 << player;

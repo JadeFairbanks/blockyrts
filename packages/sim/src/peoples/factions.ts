@@ -15,15 +15,17 @@ import { hash32 } from '../rng.ts';
 import { PEOPLES, standY, UnitKind, type SimState } from '../state.ts';
 import { addAnimal } from '../animals/animals.ts';
 import { Item, itemSpec, Skill } from '../combat/items.ts';
-import { addMob } from '../combat/mob-ai.ts';
+import { addMob, vanish } from '../combat/mob-ai.ts';
 import { MANA_SCALE, School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
 import { CELL_RING_SHIFT, type Cell } from '../world/layout.ts';
 import {
-  APART_WU, BAND_SIZE_PCT, CAT_COUNT, ELF_KINGDOM_RING_INTO_DEEPWOODS, FactionKind, GROVESINGER, KEEP_AWAY_WU, KIND_PEOPLE, LAYOUTS, LEANS, MERC_MAX, MERC_MIN,
+  APART_WU, BAND_SIZE_PCT, CAT_COUNT, ELF_KINGDOM_RING_INTO_DEEPWOODS, FactionKind, GROVESINGER, HALFLING_WAR_OXEN, KEEP_AWAY_WU, KIND_PEOPLE, LAYOUTS, LEANS, MERC_MAX, MERC_MIN,
   MERC_UNITS, ONE_IN, PeopleUnit, peopleUnitSpec, Status,
 } from './data.ts';
 import { fillStock } from './stock.ts';
+import { seat } from '../mounts/riding.ts';
+import { addEngine } from '../siege/engines.ts';
 import { factionById, type Faction } from './types.ts';
 
 const M = WU_PER_METRE;
@@ -84,7 +86,7 @@ export function newFaction(state: SimState, kind: number, cell: number, x: numbe
     war: 0, met: 0, traded: 0, seen: 0, founded: 0, dead: 0, kills: per(), lastTaker: -1, surrender: 0, leader: 0,
     closedUntil: per(), lastOffer: per(), declines: per(), warnings: per(), warnedAt: per(),
     stock: [], stockMax: [], bought: new Array<number>(CAT_COUNT).fill(0), day: 0, nextAt: 0, regrowAt: 0,
-    caravanAt: per(), visits: -1, leaveAt: 0, leftAt: 0, toX: 0, toZ: 0, toCell: 0, survivors: 0, rebuildUntil: 0, size: 0,
+    caravanAt: per(), visits: -1, leaveAt: 0, leftAt: 0, toX: 0, toZ: 0, toCell: 0, survivors: 0, rebuildUntil: 0, size: 0, oxen: 0,
   };
   state.peoples.factions.push(f);
   return f;
@@ -143,7 +145,9 @@ export function addPerson(state: SimState, f: Faction, unit: number, x: number, 
   e.helmet[i] = spec.helmet;
   e.shield[i] = spec.shield;
   e.ranged[i] = spec.ranged;
-  e.skills[i] = Skill.Archery | Skill.Crossbow;
+  // The peoples are born to their weapons: every skill a unit of theirs may need.
+  e.skills[i] = Skill.Archery | Skill.Crossbow | Skill.Riding | Skill.Musket | Skill.Cannon;
+  if (spec.mount) seat(state, i, spec.mount);
   if (spec.ranged) {
     e.ammoItem[i] = spec.ammo;
     e.ammo[i] = itemSpec(spec.ranged).ranged!.load;
@@ -155,6 +159,43 @@ export function addPerson(state: SimState, f: Faction, unit: number, x: number, 
   }
   state.grid.insert(e, i);
   return i;
+}
+
+/** A Halfling war ox fell: its rear rider, the archer, gets down beside the spearman (Table 14). Installed as mountHooks.rearRider. */
+export function rearRider(state: SimState, i: number): void {
+  const e = state.entities;
+  if (e.owner[i] !== PEOPLES) return;
+  const f = factionById(state.peoples, e.group[i]!);
+  if (!f) return;
+  const j = addPerson(state, f, PeopleUnit.HalflingArcher, e.x[i]! + M, e.z[i]!);
+  e.foe[j] = e.foe[i]!;
+  e.target[j] = e.target[i]!;
+}
+
+/**
+ * A war starts: a Halfling village rides out its war oxen, a spearman in front
+ * and an archer behind on each (doc, Table 14). The archer becomes the ox's
+ * shortbow and gets down again if the ox falls (rearRider).
+ */
+export function fieldOxen(state: SimState, f: Faction): void {
+  const e = state.entities;
+  if (f.oxen <= 0) return;
+  const rider = peopleUnitSpec(PeopleUnit.HalflingOxRider);
+  const mine = peopleOf(state, f.id).filter((j) => e.hp[j]! > 0);
+  const spears = mine.filter((j) => e.mob[j] === PeopleUnit.HalflingSpearman);
+  const bows = mine.filter((j) => e.mob[j] === PeopleUnit.HalflingArcher);
+  while (f.oxen > 0 && spears.length > 0 && bows.length > 0) {
+    const i = spears.shift()!;
+    vanish(state, bows.shift()!);
+    e.mob[i] = PeopleUnit.HalflingOxRider;
+    e.weapon[i] = rider.weapon;
+    e.shield[i] = rider.shield;
+    e.armour[i] = rider.armour;
+    e.helmet[i] = rider.helmet;
+    e.speed[i] = speedOf(rider.speed10);
+    seat(state, i, rider.mount);
+    f.oxen--;
+  }
 }
 
 /** One of a faction's buildings (a mob that stands and can be broken), or its wagon. */
@@ -221,6 +262,7 @@ export function buildFaction(state: SimState, f: Faction): void {
       if (!f.leader && !fighter) f.leader = state.entities.id[i]!;
     }
   }
+  if (f.kind === FactionKind.HalflingVillage) f.oxen = scaled(f, HALFLING_WAR_OXEN);
   if (!f.leader) {
     const first = peopleOf(state, f.id)[0];
     if (first !== undefined) f.leader = state.entities.id[first]!;
@@ -232,6 +274,18 @@ export function buildFaction(state: SimState, f: Faction): void {
     for (let c = 0; c < n; c++) {
       const [x, z] = ringPoint(f, bk++, Math.max(1, beasts), ring >> 2, turn + 12288);
       addBeast(state, f, species, x, z);
+    }
+  }
+  // A Dwarf city's own cannons stand inside its gate (the first ring building), side by side (s).
+  if (layout.engines.length > 0) {
+    const [gx, gz] = ringPoint(f, 0, total - 1, floorDiv(ring * 7, 10), turn);
+    let c = 0;
+    for (const [kind, n] of layout.engines) {
+      for (let k2 = 0; k2 < n; k2++, c++) {
+        const side = (c & 1 ? 1 : -1) * (floorDiv(c, 2) + 1) * 3 * M;
+        const j = addEngine(state, PEOPLES, kind, gx + side, gz);
+        state.entities.group[j] = f.id;
+      }
     }
   }
   f.built = 1;

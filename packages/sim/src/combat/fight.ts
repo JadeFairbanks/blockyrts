@@ -15,7 +15,10 @@ import { landAt, NEUTRAL, OrderKind, SIGHT_WU, UnitKind, type SimState } from '.
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked } from '../peoples/speech.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, startSwing, wallBetween } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing, wallBetween } from './combat.ts';
+import { MOUNTED } from '../mounts/data.ts';
+import { CREW_GUARD_WU } from '../siege/data.ts';
+import { cloaked } from '../threats/late-mobs.ts';
 import { Item, itemSpec, Slot, type MeleeStats, type RangedStats } from './items.ts';
 import { isStructure, Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
@@ -51,6 +54,8 @@ const enum Mode {
   Attack,
   /** N Hunt: chase the quarry the hunt order names (an animal not hostile by itself). */
   Hunt,
+  /** An engine's crew: fight what comes close, then the crew order walks them back to it. */
+  Guard,
 }
 
 function modeOf(state: SimState, i: number): Mode {
@@ -67,6 +72,8 @@ function modeOf(state: SimState, i: number): Mode {
       return Mode.Seek;
     case 'hold':
       return Mode.Hold;
+    case 'crew':
+      return Mode.Guard;
     default:
       return Mode.None;
   }
@@ -94,6 +101,8 @@ export function garrisonOf(state: SimState, i: number): Building | undefined {
 
 /** Whether a unit may stand on a tower or a level 3+ main base's parapets: one with a ranged weapon it can use, or a mage (Magic). */
 export function canGarrison(state: SimState, i: number): boolean {
+  // A rider stays in the saddle: it gets down first (Table 1's mounted row).
+  if (state.entities.mount[i]) return false;
   return state.entities.kind[i] === UnitKind.Mage || rangedOf(state, i) !== null;
 }
 
@@ -112,6 +121,8 @@ export function sightOf(state: SimState, i: number): number {
   let base = SIGHT_WU[e.kind[i]!] ?? SIGHT_WU[0];
   // Table 1: warriors see 2 m farther at Elite and 4 m at Hero.
   if (e.kind[i] === UnitKind.Warrior && e.rank[i]! > 3) base += (e.rank[i]! - 3) * 2 * WU_PER_METRE;
+  // From the saddle: 30 m (Table 1's mounted row).
+  if (e.mount[i]) base = Math.max(base, MOUNTED.sight);
   const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
   const bonus = b ? (buildingSpec(b.kind).sightBonusM ?? 0) * WU_PER_METRE : 0;
   // A fog night halves it.
@@ -129,9 +140,9 @@ function shotOrigin(state: SimState, i: number): [number, number, number] {
 /** Whether a unit can harm a target at all with what it carries (a club cannot reach a bat at its cruising height). */
 function canHarm(state: SimState, i: number, t: number): boolean {
   if (!flyingHigh(state, t)) return true;
-  // Arrows, bolts and spells reach a flyer at its cruising height.
+  // Arrows, bolts, shot and spells reach a flyer at its cruising height; a polearm a low flyer, but not a high flyer circling.
   if (rangedOf(state, i) || state.entities.kind[i] === UnitKind.Mage) return true;
-  return !meleeOf(state, i, false).oneHanded;
+  return !soaring(state, t) && !meleeOf(state, i, false).oneHanded;
 }
 
 /** Whether a target is one this unit may fight now; `chase` also allows a wild animal it was told to attack or hunt, and a building the peoples left for a worker to break down. */
@@ -163,7 +174,7 @@ export function pickTarget(state: SimState, i: number, range: number, structures
     // Lairs and village buildings are broken on an order or an attack-move, never taken up by an idle unit (s).
     if (!structures && isMob(state, j) && isStructure(e.mob[j]!)) continue;
     const d = gap(state, i, j);
-    if (d > range) continue;
+    if (d > range || cloaked(state, j, d)) continue;
     const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damage === 0;
     const attacking = e.target[j] === e.id[i] || (e.attacker[i] === e.id[j] && state.step - e.hurtAt[i]! < 100);
     const tier = attacking ? 0 : e.mob[j] === Mob.BombKeg && isMob(state, j) ? 2 : harmless ? 2 : 1;
@@ -259,7 +270,9 @@ function land(state: SimState, i: number): void {
   }
   const [x, y, z] = shotOrigin(state, i);
   const shot = flags & ProjectileFlag.Fire ? 6 : r.shot;
-  fireAt(state, i, x, y, z, t, shot, dealt(state, i, damage), r.spreadBp, flags);
+  // A bow from the saddle misses twice as wide (Table 1's mounted row).
+  const spread = e.mount[i] && r.munition === 'arrows' ? r.spreadBp * MOUNTED.bowSpreadMul : r.spreadBp;
+  fireAt(state, i, x, y, z, t, shot, dealt(state, i, damage), spread, flags);
   e.ammo[i] = e.ammo[i]! - 1;
   // A bundle of javelins thrown is spent; the empty hand fetches another at a main base.
   if (e.ammo[i] === 0 && r.munition === 'self') e.ranged[i] = Item.None;
@@ -440,13 +453,26 @@ export function fightStep(state: SimState, i: number): boolean {
     engage(state, i, t, true);
     return true;
   }
+  if (mode === Mode.Guard) {
+    let t = e.indexOf(e.target[i]!);
+    if (!validTarget(state, i, t) || !canHarm(state, i, t) || gap(state, i, t) > CREW_GUARD_WU) t = pickTarget(state, i, CREW_GUARD_WU);
+    if (t < 0) {
+      if (e.target[i] !== 0) disengage(state, i);
+      return false;
+    }
+    e.target[i] = e.id[t]!;
+    if (!engage(state, i, t, true)) e.target[i] = 0;
+    return true;
+  }
   const hold = mode === Mode.Hold;
   const acquire = hold ? holdRange(state, i) : mode === Mode.Seek ? sightOf(state, i) : Math.max(IDLE_ACQUIRE_WU, rangedOf(state, i)?.range ?? 0);
   let t = e.indexOf(e.target[i]!);
   if (!validTarget(state, i, t) || !canHarm(state, i, t)) t = -1;
   // The leash: a chase that has run too far from where it began gives up and walks back.
   let leashed = false;
-  if (t >= 0 && !hold && e.chasing[i] === 1 && length2d(e.x[i]! - e.homeX[i]!, e.z[i]! - e.homeZ[i]!) > LEASH_WU && gap(state, i, t) > meleeOf(state, i, false).reach) {
+  // A rider's leash is 60 m (Table 1's mounted row).
+  const leash = e.mount[i] ? MOUNTED.leash : LEASH_WU;
+  if (t >= 0 && !hold && e.chasing[i] === 1 && length2d(e.x[i]! - e.homeX[i]!, e.z[i]! - e.homeZ[i]!) > leash && gap(state, i, t) > meleeOf(state, i, false).reach) {
     t = -1;
     leashed = true;
   }

@@ -40,6 +40,8 @@ const COAL_OR_CHARCOAL: readonly Res[] = [Res.Charcoal, Res.Coal];
 const withFuel = (rest: Cost, fuels: readonly Res[], n = 1): Cost[] => fuels.map((f): Cost => [...rest, [f, n]]);
 const forge = (level: number): ReadonlyArray<readonly [number, number]> => [[BuildingKind.Forge, level]];
 const KILN = [[BuildingKind.Kiln, 1]] as const;
+const POWDER_MILL = [[BuildingKind.PowderMill, 1]] as const;
+const FOUNDRY = [[BuildingKind.Foundry, 1]] as const;
 const TANNERY = [[BuildingKind.Tannery, 1]] as const;
 const HERBALIST = [[BuildingKind.HerbalistHut, 1]] as const;
 const workshop = (tier: number): ReadonlyArray<readonly [number, number]> => [[BuildingKind.Workshop, tier]];
@@ -49,6 +51,10 @@ const cooking = (tier: number): ReadonlyArray<readonly [number, number]> => [[Bu
 const BRONZE = 2;
 const STEEL = 9;
 const HQ_STEEL = 10;
+const SIEGE_ENGINES = 8;
+const GUNPOWDER = 13;
+const MUSKETS = 14;
+const CANNONS = 15;
 const MADE_TIN = 1;
 const MADE_PIG = 2;
 
@@ -103,7 +109,14 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   { name: 'Refined iron', at: forge(4), inputs: withFuel([[Res.PigIron, 2]], FUELS), outputs: [[Res.RefinedIron, 1]], steps: sec(10), research: 0 },
   { name: 'Steel ingot', at: forge(4), inputs: withFuel([[Res.RefinedIron, 1]], COAL_OR_CHARCOAL, 2), outputs: [[Res.SteelIngot, 1]], steps: sec(15), research: STEEL },
   { name: 'High-quality steel', at: forge(4), inputs: [[[Res.RefinedIron, 2], [Res.Charcoal, 6]]], outputs: [[Res.HighQualitySteel, 1]], steps: sec(60), research: HQ_STEEL },
-  { name: 'Lead shot (10)', at: forge(3), inputs: withFuel([[Res.LeadOre, 1]], FUELS), outputs: [[Res.LeadShot, 10]], steps: sec(8), research: 0 },
+  { name: 'Lead shot (10)', at: forge(3), inputs: withFuel([[Res.LeadOre, 1]], FUELS), outputs: [[Res.LeadShot, 10]], steps: sec(8), research: MUSKETS },
+  // Gunpowder and siege munitions (Table 2b). One gunpowder is 10 charges.
+  { name: 'Gunpowder (10 charges)', at: POWDER_MILL, inputs: [[[Res.Saltpetre, 2], [Res.Sulphur, 1], [Res.Charcoal, 1]]], outputs: [[Res.Gunpowder, 1]], steps: sec(15), research: GUNPOWDER },
+  {
+    name: 'Cannonball', at: FOUNDRY, inputs: [[[Res.BloomIron, 1]], [[Res.WroughtIron, 1]], [[Res.RefinedIron, 1]], [[Res.Stone, 2]]], outputs: [[Res.Cannonball, 1]], steps: sec(5), research: CANNONS,
+  },
+  { name: 'Catapult stone', at: workshop(3), inputs: [[[Res.Stone, 1]]], outputs: [[Res.CatapultStone, 1]], steps: sec(10), research: SIEGE_ENGINES },
+  { name: 'Ballista bolts (5)', at: workshop(4), inputs: [[[H, 2], [Res.WroughtIron, 1]]], outputs: [[Res.BallistaBolt, 5]], steps: sec(30), research: SIEGE_ENGINES },
   // The kiln.
   { name: 'Charcoal (3)', at: KILN, inputs: [[[H, 2]]], outputs: [[Res.Charcoal, 3]], steps: sec(10), research: 0 },
   { name: 'Bricks (4)', at: KILN, inputs: withFuel([[Res.Clay, 2]], COAL_OR_CHARCOAL), outputs: [[Res.Bricks, 4]], steps: sec(10), research: 0 },

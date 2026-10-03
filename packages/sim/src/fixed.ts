@@ -34,6 +34,11 @@ export function floorDiv(a: number, b: number): number {
   return Math.floor(a / b) + 0;
 }
 
+/** a / b rounded up, for positive b. */
+export function ceilDiv(a: number, b: number): number {
+  return floorDiv(a + b - 1, b);
+}
+
 /** Remainder with the sign of the divisor, so floorMod(-1, 4) === 3. */
 export function floorMod(a: number, b: number): number {
   return a - floorDiv(a, b) * b;

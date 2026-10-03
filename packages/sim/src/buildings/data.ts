@@ -164,7 +164,6 @@ const DEEP_MINING_1 = 3;
 const DEEP_MINING_2 = 7;
 const DEEP_MINING_3 = 12;
 const BRONZE = 2;
-const M8 = 'Comes with gunpowder (milestone 8).';
 
 const box = (w: number, d: number): readonly [number, number, number, number] => [0, 0, w, d];
 
@@ -372,13 +371,13 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl('Barracks', [[S, 80], [ST, 40], [Res.Sticks, 20]], 400, 1000, { needsBase: 2, gives: 'warriors, archery, crossbow, rank training' })],
   },
   {
-    kind: BuildingKind.Stables, name: 'Stables', purpose: 'Workers tame wild horses and oxen once a Stables stands; it houses 6 in its stalls and breeds them. Riding comes with milestone 8.',
+    kind: BuildingKind.Stables, name: 'Stables', purpose: 'Workers tame wild horses and oxen once a Stables stands; it houses 6 in its stalls and breeds them, and trains warriors to ride.',
     menu: 'advanced', slot: 4, w: 10, d: 8, solid: box(10, 8), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Stables', [[S, 30], [ST, 10], [Res.Sticks, 5]], 150, 800, { needsBase: 3, gives: 'taming, 6 stalls, breeding; riding with milestone 8' })],
+    levels: [lvl('Stables', [[S, 30], [ST, 10], [Res.Sticks, 5]], 150, 800, { needsBase: 3, gives: 'taming, 6 stalls, breeding, riding training' })],
   },
   {
-    kind: BuildingKind.GunneryYard, name: 'Gunnery yard', purpose: 'Musket and cannon crew training.',
-    menu: 'advanced', slot: 5, w: 12, d: 12, solid: box(12, 12), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
+    kind: BuildingKind.GunneryYard, name: 'Gunnery yard', purpose: 'Trains warriors to fire muskets (after Muskets) and to crew cannons (after Cannons).',
+    menu: 'advanced', slot: 5, w: 12, d: 12, solid: box(12, 12), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Gunnery yard', [[H, 50], [ST, 75], [Res.Bricks, 30], [Res.SteelIngot, 10]], 600, 1500, { needsBase: 8, gives: 'musket and cannon crew training' })],
   },
   {
@@ -406,13 +405,13 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     ],
   },
   {
-    kind: BuildingKind.PowderMill, name: 'Powder mill', purpose: 'Gunpowder.',
-    menu: 'advanced', slot: 9, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
+    kind: BuildingKind.PowderMill, name: 'Powder mill', purpose: 'Mixes saltpetre, sulphur and charcoal into gunpowder once Gunpowder is researched (which needs a Powder mill first).',
+    menu: 'advanced', slot: 9, w: 6, d: 6, solid: box(6, 6), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Powder mill', [[H, 20], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 5]], 300, 600, { needsBase: 7, gives: 'gunpowder' })],
   },
   {
-    kind: BuildingKind.Foundry, name: 'Foundry', purpose: 'Cannons and cannonballs.',
-    menu: 'advanced', slot: 10, w: 10, d: 10, solid: box(10, 10), dropoff: 'none', trainsWorkers: false, live: false, comesWith: M8,
+    kind: BuildingKind.Foundry, name: 'Foundry', purpose: 'Casts bronze and iron cannons and cannonballs once Cannons is researched.',
+    menu: 'advanced', slot: 10, w: 10, d: 10, solid: box(10, 10), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Foundry', [[H, 50], [ST, 75], [Res.Bricks, 50], [Res.BronzeIngot, 10], [Res.WroughtIron, 10]], 600, 1500, { needsBase: 8, gives: 'cannons, cannonballs' })],
   },
   wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 300, true),

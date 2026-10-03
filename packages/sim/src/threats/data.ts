@@ -5,7 +5,7 @@
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { Band } from '../world/layout.ts';
-import { Mob } from '../combat/mobs.ts';
+import { Comes, Demon, Mob, MOBS } from '../combat/mobs.ts';
 
 const M = WU_PER_METRE;
 const SEC = STEPS_PER_SECOND;
@@ -32,13 +32,26 @@ export interface LairSpec {
 
 const repeat = (m: Mob, n: number): Mob[] => Array.from({ length: n }, () => m);
 
+/** The night mobs of a kind of demon unlocked by a night, newest first (Table 15: "red demons of the current roster"). */
+function demonsBy(kind: number, night: number): Mob[] {
+  return MOBS.filter((m) => m.demon === kind && m.role === 0 && m.comes !== Comes.Never && m.firstNight <= night).map((m) => m.id).reverse();
+}
+
+/** A lair's sleepers drawn from a list in turn: the newest kind first, then round again (s). */
+function round(list: readonly Mob[], n: number): Mob[] {
+  return list.length === 0 ? [] : Array.from({ length: n }, (_, k) => list[k % list.length]!);
+}
+
+const RED_DEMONS = MOBS.filter((m) => m.demon === Demon.Red && m.role === 0 && m.comes !== Comes.Never).map((m) => m.id);
+const PURPLE_DEMONS = MOBS.filter((m) => m.demon === Demon.Purple && m.role === 0 && m.comes !== Comes.Never).map((m) => m.id);
+
 export const LAIRS: readonly LairSpec[] = [
   {
-    // 4: zombies, skeleton archers from night 5, grave hounds from 20 (a hollow priest from 40 comes with milestone 8's roster) (s: one archer, then one hound).
+    // 4: zombies, skeleton archers from night 5, grave hounds from 20, a hollow priest from 40 (s: one archer, then one hound, then the priest in a zombie's place).
     mob: Mob.LairBarrow, firstNight: 0, minBand: Band.Heartland, site: LairSite.Any,
-    sleepers: (n) => [Mob.Zombie, Mob.Zombie, n >= 20 ? Mob.GraveHound : Mob.Zombie, n >= 5 ? Mob.SkeletonArcher : Mob.Zombie],
+    sleepers: (n) => [n >= 40 ? Mob.HollowPriest : Mob.Zombie, Mob.Zombie, n >= 20 ? Mob.GraveHound : Mob.Zombie, n >= 5 ? Mob.SkeletonArcher : Mob.Zombie],
     guardians: [Mob.GiantCentipede],
-    spawns: [Mob.Zombie, Mob.Slime, Mob.SkeletonArcher, Mob.BloatedCorpse, Mob.SkeletonBomber, Mob.GraveHound],
+    spawns: [Mob.Zombie, Mob.Slime, Mob.SkeletonArcher, Mob.BloatedCorpse, Mob.SkeletonBomber, Mob.GraveHound, Mob.HollowPriest],
     glows: false,
   },
   {
@@ -54,15 +67,15 @@ export const LAIRS: readonly LairSpec[] = [
     mob: Mob.LairNest, firstNight: 0, minBand: Band.Heartland, site: LairSite.CaveOrDeadForest,
     sleepers: () => [],
     guardians: repeat(Mob.GiantSpider, 3),
-    spawns: [Mob.GiantSpider],
+    spawns: [Mob.GiantSpider, Mob.Gravewing],
     glows: false,
   },
   {
-    // 3 bloated corpses (a plague bearer from night 30 comes with milestone 8).
+    // 3 bloated corpses, a plague bearer from night 30.
     mob: Mob.LairMassGrave, firstNight: 10, minBand: Band.Fringe, site: LairSite.Any,
-    sleepers: () => repeat(Mob.BloatedCorpse, 3),
+    sleepers: (n) => [...repeat(Mob.BloatedCorpse, 3), ...(n >= 30 ? [Mob.PlagueBearer] : [])],
     guardians: [Mob.Myconid],
-    spawns: [Mob.BloatedCorpse],
+    spawns: [Mob.BloatedCorpse, Mob.PlagueBearer],
     glows: false,
   },
   {
@@ -73,27 +86,27 @@ export const LAIRS: readonly LairSpec[] = [
     glows: false,
   },
   {
-    // 2 grave hounds, 2 skeleton archers (the barrow knight and, from night 35, the bone colossus come with milestone 8).
+    // 5: 1 barrow knight, 2 grave hounds, 2 skeleton archers; a bone colossus from night 35.
     mob: Mob.LairGreatBarrow, firstNight: 25, minBand: Band.Fringe, site: LairSite.Any,
-    sleepers: () => [Mob.GraveHound, Mob.GraveHound, Mob.SkeletonArcher, Mob.SkeletonArcher],
+    sleepers: (n) => [Mob.BarrowKnight, Mob.GraveHound, Mob.GraveHound, Mob.SkeletonArcher, Mob.SkeletonArcher, ...(n >= 35 ? [Mob.BoneColossus] : [])],
     guardians: [Mob.GiantCentipede, Mob.GiantCentipede],
-    spawns: [Mob.SkeletonArcher, Mob.GraveHound],
+    spawns: [Mob.SkeletonArcher, Mob.GraveHound, Mob.BarrowKnight, Mob.BoneColossus],
     glows: false,
   },
   {
-    // 6 red demons of the current roster: milestone 8.
+    // 6 red demons of the current roster (s: the newest kinds in turn); hollow priests come out of them too (roster 5.10).
     mob: Mob.LairRiftScar, firstNight: 45, minBand: Band.Deepwoods, site: LairSite.Any,
-    sleepers: () => [],
+    sleepers: (n) => round(demonsBy(Demon.Red, n), 6),
     guardians: [Mob.AshGolem],
-    spawns: [],
+    spawns: [...RED_DEMONS, Mob.HollowPriest],
     glows: true,
   },
   {
-    // 4 purple demons of the current roster: milestone 8.
+    // 4 purple demons of the current roster (s: the newest kinds in turn, never more than the night allows of the archfiend and colossus).
     mob: Mob.LairVoidRift, firstNight: 80, minBand: Band.Barrens, site: LairSite.Any,
-    sleepers: () => [],
+    sleepers: (n) => round(demonsBy(Demon.Purple, n).filter((m) => m !== Mob.Archfiend && m !== Mob.RiftColossus), 4),
     guardians: [Mob.ManaWraith, Mob.ManaWraith],
-    spawns: [],
+    spawns: PURPLE_DEMONS,
     glows: true,
   },
 ];
@@ -174,6 +187,9 @@ export const CAMP_RADIUS_WU = 6 * M;
 export const VILLAGE_ONE_IN: Readonly<Record<number, number>> = { [Band.Fringe]: 12, [Band.Deepwoods]: 4 };
 /** Huts stand in a ring 8 m out; the stake ring runs 12 m out (s). */
 export const HUT_RING_WU = 8 * M;
+/** Table 17: a wolf pen in a village of this many huts or more, and 1 wolf rider for every 2 huts (Milestone 8). */
+export const WOLF_PEN_HUTS = 4;
+export const HUTS_PER_WOLF_RIDER = 2;
 export const STAKE_RING_WU = 12 * M;
 /** Goblins attack anything within 25 m of the stake ring and chase 40 m past it, then go home (Table 17). */
 export const VILLAGE_AGGRO_WU = STAKE_RING_WU + 25 * M;

@@ -21,6 +21,15 @@ describe('catalog', () => {
     expect(count('LAIRS')).toBe(len('threats/data.ts', 'LAIRS'));
   });
 
+  it('files the mounts and the siege engines under Mounts, siege and guns, with their speeds in m/s', () => {
+    const siege = cat.groups.find((g) => g.id === 'siege')!;
+    const labels = siege.entries.map((e) => e.label);
+    expect(labels).toEqual(expect.arrayContaining(['Horse', 'Elf war bear', 'Catapult', 'Ballista', 'Bronze cannon', 'Iron cannon']));
+    const gallop = [...cat.fields.values()].find((f) => f.module === 'mounts/data.ts' && f.path.join('.') === 'MOUNTS.1.gallop')!;
+    expect(gallop.unit).toBe('speed');
+    expect(toDisplay(gallop.value as number, gallop.unit)).toBe('8');
+  });
+
   it('gives every value a path that reads back the same value from the sim', () => {
     for (const f of cat.fields.values()) expect(valueAt(mods[f.module]!, f.path), f.id).toBe(f.value);
     expect(cat.fields.size).toBeGreaterThan(3000);
@@ -65,6 +74,7 @@ describe('catalog', () => {
     expect(all).toContain('Steel ingot');
     expect(all).toContain('Dwarf colony');
     expect(all).toContain('Live chicken');
+    expect(all).toContain('Bronze cannon');
     expect(all.some((l) => /Lines|Names/.test(l))).toBe(false);
     const steel = [...cat.fields.values()].find((f) => f.module === 'peoples/data.ts' && f.path[0] === 'RES_VALUE_TENTHS' && f.label === 'Steel ingot')!;
     expect(toDisplay(steel.value as number, steel.unit)).toBe('30');

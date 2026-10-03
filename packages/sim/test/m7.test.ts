@@ -257,7 +257,8 @@ describe('war', () => {
     // At war, its trade is shut.
     expect(tradeProblem(s, f, 0)).toBe('You are at war with them.');
     const people = peopleOf(s, f.id);
-    const half = Math.floor(people.length / 2) + 1;
+    // Counted against those it was founded with (two archers now ride behind on the war oxen).
+    const half = Math.floor(f.founded / 2) + 1;
     // Villagers first, so fighters are left (a defeat is no surrender).
     const order = [...people].sort((a, b) => Number(s.entities.kind[b] === UnitKind.Worker) - Number(s.entities.kind[a] === UnitKind.Worker));
     kill(s, order.slice(0, half), wr);

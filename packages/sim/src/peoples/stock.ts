@@ -7,8 +7,9 @@ import { floorDiv } from '../fixed.ts';
 import { RESOURCES, Res } from '../economy/resources.ts';
 import { itemSpec, Slot } from '../combat/items.ts';
 import { speciesSpec } from '../animals/species.ts';
+import { engineSpec } from '../siege/data.ts';
 import {
-  BAND_STOCK_PCT, CARAVAN_WEAPONS, Cat, COOKED_HUNDREDTHS_PER_NUTRITION, FactionKind, ITEM_GOODS, ITEM_VALUE_TENTHS, LEAN_PAY_PCT, LEAN_SELL_PCT, LEANS, LIVE_GOODS,
+  BAND_STOCK_PCT, CARAVAN_WEAPONS, Cat, COOKED_HUNDREDTHS_PER_NUTRITION, FactionKind, ITEM_GOODS, ITEM_VALUE_TENTHS, ENGINE_GOODS, LEAN_PAY_PCT, LEAN_SELL_PCT, LEANS, LIVE_GOODS,
   LIVE_VALUE_TENTHS, PAY_PCT, REFUSE, RES_VALUE_TENTHS, RESTOCK_PCT, STOCK, trinketMetal, trinketValueTenths, type StockRow,
 } from './data.ts';
 import type { Faction } from './types.ts';
@@ -21,7 +22,10 @@ const SILVER_METAL = 5;
 
 /** Whether a good is a live animal, an item, or a resource. */
 export function isLive(good: number): boolean {
-  return good >= LIVE_GOODS;
+  return good >= LIVE_GOODS && good < ENGINE_GOODS;
+}
+export function isEngineGood(good: number): boolean {
+  return good >= ENGINE_GOODS;
 }
 export function isItem(good: number): boolean {
   return good >= ITEM_GOODS && good < LIVE_GOODS;
@@ -30,6 +34,7 @@ export function isItem(good: number): boolean {
 /** What a good is called in the trade menu. */
 export function goodName(good: number): string {
   if (isLive(good)) return `Live ${speciesName(good - LIVE_GOODS)}`;
+  if (isEngineGood(good)) return engineSpec(good - ENGINE_GOODS).name;
   if (isItem(good)) return itemSpec(good - ITEM_GOODS).name;
   return RESOURCES[good]?.name ?? `Good ${good}`;
 }
@@ -41,6 +46,7 @@ export function speciesName(species: number): string {
 /** A good's category for what a people pays (Table 11 "Pays for"). */
 export function catOf(good: number): Cat {
   if (isLive(good)) return Cat.Livestock;
+  if (isEngineGood(good)) return Cat.Gear;
   if (isItem(good)) {
     const slot = itemSpec(good - ITEM_GOODS).slot;
     return slot === Slot.Armour || slot === Slot.Helmet || slot === Slot.Shield || slot === Slot.Boots ? Cat.Armour : Cat.Gear;
@@ -92,6 +98,8 @@ export function itemValueTenths(item: number): number {
 /** A good's worth, tenths. */
 export function valueTenths(good: number): number {
   if (isLive(good)) return LIVE_VALUE_TENTHS[good - LIVE_GOODS] ?? 300;
+  // An engine's worth as half the Dwarf city's price (3 x make cost is 1.5 x worth).
+  if (isEngineGood(good)) return floorDiv((STOCK[FactionKind.DwarfCity]!.find((r) => r.good === good)?.price ?? 0) * 2, 3);
   if (isItem(good)) return itemValueTenths(good - ITEM_GOODS);
   return resValueTenths(good);
 }
