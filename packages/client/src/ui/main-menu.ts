@@ -64,7 +64,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
       box.replaceChildren();
       el('h1', 'game-logo', 'Survive and Conquer', box);
       el('p', 'tagline', 'Build by day, hold the walls by night.', box);
-      for (const p of supportProblems(supportFacts())) el('p', 'note warn', p, box);
+      for (const p of supportProblems(supportFacts(), settings.touch)) el('p', 'note warn', p, box);
       const who = el('p', 'note who', '', box);
       const showWho = (): void => {
         who.textContent = api.me ? `Playing as ${api.me.name}${api.me.account ? '' : ' (guest)'}.` : 'Not connected to the game server: playing alone still works.';

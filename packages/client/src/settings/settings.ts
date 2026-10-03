@@ -33,6 +33,10 @@ export interface Settings {
   voiceVolume: number;
   /** The first day's hints (Onboarding). */
   hints: boolean;
+  /** Tap controls for a touchscreen (patch notes 1): everything by tapping, no right click, no cursor lock or edge panning. */
+  touch: boolean;
+  /** Whether the first-load question about a touchscreen has been answered. */
+  touchAsked: boolean;
 }
 
 /** What each quality preset sets (s): low draws less of everything, high the most. */
@@ -55,6 +59,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   effectsVolume: 0.8,
   voiceVolume: 0.8,
   hints: true,
+  touch: false,
+  touchAsked: false,
 };
 
 /** Slider range for the three speed multipliers. */
@@ -101,6 +107,8 @@ export function sanitizeSettings(raw: unknown): Settings {
     effectsVolume: unit(r.effectsVolume, d.effectsVolume),
     voiceVolume: unit(r.voiceVolume, d.voiceVolume),
     hints: bool(r.hints, d.hints),
+    touch: bool(r.touch, d.touch),
+    touchAsked: bool(r.touchAsked, d.touchAsked),
   };
 }
 

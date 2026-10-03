@@ -183,6 +183,8 @@ export interface Folds {
   map: boolean;
   info: boolean;
   stock: boolean;
+  /** The tester's debug readout and tools. */
+  debug: boolean;
 }
 
 /**
@@ -211,6 +213,7 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
   L.selectionPanel.hidden = phone && !folds.info;
   L.stockpile.hidden = phone && !folds.stock;
   L.folds.hidden = !phone;
+  L.debug.hidden = phone && !folds.debug;
   place(L.minimapPanel, g.minimap.x, null, lift, g.minimap.w, g.minimap.h, '0 100%');
   place(L.portraitPanel, g.portrait.x, null, lift, g.portrait.w, g.portrait.h, '0 100%');
   place(L.selectionPanel, g.middle.x, null, lift, g.middle.w, g.middle.h, '0 100%');
@@ -224,6 +227,8 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
   const dbg = L.debug.style;
   dbg.transformOrigin = '0 0';
   dbg.transform = s === 1 ? '' : `scale(${phone ? s * 0.8 : s})`;
+  // On a phone it sits right of the fold buttons, which keep the left edge.
+  dbg.left = phone ? `${g.folds!.w + 4}px` : '';
   const clock = L.clock.style;
   clock.transform = s === 1 ? '' : `translateX(-50%) scale(${s})`;
   clock.transformOrigin = '50% 0';

@@ -1253,6 +1253,18 @@ body.playing * {
 .hud-btn.fold .key {
   display: none;
 }
+/* Touch controls (patch notes 1): the Box button only shows with them; no browser gestures, callouts or text selection over the game. */
+body:not(.touch) .touch-only {
+  display: none;
+}
+body.playing.touch,
+body.playing.touch #view,
+body.playing.touch .hud {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .slot.extra {
   border-style: dotted;
 }

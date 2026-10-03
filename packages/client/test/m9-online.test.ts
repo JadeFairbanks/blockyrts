@@ -84,7 +84,8 @@ describe('Milestone 9: accounts and browsers', () => {
   it('names what a browser is missing', () => {
     const ok = { webgl2: true, compression: true, pointerLock: true, fullscreen: true, touchOnly: false };
     expect(supportProblems(ok)).toEqual([]);
-    expect(supportProblems({ ...ok, touchOnly: true })[0]).toContain('Phones and tablets');
+    expect(supportProblems({ ...ok, touchOnly: true })[0]).toContain('Touch controls');
+    expect(supportProblems({ ...ok, touchOnly: true }, true)).toEqual([]);
     expect(supportProblems({ ...ok, webgl2: false })[0]).toContain('WebGL2');
   });
 });

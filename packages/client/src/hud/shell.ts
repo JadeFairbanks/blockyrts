@@ -25,7 +25,7 @@ import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
-import { Btn, InputManager, type Mods, type MouseTarget } from '../input/input-manager.ts';
+import { Btn, InputManager, type Mods, type MouseTarget, type TouchHooks } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
 import { Minimap } from '../minimap/minimap.ts';
@@ -43,7 +43,7 @@ import {
   type SelectableSource,
 } from '../selection/types.ts';
 import { SelectionVisuals } from '../selection/visuals.ts';
-import type { Settings } from '../settings/settings.ts';
+import { onSettingsChange, type Settings } from '../settings/settings.ts';
 import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
@@ -224,6 +224,8 @@ export class GameShell {
   private edgeDir: PanDir | null = null;
   private followKey: string | null = null;
   private queueMode = false;
+  /** Touch controls: the next one-finger drag draws the selection box (the Box button). */
+  private boxMode = false;
   private readonly cameraSlots: (CameraView | null)[] = Array.from({ length: CAMERA_SLOTS }, () => null);
   private selectionDirty = true;
   private cardDirty = true;
@@ -234,7 +236,7 @@ export class GameShell {
   private geometry: HudGeometry;
   private cardRows = 0;
   /** The phone's unfolded panels. */
-  private readonly folds: Folds = { map: false, info: true, stock: false };
+  private readonly folds: Folds = { map: false, info: true, stock: false, debug: false };
   private readonly startedAt = performance.now();
   /** The active subgroup's type. */
   private active: string | null = null;
@@ -341,6 +343,7 @@ export class GameShell {
         },
         keyDown: (id, ev) => this.keyDown(id, ev),
         keyUp: () => undefined,
+        touch: this.touchHooks(),
       },
       this.panels,
       this.buttons,
@@ -349,6 +352,8 @@ export class GameShell {
       parent,
     );
     this.input.addArea('minimap', this.layout.minimapEl, this.minimapMouse());
+    // Touch controls turned on or off in Settings: the page follows at once.
+    onSettingsChange(() => this.input.syncTouch());
     this.allies = new AlliesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
       send: (o) => opts.issueOrder(o),
       message: (t) => this.message(t),
@@ -485,7 +490,7 @@ export class GameShell {
     applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
     this.portraitRect = null;
     this.panels.measure();
-    for (const k of ['map', 'info', 'stock'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
+    for (const k of ['map', 'info', 'stock', 'debug'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
   }
 
   /** The sim's answer about placement tiles. */
@@ -872,7 +877,38 @@ export class GameShell {
     fold('fold-map', '◫', 'Map', 'Show or hide the minimap and the buttons along its top (idle gatherer, army, camera spots).', () => this.toggleFold('map'));
     fold('fold-info', 'ⓘ', 'Selection', 'Show or hide the portrait and what is selected.', () => this.toggleFold('info')).setLit(this.folds.info);
     fold('fold-stock', '▦', 'Stock', 'Show or hide the inventory: what you have of every good.', () => this.toggleFold('stock'));
+    fold('fold-debug', '⚙', 'Tester tools', 'Show or hide the debug readout and the tester buttons.', () => this.toggleFold('debug'));
     fold('fold-chat', '✉', 'Messages', 'Show or hide the message panel. It flashes when something urgent comes in.', () => this.messages.setCollapsed(!this.messages.isCollapsed()));
+    // Touch controls: a drag moves the camera, so the selection box waits for this button.
+    const boxText = 'Touch controls: light it, then drag to draw a selection box round your units. A drag otherwise moves the camera.';
+    fold('fold-box', '⬚', 'Box select', boxText, () => this.setBoxMode(!this.boxMode)).el.classList.add('touch-only');
+    util({ id: 'box', face: '⬚', name: 'Box select', keys: [], description: boxText, className: 'touch-only', onPress: () => this.setBoxMode(!this.boxMode) });
+  }
+
+  private setBoxMode(on: boolean): void {
+    this.boxMode = on;
+    this.buttons.get('box')?.setLit(on);
+    this.buttons.get('fold-box')?.setLit(on);
+  }
+
+  /**
+   * Touch controls (patch notes 1): what a finger means here. A tap gives
+   * the right click's order when something of the player's is selected and
+   * the tap is not on something of theirs; otherwise it selects.
+   */
+  private touchHooks(): TouchHooks {
+    return {
+      on: () => this.settings.touch,
+      aiming: () => this.pinging || this.commands.targeting !== null || this.commands.placing !== null || this.commands.area !== null,
+      orders: (p) => {
+        if (!this.selection.list().some((t) => isOwn(t, this.player))) return false;
+        const u = this.under(p);
+        return u.item === null ? u.ground !== null : !isOwn(u.item, this.player);
+      },
+      boxing: () => this.boxMode,
+      boxed: () => this.setBoxMode(false),
+      zoom: (factor, p) => this.cam.zoomBy(factor, p),
+    };
   }
 
   /** One button in each card slot. */
@@ -1359,6 +1395,7 @@ export class GameShell {
     const edgeOk =
       playing &&
       this.settings.edgePan &&
+      !this.settings.touch &&
       this.input.inWindow &&
       !this.selector.dragging &&
       !this.middleDrag &&

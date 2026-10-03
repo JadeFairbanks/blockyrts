@@ -137,6 +137,7 @@ export class SettingsPanel {
     slider('Zoom speed', SPEED_MIN, SPEED_MAX, 0.05, () => settings.zoomSpeed, (v) => (settings.zoomSpeed = v), x);
     toggle('Edge panning', () => settings.edgePan, (v) => (settings.edgePan = v), 'Pan when the cursor touches the edge of the window');
     toggle('Lock the cursor in the window', () => settings.cursorLock, (v) => (settings.cursorLock = v), 'So edge panning works next to a second monitor');
+    toggle('Touch controls', () => settings.touch, (v) => (settings.touch = v), 'For a touchscreen: tap to select or give orders, drag to pan, pinch to zoom, hold for details; no right click');
 
     heading('Help');
     toggle('First-day hints', () => settings.hints, (v) => (settings.hints = v), 'A few hints through the first day: select a worker, gather wood, build, light a torch, shelter at dusk');

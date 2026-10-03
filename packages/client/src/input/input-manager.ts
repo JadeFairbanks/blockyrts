@@ -7,6 +7,12 @@
 // panel registry and document.elementFromPoint and driven from here (hover,
 // tooltips, press, release, double click, right click), so the HUD behaves
 // the same locked or not and never depends on DOM click events.
+//
+// With touch controls on (patch notes 1), fingers drive the same paths: a tap
+// is a click (the right click when it gives an order), a hold is a click that
+// looks (on a button: its tooltip, and its right click on release), one
+// finger dragging pans the camera (or draws the box, or aims), two pinch to
+// zoom and pan. The cursor is hidden and never locked.
 import { cue } from '../audio/cues.ts';
 import type { ButtonPress, ButtonRegistry, HudButton, Tooltip } from '../hud/buttons.ts';
 import type { HudPanels, PanelRect } from '../hud/panels.ts';
@@ -35,9 +41,48 @@ export interface MouseTarget {
   wheel?(p: Pt, deltaY: number, mods: Mods): void;
 }
 
+/** What a touch means here, from the game's side (touch controls, patch notes 1). */
+export interface TouchHooks {
+  /** Touch controls are on. */
+  on(): boolean;
+  /** A command waits for its target, or a building, wall chain or dug area is being placed: a tap or drag is the left button's. */
+  aiming(): boolean;
+  /** A tap here gives an order (the right click) rather than selecting: something of the player's is selected and this is not theirs. */
+  orders(p: Pt): boolean;
+  /** The Box button is lit: the next one-finger drag draws the selection box, then it goes out (boxed). */
+  boxing(): boolean;
+  boxed(): void;
+  /** A pinch: zoom by this factor (below 1 is closer) round a point. */
+  zoom(factor: number, p: Pt): void;
+}
+
+/** A finger moving less than this (CSS px) is still a tap or a hold. */
+export const TAP_SLOP = 12;
+/** A finger held this long without moving is a hold, ms. */
+export const HOLD_MS = 480;
+/** Mouse events this soon after a touch are the browser's copies of it, ms. */
+const TOUCH_ECHO_MS = 800;
+
+interface Finger {
+  x: number;
+  y: number;
+  x0: number;
+  y0: number;
+}
+
+/** What the fingers on the screen are doing. */
+type Gesture =
+  | { kind: 'pending'; timer: number }
+  | { kind: 'drag'; button: number; box: boolean }
+  | { kind: 'pinch'; dist: number }
+  | { kind: 'hud'; timer: number; btn: HudButton | null; area: boolean; scroll: HTMLElement | null; wheel: string | null; held: boolean; moved: boolean }
+  | { kind: 'done' };
+
 export interface InputHooks {
   /** The game view (everything not under a HUD panel). */
   game: MouseTarget;
+  /** Touch controls (patch notes 1); without them a touch is the browser's mouse emulation. */
+  touch?: TouchHooks;
   /** A press landed on a HUD panel, before any button or area there handles it. */
   hudPress(panel: PanelRect, button: number, area: string | null): void;
   keyDown(id: string, ev: KeyboardEvent): void;
@@ -72,6 +117,9 @@ export class InputManager {
   private hoverPanel: HTMLElement | null = null;
   private lastButtonClick: (ClickRecord & { id: string }) | null = null;
   private lastMods: Mods = { shift: false, ctrl: false, alt: false };
+  private readonly fingers = new Map<number, Finger>();
+  private gesture: Gesture | null = null;
+  private lastTouchAt = -Infinity;
 
   constructor(
     private readonly hooks: InputHooks,
@@ -93,6 +141,10 @@ export class InputManager {
       // No context menu anywhere over the game; text fields keep theirs for paste.
       if (!isTextField(e.target as Element)) e.preventDefault();
     });
+    window.addEventListener('pointerdown', (e) => this.onTouchDown(e), { passive: false });
+    window.addEventListener('pointermove', (e) => this.onTouchMove(e), { passive: false });
+    window.addEventListener('pointerup', (e) => this.onTouchUp(e, false), { passive: false });
+    window.addEventListener('pointercancel', (e) => this.onTouchUp(e, true), { passive: false });
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
     window.addEventListener('blur', () => this.releaseAll());
@@ -126,7 +178,8 @@ export class InputManager {
     this.mode = mode;
     const playing = mode === 'game';
     document.body.classList.toggle('playing', playing);
-    this.cursor.show(playing && this.inWindow);
+    this.syncTouch();
+    this.cursor.show(playing && this.inWindow && !this.touchOn());
     if (!playing) {
       this.releaseAll();
       this.setHover(null, null);
@@ -134,9 +187,24 @@ export class InputManager {
     }
   }
 
+  /** Whether touch controls are on now. */
+  touchOn(): boolean {
+    return this.hooks.touch?.on() === true;
+  }
+
+  /** Brings the page in line with the touch setting: no browser gestures over the game, no drawn cursor. */
+  syncTouch(): void {
+    const on = this.touchOn();
+    document.body.classList.toggle('touch', on);
+    if (on && this.mode === 'game') {
+      this.cursor.show(false);
+      this.releaseLock();
+    }
+  }
+
   /** Asks for the pointer lock if the setting is on; needs a user gesture, and the browser may refuse. */
   requestLock(): void {
-    if (!this.settings.cursorLock || this.locked || this.mode !== 'game') return;
+    if (!this.settings.cursorLock || this.locked || this.mode !== 'game' || this.touchOn()) return;
     try {
       const r = document.body.requestPointerLock() as unknown;
       if (r instanceof Promise) r.catch(() => undefined);
@@ -189,11 +257,17 @@ export class InputManager {
     this.clampPos();
     if (!this.inWindow) {
       this.inWindow = true;
-      this.cursor.show(this.mode === 'game');
+      this.cursor.show(this.mode === 'game' && !this.touchOn());
     }
   }
 
+  /** The browser's mouse copy of a touch just handled as one. */
+  private touchEcho(): boolean {
+    return performance.now() - this.lastTouchAt < TOUCH_ECHO_MS;
+  }
+
   private onMove(e: MouseEvent): void {
+    if (this.touchEcho()) return;
     if (this.mode !== 'game') {
       // Outside play, remember where the real cursor is, so the game's cursor starts there.
       if (!this.locked) {
@@ -204,6 +278,11 @@ export class InputManager {
     }
     this.track(e);
     const mods = this.modsOf(e);
+    if (!this.moveCaptures(mods)) this.hover(mods);
+  }
+
+  /** Moves whatever holds a press to the current position; false when nothing does. */
+  private moveCaptures(mods: Mods): boolean {
     if (this.captures.size > 0) {
       const sent = new Set<unknown>();
       for (const c of this.captures.values()) {
@@ -217,9 +296,9 @@ export class InputManager {
           c.btn.el.classList.toggle('pressed', this.buttonAt(this.pos) === c.btn);
         }
       }
-      return;
+      return true;
     }
-    this.hover(mods);
+    return false;
   }
 
   /** Hover: the game view gets moves for its highlight; HUD buttons light up and show their tooltip. */
@@ -262,7 +341,7 @@ export class InputManager {
   }
 
   private onDown(e: MouseEvent): void {
-    if (this.mode !== 'game') return;
+    if (this.mode !== 'game' || this.touchEcho()) return;
     e.preventDefault(); // no text selection, focus change or middle-button autoscroll
     if (!this.locked) this.track(e);
     if (!this.locked && this.settings.cursorLock) this.requestLock();
@@ -270,6 +349,11 @@ export class InputManager {
     let button = e.button;
     // On a Mac, Ctrl + click is the system's right click.
     if (IS_MAC && button === Btn.Left && e.ctrlKey) button = Btn.Right;
+    this.pressAt(button, mods);
+  }
+
+  /** A press of a button at the current position: the game view, an area, a HUD button or the panel under it. */
+  private pressAt(button: number, mods: Mods): void {
     if (this.captures.has(button)) return;
 
     const panel = this.panels.at(this.pos);
@@ -300,13 +384,18 @@ export class InputManager {
   }
 
   private onUp(e: MouseEvent): void {
-    if (this.mode !== 'game') return;
+    if (this.mode !== 'game' || this.touchEcho()) return;
     if (!this.locked) this.track(e);
     const mods = this.modsOf(e);
     let button = e.button;
     if (IS_MAC && button === Btn.Left && !this.captures.has(Btn.Left) && this.captures.has(Btn.Right)) button = Btn.Right;
+    if (this.releaseAt(button, mods)) this.hover(mods);
+  }
+
+  /** Lets go of a button at the current position; true when nothing is held after it. */
+  private releaseAt(button: number, mods: Mods): boolean {
     const c = this.captures.get(button);
-    if (!c) return;
+    if (!c) return false;
     this.captures.delete(button);
     if (c.kind === 'game') this.hooks.game.up(button, this.pos, mods);
     else if (c.kind === 'area') c.target.up(button, this.pos, mods);
@@ -314,7 +403,7 @@ export class InputManager {
       c.btn.el.classList.remove('pressed');
       if (this.buttonAt(this.pos) === c.btn && c.btn.enabled) this.activate(c.btn, { shift: mods.shift, ctrl: mods.ctrl });
     }
-    if (this.captures.size === 0) this.hover(mods);
+    return this.captures.size === 0;
   }
 
   private activate(btn: HudButton, press: ButtonPress): void {
@@ -335,7 +424,7 @@ export class InputManager {
   }
 
   private onWheel(e: WheelEvent): void {
-    if (this.mode !== 'game') return;
+    if (this.mode !== 'game' || this.touchEcho()) return;
     e.preventDefault(); // no page scroll or browser zoom over the game
     const mods = this.modsOf(e);
     const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
@@ -353,6 +442,215 @@ export class InputManager {
       return;
     }
     this.hooks.game.wheel?.(this.pos, dy, mods);
+  }
+
+  // ---- Touch (touch controls on) ----
+
+  /** A touch this manager takes: a finger, while playing with touch controls on, not on a text field (which keeps its own keyboard). */
+  private ownTouch(e: PointerEvent): boolean {
+    if (e.pointerType !== 'touch' || this.mode !== 'game' || !this.touchOn()) return false;
+    if (isTextField(e.target as Element)) return false;
+    e.preventDefault();
+    this.lastTouchAt = performance.now();
+    return true;
+  }
+
+  private setPos(x: number, y: number): void {
+    this.pos.x = x;
+    this.pos.y = y;
+    this.clampPos();
+    this.inWindow = true;
+  }
+
+  private readonly noMods: Mods = { shift: false, ctrl: false, alt: false };
+
+  private onTouchDown(e: PointerEvent): void {
+    if (!this.ownTouch(e)) return;
+    const f: Finger = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
+    this.fingers.set(e.pointerId, f);
+    if (this.fingers.size === 1) {
+      this.tooltip.show(null);
+      this.startTouch(f);
+    } else if (this.fingers.size === 2) this.startPinch();
+  }
+
+  /** One finger down: on the HUD a press that waits to be a tap, a hold or a scroll; on the game view one that waits to be a tap, a hold or a drag. */
+  private startTouch(f: Finger): void {
+    this.setPos(f.x, f.y);
+    this.lastMods = this.noMods;
+    const panel = this.panels.at(this.pos);
+    if (!panel) {
+      this.hooks.game.move(this.pos, this.noMods);
+      this.gesture = { kind: 'pending', timer: window.setTimeout(() => this.holdGame(), HOLD_MS) };
+      return;
+    }
+    const el = document.elementFromPoint(this.pos.x, this.pos.y);
+    const area = el?.closest<HTMLElement>('[data-area]') ?? null;
+    const btn = area ? null : this.buttons.fromElement(el);
+    btn?.el.classList.add('pressed');
+    // An area (the minimap) takes the press at once: the camera jumps where the finger lands.
+    if (area) this.pressAt(Btn.Left, this.noMods);
+    this.gesture = {
+      kind: 'hud',
+      timer: window.setTimeout(() => this.holdHud(), HOLD_MS),
+      btn,
+      area: area !== null,
+      scroll: el?.closest<HTMLElement>('[data-scroll]') ?? null,
+      wheel: el?.closest<HTMLElement>('[data-wheel]')?.dataset.wheel ?? null,
+      held: false,
+      moved: false,
+    };
+  }
+
+  /** A hold on the game view: a left click, which selects or looks at whatever is there (an enemy's too). */
+  private holdGame(): void {
+    if (this.gesture?.kind !== 'pending') return;
+    this.gesture = { kind: 'done' };
+    navigator.vibrate?.(12);
+    this.click(Btn.Left);
+  }
+
+  /** A hold on the HUD: the button's tooltip (its right click comes on release); on the minimap, the right click there. */
+  private holdHud(): void {
+    const g = this.gesture;
+    if (g?.kind !== 'hud' || g.moved) return;
+    g.held = true;
+    navigator.vibrate?.(12);
+    if (g.area) {
+      this.click(Btn.Right);
+      return;
+    }
+    this.setHover(g.btn, null);
+  }
+
+  /** Two fingers: a pinch, which also pans with their middle. A one-finger pan becomes one; a box or an aim keeps going. */
+  private startPinch(): void {
+    const g = this.gesture;
+    if (g?.kind === 'pending') window.clearTimeout(g.timer);
+    else if (g?.kind === 'drag' && g.button === Btn.Middle) this.releaseAt(Btn.Middle, this.noMods);
+    else if (g !== null) return;
+    const [a, b] = [...this.fingers.values()];
+    this.setPos((a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
+    this.pressAt(Btn.Middle, this.noMods);
+    this.gesture = { kind: 'pinch', dist: Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y)) };
+  }
+
+  private onTouchMove(e: PointerEvent): void {
+    const f = this.fingers.get(e.pointerId);
+    if (!f || !this.ownTouch(e)) return;
+    const dx = e.clientX - f.x;
+    const dy = e.clientY - f.y;
+    f.x = e.clientX;
+    f.y = e.clientY;
+    const g = this.gesture;
+    if (!g) return;
+    const far = Math.hypot(f.x - f.x0, f.y - f.y0) > TAP_SLOP;
+    if (g.kind === 'pending') {
+      if (!far) return;
+      window.clearTimeout(g.timer);
+      // A drag: it aims while a command or a placement waits, draws the box when Box is lit, else pans.
+      const t = this.hooks.touch!;
+      const aim = t.aiming();
+      const box = !aim && t.boxing();
+      const button = aim || box ? Btn.Left : Btn.Middle;
+      this.setPos(f.x0, f.y0);
+      this.pressAt(button, this.noMods);
+      this.gesture = { kind: 'drag', button, box };
+      this.setPos(f.x, f.y);
+      this.moveCaptures(this.noMods);
+      return;
+    }
+    if (g.kind === 'drag') {
+      this.setPos(f.x, f.y);
+      this.moveCaptures(this.noMods);
+      return;
+    }
+    if (g.kind === 'pinch') {
+      const [a, b] = [...this.fingers.values()];
+      if (!a || !b) return;
+      this.setPos((a.x + b.x) / 2, (a.y + b.y) / 2);
+      this.moveCaptures(this.noMods);
+      const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      const factor = g.dist / dist;
+      if (Math.abs(1 - factor) > 0.002) {
+        this.hooks.touch!.zoom(factor, this.pos);
+        g.dist = dist;
+      }
+      return;
+    }
+    if (g.kind === 'hud') {
+      if (g.area) {
+        this.setPos(f.x, f.y);
+        this.moveCaptures(this.noMods);
+        return;
+      }
+      if (!g.moved && far) {
+        g.moved = true;
+        window.clearTimeout(g.timer);
+        g.btn?.el.classList.remove('pressed');
+      }
+      if (!g.moved) return;
+      // A drag on a list scrolls it, the way the wheel would.
+      if (g.wheel) this.wheels.get(g.wheel)?.(-dy * 2);
+      else if (g.scroll) g.scroll.scrollTop -= dy;
+      void dx;
+    }
+  }
+
+  private onTouchUp(e: PointerEvent, cancelled: boolean): void {
+    const f = this.fingers.get(e.pointerId);
+    if (!f) return;
+    this.fingers.delete(e.pointerId);
+    if (e.pointerType === 'touch' && this.mode === 'game') {
+      e.preventDefault();
+      this.lastTouchAt = performance.now();
+    }
+    const g = this.gesture;
+    if (g?.kind === 'pending') {
+      window.clearTimeout(g.timer);
+      this.gesture = { kind: 'done' };
+      if (!cancelled) {
+        // A tap: it aims, gives an order, or selects.
+        const t = this.hooks.touch;
+        this.setPos(f.x, f.y);
+        const order = t !== undefined && !t.aiming() && t.orders(this.pos);
+        this.click(order ? Btn.Right : Btn.Left);
+      }
+    } else if (g?.kind === 'drag') {
+      this.setPos(f.x, f.y);
+      this.releaseAt(g.button, this.noMods);
+      if (g.box) this.hooks.touch?.boxed();
+      this.gesture = { kind: 'done' };
+    } else if (g?.kind === 'pinch') {
+      this.releaseAt(Btn.Middle, this.noMods);
+      this.gesture = { kind: 'done' };
+    } else if (g?.kind === 'hud') {
+      window.clearTimeout(g.timer);
+      g.btn?.el.classList.remove('pressed');
+      this.gesture = { kind: 'done' };
+      if (g.area) {
+        this.setPos(f.x, f.y);
+        this.releaseAt(Btn.Left, this.noMods);
+      } else if (!cancelled && !g.moved) {
+        this.setPos(f.x, f.y);
+        if (g.held) {
+          // Hold and let go: the button's right click, where it has one (save a group, cross out a food).
+          if (g.btn?.enabled && this.buttonAt(this.pos) === g.btn) g.btn.def.onRightClick?.({ shift: false, ctrl: false });
+        } else this.click(Btn.Left);
+      }
+      // The tooltip of a hold stays up until the next touch; a tap leaves none.
+      if (!g.held) this.setHover(null, null);
+    }
+    if (this.fingers.size === 0) {
+      this.gesture = null;
+      if (this.captures.size === 0) this.hooks.game.move(this.pos, this.noMods);
+    }
+  }
+
+  /** A press and release of a button where the finger is. */
+  private click(button: number): void {
+    this.pressAt(button, this.noMods);
+    this.releaseAt(button, this.noMods);
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -377,6 +675,10 @@ export class InputManager {
   /** Lets go of everything: held keys, and any press in progress ends where the cursor is. */
   private releaseAll(): void {
     this.heldCodes.clear();
+    const g = this.gesture;
+    if (g?.kind === 'pending' || g?.kind === 'hud') window.clearTimeout(g.timer);
+    this.gesture = null;
+    this.fingers.clear();
     this.lastMods = { shift: false, ctrl: false, alt: false };
     for (const [button, c] of [...this.captures]) {
       this.captures.delete(button);
