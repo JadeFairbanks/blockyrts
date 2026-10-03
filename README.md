@@ -947,6 +947,15 @@ against it step by step).
    [docs/balance-pass.md](docs/balance-pass.md) for what each column means
    and what looked off. No (s) value was retuned (Jade's rebalance comes
    next).
+6. **Controls.** `packages/sim/test/m10.test.ts` checks the new double taps
+   and Shift + H. In play: select warriors near a monster at night and press
+   A twice: each one goes for the nearest enemy it sees. Workers: G twice
+   gathers the nearest node, E twice shelters in the nearest building with
+   room, T twice prospects where they stand. Shift + H after a move holds once
+   they arrive. A Barracks or Magi Sanctum now has Set Rally Point (R). In the
+   F10 menu, Tab and Enter work. `node packages/client/test-e2e/hud-check.mjs
+   http://localhost:5173 <folder>` runs the milestone 1 controls check again
+   (brought up to date).
 
 ## How a tester checks the balance editor
 
