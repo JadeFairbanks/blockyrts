@@ -32,6 +32,8 @@ export * from './buildings/production.ts';
 export * from './buildings/recipes.ts';
 export * from './buildings/mining.ts';
 export * from './units/field.ts';
+export * from './units/loot.ts';
+export * from './units/forage.ts';
 export * from './nav/grid.ts';
 export * from './nav/path.ts';
 export * from './units/unit-orders.ts';

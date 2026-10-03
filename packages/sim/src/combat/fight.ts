@@ -9,13 +9,13 @@
 
 import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
-import { floorDiv, headingTowards, isqrt, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { floorDiv, headingTowards, isqrt, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { buildingSight, landAt, NEUTRAL, OrderKind, seesForSide, sightOf, UnitKind, type SimState } from '../state.ts';
 import { garrisonRoom } from '../buildings/store.ts';
 import { footprintDims } from '../buildings/data.ts';
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked } from '../peoples/speech.ts';
-import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
+import { Act, fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
 import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing } from './combat.ts';
 import { MOUNTED } from '../mounts/data.ts';
 import { CREW_GUARD_WU } from '../siege/data.ts';
@@ -25,6 +25,9 @@ import { gearSpec, Slot } from '../units/kits.ts';
 import { isStructure, Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
 import { mageStep } from '../magic/cast.ts';
+import { School } from '../magic/spells.ts';
+import { beyondReach } from '../units/forage.ts';
+import { chatter } from '../peoples/speech.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
 export const LEASH_WU = 20 * WU_PER_METRE;
@@ -34,8 +37,6 @@ export const IDLE_ACQUIRE_WU = 12 * WU_PER_METRE;
 export const RANGED_MIN_WU = 4 * WU_PER_METRE;
 /** A target told to attack is given up once it is this much farther than the unit can see, and out of its side's sight. */
 const LOST_WU = 20 * WU_PER_METRE;
-/** A double-tapped hunt lets quarry go once it is 60 m from where the hunt began: the 40 m leash plus 20 m of chase (s). */
-const HUNT_CHASE_WU = 60 * WU_PER_METRE;
 /** A chase looks again for its moving target this often. */
 const REPATH_STEPS = 10;
 /** Bit 0 of a unit's skills: trained in archery (Table 7). */
@@ -63,7 +64,11 @@ function modeOf(state: SimState, i: number): Mode {
     case 'attack':
       return Mode.Attack;
     case 'hunt':
-      return e.kind[i] === UnitKind.Warrior ? Mode.Hunt : Mode.None;
+      // Home for the night, a hunter out with Hunt stands by like an idle unit and fights back; one sent after an animal goes on after it.
+      return e.kind[i] !== UnitKind.Warrior ? Mode.None : o.auto && isDark(state.step, state.blood) ? Mode.Idle : Mode.Hunt;
+    case 'loot':
+      // Fetching loot or handing it in by itself, a fighter still fights back as an idle one does.
+      return o.back !== 0 && e.kind[i] !== UnitKind.Worker ? Mode.Idle : Mode.None;
     case 'attackMove':
     case 'patrol':
       return Mode.Seek;
@@ -400,16 +405,16 @@ export function fightStep(state: SimState, i: number): boolean {
   if (mode === Mode.Hunt && o?.t === 'hunt') {
     // The hunt order itself handles a dead, lost or not yet chosen quarry.
     const t = o.id ? e.indexOf(o.id) : -1;
-    // At dusk the hunt ends; on a double-tapped hunt, quarry that runs past the chase limit is let go.
-    const fled = o.auto !== 0 && t >= 0 && length2d(e.x[t]! - o.x, e.z[t]! - o.z) > HUNT_CHASE_WU;
+    // At dusk the hunt ends; on the Hunt button's hunt, quarry that runs past where the hunter can get home from by nightfall is let go.
+    const fled = o.auto !== 0 && t >= 0 && beyondReach(state, i, e.x[t]!, e.z[t]!);
     if (fled) o.id = 0;
     if (isDark(state.step, state.blood) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       if (e.target[i] !== 0) disengage(state, i);
       return false;
     }
     e.target[i] = o.id;
-    // Where the quarry is, so the hunter finds the carcass even when it shot it from afar.
-    o.k = 1;
+    // Where the quarry is, so the hunter finds its loot even when it shot it from afar.
+    o.k |= 1;
     o.kx = e.x[t]!;
     o.kz = e.z[t]!;
     engage(state, i, t, true);
@@ -496,16 +501,54 @@ function holdRange(state: SimState, i: number): number {
   return Math.max(meleeOf(state, i).reach, r?.range ?? 0);
 }
 
+/** Idle fighters this close to a worker under attack come to its help (s): 20 m. */
+export const GUARD_HELP_M = 20;
+const GUARD_LINES = ['Leave our worker alone!', 'Hands off our worker!', 'I\'ve got you, hold on!', 'Over here, you brute!'] as const;
+
+/**
+ * A worker of the players' is attacked (Jade's play-test notes): the idle
+ * fighters of its player within 20 m, warriors and battle mages that are
+ * doing nothing else, go for the attacker, and the first of them says so.
+ * A monster is taken on as an idle unit takes a target, leash and all, so
+ * they walk back after; a wild animal, which is no one's enemy but its
+ * prey's, is attacked on an order, with a walk back queued after it.
+ */
+function callGuards(state: SimState, w: number, a: number): void {
+  const e = state.entities;
+  const r = GUARD_HELP_M * WU_PER_METRE;
+  let spoke = false;
+  for (const j of state.grid.near(e.x[w]!, e.z[w]!, r)) {
+    if (j === w || e.owner[j] !== e.owner[w] || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.queue[j]!.length > 0) continue;
+    if (e.kind[j] !== UnitKind.Warrior && !(e.kind[j] === UnitKind.Mage && e.school[j] === School.Battle)) continue;
+    if (e.target[j] !== 0 || e.chasing[j] !== 0 || e.heldUntil[j]! > state.step) continue;
+    if (length2d(e.x[j]! - e.x[w]!, e.z[j]! - e.z[w]!) > r || !canHarm(state, j, a)) continue;
+    if (hostile(state, j, a)) {
+      e.target[j] = e.id[a]!;
+      e.chasing[j] = 1;
+      e.homeX[j] = e.x[j]!;
+      e.homeZ[j] = e.z[j]!;
+      resetWalk(state, j);
+    } else {
+      e.queue[j] = [{ t: 'attack', id: e.id[a]! }, { t: 'move', x: e.x[j]!, z: e.z[j]! }];
+      e.act[j] = Act.Start;
+      resetWalk(state, j);
+    }
+    if (!spoke) spoke = chatter(state, j, 12, 20 * STEPS_PER_SECOND, GUARD_LINES[e.id[j]! % GUARD_LINES.length]!);
+  }
+}
+
 /**
  * An enemy hurt a unit: one of the players' says so now and then (Unit
  * speech); a worker (or a people's villager) that is not fighting runs 10 m
- * from the attacker, then carries on (Table 1). Installed as hurtHooks.unit.
+ * from the attacker, then carries on (Table 1), and idle fighters near a
+ * player's worker come to its help. Installed as hurtHooks.unit.
  */
 export function onUnitHurt(state: SimState, i: number, from: number, fresh: boolean): void {
   const e = state.entities;
   const a = e.indexOf(from);
   if (a < 0 || !hostile(state, i, a)) return;
   if (sideOf(state, i) === Side.Players && e.kind[i] !== UnitKind.Animal) sayAttacked(state, i);
+  if (fresh && e.kind[i] === UnitKind.Worker && sideOf(state, i) === Side.Players) callGuards(state, i, a);
   if (!fresh || e.kind[i] !== UnitKind.Worker || e.inside[i] !== 0) return;
   const o = e.queue[i]![0];
   if (o?.t === 'attack' || o?.t === 'hold' || o?.t === 'attackMove' || o?.t === 'patrol') return;

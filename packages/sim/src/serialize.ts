@@ -6,12 +6,13 @@ import { ByteReader, ByteWriter, fnv1a32 } from './bytes.ts';
 import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
 import { RESOURCE_COUNT } from './economy/resources.ts';
-import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
+import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loot, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
 const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
+const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
@@ -89,8 +90,8 @@ function readThreats(r: ByteReader, version: number): ThreatState {
   const bossNext = r.i32();
   const bossHp = r.i32();
   const bossId = r.i32();
-  // Version 13 (before the wandering night monsters) has no wild: its patches fill afresh.
-  const wild = version >= 14 ? readRecordList<WildPatch>(r, WILD_FIELDS) : [];
+  // Versions 13 and 14 (before the wandering night monsters) have no wild: its patches fill afresh.
+  const wild = version >= 15 ? readRecordList<WildPatch>(r, WILD_FIELDS) : [];
   return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
 }
 
@@ -163,8 +164,13 @@ function peoplesJson(ps: PeoplesState): string {
 }
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
-export const SNAPSHOT_VERSION = 14;
-/** The oldest snapshot still read: 13 (milestone 11's troop rework) reads with no wandering monsters' patches. */
+/**
+ * 15: the wandering monsters' patches (threats.wild). 14: each unit's loot
+ * bag and the loot on the ground. Versions 13 and 14 still load, with none
+ * of what came after them.
+ */
+export const SNAPSHOT_VERSION = 15;
+/** The oldest snapshot still read: 13 (milestone 11's troop rework). */
 export const OLDEST_SNAPSHOT_VERSION = 13;
 
 function writeField(w: ByteWriter, t: string, v: number): void {
@@ -213,6 +219,9 @@ export function serializeState(state: SimState): Uint8Array {
     const c = e.cools[i]!;
     w.u16(c.length);
     for (const v of c) w.u32(v);
+    const g = e.bag[i]!;
+    w.u16(g.length);
+    for (const v of g) w.i32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
@@ -233,6 +242,8 @@ export function serializeState(state: SimState): Uint8Array {
   for (const p of state.spawns) for (const f of SPAWN_FIELDS) w.i32(p[f]);
   w.u32(state.sites.length);
   for (const p of state.sites) for (const f of SITE_FIELDS) w.i32(p[f]);
+  w.u32(state.loot.length);
+  for (const p of state.loot) for (const f of LOOT_FIELDS) w.i32(p[f]);
   for (const set of [state.stockedCells, state.stockedChunks]) {
     const keys = [...set].sort((a, b) => a - b);
     w.u32(keys.length);
@@ -287,6 +298,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const c: number[] = [];
     for (let k = 0; k < nc; k++) c.push(r.u32());
     e.cools[i] = c;
+    const g: number[] = [];
+    const ng = version >= 14 ? r.u16() : 0;
+    for (let k = 0; k < ng; k++) g.push(r.i32());
+    e.bag[i] = g;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -322,6 +337,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const projectiles = readRecords<Projectile>(PROJECTILE_FIELDS);
   const spawns = readRecords<PendingSpawn>(SPAWN_FIELDS);
   const sites = readRecords<Site>(SITE_FIELDS);
+  const loot = version >= 14 ? readRecords<Loot>(LOOT_FIELDS) : [];
   const readKeys = (): Set<number> => {
     const out = new Set<number>();
     const n = r.u32();
@@ -343,7 +359,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -398,6 +414,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const ca = JSON.stringify(ea.cools[i]);
     const cb = JSON.stringify(eb.cools[i]);
     if (ca !== cb) return `entities[${i}].cools: ${ca} vs ${cb}`;
+    const ga = JSON.stringify(ea.bag[i]);
+    const gb = JSON.stringify(eb.bag[i]);
+    if (ga !== gb) return `entities[${i}].bag: ${ga} vs ${gb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;
@@ -422,7 +441,7 @@ export function diffStates(a: SimState, b: SimState): string | null {
   }
   const en = JSON.stringify(a.enclosed) === JSON.stringify(b.enclosed) ? null : `enclosed: ${a.enclosed.length} tiles vs ${b.enclosed.length}`;
   if (en) return en;
-  for (const [name, la, lb] of [['projectiles', a.projectiles, b.projectiles], ['spawns', a.spawns, b.spawns], ['sites', a.sites, b.sites]] as const) {
+  for (const [name, la, lb] of [['projectiles', a.projectiles, b.projectiles], ['spawns', a.spawns, b.spawns], ['sites', a.sites, b.sites], ['loot', a.loot, b.loot]] as const) {
     const ja = JSON.stringify(la);
     const jb = JSON.stringify(lb);
     if (ja !== jb) return `${name}: ${la.length} vs ${lb.length} (${ja.slice(0, 120)} vs ${jb.slice(0, 120)})`;

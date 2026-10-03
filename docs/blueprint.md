@@ -499,6 +499,10 @@ In development now (Jade, 14:57 and 14:58 UTC 2026-10-03; picks to follow in inv
 - Wall and tunnel chains (done, PR #71; picks in wall-chain-picks.md): click to click wall stretches chained in several directions, and the same for digging tunnels; a double click places just one wall, and a click on the last point, right click, Esc or Done ends a chain (see Building placement and Digging and prospecting).
 - Plant growth and saplings (play-test notes 1; done, PR #76; picks in plants-picks.md): plants grow in steps, saplings hold nothing, the hazel stub is a hazel sapling, and buildings go over small things the builder pulls up (see Regrowth and Building placement).
 
+Jade's play-test patch notes 1 (2026-10-03):
+
+- Hunting, loot and gathering (PR #81; picks in hunting-picks.md): kills drop loot instead of carcasses, picked up by right click and by idle units and handed in at dawn and in the day; Hunt and Gather each start with one press and bring units home by nightfall; a worker whose node runs out says what it gathers instead; idle fighters guard workers; information stays in bubbles (see Loot, Semi-automation and Unit speech).
+
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
 - Redeploy the live site with the latest main.
@@ -1428,9 +1432,9 @@ Only units with the gatherer role can collect resources. A gatherer that is told
 - Drop the load. It is added to the player's stockpile at that moment, not before.
 - Walk back to the same node and repeat.
 
-**Starting to gather:** right click a node, or press G (Gather) and left click a node.
+**Starting to gather:** right click a node. G (Gather) no longer waits for a click: it sends the workers to gather by themselves (see "Semi-automation") (Jade's play-test notes, 2026-10-03).
 
-**Running out:** when a node is used up, the gatherer automatically moves to the closest node of the same resource within a short search radius. If there is none, it returns its last load to storage and goes idle, and an idle gatherer alert plays.
+**Running out:** when a node is used up, the gatherer automatically moves to the closest node of the same resource within a short search radius. If there is none and it was gathering a basic material (wood, sticks, stone, flint, clay, sand, coal and the surface ores), it picks what to gather next within 30 m (suggested), weighing the distance against what the stock is short of, and says so in a bubble: "No more flint here, and we're out of stone. I'll fetch stone, though there's softwood closer." It only goes for nodes on land its side has seen (Jade's play-test notes, 2026-10-03). With nothing of use within reach, it returns its last load to storage and goes idle, and an idle gatherer alert plays.
 
 **Return Cargo (C):** sends a gatherer that is carrying something straight to storage, then back to its node.
 
@@ -1446,10 +1450,21 @@ Only units with the gatherer role can collect resources. A gatherer that is told
 
 These let units pick sensible targets on their own, while the player's own orders always win. They use one rule (double-tap a targeted command) and one dusk button, rather than new buttons for each job.
 
-- **Fishing:** G Gather on water fishes that stretch like any other node. Workers assigned to a fishing dock fish the nearest stretch and move to another once it falls to half the fish it can hold, so no stretch is ever fished out (a stretch with no fish left never breeds again).
-- **Hunting:** N Hunt sends warriors after an animal. Double-tapped, they take the nearest game animal within their leash, carry what they can to the nearest drop-off and repeat. Bears and territorial creatures are skipped unless ordered directly. Workers in the same selection follow and haul the carcasses. A hunt ends at dusk, and the hunters walk home.
+- **Fishing:** right click on water fishes that stretch like any other node. Workers assigned to a fishing dock fish the nearest stretch and move to another once it falls to half the fish it can hold, so no stretch is ever fished out (a stretch with no fish left never breeds again).
+- **Hunting:** N Hunt (one press) sends warriors out after game: hares, deer and wild birds their side can see. They take the meat home when their bags are half full (suggested) and go out again, and with nothing in sight they look farther out round the edge of the explored land. They never go farther from the nearest main base than they could walk back from in dusk's 40 seconds at their own pace (paths counted a fifth longer than the straight line (suggested)), so at dusk they come home and are within 4 m of the main base by nightfall; they go out again at daybreak, and say in bubbles what they are doing and what they got (Jade's play-test notes, 2026-10-03). Right click an animal to hunt only that one; the hunt ends with it. A hunt leaves alone the animals that fight back, wild boar and giant crabs (suggested), bears and territorial creatures, unless one is right-clicked. Workers in the same selection follow and carry the meat. Without a main base, a hunt stays within 40 m of where it started.
+- **Gathering:** G Gather (one press) sends workers to fetch the basic materials the side can use at its stage (Jade's play-test notes, 2026-10-03): softwood, hardwood, sticks, stone and flint; clay, sand and coal from main base level 3, copper and tin ore once there is a forge, bog iron and iron rock from forge level 2, marble from main base level 4 (suggested). Each worker weighs distance against need (what the stock is short of, a material at zero counting double (suggested)) and chooses again after every load. They only go for nodes on land their side has seen, no farther from home than a hunter would; with nothing of use known within reach they walk out to the edge of the explored land, nearest the base first and sweeping round in a widening spiral, never more than 25 m into unexplored land, keeping to ground they can walk. At dusk they drop off what they carry and shelter in the nearest main base (or wait beside it when it is full), saying so in bubbles, and go out again at daybreak.
+- **Guarding workers:** when a worker is attacked, an idle warrior or battle mage within 20 m (suggested) calls out ("Leave our worker alone!") and goes for the attacker, then walks back (Jade's play-test notes, 2026-10-03).
 - **Repair:** double-tap R and workers repair every damaged building and mechanical unit nearby, worst first.
 - **Everyone Home:** a one-shot button on the utility bar that lights up during dusk. Clicking it sends every unit without a standing job to the nearest shelter. Workers assigned to a farm or fishing dock shelter in their own building without being told. It is not a toggle, so it never pulls units out of a fight later.
+
+#### Loot
+
+What a kill drops (a hunted animal's meat, hides and feathers, a monster's drops, a lair's hoard) is loot, not stock (Jade's play-test notes, 2026-10-03):
+
+- **Who takes it:** the unit that made the kill takes what fits in its bag, if it is within 4 m (suggested); then the other units of its side within 4 m, nearest first; the rest falls on the ground there, shown as the good's icon. Every living unit carries a bag of 25 lb (Table 12's carrying limit (suggested)), a worker's gathered load counting against it. Engines and animals carry nothing: they do not eat. A cannon cannot pick loot up, but its crew can.
+- **Picking it up:** right click loot with units and the nearest of them with room walk over, as many as it takes to carry it all; any loot can be picked up this way. By themselves, units pick up their own side's loot (and loot that is anyone's) when they would otherwise be idle, the fighting is done and no enemy is within 15 m of them or the loot (suggested): within 15 m, or 40 m for the unit that made the kill, so a ranger goes back for what it shot (suggested). At dusk and at night they only pick up loot within 5 m (suggested). Units with fighting, guarding or other orders finish those first.
+- **Handing it in:** a unit idle in the dawn or the day takes its bag to the nearest drop-off that takes everything (a main base or a storehouse), then walks back to where it stood. Gatherers hand their bags in with every load, and Return Cargo hands a bag in. Loot left on the ground rots after 3 days and nights (suggested).
+- **Talking about it:** units say what they picked up now and then (one time in four, at most once in 10 seconds for a player's units (suggested)), as a bubble only. A find worth remarking on is always announced with an exclamation, in its bubble: anything from a boss or a rare and powerful monster (1,000 health or more, or one that comes only a few a night), any drop as rare as 5% a kill, and any find worth twice what that creature usually drops (suggested), as in "A ruby and 4 gold from Morvath!" Hunters say what prey they got instead: "Got a deer: 4 meat and 2 hides."
 
 #### Digging and prospecting
 
@@ -1511,7 +1526,9 @@ Units talk to their player. This is how the game tells the player what their uni
 - **Other races talk too.** Units of other races speak in bubbles like the player's units, saying what you would expect from them: when players first find them, when trading, when they are attacked, and as random remarks. Examples are under each race in "Neutral villages and trade".
 - **When their speech reaches the message panel:** their random remarks never do. Their important speech (a greeting on first meeting, a warning, a declaration of war, a surrender offer) is added to a player's message panel if the player sees it on screen, or if one of the player's units is close enough that the speaker would be on screen if the camera were centred on that unit (suggested: within 30 m), even when the player is looking somewhere else.
 
-**The message panel.** Everything units say, apart from random remarks, also appears in the message panel with the name of the unit that said it, along with game alerts (such as "Night is falling") and messages from other players.
+- **Information stays in bubbles:** lines that only say what a unit is doing (loot picked up, a hunt, a gatherer heading home, a new tool) are bubbles only, like random remarks; only lines that need the player reach the message panel (Jade's play-test notes, 2026-10-03).
+
+**The message panel.** Everything units say, apart from random remarks and information, also appears in the message panel with the name of the unit that said it, along with game alerts (such as "Night is falling") and messages from other players.
 
 - The panel is semi-transparent until the cursor is over it, so it does not hide the game.
 - It can be scrolled up and down, and collapsed entirely to a small button.
@@ -1736,7 +1753,7 @@ Warriors (troops) fight and hunt. Each troop is one of five types and keeps that
 
 - **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Gear has no weight, so nothing it wears slows it down or stops it swimming (Jade, 2026-10-03).
 - **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel: bronze swords are short swords, since long bronze blades bend, and bronze armour stops at scale.
-- **Hunting:** warriors kill animals for meat and leather. Once an animal dies, its carcass becomes a resource node. The warrior can carry meat back, within its carrying limit (table 12), or leave the carcass for workers to collect. A ranger kills game from range, so its hunt remembers where the quarry was last seen and the ranger, or its haulers, walk over to butcher it (suggested, Milestone 11). Some animals run away; some fight back.
+- **Hunting:** warriors kill animals for meat, hides and feathers. A killed animal leaves no carcass: what it gives is loot (see "Loot") that the warrior takes into its bag, or that falls on the ground when the bag is full or the warrior is not beside it (Jade's play-test notes, 2026-10-03). A ranger kills game from range, so it walks over to pick up what it killed. Some animals run away; some fight back.
 
 Troops are trained at the Barracks, cavalry at the Stables, and tier 1 close melee, long melee and rangers also at main bases (Jade, 2026-10-03). Rangers and brawlers can fight from towers, and from the parapets of a main base of level 3 or higher.
 
