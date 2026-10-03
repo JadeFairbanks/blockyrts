@@ -181,10 +181,6 @@ export class SelectionPanel {
 
   private single(t: Selectable, b: BuildingInfo | undefined): void {
     for (const d of t.details ?? []) this.row('', d);
-    if (b?.farm) {
-      this.farm = new FarmBlock(this.body);
-      this.farm.update(b.farm);
-    }
     if (b && b.owner === this.a.player) {
       const spec = buildingSpec(b.kind);
       if (b.queue.length > 0) {
@@ -214,6 +210,8 @@ export class SelectionPanel {
         });
         this.body.append(q);
       }
+      // A farm's harvest under its queue, above the farmers sheltering inside at night.
+      this.farmRows(b);
       if (b.complete && b.troops.length > 0) this.troopPanel(b);
       if (b.inside.length > 0) {
         this.row('label', `Inside (${b.inside.length}; click one to let it out):`);
@@ -235,9 +233,16 @@ export class SelectionPanel {
       const workers = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
       if (workers > 0) this.row('', `Workers: ${b.assigned} of ${workers} assigned (right-click it with workers to assign them).`);
       if (b.rally.length > 0) this.row('owner', `Rally route: ${b.rally.length} point${b.rally.length > 1 ? 's' : ''}.`);
-    }
+    } else if (b) this.farmRows(b);
     this.row('owner', ownerText(t.owner, this.a.player));
     if (!isOwn(t, this.a.player)) this.row('hint', 'Not yours: you can look but not give orders.');
+  }
+
+  /** A farm's harvest bar, its line and its band line (farm-panel.ts). */
+  private farmRows(b: BuildingInfo): void {
+    if (!b.farm) return;
+    this.farm = new FarmBlock(this.body);
+    this.farm.update(b.farm);
   }
 
   /** What the troop panel shows, so it redraws when a choice, a Lock or what the pool pays for changes. */

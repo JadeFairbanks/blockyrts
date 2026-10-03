@@ -40,7 +40,7 @@ const workers = await page.evaluate(() => {
   return g.unitIds().filter((id) => g.unit(id).owner === 0 && g.unit(id).kind === 0);
 });
 // A wheat field east of the Big House: try spots outwards until one takes.
-for (let k = 0; k < 40 && !(await field()); k++) {
+for (let k = 0; k < 16 && !(await field()); k++) {
   await page.evaluate(
     ([units, k2, kind]) => {
       const home = [...window.shell.game.buildings.values()].find((b) => b.kind === 0 && b.owner === 0);
@@ -50,7 +50,8 @@ for (let k = 0; k < 40 && !(await field()); k++) {
     },
     [workers, k, CROP_FIELD],
   );
-  await page.waitForTimeout(400);
+  // The site goes down when the first worker gets there.
+  await page.waitForFunction((kind) => [...window.shell.game.buildings.values()].some((b) => b.kind === kind && b.owner === 0), CROP_FIELD, { timeout: 15000 }).catch(() => undefined);
 }
 check('a wheat field placed', (await field()) !== null);
 await press('dbg-speed');
