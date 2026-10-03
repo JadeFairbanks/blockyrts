@@ -481,7 +481,7 @@ Agreed by Jade on 2026-10-03 (go at 05:25 UTC). The full design is in troop-rewo
 - Forge as smelting only (Casting Hearth, Bloomery, Ironworks, Steelworks with carbon steel); Tannery with no tiers making hardened leather; research list without Halberds and Steel crossbow; wild geese and pheasants hunted for meat and feathers.
 - Client: the Barracks, Stables and main base training panel (picture buttons, tier dropdowns with icons, Lock, best-affordable default favouring the weapon); the four Upgrade buttons (Q, X, Z, V (s)) and Q Upgrade on workers; K, F, I, F4, the Equipment panel, the inventory panel, the Train skills page entries for Archery, Crossbow, Musket and Riding, and the Ride button removed; Hitch and Cannon crew kept; start with 4 workers and 3 unarmoured close-melee warriors with hardwood cudgels.
 - Balance editor: a group per new table (kits, armour and shields, tools, training and upgrading, wands and robes); no tuning, numbers stay Jade's.
-- Models: tinted bodies per tier until the model thread makes the per-tier looks, the brawler's pistol and the birds.
+- Models: tinted bodies per tier until the model thread makes the per-tier looks and the brawler's pistol; wild geese and pheasants borrow the hen's model, sized to each bird, until theirs are made.
 
 **Depends on:** M10.
 

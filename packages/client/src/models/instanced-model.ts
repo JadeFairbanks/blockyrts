@@ -22,6 +22,9 @@ export const TEAM_KEY_MIN_BLUE = 96;
 const SHADER_KEY = 'blockyrts-instanced-model-1';
 const IDENTITY = new THREE.Matrix4();
 const PLACE = new THREE.Matrix4();
+const SCALE = new THREE.Vector3();
+/** Floats per instance in inst: x, y, z, heading, clip time, scale. */
+const INST_STRIDE = 6;
 
 const VERTEX_PARS = /* glsl */ `
 uniform highp sampler2D boneTexture_bf;
@@ -97,7 +100,7 @@ export class InstancedModel {
   private readonly clipList: BakedClip[];
   private readonly clipIndex: ReadonlyMap<string, number>;
   private readonly restFrame: Float32Array;
-  private readonly inst: Float32Array; // x, y, z, heading, clip time per instance
+  private readonly inst: Float32Array; // x, y, z, heading, clip time, scale per instance
   private readonly instClip: Int32Array; // clip index, or -1 for the rest pose
   private count = 0;
 
@@ -115,7 +118,7 @@ export class InstancedModel {
       this.restFrame[o + 4] = 1;
       this.restFrame[o + 8] = 1;
     }
-    this.inst = new Float32Array(this.maxInstances * 5);
+    this.inst = new Float32Array(this.maxInstances * INST_STRIDE);
     this.instClip = new Int32Array(this.maxInstances).fill(-1);
 
     const texels = this.maxInstances * model.boneCount * 4;
@@ -209,16 +212,18 @@ export class InstancedModel {
    * Sets instance i (0 <= i < maxInstances) for the next commit(). Position in
    * metres; heading in radians, 0 facing -Z (three.js rotation.y). An unknown
    * clip shows the rest pose. Looping clips wrap; the others hold their last
-   * frame. teamColour null keeps the texture's placeholder blue.
+   * frame. teamColour null keeps the texture's placeholder blue. scale sizes
+   * the instance about its feet (1 is the model's own size).
    */
-  setInstance(i: number, x: number, y: number, z: number, headingRadians: number, clip: string, clipTimeSeconds: number, teamColour: THREE.Color | null): void {
+  setInstance(i: number, x: number, y: number, z: number, headingRadians: number, clip: string, clipTimeSeconds: number, teamColour: THREE.Color | null, scale = 1): void {
     if (i < 0 || i >= this.maxInstances) throw new RangeError(`instance ${i} is outside 0..${this.maxInstances - 1}`);
-    const o = i * 5;
+    const o = i * INST_STRIDE;
     this.inst[o] = x;
     this.inst[o + 1] = y;
     this.inst[o + 2] = z;
     this.inst[o + 3] = headingRadians;
     this.inst[o + 4] = clipTimeSeconds;
+    this.inst[o + 5] = scale;
     this.instClip[i] = this.clipIndex.get(clip) ?? -1;
     const t = this.team.array as Float32Array;
     if (teamColour) {
@@ -257,7 +262,7 @@ export class InstancedModel {
     const bones = this.model.boneCount;
     const out = this.boneData;
     for (let i = 0; i < this.count; i++) {
-      const o = i * 5;
+      const o = i * INST_STRIDE;
       const x = this.inst[o] ?? 0;
       const y = this.inst[o + 1] ?? 0;
       const z = this.inst[o + 2] ?? 0;
@@ -279,8 +284,9 @@ export class InstancedModel {
         aOff = f0 * bones * BAKED_STRIDE;
         bOff = f1 * bones * BAKED_STRIDE;
       }
-      const c = Math.cos(heading);
-      const s = Math.sin(heading);
+      const k0 = this.inst[o + 5] ?? 1;
+      const c = Math.cos(heading) * k0;
+      const s = Math.sin(heading) * k0;
       for (let b = 0; b < bones; b++) {
         const pa = aOff + b * BAKED_STRIDE;
         const pb = bOff + b * BAKED_STRIDE;
@@ -290,10 +296,10 @@ export class InstancedModel {
           const mx = (a[pa + k] ?? 0) + ((a[pb + k] ?? 0) - (a[pa + k] ?? 0)) * alpha;
           const my = (a[pa + k + 1] ?? 0) + ((a[pb + k + 1] ?? 0) - (a[pa + k + 1] ?? 0)) * alpha;
           const mz = (a[pa + k + 2] ?? 0) + ((a[pb + k + 2] ?? 0) - (a[pa + k + 2] ?? 0)) * alpha;
-          // Instance transform: turn by the heading about +Y (three.js rotation.y), then move.
+          // Instance transform: scale, turn by the heading about +Y (three.js rotation.y), then move.
           const d = dst + col * 4;
           out[d] = c * mx + s * mz + (col === 3 ? x : 0);
-          out[d + 1] = my + (col === 3 ? y : 0);
+          out[d + 1] = k0 * my + (col === 3 ? y : 0);
           out[d + 2] = -s * mx + c * mz + (col === 3 ? z : 0);
           out[d + 3] = col === 3 ? 1 : 0;
         }
@@ -318,7 +324,7 @@ export class InstancedModel {
    */
   boneWorld(i: number, bone: number, out: THREE.Matrix4): THREE.Matrix4 {
     const bones = this.model.boneCount;
-    const o = i * 5;
+    const o = i * INST_STRIDE;
     const clip = this.clipList[this.instClip[i] ?? -1];
     let a: Float32Array = this.restFrame;
     let aOff = 0;
@@ -341,7 +347,8 @@ export class InstancedModel {
     const m = (k: number): number => (a[pa + k] ?? 0) + ((a[pb + k] ?? 0) - (a[pa + k] ?? 0)) * alpha;
     out.set(m(0), m(3), m(6), m(9), m(1), m(4), m(7), m(10), m(2), m(5), m(8), m(11), 0, 0, 0, 1);
     out.multiply(this.model.restWorld[bone] ?? IDENTITY);
-    PLACE.makeRotationY(this.inst[o + 3] ?? 0).setPosition(this.inst[o] ?? 0, this.inst[o + 1] ?? 0, this.inst[o + 2] ?? 0);
+    const k0 = this.inst[o + 5] ?? 1;
+    PLACE.makeRotationY(this.inst[o + 3] ?? 0).scale(SCALE.set(k0, k0, k0)).setPosition(this.inst[o] ?? 0, this.inst[o + 1] ?? 0, this.inst[o + 2] ?? 0);
     return out.premultiply(PLACE);
   }
 
