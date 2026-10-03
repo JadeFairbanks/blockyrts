@@ -20,7 +20,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The pictures: scene, size, and where they go. */
 const PICTURES = [
   { scene: 'battle', width: 2560, height: 1440, quality: 0.84, out: 'src/ui/art/menu-battle.webp' },
-  { scene: 'map', width: 2560, height: 1440, quality: 0.8, out: 'src/ui/art/lobby-map.webp' },
+  { scene: 'map', width: 2560, height: 1440, quality: 0.74, out: 'src/ui/art/lobby-map.webp' },
 ];
 
 const wanted = process.argv.slice(2);

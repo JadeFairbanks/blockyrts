@@ -74,17 +74,18 @@ export const mapScene: Stager = {
     Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 100, far: 3000 });
     scene.add(sun, sun.target);
 
+    // The basin sits right of the middle, clear of the lobby's box on the left.
     const camera = new THREE.PerspectiveCamera(Number(params.get('fov') ?? 32), 16 / 9, 5, 6000);
     const pitch = THREE.MathUtils.degToRad(Number(params.get('pitch') ?? 52));
     const yaw = THREE.MathUtils.degToRad(Number(params.get('yaw') ?? 0));
-    const look = centre.clone().add(new THREE.Vector3(Number(params.get('lx') ?? 0), 0, Number(params.get('lz') ?? 0)));
+    const look = centre.clone().add(new THREE.Vector3(Number(params.get('lx') ?? -160), 0, Number(params.get('lz') ?? 0)));
     camera.position.set(look.x + Math.sin(yaw) * Math.cos(pitch) * dist, look.y + Math.sin(pitch) * dist, look.z + Math.cos(yaw) * Math.cos(pitch) * dist);
     camera.lookAt(look);
     return {
       scene,
       camera,
       finish: {
-        grade: { ...NEUTRAL_GRADE, exposure: 1.3, saturation: 0.86, shadowTint: [0.44, 0.48, 0.58], highlightTint: [0.6, 0.53, 0.44], toning: 0.3, vignette: 0.55, grain: 0.01 },
+        grade: { ...NEUTRAL_GRADE, exposure: 1.5, saturation: 0.86, shadowTint: [0.44, 0.48, 0.58], highlightTint: [0.6, 0.53, 0.44], toning: 0.3, vignette: 0.55, grain: 0.01 },
         bloom: { strength: 0.35, radius: 0.6, threshold: 1.2 },
         ao: 0,
       },
