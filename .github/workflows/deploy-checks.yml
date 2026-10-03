@@ -44,5 +44,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          # No pnpm in this job; the version script needs only Node.
+          package-manager-cache: false
       - name: Game version works out
         run: node deploy/scripts/game-version-cli.ts
