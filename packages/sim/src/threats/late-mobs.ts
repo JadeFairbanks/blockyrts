@@ -139,7 +139,7 @@ export function updateLateMobs(state: SimState): void {
 /** A plague bearer's miasma or a juggernaut's heat: each of the players' and the peoples' units within takes its due, exact. */
 function aura(state: SimState, i: number, radius: number, damage: number, sick: boolean): void {
   const e = state.entities;
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, radius)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, radius)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > radius + halfWidth(state, j)) continue;
     hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, exact: true });
     if (sick) e.sickUntil[j] = state.step + SEC + 1;
@@ -339,7 +339,7 @@ function nearestPerched(state: SimState, i: number, range: number): number {
 function hexMages(state: SimState, i: number): boolean {
   const e = state.entities;
   let any = false;
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, LATE.hex.radius)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, LATE.hex.radius)) {
     if (e.kind[j] !== UnitKind.Mage || !playerUnit(state, j) || e.mana[j]! <= 0) continue;
     if (length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > LATE.hex.radius) continue;
     e.mana[j] = 0;
@@ -379,7 +379,7 @@ function blink(state: SimState, i: number, t: number): void {
 function breathe(state: SimState, i: number, reach: number, width: number, total: number): void {
   const e = state.entities;
   const [fx, fz] = forward(e.heading[i]!);
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, reach + 2 * M)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, reach + 2 * M)) {
     if (!playerUnit(state, j)) continue;
     const dx = e.x[j]! - e.x[i]!;
     const dz = e.z[j]! - e.z[i]!;
@@ -515,7 +515,7 @@ function ruin(state: SimState, i: number, x: number, z: number): void {
   const r = LATE.ruin.radius;
   const y = standY(state, x, z);
   state.hits.push({ look: 'blast', x, y, z, id: e.id[i]! });
-  for (const j of state.grid.near(x, z, r + 2 * M)) {
+  for (const j of state.grid.nearOthers(x, z, r + 2 * M)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
     hurtUnit(state, j, { damage: LATE.ruin.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true });
   }

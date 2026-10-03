@@ -560,7 +560,7 @@ export function settleDeaths(state: SimState): void {
 export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number): void {
   const e = state.entities;
   state.hits.push({ look: buildings ? 'blast' : 'burst', x, y, z, id: from });
-  for (const j of state.grid.near(x, z, units.radius)) {
+  for (const j of state.grid.nearOthers(x, z, units.radius)) {
     const side = sideOf(state, j);
     if (e.hp[j]! <= 0 || (side !== Side.Players && side !== Side.Peoples)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > units.radius + halfWidth(state, j)) continue;

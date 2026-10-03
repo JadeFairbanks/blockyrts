@@ -126,7 +126,7 @@ function mobSpeed(state: SimState, i: number, spec: MobSpec): number {
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
   if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   if (spec.id === Mob.GoblinCutter || spec.id === Mob.GoblinSlinger) {
-    for (const j of state.grid.near(e.x[i]!, e.z[i]!, SHOUT.radius)) {
+    for (const j of state.grid.nearChiefs(e.x[i]!, e.z[i]!, SHOUT.radius)) {
       if (e.kind[j] === UnitKind.Mob && e.mob[j] === Mob.GoblinChief && e.hp[j]! > 0 && length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) <= SHOUT.radius) {
         bp += SHOUT.bonusBp;
         break;
@@ -155,7 +155,8 @@ function pickUnit(state: SimState, i: number, spec: MobSpec): number {
   let best = -1;
   let bestTier = 9;
   let bestD = 0;
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, range)) {
+  // Only units the monsters do not own can be prey: the same answer as near(), without the horde.
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, range)) {
     if (!playerUnit(state, j)) continue;
     const d = gap(state, i, j);
     if (d > range) continue;
@@ -409,7 +410,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   if (spec.slamRadius > 0) {
     // The Rift colossus's ground slam: everything within 6 m.
     state.hits.push({ look: 'blast', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
-    for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.slamRadius + WU_PER_METRE)) {
+    for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.slamRadius + WU_PER_METRE)) {
       if (!playerUnit(state, j) || gap(state, i, j) > spec.slamRadius) continue;
       lateHooks.hit(state, i, spec, j, hurtUnit(state, j, blow));
     }
@@ -418,7 +419,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   if (spec.arc) {
     // A bloated corpse's swing hits everything in front of it.
     const [fx, fz] = forward(e.heading[i]!);
-    for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.reach + WU_PER_METRE)) {
+    for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.reach + WU_PER_METRE)) {
       if (!playerUnit(state, j) || gap(state, i, j) > spec.reach + TOLERANCE || wallBetween(state, i, j)) continue;
       const dx = e.x[j]! - e.x[i]!;
       const dz = e.z[j]! - e.z[i]!;
@@ -505,7 +506,7 @@ function crowdNear(state: SimState, i: number): [number, number] | null {
   let n = 0;
   let sx = 0;
   let sz = 0;
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, CLUSTER.radius)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, CLUSTER.radius)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > CLUSTER.radius) continue;
     n++;
     sx += e.x[j]!;
@@ -705,7 +706,7 @@ export function runMob(state: SimState, i: number): void {
   if (bomber(spec)) {
     const crowd = crowdNear(state, i);
     if (crowd) {
-      for (const j of state.grid.near(e.x[i]!, e.z[i]!, BOMB_REACH_WU)) {
+      for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, BOMB_REACH_WU)) {
         if (playerUnit(state, j) && gap(state, i, j) <= BOMB_REACH_WU) {
           explode(state, i, false);
           return;
@@ -814,7 +815,7 @@ function shotAt(state: SimState, i: number, spec: MobSpec, t: number): number {
   const clear = (j: number): boolean => hasClearLob(state, spec.shot, e.x[i]!, fromY, e.z[i]!, e.x[j]!, e.y[j]! + floorDiv(bodyHeight(state, j), 2), e.z[j]!);
   if (clear(t)) return t;
   const near: Array<[number, number]> = [];
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.range)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.range)) {
     if (j === t || !playerUnit(state, j)) continue;
     const d = gap(state, i, j);
     if (d <= spec.range) near.push([d, j]);

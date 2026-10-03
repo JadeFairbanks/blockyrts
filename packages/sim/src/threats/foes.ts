@@ -43,7 +43,7 @@ export function nearestPlayerUnit(state: SimState, x: number, z: number, r: numb
   const e = state.entities;
   let best = -1;
   let bestD = 0;
-  for (const j of state.grid.near(x, z, r)) {
+  for (const j of state.grid.nearOthers(x, z, r)) {
     if (!playerUnit(state, j)) continue;
     const d = length2d(e.x[j]! - x, e.z[j]! - z);
     if (d > r) continue;
