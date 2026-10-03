@@ -47,29 +47,11 @@ browser that is not installed is skipped locally with a warning; install them
 with `pnpm --filter @blockyrts/tools exec playwright install chromium firefox webkit`.
 CI installs all three and fails if any is missing.
 
-## Continuous integration
-
-GitHub Actions minutes are limited, so CI (`.github/workflows/ci.yml`) spends
-them where they gate a merge:
-
-- Every push to a pull request, draft or not, runs lint, typecheck, every
-  Vitest test except the cross-browser one, the headless runner, the client,
-  audio and balance builds, the two-player network test and the server image.
-- The cross-browser determinism test (Node, Chromium, Firefox, WebKit; about
-  five minutes with the Playwright install) runs only on pull requests that
-  are not drafts, on pushes to `main`, and when CI is run by hand. **To get it
-  on a draft, mark the pull request ready for review** (or run the CI
-  workflow by hand on the branch from the Actions tab). A draft cannot be
-  merged, so every merge has passed it.
-- A new push cancels the run the branch's previous push started.
-- Changes that touch only Markdown outside `packages/` (README, AGENTS.md,
-  CLAUDE.md, docs notes) do not run CI. `docs/blueprint.md` and everything
-  under `packages/` always do, because tests read them.
-- Vitest runs two test files at a time on the two-core runner (`--maxWorkers=2`);
-  its default would be one.
-
-Run `pnpm check` locally before pushing so CI does not spend minutes finding a
-lint or type error.
+CI (`.github/workflows/ci.yml`) runs all of the above, the builds, the
+two-player network test and the server image on every push to a pull request
+and to `main`. A new push cancels the run its branch's previous push started,
+and pnpm's package store is cached between runs. It can also be run by hand
+on any branch from the Actions tab.
 
 ## Packages
 
@@ -127,8 +109,7 @@ hashes; a scripted order list replays to the same hash.*
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
    Chromium, Firefox and WebKit, and fails if any of the 500 hashes differ.
-   CI runs this on pull requests that are ready for review and on `main` (see
-   "Continuous integration"); the log prints each engine's final hash.
+   CI runs this on every push; the log prints each engine's final hash.
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
@@ -1372,3 +1353,6 @@ and its protocol are tested headless.
    the test against PostgreSQL 16 and S3Mock (an S3-compatible test server), and builds the server's Docker
    image and checks `/healthz`.
 
+## License
+
+Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

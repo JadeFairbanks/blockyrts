@@ -1,29 +1,9 @@
 name: CI
 
-# Every run: lint, typecheck, all Vitest tests except the cross-browser one,
-# the headless runner, the builds, the two-player network test and the server
-# image. The cross-browser determinism test (Playwright's Chromium, Firefox
-# and WebKit, the longest part) runs too on pushes to main, on pull requests
-# that are not drafts (so marking a draft ready for review runs it), and when
-# the workflow is run by hand on a branch. Pushes that change only notes and
-# docs skip CI; docs/blueprint.md and anything under packages/ still run it,
-# since tests read them. README.md "Continuous integration" has the details.
-
 on:
   push:
     branches: [main]
-    paths:
-      - '**'
-      - '!**/*.md'
-      - 'docs/blueprint.md'
-      - 'packages/**'
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**'
-      - '!**/*.md'
-      - 'docs/blueprint.md'
-      - 'packages/**'
   workflow_dispatch:
 
 # A new push to a branch or pull request cancels the run its last push started.
@@ -39,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      # true: also run the cross-browser determinism test (not on draft pull requests).
-      BROWSER_CHECK: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+      # The cross-engine determinism test fails, rather than skips, if one of these is missing.
+      SIM_REQUIRE_BROWSERS: chromium,firefox,webkit
       # The server's database and save-store tests, and the two-player network test, use these.
       TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/blockyrts_test
       TEST_S3_ENDPOINT: http://localhost:9000
@@ -72,21 +52,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @blockyrts/tools exec playwright install --with-deps chromium firefox webkit
       - run: pnpm lint
       - run: pnpm typecheck
-      # The runner has two cores; Vitest's default (cores - 1) would run one test file at a time.
-      - name: Tests (all but the cross-browser test)
-        run: pnpm test --maxWorkers=2 --exclude packages/tools/test/cross-browser.test.ts
-      # Mostly apt packages for the three engines; the browser downloads are about 15 s, so not cached.
-      - name: Install Playwright browsers
-        if: env.BROWSER_CHECK == 'true'
-        run: pnpm --filter @blockyrts/tools exec playwright install --with-deps chromium firefox webkit
-      - name: Cross-browser determinism test (Node, Chromium, Firefox, WebKit)
-        if: env.BROWSER_CHECK == 'true'
-        run: pnpm test packages/tools/test/cross-browser.test.ts
-        env:
-          # Fails, rather than skips, if one of these is missing.
-          SIM_REQUIRE_BROWSERS: chromium,firefox,webkit
+      - run: pnpm test
       - name: Headless runner, M0 check script
         run: pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet
       - name: Client build
