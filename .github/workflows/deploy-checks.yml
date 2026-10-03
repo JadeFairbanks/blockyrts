@@ -38,3 +38,11 @@ jobs:
             | python3 -c 'import sys, yaml; yaml.safe_load(sys.stdin)'
       - name: Bundle image builds
         run: docker build -f deploy/bundle.Dockerfile deploy
+      - name: Pages middleware builds
+        working-directory: deploy/pages
+        run: npx --yes wrangler@4 pages functions build --outdir "$RUNNER_TEMP/pages-functions"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Game version works out
+        run: node deploy/scripts/game-version-cli.ts
