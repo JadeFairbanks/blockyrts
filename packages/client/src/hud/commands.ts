@@ -528,9 +528,9 @@ export class Commands {
     card[12] = this.entry(
       'enter',
       'Enter',
-      'Then left click a building to go inside. Workers shelter in main bases and farms and take 10% of the damage the building takes. Ranged warriors and mages garrison towers (4) and the parapets of a level 3 main base (8) and shoot or cast from the top. Warriors clicked onto one of your siege engines or cannons crew it. Press twice (or double click) and each one goes into the nearest building with room for it.',
+      ENTER_HELP,
       () => this.target('enter', 'enter'),
-      { lit: t === 'enter', double: () => this.pickOwn(PickOwn.Enter, 'Each one goes into the nearest building with room for it.') },
+      { lit: t === 'enter', double: () => this.pickOwn(PickOwn.Enter, ENTER_TWICE) },
     );
   }
 
@@ -1419,13 +1419,19 @@ export class Commands {
     return true;
   }
 
+  /** Whether a selectable is a finished tower, whose top men go up on. */
+  private isTower(item: Selectable): boolean {
+    const b = this.buildingOf(item);
+    return b !== undefined && b.complete && buildingSpec(b.kind).defence === 'tower';
+  }
+
   private enter(item: Selectable): boolean {
     const b = this.buildingOf(item);
     const units = this.unitIds();
     if (!b || units.length === 0) return false;
     const room = b.complete ? levelSpec(b.kind, b.level).shelters + garrisonRoom(b) : 0;
     if (room === 0) {
-      this.d.message(`${b.name} cannot take anyone in. Workers shelter in main bases and farms; ranged warriors garrison towers.`, 'alert');
+      this.d.message(`${b.name} cannot take anyone in. Men go up on towers and on a main base from level 3; workers shelter in main bases and farms.`, 'alert');
       return false;
     }
     this.d.send({ kind: 'enter', player: this.d.player, units, building: b.id, queued: this.d.queued() });
@@ -1499,8 +1505,10 @@ export class Commands {
         if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
       }
     }
-    // Engines and cannons: an own horse or ox hitches, the Citadel takes a cannon into a port.
+    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1).
     const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
+    if (item && engines.length < units.length && this.ownBuilding(item) && this.isTower(item) && this.enter(item)) return;
+    // Engines and cannons: an own horse or ox hitches, the Citadel takes a cannon into a port.
     if (item && engines.length > 0 && engines.length === units.length) {
       if (item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
       if (this.ownBuilding(item) && this.enter(item)) return;
@@ -2088,6 +2096,11 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
+/** Enter's tooltip, on every card that has it. */
+const ENTER_HELP =
+  'Then left click a building. On a tower (room for 4) or a main base from level 3 (room for 8), everyone on foot goes up on its top: archers shoot and mages cast from there, and the rest are out of reach of anything that walks and strike only at flyers that swoop down at them. Workers shelter inside main bases and farms, and once a top is full, taking 10% of the damage the building takes. Warriors clicked onto one of your siege engines or cannons crew it. Right click a tower to send them up too. Press twice (or double click) and each one goes to the nearest building with room: workers to shelter, everyone else up on a top.';
+const ENTER_TWICE = 'Workers shelter in the nearest building with room; everyone else goes up the nearest tower or main base top with room.';
+
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */

@@ -23,6 +23,7 @@ import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
+import { keyLabel } from '../input/keys.ts';
 import { Btn, InputManager, type Mods, type MouseTarget } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
@@ -386,6 +387,7 @@ export class GameShell {
       cancelQueued: (b, index) => opts.issueOrder({ kind: 'cancelProduce', player: this.player, building: b, index }),
       letOut: (b, unit) => opts.issueOrder({ kind: 'unload', player: this.player, building: b, unit }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
+      keyName: (action) => keyLabel(keyFor(this.settings.keys, action)),
       game: this.game,
       trainTroop: (b, troop, count) => this.commands.trainTroop(b, troop, count),
       lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),

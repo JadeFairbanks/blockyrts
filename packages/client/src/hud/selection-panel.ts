@@ -15,6 +15,7 @@ import { CTRL_NAME } from '../input/platform.ts';
 import { isOwn } from '../selection/rules.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
 import type { ButtonPress, ButtonRegistry, HudButton } from './buttons.ts';
+import { garrisonRoom } from './commands.ts';
 
 /** Most portraits shown at once; the rest are counted. */
 const MAX_PORTRAITS = 40;
@@ -36,6 +37,8 @@ export interface PanelActions {
   cancelQueued(building: number, index: number): void;
   letOut(building: number, unit: number): void;
   unitName(id: number): string;
+  /** The label of the key bound to an action now. */
+  keyName(action: string): string;
   /** The troop panel: the game it reads, training (Shift: 5), the Lock, and a pick that changes the card. */
   game: GameInfo;
   trainTroop(building: number, troop: number, count: number): void;
@@ -138,6 +141,24 @@ export class SelectionPanel {
     return d;
   }
 
+  /** A row of portraits of units in a building, each letting that one out when clicked. */
+  private portraits(b: BuildingInfo, ids: readonly number[], key: string, description: string): void {
+    const q = document.createElement('div');
+    q.className = 'sel-queue';
+    for (const id of ids) {
+      const btn = this.button(`${key}${id}`, {
+        face: '⚒',
+        name: this.a.unitName(id),
+        keys: [],
+        description,
+        className: 'portrait',
+        onPress: () => this.a.letOut(b.id, id),
+      });
+      q.append(btn.el);
+    }
+    this.body.append(q);
+  }
+
   /** Redraws when what is shown changed; otherwise only the health bars move. */
   render(list: readonly Selectable[], active: string | null, hints: string[]): void {
     const one = list.length === 1 ? list[0]! : null;
@@ -145,7 +166,7 @@ export class SelectionPanel {
     const sig = [
       list.map((t) => `${t.key}:${t.label}:${(t.details ?? []).join('|')}`).join(','),
       active,
-      b ? `${b.queue.map((q) => `${q.product}`).join('.')}/${b.inside.join('.')}/${b.rally.length}/${b.assigned}/${b.working}` : '',
+      b ? `${b.queue.map((q) => `${q.product}`).join('.')}/${b.inside.join('.')}/${b.up.join('.')}/${b.rally.length}/${b.assigned}/${b.working}` : '',
       b && b.owner === this.a.player ? this.troopSig(b) : '',
       hints.join('|'),
     ].join('#');
@@ -205,22 +226,16 @@ export class SelectionPanel {
         this.body.append(q);
       }
       if (b.complete && b.troops.length > 0) this.troopPanel(b);
-      if (b.inside.length > 0) {
-        this.row('label', `Inside (${b.inside.length}; click one to let it out):`);
-        const q = document.createElement('div');
-        q.className = 'sel-queue';
-        for (const id of b.inside) {
-          const btn = this.button(`inside${id}`, {
-            face: '⚒',
-            name: this.a.unitName(id),
-            keys: [],
-            description: 'Click to let this one out.',
-            className: 'portrait',
-            onPress: () => this.a.letOut(b.id, id),
-          });
-          q.append(btn.el);
-        }
-        this.body.append(q);
+      // Up top (towers, a main base from level 3) and sheltering inside, each a row of portraits that let one out.
+      const top = garrisonRoom(b);
+      if (top > 0) {
+        this.row('label', b.up.length > 0 ? `Up top: ${b.up.length} of ${top} (click one to bring it down):` : `Up top: room for ${top}. Select men, press ${this.a.keyName('enter')} (Enter) and click it${spec.defence === 'tower' ? ', or right click it' : ''}.`);
+        if (b.up.length > 0) this.portraits(b, b.up, 'top', 'Click to bring this one down.');
+      }
+      const sheltering = b.inside.filter((id) => !b.up.includes(id));
+      if (sheltering.length > 0) {
+        this.row('label', `Inside (${sheltering.length}; click one to let it out):`);
+        this.portraits(b, sheltering, 'inside', 'Click to let this one out.');
       }
       const workers = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
       if (workers > 0) this.row('', `Workers: ${b.assigned} of ${workers} assigned (right-click it with workers to assign them).`);

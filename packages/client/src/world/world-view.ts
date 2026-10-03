@@ -331,8 +331,8 @@ export class WorldView {
         };
         this.units[i] = u;
       }
-      // A cannon in a Citadel's port stays on the roof, where it can be picked.
-      if (d[o + S.inside] !== 0 && kind !== UnitKind.Engine) this.insideKeys.add(key);
+      // A cannon in a Citadel's port stays on the roof, and the men up on a top stand there, where they can be picked.
+      if (d[o + S.inside] !== 0 && kind !== UnitKind.Engine && !(d[o + S.flags]! & UnitFlag.OnTop)) this.insideKeys.add(key);
       const health = `Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`;
       if (kind === UnitKind.Worker) {
         const rank = d[o + S.rank]!;

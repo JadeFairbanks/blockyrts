@@ -79,7 +79,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, Mount, mountSpec } from '@blockyrts/sim';
+import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
@@ -165,6 +165,7 @@ function postState(s: SimState): void {
     if (e.kind[i] === UnitKind.Mob && cloaked(s, i, Number.MAX_SAFE_INTEGER)) flags |= UnitFlag.Cloaked;
     if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
+    if (onTop(s, i)) flags |= UnitFlag.OnTop;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.skills] = e.skills[i]!;
@@ -256,6 +257,7 @@ function postInfo(s: SimState): void {
       assigned: assigned(s, b.id).length,
       working: b.complete ? workersAt(s, b) : 0,
       inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
+      up: unitsOnTop(s, b.id).map((i) => s.entities.id[i]!),
       status: buildingStatus(s, b),
       name: buildingName(b.kind, b.level, b.variant),
       upgradeWhy: usableBy(s, b, PLAYER) ? upgradeProblem(s, b, PLAYER) : '',
