@@ -426,6 +426,8 @@ Each milestone depends on the ones before it unless its "depends on" line says o
 
 **Risks:** wheeled pathing over column terrain; cannon splash and musket damage against the armour formula; the night 110 budget's unit count on screen.
 
+Built (2026-10-03, PR #59): picks in m8-picks.md, now in the docx and number-tables.md (Milestone 8 picks under table 14). Table 14's rider weapons were corrected to 18 (Halfling spear) and 45 (Elf glaive), and the Dwarf city keeps 1 cannon a day plus 3 muskets, with 6 Gunners, 4 Cannon crew and 2 gate cannons added to its garrison.
+
 #### M9: Multiplayer, accounts, saving and loading, settings and outside the match
 
 **You can now:** two players on different machines join by code, pick colours and play a night with shared control and sent resources; one disconnects and the game pauses; the host saves, both quit, and the game resumes once both have rejoined; a guest who clicks Save is asked to make an account; the main menu reminds the player about F11.
@@ -741,6 +743,8 @@ Only the mobs below take part in the nightly attacks. A new mob joins every 5 ni
 
 - **Rift-touched beasts:** six existing creatures (scorpion, centipede, hornet, beetle, griffin and minotaur) also join the night attacks from nights 50 to 75 and stay for the rest of the game, as scorched, glowing variants of their daytime selves. Jade asked for six more mid-game night mobs; which six and their nights are suggested.
 - **Morvath, the Hollow Crown** (the boss) first comes on night 110. Each time he is defeated he returns 10 nights later. His drops (20 mana crystals, 10 gold, 3 diamonds) are bigger than the small-valuables rule because he is a boss. Suggested: if he survives a night, he withdraws at dawn and returns the next night until beaten.
+- **Late mob tricks (suggested)** (as built, 2026-10-03): plague bearer, a 6 m miasma of 1 damage a second that stops natural healing; gravewing, snatches lone workers within 30 m (40 damage, held 2 s); bone colossus, a boulder every 8 s; hollow priest, raises the dead every 12 s, at most 6; hellhound, a 5 m cone of breath, 24 over 2 s, every 8 s; fiend, attacks 40% faster below 30% health; chain fiend, a 10 m hook for 15 every 8 s; void stalker, seen only within 4 m unless lit, triple damage on its first strike out of the cloak; infernal juggernaut, 5 damage a second within 3 m of its sides, double damage taken from behind, never knocked back; barrow knight, blocks 60% of projectile damage from the front; void witch, a 10 m hex every 15 s and a 15 m blink every 10 s; abyssal drake, breath in a line 1.5 m wide; archfiend, +20% damage to monsters within 15 m and 4 cinderlings every 20 s; rift colossus, a 200 beam every 10 s; Rift scorpion, every other hit stings for 10 plus 30 poison; Rift hornet, slows by 30% for 3 s. High flyers circle at 12 m; breakers cave in the land ahead of them. Late mobs sleeping in a lair do not use their tricks.
+- **Morvath in detail (suggested):** he comes for the first player still in the game. Crown of night puts out every light within 30 m. Ruin every 20 s: 3 s of warning, then 300 damage within 20 m. The Rift every 60 s: open for 30 s, a demon every 3 s. His spells start 20 s and 30 s after he arrives. Below half health he takes to the air and flies at 4 m/s.
 
 After night 110 no new mobs arrive; nights keep getting harder through the night budget and the per-night strengthening.
 
@@ -878,7 +882,7 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 | Elf kingdom | 3 halls, gate, bear pen, 4 tree platforms; 8 villagers, 6 Bladewardens, 6 Longbow rangers, 2 Grovesingers, 3 bears |
 | Elf caravan | a wagon, a caravan master, 2 Bladewardens, 2 rangers |
 | Dwarf colony | forge, mineshaft, 3 houses; 4 villagers, 3 Shieldbearers, 2 Hammerguard, 3 Crossbowmen |
-| Dwarf city | hall, gate, 2 forges, 2 mineshafts, 6 houses; 10 villagers, 8 Shieldbearers, 6 Hammerguard, 8 Crossbowmen |
+| Dwarf city | hall, gate, 2 forges, 2 mineshafts, 6 houses; 10 villagers, 8 Shieldbearers, 6 Hammerguard, 8 Crossbowmen; plus 6 Gunners, 4 Cannon crew (both grow with the band) and 2 Dwarf cannons inside the gate (M8, 2026-10-03) |
 | Deeper is larger and richer, by band | people 100, 100, 125, 150, 175%; stock 100, 125, 150, 175, 200% |
 | Payment by kind (food, tools and weapons, armour and shields, ingots, trinkets, silver and gold trinkets, lumber, raw gold and silver, gems, livestock, other) | Halflings 110, 70, 50, 60, 50, 35, 30, refuse, refuse, 50, 50; Runkin 100, 110, 50, 50, 80, 70, 40, 70, 50, 50, 50; Elves 100, 60, 60, 60, 130, 130, insulted, 100, 100, 60, 60; Dwarves 110, 50, 50, 80, 100, 100, 50, 110, 110, 50, 50 |
 | Bundles and offer | each of the 3 bundles is worth 85 to 100% of the offer; the offer box takes up to 8 different goods |
@@ -900,6 +904,7 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 - **What they refuse:** gold and silver, raw or as ingots, and gems. They do not value them at all and will not accept them.
 - **What they sell:** farm goods, including live livestock for the player's own farms, and Halfling weapons such as shortbows, shortswords and bucklers. They can make iron, but only the lowest grade (bloom iron).
 - **Buildings:** a little windmill, a two-storey inn half dug into the hill, and barns. Halfling spearmen wear an iron cap and carry a short spear.
+- **War oxen (suggested):** a village keeps 2 war oxen in its barn (more in richer villages). When a war starts, a spearman takes each ox with an archer behind him; the archer gets down if the ox falls.
 - **Ox riders:** only in times of war, Halflings ride oxen into battle with two riders on each: a spear-wielding Halfling in front and an archer behind. An ox rider can attack in melee and at range while it moves.
 - **War:** they fight if they must, and offer to surrender once more than half of them have died. If the player accepts the surrender or defeats them, the player gets their livestock, the weapons of their remaining fighters and a little general loot dropped at the village. The remaining Halflings flee to the edge of the explored land and disappear there.
 
@@ -981,6 +986,7 @@ Rows and lines marked "(suggested)" are Claude's ideas to fill gaps, for Jade to
 | Gunner | Cities only. Musket, slow to reload. |
 | Cannon crew | Cities only. Defends the city walls. |
 
+- Suggested, as built: a city's garrison adds 6 Gunners, 4 Cannon crew and 2 Dwarf cannons inside its gate (always 2, never for sale) to its 10 villagers, 8 Shieldbearers, 6 Hammerguard and 8 Crossbowmen. A city sells 1 cannon a day in total, bronze or iron, whichever is bought first, and 3 steel muskets a day.
 - Suggested: Dwarves have no mages; their strength is their gear and their stone walls.
 
 **What Dwarves say (suggested):**
@@ -1002,7 +1008,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 |---|---|---|---|
 | Elf caravan (every 5 days once met; also at the kingdom) | bread 5, roast meat 5, smoked fish 7, wheat 2, flax 1, herbs 2, bandage 5, healing remedy 15 (all 120% of value); HQ steel sword 1500, HQ steel pike 1600, HQ steel glaive (steel halberd stats, 45 damage) 1800 (4 x their value, so never cost-effective, as the doc wants) | trinkets 130%; food 100%; gold, silver, gems 100%; else 60% | a caravan carries 1 weapon and 200 vp of food a visit; the kingdom 3 weapons a day; lumber offered closes trade to that player for 1 day |
 | Dwarf colony (Barrens) | steel ingot 45 (1.5 x), at most 5 a day; bronze 6, bloom iron 8, wrought iron 9; bronze and iron weapons and shields at 1.5 x value; emerald 50, ruby 60, diamond 100 | food 110%; gold, silver, gems 110%; trinkets 100%; metal 80%; lumber 50% (more than anyone else, still not much); else 50% | after the first trade it gives the direction and distance of the nearest city (doc) |
-| Dwarf city (Deadlands, about 1 in 120 cells) | at 3 x make cost: bronze cannon 420, iron cannon 384, musket 102, steel plate 564, steel sallet 102, steel heater shield 282, wrought iron mail 120, steel sword 288; gold 40, gems at value, gunpowder (10 charges) 48, lead shot (10) 12, cannonballs 30; HQ steel ingot 90 (1.5 x), at most 2 a day (the doc's richer-far-out rule, still rare) | as the colony | 1 cannon and 3 muskets a day; its own Dwarf cannons are not for sale |
+| Dwarf city (Deadlands, about 1 in 120 cells) | at 3 x make cost: bronze cannon 420, iron cannon 384, musket 102, steel plate 564, steel sallet 102, steel heater shield 282, wrought iron mail 120, steel sword 288; gold 40, gems at value, gunpowder (10 charges) 48, lead shot (10) 12, cannonballs 30; HQ steel ingot 90 (1.5 x), at most 2 a day (the doc's richer-far-out rule, still rare) | as the colony | 1 cannon a day in total (bronze or iron, whichever is bought first; the other waits for the dawn restock) and 3 steel muskets a day; powder horns and shot pouches at 1.5 x value; its own 2 Dwarf cannons inside the gate are not for sale |
 | Reparations (either faction) | 2000 vp plus 100 per Dwarf killed, in gold, silver, gems, trinkets or food |  | a migrated group rebuilds for 10 days (doc, suggested), then raids with a band of 6 every 3 days until paid |
 
 **How these were set:** a Gold Heirloom (960) and a Copper Token do not buy one Elf sword (1500), and a Dwarf city cannon (420) is about two days of a tier 3 mineshaft's gold at Fair; both keep the doc's "very expensive" and "about three times".
@@ -1303,6 +1309,7 @@ The command card is a grid of 15 buttons in 3 rows of 5 showing everything the s
 - Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row.
 - Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures.
 - Warriors also have N Hunt (suggested letter): click an animal to hunt it (see "Semi-automation").
+- **Riding and engines (suggested, as built 2026-10-03):** R Ride mounts each selected warrior on the nearest free horse, and reads Dismount when all are mounted; right clicking one of your horses mounts it. An engine's card has A Attack, S Stop, H Hold Position, M Move, R Hitch (Let go when hitched) and E Port (send it into a free Citadel port). Right clicks with an engine: on one of your horses or oxen, hitch it; on the Citadel, go to a port. Warriors right click your engine to crew it; workers right click a damaged engine to repair it. Training buildings have U Train, which opens a skills page (Archery, Crossbow, Riding, Musket, Cannon, Back) in place of a separate Archery button.
 - **Neutral peoples (suggested, as built 2026-10-02):** O, or the Peoples button at the top right, opens the Peoples panel listing the peoples met. Right click a leader, a trade building (Halfling inn or barn, Runkin drying rack, Elf hall or caravan wagon, Dwarf forge or hall) or a caravan with any unit to trade; right click a mercenary camp to hire. A on their units while at peace asks before war (see "Neutral villages and trade").
 - **Mages (suggested, as built 2026-10-02):** the top row is A Attack, S Stop, H Hold Position, P Patrol, M Move; the second row is the five spells of the mage's school (support: R Heal, K Quicken, F Fortify, Y Rally, W Warding; battle: R Arcane bolt, B Beam, F Fireball, T Area blast, C Counterspell); the third row is Eat (no hotkey on a mage, because F is Fortify or Fireball there), U Rank (rank training at a Magi Sanctum), E Enter, Q Equip Best and I Equipment. Casting is described under "Casting spells" in "Magic".
 - E Enter: click a building to go inside it. Workers can shelter in farms, fishing docks and main bases. Ranged warriors and mages can garrison towers and the parapets of a level 3+ main base and fight from there. A building with units inside shows a U Unload All button, and clicking a unit's portrait in the building's panel lets just that unit out.
@@ -1504,6 +1511,7 @@ Because the game runs in a web browser, some key combinations above are normally
 | N (warriors) | Hunt (suggested letter) |
 | R, K, F, Y, W / R, B, F, T, C (mages) | Support spells / battle spells; U Rank (suggested) |
 | O | Peoples panel (suggested) |
+| R (warriors) / R, E (engines) / U (training buildings) | Ride or Dismount / Hitch, Port / Train skills page (suggested) |
 | Any targeted command twice | The unit picks its own target |
 | D / T (workers) | Dig / Prospect |
 | E / U | Enter a building (shelter or garrison) / Unload all |
@@ -1663,7 +1671,7 @@ Warriors are trained at main bases and at the barracks. Ranged warriors can figh
 - Units gain **experience** in combat and grow stronger as they rank up, so losing a veteran hurts.
 - Units can also be **trained** at a training building. Training costs time and food, and the unit stays inside the building and cannot do anything else until it finishes. Training can be cancelled early in an emergency, but the unit gains nothing.
 - Training has a **limit**. Out of about five levels, training buildings can raise a unit at most **two levels above its starting level**; everything beyond that comes only from combat experience. For specialist skills (cannon, musket, crossbow, archery), training only makes the unit able to use the weapon at all; getting good with it comes from combat.
-- **Specialist skills must be trained before a warrior can use them at all:** riding, archery (bows), crossbows, firing a musket, and crewing a cannon. Crossbow training is much quicker and cheaper than archery training. Suggested training buildings: barracks (archery and crossbows), stables (riding), and gunnery yard (muskets and cannons).
+- **Specialist skills must be trained before a warrior can use them at all:** riding, archery (bows), crossbows, firing a musket, and crewing a cannon. Crossbow training is much quicker and cheaper than archery training. Suggested, as built: a training building's U Train button opens a skills page (Archery, Crossbow, Riding, Musket, Cannon, Back); riding training needs a tamed horse in the Stables. Suggested training buildings: barracks (archery and crossbows), stables (riding), and gunnery yard (muskets and cannons).
 
 #### Table 1: Player unit stats
 
@@ -1737,6 +1745,23 @@ Melee fighters use one of two kinds of weapon:
 - Cavalry and ox riders deal **100% extra damage** (double damage) when they hit with a charge.
 - A hit counts as a charge only after a short, straight run at the mount's full speed.
 - A charge **knocks back** enemies smaller than the charging animal by 1 to 2 m on impact; smaller targets are thrown farther. Enemies as big as the mount or bigger are not knocked back.
+
+**Riding in detail (suggested)** (as built, 2026-10-03):
+
+- A rider and its mount are one unit. A blow lands on whichever of the two has more health (the mount on a tie), through the mount's armour. When the mount dies, the rider fights on foot.
+- Mounted, a warrior gets +0.5 m reach, 30 m sight and a 60 m leash, and a bow's spread is doubled. A rider must get down to garrison a building or crew an engine. A ridden horse still eats.
+- A rider trots on orders and gallops when closing on a foe. The run stays straight while the heading turns less than about 11 degrees a step and the speed stays at 80% of a gallop or more. Reining in within 4 m of the foe keeps the run, so the blow that ends a gallop is a charge.
+- A warrior mounts and dismounts within 2 m of the horse; a horse left without its rider walks back to its Stables.
+
+#### Siege engines and cannons (suggested)
+
+As built, 2026-10-03. Numbers are in tables 2f and 14.
+
+- Catapults are made at the Great Workshop, ballistas at the Manufactory and cannons at the Foundry. Engines use no supply and never heal by themselves; a worker repairs one from 3 m away, and a full repair takes as long as making the engine.
+- A hitched horse or ox hauls an engine while within 5 m of it. Crew stand within 4 m of their engine to work it or push it, fight whatever comes within 6 m of them, then go back to it.
+- An engine sees 20 m by itself; its crew's eyes do the rest.
+- The Citadel's 4 cannon ports are the four corners of its roof. A cannon hauled to the door goes up into a free port; its animal is let go at the door and its crew follow it in.
+- One gunpowder makes 10 charges. A cannon or musket shot uses one charge and one ball.
 
 #### One-handed weapons and shields
 
@@ -1860,12 +1885,30 @@ Knockback rule (s): 2 m if the target is no taller than 60% of the mount's shoul
 |---|---|---|---|---|---|---|---|---|---|
 | Horse (player) | 160 (s) | 0 (s) | 1.6 m (s) | 2 / 5 / 8 m/s (s) | 6 m (s) | rider's weapon, x2 on a charge | a worker with 5 wheat, carrots or corn stands by a wild horse for 45 s; needs Stables (s) | tamed pair: 1 foal every 10 days; adult after 2 days | Stables, 6 stalls (s) |
 | Ox (player, hauling only) | 250 (s) | 10% (s) | 1.5 m (s) | 1.5 / 3 / 4 m/s (s) | not ridden by players (s) | none | as the horse but 10 food and 60 s (s) | as the horse | Stables or livestock farm (s) |
-| Halfling war ox (two riders) | 250 (s) | 10% (s) | 1.5 m (s) | 1.5 / 3.5 / 5 m/s (s) | 8 m (s) | front rider spear 14 / 1.4 s, x2 on a charge; rear rider shortbow 12 / 2.0 s, 20 m, fires while moving (s) | Halflings only | Halfling village | Halfling barn |
+| Halfling war ox (two riders) | 250 (s) | 10% (s) | 1.5 m (s) | 1.5 / 3.5 / 5 m/s (s) | 8 m (s) | front rider bronze spear 18 / 1.4 s (was 14; matches the spearman, coordinator 2026-10-02), x2 on a charge; rear rider shortbow 12 / 2.0 s, 20 m, fires while moving (s) | Halflings only | Halfling village | Halfling barn |
 | Goblin wolf (wolf rider) | 70 | 0 (s) | 0.9 m (s) | 2 / 4 / 5.5 m/s (s) | 5 m (s) | roster 6.3 (spear 9, charge doubles) | goblins only | goblin wolf pen | goblin village |
-| Elf war bear (bear rider) | 400 (s) | 15% (s) | 1.5 m (s) | 1.5 / 4 / 6 m/s (s) | 6 m (s) | rider: HQ steel glaive 38 / 1.6 s (s), x2 on a charge; the bear also swipes 25 / 1.5 s in a 2 m arc (s) | Elves only | Elf bear pen | Elf kingdom |
+| Elf war bear (bear rider) | 400 (s) | 15% (s) | 1.5 m (s) | 1.5 / 4 / 6 m/s (s) | 6 m (s) | rider: Elf HQ steel glaive 45 / 1.6 s (was 38; matches the Bladewarden and table 19, coordinator 2026-10-02) (s), x2 on a charge; the bear also swipes 25 / 1.5 s in a 2 m arc (s) | Elves only | Elf bear pen | Elf kingdom |
 | Tamed bear (on foot) | 400 (s) | 15% (s) | 1.5 m (s) | 1.5 / 4 / 6 m/s (s) | none | swipe 25 / 1.5 s, 2 m arc (s) | Elves only |  |  |
 
 **How these were set:** a horse at 8 m/s needs 0.75 s of straight run for 6 m, so charges happen naturally when cavalry closes on a wave but not in a melee. Wild herd sizes are in table 5. Elf caravan wagons are pulled by two horses (doc); a Dwarf sled by one ox.
+
+**Milestone 8 picks (s), added 2026-10-03 from what was built (blueprint/m8-picks.md)**
+
+| **Rule** | **Value (s)** |
+|---|---|
+| Rider and mount | one unit; a blow lands on whichever has more health (the mount on a tie), through the mount's armour; when the mount dies the rider fights on foot |
+| Mounted | reach +0.5 m, sight 30 m, leash 60 m, bow spread doubled; must get down to garrison or crew; a ridden horse still eats 2 a cycle |
+| Charge run | trot on orders, gallop when closing; straight while the heading turns under about 11 degrees a step and speed stays at 80% of gallop or more; reining in within 4 m keeps the run |
+| Mounting | within 2 m of the horse; a dismounted horse walks back to its Stables; mounted hit box 0.6 m half width; riding training needs a tamed horse in the Stables |
+| Rider weapons | Halfling ox front rider bronze spear 18; Elf bear rider glaive 45 (table above, corrected 2026-10-02) |
+| Halfling war oxen | 2 per barn (grows with the band); at war a spearman takes each ox with an archer behind; the archer gets down if the ox falls |
+| Engines | Great Workshop catapult, Manufactory ballista, Foundry cannons; no supply; never heal; a worker repairs from 3 m, a full repair takes the make time; a hitched animal hauls within 5 m; crew within 4 m to work or push, fight within 6 m then return; an engine sees 20 m |
+| Citadel ports | the roof's four corners; a cannon hauled to the door goes up into a free port; its animal is let go and its crew follow |
+| Dwarf city guns | garrison adds 6 Gunners, 4 Cannon crew and 2 cannons inside the gate; sells 1 cannon a day (bronze or iron) and 3 steel muskets; powder horns and shot pouches at 1.5 x, gunpowder 48, lead shot 12 per ten, cannonballs 30 |
+| Late mob tricks | plague bearer miasma 1 per s within 6 m, no healing; gravewing snatches lone workers within 30 m, 40 damage, held 2 s; bone colossus boulder every 8 s; hollow priest raises every 12 s, at most 6; hellhound 5 m cone, 24 over 2 s, every 8 s; fiend 40% faster below 30% health; chain fiend hook 10 m, 15, every 8 s; void stalker seen within 4 m unless lit, first strike x3; juggernaut 5 per s within 3 m of its sides, double damage from behind, no knockback; barrow knight blocks 60% of frontal projectile damage; void witch hex 10 m every 15 s, blink 15 m every 10 s; abyssal drake breath line 1.5 m wide; archfiend +20% damage within 15 m, 4 cinderlings every 20 s; rift colossus beam 200 every 10 s; Rift scorpion every other hit 10 plus 30 poison; Rift hornet slows 30% for 3 s; high flyers circle at 12 m; breakers cave in the land ahead; lair sleepers use no tricks |
+| Morvath | targets the first player still in the game; Crown of night 30 m; Ruin every 20 s, 3 s warning, 300 within 20 m; the Rift every 60 s, open 30 s, a demon every 3 s; spells start 20 s and 30 s after arrival; below half health flies at 4 m/s |
+| Controls | U Train opens Archery, Crossbow, Riding, Musket, Cannon, Back; R Ride or Dismount; engine card A, S, H, M, R Hitch (Let go), E Port; right clicks: engine on your horse or ox hitches, on the Citadel ports; warriors on your engine crew; workers on a damaged engine repair |
+| Debug buttons (test builds) | Stables, Siege kit, Gun kit, Citadel, Night mob (cycles nights 25 to 110 and the Rift-touched beasts), Wave (nights 30, 50, 85, 105), Morvath |
 
 ### Buildings
 
