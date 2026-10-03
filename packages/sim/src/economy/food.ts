@@ -235,12 +235,16 @@ const NO_FOOD_LINES: readonly string[] = [
   'The stores are bare and my stomach is growling. There wasn\'t enough food for me!',
 ];
 
-/** A unit's line, bubble only (the message panel has the starving alerts): a meal, or hunger. */
-function chatter(state: SimState, i: number, text: string, bubble: 'meal' | 'hungry'): void {
+/**
+ * A unit's line about a meal or its hunger: a bubble only (informational
+ * lines stay out of the message panel, patch 1), except its first missed
+ * meal, an alert (urgent) that reaches the panel too.
+ */
+function chatter(state: SimState, i: number, text: string, bubble: 'meal' | 'hungry', urgent = false): void {
   const e = state.entities;
   // Animals do not talk; working horses and oxen eat and starve quietly.
   if (e.kind[i] === UnitKind.Animal) return;
-  state.events.push({ player: e.owner[i]!, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), x: e.x[i]!, z: e.z[i]!, bubble });
+  state.events.push({ player: e.owner[i]!, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), x: e.x[i]!, z: e.z[i]!, bubble, ...(urgent ? { urgent: true } : {}) });
 }
 
 function ateLine(state: SimState, i: number, taken: FoodTaken, quarters: number, starved: boolean): string {
@@ -294,7 +298,7 @@ function unitMeal(state: SimState, i: number): boolean {
     return was !== 0;
   }
   if (!was) e.hungry[i] = Math.max(1, state.step);
-  chatter(state, i, hungryLine(state, i, !fed, was === 0), 'hungry');
+  chatter(state, i, hungryLine(state, i, !fed, was === 0), 'hungry', was === 0);
   return was === 0;
 }
 

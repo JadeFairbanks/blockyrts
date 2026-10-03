@@ -603,17 +603,15 @@ export class GameShell {
    */
   private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
     if (ev.bubble) {
-      // A meal or hunger (patch 1) is a bubble only, over a unit on screen; meal lines at most one a second, so a big army's meals do not crowd the screen.
-      if (ev.speaker === undefined || this.headOnScreen(ev.speaker) === null) return;
+      // A meal or hunger (patch 1) is a bubble over a unit on screen; meal lines at most one a second, so a big army's meals do not crowd the screen.
       const now = performance.now();
-      if (ev.bubble === 'meal') {
-        if (now < this.mealBubbleAt) return;
-        this.mealBubbleAt = now + MEAL_BUBBLE_GAP_MS;
+      if (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null && (ev.bubble !== 'meal' || now >= this.mealBubbleAt)) {
+        if (ev.bubble === 'meal') this.mealBubbleAt = now + MEAL_BUBBLE_GAP_MS;
+        this.bubbles.say(ev.speaker, ev.text, now, 'own');
       }
-      this.bubbles.say(ev.speaker, ev.text, now, 'own');
-      return;
-    }
-    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+      // Only a unit's first missed meal, an alert, goes on to the message panel.
+      if (!ev.urgent) return;
+    } else if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
     if (ev.foreign) {
       const to = ev.player === this.player;
       const heard = ev.important === true && (((ev.near ?? 0) & (1 << this.player)) !== 0 || (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null));

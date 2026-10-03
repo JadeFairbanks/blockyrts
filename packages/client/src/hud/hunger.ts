@@ -25,7 +25,7 @@ export interface HungerView {
 }
 
 export interface HungerLine {
-  /** "Next meal in 1:12 (½ food)." */
+  /** "Next meal in 1 minute 12 seconds (½ food)." */
   next: string;
   /** While starving: for how long and what it costs; else ''. */
   status: string;
@@ -33,14 +33,18 @@ export interface HungerLine {
   pct: number;
 }
 
-/** "1:12" for a span of steps, rounded up to the second. */
-export function clockText(steps: number): string {
+/** "1 minute 12 seconds", "2 minutes", "45 seconds" for a span of steps, rounded up to the second, as the farm panel counts. */
+export function countdownText(steps: number): string {
   const s = Math.ceil(Math.max(0, steps) / STEPS_PER_SECOND);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const m = Math.floor(s / 60);
+  const parts: string[] = [];
+  if (m > 0) parts.push(`${m} minute${m === 1 ? '' : 's'}`);
+  if (s % 60 > 0 || m === 0) parts.push(`${s % 60} second${s % 60 === 1 ? '' : 's'}`);
+  return parts.join(' ');
 }
 
 export function hungerLine(v: HungerView): HungerLine {
-  const next = `Next meal in ${clockText(v.left)} (${foodAmountText(v.meal)}).`;
+  const next = `Next meal in ${countdownText(v.left)} (${foodAmountText(v.meal)}).`;
   const pct = Math.max(0, Math.min(100, Math.round(((MEAL_STEPS - v.left) * 100) / MEAL_STEPS)));
   if (v.since <= 0) return { next, status: '', pct };
   const howLong = `Starving for ${spanText(v.since)}`;

@@ -27,8 +27,10 @@ import {
   MEATS,
   Mount,
   nextMealIn,
+  nodeResource,
   payAny,
   PEOPLES,
+  PropKind,
   QUARTERS,
   Res,
   RESOURCES,
@@ -170,8 +172,11 @@ describe('meals', () => {
     const missed = said(run(s, MEAL_STEPS));
     expect(missed.length).toBe(1);
     expect(missed[0]!.bubble).toBe('hungry');
+    // The first missed meal is an alert for the message panel too; the meal and the status after it are bubbles only.
+    expect([meal[0]!.urgent, missed[0]!.urgent]).toEqual([undefined, true]);
     const later = said(run(s, MEAL_STEPS));
     expect(later.length).toBe(1);
+    expect(later[0]!.urgent).toBeUndefined();
     expect(later[0]!.text).toMatch(/Starving for 1 minute: I'm 20% slower and can't heal\. I start losing health in \d+ minutes\./);
   });
 
@@ -194,6 +199,15 @@ describe('meals', () => {
 });
 
 describe('food kinds', () => {
+  it('a carcass gives its animal\'s meat and a fish stretch its fish', () => {
+    expect([nodeResource(PropKind.Carcass, Species.Boar), nodeResource(PropKind.Carcass, Species.Cattle), nodeResource(PropKind.Carcass, Species.WildGoose)]).toEqual([
+      Res.BoarMeat,
+      Res.Beef,
+      Res.GooseMeat,
+    ]);
+    expect([PropKind.FishTrout, PropKind.FishSalmon, PropKind.FishCatfish].map((k) => nodeResource(k))).toEqual([Res.Trout, Res.Salmon, Res.Catfish]);
+  });
+
   it('pays "meat" in a recipe from the kinds most in stock', () => {
     const pool = new Int32Array(RESOURCES.length);
     pool[Res.Beef] = 3;
