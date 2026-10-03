@@ -222,6 +222,9 @@ const GOES_OFF: ReadonlySet<number> = new Set([Mob.BloatedCorpse, Mob.SkeletonBo
 /** Columns inside the wall a spear or halberd stands to stab over it, inside its reach (there is no minimum range now). */
 const STAB_INSET = 3;
 
+/** How near (wu) a spear or halberd gets to its stabbing spot before it holds: half a metre, so it ends inside its reach of the wall. */
+const STAB_NEAR = WU_PER_METRE >> 1;
+
 /** How far out (columns) the warriors sally against an archer: about 20 m. */
 const SALLY_COLUMNS = 44;
 
@@ -512,7 +515,7 @@ export class ScriptedDefence {
       const poles = new Map([...free].filter(([id]) => this.poles.has(id)));
       for (const id of nearest(poles, colCentre(sx), colCentre(sz), GOES_OFF.has(e.mob[i]!) ? 1 : big ? 3 : 2)) {
         free.delete(id);
-        this.goTo(out, id, colCentre(sx), colCentre(sz));
+        this.goTo(out, id, colCentre(sx), colCentre(sz), STAB_NEAR);
       }
     }
     // The rest go back to their places.
@@ -529,14 +532,14 @@ export class ScriptedDefence {
     out.push({ kind: 'attack', player: 0, units: [id], target });
   }
 
-  /** Walk to a spot and hold there. */
-  private goTo(out: Order[], id: number, x: number, z: number): void {
+  /** Walk to a spot and hold there, once within `near` of it (wu; 1.5 m unless given). */
+  private goTo(out: Order[], id: number, x: number, z: number, near = (WU_PER_METRE * 3) >> 1): void {
     const e = this.s.entities;
     const i = e.indexOf(id);
     if (i < 0) return;
     const o = e.queue[i]![0];
     const d2 = (e.x[i]! - x) ** 2 + (e.z[i]! - z) ** 2;
-    if (d2 <= (WU_PER_METRE * 3) ** 2 >> 2) {
+    if (d2 <= near ** 2) {
       if (o?.t !== 'hold') out.push({ kind: 'hold', player: 0, units: [id] });
       return;
     }
