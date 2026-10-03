@@ -522,8 +522,8 @@ overhangs. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    there, floored at the ground in front of the face. Move the mouse into the
    hill and click: a purple see-through box shows the stretch, 90 cm wide and
    2.25 m tall (+ and - or the wheel set the height), and the click marks
-   it. Keep clicking to turn corners; right click ends it (since the wall
-   and tunnel chains, below). The workers carve it from the face inwards and
+   it. Keep clicking to turn corners; a click on the last point or a right
+   click ends it (since the wall and tunnel chains, below). The workers carve it from the face inwards and
    walk into the passage as it opens; Speed x16 helps. A press on top of the
    ground, or on the side of a step lower than 56 cm, still digs straight
    down. Dragging from the foot of a face up onto it still makes a tunnel
@@ -1124,31 +1124,36 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    9 softwood lumber"). Click: the whole stretch is ordered and its far end
    is the next point. Keep clicking to turn corners, in any direction; a
    diagonal is built as a staircase so nothing meets only at a corner (about
-   2 walls a step). Right click, Esc or **Done** (the card's corner) ends the
-   chain; a click and a right click places one wall. Shift with right click
-   or Esc ends the chain but keeps the wall on the cursor for a new one.
-2. **What is in the way.** Red columns (a tree, rock, water, steep ground, a
+   2 walls a step).
+2. **One wall, and stopping.** A click on the chain's last point finishes
+   it, so a **double click places just one wall**, and after a stretch a
+   click on its end stops there. Right click, Esc or **Done** (the card's
+   corner) also end the chain at any moment. A hint under the label beside
+   the cursor always says how ("Click again for just this one", "Click to
+   build to here, right click to finish"). Shift while ending keeps the wall
+   on the cursor for a new chain.
+3. **What is in the way.** Red columns (a tree, rock, water, steep ground, a
    building) are skipped and the message says how many. Walls standing or
    planned already are passed over without a word, so a chain closes on its
    first wall, and a first click on an old wall starts the chain from it.
-3. **Short stock.** The label counts the stock less the walls already planned
+4. **Short stock.** The label counts the stock less the walls already planned
    ("enough for 4"), the walls past that point show greyed, and a click
    orders those it pays for, from the chain's last point outward; the
    message says how many, and the chain goes on from the last one paid for.
    The workers build each stretch from its start outward and pay for each
    wall when they get to it, as before.
-4. **A tunnel chain.** Select workers and press D, then D again (the card's
+5. **A tunnel chain.** Select workers and press D, then D again (the card's
    **Tunnel** button lights): click where the tunnel starts, then where it
    goes. It digs level from the ground clicked, 90 cm wide (wider on a
    diagonal, so walkers never squeeze past a corner) and 2.25 m tall (+ and
    - or the wheel, 2 m to 4 m); the label gives its length and height. Keep
-   clicking to turn corners; right click, Esc or **Done** ends it, and D
-   again goes back to digging down. A click on a cliff face starts a chain
+   clicking to turn corners; a click on its last point, right click, Esc or
+   **Done** ends it, and D again goes back to digging down. A click on a cliff face starts a chain
    without the button (milestone 5's gap fixes, step 3). Columns already open
    at the tunnel's height cost nothing; a stretch with nothing to dig is
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
-5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
+6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
    prints `final step 10000 hash 6d357b86`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
@@ -1156,7 +1161,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    chain south of it, started with Shift, runs over a plant (skipped) and has
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
-6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
+7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
    prints `final step 10000 hash e42ed368`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
@@ -1164,15 +1169,15 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    deep under the hill where only the tunnel leads, and on round the
    tunnel's corners and out of the far side, on its floor all the way.
    `pnpm test` runs both in Node, Chromium, Firefox and WebKit too.
-7. `pnpm test` also runs `packages/sim/test/chains.test.ts` (the stretch
+8. `pnpm test` also runs `packages/sim/test/chains.test.ts` (the stretch
    geometry, a wall chain in four directions built from its anchor outward,
    skips, the stock cut, a tunnel chain of four stretches under a hill saved
    and loaded halfway, walked into and through) and
-   `packages/client/test/chains-controls.test.ts` (the clicks, the labels,
-   right click, Shift, Done and the Tunnel button).
-   `node packages/client/test-e2e/chains-look.mjs` (with the dev server on
-   port 5198) clicks a wall ring and a tunnel chain with the mouse and saves
-   screenshots.
+   `packages/client/test/chains-controls.test.ts` (the clicks, the labels
+   and hints, the double click, right click, Shift, Done and the Tunnel
+   button). `node packages/client/test-e2e/chains-look.mjs` (with the dev
+   server on port 5198) clicks a wall ring, a lone wall and a tunnel chain
+   with the mouse and saves screenshots.
 
 ## How a tester checks the balance editor
 

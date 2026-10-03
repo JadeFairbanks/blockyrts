@@ -226,8 +226,10 @@ export class GameShell {
   private lastPlannedSig = '';
   private overShown = false;
   private readonly parent: HTMLElement;
-  /** Beside the cursor while a wall or tunnel chain shows its next stretch: what it builds and costs. */
+  /** Beside the cursor during a wall or tunnel chain: what the next click builds and costs, and below it how to go on or stop. */
   private readonly chainLabel: HTMLElement;
+  private readonly chainText: HTMLElement;
+  private readonly chainHint: HTMLElement;
 
   constructor(
     parent: HTMLElement,
@@ -243,6 +245,10 @@ export class GameShell {
     this.chainLabel = document.createElement('div');
     this.chainLabel.className = 'chain-label';
     this.chainLabel.hidden = true;
+    this.chainText = document.createElement('div');
+    this.chainHint = document.createElement('div');
+    this.chainHint.className = 'chain-hint';
+    this.chainLabel.append(this.chainText, this.chainHint);
     this.layout.root.append(this.chainLabel);
     this.tooltip = new Tooltip(parent);
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
@@ -1317,7 +1323,8 @@ export class GameShell {
     const label = inGameView ? this.commands.chainLabel() : null;
     this.chainLabel.hidden = label === null;
     if (label) {
-      setText(this.chainLabel, label.text);
+      setText(this.chainText, label.text);
+      setText(this.chainHint, label.hint);
       this.chainLabel.classList.toggle('short', label.short);
       this.chainLabel.style.left = `${pos.x + 18}px`;
       this.chainLabel.style.top = `${pos.y + 14}px`;

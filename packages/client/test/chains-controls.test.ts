@@ -95,18 +95,20 @@ describe('wall chains', () => {
     c.updatePlacing(at(10, 10), 0);
     expect(asks.at(-1)).toEqual([[10, 10]]);
     answer(c, asks);
-    expect(c.chainLabel()!.text).toBe('1 softwood wall: 1 softwood lumber');
+    expect(c.chainLabel()).toEqual({ text: '1 softwood wall: 1 softwood lumber', hint: 'Click to place it, then click further on for a stretch', short: false });
     c.placeDown();
     c.placeUp();
     expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 10, z: 10, dir: 0, length: 0, skip: 0, queued: false }]);
     // The ghost stays, anchored: the card's corner button now ends the chain.
     expect(c.placing!.chain).toEqual({ x: 10, z: 10 });
     expect(c.card()[14]!.face).toBe('Done');
+    // On the wall just placed, the label says how to stop at one.
+    expect(c.chainLabel()).toEqual({ text: 'Click again for just this one', hint: 'Or click further on to build a stretch', short: false });
     // East, a little off the line: it snaps east, and leaves out the anchor.
     c.updatePlacing(at(16, 11), 1);
     expect(asks.at(-1)).toEqual([[11, 10], [12, 10], [13, 10], [14, 10], [15, 10], [16, 10]]);
     answer(c, asks, (x) => (x === 13 ? 4 : 0));
-    expect(c.chainLabel()).toEqual({ text: '5 walls: 5 softwood lumber, 1 skipped', short: false });
+    expect(c.chainLabel()).toEqual({ text: '5 walls: 5 softwood lumber, 1 skipped', hint: 'Click to build to here, right click to finish', short: false });
     c.placeUp();
     expect(sent.at(-1)).toEqual({ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 10, z: 10, dir: 0, length: 6, skip: 1, queued: true });
     expect(c.placing!.chain).toEqual({ x: 16, z: 10 });
@@ -116,11 +118,35 @@ describe('wall chains', () => {
     c.placeUp();
     expect(sent.at(-1)).toMatchObject({ kind: 'wallStretch', x: 16, z: 10, dir: 3, length: 4, skip: 1, queued: true });
     expect(c.placing!.chain).toEqual({ x: 12, z: 14 });
-    // Clicking the anchor again does nothing; right click (back) ends the chain and the placement.
-    c.updatePlacing(at(12, 14), 3);
+    // Right click (back) ends the chain and the placement.
+    expect(c.back()).toBe(true);
+    expect(c.placing).toBeNull();
+    expect(sent.length).toBe(3);
+  });
+
+  it('finishes a chain with a click on its last point, so a double click places just one wall', () => {
+    const { c, sent, asks } = harness(game({ pool: [[Res.SoftwoodLumber, 100]] }));
+    // Double click: one wall, and the placement is over.
+    c.startPlacing(BuildingKind.Wall, 0);
+    c.updatePlacing(at(3, 3), 0);
+    answer(c, asks);
+    c.placeUp();
+    c.updatePlacing(at(3, 3), 1);
+    c.placeUp();
+    expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 3, z: 3, dir: 0, length: 0, skip: 0, queued: false }]);
+    expect(c.placing).toBeNull();
+    // After a stretch, a click on its end finishes the chain.
+    c.startPlacing(BuildingKind.Wall, 0);
+    c.updatePlacing(at(10, 10), 0);
+    answer(c, asks);
+    c.placeUp();
+    c.updatePlacing(at(10, 15), 1);
+    answer(c, asks);
+    c.placeUp();
+    c.updatePlacing(at(10, 15), 2);
+    expect(c.chainLabel()).toEqual({ text: 'Click here again to finish the wall', hint: 'Or click further on to build on', short: false });
     c.placeUp();
     expect(sent.length).toBe(3);
-    expect(c.back()).toBe(true);
     expect(c.placing).toBeNull();
   });
 
@@ -161,7 +187,7 @@ describe('wall chains', () => {
     // Six south: room for 4 (the first wall counts once the sim reports it in the workers' lists).
     c.updatePlacing(at(10, 16), 1);
     answer(c, asks);
-    expect(c.chainLabel()).toEqual({ text: '6 walls: 6 softwood lumber, enough for 4', short: true });
+    expect(c.chainLabel()).toMatchObject({ text: '6 walls: 6 softwood lumber, enough for 4', short: true });
     const ghost = c.updatePlacing(at(10, 16), 2)!;
     expect(ghost.spots.map((s) => s.short)).toEqual([false, false, false, false, true, true]);
     c.placeUp();
@@ -205,6 +231,7 @@ describe('tunnel chains', () => {
     c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
     expect(c.area!.chain).toEqual({ x: 5, z: 0, floor: 0 });
     expect(sent).toEqual([]);
+    expect(c.chainLabel()).toEqual({ text: 'Click where the tunnel goes', hint: 'Right click to stop', short: false });
     expect(c.card()[2]!.lit).toBe(true);
     expect(c.card()[14]!.face).toBe('Done');
     c.updateArea(at(13, 1));
@@ -218,8 +245,11 @@ describe('tunnel chains', () => {
     c.areaDown(at(13, 6));
     expect(sent.at(-1)).toEqual({ kind: 'tunnelStretch', player: ME, units: [1, 2], x: 13, z: 0, dir: 2, length: 6, level: 0, level2: TUNNEL_HEIGHT_UNITS + 3, queued: true });
     expect(c.area!.chain).toEqual({ x: 13, z: 6, floor: 0 });
-    c.back();
+    // A click on the last point finishes the tunnel.
+    expect(c.chainLabel()).toEqual({ text: 'Click here again to finish the tunnel', hint: 'Or click further on to dig on', short: false });
+    c.areaDown(at(13, 6));
     expect(c.area).toBeNull();
+    expect(sent.length).toBe(2);
   });
 
   it('digs level from the ground clicked with Tunnel (D again) on, and digs down otherwise', () => {
@@ -231,6 +261,7 @@ describe('tunnel chains', () => {
     expect(tunnel.key).toBe('KeyD');
     tunnel.run({ shift: false, ctrl: false });
     expect(c.area!.tunnel).toBe(true);
+    expect(c.chainLabel()!.text).toBe('Click where the tunnel starts');
     c.areaDown(at(2, 2, 4 * UNIT_M));
     expect(c.area!.chain).toEqual({ x: 2, z: 2, floor: 4 });
     c.updateArea(at(9, 9));

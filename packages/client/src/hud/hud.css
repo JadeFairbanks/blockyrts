@@ -1033,6 +1033,11 @@ body.playing * {
   color: #ffb0a0;
   border-color: rgba(230, 110, 90, 0.7);
 }
+.chain-hint {
+  margin-top: 1px;
+  font-size: 11px;
+  color: rgba(244, 236, 210, 0.7);
+}
 .chat:not(:disabled) {
   color: var(--text);
   cursor: text;

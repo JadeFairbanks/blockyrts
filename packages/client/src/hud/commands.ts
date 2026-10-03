@@ -223,6 +223,8 @@ export interface Placing {
   dragFrom: { x: number; z: number } | null;
   /** A wall chain under way: the anchor the next stretch runs from (the end of the last), or null before the first click. */
   chain: { x: number; z: number } | null;
+  /** Stretches ordered since the chain's first wall. */
+  stretches: number;
   /** The spots being shown, with the sim's answers once they arrive. */
   spots: GhostSpot[];
 }
@@ -350,6 +352,7 @@ export class Commands {
     if (this.placing) {
       if (this.placing.chain && this.d.queued()) {
         this.placing.chain = null;
+        this.placing.stretches = 0;
         this.d.changed();
       } else this.endPlacing();
       return true;
@@ -1646,7 +1649,12 @@ export class Commands {
     a.cursor = c;
     const plan = this.tunnelPlan();
     const units = this.workerIds();
-    if (!plan || plan.length === 0 || units.length === 0) return;
+    if (!plan || units.length === 0) return;
+    // A click on the chain's last point finishes it.
+    if (plan.length === 0) {
+      this.back();
+      return;
+    }
     this.d.send({ kind: 'tunnelStretch', player: this.d.player, units, x: plan.x, z: plan.z, dir: plan.dir, length: plan.length, level: a.chain.floor, level2: a.chain.floor + a.tunnelUnits, queued: a.stretches > 0 || this.d.queued() });
     const [ex, ez] = stretchEnd(plan.x, plan.z, plan.dir, plan.length);
     a.chain = { x: ex, z: ez, floor: a.chain.floor };
@@ -1796,25 +1804,38 @@ export class Commands {
     this.d.changed();
   }
 
-  /** The words beside the cursor while a chain's next stretch is shown: what it builds or digs, and what it costs. */
-  chainLabel(): { text: string; short: boolean } | null {
-    const t = this.tunnelPlan();
-    if (t && this.area) {
-      if (t.length === 0) return { text: 'Click where the tunnel goes', short: false };
-      return { text: `${(t.length * COLUMN_M).toFixed(1)} m of tunnel, ${(this.area.tunnelUnits * TERRAIN_UNIT_M).toFixed(2)} m tall`, short: false };
+  /**
+   * The words beside the cursor during a chain: what the next click builds or
+   * digs and what it costs, and a hint on how to go on or stop (Controls:
+   * wall chains; a click on the chain's last point, right click, Esc or Done
+   * ends it, so a double click places one wall).
+   */
+  chainLabel(): { text: string; hint: string; short: boolean } | null {
+    const a = this.area;
+    if (a && (a.tunnel || a.chain)) {
+      const t = this.tunnelPlan();
+      if (!t) return { text: 'Click where the tunnel starts', hint: 'Right click to stop', short: false };
+      if (t.length === 0) return a.stretches > 0 ? { text: 'Click here again to finish the tunnel', hint: 'Or click further on to dig on', short: false } : { text: 'Click where the tunnel goes', hint: 'Right click to stop', short: false };
+      return { text: `${(t.length * COLUMN_M).toFixed(1)} m of tunnel, ${(a.tunnelUnits * TERRAIN_UNIT_M).toFixed(2)} m tall`, hint: 'Click to dig to here, right click to finish', short: false };
     }
     const p = this.placing;
     const plan = this.wallPlan();
     if (!p || !plan || !Commands.chained(p.kind)) return null;
-    if (p.chain && plan.length === 0) return { text: 'Click the far end of the next stretch', short: false };
+    if (p.chain && plan.length === 0) {
+      if (p.stretches > 0) return { text: 'Click here again to finish the wall', hint: 'Or click further on to build on', short: false };
+      // Just placed (or an old wall clicked to go on from).
+      const old = this.walledColumns().has(`${p.chain.x},${p.chain.z}`);
+      return { text: old ? 'Click again to stop here' : 'Click again for just this one', hint: 'Or click further on to build a stretch', short: false };
+    }
     const est = this.chainEstimate(plan);
-    if (est.open === 0 && est.blocked === 0) return { text: p.chain ? 'Walled already: the chain goes on from its end' : 'Click to go on from this wall', short: false };
+    if (est.open === 0 && est.blocked === 0) return p.chain ? { text: 'Walled already', hint: 'Click to go on from its end, right click to finish', short: false } : { text: 'Click to go on from this wall', hint: 'Then click further on to build a stretch', short: false };
     const name = buildingSpec(p.kind).name.toLowerCase();
     const n = Math.min(est.open, est.room);
     const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${est.open} walls: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
     if (est.blocked > 0) parts.push(`${est.blocked} skipped`);
     if (n < est.open) parts.push(n === 0 ? `not enough ${RESOURCES[est.short]!.name.toLowerCase()}` : `enough for ${n}`);
-    return { text: parts.join(', '), short: n < est.open };
+    const hint = p.chain ? 'Click to build to here, right click to finish' : 'Click to place it, then click further on for a stretch';
+    return { text: parts.join(', '), hint, short: n < est.open };
   }
 
   // ---- Placement ----
@@ -1823,7 +1844,7 @@ export class Commands {
     if (this.workerIds().length === 0) return;
     this.targeting = null;
     this.area = null;
-    this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, chain: null, spots: [] };
+    this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, chain: null, stretches: 0, spots: [] };
     this.placeAsked = '';
     this.d.changed();
   }
@@ -2020,7 +2041,12 @@ export class Commands {
     const units = this.workerIds();
     if (units.length === 0) return this.endPlacing();
     const plan = this.wallPlan();
-    if (!plan || (p.chain && plan.length === 0)) return;
+    if (!plan) return;
+    // A click on the chain's last point finishes it: a double click places one wall.
+    if (p.chain && plan.length === 0) {
+      this.back();
+      return;
+    }
     const est = this.chainEstimate(plan);
     if (est.open === 0 && est.blocked === 0) {
       // Walled or planned all along: nothing to send, and the chain goes on from its end.
@@ -2039,6 +2065,7 @@ export class Commands {
       return;
     }
     this.d.send({ kind: 'wallStretch', player: this.d.player, units, building: p.kind, x: plan.x, z: plan.z, dir: plan.dir, length: plan.length, skip: p.chain ? 1 : 0, queued: p.chain !== null || this.d.queued() });
+    if (p.chain) p.stretches++;
     const [ex, ez] = est.room < est.open && est.last ? est.last : stretchEnd(plan.x, plan.z, plan.dir, plan.length);
     this.anchorChain(ex, ez);
   }
@@ -2055,10 +2082,10 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
-const WALL_CHAIN_HELP = 'Click to place one, then click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. Right click, Esc or Done ends the chain.';
+const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */
-const TUNNEL_CHAIN_HELP = 'Dig a tunnel, level: click where it starts (on a cliff or hillside, the floor is the ground in front of it; on flat ground, the ground you click), then click where it goes; each click digs the stretch from the last point, straight or diagonal, 90 cm wide. Keep clicking to turn corners. + and - set its height. Right click, Esc or Done ends it. Press again to dig down instead.';
+const TUNNEL_CHAIN_HELP = 'Dig a tunnel, level: click where it starts (on a cliff or hillside, the floor is the ground in front of it; on flat ground, the ground you click), then click where it goes; each click digs the stretch from the last point, straight or diagonal, 90 cm wide. Keep clicking to turn corners. + and - set its height. A click on the last point, right click, Esc or Done ends it. Press again to dig down instead.';
 
 /**
  * Boxes that outline a stretch for the overlay: one round a straight run,
