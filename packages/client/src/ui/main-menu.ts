@@ -11,6 +11,7 @@ import { forgetLocal, localSaves, openSave, type OpenedSave } from '../net/saves
 import { SettingsPanel } from '../settings/settings-panel.ts';
 import type { Settings } from '../settings/settings.ts';
 import { MAX_SEED, parseSeed, randomSeed } from '../start/seed.ts';
+import { GAME_VERSION } from '../version.ts';
 import { accountPage } from './account.ts';
 import lobbyMap from './art/lobby-map.webp';
 import { button, el, field, input, Screen, status, whenText } from './dom.ts';
@@ -80,6 +81,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
       const fs = el('div', 'row fullscreen-row', undefined, box);
       el('span', `note f11${IS_MAC ? ' mac' : ''}`, `Press ${IS_MAC ? 'Ctrl + Cmd + F' : 'F11'} for full screen: some controls, such as Ctrl + number groups, only work in full screen.`, fs);
       button(fs, 'Full screen', () => void document.documentElement.requestFullscreen?.().catch(() => undefined));
+      el('p', 'note version', GAME_VERSION, box);
     };
 
     // ---- New game ----
