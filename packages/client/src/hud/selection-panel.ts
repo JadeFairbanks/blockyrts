@@ -41,6 +41,8 @@ export interface PanelActions {
   trainTroop(building: number, troop: number, count: number): void;
   lockTroop(building: number, troop: number, lock: number): void;
   troopsChanged(): void;
+  /** A type's worth, for the subgroup order of a mixed selection. */
+  worth?(typeKey: string, items: readonly Selectable[]): number;
 }
 
 /** Fixed order of types in the panel, so the same army always looks the same. */
@@ -53,15 +55,21 @@ export function typeOrder(typeKey: string): number {
   return 1000;
 }
 
-/** The selection split into subgroups by type, in the fixed order. */
-export function subgroups(list: readonly Selectable[]): Array<{ typeKey: string; items: Selectable[] }> {
+/**
+ * The selection split into subgroups by type. With `worth`, the most valuable
+ * type comes first (a mixed selection shows it on the card and the portrait,
+ * and Tab steps down from it); ties and everything else keep the fixed order.
+ */
+export function subgroups(list: readonly Selectable[], worth?: (typeKey: string, items: readonly Selectable[]) => number): Array<{ typeKey: string; items: Selectable[] }> {
   const map = new Map<string, Selectable[]>();
   for (const t of list) {
     const g = map.get(t.typeKey);
     if (g) g.push(t);
     else map.set(t.typeKey, [t]);
   }
-  return [...map].map(([typeKey, items]) => ({ typeKey, items })).sort((a, b) => typeOrder(a.typeKey) - typeOrder(b.typeKey) || (a.typeKey < b.typeKey ? -1 : 1));
+  const groups = [...map].map(([typeKey, items]) => ({ typeKey, items, worth: worth ? worth(typeKey, items) : 0 }));
+  groups.sort((a, b) => b.worth - a.worth || typeOrder(a.typeKey) - typeOrder(b.typeKey) || (a.typeKey < b.typeKey ? -1 : 1));
+  return groups.map(({ typeKey, items }) => ({ typeKey, items }));
 }
 
 function glyph(t: Selectable): string {
@@ -368,7 +376,7 @@ export class SelectionPanel {
   }
 
   private multi(list: readonly Selectable[], active: string | null): void {
-    const groups = subgroups(list);
+    const groups = subgroups(list, this.a.worth);
     const tabs = document.createElement('div');
     tabs.className = 'sel-tabs';
     for (const g of groups) {
@@ -376,7 +384,7 @@ export class SelectionPanel {
         face: `${shortType(g.items[0]!)} ${g.items.length}`,
         name: shortType(g.items[0]!),
         keys: [],
-        description: 'Click: make this the active subgroup (its commands show on the card; Tab cycles). Double click: keep only these. Right click: remove them.',
+        description: 'Click: make this the active subgroup (its commands and portrait show; Tab and Shift + Tab step through the types). Double click: keep only these. Right click: remove them.',
         className: 'sub-tab',
         onPress: () => this.a.activate(g.typeKey),
         onDoubleClick: () => this.a.keepType(g.typeKey),

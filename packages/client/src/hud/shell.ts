@@ -60,6 +60,7 @@ import { PeoplesUi } from './peoples-ui.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
+import { typeWorth } from './worth.ts';
 
 /** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
 const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
@@ -403,6 +404,7 @@ export class GameShell {
         this.selectionDirty = true;
         this.cardDirty = true;
       },
+      worth: this.worth,
     });
     this.buildButtons();
     this.selection.onChange(() => {
@@ -871,10 +873,21 @@ export class GameShell {
 
   // ---- Selection helpers ----
 
+  /** A type's worth for the subgroup order: what it cost, the dearest kit for troops. */
+  private readonly worth = (typeKey: string, items: readonly Selectable[]): number =>
+    typeWorth(typeKey, () =>
+      items.map((t) => {
+        const id = entityIdOf(t.key);
+        const u = id === null ? null : this.game.unit(id);
+        return { troop: u?.troop ?? 0, wTier: u?.wTier ?? 0, aTier: u?.aTier ?? 0 };
+      }),
+    );
+
+  /** The active subgroup's type: the one picked with a tab or Tab, else the most valuable type selected. */
   private activeType(): string | null {
     const list = this.selection.list().filter((t) => isOwn(t, this.player));
     if (list.length === 0) return null;
-    const groups = subgroups(list);
+    const groups = subgroups(list, this.worth);
     if (this.active && groups.some((g) => g.typeKey === this.active)) return this.active;
     return groups[0]!.typeKey;
   }
@@ -888,7 +901,7 @@ export class GameShell {
 
   /** Tab / Shift + Tab: the next or previous subgroup. */
   private cycleSubgroup(back: boolean): void {
-    const groups = subgroups(this.selection.list().filter((t) => isOwn(t, this.player)));
+    const groups = subgroups(this.selection.list().filter((t) => isOwn(t, this.player)), this.worth);
     if (groups.length < 2) return;
     const cur = groups.findIndex((g) => g.typeKey === this.activeType());
     const next = groups[(cur + (back ? groups.length - 1 : 1)) % groups.length]!;

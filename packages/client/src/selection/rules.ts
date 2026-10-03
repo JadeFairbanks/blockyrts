@@ -1,5 +1,6 @@
 // The selection rules of Controls > Selecting units and buildings, as pure
 // functions over screen-projected items. No DOM, no three.js.
+import { BuildingKind } from '@blockyrts/sim';
 import { pointInRect, padRect, rectsIntersect, type Pt, type Rect } from '../hud/rects.ts';
 import type { Selectable } from './types.ts';
 
@@ -13,6 +14,31 @@ export const HIT_PAD_PX = 5;
 
 /** The fields of a Selectable the rules look at. */
 export type SelInfo = Pick<Selectable, 'key' | 'kind' | 'owner' | 'typeKey'>;
+
+/** Walls, gates, towers, earthworks, ramps and lights: a drag box takes them only when it catches nothing else of the player's. */
+const LINE_KINDS: ReadonlySet<number> = new Set([
+  BuildingKind.Wall,
+  BuildingKind.WallHardwood,
+  BuildingKind.WallStone,
+  BuildingKind.Gate,
+  BuildingKind.GateHardwood,
+  BuildingKind.GateStone,
+  BuildingKind.Tower,
+  BuildingKind.TowerHardwood,
+  BuildingKind.TowerStone,
+  BuildingKind.Earthworks,
+  BuildingKind.Ramp,
+  BuildingKind.TorchPost,
+  BuildingKind.WallTorch,
+  BuildingKind.Brazier,
+  BuildingKind.Lantern,
+]);
+
+/** Whether a selectable is one of a wall line's pieces or a light (building type keys are 'building:kind:level'). */
+export function lineStructure(t: SelInfo): boolean {
+  if (t.kind !== 'building' || !t.typeKey.startsWith('building:')) return false;
+  return LINE_KINDS.has(Number(t.typeKey.split(':')[1]));
+}
 
 /** A selectable thing as it appears on screen this frame. */
 export interface ScreenItem<T extends SelInfo = SelInfo> {
@@ -78,14 +104,17 @@ export function inBox<T extends SelInfo>(items: readonly ScreenItem<T>[], box: R
 }
 
 /**
- * What a drag box picks up: own units if there are any, else own buildings,
- * else the single thing nearest to where the drag started (inspect only).
+ * What a drag box picks up: own units and own buildings together (patch notes
+ * 1), leaving out a wall line's pieces and the lights unless nothing else of
+ * the player's is in the box; else the single thing nearest to where the drag
+ * started (inspect only).
  */
 export function priorityFilter<T extends SelInfo>(items: readonly ScreenItem<T>[], player: number, dragStart: Pt): T[] {
-  const units = items.filter((s) => isOwn(s.item, player) && s.item.kind === 'unit');
-  if (units.length > 0) return units.map((s) => s.item);
-  const buildings = items.filter((s) => isOwn(s.item, player) && s.item.kind === 'building');
-  if (buildings.length > 0) return buildings.map((s) => s.item);
+  const own = items.filter((s) => isOwn(s.item, player) && (s.item.kind === 'unit' || s.item.kind === 'building'));
+  if (own.length > 0) {
+    const main = own.filter((s) => !lineStructure(s.item));
+    return (main.length > 0 ? main : own).map((s) => s.item);
+  }
   let best: ScreenItem<T> | null = null;
   let bestD = Infinity;
   for (const s of items) {

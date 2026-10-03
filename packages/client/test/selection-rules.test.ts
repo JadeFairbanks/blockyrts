@@ -68,11 +68,16 @@ describe('picking', () => {
 
 describe('priority rules', () => {
   const start = { x: 0, y: 0 };
-  it('takes only own units when there are any', () => {
-    expect(keys(priorityFilter(all, ME, start))).toEqual(['e:1', 'e:2', 'e:3']);
-  });
-  it('else own buildings', () => {
+  it('takes own units and own buildings together (patch notes 1)', () => {
+    expect(keys(priorityFilter(all, ME, start))).toEqual(['e:1', 'e:2', 'e:3', 'e:4']);
     expect(keys(priorityFilter([hall, enemy, pine1], ME, start))).toEqual(['e:4']);
+  });
+  it('leaves out walls, towers and lights unless nothing else of the player is in the box', () => {
+    const wall = item('b:7', 'building', ME, 'building:12:1', 200, 200);
+    const torch = item('b:8', 'building', ME, 'building:18:1', 220, 200);
+    const barracks = item('b:9', 'building', ME, 'building:24:1', 240, 200);
+    expect(keys(priorityFilter([w1, wall, torch, barracks], ME, start))).toEqual(['e:1', 'b:9']);
+    expect(keys(priorityFilter([wall, torch, enemy], ME, start))).toEqual(['b:7', 'b:8']);
   });
   it('else the single thing nearest the drag start', () => {
     expect(keys(priorityFilter([enemy, pine1, pine2], ME, { x: 450, y: 125 }))).toEqual(['p:0:2']);
