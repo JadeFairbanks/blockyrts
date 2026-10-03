@@ -622,6 +622,8 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
   // Only the night's own monsters count: lair dwellers and creatures already about at nightfall are left out.
   let firstId = 0;
   for (let i = 0; i < e.count; i++) firstId = Math.max(firstId, e.id[i]!);
+  // Morvath comes at dusk, before the rest of the wave: he counts whatever his id.
+  const ofTheNight = (i: number): boolean => e.owner[i] === MONSTERS && e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && (e.id[i]! > firstId || isBoss(e.mob[i]!));
   const live = new Map<number, number>();
   const script = new ScriptedDefence(s, ring, d.workersFight);
   while (clockAt(s.step, s.blood).period === Period.Night && s.over === 0) {
@@ -630,7 +632,7 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
     if (firstWall < 0 && wallCount(s, d.wall) < walls) firstWall = t;
     const now = new Set<number>();
     for (let i = 0; i < e.count; i++) {
-      if (e.owner[i] !== MONSTERS || e.kind[i] !== UnitKind.Mob || e.hp[i]! <= 0 || e.id[i]! <= firstId) continue;
+      if (!ofTheNight(i)) continue;
       const id = e.id[i]!;
       now.add(id);
       if (!seen.has(id)) {
@@ -649,7 +651,7 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
       if (isBoss(mob)) bossKilled = true;
     }
     live.clear();
-    for (let i = 0; i < e.count; i++) if (e.owner[i] === MONSTERS && e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && e.id[i]! > firstId) live.set(e.id[i]!, e.mob[i]!);
+    for (let i = 0; i < e.count; i++) if (ofTheNight(i)) live.set(e.id[i]!, e.mob[i]!);
   }
   const carriedAfter = carried();
   const lost = (before: number, kind: number): number => before - countIn(s, kind);
