@@ -22,10 +22,6 @@ import {
   RESOURCES,
   unitOrderText,
   propInfo,
-  propJob,
-  PropShape,
-  Tool,
-  toolNeeded,
   floorDiv,
   UnitKind,
   VISION_STRIDE,
@@ -59,6 +55,7 @@ import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type Se
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
+import { propDetails, propLabel } from './plant-text.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { UnitsView } from './units-view.ts';
 import { LootView } from './loot-view.ts';
@@ -741,15 +738,6 @@ export class WorldView {
     const info = propInfo(p.kind);
     const x = c.cx * CHUNK_M + p.x;
     const z = c.cz * CHUNK_M + p.z;
-    const tree = info.shape === PropShape.Tree;
-    const stage = tree ? ['seed', 'sapling', ''][p.stage] : '';
-    const holds = info.resource ? `${p.amount} ${info.resource}` : info.yield === 0 ? 'no lumber' : '';
-    const details: string[] = [];
-    if (info.resource) {
-      details.push(`Gatherers: ${info.gatherers} at a time; ${info.perLoad} per load.`);
-      details.push(`Tool needed: ${info.tool === Tool.None ? 'none' : `a ${toolNeeded(propJob(p.kind), info.tool)} or better`}.`);
-    }
-    if (stage) details.push(`Growing: ${stage}.`);
     return {
       key: `p:${c.cx},${c.cz}:${p.index}`,
       kind: 'node',
@@ -757,9 +745,10 @@ export class WorldView {
       typeKey: `node:${info.name.toLowerCase()}`,
       centre: new THREE.Vector3(x, p.y, z),
       halfSize: new THREE.Vector3(p.hx, p.hy, p.hz),
-      label: holds ? `${info.name} (${holds})` : info.name,
-      details,
-      resource: info.resource && p.stage === 2 && p.amount > 0 ? info.resource : '',
+      label: propLabel(p.kind, p.stage, p.amount),
+      details: propDetails(p.kind, p.stage, p.amount, p.most, p.nextAt < 0 ? -1 : p.nextAt - this.simStep),
+      // A sapling holds nothing yet, so there is nothing to gather.
+      resource: info.resource && p.amount > 0 ? info.resource : '',
     };
   }
 

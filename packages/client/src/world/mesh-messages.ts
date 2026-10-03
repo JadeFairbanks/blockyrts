@@ -23,7 +23,12 @@ export interface PropSummary {
   hy: number;
   hz: number;
   amount: number;
+  /** What it holds when grown (sim PropView.most). */
+  most: number;
+  /** Growth stage (sim Stage). */
   stage: number;
+  /** The sim step it reaches its next growth stage, or -1 once grown. */
+  nextAt: number;
 }
 
 export interface MeshResult {

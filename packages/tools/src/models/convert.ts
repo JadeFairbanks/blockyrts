@@ -15,6 +15,11 @@
 //   interpolates linearly.
 // - Per-face UVs are in the texture's UV pixel space (uv_width, uv_height);
 //   faces whose texture is null are not drawn.
+// - A group hidden by default in Blockbench (its eye closed) that is not under
+//   a slot_* group is a state set: a building's `construction_0` to
+//   `construction_66` and `ruined`, a rock's `depleted`, a light's `unlit`.
+//   Its cubes are not drawn, so the game shows what Blockbench shows; its bone
+//   stays, so clips and bone indices do not move.
 import { FACE_NAMES, parseBbmodel, type BbAnimation, type BbCube, type BbGroup, type BbKeyframe, type FaceName } from './bbmodel.ts';
 import { ARRAY_BUFFER, GlbWriter, NEAREST } from './glb.ts';
 import {
@@ -313,11 +318,15 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
   const bones: Bone[] = [];
   const parts: string[] = [];
   const looseCubes: BbCube[] = [];
-  const visit = (node: BbGroup | string, parent: number, part: number, inSlot: boolean): void => {
+  /** Cubes of state sets hidden by default: the rules still see them (the manifest counts them), the mesh leaves them out. */
+  const hiddenCubes = new Set<string>();
+  const visit = (node: BbGroup | string, parent: number, part: number, inSlot: boolean, hidden: boolean): void => {
     if (typeof node === 'string') {
       const cube = cubeByUuid.get(node);
       if (!cube) return;
       placed.add(node);
+      // A state set hidden by default (a building's construction stages and ruin, a rock's depleted look) is not drawn.
+      if (hidden) hiddenCubes.add(node);
       const owner = bones[parent];
       if (owner) owner.cubes.push(cube);
       else looseCubes.push(cube);
@@ -331,9 +340,11 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
     }
     const index = bones.length;
     bones.push({ name: node.name, parent, origin: node.origin, rotation: node.rotation, uuid: node.uuid, part: myPart, isSlot, cubes: [], synthetic: false });
-    for (const child of node.children) visit(child, index, myPart, inSlot || isSlot);
+    // Equipment parts under a slot are hidden by the game itself (InstancedModel shows them on demand), so only hidden groups outside slots are left out.
+    const hide = hidden || (!node.visible && !inSlot && !isSlot);
+    for (const child of node.children) visit(child, index, myPart, inSlot || isSlot, hide);
   };
-  for (const node of model.outliner) visit(node, -1, -1, false);
+  for (const node of model.outliner) visit(node, -1, -1, false, false);
   for (const c of model.cubes) if (!placed.has(c.uuid)) looseCubes.push(c);
   if (looseCubes.length > 0) {
     formatProblems.push(`${looseCubes.length} cube(s) are not inside any group (bone): ${looseCubes.slice(0, 5).map((c) => c.name).join(', ')}`);
@@ -364,7 +375,7 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
         if (c.type !== 'locator' && c.type !== 'null_object') formatProblems.push(`element "${c.name}" is a ${c.type}; only cubes are supported`);
         continue;
       }
-      cubeCount++;
+      if (!hiddenCubes.has(c.uuid)) cubeCount++;
       for (const name of FACE_NAMES) {
         const face = c.faces[name];
         if (face && face.texture !== null) usedTextures.add(face.texture);
@@ -449,10 +460,20 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
         }
         const normal = transformDirection(world, transformDirection(cubeRot, FACE_NORMALS[name]));
         const base = positions.length / 3;
+        const hidden = hiddenCubes.has(c.uuid);
         faceCorners(name, from, to).forEach((corner, k) => {
           const rotated = transformPoint(cubeRot, sub(corner, c.origin));
           const modelUnits: Vec3 = [rotated[0] + c.origin[0], rotated[1] + c.origin[1], rotated[2] + c.origin[2]];
           const p = transformPoint(world, scale(sub(modelUnits, b.origin), UNIT_METRES));
+          if (hidden) {
+            // Only the placement rule looks at it, as it did before hidden sets were left out.
+            if (b.part < 0) {
+              const units = scale(p, 1 / UNIT_METRES);
+              bodyBoundsUnits.add(units);
+              bodyPointsUnits.push(units);
+            }
+            return;
+          }
           positions.push(p[0], p[1], p[2]);
           normals.push(normal[0], normal[1], normal[2]);
           const [u, v] = faceUv[k] ?? [0, 0];
@@ -467,7 +488,7 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
             bodyPointsUnits.push(units);
           }
         });
-        indices.push(base, base + 2, base + 1, base + 2, base + 3, base + 1);
+        if (!hidden) indices.push(base, base + 2, base + 1, base + 2, base + 3, base + 1);
       }
     }
   });

@@ -20,7 +20,7 @@ import { WorldGen, type PropRecord } from './generate.ts';
 import { WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { hash2 } from './noise.ts';
-import { fishAt, growth, isFish, isTree, propInfo, PROPS } from './props.ts';
+import { fishAt, growth, growthStages, isFish, isTree, propInfo, PROPS, Stage } from './props.ts';
 
 const N = COLUMNS_PER_CHUNK;
 /** Generated chunks kept in memory (technical decision 5: 2,048, least recently used first out). */
@@ -36,7 +36,11 @@ const WATER_BUDGET = 8192;
 
 /** A change to a generated or planted prop. */
 export interface PropChange {
-  /** What it holds now. */
+  /**
+   * What it holds now. For a plant still growing, what it would hold when
+   * grown less everything taken from it, so a part-taken young plant keeps
+   * growing; 0 with cutAt set is a plant picked bare, nothing taken since.
+   */
   amount: number;
   /** Step it was cut down to the stump or picked bare, from which it regrows; -1 if not. */
   cutAt: number;
@@ -57,9 +61,11 @@ export interface PropView {
   amount: number;
   /** Fish stretches: the most fish the water holds. */
   most: number;
-  /** Growth stage and size (per mille) for trees; regrowing bushes report their stump as size 0. */
+  /** Growth stage (props.ts Stage; Grown for props that do not grow) and drawn size, per mille of full size. */
   stage: number;
   size: number;
+  /** Steps until its next growth stage, or -1 once grown. */
+  next: number;
 }
 
 /** Global column key for water bookkeeping. */
@@ -321,6 +327,11 @@ export class World {
     }
   }
 
+  /** Pulls up one prop for good (a builder clearing a sapling off a building spot). */
+  removeProp(cx: number, cz: number, index: number): void {
+    this.changeProp(cx, cz, index, { amount: 0, cutAt: -1, removed: true });
+  }
+
   private removePropsOn(cx: number, cz: number, i: number): void {
     const lx = i % N;
     const lz = floorDiv(i, N);
@@ -446,26 +457,32 @@ export class World {
     const age = r.age + step;
     let amount = ch ? ch.amount : r.amount;
     let size = 1000;
-    let stage = 2;
+    let stage: number = Stage.Grown;
+    let next = -1;
     if (isFish(r.kind)) {
       amount = fishAt(info.regrowSteps, r.amount, amount, ch ? ch.cutAt : -1, step);
-    } else if (isTree(r.kind)) {
-      const gr = growth(r.kind, age);
-      stage = gr.stage;
-      size = gr.size;
-      if (gr.stage !== 2) amount = 0;
-    } else if (ch && ch.cutAt >= 0) {
-      // Bushes and plants grow back from the stump.
-      if (info.regrowSteps > 0 && step >= ch.cutAt + info.regrowSteps) amount = r.amount;
-      else size = 0;
+    } else if (growthStages(r.kind)) {
+      // Trees grow from the seed; bushes and plants grow back from the stump once picked bare (cutAt).
+      const tree = isTree(r.kind);
+      const regrowing = !tree && ch !== undefined && ch.cutAt >= 0;
+      if (tree || regrowing) {
+        const g = growth(r.kind, tree ? age : step - ch!.cutAt);
+        stage = g.stage;
+        size = g.size;
+        next = g.next;
+        // It holds its stage's share of its yield, less what was taken from it since it was picked bare (an amount of 0 while regrowing: nothing taken yet).
+        const taken = ch && (tree || ch.amount > 0) ? r.amount - ch.amount : 0;
+        amount = Math.max(0, floorDiv(r.amount * g.yieldPm, 1000) - taken);
+      }
     }
-    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, most: r.amount, stage, size };
+    return { index: i, kind: r.kind, lx: r.lx, lz: r.lz, y: r.y, variant: r.variant, age, amount, most: r.amount, stage, size, next };
   }
 
   /**
    * Takes up to `amount` from a prop (gathering arrives in M2; tests and the
-   * debug tools use this). Felling a tree removes it and drops its seeds
-   * around it; a hazel bush or a plant picked bare regrows from the stump.
+   * debug tools use this). Felling a tree, grown or young, removes it and
+   * drops its seeds around it; a hazel bush or a plant picked bare grows back
+   * from the stump in steps (props.ts growth stages).
    * Returns what was taken.
    */
   harvest(cx: number, cz: number, index: number, amount: number, step: number): number {
@@ -483,7 +500,12 @@ export class World {
       return taken;
     }
     if (left > 0) {
-      this.changeProp(cx, cz, index, { amount: left, cutAt: -1, removed: false });
+      // Stored as what it would hold when grown, less what has been taken (PropChange), so a plant part-taken
+      // while still growing grows on; a bush growing back keeps growing from when it was picked bare.
+      const ch = this.propChanges.get(chunkKey(cx, cz))?.get(index);
+      const untaken = ch && !(ch.amount === 0 && ch.cutAt >= 0) ? ch.amount : r.amount;
+      const since = isTree(r.kind) ? -1 : (ch?.cutAt ?? -1);
+      this.changeProp(cx, cz, index, { amount: untaken - taken, cutAt: since, removed: false });
       return taken;
     }
     if (isTree(r.kind)) {
