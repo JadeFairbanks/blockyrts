@@ -161,7 +161,9 @@ const loner = (among) =>
       const me = at.find((a) => a.k === k);
       return window.shell.under({ x: me.x, y: me.y - 8 }).item?.key === k ? 1 : 0;
     };
-    return [...keys].sort((p, q) => picks(q) - picks(p) || room(q) - room(p))[0];
+    // Only the ones still on screen this frame (a unit can walk off between reads).
+    const here = keys.filter((k) => at.some((a) => a.k === k));
+    return [...here].sort((p, q) => picks(q) - picks(p) || room(q) - room(p))[0] ?? keys[0];
   }, among);
 own.unshift(...own.splice(own.indexOf(await loner(own)), 1));
 for (let k = 0; k < 3; k++) {
@@ -171,9 +173,20 @@ for (let k = 0; k < 3; k++) {
   await page.waitForTimeout(350);
 }
 check('click selects one unit', JSON.stringify(await selected()) === JSON.stringify([own[0]]), (await selected()).join(' '));
-await page.mouse.click(40, 200);
+// Bare ground: no panel over it (the debug tools grow as threads add them) and nothing to pick there.
+const ground = await page.evaluate(() => {
+  for (let y = 160; y < 440; y += 20) {
+    for (let x = 300; x < 1000; x += 20) {
+      if (document.elementFromPoint(x, y)?.tagName === 'CANVAS' && !window.shell.under({ x, y }).item) return { x, y };
+    }
+  }
+  return { x: 640, y: 160 };
+});
+await page.mouse.click(ground.x, ground.y);
 check('click on empty ground keeps the selection', (await selected()).length === 1);
-await page.mouse.move(W / 2 - 330, H / 2 - 230);
+// From just right of the debug readout if it reaches that far (a box can not start on the HUD).
+const dbgRight = await page.evaluate(() => document.querySelector('.debug').getBoundingClientRect().right);
+await page.mouse.move(Math.max(W / 2 - 330, dbgRight + 16), H / 2 - 230);
 await page.mouse.down();
 await page.mouse.move(W / 2 + 330, H / 2 + 160, { steps: 8 });
 await page.waitForTimeout(100);
@@ -234,11 +247,20 @@ const nodeType = await page.evaluate(() => {
 });
 await page.mouse.move(W / 2, H / 2);
 for (let i = 0; i < 3; i++) await page.mouse.wheel(0, 100);
-await page.waitForTimeout(900);
-const pines = await page.evaluate((type) => window.shell.items.filter((i) => i.item.typeKey === type).map((i) => i.item.key), nodeType);
+// The zoom eases in over several frames at software-rendering speed: wait until the camera holds still.
+for (let last = -1, i = 0; i < 40; i++) {
+  await page.waitForTimeout(250);
+  const d = (await focus()).d;
+  if (Math.abs(d - last) < 1e-3) break;
+  last = d;
+}
+// Its keys and where the first one is on screen, read in the same frame.
+const [pines, p] = await page.evaluate((type) => {
+  const list = window.shell.items.filter((i) => i.item.typeKey === type);
+  return [list.map((i) => i.item.key), list[0] ? { x: list[0].x, y: list[0].y } : null];
+}, nodeType);
 check(`${nodeType} nodes on screen`, pines.length > 1, pines.join(' '));
 if (pines.length > 1) {
-  const p = await screenOf(pines[0]);
   await page.mouse.click(p.x, p.y);
   const one = await selected();
   // Trees stand close together: the one nearest the camera under the click wins.
