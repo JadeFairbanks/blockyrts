@@ -134,7 +134,8 @@
   }
 }
 .dialog.lobby,
-.dialog.settings-page {
+.dialog.settings-page,
+.dialog.load-page {
   width: min(600px, calc(100vw - 32px));
 }
 .dialog.lobby,

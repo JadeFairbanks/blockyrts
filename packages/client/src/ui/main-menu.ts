@@ -178,7 +178,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
 
     // ---- Load game ----
     const load = (): void => {
-      const box = screen.page('Load game');
+      const box = screen.page('Load game', 'load-page');
       const st = status(box);
       const list = el('div', 'save-list', undefined, box);
       const local = el('div', 'save-list', undefined, box);
