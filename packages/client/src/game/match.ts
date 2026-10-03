@@ -344,6 +344,9 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
       case 'fog':
         world.onFog(msg);
         return;
+      case 'vision':
+        world.onVision(msg);
+        return;
       case 'info':
         game.onInfo(msg);
         audio.onInfo(msg);

@@ -446,7 +446,7 @@ function diffWorlds(a: SimState, b: SimState): string | null {
     ['edited chunks', s.world.edited.size],
     ['prop changes', s.world.propChanges.size],
     ['dropped seeds', s.world.addedProps.size],
-    ['explored chunks', s.world.explored.reduce((t, m) => t + m.size, 0)],
+    ['explored chunks', s.world.explored.size],
     ['water settling', s.world.waterActive.size],
   ];
   const ca = counts(a);

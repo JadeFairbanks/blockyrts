@@ -107,7 +107,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `ea86b10e`
+   step as the headless runner with no script: for seed 1 that is `2bef3041`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -126,7 +126,8 @@ reveal; two machines with the same seed show the same land and the same hash.*
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
    with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
    to walk your units out: the land they see turns from black to colour,
-   and stays grey once they have left.
+   and stays grey once they have left. The land round your buildings stays
+   in colour (see "How a tester checks shared vision" below).
 3. The debug panel (top left) has the tools for looking around. **Reveal**
    explores 150 m round the middle of the view, and the minimap fills in
    behind it. **Show all** draws the land without fog on your screen only,
@@ -137,9 +138,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `ea86b10e` at step 40, with two players `fa616a90`. The land matches too.
+   `2bef3041` at step 40, with two players `2cc48c2e`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 63fc3bd8`: two players dig trenches from a
+   prints `final step 10000 hash 4d77e6b8`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -610,7 +611,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash f0907a64`: the debug tools put a Magi
+   prints `final step 10000 hash 6ffbcd3f`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -838,7 +839,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 06dabf32`: the debug tools make the Big
+   prints `final step 10000 hash 51915831`: the debug tools make the Big
    House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
    village 80 m north and a troop kit to the south-east; the Big House
    trains a long-melee spearman and the Stables a bronze cavalry rider, who
@@ -1017,7 +1018,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 06dabf32`, as in milestone 8 above.
+   prints `final step 10000 hash 51915831`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1037,6 +1038,44 @@ Client and assets only: the sim and every hash are unchanged.
    with the debug buttons, visits the nearest animals of several kinds and
    brings a crowd of night mobs at night, saving `models-*.png`. It prints
    anything still drawn as a block; it should print none.
+
+## How a tester checks shared vision
+
+Jade's ask (2026-10-03): *your buildings also grant map vision, not just your
+units; in multiplayer all players share vision from all their units and
+buildings.* The step-40 hashes (`2bef3041`, two players `2cc48c2e`) and the
+M1, M6 and M8 scripts' hashes changed with this patch: the Big House and every
+other building now explore the land round them, and the players keep one
+explored picture. The M0, M2, M3, M4, M5 and M7 scripts keep their hashes,
+because their units had already walked over all their buildings see. Each
+script still plays out as its description says. Saves from before this patch
+still load, with every player's explored land joined into one.
+
+1. `pnpm test` runs `packages/sim/test/vision.test.ts`: a lone building far
+   from any unit explores and sees out to its sight from its walls; the sight
+   table (main base and towers 20 m, braziers 14 m, every other building
+   10 m, `BUILDING_SIGHT_M`); fog halving it; a tower marking a lair found; a
+   ranger on a tower seeing 10 m further and a worker sheltering inside not
+   seeing; two players' units and buildings all in the side's vision and
+   exploring one picture; an attack kept on a target only a tower sees and
+   dropped when no one does; night spawns keeping off both players' land; an
+   old save's two pictures joined; and a game resumed from a save between
+   vision updates ending on the same hash.
+2. **Buildings.** `pnpm dev`, open http://localhost:5173/?seed=1. The land
+   round the Big House is in colour out to 20 m from its walls with no unit
+   near. Build a storehouse or a torch post at the edge of what you have
+   explored and walk the workers home: the land 10 m round it stays in
+   colour, in sight, not grey. Towers see 20 m and braziers 14 m; on a fog
+   night every building sees half as far. The Big House and towers also mark
+   lairs and goblin villages they see on the minimap.
+3. **Two players.** Open `?seed=1&players=2`: both pockets are in colour
+   from the start, and panning to the second pocket shows its units' and
+   buildings' sight as in sight. On two machines in a lobby, what one player's
+   units or buildings explore turns to colour for the other at the same step,
+   and lairs, villages and peoples one finds show on the other's minimap.
+4. **Attacks.** Order a warrior to attack a monster far off that only a
+   tower (or an ally's unit) can see: the warrior keeps chasing it. Once
+   nothing on your side sees it, the order drops as before.
 
 ## How a tester checks the menu and lobby look
 

@@ -1,7 +1,8 @@
 // The world as the simulation holds it: generated chunks cached by position,
 // the chunks players have changed (the save's chunk deltas), prop changes and
-// regrowth, water that flows near changed land, and each player's explored
-// land (fog of war). Only the changes are state; everything else is
+// regrowth, water that flows near changed land, and the land the players have
+// explored (fog of war), one picture shared by the whole co-op side. Only the
+// changes are state; everything else is
 // regenerated from the seed on demand and never affects a result
 // (Technology, World generation and terrain; technical decision 5).
 
@@ -9,6 +10,8 @@ import { COLUMNS_PER_CHUNK, floorDiv, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from 
 import {
   CHUNK_SHIFT,
   chunkKey,
+  chunkKeyX,
+  chunkKeyZ,
   NO_WATER,
   WATER_PER_UNIT,
   type ChunkColumns,
@@ -87,14 +90,18 @@ export class World {
   readonly propChanges = new Map<number, Map<number, PropChange>>();
   /** State: props added to a chunk (dropped seeds), indexed after the generated ones. */
   readonly addedProps = new Map<number, PropRecord[]>();
-  /** State: explored fog tiles per player, per chunk. */
-  readonly explored: Array<Map<number, Uint8Array>>;
+  /** State: explored fog tiles per chunk, one picture for every player (the players share their vision). */
+  readonly explored = new Map<number, Uint8Array>();
   /** State: columns where water may still move. */
   readonly waterActive = new Set<number>();
   /** Not state: chunks whose columns, water or props changed since the client last asked, for redrawing. */
   readonly dirty = new Set<number>();
-  /** Not state: chunks whose explored tiles changed, per player. */
-  readonly fogDirty: Array<Set<number>>;
+  /** Not state: chunks whose explored tiles changed. */
+  readonly fogDirty = new Set<number>();
+  /** Not state: bumped whenever a tile is newly explored, so the dark edge knows when to look again. */
+  exploredVersion = 0;
+  /** Not state: the dark edge as last worked out, and the explored version it was worked out at. */
+  private edge: { version: number; tiles: number[] } | null = null;
   /** Not state: a counter per chunk, bumped whenever its land, water or buildings change, so walk maps know to rebuild. */
   readonly navVersions = new Map<number, number>();
   /** Whether a building stands on a column (set by the simulation); seeds never land there. */
@@ -107,12 +114,6 @@ export class World {
     this.layout = new WorldLayout(seed, players);
     this.players = this.layout.players;
     this.gen = new WorldGen(this.layout);
-    this.explored = [];
-    this.fogDirty = [];
-    for (let p = 0; p < this.players; p++) {
-      this.explored.push(new Map());
-      this.fogDirty.push(new Set());
-    }
   }
 
   // ----- chunks and columns -----
@@ -537,47 +538,96 @@ export class World {
 
   // ----- fog of war -----
 
-  /** Marks the fog tiles within `radius` world units of (x, z) explored for a player. */
-  reveal(player: number, x: number, z: number, radius: number): void {
-    const map = this.explored[player];
-    if (!map) return;
+  /** Marks the fog tiles within `radius` world units of (x, z) explored. */
+  reveal(x: number, z: number, radius: number): void {
+    this.revealRect(x, z, x, z, radius);
+  }
+
+  /**
+   * Marks the fog tiles whose centre lies within `radius` world units of the
+   * rectangle x0..x1, z0..z1 explored: a point for a unit, a footprint for a
+   * building. Integer maths throughout, so the client can draw the same tiles.
+   */
+  revealRect(x0: number, z0: number, x1: number, z1: number, radius: number): void {
     const tileWu = WU_PER_COLUMN * FOG_TILE_COLUMNS;
-    const tx0 = floorDiv(x - radius, tileWu);
-    const tx1 = floorDiv(x + radius, tileWu);
-    const tz0 = floorDiv(z - radius, tileWu);
-    const tz1 = floorDiv(z + radius, tileWu);
+    const tx0 = floorDiv(x0 - radius, tileWu);
+    const tx1 = floorDiv(x1 + radius, tileWu);
+    const tz0 = floorDiv(z0 - radius, tileWu);
+    const tz1 = floorDiv(z1 + radius, tileWu);
     const r2 = radius * radius;
-    const dirty = this.fogDirty[player]!;
+    let key = Number.NaN;
+    let bits: Uint8Array | undefined;
     for (let tz = tz0; tz <= tz1; tz++) {
       const cz = floorDiv(tz, FOG_TILES_PER_CHUNK);
-      const ccz = tz * tileWu + (tileWu >> 1) - z;
+      const ccz = tz * tileWu + (tileWu >> 1);
+      const dz = ccz < z0 ? z0 - ccz : ccz > z1 ? ccz - z1 : 0;
       for (let tx = tx0; tx <= tx1; tx++) {
-        const ccx = tx * tileWu + (tileWu >> 1) - x;
-        if (ccx * ccx + ccz * ccz > r2) continue;
+        const ccx = tx * tileWu + (tileWu >> 1);
+        const dx = ccx < x0 ? x0 - ccx : ccx > x1 ? ccx - x1 : 0;
+        if (dx * dx + dz * dz > r2) continue;
         const cx = floorDiv(tx, FOG_TILES_PER_CHUNK);
-        const key = chunkKey(cx, cz);
-        let bits = map.get(key);
-        if (!bits) {
-          bits = new Uint8Array(FOG_BYTES);
-          map.set(key, bits);
+        // One chunk lookup per run of tiles in the same chunk.
+        const k = chunkKey(cx, cz);
+        if (k !== key) {
+          key = k;
+          bits = this.explored.get(k);
+          if (!bits) {
+            bits = new Uint8Array(FOG_BYTES);
+            this.explored.set(k, bits);
+          }
         }
         const t = (tz - cz * FOG_TILES_PER_CHUNK) * FOG_TILES_PER_CHUNK + (tx - cx * FOG_TILES_PER_CHUNK);
         const b = 1 << (t & 7);
-        if ((bits[t >> 3]! & b) === 0) {
-          bits[t >> 3] = bits[t >> 3]! | b;
-          dirty.add(key);
+        if ((bits![t >> 3]! & b) === 0) {
+          bits![t >> 3] = bits![t >> 3]! | b;
+          this.fogDirty.add(k);
+          this.exploredVersion++;
         }
       }
     }
   }
 
-  /** Whether a fog tile (global tile coordinates) is explored by a player. */
-  isExplored(player: number, tx: number, tz: number): boolean {
+  /** Whether a fog tile (global tile coordinates) is explored. */
+  isExplored(tx: number, tz: number): boolean {
     const cx = floorDiv(tx, FOG_TILES_PER_CHUNK);
     const cz = floorDiv(tz, FOG_TILES_PER_CHUNK);
-    const bits = this.explored[player]?.get(chunkKey(cx, cz));
+    const bits = this.explored.get(chunkKey(cx, cz));
     if (!bits) return false;
     const t = (tz - cz * FOG_TILES_PER_CHUNK) * FOG_TILES_PER_CHUNK + (tx - cx * FOG_TILES_PER_CHUNK);
     return (bits[t >> 3]! & (1 << (t & 7))) !== 0;
+  }
+
+  /** Joins explored tiles into a chunk (loading a save, whose older form kept one picture per player). */
+  addExplored(key: number, bits: Uint8Array): void {
+    const have = this.explored.get(key);
+    if (!have) this.explored.set(key, bits);
+    else for (let i = 0; i < have.length; i++) have[i] = have[i]! | bits[i]!;
+    this.exploredVersion++;
+  }
+
+  /**
+   * The dark edge: explored tiles beside unexplored land, as flat [tx, tz]
+   * pairs, by chunk key and then tile. Worked out again only when land has
+   * been newly explored; it depends on the explored tiles alone, so it is the
+   * same whenever it is asked for.
+   */
+  darkEdge(): readonly number[] {
+    if (this.edge && this.edge.version === this.exploredVersion) return this.edge.tiles;
+    const tiles: number[] = [];
+    const keys = [...this.explored.keys()].sort((a, b) => a - b);
+    for (const key of keys) {
+      const bits = this.explored.get(key)!;
+      const cx = chunkKeyX(key);
+      const cz = chunkKeyZ(key);
+      for (let t = 0; t < FOG_TILES_PER_CHUNK * FOG_TILES_PER_CHUNK; t++) {
+        if ((bits[t >> 3]! & (1 << (t & 7))) === 0) continue;
+        const tx = cx * FOG_TILES_PER_CHUNK + (t % FOG_TILES_PER_CHUNK);
+        const tz = cz * FOG_TILES_PER_CHUNK + floorDiv(t, FOG_TILES_PER_CHUNK);
+        if (this.isExplored(tx + 1, tz) && this.isExplored(tx - 1, tz) && this.isExplored(tx, tz + 1) && this.isExplored(tx, tz - 1)) continue;
+        tiles.push(tx, tz);
+      }
+    }
+    this.edge = { version: this.exploredVersion, tiles };
+    return tiles;
   }
 }

@@ -274,7 +274,7 @@ export function markSite(state: SimState, owner: number, kind: number, x0: numbe
   const za = Math.min(z0, z1);
   const zb = Math.max(z0, z1);
   if (xb - xa >= SITE_MAX_COLUMNS || zb - za >= SITE_MAX_COLUMNS) return 'That area is too big to mark at once.';
-  for (let z = za; z <= zb; z += 4) for (let x = xa; x <= xb; x += 4) if (!state.world.isExplored(owner, x >> 2, z >> 2)) return 'You can only dig where you have explored.';
+  for (let z = za; z <= zb; z += 4) for (let x = xa; x <= xb; x += 4) if (!state.world.isExplored(x >> 2, z >> 2)) return 'You can only dig where you have explored.';
   const s: Site = { id: state.nextEntityId++, owner, kind, x0: xa, z0: za, x1: xb, z1: zb, level, level2, axis };
   state.sites.push(s);
   return s;

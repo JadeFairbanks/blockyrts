@@ -24,14 +24,15 @@ import {
 } from '@blockyrts/sim';
 import type { PeopleInfo } from './messages.ts';
 
-/** Whether a player knows a faction: seen or met, at war with it, or visited by its caravan. Gone ones drop out. */
-function known(f: Faction, top: Faction, player: number): boolean {
+/** Whether a player knows a faction: seen by any player (they share what they see), met, at war with it, or visited by its caravan. Gone ones drop out. */
+function known(s: SimState, f: Faction, top: Faction, player: number): boolean {
   const bit = 1 << player;
+  const side = (1 << s.players.length) - 1;
   if (!f.built) return false;
   if (f.status === Status.Away || f.status === Status.Gone) return false;
   // Migrated Dwarves stay listed while they are owed reparations.
   if (f.status === Status.Migrated) return (top.war & bit) !== 0;
-  return ((f.seen | f.met | top.war) & bit) !== 0 || (f.kind === FactionKind.ElfCaravan && f.visits === player);
+  return (f.seen & side) !== 0 || ((f.met | top.war) & bit) !== 0 || (f.kind === FactionKind.ElfCaravan && f.visits === player);
 }
 
 /** The goods it has today, as (good, count) pairs. */
@@ -60,7 +61,7 @@ export function peoplesInfo(s: SimState, player: number): PeopleInfo[] {
   const e = s.entities;
   for (const f of s.peoples.factions) {
     const top = warFaction(s.peoples, f);
-    if (!known(f, top, player)) continue;
+    if (!known(s, f, top, player)) continue;
     const bit = 1 << player;
     const war = (top.war & bit) !== 0;
     const merc = f.kind === FactionKind.MercCamp;

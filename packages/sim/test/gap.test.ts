@@ -290,7 +290,7 @@ function flatSpot(s: SimState, w: number, h: number): { x: number; z: number; y:
         for (let dx = -2; dx < w + 2 && ok; dx++) {
           const cx = x + dx;
           const cz = z + dz;
-          if (s.world.topAt(cx, cz) !== y || s.nav.flags(cx, cz) !== 0 || !s.world.isExplored(0, cx >> 2, cz >> 2)) ok = false;
+          if (s.world.topAt(cx, cz) !== y || s.nav.flags(cx, cz) !== 0 || !s.world.isExplored(cx >> 2, cz >> 2)) ok = false;
         }
       }
       if (ok) return { x, z, y };

@@ -11,13 +11,12 @@
 
 import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, isLit, snuffLight } from '../buildings/lights.ts';
-import type { Building } from '../buildings/store.ts';
+import { garrisonRoom, type Building } from '../buildings/store.ts';
 import { clockAt } from '../clock.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { UnitKind, standY, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
 import { bodyHeight, dealt, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc } from '../combat/combat.ts';
-import { garrisonRoom } from '../combat/fight.ts';
 import { Shot } from '../combat/items.ts';
 import { addMob, engageUnit, lateHooks, playerUnit } from '../combat/mob-ai.ts';
 import { Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';

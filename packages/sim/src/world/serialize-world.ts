@@ -67,15 +67,16 @@ export function writeWorld(w: ByteWriter, world: World): void {
       w.i32(p.amount);
     }
   }
-  // Explored land.
+  // Explored land: one picture for the whole side, in the first player's
+  // place, the other players' places left empty. Saves from before shared
+  // vision held one picture per player; reading joins them into one.
   for (let p = 0; p < world.players; p++) {
-    const map = world.explored[p]!;
-    const keys = sorted(map);
+    const keys = p === 0 ? sorted(world.explored) : [];
     w.u32(keys.length);
     for (const key of keys) {
       w.i32(chunkKeyX(key));
       w.i32(chunkKeyZ(key));
-      w.bytes(map.get(key)!);
+      w.bytes(world.explored.get(key)!);
     }
   }
   // Water still settling.
@@ -133,10 +134,9 @@ export function readWorld(r: ByteReader, seed: number): World {
   }
   for (let p = 0; p < players; p++) {
     const count = r.u32();
-    const map = world.explored[p]!;
     for (let k = 0; k < count; k++) {
       const key = chunkKey(r.i32(), r.i32());
-      map.set(key, r.bytes(32));
+      world.addExplored(key, r.bytes(32));
     }
   }
   const active = r.u32();

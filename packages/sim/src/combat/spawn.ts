@@ -7,19 +7,20 @@
 // given a time by how it comes (a wave at once, packs, a trickle, or
 // alone). A group's spawn point is chosen when its first member arrives: a
 // spot on the dark edge, at least 50 m from claimed land and 30 m from any
-// of the players' units, weighted away from lights and units. A fifth of
+// of the players' units, weighted away from lights and units. The players
+// share what they have explored, so the dark edge is the whole side's, and
+// a spawn keeps off every player's claimed land, not only its target's. A fifth of
 // the budget comes out of the player's lairs (none spawns without one), and
 // the depth weighting's extras come out of the dark edge nearest the
 // player's deepest asset and go for it.
 
 import { buildingSpec } from '../buildings/data.ts';
-import { buildingCentre, claimShapes, dist2, isLit } from '../buildings/lights.ts';
+import { buildingCentre, claimShapes, dist2, isLit, type ClaimShapes } from '../buildings/lights.ts';
 import { clockAt, nightLength, Period } from '../clock.ts';
 import { floorDiv, isqrt, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { WALKER } from '../nav/grid.ts';
 import { UnitKind, type PendingSpawn, type SimState } from '../state.ts';
-import { chunkKeyX, chunkKeyZ } from '../world/chunk.ts';
-import { FOG_TILE_COLUMNS, FOG_TILES_PER_CHUNK } from '../world/world.ts';
+import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import { addMob, townCentre } from './mob-ai.ts';
 import { Comes, Mob, MOBS, mobSpec } from './mobs.ts';
 import { DEPTH_AHEAD, LAIR_SHARE_DELAY_STEPS } from '../threats/data.ts';
@@ -219,7 +220,7 @@ export function planNight(state: SimState, player: number, night: number, start:
 }
 
 /** Squared distance, wu, from a point to a player's claimed land (0 inside it). */
-function claimDistance2(shapes: ReturnType<typeof claimShapes>, x: number, z: number): number {
+function claimDistance2(shapes: ClaimShapes, x: number, z: number): number {
   let best = Infinity;
   for (const [cx, cz, r] of shapes.circles) {
     const d = isqrt(dist2(x, z, cx, cz));
@@ -274,51 +275,81 @@ function weightAt(w: Weights, x: number, z: number): number {
   return Math.max(1, wt);
 }
 
-/** Spawns stand off this far from claimed land tonight: 50 m, 40 m in fog. */
-function claimStandoff2(state: SimState): number {
-  return ((fogged(state) ? FOG_CLAIM_STANDOFF_M : CLAIM_STANDOFF_M) * WU_PER_METRE) ** 2;
+/** Spawns stand off this far from claimed land tonight, wu: 50 m, 40 m in fog. */
+function claimStandoff(state: SimState): number {
+  return (fogged(state) ? FOG_CLAIM_STANDOFF_M : CLAIM_STANDOFF_M) * WU_PER_METRE;
 }
 
-/** The dark edge's tiles where a player's mobs may come out (explored, next to unexplored land, far enough from claimed land and units), with their weights. */
-function edgeCandidates(state: SimState, player: number, shapes: ReturnType<typeof claimShapes>): Array<[number, number, number]> {
-  const world = state.world;
-  const claim2 = claimStandoff2(state);
+/** One player's claimed land and the box round it (to skip it quickly for spots far off). */
+interface Claims {
+  shapes: ClaimShapes;
+  box: [number, number, number, number];
+}
+
+/** Every player's claimed land: spawns keep off all of it, as the players share the dark edge. */
+function sideClaims(state: SimState): Claims[] {
+  const out: Claims[] = [];
+  for (let p = 0; p < state.players.length; p++) {
+    const shapes = claimShapes(state, p);
+    if (shapes.circles.length === 0 && shapes.rects.length === 0) continue;
+    const box: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [cx, cz, r] of shapes.circles) {
+      box[0] = Math.min(box[0], cx - r);
+      box[1] = Math.min(box[1], cz - r);
+      box[2] = Math.max(box[2], cx + r);
+      box[3] = Math.max(box[3], cz + r);
+    }
+    for (const [x0, z0, x1, z1] of shapes.rects) {
+      box[0] = Math.min(box[0], x0);
+      box[1] = Math.min(box[1], z0);
+      box[2] = Math.max(box[2], x1);
+      box[3] = Math.max(box[3], z1);
+    }
+    out.push({ shapes, box });
+  }
+  return out;
+}
+
+/** Whether a spot is nearer than the stand-off to any player's claimed land. */
+function nearClaims(claims: readonly Claims[], x: number, z: number, reach: number): boolean {
+  for (const c of claims) {
+    const [x0, z0, x1, z1] = c.box;
+    if (x < x0 - reach || x > x1 + reach || z < z0 - reach || z > z1 + reach) continue;
+    if (claimDistance2(c.shapes, x, z) < reach * reach) return true;
+  }
+  return false;
+}
+
+/** The dark edge's tiles where mobs may come out (explored, next to unexplored land, far enough from claimed land and units), with their weights. */
+function edgeCandidates(state: SimState, claims: readonly Claims[]): Array<[number, number, number]> {
+  const reach = claimStandoff(state);
   const unit2 = (UNIT_STANDOFF_M * WU_PER_METRE) ** 2;
   const w = weightsFor(state);
-  const keys = [...world.explored[player]!.keys()].sort((a, b) => a - b);
+  const edge = state.world.darkEdge();
   const candidates: Array<[number, number, number]> = [];
-  const explored = (tx: number, tz: number): boolean => world.isExplored(player, tx, tz);
-  for (const key of keys) {
-    const bits = world.explored[player]!.get(key)!;
-    const cx = chunkKeyX(key);
-    const cz = chunkKeyZ(key);
-    for (let t = 0; t < FOG_TILES_PER_CHUNK * FOG_TILES_PER_CHUNK; t++) {
-      if ((bits[t >> 3]! & (1 << (t & 7))) === 0) continue;
-      const tx = cx * FOG_TILES_PER_CHUNK + (t % FOG_TILES_PER_CHUNK);
-      const tz = cz * FOG_TILES_PER_CHUNK + floorDiv(t, FOG_TILES_PER_CHUNK);
-      if (explored(tx + 1, tz) && explored(tx - 1, tz) && explored(tx, tz + 1) && explored(tx, tz - 1)) continue;
-      const x = tx * TILE_WU + (TILE_WU >> 1);
-      const z = tz * TILE_WU + (TILE_WU >> 1);
-      if (claimDistance2(shapes, x, z) < claim2) continue;
-      if (w.units.some(([ux, uz]) => dist2(x, z, ux, uz) < unit2)) continue;
-      const cxl = floorDiv(x, WU_PER_COLUMN);
-      const czl = floorDiv(z, WU_PER_COLUMN);
-      if (!state.nav.standable(cxl, czl, WALKER)) continue;
-      candidates.push([x, z, weightAt(w, x, z)]);
-    }
+  for (let k = 0; k < edge.length; k += 2) {
+    const x = edge[k]! * TILE_WU + (TILE_WU >> 1);
+    const z = edge[k + 1]! * TILE_WU + (TILE_WU >> 1);
+    if (nearClaims(claims, x, z, reach)) continue;
+    if (w.units.some(([ux, uz]) => dist2(x, z, ux, uz) < unit2)) continue;
+    const cxl = floorDiv(x, WU_PER_COLUMN);
+    const czl = floorDiv(z, WU_PER_COLUMN);
+    if (!state.nav.standable(cxl, czl, WALKER)) continue;
+    candidates.push([x, z, weightAt(w, x, z)]);
   }
   return candidates;
 }
 
 /**
  * A spawn point for a player's group: a tile on the dark edge (explored,
- * next to unexplored land) at least 50 m from their claimed land and 30 m
- * from any of the players' units, picked by weight on the 'spawns' stream;
- * if there is none, the nearest unexplored spot 50 m from claimed land.
+ * next to unexplored land) at least 50 m from every player's claimed land
+ * and 30 m from any of the players' units, picked by weight on the 'spawns'
+ * stream; if there is none, the nearest unexplored spot 50 m from claimed
+ * land, searched out from the player's town.
  */
 export function spawnPoint(state: SimState, player: number): [number, number] {
-  const shapes = claimShapes(state, player);
-  const candidates = edgeCandidates(state, player, shapes);
+  const claims = sideClaims(state);
+  const candidates = edgeCandidates(state, claims);
   let total = 0;
   for (const c of candidates) total += c[2];
   if (candidates.length > 0) {
@@ -328,35 +359,36 @@ export function spawnPoint(state: SimState, player: number): [number, number] {
       r -= wt;
     }
   }
-  return fallbackPoint(state, player, shapes, claimStandoff2(state));
+  return fallbackPoint(state, player, claims);
 }
 
 /** The dark edge's spot nearest a point (the depth weighting's extras, the dusk goblins), or the fallback when there is none. */
 export function edgePointNear(state: SimState, player: number, x: number, z: number): [number, number] {
-  const shapes = claimShapes(state, player);
+  const claims = sideClaims(state);
   let best: [number, number] | null = null;
   let bestD = 0;
-  for (const [cx, cz] of edgeCandidates(state, player, shapes)) {
+  for (const [cx, cz] of edgeCandidates(state, claims)) {
     const d = dist2(cx, cz, x, z);
     if (best && d >= bestD) continue;
     best = [cx, cz];
     bestD = d;
   }
-  return best ?? fallbackPoint(state, player, shapes, claimStandoff2(state));
+  return best ?? fallbackPoint(state, player, claims);
 }
 
 /** The nearest unexplored tile 50 m from claimed land, searched in rings out from the player's town. */
-function fallbackPoint(state: SimState, player: number, shapes: ReturnType<typeof claimShapes>, claim2: number): [number, number] {
+function fallbackPoint(state: SimState, player: number, claims: readonly Claims[]): [number, number] {
   const town = townCentre(state, player) ?? [0, 0];
+  const reach = claimStandoff(state);
   const tx0 = floorDiv(town[0], TILE_WU);
   const tz0 = floorDiv(town[1], TILE_WU);
   for (let r = 1; r < 400; r++) {
     for (let k = -r; k <= r; k++) {
       for (const [tx, tz] of [[tx0 + k, tz0 - r], [tx0 + r, tz0 + k], [tx0 - k, tz0 + r], [tx0 - r, tz0 - k]] as const) {
-        if (state.world.isExplored(player, tx, tz)) continue;
+        if (state.world.isExplored(tx, tz)) continue;
         const x = tx * TILE_WU + (TILE_WU >> 1);
         const z = tz * TILE_WU + (TILE_WU >> 1);
-        if (claimDistance2(shapes, x, z) < claim2) continue;
+        if (nearClaims(claims, x, z, reach)) continue;
         if (!state.nav.standable(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN), WALKER)) continue;
         return [x, z];
       }

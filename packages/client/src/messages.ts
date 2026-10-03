@@ -150,10 +150,22 @@ export interface DeltasMessage {
   deltas: ChunkDelta[];
 }
 
-/** Explored fog tiles of the local player for these chunks: 16 x 16 bits each. */
+/** Explored fog tiles for these chunks, the whole side's (the players share what they explore): 16 x 16 bits each. */
 export interface FogMessage {
   type: 'fog';
   chunks: Array<[number, number, Uint8Array]>;
+}
+
+/**
+ * What the players' side sees now (the sim's visionSources): VISION_STRIDE
+ * numbers per source, the owner, the rectangle x0, z0, x1, z1 it sees out
+ * from (a point for a unit) and how far, all wu. Land within that reach of a
+ * source is seen; every player sees all of it.
+ */
+export interface VisionMessage {
+  type: 'vision';
+  step: number;
+  sources: Int32Array;
 }
 
 /** A building as the screen sees it. */
@@ -336,4 +348,4 @@ export interface SnapshotMessage {
   data: Uint8Array;
 }
 
-export type FromWorker = StateMessage | DeltasMessage | FogMessage | InfoMessage | PlacedMessage | NetMessage | SnapshotMessage;
+export type FromWorker = StateMessage | DeltasMessage | FogMessage | VisionMessage | InfoMessage | PlacedMessage | NetMessage | SnapshotMessage;

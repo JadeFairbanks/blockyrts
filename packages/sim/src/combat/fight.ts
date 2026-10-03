@@ -7,11 +7,12 @@
 // gather, build) ignores enemies. Workers do not pick fights: when a monster
 // hurts one that is not fighting, it runs 10 m (Table 1).
 
-import { buildingSpec, BuildingKind } from '../buildings/data.ts';
 import { isDark } from '../clock.ts';
 import type { Building } from '../buildings/store.ts';
-import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { landAt, NEUTRAL, OrderKind, SIGHT_WU, UnitKind, type SimState } from '../state.ts';
+import { floorDiv, headingTowards, isqrt, length2d, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { buildingSight, landAt, NEUTRAL, OrderKind, seesForSide, sightOf, UnitKind, type SimState } from '../state.ts';
+import { garrisonRoom } from '../buildings/store.ts';
+import { footprintDims } from '../buildings/data.ts';
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked } from '../peoples/speech.ts';
 import { fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
@@ -23,7 +24,6 @@ import { Shot, type MeleeStats, type RangedStats } from './items.ts';
 import { gearSpec, Slot } from '../units/kits.ts';
 import { isStructure, Mob, mobSpec } from './mobs.ts';
 import { buildingTop, clearLob, fireAt, HAND_HEIGHT, ProjectileFlag } from './projectiles.ts';
-import { throughFog } from '../threats/fog.ts';
 import { mageStep } from '../magic/cast.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
@@ -32,7 +32,7 @@ export const LEASH_WU = 20 * WU_PER_METRE;
 export const IDLE_ACQUIRE_WU = 12 * WU_PER_METRE;
 /** Closer than this a unit with both fights in melee (s): 4 m. */
 export const RANGED_MIN_WU = 4 * WU_PER_METRE;
-/** A target told to attack is given up once it is this much farther than the unit can see. */
+/** A target told to attack is given up once it is this much farther than the unit can see, and out of its side's sight. */
 const LOST_WU = 20 * WU_PER_METRE;
 /** A double-tapped hunt lets quarry go once it is 60 m from where the hunt began: the 40 m leash plus 20 m of chase (s). */
 const HUNT_CHASE_WU = 60 * WU_PER_METRE;
@@ -82,6 +82,77 @@ export function rangedOf(state: SimState, i: number): RangedStats | null {
   return id ? (gearSpec(id).ranged ?? null) : null;
 }
 
+/**
+ * Not state: what sideSees answered during this step, by the target's id, so
+ * a crowd chasing one far target looks round the side once a step, not once
+ * each. Forgotten at the start and the end of every step (step.ts), so it
+ * never outlives the step that filled it.
+ */
+const seenThisStep = new WeakMap<SimState, Map<number, boolean>>();
+
+export function forgetSideSight(state: SimState): void {
+  seenThisStep.delete(state);
+}
+
+/**
+ * Whether the players' side sees a unit now: within the sight of any of
+ * their units or buildings (Fog of war: the players share their vision). A
+ * cloaked void stalker is seen only as close as its cloak lets it be.
+ */
+export function sideSees(state: SimState, t: number): boolean {
+  let seen = seenThisStep.get(state);
+  if (!seen) {
+    seen = new Map();
+    seenThisStep.set(state, seen);
+  }
+  const id = state.entities.id[t]!;
+  let v = seen.get(id);
+  if (v === undefined) {
+    v = sideSeesNow(state, t);
+    seen.set(id, v);
+  }
+  return v;
+}
+
+function sideSeesNow(state: SimState, t: number): boolean {
+  const e = state.entities;
+  const x = e.x[t]!;
+  const z = e.z[t]!;
+  for (let j = 0; j < e.count; j++) {
+    if (j === t || !seesForSide(state, j)) continue;
+    const r = sightOf(state, j);
+    const dx = e.x[j]! - x;
+    const dz = e.z[j]! - z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 <= r * r && !cloaked(state, t, isqrt(d2))) return true;
+  }
+  for (const b of state.buildings.list) {
+    if (b.owner >= state.players.length) continue;
+    const r = buildingSight(state, b);
+    // Its footprint in wu, as footprintWu, without building the arrays.
+    const d = footprintDims(b.kind, b.variant);
+    const x0 = b.x * WU_PER_COLUMN;
+    const z0 = b.z * WU_PER_COLUMN;
+    const x1 = (b.x + d.w) * WU_PER_COLUMN;
+    const z1 = (b.z + d.d) * WU_PER_COLUMN;
+    const dx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0;
+    const dz = z < z0 ? z0 - z : z > z1 ? z - z1 : 0;
+    const d2 = dx * dx + dz * dz;
+    if (d2 <= r * r && !cloaked(state, t, isqrt(d2))) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a unit told to attack has lost its target: farther than it sees
+ * plus 20 m and, for the players' units, out of their side's sight as well
+ * (Unit orders: "or it can no longer be seen").
+ */
+export function targetLost(state: SimState, i: number, t: number): boolean {
+  if (gap(state, i, t) <= sightOf(state, i) + LOST_WU) return false;
+  return sideOf(state, i) !== Side.Players || !sideSees(state, t);
+}
+
 /** The building a unit garrisons and shoots from (a tower, or a level 3+ main base's parapets), or undefined. */
 export function garrisonOf(state: SimState, i: number): Building | undefined {
   const e = state.entities;
@@ -98,28 +169,6 @@ export function canGarrison(state: SimState, i: number): boolean {
   return state.entities.kind[i] === UnitKind.Mage || rangedOf(state, i) !== null;
 }
 
-/** Ranged units a building takes on its top (Table 4: towers 4, a main base's parapets 8 from level 3). */
-export function garrisonRoom(b: Building): number {
-  if (!b.complete) return 0;
-  const spec = buildingSpec(b.kind);
-  if (spec.slots) return spec.slots;
-  if (b.kind === BuildingKind.MainBase && b.level >= 3) return 8;
-  return 0;
-}
-
-/** How far a unit sees, wu: its kind's sight, plus a tower's 10 m when on one. */
-export function sightOf(state: SimState, i: number): number {
-  const e = state.entities;
-  let base = SIGHT_WU[e.kind[i]!] ?? SIGHT_WU[0];
-  // Table 1: warriors see 2 m farther at Elite and 4 m at Hero.
-  if (e.kind[i] === UnitKind.Warrior && e.rank[i]! > 3) base += (e.rank[i]! - 3) * 2 * WU_PER_METRE;
-  // From the saddle: 30 m (Table 1's mounted row).
-  if (e.mount[i]) base = Math.max(base, MOUNTED.sight);
-  const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
-  const bonus = b ? (buildingSpec(b.kind).sightBonusM ?? 0) * WU_PER_METRE : 0;
-  // A fog night halves it.
-  return throughFog(state, base + bonus);
-}
 
 /** Where a unit's shots leave from: its hand, or the top of the building it garrisons. */
 function shotOrigin(state: SimState, i: number): [number, number, number] {
@@ -368,7 +417,7 @@ export function fightStep(state: SimState, i: number): boolean {
   }
   if (mode === Mode.Attack && o?.t === 'attack') {
     const t = e.indexOf(o.id);
-    if (!validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    if (!validTarget(state, i, t, true) || targetLost(state, i, t)) {
       // Dead, gone or lost: the order is done.
       e.queue[i]!.shift();
       disengage(state, i);
