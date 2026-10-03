@@ -137,7 +137,7 @@ export class MessagePanel {
       face: '',
       name: target ? 'Go there' : 'Message',
       keys: [],
-      description: target ? 'Click to jump the camera to the unit that said it, or to where it happened. Space jumps to the latest urgent message.' : 'Nothing to jump to.',
+      description: target ? 'Click to jump the camera to the unit that said it, or to where it happened. F4 jumps to the latest urgent message.' : 'Nothing to jump to.',
       className: `msg msg-btn ${m.kind}${m.urgent ? ' urgent' : ''}`,
       onPress: () => this.open(m),
     });

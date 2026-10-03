@@ -1,7 +1,8 @@
 // Speech bubbles (Unit speech): a short text over a unit's head for a few
 // seconds when it speaks, and now and then a random remark from a unit on
 // screen. Remarks are the screen's alone: never sent to the sim, never in
-// the message panel, never kept.
+// the message panel, never kept, and never while the game is paused (Jade's
+// patch notes 1: the wait for the next one stands still too).
 import { REMARKS } from '@blockyrts/sim';
 import { oneIsSingular } from './wording.ts';
 
@@ -28,6 +29,7 @@ export class SpeechBubbles {
   private readonly layer: HTMLElement;
   private readonly bubbles: Bubble[] = [];
   private nextRemark = 0;
+  private lastUpdate = -1;
 
   constructor(parent: HTMLElement) {
     this.layer = document.createElement('div');
@@ -50,9 +52,12 @@ export class SpeechBubbles {
   /**
    * Places every bubble over its unit, drops the old ones, and now and then
    * has a unit on screen make a random remark (`speakers`: candidates with
-   * their remark list key, e.g. 'halfling' or 'worker').
+   * their remark list key, e.g. 'halfling' or 'worker'). `paused`: the game
+   * is stopped, so nobody remarks and the wait for the next remark stands still.
    */
-  update(now: number, anchor: BubbleAnchor, speakers: () => Array<[number, string]>): void {
+  update(now: number, anchor: BubbleAnchor, speakers: () => Array<[number, string]>, paused = false): void {
+    const dt = this.lastUpdate < 0 ? 0 : now - this.lastUpdate;
+    this.lastUpdate = now;
     for (let k = this.bubbles.length - 1; k >= 0; k--) {
       const b = this.bubbles[k]!;
       const at = now < b.until ? anchor.head(b.id) : null;
@@ -63,6 +68,10 @@ export class SpeechBubbles {
       }
       b.el.hidden = at === null;
       if (at) b.el.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
+    }
+    if (paused) {
+      this.nextRemark += dt;
+      return;
     }
     if (now < this.nextRemark) return;
     this.nextRemark = now + REMARK_EVERY_MS * (0.6 + Math.random() * 0.8);

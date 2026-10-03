@@ -664,6 +664,20 @@
 .menu-seed {
   margin: -4px 0 4px;
 }
+/* The F10 menu's heading with its ✕ (closing it carries on when playing alone). */
+.menu-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dialog button.menu-close {
+  flex: none;
+  min-width: 40px;
+  min-height: 36px;
+  padding: 0 8px 3px;
+  font: 22px/1 system-ui, sans-serif;
+}
 
 /* ---- Small screens: the column fills the width and the battle shifts to show the fight. ---- */
 @media (max-width: 760px) {
