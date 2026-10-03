@@ -5,7 +5,8 @@
 
 import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
-import { mainBaseLevel, waterBeside } from './buildings/placement.ts';
+import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
+import { Blocked, buildCost, buildRequirement, mainBaseLevel, placementBlocked, waterBeside } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
@@ -23,7 +24,7 @@ import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
 import { orderCart, orderUpgrade, SKILL_TRAINING } from './units/gear.ts';
-import { markSite } from './units/dig.ts';
+import { markSite, markTunnelStretch } from './units/dig.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
@@ -300,6 +301,67 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
   alert(state, player, none === units.length ? why : `${why} (${none} of ${units.length})`);
 }
 
+/**
+ * One stretch of a wall chain (Building placement: wall chains): every
+ * column of the stretch that can take a wall goes into each worker's order
+ * list from the anchor outward, as if each were placed with Shift. Columns
+ * that cannot take one are skipped; the stretch stops where the stock, less
+ * what the player's planned buildings will take, runs out. The cost is still
+ * taken as each wall is started.
+ */
+function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretch' }>): void {
+  const e = state.entities;
+  const spec = buildingSpec(o.building);
+  if (spec.defence !== 'wall' || spec.w !== 1 || spec.d !== 1) return;
+  const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
+  if (workers.length === 0) return;
+  const why = buildRequirement(state, o.player, o.building);
+  if (why) {
+    alert(state, o.player, `${spec.name}: ${why}`);
+    return;
+  }
+  // Without Shift the workers' own lists are about to be replaced, so only the other units' plans count.
+  const queues: UnitOrder[][] = [];
+  for (let j = 0; j < e.count; j++) if (e.owner[j] === o.player && (o.queued === true || !workers.includes(j))) queues.push(e.queue[j]!);
+  const planned = plannedSpots(queues, (kind, x, z) => state.buildings.list.some((b) => b.owner === o.player && b.kind === kind && b.x === x && b.z === z));
+  const owed = new Map<number, number>();
+  for (const kind of planned.values()) for (const [r, n] of buildCost(state, o.player, kind)) owed.set(r, (owed.get(r) ?? 0) + n);
+  const cost = buildCost(state, o.player, o.building);
+  const pool = state.players[o.player]!.pool;
+  const { room, short } = stretchRoom((r) => pool[r]!, owed, cost);
+  const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
+  const open: Array<[number, number]> = [];
+  let blocked = 0;
+  for (const [x, z] of cells) {
+    if (planned.has(`${x},${z}`)) continue;
+    if (placementBlocked(state, o.player, o.building, x, z) !== Blocked.None) blocked++;
+    else open.push([x, z]);
+  }
+  const take = open.slice(0, room);
+  for (const i of workers) take.forEach(([x, z], k) => giveOrder(state, i, { t: 'build', kind: o.building, variant: 0, x, z }, o.queued === true || k > 0));
+  const at = { x: columnCentre(o.x), z: columnCentre(o.z) };
+  const name = spec.name.toLowerCase();
+  if (take.length < open.length) {
+    const what = RESOURCES[short]!.name.toLowerCase();
+    const text = take.length === 0 ? `Not enough ${what} for another ${name} (${costText(cost)} each, counting what is already planned).` : `Enough ${what} for ${take.length} of the ${open.length} walls in that stretch: they are planned from its start.`;
+    state.events.push({ player: o.player, kind: 'alert', text, ...at });
+  }
+  if (blocked > 0) state.events.push({ player: o.player, kind: 'info', text: `${blocked === 1 ? 'One column' : `${blocked} columns`} of that stretch cannot take a wall (water, a building, a tree or rock, or unexplored land) and ${blocked === 1 ? 'was' : 'were'} skipped.`, ...at });
+}
+
+/** One stretch of a tunnel chain (Digging: tunnel chains): marked as a site and dug by the workers after what they were told before it, if queued. */
+function applyTunnelStretch(state: SimState, o: Extract<Order, { kind: 'tunnelStretch' }>): void {
+  const e = state.entities;
+  const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
+  if (workers.length === 0) return;
+  const site = markTunnelStretch(state, o.player, o.x, o.z, o.dir, o.length, o.level, o.level2);
+  if (typeof site === 'string') {
+    alert(state, o.player, site);
+    return;
+  }
+  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+}
+
 /** Applies one step's orders, in the canonical order. */
 export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
@@ -498,6 +560,12 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
         break;
       }
+      case 'wallStretch':
+        applyWallStretch(state, o);
+        break;
+      case 'tunnelStretch':
+        applyTunnelStretch(state, o);
+        break;
       case 'trainSkill': {
         const b = ownBuilding(state, o.player, o.building);
         if (!b || !SKILL_TRAINING[o.skill] || b.kind !== SKILL_TRAINING[o.skill]!.at) break;

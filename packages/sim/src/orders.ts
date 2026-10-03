@@ -3,6 +3,8 @@
 // index, then the order each player gave them in). Every order is plain
 // integers (and booleans), so it checks, copies and travels easily.
 
+import { TUNNEL_MAX_UNITS, TUNNEL_MIN_UNITS, TUNNEL_STRETCH_MAX_COLUMNS, WALL_STRETCH_MAX_COLUMNS } from './buildings/chains.ts';
+
 /** Orders given to some of a player's units; `queued` is Shift (added to the end of each unit's list). */
 interface UnitsOrder {
   player: number;
@@ -270,6 +272,35 @@ export interface DigOrder extends UnitsOrder {
   tunnel: number;
 }
 
+/**
+ * One stretch of a wall chain (Building placement: wall chains): a wall on
+ * every column from (x, z), global columns, `length` columns in direction
+ * `dir` (0 east, turning towards +z; buildings/chains.ts). `skip` 1 leaves
+ * out the anchor, which the stretch before placed. Columns that cannot take
+ * a wall are skipped, and the stretch is cut short where the stock, less
+ * what is already planned, runs out.
+ */
+export interface WallStretchOrder extends UnitsOrder {
+  kind: 'wallStretch';
+  building: number;
+  x: number;
+  z: number;
+  dir: number;
+  length: number;
+  skip: number;
+}
+
+/** One stretch of a tunnel chain (Digging: tunnel chains): dug level from (x, z) `length` columns in direction `dir`, between a floor and a roof (terrain units). */
+export interface TunnelStretchOrder extends UnitsOrder {
+  kind: 'tunnelStretch';
+  x: number;
+  z: number;
+  dir: number;
+  length: number;
+  level: number;
+  level2: number;
+}
+
 /** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill, 3 a lumber ramp, 4 a stone ramp. */
 export interface EarthworkOrder extends UnitsOrder {
   kind: 'earthwork';
@@ -528,6 +559,8 @@ export type Order =
   | TroopLockOrder
   | LockOrder
   | DigOrder
+  | WallStretchOrder
+  | TunnelStretchOrder
   | EarthworkOrder
   | TrainSkillOrder
   | DebugGiveOrder
@@ -618,6 +651,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
+  wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
+  tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
   earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
   trainSkill: ['building', 'skill'],
   debugGive: ['res', 'count'],
@@ -648,7 +683,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   pickOwn: ['command'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -677,6 +712,13 @@ export function validateOrder(o: Order): void {
     case 'dig':
     case 'earthwork':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
+      return;
+    case 'wallStretch':
+      if (o.dir < 0 || o.dir > 7 || o.length < 0 || o.length > WALL_STRETCH_MAX_COLUMNS || (o.skip !== 0 && o.skip !== 1)) throw new Error(`a wall stretch runs 0 to ${WALL_STRETCH_MAX_COLUMNS} columns in one of 8 directions`);
+      return;
+    case 'tunnelStretch':
+      if (o.dir < 0 || o.dir > 7 || o.length < 1 || o.length > TUNNEL_STRETCH_MAX_COLUMNS) throw new Error(`a tunnel stretch runs 1 to ${TUNNEL_STRETCH_MAX_COLUMNS} columns in one of 8 directions`);
+      if (o.level2 - o.level < TUNNEL_MIN_UNITS || o.level2 - o.level > TUNNEL_MAX_UNITS) throw new Error(`a tunnel is ${TUNNEL_MIN_UNITS} to ${TUNNEL_MAX_UNITS} terrain units tall`);
       return;
     case 'debugGive':
       if (o.count < 1 || o.count > 100000 || o.res < 0 || o.res > 255) throw new Error('debug give out of range');

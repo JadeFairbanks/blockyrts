@@ -26,6 +26,7 @@ export * from './economy/food.ts';
 export * from './buildings/data.ts';
 export * from './buildings/store.ts';
 export * from './buildings/placement.ts';
+export * from './buildings/chains.ts';
 export * from './buildings/lights.ts';
 export * from './buildings/production.ts';
 export * from './buildings/recipes.ts';

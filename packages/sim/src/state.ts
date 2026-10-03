@@ -670,14 +670,25 @@ export interface PendingSpawn {
 
 /** Site kinds: a dig down, a tunnel into a hillside, earth heaped to a level, an earth ramp. */
 /** Ramps of lumber or stone (Earthworks) are placed from workshop-made ramp steps instead of Earth. */
-export const SiteKind = { Dig: 0, Tunnel: 1, Bank: 2, Ramp: 3, LumberRamp: 4, StoneRamp: 5 } as const;
+export const SiteKind = { Dig: 0, Tunnel: 1, Bank: 2, Ramp: 3, LumberRamp: 4, StoneRamp: 5, TunnelLine: 6 } as const;
+
+/** Whether a site is a tunnel: a marked box, or a stretch of a tunnel chain. */
+export function tunnelSite(kind: number): boolean {
+  return kind === SiteKind.Tunnel || kind === SiteKind.TunnelLine;
+}
 
 /** Whether a site is shaped as a ramp (rising from one end to the other). */
 export function rampSite(kind: number): boolean {
   return kind === SiteKind.Ramp || kind === SiteKind.LumberRamp || kind === SiteKind.StoneRamp;
 }
 
-/** Marked land for workers to dig out or heap up (Digging and building up the land). Levels in terrain units. */
+/**
+ * Marked land for workers to dig out or heap up (Digging and building up the
+ * land). Levels in terrain units. A box from (x0, z0) to (x1, z1), except a
+ * tunnel chain's stretch (TunnelLine), which runs from its anchor (x0, z0) to
+ * its end (x1, z1) along one of the eight directions, `axis` columns wide
+ * (buildings/chains.ts).
+ */
 export interface Site {
   id: number;
   owner: number;
@@ -690,7 +701,7 @@ export interface Site {
   level: number;
   /** Ramp: the top at the far end; tunnels: the roof. */
   level2: number;
-  /** Ramp: 0 rises along x, 1 along z. */
+  /** Ramp: 0 rises along x, 1 along z. TunnelLine: its width in columns. */
   axis: number;
 }
 

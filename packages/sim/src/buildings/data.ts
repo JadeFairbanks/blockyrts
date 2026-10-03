@@ -177,7 +177,7 @@ function metresText(cm: number): string {
 
 function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightCm: number, wooden: boolean): SpecInput {
   return {
-    kind, name, purpose: `A wall column ${metresText(heightCm)} m tall. Drag to place a line. Climbers go over it; breakers smash it.`,
+    kind, name, purpose: `A wall column ${metresText(heightCm)} m tall, placed a stretch at a time from point to point. Climbers go over it; breakers smash it.`,
     menu: 'basic', slot: 10, w: 1, d: 1, solid: box(1, 1), dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm, defence: 'wall', wooden,
     levels: [lvl(name, cost, ws, health)],
