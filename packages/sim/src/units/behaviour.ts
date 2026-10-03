@@ -7,7 +7,7 @@
 import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
 import { STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
-import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
+import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
@@ -264,9 +264,9 @@ export function nodeResource(kind: number): number {
   return resourceByName(propInfo(kind).resource);
 }
 
-/** Whether a worker can gather a node now: grown, not empty, and its tool for the node's job is good enough. */
+/** Whether a worker can gather a node now: holding something (a sapling holds nothing yet), and its tool for the node's job is good enough. */
 function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
-  if (!view || view.amount <= 0 || view.stage !== 2) return false;
+  if (!view || view.amount <= 0) return false;
   const info = propInfo(view.kind);
   return nodeResource(view.kind) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
 }
@@ -620,7 +620,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
     const kind = view?.kind ?? -1;
-    if (view && nodeResource(kind) >= 0 && view.stage === 2 && view.amount > 0 && !gatherable(state, i, view)) {
+    if (view && nodeResource(kind) >= 0 && view.amount > 0 && !gatherable(state, i, view)) {
       const info = propInfo(kind);
       alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!, i);
       return DONE;
@@ -842,6 +842,22 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
   if (!canAfford(pool, cost)) {
     alert(state, owner, `Not enough ${RESOURCES[shortOf(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz, i);
     return DONE;
+  }
+  // Saplings and sprouting plants on the spot are pulled up first, one at a time (Building placement; seeds are trampled).
+  const clear = clearingOn(state, o.kind, o.x, o.z, o.variant);
+  if (clear) {
+    if (e.act[i] !== Act.Work) {
+      e.act[i] = Act.Work;
+      e.timer[i] = 0;
+    }
+    e.heading[i] = headingTowards(columnCentre(clear.gx) - e.x[i]!, columnCentre(clear.gz) - e.z[i]!);
+    e.order[i] = OrderKind.Farm;
+    e.timer[i] = e.timer[i]! + 1;
+    if (e.timer[i]! >= clear.steps) {
+      state.world.removeProp(clear.cx, clear.cz, clear.i);
+      e.timer[i] = 0;
+    }
+    return CONTINUE;
   }
   pay(pool, cost);
   const b = placeBuilding(state, owner, o.kind, o.variant, o.x, o.z, false);

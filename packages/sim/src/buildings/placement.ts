@@ -1,7 +1,10 @@
 // Building placement (Controls, Building placement): which tiles of a ghost
 // are green. A tile is red when the land is too steep, under water, under
 // another building, holds a resource node, or is unexplored. Units never
-// block a tile: they step aside when the building goes up.
+// block a tile: they step aside when the building goes up. Small things that
+// are easy to remove (seeds, saplings, sprouting plants: the growth stages
+// with buildOver in world/props.ts) never block one either: seeds are
+// trampled, and the first builder pulls the rest up before building starts.
 
 import { floorDiv } from '../fixed.ts';
 import { Band } from '../world/layout.ts';
@@ -10,6 +13,7 @@ import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import type { SimState } from '../state.ts';
 import { BuildingKind, buildingSpec, footprintDims, levelSpec } from './data.ts';
 import { Mat } from '../world/materials.ts';
+import { canBuildOver, stageInfo } from '../world/props.ts';
 import { RESEARCH } from '../combat/items.ts';
 import type { Cost } from '../economy/resources.ts';
 import { footprintRect } from './store.ts';
@@ -50,8 +54,8 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
   for (let cz = z0 >> CHUNK_SHIFT; cz <= z1 >> CHUNK_SHIFT; cz++) {
     for (let cx = x0 >> CHUNK_SHIFT; cx <= x1 >> CHUNK_SHIFT; cx++) {
       for (const p of world.props(cx, cz, state.step)) {
-        // Seeds are trampled; saplings and anything grown block.
-        if (p.stage === 0) continue;
+        // Seeds are trampled and saplings cleared; anything grown blocks.
+        if (canBuildOver(p.kind, p.stage)) continue;
         // Only props on the footprint: one beside it would otherwise land on a tile of the row before or after.
         const dx = (cx << CHUNK_SHIFT) + p.lx - x0;
         const dz = (cz << CHUNK_SHIFT) + p.lz - z0;
@@ -75,6 +79,27 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
     }
   }
   return out;
+}
+
+/**
+ * The first small thing on a building's spot that a builder has to pull up
+ * before building starts (a sapling or a sprouting plant), and how long that
+ * takes; null when there is none. Seeds need no work: they are trampled.
+ */
+export function clearingOn(state: SimState, kind: number, x: number, z: number, variant = 0): { cx: number; cz: number; i: number; gx: number; gz: number; steps: number } | null {
+  const [x0, z0, x1, z1] = footprintRect({ kind, x, z, variant });
+  for (let cz = z0 >> CHUNK_SHIFT; cz <= z1 >> CHUNK_SHIFT; cz++) {
+    for (let cx = x0 >> CHUNK_SHIFT; cx <= x1 >> CHUNK_SHIFT; cx++) {
+      for (const p of state.world.props(cx, cz, state.step)) {
+        const gx = (cx << CHUNK_SHIFT) + p.lx;
+        const gz = (cz << CHUNK_SHIFT) + p.lz;
+        if (gx < x0 || gx > x1 || gz < z0 || gz > z1) continue;
+        const row = stageInfo(p.kind, p.stage);
+        if (row && row.buildOver && row.clearSteps > 0) return { cx, cz, i: p.index, gx, gz, steps: row.clearSteps };
+      }
+    }
+  }
+  return null;
 }
 
 /** The first red tile's reason, or None when every tile is green. */

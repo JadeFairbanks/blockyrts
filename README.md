@@ -1216,6 +1216,65 @@ Client only: the sim, the server and every hash are unchanged.
    over a minute). `node packages/client/test-e2e/hud-check.mjs` checks the
    grid in a browser.
 
+## How a tester checks plant growth and saplings
+
+Trees, hazel bushes, herbs and wild flax grow in steps, like crops in
+Minecraft: each stage is a jump in size, and a plant holds only its stage's
+share of what it gives when grown. Growing times, yields and the save format
+are as they were, so old saves load. The stages are three tables in the
+balance editor's World group (Tree growth, Hazel growth, Plant growth). Run
+`pnpm dev`, open http://localhost:5173/?seed=1 and start.
+
+1. **The hazel sapling.** Select the workers and right-click a hazel bush.
+   One load of 10 sticks takes the whole bush, and where it stood is now a
+   **Hazel sapling**: a low clump of 3 to 5 thin shoots with a green tuft on
+   each, not a bare stub. Click it: the panel says "Holds nothing to gather
+   yet: it grows hardwood sticks once it is bigger.", how long until it is a
+   young hazel bush, and "Buildings can go over it: the builder pulls it up
+   first." Workers find nothing to gather on it.
+2. **Stepped growth.** Press **Speed** in the debug panel for 16 times speed
+   and watch the sapling. It becomes a **Young hazel bush** (3 sticks) at 30%
+   of its 2 days (about 4 minutes 24 seconds of game time), a **Half-grown
+   hazel bush** (6) at 65% (about 9.5 minutes) and a **Hazel bush** (10) at
+   2 days (14 minutes 40 seconds), each time in one jump. The panel's name,
+   count and "Grows into ..." line follow it. A young bush can be gathered
+   for what it holds; picked bare, it starts again as a sapling. Herbs and
+   wild flax do the same over their 5 days: **Sprouting herbs** (nothing to
+   gather, no flowers), **Half-grown herbs** (5) at half, then **Herbs** (10).
+3. **Trees.** Select a pine and press **Fell**: it falls and drops 2 seeds
+   beside it, small specks that hold nothing. At 6 minutes of game time each
+   is a **Pine sapling** (a thin stem with three small green tiers, holding
+   nothing), at 21 minutes a **Young pine** (a small tree, 7 softwood lumber),
+   at 39 minutes a **Half-grown pine** (13) and at 60 minutes a **Pine** (20).
+   Hardwoods do the same over 3 and 6 hours. The world also starts with a few
+   seeds, saplings and young trees among the grown ones. Seeds and saplings
+   cannot be chopped; a young or half-grown tree can be felled for what it
+   holds and drops its seeds like a grown one.
+4. **Building over small things.** Pick a building with workers (B) and hold
+   its ghost over seeds, saplings, a hazel sapling or sprouting herbs: their
+   tiles stay green, where a grown tree, a young tree, a bush with sticks on
+   it, herbs, stone or flint still turn them red. Place it: the worker walks
+   over, faces each sapling in the footprint and pulls it up (2 seconds a
+   sapling, 1 second for sprouting herbs or flax; seeds are trampled), then
+   pays and starts the building as before. Which things count, and how long
+   each takes, are the stage tables' "Buildings can go over it" and "Time a
+   builder takes to pull it up".
+5. **Models.** `pnpm --filter @blockyrts/tools models:build` now also writes
+   every world prop's state sets as models of their own, named
+   `<id>@<set>`: `bush_hazel@regrown`, `crop_wheat@sprout`, `torch_post@unlit`
+   and the rest, 572 models from the 519 files. Nothing draws them in play
+   yet; `packages/client/src/world/prop-models.ts` names the model and scale
+   for each growth stage, ready for the wiring pass.
+6. `pnpm test` runs `packages/sim/test/plants.test.ts` (the stage tables, a
+   hazel growing back from bare in steps, a young pine from seed to grown, a
+   part-chopped young tree, placement over saplings and a builder pulling
+   them up), `packages/client/test/plant-text.test.ts` (the panel's names and
+   lines), `packages/client/test/props-shape.test.ts` (each stage drawn
+   bigger than the last, the hazel sapling's shoots),
+   `packages/client/test/prop-models.test.ts` (every stage names a catalogue
+   model or state set) and `packages/tools/test/state-sets.test.ts` (the
+   hazel's three looks, the unlit torch, a crop's stages).
+
 ## How a tester checks pause, the menu and Space
 
 Jade's patch notes 1. The sim and every hash are unchanged: pausing only
