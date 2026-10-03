@@ -36,6 +36,8 @@ import {
   buildingName,
   buildingStatus,
   buildRequirement,
+  farmBandLine,
+  farmHarvest,
   chunkDelta,
   claimShapes,
   clockAt,
@@ -65,6 +67,7 @@ import {
   workSteps,
   STEPS_PER_SECOND,
   WU_PER_COLUMN,
+  type Building,
   type ChunkDelta,
   type HitEvent,
   type Order,
@@ -81,7 +84,7 @@ import {
 } from '@blockyrts/sim';
 import { cloaked, crewOf, haulerOf, Mount, mountSpec } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -229,6 +232,21 @@ function postState(s: SimState): void {
   send({ type: 'state', step: s.step, hash: lastHash, hashStep: lastHashStep, count: e.count, data, shots, hits: out }, [data.buffer, shots.buffer]);
 }
 
+/** A farm's next harvest for the panel's progress bar, or null. */
+function farmInfo(s: SimState, b: Building): FarmInfo | null {
+  const h = farmHarvest(s, b);
+  if (!h) return null;
+  return {
+    res: h.res,
+    items: h.items,
+    food: h.food,
+    grows: h.grows,
+    done: Math.floor((h.done * 1000) / h.whole),
+    stepsLeft: h.perStep > 0 ? Math.ceil((h.whole - h.done) / h.perStep) : 0,
+    band: farmBandLine(s, b),
+  };
+}
+
 /** Buildings, the pool, order lists and events: what the HUD shows besides the units. */
 function postInfo(s: SimState): void {
   const buildings: BuildingInfo[] = s.buildings.list.map((b) => {
@@ -272,6 +290,7 @@ function postInfo(s: SimState): void {
             })
           : [],
       horses: b.kind === BuildingKind.Stables && b.complete ? stalledHorses(s, b).length : 0,
+      farm: farmInfo(s, b),
     };
   });
   const e = s.entities;
