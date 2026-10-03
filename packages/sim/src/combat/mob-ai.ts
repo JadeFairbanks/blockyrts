@@ -22,7 +22,7 @@ import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
 import { BLAST, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
 import { chargeKnock, startCharge, takeCharge } from '../mounts/riding.ts';
-import { fireAt, hasClearLob, POISON, ProjectileFlag } from './projectiles.ts';
+import { fireAt, hasClearLob, noteFlight, POISON, ProjectileFlag } from './projectiles.ts';
 import { MANA_SCALE } from '../magic/spells.ts';
 import { Ability, canUse, castSparkAt, castSparkAtBuilding, snuffEffect, spend, stumbleEffect } from '../threats/abilities.ts';
 import { LAIR_LEASH_WU } from '../threats/data.ts';
@@ -655,6 +655,7 @@ export function vanish(state: SimState, i: number): void {
 export function runMob(state: SimState, i: number): void {
   const e = state.entities;
   if (e.hp[i]! <= 0) return;
+  if (flies(mobSpec(e.mob[i]!))) noteFlight(state, i);
   actMob(state, i, mobSpec(e.mob[i]!));
   // Its kind may have changed (Morvath takes to the air).
   const spec = mobSpec(e.mob[i]!);
@@ -751,80 +752,153 @@ function actMob(state: SimState, i: number, spec: MobSpec): void {
 // ----- flying -----
 
 /**
- * A flyer's height and swoop each step (Jade's patch notes 1: bats dropped
- * onto their prey in one step). Its height eases towards where it wants to
- * be, diving at SWOOP.diveSpeed and climbing at SWOOP.climbSpeed: down to
- * its swoop height while it strikes a unit, or once it is near enough to
- * glide in at its speed; at its pull-off height between strikes; else up at
- * its cruising height. While a strike is under way it closes in on its prey;
- * between strikes it pulls off to a point round the prey picked afresh for
- * each swoop, so no two swoops take the same path. A low flyer in its swoop
- * stays within reach of every weapon (lowUntil), as when it hovered low.
+ * Where a flyer is headed at a step: the height it wants over the land, and
+ * the point it pulls off to (`r` from where its prey stood when the blow
+ * landed, in `heading`), or r < 0 when it does not steer by its prey then
+ * (it cruises, closes in as any mob does, or holds still to strike).
  */
-function fly(state: SimState, i: number, spec: MobSpec): void {
-  const e = state.entities;
-  const now = state.step;
-  const t = e.indexOf(e.target[i]!);
-  const prey = !e.fleeing[i] && t >= 0 && e.hp[t]! > 0 && e.kind[t] !== UnitKind.Mob ? t : -1;
-  const striking = prey >= 0 && e.atkAt[i] !== 0 && e.atkWith[i] === With.Unit;
-  const pulling = prey >= 0 && !striking && now < e.atkNext[i]! && e.atkWith[i] === With.Unit;
-  const ground = groundAt(state, e.x[i]!, e.z[i]!);
-  const above = e.y[i]! - ground;
-  const high = spec.moves === Moves.HighFlyer;
-  let want = cruise(spec);
-  if (prey >= 0) {
-    const reach = spec.reach + halfWidth(state, prey);
-    const h = hash32(state.seed, e.id[i]!, e.atkNext[i]!);
-    if (striking) {
-      want = SWOOP_HEIGHT;
-      // In to strike, from whichever side it came.
-      flyNear(state, i, spec, prey, floorDiv(reach * SWOOP.closePct, 100), -1);
-    } else if (pulling) {
-      want = high ? (e.lowUntil[i]! > now ? SWOOP_HEIGHT : cruise(spec)) : floorDiv((SWOOP.pullLowCm + ((h >>> 16) & 0xff) % (SWOOP.pullHighCm - SWOOP.pullLowCm + 1)) * WU_PER_METRE, 100);
-      // Away and round to this swoop's point: any side of its prey, at its own distance.
-      flyNear(state, i, spec, prey, floorDiv(reach * (SWOOP.pullMinPct + (h >>> 24) % (SWOOP.pullMaxPct - SWOOP.pullMinPct + 1)), 100), h & 0xffff);
-    } else if (gap(state, i, prey) - spec.reach <= floorDiv(Math.max(0, above - SWOOP_HEIGHT) * e.speed[i]!, SWOOP.diveSpeed) + WU_PER_METRE) {
-      // Near enough to glide down onto it at its speed.
-      want = SWOOP_HEIGHT;
-    }
-    if (!high && (striking || pulling || gap(state, i, prey) <= spec.reach + WU_PER_METRE)) e.lowUntil[i] = now + 2;
-  }
-  // Ease towards that height, never below its swoop height over the land.
-  const y = ground + want;
-  let ny = e.y[i]! > y ? Math.max(y, e.y[i]! - SWOOP.diveSpeed) : Math.min(y, e.y[i]! + SWOOP.climbSpeed);
-  ny = Math.max(ny, ground + Math.min(want, SWOOP_HEIGHT));
-  e.y[i] = ny;
+interface FlyPlan {
+  want: number;
+  prey: number;
+  r: number;
+  heading: number;
+  /** Striking: it notes where its prey stands (e.targetX and e.targetZ, unused by flyers otherwise). */
+  striking: boolean;
+  /** In its swoop: within reach of every weapon (lowUntil). */
+  low: boolean;
+}
+
+/** A flyer's attack on a unit as a plan reads it: its blow (0 once landed), its end, and a high flyer's time low (e.atkAt, e.atkNext, e.lowUntil). */
+interface Swing {
+  at: number;
+  next: number;
+  low: number;
 }
 
 /**
- * Flies a flyer towards a point `r` from its prey, at its speed: in a
- * heading given (0 to 65535), or on the line it holds now (-1).
+ * A flyer's plan at step `at` from a spot (x, z) in a swing (the step now,
+ * or one ahead for a shooter's lead): it glides down to its swoop height
+ * once near enough to come in at its speed, and strikes from there, down at
+ * its swoop height and still, as it did before (so it hits and is hit as
+ * before); between strikes it pulls off and up to a point round where its
+ * prey stood, picked afresh for each swoop, and strikes again from there
+ * once the attack time is up. Else it cruises.
  */
-function flyNear(state: SimState, i: number, spec: MobSpec, prey: number, r: number, heading: number): void {
+function flyPlan(state: SimState, i: number, spec: MobSpec, at: number, swing: Swing, x: number, y: number, z: number): FlyPlan {
   const e = state.entities;
-  const px = e.x[prey]!;
-  const pz = e.z[prey]!;
-  let ux: number;
-  let uz: number;
-  if (heading >= 0) {
-    [ux, uz] = forward(heading);
+  const t = e.indexOf(e.target[i]!);
+  const prey = !e.fleeing[i] && t >= 0 && e.hp[t]! > 0 && e.kind[t] !== UnitKind.Mob ? t : -1;
+  const high = spec.moves === Moves.HighFlyer;
+  const plan: FlyPlan = { want: cruise(spec), prey, r: -1, heading: -1, striking: false, low: false };
+  if (prey < 0) return plan;
+  // In an attack on a unit: striking until the blow lands, pulling off after it until the attack time is up.
+  const attacking = e.atkWith[i] === With.Unit && (swing.at !== 0 || at < swing.next);
+  plan.striking = attacking && swing.at !== 0;
+  if (plan.striking) {
+    plan.want = SWOOP_HEIGHT;
+  } else if (attacking) {
+    const h = hash32(state.seed, e.id[i]!, swing.next);
+    const reach = spec.reach + halfWidth(state, prey);
+    plan.want = high ? (swing.low > at ? SWOOP_HEIGHT : cruise(spec)) : floorDiv((SWOOP.pullLowCm + ((h >>> 16) & 0xff) % (SWOOP.pullHighCm - SWOOP.pullLowCm + 1)) * WU_PER_METRE, 100);
+    // Away and up to this swoop's point: any side of where its prey stood, at its own distance.
+    plan.r = floorDiv(reach * (SWOOP.pullMinPct + (h >>> 24) % (SWOOP.pullMaxPct - SWOOP.pullMinPct + 1)), 100);
+    plan.heading = h & 0xffff;
   } else {
-    const d = length2d(e.x[i]! - px, e.z[i]! - pz);
-    if (d === 0) return;
-    ux = floorDiv((e.x[i]! - px) * 65536, d);
-    uz = floorDiv((e.z[i]! - pz) * 65536, d);
+    // Near enough to glide down onto it at its speed.
+    const above = Math.max(0, y - groundAt(state, x, z) - SWOOP_HEIGHT);
+    const d = length2d(e.x[prey]! - x, e.z[prey]! - z) - halfWidth(state, prey);
+    if (d - spec.reach <= floorDiv(above * e.speed[i]!, SWOOP.diveSpeed) + WU_PER_METRE) plan.want = SWOOP_HEIGHT;
   }
-  const tx = px + floorDiv(ux * r, 65536);
-  const tz = pz + floorDiv(uz * r, 65536);
-  const dx = tx - e.x[i]!;
-  const dz = tz - e.z[i]!;
+  plan.low = !high && (attacking || length2d(e.x[prey]! - x, e.z[prey]! - z) - halfWidth(state, prey) <= spec.reach + WU_PER_METRE);
+  return plan;
+}
+
+/** A height eased one step towards a wanted one over the land: down at the dive speed, up at the climb speed, never below its swoop height. */
+function easeHeight(y: number, ground: number, want: number): number {
+  const to = ground + want;
+  const ny = y > to ? Math.max(to, y - SWOOP.diveSpeed) : Math.min(to, y + SWOOP.climbSpeed);
+  return Math.max(ny, ground + Math.min(want, SWOOP_HEIGHT));
+}
+
+/** One step towards a plan's pull-off point round (px, pz) at a speed: the new x and z. */
+function towards(plan: FlyPlan, px: number, pz: number, x: number, z: number, speed: number): [number, number] {
+  const [ux, uz] = forward(plan.heading);
+  const dx = px + floorDiv(ux * plan.r, 65536) - x;
+  const dz = pz + floorDiv(uz * plan.r, 65536) - z;
   const d = length2d(dx, dz);
-  if (d === 0) return;
-  const s = Math.min(mobSpeed(state, i, spec), d);
-  e.x[i] = e.x[i]! + floorDiv(dx * s, d);
-  e.z[i] = e.z[i]! + floorDiv(dz * s, d);
-  // It faces where it flies while it pulls off, and its prey as it comes in.
-  e.heading[i] = heading >= 0 ? headingTowards(dx, dz) : headingTowards(px - e.x[i]!, pz - e.z[i]!);
+  if (d === 0) return [x, z];
+  const s = Math.min(speed, d);
+  return [x + floorDiv(dx * s, d), z + floorDiv(dz * s, d)];
+}
+
+/**
+ * A flyer's height and swoop each step (Jade's patch notes 1: bats dropped
+ * onto their prey in one step): it follows its plan (flyPlan), its height
+ * easing at SWOOP's dive and climb speeds, so it swoops down and away and
+ * no two swoops take the same path. A low flyer in its swoop stays within
+ * reach of every weapon (lowUntil), as when it hovered low.
+ */
+function fly(state: SimState, i: number, spec: MobSpec): void {
+  const e = state.entities;
+  const plan = flyPlan(state, i, spec, state.step, { at: e.atkAt[i]!, next: e.atkNext[i]!, low: e.lowUntil[i]! }, e.x[i]!, e.y[i]!, e.z[i]!);
+  if (plan.striking) {
+    e.targetX[i] = e.x[plan.prey]!;
+    e.targetZ[i] = e.z[plan.prey]!;
+  } else if (plan.r >= 0) {
+    const [nx, nz] = towards(plan, e.targetX[i]!, e.targetZ[i]!, e.x[i]!, e.z[i]!, mobSpeed(state, i, spec));
+    // It faces where it flies while it pulls off.
+    if (nx !== e.x[i] || nz !== e.z[i]) e.heading[i] = headingTowards(nx - e.x[i]!, nz - e.z[i]!);
+    e.x[i] = nx;
+    e.z[i] = nz;
+  }
+  if (plan.low) e.lowUntil[i] = state.step + 2;
+  e.y[i] = easeHeight(e.y[i]!, groundAt(state, e.x[i]!, e.z[i]!), plan.want);
+}
+
+/**
+ * Where a flyer will be after `moves` more steps of its own, the first at
+ * step `from`, if its prey stands where it is (a shooter's lead,
+ * projectiles.ts): its plan step by step, its blows landing and its next
+ * swoops starting as they would, with its ground run (heading at its speed)
+ * while it closes in as any mob does.
+ */
+export function flyerAhead(state: SimState, i: number, from: number, moves: number): [number, number, number] | null {
+  const e = state.entities;
+  if (e.kind[i] !== UnitKind.Mob) return null;
+  const spec = mobSpec(e.mob[i]!);
+  if (!flies(spec)) return null;
+  let x = e.x[i]!;
+  let y = e.y[i]!;
+  let z = e.z[i]!;
+  const speed = mobSpeed(state, i, spec);
+  const moving = e.order[i] === OrderKind.Move;
+  const [fx, fz] = forward(e.heading[i]!);
+  const swing: Swing = { at: e.atkAt[i]!, next: e.atkNext[i]!, low: e.lowUntil[i]! };
+  const t = e.indexOf(e.target[i]!);
+  // In an attack on a unit now: it strikes again each time the attack time is up (begin()).
+  const swinging = t >= 0 && e.atkWith[i] === With.Unit && (swing.at !== 0 || from <= swing.next);
+  let px = e.targetX[i]!;
+  let pz = e.targetZ[i]!;
+  for (let k = 0; k < moves; k++) {
+    const at = from + k;
+    if (swing.at !== 0 && at >= swing.at) swing.at = 0;
+    if (swinging && swing.at === 0 && at >= swing.next) {
+      swing.at = at + Math.max(1, floorDiv(spec.attackSteps * 2, 5));
+      swing.next = at + spec.attackSteps;
+      if (spec.moves === Moves.HighFlyer) swing.low = at + 2 * STEPS_PER_SECOND;
+    }
+    const plan = flyPlan(state, i, spec, at, swing, x, y, z);
+    if (plan.striking) {
+      px = e.x[plan.prey]!;
+      pz = e.z[plan.prey]!;
+    } else if (plan.r >= 0) [x, z] = towards(plan, px, pz, x, z, speed);
+    else if (moving) {
+      x += floorDiv(fx * speed, 65536);
+      z += floorDiv(fz * speed, 65536);
+    }
+    y = easeHeight(y, groundAt(state, x, z), plan.want);
+  }
+  return [x, y, z];
 }
 
 /** The mobs with abilities of their own in threats/late-mobs.ts come from night 25. */

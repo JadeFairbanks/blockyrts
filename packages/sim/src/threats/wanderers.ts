@@ -206,7 +206,12 @@ export function runWild(state: SimState, i: number, spec: MobSpec): void {
     fight(state, i, spec, t);
     return;
   }
-  e.target[i] = 0;
+  if (e.target[i] !== 0) {
+    // Its fight is over: it strolls on from here (a flyer's swoop kept where its prey stood in targetX and targetZ).
+    e.target[i] = 0;
+    e.targetX[i] = e.x[i]!;
+    e.targetZ[i] = e.z[i]!;
+  }
   roam(state, i, spec);
 }
 

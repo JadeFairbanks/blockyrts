@@ -320,7 +320,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
   'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
   'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',
-  'SWOOP:closePct': 'Comes in to (of its striking distance)', WILD_PATCH_M: 'Wild patch size', WILD_SAMPLES: 'Spots tested per side of a patch',
+  WILD_PATCH_M: 'Wild patch size', WILD_SAMPLES: 'Spots tested per side of a patch',
   WILD_PAIR_PCT: 'Chance of a pair', WILD_RARITY_POWER: 'Rarity power (weight 1 / threat to this)', WILD_HORDE_GROW_NIGHTS: 'Group grows by one every (nights)',
   WILD_WEAK_THREAT_TENTHS: 'Weak enough to come as a group (threat at most)', WILD_LIGHT_TIMES: 'Keeps outside this many light radii',
   WILD_TURN_DEG: 'Stroll turns at most (degrees)', WILD_LOOK_STEPS: 'Looks round for prey every',

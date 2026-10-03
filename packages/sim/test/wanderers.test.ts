@@ -28,6 +28,7 @@ import {
   DUSK_STEPS,
   FactionKind,
   flyingHigh,
+  flyerAhead,
   FOG_TILE_COLUMNS,
   hashState,
   hordePct,
@@ -423,4 +424,32 @@ describe('the swoop', () => {
       expect(steps[steps.length - 1]!.batHp).toBeLessThan(100_000);
     });
   }
+
+  it('lets a shooter lead a swooping bat to the very spot it will be when the shot gets there', () => {
+    const s = wildNight(1, 1, { peaceful: true });
+    const e = s.entities;
+    const units = party(s);
+    const u = units.find((i) => e.kind[i] === UnitKind.Warrior)!;
+    for (const j of units) if (j !== u) landAt(s, j, e.x[u]! + 200 * M, e.z[u]!);
+    e.queue[u] = [{ t: 'hold' }];
+    const b = addMob(s, Mob.CaveBat, 0, e.x[u]! + 8 * M, e.z[u]! + 3 * M, 1);
+    e.hp[b] = 100_000;
+    e.maxHp[b] = 100_000;
+    const bid = e.id[b]!;
+    // Once it swoops on its prey, every lead (flights of 1 to 20 steps) is where it turns out to be.
+    const due = new Map<number, Array<readonly [number, number, number]>>();
+    let checked = 0;
+    for (let k = 0; k < 30 * SEC; k++) {
+      const i = e.indexOf(bid);
+      if (k >= 5 * SEC && k % 3 === 0) {
+        for (const n of [1, 6, 12, 20]) due.set(s.step + n, [...(due.get(s.step + n) ?? []), flyerAhead(s, i, s.step, n)!]);
+      }
+      step(s);
+      for (const at of due.get(s.step) ?? []) {
+        expect([e.x[i]!, e.y[i]!, e.z[i]!]).toEqual(at);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(400);
+  });
 });
