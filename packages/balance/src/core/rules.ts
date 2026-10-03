@@ -265,13 +265,15 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   // A kit row's tier is its place in the table, and its material tier follows from it (a shield's from the armour it comes with).
   'need', 'TIER_NEEDS:tier', 'TOOL_KITS:tier', 'CLOSE_KITS:tier', 'LONG_KITS:tier', 'RANGER_KITS:tier', 'BRAWLER_KIT:tier', 'ARMOUR_KITS:tier',
   'SHIELD_KITS:tier', 'WAND_KITS:tier', 'ROBE_KITS:tier',
+  // A growth stage's place in the order (world/props.ts Stage): the stages are named by it.
+  'TREE_GROWTH:stage', 'HAZEL_GROWTH:stage', 'PLANT_GROWTH:stage',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
 export const TEXT_KEYS: Readonly<Record<string, string>> = {
   purpose: 'Purpose', gives: 'Gives or unlocks', opens: 'Opens', needs: 'Also needs', comesWith: 'Comes with', later: 'Comes later',
   source: 'Where it comes from', tooltip: 'Tooltip', row: 'Blueprint row', yields: 'Yields', resource: 'Gives', munition: 'Loads',
-  ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name', text: 'Tooltip',
+  ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name', text: 'Tooltip', called: 'Called in the game',
 };
 /** Strings never shown, and `EXPORT:key` values of any kind (a stock row's good: its title names it). */
 export const HIDDEN_KEYS: ReadonlySet<string> = new Set([
@@ -320,6 +322,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'CRIT:outerPm': 'Outer share of reach that crits', 'CRIT:bonusPct': 'Critical damage bonus', troopFood: 'Troop food', troopS: 'Troop training time',
   upgradeTimePm: 'Upgrade time (of the new piece\'s time to make)', upgradeRefundPm: 'Refund of the old piece on upgrade',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
+  // Plants' growth stages (world/props.ts).
+  fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
+  buildOver: 'Buildings can go over it', clearSteps: 'Time a builder takes to pull it up (0: trampled)',
 };
 
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */

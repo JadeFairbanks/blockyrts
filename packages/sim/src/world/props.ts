@@ -166,19 +166,115 @@ export function isTree(kind: number): boolean {
   return PROPS[kind]?.shape === PropShape.Tree;
 }
 
-/** Growth stages from age (Generated rocks and trees: "seed, sapling, full size"). */
-export const Stage = { Seed: 0, Sapling: 1, Full: 2 } as const;
+/**
+ * Growth stages (Generated rocks and trees: seed, sapling, full size; Jade's
+ * patch notes 1: plants grow in steps, like crops, and a sapling holds nothing
+ * until it looks like a small tree or bush). Props that do not grow are always
+ * Grown.
+ */
+export const Stage = { Seed: 0, Sapling: 1, Young: 2, HalfGrown: 3, Grown: 4 } as const;
 export type Stage = (typeof Stage)[keyof typeof Stage];
 
-/** A tree's growth stage and its size as a fraction of full size (per mille), from its age in steps. */
-export function growth(kind: number, age: number): { stage: Stage; size: number } {
+/** One step of a plant's growth. A plant shows a stage from its `fromPm` until the next stage's. */
+export interface GrowthStage {
+  stage: Stage;
+  /** The stage's name. */
+  name: string;
+  /** What a plant at this stage is called in the game; {Name} and {name} stand for the plant's own name ("Pine sapling", "Young great oak"). */
+  called: string;
+  /** Reached at this share of the plant's growing time (Table 5 "Regrowth"), per mille. */
+  fromPm: number;
+  /** Drawn at this share of full size, per mille. */
+  sizePm: number;
+  /** Holds this share of the plant's full yield, per mille: 0 while there is nothing to gather yet. */
+  yieldPm: number;
+  /** Small and easy to remove: a building may be placed over it (Building placement). */
+  buildOver: boolean;
+  /** Time a builder spends pulling it up before construction starts; 0 for trampled at once. */
+  clearSteps: number;
+}
+
+const STAGE_NAMES = ['Seed', 'Sapling', 'Young', 'Half-grown', 'Grown'] as const;
+const stage = (s: Stage, called: string, fromPm: number, sizePm: number, yieldPm: number, buildOver = false, clearSeconds = 0): GrowthStage => ({
+  stage: s, name: STAGE_NAMES[s], called, fromPm, sizePm, yieldPm, buildOver, clearSteps: clearSeconds * STEPS_PER_SECOND,
+});
+
+/**
+ * Trees, from the seed (Table 5 "Regrowth": 60 min seed to full for softwood).
+ * A young tree holds the share of its lumber that matches the share of its
+ * growing time, so felling early gives the same lumber a minute (s).
+ */
+export const TREE_GROWTH: readonly GrowthStage[] = [
+  stage(Stage.Seed, '{Name} seed', 0, 60, 0, true, 0),
+  stage(Stage.Sapling, '{Name} sapling', 100, 120, 0, true, 2),
+  stage(Stage.Young, 'Young {name}', 350, 400, 350),
+  stage(Stage.HalfGrown, 'Half-grown {name}', 650, 700, 650),
+  stage(Stage.Grown, '{Name}', 1000, 1000, 1000),
+];
+
+/** Hazel bushes, from the stump once picked bare (Table 5: 2 days); a new hazel sapling holds no sticks (s). */
+export const HAZEL_GROWTH: readonly GrowthStage[] = [
+  stage(Stage.Sapling, 'Hazel sapling', 0, 250, 0, true, 2),
+  stage(Stage.Young, 'Young hazel bush', 300, 500, 300),
+  stage(Stage.HalfGrown, 'Half-grown hazel bush', 650, 750, 650),
+  stage(Stage.Grown, 'Hazel bush', 1000, 1000, 1000),
+];
+
+/** Herbs and wild flax, from the roots once picked bare (Table 5: 5 days) (s). */
+export const PLANT_GROWTH: readonly GrowthStage[] = [
+  stage(Stage.Sapling, 'Sprouting {name}', 0, 300, 0, true, 1),
+  stage(Stage.HalfGrown, 'Half-grown {name}', 500, 650, 500),
+  stage(Stage.Grown, '{Name}', 1000, 1000, 1000),
+];
+
+/** A plant's growth stages, or null for a prop that does not grow (rocks, patches, dead trees, fish). */
+export function growthStages(kind: number): readonly GrowthStage[] | null {
   const info = propInfo(kind);
-  if (info.shape !== PropShape.Tree || info.regrowSteps === 0) return { stage: Stage.Full, size: 1000 };
-  const t = info.regrowSteps;
-  if (age >= t) return { stage: Stage.Full, size: 1000 };
-  // Seed for the first tenth, then a sapling that grows from a fifth of full size.
-  if (age * 10 < t) return { stage: Stage.Seed, size: 60 };
-  return { stage: Stage.Sapling, size: 200 + floorDiv(age * 800, t) };
+  if (info.regrowSteps === 0) return null;
+  if (info.shape === PropShape.Tree) return TREE_GROWTH;
+  if (kind === PropKind.Hazel) return HAZEL_GROWTH;
+  if (info.shape === PropShape.Plant) return PLANT_GROWTH;
+  return null;
+}
+
+/** The row of a plant's stage table for a stage, or null (a prop that does not grow, or a stage its kind skips). */
+export function stageInfo(kind: number, s: number): GrowthStage | null {
+  return growthStages(kind)?.find((g) => g.stage === s) ?? null;
+}
+
+/** The stage's name for a prop: "Hazel sapling", "Young pine", "Great beech". */
+export function stageName(kind: number, s: number): string {
+  const name = propInfo(kind).name;
+  const row = stageInfo(kind, s);
+  if (!row) return name;
+  return row.called.replace('{Name}', name).replace('{name}', name.toLowerCase());
+}
+
+/** Whether a building may be placed over a prop at a stage: seeds, saplings and sprouting plants (Building placement). */
+export function canBuildOver(kind: number, s: number): boolean {
+  return stageInfo(kind, s)?.buildOver ?? false;
+}
+
+/**
+ * A plant's stage after growing for `grown` steps of its growing time: the
+ * stage, its drawn size and the share of its yield it holds (per mille), and
+ * how many more steps until its next stage (-1 once grown).
+ */
+export function growth(kind: number, grown: number): { stage: Stage; size: number; yieldPm: number; next: number } {
+  const stages = growthStages(kind);
+  if (!stages) return { stage: Stage.Grown, size: 1000, yieldPm: 1000, next: -1 };
+  const t = propInfo(kind).regrowSteps;
+  let k = 0;
+  // A stage is reached once grown / t >= fromPm / 1000, in whole steps (grown < t keeps the products small).
+  if (grown >= t) k = stages.length - 1;
+  else while (k + 1 < stages.length && grown * 1000 >= stages[k + 1]!.fromPm * t) k++;
+  const row = stages[k]!;
+  const next = k + 1 < stages.length ? Math.max(1, ceilDiv(stages[k + 1]!.fromPm * t, 1000) - grown) : -1;
+  return { stage: row.stage, size: row.sizePm, yieldPm: row.yieldPm, next };
+}
+
+function ceilDiv(a: number, b: number): number {
+  return -floorDiv(-a, b);
 }
 
 /**

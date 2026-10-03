@@ -225,7 +225,7 @@ describe('terrain edits, water, regrowth and fog', () => {
       for (let cx = -3; cx <= 3; cx++) {
         for (const v of w.props(cx, cz, 0)) {
           if (!hazel && v.kind === 3 && v.amount > 0) hazel = [cx, cz, v.index];
-          if (!tree && v.kind === 0 && v.stage === Stage.Full) tree = [cx, cz, v.index];
+          if (!tree && v.kind === 0 && v.stage === Stage.Grown) tree = [cx, cz, v.index];
         }
       }
     }
@@ -255,9 +255,12 @@ describe('terrain edits, water, regrowth and fog', () => {
       }
       return out;
     };
+    // In steps: a seed, a sapling from 6 min, a young tree from 21, half-grown from 39, grown at 60.
     expect(at(2002).every((s) => s === Stage.Seed)).toBe(true);
-    expect(at(2001 + 30 * 60 * 20).every((s) => s === Stage.Sapling)).toBe(true);
-    expect(at(2001 + 60 * 60 * 20).every((s) => s === Stage.Full)).toBe(true);
+    expect(at(2001 + 10 * 60 * 20).every((s) => s === Stage.Sapling)).toBe(true);
+    expect(at(2001 + 30 * 60 * 20).every((s) => s === Stage.Young)).toBe(true);
+    expect(at(2001 + 45 * 60 * 20).every((s) => s === Stage.HalfGrown)).toBe(true);
+    expect(at(2001 + 60 * 60 * 20).every((s) => s === Stage.Grown)).toBe(true);
   });
 
   it('marks land explored around every player\'s units, one picture for the side, and the debug reveal', () => {
