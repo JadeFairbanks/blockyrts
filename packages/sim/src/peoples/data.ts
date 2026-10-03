@@ -7,6 +7,7 @@
 // The balance editor reads this module, so it holds data and pure helpers only.
 
 import { Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
+import { FISHES, MEATS } from '../economy/food-kinds.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, TRINKET_MULTIPLIER_TENTHS, SPECIAL_TRINKET_MULTIPLIER_TENTHS } from '../rules.ts';
 import { CLOSE_GEAR, LONG_GEAR, PeopleGear, RANGER_GEAR, SHIELD_GEAR, shieldRow } from '../units/kits.ts';
@@ -388,15 +389,15 @@ const engine = (k: number): number => ENGINE_GOODS + k;
 
 export const LEANS: Readonly<Record<People, readonly Lean[]>> = {
   [People.Halfling]: [
-    { name: 'crops', sells: CROPS, lacks: [Res.Meat, Res.Fish] },
-    { name: 'livestock', sells: [Res.Meat, Res.Eggs, live(Species.Chicken), live(Species.Cattle), live(Species.Ox)], lacks: CROPS },
-    { name: 'fishing', sells: [Res.Fish, Res.SmokedFish], lacks: [Res.Flax, Res.Leather] },
-    { name: 'weaving', sells: [Res.Flax, Res.Rope], lacks: [Res.Fish, Res.Meat] },
+    { name: 'crops', sells: CROPS, lacks: [...MEATS, ...FISHES] },
+    { name: 'livestock', sells: [Res.Beef, Res.Chicken, Res.Eggs, live(Species.Chicken), live(Species.Cattle), live(Species.Ox)], lacks: CROPS },
+    { name: 'fishing', sells: [Res.Trout, Res.SmokedFish], lacks: [Res.Flax, Res.Leather] },
+    { name: 'weaving', sells: [Res.Flax, Res.Rope], lacks: [...FISHES, ...MEATS] },
   ],
   [People.Runkin]: [
-    { name: 'fish', sells: [Res.Fish], lacks: [Res.Herbs] },
-    { name: 'hides', sells: [Res.Hides], lacks: [Res.Fish] },
-    { name: 'herbs', sells: [Res.Herbs], lacks: [Res.Meat] },
+    { name: 'fish', sells: [Res.Trout, Res.Salmon], lacks: [Res.Herbs] },
+    { name: 'hides', sells: [Res.Hides], lacks: [...FISHES] },
+    { name: 'herbs', sells: [Res.Herbs], lacks: [...MEATS] },
   ],
   // The Elf caravans' one weapon becomes what it was made of (Troops and gear: weapons in trade become their materials) (s).
   [People.Elf]: [
@@ -439,13 +440,13 @@ const row = (good: number, count: number, pct = 100, extra: Partial<StockRow> = 
 export const STOCK: readonly (readonly StockRow[])[] = [
   // Halfling village: farm goods, live animals, the leather and feathers of their gear, and wrought iron (Table 11).
   [
-    row(Res.Wheat, 30), row(Res.Potatoes, 30), row(Res.Carrots, 30), row(Res.Corn, 20), row(Res.Eggs, 20), row(Res.Meat, 15), row(Res.Bread, 10),
+    row(Res.Wheat, 30), row(Res.Potatoes, 30), row(Res.Carrots, 30), row(Res.Corn, 20), row(Res.Eggs, 20), row(Res.Beef, 10), row(Res.Chicken, 5), row(Res.Bread, 10),
     row(live(Species.Chicken), 4, 100, { price: 80 }), row(live(Species.Cattle), 2, 100, { price: 400 }), row(live(Species.Ox), 1, 100, { price: 600 }),
     row(Res.Leather, 6), row(Res.Feathers, 20),
     row(Res.WroughtIron, 10),
   ],
   // Runkin camp: the catch, sticks, flint and herbs (Table 11).
-  [row(Res.Fish, 20), row(Res.Meat, 15), row(Res.Hides, 10), row(Res.Sticks, 40), row(Res.Flint, 20), row(Res.Herbs, 15), row(Res.Bone, 15), row(Res.Feathers, 30)],
+  [row(Res.Trout, 10), row(Res.Salmon, 10), row(Res.Venison, 15), row(Res.Hides, 10), row(Res.Sticks, 40), row(Res.Flint, 20), row(Res.Herbs, 15), row(Res.Bone, 15), row(Res.Feathers, 30)],
   // Elf kingdom: food at 120%, and the carbon steel of 3 weapons a day at 4 x its value (Table 19).
   [
     row(Res.Bread, 20, 120), row(Res.RoastMeat, 15, 120), row(Res.SmokedFish, 15, 120), row(Res.Wheat, 30, 120), row(Res.Flax, 20, 120), row(Res.Herbs, 15, 120),
@@ -484,7 +485,12 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.Gravel]: 5, [Res.Earth]: 2, [Res.Bricks]: 10, [Res.Glass]: 30, [Res.Resin]: 10, [Res.Bone]: 10,
   [Res.Coal]: 20, [Res.Charcoal]: 15, [Res.CopperOre]: 20, [Res.TinOre]: 30, [Res.BogIron]: 20, [Res.IronRock]: 20, [Res.VeinIron]: 40, [Res.LeadOre]: 30,
   [Res.Saltpetre]: 40, [Res.Sulphur]: 60, [Res.Marble]: 60,
-  [Res.Meat]: 30, [Res.Fish]: 20, [Res.Eggs]: 10, [Res.Wheat]: 15, [Res.Potatoes]: 10, [Res.Carrots]: 10, [Res.Corn]: 15, [Res.Flax]: 10, [Res.Herbs]: 20,
+  // Every meat is worth 3 vp and every fish 2, as the one meat and fish were (patch 1 food kinds, s).
+  [Res.Venison]: 30, [Res.BoarMeat]: 30, [Res.HareMeat]: 30, [Res.GooseMeat]: 30, [Res.PheasantMeat]: 30, [Res.Beef]: 30, [Res.Chicken]: 30,
+  [Res.HorseMeat]: 30, [Res.WolfMeat]: 30, [Res.LynxMeat]: 30, [Res.BadgerMeat]: 30, [Res.BearMeat]: 30, [Res.FrogLegs]: 30, [Res.CrabMeat]: 30,
+  [Res.CrocodileMeat]: 30, [Res.GriffinMeat]: 30, [Res.MinotaurMeat]: 30, [Res.RatMeat]: 30,
+  [Res.Trout]: 20, [Res.Salmon]: 20, [Res.Catfish]: 20,
+  [Res.Eggs]: 10, [Res.Wheat]: 15, [Res.Potatoes]: 10, [Res.Carrots]: 10, [Res.Corn]: 15, [Res.Flax]: 10, [Res.Herbs]: 20,
   [Res.Hides]: 30, [Res.Leather]: 40, [Res.Feathers]: 5, [Res.Bandage]: 50, [Res.Remedy]: 150,
   [Res.CopperIngot]: 50, [Res.TinIngot]: 70, [Res.BronzeIngot]: 60, [Res.WroughtIron]: 90, [Res.PigIron]: 110, [Res.IronIngot]: 240,
   [Res.SteelIngot]: 300, [Res.CarbonSteel]: 600, [Res.Gunpowder]: 16,
@@ -536,7 +542,7 @@ export const PLUNDER_TENTHS_PER_PERSON = 100;
 /** The loot's food and metal by people (s). */
 export const PLUNDER_GOODS: Readonly<Record<People, readonly [Res, Res]>> = {
   [People.Halfling]: [Res.Bread, Res.WroughtIron],
-  [People.Runkin]: [Res.Meat, Res.Flint],
+  [People.Runkin]: [Res.Venison, Res.Flint],
   [People.Elf]: [Res.Bread, Res.SteelIngot],
   [People.Dwarf]: [Res.Bread, Res.WroughtIron],
 };

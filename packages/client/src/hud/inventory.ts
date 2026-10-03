@@ -4,7 +4,7 @@
 // a time once more than 16 types of goods are held. Pure logic, no DOM: the
 // slot order, which goods have slots, the scroll position, the count text and
 // the change over the last minute. inventory-ui.ts draws it.
-import { Res, RESOURCE_COUNT, STEPS_PER_SECOND, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
+import { FISHES, MEATS, Res, RESOURCE_COUNT, STEPS_PER_SECOND, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
 
 /** Slots across and rows on screen. */
 export const INVENTORY_COLUMNS = 8;
@@ -16,8 +16,10 @@ TRINKET_METALS.forEach((_, m) => TRINKET_TIERS.forEach((_t, t) => trinkets.push(
 
 /**
  * Every good in slot order, by category, so a count changing never moves a
- * slot: woods, stone and flint, ores, metals, foods (and medicine), crafting
- * goods, trinkets, crystals.
+ * slot: woods, stone and flint, ores, metals, foods (each kind of meat and
+ * fish apart, then the rest, and medicine), crafting goods, trinkets,
+ * crystals. A recipe's "meat" and "fish" (any kind) are never held, so they
+ * have no slot.
  */
 export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res[] }> = [
   { name: 'Woods', items: [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Sticks, Res.Planks, Res.Resin] },
@@ -33,8 +35,8 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
   {
     name: 'Foods',
     items: [
-      Res.Meat,
-      Res.Fish,
+      ...MEATS,
+      ...FISHES,
       Res.Eggs,
       Res.Wheat,
       Res.Corn,

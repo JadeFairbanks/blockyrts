@@ -8,6 +8,7 @@
 import { CYCLE_STEPS } from '../rules.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
+import { fishOf } from '../economy/food-kinds.ts';
 import { Res } from '../economy/resources.ts';
 import { UnitKind, type SimState } from '../state.ts';
 import { Band } from '../world/layout.ts';
@@ -139,12 +140,12 @@ export const DOCK_FISH_STEPS = 10 * STEPS_PER_SECOND;
 const DOCK_REACH_WU = 30 * WU_PER_METRE;
 
 /** The stretch a dock fishes now: the nearest within reach that holds more than half what it can (Semi-automation: fishing). */
-export function dockStretch(state: SimState, b: Building): { cx: number; cz: number; i: number } | null {
+export function dockStretch(state: SimState, b: Building): { cx: number; cz: number; i: number; kind: number } | null {
   const [x, z] = buildingCentre(b);
   const gx = floorDiv(x, WU_PER_COLUMN);
   const gz = floorDiv(z, WU_PER_COLUMN);
   const r = floorDiv(DOCK_REACH_WU, WU_PER_COLUMN);
-  let best: { cx: number; cz: number; i: number } | null = null;
+  let best: { cx: number; cz: number; i: number; kind: number } | null = null;
   let bestD = 0;
   for (let cz = (gz - r) >> CHUNK_SHIFT; cz <= (gz + r) >> CHUNK_SHIFT; cz++) {
     for (let cx = (gx - r) >> CHUNK_SHIFT; cx <= (gx + r) >> CHUNK_SHIFT; cx++) {
@@ -154,7 +155,7 @@ export function dockStretch(state: SimState, b: Building): { cx: number; cz: num
         const pz = (cz << CHUNK_SHIFT) + p.lz - gz;
         const d = px * px + pz * pz;
         if (d > r * r || (best && d >= bestD)) continue;
-        best = { cx, cz, i: p.index };
+        best = { cx, cz, i: p.index, kind: p.kind };
         bestD = d;
       }
     }
@@ -181,7 +182,8 @@ function fishFromDock(state: SimState, b: Building): void {
   b.alerted &= ~4;
   const got = state.world.harvest(at.cx, at.cz, at.i, n, state.step);
   const pool = state.players[b.owner]!.pool;
-  pool[Res.Fish] = pool[Res.Fish]! + got;
+  const fish = fishOf(at.kind);
+  pool[fish] = pool[fish]! + got;
 }
 
 /** Each step: shafts are mined and docks fished. */

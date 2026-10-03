@@ -17,7 +17,8 @@ import {
   deserializeState,
   destroyBuilding,
   DUSK_STEPS,
-  foodInPool,
+  foodQuarters,
+  nextMealIn,
   gap,
   halfWidth,
   hashState,
@@ -67,6 +68,17 @@ const centre = (c: number): number => c * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
 function run(s: SimState, n: number, orders: Order[] = []): void {
   step(s, orders);
   for (let k = 1; k < n; k++) step(s);
+}
+
+/** Steps on until none of player 0's units has a meal in the next n steps, so the food in stock holds still meanwhile. */
+function mealFree(s: SimState, n: number): void {
+  const e = s.entities;
+  for (;;) {
+    let busy = false;
+    for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && nextMealIn(s.step, e.id[i]!) <= n + 2) busy = true;
+    if (!busy) return;
+    step(s);
+  }
 }
 
 function runUntil(s: SimState, done: () => boolean, max: number): number {
@@ -298,7 +310,7 @@ describe('training troops (Troops and gear: Barracks and Stables panel)', () => 
     built(s, BuildingKind.Forge, 4);
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.SoftwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.Feathers, Res.Rope]) pool[r] = 50;
     for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 20;
-    pool[Res.Meat] = 200;
+    pool[Res.Venison] = 200;
     // One Barracks each, so they train side by side: a bronze shortsword with a jerkin and wooden shield, an iron pike,
     // a steel-prod crossbow with a boiled-leather cuirass, and the brawler's pistol and cutlass.
     const kits: Array<[Troop, number, number]> = [
@@ -384,17 +396,20 @@ describe('training troops (Troops and gear: Barracks and Stables panel)', () => 
     const base = bigHouse(s)!;
     const kit = (): number[] => [pool[Res.Sticks]!, pool[Res.Leather]!, pool[Res.Planks]!];
     const before = kit();
-    const food = foodInPool(pool);
+    const player = s.players[0]!;
+    mealFree(s, 8);
+    const food = foodQuarters(player);
     const used = supplyUsed(s, 0);
     run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
     // A hardwood cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
     expect(kit()).toEqual([before[0]! - 3, before[1]! - 4, before[2]! - 3]);
-    expect(foodInPool(pool)).toBeLessThanOrEqual(food - 30);
-    expect(foodInPool(pool)).toBeGreaterThan(food - 33);
+    // Exactly 30 food, in quarters: nothing lost to rounding.
+    expect(foodQuarters(player)).toBe(food - 30 * 4);
     const paid = kit();
-    const paidFood = foodInPool(pool);
     // The one in training takes a supply.
     run(s, 2);
+    mealFree(s, 8);
+    const paidFood = foodQuarters(player);
     expect(base.queue[0]!.progress).toBeGreaterThan(0);
     expect(supplyUsed(s, 0)).toBe(used + 1);
     // A second one, cancelled: everything it paid comes back.
@@ -404,7 +419,7 @@ describe('training troops (Troops and gear: Barracks and Stables panel)', () => 
     run(s, 1, [{ kind: 'cancelProduce', player: 0, building: base.id, index: 1 }]);
     expect(base.queue.length).toBe(1);
     expect(kit()).toEqual(paid);
-    expect(foodInPool(pool)).toBe(paidFood);
+    expect(foodQuarters(player)).toBe(paidFood);
     // The first comes out with its kit: 45 s plus 10 + 30 + 20 s.
     const warriors = alive(s, UnitKind.Warrior);
     runUntil(s, () => alive(s, UnitKind.Warrior) === warriors + 1, 105 * 20 + 20);
