@@ -11,7 +11,7 @@ export const NUMBER_TABLES: readonly NumberTable[] = [
     columns: ["Rule","Value"],
     rows: [
       [{"text":"Claimed land","suggested":false,"marked":false},{"text":"5 m around a lit torch and 10 m around a player building measured from its outer edge (Jade), plus any region enclosed by barriers that holds a player building (doc); no other light claims (Jade)","suggested":false,"marked":false}],
-      [{"text":"Dark edge","suggested":false,"marked":false},{"text":"the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; if no such point exists the nearest unexplored spot 50 m from claimed land is used (s)","suggested":true,"marked":true}],
+      [{"text":"Dark edge","suggested":false,"marked":false},{"text":"the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; in co-op the explored land and so the dark edge are shared, and the 50 m keeps off every player's claimed land, not only the target player's (s, shared vision); each player's night mobs may come from any part of the shared dark edge, ally-scouted land included, and march to the player they were sent for (s); if no such point exists the nearest unexplored spot 50 m from claimed land is used (s)","suggested":true,"marked":true}],
       [{"text":"Light and units out in the dark","suggested":false,"marked":false},{"text":"spawn weight x0.25 within twice a light's radius, x0.5 within three times; x0.5 within 20 m of a player unit; weights multiply (s)","suggested":true,"marked":true}],
       [{"text":"Lair cadence","suggested":false,"marked":false},{"text":"per player (Jade: the lair count and the cap multiply by the player count): 1 new lair every 3 nights to night 14, every 2 nights to night 44, 1 a night from 45, placed at dusk in a cell with no player building, preferring one next to claimed land, at least 40 m from claimed land; live lairs capped at 2 + night / 15 per player; a cleared site waits 10 days (doc, suggested) (s)","suggested":true,"marked":true}],
       [{"text":"Outlying torches","suggested":false,"marked":false},{"text":"lights more than 40 m from any main base count (wall torches count half); limit 4 + night / 5; dusk goblins: 3 cutters and 1 slinger per light over the limit, 1 chief per 5 over, at most 40 (s)","suggested":true,"marked":true}],
@@ -281,7 +281,7 @@ export const NUMBER_TABLES: readonly NumberTable[] = [
     ],
   },
   {
-    id: "1",
+    id: "1.1",
     table: 1,
     title: "Player unit stats",
     caption: "Warriors and workers have 5 ranks (Jade: about five levels) and mages the doc's 6. A training building raises a unit at most two levels above its start (Jade), so training reaches rank 3 (Veteran, Adept Acolyte, Master worker) and everything above comes only from combat experience. Weapon specialisations only make a unit able to use the weapon and give no bonus (Jade).",
@@ -308,6 +308,27 @@ export const NUMBER_TABLES: readonly NumberTable[] = [
     notes: [
       "Warriors and workers have 5 ranks (Jade: about five levels) and mages the doc's 6. A training building raises a unit at most two levels above its start (Jade), so training reaches rank 3 (Veteran, Adept Acolyte, Master worker) and everything above comes only from combat experience. Weapon specialisations only make a unit able to use the weapon and give no bonus (Jade).",
       "How these were set: health steps of 20 per warrior rank put the roster's \"veteran about 180\" at rank 5 (Hero); the XP ladder is set so that one warrior who takes most of night 0's kills (budget 12, so about 24 XP) reaches Soldier on night 1, and a 30-warrior army averages Hero around night 80 (table 8 budgets, 2 XP per threat). Mage health is 10 below a warrior at every step because they wear no metal.",
+      "Building sight (s, shared vision patch, PR #68, 2026-10-03; Jade asked that buildings grant map vision like units): unit sight above is unchanged (with the Elite and Hero bonus, the mounted 30 m and a tower's +10 m for its garrison). Measured out from the building's outer edge, the way claimed land is measured; halved on a fog night. Balance editor: BUILDING_SIGHT_M in the Buildings group.",
+    ],
+  },
+  {
+    id: "1.2",
+    table: 1,
+    title: "Player unit stats",
+    caption: "Building sight (s, shared vision patch, PR #68, 2026-10-03; Jade asked that buildings grant map vision like units): unit sight above is unchanged (with the Elite and Hero bonus, the mounted 30 m and a tower's +10 m for its garrison). Measured out from the building's outer edge, the way claimed land is measured; halved on a fog night. Balance editor: BUILDING_SIGHT_M in the Buildings group.",
+    columns: ["Building","Sight (s)"],
+    rows: [
+      [{"text":"Main base (every level)","suggested":false,"marked":false},{"text":"20 m, so the town keeps watch at night while the workers shelter","suggested":true,"marked":false}],
+      [{"text":"Tower (softwood, hardwood, stone)","suggested":false,"marked":false},{"text":"20 m, the same +10 m it gives its garrison","suggested":true,"marked":false}],
+      [{"text":"Brazier","suggested":false,"marked":false},{"text":"14 m, as far as it lights","suggested":true,"marked":false}],
+      [{"text":"Every other building, wall, gate, torch post, wall torch and lantern","suggested":false,"marked":false},{"text":"10 m, how far a building claims land; torch posts, wall torches and lanterns see 10 m lit or unlit","suggested":true,"marked":false}],
+      [{"text":"Earthworks and ramps","suggested":false,"marked":false},{"text":"none (they are land, not buildings)","suggested":false,"marked":false}],
+      [{"text":"A paid foundation","suggested":false,"marked":false},{"text":"its full radius while it is being built, as it already claims land","suggested":false,"marked":false}],
+    ],
+    notes: [
+      "Warriors and workers have 5 ranks (Jade: about five levels) and mages the doc's 6. A training building raises a unit at most two levels above its start (Jade), so training reaches rank 3 (Veteran, Adept Acolyte, Master worker) and everything above comes only from combat experience. Weapon specialisations only make a unit able to use the weapon and give no bonus (Jade).",
+      "How these were set: health steps of 20 per warrior rank put the roster's \"veteran about 180\" at rank 5 (Hero); the XP ladder is set so that one warrior who takes most of night 0's kills (budget 12, so about 24 XP) reaches Soldier on night 1, and a 30-warrior army averages Hero around night 80 (table 8 budgets, 2 XP per threat). Mage health is 10 below a warrior at every step because they wear no metal.",
+      "Building sight (s, shared vision patch, PR #68, 2026-10-03; Jade asked that buildings grant map vision like units): unit sight above is unchanged (with the Elite and Hero bonus, the mounted 30 m and a tower's +10 m for its garrison). Measured out from the building's outer edge, the way claimed land is measured; halved on a fog night. Balance editor: BUILDING_SIGHT_M in the Buildings group.",
     ],
   },
   {
@@ -803,7 +824,8 @@ export const NUMBER_TABLES: readonly NumberTable[] = [
       [{"text":"Keys","suggested":false,"marked":false},{"text":"[ Allies, ] Send resources, \\ Map ping, Pause key, Enter chat; all rebindable except Enter","suggested":false,"marked":false}],
       [{"text":"Send resources","suggested":false,"marked":false},{"text":"+10, +100, All or a typed amount; arrives at once","suggested":true,"marked":false}],
       [{"text":"Relay protocol","suggested":false,"marked":false},{"text":"version 3 since Milestone 11 (version 2 added each player's account id to the room state)","suggested":true,"marked":false}],
-      [{"text":"Save format","suggested":false,"marked":false},{"text":"version 2 since Milestone 11; a save from before the troop rework is refused with \"That save is from before the troop rework ... Start a new game.\"","suggested":true,"marked":false}],
+      [{"text":"Shared vision","suggested":false,"marked":false},{"text":"the players are one side with one picture: explored land, what is in sight now, and found lairs, goblin villages and settlements on every minimap are shared; meeting a people stays each player's own; an Attack keeps its target while anyone on the side sees it (s, PR #68)","suggested":true,"marked":false}],
+      [{"text":"Save format","suggested":false,"marked":false},{"text":"a save from before the shared vision patch loads with every player's explored land joined into one; version 2 since Milestone 11; a save from before the troop rework is refused with \"That save is from before the troop rework ... Start a new game.\"","suggested":true,"marked":false}],
     ],
     notes: [
     ],

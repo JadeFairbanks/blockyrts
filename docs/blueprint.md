@@ -665,7 +665,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | **Rule** | **Value** |
 |---|---|
 | Claimed land | 5 m around a lit torch and 10 m around a player building measured from its outer edge (Jade), plus any region enclosed by barriers that holds a player building (doc); no other light claims (Jade) |
-| Dark edge | the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; if no such point exists the nearest unexplored spot 50 m from claimed land is used (s) |
+| Dark edge | the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; in co-op the explored land and so the dark edge are shared, and the 50 m keeps off every player's claimed land, not only the target player's (s, shared vision); each player's night mobs may come from any part of the shared dark edge, ally-scouted land included, and march to the player they were sent for (s); if no such point exists the nearest unexplored spot 50 m from claimed land is used (s) |
 | Light and units out in the dark | spawn weight x0.25 within twice a light's radius, x0.5 within three times; x0.5 within 20 m of a player unit; weights multiply (s) |
 | Lair cadence | per player (Jade: the lair count and the cap multiply by the player count): 1 new lair every 3 nights to night 14, every 2 nights to night 44, 1 a night from 45, placed at dusk in a cell with no player building, preferring one next to claimed land, at least 40 m from claimed land; live lairs capped at 2 + night / 15 per player; a cleared site waits 10 days (doc, suggested) (s) |
 | Outlying torches | lights more than 40 m from any main base count (wall torches count half); limit 4 + night / 5; dusk goblins: 3 cutters and 1 slinger per light over the limit, 1 chief per 5 over, at most 40 (s) |
@@ -1054,7 +1054,9 @@ Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality stee
 
 - The map is **endless** in practice. It is procedurally generated as the players explore, out to a world edge 100 km from the start, a nine-hour run that no game will reach. An advanced AI system (Fable) will be used to help design procedural generation that fits the game.
 - **Fog of war:** unexplored land is black, and land that has been explored but is not currently seen is greyed out.
-- **Vision as built (shared vision patch, 2026-10-03, (s)):** a player's buildings see as units do, out from their outer edge: the main base and towers 20 m, braziers 14 m, every other building 10 m (BUILDING_SIGHT_M, halved on a fog night), from the moment the foundation is laid. The players are one side with one picture: land any player explores is explored for all, everyone sees what any player's units and buildings see now, and lairs, villages and peoples one player finds are marked for all. Units sheltering or working inside a building see nothing of their own; a tower's or parapet's garrison and a cannon in a port still do. An Attack keeps its target while anyone on the side sees it. Night spawns keep their stand-off from every player's claimed land, since the dark edge is shared.
+  - **Buildings see (suggested)** (Jade asked, 2026-10-03, for buildings to grant map vision as units do; built in PR #68): every building a player owns sees round it, measured out from its outer edge like claimed land. The main base and towers see 20 m, a brazier 14 m, and every other building, wall, gate, torch post, wall torch and lantern 10 m; earthworks and ramps are land and see nothing (table 1, building sight). A fog night halves it, as it halves all sight.
+  - What a building sees is explored and in sight now, exactly as for a unit, so lairs and goblin villages in its sight are marked found. A paid foundation sees its full radius from the moment a worker lays it, and torch posts, wall torches and lanterns see whether lit or not (suggested).
+  - Units sheltering, working or training inside a building see nothing of their own; the building sees for them. A garrison in a tower or on a main base's parapets, and a cannon in a port, still see, with the tower's +10 m.
 - **Cells:** the world is laid out as a network first and filled in afterwards. It is divided into **cells**, like a slightly uneven honeycomb. Near the start, each cell is roughly 150 to 200 m across (about 50 to 67 seconds of running at a warrior's base speed of 3 m/s, see "Warriors"), and cells get bigger farther out. Every cell can be worked out from the world seed and its own position alone, so the world can be generated in any order and comes out the same on every computer.
 - **Cell sizes:** the first two rings of cells around the start basin are 150 to 200 m across. Each ring after that is about 10 to 30% larger than the one before, until cells are about 2.5 times the starting size (about 375 to 500 m across). From there on, cells stay around that size, give or take 30%. The Barrens begin where cells reach this full size.
 - **Scale:** with cells growing by about 20% per ring on average, they reach full size about 7 rings out, so the Barrens begin roughly 1.6 km from the start: about a 10-minute run at a warrior's base speed.
@@ -1742,6 +1744,17 @@ Warriors and workers have 5 ranks (Jade: about five levels) and mages the doc's 
 | Battle mage | 1 to 6 | as support (s) | as support (s) | spells, table 13, same multipliers | 1.0 s cast (s) | 3.0 | robe (table 13) | 24 m (s) | 15 m (s) | spells |
 
 **How these were set:** health steps of 20 per warrior rank put the roster's "veteran about 180" at rank 5 (Hero); the XP ladder is set so that one warrior who takes most of night 0's kills (budget 12, so about 24 XP) reaches Soldier on night 1, and a 30-warrior army averages Hero around night 80 (table 8 budgets, 2 XP per threat). Mage health is 10 below a warrior at every step because they wear no metal.
+
+Building sight (s, shared vision patch, PR #68, 2026-10-03; Jade asked that buildings grant map vision like units): unit sight above is unchanged (with the Elite and Hero bonus, the mounted 30 m and a tower's +10 m for its garrison). Measured out from the building's outer edge, the way claimed land is measured; halved on a fog night. Balance editor: BUILDING_SIGHT_M in the Buildings group.
+
+| **Building** | **Sight (s)** |
+|---|---|
+| Main base (every level) | 20 m, so the town keeps watch at night while the workers shelter |
+| Tower (softwood, hardwood, stone) | 20 m, the same +10 m it gives its garrison |
+| Brazier | 14 m, as far as it lights |
+| Every other building, wall, gate, torch post, wall torch and lantern | 10 m, how far a building claims land; torch posts, wall torches and lanterns see 10 m lit or unlit |
+| Earthworks and ramps | none (they are land, not buildings) |
+| A paid foundation | its full radius while it is being built, as it already claims land |
 
 #### Table 7: Training and upgrading
 
@@ -2571,6 +2584,7 @@ From the Milestone 10 balance pass; details in the repo's docs/balance-pass.md. 
 - 5. Night 10 breaks a hardwood wall on 2 seeds of 3 (bloated corpses, small slimes, and archers on seed 3).
 - 6. On night 0, a bat or the giant spider sometimes kills a worker.
 - 7. Night 0 with the starting cudgels (Milestone 11): in the fenced test fort the old starting spears (2 m) stabbed over the fence, but the hardwood cudgels (1.2 m) cannot, so a zombie chews through a corner and kills 2 of the 3 starting warriors while the workers and the Big House come through. Open for Jade's rebalance (the start tier, or a long-melee starter).
+- 8. Shared vision (PR #68): none of the building sight radii were tested against the night pacing, and shared exploring means a co-op side uncovers the map faster, which moves the shared dark edge (and so the spawn ring) outward sooner. Open for Jade's rebalance through BUILDING_SIGHT_M.
 
 ### Magic
 
@@ -2806,6 +2820,13 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - **Who sees what (suggested):** chat lines, pings, joins, leaves and pauses go to every player. A player's own alerts (attacks, deaths, trades, sent resources) go only to them. Messages name players by their names, never "Player 2".
 - **Pause (suggested):** the Pause key or the ❚❚ button. Alone, the game also pauses while the F10 menu or the account page is open. Online, anyone may pause and anyone may carry on; a banner says who paused.
 
+#### Shared vision
+
+- All players share vision from all their units and buildings (Jade, 2026-10-03). The players are one side with one picture: land any player explores is explored for every player, and every player sees what any player's units and buildings see now.
+- Lairs, goblin villages and the peoples' settlements one player finds show on every player's minimap. Meeting a people (its greeting, trade and war) stays each player's own, since that is diplomacy, not sight (suggested).
+- A player can build and dig on land an ally explored. An explicit Attack keeps its target while anyone on the side sees it, so archers can be sent at what a tower spots; once no one sees it, the order drops (suggested).
+- The dark edge is shared too, so night spawn points keep table 8's distance from every player's claimed land, and each player's night mobs may come from any part of the shared edge and march to the player they were sent for (suggested).
+
 #### When a player is eliminated or leaves
 
 - Their resources are split evenly between the remaining players.
@@ -2833,6 +2854,7 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - If the player does not come back, the host chooses: save and quit, or carry on without them, in which case their resources, buildings and units are shared out as if they had been eliminated.
 - Suggested, as built 2026-10-03: everyone sees "Waiting for NAME" after 1 s; after 30 s the host gets three choices: Wait, Carry on without them, or Save and quit (saves first, then closes the room for everyone). A player who leaves from the menu leaves for good and their side is shared out at once. Shared-out buildings keep the research their old owner had.
 - Suggested, as built: the dawn autosave keeps the newest 5 matches in this browser and, with an account, on the server too (online, only the host's). Download a save file (F10 menu) writes a .sac file that Load game can open. A save carries each seat's name, colour and account, so a loaded game puts the same people back in the same seats, and loading gives the same game state as when it was saved. Online, only the host may save; the others see why the button is off.
+- Suggested, as built in PR #68: a save from before shared vision loads with every player's explored land joined into one.
 
 ### Outside the match
 
@@ -2871,7 +2893,8 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Keys | [ Allies, ] Send resources, \ Map ping, Pause key, Enter chat; all rebindable except Enter |
 | Send resources | +10, +100, All or a typed amount; arrives at once |
 | Relay protocol | version 3 since Milestone 11 (version 2 added each player's account id to the room state) |
-| Save format | version 2 since Milestone 11; a save from before the troop rework is refused with "That save is from before the troop rework ... Start a new game." |
+| Shared vision | the players are one side with one picture: explored land, what is in sight now, and found lairs, goblin villages and settlements on every minimap are shared; meeting a people stays each player's own; an Attack keeps its target while anyone on the side sees it (s, PR #68) |
+| Save format | a save from before the shared vision patch loads with every player's explored land joined into one; version 2 since Milestone 11; a save from before the troop rework is refused with "That save is from before the troop rework ... Start a new game." |
 
 ### Audio
 
