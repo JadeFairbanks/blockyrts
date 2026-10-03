@@ -10,8 +10,9 @@
 import { clockOf, Period } from '../clock.ts';
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pickNight } from '../combat/spawn.ts';
-import { placeBuilding, UnitKind, WILD, type SimState } from '../state.ts';
-import { BuildingKind, footprintDims } from '../buildings/data.ts';
+import { placeBuilding, refitBuilding, UnitKind, WILD, type SimState } from '../state.ts';
+import { BuildingKind } from '../buildings/data.ts';
+import { footprintDims } from '../buildings/footprints.ts';
 import { Res } from '../economy/resources.ts';
 import { Research, Skill } from '../combat/items.ts';
 import { addMob } from '../combat/mob-ai.ts';
@@ -31,6 +32,7 @@ import { addLair, nightNow } from './lairs.ts';
 import { startBlood, startFog } from './nights.ts';
 import { spawnBand } from './tribes.ts';
 import { buildVillage } from './villages.ts';
+import { spreadTop } from '../units/top.ts';
 
 /** What a debugThreat order makes: lairs 0 to 7 in Table 15's order, then the rest. */
 export const DebugThreat = {
@@ -184,6 +186,8 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
       b.complete = true;
       b.upgrading = 0;
       b.hp = maxHealth(b);
+      refitBuilding(state, b);
+      spreadTop(state, b);
     }
     return;
   }

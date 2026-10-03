@@ -16,7 +16,8 @@ import { pointGoal, TILE_COLUMNS } from '../nav/path.ts';
 import { burnThisStep } from '../rules.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
-import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
+import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight, swoopFloor } from './combat.ts';
+import { onTop } from '../units/top.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
 import { BLAST, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
@@ -144,11 +145,22 @@ export function playerUnit(state: SimState, j: number): boolean {
   return side === Side.Players || (side === Side.Peoples && e.role[j] !== Role.Structure);
 }
 
-/** The players' unit a mob goes for: the one that hurt it, else the closest in sight (hounds: workers and archers first). */
+/** Whether a mob comes down on men on a building's top: a flyer that fights in reach (a bat, a gravewing; Jade's patch notes 1). */
+function swoops(spec: MobSpec): boolean {
+  return flies(spec) && spec.range === 0;
+}
+
+/** A unit a mob may go for: one of playerUnit's, or for a swooping flyer also the players' men up top. */
+function prey(state: SimState, spec: MobSpec, j: number): boolean {
+  if (playerUnit(state, j)) return true;
+  return swoops(spec) && state.entities.hp[j]! > 0 && onTop(state, j) && sideOf(state, j) === Side.Players;
+}
+
+/** The players' unit a mob goes for: the one that hurt it, else the closest in sight (hounds: workers and archers first; a swooping flyer, men up top too). */
 function pickUnit(state: SimState, i: number, spec: MobSpec): number {
   const e = state.entities;
   const a = e.indexOf(e.attacker[i]!);
-  if (a >= 0 && playerUnit(state, a) && state.step - e.hurtAt[i]! < 5 * STEPS_PER_SECOND && gap(state, i, a) <= GIVE_UP_WU) return a;
+  if (a >= 0 && prey(state, spec, a) && state.step - e.hurtAt[i]! < 5 * STEPS_PER_SECOND && gap(state, i, a) <= GIVE_UP_WU) return a;
   const hunts = spec.id === Mob.GraveHound || spec.id === Mob.CaveBat;
   const aggro = fogged(state) ? AGGRO_WU >> 1 : AGGRO_WU;
   const range = hunts ? (fogged(state) ? HUNT_WU >> 1 : HUNT_WU) : aggro;
@@ -156,8 +168,10 @@ function pickUnit(state: SimState, i: number, spec: MobSpec): number {
   let bestTier = 9;
   let bestD = 0;
   // Only units the monsters do not own can be prey: the same answer as near(), without the horde.
-  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, range)) {
-    if (!playerUnit(state, j)) continue;
+  const near = state.grid.nearOthers(e.x[i]!, e.z[i]!, range);
+  if (swoops(spec)) near.push(...state.grid.nearTops(e.x[i]!, e.z[i]!, range));
+  for (const j of near) {
+    if (!prey(state, spec, j)) continue;
     const d = gap(state, i, j);
     if (d > range) continue;
     // Hounds want the soft targets: workers and archers before warriors in melee.
@@ -310,7 +324,7 @@ function begin(state: SimState, i: number, spec: MobSpec, target: number, withWh
   e.order[i] = shooting(withWhat) ? OrderKind.Shoot : OrderKind.Attack;
   // A bat swoops down to strike; a high flyer is low for 2 s while it does (roster: the gravewing's snatch).
   if (flies(spec) && withWhat === With.Unit) {
-    e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + SWOOP_HEIGHT;
+    e.y[i] = swoopFloor(state, i) + SWOOP_HEIGHT;
     if (spec.moves === Moves.HighFlyer) e.lowUntil[i] = state.step + 2 * STEPS_PER_SECOND;
   }
   // A wolf rider's run makes this a charge (Table 14).
@@ -381,7 +395,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     return;
   }
   const t = e.indexOf(id);
-  if (t < 0 || !playerUnit(state, t)) return;
+  if (t < 0 || !prey(state, spec, t)) return;
   const fromY = e.y[i]! + floorDiv(spec.height * 2, 3);
   if (what === With.Shot) {
     // A goblin mage's ranged attack is its Spark toss, paid in mana.
@@ -733,7 +747,7 @@ export function runMob(state: SimState, i: number): void {
     }
   }
   let t = e.indexOf(e.target[i]!);
-  if (t < 0 || !playerUnit(state, t) || gap(state, i, t) > GIVE_UP_WU) t = pickUnit(state, i, spec);
+  if (t < 0 || !prey(state, spec, t) || gap(state, i, t) > GIVE_UP_WU) t = pickUnit(state, i, spec);
   if (spec.firstNight >= LATE_FIRST_NIGHT && lateHooks.act(state, i, spec, t)) return;
   if (t < 0) {
     e.target[i] = 0;
@@ -774,7 +788,7 @@ export function engageUnit(state: SimState, i: number, spec: MobSpec, t: number)
   const blocker = { id: 0 };
   e.target[i] = e.id[t]!;
   // A bat stays down among its prey while it is close enough to strike, and climbs back up to travel.
-  if (flies(spec)) e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + (gap(state, i, t) <= spec.reach + WU_PER_METRE || e.lowUntil[i]! > state.step ? SWOOP_HEIGHT : cruise(spec));
+  if (flies(spec)) e.y[i] = gap(state, i, t) <= spec.reach + WU_PER_METRE || e.lowUntil[i]! > state.step ? swoopFloor(state, i) + SWOOP_HEIGHT : groundAt(state, e.x[i]!, e.z[i]!) + cruise(spec);
   if (spec.id === Mob.GraveHound && state.step >= e.abilityAt[i]!) howl(state, i);
   const d = gap(state, i, t);
   // Ranged mobs shoot from range; spiders spit web when it is ready.

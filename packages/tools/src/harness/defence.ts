@@ -45,6 +45,7 @@ import {
   Shot,
   Skill,
   standY,
+  stepOffSolid,
   startBlood,
   step,
   Troop,
@@ -230,6 +231,8 @@ function setDown(s: SimState, i: number, cx: number, cz: number): void {
   e.x[i] = colCentre(cx);
   e.z[i] = colCentre(cz);
   e.y[i] = standY(s, e.x[i]!, e.z[i]!);
+  // Never inside a building's walls (the Big House's sheds, since patch notes 1): the nearest free column, as in play.
+  stepOffSolid(s, i);
   e.homeX[i] = e.x[i]!;
   e.homeZ[i] = e.z[i]!;
 }

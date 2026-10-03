@@ -22,7 +22,7 @@ export type UnitOrder =
   | { t: 'return' }
   /** Drop the load at this building, then back to the node. */
   | { t: 'dropoff'; b: number }
-  /** Go inside a shelter. auto = 1 when Everyone Home or a farm sent it; it comes out at daybreak. */
+  /** Go inside a shelter, or up on a building's top. auto = 1 when Everyone Home or a farm sent it (it comes out at daybreak); ENTER_TOP up top (units/top.ts). */
   | { t: 'enter'; b: number; auto: number }
   /** A standing job: farm a farm, or craft in a production building, until given another order. */
   | { t: 'job'; b: number }
@@ -99,6 +99,9 @@ export type UnitOrder =
   | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number };
 
 export type UnitOrderType = UnitOrder['t'];
+
+/** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
+export const ENTER_TOP = 2;
 
 const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'port', 'loot', 'forage'];
 
@@ -179,7 +182,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'dropoff':
       return 'Returning cargo';
     case 'enter':
-      return 'Sheltering';
+      return o.auto === ENTER_TOP ? 'Manning the top' : 'Sheltering';
     case 'job':
       return 'Working';
     case 'refuel':

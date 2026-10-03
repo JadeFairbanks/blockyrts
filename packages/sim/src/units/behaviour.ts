@@ -9,7 +9,7 @@ import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../b
 import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { fishOf, meatOf } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
-import { constructionHealth, footprintRect, garrisonRoom, maxHealth, solidRect, type Building } from '../buildings/store.ts';
+import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
@@ -17,16 +17,16 @@ import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
-import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
+import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
-import type { UnitOrder } from './unit-orders.ts';
+import { ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
-import { buildingTop } from '../combat/projectiles.ts';
+import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
 import { refundKit, runCart, runKitUp, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
@@ -387,6 +387,8 @@ export function workOn(state: SimState, b: Building): void {
       b.upgrading = 0;
       b.upProgress = 0;
       b.hp += maxHealth(b) - oldMax;
+      // The men up top move onto the new level's places.
+      spreadTop(state, b);
       const [x, z] = buildingCentre(b);
       state.events.push({ player: b.owner, kind: 'info', text: `Upgraded to ${buildingName(b.kind, b.level, b.variant)}.`, x, z });
     }
@@ -483,7 +485,8 @@ export function destroyBuilding(state: SimState, id: number): void {
   const b = state.buildings.get(id);
   if (!b) return;
   const e = state.entities;
-  for (const j of unitsInside(state, id)) {
+  const inside = unitsInside(state, id);
+  for (const j of inside) {
     e.inside[j] = 0;
     dropQueue(state, j);
     e.act[j] = Act.Start;
@@ -496,6 +499,8 @@ export function destroyBuilding(state: SimState, id: number): void {
     }
   }
   state.buildings.remove(id, (key) => state.world.touchNav(key));
+  // The men who stood up top come down with it.
+  for (const j of inside) if (e.y[j]! > b.y * WU_PER_TERRAIN_UNIT) e.y[j] = standY(state, e.x[j]!, e.z[j]!);
   const [x, z] = buildingCentre(b);
   if (!buildingSpec(b.kind).defence) alert(state, b.owner, `${buildingName(b.kind, b.level, b.variant)} was destroyed.`, x, z);
   computeEnclosed(state);
@@ -959,18 +964,30 @@ function runRepairAll(state: SimState, i: number): boolean {
   return CONTINUE;
 }
 
+/**
+ * Going into a building: workers shelter inside, everyone else goes up on
+ * its top (units/top.ts). A worker sent up top (auto ENTER_TOP) goes up
+ * while there is room there and shelters inside once it is full.
+ */
 function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter' }>): boolean {
   const e = state.entities;
   const b = state.buildings.get(o.b);
   const worker = e.kind[i] === UnitKind.Worker;
-  const room = !b ? 0 : worker ? shelterRoom(b) : canGarrison(state, i) ? garrisonRoom(b) : 0;
-  if (!b || b.owner !== e.owner[i] || room === 0) return DONE;
-  if (e.inside[i] === b.id) return CONTINUE;
+  const topRoom = b && canGarrison(state, i) ? garrisonRoom(b) : 0;
+  const shelter = b && worker ? shelterRoom(b) : 0;
+  const up = topRoom > 0 && (!worker || o.auto === ENTER_TOP);
+  if (!b || b.owner !== e.owner[i] || (!up && shelter === 0)) return DONE;
+  if (e.inside[i] === b.id) {
+    // Already in: sent up from the shelter below, or up top in a game saved before men stood on its posts.
+    if (onTop(state, i) && e.y[i]! <= b.y * WU_PER_TERRAIN_UNIT) climbUp(state, i, b, o, topRoom);
+    return CONTINUE;
+  }
   const r = walkTo(state, i, besideBuilding(b));
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
-  // Shelter and parapet places are counted apart: workers inside, and the ranged warriors on top.
-  if (unitsInside(state, b.id).filter((j) => (e.kind[j] === UnitKind.Worker) === worker).length >= room) {
+  // The top's places and the shelter's are counted apart.
+  const top = up && unitsOnTop(state, b.id).length < topRoom;
+  if (!top && (shelter === 0 || shelteredIn(state, b.id).length >= shelter)) {
     alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
@@ -978,17 +995,27 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   if (e.carryAmt[i]! > 0 && accepts(buildingSpec(b.kind), e.carryRes[i]!)) unload(state, i, b);
   else if (buildingSpec(b.kind).dropoff === 'all') handIn(state, i);
   goInside(state, i, b);
-  // A garrison stands on the top: spread round it, at its height.
-  if (!worker) {
-    const [x0, z0, x1, z1] = solidRect(b);
-    const n = unitsInside(state, b.id).filter((j) => e.kind[j] !== UnitKind.Worker).length - 1;
-    const w = x1 - x0 + 1;
-    e.x[i] = columnCentre(x0 + (n % w));
-    e.z[i] = columnCentre(z0 + (floorDiv(n, w) % (z1 - z0 + 1)));
-    e.y[i] = buildingTop(b);
-  }
   e.act[i] = Act.Inside;
+  if (top) climbUp(state, i, b, o, topRoom);
+  // A worker whose way up was full shelters inside instead.
+  else if (o.auto === ENTER_TOP) o.auto = 0;
   return CONTINUE;
+}
+
+/** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
+function climbUp(state: SimState, i: number, b: Building, o: Extract<UnitOrder, { t: 'enter' }>, room: number): void {
+  const e = state.entities;
+  if (unitsOnTop(state, b.id).filter((j) => j !== i).length >= room) {
+    if (e.kind[i] === UnitKind.Worker) o.auto = 0;
+    return;
+  }
+  o.auto = ENTER_TOP;
+  [e.x[i], e.y[i], e.z[i]] = freePost(state, b, i);
+}
+
+/** The workers sheltering inside a building (not up on its top), by index. */
+export function shelteredIn(state: SimState, id: number): number[] {
+  return unitsInside(state, id).filter((j) => !onTop(state, j));
 }
 
 /** Buildings that take assigned workers: farms of every kind and the lumber mill. */
@@ -1011,13 +1038,32 @@ export function assigned(state: SimState, id: number): number[] {
   return out;
 }
 
-/** Where farmer number k stands in a farm's field: a grid of spots clear of the farmhouse. */
+/** Where farmer number k stands in a farm's field: a grid of spots clear of the farmhouse in its north-west corner. */
 function farmSpot(b: Building, k: number): [number, number] {
-  const s = buildingSpec(b.kind);
-  const [, , sw, sd] = s.solid;
-  const fx = b.x + sw + 1 + ((k & 1) === 0 ? 0 : (s.w - sw) >> 1);
-  const fz = b.z + sd + 1 + ((k >> 1) & 1 ? (s.d - sd) >> 1 : 0);
-  return [Math.min(fx, b.x + s.w - 1), Math.min(fz, b.z + s.d - 1)];
+  const s = placedDims(b);
+  // The farmhouse: the solid columns in the north-west quarter (a scarecrow or a well out in the field is not it).
+  let sw = 0;
+  let sd = 0;
+  for (const [x, z] of s.cells) {
+    if (x >= s.w >> 1 || z >= s.d >> 1) continue;
+    sw = Math.max(sw, x + 1);
+    sd = Math.max(sd, z + 1);
+  }
+  const x0 = b.x + s.ox;
+  const z0 = b.z + s.oz;
+  let fx = Math.min(x0 + sw + 1 + ((k & 1) === 0 ? 0 : (s.w - sw) >> 1), x0 + s.w - 1);
+  const fz = Math.min(z0 + sd + 1 + ((k >> 1) & 1 ? (s.d - sd) >> 1 : 0), z0 + s.d - 1);
+  // Off anything else that stands in the field, along the row.
+  while (fx > x0 && solidOf(b, fx, fz)) fx--;
+  return [fx, fz];
+}
+
+/** Whether a column is one of a building's solid ones. */
+function solidOf(b: Building, x: number, z: number): boolean {
+  const s = placedDims(b);
+  const dx = x - b.x - s.ox;
+  const dz = z - b.z - s.oz;
+  return s.cells.some(([cx, cz]) => cx === dx && cz === dz);
 }
 
 function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>): boolean {
@@ -1288,6 +1334,8 @@ export function runUnit(state: SimState, i: number): void {
   e.order[i] = OrderKind.Idle;
   // Held by a slime: it cannot act until let go.
   if (e.heldUntil[i]! > state.step) return;
+  // Inside a building's walls (a game saved before they were walls): out first.
+  if (e.inside[i] === 0) stepOffSolid(state, i);
   if (fightStep(state, i)) return;
   // A few orders in a row may finish at once (a drop-off with nothing carried); bounded so a step stays short.
   for (let guard = 0; guard < 4; guard++) {
