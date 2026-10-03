@@ -7,6 +7,7 @@ import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { Walk, WALKER } from '../nav/grid.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
 import type { SimState } from '../state.ts';
+import type { World } from '../world/world.ts';
 import { AUTO_REFUEL_M, BUILDING_CLAIM_M, BuildingKind, buildingSpec, footprintDims, OUTLYING_M } from './data.ts';
 import { footprintRect, type Building, type Placed } from './store.ts';
 
@@ -171,12 +172,25 @@ function colKey(x: number, z: number): number {
  * claimed land. Run at dusk and whenever a building is finished or destroyed.
  */
 export function computeEnclosed(state: SimState): void {
+  // The answer reads only the walk map and the buildings that can be closed
+  // in (their place never changes, only whether they stand, are finished and
+  // whose they are): with neither changed since the last time, it stands.
+  const nav = state.nav;
+  const held: number[] = [];
+  for (const b of state.buildings.list) {
+    const s = buildingSpec(b.kind);
+    if (b.complete && !s.light && !s.defence) held.push(b.id, b.owner);
+  }
+  const last = lastEnclosed.get(state.world);
+  if (last && last.epoch === state.world.navEpoch && last.held.length === held.length && last.held.every((v, k) => v === held[k])) {
+    state.enclosed = last.enclosed.slice();
+    return;
+  }
   const keys: number[] = [];
   const open = new Set<number>();
   /** Closed columns to their region, and each region's tiles (x, z pairs). */
   const shut = new Map<number, number>();
   const regions: number[][] = [];
-  const nav = state.nav;
   for (const b of state.buildings.list) {
     const s = buildingSpec(b.kind);
     if (!b.complete || s.light || s.defence) continue;
@@ -238,7 +252,11 @@ export function computeEnclosed(state: SimState): void {
     regions.push(tiles);
   }
   state.enclosed = [...new Set(keys)].sort((a, c) => a - c);
+  lastEnclosed.set(state.world, { epoch: state.world.navEpoch, held, enclosed: state.enclosed.slice() });
 }
+
+/** Not state: the last enclosure worked out per world, and what it was worked out from. */
+const lastEnclosed = new WeakMap<World, { epoch: number; held: number[]; enclosed: number[] }>();
 
 /**
  * Lights more than 40 m from any of the player's main bases, counted in
