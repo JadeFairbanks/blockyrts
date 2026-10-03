@@ -46,7 +46,7 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     const c = focusColumn();
     order({ kind: 'terrain', player: PLAYER, x0: c.x - 2, z0: c.z - 2, x1: c.x + 2, z1: c.z + 2, bottom: c.y, top: c.y + 9, material: Mat.Stone });
   });
-  add('dbg-hill', 'Hill', 'Debug: hill', 'Builds a soil hill 3.4 m tall and 5 m across in the middle of the view, with a 45 cm ledge on its south side (units hop up it) and a 56 cm ledge on its north side (too tall to get up), as terrain edits. Dig (D) pressed on the hill side tunnels into it.', () => {
+  add('dbg-hill', 'Hill', 'Debug: hill', 'Builds a soil hill 3.4 m tall and 5 m across in the middle of the view, with a 45 cm ledge on its south side (units hop up it) and a 56 cm ledge on its north side (too tall to get up), as terrain edits. Dig (D) clicked on the hill side starts a tunnel into it; click again further in to dig it.', () => {
     const c = focusColumn();
     const soil = (z0: number, z1: number, top: number): void => order({ kind: 'terrain', player: PLAYER, x0: c.x - 5, z0: c.z + z0, x1: c.x + 5, z1: c.z + z1, bottom: c.y - 4, top: c.y + top, material: Mat.Soil });
     soil(6, 10, 4);

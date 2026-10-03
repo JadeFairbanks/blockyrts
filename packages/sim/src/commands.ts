@@ -332,8 +332,13 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;
+  // A column planned already, or with a wall standing or started on it (a chain closing on its anchor, or joining a wall built before), is passed over without a word.
+  const walled = (x: number, z: number): boolean => {
+    const b = state.buildings.get(state.buildings.footprintAt(x, z));
+    return b !== undefined && buildingSpec(b.kind).defence === 'wall';
+  };
   for (const [x, z] of cells) {
-    if (planned.has(`${x},${z}`)) continue;
+    if (planned.has(`${x},${z}`) || walled(x, z)) continue;
     if (placementBlocked(state, o.player, o.building, x, z) !== Blocked.None) blocked++;
     else open.push([x, z]);
   }

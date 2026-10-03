@@ -4,9 +4,10 @@
 //   node packages/client/test-e2e/gap-look.mjs http://localhost:5198 /tmp/shots
 //
 // Starts seed 1, builds the debug Hill east of the camp, selects the four
-// workers, presses Dig on the hill's south side (above its 45 cm ledge) and
-// marks a tunnel, then runs at x16 until the tunnel is finished and saves
-// gap-*.png screenshots.
+// workers, presses Dig, clicks the hill's south side (above its 45 cm ledge)
+// to start a tunnel chain there and clicks again on the hill's top to dig it
+// in, then runs at x16 until the tunnel is finished and saves gap-*.png
+// screenshots.
 /* global window, document -- used inside page.evaluate callbacks */
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -48,23 +49,27 @@ await shot('hill');
 // The four workers.
 await page.evaluate(() => window.shell.selection.set(window.world.units.filter((u) => u.typeKey === 'worker')));
 await page.evaluate(() => window.shell.commands.startArea('dig', 0));
-// A point on the hill's south face, 1 m above the ledge, then along the face 2 columns.
-const facePoint = (dx) => ({ x: (c.x + dx + 0.5) * COLUMN, y: (c.y + 4) * UNIT + 1, z: (c.z + 6) * COLUMN - 0.001 });
+// A point on the hill's south face, 1 m above the ledge: the tunnel chain starts there. Then a point on the hill's top 6 columns in.
+const facePoint = { x: (c.x + 0.5) * COLUMN, y: (c.y + 4) * UNIT + 1, z: (c.z + 6) * COLUMN - 0.001 };
+const inPoint = { x: (c.x + 0.5) * COLUMN, y: (c.y + 30) * UNIT, z: (c.z - 0.5) * COLUMN };
 const screen = (p) => page.evaluate((q) => {
   const o = { x: 0, y: 0 };
   window.shell.cam.project(q, o);
   return o;
 }, p);
-const a = await screen(facePoint(0));
-const b = await screen(facePoint(2));
+const a = await screen(facePoint);
+const b = await screen(inPoint);
 await page.mouse.move(a.x, a.y);
 await page.mouse.down();
-await page.mouse.move(b.x, b.y, { steps: 5 });
 await page.mouse.up();
-const plan = await page.evaluate(() => window.shell.commands.areaPlan());
-console.log('plan:', JSON.stringify(plan), 'hill at', JSON.stringify(c));
+await page.mouse.move(b.x, b.y, { steps: 5 });
+await page.waitForTimeout(300);
+const chain = await page.evaluate(() => ({ anchor: window.shell.commands.area?.chain, next: window.shell.commands.tunnelPlan() }));
+console.log('tunnel:', JSON.stringify(chain), 'hill at', JSON.stringify(c));
 await shot('marked');
-await page.evaluate(() => window.shell.commands.confirmArea());
+await page.mouse.down();
+await page.mouse.up();
+await page.mouse.click(b.x, b.y, { button: 'right' });
 await press('dbg-speed');
 await press('dbg-speed');
 await page.waitForFunction(() => /tunnel is finished/.test(document.querySelector('.message-list')?.textContent ?? ''), null, { timeout: 240000 }).catch(() => console.log('tunnel not finished in time'));

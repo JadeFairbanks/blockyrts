@@ -240,8 +240,9 @@ main base or farm left ends the game with the night count as the score.*
    come out of the dark edge will kill the warrior and chew down the Big
    House. With **Speed** in the debug panel you can get there quickly.
 3. **Walls.** Workers, B then G (Walls): softwood, hardwood and stone walls,
-   gates (east to west or north to south) and towers. Drag with a wall to
-   place a line a column at a time; gates are 3 columns wide and let your
+   gates (east to west or north to south) and towers. Click with a wall to
+   place one, then click further points: each click builds the whole stretch
+   from the last point (see wall and tunnel chains below); gates are 3 columns wide and let your
    units through but not monsters. A ring of softwood wall round the Big
    House (about 64 to 80 softwood) holds night 0. Climbers go over walls,
    bats fly over, archers shoot over, and bombers blow columns apart; a
@@ -269,7 +270,9 @@ main base or farm left ends the game with the night count as the score.*
 7. **Digging.** Workers, D, then drag over the ground: a see-through box shows
    the cut; + and - (or the wheel while marking) set the depth, about 34 cm a
    step down to 3 m. Left click confirms. Marking a slope that rises more than
-   about 2 m starts a tunnel instead (+ and - then set its height). Digging
+   about 2 m starts a tunnel instead (+ and - then set its height); D again,
+   or a click on a cliff face, digs a level tunnel in a chain of stretches
+   (see wall and tunnel chains below). Digging
    puts Earth (or stone, flint, sand...) in the pool. B, Z (Earthworks) heaps
    an earth bank, a ramp (drag from the bottom to the top) or fill from that
    Earth. Marked areas stay outlined until done; right-click one with workers
@@ -277,7 +280,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash f10717ef`: two workers raise a gate and a
+   prints `final step 10000 hash ca960742`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -515,15 +518,16 @@ overhangs. Run `pnpm dev` and open http://localhost:5173/?seed=1.
 3. **Digging into a cliff face.** Pan a little way from the camp and press the
    debug **Hill** button (a 3.4 m soil hill with a 45 cm ledge on its south
    side and a 56 cm ledge on its north side). Select the workers, press D,
-   then press the left button on the side of the hill (not its top) and drag
-   along the face for the tunnel's width. A purple see-through box shows the
-   tunnel, 2.25 m tall, from the ground in front of the face; + and - (or the
-   wheel) set how far in it goes, 90 cm a step (2.7 m to start). Left click
-   confirms. The workers carve it from the face inwards and walk into the
-   passage as it opens; Speed x16 helps. A press on top of the ground, or on
-   the side of a step lower than 56 cm, still digs straight down. Dragging
-   from the foot of a face up onto it still makes a tunnel too, as in
-   milestone 3.
+   then click the side of the hill (not its top): that starts a tunnel chain
+   there, floored at the ground in front of the face. Move the mouse into the
+   hill and click: a purple see-through box shows the stretch, 90 cm wide and
+   2.25 m tall (+ and - or the wheel set the height), and the click marks
+   it. Keep clicking to turn corners; right click ends it (since the wall
+   and tunnel chains, below). The workers carve it from the face inwards and
+   walk into the passage as it opens; Speed x16 helps. A press on top of the
+   ground, or on the side of a step lower than 56 cm, still digs straight
+   down. Dragging from the foot of a face up onto it still makes a tunnel
+   too, as in milestone 3.
 4. **Walking under an overhang.** Once the tunnel is finished, right-click
    inside it: the worker walks in and stands on its floor under the hill, and
    out of the far end if it goes all the way through. Natural caves and
@@ -539,8 +543,8 @@ overhangs. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    rise rules, the hop, and a tunnel dug through a hill and
    walked) and the face-dig tests in `packages/client/test/m3-controls.test.ts`.
    `node packages/client/test-e2e/gap-look.mjs` (with the dev server on port
-   5198) builds the Hill, marks a tunnel on its face with the mouse and takes
-   screenshots once it is dug.
+   5198) builds the Hill, clicks a tunnel into its face with the mouse and
+   takes screenshots once it is dug.
 
 ## How a tester checks milestone 6
 
@@ -1105,6 +1109,70 @@ control, label and flow of milestone 9 stays as it was.
    `/art.html?scene=battle` (or `map`, with `&w=1600&h=900`) shows one in the
    browser while staging; the battle takes `cam`, `look` and `fov` in the URL
    to try a camera, the map `pitch`, `yaw`, `dist`, `lx` and `lz`.
+
+## How a tester checks wall and tunnel chains
+
+Walls and level tunnels are clicked out from point to point, a stretch at a
+time, and each stretch reaches the sim as one order (its start, one of eight
+directions and a length). Placement rules, costs and dig rates are as they
+were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
+
+1. **A wall chain.** Select workers, B, G and a wall. Click: one wall is
+   placed there and the ghost stays. Move the mouse: the stretch from that
+   wall to the cursor shows as a ghost, snapped to the nearest of the eight
+   directions, with what it builds and costs beside the cursor ("9 walls:
+   9 softwood lumber"). Click: the whole stretch is ordered and its far end
+   is the next point. Keep clicking to turn corners, in any direction; a
+   diagonal is built as a staircase so nothing meets only at a corner (about
+   2 walls a step). Right click, Esc or **Done** (the card's corner) ends the
+   chain; a click and a right click places one wall. Shift with right click
+   or Esc ends the chain but keeps the wall on the cursor for a new one.
+2. **What is in the way.** Red columns (a tree, rock, water, steep ground, a
+   building) are skipped and the message says how many. Walls standing or
+   planned already are passed over without a word, so a chain closes on its
+   first wall, and a first click on an old wall starts the chain from it.
+3. **Short stock.** The label counts the stock less the walls already planned
+   ("enough for 4"), the walls past that point show greyed, and a click
+   orders those it pays for, from the chain's last point outward; the
+   message says how many, and the chain goes on from the last one paid for.
+   The workers build each stretch from its start outward and pay for each
+   wall when they get to it, as before.
+4. **A tunnel chain.** Select workers and press D, then D again (the card's
+   **Tunnel** button lights): click where the tunnel starts, then where it
+   goes. It digs level from the ground clicked, 90 cm wide (wider on a
+   diagonal, so walkers never squeeze past a corner) and 2.25 m tall (+ and
+   - or the wheel, 2 m to 4 m); the label gives its length and height. Keep
+   clicking to turn corners; right click, Esc or **Done** ends it, and D
+   again goes back to digging down. A click on a cliff face starts a chain
+   without the button (milestone 5's gap fixes, step 3). Columns already open
+   at the tunnel's height cost nothing; a stretch with nothing to dig is
+   refused with a message. Units walk through the finished tunnel; right-click
+   a marked stretch with more workers to help.
+5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
+   prints `final step 10000 hash 6d357b86`: the four workers are given a
+   chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
+   south-west 3, west 6 and north 8 back to the first wall (34 walls, a
+   closed ring, from the 40 softwood lumber the camp starts with); a second
+   chain south of it, started with Shift, runs over a plant (skipped) and has
+   lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
+   stand by step 1500.
+6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
+   prints `final step 10000 hash e42ed368`: the debug tools heap a soil hill
+   south-east of the camp and the four workers dig a tunnel chain from its
+   west face: east 3 columns, south 3, south-east 2 and east 4, out of its
+   east side, 480 bites of soil by step 7300; then worker 1 walks to a point
+   deep under the hill where only the tunnel leads, and on round the
+   tunnel's corners and out of the far side, on its floor all the way.
+   `pnpm test` runs both in Node, Chromium, Firefox and WebKit too.
+7. `pnpm test` also runs `packages/sim/test/chains.test.ts` (the stretch
+   geometry, a wall chain in four directions built from its anchor outward,
+   skips, the stock cut, a tunnel chain of four stretches under a hill saved
+   and loaded halfway, walked into and through) and
+   `packages/client/test/chains-controls.test.ts` (the clicks, the labels,
+   right click, Shift, Done and the Tunnel button).
+   `node packages/client/test-e2e/chains-look.mjs` (with the dev server on
+   port 5198) clicks a wall ring and a tunnel chain with the mouse and saves
+   screenshots.
 
 ## How a tester checks the balance editor
 

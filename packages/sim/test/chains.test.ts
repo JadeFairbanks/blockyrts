@@ -5,6 +5,7 @@
 // turning corners under a hill that units then walk through.
 import { describe, expect, it } from 'vitest';
 import {
+  Blocked,
   BuildingKind,
   createWorld,
   deserializeState,
@@ -13,6 +14,7 @@ import {
   NO_FLOOR,
   PERSON,
   placeBuilding,
+  placementBlocked,
   Res,
   serializeState,
   SiteKind,
@@ -190,6 +192,39 @@ describe('wall chains', () => {
     const none = texts(s, 1, [{ kind: 'wallStretch', ...base, x: x + 5, z: z + 5, dir: 4, length: 3, skip: 1, queued: true }]);
     expect(none.some((t) => t.startsWith('Not enough softwood lumber for another softwood wall'))).toBe(true);
     expect(s.entities.queue[1]!.filter((o) => o.t === 'build' || o.t === 'work').length).toBe(8);
+  });
+
+  it('passes over walls standing in its way without a word, so a chain closes on its anchor or goes on from an old wall', () => {
+    const s = createWorld(1, { peaceful: true });
+    const { x, z } = flatSpot(s, 12, 4);
+    s.players[0]!.pool[Res.SoftwoodLumber] = 50;
+    placeBuilding(s, 0, BuildingKind.Wall, 0, x, z, true);
+    placeBuilding(s, 0, BuildingKind.Wall, 0, x + 3, z, true);
+    const said = texts(s, 2, [{ kind: 'wallStretch', player: 0, units: ids(s), building: BuildingKind.Wall, x, z, dir: 0, length: 6, skip: 0 }]);
+    expect(said.filter((t) => t.includes('cannot take a wall'))).toEqual([]);
+    const q = s.entities.queue[0]!.map((o) => (o.t === 'build' ? o.x - x : -1)).filter((d) => d >= 0);
+    expect(q.sort((a, b) => a - b)).toEqual([1, 2, 4, 5, 6]);
+  });
+
+  it('is not stopped by a plant beside a column, only on it', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const [cx, cz] = [col(e.x[0]!) >> 6, col(e.z[0]!) >> 6];
+    let checked = 0;
+    for (const p of s.world.props(cx, cz, s.step)) {
+      if (p.stage === 0) continue;
+      const [px, pz] = [cx * 64 + p.lx, cz * 64 + p.lz];
+      if (!s.world.isExplored(px >> 2, pz >> 2)) continue;
+      expect(placementBlocked(s, 0, BuildingKind.Wall, px, pz)).toBe(Blocked.Node);
+      // A plant one step off the diagonal used to land on the tile of a 1 x 1 spot.
+      for (const [nx, nz] of [[px + 1, pz - 1], [px - 1, pz + 1], [px + 2, pz - 2]] as const) {
+        const here = s.world.props(nx >> 6, nz >> 6, s.step).some((q) => q.stage > 0 && (nx >> 6) * 64 + q.lx === nx && (nz >> 6) * 64 + q.lz === nz);
+        if (here) continue;
+        expect(placementBlocked(s, 0, BuildingKind.Wall, nx, nz)).not.toBe(Blocked.Node);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(10);
   });
 
   it('ignores a stretch of a building that is not a wall', () => {

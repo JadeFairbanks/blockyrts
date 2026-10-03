@@ -1808,6 +1808,7 @@ export class Commands {
     if (!p || !plan || !Commands.chained(p.kind)) return null;
     if (p.chain && plan.length === 0) return { text: 'Click the far end of the next stretch', short: false };
     const est = this.chainEstimate(plan);
+    if (est.open === 0 && est.blocked === 0) return { text: p.chain ? 'Walled already: the chain goes on from its end' : 'Click to go on from this wall', short: false };
     const name = buildingSpec(p.kind).name.toLowerCase();
     const n = Math.min(est.open, est.room);
     const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${est.open} walls: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
@@ -1892,7 +1893,8 @@ export class Commands {
     const p = this.placing!;
     if (Commands.chained(p.kind)) {
       const plan = this.wallPlan()!;
-      return p.chain ? plan.cells.slice(1) : plan.cells;
+      const walled = this.walledColumns();
+      return (p.chain ? plan.cells.slice(1) : plan.cells).filter(([x, z]) => !walled.has(`${x},${z}`));
     }
     if (!p.dragFrom) return [[p.x, p.z]];
     const dx = p.x - p.dragFrom.x;
@@ -1906,6 +1908,11 @@ export class Commands {
       out.push([Math.round(p.dragFrom.x + dx * t), Math.round(p.dragFrom.z + dz * t)]);
     }
     return out;
+  }
+
+  /** The columns with a wall standing or started on them: a stretch passes over them without a word, as the sim does, so a chain can close on its anchor or go on from a wall built before. */
+  private walledColumns(): Set<string> {
+    return new Set([...this.d.game.buildings.values()].filter((b) => buildingSpec(b.kind).defence === 'wall').map((b) => `${b.x},${b.z}`));
   }
 
   /** The wall chain's next stretch: from the anchor towards the cursor, or the one wall under the cursor before the first click. */
@@ -1935,13 +1942,14 @@ export class Commands {
     const cost = levelSpec(p.kind, 1).cost;
     const { room, short } = stretchRoom((r) => game.have(r), owed, cost);
     const tiles = new Map(p.spots.map((sp) => [`${sp.x},${sp.z}`, sp.tiles]));
+    const walled = this.walledColumns();
     let open = 0;
     let blocked = 0;
     const takes = new Set<string>();
     let last: [number, number] | null = null;
     for (const [x, z] of p.chain ? plan.cells.slice(1) : plan.cells) {
       const k = `${x},${z}`;
-      if (planned.has(k)) continue;
+      if (planned.has(k) || walled.has(k)) continue;
       const t = tiles.get(k);
       if (t && t.some((r) => r !== 0)) {
         blocked++;
@@ -2014,10 +2022,16 @@ export class Commands {
     const plan = this.wallPlan();
     if (!plan || (p.chain && plan.length === 0)) return;
     const est = this.chainEstimate(plan);
+    if (est.open === 0 && est.blocked === 0) {
+      // Walled or planned all along: nothing to send, and the chain goes on from its end.
+      const [ex, ez] = stretchEnd(plan.x, plan.z, plan.dir, plan.length);
+      this.anchorChain(ex, ez);
+      return;
+    }
     if (est.open === 0) {
       const red = p.spots.find((s) => s.tiles?.some((t) => t !== 0));
       const reason = red?.tiles?.find((t) => t !== 0);
-      this.d.message(reason === undefined ? 'Every wall of that stretch is planned already.' : `Cannot build there: ${BLOCKED_TEXT[reason] ?? 'blocked.'}`, 'alert');
+      this.d.message(`Cannot build there: ${BLOCKED_TEXT[reason ?? -1] ?? 'blocked.'}`, 'alert');
       return;
     }
     if (est.room === 0) {
@@ -2026,9 +2040,14 @@ export class Commands {
     }
     this.d.send({ kind: 'wallStretch', player: this.d.player, units, building: p.kind, x: plan.x, z: plan.z, dir: plan.dir, length: plan.length, skip: p.chain ? 1 : 0, queued: p.chain !== null || this.d.queued() });
     const [ex, ez] = est.room < est.open && est.last ? est.last : stretchEnd(plan.x, plan.z, plan.dir, plan.length);
-    p.chain = { x: ex, z: ez };
-    const cx = (ex + 0.5) * COLUMN_M;
-    const cz = (ez + 0.5) * COLUMN_M;
+    this.anchorChain(ex, ez);
+  }
+
+  /** The wall chain's next anchor, marked on the ground. */
+  private anchorChain(x: number, z: number): void {
+    this.placing!.chain = { x, z };
+    const cx = (x + 0.5) * COLUMN_M;
+    const cz = (z + 0.5) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'move');
     cue('ui_place');
     this.d.changed();

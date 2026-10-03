@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, SiteKind, TUNNEL_HEIGHT_UNITS, type Order, type UnitOrder } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, stretchBoxes, type CommandDeps } from '../src/hud/commands.ts';
-import { S, STATE_STRIDE, type InfoMessage } from '../src/messages.ts';
+import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
 import { COLUMN_M } from '../src/world/mesher.ts';
@@ -21,6 +21,8 @@ interface World {
   pool?: Array<[number, number]>;
   queues?: Array<[number, UnitOrder[]]>;
   sites?: InfoMessage['sites'];
+  /** Walls standing, at these columns. */
+  walls?: Array<[number, number]>;
 }
 
 /** Workers 1 and 2. */
@@ -40,7 +42,7 @@ function game(w: World = {}): GameInfo {
   const pool = new Int32Array(RESOURCE_COUNT);
   for (const [r, n] of w.pool ?? []) pool[r] = n;
   const info: InfoMessage = {
-    type: 'info', step: 10, pool, supplyUsed: 2, supplyCap: 8, buildings: [], queues: w.queues ?? [[1, []], [2, []]], events: [],
+    type: 'info', step: 10, pool, supplyUsed: 2, supplyCap: 8, buildings: (w.walls ?? []).map(([x, z], k) => ({ id: 100 + k, owner: ME, kind: BuildingKind.Wall, variant: 0, level: 1, x, z, y: 0, complete: true }) as BuildingInfo), queues: w.queues ?? [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: w.sites ?? [], over: 0, nights: 0, out: false,
     rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
@@ -166,6 +168,24 @@ describe('wall chains', () => {
     expect(sent.at(-1)).toMatchObject({ dir: 2, length: 6, skip: 1 });
     // The chain goes on from the last wall the stock paid for, so clicking the same end later fills the rest.
     expect(c.placing!.chain).toEqual({ x: 10, z: 14 });
+  });
+
+  it('starts a chain from a wall built before, and passes over walls in its way without counting them', () => {
+    const { c, sent, asks } = harness(game({ pool: [[Res.SoftwoodLumber, 100]], walls: [[20, 20], [23, 20]] }));
+    c.startPlacing(BuildingKind.Wall, 0);
+    // On the old wall: nothing to place, and a click makes it the anchor without an order.
+    c.updatePlacing(at(20, 20), 0);
+    expect(c.chainLabel()!.text).toBe('Click to go on from this wall');
+    c.placeUp();
+    expect(sent).toEqual([]);
+    expect(c.placing!.chain).toEqual({ x: 20, z: 20 });
+    // East past the other old wall: it is left out of the ghost and the count.
+    c.updatePlacing(at(25, 20), 1);
+    expect(asks.at(-1)).toEqual([[21, 20], [22, 20], [24, 20], [25, 20]]);
+    answer(c, asks);
+    expect(c.chainLabel()!.text).toBe('4 walls: 4 softwood lumber');
+    c.placeUp();
+    expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 20, z: 20, dir: 0, length: 5, skip: 1, queued: true }]);
   });
 
   it('draws a straight stretch as one box and a diagonal as a box a step', () => {
