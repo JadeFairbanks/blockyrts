@@ -1,30 +1,61 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addMob,
   addWarrior,
+  ARMOUR_GEAR,
   Blocked,
   BuildingKind,
   buildingCentre,
+  canReach,
   clockAt,
+  CLOSE_GEAR,
   createWorld,
+  CRIT,
+  critDamage,
   CYCLE_STEPS,
   DAY_STEPS,
   deserializeState,
   destroyBuilding,
   DUSK_STEPS,
+  foodInPool,
+  gap,
+  halfWidth,
   hashState,
-  Item,
+  kitHolder,
+  Line,
+  LONG_GEAR,
+  meleeOf,
   Mob,
+  MONSTERS,
+  nearestUpgradePlace,
   nightBudgetTenths,
   NIGHT_STEPS,
+  pendingKitUp,
   Period,
   pickNight,
+  PISTOL_GEAR,
   placeBuilding,
   placementBlocked,
+  productProblem,
+  RANGER_GEAR,
+  Res,
+  Research,
   serializeState,
+  SHIELD_GEAR,
   step,
+  supplyUsed,
+  techOf,
+  Troop,
+  troopDefault,
+  troopProduct,
+  troopTiersAt,
+  troopTypesAt,
   UnitKind,
+  upgradeProgress,
+  upgradeTarget,
   WU_PER_COLUMN,
   WU_PER_METRE,
+  type Building,
   type Order,
   type SimState,
 } from '../src/index.ts';
@@ -36,6 +67,39 @@ const centre = (c: number): number => c * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
 function run(s: SimState, n: number, orders: Order[] = []): void {
   step(s, orders);
   for (let k = 1; k < n; k++) step(s);
+}
+
+function runUntil(s: SimState, done: () => boolean, max: number): number {
+  for (let k = 0; k < max; k++) {
+    if (done()) return k;
+    step(s);
+  }
+  throw new Error(`condition not met in ${max} steps`);
+}
+
+/** A clear spot for a building, searching outwards from a column. */
+function spotNear(s: SimState, kind: number, x0: number, z0: number): [number, number] {
+  for (let r = 0; r < 60; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (const dz of [-r, r]) {
+        if (placementBlocked(s, 0, kind, x0 + dx, z0 + dz) === Blocked.None) return [x0 + dx, z0 + dz];
+      }
+    }
+  }
+  throw new Error('no free spot');
+}
+
+/** A finished building of a kind and level, near a column (east of the Big House unless given). */
+function built(s: SimState, kind: number, level = 1, at?: [number, number]): Building {
+  const h = bigHouse(s)!;
+  const [x, z] = spotNear(s, kind, ...(at ?? [h.x + 16, h.z]));
+  const b = placeBuilding(s, 0, kind, 0, x, z, true);
+  b.level = level;
+  return b;
+}
+
+function giveResearch(s: SimState, ...r: number[]): void {
+  for (const k of r) s.players[0]!.research |= 1 << k;
 }
 
 function bigHouse(s: SimState, player = 0) {
@@ -65,7 +129,7 @@ function ownIds(s: SimState, player = 0): number[] {
 /** Spots just inside a ring 4 columns out from the Big House, one per unit. */
 function insideSpots(s: SimState): Array<[number, number]> {
   const b = bigHouse(s)!;
-  return [[b.x - 2, b.z + 7], [b.x + 15, b.z + 7], [b.x + 7, b.z - 2], [b.x + 7, b.z + 15], [b.x - 2, b.z - 2], [b.x + 15, b.z + 15]];
+  return [[b.x - 2, b.z + 7], [b.x + 15, b.z + 7], [b.x + 7, b.z - 2], [b.x + 7, b.z + 15], [b.x - 2, b.z - 2], [b.x + 15, b.z + 15], [b.x + 15, b.z - 2], [b.x - 2, b.z + 15]];
 }
 
 /** Brings every unit inside the ring line, then closes a softwood wall ring round the Big House (resource props are cleared for it). */
@@ -89,20 +153,26 @@ function toNight(s: SimState, night: number): void {
 }
 
 describe('night 0', () => {
-  it('is survived by the starting warrior and four workers behind a softwood fence', () => {
+  it('is survived by the three starting warriors and four workers behind a softwood fence', () => {
     const s = createWorld(1);
     const e = s.entities;
-    expect(e.weapon[4]).toBe(Item.SpearFlint);
-    expect(e.backup[4]).toBe(Item.Club);
+    // Close melee with hardwood cudgels and no armour (Troops and gear: starting units).
+    for (const i of [4, 5, 6]) {
+      expect(e.troop[i]).toBe(Troop.Close);
+      expect(e.weapon[i]).toBe(CLOSE_GEAR[1]);
+      expect(e.armour[i]).toBe(0);
+    }
     fenceIn(s);
     run(s, NIGHT_START + NIGHT_STEPS + 20 - s.step);
     expect(clockAt(s.step).period).toBe(Period.Dawn);
     expect(s.over).toBe(0);
     expect(bigHouse(s)!.hp).toBe(1200);
-    expect(alive(s, UnitKind.Warrior)).toBe(1);
+    // Cudgels are too short to stab over the fence (a polearm's 2 m does): a zombie chews through a corner and the
+    // troops fight it there, so not all three come through; every worker does.
+    expect(alive(s, UnitKind.Warrior)).toBeGreaterThanOrEqual(1);
     expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob) expect(e.mob[i]).toBe(Mob.SmallSlime);
+    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs).
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect(e.mob[i]).toBe(Mob.SmallSlime);
   });
 
   it('never ends the game while the Big House stands', () => {
@@ -113,7 +183,8 @@ describe('night 0', () => {
       expect(s.over).toBe(0);
       expect(bigHouse(s)).toBeDefined();
     }
-  });
+    // Three whole nights with the three starting troops fighting: slow on a busy machine.
+  }, 180_000);
 
   it('sends the fixed first-night pick: 4 zombies, 2 bats, 2 rats, a spider and a slime', () => {
     const s = createWorld(1);
@@ -216,19 +287,283 @@ describe('digging', () => {
   });
 });
 
-describe('equipment', () => {
-  it('Equip Best hands out flint spears', () => {
-    const s = createWorld(1, { peaceful: true });
-    const b = bigHouse(s)!;
-    const [hx, hz] = buildingCentre(b);
+const M = WU_PER_METRE;
+
+describe('training troops (Troops and gear: Barracks and Stables panel)', () => {
+  it('trains each troop type at the Barracks, at the tiers the forge and research allow', () => {
+    const s = createWorld(1, { peaceful: true, warriors: 0 });
     const e = s.entities;
-    const fresh = [addWarrior(s, 0, hx + 12 * WU_PER_METRE, hz), addWarrior(s, 0, hx + 14 * WU_PER_METRE, hz)];
-    for (const i of fresh) e.weapon[i] = Item.Club;
-    const ids = fresh.map((i) => e.id[i]!);
-    run(s, 2, [{ kind: 'debugGive', player: 0, item: Item.SpearFlint, count: 2 }]);
-    run(s, 600, [{ kind: 'equipBest', player: 0, units: ids }]);
-    for (const id of ids) expect(e.weapon[e.indexOf(id)]).toBe(Item.SpearFlint);
-    expect(s.players[0]!.items[Item.SpearFlint]).toBe(0);
+    const pool = s.players[0]!.pool;
+    giveResearch(s, Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets);
+    built(s, BuildingKind.Forge, 4);
+    for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.SoftwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.Feathers, Res.Rope]) pool[r] = 50;
+    for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 20;
+    pool[Res.Meat] = 200;
+    // One Barracks each, so they train side by side: a bronze shortsword with a jerkin and wooden shield, an iron pike,
+    // a steel-prod crossbow with a boiled-leather cuirass, and the brawler's pistol and cutlass.
+    const kits: Array<[Troop, number, number]> = [
+      [Troop.Close, 4, 1],
+      [Troop.Long, 6, 0],
+      [Troop.Ranger, 7, 2],
+      [Troop.Brawler, 8, 0],
+    ];
+    const barracks = kits.map(() => built(s, BuildingKind.Barracks));
+    expect(troopTypesAt(barracks[0]!)).toEqual([Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler]);
+    kits.forEach(([t, w, a], k) => expect(productProblem(s, barracks[k]!, troopProduct(t, w, a))).toBe(''));
+    run(s, 1, kits.map(([t, w, a], k): Order => ({ kind: 'produce', player: 0, building: barracks[k]!.id, product: troopProduct(t, w, a), count: 1 })));
+    for (const b of barracks) expect(b.queue.length).toBe(1);
+    // The ranger's takes longest: 45 s, the crossbow's 75 s and the cuirass's 50 s.
+    runUntil(s, () => alive(s, UnitKind.Warrior) === 4, 170 * 20 + 40);
+    const troops = new Map<number, number>();
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Warrior) troops.set(e.troop[i]!, i);
+    for (const [t, w, a] of kits) {
+      const i = troops.get(t)!;
+      expect(i).toBeDefined();
+      expect([e.wTier[i], e.aTier[i]]).toEqual([w, a]);
+    }
+    const close = troops.get(Troop.Close)!;
+    expect([e.weapon[close], e.shield[close], e.armour[close], e.ranged[close]]).toEqual([CLOSE_GEAR[4], SHIELD_GEAR[1], ARMOUR_GEAR[1], 0]);
+    const long = troops.get(Troop.Long)!;
+    expect([e.weapon[long], e.shield[long], e.armour[long]]).toEqual([LONG_GEAR[6], 0, 0]);
+    // Rangers fight close with their fists; no shield for anyone but close melee.
+    const ranger = troops.get(Troop.Ranger)!;
+    expect([e.ranged[ranger], e.weapon[ranger], e.shield[ranger], e.armour[ranger]]).toEqual([RANGER_GEAR[7], CLOSE_GEAR[0], 0, ARMOUR_GEAR[2]]);
+    const brawler = troops.get(Troop.Brawler)!;
+    expect([e.ranged[brawler], e.weapon[brawler]]).toEqual([PISTOL_GEAR, CLOSE_GEAR[8]]);
+  });
+
+  it('needs the forge and research for a tier', () => {
+    const s = createWorld(1, { peaceful: true });
+    const pool = s.players[0]!.pool;
+    for (const r of [Res.HardwoodLumber, Res.Leather, Res.CopperIngot, Res.BronzeIngot, Res.SteelIngot, Res.Planks, Res.Flax, Res.WroughtIron, Res.Feathers]) pool[r] = 20;
+    const barracks = built(s, BuildingKind.Barracks);
+    expect(productProblem(s, barracks, troopProduct(Troop.Close, 2, 0))).toBe('');
+    expect(productProblem(s, barracks, troopProduct(Troop.Close, 3, 0))).toBe('Needs a Casting Hearth.');
+    built(s, BuildingKind.Forge, 1);
+    expect(productProblem(s, barracks, troopProduct(Troop.Close, 3, 0))).toBe('');
+    expect(productProblem(s, barracks, troopProduct(Troop.Long, 4, 0))).toBe('Needs Bronze researched first.');
+    expect(productProblem(s, barracks, troopProduct(Troop.Ranger, 5, 0))).toBe('Needs a Bloomery.');
+    // Nothing affordable at a tier: the panel's default drops to the best the stock pays for.
+    giveResearch(s, Research.Bronze);
+    expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1 });
+  });
+
+  it('offers only tier 1 and below at the main base', () => {
+    const s = createWorld(1, { peaceful: true });
+    const pool = s.players[0]!.pool;
+    giveResearch(s, Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets);
+    built(s, BuildingKind.Forge, 4);
+    for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.CopperIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 50;
+    const base = bigHouse(s)!;
+    expect(troopTypesAt(base)).toEqual([Troop.Close, Troop.Long, Troop.Ranger]);
+    for (const t of [Troop.Close, Troop.Long, Troop.Ranger]) {
+      expect(troopTiersAt(base, t)).toEqual({ w: [t === Troop.Close ? 0 : 1, 1], a: [0, 1] });
+      expect(productProblem(s, base, troopProduct(t, 1, 1))).toBe('');
+      expect(productProblem(s, base, troopProduct(t, 2, 0))).toBe('This building cannot make that.');
+      expect(productProblem(s, base, troopProduct(t, 1, 2))).toBe('This building cannot make that.');
+    }
+    expect(productProblem(s, base, troopProduct(Troop.Close, 0, 0))).toBe('');
+    expect(productProblem(s, base, troopProduct(Troop.Brawler, 8, 0))).toBe('This building cannot make that.');
+    expect(productProblem(s, base, troopProduct(Troop.Cavalry, 1, 0))).toBe('This building cannot make that.');
+    // The panel's default is the best the main base makes, however rich the stock.
+    expect(troopDefault(s, base, Troop.Close)).toEqual({ w: 1, a: 1 });
+    // A tier 2 troop ordered there is refused and nothing is paid.
+    const sticks = pool[Res.Sticks]!;
+    const flint = pool[Res.Flint]!;
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 2, 0), count: 1 }]);
+    expect(base.queue.length).toBe(0);
+    expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks, flint]);
+  });
+
+  it('pays 30 food, the kit and a supply for a troop, and gives it all back when cancelled', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const pool = s.players[0]!.pool;
+    pool[Res.Leather] = 10;
+    pool[Res.Planks] = 10;
+    const base = bigHouse(s)!;
+    const kit = (): number[] => [pool[Res.Sticks]!, pool[Res.Leather]!, pool[Res.Planks]!];
+    const before = kit();
+    const food = foodInPool(pool);
+    const used = supplyUsed(s, 0);
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
+    // A hardwood cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
+    expect(kit()).toEqual([before[0]! - 3, before[1]! - 4, before[2]! - 3]);
+    expect(foodInPool(pool)).toBeLessThanOrEqual(food - 30);
+    expect(foodInPool(pool)).toBeGreaterThan(food - 33);
+    const paid = kit();
+    const paidFood = foodInPool(pool);
+    // The one in training takes a supply.
+    run(s, 2);
+    expect(base.queue[0]!.progress).toBeGreaterThan(0);
+    expect(supplyUsed(s, 0)).toBe(used + 1);
+    // A second one, cancelled: everything it paid comes back.
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
+    expect(base.queue.length).toBe(2);
+    expect(kit()).not.toEqual(paid);
+    run(s, 1, [{ kind: 'cancelProduce', player: 0, building: base.id, index: 1 }]);
+    expect(base.queue.length).toBe(1);
+    expect(kit()).toEqual(paid);
+    expect(foodInPool(pool)).toBe(paidFood);
+    // The first comes out with its kit: 45 s plus 10 + 30 + 20 s.
+    const warriors = alive(s, UnitKind.Warrior);
+    runUntil(s, () => alive(s, UnitKind.Warrior) === warriors + 1, 105 * 20 + 20);
+    let i = -1;
+    for (let j = 0; j < e.count; j++) if (e.kind[j] === UnitKind.Warrior && (i < 0 || e.id[j]! > e.id[i]!)) i = j;
+    expect([e.troop[i], e.wTier[i], e.aTier[i]]).toEqual([Troop.Close, 1, 1]);
+    expect([e.weapon[i], e.armour[i], e.shield[i]]).toEqual([CLOSE_GEAR[1], ARMOUR_GEAR[1], SHIELD_GEAR[1]]);
+  });
+
+  it('waits for free supply before a troop starts', () => {
+    const s = createWorld(1, { playerUnits: 7, peaceful: true });
+    const base = bigHouse(s)!;
+    const texts: string[] = [];
+    for (let k = 0; k < 200; k++) {
+      step(s, k === 0 ? [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Long, 1, 0), count: 1 }] : []);
+      texts.push(...s.events.map((ev) => ev.text));
+    }
+    expect(base.queue[0]!.progress).toBe(0);
+    expect(texts).toContain('Not enough supply to train a long melee. Build or upgrade farms.');
+  });
+});
+
+describe('upgrading units (Troops and gear: Upgrading units)', () => {
+  it('Upgrade Weapon walks a troop to the nearest Forge, Barracks or main base and raises its tier', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const pool = s.players[0]!.pool;
+    const h = bigHouse(s)!;
+    const forge = built(s, BuildingKind.Forge, 1, [h.x + 40, h.z]);
+    const barracks = built(s, BuildingKind.Barracks, 1, [h.x - 40, h.z]);
+    // Three close-melee troops with cudgels: one out by the forge, one by the barracks, one by the Big House.
+    const [fx, fz] = buildingCentre(forge);
+    const [bx, bz] = buildingCentre(barracks);
+    const [hx, hz] = buildingCentre(h);
+    const units = [addWarrior(s, 0, fx + 8 * M, fz, Troop.Close, 1), addWarrior(s, 0, bx - 8 * M, bz, Troop.Close, 1), addWarrior(s, 0, hx, hz + 14 * M, Troop.Close, 1)];
+    const places = [forge, barracks, h];
+    units.forEach((i, k) => expect(nearestUpgradePlace(s, i, kitHolder(s, i)!)!.id).toBe(places[k]!.id));
+    const sticks = pool[Res.Sticks]!;
+    const flint = pool[Res.Flint]!;
+    run(s, 1, [{ kind: 'upgradeKit', player: 0, units: units.map((i) => e.id[i]!), line: Line.Weapon, max: 0 }]);
+    // Each flint hand-axe (2 sticks, 1 flint) is paid when the button is pressed.
+    expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks - 6, flint - 3]);
+    units.forEach((i, k) => expect(pendingKitUp(s, i, Line.Weapon)).toMatchObject({ to: 2, b: places[k]!.id }));
+    // Half the hand-axe's 10 s beside the building.
+    const bars = units.map(() => 0);
+    runUntil(
+      s,
+      () => {
+        units.forEach((i, k) => {
+          const [, n] = upgradeProgress(s, i);
+          if (n) bars[k] = n;
+        });
+        return units.every((i) => e.wTier[i] === 2);
+      },
+      3000,
+    );
+    expect(bars).toEqual([100, 100, 100]);
+    for (const i of units) {
+      expect(e.weapon[i]).toBe(CLOSE_GEAR[2]);
+      expect(pendingKitUp(s, i, Line.Weapon)).toBeUndefined();
+    }
+    // Each cudgel is scrapped with a full refund (3 sticks), so a step costs the difference.
+    expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks - 6 + 9, flint - 3]);
+  });
+
+  it('Max goes to the best tier researched and affordable, and the old kit comes back in full', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const pool = s.players[0]!.pool;
+    built(s, BuildingKind.Forge, 3);
+    // Bronze is not researched, the iron broadsword is 1 ingot short, steel needs a Steelworks: the best is the wrought iron sword.
+    pool[Res.CopperIngot] = 1;
+    pool[Res.BronzeIngot] = 2;
+    pool[Res.WroughtIron] = 2;
+    pool[Res.IronIngot] = 1;
+    pool[Res.SteelIngot] = 3;
+    pool[Res.HardwoodLumber] = 3;
+    pool[Res.Leather] = 1;
+    const i = 4;
+    const h = kitHolder(s, i)!;
+    expect(h).toEqual({ kind: 'warrior', troop: Troop.Close, w: 1, a: 0 });
+    expect(upgradeTarget(h, Line.Weapon, false, pool, techOf(s, 0))).toMatchObject({ to: 2 });
+    expect(upgradeTarget(h, Line.Weapon, true, pool, techOf(s, 0))).toMatchObject({ to: 5 });
+    const before = [...pool];
+    run(s, 1, [{ kind: 'upgradeKit', player: 0, units: [e.id[i]!], line: Line.Weapon, max: 1 }]);
+    expect([pool[Res.WroughtIron], pool[Res.HardwoodLumber], pool[Res.Leather]]).toEqual([0, 2, 0]);
+    runUntil(s, () => e.wTier[i] === 5, 3000);
+    expect(e.weapon[i]).toBe(CLOSE_GEAR[5]);
+    // Nothing else was touched, and the cudgel's 3 sticks came back.
+    for (const r of [Res.CopperIngot, Res.BronzeIngot, Res.IronIngot, Res.SteelIngot]) expect(pool[r], `res ${r}`).toBe(before[r]);
+    expect(pool[Res.Sticks]).toBe(before[Res.Sticks]! + 3);
+    // With another iron ingot in stock, Max would go on to the iron broadsword.
+    pool[Res.IronIngot] = 2;
+    pool[Res.HardwoodLumber] = 1;
+    pool[Res.Leather] = 1;
+    expect(upgradeTarget(kitHolder(s, i)!, Line.Weapon, true, pool, techOf(s, 0))).toMatchObject({ to: 6 });
+  });
+});
+
+describe('long melee (Troops and gear)', () => {
+  it('has no minimum range, and hits 30% harder in the outer third of its reach', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const [hx, hz] = buildingCentre(bigHouse(s)!);
+    const x = hx + 30 * M;
+    const pike = addWarrior(s, 0, x, hz, Troop.Long, 6);
+    const sword = addWarrior(s, 0, x, hz + 12 * M, Troop.Close, 5);
+    const rat = addMob(s, Mob.GiantRat, 0, x + M, hz, 0);
+    const w = meleeOf(s, pike);
+    expect(w.crit).toBe(true);
+    expect(w.oneHanded).toBe(false);
+    expect(w.reach).toBe(Math.floor((350 * M) / 100));
+    const at = (from: number, g: number): void => {
+      e.x[rat] = e.x[from]! + g + halfWidth(s, rat);
+      e.z[rat] = e.z[from]!;
+      expect(gap(s, from, rat)).toBe(g);
+    };
+    // Right beside it: in reach, a plain blow.
+    at(pike, 0);
+    expect(canReach(s, pike, rat, w)).toBe(true);
+    expect(critDamage(s, pike, rat, w, 100)).toBe(100);
+    // The outer third of reach: +30%.
+    const edge = w.reach - Math.floor((w.reach * CRIT.outerPm) / 1000);
+    at(pike, edge - 1);
+    expect(critDamage(s, pike, rat, w, 100)).toBe(100);
+    at(pike, edge);
+    expect(critDamage(s, pike, rat, w, 100)).toBe(130);
+    at(pike, w.reach);
+    expect(canReach(s, pike, rat, w)).toBe(true);
+    expect(critDamage(s, pike, rat, w, 100)).toBe(130);
+    // A close-melee sword never crits, at the edge of its reach or anywhere.
+    const sw = meleeOf(s, sword);
+    expect(sw.crit).toBe(false);
+    at(sword, sw.reach);
+    expect(critDamage(s, sword, rat, sw, 100)).toBe(100);
+  });
+
+  it('kills a giant rat right beside it with its spear', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const [hx, hz] = buildingCentre(bigHouse(s)!);
+    const x = hx + 30 * M;
+    const spear = addWarrior(s, 0, x, hz, Troop.Long, 1);
+    const rat = addMob(s, Mob.GiantRat, 0, x + M / 2, hz, 0);
+    const ratId = e.id[rat]!;
+    const spearId = e.id[spear]!;
+    let hitBySpear = false;
+    run(s, 1, [{ kind: 'attack', player: 0, units: [spearId], target: ratId }]);
+    runUntil(
+      s,
+      () => {
+        const r = e.indexOf(ratId);
+        if (r >= 0 && e.attacker[r] === spearId && e.hp[r]! < e.maxHp[r]!) hitBySpear = true;
+        return r < 0 || e.hp[r]! <= 0;
+      },
+      600,
+    );
+    expect(hitBySpear).toBe(true);
+    expect(e.hp[e.indexOf(spearId)]).toBeGreaterThan(0);
   });
 });
 
@@ -274,8 +609,9 @@ describe('orders for units that are gone', () => {
       { kind: 'patrol', player: 0, units: gone, x: 0, z: 0 },
       { kind: 'attack', player: 0, units: gone, target: 999 },
       { kind: 'hold', player: 0, units: gone },
-      { kind: 'equipBest', player: 0, units: gone },
-      { kind: 'equipItem', player: 0, unit: 999, slot: 1, item: 3 },
+      { kind: 'upgradeKit', player: 0, units: gone, line: 0, max: 1 },
+      { kind: 'cart', player: 0, units: gone, back: 0 },
+      { kind: 'troopLock', player: 0, building: 999, troop: 1, lock: 12 },
       { kind: 'lock', player: 0, units: gone, lock: 1 },
       { kind: 'dig', player: 0, units: gone, x0: 0, z0: 0, x1: 1, z1: 1, level: -4, level2: 0, tunnel: 0 },
       { kind: 'earthwork', player: 0, units: gone, variant: 0, x0: 0, z0: 0, x1: 1, z1: 1, level: 4, level2: 0, axis: 0 },

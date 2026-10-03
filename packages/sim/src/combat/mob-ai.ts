@@ -7,22 +7,28 @@
 // in, and bombers blow up against walls, barriers or a crowd of troops.
 
 import { buildingSpec } from '../buildings/data.ts';
-import { buildingCentre, dist2, isLit } from '../buildings/lights.ts';
+import { buildingCentre, dist2, isLit, snuffLight } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { CLIMBER, WALKER, type Mover } from '../nav/grid.ts';
+import { BIG_WALKER, CLIMBER, WALKER, type Mover } from '../nav/grid.ts';
 import { pointGoal, TILE_COLUMNS } from '../nav/path.ts';
 import { burnThisStep } from '../rules.ts';
-import { MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
+import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
 import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
-import { Shot } from './items.ts';
-import { BLAST, CLUSTER, ENGULF_STEPS, FLY_HEIGHT, GRASP, HOWL, Mob, mobSpec, Moves, SHOUT, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
-import { fireAt, hasClearLob, ProjectileFlag } from './projectiles.ts';
+import { Shot, spellShot } from './items.ts';
+import { BLAST, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
+import { chargeKnock, startCharge, takeCharge } from '../mounts/riding.ts';
+import { fireAt, hasClearLob, POISON, ProjectileFlag } from './projectiles.ts';
+import { MANA_SCALE } from '../magic/spells.ts';
+import { Ability, canUse, castSparkAt, castSparkAtBuilding, snuffEffect, spend, stumbleEffect } from '../threats/abilities.ts';
+import { LAIR_LEASH_WU } from '../threats/data.ts';
+import { fogged } from '../threats/fog.ts';
+import { Role } from '../threats/types.ts';
 
-/** How far a mob notices the players' units: its sight, 12 m. */
+/** How far a mob notices the players' units: its sight, 12 m (half on a fog night). */
 const AGGRO_WU = SIGHT_WU[UnitKind.Mob];
 /** It gives a unit up once it is this much farther away. */
 const GIVE_UP_WU = AGGRO_WU + 8 * WU_PER_METRE;
@@ -41,8 +47,40 @@ const FLEE_GONE_WU = 80 * WU_PER_METRE;
 const BOMB_REACH_WU = floorDiv(WU_PER_METRE * 3, 2);
 /** Hit tolerance at the key moment, as for the players' units. */
 const TOLERANCE = WU_PER_METRE >> 1;
-/** What a mob's attack under way is aimed at (atkWith). */
-const With = { Unit: 0, Building: 1, Shot: 3, Web: 5 } as const;
+/** What a mob's attack under way is aimed at (atkWith): spells (a hex on a unit, a Snuff on a light) are cast like a shot. */
+const With = { Unit: 0, Building: 1, Shot: 3, Web: 5, Snuff: 6, HexSpell: 7, SnuffSpell: 8, SparkSpell: 9 } as const;
+
+/** The spells a goblin mage casts at a unit or a building (threats/foes.ts): Stumble hex, Snuff, and Spark toss at a building. */
+export const SpellWith = { Hex: With.HexSpell, Snuff: With.SnuffSpell, Spark: With.SparkSpell } as const;
+
+/** Whether an attack under way is a spell: the clip is the cast, and a Counterspell can stop it (Table 13). */
+function spellAttack(spec: MobSpec, what: number): boolean {
+  return what === With.HexSpell || what === With.SnuffSpell || what === With.SparkSpell || (what === With.Shot && spellShot(spec.shot));
+}
+
+/** A shot or spell under way shows the shooting clip. */
+function shooting(what: number): boolean {
+  return what === With.Shot || what === With.Web || what === With.HexSpell || what === With.SnuffSpell || what === With.SparkSpell;
+}
+/** An aimed mob (the depth weighting's extras, the dusk goblins) joins the night attack once this close to its point. */
+const AIM_REACHED_WU = 8 * WU_PER_METRE;
+
+/** What the daytime foes do (threats/foes.ts installs it): lair residents, tribesmen and village goblins. */
+export const mobHooks: { foe: (state: SimState, i: number, spec: MobSpec) => void } = { foe: () => {} };
+
+/**
+ * The late night mobs' abilities (threats/late-mobs.ts installs them): what
+ * a mob does before it fights (true when that took the step), its ranged
+ * strike that does not fly, what its melee hit does beside its damage, its
+ * blow on a building, and a damage multiplier for the blow about to land.
+ */
+export const lateHooks: {
+  act: (state: SimState, i: number, spec: MobSpec, t: number) => boolean;
+  strike: (state: SimState, i: number, spec: MobSpec, t: number) => void;
+  hit: (state: SimState, i: number, spec: MobSpec, t: number, d: number) => void;
+  building: (state: SimState, i: number, spec: MobSpec, b: Building) => void;
+  hitMul: (state: SimState, i: number, spec: MobSpec) => number;
+} = { act: () => false, strike: () => {}, hit: () => {}, building: () => {}, hitMul: () => 1 };
 
 /** Not state: fine path searches made this step (reset by the step function). */
 export const mobBudget = { searches: 0 };
@@ -54,8 +92,11 @@ export function classOf(spec: MobSpec): MobClass | -1 {
   return -1;
 }
 
+/** Big walking monsters (2.5 m and up) jump higher rises (Moving over the land: "scale with size") (s). */
+const BIG_HEIGHT = floorDiv(250 * WU_PER_METRE, 100);
+
 function moverOf(spec: MobSpec): Mover {
-  return spec.moves === Moves.Climber ? CLIMBER : WALKER;
+  return spec.moves === Moves.Climber ? CLIMBER : spec.height >= BIG_HEIGHT ? BIG_WALKER : WALKER;
 }
 
 /** The middle of a player's town: their main base, else their first building, else null. */
@@ -69,6 +110,11 @@ export function townCentre(state: SimState, player: number): [number, number] | 
   return first ? buildingCentre(first) : null;
 }
 
+/** How high a flyer travels over the ground: a high flyer far above a bat's height. */
+function cruise(spec: MobSpec): number {
+  return spec.moves === Moves.HighFlyer ? HIGH_FLY_HEIGHT : FLY_HEIGHT;
+}
+
 function groundAt(state: SimState, x: number, z: number): number {
   return state.world.topAt(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN)) * WU_PER_TERRAIN_UNIT;
 }
@@ -78,8 +124,9 @@ function mobSpeed(state: SimState, i: number, spec: MobSpec): number {
   const e = state.entities;
   let bp = 10000;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
+  if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   if (spec.id === Mob.GoblinCutter || spec.id === Mob.GoblinSlinger) {
-    for (const j of state.grid.near(e.x[i]!, e.z[i]!, SHOUT.radius)) {
+    for (const j of state.grid.nearChiefs(e.x[i]!, e.z[i]!, SHOUT.radius)) {
       if (e.kind[j] === UnitKind.Mob && e.mob[j] === Mob.GoblinChief && e.hp[j]! > 0 && length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) <= SHOUT.radius) {
         bp += SHOUT.bonusBp;
         break;
@@ -89,9 +136,12 @@ function mobSpeed(state: SimState, i: number, spec: MobSpec): number {
   return floorDiv(e.speed[i]! * bp, 10000);
 }
 
-function playerUnit(state: SimState, j: number): boolean {
+/** Whether a unit is one a mob may go for: the players' or the neutral peoples' (never their buildings), alive and outside. */
+export function playerUnit(state: SimState, j: number): boolean {
   const e = state.entities;
-  return e.hp[j]! > 0 && e.inside[j] === 0 && sideOf(state, j) === Side.Players;
+  if (e.hp[j]! <= 0 || e.inside[j] !== 0) return false;
+  const side = sideOf(state, j);
+  return side === Side.Players || (side === Side.Peoples && e.role[j] !== Role.Structure);
 }
 
 /** The players' unit a mob goes for: the one that hurt it, else the closest in sight (hounds: workers and archers first). */
@@ -100,17 +150,19 @@ function pickUnit(state: SimState, i: number, spec: MobSpec): number {
   const a = e.indexOf(e.attacker[i]!);
   if (a >= 0 && playerUnit(state, a) && state.step - e.hurtAt[i]! < 5 * STEPS_PER_SECOND && gap(state, i, a) <= GIVE_UP_WU) return a;
   const hunts = spec.id === Mob.GraveHound || spec.id === Mob.CaveBat;
-  const range = hunts ? HUNT_WU : AGGRO_WU;
+  const aggro = fogged(state) ? AGGRO_WU >> 1 : AGGRO_WU;
+  const range = hunts ? (fogged(state) ? HUNT_WU >> 1 : HUNT_WU) : aggro;
   let best = -1;
   let bestTier = 9;
   let bestD = 0;
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, range)) {
+  // Only units the monsters do not own can be prey: the same answer as near(), without the horde.
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, range)) {
     if (!playerUnit(state, j)) continue;
     const d = gap(state, i, j);
     if (d > range) continue;
     // Hounds want the soft targets: workers and archers before warriors in melee.
     const soft = e.kind[j] === UnitKind.Worker || e.ranged[j] !== 0;
-    const tier = spec.id === Mob.GraveHound ? (soft ? 0 : d <= AGGRO_WU ? 1 : 9) : d <= AGGRO_WU || hunts ? 0 : 9;
+    const tier = spec.id === Mob.GraveHound ? (soft ? 0 : d <= aggro ? 1 : 9) : d <= aggro || hunts ? 0 : 9;
     if (tier === 9) continue;
     if (tier < bestTier || (tier === bestTier && (d < bestD || (d === bestD && e.id[j]! < e.id[best]!)))) {
       best = j;
@@ -170,10 +222,10 @@ function stepMob(state: SimState, i: number, spec: MobSpec, px: number, pz: numb
   const nx = e.x[i]! + floorDiv(dx * s, d);
   const nz = e.z[i]! + floorDiv(dz * s, d);
   e.heading[i] = headingTowards(dx, dz);
-  if (spec.moves === Moves.LowFlyer) {
+  if (flies(spec)) {
     e.x[i] = nx;
     e.z[i] = nz;
-    e.y[i] = groundAt(state, nx, nz) + FLY_HEIGHT;
+    e.y[i] = groundAt(state, nx, nz) + (e.lowUntil[i]! > state.step ? SWOOP_HEIGHT : cruise(spec));
     e.order[i] = OrderKind.Move;
     return MOVED;
   }
@@ -183,7 +235,8 @@ function stepMob(state: SimState, i: number, spec: MobSpec, px: number, pz: numb
   const ncz = floorDiv(nz, WU_PER_COLUMN);
   if (ncx !== cx || ncz !== cz) {
     const mover = moverOf(spec);
-    if (state.nav.stepCost(cx, cz, ncx, ncz, mover) < 0) {
+    const lv = floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT);
+    if (state.nav.stepCost(cx, cz, ncx, ncz, mover, lv) < 0) {
       // A building in the way (on the column ahead, or either side of a diagonal)?
       for (const [x, z] of [[ncx, ncz], [ncx, cz], [cx, ncz]] as const) {
         const b = state.buildings.solidAt(x, z);
@@ -193,23 +246,19 @@ function stepMob(state: SimState, i: number, spec: MobSpec, px: number, pz: numb
         }
       }
       // Slide along whichever axis is open.
-      if (ncx !== cx && state.nav.stepCost(cx, cz, ncx, cz, mover) >= 0) return slide(state, i, nx, e.z[i]!);
-      if (ncz !== cz && state.nav.stepCost(cx, cz, cx, ncz, mover) >= 0) return slide(state, i, e.x[i]!, nz);
+      if (ncx !== cx && state.nav.stepCost(cx, cz, ncx, cz, mover, lv) >= 0) return slide(state, i, nx, e.z[i]!);
+      if (ncz !== cz && state.nav.stepCost(cx, cz, cx, ncz, mover, lv) >= 0) return slide(state, i, e.x[i]!, nz);
       return BLOCKED_LAND;
     }
   }
-  e.x[i] = nx;
-  e.z[i] = nz;
-  e.y[i] = standY(state, nx, nz);
+  landAt(state, i, nx, nz);
   e.order[i] = OrderKind.Move;
   return MOVED;
 }
 
 function slide(state: SimState, i: number, x: number, z: number): number {
   const e = state.entities;
-  e.x[i] = x;
-  e.z[i] = z;
-  e.y[i] = standY(state, x, z);
+  landAt(state, i, x, z);
   e.order[i] = OrderKind.Move;
   return MOVED;
 }
@@ -239,7 +288,7 @@ function goToward(state: SimState, i: number, spec: MobSpec, px: number, pz: num
   mobBudget.searches++;
   const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
-  const found = state.paths.find(moverOf(spec), cx, cz, { ...pointGoal(floorDiv(px, WU_PER_COLUMN), floorDiv(pz, WU_PER_COLUMN)), max: 1 });
+  const found = state.paths.find(moverOf(spec), cx, cz, { ...pointGoal(floorDiv(px, WU_PER_COLUMN), floorDiv(pz, WU_PER_COLUMN)), max: 1 }, state.nav.layerAt(cx, cz, floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT)));
   if (found.points.length === 0) return BLOCKED_LAND;
   const out: number[] = [];
   for (let k = 0; k < found.points.length; k++) out.push(found.points[k]! * WU_PER_COLUMN + (WU_PER_COLUMN >> 1));
@@ -252,13 +301,42 @@ function goToward(state: SimState, i: number, spec: MobSpec, px: number, pz: num
 /** Starts a mob's attack on a unit, a building or with a shot; it lands at 40% of its attack time. */
 function begin(state: SimState, i: number, spec: MobSpec, target: number, withWhat: number, steps = spec.attackSteps): void {
   const e = state.entities;
+  // A fiend in its fury attacks 40% faster (roster 5.13).
+  if (spec.id === Mob.Fiend && e.hp[i]! * 10 < e.maxHp[i]! * 3) steps = Math.max(1, floorDiv(steps * 10, 14));
   e.target[i] = target;
   e.atkAt[i] = state.step + Math.max(1, floorDiv(steps * 2, 5));
   e.atkNext[i] = state.step + steps;
   e.atkWith[i] = withWhat;
-  e.order[i] = withWhat === With.Shot || withWhat === With.Web ? OrderKind.Shoot : OrderKind.Attack;
-  // A bat swoops down to strike.
-  if (spec.moves === Moves.LowFlyer && withWhat === With.Unit) e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + SWOOP_HEIGHT;
+  e.order[i] = shooting(withWhat) ? OrderKind.Shoot : OrderKind.Attack;
+  // A bat swoops down to strike; a high flyer is low for 2 s while it does (roster: the gravewing's snatch).
+  if (flies(spec) && withWhat === With.Unit) {
+    e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + SWOOP_HEIGHT;
+    if (spec.moves === Moves.HighFlyer) e.lowUntil[i] = state.step + 2 * STEPS_PER_SECOND;
+  }
+  // A wolf rider's run makes this a charge (Table 14).
+  if (withWhat === With.Unit) startCharge(state, i);
+}
+
+/** A mob begins casting a spell at a unit or a light (the target's entity or building id): it stands and casts for 40% of its attack time. */
+export function beginSpell(state: SimState, i: number, target: number, what: number): void {
+  begin(state, i, mobSpec(state.entities.mob[i]!), target, what);
+}
+
+/** Whether a mob is casting a spell now, one a Counterspell can stop. */
+export function castingSpell(state: SimState, i: number): boolean {
+  const e = state.entities;
+  if (e.kind[i] !== UnitKind.Mob || e.hp[i]! <= 0 || e.atkAt[i] === 0 || e.atkAt[i]! <= state.step) return false;
+  return spellAttack(mobSpec(e.mob[i]!), e.atkWith[i]!);
+}
+
+/** A Counterspell stops a mob's spell: nothing lands, and its mana and cooldown are still spent (Table 13). */
+export function cancelSpell(state: SimState, i: number): void {
+  const e = state.entities;
+  const spec = mobSpec(e.mob[i]!);
+  // Spark toss pays when it lands; stopped, it pays now.
+  if ((e.atkWith[i] === With.Shot && spec.shot === Shot.Spark) || e.atkWith[i] === With.SparkSpell) spend(state, i, Ability.SparkToss);
+  e.atkAt[i] = 0;
+  e.order[i] = OrderKind.Idle;
 }
 
 /** The key moment of a mob's attack. */
@@ -267,6 +345,31 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   const what = e.atkWith[i]!;
   e.atkAt[i] = 0;
   const id = e.target[i]!;
+  // A goblin mage's spells land when the cast is done (their mana went when it began).
+  if (what === With.SnuffSpell) {
+    const b = state.buildings.get(id);
+    if (b) snuffEffect(state, i, b);
+    return;
+  }
+  if (what === With.HexSpell) {
+    const t = e.indexOf(id);
+    if (t >= 0 && e.hp[t]! > 0) stumbleEffect(state, i, t);
+    return;
+  }
+  if (what === With.SparkSpell) {
+    const b = state.buildings.get(id);
+    if (b && b.hp > 0) castSparkAtBuilding(state, i, b);
+    return;
+  }
+  if (what === With.Snuff) {
+    // A raiding goblin puts a light out (Table 17: raids put out lights on the way).
+    const b = state.buildings.get(id);
+    if (b && gapToBuilding(state, i, b) <= spec.reach + TOLERANCE && snuffLight(state, b)) {
+      const [x, z] = buildingCentre(b);
+      state.events.push({ player: b.owner, kind: 'alert', text: `Goblins put out a ${buildingSpec(b.kind).name.toLowerCase()}. A worker can relight it.`, x, z });
+    }
+    return;
+  }
   if (what === With.Building) {
     const b = state.buildings.get(id);
     if (!b || gapToBuilding(state, i, b) > spec.reach + TOLERANCE) return;
@@ -274,13 +377,24 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     // Rats gnaw wooden gates for double (roster).
     if (spec.id === Mob.GiantRat && buildingSpec(b.kind).defence === 'gate' && buildingSpec(b.kind).wooden !== false) dmg *= 2;
     hurtBuilding(state, b, dmg, e.x[i]!, e.y[i]! + floorDiv(spec.height, 2), e.z[i]!);
+    lateHooks.building(state, i, spec, b);
     return;
   }
   const t = e.indexOf(id);
   if (t < 0 || !playerUnit(state, t)) return;
   const fromY = e.y[i]! + floorDiv(spec.height * 2, 3);
   if (what === With.Shot) {
-    const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : 0;
+    // A goblin mage's ranged attack is its Spark toss, paid in mana.
+    if (spec.shot === Shot.Spark) {
+      castSparkAt(state, i, t);
+      return;
+    }
+    // A curse, a draining beam or a line of breath lands at once (roster 5.10, 5.20, 5.21).
+    if (spec.strike !== Strike.Shot) {
+      lateHooks.strike(state, i, spec, t);
+      return;
+    }
+    const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : spellShot(spec.shot) ? ProjectileFlag.Spell : 0;
     fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealt(state, i, spec.damage), spec.spreadBp, flags);
     return;
   }
@@ -290,18 +404,41 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     return;
   }
   if (!inReach(state, i, t, { ...spec, reach: spec.reach + TOLERANCE })) return;
-  const blow = { damage: dealt(state, i, spec.damage), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  // A charge doubles the blow and throws the smaller back (Table 14); a hidden void stalker's first strike is triple.
+  const charge = takeCharge(state, i);
+  const blow = { damage: dealt(state, i, spec.damage) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  if (spec.slamRadius > 0) {
+    // The Rift colossus's ground slam: everything within 6 m.
+    state.hits.push({ look: 'blast', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
+    for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.slamRadius + WU_PER_METRE)) {
+      if (!playerUnit(state, j) || gap(state, i, j) > spec.slamRadius) continue;
+      lateHooks.hit(state, i, spec, j, hurtUnit(state, j, blow));
+    }
+    return;
+  }
   if (spec.arc) {
     // A bloated corpse's swing hits everything in front of it.
     const [fx, fz] = forward(e.heading[i]!);
-    for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.reach + WU_PER_METRE)) {
+    for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.reach + WU_PER_METRE)) {
       if (!playerUnit(state, j) || gap(state, i, j) > spec.reach + TOLERANCE || wallBetween(state, i, j)) continue;
       const dx = e.x[j]! - e.x[i]!;
       const dz = e.z[j]! - e.z[i]!;
       if (j !== t && dx * fx + dz * fz < length2d(dx, dz) * 46341) continue;
-      hurtUnit(state, j, blow);
+      const d = hurtUnit(state, j, blow);
+      if (charge) chargeKnock(state, i, j);
+      lateHooks.hit(state, i, spec, j, d);
     }
-  } else hurtUnit(state, t, blow);
+  } else {
+    const d = hurtUnit(state, t, blow);
+    if (charge) chargeKnock(state, i, t);
+    lateHooks.hit(state, i, spec, t, d);
+    // A giant centipede's bite poisons (roster 6.1): more damage over 5 s.
+    if (d > 0 && spec.poison > 0 && e.hp[t]! > 0) {
+      e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + spec.poison;
+      e.dotUntil[t] = state.step + POISON.steps;
+      e.dotFrom[t] = e.id[i]!;
+    }
+  }
   if (spec.id === Mob.Zombie) {
     // Grasp: slowed by 20% for 2 s.
     e.slowUntil[t] = state.step + GRASP.steps;
@@ -369,7 +506,7 @@ function crowdNear(state: SimState, i: number): [number, number] | null {
   let n = 0;
   let sx = 0;
   let sz = 0;
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, CLUSTER.radius)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, CLUSTER.radius)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > CLUSTER.radius) continue;
     n++;
     sx += e.x[j]!;
@@ -381,14 +518,26 @@ function crowdNear(state: SimState, i: number): [number, number] | null {
 /** What a mob does when something blocks its way: climb it, blow it up, or break it. */
 function blocked(state: SimState, i: number, spec: MobSpec, r: number, blocker: { id: number }): void {
   const e = state.entities;
-  if (spec.moves === Moves.Breaker) {
+  if (bomber(spec)) {
     explode(state, i, r === BLOCKED_LAND);
+    return;
+  }
+  if (r === BLOCKED_LAND && spec.moves === Moves.Breaker) {
+    // Every other breaker smashes the land in its way into a crossing, one blow at a time.
+    if (state.step >= e.atkNext[i]!) {
+      const [fx, fz] = forward(e.heading[i]!);
+      caveIn(state, e.x[i]! + floorDiv(fx * WU_PER_COLUMN, 65536), e.z[i]! + floorDiv(fz * WU_PER_COLUMN, 65536), BLAST.buildingRadius);
+      e.atkNext[i] = state.step + spec.attackSteps;
+      e.order[i] = OrderKind.Attack;
+    }
     return;
   }
   if (r !== BLOCKED_BUILDING) return;
   const b = state.buildings.get(blocker.id);
   if (!b) return;
-  if (spec.moves === Moves.Climber && b.owner < state.players.length && !litGate(state, b) && startClimb(state, i, spec, b)) return;
+  // A cinderling climbs wooden walls only (roster 5.11).
+  const climbable = !spec.woodClimber || buildingSpec(b.kind).wooden !== false;
+  if (spec.moves === Moves.Climber && climbable && b.owner < state.players.length && !litGate(state, b) && startClimb(state, i, spec, b)) return;
   if (spec.vsWalls > 0 && state.step >= e.atkNext[i]!) begin(state, i, spec, b.id, With.Building);
 }
 
@@ -421,6 +570,14 @@ function startClimb(state: SimState, i: number, spec: MobSpec, b: Building): boo
 function marchOnTown(state: SimState, i: number, spec: MobSpec): void {
   const e = state.entities;
   const blocker = { id: 0 };
+  // Sent for a point first: it walks there, then joins the attack on the town.
+  if (e.role[i] === Role.Aimed) {
+    if (length2d(e.homeX[i]! - e.x[i]!, e.homeZ[i]! - e.z[i]!) > AIM_REACHED_WU) {
+      walkMob(state, i, spec, e.homeX[i]!, e.homeZ[i]!);
+      return;
+    }
+    e.role[i] = Role.Night;
+  }
   const cls = classOf(spec);
   const town = townCentre(state, e.foe[i]!);
   if (!town) {
@@ -440,7 +597,7 @@ function marchOnTown(state: SimState, i: number, spec: MobSpec): void {
         const b = goalNear(state, i);
         if (b) {
           if (gapToBuilding(state, i, b) <= spec.reach) {
-            if (spec.moves === Moves.Breaker) explode(state, i, false);
+            if (bomber(spec)) explode(state, i, false);
             else if (state.step >= e.atkNext[i]!) begin(state, i, spec, b.id, With.Building);
             return;
           }
@@ -502,6 +659,8 @@ export function runMob(state: SimState, i: number): void {
   if (e.hp[i]! <= 0) return;
   const spec = mobSpec(e.mob[i]!);
   e.order[i] = OrderKind.Idle;
+  // Lairs, huts, fire pits and totems stand and are broken.
+  if (spec.role === Role.Structure) return;
   if (spec.id === Mob.BombKeg) {
     if (state.step >= e.fuseAt[i]!) explode(state, i, false);
     return;
@@ -528,7 +687,7 @@ export function runMob(state: SimState, i: number): void {
   }
   if (e.atkAt[i] !== 0) {
     if (state.step < e.atkAt[i]!) {
-      e.order[i] = e.atkWith[i] === With.Shot || e.atkWith[i] === With.Web ? OrderKind.Shoot : OrderKind.Attack;
+      e.order[i] = shooting(e.atkWith[i]!) ? OrderKind.Shoot : OrderKind.Attack;
       return;
     }
     land(state, i, spec);
@@ -539,11 +698,15 @@ export function runMob(state: SimState, i: number): void {
     e.order[i] = OrderKind.Idle;
     return;
   }
+  if (e.role[i]! >= Role.Resident) {
+    mobHooks.foe(state, i, spec);
+    return;
+  }
   const blocker = { id: 0 };
-  if (spec.moves === Moves.Breaker) {
+  if (bomber(spec)) {
     const crowd = crowdNear(state, i);
     if (crowd) {
-      for (const j of state.grid.near(e.x[i]!, e.z[i]!, BOMB_REACH_WU)) {
+      for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, BOMB_REACH_WU)) {
         if (playerUnit(state, j) && gap(state, i, j) <= BOMB_REACH_WU) {
           explode(state, i, false);
           return;
@@ -571,14 +734,47 @@ export function runMob(state: SimState, i: number): void {
   }
   let t = e.indexOf(e.target[i]!);
   if (t < 0 || !playerUnit(state, t) || gap(state, i, t) > GIVE_UP_WU) t = pickUnit(state, i, spec);
+  if (spec.firstNight >= LATE_FIRST_NIGHT && lateHooks.act(state, i, spec, t)) return;
   if (t < 0) {
     e.target[i] = 0;
     marchOnTown(state, i, spec);
     return;
   }
+  engageUnit(state, i, spec, t);
+}
+
+/** The mobs with abilities of their own in threats/late-mobs.ts come from night 25. */
+const LATE_FIRST_NIGHT = 25;
+
+/** Walks a mob towards a point, dealing with what blocks it; true once within a metre. */
+export function walkMob(state: SimState, i: number, spec: MobSpec, x: number, z: number): boolean {
+  const e = state.entities;
+  if (length2d(x - e.x[i]!, z - e.z[i]!) <= WU_PER_METRE) return true;
+  const blocker = { id: 0 };
+  const r = goToward(state, i, spec, x, z, blocker);
+  if (r !== MOVED) blocked(state, i, spec, r, blocker);
+  return false;
+}
+
+/** Goes for a building: breaks it once in reach (or, with `snuff`, puts out the light), else walks to it. */
+export function attackBuilding(state: SimState, i: number, spec: MobSpec, b: Building, snuff = false): void {
+  if (gapToBuilding(state, i, b) <= Math.max(spec.reach, WU_PER_METRE)) {
+    const [x, z] = buildingCentre(b);
+    face2(state, i, x, z);
+    begin(state, i, spec, b.id, snuff ? With.Snuff : With.Building);
+    return;
+  }
+  const [x, z] = buildingCentre(b);
+  walkMob(state, i, spec, x, z);
+}
+
+/** Fights one of the players' units: shoots from range, strikes in reach, else closes in. */
+export function engageUnit(state: SimState, i: number, spec: MobSpec, t: number): void {
+  const e = state.entities;
+  const blocker = { id: 0 };
   e.target[i] = e.id[t]!;
   // A bat stays down among its prey while it is close enough to strike, and climbs back up to travel.
-  if (spec.moves === Moves.LowFlyer) e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + (gap(state, i, t) <= spec.reach + WU_PER_METRE ? SWOOP_HEIGHT : FLY_HEIGHT);
+  if (flies(spec)) e.y[i] = groundAt(state, e.x[i]!, e.z[i]!) + (gap(state, i, t) <= spec.reach + WU_PER_METRE || e.lowUntil[i]! > state.step ? SWOOP_HEIGHT : cruise(spec));
   if (spec.id === Mob.GraveHound && state.step >= e.abilityAt[i]!) howl(state, i);
   const d = gap(state, i, t);
   // Ranged mobs shoot from range; spiders spit web when it is ready.
@@ -587,9 +783,11 @@ export function runMob(state: SimState, i: number): void {
     begin(state, i, spec, e.id[t]!, With.Web, STEPS_PER_SECOND);
     return;
   }
-  if (spec.range > 0 && spec.id !== Mob.GiantSpider && d <= spec.range && d > spec.reach + WU_PER_METRE) {
+  // A goblin mage out of mana for its Spark toss closes in to strike instead.
+  const ranged = spec.range > 0 && (spec.shot !== Shot.Spark || canUse(state, i, Ability.SparkToss));
+  if (ranged && spec.id !== Mob.GiantSpider && d <= spec.range && d > spec.reach + WU_PER_METRE) {
     // A wall in the way of every arc: shoot at someone else in range it can hit, if there is one.
-    const better = shotAt(state, i, spec, t);
+    const better = spec.strike === Strike.Shot ? shotAt(state, i, spec, t) : t;
     if (better !== t) {
       t = better;
       e.target[i] = e.id[t]!;
@@ -617,7 +815,7 @@ function shotAt(state: SimState, i: number, spec: MobSpec, t: number): number {
   const clear = (j: number): boolean => hasClearLob(state, spec.shot, e.x[i]!, fromY, e.z[i]!, e.x[j]!, e.y[j]! + floorDiv(bodyHeight(state, j), 2), e.z[j]!);
   if (clear(t)) return t;
   const near: Array<[number, number]> = [];
-  for (const j of state.grid.near(e.x[i]!, e.z[i]!, spec.range)) {
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.range)) {
     if (j === t || !playerUnit(state, j)) continue;
     const d = gap(state, i, j);
     if (d <= spec.range) near.push([d, j]);
@@ -629,8 +827,13 @@ function shotAt(state: SimState, i: number, spec: MobSpec, t: number): number {
 
 function face(state: SimState, i: number, t: number): void {
   const e = state.entities;
-  const dx = e.x[t]! - e.x[i]!;
-  const dz = e.z[t]! - e.z[i]!;
+  face2(state, i, e.x[t]!, e.z[t]!);
+}
+
+function face2(state: SimState, i: number, x: number, z: number): void {
+  const e = state.entities;
+  const dx = x - e.x[i]!;
+  const dz = z - e.z[i]!;
   if (dx !== 0 || dz !== 0) e.heading[i] = headingTowards(dx, dz);
 }
 
@@ -654,7 +857,7 @@ export function addMob(state: SimState, mob: number, foe: number, x: number, z: 
   const e = state.entities;
   const id = state.nextEntityId++;
   const ground = standY(state, x, z);
-  const y = spec.moves === Moves.LowFlyer ? groundAt(state, x, z) + FLY_HEIGHT : ground;
+  const y = flies(spec) ? groundAt(state, x, z) + cruise(spec) : ground;
   const i = e.add(id, MONSTERS, x, y, z, spec.speed, UnitKind.Mob);
   e.mob[i] = mob;
   e.foe[i] = foe;
@@ -663,7 +866,10 @@ export function addMob(state: SimState, mob: number, foe: number, x: number, z: 
   e.hp[i] = Math.max(1, floorDiv(spec.hp * power, 1000));
   e.maxHp[i] = e.hp[i]!;
   e.rank[i] = 0;
-  e.tool[i] = 0;
+  e.role[i] = spec.role;
+  e.mana[i] = spec.mana * MANA_SCALE;
+  e.homeX[i] = x;
+  e.homeZ[i] = z;
   state.grid.insert(e, i);
   return i;
 }
@@ -675,13 +881,14 @@ export function addMob(state: SimState, mob: number, foe: number, x: number, z: 
  * health a second in the sunlight; goblins and bats run for the dark.
  */
 export function updateSun(state: SimState): void {
-  const c = clockAt(state.step);
+  const c = clockAt(state.step, state.blood);
   if (c.period !== Period.Dawn && c.period !== Period.Day) return;
   const e = state.entities;
   const k = state.step % STEPS_PER_SECOND;
   for (let i = 0; i < e.count; i++) {
     if (e.kind[i] !== UnitKind.Mob || e.hp[i]! <= 0) continue;
     const spec = mobSpec(e.mob[i]!);
+    if (spec.sun === Sun.Proof || inShade(state, i)) continue;
     if (spec.sun === Sun.Flees) {
       if (!e.fleeing[i]) {
         e.fleeing[i] = 1;
@@ -692,7 +899,9 @@ export function updateSun(state: SimState): void {
       }
       continue;
     }
-    const burn = burnThisStep(floorDiv(e.maxHp[i]! * SUNBURN_PER_MILLE_PER_SECOND, 1000), k);
+    // A barrow knight smoulders at half the burn (roster 5.7: 5% a second).
+    const perMille = spec.sun === Sun.Smoulders ? SUNBURN_PER_MILLE_PER_SECOND >> 1 : SUNBURN_PER_MILLE_PER_SECOND;
+    const burn = burnThisStep(floorDiv(e.maxHp[i]! * perMille, 1000), k);
     if (burn <= 0) continue;
     e.hp[i] = e.hp[i]! - burn;
     if (k === 0) state.hits.push({ look: 'burst', x: e.x[i]!, y: e.y[i]! + (bodyHeight(state, i) >> 1), z: e.z[i]!, id: e.id[i]! });
@@ -705,3 +914,10 @@ export function updateSun(state: SimState): void {
   }
 }
 
+/** A lair's resident stands in its shade by day: within 30 m of its lair while the lair stands (s). */
+function inShade(state: SimState, i: number): boolean {
+  const e = state.entities;
+  if (e.role[i] !== Role.Resident) return false;
+  const l = e.indexOf(e.group[i]!);
+  return l >= 0 && e.hp[l]! > 0 && length2d(e.x[l]! - e.x[i]!, e.z[l]! - e.z[i]!) <= LAIR_LEASH_WU;
+}

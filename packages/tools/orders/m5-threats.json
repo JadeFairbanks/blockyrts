@@ -1,0 +1,17 @@
+{
+ "description": "M5 check script, seed 1, one player, with night mobs: the debug tools put a finished Barracks and a level 4 forge 44 m north of the Big House with the materials and research of every tier (Troop kit, 54; the Barracks is building 57), a barrow 60 m east of the Big House and a cave mouth 60 m west; the Barracks trains a crossbow ranger (troop product 4466: ranger, weapon tier 7, no armour; unit 319) while the three starting warriors (units 5 to 7) press Upgrade Weapon Max and Upgrade Armour Max and walk to the forge to come back in carbon steel and steel (Troops and gear), and the workers chop pines; the four attack-move on the barrow: they wake its sleeping dwellers, break it, take its hoard into the pool and earn XP; fog rolls in for night 0 (debug), the troops guard the Big House and the workers go home; at dawn a goblin village goes up 80 m north, a gnoll band 140 m south-east and a giant beetle 110 m north-west (debug); the troops attack-move into the village, it declares war after the fifth kill and they walk home; late on day 1 a blood night is called for night 1 (debug). Debug threats: 0 to 7 lairs in Table 15's order, 10 village, 11 to 13 gnolls, kobolds, hobgoblins, 20 blood night, 21 fog, 30 to 35 beetle, hornets, viper, scorpion, griffin, minotaur, 54 troop kit. Products: 4096 + troop x 100 + weapon tier x 10 + armour tier. Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  { "step": 5, "orders": [ {"kind":"gather","player":0,"units":[1,2,3,4],"cx":-1,"cz":-1,"index":2}, {"kind":"debugThreat","player":0,"what":54,"x":0,"z":-160000}, {"kind":"debugThreat","player":0,"what":0,"x":480000,"z":0}, {"kind":"debugThreat","player":0,"what":1,"x":-480000,"z":80000} ] },
+  { "step": 10, "orders": [ {"kind":"produce","player":0,"building":57,"product":4466,"count":1}, {"kind":"upgradeKit","player":0,"units":[5,6,7],"line":0,"max":1}, {"kind":"upgradeKit","player":0,"units":[5,6,7],"line":1,"max":1} ] },
+  { "step": 2850, "orders": [ {"kind":"attackMove","player":0,"units":[5,6,7,319],"x":480000,"z":0} ] },
+  { "step": 3300, "orders": [ {"kind":"debugThreat","player":0,"what":21,"x":0,"z":0} ] },
+  { "step": 3400, "orders": [ {"kind":"attackMove","player":0,"units":[5,6,7,319],"x":0,"z":24000} ] },
+  { "step": 3650, "orders": [ {"kind":"everyoneHome","player":0} ] },
+  { "step": 3700, "orders": [ {"kind":"attackMove","player":0,"units":[5,6,7,319],"x":0,"z":24000} ] },
+  { "step": 8000, "orders": [ {"kind":"debugThreat","player":0,"what":10,"x":0,"z":-640000}, {"kind":"debugThreat","player":0,"what":11,"x":800000,"z":800000}, {"kind":"debugThreat","player":0,"what":30,"x":-640000,"z":-640000} ] },
+  { "step": 8050, "orders": [ {"kind":"attackMove","player":0,"units":[5,6,7,319],"x":0,"z":-600000} ] },
+  { "step": 8850, "orders": [ {"kind":"move","player":0,"units":[5,6,7,319],"x":0,"z":24000} ] },
+  { "step": 9800, "orders": [ {"kind":"debugThreat","player":0,"what":20,"x":0,"z":0} ] }
+ ]
+}

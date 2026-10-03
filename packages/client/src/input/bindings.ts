@@ -4,13 +4,14 @@
 // gives them: letters by the character they type ('KeyA'), the rest by
 // physical code ('F1', 'Backspace'). The build menu grid keys follow the key
 // position instead and are not rebound.
+import { School, SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
 
 export interface Action {
   id: string;
   name: string;
   key: string;
   /** Where it applies, for the settings list. */
-  group: 'Units' | 'Workers' | 'Buildings' | 'Camera and selection';
+  group: 'Units' | 'Workers' | 'Mages' | 'Buildings' | 'Camera and selection' | 'Players';
 }
 
 export const ACTIONS: readonly Action[] = [
@@ -20,10 +21,14 @@ export const ACTIONS: readonly Action[] = [
   { id: 'patrol', name: 'Patrol', key: 'KeyP', group: 'Units' },
   { id: 'move', name: 'Move', key: 'KeyM', group: 'Units' },
   { id: 'enter', name: 'Enter', key: 'KeyE', group: 'Units' },
-  { id: 'equipBest', name: 'Equip Best', key: 'KeyQ', group: 'Units' },
-  { id: 'equipment', name: 'Equipment panel', key: 'KeyI', group: 'Units' },
-  { id: 'lock', name: 'Ranged or melee lock (warriors)', key: 'KeyY', group: 'Units' },
-  { id: 'archery', name: 'Train in archery (warriors)', key: 'KeyU', group: 'Units' },
+  // Milestone 11 (Troops and gear): upgrades replace the equipment keys; Max goes as high as research and the stock allow.
+  { id: 'upgradeWeapon', name: 'Upgrade weapon (troops), tools (workers) or wand (mages)', key: 'KeyQ', group: 'Units' },
+  { id: 'upgradeArmour', name: 'Upgrade armour (troops) or robe (mages)', key: 'KeyX', group: 'Units' },
+  { id: 'upgradeWeaponMax', name: 'Upgrade weapon to the best', key: 'KeyZ', group: 'Units' },
+  { id: 'upgradeArmourMax', name: 'Upgrade armour to the best', key: 'KeyV', group: 'Units' },
+  { id: 'lock', name: 'Ranged or melee lock (rangers and brawlers)', key: 'KeyY', group: 'Units' },
+  { id: 'train', name: 'Train cannon crew (troops, at a Gunnery yard)', key: 'KeyU', group: 'Units' },
+  { id: 'hitch', name: 'Hitch an animal or let it go (siege engines and cannons)', key: 'KeyR', group: 'Units' },
   { id: 'hunt', name: 'Hunt (warriors; press twice to keep hunting)', key: 'KeyN', group: 'Units' },
   { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
@@ -36,6 +41,11 @@ export const ACTIONS: readonly Action[] = [
   { id: 'buildBasic', name: 'Build Basic Structures', key: 'KeyB', group: 'Workers' },
   { id: 'buildAdvanced', name: 'Build Advanced Structures', key: 'KeyV', group: 'Workers' },
   { id: 'rankUp', name: 'Upgrade rank (train at the main base)', key: 'KeyU', group: 'Workers' },
+  { id: 'cart', name: 'Fetch a cart from the main base, or hand it back', key: 'KeyX', group: 'Workers' },
+  // Each spell on its letter in Table 13; the two schools never share a card, so R, F and the rest serve both.
+  // The players' spells (the Elves' Grovesingers cast their own, never on a key).
+  ...SPELLS.filter((s) => s.school !== School.Grove).map((s): Action => ({ id: spellAction(s.id), name: `${s.name} (${SCHOOL_NAMES[s.school]!.toLowerCase()}s)`, key: `Key${s.key}`, group: 'Mages' })),
+  { id: 'mageRank', name: 'Upgrade rank (train at a Magi Sanctum)', key: 'KeyU', group: 'Mages' },
   { id: 'rally', name: 'Set Rally Point', key: 'KeyR', group: 'Buildings' },
   { id: 'upgrade', name: 'Upgrade building', key: 'KeyG', group: 'Buildings' },
   { id: 'unload', name: 'Unload All', key: 'KeyU', group: 'Buildings' },
@@ -43,9 +53,15 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainWorker', name: 'Train Worker', key: 'KeyW', group: 'Buildings' },
   { id: 'planksSoft', name: 'Planks from softwood', key: 'KeyP', group: 'Buildings' },
   { id: 'planksHard', name: 'Planks from hardwood', key: 'KeyH', group: 'Buildings' },
-  { id: 'trainWarrior', name: 'Train Warrior', key: 'KeyA', group: 'Buildings' },
-  { id: 'craft', name: 'Crafting, cooking, research or slaughter menu', key: 'KeyK', group: 'Buildings' },
-  { id: 'refurbish', name: 'Refurbish', key: 'KeyF', group: 'Buildings' },
+  // The troop types (Troops and gear): L is Follow and G a building's upgrade, so long melee is on Q (s).
+  { id: 'trainClose', name: 'Train Close melee (Barracks, main base)', key: 'KeyA', group: 'Buildings' },
+  { id: 'trainLong', name: 'Train Long melee (Barracks, main base)', key: 'KeyQ', group: 'Buildings' },
+  { id: 'trainRanger', name: 'Train Ranger (Barracks, main base)', key: 'KeyN', group: 'Buildings' },
+  { id: 'trainBrawler', name: 'Train Brawler (Barracks)', key: 'KeyB', group: 'Buildings' },
+  { id: 'trainCavalry', name: 'Train Cavalry (Stables)', key: 'KeyC', group: 'Buildings' },
+  { id: 'trainSupportMage', name: 'Train Support mage', key: 'KeyS', group: 'Buildings' },
+  { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
+  { id: 'craft', name: 'Smelting, cooking, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
@@ -53,10 +69,20 @@ export const ACTIONS: readonly Action[] = [
   { id: 'urgent', name: 'Latest urgent message', key: 'Space', group: 'Camera and selection' },
   { id: 'follow', name: 'Follow', key: 'KeyL', group: 'Camera and selection' },
   { id: 'home', name: 'Everyone Home', key: 'KeyJ', group: 'Camera and selection' },
-  { id: 'autoEquip', name: 'Auto-Equip', key: 'F4', group: 'Camera and selection' },
   { id: 'rations', name: 'Rations', key: 'F9', group: 'Camera and selection' },
+  { id: 'peoples', name: 'Peoples panel', key: 'KeyO', group: 'Camera and selection' },
   { id: 'subgroup', name: 'Next subgroup', key: 'Tab', group: 'Camera and selection' },
+  // Milestone 9 (s): keys no unit or building card uses. Chat stays on Enter.
+  { id: 'allies', name: 'Allies panel', key: 'BracketLeft', group: 'Players' },
+  { id: 'send', name: 'Send resources', key: 'BracketRight', group: 'Players' },
+  { id: 'ping', name: 'Map ping', key: 'Backslash', group: 'Players' },
+  { id: 'pause', name: 'Pause', key: 'Pause', group: 'Players' },
 ];
+
+/** The binding name of a spell's button. */
+export function spellAction(spell: number): string {
+  return `spell${spell}`;
+}
 
 const DEFAULTS = new Map(ACTIONS.map((a) => [a.id, a.key]));
 

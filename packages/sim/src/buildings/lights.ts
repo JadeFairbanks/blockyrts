@@ -7,6 +7,7 @@ import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { Walk, WALKER } from '../nav/grid.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
 import type { SimState } from '../state.ts';
+import type { World } from '../world/world.ts';
 import { AUTO_REFUEL_M, BUILDING_CLAIM_M, BuildingKind, buildingSpec, footprintDims, OUTLYING_M } from './data.ts';
 import { footprintRect, type Building, type Placed } from './store.ts';
 
@@ -45,12 +46,39 @@ export function nearMainBase(state: SimState, b: Building, m: number): boolean {
   return false;
 }
 
+/** Bit 4 of a light's `alerted`: snuffed out, its fuel left kept in `farmAcc` (lights have no farm). */
+const SNUFFED = 4;
+
+export function isSnuffed(b: Building): boolean {
+  return (b.alerted & SNUFFED) !== 0;
+}
+
+/** Snuff puts a light out without damage (Table 18); the fuel it had left waits for a worker to relight it. Returns whether it was lit. */
+export function snuffLight(state: SimState, b: Building): boolean {
+  if (!isLit(b, state.step)) return false;
+  b.farmAcc = b.fuelUntil - state.step;
+  b.fuelUntil = state.step;
+  b.alerted |= SNUFFED;
+  return true;
+}
+
+/** A worker relights a snuffed light in 2 s at no cost (Table 18). Returns whether it was snuffed. */
+export function relight(state: SimState, b: Building): boolean {
+  if (!isSnuffed(b)) return false;
+  b.fuelUntil = state.step + Math.max(1, b.farmAcc);
+  b.farmAcc = 0;
+  b.alerted &= ~(SNUFFED | 2);
+  return true;
+}
+
 /** Lights burn down; those near a main base are topped up from the pool, and one that goes out says so once. */
 export function updateLights(state: SimState): void {
   for (const b of state.buildings.list) {
     const light = buildingSpec(b.kind).light;
     if (!light || !b.complete) continue;
     const left = b.fuelUntil - state.step;
+    // A snuffed light waits for a worker; it does not refuel itself.
+    if (isSnuffed(b)) continue;
     if (left < REFUEL_MARGIN_STEPS && nearMainBase(state, b, AUTO_REFUEL_M)) {
       const pool = state.players[b.owner]!.pool;
       if (pool[light.fuel]! > 0) {
@@ -144,12 +172,25 @@ function colKey(x: number, z: number): number {
  * claimed land. Run at dusk and whenever a building is finished or destroyed.
  */
 export function computeEnclosed(state: SimState): void {
+  // The answer reads only the walk map and the buildings that can be closed
+  // in (their place never changes, only whether they stand, are finished and
+  // whose they are): with neither changed since the last time, it stands.
+  const nav = state.nav;
+  const held: number[] = [];
+  for (const b of state.buildings.list) {
+    const s = buildingSpec(b.kind);
+    if (b.complete && !s.light && !s.defence) held.push(b.id, b.owner);
+  }
+  const last = lastEnclosed.get(state.world);
+  if (last && last.epoch === state.world.navEpoch && last.held.length === held.length && last.held.every((v, k) => v === held[k])) {
+    state.enclosed = last.enclosed.slice();
+    return;
+  }
   const keys: number[] = [];
   const open = new Set<number>();
   /** Closed columns to their region, and each region's tiles (x, z pairs). */
   const shut = new Map<number, number>();
   const regions: number[][] = [];
-  const nav = state.nav;
   for (const b of state.buildings.list) {
     const s = buildingSpec(b.kind);
     if (!b.complete || s.light || s.defence) continue;
@@ -211,7 +252,11 @@ export function computeEnclosed(state: SimState): void {
     regions.push(tiles);
   }
   state.enclosed = [...new Set(keys)].sort((a, c) => a - c);
+  lastEnclosed.set(state.world, { epoch: state.world.navEpoch, held, enclosed: state.enclosed.slice() });
 }
+
+/** Not state: the last enclosure worked out per world, and what it was worked out from. */
+const lastEnclosed = new WeakMap<World, { epoch: number; held: number[]; enclosed: number[] }>();
 
 /**
  * Lights more than 40 m from any of the player's main bases, counted in

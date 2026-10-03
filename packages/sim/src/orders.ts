@@ -216,29 +216,38 @@ export interface HoldOrder {
   kind: 'hold';
   player: number;
   units: number[];
+  /** Shift + H: hold where the unit is once its earlier orders are done. */
+  queued?: boolean;
 }
 
-/** Q Equip Best. */
-export interface EquipBestOrder {
-  kind: 'equipBest';
+/**
+ * Upgrading units (Troops and gear): line 0 Upgrade Weapon (tools on a
+ * worker, wand on a mage), 1 Upgrade Armour (robe on a mage); max 1 is the
+ * Max twin, to the best tier researched and affordable.
+ */
+export interface UpgradeKitOrder {
+  kind: 'upgradeKit';
   player: number;
   units: number[];
+  line: number;
+  max: number;
 }
 
-/** The equipment panel (I): one item (or 0 to take it off) for one slot of one unit. */
-export interface EquipItemOrder {
-  kind: 'equipItem';
+/** Workers fetch a cart from a main base's stock (back 0) or hand theirs in (back 1). */
+export interface CartOrder {
+  kind: 'cart';
   player: number;
-  unit: number;
-  slot: number;
-  item: number;
+  units: number[];
+  back: number;
 }
 
-/** F4 Auto-Equip on (1) or off (0). */
-export interface AutoEquipOrder {
-  kind: 'autoEquip';
+/** The Lock on a Barracks, Stables or main base panel for one troop type: 0 off, else 1 + weapon tier x 10 + armour tier. */
+export interface TroopLockOrder {
+  kind: 'troopLock';
   player: number;
-  on: number;
+  building: number;
+  troop: number;
+  lock: number;
 }
 
 /** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
@@ -274,19 +283,90 @@ export interface EarthworkOrder extends UnitsOrder {
   axis: number;
 }
 
-/** Specialist training at a building (Table 7: Archery at the Barracks is skill 1). */
+/** Specialist training at a building (Table 7: cannon crew at the Gunnery yard is skill 16). */
 export interface TrainSkillOrder extends UnitsOrder {
   kind: 'trainSkill';
   building: number;
   skill: number;
 }
 
-/** Debug: puts items into a player's equipment stock. */
+/** Debug: puts resources into a player's pool. */
 export interface DebugGiveOrder {
   kind: 'debugGive';
   player: number;
-  item: number;
+  res: number;
   count: number;
+}
+
+/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature, a blood night or fog (threats/debug.ts DebugThreat). */
+export interface DebugThreatOrder {
+  kind: 'debugThreat';
+  player: number;
+  what: number;
+  x: number;
+  z: number;
+}
+
+/** Trade (Neutral villages and trade): the goods in the offer box for a faction, as pairs of good (peoples/data.ts goods codes) and count. It answers with three bundles. */
+export interface TradeOfferOrder {
+  kind: 'tradeOffer';
+  player: number;
+  faction: number;
+  goods: number[];
+}
+
+/** Take one of the three bundles the faction answered with (0 to 2). */
+export interface TradeTakeOrder {
+  kind: 'tradeTake';
+  player: number;
+  faction: number;
+  bundle: number;
+}
+
+/** Turn the faction's answer down (it counts towards its mood). */
+export interface TradeWithdrawOrder {
+  kind: 'tradeWithdraw';
+  player: number;
+  faction: number;
+}
+
+/** Declare war on a faction, after the confirmation pop-up; every player is drawn in. */
+export interface DeclareWarOrder {
+  kind: 'declareWar';
+  player: number;
+  faction: number;
+}
+
+/** Accept (1) or refuse (0) a faction's offer to surrender. */
+export interface SurrenderOrder {
+  kind: 'surrender';
+  player: number;
+  faction: number;
+  accept: number;
+}
+
+/** Pay a Dwarf faction's reparations from the stock. */
+export interface ReparationsOrder {
+  kind: 'reparations';
+  player: number;
+  faction: number;
+}
+
+/** Hire mercenaries from a camp for the day (2 silver each). */
+export interface HireOrder {
+  kind: 'hire';
+  player: number;
+  faction: number;
+  count: number;
+}
+
+/** Debug: one of the peoples at a point (wu): a faction kind (peoples/data.ts FactionKind), 7 an Elf caravan to the player now, 8 meet the Elves. */
+export interface DebugPeoplesOrder {
+  kind: 'debugPeoples';
+  player: number;
+  what: number;
+  x: number;
+  z: number;
 }
 
 /** Debug: a night mob at a point (wu), sent against the player. */
@@ -298,11 +378,43 @@ export interface DebugSpawnOrder {
   z: number;
 }
 
+/** What a targeted command pressed twice asks each unit to pick for itself (Controls: "Double-tap for auto-target"). */
+export const PickOwn = {
+  /** A: the nearest enemy it can see. */
+  Attack: 0,
+  /** G: the nearest node it can gather (of what it carries, if anything). */
+  Gather: 1,
+  /** E: the nearest of its player's buildings with room for it (workers shelter, ranged units and mages garrison). */
+  Enter: 2,
+  /** T: the ground it stands on. */
+  Prospect: 3,
+} as const;
+
+/** A targeted command pressed twice: each unit picks its own target (PickOwn). */
+export interface PickOwnOrder extends UnitsOrder {
+  kind: 'pickOwn';
+  command: number;
+}
+
 /** N Hunt an animal; auto (double-tapped) keeps hunting game near where each warrior stands. Workers in the selection haul. */
 export interface HuntOrder extends UnitsOrder {
   kind: 'hunt';
   /** The animal, or 0 with auto for the nearest game. */
   target: number;
+  auto: number;
+}
+
+/**
+ * Cast a spell (Magic; Table 13): at a unit (target, an entity id), or at a
+ * spot on the ground (x, z wu) for an area spell. auto (a double-tapped
+ * spell button) lets each mage pick the best target herself.
+ */
+export interface CastOrder extends UnitsOrder {
+  kind: 'cast';
+  spell: number;
+  target: number;
+  x: number;
+  z: number;
   auto: number;
 }
 
@@ -321,6 +433,18 @@ export interface EatOrder extends UnitsOrder {
 /** Hitch a tamed horse or ox to a worker's cart or pack; target 0 lets it go. */
 export interface HitchOrder extends UnitsOrder {
   kind: 'hitch';
+  target: number;
+}
+
+/** Warriors crew an engine or cannon (target): they stand by it, push it and work it. */
+export interface CrewOrder extends UnitsOrder {
+  kind: 'crew';
+  target: number;
+}
+
+/** Workers repair an engine or cannon (target). */
+export interface MendOrder extends UnitsOrder {
+  kind: 'mend';
   target: number;
 }
 
@@ -352,11 +476,45 @@ export interface DontEatOrder {
   on: number;
 }
 
+/** Allies panel: let another player command this player's units (on 1), or stop (on 0). */
+export interface ShareControlOrder {
+  kind: 'shareControl';
+  player: number;
+  with: number;
+  on: number;
+}
+
+/** Send resources (Allies panel): an amount of one resource (a Res id) to another player. */
+export interface SendResourcesOrder {
+  kind: 'sendResources';
+  player: number;
+  to: number;
+  res: number;
+  amount: number;
+}
+
+/**
+ * The player leaves the match for good (the relay's leave marker, when the
+ * host carries on without a player who is gone): their side is shared out
+ * as if eliminated.
+ */
+export interface LeaveOrder {
+  kind: 'leave';
+  player: number;
+}
+
 export type Order =
+  | PickOwnOrder
+  | ShareControlOrder
+  | SendResourcesOrder
+  | LeaveOrder
+  | CastOrder
   | HuntOrder
   | TameOrder
   | EatOrder
   | HitchOrder
+  | CrewOrder
+  | MendOrder
   | ProspectOrder
   | HaulOrder
   | RationsOrder
@@ -365,15 +523,24 @@ export type Order =
   | AttackMoveOrder
   | PatrolOrder
   | HoldOrder
-  | EquipBestOrder
-  | EquipItemOrder
-  | AutoEquipOrder
+  | UpgradeKitOrder
+  | CartOrder
+  | TroopLockOrder
   | LockOrder
   | DigOrder
   | EarthworkOrder
   | TrainSkillOrder
   | DebugGiveOrder
   | DebugSpawnOrder
+  | DebugThreatOrder
+  | TradeOfferOrder
+  | TradeTakeOrder
+  | TradeWithdrawOrder
+  | DeclareWarOrder
+  | SurrenderOrder
+  | ReparationsOrder
+  | HireOrder
+  | DebugPeoplesOrder
   | MoveOrder
   | StopOrder
   | FollowOrder
@@ -413,6 +580,7 @@ export function canonicalOrders(orders: readonly Order[]): Order[] {
 
 /** A deep copy of an order (the input log keeps its own). */
 export function copyOrder(o: Order): Order {
+  if (o.kind === 'tradeOffer') return { ...o, goods: [...o.goods] };
   return 'units' in o ? { ...o, units: [...o.units] } : { ...o };
 }
 
@@ -445,26 +613,42 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   attackMove: ['x', 'z'],
   patrol: ['x', 'z'],
   hold: [],
-  equipBest: [],
-  equipItem: ['unit', 'slot', 'item'],
-  autoEquip: ['on'],
+  upgradeKit: ['line', 'max'],
+  cart: ['back'],
+  troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
   trainSkill: ['building', 'skill'],
-  debugGive: ['item', 'count'],
+  debugGive: ['res', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
+  debugThreat: ['what', 'x', 'z'],
   hunt: ['target', 'auto'],
+  cast: ['spell', 'target', 'x', 'z', 'auto'],
   tame: ['target'],
   eat: ['building'],
   hitch: ['target'],
+  crew: ['target'],
+  mend: ['target'],
   prospect: ['x', 'z'],
   haul: ['building'],
   rations: ['rations'],
   dontEat: ['res', 'on'],
+  tradeOffer: ['faction'],
+  tradeTake: ['faction', 'bundle'],
+  tradeWithdraw: ['faction'],
+  declareWar: ['faction'],
+  surrender: ['faction', 'accept'],
+  reparations: ['faction'],
+  hire: ['faction', 'count'],
+  debugPeoples: ['what', 'x', 'z'],
+  shareControl: ['with', 'on'],
+  sendResources: ['to', 'res', 'amount'],
+  leave: [],
+  pickOwn: ['command'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'equipBest', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -495,13 +679,43 @@ export function validateOrder(o: Order): void {
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
       return;
     case 'debugGive':
-      if (o.count < 1 || o.count > 1000) throw new Error('debug give count out of range');
+      if (o.count < 1 || o.count > 100000 || o.res < 0 || o.res > 255) throw new Error('debug give out of range');
+      return;
+    case 'upgradeKit':
+      if ((o.line !== 0 && o.line !== 1) || (o.max !== 0 && o.max !== 1)) throw new Error('bad upgrade');
+      return;
+    case 'cart':
+      if (o.back !== 0 && o.back !== 1) throw new Error('bad cart order');
+      return;
+    case 'troopLock':
+      if (o.troop < 1 || o.troop > 5 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
       return;
     case 'rations':
       if (o.rations < 0 || o.rations > 2) throw new Error('rations must be 0 to 2');
       return;
     case 'dontEat':
       if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
+      return;
+    case 'pickOwn':
+      if (o.command < 0 || o.command > 3) throw new Error('bad pick-own command');
+      return;
+    case 'cast':
+      if (o.spell < 0 || o.spell > 255 || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad cast');
+      return;
+    case 'tradeOffer':
+      if (!Array.isArray(o.goods) || o.goods.length % 2 !== 0 || o.goods.length > 32 || !o.goods.every((v) => isInt(v) && v >= 0 && v < 0x10000)) throw new Error('trade goods must be up to 16 pairs of good and count');
+      return;
+    case 'tradeTake':
+      if (o.bundle < 0 || o.bundle > 2) throw new Error('a bundle is 0 to 2');
+      return;
+    case 'hire':
+      if (o.count < 1 || o.count > 6) throw new Error('hire 1 to 6');
+      return;
+    case 'shareControl':
+      if (o.with < 0 || o.with > 7 || (o.on !== 0 && o.on !== 1)) throw new Error('bad share control');
+      return;
+    case 'sendResources':
+      if (o.to < 0 || o.to > 7 || o.res < 0 || o.res > 255 || o.amount < 1 || o.amount > 1_000_000_000) throw new Error('bad send resources');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

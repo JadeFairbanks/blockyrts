@@ -1,22 +1,52 @@
 // Messages between the page and the sim worker. Local to the client; the
 // network protocol lives in @blockyrts/protocol.
+import type { OutgoingFrame, WireFrame } from '@blockyrts/protocol';
 import type { ChunkDelta, ClaimShapes, HitEvent, Order, RallyPoint, SimEvent, Site, UnitOrder } from '@blockyrts/sim';
 
+/** An online match's lockstep set-up: this client's relay slot, each sim player's slot, the epoch, the playing slots and the input delay. */
+export interface NetStart {
+  slot: number;
+  seats: number[];
+  epoch: number;
+  activeSlots: number;
+  inputDelay: number;
+  /** Joining a match under way: the first step this page still sends, and the frames already relayed. */
+  nextFrameStep?: number | undefined;
+  frames?: WireFrame[] | undefined;
+}
+
 export type ToWorker =
-  | { type: 'start'; seed: number; players: number }
+  /** A new world from the seed, or `snapshot` (the sim's serialised state) to carry on from; `player` is the local player's index. */
+  | { type: 'start'; seed: number; players: number; player: number; snapshot?: Uint8Array | undefined; net?: NetStart | undefined }
+  /** Replace the state with a snapshot and carry on from the relay's frames (a rejoin, or a reload after a desync). */
+  | ({ type: 'load'; snapshot: Uint8Array; frames: WireFrame[]; nextFrameStep: number } & NetStart)
+  /** A rejoin that keeps this state: the frames missed. */
+  | { type: 'resume'; epoch: number; frames: WireFrame[]; nextFrameStep: number; activeSlots: number; inputDelay: number }
+  | { type: 'frames'; frames: WireFrame[] }
+  | { type: 'inputDelay'; steps: number }
+  /** Alone: the menu's pause; online: the relay's. */
+  | { type: 'pause'; paused: boolean }
+  /** The state now, serialised, for a save or another player's rejoin. */
+  | { type: 'snapshot'; id: number }
   | { type: 'order'; order: Order }
   /** Placement tiles for a building at these footprint corners (global columns); answered with 'placed'. */
   | { type: 'place'; id: number; kind: number; variant: number; spots: Array<[number, number]> }
-  /** Debug: steps per tick multiplier (1, 4 or 16). */
+  /** Debug: steps per tick multiplier (1, 4 or 16); alone only. */
   | { type: 'speed'; factor: number };
 
 /**
  * Per-entity record in a state message (all int32): id, owner, kind, x, y, z,
- * heading, order, hp, maxHp, rank, tool, carryRes, carryAmt, inside, act,
- * then what it fights with (mob kind, the items in each slot, a lit torch,
- * the swing under way), its state flags, lock, skills, shots left and target.
+ * heading, order, hp, maxHp, rank, chopping tool, carryRes, carryAmt, inside, act,
+ * then what it fights with (mob kind, the gear in each slot, its troop type
+ * and its weapon and armour tiers, the swing under way), its state flags,
+ * lock, skills, an engine's shots left and target, an upgrade under way,
+ * a hop under way, a worker's other tools by job and the one in its hand,
+ * and a mage's school, mana, the spell she is casting, her beam and the
+ * spells on her; the faction of one of the neutral peoples' units; what it
+ * rides and the mount's health; an engine's crew standing by and whether
+ * something hauls it.
  */
-export const STATE_STRIDE = 35;
+export const STATE_STRIDE = 52;
 export const S = {
   id: 0,
   owner: 1,
@@ -29,18 +59,22 @@ export const S = {
   hp: 8,
   maxHp: 9,
   rank: 10,
-  tool: 11,
+  /** A worker's tool for each job (ToolJob: chop, break, build, cut), a gear id, or 0. */
+  toolChop: 11,
   carryRes: 12,
   carryAmt: 13,
   inside: 14,
   act: 15,
   mob: 16,
+  /** Gear ids (units/kits.ts GEAR) in the weapon, ranged, shield and armour slots. */
   weapon: 17,
-  backup: 18,
+  /** Troops: the type (Troop), fixed when trained; 0 for everything else. */
+  troop: 18,
   ranged: 19,
   shield: 20,
-  boots: 21,
-  torch: 22,
+  /** The weapon (tool kit, wand) and armour (robe) tiers of a troop, worker or mage. */
+  wTier: 21,
+  aTier: 22,
   /** 0, or 1 + the slot it is swinging or shooting with (Slot). */
   swing: 23,
   flags: 24,
@@ -49,17 +83,47 @@ export const S = {
   ammo: 27,
   target: 28,
   armour: 29,
-  helmet: 30,
-  boltCase: 31,
+  /** An upgrade under way (Upgrading units): per mille of its bar (0 until the unit is beside the building), its line + 1 (0 for none) and the tier it goes to. */
+  upDone: 30,
+  upLine: 31,
+  /** A worker's cart (Res.HandCart or Res.OxCart), or 0. */
   kit: 32,
   /** A worker's working animal, or an animal's worker (entity id), or 0. */
   partner: 33,
-  /** The arrows or bolts loaded (Item), or 0. */
-  ammoItem: 34,
+  upTo: 34,
+  /** Steps left of a hop up or down a rise (Moving over the land), or 0, and the rise it makes, wu. */
+  hop: 35,
+  hopRise: 36,
+  toolBreak: 37,
+  toolBuild: 38,
+  toolCut: 39,
+  /** The tool a worker has in hand for what it is doing now (gear id), or 0. */
+  toolHand: 40,
+  /** Mages: support or battle (School), mana and the bar's most (whole points). */
+  school: 41,
+  mana: 42,
+  maxMana: 43,
+  /** 0, or 1 + the spell being cast (Spell). */
+  cast: 44,
+  /** The unit a Beam is held on (entity id), or 0. */
+  beam: 45,
+  /** Spells on the unit now (SpellOn bits). */
+  spells: 46,
+  /** The faction id of one of the peoples' units or buildings (also of one they left, and a hired mercenary), else its group. */
+  group: 47,
+  /** What the unit rides (Mount), or 0, and the mount's health and most. */
+  mount: 48,
+  mountHp: 49,
+  mountMax: 50,
+  /** Engines: the crew standing by it now, plus 1000 when a horse or ox hauls it. */
+  crew: 51,
 } as const;
 
+/** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
+export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
+
 /** Bits of S.flags. */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -129,11 +193,22 @@ export interface BuildingInfo {
   upgradeWhy: string;
   /** Own finished buildings: everything they make, with why it cannot be queued now ('' when it can). */
   products: Array<[number, string]>;
+  /** Inherited from a player who left: every player still in may use it (When a player is eliminated or leaves). */
+  shared: boolean;
   /** Mineshafts: what waits to be hauled, and the prospect rating (0 unknown, else 1 + Rating). */
   stock: Array<[number, number]>;
   rating: number;
   /** Livestock farms and the Stables: animals that live there. */
   herd: number;
+  /**
+   * Barracks, Stables and main bases (own and usable): each troop type it
+   * trains, with the panel's default weapon and armour tiers (the Lock's
+   * combination, else the best the stock pays for) and the Lock (0 off, else
+   * 1 + weapon x 10 + armour).
+   */
+  troops: Array<{ troop: number; w: number; a: number; lock: number }>;
+  /** The Stables: tamed, grown horses free in the stalls (each new cavalry takes one). */
+  horses: number;
 }
 
 /** Everything else the screen shows, once per tick. */
@@ -154,11 +229,9 @@ export interface InfoMessage {
   outlying: { halves: number; limit: number };
   /** Per building kind: why the local player cannot order one at all, or ''. */
   buildWhy: string[];
-  /** The equipment stock by item id. */
-  items: Int32Array;
-  /** Research done, a bit per Research id. */
+  /** Research done, a bit per Research id, and the best finished forge level (what kit tiers need). */
   research: number;
-  autoEquip: boolean;
+  forge: number;
   /** Dig and earthwork sites of the local player. */
   sites: Site[];
   /** The step the game ended (0 while it goes on), and the nights survived. */
@@ -171,6 +244,73 @@ export interface InfoMessage {
   dontEat: number;
   starveWorkers: boolean;
   starveTroops: boolean;
+  /** Blood nights called so far (they shift the clock), and whether a fog night lies now. */
+  blood: number[];
+  fog: boolean;
+  /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
+  ruins: Array<[number, number, number]>;
+  /** Lairs and goblin villages the local player has seen, for the minimap (wu). */
+  marks: ThreatMark[];
+  /** The local player's mages: per mage id, each spell of her school with why it cannot be cast now ('' when it can) and the steps until it is ready. */
+  spells: Array<[number, Array<[number, string, number]>]>;
+  /** The local player's mages: why each cannot start her next rank training for her experience or rank, or ''. */
+  mageRanks: Array<[number, string]>;
+  /** The neutral peoples the local player has seen, met or is at war with. */
+  peoples: PeopleInfo[];
+  /** Every player by sim index: whom they share control with (a bit per player), and whether they are out. */
+  players: Array<{ share: number; out: boolean }>;
+}
+
+/** One of the neutral peoples' factions as the local player knows it (the trade menu and the Peoples panel). */
+export interface PeopleInfo {
+  id: number;
+  /** FactionKind, People and Status. */
+  kind: number;
+  people: number;
+  status: number;
+  /** "Appledell (Halfling village)", and its specialisation ('' for none). */
+  title: string;
+  lean: string;
+  /** Its middle, wu. */
+  x: number;
+  z: number;
+  war: boolean;
+  met: boolean;
+  traded: boolean;
+  /** The leader's entity id (right click to trade), or 0. */
+  leader: number;
+  /** Fighters standing, people standing, and how many it had. */
+  fighters: number;
+  standing: number;
+  founded: number;
+  /** It offers the local player its surrender. */
+  surrender: boolean;
+  /** Dwarves at war: the reparations owed, tenths of a value point; else 0. */
+  owed: number;
+  /** Why the trade menu cannot open now ('' when it can). */
+  tradeWhy: string;
+  /** What it sells today: (good, count) pairs. */
+  stock: number[];
+  /** What it pays, percent of value, by trade category (-1 refused). */
+  wants: number[];
+  /** What it will still buy today, tenths, by category. */
+  room: number[];
+  /** What it pays for each good the local player has (good, percent) pairs, refused -1. */
+  pays: number[];
+  /** The local player's open offer and its three answers. */
+  offer: { goods: number[]; worth: number; bundles: number[][] } | null;
+  /** Mercenary camps: how many are there to hire now and when full, and why none can be hired now ('' when they can). */
+  hire: { left: number; size: number; why: string } | null;
+  /** An Elf caravan come to the local player's main base. */
+  visiting: boolean;
+}
+
+/** A lair (its mob kind) or a goblin village (mob -1) on the minimap; war: the village is at war with the local player. */
+export interface ThreatMark {
+  mob: number;
+  x: number;
+  z: number;
+  war: boolean;
 }
 
 export interface PlacedMessage {
@@ -181,4 +321,19 @@ export interface PlacedMessage {
   spots: Array<{ x: number; z: number; tiles: Uint8Array; blocked: number }>;
 }
 
-export type FromWorker = StateMessage | DeltasMessage | FogMessage | InfoMessage | PlacedMessage;
+/** The worker's online traffic: this player's frames to send, a hash to report, who a stalled step waits on. */
+export type NetMessage =
+  | { type: 'frames'; frames: OutgoingFrame[] }
+  | { type: 'hash'; epoch: number; step: number; hash: number }
+  | { type: 'waiting'; slots: number[]; step: number };
+
+/** A serialised state: asked for (snapshot), or the dawn autosave. */
+export interface SnapshotMessage {
+  type: 'snapshot' | 'dawn';
+  id?: number;
+  step: number;
+  night: number;
+  data: Uint8Array;
+}
+
+export type FromWorker = StateMessage | DeltasMessage | FogMessage | InfoMessage | PlacedMessage | NetMessage | SnapshotMessage;

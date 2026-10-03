@@ -3,15 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   BuildingKind,
   BUILDINGS,
-  CRAFT_PRODUCT,
-  Item,
-  ITEM_COUNT,
+  Line,
   MONSTERS,
   productsOf,
+  productSpec,
   Res,
-  RESOURCE_COUNT,
   Research,
-  Slot,
+  RESOURCE_COUNT,
+  Skill,
+  Troop,
+  troopProduct,
   UnitKind,
   type Order,
 } from '@blockyrts/sim';
@@ -30,18 +31,22 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, ...o,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
+    troops: [], horses: 0, ...o,
   };
 }
 
 interface World {
   buildings?: BuildingInfo[];
   pool?: Array<[number, number]>;
-  items?: Array<[number, number]>;
   research?: number;
+  /** The best finished forge level (0 none, 1 Casting Hearth ... 4 Steelworks). */
+  forge?: number;
+  /** Per unit id: state fields to set on top of the defaults. */
+  units?: Record<number, Partial<Record<keyof typeof S, number>>>;
 }
 
-/** Workers 1 and 2, warriors 3 and 4 (4 a hero), and a zombie, 9, for the monsters. */
+/** Workers 1 and 2, warriors 3 and 4 (4 a hero; both close melee with a cudgel), and a zombie, 9, for the monsters. */
 function game(w: World = {}): GameInfo {
   const g = new GameInfo(ME);
   const rows: Array<[number, number, number, number]> = [
@@ -61,18 +66,23 @@ function game(w: World = {}): GameInfo {
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
     data[o + S.carryRes] = 255;
-    if (kind === UnitKind.Warrior) data[o + S.weapon] = Item.Club;
+    // Milestone 11: a troop is a type and two tiers; the warriors start as close melee with a hardwood cudgel (weapon tier 1) and no armour.
+    if (kind === UnitKind.Warrior) {
+      data[o + S.troop] = Troop.Close;
+      data[o + S.wTier] = 1;
+    }
+    // Worker 1 has the stone and flint tools (tier 2), worker 2 the hardwood set (tier 1).
+    if (kind === UnitKind.Worker) data[o + S.wTier] = id === 1 ? 2 : 1;
+    for (const [field, v] of Object.entries(w.units?.[id] ?? {})) data[o + S[field as keyof typeof S]] = v;
   });
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: rows.length, data, shots: new Int32Array(0), hits: [] });
   const pool = new Int32Array(RESOURCE_COUNT);
   for (const [r, n] of w.pool ?? []) pool[r] = n;
-  const items = new Int32Array(ITEM_COUNT);
-  for (const [it, n] of w.items ?? []) items[it] = n;
   const info: InfoMessage = {
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: w.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
-    items, research: w.research ?? 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false,
+    research: w.research ?? 0, forge: w.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
   };
   g.onInfo(info);
   return g;
@@ -95,7 +105,7 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null, he
     askPlacement: () => undefined,
     node: () => undefined,
     heightAt,
-    changed: () => undefined,
+    changed: () => undefined, confirmWar: () => undefined, openPeople: () => undefined,
   };
   return { c: new Commands(deps), sent, messages };
 }
@@ -105,18 +115,23 @@ const warriors = [sel('e:3', 'warrior'), sel('e:4', 'warrior')];
 const workers = [sel('e:1', 'worker'), sel('e:2', 'worker')];
 const zombie = sel('e:9', 'mob:0', MONSTERS);
 const at = (x: number, z: number): THREE.Vector3 => new THREE.Vector3(x, 0, z);
+const bit = (r: number): number => 1 << r;
 
 describe('the warrior card', () => {
-  it('has the movement row, then Equip Best, Equipment, the lock and archery, and Enter', () => {
+  it('has the movement row, then the two upgrades, the lock, Cannon, Hunt, Eat and Enter, and no Max twin when it would go no further', () => {
     const { c } = harness(game(), warriors, 'warrior');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Equip', 'Gear', 'Auto', 'Archery', 'Hunt', 'Eat', '', 'Enter', '', '']);
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Weapon +', 'Armour +', 'Auto', 'Cannon', 'Hunt', 'Eat', '', 'Enter', '', '']);
     expect(card.slice(0, 5).every((e) => e!.enabled)).toBe(true);
-    expect(card[0]!.key).toBe('KeyA');
-    expect(card[5]!.key).toBe('KeyQ');
-    expect(card[6]!.key).toBe('KeyI');
-    expect(card[6]!.enabled).toBe(false); // two selected
-    expect(card[8]!.reason).toContain('Flint tools');
+    expect(card.map((e) => e?.key ?? '')).toEqual(['KeyA', 'KeyS', 'KeyH', 'KeyP', 'KeyM', 'KeyQ', 'KeyX', 'KeyY', 'KeyU', 'KeyN', 'KeyF', '', 'KeyE', '', '']);
+    // The next tier of each line, and what it costs; a close melee fighter's first armour brings the wooden shield.
+    expect(card[5]!.name).toBe('Upgrade weapon');
+    expect(card[5]!.reason).toBe('Not enough resources (2 hardwood sticks, 1 flint).');
+    expect(card[6]!.reason).toBe('Not enough resources (4 leather, 3 planks).');
+    // Cannon crew is the one skill left, after Cannons at a Gunnery yard.
+    expect(card[8]!.name).toBe('Train in cannon crew');
+    expect(card[8]!.reason).toBe('Needs Cannons researched.');
+    expect(card[10]!.reason).toBe('There is no food.');
   });
 
   it('attacks a monster clicked with A, and attack-moves to ground', () => {
@@ -136,8 +151,8 @@ describe('the warrior card', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'attack', target: 9 });
   });
 
-  it('holds, patrols, cycles the lock and equips the best', () => {
-    const { c, sent } = harness(game(), warriors, 'warrior');
+  it('holds, patrols, cycles the lock and upgrades, the best when pressed twice', () => {
+    const { c, sent } = harness(game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]] }), warriors, 'warrior');
     c.card()[2]!.run(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'hold', units: [3, 4] });
     c.card()[3]!.run(PRESS);
@@ -145,71 +160,123 @@ describe('the warrior card', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'patrol', x: 8000, z: 8000 });
     c.card()[7]!.run(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'lock', units: [3, 4], lock: 1 });
-    c.card()[5]!.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'equipBest', units: [3, 4] });
+    const weapon = c.card()[5]!;
+    expect(weapon.enabled).toBe(true);
+    // Both can go, the hero (rank 5) first.
+    expect(weapon.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 hardwood sticks, 1 flint.');
+    weapon.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Weapon, max: 0 });
+    weapon.double!(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Weapon, max: 1 });
   });
 
-  it('sends untrained warriors to a Barracks for archery once flint tools are researched', () => {
-    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.Barracks)], pool: [[Res.Wheat, 100]], research: 1 << Research.FlintTools });
+  it('shows the Max twins on Z and V only when they would go further than the plain buttons', () => {
+    // Flint hand-axes are the best there is without a forge: Max would go no further.
+    expect(harness(game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]] }), warriors, 'warrior').c.card()[11]).toBeNull();
+    // With a Casting Hearth and copper for both, Max goes to the copper short sword.
+    const g = game({ pool: [[Res.Sticks, 10], [Res.Flint, 4], [Res.CopperIngot, 2], [Res.HardwoodLumber, 2]], forge: 1 });
+    const { c, sent } = harness(g, warriors, 'warrior');
+    const card = c.card();
+    expect(card[11]).toMatchObject({ action: 'upgradeWeaponMax', face: 'Weapon max', name: 'Upgrade weapon to the best', key: 'KeyZ', enabled: true });
+    expect(card[11]!.description).toContain('Copper short sword (tier 3)');
+    expect(card[13]).toBeNull();
+    card[11]!.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Weapon, max: 1 });
+    // Armour: leather for two jerkins and shields, and hardened leather for two cuirasses: Max skips the jerkin.
+    const a = harness(game({ pool: [[Res.Leather, 10], [Res.Planks, 6], [Res.HardenedLeather, 6]] }), warriors, 'warrior');
+    const armour = a.c.card();
+    expect(armour[6]!.enabled).toBe(true);
+    expect(armour[11]).toBeNull();
+    expect(armour[13]).toMatchObject({ action: 'upgradeArmourMax', face: 'Armour max', key: 'KeyV', enabled: true });
+    expect(armour[13]!.description).toContain('Boiled-leather cuirass (tier 2)');
+    armour[13]!.run(PRESS);
+    expect(a.sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Armour, max: 1 });
+  });
+
+  it('greys an upgrade for units already on their way to one', () => {
+    const g = game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]], units: { 3: { upLine: 1, upTo: 2 }, 4: { upLine: 1, upTo: 2 } } });
+    const card = harness(g, warriors, 'warrior').c.card();
+    expect(card[5]!.enabled).toBe(false);
+    expect(card[5]!.reason).toBe('Already on the way to an upgrade.');
+  });
+
+  it('sends untrained warriors to a Gunnery yard for cannon crew once Cannons is researched', () => {
+    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.GunneryYard)], pool: [[Res.Wheat, 100]], research: bit(Research.Cannons) });
     const { c, sent } = harness(g, warriors, 'warrior');
     const card = c.card();
     expect(card[8]!.enabled).toBe(true);
     card[8]!.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'trainSkill', building: 21, skill: 1, units: [3, 4] });
+    expect(sent.at(-1)).toMatchObject({ kind: 'trainSkill', building: 21, skill: Skill.Cannon, units: [3, 4] });
   });
 });
 
-describe('the equipment panel (I)', () => {
-  it('shows the slots of one warrior and hands a picked item over', () => {
-    const g = game({ items: [[Item.SpearFlint, 2], [Item.ShieldWood, 1], [Item.AxeFlint, 1]] });
-    const { c, sent } = harness(g, [warriors[0]!], 'warrior');
-    c.card()[6]!.run(PRESS);
-    const slots = c.card();
-    expect(slots.slice(0, 7).map((e) => e!.name)).toEqual(['Weapon', 'Backup weapon', 'Ranged weapon', 'Shield', 'Boots', 'Arrows', 'Torch']);
-    expect(slots[0]!.face).toBe('Club');
-    expect(slots[0]!.description).toContain('Carrying 2 lb');
-    expect(slots[14]!.face).toBe('Back');
-    slots[0]!.run(PRESS);
-    const weapons = c.card();
-    expect(weapons.filter((e) => e?.action.startsWith('pick-')).map((e) => e!.face)).toEqual(['Axe F', 'Spear F']);
-    weapons.find((e) => e?.face === 'Spear F')!.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'equipItem', unit: 3, slot: Slot.Weapon, item: Item.SpearFlint });
-    // The backup slot only offers one-handed weapons.
-    c.card()[1]!.run(PRESS);
-    expect(c.card().filter((e) => e?.action.startsWith('pick-')).map((e) => e!.face)).toEqual(['Axe F']);
+describe('workers: rank, tools and carts (Milestone 11)', () => {
+  it('upgrades tools on Q a tier at a time, for those the stock pays for, with no Max twin', () => {
+    // Worker 1 (stone and flint) needs a Casting Hearth for copper; worker 2 (hardwood) can go to stone and flint.
+    const { c, sent } = harness(game({ pool: [[Res.Sticks, 6], [Res.Flint, 1], [Res.Stone, 5]] }), workers, 'worker');
+    const card = c.card();
+    expect(card[13]).toMatchObject({ action: 'upgradeWeapon', face: 'Tools +', name: 'Upgrade tools', key: 'KeyQ', enabled: true });
+    expect(card[13]!.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 hardwood sticks, 1 flint, 5 stone.');
+    expect(card[13]!.double).toBeUndefined();
+    expect(card[11]!.face).toBe('Adv.');
+    card[13]!.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [1, 2], line: Line.Weapon, max: 0 });
+    // Worker 1 alone: copper tools need a Casting Hearth.
+    expect(harness(game(), [workers[0]!], 'worker').c.card()[13]!.reason).toBe('Needs a Casting Hearth.');
   });
 
-  it('gives a worker its tools, boots and torch slots, and the rank button', () => {
-    const { c } = harness(game(), [workers[0]!], 'worker');
-    c.card()[14]!.run(PRESS);
-    const card = c.card();
-    expect(card.slice(0, 3).map((e) => e!.name)).toEqual(['Tools', 'Boots', 'Torch']);
-    expect(card[13]!.action).toBe('rankUp');
+  it('trains rank on U in place of patrol, at a Longhall', () => {
+    expect(harness(game({ pool: [[Res.Wheat, 100]] }), workers, 'worker').c.card()[3]!.reason).toBe('Needs a level 2 main base (Longhall).');
+    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 2 })], pool: [[Res.Wheat, 100]] });
+    const { c, sent } = harness(g, workers, 'worker');
+    const rank = c.card()[3]!;
+    expect(rank).toMatchObject({ action: 'rankUp', face: 'Rank', name: 'Upgrade rank (to Hand)', key: 'KeyU', enabled: true });
+    rank.run(PRESS);
+    expect(sent.at(-1)).toMatchObject({ kind: 'trainRank', units: [1, 2], building: 20 });
+  });
+
+  it('fetches a cart from the stock on X, and hands it back', () => {
+    const { c, sent } = harness(game({ pool: [[Res.HandCart, 1]] }), workers, 'worker');
+    const cart = c.card()[14]!;
+    expect(cart).toMatchObject({ action: 'cart', face: 'Cart', name: 'Fetch a cart', key: 'KeyX', enabled: true });
+    cart.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'cart', player: ME, units: [1, 2], back: 0 });
+    const g = game({ units: { 1: { kit: Res.HandCart }, 2: { kit: Res.HandCart } } });
+    const h = harness(g, workers, 'worker');
+    const back = h.c.card()[14]!;
+    expect(back).toMatchObject({ face: 'Cart back', name: 'Hand the cart back', enabled: true });
+    back.run(PRESS);
+    expect(h.sent.at(-1)).toEqual({ kind: 'cart', player: ME, units: [1, 2], back: 1 });
   });
 });
 
 describe('the Big House', () => {
-  it('trains warriors for a club from the stock, and crafts and refurbishes with grid keys', () => {
-    const g = game({ pool: [[Res.Wheat, 100], [Res.Sticks, 10], [Res.Flint, 5]], items: [[Item.Club, 1]] });
-    // The sim worker sends what the Big House makes and why each one cannot be queued yet.
+  /** What the sim worker sends for a Big House: its three troop types at tier 1, and what it makes. */
+  const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
+
+  it('trains close melee, long melee and rangers on A, Q and N, and makes rope with grid keys', () => {
+    const g = game({ pool: [[Res.Wheat, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
     const house = g.buildings.get(20)!;
-    house.products = productsOf({ kind: BuildingKind.MainBase, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, p === CRAFT_PRODUCT + Item.SpearFlint ? 'Needs Flint tools researched first.' : '']);
+    house.troops = troops;
+    house.products = productsOf({ kind: BuildingKind.MainBase, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, productSpec(p).name === 'Rope' ? 'Not enough flax (needs 3).' : '']);
     const { c, sent } = harness(g, [{ ...sel('b:20', 'building:0:1'), kind: 'building' }], 'building:0:1');
     const card = c.card();
-    expect(card[1]!.face).toBe('Warrior');
-    expect(card[1]!.enabled).toBe(true);
-    expect(card[5]!.key).toBe('KeyK');
-    expect(card[6]!.key).toBe('KeyF');
-    card[5]!.run(PRESS);
-    const craft = c.card();
-    const spear = craft.find((e) => e?.face === 'Spear F')!;
-    expect(spear.enabled).toBe(false);
-    expect(spear.reason).toContain('Flint tools');
-    const club = craft.find((e) => e?.face === 'Club')!;
-    expect(club.grid).toBe(true);
-    club.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'produce', building: 20, product: CRAFT_PRODUCT + Item.Club });
-    expect(craft[14]!.face).toBe('Back');
+    // Worker first, so the troop types move one along.
+    expect(card.slice(0, 4).map((e) => e!.face)).toEqual(['Worker', 'Close', 'Long', 'Ranger']);
+    expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
+    expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
+    expect(card[1]!.name).toBe('Train close melee');
+    expect(card[1]!.description).toContain('Hardwood cudgel, no armour (weapon tier 1, armour tier 0)');
+    card[1]!.run({ shift: true, ctrl: false });
+    expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
+    expect(card[7]!.key).toBe('KeyK');
+    card[7]!.run(PRESS);
+    const make = c.card();
+    const rope = make.find((e) => e?.name === 'Rope')!;
+    expect(rope.grid).toBe(true);
+    expect(rope.enabled).toBe(false);
+    expect(rope.reason).toContain('Not enough flax');
+    expect(make[14]!.face).toBe('Back');
   });
 
   it('lets warriors into a tower', () => {
@@ -247,6 +314,33 @@ describe('digging and earthworks', () => {
     expect(c.areaPlan()!.tunnel).toBe(true);
     c.confirmArea();
     expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, level: 0, level2: 20 });
+  });
+
+  it('tunnels into a cliff face pressed on its side, from the ground in front, as far in as + and - set', () => {
+    // A 1.1 m (10 unit) cliff from x = 2 m: the press lands on its west side, 0.5 m up.
+    const units = 0.1125;
+    const cliff = (x: number): number => (x >= 2.25 ? 10 * units : 0);
+    const { c, sent } = harness(game(), workers, 'worker', cliff);
+    c.startArea('dig', 0);
+    c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
+    c.updateArea(new THREE.Vector3(2.25, 0.5, 1.2));
+    c.areaUp();
+    c.adjustArea(1);
+    const plan = c.areaPlan()!;
+    // Face column 5 (2.25 m / 0.45 m), into +x for 8 columns, 3 columns wide along the face.
+    expect(plan).toMatchObject({ tunnel: true, x0: 5, x1: 12, z0: 0, z1: 2, level: 0, level2: 20 });
+    expect(c.card()[0]!.description).toContain('3.6 m into the face');
+    c.confirmArea();
+    expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, x0: 5, x1: 12, level: 0, level2: 20 });
+  });
+
+  it('digs down, not sideways, when the press is on top of the ground or on a low step', () => {
+    const step = (x: number): number => (x >= 2.25 ? 3 * 0.1125 : 0);
+    const { c } = harness(game(), workers, 'worker', step);
+    c.startArea('dig', 0);
+    c.areaDown(new THREE.Vector3(2.25, 0.1, 0.2));
+    c.areaUp();
+    expect(c.areaPlan()!.tunnel).toBe(false);
   });
 
   it('offers banks, ramps and fill in the Earthworks submenu, and orders a ramp up a step', () => {

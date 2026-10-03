@@ -68,6 +68,17 @@ const SPECIES: Record<number, Species> = {
   [PropKind.Thornwood]: { trunk: 0x3a2f2a, leaves: 0, height: [3, 5], trunkWidth: 0.25, form: 'thorn' },
 };
 
+/**
+ * Tree proportions (Jade, 2026-10-02): crowns about 20% smaller, shrinking from
+ * the top so the trunk tip stays hidden, and trunks about 20% thicker. The
+ * catalogue tree models on review/batch-2 were adjusted the same way.
+ */
+export const CROWN_SCALE = 0.8;
+export const TRUNK_SCALE = 1.2;
+/** Hazel sticks about 10% shorter, and cut further (to 82% at most) so every tip ends inside the leaves. */
+export const HAZEL_STICK_SCALE = 0.9;
+export const HAZEL_STICK_MIN_SCALE = 0.82;
+
 /** Ore colours on a stone outcrop. */
 const ORE: Record<number, number> = {
   [PropKind.CopperOutcrop]: 0x4f9a7a,
@@ -105,42 +116,46 @@ export function propCubes(p: PropLike, out: number[]): void {
     }
     const s = p.size / 1000;
     const height = r.range(species.height[0], species.height[1]) * s;
-    const tw = Math.max(0.08, species.trunkWidth * Math.sqrt(s));
+    const tw = Math.max(0.08, species.trunkWidth * TRUNK_SCALE * Math.sqrt(s));
     const tint = r.range(0.9, 1.1);
     const leaves = shade(species.leaves, tint);
     switch (species.form) {
       case 'tiers': {
         const trunkH = height * 0.3;
-        cube(0, 0, 0, tw, height * 0.95, tw, species.trunk);
+        const crownH = (height - trunkH) * CROWN_SCALE;
         const tiers = Math.max(2, Math.round(r.range(3, 5) * Math.min(1, s * 1.5)));
+        // The trunk ends halfway up the top tier.
+        cube(0, 0, 0, tw, trunkH + crownH * (1 - 0.5 / tiers), tw, species.trunk);
         const base = height * 0.42 * (species.height[0] < 6 ? 0.8 : 1);
         for (let t = 0; t < tiers; t++) {
           const f = 1 - t / tiers;
-          const w = base * f + 0.3 * s;
-          const ty = trunkH + ((height - trunkH) * t) / tiers;
-          cube(r.range(-0.05, 0.05), ty, r.range(-0.05, 0.05), w, ((height - trunkH) / tiers) * 1.15, w, shade(leaves, 0.92 + t * 0.04));
+          const w = (base * f + 0.3 * s) * CROWN_SCALE;
+          const ty = trunkH + (crownH * t) / tiers;
+          cube(r.range(-0.05, 0.05), ty, r.range(-0.05, 0.05), w, (crownH / tiers) * 1.15, w, shade(leaves, 0.92 + t * 0.04));
         }
         break;
       }
       case 'ball': {
         const trunkH = height * 0.45;
-        cube(0, 0, 0, tw, trunkH + 0.5, tw, species.trunk);
-        const w = height * 0.45;
-        cube(0, trunkH, 0, w, height * 0.45, w, leaves);
-        cube(r.range(-0.3, 0.3) * w, trunkH + height * 0.3, r.range(-0.3, 0.3) * w, w * 0.65, height * 0.25, w * 0.65, shade(leaves, 1.08));
-        cube(r.range(-0.4, 0.4) * w, trunkH - 0.2 * s, r.range(-0.4, 0.4) * w, w * 0.5, height * 0.2, w * 0.5, shade(leaves, 0.9));
+        const w = height * 0.45 * CROWN_SCALE;
+        const ch = height * CROWN_SCALE;
+        cube(0, 0, 0, tw, trunkH + Math.min(0.5, ch * 0.3), tw, species.trunk);
+        cube(0, trunkH, 0, w, ch * 0.45, w, leaves);
+        cube(r.range(-0.3, 0.3) * w, trunkH + ch * 0.3, r.range(-0.3, 0.3) * w, w * 0.65, ch * 0.25, w * 0.65, shade(leaves, 1.08));
+        cube(r.range(-0.4, 0.4) * w, trunkH - 0.2 * s, r.range(-0.4, 0.4) * w, w * 0.5, ch * 0.2, w * 0.5, shade(leaves, 0.9));
         break;
       }
       case 'broad': {
         const trunkH = height * 0.4;
         cube(0, 0, 0, tw, trunkH + 1 * s, tw, species.trunk);
-        const w = height * 0.65;
-        cube(0, trunkH, 0, w, height * 0.35, w, leaves);
+        const w = height * 0.65 * CROWN_SCALE;
+        const ch = height * CROWN_SCALE;
+        cube(0, trunkH, 0, w, ch * 0.35, w, leaves);
         for (let b = 0; b < 4; b++) {
           const a = (b / 4) * Math.PI * 2 + r.range(0, 1);
-          cube(Math.cos(a) * w * 0.35, trunkH + height * r.range(0.1, 0.3), Math.sin(a) * w * 0.35, w * r.range(0.4, 0.55), height * 0.25, w * r.range(0.4, 0.55), shade(leaves, r.range(0.88, 1.1)));
+          cube(Math.cos(a) * w * 0.35, trunkH + ch * r.range(0.1, 0.3), Math.sin(a) * w * 0.35, w * r.range(0.4, 0.55), ch * 0.25, w * r.range(0.4, 0.55), shade(leaves, r.range(0.88, 1.1)));
         }
-        cube(0, trunkH + height * 0.3, 0, w * 0.6, height * 0.2, w * 0.6, shade(leaves, 1.1));
+        cube(0, trunkH + ch * 0.3, 0, w * 0.6, ch * 0.2, w * 0.6, shade(leaves, 1.1));
         break;
       }
       case 'dead': {
@@ -175,14 +190,30 @@ export function propCubes(p: PropLike, out: number[]): void {
     case PropKind.Hazel: {
       const s = p.size / 1000;
       const stems = r.int(4, 6);
+      // Sticks stand inside the lower leaf clump (1.6 s wide), so a small bush keeps them in too.
+      const spread = 0.35 * Math.min(1, s / 0.5);
+      const sticks: [number, number, number][] = [];
       for (let t = 0; t < stems; t++) {
-        const ox = r.range(-0.35, 0.35);
-        const oz = r.range(-0.35, 0.35);
-        cube(ox, 0, oz, 0.06, s > 0 ? r.range(1.6, 2.4) * s : 0.25, 0.06, 0x7a5a3a);
+        const ox = r.range(-spread, spread);
+        const oz = r.range(-spread, spread);
+        sticks.push([ox, oz, s > 0 ? r.range(1.6, 2.4) * s : 0.25]);
       }
       if (s > 0) {
+        const lowTop = 2.1 * s;
         cube(0, 0.9 * s, 0, 1.6 * s, 1.2 * s, 1.6 * s, shade(0x5a8a35, r.range(0.9, 1.1)));
-        cube(r.range(-0.3, 0.3), 1.6 * s, r.range(-0.3, 0.3), 1.0 * s, 0.7 * s, 1.0 * s, shade(0x6a9a40, r.range(0.95, 1.1)));
+        const tx = r.range(-0.3, 0.3);
+        const tz = r.range(-0.3, 0.3);
+        const topTop = 2.3 * s;
+        cube(tx, 1.6 * s, tz, 1.0 * s, 0.7 * s, 1.0 * s, shade(0x6a9a40, r.range(0.95, 1.1)));
+        for (const [ox, oz, len] of sticks) {
+          // A tip ends a little below the top of the clump it is under.
+          const underTop = Math.abs(ox - tx) < 0.5 * s && Math.abs(oz - tz) < 0.5 * s;
+          const cap = (underTop ? topTop : lowTop) - 0.08 * s;
+          const h = Math.max(len * HAZEL_STICK_MIN_SCALE, Math.min(len * HAZEL_STICK_SCALE, cap));
+          cube(ox, 0, oz, 0.06, h, 0.06, 0x7a5a3a);
+        }
+      } else {
+        for (const [ox, oz, len] of sticks) cube(ox, 0, oz, 0.06, len, 0.06, 0x7a5a3a);
       }
       return;
     }

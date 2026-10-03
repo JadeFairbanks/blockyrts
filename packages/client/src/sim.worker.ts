@@ -4,12 +4,30 @@
 // chunks whose land changed and the land newly explored. Between steps it
 // generates the chunks around the units a ring ahead, so walking into new
 // land never stalls a step (the cache is not state, so this cannot desync).
+//
+// Alone, the worker steps on its own clock with the orders given since the
+// last step. In an online match (milestone 9) it runs the lockstep: the
+// page relays every player's frames in and this player's frames out, and a
+// step runs only once every playing slot's frame for it has arrived.
+import { LockstepScheduler, type WireFrame } from '@blockyrts/protocol';
+import {
+  deserializeState,
+  periodStarting,
+  serializeState,
+  usableBy,
+  validateOrder,
+} from '@blockyrts/sim';
 import {
   animalsAt,
   assigned,
   BuildingKind,
-  CRAFT_PRODUCT,
+  bestLevel,
   productProblem,
+  RECIPE_PRODUCT,
+  stalledHorses,
+  troopDefault,
+  troopTypesAt,
+  upgradeProgress,
   productsOf,
   productSteps,
   RESEARCH_PRODUCT,
@@ -25,6 +43,8 @@ import {
   chunkKeyZ,
   COLUMNS_PER_CHUNK,
   createWorld,
+  fogged,
+  isLair,
   InputLog,
   isLit,
   levelSpec,
@@ -39,6 +59,7 @@ import {
   supplyUsed,
   unitsInside,
   upgradeProblem,
+  UnitKind,
   workersAt,
   workSteps,
   STEPS_PER_SECOND,
@@ -49,16 +70,25 @@ import {
   type SimEvent,
   type SimState,
   type UnitOrder,
+  toolInHand,
+  MANA_SCALE,
+  mageMaxMana,
+  mageTrainingProblem,
+  schoolSpells,
+  spellProblem,
+  spellReadyAt,
 } from '@blockyrts/sim';
-import { S, SHOT_STRIDE, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { cloaked, crewOf, haulerOf, Mount, mountSpec } from '@blockyrts/sim';
+import { peoplesInfo } from './peoples-info.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
 const MAX_CATCH_UP = 5;
 /** Generating a chunk takes a few milliseconds; only start one with this much time left before the next step. */
 const PREFETCH_MARGIN_MS = 25;
-/** The local player. */
-const PLAYER = 0;
+/** The local player's index in the sim (0 alone; in an online match, their seat). */
+let PLAYER = 0;
 const CHUNK_WU = COLUMNS_PER_CHUNK * WU_PER_COLUMN;
 
 let state: SimState | null = null;
@@ -75,6 +105,16 @@ let speed = 1;
 let events: SimEvent[] = [];
 /** Hits since the last state post. */
 let hits: HitEvent[] = [];
+/** Paused: alone from the menu, online by the relay (a player missing, a manual pause, a reload). */
+let paused = false;
+/**
+ * The online match: the lockstep scheduler, which sim player sits in each
+ * relay slot (seats[p] is player p's slot), and the snapshot epoch the
+ * page tags this worker's hashes with.
+ */
+let net: { sched: LockstepScheduler<Order>; seats: number[]; epoch: number } | null = null;
+/** The slots the last stall waited on, as posted. */
+let waitingOn = '';
 /** A hurt unit plays its injured clip this long, steps. */
 const HURT_SHOW_STEPS = 8;
 
@@ -98,18 +138,18 @@ function postState(s: SimState): void {
     data[o + S.hp] = e.hp[i]!;
     data[o + S.maxHp] = e.maxHp[i]!;
     data[o + S.rank] = e.rank[i]!;
-    data[o + S.tool] = e.tool[i]!;
+    data[o + S.toolChop] = e.toolChop[i]!;
     data[o + S.carryRes] = e.carryRes[i]!;
     data[o + S.carryAmt] = e.carryAmt[i]!;
     data[o + S.inside] = e.inside[i]!;
     data[o + S.act] = e.act[i]!;
     data[o + S.mob] = e.mob[i]!;
     data[o + S.weapon] = e.weapon[i]!;
-    data[o + S.backup] = e.backup[i]!;
+    data[o + S.troop] = e.troop[i]!;
     data[o + S.ranged] = e.ranged[i]!;
     data[o + S.shield] = e.shield[i]!;
-    data[o + S.boots] = e.boots[i]!;
-    data[o + S.torch] = e.torchUntil[i]! > s.step ? 1 : 0;
+    data[o + S.wTier] = e.wTier[i]!;
+    data[o + S.aTier] = e.aTier[i]!;
     data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
     let flags = 0;
     if (e.climbUntil[i]! > s.step) flags |= UnitFlag.Climbing;
@@ -120,17 +160,54 @@ function postState(s: SimState): void {
     if (e.born[i]! > s.step) flags |= UnitFlag.Young;
     if (e.sex[i] === 1) flags |= UnitFlag.Male;
     if (starvingSince(s, i)) flags |= UnitFlag.Starving;
+    if (e.mount[i] !== Mount.None && e.runWu[i]! >= mountSpec(e.mount[i]!).chargeRun) flags |= UnitFlag.Charging;
+    if (e.kind[i] === UnitKind.Mob && cloaked(s, i, Number.MAX_SAFE_INTEGER)) flags |= UnitFlag.Cloaked;
+    if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
+    if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.skills] = e.skills[i]!;
     data[o + S.ammo] = e.ammo[i]!;
     data[o + S.target] = e.target[i]!;
     data[o + S.armour] = e.armour[i]!;
-    data[o + S.helmet] = e.helmet[i]!;
-    data[o + S.boltCase] = e.boltCase[i]!;
+    const head = e.queue[i]![0];
+    if (head?.t === 'kitUp') {
+      const [done, total] = upgradeProgress(s, i);
+      data[o + S.upDone] = total > 0 ? Math.min(1000, Math.floor((done * 1000) / total)) : 0;
+      data[o + S.upLine] = head.line + 1;
+      data[o + S.upTo] = head.to;
+    }
     data[o + S.kit] = e.kit[i]!;
     data[o + S.partner] = e.partner[i]!;
-    data[o + S.ammoItem] = e.ammoItem[i]!;
+    data[o + S.hop] = Math.max(0, e.hopUntil[i]! - s.step);
+    data[o + S.hopRise] = e.hopRise[i]!;
+    data[o + S.toolBreak] = e.toolBreak[i]!;
+    data[o + S.toolBuild] = e.toolBuild[i]!;
+    data[o + S.toolCut] = e.toolCut[i]!;
+    data[o + S.toolHand] = e.kind[i] === UnitKind.Worker ? toolInHand(e, i) : 0;
+    if (e.kind[i] === UnitKind.Mage) {
+      data[o + S.school] = e.school[i]!;
+      data[o + S.mana] = Math.floor(e.mana[i]! / MANA_SCALE);
+      data[o + S.maxMana] = Math.floor(mageMaxMana(e.rank[i]!, e.wTier[i]!) / MANA_SCALE);
+      data[o + S.cast] = e.castSpell[i]!;
+      data[o + S.beam] = e.beamUntil[i]! > s.step ? e.beamTarget[i]! : 0;
+      // A wand tap shows as a swing; a cast or a beam as the cast.
+    }
+    let on = 0;
+    if (e.quickUntil[i]! > s.step) on |= SpellOn.Quicken;
+    if (e.fortUntil[i]! > s.step) on |= SpellOn.Fortify;
+    if (e.rallyUntil[i]! > s.step) on |= SpellOn.Rally;
+    if (e.wardUntil[i]! > s.step) on |= SpellOn.Warding;
+    if (e.healUntil[i]! > s.step) on |= SpellOn.Healing;
+    if (e.hexUntil[i]! > s.step) on |= SpellOn.Hexed;
+    data[o + S.spells] = on;
+    data[o + S.group] = e.group[i]!;
+    if (e.mount[i] !== Mount.None) {
+      data[o + S.mount] = e.mount[i]!;
+      data[o + S.mountHp] = e.mountHp[i]!;
+      data[o + S.mountMax] = mountSpec(e.mount[i]!).hp;
+    }
+    if (e.kind[i] === UnitKind.Engine) data[o + S.crew] = crewOf(s, i).length + (haulerOf(s, i) >= 0 ? 1000 : 0);
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {
@@ -171,7 +248,7 @@ function postInfo(s: SimState): void {
       built: Math.min(1000, Math.floor((b.progress * 1000) / total)),
       upgrading: b.upgrading,
       upgraded: b.upgrading ? Math.min(1000, Math.floor((b.upProgress * 1000) / workSteps(b.kind, b.upgrading))) : 0,
-      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < CRAFT_PRODUCT ? 4 : 1)))) : 0 })),
+      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < RECIPE_PRODUCT ? 4 : 1)))) : 0 })),
       rally: b.rally.map((r) => ({ ...r })),
       lit: isLit(b, s.step),
       fuelLeft: light && b.complete ? Math.max(0, b.fuelUntil - s.step) : 0,
@@ -180,21 +257,36 @@ function postInfo(s: SimState): void {
       inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
       status: buildingStatus(s, b),
       name: buildingName(b.kind, b.level, b.variant),
-      upgradeWhy: b.owner === PLAYER ? upgradeProblem(s, b) : '',
-      products: b.owner === PLAYER && b.complete ? productsOf(b).map((p): [number, string] => [p, productProblem(s, b, p)]) : [],
+      upgradeWhy: usableBy(s, b, PLAYER) ? upgradeProblem(s, b, PLAYER) : '',
+      products: usableBy(s, b, PLAYER) && b.complete ? productsOf(b).map((p): [number, string] => [p, productProblem(s, b, p, PLAYER)]) : [],
+      shared: b.shared !== 0,
       stock: b.stock.map(([r, n]): [number, number] => [r, n]),
       rating: b.rating,
       herd: b.kind === BuildingKind.LivestockFarm || b.kind === BuildingKind.Stables ? animalsAt(s, b.id).length : 0,
+      troops:
+        usableBy(s, b, PLAYER) && b.complete
+          ? troopTypesAt(b).map((troop) => {
+              const { w, a } = troopDefault(s, b, troop, PLAYER);
+              return { troop, w, a, lock: b.locks[troop] ?? 0 };
+            })
+          : [],
+      horses: b.kind === BuildingKind.Stables && b.complete ? stalledHorses(s, b).length : 0,
     };
   });
   const e = s.entities;
   const queues: Array<[number, UnitOrder[]]> = [];
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === PLAYER) queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
-  const c = clockAt(s.step);
+  const spells: Array<[number, Array<[number, string, number]>]> = [];
+  const mageRanks: Array<[number, string]> = [];
+  for (let i = 0; i < e.count; i++) {
+    if (e.owner[i] !== PLAYER) continue;
+    queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
+    if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
+    if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
+  }
+  const c = clockAt(s.step, s.blood);
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
   const me = s.players[PLAYER]!;
   const pool = me.pool.slice();
-  const items = me.items.slice();
   send(
     {
       type: 'info',
@@ -208,21 +300,40 @@ function postInfo(s: SimState): void {
       claims: claimShapes(s, PLAYER),
       outlying: outlyingLights(s, PLAYER, night),
       buildWhy: BUILDINGS.map((spec) => buildRequirement(s, PLAYER, spec.kind)),
-      items,
       research: me.research,
-      autoEquip: me.autoEquip !== 0,
+      forge: bestLevel(s, PLAYER, BuildingKind.Forge),
       sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
       over: s.over,
-      nights: nightsSurvived(s.over || s.step),
+      nights: nightsSurvived(s.over || s.step, s.blood),
       out: me.out !== 0,
       rations: me.rations,
       dontEat: me.dontEat,
       starveWorkers: me.starveWorkers > 0,
       starveTroops: me.starveTroops > 0,
+      blood: s.blood.slice(),
+      fog: fogged(s),
+      ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
+      marks: threatMarks(s),
+      spells,
+      mageRanks,
+      peoples: peoplesInfo(s, PLAYER),
+      players: s.players.map((ps) => ({ share: ps.share, out: ps.out !== 0 })),
     },
-    [pool.buffer, items.buffer],
+    [pool.buffer],
   );
   events = [];
+}
+
+/** The lairs and goblin villages the local player has seen. */
+function threatMarks(s: SimState): ThreatMark[] {
+  const e = s.entities;
+  const bit = 1 << PLAYER;
+  const out: ThreatMark[] = [];
+  for (let i = 0; i < e.count; i++) {
+    if (e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && isLair(e.mob[i]!) && (e.picked[i]! & bit) !== 0) out.push({ mob: e.mob[i]!, x: e.x[i]!, z: e.z[i]!, war: false });
+  }
+  for (const v of s.threats.villages) if (v.seen & bit) out.push({ mob: -1, x: v.x, z: v.z, war: (v.war & bit) !== 0 });
+  return out;
 }
 
 /** Changed chunks and newly explored land since the last post. */
@@ -261,25 +372,103 @@ function prefetch(s: SimState): void {
   }
 }
 
+/** Runs one step with these orders and posts what the page needs. */
+function runStep(s: SimState, orders: Order[]): void {
+  log.record(s.step, orders);
+  const r = step(s, orders);
+  if (r.hash !== undefined) {
+    lastHash = r.hash;
+    lastHashStep = r.step;
+    if (net) send({ type: 'hash', epoch: net.epoch, step: r.step, hash: r.hash });
+  }
+  for (const ev of s.events) if (heard(s, ev)) events.push(ev);
+  for (const h of s.hits) hits.push(h);
+  postState(s);
+  // Autosave at every dawn (Saving and disconnects): the same bytes on every machine.
+  if (periodStarting(s.step - 1, s.blood) === Period.Dawn) {
+    const data = serializeState(s);
+    send({ type: 'dawn', step: s.step, night: nightOf(s), data }, [data.buffer]);
+  }
+}
+
+/**
+ * Who sees what (Chat between players): a player sees their own events and
+ * everyone's, and the speech of units inherited from a player who left;
+ * never another active player's units' speech, even under shared control.
+ */
+function heard(s: SimState, ev: SimEvent): boolean {
+  if (ev.player === PLAYER || ev.player < 0) return true;
+  if (ev.kind !== 'speech' || ev.speaker === undefined || s.players[PLAYER]?.out) return false;
+  const i = s.entities.indexOf(ev.speaker);
+  return i >= 0 && s.entities.shared[i] !== 0;
+}
+
+/** The night count for a save's header and the Load screen: the nights survived so far. */
+function nightOf(s: SimState): number {
+  return nightsSurvived(s.step, s.blood);
+}
+
+/** One online step's orders: each slot's, stamped with its seat (the relay says who sent a frame), then the leavers. */
+function netOrders(sched: LockstepScheduler<Order>, seats: readonly number[], at: number): Order[] {
+  const input = sched.take(at);
+  const orders: Order[] = [];
+  for (const { slot, orders: list } of input.bySlot) {
+    const player = seats.indexOf(slot);
+    if (player < 0) continue;
+    for (const o of list) {
+      const stamped = { ...o, player } as Order;
+      try {
+        validateOrder(stamped);
+      } catch {
+        continue; // every machine drops the same bad order
+      }
+      orders.push(stamped);
+    }
+  }
+  for (const slot of input.left) {
+    const player = seats.indexOf(slot);
+    if (player >= 0) orders.push({ kind: 'leave', player });
+  }
+  return orders;
+}
+
 function tick(): void {
   if (!state) return;
   const now = performance.now();
+  if (paused) {
+    clock = now;
+    return;
+  }
   const stepMs = STEP_MS / speed;
   if (now - clock > stepMs * MAX_CATCH_UP * speed) clock = now - stepMs * MAX_CATCH_UP * speed;
   let stepped = false;
   while (now - clock >= stepMs) {
-    clock += stepMs;
-    const orders = pending;
-    pending = [];
-    log.record(state.step, orders);
-    const r = step(state, orders);
-    if (r.hash !== undefined) {
-      lastHash = r.hash;
-      lastHashStep = r.step;
+    if (net) {
+      const out = net.sched.outgoing(state.step);
+      if (out.length > 0) send({ type: 'frames', frames: out });
+      const missing = net.sched.waitingOn(state.step);
+      if (missing.length > 0) {
+        // Lockstep: wait for every player's frame; the page shows who after a second.
+        clock = now;
+        const key = missing.join(',');
+        if (key !== waitingOn) {
+          waitingOn = key;
+          send({ type: 'waiting', slots: missing, step: state.step });
+        }
+        break;
+      }
+      if (waitingOn) {
+        waitingOn = '';
+        send({ type: 'waiting', slots: [], step: state.step });
+      }
+      clock += stepMs;
+      runStep(state, netOrders(net.sched, net.seats, state.step));
+    } else {
+      clock += stepMs;
+      const orders = pending;
+      pending = [];
+      runStep(state, orders);
     }
-    for (const ev of state.events) if (ev.player === PLAYER || ev.player < 0) events.push(ev);
-    for (const h of state.hits) hits.push(h);
-    postState(state);
     stepped = true;
   }
   if (stepped) {
@@ -288,25 +477,87 @@ function tick(): void {
   } else if (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) prefetch(state);
 }
 
+/** Starts (or restarts) from a state: everything the page draws is sent again. */
+function begin(s: SimState): void {
+  state = s;
+  clock = performance.now();
+  lastHash = 0;
+  lastHashStep = 0;
+  pending = [];
+  events = [];
+  hits = [];
+  waitingOn = '';
+  postState(s);
+  postWorld(s, true);
+  postInfo(s);
+  if (timer === undefined) timer = setInterval(tick, 4);
+}
+
+function netFrom(msg: { slot: number; seats: number[]; epoch: number; step: number; activeSlots: number; inputDelay: number; nextFrameStep: number; frames: WireFrame[] }): void {
+  const sched = new LockstepScheduler<Order>({ slot: msg.slot, startStep: msg.step, activeSlots: msg.activeSlots, inputDelay: msg.inputDelay, nextFrameStep: msg.nextFrameStep });
+  for (const f of msg.frames) sched.receive(f);
+  net = { sched, seats: msg.seats, epoch: msg.epoch };
+}
+
 self.onmessage = (ev: MessageEvent<ToWorker>) => {
   const msg = ev.data;
-  if (msg.type === 'start') {
-    state = createWorld(msg.seed, { players: msg.players });
-    clock = performance.now();
-    postState(state);
-    postWorld(state, true);
-    postInfo(state);
-    if (timer === undefined) timer = setInterval(tick, 4);
-  } else if (msg.type === 'order') {
-    pending.push(msg.order);
-  } else if (msg.type === 'speed') {
-    speed = Math.max(1, Math.min(16, Math.floor(msg.factor)));
-  } else if (msg.type === 'place' && state) {
-    const s = state;
-    const spots = msg.spots.map(([x, z]) => {
-      const tiles = placementTiles(s, PLAYER, msg.kind, x, z, msg.variant);
-      return { x, z, tiles, blocked: tiles.find((t) => t !== 0) ?? 0 };
-    });
-    send({ type: 'placed', id: msg.id, kind: msg.kind, spots }, spots.map((p) => p.tiles.buffer));
+  switch (msg.type) {
+    case 'start': {
+      PLAYER = msg.player;
+      const s = msg.snapshot ? deserializeState(msg.snapshot) : createWorld(msg.seed, { players: msg.players });
+      net = null;
+      if (msg.net) netFrom({ ...msg.net, step: s.step, nextFrameStep: msg.net.nextFrameStep ?? s.step, frames: msg.net.frames ?? [] });
+      paused = false;
+      begin(s);
+      break;
+    }
+    case 'load': {
+      // A snapshot replaces the state (a rejoin or a reload after a desync).
+      const s = deserializeState(msg.snapshot);
+      netFrom({ ...msg, step: s.step });
+      paused = false;
+      begin(s);
+      break;
+    }
+    case 'resume':
+      // A rejoin that keeps this state: the frames missed since.
+      if (net && state) {
+        net.epoch = msg.epoch;
+        net.sched.reset({ step: state.step, frames: msg.frames, nextFrameStep: msg.nextFrameStep, activeSlots: msg.activeSlots, inputDelay: msg.inputDelay });
+      }
+      break;
+    case 'frames':
+      if (net) for (const f of msg.frames) net.sched.receive(f);
+      break;
+    case 'inputDelay':
+      if (net) net.sched.inputDelay = msg.steps;
+      break;
+    case 'pause':
+      paused = msg.paused;
+      break;
+    case 'order':
+      if (net) net.sched.queue(msg.order);
+      else pending.push(msg.order);
+      break;
+    case 'speed':
+      speed = net ? 1 : Math.max(1, Math.min(16, Math.floor(msg.factor)));
+      break;
+    case 'snapshot':
+      // For a save or a peer's rejoin: the state as it is between steps.
+      if (state) {
+        const data = serializeState(state);
+        send({ type: 'snapshot', id: msg.id, step: state.step, night: nightOf(state), data }, [data.buffer]);
+      }
+      break;
+    case 'place': {
+      if (!state) break;
+      const s = state;
+      const spots = msg.spots.map(([x, z]) => {
+        const tiles = placementTiles(s, PLAYER, msg.kind, x, z, msg.variant);
+        return { x, z, tiles, blocked: tiles.find((t) => t !== 0) ?? 0 };
+      });
+      send({ type: 'placed', id: msg.id, kind: msg.kind, spots }, spots.map((p) => p.tiles.buffer));
+      break;
+    }
   }
 };

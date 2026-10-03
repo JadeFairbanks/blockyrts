@@ -44,10 +44,24 @@ export interface Field {
   cls: MobClass;
   /** What it was built from: the window and the walk-map versions of its chunks. */
   sig: number[];
+  /**
+   * Not state: nextStep's answer per tile, filled as asked (0 not yet, -1
+   * none, else the neighbour's index + 1). It reads only the field and the
+   * walk map inside its window, and any change to that walk map makes a new
+   * field, so an answer once found holds for the field's life.
+   */
+  next?: Int32Array;
 }
 
 /** Not state: fields per world (one world per game), per player and class. */
 const cache = new WeakMap<World, Map<number, Field>>();
+/**
+ * Not state: when each field was last checked against the town, as the
+ * walk-map epoch and the building store's revision then. While neither has
+ * moved, its window and signature cannot have either, so the check is
+ * skipped: every monster asks every step, and the answer is the same field.
+ */
+const checked = new WeakMap<World, Map<number, readonly [number, number, Field]>>();
 
 function moverOf(cls: MobClass): Mover {
   return cls === MobClass.Climber ? CLIMBER_PLAN : MOB_PLAN;
@@ -108,18 +122,32 @@ function signature(state: SimState, win: { x0: number; z0: number; w: number; h:
 /** The field for a player's buildings and a kind of mover, or null when the player has no building to come for. */
 export function fieldFor(state: SimState, player: number, cls: MobClass): Field | null {
   let m = cache.get(state.world);
-  if (!m) {
+  let seen = checked.get(state.world);
+  if (!m || !seen) {
     m = new Map();
+    seen = new Map();
     cache.set(state.world, m);
+    checked.set(state.world, seen);
   }
-  const win = windowOf(state, player);
-  if (!win) return null;
-  const sig = signature(state, win);
   const key = player * 4 + cls;
+  const epoch = state.world.navEpoch;
+  const rev = state.buildings.rev;
+  const last = seen.get(key);
+  if (last && last[0] === epoch && last[1] === rev) return last[2];
+  const win = windowOf(state, player);
+  if (!win) {
+    seen.delete(key);
+    return null;
+  }
+  const sig = signature(state, win);
   const old = m.get(key);
-  if (old && old.sig.length === sig.length && old.sig.every((v, k) => v === sig[k])) return old;
-  const f = build(state, player, cls, win, sig);
-  m.set(key, f);
+  let f: Field;
+  if (old && old.sig.length === sig.length && old.sig.every((v, k) => v === sig[k])) f = old;
+  else {
+    f = build(state, player, cls, win, sig);
+    m.set(key, f);
+  }
+  seen.set(key, [epoch, rev, f]);
   return f;
 }
 
@@ -195,6 +223,19 @@ export function costAt(f: Field, tx: number, tz: number): number {
 export function nextStep(state: SimState, f: Field, tx: number, tz: number): [number, number] | null {
   const here = costAt(f, tx, tz);
   if (here === UNREACHED || here === 0) return null;
+  const memo = (f.next ??= new Int32Array(f.w * f.h));
+  const at = (tz - f.z0) * f.w + (tx - f.x0);
+  if (memo[at] === 0) memo[at] = bestNext(state, f, tx, tz);
+  const k = memo[at]!;
+  if (k < 0) return null;
+  const half = (TILE_COLUMNS * WU_PER_COLUMN) >> 1;
+  const bx = ((k - 1) % f.w) + f.x0;
+  const bz = floorDiv(k - 1, f.w) + f.z0;
+  return [bx * TILE_COLUMNS * WU_PER_COLUMN + half, bz * TILE_COLUMNS * WU_PER_COLUMN + half];
+}
+
+/** The cheapest neighbour to step to and go on from, as its index in the field + 1, or -1. */
+function bestNext(state: SimState, f: Field, tx: number, tz: number): number {
   const mover = moverOf(f.cls);
   let best = UNREACHED;
   let bx = 0;
@@ -217,7 +258,6 @@ export function nextStep(state: SimState, f: Field, tx: number, tz: number): [nu
       bz = nz;
     }
   }
-  if (best === UNREACHED) return null;
-  const half = (TILE_COLUMNS * WU_PER_COLUMN) >> 1;
-  return [bx * TILE_COLUMNS * WU_PER_COLUMN + half, bz * TILE_COLUMNS * WU_PER_COLUMN + half];
+  if (best === UNREACHED) return -1;
+  return (bz - f.z0) * f.w + (bx - f.x0) + 1;
 }

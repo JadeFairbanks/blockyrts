@@ -17,13 +17,43 @@ import { onUnitHurt } from './combat/fight.ts';
 import { mobBudget, runMob, updateSun } from './combat/mob-ai.ts';
 import { updateProjectiles } from './combat/projectiles.ts';
 import { updateSpawns } from './combat/spawn.ts';
-import { updateGear } from './units/gear.ts';
 import { updateFood } from './economy/food.ts';
-import { installAnimalHooks, runAnimal, updateAnimals } from './animals/animals.ts';
+import { installAnimalHooks, runAnimal, stockHooks, updateAnimals } from './animals/animals.ts';
+import { installFoes } from './threats/foes.ts';
+import { onFoeHurt, threatsAtPeriod, updateThreats } from './threats/update.ts';
+import { checkCell } from './threats/villages.ts';
+import { updateMagic } from './magic/cast.ts';
+import { refillMages } from './magic/mages.ts';
+import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
+import { checkPeoples } from './peoples/factions.ts';
+import { peoplesHooks } from './peoples/hooks.ts';
+import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts';
+import { trackRuns } from './mounts/riding.ts';
+import { runEngine } from './siege/engines.ts';
+import { installLateMobs } from './threats/late-mobs.ts';
+import { mountHooks } from './mounts/riding.ts';
+import { rearRider } from './peoples/factions.ts';
 
 installDeathHooks();
 installAnimalHooks();
-hurtHooks.unit = onUnitHurt;
+installFoes();
+installLateMobs();
+mountHooks.rearRider = rearRider;
+stockHooks.cell = (state, cellId) => {
+  checkCell(state, cellId);
+  // Runkin who left a camp settle in the cell they went to; else the cell may hold one of the peoples.
+  if (recampIn(state, cellId)) state.peoples.checked.add(cellId);
+  else checkPeoples(state, cellId);
+};
+peoplesHooks.death = onPeoplesDeath;
+peoplesHooks.salvage = onSalvage;
+peoplesHooks.wagon = runWagon;
+peoplesHooks.beast = runBeast;
+peoplesHooks.treeCut = onTreeCut;
+hurtHooks.unit = (state, i, from, fresh) => {
+  onUnitHurt(state, i, from, fresh);
+  onFoeHurt(state, i, from);
+};
 
 /** How far a wanderer strays per leg, and how far from the origin it may roam. */
 const WANDER_LEG_WU = 15 * WU_PER_METRE;
@@ -72,10 +102,12 @@ function wander(state: SimState, i: number): void {
 
 /** What happens as a period begins: the alert, and at dusk the outlying count and enclosures, at day the shelters empty. */
 function periodChange(state: SimState): void {
-  const p = periodStarting(state.step);
+  const p = periodStarting(state.step, state.blood);
   if (p === -1) return;
-  const c = clockAt(state.step);
+  const c = clockAt(state.step, state.blood);
   state.events.push({ player: -1, kind: 'period', text: periodMessage(c) });
+  threatsAtPeriod(state, p, c.cycle);
+  peoplesAtPeriod(state, p);
   if (p === Period.Dusk) {
     computeEnclosed(state);
     for (let player = 0; player < state.players.length; player++) {
@@ -123,16 +155,21 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
     if (e.owner[i] === NEUTRAL && e.kind[i] === UnitKind.Wanderer) wander(state, i);
     else if (e.kind[i] === UnitKind.Mob) runMob(state, i);
     else if (e.kind[i] === UnitKind.Animal) runAnimal(state, i);
+    else if (e.kind[i] === UnitKind.Engine) runEngine(state, i);
     else runUnit(state, i);
   }
+  trackRuns(state);
   updateProjectiles(state);
   updateSun(state);
+  updateThreats(state);
+  updatePeoples(state);
+  updateMagic(state);
+  refillMages(state);
   updateFood(state);
   settleDeaths(state);
   updateBuildings(state);
   updateMines(state);
   updateLights(state);
-  updateGear(state);
   updateElimination(state);
   state.world.flowWater();
   state.step++;

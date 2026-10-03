@@ -15,6 +15,7 @@ The full hosting comparison and costs are in the project files under
 | Piece | Where | Address |
 |---|---|---|
 | Game client (static Vite build) | Cloudflare Pages project `blockyrts` | `https://play.<DOMAIN>` |
+| Balance editor (one static page from packages/balance) | Same Pages project | `https://play.<DOMAIN>/balance/` |
 | Server (API, lobby, relay) | DigitalOcean Droplet `blockyrts-1`, Toronto, Docker | `https://api.<DOMAIN>` through a Cloudflare Tunnel |
 | PostgreSQL 16 | Container on the Droplet, data on the volume `blockyrts-data` | inside the Droplet only |
 | Save files and nightly database dumps | Cloudflare R2 bucket `blockyrts-saves` | S3 API |

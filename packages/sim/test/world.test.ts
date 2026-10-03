@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addAnimal,
+  addWarrior,
+  Band,
+  bandRings,
+  BuildingKind,
+  CELL_RING_SHIFT,
   blocksWalking,
   chunkKeyX,
   chunkKeyZ,
@@ -13,13 +19,23 @@ import {
   NO_WATER,
   PROPS,
   PropShape,
+  Res,
+  Species,
+  speciesSpec,
   Stage,
+  step,
+  stockCell,
   Tool,
+  Troop,
+  UnitKind,
+  WILD,
   World,
   WorldGen,
   WorldLayout,
   WU_PER_COLUMN,
+  WU_PER_METRE,
   type GeneratedChunk,
+  type SimState,
 } from '../src/index.ts';
 
 const passable = (e: { type: number; gaps: readonly unknown[] }): boolean => !blocksWalking(e.type as never) || e.gaps.length > 0;
@@ -107,7 +123,9 @@ describe('world generation', () => {
 describe('Table 5 records', () => {
   const table = getTable('5');
   const col = (name: string): number => table.columns.indexOf(name);
-  const toolText: Record<number, string> = { [Tool.Hardwood]: 'hardwood', [Tool.Flint]: 'flint', [Tool.Copper]: 'copper', [Tool.Bronze]: 'bronze', [Tool.BloomIron]: 'bloom iron' };
+  // A stone outcrop takes the hardwood digging stick (or a stone maul); copper and tin take a stone maul (Table 2c).
+  // The table's bloom iron is the wrought-iron tier (Troops and gear).
+  const toolText: Record<number, RegExp> = { [Tool.Hardwood]: /^hardwood( digging stick or stone maul \(s\))?$/, [Tool.Stone]: /^stone maul \(s\)$/, [Tool.Flint]: /^flint$/, [Tool.Copper]: /^copper$/, [Tool.Bronze]: /^bronze$/, [Tool.WroughtIron]: /^(bloom|wrought) iron$/ };
   for (const p of PROPS) {
     it(`${p.name} matches "${p.row}"`, () => {
       const row = table.rows.find((r) => r[0]!.text === p.row);
@@ -124,7 +142,7 @@ describe('Table 5 records', () => {
       if (!p.check.some((s) => text('Per load').includes(s))) expect(parseInt(text('Per load'), 10)).toBe(p.perLoad);
       if (!p.check.some((s) => text('Time per load').includes(s))) expect(text('Time per load')).toBe(`${p.loadSteps / 20} s`);
       expect(parseInt(text('Gatherers'), 10)).toBe(p.gatherers);
-      expect(text('Tool needed')).toBe(toolText[p.tool]);
+      expect(text('Tool needed')).toMatch(toolText[p.tool]!);
       const regrowth = text('Regrowth');
       const m = /(\d+) (min|hours|days)/.exec(regrowth);
       if (!m) {
@@ -286,4 +304,69 @@ describe('world state in the snapshot', () => {
     b.world.editBox(10, 10, 10, 10, 0, 3, Mat.Stone);
     expect(hashState(a)).not.toBe(hashState(b));
   });
+});
+
+describe('wild birds (Troops and gear: feathers for arrows and bolts)', () => {
+  /** Stocks the first cells of a band with one species; returns each group's size by its home, and the bands the birds live in. */
+  function stockBand(s: SimState, band: Band, species: number, cells = 8): { groups: number[]; bands: Set<number> } {
+    const layout = s.world.layout;
+    const [r0, r1] = bandRings(layout, band);
+    let n = 0;
+    for (let r = r0; r < r1; r++) for (let k = 0; k < layout.ringCellCount(r) && n < cells; k++, n++) stockCell(s, r * CELL_RING_SHIFT + k, species);
+    const e = s.entities;
+    const groups = new Map<string, number>();
+    const bands = new Set<number>();
+    for (let i = 0; i < e.count; i++) {
+      if (e.kind[i] !== UnitKind.Animal || e.mob[i] !== species) continue;
+      expect(e.owner[i]).toBe(WILD);
+      const home = `${e.homeX[i]},${e.homeZ[i]}`;
+      groups.set(home, (groups.get(home) ?? 0) + 1);
+      bands.add(layout.cell(layout.nearest(Math.floor(e.homeX[i]! / WU_PER_COLUMN), Math.floor(e.homeZ[i]! / WU_PER_COLUMN))).band);
+    }
+    return { groups: [...groups.values()], bands };
+  }
+
+  it('puts pheasants in the Fringe woods in ones and twos, and none in the Heartland', () => {
+    const s = createWorld(1, { peaceful: true });
+    expect(stockBand(s, Band.Heartland, Species.Pheasant).groups).toEqual([]);
+    const { groups, bands } = stockBand(s, Band.Fringe, Species.Pheasant);
+    expect(groups.length).toBeGreaterThan(4);
+    for (const n of groups) expect(n >= 1 && n <= 2).toBe(true);
+    expect([...bands]).toEqual([Band.Fringe]);
+  });
+
+  it('puts flocks of 3 to 5 wild geese by the water in the Heartland, and none in the Fringe', () => {
+    const s = createWorld(1, { peaceful: true });
+    expect(stockBand(s, Band.Fringe, Species.WildGoose).groups).toEqual([]);
+    // Every player's start pocket has its own water in the Heartland (above), so a game has geese.
+    const { groups, bands } = stockBand(s, Band.Heartland, Species.WildGoose);
+    expect(groups.length, 'no wild geese in the Heartland').toBeGreaterThan(0);
+    for (const n of groups) expect(n >= 3 && n <= 5).toBe(true);
+    expect([...bands]).toEqual([Band.Heartland]);
+  });
+
+  for (const [species, name] of [[Species.WildGoose, 'a wild goose'], [Species.Pheasant, 'a pheasant']] as const) {
+    it(`a slinger hunts ${name}, and the worker hauling it home brings its meat and feathers`, () => {
+      const s = createWorld(1, { peaceful: true });
+      const e = s.entities;
+      const base = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.MainBase)!;
+      const wx = base.x * WU_PER_COLUMN - 4 * WU_PER_METRE;
+      const wz = base.z * WU_PER_COLUMN;
+      const slinger = addWarrior(s, 0, wx, wz, Troop.Ranger, 1, 0);
+      let worker = -1;
+      for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) worker = i;
+      const bird = addAnimal(s, species, WILD, wx + 10 * WU_PER_METRE, wz + 4 * WU_PER_METRE, 0, 0);
+      const spec = speciesSpec(species);
+      expect(spec.extra).toEqual([[Res.Feathers, species === Species.WildGoose ? 3 : 2]]);
+      const pool = s.players[0]!.pool;
+      const feathers = pool[Res.Feathers]!;
+      step(s, [{ kind: 'dontEat', player: 0, res: Res.Meat, on: 1 }]);
+      const meat = pool[Res.Meat]!;
+      step(s, [{ kind: 'hunt', player: 0, units: [e.id[slinger]!, e.id[worker]!], target: e.id[bird]!, auto: 0 }]);
+      for (let k = 0; k < 6000 && pool[Res.Feathers] === feathers; k++) step(s);
+      expect(pool[Res.Feathers]).toBe(feathers + spec.extra[0]![1]);
+      for (let k = 0; k < 2000 && pool[Res.Meat] === meat; k++) step(s);
+      expect(pool[Res.Meat]).toBe(meat + spec.meat);
+    });
+  }
 });

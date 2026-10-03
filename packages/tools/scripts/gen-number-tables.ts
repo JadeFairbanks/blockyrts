@@ -70,6 +70,9 @@ export function parseNumberTables(markdown: string): GenTable[] {
   let notes: string[] = [];
   let subIndex = 0;
   let current: GenTable[] = [];
+  // A lettered sub-table (**2d. ...**) split into several tables by plain
+  // paragraphs (2d: close melee, then long melee): its tables are 2d.1, 2d.2.
+  let lettered: { id: string; caption: string; count: number } | null = null;
 
   const flushNotes = (): void => {
     for (const t of current) t.notes = notes;
@@ -86,6 +89,7 @@ export function parseNumberTables(markdown: string): GenTable[] {
       notes = [];
       subIndex = 0;
       current = [];
+      lettered = null;
       continue;
     }
     if (!section) continue;
@@ -95,16 +99,27 @@ export function parseNumberTables(markdown: string): GenTable[] {
       i += 2;
       while (i < lines.length && lines[i]!.startsWith('|')) rows.push(splitRow(lines[i++]!));
       i--;
-      const caption = pendingCaption;
+      let caption = pendingCaption;
       const sub = /^(\d+[a-z])\.\s/.exec(caption);
       subIndex++;
-      const id = sub ? sub[1]! : subIndex === 1 ? String(section.table) : `${section.table}.${subIndex}`;
-      if (subIndex === 2 && !sub) {
+      if (sub) lettered = { id: sub[1]!, caption, count: 0 };
+      let id: string;
+      if (lettered) {
+        lettered.count++;
+        id = lettered.count === 1 ? lettered.id : `${lettered.id}.${lettered.count}`;
+        if (!sub) caption = caption === '' ? lettered.caption : `${lettered.caption} ${caption}`;
+        if (lettered.count === 2) {
+          // The lettered sub-table's second part: rename the first to 2d.1 so both read alike.
+          const first = tables.find((t) => t.id === lettered!.id);
+          if (first) first.id = `${lettered.id}.1`;
+        }
+      } else id = subIndex === 1 ? String(section.table) : `${section.table}.${subIndex}`;
+      if (subIndex === 2 && !sub && !lettered) {
         // A section with a second unlabelled table: rename the first to N.1 so both read alike.
         const first = tables.find((t) => t.id === String(section!.table));
         if (first) first.id = `${section.table}.1`;
       }
-      const allSuggested = sub !== null && /\ball \(s\)/.test(caption);
+      const allSuggested = lettered !== null && /\ball \(s\)/.test(lettered.caption);
       const table: GenTable = {
         id,
         table: section.table,
@@ -124,6 +139,7 @@ export function parseNumberTables(markdown: string): GenTable[] {
     if (text === '' || text.startsWith('Key: ')) continue;
     if (/^\*\*\d+[a-z]\. /.test(text)) {
       pendingCaption = clean(text);
+      lettered = { id: /^(\d+[a-z])/.exec(pendingCaption)![1]!, caption: pendingCaption, count: 0 };
     } else {
       // A paragraph just before a table is its caption; every paragraph is also kept as a note.
       pendingCaption = clean(text);

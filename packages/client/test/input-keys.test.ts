@@ -36,6 +36,7 @@ describe('key names', () => {
     expect(keyId({ code: 'Semicolon', key: 'm' })).toBe('KeyM'); // AZERTY M
     expect(keyId({ code: 'Backquote', key: '²' })).toBe('Backquote');
     expect(keyId({ code: 'F5', key: 'F5' })).toBe('F5');
+    expect(keyId({ code: 'NumpadEnter', key: 'Enter' })).toBe('Enter');
   });
   it('labels badges', () => {
     expect(keyLabel('KeyM')).toBe('M');

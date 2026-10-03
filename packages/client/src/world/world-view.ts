@@ -7,8 +7,12 @@ import * as THREE from 'three';
 import {
   clockAt,
   COLUMNS_PER_CHUNK,
-  ITEMS,
+  gearSpec,
+  Line,
+  linePiece,
   Lock,
+  Troop,
+  TROOP_NAMES,
   MONSTERS,
   mobSpec,
   RANK_NAMES as UNIT_RANK_NAMES,
@@ -18,7 +22,10 @@ import {
   RESOURCES,
   unitOrderText,
   propInfo,
+  propJob,
   PropShape,
+  Tool,
+  toolNeeded,
   SIGHT_WU,
   UnitKind,
   WORLD_EDGE_WU,
@@ -28,12 +35,24 @@ import {
   isGame,
   speciesSpec,
   WILD,
+  mageTitle,
+  School,
+  FactionKind,
+  LEADER_NAMES,
+  Mob,
+  PEOPLES,
+  peopleUnitSpec,
+  TRADE_BUILDINGS,
+  engineSpec,
+  mountSpec,
+  Mount,
+  Skill,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage } from '../messages.ts';
-import { S, STATE_STRIDE, UnitFlag } from '../messages.ts';
-import { loadModelLibrary, type ModelLibrary } from '../models/index.ts';
+import { S, SpellOn, STATE_STRIDE, UnitFlag } from '../messages.ts';
+import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
@@ -50,6 +69,11 @@ const QUARTER_DETAIL_RING = 7;
 /** Fog of war texture: 1.8 m tiles (4 columns), 256 a side (460 m), centred on the focus chunk. */
 const FOW_TILE_M = 4 * COLUMN_M;
 const FOW_TILES = 256;
+const FOG_COLOUR = 0x8a9098;
+/** Where the fog of a fog night starts and where it hides everything, metres from the camera; and the same far off when there is none. */
+const FOG_NEAR_M = 28;
+const FOG_FAR_M = 95;
+const FOG_OFF_M = 100000;
 const FOG_TILES_PER_CHUNK = 16;
 /** Seconds between redraws of full-detail chunks so growing trees and regrowing bushes show. */
 const GROWTH_REFRESH_S = 20;
@@ -58,10 +82,42 @@ const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 /** Player colours (decision 8's placeholder blue is player 1). */
 export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
-const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal'];
+/** The minimap colour of each people (Halflings, Runkin, Elves, Dwarves). */
+const PEOPLE_MARKS = ['#8ac850', '#b08050', '#50c0a8', '#a8a8b8'];
+
+const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal', 'Mage', 'Engine'];
 const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
-const TOOL_NAMES = ['no', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'];
-const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal'];
+const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support', 'engine'];
+/** Skills a warrior's details list (Skill bits). */
+const SKILL_TEXT: ReadonlyArray<readonly [number, string]> = [
+  [Skill.Cannon, 'cannon crew'],
+];
+
+/** A gear id's name, or '' for an empty slot. */
+const gearName = (id: number): string => (id ? gearSpec(id).name : '');
+
+/** "Upgrading the weapon to Bronze spear: 40%." for a unit with an upgrade under way, or ''. */
+function upgradeText(d: Int32Array, o: number, kind: 'worker' | 'warrior' | 'mage'): string {
+  const line = d[o + S.upLine]! - 1;
+  if (line < 0) return '';
+  const h = { kind, troop: d[o + S.troop]!, w: d[o + S.wTier]!, a: d[o + S.aTier]! };
+  const piece = linePiece(h, line, d[o + S.upTo]!);
+  const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
+  const done = d[o + S.upDone]!;
+  return `Upgrading the ${what}${piece ? ` to ${piece.name}` : ''}${done > 0 ? `: ${Math.floor(done / 10)}%` : ' (on the way)'}.`;
+}
+
+/** "Quickened, fortified." for the spells on a unit, or ''. */
+export function spellsOnText(bits: number): string {
+  const out: string[] = [];
+  if (bits & SpellOn.Quicken) out.push('quickened');
+  if (bits & SpellOn.Fortify) out.push('fortified');
+  if (bits & SpellOn.Rally) out.push('rallied');
+  if (bits & SpellOn.Warding) out.push('warded');
+  if (bits & SpellOn.Healing) out.push('being healed');
+  if (bits & SpellOn.Hexed) out.push('hexed');
+  return out.length ? `${capital(out.join(', '))}.` : '';
+}
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
 const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
@@ -107,6 +163,8 @@ export interface WorldViewOptions {
   seed: number;
   players: number;
   player: number;
+  /** Each player's colour from the lobby (by sim player); the default order otherwise. */
+  colours?: readonly string[] | undefined;
 }
 
 export class WorldView {
@@ -115,6 +173,7 @@ export class WorldView {
   private readonly seed: number;
   private readonly players: number;
   private readonly player: number;
+  private readonly colours: THREE.Color[];
   private readonly workers: Worker[] = [];
   private readonly inflight: number[] = [];
   private readonly requests = new Map<number, { key: string; worker: number }>();
@@ -151,6 +210,9 @@ export class WorldView {
   private readonly unitsView: UnitsView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
+  private viewRing = QUARTER_DETAIL_RING;
+  private shadows = false;
+  private lastShadowSweep = 0;
   readonly buildings: BuildingsView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
@@ -162,14 +224,27 @@ export class WorldView {
     this.seed = opts.seed;
     this.players = opts.players;
     this.player = opts.player;
+    this.colours = PLAYER_COLOURS.map((c, p) => (opts.colours?.[p] ? new THREE.Color(opts.colours[p]) : c));
 
     const scene = this.scene;
     scene.background = new THREE.Color(0x07080a);
+    // Fog nights (Table 8): a grey fog that closes in round the view; out of sight while there is none.
+    scene.fog = new THREE.Fog(FOG_COLOUR, FOG_OFF_M, FOG_OFF_M * 2);
     this.hemi = new THREE.HemisphereLight(0xdfefff, 0x4a4a3a, 1.15);
     scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff2dc, 1.7);
     sun.position.set(40, 80, 25);
-    scene.add(sun);
+    // Shadows (Settings: graphics), when on: a 90 m square round the camera's focus.
+    sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera;
+    sc.left = -45;
+    sc.right = 45;
+    sc.top = 45;
+    sc.bottom = -45;
+    sc.near = 1;
+    sc.far = 260;
+    sun.shadow.bias = -0.0005;
+    scene.add(sun, sun.target);
     this.sun = sun;
 
     const tex = new THREE.DataTexture(this.fowData, FOW_TILES, FOW_TILES, THREE.RedFormat, THREE.UnsignedByteType);
@@ -194,9 +269,8 @@ export class WorldView {
     }
 
     this.unitsView = new UnitsView(scene);
-    this.buildings = new BuildingsView(scene, this.fow, PLAYER_COLOURS);
+    this.buildings = new BuildingsView(scene, this.fow, this.colours);
     this.overlay = new Overlay(scene);
-    void this.loadModels();
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -213,15 +287,11 @@ export class WorldView {
     };
   }
 
-  private async loadModels(): Promise<void> {
-    try {
-      const lib = await loadModelLibrary(`${import.meta.env.BASE_URL}models/`);
-      this.models = lib;
-      this.unitsView.setModels(lib);
-      this.buildings.setModels(lib);
-    } catch (err) {
-      console.warn('unit models not loaded; drawing blocks', err);
-    }
+  /** The model library (opened by main.ts before the match starts); models swap in as they load. */
+  setModels(lib: ModelLibrary): void {
+    this.models = lib;
+    this.unitsView.setModels(lib);
+    this.buildings.setModels(lib);
   }
 
   // ---- From the sim worker ----
@@ -254,15 +324,18 @@ export class WorldView {
         };
         this.units[i] = u;
       }
-      if (d[o + S.inside] !== 0) this.insideKeys.add(key);
+      // A cannon in a Citadel's port stays on the roof, where it can be picked.
+      if (d[o + S.inside] !== 0 && kind !== UnitKind.Engine) this.insideKeys.add(key);
       const health = `Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`;
       if (kind === UnitKind.Worker) {
         const rank = d[o + S.rank]!;
         u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
-        const details = [health, `${capital(TOOL_NAMES[d[o + S.tool]!] ?? '')} tools.`];
+        const tools = [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!].filter((t, k, all) => t !== 0 && all.indexOf(t) === k);
+        const details = [health, tools.length ? `${capital(tools.map((t) => gearName(t).toLowerCase()).join(', '))} (tool tier ${d[o + S.wTier]}).` : 'No tools.'];
         const carry = d[o + S.carryRes]!;
         if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
-        if (d[o + S.torch] === 1) details.push('Carrying a lit torch.');
+        const up = upgradeText(d, o, 'worker');
+        if (up) details.push(up);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
@@ -270,13 +343,37 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
         const rank = d[o + S.rank]!;
-        u.label = `Warrior (${UNIT_RANK_NAMES.warrior[rank] ?? `rank ${rank}`})`;
-        const item = (slot: number): string => ITEMS[d[o + slot]!]?.name ?? '';
-        const gear = [item(S.weapon), d[o + S.backup] ? `${item(S.backup)} as backup` : '', d[o + S.ranged] ? `${item(S.ranged)} (${d[o + S.ammo]} shots)` : '', item(S.shield), item(S.boots)].filter((x) => x && x !== 'Nothing');
-        const details = [health, gear.length > 0 ? `${gear.join(', ')}.` : 'Unarmed.'];
+        const troop = d[o + S.troop]!;
+        u.label = `${TROOP_NAMES[troop] ?? 'Warrior'} (${UNIT_RANK_NAMES.warrior[rank] ?? `rank ${rank}`})`;
+        // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
+        const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
+        const gear = [gearName(d[o + S.ranged]!), weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
+        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}.`];
+        const up = upgradeText(d, o, 'warrior');
+        if (up) details.push(up);
         if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
         else if (d[o + S.lock] === Lock.Ranged) details.push('Locked to ranged.');
-        if (d[o + S.skills]! & 1) details.push('Trained in archery.');
+        const skills = SKILL_TEXT.filter(([bit]) => (d[o + S.skills]! & bit) !== 0).map(([, t]) => t);
+        if (skills.length > 0) details.push(`Trained in ${skills.join(', ')}.`);
+        const mount = d[o + S.mount]!;
+        if (mount !== Mount.None) details.push(`Riding a ${mountSpec(mount).name.toLowerCase()} (health ${d[o + S.mountHp]} / ${d[o + S.mountMax]}).`);
+        u.halfSize.set(mount !== Mount.None ? 0.6 : 0.3, mount !== Mount.None ? 1.3 : 0.85, mount !== Mount.None ? 0.6 : 0.3);
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
+      } else if (kind === UnitKind.Mage) {
+        const rank = d[o + S.rank]!;
+        const school = d[o + S.school]!;
+        u.label = mageTitle(school, rank);
+        u.typeKey = school === School.Battle ? 'mage:battle' : 'mage:support';
+        const worn = [gearName(d[o + S.weapon]!), gearName(d[o + S.armour]!)].filter((x) => x);
+        const details = [health, `Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`, worn.length ? `${worn.join(', ')}.` : 'No wand.'];
+        const up = upgradeText(d, o, 'mage');
+        if (up) details.push(up);
+        const on = spellsOnText(d[o + S.spells]!);
+        if (on) details.push(on);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
@@ -289,6 +386,20 @@ export class WorldView {
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
         u.details = [health];
+      } else if (kind === UnitKind.Engine) {
+        const spec = engineSpec(d[o + S.mob]!);
+        u.label = spec.name;
+        u.typeKey = `engine:${spec.id}`;
+        u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
+        const crew = d[o + S.crew]! % 1000;
+        const hauled = d[o + S.crew]! >= 1000;
+        const details = [health, `Crew ${crew} of ${spec.crew}${spec.crewSkill ? ' (trained cannon crew)' : ''}.`, hauled ? 'Hauled by its animal.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
+        if (d[o + S.inside] !== 0) details.push('In a cannon port.');
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(`${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
       } else if (kind === UnitKind.Animal) {
         const spec = speciesSpec(d[o + S.mob]!);
         const flags = d[o + S.flags]!;
@@ -306,14 +417,69 @@ export class WorldView {
         else if (wild && isGame(spec.id)) details.push('Game: warriors hunt it with N.');
         u.details = details;
       }
+      const group = d[o + S.group]!;
+      if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
+  }
+
+  /** One of the neutral peoples' units or buildings, one they left standing, or a hired mercenary: its name, faction and what to do with it. */
+  private peoplesLabel(u: Selectable, d: Int32Array, o: number, owner: number, kind: number, group: number, health: string): void {
+    const f = this.game?.faction(group) ?? null;
+    const title = f ? f.title : 'One of the neutral peoples';
+    const mob = d[o + S.mob]!;
+    if (kind === UnitKind.Mob) {
+      const spec = mobSpec(mob);
+      if (owner === NEUTRAL) {
+        u.label = `Abandoned ${spec.name.toLowerCase()}`;
+        u.typeKey = `ruin:${mob}`;
+        u.owner = NOBODY;
+        u.details = [health, 'Its people left it. Workers can break it down for its materials: select workers, press A, then click it.'];
+        return;
+      }
+      u.label = spec.name;
+      u.typeKey = `peoples:${mob}`;
+      u.owner = PEOPLES;
+      const trade = TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon;
+      u.details = [title, health, f?.war ? 'At war with you.' : trade ? 'Right click it with one of your units to trade.' : ''].filter(Boolean);
+      return;
+    }
+    const spec = peopleUnitSpec(mob);
+    if (owner !== PEOPLES) {
+      // A mercenary the local player (or an ally) hired: theirs until dusk.
+      if (owner === NEUTRAL || owner >= 8) return;
+      u.label = `Mercenary ${spec.name.toLowerCase()}`;
+      u.typeKey = `merc:${mob}`;
+      u.details = [health, owner === this.player ? 'Hired until dusk, when it walks back to its camp.' : 'Hired by an ally until dusk.'];
+      return;
+    }
+    const id = d[o + S.id]!;
+    const leader = f !== null && f.leader === id;
+    u.label = leader ? `${LEADER_NAMES[f.kind] ?? 'Elder'} (${spec.name})` : spec.name;
+    u.typeKey = `people:${mob}`;
+    u.owner = PEOPLES;
+    u.halfSize.set(0.3, spec.heightCm / 200, 0.3);
+    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click with one of your units to hire mercenaries.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click with one of your units to trade.' : '';
+    const details = [title, health];
+    if (kind === UnitKind.Mage) details.push(`Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`);
+    if (what) details.push(what);
+    u.details = details;
   }
 
   /** The screen's copy of the game (buildings, order lists) for the buildings and the unit panels. */
   setGame(game: GameInfo): void {
     this.game = game;
+    // Lairs and villages found, a village going to war or a lair cleared repaint the minimap.
+    game.onInfoUpdate((info) => {
+      const sig = `${info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';')}|${info.peoples.map((f) => `${f.id},${f.x >> 12},${f.z >> 12},${f.war ? 1 : 0},${f.status}`).join(';')}`;
+      if (sig !== this.marksSig) {
+        this.marksSig = sig;
+        this.minimapVersion++;
+      }
+    });
   }
+
+  private marksSig = '';
 
   onDeltas(msg: DeltasMessage): void {
     const deltas: ChunkDelta[] = msg.deltas;
@@ -366,7 +532,40 @@ export class WorldView {
 
   // ---- Per frame ----
 
+  /** Graphics settings: how many chunk rings are drawn round the camera, and sun shadows. */
+  setGraphics(g: { viewRing: number; shadows: boolean }): void {
+    if (g.viewRing !== this.viewRing) {
+      this.viewRing = g.viewRing;
+      if (Number.isFinite(this.focusChunk.cx)) this.chooseChunks(this.focusChunk.cx, this.focusChunk.cz);
+    }
+    if (g.shadows !== this.shadows) {
+      this.shadows = g.shadows;
+      this.sun.castShadow = g.shadows;
+      this.markShadows();
+    }
+  }
+
+  /** Every mesh casts and takes shadows while they are on (new ones join on the next sweep). */
+  private markShadows(): void {
+    const on = this.shadows;
+    this.scene.traverse((o) => {
+      if (!(o as THREE.Mesh).isMesh) return;
+      const m = o as THREE.Mesh;
+      const see = (Array.isArray(m.material) ? m.material[0] : m.material)?.transparent !== true;
+      m.castShadow = on && see;
+      m.receiveShadow = on;
+    });
+  }
+
   update(now: number, focus: THREE.Vector3): void {
+    if (this.shadows) {
+      this.sun.target.position.set(focus.x, focus.y, focus.z);
+      this.sun.position.set(focus.x + 40, focus.y + 80, focus.z + 25);
+      if (now - this.lastShadowSweep > 1000) {
+        this.lastShadowSweep = now;
+        this.markShadows();
+      }
+    }
     this.updateUnits(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
@@ -391,7 +590,7 @@ export class WorldView {
   /** Which chunks to draw at which detail around the focus; explored land and its edge only, unless showing all. */
   private chooseChunks(fcx: number, fcz: number): void {
     const want = new Map<string, number>();
-    const r = QUARTER_DETAIL_RING;
+    const r = this.viewRing;
     for (let dz = -r; dz <= r; dz++) {
       for (let dx = -r; dx <= r; dx++) {
         const cx = fcx + dx;
@@ -517,7 +716,7 @@ export class WorldView {
     const details: string[] = [];
     if (info.resource) {
       details.push(`Gatherers: ${info.gatherers} at a time; ${info.perLoad} per load.`);
-      details.push(`Tool needed: ${['none', 'hardwood', 'flint', 'copper', 'bronze', 'bloom iron', 'wrought iron', 'refined iron', 'steel', 'high quality steel'][info.tool]}.`);
+      details.push(`Tool needed: ${info.tool === Tool.None ? 'none' : `a ${toolNeeded(propJob(p.kind), info.tool)} or better`}.`);
     }
     if (stage) details.push(`Growing: ${stage}.`);
     return {
@@ -603,14 +802,27 @@ export class WorldView {
       sinceMs: now - this.currAt,
       now,
       player: this.player,
-      colours: PLAYER_COLOURS,
+      colours: this.colours,
       neutral: NEUTRAL_COLOUR,
       seen: (x, z) => this.seenNow(x, z),
+      known: (x, z) => this.exploredNow(x, z),
+      ruins: this.game?.info?.ruins ?? [],
+      groundAt: (x, z) => this.groundAt(x, z),
       place: (i, x, y, z) => {
         const u = this.units[i];
         if (u) u.centre.set(x, y + u.halfSize.y, z);
       },
     });
+  }
+
+  /** Whether a point (metres) is explored by the local player (near the view; the debug show-all shows everything). */
+  exploredNow(x: number, z: number): boolean {
+    if (this.showAll) return true;
+    const a = this.fow.fowArea.value;
+    const tx = Math.floor((x - a.x) / FOW_TILE_M);
+    const tz = Math.floor((z - a.y) / FOW_TILE_M);
+    if (tx < 0 || tz < 0 || tx >= FOW_TILES || tz >= FOW_TILES) return false;
+    return this.fowData[tz * FOW_TILES + tx]! >= 128;
   }
 
   /** Whether a point (metres) is in sight of the local player's units now; everything is, with the debug show-all. */
@@ -631,10 +843,15 @@ export class WorldView {
   private readonly daySun = new THREE.Color(0xfff2dc);
   private readonly nightSun = new THREE.Color(0x8aa0d8);
   private readonly duskSun = new THREE.Color(0xff9a5a);
+  private readonly bloodHemi = new THREE.Color(0xb05048);
+  private readonly bloodSun = new THREE.Color(0xff5a40);
+  /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
+  private fogK = 0;
+  private lastSky = 0;
 
   /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
   darkness(): number {
-    const c = clockAt(this.simStep);
+    const c = clockAt(this.simStep, this.game?.info?.blood);
     const f = c.into / (c.into + c.left);
     switch (c.period) {
       case Period.Day:
@@ -656,7 +873,30 @@ export class WorldView {
     this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
     this.sun.intensity = 1.7 - 1.35 * k;
     this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
+    // A blood night: the night light turns red.
+    const info = this.game?.info;
+    const c = clockAt(this.simStep, info?.blood);
+    if (info?.blood.includes(c.cycle) && c.period !== Period.Day) {
+      this.hemi.color.lerp(this.bloodHemi, k * 0.55);
+      this.sun.color.lerp(this.bloodSun, k * 0.6);
+    }
     this.buildings.darkness = k;
+    // The fog rolls in and lifts over a few seconds.
+    const now = performance.now();
+    const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
+    this.lastSky = now;
+    const want = info?.fog ? 1 : 0;
+    this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
+    const fog = this.scene.fog as THREE.Fog;
+    if (this.fogK <= 0.001) {
+      fog.near = FOG_OFF_M;
+      fog.far = FOG_OFF_M * 2;
+    } else {
+      const off = (1 - this.fogK) * 400;
+      fog.near = FOG_NEAR_M + off;
+      fog.far = FOG_FAR_M + off;
+      fog.color.setHex(FOG_COLOUR).multiplyScalar(1 - 0.6 * k);
+    }
   }
 
   // ---- Hooks ----
@@ -757,6 +997,43 @@ export class WorldView {
     for (const t of this.minimapTiles.values()) {
       if (!t.rgba) continue;
       ctx.drawImage(t.canvas, t.cx * CHUNK_M, t.cz * CHUNK_M, CHUNK_M, CHUNK_M);
+    }
+    // Lairs (dark red squares) and goblin villages (ochre rings, red at war) the player has found (Table 15: minimap marks).
+    const px = 1 / Math.max(1e-6, ctx.getTransform().a);
+    for (const m of this.game?.info?.marks ?? []) {
+      const x = m.x / WU_PER_METRE;
+      const z = m.z / WU_PER_METRE;
+      ctx.lineWidth = 1.5 * px;
+      ctx.strokeStyle = '#000000';
+      if (m.mob >= 0) {
+        const r = 3.5 * px;
+        ctx.fillStyle = '#c0302a';
+        ctx.fillRect(x - r, z - r, r * 2, r * 2);
+        ctx.strokeRect(x - r, z - r, r * 2, r * 2);
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, z, 4.5 * px, 0, Math.PI * 2);
+        ctx.fillStyle = m.war ? '#ff4030' : '#d8a040';
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    // The neutral peoples found: a diamond in each people's colour, ringed red at war.
+    for (const f of this.game?.info?.peoples ?? []) {
+      const x = f.x / WU_PER_METRE;
+      const z = f.z / WU_PER_METRE;
+      const r = 4.5 * px;
+      ctx.beginPath();
+      ctx.moveTo(x, z - r);
+      ctx.lineTo(x + r, z);
+      ctx.lineTo(x, z + r);
+      ctx.lineTo(x - r, z);
+      ctx.closePath();
+      ctx.fillStyle = f.kind === FactionKind.MercCamp ? '#e09040' : (PEOPLE_MARKS[f.people] ?? '#c0c0c0');
+      ctx.fill();
+      ctx.lineWidth = (f.war ? 2 : 1.5) * px;
+      ctx.strokeStyle = f.war ? '#ff3020' : '#000000';
+      ctx.stroke();
     }
   }
 

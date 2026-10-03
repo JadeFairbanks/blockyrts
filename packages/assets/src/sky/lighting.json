@@ -1,0 +1,234 @@
+{
+  "cycle": {
+    "day_s": 180,
+    "dusk_s": 40,
+    "night_s": 180,
+    "dawn_s": 40,
+    "key_times_s": {
+      "mid_day": 90,
+      "dusk_start": 180,
+      "dusk_mid": 200,
+      "dusk_end": 220,
+      "mid_night": 310,
+      "dawn_start": 400,
+      "dawn_mid": 420,
+      "dawn_end": 440
+    },
+    "note": "Blend linearly between neighbouring key moments; dawn_end -> mid_day over the first 90 s of day; height angle 0..1 = horizon..zenith; intensities 0..1."
+  },
+  "key_moments": {
+    "mid_day": {
+      "light_source": "sun",
+      "light_colour": "#fff4dc",
+      "light_intensity": 1.0,
+      "light_height": 0.8,
+      "ambient_colour": "#b8c8e0",
+      "ambient_intensity": 0.55,
+      "shadow_strength": 0.6,
+      "fog_colour": "#c8d8e8",
+      "fog_distance": 1.0,
+      "sky_edge_colour": "#9cc8f0",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "dusk_start": {
+      "light_source": "sun",
+      "light_colour": "#ffd090",
+      "light_intensity": 0.85,
+      "light_height": 0.3,
+      "ambient_colour": "#c0a8a0",
+      "ambient_intensity": 0.45,
+      "shadow_strength": 0.55,
+      "fog_colour": "#d8b898",
+      "fog_distance": 0.9,
+      "sky_edge_colour": "#f0b878",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "dusk_mid": {
+      "light_source": "sun",
+      "light_colour": "#ff8c30",
+      "light_intensity": 0.65,
+      "light_height": 0.12,
+      "ambient_colour": "#8a6878",
+      "ambient_intensity": 0.35,
+      "shadow_strength": 0.45,
+      "fog_colour": "#a06850",
+      "fog_distance": 0.8,
+      "sky_edge_colour": "#e0703c",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "dusk_end": {
+      "light_source": "sun",
+      "light_colour": "#c84a28",
+      "light_intensity": 0.35,
+      "light_height": 0.02,
+      "ambient_colour": "#4a4060",
+      "ambient_intensity": 0.25,
+      "shadow_strength": 0.3,
+      "fog_colour": "#4a3850",
+      "fog_distance": 0.7,
+      "sky_edge_colour": "#7a3848",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "mid_night": {
+      "light_source": "moon",
+      "light_colour": "#b8ccff",
+      "light_intensity": 0.35,
+      "light_height": 0.55,
+      "ambient_colour": "#28305a",
+      "ambient_intensity": 0.22,
+      "shadow_strength": 0.35,
+      "fog_colour": "#141c34",
+      "fog_distance": 0.6,
+      "sky_edge_colour": "#1c2448",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "dawn_start": {
+      "light_source": "sun",
+      "light_colour": "#d890b8",
+      "light_intensity": 0.3,
+      "light_height": 0.02,
+      "ambient_colour": "#4a4068",
+      "ambient_intensity": 0.25,
+      "shadow_strength": 0.3,
+      "fog_colour": "#584868",
+      "fog_distance": 0.7,
+      "sky_edge_colour": "#8a5880",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "dawn_mid": {
+      "light_source": "sun",
+      "light_colour": "#ffa8a0",
+      "light_intensity": 0.6,
+      "light_height": 0.12,
+      "ambient_colour": "#907898",
+      "ambient_intensity": 0.35,
+      "shadow_strength": 0.45,
+      "fog_colour": "#c89098",
+      "fog_distance": 0.8,
+      "sky_edge_colour": "#f0a0a0",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "dawn_end": {
+      "light_source": "sun",
+      "light_colour": "#ffd8a0",
+      "light_intensity": 0.85,
+      "light_height": 0.3,
+      "ambient_colour": "#b0b0c8",
+      "ambient_intensity": 0.45,
+      "shadow_strength": 0.55,
+      "fog_colour": "#e0c8b0",
+      "fog_distance": 0.9,
+      "sky_edge_colour": "#f8d098",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "blood_night": {
+      "light_source": "blood_moon",
+      "light_colour": "#ff4030",
+      "light_intensity": 0.3,
+      "light_height": 0.55,
+      "ambient_colour": "#4a1018",
+      "ambient_intensity": 0.18,
+      "shadow_strength": 0.4,
+      "fog_colour": "#3a0a14",
+      "fog_distance": 0.55,
+      "sky_edge_colour": "#2a0608",
+      "fog_distance_note": "fraction of normal max view distance"
+    },
+    "fog_night": {
+      "light_source": "moon",
+      "light_colour": "#a8b8d8",
+      "light_intensity": 0.25,
+      "light_height": 0.55,
+      "ambient_colour": "#303c58",
+      "ambient_intensity": 0.25,
+      "shadow_strength": 0.15,
+      "fog_colour": "#5a6a80",
+      "fog_distance": 0.3,
+      "sky_edge_colour": "#3a4860",
+      "fog_distance_note": "fraction of normal max view distance"
+    }
+  },
+  "light_sources": {
+    "torch_post": {
+      "colour": "#ff9a40",
+      "intensity": 0.9,
+      "radius": 6.0,
+      "falloff": "quadratic",
+      "flicker": 0.15
+    },
+    "torch_wall": {
+      "colour": "#ff9a40",
+      "intensity": 0.85,
+      "radius": 5.5,
+      "falloff": "quadratic",
+      "flicker": 0.15
+    },
+    "torch_hand": {
+      "colour": "#ffa048",
+      "intensity": 0.75,
+      "radius": 4.5,
+      "falloff": "quadratic",
+      "flicker": 0.2
+    },
+    "campfire": {
+      "colour": "#ff7020",
+      "intensity": 1.0,
+      "radius": 7.0,
+      "falloff": "quadratic",
+      "flicker": 0.25
+    },
+    "brazier": {
+      "colour": "#ffc040",
+      "intensity": 1.0,
+      "radius": 6.5,
+      "falloff": "quadratic",
+      "flicker": 0.12
+    },
+    "lantern": {
+      "colour": "#ffe08a",
+      "intensity": 0.7,
+      "radius": 5.0,
+      "falloff": "smooth",
+      "flicker": 0.03
+    },
+    "magic_battle": {
+      "colour": "#a050ff",
+      "intensity": 0.9,
+      "radius": 4.0,
+      "falloff": "smooth",
+      "flicker": 0.0
+    },
+    "magic_heal": {
+      "colour": "#c8e060",
+      "intensity": 0.8,
+      "radius": 4.0,
+      "falloff": "smooth",
+      "flicker": 0.0
+    },
+    "mana_crystal": {
+      "colour": "#40e8f0",
+      "intensity": 0.7,
+      "radius": 3.5,
+      "falloff": "smooth",
+      "flicker": 0.05
+    },
+    "demon_cracks": {
+      "colour": "#ff6018",
+      "intensity": 0.8,
+      "radius": 3.0,
+      "falloff": "linear",
+      "flicker": 0.1
+    },
+    "purple_demon": {
+      "colour": "#9a40e0",
+      "intensity": 0.6,
+      "radius": 2.5,
+      "falloff": "smooth",
+      "flicker": 0.05
+    }
+  },
+  "special_nights": {
+    "blood_night": "Use blood_night values for the whole night (replaces mid_night); dusk_end/dawn_start lerp toward it. Moon texture: moon_blood.png. Light sources unchanged.",
+    "fog_night": "Use fog_night values for the whole night. Sight radius and every light radius x0.5; light intensity x0.7 and colour shifted to soft orange halo (#ffb070). Fog sprites: fog_drift.png (4 frames of 64x32, 4 fps, drift 0.5 tile/s, alpha ~0.5). Units/eyes still read: keep emissive (glow_) materials unfogged within 4 tiles."
+  }
+}

@@ -6,11 +6,13 @@
 // three days of it, lose health; fed units heal by themselves. Eating at a
 // building heals half of a unit's health over 10 s.
 
-import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
+import { ceilDiv, floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
+import { HORSE_UPKEEP, Mount, mountSpec } from '../mounts/data.ts';
 import { CYCLE_STEPS, NUTRITION_PER_CYCLE } from '../rules.ts';
 import { UnitKind, type SimState } from '../state.ts';
 import { BuildingKind } from '../buildings/data.ts';
 import { RESOURCES, payNutrition, Res } from './resources.ts';
+import { Role } from '../threats/types.ts';
 
 /** Rations (F9): who is fed. */
 export const Rations = { Everyone: 0, TroopsOnly: 1, WorkersOnly: 2 } as const;
@@ -44,10 +46,13 @@ export function upkeep(state: SimState, player: number): { workers: number; troo
   let workers = 0;
   let troops = 0;
   for (let i = 0; i < e.count; i++) {
-    if (e.owner[i] !== player || e.hp[i]! <= 0) continue;
+    // Mercenaries are fed by their camp.
+    if (e.owner[i] !== player || e.hp[i]! <= 0 || e.role[i] === Role.Mercenary) continue;
     const k = e.kind[i];
     if (k === UnitKind.Worker) workers += NUTRITION_PER_CYCLE;
-    else if (k === UnitKind.Warrior) troops += NUTRITION_PER_CYCLE;
+    else if (k === UnitKind.Warrior || k === UnitKind.Mage) troops += NUTRITION_PER_CYCLE;
+    // A ridden horse eats as a working one (Table 6).
+    if (e.mount[i] === Mount.Horse) workers += HORSE_UPKEEP;
     else if (k === UnitKind.Animal) workers += animalUpkeep.of(state, i);
   }
   for (const b of state.buildings.list) if (b.owner === player && b.complete && b.kind === BuildingKind.ScholarsLodge) troops += FACILITY_UPKEEP;
@@ -59,7 +64,7 @@ export function starvingSince(state: SimState, i: number): number {
   const e = state.entities;
   const p = state.players[e.owner[i]!];
   if (!p) return 0;
-  if (e.kind[i] === UnitKind.Warrior) return p.starveTroops;
+  if (e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage) return p.starveTroops;
   if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Animal) return p.starveWorkers;
   return 0;
 }
@@ -134,11 +139,15 @@ function health(state: SimState): void {
       e.mendLeft[i] = e.mendLeft[i]! - h;
       e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + h);
     }
-    if (!tick || e.owner[i]! >= state.players.length) continue;
+    // Engines are repaired by workers, never mended by time (Table 2f).
+    if (!tick || e.owner[i]! >= state.players.length || e.kind[i] === UnitKind.Engine) continue;
     const since = starvingSince(state, i);
     const pm = Math.max(1, floorDiv(e.maxHp[i]!, 100));
     if (!since) {
-      if (e.hp[i]! < e.maxHp[i]!) e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + pm);
+      // In a plague bearer's miasma nothing heals by itself (roster 5.8).
+      if (e.hp[i]! < e.maxHp[i]! && e.sickUntil[i]! <= state.step) e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + pm);
+      // A ridden horse heals as the rider does (s).
+      if (e.mount[i] === Mount.Horse) e.mountHp[i] = Math.min(mountSpec(Mount.Horse).hp, e.mountHp[i]! + Math.max(1, floorDiv(mountSpec(Mount.Horse).hp, 100)));
     } else if (state.step - since >= STARVE_HARM_AFTER_STEPS) {
       e.hp[i] = e.hp[i]! - pm;
       if (e.hp[i]! <= 0) {
@@ -147,11 +156,6 @@ function health(state: SimState): void {
       }
     }
   }
-}
-
-/** a / b rounded up, for positive b. */
-function ceilDiv(a: number, b: number): number {
-  return floorDiv(a + b - 1, b);
 }
 
 export function updateFood(state: SimState): void {

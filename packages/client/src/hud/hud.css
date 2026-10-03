@@ -334,26 +334,37 @@ body.playing * {
   border-color: rgba(255, 120, 110, 0.6);
 }
 
-/* Top right: Allies, Send resources and the resource bar. */
+/* Top right: the resource bar, with Peoples, Allies, Send, Ping and Pause in a
+   row under it so the bar never runs under the clock on a 1280 px screen. */
 .top-right {
   top: 0;
   right: 0;
   display: flex;
-  height: 32px;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  background: none;
+  border: 0;
+}
+.top-right-buttons,
+.resource-bar {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-top: 0;
   border-right: 0;
 }
 .top-right-buttons {
   display: flex;
+  height: 26px;
 }
 .hud-btn.top {
   padding: 0 12px;
-  border-width: 0 1px 0 0;
+  border-width: 0 0 0 1px;
   font-size: 12px;
 }
 .resource-bar {
   display: flex;
   align-items: stretch;
+  height: 32px;
 }
 .res {
   display: flex;
@@ -377,10 +388,10 @@ body.playing * {
   font-size: 13px;
 }
 .resource-all {
-  top: 36px;
+  top: 64px;
   right: 4px;
   width: 360px;
-  max-height: calc(100vh - 36px - 200px);
+  max-height: calc(100vh - 64px - 200px);
   min-height: 120px;
   overflow-y: auto;
   padding: 6px 10px 10px;
@@ -697,6 +708,15 @@ body.playing * {
 .hud-btn.portrait .hp.low {
   background: #e05a4a;
 }
+.hud-btn.portrait .mana {
+  position: absolute;
+  left: 2px;
+  bottom: 6px;
+  height: 2px;
+  width: 100%;
+  max-width: calc(100% - 4px);
+  background: #8a7aff;
+}
 .hud-btn.queue-item .hp {
   background: var(--accent);
 }
@@ -755,6 +775,13 @@ body.playing * {
 .clock[data-period='2'] .clock-day {
   color: #9ab4ff;
 }
+.clock.blood .clock-day {
+  color: #ff5a4a;
+}
+.clock.fog .clock-day::after {
+  content: ' · fog';
+  color: #b8c0c8;
+}
 .dbg-tools .hud-btn.lit {
   background: rgba(110, 92, 30, 0.95);
 }
@@ -810,4 +837,569 @@ body.playing * {
 }
 .res-row .hud-btn.donteat .key {
   display: none;
+}
+.dialog.loading {
+  width: auto;
+  color: var(--text);
+}
+
+/* Milestone 7: the message panel's tools, names, urgent rows and the collapsed button. */
+.msg-head {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 3px 4px 0;
+}
+.hud-btn.msg-tool {
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+  background: rgba(40, 46, 56, 0.6);
+}
+.hud-btn.msg-tool.lit {
+  color: var(--accent);
+}
+.msg-name {
+  color: #a8d0ff;
+  font-weight: 600;
+}
+.hud-btn.msg-btn.speech .msg-name {
+  color: #b8e0a0;
+}
+.hud-btn.msg-btn.player {
+  color: #9ad8ff;
+  background: rgba(60, 110, 160, 0.18);
+}
+.hud-btn.msg-btn.urgent {
+  color: #fff2c8;
+  background: rgba(200, 120, 30, 0.38);
+}
+.messages-open {
+  left: 8px;
+  bottom: calc(var(--mm-h) + var(--util-h) + 8px);
+  padding: 2px;
+}
+.hud-btn.msg-open {
+  width: 34px;
+  height: 28px;
+  font-size: 16px;
+}
+.messages-open.flash .hud-btn.msg-open {
+  animation: msg-flash 0.6s steps(2) infinite;
+}
+@keyframes msg-flash {
+  0% {
+    background: #c8501e;
+  }
+  100% {
+    background: var(--btn-bg);
+  }
+}
+
+/* Speech bubbles over the units' heads. */
+.bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 220px;
+  padding: 3px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #1c1f24;
+  background: rgba(250, 248, 240, 0.94);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: normal;
+  text-align: center;
+  will-change: transform;
+}
+.bubble.foreign {
+  background: rgba(236, 246, 226, 0.95);
+}
+.bubble.remark {
+  opacity: 0.88;
+  font-style: italic;
+}
+
+/* The Peoples panel, the trade menu, the hire box and the war pop-up. */
+.peoples-panel,
+.trade-dialog,
+.hire-dialog,
+.war-confirm {
+  z-index: 5;
+  padding: 10px 12px 12px;
+  overflow-y: auto;
+  background: rgba(18, 22, 28, 0.96);
+}
+.peoples-panel {
+  top: 64px;
+  right: 4px;
+  width: 380px;
+  max-height: calc(100vh - 64px - 250px);
+}
+.trade-dialog {
+  left: 50%;
+  top: 60px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 60px - 250px);
+}
+.hire-dialog,
+.war-confirm {
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+}
+.war-confirm {
+  z-index: 6;
+  border-color: rgba(255, 120, 110, 0.7);
+}
+.dlg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dlg-title {
+  margin: 0;
+  font-size: 15px;
+}
+.dlg-note {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.dlg-why {
+  margin: 6px 0;
+  color: #ffb08a;
+  font-size: 12px;
+}
+.dlg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.hud-btn.dlg-btn {
+  padding: 5px 10px;
+  min-height: 26px;
+  font-size: 12.5px;
+}
+.hud-btn.dlg-btn.primary {
+  background: #3b5d33;
+  border-color: #6fae5e;
+  font-weight: 600;
+}
+.hud-btn.dlg-btn.danger {
+  border-color: rgba(255, 120, 110, 0.6);
+  color: #ffc0b8;
+}
+.hud-btn.dlg-btn.bundle {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.hud-btn.dlg-close {
+  width: 24px;
+  height: 22px;
+  font-size: 15px;
+}
+.ppl-row {
+  padding: 8px 0;
+  border-top: 1px solid rgba(170, 186, 204, 0.18);
+}
+.ppl-name {
+  font-weight: 600;
+}
+.ppl-name.war {
+  color: #ff8a7a;
+}
+.ppl-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+.trade-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+.trade-head {
+  margin: 6px 0 4px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.trade-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trade-list.goods {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.trade-good {
+  font-size: 12.5px;
+}
+.trade-good.muted {
+  color: var(--muted);
+}
+.trade-good.refused {
+  color: #8a8f98;
+  text-decoration: line-through;
+}
+.hud-btn.trade-item {
+  justify-content: flex-start;
+  padding: 3px 8px;
+  font-size: 12.5px;
+}
+.hud-btn.trade-item.refused {
+  color: #7a808a;
+}
+.hud-btn.trade-item.in-box {
+  background: rgba(80, 110, 60, 0.5);
+}
+.worth-bar {
+  height: 8px;
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-border);
+}
+.worth-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8a6a2a, #e8c25a);
+}
+.worth-words {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Milestone 9: the Allies panel, Send resources, the pause banner, the host's choice and the first-day hints. */
+.allies-panel,
+.send-dialog,
+.host-choice {
+  z-index: 5;
+  padding: 10px 12px 12px;
+  overflow-y: auto;
+  background: rgba(18, 22, 28, 0.96);
+}
+.allies-panel {
+  top: 64px;
+  right: 4px;
+  width: 360px;
+  max-height: calc(100vh - 64px - 250px);
+}
+.send-dialog {
+  left: 50%;
+  top: 60px;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 60px - 250px);
+}
+.host-choice {
+  z-index: 7;
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 32px));
+  border-color: rgba(242, 210, 75, 0.7);
+}
+.ally-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(170, 186, 204, 0.18);
+}
+.ally-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+}
+.ally-name {
+  font-weight: 600;
+  flex: 1;
+}
+.ally-status {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ally-status:empty {
+  display: none;
+}
+.send-res {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+.send-label {
+  align-self: center;
+  font-size: 12.5px;
+}
+.send-amount {
+  width: 90px;
+  padding: 4px 6px;
+  font: 13px/1.3 ui-monospace, 'DejaVu Sans Mono', monospace;
+  color: var(--text);
+  background: #0d1014;
+  border: 1px solid var(--btn-border);
+}
+.net-banner {
+  z-index: 6;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font-weight: 600;
+  background: rgba(30, 24, 12, 0.95);
+  border-color: rgba(242, 210, 75, 0.7);
+}
+.hint-box {
+  position: absolute;
+  z-index: 4;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #f4ecd2;
+  background: rgba(40, 52, 30, 0.9);
+  border: 1px solid rgba(160, 210, 120, 0.6);
+  pointer-events: none;
+}
+.chat:not(:disabled) {
+  color: var(--text);
+  cursor: text;
+}
+.chat:focus {
+  outline: 1px solid #6fae5e;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* Milestone 9: the main menu, its pages, the lobby and the settings. */
+.dialog.main-menu {
+  width: min(380px, calc(100vw - 32px));
+}
+.dialog button.big {
+  padding: 10px 12px;
+  font-size: 15px;
+}
+.dialog button.small {
+  align-self: flex-start;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+.dialog .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.fullscreen-row .f11 {
+  flex: 1 1 200px;
+  margin: 0;
+}
+.note.warn {
+  color: #ffd27a;
+}
+.note.error,
+.status.error {
+  color: #ff8a7a;
+}
+.note.lead {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+.dialog.lobby,
+.dialog.settings-page {
+  width: min(520px, calc(100vw - 32px));
+}
+.invite {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.invite-label {
+  color: var(--muted);
+}
+.invite-code {
+  font: 600 26px/1 ui-monospace, 'DejaVu Sans Mono', monospace;
+  letter-spacing: 0.12em;
+}
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.lobby-players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lobby-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lobby-name {
+  flex: 1;
+}
+.lobby-state {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.lobby-state.ready {
+  color: #8fe08a;
+}
+.colour-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dialog .colour-picker button.colour {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+}
+.dialog .colour-picker button.colour.picked {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+.dialog .colour-picker button.colour:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+.save-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(170, 186, 204, 0.18);
+}
+.save-text {
+  flex: 1;
+}
+.save-title {
+  font-weight: 600;
+}
+.save-text .note {
+  margin: 0;
+}
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-panel .choice {
+  display: flex;
+  gap: 4px;
+  grid-column: 2 / 4;
+}
+.settings-panel .choice button {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+.settings-panel .choice button.lit {
+  background: #3b5d33;
+  border-color: #6fae5e;
+}
+.menu-settings summary,
+.settings-panel .hotkeys summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.menu-seed {
+  margin: -4px 0 4px;
+}
+
+/* Milestone 11: the troop panel (picture buttons, tier dropdowns with icons, the Lock). */
+.icon-host {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.icon-host svg {
+  display: block;
+}
+.troop-row {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  margin-top: 3px;
+}
+.hud-btn.troop-pic {
+  width: 34px;
+  height: 30px;
+  flex: none;
+}
+.hud-btn.troop-pick {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 0 6px;
+  font-size: 11.5px;
+}
+.hud-btn.troop-pick .face,
+.hud-btn.troop-opt .face {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-btn.troop-lock {
+  flex: none;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.sel-row.troop-cost {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sel-row.troop-cost.short {
+  color: #e8a090;
+}
+.troop-menu {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 3px;
+}
+.hud-btn.troop-opt {
+  justify-content: flex-start;
+  gap: 5px;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11.5px;
+}
+.hud-btn.troop-opt.short:not(.disabled) .face {
+  color: #e8a090;
 }

@@ -1,0 +1,189 @@
+{
+ "description": "M8 check script, seed 1, one player, with night mobs: the debug tools make the Big House a Citadel (building 8, level 10, four cannon ports), put a Stables 20 m east (building 9) with two horses (ids 10, 11) and an ox (id 12), a siege kit 20 m west (catapult 13, ballista 14, bronze cannon 15, 20 of each munition and the research), a goblin village 80 m north (its huts include id 22) and a troop kit 20 m east and 20 m south of the Big House (a Barracks, a level 4 forge, the materials and research of every tier); the Big House trains a long-melee spearman (troop product 4306, id 218) and the Stables trains a bronze cavalry rider (troop product 4640: cavalry, weapon and armour tier 4, id 350), who uses up horse 10 from its stalls and comes out mounted (Troops and gear: cavalry is a troop type trained at the Stables); the ox is hitched to the catapult and hauls it 40 m north, and horse 11 is hitched to the bronze cannon and hauls it into one of the Citadel's ports on the roof; at dusk the gun kit trains every warrior to crew a cannon, two of the starting warriors (5, 6) go up into the port to crew the cannon and the third (7) and the spearman crew the catapult; the catapult is told to break hut 22 and goes on to break more of the village, which goes to war; the crew fight off the goblins that reach the catapult; through night 0 the port cannon fires at the night mobs, and the rider attack-moves 40 m south-west, where his first blow on a zombie after a straight gallop is a charge (double damage, knocked back); at dawn he rides home to the Stables. Debug threats: 10 goblin village, 50 Stables, 51 siege kit, 52 gun kit, 53 Citadel, 54 troop kit, 60 on the late night mobs, 90 Morvath, 91 on a late wave. Products: 4096 + troop x 100 + weapon tier x 10 + armour tier. Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  {
+   "step": 0,
+   "orders": [
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 53,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 50,
+     "x": 160000,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 51,
+     "x": -160000,
+     "z": 40000
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 10,
+     "x": 0,
+     "z": -640000
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 54,
+     "x": 160000,
+     "z": 160000
+    }
+   ]
+  },
+  {
+   "step": 5,
+   "orders": [
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 8,
+     "product": 4306,
+     "count": 1
+    }
+   ]
+  },
+  {
+   "step": 10,
+   "orders": [
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 9,
+     "product": 4640,
+     "count": 1
+    }
+   ]
+  },
+  {
+   "step": 15,
+   "orders": [
+    {
+     "kind": "hitch",
+     "player": 0,
+     "units": [
+      13
+     ],
+     "target": 12
+    },
+    {
+     "kind": "hitch",
+     "player": 0,
+     "units": [
+      15
+     ],
+     "target": 11
+    }
+   ]
+  },
+  {
+   "step": 400,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      13
+     ],
+     "x": 20000,
+     "z": -320000
+    },
+    {
+     "kind": "enter",
+     "player": 0,
+     "units": [
+      15
+     ],
+     "building": 8
+    }
+   ]
+  },
+  {
+   "step": 3610,
+   "orders": [
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 52,
+     "x": 0,
+     "z": 0
+    }
+   ]
+  },
+  {
+   "step": 3620,
+   "orders": [
+    {
+     "kind": "crew",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "target": 15
+    },
+    {
+     "kind": "crew",
+     "player": 0,
+     "units": [
+      7,
+      218
+     ],
+     "target": 13
+    }
+   ]
+  },
+  {
+   "step": 3900,
+   "orders": [
+    {
+     "kind": "attack",
+     "player": 0,
+     "units": [
+      13
+     ],
+     "target": 22
+    }
+   ]
+  },
+  {
+   "step": 4700,
+   "orders": [
+    {
+     "kind": "attackMove",
+     "player": 0,
+     "units": [
+      350
+     ],
+     "x": -240000,
+     "z": 240000
+    }
+   ]
+  },
+  {
+   "step": 8850,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      350
+     ],
+     "x": 120000,
+     "z": 48000
+    }
+   ]
+  }
+ ]
+}

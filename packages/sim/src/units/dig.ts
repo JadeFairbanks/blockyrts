@@ -10,16 +10,17 @@ import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { OrderKind, rampSite, SiteKind, UnitKind, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
-import { Tool } from '../world/props.ts';
+import { Tool, ToolJob } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
 import { Act, columnCentre, resetWalk, walkTo } from './behaviour.ts';
+import { toolTier } from './tools.ts';
 import type { UnitOrder } from './unit-orders.ts';
 
-/** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by tool tier (Tool order) and dig class. */
+/** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by the tier of the worker's digging tool (Tool order) and dig class; no flint tool digs. */
 const RATES: Record<number, readonly number[]> = {
-  [DigClass.Soil]: [0, 500, 550, 600, 700, 750, 800, 900, 1000, 1100],
-  [DigClass.Loose]: [0, 400, 450, 500, 550, 600, 650, 700, 800, 900],
-  [DigClass.Rock]: [0, 0, 5, 10, 30, 50, 65, 90, 117, 130],
+  [DigClass.Soil]: [0, 500, 580, 0, 600, 700, 800, 900, 1000, 1100],
+  [DigClass.Loose]: [0, 400, 460, 0, 500, 550, 650, 700, 800, 900],
+  [DigClass.Rock]: [0, 0, 5, 0, 10, 30, 65, 90, 117, 130],
 };
 /** One bite: a column 11.25 cm deep, 0.0228 m3, as millionths of a cubic metre (Table 10 (s)). */
 const BITE_MICRO_M3 = 22781;
@@ -27,6 +28,8 @@ const BITE_MICRO_M3 = 22781;
 export const HEAP_STEPS = 5 * STEPS_PER_SECOND;
 /** A worker reaches columns up to 4 away (1.8 m) from where it stands (s). */
 const REACH_COLUMNS = 4;
+/** A tunnel's worker stands within 9 units (1 m) above or below its floor (s). */
+const TUNNEL_REACH_UNITS = 9;
 /** A box is at most 64 columns (29 m) a side, so one order stays a sensible size. */
 export const SITE_MAX_COLUMNS = 64;
 
@@ -164,6 +167,8 @@ function finishIfDone(state: SimState, s: Site): boolean {
   const [x, z] = [columnCentre((s.x0 + s.x1) >> 1), columnCentre((s.z0 + s.z1) >> 1)];
   const what = s.kind === SiteKind.Dig ? 'The dig' : s.kind === SiteKind.Tunnel ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : s.kind === SiteKind.LumberRamp ? 'The lumber ramp' : s.kind === SiteKind.StoneRamp ? 'The stone ramp' : 'The earth bank';
   state.events.push({ player: s.owner, kind: 'info', text: `${what} is finished.`, x, z });
+  // A finished tunnel is a cave while it stays unlit (Keeping digging fair: cave-type lairs can appear in it).
+  if (s.kind === SiteKind.Tunnel) state.threats.tunnels.push({ x, z });
   return true;
 }
 
@@ -188,7 +193,9 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const cx = e.climbX[i]!;
   const cz = e.climbZ[i]!;
   if (e.act[i] === Act.Walk) {
-    const r = walkTo(state, i, { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS });
+    // In a tunnel the worker stands near its floor, in the passage or at the face, not on the hill above it.
+    const goal = s.kind === SiteKind.Tunnel ? { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS, ylo: s.level - TUNNEL_REACH_UNITS, yhi: s.level + TUNNEL_REACH_UNITS } : { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS };
+    const r = walkTo(state, i, goal);
     if (r === 0) return false;
     if (r === 2) {
       // That column cannot be reached from here: try another next step.
@@ -219,9 +226,10 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
         e.act[i] = Act.Start;
         return false;
       }
-      const rate = digRate(e.tool[i]!, bite.mat);
+      const rate = digRate(toolTier(e, i, ToolJob.Break), bite.mat);
       if (rate === 0) {
-        state.events.push({ player: s.owner, kind: 'alert', text: `These tools cannot dig ${MATERIALS[bite.mat]!.name}.`, x: tx, z: tz });
+        const what = bite.mat === Mat.Marble ? 'Marble needs a bronze pickaxe or better.' : MATERIALS[bite.mat]!.dig === DigClass.Rock ? 'Rock needs a stone maul or better.' : 'Digging needs a digging stick, a stone maul or a pickaxe.';
+        state.events.push({ player: s.owner, kind: 'alert', text: `These tools cannot dig ${MATERIALS[bite.mat]!.name}. ${what}`, x: tx, z: tz });
         return true;
       }
       e.waitUntil[i] = biteSteps(rate, 750 + state.rng.ai.nextInt(501));

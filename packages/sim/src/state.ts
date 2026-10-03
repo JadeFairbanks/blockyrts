@@ -8,14 +8,15 @@ import { BuildingKind, BUILDING_SIGHT_M, buildingSpec, footprintDims, levelSpec 
 import { BuildingStore, footprintRect, solidRect, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
-import { NavGrid } from './nav/grid.ts';
+import { NavGrid, STEP_UNITS, UNDER } from './nav/grid.ts';
 import { Pathfinder } from './nav/path.ts';
 import { createStreams, hash32, type Streams } from './rng.ts';
-import { Item, ITEM_COUNT } from './combat/items.ts';
+import { applyKit, Troop } from './units/kits.ts';
 import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
-import { Tool } from './world/props.ts';
 import { World } from './world/world.ts';
+import { newThreats, type ThreatState } from './threats/types.ts';
+import { newPeoples, type PeoplesState } from './peoples/types.ts';
 
 /** Owner value for entities that belong to no player. */
 export const NEUTRAL = 255;
@@ -47,6 +48,8 @@ export const OrderKind = {
   Dig: 10,
   /** Running for the dark at dawn. */
   Flee: 11,
+  /** A mage casting or holding a beam (the clip follows the spell: castSpell, beamUntil). */
+  Cast: 12,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
@@ -58,16 +61,22 @@ export const UnitKind = {
   Mob: 3,
   /** Wild and tamed animals (Animals): the species is in the mob field (animals/species.ts). */
   Animal: 4,
+  /** Support and battle mages (Magic): the school is in the school field (magic/spells.ts). */
+  Mage: 5,
+  /** Milestone 8: siege engines and cannons (siege/data.ts): the engine kind is in the mob field. */
+  Engine: 6,
 } as const;
 export type UnitKind = (typeof UnitKind)[keyof typeof UnitKind];
 
-/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m; suggested; mobs see 12 m, animals 16 m). */
-export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE] as const;
+/** Sight in wu by kind (Table 1: worker 20 m, warrior 24 m, mage 24 m; suggested; mobs see 12 m, animals 16 m, engines 20 m). */
+export const SIGHT_WU = [20 * WU_PER_METRE, 24 * WU_PER_METRE, 12 * WU_PER_METRE, 12 * WU_PER_METRE, 16 * WU_PER_METRE, 24 * WU_PER_METRE, 20 * WU_PER_METRE] as const;
 
 /** Owner value for the night's monsters: hostile to every player. */
 export const MONSTERS = 254;
 /** The owner of wild animals (Animals): nobody's, fought only when they fight. */
 export const WILD = 253;
+/** The owner of the neutral peoples' units (Neutral villages and trade): their faction is the unit's group (peoples/). */
+export const PEOPLES = 252;
 
 /** Walking speed of a worker: 3 m/s, as wu per step (1,200). */
 export const WALK_SPEED_WU = floorDiv(3 * WU_PER_METRE, STEPS_PER_SECOND);
@@ -102,8 +111,14 @@ export const UNIT_FIELDS = [
   ['maxHp', 'i32'],
   /** Rank 1 to 5 (Table 1). */
   ['rank', 'u8'],
-  /** Tool tier (props.ts Tool); every worker starts with hardwood tools. */
-  ['tool', 'u8'],
+  /**
+   * The tool held for each job (props.ts ToolJob: chop, break, build, cut):
+   * gear ids from the worker's tool kit tier (units/kits.ts), set by applyKit.
+   */
+  ['toolChop', 'u8'],
+  ['toolBreak', 'u8'],
+  ['toolBuild', 'u8'],
+  ['toolCut', 'u8'],
   /** What it carries (a resource id) and how much; carryRes 255 when empty. */
   ['carryRes', 'u8'],
   ['carryAmt', 'u16'],
@@ -131,22 +146,25 @@ export const UNIT_FIELDS = [
   ['power', 'u16'],
   /** Combat experience in tenths (rules.ts). */
   ['xp', 'i32'],
-  /** Trained skills (combat/items.ts Skill): bit 0 archery, bit 1 crossbow. */
+  /** Trained skills (combat/items.ts Skill): cannon crew. */
   ['skills', 'u8'],
   /** 0 switches by itself, 1 melee only, 2 ranged only (Warriors: the lock). */
   ['lock', 'u8'],
-  /** Equipment (combat/items.ts Item ids, 0 for none). */
+  /**
+   * The kit (Troops and gear): a troop's type (units/kits.ts Troop, fixed
+   * when it is trained) and its weapon and armour tiers; a worker's tool
+   * kit tier in wTier; a mage's wand and robe tiers.
+   */
+  ['troop', 'u8'],
+  ['wTier', 'u8'],
+  ['aTier', 'u8'],
+  /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. */
   ['weapon', 'u8'],
-  ['backup', 'u8'],
   ['ranged', 'u8'],
   ['shield', 'u8'],
-  ['boots', 'u8'],
-  /** Shots left for the ranged weapon, and the arrows in the quiver (an item id) for a bow. */
+  /** An engine's loaded shots (siege/engines.ts). */
   ['ammo', 'u16'],
-  ['ammoItem', 'u8'],
-  /** A carried hand torch burns until this step. */
-  ['torchUntil', 'u32'],
-  /** Slots chosen by hand (bit per Slot), which Equip Best leaves alone. */
+  /** Lair structures: what they hold (threats/lairs.ts). */
   ['picked', 'u16'],
   /** The unit or building it is fighting, or 0. */
   ['target', 'u32'],
@@ -177,10 +195,8 @@ export const UNIT_FIELDS = [
   ['fuseAt', 'u32'],
   /** Mobs: 1 when running for the dark (dawn, or a goblin with loot). */
   ['fleeing', 'u8'],
-  /** More equipment (Table 3 body armour and helmet, a bolt case, a worker's kit). */
+  /** Armour (or a mage's robe), a gear id; and a worker's cart (economy Res.HandCart or Res.OxCart, 0 for none). */
   ['armour', 'u8'],
-  ['helmet', 'u8'],
-  ['boltCase', 'u8'],
   ['kit', 'u8'],
   /** Healing over time from eating and medicine (Food): health still to come, until this step. */
   ['mendUntil', 'u32'],
@@ -196,6 +212,67 @@ export const UNIT_FIELDS = [
   ['sex', 'u8'],
   /** A worker and the working animal pulling its cart, each pointing at the other (an entity id), or 0. */
   ['partner', 'u32'],
+  /** Mobs: what it is doing besides the night attack (threats/types.ts Role) and its lair, band or village (an id). */
+  ['role', 'u8'],
+  ['group', 'u32'],
+  /** Casters: mana in twentieths (refills 1 a second, so a twentieth a step). */
+  ['mana', 'i32'],
+  /** Stumble hex: moves and attacks 20% slower until this step. */
+  ['hexUntil', 'u32'],
+  /** A hop up or down a rise of 3 units or more (Moving over the land) lasts until this step; the rise it made, wu. */
+  ['hopUntil', 'u32'],
+  ['hopRise', 'i32'],
+  /** Mages (milestone 6): support or battle (magic/spells.ts School); hundredths of a mana point still to come from the refill. */
+  ['school', 'u8'],
+  ['manaAcc', 'u8'],
+  /** A spell being cast: 1 + its id (0 for none), the step it lands, and its target unit or spot (wu). */
+  ['castSpell', 'u8'],
+  ['castAt', 'u32'],
+  ['castTarget', 'u32'],
+  ['castX', 'i32'],
+  ['castZ', 'i32'],
+  /** A Beam held on a unit until this step, and the damage it still has to do (worked out through armour when it starts). */
+  ['beamUntil', 'u32'],
+  ['beamTarget', 'u32'],
+  ['beamLeft', 'i32'],
+  /** The support spells on a unit, each until a step: Quicken, Fortify, Rally, Warding. */
+  ['quickUntil', 'u32'],
+  ['fortUntil', 'u32'],
+  ['rallyUntil', 'u32'],
+  ['wardUntil', 'u32'],
+  /** A Heal under way: health still to come, until this step, and the mage who cast it. */
+  ['healUntil', 'u32'],
+  ['healLeft', 'i32'],
+  ['healFrom', 'u32'],
+  /** A support mage's health healed in combat not yet worth a tenth of experience (1 XP per 25 healed). */
+  ['healXp', 'u8'],
+  /** Milestone 7: an Elf Grovesinger's Barkskin on a unit until this step (Table 13: +25% armour). */
+  ['barkUntil', 'u32'],
+  /** A wild animal answering the Grovesinger's Call of the wild fights for her faction until this step, then goes wild again. */
+  ['calledUntil', 'u32'],
+  /** Milestone 8: what the unit rides (mounts/data.ts Mount) and its mount's health; a player's horse remembers its Stables and sex for when it is let go. */
+  ['mount', 'u8'],
+  ['mountHp', 'i32'],
+  ['mountHome', 'u32'],
+  ['mountSex', 'u8'],
+  /** A mounted unit's straight run at gallop so far (the charge rule), where it was last step and its heading then; 1 while a charge is under way. */
+  ['runWu', 'i32'],
+  ['runX', 'i32'],
+  ['runZ', 'i32'],
+  ['runHeading', 'u16'],
+  ['charge', 'u8'],
+  /** When the mount's own attack (a bear's swipe, a war ox's rear archer, a wolf's bite) is next ready. */
+  ['mountAtkNext', 'u32'],
+  /** Hits a mob has struck (a void stalker's ambush, a Rift scorpion's sting on every other hit); an engine: 1 once it said why it cannot move. */
+  ['strikes', 'u8'],
+  /** In a plague bearer's miasma until this step: no natural healing. */
+  ['sickUntil', 'u32'],
+  /** A late night mob's second ability clock (a void witch's blink, Morvath's rift and ruin, a Rift colossus's beam). */
+  ['ability2At', 'u32'],
+  /** A high flyer swooping is a low flyer until this step (roster: the gravewing's snatch). */
+  ['lowUntil', 'u32'],
+  /** 1 once inherited from a player who was eliminated or left: every player still in may command it (Multiplayer and saving). */
+  ['shared', 'u8'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -233,7 +310,10 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hp: Int32Array;
   declare maxHp: Int32Array;
   declare rank: Uint8Array;
-  declare tool: Uint8Array;
+  declare toolChop: Uint8Array;
+  declare toolBreak: Uint8Array;
+  declare toolBuild: Uint8Array;
+  declare toolCut: Uint8Array;
   declare carryRes: Uint8Array;
   declare carryAmt: Uint16Array;
   declare inside: Uint32Array;
@@ -252,14 +332,13 @@ export class EntityStore implements Record<FieldName, Column> {
   declare xp: Int32Array;
   declare skills: Uint8Array;
   declare lock: Uint8Array;
+  declare troop: Uint8Array;
+  declare wTier: Uint8Array;
+  declare aTier: Uint8Array;
   declare weapon: Uint8Array;
-  declare backup: Uint8Array;
   declare ranged: Uint8Array;
   declare shield: Uint8Array;
-  declare boots: Uint8Array;
   declare ammo: Uint16Array;
-  declare ammoItem: Uint8Array;
-  declare torchUntil: Uint32Array;
   declare picked: Uint16Array;
   declare target: Uint32Array;
   declare atkAt: Uint32Array;
@@ -282,8 +361,6 @@ export class EntityStore implements Record<FieldName, Column> {
   declare fuseAt: Uint32Array;
   declare fleeing: Uint8Array;
   declare armour: Uint8Array;
-  declare helmet: Uint8Array;
-  declare boltCase: Uint8Array;
   declare kit: Uint8Array;
   declare mendUntil: Uint32Array;
   declare mendLeft: Int32Array;
@@ -295,6 +372,47 @@ export class EntityStore implements Record<FieldName, Column> {
   declare breedAt: Uint32Array;
   declare sex: Uint8Array;
   declare partner: Uint32Array;
+  declare role: Uint8Array;
+  declare group: Uint32Array;
+  declare mana: Int32Array;
+  declare hexUntil: Uint32Array;
+  declare hopUntil: Uint32Array;
+  declare hopRise: Int32Array;
+  declare school: Uint8Array;
+  declare manaAcc: Uint8Array;
+  declare castSpell: Uint8Array;
+  declare castAt: Uint32Array;
+  declare castTarget: Uint32Array;
+  declare castX: Int32Array;
+  declare castZ: Int32Array;
+  declare beamUntil: Uint32Array;
+  declare beamTarget: Uint32Array;
+  declare beamLeft: Int32Array;
+  declare quickUntil: Uint32Array;
+  declare fortUntil: Uint32Array;
+  declare rallyUntil: Uint32Array;
+  declare wardUntil: Uint32Array;
+  declare healUntil: Uint32Array;
+  declare healLeft: Int32Array;
+  declare healFrom: Uint32Array;
+  declare healXp: Uint8Array;
+  declare barkUntil: Uint32Array;
+  declare calledUntil: Uint32Array;
+  declare mount: Uint8Array;
+  declare shared: Uint8Array;
+  declare mountHp: Int32Array;
+  declare mountHome: Uint32Array;
+  declare mountSex: Uint8Array;
+  declare runWu: Int32Array;
+  declare runX: Int32Array;
+  declare runZ: Int32Array;
+  declare runHeading: Uint16Array;
+  declare charge: Uint8Array;
+  declare mountAtkNext: Uint32Array;
+  declare strikes: Uint8Array;
+  declare sickUntil: Uint32Array;
+  declare ability2At: Uint32Array;
+  declare lowUntil: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -303,6 +421,8 @@ export class EntityStore implements Record<FieldName, Column> {
   path: number[][] = [];
   /** Mobs: the players' units that hit it, as (id, step) pairs, for sharing the kill's experience. */
   hitters: number[][] = [];
+  /** Abilities cooling down, as (ability, step it is ready) pairs (threats/abilities.ts; a mage's are its spells, magic/spells.ts). */
+  cools: number[][] = [];
 
   private readonly index = new Map<number, number>();
 
@@ -337,13 +457,18 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hp[i] = WORKER_HEALTH;
     this.maxHp[i] = WORKER_HEALTH;
     this.rank[i] = 1;
-    this.tool[i] = kind === UnitKind.Worker ? Tool.Hardwood : Tool.None;
+    // Every worker starts with a tier 1 (hardwood) tool kit (Table 7).
+    if (kind === UnitKind.Worker) {
+      this.wTier[i] = 1;
+      applyKit(this, i, 'worker');
+    }
     this.carryRes[i] = NO_CARRY;
     this.nodeI[i] = -1;
     this.pathOk[i] = 1;
     this.queue[i] = [];
     this.path[i] = [];
     this.hitters[i] = [];
+    this.cools[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
     return i;
@@ -360,6 +485,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.queue.splice(i, 1);
     this.path.splice(i, 1);
     this.hitters.splice(i, 1);
+    this.cools.splice(i, 1);
     this.count--;
     this.reindex();
   }
@@ -379,12 +505,8 @@ export class EntityStore implements Record<FieldName, Column> {
 /** One player's side: the shared resource pool (Resources: all resources go into one shared pool). */
 export interface PlayerState {
   pool: Int32Array;
-  /** The equipment stock, by item id (Equipment). */
-  items: Int32Array;
   /** Research done, a bit per step (combat/items.ts Research). */
   research: number;
-  /** Auto-Equip (F4) on. */
-  autoEquip: number;
   /** The step the player was eliminated, or 0 while still in the game. */
   out: number;
   /** Things made at least once (combat/items.ts Made), for research that needs one first. */
@@ -398,27 +520,51 @@ export interface PlayerState {
   /** The step each group began starving, or 0 while fed: workers (and working animals), and troops (warriors, research facilities). */
   starveWorkers: number;
   starveTroops: number;
+  /** Allies panel: the players this player lets command their units, a bit per player ("Share control"). */
+  share: number;
 }
 
 /** A player's side at the start of a game, with this pool. */
 export function newPlayer(pool: Int32Array): PlayerState {
-  return { pool, items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0 };
+  return { pool, research: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0, share: 0 };
 }
 
 /** The per-player scalars after the pool and stock, in the order they are serialised. */
-export const PLAYER_FIELDS = ['research', 'autoEquip', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops'] as const satisfies ReadonlyArray<keyof PlayerState>;
+export const PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
-/** Something the players should hear about: the message panel's alerts, built-and-trained notes, the idle gatherer cue. */
+/**
+ * Something the players should hear about: the message panel's alerts,
+ * built-and-trained notes, the idle gatherer cue, and what units say (Unit
+ * speech and the message panel).
+ */
 export interface SimEvent {
   /** Player it is for, or -1 for everyone. */
   player: number;
   kind: 'alert' | 'info' | 'idle' | 'period' | 'speech' | 'prospect';
   text: string;
+  /** Speech: the unit that said it (an entity id), and its name for the panel ("Halfling spearman", "Worker"). */
+  speaker?: number;
+  name?: string;
+  /** Speech: needs the player's attention (an order it cannot carry out, under attack): the minimap pings, the panel flashes. */
+  urgent?: boolean;
+  /**
+   * Speech by another people's unit: a bubble for whoever sees it. Their
+   * important speech (a greeting, a warning, war, a surrender offer) also
+   * goes in the message panel of each player with a unit near enough to
+   * hear it (bits by player in near), and of anyone who has it on screen.
+   */
+  foreign?: boolean;
+  important?: boolean;
+  near?: number;
+  /** A faction the speech or alert is about (an id), for the client's buttons (accept a surrender, open trade). */
+  faction?: number;
   /** A prospect's rating (mining.ts Rating), shown over the ground for a while. */
   rating?: number;
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
   z?: number;
+  /** A sound cue to play with it (the blood night's double horn), for the client. */
+  sound?: string;
 }
 
 export interface SimState {
@@ -446,6 +592,12 @@ export interface SimState {
   over: number;
   /** 1 for no night mobs (tests and the debug tools). */
   peaceful: number;
+  /** The nights that were or are blood nights, ascending (Day and night: they last twice as long). */
+  blood: number[];
+  /** Lairs, villages, tribes, the blood and fog nights (milestone 5). */
+  threats: ThreatState;
+  /** The neutral peoples: villages, camps, the Elf kingdom and its caravans, Dwarf colonies and cities, mercenary camps (milestone 7). */
+  peoples: PeoplesState;
   /** Not state: what was hit or died this step, for the hit particles and death animations. */
   hits: HitEvent[];
   /** Not state: where units stand this step (rebuilt each step). */
@@ -465,7 +617,7 @@ export interface WorldOptions {
   players?: number;
   /** Workers each player starts with: 4 (Premise, Starting setup). */
   playerUnits?: number;
-  /** Warriors each player starts with: 1, with a flint-tipped spear and a hardwood club (Premise; Polearms). */
+  /** Warriors each player starts with: 3 close-melee troops with hardwood cudgels and no armour (Troops and gear: starting units). */
   warriors?: number;
   /** Neutral units that wander on their own, drawing on the 'ai' stream (M0's test of the streams). */
   wanderers?: number;
@@ -478,8 +630,10 @@ export interface WorldOptions {
 /** Something flying (How ranged attacks hit). Its place at age k is the launch point plus k steps of its velocity, less gravity. */
 export interface Projectile {
   shot: number;
-  /** 0 the players' side, 1 the monsters'. */
+  /** combat.ts Side: 0 the players', 1 the monsters', 3 a neutral people's. */
   side: number;
+  /** A people's shot: the shooter's faction (its group), which decides whom it may hit; else 0. */
+  faction: number;
   /** Who shot it (an entity id) and their player, for experience and drops. */
   shooter: number;
   owner: number;
@@ -504,6 +658,12 @@ export interface PendingSpawn {
   x: number;
   z: number;
   placed: number;
+  /** Role it comes as (threats/types.ts Role: Night, or Aimed at (ax, az)). */
+  role: number;
+  ax: number;
+  az: number;
+  /** The lair it comes out of (an entity id), or 0 for the dark edge. */
+  src: number;
 }
 
 /** Site kinds: a dig down, a tunnel into a hillside, earth heaped to a level, an earth ramp. */
@@ -533,7 +693,7 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
 
 export interface HitEvent {
   look: HitLook;
@@ -546,6 +706,8 @@ export interface HitEvent {
   kind?: number;
   mob?: number;
   heading?: number;
+  /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
+  spell?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */
@@ -594,6 +756,9 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     mined: 0,
     stock: [],
     acc: [],
+    shared: 0,
+    tech: 0,
+    locks: [],
   };
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);
@@ -640,6 +805,9 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     stockedChunks: new Set(),
     over: 0,
     peaceful: options.peaceful ? 1 : 0,
+    blood: [],
+    threats: newThreats(),
+    peoples: newPeoples(),
   });
   for (let p = 0; p < world.players; p++) {
     const pool = new Int32Array(RESOURCE_COUNT);
@@ -659,17 +827,15 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
   }
-  // Then the starting warrior, a little east of the workers.
-  const warriors = options.warriors ?? 1;
+  // Then the starting warriors, a little east of the workers: close melee, a hardwood cudgel, no armour (Jade).
+  const warriors = options.warriors ?? 3;
   for (const pocket of world.gen.start.pockets) {
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     for (let n = 0; n < warriors; n++) {
       const x = px + (playerUnits + 1 + n) * 2 * WU_PER_METRE - (playerUnits >> 1) * 2 * WU_PER_METRE;
       const z = pz + 6 * WU_PER_METRE;
-      const i = addWarrior(state, pocket.player, x, z);
-      state.entities.weapon[i] = Item.SpearFlint;
-      state.entities.backup[i] = Item.Club;
+      addWarrior(state, pocket.player, x, z, Troop.Close, 1, 0);
     }
   }
   if (!options.noBase) {
@@ -692,10 +858,14 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
 /** Warrior health by rank (Table 1: Recruit 100 to Hero 180). */
 export const WARRIOR_HEALTH_BY_RANK: readonly number[] = [100, 100, 120, 140, 160, 180];
 
-/** A new warrior of rank 1 with nothing in hand; returns its index. */
-export function addWarrior(state: SimState, owner: number, x: number, z: number): number {
+/** A new troop of rank 1 of a type, with its weapon and armour tiers (a fist fighter by default); returns its index. */
+export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0): number {
   const id = state.nextEntityId++;
   const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Warrior);
+  state.entities.troop[i] = troop;
+  state.entities.wTier[i] = weapon;
+  state.entities.aTier[i] = armour;
+  applyKit(state.entities, i, 'warrior');
   state.entities.hp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.maxHp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.homeX[i] = x;
@@ -704,12 +874,42 @@ export function addWarrior(state: SimState, owner: number, x: number, z: number)
 }
 
 /** The height a unit stands at on the column under (x, z), wu: its walk level, or lower in deep water (it swims). */
-export function standY(state: SimState, x: number, z: number): number {
+export function standY(state: SimState, x: number, z: number, fromY?: number): number {
   const cx = floorDiv(x, WU_PER_COLUMN);
   const cz = floorDiv(z, WU_PER_COLUMN);
+  // Under an overhang (a tunnel or cave), the floor nearer the unit's height.
+  if (fromY !== undefined && state.nav.layerAt(cx, cz, floorDiv(fromY, WU_PER_TERRAIN_UNIT)) === UNDER) return state.nav.under(cx, cz) * WU_PER_TERRAIN_UNIT;
   const level = state.nav.level(cx, cz);
   const deep = (state.nav.flags(cx, cz) & 4) !== 0;
   return (deep ? level - 6 : level) * WU_PER_TERRAIN_UNIT;
+}
+
+/** A hop up or down a rise takes 0.3 s; going up, the unit moves at half speed meanwhile (Moving over the land: "slows it down for a moment") (s). */
+export const HOP_STEPS = 6;
+export const HOP_SLOW_BP = 5000;
+
+/**
+ * Moves a unit on the ground to (x, z): it stands on the walk level it
+ * reaches there, and a rise or drop of more than a stair step (3 units or
+ * more) starts a hop.
+ */
+export function landAt(state: SimState, i: number, x: number, z: number): void {
+  const e = state.entities;
+  const before = e.y[i]!;
+  const y = standY(state, x, z, before);
+  e.x[i] = x;
+  e.z[i] = z;
+  e.y[i] = y;
+  const rise = y - before;
+  if (rise > STEP_UNITS * WU_PER_TERRAIN_UNIT || rise < -STEP_UNITS * WU_PER_TERRAIN_UNIT) {
+    e.hopUntil[i] = state.step + HOP_STEPS;
+    e.hopRise[i] = rise;
+  }
+}
+
+/** Whether a unit is hopping up a rise now (it moves at half speed). */
+export function hoppingUp(state: SimState, i: number): boolean {
+  return state.entities.hopUntil[i]! > state.step && state.entities.hopRise[i]! > 0;
 }
 
 /** Every player's units and buildings mark the land within their sight explored (fog of war). */
@@ -718,7 +918,9 @@ export function revealAroundUnits(state: SimState): void {
   for (let i = 0; i < e.count; i++) {
     const owner = e.owner[i]!;
     if (owner >= state.players.length || e.inside[i] !== 0) continue;
-    state.world.reveal(owner, e.x[i]!, e.z[i]!, SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0]);
+    const sight = SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0];
+    // A fog night halves how far everyone sees.
+    state.world.reveal(owner, e.x[i]!, e.z[i]!, state.threats.fog !== 0 ? sight >> 1 : sight);
   }
   for (const b of state.buildings.list) {
     const s = footprintDims(b.kind, b.variant);

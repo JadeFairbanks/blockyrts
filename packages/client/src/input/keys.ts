@@ -9,6 +9,9 @@ export interface KeyLike {
   altKey: boolean;
 }
 
+/** Keys a menu or dialogue keeps for itself: Tab moves between its buttons, Enter and Space press the one in focus. */
+export const MENU_KEYS = new Set(['Tab', 'Enter', 'NumpadEnter', 'Space']);
+
 /** Keys blocked whatever the modifiers: they do something else in the browser otherwise. */
 const BLOCK_CODES = new Set([
   'Backquote',
@@ -35,6 +38,10 @@ const BLOCK_CODES = new Set([
   'F8',
   'F9',
   'F10',
+  'BracketLeft',
+  'BracketRight',
+  'Backslash',
+  'Pause',
 ]);
 
 /**
@@ -58,6 +65,8 @@ export function shouldBlockKey(ev: KeyLike, textFieldFocused: boolean): boolean 
  */
 export function keyId(ev: Pick<KeyLike, 'key' | 'code'>): string {
   if (ev.key.length === 1 && /[a-z]/i.test(ev.key)) return `Key${ev.key.toUpperCase()}`;
+  // The keypad's Enter opens and sends chat like the main one.
+  if (ev.code === 'NumpadEnter') return 'Enter';
   return ev.code;
 }
 
@@ -75,6 +84,10 @@ export function keyLabel(id: string): string {
     Space: 'Space',
     Equal: '+',
     Minus: '−',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Enter: 'Enter',
   };
   return names[id] ?? id;
 }

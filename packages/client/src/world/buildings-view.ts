@@ -97,6 +97,8 @@ export class BuildingsView {
   private ghostSig = '';
   private readonly plannedMeshes: THREE.Mesh[] = [];
   private models: ModelLibrary | null = null;
+  /** Catalogue ids a building on the map has asked for. */
+  private readonly wanted = new Set<string>();
   private readonly modelDraws = new Map<string, InstancedModel>();
   private readonly teamColours: readonly THREE.Color[];
   /** 0 by day, 1 at night: how bright the flames' lights are. */
@@ -129,8 +131,14 @@ export class BuildingsView {
 
   setModels(lib: ModelLibrary): void {
     this.models = lib;
-    // Rebuild every building so those with catalogue models switch over.
-    for (const e of this.entries.values()) e.sig = '';
+    // Rebuild every building so those with catalogue models switch over, now and as models arrive.
+    const rebuild = (): void => {
+      for (const e of this.entries.values()) e.sig = '';
+    };
+    rebuild();
+    lib.onLoad((m) => {
+      if (this.wanted.has(m.id)) rebuild();
+    });
   }
 
   private teamColour(owner: number): THREE.Color {
@@ -151,6 +159,12 @@ export class BuildingsView {
     const lib = this.models;
     if (!lib || !b.complete) return [];
     const ids = catalogueIds(b);
+    for (const m of ids) {
+      if (lib.models.has(m.id) || this.wanted.has(m.id)) continue;
+      // Load it next; the building switches over when it arrives.
+      this.wanted.add(m.id);
+      lib.request(m.id);
+    }
     return ids.length > 0 && ids.every((m) => lib.models.has(m.id)) ? ids : [];
   }
 

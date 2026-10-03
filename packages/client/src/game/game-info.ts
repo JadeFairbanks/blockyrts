@@ -1,8 +1,8 @@
 // The screen's copy of the game: the latest state and info messages from the
 // sim worker, indexed for the HUD (buildings by id, units by id, order
 // lists). Read-only for everything but main.ts, which feeds it.
-import { BuildingKind, buildingSpec, FOODS, RESOURCES, UnitKind, type UnitOrder } from '@blockyrts/sim';
-import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type StateMessage } from '../messages.ts';
+import { BuildingKind, buildingSpec, FOODS, RESEARCH, RESOURCES, UnitKind, type Research, type TechView, type UnitOrder } from '@blockyrts/sim';
+import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type PeopleInfo, type StateMessage } from '../messages.ts';
 
 export interface UnitInfo {
   id: number;
@@ -15,31 +15,51 @@ export interface UnitInfo {
   hp: number;
   maxHp: number;
   rank: number;
-  tool: number;
+  /** The tool (gear id) held for each job (ToolJob order: chop, break, build, cut), 0 for none. */
+  tools: [number, number, number, number];
   carryRes: number;
   carryAmt: number;
   inside: number;
   act: number;
   order: number;
   mob: number;
+  /** Gear ids (GEAR) in the weapon, ranged, shield and armour slots. */
   weapon: number;
-  backup: number;
   ranged: number;
   shield: number;
-  boots: number;
-  torch: boolean;
+  /** Troops: the type (Troop); 0 for everything else. Weapon (tool kit, wand) and armour (robe) tiers. */
+  troop: number;
+  wTier: number;
+  aTier: number;
+  /** An upgrade under way: per mille of its bar, its line + 1 (0 for none), the tier it goes to. */
+  upDone: number;
+  upLine: number;
+  upTo: number;
   flags: number;
   lock: number;
   skills: number;
   ammo: number;
   target: number;
   armour: number;
-  helmet: number;
-  boltCase: number;
   kit: number;
   partner: number;
-  ammoItem: number;
+  /** Mages: School, mana and the bar's most (whole points), 1 + the spell being cast or 0, the beam's target or 0; spells on the unit (SpellOn bits). */
+  school: number;
+  mana: number;
+  maxMana: number;
+  cast: number;
+  beam: number;
+  spells: number;
+  /** The faction of one of the peoples' units or buildings (and of one they left), else 0. */
+  group: number;
+  /** What it rides (Mount) and the mount's health and most; an engine's crew standing by (plus 1000 when hauled). */
+  mount: number;
+  mountHp: number;
+  mountMax: number;
+  crew: number;
 }
+
+const EMPTY_POOL = new Int32Array(RESOURCES.length);
 
 export class GameInfo {
   step = 0;
@@ -88,7 +108,7 @@ export class GameInfo {
       hp: d[o + S.hp]!,
       maxHp: d[o + S.maxHp]!,
       rank: d[o + S.rank]!,
-      tool: d[o + S.tool]!,
+      tools: [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!],
       carryRes: d[o + S.carryRes]!,
       carryAmt: d[o + S.carryAmt]!,
       inside: d[o + S.inside]!,
@@ -96,23 +116,50 @@ export class GameInfo {
       order: d[o + S.order]!,
       mob: d[o + S.mob]!,
       weapon: d[o + S.weapon]!,
-      backup: d[o + S.backup]!,
       ranged: d[o + S.ranged]!,
       shield: d[o + S.shield]!,
-      boots: d[o + S.boots]!,
-      torch: d[o + S.torch] === 1,
+      troop: d[o + S.troop]!,
+      wTier: d[o + S.wTier]!,
+      aTier: d[o + S.aTier]!,
+      upDone: d[o + S.upDone]!,
+      upLine: d[o + S.upLine]!,
+      upTo: d[o + S.upTo]!,
       flags: d[o + S.flags]!,
       lock: d[o + S.lock]!,
       skills: d[o + S.skills]!,
       ammo: d[o + S.ammo]!,
       target: d[o + S.target]!,
       armour: d[o + S.armour]!,
-      helmet: d[o + S.helmet]!,
-      boltCase: d[o + S.boltCase]!,
       kit: d[o + S.kit]!,
       partner: d[o + S.partner]!,
-      ammoItem: d[o + S.ammoItem]!,
+      school: d[o + S.school]!,
+      mana: d[o + S.mana]!,
+      maxMana: d[o + S.maxMana]!,
+      cast: d[o + S.cast]!,
+      beam: d[o + S.beam]!,
+      spells: d[o + S.spells]!,
+      group: d[o + S.group]!,
+      mount: d[o + S.mount]!,
+      mountHp: d[o + S.mountHp]!,
+      mountMax: d[o + S.mountMax]!,
+      crew: d[o + S.crew]!,
     };
+  }
+
+  /** A mage's spells: each with why it cannot be cast now ('' when it can) and the steps until it is ready. */
+  spells(id: number): Array<[number, string, number]> {
+    return this.info?.spells.find(([m]) => m === id)?.[1] ?? [];
+  }
+
+  /** Why a mage cannot go for her next rank yet (experience, or the top rank), or ''. */
+  mageRankWhy(id: number): string {
+    return this.info?.mageRanks.find(([m]) => m === id)?.[1] ?? '';
+  }
+
+  /** One of the neutral peoples the local player knows, by faction id. */
+  faction(id: number): PeopleInfo | null {
+    if (!id) return null;
+    return this.info?.peoples.find((f) => f.id === id) ?? null;
   }
 
   /** Every unit id, in state order. */
@@ -125,9 +172,14 @@ export class GameInfo {
     return this.info?.pool[res] ?? 0;
   }
 
-  /** How many of an item the local player has in the equipment stock. */
-  stock(item: number): number {
-    return this.info?.items[item] ?? 0;
+  /** The local player's pool, for the kit plans (an empty one before the first info). */
+  pool(): Int32Array {
+    return this.info?.pool ?? EMPTY_POOL;
+  }
+
+  /** The research and best forge the kit needs are checked against. */
+  tech(): TechView {
+    return { research: this.info?.research ?? 0, forge: this.info?.forge ?? 0, researchName: (r: Research) => RESEARCH[r]!.name };
   }
 
   /** Whether the local player has a research done. */

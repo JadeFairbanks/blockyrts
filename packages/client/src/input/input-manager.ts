@@ -7,13 +7,14 @@
 // panel registry and document.elementFromPoint and driven from here (hover,
 // tooltips, press, release, double click, right click), so the HUD behaves
 // the same locked or not and never depends on DOM click events.
+import { cue } from '../audio/cues.ts';
 import type { ButtonPress, ButtonRegistry, HudButton, Tooltip } from '../hud/buttons.ts';
 import type { HudPanels, PanelRect } from '../hud/panels.ts';
 import type { Pt } from '../hud/rects.ts';
 import { isDoubleClick, type ClickRecord } from '../selection/rules.ts';
 import type { Settings } from '../settings/settings.ts';
 import { VirtualCursor } from './cursor.ts';
-import { keyId, shouldBlockKey } from './keys.ts';
+import { keyId, MENU_KEYS, shouldBlockKey } from './keys.ts';
 import { IS_MAC } from './platform.ts';
 
 export interface Mods {
@@ -314,13 +315,16 @@ export class InputManager {
     const prev = this.lastButtonClick?.id === btn.def.id ? this.lastButtonClick : null;
     const dbl = isDoubleClick(prev, now);
     this.lastButtonClick = dbl ? null : now;
+    cue('ui_click');
     if (dbl && btn.def.onDoubleClick) btn.def.onDoubleClick(press);
     else btn.def.onPress?.(press);
   }
 
   /** A button pressed by its hotkey: the same as clicking it. */
   pressButton(btn: HudButton, press: ButtonPress): void {
-    if (btn.enabled) btn.def.onPress?.(press);
+    if (!btn.enabled) return;
+    cue('ui_click');
+    btn.def.onPress?.(press);
   }
 
   private onWheel(e: WheelEvent): void {
@@ -339,7 +343,7 @@ export class InputManager {
 
   private onKeyDown(e: KeyboardEvent): void {
     const field = isTextField(document.activeElement);
-    if (this.mode !== 'off' && shouldBlockKey(e, field)) e.preventDefault();
+    if (this.mode !== 'off' && shouldBlockKey(e, field) && !(this.mode === 'menu' && MENU_KEYS.has(e.code))) e.preventDefault();
     this.modsOf(e);
     if (field || this.mode === 'off') return;
     const id = keyId(e);

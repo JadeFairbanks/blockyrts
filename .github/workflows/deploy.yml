@@ -42,6 +42,11 @@ jobs:
         run: pnpm --filter @blockyrts/client build
         env:
           VITE_SERVER_URL: https://api.${{ vars.DOMAIN }}
+      - name: Build the balance editor into /balance
+        run: |
+          pnpm --filter @blockyrts/balance build
+          mkdir -p packages/client/dist/balance
+          cp packages/balance/dist/index.html packages/client/dist/balance/index.html
       - uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_TOKEN }}
@@ -89,4 +94,5 @@ jobs:
             echo "## Deployed $GITHUB_SHA"
             echo
             echo "Play at https://play.$DOMAIN"
+            echo "Balance editor at https://play.$DOMAIN/balance/"
           } >>"$GITHUB_STEP_SUMMARY"

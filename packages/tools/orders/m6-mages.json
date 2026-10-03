@@ -1,0 +1,369 @@
+{
+ "description": "M6 check script, seed 1, one player, with night mobs: the debug tools put a finished Magi Sanctum 20 m east of the Big House (building 9) and a mage kit in the pool (sticks and flax for two hazel wands and homespun robes, 20 mana crystals, 200 bread, 6 hexstone, 20 herbs), and a troop kit (a Barracks, a level 4 forge, the materials and research of every tier) 20 m west; the first two starting warriors (units 5 and 6) press Upgrade Weapon Max and Upgrade Armour Max and come back from the Big House in carbon steel and steel (Troops and gear); the Sanctum trains a support mage (id 228) and a battle mage (id 320) and researches Hexcraft; each trains to Acolyte there as soon as she is out; at dusk the support mage stands by the Big House with warrior 5, and the battle mage joins them when her training is done; in night 0 the support mage quickens the warrior (Quicken on unit 5), wards the crowd (Warding pressed twice) and heals by herself, and the battle mage beams a monster (Beam pressed twice) and bolts by herself; at dawn the debug Mage XP button twice takes both to Adept Acolyte and then to the experience for Mage, and they train to Mage, paying 2 mana crystals each; a goblin village goes up 80 m north; both warriors and the battle mage attack-move on it with the support mage following warrior 5; Rally, Fireball, Fortify and Area blast are pressed twice there, the support mage heals too, the battle mage counters the goblin mage's spells, the village declares war, and all four walk home (the village now keeps wolf riders and a pen, so it takes two warriors). Debug threats 40 Sanctum, 41 mage kit, 42 mage experience, 54 troop kit. Spells: 0 Heal, 1 Quicken, 2 Fortify, 3 Rally, 4 Arcane bolt, 5 Beam, 6 Fireball, 7 Area blast, 8 Warding, 9 Counterspell. Products: 4 support mage, 5 battle mage, 14 Hexcraft. Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  {
+   "step": 0,
+   "orders": [
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 40,
+     "x": 160000,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 41,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 54,
+     "x": -160000,
+     "z": 40000
+    }
+   ]
+  },
+  {
+   "step": 1,
+   "orders": [
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 9,
+     "product": 4,
+     "count": 1
+    },
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 9,
+     "product": 5,
+     "count": 1
+    },
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 9,
+     "product": 14,
+     "count": 1
+    }
+   ]
+  },
+  {
+   "step": 5,
+   "orders": [
+    {
+     "kind": "gather",
+     "player": 0,
+     "units": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "cx": -1,
+     "cz": -1,
+     "index": 2
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "line": 0,
+     "max": 1
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "line": 1,
+     "max": 1
+    }
+   ]
+  },
+  {
+   "step": 2410,
+   "orders": [
+    {
+     "kind": "trainRank",
+     "player": 0,
+     "units": [
+      228
+     ],
+     "building": 9
+    }
+   ]
+  },
+  {
+   "step": 3210,
+   "orders": [
+    {
+     "kind": "trainRank",
+     "player": 0,
+     "units": [
+      320
+     ],
+     "building": 9
+    }
+   ]
+  },
+  {
+   "step": 4000,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      228
+     ],
+     "x": 40000,
+     "z": 64000
+    }
+   ]
+  },
+  {
+   "step": 4500,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228
+     ],
+     "spell": 1,
+     "target": 5,
+     "x": 0,
+     "z": 0,
+     "auto": 0
+    },
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      320
+     ],
+     "x": 30400,
+     "z": 73600
+    }
+   ]
+  },
+  {
+   "step": 4900,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "spell": 8,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 5300,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "spell": 5,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 8000,
+   "orders": [
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 42,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 42,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 10,
+     "x": 0,
+     "z": -640000
+    }
+   ]
+  },
+  {
+   "step": 8010,
+   "orders": [
+    {
+     "kind": "trainRank",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "building": 9
+    }
+   ]
+  },
+  {
+   "step": 8800,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      6,
+      228,
+      320
+     ],
+     "x": 0,
+     "z": -320000
+    }
+   ]
+  },
+  {
+   "step": 9150,
+   "orders": [
+    {
+     "kind": "attackMove",
+     "player": 0,
+     "units": [
+      5,
+      6,
+      320
+     ],
+     "x": 0,
+     "z": -560000
+    },
+    {
+     "kind": "follow",
+     "player": 0,
+     "units": [
+      228
+     ],
+     "target": 5
+    }
+   ]
+  },
+  {
+   "step": 9300,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "spell": 3,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9320,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "spell": 6,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9340,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "spell": 2,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9400,
+   "orders": [
+    {
+     "kind": "cast",
+     "player": 0,
+     "units": [
+      228,
+      320
+     ],
+     "spell": 7,
+     "target": 0,
+     "x": 0,
+     "z": 0,
+     "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 9700,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      6,
+      228,
+      320
+     ],
+     "x": 40000,
+     "z": 64000
+    }
+   ]
+  }
+ ]
+}

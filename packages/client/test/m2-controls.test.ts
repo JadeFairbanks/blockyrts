@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, ITEM_COUNT, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { ACTIONS, clashes, GRID_CODES, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
 import { Commands, menuSlots, submenuChoices, type CommandDeps } from '../src/hud/commands.ts';
@@ -19,7 +19,7 @@ function sel(key: string, kind: Selectable['kind'], typeKey: string, owner = ME,
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, ...o,
+    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, ...o,
   };
 }
 
@@ -43,8 +43,8 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
   const info: InfoMessage = {
     type: 'info', step: 10, pool: p, supplyUsed: 2, supplyCap: 8, buildings, queues: [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
-    items: new Int32Array(ITEM_COUNT), research: 0, autoEquip: false, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false,
+    research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
+    rations: 0, dontEat: 0, starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
   };
   g.onInfo(info);
   return g;
@@ -68,7 +68,7 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
     askPlacement: (kind, _variant, spots) => asks.push([kind, spots]),
     node: () => undefined,
     heightAt: () => 0,
-    changed: () => undefined,
+    changed: () => undefined, confirmWar: () => undefined, openPeople: () => undefined,
   };
   return { c: new Commands(deps), sent, messages, asks };
 }
@@ -92,10 +92,13 @@ describe('the worker card', () => {
   it('has the movement row, the gatherer row and the build row, greyed where a later milestone brings it', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Equip', 'Gear']);
+    // Milestone 11: workers never patrol, so rank training takes slot 3; the tools upgrade and the cart close the card.
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Rank', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Tools +', 'Cart']);
     expect(card[9]!.enabled).toBe(true); // Prospect (milestone 4)
     expect(card[6]!.enabled).toBe(true); // worker 2 carries something
-    expect(card[14]!.reason).toContain('single unit');
+    expect(card[3]!.action).toBe('rankUp');
+    expect(card[13]!.reason).toBe('Not enough resources (3 hardwood sticks).');
+    expect(card[14]!.reason).toBe('There are no carts in the stock (make one at a Workshop).');
     expect(card.map((e) => e?.key ?? '')).toContain('KeyG');
   });
 

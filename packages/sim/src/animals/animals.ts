@@ -13,9 +13,10 @@ import type { Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { RESOURCES, Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep } from '../economy/food.ts';
-import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { OrderKind, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
 import { Band } from '../world/layout.ts';
@@ -24,10 +25,14 @@ import { PropKind } from '../world/props.ts';
 import { deathHooks, gap, hurtUnit, sideOf, Side } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
+import { rollDrops } from '../threats/loot.ts';
 import { BEAR_CAP, BREED_STEPS, breeds, Nature, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
 
 const COLUMN = WU_PER_COLUMN;
 const M = WU_PER_METRE;
+
+/** What else a cell holds the first time the players come near it (threats/villages.ts: a goblin village). */
+export const stockHooks: { cell: (state: SimState, cellId: number) => void } = { cell: () => {} };
 
 /** Cells are stocked when a player's unit is in one or next to it, looked at every second (s). */
 export const STOCK_CHECK_STEPS = STEPS_PER_SECOND;
@@ -43,6 +48,11 @@ const LONE_WU = 8 * M;
 /** Frogs and crocodiles guard 6 m round their spot (s); bears 2 m, a mother with a cub 15 m (doc). */
 const GUARD_WU = 6 * M;
 const BEAR_NEAR_WU = 2 * M;
+/** A hunter that killed its quarry looks for the next within 60 m (s). */
+const HUNTER_RESUME_WU = 60 * M;
+/** Venom works over 5 s; a hornet's sting slows by 30% for 3 s (roster 6.1). */
+const VENOM_STEPS = 5 * STEPS_PER_SECOND;
+const STING = { slowBp: 3000, steps: 3 * STEPS_PER_SECOND };
 const BEAR_MOTHER_WU = 15 * M;
 /** Badgers go for an outlying torch within 30 m every minute and run from units within 6 m (s). */
 const BADGER_REACH_WU = 30 * M;
@@ -105,7 +115,7 @@ function landNear(state: SimState, x: number, z: number, water: boolean): [numbe
   return null;
 }
 
-/** Whether a column has water beside it (a bank: crabs, crocodiles). */
+/** Whether a column has water beside it (a bank: crabs, crocodiles, wild geese). */
 function nearWater(state: SimState, x: number, z: number): boolean {
   for (let r = 1; r <= 3; r++) for (const [dx, dz] of [[r, 0], [-r, 0], [0, r], [0, -r]] as const) if (hasWaterAt(state, x + dx, z + dz)) return true;
   return false;
@@ -132,7 +142,20 @@ function groupsIn(state: SimState, s: SpeciesSpec, cell: number, band: Band): nu
     case Species.GiantFrog:
     case Species.Crocodile:
     case Species.GiantCrab:
+    case Species.WildGoose:
       return roll < 60 ? s.perCell : 0;
+    // Territorial creatures (s): beetles in every other Fringe cell, a hornet nest in a third of the Deepwoods,
+    // vipers and scorpions in half the Barrens, a griffin in one cell in five, a minotaur in one in four.
+    case Species.GiantBeetle:
+    case Species.Viper:
+    case Species.GiantScorpion:
+      return roll < 50 ? s.perCell : 0;
+    case Species.GiantHornet:
+      return roll < 33 ? 1 : 0;
+    case Species.Griffin:
+      return roll < 20 ? 1 : 0;
+    case Species.Minotaur:
+      return roll < 25 ? 1 : 0;
     default:
       return s.perCell;
   }
@@ -140,7 +163,7 @@ function groupsIn(state: SimState, s: SpeciesSpec, cell: number, band: Band): nu
 
 /** The stocked-cells key for one species in one cell. */
 function stockKey(cellId: number, species: number): number {
-  return cellId * 16 + species;
+  return cellId * 32 + species;
 }
 
 /** The first species a cell has not been stocked with yet, or -1. */
@@ -162,6 +185,27 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
   const banks: Array<[number, number]> = [];
   for (const p of feats.ponds) banks.push([p.x + p.r + 1, p.z], [p.x - p.r - 1, p.z], [p.x, p.z + p.r + 1], [p.x, p.z - p.r - 1]);
   for (const st of feats.streams) for (const f of [-300, 0, 300]) banks.push([st.x + floorDiv(st.dx * f, 1000), st.z + floorDiv(st.dz * f, 1000)]);
+  // Wild geese also take the start pockets' water (Table 9), most of the Heartland's water, a flock at each (s).
+  const pocketBanks: Array<Array<[number, number]>> = [];
+  for (const pk of state.world.gen.start.pockets) {
+    const pw = pk.water;
+    if (state.world.layout.nearest(pw.x, pw.z) !== cellId) continue;
+    const own: Array<[number, number]> = [];
+    pocketBanks.push(own);
+    const r = pw.radius + 2;
+    const across = pw.kind === 'pond' ? 0 : (pw.angle + 16384) & 0xffff;
+    for (const a of [across, across + 32768]) {
+      for (const f of pw.kind === 'pond' ? [0, 16384] : [-500, 0, 500]) {
+        const along = floorDiv(pw.halfLength * f, 1000);
+        const b = (a + f) & 0xffff;
+        own.push(
+          pw.kind === 'pond'
+            ? [pw.x + floorDiv(r * cos16(b), 65536), pw.z + floorDiv(r * sin16(b), 65536)]
+            : [pw.x + floorDiv(r * cos16(a) + along * cos16(pw.angle), 65536), pw.z + floorDiv(r * sin16(a) + along * sin16(pw.angle), 65536)],
+        );
+      }
+    }
+  }
   const bogs: Array<[number, number]> = [];
   for (const b of feats.bogs) bogs.push([b.x, b.z], [b.x + (b.r >> 1), b.z], [b.x - (b.r >> 1), b.z], [b.x, b.z + (b.r >> 1)], [b.x, b.z - (b.r >> 1)]);
   for (const s of SPECIES) {
@@ -169,13 +213,15 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
     const key = stockKey(cellId, s.id);
     if (state.stockedCells.has(key)) continue;
     state.stockedCells.add(key);
-    const groups = groupsIn(state, s, cellId, cell.band);
+    const goose = s.id === Species.WildGoose;
+    // Every start pocket's water has its own flock of geese (s), so feathers for longbows are always to be had.
+    const groups = goose ? pocketBanks.length + groupsIn(state, s, cellId, cell.band) : groupsIn(state, s, cellId, cell.band);
     for (let g = 0; g < groups; g++) {
       if (s.id === Species.Bear && bearCount(state) + 3 > BEAR_CAP) break;
-      const water = s.id === Species.Crocodile || s.id === Species.GiantCrab;
+      const water = s.id === Species.Crocodile || s.id === Species.GiantCrab || s.id === Species.WildGoose;
       const bog = s.id === Species.GiantFrog;
       let spot: [number, number] | null = null;
-      const places = water ? banks : bog ? bogs : null;
+      const places = goose && g < pocketBanks.length ? pocketBanks[g]! : water ? banks : bog ? bogs : null;
       for (let t = 0; t < (places ? places.length : 4) && !spot; t++) {
         const h = hash(state, cellId, s.id, g, t);
         if (places) {
@@ -278,6 +324,7 @@ function updateStocking(state: SimState): void {
   // Spread over the checks, as each needs fresh land generated: the cells the units stand in are stocked at once,
   // the cells next to them one species a check, and one chunk of fish a check (s).
   for (const c of [...cells].sort((a, b) => a - b)) stockCell(state, c);
+  for (const c of [...all].sort((a, b) => a - b)) stockHooks.cell(state, c);
   for (const c of [...all].sort((a, b) => a - b)) {
     const species = unstocked(state, c);
     if (species < 0) continue;
@@ -302,7 +349,7 @@ function speedOf(state: SimState, i: number, running: boolean): number {
 }
 
 /** Steps an animal towards a point; a blocked step picks a new patch next time. */
-function goTo(state: SimState, i: number, x: number, z: number, running: boolean): boolean {
+export function goTo(state: SimState, i: number, x: number, z: number, running: boolean): boolean {
   const e = state.entities;
   if (length2d(x - e.x[i]!, z - e.z[i]!) <= (COLUMN >> 2)) return false;
   const ok = stepToward(state, i, x, z, speedOf(state, i, running));
@@ -310,7 +357,7 @@ function goTo(state: SimState, i: number, x: number, z: number, running: boolean
   return ok;
 }
 
-function graze(state: SimState, i: number, ax: number, az: number, radius: number): void {
+export function graze(state: SimState, i: number, ax: number, az: number, radius: number): void {
   const e = state.entities;
   if (state.step >= e.wanderAt[i]!) {
     const h = hash(state, e.id[i]!, state.step);
@@ -328,14 +375,16 @@ function flee(state: SimState, i: number, from: number): void {
   if (!ok) graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
 }
 
-/** Whether a unit is one of the players' that an animal may go for (outside, alive, not an animal). */
+/** Whether a unit is one of the players' or the peoples' that an animal may go for (outside, alive, not an animal). */
 function prey(state: SimState, j: number): boolean {
   const e = state.entities;
-  return j >= 0 && e.hp[j]! > 0 && e.inside[j] === 0 && sideOf(state, j) === Side.Players && e.kind[j] !== UnitKind.Animal;
+  if (j < 0 || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.kind[j] === UnitKind.Animal || e.kind[j] === UnitKind.Mob) return false;
+  const side = sideOf(state, j);
+  return side === Side.Players || side === Side.Peoples;
 }
 
 /** Fights a unit: closes in at a run and bites, gores or swipes at its own pace. */
-function fight(state: SimState, i: number, t: number): void {
+export function fight(state: SimState, i: number, t: number): void {
   const e = state.entities;
   const s = speciesSpec(e.mob[i]!);
   e.target[i] = e.id[t]!;
@@ -347,7 +396,19 @@ function fight(state: SimState, i: number, t: number): void {
   e.order[i] = OrderKind.Attack;
   if (state.step < e.atkNext[i]! || s.damage <= 0) return;
   e.atkNext[i] = state.step + s.attackSteps;
-  hurtUnit(state, t, { damage: s.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false });
+  const d = hurtUnit(state, t, { damage: s.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false });
+  if (d <= 0 || e.hp[t]! <= 0) return;
+  // Venom (vipers, scorpions): more over 5 s, renewed rather than piled up (s).
+  if (s.venom > 0) {
+    e.dotLeft[t] = Math.max(e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0, s.venom);
+    e.dotUntil[t] = state.step + VENOM_STEPS;
+    e.dotFrom[t] = e.id[i]!;
+  }
+  // A hornet's sting slows by 30% for 3 s (roster).
+  if (s.id === Species.GiantHornet) {
+    e.slowUntil[t] = state.step + STING.steps;
+    e.slowBp[t] = STING.slowBp;
+  }
 }
 
 /** The players' unit that hurt it in the last 8 s, if still there. */
@@ -355,7 +416,8 @@ function recentAttacker(state: SimState, i: number): number {
   const e = state.entities;
   if (!e.attacker[i] || state.step - e.hurtAt[i]! > FLEE_STEPS) return -1;
   const a = e.indexOf(e.attacker[i]!);
-  return a >= 0 && e.hp[a]! > 0 && sideOf(state, a) === Side.Players ? a : -1;
+  const side = a >= 0 ? sideOf(state, a) : Side.None;
+  return a >= 0 && e.hp[a]! > 0 && (side === Side.Players || side === Side.Peoples) ? a : -1;
 }
 
 function fromHome(state: SimState, i: number, t: number): number {
@@ -439,18 +501,39 @@ function runWild(state: SimState, i: number): void {
       if (t >= 0) return fight(state, i, t);
       break;
     }
-    case Nature.Territorial: {
-      let t = a >= 0 && fromHome(state, i, a) <= GIVE_UP_WU ? a : keepTarget(state, i, GIVE_UP_WU);
-      if (t < 0) t = nearbyPrey(state, hx, hz, GUARD_WU)[0] ?? -1;
+    case Nature.Territorial:
+    case Nature.Nest: {
+      const chase = s.chase || GIVE_UP_WU;
+      let t = a >= 0 && fromHome(state, i, a) <= chase ? a : keepTarget(state, i, chase);
+      if (t < 0) t = nearbyPrey(state, s.roam ? e.x[i]! : hx, s.roam ? e.z[i]! : hz, s.guard || GUARD_WU)[0] ?? -1;
+      // A disturbed nest all comes out.
+      if (t < 0 && s.nature === Nature.Nest) t = mateTarget(state, i, s.id, chase);
       if (t >= 0) return fight(state, i, t);
-      // Back to its spot and wait there.
+      // Roamers wander round their spot; the rest go back to it and wait.
+      if (s.roam) {
+        e.target[i] = 0;
+        return graze(state, i, hx, hz, s.roam);
+      }
+      if (!goTo(state, i, hx, hz, false)) e.order[i] = OrderKind.Idle;
+      return;
+    }
+    case Nature.Hunter: {
+      // Once disturbed it hunts the players until one side is dead: its quarry, then the nearest of the same side within 60 m.
+      let t = a >= 0 ? a : keepTarget(state, i, Number.MAX_SAFE_INTEGER);
+      if (t < 0 && e.timer[i]! > 0) t = nearbyPrey(state, e.x[i]!, e.z[i]!, HUNTER_RESUME_WU)[0] ?? -1;
+      if (t < 0) t = nearbyPrey(state, hx, hz, s.guard || GUARD_WU)[0] ?? -1;
+      if (t >= 0) {
+        e.timer[i] = 1;
+        return fight(state, i, t);
+      }
+      e.timer[i] = 0;
       if (!goTo(state, i, hx, hz, false)) e.order[i] = OrderKind.Idle;
       return;
     }
     case Nature.TorchBreaker: {
       const near = nearbyPrey(state, e.x[i]!, e.z[i]!, BADGER_SHY_WU);
       if (near.length > 0) return flee(state, i, near[0]!);
-      if (state.step >= e.abilityAt[i]! && !isDark(state.step)) {
+      if (state.step >= e.abilityAt[i]! && !isDark(state.step, state.blood)) {
         const torch = outlyingTorch(state, e.x[i]!, e.z[i]!);
         if (torch) {
           const [tx, tz] = buildingCentre(torch);
@@ -475,6 +558,17 @@ function runWild(state: SimState, i: number): void {
   }
   e.target[i] = 0;
   graze(state, i, hx, hz, GRAZE_WU);
+}
+
+/** What a nest-mate of the same kind within reach is fighting, if one is; -1 for none. */
+function mateTarget(state: SimState, i: number, species: number, chase: number): number {
+  const e = state.entities;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, GIVE_UP_WU)) {
+    if (j === i || e.kind[j] !== UnitKind.Animal || e.mob[j] !== species || e.owner[j] !== WILD || !e.target[j]) continue;
+    const k = e.indexOf(e.target[j]!);
+    if (prey(state, k) && fromHome(state, i, k) <= chase) return k;
+  }
+  return -1;
 }
 
 /** A grown she-bear with a cub of her spot nearby (Bears: attacks anything within 15 m). */
@@ -579,7 +673,7 @@ function runTamed(state: SimState, i: number): void {
   const b = state.buildings.get(e.home[i]!);
   const a = recentAttacker(state, i) >= 0 ? recentAttacker(state, i) : monsterNear(state, i);
   if (a >= 0 && e.inside[i] === 0) return flee(state, i, a);
-  if (isDark(state.step) && b) {
+  if (isDark(state.step, state.blood) && b) {
     const shelter = shelterFor(state, i, b);
     if (shelter) {
       if (e.inside[i] === shelter.id) return;
@@ -595,7 +689,7 @@ function runTamed(state: SimState, i: number): void {
     }
   }
   if (e.inside[i] !== 0) {
-    if (isDark(state.step)) return;
+    if (isDark(state.step, state.blood)) return;
     goOutside(state, i);
   }
   if (!b) return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
@@ -641,6 +735,8 @@ export function runAnimal(state: SimState, i: number): void {
   const e = state.entities;
   e.order[i] = OrderKind.Idle;
   if (e.owner[i] === WILD) runWild(state, i);
+  // The peoples' beasts and livestock, and wild animals a Grovesinger called (peoples/ai.ts).
+  else if (e.owner[i] === PEOPLES) peoplesHooks.beast(state, i);
   else runTamed(state, i);
 }
 
@@ -771,7 +867,12 @@ function onAnimalDeath(state: SimState, i: number): void {
   const e = state.entities;
   const s = speciesSpec(e.mob[i]!);
   const meat = e.born[i]! > state.step ? Math.max(1, s.meat >> 1) : s.meat;
-  state.world.addProp(floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN), PropKind.Carcass, s.id, meat, state.step);
+  if (meat > 0 || s.extra.length > 0) state.world.addProp(floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN), PropKind.Carcass, s.id, meat, state.step);
+  // A creature's other drops go to the side whose unit last hurt it.
+  if (s.loot.length > 0 && e.attacker[i]) {
+    const a = e.indexOf(e.attacker[i]!);
+    if (a >= 0 && e.owner[a]! < state.players.length) rollDrops(state, s.loot, e.owner[a]!);
+  }
   const owner = e.owner[i]!;
   if (owner < state.players.length) state.events.push({ player: owner, kind: 'alert', text: `A tamed ${s.name.toLowerCase()} has been killed.`, x: e.x[i]!, z: e.z[i]! });
   // Its worker lets go of the cart.

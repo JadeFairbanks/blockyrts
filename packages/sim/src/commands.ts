@@ -6,26 +6,32 @@
 import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { mainBaseLevel, waterBeside } from './buildings/placement.ts';
-import { cancelProduct, queueProduct } from './buildings/production.ts';
+import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
 import { type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
-import { canonicalOrders, type Order } from './orders.ts';
-import { SiteKind, UnitKind, type SimState } from './state.ts';
+import { canonicalOrders, PickOwn, type Order } from './orders.ts';
+import { NO_CARRY, SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { garrisonRoom, rangedOf } from './combat/fight.ts';
-import { ITEM_COUNT, RESEARCH, SLOT_COUNT } from './combat/items.ts';
+import { canGarrison, garrisonRoom, pickTarget, salvageable, sightOf } from './combat/fight.ts';
+import { RESEARCH } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
-import { equipBest, handPick, SKILL_TRAINING } from './units/gear.ts';
+import { orderCart, orderUpgrade, SKILL_TRAINING } from './units/gear.ts';
 import { markSite } from './units/dig.ts';
-import { Act, columnCentre, giveOrder, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
+import { debugThreat } from './threats/debug.ts';
+import { eliminate } from './combat/deaths.ts';
+import { peoplesOrder } from './peoples/orders.ts';
+import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
+import { MANA_SCALE, SPELLS } from './magic/spells.ts';
+import { crewWhy, haulWhy, hitchEngine, mendWhy, portWhy } from './siege/engines.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -37,18 +43,40 @@ function ownBuilding(state: SimState, player: number, id: number): Building | un
   return b && b.owner === player ? b : undefined;
 }
 
+/** A building the player may use: their own, or one inherited while they are still in. */
+function usableBuilding(state: SimState, player: number, id: number): Building | undefined {
+  const b = state.buildings.get(id);
+  return b && usableBy(state, b, player) ? b : undefined;
+}
+
 function alert(state: SimState, player: number, text: string): void {
   state.events.push({ player, kind: 'alert', text });
 }
 
-/** The player's units among the ids, by index, that are workers (every unit the player has in M2 is one). */
-function ownUnits(state: SimState, player: number, ids: readonly number[]): number[] {
+/**
+ * Whether a player may order a unit. Their own units always; with `allies`
+ * (the orders shared control allows: move, attack, patrol, hold, gather,
+ * shelter and garrison, and the stop, follow, hunt and spell orders that go
+ * with them) also the units of a player who ticked Share control for them,
+ * and the units inherited from a player who was eliminated or left (Allies
+ * panel; When a player is eliminated or leaves).
+ */
+export function commandable(state: SimState, player: number, i: number, allies: boolean): boolean {
+  const e = state.entities;
+  const owner = e.owner[i]!;
+  if (owner === player) return true;
+  if (!allies || owner >= state.players.length) return false;
+  return e.shared[i] !== 0 || (state.players[owner]!.share & (1 << player)) !== 0;
+}
+
+/** The player's units among the ids, by index (with `allies`, also the units shared with them). */
+function ownUnits(state: SimState, player: number, ids: readonly number[], allies = false): number[] {
   const e = state.entities;
   const out: number[] = [];
   const seen = new Set<number>();
   for (const id of ids) {
     const i = e.indexOf(id);
-    if (i < 0 || seen.has(i) || e.owner[i] !== player || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Animal) continue;
+    if (i < 0 || seen.has(i) || !commandable(state, player, i, allies) || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Animal) continue;
     seen.add(i);
     out.push(i);
   }
@@ -82,7 +110,7 @@ function groupTargets(state: SimState, units: readonly number[], x: number, z: n
 }
 
 function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
-  const units = ownUnits(state, o.player, o.units);
+  const units = ownUnits(state, o.player, o.units, true);
   if (units.length === 0) return;
   const tx = clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU);
   const tz = clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU);
@@ -124,15 +152,15 @@ function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
   });
 }
 
-function giveAll(state: SimState, o: { player: number; units: number[]; queued?: boolean }, make: (i: number) => UnitOrder | null): void {
-  for (const i of ownUnits(state, o.player, o.units)) {
+function giveAll(state: SimState, o: { player: number; units: number[]; queued?: boolean }, make: (i: number) => UnitOrder | null, allies = false): void {
+  for (const i of ownUnits(state, o.player, o.units, allies)) {
     const u = make(i);
     if (u) giveOrder(state, i, u, o.queued === true);
   }
 }
 
-/** Upgrades a building to its next level: paid now, then built by workers. Returns '' or why not. */
-export function upgradeProblem(state: SimState, b: Building): string {
+/** Upgrades a building to its next level: paid now by `by` (the owner, or a player using an inherited building), then built by workers. Returns '' or why not. */
+export function upgradeProblem(state: SimState, b: Building, by = b.owner): string {
   const spec = buildingSpec(b.kind);
   if (!b.complete) return 'It is not finished yet.';
   if (b.upgrading) return 'It is already being upgraded.';
@@ -140,25 +168,25 @@ export function upgradeProblem(state: SimState, b: Building): string {
   if (!next) return 'It is at its highest level.';
   if (next.needs) return next.needs;
   if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
-  if (next.research && (state.players[b.owner]!.research & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
+  if (next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
   if (b.kind === BuildingKind.LumberMill && b.level === 1 && !waterBeside(state, b)) return 'The waterwheel needs a stream beside the mill.';
-  const pool = state.players[b.owner]!.pool;
+  const pool = state.players[by]!.pool;
   if (!canAfford(pool, next.cost)) return `Not enough ${RESOURCES[shortOf(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
   return '';
 }
 
-function applyUpgrade(state: SimState, b: Building): void {
-  const why = upgradeProblem(state, b);
+function applyUpgrade(state: SimState, b: Building, by: number): void {
+  const why = upgradeProblem(state, b, by);
   if (why) {
-    alert(state, b.owner, why);
+    alert(state, by, why);
     return;
   }
   const next = levelSpec(b.kind, b.level + 1);
-  pay(state.players[b.owner]!.pool, next.cost);
+  pay(state.players[by]!.pool, next.cost);
   b.upgrading = b.level + 1;
   b.upProgress = 0;
   const [x, z] = buildingCentre(b);
-  state.events.push({ player: b.owner, kind: 'info', text: `Upgrade to ${next.name} paid for. Right-click it with workers to build it.`, x, z });
+  state.events.push({ player: by, kind: 'info', text: `Upgrade to ${next.name} paid for. Right-click it with workers to build it.`, x, z });
 }
 
 function applyCancelBuild(state: SimState, b: Building): void {
@@ -208,6 +236,70 @@ export function everyoneHome(state: SimState, player: number): void {
   }
 }
 
+/**
+ * A targeted command pressed twice (Controls: "Double-tap for auto-target"):
+ * each unit picks its own target instead of waiting for a click. Units with
+ * nothing to pick are left as they were; the player hears why once.
+ */
+function pickOwn(state: SimState, player: number, units: number[], command: number, queued: boolean): void {
+  const e = state.entities;
+  let none = 0;
+  const taken = new Map<number, number>();
+  for (const i of units) {
+    let u: UnitOrder | null = null;
+    switch (command) {
+      case PickOwn.Attack: {
+        if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Engine) break;
+        const t = pickTarget(state, i, sightOf(state, i));
+        if (t >= 0) u = { t: 'attack', id: e.id[t]! };
+        break;
+      }
+      case PickOwn.Gather: {
+        if (e.kind[i] !== UnitKind.Worker) break;
+        const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
+        const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
+        // More of what it carries first, else the nearest node of anything.
+        const n = (e.carryRes[i] !== NO_CARRY ? findNode(state, i, e.carryRes[i]!, cx, cz, NODE_SEARCH_COLUMNS) : null) ?? findNode(state, i, -1, cx, cz, NODE_SEARCH_COLUMNS);
+        if (n) u = { t: 'gather', cx: n.cx, cz: n.cz, i: n.i };
+        break;
+      }
+      case PickOwn.Enter: {
+        if (e.kind[i] === UnitKind.Engine) break;
+        const worker = e.kind[i] === UnitKind.Worker;
+        if (!worker && !canGarrison(state, i)) break;
+        let best: Building | null = null;
+        let bestD = 0;
+        for (const b of state.buildings.list) {
+          if (b.owner !== e.owner[i]) continue;
+          const room = worker ? shelterRoom(b) : garrisonRoom(b);
+          if (room === 0) continue;
+          if (!taken.has(b.id)) taken.set(b.id, unitsInside(state, b.id).length);
+          if (taken.get(b.id)! >= room) continue;
+          const [bx, bz] = buildingCentre(b);
+          const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
+          if (!best || d < bestD) {
+            best = b;
+            bestD = d;
+          }
+        }
+        if (best) {
+          taken.set(best.id, taken.get(best.id)! + 1);
+          u = { t: 'enter', b: best.id, auto: 0 };
+        }
+        break;
+      }
+      case PickOwn.Prospect:
+        if (e.kind[i] === UnitKind.Worker) u = { t: 'prospect', x: floorDiv(e.x[i]!, WU_PER_COLUMN), z: floorDiv(e.z[i]!, WU_PER_COLUMN) };
+        break;
+    }
+    if (u) giveOrder(state, i, u, queued);
+    else none++;
+  }
+  if (none === 0 || units.length === 0) return;
+  const why = ['No enemy in sight.', 'Nothing they can gather nearby.', 'No building with room for them.', 'Only workers prospect.'][command]!;
+  alert(state, player, none === units.length ? why : `${why} (${none} of ${units.length})`);
+}
+
 /** Applies one step's orders, in the canonical order. */
 export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
@@ -220,13 +312,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         applyMove(state, o);
         break;
       case 'stop':
-        for (const i of ownUnits(state, o.player, o.units)) stopUnit(state, i);
+        for (const i of ownUnits(state, o.player, o.units, true)) stopUnit(state, i);
         break;
       case 'follow':
-        giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }));
+        giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }), true);
         break;
       case 'gather':
-        giveAll(state, o, () => ({ t: 'gather', cx: o.cx, cz: o.cz, i: o.index }));
+        giveAll(state, o, () => ({ t: 'gather', cx: o.cx, cz: o.cz, i: o.index }), true);
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
@@ -241,15 +333,26 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         giveAll(state, o, () => ({ t: 'repairAll' }));
         break;
       case 'returnCargo':
-        giveAll(state, o, (i) => (e.carryAmt[i]! > 0 ? { t: 'return' } : null));
+        giveAll(state, o, (i) => (e.carryAmt[i]! > 0 ? { t: 'return' } : null), true);
         break;
-      case 'dropoff':
-        if (ownBuilding(state, o.player, o.building)) giveAll(state, o, (i) => (e.carryAmt[i]! > 0 ? { t: 'dropoff', b: o.building } : null));
+      case 'dropoff': {
+        // A shared unit drops off and shelters only at its own owner's buildings (and its load goes to its owner's pool).
+        const b = state.buildings.get(o.building);
+        if (b) giveAll(state, o, (i) => (e.carryAmt[i]! > 0 && e.owner[i] === b.owner ? { t: 'dropoff', b: o.building } : null), true);
         break;
+      }
       case 'enter': {
-        const b = ownBuilding(state, o.player, o.building);
-        // Workers shelter; ranged warriors garrison towers and parapets.
-        if (b) giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && rangedOf(state, i) !== null) ? { t: 'enter', b: b.id, auto: 0 } : null));
+        const b = state.buildings.get(o.building);
+        if (!b) break;
+        // A cannon is hauled up into a Citadel's cannon port (Table 4).
+        const cannons = b.owner === o.player ? ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine) : [];
+        if (cannons.length > 0) {
+          const why = portWhy(state, cannons[0]!, b);
+          if (why) alert(state, o.player, why);
+          else for (const i of cannons) giveOrder(state, i, { t: 'port', b: b.id }, o.queued === true);
+        }
+        // Workers shelter; ranged warriors and mages garrison towers and parapets.
+        giveAll(state, o, (i) => (e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner && (e.kind[i] === UnitKind.Worker ? shelterRoom(b) > 0 : garrisonRoom(b) > 0 && canGarrison(state, i)) ? { t: 'enter', b: b.id, auto: 0 } : null), true);
         break;
       }
       case 'unload': {
@@ -277,10 +380,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'produce': {
-        const b = ownBuilding(state, o.player, o.building);
+        const b = usableBuilding(state, o.player, o.building);
         if (!b) break;
         for (let k = 0; k < o.count; k++) {
-          const why = queueProduct(state, b, o.product);
+          const why = queueProduct(state, b, o.product, o.player);
           if (why) {
             alert(state, o.player, why);
             break;
@@ -289,13 +392,14 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'cancelProduce': {
-        const b = ownBuilding(state, o.player, o.building);
-        if (b) cancelProduct(state, b, o.index);
+        // At an inherited building a player cancels only what they queued.
+        const b = usableBuilding(state, o.player, o.building);
+        if (b && (b.owner === o.player || b.queue[o.index]?.by === o.player)) cancelProduct(state, b, o.index);
         break;
       }
       case 'upgrade': {
-        const b = ownBuilding(state, o.player, o.building);
-        if (b) applyUpgrade(state, b);
+        const b = usableBuilding(state, o.player, o.building);
+        if (b) applyUpgrade(state, b, o.player);
         break;
       }
       case 'cancelBuild': {
@@ -304,7 +408,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'rally': {
-        const b = ownBuilding(state, o.player, o.building);
+        const b = usableBuilding(state, o.player, o.building);
         if (!b) break;
         const p = o.point === 'ground' ? { t: 'ground' as const, x: o.x, z: o.z } : o.point === 'unit' ? { t: 'unit' as const, id: o.id } : { t: 'node' as const, cx: o.x, cz: o.z, i: o.id };
         if (o.add && b.rally.length < 16) b.rally.push(p);
@@ -327,39 +431,55 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         const t = e.indexOf(o.target);
         if (t < 0 || e.hp[t]! <= 0) break;
         // Animals are killed with an attack order first (Gathering resources); a wild one is fair game.
-        giveAll(state, o, (i) => (hostile(state, i, t) || huntable(state, t) ? { t: 'attack', id: o.target } : null));
+        // A building the peoples left is broken down by workers for its materials.
+        giveAll(state, o, (i) => (hostile(state, i, t) || huntable(state, t) || (e.kind[i] === UnitKind.Worker && salvageable(state, t)) ? { t: 'attack', id: o.target } : null), true);
         break;
       }
       case 'attackMove': {
-        const units = ownUnits(state, o.player, o.units);
+        const units = ownUnits(state, o.player, o.units, true);
         const targets = groupTargets(state, units, clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU));
         units.forEach((i, k) => giveOrder(state, i, { t: 'attackMove', x: targets[k]![0], z: targets[k]![1] }, o.queued === true));
         break;
       }
       case 'patrol': {
-        const units = ownUnits(state, o.player, o.units);
+        const units = ownUnits(state, o.player, o.units, true);
         const targets = groupTargets(state, units, clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU));
         units.forEach((i, k) => giveOrder(state, i, { t: 'patrol', x: targets[k]![0], z: targets[k]![1], x2: e.x[i]!, z2: e.z[i]!, leg: 0 }, o.queued === true));
         break;
       }
       case 'hold':
-        for (const i of ownUnits(state, o.player, o.units)) {
+        for (const i of ownUnits(state, o.player, o.units, true)) {
+          // Shift + H: hold once the earlier orders are done.
+          if (o.queued === true && e.queue[i]!.length > 0) {
+            giveOrder(state, i, { t: 'hold' }, true);
+            continue;
+          }
           stopUnit(state, i);
           giveOrder(state, i, { t: 'hold' }, false);
         }
         break;
-      case 'equipBest':
-        equipBest(state, o.player, ownUnits(state, o.player, o.units));
+      case 'pickOwn':
+        pickOwn(state, o.player, ownUnits(state, o.player, o.units, true), o.command, o.queued === true);
         break;
-      case 'equipItem': {
-        const [i] = ownUnits(state, o.player, [o.unit]);
-        if (i === undefined || o.slot < 0 || o.slot >= SLOT_COUNT || o.item < 0 || o.item >= ITEM_COUNT) break;
-        handPick(state, i, o.slot, o.item);
+      case 'upgradeKit':
+        orderUpgrade(state, o.player, ownUnits(state, o.player, o.units), o.line, o.max === 1);
+        break;
+      case 'cart':
+        orderCart(state, o.player, ownUnits(state, o.player, o.units), o.back === 1);
+        break;
+      case 'troopLock': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (!b || !(troopTypesAt(b) as number[]).includes(o.troop)) break;
+        if (o.lock > 0) {
+          const t = troopTiersAt(b, o.troop);
+          const w = floorDiv(o.lock - 1, 10);
+          const a = (o.lock - 1) % 10;
+          if (w < t.w[0] || w > t.w[1] || a < t.a[0] || a > t.a[1]) break;
+        }
+        while (b.locks.length <= o.troop) b.locks.push(0);
+        b.locks[o.troop] = o.lock;
         break;
       }
-      case 'autoEquip':
-        state.players[o.player]!.autoEquip = o.on ? 1 : 0;
-        break;
       case 'lock':
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
@@ -380,7 +500,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainSkill': {
         const b = ownBuilding(state, o.player, o.building);
-        if (!b || b.kind !== BuildingKind.Barracks || !SKILL_TRAINING[o.skill]) break;
+        if (!b || !SKILL_TRAINING[o.skill] || b.kind !== SKILL_TRAINING[o.skill]!.at) break;
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & o.skill) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
         break;
       }
@@ -388,15 +508,15 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         const t = o.target ? e.indexOf(o.target) : -1;
         if (o.target && (t < 0 || !huntable(state, t))) break;
         if (!o.target && !o.auto) break;
-        const units = ownUnits(state, o.player, o.units);
+        const units = ownUnits(state, o.player, o.units, true);
         const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior);
         if (hunters.length === 0) {
           alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
           break;
         }
-        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]! }, o.queued === true);
+        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]!, k: 0, kx: 0, kz: 0 }, o.queued === true);
         // Workers in the same selection follow and haul the carcasses, shared out between the hunters.
-        units.filter((i) => e.kind[i] === UnitKind.Worker).forEach((i, k) => giveOrder(state, i, { t: 'hunt', id: e.id[hunters[k % hunters.length]!]!, auto: 0, x: 0, z: 0 }, o.queued === true));
+        units.filter((i) => e.kind[i] === UnitKind.Worker).forEach((i, k) => giveOrder(state, i, { t: 'hunt', id: e.id[hunters[k % hunters.length]!]!, auto: 0, x: 0, z: 0, k: 0, kx: 0, kz: 0 }, o.queued === true));
         break;
       }
       case 'tame': {
@@ -411,10 +531,60 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         giveOrder(state, worker, { t: 'tame', id: o.target }, o.queued === true);
         break;
       }
+      case 'cast': {
+        const s = SPELLS[o.spell];
+        if (!s) break;
+        const mages = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] === UnitKind.Mage);
+        if (mages.length === 0) break;
+        const knowers = mages.filter((i) => knowsSpell(state, i, s.id));
+        if (knowers.length === 0) {
+          alert(state, o.player, spellProblem(state, mages.find((i) => e.school[i] === s.school) ?? mages[0]!, s.id));
+          break;
+        }
+        // Double-tapped: every mage that knows it picks her own target.
+        if (o.auto) {
+          for (const i of knowers) giveOrder(state, i, { t: 'cast', spell: s.id, id: 0, x: 0, z: 0, auto: 1, until: 0 }, o.queued === true);
+          break;
+        }
+        const t = o.target ? e.indexOf(o.target) : -1;
+        if (o.target && (t < 0 || e.hp[t]! <= 0)) break;
+        const tx = t >= 0 ? e.x[t]! : o.x;
+        const tz = t >= 0 ? e.z[t]! : o.z;
+        // One mage casts it (s): one with the mana and the spell ready, else the one ready soonest; the nearest breaks a tie.
+        let best = -1;
+        let bestKey = 0;
+        let bestD = 0;
+        for (const i of knowers) {
+          const enough = e.mana[i]! >= s.mana * MANA_SCALE;
+          const ready = Math.max(0, spellReadyAt(state, i, s.id) - state.step);
+          const key = (enough ? 0 : 1 << 24) + ready;
+          const d = dist2(e.x[i]!, e.z[i]!, tx, tz);
+          if (best < 0 || key < bestKey || (key === bestKey && d < bestD)) {
+            best = i;
+            bestKey = key;
+            bestD = d;
+          }
+        }
+        if (e.mana[best]! < s.mana * MANA_SCALE) {
+          alert(state, o.player, `Not enough mana for ${s.name} (${s.mana}).`);
+          break;
+        }
+        giveOrder(state, best, { t: 'cast', spell: s.id, id: t >= 0 ? o.target : 0, x: clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), z: clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU), auto: 0, until: 0 }, o.queued === true);
+        break;
+      }
       case 'eat':
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior ? { t: 'eat', b: o.building } : null));
+        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage ? { t: 'eat', b: o.building } : null));
         break;
       case 'hitch': {
+        // An engine takes a horse or an ox to haul it (Table 2f); target 0 lets it go.
+        const engines = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine);
+        if (engines.length > 0) {
+          const a = o.target ? e.indexOf(o.target) : -1;
+          const why = o.target ? haulWhy(state, engines[0]!, a) : '';
+          if (why) alert(state, o.player, why);
+          else hitchEngine(state, engines[0]!, a);
+          break;
+        }
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (o.target === 0) {
           for (const i of workers) unhitch(state, i);
@@ -433,6 +603,28 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'prospect':
         giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker ? { t: 'prospect', x: o.x, z: o.z } : null));
         break;
+      case 'crew': {
+        const i = e.indexOf(o.target);
+        const crew = ownUnits(state, o.player, o.units).filter((j) => e.kind[j] === UnitKind.Warrior);
+        const why = crew.length === 0 ? 'Only warriors crew engines and cannons.' : crewWhy(state, crew[0]!, i);
+        if (why) {
+          alert(state, o.player, why);
+          break;
+        }
+        for (const j of crew) if (!crewWhy(state, j, i)) giveOrder(state, j, { t: 'crew', id: o.target }, o.queued === true);
+        break;
+      }
+      case 'mend': {
+        const i = e.indexOf(o.target);
+        const workers = ownUnits(state, o.player, o.units).filter((j) => e.kind[j] === UnitKind.Worker);
+        const why = workers.length === 0 ? 'Only workers repair engines.' : mendWhy(state, workers[0]!, i);
+        if (why) {
+          alert(state, o.player, why);
+          break;
+        }
+        for (const j of workers) giveOrder(state, j, { t: 'mend', id: o.target }, o.queued === true);
+        break;
+      }
       case 'haul': {
         const b = ownBuilding(state, o.player, o.building);
         if (!b || !b.complete || b.kind !== BuildingKind.Mineshaft) break;
@@ -455,11 +647,56 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'debugGive':
-        if (o.item > 0 && o.item < ITEM_COUNT) state.players[o.player]!.items[o.item] = state.players[o.player]!.items[o.item]! + o.count;
+        if (o.res < RESOURCES.length) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
-        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);
+        break;
+      case 'debugThreat':
+        debugThreat(state, o.player, o.what, o.x, o.z);
+        break;
+      case 'tradeOffer':
+      case 'tradeTake':
+      case 'tradeWithdraw':
+      case 'declareWar':
+      case 'surrender':
+      case 'reparations':
+      case 'hire':
+      case 'debugPeoples':
+        peoplesOrder(state, o);
+        break;
+      case 'shareControl': {
+        // Allies panel: "Share control" lets that player command this player's units.
+        if (o.with === o.player || o.with < 0 || o.with >= state.players.length) break;
+        const ps = state.players[o.player]!;
+        ps.share = o.on ? ps.share | (1 << o.with) : ps.share & ~(1 << o.with);
+        break;
+      }
+      case 'sendResources':
+        sendResources(state, o.player, o.to, o.res, o.amount);
+        break;
+      case 'leave':
+        // Gone for good, the host carrying on without them: shared out as if eliminated.
+        eliminate(state, o.player, `Player ${o.player + 1} has left the game.`);
         break;
     }
   }
+}
+
+/**
+ * Send resources (Allies panel): an amount of one resource from the pool to
+ * another player still in the game. It arrives at once, with no cooldown, no
+ * limit and nothing lost; more than the pool holds sends what there is.
+ */
+function sendResources(state: SimState, from: number, to: number, res: number, amount: number): void {
+  const target = state.players[to];
+  if (to === from || !target || target.out || res < 0 || res >= RESOURCES.length || amount <= 0) return;
+  const pool = state.players[from]!.pool;
+  const n = Math.min(amount, pool[res]!);
+  if (n <= 0) return;
+  pool[res] = pool[res]! - n;
+  target.pool[res] = target.pool[res]! + n;
+  const name = RESOURCES[res]!.name.toLowerCase();
+  state.events.push({ player: from, kind: 'info', text: `Sent ${n} ${name} to Player ${to + 1}.` });
+  state.events.push({ player: to, kind: 'info', text: `Player ${from + 1} sent you ${n} ${name}.` });
 }

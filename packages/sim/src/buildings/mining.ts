@@ -23,7 +23,7 @@ export const Rating = { Poor: 0, Fair: 1, Good: 2, Rich: 3 } as const;
 export const RATING_NAMES = ['Poor', 'Fair', 'Good', 'Rich'] as const;
 /** Output per mille by rating (Table 5): x0.5, x1, x1.5, x2.5. */
 export const RATING_PER_MILLE = [500, 1000, 1500, 2500] as const;
-/** Prospecting takes 20 s with a prospecting hammer and 40 s without (Table 5). */
+/** Prospecting takes 20 s with a prospecting hammer (a copper tool kit or better, Table 2c) and 40 s without (Table 5). */
 export const PROSPECT_STEPS = 40 * STEPS_PER_SECOND;
 export const PROSPECT_HAMMER_STEPS = 20 * STEPS_PER_SECOND;
 /** A rating holds for a patch of 16 by 16 columns, 7.2 m on a side (s). */

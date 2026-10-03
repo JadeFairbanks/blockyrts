@@ -41,8 +41,8 @@ export function makeTestWorld(seed: number): SimState {
 export async function saveFileOf(state: SimState, matchId: string, room: RoomStateMessage | null, accountIds: Map<number, string>, label = ''): Promise<Uint8Array> {
   return writeSaveFile(
     {
-      formatVersion: 1,
-      gameVersion: '0.9.0-m9',
+      formatVersion: 2,
+      gameVersion: '0.11.0-m11',
       matchId,
       seed: state.seed,
       step: state.step,

@@ -1,0 +1,276 @@
+{
+ "description": "M7 check script, seed 1, one player, with night mobs: the debug tools put a Halfling village 40 m north of the Big House (faction 9), a mercenary camp 15 m east (faction 38) and the trade kit in the pool (20 silver, 6 Copper Tokens, 2 Bronze Charms, 5 gold), send an Elf caravan to the main base (faction 85), and put a troop kit (a Barracks, building 43, a level 4 forge, the materials and research of every tier) 20 m west; the Barracks trains a ranger with wrought-iron arrowheads (troop product 4446; id 262) and starting warriors 5 and 6 press Upgrade Weapon Max and Upgrade Armour Max (Troops and gear) while the workers chop pines; two mercenaries are hired for 2 silver each (ids 92, 93; the camp had two); starting warrior 7 walks to the village, whose elder greets him, offers 3 Copper Tokens and takes the first bundle (5 smoked fish); he walks back to the caravan, which has stopped 15 m west of the Big House, offers a Bronze Charm and takes the second bundle, then upgrades his weapon (Max); the workers shelter in the Big House, war is declared on the village and the warriors, the ranger and the mercenaries attack-move into it; at war two of its spearmen ride out on its war oxen with an archer behind each (milestone 8), and when an ox falls its archer gets down; most of the warriors and a mercenary are killed, then the village is defeated, the workers come out, its plunder goes into the pool (7 head of livestock, bread and wrought iron) and its people walk off; the survivors guard the Big House, Everyone Home at dusk, the mercenaries and the caravan leave at dusk; night 0 passes; on day 2 three workers break down the village's abandoned barn (id 12) for 20 softwood lumber. Building 8 is the Big House. Debug peoples (debugPeoples what): 0 to 6 the faction kinds (0 Halfling village, 6 mercenary camp), 7 an Elf caravan to the player now, 9 the trade kit; debug threat 54 the troop kit. Goods are resource numbers (74 Copper Token, 83 Bronze Charm). Products: 4096 + troop x 100 + weapon tier x 10 + armour tier. Moves are world units (8,000 per metre).",
+ "players": 1,
+ "frames": [
+  {
+   "step": 0,
+   "orders": [
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 0,
+     "x": 0,
+     "z": -320000
+    },
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 6,
+     "x": 120000,
+     "z": 40000
+    },
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 9,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugPeoples",
+     "player": 0,
+     "what": 7,
+     "x": 0,
+     "z": 0
+    },
+    {
+     "kind": "debugThreat",
+     "player": 0,
+     "what": 54,
+     "x": -160000,
+     "z": 40000
+    }
+   ]
+  },
+  {
+   "step": 5,
+   "orders": [
+    {
+     "kind": "gather",
+     "player": 0,
+     "units": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "cx": -1,
+     "cz": -1,
+     "index": 2
+    },
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 43,
+     "product": 4446,
+     "count": 1
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "line": 0,
+     "max": 1
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      5,
+      6
+     ],
+     "line": 1,
+     "max": 1
+    }
+   ]
+  },
+  {
+   "step": 20,
+   "orders": [
+    {
+     "kind": "hire",
+     "player": 0,
+     "faction": 38,
+     "count": 3
+    }
+   ]
+  },
+  {
+   "step": 30,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      7
+     ],
+     "x": 0,
+     "z": -224000
+    }
+   ]
+  },
+  {
+   "step": 600,
+   "orders": [
+    {
+     "kind": "tradeOffer",
+     "player": 0,
+     "faction": 9,
+     "goods": [
+      74,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "step": 620,
+   "orders": [
+    {
+     "kind": "tradeTake",
+     "player": 0,
+     "faction": 9,
+     "bundle": 0
+    }
+   ]
+  },
+  {
+   "step": 700,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      7
+     ],
+     "x": -80000,
+     "z": 56000
+    }
+   ]
+  },
+  {
+   "step": 1500,
+   "orders": [
+    {
+     "kind": "tradeOffer",
+     "player": 0,
+     "faction": 85,
+     "goods": [
+      83,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "step": 1520,
+   "orders": [
+    {
+     "kind": "tradeTake",
+     "player": 0,
+     "faction": 85,
+     "bundle": 1
+    },
+    {
+     "kind": "upgradeKit",
+     "player": 0,
+     "units": [
+      7
+     ],
+     "line": 0,
+     "max": 1
+    }
+   ]
+  },
+  {
+   "step": 2720,
+   "orders": [
+    {
+     "kind": "enter",
+     "player": 0,
+     "units": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "building": 8
+    },
+    {
+     "kind": "declareWar",
+     "player": 0,
+     "faction": 9
+    },
+    {
+     "kind": "attackMove",
+     "player": 0,
+     "units": [
+      5,
+      6,
+      7,
+      92,
+      93,
+      262
+     ],
+     "x": 0,
+     "z": -320000
+    }
+   ]
+  },
+  {
+   "step": 3300,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      6,
+      7,
+      262
+     ],
+     "x": 0,
+     "z": 24000
+    }
+   ]
+  },
+  {
+   "step": 3620,
+   "orders": [
+    {
+     "kind": "unload",
+     "player": 0,
+     "building": 8,
+     "unit": 0
+    }
+   ]
+  },
+  {
+   "step": 3650,
+   "orders": [
+    {
+     "kind": "everyoneHome",
+     "player": 0
+    }
+   ]
+  },
+  {
+   "step": 8850,
+   "orders": [
+    {
+     "kind": "attack",
+     "player": 0,
+     "units": [
+      2,
+      3,
+      4
+     ],
+     "target": 12
+    }
+   ]
+  }
+ ]
+}

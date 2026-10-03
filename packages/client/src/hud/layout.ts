@@ -13,6 +13,8 @@ export interface HudLayout {
   minimapEl: HTMLElement;
   messagePanel: HTMLElement;
   messageList: HTMLElement;
+  /** The chat box at the bottom of the message panel. */
+  chat: HTMLInputElement;
   selectionPanel: HTMLElement;
   selectionTitle: HTMLElement;
   selectionCorner: HTMLElement;
@@ -30,7 +32,7 @@ export interface HudLayout {
   clockTime: HTMLElement;
   clockNote: HTMLElement;
   debug: HTMLElement;
-  debugFields: Record<'seed' | 'players' | 'step' | 'rate' | 'hash' | 'hashStep', HTMLElement>;
+  debugFields: Record<'seed' | 'players' | 'step' | 'rate' | 'hash' | 'hashStep' | 'fps' | 'draws' | 'units' | 'memory', HTMLElement>;
 }
 
 function div(className: string, parent?: HTMLElement, text?: string): HTMLElement {
@@ -62,8 +64,9 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const chat = document.createElement('input');
   chat.className = 'chat';
   chat.disabled = true;
-  chat.placeholder = 'Chat with other players comes with multiplayer';
   chat.tabIndex = -1;
+  chat.spellcheck = false;
+  chat.autocomplete = 'off';
   messagePanel.append(chat);
 
   // Selection panel (bottom centre).
@@ -146,6 +149,11 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     rate: field('steps/s'),
     hash: field('hash'),
     hashStep: field('at step'),
+    // How the page runs (Technical decisions 10): frames a second and the frame's own time, draw calls, units, memory.
+    fps: field('fps'),
+    draws: field('draws'),
+    units: field('units'),
+    memory: field('memory'),
   };
 
   panels.register('minimap', minimapPanel);
@@ -165,6 +173,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     minimapEl,
     messagePanel,
     messageList,
+    chat,
     selectionPanel,
     selectionTitle,
     selectionCorner,

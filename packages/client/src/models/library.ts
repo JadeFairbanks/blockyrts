@@ -1,5 +1,10 @@
 // Loads the converter's output (public/models/index.json, <id>.glb, <id>.json)
-// and bakes every clip into per-frame bone matrices, ready for InstancedModel.
+// and bakes clips into per-frame bone matrices, ready for InstancedModel.
+//
+// The library streams: it opens as soon as index.json is in, then loads the
+// models a few at a time, the ones asked for first (the starting bodies, then
+// whatever comes into view), the rest in the background. A clip is baked the
+// first time it is drawn. One model failing to load drops only that model.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ModelIndex, ModelSidecar } from './format.ts';
@@ -17,8 +22,8 @@ export interface BakedClip {
   loop: boolean;
   /** Number of frames, evenly spaced from 0 to length inclusive (at least 2). */
   frames: number;
-  /** frames * bones * BAKED_STRIDE floats: for each frame and bone, bone world * inverse rest world. */
-  data: Float32Array;
+  /** frames * bones * BAKED_STRIDE floats: for each frame and bone, bone world * inverse rest world. Baked on first read. */
+  readonly data: Float32Array;
   /** Key moments in sim steps from the clip start. */
   keys: readonly number[];
 }
@@ -42,11 +47,27 @@ export interface ModelData {
 }
 
 export interface ModelLibrary {
+  /** The models loaded so far. */
   readonly models: ReadonlyMap<string, ModelData>;
-  /** The model with this id; throws if it is not in the library. */
+  /** The model with this id; throws if it is not loaded. */
   get(id: string): ModelData;
+  /** Whether index.json lists this id (it may still be loading, or have failed). */
+  listed(id: string): boolean;
+  /** Moves a listed model that is not loaded yet to the front of the queue. */
+  request(id: string): void;
+  /** Resolves once each of these ids is loaded or has failed; ids not listed are skipped. */
+  ready(ids: readonly string[]): Promise<void>;
+  /** Calls back after each model arrives. */
+  onLoad(cb: (model: ModelData) => void): void;
+  /** Resolves once every listed model is loaded or has failed. */
+  readonly done: Promise<void>;
   dispose(): void;
 }
+
+/** Models fetched at once. */
+const PARALLEL_LOADS = 6;
+/** Background order by category: what a match needs soonest first. */
+const CATEGORY_ORDER = ['peoples', 'buildings', 'items', 'monsters', 'animals', 'projectiles-and-spells', 'mechanical', 'world-props'];
 
 async function fetchOk(url: string): Promise<Response> {
   const res = await fetch(url);
@@ -54,9 +75,13 @@ async function fetchOk(url: string): Promise<Response> {
   return res;
 }
 
+export function bakedFrames(length: number): number {
+  return Math.max(2, Math.ceil(length * BAKE_FPS) + 1);
+}
+
 function bake(gltfClip: THREE.AnimationClip | undefined, sidecar: ModelSidecar, rest: THREE.Object3D[], restInverse: THREE.Matrix4[], length: number): { frames: number; data: Float32Array } {
   const bones = sidecar.bones;
-  const frames = Math.max(2, Math.ceil(length * BAKE_FPS) + 1);
+  const frames = bakedFrames(length);
   const data = new Float32Array(frames * bones.length * BAKED_STRIDE);
   const interpolants = bones.map((b) => {
     const find = (prop: string): THREE.Interpolant | null => {
@@ -154,8 +179,18 @@ async function loadModel(loader: GLTFLoader, baseUrl: string, entry: ModelIndex[
   const clips = new Map<string, BakedClip>();
   for (const c of sidecar.clips) {
     const gltfClip = gltf.animations.find((a) => a.name === c.name);
-    const { frames, data } = bake(gltfClip, sidecar, rest, restInverse, c.length);
-    clips.set(c.name, { name: c.name, length: c.length, loop: c.loop, frames, data, keys: c.keys });
+    let data: Float32Array | null = null;
+    clips.set(c.name, {
+      name: c.name,
+      length: c.length,
+      loop: c.loop,
+      frames: bakedFrames(c.length),
+      get data(): Float32Array {
+        data ??= bake(gltfClip, sidecar, rest, restInverse, c.length).data;
+        return data;
+      },
+      keys: c.keys,
+    });
   }
 
   const { min, max } = sidecar.bounds;
@@ -174,13 +209,63 @@ async function loadModel(loader: GLTFLoader, baseUrl: string, entry: ModelIndex[
   };
 }
 
-/** Fetches index.json and every model it lists from `baseUrl` (default '/models/'). */
-export async function loadModelLibrary(baseUrl = '/models/'): Promise<ModelLibrary> {
+/**
+ * Fetches index.json from `baseUrl` (default '/models/') and starts loading
+ * every model it lists, the `first` ids ahead of the rest. Resolves once the
+ * index is in; models arrive in `models` as they load.
+ */
+export async function openModelLibrary(baseUrl = '/models/', first: readonly string[] = []): Promise<ModelLibrary> {
   const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
   const index = (await (await fetchOk(`${base}index.json`)).json()) as ModelIndex;
   const loader = new GLTFLoader();
-  const list = await Promise.all(index.models.map((entry) => loadModel(loader, base, entry)));
-  const models = new Map(list.map((m) => [m.id, m]));
+  const entries = new Map(index.models.map((e) => [e.id, e]));
+  const rank = (e: ModelIndex['models'][number]): number => {
+    const k = CATEGORY_ORDER.indexOf(e.category);
+    return k < 0 ? CATEGORY_ORDER.length : k;
+  };
+  const firstIds = first.filter((id) => entries.has(id));
+  const firstSet = new Set(firstIds);
+  // The queue is taken from the end: the background in reverse order, then the first ids on top.
+  const queue = [...index.models].filter((e) => !firstSet.has(e.id)).sort((a, b) => rank(b) - rank(a)).map((e) => e.id);
+  for (let k = firstIds.length - 1; k >= 0; k--) queue.push(firstIds[k]!);
+
+  const models = new Map<string, ModelData>();
+  const settled = new Set<string>();
+  const waiters = new Map<string, Array<() => void>>();
+  const listeners: Array<(m: ModelData) => void> = [];
+  let disposed = false;
+  let running = 0;
+  let finish: () => void = () => {};
+  const done = new Promise<void>((resolve) => (finish = resolve));
+
+  const settle = (id: string): void => {
+    settled.add(id);
+    for (const w of waiters.get(id) ?? []) w();
+    waiters.delete(id);
+    if (settled.size === entries.size) finish();
+  };
+  const pump = (): void => {
+    while (!disposed && running < PARALLEL_LOADS && queue.length > 0) {
+      const id = queue.pop()!;
+      if (settled.has(id)) continue;
+      running++;
+      loadModel(loader, base, entries.get(id)!)
+        .then((m) => {
+          if (disposed) return;
+          models.set(m.id, m);
+          for (const cb of listeners) cb(m);
+        })
+        .catch((err: unknown) => console.warn(`model ${id} not loaded; drawing a stand-in`, err))
+        .finally(() => {
+          running--;
+          settle(id);
+          pump();
+        });
+    }
+  };
+  if (entries.size === 0) finish();
+  pump();
+
   return {
     models,
     get(id: string): ModelData {
@@ -188,11 +273,45 @@ export async function loadModelLibrary(baseUrl = '/models/'): Promise<ModelLibra
       if (!m) throw new Error(`no model "${id}" in the library (have ${[...models.keys()].join(', ')})`);
       return m;
     },
+    listed: (id) => entries.has(id),
+    request(id: string): void {
+      if (!entries.has(id) || settled.has(id)) return;
+      // Not in the queue any more means it is loading now.
+      const k = queue.lastIndexOf(id);
+      if (k < 0 || k === queue.length - 1) return;
+      queue.splice(k, 1);
+      queue.push(id);
+    },
+    ready(ids: readonly string[]): Promise<void> {
+      const wait = ids.filter((id) => entries.has(id) && !settled.has(id));
+      return Promise.all(
+        wait.map(
+          (id) =>
+            new Promise<void>((resolve) => {
+              const list = waiters.get(id) ?? [];
+              list.push(resolve);
+              waiters.set(id, list);
+            }),
+        ),
+      ).then(() => undefined);
+    },
+    onLoad(cb): void {
+      listeners.push(cb);
+    },
+    done,
     dispose(): void {
+      disposed = true;
       for (const m of models.values()) {
         m.geometry.dispose();
         m.texture.dispose();
       }
     },
   };
+}
+
+/** Fetches index.json and every model it lists from `baseUrl` (default '/models/'), resolving once all are in. */
+export async function loadModelLibrary(baseUrl = '/models/'): Promise<ModelLibrary> {
+  const lib = await openModelLibrary(baseUrl);
+  await lib.done;
+  return lib;
 }

@@ -7,7 +7,7 @@
 
 import { floorDiv } from '../fixed.ts';
 import { chunkKey, CHUNK_SHIFT } from '../world/chunk.ts';
-import { PERSON, type Mover, type NavGrid } from './grid.ts';
+import { PERSON, TOP, type Mover, type NavGrid } from './grid.ts';
 
 /** Coarse tiles are 4 x 4 columns (1.8 m), 16 x 16 per chunk. */
 export const TILE_COLUMNS = 4;
@@ -27,6 +27,9 @@ export interface Goal {
   z1: number;
   min: number;
   max: number;
+  /** Optional: the standing level must be within [ylo, yhi], terrain units (a tunnel's worker stands in the tunnel, not on the hill above it). */
+  ylo?: number;
+  yhi?: number;
 }
 
 export function pointGoal(x: number, z: number): Goal {
@@ -40,9 +43,12 @@ export function rectDistance(g: Goal, x: number, z: number): number {
   return Math.max(dx, dz);
 }
 
-export function atGoal(g: Goal, x: number, z: number): boolean {
+/** Whether a column, and the standing level on it if the goal bounds one, is in the goal. */
+export function atGoal(g: Goal, x: number, z: number, level?: number): boolean {
   const d = rectDistance(g, x, z);
-  return d >= g.min && d <= g.max;
+  if (d < g.min || d > g.max) return false;
+  if (level === undefined) return true;
+  return (g.ylo === undefined || level >= g.ylo) && (g.yhi === undefined || level <= g.yhi);
 }
 
 /** An admissible estimate of the cost to reach the goal (octile distance at the cheapest step costs). */
@@ -150,6 +156,8 @@ interface Window {
 /** Edge costs between coarse tiles, cached per chunk with the walk-map versions it was built from. */
 interface CoarseChunk {
   versions: number[];
+  /** The walk-map epoch it was last found current at: while the epoch stands, no version can have moved. */
+  epoch: number;
   /** Per tile, 8 costs in DIRS order; 0 = no way through. */
   edges: Uint16Array;
 }
@@ -188,17 +196,20 @@ export class Pathfinder {
   }
 
   /**
-   * A* on columns inside a window (and inside the tile mask, if given).
-   * Returns the raw column path from start to the goal, or to the explored
-   * column nearest the goal when it cannot be reached within the budget.
+   * A* on columns and their walk levels inside a window (and inside the
+   * tile mask, if given), from walk level sl of the start. Returns the raw
+   * column path from start to the goal with the walk level of each column,
+   * or to the explored column nearest the goal when it cannot be reached
+   * within the budget.
    */
-  private fine(m: Mover, sx: number, sz: number, goal: Goal, win: Window, budget: number, tileMask: { x0: number; z0: number; w: number; bits: Uint8Array } | null): { cols: number[]; reached: boolean } {
+  private fine(m: Mover, sx: number, sz: number, sl: number, goal: Goal, win: Window, budget: number, tileMask: { x0: number; z0: number; w: number; bits: Uint8Array } | null): { cols: number[]; layers: number[]; reached: boolean } {
     const W = win.w;
     const H = win.h;
-    this.ensure(W * H);
+    this.ensure(W * H * 2);
     this.reset();
     const grid = this.grid;
-    const idx = (x: number, z: number): number => (z - win.z0) * W + (x - win.x0);
+    // Node index: column index * 2 + walk level.
+    const idx = (x: number, z: number, l: number): number => ((z - win.z0) * W + (x - win.x0)) * 2 + l;
     const inMask = (x: number, z: number): boolean => {
       if (!tileMask) return true;
       const tx = (x >> TILE_SHIFT) - tileMask.x0;
@@ -207,7 +218,7 @@ export class Pathfinder {
       const k = tz * tileMask.w + tx;
       return k < tileMask.bits.length && tileMask.bits[k] === 1;
     };
-    const s = idx(sx, sz);
+    const s = idx(sx, sz, sl);
     this.g[s] = 0;
     this.state[s] = 1;
     this.touched.push(s);
@@ -220,9 +231,11 @@ export class Pathfinder {
       const cur = this.heap.pop();
       if (this.state[cur] === 2) continue;
       this.state[cur] = 2;
-      const cx = (cur % W) + win.x0;
-      const cz = floorDiv(cur, W) + win.z0;
-      if (atGoal(goal, cx, cz)) {
+      const cl = cur & 1;
+      const cc = cur >> 1;
+      const cx = (cc % W) + win.x0;
+      const cz = floorDiv(cc, W) + win.z0;
+      if (atGoal(goal, cx, cz, grid.levelOf(cx, cz, cl))) {
         found = cur;
         break;
       }
@@ -232,17 +245,20 @@ export class Pathfinder {
         const nx = cx + DIRS[d]![0];
         const nz = cz + DIRS[d]![1];
         if (nx < win.x0 || nz < win.z0 || nx >= win.x0 + W || nz >= win.z0 + H) continue;
-        const ni = idx(nx, nz);
-        if (this.state[ni] === 2) continue;
         if (!inMask(nx, nz)) continue;
-        const c = grid.stepCost(cx, cz, nx, nz, m);
+        const nl = grid.layerTo(cx, cz, cl, nx, nz, m);
+        if (nl < 0) continue;
+        const ni = idx(nx, nz, nl);
+        if (this.state[ni] === 2) continue;
+        const c = grid.stepCostFrom(cx, cz, cl, nx, nz, m);
         if (c < 0) continue;
         const ng = gc + c;
         if (this.state[ni] === 1 && ng >= this.g[ni]!) continue;
         if (this.state[ni] === 0) this.touched.push(ni);
         this.state[ni] = 1;
         this.g[ni] = ng;
-        this.from[ni] = d;
+        // The direction in the low 3 bits, the walk level it came from in bit 3.
+        this.from[ni] = d | (cl << 3);
         const h = heuristic(goal, nx, nz);
         if (h < bestH) {
           bestH = h;
@@ -253,16 +269,21 @@ export class Pathfinder {
     }
     const end = found >= 0 ? found : best;
     const cols: number[] = [];
+    const layers: number[] = [];
     let at = end;
     while (at !== s) {
-      const x = (at % W) + win.x0;
-      const z = floorDiv(at, W) + win.z0;
+      const c = at >> 1;
+      const x = (c % W) + win.x0;
+      const z = floorDiv(c, W) + win.z0;
       cols.push(z, x);
-      const d = DIRS[this.from[at]!]!;
-      at = idx(x - d[0], z - d[1]);
+      layers.push(at & 1);
+      const f = this.from[at]!;
+      const d = DIRS[f & 7]!;
+      at = idx(x - d[0], z - d[1], f >> 3);
     }
     cols.reverse();
-    return { cols, reached: found >= 0 };
+    layers.reverse();
+    return { cols, layers, reached: found >= 0 };
   }
 
   // ----- coarse tiles -----
@@ -275,17 +296,21 @@ export class Pathfinder {
       this.coarse.set(m.id, cache);
     }
     const w = this.grid.world;
+    const c = cache.get(key);
+    if (c && c.epoch === w.navEpoch) return c;
     const versions: number[] = [];
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) versions.push(w.navVersion(chunkKey(cx + dx, cz + dz)));
-    const c = cache.get(key);
-    if (c && c.versions.every((v, i) => v === versions[i])) return c;
+    if (c && c.versions.every((v, i) => v === versions[i])) {
+      c.epoch = w.navEpoch;
+      return c;
+    }
     const edges = new Uint16Array(TILES_PER_CHUNK * TILES_PER_CHUNK * 8);
     for (let t = 0; t < TILES_PER_CHUNK * TILES_PER_CHUNK; t++) {
       const tx = (cx << 4) + (t & 15);
       const tz = (cz << 4) + (t >> 4);
       for (let d = 0; d < 8; d++) edges[t * 8 + d] = this.tileEdge(tx, tz, d, m);
     }
-    const out = { versions, edges };
+    const out = { versions, epoch: w.navEpoch, edges };
     cache.set(key, out);
     if (cache.size > 2048) cache.delete(cache.keys().next().value!);
     return out;
@@ -298,10 +323,16 @@ export class Pathfinder {
     let best = -1;
     const bx = tx << TILE_SHIFT;
     const bz = tz << TILE_SHIFT;
+    // Either walk level of the column on this side may cross (a tunnel's floor or the top).
+    const cost = (ax: number, az: number): number => {
+      const top = grid.stepCostFrom(ax, az, TOP, ax + dx, az + dz, m);
+      const under = grid.standable(ax, az, m, 1) ? grid.stepCostFrom(ax, az, 1, ax + dx, az + dz, m) : -1;
+      return top < 0 ? under : under < 0 ? top : Math.min(top, under);
+    };
     if (dx !== 0 && dz !== 0) {
       const ax = dx > 0 ? bx + 3 : bx;
       const az = dz > 0 ? bz + 3 : bz;
-      const c = grid.stepCost(ax, az, ax + dx, az + dz, m);
+      const c = cost(ax, az);
       return c < 0 ? 0 : c * 4;
     }
     for (let k = 0; k < TILE_COLUMNS; k++) {
@@ -314,7 +345,7 @@ export class Pathfinder {
         ax = bx + k;
         az = dz > 0 ? bz + 3 : bz;
       }
-      const c = grid.stepCost(ax, az, ax + dx, az + dz, m);
+      const c = cost(ax, az);
       if (c >= 0 && (best < 0 || c < best)) best = c;
     }
     return best < 0 ? 0 : best * 4;
@@ -444,9 +475,9 @@ export class Pathfinder {
    * the columns directly; long ones, or short ones that fail, find a
    * corridor on the coarse tiles first.
    */
-  find(m: Mover, sx: number, sz: number, goal: Goal): PathResult {
+  find(m: Mover, sx: number, sz: number, goal: Goal, sl = TOP): PathResult {
     this.searches++;
-    if (atGoal(goal, sx, sz)) return { points: [], reached: true };
+    if (atGoal(goal, sx, sz, this.grid.levelOf(sx, sz, sl))) return { points: [], reached: true };
     const far = rectDistance(goal, sx, sz);
     if (far <= SHORT_COLUMNS) {
       const pad = 24;
@@ -458,15 +489,15 @@ export class Pathfinder {
       };
       win.w = Math.max(sx, goal.x1) + pad + goal.max - win.x0 + 1;
       win.h = Math.max(sz, goal.z1) + pad + goal.max - win.z0 + 1;
-      const r = this.fine(m, sx, sz, goal, win, FINE_BUDGET_SHORT, null);
-      if (r.reached) return { points: this.straighten(m, sx, sz, r.cols), reached: true };
+      const r = this.fine(m, sx, sz, sl, goal, win, FINE_BUDGET_SHORT, null);
+      if (r.reached) return { points: this.straighten(m, sx, sz, sl, r.cols, r.layers), reached: true };
     }
     const cp = this.coarsePath(m, sx, sz, goal, COARSE_BUDGET);
-    return this.alongTiles(m, sx, sz, goal, cp.tiles, cp.reached);
+    return this.alongTiles(m, sx, sz, sl, goal, cp.tiles, cp.reached);
   }
 
   /** Fine search inside a corridor of coarse tiles; towards the corridor's end when the goal itself is out of reach. */
-  private alongTiles(m: Mover, sx: number, sz: number, goal: Goal, tiles: readonly number[], reached: boolean): PathResult {
+  private alongTiles(m: Mover, sx: number, sz: number, sl: number, goal: Goal, tiles: readonly number[], reached: boolean): PathResult {
     const { mask, win } = this.corridor(tiles);
     let g = goal;
     if (!reached) {
@@ -475,8 +506,8 @@ export class Pathfinder {
       const tz = tiles[n - 1]!;
       g = { x0: tx << TILE_SHIFT, z0: tz << TILE_SHIFT, x1: (tx << TILE_SHIFT) + 3, z1: (tz << TILE_SHIFT) + 3, min: 0, max: 0 };
     }
-    const r = this.fine(m, sx, sz, g, win, FINE_BUDGET_LONG, mask);
-    return { points: this.straighten(m, sx, sz, r.cols), reached: reached && r.reached };
+    const r = this.fine(m, sx, sz, sl, g, win, FINE_BUDGET_LONG, mask);
+    return { points: this.straighten(m, sx, sz, sl, r.cols, r.layers), reached: reached && r.reached };
   }
 
   /**
@@ -529,11 +560,11 @@ export class Pathfinder {
   }
 
   /** A path for one member of a group: the field gives its corridor, then a fine search inside it. */
-  findWithField(field: FlowField, m: Mover, sx: number, sz: number, goal: Goal): PathResult {
+  findWithField(field: FlowField, m: Mover, sx: number, sz: number, goal: Goal, sl = TOP): PathResult {
     this.searches++;
-    if (atGoal(goal, sx, sz)) return { points: [], reached: true };
+    if (atGoal(goal, sx, sz, this.grid.levelOf(sx, sz, sl))) return { points: [], reached: true };
     const tiles = field.tilesFrom(sx >> TILE_SHIFT, sz >> TILE_SHIFT);
-    if (!tiles) return this.find(m, sx, sz, goal);
+    if (!tiles) return this.find(m, sx, sz, goal, sl);
     // The field leads to the goal's tile; the member's own goal may sit a few tiles off it.
     const gx = (goal.x0 + goal.x1) >> (1 + TILE_SHIFT);
     const gz = (goal.z0 + goal.z1) >> (1 + TILE_SHIFT);
@@ -548,38 +579,45 @@ export class Pathfinder {
       }
     }
     const all = tiles.concat(extra);
-    const r = this.alongTiles(m, sx, sz, goal, all, true);
+    const r = this.alongTiles(m, sx, sz, sl, goal, all, true);
     if (r.reached) return r;
-    return this.find(m, sx, sz, goal);
+    return this.find(m, sx, sz, goal, sl);
   }
 
-  /** Drops waypoints that a straight walk over plain ground can skip. Input and output are x, z pairs. */
-  private straighten(m: Mover, sx: number, sz: number, cols: readonly number[]): number[] {
+  /**
+   * Drops waypoints that a straight walk over plain ground can skip, as long
+   * as the walk ends on the same walk level as the path. Input and output are
+   * x, z pairs.
+   */
+  private straighten(m: Mover, sx: number, sz: number, sl: number, cols: readonly number[], layers: readonly number[]): number[] {
     const n = cols.length >> 1;
     if (n <= 1) return cols.slice();
     const out: number[] = [];
     let px = sx;
     let pz = sz;
+    let pl = sl;
     let i = -1;
     while (i < n - 1) {
       let j = Math.min(n - 1, i + 24);
-      while (j > i + 1 && !this.plainLine(m, px, pz, cols[2 * j]!, cols[2 * j + 1]!)) j--;
+      while (j > i + 1 && this.plainLine(m, px, pz, cols[2 * j]!, cols[2 * j + 1]!, pl) !== layers[j]) j--;
       px = cols[2 * j]!;
       pz = cols[2 * j + 1]!;
+      pl = layers[j]!;
       out.push(px, pz);
       i = j;
     }
     return out;
   }
 
-  /** Whether every step on the straight line between two columns is plain ground (a supercover walk). */
-  plainLine(m: Mover, ax: number, az: number, bx: number, bz: number): boolean {
+  /** The walk level a straight walk over plain ground between two columns ends on, from walk level la (a supercover walk), or -1. */
+  plainLine(m: Mover, ax: number, az: number, bx: number, bz: number, la = TOP): number {
     const dx = Math.abs(bx - ax);
     const dz = Math.abs(bz - az);
     const sx = bx > ax ? 1 : -1;
     const sz = bz > az ? 1 : -1;
     let x = ax;
     let z = az;
+    let l = la;
     let ix = 0;
     let iz = 0;
     while (ix < dx || iz < dz) {
@@ -598,11 +636,12 @@ export class Pathfinder {
         nz += sz;
         iz++;
       }
-      if (!this.grid.plainStep(x, z, nx, nz, m)) return false;
+      l = this.grid.plainStep(x, z, l, nx, nz, m);
+      if (l < 0) return -1;
       x = nx;
       z = nz;
     }
-    return true;
+    return l;
   }
 }
 

@@ -11,21 +11,25 @@ import {
   Period,
   RESOURCES,
   SiteKind,
+  SPELLS,
+  PEOPLE_UNITS,
+  UnitKind,
   WU_PER_METRE,
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
+import { cue } from '../audio/cues.ts';
 import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.ts';
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
 import { Btn, InputManager, type Mods, type MouseTarget } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
-import type { InfoMessage } from '../messages.ts';
+import { UnitFlag, type InfoMessage } from '../messages.ts';
 import { Minimap } from '../minimap/minimap.ts';
 import { SelectionController } from '../selection/controller.ts';
 import { projectCandidates } from '../selection/project.ts';
-import { isOwn, pickAt, type ScreenItem } from '../selection/rules.ts';
+import { isOwn, pickAt, setSharedControl, type ScreenItem } from '../selection/rules.ts';
 import { SelectionSet } from '../selection/selection.ts';
 import {
   buildingIdOf,
@@ -41,14 +45,22 @@ import type { Settings } from '../settings/settings.ts';
 import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
+import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
+import { ChatBox } from './chat.ts';
 import { Commands, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { buildLayout, type HudLayout } from './layout.ts';
+import { SpeechBubbles } from './bubbles.ts';
+import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
+import { PeoplesUi } from './peoples-ui.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { FOOD, SUPPLY } from './resources.ts';
+
+/** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
+const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
 
 /** The Rations button face by setting: everyone, troops only, workers only. */
 const RATIONS_FACES = ['▤', '⚔', '⚒'];
@@ -65,6 +77,8 @@ export interface WorldHooks {
 /** The rest of the world the M2 controls draw on: heights, nodes, the ghost, planned buildings and overlay lines. */
 export interface WorldExtras {
   heightAt(x: number, z: number): number;
+  /** Whether a point (metres) is in sight of the local player now. */
+  seen(x: number, z: number): boolean;
   node(cx: number, cz: number, index: number): Selectable | undefined;
   setGhost(g: Ghost | null): void;
   setPlanned(): void;
@@ -87,8 +101,32 @@ export interface ShellOptions {
   players: number;
   /** The local player's index (0 is player 1). */
   player: number;
-  /** Quit to the start screen (after the player confirmed). */
+  /** Quit to the main menu, or leave an online game (after the player confirmed). */
   onQuit(): void;
+  /** Online play, the players' names and colours, saving and pausing (game/match.ts). */
+  session: ShellSession;
+}
+
+/** What the shell needs from the match around it. */
+export interface ShellSession {
+  online: boolean;
+  /** The room's invite code, online. */
+  code?: string | undefined;
+  /** A player's name and CSS colour, by sim player. */
+  name(p: number): string;
+  colour(p: number): string;
+  /** Sends a chat line to the other players; null when playing alone. */
+  chat: ((text: string) => void) | null;
+  /** Flashes a spot for every player (metres). */
+  ping(x: number, z: number): void;
+  save(): void;
+  download(): void;
+  togglePause(): void;
+  paused(): boolean;
+  /** Why saving is not possible here, or ''. */
+  saveBlocked(): string;
+  /** The menu opened or closed (alone, it pauses the game). */
+  menuOpened(open: boolean): void;
 }
 
 export interface SimInfo {
@@ -98,7 +136,19 @@ export interface SimInfo {
   hashStep: number;
 }
 
-const MAX_MESSAGES = 60;
+/** How the page is running, for the debug readout: averaged over the last second. */
+export interface PerfInfo {
+  fps: number;
+  /** Main-thread time per frame (update and render), ms. */
+  frameMs: number;
+  drawCalls: number;
+  triangles: number;
+  /** Units in the latest state, and how many of them are drawn. */
+  units: number;
+  /** JavaScript heap in use, MB (Chromium only), or -1. */
+  heapMb: number;
+}
+
 const CAMERA_SLOTS = 4;
 /** Urgent messages Space steps back through. */
 const URGENT_KEEP = 8;
@@ -127,6 +177,13 @@ export class GameShell {
   private readonly tooltip: Tooltip;
   private readonly menu: GameMenu;
   private readonly minimap: Minimap;
+  private readonly messages: MessagePanel;
+  private readonly bubbles: SpeechBubbles;
+  readonly peoples: PeoplesUi;
+  readonly allies: AlliesUi;
+  readonly chat: ChatBox;
+  /** Waiting for a spot to ping (the Ping button). */
+  private pinging = false;
   private readonly visuals: SelectionVisuals;
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
@@ -163,7 +220,6 @@ export class GameShell {
   private townCycle = 0;
   private readonly urgent: Array<{ x: number; z: number; text: string }> = [];
   private urgentAt = -1;
-  private messageSeq = 0;
   private lastInfoStep = -1;
   private lastPlannedSig = '';
   private overShown = false;
@@ -184,11 +240,37 @@ export class GameShell {
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
     this.visuals = new SelectionVisuals(opts.scene);
     this.minimap = new Minimap(this.layout.minimapEl, this.world.minimap);
+    this.bubbles = new SpeechBubbles(this.layout.root);
+    this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
+      jumpTo: (x, z) => this.jumpTo(x, z),
+      jumpToUnit: (id) => {
+        const t = this.fresh.get(`e:${id}`);
+        if (!t || !this.game.unit(id)) return false;
+        this.jumpTo(t.centre.x, t.centre.z);
+        return true;
+      },
+      ping: (x, z) => this.minimap.ping(x, z),
+      clock: () => formatClock((performance.now() - this.startedAt) / 1000),
+    });
+    this.peoples = new PeoplesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      jumpTo: (x, z) => this.jumpTo(x, z),
+      message: (t, k) => this.message(t, k),
+    });
     this.selector = new SelectionController(this.cam, this.panels, this.selection, this.player, () => this.items, this.layout.dragBox);
-    this.menu = new GameMenu(parent, this.settings, {
+    const session = opts.session;
+    this.menu = new GameMenu(parent, this.settings, { seed: opts.seed, online: session.online, code: session.code }, {
       resume: () => this.closeMenu(),
       quit: () => opts.onQuit(),
       keysChanged: () => this.rebind(),
+      save: () => {
+        this.closeMenu();
+        session.save();
+      },
+      download: () => session.download(),
+      togglePause: () => session.togglePause(),
+      paused: () => session.paused(),
+      saveBlocked: () => session.saveBlocked(),
     });
     this.commands = new Commands({
       player: this.player,
@@ -207,6 +289,8 @@ export class GameShell {
       changed: () => {
         this.cardDirty = true;
       },
+      confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
+      openPeople: (faction) => this.peoples.open(faction),
     });
     this.input = new InputManager(
       {
@@ -228,6 +312,36 @@ export class GameShell {
       parent,
     );
     this.input.addArea('minimap', this.layout.minimapEl, this.minimapMouse());
+    this.allies = new AlliesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      message: (t) => this.message(t),
+      name: (p) => session.name(p),
+      colour: (p) => session.colour(p),
+      addArea: (id, el, target) => this.input.addArea(id, el, target),
+    });
+    this.chat = new ChatBox(this.layout.chat, session.chat);
+    // Another player's units this player may order: shared with them, or inherited from a player who left.
+    setSharedControl((t, player) => {
+      const info = this.game.info;
+      if (!info || info.players[player]?.out) return false;
+      if (t.kind === 'building') {
+        const id = buildingIdOf(t.key);
+        return id !== null && this.game.buildings.get(id)?.shared === true;
+      }
+      if (t.kind !== 'unit' || t.owner >= info.players.length) return false;
+      if (((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
+      const id = entityIdOf(t.key);
+      const u = id === null ? null : this.game.unit(id);
+      return u !== null && (u.flags & UnitFlag.Shared) !== 0;
+    });
+    const rings = new Map<number, THREE.Color>();
+    this.visuals.sharedColour = (t) => {
+      if (t.owner >= 8 || !isOwn(t, this.player)) return null;
+      let c = rings.get(t.owner);
+      if (!c) rings.set(t.owner, (c = new THREE.Color(session.colour(t.owner))));
+      return c;
+    };
+    this.input.addArea('chat', this.layout.chat, { down: () => this.chat.open(), move: () => undefined, up: () => undefined });
     this.groups = new ControlGroups(this.layout.groupTabs, this.buttons, {
       selection: () => this.selection.list(),
       lookup: (k) => this.fresh.get(k),
@@ -238,6 +352,11 @@ export class GameShell {
     this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionBody, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),
+      mana: (t) => {
+        const u = entityIdOf(t.key);
+        const info = u === null ? null : this.game.unit(u);
+        return info && info.kind === UnitKind.Mage ? [info.mana, info.maxMana] : null;
+      },
       building: (t) => this.buildingOf(t),
       portrait: (t, p) => this.portraitClick(t, p),
       portraitDouble: (t) => this.centreOn([t]),
@@ -248,6 +367,13 @@ export class GameShell {
       cancelQueued: (b, index) => opts.issueOrder({ kind: 'cancelProduce', player: this.player, building: b, index }),
       letOut: (b, unit) => opts.issueOrder({ kind: 'unload', player: this.player, building: b, unit }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
+      game: this.game,
+      trainTroop: (b, troop, count) => this.commands.trainTroop(b, troop, count),
+      lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),
+      troopsChanged: () => {
+        this.selectionDirty = true;
+        this.cardDirty = true;
+      },
     });
     this.buildButtons();
     this.selection.onChange(() => {
@@ -288,39 +414,11 @@ export class GameShell {
 
   // ---- Messages and readouts ----
 
-  /** Adds a message to the message panel. A message with a place can be clicked to jump there. */
+  /** Adds a message to the message panel. A message with a place can be clicked to jump there; an alert is urgent. */
   message(text: string, kind: 'system' | 'alert' = 'system', at?: { x: number; z: number }): void {
-    const list = this.layout.messageList;
-    let row: HTMLElement;
-    if (at) {
-      const id = `msg${this.messageSeq++}`;
-      const b = this.buttons.add({
-        id,
-        face: '',
-        name: 'Go there',
-        keys: [],
-        description: 'Click to jump the camera to where this happened. Space jumps to the latest urgent message.',
-        className: `msg msg-btn ${kind}`,
-        onPress: () => this.jumpTo(at.x, at.z),
-      });
-      row = b.el;
-      row.replaceChildren();
-    } else {
-      row = document.createElement('div');
-      row.className = `msg ${kind}`;
-    }
-    const t = document.createElement('span');
-    t.className = 'msg-time';
-    t.textContent = formatClock((performance.now() - this.startedAt) / 1000);
-    row.append(t, document.createTextNode(text));
-    const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
-    list.append(row);
-    while (list.childElementCount > MAX_MESSAGES) {
-      const first = list.firstElementChild as HTMLElement;
-      if (first.dataset.btn) this.buttons.remove(first.dataset.btn);
-      else first.remove();
-    }
-    if (atBottom) list.scrollTop = list.scrollHeight;
+    // Something the player asked for cannot be done (Order feedback: an error sound and a message).
+    if (kind === 'alert') cue('error');
+    this.messages.add({ text, kind, urgent: kind === 'alert', at });
   }
 
   setSimInfo(info: SimInfo): void {
@@ -336,13 +434,25 @@ export class GameShell {
     this.updateClock(info.step);
   }
 
+  setPerfInfo(p: PerfInfo): void {
+    const f = this.layout.debugFields;
+    setText(f.fps, `${p.fps} (${p.frameMs.toFixed(1)} ms)`);
+    setText(f.draws, `${p.drawCalls} (${Math.round(p.triangles / 1000)}k tris)`);
+    setText(f.units, String(p.units));
+    setText(f.memory, p.heapMb < 0 ? '-' : `${p.heapMb} MB`);
+  }
+
   /** Day N and the time left in the period; Dusk, Night N, Dawn (Day and night: 3 min, 40 s, 3 min, 40 s). */
   private updateClock(step: number): void {
-    const c = clockAt(step);
-    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `Night ${c.cycle}` : `Dawn · Night ${c.cycle}`;
+    const blood = this.game.info?.blood ?? [];
+    const c = clockAt(step, blood);
+    const night = blood.includes(c.cycle) ? 'Blood night' : 'Night';
+    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `${night} ${c.cycle}` : `Dawn · ${night} ${c.cycle}`;
     setText(this.layout.clockDay, name);
     setText(this.layout.clockTime, `${formatClock(c.left / 20)} left`);
     this.layout.clock.dataset.period = String(c.period);
+    this.layout.clock.classList.toggle('blood', blood.includes(c.cycle) && c.period !== Period.Day);
+    this.layout.clock.classList.toggle('fog', this.game.info?.fog === true);
   }
 
   private onInfo(info: InfoMessage): void {
@@ -365,13 +475,14 @@ export class GameShell {
     this.layout.clockNote.classList.toggle('over', o.halves > o.limit * 2);
     // Events into the message panel.
     for (const ev of info.events) this.onEvent(ev);
+    this.peoples.refresh();
+    this.allies.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
     idleBtn?.setFace(idle > 0 ? `⚒${idle}` : '⚒').setLit(idle > 0);
-    const p = clockAt(info.step).period;
+    const p = clockAt(info.step, info.blood).period;
     this.buttons.get('home')?.setLit(p === Period.Dusk);
-    this.buttons.get('autoequip')?.setLit(info.autoEquip);
     this.buttons.get('rations')?.setLit(info.rations !== 0).setFace(RATIONS_FACES[info.rations] ?? '▤');
     FOODS.forEach((f, k) => {
       const off = (info.dontEat & (1 << k)) !== 0;
@@ -426,6 +537,14 @@ export class GameShell {
     this.parent.append(el);
   }
 
+  /** "Player 2" in the sim's messages becomes that player's name. */
+  private named(text: string): string {
+    return text.replace(/\bPlayer ([1-8])\b/g, (m, n: string) => {
+      const p = Number(n) - 1;
+      return p < this.opts.players ? this.opts.session.name(p) : m;
+    });
+  }
+
   private exists(key: string): boolean {
     const u = entityIdOf(key);
     if (u !== null) return this.game.unit(u) !== null;
@@ -436,8 +555,16 @@ export class GameShell {
 
   private onEvent(ev: SimEvent): void {
     const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
+    if (ev.kind === 'speech') {
+      this.onSpeech(ev, at);
+      return;
+    }
     const urgent = ev.kind === 'alert' || ev.kind === 'idle' || (ev.kind === 'period' && ev.text.startsWith('Night is falling'));
-    this.message(ev.text, urgent ? 'alert' : 'system', at);
+    // A unit's own alert ("I cannot reach that.") is speech too: its bubble, and its name in the panel.
+    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now());
+    const kind: MessageKind = urgent ? 'alert' : 'system';
+    this.messages.add({ text: this.named(ev.text), kind, name: ev.name, urgent, at, unit: ev.speaker });
+    if (ev.faction && (ev.urgent || urgent)) this.buttons.get('peoples')?.setLit(true);
     if (urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });
       this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
@@ -452,6 +579,59 @@ export class GameShell {
         this.urgentAt = -1;
       }
     }
+  }
+
+  /**
+   * Speech: a bubble over the speaker, and the panel. Another people's lines
+   * reach the panel when they are said to this player (the trade menu's
+   * answers), or are important and heard: one of the player's units is near
+   * enough, or the speaker is on screen.
+   */
+  private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
+    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+    if (ev.foreign) {
+      const to = ev.player === this.player;
+      const heard = ev.important === true && (((ev.near ?? 0) & (1 << this.player)) !== 0 || (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null));
+      if (!to && !heard) return;
+    }
+    this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker });
+    if (ev.urgent && at) {
+      this.urgent.unshift({ ...at, text: ev.text });
+      this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
+      this.urgentAt = -1;
+    }
+  }
+
+  /** The top of a unit's head on screen, px, or null when it is off screen or out of sight. */
+  private headOnScreen(id: number): { x: number; y: number } | null {
+    const t = this.fresh.get(`e:${id}`);
+    if (!t || !this.extras.seen(t.centre.x, t.centre.z)) return null;
+    const v = this.headTmp.set(t.centre.x, t.centre.y + t.halfSize.y + 0.25, t.centre.z);
+    const p = { x: 0, y: 0 };
+    if (!this.cam.project(v, p)) return null;
+    if (p.x < 0 || p.y < 0 || p.x > this.width || p.y > this.height) return null;
+    return p;
+  }
+
+  private readonly headTmp = new THREE.Vector3();
+
+  /** Units on screen that may make a random remark, with their list of remarks. */
+  private remarkers(): Array<[number, string]> {
+    const out: Array<[number, string]> = [];
+    for (const s of this.items) {
+      const t = s.item;
+      if (t.kind !== 'unit') continue;
+      const id = entityIdOf(t.key);
+      if (id === null) continue;
+      if (t.typeKey.startsWith('people:')) {
+        const spec = PEOPLE_UNITS[Number(t.typeKey.slice(7))];
+        if (spec) out.push([id, REMARK_KEYS[spec.people]!]);
+      } else if (t.owner === this.player) {
+        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey === 'warrior' ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
+        if (key) out.push([id, key]);
+      }
+    }
+    return out;
   }
 
   // ---- Buttons ----
@@ -499,19 +679,6 @@ export class GameShell {
       badge: 'Shift',
       description: 'While lit, every order is added to the queue as if Shift were held. Click again to turn it off; it also turns off when the selection changes.',
       onPress: () => this.setQueueMode(!this.queueMode),
-    });
-    util({
-      id: 'autoequip',
-      face: '⚙',
-      name: 'Auto-Equip',
-      keys: k('autoEquip'),
-      description: 'While lit, new equipment from the Big House is handed out by itself with the Equip Best rules: by day, to idle units within about a 15 second run of a main base. Hand-picked items are left alone.',
-      onPress: () => {
-        const on = !(this.game.info?.autoEquip ?? false);
-        this.opts.issueOrder({ kind: 'autoEquip', player: this.player, on: on ? 1 : 0 });
-        this.buttons.get('autoequip')?.setLit(on);
-        this.message(on ? 'Auto-Equip is on.' : 'Auto-Equip is off.');
-      },
     });
     util({
       id: 'rations',
@@ -566,8 +733,46 @@ export class GameShell {
       L.topRightButtons.append(b.el);
       return b;
     };
-    top({ id: 'allies', face: 'Allies', name: 'Allies', keys: [], description: 'Diplomacy and shared control with the other players. No hotkey yet.' }, 'Comes with multiplayer (milestone 9).');
-    top({ id: 'send', face: 'Send', name: 'Send resources', keys: [], description: 'Give resources to another player. No hotkey yet.' }, 'Comes with multiplayer (milestone 9).');
+    top({
+      id: 'peoples',
+      face: 'Peoples',
+      name: 'Peoples',
+      keys: k('peoples'),
+      description: 'The neutral peoples you have met: trade, hire, war, surrender and reparations. Lights up when one of them needs an answer.',
+      onPress: () => {
+        this.peoples.togglePanel();
+        this.buttons.get('peoples')?.setLit(false);
+      },
+    });
+    const alone = this.opts.players < 2 ? 'You are playing alone.' : undefined;
+    top(
+      {
+        id: 'allies',
+        face: 'Allies',
+        name: 'Allies',
+        keys: k('allies'),
+        description: 'The other players, with a Share control box for each: ticked, that player may order your units.',
+        onPress: () => this.allies.toggleAllies(),
+      },
+      alone,
+    );
+    top({ id: 'send', face: 'Send', name: 'Send resources', keys: k('send'), description: 'Give resources to another player: they arrive at once, all of them.', onPress: () => this.allies.toggleSend() }, alone);
+    top({
+      id: 'ping',
+      face: 'Ping',
+      name: 'Ping',
+      keys: k('ping'),
+      description: 'Then left click a spot in the view or on the minimap: it flashes for every player, to point out a threat or a target. Right click or Esc cancels.',
+      onPress: () => this.startPing(),
+    });
+    top({
+      id: 'pause',
+      face: '❚❚',
+      name: 'Pause',
+      keys: k('pause'),
+      description: this.opts.session.online ? 'Pause the game for every player; again to carry on.' : 'Pause the game; again to carry on.',
+      onPress: () => this.opts.session.togglePause(),
+    });
     const more = this.buttons.add({
       id: 'resources',
       face: '▾',
@@ -629,9 +834,13 @@ export class GameShell {
       ['townhall', 'townhall'],
       ['follow', 'follow'],
       ['home', 'home'],
-      ['autoequip', 'autoEquip'],
       ['rations', 'rations'],
       ['clear', 'clear'],
+      ['peoples', 'peoples'],
+      ['allies', 'allies'],
+      ['send', 'send'],
+      ['ping', 'ping'],
+      ['pause', 'pause'],
     ] as const) {
       const b = this.buttons.get(id);
       if (b) b.redefine({ ...b.def, keys: [keyFor(this.settings.keys, action)] });
@@ -723,8 +932,8 @@ export class GameShell {
 
   private selectArmy(): void {
     const army: Selectable[] = [];
-    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && t.typeKey === 'warrior') army.push(t);
-    if (army.length === 0) this.message('You have no warriors yet.');
+    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && (t.typeKey === 'warrior' || t.typeKey.startsWith('mage:'))) army.push(t);
+    if (army.length === 0) this.message('You have no warriors or mages yet.');
     else this.selection.set(army);
   }
 
@@ -815,6 +1024,7 @@ export class GameShell {
     this.commands.reset();
     this.menu.show(true);
     this.input.setMode('menu');
+    this.opts.session.menuOpened(true);
   }
 
   private closeMenu(): void {
@@ -822,6 +1032,51 @@ export class GameShell {
     this.menu.show(false);
     this.input.setMode('game');
     this.input.requestLock();
+    this.opts.session.menuOpened(false);
+  }
+
+  /** Opens the in-game menu (the host's choice and the save prompts use the real cursor too). */
+  showMenu(): void {
+    this.openMenu();
+  }
+
+  /** Hands the real cursor to a page dialog (an account form over the game), or takes it back. */
+  releaseInput(on: boolean): void {
+    if (on) {
+      this.selector.cancel();
+      this.input.setMode('menu');
+    } else if (!this.menu.isOpen) {
+      this.input.setMode('game');
+      this.input.requestLock();
+    }
+  }
+
+  // ---- Players ----
+
+  /** Another player's chat line (only the panel, never a bubble). */
+  chatLine(name: string, text: string): void {
+    this.messages.addPlayer(name, text);
+  }
+
+  /** A player pinged a spot (metres): it flashes on the minimap and in the view, and the panel says who. */
+  pinged(name: string, x: number, z: number): void {
+    cue('ping');
+    this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z } });
+    this.visuals.orderMarker(new THREE.Vector3(x, this.extras.heightAt(x, z), z), 'target');
+    this.urgent.unshift({ x, z, text: `${name} pinged the map.` });
+    this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
+    this.urgentAt = -1;
+  }
+
+  private startPing(): void {
+    this.pinging = !this.pinging;
+    this.buttons.get('ping')?.setLit(this.pinging);
+    if (this.pinging) this.message('Ping: left click a spot in the view or on the minimap. Right click or Esc cancels.');
+  }
+
+  private endPing(): void {
+    this.pinging = false;
+    this.buttons.get('ping')?.setLit(false);
   }
 
   // ---- Keyboard ----
@@ -835,7 +1090,10 @@ export class GameShell {
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
       if (this.selector.dragging) this.selector.cancel();
+      else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
+      else if (this.allies.closeTop()) return;
+      else if (this.peoples.closeTop()) return;
       else if (this.resourcesOpen) this.toggleResources();
       else this.selection.clear();
       return;
@@ -845,6 +1103,10 @@ export class GameShell {
       return;
     }
     if (ev.repeat) return;
+    if (id === 'Enter') {
+      this.chat.open();
+      return;
+    }
     // Ctrl, Cmd and Alt combinations belong to the browser (no game control uses them).
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (this.groups.key(id, this.input.held('Backquote'), ev.shiftKey)) return;
@@ -868,6 +1130,13 @@ export class GameShell {
   private gameMouse(): MouseTarget {
     return {
       down: (button, p) => {
+        if (this.pinging) {
+          this.leftConsumed = button === Btn.Left;
+          const at = this.cam.pick(p);
+          if (button === Btn.Left && at) this.opts.session.ping(at.x, at.z);
+          this.endPing();
+          return;
+        }
         if (button === Btn.Left) {
           if (this.commands.area) {
             this.leftConsumed = true;
@@ -931,6 +1200,11 @@ export class GameShell {
     return {
       down: (button, p) => {
         const at = groundAt(p);
+        if (this.pinging) {
+          if (button === Btn.Left) this.opts.session.ping(at.x, at.z);
+          this.endPing();
+          return;
+        }
         if (button === Btn.Left) {
           if (this.commands.targeting) {
             this.commands.confirmTarget(null, at);
@@ -1027,6 +1301,7 @@ export class GameShell {
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id) }, () => this.remarkers());
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1037,7 +1312,7 @@ export class GameShell {
     // Cursor shape.
     const overMinimap = playing && this.input.inWindow && this.overMinimapCanvas(pos);
     const t = this.commands.targeting;
-    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' ? TARGET_RED : TARGET_GREEN });
+    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
     else if (this.commands.area && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_YELLOW });
     else if (this.edgeDir) this.input.cursor.setShape({ kind: 'pan', dx: this.edgeDir.dx, dy: this.edgeDir.dy });
     else this.input.cursor.setShape({ kind: 'arrow' });
