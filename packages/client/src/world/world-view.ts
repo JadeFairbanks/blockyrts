@@ -34,6 +34,7 @@ import {
   WU_PER_METRE,
   type ChunkDelta,
   isGame,
+  itemsText,
   speciesSpec,
   WILD,
   mageTitle,
@@ -60,6 +61,7 @@ import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { UnitsView } from './units-view.ts';
+import { LootView } from './loot-view.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
 
@@ -215,6 +217,7 @@ export class WorldView {
   private readonly units: Selectable[] = [];
   private models: ModelLibrary | null = null;
   private readonly unitsView: UnitsView;
+  private readonly lootView: LootView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -278,6 +281,7 @@ export class WorldView {
     this.unitsView = new UnitsView(scene);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
     this.overlay = new Overlay(scene);
+    this.lootView = new LootView(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -341,6 +345,7 @@ export class WorldView {
         const details = [health, tools.length ? `${capital(tools.map((t) => gearName(t).toLowerCase()).join(', '))} (tool tier ${d[o + S.wTier]}).` : 'No tools.'];
         const carry = d[o + S.carryRes]!;
         if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) details.push(`Carrying ${d[o + S.carryAmt]} ${RESOURCES[carry]?.name.toLowerCase() ?? ''}.`);
+        this.lootLine(details, id);
         const up = upgradeText(d, o, 'worker');
         if (up) details.push(up);
         if (owner === this.player) {
@@ -356,6 +361,7 @@ export class WorldView {
         const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
         const gear = [gearName(d[o + S.ranged]!), weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
         const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}.`];
+        this.lootLine(details, id);
         const up = upgradeText(d, o, 'warrior');
         if (up) details.push(up);
         if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
@@ -377,6 +383,7 @@ export class WorldView {
         u.typeKey = school === School.Battle ? 'mage:battle' : 'mage:support';
         const worn = [gearName(d[o + S.weapon]!), gearName(d[o + S.armour]!)].filter((x) => x);
         const details = [health, `Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`, worn.length ? `${worn.join(', ')}.` : 'No wand.'];
+        this.lootLine(details, id);
         const up = upgradeText(d, o, 'mage');
         if (up) details.push(up);
         const on = spellsOnText(d[o + S.spells]!);
@@ -421,13 +428,19 @@ export class WorldView {
         const details = [health];
         if (!wild && d[o + S.partner]) details.push('Working with a worker.');
         if (wild && spec.tameAt.length > 0) details.push('Can be tamed by a worker (Tame).');
-        else if (wild && isGame(spec.id)) details.push('Game: warriors hunt it with N.');
+        else if (wild && isGame(spec.id)) details.push('Game: right-click it with warriors to hunt it, or send them out with Hunt (N).');
         u.details = details;
       }
       const group = d[o + S.group]!;
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
+  }
+
+  /** The loot one of the local player's units carries, for its panel. */
+  private lootLine(details: string[], id: number): void {
+    const bag = this.game?.info?.bags.find(([u]) => u === id)?.[1];
+    if (bag && bag.length > 0) details.push(`Loot: ${itemsText(bag)}.`);
   }
 
   /** One of the neutral peoples' units or buildings, one they left standing, or a hired mercenary: its name, faction and what to do with it. */
@@ -478,6 +491,7 @@ export class WorldView {
     this.game = game;
     // Lairs and villages found, a village going to war or a lair cleared repaint the minimap.
     game.onInfoUpdate((info) => {
+      this.lootView.sync(info.loot);
       const sig = `${info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';')}|${info.peoples.map((f) => `${f.id},${f.x >> 12},${f.z >> 12},${f.war ? 1 : 0},${f.status}`).join(';')}`;
       if (sig !== this.marksSig) {
         this.marksSig = sig;
@@ -581,6 +595,7 @@ export class WorldView {
       }
     }
     this.updateUnits(now);
+    this.lootView.update(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
     const fcx = Math.floor(focus.x / CHUNK_M);
@@ -973,6 +988,7 @@ export class WorldView {
   private *candidates(): Iterable<Selectable> {
     for (const u of this.units) if (!this.insideKeys.has(u.key)) yield u;
     yield* this.buildings.selectables();
+    yield* this.lootView.selectables();
     for (const c of this.chunks.values()) if (c.lod === 1) yield* c.props;
   }
 

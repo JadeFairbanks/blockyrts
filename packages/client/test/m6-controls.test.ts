@@ -65,6 +65,7 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
     mageRanks: o.mageRanks ?? [[5, ''], [6, ''], [7, 'Training to Mage needs 300 experience from combat.']],
     peoples: [],
     players: [{ share: 0, out: false }],
+    loot: [], bags: [],
   };
   g.onInfo(info);
   return g;

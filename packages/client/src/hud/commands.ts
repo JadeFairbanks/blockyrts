@@ -77,7 +77,7 @@ import type { GameInfo } from '../game/game-info.ts';
 import { GRID_CODES, keyFor, spellAction } from '../input/bindings.ts';
 import type { BuildingInfo, PeopleInfo } from '../messages.ts';
 import { isOwn } from '../selection/rules.ts';
-import { buildingIdOf, entityIdOf, type Selectable } from '../selection/types.ts';
+import { buildingIdOf, entityIdOf, lootIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
 import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
@@ -108,9 +108,9 @@ export interface CardEntry {
 export type Card = Array<CardEntry | null>;
 
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
-const ALLIED_ACTIONS = new Set(['attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'returnCargo', 'cancel']);
+const ALLIED_ACTIONS = new Set(['attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'gather' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'hunt' | 'cast' | 'hitch';
+type TargetCommand = 'move' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch';
 
 /** Pages of the command card: the main card, the build menus and a building's K menu (smelting, cooking, research and the rest). */
 export type CardPage = 'main' | 'basic' | 'advanced' | 'make';
@@ -473,12 +473,17 @@ export class Commands {
       const workers = this.workerIds();
       const carrying = workers.some((id) => {
         const u = this.d.game.unit(id);
-        return u !== null && u.carryAmt > 0;
+        return (u !== null && u.carryAmt > 0) || this.bagOf(id).length > 0;
       });
-      card[5] = this.entry('gather', 'Gather', 'Then left click a tree, rock or bush. Gatherers carry 25 lb loads to the nearest drop-off and come back until it runs out, then try the nearest node of the same kind. Press twice (or double click) and each one gathers the nearest node it can within 15 m, more of what it carries first.', () => this.target('gather', 'gather'), { lit: t === 'gather', double: () => this.pickOwn(PickOwn.Gather, 'Each one gathers the nearest node it can.') });
+      card[5] = this.entry(
+        'gather',
+        'Gather',
+        'The workers fetch the basic materials the camp can use by themselves: wood, sticks, stone and flint, clay, sand and coal as the main base grows, and ore once there is a forge for it, most of what the stock is shortest of, the nearest first. They look only where your side has explored, then farther out round its edge (never more than 25 m into the unknown), and never so far that they could not get home by nightfall; at dusk they come back to the nearest main base, and go out again in the day. To gather one tree, rock or bush, right-click it.',
+        () => this.forage(),
+      );
       card[6] = carrying
-        ? this.entry('returnCargo', 'Return', 'Take what they carry to the nearest drop-off, then go back to the node.', () => this.unitOrder({ kind: 'returnCargo' }), { name: 'Return Cargo' })
-        : this.off('returnCargo', 'Return', 'Take what they carry to the nearest drop-off, then go back to the node.', 'They are not carrying anything.', 'Return Cargo');
+        ? this.entry('returnCargo', 'Return', 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node.', () => this.unitOrder({ kind: 'returnCargo' }), { name: 'Return Cargo' })
+        : this.off('returnCargo', 'Return', 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node.', 'They are not carrying anything.', 'Return Cargo');
       card[7] = this.entry(
         'repair',
         'Repair',
@@ -516,9 +521,8 @@ export class Commands {
       card[9] = this.entry(
         'hunt',
         'Hunt',
-        'Then left click an animal: the warriors chase it down, and workers in the selection follow and carry the meat home. Press twice (or double click) and they keep hunting the nearest game within 40 m, bringing the meat home each time. Bears and creatures that guard their ground are left alone unless clicked. A hunt ends at dusk.',
-        () => this.target('hunt', 'hunt'),
-        { lit: t === 'hunt', double: () => this.huntAuto() },
+        'The warriors go out after game, hares, deer, boar and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Bears and creatures that guard their ground are left alone. To hunt one animal, right-click it.',
+        () => this.huntAuto(),
       );
       card[10] = this.eatEntry();
       // The Max twins show only when they would go further than the plain buttons.
@@ -652,14 +656,27 @@ export class Commands {
     this.d.changed();
   }
 
-  /** N pressed twice: hunt the nearest game, over and over, until dusk. */
+  /** N Hunt: out after game, over and over, home at dusk and out again in the day. */
   private huntAuto(): void {
     const units = this.unitIds();
     if (units.length === 0) return;
     this.targeting = null;
     this.d.send({ kind: 'hunt', player: this.d.player, units, target: 0, auto: 1, queued: this.d.queued() });
-    this.d.message('Hunting: the warriors take the nearest game within 40 m until dusk.');
     this.d.changed();
+  }
+
+  /** G Gather: the workers fetch what the camp needs by themselves. */
+  private forage(): void {
+    const units = this.workerIds();
+    if (units.length === 0) return;
+    this.targeting = null;
+    this.d.send({ kind: 'forage', player: this.d.player, units, queued: this.d.queued() });
+    this.d.changed();
+  }
+
+  /** What a unit of the local player's carries as loot: (resource, count) pairs. */
+  private bagOf(id: number): Array<[number, number]> {
+    return this.d.game.info?.bags.find(([u]) => u === id)?.[1] ?? [];
   }
 
   private lockEntry(): CardEntry {
@@ -1176,10 +1193,6 @@ export class Commands {
       case 'move':
         ok = item && item.kind === 'unit' ? this.follow(item) : ground ? this.moveTo(ground) : false;
         break;
-      case 'gather':
-        ok = item?.kind === 'node' ? this.gather(item) : false;
-        if (!ok) this.d.message('Pick a tree, rock or bush to gather from.', 'alert');
-        break;
       case 'repair':
         ok = this.ownBuilding(item) ? this.work(item!) : item && this.ownEngine(item) ? this.mend(item) : false;
         if (!ok) this.d.message('Pick one of your buildings, siege engines or cannons to build or repair.', 'alert');
@@ -1208,10 +1221,6 @@ export class Commands {
         break;
       case 'prospect':
         ok = ground ? this.prospect(ground) : false;
-        break;
-      case 'hunt':
-        ok = item && this.wildAnimal(item) ? this.hunt(item) : false;
-        if (!ok) this.d.message('Pick a wild animal to hunt.', 'alert');
         break;
       case 'cast':
         ok = this.cast(t.spell ?? 0, item, ground);
@@ -1467,6 +1476,13 @@ export class Commands {
     const workers = this.workerIds();
     const queued = this.d.queued();
     const player = this.d.player;
+    // Loot on the ground: the nearest of them with room walk over and pick it up.
+    const loot = item ? lootIdOf(item.key) : null;
+    if (loot !== null) {
+      this.d.send({ kind: 'pickUp', player, units, target: loot, queued });
+      this.d.marker(item!.centre, 'target');
+      return;
+    }
     if (item?.kind === 'node' && workers.length > 0 && item.resource) {
       this.gather(item);
       const others = units.filter((id) => !workers.includes(id));
