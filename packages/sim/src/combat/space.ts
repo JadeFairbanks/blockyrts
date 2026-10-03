@@ -26,13 +26,20 @@ export class UnitGrid {
   private readonly others = new Map<number, number[]>();
   /** The same cells holding only goblin chiefs (whoever's), whose shout every goblin near one listens for each step. */
   private readonly chiefs = new Map<number, number[]>();
+  /** Units up on a building's top (units/top.ts), which only a swooping flyer goes for; every other unit inside a building is in no cell. */
+  private readonly tops = new Map<number, number[]>();
 
-  rebuild(e: EntityStore): void {
+  rebuild(e: EntityStore, onTop: (i: number) => boolean = () => false): void {
     this.cells.clear();
     this.others.clear();
     this.chiefs.clear();
+    this.tops.clear();
     for (let i = 0; i < e.count; i++) {
-      if (e.inside[i] !== 0 || e.hp[i]! <= 0) continue;
+      if (e.hp[i]! <= 0) continue;
+      if (e.inside[i] !== 0) {
+        if (onTop(i)) push(this.tops, key(floorDiv(e.x[i]!, CELL_WU), floorDiv(e.z[i]!, CELL_WU)), i);
+        continue;
+      }
       this.insert(e, i);
     }
   }
@@ -53,6 +60,11 @@ export class UnitGrid {
   /** As near(), only goblin chiefs. */
   nearChiefs(x: number, z: number, r: number, out: number[] = []): number[] {
     return gather(this.chiefs, x, z, r, out);
+  }
+
+  /** As near(), only the units up on a building's top. */
+  nearTops(x: number, z: number, r: number, out: number[] = []): number[] {
+    return gather(this.tops, x, z, r, out);
   }
 
   /** As near(), only the units the monsters do not own: the players', the peoples', animals. */

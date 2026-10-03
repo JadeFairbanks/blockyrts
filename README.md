@@ -39,6 +39,7 @@ pnpm install
 | `pnpm --filter @blockyrts/tools balance:apply <file>` | Applies a balance editor export to the sim's data files (`--dry-run`, `--force`) |
 | `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
 | `pnpm --filter @blockyrts/tools models:build` | Converts the Blockbench models to glb for the client (`pnpm dev` and the client build run it first) |
+| `pnpm --filter @blockyrts/tools footprints` | Measures each building level's walkable columns and the posts men stand on from its models, against the sim's footprint table |
 | `pnpm --filter @blockyrts/client art` | Renders the main menu's battle and the lobby's map from the game's models and world into `packages/client/src/ui/art/` (`battle` or `map` for one; needs `models:build` first) |
 | `pnpm assets:manifest` | Lists packages/assets/src/MANIFEST.md and checks it against the model files |
 
@@ -1217,6 +1218,52 @@ Client only: the sim, the server and every hash are unchanged.
    in the catalogue for every good, scrolling, counts, the wheel, the change
    over a minute). `node packages/client/test-e2e/hud-check.mjs` checks the
    grid in a browser.
+
+## How a tester checks footprints and manning
+
+Jade's patch notes 1, buildings and defences: a finished building shows no
+scaffold, a unit in front of or behind a building is clicked before it,
+placing shows only the tiles a building takes, everything is walked round as
+it is drawn, and anyone on foot can man a tower or a main base's top. Run
+`pnpm dev` and open http://localhost:5173/?seed=1.
+
+1. **No scaffold when finished.** The Big House at the start, and anything you
+   build once it is done, shows no poles or planks; a building going up or
+   being upgraded still does.
+2. **Units before buildings.** Walk a worker behind the Big House (north of
+   it, where the roof hides its feet) and click it: the worker is selected,
+   not the house.
+3. **Placing.** Select workers, B, and pick a single wall: only its one tile
+   shows, green or red, the size of the white box a finished wall shows on
+   hover. No yellow outline of the land it would claim.
+4. **Walking as drawn.** Workers walk through the Big House's open yard (east
+   and south of the house and its sheds) and over low fences, troughs and
+   woodpiles; they go round walls, stalls, posts and towers. In the debug
+   panel press **Citadel**: its ring walls and shut gate now block, and anyone
+   standing where a wall went up steps to the nearest free column. Every
+   building and level is in `packages/sim/src/buildings/footprints.ts`, and
+   `pnpm --filter @blockyrts/tools footprints` measures them again from the
+   models and says if any differs.
+5. **Manning.** Build a tower. Select the three starting warriors (close
+   melee, cudgels) and a worker, press E and click the tower, or right click
+   it: all four climb up and stand on its corners, drawn there. The tower's
+   panel says "Up top: 4 of 4" with a portrait per man that brings him down;
+   a fifth is told the tower is full. On a main base from level 3 (8 places),
+   E takes workers up while there is room and shelters the rest inside; E
+   twice and Everyone Home shelter workers inside.
+6. **Up top at night.** Zombies, rats and spiders at the foot of the tower
+   leave the men up top alone, and those men cannot reach them; a cave bat
+   (or a gravewing, rift hornet or rift griffin) swoops down at them and they
+   strike back. While monsters are near, a man up top with no bow or gun says
+   "I'm not much help up here!", and a warrior now and then "Let me get down
+   there to fight those zombies!", as a bubble.
+7. `pnpm test` runs `packages/sim/test/footprints.test.ts` (the Citadel shut
+   and the Big House yard open, stepping aside, a kitchen growing round its
+   spot and the room given back on a cancel, a tower manned by close
+   warriors and workers, workers on a level 3 main base, a zombie that cannot
+   get at them, a bat that can, the remark, a save and load with men up top)
+   and `packages/tools/test/footprints.test.ts` (every modelled level against
+   its models, every post on its model's top).
 
 ## How a tester checks food (patch 1)
 

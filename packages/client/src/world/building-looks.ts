@@ -114,6 +114,17 @@ class Parts {
   }
 
   /** A pyramid roof (towers). */
+  /** A square beam 0.1 m thick from one point to another (a diagonal brace). */
+  brace(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, colour: number): this {
+    const from = new THREE.Vector3(x0, y0, z0);
+    const to = new THREE.Vector3(x1, y1, z1);
+    const g = new THREE.BoxGeometry(0.1, from.distanceTo(to), 0.1);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize()));
+    g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    this.add(g, colour);
+    return this;
+  }
+
   cone(cx: number, y: number, cz: number, r: number, h: number, colour: number, seg = 4): this {
     this.add(new THREE.ConeGeometry(r, h, seg).rotateY(Math.PI / 4).translate(cx, y + h / 2, cz), colour);
     return this;
@@ -242,7 +253,7 @@ function farm(p: Parts, kind: number, level: number, variant: number, fallow: bo
   const spec = buildingSpec(kind);
   const w = spec.w * COLUMN_M;
   const d = spec.d * COLUMN_M;
-  const [, , hw, hd] = spec.solid;
+  const [, , hw, hd] = footprintDims(kind, variant, level).solid;
   const houseW = hw * COLUMN_M;
   const houseD = hd * COLUMN_M;
   // The field: soil with furrows, crops in rows unless it lies bare (nothing grows there).
@@ -274,7 +285,7 @@ function farm(p: Parts, kind: number, level: number, variant: number, fallow: bo
 export function makeLook(kind: number, level: number, variant: number, team: number, fallow: boolean): Look {
   const p = new Parts();
   const spec = buildingSpec(kind);
-  const dims = footprintDims(kind, variant);
+  const dims = footprintDims(kind, variant, level);
   const w = dims.w * COLUMN_M;
   const d = dims.d * COLUMN_M;
   const tall = spec.heightCm / 100;
@@ -318,6 +329,16 @@ export function makeLook(kind: number, level: number, variant: number, team: num
       else {
         for (const [x, z] of [[0, 0], [w - leg, 0], [0, d - leg], [w - leg, d - leg]] as const) p.box(x, 0, z, leg, deck, leg, timber);
         p.box(0, deck * 0.45, 0, w, 0.12, 0.12, C.darkWood).box(0, deck * 0.45, d - 0.12, w, 0.12, 0.12, C.darkWood);
+        p.box(0, deck * 0.45, 0, 0.12, 0.12, d, C.darkWood).box(w - 0.12, deck * 0.45, 0, 0.12, 0.12, d, C.darkWood);
+        // Cross braces close every side up to the deck: the tower is solid to walkers (footprints.ts).
+        for (let k = 0; k < 2; k++) {
+          const y0 = k === 0 ? 0.15 : deck * 0.45 + 0.1;
+          const y1 = k === 0 ? deck * 0.45 : deck - 0.05;
+          p.brace(0.04, y0, 0.04, w - 0.04, y1, 0.04, C.darkWood).brace(w - 0.04, y0, 0.04, 0.04, y1, 0.04, C.darkWood);
+          p.brace(0.04, y0, d - 0.04, w - 0.04, y1, d - 0.04, C.darkWood).brace(w - 0.04, y0, d - 0.04, 0.04, y1, d - 0.04, C.darkWood);
+          p.brace(0.04, y0, 0.04, 0.04, y1, d - 0.04, C.darkWood).brace(0.04, y0, d - 0.04, 0.04, y1, 0.04, C.darkWood);
+          p.brace(w - 0.04, y0, 0.04, w - 0.04, y1, d - 0.04, C.darkWood).brace(w - 0.04, y0, d - 0.04, w - 0.04, y1, 0.04, C.darkWood);
+        }
       }
       p.box(-0.1, deck, -0.1, w + 0.2, 0.2, d + 0.2, C.plank);
       const wallC = kind === BuildingKind.TowerStone ? C.darkStone : timber;

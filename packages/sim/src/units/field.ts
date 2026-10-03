@@ -206,9 +206,12 @@ function huntHome(state: SimState, i: number, o: Extract<UnitOrder, { t: 'hunt' 
   const b = homeBaseNear(state, e.owner[i]!, e.x[i]!, e.z[i]!);
   if (!b) return CONTINUE;
   const g = besideBuilding(b);
-  if (walkTo(state, i, { ...g, max: Math.max(g.max, floorDiv(HOME_SLACK_M * M, WU_PER_COLUMN)) }) !== MOVING) resetWalk(state, i);
+  if (walkTo(state, i, { ...g, max: Math.max(g.max, HOME_COLUMNS) }) !== MOVING) resetWalk(state, i);
   return CONTINUE;
 }
+
+/** How many columns out from a main base's walls a hunter home for the night stops: within HOME_SLACK_M even off a corner (the goal is square, the slack round). */
+const HOME_COLUMNS = floorDiv(HOME_SLACK_M * M * 1000, 1415 * WU_PER_COLUMN);
 
 /**
  * N Hunt (Jade's play-test notes): a hunter goes out after game within its

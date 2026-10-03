@@ -1,12 +1,16 @@
 // Buildings in the simulation: one record per building, kept in id order,
 // plus the columns their footprints and solid parts cover (derived, rebuilt
 // on load). A building is a real object from the moment it is started
-// (Building placement); its footprint never changes as it levels up.
+// (Building placement). Its anchor never moves; which columns are solid can
+// change as it levels up, and a kitchen's footprint grows round the anchor
+// (footprints.ts): an upgrade takes the new level's footprint from the
+// moment it is paid for, and gives it back if cancelled.
 
 import type { ByteReader, ByteWriter } from '../bytes.ts';
 import { COLUMNS_PER_CHUNK, floorDiv } from '../fixed.ts';
 import { CHUNK_SHIFT, chunkKey } from '../world/chunk.ts';
-import { BuildingKind, buildingSpec, footprintDims, levelSpec, workSteps, UNFINISHED_HEALTH_PER_MILLE } from './data.ts';
+import { BuildingKind, buildingSpec, levelSpec, workSteps, UNFINISHED_HEALTH_PER_MILLE } from './data.ts';
+import { footprintDims, type Dims } from './footprints.ts';
 
 const N = COLUMNS_PER_CHUNK;
 
@@ -141,24 +145,54 @@ export function constructionHealth(kind: number, progress: number): number {
   return floorDiv(max * pm, 1000);
 }
 
-/** Where a building stands: its kind, footprint corner and variant (gates turn with variant 1). */
+/** Where a building stands: its kind, anchor (level 1 corner) and variant (gates turn with variant 1), and its level and any upgrade under way. */
 export interface Placed {
   kind: number;
   x: number;
   z: number;
   variant?: number;
+  level?: number;
+  upgrading?: number;
 }
 
-/** The solid rectangle in global columns, inclusive: [x0, z0, x1, z1]. */
+/** The level whose footprint a building takes: the one it is being upgraded to while that goes on. */
+export function footLevel(b: Placed): number {
+  return Math.max(b.level ?? 1, b.upgrading ?? 0);
+}
+
+/** A building's footprint now (footprints.ts Dims). */
+export function placedDims(b: Placed): Dims {
+  return footprintDims(b.kind, b.variant ?? 0, footLevel(b));
+}
+
+/** The rectangle round the solid columns in global columns, inclusive: [x0, z0, x1, z1] (the footprint when none is solid). */
 export function solidRect(b: Placed): [number, number, number, number] {
-  const [sx, sz, sw, sd] = footprintDims(b.kind, b.variant ?? 0).solid;
-  return [b.x + sx, b.z + sz, b.x + sx + sw - 1, b.z + sz + sd - 1];
+  const d = placedDims(b);
+  const [sx, sz, sw, sd] = d.solid;
+  if (sw === 0) return footprintRect(b);
+  const x = b.x + d.ox;
+  const z = b.z + d.oz;
+  return [x + sx, z + sz, x + sx + sw - 1, z + sz + sd - 1];
+}
+
+/** The solid columns in global columns, row by row. */
+export function solidCells(b: Placed): Array<[number, number]> {
+  const d = placedDims(b);
+  return d.cells.map(([x, z]) => [b.x + d.ox + x, b.z + d.oz + z]);
 }
 
 /** The whole footprint in global columns, inclusive. */
 export function footprintRect(b: Placed): [number, number, number, number] {
-  const d = footprintDims(b.kind, b.variant ?? 0);
-  return [b.x, b.z, b.x + d.w - 1, b.z + d.d - 1];
+  const d = placedDims(b);
+  const x = b.x + d.ox;
+  const z = b.z + d.oz;
+  return [x, z, x + d.w - 1, z + d.d - 1];
+}
+
+/** The columns a building's marks cover, kept to take them off again whatever its level has become. */
+interface Marked {
+  foot: [number, number, number, number];
+  cells: Array<[number, number]>;
 }
 
 export class BuildingStore {
@@ -170,7 +204,9 @@ export class BuildingStore {
   private readonly foot = new Map<number, number>();
   /** Derived: gate columns per chunk (local indices). */
   private readonly gates = new Map<number, Set<number>>();
-  /** Not state: bumped whenever a building is added or removed or changes hands, so a cache can tell nothing changed with one compare. */
+  /** Derived: what each building marked. */
+  private readonly marked = new Map<number, Marked>();
+  /** Not state: bumped whenever a building is added or removed, changes hands or changes its footprint, so a cache can tell nothing changed with one compare. */
   rev = 0;
 
   get(id: number): Building | undefined {
@@ -195,8 +231,29 @@ export class BuildingStore {
     if (i >= 0) this.list.splice(i, 1);
   }
 
+  /** Brings the marks in line with the building's level and upgrade, after either changes. */
+  refit(b: Building, touch: (chunk: number) => void): void {
+    if (!this.byId.has(b.id)) return;
+    this.rev++;
+    const keys = new Set<number>();
+    const gather = (key: number): void => {
+      keys.add(key);
+    };
+    this.mark(b, false, gather);
+    this.mark(b, true, gather);
+    for (const key of [...keys].sort((a, c) => a - c)) touch(key);
+  }
+
   private mark(b: Building, on: boolean, touch: (chunk: number) => void): void {
-    const [fx0, fz0, fx1, fz1] = footprintRect(b);
+    let m0 = this.marked.get(b.id);
+    if (on) {
+      m0 = { foot: footprintRect(b), cells: solidCells(b) };
+      this.marked.set(b.id, m0);
+    } else {
+      this.marked.delete(b.id);
+      if (!m0) return;
+    }
+    const [fx0, fz0, fx1, fz1] = m0.foot;
     for (let z = fz0; z <= fz1; z++) {
       for (let x = fx0; x <= fx1; x++) {
         const k = footKey(x, z);
@@ -204,41 +261,38 @@ export class BuildingStore {
         else if (this.foot.get(k) === b.id) this.foot.delete(k);
       }
     }
-    const [sx0, sz0, sx1, sz1] = solidRect(b);
     const isGate = buildingSpec(b.kind).defence === 'gate';
     const touched = new Set<number>();
-    for (let z = sz0; z <= sz1; z++) {
-      for (let x = sx0; x <= sx1; x++) {
-        const cx = x >> CHUNK_SHIFT;
-        const cz = z >> CHUNK_SHIFT;
-        const key = chunkKey(cx, cz);
-        const i = (z - cz * N) * N + (x - cx * N);
-        let m = this.solid.get(key);
-        if (on) {
-          if (!m) {
-            m = new Map();
-            this.solid.set(key, m);
-          }
-          m.set(i, b.id);
-        } else if (m && m.get(i) === b.id) {
-          m.delete(i);
-          if (m.size === 0) this.solid.delete(key);
+    for (const [x, z] of m0.cells) {
+      const cx = x >> CHUNK_SHIFT;
+      const cz = z >> CHUNK_SHIFT;
+      const key = chunkKey(cx, cz);
+      const i = (z - cz * N) * N + (x - cx * N);
+      let m = this.solid.get(key);
+      if (on) {
+        if (!m) {
+          m = new Map();
+          this.solid.set(key, m);
         }
-        if (isGate) {
-          let g = this.gates.get(key);
-          if (on) {
-            if (!g) {
-              g = new Set();
-              this.gates.set(key, g);
-            }
-            g.add(i);
-          } else if (g) {
-            g.delete(i);
-            if (g.size === 0) this.gates.delete(key);
-          }
-        }
-        touched.add(key);
+        m.set(i, b.id);
+      } else if (m && m.get(i) === b.id) {
+        m.delete(i);
+        if (m.size === 0) this.solid.delete(key);
       }
+      if (isGate) {
+        let g = this.gates.get(key);
+        if (on) {
+          if (!g) {
+            g = new Set();
+            this.gates.set(key, g);
+          }
+          g.add(i);
+        } else if (g) {
+          g.delete(i);
+          if (g.size === 0) this.gates.delete(key);
+        }
+      }
+      touched.add(key);
     }
     for (const key of [...touched].sort((a, c) => a - c)) touch(key);
   }

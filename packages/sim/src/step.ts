@@ -35,6 +35,7 @@ import { runEngine } from './siege/engines.ts';
 import { installLateMobs } from './threats/late-mobs.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
+import { onTop } from './units/top.ts';
 
 installDeathHooks();
 installAnimalHooks();
@@ -149,7 +150,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   mobBudget.searches = 0;
   forgetSideSight(state);
   const e = state.entities;
-  state.grid.rebuild(e);
+  state.grid.rebuild(e, (i) => onTop(state, i));
   applyOrders(state, orders);
   periodChange(state);
   updateSpawns(state);

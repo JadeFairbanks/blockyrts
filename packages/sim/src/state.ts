@@ -4,11 +4,12 @@
 // Buildings are records in id order (buildings/store.ts) and every player
 // has one shared resource pool.
 
-import { BuildingKind, BUILDING_CLAIM_M, BUILDING_SIGHT_M, buildingSpec, footprintDims, levelSpec } from './buildings/data.ts';
-import { BuildingStore, footprintRect, garrisonRoom, solidRect, type Building } from './buildings/store.ts';
+import { BuildingKind, BUILDING_CLAIM_M, BUILDING_SIGHT_M, buildingSpec, levelSpec } from './buildings/data.ts';
+import { footprintDims } from './buildings/footprints.ts';
+import { BuildingStore, footprintRect, garrisonRoom, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
-import { NavGrid, STEP_UNITS, UNDER } from './nav/grid.ts';
+import { NavGrid, PERSON, STEP_UNITS, UNDER } from './nav/grid.ts';
 import { Pathfinder } from './nav/path.ts';
 import { createStreams, hash32, type Streams } from './rng.ts';
 import { applyKit, Troop } from './units/kits.ts';
@@ -18,6 +19,7 @@ import { World } from './world/world.ts';
 import { newThreats, type ThreatState } from './threats/types.ts';
 import { throughFog } from './threats/fog.ts';
 import { MOUNTED } from './mounts/data.ts';
+import { onTop } from './units/top.ts';
 import { newPeoples, type PeoplesState } from './peoples/types.ts';
 
 /** Owner value for entities that belong to no player. */
@@ -839,20 +841,76 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);
   state.buildings.add(b, (key) => state.world.touchNav(key));
-  // Units standing where its solid part goes step out to its south side.
-  const [sx0, sz0, sx1, sz1] = solidRect(b);
+  stepAside(state, b);
+  return b;
+}
+
+/**
+ * After a building's level or upgrade changes (footprints.ts): its marks
+ * follow its new footprint, what grows on land a grown footprint takes is
+ * cleared, and units on columns it now fills step aside.
+ */
+export function refitBuilding(state: SimState, b: Building): void {
+  state.buildings.refit(b, (key) => state.world.touchNav(key));
+  const [x0, z0, x1, z1] = footprintRect(b);
+  state.world.clearProps(x0, z0, x1, z1);
+  stepAside(state, b);
+}
+
+/** How far, in columns, a unit looks for a free column when a building goes up where it stands. */
+const STEP_ASIDE_COLUMNS = 16;
+
+/** Units standing on a building's solid columns step to the nearest column they can stand on, south side first on a tie. */
+function stepAside(state: SimState, b: Building): void {
   const e = state.entities;
   for (let i = 0; i < e.count; i++) {
     if (e.inside[i] !== 0) continue;
-    const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
-    const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
-    if (cx < sx0 || cx > sx1 || cz < sz0 || cz > sz1) continue;
-    e.z[i] = (sz1 + 1) * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
-    e.y[i] = standY(state, e.x[i]!, e.z[i]!);
-    e.path[i] = [];
-    e.pathOk[i] = 2;
+    if (state.buildings.solidAt(floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN)) === b.id) stepOff(state, i);
   }
-  return b;
+}
+
+/**
+ * A player's unit found standing on a building's solid column (in a game
+ * saved before that column was solid: a Big House's sheds, a Citadel's walls)
+ * steps off it; a gate's columns are walked through. True if it moved.
+ */
+export function stepOffSolid(state: SimState, i: number): boolean {
+  const id = state.buildings.solidAt(floorDiv(state.entities.x[i]!, WU_PER_COLUMN), floorDiv(state.entities.z[i]!, WU_PER_COLUMN));
+  if (id === 0) return false;
+  const b = state.buildings.get(id);
+  if (!b || buildingSpec(b.kind).defence === 'gate') return false;
+  return stepOff(state, i);
+}
+
+/** Moves a unit to the nearest free column round the one it stands on (not one walking a tunnel under it). */
+function stepOff(state: SimState, i: number): boolean {
+  const e = state.entities;
+  const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
+  const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
+  if (e.y[i]! < (state.world.topAt(cx, cz) - 1) * WU_PER_TERRAIN_UNIT) return false;
+  const to = freeColumnNear(state, cx, cz);
+  if (!to) return false;
+  e.x[i] = to[0] * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+  e.z[i] = to[1] * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+  e.y[i] = standY(state, e.x[i]!, e.z[i]!);
+  e.path[i] = [];
+  e.pathOk[i] = 2;
+  return true;
+}
+
+/** The nearest column round (x, z) with no building's solid part on it that a person can stand on, ring by ring, or null. */
+function freeColumnNear(state: SimState, x: number, z: number): [number, number] | null {
+  for (let r = 1; r <= STEP_ASIDE_COLUMNS; r++) {
+    // South row, then the sides from south to north, then the north row.
+    const ring: Array<[number, number]> = [];
+    for (let k = 0; k <= 2 * r; k++) ring.push([x + (k & 1 ? -((k + 1) >> 1) : k >> 1), z + r]);
+    for (let dz = r - 1; dz > -r; dz--) ring.push([x - r, z + dz], [x + r, z + dz]);
+    for (let k = 0; k <= 2 * r; k++) ring.push([x + (k & 1 ? -((k + 1) >> 1) : k >> 1), z - r]);
+    for (const [cx, cz] of ring) {
+      if (state.buildings.solidAt(cx, cz) === 0 && state.nav.standable(cx, cz, PERSON)) return [cx, cz];
+    }
+  }
+  return null;
 }
 
 /**
@@ -1010,8 +1068,8 @@ export function sightOf(state: SimState, i: number): number {
 // sight is explored for all of them. A unit sees round itself as far as
 // sightOf; a building sees out from its footprint's edge as far as its row of
 // BUILDING_SIGHT_M. Units sheltering, working or training inside a building
-// see nothing (the building sees for them); a garrison on a tower or parapet,
-// or a cannon in a port, still does.
+// see nothing (the building sees for them); men up on a tower or a main
+// base's top (units/top.ts), or a cannon in a port, still do.
 
 /** Numbers per vision source: owner, then the rectangle x0, z0, x1, z1 it sees out from (a point for a unit), then how far, all wu. */
 export const VISION_STRIDE = 6;
@@ -1020,7 +1078,7 @@ export const VISION_STRIDE = 6;
 export function seesForSide(state: SimState, i: number): boolean {
   const e = state.entities;
   if (e.owner[i]! >= state.players.length || e.hp[i]! <= 0) return false;
-  if (e.inside[i] === 0) return true;
+  if (e.inside[i] === 0 || onTop(state, i)) return true;
   const kind = e.kind[i];
   if (kind === UnitKind.Worker || kind === UnitKind.Animal) return false;
   const b = state.buildings.get(e.inside[i]!);

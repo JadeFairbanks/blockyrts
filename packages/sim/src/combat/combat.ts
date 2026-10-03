@@ -23,6 +23,7 @@ import { MOUNTED, mountSpec } from '../mounts/data.ts';
 import { chargeKnock, loseMount, mountArmourBp, mountTakes, startCharge, takeCharge } from '../mounts/riding.ts';
 import { facingBp } from '../threats/late-mobs.ts';
 import { MAGE_RANK_NAMES, mageGainXp } from '../magic/mages.ts';
+import { onTop } from '../units/top.ts';
 import { Spell, spellSpec } from '../magic/spells.ts';
 
 /**
@@ -129,8 +130,19 @@ export function flyingHigh(state: SimState, i: number): boolean {
   if (e.kind[i] !== UnitKind.Mob || !flies(mobSpec(e.mob[i]!))) return false;
   // In its swoop it is within reach whatever height its path has reached (mob-ai.ts fly()).
   if (e.lowUntil[i]! > state.step) return false;
-  return e.y[i]! - state.world.topAt(floorDiv(e.x[i]!, 3600), floorDiv(e.z[i]!, 3600)) * WU_PER_TERRAIN_UNIT > SWOOP_HEIGHT * 2;
+  return e.y[i]! - swoopFloor(state, i) > SWOOP_HEIGHT * 2;
 }
+
+/** What a flyer swoops down to: the ground under it, or the top a man it goes for stands on (Jade's patch notes 1). */
+export function swoopFloor(state: SimState, i: number): number {
+  const e = state.entities;
+  const t = e.indexOf(e.target[i]!);
+  if (t >= 0 && onTop(state, t)) return e.y[t]!;
+  return state.world.topAt(floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN)) * WU_PER_TERRAIN_UNIT;
+}
+
+/** How far above or below a man on a building's top a flyer must come for him to strike it (s): it has swooped at him. */
+export const TOP_STRIKE_WU = 2 * WU_PER_METRE;
 
 /** A high flyer circling (not swooping): nothing in hand reaches it, not even a polearm (roster: high flyer). */
 export function soaring(state: SimState, i: number): boolean {
@@ -394,6 +406,9 @@ export function hexed(state: SimState, i: number, attackSteps: number): number {
 
 /** Whether a melee weapon can reach a target unit now (one-handed weapons only reach a flyer as it swoops). */
 export function canReach(state: SimState, i: number, t: number, w: MeleeStats): boolean {
+  const e = state.entities;
+  // Up top, a man reaches only a flyer that has come down to him; nothing on the ground.
+  if (e.inside[i] !== 0 && (e.kind[t] !== UnitKind.Mob || !flies(mobSpec(e.mob[t]!)) || Math.abs(e.y[t]! - e.y[i]!) > TOP_STRIKE_WU)) return false;
   if (flyingHigh(state, t) && (w.oneHanded || soaring(state, t))) return false;
   const g = gap(state, i, t);
   if (g > w.reach) return false;

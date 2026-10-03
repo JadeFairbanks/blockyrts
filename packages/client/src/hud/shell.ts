@@ -4,7 +4,6 @@
 // orders go out through issueOrder.
 import * as THREE from 'three';
 import {
-  BuildingKind,
   buildingSpec,
   clockAt,
   nextMealIn,
@@ -25,6 +24,7 @@ import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
+import { keyLabel } from '../input/keys.ts';
 import { Btn, InputManager, type Mods, type MouseTarget } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
@@ -167,7 +167,6 @@ const TARGET_RED = '#e8503a';
 const DOUBLE_TAP_MS = 300;
 const RALLY = new THREE.Color(0xf2d24b);
 const QUEUE = new THREE.Color(0x63e06b);
-const CLAIM = new THREE.Color(0xf2d24b);
 const LIGHT = new THREE.Color(0xff9a40);
 const DIG = new THREE.Color(0xe08a3a);
 const HEAP = new THREE.Color(0x9ad05a);
@@ -402,6 +401,7 @@ export class GameShell {
       cancelQueued: (b, index) => opts.issueOrder({ kind: 'cancelProduce', player: this.player, building: b, index }),
       letOut: (b, unit) => opts.issueOrder({ kind: 'unload', player: this.player, building: b, unit }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
+      keyName: (action) => keyLabel(keyFor(this.settings.keys, action)),
       game: this.game,
       trainTroop: (b, troop, count) => this.commands.trainTroop(b, troop, count),
       lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),
@@ -1373,7 +1373,7 @@ export class GameShell {
     }
   }
 
-  /** Rally routes of selected buildings, Shift queue paths of selected units, claimed land and light rings while placing. */
+  /** Rally routes of selected buildings, Shift queue paths of selected units, and a light's reach while placing it. */
   private drawOverlay(ghost: Ghost | null): void {
     const o = this.extras.overlay;
     const h = (x: number, z: number): number => this.extras.heightAt(x, z);
@@ -1410,31 +1410,12 @@ export class GameShell {
     }
     this.drawSites(o, h);
     if (ghost) {
-      // Claimed land: lit torches' circles and buildings' 10 m rectangles.
-      const claims = this.game.info?.claims;
-      if (claims) {
-        for (const [x, z, r] of claims.circles) o.ring(x / WU_PER_METRE, z / WU_PER_METRE, r / WU_PER_METRE, CLAIM, h);
-        for (const [x0, z0, x1, z1] of claims.rects) {
-          const a = x0 / WU_PER_METRE;
-          const b = z0 / WU_PER_METRE;
-          const c = x1 / WU_PER_METRE;
-          const d = z1 / WU_PER_METRE;
-          o.rect(a, b, c, d, h((a + c) / 2, (b + d) / 2) + 0.2, CLAIM);
-        }
-      }
+      // Only the footprint decides whether a building can go there, and its green and red tiles show it;
+      // a light also shows how far it will shine (Jade's patch notes 1: no claimed-land outline while placing).
       const spec = buildingSpec(ghost.kind);
       const light = spec.light;
-      for (const s of ghost.spots) {
-        const cx = (s.x + spec.w / 2) * COLUMN_M;
-        const cz = (s.z + spec.d / 2) * COLUMN_M;
-        if (light) {
-          o.ring(cx, cz, light.lightM, LIGHT, h);
-          if (light.claimM > 0) o.ring(cx, cz, light.claimM, CLAIM, h);
-        } else if (spec.kind !== BuildingKind.TorchPost) {
-          // Every building claims the land 10 m round it.
-          const g = 10;
-          o.rect(s.x * COLUMN_M - g, s.z * COLUMN_M - g, (s.x + spec.w) * COLUMN_M + g, (s.z + spec.d) * COLUMN_M + g, h(cx, cz) + 0.2, CLAIM);
-        }
+      if (light) {
+        for (const s of ghost.spots) o.ring((s.x + spec.w / 2) * COLUMN_M, (s.z + spec.d / 2) * COLUMN_M, light.lightM, LIGHT, h);
       }
     }
     o.end();

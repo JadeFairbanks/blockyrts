@@ -60,6 +60,19 @@ describe('picking', () => {
     expect(pickAt([w1, near], { x: 101, y: 100 })?.item.key).toBe('e:9');
     expect(pickAt([near, w1], { x: 101, y: 100 })?.item.key).toBe('e:9');
   });
+  it('takes a unit behind a building over the building', () => {
+    const house = item('b:7', 'building', ME, 'building:0:1', 100, 100, 5, 40);
+    const behind = item('e:8', 'unit', ME, 'worker', 120, 90, 9);
+    const enemyBehind = item('e:10', 'unit', 1, 'worker', 118, 92, 8);
+    expect(pickAt([house, behind], { x: 120, y: 90 })?.item.key).toBe('e:8');
+    // The nearest of the units under the point, own or not.
+    expect(pickAt([house, behind, enemyBehind], { x: 119, y: 91 })?.item.key).toBe('e:10');
+    // Away from any unit, the building.
+    expect(pickAt([house, behind], { x: 80, y: 120 })?.item.key).toBe('b:7');
+    // A resource node in front still wins by distance, as before.
+    const tree = item('p:0:9', 'node', 255, 'node:pine', 120, 90, 2);
+    expect(pickAt([house, behind, tree], { x: 120, y: 90 })?.item.key).toBe('p:0:9');
+  });
   it('counts a thing in a box if any part of its hit area is inside', () => {
     expect(keys(inBox(all, { x0: 0, y0: 0, x1: 92, y1: 200 }).map((s) => s.item))).toEqual(['e:1']);
     expect(inBox(all, { x0: 0, y0: 0, x1: 80, y1: 80 })).toEqual([]);
