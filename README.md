@@ -182,10 +182,10 @@ out.* (The warrior joins in milestone 3.)
    starts; scaffolding goes up and the building rises as it is built. Select
    an unfinished building and press X to take it down for 75% back.
 4. **Farm.** Build a wheat field (B, W, Q), then right-click it with two
-   workers: they become its farmers. A new field lies fallow for 2 days (the
-   panel counts it down), then wheat comes into the pool while they work.
-   Press **Speed** in the debug panel for 4 or 16 times speed. Farmers go into
-   their farmhouse at dusk by themselves.
+   workers: they become its farmers. The field grows at once: its panel shows
+   a harvest bar filling and when the next 6 wheat come in (see "How a tester
+   checks farm harvests"). Press **Speed** in the debug panel for 4 or 16
+   times speed. Farmers go into their farmhouse at dusk by themselves.
 5. **Train and rally.** Select the Big House: W trains a worker (20 food;
    Shift + W queues 5), the queue shows in the panel and a click on an item
    cancels it for a full refund. R then a click (or right-click with the Big
@@ -210,7 +210,7 @@ out.* (The warrior joins in milestone 3.)
    centres on the Big House; Space jumps to the latest alert. Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 170958b8`: workers chop and quarry, the Big
+   prints `final step 10000 hash 902e3c72`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -1207,6 +1207,44 @@ Client only: the sim, the server and every hash are unchanged.
    in the catalogue for every good, scrolling, counts, the wheel, the change
    over a minute). `node packages/client/test-e2e/hud-check.mjs` checks the
    grid in a browser.
+
+## How a tester checks farm harvests
+
+Jade's patch notes 1: no fallow days, each farmer speeds the harvest up, and a
+selected farm shows its harvest bar. The sim changed (farm yields come in
+harvests now), so the hashes of order scripts with farms moved; the save
+format did not, and a save's fields start their bars afresh.
+
+1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Build a wheat
+   field (B, W, Q) and right-click it with one worker. Select the field: under
+   its health and "1 of 2 farmers at work" a bar fills with the line "In 7
+   minutes 20 seconds, 6 wheat will be produced, giving a food value of 12."
+   There is no "Lying fallow" any more: the bar starts with the farmer's first
+   step of work.
+2. Right-click it with a second worker. The time left halves (the bar fills
+   twice as fast); the harvest stays 6 wheat. Press **Speed** in the debug
+   panel (x16) and watch the bar fill: 6 wheat land in the inventory and the
+   bar starts again. A field of tier 2 takes three farmers, three times as
+   fast, with 9 wheat a harvest; tier 3 takes four, with 12.
+3. Take the farmers off (select them and give another order): the bar stands
+   still and turns grey, and the line says no farmer is at work and what the
+   next harvest will be.
+4. The line under the bar says what the band does: "Full yield in the
+   Heartland: crop fields make half in the Fringe and Deepwoods and nothing in
+   the Barrens or Deadlands." A crop field in the Fringe or Deepwoods says
+   "Half yield" and harvests 3 wheat; in the Barrens or Deadlands it says
+   "Nothing grows", shows no bar and lies bare. Vegetable farms and herb beds
+   say they grow in full in every band.
+5. A livestock farm with grown hens shows a bar running to the day's turn,
+   when they lay: "In 2 minutes, 2 eggs will be laid, giving a food value of
+   2." Times read 1 second, 1 minute, 2 minutes 5 seconds.
+6. Unit tests: `packages/sim/test/farms.test.ts` (no fallow days, the pace
+   per farmer, the same harvest, three farmers at tier 2, the Fringe's half
+   carried over, nothing in the Barrens, an old save's field, the hens' bar)
+   and `packages/client/test/farm-panel.test.ts` (the line's wording and
+   plurals). The balance editor's Food group has **Farm harvest** (440 s):
+   the bar's length in one farmer's work; a shorter bar brings in less each
+   time at the same yield a day.
 
 ## How a tester checks the balance editor
 

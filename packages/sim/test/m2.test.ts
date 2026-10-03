@@ -17,7 +17,7 @@ import {
   deserializeState,
   destroyBuilding,
   DUSK_STEPS,
-  FARM_FALLOW_STEPS,
+  FARM_HARVEST_STEPS,
   findNode,
   fleeFrom,
   footprintRect,
@@ -395,7 +395,7 @@ describe('training and production queues', () => {
 });
 
 describe('farms', () => {
-  it('a wheat field with two farmers puts wheat in the pool once its fallow days are over', () => {
+  it('a wheat field with two farmers fills its harvest bar from the start and brings in 6 wheat', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.CropField);
@@ -404,12 +404,12 @@ describe('farms', () => {
     run(s, 300);
     // Two farmers at most at tier 1; the third was turned away.
     expect(s.entities.queue[2]!.length).toBe(0);
+    // No fallow days: the bar is already filling.
+    expect(farm.farmAcc).toBeGreaterThan(0);
     expect(pool[Res.Wheat]).toBe(0);
-    // Skip the fallow days.
-    farm.doneAt = s.step - FARM_FALLOW_STEPS;
-    // 2 farmers x 6 a day: one wheat every 1/12 day, about 733 steps (in the Heartland).
-    run(s, 1500);
-    expect(pool[Res.Wheat]).toBe(2);
+    // Two farmers fill a one-farmer-day bar in half a day; the harvest is one farmer-day's 6 wheat (in the Heartland).
+    runUntil(s, () => pool[Res.Wheat]! > 0, FARM_HARVEST_STEPS);
+    expect(pool[Res.Wheat]).toBe(6);
   });
 
   it('farmers go into their farmhouse at dusk and back to the field at day', () => {
