@@ -5,6 +5,7 @@
 // chains and dragged lines of lights. Orders go out through `issue`; what the
 // world looks like comes from GameInfo and the selectables under the cursor.
 import * as THREE from 'three';
+import { cue } from '../audio/cues.ts';
 import {
   BuildingKind,
   engineSpec,
@@ -1800,6 +1801,7 @@ export class Commands {
     const cx = (last.x + s.w / 2) * COLUMN_M;
     const cz = (last.z + s.d / 2) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'move');
+    cue('ui_place');
     // Shift keeps the ghost for the next one; otherwise placement ends.
     if (!queued) this.endPlacing();
   }

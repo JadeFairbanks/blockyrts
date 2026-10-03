@@ -129,10 +129,6 @@ export class SettingsPanel {
     slider('Music', 0, 1, 0.05, () => settings.musicVolume, (v) => (settings.musicVolume = v), percent);
     slider('Effects', 0, 1, 0.05, () => settings.effectsVolume, (v) => (settings.effectsVolume = v), percent);
     slider('Voices', 0, 1, 0.05, () => settings.voiceVolume, (v) => (settings.voiceVolume = v), percent);
-    const soon = document.createElement('p');
-    soon.className = 'note';
-    soon.textContent = 'The game plays no sound yet: music, effects and voices come with the audio pass. These volumes are kept for it.';
-    el.append(soon);
 
     heading('Camera');
     const x = (v: number): string => `${v.toFixed(2)}x`;

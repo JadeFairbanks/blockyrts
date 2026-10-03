@@ -18,6 +18,7 @@ import {
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
+import { cue } from '../audio/cues.ts';
 import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.ts';
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
@@ -395,6 +396,8 @@ export class GameShell {
 
   /** Adds a message to the message panel. A message with a place can be clicked to jump there; an alert is urgent. */
   message(text: string, kind: 'system' | 'alert' = 'system', at?: { x: number; z: number }): void {
+    // Something the player asked for cannot be done (Order feedback: an error sound and a message).
+    if (kind === 'alert') cue('error');
     this.messages.add({ text, kind, urgent: kind === 'alert', at });
   }
 
@@ -1043,6 +1046,7 @@ export class GameShell {
 
   /** A player pinged a spot (metres): it flashes on the minimap and in the view, and the panel says who. */
   pinged(name: string, x: number, z: number): void {
+    cue('ping');
     this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z } });
     this.visuals.orderMarker(new THREE.Vector3(x, this.extras.heightAt(x, z), z), 'target');
     this.urgent.unshift({ x, z, text: `${name} pinged the map.` });

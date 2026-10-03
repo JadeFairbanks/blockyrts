@@ -7,6 +7,7 @@
 // panel registry and document.elementFromPoint and driven from here (hover,
 // tooltips, press, release, double click, right click), so the HUD behaves
 // the same locked or not and never depends on DOM click events.
+import { cue } from '../audio/cues.ts';
 import type { ButtonPress, ButtonRegistry, HudButton, Tooltip } from '../hud/buttons.ts';
 import type { HudPanels, PanelRect } from '../hud/panels.ts';
 import type { Pt } from '../hud/rects.ts';
@@ -314,13 +315,16 @@ export class InputManager {
     const prev = this.lastButtonClick?.id === btn.def.id ? this.lastButtonClick : null;
     const dbl = isDoubleClick(prev, now);
     this.lastButtonClick = dbl ? null : now;
+    cue('ui_click');
     if (dbl && btn.def.onDoubleClick) btn.def.onDoubleClick(press);
     else btn.def.onPress?.(press);
   }
 
   /** A button pressed by its hotkey: the same as clicking it. */
   pressButton(btn: HudButton, press: ButtonPress): void {
-    if (btn.enabled) btn.def.onPress?.(press);
+    if (!btn.enabled) return;
+    cue('ui_click');
+    btn.def.onPress?.(press);
   }
 
   private onWheel(e: WheelEvent): void {

@@ -19,6 +19,7 @@ import {
   type WireFrame,
 } from '@blockyrts/protocol';
 import { hashHex, WU_PER_METRE } from '@blockyrts/sim';
+import { GameAudio } from '../audio/game-audio.ts';
 import { NetUi } from '../hud/net-ui.ts';
 import { GameShell, type ShellSession } from '../hud/shell.ts';
 import { IS_MAC } from '../input/platform.ts';
@@ -117,6 +118,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   const world = new WorldView({ scene, seed: plan.seed, players, player: PLAYER, colours: seats.map((s) => colourHex(s.colour)) });
   const game = new GameInfo(PLAYER);
   world.setGame(game);
+  // Sound (Audio): it only listens, so it never changes the game.
+  const audio = new GameAudio(settings, game, PLAYER);
 
   const worker = new Worker(new URL('../sim.worker.ts', import.meta.url), { type: 'module' });
   const send = (msg: ToWorker, transfer: Transferable[] = []): void => worker.postMessage(msg, transfer);
@@ -275,6 +278,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     settings,
     issueOrder(order) {
       send({ type: 'order', order });
+      audio.onOrder(order);
     },
     askPlacement(kind, variant, spots) {
       send({ type: 'place', id: 0, kind, variant, spots });
@@ -282,6 +286,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     onQuit: quit,
     session,
   });
+  shell.selection.onChange(() => audio.onSelection(shell.selection.list()));
   const net = new NetUi(shell.layout.root, shell.panels, shell.buttons);
   const showPause = (): void => {
     if (online) {
@@ -340,6 +345,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         return;
       case 'info':
         game.onInfo(msg);
+        audio.onInfo(msg);
         hints.update();
         return;
       case 'placed':
@@ -363,6 +369,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     }
     game.onState(msg);
     world.onState(msg);
+    audio.onState(msg);
     lastStep = msg.step;
     stepsSeen++;
     const now = performance.now();
@@ -551,6 +558,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     lastFrame = now;
     world.update(now, shell.cam.focus);
     shell.frame(dt, now);
+    audio.frame(shell.cam.focus.x, shell.cam.focus.z, now);
     renderer.render(scene, shell.cam.camera);
     requestAnimationFrame(frame);
   }
