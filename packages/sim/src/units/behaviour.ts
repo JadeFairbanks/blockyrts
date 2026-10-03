@@ -8,7 +8,7 @@ import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHEL
 import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
 import { STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
-import { constructionHealth, footprintRect, maxHealth, solidRect, type Building } from '../buildings/store.ts';
+import { constructionHealth, footprintRect, garrisonRoom, maxHealth, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { canAfford, costText, pay, payNutrition, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
@@ -24,7 +24,7 @@ import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
-import { canGarrison, fightStep, garrisonRoom } from '../combat/fight.ts';
+import { canGarrison, fightStep } from '../combat/fight.ts';
 import { buildingTop } from '../combat/projectiles.ts';
 import { refundKit, runCart, runKitUp, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';

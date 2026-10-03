@@ -17,7 +17,7 @@ import { cos16, floorDiv, isqrt, length2d, sin16, TRIG_ONE, WU_PER_COLUMN, WU_PE
 import { WALKER } from '../nav/grid.ts';
 import { LAIR_CLEAR_RADIUS_M, LAIR_CLEAR_XP_TENTHS } from '../rules.ts';
 import { hash32 } from '../rng.ts';
-import { MONSTERS, UnitKind, type SimState } from '../state.ts';
+import { MONSTERS, sourceDistance2, UnitKind, VISION_STRIDE, type SimState } from '../state.ts';
 import { Band, Look } from '../world/layout.ts';
 import { gainXp } from '../combat/combat.ts';
 import { addMob } from '../combat/mob-ai.ts';
@@ -294,34 +294,33 @@ export function lairSpawns(mob: number): readonly number[] {
 
 /**
  * Which players have seen each lair, hut and village (bits in `picked`):
- * once any of their units is within sight of it, or within 120 m of a
- * glowing rift at night (Table 15: minimap marks).
+ * once it is within the sight of any of their units or buildings, or within
+ * 120 m of one at night for a glowing rift (Table 15: minimap marks). The
+ * players share what they see, so the HUD shows a mark any of them has.
  */
-export function updateSeen(state: SimState, sightOf: (i: number) => number): void {
+export function updateSeen(state: SimState, sources: Int32Array): void {
+  if (sources.length === 0) return;
   const e = state.entities;
   const dark = clockOf(state).period === Period.Night;
-  const watchers: number[] = [];
-  for (let i = 0; i < e.count; i++) if (e.owner[i]! < state.players.length && e.hp[i]! > 0 && e.kind[i] !== UnitKind.Animal) watchers.push(i);
-  if (watchers.length === 0) return;
   const all = (1 << state.players.length) - 1;
   for (let i = 0; i < e.count; i++) {
     if (e.kind[i] !== UnitKind.Mob || e.owner[i] !== MONSTERS || e.hp[i]! <= 0) continue;
     const spec = mobSpec(e.mob[i]!);
     if (spec.role !== Role.Structure || (e.picked[i]! & all) === all) continue;
     const glow = dark && lairSpec(e.mob[i]!)?.glows === true;
-    for (const j of watchers) {
-      const bit = 1 << e.owner[j]!;
+    for (let o = 0; o < sources.length; o += VISION_STRIDE) {
+      const bit = 1 << sources[o]!;
       if (e.picked[i]! & bit) continue;
-      const r = Math.max(sightOf(j), glow ? RIFT_SEEN_WU : 0) + spec.halfWidth;
-      if (dist2(e.x[i]!, e.z[i]!, e.x[j]!, e.z[j]!) <= r * r) e.picked[i] = e.picked[i]! | bit;
+      const r = Math.max(sources[o + 5]!, glow ? RIFT_SEEN_WU : 0) + spec.halfWidth;
+      if (sourceDistance2(sources, o, e.x[i]!, e.z[i]!) <= r * r) e.picked[i] = e.picked[i]! | bit;
     }
   }
   for (const v of state.threats.villages) {
     if ((v.seen & all) === all) continue;
-    for (const j of watchers) {
-      const bit = 1 << e.owner[j]!;
-      const r = sightOf(j) + 12 * M;
-      if ((v.seen & bit) === 0 && dist2(v.x, v.z, e.x[j]!, e.z[j]!) <= r * r) v.seen |= bit;
+    for (let o = 0; o < sources.length; o += VISION_STRIDE) {
+      const bit = 1 << sources[o]!;
+      const r = sources[o + 5]! + 12 * M;
+      if ((v.seen & bit) === 0 && sourceDistance2(sources, o, v.x, v.z) <= r * r) v.seen |= bit;
     }
   }
 }

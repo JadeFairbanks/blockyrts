@@ -4,8 +4,8 @@
 // Buildings are records in id order (buildings/store.ts) and every player
 // has one shared resource pool.
 
-import { BuildingKind, BUILDING_SIGHT_M, buildingSpec, footprintDims, levelSpec } from './buildings/data.ts';
-import { BuildingStore, footprintRect, solidRect, type Building } from './buildings/store.ts';
+import { BuildingKind, BUILDING_CLAIM_M, BUILDING_SIGHT_M, buildingSpec, footprintDims, levelSpec } from './buildings/data.ts';
+import { BuildingStore, footprintRect, garrisonRoom, solidRect, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
 import { NavGrid, STEP_UNITS, UNDER } from './nav/grid.ts';
@@ -16,6 +16,8 @@ import { UnitGrid } from './combat/space.ts';
 import type { UnitOrder } from './units/unit-orders.ts';
 import { World } from './world/world.ts';
 import { newThreats, type ThreatState } from './threats/types.ts';
+import { throughFog } from './threats/fog.ts';
+import { MOUNTED } from './mounts/data.ts';
 import { newPeoples, type PeoplesState } from './peoples/types.ts';
 
 /** Owner value for entities that belong to no player. */
@@ -851,7 +853,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     const i = state.entities.add(id, NEUTRAL, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Wanderer);
     state.entities.wanderAt[i] = 1 + (hash32(state.seed, 3, n) % 40);
   }
-  revealAroundUnits(state);
+  revealVision(state);
   return state;
 }
 
@@ -912,23 +914,111 @@ export function hoppingUp(state: SimState, i: number): boolean {
   return state.entities.hopUntil[i]! > state.step && state.entities.hopRise[i]! > 0;
 }
 
-/** Every player's units and buildings mark the land within their sight explored (fog of war). */
-export function revealAroundUnits(state: SimState): void {
+/** How far a unit sees, wu: its kind's sight, plus a tower's 10 m when on one. */
+export function sightOf(state: SimState, i: number): number {
   const e = state.entities;
+  let base = SIGHT_WU[e.kind[i]!] ?? SIGHT_WU[0];
+  // Table 1: warriors see 2 m farther at Elite and 4 m at Hero.
+  if (e.kind[i] === UnitKind.Warrior && e.rank[i]! > 3) base += (e.rank[i]! - 3) * 2 * WU_PER_METRE;
+  // From the saddle: 30 m (Table 1's mounted row).
+  if (e.mount[i]) base = Math.max(base, MOUNTED.sight);
+  const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
+  const bonus = b ? (buildingSpec(b.kind).sightBonusM ?? 0) * WU_PER_METRE : 0;
+  // A fog night halves it.
+  return throughFog(state, base + bonus);
+}
+
+// ----- vision (Fog of war) -----
+//
+// What the players see is one picture for the whole side: every player sees
+// what any player's units and buildings see (co-op), and the land in that
+// sight is explored for all of them. A unit sees round itself as far as
+// sightOf; a building sees out from its footprint's edge as far as its row of
+// BUILDING_SIGHT_M. Units sheltering, working or training inside a building
+// see nothing (the building sees for them); a garrison on a tower or parapet,
+// or a cannon in a port, still does.
+
+/** Numbers per vision source: owner, then the rectangle x0, z0, x1, z1 it sees out from (a point for a unit), then how far, all wu. */
+export const VISION_STRIDE = 6;
+
+/** Whether a unit lends its eyes to the players' side now: a player's, alive, and out in the open or on a building's top. */
+export function seesForSide(state: SimState, i: number): boolean {
+  const e = state.entities;
+  if (e.owner[i]! >= state.players.length || e.hp[i]! <= 0) return false;
+  if (e.inside[i] === 0) return true;
+  const kind = e.kind[i];
+  if (kind === UnitKind.Worker || kind === UnitKind.Animal) return false;
+  const b = state.buildings.get(e.inside[i]!);
+  return b !== undefined && garrisonRoom(b) > 0;
+}
+
+/** How far a player's building sees out from its footprint's edge, wu (BUILDING_SIGHT_M), halved on a fog night. */
+export function buildingSight(state: SimState, b: Building): number {
+  return throughFog(state, (BUILDING_SIGHT_M[b.kind] ?? BUILDING_CLAIM_M) * WU_PER_METRE);
+}
+
+/** The edges of a building's footprint, wu: [x0, z0, x1, z1]. */
+export function footprintWu(b: Building): [number, number, number, number] {
+  const [x0, z0, x1, z1] = footprintRect(b);
+  return [x0 * WU_PER_COLUMN, z0 * WU_PER_COLUMN, (x1 + 1) * WU_PER_COLUMN, (z1 + 1) * WU_PER_COLUMN];
+}
+
+/** Every vision source of the players' side now, VISION_STRIDE numbers each: their units, then their buildings. */
+export function visionSources(state: SimState): Int32Array {
+  const e = state.entities;
+  const players = state.players.length;
+  let n = 0;
+  for (let i = 0; i < e.count; i++) if (seesForSide(state, i)) n++;
+  for (const b of state.buildings.list) if (b.owner < players) n++;
+  const out = new Int32Array(n * VISION_STRIDE);
+  let o = 0;
   for (let i = 0; i < e.count; i++) {
-    const owner = e.owner[i]!;
-    if (owner >= state.players.length || e.inside[i] !== 0) continue;
-    const sight = SIGHT_WU[e.kind[i]! as 0 | 1 | 2] ?? SIGHT_WU[0];
-    // A fog night halves how far everyone sees.
-    state.world.reveal(owner, e.x[i]!, e.z[i]!, state.threats.fog !== 0 ? sight >> 1 : sight);
+    if (!seesForSide(state, i)) continue;
+    out[o] = e.owner[i]!;
+    out[o + 1] = out[o + 3] = e.x[i]!;
+    out[o + 2] = out[o + 4] = e.z[i]!;
+    out[o + 5] = sightOf(state, i);
+    o += VISION_STRIDE;
   }
   for (const b of state.buildings.list) {
-    const s = footprintDims(b.kind, b.variant);
-    const cx = (b.x * 2 + s.w) * (WU_PER_COLUMN >> 1);
-    const cz = (b.z * 2 + s.d) * (WU_PER_COLUMN >> 1);
-    state.world.reveal(b.owner, cx, cz, BUILDING_SIGHT_M * WU_PER_METRE + ((Math.max(s.w, s.d) * WU_PER_COLUMN) >> 1));
+    if (b.owner >= players) continue;
+    const [x0, z0, x1, z1] = footprintWu(b);
+    out[o] = b.owner;
+    out[o + 1] = x0;
+    out[o + 2] = z0;
+    out[o + 3] = x1;
+    out[o + 4] = z1;
+    out[o + 5] = buildingSight(state, b);
+    o += VISION_STRIDE;
+  }
+  return out;
+}
+
+/** Squared distance from a point to a vision source's rectangle, wu squared. */
+export function sourceDistance2(src: ArrayLike<number>, o: number, x: number, z: number): number {
+  const dx = x < src[o + 1]! ? src[o + 1]! - x : x > src[o + 3]! ? x - src[o + 3]! : 0;
+  const dz = z < src[o + 2]! ? src[o + 2]! - z : z > src[o + 4]! ? z - src[o + 4]! : 0;
+  return dx * dx + dz * dz;
+}
+
+/** Not state: each building's reach it has been revealed round at already (explored land only grows, so going over it again at that reach or less changes nothing). */
+const revealedAt = new WeakMap<Building, number>();
+
+/** Marks the land in the players' side's sight explored, for all of them. */
+export function revealVision(state: SimState): void {
+  const world = state.world;
+  const e = state.entities;
+  for (let i = 0; i < e.count; i++) if (seesForSide(state, i)) world.reveal(e.x[i]!, e.z[i]!, sightOf(state, i));
+  for (const b of state.buildings.list) {
+    if (b.owner >= state.players.length) continue;
+    // A building never moves, so once revealed round it is only gone over again when it sees farther (a fog night has lifted).
+    const r = buildingSight(state, b);
+    if ((revealedAt.get(b) ?? -1) >= r) continue;
+    revealedAt.set(b, r);
+    const [x0, z0, x1, z1] = footprintWu(b);
+    world.revealRect(x0, z0, x1, z1, r);
   }
 }
 
-/** Steps between fog updates from unit sight. */
+/** Steps between updates of the explored land and of which lairs and villages the players have seen. */
 export const FOG_INTERVAL_STEPS = 10;

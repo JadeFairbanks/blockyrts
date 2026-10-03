@@ -9,7 +9,7 @@ import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
 import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
-import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealAroundUnits, UnitKind, type SimState } from './state.ts';
+import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealVision, UnitKind, visionSources, type SimState } from './state.ts';
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
@@ -22,6 +22,7 @@ import { installAnimalHooks, runAnimal, stockHooks, updateAnimals } from './anim
 import { installFoes } from './threats/foes.ts';
 import { onFoeHurt, threatsAtPeriod, updateThreats } from './threats/update.ts';
 import { checkCell } from './threats/villages.ts';
+import { updateSeen } from './threats/lairs.ts';
 import { updateMagic } from './magic/cast.ts';
 import { refillMages } from './magic/mages.ts';
 import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
@@ -173,7 +174,11 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateElimination(state);
   state.world.flowWater();
   state.step++;
-  if (state.step % FOG_INTERVAL_STEPS === 0) revealAroundUnits(state);
+  // What the players' side sees: the land in sight explored, and the lairs and villages in it found (shared by every player).
+  if (state.step % FOG_INTERVAL_STEPS === 0) {
+    revealVision(state);
+    updateSeen(state, visionSources(state));
+  }
   if (state.step % HASH_INTERVAL_STEPS === 0) return { step: state.step, hash: hashState(state) };
   return { step: state.step };
 }

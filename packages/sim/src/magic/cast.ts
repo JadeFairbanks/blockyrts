@@ -17,14 +17,14 @@
 // let each mage pick her own. Out of mana, a mage taps with her wand.
 
 import { buildingSpec } from '../buildings/data.ts';
-import type { Building } from '../buildings/store.ts';
+import { garrisonRoom, type Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
 import { damageTaken, withBonus } from '../rules.ts';
-import { OrderKind, PEOPLES, UnitKind, WILD, type Projectile, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, sightOf, UnitKind, WILD, type Projectile, type SimState } from '../state.ts';
 import { factionById, warFaction } from '../peoples/types.ts';
 import { armourOf, bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
-import { chase, face, garrisonRoom, pickTarget, sightOf, stepToward, validTarget } from '../combat/fight.ts';
+import { chase, face, pickTarget, stepToward, targetLost, validTarget } from '../combat/fight.ts';
 import { hasResearch, Research, Shot } from '../combat/items.ts';
 import { Slot } from '../units/kits.ts';
 import { cancelSpell, castingSpell } from '../combat/mob-ai.ts';
@@ -684,7 +684,7 @@ export function mageStep(state: SimState, i: number): boolean {
   if (o?.t === 'cast') return runCastOrder(state, i, o);
   if (o?.t === 'attack') {
     const t = e.indexOf(o.id);
-    if (!validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + 20 * M) {
+    if (!validTarget(state, i, t, true) || targetLost(state, i, t)) {
       e.queue[i]!.shift();
       e.target[i] = 0;
       resetWalk(state, i);

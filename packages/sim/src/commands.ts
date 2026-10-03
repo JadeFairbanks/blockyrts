@@ -7,17 +7,17 @@ import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from '
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { mainBaseLevel, waterBeside } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
-import { type Building } from './buildings/store.ts';
+import { garrisonRoom, type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, type Res, RESOURCES, shortOf } from './economy/resources.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, PickOwn, type Order } from './orders.ts';
-import { NO_CARRY, SiteKind, UnitKind, type SimState } from './state.ts';
+import { NO_CARRY, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
 import { hostile, huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { canGarrison, garrisonRoom, pickTarget, salvageable, sightOf } from './combat/fight.ts';
+import { canGarrison, pickTarget, salvageable } from './combat/fight.ts';
 import { RESEARCH } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
@@ -422,7 +422,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         state.world.editBox(o.x0, o.z0, o.x1, o.z1, o.bottom, o.top, o.material);
         break;
       case 'debugReveal':
-        if (o.player < state.world.players) state.world.reveal(o.player, o.x, o.z, o.radius);
+        if (o.player < state.world.players) state.world.reveal(o.x, o.z, o.radius);
         break;
       case 'debugHarvest':
         state.world.harvest(o.cx, o.cz, o.index, o.amount, state.step);
