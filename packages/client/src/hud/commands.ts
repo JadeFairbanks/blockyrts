@@ -223,8 +223,9 @@ export interface Placing {
   dragFrom: { x: number; z: number } | null;
   /** A wall chain under way: the anchor the next stretch runs from (the end of the last), or null before the first click. */
   chain: { x: number; z: number } | null;
-  /** Stretches ordered since the chain's first wall. */
+  /** Stretches ordered since the chain's first wall, and whether that first click placed a wall (not an old one clicked to go on from). */
   stretches: number;
+  placed: boolean;
   /** The spots being shown, with the sim's answers once they arrive. */
   spots: GhostSpot[];
 }
@@ -428,7 +429,7 @@ export class Commands {
         face: 'Done',
         name: walls ? 'End the wall chain' : 'End the tunnel',
         key: 'Escape',
-        description: `${walls ? 'End the wall chain: the walls already placed stay planned and the workers build them.' : 'End the tunnel: the stretches already marked stay marked and the workers dig them.'} Right click does the same. With Shift held, ${walls ? 'the wall stays on the cursor' : 'Dig stays on'} for a new chain.`,
+        description: `${walls ? 'End the wall chain: the walls already placed stay planned and the workers build them.' : 'End the tunnel: the stretches already marked stay marked and the workers dig them.'} Right click, or a click on the chain's last point, does the same. With Shift held, ${walls ? 'the wall stays on the cursor' : 'Dig stays on'} for a new chain.`,
         enabled: true,
         reason: '',
         run: () => this.back(),
@@ -1823,9 +1824,7 @@ export class Commands {
     if (!p || !plan || !Commands.chained(p.kind)) return null;
     if (p.chain && plan.length === 0) {
       if (p.stretches > 0) return { text: 'Click here again to finish the wall', hint: 'Or click further on to build on', short: false };
-      // Just placed (or an old wall clicked to go on from).
-      const old = this.walledColumns().has(`${p.chain.x},${p.chain.z}`);
-      return { text: old ? 'Click again to stop here' : 'Click again for just this one', hint: 'Or click further on to build a stretch', short: false };
+      return { text: p.placed ? 'Click again for just this one' : 'Click again to stop here', hint: 'Or click further on to build a stretch', short: false };
     }
     const est = this.chainEstimate(plan);
     if (est.open === 0 && est.blocked === 0) return p.chain ? { text: 'Walled already', hint: 'Click to go on from its end, right click to finish', short: false } : { text: 'Click to go on from this wall', hint: 'Then click further on to build a stretch', short: false };
@@ -1844,7 +1843,7 @@ export class Commands {
     if (this.workerIds().length === 0) return;
     this.targeting = null;
     this.area = null;
-    this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, chain: null, stretches: 0, spots: [] };
+    this.placing = { kind, variant, x: Number.NaN, z: Number.NaN, dragFrom: null, chain: null, stretches: 0, placed: false, spots: [] };
     this.placeAsked = '';
     this.d.changed();
   }
@@ -2051,6 +2050,7 @@ export class Commands {
     if (est.open === 0 && est.blocked === 0) {
       // Walled or planned all along: nothing to send, and the chain goes on from its end.
       const [ex, ez] = stretchEnd(plan.x, plan.z, plan.dir, plan.length);
+      if (!p.chain) p.placed = false;
       this.anchorChain(ex, ez);
       return;
     }
@@ -2066,6 +2066,7 @@ export class Commands {
     }
     this.d.send({ kind: 'wallStretch', player: this.d.player, units, building: p.kind, x: plan.x, z: plan.z, dir: plan.dir, length: plan.length, skip: p.chain ? 1 : 0, queued: p.chain !== null || this.d.queued() });
     if (p.chain) p.stretches++;
+    else p.placed = true;
     const [ex, ez] = est.room < est.open && est.last ? est.last : stretchEnd(plan.x, plan.z, plan.dir, plan.length);
     this.anchorChain(ex, ez);
   }
