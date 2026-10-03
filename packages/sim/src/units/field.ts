@@ -132,6 +132,8 @@ function huntOver(state: SimState, i: number): boolean {
     const [x, z] = buildingCentre(home);
     const [sx, sz] = nearestStandable(state, x, z + (6 * WU_PER_COLUMN));
     next.push({ t: 'move', x: sx, z: sz });
+    // Once home, whatever it could not drop off on the way goes in too.
+    if (e.carryAmt[i]! > 0) next.push({ t: 'return' });
   }
   e.queue[i]!.splice(0, 1, ...next);
   e.act[i] = Act.Start;
@@ -186,6 +188,9 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
     if (meat && !haulersWith(state, i)) return butcher(state, i, meat);
   }
   if (e.carryAmt[i]! > 0) {
+    // A drop-off it could not reach is tried again every few seconds, not every step.
+    if (state.step < e.waitUntil[i]!) return CONTINUE;
+    e.waitUntil[i] = state.step + 5 * STEPS_PER_SECOND;
     e.queue[i]!.unshift({ t: 'return' });
     e.act[i] = Act.Start;
     resetWalk(state, i);

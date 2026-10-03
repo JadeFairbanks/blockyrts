@@ -670,7 +670,7 @@ export class Commands {
     const sent = plans.filter((p) => p.to > 0);
     const lines = [
       max ? `Each one gets the best ${what} researched that the stock pays for.` : `Each one gets the next tier of ${what}.`,
-      `They walk to ${where}, the highest ranks first, and pay there from the stock; the old kit gives nothing back.`,
+      `They walk to ${where}, the highest ranks first, and pay from the stock; the old kit goes back to the stock in full when the new one goes on.`,
     ];
     if (sent.length > 0) {
       const p = sent[0]!;

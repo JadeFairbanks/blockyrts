@@ -229,7 +229,7 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
   return true;
 }
 
-/** Puts the new tier on: the old piece gives back its share (none, (s)), the slots take the new kit. */
+/** Puts the new tier on: the old piece is scrapped and its cost goes back to the stock (in full, Jade), the slots take the new kit. */
 function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): void {
   const e = state.entities;
   const owner = e.owner[i]!;

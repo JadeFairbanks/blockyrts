@@ -466,11 +466,11 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
       expect(e.weapon[i]).toBe(CLOSE_GEAR[2]);
       expect(pendingKitUp(s, i, Line.Weapon)).toBeUndefined();
     }
-    // The cudgels' sticks do not come back.
-    expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks - 6, flint - 3]);
+    // Each cudgel is scrapped with a full refund (3 sticks), so a step costs the difference.
+    expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks - 6 + 9, flint - 3]);
   });
 
-  it('Max goes to the best tier researched and affordable, and the old kit gives nothing back', () => {
+  it('Max goes to the best tier researched and affordable, and the old kit comes back in full', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
@@ -493,8 +493,9 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
     expect([pool[Res.WroughtIron], pool[Res.HardwoodLumber], pool[Res.Leather]]).toEqual([0, 2, 0]);
     runUntil(s, () => e.wTier[i] === 5, 3000);
     expect(e.weapon[i]).toBe(CLOSE_GEAR[5]);
-    // Nothing else was touched, and the cudgel's 3 sticks are gone for good.
-    for (const r of [Res.Sticks, Res.CopperIngot, Res.BronzeIngot, Res.IronIngot, Res.SteelIngot]) expect(pool[r], `res ${r}`).toBe(before[r]);
+    // Nothing else was touched, and the cudgel's 3 sticks came back.
+    for (const r of [Res.CopperIngot, Res.BronzeIngot, Res.IronIngot, Res.SteelIngot]) expect(pool[r], `res ${r}`).toBe(before[r]);
+    expect(pool[Res.Sticks]).toBe(before[Res.Sticks]! + 3);
     // With another iron ingot in stock, Max would go on to the iron broadsword.
     pool[Res.IronIngot] = 2;
     pool[Res.HardwoodLumber] = 1;

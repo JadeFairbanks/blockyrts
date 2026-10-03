@@ -178,8 +178,8 @@ describe('early tools by job', () => {
     );
     expect(bar).toBe(300);
     expect(beside).toBeGreaterThanOrEqual(299);
-    // The hardwood kit's sticks do not come back.
-    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 6, flint - 1, stone - 5]);
+    // The hardwood kit is scrapped with a full refund (3 sticks).
+    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 3, flint - 1, stone - 5]);
   });
 
   it('quarry a stone outcrop with the digging stick, and mine copper only with a stone maul (Table 5)', () => {

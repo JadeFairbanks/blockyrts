@@ -189,9 +189,19 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
     nx = e.x[i]! + floorDiv(dx * speed, dist);
     nz = e.z[i]! + floorDiv(dz * speed, dist);
   }
-  const ncx = col(nx);
-  const ncz = col(nz);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) {
+  let ncx = col(nx);
+  let ncz = col(nz);
+  const m = moverOf(state, i);
+  const level = unitLevel(state, i);
+  if (ncx !== cx && ncz !== cz && state.nav.stepCost(cx, cz, ncx, ncz, m, level) < 0) {
+    // A straight line from off the column's centre clips a corner the path goes round: slide along
+    // whichever side is open this step (a hunter kneeling by a carcass at a column's edge got stuck here).
+    if (state.nav.stepCost(cx, cz, ncx, cz, m, level) >= 0) nz = e.z[i]!;
+    else if (state.nav.stepCost(cx, cz, cx, ncz, m, level) >= 0) nx = e.x[i]!;
+    ncx = col(nx);
+    ncz = col(nz);
+  }
+  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, m, level) < 0) {
     if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
     e.pathOk[i] = 2;
     return MOVING;

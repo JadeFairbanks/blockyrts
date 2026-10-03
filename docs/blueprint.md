@@ -1751,7 +1751,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | New troop, any type and tiers | Barracks; cavalry at the Stables (Jade) | 30 food, the kit; feathers and gunpowder as table 2e | 45 s plus the kit's time (s) | free supply; the tier's forge or research (troops and gear table) |
 | New cavalry | Stables (Jade) | 30 food, the kit, a tamed horse in the stalls, used up (Jade) | 45 s plus the kit's time (s) | free supply |
 | New mage (Novice Acolyte) | Magi Sanctum or main base 6+ | 50 food, a hazel wand and a homespun robe (table 13) | 60 s plus the kit's time (s) | free supply |
-| Upgrade weapon, armour, tools, wand or robe (one tier) | beside the nearest Forge, Barracks or main base; cavalry also the Stables; mages also the Magi Sanctum | the new tier's kit cost; the old kit gives nothing back (s) | half the new piece's time to make (s) | the tier's forge or research |
+| Upgrade weapon, armour, tools, wand or robe (one tier) | beside the nearest Forge, Barracks or main base; cavalry also the Stables; mages also the Magi Sanctum | the new tier's kit cost; the old kit comes back in full (Jade) | half the new piece's time to make (s) | the tier's forge or research |
 | Worker to Hand / to Master | Big House | 20 / 40 food | 60 / 120 s | base 2 / base 5 (s) |
 | Troop to Soldier / to Veteran | Barracks | 30 / 60 food | 60 / 120 s | (s) |
 | Mage to Acolyte / to Adept Acolyte | Magi Sanctum | 40 food / 60 food, 2 mana crystals | 60 / 120 s | (s) |
@@ -2241,7 +2241,7 @@ Weapon and armour tiers are chosen independently, so any weapon can go with any 
 - An Upgrade Max twin of each takes the unit to the best tier researched and affordable; it appears only when it would give a different result from the plain button, so there can be up to 4 buttons (Jade).
 - Keys (s, rebindable): Q Upgrade Weapon (tools on a worker, wand on a mage), X Upgrade Armour (robe on a mage), Z Upgrade Weapon Max, V Upgrade Armour Max.
 - A bar on the unit fills once it is near the building. Better gear takes longer, with a preset time per item tied to how long a unit starting with it takes to build, but much shorter than making a new unit (Jade). Times are in Table 7.
-- An upgrade pays the new tier's full kit cost; the old kit gives nothing back (s, Open for Jade's rebalance).
+- An upgrade pays the new tier's full kit cost; the old kit is scrapped with a full refund (Jade), so a step costs the difference.
 - When stock runs short (s): the highest rank upgrades first, a unit only takes a whole step, and as many units upgrade as can be paid for.
 
 #### Starting units
