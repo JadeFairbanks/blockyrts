@@ -81,7 +81,9 @@ import { buildingIdOf, entityIdOf, type Selectable } from '../selection/types.ts
 import type { Settings } from '../settings/settings.ts';
 import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
-import type { ButtonPress } from './buttons.ts';
+import type { ButtonIcon, ButtonPress } from './buttons.ts';
+import { buildIcon, buildingUpgradeIcon, productIcon, trainTroopIcon, upgradeIcon } from './card-icons.ts';
+import { buildingIconFile } from './unit-icons.ts';
 import { troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { CLASSIC_SLOTS } from './hud-layout.ts';
 
@@ -104,6 +106,11 @@ export interface CardEntry {
   short?: boolean;
   run(p: ButtonPress): void;
   double?(p: ButtonPress): void;
+  /** Its picture, when it has one of its own (card-icons.ts); else the shell picks one by action. */
+  icon?: ButtonIcon | undefined;
+  /** What it trains or makes, so the card can mark what a building is making now. */
+  product?: number;
+  troop?: number;
 }
 
 export type Card = Array<CardEntry | null>;
@@ -763,8 +770,9 @@ export class Commands {
       const units = list.map((x) => x.id);
       if (units.length > 0) this.d.send({ kind: 'upgradeKit', player: this.d.player, units, line, max: best ? 1 : 0 });
     };
-    if (reason) return this.off(action, face, lines.join(' '), reason, name);
-    const extra: Partial<CardEntry> = { name };
+    const icon = upgradeIcon(kind === 'worker' || kind === 'mage' ? kind : 'warrior', line === Line.Weapon, max);
+    if (reason) return { ...this.off(action, face, lines.join(' '), reason, name), icon };
+    const extra: Partial<CardEntry> = { name, icon };
     if (!max && kind !== 'worker') extra.double = () => run(true);
     return this.entry(action, face, lines.join(' '), () => run(max), extra);
   }
@@ -880,6 +888,7 @@ export class Commands {
           key: GRID_CODES[i]!,
           grid: true,
           description: `${specs.map((s) => s.name).join(', ')}.`,
+          icon: { layers: [{ file: buildingIconFile(specs[0]!.kind, 1, 0) }] },
           enabled: any,
           reason: any ? '' : (this.d.game.info?.buildWhy[specs[0]!.kind] ?? ''),
           run: () => {
@@ -926,6 +935,7 @@ export class Commands {
       key: GRID_CODES[slot]!,
       grid: true,
       description: lines.join(' '),
+      icon: buildIcon(spec, variant),
       enabled: why === '',
       reason: why,
       short: short !== '',
@@ -977,6 +987,7 @@ export class Commands {
         name: `Upgrade to ${next.name}`,
         key: this.key('upgrade'),
         description: `Cost: ${costLine(next.cost)}, paid now. Then workers build it: ${seconds(next.ws)} of one worker's work (right-click it with workers). Gives: ${next.gives || 'more health'}.${next.supply ? ` Supply ${next.supply}.` : ''}`,
+        icon: buildingUpgradeIcon(kind, first.level + 1),
         enabled: why === '',
         reason: why,
         run: () => {
@@ -1023,6 +1034,8 @@ export class Commands {
       key: grid !== undefined ? GRID_CODES[grid]! : this.key(action),
       grid: grid !== undefined,
       description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / 2) / 10} s. Shift: queue 5.`,
+      icon: productIcon(p),
+      product: p,
       enabled: reason === '',
       reason,
       run: (press) => this.produce(all, p, press.shift ? 5 : 1),
@@ -1045,6 +1058,8 @@ export class Commands {
       name: `Train ${troopName(troop).toLowerCase()}`,
       key: this.key(action),
       description: `${kitName(troop, c.w, c.a)} (weapon tier ${c.w}, armour tier ${c.a}). Cost: ${troopCostText(first, troop, c.w, c.a)}. Pick the kit in the panel.${others} Shift: queue 5.`,
+      icon: trainTroopIcon(troop, c.w),
+      troop,
       enabled: any,
       reason: any ? '' : why,
       run: (press) => this.trainTroopAt(all, troop, press.shift ? 5 : 1),

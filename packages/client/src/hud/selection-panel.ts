@@ -6,7 +6,7 @@
 // or a main base, the troop panel (Troops and gear: Training troops): a
 // picture button per troop type, weapon and armour tier dropdowns with icons,
 // a Lock, and what the choice costs.
-import { buildingSpec, kitName, productSpec, troopOf, Troop } from '@blockyrts/sim';
+import { buildingSpec, kitName, productSpec, troopOf, Troop, UnitKind } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { armourIcon, autoIcon, setIcon, troopIcon, weaponIcon } from './icons.ts';
@@ -14,7 +14,10 @@ import { armourOptions, pickTier, troopChoice, troopCostText, troopName, troopWh
 import { CTRL_NAME } from '../input/platform.ts';
 import { isOwn } from '../selection/rules.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
-import type { ButtonPress, ButtonRegistry, HudButton } from './buttons.ts';
+import type { ButtonIcon, ButtonPress, ButtonRegistry, HudButton } from './buttons.ts';
+import { productIcon } from './card-icons.ts';
+import { queueText } from './queue-clock.ts';
+import { BATTLE_MAGE_ICON, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 
 /** Most portraits shown at once; the rest are counted. */
 const MAX_PORTRAITS = 40;
@@ -43,7 +46,13 @@ export interface PanelActions {
   troopsChanged(): void;
   /** A type's worth, for the subgroup order of a mixed selection. */
   worth?(typeKey: string, items: readonly Selectable[]): number;
+  /** A unit's troop and weapon tier, for its picture. */
+  look?(t: Selectable): UnitLook | null;
+  /** Seconds until a building's head item is done, or null while it is on hold (queue-clock.ts). */
+  queueLeft?(b: BuildingInfo): number | null;
 }
+
+const pic = (file: string): ButtonIcon | undefined => (file ? { layers: [{ file }] } : undefined);
 
 /** Fixed order of types in the panel, so the same army always looks the same. */
 export function typeOrder(typeKey: string): number {
@@ -72,14 +81,18 @@ export function subgroups(list: readonly Selectable[], worth?: (typeKey: string,
   return groups.map(({ typeKey, items }) => ({ typeKey, items }));
 }
 
+/** A glyph for what has no picture (a resource node). */
 function glyph(t: Selectable): string {
-  if (t.typeKey === 'worker') return '⚒';
-  if (t.typeKey === 'warrior') return '⚔';
-  if (t.typeKey === 'mage:support') return '✚';
-  if (t.typeKey === 'mage:battle') return '✦';
-  if (t.kind === 'building') return '⌂';
   if (t.kind === 'node') return '♣';
   return '•';
+}
+
+/** A unit's picture from the sim's copy of it (the units inside a building). */
+function unitInfoIcon(u: { kind: number; troop: number; wTier: number; school: number } | null): string {
+  if (!u) return WORKER_ICON;
+  if (u.kind === UnitKind.Warrior) return troopIconFile(u.troop, u.wTier);
+  if (u.kind === UnitKind.Mage) return u.school === 2 ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON;
+  return WORKER_ICON;
 }
 
 function shortType(t: Selectable): string {
@@ -101,6 +114,8 @@ export class SelectionPanel {
   private readonly manaBars = new Map<string, HTMLElement>();
   /** An open tier dropdown of the troop panel. */
   private menu: { b: number; troop: number; line: 'w' | 'a' } | null = null;
+  /** The shown queue's head: its button and bar, updated live (patch notes 1). */
+  private head: { btn: HudButton; bar: HTMLElement } | null = null;
 
   constructor(
     private readonly title: HTMLElement,
@@ -110,6 +125,7 @@ export class SelectionPanel {
   ) {}
 
   private clear(): void {
+    this.head = null;
     this.used = new Set();
     this.bars.clear();
     this.manaBars.clear();
@@ -159,6 +175,7 @@ export class SelectionPanel {
     ].join('#');
     if (sig === this.sig) {
       this.updateBars(list);
+      if (b) this.updateHead(b);
       return;
     }
     this.sig = sig;
@@ -193,20 +210,23 @@ export class SelectionPanel {
           const ps = productSpec(item.product);
           const t = troopOf(item.product);
           const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a).toLowerCase()})` : ps.name;
+          // The same picture as the unit once it is out, and as the button that queued it.
+          const icon = productIcon(item.product);
           const btn = this.button(`queue${k}`, {
-            face: t ? '' : name.startsWith('Planks') ? 'P' : name.slice(0, 1),
+            face: icon ? '' : name.slice(0, 1),
+            icon,
             name: `${name}: cancel`,
             keys: [],
-            description: k === 0 ? `In production: ${Math.floor(item.done / 10)}% done. Click to cancel; what it cost comes back.` : 'Waiting. Click to cancel; what it cost comes back.',
+            description: queueText(k === 0, k === 0 ? (this.a.queueLeft?.(b) ?? null) : null),
             className: 'portrait queue-item',
             onPress: () => this.a.cancelQueued(b.id, k),
           });
-          if (t) setIcon(btn.el, troopIcon(t.troop, 20));
           if (k === 0) {
             const bar = document.createElement('span');
             bar.className = 'hp';
-            bar.style.width = `${Math.floor(item.done / 10)}%`;
+            bar.style.width = `${item.done / 10}%`;
             btn.el.append(bar);
+            this.head = { btn, bar };
           }
           q.append(btn.el);
         });
@@ -219,7 +239,8 @@ export class SelectionPanel {
         q.className = 'sel-queue';
         for (const id of b.inside) {
           const btn = this.button(`inside${id}`, {
-            face: '⚒',
+            face: '',
+            icon: pic(unitInfoIcon(this.a.game.unit(id))),
             name: this.a.unitName(id),
             keys: [],
             description: 'Click to let this one out.',
@@ -276,7 +297,7 @@ export class SelectionPanel {
         onPress: (p) => this.a.trainTroop(b.id, t.troop, p.shift ? 5 : 1),
       });
       pic.setEnabled(why === '', why);
-      setIcon(pic.el, troopIcon(t.troop));
+      setIcon(pic.el, troopIcon(t.troop, c.w, 26));
       const weapons = weaponOptions(g, b, t.troop);
       const wName = weapons.find((o) => o.tier === c.w)?.name ?? '';
       const wBtn = this.button(`troopw-${t.troop}`, {
@@ -401,8 +422,10 @@ export class SelectionPanel {
       for (const t of g.items) {
         if (shown >= MAX_PORTRAITS) break;
         shown++;
+        const icon = pic(selectableIconFile(t.typeKey, this.a.look?.(t) ?? null));
         const p = this.button(`pt-${t.key}`, {
-          face: glyph(t),
+          face: icon ? '' : glyph(t),
+          icon,
           name: t.label,
           keys: [],
           description: `Click: select only this. Shift + click or right click: remove it. ${CTRL_NAME} + click: only this type. Double click: centre on it.`,
@@ -426,6 +449,17 @@ export class SelectionPanel {
     }
     this.body.append(grid);
     if (list.length > shown) this.row('owner', `and ${list.length - shown} more`);
+  }
+
+  /** The head of the queue counts down: its bar and its hover text follow the sim every refresh. */
+  private updateHead(b: BuildingInfo): void {
+    const h = this.head;
+    const item = b.queue[0];
+    if (!h || !item) return;
+    const w = `${item.done / 10}%`;
+    if (h.bar.style.width !== w) h.bar.style.width = w;
+    const text = queueText(true, this.a.queueLeft?.(b) ?? null);
+    if (h.btn.def.description !== text) h.btn.def = { ...h.btn.def, description: text };
   }
 
   private updateBars(list: readonly Selectable[]): void {

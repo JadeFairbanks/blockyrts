@@ -16,6 +16,7 @@ import {
   TUNNEL_WIDTH_COLUMNS,
   UnitKind,
   WU_PER_METRE,
+  troopOf,
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
@@ -48,6 +49,7 @@ import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
+import { guessSteps, QueueClock } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
@@ -61,6 +63,8 @@ import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
+import { actionIcon } from './card-icons.ts';
+import { doingActions } from './doing.ts';
 
 /** Each people's list of random remarks (Halflings, Runkin, Elves, Dwarves). */
 const REMARK_KEYS = ['halfling', 'runkin', 'elf', 'dwarf'];
@@ -192,6 +196,10 @@ export class GameShell {
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
+  /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
+  private cardDoing: string[] = [];
+  /** The pace of every own building's head item, for the queue's countdown. */
+  private readonly queueClock = new QueueClock();
   private world: WorldHooks;
   private readonly extras: WorldExtras;
   private readonly game: GameInfo;
@@ -405,6 +413,16 @@ export class GameShell {
         this.cardDirty = true;
       },
       worth: this.worth,
+      look: (t) => {
+        const u = entityIdOf(t.key);
+        const info = u === null ? null : this.game.unit(u);
+        return info ? { troop: info.troop, wTier: info.wTier } : null;
+      },
+      queueLeft: (b) => {
+        const head = b.queue[0];
+        if (!head) return null;
+        return this.queueClock.secondsLeft(b.id, head.product, head.done, this.game.step, guessSteps(head.product, b.kind, b.level, b.working));
+      },
     });
     this.buildButtons();
     this.selection.onChange(() => {
@@ -510,6 +528,15 @@ export class GameShell {
   }
 
   private onInfo(info: InfoMessage): void {
+    // The pace of what each own building makes, for the queue's countdown.
+    const making = new Set<number>();
+    for (const b of info.buildings) {
+      const head = b.owner === this.player ? b.queue[0] : undefined;
+      if (!head) continue;
+      making.add(b.id);
+      this.queueClock.note(b.id, head.product, head.done, info.step);
+    }
+    this.queueClock.keep(making);
     // The stockpile: food, supply and the inventory grid.
     this.inventory.update(info, this.game.food());
     // Outlying lights against the coming night's limit (Table 8).
@@ -1362,10 +1389,14 @@ export class GameShell {
       // Labels and health change: refresh the text now and then.
       this.lastPanelText = now;
       this.refreshSelectionPanel();
+      this.markDoing();
+      // The hovered button's words may have changed (the queue's countdown).
+      this.input.refreshHover();
     }
     if (this.cardDirty) {
       this.cardDirty = false;
       this.refreshCommandCard();
+      this.markDoing();
     }
   }
 
@@ -1541,6 +1572,38 @@ export class GameShell {
     ]);
   }
 
+  /**
+   * The doing-now marker (patch notes 1): an animated mark on the card button
+   * of what the active subgroup is doing or walking to do, from each unit's
+   * current order; for a building, what it makes now or its upgrade.
+   */
+  private markDoing(): void {
+    const active = this.activeType();
+    const doing = new Set<string>();
+    if (active && !this.commands.targeting && !this.commands.placing && !this.commands.area) {
+      if (active.startsWith('building:')) {
+        for (const b of this.commands.buildings()) {
+          if (b.kind !== Number(active.split(':')[1])) continue;
+          const head = b.queue[0];
+          if (head) {
+            doing.add(`product:${head.product}`);
+            const t = troopOf(head.product);
+            if (t) doing.add(`troop:${t.troop}`);
+          }
+          if (b.upgrading) doing.add('upgrade');
+        }
+      } else {
+        const heads = this.commands.unitIds((t) => t.typeKey === active).map((id) => this.game.queues.get(id)?.[0]);
+        for (const a of doingActions(heads, active)) doing.add(a);
+      }
+    }
+    for (let i = 0; i < this.cardButtons.length; i++) {
+      const b = this.cardButtons[i]!;
+      const on = !b.el.hidden && doing.has(this.cardDoing[i] ?? '');
+      if (b.el.classList.contains('doing') !== on) b.el.classList.toggle('doing', on);
+    }
+  }
+
   private refreshCommandCard(): void {
     const card: Card = this.commands.card();
     // A long menu grows the card upward, as far as the screen allows.
@@ -1573,10 +1636,12 @@ export class GameShell {
         name: e.name,
         keys: [e.key],
         description: e.description,
+        icon: e.icon ?? actionIcon(e.action, e.face),
         className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}${i >= 15 ? ' extra' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
       });
+      this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);
       b.el.hidden = false;

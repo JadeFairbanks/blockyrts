@@ -1132,8 +1132,10 @@ body.playing * {
   align-items: center;
   flex: none;
 }
-.icon-host svg {
+.icon-host svg,
+.icon-host img {
   display: block;
+  image-rendering: pixelated;
 }
 .troop-row {
   display: flex;
@@ -1213,4 +1215,94 @@ body.playing * {
 }
 .slot.extra {
   border-style: dotted;
+}
+
+/* Pictures on buttons (patch notes 1): kit icons at their own pixel size, a
+   badge in the top left (better, best, worse, off, confirm, next) and a tag in
+   the bottom right (a page, a mode). The words are in the tooltip. */
+.btn-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.btn-icon img {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.btn-icon img.mirror {
+  transform: scaleX(-1);
+}
+.btn-badge {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  line-height: 0;
+}
+.btn-badge svg {
+  display: block;
+}
+.btn-tag {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font: 14px/1 var(--display);
+  color: var(--parchment, #efe3c8);
+  text-shadow: 1px 1px 0 #000;
+}
+.hud-btn.has-icon > .face {
+  display: none;
+}
+.hud-btn.disabled .btn-icon {
+  filter: grayscale(1) brightness(0.75);
+  opacity: 0.55;
+}
+
+/* The doing-now marker (patch notes 1): a gold arrow bobbing over the action
+   the selection is doing or walking to do, and a slow glow round the button. */
+.hud-btn.doing::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 7px);
+  top: 1px;
+  width: 14px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z' fill='%231a120c'/%3E%3Cpath d='M1 0h5v1h-1v1h-1v1h-1v-1h-1v-1h-1z' fill='%23ffd84a'/%3E%3C/svg%3E") center / contain no-repeat;
+  image-rendering: pixelated;
+  animation: doing-bob 0.8s steps(2, jump-none) infinite alternate;
+  pointer-events: none;
+  z-index: 2;
+}
+.hud-btn.doing {
+  animation: doing-glow 1.6s ease-in-out infinite;
+}
+@keyframes doing-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+@keyframes doing-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(255, 216, 74, 0.35);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px rgba(255, 216, 74, 0.9), 0 0 6px rgba(255, 216, 74, 0.45);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn.doing,
+  .hud-btn.doing::after {
+    animation: none;
+  }
+  .hud-btn.doing {
+    box-shadow: inset 0 0 0 2px rgba(255, 216, 74, 0.8);
+  }
 }
