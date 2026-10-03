@@ -11,19 +11,24 @@ import {
   DebugThreat,
   deserializeState,
   DUSK_STEPS,
+  FOODS,
   hashState,
   isLit,
-  Item,
   knowsSpell,
+  Line,
+  MAGE_RANK_TRAINING,
   MAGE_RANKS,
+  manaCap,
   MANA_SCALE,
   Mob,
   placeBuilding,
+  pendingKitUp,
   Product,
+  productProblem,
   Res,
   Research,
   RESEARCH_PRODUCT,
-  CRAFT_PRODUCT,
+  ROBE_GEAR,
   createWorld,
   School,
   serializeState,
@@ -36,6 +41,9 @@ import {
   SpellWith,
   step,
   UnitKind,
+  upgradeProgress,
+  WAND_GEAR,
+  WAND_KITS,
   WU_PER_COLUMN,
   WU_PER_METRE,
   type Building,
@@ -96,26 +104,34 @@ function toNight(s: SimState, night: number): void {
 }
 
 describe('the Magi Sanctum', () => {
-  it('trains a Novice Acolyte for 50 food and a wand in 60 s', () => {
+  it('trains a Novice Acolyte for 50 food, a hazel wand and a homespun robe in 60 s and the kit\'s 20 s', () => {
     const s = createPeaceful();
     const b = sanctum(s);
     const p = s.players[0]!;
-    p.pool[Res.Sticks] = 20;
-    p.pool[Res.CopperIngot] = 2;
+    // Troops and gear: the kit is paid from the pool when she is queued; without it, the reason.
+    p.pool[Res.Sticks] = 0;
+    p.pool[Res.Flax] = 6;
     p.pool[Res.Meat] = 200;
-    run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: CRAFT_PRODUCT + Item.Wand, count: 1 }]);
-    runUntil(s, () => p.items[Item.Wand]! > 0, 20 * SEC + 5);
+    expect(productProblem(s, b, Product.BattleMage)).toMatch(/^Not enough resources/);
+    p.pool[Res.Sticks] = 20;
+    expect(productProblem(s, b, Product.BattleMage)).toBe('');
+    const food = (): number => FOODS.reduce<number>((n, f) => n + p.pool[f]!, 0);
+    const before = food();
     run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: Product.BattleMage, count: 1 }]);
-    expect(p.items[Item.Wand]).toBe(0);
-    const took = runUntil(s, () => mages(s).length > 0, 60 * SEC + 5);
-    expect(took).toBeGreaterThanOrEqual(60 * SEC - 2);
+    expect(p.pool[Res.Sticks]).toBe(15);
+    expect(p.pool[Res.Flax]).toBe(3);
+    expect(food()).toBeLessThan(before);
+    const took = runUntil(s, () => mages(s).length > 0, 80 * SEC + 5);
+    expect(took).toBeGreaterThanOrEqual(80 * SEC - 2);
     const [m] = mages(s);
     const e = s.entities;
     expect(e.school[m!]).toBe(School.Battle);
     expect(e.rank[m!]).toBe(1);
     expect(e.hp[m!]).toBe(70);
     expect(e.mana[m!]).toBe(100 * MANA_SCALE);
-    expect(e.weapon[m!]).toBe(Item.Wand);
+    expect([e.wTier[m!], e.aTier[m!]]).toEqual([1, 1]);
+    expect(e.weapon[m!]).toBe(WAND_GEAR[1]);
+    expect(e.armour[m!]).toBe(ROBE_GEAR[1]);
   });
 
   it('researches Hexcraft, which teaches Warding and Counterspell from rank 2', () => {
@@ -140,31 +156,81 @@ describe('the Magi Sanctum', () => {
     expect(knowsSpell(s, novice, Spell.Counterspell)).toBe(false);
   });
 
-  it('trains a mage to Acolyte, and gives a rank wand once her experience is banked', () => {
+  it('trains a mage to Acolyte, and to Mage for 2 mana crystals once her experience is banked; no rank wand', () => {
     const s = createPeaceful();
     const b = sanctum(s);
     const p = s.players[0]!;
     p.pool[Res.Meat] = 200;
+    p.pool[Res.ManaCrystal] = 0;
     const [x, z] = buildingCentre(b);
     const m = addMage(s, 0, x + 8 * M, z, School.Support);
     const e = s.entities;
     run(s, 1, [{ kind: 'trainRank', player: 0, units: [e.id[m]!], building: b.id }]);
     runUntil(s, () => e.rank[m] === 2, 90 * SEC);
     expect(e.maxHp[m]).toBe(80);
-    // Mage needs 300 experience and her rank wand.
+    // Mage needs 300 experience.
     setMageRank(s, m, 3);
     run(s, 1, [{ kind: 'trainRank', player: 0, units: [e.id[m]!], building: b.id }]);
-    const texts: string[] = [];
     run(s, 40);
-    texts.push(...s.events.map((ev) => ev.text));
     expect(e.rank[m]).toBe(3);
+    // Banked, but no crystals: she is sent back with the reason.
     e.xp[m] = MAGE_RANKS[3]!.xp * 10;
-    p.items[Item.WandMage] = 1;
+    const texts: string[] = [];
+    step(s, [{ kind: 'trainRank', player: 0, units: [e.id[m]!], building: b.id }]);
+    texts.push(...s.events.map((ev) => ev.text));
+    for (let k = 0; k < 20 * SEC && !texts.some((t) => t.includes('mana crystals')); k++) {
+      step(s);
+      texts.push(...s.events.map((ev) => ev.text));
+    }
+    expect(texts).toContain('Training a support mage to Mage needs 2 mana crystals.');
+    expect(e.rank[m]).toBe(3);
+    // With 2 crystals she trains; the crystals are spent and her wand is the one she had.
+    p.pool[Res.ManaCrystal] = 3;
+    const wand = e.weapon[m]!;
     run(s, 1, [{ kind: 'trainRank', player: 0, units: [e.id[m]!], building: b.id }]);
     runUntil(s, () => e.rank[m] === 4, 60 * SEC);
-    expect(e.weapon[m]).toBe(Item.WandMage);
-    expect(p.items[Item.Wand]).toBe(1);
+    expect(p.pool[Res.ManaCrystal]).toBe(1);
+    expect(e.weapon[m]).toBe(wand);
+    expect(e.wTier[m]).toBe(1);
     expect(e.maxHp[m]).toBe(100);
+  });
+
+  it('pays 2, 5 and 10 mana crystals for the ranks from Mage up, and no food', () => {
+    const combat = MAGE_RANK_TRAINING.filter((t) => t.combat);
+    expect(combat.map((t) => [t.rank, t.crystals, t.food])).toEqual([
+      [4, 2, 0],
+      [5, 5, 0],
+      [6, 10, 0],
+    ]);
+  });
+
+  it('upgrades a mage\'s wand at a Magi Sanctum: paid when ordered, half the wand\'s make time beside it', () => {
+    const s = createPeaceful();
+    const b = sanctum(s);
+    const p = s.players[0]!;
+    // The copper-tipped wand needs a Casting Hearth; this one stands far off, so the Sanctum is nearer.
+    const base = bigHouse(s);
+    placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 60, base.z, true);
+    const [x, z] = buildingCentre(b);
+    const m = addMage(s, 0, x + 8 * M, z, School.Battle);
+    const e = s.entities;
+    const id = e.id[m]!;
+    p.pool[Res.Sticks] = 5;
+    p.pool[Res.CopperIngot] = 0;
+    run(s, 1, [{ kind: 'upgradeKit', player: 0, units: [id], line: Line.Weapon, max: 0 }]);
+    expect(pendingKitUp(s, m, Line.Weapon)).toBeUndefined();
+    p.pool[Res.CopperIngot] = 1;
+    const cap = manaCap(s, m);
+    run(s, 1, [{ kind: 'upgradeKit', player: 0, units: [id], line: Line.Weapon, max: 0 }]);
+    const o = pendingKitUp(s, m, Line.Weapon)!;
+    expect(o.b).toBe(b.id);
+    expect([p.pool[Res.Sticks], p.pool[Res.CopperIngot]]).toEqual([0, 0]);
+    runUntil(s, () => upgradeProgress(s, m)[1] > 0, 30 * SEC);
+    expect(upgradeProgress(s, m)[1]).toBe((WAND_KITS[2]!.timeS * SEC) / 2);
+    runUntil(s, () => e.wTier[m] === 2, 20 * SEC);
+    expect(e.weapon[m]).toBe(WAND_GEAR[2]);
+    expect(e.aTier[m]).toBe(1);
+    expect(manaCap(s, m)).toBe(cap + WAND_KITS[2]!.mana * MANA_SCALE);
   });
 });
 
