@@ -245,6 +245,30 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
   root.setProperty('--top-right-h', `${Math.round(L.topRight.offsetHeight * s)}px`);
 }
 
+/**
+ * The debug readout is exempt from the layout rules, but on a short screen its
+ * tools wrapped in a narrow column ran down over the message panel and the
+ * buttons beside the minimap. They widen (no wider than the minimap) to the
+ * first width that ends the readout above the message panel, else above the
+ * bottom strip. Measures the page: call on resize and when the tools change.
+ */
+export function fitDebug(L: HudLayout, g: HudGeometry): void {
+  const tools = L.debug.querySelector<HTMLElement>('.dbg-tools');
+  if (!tools || g.phone || L.debug.hidden) return;
+  const strip = L.minimapPanel.getBoundingClientRect().top;
+  const msg = L.messagePanel.getBoundingClientRect();
+  const widest = Math.max(200, Math.floor(g.minimap.w / g.scale) - 16);
+  const bottoms: Array<[number, number]> = [];
+  for (let w = 200; ; w = Math.min(widest, w + 40)) {
+    tools.style.maxWidth = `${w}px`;
+    bottoms.push([w, L.debug.getBoundingClientRect().bottom]);
+    if (w >= widest) break;
+  }
+  const clears = (limit: number): number | undefined => bottoms.find(([, b]) => b <= limit - 4)?.[0];
+  const w = (msg.height > 0 ? clears(msg.top) : undefined) ?? clears(strip) ?? widest;
+  tools.style.maxWidth = `${w}px`;
+}
+
 /** Lays the card's slots out on a grid of these columns and rows, adding slots as needed. */
 function setCardGrid(L: HudLayout, cols: number, rows: number): void {
   const card = L.commandCard;

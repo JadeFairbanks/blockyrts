@@ -53,7 +53,7 @@ import { guessSteps, QueueClock } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
-import { applyGeometry, buildLayout, type Folds, type HudLayout } from './layout.ts';
+import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { hudLayout, rowsFor, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles } from './bubbles.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
@@ -479,10 +479,17 @@ export class GameShell {
     this.geometry = hudLayout({ width: this.width, height: this.height, topRight: this.layout.topRight.offsetHeight || 112 });
     this.layout.root.classList.toggle('phone', this.geometry.phone);
     applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    fitDebug(this.layout, this.geometry);
     this.portraitRect = null;
     this.panels.measure();
     if (s !== this.geometry.scale) this.selectionDirty = true;
     this.cardDirty = true;
+  }
+
+  /** The debug tools were added or changed: the readout fits itself in again (layout.ts fitDebug). */
+  debugChanged(): void {
+    fitDebug(this.layout, this.geometry);
+    this.panels.measure();
   }
 
   /** Phone: unfolds or folds a panel; the minimap and the selection share the strip, so one closes the other. */

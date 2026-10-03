@@ -168,4 +168,5 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.Morvath);
     shell.message('Debug: Morvath has come.');
   });
+  shell.debugChanged();
 }
