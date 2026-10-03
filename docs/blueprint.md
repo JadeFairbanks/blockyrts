@@ -1321,7 +1321,8 @@ Dead units drop out of their groups automatically. When a group of identical bui
 **Other camera and selection keys:**
 
 - Backspace: centre the camera on the player's town hall. Pressing again cycles to the next town hall if the player has more than one.
-- Space: jump to the most recent urgent message (for example, a building under attack, a unit that is stuck, or the night warning at dusk). Pressing again steps back through the last 8.
+- Space: centre the camera on the current selection (Jade's patch notes 1, 2026-10-03).
+- F4: jump to the most recent urgent message (for example, a building under attack, a unit that is stuck, or the night warning at dusk). Pressing again steps back through the last 8. (Space until patch notes 1; F4 suggested, as built 2026-10-03.)
 - F1: select an idle gatherer and centre on it; pressing again cycles to the next. Shift + F1 selects all idle gatherers at once.
 - F2: select every combat unit the player owns (gatherers excluded).
 - F3: clear the selection.
@@ -1511,7 +1512,7 @@ Units talk to their player. This is how the game tells the player what their uni
 - Messages from other players are highlighted differently from unit speech and alerts.
 - A filter button switches between three views: everything; alerts and player messages only; and player messages only.
 
-**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, idle workers and nightfall count as urgent, and Space steps through them). For these:
+**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, idle workers and nightfall count as urgent, and F4 steps through them). For these:
 
 - The minimap is always pinged at the spot where it happened.
 - If the panel is collapsed, its button flashes as an alarm.
@@ -1539,7 +1540,8 @@ The game must be fully playable without touching the keyboard. Keyboard controls
 | F1 / Shift + F1 (idle gatherers) | Click the Idle Gatherer button (left click: next one; double-click: all of them). |
 | F2 (select army) | Click Select Army on the utility bar. |
 | Backspace (town hall) | Click Town Hall on the utility bar. |
-| Space (latest urgent message) | Click the message in the message panel; the camera jumps to where it happened. |
+| Space (centre on the selection) | Double-click a portrait in the selection panel (that unit), or a group tab (that group) (suggested, as built 2026-10-03). |
+| F4 (latest urgent message) | Click the message in the message panel; the camera jumps to where it happened. |
 | Enter (chat with players) | Click the text box at the bottom of the message panel. |
 | A, G, E or T twice (each unit picks its own target) | Double-click the button on the command card (suggested, as built 2026-10-03). |
 | Tab, Enter and Space in menus and dialogues | Click the button; Tab moves between buttons and Enter or Space presses the one in focus, while Esc and F10 still close the menu (suggested, as built 2026-10-03). |
@@ -1601,15 +1603,16 @@ Because the game runs in a web browser, some key combinations above are normally
 | F3 | Clear selection |
 | F5 to F8 / group key + F5 to F8 | Jump to / save camera location |
 | Backspace | Centre on town hall (cycles) |
-| Space | Jump to latest urgent message (cycles through last 8) |
+| Space | Centre the camera on the selection |
+| F4 (suggested) | Jump to latest urgent message (cycles through last 8) |
 | Enter | Type a message to other players (Enter to send, Esc to cancel) |
 | [ / ] / \ (suggested) | Allies panel / Send resources / Map ping |
-| Pause (suggested) | Pause or carry on (anyone may, online) |
+| Pause (suggested) | Alone: open the menu, which pauses. Online: pause or resume for every player (anyone may) |
 | L | Follow selected unit |
 | F9 / J (suggested) | Rations / Everyone Home (during dusk) |
 | Arrow keys, edge of screen, middle drag | Pan camera |
 | Mouse wheel, Page Up / Page Down, Home | Zoom in / out, reset zoom |
-| F10 | Game menu: Resume, Pause or Carry on, Save game, Download a save file, Full screen, Settings, Quit (Leave the game online) (suggested) |
+| F10 | Game menu: Pause or Resume (online only), Save game, Download a save file, Full screen, Settings, Quit (Leave the game online), and a ✕ to close it (suggested). Alone, the open menu is the pause |
 
 ### Resources
 
@@ -2837,7 +2840,8 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - Map pings (suggested): a player can click a Ping button (or press \) and then a spot on the map or minimap to flash it for everyone, with a sound and "Look here" with their name, to point out a threat or a target. Right click or Esc cancels.
 - Selecting only allied units shows a short command card (suggested): Attack, Stop, Hold, Patrol, Move, Gather, Return cargo.
 - **Who sees what (suggested):** chat lines, pings, joins, leaves and pauses go to every player. A player's own alerts (attacks, deaths, trades, sent resources) go only to them. Messages name players by their names, never "Player 2".
-- **Pause (suggested):** the Pause key or the ❚❚ button. Alone, the game also pauses while the F10 menu or the account page is open. Online, anyone may pause and anyone may carry on; a banner says who paused.
+- **Pause (Jade's patch notes 1, 2026-10-03):** alone, opening the F10 menu pauses the game and closing it carries on, with no Pause or Resume button (the account page holds the game too); the Pause key and the ❚❚ button open the menu. Online, opening the menu does not pause. The menu has one Pause button, and any player may press it, or the Pause key or ❚❚: the game stops for everyone, every player's menu opens with the button reading Resume, and everyone is told who paused (a message, a line in the menu and the banner). When any player presses Resume, everyone is told who resumed and every menu closes. Suggested, as built: a player's pause stays in force if they lose the connection, so the others can resume it; the banner keeps a Resume button for a player who closed their menu.
+- **Random remarks (patch notes 1):** units make no random remarks while the game is paused, and the wait for the next one stands still.
 
 #### Shared vision
 

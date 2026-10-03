@@ -298,11 +298,12 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     if (!online) return;
     const p = netPause;
     const resume = p.held ? () => togglePause() : null;
+    const waiting = maskSlots(p.waiting).map(slotName);
     if (!p.paused) net.setPaused(null);
     else if (p.reason === PauseReason.Player) net.setPaused(`${slotName(p.by)} paused the game.`, resume);
-    else if (p.reason === PauseReason.Disconnect) net.setPaused(`${maskSlots(p.waiting).map(slotName).join(' and ')} lost the connection. The game waits for them.`, resume);
+    else if (p.reason === PauseReason.Disconnect) net.setPaused(`${waiting.join(' and ')} lost the connection. The game waits for them.`, resume);
     else if (p.reason === PauseReason.Desync) net.setPaused('The game went out of step; reloading everyone from one copy…');
-    else net.setPaused(`${maskSlots(p.waiting).map(slotName).join(' and ') || 'A player'} is catching up…`);
+    else net.setPaused(`${waiting.join(' and ') || 'A player'} ${waiting.length > 1 ? 'are' : 'is'} catching up…`);
     shell.pauseChanged();
   };
 
