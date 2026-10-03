@@ -274,7 +274,7 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     const base = bigHouse(s);
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
     const p = s.players[0]!;
-    p.pool[Res.Meat] = 200;
+    p.pool[Res.Venison] = 200;
     // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder.
     for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1]] as const) p.pool[r] = n;
     const product = troopProduct(Troop.Ranger, 8, 0);
@@ -305,7 +305,7 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     const base = bigHouse(s);
     const yard = placeBuilding(s, 0, BuildingKind.GunneryYard, 0, base.x + 18, base.z, true);
     const p = s.players[0]!;
-    p.pool[Res.Meat] = 200;
+    p.pool[Res.Venison] = 200;
     const e = s.entities;
     const id = e.id[warriors(s)[0]!]!;
     run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Cannon }]);

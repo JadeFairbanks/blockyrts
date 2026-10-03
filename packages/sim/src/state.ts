@@ -275,6 +275,8 @@ export const UNIT_FIELDS = [
   ['lowUntil', 'u32'],
   /** 1 once inherited from a player who was eliminated or left: every player still in may command it (Multiplayer and saving). */
   ['shared', 'u8'],
+  /** The step it first went without a meal (Food: starving), or 0 while it is fed; only units that eat (economy/food.ts) ever starve. */
+  ['hungry', 'u32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -415,6 +417,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare sickUntil: Uint32Array;
   declare ability2At: Uint32Array;
   declare lowUntil: Uint32Array;
+  declare hungry: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -517,26 +520,48 @@ export interface PlayerState {
   out: number;
   /** Things made at least once (combat/items.ts Made), for research that needs one first. */
   made: number;
-  /** Foods kept back from eating: a bit per entry of FOODS (Don't eat). */
-  dontEat: number;
   /** Rations (F9): 0 feed everyone, 1 troops only, 2 workers only. */
   rations: number;
-  /** Nutrition already eaten beyond what was owed (whole foods are taken), in quarters. */
-  fed: number;
-  /** The step each group began starving, or 0 while fed: workers (and working animals), and troops (warriors, research facilities). */
+  /**
+   * What is left of the food item of each kind that was started (a meal
+   * takes less than one item), in quarters of nutrition, by resource id; it
+   * is eaten before another item of that kind is opened, so nothing is lost
+   * (economy/food.ts).
+   */
+  open: Int32Array;
+  /** Foods kept back from meals (Don't eat), 1 by resource id. */
+  kept: Uint8Array;
+  /** The FOODS entry the next meal starts from: meals go round the kinds in turn, so every kind is eaten evenly. */
+  mealTurn: number;
+  /** The step since when some of the player's workers (and working animals), or troops, have been starving; 0 while all are fed. */
   starveWorkers: number;
   starveTroops: number;
+  /** The step the research facilities first went without their meal, or 0 while they are fed (research stops meanwhile). */
+  starveLodge: number;
   /** Allies panel: the players this player lets command their units, a bit per player ("Share control"). */
   share: number;
 }
 
 /** A player's side at the start of a game, with this pool. */
 export function newPlayer(pool: Int32Array): PlayerState {
-  return { pool, research: 0, out: 0, made: 0, dontEat: 0, rations: 0, fed: 0, starveWorkers: 0, starveTroops: 0, share: 0 };
+  return {
+    pool,
+    research: 0,
+    out: 0,
+    made: 0,
+    rations: 0,
+    open: new Int32Array(pool.length),
+    kept: new Uint8Array(pool.length),
+    mealTurn: 0,
+    starveWorkers: 0,
+    starveTroops: 0,
+    starveLodge: 0,
+    share: 0,
+  };
 }
 
-/** The per-player scalars after the pool and stock, in the order they are serialised. */
-export const PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
+/** The per-player scalars after the pool and stock, in the order they are serialised (the open and kept arrays follow them). */
+export const PLAYER_FIELDS = ['research', 'out', 'made', 'rations', 'mealTurn', 'starveWorkers', 'starveTroops', 'starveLodge', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /**
  * Something the players should hear about: the message panel's alerts,
@@ -573,6 +598,11 @@ export interface SimEvent {
   z?: number;
   /** A sound cue to play with it (the blood night's double horn), for the client. */
   sound?: string;
+  /**
+   * Speech for the bubble only, never the message panel (patch 1): a unit's
+   * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
+   */
+  bubble?: 'meal' | 'hungry';
 }
 
 export interface SimState {

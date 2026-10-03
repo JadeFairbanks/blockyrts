@@ -8,6 +8,8 @@ import { buildingCentre } from '../buildings/lights.ts';
 import { wallBeside } from '../buildings/placement.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
+import { giveFood } from '../economy/food.ts';
+import { FOODS } from '../economy/resources.ts';
 import { floorDiv, WU_PER_METRE } from '../fixed.ts';
 import { MONSTERS, NEUTRAL, NO_CARRY, PEOPLES, UnitKind, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
@@ -231,6 +233,9 @@ export function eliminate(state: SimState, p: number, text: string): void {
     list[r] = 0;
   }
   const heir = left[0]!;
+  // What is left of their started foods goes to the heir, so no food is lost.
+  giveFood(state.players[heir]!, FOODS.map((f) => [f, ps.open[f]!] as const));
+  ps.open.fill(0);
   state.buildings.rev++;
   for (const b of state.buildings.list) {
     if (b.owner === p) {

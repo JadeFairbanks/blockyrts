@@ -524,8 +524,3 @@ export function pickersFor(state: SimState, units: readonly number[], l: Loot): 
   }
   return out;
 }
-
-/** A stand-in for the food thread's meat kinds: the meat a hunted or slaughtered animal gives (one kind for now). */
-export function meatOf(_species: number): number {
-  return Res.Meat;
-}

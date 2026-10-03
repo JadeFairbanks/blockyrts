@@ -126,7 +126,7 @@ describe('the starting camp', () => {
     expect(b.hp).toBe(1200);
     const pool = s.players[0]!.pool;
     // More food for the three troops, and room in the Big House's supply for them.
-    expect([pool[Res.Meat], pool[Res.Fish], pool[Res.Eggs], pool[Res.SoftwoodLumber], pool[Res.Stone], pool[Res.Flint], pool[Res.Sticks]]).toEqual([25, 10, 10, 40, 20, 10, 20]);
+    expect([pool[Res.Venison], pool[Res.Trout], pool[Res.Eggs], pool[Res.SoftwoodLumber], pool[Res.Stone], pool[Res.Flint], pool[Res.Sticks]]).toEqual([25, 10, 10, 40, 20, 10, 20]);
     expect(supplyCap(s, 0)).toBe(10);
     expect(supplyUsed(s, 0)).toBe(7);
   });
@@ -391,14 +391,14 @@ describe('training and production queues', () => {
     const pool = s.players[0]!.pool;
     const b = bigHouse(s);
     const node = nearestNode(s, Res.SoftwoodLumber);
-    const food = (): number => pool[Res.Meat]! * 2 + pool[Res.Fish]! * 3 + pool[Res.Eggs]! * 2;
+    const food = (): number => pool[Res.Venison]! * 2 + pool[Res.Trout]! * 3 + pool[Res.Eggs]! * 2;
     const before = [...pool];
     run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: Product.Worker, count: 2 }]);
     expect(b.queue.length).toBe(2);
     run(s, 1, [{ kind: 'cancelProduce', player: 0, building: b.id, index: 1 }]);
     expect(b.queue.length).toBe(1);
     run(s, 1, [{ kind: 'rally', player: 0, building: b.id, add: false, point: 'node', x: node.cx, z: node.cz, id: node.index }]);
-    expect(food()).toBeLessThan(before[Res.Meat]! * 2 + before[Res.Fish]! * 3 + before[Res.Eggs]! * 2);
+    expect(food()).toBeLessThan(before[Res.Venison]! * 2 + before[Res.Trout]! * 3 + before[Res.Eggs]! * 2);
     // The kit's 3 sticks for the one still queued (Table 7).
     expect(pool[Res.Sticks]).toBe(before[Res.Sticks]! - 3);
     runUntil(s, () => ownUnits(s).length === 8, 700);
@@ -440,8 +440,10 @@ describe('farms', () => {
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.CropField);
     const farm = placeBuilding(s, 0, BuildingKind.CropField, 0, x, z, true);
+    // Kept back from meals (every food is eaten in turn) so the harvest shows in the pool.
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Wheat, on: 1 }]);
     run(s, 1, [{ kind: 'assign', player: 0, units: [1, 2, 3], building: farm.id }]);
-    run(s, 300);
+    run(s, 299);
     // Two farmers at most at tier 1; the third was turned away.
     expect(s.entities.queue[2]!.length).toBe(0);
     // No fallow days: the bar is already filling.

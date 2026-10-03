@@ -46,7 +46,7 @@ export type ToWorker =
  * rides and the mount's health; an engine's crew standing by and whether
  * something hauls it.
  */
-export const STATE_STRIDE = 52;
+export const STATE_STRIDE = 54;
 export const S = {
   id: 0,
   owner: 1,
@@ -117,6 +117,9 @@ export const S = {
   mountMax: 50,
   /** Engines: the crew standing by it now, plus 1000 when a horse or ox hauls it. */
   crew: 51,
+  /** A unit that eats: its meal in quarters of nutrition (economy/food.ts mealQuarters), or 0 for one that eats nothing; and the step it began starving, or 0. */
+  meal: 52,
+  hungry: 53,
 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
@@ -268,9 +271,14 @@ export interface InfoMessage {
   nights: number;
   /** The local player is out of the game. */
   out: boolean;
-  /** F9 Rations (0 everyone, 1 troops only, 2 workers only), the Don't eat bits (one per FOODS entry), and who is starving. */
+  /**
+   * F9 Rations (0 everyone, 1 troops only, 2 workers only), the foods kept
+   * back with Don't eat, what is left of each food's started item (quarters
+   * of nutrition, by resource), and who is starving.
+   */
   rations: number;
-  dontEat: number;
+  kept: number[];
+  open: Int32Array;
   starveWorkers: boolean;
   starveTroops: boolean;
   /** Blood nights called so far (they shift the clock), and whether a fog night lies now. */

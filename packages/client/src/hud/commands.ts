@@ -10,6 +10,7 @@ import { cue } from '../audio/cues.ts';
 import {
   BuildingKind,
   costText,
+  EAT_NUTRITION,
   engineSpec,
   holderKind,
   Line,
@@ -642,7 +643,7 @@ export class Commands {
     const desc = `Walk to the nearest main base, storehouse or kitchen and eat: 2 food heals half their health over 10 s, and a remedy or a bandage from the stock heals what is left.`;
     const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse || b.kind === BuildingKind.Cooking));
     if (!where) return this.off('eat', 'Eat', desc, 'There is no main base, storehouse or kitchen to eat at.');
-    if (this.d.game.food() < 1) return this.off('eat', 'Eat', desc, 'There is no food.');
+    if (this.d.game.food() < EAT_NUTRITION) return this.off('eat', 'Eat', desc, this.d.game.food() === 0 ? 'There is no food.' : `Not enough food (needs ${EAT_NUTRITION}).`);
     return this.entry('eat', 'Eat', desc, () => this.d.send({ kind: 'eat', player: this.d.player, units, building: 0, queued: this.d.queued() }));
   }
 

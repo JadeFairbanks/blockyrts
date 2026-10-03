@@ -111,7 +111,7 @@ describe('the Magi Sanctum', () => {
     // Troops and gear: the kit is paid from the pool when she is queued; without it, the reason.
     p.pool[Res.Sticks] = 0;
     p.pool[Res.Flax] = 6;
-    p.pool[Res.Meat] = 200;
+    p.pool[Res.Venison] = 200;
     expect(productProblem(s, b, Product.BattleMage)).toMatch(/^Not enough resources/);
     p.pool[Res.Sticks] = 20;
     expect(productProblem(s, b, Product.BattleMage)).toBe('');
@@ -160,7 +160,7 @@ describe('the Magi Sanctum', () => {
     const s = createPeaceful();
     const b = sanctum(s);
     const p = s.players[0]!;
-    p.pool[Res.Meat] = 200;
+    p.pool[Res.Venison] = 200;
     p.pool[Res.ManaCrystal] = 0;
     const [x, z] = buildingCentre(b);
     const m = addMage(s, 0, x + 8 * M, z, School.Support);
