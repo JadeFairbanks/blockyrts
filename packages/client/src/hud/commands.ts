@@ -654,8 +654,8 @@ export class Commands {
   /**
    * Upgrade weapon (tools, wand) or armour (robe) (Troops and gear:
    * Upgrading): each unit the stock pays for, highest rank first, walks to
-   * the nearest Forge, Barracks or main base (cavalry the Stables, mages a
-   * Magi Sanctum) and gets its next tier there; Max goes to the best tier
+   * the nearest Forge, Barracks or main base (cavalry also the Stables,
+   * mages also a Magi Sanctum) and gets its next tier there; Max goes to the best tier
    * researched and paid for. Pressing it twice is Max too.
    */
   private upgradeEntry(ids: number[], line: number, max: boolean): CardEntry {
@@ -663,7 +663,7 @@ export class Commands {
     const kind = list[0]?.h.kind ?? 'warrior';
     const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
     const action = line === Line.Weapon ? (max ? 'upgradeWeaponMax' : 'upgradeWeapon') : max ? 'upgradeArmourMax' : 'upgradeArmour';
-    const where = kind === 'mage' ? 'a Magi Sanctum' : kind === 'worker' ? 'the nearest Forge, Barracks or main base' : 'the nearest Forge, Barracks or main base (cavalry: the Stables)';
+    const where = kind === 'mage' ? 'the nearest Magi Sanctum, Forge, Barracks or main base' : kind === 'worker' ? 'the nearest Forge, Barracks or main base' : 'the nearest Forge, Barracks or main base (cavalry also the Stables)';
     const name = max ? `Upgrade ${what} to the best` : `Upgrade ${what}`;
     const face = max ? `${capital(what)} max` : `${capital(what)} +`;
     const plans = this.upgradePlans(list, line, max);

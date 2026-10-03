@@ -94,15 +94,15 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
   add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
   // Milestone 6's mages.
-  add('dbg-sanctum', 'Sanctum', 'Debug: Magi Sanctum', 'Puts a finished Magi Sanctum in the middle of the view: it trains support and battle mages, makes wands and rank wands, and researches Hexcraft.', () => {
+  add('dbg-sanctum', 'Sanctum', 'Debug: Magi Sanctum', 'Puts a finished Magi Sanctum in the middle of the view: it trains support and battle mages, upgrades their wands and robes, and researches Hexcraft.', () => {
     threat(DebugThreat.Sanctum);
     shell.message('Debug: a Magi Sanctum placed in the middle of the view.');
   });
-  add('dbg-magekit', 'Mage kit', 'Debug: mage kit', 'Puts 2 wands and 2 of each rank wand in the equipment stock, and 10 mana crystals, 200 bread, 6 hexstone and 20 herbs in the pool: enough for two mages, their rank training and Hexcraft.', () => {
+  add('dbg-magekit', 'Mage kit', 'Debug: mage kit', 'Puts 10 sticks, 6 flax, 20 mana crystals, 200 bread, 6 hexstone and 20 herbs in the pool: enough for two mages\' wands and robes, their rank-ups and Hexcraft.', () => {
     threat(DebugThreat.MageKit);
-    shell.message('Debug: wands, rank wands, mana crystals and bread added.');
+    shell.message('Debug: sticks, flax, mana crystals and bread added.');
   });
-  add('dbg-magexp', 'Mage XP', 'Debug: mage experience', 'Gives each of your mages the experience for her next rank: she rises by herself to Acolyte and Adept Acolyte, and above that is ready for her rank wand at the Sanctum.', () => {
+  add('dbg-magexp', 'Mage XP', 'Debug: mage experience', 'Gives each of your mages the experience for her next rank: she rises by herself to Acolyte and Adept Acolyte, and above that is ready to train at the Sanctum for mana crystals.', () => {
     threat(DebugThreat.MageXp);
     shell.message('Debug: your mages have the experience for their next rank.');
   });
@@ -121,7 +121,7 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   add('dbg-caravan', 'Caravan', 'Debug: Elf caravan', 'Meets the Elves and sends their caravan to your main base now (by day; it waits for the morning at night). It stops outside the base, trades, and leaves at dusk.', () => people(DEBUG_CARAVAN));
   add('dbg-tradekit', 'Trade kit', 'Debug: trade kit', 'Puts 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold in the pool, to trade with and to hire mercenaries.', () => people(DEBUG_TRADE_KIT));
   // Milestone 8's mounts, engines, guns and the late nights, at the middle of the view.
-  add('dbg-stables', 'Stables', 'Debug: Stables', 'Puts a finished Stables in the middle of the view with 2 grown horses and an ox in its stalls, and 100 bread: train warriors to ride there (select warriors, U for Train, then Riding), then R mounts them.', () => {
+  add('dbg-stables', 'Stables', 'Debug: Stables', 'Puts a finished Stables in the middle of the view with 2 grown horses and an ox in its stalls, and 100 bread: select it and train cavalry (C), each taking a horse.', () => {
     threat(DebugThreat.Stables);
     shell.message('Debug: a Stables with 2 horses and an ox placed in the middle of the view.');
   });
@@ -129,9 +129,14 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.SiegeKit);
     shell.message('Debug: a catapult, a ballista and a bronze cannon placed in the middle of the view.');
   });
-  add('dbg-guns', 'Gun kit', 'Debug: gun kit', 'Puts 4 steel-barrel muskets, powder horns and shot pouches in the stock, 20 gunpowder and 40 lead shot in the pool, researches the guns and trains every warrior in the musket and cannon crew.', () => {
+  add('dbg-guns', 'Gun kit', 'Debug: gun kit', 'Puts the carbon steel, planks, flint and gunpowder for four musket rangers in the pool, researches the guns, and trains every warrior as cannon crew.', () => {
     threat(DebugThreat.GunKit);
-    shell.message('Debug: muskets, horns, pouches and powder added; your warriors are trained in the musket and cannon crew.');
+    shell.message('Debug: musket materials and powder added; your warriors are trained as cannon crew.');
+  });
+  // Milestone 11's troops: a Barracks, a Steelworks and the stock for every tier.
+  add('dbg-troops', 'Troop kit', 'Debug: troop kit', 'Puts a finished Barracks and a Steelworks (forge level 4) in the middle of the view, 20 of every ingot, the leather, feathers, gunpowder and wood for every tier, and 300 bread in the pool, and researches every tier\'s needs. Select the Barracks to train any troop at any tier.', () => {
+    threat(DebugThreat.TroopKit);
+    shell.message('Debug: a Barracks, a Steelworks and the stock for every tier.');
   });
   add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
     threat(DebugThreat.Citadel);
