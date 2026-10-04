@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Research, Res, RESOURCE_COUNT, Troop, troopProduct, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type CommandDeps } from '../src/hud/commands.ts';
-import { armourOptions, lockTiers, pickTier, troopChoice, troopWhy, weaponOptions } from '../src/hud/troops.ts';
+import { armourOptions, keepPicks, lockedCount, lockTiers, padlock, pickTier, troopChoice, troopWhy, weaponOptions } from '../src/hud/troops.ts';
 import { type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -72,38 +72,66 @@ const STOCK: Array<[number, number]> = [[Res.FarmFare, 100], [Res.Sticks, 20], [
 describe('troopChoice', () => {
   it("is the sim's default for the building until a pick is made", () => {
     const b = barracks(101, 2, 1);
-    expect(troopChoice(b, Troop.Long)).toEqual({ w: 2, a: 1, picked: false });
+    expect(troopChoice(b, Troop.Long)).toEqual({ w: 2, a: 1, picked: false, locked: false });
     // The brawler is tier 8 only.
     expect(troopChoice(b, Troop.Brawler)).toMatchObject({ w: 8, a: 1 });
   });
 
-  it('keeps a pick made in the panel, a line at a time, until it is cleared', () => {
+  it('keeps a pick made on the card, a line at a time, only while its building stays selected (Jade)', () => {
     const b = barracks(102, 1, 0);
-    pickTier(b, Troop.Close, 'w', 4);
-    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 0, picked: true });
-    pickTier(b, Troop.Close, 'a', 3);
-    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 3, picked: true });
+    // An unlocked card sends nothing: the pick is the panel's.
+    expect(pickTier([b], Troop.Close, 'w', 4)).toEqual([]);
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 0, picked: true, locked: false });
+    pickTier([b], Troop.Close, 'a', 3);
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 3, picked: true, locked: false });
     // Another troop type and another building keep their own.
     expect(troopChoice(b, Troop.Long).picked).toBe(false);
     expect(troopChoice(barracks(103), Troop.Close).picked).toBe(false);
-    pickTier(b, Troop.Close, 'w', null);
-    expect(troopChoice(b, Troop.Close)).toEqual({ w: 1, a: 0, picked: false });
+    // Still selected: the pick holds. Deselected: back to the stock's best.
+    keepPicks(new Set([102]));
+    expect(troopChoice(b, Troop.Close).picked).toBe(true);
+    keepPicks(new Set([103]));
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 1, a: 0, picked: false, locked: false });
   });
 
-  it('follows the Lock over any pick, and drops a pick the building does not offer', () => {
+  it('follows the padlock over any pick; a pick on a locked card moves the lock; a pick not offered is dropped', () => {
     // Lock: 1 + weapon x 10 + armour.
     expect(lockTiers(0)).toBeNull();
     expect(lockTiers(1 + 5 * 10 + 3)).toEqual({ w: 5, a: 3 });
     const b = barracks(104);
-    pickTier(b, Troop.Ranger, 'w', 2);
+    pickTier([b], Troop.Ranger, 'w', 2);
     b.troops.find((t) => t.troop === Troop.Ranger)!.lock = 1 + 7 * 10 + 4;
-    expect(troopChoice(b, Troop.Ranger)).toEqual({ w: 7, a: 4, picked: true });
-    // A main base trains tier 1 at most: a pick above that falls back to the default.
+    expect(troopChoice(b, Troop.Ranger)).toEqual({ w: 7, a: 4, picked: false, locked: true });
+    expect(pickTier([b], Troop.Ranger, 'a', 2)).toEqual([{ building: 104, lock: 1 + 7 * 10 + 2 }]);
+    // A main base trains tier 1 at most: a pick above that is not kept.
     const house = building(105, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] });
-    pickTier(house, Troop.Close, 'w', 0);
-    expect(troopChoice(house, Troop.Close)).toEqual({ w: 0, a: 0, picked: true });
-    pickTier(house, Troop.Close, 'w', 4);
-    expect(troopChoice(house, Troop.Close)).toEqual({ w: 1, a: 0, picked: false });
+    pickTier([house], Troop.Close, 'w', 4);
+    expect(troopChoice(house, Troop.Close)).toEqual({ w: 1, a: 0, picked: false, locked: false });
+  });
+});
+
+describe('padlock', () => {
+  it('locks every selected building on the kit the card shows, and only those', () => {
+    const one = barracks(106, 3, 2);
+    const two = barracks(107, 1, 0);
+    expect(padlock([one, two], Troop.Long)).toEqual([
+      { building: 106, lock: 1 + 3 * 10 + 2 },
+      { building: 107, lock: 1 + 3 * 10 + 2 },
+    ]);
+    expect(lockedCount([one, two], Troop.Long)).toBe(0);
+  });
+
+  it('opens every locked one when the card shown is locked; only the padlock unlocks', () => {
+    const one = barracks(108, 3, 2);
+    const two = barracks(109, 1, 0);
+    one.troops.find((t) => t.troop === Troop.Close)!.lock = 1 + 5 * 10 + 1;
+    expect(lockedCount([one, two], Troop.Close)).toBe(1);
+    expect(padlock([one, two], Troop.Close)).toEqual([{ building: 108, lock: 0 }]);
+    // The first selected one decides: unlocked, the press locks all of them on its kit.
+    expect(padlock([two, one], Troop.Close)).toEqual([
+      { building: 109, lock: 1 + 1 * 10 + 0 },
+      { building: 108, lock: 1 + 1 * 10 + 0 },
+    ]);
   });
 });
 
@@ -113,9 +141,9 @@ describe('weaponOptions and armourOptions', () => {
     const g = game({ buildings: [b], pool: [[Res.Sticks, 4]], forge: 1 });
     const long = weaponOptions(g, b, Troop.Long);
     expect(long.map((o) => o.tier)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(long[0]).toEqual({ tier: 1, name: 'Fire-hardened spear', why: '', short: false });
-    // Short of flint: a red tier, not a locked one.
-    expect(long[1]).toEqual({ tier: 2, name: 'Flint-headed spear', why: 'Not enough resources (3 hardwood sticks, 1 flint).', short: true });
+    expect(long[0]).toMatchObject({ tier: 1, name: 'Fire-hardened spear', why: '', short: false });
+    // Short of flint: a red tier, not a locked one, and the tile names what is short.
+    expect(long[1]).toMatchObject({ tier: 2, name: 'Flint-headed spear', why: 'Short: 0 of 1 flint in stock.', short: true });
     expect(long[3]!.why).toBe('Needs Bronze researched first.');
     expect(long[4]!.why).toBe('Needs a level 3 main base.');
     expect(long[6]!.why).toBe('Needs a level 7 main base.');
@@ -148,10 +176,10 @@ describe('troopWhy', () => {
     expect(troopWhy(g, b, Troop.Brawler, 1, 0)).toBe('This building does not train that.');
     expect(troopWhy(g, b, Troop.Close, 3, 0)).toBe('Needs a Forge.');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, forge: 4, research: bit(Research.Steel) }), b, Troop.Ranger, 7, 0)).toBe('Needs Crossbows researched first.');
-    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Not enough resources (3 hardwood sticks, 4 leather, 3 planks).');
+    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Short: 0 of 3 hardwood sticks.');
     // Farm fare feeds 2 a portion: 14 is 28 food, short of a troop's 30.
-    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30 food).');
-    expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8). Build farms or upgrade the main base.');
+    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30).');
+    expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8).');
     const full = barracks(123, 1, 0, { queue: Array.from({ length: 5 }, () => ({ product: troopProduct(Troop.Close, 1, 0), done: 0, stepsLeft: 0 })) });
     expect(troopWhy(g, full, Troop.Close, 1, 0)).toBe('The queue is full (5).');
   });
@@ -160,7 +188,7 @@ describe('troopWhy', () => {
     const b = barracks(124, 1, 0, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }] });
     expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a level 3 main base.');
     const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 3 })], pool: STOCK });
-    expect(troopWhy(g, b, Troop.Cavalry, 1, 0)).toBe('Cavalry needs a tamed horse in a Barn.');
+    expect(troopWhy(g, b, Troop.Cavalry, 1, 0)).toBe('No grown tamed horse ready in a Barn.');
     expect(troopWhy(g, { ...b, horses: 2 }, Troop.Cavalry, 1, 0)).toBe('');
   });
 });
@@ -180,8 +208,8 @@ describe('the Barracks card', () => {
     expect(card[3]!.reason).toBe('Needs a Forge.');
     expect(card.find((e) => e.action === 'rally')!.face).toBe('Rally');
     // A pick in the panel changes what the button trains.
-    pickTier(b, Troop.Long, 'w', 2);
-    pickTier(b, Troop.Long, 'a', 1);
+    pickTier([b], Troop.Long, 'w', 2);
+    pickTier([b], Troop.Long, 'a', 1);
     const long = c.card()[1]!;
     expect(long.description).toContain('Flint-headed spear, leather jerkin (weapon tier 2, armour tier 1)');
     long.run(PRESS);
@@ -196,6 +224,6 @@ describe('the Barracks card', () => {
     const { c } = harness(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b);
     const close = c.card()[0]!;
     expect(close.enabled).toBe(false);
-    expect(close.reason).toBe('Not enough resources (3 hardwood sticks).');
+    expect(close.reason).toBe('Short: 0 of 3 hardwood sticks.');
   });
 });

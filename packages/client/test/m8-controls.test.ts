@@ -99,7 +99,7 @@ describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
     const none = at(barracks(0), pool);
     const greyed = none.c.card().find((e) => e.action === 'trainCavalry')!;
     expect(greyed).toMatchObject({ action: 'trainCavalry', face: 'Cavalry', key: 'KeyC', enabled: false });
-    expect(greyed.reason).toBe('Cavalry needs a tamed horse in a Barn.');
+    expect(greyed.reason).toBe('No grown tamed horse ready in a Barn.');
     expect(greyed.description).toContain('a tamed horse');
     const one = at(barracks(1), pool);
     const train = one.c.card().find((e) => e.action === 'trainCavalry')!;

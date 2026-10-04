@@ -254,7 +254,12 @@ export interface CartOrder {
   back: number;
 }
 
-/** The Lock on a Barracks or main base panel for one troop type: 0 off, else 1 + weapon tier x 10 + armour tier. */
+/**
+ * The padlock on a training card (Patch 2): `troop` is the troop type (1 to
+ * 5) at a Barracks, or a Magi Sanctum's mage card (6 support, 7 battle:
+ * production.ts mageLock); `lock` 0 off, else 1 + weapon (wand) tier x 10 +
+ * armour (robe) tier.
+ */
 export interface TroopLockOrder {
   kind: 'troopLock';
   player: number;
@@ -767,7 +772,7 @@ export function validateOrder(o: Order): void {
       if (o.back !== 0 && o.back !== 1) throw new Error('bad cart order');
       return;
     case 'troopLock':
-      if (o.troop < 1 || o.troop > 5 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
+      if (o.troop < 1 || o.troop > 7 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
       return;
     case 'rations':
       if (o.rations < 0 || o.rations > 2) throw new Error('rations must be 0 to 2');

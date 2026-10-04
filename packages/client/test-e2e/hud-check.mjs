@@ -122,11 +122,12 @@ await page.waitForTimeout(800);
 check('closest zoom limit', Math.abs((await focus()).d - 12) < 0.05, String((await focus()).d));
 for (let i = 0; i < 40; i++) await page.mouse.wheel(0, 100);
 await page.waitForTimeout(900);
-check('farthest zoom limit', Math.abs((await focus()).d - 80) < 0.05, String((await focus()).d));
+// Patch 2: 64 m out at most (80 before), 36 m to start (40 before).
+check('farthest zoom limit', Math.abs((await focus()).d - 64) < 0.05, String((await focus()).d));
 await shot('zoomed-out');
 await page.keyboard.press('Home');
-for (let k = 0; k < 30 && Math.abs((await focus()).d - 40) >= 0.05; k++) await page.waitForTimeout(100);
-check('Home resets zoom', Math.abs((await focus()).d - 40) < 0.05, String((await focus()).d));
+for (let k = 0; k < 30 && Math.abs((await focus()).d - 36) >= 0.05; k++) await page.waitForTimeout(100);
+check('Home resets zoom', Math.abs((await focus()).d - 36) < 0.05, String((await focus()).d));
 await page.keyboard.press('PageUp');
 await page.waitForTimeout(500);
 check('Page Up zooms in', (await focus()).d < 39);

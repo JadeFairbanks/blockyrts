@@ -17,7 +17,7 @@ import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../u
 import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CRAFT_PACE, FARM_HARVEST_STEPS, forgeStep, levelSpec, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre, dist2 } from './lights.ts';
 import { bandAt } from './placement.ts';
-import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
+import { ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
 import { CREWMAN, engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
@@ -37,6 +37,7 @@ import {
   planPieces,
   ROBE_KITS,
   TOOL_KITS,
+  TOP_MAGE_TIER,
   TOP_TIER,
   TRAINING,
   Troop,
@@ -73,6 +74,8 @@ export interface ProductSpec {
   engine?: number;
   /** A new troop: its type and tiers. */
   troop?: { troop: number; w: number; a: number };
+  /** A new mage trained at a Magi Sanctum with her kit picked (Patch 2): her school and wand and robe tiers. */
+  mage?: { school: number; w: number; a: number };
   /** A new unit's kit (units/kits.ts), paid when queued, whichever way the stock allows. */
   pieces?: readonly Piece[];
 }
@@ -109,6 +112,15 @@ export function productSpec(product: Product): ProductSpec {
     return {
       product, name: TROOP_NAMES[Troop.Crew]!, key: 'C', steps: CREWMAN.seconds * STEPS_PER_SECOND, cost: [], food: CREWMAN.food,
       tooltip: `A new artillery crewman (Patch 2): the only unit that crews catapults, ballistas and cannons; it fights with its fists. Pays ${CREWMAN.food} food. Needs free supply. It goes to crew the nearest of your engines that is a crewman short.`,
+    };
+  }
+  const m = mageOf(product);
+  if (m) {
+    const pieces = magePieces(m.w, m.a);
+    const support = m.school === School.Support;
+    return {
+      product, name: support ? 'Support mage' : 'Battle mage', key: support ? 'S' : 'M', steps: MAGE_TRAIN_STEPS + kitSteps(pieces), cost: mainCost(pieces), pieces, food: MAGE_FOOD, mage: m,
+      tooltip: `A new Novice Acolyte who ${support ? 'heals and strengthens your units' : 'attacks with spells'}, with a ${pieces.map((p) => p.name.toLowerCase()).join(' and a ')} (Table 7, Table 13). Needs free supply.`,
     };
   }
   const t = troopOf(product);
@@ -243,10 +255,90 @@ export function defaultTroopProduct(state: SimState, b: Building, troop: number,
   return troopProduct(troop, d.w, d.a);
 }
 
-/** Whether a building offers a product at all (troops by type and tiers, the rest by productsOf). */
+// ----- mages at the Magi Sanctum (Patch 2: the Barracks' cards, with wand and robe tiers 1 to 6) -----
+
+/** The wand and robe tiers a Magi Sanctum trains mages with (Jade: 1 to 6). */
+export const MAGE_KIT_TIERS: readonly [number, number] = [1, TOP_MAGE_TIER];
+
+/** Where a mage school's padlock is kept in a Magi Sanctum's locks: after the five troop types (6 support, 7 battle). */
+export function mageLock(school: number): number {
+  return Troop.Cavalry + school;
+}
+
+/** The schools a building trains mages of with their kit picked: a finished Magi Sanctum's support and battle mages. */
+export function mageSchoolsAt(b: Pick<Building, 'kind' | 'complete'>): number[] {
+  return b.complete && b.kind === BuildingKind.MagiSanctum ? [School.Support, School.Battle] : [];
+}
+
+/** A new mage's kit: her wand and her robe. */
+export function magePieces(wand: number, robe: number): Piece[] {
+  return [WAND_KITS[wand]!, ROBE_KITS[robe]!];
+}
+
+/** Whether a building trains a mage of a school with these wand and robe tiers. */
+export function mageOffered(b: Pick<Building, 'kind' | 'complete'>, school: number, w: number, a: number): boolean {
+  const [lo, hi] = MAGE_KIT_TIERS;
+  return mageSchoolsAt(b).includes(school) && w >= lo && w <= hi && a >= lo && a <= hi;
+}
+
+/**
+ * A Magi Sanctum card's default for a school (Patch 2, as the Barracks'):
+ * its padlock if shut; else the best wand the player can make and afford,
+ * then the best robe the rest of the stock pays for, so a short stock goes
+ * to the wand first. With nothing affordable, the lowest tiers.
+ */
+export function mageDefault(state: SimState, b: Building, school: number, user = b.owner): { w: number; a: number } {
+  const lock = b.locks[mageLock(school)] ?? 0;
+  if (lock > 0) return { w: floorDiv(lock - 1, 10), a: (lock - 1) % 10 };
+  const [lo, hi] = MAGE_KIT_TIERS;
+  const p = state.players[user]!;
+  const research = p.research | b.tech;
+  let w = lo;
+  for (let k = hi; k > lo; k--) {
+    const pieces = [WAND_KITS[k]!];
+    if (kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    w = k;
+    break;
+  }
+  let a = lo;
+  for (let k = hi; k > lo; k--) {
+    const pieces = magePieces(w, k);
+    if (kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    a = k;
+    break;
+  }
+  return { w, a };
+}
+
+/**
+ * Shuts or opens a training card's padlock (Patch 2): a troop type (1 to 5)
+ * at a Barracks or the Stables, or a mage school at a Magi Sanctum
+ * (mageLock). `lock` is 0 to open it, else 1 + weapon (wand) tier x 10 +
+ * armour (robe) tier, which must be tiers the building trains. The Big House
+ * has no cards, so it takes no lock (Jade). False when nothing changed.
+ */
+export function setKitLock(b: Building, card: number, lock: number): boolean {
+  if (b.kind === BuildingKind.MainBase) return false;
+  const school = card - Troop.Cavalry;
+  const mage = mageSchoolsAt(b).includes(school);
+  if (!mage && !(troopTypesAt(b) as number[]).includes(card)) return false;
+  if (lock > 0) {
+    const w = floorDiv(lock - 1, 10);
+    const a = (lock - 1) % 10;
+    if (mage ? !mageOffered(b, school, w, a) : !troopOffered(b, card, w, a)) return false;
+  }
+  while (b.locks.length <= card) b.locks.push(0);
+  b.locks[card] = lock;
+  return true;
+}
+
+/** Whether a building offers a product at all (troops and Sanctum mages by type and tiers, the rest by productsOf). */
 export function offers(b: Building, product: Product): boolean {
   const t = troopOf(product);
-  return t ? troopOffered(b, t.troop, t.w, t.a) : productsOf(b).includes(product);
+  if (t) return troopOffered(b, t.troop, t.w, t.a);
+  const m = mageOf(product);
+  if (m) return mageOffered(b, m.school, m.w, m.a);
+  return productsOf(b).includes(product);
 }
 
 /** Recipes a building kind works, in table order. */
@@ -268,7 +360,7 @@ export function productsOf(b: Building): Product[] {
     // Main bases of level 6 or higher train mages too (Magic).
     if (b.level >= MAGE_MAIN_BASE_LEVEL) out.push(Product.SupportMage, Product.BattleMage);
   } else if (b.kind === BuildingKind.MagiSanctum) {
-    out.push(Product.SupportMage, Product.BattleMage);
+    // Its mages come from its cards with their kit picked (mageSchoolsAt, Patch 2); research is made here.
     for (const r of RESEARCH) if (r.at === b.kind && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
   } else if (b.kind === BuildingKind.ScholarsLodge) {
     for (const r of RESEARCH) if (r.id !== Research.None && !r.retired && r.at === undefined) out.push(RESEARCH_PRODUCT + r.id);
@@ -523,11 +615,11 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   state.events.push({ player: owner, kind: 'info', text: `A new ${troopTierName(t.troop, t.w).toLowerCase()} is ready.`, x, z });
 }
 
-function spawnMage(state: SimState, b: Building, school: number, owner: number): void {
+function spawnMage(state: SimState, b: Building, school: number, owner: number, wand = 1, robe = 1): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  const i = addMage(state, owner, x, z, school);
+  const i = addMage(state, owner, x, z, school, wand, robe);
   state.entities.heading[i] = 32768;
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
@@ -804,7 +896,9 @@ export function updateBuildings(state: SimState): void {
         head.progress += pace.perStep;
         if (head.progress >= pace.whole) {
           b.queue.shift();
-          if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
+          const m = mageOf(head.product);
+          if (m) spawnMage(state, b, m.school, head.by, m.w, m.a);
+          else if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
           else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by, head.engine);

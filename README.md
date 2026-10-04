@@ -1009,7 +1009,7 @@ milestone are refused with a message saying why.
    workers and three warriors with hardwood cudgels stand by the Big House.
    Select a warrior: the panel reads "Club fighter (Recruit)" (in Patch 2; "Close melee (Recruit)" before), its cudgel, no
    armour, weapon tier 1 and armour tier 0.
-3. **The troop panel.** On the debug bar press **Troop kit**: a Barracks and
+3. **The troop panel** (live before Patch 2; Patch 2's cards replace it, see the middle HUD section below). On the debug bar press **Troop kit**: a Barracks and
    a Steelworks appear in the middle of the view with the stock for every tier
    (press **Citadel** too for the supply). Select the Barracks: one row per type (Close, Long,
    Ranger, Brawler) with a picture button, a weapon dropdown and an armour
@@ -2064,6 +2064,80 @@ or cannonballs, or haul from a mineshaft describe the game before Patch 2.
    Storehouse (the nearer drop-off) and goes back down. The shaft's panel
    reads "N of 4 miners, M down the shaft" and what waits for the next bag.
    At dusk they stay down and dig on; at dawn they carry out.
+
+## How a tester checks the middle HUD and training cards (Patch 2)
+
+*Jade's rounds 2 and 2b (blueprint/patch-2.md, the mock-up
+blueprint/patch-2-middle-mockup.png): the middle shows pictures and bars, and
+every sentence is in a tooltip; the Barracks and Magi Sanctum train from
+cards with a tier strip and a padlock; the camera starts at 36 m and zooms out
+to 64 m. Picks in blueprint/patch2-middle-hud-picks.md. The cards are
+`packages/client/src/hud/training-cards.ts`, their rules
+`packages/client/src/hud/troops.ts`; the Sanctum's kit and padlocks are sim
+orders (`mageProduct`, `setKitLock`).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch2-cards.test.ts (a
+   Sanctum mage trains with the wand and robe on her card and pays for them,
+   the default is the best the stock pays for with the wand first, padlocks
+   are saved and the Big House takes none) and
+   packages/client/test/patch2-cards.test.ts and m11-troops.test.ts (a pick
+   holds only while its building stays selected, the padlock locks every
+   selected building or opens every locked one, a pick on a locked card
+   moves the lock, the reasons in order, the tooltips' words and numbers).
+2. **Nothing selected.** `pnpm dev`, open http://localhost:5173/?seed=1: the
+   middle reads "Nothing selected" and the three help lines, as live now.
+   The camera is a little closer than live now; zoom all the way out: it
+   stops at 64 m (live now: 80 m). Home comes back to 36 m.
+3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it,
+   the health bar with 100/100 on it, then the cudgel and armour slots with
+   their tier numbers, the bowl with the next meal's bar, and "Idle". Hover
+   each picture: the sentences live now in the panel are in its tooltip
+   (the cudgel's damage, swing and reach; the next meal). Click a worker:
+   hammers after "Worker", the tool slot. A mage reads "Support mage
+   (Novice Acolyte)" in words, with her mana under her health.
+4. **Several.** Drag a box round the workers and the warriors: a tab of
+   crossed swords with 3 and one of a worker with 4, the portraits under
+   them. Hover the crossed swords: "3 Club fighters".
+5. **The Barracks.** Type M N B V C X Z, press **Troop kit** and **Citadel**,
+   and select the Barracks: five cards (Close melee, Long melee, Ranger,
+   Brawler, Cavalry), each with its bust, its key, a weapon and an armour
+   slot showing the tier it would train now, and an open grey padlock.
+   Hover a picture: the troop it trains by name ("Trains a Champion: ..."),
+   its numbers, its cost, "Follows the stock: the best kit it pays for,
+   weapon first." Click it: one queues, shown in the title row; Shift +
+   click: five.
+6. **The tier strip.** Click Close melee's weapon slot: a strip of tiers 0
+   to 8 opens above the middle, pointing at the slot, the current tier in
+   gold. Hover tier 3: "Trains a Copper swordsman.", the damage with the
+   change from now, what it costs and adds to training. Spend the stock
+   (queue a few) and open it again: tiers the stock is short of are red and
+   still pickable; their tooltip says "Short: 0 of 3 carbon steel ingots in
+   stock.". Without Troop kit, the tiers not unlocked yet are dark. Esc, a
+   right click or a click anywhere else closes it.
+7. **Picks and the padlock.** Pick tier 5: the card shows it and its
+   tooltip says "Picked: until this Barracks is deselected." Click the
+   ground and select the Barracks again: back to the stock's best. Pick
+   tier 5 again and click the padlock: it shuts and lights; deselect and
+   select again, save and load: still tier 5 (the padlock is a game order,
+   saved with the game). Pick another tier on the locked card: the lock
+   moves to it. Only the padlock opens it again.
+8. **Several Barracks.** Build a second Barracks and select both: the cards
+   show the first one's kits and a tile per Barracks in the title row with
+   its queue count. The padlock locks both; with one locked, it opens it.
+9. **Cavalry.** Before main base 3 the Cavalry card is grey with "Needs a
+   level 3 main base."; with no horse in a Barn, "No grown tamed horse ready
+   in a Barn.". Press **Barn** for a Barn with horses: the card counts the
+   free horses on its picture.
+10. **The Magi Sanctum.** Press **Sanctum** and **Mage kit**, select the
+    Sanctum: a Support mage and a Battle mage card, each with a wand and a
+    robe slot, tiers 1 to 6, the same strip, picks and padlock. Train one:
+    she walks out with that wand and robe (hover her slots).
+11. **The Big House.** Select it: no cards. Its A, Q and N still train tier 1
+    as live now (a Fist fighter when sticks are short).
+12. **Buildings.** Select a Barn: a picture and the number of animals;
+    hover it for the stalls and the farm fare they eat. A farm shows its
+    crop and a bar with "6 in 3:40" on it; a tower or the Citadel "Up top
+    0/8" and the men's portraits. Every sentence is in a tooltip.
 
 ## How a tester checks the balance editor
 

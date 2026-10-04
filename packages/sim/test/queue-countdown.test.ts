@@ -10,6 +10,7 @@ import {
   CRAFT_PACE,
   createWorld,
   Made,
+  mageProduct,
   placeBuilding,
   placementBlocked,
   Product,
@@ -20,6 +21,7 @@ import {
   Res,
   Research,
   RESEARCH_PRODUCT,
+  School,
   step,
   supplyCap,
   supplyUsed,
@@ -89,9 +91,11 @@ describe('the queue countdown is the sim\'s own time', () => {
     pool[Res.Sticks] = 20;
     pool[Res.Flax] = 6;
     pool[Res.Venison] = 200;
-    produce(s, sanctum, Product.SupportMage);
+    // Patch 2: the Sanctum's support mage card, with a hazel wand and a homespun robe.
+    const mage = mageProduct(School.Support, 1, 1);
+    produce(s, sanctum, mage);
     // 1600 steps: the per mille bar moves 0 or 1 a step, unevenly; the countdown no longer reads it.
-    expect(productSpec(Product.SupportMage).steps).toBe(1600);
+    expect(productSpec(mage).steps).toBe(1600);
     expect(countsDownExactly(s, sanctum)).toBeGreaterThan(1590);
   });
 
