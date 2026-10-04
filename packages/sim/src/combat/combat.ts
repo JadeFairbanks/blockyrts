@@ -9,7 +9,7 @@ import { buildingName, buildingSpec } from '../buildings/data.ts';
 import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
+import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus, XP_TENTHS } from '../rules.ts';
 import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
@@ -22,7 +22,7 @@ import { engineSpec } from '../siege/data.ts';
 import { MOUNTED, mountSpec } from '../mounts/data.ts';
 import { chargeKnock, loseMount, mountArmourBp, mountTakes, startCharge, takeCharge } from '../mounts/riding.ts';
 import { facingBp } from '../threats/late-mobs.ts';
-import { MAGE_RANK_NAMES, mageGainXp } from '../magic/mages.ts';
+import { MAGE_RANK_NAMES, MAGE_XP_TENTHS, mageGainXp } from '../magic/mages.ts';
 import { onTop } from '../units/top.ts';
 import { Spell, spellSpec } from '../magic/spells.ts';
 
@@ -490,6 +490,19 @@ export function gainXp(state: SimState, i: number, tenths: number): void {
     const names = warrior ? RANK_NAMES.warrior : RANK_NAMES.worker;
     state.events.push({ player: e.owner[i]!, kind: 'info', text: `${warrior ? aTroop(e.troop[i]!, e.wTier[i]!, true) : 'A worker'} has risen to ${names[r + 1]}.`, x: e.x[i]!, z: e.z[i]! });
   }
+}
+
+/**
+ * A unit's experience and what its next rank needs, in whole points, for the
+ * middle's XP bar (Jade's Patch 3). Next is 0 where experience leads no
+ * further: the top rank, a rank only training reaches, or a unit with no ranks.
+ */
+export function rankXp(state: SimState, i: number): readonly [number, number] {
+  const e = state.entities;
+  const r = e.rank[i]!;
+  const kind = e.kind[i];
+  const need = kind === UnitKind.Warrior ? WARRIOR_XP_TENTHS[r + 1] : kind === UnitKind.Worker ? WORKER_COMBAT_XP_TENTHS[r + 1] : kind === UnitKind.Mage ? MAGE_XP_TENTHS[r + 1] : 0;
+  return [floorDiv(e.xp[i]!, XP_TENTHS), floorDiv(need ?? 0, XP_TENTHS)];
 }
 
 /** The kill's experience, shared by the players' units that hit it in the last 10 s (rules: 2 x threat). */

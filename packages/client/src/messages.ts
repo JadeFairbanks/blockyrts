@@ -44,7 +44,8 @@ export type ToWorker =
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
  * rides and the mount's health; an engine's crew standing by and whether
- * something hauls it; its meal and hunger; a timed action under way.
+ * something hauls it; its meal and hunger; a timed action under way; its
+ * experience and what its next rank needs.
  */
 export const STATE_STRIDE = 56;
 export const S = {
@@ -79,7 +80,9 @@ export const S = {
   swing: 23,
   flags: 24,
   lock: 25,
-  // 26 and 27 held a warrior's trained skills (cannon crew) and a cannon's loaded powder charges, both cut in Patch 2.
+  /** A unit's experience and what its next rank needs, whole points (sim rankXp; Jade's Patch 3 XP bar); next is 0 where experience leads no further. 26 and 27 held a warrior's trained skills and a cannon's powder charges, both cut in Patch 2. */
+  xp: 26,
+  xpNext: 27,
   target: 28,
   armour: 29,
   /** An upgrade under way (Upgrading units): per mille of its bar (0 until the unit is beside the building), its line + 1 (0 for none) and the tier it goes to. */

@@ -58,6 +58,9 @@ export interface UnitInfo {
   /** A unit that eats: its meal in quarters of nutrition, else 0; and the step it began starving, or 0. */
   meal: number;
   hungry: number;
+  /** Experience and what the next rank needs, whole points; xpNext is 0 where experience leads no further (Patch 3). */
+  xp: number;
+  xpNext: number;
 }
 
 const EMPTY_POOL = new Int32Array(RESOURCES.length);
@@ -165,6 +168,8 @@ export class GameInfo {
       crew: d[o + S.crew]!,
       meal: d[o + S.meal]!,
       hungry: d[o + S.hungry]!,
+      xp: d[o + S.xp]!,
+      xpNext: d[o + S.xpNext]!,
     };
   }
 
