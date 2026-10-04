@@ -891,6 +891,7 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     farmAcc: 0,
     alerted: 0,
     costMul: 1,
+    paid: [],
     rating: 0,
     mined: 0,
     stock: [],

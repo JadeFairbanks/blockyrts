@@ -9,7 +9,8 @@ import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
-import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf } from './economy/resources.ts';
+import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf, type Cost } from './economy/resources.ts';
+import { isAnyRes } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
@@ -206,7 +207,8 @@ greyHooks.upgrade = applyUpgrade;
 function applyCancelBuild(state: SimState, b: Building): void {
   const pool = state.players[b.owner]!.pool;
   if (!b.complete) {
-    refund(pool, levelSpec(b.kind, 1).cost.map(([r, n]) => [r, n * b.costMul] as const), CANCEL_REFUND_PER_MILLE);
+    // What was paid to start it, kind by kind (an "any lumber" cost comes back as the lumber it was paid in).
+    refund(pool, b.paid.length ? (b.paid as Cost) : levelSpec(b.kind, 1).cost.map(([r, n]) => [r, n * b.costMul] as const), CANCEL_REFUND_PER_MILLE);
     for (const j of unitsInside(state, b.id)) leaveBuilding(state, j);
     state.buildings.remove(b.id, (key) => state.world.touchNav(key));
     return;
@@ -762,7 +764,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'debugGive':
         // "Meat" and "fish" stand for every kind in a recipe and are never held themselves.
-        if (o.res < RESOURCES.length && o.res !== Res.AnyMeat && o.res !== Res.AnyFish) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
+        if (o.res < RESOURCES.length && !isAnyRes(o.res)) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
         if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);

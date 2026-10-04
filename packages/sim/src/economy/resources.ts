@@ -107,11 +107,13 @@ export const Res = {
   Salmon: 108,
   Catfish: 109,
   /**
-   * Any kind of raw meat or fish, for what a recipe or a trade asks for: never
-   * held in a pool, paid with whatever kinds are in stock (haveOf, payAny).
+   * Any kind of raw meat or fish, for what a recipe or a trade asks for, and
+   * any lumber (softwood or hardwood) for what a building costs: never held in
+   * a pool, paid with whatever kinds are in stock (haveOf, payAny).
    */
   AnyMeat: 110,
   AnyFish: 111,
+  AnyLumber: 112,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -253,6 +255,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Catfish, 'Giant catfish', 'Catfish', F, 25, 'Fishing Deepwoods pools.', 3),
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
+  r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

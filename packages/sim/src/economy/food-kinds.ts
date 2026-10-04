@@ -35,6 +35,13 @@ export const MEATS: readonly Res[] = [
 
 /** Every kind of fish: trout from Heartland streams, salmon from Fringe streams, giant catfish from Deepwoods pools (Table 5). */
 export const FISHES: readonly Res[] = [Res.Trout, Res.Salmon, Res.Catfish];
+/** The lumbers "any lumber" in a building's cost stands for (Jade's mini balance). */
+export const LUMBERS: readonly Res[] = [Res.SoftwoodLumber, Res.HardwoodLumber];
+
+/** Whether a resource in a cost stands for several kinds (any meat, fish or lumber). */
+export function isAnyRes(res: number): boolean {
+  return res === Res.AnyMeat || res === Res.AnyFish || res === Res.AnyLumber;
+}
 
 /**
  * The meat each animal species gives (animals/species.ts Species, in its
@@ -90,22 +97,23 @@ export function isFishRes(res: number): boolean {
   return FISH_SET.has(res);
 }
 
-/** The kinds a "meat" or "fish" in a cost stands for, or just the resource itself. */
+/** The kinds a "meat", "fish" or "lumber" in a cost stands for, or just the resource itself. */
 export function kindsOf(res: number): readonly Res[] {
   if (res === Res.AnyMeat) return MEATS;
   if (res === Res.AnyFish) return FISHES;
+  if (res === Res.AnyLumber) return LUMBERS;
   return [res as Res];
 }
 
-/** How many of a resource a pool holds; for "meat" or "fish", of every kind together. */
+/** How many of a resource a pool holds; for "meat", "fish" or "lumber", of every kind together. */
 export function haveOf(pool: ArrayLike<number>, res: number): number {
-  if (res !== Res.AnyMeat && res !== Res.AnyFish) return pool[res] ?? 0;
+  if (!isAnyRes(res)) return pool[res] ?? 0;
   let n = 0;
   for (const k of kindsOf(res)) n += pool[k] ?? 0;
   return n;
 }
 
-/** Whether a pool holds a cost that may ask for any meat or fish. */
+/** Whether a pool holds a cost that may ask for any meat, fish or lumber. */
 export function canAffordAny(pool: ArrayLike<number>, cost: Cost): boolean {
   return shortOfAny(pool, cost) < 0;
 }
@@ -118,7 +126,7 @@ export function shortOfAny(pool: ArrayLike<number>, cost: Cost): number {
 
 /**
  * Pays such a cost (it must be affordable) and returns what was taken, kind
- * by kind, for an exact refund. "Meat" or "fish" is taken a piece at a time
+ * by kind, for an exact refund. "Meat", "fish" or "lumber" is taken a piece at a time
  * from whichever kind the pool holds most of (the lowest id on a tie), so a
  * recipe uses the kinds evenly and never keeps one back.
  */
@@ -126,7 +134,7 @@ export function payAny(pool: Int32Array, cost: Cost): Array<[Res, number]> {
   const taken = new Map<Res, number>();
   const add = (res: Res, n: number): void => void taken.set(res, (taken.get(res) ?? 0) + n);
   for (const [res, n] of cost) {
-    if (res !== Res.AnyMeat && res !== Res.AnyFish) {
+    if (!isAnyRes(res)) {
       pool[res] = pool[res]! - n;
       add(res, n);
       continue;

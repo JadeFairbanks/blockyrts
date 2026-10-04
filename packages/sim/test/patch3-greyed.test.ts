@@ -163,10 +163,10 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
     const qs = asked(s, [click(Greyed.Product, cart, shop.id)]);
     expect(qs.length).toBe(1);
     const make = qs[0]!;
-    expect([make.ask!.q, make.building, make.ask!.res, make.ask!.n]).toEqual([GreyAsk.Make, shop.id, Res.Planks, 5]);
-    expect(make.text).toBe('We need 6 more planks for the hand cart. Shall I make 5?');
+    expect([make.ask!.q, make.building, make.ask!.res, make.ask!.n]).toEqual([GreyAsk.Make, shop.id, Res.Planks, 6]);
+    expect(make.text).toBe('We need 6 more planks for the hand cart. Shall I make 6?');
     step(s, [yes(make)]);
-    expect(shop.queue.map((q) => q.product)).toEqual(Array.from({ length: 5 }, () => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood')));
+    expect(shop.queue.map((q) => q.product)).toEqual(Array.from({ length: 6 }, () => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood')));
   });
 
   it('has a worker offer to gather what a recipe is short of', () => {

@@ -119,6 +119,8 @@ export interface Building {
   alerted: number;
   /** Research facilities: how many of them the player had when this one was paid for (each further one costs this much again on top). */
   costMul: number;
+  /** What was taken from the stock to start it, kind by kind ("any lumber" as the lumber it was paid in), for a cancel's refund; empty for one placed whole. */
+  paid: Array<[number, number]>;
   /** Mineshafts: the prospect rating of the spot (mining.ts Rating), loads brought up so far, and what waits at the shaft for a miner's bag. */
   rating: number;
   mined: number;
@@ -424,6 +426,11 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     w.u32(b.tech);
     w.u8(b.locks.length);
     for (const v of b.locks) w.u8(v);
+    w.u8(b.paid.length);
+    for (const [res, n] of b.paid) {
+      w.u8(res);
+      w.i32(n);
+    }
   }
 }
 
@@ -451,6 +458,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       farmAcc: 0,
       alerted: 0,
       costMul: 1,
+      paid: [],
       rating: 0,
       mined: 0,
       stock: [],
@@ -488,6 +496,8 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     b.tech = r.u32();
     const nl = r.u8();
     for (let k2 = 0; k2 < nl; k2++) b.locks.push(r.u8());
+    const np2 = r.u8();
+    for (let k2 = 0; k2 < np2; k2++) b.paid.push([r.u8(), r.i32()]);
     store.add(b, touch);
   }
 }
@@ -498,6 +508,6 @@ export function buildingFields(b: Building): Record<string, number | string> {
     id: b.id, owner: b.owner, kind: b.kind, variant: b.variant, level: b.level, x: b.x, z: b.z, y: b.y, hp: b.hp,
     progress: b.progress, complete: b.complete ? 1 : 0, upgrading: b.upgrading, upProgress: b.upProgress, repairAcc: b.repairAcc,
     queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
-    costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech, locks: JSON.stringify(b.locks),
+    costMul: b.costMul, paid: JSON.stringify(b.paid), rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech, locks: JSON.stringify(b.locks),
   };
 }

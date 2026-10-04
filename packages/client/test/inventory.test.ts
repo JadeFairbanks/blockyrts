@@ -5,7 +5,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { FISHES, FOODS, MEATS, Res, RESOURCE_COUNT, RESOURCES, STEPS_PER_SECOND } from '@blockyrts/sim';
+import { FISHES, FOODS, isAnyRes, MEATS, Res, RESOURCE_COUNT, RESOURCES, STEPS_PER_SECOND } from '@blockyrts/sim';
 import { FOOD_ICON, goodIcon, iconUrl, SUPPLY_ICON } from '../src/hud/inventory-icons.ts';
 import {
   changeText,
@@ -27,7 +27,7 @@ const pool = (have: Partial<Record<number, number>>): Int32Array => {
 };
 
 /** Every good that can be held: a recipe's "meat" and "fish" (any kind) never are. */
-const HELD = RESOURCES.filter((r) => r.id !== Res.AnyMeat && r.id !== Res.AnyFish);
+const HELD = RESOURCES.filter((r) => !isAnyRes(r.id));
 
 describe('slot order', () => {
   it('gives every good one slot, in the categories the doc names', () => {

@@ -130,7 +130,8 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Nothing: flint gear is made at the Big House without research.',
   },
   {
-    id: Research.Bronze, name: 'Bronze', key: 'B', cost: [[Res.CopperIngot, 10], [Res.TinIngot, 2]], steps: sec(75), made: Made.TinIngot,
+    id: Research.Bronze, name: 'Bronze', key: 'B', cost: [[Res.CopperIngot, 10], [Res.TinIngot, 2]], steps: sec(75), made: 0,
+    // Jade's mini balance: no tin ingot needs smelting first; bronze ingots are still made at the Forge from copper and tin ingots.
     opens: 'Tier 4 (bronze): bronze ingots, bronze weapons, armour and tools, and mining bog iron and iron rock.',
   },
   {
