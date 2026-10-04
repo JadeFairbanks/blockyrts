@@ -2,7 +2,7 @@
 // changed in place, a small result out.
 
 import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
-import { updateBuildings } from './buildings/production.ts';
+import { installCrewHooks, updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
@@ -36,10 +36,12 @@ import { installLateMobs } from './threats/late-mobs.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
-import { updateQuestions } from './units/questions.ts';
+import { crewHooks, updateQuestions } from './units/questions.ts';
 
 installDeathHooks();
 installAnimalHooks();
+// Handed in from here: production importing the questions would close an import loop through the units' gear.
+installCrewHooks(crewHooks);
 installFoes();
 installLateMobs();
 mountHooks.rearRider = rearRider;

@@ -125,18 +125,22 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.Barn);
     shell.message('Debug: a Barn with 2 horses and an ox placed in the middle of the view.');
   });
-  add('dbg-siege', 'Siege kit', 'Debug: siege kit', 'Puts a catapult, a ballista and a bronze cannon in the middle of the view, 20 each of catapult stones, ballista bolts, cannonballs and gunpowder in the pool, and researches Siege engines, Gunpowder, Muskets and Cannons. Hitch a horse or an ox (select the engine, right click the animal) or crew it with warriors (right click it).', () => {
+  add('dbg-siege', 'Siege kit', 'Debug: siege kit', 'Puts a catapult, a ballista and a bronze cannon in the middle of the view, each with its full crew of artillery crewmen, and a finished Artillery workshop south of them to train more; adds 100 farm fare and researches Siege engines, Gunpowder, Muskets and Cannons. Engines take no ammunition (Patch 2). Hitch a horse or an ox (select the engine, right click the animal), or let the crew push it.', () => {
     threat(DebugThreat.SiegeKit);
-    shell.message('Debug: a catapult, a ballista and a bronze cannon placed in the middle of the view.');
+    shell.message('Debug: a catapult, a ballista and a bronze cannon with their crews, and an Artillery workshop, placed in the middle of the view.');
   });
-  add('dbg-guns', 'Gun kit', 'Debug: gun kit', 'Puts the carbon steel, planks, flint and gunpowder for four musket rangers in the pool, researches the guns, and trains every warrior as cannon crew.', () => {
+  add('dbg-guns', 'Gun kit', 'Debug: gun kit', 'Puts the carbon steel, planks, flint and gunpowder for four musket rangers\' kits in the pool and researches the guns (Patch 2: no cannon crew training; artillery crewmen crew cannons).', () => {
     threat(DebugThreat.GunKit);
-    shell.message('Debug: musket materials and powder added; your warriors are trained as cannon crew.');
+    shell.message('Debug: musket materials and powder added, and the gun research done.');
   });
   // Milestone 11's troops: a Barracks, a Forge, a main base of level 7 and the stock for every tier.
   add('dbg-troops', 'Troop kit', 'Debug: troop kit', 'Puts a finished Barracks and Forge in the middle of the view, raises your main base to level 7 if it is lower (the Forge\'s steel step), puts 20 of every ingot, the leather, feathers, gunpowder and wood for every tier and 300 farm fare in the pool, and researches every tier\'s needs. Select the Barracks to train any troop at any tier.', () => {
     threat(DebugThreat.TroopKit);
     shell.message('Debug: a Barracks, a Forge, a level 7 main base and the stock for every tier.');
+  });
+  add('dbg-mine', 'Mine kit', 'Debug: mine kit', 'Puts a finished Mineshaft in the middle of the view and a finished Storehouse beside it, researches Deep Mining I and raises your main base to level 4 if it is lower. Right click the shaft with workers to make them miners: each goes down, fills a 25 lb bag and carries it to the nearer of the Storehouse and your main base (Patch 2).', () => {
+    threat(DebugThreat.MineKit);
+    shell.message('Debug: a Mineshaft and a Storehouse placed in the middle of the view.');
   });
   add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
     threat(DebugThreat.Citadel);

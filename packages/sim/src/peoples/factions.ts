@@ -14,7 +14,6 @@ import { WALKER } from '../nav/grid.ts';
 import { hash32 } from '../rng.ts';
 import { PEOPLES, standY, UnitKind, type SimState } from '../state.ts';
 import { addAnimal } from '../animals/animals.ts';
-import { Skill } from '../combat/items.ts';
 import { WAND_GEAR } from '../units/kits.ts';
 import { addMob, vanish } from '../combat/mob-ai.ts';
 import { MANA_SCALE, School } from '../magic/spells.ts';
@@ -144,8 +143,6 @@ export function addPerson(state: SimState, f: Faction, unit: number, x: number, 
   e.armour[i] = spec.armour;
   e.shield[i] = spec.shield;
   e.ranged[i] = spec.ranged;
-  // The peoples are born to their weapons: the cannon crew's skill too.
-  e.skills[i] = Skill.Cannon;
   if (spec.mount) seat(state, i, spec.mount);
   if (grove) {
     e.school[i] = School.Grove;

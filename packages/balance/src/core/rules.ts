@@ -20,10 +20,10 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'melee', label: 'Melee weapons', blurb: 'Table 2d. Close melee (one-handed, with a shield from the armour) and long melee and cavalry (two-handed, a critical in the outer third of reach) by tier: damage, swing time, reach, cost and time to make.' },
   { id: 'ranged', label: 'Ranged weapons', blurb: 'Table 2e. The ranger\'s ladder from sling to musket and the brawler\'s pistol and cutlass: damage, attack time, range, spread, cost and time to make; what flies and how. Ammunition is unlimited.' },
   { id: 'armour', label: 'Armour and shields', blurb: 'Table 3. Armour by tier for every troop (body, helmet and boots in one) and close melee\'s shields, which come with the armour: protection, block, cost and time to make.' },
-  { id: 'training', label: 'Training and upgrades', blurb: 'Table 7. What a troop, worker or mage costs to train, what each material tier needs (Forge step and research; Patch 2: the steps come with main base levels), upgrade time and refund, and specialist training.' },
+  { id: 'training', label: 'Training and upgrades', blurb: 'Table 7. What a troop, worker or mage costs to train, what each material tier needs (Forge step and research; Patch 2: the steps come with main base levels), upgrade time and refund, and the artillery crewman\'s food and time (Patch 2).' },
   { id: 'wands', label: 'Wands and robes', blurb: 'Table 13. Mages\' wands (spell power and extra mana) and robes (protection and mana regain) by tier: cost, time to make and what they need.' },
   { id: 'magic', label: 'Mages and spells', blurb: 'Mage ranks, mana and refill, the combat pause, rank training at the Magi Sanctum, and every spell (Table 13): mana, cooldown, range, power, radius and duration.' },
-  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, munitions, recipes, and the Citadel\'s cannon ports.' },
+  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, and the Citadel\'s cannon ports. Patch 2: engines take no munitions, and every engine rolls out with its crew of artillery crewmen.' },
   { id: 'recipes', label: 'Recipes', blurb: 'What production buildings turn into what: inputs, outputs, time and where.' },
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
@@ -61,7 +61,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'peoples/data.ts:LINES', 'peoples/data.ts:TREE_WARNING_LINES', 'peoples/data.ts:REPARATIONS_PAID_LINE', 'peoples/data.ts:MERC_LINES',
   'peoples/data.ts:REMARKS', 'peoples/data.ts:NAME_PARTS', 'peoples/data.ts:ELF_KINGDOM_NAME', 'peoples/data.ts:LEADER_NAMES',
   'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
-  'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'combat/fight.ts:SKILL_ARCHERY', 'animals/animals.ts:STOCK_CHECK_STEPS',
+  'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
   // The longest timed action the 16-bit tinker column can count (Patch 2): a storage limit, not balance.
   'units/tinker.ts:TINKER_MAX_STEPS',
@@ -176,6 +176,8 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'buildings/recipes.ts:TRINKET_INGOTS': 'resources',
   'buildings/recipes.ts:TRINKET_TIER_BASE': 'resources',
   'combat/items.ts:RESEARCH': 'research',
+  // Patch 2: the artillery crewman's food and time go with the other troops' training.
+  'siege/data.ts:CREWMAN': 'training',
   'combat/spawn.ts:CLAIM_STANDOFF_M': 'mobs',
   'rules.ts:DAY_STEPS': 'pacing',
   'rules.ts:DUSK_STEPS': 'pacing',
@@ -264,7 +266,7 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   shot: 'shot', nature: 'nature', moves: 'moves', sun: 'sun', comes: 'comes', role: 'role', site: 'lairSite', minBand: 'band',
   bands: 'band', tameAt: 'building', tameFoods: 'res', hit: 'hit', made: 'made', group: 'resGroup', dig: 'digClass',
   'PROPS:tool': 'tool', 'SLAUGHTERED:*': 'species', 'FOODS:*': 'res', 'MEAT_BY_SPECIES:*': 'res',
-  'RESEARCH:at': 'building', 'SKILL_TRAINING:at': 'building', 'RECIPES:at': 'building', 'ENGINES:at': 'building', 'ENGINES:munition': 'res', 'MOUNTS:species': 'species',
+  'RESEARCH:at': 'building', 'RECIPES:at': 'building', 'ENGINES:at': 'building', 'MOUNTS:species': 'species',
   'PEOPLE_UNITS:people': 'people', 'PEOPLE_UNITS:weapon': 'gear', 'PEOPLE_UNITS:ranged': 'gear', 'PEOPLE_UNITS:armour': 'gear', 'PEOPLE_UNITS:shield': 'gear',
   RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
   // Troops and gear: a kit row's material tier, and a tool kit's tool tier for each job.
@@ -288,7 +290,7 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
 export const TEXT_KEYS: Readonly<Record<string, string>> = {
   purpose: 'Purpose', gives: 'Gives or unlocks', opens: 'Opens', needs: 'Also needs', comesWith: 'Comes with', later: 'Comes later',
-  source: 'Where it comes from', tooltip: 'Tooltip', row: 'Blueprint row', yields: 'Yields', resource: 'Gives', munition: 'Loads',
+  source: 'Where it comes from', tooltip: 'Tooltip', row: 'Blueprint row', yields: 'Yields', resource: 'Gives',
   ammoFor: 'Ammunition for', youngVariant: 'Young look', short: 'Short name', text: 'Tooltip', called: 'Called in the game',
 };
 /** Strings never shown, and `EXPORT:key` values of any kind (a stock row's good: its title names it). */
@@ -361,12 +363,12 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
   'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
-  'units/gear.ts': 'Specialist training', 'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
+  'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
   'magic/spells.ts': 'Spells and mage ranks', 'magic/mages.ts': 'Mage training and mana', 'magic/cast.ts': 'Casting',
-  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': 'Siege engines and cannon ports', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': 'Siege engines and cannon ports', 'training:siege/data.ts': 'Artillery crewman', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
   'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': 'Siege engines and cannon ports', 'threats/late-mobs.ts': 'Late night mobs\' abilities',
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',

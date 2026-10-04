@@ -1,14 +1,15 @@
 // Work out in the field that milestone 4 adds (Semi-automation: hunting, as
 // Jade's play-test notes redid it; Animals; Food and medicine; Table 12
 // carrying; Mineshafts and prospecting): hunting with N, taming, eating at a building, hitching a working animal to
-// a cart, prospecting with T and hauling from a mineshaft. Each runs like the
+// a cart and prospecting with T (Patch 2 cut hauling from a mineshaft: miners
+// carry their own bags out, behaviour.ts runMiner). Each runs like the
 // other orders in behaviour.ts: a small state machine on the unit's `act`.
 
-import { BuildingKind, buildingName } from '../buildings/data.ts';
+import { buildingName } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { sideSees } from '../combat/fight.ts';
 import { chatter } from '../peoples/speech.ts';
-import { PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, prospectText, ratingAt, shaftStock, takeStock } from '../buildings/mining.ts';
+import { PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, prospectText, ratingAt } from '../buildings/mining.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { Res } from '../economy/resources.ts';
@@ -17,15 +18,14 @@ import { EAT_STEPS, eatAt, servesFood } from '../economy/food.ts';
 import { RESOURCES } from '../economy/resources.ts';
 import { atan2Angle, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
-import { NO_CARRY, OrderKind, UnitKind, WILD, type SimState } from '../state.ts';
+import { OrderKind, UnitKind, WILD, type SimState } from '../state.ts';
 import { isGame, Nature, speciesSpec } from '../animals/species.ts';
 import { newHome } from '../animals/animals.ts';
-import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, toDropoff, walkTo } from './behaviour.ts';
+import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, walkTo } from './behaviour.ts';
 import { exploreTarget, fromBuilding, HOME_SLACK_M, homeOf, homeBaseNear, wanderTarget, type Home } from './forage.ts';
 import { bagEmpty, bagRoom, bagTenthsLb, LOOT_BAG_TENTHS_LB, LOOT_CLAIM_M, preyName } from './loot.ts';
 import { meatOf } from '../economy/food-kinds.ts';
 import type { UnitOrder } from './unit-orders.ts';
-import { carryCapacity } from './weight.ts';
 import { tinker } from './tinker.ts';
 
 const CONTINUE = false;
@@ -481,43 +481,4 @@ export function runProspect(state: SimState, i: number, o: Extract<UnitOrder, { 
   const rating = ratingAt(state, o.x, o.z);
   state.events.push({ player: e.owner[i]!, kind: 'prospect', text: prospectText(rating), x: o.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), z: o.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), rating });
   return DONE;
-}
-
-export function runHaul(state: SimState, i: number, o: Extract<UnitOrder, { t: 'haul' }>): boolean {
-  const e = state.entities;
-  const b = state.buildings.get(o.b);
-  if (!b || b.owner !== e.owner[i] || !b.complete || b.kind !== BuildingKind.Mineshaft) return DONE;
-  if (e.act[i] === Act.Start) e.act[i] = e.carryAmt[i]! > 0 ? Act.ToDrop : Act.Walk;
-  if (e.act[i] === Act.ToDrop) {
-    const r = toDropoff(state, i, null);
-    if (r === MOVING) return CONTINUE;
-    if (r === FAILED) return DONE;
-    e.act[i] = Act.Walk;
-    resetWalk(state, i);
-    return CONTINUE;
-  }
-  if (e.act[i] === Act.Wait) {
-    if (state.step < e.waitUntil[i]!) return CONTINUE;
-    e.act[i] = Act.Walk;
-  }
-  const r = walkTo(state, i, besideBuilding(b));
-  if (r === MOVING) return CONTINUE;
-  if (r === FAILED) {
-    alert(state, e.owner[i]!, 'A worker cannot reach the mineshaft.', e.x[i]!, e.z[i]!);
-    return DONE;
-  }
-  // Load up with the first thing waiting, as much as the worker, cart or pack holds.
-  if (shaftStock(b) === 0) {
-    e.act[i] = Act.Wait;
-    e.waitUntil[i] = state.step + 3 * STEPS_PER_SECOND;
-    return CONTINUE;
-  }
-  const got = takeStock(b, 1 << 30, (res) => carryCapacity(state, i, res));
-  if (got && got[1] > 0) {
-    e.carryRes[i] = got[0];
-    e.carryAmt[i] = got[1];
-  } else e.carryRes[i] = NO_CARRY;
-  e.act[i] = Act.ToDrop;
-  resetWalk(state, i);
-  return CONTINUE;
 }

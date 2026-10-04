@@ -800,7 +800,7 @@ export class GameShell {
         const spec = PEOPLE_UNITS[Number(t.typeKey.slice(7))];
         if (spec) out.push([id, REMARK_KEYS[spec.people]!]);
       } else if (t.owner === this.player) {
-        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey === 'warrior' ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
+        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey.startsWith('warrior') ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
         if (key) out.push([id, key]);
       }
     }

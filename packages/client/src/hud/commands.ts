@@ -121,7 +121,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch';
+type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew';
 
 /** Pages of the command card: the main card, the build menu (Patch 2: one, in place of Basic and Advanced) and a building's K menu (smelting, research and the rest). */
 export type CardPage = 'main' | 'build' | 'make';
@@ -423,7 +423,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
@@ -561,6 +561,22 @@ export class Commands {
       const school = active === 'mage:battle' ? 2 : 1;
       // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
       return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids)];
+    }
+    if (active === 'warrior:crew') {
+      // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine.
+      return [
+        attack,
+        patrol,
+        move,
+        this.entry(
+          'crew',
+          'Crew',
+          'Then left click one of your catapults, ballistas or cannons: the crewmen walk to it and stand by it, fire it and push it when nothing hauls it. Only artillery crewmen crew engines. Right clicking the engine does the same.',
+          () => this.target('crew', 'crew'),
+          { lit: t === 'crew', name: 'Crew an engine' },
+        ),
+        this.eatEntry(),
+      ];
     }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
     return [
@@ -780,14 +796,14 @@ export class Commands {
     const ids = this.unitIds((u) => u.typeKey.startsWith('engine:'));
     const u = ids.length > 0 ? this.d.game.unit(ids[0]!) : null;
     const hauled = u !== null && u.partner !== 0;
-    const powder = u !== null && engineSpec(u.mob).powder;
+    const cannon = u !== null && engineSpec(u.mob).cannon;
     return [
       this.entry('attack', 'Attack', 'Then left click an enemy or one of its buildings to shoot at it (it closes in while hauled or pushed), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' }),
       this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels need ramps, not steps.', () => this.target('move', 'move'), { lit: t === 'move' }),
       hauled
         ? this.entry('hitch', 'Let go', 'Unhitch the horse or ox hauling it.', () => this.d.send({ kind: 'hitch', player: this.d.player, units: ids.slice(0, 1), target: 0, queued: false }), { name: 'Let the animal go' })
         : this.entry('hitch', 'Hitch', 'Then left click one of your horses or oxen: it walks over and hauls the engine wherever it is sent (a horse is faster; an ox is slower but steadier). Right clicking the animal does the same.', () => this.target('hitch', 'hitch'), { lit: t === 'hitch', name: 'Hitch an animal' }),
-      powder
+      cannon
         ? this.entry('port', 'Port', 'Then left click your Citadel (main base level 10): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls. Right clicking the Citadel does the same.', () => this.target('port', 'port'), { lit: t === 'port', name: 'Into a cannon port' })
         : this.off('port', 'Port', 'Cannons go up into a Citadel\'s cannon ports.', 'Only cannons go in the cannon ports.', 'Into a cannon port'),
     ];
@@ -927,6 +943,8 @@ export class Commands {
         const at = main ? 4 : 0;
         rows.push([Product.SupportMage, 'trainSupportMage', 'Support', at], [Product.BattleMage, 'trainBattleMage', 'Battle', at + 1]);
       }
+      // Patch 2: the Artillery workshop trains the artillery crewman, first on its card; its engines are in its Make menu.
+      if (first.products.some(([p]) => p === Product.Crewman)) rows.push([Product.Crewman, 'trainCrewman', 'Crewman', 0]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
     if (first.complete) {
@@ -997,8 +1015,12 @@ export class Commands {
     if (ps.research !== undefined && g.researched(ps.research)) reason = 'Already researched.';
     else if (ps.research !== undefined && [...g.buildings.values()].some((b) => b.owner === this.d.player && b.queue.some((q) => q.product === p))) reason = 'Being researched.';
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
-    else if (ps.food === 0) reason = g.costProblem(ps.cost);
-    if (!reason && (p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
+    // An engine pays its resources and its crew's food (Patch 2).
+    if (!reason && (ps.food === 0 || ps.engine !== undefined)) reason = g.costProblem(ps.cost);
+    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman;
+    const crew = ps.engine !== undefined ? engineSpec(ps.engine).crew : 0;
+    if (!reason && unit && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
+    if (!reason && crew > 0 && info && info.supplyUsed + crew > info.supplyCap) reason = `Not enough supply for its crew of ${crew} (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
     if (why !== undefined) reason = why;
     if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
     // Patch 2: a crafting building makes goods at its own pace, with no workers.
@@ -1215,6 +1237,10 @@ export class Commands {
         ok = item ? this.hitchTo(item) : false;
         if (!ok) this.d.message('Pick one of your tamed horses or oxen.', 'alert');
         break;
+      case 'crew':
+        ok = item !== null && this.ownEngine(item) && this.crew(item);
+        if (!ok) this.d.message('Pick one of your catapults, ballistas or cannons.', 'alert');
+        break;
       case 'rally':
         ok = this.rally(item, ground);
         break;
@@ -1382,10 +1408,10 @@ export class Commands {
     return item.kind === 'unit' && item.owner === this.d.player && item.typeKey.startsWith('engine:');
   }
 
-  /** Warriors in the selection crew an engine: they stand by it to fire it, and push it if nothing hauls it. */
+  /** Artillery crewmen in the selection crew an engine: they stand by it to fire it, and push it if nothing hauls it (Patch 2: only they do). */
   private crew(item: Selectable): boolean {
     const target = entityIdOf(item.key);
-    const units = this.unitIds((u) => u.typeKey === 'warrior');
+    const units = this.unitIds((u) => u.typeKey === 'warrior:crew');
     if (target === null || units.length === 0) return false;
     this.d.send({ kind: 'crew', player: this.d.player, units, target, queued: this.d.queued() });
     this.d.marker(item.centre, 'target');
@@ -1550,12 +1576,7 @@ export class Commands {
           return spec.dropoff === 'wood' && (u.carryRes === 0 || u.carryRes === 1);
         });
         if (carriers.length > 0) return send({ kind: 'dropoff', player, units: carriers, building: b.id, queued });
-        // A mineshaft with all its miners, or workers with a cart: they haul what waits there.
-        if (b.kind === BuildingKind.Mineshaft && b.complete) {
-          const carts = workers.filter((id) => (this.d.game.unit(id)?.kit ?? 0) !== 0);
-          const full = b.assigned >= levelSpec(b.kind, b.level).workers;
-          if (full || carts.length > 0) return send({ kind: 'haul', player, units: full ? workers : carts, building: b.id, queued });
-        }
+        // Patch 2: nobody hauls from a mineshaft; its miners carry their own bags out, so workers right clicking it go to mine.
         if (levelSpec(b.kind, b.level).workers > 0) return send({ kind: 'assign', player, units: workers, building: b.id, queued });
         if (spec.light && !b.lit) return send({ kind: 'relight', player, units: workers, building: b.id, queued });
       }
@@ -1571,7 +1592,7 @@ export class Commands {
       if (this.ownBuilding(item) && this.enter(item)) return;
     }
     if (item && this.ownEngine(item)) {
-      // Warriors crew one of the player's engines; workers repair a damaged one.
+      // Artillery crewmen crew one of the player's engines (anyone else follows it); workers repair a damaged one.
       const u = this.d.game.unit(entityIdOf(item.key) ?? -1);
       if (workers.length > 0 && u && u.hp < u.maxHp && this.mend(item)) return;
       if (this.crew(item)) return;

@@ -52,8 +52,6 @@ export type UnitOrder =
   | { t: 'cart'; b: number; res: number }
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
-  /** Specialist training at a building (Table 7: cannon crew at the Artillery workshop): the unit goes inside until it is done. */
-  | { t: 'skill'; b: number; skill: number }
   /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
@@ -70,8 +68,6 @@ export type UnitOrder =
   | { t: 'hitch'; id: number }
   /** T Prospect a spot (columns). */
   | { t: 'prospect'; x: number; z: number }
-  /** Haul what waits at a mineshaft to a drop-off, over and over. */
-  | { t: 'haul'; b: number }
   /** Cast a spell (magic/cast.ts) at a unit (id) or a spot (x, z wu); auto: the mage picks the target; until: the step she gives up (0 before she starts). */
   | { t: 'cast'; spell: number; id: number; x: number; z: number; auto: number; until: number }
   /** Crew a siege engine or cannon (id): stand by it, push it, and work it. */
@@ -103,7 +99,7 @@ export type UnitOrderType = UnitOrder['t'];
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'port', 'loot', 'forage'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -126,13 +122,11 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   kitUp: ['line', 'to', 'ways', 'paid', 'b'],
   cart: ['b', 'res'],
   dig: ['site'],
-  skill: ['b', 'skill'],
   hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],
   hitch: ['id'],
   prospect: ['x', 'z'],
-  haul: ['b'],
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
   crew: ['id'],
   mend: ['id'],
@@ -188,7 +182,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'relight':
       return 'Relighting a light';
     case 'train':
-    case 'skill':
       return 'Training';
     case 'attack':
       return 'Attacking';
@@ -214,8 +207,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Fetching an animal';
     case 'prospect':
       return 'Prospecting';
-    case 'haul':
-      return 'Hauling';
     case 'cast':
       return 'Casting';
     case 'crew':

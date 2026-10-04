@@ -38,6 +38,7 @@ export function typeWorth(typeKey: string, kits: () => readonly UnitKit[] = () =
   if (typeKey === 'worker') return productWorth(Product.Worker);
   if (typeKey === 'mage:support') return productWorth(Product.SupportMage);
   if (typeKey === 'mage:battle') return productWorth(Product.BattleMage);
+  if (typeKey === 'warrior:crew') return productWorth(Product.Crewman);
   if (typeKey === 'warrior') {
     let best = 0;
     for (const k of kits()) if (k.troop > 0) best = Math.max(best, productWorth(troopProduct(k.troop, k.wTier, k.aTier)));

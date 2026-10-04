@@ -4,26 +4,27 @@
 // It moves only while a hitched horse or ox walks beside it, or while
 // enough of its crew stand by to push it, and rolls on wheels (ramps, not
 // steps). It fires while its crew stand by it and it stands still: at what
-// it was told to attack, else at the nearest foe in range. A shot takes its
-// munition from the stock, and a cannon's a gunpowder charge besides (ten to
-// one gunpowder). A cannon hauled into a Citadel's port fires from the roof,
-// its crew inside with it.
+// it was told to attack, else at the nearest foe in range. Patch 2 (Jade):
+// an engine rolls out of the Artillery workshop with its full crew of
+// artillery crewmen, the only units that crew one, and its shots take
+// nothing from the stock. A cannon hauled into a Citadel's port fires from
+// the roof, its crew inside with it.
 
 import { BuildingKind } from '../buildings/data.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
-import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
-import { OrderKind, PEOPLES, standY, UnitKind, type SimState } from '../state.ts';
+import { addWarrior, OrderKind, PEOPLES, standY, UnitKind, type SimState } from '../state.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { PeopleUnit } from '../peoples/data.ts';
 import { gap, hostile, isMob } from '../combat/combat.ts';
 import { isStructure } from '../combat/mobs.ts';
 import { buildingTop, clearLob, fireAt, ProjectileFlag } from '../combat/projectiles.ts';
-import { Act, besideBuilding, exitColumn, columnCentre, FAILED, leaveBuilding, MOVING, resetWalk, walkTo } from '../units/behaviour.ts';
+import { Act, besideBuilding, exitColumn, columnCentre, FAILED, giveOrder, leaveBuilding, MOVING, resetWalk, walkTo } from '../units/behaviour.ts';
+import { Troop } from '../units/kits.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
-import { CANNON_PORTS, CHARGES_PER_POWDER, CITADEL_LEVEL, CREW_REACH_WU, Engine, engineSpec, HAUL_REACH_WU, type EngineSpec } from './data.ts';
+import { CANNON_PORTS, CITADEL_LEVEL, CREW_REACH_WU, Engine, engineSpec, HAUL_REACH_WU, type EngineSpec } from './data.ts';
 
 const CONTINUE = false;
 const DONE = true;
@@ -49,13 +50,39 @@ export function addEngine(state: SimState, owner: number, kind: number, x: numbe
   return i;
 }
 
-/** A finished engine rolls out of the building that made it. */
+/** Whether a unit is an artillery crewman (Patch 2): a troop of type Crew. */
+export function isCrewman(state: SimState, i: number): boolean {
+  const e = state.entities;
+  return e.kind[i] === UnitKind.Warrior && e.troop[i] === Troop.Crew;
+}
+
+/** A new artillery crewman of an owner at a point, told to crew an engine (by index) if one is given; returns its index. */
+export function addCrewman(state: SimState, owner: number, x: number, z: number, engine = -1): number {
+  const e = state.entities;
+  const j = addWarrior(state, owner, x, z, Troop.Crew, 0, 0);
+  e.heading[j] = 32768;
+  if (engine >= 0) giveOrder(state, j, { t: 'crew', id: e.id[engine]! }, false);
+  return j;
+}
+
+/** An engine's full crew of new crewmen, standing round it and crewing it (Patch 2: every engine is made with its crew). */
+export function addFullCrew(state: SimState, i: number): void {
+  const e = state.entities;
+  const spec = engineSpec(e.mob[i]!);
+  // Behind it, side by side (s).
+  for (let k = 0; k < spec.crew; k++) addCrewman(state, e.owner[i]!, e.x[i]! + (k * 2 - spec.crew + 1) * M, e.z[i]! - 2 * M, i);
+}
+
+/** A finished engine rolls out of the building that made it, with its full crew (Jade, Patch 2). */
 export function spawnEngine(state: SimState, b: Building, kind: number, owner = b.owner): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  addEngine(state, owner, kind, x, z);
-  state.events.push({ player: owner, kind: 'info', text: `A ${engineSpec(kind).name.toLowerCase()} is ready. Hitch a horse or an ox to it, or give it a crew.`, x, z });
+  const i = addEngine(state, owner, kind, x, z);
+  addFullCrew(state, i);
+  const spec = engineSpec(kind);
+  const crew = spec.crew === 1 ? 'its crewman' : `its ${spec.crew} crewmen`;
+  state.events.push({ player: owner, kind: 'info', text: `A ${spec.name.toLowerCase()} is ready, with ${crew}. Its crew push it, or hitch a horse or an ox to haul it faster.`, x, z });
 }
 
 export function isEngine(state: SimState, i: number): boolean {
@@ -92,7 +119,7 @@ export function crewOf(state: SimState, i: number): number[] {
 }
 
 /** Every unit told to crew an engine, wherever it is. */
-function crewSworn(state: SimState, i: number): number[] {
+export function crewSworn(state: SimState, i: number): number[] {
   const e = state.entities;
   const out: number[] = [];
   const id = e.id[i]!;
@@ -117,20 +144,14 @@ export function engineSpeed(state: SimState, i: number): number {
 export function stuckWhy(state: SimState, i: number): string {
   const spec = engineSpec(state.entities.mob[i]!);
   if (spec.pushed === 0) return 'It is fixed in place.';
-  return `It needs a horse or an ox hitched to it, or ${spec.crew === 1 ? 'a warrior' : `${spec.crew} warriors`} crewing it to push.`;
+  return `It needs a horse or an ox hitched to it, or ${spec.crew === 1 ? 'its crewman' : `its ${spec.crew} crewmen`} beside it to push.`;
 }
 
-/** Why an engine cannot fire now, or '' (its crew, its shot and charge). */
+/** Why an engine cannot fire now, or '': only its crew (Patch 2: no ammunition). */
 export function fireWhy(state: SimState, i: number): string {
-  const e = state.entities;
-  const spec = engineSpec(e.mob[i]!);
+  const spec = engineSpec(state.entities.mob[i]!);
   const crew = crewOf(state, i).length;
-  if (crew < spec.crew) return `It needs ${spec.crew === 1 ? 'a crewman' : `${spec.crew} crew`} standing by it to fire (${crew} now).`;
-  if (e.owner[i] === PEOPLES) return '';
-  const pool = state.players[e.owner[i]!]!.pool;
-  const name = spec.munition === Res.Cannonball ? 'cannonballs' : spec.munition === Res.CatapultStone ? 'catapult stones' : 'ballista bolts';
-  if (pool[spec.munition]! < 1) return `No ${name} in the stock.`;
-  if (spec.powder && e.ammo[i]! < 1 && pool[Res.Gunpowder]! < 1) return 'No gunpowder in the stock.';
+  if (crew < spec.crew) return `It needs ${spec.crew === 1 ? 'its crewman' : `${spec.crew} crewmen`} standing by it to fire (${crew} now).`;
   return '';
 }
 
@@ -159,7 +180,7 @@ function pickShot(state: SimState, i: number, spec: EngineSpec): number {
   return best;
 }
 
-/** Fires at a target if the crew, the reload and the munitions allow it; true when the shot went. */
+/** Fires at a target if the crew and the reload allow it; true when the shot went. */
 function fire(state: SimState, i: number, t: number, spec: EngineSpec): boolean {
   const e = state.entities;
   e.target[i] = e.id[t]!;
@@ -170,17 +191,6 @@ function fire(state: SimState, i: number, t: number, spec: EngineSpec): boolean 
   const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
   const y = b ? buildingTop(b) + MUZZLE_WU : e.y[i]! + MUZZLE_WU;
   if (clearLob(state, spec.shot, e.x[i]!, y, e.z[i]!, e.x[t]!, e.y[t]!, e.z[t]!, true) === 0) return false;
-  if (e.owner[i] !== PEOPLES) {
-    const pool = state.players[e.owner[i]!]!.pool;
-    pool[spec.munition] = pool[spec.munition]! - 1;
-    if (spec.powder) {
-      if (e.ammo[i]! < 1) {
-        pool[Res.Gunpowder] = pool[Res.Gunpowder]! - 1;
-        e.ammo[i] = CHARGES_PER_POWDER;
-      }
-      e.ammo[i] = e.ammo[i]! - 1;
-    }
-  }
   const flags = ProjectileFlag.Siege | (spec.pierce ? ProjectileFlag.Pierce : ProjectileFlag.Blunt);
   fireAt(state, i, e.x[i]!, y, e.z[i]!, t, spec.shot, spec.damage, spec.spreadBp, flags);
   e.atkNext[i] = state.step + spec.reloadSteps;
@@ -319,7 +329,7 @@ function toPort(state: SimState, i: number, id: number): boolean {
 /** Why a cannon cannot go into a building's port, or ''. */
 export function portWhy(state: SimState, i: number, b: Building): string {
   const spec = engineSpec(state.entities.mob[i]!);
-  if (!spec.powder) return 'Only cannons go in the Citadel\'s cannon ports.';
+  if (!spec.cannon) return 'Only cannons go in the Citadel\'s cannon ports.';
   if (portRoom(b) === 0) return 'Only a Citadel (main base level 10) has cannon ports.';
   if (inPorts(state, b) >= portRoom(b)) return 'Every cannon port is taken.';
   return '';
@@ -327,15 +337,28 @@ export function portWhy(state: SimState, i: number, b: Building): string {
 
 // ----- crew, hauling and repair -----
 
-/** Why a unit cannot crew an engine, or ''. */
+/** Why a unit cannot crew an engine, or '' (Patch 2, Jade: only artillery crewmen crew catapults, ballistas and cannons). */
 export function crewWhy(state: SimState, j: number, i: number): string {
   const e = state.entities;
   if (i < 0 || e.kind[i] !== UnitKind.Engine || e.owner[i] !== e.owner[j] || e.hp[i]! <= 0) return 'Only your own engines and cannons take a crew.';
-  if (e.kind[j] !== UnitKind.Warrior) return 'Only warriors crew engines and cannons.';
-  if (e.mount[j]) return 'A rider must get down to crew it.';
-  const spec = engineSpec(e.mob[i]!);
-  if (spec.crewSkill && (e.skills[j]! & spec.crewSkill) === 0) return 'Cannon crew need training at an Artillery workshop first.';
+  if (!isCrewman(state, j)) return 'Only artillery crewmen crew engines and cannons. Train them at an Artillery workshop.';
   return '';
+}
+
+/**
+ * Units in an order that keep crewing: a crewman whose engine is in the same
+ * order stays with it (pushing it where it is sent, firing at what it is told
+ * to), so a selection of engines and their crews moves and fights as one.
+ */
+export function withoutTheirCrew(state: SimState, units: readonly number[]): number[] {
+  const e = state.entities;
+  const engines = new Set<number>();
+  for (const i of units) if (e.kind[i] === UnitKind.Engine) engines.add(e.id[i]!);
+  if (engines.size === 0) return [...units];
+  return units.filter((j) => {
+    const o = e.queue[j]![0];
+    return !(o?.t === 'crew' && engines.has(o.id) && isCrewman(state, j));
+  });
 }
 
 /** The crew order: walk to the engine and stand by it for good (into the Citadel with a port cannon). Crew fight only what their weapons reach (combat/fight.ts). */

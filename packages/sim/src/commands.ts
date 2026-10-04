@@ -23,7 +23,7 @@ import { RESEARCH } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
-import { orderCart, orderUpgrade, orderUpgradeEquipment, SKILL_TRAINING } from './units/gear.ts';
+import { orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
@@ -35,7 +35,7 @@ import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
-import { crewWhy, haulWhy, hitchEngine, mendWhy, portWhy } from './siege/engines.ts';
+import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
@@ -115,7 +115,7 @@ function groupTargets(state: SimState, units: readonly number[], x: number, z: n
 }
 
 function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
-  const units = ownUnits(state, o.player, o.units, true);
+  const units = withoutTheirCrew(state, ownUnits(state, o.player, o.units, true));
   if (units.length === 0) return;
   const tx = clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU);
   const tz = clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU);
@@ -157,8 +157,10 @@ function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
   });
 }
 
-function giveAll(state: SimState, o: { player: number; units: number[]; queued?: boolean }, make: (i: number) => UnitOrder | null, allies = false): void {
-  for (const i of ownUnits(state, o.player, o.units, allies)) {
+/** Gives each of the order's units what `make` says; with `crewed`, crewmen whose engine is in the order keep crewing it (siege/engines.ts withoutTheirCrew). */
+function giveAll(state: SimState, o: { player: number; units: number[]; queued?: boolean }, make: (i: number) => UnitOrder | null, allies = false, crewed = false): void {
+  const units = ownUnits(state, o.player, o.units, allies);
+  for (const i of crewed ? withoutTheirCrew(state, units) : units) {
     const u = make(i);
     if (u) giveOrder(state, i, u, o.queued === true);
   }
@@ -415,10 +417,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         applyMove(state, o);
         break;
       case 'stop':
-        for (const i of ownUnits(state, o.player, o.units, true)) stopUnit(state, i);
+        for (const i of withoutTheirCrew(state, ownUnits(state, o.player, o.units, true))) stopUnit(state, i);
         break;
       case 'follow':
-        giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }), true);
+        giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }), true, true);
         break;
       case 'gather':
         giveAll(state, o, () => ({ t: 'gather', cx: o.cx, cz: o.cz, i: o.index }), true);
@@ -546,23 +548,23 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         // Attack used on a unit always attacks (Jade's Patch 2): a foe, a wild animal, or one of the players'
         // own or allied units. A building the peoples left is broken down by workers for its materials; the
         // peoples at peace are attacked only once the player has declared war (the page asks first).
-        giveAll(state, o, (i) => (i !== t && validTarget(state, i, t, true) ? { t: 'attack', id: o.target } : null), true);
+        giveAll(state, o, (i) => (i !== t && validTarget(state, i, t, true) ? { t: 'attack', id: o.target } : null), true, true);
         break;
       }
       case 'attackMove': {
-        const units = ownUnits(state, o.player, o.units, true);
+        const units = withoutTheirCrew(state, ownUnits(state, o.player, o.units, true));
         const targets = groupTargets(state, units, clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU));
         units.forEach((i, k) => giveOrder(state, i, { t: 'attackMove', x: targets[k]![0], z: targets[k]![1] }, o.queued === true));
         break;
       }
       case 'patrol': {
-        const units = ownUnits(state, o.player, o.units, true);
+        const units = withoutTheirCrew(state, ownUnits(state, o.player, o.units, true));
         const targets = groupTargets(state, units, clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU));
         units.forEach((i, k) => giveOrder(state, i, { t: 'patrol', x: targets[k]![0], z: targets[k]![1], x2: e.x[i]!, z2: e.z[i]!, leg: 0 }, o.queued === true));
         break;
       }
       case 'hold':
-        for (const i of ownUnits(state, o.player, o.units, true)) {
+        for (const i of withoutTheirCrew(state, ownUnits(state, o.player, o.units, true))) {
           // Shift + H: hold once the earlier orders are done.
           if (o.queued === true && e.queue[i]!.length > 0) {
             giveOrder(state, i, { t: 'hold' }, true);
@@ -613,18 +615,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'tunnelStretch':
         applyTunnelStretch(state, o);
         break;
-      case 'trainSkill': {
-        const b = ownBuilding(state, o.player, o.building);
-        if (!b || !SKILL_TRAINING[o.skill] || b.kind !== SKILL_TRAINING[o.skill]!.at) break;
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Warrior && (e.skills[i]! & o.skill) === 0 ? { t: 'skill', b: b.id, skill: o.skill } : null));
-        break;
-      }
       case 'hunt': {
         const t = o.target ? e.indexOf(o.target) : -1;
         if (o.target && (t < 0 || !huntable(state, t))) break;
         if (!o.target && !o.auto) break;
         const units = ownUnits(state, o.player, o.units, true);
-        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior);
+        // Artillery crewmen stay by their engines (Patch 2).
+        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior && !isCrewman(state, i));
         if (hunters.length === 0) {
           alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
           break;
@@ -720,8 +717,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'crew': {
         const i = e.indexOf(o.target);
-        const crew = ownUnits(state, o.player, o.units).filter((j) => e.kind[j] === UnitKind.Warrior);
-        const why = crew.length === 0 ? 'Only warriors crew engines and cannons.' : crewWhy(state, crew[0]!, i);
+        // Only artillery crewmen crew engines (Jade, Patch 2); anyone else in the selection is left as it was.
+        const crew = ownUnits(state, o.player, o.units).filter((j) => isCrewman(state, j));
+        const why = crew.length === 0 ? 'Only artillery crewmen crew engines and cannons. Train them at an Artillery workshop.' : crewWhy(state, crew[0]!, i);
         if (why) {
           alert(state, o.player, why);
           break;
@@ -738,12 +736,6 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
           break;
         }
         for (const j of workers) giveOrder(state, j, { t: 'mend', id: o.target }, o.queued === true);
-        break;
-      }
-      case 'haul': {
-        const b = ownBuilding(state, o.player, o.building);
-        if (!b || !b.complete || b.kind !== BuildingKind.Mineshaft) break;
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker ? { t: 'haul', b: b.id } : null));
         break;
       }
       case 'rations': {

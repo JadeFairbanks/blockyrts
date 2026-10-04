@@ -88,11 +88,15 @@ export function bagTenthsLb(state: SimState, i: number): number {
   return w;
 }
 
-/** How many of a resource still fit in a unit's bag: 25 lb less what it holds, a gathered load counting too. */
-export function bagRoom(state: SimState, i: number, res: number): number {
+/** What a unit's bag still takes, tenths of a pound: 25 lb less what it holds, a gathered load counting too. */
+export function bagFreeTenthsLb(state: SimState, i: number): number {
   if (!canLoot(state, i)) return 0;
-  const free = LOOT_BAG_TENTHS_LB - bagTenthsLb(state, i) - Math.min(LOOT_BAG_TENTHS_LB, rawTenthsLb(state, i));
-  return free <= 0 ? 0 : floorDiv(free, weightOf(res));
+  return Math.max(0, LOOT_BAG_TENTHS_LB - bagTenthsLb(state, i) - Math.min(LOOT_BAG_TENTHS_LB, rawTenthsLb(state, i)));
+}
+
+/** How many of a resource still fit in a unit's bag. */
+export function bagRoom(state: SimState, i: number, res: number): number {
+  return floorDiv(bagFreeTenthsLb(state, i), weightOf(res));
 }
 
 export function bagEmpty(state: SimState, i: number): boolean {
@@ -107,7 +111,8 @@ export function bagItems(state: SimState, i: number): Items {
   return out;
 }
 
-function addToBag(state: SimState, i: number, res: number, n: number): void {
+/** Puts n of a resource in a unit's bag (the caller checks it fits). */
+export function addToBag(state: SimState, i: number, res: number, n: number): void {
   const g = state.entities.bag[i]!;
   for (let k = 0; k < g.length; k += 2) {
     if (g[k] === res) {

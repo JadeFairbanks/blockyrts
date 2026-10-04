@@ -40,8 +40,6 @@ export const RANGED_MIN_WU = 4 * WU_PER_METRE;
 const LOST_WU = 20 * WU_PER_METRE;
 /** A chase looks again for its moving target this often. */
 const REPATH_STEPS = 10;
-/** Bit 0 of a unit's skills: trained in archery (Table 7). */
-export const SKILL_ARCHERY = 1;
 /** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
 export const Lock = { Auto: 0, Melee: 1, Ranged: 2 } as const;
 

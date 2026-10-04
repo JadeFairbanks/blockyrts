@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addAnimal,
+  addCrewman,
   addEngine,
   addMob,
   addWarrior,
@@ -26,6 +27,7 @@ import {
   makeBundles,
   priceTenths,
   FactionKind,
+  FOODS,
   gearSpec,
   hashState,
   LONG_GEAR,
@@ -43,10 +45,10 @@ import {
   Res,
   Research,
   RESEARCH,
+  RESOURCES,
   seat,
   serializeState,
   Shot,
-  Skill,
   Species,
   speciesSpec,
   step,
@@ -219,8 +221,8 @@ describe('riding and charges (Table 14)', () => {
   });
 
   it('has no riding training and no mount or dismount order: a troop\'s type is fixed', () => {
-    expect(Object.keys(Skill)).toEqual(['Cannon']);
-    for (const kind of ['mount', 'dismount']) expect(() => validateOrder({ kind, player: 0, units: [1], target: 0 } as unknown as Order)).toThrow(/unknown order kind/);
+    // Patch 2 cut the last specialist training (cannon crew) and hauling from a mineshaft too.
+    for (const kind of ['mount', 'dismount', 'trainSkill', 'haul']) expect(() => validateOrder({ kind, player: 0, units: [1], target: 0 } as unknown as Order)).toThrow(/unknown order kind/);
     // Patch 2: cavalry trains at the Barracks with the rest; the main base trains none.
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
@@ -232,12 +234,12 @@ describe('riding and charges (Table 14)', () => {
 });
 
 describe('siege engines (Table 2f)', () => {
-  it('an ox hauls a catapult, two warriors crew it, and its stones break a goblin hut', () => {
+  it('an ox hauls a catapult, two artillery crewmen crew it, and it breaks a goblin hut with nothing in the stock (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const [x, z] = field(s);
     const e = s.entities;
     const p = s.players[0]!;
-    p.pool[Res.CatapultStone] = 20;
+    const stock = [...p.pool];
     const cat = addEngine(s, 0, Engine.Catapult, x, z);
     const catId = e.id[cat]!;
     const ox = addAnimal(s, Species.Ox, 0, x - 6 * M, z, 0, 0);
@@ -250,12 +252,20 @@ describe('siege engines (Table 2f)', () => {
     runUntil(s, () => e.x[e.indexOf(catId)]! >= x + 9 * M, 60 * SEC);
     const hut = spawn(s, Mob.GoblinHut, x + 10 * M + 35 * M, z);
     const hutId = e.id[hut]!;
-    addWarrior(s, 0, x + 8 * M, z + 3 * M);
-    const [w1, w2] = warriors(s);
-    run(s, 1, [{ kind: 'crew', player: 0, units: [e.id[w1!]!, e.id[w2!]!], target: catId }]);
+    // Warriors do not crew engines (Jade): the order is refused and they stay as they were.
+    const w = warriors(s)[0]!;
+    run(s, 1, [{ kind: 'crew', player: 0, units: [e.id[w]!], target: catId }]);
+    expect(e.queue[w]![0]?.t).not.toBe('crew');
+    expect(s.events.some((ev) => ev.text === 'Only artillery crewmen crew engines and cannons. Train them at an Artillery workshop.')).toBe(true);
+    const c1 = addCrewman(s, 0, x + 8 * M, z + 3 * M);
+    const c2 = addCrewman(s, 0, x + 8 * M, z - 3 * M);
+    run(s, 1, [{ kind: 'crew', player: 0, units: [e.id[c1]!, e.id[c2]!, e.id[w]!], target: catId }]);
+    expect(e.queue[c1]![0]?.t).toBe('crew');
+    expect(e.queue[w]![0]?.t).not.toBe('crew');
     run(s, 1, [{ kind: 'attack', player: 0, units: [catId], target: hutId }]);
     runUntil(s, () => e.indexOf(hutId) < 0 || e.hp[e.indexOf(hutId)]! <= 0, 180 * SEC);
-    expect(p.pool[Res.CatapultStone]).toBeLessThan(20);
+    // No stones, bolts, cannonballs or powder: the stock is just as it was, but for what was eaten.
+    for (const r of RESOURCES) if (!FOODS.includes(r.id)) expect([r.name, p.pool[r.id]]).toEqual([r.name, stock[r.id]]);
   });
 
   it('workers repair a damaged engine; it never heals by itself', () => {
@@ -307,20 +317,17 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
     expect(gearSpec(e.ranged[r!]!).ranged!.shot).toBe(Shot.MusketBall);
   });
 
-  it('trains cannon crew at the Artillery workshop once Cannons is researched', () => {
+  it('trains cannon crew no more: warriors cannot crew a cannon, artillery crewmen can', () => {
     const s = createWorld(1, { peaceful: true });
-    const base = bigHouse(s);
-    const yard = placeBuilding(s, 0, BuildingKind.ArtilleryWorkshop, 0, base.x + 18, base.z, true);
-    const p = s.players[0]!;
-    p.pool[Res.Venison] = 200;
+    const [x, z] = field(s);
     const e = s.entities;
-    const id = e.id[warriors(s)[0]!]!;
-    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Cannon }]);
-    run(s, 30 * SEC);
-    expect(e.skills[e.indexOf(id)]! & Skill.Cannon).toBe(0);
-    p.research |= 1 << Research.Cannons;
-    run(s, 1, [{ kind: 'trainSkill', player: 0, units: [id], building: yard.id, skill: Skill.Cannon }]);
-    runUntil(s, () => (e.skills[e.indexOf(id)]! & Skill.Cannon) !== 0, 120 * SEC);
+    const gun = addEngine(s, 0, Engine.BronzeCannon, x, z);
+    const w = warriors(s)[0]!;
+    run(s, 1, [{ kind: 'crew', player: 0, units: [e.id[w]!], target: e.id[gun]! }]);
+    expect(e.queue[w]![0]?.t).not.toBe('crew');
+    const c = addCrewman(s, 0, x + 3 * M, z);
+    run(s, 1, [{ kind: 'crew', player: 0, units: [e.id[c]!], target: e.id[gun]! }]);
+    expect(e.queue[c]![0]).toEqual({ t: 'crew', id: e.id[gun]! });
   });
 
   it('hauls a bronze cannon into a Citadel port, where its crew fire it from the roof', () => {
@@ -330,7 +337,6 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Citadel, x: bx, z: bz }]);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.GunKit, x: bx, z: bz }]);
     const p = s.players[0]!;
-    p.pool[Res.Cannonball] = 10;
     const e = s.entities;
     const gun = addEngine(s, 0, Engine.BronzeCannon, bx + 20 * M, bz);
     const gunId = e.id[gun]!;
@@ -340,19 +346,19 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
     runUntil(s, () => e.inside[e.indexOf(gunId)] === base.id, 90 * SEC);
     const g = e.indexOf(gunId);
     expect(e.y[g]).toBe(buildingTop(base));
-    addWarrior(s, 0, bx + 12 * M, bz);
-    run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.GunKit, x: bx, z: bz }]);
-    const crew = warriors(s).slice(0, 2).map((i) => e.id[i]!);
+    const crew = [addCrewman(s, 0, bx + 12 * M, bz), addCrewman(s, 0, bx + 12 * M, bz + 2 * M)].map((i) => e.id[i]!);
     run(s, 1, [{ kind: 'crew', player: 0, units: crew, target: gunId }]);
     runUntil(s, () => crew.every((id) => e.inside[e.indexOf(id)] === base.id), 60 * SEC);
     toNight(s, 2);
     const powder = p.pool[Res.Gunpowder]!;
     const zombie = spawn(s, Mob.Zombie, e.x[g]! + 35 * M, e.z[g]!);
+    const zid = e.id[zombie]!;
     e.speed[zombie] = 0;
-    runUntil(s, () => p.pool[Res.Cannonball]! < 10, 20 * SEC);
-    // A gunpowder makes ten charges: one is spent, nine wait in the cannon.
-    expect(p.pool[Res.Gunpowder]).toBe(powder - 1);
-    expect(e.ammo[e.indexOf(gunId)]).toBe(9);
+    e.hp[zombie] = 1000;
+    e.maxHp[zombie] = 1000;
+    runUntil(s, () => e.hp[e.indexOf(zid)]! < 1000, 20 * SEC);
+    // Patch 2: no cannonballs and no powder charge spent.
+    expect(p.pool[Res.Gunpowder]).toBe(powder);
   });
 
   it('a Dwarf city fields gunners, cannon crew and two cannons', () => {
@@ -370,7 +376,7 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
       if (e.kind[i] === UnitKind.Engine) cannons++;
     }
     expect([gunners, crew, cannons]).toEqual([6, 4, 2]);
-    // It sells a cannon of each kind and muskets, with the powder and shot to use them (Table 19).
+    // It sells a cannon of each kind and muskets' steel, with the powder a musket takes (Table 19; Patch 2: no cannonballs).
     const city = s.peoples.factions.find((f) => f.kind === FactionKind.DwarfCity)!;
     expect(inStock(city, ENGINE_GOODS + Engine.BronzeCannon)).toBe(1);
     expect(goodName(ENGINE_GOODS + Engine.BronzeCannon)).toBe('Bronze cannon');

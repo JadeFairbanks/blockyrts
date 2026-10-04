@@ -2,15 +2,17 @@
 // and mineshaft rows) and the fishing dock's catch (Semi-automation:
 // fishing). Minerals lie hidden by the seed: every patch of ground has a
 // rating that Prospect (T) reveals and that sets a mineshaft's output there.
-// Miners inside a shaft bring up stone, ore, coal, gold and gems, which wait
-// at the shaft until workers or carts haul them away.
+// Miners inside a shaft bring up stone, ore, coal, gold and gems. Patch 2
+// (Jade): the shaft is a collection point like a node. A miner stays down
+// until a 25 lb bagful has come up, carries it out to the nearest main base
+// or Storehouse and comes back; no one hauls from a shaft any more.
 
 import { CYCLE_STEPS } from '../rules.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
 import { fishOf } from '../economy/food-kinds.ts';
-import { Res } from '../economy/resources.ts';
-import { UnitKind, type SimState } from '../state.ts';
+import { Res, RESOURCES } from '../economy/resources.ts';
+import type { SimState } from '../state.ts';
 import { hasResearch, Research } from '../combat/items.ts';
 import { Band } from '../world/layout.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
@@ -30,7 +32,7 @@ export const PROSPECT_STEPS = 40 * STEPS_PER_SECOND;
 export const PROSPECT_HAMMER_STEPS = 20 * STEPS_PER_SECOND;
 /** A rating holds for a patch of 16 by 16 columns, 7.2 m on a side (s). */
 const PATCH_SHIFT = 4;
-/** What a shaft keeps waiting to be hauled before its miners stop (s). */
+/** What a shaft keeps dug out and not yet carried off before its miners stop (s). */
 export const SHAFT_STOCK_LIMIT = 200;
 /** A worked-out shaft: Table 5's loads, counted as 10 items each (s), by depth; the third depth never runs out. */
 export const WORKED_OUT: readonly number[] = [6000, 24000, 0];
@@ -112,14 +114,31 @@ function addStock(b: Building, res: number, n: number): void {
   else b.stock.push([res, n]);
 }
 
-/** Takes up to `n` of the first item waiting at a shaft. Returns [resource, count] or null. */
-export function takeStock(b: Building, n: number, capacity: (res: number) => number): [number, number] | null {
-  const row = b.stock[0];
-  if (!row) return null;
-  const take = Math.min(row[1], n, capacity(row[0]));
-  row[1] -= take;
-  if (row[1] <= 0) b.stock.shift();
-  return [row[0], take];
+/** What waits at a shaft, tenths of a pound. */
+export function stockTenthsLb(b: Building): number {
+  let w = 0;
+  for (const [res, n] of b.stock) w += Math.max(1, RESOURCES[res]?.weightTenthsLb ?? 1) * n;
+  return w;
+}
+
+/**
+ * Takes a bagful from what waits at a shaft: as much of each item, in the
+ * order they came up, as still fits in `roomTenthsLb` (s). Returns what was
+ * taken as (resource, count) pairs.
+ */
+export function fillBag(b: Building, roomTenthsLb: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  let room = roomTenthsLb;
+  for (const row of b.stock) {
+    const w = Math.max(1, RESOURCES[row[0]]?.weightTenthsLb ?? 1);
+    const n = Math.min(row[1], floorDiv(Math.max(0, room), w));
+    if (n <= 0) continue;
+    row[1] -= n;
+    room -= n * w;
+    out.push([row[0], n]);
+  }
+  b.stock = b.stock.filter(([, n]) => n > 0);
+  return out;
 }
 
 /** Miners at work bring up their shaft's output, each step. */
@@ -206,12 +225,4 @@ export function updateMines(state: SimState): void {
     if (b.kind === BuildingKind.Mineshaft) mine(state, b);
     else if (b.kind === BuildingKind.FishingDock) fishFromDock(state, b);
   }
-}
-
-/** Workers whose current order is hauling from a shaft. */
-export function haulersAt(state: SimState, id: number): number {
-  const e = state.entities;
-  let n = 0;
-  for (let j = 0; j < e.count; j++) if (e.kind[j] === UnitKind.Worker && e.queue[j]![0]?.t === 'haul' && (e.queue[j]![0] as { b: number }).b === id) n++;
-  return n;
 }

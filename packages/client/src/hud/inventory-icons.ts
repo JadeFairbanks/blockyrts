@@ -103,9 +103,6 @@ TRINKET_METALS.forEach((metal, m) =>
 // Moonleaf is made of silver and emeralds, Sunheart of gold and rubies.
 set(Res.Moonleaf, 'trinket_moonleaf_silver');
 set(Res.Sunheart, 'trinket_sunheart_gold');
-set(Res.Cannonball, 'cannonball_iron');
-set(Res.CatapultStone, 'catapult_stone');
-set(Res.BallistaBolt, 'ballista_bolt');
 
 /** A good's icon. */
 export function goodIcon(res: number): GoodIcon | undefined {
@@ -126,7 +123,7 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone}.png',
-    '../../../assets/src/ui/icon_{hand_cart,ox_cart,cannonball_iron,catapult_stone,ballista_bolt,food,supply}.png',
+    '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
     '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',
   ],

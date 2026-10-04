@@ -5,18 +5,24 @@ import {
   applyKit,
   bagEmpty,
   bagItems,
+  bagTenthsLb,
+  buildingCentre,
   Blocked,
   DAY_STEPS,
+  DUSK_STEPS,
   BuildingKind,
   CRAFT_PACE,
   createWorld,
   CHUNK_SHIFT,
   CYCLE_STEPS,
+  DebugThreat,
   deserializeState,
   hashState,
   hurtUnit,
+  LOOT_BAG_TENTHS_LB,
   Made,
   MEAL_STEPS,
+  NIGHT_STEPS,
   placeBuilding,
   placementBlocked,
   productProblem,
@@ -38,6 +44,7 @@ import {
   serializeState,
   settleDeaths,
   shaftDepth,
+  SHAFT_STOCK_LIMIT,
   shaftStock,
   SLAUGHTER_PRODUCT,
   Species,
@@ -66,6 +73,8 @@ function runUntil(s: SimState, done: () => boolean, max: number): number {
   }
   throw new Error(`condition not met in ${max} steps`);
 }
+
+const SEC = 20;
 
 function bigHouse(s: SimState): Building {
   return s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.MainBase)!;
@@ -163,7 +172,7 @@ describe('research and the forge', () => {
     });
     expect(made).toEqual([
       'Copper ingot', 'Tin ingot', 'Bronze ingots (10)', 'Wrought iron', 'Pig iron', 'Iron ingot', 'Steel ingot', 'Carbon steel ingot',
-      'Charcoal (3)', 'Bricks (4)', 'Glass', 'Gunpowder (10 charges)',
+      'Charcoal (3)', 'Bricks (4)', 'Glass', 'Gunpowder',
     ]);
     // Copper from the start, wrought iron and charcoal at main base 3, pig iron at 5, steel at 7.
     const pool = s.players[0]!.pool;
@@ -381,7 +390,7 @@ describe('animals', () => {
 });
 
 describe('mining', () => {
-  it('prospects a spot, mines vein iron with Deep Mining II and hauls it home by ox cart', () => {
+  it('prospects a spot, and miners bring vein iron home in 25 lb bags with Deep Mining II (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     // Placed straight on the camp's grass (the stone rule is placement's, tested in its own place).
@@ -403,24 +412,88 @@ describe('mining', () => {
     run(s, 1, [{ kind: 'assign', player: 0, units: [a!, b!, c!, d!], building: shaft.id }]);
     runUntil(s, () => shaft.stock.some(([r]) => r === Res.VeinIron), CYCLE_STEPS);
     expect(RATING_PER_MILLE[shaft.rating - 1]).toBe(RATING_PER_MILLE[ratingAt(s, shaft.x, shaft.z)]);
-    // A hauler leads a tamed ox, fetches the ox cart from the Big House's stock and takes the iron home.
+    // Patch 2 (Jade): no hauling. A miner stays down until a 25 lb bagful waits, carries it to the Big House and goes back down.
+    const pool = s.players[0]!.pool;
+    const before = pool[Res.VeinIron]!;
+    const ids = [a!, b!, c!, d!];
+    let heaviest = 0;
+    let carried = false;
+    runUntil(s, () => {
+      for (const id of ids) {
+        const i = e.indexOf(id);
+        heaviest = Math.max(heaviest, bagTenthsLb(s, i));
+        if (e.inside[i] !== shaft.id && bagTenthsLb(s, i) > 0) carried = true;
+      }
+      return pool[Res.VeinIron]! > before;
+    }, CYCLE_STEPS);
+    expect(carried).toBe(true);
+    // A bagful: what still fits after it is less than the heaviest ore (5 lb).
+    expect(heaviest).toBeGreaterThan(LOOT_BAG_TENTHS_LB - 50);
+    expect(heaviest).toBeLessThanOrEqual(LOOT_BAG_TENTHS_LB);
+    // They stay on the job, and what waits at the shaft stays under a bagful or so.
+    for (const id of ids) expect(e.queue[e.indexOf(id)]![0]?.t).toBe('job');
+    expect(shaftStock(shaft)).toBeLessThan(SHAFT_STOCK_LIMIT);
+  });
+
+  it('a miner takes its bag to a nearer Storehouse, and stays down at dusk and night until dawn (Patch 2)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
     const base = bigHouse(s);
-    const hx = base.x * WU_PER_COLUMN - 3 * WU_PER_METRE;
-    const hz = base.z * WU_PER_COLUMN;
-    const hauler = e.add(s.nextEntityId++, 0, hx, 0, hz, e.speed[e.indexOf(a!)]!, UnitKind.Worker);
-    e.hp[hauler] = 60;
-    e.maxHp[hauler] = 60;
-    s.players[0]!.pool[Res.OxCart] = 1;
-    const ox = addAnimal(s, Species.Ox, 0, hx + WU_PER_METRE, hz, 0, 1);
-    run(s, 1, [{ kind: 'hitch', player: 0, units: [e.id[hauler]!], target: e.id[ox]! }]);
-    runUntil(s, () => e.partner[hauler] === e.id[ox], 400);
-    run(s, 1, [{ kind: 'cart', player: 0, units: [e.id[hauler]!], back: 0 }]);
-    runUntil(s, () => e.kit[hauler] === Res.OxCart, 1000);
-    expect(s.players[0]!.pool[Res.OxCart]).toBe(0);
-    const before = s.players[0]!.pool[Res.VeinIron]!;
-    run(s, 1, [{ kind: 'haul', player: 0, units: [e.id[hauler]!], building: shaft.id }]);
-    runUntil(s, () => s.players[0]!.pool[Res.VeinIron]! > before, 4000);
-    expect(shaftStock(shaft)).toBeGreaterThanOrEqual(0);
+    // A shaft some 30 m out, with a Storehouse beside it.
+    const near = (kind: number, x0: number, z0: number, like = kind): Building => {
+      for (let r = 0; r < 40; r++) {
+        for (let dx = -r; dx <= r; dx++) {
+          for (const dz of [-r, r]) if (placementBlocked(s, 0, like, x0 + dx, z0 + dz) === Blocked.None) return placeBuilding(s, 0, kind, 0, x0 + dx, z0 + dz, true);
+        }
+      }
+      throw new Error('no free spot');
+    };
+    // Placed on grass, as above.
+    const shaft = near(BuildingKind.Mineshaft, base.x + 66, base.z, BuildingKind.Barn);
+    const store = near(BuildingKind.Storehouse, shaft.x, shaft.z + 12);
+    const [a] = workers(s);
+    const i = e.indexOf(a!);
+    run(s, 1, [{ kind: 'assign', player: 0, units: [a!], building: shaft.id }]);
+    runUntil(s, () => e.inside[i] === shaft.id, 60 * SEC);
+    // Down the shaft, a bagful waits: at night the miner stays down and digs on.
+    s.step = DAY_STEPS + DUSK_STEPS;
+    shaft.stock = [[Res.Stone, 6]];
+    run(s, 5 * SEC);
+    expect(e.inside[i]).toBe(shaft.id);
+    expect(bagEmpty(s, i)).toBe(true);
+    // At dawn it carries 25 lb out (5 stones, one left) to the Storehouse, the nearer drop-off.
+    s.step = DAY_STEPS + DUSK_STEPS + NIGHT_STEPS;
+    run(s, 2);
+    expect(e.inside[i]).toBe(0);
+    expect(bagItems(s, i)).toEqual([[Res.Stone, 5]]);
+    expect(shaft.stock).toEqual([[Res.Stone, 1]]);
+    const stone = s.players[0]!.pool[Res.Stone]!;
+    runUntil(s, () => bagEmpty(s, i), 60 * SEC);
+    expect(s.players[0]!.pool[Res.Stone]).toBe(stone + 5);
+    const [sx, sz] = buildingCentre(store);
+    const [hx, hz] = buildingCentre(base);
+    expect(Math.hypot(e.x[i]! - sx, e.z[i]! - sz)).toBeLessThan(Math.hypot(e.x[i]! - hx, e.z[i]! - hz));
+    // And back down it goes.
+    runUntil(s, () => e.inside[i] === shaft.id, 60 * SEC);
+    expect(e.queue[i]![0]).toEqual({ t: 'job', b: shaft.id });
+  });
+
+  it("the tester tools' Mine kit puts a finished Mineshaft and a Storehouse beside it, with Deep Mining I (Patch 2)", () => {
+    const s = createWorld(1, { peaceful: true });
+    const base = bigHouse(s);
+    const [x, z] = buildingCentre(base);
+    run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.MineKit, x: x + 40 * WU_PER_METRE, z }]);
+    const shaft = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.Mineshaft)!;
+    const store = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.Storehouse)!;
+    expect([shaft.complete, store.complete]).toEqual([true, true]);
+    expect(store.x).toBeGreaterThan(shaft.x);
+    expect(base.level).toBeGreaterThanOrEqual(4);
+    expect(s.players[0]!.research & (1 << Research.DeepMining1)).not.toBe(0);
+    // A worker assigned to it goes down the shaft.
+    const [a] = workers(s);
+    const i = s.entities.indexOf(a!);
+    run(s, 1, [{ kind: 'assign', player: 0, units: [a!], building: shaft.id }]);
+    runUntil(s, () => s.entities.inside[i] === shaft.id, 60 * SEC);
   });
 });
 

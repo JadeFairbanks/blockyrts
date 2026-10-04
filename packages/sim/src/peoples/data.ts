@@ -434,7 +434,8 @@ const row = (good: number, count: number, pct = 100, extra: Partial<StockRow> = 
 /**
  * Table 11 and Table 19: what each kind sells and how many it holds when
  * full (counts (s)), before the band's richness. The Dwarf city sells its
- * cannons, gunpowder and cannonballs at Table 19's prices. Weapons, armour
+ * cannons and gunpowder at Table 19's prices (Patch 2 cut cannonballs: no
+ * attack uses ammunition, and a bought cannon comes with its crew). Weapons, armour
  * and shields that were sold as items are now the ingots and materials that
  * made them, at the same value (Troops and gear) (s).
  */
@@ -469,9 +470,9 @@ export const STOCK: readonly (readonly StockRow[])[] = [
   [
     row(Res.SteelIngot, 12, 150), row(Res.HardenedLeather, 6, 150),
     row(Res.Gold, 10), row(Res.Emeralds, 5), row(Res.Rubies, 4), row(Res.Diamonds, 2), row(Res.CarbonSteel, 2, 150, { daily: true }),
-    // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts); 3 muskets' carbon steel a day, with powder and cannonballs (s: counts).
+    // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts); 3 muskets' carbon steel a day, with powder (s: counts).
     row(engine(Engine.BronzeCannon), 1, 100, { price: 4200, daily: true }), row(engine(Engine.IronCannon), 1, 100, { price: 3840, daily: true }),
-    row(Res.Gunpowder, 20, 100, { price: 480 }), row(Res.Cannonball, 20, 100, { price: 300 }),
+    row(Res.Gunpowder, 20, 100, { price: 480 }),
   ],
   // Mercenary camp: hires only.
   [],

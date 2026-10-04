@@ -25,6 +25,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'port', name: 'Into a cannon port (cannons)', key: 'KeyE', group: 'Units' },
   { id: 'hunt', name: 'Hunt (warriors go out after game, home by nightfall)', key: 'KeyN', group: 'Units' },
   { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
+  // Patch 2: the artillery crewman's own order, on a key no other unit card uses here (s).
+  { id: 'crew', name: 'Crew an engine (artillery crewmen)', key: 'KeyC', group: 'Units' },
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather (workers fetch what the camp needs, home by nightfall)', key: 'KeyG', group: 'Workers' },
@@ -52,6 +54,7 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainCavalry', name: 'Train Cavalry (Barracks)', key: 'KeyC', group: 'Buildings' },
   { id: 'trainSupportMage', name: 'Train Support mage', key: 'KeyS', group: 'Buildings' },
   { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
+  { id: 'trainCrewman', name: 'Train Artillery crewman (Artillery workshop)', key: 'KeyE', group: 'Buildings' },
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },

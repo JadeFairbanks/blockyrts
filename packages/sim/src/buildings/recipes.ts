@@ -4,7 +4,8 @@
 // and Herbalist hut did, the Forge what the Kiln and Powder mill did, and
 // the Artillery workshop what the Foundry did; none of them has tiers, and
 // what a tier opened comes at the main base level that tier needed. Cooking
-// is gone. Every recipe takes resources from the pool when it is queued and
+// is gone, and so is all siege shot: the Artillery workshop makes only its
+// engines and artillery crewmen (buildings/production.ts). Every recipe takes resources from the pool when it is queued and
 // puts resources back when it is done. A recipe lists its ways of being paid
 // ("1 lumber, 1 charcoal or 1 coal"); the first the pool can pay is used.
 
@@ -44,15 +45,12 @@ const COAL_OR_CHARCOAL: readonly Res[] = [Res.Charcoal, Res.Coal];
 const withFuel = (rest: Cost, fuels: readonly Res[], n = 1): Cost[] => fuels.map((f): Cost => [...rest, [f, n]]);
 const FORGE = [BuildingKind.Forge] as const;
 const WORKSHOP = [BuildingKind.Workshop] as const;
-const ARTILLERY = [BuildingKind.ArtilleryWorkshop] as const;
 
 /** Research ids (combat/items.ts Research) and Made bits, kept as numbers here so this module stays a leaf. */
 const BRONZE = 2;
 const STEEL = 9;
 const CARBON_STEEL = 10;
-const SIEGE_ENGINES = 8;
 const GUNPOWDER = 13;
-const CANNONS = 15;
 const MADE_TIN = 1;
 const MADE_PIG = 2;
 
@@ -100,17 +98,11 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   { name: 'Iron ingot', at: FORGE, base: FORGE_STEP_BASE[3]!, inputs: withFuel([[Res.PigIron, 2]], FUELS), outputs: [[Res.IronIngot, 1]], steps: sec(10), research: 0 },
   { name: 'Steel ingot', at: FORGE, base: FORGE_STEP_BASE[4]!, inputs: withFuel([[Res.IronIngot, 1]], COAL_OR_CHARCOAL, 2), outputs: [[Res.SteelIngot, 1]], steps: sec(15), research: STEEL },
   { name: 'Carbon steel ingot', at: FORGE, base: FORGE_STEP_BASE[4]!, inputs: [[[Res.IronIngot, 2], [Res.Charcoal, 6]]], outputs: [[Res.CarbonSteel, 1]], steps: sec(60), research: CARBON_STEEL },
-  // What the Kiln made, at main base 3 where the Kiln could be built, and the Powder mill's gunpowder at 7. One gunpowder is 10 charges.
+  // What the Kiln made, at main base 3 where the Kiln could be built, and the Powder mill's gunpowder at 7 (Patch 2: only for the musket and its research; no shot burns a charge).
   { name: 'Charcoal (3)', at: FORGE, base: 3, inputs: [[[H, 2]]], outputs: [[Res.Charcoal, 3]], steps: sec(10), research: 0 },
   { name: 'Bricks (4)', at: FORGE, base: 3, inputs: withFuel([[Res.Clay, 2]], COAL_OR_CHARCOAL), outputs: [[Res.Bricks, 4]], steps: sec(10), research: 0 },
   { name: 'Glass', at: FORGE, base: 3, inputs: withFuel([[Res.Sand, 2]], FUELS), outputs: [[Res.Glass, 1]], steps: sec(10), research: 0 },
-  { name: 'Gunpowder (10 charges)', at: FORGE, base: 7, inputs: [[[Res.Saltpetre, 2], [Res.Sulphur, 1], [Res.Charcoal, 1]]], outputs: [[Res.Gunpowder, 1]], steps: sec(15), research: GUNPOWDER },
-  // Siege shot at the Artillery workshop, at the main base level of the engine it is for (the artillery thread cuts it with the crewman).
-  { name: 'Catapult stone', at: ARTILLERY, base: 5, inputs: [[[Res.Stone, 1]]], outputs: [[Res.CatapultStone, 1]], steps: sec(10), research: SIEGE_ENGINES },
-  { name: 'Ballista bolts (5)', at: ARTILLERY, base: 7, inputs: [[[H, 2], [Res.WroughtIron, 1]]], outputs: [[Res.BallistaBolt, 5]], steps: sec(30), research: SIEGE_ENGINES },
-  {
-    name: 'Cannonball', at: ARTILLERY, base: 8, inputs: [[[Res.WroughtIron, 1]], [[Res.IronIngot, 1]], [[Res.Stone, 2]]], outputs: [[Res.Cannonball, 1]], steps: sec(5), research: CANNONS,
-  },
+  { name: 'Gunpowder', at: FORGE, base: 7, inputs: [[[Res.Saltpetre, 2], [Res.Sulphur, 1], [Res.Charcoal, 1]]], outputs: [[Res.Gunpowder, 1]], steps: sec(15), research: GUNPOWDER },
   // The Workshop: what the Lumber mill made (1 lumber to 1 plank; the waterwheel's 2 went with the mill), then the Tannery's leather
   // work, with rope at the Big House too, then the Herbalist hut's medicine.
   { name: 'Planks from softwood', at: WORKSHOP, base: 0, inputs: [[[S, 1]]], outputs: [[Res.Planks, 1]], steps: sec(5), research: 0 },

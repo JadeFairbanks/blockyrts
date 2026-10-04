@@ -37,8 +37,6 @@ export interface UnitInfo {
   upTo: number;
   flags: number;
   lock: number;
-  skills: number;
-  ammo: number;
   target: number;
   armour: number;
   kit: number;
@@ -150,8 +148,6 @@ export class GameInfo {
       upTo: d[o + S.upTo]!,
       flags: d[o + S.flags]!,
       lock: d[o + S.lock]!,
-      skills: d[o + S.skills]!,
-      ammo: d[o + S.ammo]!,
       target: d[o + S.target]!,
       armour: d[o + S.armour]!,
       kit: d[o + S.kit]!,
