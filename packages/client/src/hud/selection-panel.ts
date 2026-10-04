@@ -67,6 +67,7 @@ const pic = (file: string): ButtonIcon | undefined => (file ? { layers: [{ file 
 export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
+  if (typeKey === 'warrior:crew') return 1.5;
   if (typeKey === 'mage:support') return 2;
   if (typeKey === 'mage:battle') return 3;
   if (typeKey.startsWith('building:')) return 100 + Number(typeKey.split(':')[1]);

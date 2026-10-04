@@ -423,7 +423,7 @@ export function supplyUsed(state: SimState, player: number): number {
 }
 
 /** Queues an item for `by` (the owner unless set), who pays for it now. Returns '' or why it could not be queued. */
-export function queueProduct(state: SimState, b: Building, product: Product, by = b.owner): string {
+export function queueProduct(state: SimState, b: Building, product: Product, by = b.owner, engine = 0): string {
   if (!offers(b, product)) return 'This building cannot make that.';
   if (b.queue.length >= QUEUE_LIMIT) return 'The queue is full.';
   const why = productProblem(state, b, product, by);
@@ -467,7 +467,7 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
     e.hp[h] = -1;
     state.dying.push(e.id[h]!);
   }
-  b.queue.push({ product, paid, progress: 0, by, horse });
+  b.queue.push({ product, paid, progress: 0, by, horse, engine });
   return '';
 }
 
@@ -571,17 +571,23 @@ export function nearestCrewTrainer(state: SimState, engine: number): Building | 
  */
 export function installCrewHooks(): void {
   crewHooks.trainer = nearestCrewTrainer;
-  crewHooks.train = (state, engine, at) => queueProduct(state, at, Product.Crewman, state.entities.owner[engine]!);
+  crewHooks.train = (state, engine, at) => queueProduct(state, at, Product.Crewman, state.entities.owner[engine]!, state.entities.id[engine]!);
   // What Yes takes is food, which the hook's resource list cannot hold; the queue's tooltip names it.
   crewHooks.cost = () => [];
 }
 
-/** A new artillery crewman joins the nearest engine a crewman short (Patch 2: training one replaces one who fell); with none short, he follows the rally route. */
-function spawnCrewman(state: SimState, b: Building, owner: number): void {
+/**
+ * A new artillery crewman joins the engine that asked for him, if it is still
+ * a crewman short, else the nearest engine a crewman short (Patch 2: training
+ * one replaces one who fell); with none short, he follows the rally route.
+ */
+function spawnCrewman(state: SimState, b: Building, owner: number, engine: number): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  const [g] = enginesShortOfCrew(state, owner, x, z);
+  const short = enginesShortOfCrew(state, owner, x, z);
+  const asked = state.entities.indexOf(engine);
+  const g = engine !== 0 && short.includes(asked) ? asked : short[0];
   const i = addCrewman(state, owner, x, z, g ?? -1);
   if (g !== undefined) {
     state.events.push({ player: owner, kind: 'info', text: `A new artillery crewman is ready and goes to crew the ${engineName(state, g).toLowerCase()}.`, x, z });
@@ -800,7 +806,7 @@ export function updateBuildings(state: SimState): void {
           if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
-          else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by);
+          else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by, head.engine);
           else spawnWorker(state, b, head.by);
         }
       } else {

@@ -79,8 +79,7 @@ export const S = {
   swing: 23,
   flags: 24,
   lock: 25,
-  skills: 26,
-  ammo: 27,
+  // 26 and 27 held a warrior's trained skills (cannon crew) and a cannon's loaded powder charges, both cut in Patch 2.
   target: 28,
   armour: 29,
   /** An upgrade under way (Upgrading units): per mille of its bar (0 until the unit is beside the building), its line + 1 (0 for none) and the tier it goes to. */
@@ -214,7 +213,7 @@ export interface BuildingInfo {
   products: Array<[number, string]>;
   /** Inherited from a player who left: every player still in may use it (When a player is eliminated or leaves). */
   shared: boolean;
-  /** Mineshafts: what waits to be hauled, and the prospect rating (0 unknown, else 1 + Rating). */
+  /** Mineshafts: what is dug out and waits for the next miner's bag (Patch 2), and the prospect rating (0 unknown, else 1 + Rating). */
   stock: Array<[number, number]>;
   rating: number;
   /** Barns: animals that live there. */

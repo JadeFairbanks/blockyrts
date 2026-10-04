@@ -49,6 +49,8 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
       return spellAction(o.spell);
     case 'hitch':
       return 'hitch';
+    case 'crew':
+      return 'crew';
     default:
       return null;
   }

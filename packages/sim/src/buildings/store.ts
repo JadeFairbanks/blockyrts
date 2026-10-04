@@ -66,6 +66,8 @@ export interface QueueItem {
   by: number;
   /** New cavalry: the tamed horse taken from the stalls, 1 + its sex (given back if cancelled), or 0. */
   horse: number;
+  /** A new artillery crewman queued by an engine's "A crewman fell" question (Patch 2): that engine's entity id, which he joins if it is still a crewman short; or 0. */
+  engine: number;
 }
 
 /** A rally point: ground (wu), a unit to follow, or a resource node to gather from. */
@@ -377,6 +379,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
       w.i32(q.progress);
       w.u8(q.by);
       w.u8(q.horse);
+      w.u32(q.engine);
       w.u8(q.paid.length);
       for (const [res, n] of q.paid) {
         w.u8(res);
@@ -445,10 +448,11 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       const progress = r.i32();
       const by = r.u8();
       const horse = r.u8();
+      const engine = r.u32();
       const np = r.u8();
       const paid: Array<[number, number]> = [];
       for (let p = 0; p < np; p++) paid.push([r.u8(), r.i32()]);
-      b.queue.push({ product, progress, paid, by, horse });
+      b.queue.push({ product, progress, paid, by, horse, engine });
     }
     const nr = r.u8();
     for (let p = 0; p < nr; p++) b.rally.push(readRally(r));

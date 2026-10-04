@@ -174,8 +174,6 @@ function postState(s: SimState): void {
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
-    data[o + S.skills] = e.skills[i]!;
-    data[o + S.ammo] = e.ammo[i]!;
     data[o + S.target] = e.target[i]!;
     data[o + S.armour] = e.armour[i]!;
     const head = e.queue[i]![0];

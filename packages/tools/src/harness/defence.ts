@@ -10,6 +10,7 @@
 // sim package exactly as in a game, so a run is deterministic: the same
 // seed and night always give the same row.
 import {
+  addCrewman,
   addEngine,
   addMage,
   addWarrior,
@@ -25,6 +26,7 @@ import {
   DAY_STEPS,
   DUSK_STEPS,
   Engine,
+  engineSpec,
   floorDiv,
   gearSpec,
   maxHealth,
@@ -43,7 +45,6 @@ import {
   School,
   setMageRank,
   Shot,
-  Skill,
   standY,
   stepOffSolid,
   startBlood,
@@ -58,12 +59,11 @@ import {
   type SimState,
 } from '@blockyrts/sim';
 
-/** A troop's kit (Troops and gear): its type, weapon and armour tiers, and whether it is trained to crew a cannon. */
+/** A troop's kit (Troops and gear): its type and its weapon and armour tiers. */
 export interface Kit {
   troop: number;
   weapon: number;
   armour: number;
-  cannon?: boolean;
 }
 
 /** The defence the Balance notes set against a night (s, from "Wave versus a reasonable defence"). */
@@ -104,7 +104,7 @@ const STEEL_HALBERD: Kit = { troop: Troop.Long, weapon: 8, armour: 8 };
 /** Night 20's archers: the crossbow is steel (ranger tier 7) now, so wrought-iron arrowheads on a recurve bow. */
 const WROUGHT_BOW: Kit = { troop: Troop.Ranger, weapon: 5, armour: 5 };
 const CROSSBOW: Kit = { troop: Troop.Ranger, weapon: 7, armour: 7 };
-const MUSKET: Kit = { troop: Troop.Ranger, weapon: 8, armour: 7, cannon: true };
+const MUSKET: Kit = { troop: Troop.Ranger, weapon: 8, armour: 7 };
 
 /** The Balance notes' reasonable defence for each checked night (s). */
 export const DEFENCES: readonly Defence[] = [
@@ -178,12 +178,11 @@ export interface NightRow {
   /** Morvath (night 110): killed in the night, and his health left at dawn (per mille). */
   bossKilled: boolean;
   bossHpPm: number;
-  /** What the night used: arrows, crossbow bolts and musket balls shot (ammunition is unlimited, Troops and gear), cannon shots, and gunpowder from the stock (units of 10 charges). */
+  /** What the night's shots were: arrows, crossbow bolts, musket balls and cannonballs (Patch 2: none of them comes from the stock). */
   arrowsShot: number;
   boltsShot: number;
   musketShots: number;
   cannonShots: number;
-  gunpowderUsed: number;
   nightSeconds: number;
   outcome: 'held' | 'breached' | 'lost';
 }
@@ -246,7 +245,6 @@ function giveKit(s: SimState, i: number, kit: Kit, rank: number): void {
   e.wTier[i] = kit.weapon;
   e.aTier[i] = kit.armour;
   applyKit(e, i, 'warrior');
-  e.skills[i] = kit.cannon ? Skill.Cannon : 0;
   e.rank[i] = rank;
   e.hp[i] = WARRIOR_HEALTH_BY_RANK[rank]!;
   e.maxHp[i] = WARRIOR_HEALTH_BY_RANK[rank]!;
@@ -348,10 +346,10 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
     mageIds.push(e.id[i]!);
   }
   if (mageIds.length > 0 && d.baseLevel >= 3) orders.push({ kind: 'enter', player: 0, units: mageIds, building: b.id });
-  // Cannons: up in the Citadel's ports (the corners of its roof), or on the ground inside the ring; each crewed by two of the musketeers.
+  // Cannons: up in the Citadel's ports (the corners of its roof), or on the ground inside the ring; each with its own crew
+  // of artillery crewmen, as every cannon rolls out (Patch 2: only they crew engines).
   if (d.cannons.count > 0) {
     const [bx, bz] = buildingCentre(b);
-    const crewFrom = rangedIds.slice(towers.length * 4);
     const groundSpots = ringSpots(ring, d.cannons.count, 4);
     for (let k = 0; k < d.cannons.count; k++) {
       let i: number;
@@ -365,24 +363,13 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
         const [cx, cz] = groundSpots[k]!;
         i = addEngine(s, 0, d.cannons.kind, colCentre(cx), colCentre(cz));
       }
-      const crew = crewFrom.slice(k * 2, k * 2 + 2);
-      if (crew.length === 0) {
-        // Not enough musketeers left over: two of the melee line crew it, trained for it.
-        for (let j = 0, got = 0; j < e.count && got < 2; j++) {
-          if (e.owner[j] !== 0 || e.kind[j] !== UnitKind.Warrior || e.ranged[j]) continue;
-          if (orders.some((o) => 'units' in o && (o.units as number[]).includes(e.id[j]!))) continue;
-          e.skills[j] = e.skills[j]! | Skill.Cannon;
-          crew.push(e.id[j]!);
-          got++;
-        }
+      for (let c = 0; c < engineSpec(d.cannons.kind).crew; c++) {
+        const j = addCrewman(s, 0, e.x[i]! + (c * 2 - 1) * WU_PER_METRE, e.z[i]! + 3 * WU_PER_METRE, i);
+        stepOffSolid(s, j);
       }
-      orders.push({ kind: 'crew', player: 0, units: crew, target: e.id[i]! });
     }
   }
-  // Stock: munitions, food and mana crystals, and the research the gear needs.
-  // (Arrows, bolts and musket balls are unlimited: Troops and gear.)
-  p.pool[Res.Gunpowder] = p.pool[Res.Gunpowder]! + 400;
-  p.pool[Res.Cannonball] = p.pool[Res.Cannonball]! + 200;
+  // Stock: food and the research the gear needs (Patch 2: no attack uses ammunition, so no munitions).
   // Patch 2: 5000 farm fare at 2 nutrition each, the 2000 bread at 5 from before Patch 2.
   p.pool[Res.FarmFare] = p.pool[Res.FarmFare]! + 5000;
   for (const r of [Research.Bronze, Research.Crossbows, Research.Steel, Research.CarbonSteel, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
@@ -571,16 +558,14 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
   const d = defenceFor(night);
   const { state: s, ring, gaps } = buildFixture(seed, d, blood);
   const e = s.entities;
-  const p = s.players[0]!;
   const b = mainBase(s);
   const baseHp = b.hp;
   const warriors = countIn(s, UnitKind.Warrior);
   const mages = countIn(s, UnitKind.Mage);
   const workers = countIn(s, UnitKind.Worker);
   const walls = wallCount(s, d.wall);
-  const stock = { powder: p.pool[Res.Gunpowder]!, balls: p.pool[Res.Cannonball]! };
-  // Ammunition is unlimited (Troops and gear): the player's shots are counted as they leave.
-  const shots = { arrows: 0, bolts: 0, balls: 0 };
+  // No attack uses ammunition (Patch 2): the player's shots are counted as they leave.
+  const shots = { arrows: 0, bolts: 0, balls: 0, cannon: 0 };
   const counted = new WeakSet<object>();
   const countShots = (): void => {
     for (const pr of s.projectiles) {
@@ -589,6 +574,7 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
       if (pr.shot === Shot.Arrow || pr.shot === Shot.SlingStone) shots.arrows++;
       else if (pr.shot === Shot.Bolt) shots.bolts++;
       else if (pr.shot === Shot.MusketBall) shots.balls++;
+      else if (pr.shot === Shot.Cannonball) shots.cannon++;
     }
   };
   const nightStart = d.night * CYCLE_STEPS + DAY_STEPS + DUSK_STEPS;
@@ -677,8 +663,7 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
     arrowsShot: shots.arrows,
     boltsShot: shots.bolts,
     musketShots: shots.balls,
-    cannonShots: stock.balls - p.pool[Res.Cannonball]!,
-    gunpowderUsed: stock.powder - p.pool[Res.Gunpowder]!,
+    cannonShots: shots.cannon,
     nightSeconds: Math.round(length / 20),
     // Breached: a wall column or the gate broken (climbers getting over a whole wall is part of the plan on early nights).
     outcome: s.over !== 0 || b.hp <= 0 ? 'lost' : wallsLost > 0 ? 'breached' : 'held',
@@ -688,5 +673,5 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
 
 export const NIGHT_COLUMNS: ReadonlyArray<keyof NightRow> = [
   'seed', 'night', 'blood', 'budgetTenths', 'plannedTenths', 'mobs', 'mobsHp', 'killed', 'aliveAtDawn', 'warriors', 'warriorsLost', 'mages', 'magesLost', 'workersLost',
-  'wallColumns', 'wallsLost', 'gaps', 'firstWallBreakS', 'firstInsideS', 'baseHpLostPct', 'bossKilled', 'bossHpPm', 'arrowsShot', 'boltsShot', 'musketShots', 'cannonShots', 'gunpowderUsed', 'nightSeconds', 'outcome',
+  'wallColumns', 'wallsLost', 'gaps', 'firstWallBreakS', 'firstInsideS', 'baseHpLostPct', 'bossKilled', 'bossHpPm', 'arrowsShot', 'boltsShot', 'musketShots', 'cannonShots', 'nightSeconds', 'outcome',
 ];

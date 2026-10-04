@@ -3,7 +3,7 @@
 // the card's training, making, building and upgrade buttons ask for their
 // own picture here with what they know (the product, the building, the kit).
 // The words stay in the tooltip, which says a little more than the old face.
-import { engineSpec, productSpec, recipeSpec, Research, SPELLS, speciesSpec, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+import { engineSpec, productSpec, recipeSpec, Research, SPELLS, speciesSpec, Troop, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { ButtonIcon, IconBadge } from './buttons.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON } from './unit-icons.ts';
@@ -40,6 +40,9 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   rankUp: one('icon_rank_worker_hand', 'up'),
   mageRank: one('icon_rank_mage_adept_acolyte', 'up'),
   hitch: one('icon_train_horse'),
+  // Patch 2: the artillery crewman's Crew order shows the engine it goes to; its training button is its own bust.
+  crew: one('icon_train_cannon'),
+  trainCrewman: one(troopIconFile(Troop.Crew, 0)),
   cart: one('icon_hand_cart'),
   deeper: one('icon_cmd_dig', 'down'),
   shallower: one('icon_cmd_dig', 'up'),
@@ -104,6 +107,7 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product === Product.Worker) return one(WORKER_ICON);
   if (product === Product.SupportMage) return one(SUPPORT_MAGE_ICON);
   if (product === Product.BattleMage) return one(BATTLE_MAGE_ICON);
+  if (product === Product.Crewman) return one(troopIconFile(Troop.Crew, 0));
   const t = troopOf(product);
   if (t) return one(troopIconFile(t.troop, t.w));
   if (product < RESEARCH_PRODUCT) return undefined;

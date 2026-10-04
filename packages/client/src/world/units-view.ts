@@ -11,7 +11,7 @@
 // roof), the Rift-touched beasts shed violet motes and a cloaked void
 // stalker shows only as a shimmer.
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -53,6 +53,19 @@ const MOB_COLOURS = [
 /** Each people's colour, for their units until their models are in (Halflings, Runkin, Elves, Dwarves). */
 const PEOPLE_COLOURS = [new THREE.Color(0x8ac850), new THREE.Color(0xb08050), new THREE.Color(0x50c0a8), new THREE.Color(0xa8a8b8)];
 
+/** The artillery crewman's stand-in look (Patch 2, until its own model): an unarmed warrior, its tunic in its player's colour gone sooty (s). */
+const SOOT = new THREE.Color(0x2a2420);
+const SOOTY = new Map<number, THREE.Color>();
+function sooty(colour: THREE.Color): THREE.Color {
+  const hex = colour.getHex();
+  let c = SOOTY.get(hex);
+  if (!c) {
+    c = colour.clone().lerp(SOOT, 0.55);
+    SOOTY.set(hex, c);
+  }
+  return c;
+}
+
 /** Colour of an animal's stand-in block, by Species (14 on: the territorial creatures). */
 const ANIMAL_COLOURS = [
   0x6a4a30, 0xe8e0d0, 0x7a5030, 0x5a4030, 0xb09070, 0x9a6a3a, 0x4a3a30, 0x7a7a80, 0xc09a60, 0x6a9a40, 0x4a5a30, 0xc05030, 0x5a5a5a, 0x4a3020,
@@ -90,7 +103,7 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.45, w: 0.42, colour: 0xff7020 },
   // A Grovesinger's thorn.
   { len: 0.5, w: 0.06, colour: 0x5a8a30 },
-  // Cannonball, catapult stone, ballista bolt, musket ball.
+  // Cannonball, catapult stone, ballista bolt, musket ball (the shots fly still; Patch 2 cut them from the stock).
   { len: 0.16, w: 0.16, colour: 0x2a2a2e },
   { len: 0.5, w: 0.5, colour: 0x8a8a84 },
   { len: 1.5, w: 0.08, colour: 0x6a4a28 },
@@ -543,7 +556,8 @@ export class UnitsView {
       }
       const own = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
       const pool = own ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
-      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
+      const crewman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Crew && colour !== null;
+      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : crewman ? sooty(colour) : colour;
       if (own) {
         const slot = own.take([]);
         const clip = mount !== 0 ? rideClip(own.model.clips, d, o) : own.model.clips.has(look.clip) ? look.clip : mobClip(own.model, d, o);
@@ -647,7 +661,7 @@ export class UnitsView {
       const ahead = 1.2;
       const sx = x - Math.sin(heading) * ahead;
       const sz = z - Math.cos(heading) * ahead;
-      if (spec.powder) {
+      if (spec.cannon) {
         this.particles.spawn(sx, y + 1, sz, 0xffd060, 10, 3, 1.5);
         this.particles.spawn(sx, y + 1, sz, 0x8a8a8a, 20, 1.2, 1.6);
       } else this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
@@ -668,7 +682,7 @@ export class UnitsView {
     dummy.scale.set((spec.halfWidth * 2) / WU_PER_METRE, spec.height / WU_PER_METRE / 2, (spec.halfWidth * 3) / WU_PER_METRE);
     dummy.updateMatrix();
     this.blocks.setMatrixAt(blocks, dummy.matrix);
-    this.blocks.setColorAt(blocks, new THREE.Color(spec.powder ? 0xb08a40 : 0x7a5a30));
+    this.blocks.setColorAt(blocks, new THREE.Color(spec.cannon ? 0xb08a40 : 0x7a5a30));
     return blocks + 1;
   }
 

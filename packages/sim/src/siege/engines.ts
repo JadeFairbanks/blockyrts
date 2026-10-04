@@ -82,7 +82,7 @@ export function spawnEngine(state: SimState, b: Building, kind: number, owner = 
   addFullCrew(state, i);
   const spec = engineSpec(kind);
   const crew = spec.crew === 1 ? 'its crewman' : `its ${spec.crew} crewmen`;
-  state.events.push({ player: owner, kind: 'info', text: `A ${spec.name.toLowerCase()} is ready, with ${crew}. They push it, or hitch a horse or an ox to haul it faster.`, x, z });
+  state.events.push({ player: owner, kind: 'info', text: `A ${spec.name.toLowerCase()} is ready, with ${crew}. Its crew push it, or hitch a horse or an ox to haul it faster.`, x, z });
 }
 
 export function isEngine(state: SimState, i: number): boolean {

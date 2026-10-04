@@ -19,6 +19,8 @@ export function troopIconFile(troop: number, wTier: number): string {
       return 'icon_train_warrior_mace';
     case Troop.Cavalry:
       return 'icon_train_warrior_mounted';
+    case Troop.Crew:
+      return 'icon_train_warrior_cannon_crew';
     default:
       return 'icon_train_warrior_club';
   }
@@ -129,6 +131,7 @@ export interface UnitLook {
 export function selectableIconFile(typeKey: string, look?: UnitLook | null): string {
   if (typeKey === 'worker') return WORKER_ICON;
   if (typeKey === 'warrior') return troopIconFile(look?.troop ?? Troop.Close, look?.wTier ?? 1);
+  if (typeKey === 'warrior:crew') return troopIconFile(Troop.Crew, 0);
   if (typeKey === 'mage:support') return SUPPORT_MAGE_ICON;
   if (typeKey === 'mage:battle') return BATTLE_MAGE_ICON;
   const [head, a, b] = typeKey.split(':');
