@@ -321,7 +321,7 @@ export function updateProjectiles(state: SimState): void {
         } else {
           const spell = (p.flags & ProjectileFlag.Spell) !== 0;
           const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
-          const d = hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
+          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
         }
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, hit, null);

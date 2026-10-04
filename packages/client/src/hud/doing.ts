@@ -3,7 +3,7 @@
 // doing or walking to do, assuming it is not idle"). An attack-move marks
 // Attack while the units walk and while they fight on the way; a gather loop
 // marks Gather on the way to the drop-off too. Idle units mark nothing.
-import { buildingSpec, Line, type UnitOrder } from '@blockyrts/sim';
+import { Line, type UnitOrder } from '@blockyrts/sim';
 import { spellAction } from '../input/bindings.ts';
 
 /** The card action a unit's current order belongs to, or null (a standing job, idle). */

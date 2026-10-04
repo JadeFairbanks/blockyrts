@@ -36,7 +36,7 @@ describe('subgroups of a mixed selection', () => {
   ];
 
   it('keeps the fixed order without a worth', () => {
-    expect(subgroups(list).map((g) => g.typeKey)).toEqual(['worker', 'building:0:1', 'building:24:1']);
+    expect(subgroups(list).map((g) => g.typeKey)).toEqual(['worker', `building:${BuildingKind.MainBase}:1`, `building:${BuildingKind.Barracks}:1`]);
   });
 
   it('puts the most valuable type first with one', () => {

@@ -102,8 +102,8 @@ describe('the mage card', () => {
     // No room for Max twins: the upgrades are Q and X, and pressing one twice goes to the best.
     expect([card[13]!.key, card[14]!.key]).toEqual(['KeyQ', 'KeyX']);
     // A copper-tipped wand and a leather-trimmed robe (tier 2) are copper-age work.
-    expect(card[13]!.reason).toBe('Needs a Casting Hearth.');
-    expect(card[14]!.reason).toBe('Needs a Casting Hearth.');
+    expect(card[13]!.reason).toBe('Needs a Forge.');
+    expect(card[14]!.reason).toBe('Needs a Forge.');
     const keys = card.filter((e) => e && e.key).map((e) => e!.key);
     expect(new Set(keys).size).toBe(keys.length);
   });

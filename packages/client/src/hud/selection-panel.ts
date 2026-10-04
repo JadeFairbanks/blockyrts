@@ -7,7 +7,7 @@
 // base, the troop panel (Troops and gear: Training troops): a
 // picture button per troop type, weapon and armour tier dropdowns with icons,
 // a Lock, and what the choice costs.
-import { buildingSpec, kitName, productSpec, troopOf, Troop, UnitKind } from '@blockyrts/sim';
+import { buildingSpec, kitName, productSpec, troopOf, UnitKind } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { FarmBlock } from './farm-panel.ts';

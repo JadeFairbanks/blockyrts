@@ -6,7 +6,7 @@
 import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
-import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked, waterBeside } from './buildings/placement.ts';
+import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf } from './economy/resources.ts';

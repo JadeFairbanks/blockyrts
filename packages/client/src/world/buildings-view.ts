@@ -4,7 +4,7 @@
 // upgraded, flames and point lights on lit lights, the placement ghost with
 // its green and red tiles, and the faint ghosts of planned buildings.
 import * as THREE from 'three';
-import { BuildingKind, buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, RESOURCES, type UnitOrder } from '@blockyrts/sim';
+import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, RESOURCES, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, type ModelLibrary } from '../models/index.ts';
