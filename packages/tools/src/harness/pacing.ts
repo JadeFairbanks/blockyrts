@@ -234,10 +234,11 @@ export interface SupplyAssumptions {
 
 /**
  * About 105 units (Balance notes): 45 warriors and 6 mages of the night 110
- * defence, 52 workers, 2 Lodges (s). Patch 2's Farm gives 4 supply, so the
- * town keeps 14 Farms to stay inside its supply (s, Jade's rebalance).
+ * defence, 52 workers, 2 Lodges (s). A Farm gives 10 supply since Jade's mini
+ * balance (4 before), so food sets the count: the town keeps 7 Farms for the
+ * 14 farmers it needs (s).
  */
-export const NIGHT_110_TOWN: SupplyAssumptions = { warriors: 45, mages: 6, workers: 52, lodges: 2, mainBaseLevel: 10, farms: 14 };
+export const NIGHT_110_TOWN: SupplyAssumptions = { warriors: 45, mages: 6, workers: 52, lodges: 2, mainBaseLevel: 10, farms: 7 };
 
 export interface SupplyRow {
   supplyCap: number;

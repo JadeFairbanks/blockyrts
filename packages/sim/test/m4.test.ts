@@ -20,7 +20,6 @@ import {
   hashState,
   hurtUnit,
   LOOT_BAG_TENTHS_LB,
-  Made,
   MEAL_STEPS,
   NIGHT_STEPS,
   placeBuilding,
@@ -118,7 +117,7 @@ function giveResearch(s: SimState, ...r: number[]): void {
 const recipe = (name: string): number => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === name);
 
 describe('research and the forge', () => {
-  it("has no Flint tools research at a Scholar's Lodge (flint gear needs none), and researches Bronze there", () => {
+  it("has no Flint tools research at a Scholar's Lodge (flint gear needs none), and researches Bronze there, which makes 12 bronze ingots", () => {
     const s = createWorld(1, { peaceful: true });
     const lodge = built(s, BuildingKind.ScholarsLodge);
     built(s, BuildingKind.Forge);
@@ -130,11 +129,13 @@ describe('research and the forge', () => {
     expect(lodge.queue.length).toBe(0);
     pool[Res.CopperIngot] = 10;
     pool[Res.TinIngot] = 2;
-    s.players[0]!.made |= Made.TinIngot;
+    // Jade's mini balance: no tin ingot needs smelting first, and finishing Bronze makes 12 bronze ingots.
     run(s, 1, [{ kind: 'produce', player: 0, building: lodge.id, product: RESEARCH_PRODUCT + Research.Bronze, count: 1 }]);
     expect(lodge.queue.length).toBe(1);
+    expect(pool[Res.BronzeIngot]).toBe(0);
     runUntil(s, () => (s.players[0]!.research & (1 << Research.Bronze)) !== 0, 4000);
     expect(lodge.queue.length).toBe(0);
+    expect(pool[Res.BronzeIngot]).toBe(12);
   });
 
   it('smelts copper and tin at the Forge with no workers (Patch 2), then bronze', () => {
@@ -156,6 +157,22 @@ describe('research and the forge', () => {
     pool[Res.CopperIngot] = 9;
     run(s, 1, [{ kind: 'produce', player: 0, building: forge.id, product: recipe('Bronze ingots (10)'), count: 1 }]);
     runUntil(s, () => pool[Res.BronzeIngot]! >= 10, 3000);
+  });
+
+  it('burns 2 hardwood or 4 softwood to smelt a copper or tin ingot, where charcoal or coal takes 1 (mini balance)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const forge = built(s, BuildingKind.Forge);
+    const pool = s.players[0]!.pool;
+    pool[Res.SoftwoodLumber] = 4;
+    pool[Res.CopperOre] = 2;
+    run(s, 1, [{ kind: 'produce', player: 0, building: forge.id, product: recipe('Copper ingot'), count: 1 }]);
+    expect([pool[Res.SoftwoodLumber], pool[Res.CopperOre]]).toEqual([0, 0]);
+    pool[Res.HardwoodLumber] = 2;
+    pool[Res.TinOre] = 2;
+    run(s, 1, [{ kind: 'produce', player: 0, building: forge.id, product: recipe('Tin ingot'), count: 1 }]);
+    expect([pool[Res.HardwoodLumber], pool[Res.TinOre]]).toEqual([0, 0]);
+    runUntil(s, () => pool[Res.TinIngot]! >= 1, 3000);
+    expect(pool[Res.CopperIngot]).toBe(1);
   });
 
   it('smelts metals and makes charcoal, bricks, glass and gunpowder, each at its main base level (Patch 2: no Forge levels)', () => {

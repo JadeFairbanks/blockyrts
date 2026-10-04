@@ -43,6 +43,13 @@ const FUELS: readonly Res[] = [Res.Charcoal, Res.Coal, H, S];
 const COAL_OR_CHARCOAL: readonly Res[] = [Res.Charcoal, Res.Coal];
 /** Each way of paying `rest` plus one of `fuels`. */
 const withFuel = (rest: Cost, fuels: readonly Res[], n = 1): Cost[] => fuels.map((f): Cost => [...rest, [f, n]]);
+/**
+ * Fuel for smelting copper and tin (Jade's mini balance): 1 charcoal or 1
+ * coal, but 2 hardwood or 4 softwood lumber, in FUELS order.
+ */
+const ORE_FUEL: Cost = [[Res.Charcoal, 1], [Res.Coal, 1], [H, 2], [S, 4]];
+/** Each way of paying `rest` plus one of `fuels`, each fuel with its own amount. */
+const withFuelAmounts = (rest: Cost, fuels: Cost): Cost[] => fuels.map((f): Cost => [...rest, f]);
 const FORGE = [BuildingKind.Forge] as const;
 const WORKSHOP = [BuildingKind.Workshop] as const;
 
@@ -88,8 +95,8 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   // Table 2b at the Forge, which only smelts, a metal at each of its steps (FORGE_STEP_BASE): copper, tin and bronze from the start (the
   // Casting Hearth before Patch 2), wrought iron at main base 3 (the Bloomery), pig iron and iron at 5 (the Ironworks), steel and carbon
   // steel at 7 (the Steelworks).
-  { name: 'Copper ingot', at: FORGE, base: 0, inputs: withFuel([[Res.CopperOre, 2]], FUELS), outputs: [[Res.CopperIngot, 1]], steps: sec(5), research: 0 },
-  { name: 'Tin ingot', at: FORGE, base: 0, inputs: withFuel([[Res.TinOre, 2]], FUELS), outputs: [[Res.TinIngot, 1]], steps: sec(5), research: 0, made: MADE_TIN },
+  { name: 'Copper ingot', at: FORGE, base: 0, inputs: withFuelAmounts([[Res.CopperOre, 2]], ORE_FUEL), outputs: [[Res.CopperIngot, 1]], steps: sec(5), research: 0 },
+  { name: 'Tin ingot', at: FORGE, base: 0, inputs: withFuelAmounts([[Res.TinOre, 2]], ORE_FUEL), outputs: [[Res.TinIngot, 1]], steps: sec(5), research: 0, made: MADE_TIN },
   { name: 'Bronze ingots (10)', at: FORGE, base: 0, inputs: [[[Res.CopperIngot, 9], [Res.TinIngot, 1]]], outputs: [[Res.BronzeIngot, 10]], steps: sec(30), research: BRONZE },
   {
     name: 'Wrought iron', at: FORGE, base: FORGE_STEP_BASE[2]!, inputs: [Res.BogIron, Res.IronRock, Res.VeinIron].flatMap((o) => withFuel([[o, 3]], COAL_OR_CHARCOAL, 2)), outputs: [[Res.WroughtIron, 1]], steps: sec(10), research: 0,

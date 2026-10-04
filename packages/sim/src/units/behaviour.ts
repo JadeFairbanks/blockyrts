@@ -7,11 +7,11 @@
 import { BuildingKind, buildingName, buildingSpec, levelSpec, RELIGHT_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
 import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
-import { fishOf, meatOf } from '../economy/food-kinds.ts';
+import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
-import { canAfford, costText, pay, Res, resourceByName, RESOURCES, shortOf } from '../economy/resources.ts';
+import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
@@ -850,8 +850,8 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
   const cost = buildCost(state, owner, o.kind);
   const costMul = costMultiplier(state, owner, o.kind);
   const pool = state.players[owner]!.pool;
-  if (!canAfford(pool, cost)) {
-    alert(state, owner, `Not enough ${RESOURCES[shortOf(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz, i);
+  if (!canAffordAny(pool, cost)) {
+    alert(state, owner, `Not enough ${RESOURCES[shortOfAny(pool, cost)]!.name.toLowerCase()} to build the ${name.toLowerCase()} (${costText(cost)}).`, wx, wz, i);
     return DONE;
   }
   // Saplings and sprouting plants on the spot are pulled up first, one at a time (Building placement; seeds are trampled).
@@ -870,10 +870,12 @@ function runBuild(state: SimState, i: number, o: Extract<UnitOrder, { t: 'build'
     }
     return CONTINUE;
   }
-  pay(pool, cost);
+  // "Any lumber" is paid from whichever lumber the stock holds most of; what was taken is kept for a cancel's refund.
+  const paid = payAny(pool, cost);
   const b = placeBuilding(state, owner, o.kind, o.variant, o.x, o.z, false);
   b.hp = constructionHealth(o.kind, 0);
   b.costMul = costMul;
+  b.paid = paid;
   // Every worker on its way to this spot builds it now.
   for (let j = 0; j < e.count; j++) {
     const h = e.queue[j]![0];

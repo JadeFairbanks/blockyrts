@@ -726,7 +726,9 @@ function finishProduct(state: SimState, b: Building, product: number, by: number
   }
   if (spec.research !== undefined) {
     player.research |= 1 << spec.research;
-    state.events.push({ player: by, kind: 'info', text: `Research done: ${spec.name}.`, x, z });
+    const makes = RESEARCH[spec.research]!.makes ?? [];
+    for (const [res, n] of makes) player.pool[res] = player.pool[res]! + n;
+    state.events.push({ player: by, kind: 'info', text: `Research done: ${spec.name}.${makes.length ? ` It made ${costText(makes)}.` : ''}`, x, z });
     return;
   }
   if (spec.recipe !== undefined) {

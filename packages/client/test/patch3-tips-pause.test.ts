@@ -21,7 +21,7 @@ describe('the tips (Patch 3)', () => {
     const group = slot[0]!.group!;
     const choice = submenuChoices(slot).find((c) => c.spec.kind === BuildingKind.TorchPost)!;
     expect(t.torch).toContain(`click Build, then ${group}, then ${choice.name}`);
-    expect(t.torch).toContain('2 softwood lumber, 1 resin');
+    expect(t.torch).toContain('2 lumber, 1 resin');
   });
 
   it('name the main base as it is called, and the player own keys', () => {

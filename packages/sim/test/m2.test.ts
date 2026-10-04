@@ -338,22 +338,26 @@ describe('building', () => {
     expect(s.entities.queue[0]!.length).toBe(0);
   });
 
-  it('shares one building between workers sent together, and refunds 75% when cancelled', () => {
+  it('shares one building between workers sent together, and refunds 80% when cancelled, in the lumber it was paid in', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
+    pool[Res.HardwoodLumber] = 30;
     const [x, z] = freeSpot(s, BuildingKind.Storehouse);
     run(s, 1, [{ kind: 'build', player: 0, units: [1, 2, 3], building: BuildingKind.Storehouse, variant: 0, x, z }]);
     runUntil(s, () => s.buildings.list.length === 2, 3000);
     expect(s.buildings.list.length).toBe(2);
-    // Patch 2: the Storehouse is a cheap drop-off, 30 softwood and no stone.
-    expect(pool[Res.SoftwoodLumber]).toBe(10);
+    // Jade's mini balance: the Storehouse costs 15 of any lumber, taken a piece at a time from whichever lumber the stock holds most of.
+    expect(pool[Res.SoftwoodLumber]).toBe(40 - 13);
+    expect(pool[Res.HardwoodLumber]).toBe(30 - 2);
     expect(pool[Res.Stone]).toBe(20);
     const store = s.buildings.list[1]!;
     run(s, 200);
     expect(store.progress).toBeGreaterThan(200);
     run(s, 1, [{ kind: 'cancelBuild', player: 0, building: store.id }]);
     expect(s.buildings.list.length).toBe(1);
-    expect(pool[Res.SoftwoodLumber]).toBe(10 + 22);
+    // 80% of each lumber paid, rounded down.
+    expect(pool[Res.SoftwoodLumber]).toBe(27 + 10);
+    expect(pool[Res.HardwoodLumber]).toBe(28 + 1);
     expect(pool[Res.Stone]).toBe(20);
     run(s, 2);
     for (let i = 0; i < 3; i++) expect(s.entities.queue[i]!.length).toBe(0);

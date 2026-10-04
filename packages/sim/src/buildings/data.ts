@@ -129,6 +129,8 @@ const lvl = (name: string, cost: Cost, ws: number, health: number, o: Partial<Le
 });
 
 const S = Res.SoftwoodLumber;
+/** Any lumber, softwood or hardwood, whichever is in stock (Jade's mini balance: the Farm, Barn, Storehouse, Torch post and Bonfire). */
+const L = Res.AnyLumber;
 const H = Res.HardwoodLumber;
 const ST = Res.Stone;
 
@@ -205,7 +207,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     slot: 1, w: 14, d: 14, dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightCm: 600,
     levels: [
       // Supply 10, not Table 4's 8 (s): Jade's extra starting supply for the three starting warriors (Troops and gear: starting units).
-      mainBase('Big House', [[S, 300], [ST, 150]], 1200, 1200, 10, 1),
+      mainBase('Big House', [[S, 100], [ST, 50]], 1200, 1200, 10, 1),
       mainBase('Longhall', [[S, 100], [ST, 40]], 400, 1600, 12, 2),
       mainBase('Hall', [[S, 110], [ST, 45], [Res.Sticks, 15]], 420, 2000, 16, 3),
       { ...mainBase('Stockade Hall', [[S, 120], [ST, 60], [H, 25], [Res.BronzeIngot, 5]], 450, 2500, 20, 4), research: BRONZE },
@@ -222,24 +224,24 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     kind: BuildingKind.Farm, name: 'Farm', purpose: 'Grows farm fare, a hearty medley of vegetables, with 2 assigned farmers, in full in every band. Gives supply, trains workers, shelters its farmers.',
     slot: 2, w: 12, d: 12, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
     crop: { res: Res.FarmFare, perDay: 8 },
-    levels: [lvl('Farm', [[S, 30], [Res.Sticks, 10]], 150, 400, { supply: 4, shelters: 4, workers: 2, gives: '2 farmers grow farm fare; trains workers; the farmhouse shelters 4' })],
+    levels: [lvl('Farm', [[L, 20], [Res.Sticks, 5]], 150, 400, { supply: 10, shelters: 4, workers: 2, gives: '2 farmers grow farm fare; trains workers; the farmhouse shelters 4' })],
   },
   {
     // The livestock farm's cost from before Patch 2 (s, Jade's rebalance); no supply and no workers (s).
     kind: BuildingKind.Barn, name: 'Barn', purpose: 'A red barn for tamed cattle, chickens, horses and oxen: 10 stalls, one big animal or up to 6 chickens to a stall. Workers tame animals with farm fare once a Barn stands. The animals cannot graze, so each eats farm fare from the stock every morning (a hungry one loses health); they walk round the Barn by day, shelter in it at night, breed, and hens lay eggs. Slaughter (K) takes a grown animal for its meat: a cow gives twenty times a chicken. Cavalry at the Barracks take their horses from the nearest Barn.',
     slot: 3, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 450,
-    levels: [lvl('Barn', [[S, 40], [Res.Sticks, 10]], 200, 400, { gives: '10 stalls, taming, breeding, eggs, slaughter' })],
+    levels: [lvl('Barn', [[L, 30], [Res.Sticks, 10]], 200, 400, { gives: '10 stalls, taming, breeding, eggs, slaughter' })],
   },
   {
     // Cheap to build (Jade): 30 softwood and 100 worker-seconds (s, Jade's rebalance).
     kind: BuildingKind.Storehouse, name: 'Storehouse', purpose: 'A cheap drop-off for every resource, for far-off gathering spots and mineshafts.',
     slot: 4, w: 8, d: 8, dropoff: 'all', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Storehouse', [[S, 30]], 100, 600, { gives: 'drop-off for everything' })],
+    levels: [lvl('Storehouse', [[L, 15]], 100, 600, { gives: 'drop-off for everything' })],
   },
   {
     kind: BuildingKind.FishingDock, name: 'Fishing dock', purpose: 'Workers fish faster and in deeper water, and shelter inside.',
     slot: 5, w: 6, d: 4, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Fishing dock', [[S, 30], [Res.Rope, 5]], 150, 400, { shelters: 3, workers: 3, gives: '3 workers fish at net speed in any depth and shelter inside' })],
+    levels: [lvl('Fishing dock', [[S, 10], [Res.Rope, 5]], 150, 400, { shelters: 3, workers: 3, gives: '3 workers fish at net speed in any depth and shelter inside' })],
   },
   {
     // The Work Hut's cost from before Patch 2 (s, Jade's rebalance).
@@ -272,7 +274,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
     kind: BuildingKind.ScholarsLodge, name: "Scholar's Lodge", purpose: 'Research, one step at a time: pay the fee and it loads like training. Eats 2 food a day and uses 1 supply. Each further one costs more; at most 10.',
     slot: 11, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl("Scholar's Lodge", [[S, 60], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' })],
+    levels: [lvl("Scholar's Lodge", [[S, 40], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' })],
   },
   {
     kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on flat stone. 4 assigned miners go down, fill a 25 lb bag with stone, ore, coal, gold or gems, and carry it to the nearest main base or Storehouse (assign them with a right click). Deep Mining II and III let every shaft dig deeper. Prospect first (T) to see how rich the spot is.',
@@ -280,8 +282,8 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl('Mineshaft', [[H, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 4, workers: 4, research: DEEP_MINING_1, gives: '4 miners: stone, ores, coal, gold and gems by depth' })],
   },
   wall(BuildingKind.Wall, 'Softwood wall', [[S, 1]], 5, 300, 300, true),
-  gate(BuildingKind.Gate, 'Softwood gate', [[S, 6]], 30, 600, true),
-  tower(BuildingKind.Tower, 'Softwood tower', [[S, 20]], 100, 800, true),
+  gate(BuildingKind.Gate, 'Softwood gate', [[S, 4]], 30, 600, true),
+  tower(BuildingKind.Tower, 'Softwood tower', [[S, 15]], 100, 800, true),
   {
     kind: BuildingKind.Earthworks, name: 'Earthworks', purpose: 'Earth banks, ramps and fill, heaped by workers from Earth in the pool: 1 Earth and 5 worker-seconds per column per 11 cm step. Lumber and stone ramps use ramp steps made at the Workshop (5 and 8 worker-seconds a step). Drag to mark it.',
     ...DEFENCES, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightCm: 0,
@@ -297,21 +299,21 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light (10 m) that claims the land 5 m around it while lit. Needs no fuel.',
     slot: 14, group: 'Lights', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
     light: { lightM: 10, claimM: 5, outlyingHalves: 2 },
-    levels: [lvl('Torch post', [[S, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
+    levels: [lvl('Torch post', [[L, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
   },
   {
     // Patch 2 (Jade): 15 softwood, light 20 m, claims 10 m. The size, build work, health and the whole count against the dusk limit are suggestions for Jade's rebalance.
     kind: BuildingKind.Bonfire, name: 'Bonfire', purpose: 'A big fire that lights 20 m and claims the land 10 m around it while lit. Needs no fuel.',
     slot: 14, group: 'Lights', w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
     light: { lightM: 20, claimM: 10, outlyingHalves: 2 },
-    levels: [lvl('Bonfire', [[S, 15]], 30, 150, { gives: 'light 20 m, claims 10 m' })],
+    levels: [lvl('Bonfire', [[L, 15]], 30, 150, { gives: 'light 20 m, claims 10 m' })],
   },
   wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 300, true),
-  wall(BuildingKind.WallStone, 'Stone wall', [[ST, 2]], 20, 1500, 360, false),
-  gate(BuildingKind.GateHardwood, 'Hardwood gate', [[H, 6]], 45, 1200, true),
+  wall(BuildingKind.WallStone, 'Stone wall', [[ST, 1]], 20, 1500, 360, false),
+  gate(BuildingKind.GateHardwood, 'Hardwood gate', [[H, 4]], 45, 1200, true),
   gate(BuildingKind.GateStone, 'Stone gate', [[ST, 10], [H, 2]], 90, 3000, false),
-  tower(BuildingKind.TowerHardwood, 'Hardwood tower', [[H, 20]], 150, 1600, true),
-  tower(BuildingKind.TowerStone, 'Stone tower', [[ST, 40], [H, 10]], 300, 4000, false),
+  tower(BuildingKind.TowerHardwood, 'Hardwood tower', [[H, 15]], 150, 1600, true),
+  tower(BuildingKind.TowerStone, 'Stone tower', [[ST, 30], [H, 10]], 300, 4000, false),
 ]);
 
 export function buildingSpec(kind: number): BuildingSpec {
@@ -352,7 +354,7 @@ export const FARM_HARVEST_STEPS = CYCLE_STEPS;
 export const WORKER_FOOD = 20;
 export const WORKER_TRAIN_STEPS = 15 * STEPS_PER_SECOND;
 /** Units a building can have queued (Table 7 (s): a Barracks or Sanctum can queue 5; the same for every building here). */
-export const QUEUE_LIMIT = 5;
+export const QUEUE_LIMIT = 10;
 
 /**
  * How fast a crafting building works with no workers (Patch 2: the Workshop,
@@ -398,8 +400,8 @@ export const RELIGHT_STEPS = 2 * STEPS_PER_SECOND;
 export const BUILDING_CLAIM_M = 10;
 /** A building under construction has 10% of its health plus the share built (Table 4). */
 export const UNFINISHED_HEALTH_PER_MILLE = 100;
-/** Cancelling an unfinished building refunds 75% (Building placement). */
-export const CANCEL_REFUND_PER_MILLE = 750;
+/** Cancelling an unfinished building refunds 80% (Building placement; Jade's mini balance, 75% before). */
+export const CANCEL_REFUND_PER_MILLE = 800;
 /** Workers inside a shelter that is destroyed take 10% of their maximum health (Workers: sheltering). */
 export const SHELTER_LOSS_PER_MILLE = 100;
 /**

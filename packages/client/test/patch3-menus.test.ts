@@ -95,7 +95,8 @@ describe('the build menu greys out what the stock cannot pay for (Patch 3)', () 
   });
 
   it('keeps one the stock can pay for lit, and the prerequisite reason first when both', () => {
-    const pool = levelSpec(BuildingKind.Farm, 1).cost.map(([r, n]) => [r, n] as [number, number]);
+    // The Farm's "any lumber" (Jade's mini balance) paid in hardwood.
+    const pool = levelSpec(BuildingKind.Farm, 1).cost.map(([r, n]) => [r === Res.AnyLumber ? Res.HardwoodLumber : r, n] as [number, number]);
     const { c } = open(pool);
     const farm = button(c.card(), 'Farm');
     expect(farm).toMatchObject({ enabled: true, reason: '' });

@@ -14,9 +14,9 @@ describe('balance harness', () => {
     for (let k = 1; k < rows.length; k++) expect(rows[k]!.night).toBeGreaterThanOrEqual(rows[k - 1]!.night);
   });
 
-  it('carries the night 110 town on its Farms (Patch 2: 14 Farms give 106 supply for 105 units, 14 farmers)', () => {
+  it('carries the night 110 town on its Farms (mini balance: 7 Farms give 120 supply for 105 units, 14 farmers)', () => {
     const s = supplyCheck();
-    expect(s).toMatchObject({ supplyCap: 106, supplyUsed: 105, nutritionPerDay: 210, farmersNeeded: 14, ok: true });
+    expect(s).toMatchObject({ supplyCap: 120, supplyUsed: 105, nutritionPerDay: 210, farmersNeeded: 14, ok: true });
   });
 
   it('runs night 0 against its fixture: the fence keeps the monsters from the house and the warriors live (the three starting cudgels and a spear)', () => {

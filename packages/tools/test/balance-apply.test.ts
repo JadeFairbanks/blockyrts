@@ -61,7 +61,7 @@ describe('balance:apply', () => {
     const result = await applyChanges(file([
       // Research Bronze: sec(75) -> sec(90).
       { module: 'combat/items.ts', path: ['RESEARCH', 2, 'steps'], label: 'Bronze time', old: 1500, new: 1800, unit: '', oldDisplay: '', newDisplay: '' },
-      // Big House level 1 pays stone: [ST, 150] -> [Res.Flint, 150].
+      // Big House level 1 pays stone: [ST, 50] -> [Res.Flint, 50].
       { module: 'buildings/data.ts', path: ['BUILDINGS', 0, 'levels', 0, 'cost', 1, 0], label: 'Big House cost resource', old: 3, new: 4, unit: '', oldDisplay: '', newDisplay: '' },
       // Zombies take the shared pierce default: the zombie gets its own.
       { module: 'combat/mobs.ts', path: ['MOBS', 0, 'pierceBp'], label: 'Zombie pierce', old: 10000, new: 8000, unit: '', oldDisplay: '', newDisplay: '' },
@@ -71,8 +71,8 @@ describe('balance:apply', () => {
     ]);
     // Patch 3: a monster's threat is worked out from its numbers, so the zombie's (1.5) follows its pierce.
     expect(result.alsoChanged).toEqual([{ key: 'combat/mobs.ts#MOBS.0.threatTenths', before: 15, after: 16 }]);
-    expect(readFileSync(join(src, 'combat/items.ts'), 'utf8')).toContain("steps: sec(90), made: Made.TinIngot");
-    expect(readFileSync(join(src, 'buildings/data.ts'), 'utf8')).toContain("mainBase('Big House', [[S, 300], [Res.Flint, 150]], 1200");
+    expect(readFileSync(join(src, 'combat/items.ts'), 'utf8')).toContain("steps: sec(90), made: 0,");
+    expect(readFileSync(join(src, 'buildings/data.ts'), 'utf8')).toContain("mainBase('Big House', [[S, 100], [Res.Flint, 50]], 1200");
     expect(readFileSync(join(src, 'combat/mobs.ts'), 'utf8')).toMatch(/drops: \[\{ res: Res\.Bone, min: 1, max: 1, chancePm: 150 \}[^\n]*\],?\s*pierceBp: 8000/);
   });
 
