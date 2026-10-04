@@ -3,7 +3,9 @@
 // with (rigid cubes, no skin weights), and each instance's bone matrices sit in
 // a float DataTexture, four RGBA texels (the four columns) per matrix, that the
 // vertex shader reads by gl_InstanceID and bone index. The matrices already
-// include the instance's position and heading.
+// include the instance's position and heading. A second material draws the
+// same posed models flat, in ids or white, for the hidden-unit outlines
+// (world/hidden-outlines.ts).
 import * as THREE from 'three';
 import { BAKED_STRIDE, type BakedClip, type ModelData } from './library.ts';
 
@@ -25,6 +27,27 @@ const PLACE = new THREE.Matrix4();
 const SCALE = new THREE.Vector3();
 /** Floats per instance in inst: x, y, z, heading, clip time, scale. */
 const INST_STRIDE = 6;
+
+/**
+ * What the mark material draws (Jade's Patch 3 outlines): Ids draws every
+ * instance, the local player's units in their mark's id (rgb, alpha 0) and
+ * the rest opaque black, as things that hide them; Own draws only the local
+ * player's units, in their ids; Outlined draws only those marked for an
+ * outline, in white.
+ */
+export const MarkMode = { Ids: 0, Own: 1, Outlined: 2 } as const;
+/** Shared by every model's mark material, so one call sets the mode for a pass. */
+const MARK_MODE: THREE.IUniform<number> = { value: MarkMode.Ids };
+export function setMarkMode(mode: number): void {
+  MARK_MODE.value = mode;
+}
+
+/** A patch for the main material's shader, run after the model's own (the fog of war, world/fog-material.ts). */
+export interface ModelShaderPatch {
+  /** Names the patched program apart from the unpatched one. */
+  key: string;
+  apply(shader: THREE.WebGLProgramParametersWithUniforms): void;
+}
 
 const VERTEX_PARS = /* glsl */ `
 uniform highp sampler2D boneTexture_bf;
@@ -72,6 +95,39 @@ if (team_bf.a > 0.5) {
 }
 #endif`;
 
+// The mark material: the posed model, flat. Instances the mode leaves out land past the far plane and draw nothing.
+const MARK_VERTEX = /* glsl */ `
+${VERTEX_PARS}
+attribute float mark;
+uniform float markMode_bf;
+varying vec2 vUv_bf;
+flat varying vec4 vMark_bf;
+void main() {
+  float own = abs(mark) > 0.5 ? 1.0 : 0.0;
+  float keep = markMode_bf < 0.5 ? 1.0 : markMode_bf < 1.5 ? own : step(mark, -0.5);
+  if (keep < 0.5 || partVisible_bf[int(part + 0.5)] < 0.5) {
+    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+    return;
+  }
+  mat4 bone_bf = boneMatrix_bf();
+  gl_Position = projectionMatrix * modelViewMatrix * (bone_bf * vec4(position, 1.0));
+  vUv_bf = uv;
+  float id = abs(mark);
+  vMark_bf = own > 0.5 ? vec4(mod(id, 256.0), mod(floor(id / 256.0), 256.0), floor(id / 65536.0), 0.0) / 255.0 : vec4(0.0, 0.0, 0.0, 1.0);
+}
+`;
+
+const MARK_FRAGMENT = /* glsl */ `
+uniform sampler2D map;
+uniform float markMode_bf;
+varying vec2 vUv_bf;
+flat varying vec4 vMark_bf;
+void main() {
+  if (texture2D(map, vUv_bf).a < 0.5) discard;
+  gl_FragColor = markMode_bf > 1.5 ? vec4(1.0) : vMark_bf;
+}
+`;
+
 function srgbToLinear(c: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
@@ -96,6 +152,9 @@ export class InstancedModel {
   private readonly boneTexture: THREE.DataTexture;
   private readonly boneData: Float32Array;
   private readonly team: THREE.InstancedBufferAttribute;
+  /** Per instance: 0, or the id of a local player's unit (negative when it is to be outlined). */
+  private readonly mark: THREE.InstancedBufferAttribute;
+  private markMat: THREE.ShaderMaterial | null = null;
   private readonly uniforms: SharedUniforms;
   private readonly clipList: BakedClip[];
   private readonly clipIndex: ReadonlyMap<string, number>;
@@ -104,7 +163,7 @@ export class InstancedModel {
   private readonly instClip: Int32Array; // clip index, or -1 for the rest pose
   private count = 0;
 
-  constructor(model: ModelData, maxInstances: number) {
+  constructor(model: ModelData, maxInstances: number, patch?: ModelShaderPatch) {
     if (model.partNames.length > MAX_PARTS) throw new Error(`${model.id} has ${model.partNames.length} parts; at most ${MAX_PARTS} are supported`);
     this.model = model;
     this.maxInstances = Math.max(1, Math.floor(maxInstances));
@@ -140,6 +199,9 @@ export class InstancedModel {
     this.team = new THREE.InstancedBufferAttribute(new Float32Array(this.maxInstances * 4), 4);
     this.team.setUsage(THREE.DynamicDrawUsage);
     this.geometry.setAttribute('team', this.team);
+    this.mark = new THREE.InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
+    this.mark.setUsage(THREE.DynamicDrawUsage);
+    this.geometry.setAttribute('mark', this.mark);
     this.geometry.instanceCount = 0;
 
     const partVisible = new Array<number>(MAX_PARTS + 1).fill(0);
@@ -181,8 +243,11 @@ export class InstancedModel {
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', FRAGMENT_PARS)
         .replace('#include <map_fragment>', FRAGMENT_TEAM);
+      patch?.apply(shader);
     };
-    this.material.customProgramCacheKey = () => SHADER_KEY;
+    this.material.customProgramCacheKey = () => (patch ? `${SHADER_KEY}-${patch.key}` : SHADER_KEY);
+    // A pass that draws the scene in one flat material (the outlines' occlusion pass) still poses these.
+    this.material.allowOverride = false;
 
     // Shadows must see the animated pose too.
     this.depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
@@ -230,6 +295,7 @@ export class InstancedModel {
     this.inst[o + 4] = clipTimeSeconds;
     this.inst[o + 5] = scale;
     this.instClip[i] = this.clipIndex.get(clip) ?? -1;
+    (this.mark.array as Float32Array)[i] = 0;
     const t = this.team.array as Float32Array;
     if (teamColour) {
       t[i * 4] = teamColour.r;
@@ -237,6 +303,35 @@ export class InstancedModel {
       t[i * 4 + 2] = teamColour.b;
       t[i * 4 + 3] = 1;
     } else t[i * 4 + 3] = 0;
+  }
+
+  /**
+   * Marks instance i, after its setInstance, as the local player's unit with
+   * this id (1 to 2^24 - 1), outlined or not: the hidden-unit outlines find it
+   * by the id.
+   */
+  setMark(i: number, id: number, outlined: boolean): void {
+    if (i < 0 || i >= this.maxInstances) return;
+    (this.mark.array as Float32Array)[i] = outlined ? -id : id;
+  }
+
+  /** The flat material that draws ids and outlines (see MarkMode), made on first use. */
+  markMaterial(): THREE.ShaderMaterial {
+    if (!this.markMat) {
+      this.markMat = new THREE.ShaderMaterial({
+        uniforms: { ...this.uniforms, map: { value: this.model.texture }, markMode_bf: MARK_MODE },
+        vertexShader: MARK_VERTEX,
+        fragmentShader: MARK_FRAGMENT,
+        blending: THREE.NoBlending,
+      });
+      this.markMat.allowOverride = false;
+    }
+    return this.markMat;
+  }
+
+  /** Draws with the mark material (true) or the model's own (false) until called again. */
+  useMarkMaterial(on: boolean): void {
+    this.object.material = on ? this.markMaterial() : this.material;
   }
 
   /** Draws instances 0 .. n - 1. */
@@ -320,6 +415,9 @@ export class InstancedModel {
     this.team.clearUpdateRanges();
     this.team.addUpdateRange(0, this.count * 4);
     this.team.needsUpdate = true;
+    this.mark.clearUpdateRanges();
+    this.mark.addUpdateRange(0, this.count);
+    this.mark.needsUpdate = true;
   }
 
   /**
@@ -360,6 +458,7 @@ export class InstancedModel {
   dispose(): void {
     this.geometry.dispose();
     this.material.dispose();
+    this.markMat?.dispose();
     this.depthMaterial.dispose();
     this.boneTexture.dispose();
   }

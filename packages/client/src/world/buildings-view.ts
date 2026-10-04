@@ -7,10 +7,10 @@ import * as THREE from 'three';
 import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
-import { InstancedModel, type ModelLibrary } from '../models/index.ts';
+import { InstancedModel, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
 import { makeLook, type Look } from './building-looks.ts';
-import { patchMaterial, type FowUniforms } from './fog-material.ts';
+import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
 
 /** Point lights for the flames nearest the camera (a fixed number, so shaders never recompile). */
@@ -82,6 +82,8 @@ export class BuildingsView {
   private readonly wanted = new Set<string>();
   private readonly modelDraws = new Map<string, InstancedModel>();
   private readonly teamColours: readonly THREE.Color[];
+  /** The fog of war on the catalogue models, as on the blocks (remembered buildings darkened). */
+  private readonly modelFog: ModelShaderPatch;
   /** 0 by day, 1 at night: how bright the flames' lights are. */
   darkness = 0;
 
@@ -91,6 +93,7 @@ export class BuildingsView {
     teamColours: readonly THREE.Color[],
   ) {
     this.teamColours = teamColours;
+    this.modelFog = { key: 'fow', apply: fowPatch(fow, false) };
     this.material = new THREE.MeshLambertMaterial({ vertexColors: true });
     patchMaterial(this.material, fow, true);
     this.ghostMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false });
@@ -300,7 +303,7 @@ export class BuildingsView {
         const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
         let draw = this.modelDraws.get(key);
         if (!draw) {
-          draw = new InstancedModel(lib.get(m.id), MAX_MODEL_INSTANCES);
+          draw = new InstancedModel(lib.get(m.id), MAX_MODEL_INSTANCES, this.modelFog);
           if (m.tint !== undefined) draw.tint(m.tint);
           draw.object.frustumCulled = false;
           this.scene.add(draw.object);
