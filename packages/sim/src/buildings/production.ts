@@ -21,7 +21,7 @@ import { ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAU
 import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
-import { addAnimal, animalsAt, layingHens, stallsTaken } from '../animals/animals.ts';
+import { addAnimal, animalsAt, barnFeedText, layingHens, stallsTaken } from '../animals/animals.ts';
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
 import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../combat/items.ts';
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
@@ -836,7 +836,11 @@ export function buildingStatus(state: SimState, b: Building): string {
   if (!b.complete) return `Under construction: ${floorDiv(b.progress * 100, levelSpec(b.kind, 1).ws * 20)}%`;
   if (b.upgrading) return `Upgrading to ${buildingName(b.kind, b.upgrading, b.variant)}: ${floorDiv(b.upProgress * 100, levelSpec(b.kind, b.upgrading).ws * 20)}%`;
   if (isFarm(b.kind)) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work`;
-  if (b.kind === BuildingKind.Barn) return `${animalsAt(state, b.id).length} animals; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken`;
+  if (b.kind === BuildingKind.Barn) {
+    const n = animalsAt(state, b.id).length;
+    const feed = n > 0 ? `; they eat ${barnFeedText(state, b)} farm fare a day` : '';
+    return `${n} animal${n === 1 ? '' : 's'}; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken${feed}`;
+  }
   if (b.kind === BuildingKind.Mineshaft) {
     const miners = `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} miners at work`;
     const rating = b.rating > 0 ? `; the spot is ${RATING_NAMES[b.rating - 1]}` : '';
