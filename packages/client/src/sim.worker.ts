@@ -441,9 +441,10 @@ function runStep(s: SimState, orders: Order[]): void {
  * Who sees what (Chat between players): a player sees their own events and
  * everyone's, and the speech of units inherited from a player who left;
  * never another active player's units' speech, even under shared control.
+ * Every player sees every question's bubble (Patch 2), its buttons only its owner.
  */
 function heard(s: SimState, ev: SimEvent): boolean {
-  if (ev.player === PLAYER || ev.player < 0) return true;
+  if (ev.player === PLAYER || ev.player < 0 || ev.kind === 'question') return true;
   if (ev.kind !== 'speech' || ev.speaker === undefined || s.players[PLAYER]?.out) return false;
   const i = s.entities.indexOf(ev.speaker);
   return i >= 0 && s.entities.shared[i] !== 0;
