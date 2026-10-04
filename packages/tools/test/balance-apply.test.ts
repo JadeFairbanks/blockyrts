@@ -69,7 +69,8 @@ describe('balance:apply', () => {
     expect(result.outcomes.map((o) => [o.change.label, o.status])).toEqual([
       ['Bronze time', 'applied'], ['Big House cost resource', 'applied'], ['Zombie pierce', 'applied'],
     ]);
-    expect(result.alsoChanged).toEqual([]);
+    // Patch 3: a monster's threat is worked out from its numbers, so the zombie's (1.5) follows its pierce.
+    expect(result.alsoChanged).toEqual([{ key: 'combat/mobs.ts#MOBS.0.threatTenths', before: 15, after: 16 }]);
     expect(readFileSync(join(src, 'combat/items.ts'), 'utf8')).toContain("steps: sec(90), made: Made.TinIngot");
     expect(readFileSync(join(src, 'buildings/data.ts'), 'utf8')).toContain("mainBase('Big House', [[S, 300], [Res.Flint, 150]], 1200");
     expect(readFileSync(join(src, 'combat/mobs.ts'), 'utf8')).toMatch(/drops: \[\{ res: Res\.Bone, min: 1, max: 1, chancePm: 150 \}[^\n]*\],?\s*pierceBp: 8000/);
