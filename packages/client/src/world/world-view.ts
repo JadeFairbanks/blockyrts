@@ -4,6 +4,7 @@
 // unseen), the units, and the hooks the controls shell needs: ground
 // picking, selectable things, the minimap and the camera limits.
 import * as THREE from 'three';
+import { PLAYER_COLOURS as LOBBY_COLOURS } from '@blockyrts/protocol';
 import {
   clockAt,
   COLUMNS_PER_CHUNK,
@@ -20,6 +21,7 @@ import {
   unitOrderText,
   propInfo,
   floorDiv,
+  footprintRect,
   UnitKind,
   VISION_STRIDE,
   WORLD_EDGE_WU,
@@ -47,6 +49,7 @@ import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage, VisionMessage } from '../messages.ts';
 import { S, SpellOn, STATE_STRIDE, UnitFlag } from '../messages.ts';
+import { ENEMY, ENEMY_RED, HIDDEN, inSight, unitSide } from '../minimap/things.ts';
 import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
@@ -77,9 +80,11 @@ const FOG_TILES_PER_CHUNK = 16;
 const GROWTH_REFRESH_S = 20;
 const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 
-/** Player colours (decision 8's placeholder blue is player 1). */
-export const PLAYER_COLOURS = [0x3460b2, 0xc03a2a, 0x2a9a4a, 0xd0a020, 0x8a3ac0, 0x2ab0b0, 0xe07020, 0xe0e0e0].map((c) => new THREE.Color(c));
+/** Player colours when the lobby gives none: the lobby's own list in order (decision 8's placeholder blue is player 1). */
+export const PLAYER_COLOURS = LOBBY_COLOURS.map((c) => new THREE.Color(c.hex));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
+/** The dark edge round each unit and building on the minimap (s). */
+const MINIMAP_EDGE = 'rgba(10, 10, 8, 0.85)';
 /** The minimap colour of each people (Halflings, Runkin, Elves, Dwarves). */
 const PEOPLE_MARKS = ['#8ac850', '#b08050', '#50c0a8', '#a8a8b8'];
 
@@ -286,6 +291,7 @@ export class WorldView {
       bounds: () => this.minimapBounds(),
       paint: (ctx) => this.paintMinimap(ctx),
       version: () => this.minimapVersion,
+      paintThings: (ctx, dpr) => this.paintMinimapThings(ctx, dpr),
     };
     this.hooks = {
       ground,
@@ -1033,8 +1039,64 @@ export class WorldView {
       if (!t.rgba) continue;
       ctx.drawImage(t.canvas, t.cx * CHUNK_M, t.cz * CHUNK_M, CHUNK_M, CHUNK_M);
     }
-    // Lairs (dark red squares) and goblin villages (ochre rings, red at war) the player has found (Table 15: minimap marks).
+  }
+
+  /**
+   * Over the land (Patch 2, Jade): every player's buildings as their
+   * footprints (at least 2 px) and units as 2 px dots in that player's colour,
+   * enemies the players' side sees in red; then the marks on top. Each has a
+   * 1 px dark edge (s), drawn under all the colours so a crowd reads as one
+   * patch, and so green still shows on grass.
+   */
+  private paintMinimapThings(ctx: CanvasRenderingContext2D, dpr: number): void {
     const px = 1 / Math.max(1e-6, ctx.getTransform().a);
+    const dot = 2 * dpr * px;
+    const edge = dpr * px;
+    const colours = new Map<number, string>();
+    const colour = (side: number): string => {
+      let c = colours.get(side);
+      if (c === undefined) {
+        c = side === ENEMY ? ENEMY_RED : `#${(this.colours[side] ?? NEUTRAL_COLOUR).getHexString()}`;
+        colours.set(side, c);
+      }
+      return c;
+    };
+    // x, z, width, depth in metres, then the colour, for every thing in drawing order.
+    const rects: number[] = [];
+    const sides: string[] = [];
+    for (const b of this.game?.info?.buildings ?? []) {
+      if (b.owner >= this.players) continue;
+      const [x0, z0, x1, z1] = footprintRect(b);
+      const w = Math.max(dot, (x1 - x0 + 1) * COLUMN_M);
+      const d = Math.max(dot, (z1 - z0 + 1) * COLUMN_M);
+      rects.push((x0 + x1 + 1) * COLUMN_M * 0.5 - w / 2, (z0 + z1 + 1) * COLUMN_M * 0.5 - d / 2, w, d);
+      sides.push(colour(b.owner));
+    }
+    const st = this.curr;
+    if (st) {
+      const v = st.data;
+      const atWar = (group: number): boolean => this.game?.faction(group)?.war === true;
+      // Enemies last, so a foe among your men still shows.
+      for (const enemies of [false, true]) {
+        for (let i = 0; i < st.count; i++) {
+          const o = i * STATE_STRIDE;
+          const side = unitSide({ owner: v[o + S.owner]!, flags: v[o + S.flags]!, group: v[o + S.group]!, hp: v[o + S.hp]!, inside: v[o + S.inside]! }, this.players, atWar);
+          if (side === HIDDEN || (side === ENEMY) !== enemies) continue;
+          const x = v[o + S.x]!;
+          const z = v[o + S.z]!;
+          if (enemies && !this.showAll && !inSight(this.vision, VISION_STRIDE, x, z)) continue;
+          rects.push(x / WU_PER_METRE - dot / 2, z / WU_PER_METRE - dot / 2, dot, dot);
+          sides.push(colour(side));
+        }
+      }
+    }
+    ctx.fillStyle = MINIMAP_EDGE;
+    for (let k = 0; k < rects.length; k += 4) ctx.fillRect(rects[k]! - edge, rects[k + 1]! - edge, rects[k + 2]! + 2 * edge, rects[k + 3]! + 2 * edge);
+    for (let k = 0; k < rects.length; k += 4) {
+      ctx.fillStyle = sides[k >> 2]!;
+      ctx.fillRect(rects[k]!, rects[k + 1]!, rects[k + 2]!, rects[k + 3]!);
+    }
+    // Lairs (dark red squares) and goblin villages (ochre rings, red at war) the player has found (Table 15: minimap marks).
     for (const m of this.game?.info?.marks ?? []) {
       const x = m.x / WU_PER_METRE;
       const z = m.z / WU_PER_METRE;

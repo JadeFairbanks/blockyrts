@@ -196,9 +196,8 @@ export interface BuildingInfo {
   /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold). */
   queue: Array<{ product: number; done: number; stepsLeft: number }>;
   rally: RallyPoint[];
-  /** Lights: lit now, and steps of fuel left. */
+  /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
   lit: boolean;
-  fuelLeft: number;
   /** Workers assigned (farmers, mill hands) and at work now. */
   assigned: number;
   working: number;

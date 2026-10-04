@@ -28,7 +28,7 @@ export const BuildingKind = {
   Workshop: 17,
   TorchPost: 18,
   WallTorch: 19,
-  Brazier: 20,
+  Bonfire: 20,
   Lantern: 21,
   ScholarsLodge: 22,
   MagiSanctum: 23,
@@ -71,14 +71,12 @@ export interface LevelSpec {
   research: number;
 }
 
+/** A light (Table 18). Patch 2 (Jade): lights burn no fuel; once built, one burns until something puts it out. */
 export interface LightSpec {
   /** Light radius and claimed radius in metres (Table 18). */
   lightM: number;
   claimM: number;
-  /** Fuel burnt and how long one unit lasts, in steps. */
-  fuel: Res;
-  fuelSteps: number;
-  /** Counts against the dusk limit (Table 8: wall torches count half): 2 = whole, 1 = half, 0 = not at all. */
+  /** Counts against the dusk limit (Table 8): 2 = whole, 1 = half, 0 = not at all. */
   outlyingHalves: number;
 }
 
@@ -132,7 +130,6 @@ const lvl = (name: string, cost: Cost, ws: number, health: number, o: Partial<Le
 const S = Res.SoftwoodLumber;
 const H = Res.HardwoodLumber;
 const ST = Res.Stone;
-const DAY = CYCLE_STEPS;
 
 /** Farm upgrade costs and times: crop fields and vegetable farms share them (Table 4: "as crop field"). */
 const fieldLevels = (first: string, cost1: Cost, supplies: readonly number[], farmers: readonly number[], ws1: number, gives: string): LevelSpec[] => [
@@ -204,6 +201,9 @@ function tower(kind: BuildingKind, name: string, cost: Cost, ws: number, health:
 type SpecInput = Omit<BuildingSpec, 'heightCm'> & { heightCm?: number };
 
 /** Every building stands 4 m tall unless its row says otherwise (s). */
+/** Why a light cut in Patch 2 is greyed in the build menu. */
+const CUT_LIGHT = 'Cut in Patch 2: the torch post and the bonfire are the lights now.';
+
 const withHeights = (specs: SpecInput[]): BuildingSpec[] => specs.map((sp) => ({ heightCm: 400, ...sp }));
 
 export const BUILDINGS: readonly BuildingSpec[] = withHeights([
@@ -286,7 +286,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
     kind: BuildingKind.Cooking, name: 'Campfire', purpose: 'Cooks raw food into food with more nutrition, burning lumber or coal; the campfire is also a light (8 m). Upgrades to a Grand Kitchen.',
     menu: 'basic', slot: 8, w: 2, d: 2, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 100,
-    light: { lightM: 8, claimM: 0, fuel: S, fuelSteps: DAY, outlyingHalves: 0 },
+    light: { lightM: 8, claimM: 0, outlyingHalves: 0 },
     levels: [
       lvl('Campfire', [[S, 5]], 10, 60, { gives: 'roast meat and fish; also a light' }),
       lvl('Cook Hut', [[S, 40], [ST, 20]], 200, 500, { gives: 'smoked foods' }),
@@ -325,27 +325,30 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     ],
   },
   {
-    kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light that claims the land 5 m around it while lit. Burns 1 softwood lumber every 3 days.',
+    kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light (10 m) that claims the land 5 m around it while lit. Needs no fuel.',
     menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
-    light: { lightM: 10, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 2 },
+    light: { lightM: 10, claimM: 5, outlyingHalves: 2 },
     levels: [lvl('Torch post', [[S, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
   },
   {
+    // Cut in Patch 2 (Jade): the torch post and the bonfire are the only lights. The catalogue rework takes the row out.
     kind: BuildingKind.WallTorch, name: 'Wall torch', purpose: 'A light in an iron bracket, placed against a wall; claims 5 m and falls with its wall.',
-    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
-    light: { lightM: 6, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 1 },
+    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: false, comesWith: CUT_LIGHT, heightCm: 250,
+    light: { lightM: 6, claimM: 5, outlyingHalves: 1 },
     levels: [lvl('Wall torch', [[S, 1], [Res.Resin, 1]], 5, 30, { gives: 'light 6 m, claims 5 m' })],
   },
   {
-    kind: BuildingKind.Brazier, name: 'Brazier', purpose: 'A bright light (14 m) that burns 1 coal a day. Claims no land.',
-    menu: 'basic', slot: 13, w: 2, d: 2, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
-    light: { lightM: 14, claimM: 0, fuel: Res.Coal, fuelSteps: DAY, outlyingHalves: 2 },
-    levels: [lvl('Brazier', [[ST, 10], [Res.BronzeIngot, 2]], 60, 150, { gives: 'light 14 m' })],
+    // Patch 2 (Jade): 15 softwood, light 20 m, claims 10 m. The size, build work, health and the whole count against the dusk limit are suggestions for Jade's rebalance.
+    kind: BuildingKind.Bonfire, name: 'Bonfire', purpose: 'A big fire that lights 20 m and claims the land 10 m around it while lit. Needs no fuel.',
+    menu: 'basic', slot: 13, w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
+    light: { lightM: 20, claimM: 10, outlyingHalves: 2 },
+    levels: [lvl('Bonfire', [[S, 15]], 30, 150, { gives: 'light 20 m, claims 10 m' })],
   },
   {
-    kind: BuildingKind.Lantern, name: 'Lantern', purpose: 'A glass-and-iron lantern, made at a Great Workshop and hung by a worker. Burns 1 resin every 5 days.',
-    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    light: { lightM: 6, claimM: 0, fuel: Res.Resin, fuelSteps: 5 * DAY, outlyingHalves: 1 },
+    // Cut in round 1 and again in Patch 2 (Jade): the catalogue rework takes the row out.
+    kind: BuildingKind.Lantern, name: 'Lantern', purpose: 'A glass-and-iron lantern, made at a Great Workshop and hung by a worker.',
+    menu: 'basic', slot: 13, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: false, comesWith: CUT_LIGHT,
+    light: { lightM: 6, claimM: 0, outlyingHalves: 1 },
     levels: [lvl('Lantern', [[Res.Lantern, 1]], 5, 20, { gives: 'light 6 m' })],
   },
   {
@@ -467,12 +470,10 @@ export const QUEUE_LIMIT = 5;
 /** Production at a lumber mill (Table 2b): 1 lumber gives 1 plank (2 with the waterwheel) in 5 s. */
 export const PLANK_STEPS = 5 * STEPS_PER_SECOND;
 
-/** Lights within this distance of a complete main base are refuelled from the pool by themselves (Table 18). */
-export const AUTO_REFUEL_M = 40;
 /** Lights farther than this from any main base count as outlying at dusk (Table 8). */
 export const OUTLYING_M = 40;
-/** A worker refuels or relights a light in 2 s (Table 18). */
-export const REFUEL_STEPS = 2 * STEPS_PER_SECOND;
+/** A worker relights a light that was put out in 2 s (Table 18). */
+export const RELIGHT_STEPS = 2 * STEPS_PER_SECOND;
 /** Claimed land around a player building, measured from its outer edge (Table 8, Jade). */
 export const BUILDING_CLAIM_M = 10;
 /** A building under construction has 10% of its health plus the share built (Table 4). */
@@ -487,14 +488,14 @@ export const SHELTER_LOSS_PER_MILLE = 100;
  * unit's sight is (Fog of war). 10 m, as far as a building claims land; the
  * main base 20 m, so the town keeps its watch at night while its workers
  * shelter; a tower 20 m, the +10 m sight it gives its garrison (Table 4); a
- * brazier 14 m, as far as it lights. A fog night halves it, as all sight.
+ * bonfire 20 m, as far as it lights. A fog night halves it, as all sight.
  */
 export const BUILDING_SIGHT_M: Readonly<Partial<Record<number, number>>> = {
   [BuildingKind.MainBase]: 20, [BuildingKind.CropField]: 10, [BuildingKind.VegetableFarm]: 10, [BuildingKind.HerbBed]: 10,
   [BuildingKind.LivestockFarm]: 10, [BuildingKind.PenBarn]: 10, [BuildingKind.LumberMill]: 10, [BuildingKind.Storehouse]: 10,
   [BuildingKind.FishingDock]: 10, [BuildingKind.Tannery]: 10, [BuildingKind.Cooking]: 10, [BuildingKind.HerbalistHut]: 10,
   [BuildingKind.Wall]: 10, [BuildingKind.Gate]: 10, [BuildingKind.Tower]: 20, [BuildingKind.Workshop]: 10,
-  [BuildingKind.TorchPost]: 10, [BuildingKind.WallTorch]: 10, [BuildingKind.Brazier]: 14, [BuildingKind.Lantern]: 10,
+  [BuildingKind.TorchPost]: 10, [BuildingKind.WallTorch]: 10, [BuildingKind.Bonfire]: 20, [BuildingKind.Lantern]: 10,
   [BuildingKind.ScholarsLodge]: 10, [BuildingKind.MagiSanctum]: 10, [BuildingKind.Barracks]: 10, [BuildingKind.Stables]: 10,
   [BuildingKind.GunneryYard]: 10, [BuildingKind.Mineshaft]: 10, [BuildingKind.Kiln]: 10, [BuildingKind.Forge]: 10,
   [BuildingKind.PowderMill]: 10, [BuildingKind.Foundry]: 10, [BuildingKind.WallHardwood]: 10, [BuildingKind.WallStone]: 10,

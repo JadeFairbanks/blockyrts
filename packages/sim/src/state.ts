@@ -870,7 +870,6 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     repairAcc: 0,
     queue: [],
     rally: [],
-    fuelUntil: 0,
     doneAt: complete ? state.step : 0,
     farmAcc: 0,
     alerted: 0,

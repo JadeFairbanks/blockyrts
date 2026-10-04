@@ -4,7 +4,7 @@
 // upgraded, flames and point lights on lit lights, the placement ghost with
 // its green and red tiles, and the faint ghosts of planned buildings.
 import * as THREE from 'three';
-import { BuildingKind, buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, RESOURCES, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, type ModelLibrary } from '../models/index.ts';
@@ -27,8 +27,8 @@ interface Entry {
   flames: THREE.Mesh[];
   look: Look;
   selectable: Selectable;
-  /** Catalogue model ids drawn for it, with local offsets (metres). */
-  models: Array<{ id: string; dx: number; dz: number }>;
+  /** Catalogue model ids drawn for it, with local offsets (metres) and size. */
+  models: Array<{ id: string; dx: number; dz: number; scale: number }>;
 }
 
 export interface GhostSpot {
@@ -52,12 +52,13 @@ export interface Ghost {
 const MODEL_UNITS_PER_COLUMN = 16;
 
 /** Catalogue models for a building at its level and where they go from its anchor, metres (the footprint table, footprints.ts). */
-export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number }> {
+export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number; scale: number }> {
   const d = footprintDims(b.kind, b.variant, b.level);
   return (levelFootprint(b.kind, b.level).models ?? []).map((m) => ({
     id: m.id,
     dx: (d.ox + m.x / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
     dz: (d.oz + m.z / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
+    scale: m.scale ?? 1,
   }));
 }
 
@@ -134,7 +135,7 @@ export class BuildingsView {
     return l;
   }
 
-  private hasModels(b: BuildingInfo): Array<{ id: string; dx: number; dz: number }> {
+  private hasModels(b: BuildingInfo): Array<{ id: string; dx: number; dz: number; scale: number }> {
     const lib = this.models;
     if (!lib || !b.complete) return [];
     const ids = catalogueIds(b);
@@ -277,7 +278,7 @@ export class BuildingsView {
     if (b.status) d.push(b.status);
     const light = s.light;
     if (light && b.complete) {
-      d.push(b.lit ? `Lit: ${Math.ceil(b.fuelLeft / 20 / 60)} min of fuel left (${RESOURCES[light.fuel]!.name.toLowerCase()}).` : 'Out: send a worker to refuel it.');
+      d.push(b.lit ? 'Lit. It needs no fuel.' : 'Out: right click it with a worker to relight it.');
       d.push(`Light ${light.lightM} m${light.claimM > 0 ? `, claims ${light.claimM} m while lit` : ''}.`);
     }
     if (b.up.length > 0) d.push(`${b.up.length} up top.`);
@@ -305,7 +306,7 @@ export class BuildingsView {
         const n = counts.get(m.id) ?? 0;
         if (n >= MAX_MODEL_INSTANCES) continue;
         counts.set(m.id, n + 1);
-        draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, 0, '', 0, this.teamColour(b.owner));
+        draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, 0, '', 0, this.teamColour(b.owner), m.scale);
       }
     }
     for (const [id, draw] of this.modelDraws) {

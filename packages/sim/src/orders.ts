@@ -93,9 +93,9 @@ export interface AssignOrder extends UnitsOrder {
   building: number;
 }
 
-/** Refuel or relight a light. */
-export interface RefuelOrder extends UnitsOrder {
-  kind: 'refuel';
+/** Relight a light that was put out (Patch 2: lights need no fuel). */
+export interface RelightOrder extends UnitsOrder {
+  kind: 'relight';
   building: number;
 }
 
@@ -636,7 +636,7 @@ export type Order =
   | EnterOrder
   | UnloadOrder
   | AssignOrder
-  | RefuelOrder
+  | RelightOrder
   | TrainRankOrder
   | ProduceOrder
   | CancelProduceOrder
@@ -681,7 +681,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   enter: ['building'],
   unload: ['building', 'unit'],
   assign: ['building'],
-  refuel: ['building'],
+  relight: ['building'],
   trainRank: ['building'],
   produce: ['building', 'product', 'count'],
   cancelProduce: ['building', 'index'],
@@ -737,7 +737,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   answer: ['ask', 'yes', 'q', 'who', 'res'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {

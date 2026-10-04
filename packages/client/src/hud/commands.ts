@@ -1474,7 +1474,7 @@ export class Commands {
   /**
    * Right click: the obvious order for what is under the cursor (Smart order).
    * Workers gather from nodes, build or repair their own buildings, drop
-   * their load at drop-offs, take up a farm or the mill, refuel lights;
+   * their load at drop-offs, take up a farm or the mill, relight lights put out;
    * everyone follows friendly units and walks to ground. With only buildings
    * selected, it sets their rally point.
    */
@@ -1523,7 +1523,7 @@ export class Commands {
           if (full || carts.length > 0) return send({ kind: 'haul', player, units: full ? workers : carts, building: b.id, queued });
         }
         if (levelSpec(b.kind, b.level).workers > 0) return send({ kind: 'assign', player, units: workers, building: b.id, queued });
-        if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
+        if (spec.light && !b.lit) return send({ kind: 'relight', player, units: workers, building: b.id, queued });
       }
     }
     // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1). With Enter cut in Patch 2, a main

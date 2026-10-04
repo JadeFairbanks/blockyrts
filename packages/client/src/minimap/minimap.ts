@@ -1,5 +1,7 @@
-// The minimap: the world's explored land, painted only when it changes, and
-// the camera's view footprint drawn over it every frame.
+// The minimap: the world's explored land, painted only when it changes; the
+// units and buildings over it (Patch 2: in their owner's colour, enemies in
+// red) with the marks on top, a few times a second; and the camera's view
+// footprint drawn over it every frame.
 import type * as THREE from 'three';
 import type { Pt } from '../hud/rects.ts';
 import type { MinimapSource } from '../selection/types.ts';
@@ -8,16 +10,23 @@ import { fitBounds, mapToWorld, normalizeBounds, sameBounds, worldToMap, type Bo
 const UNEXPLORED = '#0b0e12';
 /** How long a ping shows, ms. */
 const PING_MS = 4000;
+/** Units and buildings are repainted this often, ms. */
+const THINGS_MS = 150;
 
 /**
- * Two stacked canvases inside the minimap element: the land, repainted only
- * when the source changes, and the view footprint, redrawn every frame.
+ * Three stacked canvases inside the minimap element: the land, repainted only
+ * when the source changes; the units, buildings and marks, a few times a
+ * second; and the view footprint, redrawn every frame.
  */
 export class Minimap {
   private readonly land: HTMLCanvasElement;
+  private readonly things: HTMLCanvasElement;
   private readonly view: HTMLCanvasElement;
   private readonly landCtx: CanvasRenderingContext2D;
+  private readonly thingsCtx: CanvasRenderingContext2D;
   private readonly viewCtx: CanvasRenderingContext2D;
+  /** When the units and buildings were last painted (ms), or -Infinity to paint them at the next frame. */
+  private thingsAt = -Infinity;
   private paintedVersion = -1;
   private paintedBounds: Bounds | null = null;
   private bounds: Bounds = { minX: -150, minZ: -150, maxX: 150, maxZ: 150 };
@@ -30,17 +39,21 @@ export class Minimap {
     private source: MinimapSource,
   ) {
     this.land = document.createElement('canvas');
+    this.things = document.createElement('canvas');
     this.view = document.createElement('canvas');
     this.land.className = 'minimap-land';
+    this.things.className = 'minimap-things';
     this.view.className = 'minimap-view';
-    el.append(this.land, this.view);
+    el.append(this.land, this.things, this.view);
     this.landCtx = this.land.getContext('2d')!;
+    this.thingsCtx = this.things.getContext('2d')!;
     this.viewCtx = this.view.getContext('2d')!;
   }
 
   setSource(source: MinimapSource): void {
     this.source = source;
     this.paintedVersion = -1;
+    this.thingsAt = -Infinity;
   }
 
   /** Redraws: the land if it changed, then the view footprint (four ground points, in order round the quad). */
@@ -50,8 +63,8 @@ export class Minimap {
     const h = Math.max(1, Math.round(this.el.clientHeight * dpr));
     const resized = this.land.width !== w || this.land.height !== h;
     if (resized) {
-      this.land.width = this.view.width = w;
-      this.land.height = this.view.height = h;
+      this.land.width = this.things.width = this.view.width = w;
+      this.land.height = this.things.height = this.view.height = h;
     }
     const b = normalizeBounds(this.source.bounds());
     const version = this.source.version();
@@ -68,6 +81,20 @@ export class Minimap {
       c.restore();
       this.paintedVersion = version;
       this.paintedBounds = b;
+      this.thingsAt = -Infinity;
+    }
+    const now = performance.now();
+    if (now - this.thingsAt >= THINGS_MS) {
+      this.thingsAt = now;
+      const c = this.thingsCtx;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, w, h);
+      if (this.source.paintThings) {
+        c.setTransform(this.t.scale, 0, 0, this.t.scale, this.t.ox, this.t.oy);
+        c.save();
+        this.source.paintThings(c, dpr);
+        c.restore();
+      }
     }
 
     const ctx = this.viewCtx;

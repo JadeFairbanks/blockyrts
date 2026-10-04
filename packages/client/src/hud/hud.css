@@ -1144,7 +1144,7 @@ body.playing * {
   color: var(--muted);
 }
 
-/* Milestone 9: the Allies panel, Send resources, the pause banner, the host's choice and the first-day hints. */
+/* Milestone 9: the Allies panel, Send resources, the pause banner, the host's choice and the first-day tips. */
 .allies-panel,
 .send-dialog,
 .host-choice {
@@ -1232,19 +1232,51 @@ body.playing * {
   background: rgba(30, 24, 12, 0.95);
   border-color: rgba(242, 210, 75, 0.7);
 }
-.hint-box {
+/* Patch 2's tips: plain outlined text on the game, no frame and no background; only the buttons take clicks. */
+.tip-box {
   position: absolute;
   z-index: 4;
   top: 90px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: min(560px, calc(100vw - 32px));
-  padding: 6px 12px;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 32px));
+  font-size: 12px;
+  line-height: 1.35;
   color: #f4ecd2;
-  background: rgba(40, 52, 30, 0.9);
-  border: 1px solid rgba(160, 210, 120, 0.6);
+  text-shadow: -1px -1px 0 #14100a, 1px -1px 0 #14100a, -1px 1px 0 #14100a, 1px 1px 0 #14100a, 0 0 3px rgba(0, 0, 0, 0.8);
   pointer-events: none;
+}
+.tip-controls {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  pointer-events: auto;
+}
+/* The id outranks the wooden button frames further down: a tip's buttons stay as plain as the tip. */
+#hud .tip-box .hud-btn.tip-btn {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 12px;
+  color: #f4ecd2;
+  text-shadow: inherit;
+  background: transparent;
+  border: 1px solid rgba(244, 236, 210, 0.55);
+  border-image: none;
+  pointer-events: auto;
+}
+#hud .tip-box .hud-btn.tip-btn.hover {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(244, 236, 210, 0.85);
+}
+/* Yes and No are the question bubbles' pair (Patch 2), in line with the text. */
+#hud .tip-box .yes-no {
+  margin-top: 0;
+  gap: 6px;
 }
 .chain-label {
   position: absolute;
@@ -1679,7 +1711,6 @@ body.playing.touch .hud {
   padding: 2px 4px 3px;
   image-rendering: pixelated;
 }
-.hint-box,
 .chain-label {
   border: 6px solid transparent;
   border-image: var(--kit-thin) 6 fill / 6px round;

@@ -32,18 +32,21 @@ import {
   mobSpec,
   moveSpeed,
   NIGHT_STEPS,
+  OrderKind,
   nightLength,
   nightsSurvived,
   Period,
   placeBuilding,
   placementBlocked,
   Blocked,
+  RELIGHT_STEPS,
   Res,
   Role,
   serializeState,
   sightOf,
   Species,
   step,
+  tinkerProgress,
   UnitKind,
   WILD,
   WU_PER_COLUMN,
@@ -282,8 +285,7 @@ describe('the dusk goblin horde', () => {
       const z = b.z - 40 + Math.floor(k / 20) * 4;
       const why = placementBlocked(s, 0, BuildingKind.TorchPost, x, z);
       if (why !== Blocked.None && why !== Blocked.Node) continue;
-      const t = placeBuilding(s, 0, BuildingKind.TorchPost, 0, x, z, true);
-      t.fuelUntil = 10 * CYCLE_STEPS;
+      placeBuilding(s, 0, BuildingKind.TorchPost, 0, x, z, true);
       placed++;
     }
     expect(placed).toBe(6);
@@ -361,17 +363,26 @@ describe('goblin villages', () => {
     const e = s.entities;
     const b = bigHouse(s);
     const t = placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x + 20, b.z + 20, true);
-    t.fuelUntil = s.step + 5000;
     const [tx, tz] = buildingCentre(t);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: tx + 80 * M, z: tz }]);
     const mage = mobs(s, Mob.GoblinMage)[0]!;
     snuffEffect(s, mage, t);
-    expect(isLit(t, s.step)).toBe(false);
+    expect(isLit(t)).toBe(false);
     const pool = s.players[0]!.pool[Res.SoftwoodLumber]!;
     let worker = -1;
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) worker = i;
-    step(s, [{ kind: 'refuel', player: 0, units: [e.id[worker]!], building: t.id }]);
-    runUntil(s, () => isLit(t, s.step), 2000);
+    step(s, [{ kind: 'relight', player: 0, units: [e.id[worker]!], building: t.id }]);
+    // It sits beside the light tinkering, with the bar over its head (Patch 2's timed actions), for 2 s.
+    let bar = 0;
+    runUntil(
+      s,
+      () => {
+        if (e.order[worker] === OrderKind.Tinker) bar = Math.max(bar, tinkerProgress(s, worker)[1]);
+        return isLit(t);
+      },
+      2000,
+    );
+    expect(bar).toBe(RELIGHT_STEPS);
     expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(pool);
   });
 });

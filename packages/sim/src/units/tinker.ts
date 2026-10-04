@@ -2,9 +2,9 @@
 // bar"): anything a unit has to do next to a building that takes time is done
 // sitting down, hands together in front of the chest and head bowed over
 // them, with a bar over its head that fills as it goes. Eating at a main
-// base or storehouse (10 s) and Upgrade equipment (each piece's time) use it
-// before Patch 2's other timed jobs; relighting a light (2 s) and eating to
-// heal from a question are next. An order calls tinker() once a step from
+// base or storehouse (10 s, from the action menu or a question's Yes),
+// relighting a light (2 s) and Upgrade equipment (each piece's time) use it.
+// An order calls tinker() once a step from
 // where it stands, with the timer at 0 when it sits down: the unit's timer
 // counts the steps done and its tinker column says how many it takes, which
 // is all the page needs for the bar and the pose (OrderKind.Tinker).
