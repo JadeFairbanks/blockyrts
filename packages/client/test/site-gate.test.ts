@@ -12,9 +12,9 @@ const call = (path: string, auth?: string): Promise<Response> =>
   });
 
 describe('game version', () => {
-  it('starts at indev 0.1', () => {
-    expect(file).toEqual({ stage: 'indev', next: '0.1' });
-    expect(deployVersion(file, [], [])).toEqual({ label: 'indev 0.1', tag: 'live-0.1', fresh: true });
+  it('starts at indev 0.2, the build live before the version line counting as 0.1', () => {
+    expect(file).toEqual({ stage: 'indev', next: '0.2' });
+    expect(deployVersion(file, [], [])).toEqual({ label: 'indev 0.2', tag: 'live-0.2', fresh: true });
   });
 
   it('goes up by 0.1 each deploy, through whole numbers', () => {
