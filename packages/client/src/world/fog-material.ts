@@ -1,6 +1,7 @@
-// Shaders: the pixel texture and the fog of war (black unexplored, grey
-// explored and unseen), patched into three.js Lambert materials. Shared by the
-// land, the props and the buildings.
+// Shaders: the pixel texture and the fog of war (black unexplored; explored
+// and unseen land darkened, most of its colour kept), patched into three.js
+// Lambert materials. Shared by the land, the props, the buildings and the
+// models of the units and buildings drawn on the land.
 import type * as THREE from 'three';
 
 export interface FowUniforms {
@@ -9,8 +10,24 @@ export interface FowUniforms {
   fowAll: { value: number };
 }
 
-export function patchMaterial(mat: THREE.Material, fow: FowUniforms, pixelNoise: boolean): void {
-  mat.onBeforeCompile = (shader) => {
+/**
+ * How land explored but out of sight is drawn (Jade's Patch 3: darkened, not
+ * greyscale as before): this share of its brightness (s) ...
+ */
+export const REMEMBERED_BRIGHTNESS = 0.6;
+/** ... and this share of its colour, the rest gone to grey (s). */
+export const REMEMBERED_COLOUR = 0.7;
+
+/** A three.js shader patch: what onBeforeCompile does to a material's shader. */
+export type ShaderPatch = (shader: THREE.WebGLProgramParametersWithUniforms) => void;
+
+/**
+ * The fog of war for a material's shader, and the pixel texture's noise when
+ * pixelNoise is set. Works on Lambert materials, instanced or not; for the
+ * instanced models the position it reads is the posed one (models/instanced-model.ts).
+ */
+export function fowPatch(fow: FowUniforms, pixelNoise: boolean): ShaderPatch {
+  return (shader) => {
     Object.assign(shader.uniforms, fow);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vFowWorld;\nvarying vec3 vFowN;')
@@ -53,10 +70,17 @@ varying vec3 vFowN;`,
     f = max(f, fowAll);
     float explored = smoothstep(0.08, 0.4, f);
     float seen = smoothstep(0.6, 0.9, f);
-    vec3 grey = vec3(dot(gl_FragColor.rgb, vec3(0.3, 0.59, 0.11))) * 0.55;
-    gl_FragColor.rgb = mix(vec3(0.0), mix(grey, gl_FragColor.rgb, seen), explored);
+    vec3 lit = gl_FragColor.rgb;
+    vec3 remembered = mix(vec3(dot(lit, vec3(0.3, 0.59, 0.11))), lit, ${REMEMBERED_COLOUR.toFixed(3)}) * ${REMEMBERED_BRIGHTNESS.toFixed(3)};
+    gl_FragColor.rgb = mix(vec3(0.0), mix(remembered, lit, seen), explored);
   }
 #include <dithering_fragment>`,
       );
   };
+}
+
+export function patchMaterial(mat: THREE.Material, fow: FowUniforms, pixelNoise: boolean): void {
+  mat.onBeforeCompile = fowPatch(fow, pixelNoise);
+  // The patch's source reads the same either way, so the noise has to be in the program's key.
+  mat.customProgramCacheKey = () => (pixelNoise ? 'fow-noise' : 'fow');
 }

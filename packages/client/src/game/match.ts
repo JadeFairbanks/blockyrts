@@ -589,6 +589,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     // The draw calls are the world's: read them before the portrait's own render resets them.
     const drawCalls = renderer.info.render.calls;
     const triangles = renderer.info.render.triangles;
+    // Jade's Patch 3: outlines round the player's own units hidden behind things, over the world and under the HUD.
+    world.renderOutlines(renderer, shell.cam.camera, now);
     world.portrait.render(renderer, shell.portraitSubject(), game, now);
     perfBusy += performance.now() - t0;
     perfFrames++;
