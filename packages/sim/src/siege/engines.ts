@@ -151,8 +151,14 @@ export function stuckWhy(state: SimState, i: number): string {
   return `It needs a horse or an ox hitched to it, or ${spec.crew === 1 ? 'its crewman' : `its ${spec.crew} crewmen`} beside it to push.`;
 }
 
-/** Why an engine cannot fire now, or '': only its crew (Patch 2: no ammunition). */
+/**
+ * Why an engine cannot fire now, or '': only its crew (Patch 2: no
+ * ammunition), and a horse or an ox hitched to it and close enough to haul
+ * it stands in for them (Patch 3, Jade: an engine being towed needs no
+ * artillery crew).
+ */
 export function fireWhy(state: SimState, i: number): string {
+  if (haulerOf(state, i) >= 0) return '';
   const spec = engineSpec(state.entities.mob[i]!);
   const crew = crewOf(state, i).length;
   if (crew < spec.crew) return `It needs ${spec.crew === 1 ? 'its crewman' : `${spec.crew} crewmen`} standing by it to fire (${crew} now).`;
