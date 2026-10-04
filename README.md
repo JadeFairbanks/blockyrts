@@ -1691,10 +1691,9 @@ Elder. The names come from one sim function, `unitTitle()` in
    the three starting warriors: the panel reads "Club fighter (Recruit)" (live
    now: "Close melee (Recruit)"). Hover its portrait: the same name.
 3. **An upgrade.** Press **Troop kit** on the debug bar, select a starting
-   warrior and press Upgrade Weapon: while the bar fills it is still a Club
-   fighter; the moment the bar is full the title reads "Flint axeman
-   (Recruit)". Upgrade Weapon Max goes straight to the best tier's name the stock allows
-   ("Champion" at tier 8).
+   warrior and upgrade its weapon: while the bar fills it is still a Club
+   fighter; the moment the bar is full the title reads the new tier's name
+   ("Flint axeman (Recruit)" one tier up, "Champion (Recruit)" at tier 8).
 4. **The Barracks.** Select the Barracks: the training buttons still say
    Train close melee, Train long melee, Train ranger, Train brawler. Train a
    long melee troop with an iron pike: the message reads "A new pikeman is
