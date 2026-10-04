@@ -1,8 +1,8 @@
 // Patch 2, round 3: questions in bubbles, with Yes and No. A question waits
-// 30 s of game time or until its owner answers; one open per unit or
-// building, at most 3 per player; Yes is an order every machine runs the
-// same; No or no answer does nothing and the question rests. None of it is
-// state: hashes and saves never see it.
+// 10 s of game time (Jade's Patch 3; 30 s in Patch 2) or until its owner
+// answers; one open per unit or building, at most 3 per player; Yes is an
+// order every machine runs the same; No or no answer does nothing and the
+// question rests. None of it is state: hashes and saves never see it.
 import { describe, expect, it } from 'vitest';
 import {
   addMob,
@@ -73,6 +73,9 @@ function questionsOver(s: SimState, n: number, orders: Order[] = []): SimEvent[]
   return out;
 }
 
+/** The troops' better-kit question (the workers ask about their tools apart, Jade's Patch 3). */
+const troopsKit = (x: SimEvent): boolean => x.ask!.q === Ask.Kit && x.text.includes('better kit');
+
 /** The answer the owner's button sends. */
 function answer(ev: SimEvent, yes: boolean): AnswerOrder {
   const a = ev.ask!;
@@ -111,7 +114,7 @@ function plainWorld(players = 1): SimState {
 describe('the questions (Patch 2, round 3)', () => {
   it('has the starting warriors ask together for better kit, and Yes sends each to the best the stock pays for', () => {
     const s = createWorld(1, { peaceful: true });
-    const ev = untilAsked(s, (x) => x.ask!.q === Ask.Kit, 3 * STEPS_PER_SECOND);
+    const ev = untilAsked(s, troopsKit, 3 * STEPS_PER_SECOND);
     const warriors = units(s, UnitKind.Warrior);
     expect(ev.text).toBe('Three of us could use better kit. Upgrade?');
     expect(ev.player).toBe(0);
@@ -122,22 +125,23 @@ describe('the questions (Patch 2, round 3)', () => {
     expect(ev.ask!.until).toBe(s.step - 1 + QUESTION_WAIT_STEPS);
     run(s, 1, [answer(ev, true)]);
     expect(s.events.some((x) => x.kind === 'question' && x.ask!.id === ev.ask!.id && x.ask!.closed)).toBe(true);
-    expect(openQuestions(s).length).toBe(0);
+    expect(openQuestions(s).some((a) => a.id === ev.ask!.id)).toBe(false);
     for (const i of warriors) expect(pendingKitUp(s, i, Line.Weapon) ?? pendingKitUp(s, i, Line.Armour)).toBeDefined();
   });
 
   it('does nothing on No, and asks the same units again only once the stock pays for better', () => {
     const s = createWorld(1, { peaceful: true });
-    const ev = untilAsked(s, (x) => x.ask!.q === Ask.Kit, 3 * STEPS_PER_SECOND);
+    const ev = untilAsked(s, troopsKit, 3 * STEPS_PER_SECOND);
     const queues = units(s, UnitKind.Warrior).map((i) => s.entities.queue[i]!.length);
     const later = questionsOver(s, 60 * STEPS_PER_SECOND, [answer(ev, false)]);
-    expect(later.filter((x) => !x.ask!.closed && x.ask!.q === Ask.Kit)).toEqual([]);
+    expect(later.filter((x) => !x.ask!.closed && troopsKit(x))).toEqual([]);
     expect(units(s, UnitKind.Warrior).map((i) => s.entities.queue[i]!.length)).toEqual(queues);
   });
 
-  it('ends an unanswered question after 30 s of game time, on every machine', () => {
+  it('ends an unanswered question after 10 s of game time, on every machine', () => {
     const s = createWorld(1, { peaceful: true });
-    const ev = untilAsked(s, (x) => x.ask!.q === Ask.Kit, 3 * STEPS_PER_SECOND);
+    expect(QUESTION_WAIT_STEPS).toBe(10 * STEPS_PER_SECOND);
+    const ev = untilAsked(s, troopsKit, 3 * STEPS_PER_SECOND);
     const asked = s.step;
     let ended = -1;
     for (let k = 0; k < QUESTION_WAIT_STEPS + 5 && ended < 0; k++) {
@@ -145,7 +149,7 @@ describe('the questions (Patch 2, round 3)', () => {
       if (s.events.some((x) => x.kind === 'question' && x.ask!.id === ev.ask!.id && x.ask!.closed)) ended = s.step;
     }
     expect(ended - asked).toBe(QUESTION_WAIT_STEPS);
-    expect(openQuestions(s).length).toBe(0);
+    expect(openQuestions(s).some((a) => a.id === ev.ask!.id)).toBe(false);
   });
 
   it('has a hurt unit ask to eat to heal, and Yes puts a meal in front of its work', () => {
@@ -284,7 +288,7 @@ describe('the questions (Patch 2, round 3)', () => {
 
   it('is not state: a save starts with no questions, and the same answers keep every machine in step', () => {
     const s = createWorld(1, { peaceful: true });
-    const ev = untilAsked(s, (x) => x.ask!.q === Ask.Kit, 3 * STEPS_PER_SECOND);
+    const ev = untilAsked(s, troopsKit, 3 * STEPS_PER_SECOND);
     const copy = deserializeState(serializeState(s));
     expect(hashState(copy)).toBe(hashState(s));
     expect(openQuestions(copy)).toEqual([]);

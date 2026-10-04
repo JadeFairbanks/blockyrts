@@ -583,7 +583,7 @@ export interface AskInfo {
   units: number[];
   /** The resource it is about (Ask.Farther), or -1. */
   res: number;
-  /** The step it stops waiting for an answer: 30 s of game time after it was asked. */
+  /** The step it stops waiting for an answer: QUESTION_WAIT_STEPS (10 s of game time) after it was asked. */
   until: number;
   /** What Yes and No do, in full, for the buttons' tooltips (Yes's also says what it takes from the stock). */
   yes: string;
@@ -637,7 +637,17 @@ export interface SimEvent {
    * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
    */
   bubble?: 'meal' | 'hungry';
+  /** Speech: how long its bubble stays, when not the usual few seconds (BubbleHold). */
+  hold?: BubbleHold;
 }
+
+/**
+ * How long a speech bubble stays (Jade's Patch 3): 'bar' while its speaker
+ * sits at the timed action that made it speak, as long as the progress bar
+ * over its head runs (units/tinker.ts); 'long' twice the usual time (the
+ * main base's word of advice at the start).
+ */
+export type BubbleHold = 'bar' | 'long';
 
 export interface SimState {
   seed: number;

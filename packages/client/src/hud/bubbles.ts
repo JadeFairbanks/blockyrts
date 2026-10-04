@@ -5,17 +5,23 @@
 // patch notes 1: the wait for the next one stands still too). Buildings
 // speak too (Patch 2), over the middle of the roof.
 //
-// Questions (Patch 2, round 3) are bubbles that stay until answered, for 30 s
-// of game time (so they stand still while paused), with Yes and No buttons
-// for their owner only; while one is up over a speaker, the speaker's other
-// lines do not cover it.
-import { REMARKS } from '@blockyrts/sim';
+// Questions (Patch 2, round 3) are bubbles that stay until answered, for 10 s
+// of game time (Jade's Patch 3; so they stand still while paused), with Yes
+// and No buttons for their owner only; while one is up over a speaker, the
+// speaker's other lines do not cover it.
+//
+// Jade's Patch 3: what a unit says as it sits down to a timed action stays
+// up while the bar over its head runs (hold 'bar'), and the main base's
+// word of advice at the start stays twice as long as a bubble (hold 'long').
+import { REMARKS, type BubbleHold } from '@blockyrts/sim';
 import { oneIsSingular } from './wording.ts';
 import type { YesNoButtons } from './yes-no.ts';
 
 /** How long a bubble stays, ms: a base and a little more per character (s). */
 const BUBBLE_MS = 3500;
 const BUBBLE_MS_PER_CHAR = 40;
+/** A long bubble (hold 'long') stays this many times as long (Jade's Patch 3: twice). */
+const LONG_BUBBLE_TIMES = 2;
 /** At most this many bubbles at once; the oldest goes. */
 const MAX_BUBBLES = 10;
 /** A random remark from some unit on screen about this often, ms (s). */
@@ -39,6 +45,9 @@ interface Bubble {
   who: Speaker;
   el: HTMLElement;
   until: number;
+  /** Hold 'bar': it stays while its unit sits at its timed action; `sat` once the bar was seen (until then, the usual time). */
+  bar: boolean;
+  sat: boolean;
 }
 
 interface QuestionBubble {
@@ -69,12 +78,12 @@ export class SpeechBubbles {
   }
 
   /** A unit says something: its bubble replaces any it had (a question it asked stays). */
-  say(id: number, text: string, now: number, kind: 'own' | 'foreign' | 'remark' = 'own'): void {
-    this.speak({ id }, text, now, kind);
+  say(id: number, text: string, now: number, kind: 'own' | 'foreign' | 'remark' = 'own', hold?: BubbleHold): void {
+    this.speak({ id }, text, now, kind, hold);
   }
 
-  /** A unit or building says something. */
-  speak(who: Speaker, text: string, now: number, kind: 'own' | 'foreign' | 'remark' = 'own'): void {
+  /** A unit or building says something; `hold` keeps the bubble up longer than usual (see the top). */
+  speak(who: Speaker, text: string, now: number, kind: 'own' | 'foreign' | 'remark' = 'own', hold?: BubbleHold): void {
     const key = keyOf(who);
     if (this.asking(who)) return;
     this.drop(key);
@@ -83,7 +92,8 @@ export class SpeechBubbles {
     el.textContent = oneIsSingular(text);
     el.hidden = true;
     this.layer.append(el);
-    this.bubbles.push({ key, who, el, until: now + BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR });
+    const ms = (BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR) * (hold === 'long' ? LONG_BUBBLE_TIMES : 1);
+    this.bubbles.push({ key, who, el, until: now + ms, bar: hold === 'bar' && !who.building, sat: false });
     while (this.bubbles.length > MAX_BUBBLES) this.bubbles.shift()!.el.remove();
   }
 
@@ -135,9 +145,10 @@ export class SpeechBubbles {
    * has a unit on screen make a random remark (`speakers`: candidates with
    * their remark list key, e.g. 'halfling' or 'worker'). `paused`: the game
    * is stopped, so nobody remarks and the wait for the next remark stands
-   * still. `step`: the game's step, which questions wait on.
+   * still. `step`: the game's step, which questions wait on. `sitting`: the
+   * units sitting at a timed action now, whose 'bar' bubbles stay.
    */
-  update(now: number, anchor: BubbleAnchor, speakers: () => Array<[number, string]>, paused = false, step = 0): void {
+  update(now: number, anchor: BubbleAnchor, speakers: () => Array<[number, string]>, paused = false, step = 0, sitting: ReadonlySet<number> = new Set()): void {
     const dt = this.lastUpdate < 0 ? 0 : now - this.lastUpdate;
     this.lastUpdate = now;
     const at = (who: Speaker): { x: number; y: number } | null => (who.building ? anchor.roof(who.id) : anchor.head(who.id));
@@ -147,7 +158,10 @@ export class SpeechBubbles {
     };
     for (let k = this.bubbles.length - 1; k >= 0; k--) {
       const b = this.bubbles[k]!;
-      if (now >= b.until) {
+      // A timed action's line stays while its bar runs and goes when the bar does (Jade's Patch 3).
+      const bar = b.bar && sitting.has(b.who.id);
+      if (bar) b.sat = true;
+      if ((b.bar && b.sat && !bar) || (!bar && now >= b.until)) {
         b.el.remove();
         this.bubbles.splice(k, 1);
         continue;
