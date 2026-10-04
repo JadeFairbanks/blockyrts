@@ -1849,8 +1849,9 @@ wall torch and brazier are gone.
    hearty medley of vegetables"), 8 a farmer-day, and it gives 4 supply. The
    **Barn** button on the debug bar puts down a red barn with 2 horses and an
    ox in its stalls and 100 farm fare; select it: "3 animals; 3 of 10 stalls
-   taken". Workers tame cattle, chickens, horses and oxen into a Barn with
-   farm fare (a chicken is a sixth of a stall).
+   taken; they eat 3 farm fare a day". Workers tame cattle, chickens, horses
+   and oxen into a Barn with farm fare (a chicken is a sixth of a stall).
+   What the animals eat is in the next section.
 4. **Cavalry at the Barracks.** Select a Barracks: Cavalry (C) sits after
    the brawler, greyed "Needs a level 3 main base." until the main base is
    level 3, then "Cavalry needs a tamed horse in a Barn." until one stands
@@ -1889,6 +1890,49 @@ wall torch and brazier are gone.
     one menu, Defences paging, Lights). `pnpm --filter @blockyrts/tools
     balance --pacing` runs the pacing check on the new ladder, with no labour
     counted for workerless crafting and 14 Farms in the night 110 town.
+
+## How a tester checks the Barn's farm fare and the meal lines (Patch 2)
+
+Jade's Patch 2, round 1, second wave (blueprint/patch-2.md). The picks are in
+blueprint/patch2-farm-barn-picks.md. Barn animals cannot graze, so they eat
+farm fare; a cow gives twenty times a chicken's food; meals say what was
+eaten with no amount. Older sections above that say animals graze: read it
+as walking round their Barn by day.
+
+1. **The Barn's feed.** `pnpm dev`, open http://localhost:5173/?seed=1, type
+   M N B V C X Z to show the tester tools and press **Barn** on the debug
+   bar: a Barn with 2 horses and an ox and 100
+   farm fare. Select it: "3 animals; 3 of 10 stalls taken; they eat 3 farm
+   fare a day" (cattle, horses and oxen 2 food a day, a chicken 1; farm fare
+   is 2 food). Right click farm fare in the inventory to keep it back from
+   meals, press **Speed** (x16) and watch the day turn: farm fare drops by 3
+   at sunrise, kept back or not, however much grass is round the Barn.
+2. **Hungry animals.** Let the farm fare run out (sell it to a people, or
+   let the town eat it at x16, about ten days): at sunrise each animal that finds
+   none loses a tenth of its health, never the last of it, and chat says
+   once "Your Barn animals went hungry: there was not enough farm fare for
+   them. Hungry animals lose health."
+3. **A cow is twenty chickens.** Tame or buy a cow and press K on its Barn:
+   "Slaughter a cow" gives 20 beef and 2 leather (a chicken 1 chicken meat
+   and 2 feathers; 4 food each). A hunted wild cow drops the same: the
+   hunter's 25 lb bag takes 10 beef and the rest lies on the ground for it
+   to fetch.
+4. **Meal lines.** Watch a unit's bubble at its meal: "I ate some trout.",
+   "I ate some venison. Back to it.", "Had some eggs. That hits the spot.",
+   and with farm fare "I ate a meal from the farm."; two kinds in one meal,
+   "I ate some venison and some trout."; a cavalry rider adds "My horse ate
+   too."; after going hungry, "Food at last! I ate some venison." No line
+   gives an amount or calls meat raw; the amount stays in the selection
+   panel's hunger line.
+5. **Eating at a building.** Select a hurt unit and press Eat (or answer Yes
+   to "I'm hurt. Can I eat to heal?"): it walks to the nearest main base or
+   Storehouse, sits 10 s and says "I ate my fill of venison."
+6. **Trade.** Halfling villages sell farm fare in place of crops and bread;
+   the Elves sell farm fare, venison and trout (from the fourteen buildings
+   PR).
+7. `pnpm test` covers it in `packages/sim/test/farms.test.ts` (the feed, the
+   status line, hunger, the cow), `food.test.ts` (the meal lines) and
+   `m4.test.ts` (slaughter, a hunted cow).
 
 ## How a tester checks the training countdown (Patch 2)
 

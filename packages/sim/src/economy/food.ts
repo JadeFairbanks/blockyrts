@@ -146,8 +146,9 @@ function isTroop(state: SimState, i: number): boolean {
  * A unit's meal, in quarters of nutrition: a quarter of its daily upkeep.
  * Only units that eat have one: a player's workers, warriors and mages (a
  * hired mercenary while it is in the player's service), a cavalry rider's
- * horse with it, and working horses and oxen; never engines, animals that
- * graze or anything of the monsters', the wild's or the peoples'.
+ * horse with it, and working horses and oxen; never engines, the animals
+ * in a Barn (they eat their farm fare at the day's turn, animals.ts) or
+ * anything of the monsters', the wild's or the peoples'.
  */
 export function mealQuarters(state: SimState, i: number): number {
   const e = state.entities;
@@ -197,11 +198,24 @@ export function foodAmountText(quarters: number): string {
   return `${whole > 0 || !part ? whole : ''}${part} food`;
 }
 
-/** "venison", "venison and trout", "venison, trout and eggs". */
-function kindsText(taken: FoodTaken): string {
-  const names = taken.map(([f]) => RESOURCES[f]!.name.toLowerCase());
+/** "a", "a and b", "a, b and c". */
+function listText(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * How a meal names a food (Patch 2: no amounts, and meat is never called raw,
+ * Jade): farm fare is "a meal from the farm" (Jade), the rest "some" of it.
+ */
+export function mealFoodText(res: number): string {
+  if (res === Res.FarmFare) return 'a meal from the farm';
+  return `some ${RESOURCES[res]!.name.toLowerCase()}`;
+}
+
+/** "some venison", "some venison and some trout", "some venison, some trout and a meal from the farm". */
+function mealText(taken: FoodTaken): string {
+  return listText(taken.map(([f]) => mealFoodText(f)));
 }
 
 /** "1 minute", "4 minutes", "45 seconds" for a span of steps (rounded down; a minute or more is told in minutes). */
@@ -212,11 +226,11 @@ export function spanText(steps: number): string {
   return `${m} minute${m === 1 ? '' : 's'}`;
 }
 
-const MEAL_LINES: ReadonlyArray<(amount: string, kinds: string) => string> = [
-  (a, k) => `Ate ${a} of ${k}.`,
-  (a, k) => `Mealtime: ${a} of ${k}.`,
-  (a, k) => `Had my ${a} of ${k}. That hits the spot.`,
-  (a, k) => `${a.charAt(0).toUpperCase()}${a.slice(1)} of ${k}. Back to it.`,
+/** A meal's line (Patch 2, Jade: "I ate some trout", not "I ate 1/2 trouts"); the amount stays in the selection panel's hunger line. */
+const MEAL_LINES: ReadonlyArray<(what: string) => string> = [
+  (w) => `I ate ${w}.`,
+  (w) => `I ate ${w}. Back to it.`,
+  (w) => `Had ${w}. That hits the spot.`,
 ];
 
 const NO_FOOD_LINES: readonly string[] = [
@@ -237,13 +251,11 @@ function chatter(state: SimState, i: number, text: string, bubble: 'meal' | 'hun
   state.events.push({ player: e.owner[i]!, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), x: e.x[i]!, z: e.z[i]!, bubble, ...(urgent ? { urgent: true } : {}) });
 }
 
-function ateLine(state: SimState, i: number, taken: FoodTaken, quarters: number, starved: boolean): string {
+function ateLine(state: SimState, i: number, taken: FoodTaken, starved: boolean): string {
   const e = state.entities;
-  const amount = foodAmountText(quarters);
-  const kinds = kindsText(taken);
-  const line = starved ? `Food at last! ${amount} of ${kinds}.` : MEAL_LINES[(hash32(e.id[i]!, floorDiv(state.step, MEAL_STEPS)) >>> 0) % MEAL_LINES.length]!(amount, kinds);
-  if (e.mount[i] !== Mount.Horse) return line;
-  return `${line} ${foodAmountText(HORSE_UPKEEP)} of it went to my horse.`;
+  const what = mealText(taken);
+  const line = starved ? `Food at last! I ate ${what}.` : MEAL_LINES[(hash32(e.id[i]!, floorDiv(state.step, MEAL_STEPS)) >>> 0) % MEAL_LINES.length]!(what);
+  return e.mount[i] === Mount.Horse ? `${line} My horse ate too.` : line;
 }
 
 /** What a starving unit says at a meal it misses: the first time, that there was no food; after that, how it is. */
@@ -283,7 +295,7 @@ function unitMeal(state: SimState, i: number): boolean {
   const fed = rationsFeed(p, troop);
   const taken = fed ? takeFood(p, quarters) : null;
   if (taken) {
-    chatter(state, i, ateLine(state, i, taken, quarters, was !== 0), 'meal');
+    chatter(state, i, ateLine(state, i, taken, was !== 0), 'meal');
     e.hungry[i] = 0;
     return was !== 0;
   }
@@ -408,7 +420,8 @@ export function eatAt(state: SimState, i: number): string {
   const p = state.players[e.owner[i]!]!;
   const taken = payFood(p, EAT_NUTRITION);
   if (!taken) return `Not enough food to eat (${EAT_NUTRITION} food).`;
-  chatter(state, i, `Ate ${foodAmountText(EAT_NUTRITION * QUARTERS)} of ${kindsText(taken)} at the table.`, 'meal');
+  // Seated at a main base or storehouse: a fuller meal, named plainly (Patch 2, s).
+  chatter(state, i, `I ate my fill of ${listText(taken.map(([f]) => RESOURCES[f]!.name.toLowerCase()))}.`, 'meal');
   const max = e.maxHp[i]!;
   const missing = max - e.hp[i]!;
   mend(state, i, floorDiv(max * EAT_HEAL_PER_MILLE, 1000), EAT_STEPS);

@@ -89,16 +89,15 @@ export interface SpeciesSpec {
   /** A pack's or herd's group size (wolves 3 to 5). */
   groupMin: number;
   groupMax: number;
-  /** Taming (Table 14): the food it takes and how long a worker stands by it; where it can live; 0 food for never. */
+  /** Taming (Table 14): how many of its bait it takes (Patch 2: farm fare, Jade) and how long a worker stands by it; where it can live; 0 for never. */
   tameFood: number;
   tameFoods: readonly Res[];
   tameSteps: number;
   tameAt: readonly number[];
   /** Food per cycle while working (pulling a cart or carrying a pack), 0 for none (Table 6). */
   upkeep: number;
-  /** Grazing need in m2 of grass within 30 m of its Barn (Table 6), and nutrition a day from farm fare when short. */
-  grassM2: number;
-  cropNutrition: number;
+  /** Nutrition it eats a day from the farm fare in stock while it lives in a Barn (Patch 2, Jade: Barn animals cannot graze, they eat farm fare). */
+  barnFeed: number;
   /** Hauling: a cart's load and speed behind it, and a pack's load without one, tenths of a pound (Table 12). */
   cartTenthsLb: number;
   cartSpeed: number;
@@ -123,34 +122,36 @@ const F = Band.Fringe;
 const D = Band.Deepwoods;
 const B = Band.Barrens;
 const X = Band.Deadlands;
-/** What tamed animals and bait are fed (Patch 2, Jade: "animals eat farm fare"). */
+/** What tamed animals and bait are fed (Patch 2, Jade: "what do animals eat now if they don't graze? farm fare is the answer"). */
 const FARM_FOOD: readonly Res[] = [Res.FarmFare];
 
 type Base = Omit<SpeciesSpec, 'id'>;
-const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameSteps' | 'tameAt' | 'upkeep' | 'grassM2' | 'cropNutrition' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot'> = {
-  youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameSteps: 0, tameAt: [], upkeep: 0, grassM2: 0, cropNutrition: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
+const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameSteps' | 'tameAt' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot'> = {
+  youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameSteps: 0, tameAt: [], upkeep: 0, barnFeed: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
   guard: 0, chase: 0, roam: 0, venom: 0, loot: [],
 };
 const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damage' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
 
 const LIST: readonly Base[] = [
   // Livestock and working animals, all kept in a Barn once tamed (Patch 2, Jade: in place of the livestock farm, the pen and barn and the Stables).
+  // A cow gives twenty times a chicken's food (Jade): 20 beef against 1 chicken meat, 4 food each (s, Jade's rebalance). In a Barn
+  // they eat farm fare every day, as much as they ate of crops when short of grass before Patch 2 (s, Jade's rebalance).
   sp({
     name: 'Cattle', model: 'cow', youngVariant: 'calf', nature: Nature.Shy, hp: 120, damage: 6, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(40), halfWidth: m(5), height: m(15),
-    meat: 6, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], grassM2: 20, cropNutrition: 2,
+    meat: 20, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], barnFeed: 2,
   }),
   sp({
     name: 'Chicken', model: 'chicken_hen', youngVariant: 'chick', nature: Nature.Shy, hp: 10, damage: 1, attackSteps: ds(10), reach: m(5), walk: mps(8), run: mps(30), halfWidth: m(2), height: m(4),
-    meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 2, tameFoods: FARM_FOOD, tameSteps: sec(20), tameAt: [BuildingKind.Barn], grassM2: 2, cropNutrition: 1,
+    meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 2, tameFoods: FARM_FOOD, tameSteps: sec(20), tameAt: [BuildingKind.Barn], barnFeed: 1,
   }),
   sp({
     name: 'Horse', model: 'horse', youngVariant: 'foal', nature: Nature.Shy, hp: 160, damage: 8, attackSteps: ds(15), reach: m(15), walk: mps(20), run: mps(80), halfWidth: m(5), height: m(16),
-    meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: FARM_FOOD, tameSteps: sec(45), tameAt: [BuildingKind.Barn], upkeep: 2, grassM2: 20, cropNutrition: 2,
+    meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: FARM_FOOD, tameSteps: sec(45), tameAt: [BuildingKind.Barn], upkeep: 2, barnFeed: 2,
     cartTenthsLb: 4000, cartSpeed: mps(25), packTenthsLb: 1000,
   }),
   sp({
     name: 'Ox', model: 'ox', youngVariant: 'young', nature: Nature.Shy, hp: 250, armourBp: 1000, damage: 10, attackSteps: ds(18), reach: m(15), walk: mps(15), run: mps(40), halfWidth: m(6), height: m(15),
-    meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], upkeep: 3, grassM2: 20, cropNutrition: 2,
+    meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], upkeep: 3, barnFeed: 2,
     cartTenthsLb: 6000, cartSpeed: mps(15), packTenthsLb: 1500,
   }),
   // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1).

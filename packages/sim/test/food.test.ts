@@ -11,6 +11,7 @@ import {
   addWarrior,
   createWorld,
   deserializeState,
+  eatAt,
   Engine,
   FOODS,
   foodAmountText,
@@ -22,6 +23,7 @@ import {
   healthPerTick,
   itemQuarters,
   MEAL_STEPS,
+  mealFoodText,
   mealPhase,
   mealQuarters,
   MEATS,
@@ -105,7 +107,7 @@ describe('meals', () => {
     for (const f of FOODS) expect(p.open[f]!).toBeLessThan(itemQuarters(f));
   });
 
-  it('a cavalry rider eats for its horse; engines, grazing animals and let-go mercenaries eat nothing', () => {
+  it('a cavalry rider eats for its horse; engines, Barn animals and let-go mercenaries eat nothing at meals', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const [x, z] = [e.x[0]!, e.z[0]!];
@@ -166,7 +168,8 @@ describe('meals', () => {
     const meal = said(run(s, nextMealIn(s.step, id) + 1));
     expect(meal.length).toBe(1);
     expect(meal[0]!.bubble).toBe('meal');
-    expect(meal[0]!.text).toContain('½ food of venison');
+    // Patch 2 (Jade): a plain line with no amount, "I ate some venison." or one like it.
+    expect(meal[0]!.text).toMatch(/^(I ate some venison\.( Back to it\.)?|Had some venison\. That hits the spot\.)$/);
     // No food left: it says so, and at each meal it misses after that, how it is.
     s.players[0]!.pool[Res.Venison] = 0;
     s.players[0]!.open[Res.Venison] = 0;
@@ -191,6 +194,50 @@ describe('meals', () => {
     expect(left).toBeLessThanOrEqual(MEAL_STEPS);
     run(s, left);
     expect(nextMealIn(s.step, id)).toBe(MEAL_STEPS);
+  });
+
+  it('names the food plainly with no amount (Patch 2): farm fare is a meal from the farm, and a rider\'s horse eats too', () => {
+    expect([Res.FarmFare, Res.Trout, Res.Eggs, Res.Beef, Res.FrogLegs].map(mealFoodText)).toEqual([
+      'a meal from the farm',
+      'some trout',
+      'some eggs',
+      'some beef',
+      'some frog legs',
+    ]);
+    // Only farm fare in stock: the line is Jade's, or one of its two companions.
+    const s = stocked([Res.FarmFare]);
+    const e = s.entities;
+    const lines = new Set<string>();
+    const ids = eaters(s).map((i) => e.id[i]!);
+    for (const ev of run(s, 8 * MEAL_STEPS)) if (ev.bubble === 'meal' && ids.includes(ev.speaker!)) lines.add(ev.text);
+    expect([...lines].sort()).toEqual(['Had a meal from the farm. That hits the spot.', 'I ate a meal from the farm.', 'I ate a meal from the farm. Back to it.']);
+    // Two kinds in one meal name both; nothing says raw or an amount.
+    // The first to eat finds a quarter of a venison started, so its meal takes that and some trout.
+    const two = stocked([Res.Venison, Res.Trout]);
+    const soon = (i: number): number => nextMealIn(two.step, two.entities.id[i]!);
+    const w = eaters(two).sort((a, b) => soon(a) - soon(b))[0]!;
+    two.players[0]!.open[Res.Venison] = 1;
+    two.players[0]!.pool[Res.Venison] = 0;
+    two.players[0]!.mealTurn = FOODS.indexOf(Res.Venison);
+    const said = run(two, soon(w) + 1).filter((v) => v.speaker === two.entities.id[w]! && v.bubble === 'meal');
+    expect(said.length).toBe(1);
+    expect(said[0]!.text).toMatch(/some venison and some trout/);
+    expect(said[0]!.text).not.toMatch(/raw|food|½|¼/i);
+    // A rider says its horse ate too; after going hungry the meal is "Food at last!".
+    const r = stocked([Res.Salmon]);
+    const rider = addWarrior(r, 0, r.entities.x[0]!, r.entities.z[0]! + WU_PER_METRE);
+    r.entities.mount[rider] = Mount.Horse;
+    r.entities.hungry[rider] = 1;
+    const id = r.entities.id[rider]!;
+    const meal = run(r, nextMealIn(r.step, id) + 1).filter((v) => v.speaker === id && v.bubble === 'meal');
+    expect(meal.map((v) => v.text)).toEqual(['Food at last! I ate some salmon. My horse ate too.']);
+  });
+
+  it('a unit eating at a main base says it ate its fill', () => {
+    const s = stocked([Res.FarmFare]);
+    const w = eaters(s)[0]!;
+    expect(eatAt(s, w)).toBe('');
+    expect(s.events.filter((v) => v.speaker === s.entities.id[w]! && v.bubble === 'meal').map((v) => v.text)).toEqual(['I ate my fill of farm fare.']);
   });
 
   it('says amounts and spans in words, with the right plurals', () => {
