@@ -9,7 +9,7 @@
 import { floorDiv, length2d, STEPS_PER_SECOND } from '../fixed.ts';
 import { PEOPLES, UnitKind, type SimEvent, type SimState } from '../state.ts';
 import { mobSpec } from '../combat/mobs.ts';
-import { RANK_NAMES } from '../combat/combat.ts';
+import { unitTitleOf } from '../units/names.ts';
 import { Role } from '../threats/types.ts';
 import { engineSpec } from '../siege/data.ts';
 import { buildingName } from '../buildings/data.ts';
@@ -63,10 +63,7 @@ export function speakerName(state: SimState, i: number): string {
     return peopleUnitSpec(e.mob[i]!).name;
   }
   if (e.kind[i] === UnitKind.Engine) return engineSpec(e.mob[i]!).name;
-  const rank = e.rank[i]!;
-  if (e.kind[i] === UnitKind.Warrior) return `Warrior (${RANK_NAMES.warrior[rank] ?? 'Recruit'})`;
-  if (e.kind[i] === UnitKind.Mage) return `Mage (${RANK_NAMES.mage[rank] ?? 'Novice Acolyte'})`;
-  return `Worker (${RANK_NAMES.worker[rank] ?? 'Labourer'})`;
+  return unitTitleOf(state, i);
 }
 
 /**

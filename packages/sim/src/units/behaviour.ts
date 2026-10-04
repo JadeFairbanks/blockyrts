@@ -30,6 +30,7 @@ import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
 import { refundKit, runCart, runKitUp, runSkill } from './gear.ts';
 import { runDig } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
+import { aTroop } from './kits.ts';
 import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './field.ts';
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
@@ -1215,7 +1216,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
     if (!payFood(state.players[b.owner]!, t.food)) {
-      alert(state, b.owner, `Not enough food to train a ${warrior ? 'warrior' : 'worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
+      alert(state, b.owner, `Not enough food to train ${warrior ? aTroop(e.troop[i]!, e.wTier[i]!) : 'a worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     if (e.carryAmt[i]! > 0 || !bagEmpty(state, i)) unload(state, i, b);
@@ -1232,7 +1233,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   // A trained warrior counts as having the experience of its rank, so combat carries on from there (s).
   if (warrior) e.xp[i] = Math.max(e.xp[i]!, WARRIOR_XP_TENTHS[t.rank]!);
   leaveBuilding(state, i);
-  state.events.push({ player: b.owner, kind: 'info', text: `A ${warrior ? 'warrior' : 'worker'} has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
+  state.events.push({ player: b.owner, kind: 'info', text: `${warrior ? aTroop(e.troop[i]!, e.wTier[i]!, true) : 'A worker'} has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
   return DONE;
 }
 

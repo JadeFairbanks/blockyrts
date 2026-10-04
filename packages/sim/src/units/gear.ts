@@ -25,6 +25,7 @@ import { say } from '../peoples/speech.ts';
 import { partnerOf } from './weight.ts';
 import {
   applyKit,
+  aTroop,
   holderKind,
   Line,
   linePiece,
@@ -364,6 +365,6 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
   e.timer[i] = e.timer[i]! + 1;
   if (e.timer[i]! < t.steps) return false;
   e.skills[i] = e.skills[i]! | o.skill;
-  state.events.push({ player: b.owner, kind: 'info', text: `A warrior has learned ${t.name} at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
+  state.events.push({ player: b.owner, kind: 'info', text: `${aTroop(e.troop[i]!, e.wTier[i]!, true)} has learned ${t.name} at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
   return true;
 }
