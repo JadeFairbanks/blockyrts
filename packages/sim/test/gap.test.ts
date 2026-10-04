@@ -256,7 +256,7 @@ describe('early tools by job', () => {
     expect(heldTools(e, 0)).toEqual([FLINT, MAUL, HAMMER]);
     // The worker fights with the kit's blow.
     expect(workerMelee(e, 0).damage).toBe(5);
-    // Copper tools need a Casting Hearth: 2 copper ingots and 2 hardwood, half of 35 s beside the nearest Forge or main base.
+    // Copper tools need a Forge (Patch 2: any Forge, in place of a Casting Hearth): 2 copper ingots and 2 hardwood, half of 35 s beside the nearest Forge or main base.
     pool[Res.CopperIngot] = 2;
     pool[Res.HardwoodLumber] = 2;
     const said: string[] = [];
@@ -264,7 +264,7 @@ describe('early tools by job', () => {
       step(s, k === 0 ? [{ kind: 'upgradeKit', player: 0, units: [e.id[0]!], line: Line.Weapon, max: 0 }] : []);
       said.push(...s.events.map((v) => v.text));
     }
-    expect(said).toContain('Needs a Casting Hearth.');
+    expect(said).toContain('Needs a Forge.');
     expect(e.wTier[0]).toBe(2);
     expect(pool[Res.CopperIngot]).toBe(2);
     const [fx, fz] = freeSpot(s, BuildingKind.Forge);

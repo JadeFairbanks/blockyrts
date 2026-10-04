@@ -7,7 +7,8 @@
 // damage, and anything smaller than the mount is knocked back 1 or 2 m. The
 // goblins' wolves, the Halflings' war oxen and the Elves' bears also attack
 // by themselves beside their riders. A player's cavalry is trained at the
-// Stables on one of its tamed horses and rides it for good (Troops and gear).
+// Barracks on a tamed horse from the nearest Barn and rides it for good
+// (Troops and gear; Patch 2).
 
 import { floorDiv, length2d, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { landAt, UnitKind, type SimState } from '../state.ts';
@@ -221,9 +222,9 @@ function mountStrike(state: SimState, i: number): void {
 // ----- the players' cavalry -----
 
 /**
- * Up on a mount for good: new cavalry rides out of the Stables on the tamed
+ * Up on a mount for good: new cavalry rides out of the Barracks on the tamed
  * horse it was given, which is used up (Troops and gear). Its health, its
- * Stables and its sex are kept with the rider.
+ * Barn and its sex are kept with the rider.
  */
 export function seatOnHorse(state: SimState, i: number, mount: number, hp: number, home: number, sex: number): void {
   const e = state.entities;

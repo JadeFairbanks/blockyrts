@@ -254,7 +254,7 @@ export interface CartOrder {
   back: number;
 }
 
-/** The Lock on a Barracks, Stables or main base panel for one troop type: 0 off, else 1 + weapon tier x 10 + armour tier. */
+/** The Lock on a Barracks or main base panel for one troop type: 0 off, else 1 + weapon tier x 10 + armour tier. */
 export interface TroopLockOrder {
   kind: 'troopLock';
   player: number;
@@ -325,7 +325,7 @@ export interface EarthworkOrder extends UnitsOrder {
   axis: number;
 }
 
-/** Specialist training at a building (Table 7: cannon crew at the Gunnery yard is skill 16). */
+/** Specialist training at a building (Table 7: cannon crew at the Artillery workshop is skill 16). */
 export interface TrainSkillOrder extends UnitsOrder {
   kind: 'trainSkill';
   building: number;

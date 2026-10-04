@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BuildingKind,
   BUILDINGS,
+  CRAFT_PACE,
   Line,
   MONSTERS,
   productsOf,
@@ -39,7 +40,7 @@ interface World {
   buildings?: BuildingInfo[];
   pool?: Array<[number, number]>;
   research?: number;
-  /** The best finished forge level (0 none, 1 Casting Hearth ... 4 Steelworks). */
+  /** The Forge's metal step (Patch 2: 0 no Forge, 1 any Forge, 2 to 4 by main base level 3, 5 and 7). */
   forge?: number;
   /** Per unit id: state fields to set on top of the defaults. */
   units?: Record<number, Partial<Record<keyof typeof S, number>>>;
@@ -174,7 +175,7 @@ describe('the warrior card', () => {
   });
 
   it('goes straight to the best weapon, and the best armour, the stock pays for', () => {
-    // With a Casting Hearth and copper for both, the copper short sword, past the flint hand-axe.
+    // With a Forge and copper for both, the copper short sword, past the flint hand-axe.
     const g = game({ pool: [[Res.Sticks, 10], [Res.Flint, 4], [Res.CopperIngot, 2], [Res.HardwoodLumber, 2]], forge: 1 });
     const equip = button(harness(g, warriors, 'warrior').c.card(), 'equip')!;
     expect(equip.enabled).toBe(true);
@@ -194,7 +195,7 @@ describe('the warrior card', () => {
   });
 
   it("has no Cannon crew button (Jade's Patch 2 cuts it)", () => {
-    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.GunneryYard)], pool: [[Res.Wheat, 100]], research: bit(Research.Cannons) });
+    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.ArtilleryWorkshop)], pool: [[Res.FarmFare, 100]], research: bit(Research.Cannons) });
     expect(button(harness(g, warriors, 'warrior').c.card(), 'train')).toBeUndefined();
   });
 });
@@ -209,7 +210,7 @@ describe("tinkering (Jade's Patch 2)", () => {
 
 describe('workers: rank, tools and carts (Milestone 11)', () => {
   it('upgrades tools on Q to the best the stock pays for, for those it pays for', () => {
-    // Worker 1 (stone and flint) needs a Casting Hearth for copper; worker 2 (hardwood) can go to stone and flint.
+    // Worker 1 (stone and flint) needs a Forge for copper; worker 2 (hardwood) can go to stone and flint.
     const { c, sent } = harness(game({ pool: [[Res.Sticks, 6], [Res.Flint, 1], [Res.Stone, 5]] }), workers, 'worker');
     const equip = button(c.card(), 'equip')!;
     expect(equip).toMatchObject({ face: 'Equip', name: 'Upgrade equipment', key: 'KeyQ', enabled: true });
@@ -217,13 +218,13 @@ describe('workers: rank, tools and carts (Milestone 11)', () => {
     expect(equip.double).toBeUndefined();
     equip.run(PRESS);
     expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [1, 2] });
-    // Worker 1 alone: copper tools need a Casting Hearth.
-    expect(button(harness(game(), [workers[0]!], 'worker').c.card(), 'equip')!.reason).toBe('Needs a Casting Hearth.');
+    // Worker 1 alone: copper tools need a Forge.
+    expect(button(harness(game(), [workers[0]!], 'worker').c.card(), 'equip')!.reason).toBe('Needs a Forge.');
   });
 
   it('trains rank on U, at a Longhall', () => {
-    expect(button(harness(game({ pool: [[Res.Wheat, 100]] }), workers, 'worker').c.card(), 'rankUp')!.reason).toBe('Needs a level 2 main base (Longhall).');
-    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 2 })], pool: [[Res.Wheat, 100]] });
+    expect(button(harness(game({ pool: [[Res.FarmFare, 100]] }), workers, 'worker').c.card(), 'rankUp')!.reason).toBe('Needs a level 2 main base (Longhall).');
+    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 2 })], pool: [[Res.FarmFare, 100]] });
     const { c, sent } = harness(g, workers, 'worker');
     const rank = button(c.card(), 'rankUp')!;
     expect(rank).toMatchObject({ face: 'Rank', name: 'Upgrade rank (to Hand)', key: 'KeyU', enabled: true });
@@ -251,7 +252,7 @@ describe('the Big House', () => {
   const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
 
   it('trains close melee, long melee and rangers on A, Q and N, and makes rope with grid keys', () => {
-    const g = game({ pool: [[Res.Wheat, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
+    const g = game({ pool: [[Res.FarmFare, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
     const house = g.buildings.get(20)!;
     house.troops = troops;
     house.products = productsOf({ kind: BuildingKind.MainBase, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, productSpec(p).name === 'Rope' ? 'Not enough flax (needs 3).' : '']);
@@ -273,7 +274,24 @@ describe('the Big House', () => {
     expect(rope.grid).toBe(true);
     expect(rope.enabled).toBe(false);
     expect(rope.reason).toContain('Not enough flax');
+    // The Big House makes rope at one worker's pace, as before Patch 2.
+    expect(rope.description).toContain('Time: 10 s.');
     expect(make.at(-1)!.face).toBe('Back');
+  });
+
+  it('says a Workshop recipe\'s real time: it works on its own at the crafting pace (Patch 2)', () => {
+    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(30, BuildingKind.Workshop, { name: 'Workshop' })] });
+    const shop = g.buildings.get(30)!;
+    shop.products = productsOf({ kind: BuildingKind.Workshop, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, '']);
+    const { c } = harness(g, [{ ...sel('b:30', `building:${BuildingKind.Workshop}:1`), kind: 'building' }], `building:${BuildingKind.Workshop}:1`);
+    const all = [c.card()];
+    const make = all[0]!.find((e) => e.key === 'KeyK');
+    if (make) {
+      make.run(PRESS);
+      all.push(c.card());
+    }
+    const planks = all.flat().find((e) => e.name === 'Planks from softwood')!;
+    expect(planks.description).toContain(`Time: ${5 / CRAFT_PACE} s.`);
   });
 
   it("sends warriors and workers up a tower with a right click, and warriors up a main base with room on top (Jade's Patch 2 cuts the Enter button)", () => {
@@ -349,9 +367,9 @@ describe('digging and earthworks', () => {
     expect(c.areaPlan()!.tunnel).toBe(false);
   });
 
-  it('offers banks, ramps and fill in the Earthworks submenu, and orders a ramp up a step', () => {
-    const slot = menuSlots('basic').findIndex((specs) => specs.some((s) => s.kind === BuildingKind.Earthworks));
-    expect(submenuChoices(menuSlots('basic')[slot]!).map((c) => c.name)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Lumber or stone ramp']);
+  it('offers banks, ramps and fill in the Defences submenu (Patch 2: Earthworks moved there), and orders a ramp up a step', () => {
+    const slot = menuSlots().findIndex((specs) => specs.some((s) => s.kind === BuildingKind.Earthworks));
+    expect(submenuChoices(menuSlots()[slot]!).map((c) => c.name).slice(-5)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp']);
     const step = (x: number): number => (x > 2 ? 0.9 : 0);
     const { c, sent } = harness(game({ pool: [[Res.Earth, 50]] }), workers, 'worker', step);
     c.startArea('earthwork', 1);

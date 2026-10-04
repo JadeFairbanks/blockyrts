@@ -98,9 +98,9 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.Sanctum);
     shell.message('Debug: a Magi Sanctum placed in the middle of the view.');
   });
-  add('dbg-magekit', 'Mage kit', 'Debug: mage kit', 'Puts 10 sticks, 6 flax, 20 mana crystals, 200 bread, 6 hexstone and 20 herbs in the pool: enough for two mages\' wands and robes, their rank-ups and Hexcraft.', () => {
+  add('dbg-magekit', 'Mage kit', 'Debug: mage kit', 'Puts 10 sticks, 6 flax, 20 mana crystals, 200 farm fare, 6 hexstone and 20 herbs in the pool: enough for two mages\' wands and robes, their rank-ups and Hexcraft.', () => {
     threat(DebugThreat.MageKit);
-    shell.message('Debug: sticks, flax, mana crystals and bread added.');
+    shell.message('Debug: sticks, flax, mana crystals and farm fare added.');
   });
   add('dbg-magexp', 'Mage XP', 'Debug: mage experience', 'Gives each of your mages the experience for her next rank: she rises by herself to Acolyte and Adept Acolyte, and above that is ready to train at the Sanctum for mana crystals.', () => {
     threat(DebugThreat.MageXp);
@@ -121,9 +121,9 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   add('dbg-caravan', 'Caravan', 'Debug: Elf caravan', 'Meets the Elves and sends their caravan to your main base now (by day; it waits for the morning at night). It stops outside the base, trades, and leaves at dusk.', () => people(DEBUG_CARAVAN));
   add('dbg-tradekit', 'Trade kit', 'Debug: trade kit', 'Puts 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold in the pool, to trade with and to hire mercenaries.', () => people(DEBUG_TRADE_KIT));
   // Milestone 8's mounts, engines, guns and the late nights, at the middle of the view.
-  add('dbg-stables', 'Stables', 'Debug: Stables', 'Puts a finished Stables in the middle of the view with 2 grown horses and an ox in its stalls, and 100 bread: select it and train cavalry (C), each taking a horse.', () => {
-    threat(DebugThreat.Stables);
-    shell.message('Debug: a Stables with 2 horses and an ox placed in the middle of the view.');
+  add('dbg-barn', 'Barn', 'Debug: Barn', 'Puts a finished Barn in the middle of the view with 2 grown horses and an ox in its stalls, and 100 farm fare: cavalry trained at a Barracks (from main base level 3) takes a horse from it.', () => {
+    threat(DebugThreat.Barn);
+    shell.message('Debug: a Barn with 2 horses and an ox placed in the middle of the view.');
   });
   add('dbg-siege', 'Siege kit', 'Debug: siege kit', 'Puts a catapult, a ballista and a bronze cannon in the middle of the view, 20 each of catapult stones, ballista bolts, cannonballs and gunpowder in the pool, and researches Siege engines, Gunpowder, Muskets and Cannons. Hitch a horse or an ox (select the engine, right click the animal) or crew it with warriors (right click it).', () => {
     threat(DebugThreat.SiegeKit);
@@ -133,10 +133,10 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.GunKit);
     shell.message('Debug: musket materials and powder added; your warriors are trained as cannon crew.');
   });
-  // Milestone 11's troops: a Barracks, a Steelworks and the stock for every tier.
-  add('dbg-troops', 'Troop kit', 'Debug: troop kit', 'Puts a finished Barracks and a Steelworks (forge level 4) in the middle of the view, 20 of every ingot, the leather, feathers, gunpowder and wood for every tier, and 300 bread in the pool, and researches every tier\'s needs. Select the Barracks to train any troop at any tier.', () => {
+  // Milestone 11's troops: a Barracks, a Forge, a main base of level 7 and the stock for every tier.
+  add('dbg-troops', 'Troop kit', 'Debug: troop kit', 'Puts a finished Barracks and Forge in the middle of the view, raises your main base to level 7 if it is lower (the Forge\'s steel step), puts 20 of every ingot, the leather, feathers, gunpowder and wood for every tier and 300 farm fare in the pool, and researches every tier\'s needs. Select the Barracks to train any troop at any tier.', () => {
     threat(DebugThreat.TroopKit);
-    shell.message('Debug: a Barracks, a Steelworks and the stock for every tier.');
+    shell.message('Debug: a Barracks, a Forge, a level 7 main base and the stock for every tier.');
   });
   add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
     threat(DebugThreat.Citadel);

@@ -1,7 +1,7 @@
 // Farm harvests (Jade, patch notes 1, 2026-10-03): no fallow days, a harvest
 // bar each farmer at work fills by a step a step, a harvest that stays the
-// same whatever the number of farmers, the band's cut on crop fields, and
-// what the selection panel reads.
+// same whatever the number of farmers, and what the selection panel reads.
+// Patch 2: one Farm of farm fare, in full in every band, and the Barn's hens.
 import { describe, expect, it } from 'vitest';
 import {
   addAnimal,
@@ -50,7 +50,7 @@ function workers(s: SimState): number[] {
 }
 
 /** A clear spot for a farm beside the Big House, searching outwards. */
-function farmNearCamp(s: SimState, kind: number, level = 1): Building {
+function farmNearCamp(s: SimState, kind: number): Building {
   const home = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.MainBase)!;
   for (let r = 0; r < 40; r++) {
     for (let dx = -r; dx <= r; dx++) {
@@ -58,9 +58,7 @@ function farmNearCamp(s: SimState, kind: number, level = 1): Building {
         const x = home.x + 16 + dx;
         const z = home.z + dz;
         if (placementBlocked(s, 0, kind, x, z) !== Blocked.None) continue;
-        const b = placeBuilding(s, 0, kind, 0, x, z, true);
-        b.level = level;
-        return b;
+        return placeBuilding(s, 0, kind, 0, x, z, true);
       }
     }
   }
@@ -68,14 +66,12 @@ function farmNearCamp(s: SimState, kind: number, level = 1): Building {
 }
 
 /** A finished farm put down in the first stretch of a band, heading east from the camp (its band is all that matters here). */
-function farmInBand(s: SimState, kind: number, band: Band, level = 1): Building {
+function farmInBand(s: SimState, kind: number, band: Band): Building {
   const home = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.MainBase)!;
   for (let k = 1; k < 4000; k++) {
     const x = home.x + k * 32;
     if (bandAt(s, x + 6, home.z + 6) !== band) continue;
-    const b = placeBuilding(s, 0, kind, 0, x, home.z, true);
-    b.level = level;
-    return b;
+    return placeBuilding(s, 0, kind, 0, x, home.z, true);
   }
   throw new Error(`no ${band} found`);
 }
@@ -87,9 +83,9 @@ function manned(s: SimState, farm: Building, n: number): void {
 }
 
 describe('farm harvests', () => {
-  it('a new field grows from the first step a farmer works it: no fallow days', () => {
+  it('a new Farm grows from the first step a farmer works it: no fallow days', () => {
     const s = createWorld(1, { peaceful: true });
-    const farm = farmNearCamp(s, BuildingKind.CropField);
+    const farm = farmNearCamp(s, BuildingKind.Farm);
     manned(s, farm, 1);
     const before = farm.farmAcc;
     run(s, 10);
@@ -97,110 +93,72 @@ describe('farm harvests', () => {
     expect(s.buildings.list.some((b) => b.id === farm.id)).toBe(true);
   });
 
-  it('one farmer of two still brings in a harvest: one farmer-day of work gives Table 6\'s 6 wheat', () => {
+  it('one farmer of two still brings in a harvest: one farmer-day of work gives 8 farm fare (Patch 2: the tier 1 crop field\'s pace)', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    const farm = farmNearCamp(s, BuildingKind.CropField);
+    const farm = farmNearCamp(s, BuildingKind.Farm);
     manned(s, farm, 1);
-    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.Wheat, items: 6, food: 12, grows: true, perStep: 1, whole: FARM_HARVEST_STEPS });
+    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.FarmFare, items: 8, food: 16, grows: true, perStep: 1, whole: FARM_HARVEST_STEPS });
     farm.farmAcc = FARM_HARVEST_STEPS - 1;
-    const wheat = pool[Res.Wheat]!;
+    const fare = pool[Res.FarmFare]!;
     run(s, 1);
-    expect(pool[Res.Wheat]).toBe(wheat + 6);
+    expect(pool[Res.FarmFare]).toBe(fare + 8);
     expect(farm.farmAcc).toBe(0);
   });
 
   it('a second farmer fills the bar twice as fast, and the harvest stays the same', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    const farm = farmNearCamp(s, BuildingKind.CropField);
+    const farm = farmNearCamp(s, BuildingKind.Farm);
     manned(s, farm, 2);
-    expect(farmHarvest(s, farm)).toMatchObject({ items: 6, perStep: 2 });
+    expect(farmHarvest(s, farm)).toMatchObject({ items: 8, perStep: 2 });
     const before = farm.farmAcc;
     run(s, 10);
     expect(farm.farmAcc).toBe(before + 20);
     farm.farmAcc = FARM_HARVEST_STEPS - 1;
-    const wheat = pool[Res.Wheat]!;
+    const fare = pool[Res.FarmFare]!;
     run(s, 1);
-    expect(pool[Res.Wheat]).toBe(wheat + 6);
+    expect(pool[Res.FarmFare]).toBe(fare + 8);
     // The extra farmer's step of work carries into the next bar.
     expect(farm.farmAcc).toBe(1);
   });
 
-  it('a tier 2 field takes three farmers: three times the pace, its harvest x1.5', () => {
+  it('an unmanned Farm stands still', () => {
     const s = createWorld(1, { peaceful: true });
-    const pool = s.players[0]!.pool;
-    const farm = farmNearCamp(s, BuildingKind.CropField, 2);
-    manned(s, farm, 3);
-    expect(farmHarvest(s, farm)).toMatchObject({ items: 9, food: 18, perStep: 3 });
-    farm.farmAcc = FARM_HARVEST_STEPS - 1;
-    const wheat = pool[Res.Wheat]!;
-    run(s, 1);
-    expect(pool[Res.Wheat]).toBe(wheat + 9);
-  });
-
-  it('an unmanned field stands still', () => {
-    const s = createWorld(1, { peaceful: true });
-    const farm = farmNearCamp(s, BuildingKind.VegetableFarm);
+    const farm = farmNearCamp(s, BuildingKind.Farm);
     run(s, 50);
     expect(farm.farmAcc).toBe(0);
-    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.Potatoes, items: 8, food: 16, done: 0, perStep: 0 });
+    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.FarmFare, items: 8, food: 16, done: 0, perStep: 0 });
   });
 
-  it('a field from a save made before harvest bars starts its bar afresh, with no windfall', () => {
+  it('a Farm from a save made before harvest bars starts its bar afresh, with no windfall', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    const farm = farmNearCamp(s, BuildingKind.CropField);
+    const farm = farmNearCamp(s, BuildingKind.Farm);
     // The old count was thousandths of an item times steps per day.
     farm.farmAcc = 3_000_000;
     run(s, 1);
     expect(farm.farmAcc).toBe(0);
-    expect(pool[Res.Wheat]).toBe(0);
+    expect(pool[Res.FarmFare]).toBe(0);
   });
 
-  it('crop fields make half in the Fringe, carrying the half item to the next harvest', () => {
+  it('the Farm grows in full in every band (Patch 2: no crop field halves in the Fringe)', () => {
     const s = createWorld(1, { peaceful: true });
-    const pool = s.players[0]!.pool;
-    const field = farmInBand(s, BuildingKind.CropField, Band.Fringe, 2);
-    // 6 a farmer-day, x1.5 at tier 2, half in the Fringe: 4.5 a harvest.
-    expect(harvestPerMille(s, field)).toBe(4500);
-    expect(farmBandLine(s, field)).toBe('Half yield in the Fringe: crop fields make half in the Fringe and Deepwoods and nothing in the Barrens or Deadlands.');
-    const got: number[] = [];
-    for (let k = 0; k < 4; k++) {
-      const next = farmHarvest(s, field)!.items;
-      const wheat = pool[Res.Wheat]!;
-      field.farmAcc = FARM_HARVEST_STEPS;
-      run(s, 1);
-      expect(pool[Res.Wheat]! - wheat).toBe(next);
-      got.push(next);
+    expect(farmBandLine(s, farmNearCamp(s, BuildingKind.Farm))).toBe('Full yield in the Heartland: the Farm grows in full in every band.');
+    for (const band of [Band.Fringe, Band.Barrens]) {
+      const farm = farmInBand(s, BuildingKind.Farm, band);
+      expect(harvestPerMille(s, farm)).toBe(8000);
+      expect(farmHarvest(s, farm)).toMatchObject({ grows: true, items: 8 });
     }
-    expect(got).toEqual([4, 5, 4, 5]);
+    expect(farmBandLine(s, farmInBand(s, BuildingKind.Farm, Band.Barrens))).toBe('Full yield in the Barrens: the Farm grows in full in every band.');
+    // Other buildings have no band line.
+    expect(farmBandLine(s, farmNearCamp(s, BuildingKind.Barn))).toBe('');
   });
 
-  it('nothing grows on a crop field in the Barrens; vegetables grow in full there', () => {
-    const s = createWorld(1, { peaceful: true });
-    const field = farmInBand(s, BuildingKind.CropField, Band.Barrens);
-    expect(farmHarvest(s, field)).toMatchObject({ grows: false, items: 0, perStep: 0 });
-    expect(farmBandLine(s, field)).toBe('Nothing grows in the Barrens: crop fields make half in the Fringe and Deepwoods and nothing in the Barrens or Deadlands.');
-    field.farmAcc = 100;
-    run(s, 1);
-    expect(field.farmAcc).toBe(100);
-    const veg = farmInBand(s, BuildingKind.VegetableFarm, Band.Barrens);
-    expect(farmHarvest(s, veg)).toMatchObject({ grows: true, items: 8 });
-    expect(farmBandLine(s, veg)).toBe('Full yield in the Barrens: vegetable farms grow in full in every band.');
-  });
-
-  it('a field in the Heartland says what the band rule is', () => {
-    const s = createWorld(1, { peaceful: true });
-    const farm = farmNearCamp(s, BuildingKind.CropField);
-    expect(farmBandLine(s, farm)).toBe('Full yield in the Heartland: crop fields make half in the Fringe and Deepwoods and nothing in the Barrens or Deadlands.');
-    expect(farmBandLine(s, farmNearCamp(s, BuildingKind.HerbBed))).toBe('Full yield in the Heartland: herb beds grow in full in every band.');
-  });
-
-  it('a livestock farm\'s bar runs to the day\'s turn, when its hens lay', () => {
+  it('a Barn\'s bar runs to the day\'s turn, when its hens lay', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    const farm = farmNearCamp(s, BuildingKind.LivestockFarm);
+    const farm = farmNearCamp(s, BuildingKind.Barn);
     expect(farmHarvest(s, farm)).toBeNull();
     for (let k = 0; k < 2; k++) {
       const hen = addAnimal(s, Species.Chicken, 0, farm.x * WU_PER_COLUMN + k * 8000, farm.z * WU_PER_COLUMN, 0, 0);

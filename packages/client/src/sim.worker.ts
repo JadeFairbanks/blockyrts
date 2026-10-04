@@ -23,7 +23,7 @@ import {
   bagItems,
   FOG_TILE_COLUMNS,
   BuildingKind,
-  bestLevel,
+  forgeStepOf,
   productProblem,
   stalledHorses,
   tinkerProgress,
@@ -298,7 +298,7 @@ function postInfo(s: SimState): void {
       shared: b.shared !== 0,
       stock: b.stock.map(([r, n]): [number, number] => [r, n]),
       rating: b.rating,
-      herd: b.kind === BuildingKind.LivestockFarm || b.kind === BuildingKind.Stables ? animalsAt(s, b.id).length : 0,
+      herd: b.kind === BuildingKind.Barn ? animalsAt(s, b.id).length : 0,
       troops:
         usableBy(s, b, PLAYER) && b.complete
           ? troopTypesAt(b).map((troop) => {
@@ -306,7 +306,7 @@ function postInfo(s: SimState): void {
               return { troop, w, a, lock: b.locks[troop] ?? 0 };
             })
           : [],
-      horses: b.kind === BuildingKind.Stables && b.complete ? stalledHorses(s, b).length : 0,
+      horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
     };
   });
@@ -341,7 +341,7 @@ function postInfo(s: SimState): void {
       outlying: outlyingLights(s, PLAYER, night),
       buildWhy: BUILDINGS.map((spec) => buildRequirement(s, PLAYER, spec.kind)),
       research: me.research,
-      forge: bestLevel(s, PLAYER, BuildingKind.Forge),
+      forge: forgeStepOf(s, PLAYER),
       sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
       over: s.over,
       nights: nightsSurvived(s.over || s.step, s.blood),

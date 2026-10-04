@@ -6,10 +6,8 @@
 import { RESOURCES, Res, STEPS_PER_SECOND } from '@blockyrts/sim';
 import type { FarmInfo } from '../messages.ts';
 
-/** Names that change for one item; the rest (wheat, corn, flax) read the same either way. */
+/** Names that change for one item; the rest (farm fare) read the same either way. */
 const ONE: Readonly<Partial<Record<number, string>>> = {
-  [Res.Potatoes]: 'potato',
-  [Res.Carrots]: 'carrot',
   [Res.Herbs]: 'medicinal herb',
   [Res.Eggs]: 'egg',
 };
@@ -27,7 +25,7 @@ export function durationText(seconds: number): string {
   return rest === 0 ? plural(m, 'minute') : `${plural(m, 'minute')} ${plural(rest, 'second')}`;
 }
 
-/** "6 wheat", "1 potato", "8 potatoes". */
+/** "8 farm fare", "1 egg", "6 eggs". */
 export function itemsText(n: number, res: number): string {
   const name = RESOURCES[res]?.name.toLowerCase() ?? 'items';
   return `${n} ${n === 1 ? (ONE[res] ?? name) : name}`;

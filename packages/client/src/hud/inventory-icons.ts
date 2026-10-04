@@ -72,10 +72,7 @@ set(Res.Sand, 'sand');
 set(Res.Charcoal, 'charcoal');
 set(Res.Saltpetre, 'saltpetre');
 set(Res.Sulphur, 'sulphur');
-set(Res.Wheat, 'wheat');
-set(Res.Potatoes, 'potatoes');
-set(Res.Carrots, 'carrots');
-set(Res.Corn, 'corn');
+set(Res.FarmFare, 'farm_fare');
 set(Res.Flax, 'flax');
 set(Res.Hides, 'hides');
 set(Res.Bone, 'bone');
@@ -96,20 +93,10 @@ set(Res.HandCart, 'hand_cart');
 set(Res.CarbonSteel, 'ingot_carbon_steel');
 set(Res.Gunpowder, 'gunpowder');
 set(Res.OxCart, 'ox_cart');
-set(Res.RoastMeat, 'roast_meat');
-set(Res.RoastFish, 'roast_fish');
-set(Res.SmokedMeat, 'smoked_meat');
-set(Res.SmokedFish, 'smoked_fish');
-set(Res.Bread, 'bread');
-set(Res.SaltedMeat, 'salted_meat');
-set(Res.SaltedFish, 'salted_fish');
-set(Res.Stew, 'stew');
-set(Res.Pie, 'pie');
 set(Res.Bandage, 'bandage');
 set(Res.Remedy, 'healing_remedy');
 set(Res.LumberRamp, 'ramp_lumber');
 set(Res.StoneRamp, 'ramp_stone');
-set(Res.Lantern, 'lantern');
 TRINKET_METALS.forEach((metal, m) =>
   TRINKET_TIERS.forEach((tier, t) => set(trinketRes(m, t + 1), `trinket_${tier.toLowerCase()}_${metal.toLowerCase()}`)),
 );
@@ -137,8 +124,8 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
-    '../../../assets/src/ui/icon_{eggs,wheat,corn,potatoes,carrots,roast_meat,roast_fish,smoked_meat,smoked_fish,bread,salted_meat,salted_fish,stew,pie,bandage,healing_remedy}.png',
-    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone,lantern}.png',
+    '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
+    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,cannonball_iron,catapult_stone,ballista_bolt,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
     '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',

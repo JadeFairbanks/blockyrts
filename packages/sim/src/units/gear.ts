@@ -1,18 +1,19 @@
 // Upgrading units (Troops and gear: Upgrading units, Jade 2026-10-03) and
-// specialist training (Table 7: cannon crew at the Gunnery yard). There are
+// specialist training (Table 7: cannon crew at the Artillery workshop, the
+// Gunnery yard before Patch 2). There are
 // no items: Upgrade Weapon and Upgrade Armour raise a line of a unit's kit
 // one tier, their Max twins to the best tier researched and affordable. The
 // new kit is paid from stock when the button is pressed, the most capable
 // units first (highest rank, then the lowest id), whole steps only; each
-// unit then walks to the nearest Forge, Barracks or main base (cavalry also
-// the Stables, mages also the Magi Sanctum), stands beside it while the bar
+// unit then walks to the nearest Forge, Barracks or main base (mages also
+// the Magi Sanctum), stands beside it while the bar
 // fills, and comes back better armed. A dropped upgrade gives its payment
 // back. Workers also fetch and return carts at a main base.
 
 import { BuildingKind, buildingName } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
-import { bestLevel } from '../buildings/production.ts';
+import { forgeStepOf } from '../buildings/production.ts';
 import { costText, pay, refund, Res } from '../economy/resources.ts';
 import { STEPS_PER_SECOND } from '../fixed.ts';
 import { payFood } from '../economy/food.ts';
@@ -34,7 +35,6 @@ import {
   mainCost,
   piecesCost,
   replacedPieces,
-  Troop,
   TRAINING,
   upgradePieces,
   upgradeSteps,
@@ -49,11 +49,11 @@ type CartOrder = Extract<UnitOrder, { t: 'cart' }>;
 
 /**
  * Specialist training by skill bit (Table 7): cannon crew (after Cannons) at
- * the Gunnery yard. Archery, the crossbow, the musket and riding went with
+ * the Artillery workshop (Patch 2, until the artillery crewman). Archery, the crossbow, the musket and riding went with
  * the troop types (Troops and gear).
  */
 export const SKILL_TRAINING: Readonly<Record<number, { name: string; food: number; steps: number; research: number; at: number }>> = {
-  [Skill.Cannon]: { name: 'cannon crew', food: 40, steps: 90 * STEPS_PER_SECOND, research: Research.Cannons, at: BuildingKind.GunneryYard },
+  [Skill.Cannon]: { name: 'cannon crew', food: 40, steps: 90 * STEPS_PER_SECOND, research: Research.Cannons, at: BuildingKind.ArtilleryWorkshop },
 };
 
 /** A unit's kit as the upgrade rules see it, or undefined for units that have none (mobs, animals, the peoples' units, mercenaries). */
@@ -65,19 +65,18 @@ export function kitHolder(state: SimState, i: number): KitHolder | undefined {
   return { kind, troop: e.troop[i]!, w: e.wTier[i]!, a: e.aTier[i]! };
 }
 
-/** What a player has for the kit's needs: research, best forge level and research names. */
+/** What a player has for the kit's needs: research, the Forge step their town is at and research names. */
 export function techOf(state: SimState, player: number): TechView {
   return {
     research: state.players[player]!.research,
-    forge: bestLevel(state, player, BuildingKind.Forge),
+    forge: forgeStepOf(state, player),
     researchName: (r) => RESEARCH[r]?.name ?? 'research',
   };
 }
 
-/** Whether a building is a place a unit can upgrade beside: a Forge, Barracks or main base; the Stables for cavalry; the Magi Sanctum for mages. */
+/** Whether a building is a place a unit can upgrade beside: a Forge, Barracks or main base; the Magi Sanctum for mages. */
 export function upgradesAt(h: KitHolder, kind: number): boolean {
   if (kind === BuildingKind.Forge || kind === BuildingKind.Barracks || kind === BuildingKind.MainBase) return true;
-  if (kind === BuildingKind.Stables) return h.kind === 'warrior' && h.troop === Troop.Cavalry;
   if (kind === BuildingKind.MagiSanctum) return h.kind === 'mage';
   return false;
 }
@@ -359,7 +358,7 @@ export function orderCart(state: SimState, player: number, units: readonly numbe
     inFront(state, i, { t: 'cart', b: base.id, res });
     sent++;
   }
-  if (sent === 0 && !back) state.events.push({ player, kind: 'alert', text: 'No cart in stock. Hand carts are made at a Workshop, ox and horse carts at a Great Workshop.' });
+  if (sent === 0 && !back) state.events.push({ player, kind: 'alert', text: 'No cart in stock. Carts are made at the Workshop: hand carts from main base level 3, ox and horse carts from level 5.' });
   return sent;
 }
 

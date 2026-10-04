@@ -16,7 +16,7 @@
 // Hunters and gatherers alike go no farther from the nearest main base than
 // they can walk back from to within 4 m of it in the 40 s of dusk.
 
-import { BuildingKind } from '../buildings/data.ts';
+import { BuildingKind, forgeStep } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { mainBaseLevel } from '../buildings/placement.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
@@ -37,7 +37,7 @@ import { bagEmpty } from './loot.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { cartSpeed } from './weight.ts';
 
-/** A basic material gatherers fetch by themselves once the side can use it: from main base level `base` and forge level `forge` (0: no forge needed), counted as plenty at `plenty` in the stock. */
+/** A basic material gatherers fetch by themselves once the side can use it: from main base level `base` and Forge step `forge` (buildings/data.ts forgeStep; 0: no Forge needed), counted as plenty at `plenty` in the stock. */
 export interface ForageGood {
   res: Res;
   base: number;
@@ -48,8 +48,8 @@ export interface ForageGood {
 /**
  * What gatherers fetch by themselves (s): wood, sticks, stone and flint from
  * the start; clay, sand and coal once the main base reaches level 3 (the
- * Kiln, bricks and the Bloomery need them); copper and tin ore once a forge
- * stands, bog iron and iron rock at a level 2 forge (the Bloomery); marble
+ * Forge's bricks and wrought iron need them); copper and tin ore once a
+ * Forge stands, bog iron and iron rock at its wrought iron step; marble
  * from main base level 4 (the Marble Hall needs it). Each is wanted the more
  * the further the stock is below plenty.
  */
@@ -208,18 +208,16 @@ export function wanderTarget(state: SimState, h: Home, i: number): { x: number; 
 
 // ----- what the side needs -----
 
-/** The level of the player's highest finished forge, 0 for none. */
-function forgeLevel(state: SimState, player: number): number {
-  let best = 0;
-  for (const b of state.buildings.list) if (b.owner === player && b.kind === BuildingKind.Forge && b.complete && b.level > best) best = b.level;
-  return best;
+/** Whether the player has a finished Forge. */
+function hasForge(state: SimState, player: number): boolean {
+  return state.buildings.list.some((b) => b.owner === player && b.kind === BuildingKind.Forge && b.complete);
 }
 
 /** How much each material the side can use now is wanted, per mille (0 for one it cannot use yet), by resource. */
 export function wants(state: SimState, player: number): Map<number, number> {
   const pool = state.players[player]!.pool;
   const base = mainBaseLevel(state, player);
-  const forge = forgeLevel(state, player);
+  const forge = forgeStep(hasForge(state, player), base);
   const out = new Map<number, number>();
   for (const g of FORAGE_GOODS) {
     if (base < g.base || forge < g.forge) continue;

@@ -3,11 +3,11 @@
 // health bar under each, subgroup tabs with the active one bright, and for a
 // building its production queue (click to cancel), the units inside (click to
 // let one out), its workers and its rally route; at a farm, the harvest bar
-// (farm-panel.ts); at a Barracks, the Stables
-// or a main base, the troop panel (Troops and gear: Training troops): a
+// (farm-panel.ts); at a Barracks or a main
+// base, the troop panel (Troops and gear: Training troops): a
 // picture button per troop type, weapon and armour tier dropdowns with icons,
 // a Lock, and what the choice costs.
-import { buildingSpec, kitName, productSpec, troopOf, Troop, UnitKind } from '@blockyrts/sim';
+import { buildingSpec, kitName, productSpec, troopOf, UnitKind } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { FarmBlock } from './farm-panel.ts';
@@ -329,7 +329,7 @@ export class SelectionPanel {
       this.tierMenu(b, menu.troop, menu.line);
       return;
     }
-    this.row('label', b.troops.some((t) => t.troop === Troop.Cavalry) ? `Train cavalry (${b.horses} tamed horse${b.horses === 1 ? '' : 's'} in the stalls):` : 'Train troops (pick the kit, then click the picture; Shift: 5):');
+    this.row('label', 'Train troops (pick the kit, then click the picture; Shift: 5):');
     for (const t of b.troops) {
       const c = troopChoice(b, t.troop);
       const why = troopWhy(g, b, t.troop, c.w, c.a);

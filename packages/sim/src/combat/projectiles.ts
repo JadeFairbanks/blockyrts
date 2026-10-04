@@ -34,12 +34,13 @@ export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
  * Fireball): Warding halves it (Table 13). Burst: a Fireball, which bursts
  * where it stops (magic/cast.ts fireballBurst).
  */
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Poison: 8, Spell: 16, Burst: 32, Siege: 64, Pierce: 128 } as const;
+/** Bit 8 was a venom-coated arrow's, which nothing ever fired; Patch 2 cut it with the Herbalist hut. */
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Spell: 16, Burst: 32, Siege: 64, Pierce: 128 } as const;
 
 /** Milestone 8. Siege: an engine's shot, which does its damage against walls to the foes' structures too (lairs, huts) (s). Pierce: a ballista bolt goes on through one more foe behind its first. */
 
-/** Venom on an arrow or bolt: 15 more damage over 5 s (s), on top of the hit. */
-export const POISON = { damage: 15, steps: 5 * STEPS_PER_SECOND };
+/** Poison from a bite or a sting works over 5 s (roster 6.1), on top of the hit. */
+export const POISON = { steps: 5 * STEPS_PER_SECOND };
 
 /** Where a projectile is at a given age. */
 export function projectileAt(p: Projectile, age: number): [number, number, number] {
@@ -321,13 +322,8 @@ export function updateProjectiles(state: SimState): void {
         } else {
           const spell = (p.flags & ProjectileFlag.Spell) !== 0;
           const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
-          const d = hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
+          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
-          if (d > 0 && p.flags & ProjectileFlag.Poison && e.hp[hit]! > 0) {
-            e.dotLeft[hit] = (e.dotUntil[hit]! > state.step ? e.dotLeft[hit]! : 0) + POISON.damage;
-            e.dotUntil[hit] = state.step + POISON.steps;
-            e.dotFrom[hit] = p.shooter;
-          }
         }
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, hit, null);
         splash(state, p, x, y, z, hit);

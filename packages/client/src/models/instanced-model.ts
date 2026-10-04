@@ -203,6 +203,11 @@ export class InstancedModel {
     this.object.visible = false;
   }
 
+  /** Multiplies the model's texture by a colour (0xrrggbb), for every instance: a stand-in model dressed as another building. */
+  tint(colour: number): void {
+    this.material.color.set(colour);
+  }
+
   /** Clip names this model has. */
   get clipNames(): string[] {
     return this.clipList.map((c) => c.name);

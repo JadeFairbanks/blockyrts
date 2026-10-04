@@ -100,8 +100,8 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
   const simple = tree.rows.filter((r) => r.menu !== 'main' && r.tiers.length === 1 && r.tiers[0]!.column === 1 && !r.tiers[0]!.research);
   const sections: Array<[string, string, typeof tree.rows]> = [
     ['main', 'Main base', tree.rows.filter((r) => r.menu === 'main')],
-    ['basic', 'Basic build menu', tree.rows.filter((r) => r.menu === 'basic' && (showSimple || !simple.includes(r)))],
-    ['advanced', 'Advanced build menu', tree.rows.filter((r) => r.menu === 'advanced' && (showSimple || !simple.includes(r)))],
+    ['basic', 'Build menu', tree.rows.filter((r) => r.menu === 'build' && (showSimple || !simple.includes(r)))],
+    ['advanced', 'Defences and Lights', tree.rows.filter((r) => r.menu === 'submenu' && (showSimple || !simple.includes(r)))],
   ];
   for (const [cls, title, rows] of sections) {
     grid.append(h('div', { class: `band ${cls}` }, h('span', {}, title)));
@@ -177,7 +177,7 @@ export function renderTree(root: HTMLElement, deps: TreeDeps): void {
     'Each building\'s tiers sit under the earliest main base level they can be had at: after their own main base level, the tier before them and any research. ',
     'Hover a tier to draw what it waits on (red lines, from the left) and what it opens (blue dashed lines, to the right). Click a tier to change its numbers below the tree; the tree moves as you edit.');
   const legend = h('div', { class: 'legend' },
-    h('span', { class: 'tier main' }, 'Main base'), h('span', { class: 'tier basic' }, 'Basic build menu'), h('span', { class: 'tier advanced' }, 'Advanced build menu'),
+    h('span', { class: 'tier main' }, 'Main base'), h('span', { class: 'tier basic' }, 'Build menu'), h('span', { class: 'tier advanced' }, 'Defences and Lights'),
     h('span', { class: 'tier research' }, 'Research'), h('span', { class: 'tier basic' }, h('span', { class: 'rs' }, flask(), 'needs research')),
     h('span', { class: 'tier basic changed' }, 'you changed it'), h('span', { class: 'tier basic later' }, 'later milestone'));
   const toggle = h('label', { class: 'toggle' },

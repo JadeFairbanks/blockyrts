@@ -48,8 +48,6 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   trainWorker: one(WORKER_ICON),
   trainSupportMage: one(SUPPORT_MAGE_ICON),
   trainBattleMage: one(BATTLE_MAGE_ICON),
-  planksSoft: one('icon_planks'),
-  planksHard: { layers: [{ file: 'icon_planks', filter: 'brightness(0.72) saturate(1.3)' }] },
 };
 
 /** A spell's picture: its own card icon (Table 13). */
@@ -106,8 +104,6 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product === Product.Worker) return one(WORKER_ICON);
   if (product === Product.SupportMage) return one(SUPPORT_MAGE_ICON);
   if (product === Product.BattleMage) return one(BATTLE_MAGE_ICON);
-  if (product === Product.PlanksSoftwood) return ACTION_ICONS.planksSoft;
-  if (product === Product.PlanksHardwood) return ACTION_ICONS.planksHard;
   const t = troopOf(product);
   if (t) return one(troopIconFile(t.troop, t.w));
   if (product < RESEARCH_PRODUCT) return undefined;
@@ -123,11 +119,8 @@ export function productIcon(product: number): ButtonIcon | undefined {
   return undefined;
 }
 
-/** A building's button in a build menu: the building, or for a farm's crop the crop itself. */
+/** A building's button in a build menu: the building's picture (earthworks by their way). */
 export function buildIcon(spec: BuildingSpec, variant: number): ButtonIcon {
-  const crop = spec.crops?.[variant];
-  const good = crop ? goodIcon(crop.res) : undefined;
-  if (good && (spec.crops?.length ?? 0) > 1) return { layers: [{ file: good.file }] };
   return one(buildingIconFile(spec.kind, 1, variant));
 }
 

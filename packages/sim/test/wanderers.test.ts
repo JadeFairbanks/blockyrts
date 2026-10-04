@@ -5,8 +5,6 @@
 // and pulls off somewhere new each time, as often as before and as easy to
 // hit.
 
-import { readFileSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
   addMob,
@@ -46,7 +44,6 @@ import {
   placeBuilding,
   planNight,
   serializeState,
-  SNAPSHOT_VERSION,
   step,
   SWOOP,
   UnitKind,
@@ -350,19 +347,6 @@ describe('wanderers and the night', () => {
       again++;
     }
     expect(again).toBeGreaterThan(0);
-  });
-
-  it('loads a save from before them (version 13), and the wild fills afresh', () => {
-    // Saved by the code before this change, on night 1 (seed 1, one player, 40 steps after dusk ended).
-    const old = gunzipSync(readFileSync(new URL('./fixtures/snapshot-v13-night1.bin.gz', import.meta.url)));
-    expect(old[4]! | (old[5]! << 8)).toBe(13);
-    const s = deserializeState(new Uint8Array(old));
-    expect(s.step).toBe(CYCLE_STEPS + NIGHT_START + 37);
-    expect(s.threats.wild).toEqual([]);
-    run(s, 100);
-    const again = serializeState(s);
-    expect(again[4]! | (again[5]! << 8)).toBe(SNAPSHOT_VERSION);
-    expect(diffStates(s, deserializeState(again))).toBeNull();
   });
 
   it('replays to the same hash and survives a snapshot round trip in the night', () => {

@@ -217,16 +217,16 @@ export interface BuildingInfo {
   /** Mineshafts: what waits to be hauled, and the prospect rating (0 unknown, else 1 + Rating). */
   stock: Array<[number, number]>;
   rating: number;
-  /** Livestock farms and the Stables: animals that live there. */
+  /** Barns: animals that live there. */
   herd: number;
   /**
-   * Barracks, Stables and main bases (own and usable): each troop type it
+   * Barracks and main bases (own and usable): each troop type it
    * trains, with the panel's default weapon and armour tiers (the Lock's
    * combination, else the best the stock pays for) and the Lock (0 off, else
    * 1 + weapon x 10 + armour).
    */
   troops: Array<{ troop: number; w: number; a: number; lock: number }>;
-  /** The Stables: tamed, grown horses free in the stalls (each new cavalry takes one). */
+  /** Barracks: tamed, grown horses free in the nearest Barn that has one (each new cavalry takes one, Patch 2). */
   horses: number;
   /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */
   farm: FarmInfo | null;
@@ -234,16 +234,16 @@ export interface BuildingInfo {
 
 /** A farm's next harvest as the panel shows it (Jade, patch notes 1). */
 export interface FarmInfo {
-  /** What comes in: the resource, how many, and their food value (0 for flax and herbs). */
+  /** What comes in: the resource, how many, and their food value. */
   res: number;
   items: number;
   food: number;
-  /** False where nothing grows (a crop field in the Barrens or Deadlands): no bar, only the band line. */
+  /** False where nothing comes in: no bar, only the band line. */
   grows: boolean;
   /** The bar filled, per mille, and the steps until it is full at the present pace (0 while it stands still). */
   done: number;
   stepsLeft: number;
-  /** What the band does to the yield (crop fields: half in the Fringe and Deepwoods, nothing further out), or ''. */
+  /** The band the Farm stands in (Patch 2: full yield in every band), or ''. */
   band: string;
 }
 
@@ -265,7 +265,7 @@ export interface InfoMessage {
   outlying: { halves: number; limit: number };
   /** Per building kind: why the local player cannot order one at all, or ''. */
   buildWhy: string[];
-  /** Research done, a bit per Research id, and the best finished forge level (what kit tiers need). */
+  /** Research done, a bit per Research id, and the Forge step the town is at (what kit tiers need: sim forgeStep). */
   research: number;
   forge: number;
   /** Dig and earthwork sites of the local player. */

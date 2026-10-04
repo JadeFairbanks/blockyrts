@@ -16,6 +16,7 @@ import { costText, Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { hasResearch, Hit, Research, Shot, type MeleeStats, type RangedStats } from '../combat/items.ts';
 import { Tool, ToolJob, TOOL_JOBS } from '../world/props.ts';
+import { FORGE_STEP_BASE } from '../buildings/data.ts';
 import type { EntityStore } from '../state.ts';
 
 /** The five troop types (Jade), fixed when a troop is trained; workers and mages have none. */
@@ -48,14 +49,14 @@ export function aTroop(troop: number, weaponTier: number, start = false): string
   const a = /^[aeiou]/.test(name) ? 'an' : 'a';
   return `${start ? a.charAt(0).toUpperCase() + a.slice(1) : a} ${name}`;
 }
-/** Command card letters (s): A Close melee, Q Long melee, N Ranger, B Brawler at the Barracks; C Cavalry at the Stables (L is Follow, G a building's upgrade). */
+/** Command card letters (s): A Close melee, Q Long melee, N Ranger, B Brawler and C Cavalry at the Barracks (Patch 2: the Stables are gone) (L is Follow, G a building's upgrade). */
 export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C'];
 
 /** Which line of kit an upgrade raises: a troop's weapon or armour, a worker's tools, a mage's wand or robe. */
 export const Line = { Weapon: 0, Armour: 1 } as const;
 export type Line = (typeof Line)[keyof typeof Line];
 
-/** What a material tier needs before anything of it is made (Troops and gear: Tiers, "Needs" (s)): a forge level and research. */
+/** What a material tier needs before anything of it is made (Troops and gear: Tiers, "Needs" (s)): a Forge metal step (buildings/data.ts forgeStep) and research. */
 export interface TierNeed {
   tier: number;
   name: string;
@@ -319,7 +320,7 @@ export const PROSPECT_TOOL_TIER = 3;
 
 // ----- Table 13: wands and robes -----
 
-/** The material tier each wand and robe tier needs (Table 13 "Needs": Casting Hearth, Bronze, Ironworks, Steel, Carbon steel). */
+/** The material tier each wand and robe tier needs (Table 13 "Needs": a Forge, Bronze, the Forge's iron step, Steel, Carbon steel). */
 const MAGE_NEED: readonly number[] = [0, 1, 3, 4, 6, 7, 8];
 
 const wand = (tier: number, name: string, model: string, powerPct: number, mana: number, cost: Cost, timeS: number): WandKit => ({
@@ -613,18 +614,16 @@ export function mainCost(pieces: readonly Piece[]): Cost {
 }
 
 /**
- * Why a piece cannot be had yet, or '': its tier's forge and research, and
- * its own research. `forge` is the best finished forge level the player has.
+ * Why a piece cannot be had yet, or '': its tier's Forge step and research,
+ * and its own research. `forge` is the metal step the player's town is at
+ * (buildings/data.ts forgeStep): a Forge, then main base levels.
  */
 export function pieceProblem(p: Piece, research: number, forge: number, researchName: (r: Research) => string): string {
   const need = TIER_NEEDS[p.need]!;
-  if (forge < need.forge) return `Needs a ${FORGE_NAMES[need.forge]}.`;
+  if (forge < need.forge) return forge === 0 ? 'Needs a Forge.' : `Needs a level ${FORGE_STEP_BASE[need.forge]} main base.`;
   for (const r of [...need.research, ...(p.research ?? [])]) if (!hasResearch(research, r)) return `Needs ${researchName(r)} researched first.`;
   return '';
 }
-
-/** Forge level names, for the reasons (buildings/data.ts has them too; kept here so this module stays light). */
-const FORGE_NAMES: readonly string[] = ['', 'Casting Hearth', 'Bloomery', 'Ironworks', 'Steelworks'];
 
 /**
  * Puts a unit's kit in its slots from its type and tiers: a troop's weapon,
@@ -742,7 +741,7 @@ export function upgradeSteps(h: KitHolder, line: number, to: number): number {
   return Math.max(STEPS_PER_SECOND, floorDiv(piecesTime(upgradePieces(h, line, to)) * STEPS_PER_SECOND * TRAINING.upgradeTimePm, 1000));
 }
 
-/** The research a player has, their best forge, and research names, for the needs. */
+/** The research a player has, the Forge step their town is at, and research names, for the needs. */
 export interface TechView {
   research: number;
   forge: number;

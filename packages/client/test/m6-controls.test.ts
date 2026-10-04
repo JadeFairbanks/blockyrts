@@ -104,7 +104,7 @@ describe('the mage card', () => {
     const equip = button(card, 'equip')!;
     expect(equip.key).toBe('KeyQ');
     // A copper-tipped wand and a leather-trimmed robe (tier 2) are copper-age work.
-    expect(equip.reason).toBe('Needs a Casting Hearth.');
+    expect(equip.reason).toBe('Needs a Forge.');
     for (const gone of ['stop', 'hold', 'enter', 'upgradeWeapon', 'upgradeArmour']) expect(button(card, gone)).toBeUndefined();
     const keys = card.filter((e) => e.key).map((e) => e.key);
     expect(new Set(keys).size).toBe(keys.length);
