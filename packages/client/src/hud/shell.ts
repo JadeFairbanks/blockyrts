@@ -779,7 +779,7 @@ export class GameShell {
   /** Yes or No: the answer goes to the sim as an order (every machine does the same), and the bubble goes at once. */
   private answer(ev: SimEvent, yes: boolean): void {
     const a = ev.ask!;
-    this.opts.issueOrder({ kind: 'answer', player: this.player, ask: a.id, yes: yes ? 1 : 0, q: a.q, who: ev.building ?? ev.speaker ?? 0, units: [...a.units], res: a.res });
+    this.opts.issueOrder({ kind: 'answer', player: this.player, ask: a.id, yes: yes ? 1 : 0, q: a.q, who: ev.building ?? ev.speaker ?? 0, units: [...a.units], res: a.res, ...(a.n !== undefined ? { n: a.n } : {}) });
     this.bubbles.closeAsk(a.id);
     this.input.refreshHover();
   }
@@ -1846,9 +1846,10 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}`,
+        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
+        ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
