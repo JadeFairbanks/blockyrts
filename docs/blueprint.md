@@ -511,6 +511,7 @@ Patch 2 (2026-10-04, in build; the design record is blueprint/patch-2.md):
 - Training countdown fix (Bug fixes 1; picks in patch2-countdown-picks.md): the queue's "Complete in N seconds" is the sim's own time, sent with every update as the head item's steps left at its pace now, and "On hold" exactly while nothing moves it. Before Patch 2 the client guessed the pace from the rounded per mille bar, so the Magi Sanctum's seconds (and most troops') jumped up and down while they fell. One clock served every building queue, so every queue is fixed; the other countdowns (farm harvest, next meal, the day clock, fuel, spell cooldowns) already read the sim's numbers.
 - Fourteen buildings (round 1, PR #90; picks in patch2-buildings-picks.md): the 31 buildings in two menus become 14 in one Build menu (Big House, Farm, Barn, Storehouse, Fishing dock, Workshop, Forge, Artillery workshop, Barracks, Magi Sanctum, Scholar's Lodge, Mineshaft, and the Defences and Lights submenus); only the Big House keeps levels, and every tier a building used to need is now a main base level (Workshop recipes at 3, 5 and 7; Forge metals at 3, 5 and 7; the Artillery workshop's catapult at 5, ballista at 7 and cannons at 8; Mineshaft depth from Deep Mining I to III at main base 4, 6 and 8); the Workshop, Forge and Artillery workshop need no workers; cooking and the cooked foods are gone, so meat shows raw; the Farm grows Farm fare; the Barn has 10 stalls; cavalry trains at the Barracks from main base 3 on a horse from the nearest Barn; saves from before Patch 2 are refused. The Barn's animals and Farm fare food lines, the crewman, the ammunition cut and mining trips are Patch 2's second wave.
 - Farm fare, Barn animals and meals (round 1, second wave; picks in patch2-farm-barn-picks.md): Barn animals cannot graze, so every morning each eats its farm fare from the stock (cattle, horses and oxen 2 food, a chicken 1), even farm fare kept back from meals; one that finds none loses a tenth of its health, never the last, and its owner hears of it once that morning; they still walk round their Barn by day and shelter in it at night; a cow gives 20 beef, twenty times a chicken's 1 meat; meals say what was eaten with no amount ("I ate a meal from the farm.", "I ate some trout.", "My horse ate too.") and eating at a main base or Storehouse "I ate my fill of venison." (see Food, supply and health and Table 6).
+- Artillery crewman, no ammunition and mining trips (round 1, second wave; picks in patch2-artillery-mining-picks.md): one artillery crewman, trained at the Artillery workshop (30 food, 30 s, 1 supply, Open for Jade's rebalance), crews all three engines, and only he does (Jade: warriors do not crew them; a warrior right clicking an engine follows it); every engine rolls out with its full crew (catapult 2, ballista 1, cannon 2), their food and supply paid with the engine; a crewman who falls is replaced by training another, and Yes to the engine's "A crewman fell. Train another?" queues one at the nearest Artillery workshop who joins the engine that asked; cannon crew training and the Cannon crew button are gone. No attack of any kind uses ammunition (Jade): catapult stones, ballista bolts and cannonballs are cut, and gunpowder stays only as a good for the musket and brawler kits and its research. A worker assigned to a Mineshaft goes down, fills a 25 lb bag by weight, carries it to the nearest main base or Storehouse and goes back, so the shaft is a collection point and the Storehouse a cheap drop-off for every kind of resource (see Siege engines and cannons, Table 7 and Mineshafts and prospecting).
 - Question bubbles and the chat rule (round 3; picks in patch2-questions-picks.md): a unit or building asks its owner a short question in its bubble, with a green tick for Yes and a red cross for No; six questions (better kit, eat to heal, let me down, repair at dawn, look farther off, train another crewman); only urgent lines from the player's own units reach chat (see Unit speech and the message panel and Questions).
 - Lights, tips, tester tools and the minimap (round 4; picks in patch2-lights-tips-minimap-picks.md): no light needs fuel, and the lights are the torch post and a new bonfire (15 softwood, lights 20 m, claims 10 m) with the wall torch, brazier and lantern cut (see Light and torches); the first-day hints become tips, plain outlined text that goes by itself after 12 s of game time, with an X whose first press in a game asks "Turn tips off?" (Settings > Help > Tips); the tester tools and debug readout stay hidden until M N B V C X Z is typed in order in a game; the minimap shows units as dots and buildings by their footprint in their owner's colour, with enemies in red while seen, and red is no longer a player colour (White takes its place).
 
@@ -1081,7 +1082,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 |---|---|---|---|
 | Elf caravan (every 5 days once met; also at the kingdom) | bread 5, roast meat 5, smoked fish 7, wheat 2, flax 1, herbs 2, bandage 5, healing remedy 15 (all 120% of value); HQ steel sword 1500, HQ steel pike 1600, HQ steel glaive (steel halberd stats, 45 damage) 1800 (4 x their value, so never cost-effective, as the doc wants) | trinkets 130%; food 100%; gold, silver, gems 100%; else 60% | a caravan carries 1 weapon and 200 vp of food a visit; the kingdom 3 weapons a day; lumber offered closes trade to that player for 1 day |
 | Dwarf colony (Barrens) | steel ingot 45 (1.5 x), at most 5 a day; bronze 6, wrought iron 9; bronze, wrought iron and iron at 1.5 x value (weapons and shields are no longer items, 2026-10-03); emerald 50, ruby 60, diamond 100 | food 110%; gold, silver, gems 110%; trinkets 100%; metal 80%; lumber 50% (more than anyone else, still not much); else 50% | after the first trade it gives the direction and distance of the nearest city (doc) |
-| Dwarf city (Deadlands, about 1 in 120 cells) | at 3 x make cost: bronze cannon 420, iron cannon 384, musket 102, steel plate 564, steel sallet 102, steel heater shield 282, wrought iron mail 120, steel sword 288; gold 40, gems at value, gunpowder (10 charges) 48, lead shot (10) 12, cannonballs 30; HQ steel ingot 90 (1.5 x), at most 2 a day (the doc's richer-far-out rule, still rare) | as the colony | 1 cannon a day in total (bronze or iron, whichever is bought first; the other waits for the dawn restock) and 3 steel muskets a day; powder horns and shot pouches at 1.5 x value; its own 2 Dwarf cannons inside the gate are not for sale |
+| Dwarf city (Deadlands, about 1 in 120 cells) | at 3 x make cost: bronze cannon 420, iron cannon 384, musket 102, steel plate 564, steel sallet 102, steel heater shield 282, wrought iron mail 120, steel sword 288; gold 40, gems at value, gunpowder (10 charges) 48, lead shot (10) 12, cannonballs 30 (cut in Patch 2); HQ steel ingot 90 (1.5 x), at most 2 a day (the doc's richer-far-out rule, still rare) | as the colony | 1 cannon a day in total (bronze or iron, whichever is bought first; the other waits for the dawn restock) and 3 steel muskets a day; powder horns and shot pouches at 1.5 x value; its own 2 Dwarf cannons inside the gate are not for sale |
 | Reparations (either faction) | 2000 vp plus 100 per Dwarf killed, in gold, silver, gems, trinkets or food |  | a migrated group rebuilds for 10 days (doc, suggested), then raids with a band of 6 every 3 days until paid |
 
 Troop rework (2026-10-03, (s), Open for Jade's rebalance): Elf high-quality steel weapons become carbon steel ingots at the same 4 x value, and Dwarf muskets and armour become the carbon steel or steel that made them at the same 3 x make cost; cannons, gunpowder and cannonballs are unchanged. Lead shot is gone, since ammunition is unlimited; the brawler's pistol fires musket balls. As built in Milestone 11 (s): the Elf kingdom sells 9 carbon steel a day and its lean moved to carbon steel, steel and hardened leather; Dwarf colonies sell steel, bronze, wrought iron and iron; Dwarf cities steel, hardened leather and carbon steel.
@@ -1568,7 +1569,7 @@ Now and then a unit or building asks its owner a short question in its bubble, w
   3. A man up top who wants to fight what walks below: "Let me down to fight those zombies?" Yes lets him down to attack the nearest enemy on the ground. ("I'm not much help up here!" stays a bubble.)
   4. Dawn: the main base, over the middle of its roof, once a dawn when buildings are damaged and a worker is idle: "Three buildings are damaged. Repair them?" Yes sends idle workers, the nearest first, one to a building, nearest the main base first.
   5. A gatherer whose node ran out with nothing near to switch to: "No more softwood nearby. Look farther off?" (before Patch 2: "I have run out of softwood lumber nearby." and the idle alert). Yes sends it to the nearest node of that kind it can walk back from before nightfall.
-  6. An engine that lost a crewman: "A crewman fell. Train another?" Yes queues a crewman at the nearest Artillery workshop (asked once the crewman is in the game).
+  6. An engine that lost a crewman: "A crewman fell. Train another?" Yes queues a crewman at the nearest Artillery workshop, and he joins the engine that asked (Patch 2, second wave).
 - Cut by Jade: a dusk "Everyone home?" question and the light-out questions (the panel lines stay), and a third button.
 
 **The message panel.** What units say that needs the player (above) also appears in the message panel with the name of the unit that said it, along with game alerts (such as "Night is falling") and messages from other players.
@@ -1648,6 +1649,7 @@ Because the game runs in a web browser, some key combinations above are normally
 | R, K, F, Y, W / R, B, F, T, C (mages) | Support spells / battle spells; U Rank (suggested) |
 | O | Peoples panel (suggested; rebinding it moves its badge) |
 | R, E (engines) | Hitch, Port (suggested; Patch 2 cuts the Gunnery yard's U Cannon crew training) |
+| C (artillery crewmen); E (Artillery workshop) | Crew an engine; Train an artillery crewman (Patch 2, suggested) |
 | Any targeted command twice | The unit picks its own target (A, G, E, T, R, N and spells; Move and Patrol only keep targeting) (suggested) |
 | Shift + H | Queue Hold Position after earlier orders |
 | D / T (workers) | Dig / Prospect |
@@ -1814,7 +1816,7 @@ Troops are trained at the Barracks, cavalry at the Stables, and tier 1 close mel
 - Units gain **experience** in combat and grow stronger as they rank up, so losing a veteran hurts.
 - Units can also be **trained** at a training building. Training costs time and food, and the unit stays inside the building and cannot do anything else until it finishes. Training can be cancelled early in an emergency, but the unit gains nothing.
 - Training has a **limit**. Out of about five levels, training buildings can raise a unit at most **two levels above its starting level**; everything beyond that comes only from combat experience. Crewing a cannon is the one specialist skill left: training only makes the unit able to crew one; getting good comes from combat.
-- **No specialist weapon training (Jade, 2026-10-03):** archery, crossbow, musket and riding training are gone, because a troop's type (ranger, brawler, cavalry and so on) is chosen when it is trained. Cannon crews are still trained at the Gunnery yard.
+- **No specialist weapon training (Jade, 2026-10-03):** archery, crossbow, musket and riding training are gone, because a troop's type (ranger, brawler, cavalry and so on) is chosen when it is trained. Cannon crews were still trained at the Gunnery yard before Patch 2; in Patch 2 (Jade) the artillery crewman, trained at the Artillery workshop, takes their place, and only crewmen crew engines.
 
 #### Table 1: Player unit stats
 
@@ -1873,7 +1875,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Troop to Soldier / to Veteran | Barracks | 30 / 60 food | 60 / 120 s | (s) |
 | Mage to Acolyte / to Adept Acolyte | Magi Sanctum | 40 food / 60 food, 2 mana crystals | 60 / 120 s | (s) |
 | Mage, Master Mage, Grand Magician (combat ranks) | Magi Sanctum | 2 / 5 / 10 mana crystals from stock (no rank-wand item); the XP is banked until it is given | 30 s | XP from table 1 (s) |
-| Cannon crew | Gunnery yard | 40 food | 90 s | Cannons (s) |
+| Artillery crewman (Patch 2; before Patch 2 Cannon crew at the Gunnery yard, 40 food, 90 s, after Cannons) | Artillery workshop | 30 food and 1 supply (Jade, Open for Jade's rebalance) | 30 s (Jade, Open for Jade's rebalance) | none (s) |
 
 Training stops two levels above the start (Jade): rank 3 (Veteran, Adept Acolyte, Master worker); the ranks above are combat only. Archery, Crossbow, Musket and Riding training are gone: a troop's type is chosen when it is trained (Jade, 2026-10-03). One unit trains at a time per building; a Barracks, Stables or Sanctum can queue 5 (s). Every time here is Open for Jade's rebalance.
 
@@ -1912,11 +1914,12 @@ Melee fighters use one of two kinds of weapon:
 
 As built, 2026-10-03. Numbers are in tables 2f and 14.
 
+- **Patch 2 (Jade, 2026-10-04):** every engine is made at the Artillery workshop (catapult from main base 5, ballista from 7, cannons from 8) and rolls out with its full crew of artillery crewmen (catapult 2, ballista 1, cannon 2), whose food and supply are paid with the engine (s); a cannon bought from a Dwarf city comes with its crew too (s). Only artillery crewmen crew engines; a warrior right clicking one follows it. A crewman who falls is replaced by training another at the Artillery workshop, and Yes to the engine's "A crewman fell. Train another?" queues one at the nearest workshop, who joins the engine that asked; a crewman trained without a question goes to the nearest engine short of crew, else to the rally point (s). Crewmen selected with their engine stay with it when the group is moved, and Hunt, Upgrade equipment and the army select leave them out (s). No engine needs ammunition. The bullets below are the rules before Patch 2 where they differ.
 - Catapults are made at the Great Workshop, ballistas at the Manufactory and cannons at the Foundry. Engines use no supply and never heal by themselves; a worker repairs one from 3 m away, and a full repair takes as long as making the engine.
 - A hitched horse or ox hauls an engine while within 5 m of it. Crew stand within 4 m of their engine to work it or push it, fight whatever comes within 6 m of them, then go back to it.
 - An engine sees 20 m by itself; its crew's eyes do the rest.
 - The Citadel's 4 cannon ports are the four corners of its roof. A cannon hauled to the door goes up into a free port; its animal is let go at the door and its crew follow it in.
-- One gunpowder makes 10 cannon charges; a cannon shot uses one charge and one cannonball. Muskets and pistols need no ammunition after training (unlimited ammunition, Jade).
+- Before Patch 2 one gunpowder made 10 cannon charges and a cannon shot used one charge and one cannonball; in Patch 2 no engine uses ammunition (Jade). Muskets and pistols need no ammunition after training (unlimited ammunition, Jade).
 
 #### One-handed weapons and shields
 
@@ -1971,7 +1974,7 @@ Direct collision works well, with a few additions so that it stays fair, fast an
 #### Rangers (agreed 2026-10-03)
 
 - A ranger climbs one ladder (Jade): leather sling (tier 1), yew longbow (2), recurve bow (3 to 6, each tier with arrowheads of its own metal), steel-prod crossbow (7, needs the Crossbows research) and flintlock musket (8, needs Gunpowder and Muskets). Numbers are in table 2e.
-- **Ammunition is unlimited** (Jade): there are no arrows, bolts, quivers, shot or powder horns. Feathers are paid when a bow or crossbow ranger is trained or upgraded, and gunpowder when a musket ranger or brawler is (Jade).
+- **Ammunition is unlimited** (Jade): there are no arrows, bolts, quivers, shot or powder horns. Feathers are paid when a bow or crossbow ranger is trained or upgraded, and gunpowder when a musket ranger or brawler is (Jade). In Patch 2 (Jade) this covers every attack of every type: engines need no catapult stones, ballista bolts, cannonballs or powder charges, and those goods and their recipes are cut; gunpowder stays as a good for the musket and brawler kits and their research.
 - There are no poison or fire arrows (suggested, since ammunition is unlimited). Venom and resin keep their other uses.
 - A crossbow hits much harder than a recurve bow but reloads slowly; the musket hits hardest of all and reloads slowest.
 - **Brawler** (tier 8 only): a flintlock pistol for a close shot, then a cutlass in melee (suggested).
@@ -2059,11 +2062,11 @@ Knockback rule (s): 2 m if the target is no taller than 60% of the mount's shoul
 | Halfling war oxen | 2 per barn (grows with the band); at war a spearman takes each ox with an archer behind; the archer gets down if the ox falls |
 | Engines | Great Workshop catapult, Manufactory ballista, Foundry cannons; no supply; never heal; a worker repairs from 3 m, a full repair takes the make time; a hitched animal hauls within 5 m; crew within 4 m to work or push, fight within 6 m then return; an engine sees 20 m |
 | Citadel ports | the roof's four corners; a cannon hauled to the door goes up into a free port; its animal is let go and its crew follow |
-| Dwarf city guns | garrison adds 6 Gunners, 4 Cannon crew and 2 cannons inside the gate; sells 1 cannon a day (bronze or iron) and 3 steel muskets; powder horns and shot pouches at 1.5 x, gunpowder 48, lead shot 12 per ten, cannonballs 30 |
+| Dwarf city guns | garrison adds 6 Gunners, 4 Cannon crew and 2 cannons inside the gate; sells 1 cannon a day (bronze or iron) and 3 steel muskets; powder horns and shot pouches at 1.5 x, gunpowder 48, lead shot 12 per ten, cannonballs 30 (cut in Patch 2) |
 | Late mob tricks | plague bearer miasma 1 per s within 6 m, no healing; gravewing snatches lone workers within 30 m, 40 damage, held 2 s; bone colossus boulder every 8 s; hollow priest raises every 12 s, at most 6; hellhound 5 m cone, 24 over 2 s, every 8 s; fiend 40% faster below 30% health; chain fiend hook 10 m, 15, every 8 s; void stalker seen within 4 m unless lit, first strike x3; juggernaut 5 per s within 3 m of its sides, double damage from behind, no knockback; barrow knight blocks 60% of frontal projectile damage; void witch hex 10 m every 15 s, blink 15 m every 10 s; abyssal drake breath line 1.5 m wide; archfiend +20% damage within 15 m, 4 cinderlings every 20 s; rift colossus beam 200 every 10 s; Rift scorpion every other hit 10 plus 30 poison; Rift hornet slows 30% for 3 s; high flyers circle at 12 m; breakers cave in the land ahead; lair sleepers use no tricks |
 | Morvath | targets the first player still in the game; Crown of night 30 m; Ruin every 20 s, 3 s warning, 300 within 20 m; the Rift every 60 s, open 30 s, a demon every 3 s; spells start 20 s and 30 s after arrival; below half health flies at 4 m/s |
 | Controls | U Train opens Archery, Crossbow, Riding, Musket, Cannon, Back; R Ride or Dismount; engine card A, S, H, M, R Hitch (Let go), E Port; right clicks: engine on your horse or ox hitches, on the Citadel ports; warriors on your engine crew; workers on a damaged engine repair |
-| Debug buttons (test builds; in Patch 2 hidden in every build until M N B V C X Z is typed in order in a game, and the same code hides them again; any other key or a click starts the count again) | Stables, Siege kit, Gun kit, Citadel, Night mob (cycles nights 25 to 110 and the Rift-touched beasts), Wave (nights 30, 50, 85, 105), Morvath |
+| Debug buttons (test builds; in Patch 2 hidden in every build until M N B V C X Z is typed in order in a game, and the same code hides them again; any other key or a click starts the count again) | Stables, Siege kit (Patch 2: engines with their crews and an Artillery workshop), Gun kit, Mine kit (Patch 2: a Mineshaft and a Storehouse), Citadel, Night mob (cycles nights 25 to 110 and the Rift-touched beasts), Wave (nights 30, 50, 85, 105), Morvath |
 
 ### Buildings
 
@@ -2273,7 +2276,7 @@ There are no tools, weapons, armour or ammunition items (Jade, 2026-10-03): gear
 | Hand cart | Workshop (tier 2) | Planks, hardwood lumber. A two-wheeled cart a worker pushes to haul loads. Carts are kept in the stock; X sends a worker to the main base for one and hands it back (suggested, Milestone 11). |
 | Ox or horse cart | Great Workshop | Hardwood lumber, planks, a little iron. Pulled by a horse or an ox; a worker with an ox hitched takes an ox cart when one is in stock. |
 | Cannon | Foundry | Bronze ingots (early, lighter) or iron ingots (later, cheaper), hardwood lumber (carriage) |
-| Cannonballs | Foundry | Iron ingot or stone |
+| Cannonballs (cut in Patch 2) | Foundry | Iron ingot or stone |
 | Catapult, ballista | Great Workshop, Manufactory | See table 2f. |
 
 #### Food and medicine
@@ -2452,7 +2455,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Gold, silver (a nugget), lead ore (5), demon horn (2) | 1 lb | 25 |
 | Gems, gunpowder (10 charges) | 0.1 lb per gem; 1 lb | by node |
 | Copper, tin, bronze, pig, iron, steel ingots | 5 lb | 5 (made goods, not raw) |
-| Cannonball iron / stone; catapult stone; ballista bolt | 6 / 4 lb; 40 lb; 5 lb | carried by the engine's crew or cart |
+| Cannonball iron / stone; catapult stone; ballista bolt (cut in Patch 2) | 6 / 4 lb; 40 lb; 5 lb | carried by the engine's crew or cart |
 | Hand cart | 150 lb raw, pushed at 2.0 m/s by a worker | wheels only (doc) |
 | Ox cart | 600 lb behind an ox at 1.5 m/s; 400 lb behind a horse at 2.5 m/s | wheels only |
 | Pack animal without a cart | ox 150 lb, horse 100 lb, led by a worker |  |
@@ -2534,8 +2537,8 @@ Copper, wrought iron and iron need no research: the forge level opens them, as P
 | Hardened leather (Jade: the Tannery) | Tannery | 2 leather (s, Open for Jade's rebalance) | 20 s (s) |
 | Sinew / rope | Tannery or Big House | 1 leather, or 2 flax | 10 s |
 | Gunpowder (10 charges) | Powder mill | 2 saltpetre, 1 sulphur, 1 charcoal | 15 s (s) |
-| Cannonball | Foundry | 1 iron ingot (any grade) or 2 stone | 5 s (s) |
-| Catapult stone / ballista bolt (5) | Great Workshop / Manufactory | 1 stone / 2 hardwood lumber, 1 wrought iron | 10 s / 30 s |
+| Cannonball (cut in Patch 2) | Foundry | 1 iron ingot (any grade) or 2 stone | 5 s (s) |
+| Catapult stone / ballista bolt (5) (cut in Patch 2) | Great Workshop / Manufactory | 1 stone / 2 hardwood lumber, 1 wrought iron | 10 s / 30 s |
 | Bandage / healing remedy | Herbalist hut | 1 herb, 1 flax (or leather) heals 30 over 15 s / 2 herbs, 1 glass bottle heals 60 over 5 s | 10 s / 20 s |
 
 Building costs below are paid in lumber and stone straight from the pool (workers hew on site, as the doc says for stone blocks); planks are only for kits, carts and engines (s). The forges only smelt; they make no items (Jade, 2026-10-03).
@@ -2606,14 +2609,14 @@ Feathers are needed from the longbow up and gunpowder for the musket and the bra
 
 | **Unit** | **Damage** | **Range (min)** | **Reload** | **Crew** | **Health** | **Haul speed** | **Recipe** | **Made at** | **Time** |
 |---|---|---|---|---|---|---|---|---|---|
-| Bronze cannon | 150, 50 splash in 2 m; 400 vs walls (s) | 60 m (10 m) (s) | 12 s (s) | 2 cannon crew (s) | 400 (s) | horse 2.5, ox 1.5, crew pushing 1.0 m/s (s) | 20 bronze ingots, 10 hardwood lumber (s) | Foundry, Cannons | 180 s (s) |
+| Bronze cannon | 150, 50 splash in 2 m; 400 vs walls (s) | 60 m (10 m) (s) | 12 s (s) | 2 cannon crew (s); Patch 2: 2 artillery crewmen, spawned with it (Jade) | 400 (s) | horse 2.5, ox 1.5, crew pushing 1.0 m/s (s) | 20 bronze ingots, 10 hardwood lumber (s) | Foundry, Cannons | 180 s (s) |
 | Iron cannon | as bronze (s) | as bronze | 12 s (s) | 2 | 500 (s) | as bronze | 12 wrought iron, 10 hardwood lumber (cheaper than bronze, as the doc says) (s) | Foundry, Cannons, Forge 3 | 150 s (s) |
-| Catapult | 80 in 3 m; 200 vs walls (s) | 50 m (15 m) (s) | 15 s (s) | 2 warriors, no training (s) | 300 (s) | horse 2.0, ox 1.5, crew 0.8 (s) | 40 hardwood lumber, 20 planks, 10 rope, 10 bronze (s) | Great Workshop (doc), Siege engines | 240 s (s) |
-| Ballista | 90, pierces 2 targets in a line; 20 vs walls (s) | 45 m (5 m) (s) | 8 s (s) | 1 warrior, no training (s) | 250 (s) | horse 2.5, ox 1.5, crew 1.0 (s) | 40 hardwood lumber, 20 wrought iron, 10 rope (s) | Manufactory (doc), Siege engines, Forge 3 | 240 s (s) |
+| Catapult | 80 in 3 m; 200 vs walls (s) | 50 m (15 m) (s) | 15 s (s) | 2 warriors, no training (s); Patch 2: 2 artillery crewmen, spawned with it (Jade) | 300 (s) | horse 2.0, ox 1.5, crew 0.8 (s) | 40 hardwood lumber, 20 planks, 10 rope, 10 bronze (s) | Great Workshop (doc), Siege engines | 240 s (s) |
+| Ballista | 90, pierces 2 targets in a line; 20 vs walls (s) | 45 m (5 m) (s) | 8 s (s) | 1 warrior, no training (s); Patch 2: 1 artillery crewman, spawned with it (Jade) | 250 (s) | horse 2.5, ox 1.5, crew 1.0 (s) | 40 hardwood lumber, 20 wrought iron, 10 rope (s) | Manufactory (doc), Siege engines, Forge 3 | 240 s (s) |
 | Hand cart |  |  |  | 1 worker pushes at 2.0 m/s (s) | 100 (s) |  | 6 planks, 4 hardwood lumber (s) | Workshop tier 2 (doc) | 60 s (s) |
 | Ox cart |  |  |  | driven by 1 worker (s) | 200 (s) | ox 1.5, horse 2.5 m/s (s) | 12 planks, 8 hardwood lumber, 4 leather, 2 wrought iron (doc: a little iron) (s) | Great Workshop (doc) | 120 s (s) |
 
-A cannon shot uses 1 gunpowder charge and 1 cannonball; a musket shot 1 charge and 1 ball (doc). Capacities are in table 12.
+Before Patch 2 a cannon shot used 1 gunpowder charge and 1 cannonball (doc); in Patch 2 no attack uses ammunition (Jade). Capacities are in table 12.
 
 #### Balance notes (suggested)
 
@@ -2905,6 +2908,7 @@ Digging and earthworks are a resource economy: time, pieces of work, materials o
 - Minerals lie hidden underground, set by the world seed. A worker can **prospect** an area with the **Prospect** command, which gives a rough idea of whether a mineshaft there would be worth building. Suggested result: a rating of Poor, Fair, Good or Rich shown over the area for a while.
 - A mineshaft can be built on **flat stone**.
 - Mineshafts come in **tiers**. Each tier digs deeper and brings up better quantities of materials, and each needs a higher level of research. There are **3 tiers**, unlocked by the Deep Mining I, II and III research; costs and output are in tables 4 and 5.
+- **Mining trips (Jade, Patch 2):** miners are the workers assigned to a mineshaft (4). Each goes down into the shaft, stays out of sight while what it digs fills a 25 lb bag by weight, then carries the bag to the nearest main base or Storehouse and goes back, so the mine is a collection point; the Storehouse is a cheap drop-off for every kind of resource. What the shaft digs waits underground for the next bag, up to 200 loads (s); one miner fills its bag at a time, the one down longest, kind by kind in the order the shaft dug them up (s). Miners stay down from dusk to dawn and carry out at dawn (s). Before Patch 2 the goods piled up at the shaft until workers or carts hauled them away.
 
 ### Multiplayer and saving
 

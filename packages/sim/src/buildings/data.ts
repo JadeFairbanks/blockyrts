@@ -255,7 +255,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     // The Great Workshop's upgrade cost from before Patch 2, from main base 5, where its first engine opens (s, Jade's rebalance).
-    kind: BuildingKind.ArtilleryWorkshop, name: 'Artillery workshop', purpose: 'Builds every siege engine, with no workers: catapults from main base 5, ballistas from 7, bronze and iron cannons from 8 after Cannons. Each rolls out when it is done. Also shapes their shot, and trains warriors as cannon crew.',
+    kind: BuildingKind.ArtilleryWorkshop, name: 'Artillery workshop', purpose: 'Builds every siege engine, with no workers: catapults from main base 5, ballistas from 7, bronze and iron cannons from 8 after Cannons. Each rolls out with its full crew of artillery crewmen (catapult 2, ballista 1, cannon 2), and it trains crewmen to replace any who fall. No engine needs ammunition.',
     slot: 8, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', crafts: true,
     levels: [lvl('Artillery workshop', [[H, 50], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 10]], 400, 1200, { needsBase: 5, gives: 'catapults, ballistas, cannons' })],
   },
@@ -275,7 +275,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl("Scholar's Lodge", [[S, 60], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' })],
   },
   {
-    kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on flat stone. 4 assigned miners bring up stone, ore, coal, gold and gems from underground, kept at the shaft until workers or carts haul them away (right-click it with workers). Deep Mining II and III let every shaft dig deeper. Prospect first (T) to see how rich the spot is.',
+    kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on flat stone. 4 assigned miners go down, fill a 25 lb bag with stone, ore, coal, gold or gems, and carry it to the nearest main base or Storehouse (assign them with a right click). Deep Mining II and III let every shaft dig deeper. Prospect first (T) to see how rich the spot is.',
     slot: 12, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Mineshaft', [[H, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 4, workers: 4, research: DEEP_MINING_1, gives: '4 miners: stone, ores, coal, gold and gems by depth' })],
   },

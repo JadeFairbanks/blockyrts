@@ -52,7 +52,6 @@ export type UnitOrder =
   | { t: 'cart'; b: number; res: number }
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
-  /** Specialist training at a building (Table 7: cannon crew at the Artillery workshop): the unit goes inside until it is done. */
   /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its

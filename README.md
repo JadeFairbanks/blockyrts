@@ -2013,6 +2013,58 @@ portrait next to the card. The tinkering hook is `tinker(state, i, steps)` in
     with a worker: the worker sits beside it for 2 s with the bar over its
     head, and the torch is lit again.
 
+## How a tester checks the artillery crewman, the ammunition cut and mining trips (Patch 2)
+
+Jade's Patch 2, round 1, second wave (blueprint/patch-2.md). The picks are in
+blueprint/patch2-artillery-mining-picks.md. Older sections above that train
+cannon crew, crew engines with warriors, stock catapult stones, ballista bolts
+or cannonballs, or haul from a mineshaft describe the game before Patch 2.
+
+1. **The tests.** `pnpm test` runs packages/sim/test/crewman.test.ts (a
+   crewman trained at the Artillery workshop for 30 food goes to the nearest
+   engine short of crew; an engine rolls out with its full crew, their food
+   paid with it; a fallen crewman's question queues one who joins the engine
+   that asked, and the queue survives a save; crewmen stay with their engine
+   when moved with it and Hunt leaves them out), m8.test.ts (warriors are
+   refused as crew, engines fire with no stock spent, the Citadel's cannon),
+   m4.test.ts (bag trips from a shaft, a nearer Storehouse, miners down at
+   night, the Mine kit) and the client's m8-controls test (Crew and right
+   clicks).
+2. **Engines roll out crewed.** `pnpm dev`, open
+   http://localhost:5173/?seed=1, type M N B V C X Z to show the tester
+   tools and press **Siege kit**: a catapult, a ballista and a bronze cannon,
+   each with its crew (2, 1 and 2 artillery crewmen in sooty tunics, a
+   stand-in until the crewman has a model), and an Artillery workshop south
+   of them. Select the cannon: "Crew 2 of 2 artillery crewmen." The pool and
+   the inventory hold no catapult stones, bolts or cannonballs.
+3. **No ammunition.** Scroll the view about 30 m away and press **Night
+   mob**: the engines fire at it with nothing in the stock, and no message
+   asks for shot.
+4. **Only crewmen crew.** Select a crewman: Attack, Patrol, Move, Crew and
+   Eat. Press C and click the ballista, and he walks over to crew it.
+   Select a warrior and right click an engine: he follows it, and the
+   engine's crew line does not change. Select an engine with its crew and
+   move them: the crew walk with it.
+5. **Training a crewman.** Select the Artillery workshop: the Crewman button
+   (E) costs 30 food, 30 s and 1 supply. Train one: he walks out and goes to
+   the nearest engine short of crew, or to the rally point when none is.
+6. **A crewman falls.** Press A with a warrior and click a crewman (Attack
+   on your own unit hits it in Patch 2) until he falls: his engine asks "A
+   crewman fell. Train another?" Yes queues one at the nearest Artillery
+   workshop, and he walks to that engine even when another is nearer.
+7. **New engines.** Press **Citadel** (main base 10) and gather or trade
+   for a catapult's cost (its button's tooltip lists it): the workshop's
+   catapult button also counts its crew's food (60) and supply (2), and the
+   catapult rolls out with "A catapult is ready, with its 2 crewmen.
+   Its crew push it, or hitch a horse or an ox to haul it faster."
+8. **Mining trips.** Press **Mine kit**: a Mineshaft and a Storehouse beside
+   it, Deep Mining I and a main base of level 4 at least. Right click the
+   shaft with up to four workers: each goes down and out of sight, comes up
+   with a full 25 lb bag (5 stone or ore, 10 coal), carries it to the
+   Storehouse (the nearer drop-off) and goes back down. The shaft's panel
+   reads "N of 4 miners, M down the shaft" and what waits for the next bag.
+   At dusk they stay down and dig on; at dawn they carry out.
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
