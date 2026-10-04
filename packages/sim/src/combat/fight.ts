@@ -591,7 +591,7 @@ export function onUnitHurt(state: SimState, i: number, from: number, fresh: bool
   const e = state.entities;
   const a = e.indexOf(from);
   if (a < 0 || !hostile(state, i, a)) return;
-  if (sideOf(state, i) === Side.Players && e.kind[i] !== UnitKind.Animal) sayAttacked(state, i);
+  if (sideOf(state, i) === Side.Players && e.kind[i] !== UnitKind.Animal) sayAttacked(state, i, a);
   // Hurt by a foe while sitting at a meal (Jade's Patch 2: seated for 10 s), it gets up: the meal is eaten and its healing goes on.
   if (e.queue[i]![0]?.t === 'eat' && tinkering(state, i)) {
     e.queue[i]!.shift();
