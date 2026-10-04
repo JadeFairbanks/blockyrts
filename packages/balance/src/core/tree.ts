@@ -26,7 +26,8 @@ export interface TreeTier {
 export interface TreeRow {
   kind: number;
   name: string;
-  menu: 'main' | 'basic' | 'advanced';
+  /** Patch 2: one build menu, with Defences and Lights as its submenus. */
+  menu: 'main' | 'build' | 'submenu';
   /** False while the game greys it out (comes in a later milestone). */
   live: boolean;
   tiers: TreeTier[];
@@ -40,7 +41,7 @@ export interface TreeResearch {
   column: number;
   /** Seconds to research. */
   seconds: number;
-  /** Plain words for what it waits on ("Casting Hearth level 2", "after Bronze"). */
+  /** Plain words for what it waits on ("Keep (main base 5)", "after Bronze"). */
   waits: string[];
   needs: string[];
   /** Where it is researched. */
@@ -62,8 +63,8 @@ const MODULE = 'buildings/data.ts';
 const RESEARCH_MODULE = 'combat/items.ts';
 
 interface LevelRec { name: string; needsBase: number; research: number }
-interface BuildingRec { kind: number; name: string; menu: 'basic' | 'advanced'; live: boolean; levels: readonly LevelRec[] }
-interface ResearchRec { id: number; name: string; steps: number; forge?: number; after?: number; building?: readonly [number, number]; at?: number; retired?: boolean }
+interface BuildingRec { kind: number; name: string; group?: string; live: boolean; levels: readonly LevelRec[] }
+interface ResearchRec { id: number; name: string; steps: number; base?: number; after?: number; at?: number; retired?: boolean }
 
 /**
  * Lays out the tree. `value` returns the editor's current value for a
@@ -75,7 +76,6 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
   const kinds = (mods[MODULE]?.BuildingKind ?? {}) as Record<string, number>;
   const stepsPerSecond = (mods['fixed.ts']?.STEPS_PER_SECOND ?? mods['rules.ts']?.STEPS_PER_SECOND ?? 20) as number;
   const mainKind = kinds.MainBase ?? 0;
-  const forgeKind = kinds.Forge;
   const lodgeKind = Object.entries(kinds).find(([k]) => /scholar/i.test(k))?.[1];
 
   const num = (module: string, path: Array<string | number>, fallback: unknown): number => {
@@ -142,21 +142,15 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
     const needs: string[] = [];
     if (r) {
       const path = ['RESEARCH', ri!];
-      const forge = num(RESEARCH_MODULE, [...path, 'forge'], r.forge);
-      if (forge > 0 && forgeKind !== undefined) {
-        col = Math.max(col, tierColumn(forgeKind, forge));
-        needs.push(`b:${forgeKind}:${forge}`);
+      const base = Math.min(num(RESEARCH_MODULE, [...path, 'base'], r.base), baseCount);
+      if (base > 0) {
+        col = Math.max(col, tierColumn(mainKind, base));
+        needs.push(`b:${mainKind}:${base}`);
       }
       const after = num(RESEARCH_MODULE, [...path, 'after'], r.after);
       if (after > 0 && rIndex.has(after)) {
         col = Math.max(col, researchColumn(after));
         needs.push(`r:${after}`);
-      }
-      if (r.building) {
-        const bk = num(RESEARCH_MODULE, [...path, 'building', 0], r.building[0]);
-        const bl = num(RESEARCH_MODULE, [...path, 'building', 1], r.building[1]);
-        col = Math.max(col, tierColumn(bk, Math.max(1, bl)));
-        needs.push(`b:${bk}:${Math.max(1, bl)}`);
       }
       const at = num(RESEARCH_MODULE, [...path, 'at'], r.at ?? lodgeKind);
       if (at !== undefined && bIndex.has(at)) {
@@ -171,12 +165,11 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
     return col;
   };
 
-  const names = new Map(buildings.map((b) => [b.kind, b.name]));
   const rNames = new Map(research.map((r) => [r.id, r.name]));
   const rows: TreeRow[] = buildings.map((b, bi) => ({
     kind: b.kind,
     name: b.name,
-    menu: b.kind === mainKind ? 'main' : b.menu,
+    menu: b.kind === mainKind ? 'main' : b.group ? 'submenu' : 'build',
     live: b.live,
     tiers: b.levels.map((lv, li) => {
       const path = ['BUILDINGS', bi, 'levels', li];
@@ -194,16 +187,10 @@ export function buildTree(mods: SimModules, value: (key: string) => RawValue | u
     const path = ['RESEARCH', ri];
     const column = researchColumn(r.id);
     const waits: string[] = [];
-    const forge = num(RESEARCH_MODULE, [...path, 'forge'], r.forge);
-    if (forge > 0 && forgeKind !== undefined) waits.push(`${names.get(forgeKind) ?? 'Forge'} level ${forge}`);
+    const base = num(RESEARCH_MODULE, [...path, 'base'], r.base);
+    if (base > 0) waits.push(`${main?.levels[base - 1]?.name ?? 'Main base'} (main base ${base})`);
     const after = num(RESEARCH_MODULE, [...path, 'after'], r.after);
     if (after > 0) waits.push(`after ${rNames.get(after) ?? all[rIndex.get(after) ?? -1]?.name ?? after}`);
-    if (r.building) {
-      const bk = num(RESEARCH_MODULE, [...path, 'building', 0], r.building[0]);
-      const bl = num(RESEARCH_MODULE, [...path, 'building', 1], r.building[1]);
-      const lvName = buildings[bIndex.get(bk) ?? -1]?.levels[bl - 1]?.name;
-      waits.push(lvName ?? `${names.get(bk) ?? bk} level ${bl}`);
-    }
     const at = num(RESEARCH_MODULE, [...path, 'at'], r.at ?? lodgeKind);
     return {
       id: `r:${r.id}`, research: r.id, name: r.name, column, seconds: Math.round(num(RESEARCH_MODULE, [...path, 'steps'], r.steps) / stepsPerSecond),

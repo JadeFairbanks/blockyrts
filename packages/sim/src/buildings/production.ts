@@ -720,7 +720,7 @@ export function buildingStatus(state: SimState, b: Building): string {
     const miners = `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} miners at work`;
     const rating = b.rating > 0 ? `; the spot is ${RATING_NAMES[b.rating - 1]}` : '';
     const waiting = b.stock.length > 0 ? `; waiting to be hauled: ${costText(b.stock.map(([r, n]) => [r as Res, n] as const))}` : '';
-    return `${workedOut(b) ? 'Worked out' : miners}${rating}${waiting}`;
+    return `${workedOut(state, b) ? 'Worked out' : miners}${rating}${waiting}`;
   }
   if (b.kind === BuildingKind.FishingDock) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} fishing${dockStretch(state, b) ? '' : '; no stretch within 30 m has fish to spare'}`;
   return '';

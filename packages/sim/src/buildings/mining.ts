@@ -11,6 +11,7 @@ import { hash32 } from '../rng.ts';
 import { fishOf } from '../economy/food-kinds.ts';
 import { Res } from '../economy/resources.ts';
 import { UnitKind, type SimState } from '../state.ts';
+import { hasResearch, Research } from '../combat/items.ts';
 import { Band } from '../world/layout.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish } from '../world/props.ts';
@@ -31,8 +32,18 @@ export const PROSPECT_HAMMER_STEPS = 20 * STEPS_PER_SECOND;
 const PATCH_SHIFT = 4;
 /** What a shaft keeps waiting to be hauled before its miners stop (s). */
 export const SHAFT_STOCK_LIMIT = 200;
-/** A worked-out shaft: Table 5's loads, counted as 10 items each (s); tier 3 never runs out. */
-const WORKED_OUT = [6000, 24000, 0] as const;
+/** A worked-out shaft: Table 5's loads, counted as 10 items each (s), by depth; the third depth never runs out. */
+export const WORKED_OUT: readonly number[] = [6000, 24000, 0];
+
+/**
+ * How deep a shaft digs (Patch 2: from the research alone, in place of its
+ * 3 tiers): 1, 2 once its owner has Deep Mining II, 3 with Deep Mining III.
+ * It counts for every shaft the owner has, built before or after.
+ */
+export function shaftDepth(state: SimState, b: Building): number {
+  const mask = (state.players[b.owner]?.research ?? 0) | b.tech;
+  return hasResearch(mask, Research.DeepMining3) ? 3 : hasResearch(mask, Research.DeepMining2) ? 2 : 1;
+}
 
 /** The hidden rating of the ground at a column (s: Poor 30%, Fair 40%, Good 20%, Rich 10%). */
 export function ratingAt(state: SimState, x: number, z: number): number {
@@ -61,12 +72,13 @@ function oreMix(state: SimState, b: Building, ores: readonly number[], total: nu
   return ores.map((r, k) => [r, floorDiv(total * 1000 * weights[k]!, sum), false] as const);
 }
 
-/** What a shaft brings up per miner-day at Fair, by its level (Table 5). */
+/** What a shaft brings up per miner-day at Fair, by its depth (Table 5's tiers). */
 export function shaftOutput(state: SimState, b: Building): Output[] {
   const h = hash32(state.seed ^ 0x67656d73, b.x, b.z);
   const gem = [Res.Emeralds, Res.Rubies, Res.Diamonds][h % 3]!;
-  if (b.level === 1) return [[Res.Stone, 10000, false], ...oreMix(state, b, [Res.CopperOre, Res.TinOre, Res.IronRock, Res.Coal], 8)];
-  if (b.level === 2) {
+  const depth = shaftDepth(state, b);
+  if (depth === 1) return [[Res.Stone, 10000, false], ...oreMix(state, b, [Res.CopperOre, Res.TinOre, Res.IronRock, Res.Coal], 8)];
+  if (depth === 2) {
     const precious = (h >>> 8) & 1 ? Res.Gold : Res.Silver;
     return [[Res.Stone, 10000, false], [Res.VeinIron, 6000, false], ...oreMix(state, b, [Res.CopperOre, Res.TinOre, Res.IronRock], 6), [Res.Coal, 4000, false], [precious, 500, true], [gem, 200, true]];
   }
@@ -88,9 +100,9 @@ export function shaftStock(b: Building): number {
   return n;
 }
 
-/** Whether a shaft has given all its tier holds. */
-export function workedOut(b: Building): boolean {
-  const limit = WORKED_OUT[b.level - 1] ?? 0;
+/** Whether a shaft has given all its depth holds. */
+export function workedOut(state: SimState, b: Building): boolean {
+  const limit = WORKED_OUT[shaftDepth(state, b) - 1] ?? 0;
   return limit > 0 && b.mined >= limit;
 }
 
@@ -113,7 +125,7 @@ export function takeStock(b: Building, n: number, capacity: (res: number) => num
 /** Miners at work bring up their shaft's output, each step. */
 function mine(state: SimState, b: Building): void {
   const miners = workersAt(state, b);
-  if (miners === 0 || workedOut(b) || shaftStock(b) >= SHAFT_STOCK_LIMIT) return;
+  if (miners === 0 || workedOut(state, b) || shaftStock(b) >= SHAFT_STOCK_LIMIT) return;
   if (b.rating === 0 && b.mined === 0 && b.acc.length === 0) b.rating = ratingAt(state, b.x, b.z) + 1;
   const out = shaftOutput(state, b);
   const rating = RATING_PER_MILLE[Math.max(0, b.rating - 1)]!;
@@ -129,9 +141,10 @@ function mine(state: SimState, b: Building): void {
     addStock(b, res, n);
     b.mined += n;
   }
-  if (workedOut(b)) {
+  if (workedOut(state, b)) {
     const [x, z] = buildingCentre(b);
-    state.events.push({ player: b.owner, kind: 'alert', text: 'A mineshaft is worked out. Upgrade it to dig deeper.', x, z });
+    const next = shaftDepth(state, b) === 1 ? 'Deep Mining II' : 'Deep Mining III';
+    state.events.push({ player: b.owner, kind: 'alert', text: `A mineshaft is worked out. Research ${next} to dig deeper.`, x, z });
   }
 }
 

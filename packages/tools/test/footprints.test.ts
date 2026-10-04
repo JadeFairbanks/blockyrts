@@ -8,7 +8,8 @@ describe('building footprints', () => {
   const checks = checkFootprints(readModel);
 
   it('measures every modelled level as the table has it', () => {
-    expect(checks.length).toBeGreaterThan(20);
+    // Patch 2: fourteen buildings, so fewer modelled levels than the 31 entries before it.
+    expect(checks.length).toBeGreaterThan(12);
     for (const c of checks) expect(c.measured, `kind ${c.kind} level ${c.level}`).toEqual([...c.table]);
   });
 

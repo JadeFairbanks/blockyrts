@@ -96,8 +96,7 @@ export interface Catalog {
 
 const RES_PAIR_KEYS = new Set(['cost', 'inputs', 'outputs', 'extra', 'recipes', 'STARTING_STOCK', 'crops']);
 const PAIR_REFS: Readonly<Record<string, RefKind>> = {
-  cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res',
-  at: 'building', madeAt: 'building', FIRST_NIGHT: 'mob',
+  cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res', FIRST_NIGHT: 'mob',
 };
 
 function isNumberPair(v: unknown): v is readonly [number, number] {
@@ -270,8 +269,9 @@ function indexLabel(ctx: Ctx, key: string, i: number): string {
     case 'tools': return r.toolJob.get(i) ?? `${i + 1}`;
     case 'DEPTH_PM': case 'DEPTH_AHEAD': return r.band.get(i) ?? `Band ${i}`;
     case 'SIGHT_WU': return r.unitKind.get(i) ?? `Kind ${i}`;
-    case 'FARM_TIER_PER_MILLE': case 'COOK_STEPS_PER_ITEM': return `Tier ${i + 1}`;
-    case 'TRINKET_STEPS': case 'TRINKET_INGOTS': case 'TRINKET_MULTIPLIER_TENTHS': {
+    case 'FORGE_STEP_BASE': return ['No Forge', 'Copper, tin and bronze', 'Wrought iron', 'Iron', 'Steel'][i] ?? `Step ${i}`;
+    case 'WORKED_OUT': return `Depth ${i + 1}`;
+    case 'TRINKET_STEPS': case 'TRINKET_INGOTS': case 'TRINKET_MULTIPLIER_TENTHS': case 'TRINKET_TIER_BASE': {
       const tiers = findExport(ctx.mods, 'TRINKET_TIERS') as readonly string[] | undefined;
       return tiers?.[i] ?? `Tier ${i + 1}`;
     }
@@ -396,10 +396,11 @@ function groupOf(module: string, name: string): string {
 function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
   const r = ctx.refs;
   switch (ctx.exportName) {
-    case 'BUILDINGS': return [rec.menu === 'advanced' ? 'Advanced build menu' : 'Basic build menu'];
+    // Patch 2: one build menu, with Defences and Lights as its submenus.
+    case 'BUILDINGS': return [typeof rec.group === 'string' ? `Build menu: ${rec.group}` : 'Build menu'];
     case 'RECIPES': {
-      const at = (rec.at as ReadonlyArray<readonly [number, number]>)[0];
-      return [at ? `At the ${r.building.get(at[0]) ?? 'building'}` : 'Anywhere'];
+      const at = (rec.at as readonly number[])[0];
+      return [at !== undefined ? `At the ${r.building.get(at) ?? 'building'}` : 'Anywhere'];
     }
     case 'MOBS': return [`${r.role.get(rec.role as number) ?? 'Other'} mobs`];
     case 'SPECIES': return [`${r.nature.get(rec.nature as number) ?? 'Other'} animals`];
@@ -578,7 +579,7 @@ const HOW: Readonly<Record<string, string>> = {
   guardians: 'has this as a guardian', spawns: 'sends this out at night', mob: 'is the data for this lair or band', tameAt: 'is kept here once tamed',
 };
 
-/** The Forge's building kind (shown as the Casting Hearth and its later levels). */
+/** The Forge's building kind (Patch 2: one Forge, whose metal steps come with main base levels). */
 export function forgeKind(mods: SimModules): number | undefined {
   const kinds = findExport(mods, 'BuildingKind') as Record<string, number> | undefined;
   return kinds?.Forge;
@@ -603,8 +604,6 @@ function linkRelations(mods: SimModules, entries: Map<string, Entry>, fields: Ma
     } else if (f.ref === 'building' && (via === 'at' || via === 'madeAt' || via === 'tameAt')) {
       target = refEntry('building', f.value);
       how = HOW[via]!;
-      const lv = via === 'tameAt' ? undefined : fields.get(f.id.replace(/\.0$/, '.1'));
-      if (lv && typeof lv.value === 'number') detail = `level ${lv.value}`;
     } else if (f.ref === 'mob' && (via === 'guardians' || via === 'spawns' || via === 'mob')) {
       target = refEntry('mob', f.value);
       how = HOW[via]!;
@@ -619,8 +618,8 @@ function linkRelations(mods: SimModules, entries: Map<string, Entry>, fields: Ma
     }
     if (key === 'forge' && f.value > 0 && forge !== undefined) {
       target = refEntry('building', forge);
-      how = 'needs a forge of this level first';
-      detail = `level ${f.value}`;
+      how = 'needs the Forge at this metal step first';
+      detail = `step ${f.value}`;
     }
     if (!target || !how || target === from.id) continue;
     entries.get(target)?.usedBy.push({ from: from.id, where, how, detail });

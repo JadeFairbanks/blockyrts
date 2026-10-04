@@ -5,7 +5,9 @@
 //
 // - What a unit of each resource costs in worker-seconds: a raw one from its
 //   Table 5 node (time per load, per load) plus a walk, a made one from its
-//   cheapest recipe (the batch time plus its inputs).
+//   cheapest recipe (the batch time plus its inputs; Patch 2: the Workshop,
+//   Forge and Artillery workshop need no workers, so their batch time is no
+//   one's labour and only the inputs count).
 // - Each tier's ladder: the main base levels, buildings and research it needs
 //   and the first kits it arms (TIERS below; only the structure lives here,
 //   every number comes from the sim). Its labour is the build work (ws) plus
@@ -25,13 +27,11 @@ import {
   DAY_STEPS,
   DUSK_STEPS,
   FACILITY_UPKEEP,
-  FARM_TIER_PER_MILLE,
   ARMOUR_KITS,
   CLOSE_KITS,
   levelSpec,
   mainCost,
   piecesTime,
-  PLANK_STEPS,
   PROPS,
   RECIPES,
   Res,
@@ -90,16 +90,15 @@ export function resourceCost(): (res: number) => number {
     busy.add(res);
     let best = Infinity;
     best = FIXED_S[res] ?? Infinity;
-    // Planks at the lumber mill: 1 lumber gives 1 plank (Table 2b).
-    if (res === Res.Planks) best = sec(PLANK_STEPS) + cost(Res.SoftwoodLumber);
     const info = RESOURCES[res];
     const prop = info ? byName.get(info.name.toLowerCase()) : undefined;
     if (prop) best = Math.min(best, (sec(prop.loadSteps) + WALK_S + (FAR_S[res] ?? 0)) / prop.perLoad);
     for (const r of RECIPES) {
       const out = r.outputs.find(([o]) => o === res);
-      if (!out || r.cooked) continue;
+      if (!out) continue;
+      const workerless = r.at.some((k) => buildingSpec(k).crafts);
       for (const inputs of r.inputs) {
-        let c = sec(r.steps);
+        let c = workerless ? 0 : sec(r.steps);
         for (const [i, n] of inputs) c += n * cost(i);
         best = Math.min(best, c / out[1]);
       }
@@ -145,16 +144,18 @@ export const TIERS: readonly Tier[] = [
   {
     // Rangers with wrought-iron arrowheads, and wrought-iron mail (the crossbow is steel now, tier 7).
     name: 'Wrought iron and mail', target: [13, 18],
-    rungs: [...base(5), B(BuildingKind.Kiln, 1), B(BuildingKind.Forge, 2), B(BuildingKind.Forge, 3), K([RANGER_KITS[5]!], 4), K([ARMOUR_KITS[5]!], 10)],
+    // Patch 2: the Forge has no levels; wrought iron, charcoal and bricks come at main base 3, iron at 5.
+    rungs: [...base(5), K([RANGER_KITS[5]!], 4), K([ARMOUR_KITS[5]!], 10)],
   },
   {
     name: 'Steel and crossbows', target: [25, 30],
-    rungs: [B(BuildingKind.MainBase, 6), B(BuildingKind.MainBase, 7), B(BuildingKind.Forge, 4), R(Research.Steel), R(Research.Crossbows), K([CLOSE_KITS[7]!], 8), K([RANGER_KITS[7]!], 4)],
+    rungs: [B(BuildingKind.MainBase, 6), B(BuildingKind.MainBase, 7), R(Research.Steel), R(Research.Crossbows), K([CLOSE_KITS[7]!], 8), K([RANGER_KITS[7]!], 4)],
   },
   {
     // The musket is a carbon-steel ranger kit (tier 8).
     name: 'Muskets and cannons', target: [40, 48],
-    rungs: [B(BuildingKind.PowderMill, 1), B(BuildingKind.MainBase, 8), B(BuildingKind.Foundry, 1), B(BuildingKind.GunneryYard, 1), R(Research.CarbonSteel), R(Research.Gunpowder), R(Research.Muskets), R(Research.Cannons), K([RANGER_KITS[8]!], 8)],
+    // Patch 2: gunpowder at the Forge from main base 7; cannons at the Artillery workshop from 8.
+    rungs: [B(BuildingKind.MainBase, 8), B(BuildingKind.ArtilleryWorkshop, 1), R(Research.CarbonSteel), R(Research.Gunpowder), R(Research.Muskets), R(Research.Cannons), K([RANGER_KITS[8]!], 8)],
   },
 ];
 
@@ -227,19 +228,22 @@ export interface SupplyAssumptions {
   workers: number;
   lodges: number;
   mainBaseLevel: number;
-  /** Tier 3 wheat fields. */
-  fields: number;
-  fieldLevel: number;
+  /** Farms (Patch 2: one Farm with no tiers, in place of 10 tier 3 wheat fields). */
+  farms: number;
 }
 
-/** About 105 units (Balance notes): 45 warriors and 6 mages of the night 110 defence, 52 workers, 2 Lodges (s). */
-export const NIGHT_110_TOWN: SupplyAssumptions = { warriors: 45, mages: 6, workers: 52, lodges: 2, mainBaseLevel: 10, fields: 10, fieldLevel: 3 };
+/**
+ * About 105 units (Balance notes): 45 warriors and 6 mages of the night 110
+ * defence, 52 workers, 2 Lodges (s). Patch 2's Farm gives 4 supply, so the
+ * town keeps 14 Farms to stay inside its supply (s, Jade's rebalance).
+ */
+export const NIGHT_110_TOWN: SupplyAssumptions = { warriors: 45, mages: 6, workers: 52, lodges: 2, mainBaseLevel: 10, farms: 14 };
 
 export interface SupplyRow {
   supplyCap: number;
   supplyUsed: number;
   nutritionPerDay: number;
-  /** Nutrition one tier 3 wheat farmer makes a day as bread. */
+  /** Nutrition one farmer grows a day as farm fare. */
   perFarmer: number;
   farmersNeeded: number;
   farmersRoom: number;
@@ -248,16 +252,14 @@ export interface SupplyRow {
 
 /** Supply and food at night 110 from the sim's tables. */
 export function supplyCheck(t: SupplyAssumptions = NIGHT_110_TOWN): SupplyRow {
-  const field = levelSpec(BuildingKind.CropField, t.fieldLevel);
-  const supplyCap = levelSpec(BuildingKind.MainBase, t.mainBaseLevel).supply + t.fields * field.supply;
+  const farm = levelSpec(BuildingKind.Farm, 1);
+  const supplyCap = levelSpec(BuildingKind.MainBase, t.mainBaseLevel).supply + t.farms * farm.supply;
   const units = t.warriors + t.mages + t.workers;
   const supplyUsed = units + t.lodges;
   const nutritionPerDay = (units + t.lodges) * FACILITY_UPKEEP;
-  const wheat = buildingSpec(BuildingKind.CropField).crops!.find((c) => c.res === Res.Wheat)!;
-  const bread = RECIPES.find((r) => r.outputs.some(([o]) => o === Res.Bread))!;
-  const wheatPerBread = bread.inputs[0]!.find(([r]) => r === Res.Wheat)![1] / bread.outputs[0]![1];
-  const perFarmer = (wheat.perDay * FARM_TIER_PER_MILLE[t.fieldLevel - 1]!) / 1000 / wheatPerBread * RESOURCES[Res.Bread]!.nutrition;
+  const crop = buildingSpec(BuildingKind.Farm).crop!;
+  const perFarmer = crop.perDay * RESOURCES[crop.res]!.nutrition;
   const farmersNeeded = Math.ceil(nutritionPerDay / perFarmer);
-  const farmersRoom = t.fields * field.workers;
+  const farmersRoom = t.farms * farm.workers;
   return { supplyCap, supplyUsed, nutritionPerDay, perFarmer, farmersNeeded, farmersRoom, ok: supplyUsed <= supplyCap && farmersNeeded <= farmersRoom && farmersNeeded <= t.workers };
 }

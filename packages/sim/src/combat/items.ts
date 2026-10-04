@@ -138,7 +138,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Tier 4 (bronze): bronze ingots, bronze weapons, armour and tools, and mining bog iron and iron rock.',
   },
   {
-    id: Research.DeepMining1, name: 'Deep Mining I', key: 'D', cost: [[Res.BronzeIngot, 20], [Res.Stone, 50]], steps: sec(90), after: Research.Bronze,
+    id: Research.DeepMining1, name: 'Deep Mining I', key: 'D', cost: [[Res.BronzeIngot, 20], [Res.Stone, 50]], steps: sec(90), after: Research.Bronze, base: 4,
     opens: 'The Mineshaft: stone and copper, tin, iron rock or coal.',
   },
   {
@@ -156,8 +156,8 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'The Warding and Counterspell spells.',
   },
   {
-    id: Research.DeepMining2, name: 'Deep Mining II', key: 'E', cost: [[Res.WroughtIron, 30], [Res.Stone, 100], [Res.Silver, 3]], steps: sec(120), base: 5,
-    opens: 'Deeper mineshafts: vein iron, coal, silver or gold, gems.',
+    id: Research.DeepMining2, name: 'Deep Mining II', key: 'E', cost: [[Res.WroughtIron, 30], [Res.Stone, 100], [Res.Silver, 3]], steps: sec(120), base: 6,
+    opens: 'Every mineshaft digs deeper: vein iron, coal, silver or gold, gems.',
   },
   {
     id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), base: 5,
@@ -177,8 +177,8 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Nothing: the crossbow is ranger tier 7.',
   },
   {
-    id: Research.DeepMining3, name: 'Deep Mining III', key: 'M', cost: [[Res.SteelIngot, 30], [Res.Stone, 200], [Res.Gold, 3], [Res.Silver, 3]], steps: sec(180), after: Research.Steel,
-    opens: 'The deepest mineshafts: more vein iron and coal, lead, gold, gems; never worked out.',
+    id: Research.DeepMining3, name: 'Deep Mining III', key: 'M', cost: [[Res.SteelIngot, 30], [Res.Stone, 200], [Res.Gold, 3], [Res.Silver, 3]], steps: sec(180), after: Research.Steel, base: 8,
+    opens: 'Every mineshaft digs deepest: more vein iron and coal, lead, gold, gems; never worked out.',
   },
   {
     id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), base: 7,
