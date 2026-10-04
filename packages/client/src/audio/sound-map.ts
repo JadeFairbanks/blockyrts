@@ -202,13 +202,15 @@ export function orderVoice(orderKind: string): VoiceEventId {
 }
 
 /** What a sim event says out loud: a sound, and a voice cue from its speaker. */
-export function eventCue(ev: { kind: string; text: string; urgent?: boolean | undefined; foreign?: boolean | undefined; sound?: string | undefined; ask?: { q: number; closed?: boolean | undefined } | undefined }): { sound: string | null; voice: VoiceEventId | null } {
+export function eventCue(ev: { kind: string; text: string; urgent?: boolean | undefined; foreign?: boolean | undefined; sound?: string | undefined; lair?: number | undefined; ask?: { q: number; closed?: boolean | undefined } | undefined }): { sound: string | null; voice: VoiceEventId | null } {
   if (ev.kind === 'question') {
     // A question as it goes up (Patch 2): the gatherer that ran out keeps the idle gatherer's alert and voice; the others chime.
     if (!ev.ask || ev.ask.closed) return { sound: null, voice: null };
     return ev.ask.q === Ask.Farther ? { sound: 'alert_idle_worker', voice: 'resource_out' } : { sound: 'ui_message', voice: null };
   }
   if (ev.sound === 'double-horn') return { sound: 'horn_blood_night', voice: null };
+  // A new lair (Patch 3): the map ping, with the red ping on the minimap.
+  if (ev.lair !== undefined) return { sound: 'ping', voice: null };
   const t = ev.text.toLowerCase();
   if (ev.kind === 'speech') {
     if (ev.foreign) return { sound: null, voice: /war|leave|go away|warn|last|enough/.test(t) ? 'warn' : /trade|deal|offer|buy|sell|bargain/.test(t) ? 'trade' : 'greet' };

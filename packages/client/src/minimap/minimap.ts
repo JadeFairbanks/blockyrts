@@ -3,13 +3,26 @@
 // red) with the marks on top, a few times a second; and the camera's view
 // footprint drawn over it every frame.
 import type * as THREE from 'three';
+import { LAIR_PING_STEPS, STEPS_PER_SECOND } from '@blockyrts/sim';
 import type { Pt } from '../hud/rects.ts';
 import type { MinimapSource } from '../selection/types.ts';
 import { fitBounds, mapToWorld, normalizeBounds, sameBounds, worldToMap, type Bounds, type MapTransform } from './transform.ts';
 
 const UNEXPLORED = '#0b0e12';
-/** How long a ping shows, ms. */
-const PING_MS = 4000;
+/**
+ * A ping's look: an urgent message's gold rings for 4 s, or a new lair's red
+ * rings (Patch 3) for the Lairs group's LAIR_PING_STEPS; rgb, how long it
+ * shows (ms) and its rings' width (px).
+ */
+export type PingStyle = 'urgent' | 'lair';
+export const PINGS: Readonly<Record<PingStyle, { rgb: string; ms: number; line: number }>> = {
+  urgent: { rgb: '255, 210, 90', ms: 4000, line: 2 },
+  lair: { rgb: '224, 48, 42', ms: (LAIR_PING_STEPS * 1000) / STEPS_PER_SECOND, line: 2.5 },
+};
+/** A new ring goes out every 4/3 s, however long the ping lasts. */
+const PULSE_MS = 4000 / 3;
+/** Pings shown at once: enough for a lair for each of 8 players at one dusk, with urgent messages besides. */
+const PINGS_KEPT = 16;
 /** Units and buildings are repainted this often, ms. */
 const THINGS_MS = 150;
 
@@ -31,8 +44,8 @@ export class Minimap {
   private paintedBounds: Bounds | null = null;
   private bounds: Bounds = { minX: -150, minZ: -150, maxX: 150, maxZ: 150 };
   private t: MapTransform = { scale: 1, ox: 0, oy: 0 };
-  /** Urgent messages' pings: where (metres) and when they began (ms). */
-  private pings: Array<{ x: number; z: number; t0: number }> = [];
+  /** Urgent messages' and new lairs' pings: where (metres), when they began (ms) and how they look. */
+  private pings: Array<{ x: number; z: number; t0: number; style: PingStyle }> = [];
 
   constructor(
     readonly el: HTMLElement,
@@ -119,24 +132,25 @@ export class Minimap {
     this.drawPings(ctx, dpr);
   }
 
-  /** Pings a spot (an urgent message): rings that grow and fade for a few seconds. */
-  ping(x: number, z: number): void {
-    this.pings.push({ x, z, t0: performance.now() });
-    if (this.pings.length > 8) this.pings.shift();
+  /** Pings a spot (an urgent message, or a new lair): rings that grow and fade for a few seconds. */
+  ping(x: number, z: number, style: PingStyle = 'urgent'): void {
+    this.pings.push({ x, z, t0: performance.now(), style });
+    if (this.pings.length > PINGS_KEPT) this.pings.shift();
   }
 
   private drawPings(ctx: CanvasRenderingContext2D, dpr: number): void {
     const now = performance.now();
-    this.pings = this.pings.filter((p) => now - p.t0 < PING_MS);
+    this.pings = this.pings.filter((p) => now - p.t0 < PINGS[p.style].ms);
     for (const p of this.pings) {
+      const look = PINGS[p.style];
       const at = worldToMap(this.t, p.x, p.z);
-      const k = (now - p.t0) / PING_MS;
+      const k = (now - p.t0) / look.ms;
       for (const lag of [0, 0.35]) {
-        const f = (k * 3 + lag) % 1;
+        const f = ((now - p.t0) / PULSE_MS + lag) % 1;
         ctx.beginPath();
         ctx.arc(at.x, at.y, (3 + f * 14) * dpr, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 210, 90, ${(1 - f) * (1 - k * 0.5)})`;
-        ctx.lineWidth = 2 * dpr;
+        ctx.strokeStyle = `rgba(${look.rgb}, ${(1 - f) * (1 - k * 0.5)})`;
+        ctx.lineWidth = look.line * dpr;
         ctx.stroke();
       }
     }
