@@ -37,6 +37,7 @@ import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
+import { askGreyed, greyHooks } from './units/greyed.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -197,6 +198,10 @@ function applyUpgrade(state: SimState, b: Building, by: number): void {
   const [x, z] = buildingCentre(b);
   state.events.push({ player: by, kind: 'info', text: `Upgrade to ${next.name} paid for. Right-click it with workers to build it.`, x, z });
 }
+
+// A Yes to "Upgrade to ...?" from a greyed-out button's question (Patch 3) runs the Upgrade button's own code.
+greyHooks.upgradeProblem = upgradeProblem;
+greyHooks.upgrade = applyUpgrade;
 
 function applyCancelBuild(state: SimState, b: Building): void {
   const pool = state.players[b.owner]!.pool;
@@ -787,6 +792,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'answer':
         answerQuestion(state, o);
+        break;
+      case 'greyed':
+        askGreyed(state, o);
         break;
       case 'leave':
         // Gone for good, the host carrying on without them: shared out as if eliminated.

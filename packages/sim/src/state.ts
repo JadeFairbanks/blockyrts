@@ -590,6 +590,8 @@ export interface AskInfo {
   units: number[];
   /** The resource it is about (Ask.Farther), or -1. */
   res: number;
+  /** How many Yes makes (Patch 3: batches a greyed-out button's question queues), when it says. */
+  n?: number;
   /** The step it stops waiting for an answer: QUESTION_WAIT_STEPS (10 s of game time) after it was asked. */
   until: number;
   /** What Yes and No do, in full, for the buttons' tooltips (Yes's also says what it takes from the stock). */
