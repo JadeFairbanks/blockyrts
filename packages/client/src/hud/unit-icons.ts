@@ -49,35 +49,22 @@ export function modelIconFile(model: string): string {
   return firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, MODEL_STAND_INS[model] ?? '');
 }
 
-/** A building's picture by kind, level and (earthworks, farms) variant. */
+/** A building's picture by kind, level (the Big House) and (earthworks) variant. */
 export function buildingIconFile(kind: number, level: number, variant = 0): string {
   const l = Math.max(1, level);
   const tier = (base: string, most: number): string => `icon_${base}${Math.min(l, most)}`;
   switch (kind) {
     case BuildingKind.MainBase:
       return tier('main_base_l', 10);
-    case BuildingKind.CropField:
-      return tier('crop_field_t', 3);
-    case BuildingKind.VegetableFarm:
-      return tier('vegetable_farm_t', 3);
-    case BuildingKind.HerbBed:
-      return tier('herb_bed_t', 3);
-    case BuildingKind.LivestockFarm:
-      return tier('livestock_farm_t', 3);
-    case BuildingKind.PenBarn:
+    case BuildingKind.Farm:
+      return 'icon_crop_field_t1';
+    case BuildingKind.Barn:
+      // The pen and barn's picture stands in until the red barn's comes (Patch 2).
       return 'icon_pen_barn';
-    case BuildingKind.LumberMill:
-      return l >= 2 ? 'icon_lumber_mill_t2' : 'icon_lumber_mill';
     case BuildingKind.Storehouse:
       return 'icon_storehouse';
     case BuildingKind.FishingDock:
       return 'icon_fishing_dock';
-    case BuildingKind.Tannery:
-      return 'icon_tannery';
-    case BuildingKind.Cooking:
-      return ['icon_cooking_campfire', 'icon_cook_hut', 'icon_kitchen', 'icon_great_kitchen', 'icon_grand_kitchen'][Math.min(l, 5) - 1]!;
-    case BuildingKind.HerbalistHut:
-      return 'icon_herbalist_hut';
     case BuildingKind.Wall:
       return 'icon_wall_softwood';
     case BuildingKind.WallHardwood:
@@ -102,35 +89,22 @@ export function buildingIconFile(kind: number, level: number, variant = 0): stri
     case BuildingKind.Ramp:
       return l >= 2 ? 'icon_ramp_stone' : 'icon_ramp_lumber';
     case BuildingKind.Workshop:
-      return tier('workshop_t', 4);
+      return 'icon_workshop_t1';
     case BuildingKind.TorchPost:
       return 'icon_torch_post';
-    case BuildingKind.WallTorch:
-      return 'icon_torch_wall';
-    case BuildingKind.Brazier:
-      return 'icon_brazier';
-    case BuildingKind.Lantern:
-      return 'icon_lantern';
     case BuildingKind.ScholarsLodge:
-      return ['icon_scholars_lodge', 'icon_scriptorium', 'icon_grand_academy'][Math.min(l, 3) - 1]!;
+      return 'icon_scholars_lodge';
     case BuildingKind.MagiSanctum:
       return 'icon_magi_sanctum';
     case BuildingKind.Barracks:
       return 'icon_barracks';
-    case BuildingKind.Stables:
-      return 'icon_stables';
-    case BuildingKind.GunneryYard:
+    case BuildingKind.ArtilleryWorkshop:
+      // The gunnery yard's picture stands in, as its model does (Patch 2).
       return 'icon_gunnery_yard';
     case BuildingKind.Mineshaft:
-      return tier('mineshaft_t', 3);
-    case BuildingKind.Kiln:
-      return 'icon_kiln';
+      return 'icon_mineshaft_t1';
     case BuildingKind.Forge:
-      return tier('forge_l', 4);
-    case BuildingKind.PowderMill:
-      return 'icon_powder_mill';
-    case BuildingKind.Foundry:
-      return 'icon_foundry';
+      return 'icon_forge_l1';
     default:
       return 'icon_storehouse';
   }

@@ -27,8 +27,8 @@ interface Entry {
   flames: THREE.Mesh[];
   look: Look;
   selectable: Selectable;
-  /** Catalogue model ids drawn for it, with local offsets (metres). */
-  models: Array<{ id: string; dx: number; dz: number }>;
+  /** Catalogue model ids drawn for it, with local offsets (metres) and any tint. */
+  models: Array<{ id: string; dx: number; dz: number; tint?: number }>;
 }
 
 export interface GhostSpot {
@@ -51,13 +51,14 @@ export interface Ghost {
 /** Blockbench units to a column: where the footprint table puts a model's origin. */
 const MODEL_UNITS_PER_COLUMN = 16;
 
-/** Catalogue models for a building at its level and where they go from its anchor, metres (the footprint table, footprints.ts). */
-export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number }> {
+/** Catalogue models for a building at its level, where they go from its anchor (metres) and any tint (the footprint table, footprints.ts). */
+export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number; tint?: number }> {
   const d = footprintDims(b.kind, b.variant, b.level);
   return (levelFootprint(b.kind, b.level).models ?? []).map((m) => ({
     id: m.id,
     dx: (d.ox + m.x / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
     dz: (d.oz + m.z / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
+    ...(m.tint !== undefined ? { tint: m.tint } : {}),
   }));
 }
 
@@ -152,7 +153,7 @@ export class BuildingsView {
     const seen = new Set<number>();
     for (const b of info.buildings.values()) {
       seen.add(b.id);
-      // A field where nothing grows (a crop field in the Barrens or Deadlands) lies bare.
+      // A field where nothing grows lies bare.
       const fallow = b.farm !== null && !b.farm.grows;
       const sig = `${b.kind}:${b.level}:${b.variant}:${b.owner}:${fallow ? 1 : 0}:${b.complete ? 1 : 0}:${b.upgrading}`;
       let e = this.entries.get(b.id);
@@ -161,7 +162,7 @@ export class BuildingsView {
         e = this.make(b, sig, fallow);
         this.entries.set(b.id, e);
       }
-      // The look is drawn from its level's corner (a kitchen's footprint grows round the anchor); the scaffold from the anchor.
+      // The look is drawn from its level's corner (a footprint that grows grows round the anchor); the scaffold from the anchor.
       const d = footprintDims(b.kind, b.variant, b.level);
       const ox = (b.x + d.ox) * COLUMN_M;
       const oz = (b.z + d.oz) * COLUMN_M;
@@ -174,7 +175,7 @@ export class BuildingsView {
       for (let k = 0; k < e.flames.length; k++) {
         const f = e.flames[k]!;
         const p = e.look.flames[k]!;
-        f.visible = b.lit || (b.kind === BuildingKind.Cooking && b.complete);
+        f.visible = b.lit;
         f.position.set(ox + p.x, oy + p.y, oz + p.z);
         const flicker = 0.85 + 0.25 * Math.sin(now / 90 + b.id * 1.7) * Math.sin(now / 37 + b.id);
         f.scale.set(1, flicker, 1);
@@ -286,7 +287,7 @@ export class BuildingsView {
     t.details = d;
   }
 
-  /** Catalogue models: one instanced draw per model id. */
+  /** Catalogue models: one instanced draw per model id and tint (a stand-in model dressed as another building draws apart). */
   private drawModels(info: GameInfo): void {
     const lib = this.models;
     if (!lib) return;
@@ -295,16 +296,18 @@ export class BuildingsView {
       const e = this.entries.get(b.id);
       if (!e || e.models.length === 0) continue;
       for (const m of e.models) {
-        let draw = this.modelDraws.get(m.id);
+        const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
+        let draw = this.modelDraws.get(key);
         if (!draw) {
           draw = new InstancedModel(lib.get(m.id), MAX_MODEL_INSTANCES);
+          if (m.tint !== undefined) draw.tint(m.tint);
           draw.object.frustumCulled = false;
           this.scene.add(draw.object);
-          this.modelDraws.set(m.id, draw);
+          this.modelDraws.set(key, draw);
         }
-        const n = counts.get(m.id) ?? 0;
+        const n = counts.get(key) ?? 0;
         if (n >= MAX_MODEL_INSTANCES) continue;
-        counts.set(m.id, n + 1);
+        counts.set(key, n + 1);
         draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, 0, '', 0, this.teamColour(b.owner));
       }
     }

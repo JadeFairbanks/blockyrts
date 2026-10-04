@@ -449,7 +449,7 @@ export class GameShell {
       queueLeft: (b) => {
         const head = b.queue[0];
         if (!head) return null;
-        return this.queueClock.secondsLeft(b.id, head.product, head.done, this.game.step, guessSteps(head.product, b.kind, b.level, b.working));
+        return this.queueClock.secondsLeft(b.id, head.product, head.done, this.game.step, guessSteps(head.product, b.kind));
       },
     });
     this.buildButtons();

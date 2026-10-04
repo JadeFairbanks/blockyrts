@@ -26,7 +26,7 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'return':
       return 'returnCargo';
     case 'build':
-      return buildingSpec(o.kind).menu === 'advanced' ? 'buildAdvanced' : 'buildBasic';
+      return 'build';
     case 'work':
     case 'repairAll':
     case 'mend':

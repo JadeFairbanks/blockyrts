@@ -2,11 +2,11 @@
 // queue's hover text reads "Complete in <seconds> seconds" and counts down as
 // it goes). The sim sends how far the head item is (per mille) with every
 // info message; the pace is read off how fast that moves, in game steps, so
-// it follows the hands at a workshop and stops with a pause. Before the pace
-// is known, a guess from the product's own time stands in.
-import { BuildingKind, cookSteps, needsHands, PLANK_STEPS, Product, productSpec, recipeSpec, RESEARCH_PRODUCT, STEPS_PER_SECOND } from '@blockyrts/sim';
+// it stops with a pause or a stall. Before the pace is known, a guess from
+// the product's own time stands in.
+import { craftRate, productSpec, STEPS_PER_SECOND } from '@blockyrts/sim';
 
-/** No progress for this long while it was moving before: the item is on hold (no hands, the troops starving, no supply). */
+/** No progress for this long while it was moving before: the item is on hold (the troops starving, no supply, no hands at a farm or mine). */
 export const STALL_STEPS = 3 * STEPS_PER_SECOND;
 
 interface Track {
@@ -61,22 +61,14 @@ export class QueueClock {
   }
 }
 
-/** A guess at the steps an item takes at a building, from its own time and the hands at work there; null when it cannot move now. */
-export function guessSteps(product: number, kind: number, level: number, working: number): number | null {
+/**
+ * A guess at the steps an item takes at a building, from its own time: a
+ * recipe at a crafting building goes at its pace with no workers (Patch 2),
+ * research at the Lodge's, the rest at their own.
+ */
+export function guessSteps(product: number, kind: number): number | null {
   const ps = productSpec(product);
-  if (product === Product.PlanksSoftwood || product === Product.PlanksHardwood) return working > 0 ? PLANK_STEPS / working : null;
-  if (product < RESEARCH_PRODUCT) return ps.steps;
-  if (ps.research !== undefined) {
-    // Research loads four quarters a step at a lodge, five at a Scriptorium, six at a Grand Academy.
-    return (ps.steps * 4) / (3 + Math.max(1, Math.min(3, level)));
-  }
-  if (ps.recipe !== undefined) {
-    const r = recipeSpec(ps.recipe);
-    const steps = r.cooked ? cookSteps(r, level) : r.steps;
-    if (!needsHands(kind)) return steps;
-    const hands = working * (kind === BuildingKind.Workshop && level >= 4 ? 2 : 1);
-    return hands > 0 ? steps / hands : null;
-  }
+  if (ps.recipe !== undefined) return ps.steps / craftRate(kind);
   return ps.steps;
 }
 
