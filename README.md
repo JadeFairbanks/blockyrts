@@ -860,18 +860,25 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 7232501f`: the debug tools make the Big
-   House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
-   village 80 m north and a troop kit to the south-east; the Big House
-   trains a long-melee spearman and the Stables a bronze cavalry rider, who
-   uses up a horse from its stalls and comes out mounted (milestone 11); an
-   ox hauls the catapult 40 m north and a horse hauls the bronze cannon up
-   into a Citadel port; at dusk the gun kit trains the warriors, two crew
-   the cannon in its port and two crew the catapult, which breaks the goblin
-   huts until the village goes to war, and its crew fight off the goblins
-   that reach it; through night 0 the port cannon fires at the night mobs,
-   and the rider gallops at them and his first blow on a zombie is a charge
-   that throws it back; at dawn he rides home to the Stables.
+   prints `final step 10000 hash 1381a2fb`. The script plays by Patch 2's
+   rules (before Patch 2 the gun kit trained warriors as cannon crew and
+   warriors crewed the engines): the debug tools make the Big House a
+   Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
+   west (a catapult, a ballista and a bronze cannon, each with its artillery
+   crewmen, and an Artillery workshop), a goblin village 80 m north and a
+   troop kit to the south-east; the Big House trains a long-melee spearman
+   and the Barracks a bronze cavalry rider, who uses up a horse from the Barn
+   and comes out mounted; the Artillery workshop casts an iron cannon, which
+   rolls out with its two crewmen ("An iron cannon is ready, with its 2
+   crewmen."); an ox hauls the catapult 40 m north, where its crew open fire
+   on the goblin village by themselves, with no ammunition: the first hut
+   falls, the next kills take the village to war, and by the next morning
+   only three damaged huts and one goblin are left; a horse hauls the bronze
+   cannon up into a Citadel port and the iron cannon's crew push it up into a
+   second, each crew following its cannon in; through night 0 the port
+   cannons, the ballista and the catapult fire at the night mobs, and the
+   rider gallops at them to the north-west, where his first blow on a zombie
+   is a charge that throws it back; at dawn he rides home.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 9
@@ -1040,7 +1047,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 7232501f`, as in milestone 8 above.
+   prints `final step 10000 hash 1381a2fb`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
