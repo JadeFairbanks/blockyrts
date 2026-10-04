@@ -4,10 +4,10 @@
 // the first time the players come near it, and only breeding adds more.
 // Wild animals graze round their spot, run, fight back, hunt in packs,
 // stalk, guard or knock over torches by their nature; tamed ones belong to
-// a farm or the Stables, graze round it by day, shelter in a pen and barn
-// or the Stables by night, breed there and can be slaughtered.
+// a Barn (Patch 2), graze round it by day, shelter in its stalls by night,
+// breed there and can be slaughtered.
 
-import { BuildingKind, buildingName, OUTLYING_M } from '../buildings/data.ts';
+import { BARN_STALLS, BuildingKind, buildingName, CHICKENS_PER_STALL, OUTLYING_M } from '../buildings/data.ts';
 import { buildingCentre, dist2, nearMainBase } from '../buildings/lights.ts';
 import { placedDims, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
@@ -65,14 +65,33 @@ const HOME_GRAZE_WU = 15 * M;
 const GRASS_REACH_COLUMNS = floorDiv(30 * M, COLUMN);
 /** A working animal walks 2 m behind its worker (s). */
 const FOLLOW_WU = 2 * M;
-/** How many animals each home holds (Table 4: livestock farm 6 / 10 / 16, Stables 6 stalls) and a pen and barn shelters at night (8). */
-export function homeRoom(b: Building): number {
-  if (!b.complete) return 0;
-  if (b.kind === BuildingKind.LivestockFarm) return [6, 10, 16][b.level - 1] ?? 6;
-  if (b.kind === BuildingKind.Stables) return 6;
-  return 0;
+/** A Barn's big animals and chickens. */
+function herdOf(state: SimState, b: Building): [number, number] {
+  const e = state.entities;
+  let big = 0;
+  let hens = 0;
+  for (const j of animalsAt(state, b.id)) {
+    if (e.mob[j] === Species.Chicken) hens++;
+    else big++;
+  }
+  return [big, hens];
 }
-const PEN_ROOM = 8;
+
+/** The stalls a herd takes (Patch 2, Jade): one for each big animal, one for every 6 chickens or part of 6. */
+const stalls = (big: number, hens: number): number => big + floorDiv(hens + CHICKENS_PER_STALL - 1, CHICKENS_PER_STALL);
+
+/** The stalls a Barn's animals take. */
+export function stallsTaken(state: SimState, b: Building): number {
+  const [big, hens] = herdOf(state, b);
+  return stalls(big, hens);
+}
+
+/** Whether a finished Barn has a stall for one more animal of a species: a free stall, or for a chicken room in a stall of chickens. */
+export function hasRoom(state: SimState, b: Building, species: number): boolean {
+  if (!b.complete || b.kind !== BuildingKind.Barn) return false;
+  const [big, hens] = herdOf(state, b);
+  return species === Species.Chicken ? stalls(big, hens + 1) <= BARN_STALLS : stalls(big + 1, hens) <= BARN_STALLS;
+}
 
 function hash(state: SimState, ...v: number[]): number {
   return hash32(state.seed ^ 0x616e696d, ...v);
@@ -581,12 +600,12 @@ function motherOfCub(state: SimState, i: number): boolean {
   return false;
 }
 
-/** The nearest lit torch post or wall torch out beyond the base (Light and torches: outlying), within a badger's reach. */
+/** The nearest lit torch post out beyond the base (Light and torches: outlying), within a badger's reach. */
 function outlyingTorch(state: SimState, x: number, z: number): Building | undefined {
   let best: Building | undefined;
   let bestD = 0;
   for (const b of state.buildings.list) {
-    if ((b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.WallTorch) || !b.complete || b.fuelUntil <= state.step) continue;
+    if (b.kind !== BuildingKind.TorchPost || !b.complete || b.fuelUntil <= state.step) continue;
     const [bx, bz] = buildingCentre(b);
     const d = dist2(bx, bz, x, z);
     if (d > BADGER_REACH_WU * BADGER_REACH_WU || (best && d >= bestD)) continue;
@@ -604,30 +623,9 @@ function knockOver(state: SimState, b: Building, x: number, z: number): void {
   state.events.push({ player: b.owner, kind: 'alert', text: 'A badger knocked over an outlying torch. Relight it.', x, z });
 }
 
-/** Where a tamed animal shelters at night: a pen and barn or the Stables with room near its home, else its home. */
-function shelterFor(state: SimState, i: number, home: Building): Building | undefined {
-  const e = state.entities;
-  const [hx, hz] = buildingCentre(home);
-  let best: Building | undefined;
-  let bestD = 0;
-  for (const b of state.buildings.list) {
-    if (b.owner !== e.owner[i] || !b.complete) continue;
-    const room = b.kind === BuildingKind.PenBarn ? PEN_ROOM : b.kind === BuildingKind.Stables ? 6 : 0;
-    if (room === 0 || (shelteredIn(state, b.id) >= room && e.inside[i] !== b.id)) continue;
-    const [bx, bz] = buildingCentre(b);
-    const d = dist2(bx, bz, hx, hz);
-    if (d > (60 * M) * (60 * M) || (best && d >= bestD)) continue;
-    best = b;
-    bestD = d;
-  }
-  return best;
-}
-
-function shelteredIn(state: SimState, id: number): number {
-  const e = state.entities;
-  let n = 0;
-  for (let j = 0; j < e.count; j++) if (e.inside[j] === id && e.kind[j] === UnitKind.Animal) n++;
-  return n;
+/** Where a tamed animal shelters at night: its own Barn's stalls (Patch 2), when the Barn is finished. */
+function shelterFor(home: Building): Building | undefined {
+  return home.kind === BuildingKind.Barn && home.complete ? home : undefined;
 }
 
 function goOutside(state: SimState, i: number): void {
@@ -676,7 +674,7 @@ function runTamed(state: SimState, i: number): void {
   const a = recentAttacker(state, i) >= 0 ? recentAttacker(state, i) : monsterNear(state, i);
   if (a >= 0 && e.inside[i] === 0) return flee(state, i, a);
   if (isDark(state.step, state.blood) && b) {
-    const shelter = shelterFor(state, i, b);
+    const shelter = shelterFor(b);
     if (shelter) {
       if (e.inside[i] === shelter.id) return;
       const [sx, sz] = buildingCentre(shelter);
@@ -714,14 +712,14 @@ export function animalsAt(state: SimState, id: number): number[] {
   return out;
 }
 
-/** The player's home with room for a species (Table 14: horses at the Stables; oxen at the Stables or a livestock farm; cattle and chickens at a livestock farm), nearest first. */
+/** The player's home with room for a species (Patch 2: every tamed animal lives in a Barn), nearest first. */
 export function newHome(state: SimState, player: number, species: number, x?: number, z?: number): Building | undefined {
   const s = speciesSpec(species);
   let best: Building | undefined;
   let bestD = 0;
   for (const b of state.buildings.list) {
     if (b.owner !== player || !b.complete || !s.tameAt.includes(b.kind)) continue;
-    if (animalsAt(state, b.id).length >= homeRoom(b)) continue;
+    if (!hasRoom(state, b, species)) continue;
     const [bx, bz] = buildingCentre(b);
     const d = x === undefined ? b.id : dist2(bx, bz, x, z!);
     if (!best || d < bestD) {
@@ -744,8 +742,8 @@ export function runAnimal(state: SimState, i: number): void {
 
 // ----- each day -----
 
-/** Raw crops a short-of-grass animal eats instead (Table 6), by nutrition, exact to the quarter (a started crop waits for the next). */
-const CROPS: readonly Res[] = [Res.Wheat, Res.Potatoes, Res.Carrots, Res.Corn];
+/** What a short-of-grass animal eats instead (Table 6; Patch 2: farm fare), by nutrition, exact to the quarter (a started one waits for the next). */
+const CROPS: readonly Res[] = [Res.FarmFare];
 
 function eatCrops(p: PlayerState, need: number): boolean {
   return takeFood(p, need * QUARTERS, { only: CROPS, kept: true }) !== null;
@@ -782,7 +780,7 @@ function growUp(state: SimState): void {
   }
 }
 
-/** A pair's young: wild pairs while their cell is not crowded, tamed pairs at a farm or the Stables with room (Wild herds; Table 6). */
+/** A pair's young: wild pairs while their cell is not crowded, tamed pairs in a Barn with a stall to spare (Wild herds; Table 6). */
 function breed(state: SimState): void {
   const e = state.entities;
   const n0 = e.count;
@@ -800,9 +798,8 @@ function breed(state: SimState): void {
       if (species === Species.Bear ? kin >= 4 || bearCount(state) >= BEAR_CAP : kin >= 4 * speciesSpec(species).perCell) continue;
     } else {
       const home = state.buildings.get(e.home[i]!);
-      if (!home || (home.kind !== BuildingKind.LivestockFarm && home.kind !== BuildingKind.Stables)) continue;
+      if (!home || !hasRoom(state, home, species)) continue;
       const herd = animalsAt(state, home.id);
-      if (herd.length >= homeRoom(home)) continue;
       male = herd.find((j) => e.mob[j] === species && e.sex[j] === 1 && e.born[j] === 0) ?? -1;
       if (male < 0) continue;
     }
@@ -814,27 +811,27 @@ function breed(state: SimState): void {
   }
 }
 
-/** Grown hens at a livestock farm, each laying an egg at the next day's turn (Table 6). */
+/** Grown hens in a Barn, each laying an egg at the next day's turn (Table 6). */
 export function layingHens(state: SimState, b: Building): number {
   const e = state.entities;
   return animalsAt(state, b.id).filter((j) => !e.partner[j] && e.mob[j] === Species.Chicken && e.sex[j] === 0 && e.born[j] === 0).length;
 }
 
-/** Hens lay an egg a day at a livestock farm; herds short of grass eat crops or go hungry (Table 6). */
+/** Hens lay an egg a day in a Barn; herds short of grass eat farm fare or go hungry (Table 6). */
 function livestockDay(state: SimState): void {
   const e = state.entities;
   for (const b of state.buildings.list) {
-    if (!b.complete || (b.kind !== BuildingKind.LivestockFarm && b.kind !== BuildingKind.Stables)) continue;
+    if (!b.complete || b.kind !== BuildingKind.Barn) continue;
     const herd = animalsAt(state, b.id).filter((j) => !e.partner[j]);
     if (herd.length === 0) continue;
     const player = state.players[b.owner]!;
     const pool = player.pool;
-    if (b.kind === BuildingKind.LivestockFarm) pool[Res.Eggs] = pool[Res.Eggs]! + layingHens(state, b);
+    pool[Res.Eggs] = pool[Res.Eggs]! + layingHens(state, b);
     let need = 0;
     for (const j of herd) need += speciesSpec(e.mob[j]!).grassM2;
     const grass = grassNear(state, b);
     if (grass >= need) continue;
-    // The share of the herd the grass does not cover eats crops, or goes hungry and loses a tenth of its health (s).
+    // The share of the herd the grass does not cover eats farm fare, or goes hungry and loses a tenth of its health (s).
     for (let k = herd.length - 1, short = need - grass; k >= 0 && short > 0; k--) {
       const j = herd[k]!;
       const s = speciesSpec(e.mob[j]!);

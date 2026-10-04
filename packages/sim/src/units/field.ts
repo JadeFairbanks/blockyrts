@@ -384,7 +384,7 @@ export function runEat(state: SimState, i: number, o: Extract<UnitOrder, { t: 'e
   let b = o.b ? state.buildings.get(o.b) : undefined;
   if (!b || b.owner !== e.owner[i] || !b.complete || !servesFood(b.kind)) b = nearestTable(state, i);
   if (!b) {
-    alert(state, e.owner[i]!, 'There is nowhere to eat. Units eat at a main base, a storehouse or a kitchen.', e.x[i]!, e.z[i]!);
+    alert(state, e.owner[i]!, 'There is nowhere to eat. Units eat at a main base or a storehouse.', e.x[i]!, e.z[i]!);
     return DONE;
   }
   o.b = b.id;

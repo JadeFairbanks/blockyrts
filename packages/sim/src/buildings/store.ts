@@ -2,8 +2,8 @@
 // plus the columns their footprints and solid parts cover (derived, rebuilt
 // on load). A building is a real object from the moment it is started
 // (Building placement). Its anchor never moves; which columns are solid can
-// change as it levels up, and a kitchen's footprint grows round the anchor
-// (footprints.ts): an upgrade takes the new level's footprint from the
+// change as the Big House levels up, and a footprint that grows grows round
+// the anchor (footprints.ts): an upgrade takes the new level's footprint from the
 // moment it is paid for, and gives it back if cancelled.
 
 import type { ByteReader, ByteWriter } from '../bytes.ts';
@@ -25,9 +25,9 @@ export const Product = {
 } as const;
 export type Product = number;
 /**
- * Research step r is product RESEARCH_PRODUCT + r; a processing or cooking
- * recipe (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a
- * species at a livestock farm, SLAUGHTER_PRODUCT + species; making a siege
+ * Research step r is product RESEARCH_PRODUCT + r; a crafting recipe
+ * (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a species at
+ * a Barn, SLAUGHTER_PRODUCT + species; making a siege
  * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine; a new troop
  * (units/kits.ts) TROOP_PRODUCT + type x 100 + weapon tier x 10 + armour
  * tier (troopProduct).
@@ -117,8 +117,7 @@ export interface Building {
   /** Research the players it was inherited from had (a bit per step), which anyone using it may build on. */
   tech: number;
   /**
-   * Barracks, Stables and main bases: the Lock per troop type (Barracks and
-   * Stables panel), by type: 0 unlocked, else 1 + weapon tier x 10 + armour
+   * Barracks and main bases: the Lock per troop type (Barracks panel), by type: 0 unlocked, else 1 + weapon tier x 10 + armour
    * tier, the combination this building keeps making.
    */
   locks: number[];

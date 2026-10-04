@@ -260,7 +260,7 @@ const lastEnclosed = new WeakMap<World, { epoch: number; held: number[]; enclose
 
 /**
  * Lights more than 40 m from any of the player's main bases, counted in
- * halves (wall torches count half), and the limit for the coming night:
+ * halves (a light can count half), and the limit for the coming night:
  * 4 + night / 5 (Table 8). Over the limit, goblins come at dusk (M5).
  */
 export function outlyingLights(state: SimState, player: number, night: number): { halves: number; limit: number } {

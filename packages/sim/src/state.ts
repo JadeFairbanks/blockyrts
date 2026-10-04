@@ -205,7 +205,7 @@ export const UNIT_FIELDS = [
   /** Healing over time from eating and medicine (Food): health still to come, until this step. */
   ['mendUntil', 'u32'],
   ['mendLeft', 'i32'],
-  /** Poison from a venom-coated arrow or bolt: damage still to come, until this step, and who shot it. */
+  /** Poison from a bite or a sting: damage still to come, until this step, and who dealt it. */
   ['dotUntil', 'u32'],
   ['dotLeft', 'i32'],
   ['dotFrom', 'u32'],
@@ -254,7 +254,7 @@ export const UNIT_FIELDS = [
   ['barkUntil', 'u32'],
   /** A wild animal answering the Grovesinger's Call of the wild fights for her faction until this step, then goes wild again. */
   ['calledUntil', 'u32'],
-  /** Milestone 8: what the unit rides (mounts/data.ts Mount) and its mount's health; a player's horse remembers its Stables and sex for when it is let go. */
+  /** Milestone 8: what the unit rides (mounts/data.ts Mount) and its mount's health; a player's horse remembers its Barn and sex for when it is let go. */
   ['mount', 'u8'],
   ['mountHp', 'i32'],
   ['mountHome', 'u32'],

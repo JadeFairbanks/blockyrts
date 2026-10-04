@@ -424,7 +424,7 @@ export function eatAt(state: SimState, i: number): string {
   return '';
 }
 
-/** Buildings that hold food, where a unit can eat (s): main bases, storehouses and cooking buildings. */
+/** Buildings that hold food, where a unit can eat (s): main bases and storehouses (Patch 2 cut the cooking buildings). */
 export function servesFood(kind: number): boolean {
-  return kind === BuildingKind.MainBase || kind === BuildingKind.Storehouse || kind === BuildingKind.Cooking;
+  return kind === BuildingKind.MainBase || kind === BuildingKind.Storehouse;
 }

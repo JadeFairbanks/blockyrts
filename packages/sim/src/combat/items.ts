@@ -8,7 +8,7 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { BuildingKind } from '../buildings/data.ts';
 
-/** The one specialist skill left (Experience and training): crewing a cannon, trained at the Gunnery yard; a bit in a unit's skills. */
+/** The one specialist skill left (Experience and training): crewing a cannon, trained at the Artillery workshop (the Gunnery yard before Patch 2); a bit in a unit's skills. */
 export const Skill = { Cannon: 16 } as const;
 export type Skill = (typeof Skill)[keyof typeof Skill];
 
@@ -112,14 +112,12 @@ export interface ResearchSpec {
   cost: Cost;
   steps: number;
   opens: string;
-  /** What must come first: a finished forge of a level, another research, a thing made once. */
-  forge?: number;
+  /** What must come first: a main base level (Patch 2: in place of a forge level or a building), another research, a thing made once. */
+  base?: number;
   after?: Research;
   made?: number;
   /** Researched in a later milestone: the reason it is greyed. */
   later?: string;
-  /** A finished building of a kind and level the player must have (Table 2a "Needs first": a Powder mill, a Great Workshop). */
-  building?: readonly [number, number];
   /** Researched at this building kind instead of a Scholar's Lodge (Hexcraft at the Magi Sanctum). */
   at?: number;
   /** No longer a research step (its bit is kept so saved research masks still line up). */
@@ -136,15 +134,15 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Nothing: flint gear is made at the Big House without research.',
   },
   {
-    id: Research.Bronze, name: 'Bronze', key: 'B', cost: [[Res.CopperIngot, 10], [Res.TinIngot, 2]], steps: sec(75), forge: 1, made: Made.TinIngot,
+    id: Research.Bronze, name: 'Bronze', key: 'B', cost: [[Res.CopperIngot, 10], [Res.TinIngot, 2]], steps: sec(75), made: Made.TinIngot,
     opens: 'Tier 4 (bronze): bronze ingots, bronze weapons, armour and tools, and mining bog iron and iron rock.',
   },
   {
     id: Research.DeepMining1, name: 'Deep Mining I', key: 'D', cost: [[Res.BronzeIngot, 20], [Res.Stone, 50]], steps: sec(90), after: Research.Bronze,
-    opens: 'Mineshaft tier 1.',
+    opens: 'The Mineshaft: stone and copper, tin, iron rock or coal.',
   },
   {
-    // Retired: the halberd is the long-melee tier 7 weapon, opened by the Steelworks and Steel (Troops and gear).
+    // Retired: the halberd is the long-melee tier 7 weapon, opened at the Forge's steel step and by Steel (Troops and gear).
     id: Research.Halberds, name: 'Halberds', key: '', cost: [], steps: 0, retired: true,
     opens: 'Nothing: the steel halberd is long melee tier 7.',
   },
@@ -158,20 +156,20 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'The Warding and Counterspell spells.',
   },
   {
-    id: Research.DeepMining2, name: 'Deep Mining II', key: 'E', cost: [[Res.WroughtIron, 30], [Res.Stone, 100], [Res.Silver, 3]], steps: sec(120), forge: 3,
-    opens: 'Mineshaft tier 2.',
+    id: Research.DeepMining2, name: 'Deep Mining II', key: 'E', cost: [[Res.WroughtIron, 30], [Res.Stone, 100], [Res.Silver, 3]], steps: sec(120), base: 5,
+    opens: 'Deeper mineshafts: vein iron, coal, silver or gold, gems.',
   },
   {
-    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), building: [BuildingKind.Workshop, 3],
-    opens: 'The catapult and catapult stones; the ballista and its bolts with a Manufactory and Forge level 3.',
+    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), base: 5,
+    opens: 'The catapult and catapult stones at the Artillery workshop; the ballista and its bolts at main base 7.',
   },
   {
-    id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), forge: 4, made: Made.PigIron,
+    id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), base: 7, made: Made.PigIron,
     opens: 'Tier 7 (steel): steel ingots, and steel weapons, armour and tools.',
   },
   {
     id: Research.CarbonSteel, name: 'Carbon steel', key: 'Q', cost: [[Res.SteelIngot, 5], [Res.Charcoal, 50]], steps: sec(210), after: Research.Steel,
-    opens: 'Carbon steel ingots at the Steelworks, and tier 8: carbon steel weapons, armour and tools.',
+    opens: 'Carbon steel ingots at the Forge, and tier 8: carbon steel weapons, armour and tools.',
   },
   {
     // Retired: one Crossbows research stays (Jade).
@@ -180,19 +178,19 @@ export const RESEARCH: readonly ResearchSpec[] = [
   },
   {
     id: Research.DeepMining3, name: 'Deep Mining III', key: 'M', cost: [[Res.SteelIngot, 30], [Res.Stone, 200], [Res.Gold, 3], [Res.Silver, 3]], steps: sec(180), after: Research.Steel,
-    opens: 'Mineshaft tier 3.',
+    opens: 'The deepest mineshafts: more vein iron and coal, lead, gold, gems; never worked out.',
   },
   {
-    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), building: [BuildingKind.PowderMill, 1],
-    opens: 'Gunpowder at the Powder mill.',
+    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), base: 7,
+    opens: 'Gunpowder at the Forge.',
   },
   {
-    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), after: Research.Gunpowder, building: [BuildingKind.GunneryYard, 1],
+    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), after: Research.Gunpowder, base: 8,
     opens: 'The tier 8 flintlock musket ranger, and the brawler (with Carbon steel).',
   },
   {
-    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), after: Research.Gunpowder, building: [BuildingKind.Foundry, 1],
-    opens: 'The bronze cannon and cannonballs, and cannon crew training at the Gunnery yard; the iron cannon once Forge level 3 exists.',
+    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), after: Research.Gunpowder, base: 8,
+    opens: 'The bronze and iron cannons and cannonballs, and cannon crew training, at the Artillery workshop.',
   },
 ];
 

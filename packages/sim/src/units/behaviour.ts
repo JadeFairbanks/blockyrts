@@ -1018,13 +1018,14 @@ export function shelteredIn(state: SimState, id: number): number[] {
   return unitsInside(state, id).filter((j) => !onTop(state, j));
 }
 
-/** Buildings that take assigned workers: farms of every kind and the lumber mill. */
+/** Buildings that take assigned workers: the Farm, the Mineshaft and the Fishing dock (Patch 2: crafting buildings take none). */
 export function takesWorkers(b: Building): boolean {
   return b.complete && levelSpec(b.kind, b.level).workers > 0;
 }
 
+/** The Farm (Patch 2: one kind of farm). */
 export function isFarm(kind: number): boolean {
-  return kind === BuildingKind.CropField || kind === BuildingKind.VegetableFarm || kind === BuildingKind.HerbBed || kind === BuildingKind.LivestockFarm;
+  return kind === BuildingKind.Farm;
 }
 
 /** Workers whose current order is a job at a building, in index order. */

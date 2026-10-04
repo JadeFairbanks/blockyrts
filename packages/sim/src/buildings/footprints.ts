@@ -13,9 +13,9 @@
 // block filling their footprint, and are solid in full.
 //
 // A building's anchor (Building x and z) is its level 1 corner, and stays
-// put as it levels up: a footprint that grows (the Cooking line, Table 4: 2,
-// 6, 8, 10 and 12 columns square) grows round it, `ox` and `oz` columns from
-// the anchor to the level's own corner.
+// put as it levels up: a footprint that grows grows round it, `ox` and `oz`
+// columns from the anchor to the level's own corner. Since Patch 2 only the
+// Big House has levels.
 
 import { BuildingKind, buildingSpec } from './data.ts';
 
@@ -24,6 +24,8 @@ export interface ModelAt {
   id: string;
   x: number;
   z: number;
+  /** A colour (0xrrggbb) the model's texture is multiplied by: a stand-in model dressed as the building it stands in for. */
+  tint?: number;
 }
 
 /** Where a man stands on a building's top: Blockbench units from the level's corner, and up from its floor. */
@@ -50,8 +52,8 @@ function block(w: number, d: number, sw = w, sd = d): LevelFootprint {
 /** A tower's deck, 4.1 m up (the 5 m tower less its parapet): a man at each corner. */
 const TOWER: readonly LevelFootprint[] = [{ ...block(3, 3), posts: [[12, 12, 146], [36, 12, 146], [12, 36, 146], [36, 36, 146]] }];
 
-/** Crop fields and vegetable farms: the field and the farmhouse in its north-west corner. */
-const FIELD: readonly LevelFootprint[] = [
+/** The Farm (Patch 2): the tier 1 crop field and its farmhouse in the north-west corner. */
+const FARM: readonly LevelFootprint[] = [
   {
     models: [{ id: 'farm_field_t1', x: 96, z: 96 }, { id: 'farmhouse_t1', x: 56, z: 44 }],
     rows: [
@@ -62,40 +64,6 @@ const FIELD: readonly LevelFootprint[] = [
       '.#####......',
       '.##.##......',
       '............',
-      '............',
-      '............',
-      '............',
-      '............',
-      '............',
-    ],
-  },
-  {
-    models: [{ id: 'farm_field_t2', x: 96, z: 96 }, { id: 'farmhouse_t2', x: 55, z: 34 }],
-    rows: [
-      '######......',
-      '######......',
-      '######......',
-      '######......',
-      '######......',
-      '............',
-      '............',
-      '.........#..',
-      '.........#..',
-      '.........#..',
-      '............',
-      '............',
-    ],
-  },
-  {
-    models: [{ id: 'farm_field_t3', x: 96, z: 96 }, { id: 'farmhouse_t3', x: 48, z: 40 }],
-    rows: [
-      '######......',
-      '######......',
-      '######...#..',
-      '######......',
-      '######......',
-      '............',
-      '......###...',
       '............',
       '............',
       '............',
@@ -310,66 +278,44 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       posts: [[56, 6, 112], [168, 6, 112], [6, 100, 112], [218, 100, 112], [6, 148, 112], [218, 148, 112], [80, 217, 112], [144, 217, 112]],
     },
   ],
-  [BuildingKind.CropField]: FIELD,
-  [BuildingKind.LivestockFarm]: [
+  [BuildingKind.Farm]: FARM,
+  // A stand-in until the outside modeller's red barn comes (Patch 2): the old pen and barn, painted red, in a 12 x 12 yard.
+  [BuildingKind.Barn]: [
     {
-      models: [{ id: 'livestock_farm', x: 96, z: 96 }],
+      models: [{ id: 'pen_barn', x: 96, z: 96, tint: 0xd8584a }],
       rows: [
         '............',
         '............',
         '............',
         '............',
         '............',
-        '............',
-        '............',
-        '..##..####..',
-        '..##..####..',
-        '..##..####..',
-        '..##........',
+        '..########..',
+        '..########..',
+        '...######...',
+        '...######...',
+        '...######...',
+        '..########..',
         '............',
       ],
     },
   ],
-  [BuildingKind.PenBarn]: [
+  // A stand-in until the outside modeller's comes (Patch 2): the gunnery yard.
+  [BuildingKind.ArtilleryWorkshop]: [
     {
-      models: [{ id: 'pen_barn', x: 64, z: 64 }],
+      models: [{ id: 'gunnery_yard', x: 96, z: 96 }],
       rows: [
-        '........',
-        '........',
-        '........',
-        '########',
-        '########',
-        '.#....#.',
-        '.#....#.',
-        '.#....#.',
-      ],
-    },
-  ],
-  [BuildingKind.LumberMill]: [
-    {
-      models: [{ id: 'lumber_mill', x: 64, z: 64 }],
-      rows: [
-        '........',
-        '.##.#.#.',
-        '........',
-        '...##...',
-        '...##...',
-        '........',
-        '.#..#.#.',
-        '........',
-      ],
-    },
-    {
-      models: [{ id: 'lumber_mill_t2', x: 64, z: 64 }],
-      rows: [
-        '...###..',
-        '########',
-        '########',
-        '########',
-        '########',
-        '########',
-        '########',
-        '........',
+        '............',
+        '............',
+        '............',
+        '............',
+        '............',
+        '............',
+        '............',
+        '............',
+        '............',
+        '..##.##.##..',
+        '############',
+        '############',
       ],
     },
   ],
@@ -388,73 +334,6 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       ],
     },
   ],
-  [BuildingKind.Cooking]: [
-    {
-      models: [{ id: 'cooking_campfire', x: 16, z: 16 }],
-      // Stones and logs lie low, but no one walks through the fire.
-      fitted: 'the fire',
-      rows: [
-        '##',
-        '##',
-      ],
-    },
-    {
-      ox: -2, oz: -2, models: [{ id: 'cook_hut', x: 60, z: 48 }],
-      rows: [
-        '.##..#',
-        '.#####',
-        '.#####',
-        '.#####',
-        '.#####',
-        '.#####',
-      ],
-    },
-    {
-      ox: -3, oz: -3, models: [{ id: 'kitchen', x: 52, z: 67 }],
-      rows: [
-        '........',
-        '...#....',
-        '########',
-        '########',
-        '########',
-        '########',
-        '#######.',
-        '........',
-      ],
-    },
-    {
-      ox: -4, oz: -4, models: [{ id: 'great_kitchen', x: 72, z: 83 }],
-      rows: [
-        '..........',
-        '..........',
-        '..........',
-        '.#######..',
-        '.#######..',
-        '#########.',
-        '.#######..',
-        '.#######..',
-        '..........',
-        '..........',
-      ],
-    },
-    {
-      ox: -5, oz: -5, models: [{ id: 'grand_kitchen', x: 88, z: 96 }],
-      rows: [
-        '............',
-        '............',
-        '............',
-        '..#.###.#...',
-        '###########.',
-        '###########.',
-        '###########.',
-        '###########.',
-        '###########.',
-        '............',
-        '............',
-        '............',
-      ],
-    },
-  ],
   [BuildingKind.TorchPost]: [
     {
       models: [{ id: 'torch_post', x: 8, z: 8 }],
@@ -463,30 +342,7 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       ],
     },
   ],
-  [BuildingKind.WallTorch]: [
-    {
-      models: [{ id: 'torch_wall', x: 8, z: 8 }],
-      // The bracket hangs on the wall at head height (its pivot is the wall bracket), where a walker's head would hit it.
-      fitted: 'hangs at head height',
-      rows: [
-        '#',
-      ],
-    },
-  ],
-  [BuildingKind.Brazier]: [
-    {
-      models: [{ id: 'brazier', x: 16, z: 16 }],
-      rows: [
-        '##',
-        '##',
-      ],
-    },
-  ],
-  [BuildingKind.VegetableFarm]: FIELD,
-  [BuildingKind.HerbBed]: [block(8, 8, 3, 3)],
   [BuildingKind.FishingDock]: [block(6, 4)],
-  [BuildingKind.Tannery]: [block(8, 8)],
-  [BuildingKind.HerbalistHut]: [block(6, 6)],
   [BuildingKind.Wall]: [block(1, 1)],
   [BuildingKind.WallHardwood]: [block(1, 1)],
   [BuildingKind.WallStone]: [block(1, 1)],
@@ -499,17 +355,11 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.Earthworks]: [block(1, 1, 0, 0)],
   [BuildingKind.Ramp]: [block(1, 1)],
   [BuildingKind.Workshop]: [block(8, 8)],
-  [BuildingKind.Lantern]: [block(1, 1)],
   [BuildingKind.ScholarsLodge]: [block(8, 8)],
   [BuildingKind.MagiSanctum]: [block(8, 8)],
   [BuildingKind.Barracks]: [block(10, 10)],
-  [BuildingKind.Stables]: [block(10, 8)],
-  [BuildingKind.GunneryYard]: [block(12, 12)],
   [BuildingKind.Mineshaft]: [block(6, 6)],
-  [BuildingKind.Kiln]: [block(6, 6)],
   [BuildingKind.Forge]: [block(8, 8)],
-  [BuildingKind.PowderMill]: [block(6, 6)],
-  [BuildingKind.Foundry]: [block(10, 10)],
 };
 
 /** A kind's footprint at a level. */

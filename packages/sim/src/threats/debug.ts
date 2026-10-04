@@ -2,7 +2,8 @@
 // goblin village, a tribe's band or a territorial creature at a point, a
 // blood night for the coming night, and fog now. Also M6's mage tools: a
 // finished Magi Sanctum, two mages' kit materials and crystals, and experience for
-// every mage's next rank. And M8's: a Stables with horses, a siege kit, a
+// every mage's next rank. And M8's: a Barn with horses (the Stables before
+// Patch 2), a siege kit, a
 // gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
 // night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
 // 105) at once.
@@ -11,7 +12,7 @@ import { clockOf, Period } from '../clock.ts';
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pickNight } from '../combat/spawn.ts';
 import { placeBuilding, refitBuilding, UnitKind, WILD, type SimState } from '../state.ts';
-import { BuildingKind } from '../buildings/data.ts';
+import { BuildingKind, FORGE_STEP_BASE } from '../buildings/data.ts';
 import { footprintDims } from '../buildings/footprints.ts';
 import { Res } from '../economy/resources.ts';
 import { Research, Skill } from '../combat/items.ts';
@@ -34,6 +35,18 @@ import { spawnBand } from './tribes.ts';
 import { buildVillage } from './villages.ts';
 import { spreadTop } from '../units/top.ts';
 
+/** The player's first main base, finished at a level (at least the one it has), its health full and its top manned as that level has it. */
+function raiseMainBase(state: SimState, player: number, level: number): void {
+  const b = state.buildings.list.find((q) => q.owner === player && q.kind === BuildingKind.MainBase);
+  if (!b) return;
+  b.level = Math.max(b.level, level);
+  b.complete = true;
+  b.upgrading = 0;
+  b.hp = maxHealth(b);
+  refitBuilding(state, b);
+  spreadTop(state, b);
+}
+
 /** What a debugThreat order makes: lairs 0 to 7 in Table 15's order, then the rest. */
 export const DebugThreat = {
   Lair: 0,
@@ -47,19 +60,19 @@ export const DebugThreat = {
   Creature: 30,
   /** A finished Magi Sanctum centred on the spot. */
   Sanctum: 40,
-  /** The sticks and flax for two new mages' wands and robes, 20 mana crystals for rank-ups, 200 bread, and the hexstone and herbs for Hexcraft in the pool. */
+  /** The sticks and flax for two new mages' wands and robes, 20 mana crystals for rank-ups, 200 farm fare, and the hexstone and herbs for Hexcraft in the pool. */
   MageKit: 41,
   /** Every one of the player's mages gets the experience for her next rank (and rises to it by herself up to Adept Acolyte). */
   MageXp: 42,
-  /** A finished Stables centred on the spot with 2 grown horses and an ox in its stalls, and 100 bread. */
-  Stables: 50,
+  /** A finished Barn centred on the spot with 2 grown horses and an ox in its stalls, and 100 farm fare (Patch 2: the Stables' tool). */
+  Barn: 50,
   /** A catapult, a ballista and a bronze cannon at the spot; 20 catapult stones, ballista bolts, cannonballs and gunpowder; Siege engines, Gunpowder, Muskets and Cannons researched. */
   SiegeKit: 51,
   /** The carbon steel, planks, flint and gunpowder for four musket rangers; the gun research done; every warrior trained as cannon crew. */
   GunKit: 52,
   /** The player's main base becomes a finished Citadel (level 10) with its 4 cannon ports. */
   Citadel: 53,
-  /** A finished Barracks and a Steelworks (forge level 4) at the spot, the materials of every tier, 300 bread, and the research every tier needs (Troops and gear). */
+  /** A finished Barracks and Forge at the spot, the main base raised to level 7 if lower (the Forge's steel step), the materials of every tier, 300 farm fare, and the research every tier needs (Troops and gear). */
   TroopKit: 54,
   /** Night mobs from night 25 on, in roster order from 60 (LATE_MOBS). */
   LateMob: 60,
@@ -122,7 +135,7 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     p.pool[Res.Sticks] = p.pool[Res.Sticks]! + 10;
     p.pool[Res.Flax] = p.pool[Res.Flax]! + 6;
     p.pool[Res.ManaCrystal] = p.pool[Res.ManaCrystal]! + 20;
-    p.pool[Res.Bread] = p.pool[Res.Bread]! + 200;
+    p.pool[Res.FarmFare] = p.pool[Res.FarmFare]! + 200;
     // What Hexcraft costs at the Sanctum.
     p.pool[Res.Hexstone] = p.pool[Res.Hexstone]! + 6;
     p.pool[Res.Herbs] = p.pool[Res.Herbs]! + 20;
@@ -138,14 +151,14 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     }
     return;
   }
-  if (what === DebugThreat.Stables && p) {
-    const d = footprintDims(BuildingKind.Stables, 0);
-    const b = placeBuilding(state, player, BuildingKind.Stables, 0, floorDiv(x, WU_PER_COLUMN) - (d.w >> 1), floorDiv(z, WU_PER_COLUMN) - (d.d >> 1), true);
+  if (what === DebugThreat.Barn && p) {
+    const d = footprintDims(BuildingKind.Barn, 0);
+    const b = placeBuilding(state, player, BuildingKind.Barn, 0, floorDiv(x, WU_PER_COLUMN) - (d.w >> 1), floorDiv(z, WU_PER_COLUMN) - (d.d >> 1), true);
     for (const [species, k2] of [[Species.Horse, 0], [Species.Horse, 1], [Species.Ox, 2]] as const) {
       const h = addAnimal(state, species, player, x + (k2 - 1) * 2 * WU_PER_COLUMN, z + (d.d + 2) * (WU_PER_COLUMN >> 1), 0, k2 & 1);
       state.entities.home[h] = b.id;
     }
-    p.pool[Res.Bread] = p.pool[Res.Bread]! + 100;
+    p.pool[Res.FarmFare] = p.pool[Res.FarmFare]! + 100;
     return;
   }
   if (what === DebugThreat.SiegeKit && p) {
@@ -167,28 +180,19 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     const cz = floorDiv(z, WU_PER_COLUMN);
     const bd = footprintDims(BuildingKind.Barracks, 0);
     placeBuilding(state, player, BuildingKind.Barracks, 0, cx - bd.w - 1, cz - (bd.d >> 1), true);
-    const forge = placeBuilding(state, player, BuildingKind.Forge, 0, cx + 1, cz - (footprintDims(BuildingKind.Forge, 0).d >> 1), true);
-    forge.level = 4;
-    forge.hp = maxHealth(forge);
+    placeBuilding(state, player, BuildingKind.Forge, 0, cx + 1, cz - (footprintDims(BuildingKind.Forge, 0).d >> 1), true);
+    raiseMainBase(state, player, FORGE_STEP_BASE[FORGE_STEP_BASE.length - 1]!);
     const stock: ReadonlyArray<readonly [Res, number]> = [
       [Res.CopperIngot, 20], [Res.BronzeIngot, 20], [Res.WroughtIron, 20], [Res.IronIngot, 20], [Res.SteelIngot, 20], [Res.CarbonSteel, 20],
       [Res.Leather, 40], [Res.HardenedLeather, 20], [Res.Flax, 20], [Res.Rope, 10], [Res.Feathers, 20], [Res.Gunpowder, 20],
-      [Res.Planks, 30], [Res.HardwoodLumber, 30], [Res.Flint, 20], [Res.Sticks, 40], [Res.Bread, 300],
+      [Res.Planks, 30], [Res.HardwoodLumber, 30], [Res.Flint, 20], [Res.Sticks, 40], [Res.FarmFare, 300],
     ];
     for (const [r, n] of stock) p.pool[r] = p.pool[r]! + n;
     for (const r of [Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets]) p.research |= 1 << r;
     return;
   }
   if (what === DebugThreat.Citadel) {
-    const b = state.buildings.list.find((q) => q.owner === player && q.kind === BuildingKind.MainBase);
-    if (b) {
-      b.level = CITADEL_LEVEL;
-      b.complete = true;
-      b.upgrading = 0;
-      b.hp = maxHealth(b);
-      refitBuilding(state, b);
-      spreadTop(state, b);
-    }
+    raiseMainBase(state, player, CITADEL_LEVEL);
     return;
   }
   const late = what - DebugThreat.LateMob;

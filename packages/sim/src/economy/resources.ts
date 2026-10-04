@@ -5,7 +5,12 @@
 
 import { floorDiv } from '../fixed.ts';
 
-/** Resource ids. The first 20 are the doc's main list in its order, then the additional list, then made goods. */
+/**
+ * Resource ids. The first 20 are the doc's main list in its order, then the
+ * additional list, then made goods. Patch 2 cut the crops (wheat, potatoes,
+ * carrots and corn), every cooked food and the glass lantern, and the ids
+ * after them closed up; farm fare took wheat's place.
+ */
 export const Res = {
   SoftwoodLumber: 0,
   HardwoodLumber: 1,
@@ -44,88 +49,76 @@ export const Res = {
   Charcoal: 33,
   Saltpetre: 34,
   Sulphur: 35,
-  Wheat: 36,
-  Potatoes: 37,
-  Carrots: 38,
-  Corn: 39,
-  Flax: 40,
-  Hides: 41,
-  Bone: 42,
-  Resin: 43,
-  SpiderSilk: 44,
-  DemonHorn: 45,
-  Hexstone: 46,
-  Venom: 47,
-  LeadOre: 48,
-  ManaCrystal: 49,
+  /** Patch 2: the Farm's one food, "a hearty medley of vegetables" (Jade). */
+  FarmFare: 36,
+  Flax: 37,
+  Hides: 38,
+  Bone: 39,
+  Resin: 40,
+  SpiderSilk: 41,
+  DemonHorn: 42,
+  Hexstone: 43,
+  Venom: 44,
+  LeadOre: 45,
+  ManaCrystal: 46,
   // Made goods the tables name (Table 2b, Table 4).
-  Planks: 50,
-  Bricks: 51,
-  Glass: 52,
-  Rope: 53,
-  /** Leather hardened at the Tannery (Troops and gear); id 54 was bloom iron, which went with the rework. */
-  HardenedLeather: 54,
-  WroughtIron: 55,
-  /** Carts made at a workshop (Table 2f), taken by workers with X; ids 56 and 59 were refined iron and lead shot. */
-  HandCart: 56,
+  Planks: 47,
+  Bricks: 48,
+  Glass: 49,
+  Rope: 50,
+  /** Leather hardened at the Workshop (Troops and gear). */
+  HardenedLeather: 51,
+  WroughtIron: 52,
+  /** Carts made at the Workshop (Table 2f), taken by workers with X. */
+  HandCart: 53,
   /** Carbon steel, which replaced high-quality steel (Troops and gear). */
-  CarbonSteel: 57,
-  Gunpowder: 58,
-  OxCart: 59,
-  // Cooked foods (Table 6, Cooking) and medicine (Food and medicine).
-  RoastMeat: 60,
-  RoastFish: 61,
-  SmokedMeat: 62,
-  SmokedFish: 63,
-  Bread: 64,
-  SaltedMeat: 65,
-  SaltedFish: 66,
-  Stew: 67,
-  Pie: 68,
-  Bandage: 69,
-  Remedy: 70,
-  // Workshop goods: ramp steps of lumber or stone, placed with Earthworks, and glass lanterns.
-  LumberRamp: 71,
-  StoneRamp: 72,
-  Lantern: 73,
+  CarbonSteel: 54,
+  Gunpowder: 55,
+  OxCart: 56,
+  // Medicine (Food and medicine).
+  Bandage: 57,
+  Remedy: 58,
+  // Workshop goods: ramp steps of lumber or stone, placed with Earthworks.
+  LumberRamp: 59,
+  StoneRamp: 60,
   // Trinkets (Trinkets): every metal in every tier, then the two special ones. TRINKET_BASE + metal * 4 + tier - 1.
-  Moonleaf: 102,
-  Sunheart: 103,
+  Moonleaf: 89,
+  Sunheart: 90,
   // Milestone 8: siege munitions (Table 2b, Table 12).
-  Cannonball: 104,
-  CatapultStone: 105,
-  BallistaBolt: 106,
+  Cannonball: 91,
+  CatapultStone: 92,
+  BallistaBolt: 93,
   // Patch 1: raw meat by the animal it came from, and fish by species (food-kinds.ts says which animal gives which).
-  Beef: 107,
-  Chicken: 108,
-  HorseMeat: 109,
-  HareMeat: 110,
-  BoarMeat: 111,
-  WolfMeat: 112,
-  LynxMeat: 113,
-  BadgerMeat: 114,
-  BearMeat: 115,
-  FrogLegs: 116,
-  CrabMeat: 117,
-  CrocodileMeat: 118,
-  GooseMeat: 119,
-  PheasantMeat: 120,
-  GriffinMeat: 121,
-  MinotaurMeat: 122,
-  RatMeat: 123,
-  Salmon: 124,
-  Catfish: 125,
+  Beef: 94,
+  Chicken: 95,
+  HorseMeat: 96,
+  HareMeat: 97,
+  BoarMeat: 98,
+  WolfMeat: 99,
+  LynxMeat: 100,
+  BadgerMeat: 101,
+  BearMeat: 102,
+  FrogLegs: 103,
+  CrabMeat: 104,
+  CrocodileMeat: 105,
+  GooseMeat: 106,
+  PheasantMeat: 107,
+  GriffinMeat: 108,
+  MinotaurMeat: 109,
+  RatMeat: 110,
+  Salmon: 111,
+  Catfish: 112,
   /**
    * Any kind of raw meat or fish, for what a recipe or a trade asks for: never
    * held in a pool, paid with whatever kinds are in stock (haveOf, payAny).
    */
-  AnyMeat: 126,
-  AnyFish: 127,
+  AnyMeat: 113,
+  AnyFish: 114,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
 /** The first trinket: metal m (TRINKET_METALS order) at tier t (1 to 4) is TRINKET_BASE + m * 4 + t - 1. */
-export const TRINKET_BASE = 74;
+export const TRINKET_BASE = 61;
 export const TRINKET_METALS = ['Copper', 'Tin', 'Bronze', 'Iron', 'Steel', 'Silver', 'Gold'] as const;
 export const TRINKET_TIERS = ['Token', 'Charm', 'Brooch', 'Heirloom'] as const;
 
@@ -178,11 +171,11 @@ function trinkets(): ResourceInfo[] {
 export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.SoftwoodLumber, 'Softwood lumber', 'Softwood', M, 50, 'Softwood trees: pine, spruce, small softwood.'),
   r(Res.HardwoodLumber, 'Hardwood lumber', 'Hardwood', M, 50, 'Hardwood trees: birch and hornbeam (a flint axe), oak and beech (a copper axe).'),
-  r(Res.Herbs, 'Medicinal herbs', 'Herbs', M, 5, 'Wild herbs and herb beds.'),
+  r(Res.Herbs, 'Medicinal herbs', 'Herbs', M, 5, 'Wild herbs, and some monsters.'),
   r(Res.Stone, 'Stone', 'Stone', M, 50, 'Loose stone, stone outcrops (a digging stick or stone maul) and digging rock.'),
   r(Res.Flint, 'Flint', 'Flint', M, 10, 'Flint scatter.'),
   r(Res.Coal, 'Coal', 'Coal', M, 25, 'Surface coal seams (copper tools) and mineshafts.'),
-  r(Res.Leather, 'Leather', 'Leather', M, 25, 'Cattle, and hides at a tannery.', 0, false),
+  r(Res.Leather, 'Leather', 'Leather', M, 25, 'Cattle, and hides at the Workshop.', 0, false),
   r(Res.Venison, 'Venison', 'Venison', M, 25, 'Hunting deer.', 4),
   r(Res.Trout, 'Trout', 'Trout', M, 25, 'Fishing Heartland streams.', 3),
   r(Res.CopperOre, 'Copper ore', 'Copper ore', M, 50, 'Copper outcrops (a stone maul).'),
@@ -193,10 +186,10 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.BogIron, 'Bog iron', 'Bog iron', M, 50, 'Bog iron patches (bronze tools).'),
   r(Res.IronRock, 'Iron rock', 'Iron rock', M, 50, 'Iron rock (bronze tools).'),
   r(Res.VeinIron, 'Vein iron ore', 'Vein iron', M, 50, 'Seams inside ridges (wrought iron tools) and mineshafts.'),
-  r(Res.PigIron, 'Pig iron ingot', 'Pig iron', M, 50, 'Vein iron at an Ironworks.', 0, false),
-  r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Pig iron at an Ironworks (forge level 3).', 0, false),
-  r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at a Steelworks (forge level 4), after Steel.', 0, false),
-  r(Res.Eggs, 'Eggs', 'Eggs', A, 5, 'Chickens.', 1),
+  r(Res.PigIron, 'Pig iron ingot', 'Pig iron', M, 50, 'Vein iron at the Forge (main base 5).', 0, false),
+  r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Pig iron at the Forge (main base 5).', 0, false),
+  r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at the Forge (main base 7), after Steel.', 0, false),
+  r(Res.Eggs, 'Eggs', 'Eggs', A, 5, 'Hens in a Barn.', 1),
   r(Res.Feathers, 'Feathers', 'Feathers', A, 1, 'Chickens, hunted wild geese and pheasants, and Runkin traders. Bow and crossbow rangers need them.'),
   r(Res.Gold, 'Gold', 'Gold', A, 10, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Emeralds, 'Emeralds', 'Emeralds', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
@@ -209,14 +202,11 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Sticks, 'Hardwood sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or hardwood lumber at a workshop.'),
   r(Res.Clay, 'Clay', 'Clay', A, 50, 'Clay banks by rivers and wetlands.'),
   r(Res.Sand, 'Sand', 'Sand', A, 50, 'Riverbeds and beaches.'),
-  r(Res.Charcoal, 'Charcoal', 'Charcoal', A, 25, 'Hardwood burnt at a kiln.', 0, false),
+  r(Res.Charcoal, 'Charcoal', 'Charcoal', A, 25, 'Hardwood burnt at the Forge (main base 3).', 0, false),
   r(Res.Saltpetre, 'Saltpetre', 'Saltpetre', A, 25, 'Cave floors in the Fringe and deeper.'),
   r(Res.Sulphur, 'Sulphur', 'Sulphur', A, 25, 'Volcanic ground and hot springs, far out.'),
-  r(Res.Wheat, 'Wheat', 'Wheat', A, 10, 'Crop fields.', 2),
-  r(Res.Potatoes, 'Potatoes', 'Potatoes', A, 10, 'Vegetable farms.', 2),
-  r(Res.Carrots, 'Carrots', 'Carrots', A, 5, 'Vegetable farms.', 1),
-  r(Res.Corn, 'Corn', 'Corn', A, 10, 'Crop fields.', 2),
-  r(Res.Flax, 'Flax', 'Flax', A, 5, 'Crop fields and wild flax.'),
+  r(Res.FarmFare, 'Farm fare', 'Farm fare', A, 10, 'A hearty medley of vegetables, grown at the Farm.', 2),
+  r(Res.Flax, 'Flax', 'Flax', A, 5, 'Wild flax.'),
   r(Res.Hides, 'Hides', 'Hides', A, 25, 'Hunting wild animals.'),
   r(Res.Bone, 'Bone', 'Bone', A, 10, 'Hunting and some monsters.'),
   r(Res.Resin, 'Resin / pitch', 'Resin', A, 10, 'Softwood trees: 2 for every one felled.'),
@@ -226,36 +216,26 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Venom, 'Venom', 'Venom', A, 5, 'Dropped by vipers, scorpions, centipedes and hornets.'),
   r(Res.LeadOre, 'Lead ore', 'Lead ore', A, 50, 'Deepwoods and deeper, beside silver-grey rock (bronze tools).'),
   r(Res.ManaCrystal, 'Mana crystal', 'Mana', A, 5, 'Rare nodes in the Deadlands, and some magical creatures.'),
-  r(Res.Planks, 'Planks', 'Planks', G, 50, 'Lumber at a lumber mill.', 0, false),
-  r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at a kiln.', 0, false),
-  r(Res.Glass, 'Glass', 'Glass', G, 25, 'Sand at a kiln.', 0, false),
-  r(Res.Rope, 'Rope', 'Rope', G, 10, 'Leather or flax at a tannery or the Big House.', 0, false),
-  r(Res.HardenedLeather, 'Hardened leather', 'Hard leather', G, 25, 'Leather hardened at a tannery.', 0, false),
-  r(Res.WroughtIron, 'Wrought iron', 'Wrought iron', G, 50, 'Any iron ore at a Bloomery (forge level 2).', 0, false),
-  r(Res.HandCart, 'Hand cart', 'Hand carts', G, 500, 'Planks and hardwood at a Workshop (tier 2). A worker takes one with X.', 0, false),
-  r(Res.CarbonSteel, 'Carbon steel ingot', 'Carbon steel', G, 50, 'Iron and plenty of charcoal at a Steelworks, slowly, after Carbon steel.', 0, false),
-  r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at a powder mill. Musket rangers and brawlers need it.', 0, false),
-  r(Res.OxCart, 'Ox or horse cart', 'Ox carts', G, 500, 'Planks, hardwood, leather and wrought iron at a Great Workshop. A worker takes one with X.', 0, false),
-  r(Res.RoastMeat, 'Roast meat', 'Roast meat', F, 25, 'Meat roasted at a campfire or better.', 6, false),
-  r(Res.RoastFish, 'Roast fish', 'Roast fish', F, 25, 'Fish roasted at a campfire or better.', 5, false),
-  r(Res.SmokedMeat, 'Smoked meat', 'Smoked meat', F, 25, 'Meat smoked at a Cook Hut or better.', 7, false),
-  r(Res.SmokedFish, 'Smoked fish', 'Smoked fish', F, 25, 'Fish smoked at a Cook Hut or better.', 6, false),
-  r(Res.Bread, 'Bread', 'Bread', F, 10, 'Wheat baked at a Kitchen or better.', 5, false),
-  r(Res.SaltedMeat, 'Salted meat', 'Salted meat', F, 25, 'Meat salted at a Kitchen or better.', 8, false),
-  r(Res.SaltedFish, 'Salted fish', 'Salted fish', F, 25, 'Fish salted at a Kitchen or better.', 7, false),
-  r(Res.Stew, 'Stew', 'Stew', F, 25, 'Meat, potatoes and a carrot at a Great Kitchen or better.', 12, false),
-  r(Res.Pie, 'Pie', 'Pie', F, 25, 'Meat, wheat and an egg at a Grand Kitchen.', 16, false),
-  r(Res.Bandage, 'Bandage', 'Bandages', G, 5, 'An herb and flax or leather at a herbalist hut. Heals 30 over 15 s.', 0, false),
-  r(Res.Remedy, 'Healing remedy', 'Remedies', G, 5, 'Two herbs and a glass bottle at a herbalist hut. Heals 60 over 5 s.', 0, false),
-  r(Res.LumberRamp, 'Lumber ramp step', 'Lumber ramp', G, 25, 'Lumber at a workshop: two ramp steps from 1 lumber. Placed with Earthworks.', 0, false),
-  r(Res.StoneRamp, 'Stone ramp step', 'Stone ramp', G, 50, 'Stone at a workshop: two ramp steps from 2 stone. Placed with Earthworks.', 0, false),
-  r(Res.Lantern, 'Glass lantern', 'Lanterns', G, 30, 'Glass and wrought iron at a Great Workshop; hung as a light.', 0, false),
+  r(Res.Planks, 'Planks', 'Planks', G, 50, 'Lumber at the Workshop.', 0, false),
+  r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at the Forge (main base 3).', 0, false),
+  r(Res.Glass, 'Glass', 'Glass', G, 25, 'Sand at the Forge (main base 3).', 0, false),
+  r(Res.Rope, 'Rope', 'Rope', G, 10, 'Leather or flax at the Workshop or the Big House.', 0, false),
+  r(Res.HardenedLeather, 'Hardened leather', 'Hard leather', G, 25, 'Leather hardened at the Workshop.', 0, false),
+  r(Res.WroughtIron, 'Wrought iron', 'Wrought iron', G, 50, 'Any iron ore at the Forge (main base 3).', 0, false),
+  r(Res.HandCart, 'Hand cart', 'Hand carts', G, 500, 'Planks and hardwood at the Workshop (main base 3). A worker takes one with X.', 0, false),
+  r(Res.CarbonSteel, 'Carbon steel ingot', 'Carbon steel', G, 50, 'Iron and plenty of charcoal at the Forge (main base 7), slowly, after Carbon steel.', 0, false),
+  r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at the Forge (main base 7), after Gunpowder. Musket rangers and brawlers need it.', 0, false),
+  r(Res.OxCart, 'Ox or horse cart', 'Ox carts', G, 500, 'Planks, hardwood, leather and wrought iron at the Workshop (main base 5). A worker takes one with X.', 0, false),
+  r(Res.Bandage, 'Bandage', 'Bandages', G, 5, 'An herb and flax or leather at the Workshop. Heals 30 over 15 s.', 0, false),
+  r(Res.Remedy, 'Healing remedy', 'Remedies', G, 5, 'Two herbs and a glass bottle at the Workshop. Heals 60 over 5 s.', 0, false),
+  r(Res.LumberRamp, 'Lumber ramp step', 'Lumber ramp', G, 25, 'Lumber at the Workshop: two ramp steps from 1 lumber. Placed with Earthworks.', 0, false),
+  r(Res.StoneRamp, 'Stone ramp step', 'Stone ramp', G, 50, 'Stone at the Workshop: two ramp steps from 2 stone. Placed with Earthworks.', 0, false),
   ...trinkets(),
-  r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at a Great Workshop or Manufactory. For trading with villages.', 0, false),
-  r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at a Manufactory. For trading with villages.', 0, false),
-  r(Res.Cannonball, 'Cannonball', 'Cannonballs', G, 60, 'An iron ingot or 2 stone at a Foundry. A cannon shot also burns 1 gunpowder charge.', 0, false),
-  r(Res.CatapultStone, 'Catapult stone', 'Catapult stones', G, 400, 'A stone shaped at a Great Workshop.', 0, false),
-  r(Res.BallistaBolt, 'Ballista bolt', 'Ballista bolts', G, 50, 'Hardwood and wrought iron at a Manufactory, 5 at a time.', 0, false),
+  r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at the Workshop (main base 5). For trading with villages.', 0, false),
+  r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at the Workshop (main base 7). For trading with villages.', 0, false),
+  r(Res.Cannonball, 'Cannonball', 'Cannonballs', G, 60, 'An iron ingot or 2 stone at the Artillery workshop. A cannon shot also burns 1 gunpowder charge.', 0, false),
+  r(Res.CatapultStone, 'Catapult stone', 'Catapult stones', G, 400, 'A stone shaped at the Artillery workshop.', 0, false),
+  r(Res.BallistaBolt, 'Ballista bolt', 'Ballista bolts', G, 50, 'Hardwood and wrought iron at the Artillery workshop, 5 at a time.', 0, false),
   // Raw meat by animal and fish by species (Table 6: every meat 4, every fish 3; Table 12: 2.5 lb each).
   r(Res.Beef, 'Beef', 'Beef', F, 25, 'Slaughtering or hunting cattle and oxen.', 4),
   r(Res.Chicken, 'Chicken', 'Chicken', F, 25, 'Slaughtering or hunting chickens.', 4),
@@ -285,7 +265,7 @@ export const RESOURCE_COUNT = RESOURCES.length;
 /** Raw materials a unit may carry at once (Inventory and carrying weight: 25 lb), in tenths of a pound. */
 export const RAW_CARRY_TENTHS_LB = 250;
 
-/** The foods a unit can eat, in id order (Table 6's raw foods; cooked foods come with cooking). */
+/** The foods a unit can eat, in id order (Table 6's raw foods and farm fare; Patch 2 cut cooking). */
 export const FOODS: readonly Res[] = RESOURCES.filter((x) => x.nutrition > 0).map((x) => x.id);
 
 /** How many of a resource fit in one 25 lb load (Table 12's "Load per trip"). */
