@@ -105,7 +105,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 9576406b`. Run it again: the same hash. (The
+   prints `final step 10000 hash 27544deb`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -114,7 +114,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `38f7d02b`
+   step as the headless runner with no script: for seed 1 that is `cf52a6d8`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -129,7 +129,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    pick the number of players and press Start. The camera starts over your
    Big House and four workers in your pocket: flat grass with a pond or a
    stream, hazel, trees, loose stone and flint nearby, and the rest of the
-   land black until explored.
+   land black until explored. With two or more players the others' Big
+   Houses stand 10 to 15 m away (see "How a tester checks Jade's mini
+   patch").
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
    with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
    to walk your units out: the land they see turns from black to colour,
@@ -143,15 +145,15 @@ reveal; two machines with the same seed show the same land and the same hash.*
    explores 150 m round the middle of the view, and the minimap fills in
    behind it. **Show all** draws the land without fog on your screen only,
    so you can pan across cells, barrier edges (low hills, ridges, cliffs,
-   ravines, rivers, marshes), their gaps, fords and the next pockets.
+   ravines, rivers, marshes), their gaps and fords.
    **Dig** and **Raise** change the land in the middle of the view, and water
    next to a dug pit flows into it. **Fell** takes everything from the
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `38f7d02b` at step 40, with two players `a46535dd`. The land matches too.
+   `cf52a6d8` at step 40, with two players `504e575d`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 98ed757d`: two players dig trenches from a
+   prints `final step 10000 hash da955fc7`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -222,7 +224,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 59f883f0`: workers chop and quarry, the Big
+   prints `final step 10000 hash 6ddf2ec9`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -292,7 +294,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 775e9e68`: two workers raise a gate and a
+   prints `final step 10000 hash aa3f7400`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -373,7 +375,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash a8a6f947`: two workers pick flint while two
+   prints `final step 10000 hash e7a10ea8`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -476,15 +478,16 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 3109706c`: the debug tools put a Barracks
+   prints `final step 10000 hash 2cba2f98`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
    press Upgrade Weapon Max and Upgrade Armour Max and come back in carbon
    steel and steel; the four wake the barrow's dwellers, break it, take its
    hoard and earn XP; fog rolls in for night 0 and they guard the Big House;
-   at dawn a goblin village goes up 80 m north, a gnoll band to the
-   south-east and a giant beetle to the north-west; they attack the village,
+   at dawn a goblin village goes up 56 m north (80 m before Jade's mini
+   patch brought the Fringe nearer), a gnoll band to the south-east and a
+   giant beetle to the north-west; they attack the village,
    which declares war on the fifth kill, and walk home; then a blood night is
    called for night 1. `pnpm test` runs it in Node, Chromium, Firefox and
    WebKit too. `node packages/client/test-e2e/m5-look.mjs` (with the dev
@@ -629,7 +632,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash ffd99362`: the debug tools put a Magi
+   prints `final step 10000 hash 4aff665b`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -742,7 +745,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 55764b2d`: the debug tools put a Halfling
+    prints `final step 10000 hash 5283ab9d`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -857,7 +860,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash de198e59`: the debug tools make the Big
+   prints `final step 10000 hash 7232501f`: the debug tools make the Big
    House a Citadel, put a Stables 20 m east, a siege kit 20 m west, a goblin
    village 80 m north and a troop kit to the south-east; the Big House
    trains a long-melee spearman and the Stables a bronze cavalry rider, who
@@ -1037,7 +1040,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash de198e59`, as in milestone 8 above.
+   prints `final step 10000 hash 7232501f`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1062,7 +1065,7 @@ Client and assets only: the sim and every hash are unchanged.
 
 Jade's ask (2026-10-03): *your buildings also grant map vision, not just your
 units; in multiplayer all players share vision from all their units and
-buildings.* The step-40 hashes (`38f7d02b`, two players `a46535dd`) and the
+buildings.* The step-40 hashes and the
 M1, M6 and M8 scripts' hashes changed with this patch: the Big House and every
 other building now explore the land round them, and the players keep one
 explored picture. The M0, M2, M3, M4, M5 and M7 scripts keep their hashes,
@@ -1088,8 +1091,8 @@ still load, with every player's explored land joined into one.
    night every building sees half as far. The Big House and towers also mark
    lairs and goblin villages they see on the minimap.
 3. **Two players.** Open `?seed=1&players=2`: both pockets are in colour
-   from the start, and panning to the second pocket shows its units' and
-   buildings' sight as in sight. On two machines in a lobby, what one player's
+   from the start, and the second Big House, 10 to 15 m away, shows its
+   units' and buildings' sight as in sight. On two machines in a lobby, what one player's
    units or buildings explore turns to colour for the other at the same step,
    and lairs, villages and peoples one finds show on the other's minimap.
 4. **Attacks.** Order a warrior to attack a monster far off that only a
@@ -1169,7 +1172,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash e93cff80`: the four workers are given a
+   prints `final step 10000 hash 96087b44`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1177,7 +1180,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash b80a8f7e`: the debug tools heap a soil hill
+   prints `final step 10000 hash 2c745dce`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1619,12 +1622,14 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash 2c0bb7e4`: the debug tools explore 200 m round the
-   camp, and the three warriors walk 90 m east at dusk and stand there
-   through night 0. About 43 monsters are out at nightfall, round them and
-   round the workers at the camp, up to 68 at once later and 108 over the
-   night; 11 of them go for a unit, and the warriors end the night at about
-   half to five sixths of their health. They walk home at step 8200.
+   prints `final step 10000 hash 4f475c5f`: the debug tools explore 200 m round the
+   camp, and the three warriors walk 90 m east at dusk, into the Fringe
+   since Jade's mini patch, and stand there through night 0. About 27
+   monsters are out at nightfall, round them and round the workers at the
+   camp, up to 72 at once later and 115 over the night; one of them goes for
+   a unit, and night 0's monsters marching on the camp fall on the warriors
+   and kill one; the other two end the night at about three quarters and
+   full health. They walk home at step 8200.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm test` also runs `packages/sim/test/wanderers.test.ts`: where they
    come out (claimed land, lights, units, unexplored land, a peaceful game, a
@@ -2138,6 +2143,55 @@ orders (`mageProduct`, `setKitLock`).*
     hover it for the stalls and the farm fare they eat. A farm shows its
     crop and a bar with "6 in 3:40" on it; a tower or the Citadel "Up top
     0/8" and the men's portraits. Every sentence is in a tooltip.
+
+## How a tester checks Jade's mini patch: where the bases stand and the world's scale
+
+*Jade's ask (2026-10-04): in multiplayer the main bases spawn 10 to 15 m
+apart, measured from the outer edge of each building; with more than four
+players they stand roughly in a line, so no base can be surrounded by the
+others; and the world is smaller only in the distance between rings, and so
+between bands, by about 30%. Picks in blueprint/mini-patch-spawns-picks.md.
+Where the bases stand, their yards, water and iron are
+`packages/sim/src/world/start.ts`; the yards' props and the fit-land checks
+`packages/sim/src/world/generate.ts`; the ring scale `RING_SCALE_PER_MILLE`
+in `packages/sim/src/world/layout.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/world.test.ts: every
+   ring and band 30% nearer the start, the cells per ring unchanged; for 2
+   to 8 players over 60 seeds, every pair of bases 10 to 15 m apart edge to
+   edge in a group of 2 to 4, and from 5 players a straight line with each
+   base's neighbours 10 to 15 m away and every other base farther; a game
+   for one still on the basin's middle, with every Halfling village placed;
+   each player's units and Table 9 set beside their own Big House, never
+   nearer another's.
+2. **Two players.** `pnpm dev` and open
+   http://localhost:5173/?seed=1&players=2. The second Big House stands
+   14 m from yours, measured between the edges of the two 6.3 m plots the
+   Big House stands on (the level 1 building does not fill its plot, so
+   the gap looks up to 2 m wider on one side). Your workers and warriors
+   stand on your side, away from the other base; your softwood stand,
+   hazel, copper, tin, stone, flint, water and bog or iron rock lie in your
+   yard on that side, where a worker can walk straight out to each.
+3. **Three and four.** `?seed=1&players=3`: a triangle, 11 to 14 m between
+   each pair. `?seed=1&players=4`: a square, 10.3 m across each side and
+   14.6 m across each diagonal, each yard facing out from its corner.
+4. **Five to eight.** `?seed=1&players=8`, type M N B V C X Z and press
+   **Show all**: eight Big Houses in a straight line about 140 m long, 14 m
+   between neighbours, the yards taking turns either side of the line so a
+   base's yard never borders its neighbour's. The bases at each end have one
+   neighbour and the rest two.
+5. **The bands nearer.** With one player (`?seed=1`), press **Reveal** and
+   **Show all**: the basin's edge, where the Fringe begins, is 63 m from
+   the Big House (90 m before the mini patch), its mixed woods start about
+   50 m out, and the barrier edges are 30% closer together. `pnpm --filter @blockyrts/tools map-viewer
+   --seed 1 --size 3000 --edges --out map.png` draws the cells 30% smaller
+   across. The Big House, the pocket's flat ground, ponds, streams, hills
+   and every building are the size they were.
+6. **Saves.** A save from before the mini patch is refused: "That save is
+   from an older version of the game. Start a new game." (save format 4).
+7. **The balance editor** (once republished from main) has
+   RING_SCALE_PER_MILLE (700) under World and terrain, World layout, and
+   BASE_GAP_MIN_M (10) and BASE_GAP_MAX_M (15) under Start basins.
 
 ## How a tester checks the balance editor
 
