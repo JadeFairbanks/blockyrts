@@ -44,7 +44,8 @@ describe('one picture per thing', () => {
     }
     for (let v = 0; v < 5; v++) expect(hasKit(buildingIconFile(BuildingKind.Earthworks, 1, v))).toBe(true);
     expect(buildingIconFile(BuildingKind.MainBase, 4)).toBe('icon_main_base_l4');
-    expect(buildingIconFile(BuildingKind.Forge, 9)).toBe('icon_forge_l4');
+    // Patch 2: only the main base keeps levels; every other building has its one picture.
+    expect(buildingIconFile(BuildingKind.Forge, 9)).toBe('icon_forge_l1');
   });
 
   it('draws every troop type at every weapon tier, and the troop panel pieces', () => {
@@ -69,8 +70,6 @@ describe('one picture per thing', () => {
   it('draws everything a building can make', () => {
     const products = [
       Product.Worker,
-      Product.PlanksSoftwood,
-      Product.PlanksHardwood,
       Product.SupportMage,
       Product.BattleMage,
       ...RESEARCH.map((_, i) => RESEARCH_PRODUCT + i),
@@ -92,7 +91,7 @@ describe('one picture per thing', () => {
 
   it('draws every command, each spell of ours and the upgrades', () => {
     const actions = [
-      'attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'buildBasic', 'buildAdvanced',
+      'attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build',
       'enter', 'unload', 'rally', 'craft', 'cancel', 'cancelBuild', 'back', 'hunt', 'eat', 'rankUp', 'mageRank', 'train', 'hitch',
       'cart', 'deeper', 'shallower', 'tunnel', 'markArea', 'trainWorker', 'trainSupportMage', 'trainBattleMage',
     ];

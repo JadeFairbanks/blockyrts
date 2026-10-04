@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BuildingKind } from '@blockyrts/sim';
 import {
   applyBox,
   applyClick,
@@ -86,9 +87,9 @@ describe('priority rules', () => {
   });
   it('else own buildings, leaving out walls, towers and lights unless they are all there is', () => {
     expect(keys(priorityFilter([hall, enemy, pine1], ME, start))).toEqual(['e:4']);
-    const wall = item('b:7', 'building', ME, 'building:12:1', 200, 200);
-    const torch = item('b:8', 'building', ME, 'building:18:1', 220, 200);
-    const barracks = item('b:9', 'building', ME, 'building:24:1', 240, 200);
+    const wall = item('b:7', 'building', ME, `building:${BuildingKind.Wall}:1`, 200, 200);
+    const torch = item('b:8', 'building', ME, `building:${BuildingKind.TorchPost}:1`, 220, 200);
+    const barracks = item('b:9', 'building', ME, `building:${BuildingKind.Barracks}:1`, 240, 200);
     expect(keys(priorityFilter([w1, wall, torch, barracks], ME, start))).toEqual(['e:1']);
     expect(keys(priorityFilter([wall, torch, barracks, enemy], ME, start))).toEqual(['b:9']);
     expect(keys(priorityFilter([wall, torch, enemy], ME, start))).toEqual(['b:7', 'b:8']);

@@ -120,7 +120,7 @@ export function shortOfAny(pool: ArrayLike<number>, cost: Cost): number {
  * Pays such a cost (it must be affordable) and returns what was taken, kind
  * by kind, for an exact refund. "Meat" or "fish" is taken a piece at a time
  * from whichever kind the pool holds most of (the lowest id on a tie), so a
- * kitchen uses the kinds evenly and never keeps one back.
+ * recipe uses the kinds evenly and never keeps one back.
  */
 export function payAny(pool: Int32Array, cost: Cost): Array<[Res, number]> {
   const taken = new Map<Res, number>();

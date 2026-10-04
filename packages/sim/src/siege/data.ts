@@ -46,9 +46,9 @@ export interface EngineSpec {
   shot: number;
   /** Largest miss as a share of the distance, bp (s). */
   spreadBp: number;
-  /** Where it is made: building kind and level, and a Forge level the town needs too. */
-  at: readonly [number, number];
-  forge: number;
+  /** Where it is made (the Artillery workshop, Patch 2; -1 for none) and the main base level it needs. */
+  at: number;
+  base: number;
   research: number;
   cost: Cost;
   steps: number;
@@ -70,28 +70,31 @@ export const ENGINES: readonly EngineSpec[] = [
     id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, pierce: false,
     range: cm(5000), minRange: cm(1500), reloadSteps: sec(15), crew: 2, crewSkill: 0, horse: v10(20), ox: v10(15), pushed: v10(8),
     munition: Res.CatapultStone, powder: false, shot: ENGINE_SHOT.CatapultStone, spreadBp: 600,
-    at: [BuildingKind.Workshop, 3], forge: 0, research: SIEGE_ENGINES, cost: [[H, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(240),
+    // Patch 2: from main base 5, where the Great Workshop stood before; 120 s with no crew, what 240 s took two workers (s, Jade's rebalance).
+    at: BuildingKind.ArtilleryWorkshop, base: 5, research: SIEGE_ENGINES, cost: [[H, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120),
     halfWidth: cm(150), height: cm(300),
   },
   {
     id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, pierce: true,
     range: cm(4500), minRange: cm(500), reloadSteps: sec(8), crew: 1, crewSkill: 0, horse: v10(25), ox: v10(15), pushed: v10(10),
     munition: Res.BallistaBolt, powder: false, shot: ENGINE_SHOT.BallistaBolt, spreadBp: 200,
-    at: [BuildingKind.Workshop, 4], forge: 3, research: SIEGE_ENGINES, cost: [[H, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(240),
+    // Patch 2: from main base 7, the Manufactory's level; 120 s as the catapult (s, Jade's rebalance).
+    at: BuildingKind.ArtilleryWorkshop, base: 7, research: SIEGE_ENGINES, cost: [[H, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(120),
     halfWidth: cm(120), height: cm(180),
   },
   {
     id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: CANNON_SKILL, horse: v10(25), ox: v10(15), pushed: v10(10),
     munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
-    at: [BuildingKind.Foundry, 1], forge: 0, research: CANNONS, cost: [[Res.BronzeIngot, 20], [H, 10]], steps: sec(180),
+    // Patch 2: from main base 8, the Foundry's level, at the same pace the Foundry had.
+    at: BuildingKind.ArtilleryWorkshop, base: 8, research: CANNONS, cost: [[Res.BronzeIngot, 20], [H, 10]], steps: sec(180),
     halfWidth: cm(110), height: cm(150),
   },
   {
     id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: CANNON_SKILL, horse: v10(25), ox: v10(15), pushed: v10(10),
     munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
-    at: [BuildingKind.Foundry, 1], forge: 3, research: CANNONS, cost: [[Res.WroughtIron, 12], [H, 10]], steps: sec(150),
+    at: BuildingKind.ArtilleryWorkshop, base: 8, research: CANNONS, cost: [[Res.WroughtIron, 12], [H, 10]], steps: sec(150),
     halfWidth: cm(110), height: cm(150),
   },
   {
@@ -99,7 +102,7 @@ export const ENGINES: readonly EngineSpec[] = [
     id: Engine.DwarfCannon, name: 'Dwarf cannon', model: 'cannon_dwarf', hp: 500, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: 0, horse: 0, ox: 0, pushed: 0,
     munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
-    at: [-1, 0], forge: 0, research: 0, cost: [], steps: 0,
+    at: -1, base: 0, research: 0, cost: [], steps: 0,
     halfWidth: cm(110), height: cm(150),
   },
 ];

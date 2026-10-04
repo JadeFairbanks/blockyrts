@@ -1,30 +1,33 @@
-// What production buildings turn into what (Table 2b: Smelting and
-// processing; Table 6 and Cooking; Workshop and Trinkets; Food and
-// medicine). Every recipe takes resources from the pool when it is queued
-// and puts resources back when it is done. The forges only smelt (Troops and
-// gear: no items). A recipe lists its ways of being paid ("1 lumber,
-// 1 charcoal or 1 coal"); the first the pool can pay is used.
+// What the crafting buildings turn into what (Table 2b: Smelting and
+// processing; Workshop and Trinkets; Food and medicine), as Patch 2 left
+// them (Jade, 2026-10-04): the Workshop does what the Lumber mill, Tannery
+// and Herbalist hut did, the Forge what the Kiln and Powder mill did, and
+// the Artillery workshop what the Foundry did; none of them has tiers, and
+// what a tier opened comes at the main base level that tier needed. Cooking
+// is gone. Every recipe takes resources from the pool when it is queued and
+// puts resources back when it is done. A recipe lists its ways of being paid
+// ("1 lumber, 1 charcoal or 1 coal"); the first the pool can pay is used.
 
 import { Res, TRINKET_METALS, trinketRes, type Cost } from '../economy/resources.ts';
 import { haveOf } from '../economy/food-kinds.ts';
-import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
-import { BuildingKind } from './data.ts';
+import { STEPS_PER_SECOND } from '../fixed.ts';
+import { BuildingKind, FORGE_STEP_BASE } from './data.ts';
 
 export interface RecipeSpec {
   id: number;
   name: string;
-  /** Where it is made: building kinds and the level each needs. */
-  at: ReadonlyArray<readonly [number, number]>;
+  /** The building kinds where it is made. */
+  at: readonly number[];
+  /** The main base level it needs (Patch 2: what a building's tier opened before), or 0. */
+  base: number;
   /** Ways to pay for one batch. */
   inputs: readonly Cost[];
   /** What one batch gives. */
   outputs: Cost;
-  /** Time for one batch with one worker (or, where no hands are needed, the building alone), steps. Cooking takes its time from the kitchen's tier instead. */
+  /** Time for one batch with one worker's work, steps; a crafting building works at CRAFT_PACE (buildings/data.ts). */
   steps: number;
   /** Research it needs (combat/items.ts Research), or 0. */
   research: number;
-  /** Cooking: items in the batch, timed by the cooking building's tier. */
-  cooked?: number;
   /** A bit of PlayerState.made set when one is done (combat/items.ts Made). */
   made?: number;
   /** Later milestones: why it is greyed. */
@@ -39,14 +42,9 @@ const FUELS: readonly Res[] = [Res.Charcoal, Res.Coal, H, S];
 const COAL_OR_CHARCOAL: readonly Res[] = [Res.Charcoal, Res.Coal];
 /** Each way of paying `rest` plus one of `fuels`. */
 const withFuel = (rest: Cost, fuels: readonly Res[], n = 1): Cost[] => fuels.map((f): Cost => [...rest, [f, n]]);
-const forge = (level: number): ReadonlyArray<readonly [number, number]> => [[BuildingKind.Forge, level]];
-const KILN = [[BuildingKind.Kiln, 1]] as const;
-const POWDER_MILL = [[BuildingKind.PowderMill, 1]] as const;
-const FOUNDRY = [[BuildingKind.Foundry, 1]] as const;
-const TANNERY = [[BuildingKind.Tannery, 1]] as const;
-const HERBALIST = [[BuildingKind.HerbalistHut, 1]] as const;
-const workshop = (tier: number): ReadonlyArray<readonly [number, number]> => [[BuildingKind.Workshop, tier]];
-const cooking = (tier: number): ReadonlyArray<readonly [number, number]> => [[BuildingKind.Cooking, tier]];
+const FORGE = [BuildingKind.Forge] as const;
+const WORKSHOP = [BuildingKind.Workshop] as const;
+const ARTILLERY = [BuildingKind.ArtilleryWorkshop] as const;
 
 /** Research ids (combat/items.ts Research) and Made bits, kept as numbers here so this module stays a leaf. */
 const BRONZE = 2;
@@ -58,22 +56,15 @@ const CANNONS = 15;
 const MADE_TIN = 1;
 const MADE_PIG = 2;
 
-/** The cooking time per item at each tier of the cooking building (Table 6: 10 / 8 / 6 / 5 / 4 s). */
-export const COOK_STEPS_PER_ITEM: readonly number[] = [sec(10), sec(8), sec(6), sec(5), sec(4)];
-/** Items cooked for one fuel (Table 6: 1 lumber or coal per 5 items): a cooking order is a batch of 5 (s). */
-export const COOK_BATCH = 5;
-/** Lumber or coal for cooking. */
-const COOK_FUELS: readonly Res[] = [S, H, Res.Coal, Res.Charcoal];
-
-/** A cooking batch: 5 items from 5 times the ingredients and 1 fuel. */
-function cook(name: string, tier: number, ingredients: Cost, out: Res): Omit<RecipeSpec, 'id'> {
-  const batch: Cost = ingredients.map(([r, n]) => [r, n * COOK_BATCH] as const);
-  return { name: `${name} (${COOK_BATCH})`, at: cooking(tier), inputs: withFuel(batch, COOK_FUELS), outputs: [[out, COOK_BATCH]], steps: 0, research: 0, cooked: COOK_BATCH };
-}
-
 /** Trinket tiers (Trinkets): ingots per piece and making time (s). */
 export const TRINKET_INGOTS: readonly number[] = [1, 2, 4, 6];
 export const TRINKET_STEPS: readonly number[] = [sec(15), sec(30), sec(60), sec(120)];
+/**
+ * The main base level each trinket tier needs (Patch 2): Tokens from the
+ * start, Charms at 3, Brooches at 5, Heirlooms at 7, the levels the Workshop,
+ * Great Workshop and Manufactory needed before Patch 2.
+ */
+export const TRINKET_TIER_BASE: readonly number[] = [0, 3, 5, 7];
 /** The ingot (or ingots) each trinket metal is made from: iron in either of its grades. */
 const TRINKET_STOCK: ReadonlyArray<readonly Res[]> = [[Res.CopperIngot], [Res.TinIngot], [Res.BronzeIngot], [Res.WroughtIron, Res.IronIngot], [Res.SteelIngot], [Res.Silver], [Res.Gold]];
 
@@ -83,7 +74,8 @@ function trinketRecipes(): Array<Omit<RecipeSpec, 'id'>> {
     TRINKET_METALS.forEach((metal, m) => {
       out.push({
         name: `${metal} ${['Token', 'Charm', 'Brooch', 'Heirloom'][tier - 1]}`,
-        at: workshop(tier),
+        at: WORKSHOP,
+        base: TRINKET_TIER_BASE[tier - 1]!,
         inputs: TRINKET_STOCK[m]!.map((r): Cost => [[r, TRINKET_INGOTS[tier - 1]!]]),
         outputs: [[trinketRes(m, tier), 1]],
         steps: TRINKET_STEPS[tier - 1]!,
@@ -95,58 +87,50 @@ function trinketRecipes(): Array<Omit<RecipeSpec, 'id'>> {
 }
 
 const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
-  // Table 2b at the forge, which only smelts (Forge levels): the Casting Hearth copper, tin and bronze, the Bloomery wrought iron,
-  // the Ironworks pig iron and iron, the Steelworks steel and carbon steel.
-  { name: 'Copper ingot', at: forge(1), inputs: withFuel([[Res.CopperOre, 2]], FUELS), outputs: [[Res.CopperIngot, 1]], steps: sec(5), research: 0 },
-  { name: 'Tin ingot', at: forge(1), inputs: withFuel([[Res.TinOre, 2]], FUELS), outputs: [[Res.TinIngot, 1]], steps: sec(5), research: 0, made: MADE_TIN },
-  { name: 'Bronze ingots (10)', at: forge(1), inputs: [[[Res.CopperIngot, 9], [Res.TinIngot, 1]]], outputs: [[Res.BronzeIngot, 10]], steps: sec(30), research: BRONZE },
+  // Table 2b at the Forge, which only smelts, a metal at each of its steps (FORGE_STEP_BASE): copper, tin and bronze from the start (the
+  // Casting Hearth before Patch 2), wrought iron at main base 3 (the Bloomery), pig iron and iron at 5 (the Ironworks), steel and carbon
+  // steel at 7 (the Steelworks).
+  { name: 'Copper ingot', at: FORGE, base: 0, inputs: withFuel([[Res.CopperOre, 2]], FUELS), outputs: [[Res.CopperIngot, 1]], steps: sec(5), research: 0 },
+  { name: 'Tin ingot', at: FORGE, base: 0, inputs: withFuel([[Res.TinOre, 2]], FUELS), outputs: [[Res.TinIngot, 1]], steps: sec(5), research: 0, made: MADE_TIN },
+  { name: 'Bronze ingots (10)', at: FORGE, base: 0, inputs: [[[Res.CopperIngot, 9], [Res.TinIngot, 1]]], outputs: [[Res.BronzeIngot, 10]], steps: sec(30), research: BRONZE },
   {
-    name: 'Wrought iron', at: forge(2), inputs: [Res.BogIron, Res.IronRock, Res.VeinIron].flatMap((o) => withFuel([[o, 3]], COAL_OR_CHARCOAL, 2)), outputs: [[Res.WroughtIron, 1]], steps: sec(10), research: 0,
+    name: 'Wrought iron', at: FORGE, base: FORGE_STEP_BASE[2]!, inputs: [Res.BogIron, Res.IronRock, Res.VeinIron].flatMap((o) => withFuel([[o, 3]], COAL_OR_CHARCOAL, 2)), outputs: [[Res.WroughtIron, 1]], steps: sec(10), research: 0,
   },
-  { name: 'Pig iron', at: forge(3), inputs: withFuel([[Res.VeinIron, 2], [Res.Stone, 1]], COAL_OR_CHARCOAL), outputs: [[Res.PigIron, 1]], steps: sec(8), research: 0, made: MADE_PIG },
-  { name: 'Iron ingot', at: forge(3), inputs: withFuel([[Res.PigIron, 2]], FUELS), outputs: [[Res.IronIngot, 1]], steps: sec(10), research: 0 },
-  { name: 'Steel ingot', at: forge(4), inputs: withFuel([[Res.IronIngot, 1]], COAL_OR_CHARCOAL, 2), outputs: [[Res.SteelIngot, 1]], steps: sec(15), research: STEEL },
-  { name: 'Carbon steel ingot', at: forge(4), inputs: [[[Res.IronIngot, 2], [Res.Charcoal, 6]]], outputs: [[Res.CarbonSteel, 1]], steps: sec(60), research: CARBON_STEEL },
-  // Gunpowder and siege munitions (Table 2b). One gunpowder is 10 charges.
-  { name: 'Gunpowder (10 charges)', at: POWDER_MILL, inputs: [[[Res.Saltpetre, 2], [Res.Sulphur, 1], [Res.Charcoal, 1]]], outputs: [[Res.Gunpowder, 1]], steps: sec(15), research: GUNPOWDER },
+  { name: 'Pig iron', at: FORGE, base: FORGE_STEP_BASE[3]!, inputs: withFuel([[Res.VeinIron, 2], [Res.Stone, 1]], COAL_OR_CHARCOAL), outputs: [[Res.PigIron, 1]], steps: sec(8), research: 0, made: MADE_PIG },
+  { name: 'Iron ingot', at: FORGE, base: FORGE_STEP_BASE[3]!, inputs: withFuel([[Res.PigIron, 2]], FUELS), outputs: [[Res.IronIngot, 1]], steps: sec(10), research: 0 },
+  { name: 'Steel ingot', at: FORGE, base: FORGE_STEP_BASE[4]!, inputs: withFuel([[Res.IronIngot, 1]], COAL_OR_CHARCOAL, 2), outputs: [[Res.SteelIngot, 1]], steps: sec(15), research: STEEL },
+  { name: 'Carbon steel ingot', at: FORGE, base: FORGE_STEP_BASE[4]!, inputs: [[[Res.IronIngot, 2], [Res.Charcoal, 6]]], outputs: [[Res.CarbonSteel, 1]], steps: sec(60), research: CARBON_STEEL },
+  // What the Kiln made, at main base 3 where the Kiln could be built, and the Powder mill's gunpowder at 7. One gunpowder is 10 charges.
+  { name: 'Charcoal (3)', at: FORGE, base: 3, inputs: [[[H, 2]]], outputs: [[Res.Charcoal, 3]], steps: sec(10), research: 0 },
+  { name: 'Bricks (4)', at: FORGE, base: 3, inputs: withFuel([[Res.Clay, 2]], COAL_OR_CHARCOAL), outputs: [[Res.Bricks, 4]], steps: sec(10), research: 0 },
+  { name: 'Glass', at: FORGE, base: 3, inputs: withFuel([[Res.Sand, 2]], FUELS), outputs: [[Res.Glass, 1]], steps: sec(10), research: 0 },
+  { name: 'Gunpowder (10 charges)', at: FORGE, base: 7, inputs: [[[Res.Saltpetre, 2], [Res.Sulphur, 1], [Res.Charcoal, 1]]], outputs: [[Res.Gunpowder, 1]], steps: sec(15), research: GUNPOWDER },
+  // Siege shot at the Artillery workshop, at the main base level of the engine it is for (the artillery thread cuts it with the crewman).
+  { name: 'Catapult stone', at: ARTILLERY, base: 5, inputs: [[[Res.Stone, 1]]], outputs: [[Res.CatapultStone, 1]], steps: sec(10), research: SIEGE_ENGINES },
+  { name: 'Ballista bolts (5)', at: ARTILLERY, base: 7, inputs: [[[H, 2], [Res.WroughtIron, 1]]], outputs: [[Res.BallistaBolt, 5]], steps: sec(30), research: SIEGE_ENGINES },
   {
-    name: 'Cannonball', at: FOUNDRY, inputs: [[[Res.WroughtIron, 1]], [[Res.IronIngot, 1]], [[Res.Stone, 2]]], outputs: [[Res.Cannonball, 1]], steps: sec(5), research: CANNONS,
+    name: 'Cannonball', at: ARTILLERY, base: 8, inputs: [[[Res.WroughtIron, 1]], [[Res.IronIngot, 1]], [[Res.Stone, 2]]], outputs: [[Res.Cannonball, 1]], steps: sec(5), research: CANNONS,
   },
-  { name: 'Catapult stone', at: workshop(3), inputs: [[[Res.Stone, 1]]], outputs: [[Res.CatapultStone, 1]], steps: sec(10), research: SIEGE_ENGINES },
-  { name: 'Ballista bolts (5)', at: workshop(4), inputs: [[[H, 2], [Res.WroughtIron, 1]]], outputs: [[Res.BallistaBolt, 5]], steps: sec(30), research: SIEGE_ENGINES },
-  // The kiln.
-  { name: 'Charcoal (3)', at: KILN, inputs: [[[H, 2]]], outputs: [[Res.Charcoal, 3]], steps: sec(10), research: 0 },
-  { name: 'Bricks (4)', at: KILN, inputs: withFuel([[Res.Clay, 2]], COAL_OR_CHARCOAL), outputs: [[Res.Bricks, 4]], steps: sec(10), research: 0 },
-  { name: 'Glass', at: KILN, inputs: withFuel([[Res.Sand, 2]], FUELS), outputs: [[Res.Glass, 1]], steps: sec(10), research: 0 },
-  // The tannery, which has no tiers and does all leather work (Jade), and the Big House for rope.
-  { name: 'Leather', at: TANNERY, inputs: [[[Res.Hides, 1]]], outputs: [[Res.Leather, 1]], steps: sec(15), research: 0 },
-  { name: 'Hardened leather', at: TANNERY, inputs: [[[Res.Leather, 2]]], outputs: [[Res.HardenedLeather, 1]], steps: sec(20), research: 0 },
-  { name: 'Rope', at: [[BuildingKind.Tannery, 1], [BuildingKind.MainBase, 1]], inputs: [[[Res.Leather, 1]], [[Res.Flax, 2]]], outputs: [[Res.Rope, 1]], steps: sec(10), research: 0 },
-  // The herbalist hut.
-  { name: 'Bandage', at: HERBALIST, inputs: [[[Res.Herbs, 1], [Res.Flax, 1]], [[Res.Herbs, 1], [Res.Leather, 1]]], outputs: [[Res.Bandage, 1]], steps: sec(10), research: 0 },
-  { name: 'Healing remedy', at: HERBALIST, inputs: [[[Res.Herbs, 2], [Res.Glass, 1]]], outputs: [[Res.Remedy, 1]], steps: sec(20), research: 0 },
-  // The workshop.
-  { name: 'Gravel', at: workshop(1), inputs: [[[Res.Stone, 1]]], outputs: [[Res.Gravel, 1]], steps: sec(5), research: 0 },
-  { name: 'Hardwood sticks (2)', at: workshop(1), inputs: [[[H, 1]]], outputs: [[Res.Sticks, 2]], steps: sec(5), research: 0 },
-  { name: 'Lumber ramp steps (2)', at: workshop(1), inputs: [[[S, 1]], [[H, 1]]], outputs: [[Res.LumberRamp, 2]], steps: sec(10), research: 0 },
-  { name: 'Stone ramp steps (2)', at: workshop(1), inputs: [[[Res.Stone, 2]]], outputs: [[Res.StoneRamp, 2]], steps: sec(15), research: 0 },
+  // The Workshop: what the Lumber mill made (1 lumber to 1 plank; the waterwheel's 2 went with the mill), then the Tannery's leather
+  // work, with rope at the Big House too, then the Herbalist hut's medicine.
+  { name: 'Planks from softwood', at: WORKSHOP, base: 0, inputs: [[[S, 1]]], outputs: [[Res.Planks, 1]], steps: sec(5), research: 0 },
+  { name: 'Planks from hardwood', at: WORKSHOP, base: 0, inputs: [[[H, 1]]], outputs: [[Res.Planks, 1]], steps: sec(5), research: 0 },
+  { name: 'Leather', at: WORKSHOP, base: 0, inputs: [[[Res.Hides, 1]]], outputs: [[Res.Leather, 1]], steps: sec(15), research: 0 },
+  { name: 'Hardened leather', at: WORKSHOP, base: 0, inputs: [[[Res.Leather, 2]]], outputs: [[Res.HardenedLeather, 1]], steps: sec(20), research: 0 },
+  { name: 'Rope', at: [BuildingKind.Workshop, BuildingKind.MainBase], base: 0, inputs: [[[Res.Leather, 1]], [[Res.Flax, 2]]], outputs: [[Res.Rope, 1]], steps: sec(10), research: 0 },
+  { name: 'Bandage', at: WORKSHOP, base: 0, inputs: [[[Res.Herbs, 1], [Res.Flax, 1]], [[Res.Herbs, 1], [Res.Leather, 1]]], outputs: [[Res.Bandage, 1]], steps: sec(10), research: 0 },
+  { name: 'Healing remedy', at: WORKSHOP, base: 0, inputs: [[[Res.Herbs, 2], [Res.Glass, 1]]], outputs: [[Res.Remedy, 1]], steps: sec(20), research: 0 },
+  // The Workshop's own: gravel, sticks and ramp steps from the start, hand carts at main base 3, ox carts at 5.
+  { name: 'Gravel', at: WORKSHOP, base: 0, inputs: [[[Res.Stone, 1]]], outputs: [[Res.Gravel, 1]], steps: sec(5), research: 0 },
+  { name: 'Hardwood sticks (2)', at: WORKSHOP, base: 0, inputs: [[[H, 1]]], outputs: [[Res.Sticks, 2]], steps: sec(5), research: 0 },
+  { name: 'Lumber ramp steps (2)', at: WORKSHOP, base: 0, inputs: [[[S, 1]], [[H, 1]]], outputs: [[Res.LumberRamp, 2]], steps: sec(10), research: 0 },
+  { name: 'Stone ramp steps (2)', at: WORKSHOP, base: 0, inputs: [[[Res.Stone, 2]]], outputs: [[Res.StoneRamp, 2]], steps: sec(15), research: 0 },
   // Carts (Table 2f): made as goods, and taken by a worker with X (Troops and gear: carts stay).
-  { name: 'Hand cart', at: workshop(2), inputs: [[[Res.Planks, 6], [H, 4]]], outputs: [[Res.HandCart, 1]], steps: sec(60), research: 0 },
-  { name: 'Ox or horse cart', at: workshop(3), inputs: [[[Res.Planks, 12], [H, 8], [Res.Leather, 4], [Res.WroughtIron, 2]]], outputs: [[Res.OxCart, 1]], steps: sec(120), research: 0 },
-  { name: 'Glass lantern', at: workshop(3), inputs: [[[Res.Glass, 1], [Res.WroughtIron, 1]]], outputs: [[Res.Lantern, 1]], steps: sec(20), research: 0 },
+  { name: 'Hand cart', at: WORKSHOP, base: 3, inputs: [[[Res.Planks, 6], [H, 4]]], outputs: [[Res.HandCart, 1]], steps: sec(60), research: 0 },
+  { name: 'Ox or horse cart', at: WORKSHOP, base: 5, inputs: [[[Res.Planks, 12], [H, 8], [Res.Leather, 4], [Res.WroughtIron, 2]]], outputs: [[Res.OxCart, 1]], steps: sec(120), research: 0 },
   ...trinketRecipes(),
-  { name: 'Moonleaf', at: workshop(3), inputs: [[[Res.Silver, 3], [Res.Emeralds, 2]]], outputs: [[Res.Moonleaf, 1]], steps: sec(180), research: 0 },
-  { name: 'Sunheart', at: workshop(4), inputs: [[[Res.Gold, 3], [Res.Rubies, 2]]], outputs: [[Res.Sunheart, 1]], steps: sec(240), research: 0 },
-  // Cooking (Table 6). "Meat" and "fish" are any kind, mixed as the stock has them (patch 1: meat and fish come in kinds).
-  cook('Roast meat', 1, [[Res.AnyMeat, 1]], Res.RoastMeat),
-  cook('Roast fish', 1, [[Res.AnyFish, 1]], Res.RoastFish),
-  cook('Smoked meat', 2, [[Res.AnyMeat, 1]], Res.SmokedMeat),
-  cook('Smoked fish', 2, [[Res.AnyFish, 1]], Res.SmokedFish),
-  cook('Bread', 3, [[Res.Wheat, 2]], Res.Bread),
-  cook('Salted meat', 3, [[Res.AnyMeat, 1]], Res.SaltedMeat),
-  cook('Salted fish', 3, [[Res.AnyFish, 1]], Res.SaltedFish),
-  cook('Stew', 4, [[Res.AnyMeat, 1], [Res.Potatoes, 2], [Res.Carrots, 1]], Res.Stew),
-  cook('Pie', 5, [[Res.AnyMeat, 1], [Res.Wheat, 2], [Res.Eggs, 1]], Res.Pie),
+  { name: 'Moonleaf', at: WORKSHOP, base: 5, inputs: [[[Res.Silver, 3], [Res.Emeralds, 2]]], outputs: [[Res.Moonleaf, 1]], steps: sec(180), research: 0 },
+  { name: 'Sunheart', at: WORKSHOP, base: 7, inputs: [[[Res.Gold, 3], [Res.Rubies, 2]]], outputs: [[Res.Sunheart, 1]], steps: sec(240), research: 0 },
 ];
 
 export const RECIPES: readonly RecipeSpec[] = LIST.map((r, id) => ({ ...r, id }));
@@ -163,13 +147,7 @@ export function payableInputs(r: RecipeSpec, pool: ArrayLike<number>): Cost | nu
   return null;
 }
 
-/** The level of a building kind a recipe needs there, or 0 if it is not made there. */
-export function recipeLevelAt(r: { at: ReadonlyArray<readonly [number, number]> }, kind: number): number {
-  for (const [k, l] of r.at) if (k === kind) return l;
-  return 0;
-}
-
-/** Steps for one cooking batch at a cooking building of a tier. */
-export function cookSteps(r: RecipeSpec, tier: number): number {
-  return floorDiv(COOK_STEPS_PER_ITEM[Math.min(5, Math.max(1, tier)) - 1]! * (r.cooked ?? 1), 1);
+/** Whether a recipe is made at a building kind. */
+export function madeAt(r: { at: readonly number[] }, kind: number): boolean {
+  return r.at.includes(kind);
 }

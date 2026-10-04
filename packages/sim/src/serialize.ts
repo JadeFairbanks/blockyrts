@@ -5,8 +5,7 @@
 import { ByteReader, ByteWriter, fnv1a32 } from './bytes.ts';
 import { STREAM_NAMES, Xoshiro128, type Streams } from './rng.ts';
 import { BuildingStore, buildingFields, readBuildings, writeBuildings } from './buildings/store.ts';
-import { FOODS, Res, RESOURCE_COUNT } from './economy/resources.ts';
-import { giveFood, hungerFromGroups } from './economy/food.ts';
+import { RESOURCE_COUNT } from './economy/resources.ts';
 import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loot, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
@@ -69,7 +68,7 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
   writeRecords(w, t.wild, WILD_FIELDS);
 }
 
-function readThreats(r: ByteReader, version: number): ThreatState {
+function readThreats(r: ByteReader): ThreatState {
   const ruins = readRecordList<Ruin>(r, RUIN_FIELDS);
   const villages = readRecordList<Village>(r, VILLAGE_FIELDS);
   for (const v of villages) {
@@ -91,8 +90,7 @@ function readThreats(r: ByteReader, version: number): ThreatState {
   const bossNext = r.i32();
   const bossHp = r.i32();
   const bossId = r.i32();
-  // Versions 13 to 15 (before the wandering night monsters) have no wild: its patches fill afresh.
-  const wild = version >= 16 ? readRecordList<WildPatch>(r, WILD_FIELDS) : [];
+  const wild = readRecordList<WildPatch>(r, WILD_FIELDS);
   return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
 }
 
@@ -166,17 +164,13 @@ function peoplesJson(ps: PeoplesState): string {
 
 const MAGIC = 0x53434153; // "SACS" read little-endian
 /**
- * 14: each unit's loot bag and the loot on the ground. 15: patch 1's food,
- * each unit's hunger, Don't eat per kind and each food's started item. 16:
- * the wandering monsters' patches (threats.wild). Versions 13 to 15 still
- * load: 13 with no loot, 13 and 14 with their food carried over, and all
- * three with no wild (its patches fill afresh).
+ * 17: Patch 2, the fourteen buildings (building kinds, resources and recipes
+ * renumbered). Every patch raises it, and a snapshot from any other version
+ * is refused, never carried over (Jade, Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 16;
-const OLDEST_VERSION = 13;
-/** The last version before patch 1's food: no unit hunger column, Don't eat as a bit per FOODS entry, and the town's meal credit in quarters instead of each food's started item. */
-const OLD_FOOD_VERSION = 14;
-const OLD_FOOD_PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const;
+export const SNAPSHOT_VERSION = 17;
+/** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
+export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
 function writeField(w: ByteWriter, t: string, v: number): void {
   if (t === 'u32') w.u32(v);
@@ -273,8 +267,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const r = new ByteReader(bytes);
   if (r.u32() !== MAGIC) throw new Error('not a simulation snapshot');
   const version = r.u16();
-  if (version < OLDEST_VERSION || version > SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version ${version}`);
-  const oldFood = version <= OLD_FOOD_VERSION;
+  if (version !== SNAPSHOT_VERSION) throw new Error(OLD_SAVE_TEXT);
   const seed = r.u32();
   const step = r.u32();
   const nextEntityId = r.u32();
@@ -286,7 +279,6 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const e = new EntityStore(Math.max(64, n));
   e.count = n;
   for (const [name, t] of UNIT_FIELDS) {
-    if (oldFood && name === 'hungry') continue;
     const col = e[name];
     for (let i = 0; i < n; i++) col[i] = readField(r, t);
   }
@@ -308,7 +300,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
     for (let k = 0; k < nc; k++) c.push(r.u32());
     e.cools[i] = c;
     const g: number[] = [];
-    const ng = version >= 14 ? r.u16() : 0;
+    const ng = r.u16();
     for (let k = 0; k < ng; k++) g.push(r.i32());
     e.bag[i] = g;
   }
@@ -322,25 +314,14 @@ export function deserializeState(bytes: Uint8Array): SimState {
       if (j < RESOURCE_COUNT) pool[j] = v;
     }
     const p = newPlayer(pool);
-    if (oldFood) {
-      const old: Record<string, number> = {};
-      for (const f of OLD_FOOD_PLAYER_FIELDS) old[f] = r.i32();
-      for (const f of PLAYER_FIELDS) if (f in old) p[f] = old[f]!;
-      // Don't eat was a bit per FOODS entry (the first 32, whose order is unchanged); the research facilities starved with the troops.
-      for (let k = 0; k < 32 && k < FOODS.length; k++) if ((old.dontEat! >>> k) & 1) p.kept[FOODS[k]!] = 1;
-      p.starveLodge = old.starveTroops!;
-      // The meal credit (nutrition already taken, in quarters) becomes started venison, the old "meat".
-      if (old.fed! > 0) giveFood(p, [[Res.Venison, old.fed!]]);
-    } else {
-      for (const f of PLAYER_FIELDS) p[f] = r.i32();
-      for (let j = 0; j < len; j++) {
-        const v = r.i32();
-        if (j < RESOURCE_COUNT) p.open[j] = v;
-      }
-      for (let j = 0; j < len; j++) {
-        const v = r.u8();
-        if (j < RESOURCE_COUNT) p.kept[j] = v;
-      }
+    for (const f of PLAYER_FIELDS) p[f] = r.i32();
+    for (let j = 0; j < len; j++) {
+      const v = r.i32();
+      if (j < RESOURCE_COUNT) p.open[j] = v;
+    }
+    for (let j = 0; j < len; j++) {
+      const v = r.u8();
+      if (j < RESOURCE_COUNT) p.kept[j] = v;
     }
     players.push(p);
   }
@@ -365,7 +346,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const projectiles = readRecords<Projectile>(PROJECTILE_FIELDS);
   const spawns = readRecords<PendingSpawn>(SPAWN_FIELDS);
   const sites = readRecords<Site>(SITE_FIELDS);
-  const loot = version >= 14 ? readRecords<Loot>(LOOT_FIELDS) : [];
+  const loot = readRecords<Loot>(LOOT_FIELDS);
   const readKeys = (): Set<number> => {
     const out = new Set<number>();
     const n = r.u32();
@@ -382,15 +363,12 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const blood: number[] = [];
   const nb = r.u16();
   for (let k = 0; k < nb; k++) blood.push(r.u32());
-  const threats = readThreats(r, version);
+  const threats = readThreats(r);
   const peoples = readPeoples(r);
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  const state = attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
-  // Units starve one by one now: each starts from when its group began.
-  if (oldFood) hungerFromGroups(state);
-  return state;
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */

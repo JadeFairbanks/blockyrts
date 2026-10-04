@@ -6,6 +6,7 @@
 // pool pays for, favouring the weapon.
 import {
   ARMOUR_KITS,
+  CAVALRY_BASE,
   costText,
   mainCost,
   pieceProblem,
@@ -105,17 +106,18 @@ function option(g: GameInfo, tier: number, name: string, pieces: ReturnType<type
 /** Why a building cannot train a troop at these tiers now, or ''. */
 export function troopWhy(g: GameInfo, b: BuildingInfo, troop: number, w: number, a: number): string {
   if (!tiersOffered(b, troop, w, a)) return 'This building does not train that.';
+  if (troop === Troop.Cavalry && g.mainBaseLevel() < CAVALRY_BASE) return `Needs a level ${CAVALRY_BASE} main base.`;
   const pieces = troopPieces(troop, w, a);
   const tech = g.tech();
   for (const p of pieces) {
     const why = pieceProblem(p, tech.research, tech.forge, tech.researchName);
     if (why) return why;
   }
-  if (troop === Troop.Cavalry && b.horses === 0) return 'Cavalry needs a tamed, grown horse in the stalls.';
+  if (troop === Troop.Cavalry && b.horses === 0) return 'Cavalry needs a tamed horse in a Barn.';
   if (!planPieces(pieces, g.pool())) return `Not enough resources (${costText(mainCost(pieces))}).`;
   const info = g.info;
   if (info && g.food() < TRAINING.troopFood) return `Not enough food (${TRAINING.troopFood} food).`;
-  if (info && info.supplyUsed >= info.supplyCap) return `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+  if (info && info.supplyUsed >= info.supplyCap) return `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
   if (b.queue.length >= 5) return 'The queue is full (5).';
   return '';
 }

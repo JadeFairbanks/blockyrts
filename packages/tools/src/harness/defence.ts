@@ -383,7 +383,8 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
   // (Arrows, bolts and musket balls are unlimited: Troops and gear.)
   p.pool[Res.Gunpowder] = p.pool[Res.Gunpowder]! + 400;
   p.pool[Res.Cannonball] = p.pool[Res.Cannonball]! + 200;
-  p.pool[Res.Bread] = p.pool[Res.Bread]! + 2000;
+  // Patch 2: 5000 farm fare at 2 nutrition each, the 2000 bread at 5 from before Patch 2.
+  p.pool[Res.FarmFare] = p.pool[Res.FarmFare]! + 5000;
   for (const r of [Research.Bronze, Research.Crossbows, Research.Steel, Research.CarbonSteel, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
   // Workers shelter in the main base unless they fight (night 0).
   const workers: number[] = [];

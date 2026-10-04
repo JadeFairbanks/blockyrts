@@ -1,11 +1,10 @@
 // What happens when things fall (mob roster 5.2 to 5.6: drops, the slime's
 // split, the bloated corpse's burst, the bomber's loose bomb; goblins'
-// loot; Buildings: a wall torch falls with its wall), and when a player is
+// loot), and when a player is
 // out of the game (Winning, losing and score; When a player is eliminated).
 
 import { BuildingKind, buildingSpec } from '../buildings/data.ts';
 import { buildingCentre } from '../buildings/lights.ts';
-import { wallBeside } from '../buildings/placement.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { giveFood } from '../economy/food.ts';
@@ -139,17 +138,6 @@ function onBuildingFall(state: SimState, b: Building): void {
     }
   }
   destroyBuilding(state, b.id);
-  // A wall torch with no wall left beside it falls too (Table 18: dies with its wall).
-  if (spec.defence === 'wall') {
-    for (const t of state.buildings.list) {
-      if (t.kind !== BuildingKind.WallTorch || t.hp <= 0) continue;
-      if (Math.abs(t.x - b.x) > 1 || Math.abs(t.z - b.z) > 1) continue;
-      if (!wallBeside(state, t.x, t.z)) {
-        t.hp = 0;
-        state.falling.push(t.id);
-      }
-    }
-  }
 }
 
 /** Installs the death hooks. */

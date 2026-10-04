@@ -40,8 +40,8 @@ export type UnitOrder =
   | { t: 'hold' }
   /**
    * Upgrade Weapon or Upgrade Armour (Troops and gear: upgrading units): walk
-   * to the nearest Forge, Barracks or main base (cavalry also the Stables,
-   * mages also the Magi Sanctum; b once chosen), wait out the bar, and come
+   * to the nearest Forge, Barracks or main base (mages also the Magi
+   * Sanctum; b once chosen), wait out the bar, and come
    * away with `line` (units/kits.ts Line: weapon, tools or wand; armour or
    * robe) at tier `to`. The new piece was paid when the order was given, the
    * ways it was paid in `ways` (kits.ts planPieces), and is given back if the
@@ -52,7 +52,7 @@ export type UnitOrder =
   | { t: 'cart'; b: number; res: number }
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
-  /** Specialist training at a building (Table 7: cannon crew at the Gunnery yard): the unit goes inside until it is done. */
+  /** Specialist training at a building (Table 7: cannon crew at the Artillery workshop): the unit goes inside until it is done. */
   | { t: 'skill'; b: number; skill: number }
   /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:

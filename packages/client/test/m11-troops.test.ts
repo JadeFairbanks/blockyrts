@@ -9,7 +9,7 @@ import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
 
 // Milestone 11 (Troops and gear: Training troops): the troop panel's choices
-// and reasons, and the training buttons on the Barracks, Stables and main base.
+// and reasons, and the training buttons on the Barracks and main base.
 
 const ME = 0;
 const PRESS = { shift: false, ctrl: false };
@@ -67,7 +67,7 @@ function harness(g: GameInfo, b: BuildingInfo) {
 }
 
 /** Food for a troop (30), sticks and flint for the stone-age kits, leather and planks for a jerkin and a wooden shield. */
-const STOCK: Array<[number, number]> = [[Res.Wheat, 100], [Res.Sticks, 20], [Res.Flint, 4], [Res.Leather, 8], [Res.Planks, 6]];
+const STOCK: Array<[number, number]> = [[Res.FarmFare, 100], [Res.Sticks, 20], [Res.Flint, 4], [Res.Leather, 8], [Res.Planks, 6]];
 
 describe('troopChoice', () => {
   it("is the sim's default for the building until a pick is made", () => {
@@ -117,8 +117,8 @@ describe('weaponOptions and armourOptions', () => {
     // Short of flint: a red tier, not a locked one.
     expect(long[1]).toEqual({ tier: 2, name: 'Flint-headed spear', why: 'Not enough resources (3 hardwood sticks, 1 flint).', short: true });
     expect(long[3]!.why).toBe('Needs Bronze researched first.');
-    expect(long[4]!.why).toBe('Needs a Bloomery.');
-    expect(long[6]!.why).toBe('Needs a Steelworks.');
+    expect(long[4]!.why).toBe('Needs a level 3 main base.');
+    expect(long[6]!.why).toBe('Needs a level 7 main base.');
     // Close melee starts at fists; the brawler has one kit; rangers name their bows.
     expect(weaponOptions(g, b, Troop.Close)[0]).toMatchObject({ tier: 0, name: 'Fists', why: '' });
     expect(weaponOptions(g, b, Troop.Brawler).map((o) => [o.tier, o.name])).toEqual([[8, 'Flintlock pistol and cutlass']]);
@@ -146,21 +146,22 @@ describe('troopWhy', () => {
     const g = game({ buildings: [b], pool: STOCK });
     expect(troopWhy(g, building(122, BuildingKind.MainBase), Troop.Close, 4, 0)).toBe('This building does not train that.');
     expect(troopWhy(g, b, Troop.Brawler, 1, 0)).toBe('This building does not train that.');
-    expect(troopWhy(g, b, Troop.Close, 3, 0)).toBe('Needs a Casting Hearth.');
+    expect(troopWhy(g, b, Troop.Close, 3, 0)).toBe('Needs a Forge.');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, forge: 4, research: bit(Research.Steel) }), b, Troop.Ranger, 7, 0)).toBe('Needs Crossbows researched first.');
-    expect(troopWhy(game({ buildings: [b], pool: [[Res.Wheat, 100]] }), b, Troop.Close, 1, 1)).toBe('Not enough resources (3 hardwood sticks, 4 leather, 3 planks).');
-    // Wheat feeds 2 a sheaf: 14 is 28 food, short of a troop's 30.
-    expect(troopWhy(game({ buildings: [b], pool: [[Res.Wheat, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30 food).');
-    expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8). Build or upgrade farms.');
+    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Not enough resources (3 hardwood sticks, 4 leather, 3 planks).');
+    // Farm fare feeds 2 a portion: 14 is 28 food, short of a troop's 30.
+    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30 food).');
+    expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8). Build farms or upgrade the main base.');
     const full = barracks(123, 1, 0, { queue: Array.from({ length: 5 }, () => ({ product: troopProduct(Troop.Close, 1, 0), done: 0, stepsLeft: 0 })) });
     expect(troopWhy(g, full, Troop.Close, 1, 0)).toBe('The queue is full (5).');
   });
 
-  it('wants a tamed, grown horse in the stalls for cavalry', () => {
-    const stables = building(124, BuildingKind.Stables, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }] });
-    const g = game({ buildings: [stables], pool: STOCK });
-    expect(troopWhy(g, stables, Troop.Cavalry, 1, 0)).toBe('Cavalry needs a tamed, grown horse in the stalls.');
-    expect(troopWhy(g, { ...stables, horses: 2 }, Troop.Cavalry, 1, 0)).toBe('');
+  it('wants main base 3 and a tamed, grown horse in a Barn for cavalry (Patch 2: trained at the Barracks)', () => {
+    const b = barracks(124, 1, 0, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }] });
+    expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a level 3 main base.');
+    const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 3 })], pool: STOCK });
+    expect(troopWhy(g, b, Troop.Cavalry, 1, 0)).toBe('Cavalry needs a tamed horse in a Barn.');
+    expect(troopWhy(g, { ...b, horses: 2 }, Troop.Cavalry, 1, 0)).toBe('');
   });
 });
 
@@ -176,7 +177,7 @@ describe('the Barracks card', () => {
       ['trainRanger', 'Ranger', 'KeyN'],
       ['trainBrawler', 'Brawler', 'KeyB'],
     ]);
-    expect(card[3]!.reason).toBe('Needs a Steelworks.');
+    expect(card[3]!.reason).toBe('Needs a Forge.');
     expect(card[9]!.face).toBe('Rally');
     // A pick in the panel changes what the button trains.
     pickTier(b, Troop.Long, 'w', 2);
@@ -192,7 +193,7 @@ describe('the Barracks card', () => {
 
   it('greys a troop button with the reason when its pick cannot be trained', () => {
     const b = barracks(131);
-    const { c } = harness(game({ buildings: [b], pool: [[Res.Wheat, 100]] }), b);
+    const { c } = harness(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b);
     const close = c.card()[0]!;
     expect(close.enabled).toBe(false);
     expect(close.reason).toBe('Not enough resources (3 hardwood sticks).');

@@ -30,8 +30,8 @@ console.log('tier,target nights,build ws,material worker-s,research s,lands on n
 for (const r of pacingCheck()) console.log([r.tier, r.target, r.buildS, r.materialS, r.researchS, r.night, r.verdict].join(','));
 const t = NIGHT_110_TOWN;
 const sup = supplyCheck();
-console.log(`\nSupply at night 110: ${t.warriors} warriors, ${t.mages} mages, ${t.workers} workers, ${t.lodges} Lodges; main base ${t.mainBaseLevel} and ${t.fields} crop fields at tier ${t.fieldLevel}`);
-console.log(`supply ${sup.supplyUsed} of ${sup.supplyCap}; ${sup.nutritionPerDay} nutrition a day, ${sup.perFarmer} per tier ${t.fieldLevel} wheat farmer as bread: ${sup.farmersNeeded} farmers (room for ${sup.farmersRoom}): ${sup.ok ? 'carries' : 'SHORT'}`);
+console.log(`\nSupply at night 110: ${t.warriors} warriors, ${t.mages} mages, ${t.workers} workers, ${t.lodges} Lodges; main base ${t.mainBaseLevel} and ${t.farms} Farms`);
+console.log(`supply ${sup.supplyUsed} of ${sup.supplyCap}; ${sup.nutritionPerDay} nutrition a day, ${sup.perFarmer} per farmer as farm fare: ${sup.farmersNeeded} farmers (room for ${sup.farmersRoom}): ${sup.ok ? 'carries' : 'SHORT'}`);
 if (values.pacing) process.exit(0);
 
 console.log(`\nWave versus defence${values.blood ? ' (blood nights)' : ''}:`);

@@ -165,13 +165,15 @@ describe('riding and charges (Table 14)', () => {
     expect(e.hp[w]).toBe(hp);
   });
 
-  it('trains cavalry at the Stables on a tamed horse from its stalls: the horse is used up and the rider comes out mounted', () => {
+  it('trains cavalry at the Barracks from main base 3 on a tamed horse from the nearest Barn: the horse is used up and the rider comes out mounted (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const [x, z] = field(s);
-    run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Stables, x, z }]);
-    const stables = s.buildings.list.find((b) => b.kind === BuildingKind.Stables)!;
-    expect(stables.complete).toBe(true);
-    expect(troopTypesAt(stables)).toEqual([Troop.Cavalry]);
+    run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Barn, x, z }]);
+    const barn = s.buildings.list.find((b) => b.kind === BuildingKind.Barn)!;
+    expect(barn.complete).toBe(true);
+    const base = bigHouse(s);
+    const stables = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x - 18, base.z, true);
+    expect(troopTypesAt(stables)).toContain(Troop.Cavalry);
     const e = s.entities;
     const p = s.players[0]!;
     const horses = (): number => {
@@ -184,6 +186,8 @@ describe('riding and charges (Table 14)', () => {
     // A fire-hardened spear (4 sticks) and no armour: the kit, the food and one of the horses.
     const product = troopProduct(Troop.Cavalry, 1, 0);
     p.pool[Res.Sticks] = 12;
+    expect(productProblem(s, stables, product)).toBe('Needs a level 3 main base.');
+    base.level = 3;
     expect(productProblem(s, stables, product)).toBe('');
     run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
     expect(stables.queue.length).toBe(1);
@@ -203,9 +207,9 @@ describe('riding and charges (Table 14)', () => {
     run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
     run(s, 1);
     expect(horses()).toBe(0);
-    expect(productProblem(s, stables, product)).toBe('Cavalry needs a tamed horse in the stalls.');
+    expect(productProblem(s, stables, product)).toBe('Cavalry needs a tamed horse in a Barn.');
     run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
-    expect(s.events.some((ev) => ev.kind === 'alert' && ev.text === 'Cavalry needs a tamed horse in the stalls.')).toBe(true);
+    expect(s.events.some((ev) => ev.kind === 'alert' && ev.text === 'Cavalry needs a tamed horse in a Barn.')).toBe(true);
     expect(stables.queue.length).toBe(1);
     run(s, 1, [{ kind: 'cancelProduce', player: 0, building: stables.id, index: 0 }]);
     expect(stables.queue.length).toBe(0);
@@ -217,12 +221,13 @@ describe('riding and charges (Table 14)', () => {
   it('has no riding training and no mount or dismount order: a troop\'s type is fixed', () => {
     expect(Object.keys(Skill)).toEqual(['Cannon']);
     for (const kind of ['mount', 'dismount']) expect(() => validateOrder({ kind, player: 0, units: [1], target: 0 } as unknown as Order)).toThrow(/unknown order kind/);
-    // A close-melee troop cannot be trained at the Stables, nor cavalry at the Barracks.
+    // Patch 2: cavalry trains at the Barracks with the rest; the main base trains none.
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
-    expect(troopTypesAt(barracks)).not.toContain(Troop.Cavalry);
-    expect(productProblem(s, barracks, troopProduct(Troop.Cavalry, 1, 0))).toBe('This building cannot make that.');
+    expect(troopTypesAt(barracks)).toContain(Troop.Cavalry);
+    expect(troopTypesAt(base)).not.toContain(Troop.Cavalry);
+    expect(productProblem(s, base, troopProduct(Troop.Cavalry, 1, 0))).toBe('This building cannot make that.');
   });
 });
 
@@ -268,8 +273,8 @@ describe('siege engines (Table 2f)', () => {
   });
 });
 
-describe('tier 8: the Gunnery yard and the Citadel ports', () => {
-  it('trains a musketeer, a tier 8 ranger, at the Barracks once Gunpowder and Muskets are researched and there is a Steelworks', () => {
+describe('tier 8: the Artillery workshop and the Citadel ports', () => {
+  it('trains a musketeer, a tier 8 ranger, at the Barracks once Gunpowder and Muskets are researched, with a Forge and main base 7', () => {
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
@@ -278,9 +283,11 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder.
     for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1]] as const) p.pool[r] = n;
     const product = troopProduct(Troop.Ranger, 8, 0);
-    expect(productProblem(s, barracks, product)).toBe('Needs a Steelworks.');
-    const forge = placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 18, base.z, true);
-    forge.level = 4;
+    expect(productProblem(s, barracks, product)).toBe('Needs a Forge.');
+    placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 18, base.z, true);
+    // Patch 2: the Forge's steel step comes with main base level 7.
+    expect(productProblem(s, barracks, product)).toBe('Needs a level 7 main base.');
+    base.level = 7;
     expect(productProblem(s, barracks, product)).toBe(`Needs ${RESEARCH[Research.CarbonSteel]!.name} researched first.`);
     p.research |= 1 << Research.Steel;
     p.research |= 1 << Research.CarbonSteel;
@@ -300,10 +307,10 @@ describe('tier 8: the Gunnery yard and the Citadel ports', () => {
     expect(gearSpec(e.ranged[r!]!).ranged!.shot).toBe(Shot.MusketBall);
   });
 
-  it('trains cannon crew at the Gunnery yard once Cannons is researched', () => {
+  it('trains cannon crew at the Artillery workshop once Cannons is researched', () => {
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
-    const yard = placeBuilding(s, 0, BuildingKind.GunneryYard, 0, base.x + 18, base.z, true);
+    const yard = placeBuilding(s, 0, BuildingKind.ArtilleryWorkshop, 0, base.x + 18, base.z, true);
     const p = s.players[0]!;
     p.pool[Res.Venison] = 200;
     const e = s.entities;

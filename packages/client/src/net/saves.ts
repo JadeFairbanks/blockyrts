@@ -4,14 +4,19 @@
 // recent match is also kept in this browser (IndexedDB), and any save can be
 // downloaded as a .sac file and opened again from the Load screen.
 import { readSaveFile, SaveSection, writeSaveFile, type SaveHeader, type SavePlayer } from '@blockyrts/protocol';
+import { OLD_SAVE_TEXT } from '@blockyrts/sim';
 
 const utf8 = { encode: (t: string): Uint8Array => new TextEncoder().encode(t), decode: (b: Uint8Array): string => new TextDecoder().decode(b) };
 
-/** The game's save format version (migrations key on it) and the build that wrote a save. Milestone 11's troop rework made it 2: older saves hold items. */
-export const SAVE_FORMAT_VERSION = 2;
+/**
+ * The game's save format version and the build that wrote a save. Every patch
+ * raises it, and a save from an older version is refused with OLD_SAVE_TEXT,
+ * never carried over (Jade, Patch 2: a standing rule). 2 was milestone 11's
+ * troop rework; 3 is Patch 2.
+ */
+export const SAVE_FORMAT_VERSION = 3;
 export const GAME_VERSION = '0.11.0';
-/** What a player reads when a save is from before the troop rework. */
-export const OLD_SAVE_TEXT = 'That save is from before the troop rework (troop types and tiers instead of items), so this version cannot load it. Start a new game.';
+export { OLD_SAVE_TEXT };
 
 /** The SEAT section: one entry per sim player, in player order. */
 export const SEAT_SECTION = 'SEAT';
@@ -86,7 +91,7 @@ export async function openSave(bytes: Uint8Array): Promise<OpenedSave> {
   } catch {
     throw new Error('That is not a Survive and Conquer save file.');
   }
-  if (file.header.formatVersion < SAVE_FORMAT_VERSION) throw new Error(OLD_SAVE_TEXT);
+  if (file.header.formatVersion !== SAVE_FORMAT_VERSION) throw new Error(OLD_SAVE_TEXT);
   const sims = file.sections.get(SaveSection.SimState);
   if (!sims) throw new Error('That save has no game in it.');
   const accounts = new Map(file.header.players.map((p) => [p.slot, p.accountId]));

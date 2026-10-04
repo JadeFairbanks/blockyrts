@@ -191,7 +191,7 @@ export class FirstDayHints {
       },
       { text: 'Gather wood: with workers selected, right click a tree. They carry it to the Big House.', done: () => woodNow() > this.wood },
       { text: 'Build: with a worker selected press B (or click Build on the card), pick a building and left click to place it.', done: () => this.own() > this.buildings },
-      { text: 'Light a torch: build a Torch post (B, then its key). Light claims land and keeps the night’s monsters back.', done: () => this.own(BuildingKind.TorchPost) > 0 },
+      { text: 'Light a torch: build a Torch post (B, then Lights, then its key). Light claims land and keeps the night’s monsters back.', done: () => this.own(BuildingKind.TorchPost) > 0 },
       {
         text: 'Dusk: shelter for the night. Click Everyone Home (⇊, beside the minimap) to send your workers inside; warriors hold the walls.',
         when: () => this.period() === Period.Dusk,

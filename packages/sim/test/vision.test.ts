@@ -94,6 +94,7 @@ describe('buildings see', () => {
     expect(buildingSight(s, bigHouse(s))).toBe(20 * M);
     expect(BUILDING_SIGHT_M[BuildingKind.Tower]).toBe(20);
     expect(BUILDING_SIGHT_M[BuildingKind.TowerStone]).toBe(20);
+    expect(BUILDING_SIGHT_M[BuildingKind.TorchPost]).toBe(10);
     expect(BUILDING_SIGHT_M[BuildingKind.Bonfire]).toBe(20);
     expect(BUILDING_SIGHT_M[BuildingKind.Wall]).toBe(10);
     // Every building a player can own has a row.

@@ -383,7 +383,8 @@ export interface Lean {
 export const LEAN_SELL_PCT = 80;
 export const LEAN_PAY_PCT = 130;
 
-const CROPS = [Res.Wheat, Res.Potatoes, Res.Carrots, Res.Corn];
+/** Farm goods (Patch 2: farm fare, in place of wheat, potatoes, carrots and corn). */
+const CROPS = [Res.FarmFare];
 const live = (s: Species): number => LIVE_GOODS + s;
 const engine = (k: number): number => ENGINE_GOODS + k;
 
@@ -391,7 +392,7 @@ export const LEANS: Readonly<Record<People, readonly Lean[]>> = {
   [People.Halfling]: [
     { name: 'crops', sells: CROPS, lacks: [...MEATS, ...FISHES] },
     { name: 'livestock', sells: [Res.Beef, Res.Chicken, Res.Eggs, live(Species.Chicken), live(Species.Cattle), live(Species.Ox)], lacks: CROPS },
-    { name: 'fishing', sells: [Res.Trout, Res.SmokedFish], lacks: [Res.Flax, Res.Leather] },
+    { name: 'fishing', sells: [Res.Trout, Res.Salmon], lacks: [Res.Flax, Res.Leather] },
     { name: 'weaving', sells: [Res.Flax, Res.Rope], lacks: [...FISHES, ...MEATS] },
   ],
   [People.Runkin]: [
@@ -440,22 +441,24 @@ const row = (good: number, count: number, pct = 100, extra: Partial<StockRow> = 
 export const STOCK: readonly (readonly StockRow[])[] = [
   // Halfling village: farm goods, live animals, the leather and feathers of their gear, and wrought iron (Table 11).
   [
-    row(Res.Wheat, 30), row(Res.Potatoes, 30), row(Res.Carrots, 30), row(Res.Corn, 20), row(Res.Eggs, 20), row(Res.Beef, 10), row(Res.Chicken, 5), row(Res.Bread, 10),
+    // Patch 2: farm fare in place of the 110 crops and 10 bread (s, Jade's rebalance).
+    row(Res.FarmFare, 100), row(Res.Eggs, 20), row(Res.Beef, 10), row(Res.Chicken, 5),
     row(live(Species.Chicken), 4, 100, { price: 80 }), row(live(Species.Cattle), 2, 100, { price: 400 }), row(live(Species.Ox), 1, 100, { price: 600 }),
     row(Res.Leather, 6), row(Res.Feathers, 20),
     row(Res.WroughtIron, 10),
   ],
   // Runkin camp: the catch, sticks, flint and herbs (Table 11).
   [row(Res.Trout, 10), row(Res.Salmon, 10), row(Res.Venison, 15), row(Res.Hides, 10), row(Res.Sticks, 40), row(Res.Flint, 20), row(Res.Herbs, 15), row(Res.Bone, 15), row(Res.Feathers, 30)],
-  // Elf kingdom: food at 120%, and the carbon steel of 3 weapons a day at 4 x its value (Table 19).
+  // Elf kingdom: food at 120%, and the carbon steel of 3 weapons a day at 4 x its value (Table 19). Patch 2: farm fare, venison and
+  // trout in place of bread, roast meat, smoked fish and wheat, about the same worth (s, Jade's rebalance).
   [
-    row(Res.Bread, 20, 120), row(Res.RoastMeat, 15, 120), row(Res.SmokedFish, 15, 120), row(Res.Wheat, 30, 120), row(Res.Flax, 20, 120), row(Res.Herbs, 15, 120),
+    row(Res.FarmFare, 80, 120), row(Res.Venison, 20, 120), row(Res.Trout, 20, 120), row(Res.Flax, 20, 120), row(Res.Herbs, 15, 120),
     row(Res.Bandage, 10, 120), row(Res.Remedy, 4, 120),
     row(Res.CarbonSteel, 9, 400, { daily: true }),
   ],
   // Elf caravan: one weapon's materials (its lean) and about 200 vp of food a visit (Table 19).
   [
-    row(Res.Bread, 12, 120), row(Res.RoastMeat, 8, 120), row(Res.SmokedFish, 8, 120), row(Res.Wheat, 10, 120), row(Res.Flax, 6, 120), row(Res.Herbs, 6, 120), row(Res.Bandage, 3, 120), row(Res.Remedy, 1, 120),
+    row(Res.FarmFare, 50, 120), row(Res.Venison, 10, 120), row(Res.Trout, 10, 120), row(Res.Flax, 6, 120), row(Res.Herbs, 6, 120), row(Res.Bandage, 3, 120), row(Res.Remedy, 1, 120),
   ],
   // Dwarf colony: a little good steel (at most 5 a day at 1.5 x), lower metals, the iron of its weapons and shields at 1.5 x, gems (Table 19).
   [
@@ -479,7 +482,7 @@ export const CARAVAN_GOODS: readonly StockRow[] = [
   row(Res.CarbonSteel, 3, 400), row(Res.SteelIngot, 3, 400), row(Res.HardenedLeather, 4, 400),
 ];
 
-/** The worth of each resource, tenths of a vp (Table 11). Cooked foods are 0.75 x their nutrition. */
+/** The worth of each resource, tenths of a vp (Table 11). Any other food is 0.75 x its nutrition. */
 export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.SoftwoodLumber]: 10, [Res.HardwoodLumber]: 20, [Res.Sticks]: 5, [Res.Planks]: 15, [Res.Stone]: 10, [Res.Flint]: 10, [Res.Clay]: 10, [Res.Sand]: 10,
   [Res.Gravel]: 5, [Res.Earth]: 2, [Res.Bricks]: 10, [Res.Glass]: 30, [Res.Resin]: 10, [Res.Bone]: 10,
@@ -490,18 +493,19 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.HorseMeat]: 30, [Res.WolfMeat]: 30, [Res.LynxMeat]: 30, [Res.BadgerMeat]: 30, [Res.BearMeat]: 30, [Res.FrogLegs]: 30, [Res.CrabMeat]: 30,
   [Res.CrocodileMeat]: 30, [Res.GriffinMeat]: 30, [Res.MinotaurMeat]: 30, [Res.RatMeat]: 30,
   [Res.Trout]: 20, [Res.Salmon]: 20, [Res.Catfish]: 20,
-  [Res.Eggs]: 10, [Res.Wheat]: 15, [Res.Potatoes]: 10, [Res.Carrots]: 10, [Res.Corn]: 15, [Res.Flax]: 10, [Res.Herbs]: 20,
+  // Farm fare as wheat and corn were (Patch 2, s, Jade's rebalance).
+  [Res.Eggs]: 10, [Res.FarmFare]: 15, [Res.Flax]: 10, [Res.Herbs]: 20,
   [Res.Hides]: 30, [Res.Leather]: 40, [Res.Feathers]: 5, [Res.Bandage]: 50, [Res.Remedy]: 150,
   [Res.CopperIngot]: 50, [Res.TinIngot]: 70, [Res.BronzeIngot]: 60, [Res.WroughtIron]: 90, [Res.PigIron]: 110, [Res.IronIngot]: 240,
   [Res.SteelIngot]: 300, [Res.CarbonSteel]: 600, [Res.Gunpowder]: 16,
   [Res.Gold]: 400, [Res.Silver]: 150, [Res.Emeralds]: 500, [Res.Rubies]: 600, [Res.Diamonds]: 1000, [Res.ManaCrystal]: 300, [Res.DemonHorn]: 200,
   [Res.Hexstone]: 100, [Res.Venom]: 50, [Res.SpiderSilk]: 30,
-  // Not in Table 11 (s): rope as two flax; hardened leather, carts, ramp steps and a lantern as twice their inputs.
-  [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20, [Res.LumberRamp]: 40, [Res.StoneRamp]: 40, [Res.Lantern]: 240,
+  // Not in Table 11 (s): rope as two flax; hardened leather, carts and ramp steps as twice their inputs.
+  [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20, [Res.LumberRamp]: 40, [Res.StoneRamp]: 40,
   [Res.Moonleaf]: 7250, [Res.Sunheart]: 12000,
 };
 
-/** Cooked food is worth 0.75 x its nutrition (Table 11): hundredths of a vp per point of nutrition. */
+/** A food not in RES_VALUE_TENTHS is worth 0.75 x its nutrition (Table 11's cooked foods, which Patch 2 cut): hundredths of a vp per point of nutrition. */
 export const COOKED_HUNDREDTHS_PER_NUTRITION = 75;
 
 /** A trinket's metal, by TRINKET_METALS order: copper 5, tin 7, bronze 6, iron 9, steel 30, silver 15, gold 40 vp (Table 11). */
@@ -541,10 +545,10 @@ export const SURRENDER_DEAD_PCT = 50;
 export const PLUNDER_TENTHS_PER_PERSON = 100;
 /** The loot's food and metal by people (s). */
 export const PLUNDER_GOODS: Readonly<Record<People, readonly [Res, Res]>> = {
-  [People.Halfling]: [Res.Bread, Res.WroughtIron],
+  [People.Halfling]: [Res.FarmFare, Res.WroughtIron],
   [People.Runkin]: [Res.Venison, Res.Flint],
-  [People.Elf]: [Res.Bread, Res.SteelIngot],
-  [People.Dwarf]: [Res.Bread, Res.WroughtIron],
+  [People.Elf]: [Res.FarmFare, Res.SteelIngot],
+  [People.Dwarf]: [Res.FarmFare, Res.WroughtIron],
 };
 /** Table 19: reparations are 2000 vp plus 100 per Dwarf killed, paid in gold, silver, gems, trinkets or food. */
 export const REPARATIONS_TENTHS = 20000;
