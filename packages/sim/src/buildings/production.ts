@@ -28,7 +28,7 @@ import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
-import { crewHooks } from '../units/questions.ts';
+import type { crewHooks } from '../units/questions.ts';
 import {
   kitName,
   mainCost,
@@ -567,13 +567,14 @@ export function nearestCrewTrainer(state: SimState, engine: number): Building | 
  * Fills the hooks of the "A crewman fell. Train another?" question (units/
  * questions.ts crewHooks, Patch 2): an engine that lost a crewman asks when
  * an Artillery workshop stands, and Yes queues a crewman at the nearest one,
- * who joins the nearest engine a crewman short when trained.
+ * who joins that engine when trained (spawnCrewman). step.ts hands the hooks
+ * in, so this module never imports the questions.
  */
-export function installCrewHooks(): void {
-  crewHooks.trainer = nearestCrewTrainer;
-  crewHooks.train = (state, engine, at) => queueProduct(state, at, Product.Crewman, state.entities.owner[engine]!, state.entities.id[engine]!);
+export function installCrewHooks(hooks: typeof crewHooks): void {
+  hooks.trainer = nearestCrewTrainer;
+  hooks.train = (state, engine, at) => queueProduct(state, at, Product.Crewman, state.entities.owner[engine]!, state.entities.id[engine]!);
   // What Yes takes is food, which the hook's resource list cannot hold; the queue's tooltip names it.
-  crewHooks.cost = () => [];
+  hooks.cost = () => [];
 }
 
 /**

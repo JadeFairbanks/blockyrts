@@ -36,11 +36,12 @@ import { installLateMobs } from './threats/late-mobs.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
-import { updateQuestions } from './units/questions.ts';
+import { crewHooks, updateQuestions } from './units/questions.ts';
 
 installDeathHooks();
 installAnimalHooks();
-installCrewHooks();
+// Handed in from here: production importing the questions would close an import loop through the units' gear.
+installCrewHooks(crewHooks);
 installFoes();
 installLateMobs();
 mountHooks.rearRider = rearRider;

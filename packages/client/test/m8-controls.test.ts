@@ -136,12 +136,30 @@ describe('engines and cannons', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
   });
 
-  it('warriors right clicking it crew it; workers repair it', () => {
-    const a = harness([sel('e:3', 'warrior')], 'warrior');
+  it('artillery crewmen right clicking it crew it (Patch 2: warriors only follow it); workers repair it', () => {
+    const a = harness([sel('e:3', 'warrior:crew')], 'warrior:crew');
     a.c.smart(cannon, null);
     expect(a.sent.at(-1)).toMatchObject({ kind: 'crew', units: [3], target: 7 });
+    const w = harness([sel('e:4', 'warrior')], 'warrior');
+    w.c.smart(cannon, null);
+    expect(w.sent.at(-1)).toMatchObject({ kind: 'follow', units: [4], target: 7 });
     const b = harness([sel('e:1', 'worker')], 'worker');
     b.c.smart(cannon, null);
     expect(b.sent.at(-1)).toMatchObject({ kind: 'mend', units: [1], target: 7 });
+  });
+
+  it('gives the artillery crewman a Crew button (C) that picks one of your engines; warriors have none', () => {
+    const { c, sent } = harness([sel('e:3', 'warrior:crew')], 'warrior:crew');
+    const card = c.card();
+    const crew = card.find((e) => e?.action === 'crew')!;
+    expect(crew).toMatchObject({ face: 'Crew', key: 'KeyC', enabled: true });
+    crew.run(PRESS);
+    expect(c.targeting?.command).toBe('crew');
+    c.confirmTarget(citadel, null);
+    expect(sent.length).toBe(0);
+    c.confirmTarget(cannon, null);
+    expect(sent.at(-1)).toMatchObject({ kind: 'crew', units: [3], target: 7 });
+    const w = harness([sel('e:4', 'warrior')], 'warrior');
+    expect(w.c.card().some((e) => e?.action === 'crew')).toBe(false);
   });
 });
