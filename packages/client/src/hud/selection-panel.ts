@@ -537,7 +537,6 @@ export class SelectionPanel {
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
   private garrison(b: BuildingInfo): void {
-    const spec = buildingSpec(b.kind);
     const top = garrisonRoom(b);
     if (top > 0) {
       const row = this.strip('garrison');
@@ -545,7 +544,7 @@ export class SelectionPanel {
         icon: pic('icon_tower_softwood'),
         face: `Up top ${b.up.length}/${top}`,
         name: `Up top: ${b.up.length} of ${top}`,
-        description: b.up.length > 0 ? 'Click one to bring it down.' : `Select men, press ${this.a.keyName('enter')} (Enter) and click it${spec.defence === 'tower' ? ', or right click it' : ''}.`,
+        description: b.up.length > 0 ? 'Click one to bring it down.' : 'Select men and right click it.',
         className: 'word',
       }, row);
       this.portraits(b, b.up, 'top', 'Click to bring this one down.', row);

@@ -131,10 +131,22 @@ function person(state: SimState, j: number): boolean {
   return k === UnitKind.Worker || k === UnitKind.Warrior || k === UnitKind.Mage;
 }
 
-/** Whether a spell's target unit is still one it may land on. */
+/**
+ * A unit one of the players' mages may be told to cast a support spell on
+ * (Jade's Patch 2: a spell used on a unit always casts, but buffs and heals
+ * never land on enemies): anyone alive and outside who is not her enemy, her
+ * own side, an ally, an animal, the peoples at peace.
+ */
+function notEnemy(state: SimState, i: number, j: number): boolean {
+  const e = state.entities;
+  if (j < 0 || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.kind[j] === UnitKind.Wanderer) return false;
+  return !hostile(state, i, j);
+}
+
+/** Whether a spell's target unit is still one it may land on; `ordered` is a target she was told to cast on, which a spell on a unit always takes (Jade's Patch 2). */
 function targetOk(state: SimState, i: number, s: SpellSpec, t: number, ordered: boolean): boolean {
   if (t < 0) return false;
-  if (s.target === 'ally') return ally(state, i, t);
+  if (s.target === 'ally') return ordered && sideOf(state, i) === Side.Players ? notEnemy(state, i, t) : ally(state, i, t);
   if (s.target === 'counter') return validTarget(state, i, t) && castingSpell(state, t);
   return validTarget(state, i, t, ordered);
 }

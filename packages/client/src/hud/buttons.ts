@@ -19,7 +19,8 @@ export type IconBadge = 'up' | 'max' | 'down' | 'cross' | 'ok' | 'next';
  * swords, one mirrored, cross for Attack), with a badge and a short tag.
  */
 export interface ButtonIcon {
-  layers: ReadonlyArray<{ file: string; mirror?: boolean; filter?: string }>;
+  /** Shift: drawn a little to one side, so two pictures sit side by side (Upgrade equipment's weapon and armour). */
+  layers: ReadonlyArray<{ file: string; mirror?: boolean; filter?: string; shift?: 'left' | 'right' }>;
   badge?: IconBadge;
   /** A word or number in the bottom corner: a page, a mode. */
   tag?: string;
@@ -92,7 +93,7 @@ export class HudButton {
       img.src = kitUrl(l.file);
       img.alt = '';
       img.draggable = false;
-      if (l.mirror) img.className = 'mirror';
+      img.className = [l.mirror ? 'mirror' : '', l.shift ? `shift-${l.shift}` : ''].filter((c) => c).join(' ');
       if (l.filter) img.style.filter = l.filter;
       host.append(img);
     }

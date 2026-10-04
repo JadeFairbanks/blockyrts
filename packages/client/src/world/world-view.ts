@@ -11,7 +11,6 @@ import {
   gearSpec,
   Line,
   linePiece,
-  Lock,
   Troop,
   MONSTERS,
   mobSpec,
@@ -367,8 +366,6 @@ export class WorldView {
         this.lootLine(details, id);
         const up = upgradeText(d, o, 'warrior');
         if (up) details.push(up);
-        if (d[o + S.lock] === Lock.Melee) details.push('Locked to melee.');
-        else if (d[o + S.lock] === Lock.Ranged) details.push('Locked to ranged.');
         const skills = SKILL_TEXT.filter(([bit]) => (d[o + S.skills]! & bit) !== 0).map(([, t]) => t);
         if (skills.length > 0) details.push(`Trained in ${skills.join(', ')}.`);
         const mount = d[o + S.mount]!;

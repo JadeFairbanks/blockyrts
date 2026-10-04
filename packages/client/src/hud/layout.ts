@@ -2,7 +2,7 @@
 // and mouse zones, each registered as a solid rectangle. The shell fills in
 // the buttons and the live text; applyGeometry puts the panels where
 // hud-layout.ts says for the screen size.
-import { cardCells, cardHeight, type HudGeometry } from './hud-layout.ts';
+import { buttonIcon, CARD_PAD, cardInner, SLOT, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import type { HudPanels } from './panels.ts';
 
 export interface HudLayout {
@@ -16,7 +16,7 @@ export interface HudLayout {
   messageList: HTMLElement;
   /** The chat box at the bottom of the message panel. */
   chat: HTMLInputElement;
-  /** The portrait (bottom strip, beside the middle): the 3D render shows through its window. */
+  /** The portrait (bottom strip, between the middle and the card): the 3D render shows through its window. */
   portraitPanel: HTMLElement;
   portraitWindow: HTMLElement;
   /** A picture for what has no model to render (a tree, a rock). */
@@ -31,7 +31,7 @@ export interface HudLayout {
   selectionBody: HTMLElement;
   groupTabs: HTMLElement;
   commandCard: HTMLElement;
-  /** The card's slots: the first 15 are the fixed block with the grid keys, then the extra slots (hud-layout.ts cardCells). */
+  /** The card's slots, one per button shown, in book order (applyGeometry adds more as a card needs them). */
   commandSlots: HTMLElement[];
   /** The phone's fold buttons (bottom left). */
   folds: HTMLElement;
@@ -100,7 +100,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const selectionBody = div('sel-body', selectionPanel);
   selectionBody.dataset.scroll = '';
 
-  // Command card (bottom right): the fixed 3 rows of 5 and the extra slots round them (applyGeometry adds slots as the card grows).
+  // Command card (bottom right): a slot per button, square and centred (applyGeometry sizes them and adds slots as a card needs them).
   const commandCard = div('panel command-card', root);
   const commandSlots: HTMLElement[] = [];
   for (let i = 0; i < 15; i++) commandSlots.push(div('slot', commandCard));
@@ -205,7 +205,7 @@ export interface Folds {
  * rows it needs now. On a phone, folded panels are hidden. Sets the CSS
  * variables the dialogs use to keep clear of the strip and the card.
  */
-export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, folds: Folds): void {
+export function applyGeometry(L: HudLayout, g: HudGeometry, fit: ButtonFit | null, folds: Folds): void {
   const s = g.scale;
   const place = (el: HTMLElement, left: number | null, right: number | null, bottom: number, w: number, h: number, origin: string): void => {
     const st = el.style;
@@ -218,7 +218,9 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
     st.transform = s === 1 ? '' : `scale(${s})`;
   };
   const phone = g.phone;
-  const lift = phone && g.stacked ? g.card.h : 0;
+  const inner = cardInner(g);
+  const cardH = Math.round(((fit?.height ?? inner.h) + 2 * CARD_PAD) * s);
+  const lift = phone && g.stacked ? cardH : 0;
   L.minimapPanel.hidden = phone && !folds.map;
   L.portraitPanel.hidden = phone && !folds.info;
   L.selectionPanel.hidden = phone && !folds.info;
@@ -228,9 +230,8 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
   place(L.minimapPanel, g.minimap.x, null, lift, g.minimap.w, g.minimap.h, '0 100%');
   place(L.portraitPanel, g.portrait.x, null, lift, g.portrait.w, g.portrait.h, '0 100%');
   place(L.selectionPanel, g.middle.x, null, lift, g.middle.w, g.middle.h, '0 100%');
-  const rows = Math.max(g.rows, cardRows);
-  place(L.commandCard, null, 0, 0, g.card.w, Math.round(cardHeight(rows) * s), '100% 100%');
-  setCardGrid(L, g.cols, rows);
+  place(L.commandCard, null, 0, 0, g.card.w, cardH, '100% 100%');
+  setCardGrid(L, fit);
   const top = L.topRight.style;
   top.transformOrigin = '100% 0';
   top.transform = s === 1 ? '' : `scale(${s})`;
@@ -251,7 +252,7 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
   const stripH = phone ? (folds.map ? g.minimap.h + lift : folds.info ? g.middle.h + lift : 0) : g.minimap.h;
   root.setProperty('--hud-s', String(s));
   root.setProperty('--strip-h', `${stripH}px`);
-  root.setProperty('--card-top', `${Math.round(cardHeight(rows) * s)}px`);
+  root.setProperty('--card-top', `${cardH}px`);
   root.setProperty('--strip-left', `${phone ? g.folds!.w : 0}px`);
   root.setProperty('--top-right-h', `${Math.round(L.topRight.offsetHeight * s)}px`);
 }
@@ -283,27 +284,25 @@ export function fitDebug(L: HudLayout, g: HudGeometry): void {
   tools.style.maxWidth = `${w}px`;
 }
 
-/** Lays the card's slots out on a grid of these columns and rows, adding slots as needed. */
-function setCardGrid(L: HudLayout, cols: number, rows: number): void {
+/**
+ * Lays the card's buttons out as Jade's Patch 2 says: squares of the fitted
+ * size, filled left to right and top to bottom like a book, the whole block
+ * centred in the card. A slot per button shown, the rest hidden.
+ */
+function setCardGrid(L: HudLayout, fit: ButtonFit | null): void {
   const card = L.commandCard;
-  const key = `${cols}x${rows}`;
+  const shown = fit?.shown ?? 0;
+  const key = fit ? `${fit.size}:${fit.cols}x${fit.rows}:${shown}` : 'none';
   if (card.dataset.grid === key) return;
   card.dataset.grid = key;
-  card.style.gridTemplateColumns = `repeat(${cols}, var(--card-slot))`;
-  card.style.gridTemplateRows = `repeat(${rows}, var(--card-slot))`;
-  const cells = cardCells(cols, rows);
-  while (L.commandSlots.length < cells.length) {
-    const d = document.createElement('div');
-    d.className = 'slot extra';
-    card.append(d);
-    L.commandSlots.push(d);
-  }
+  const size = fit?.size ?? SLOT;
+  card.style.setProperty('--card-slot', `${size}px`);
+  card.style.setProperty('--card-icon', `${buttonIcon(size)}px`);
+  card.style.setProperty('--card-k', String(Math.min(1.6, Math.max(1, size / SLOT))));
+  card.style.gridTemplateColumns = `repeat(${fit?.cols ?? 1}, var(--card-slot))`;
+  card.style.gridTemplateRows = `repeat(${fit?.rows ?? 1}, var(--card-slot))`;
+  while (L.commandSlots.length < shown) L.commandSlots.push(div('slot', card));
   L.commandSlots.forEach((el, i) => {
-    const c = cells[i];
-    el.hidden = c === undefined;
-    if (c) {
-      el.style.gridRow = String(c[0] + 1);
-      el.style.gridColumn = String(c[1] + 1);
-    }
+    el.hidden = i >= shown;
   });
 }

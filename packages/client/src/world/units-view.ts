@@ -344,6 +344,8 @@ export class UnitsView {
   private readonly corpses: Corpse[] = [];
   /** When each unit's current swing began on screen (ms), by entity id. */
   private readonly swingStart = new Map<number, number>();
+  /** When each unit sat down at a timed action (Jade's Patch 2 tinkering), ms, so it sits once and then tinkers. */
+  private readonly tinkerStart = new Map<number, number>();
   /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
   private readonly fired = new Map<number, number>();
   private lastFrame = 0;
@@ -460,6 +462,16 @@ export class UnitsView {
         swingT = (now - s0) / 1000;
       } else this.swingStart.delete(id);
       const clipT = swing !== 0 ? swingT : t + (id % 7) * 0.37;
+      // Sitting at a timed action: seconds since it sat down, counted from the sim's steps for a unit first seen mid-way.
+      let sat = -1;
+      if (d[o + S.order] === OrderKind.Tinker && d[o + S.tinkerOf]! > 0) {
+        let t0 = this.tinkerStart.get(id);
+        if (t0 === undefined) {
+          t0 = now - d[o + S.tinkerDone]! * STEP_MS;
+          this.tinkerStart.set(id, t0);
+        }
+        sat = (now - t0) / 1000;
+      } else this.tinkerStart.delete(id);
       const colour = mobUnit ? null : owner === NEUTRAL ? f.neutral : (f.colours[owner] ?? f.neutral);
       if (mobUnit) {
         const mob = d[o + S.mob]!;
@@ -539,8 +551,9 @@ export class UnitsView {
       } else if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
-          const clip = mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip;
-          slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
+          const pose = mount === 0 && sat >= 0 ? tinkerPose(pool.model.clips, sat, id) : null;
+          const clip = pose?.clip ?? (mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip);
+          slot.m.setInstance(slot.i, x, ry, z, heading, clip, pose?.t ?? clipT, tint);
           for (const [item, bone] of look.attach) {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
@@ -569,6 +582,7 @@ export class UnitsView {
       }
     }
     for (const id of this.swingStart.keys()) if (!live.has(id)) this.swingStart.delete(id);
+    for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     blocks = this.drawCorpses(t, blocks);
     blocks = this.drawRuins(f, blocks);
@@ -897,6 +911,20 @@ function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean)
 
 /** Tools with a model of their own, attached to the right hand. */
 const TOOL_MODELS = new Set(['maul_stone', 'hammer_stone', 'axe_flint']);
+
+/** The sit_down clip's length: the unit sits, then tinkers (the base bodies' clips, Jade's Patch 2). */
+const SIT_DOWN_S = 0.6;
+
+/**
+ * Jade's Patch 2 tinkering pose for a unit sitting at a timed action `sat`
+ * seconds: it sits down, then works with its hands at its chest, head bowed.
+ * Null for a body without the clips, which keeps its own.
+ */
+function tinkerPose(clips: ReadonlyMap<string, unknown>, sat: number, id: number): { clip: string; t: number } | null {
+  if (!clips.has('tinker')) return null;
+  if (sat < SIT_DOWN_S && clips.has('sit_down')) return { clip: 'sit_down', t: sat };
+  return { clip: 'tinker', t: sat - SIT_DOWN_S + (id % 5) * 0.29 };
+}
 
 /** A worker's tool in hand while it works, a torch in the other, its clip. */
 function workerLook(d: Int32Array, o: number): Look {

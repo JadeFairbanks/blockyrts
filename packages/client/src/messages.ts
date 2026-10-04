@@ -44,9 +44,9 @@ export type ToWorker =
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
  * rides and the mount's health; an engine's crew standing by and whether
- * something hauls it.
+ * something hauls it; its meal and hunger; a timed action under way.
  */
-export const STATE_STRIDE = 54;
+export const STATE_STRIDE = 56;
 export const S = {
   id: 0,
   owner: 1,
@@ -120,6 +120,9 @@ export const S = {
   /** A unit that eats: its meal in quarters of nutrition (economy/food.ts mealQuarters), or 0 for one that eats nothing; and the step it began starving, or 0. */
   meal: 52,
   hungry: 53,
+  /** A timed action beside a building (Jade's Patch 2, sim units/tinker.ts): the steps done and the steps it takes, 0 when the unit is not sitting at one. */
+  tinkerDone: 54,
+  tinkerOf: 55,
 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */

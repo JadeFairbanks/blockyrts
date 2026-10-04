@@ -97,12 +97,12 @@ describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
   it('trains cavalry on C, only with a tamed, grown horse in a Barn', () => {
     const pool: Array<[number, number]> = [[Res.FarmFare, 100], [Res.Sticks, 10]];
     const none = at(barracks(0), pool);
-    const greyed = none.c.card()[4]!;
+    const greyed = none.c.card().find((e) => e.action === 'trainCavalry')!;
     expect(greyed).toMatchObject({ action: 'trainCavalry', face: 'Cavalry', key: 'KeyC', enabled: false });
     expect(greyed.reason).toBe('No grown tamed horse ready in a Barn.');
     expect(greyed.description).toContain('a tamed horse');
     const one = at(barracks(1), pool);
-    const train = one.c.card()[4]!;
+    const train = one.c.card().find((e) => e.action === 'trainCavalry')!;
     expect(train.enabled).toBe(true);
     train.run(PRESS);
     expect(one.sent.at(-1)).toEqual({ kind: 'produce', player: ME, building: 21, product: troopProduct(Troop.Cavalry, 1, 0), count: 1 });
@@ -117,11 +117,15 @@ describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
 });
 
 describe('engines and cannons', () => {
-  it('has Attack, Stop, Hold, Move, Hitch and Port', () => {
-    const { c } = harness([cannon], cannon.typeKey);
+  it("has Attack, Move, Hitch and Port (Jade's Patch 2 cuts Stop and Hold), and Port takes it up into a Citadel", () => {
+    const { c, sent } = harness([cannon], cannon.typeKey);
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', '', 'Move', 'Hitch', '', '', '', '', '', '', 'Port', '', '']);
-    expect(card[12]!.enabled).toBe(true);
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Hitch', 'Port']);
+    expect(card[3]!).toMatchObject({ action: 'port', key: 'KeyE', enabled: true });
+    card[3]!.run({ shift: false, ctrl: false });
+    expect(c.targeting?.command).toBe('port');
+    c.confirmTarget(citadel, null);
+    expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
   });
 
   it('hitches a horse, and goes up into a Citadel port, with right clicks', () => {

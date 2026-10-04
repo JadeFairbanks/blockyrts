@@ -1914,6 +1914,61 @@ up and down while they fell. The countdown is now the sim's own time.
    packages/client/test/queue-countdown.test.ts (a mage's hover text from 80
    down to 1, never rising).
 
+## How a tester checks the action menu and Upgrade equipment (Patch 2)
+
+*Jade's rules: a button survives only if Jade's list names it; Attack on a
+unit always attacks; a spell on a unit always casts, never a heal on an enemy;
+one Upgrade equipment button; square buttons at least twice the old size; the
+portrait next to the card. The tinkering hook is `tinker(state, i, steps)` in
+`packages/sim/src/units/tinker.ts`; the command is `upgradeEquipment`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch2-actions.test.ts
+   (Attack on your own worker hurts it; an aimed arrow hits the friend it was
+   aimed at and flies past the rest; a Bolt on your own warrior lands and a
+   Heal on a zombie never does; Upgrade equipment gives weapons first, then
+   armour to the highest rank, and pays exactly that; a meal seats the unit
+   for 10 s with its bar and is paid once, even when an enemy gets it up; a
+   save mid-meal with a shot in the air loads and goes on the same) and the
+   client's hud-layout, m2, m3, m6 and m8 controls tests.
+2. **The warriors' card.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   select the three starting warriors. The card shows six big square
+   buttons (two rows of three on a wide screen; on a narrower one the card
+   grows upward to three rows of two): Attack, Patrol, Move, Hunt, Eat, Upgrade
+   equipment (live now: fifteen small buttons with Stop, Hold, Enter, the
+   lock, Cannon, Weapon +, Armour + and the Max twins). The portrait sits
+   between the selection panel and the card. The selection panel no longer
+   reads "Locked to melee.".
+3. **The workers' card.** Select the four workers: Move, Gather, Unload,
+   Repair, Dig, Prospect, Build, Eat, Upgrade equipment, Rank, Cart. Eleven
+   buttons do not fit at the minimum size, so the card grows upward to hold
+   them, still squares. Press B: one build menu, the fourteen buildings on
+   the grid keys, with walls, gates, towers and earthworks under Defences and
+   the torch post and bonfire under Lights; B is Back.
+4. **Attack on a friend.** Select a warrior, press A and click one of your
+   own workers: the warrior walks over and hits it. Press A and click the
+   ground: it attack-moves and leaves your own units alone.
+5. **Upgrade equipment.** Type M N B V C X Z to show the tester tools, press
+   **Troop kit**, select a few starting warriors and press Q. Each one walks
+   to the nearest Barracks,
+   Forge or main base, sits down with its hands at its chest and a gold bar
+   over its head, and stands up with the best weapon the stock paid for,
+   then sits again for its armour. Hover the button first: it names the
+   first unit's pieces and their cost. With no stock, it is greyed with the
+   reason.
+6. **Spells.** Train a battle mage at a Magi Sanctum: Arcane Bolt on one of
+   your warriors hits it. A support mage's Heal on a zombie says "Heal cannot
+   be cast on an enemy."; on your own unit or an animal it heals.
+7. **Eating.** Hurt a warrior (or wait for a fight) and press F: it walks to
+   the main base, sits for 10 s with the bar and heals; hit by an enemy while
+   seated, it gets up at once and its health still comes back.
+8. **Going up.** Select warriors and right click a tower or a main base from
+   the Hall up: they go up top (live now: Enter did this; a right click only
+   walked them to a main base). Workers alone still walk to a main base.
+9. **Engines.** Select a cannon: Attack, Move, Hitch, Port.
+10. **Relighting.** When a goblin mage puts out a torch post, right click it
+    with a worker: the worker sits beside it for 2 s with the bar over its
+    head, and the torch is lit again.
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
