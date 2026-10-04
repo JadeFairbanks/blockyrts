@@ -1,14 +1,17 @@
 // The selection panel, the middle of the bottom strip (Controls: Selecting
 // units and buildings; Patch 2, round 2: pictures and bars with sparse short
 // text, every full sentence in the tooltip of its picture). The title row
-// carries the name, a rank badge or level, the health bar with its numbers
-// (a mage's mana, a rider's horse or a building's progress under it), the
-// queue as pictures and the close button. Under it: for nothing selected,
-// the three help lines; for one unit, its kit slots with tier numbers and
-// what applies now (loot, load, the next meal, spells on it) and a word for
-// what it is doing; for one building, its training cards (training-cards.ts)
-// or its workers, lights, farm bar, men up top and inside; for several,
-// tabs with a picture and a count, and portraits with their bars.
+// (Jade's Patch 3) runs the full width: the name as tall as two bars, a
+// divider, then "HP:" and the health bar with its numbers to the clear
+// button, and under it "XP:" and the experience bar for a unit with ranks (a
+// mage's mana, a rider's mount or a building's progress as a row more).
+// Under it: for nothing selected, the three help lines; for one unit, its
+// kit slots with tier numbers and what applies now (loot, load, the next
+// meal, spells on it) and a word for what it is doing; for one building,
+// its queue as large pictures, its training cards (training-cards.ts) or its
+// level, workers, lights, farm bar, men up top and inside; for several, tabs
+// with a picture and a count, and portraits with their bars. The title row
+// and all under it grow together to fill the section (middle-fit.ts).
 import {
   buildingSpec,
   engineSpec,
@@ -18,7 +21,7 @@ import {
   linePiece,
   Mount,
   productSpec,
-  RANK_NAMES,
+  QUEUE_LIMIT,
   RATING_NAMES,
   RESOURCES,
   ROBE_KITS,
@@ -49,16 +52,34 @@ import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } 
 import { goodIcon } from './inventory-icons.ts';
 import { kitUrl } from './kit-icons.ts';
 import { pieceStats } from './kit-text.ts';
+import { bestScale, MIDDLE_MARGIN } from './middle-fit.ts';
 import { queueText } from './queue-clock.ts';
 import { TrainingCards } from './training-cards.ts';
 import { cardsOf, keepPicks } from './troops.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
+import { hasRanks, xpView } from './xp-bar.ts';
 
 /** Most portraits shown at once; the rest are counted ("+8"). */
 const MAX_PORTRAITS = 40;
-/** Most Barracks tiles in the title row. */
+/** Most Barracks tiles in the row under the title. */
 const MAX_TILES = 10;
+/** The name takes at most this share of the title row beside its bars; a longer one goes on two lines at half the size. */
+const TITLE_SHARE = 0.5;
+
+/** A name on two lines, broken at the space that leaves the longer line shortest ("Support mage" over "(Novice Acolyte)"); one word stays whole. */
+export function twoLines(name: string): string {
+  let best = name;
+  let most = Infinity;
+  for (let k = name.indexOf(' '); k >= 0; k = name.indexOf(' ', k + 1)) {
+    const longer = Math.max(k, name.length - k - 1);
+    if (longer < most) {
+      most = longer;
+      best = `${name.slice(0, k)}\n${name.slice(k + 1)}`;
+    }
+  }
+  return best;
+}
 
 export interface PanelActions {
   player: number;
@@ -158,10 +179,6 @@ export function armyMix(items: readonly Selectable[]): string {
   return [...counts].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([name, n]) => `${n} ${plural(name, n)}`).join(', ');
 }
 
-/** The rank badge of a worker or troop: the kit's chevrons, star and hammers. */
-const WARRIOR_BADGES = ['', 'recruit', 'soldier', 'veteran', 'elite', 'hero'];
-const WORKER_BADGES = ['', 'labourer', 'hand', 'master', 'foreman', 'elder'];
-
 /** What the spells on a unit look like (the kit has quickened, fortified, rallied and hexed; the ward and heal spells stand for the rest). */
 const SPELL_PICS: ReadonlyArray<readonly [number, string, string]> = [
   [SpellOn.Quicken, 'icon_status_quickened', 'Quickened'],
@@ -203,6 +220,13 @@ export class SelectionPanel {
   readonly cards: TrainingCards;
   /** The building ids whose card picks still hold (Jade: only while selected). */
   private selected = '';
+  /** The block holding the title row and the body, and the room it is scaled to fill (layout.ts). */
+  private readonly content: HTMLElement;
+  private readonly room: HTMLElement;
+  /** The room's size the content was last fitted to. */
+  private fitted = '';
+  /** The name in the title row, before fitTitle breaks it in two. */
+  private titleText = '';
 
   constructor(
     private readonly title: HTMLElement,
@@ -212,6 +236,12 @@ export class SelectionPanel {
     private readonly buttons: ButtonRegistry,
     private readonly a: PanelActions,
   ) {
+    this.content = body.parentElement ?? body;
+    this.room = this.content.parentElement ?? this.content;
+    // The display font arrives after the first draw and changes every word's width: fit again then.
+    void document.fonts?.ready.then(() => {
+      this.fitted = '';
+    });
     this.cards = new TrainingCards(
       {
         button: (id, def) => this.button(id, def),
@@ -309,6 +339,8 @@ export class SelectionPanel {
     ].join('#');
     if (sig === this.sig) {
       this.update(list, b);
+      // The section changed size (the window, the HUD's scale, a phone's fold): fit the same content again.
+      if (this.roomKey() !== this.fitted) this.fit();
       this.cards.place(this.panelEl());
       return;
     }
@@ -331,7 +363,93 @@ export class SelectionPanel {
     if (!cardSet) this.cards.none();
     this.update(list, b);
     this.sweep();
+    this.fit();
     this.cards.place(this.panelEl());
+  }
+
+  /**
+   * The section at its standard height, or taller when the content at its own
+   * size (`need`, px) is taller than that leaves room for: it grows upward as
+   * the action menu's card does, up to the portrait's height (layout.ts reads
+   * the height wanted, so a new layout keeps it). Returns the room's height.
+   */
+  private grow(need: number): number {
+    const panel = this.panelEl();
+    const d = panel.dataset;
+    const std = Number(d.h ?? 0);
+    const most = Number(d.most ?? 0);
+    if (!(std > 0)) return this.room.clientHeight;
+    panel.style.height = `${std}px`;
+    const short = need + 2 * MIDDLE_MARGIN - this.room.clientHeight;
+    const want = short > 0 && most > std ? Math.min(most, std + Math.ceil(short)) : 0;
+    d.want = String(want);
+    if (want > 0) panel.style.height = `${want}px`;
+    return this.room.clientHeight;
+  }
+
+  private roomKey(): string {
+    return `${this.room.clientWidth}x${this.room.clientHeight}`;
+  }
+
+  /**
+   * Jade's Patch 3: the title row and everything under it grow together to
+   * fill the section, as the action menu's buttons fill the card: one scale,
+   * the largest at which the content (laid out that much narrower) is no
+   * taller than the room and no row runs wider than it did at its own size
+   * (middle-fit.ts). Nothing stretches. Too tall at its own size, the
+   * section grows upward first (grow), then the content shrinks a little;
+   * past that the body scrolls, as before Patch 3.
+   */
+  private fit(): void {
+    const c = this.content;
+    const st = c.style;
+    st.transform = '';
+    st.height = '';
+    const w = this.room.clientWidth - 2 * MIDDLE_MARGIN;
+    if (w <= 0) {
+      this.fitted = this.roomKey();
+      return;
+    }
+    // How far the rows that may not wrap run past their width (the cards scroll sideways, the bars keep their least).
+    const watched = [c, this.body, this.extra, this.title, ...c.querySelectorAll<HTMLElement>('.kit-cards, .sel-strip')];
+    const spill = (): number => watched.reduce((n, el) => n + Math.max(0, el.scrollWidth - el.clientWidth), 0);
+    const lay = (k: number): void => {
+      st.width = `${w / k}px`;
+    };
+    lay(1);
+    this.fitTitle();
+    const h = this.grow(c.offsetHeight) - 2 * MIDDLE_MARGIN;
+    this.fitted = this.roomKey();
+    if (h <= 0) return;
+    const base = spill();
+    const k = bestScale((k) => {
+      lay(k);
+      return c.offsetHeight * k <= h + 0.5 && spill() <= base + 1;
+    });
+    lay(k);
+    // The block is as tall as the room, so a body too long even at its own size scrolls inside it.
+    st.height = `${h / k}px`;
+    st.transform = k === 1 ? '' : `scale(${k})`;
+  }
+
+  /**
+   * The name is as tall as the two bars beside it (Jade's Patch 3). One too
+   * long for its share of the row goes on two lines at half the size; with no
+   * bars it may take the row up to the clear button.
+   */
+  private fitTitle(): void {
+    const t = this.title;
+    t.classList.remove('long', 'one');
+    if (t.textContent !== this.titleText) t.textContent = this.titleText;
+    const row = t.parentElement?.clientWidth ?? 0;
+    const corner = t.parentElement?.querySelector<HTMLElement>('.sel-corner')?.offsetWidth ?? 0;
+    const most = this.extra.childElementCount > 0 ? Math.floor(row * TITLE_SHARE) : row - corner - 4;
+    t.style.maxWidth = `${Math.max(0, most)}px`;
+    if (t.scrollWidth <= t.clientWidth + 1) return;
+    const lines = twoLines(this.titleText);
+    t.textContent = lines;
+    t.classList.add('long');
+    t.classList.toggle('one', !lines.includes('\n'));
   }
 
   private panelEl(): HTMLElement {
@@ -339,9 +457,8 @@ export class SelectionPanel {
   }
 
   private setTitle(text: string): void {
+    this.titleText = text;
     if (this.title.textContent !== text) this.title.textContent = text;
-    // A long name ("Battle mage (Grand Magician)") steps down a size rather than lose its end.
-    this.title.classList.toggle('long', text.length > 22);
   }
 
   /** The own buildings of one kind with training cards, when they are all that is selected; else null. */
@@ -359,8 +476,8 @@ export class SelectionPanel {
 
   // ---- The title row ----
 
-  /** A bar with its numbers on it (health), or a thin one under it (mana, a horse, a building's progress). */
-  private bar(kind: 'hp' | 'mana' | 'horse' | 'build' | 'meal' | 'up', parent: HTMLElement, read: LiveBar['read'], name: string, withNum = true, id = `bar-${kind}`): HTMLElement {
+  /** A bar, with its numbers on it (health, a farm's harvest) or with them only in its tooltip. */
+  private bar(kind: 'hp' | 'xp' | 'mana' | 'horse' | 'build' | 'meal' | 'up', parent: HTMLElement, read: LiveBar['read'], name: string, withNum = true, id = `bar-${kind}`): HTMLElement {
     const btn = this.button(id, { face: '', name, keys: [], description: '', className: `sel-bar ${kind}` });
     const fill = document.createElement('span');
     fill.className = 'fill';
@@ -376,18 +493,45 @@ export class SelectionPanel {
     return btn.el;
   }
 
-  /** The bars after the name: health, and under it mana, the horse, or a building's construction or upgrade. */
+  /**
+   * The title row after the name (Jade's Patch 3): a divider, then a row per
+   * bar, each its word and a bar running to the clear button, all as tall as
+   * the health bar. "HP:" the health with its numbers on it; "XP:" a unit's
+   * experience toward its next rank (workers, troops, mages), solid light
+   * blue, the numbers in its tooltip; "MP:" a mage's mana; the mount's health
+   * for a rider; a building's construction or upgrade.
+   */
   private titleBars(t: Selectable, b: BuildingInfo | undefined, u: UnitInfo | null): void {
+    const divider = document.createElement('span');
+    divider.className = 'sel-divider';
     const box = document.createElement('div');
     box.className = 'sel-bars';
-    this.extra.append(box);
+    this.extra.append(divider, box);
+    const label = (text: string): void => {
+      const l = document.createElement('span');
+      l.className = 'bar-label';
+      l.textContent = text;
+      box.append(l);
+    };
+    label('HP:');
     this.bar('hp', box, () => {
       const h = this.a.health(t);
       if (!h || h[1] <= 0) return null;
       const pct = Math.max(0, Math.min(100, Math.round((h[0] * 100) / h[1])));
       return { pct, text: `${h[0]}/${h[1]}`, tip: `Health ${h[0]} of ${h[1]}.`, low: pct < 35 };
     }, 'Health');
+    // Another player's units show their experience too; the peoples' and the monsters' have no ranks.
+    if (u && hasRanks(u.kind) && u.owner < 8) {
+      const unit = u.id;
+      label('XP:');
+      this.bar('xp', box, () => {
+        const v = this.a.game.unit(unit);
+        const x = v ? xpView(v.kind, v.rank, v.xp, v.xpNext) : null;
+        return x ? { pct: x.pct, text: '', tip: x.tip } : null;
+      }, 'Experience', false);
+    }
     if (u && u.kind === UnitKind.Mage) {
+      label('MP:');
       this.bar('mana', box, () => {
         const m = this.a.mana(t);
         if (!m) return null;
@@ -396,6 +540,7 @@ export class SelectionPanel {
     }
     if (u && u.mount !== Mount.None) {
       const unit = u.id;
+      label(u.mount === Mount.Horse ? 'Horse:' : 'Mount:');
       this.bar('horse', box, () => {
         const v = this.a.game.unit(unit);
         if (!v || v.mountMax <= 0) return null;
@@ -404,6 +549,7 @@ export class SelectionPanel {
     }
     if (b && (!b.complete || b.upgrading)) {
       const id = b.id;
+      label(b.complete ? 'Upgrade:' : 'Build:');
       this.bar('build', box, () => {
         const v = this.a.game.buildings.get(id);
         if (!v) return null;
@@ -414,26 +560,22 @@ export class SelectionPanel {
     }
   }
 
-  /** Another player's name in their colour, after the bars (others' units and buildings only). */
+  /** Another player's name in their colour, first under the title row (others' units and buildings only). */
   private ownerTag(owner: number): void {
     if (owner === this.a.player || owner === NOBODY || owner >= 8) return;
     const tag = this.a.ownerTag?.(owner) ?? { name: `Player ${owner + 1}`, colour: '' };
-    const b = this.chip('owner', { face: tag.name, name: tag.name, description: 'Not yours: you can look but not give orders.', className: 'owner-tag' }, this.extra);
+    const b = this.chip('owner', { face: tag.name, name: tag.name, description: 'Not yours: you can look but not give orders.', className: 'owner-tag' }, this.strip('owner'));
     if (tag.colour) b.el.style.setProperty('--owner', tag.colour);
   }
 
-  /** A gap that pushes what follows to the right end of the title row. */
-  private push(): void {
-    const s = document.createElement('span');
-    s.className = 'sel-push';
-    this.extra.append(s);
-  }
-
-  /** The queue as pictures in the title row: the first with its bar; a click cancels one, refunded in full. */
+  /**
+   * The queue under the title row (Jade's Patch 3), its pictures larger than
+   * in the title row before, read like a book from the left: the first with
+   * its bar, then the rest, then an empty place for each more it can take. A
+   * click cancels one, refunded in full.
+   */
   private queue(b: BuildingInfo): void {
-    if (b.queue.length === 0) return;
-    const q = document.createElement('div');
-    q.className = 'sel-queue';
+    const q = this.strip('queue');
     b.queue.forEach((item, k) => {
       const ps = productSpec(item.product);
       const t = troopOf(item.product);
@@ -458,7 +600,16 @@ export class SelectionPanel {
       }
       q.append(btn.el);
     });
-    this.extra.append(q);
+    for (let k = b.queue.length; k < QUEUE_LIMIT; k++) {
+      const empty = document.createElement('span');
+      empty.className = 'queue-empty';
+      q.append(empty);
+    }
+  }
+
+  /** Whether a building of the player's makes anything in a queue (units, goods, research): its queue row shows, empty or not. */
+  private queues(b: BuildingInfo): boolean {
+    return b.queue.length > 0 || (b.complete && (buildingSpec(b.kind).trainsWorkers || b.products.length > 0 || cardsOf(b).length > 0));
   }
 
   // ---- One building ----
@@ -468,14 +619,10 @@ export class SelectionPanel {
   }
 
   private oneBuilding(t: Selectable, b: BuildingInfo): void {
-    const spec = buildingSpec(b.kind);
     const own = b.owner === this.a.player || b.shared;
-    // The level as a number beside the name, where the building has levels.
-    if (spec.levels.length > 1 && b.complete) this.chip('level', { face: String(b.level), name: `Level ${b.level} of ${spec.levels.length}`, description: b.name, className: 'level' }, this.extra);
     this.titleBars(t, b, null);
     this.ownerTag(b.owner);
-    this.push();
-    if (own) this.queue(b);
+    if (own && this.queues(b)) this.queue(b);
     // A training building's facts (its workers, the rally route) stand in a column beside its cards.
     const cards = own && b.complete && cardsOf(b).length > 0 ? this.cards.render(this.body, [b]) : null;
     this.buildingFacts(b, own, cards ?? this.body);
@@ -488,6 +635,8 @@ export class SelectionPanel {
   private buildingFacts(b: BuildingInfo, own: boolean, parent: HTMLElement): void {
     const spec = buildingSpec(b.kind);
     const row = this.strip('facts', parent);
+    // The level, where the building has levels (the Big House): first of its facts, the title row being the name and bars only (Patch 3).
+    if (spec.levels.length > 1 && b.complete) this.chip('level', { face: `Level ${b.level}`, name: `Level ${b.level} of ${spec.levels.length}`, description: b.name, className: 'word' }, row);
     const room = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
     if (own && room > 0) {
       const at = b.status && !b.status.startsWith('Under construction') && !b.status.startsWith('Upgrading') ? `${b.status}.` : '';
@@ -586,11 +735,9 @@ export class SelectionPanel {
 
   // ---- Several Barracks ----
 
-  /** Only Barracks (or only Sanctums) selected: their cards, and a tile per building in the title row. */
+  /** Only Barracks (or only Sanctums) selected: a tile per building under the title row, as one's queue is, then their cards. */
   private severalCards(list: readonly Selectable[], all: BuildingInfo[]): void {
-    this.push();
-    const tiles = document.createElement('div');
-    tiles.className = 'sel-tiles';
+    const tiles = this.strip('tiles');
     list.slice(0, MAX_TILES).forEach((t, k) => {
       const b = all[k]!;
       const btn = this.button(`tile-${b.id}`, {
@@ -616,8 +763,7 @@ export class SelectionPanel {
       this.bars.set(t.key, bar);
       tiles.append(btn.el);
     });
-    this.extra.append(tiles);
-    if (list.length > MAX_TILES) this.row('more', `+${list.length - MAX_TILES}`, this.extra);
+    if (list.length > MAX_TILES) this.row('more', `+${list.length - MAX_TILES}`, tiles);
     this.cards.render(this.body, all);
   }
 
@@ -635,7 +781,6 @@ export class SelectionPanel {
     const id = entityIdOf(t.key);
     const u = id === null ? null : this.a.game.unit(id);
     if (t.kind === 'unit') this.titleBars(t, undefined, u);
-    if (u && (u.kind === UnitKind.Warrior || u.kind === UnitKind.Worker)) this.badge(u);
     this.ownerTag(t.owner);
     if (u && (u.kind === UnitKind.Warrior || u.kind === UnitKind.Worker || u.kind === UnitKind.Mage) && !u.group) {
       this.unitBody(t, u);
@@ -645,16 +790,6 @@ export class SelectionPanel {
     else if (u && u.kind === UnitKind.Animal) this.animal(t, u);
     else if (t.typeKey === 'loot') this.lootPile(t);
     else this.notes(t, t.details ?? []);
-  }
-
-  /** The rank badge after the name. */
-  private badge(u: UnitInfo): void {
-    const worker = u.kind === UnitKind.Worker;
-    const name = (worker ? RANK_NAMES.worker : RANK_NAMES.warrior)[u.rank] ?? `Rank ${u.rank}`;
-    const file = `icon_rank_${worker ? 'worker' : 'warrior'}_${(worker ? WORKER_BADGES : WARRIOR_BADGES)[u.rank] ?? ''}`;
-    this.chip('rank', { icon: pic(file), face: '', name, description: `Rank ${u.rank} of 5.`, className: 'badge' }, this.extra);
-    // The badge sits right after the name, before the bars.
-    this.extra.prepend(this.extra.lastElementChild!);
   }
 
   /** A worker's, troop's or mage's kit slots, then what applies now, then a word for what it is doing. */
@@ -772,7 +907,7 @@ export class SelectionPanel {
     }
     const hauled = u.crew >= 1000;
     const moves = hauled ? 'icon_train_horse' : crew >= spec.crew && spec.pushed > 0 ? 'icon_cmd_move' : '';
-    if (moves) this.chip('moves', { icon: pic(moves), name: hauled ? 'Hauled' : 'Pushed', description: hauled ? 'Hauled by its animal.' : 'Pushed by its crew.', className: 'spell' }, row);
+    if (moves) this.chip('moves', { icon: pic(moves), name: hauled ? 'Hauled' : 'Pushed', description: hauled ? 'Hauled by its animal, which stands in for its crew: it fires with none.' : 'Pushed by its crew.', className: 'spell' }, row);
     if (u.owner === this.a.player) {
       const q = this.a.game.queues.get(u.id) ?? [];
       this.row('doing', unitOrderText(q[0]));

@@ -37,11 +37,12 @@ import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { askHooks, speakerName } from '../peoples/speech.ts';
 import { mountedSpeed } from '../mounts/riding.ts';
-import { runCrew, runMend } from '../siege/engines.ts';
+import { runCrew, runMend, runRetrain } from '../siege/engines.ts';
 import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from './loot.ts';
 import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
 import { nextNode, runForage } from './forage.ts';
 import { tinker } from './tinker.ts';
+import { Work, workXp } from './ranks.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -76,13 +77,6 @@ export function builderLimit(kind: number): number {
 /** Fishing's pace per mille against a node's own load time: 1 fish per 10 s with any tool kit (Table 2c). */
 const FISH_PACE = 1500;
 export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1150, 1250, 1500, 1750, 2250, 2500, 3000, 3500];
-/** Worker health by rank (Table 1). */
-export const WORKER_HEALTH_BY_RANK: readonly number[] = [60, 60, 70, 80, 90, 100];
-/** Rank training at a main base (Table 7): to Hand, to Master. */
-export const RANK_TRAINING: ReadonlyArray<{ rank: number; food: number; steps: number; base: number; name: string }> = [
-  { rank: 2, food: 20, steps: 60 * STEPS_PER_SECOND, base: 2, name: 'Hand' },
-  { rank: 3, food: 40, steps: 120 * STEPS_PER_SECOND, base: 5, name: 'Master worker' },
-];
 
 export const MOVING = 0;
 export const ARRIVED = 1;
@@ -722,6 +716,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       // Every tool kit fishes 1 fish per 10 s (Table 2c); other nodes go at the tool's pace.
       const pace = isFish(view.kind) ? FISH_PACE : gatherPace(state, i, view.kind);
       e.timer[i] = e.timer[i]! + pace;
+      // A worker learns as it gathers (Patch 3: experience for the work, at the work's pace).
+      workXp(state, i, Work.Gather, pace);
       if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
       e.timer[i] = 0;
       const room = carryCapacity(state, i, res) - (e.carryRes[i] === res ? e.carryAmt[i]! : 0);
@@ -930,7 +926,10 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
   e.heading[i] = headingTowards(bx - e.x[i]!, bz - e.z[i]!);
   e.order[i] = OrderKind.Chop;
   // Work goes at the pace of the worker's mallet or hammer (Table 2c: a stone hammer x1.15), a step of work per 1000.
-  e.timer[i] = e.timer[i]! + (TOOL_SPEED_PER_MILLE[toolTier(e, i, ToolJob.Build)] ?? 1000);
+  const pace = TOOL_SPEED_PER_MILLE[toolTier(e, i, ToolJob.Build)] ?? 1000;
+  e.timer[i] = e.timer[i]! + pace;
+  // A worker learns as it builds, upgrades or repairs (Patch 3).
+  workXp(state, i, Work.Build, pace);
   while (e.timer[i]! >= 1000 && needsWork(b)) {
     e.timer[i] = e.timer[i]! - 1000;
     workOn(state, b);
@@ -1079,6 +1078,8 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   if (indoors) {
     if (e.inside[i] === b.id) {
       e.act[i] = Act.Work;
+      // A dock hand learns as it fishes, by day as a gatherer works (Patch 3); a farmer sheltering for the night does not.
+      if (!isDark(state.step, state.blood)) workXp(state, i, Work.Gather);
       return CONTINUE;
     }
     const r = walkTo(state, i, besideBuilding(b));
@@ -1105,6 +1106,8 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
     e.act[i] = Act.Work;
   }
   e.order[i] = OrderKind.Farm;
+  // A farmer in the field learns as it works (Patch 3).
+  workXp(state, i, Work.Gather);
   return CONTINUE;
 }
 
@@ -1151,7 +1154,10 @@ function runMiner(state: SimState, i: number, b: Building): boolean {
     return CONTINUE;
   }
   e.timer[i] = e.timer[i]! + 1;
-  if (isDark(state.step, state.blood) || b.stock.length === 0 || firstMiner(state, b) !== i) return CONTINUE;
+  const dark = isDark(state.step, state.blood);
+  // A miner down the shaft learns as it digs, by day as a gatherer works (Patch 3).
+  if (!dark) workXp(state, i, Work.Gather);
+  if (dark || b.stock.length === 0 || firstMiner(state, b) !== i) return CONTINUE;
   const room = bagFreeTenthsLb(state, i);
   if (stockTenthsLb(b) < room && !workedOut(state, b)) return CONTINUE;
   for (const [res, n] of fillBag(b, room)) addToBag(state, i, res, n);
@@ -1198,15 +1204,15 @@ export const WARRIOR_RANK_TRAINING: ReadonlyArray<{ rank: number; food: number; 
   { rank: 3, food: 60, steps: 120 * STEPS_PER_SECOND, base: 0, name: 'Veteran' },
 ];
 
-/** The rank training a unit can take next, or undefined at rank 3 and above: workers at a main base, warriors at the Barracks. */
-export function nextRankTraining(rank: number, warrior = false): (typeof RANK_TRAINING)[number] | undefined {
-  return (warrior ? WARRIOR_RANK_TRAINING : RANK_TRAINING).find((t) => t.rank === rank + 1);
+/** The rank training a warrior can take next at the Barracks, or undefined at rank 3 and above (Patch 3: workers rank up by working, never by training). */
+export function nextRankTraining(rank: number): (typeof WARRIOR_RANK_TRAINING)[number] | undefined {
+  return WARRIOR_RANK_TRAINING.find((t) => t.rank === rank + 1);
 }
 
-/** Where a unit trains its rank: workers at a main base, warriors at the Barracks, mages at the Magi Sanctum. */
+/** Where a unit trains its rank: warriors at the Barracks, mages at the Magi Sanctum; -1 for a worker, which ranks up by working (Patch 3). */
 export function rankTrainedAt(kind: number): number {
   if (kind === UnitKind.Mage) return BuildingKind.MagiSanctum;
-  return kind === UnitKind.Warrior ? BuildingKind.Barracks : BuildingKind.MainBase;
+  return kind === UnitKind.Warrior ? BuildingKind.Barracks : -1;
 }
 
 /**
@@ -1259,8 +1265,9 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
     return runMageTrain(state, i, b);
   }
   const b = state.buildings.get(o.b);
-  const warrior = e.kind[i] === UnitKind.Warrior;
-  const t = nextRankTraining(e.rank[i]!, warrior);
+  // Only warriors train here: a worker ranks up by working (Patch 3).
+  if (e.kind[i] !== UnitKind.Warrior) return DONE;
+  const t = nextRankTraining(e.rank[i]!);
   if (!b || !t || b.kind !== rankTrainedAt(e.kind[i]!) || !b.complete || b.owner !== e.owner[i]) return DONE;
   if (e.inside[i] !== b.id) {
     if (mainBaseLevel(state, b.owner) < t.base) {
@@ -1271,7 +1278,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
     if (!payFood(state.players[b.owner]!, t.food)) {
-      alert(state, b.owner, `Not enough food to train ${warrior ? aTroop(e.troop[i]!, e.wTier[i]!) : 'a worker'} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
+      alert(state, b.owner, `Not enough food to train ${aTroop(e.troop[i]!, e.wTier[i]!)} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     if (e.carryAmt[i]! > 0 || !bagEmpty(state, i)) unload(state, i, b);
@@ -1282,13 +1289,13 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   e.timer[i] = e.timer[i]! + 1;
   if (e.timer[i]! < t.steps) return CONTINUE;
   e.rank[i] = t.rank;
-  const hp = warrior ? WARRIOR_HEALTH_BY_RANK[t.rank]! : WORKER_HEALTH_BY_RANK[t.rank]!;
+  const hp = WARRIOR_HEALTH_BY_RANK[t.rank]!;
   e.hp[i] = e.hp[i]! + hp - e.maxHp[i]!;
   e.maxHp[i] = hp;
   // A trained warrior counts as having the experience of its rank, so combat carries on from there (s).
-  if (warrior) e.xp[i] = Math.max(e.xp[i]!, WARRIOR_XP_TENTHS[t.rank]!);
+  e.xp[i] = Math.max(e.xp[i]!, WARRIOR_XP_TENTHS[t.rank]!);
   leaveBuilding(state, i);
-  state.events.push({ player: b.owner, kind: 'info', text: `${warrior ? aTroop(e.troop[i]!, e.wTier[i]!, true) : 'A worker'} has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
+  state.events.push({ player: b.owner, kind: 'info', text: `${aTroop(e.troop[i]!, e.wTier[i]!, true)} has trained to ${t.name}.`, x: e.x[i]!, z: e.z[i]! });
   return DONE;
 }
 
@@ -1353,6 +1360,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runCrew(state, i, o);
     case 'mend':
       return runMend(state, i, o);
+    case 'retrain':
+      return runRetrain(state, i, o);
     case 'port':
       // Only an engine takes a cannon port (siege/engines.ts runEngine).
       return DONE;

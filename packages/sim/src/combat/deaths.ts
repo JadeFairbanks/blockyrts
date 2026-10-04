@@ -62,12 +62,11 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   else if (e.owner[i] === MONSTERS && (e.role[i] === Role.Village || (e.role[i] === Role.Structure && e.group[i] !== 0))) onVillageLoss(state, i, taker, hitByWorker(state, i));
   const x = e.x[i]!;
   const z = e.z[i]!;
+  // Splits into what its row says (a slime into two small slimes), half a metre apart in a row across where it fell.
+  for (const [m, n] of spec.splitsInto) {
+    for (let k = 0; k < n; k++) inheritRole(state, i, addMob(state, m, e.foe[i]!, x + (2 * k - (n - 1)) * (WU_PER_METRE >> 1), z, Math.max(0, night)));
+  }
   switch (spec.id) {
-    case Mob.Slime: {
-      // Splits into two small slimes.
-      for (const dx of [-WU_PER_METRE >> 1, WU_PER_METRE >> 1]) inheritRole(state, i, addMob(state, Mob.SmallSlime, e.foe[i]!, x + dx, z, Math.max(0, night)));
-      break;
-    }
     case Mob.BloatedCorpse:
       // Bursts, even when the sun killed it.
       blast(state, x, e.y[i]! + WU_PER_METRE, z, BURST_BLAST, null, e.id[i]!);

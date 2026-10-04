@@ -34,7 +34,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
-  { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them.' },
+  { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go.' },
   { id: 'pacing', label: 'Pacing', blurb: 'The day and night clock and the other timings everything else counts in.' },
   { id: 'other', label: 'Other numbers', blurb: 'Numbers in the sim that no other group claims yet. New tables show up here until they are given a home.' },
   { id: 'tables', label: 'Blueprint tables (read only)', blurb: 'The blueprint\'s numbered tables as the sim reads them, for reference. Change these through the blueprint, not here.' },
@@ -84,6 +84,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
   'units/kits.ts:ROBE_GEAR',
+  // Worker ranks (Patch 3): the rank names are words, and Work names what a worker is doing (building or gathering).
+  'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -98,14 +100,17 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'combat/items.ts': 'ranged',
   'combat/projectiles.ts': 'ranged',
   'combat/mobs.ts': 'mobs',
+  'combat/threat.ts': 'mobs',
   'combat/spawn.ts': 'mobs',
   'combat/mob-ai.ts': 'mobs',
   'combat/combat.ts': 'units',
   'combat/fight.ts': 'units',
   'combat/deaths.ts': 'units',
   'units/behaviour.ts': 'units',
+  'units/ranks.ts': 'units',
   'units/gear.ts': 'training',
   'units/questions.ts': 'questions',
+  'units/greyed.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
   'units/field.ts': 'animals',
@@ -179,6 +184,8 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'combat/items.ts:RESEARCH': 'research',
   // Patch 2: the artillery crewman's food and time go with the other troops' training.
   'siege/data.ts:CREWMAN': 'training',
+  // Patch 3: retraining a crewman as a worker goes beside his own training.
+  'siege/data.ts:CREWMAN_RETRAIN_STEPS': 'training',
   'combat/spawn.ts:CLAIM_STANDOFF_M': 'mobs',
   'rules.ts:DAY_STEPS': 'pacing',
   'rules.ts:DUSK_STEPS': 'pacing',
@@ -259,7 +266,7 @@ export const PLACEHOLDER_ROWS: ReadonlySet<string> = new Set([
 export type RefKind =
   | 'res' | 'mob' | 'research' | 'building' | 'gear' | 'shot' | 'tool' | 'toolJob' | 'tierNeed' | 'nature' | 'moves' | 'sun' | 'comes' | 'role'
   | 'lairSite' | 'band' | 'hit' | 'made' | 'species' | 'material' | 'digClass' | 'rations' | 'resGroup' | 'unitKind'
-  | 'people' | 'faction' | 'cat' | 'peopleUnit' | 'trinketMetal' | 'good';
+  | 'people' | 'faction' | 'cat' | 'peopleUnit' | 'trinketMetal' | 'good' | 'trait';
 
 /** Keys that hold a reference, wherever they appear; `EXPORT:key` overrides by export. */
 export const REF_KEYS: Readonly<Record<string, RefKind>> = {
@@ -274,6 +281,8 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
   // Troops and gear: a kit row's material tier, and a tool kit's tool tier for each job.
   need: 'tierNeed', 'TOOL_KITS:tools': 'tool',
+  // Patch 3: a mob's listed traits (combat/threat.ts Trait).
+  'MOBS:traits': 'trait',
 };
 
 /** Keys that are identity, layout or prose: shown, not edited. */
@@ -288,6 +297,9 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'SHIELD_KITS:tier', 'WAND_KITS:tier', 'ROBE_KITS:tier',
   // A growth stage's place in the order (world/props.ts Stage): the stages are named by it.
   'TREE_GROWTH:stage', 'HAZEL_GROWTH:stage', 'PLANT_GROWTH:stage',
+  // Patch 3: a night monster's threat is worked out from its numbers and traits (combat/threat.ts), never set by hand;
+  // the reach that strikes over walls mirrors the combat rule (combat.ts OVER_WALL_REACH), set there.
+  'MOBS:threatTenths', 'THREAT:overWallReachCm',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
@@ -353,6 +365,22 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Gather (units/forage.ts).
   'FORAGE_GOODS:base': 'Main base level needed', 'FORAGE_GOODS:forge': 'Forge step needed (1 any Forge; 2 to 4 its main base level)', 'FORAGE_GOODS:plenty': 'Wanted until the stock holds',
   LOOT_BOSS_HP: 'Rare and powerful from this much health',
+  // Patch 3: threat worked out from a monster's numbers (combat/threat.ts), the lairs' budgets and the wanderers' density.
+  'MOBS:threatTenths': 'Threat (worked out)', traits: 'Traits', splitsInto: 'Splits into when it dies',
+  'THREAT:unitHealth': 'One threat point: effective health', 'THREAT:unitDpsTenths': 'One threat point: damage a second',
+  'THREAT:healthParts': 'Health counts (parts)', 'THREAT:damageParts': 'Damage counts (parts)',
+  'THREAT:pierceSharePct': 'Players\' blows that pierce', 'THREAT:bluntSharePct': 'Players\' blows that are blunt', 'THREAT:shotSharePct': 'Players\' blows that fly (a shield blocks)',
+  'THREAT:arcTargetsTenths': 'A sweeping arc lands on (units)', 'THREAT:slamTargetsTenths': 'A slam lands on (units)', 'THREAT:lineTargetsTenths': 'A line of breath lands on (units)',
+  'THREAT:blastTargetsTenths': 'A bomber\'s blast lands on (units)', 'THREAT:splashTargetsTenths': 'A shot\'s splash lands on (more units)',
+  'THREAT:wallsPct': 'Damage to walls counts as damage to units', 'THREAT:onceSeconds': 'A blast it dies in counts over',
+  'THREAT:speedPctPerMs': 'Speed: per metre a second over the reference', 'THREAT:speedRefTenths': 'Speed: the reference', 'THREAT:speedMinPct': 'Speed: at least', 'THREAT:speedMaxPct': 'Speed: at most',
+  'THREAT:rangedMaxPct': 'A ranged attack adds up to', 'THREAT:rangedFullM': 'A ranged attack adds the most from', 'THREAT:overWallReachCm': 'Reach that strikes over walls',
+  TRAIT_PCT: 'What each trait adds', LAIR_BUDGET_PCT: 'Each lair sends a night (of its own threat)', WILD_DENSITY_PCT: 'How many wanderers (of Patch 1\'s)',
+  // Worker ranks (Patch 3) and retraining a crewman.
+  WORKER_XP_TENTHS: 'Experience needed for each rank', WORKER_HEALTH_BY_RANK: 'Health by rank',
+  BUILD_XP_TENTHS_PER_MINUTE: 'Experience for a minute of building (starting tools)',
+  GATHER_XP_TENTHS_PER_MINUTE: 'Experience for a minute of gathering (starting tools)',
+  CREWMAN_RETRAIN_STEPS: 'Retraining a crewman as a worker takes',
   // Plants' growth stages (world/props.ts).
   fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
   buildOver: 'Buildings can go over it', clearSteps: 'Time a builder takes to pull it up (0: trampled)',
@@ -365,7 +393,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'world:units/behaviour.ts': 'Gathering', 'food:rules.ts': 'Upkeep', 'resources:rules.ts': 'Trinket worth', 'lairs:rules.ts': 'Lair clearing and hexes',
   'armour:rules.ts': 'Armour cap', 'pacing:rules.ts': 'Day and night', 'mobs:threats/data.ts': 'Blood and fog nights, depth', 'food:buildings/recipes.ts': 'Cooking',
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
-  'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'buildings/production.ts': 'Training',
+  'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'units/ranks.ts': 'Worker ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
   'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'threats/lair-alert.ts': 'Lair alerts', 'world/props.ts': 'Props',
@@ -380,6 +408,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
+  'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
 /** Keys shown first in a record, in this order; the rest follow in source order. */
@@ -411,6 +440,10 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   WILD_FROM_NIGHT: 'night', WILD_HORDE_FROM_NIGHT: 'night', WILD_HORDE_PCT_PER_NIGHT: 'percent', WILD_HORDE_MIN: 'count', WILD_HORDE_MAX: 'count',
   WILD_CAP_PER_PLAYER: 'count',
   'FORAGE_GOODS:base': 'level', 'FORAGE_GOODS:forge': 'level', 'FORAGE_GOODS:plenty': 'count', LOOT_BOSS_HP: 'health',
+  // Patch 3: the threat algorithm's weights (combat/threat.ts).
+  'THREAT:unitHealth': 'health', 'THREAT:unitDpsTenths': 'tenths', 'THREAT:healthParts': 'number', 'THREAT:damageParts': 'number',
+  'THREAT:onceSeconds': 'wholeSeconds', 'THREAT:speedRefTenths': 'speedTenths', 'THREAT:rangedFullM': 'metres', 'THREAT:overWallReachCm': 'metresCm',
+  BUILD_XP_TENTHS_PER_MINUTE: 'xpTenths', GATHER_XP_TENTHS_PER_MINUTE: 'xpTenths',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */
@@ -426,7 +459,7 @@ export const INDEX_REFS: Readonly<Record<string, ReadonlyArray<RefKind | null>>>
   BAND_SIZE_PCT: ['band'], BAND_STOCK_PCT: ['band'], ONE_IN: [null, 'band'], PAY_PCT: ['people', 'cat'], LEANS: ['people'],
   STOCK: ['faction'], LAYOUTS: ['faction'], PLUNDER_GOODS: ['people'], RES_VALUE_TENTHS: ['res'],
   LIVE_VALUE_TENTHS: ['species'], SALVAGE: ['mob'], MERC_UNITS: ['band'], TRINKET_METAL_TENTHS: ['trinketMetal'],
-  BUILDING_SIGHT_M: ['building'],
+  BUILDING_SIGHT_M: ['building'], TRAIT_PCT: ['trait'],
 };
 
 /** Pair lists inside a table, by export (`EXPORT:*`) or key: what the first number of each pair names. */

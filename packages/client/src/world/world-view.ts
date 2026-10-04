@@ -1,8 +1,9 @@
 // The generated world on screen: chunks meshed by the mesh workers at full
 // detail near the camera and less detail farther out, water, props and
-// scenery as instanced cubes, fog of war (black unexplored, grey explored and
-// unseen), the units, and the hooks the controls shell needs: ground
-// picking, selectable things, the minimap and the camera limits.
+// scenery as instanced cubes, fog of war (black unexplored; explored and
+// unseen darkened, Jade's Patch 3), the units with outlines round the
+// player's own that are hidden, and the hooks the controls shell needs:
+// ground picking, selectable things, the minimap and the camera limits.
 import * as THREE from 'three';
 import { PLAYER_COLOURS as LOBBY_COLOURS } from '@blockyrts/protocol';
 import {
@@ -62,6 +63,7 @@ import { PortraitView } from './portrait-view.ts';
 import { LootView } from './loot-view.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
+import { HiddenOutlines, type OutlineStats } from './hidden-outlines.ts';
 
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
 const FULL_DETAIL_RING = 2;
@@ -214,6 +216,8 @@ export class WorldView {
   private readonly units: Selectable[] = [];
   private models: ModelLibrary | null = null;
   private readonly unitsView: UnitsView;
+  /** Outlines round the player's own units hidden from the camera (Jade's Patch 3), drawn by match.ts after the world. */
+  private readonly outlines: HiddenOutlines;
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
@@ -277,7 +281,8 @@ export class WorldView {
       this.inflight.push(0);
     }
 
-    this.unitsView = new UnitsView(scene);
+    this.unitsView = new UnitsView(scene, this.fow);
+    this.outlines = new HiddenOutlines(scene, this.unitsView, this.colours[this.player] ?? NEUTRAL_COLOUR);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
@@ -404,7 +409,7 @@ export class WorldView {
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
         const crew = d[o + S.crew]! % 1000;
         const hauled = d[o + S.crew]! >= 1000;
-        const details = [health, `Crew ${crew} of ${spec.crew} artillery crewmen.`, hauled ? 'Hauled by its animal.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
+        const details = [health, `Crew ${crew} of ${spec.crew} artillery crewmen.`, hauled ? 'Hauled by its animal, which stands in for its crew: it fires with none.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
         if (d[o + S.inside] !== 0) details.push('In a cannon port.');
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
@@ -847,6 +852,7 @@ export class WorldView {
       neutral: NEUTRAL_COLOUR,
       seen: (x, z) => this.seenNow(x, z),
       known: (x, z) => this.exploredNow(x, z),
+      outlined: this.outlines.outlined,
       ruins: this.game?.info?.ruins ?? [],
       groundAt: (x, z) => this.groundAt(x, z),
       place: (i, x, y, z) => {
@@ -854,6 +860,16 @@ export class WorldView {
         if (u) u.centre.set(x, y + u.halfSize.y, z);
       },
     });
+  }
+
+  /** After the scene is drawn to the screen: the outlines round the player's own units hidden behind things. */
+  renderOutlines(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, now: number): void {
+    this.outlines.render(renderer, camera, now);
+  }
+
+  /** What the outlines have cost so far, for the debug tools and the browser checks. */
+  get outlineStats(): OutlineStats {
+    return this.outlines.stats;
   }
 
   /** Whether a point (metres) is explored by the players (near the view; the debug show-all shows everything). */

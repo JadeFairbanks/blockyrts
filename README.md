@@ -105,7 +105,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash b96aebc6`. Run it again: the same hash. (The
+   prints `final step 10000 hash 76c7c6a6`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -135,8 +135,10 @@ reveal; two machines with the same seed show the same land and the same hash.*
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
    with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
    to walk your units out: the land they see turns from black to colour,
-   and stays grey once they have left. The land round your buildings stays
-   in colour (see "How a tester checks shared vision" below).
+   and stays darker, still in colour, once they have left (grey before
+   Patch 3; see "How a tester checks the fog look and hidden-unit
+   outlines"). The land round your buildings stays fully lit (see "How a
+   tester checks shared vision" below).
 3. The debug panel (top left) has the tools for looking around. In Patch 2
    it is hidden until you type M N B V C X Z in order in the game (see "How
    a tester checks Patch 2's lights, tips, tester tools and minimap"); every
@@ -151,9 +153,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `cf52a6d8` at step 40, with two players `504e575d`. The land matches too.
+   `cd50d99f` at step 40, with two players `b2ec231a`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 42e2ef70`: two players dig trenches from a
+   prints `final step 10000 hash 70071050`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -224,7 +226,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 9cc5fe20`: workers chop and quarry, the Big
+   prints `final step 10000 hash 55ba7d2b`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -294,7 +296,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 67be25f9`: two workers raise a gate and a
+   prints `final step 10000 hash 3d1af7ef`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -375,7 +377,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 92e79419`: two workers pick flint while two
+   prints `final step 10000 hash 387f9dc3`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -397,8 +399,8 @@ dawn.*
 1. `pnpm test` runs those checks as scenario tests in
    `packages/sim/test/m5.test.ts`: the first lair placed at dusk on night 3,
    40 m or more beyond claimed land, with its guardian, and Table 8's cadence
-   and cap after it; a fifth of the night coming out of a lair's mouth 20 s
-   after nightfall; a barrow attacked by day waking its sleepers, and when
+   and cap after it; a lair's own share of the night (half its sleepers'
+   threat since Patch 3) coming out of its mouth 20 s after nightfall; a barrow attacked by day waking its sleepers, and when
    broken leaving a ruin, a hoard as loot and 20 XP for the warriors near
    it; a blood night on night 13 once the Heartland is held, and one more
    when 60% of the Fringe is held, each with the warning and the double horn,
@@ -480,7 +482,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 01e899e9`: the debug tools put a Barracks
+   prints `final step 10000 hash 5e9fe863`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -634,7 +636,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash f5ed6eeb`: the debug tools put a Magi
+   prints `final step 10000 hash e90e0bff`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -747,7 +749,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 24fd6d98`: the debug tools put a Halfling
+    prints `final step 10000 hash 88ac1c9d`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -862,7 +864,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 348d76e0`. The script plays by Patch 2's
+   prints `final step 10000 hash 7c0e0096`. The script plays by Patch 2's
    rules (before Patch 2 the gun kit trained warriors as cannon crew and
    warriors crewed the engines): the debug tools make the Big House a
    Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
@@ -1049,7 +1051,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 348d76e0`, as in milestone 8 above.
+   prints `final step 10000 hash 7c0e0096`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1181,7 +1183,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash 990993ff`: the four workers are given a
+   prints `final step 10000 hash 6d981785`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1189,7 +1191,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash dbd5b96b`: the debug tools heap a soil hill
+   prints `final step 10000 hash 90929b73`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1610,7 +1612,8 @@ load, and their wild fills afresh round the units.
    buildings and torches. Press **Speed** until night falls. Monsters come
    out in the explored land round them, never in sight of a unit, never
    within 40 m of claimed land and never within three times a lit light's
-   reach, so not on the town: 1 or 2 of a kind on each 25 m patch, of the
+   reach, so not on the town: three groups on each 25 m patch since Patch 3
+   (one before), each 1 or 2 of a kind on a spot of its own, of the
    kinds the waves have brought so far (giant rats most, then zombies and
    cave bats, slimes, now and then a giant spider). From night 5 a patch may
    hold a group of one weak kind instead, larger as the nights go on.
@@ -1631,12 +1634,12 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash c31d6a54`: the debug tools explore 200 m round the
+   prints `final step 10000 hash dc29d0dc`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
-   since Jade's mini patch, and stand there through night 0. About 27
-   monsters are out at nightfall, round them and round the workers at the
-   camp, up to 72 at once later and 115 over the night; one of them goes for
-   a unit, and night 0's monsters marching on the camp fall on the warriors
+   since Jade's mini patch, and stand there through night 0. About 86
+   monsters are out at nightfall (27 before Patch 3 tripled them), round
+   them and round the workers at the camp, up to 230 at once later and 298
+   over the night; three of them go for a unit, and night 0's monsters marching on the camp fall on the warriors
    and kill one; the other two end the night at about three quarters and
    full health. They walk home at step 8200.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
@@ -1768,6 +1771,118 @@ Patch 2 do not load (the standing rule for every patch).
    sound. Close the menu: the world is heard again. Online, either player's
    Pause does the same on both machines.
 
+## How a tester checks the middle's bars and layout (Patch 3)
+
+*Jade's Patch 3, the middle HUD items: the title row runs the full width
+with "HP:" and "XP:" bars to the clear button, the queue moves under it, and
+everything under the control groups grows to fill the section. Picks in
+blueprint/patch3-middle-hud-picks.md. The panel is
+`packages/client/src/hud/selection-panel.ts`, the fill
+`packages/client/src/hud/middle-fit.ts`, the XP bar's words
+`packages/client/src/hud/xp-bar.ts`; the sim sends each unit's experience
+and what its next rank needs (`rankXp`, unit fields 26 and 27).*
+
+1. **The tests.** `pnpm test` runs
+   `packages/client/test/patch3-middle-hud.test.ts`: the XP bar shows for
+   workers, troops and mages only, fills toward the next rank and words its
+   tooltip ("Soldier: 120 of 150 XP to Veteran."), is full at the top rank;
+   a long name breaks into two even lines; the fill takes the largest
+   twentieth that fits, up to 3 times, and shrinks to no less than three
+   quarters before it scrolls.
+2. **One worker.** `pnpm dev`, open http://localhost:5173/?seed=1 and click a
+   worker. The row under the control groups reads "Worker" in large letters
+   as tall as the two bars beside it, a thin vertical line, then "HP:" and
+   the health bar with 60/60 on it running to the ✕ button, and under it
+   "XP:" and a bar as long and as tall. No rank badge. The ✕ (F3 in its
+   corner) is as tall as the row. Hover the XP bar: "Labourer: 0 of 50 XP
+   to Hand." Set it building or gathering and the bar fills as it works
+   (the worker ranks of Patch 3, the section below). The tool, the bowl and
+   "Idle" under it are larger than live now: the whole block has grown to
+   fill the section, its pictures square, nothing stretched.
+3. **A troop.** Click a warrior: "Club fighter" (on two lines when the name
+   is too long for half the row), HP and XP. Hover XP: "Recruit: 20 of 50
+   XP to Soldier." Let it fight: the light blue bar fills; at 50 it becomes
+   a Soldier and the bar empties, then fills from 50 toward Veteran's 150
+   (the tooltip keeps the running count: "Soldier: 50 of 150 XP to
+   Veteran.").
+4. **A mage and a rider.** Type M N B V C X Z, press **Sanctum**, **Mage
+   kit** and **Barn**, train a Support mage at the Sanctum and a cavalryman
+   at the Barracks. The mage's row has HP, XP and "MP:" (her mana) under it;
+   the rider's HP, XP and "Horse:"; every bar the same height, the ✕ as tall
+   as the three rows.
+5. **The Big House.** Select it and press A a few times: the workers queue
+   under the title row as large pictures read from the left, the first with
+   its bar, then a dark well for each place still free (5 in all). Click one
+   to cancel it. "Level 7" (with **Citadel**, else its level) is the first
+   picture under the queue.
+6. **The Barracks.** Press **Troop kit** and select the Barracks: the title
+   row with its health bar, the five wells of its queue, then the five cards
+   from the left. The section is taller than before (it grows upward just
+   enough, as the action menu's card does, never past the portrait beside
+   it). Click a card: its unit fills the first well. Open a weapon slot: the
+   tier strip still opens just above the middle, pointing at the slot.
+7. **Several.** Drag a box round everything: "7 selected" large, the ✕ at
+   the row's right end, the tabs and portraits under it filling the
+   section.
+8. **Sizes.** Resize the window to 1024 by 768 and to a phone (844 by 390):
+   the same layout at every size; on a phone the section does not grow, and
+   a Barracks' cards shrink a little to fit rather than hide their slots.
+   `node packages/client/test-e2e/middle-look.mjs http://localhost:5198
+   /tmp/shots` (with `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running) saves each of these at four screen sizes and checks the bars
+   run to the ✕, the XP bar matches the HP bar, the tier strip sits above
+   the middle and nothing spills past the frame.
+
+## How a tester checks worker ranks and crew retraining (Patch 3)
+
+Jade's Patch 3 file, items 1 and 2. The picks are in
+blueprint/patch3-worker-ranks-crew-picks.md. Older sections above that send
+workers to train a rank with U describe the game before Patch 3.
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-ranks-crew.test.ts
+   (a load of pine teaches a worker 2.5 experience and the walk none; building
+   teaches; 12 steps of work make a tenth with starting tools and better tools
+   learn faster; a worker rises Labourer to Elder with its health, and
+   fighting adds to the same ladder; workers can no longer train a rank and a
+   worker's train order from an old save is dropped at no cost; the unit view
+   carries experience and the next rank's need; a horse hauls a catapult with
+   no crew, and an ox hitched to a ballista with no crew lets it fire and
+   break a goblin hut, then let go it needs its crewman again; a crewman
+   retrains at the main base in 30 s saying so and gets up a Labourer, at no
+   cost; a new order cancels it; only crewmen take it, and with no main base
+   he says so; a save made while he retrains plays on the same), and the
+   client's m2-controls, m3-controls, m8-controls and hud-icons tests (no
+   Rank button on the worker card, Retrain on W on the crewman's card, the
+   experience in the unit view).
+2. **No rank button.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   select a worker: Move, Gather, Unload, Repair, Dig, Prospect, Build, Eat,
+   Equip and Cart, with no Rank button, and U does nothing.
+3. **Workers rank up by working.** Put the four workers to chopping or
+   building and let them work: each minute of work is worth 10 experience
+   with their hardwood tools (walking teaches nothing), so a worker kept busy
+   rises to Hand after about five minutes of work, its name in the selection
+   panel changing from Labourer to Hand and its most health from 60 to 70.
+   Master worker takes 150, Foreman 400 and Elder 1000. Workers that only
+   fight learn very little. The tester tools' **Speed** button (type M N B V
+   C X Z first; a game alone) runs the game at 4 or 16 times speed to get
+   there sooner.
+   The XP bar under the name arrives with the middle HUD's Patch 3 work.
+4. **Towing needs no crew.** Type M N B V C X Z to show the tester tools and
+   press **Siege kit**. Select the catapult's two crewmen and move them far
+   off, so the catapult has no crew by it. Press **Barn** for a
+   Barn with 2 horses and an ox, select the catapult, right click a horse to
+   hitch it and move the catapult: it rolls with no crewman near. Scroll
+   the view about 30 m from it and press **Night mob**: it fires with no
+   crew while the horse is hitched. Select the catapult and press R (Let
+   go): it stops firing until its 2 crewmen stand by it again.
+5. **Retraining a crewman.** Select a crewman: his card has **Retrain** (W),
+   whose tooltip says it takes 30 s and costs nothing. Press W: he walks to
+   the Big House, sits down tinkering with a bar over his head and a bubble
+   saying "Retraining to be a worker.", and after 30 s gets up a worker, a
+   Labourer with hardwood tools, still selected. Give another crewman W and
+   then a Move before the bar fills: he gets up and stays a crewman. Nothing
+   in the stock changes either way.
+
 ## How a tester checks troop names (Patch 2)
 
 *A troop goes by its weapon tier's name, everywhere a unit is named; the type
@@ -1880,7 +1995,14 @@ questions in `packages/sim/src/units/questions.ts`, the held bubbles in
    three walk off to upgrade their tools and the stock drops by exactly what
    they take. Then click the warriors' tick: they get only what is left (one
    flint hand-axe at the start). The other way round, the warriors take
-   their kit first. Nothing in the stock ever goes below zero.
+   their kit first. Nothing in the stock ever goes below zero. After either
+   tick, hover the other question's tick: its tooltip counts only what is
+   left (after the workers' Yes the warriors' says "The stock pays for 1 of
+   the 3, ... From the stock: 2 hardwood sticks, 1 flint."; after the
+   warriors' Yes the workers' says "The stock pays for 2 of the 4, ... From
+   the stock: 12 hardwood sticks, 2 flint, 10 stone."). It recounts whenever
+   the stock changes, and a question the stock no longer pays for any of
+   goes, to be asked again once it does.
 3. **The 10 s wait.** Leave the questions alone: they go after 10 s of game
    time (the balance editor's Questions group, QUESTION_WAIT_STEPS). Paused
    with F10, they stay.
@@ -1903,8 +2025,10 @@ questions in `packages/sim/src/units/questions.ts`, the held bubbles in
 7. `pnpm test` runs `packages/sim/test/patch3-speech.test.ts` (the attacker's
    name, the 10 s wait, eat to heal only when idle and its withdrawal, the
    upgrade lines and their holds, both start questions, the advice once and
-   only on the first day, first come first served three ways) and the held
-   bubbles in `packages/client/test/question-bubbles.test.ts`.
+   only on the first day, first come first served three ways, the other
+   tooltip recounted and a question withdrawn when the stock pays for none)
+   and the held bubbles and the recounted tooltip in
+   `packages/client/test/question-bubbles.test.ts`.
 
 ## How a tester checks the fourteen buildings (Patch 2)
 
@@ -2175,7 +2299,8 @@ orders (`mageProduct`, `setKitLock`).*
    middle reads "Nothing selected" and the three help lines, as live now.
    The camera is a little closer than live now; zoom all the way out: it
    stops at 64 m (live now: 80 m). Home comes back to 36 m.
-3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it,
+3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it
+   (Patch 3 replaces the chevron with a divider and an XP bar, see below),
    the health bar with 100/100 on it, then the cudgel and armour slots with
    their tier numbers, the bowl with the next meal's bar, and "Idle". Hover
    each picture: the sentences live now in the panel are in its tooltip
@@ -2191,8 +2316,8 @@ orders (`mageProduct`, `setKitLock`).*
    slot showing the tier it would train now, and an open grey padlock.
    Hover a picture: the troop it trains by name ("Trains a Champion: ..."),
    its numbers, its cost, "Follows the stock: the best kit it pays for,
-   weapon first." Click it: one queues, shown in the title row; Shift +
-   click: five.
+   weapon first." Click it: one queues, shown in the title row (under it
+   since Patch 3); Shift + click: five.
 6. **The tier strip.** Click Close melee's weapon slot: a strip of tiers 0
    to 8 opens above the middle, pointing at the slot, the current tier in
    gold. Hover tier 3: "Trains a Copper swordsman.", the damage with the
@@ -2209,8 +2334,8 @@ orders (`mageProduct`, `setKitLock`).*
    saved with the game). Pick another tier on the locked card: the lock
    moves to it. Only the padlock opens it again.
 8. **Several Barracks.** Build a second Barracks and select both: the cards
-   show the first one's kits and a tile per Barracks in the title row with
-   its queue count. The padlock locks both; with one locked, it opens it.
+   show the first one's kits and a tile per Barracks in the title row (under
+   it since Patch 3) with its queue count. The padlock locks both; with one locked, it opens it.
 9. **Cavalry.** Before main base 3 the Cavalry card is grey with "Needs a
    level 3 main base."; with no horse in a Barn, "No grown tamed horse ready
    in a Barn.". Press **Barn** for a Barn with horses: the card counts the
@@ -2290,6 +2415,168 @@ in `packages/sim/src/world/layout.ts`.*
    change any fight with an animal or tribesman.
 3. **Saves.** A save from indev 0.5 is refused: "That save is from an older
    version of the game. Start a new game." (save format 5, snapshot 19).
+
+## How a tester checks Patch 3's threat, lairs and wanderers
+
+*Jade's Patch 3 notes: work each monster's threat out from its numbers and
+traits with one algorithm, so a new monster gets its threat by itself; give
+each lair a budget by its threat; triple the wandering night monsters; and
+confirm the waves scale with the players. Picks and before and after tables
+in blueprint/patch3-threat-waves-picks.md. The algorithm and its weights are
+`packages/sim/src/combat/threat.ts`; each monster's listed traits and what it
+splits into are on its row in `combat/mobs.ts`; the lairs' budgets are
+`threats/lairs.ts` with `LAIR_BUDGET_PCT` in `threats/data.ts`; the wild's
+rolls are `threats/wanderers.ts`.*
+
+1. **The tests.** `pnpm test` runs `packages/sim/test/threat.test.ts`: every
+   night monster has a threat and nothing else does; the threat is what the
+   algorithm makes of the row, and twice the health or damage raises it; a
+   zombie is 1.5; the giant spider is under two zombies, and level with one
+   given a zombie's bite; threat never falls as health or damage rise;
+   armour, a weakness to arrows and a sweeping blow count; a melee flyer adds
+   nothing, a ranged flyer 20% and a climber 5%; flying and climbing are read
+   from the row; the reach that strikes over walls is the fight's own; a
+   slime counts what it splits into and still splits into two small slimes
+   half a metre either side; every lair has a budget from its first night, a
+   mass grave's above a cave mouth's, and sends it out of its own kinds on
+   top of the dark edge's 80%; each of two players' nights spends the edge's
+   budget on its own; each wild patch rolls three times.
+2. **The numbers.** In the balance editor (once republished from main), Mobs
+   and nights shows each night monster's **Threat (worked out)** read-only
+   beside its health and damage, with its **Traits** and **Splits into when
+   it dies**; **Threat: how each monster's threat is worked out** holds the
+   weights (one threat point is 40 effective health dealing 3.3 damage a
+   second, health 3 parts to damage 2, the speed, range and trait percents);
+   **What each trait adds** lists the traits (melee flyer 0, ranged flyer 20,
+   climber 5, most others 5, summons 20, weak back -5); **Each lair sends a
+   night** is 50%; Wandering night monsters has **How many wanderers** at
+   300%. A changed health or damage that `balance:apply` writes moves that
+   monster's threat with it, and the apply lists the threat as also changed.
+3. **XP.** A kill is still worth twice the monster's threat, so a zombie now
+   gives 3 XP (2 before) and a giant spider 4.2 (6 before); a night's XP in
+   all is about the same.
+4. **Lairs.** `pnpm dev`, open http://localhost:5173/?seed=1, type M N B V C
+   X Z and put down a lair with **Lair** in the debug panel. At nightfall it
+   sends half its own company's threat 20 s after night falls, on top of the
+   dark edge's wave: a barrow or a cave mouth about 3 threat (two zombies or
+   a slime; three bats and rats), a spider nest two spiders, a mass grave
+   from night 10 about 9 (two bloated corpses), a great barrow from
+   night 25 about 9 and from night 40 about 23 (with its bone colossus). A
+   lair no longer sends less when there are more of them.
+5. **Wanderers.** As in "How a tester checks wandering night monsters"
+   above: about three times as many come out in the wild round a party at
+   night (the check script there has 86 out at nightfall, 27 before).
+6. **Two players.** `?seed=1&players=2`: each player's night is planned on
+   its own budget, town, depth and lairs, so two players face twice the
+   monsters, each base its own share (as before Patch 3; now a test).
+
+## How a tester checks the action and build menus (Patch 3)
+
+*Jade's Patch 3, four items: buildings the stock cannot pay for are greyed
+out like those short of a prerequisite; a building whose card was one
+button opening a bigger menu opens on that menu; the active action marker
+is about twice as visible; and a click on a greyed-out button has whoever
+can sort out why ask, in a question bubble. Picks in
+blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
+`packages/client/src/hud/commands.ts`; the questions
+`packages/sim/src/units/greyed.ts`; the marker `.hud-btn.doing` in
+`packages/client/src/hud/hud.css`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-greyed.test.ts
+   (both reasons asked at once, a cause further down asked for, one
+   resource wanted twice asked for once with both amounts, the cap, the same
+   click twice, no change to the state hash, the Workshop offering planks,
+   the Scholar's Lodge offering research, a worker offering better tools,
+   idle warriors offering to hunt) and
+   packages/client/test/patch3-menus.test.ts.
+2. **Greyed by the stock.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   select the four workers and press B. The Forge, the Scholar's Lodge, the
+   Fishing dock and a second Big House are greyed out (before Patch 3 they
+   showed in red and could still be placed as a plan); hover the Forge:
+   "Not enough softwood lumber (needs 60, you have 40)." Clicking it or
+   pressing its key does not pick it up. The Barracks says its main base
+   level first, then the stock. The Farm, Barn, Storehouse and Workshop are
+   lit. Defences and Lights open as before and grey their own buildings.
+3. **Who sorts it out.** Still in the build menu, click the greyed Forge:
+   two workers ask "We need 20 more softwood lumber for the Forge. Shall I
+   go and gather some?" and "We need 20 more stone for the Forge. Shall I
+   go and gather some?". Tick one: it walks off to gather. Click the
+   Barracks: the softwood and stone questions count the Longhall too ("We
+   need 140 more softwood lumber for the Barracks and the Longhall."), as
+   the Barracks waits on a level 2 main base. Click the same button again
+   while its questions are up: nothing new; click another: the first
+   questions go and the new ones come.
+4. **One click less.** Type M N B V C X Z and press **Troop kit**, then
+   select the Forge: its smelting buttons show straight away, with no Smelt
+   and no Back (before Patch 3: one Smelt button). The Workshop, the
+   Scholar's Lodge and the Barn (its Slaughter) do the same; the Big House keeps its K menu
+   and the Artillery workshop its Engines, as they have more on their cards.
+5. **Greyed actions.** On that Forge click the greyed Copper ingot: a worker
+   asks "We need 2 more copper ore for the copper ingot, and my tools can't
+   break it. Shall I make stone and flint tools and go and gather some?";
+   Yes sends it to tinker its tools and then mine. Click Wrought iron:
+   the Forge asks "We need 2 more charcoal for the wrought iron. Shall I
+   make 3?" and Yes queues the charcoal. A greyed Barracks troop short of
+   food asks idle warriors to go hunting; the Big House's greyed Upgrade
+   asks workers for what the next level is short of.
+6. **The marker.** Select workers and press G (or right click a tree): the Gather button's gold
+   arrow is half as big again and its ring twice as thick and never dimmer
+   than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
+   from 30%).
+
+## How a tester checks the fog look and hidden-unit outlines (Patch 3)
+
+*Jade's ask (2026-10-04): land that has been explored but is not seen right
+now by your or your allies' units and buildings looks darkened, not greyscale;
+and when one of your units is 80% or more hidden from the camera (by trees,
+buildings, very large units) an outline is drawn round its silhouette,
+cheaply enough not to cause lag. Picks in
+blueprint/patch3-fog-outlines-picks.md. The remembered-land shading is
+`packages/client/src/world/fog-material.ts`; the measuring and the outline
+`packages/client/src/world/hidden-outlines.ts`; which units take part
+`packages/client/src/world/units-view.ts`; the flat colours they are
+measured with `packages/client/src/models/instanced-model.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch3-fog-outlines.test.ts:
+   the fog shader keeps 70% of the colour at 60% brightness and reaches the
+   unit, creature and building models too; units are marked by id, negative
+   when outlined; the measuring picture is counted per unit; the outline
+   comes on at 80% hidden, stays down to 70% and for 0.4 s after, and goes
+   when the unit is no longer drawn; the screen box of your units ignores
+   units off the screen or behind the camera.
+2. **Remembered land.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   walk a warrior 45 m out of the camp and back. The land it saw out there
+   stays darker than the land in sight but keeps its greens and browns (it
+   was grey before); trees, rocks, lairs and huts standing on it are
+   darkened the same way. Unexplored land is still black, and on a fog
+   night the fog lies over both as before.
+3. **An outline behind a building.** Type M N B V C X Z, press **Citadel**,
+   and walk a worker round behind the Citadel (north of it, the side away
+   from the camera). Once 80% of it is hidden a line in your colour, a
+   little lighter, with a thin dark edge, is drawn round its shape on top
+   of the Citadel. Walk it back out in front and the line goes after a
+   moment. A level 1 Big House is too low to hide a worker, so nothing is
+   drawn behind it.
+4. **Under a tree.** Walk a worker under a tall pine just north of its
+   trunk: the crown hides it and it is outlined; a step out from under the
+   crown and the outline goes. Your own units count as cover too, so a
+   worker behind your own cannon or horse is outlined. Other players' units,
+   monsters and animals are never outlined, and water hides no one.
+5. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/outline-look.mjs http://localhost:5198 /tmp/shots`
+   plays steps 2 to 4 at 1920 by 1080 and prints ok or FAIL for each, the
+   share of the unit hidden and what the measurements cost.
+   `node packages/client/test-e2e/outline-perf.mjs http://localhost:5198 /tmp/shots after`
+   (and the same on a checkout from before Patch 3 with `before`) prints the
+   main thread's milliseconds a frame in a busy camp and at night with 400
+   monsters. Add `--gpu` on a machine with a graphics card; without it
+   Chromium draws in software and only the main-thread times compare.
+6. **No lag.** With none of your units on the screen nothing extra is
+   done. With some in view, a small picture of the part of the screen round
+   them is drawn eight times a second at a quarter of the screen's size and
+   read back without waiting for the card. The outline itself is drawn only
+   while a unit is hidden, and only over the outlined units' corner of the
+   screen. The numbers measured are in the picks file.
 
 ## How a tester checks lair alerts (Patch 3)
 

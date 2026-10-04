@@ -685,8 +685,7 @@ body.playing * {
   padding: 1px 8px;
   font-size: 11.5px;
 }
-.sel-portraits,
-.sel-queue {
+.sel-portraits {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
@@ -789,9 +788,6 @@ body.playing * {
 }
 .hud-btn.msg-btn.alert {
   color: #ffd27a;
-}
-.hud-btn.cmd.short:not(.disabled) .face {
-  color: #ff9a8a;
 }
 .hud-btn.cmd.grid .face {
   font-size: calc(9.5px * var(--card-k, 1));
@@ -1501,14 +1497,16 @@ body.playing.touch .hud {
 }
 
 /* The doing-now marker (patch notes 1): a gold arrow bobbing over the action
-   the selection is doing or walking to do, and a slow glow round the button. */
+   the selection is doing or walking to do, and a slow glow round the button.
+   Patch 3 makes it about twice as visible: the arrow drawn at 3 px a pixel
+   (was 2), and the ring below twice as thick and never dimmer than 60%. */
 .hud-btn.doing::after {
   content: '';
   position: absolute;
-  left: calc(50% - 7px);
-  top: 1px;
-  width: 14px;
-  height: 10px;
+  left: calc(50% - 10.5px);
+  top: 2px;
+  width: 21px;
+  height: 15px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z' fill='%231a120c'/%3E%3Cpath d='M1 0h5v1h-1v1h-1v1h-1v-1h-1v-1h-1z' fill='%23ffd84a'/%3E%3C/svg%3E") center / contain no-repeat;
   image-rendering: pixelated;
   animation: doing-bob 0.8s steps(2, jump-none) infinite alternate;
@@ -1523,7 +1521,7 @@ body.playing.touch .hud {
     transform: translateY(0);
   }
   to {
-    transform: translateY(3px);
+    transform: translateY(4px);
   }
 }
 @keyframes doing-glow {
@@ -1863,25 +1861,26 @@ body.playing.touch .hud {
 .hud-btn.dlg-btn.danger {
   filter: sepia(0.35) hue-rotate(-25deg) saturate(1.6);
 }
-/* The doing-now glow as an outline: the frame's wood would cover an inset shadow. */
+/* The doing-now glow as an outline: the frame's wood would cover an inset shadow.
+   Patch 3: 4 px thick (was 2) and pulsing 60% to full (was 30% to 95%). */
 .hud-btn.doing {
   animation: doing-ring 1.6s ease-in-out infinite;
-  outline: 2px solid rgba(255, 216, 74, 0.35);
-  outline-offset: -3px;
+  outline: 4px solid rgba(255, 216, 74, 0.6);
+  outline-offset: -5px;
 }
 @keyframes doing-ring {
   0%,
   100% {
-    outline-color: rgba(255, 216, 74, 0.3);
+    outline-color: rgba(255, 216, 74, 0.6);
   }
   50% {
-    outline-color: rgba(255, 216, 74, 0.95);
+    outline-color: rgba(255, 226, 110, 1);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .hud-btn.doing {
     animation: none;
-    outline-color: rgba(255, 216, 74, 0.8);
+    outline-color: rgba(255, 216, 74, 0.95);
   }
 }
 /* The hunger line's bar (patch 1, food): the kit's trough and gold fill; red while starving. */
@@ -1916,27 +1915,6 @@ body.playing.touch .hud {
 .sel-head {
   gap: 0;
 }
-.sel-title {
-  flex: 0 1 auto;
-  min-width: 0;
-  /* Room for the bars (and the close button). */
-  max-width: calc(100% - 172px);
-}
-.sel-title.long {
-  font-size: 17px;
-}
-.sel-extra {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px 0 8px;
-  overflow: hidden;
-}
-.sel-push {
-  flex: 1 1 0;
-}
 /* Pictures that only explain themselves: no frame, no hover glow. */
 .hud-btn.chip,
 .hud-btn.sel-bar {
@@ -1952,25 +1930,6 @@ body.playing.touch .hud {
   width: 32px;
   height: 32px;
 }
-.hud-btn.chip.badge {
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-.hud-btn.chip.badge .btn-icon img {
-  width: 16px;
-  height: 16px;
-}
-.hud-btn.chip.level {
-  flex: none;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 4px;
-  border: 0 !important;
-  border-image: var(--kit-well) 4 fill / 4px !important;
-  font: 16px/1 var(--display);
-  color: var(--accent);
-}
 .hud-btn.chip.owner-tag {
   flex: none;
   height: 20px;
@@ -1978,13 +1937,6 @@ body.playing.touch .hud {
   font: 16px/1 var(--display);
   color: var(--owner, var(--text));
   text-shadow: 1px 1px 0 #000;
-}
-.sel-bars {
-  flex: 0 0 auto;
-  width: 120px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 .hud-btn.sel-bar {
   display: block;
@@ -2026,24 +1978,6 @@ body.playing.touch .hud {
   color: #fff;
   text-shadow: 1px 1px 0 #000, -1px 0 0 #000;
 }
-.sel-head .sel-queue,
-.sel-tiles {
-  flex: none;
-  display: flex;
-  gap: 2px;
-}
-.sel-head .hud-btn.portrait {
-  width: 24px;
-  height: 24px;
-}
-.sel-head .hud-btn.portrait .btn-icon img {
-  width: 24px;
-  height: 24px;
-}
-.sel-head .sel-row.more {
-  font: 15px/1 var(--display);
-  color: var(--muted);
-}
 .hud-btn.portrait.tile .tile-count {
   position: absolute;
   right: 1px;
@@ -2051,9 +1985,6 @@ body.playing.touch .hud {
   font: 12px/1 var(--display);
   color: var(--accent);
   text-shadow: 1px 1px 0 #000;
-}
-.sel-body {
-  padding: 5px 8px;
 }
 .sel-strip {
   display: flex;
@@ -2371,4 +2302,191 @@ body.playing.touch .hud {
   align-items: stretch;
   justify-content: flex-start;
   margin: 0;
+}
+
+/* ---- Patch 3: the middle's title row and its fill (Jade). Under the control
+   groups, the title row runs the full width: the name as tall as the two
+   bars beside it, a divider, "HP:" and the health bar to the clear button,
+   "XP:" and a solid light blue experience bar under it, every bar the health
+   bar's height (13 px), the clear button as tall as the row. The queue (or a
+   Barracks' tiles) sits under the row as larger pictures, read like a book.
+   The title row and everything under it are one block (.sel-content) that
+   selection-panel.ts scales up to fill the section inside a 6 px margin
+   (middle-fit.ts MIDDLE_MARGIN), as the action menu's buttons fill the card;
+   nothing stretches. ---- */
+.sel-fit {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.sel-content {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  display: flex;
+  flex-direction: column;
+  transform-origin: 0 0;
+}
+.sel-head {
+  flex: none;
+  height: auto;
+  min-height: 29px;
+  padding: 2px 0 4px;
+  margin-bottom: 4px;
+  align-items: center;
+}
+/* Jersey 10's capitals are 0.54 of its size: 54 px makes "Worker" as tall as the two 13 px bars and their 3 px gap. */
+.sel-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 29px;
+  font-size: 54px;
+  line-height: 29px;
+  /* Room for the tails of g and p below the capitals' line. */
+  padding-bottom: 7px;
+  margin-bottom: -7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A name too long for its share of the row: two lines (split where they are most even), each as tall as one bar. */
+.sel-title.long {
+  height: 32px;
+  font-size: 24px;
+  line-height: 16px;
+  padding-bottom: 3px;
+  margin-bottom: -6px;
+  white-space: pre;
+}
+/* One long word: one line at that size, in the middle of the row. */
+.sel-title.long.one {
+  height: 29px;
+  line-height: 29px;
+  padding-bottom: 7px;
+  margin-bottom: -7px;
+}
+.sel-extra {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+.sel-extra:empty {
+  display: none;
+}
+.sel-divider {
+  flex: none;
+  width: 2px;
+  margin: 0 9px 0 10px;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 1px 0 0 rgba(255, 236, 200, 0.12);
+}
+.sel-bars {
+  flex: 1 1 auto;
+  min-width: 90px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  align-content: center;
+  column-gap: 5px;
+  row-gap: 3px;
+}
+.bar-label {
+  height: 13px;
+  font: 24px/13px var(--display);
+  color: var(--parchment);
+  text-shadow: 1px 1px 0 #000;
+  white-space: nowrap;
+}
+.sel-bars .hud-btn.sel-bar {
+  width: auto;
+  height: 13px;
+  /* A dark well round each bar, so an empty one still shows its length on the wood (the button frames' rule would take the background). */
+  background: #1b140e !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 236, 200, 0.1) !important;
+}
+.hud-btn.sel-bar.xp .fill {
+  background: #7cc8f4;
+}
+.sel-corner {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  /* At the row's right end, also when there are no bars before it. */
+  margin-left: auto;
+  padding-left: 6px;
+}
+/* The clear button: a button frame as tall as the row, the cross in its middle and F3 in its corner. */
+.sel-head .hud-btn.clear {
+  width: 34px;
+  height: auto;
+  min-height: 29px;
+  padding: 3px 0 0;
+  justify-content: center;
+  border: 2px solid transparent !important;
+  border-image: var(--kit-btn) 4 fill / 4px stretch !important;
+  font-size: 17px;
+}
+.sel-head .hud-btn.clear.hover {
+  border-image-source: var(--kit-btn-hover) !important;
+}
+.sel-head .hud-btn.clear.pressed {
+  border-image-source: var(--kit-btn-pressed) !important;
+}
+.sel-head .hud-btn.clear .key {
+  top: 0;
+  right: 2px;
+  font-size: 11px;
+}
+.sel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+/* The queue under the title row: 40 px pictures (24 px in the title row before Patch 3), a well for each place still free. */
+.sel-strip.queue,
+.sel-strip.tiles {
+  flex-wrap: nowrap;
+  gap: 3px;
+  margin: 0 0 4px;
+}
+.sel-strip.queue .hud-btn.portrait,
+.sel-strip.tiles .hud-btn.portrait {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.sel-strip.queue .hud-btn.portrait .btn-icon img,
+.sel-strip.tiles .hud-btn.portrait .btn-icon img {
+  width: 36px;
+  height: 36px;
+}
+.sel-strip.queue .hud-btn.portrait .hp,
+.sel-strip.tiles .hud-btn.portrait .hp {
+  height: 4px;
+}
+.queue-empty {
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  border: 4px solid transparent;
+  border-image: var(--kit-well) 4 fill / 4px;
+  image-rendering: pixelated;
+  opacity: 0.55;
+}
+.sel-strip.tiles .sel-row.more {
+  align-self: center;
+  font: 17px/1 var(--display);
+  color: var(--muted);
+}
+.sel-strip.owner {
+  margin: 0 0 4px;
+}
+/* The cards read like a book from the left, the facts column after them. */
+.kit-cards {
+  justify-content: flex-start;
 }
