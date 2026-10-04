@@ -42,6 +42,7 @@ import {
   TROOP_KEYS,
   TROOP_NAMES,
   troopPieces,
+  troopTierName,
   WAND_KITS,
   weaponPiece,
   weaponTiers,
@@ -482,7 +483,7 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   if (t.troop === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, b.id, Math.max(0, horse - 1));
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
-  state.events.push({ player: owner, kind: 'info', text: `A new ${(TROOP_NAMES[t.troop] ?? 'troop').toLowerCase()} troop is ready.`, x, z });
+  state.events.push({ player: owner, kind: 'info', text: `A new ${troopTierName(t.troop, t.w).toLowerCase()} is ready.`, x, z });
 }
 
 function spawnMage(state: SimState, b: Building, school: number, owner: number): void {

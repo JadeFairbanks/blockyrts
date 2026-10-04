@@ -12,10 +12,8 @@ import {
   linePiece,
   Lock,
   Troop,
-  TROOP_NAMES,
   MONSTERS,
   mobSpec,
-  RANK_NAMES as UNIT_RANK_NAMES,
   NEUTRAL,
   NO_CARRY,
   Period,
@@ -33,7 +31,7 @@ import {
   itemsText,
   speciesSpec,
   WILD,
-  mageTitle,
+  unitTitle,
   School,
   FactionKind,
   LEADER_NAMES,
@@ -87,7 +85,6 @@ const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
 const PEOPLE_MARKS = ['#8ac850', '#b08050', '#50c0a8', '#a8a8b8'];
 
 const UNIT_NAMES = ['Worker', 'Warrior', 'Wanderer', 'Monster', 'Animal', 'Mage', 'Engine'];
-const RANK_NAMES = ['', 'Labourer', 'Hand', 'Master worker', 'Rank 4', 'Rank 5'];
 const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:support', 'engine'];
 /** Skills a warrior's details list (Skill bits). */
 const SKILL_TEXT: ReadonlyArray<readonly [number, string]> = [
@@ -341,8 +338,7 @@ export class WorldView {
       if (d[o + S.inside] !== 0 && kind !== UnitKind.Engine && !(d[o + S.flags]! & UnitFlag.OnTop)) this.insideKeys.add(key);
       const health = `Health ${d[o + S.hp]} / ${d[o + S.maxHp]}`;
       if (kind === UnitKind.Worker) {
-        const rank = d[o + S.rank]!;
-        u.label = `Worker (${RANK_NAMES[rank] ?? `rank ${rank}`})`;
+        u.label = this.title(d, o, kind);
         const tools = [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!].filter((t, k, all) => t !== 0 && all.indexOf(t) === k);
         const details = [health, tools.length ? `${capital(tools.map((t) => gearName(t).toLowerCase()).join(', '))} (tool tier ${d[o + S.wTier]}).` : 'No tools.'];
         const carry = d[o + S.carryRes]!;
@@ -356,9 +352,8 @@ export class WorldView {
         }
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
-        const rank = d[o + S.rank]!;
         const troop = d[o + S.troop]!;
-        u.label = `${TROOP_NAMES[troop] ?? 'Warrior'} (${UNIT_RANK_NAMES.warrior[rank] ?? `rank ${rank}`})`;
+        u.label = this.title(d, o, kind);
         // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
         const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
         const gear = [gearName(d[o + S.ranged]!), weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
@@ -379,9 +374,8 @@ export class WorldView {
         }
         u.details = details;
       } else if (kind === UnitKind.Mage) {
-        const rank = d[o + S.rank]!;
         const school = d[o + S.school]!;
-        u.label = mageTitle(school, rank);
+        u.label = this.title(d, o, kind);
         u.typeKey = school === School.Battle ? 'mage:battle' : 'mage:support';
         const worn = [gearName(d[o + S.weapon]!), gearName(d[o + S.armour]!)].filter((x) => x);
         const details = [health, `Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`, worn.length ? `${worn.join(', ')}.` : 'No wand.'];
@@ -437,6 +431,11 @@ export class WorldView {
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
+  }
+
+  /** A worker's, troop's or mage's name: the sim's unitTitle, so it reads the same as its bubbles and lines. */
+  private title(d: Int32Array, o: number, kind: number): string {
+    return unitTitle({ kind, troop: d[o + S.troop]!, wTier: d[o + S.wTier]!, rank: d[o + S.rank]!, school: d[o + S.school]! });
   }
 
   /** The loot one of the local player's units carries, for its panel. */
