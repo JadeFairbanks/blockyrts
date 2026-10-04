@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `cf52a6d8` at step 40, with two players `504e575d`. The land matches too.
+   `cd50d99f` at step 40, with two players `b2ec231a`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
    prints `final step 10000 hash 70071050`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
@@ -399,8 +399,8 @@ dawn.*
 1. `pnpm test` runs those checks as scenario tests in
    `packages/sim/test/m5.test.ts`: the first lair placed at dusk on night 3,
    40 m or more beyond claimed land, with its guardian, and Table 8's cadence
-   and cap after it; a fifth of the night coming out of a lair's mouth 20 s
-   after nightfall; a barrow attacked by day waking its sleepers, and when
+   and cap after it; a lair's own share of the night (half its sleepers'
+   threat since Patch 3) coming out of its mouth 20 s after nightfall; a barrow attacked by day waking its sleepers, and when
    broken leaving a ruin, a hoard as loot and 20 XP for the warriors near
    it; a blood night on night 13 once the Heartland is held, and one more
    when 60% of the Fringe is held, each with the warning and the double horn,
@@ -480,7 +480,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash bde7d2a9`: the debug tools put a Barracks
+   prints `final step 10000 hash 5e9fe863`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -634,7 +634,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 5e47102b`: the debug tools put a Magi
+   prints `final step 10000 hash e90e0bff`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -747,7 +747,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash b4bb22c3`: the debug tools put a Halfling
+    prints `final step 10000 hash 88ac1c9d`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -862,7 +862,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 67847560`. The script plays by Patch 2's
+   prints `final step 10000 hash 7c0e0096`. The script plays by Patch 2's
    rules (before Patch 2 the gun kit trained warriors as cannon crew and
    warriors crewed the engines): the debug tools make the Big House a
    Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
@@ -1049,7 +1049,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 67847560`, as in milestone 8 above.
+   prints `final step 10000 hash 7c0e0096`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1610,7 +1610,8 @@ load, and their wild fills afresh round the units.
    buildings and torches. Press **Speed** until night falls. Monsters come
    out in the explored land round them, never in sight of a unit, never
    within 40 m of claimed land and never within three times a lit light's
-   reach, so not on the town: 1 or 2 of a kind on each 25 m patch, of the
+   reach, so not on the town: three groups on each 25 m patch since Patch 3
+   (one before), each 1 or 2 of a kind on a spot of its own, of the
    kinds the waves have brought so far (giant rats most, then zombies and
    cave bats, slimes, now and then a giant spider). From night 5 a patch may
    hold a group of one weak kind instead, larger as the nights go on.
@@ -1631,12 +1632,12 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash b6a7f1d4`: the debug tools explore 200 m round the
+   prints `final step 10000 hash dc29d0dc`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
-   since Jade's mini patch, and stand there through night 0. About 27
-   monsters are out at nightfall, round them and round the workers at the
-   camp, up to 72 at once later and 115 over the night; one of them goes for
-   a unit, and night 0's monsters marching on the camp fall on the warriors
+   since Jade's mini patch, and stand there through night 0. About 86
+   monsters are out at nightfall (27 before Patch 3 tripled them), round
+   them and round the workers at the camp, up to 230 at once later and 298
+   over the night; three of them go for a unit, and night 0's monsters marching on the camp fall on the warriors
    and kill one; the other two end the night at about three quarters and
    full health. They walk home at step 8200.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
@@ -2403,6 +2404,60 @@ in `packages/sim/src/world/layout.ts`.*
    change any fight with an animal or tribesman.
 3. **Saves.** A save from indev 0.5 is refused: "That save is from an older
    version of the game. Start a new game." (save format 5, snapshot 19).
+
+## How a tester checks Patch 3's threat, lairs and wanderers
+
+*Jade's Patch 3 notes: work each monster's threat out from its numbers and
+traits with one algorithm, so a new monster gets its threat by itself; give
+each lair a budget by its threat; triple the wandering night monsters; and
+confirm the waves scale with the players. Picks and before and after tables
+in blueprint/patch3-threat-waves-picks.md. The algorithm and its weights are
+`packages/sim/src/combat/threat.ts`; each monster's listed traits and what it
+splits into are on its row in `combat/mobs.ts`; the lairs' budgets are
+`threats/lairs.ts` with `LAIR_BUDGET_PCT` in `threats/data.ts`; the wild's
+rolls are `threats/wanderers.ts`.*
+
+1. **The tests.** `pnpm test` runs `packages/sim/test/threat.test.ts`: every
+   night monster has a threat and nothing else does; the threat is what the
+   algorithm makes of the row, and twice the health or damage raises it; a
+   zombie is 1.5; the giant spider is under two zombies, and level with one
+   given a zombie's bite; threat never falls as health or damage rise;
+   armour, a weakness to arrows and a sweeping blow count; a melee flyer adds
+   nothing, a ranged flyer 20% and a climber 5%; flying and climbing are read
+   from the row; the reach that strikes over walls is the fight's own; a
+   slime counts what it splits into and still splits into two small slimes
+   half a metre either side; every lair has a budget from its first night, a
+   mass grave's above a cave mouth's, and sends it out of its own kinds on
+   top of the dark edge's 80%; each of two players' nights spends the edge's
+   budget on its own; each wild patch rolls three times.
+2. **The numbers.** In the balance editor (once republished from main), Mobs
+   and nights shows each night monster's **Threat (worked out)** read-only
+   beside its health and damage, with its **Traits** and **Splits into when
+   it dies**; **Threat: how each monster's threat is worked out** holds the
+   weights (one threat point is 40 effective health dealing 3.3 damage a
+   second, health 3 parts to damage 2, the speed, range and trait percents);
+   **What each trait adds** lists the traits (melee flyer 0, ranged flyer 20,
+   climber 5, most others 5, summons 20, weak back -5); **Each lair sends a
+   night** is 50%; Wandering night monsters has **How many wanderers** at
+   300%. A changed health or damage that `balance:apply` writes moves that
+   monster's threat with it, and the apply lists the threat as also changed.
+3. **XP.** A kill is still worth twice the monster's threat, so a zombie now
+   gives 3 XP (2 before) and a giant spider 4.2 (6 before); a night's XP in
+   all is about the same.
+4. **Lairs.** `pnpm dev`, open http://localhost:5173/?seed=1, type M N B V C
+   X Z and put down a lair with **Lair** in the debug panel. At nightfall it
+   sends half its own company's threat 20 s after night falls, on top of the
+   dark edge's wave: a barrow or a cave mouth about 3 threat (two zombies or
+   a slime; three bats and rats), a spider nest two spiders, a mass grave
+   from night 10 about 9 (two bloated corpses), a great barrow from
+   night 25 about 9 and from night 40 about 23 (with its bone colossus). A
+   lair no longer sends less when there are more of them.
+5. **Wanderers.** As in "How a tester checks wandering night monsters"
+   above: about three times as many come out in the wild round a party at
+   night (the check script there has 86 out at nightfall, 27 before).
+6. **Two players.** `?seed=1&players=2`: each player's night is planned on
+   its own budget, town, depth and lairs, so two players face twice the
+   monsters, each base its own share (as before Patch 3; now a test).
 
 ## How a tester checks the action and build menus (Patch 3)
 
