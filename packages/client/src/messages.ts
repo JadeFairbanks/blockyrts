@@ -79,7 +79,17 @@ export const S = {
   swing: 23,
   flags: 24,
   lock: 25,
-  // 26 and 27 held a warrior's trained skills (cannon crew) and a cannon's loaded powder charges, both cut in Patch 2.
+  /**
+   * A unit that ranks (worker, troop, mage): its experience and the
+   * experience its next rank needs, whole points, both counted from nothing
+   * as Table 1 writes them (a Hand has 50 or more and needs 150 for Master
+   * worker); the need is 0 at the top rank, both 0 for what never ranks
+   * (Patch 3, sim combat.ts rankXp). The middle HUD's XP bar reads them.
+   * Before Patch 2, 26 and 27 held a warrior's trained skills and a cannon's
+   * powder charges.
+   */
+  xp: 26,
+  xpNext: 27,
   target: 28,
   armour: 29,
   /** An upgrade under way (Upgrading units): per mille of its bar (0 until the unit is beside the building), its line + 1 (0 for none) and the tier it goes to. */
