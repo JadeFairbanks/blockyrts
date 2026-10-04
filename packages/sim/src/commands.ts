@@ -36,6 +36,7 @@ import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, mendWhy, portWhy } from './siege/engines.ts';
+import { answerQuestion } from './units/questions.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -791,6 +792,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'sendResources':
         sendResources(state, o.player, o.to, o.res, o.amount);
+        break;
+      case 'answer':
+        answerQuestion(state, o);
         break;
       case 'leave':
         // Gone for good, the host carrying on without them: shared out as if eliminated.

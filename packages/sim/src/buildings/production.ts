@@ -17,7 +17,7 @@ import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../u
 import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CRAFT_PACE, FARM_HARVEST_STEPS, forgeStep, levelSpec, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre, dist2 } from './lights.ts';
 import { bandAt } from './placement.ts';
-import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type RallyPoint } from './store.ts';
+import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
 import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
@@ -42,6 +42,7 @@ import {
   TROOP_KEYS,
   TROOP_NAMES,
   troopPieces,
+  troopTierName,
   WAND_KITS,
   weaponPiece,
   weaponTiers,
@@ -497,7 +498,7 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   if (t.troop === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, barnsNear(state, b, owner)[0]?.id ?? 0, Math.max(0, horse - 1));
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
-  state.events.push({ player: owner, kind: 'info', text: `A new ${(TROOP_NAMES[t.troop] ?? 'troop').toLowerCase()} troop is ready.`, x, z });
+  state.events.push({ player: owner, kind: 'info', text: `A new ${troopTierName(t.troop, t.w).toLowerCase()} is ready.`, x, z });
 }
 
 function spawnMage(state: SimState, b: Building, school: number, owner: number): void {
@@ -661,6 +662,41 @@ export function farmBandLine(state: SimState, b: Building): string {
   return `Full yield in the ${BAND_NAMES[bandOf(state, b)]}: the Farm grows in full in every band.`;
 }
 
+/** How the head of a building's queue moves now: its whole length, in the units its progress counts, and how much each step adds (0: on hold). */
+export interface QueuePace {
+  whole: number;
+  perStep: number;
+}
+
+/**
+ * The pace of a building's head item: what the next step adds to it and when
+ * it is done. updateBuildings moves the item by exactly this, and the queue's
+ * countdown on the panel reads the same numbers, so the seconds it shows are
+ * the sim's own rather than a guess from the bar (Patch 2 bug fixes).
+ */
+export function queuePace(state: SimState, b: Building, head: QueueItem): QueuePace {
+  if (trainsUnit(head.product)) {
+    // A new unit waits at its first step until there is free supply for it.
+    const held = head.progress === 0 && supplyUsed(state, head.by) >= supplyCap(state, head.by);
+    return { whole: productSpec(head.product).steps, perStep: held ? 0 : 1 };
+  }
+  // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
+  // Crafting buildings work with no hands at CRAFT_PACE (Patch 2); engines, slaughter and the Big House's rope at 1.
+  const whole = productSteps(state, b, head.product);
+  if (head.product < RECIPE_PRODUCT) return { whole: whole * 4, perStep: state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS };
+  if (head.product < SLAUGHTER_PRODUCT) return { whole, perStep: craftRate(b.kind) };
+  return { whole, perStep: 1 };
+}
+
+/** What the queue's bar and countdown show for a building's head item, or null with nothing queued: work done of the whole, and the steps left at its pace now (0: on hold). */
+export function queueHead(state: SimState, b: Building): { done: number; whole: number; stepsLeft: number } | null {
+  const head = b.queue[0];
+  if (!head) return null;
+  const { whole, perStep } = queuePace(state, b, head);
+  const left = Math.max(0, whole - head.progress);
+  return { done: Math.min(head.progress, whole), whole, stepsLeft: perStep > 0 ? floorDiv(left + perStep - 1, perStep) : 0 };
+}
+
 /** One step of every building's own work. */
 export function updateBuildings(state: SimState): void {
   for (const b of state.buildings.list) {
@@ -668,18 +704,19 @@ export function updateBuildings(state: SimState): void {
     const pool = state.players[b.owner]!.pool;
     const head = b.queue[0];
     if (head) {
+      const pace = queuePace(state, b, head);
       if (trainsUnit(head.product)) {
-        const what = productSpec(head.product).name.toLowerCase();
-        if (head.progress === 0 && supplyUsed(state, head.by) >= supplyCap(state, head.by)) {
+        if (pace.perStep === 0) {
           if ((b.alerted & 1) === 0) {
             b.alerted |= 1;
+            const what = productSpec(head.product).name.toLowerCase();
             const [x, z] = buildingCentre(b);
             state.events.push({ player: head.by, kind: 'alert', text: `Not enough supply to train a ${what}. Build or upgrade farms.`, x, z });
           }
         } else {
           b.alerted &= ~1;
-          head.progress++;
-          if (head.progress >= productSpec(head.product).steps) {
+          head.progress += pace.perStep;
+          if (head.progress >= pace.whole) {
             b.queue.shift();
             if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
             else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
@@ -688,18 +725,8 @@ export function updateBuildings(state: SimState): void {
           }
         }
       } else {
-        // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
-        // Crafting buildings work with no hands at CRAFT_PACE (Patch 2); engines, slaughter and the Big House's rope at 1.
-        let rate = 1;
-        let whole = productSteps(state, b, head.product);
-        if (head.product < RECIPE_PRODUCT) {
-          rate = state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS;
-          whole *= 4;
-        } else if (head.product < SLAUGHTER_PRODUCT) {
-          rate = craftRate(b.kind);
-        }
-        head.progress += rate;
-        if (head.progress >= whole) {
+        head.progress += pace.perStep;
+        if (head.progress >= pace.whole) {
           b.queue.shift();
           finishProduct(state, b, head.product, head.by);
         }

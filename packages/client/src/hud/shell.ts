@@ -50,13 +50,14 @@ import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
-import { guessSteps, QueueClock } from './queue-clock.ts';
+import { queueSeconds } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { hudLayout, rowsFor, type HudGeometry } from './hud-layout.ts';
-import { SpeechBubbles } from './bubbles.ts';
+import { SpeechBubbles, type Speaker } from './bubbles.ts';
+import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
@@ -211,8 +212,6 @@ export class GameShell {
   /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
   private portraitKey: string | null = null;
   private portraitRect: DOMRect | null = null;
-  /** The pace of every own building's head item, for the queue's countdown. */
-  private readonly queueClock = new QueueClock();
   private world: WorldHooks;
   private readonly extras: WorldExtras;
   private readonly game: GameInfo;
@@ -449,7 +448,7 @@ export class GameShell {
       queueLeft: (b) => {
         const head = b.queue[0];
         if (!head) return null;
-        return this.queueClock.secondsLeft(b.id, head.product, head.done, this.game.step, guessSteps(head.product, b.kind));
+        return queueSeconds(head.stepsLeft, this.game.step - (this.game.info?.step ?? this.game.step));
       },
     });
     this.buildButtons();
@@ -570,15 +569,6 @@ export class GameShell {
   }
 
   private onInfo(info: InfoMessage): void {
-    // The pace of what each own building makes, for the queue's countdown.
-    const making = new Set<number>();
-    for (const b of info.buildings) {
-      const head = b.owner === this.player ? b.queue[0] : undefined;
-      if (!head) continue;
-      making.add(b.id);
-      this.queueClock.note(b.id, head.product, head.done, info.step);
-    }
-    this.queueClock.keep(making);
     // The stockpile: food, supply and the inventory grid.
     this.inventory.update(info, this.game.foodValue());
     // Outlying lights against the coming night's limit (Table 8).
@@ -661,11 +651,15 @@ export class GameShell {
 
   private onEvent(ev: SimEvent): void {
     const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
+    if (ev.kind === 'question') {
+      this.onQuestion(ev);
+      return;
+    }
     if (ev.kind === 'speech') {
       this.onSpeech(ev, at);
       return;
     }
-    const urgent = ev.kind === 'alert' || ev.kind === 'idle' || (ev.kind === 'period' && ev.text.startsWith('Night is falling'));
+    const urgent = ev.kind === 'alert' || (ev.kind === 'period' && ev.text.startsWith('Night is falling'));
     // A unit's own alert ("I cannot reach that.") is speech too: its bubble, and its name in the panel.
     if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now());
     const kind: MessageKind = urgent ? 'alert' : 'system';
@@ -688,12 +682,10 @@ export class GameShell {
   }
 
   /**
-   * Speech: a bubble over the speaker, and the panel only when it needs the
-   * player (patch notes 1: lines the sim marks quiet, such as eating, hunting
-   * and gathering, stay bubbles, as random remarks do; wording.ts
-   * speechToPanel). Another people's lines reach it when they are said to
-   * this player (the trade menu's answers), or are important and heard: one
-   * of the player's units is near enough, or the speaker is on screen.
+   * Speech: a bubble over the speaker, and the message panel only when the
+   * speaker is the player's own and the line needs them now (Patch 2, What
+   * reaches chat; wording.ts speechToPanel). Another people's lines said to
+   * this player (trade and hire answers) show in their menu instead.
    */
   private onSpeech(ev: SimEvent, at: { x: number; z: number } | undefined): void {
     if (ev.bubble) {
@@ -703,11 +695,11 @@ export class GameShell {
         if (ev.bubble === 'meal') this.mealBubbleAt = now + MEAL_BUBBLE_GAP_MS;
         this.bubbles.say(ev.speaker, ev.text, now, 'own');
       }
-      // Only a unit's first missed meal, an alert, goes on to the message panel.
-      if (!ev.urgent) return;
-    } else if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
-    if (!speechToPanel(ev, this.player, ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null)) return;
-    this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker });
+    } else if (ev.building !== undefined) this.bubbles.speak({ id: ev.building, building: true }, ev.text, performance.now());
+    else if (ev.speaker) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+    if (ev.foreign && ev.faction && ev.player === this.player && ev.name) this.peoples.heard(ev.faction, ev.name, ev.text);
+    if (!speechToPanel(ev, this.player)) return;
+    this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker || undefined });
     if (ev.urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });
       this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
@@ -717,13 +709,55 @@ export class GameShell {
 
   /** The top of a unit's head on screen, px, or null when it is off screen or out of sight. */
   private headOnScreen(id: number): { x: number; y: number } | null {
-    const t = this.fresh.get(`e:${id}`);
+    return this.topOnScreen(`e:${id}`);
+  }
+
+  /** The middle of a building's roof on screen, px, or null when it is off screen or out of sight (Patch 2: buildings' bubbles). */
+  private roofOnScreen(id: number): { x: number; y: number } | null {
+    return this.topOnScreen(`b:${id}`);
+  }
+
+  private topOnScreen(key: string): { x: number; y: number } | null {
+    const t = this.fresh.get(key);
     if (!t || !this.extras.seen(t.centre.x, t.centre.z)) return null;
     const v = this.headTmp.set(t.centre.x, t.centre.y + t.halfSize.y + 0.25, t.centre.z);
     const p = { x: 0, y: 0 };
     if (!this.cam.project(v, p)) return null;
     if (p.x < 0 || p.y < 0 || p.x > this.width || p.y > this.height) return null;
     return p;
+  }
+
+  /**
+   * A question (Patch 2, round 3): its bubble over the unit or building that
+   * asks, with Yes and No for its owner and without them for everyone else
+   * (Jade); the words go to no chat. Or the news that it ended.
+   */
+  private onQuestion(ev: SimEvent): void {
+    const a = ev.ask;
+    if (!a) return;
+    if (a.closed) {
+      if (this.bubbles.closeAsk(a.id)) this.input.refreshHover();
+      return;
+    }
+    const who: Speaker | null = ev.building !== undefined ? { id: ev.building, building: true } : ev.speaker !== undefined ? { id: ev.speaker } : null;
+    if (!who) return;
+    const buttons =
+      ev.player === this.player
+        ? new YesNoButtons(this.buttons, this.panels, {
+            key: String(a.id),
+            yes: { description: a.yes, onPress: () => this.answer(ev, true) },
+            no: { description: a.no, onPress: () => this.answer(ev, false) },
+          })
+        : null;
+    this.bubbles.ask(a.id, who, ev.text, a.until, buttons);
+  }
+
+  /** Yes or No: the answer goes to the sim as an order (every machine does the same), and the bubble goes at once. */
+  private answer(ev: SimEvent, yes: boolean): void {
+    const a = ev.ask!;
+    this.opts.issueOrder({ kind: 'answer', player: this.player, ask: a.id, yes: yes ? 1 : 0, q: a.q, who: ev.building ?? ev.speaker ?? 0, units: [...a.units], res: a.res });
+    this.bubbles.closeAsk(a.id);
+    this.input.refreshHover();
   }
 
   private readonly headTmp = new THREE.Vector3();
@@ -1520,7 +1554,7 @@ export class GameShell {
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
     // No random remarks while the game is paused (Jade's patch notes 1).
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped());
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step);
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);

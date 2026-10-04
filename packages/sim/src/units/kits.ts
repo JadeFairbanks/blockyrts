@@ -23,7 +23,32 @@ import type { EntityStore } from '../state.ts';
 export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5 } as const;
 export type Troop = (typeof Troop)[keyof typeof Troop];
 export const TROOP_TYPES: readonly Troop[] = [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler, Troop.Cavalry];
+/** The troop types' names, for the training buttons; a trained troop goes by its weapon tier's name (TROOP_TIER_NAMES). */
 export const TROOP_NAMES: readonly string[] = ['Warrior', 'Close melee', 'Long melee', 'Ranger', 'Brawler', 'Cavalry'];
+/**
+ * A troop's name by its weapon tier, [type][tier] (Patch 2, Jade): '' where a
+ * type has no such tier. The brawler keeps its type name (Jade).
+ */
+export const TROOP_TIER_NAMES: readonly (readonly string[])[] = [
+  [],
+  ['Fist fighter', 'Club fighter', 'Flint axeman', 'Copper swordsman', 'Bronze swordsman', 'Iron swordsman', 'Broadswordsman', 'Steel swordsman', 'Champion'],
+  ['', 'Spearman', 'Flint spearman', 'Copper spearman', 'Bronze spearman', 'Iron spearman', 'Pikeman', 'Halberdier', 'Greatswordsman'],
+  ['', 'Slinger', 'Yew archer', 'Copper archer', 'Bronze archer', 'Iron archer', 'Marksman', 'Crossbowman', 'Musketeer'],
+  [],
+  ['', 'Lancer', 'Flint lancer', 'Copper lancer', 'Bronze lancer', 'Iron lancer', 'Pike rider', 'Halberd rider', 'Greatsword rider'],
+];
+
+/** A troop's name: its weapon tier's ("Copper swordsman"), else its type's ("Brawler"). */
+export function troopTierName(troop: number, weaponTier: number): string {
+  return TROOP_TIER_NAMES[troop]?.[weaponTier] || (TROOP_NAMES[troop] ?? 'Warrior');
+}
+
+/** A troop's name in a sentence, with its article: "a club fighter", "an iron archer"; "A", "An" to start one. */
+export function aTroop(troop: number, weaponTier: number, start = false): string {
+  const name = troopTierName(troop, weaponTier).toLowerCase();
+  const a = /^[aeiou]/.test(name) ? 'an' : 'a';
+  return `${start ? a.charAt(0).toUpperCase() + a.slice(1) : a} ${name}`;
+}
 /** Command card letters (s): A Close melee, Q Long melee, N Ranger, B Brawler and C Cavalry at the Barracks (Patch 2: the Stables are gone) (L is Follow, G a building's upgrade). */
 export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C'];
 

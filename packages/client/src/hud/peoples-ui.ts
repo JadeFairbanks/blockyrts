@@ -130,6 +130,8 @@ export class PeoplesUi {
   private tradeSig = '';
   private hireSig = '';
   private warThen: (() => void) | null = null;
+  /** The last thing each faction said to this player (Patch 2: the trade menu and hire box show it, since chat no longer carries it). */
+  private readonly said = new Map<number, { name: string; text: string }>();
 
   constructor(
     root: HTMLElement,
@@ -155,6 +157,22 @@ export class PeoplesUi {
     this.tradeButtons = new Buttons(buttons, 'trd');
     this.hireButtons = new Buttons(buttons, 'hire');
     this.warButtons = new Buttons(buttons, 'war');
+  }
+
+  /**
+   * One of a faction's people said something to this player (a trade or hire
+   * answer, a greeting): its trade menu or hire box shows it under the title.
+   */
+  heard(faction: number, name: string, text: string): void {
+    this.said.set(faction, { name, text });
+    if (faction === this.tradeWith) this.drawTrade();
+    if (faction === this.hireFrom) this.drawHire();
+  }
+
+  /** Their last line to this player, under a menu's title. */
+  private saidLine(parent: HTMLElement, faction: number): void {
+    const s = this.said.get(faction);
+    if (s) el('p', 'dlg-said', parent, `${s.name}: "${s.text}"`);
   }
 
   get panelOpen(): boolean {
@@ -362,7 +380,7 @@ export class PeoplesUi {
       else if (n > h) this.draft.set(g, h);
     }
     const mine = this.mine();
-    const sig = JSON.stringify([f.stock, f.tradeWhy, f.offer, f.pays, f.room, mine, [...this.draft]]);
+    const sig = JSON.stringify([f.stock, f.tradeWhy, f.offer, f.pays, f.room, mine, [...this.draft], this.said.get(f.id)]);
     if (sig === this.tradeSig) return;
     this.tradeSig = sig;
     this.tradeButtons.clear();
@@ -371,6 +389,7 @@ export class PeoplesUi {
     const head = el('div', 'dlg-head', t);
     el('h3', 'dlg-title', head, `Trade with ${f.title}`);
     this.tradeButtons.add(head, { face: '×', name: 'Close', description: 'Close the trade menu (Esc). An offer left open stays open.', className: 'dlg-close', onPress: () => this.closeTrade() });
+    this.saidLine(t, f.id);
     if (f.lean) el('p', 'dlg-note', t, `They lean to ${f.lean}: what they make of it is cheap, and they pay well for what they lack.`);
     if (f.tradeWhy) el('p', 'dlg-why', t, f.tradeWhy);
     const cols = el('div', 'trade-cols', t);
@@ -490,7 +509,7 @@ export class PeoplesUi {
       return;
     }
     const silver = this.game.have(Res.Silver);
-    const sig = JSON.stringify([f.hire, silver]);
+    const sig = JSON.stringify([f.hire, silver, this.said.get(f.id)]);
     if (sig === this.hireSig) return;
     this.hireSig = sig;
     this.hireButtons.clear();
@@ -499,6 +518,7 @@ export class PeoplesUi {
     const head = el('div', 'dlg-head', h);
     el('h3', 'dlg-title', head, f.title);
     this.hireButtons.add(head, { face: '×', name: 'Close', description: 'Close (Esc).', className: 'dlg-close', onPress: () => this.closeHire() });
+    this.saidLine(h, f.id);
     el('p', 'dlg-note', h, `Swords for hire: ${HIRE_SILVER} silver a head for one day. They fight for you until dusk, then walk home. ${f.hire.left} of ${f.hire.size} here now; you have ${silver} silver.`);
     if (f.hire.why) el('p', 'dlg-why', h, f.hire.why);
     const row = el('div', 'dlg-row', h);
