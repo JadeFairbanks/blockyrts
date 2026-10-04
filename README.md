@@ -1766,6 +1766,66 @@ Patch 2 do not load (the standing rule for every patch).
    sound. Close the menu: the world is heard again. Online, either player's
    Pause does the same on both machines.
 
+## How a tester checks the middle's bars and layout (Patch 3)
+
+*Jade's Patch 3, the middle HUD items: the title row runs the full width
+with "HP:" and "XP:" bars to the clear button, the queue moves under it, and
+everything under the control groups grows to fill the section. Picks in
+blueprint/patch3-middle-hud-picks.md. The panel is
+`packages/client/src/hud/selection-panel.ts`, the fill
+`packages/client/src/hud/middle-fit.ts`, the XP bar's words
+`packages/client/src/hud/xp-bar.ts`; the sim sends each unit's experience
+and what its next rank needs (`rankXp`, unit fields 26 and 27).*
+
+1. **The tests.** `pnpm test` runs
+   `packages/client/test/patch3-middle-hud.test.ts`: the XP bar shows for
+   workers, troops and mages only, fills toward the next rank and words its
+   tooltip ("Soldier: 120 of 150 XP to Veteran."), is full at the top rank;
+   a long name breaks into two even lines; the fill takes the largest
+   twentieth that fits, up to 3 times, and shrinks to no less than three
+   quarters before it scrolls.
+2. **One worker.** `pnpm dev`, open http://localhost:5173/?seed=1 and click a
+   worker. The row under the control groups reads "Worker" in large letters
+   as tall as the two bars beside it, a thin vertical line, then "HP:" and
+   the health bar with 60/60 on it running to the ✕ button, and under it
+   "XP:" and a bar as long and as tall. No rank badge. The ✕ (F3 in its
+   corner) is as tall as the row. Hover the XP bar: "Labourer: 0 of 50 XP
+   to Hand." Set it building or gathering and the bar fills as it works
+   (the worker ranks of Patch 3, the section below). The tool, the bowl and
+   "Idle" under it are larger than live now: the whole block has grown to
+   fill the section, its pictures square, nothing stretched.
+3. **A troop.** Click a warrior: "Club fighter" (on two lines when the name
+   is too long for half the row), HP and XP. Hover XP: "Recruit: 20 of 50
+   XP to Soldier." Let it fight: the light blue bar fills; at 50 it becomes
+   a Soldier and the bar starts on Veteran's 150.
+4. **A mage and a rider.** Type M N B V C X Z, press **Sanctum**, **Mage
+   kit** and **Barn**, train a Support mage at the Sanctum and a cavalryman
+   at the Barracks. The mage's row has HP, XP and "MP:" (her mana) under it;
+   the rider's HP, XP and "Horse:"; every bar the same height, the ✕ as tall
+   as the three rows.
+5. **The Big House.** Select it and press A a few times: the workers queue
+   under the title row as large pictures read from the left, the first with
+   its bar, then a dark well for each place still free (5 in all). Click one
+   to cancel it. "Level 7" (with **Citadel**, else its level) is the first
+   picture under the queue.
+6. **The Barracks.** Press **Troop kit** and select the Barracks: the title
+   row with its health bar, the five wells of its queue, then the five cards
+   from the left. The section is taller than before (it grows upward just
+   enough, as the action menu's card does, never past the portrait beside
+   it). Click a card: its unit fills the first well. Open a weapon slot: the
+   tier strip still opens just above the middle, pointing at the slot.
+7. **Several.** Drag a box round everything: "7 selected" large, the ✕ at
+   the row's right end, the tabs and portraits under it filling the
+   section.
+8. **Sizes.** Resize the window to 1024 by 768 and to a phone (844 by 390):
+   the same layout at every size; on a phone the section does not grow, and
+   a Barracks' cards shrink a little to fit rather than hide their slots.
+   `node packages/client/test-e2e/middle-look.mjs http://localhost:5198
+   /tmp/shots` (with `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running) saves each of these at four screen sizes and checks the bars
+   run to the ✕, the XP bar matches the HP bar, the tier strip sits above
+   the middle and nothing spills past the frame.
+
 ## How a tester checks worker ranks and crew retraining (Patch 3)
 
 Jade's Patch 3 file, items 1 and 2. The picks are in
@@ -2219,7 +2279,8 @@ orders (`mageProduct`, `setKitLock`).*
    middle reads "Nothing selected" and the three help lines, as live now.
    The camera is a little closer than live now; zoom all the way out: it
    stops at 64 m (live now: 80 m). Home comes back to 36 m.
-3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it,
+3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it
+   (Patch 3 replaces the chevron with a divider and an XP bar, see below),
    the health bar with 100/100 on it, then the cudgel and armour slots with
    their tier numbers, the bowl with the next meal's bar, and "Idle". Hover
    each picture: the sentences live now in the panel are in its tooltip
@@ -2235,8 +2296,8 @@ orders (`mageProduct`, `setKitLock`).*
    slot showing the tier it would train now, and an open grey padlock.
    Hover a picture: the troop it trains by name ("Trains a Champion: ..."),
    its numbers, its cost, "Follows the stock: the best kit it pays for,
-   weapon first." Click it: one queues, shown in the title row; Shift +
-   click: five.
+   weapon first." Click it: one queues, shown in the title row (under it
+   since Patch 3); Shift + click: five.
 6. **The tier strip.** Click Close melee's weapon slot: a strip of tiers 0
    to 8 opens above the middle, pointing at the slot, the current tier in
    gold. Hover tier 3: "Trains a Copper swordsman.", the damage with the
@@ -2253,8 +2314,8 @@ orders (`mageProduct`, `setKitLock`).*
    saved with the game). Pick another tier on the locked card: the lock
    moves to it. Only the padlock opens it again.
 8. **Several Barracks.** Build a second Barracks and select both: the cards
-   show the first one's kits and a tile per Barracks in the title row with
-   its queue count. The padlock locks both; with one locked, it opens it.
+   show the first one's kits and a tile per Barracks in the title row (under
+   it since Patch 3) with its queue count. The padlock locks both; with one locked, it opens it.
 9. **Cavalry.** Before main base 3 the Cavalry card is grey with "Needs a
    level 3 main base."; with no horse in a Barn, "No grown tamed horse ready
    in a Barn.". Press **Barn** for a Barn with horses: the card counts the
