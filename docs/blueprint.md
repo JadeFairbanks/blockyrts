@@ -523,6 +523,7 @@ Jade's mini patch (2026-10-04; picks in mini-patch-spawns-picks.md):
 Patch 3 (2026-10-04):
 
 - Balance changes (Jade's editor export balance-changes-2026-10-04.json; picks in patch3-balance-picks.md): wild animals, the hostile tribes, village goblins and the wolf rider, the Elf caravan wagon and five Halfling units take Jade's new health and damage (for example bear 200 health and 16 damage, was 400 and 25; minotaur 250 and 30, was 900 and 45; hobgoblin 60 and 10, was 220 and 22), and a monster counts as rare and powerful for loot remarks from 500 health (was 1,000). Saves from before Patch 3 are refused (snapshot 19, save format 5).
+- Making room (Jade's anti-clumping ask; picks in patch3-anti-clumping-picks.md): idle units, animals and monsters standing on top of one another spread out by themselves, just far enough, onto ground they could walk to; workers at a job only shift within their own column, fighters stay in reach of their foe, and anyone walking passes through everyone, so nothing is ever a hard block (see Making room under Controls).
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
@@ -1401,6 +1402,16 @@ Dead units drop out of their groups automatically. When a group of identical bui
 **Order feedback.** Every order the game accepts plays a short marker at the target point: a green ring for move, a red ring for attack, a yellow ring for patrol, and the outline of the target for a unit or resource. Selected units also play a short voice or sound cue. An order that cannot be carried out (no path, nothing selected can do that) plays an error sound and a short message at the top centre instead.
 
 **Group movement.** When a group is told to move to one point, the units keep roughly the shape they had and spread out around the target point rather than all trying to stand on the same spot. Units in a group travel at the speed of the slowest unit in it when they start close together, so they arrive together.
+
+**Making room (Jade, Patch 3, 2026-10-04).** Units, animals and monsters are discouraged from standing on top of one another, but nothing is ever a hard block (Jade): bodies pass through each other while they walk, and the land can press them together, in a pit, on a pillar or in a one-column passage. Each step, after everyone has acted, a body standing about that overlaps others is eased out of them, just far enough that two bodies stand 90% of their two half widths apart (two workers 54 cm), at up to 1 m/s, onto ground it could walk to: dry, no more than a stair step up or down, not onto a building's plot it is not already on, and kept 11 cm off any column edge it could not step across (s). How each gives way (s):
+
+- Idle units, animals and monsters spread freely, turning and stepping aside, and stop as soon as no one overlaps, so a clump of idle units fans out by itself without commands and no farther than it needs (Jade).
+- Units at their job (chopping, mining, farming, digging, tinkering) only shift inside the column they stand on, which the work never looks at: many workers on one tree or rock work at their usual pace and none is pushed the wrong way (Jade).
+- Anyone walking (on the way somewhere, carrying, chasing, fleeing, a monster on the march) neither gives way nor pushes: it passes through, so making room never delays a worker (Jade) and a horde reaches a wall where it would have.
+- Fighters standing to strike fan out round their foe without leaving its reach or range or putting a wall between them, so they strike as often as before; followers stay within the follow distance and crewmen within reach of their engine.
+- Units on Hold or waiting their turn at a node, units held or working beside an animal, siege engines and cannons, lairs and other structures, and monsters mid-swing or chewing at a wall stand fast, and others make room round them. A horde at a wall keeps chewing the piece on its line to its foe, as it did before Patch 3. Flyers and climbers are left alone.
+
+The numbers are in the balance editor's Units group, under Making room.
 
 #### Command card and hotkeys
 
