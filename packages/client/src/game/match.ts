@@ -112,7 +112,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
 
   const canvas = document.getElementById('view') as HTMLCanvasElement;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // three.js r186 has only the one filtered kind of shadow map left (it swapped PCFSoftShadowMap for it with a warning).
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   const scene = new THREE.Scene();
 
   const world = new WorldView({ scene, seed: plan.seed, players, player: PLAYER, colours: seats.map((s) => colourHex(s.colour)) });
@@ -585,6 +586,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     shell.frame(dt, now);
     audio.setPaused(stopped());
     audio.frame(shell.cam.focus.x, shell.cam.focus.z, now);
+    // The shadow box follows the camera as it stands this frame.
+    world.aimSun(shell.cam.camera, shell.cam.focus);
     renderer.render(scene, shell.cam.camera);
     // The draw calls are the world's: read them before the portrait's own render resets them.
     const drawCalls = renderer.info.render.calls;

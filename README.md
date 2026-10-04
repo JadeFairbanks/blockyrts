@@ -2683,6 +2683,45 @@ blueprint/patch3-lair-alerts-picks.md. The alert is
    LAIR_PING_STEPS (6 s), "Minimap ping at a new lair lasts", under Lairs,
    tribes and villages, Lair alerts.
 
+## How a tester checks the steady shadows
+
+*Jade's bug (2026-10-04): the shadows of buildings, land and maybe units
+sometimes vanish and come back, rarely at the start and more as units work
+and more land is explored, with the camera still or moving. The cause: a
+mesh got its shadow flags from a sweep once a second, so land redrawn after
+a tree fell or a block was dug (that chunk and its four neighbours), land
+redrawn every 20 s as plants grow, a chunk changing detail as the camera
+moved and a building rebuilt at its next stage all drew without shadows for
+up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
+`packages/client/src/world/sun-shadows.ts`, used by
+`packages/client/src/world/world-view.ts` and `packages/client/src/game/match.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/shadow-flicker.test.ts:
+   a mesh has its shadow flags the moment it is added, whole chunks and
+   meshes added later to groups already in the world alike (water and
+   other see-through things take shadows but cast none); the shadow box
+   holds the ground on screen at every zoom on five screen shapes, grows in
+   4 m steps as the camera zooms out, and moves by whole shadow-map texels
+   as the camera pans, so a building's corner stays on the same texel; the
+   sun shines from the same place throughout.
+2. **In the game.** `pnpm dev`, open http://localhost:5173/?seed=1 with
+   Shadows on (Medium or High) and send every worker to fell trees by the
+   Big House. Watch the shadows of the house, the trees and the land beside
+   the felled trees for a minute with the camera still: none blink out,
+   when a tree falls or every 20 s when the plants regrow. Then pan slowly:
+   shadow edges hold still on the ground instead of crawling, and zoomed
+   all the way out the far corners of the screen have shadows too (they
+   stopped at a line before). Zoomed in, shadows are a little crisper than
+   before, as the box shrinks to the ground on screen.
+3. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/shadow-look.mjs http://localhost:5198 /tmp/shots`
+   watches every frame for a mesh drawn without its shadows with the camera
+   still, while workers fell trees and while the camera pans, then checks
+   the box's texels and its cover at five zooms, printing ok or FAIL for
+   each. Before the fix it found such frames in all three (with 28 to 67
+   land redraws in each part), the box off the texel grid by up to half a texel,
+   and screen corners up to 17 m outside the box zoomed out.
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows

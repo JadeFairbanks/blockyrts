@@ -3072,7 +3072,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Autosave | every dawn; newest 5 matches kept in the browser; also on the server with an account (online, the host's only) |
 | Save file | .sac, with a SEAT section (each seat's name, colour and account); loading gives the saved hash |
 | Graphics presets | Low: resolution 75%, no shadows, view near; Medium (default): 100%, shadows, medium; High: 100%, shadows, far |
-| Graphics ranges | resolution scale 50 to 100%; sun shadows cover 45 m round the camera; view distance near, medium, far = 5, 7, 9 chunk rings |
+| Graphics ranges | resolution scale 50 to 100%; sun shadows cover the ground on screen at every zoom (a 2,048 map over a box sized in 4 m steps, 80 m across at the start's zoom on a 16:9 screen; 45 m round the camera before the shadow fix); view distance near, medium, far = 5, 7, 9 chunk rings |
 | Volumes (default) | music 70%, effects 80%, voices 80% |
 | First-day tips (hints before Patch 2) | 5, one at a time: select a worker, gather wood, build, light a torch, Everyone Home at dusk; each shows for 12 s of game time (Patch 2) |
 | Accounts | email, name, password of 8 or more characters; forgot password by email link |
