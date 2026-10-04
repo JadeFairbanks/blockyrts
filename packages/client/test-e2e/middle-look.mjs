@@ -139,6 +139,20 @@ for (const [label, width, height] of SCREENS) {
   if (bars.hp && bars.xp) check(`${label} worker: HP and XP bars are as long and as tall as each other`, Math.abs(bars.hp.width - bars.xp.width) < 1 && Math.abs(bars.hp.height - bars.xp.height) < 1, `${bars.hp.width}x${bars.hp.height} ${bars.xp.width}x${bars.xp.height}`);
   check(`${label} warrior selected`, (await select('warrior')) !== '');
   await shotMiddle('warrior');
+  // The XP bar's tooltip: the rank now, the points and the next rank.
+  if (!phone) {
+    const xp = await page.evaluate(() => {
+      const b = document.querySelector('.sel-bar.xp')?.getBoundingClientRect();
+      return b ? { x: b.left + b.width / 2, y: b.top + b.height / 2 } : null;
+    });
+    if (xp) {
+      await page.mouse.move(xp.x, xp.y);
+      await page.waitForTimeout(900);
+      const tip = await page.evaluate(() => document.querySelector('#tooltip')?.textContent ?? '');
+      check(`${label} warrior: the XP bar's tooltip gives the points and the next rank`, /Recruit: \d+ of 50 XP to Soldier\./.test(tip), tip);
+      await page.mouse.move(5, 5);
+    }
+  }
   if ((await select('mage')) !== '') await shotMiddle('mage');
   else check(`${label} a mage trained`, false);
   if ((await select('cavalry')) !== '') await shotMiddle('cavalry');
@@ -153,6 +167,18 @@ for (const [label, width, height] of SCREENS) {
     if (b) for (let i = 0; i < 4; i++) s.commands.trainCard([b.id], 1 + (i % 3), 1);
   });
   await shotMiddle('barracks');
+  // A card's weapon slot opens the tier strip just above the middle, pointing at the slot.
+  await page.evaluate(() => window.shell.buttons.get('card-1-w')?.def.onPress?.({ shift: false, ctrl: false }));
+  await page.waitForTimeout(600);
+  const strip = await page.evaluate(() => {
+    const t = document.querySelector('.tier-strip');
+    const p = document.querySelector('.selection-panel');
+    if (!t || t.hidden) return null;
+    return { bottom: t.getBoundingClientRect().bottom, top: p.getBoundingClientRect().top };
+  });
+  check(`${label} barracks: the tier strip opens just above the middle`, strip !== null && strip.bottom <= strip.top && strip.top - strip.bottom < 16, JSON.stringify(strip));
+  await page.screenshot({ path: join(out, `middle-${label}-strip.png`) });
+  await page.keyboard.press('Escape');
   check(`${label} several selected`, (await select('several')) !== '');
   await shotMiddle('several');
   if ((await select('animal')) !== '') await shotMiddle('animal');
