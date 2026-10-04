@@ -3029,7 +3029,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Keys | [ Allies, ] Send resources, \ Map ping, Pause key, Enter chat; all rebindable except Enter |
 | Send resources | +10, +100, All or a typed amount; arrives at once |
 | Relay protocol | version 3 since Milestone 11 (version 2 added each player's account id to the room state) |
-| Shared vision | the players are one side with one picture: explored land, what is in sight now, and found goblin villages and settlements on every minimap are shared (every lair shows to everyone from the start since Patch 3); meeting a people stays each player's own; an Attack keeps its target while anyone on the side sees it (s, PR #68) |
+| Shared vision | the players are one side with one picture: explored land, what is in sight now, and found goblin villages and settlements on every minimap are shared (since Patch 3 every lair shows to everyone from the moment it appears); meeting a people stays each player's own; an Attack keeps its target while anyone on the side sees it (s, PR #68) |
 | Save format | a save from before the shared vision patch loads with every player's explored land joined into one; version 2 since Milestone 11; a save from before the troop rework is refused with "That save is from before the troop rework ... Start a new game." |
 
 ### Audio
