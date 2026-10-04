@@ -23,7 +23,7 @@ import { maxHealth, type Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { nearestFoe, UP_TOP_FOE_WU } from '../combat/fight.ts';
 import { EAT_NUTRITION, eatableFood } from '../economy/food.ts';
-import { costText, pay, RESOURCES, type Cost, type Res } from '../economy/resources.ts';
+import { costText, RESOURCES, type Cost, type Res } from '../economy/resources.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder } from '../orders.ts';
 import { askHooks, asking, foesName, say, sayBuilding } from '../peoples/speech.ts';
@@ -32,7 +32,7 @@ import { Role } from '../threats/types.ts';
 import { giveOrder, stopUnit } from './behaviour.ts';
 import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf } from './forage.ts';
 import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, techOf } from './gear.ts';
-import { Line, upgradeTarget, type KitHolder, type TechView } from './kits.ts';
+import { equipmentPlans, Line, upgradeTarget, type EquipmentHolder, type KitHolder, type TechView } from './kits.ts';
 import { topOf } from './top.ts';
 
 /** The questions (Patch 2, round 3's table, in its order). */
@@ -96,6 +96,14 @@ interface Question {
    */
   holds?: () => boolean;
   unask?: () => void;
+  /**
+   * Yes's tooltip worked out afresh from the stock as it is now, or null when
+   * the stock no longer pays for anything it offers (it is then withdrawn as
+   * above). Checked every step the stock has changed and once a second; new
+   * words go to its owner's buttons (Patch 3: the start's two upgrade
+   * questions count what is left once the other is answered).
+   */
+  recount?: () => string | null;
 }
 
 /** A question waiting for a free place among its player's open ones: made afresh when its turn comes, or null if it no longer holds. */
@@ -203,6 +211,14 @@ function put(state: SimState, q: Question): void {
   state.events.push(ev);
 }
 
+/** Yes's tooltip has new words (recount): the bubble stays, the buttons' tooltip changes. */
+function retell(state: SimState, q: Question): void {
+  const ev: SimEvent = { player: q.player, kind: 'question', text: q.text, ask: { ...q.info, units: [...q.info.units], retold: true } };
+  if (q.building) ev.building = q.who;
+  else ev.speaker = q.who;
+  state.events.push(ev);
+}
+
 /** Ends a question: its bubble goes on every machine. */
 function close(state: SimState, q: Question): void {
   const book = bookOf(state);
@@ -276,28 +292,42 @@ function wantsKit(state: SimState, book: Book, i: number, pool: Int32Array, tech
 
 /**
  * What a group's upgrades would take from the stock, worked out as Yes would
- * spend it: every weapon first, then the armour; and how many of the group
- * the stock pays for (each unit pays as it is sent, the highest rank first,
- * until the stock runs short: never more than it holds, Jade's Patch 3).
+ * spend it (the same plans Upgrade equipment pays): every weapon first, then
+ * the armour; and how many of the group the stock pays for (each unit pays as
+ * it is sent, the highest rank first, until the stock runs short: never more
+ * than it holds, Jade's Patch 3). A piece already on its way is not counted.
  */
 function kitCost(state: SimState, units: readonly number[], pool: Int32Array, tech: TechView): { cost: Cost; paid: number } {
   const e = state.entities;
-  const left = Int32Array.from(pool);
+  const list: EquipmentHolder[] = [];
+  for (const i of units) {
+    const h = kitHolder(state, i);
+    if (h) list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pendingW: pendingKitUp(state, i, Line.Weapon) !== undefined, pendingA: pendingKitUp(state, i, Line.Armour) !== undefined });
+  }
+  const plans = equipmentPlans(list, pool, tech);
   const total = new Map<Res, number>();
-  const paid = new Set<number>();
-  const order = [...units].sort((a, b) => e.rank[b]! - e.rank[a]! || e.id[a]! - e.id[b]!);
   for (const line of [Line.Weapon, Line.Armour]) {
-    for (const i of order) {
-      const h = kitHolder(state, i);
-      if (!h) continue;
-      const t = upgradeTarget(h, line, true, left, tech);
-      if (!('to' in t)) continue;
-      pay(left, t.plan.cost);
-      paid.add(i);
-      for (const [r, n] of t.plan.cost) total.set(r, (total.get(r) ?? 0) + n);
+    for (const p of plans) {
+      const plan = line === Line.Weapon ? p.wPlan : p.aPlan;
+      if (plan) for (const [r, n] of plan.cost) total.set(r, (total.get(r) ?? 0) + n);
     }
   }
-  return { cost: [...total], paid: paid.size };
+  return { cost: [...total], paid: plans.filter((p) => p.wPlan || p.aPlan).length };
+}
+
+/** Yes's tooltip for a better-kit question about these units (the stock pays for `paid` of them). */
+function kitYes(state: SimState, units: readonly number[], cost: Cost, paid: number): string {
+  const e = state.entities;
+  const n = units.length;
+  const workers = units.length > 0 && e.kind[units[0]!] === UnitKind.Worker;
+  const where = units.some((j) => e.kind[j] === UnitKind.Mage) ? 'Forge, Barracks, main base or Magi Sanctum' : 'Forge, Barracks or main base';
+  const best = workers ? 'the best tools' : 'the best weapon and armour';
+  const first = workers ? '' : ', the weapon first';
+  const from = cost.length ? ` From the stock: ${costText(cost)}.` : '';
+  if (n === 1) return `It goes to the nearest ${where} and takes ${best} the stock pays for${first}.${from}`;
+  // The stock may not stretch to all of them: those it pays for go, the highest rank first, and the rest keep theirs.
+  if (paid > 0 && paid < n) return `The stock pays for ${paid} of the ${n}, the highest rank first: they go to the nearest ${where} and take ${best} it pays for${first}; the rest keep their ${workers ? 'tools' : 'kit'}.${from}`;
+  return `All ${n} go to the nearest ${where} and take ${best} the stock pays for${first}.${from}`;
 }
 
 /**
@@ -326,25 +356,35 @@ function askKit(state: SimState, book: Book, i: number, pool: Int32Array, tech: 
     offers.push(o);
   }
   // Each is asked again only once the stock pays for better than this.
+  const before = group.map((j) => book.kit.get(e.id[j]!));
   group.forEach((j, k) => {
-    const was = book.kit.get(e.id[j]!) ?? 0;
+    const was = before[k] ?? 0;
     book.kit.set(e.id[j]!, Math.max(offers[k]! >> 4, was >> 4) * 16 + Math.max(offers[k]! & 15, was & 15));
   });
   const n = group.length;
   const { cost, paid } = kitCost(state, group, pool, tech);
-  const where = group.some((j) => e.kind[j] === UnitKind.Mage) ? 'Forge, Barracks, main base or Magi Sanctum' : 'Forge, Barracks or main base';
   const kit = workers ? 'tools' : 'kit';
   const text = n === 1 ? `I could use better ${kit}. Upgrade?` : `${countWord(n)} of us could use better ${kit}. Upgrade?`;
-  const best = workers ? 'the best tools' : 'the best weapon and armour';
-  const first = workers ? '' : ', the weapon first';
-  const from = cost.length ? ` From the stock: ${costText(cost)}.` : '';
-  let yes: string;
-  if (n === 1) yes = `It goes to the nearest ${where} and takes ${best} the stock pays for${first}.${from}`;
-  // The stock may not stretch to all of them: those it pays for go, the highest rank first, and the rest keep theirs.
-  else if (paid > 0 && paid < n) yes = `The stock pays for ${paid} of the ${n}, the highest rank first: they go to the nearest ${where} and take ${best} it pays for${first}; the rest keep their ${kit}.${from}`;
-  else yes = `All ${n} go to the nearest ${where} and take ${best} the stock pays for${first}.${from}`;
   const no = `${n === 1 ? 'It keeps its' : 'They keep their'} ${kit}. Asked again only once the stock pays for something better still.`;
-  put(state, unitQuestion(state, Ask.Kit, i, group, text, yes, no));
+  const q = unitQuestion(state, Ask.Kit, i, group, text, kitYes(state, group, cost, paid), no);
+  // What Yes would take is counted again whenever the stock changes (the other start question answered, a building paid for): never more than is left (Jade's Patch 3).
+  const counted = Int32Array.from(pool);
+  q.recount = () => {
+    const now = state.players[player]!.pool;
+    if (state.step % STEPS_PER_SECOND !== 0 && now.every((v, r) => v === counted[r])) return q.info.yes;
+    counted.set(now);
+    const units = own(state, player, q.info.units).filter((j) => kitHolder(state, j) !== undefined);
+    const c = kitCost(state, units, now, techOf(state, player));
+    return c.paid === 0 ? null : kitYes(state, units, c.cost, c.paid);
+  };
+  // Withdrawn (the stock pays for none of them now), not answered No: they may ask again once it does.
+  q.unask = () =>
+    q.info.units.forEach((id, k) => {
+      const was = before[k];
+      if (was === undefined) book.kit.delete(id);
+      else book.kit.set(id, was);
+    });
+  put(state, q);
   // The start's tools question comes with the main base's word of advice, once a game, on the first day.
   if (workers && !book.advised.has(player) && clockAt(state.step, state.blood).cycle === 0) {
     const base = mainBaseOf(state, player);
@@ -564,6 +604,15 @@ export function updateQuestions(state: SimState): void {
     else if (q.holds && !q.holds()) {
       close(state, q);
       q.unask?.();
+    } else if (q.recount) {
+      const yes = q.recount();
+      if (yes === null) {
+        close(state, q);
+        q.unask?.();
+      } else if (yes !== q.info.yes) {
+        q.info.yes = yes;
+        retell(state, q);
+      }
     }
   }
   if (book.waiting.length > 0) {

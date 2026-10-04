@@ -3,7 +3,8 @@
 // action's line is in the present tense and its bubble stays while the bar
 // runs; at the start the workers ask about their tools as the warriors ask
 // about their kit, Yes spends the stock first come first served and never
-// more than it holds, and the main base gives its word of advice once.
+// more than it holds, each Yes's tooltip counts what is left, and the main
+// base gives its word of advice once.
 import { describe, expect, it } from 'vitest';
 import {
   addAnimal,
@@ -279,6 +280,39 @@ describe("the start's two upgrade questions (Jade's Patch 3)", () => {
     }
     return out;
   }
+
+  it("counts what is left in the other question's tooltip once one is answered", () => {
+    const { s, kit, tools, evs } = start();
+    // Nothing has changed yet: no new words.
+    expect(evs.some((x) => x.kind === 'question' && x.ask!.retold)).toBe(false);
+    const after = run(s, 2, [answer(kit, true)]);
+    const told = after.filter((x) => x.kind === 'question' && x.ask!.retold);
+    expect(told.length).toBe(1);
+    expect(told[0]).toMatchObject({ player: 0, speaker: tools.speaker, text: tools.text });
+    expect(told[0]!.ask!.id).toBe(tools.ask!.id);
+    const yes = 'The stock pays for 2 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 12 hardwood sticks, 2 flint, 10 stone.';
+    expect(told[0]!.ask!.yes).toBe(yes);
+    expect(openQuestions(s).find((x) => x.id === tools.ask!.id)!.yes).toBe(yes);
+    // It is what Yes now does: two workers go.
+    const before = pending(s).size;
+    run(s, 1, [answer(tools, true)]);
+    expect(pending(s).size - before).toBe(2);
+  });
+
+  it('withdraws the tools question when the stock pays for none of them, and asks again once it does', () => {
+    const { s, tools } = start();
+    const pool = s.players[0]!.pool;
+    const flint = pool[Res.Flint]!;
+    pool[Res.Flint] = 0;
+    const after = run(s, 2);
+    expect(closed(after, tools.ask!.id)).toBe(true);
+    expect(openQuestions(s).some((x) => x.id === tools.ask!.id)).toBe(false);
+    // A withdrawn question is not a No: with the flint back they ask again.
+    pool[Res.Flint] = flint;
+    const again = asked(run(s, 2 * SEC), Ask.Kit).filter((x) => x.text.includes('better tools'));
+    expect(again.length).toBe(1);
+    expect(again[0]!.ask!.yes).toBe(tools.ask!.yes);
+  });
 
   for (const order of ['warriors first', 'workers first', 'both in one step'] as const) {
     it(`spends the stock first come first served and never more than it holds (${order})`, () => {
