@@ -3,7 +3,7 @@
 // copies of the state, so they can be checked without a browser. The
 // engine that plays them is @blockyrts/audio.
 import { MOB_SOUND_NAMES, type AmbienceId, type MobSoundName, type MusicStateId, type VoiceEventId, type VoiceFamilyId } from '@blockyrts/audio';
-import { Engine, gearSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
+import { Ask, Engine, gearSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
 
 /** What the client knows about the thing a hit, death or shot names. */
 export interface Who {
@@ -202,8 +202,12 @@ export function orderVoice(orderKind: string): VoiceEventId {
 }
 
 /** What a sim event says out loud: a sound, and a voice cue from its speaker. */
-export function eventCue(ev: { kind: string; text: string; urgent?: boolean | undefined; foreign?: boolean | undefined; sound?: string | undefined }): { sound: string | null; voice: VoiceEventId | null } {
-  if (ev.kind === 'idle') return { sound: 'alert_idle_worker', voice: 'resource_out' };
+export function eventCue(ev: { kind: string; text: string; urgent?: boolean | undefined; foreign?: boolean | undefined; sound?: string | undefined; ask?: { q: number; closed?: boolean | undefined } | undefined }): { sound: string | null; voice: VoiceEventId | null } {
+  if (ev.kind === 'question') {
+    // A question as it goes up (Patch 2): the gatherer that ran out keeps the idle gatherer's alert and voice; the others chime.
+    if (!ev.ask || ev.ask.closed) return { sound: null, voice: null };
+    return ev.ask.q === Ask.Farther ? { sound: 'alert_idle_worker', voice: 'resource_out' } : { sound: 'ui_message', voice: null };
+  }
   if (ev.sound === 'double-horn') return { sound: 'horn_blood_night', voice: null };
   const t = ev.text.toLowerCase();
   if (ev.kind === 'speech') {

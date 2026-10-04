@@ -25,6 +25,7 @@ import { say } from '../peoples/speech.ts';
 import { partnerOf } from './weight.ts';
 import {
   applyKit,
+  aTroop,
   holderKind,
   Line,
   linePiece,
@@ -110,8 +111,8 @@ export function pendingKitUp(state: SimState, i: number, line: number): KitUpOrd
   return state.entities.queue[i]!.find((q): q is KitUpOrder => q.t === 'kitUp' && q.line === line);
 }
 
-/** Puts an order in front of whatever the unit was doing. */
-function inFront(state: SimState, i: number, o: UnitOrder): void {
+/** Puts an order in front of whatever the unit was doing, so it carries on after. */
+export function inFront(state: SimState, i: number, o: UnitOrder): void {
   const e = state.entities;
   e.queue[i]!.unshift(o);
   e.act[i] = Act.Start;
@@ -316,7 +317,8 @@ export function runCart(state: SimState, i: number, o: CartOrder): boolean {
       pool[o.res] = pool[o.res]! - 1;
       e.kit[i] = o.res;
     } else {
-      say(state, i, 'That cart is gone!');
+      // An order that failed: it needs the player (Patch 2, What reaches chat).
+      say(state, i, 'That cart is gone!', true);
     }
   }
   return true;
@@ -363,6 +365,6 @@ export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 
   e.timer[i] = e.timer[i]! + 1;
   if (e.timer[i]! < t.steps) return false;
   e.skills[i] = e.skills[i]! | o.skill;
-  state.events.push({ player: b.owner, kind: 'info', text: `A warrior has learned ${t.name} at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
+  state.events.push({ player: b.owner, kind: 'info', text: `${aTroop(e.troop[i]!, e.wTier[i]!, true)} has learned ${t.name} at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
   return true;
 }

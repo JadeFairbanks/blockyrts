@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   Act,
+  Ask,
   CLOSE_GEAR,
   TOOL_FIELDS,
   TOOL_GEAR,
@@ -48,6 +49,7 @@ import {
   WU_PER_METRE,
   type Building,
   type Order,
+  type SimEvent,
   type SimState,
 } from '../src/index.ts';
 
@@ -234,7 +236,7 @@ describe('gathering', () => {
             expect(ev.quiet).toBe(true);
           }
         }
-        expect(s.events.some((ev) => ev.kind === 'idle')).toBe(false);
+        expect(s.events.some((ev) => ev.kind === 'question' && ev.ask?.q === Ask.Farther)).toBe(false);
         return line !== '';
       },
       14000,
@@ -247,20 +249,26 @@ describe('gathering', () => {
     expect(line).toMatch(/^No more softwood here\. (I'll gather \w[\w ]* instead\.|We're (out of|low on) [\w ]+, so I'll gather that\.)$|^No more softwood here, and we're/);
   });
 
-  it('goes idle with an alert when its trees run out and nothing the camp gathers is near', () => {
+  it('goes idle and asks to look farther off when its trees run out and nothing the camp gathers is near', () => {
     const s = createWorld(1, { peaceful: true });
     const node = nearestNode(s, Res.SoftwoodLumber);
     clearAround(s, node, 120, (res) => res >= 0 && basicMaterial(res));
     run(s, 1, [{ kind: 'gather', player: 0, units: [1], ...node }]);
-    let idle = false;
+    let asked: SimEvent | undefined;
     runUntil(
       s,
       () => {
-        idle ||= s.events.some((ev) => ev.kind === 'idle' && ev.player === 0);
-        return idle;
+        // (The warriors may ask about better kit meanwhile.)
+        asked ??= s.events.find((ev) => ev.kind === 'question' && ev.player === 0 && ev.ask?.q === Ask.Farther && !ev.ask.closed);
+        return asked !== undefined;
       },
       14000,
     );
+    // Patch 2: the idle alert became a question over the gatherer.
+    expect(asked!.ask!.q).toBe(Ask.Farther);
+    expect(asked!.ask!.res).toBe(Res.SoftwoodLumber);
+    expect(asked!.speaker).toBe(1);
+    expect(asked!.text).toBe('No more softwood nearby. Look farther off?');
     runUntil(s, () => s.entities.queue[0]!.length === 0, 2000);
     expect(s.entities.carryAmt[0]).toBe(0);
   });

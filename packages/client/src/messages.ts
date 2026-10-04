@@ -190,8 +190,8 @@ export interface BuildingInfo {
   /** Level being built as an upgrade, or 0, and how far, per mille. */
   upgrading: number;
   upgraded: number;
-  /** Production queue: product and per mille done (the first only). */
-  queue: Array<{ product: number; done: number }>;
+  /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold). */
+  queue: Array<{ product: number; done: number; stepsLeft: number }>;
   rally: RallyPoint[];
   /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
   lit: boolean;

@@ -13,6 +13,7 @@ import { FOODS } from '../economy/resources.ts';
 import { floorDiv, WU_PER_METRE } from '../fixed.ts';
 import { MONSTERS, NEUTRAL, NO_CARRY, PEOPLES, UnitKind, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
+import { askHooks } from '../peoples/speech.ts';
 import { killXpTenths } from '../rules.ts';
 import { destroyBuilding, dropQueue, isFarm } from '../units/behaviour.ts';
 import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp } from './combat.ts';
@@ -104,6 +105,8 @@ function onUnitDeath(state: SimState, i: number): void {
     peoplesHooks.death(state, i, shareKillXp(state, i, killXpTenths(null, e.maxHp[i]!)));
     return;
   }
+  // An engine it crewed may ask for another (Patch 2, round 3).
+  askHooks.fell(state, i);
   // Gear set aside for it goes back to the stock; what it wore is lost with it, and the loot it carried falls where it fell.
   dropQueue(state, i);
   if (!bagEmpty(state, i)) {

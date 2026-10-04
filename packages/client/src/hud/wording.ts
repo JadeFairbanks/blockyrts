@@ -1,8 +1,9 @@
 // What the HUD's words say and where they go (patch notes 1). Counted words
 // agree with one: "1 more minute", "1 egg", "0 of 1 worker", whoever wrote
 // the line (the sim's status lines and messages, the client's own). And
-// speech reaches the message panel only when it needs the player; the rest
-// stays a bubble over the speaker, as random remarks always did.
+// speech reaches the message panel only when the speaker is the player's own
+// and it needs them now (Patch 2); the rest stays a bubble over the speaker,
+// as random remarks always did.
 import type { SimEvent } from '@blockyrts/sim';
 
 /** Counted nouns the game's lines use, in the singular. */
@@ -61,17 +62,24 @@ export function count(n: number, singular: string, plural = pluralOf(singular)):
 }
 
 /**
- * Whether a line of speech goes to the message panel as well as its bubble.
- * Lines the sim marks quiet only tell what a unit is doing (eating, hunting,
- * gathering, loot picked up, an upgrade done) and stay bubbles, as random
- * remarks do. An own unit's other lines go (attacked, cannot reach, nowhere
- * to upgrade); a foreign line goes when said to this player (the trade
- * menu's answers), or when important and heard: one of the player's units
- * near, or the speaker on screen.
+ * Whether a line of speech goes to the message panel as well as its bubble
+ * (Patch 2, What reaches chat; Jade: "only ones that urgently need your
+ * attention from units that belong directly to you"). Both must hold:
+ *
+ * 1. The speaker belongs to this player: not a unit they only control
+ *    (shared control, or one a leaver left behind), not another people's.
+ * 2. It needs the player now: an order they gave has failed, the unit is in
+ *    danger or being harmed, or it has stopped and will not carry on without
+ *    them. The sim marks those lines urgent; for new lines, decide by this
+ *    test and mark them so (peoples/speech.ts say).
+ *
+ * Everything else stays a bubble, as random remarks always did; questions
+ * never reach chat. A people's line with nobody on the map to say it (a
+ * faction gone from the map) cannot be a bubble, so it still reaches the
+ * panel of the player it is said to.
  */
-export function speechToPanel(ev: Partial<Pick<SimEvent, 'foreign' | 'urgent' | 'quiet' | 'player' | 'important' | 'near'>>, player: number, onScreen: boolean): boolean {
-  if (ev.quiet) return false;
-  if (!ev.foreign) return true;
-  if (ev.player === player) return true;
-  return ev.important === true && (((ev.near ?? 0) & (1 << player)) !== 0 || onScreen);
+export function speechToPanel(ev: Partial<Pick<SimEvent, 'foreign' | 'urgent' | 'quiet' | 'player' | 'speaker' | 'kind'>>, player: number): boolean {
+  if (ev.kind === 'question' || ev.quiet || ev.player !== player) return false;
+  if (ev.foreign) return !ev.speaker;
+  return ev.urgent === true;
 }
