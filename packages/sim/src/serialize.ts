@@ -168,11 +168,12 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * renumbered), each unit's timed action (the tinker column) and the unit a
  * shot was aimed at (projectile mark). 18: Jade's mini patch, the world 30%
  * smaller and the main bases 10 to 15 m apart (a snapshot's land and start
- * pockets no longer match its seed). Every patch raises it, and a snapshot
+ * pockets no longer match its seed). 19: Patch 3 (Jade's balance changes and
+ * the patch's other threads). Every patch raises it, and a snapshot
  * from any other version is refused, never carried over (Jade, Patch 2: a
  * standing rule).
  */
-export const SNAPSHOT_VERSION = 18;
+export const SNAPSHOT_VERSION = 19;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 

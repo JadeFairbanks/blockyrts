@@ -347,33 +347,33 @@ const MOB_ROWS: readonly MobRow[] = [
   },
   // Hostile tribes (roster 6.1, Table 16). They roam by day, so none of them burns or flees in the sun (s: the roster's kobold "flees").
   {
-    ...base, id: Mob.Gnoll, name: 'Gnoll', model: 'gnoll', firstNight: 0, hp: 140, armourBp: 1500, damage: 18, attackSteps: ds(13), reach: cm(200), speed: v10(35), vsWalls: 4,
+    ...base, id: Mob.Gnoll, name: 'Gnoll', model: 'gnoll', firstNight: 0, hp: 80, armourBp: 1500, damage: 10, attackSteps: ds(13), reach: cm(200), speed: v10(35), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 30, halfWidth: cm(35), height: cm(190), role: TRIBE,
     drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 30 }],
   },
   {
-    ...base, id: Mob.Kobold, name: 'Kobold', model: 'kobold', firstNight: 0, hp: 35, armourBp: 500, damage: 8, attackSteps: ds(10), reach: cm(200), speed: v10(35), climbSpeed: v10(8), vsWalls: 2,
+    ...base, id: Mob.Kobold, name: 'Kobold', model: 'kobold', firstNight: 0, hp: 28, armourBp: 500, damage: 6, attackSteps: ds(10), reach: cm(200), speed: v10(35), climbSpeed: v10(8), vsWalls: 2,
     moves: Moves.Climber, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(25), height: cm(110), role: TRIBE,
     drops: [{ res: Res.CopperOre, min: 1, max: 1, chancePm: 200 }, { res: Res.TinOre, min: 1, max: 1, chancePm: 200 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.Hobgoblin, name: 'Hobgoblin', model: 'hobgoblin', firstNight: 0, hp: 220, armourBp: 4000, damage: 22, attackSteps: ds(14), reach: cm(150), speed: v10(28), vsWalls: 8,
+    ...base, id: Mob.Hobgoblin, name: 'Hobgoblin', model: 'hobgoblin', firstNight: 0, hp: 60, armourBp: 4000, damage: 10, attackSteps: ds(14), reach: cm(150), speed: v10(28), vsWalls: 8,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 40, blockBp: 5000, halfWidth: cm(35), height: cm(180), role: TRIBE,
     drops: [{ res: Res.WroughtIron, min: 1, max: 1, chancePm: 200 }, { res: Res.Silver, min: 1, max: 1, chancePm: 30 }],
   },
   // Goblin villages (roster 6.3): 1.2 m tall, out by day, home at night. XP by the header rule: HP / 50, at least 1.
   {
-    ...base, id: Mob.VillageGoblin, name: 'Goblin', model: 'goblin', firstNight: 0, hp: 40, armourBp: 1000, damage: 7, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
+    ...base, id: Mob.VillageGoblin, name: 'Goblin', model: 'goblin', firstNight: 0, hp: 30, armourBp: 1000, damage: 7, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
     drops: [{ res: Res.Sticks, min: 3, max: 3, chancePm: 100 }, ...GOBLIN_LOOT],
   },
   {
-    ...base, id: Mob.GoblinArcher, name: 'Goblin archer', model: 'goblin_archer', firstNight: 0, hp: 30, damage: 7, attackSteps: ds(20), reach: cm(100), range: cm(1600), shot: Shot.Arrow, spreadBp: 800, speed: v10(34), vsWalls: 1,
+    ...base, id: Mob.GoblinArcher, name: 'Goblin archer', model: 'goblin_archer', firstNight: 0, hp: 20, damage: 7, attackSteps: ds(20), reach: cm(100), range: cm(1600), shot: Shot.Arrow, spreadBp: 800, speed: v10(34), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
     drops: [{ res: Res.Feathers, min: 2, max: 4, chancePm: 300 }, { res: Res.Leather, min: 1, max: 1, chancePm: 150 }, { res: Res.Hexstone, min: 1, max: 1, chancePm: 50 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 35, damage: 8, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
+    ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 25, damage: 8, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE, mana: 60,
     drops: [{ res: Res.Hexstone, min: 1, max: 2, chancePm: 400 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 40 }],
   },
@@ -404,7 +404,7 @@ const MOB_ROWS: readonly MobRow[] = [
   stand(Mob.ElfBearPen, 'Bear pen', 'elf_bear_pen', 0, 500, 900, 300),
   stand(Mob.ElfGate, 'Leaf gate', 'elf_gate', 0, 1500, 900, 800),
   {
-    ...stand(Mob.ElfCaravanWagon, 'Elf caravan wagon', 'elf_caravan_wagon', 0, 300, 300, 300),
+    ...stand(Mob.ElfCaravanWagon, 'Elf caravan wagon', 'elf_caravan_wagon', 0, 200, 300, 300),
     speed: v10(25), moves: Moves.Walker, role: PEOPLE,
   },
   stand(Mob.DwarfHouse, 'Dwarf house', 'dwarf_house', 0, 800, 700, 500),
@@ -412,10 +412,10 @@ const MOB_ROWS: readonly MobRow[] = [
   stand(Mob.DwarfMineshaft, 'Dwarf mineshaft', 'dwarf_mineshaft', 0, 700, 600, 500),
   stand(Mob.DwarfHall, 'Pillared hall', 'dwarf_hall', 0, 2000, 1200, 800),
   stand(Mob.DwarfCityGate, 'City gate', 'dwarf_city_gate', 0, 3000, 1200, 1000),
-  // Milestone 8. A goblin wolf rider (roster 6.3, Table 14): the rider's 50 health with its wolf's 70 beside it (the entity's mount),
+  // Milestone 8. A goblin wolf rider (roster 6.3, Table 14): the rider's 45 health (50 before Patch 3) with its wolf's 70 beside it (the entity's mount),
   // the rider's spear 9 a second at 2 m and the wolf's bite; at a gallop of 5.5 m/s. Without its wolf it is a goblin on foot.
   {
-    ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 50, armourBp: 1000, damage: 9, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
+    ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 45, armourBp: 1000, damage: 9, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 20, halfWidth: cm(45), height: cm(190), role: VILLAGE,
     drops: [{ res: Res.BronzeIngot, min: 1, max: 1, chancePm: 150 }, { res: Res.Leather, min: 1, max: 2, chancePm: 300 }, { res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 30 }],
   },
