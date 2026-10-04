@@ -1814,9 +1814,9 @@ hashes and saves never see them, and a loaded game starts with none.
    stock. Click the tick: they walk off to upgrade, the weapon first. In a
    new game click the cross instead: nothing happens, and they do not ask
    again until the stock pays for something better.
-2. **The wait.** Leave a question alone: it goes after 30 s. Open F10 while
-   one is up: it stays as long as the game is paused, then waits out the
-   rest of its 30 s. Click beside the buttons: the click reaches the world
+2. **The wait.** Leave a question alone: it goes after 10 s (30 s before
+   Patch 3). Open F10 while one is up: it stays as long as the game is
+   paused, then waits out the rest of its 10 s. Click beside the buttons: the click reaches the world
    (the bubble itself takes none). With tap controls on, a tap on Yes or No
    answers.
 3. **Hurt.** Let a worker or warrior fall to 70% health or less (a wolf will
@@ -1845,17 +1845,65 @@ hashes and saves never see them, and a loaded game starts with none.
    the Artillery workshop's crewman (Patch 2, wave 2).
 9. **The chat rule.** Only urgent lines from your own units reach the message
    panel, each pinging the minimap and joining F4's list: "Help! I am being
-   attacked!", a failed order ("I cannot reach that.", "Not enough ...") and
+   attacked by a zombie!" (naming the attacker since Patch 3), a failed order ("I cannot reach that.", "Not enough ...") and
    now "That cart is gone!". Another people's greetings, trade answers and
    war cries are bubbles only; open their trade or hire menu and the last
    thing they said to you shows under its title. Their news (war declared,
    a surrender offer) is still in chat as the game's own line.
 10. `pnpm test` runs `packages/sim/test/questions.test.ts` (each question,
-    Yes and No, the 30 s wait, three at a time, rests, a leaver's units, not
+    Yes and No, the 10 s wait, three at a time, rests, a leaver's units, not
     saved, every machine in step), `packages/client/test/question-bubbles.test.ts`
     (the bubble waits in game time, over a roof for a building, buttons only
     for the owner), `packages/client/test/hud-wording.test.ts` (the chat
     rule) and `packages/client/test/m10-audio.test.ts` (the run-out cue).
+
+## How a tester checks Patch 3's speech: who attacks, questions and held bubbles
+
+*Jade's Patch 3 (2026-10-04), the speech items. Picks in
+blueprint/patch3-bubbles-chat-picks.md. The lines are in
+`packages/sim/src/peoples/speech.ts` (sayAttacked, aFoe, sayTinkering), the
+questions in `packages/sim/src/units/questions.ts`, the held bubbles in
+`packages/client/src/hud/bubbles.ts`.*
+
+1. **Both start questions.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Within a second the three warriors ask "Three of us could use better kit.
+   Upgrade?" and the four workers "Four of us could use better tools.
+   Upgrade?" (before Patch 3 only the warriors asked). Hover the workers'
+   tick: the start's stock pays for three workers' tools, and the tooltip
+   says "The stock pays for 3 of the 4, the highest rank first: ...; the rest
+   keep their tools." At the same moment the Big House says over its roof
+   "If you upgrade all their tools you may not be able to make any structures
+   right away, choose wisely." in a plain bubble, for twice as long as a
+   usual bubble (about 15 s), and never again that game. It is not in chat.
+2. **First come, first served.** In a new game click the workers' tick first:
+   three walk off to upgrade their tools and the stock drops by exactly what
+   they take. Then click the warriors' tick: they get only what is left (one
+   flint hand-axe at the start). The other way round, the warriors take
+   their kit first. Nothing in the stock ever goes below zero.
+3. **The 10 s wait.** Leave the questions alone: they go after 10 s of game
+   time (the balance editor's Questions group, QUESTION_WAIT_STEPS). Paused
+   with F10, they stay.
+4. **Who attacks.** Let a zombie or a wolf reach a worker: the chat line is
+   "Help! I am being attacked by a zombie!" (or "... by a wolf!"); a warrior
+   says "We are under attack from a giant spider!", a mage "I am under attack
+   from an ash golem!". It names the enemy whose blow made it speak.
+5. **Eat to heal only when idle.** Let a worker fall to 70% health or less
+   and keep it busy (gathering, walking, fighting): it does not ask. Leave it
+   idle, out of the fight: 5 s after its last hurt it asks "I'm hurt. Can I
+   eat to heal?". Give it an order while the question is up: the question
+   goes at once, and it may ask again once it is idle.
+6. **Bubbles held for the bar.** Say Yes to a hurt unit's question: as it sits
+   at the main base its bubble reads "I'm eating my fill of venison." (before
+   Patch 3 "I ate my fill of venison.") and stays up the whole 10 s the bar
+   runs, going when the bar does. A warrior given Upgrade equipment with a
+   weapon and armour to take says "Upgrading to flint hand-axe." for the
+   first bar, then "Upgrading to leather jerkin." for the second, and
+   "Upgraded to leather jerkin." only when it gets up.
+7. `pnpm test` runs `packages/sim/test/patch3-speech.test.ts` (the attacker's
+   name, the 10 s wait, eat to heal only when idle and its withdrawal, the
+   upgrade lines and their holds, both start questions, the advice once and
+   only on the first day, first come first served three ways) and the held
+   bubbles in `packages/client/test/question-bubbles.test.ts`.
 
 ## How a tester checks the fourteen buildings (Patch 2)
 

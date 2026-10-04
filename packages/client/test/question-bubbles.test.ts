@@ -1,7 +1,9 @@
 // Patch 2, round 3: a question is a bubble that waits for its owner's Yes or
-// No for 30 s of game time (standing still while paused), over the unit or the
-// middle of the building's roof, and the speaker's other lines do not cover
-// it. The buttons themselves are HUD buttons, checked in a browser.
+// No for 10 s of game time (Jade's Patch 3; standing still while paused), over
+// the unit or the middle of the building's roof, and the speaker's other lines
+// do not cover it. The buttons themselves are HUD buttons, checked in a
+// browser. Jade's Patch 3 also holds some bubbles longer: a timed action's
+// line while the bar runs, and the main base's advice twice as long.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpeechBubbles } from '../src/hud/bubbles.ts';
 import type { YesNoButtons } from '../src/hud/yes-no.ts';
@@ -95,5 +97,53 @@ describe('question bubbles (Patch 2, round 3)', () => {
     expect(buttons.dispose).toHaveBeenCalledTimes(1);
     bubbles.say(7, "I'll fetch softwood from farther off.", 0);
     expect(root.children[0]!.children.map((c) => c.textContent)).toEqual(["I'll fetch softwood from farther off."]);
+  });
+});
+
+describe("held bubbles (Jade's Patch 3)", () => {
+  beforeEach(() => {
+    vi.stubGlobal('document', { createElement: () => new FakeEl() });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const texts = (root: FakeEl): string[] => root.children[0]!.children.map((c) => c.textContent);
+
+  it("keeps a timed action's line up while its bar runs, however long, and drops it when the bar ends", () => {
+    const root = new FakeEl();
+    const bubbles = new SpeechBubbles(root as unknown as HTMLElement);
+    bubbles.say(7, 'Upgrading to bronze scale armour.', 0, 'own', 'bar');
+    bubbles.say(8, 'Off to the forge for a bronze sword.', 0);
+    const sitting = new Set([7]);
+    for (let t = 0; t <= 60000; t += 500) bubbles.update(t, anchor, nobody, false, 0, sitting);
+    expect(texts(root)).toEqual(['Upgrading to bronze scale armour.']);
+    bubbles.update(60500, anchor, nobody, false, 0, new Set());
+    expect(texts(root)).toEqual([]);
+  });
+
+  it('lets a held line go at the usual time when its bar never shows', () => {
+    const root = new FakeEl();
+    const bubbles = new SpeechBubbles(root as unknown as HTMLElement);
+    bubbles.say(7, "I'm eating my fill of farm fare.", 0, 'own', 'bar');
+    bubbles.update(1000, anchor, nobody, false, 0, new Set());
+    expect(texts(root).length).toBe(1);
+    bubbles.update(20000, anchor, nobody, false, 0, new Set());
+    expect(texts(root)).toEqual([]);
+  });
+
+  it("keeps the main base's advice twice as long as a usual bubble", () => {
+    const root = new FakeEl();
+    const bubbles = new SpeechBubbles(root as unknown as HTMLElement);
+    const text = 'If you upgrade all their tools you may not be able to make any structures right away, choose wisely.';
+    bubbles.speak({ id: 3, building: true }, text, 0, 'own', 'long');
+    bubbles.speak({ id: 4, building: true }, text, 0);
+    const usual = 3500 + text.length * 40;
+    bubbles.update(usual + 1, anchor, nobody);
+    expect(texts(root)).toEqual([text]);
+    bubbles.update(2 * usual - 1, anchor, nobody);
+    expect(texts(root)).toEqual([text]);
+    bubbles.update(2 * usual + 1, anchor, nobody);
+    expect(texts(root)).toEqual([]);
   });
 });
