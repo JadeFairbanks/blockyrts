@@ -16,7 +16,7 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep, itemQuarters, QUARTERS, takeFood } from '../economy/food.ts';
 import { cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { OrderKind, PEOPLES, standY, UnitKind, WILD, type PlayerState, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
