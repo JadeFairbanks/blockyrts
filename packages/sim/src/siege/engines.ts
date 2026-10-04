@@ -11,7 +11,7 @@
 // the roof, its crew inside with it.
 
 import { BuildingKind } from '../buildings/data.ts';
-import { buildingCentre } from '../buildings/lights.ts';
+import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
@@ -22,9 +22,12 @@ import { gap, hostile, isMob } from '../combat/combat.ts';
 import { isStructure } from '../combat/mobs.ts';
 import { buildingTop, clearLob, fireAt, ProjectileFlag } from '../combat/projectiles.ts';
 import { Act, besideBuilding, exitColumn, columnCentre, FAILED, giveOrder, leaveBuilding, MOVING, resetWalk, walkTo } from '../units/behaviour.ts';
-import { Troop } from '../units/kits.ts';
+import { applyKit, Troop } from '../units/kits.ts';
+import { WORKER_HEALTH_BY_RANK, Work, workXp } from '../units/ranks.ts';
+import { tinker } from '../units/tinker.ts';
+import { say } from '../peoples/speech.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
-import { CANNON_PORTS, CITADEL_LEVEL, CREW_REACH_WU, Engine, engineSpec, HAUL_REACH_WU, type EngineSpec } from './data.ts';
+import { CANNON_PORTS, CITADEL_LEVEL, CREW_REACH_WU, CREWMAN_RETRAIN_STEPS, Engine, engineSpec, HAUL_REACH_WU, type EngineSpec } from './data.ts';
 
 const CONTINUE = false;
 const DONE = true;
@@ -396,6 +399,99 @@ export function runCrew(state: SimState, j: number, o: Extract<UnitOrder, { t: '
   return CONTINUE;
 }
 
+// ----- retraining a crewman as a worker (Patch 3, Jade) -----
+
+/** The finished main base of a unit's owner nearest it, or undefined. */
+function nearestMainBase(state: SimState, j: number): Building | undefined {
+  const e = state.entities;
+  let best: Building | undefined;
+  let bestD = 0;
+  for (const b of state.buildings.list) {
+    if (b.owner !== e.owner[j] || b.kind !== BuildingKind.MainBase || !b.complete) continue;
+    const [bx, bz] = buildingCentre(b);
+    const d = dist2(bx, bz, e.x[j]!, e.z[j]!);
+    if (!best || d < bestD) {
+      best = b;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * The retrain order (Patch 3, Jade: "they go to the main base and do the
+ * tinkering/progress bar with a chat bubble saying that they are retraining
+ * to be a worker"): the crewman walks to his nearest main base, sits
+ * tinkering there with the bar over his head (CREWMAN_RETRAIN_STEPS), saying
+ * so, and gets up a worker. It costs nothing; a new order before the bar is
+ * full leaves him a crewman, as any timed action is cancelled.
+ */
+export function runRetrain(state: SimState, j: number, o: Extract<UnitOrder, { t: 'retrain' }>): boolean {
+  const e = state.entities;
+  if (!isCrewman(state, j)) return DONE;
+  let b = o.b ? state.buildings.get(o.b) : undefined;
+  if (!b || b.owner !== e.owner[j] || b.kind !== BuildingKind.MainBase || !b.complete) {
+    b = nearestMainBase(state, j);
+    if (!b) {
+      say(state, j, 'There is no main base to retrain at.', true);
+      return DONE;
+    }
+    o.b = b.id;
+    if (e.act[j] === Act.Work) e.act[j] = Act.Start;
+  }
+  if (e.act[j] !== Act.Work) {
+    if (e.act[j] === Act.Start) {
+      // Up on a wall or inside a building (a port cannon's crew in the Citadel): out first.
+      if (e.inside[j] !== 0) leaveBuilding(state, j);
+      e.act[j] = Act.Walk;
+    }
+    const r = walkTo(state, j, besideBuilding(b));
+    if (r === MOVING) return CONTINUE;
+    if (r === FAILED) {
+      say(state, j, 'I cannot reach the main base to retrain.', true);
+      return DONE;
+    }
+    // Beside it he sits and tinkers while the bar fills, and says what he is doing (Patch 3: present tense).
+    e.act[j] = Act.Work;
+    e.timer[j] = 0;
+    say(state, j, 'Retraining to be a worker.', false, true);
+  }
+  if (!tinker(state, j, CREWMAN_RETRAIN_STEPS)) return CONTINUE;
+  becomeWorker(state, j);
+  state.events.push({ player: e.owner[j]!, kind: 'info', text: 'An artillery crewman has retrained as a worker.', x: e.x[j]!, z: e.z[j]! });
+  return DONE;
+}
+
+/**
+ * An artillery crewman becomes a worker where he stands (the same unit, so
+ * he stays selected and in his control groups): a Labourer with a starting
+ * (hardwood) tool kit, as a new worker from the Big House, his experience
+ * starting afresh and his health the same share of a worker's most.
+ */
+export function becomeWorker(state: SimState, j: number): void {
+  const e = state.entities;
+  const most = WORKER_HEALTH_BY_RANK[1]!;
+  e.hp[j] = Math.max(1, floorDiv(e.hp[j]! * most, Math.max(1, e.maxHp[j]!)));
+  e.maxHp[j] = most;
+  e.kind[j] = UnitKind.Worker;
+  e.rank[j] = 1;
+  e.xp[j] = 0;
+  e.workXp[j] = 0;
+  e.troop[j] = 0;
+  e.lock[j] = 0;
+  e.weapon[j] = 0;
+  e.ranged[j] = 0;
+  e.shield[j] = 0;
+  e.armour[j] = 0;
+  e.aTier[j] = 0;
+  e.wTier[j] = 1;
+  applyKit(e, j, 'worker');
+  e.target[j] = 0;
+  e.chasing[j] = 0;
+  e.atkAt[j] = 0;
+  e.order[j] = OrderKind.Idle;
+}
+
 /** Why an animal cannot haul an engine, or ''. */
 export function haulWhy(state: SimState, i: number, a: number): string {
   const e = state.entities;
@@ -460,6 +556,8 @@ export function runMend(state: SimState, j: number, o: Extract<UnitOrder, { t: '
   const dx = e.x[i]! - e.x[j]!;
   const dz = e.z[i]! - e.z[j]!;
   if (dx !== 0 || dz !== 0) e.heading[j] = headingTowards(dx, dz);
+  // Repairing counts as building work for a worker's rank (Patch 3).
+  workXp(state, j, Work.Build);
   // Health a step: the engine's whole health over its making time.
   const spec = engineSpec(e.mob[i]!);
   e.timer[j] = e.timer[j]! + e.maxHp[i]!;

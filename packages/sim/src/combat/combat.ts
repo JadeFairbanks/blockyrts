@@ -9,7 +9,7 @@ import { buildingName, buildingSpec } from '../buildings/data.ts';
 import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus } from '../rules.ts';
+import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus, XP_TENTHS } from '../rules.ts';
 import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
@@ -22,9 +22,10 @@ import { engineSpec } from '../siege/data.ts';
 import { MOUNTED, mountSpec } from '../mounts/data.ts';
 import { chargeKnock, loseMount, mountArmourBp, mountTakes, startCharge, takeCharge } from '../mounts/riding.ts';
 import { facingBp } from '../threats/late-mobs.ts';
-import { MAGE_RANK_NAMES, mageGainXp } from '../magic/mages.ts';
+import { MAGE_RANK_NAMES, MAGE_XP_TENTHS, mageGainXp } from '../magic/mages.ts';
+import { WORKER_RANK_NAMES, WORKER_XP_TENTHS, workerGainXp } from '../units/ranks.ts';
 import { onTop } from '../units/top.ts';
-import { Spell, spellSpec } from '../magic/spells.ts';
+import { MAGE_TOP_RANK, Spell, spellSpec } from '../magic/spells.ts';
 
 /**
  * The sides: every player together, and the monsters (Winning, losing and
@@ -459,37 +460,52 @@ export function landPlayerSwing(state: SimState, i: number, w: MeleeStats): void
 
 /** XP needed for each warrior rank, tenths (Table 1: Soldier 50, Veteran 150, Elite 400, Hero 1000). */
 export const WARRIOR_XP_TENTHS: readonly number[] = [0, 0, 500, 1500, 4000, 10000];
-/** Workers reach Foreman and Elder only by combat: 400 and 1000 XP (Table 1). */
-export const WORKER_COMBAT_XP_TENTHS: readonly number[] = [0, 0, 0, 0, 4000, 10000];
-export const WORKER_HEALTH_BY_RANK_COMBAT: readonly number[] = [60, 60, 70, 80, 90, 100];
 export const RANK_NAMES = {
   warrior: ['', 'Recruit', 'Soldier', 'Veteran', 'Elite', 'Hero'],
-  worker: ['', 'Labourer', 'Hand', 'Master worker', 'Foreman', 'Elder'],
+  worker: WORKER_RANK_NAMES,
   mage: MAGE_RANK_NAMES,
 } as const;
 
-/** Adds experience and ranks the unit up as far as it reaches. */
+/** Adds experience and ranks the unit up as far as it reaches (a worker's and a mage's by their own ladders). */
 export function gainXp(state: SimState, i: number, tenths: number): void {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mage) {
     mageGainXp(state, i, tenths);
     return;
   }
+  if (e.kind[i] === UnitKind.Worker) {
+    workerGainXp(state, i, tenths);
+    return;
+  }
   e.xp[i] = e.xp[i]! + tenths;
   for (;;) {
     const r = e.rank[i]!;
     if (r >= 5) return;
-    const warrior = e.kind[i] === UnitKind.Warrior;
-    const need = warrior ? WARRIOR_XP_TENTHS[r + 1]! : WORKER_COMBAT_XP_TENTHS[r + 1]!;
-    // Workers below Master rank up only by training.
+    const need = WARRIOR_XP_TENTHS[r + 1]!;
     if (need === 0 || e.xp[i]! < need) return;
     e.rank[i] = r + 1;
-    const hp = warrior ? WARRIOR_HEALTH_BY_RANK[r + 1]! : WORKER_HEALTH_BY_RANK_COMBAT[r + 1]!;
+    const hp = WARRIOR_HEALTH_BY_RANK[r + 1]!;
     e.hp[i] = e.hp[i]! + hp - e.maxHp[i]!;
     e.maxHp[i] = hp;
-    const names = warrior ? RANK_NAMES.warrior : RANK_NAMES.worker;
-    state.events.push({ player: e.owner[i]!, kind: 'info', text: `${warrior ? aTroop(e.troop[i]!, e.wTier[i]!, true) : 'A worker'} has risen to ${names[r + 1]}.`, x: e.x[i]!, z: e.z[i]! });
+    state.events.push({ player: e.owner[i]!, kind: 'info', text: `${aTroop(e.troop[i]!, e.wTier[i]!, true)} has risen to ${RANK_NAMES.warrior[r + 1]}.`, x: e.x[i]!, z: e.z[i]! });
   }
+}
+
+/**
+ * The experience a unit has and needs for its next rank, whole points, for
+ * the page's XP bar (Patch 3): both count from nothing, as Table 1 writes
+ * them (a Hand has 50 or more and needs 150 for Master worker); the need is
+ * 0 at the top rank, and both are 0 for what never ranks. A mage past Adept
+ * Acolyte banks hers until she trains, so hers can pass the need.
+ */
+export function xpView(state: SimState, i: number): [number, number] {
+  const e = state.entities;
+  const kind = e.kind[i]!;
+  const ladder = kind === UnitKind.Worker ? WORKER_XP_TENTHS : kind === UnitKind.Warrior ? WARRIOR_XP_TENTHS : kind === UnitKind.Mage ? MAGE_XP_TENTHS : null;
+  if (!ladder || e.owner[i]! >= state.players.length) return [0, 0];
+  const r = e.rank[i]!;
+  const top = kind === UnitKind.Mage ? MAGE_TOP_RANK : 5;
+  return [floorDiv(e.xp[i]!, XP_TENTHS), r >= top ? 0 : floorDiv(ladder[r + 1] ?? 0, XP_TENTHS)];
 }
 
 /** The kill's experience, shared by the players' units that hit it in the last 10 s (rules: 2 x threat). */

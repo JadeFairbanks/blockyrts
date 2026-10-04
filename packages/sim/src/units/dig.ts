@@ -15,6 +15,7 @@ import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool, ToolJob } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
 import { Act, columnCentre, resetWalk, walkTo } from './behaviour.ts';
+import { Work, workXp } from './ranks.ts';
 import { toolTier } from './tools.ts';
 import type { UnitOrder } from './unit-orders.ts';
 
@@ -249,6 +250,8 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
     }
   }
   e.timer[i] = e.timer[i]! + 1;
+  // Digging and heaping count as building work for a worker's rank (Patch 3).
+  workXp(state, i, Work.Build);
   if (e.timer[i]! < e.waitUntil[i]!) return false;
   e.timer[i] = 0;
   e.waitUntil[i] = 0;
