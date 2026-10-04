@@ -125,6 +125,7 @@ export class TrainingCards {
     const ids = all.map((b) => b.id);
     const what = first.name.replace(/ \(.*\)$/, '') || 'building';
     const box = div('kit-cards', parent);
+    box.classList.toggle('many', cardsOf(first).length >= 5);
     for (const r of cardsOf(first)) {
       const card = r.card;
       const c = cardChoice(first, card);
@@ -142,7 +143,7 @@ export class TrainingCards {
       const el = div(`kit-card${c.locked ? ' locked' : ''}${why ? ' cannot' : ''}`, box);
       el.dataset.card = String(card);
       const name = cardName(card);
-      const horses = card === Troop.Cavalry ? `\n${first.horses} grown tamed horse${first.horses === 1 ? '' : 's'} ready.` : '';
+      const horses = card === Troop.Cavalry ? `\n${first.horses} grown tamed horse${first.horses === 1 ? '' : 's'} ready in the nearest Barn.` : '';
       const pic = this.host.button(`card-${card}`, {
         face: name.slice(0, 1),
         icon: { layers: [{ file: cardBust(card, c.w) }] },

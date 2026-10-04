@@ -2115,25 +2115,26 @@ body.playing.touch .hud {
   font: 17px/1 var(--display);
 }
 
-/* The training cards (round 2b, mock-up panels 1, 2 and 4): five fit the 520 px middle at 92 px, 72 px at 400; narrower, the row scrolls sideways. */
+/* The training cards (round 2b, mock-up panels 1, 2 and 4): the Barracks' five fit the middle at 400 px and up; narrower, the row scrolls sideways. */
 .kit-cards {
   display: flex;
-  justify-content: center;
-  gap: 4px;
+  justify-content: safe center;
+  gap: 3px;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 2px;
 }
 .kit-card {
   position: relative;
+  box-sizing: border-box;
   flex: 1 1 0;
-  min-width: 72px;
-  max-width: 92px;
+  min-width: 0;
+  max-width: 106px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 4px 3px 4px;
+  padding: 4px 2px;
   border: 4px solid transparent;
   border-image: var(--kit-well) 4 fill / 4px;
   image-rendering: pixelated;
@@ -2187,8 +2188,13 @@ body.playing.touch .hud {
 .kit-card.cannot .card-name {
   color: var(--muted);
 }
+.kit-cards.many .card-name {
+  font-size: 13px;
+}
 .card-slots {
   display: flex;
+  justify-content: center;
+  width: 100%;
   gap: 2px;
 }
 .hud-btn.card-slot,
@@ -2208,6 +2214,18 @@ body.playing.touch .hud {
 .hud-btn.tier-tile .btn-tag {
   right: 2px;
   bottom: 0;
+}
+/* Five cards in a 400 px middle: the slots give way a little rather than the row scrolling. */
+.hud-btn.card-slot {
+  flex: 0 1 34px;
+  width: auto;
+  min-width: 26px;
+  height: auto;
+  aspect-ratio: 1;
+}
+.hud-btn.card-slot .btn-icon img {
+  width: 94%;
+  height: 94%;
 }
 /* Red: the stock is short of it now (it can still be picked). Dark: not unlocked yet. Gold: the tier trained now. */
 .hud-btn.card-slot.short,
