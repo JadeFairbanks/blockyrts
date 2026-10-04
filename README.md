@@ -135,8 +135,10 @@ reveal; two machines with the same seed show the same land and the same hash.*
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
    with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
    to walk your units out: the land they see turns from black to colour,
-   and stays grey once they have left. The land round your buildings stays
-   in colour (see "How a tester checks shared vision" below).
+   and stays darker, still in colour, once they have left (grey before
+   Patch 3; see "How a tester checks the fog look and hidden-unit
+   outlines"). The land round your buildings stays fully lit (see "How a
+   tester checks shared vision" below).
 3. The debug panel (top left) has the tools for looking around. In Patch 2
    it is hidden until you type M N B V C X Z in order in the game (see "How
    a tester checks Patch 2's lights, tips, tester tools and minimap"); every
@@ -2449,6 +2451,60 @@ blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
    arrow is half as big again and its ring twice as thick and never dimmer
    than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
    from 30%).
+
+## How a tester checks the fog look and hidden-unit outlines (Patch 3)
+
+*Jade's ask (2026-10-04): land that has been explored but is not seen right
+now by your or your allies' units and buildings looks darkened, not greyscale;
+and when one of your units is 80% or more hidden from the camera (by trees,
+buildings, very large units) an outline is drawn round its silhouette,
+cheaply enough not to cause lag. Picks in
+blueprint/patch3-fog-outlines-picks.md. The remembered-land shading is
+`packages/client/src/world/fog-material.ts`; the measuring and the outline
+`packages/client/src/world/hidden-outlines.ts`; which units take part
+`packages/client/src/world/units-view.ts`; the flat colours they are
+measured with `packages/client/src/models/instanced-model.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch3-fog-outlines.test.ts:
+   the fog shader keeps 70% of the colour at 60% brightness and reaches the
+   unit, creature and building models too; units are marked by id, negative
+   when outlined; the measuring picture is counted per unit; the outline
+   comes on at 80% hidden, stays down to 70% and for 0.4 s after, and goes
+   when the unit is no longer drawn; the screen box of your units ignores
+   units off the screen or behind the camera.
+2. **Remembered land.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   walk a warrior 45 m out of the camp and back. The land it saw out there
+   stays darker than the land in sight but keeps its greens and browns (it
+   was grey before); trees, rocks, lairs and huts standing on it are
+   darkened the same way. Unexplored land is still black, and on a fog
+   night the fog lies over both as before.
+3. **An outline behind a building.** Type M N B V C X Z, press **Citadel**,
+   and walk a worker round behind the Citadel (north of it, the side away
+   from the camera). Once 80% of it is hidden a line in your colour, a
+   little lighter, with a thin dark edge, is drawn round its shape on top
+   of the Citadel. Walk it back out in front and the line goes after a
+   moment. A level 1 Big House is too low to hide a worker, so nothing is
+   drawn behind it.
+4. **Under a tree.** Walk a worker under a tall pine just north of its
+   trunk: the crown hides it and it is outlined; a step out from under the
+   crown and the outline goes. Your own units count as cover too, so a
+   worker behind your own cannon or horse is outlined. Other players' units,
+   monsters and animals are never outlined, and water hides no one.
+5. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/outline-look.mjs http://localhost:5198 /tmp/shots`
+   plays steps 2 to 4 at 1920 by 1080 and prints ok or FAIL for each, the
+   share of the unit hidden and what the measurements cost.
+   `node packages/client/test-e2e/outline-perf.mjs http://localhost:5198 /tmp/shots after`
+   (and the same on a checkout from before Patch 3 with `before`) prints the
+   main thread's milliseconds a frame in a busy camp and at night with 400
+   monsters. Add `--gpu` on a machine with a graphics card; without it
+   Chromium draws in software and only the main-thread times compare.
+6. **No lag.** With none of your units on the screen nothing extra is
+   done. With some in view, a small picture of the part of the screen round
+   them is drawn eight times a second at a quarter of the screen's size and
+   read back without waiting for the card. The outline itself is drawn only
+   while a unit is hidden, and only over the outlined units' corner of the
+   screen. The numbers measured are in the picks file.
 
 ## How a tester checks the balance editor
 
