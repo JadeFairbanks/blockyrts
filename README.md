@@ -1676,6 +1676,62 @@ repo. No hash changed: sound only listens to the game.
    are encoded with a second of wrap-around each side and cut back after
    decoding, so their loops have no seam.
 
+## How a tester checks the question bubbles and the chat rule (Patch 2)
+
+Jade's Patch 2, round 3 and "What reaches chat" (blueprint/patch-2.md). The
+picks are in blueprint/patch2-questions-picks.md. Questions are not state:
+hashes and saves never see them, and a loaded game starts with none.
+
+1. **Better kit.** `pnpm dev`, open http://localhost:5173/?seed=1. Within a
+   second the three starting warriors' bubble asks "Three of us could use
+   better kit. Upgrade?" with a green tick and a red cross under it. Hover
+   each: the tooltip says what it does, Yes's with what it takes from the
+   stock. Click the tick: they walk off to upgrade, the weapon first. In a
+   new game click the cross instead: nothing happens, and they do not ask
+   again until the stock pays for something better.
+2. **The wait.** Leave a question alone: it goes after 30 s. Open F10 while
+   one is up: it stays as long as the game is paused, then waits out the
+   rest of its 30 s. Click beside the buttons: the click reaches the world
+   (the bubble itself takes none). With tap controls on, a tap on Yes or No
+   answers.
+3. **Hurt.** Let a worker or warrior fall to 70% health or less (a wolf will
+   do) and get away: out of the fight it asks "I'm hurt. Can I eat to heal?"
+   (with others hurt near it, "Three of us are hurt. Can we eat to heal?").
+   Yes: each walks to the nearest main base or storehouse, eats, and goes
+   back to what it was doing.
+4. **Up top.** Man a tower with close warriors and wait for night: now and
+   then one asks "Let me down to fight those zombies?" (naming what walks
+   below). Yes: he comes down and attacks the nearest one on the ground.
+   "I'm not much help up here!" stays a bubble and is no longer in chat.
+5. **Dawn.** Let something damage a building in the night, and keep a worker
+   idle: at dawn the main base asks over its roof "One building is damaged.
+   Repair it?". Yes: the nearest idle worker goes to repair it, one worker to
+   a building. It asks once a dawn.
+6. **Ran out.** Send a worker to the last tree of a far grove with nothing
+   else near: when it is gone it asks "No more softwood nearby. Look farther
+   off?" with the idle gatherer's sound (before Patch 2 it said "I have run
+   out of softwood lumber nearby." in chat). Yes: it walks to the nearest
+   softwood it can reach before nightfall and says so in a bubble.
+7. **At most three.** With several questions due at once, no more than
+   three are up for a player; the next comes up as one is answered or ends.
+8. **Online.** Two players as in milestone 9 step 3: each sees the other's
+   questions as plain bubbles without buttons, and neither sees them in
+   chat. The crewman question ("A crewman fell. Train another?") waits for
+   the Artillery workshop's crewman (Patch 2, wave 2).
+9. **The chat rule.** Only urgent lines from your own units reach the message
+   panel, each pinging the minimap and joining F4's list: "Help! I am being
+   attacked!", a failed order ("I cannot reach that.", "Not enough ...") and
+   now "That cart is gone!". Another people's greetings, trade answers and
+   war cries are bubbles only; open their trade or hire menu and the last
+   thing they said to you shows under its title. Their news (war declared,
+   a surrender offer) is still in chat as the game's own line.
+10. `pnpm test` runs `packages/sim/test/questions.test.ts` (each question,
+    Yes and No, the 30 s wait, three at a time, rests, a leaver's units, not
+    saved, every machine in step), `packages/client/test/question-bubbles.test.ts`
+    (the bubble waits in game time, over a roof for a building, buttons only
+    for the owner), `packages/client/test/hud-wording.test.ts` (the chat
+    rule) and `packages/client/test/m10-audio.test.ts` (the run-out cue).
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
