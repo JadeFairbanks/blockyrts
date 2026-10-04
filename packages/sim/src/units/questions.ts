@@ -64,6 +64,13 @@ export const HURT_ASK_PM = 700;
  * something) (s): 5 s. Hurt again while it asks, it stops asking.
  */
 export const HURT_ASK_QUIET_STEPS = 5 * STEPS_PER_SECOND;
+/**
+ * No unit asks about better kit or tools before this much game time (Jade's
+ * Patch 3b): the start's two upgrade questions, and the main base's word of
+ * advice that comes with them, wait 10 s. Counted from the step, so a loaded
+ * game keeps it.
+ */
+export const FIRST_KIT_ASK_STEPS = 10 * STEPS_PER_SECOND;
 /** How near another unit must stand for the one asking to speak for it too ("Four of us could use better kit.") (s): 10 m. */
 export const SPEAK_FOR_M = 10;
 
@@ -633,7 +640,7 @@ export function updateQuestions(state: SimState): void {
     const c = clockAt(state.step, state.blood);
     if (c.period === Period.Dawn) for (let p = 0; p < state.players.length; p++) if (asks(state, p)) askRepair(state, book, p, c.cycle);
   }
-  // Each unit once a second, at its own moment: better kit (a worker, better tools), or a wound.
+  // Each unit once a second, at its own moment: better kit (a worker, better tools; not in the first 10 s), or a wound.
   const tech: Array<TechView | undefined> = [];
   for (let i = 0; i < e.count; i++) {
     if ((state.step + e.id[i]!) % STEPS_PER_SECOND !== 0) continue;
@@ -647,6 +654,7 @@ export function updateQuestions(state: SimState): void {
       continue;
     }
     if (e.kind[i] !== UnitKind.Warrior && e.kind[i] !== UnitKind.Mage && e.kind[i] !== UnitKind.Worker) continue;
+    if (state.step < FIRST_KIT_ASK_STEPS) continue;
     const pool = state.players[player]!.pool;
     const t = (tech[player] ??= techOf(state, player));
     const offer = wantsKit(state, book, i, pool, t);

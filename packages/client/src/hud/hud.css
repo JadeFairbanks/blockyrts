@@ -2336,35 +2336,35 @@ body.playing.touch .hud {
   margin-bottom: 4px;
   align-items: center;
 }
-/* Jersey 10's capitals are 0.54 of its size: 54 px makes "Worker" as tall as the two 13 px bars and their 3 px gap. */
+/* Jade's Patch 3b: the name at the size of "HP:" and "XP:" (24 px, its capitals as tall as one 13 px bar), in the middle of the row,
+   which stays as tall as the two bars and their 3 px gap; the room it no longer takes goes to the bars. */
 .sel-title {
   flex: 0 1 auto;
   min-width: 0;
   height: 29px;
-  font-size: 54px;
+  font-size: 24px;
   line-height: 29px;
-  /* Room for the tails of g and p below the capitals' line. */
-  padding-bottom: 7px;
-  margin-bottom: -7px;
+  /* Room for the tails of g and p below the line, without making the row taller. */
+  padding-bottom: 4px;
+  margin-bottom: -4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* A name too long for its share of the row: two lines (split where they are most even), each as tall as one bar. */
+/* A name too long for its share of the row: two lines at the same size (split where they are most even), each as tall as one bar. */
 .sel-title.long {
   height: 32px;
-  font-size: 24px;
   line-height: 16px;
   padding-bottom: 3px;
   margin-bottom: -6px;
   white-space: pre;
 }
-/* One long word: one line at that size, in the middle of the row. */
+/* One long word: one line, in the middle of the row. */
 .sel-title.long.one {
   height: 29px;
   line-height: 29px;
-  padding-bottom: 7px;
-  margin-bottom: -7px;
+  padding-bottom: 4px;
+  margin-bottom: -4px;
 }
 .sel-extra {
   flex: 1 1 auto;

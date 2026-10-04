@@ -1,6 +1,6 @@
 // Onboarding (Outside the match): no tutorial, only a short series of tips
-// through the first day: select a worker, gather wood, build, light a torch,
-// shelter at dusk. Patch 2 (Jade): a tip is plain outlined text on the game,
+// through the first day: select a worker, gather wood, build, shelter at
+// dusk, light a torch (Jade's Patch 3b: 10 s into the first dusk). Patch 2 (Jade): a tip is plain outlined text on the game,
 // no frame and no background, at the top of the screen. Each goes by itself
 // after 12 s of game time (the wait stands still while paused), and an X
 // closes it sooner. The first X in a game asks "Turn tips off?": Yes ends the
@@ -10,7 +10,7 @@
 // Jade's Patch 3: each tip in plain words, naming the buttons as the player
 // sees them (their names come from the game's own data, the keys from the
 // player's bindings), and a flashing yellow arrow before "Tip:".
-import { BuildingKind, buildingSpec, clockAt, levelSpec, Period, Res, STEPS_PER_SECOND } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, clockAt, DAY_STEPS, levelSpec, Period, Res, STEPS_PER_SECOND } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
@@ -22,6 +22,13 @@ import type { Settings } from '../settings/settings.ts';
 
 /** How long a tip, or the question, shows: 12 s of game time (Jade). */
 export const TIP_STEPS = 12 * STEPS_PER_SECOND;
+/**
+ * The torch tip waits for 10 s into the first dusk (Jade's Patch 3b), the
+ * dusk tip showing until then: the game's step, never a clock, so it stands
+ * still while paused. The first dusk starts after the first day; no blood
+ * night comes before it to move it.
+ */
+export const TORCH_TIP_STEP = DAY_STEPS + 10 * STEPS_PER_SECOND;
 
 /** The arrow before "Tip:": a short shaft and a head pointing right, yellow with the tips' dark outline. */
 const TIP_ARROW_SVG =
@@ -47,7 +54,7 @@ interface Tip {
   text: string;
   /** Whether the player has done it. */
   done(): boolean;
-  /** Waits for this before showing (the dusk tip waits for dusk). */
+  /** Waits for this before showing (the dusk tip waits for dusk, the torch tip for 10 s after). */
   when?(): boolean;
 }
 
@@ -217,6 +224,7 @@ export class FirstDayHints {
     this.wood = woodNow();
     this.buildings = this.own();
     const t = tipTexts(this.settings.keys);
+    const torchLit = (): boolean => this.own(BuildingKind.TorchPost) > 0;
     this.tips = [
       {
         text: t.select,
@@ -224,12 +232,13 @@ export class FirstDayHints {
       },
       { text: t.gather, done: () => woodNow() > this.wood },
       { text: t.build, done: () => this.own() > this.buildings },
-      { text: t.torch, done: () => this.own(BuildingKind.TorchPost) > 0 },
       {
         text: t.dusk,
         when: () => this.period() === Period.Dusk,
-        done: () => this.period() === Period.Night,
+        // Gives way to the torch tip 10 s into dusk; with a torch already lit it stays to the night, as before.
+        done: () => this.period() === Period.Night || (this.game.step >= TORCH_TIP_STEP && !torchLit()),
       },
+      { text: t.torch, when: () => this.game.step >= TORCH_TIP_STEP, done: torchLit },
     ];
     this.series = new TipSeries(this.tips.length);
     this.series.start();
@@ -261,8 +270,8 @@ export class FirstDayHints {
       this.show();
       return;
     }
-    // Dusk does not wait for the day's tips.
-    const floor = this.period() === Period.Dusk ? this.tips.length - 1 : 0;
+    // Dusk does not wait for the day's tips (the dusk tip is the one before the torch's).
+    const floor = this.period() === Period.Dusk ? this.tips.length - 2 : 0;
     if (this.series.advance((k) => this.tips[k]!.done(), floor)) {
       this.show();
       this.shell.message(tipTexts(this.settings.keys).last);
