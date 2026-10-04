@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Engine, ENGINE_PRODUCT, Greyed, levelSpec, Product, RECIPE_PRODUCT, RECIPES, RESEARCH_PRODUCT, RESOURCE_COUNT, SLAUGHTER_PRODUCT, Species, Troop, troopProduct, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Engine, ENGINE_PRODUCT, Greyed, levelSpec, Product, RECIPE_PRODUCT, RECIPES, Res, RESEARCH_PRODUCT, RESOURCE_COUNT, SLAUGHTER_PRODUCT, Species, Troop, troopProduct, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
@@ -109,6 +109,15 @@ describe('the build menu greys out what the stock cannot pay for (Patch 3)', () 
     const second = button(open(cost, [building(30, BuildingKind.ScholarsLodge)]).c.card(), "Scholar's Lodge");
     expect(second.enabled).toBe(false);
     expect(second.description).toContain(`${cost[0]![1] * 2} `);
+  });
+
+  it('greys out each earthwork by what one column of it takes: earth, or the ramp steps', () => {
+    const { c } = open([[Res.LumberRamp, 4]]);
+    button(c.card(), 'Defences').run(PRESS);
+    const card = c.card();
+    expect(button(card, 'Earth bank')).toMatchObject({ enabled: false, reason: 'Not enough earth (needs 1, you have 0).' });
+    expect(button(card, 'Lumber ramp').enabled).toBe(true);
+    expect(button(card, 'Stone ramp').reason).toMatch(/^Not enough stone ramp step/);
   });
 
   it('asks the sim on a click while greyed out, with the selected workers', () => {

@@ -925,7 +925,7 @@ export class Commands {
    */
   private buildEntry(slot: number, spec: BuildingSpec, variant: number, name: string): CardEntry {
     const l = spec.levels[0]!;
-    const cost = this.buildCost(spec.kind);
+    const cost = spec.site ? (EARTHWORK_COSTS[variant] ?? l.cost) : this.buildCost(spec.kind);
     const why = this.d.game.info?.buildWhy[spec.kind] ?? spec.comesWith;
     const short = this.d.game.costProblem(cost);
     const lines = [spec.purpose, `Cost: ${costLine(cost)}. Build time: ${seconds(l.ws)} of one worker's work.`];
@@ -952,7 +952,7 @@ export class Commands {
     };
   }
 
-  /** What a new building of a kind costs: its level 1 cost, times one more than the Scholar's Lodges standing for another Lodge (Research: rising facility cost). */
+  /** What a new building of a kind costs: its level 1 cost, times one more than the Scholar's Lodges standing for another Lodge (Research: rising facility cost). Earthworks: EARTHWORK_COSTS. */
   private buildCost(kind: number): Cost {
     const cost = levelSpec(kind, 1).cost;
     if (kind !== BuildingKind.ScholarsLodge) return cost;
@@ -2218,6 +2218,9 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
+/** What one column of each earthwork takes, by variant (Earth bank, Earth ramp, Fill, Lumber ramp, Stone ramp; sim units/dig.ts): greyed out without it (Patch 3). */
+const EARTHWORK_COSTS: readonly Cost[] = [[[Res.Earth, 1]], [[Res.Earth, 1]], [[Res.Earth, 1]], [[Res.LumberRamp, 1]], [[Res.StoneRamp, 1]]];
+
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */
