@@ -2980,6 +2980,14 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 - The music, effects and voice sliders apply at once. Sound starts after the player's first click, because browsers require it.
 - Sound only listens to what the game reports. It never changes the game or its state hash.
 
+**The sound redo (suggested)** (2026-10-04): every sound was remade by an outside sound service from a brief (the project's audio/sound-redo-brief.txt) and the game plays those recordings, with the code-made sounds kept for any file that is missing or will not load.
+
+- Format: the service delivered 16-bit 44.1 kHz WAV (mono effects and voices, stereo music); the game ships them as MP3 (about 22 MB) and cuts each back to its exact length after decoding. Music and ambience loop without a seam. Music is decoded at 32 kHz, and only the playing state and the next are kept.
+- Loudness: each sound peaks where the brief set it (horns and blasts loudest, clicks and messages softest), the same balance as before.
+- Monster sounds (new): 33 night monsters have their own call and death (zombie, cave bat, giant rat, giant spider, slime, skeleton for archers and bombers, bloated corpse, grave hound, barrow knight, plague bearer, gravewing, bone colossus, hollow priest, cinderling, hellhound, fiend, chain fiend, scorchwing, demon brute, flamecaller, infernal juggernaut, the six Rift-touched beasts, void stalker, void witch, abyssal drake, archfiend, rift colossus and Morvath). A monster calls as it strikes, at most one call of each kind every 2.5 s; the others keep the shared monster death and make no call. These are calls, not unit voices: the dead and beasts still have no voice cues.
+- Ambience (new): a background loop under the music on the effects slider: countryside by day and dawn, night sounds from dusk, and the blood night its own.
+- Menu music (new): a theme on the main menu from the first click, fading out as a game starts, on the music slider.
+
 ## Visuals
 
 Game assets are roughly inspired by Minecraft: everything is built from cubes. Unlike Minecraft, the cubes can be any size and any rectangular shape rather than fixed blocks. As in Minecraft, almost all cubes are not rotated. A few rotated cubes are allowed where needed, as long as the vast majority of cubes in the game are unrotated. In animations, some clipping is allowed so that movement looks lifelike.

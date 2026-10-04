@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { hashString } from '../src/dsp/core.ts';
+import { trimRange } from '../src/engine/files.ts';
 import { falloff, panFor, sliderToGain } from '../src/engine/spatial.ts';
-import { SFX, SOUNDS, VOICES, soundDef, voiceId } from '../src/manifest.ts';
+import { EXTRA_SOUNDS, MOB_SOUND_NAMES, SFX, SOUNDS, VOICES, soundDef, voiceId } from '../src/manifest.ts';
 import { parsePattern, renderMusic, stereoPeak } from '../src/music/render.ts';
 import { MUSIC, MUSIC_STATES, loopSeconds } from '../src/music/score.ts';
 import { renderDef } from '../src/render.ts';
@@ -173,5 +174,35 @@ describe('placing sounds in the world', () => {
     expect(sliderToGain(0)).toBe(0);
     expect(sliderToGain(0.5)).toBe(0.25);
     expect(sliderToGain(2)).toBe(1);
+  });
+});
+
+describe('finished sound files', () => {
+  // A one-shot of 1000 frames and a loop of 2000 with 100 frames of wrap-around each side, as the build script records them.
+  const shot = { rate: 44100, channels: 1, frames: 1000, pre: 0, total: 1000, delay: 1105, padding: 434 };
+  const loop = { rate: 44100, channels: 2, frames: 2000, pre: 100, total: 2200, delay: 1105, padding: 434 };
+
+  it('cuts a decoded file to the sound, whether or not the decoder dropped the encoder silence', () => {
+    expect(trimRange(shot, 1000, 44100)).toEqual({ start: 0, length: 1000 });
+    expect(trimRange(shot, 1105 + 1000 + 434, 44100)).toEqual({ start: 1105, length: 1000 });
+    expect(trimRange(shot, 1000 + 434, 44100)).toEqual({ start: 0, length: 1000 });
+    expect(trimRange(shot, 1105 + 1000, 44100)).toEqual({ start: 1105, length: 1000 });
+    expect(trimRange(loop, 2200, 44100)).toEqual({ start: 100, length: 2000 });
+    expect(trimRange(loop, 1105 + 2200 + 434, 44100)).toEqual({ start: 1205, length: 2000 });
+  });
+
+  it('scales to the rate it was decoded at', () => {
+    expect(trimRange(loop, Math.round(2200 * (48000 / 44100)), 48000)).toEqual({ start: Math.round(100 * (48000 / 44100)), length: Math.round(2000 * (48000 / 44100)) });
+    expect(trimRange(shot, Math.round((1105 + 1000 + 434) * (32000 / 44100)), 32000)).toEqual({ start: Math.round(1105 * (32000 / 44100)), length: Math.round(1000 * (32000 / 44100)) });
+  });
+
+  it('lists the extras apart from the code-made sounds, and makes none of them in code', () => {
+    const ids = new Set(SOUNDS.map((s) => s.id));
+    expect(EXTRA_SOUNDS.length).toBe(MOB_SOUND_NAMES.length * 2);
+    for (const def of EXTRA_SOUNDS) {
+      expect(ids.has(def.id), def.id).toBe(false);
+      expect(soundDef(def.id)).toBe(def);
+      expect(() => renderDef(def, 0, 8000)).toThrow();
+    }
   });
 });

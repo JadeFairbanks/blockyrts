@@ -14,19 +14,26 @@ export class Renderer {
   private readonly fallbackQueue: RenderRequest[] = [];
   private fallbackBusy = false;
 
+  /** Whether to try a worker; it starts with the first job, so an engine playing only files never starts one. */
+  private wantWorker: boolean;
+
   constructor(useWorker = true) {
-    if (useWorker && typeof Worker !== 'undefined') {
-      try {
-        this.worker = new Worker(new URL('./render.worker.ts', import.meta.url), { type: 'module' });
-        this.worker.onmessage = (e: MessageEvent<RenderResponse>) => this.settle(e.data);
-        this.worker.onerror = () => this.fallBack();
-      } catch {
-        this.worker = null;
-      }
+    this.wantWorker = useWorker && typeof Worker !== 'undefined';
+  }
+
+  private startWorker(): void {
+    this.wantWorker = false;
+    try {
+      this.worker = new Worker(new URL('./render.worker.ts', import.meta.url), { type: 'module' });
+      this.worker.onmessage = (e: MessageEvent<RenderResponse>) => this.settle(e.data);
+      this.worker.onerror = () => this.fallBack();
+    } catch {
+      this.worker = null;
     }
   }
 
   render(req: NewRequest): Promise<RenderResponse> {
+    if (this.wantWorker) this.startWorker();
     const full = { ...req, job: this.nextJob++ } as RenderRequest;
     return new Promise((resolve) => {
       this.pending.set(full.job, resolve);
@@ -38,6 +45,7 @@ export class Renderer {
   }
 
   dispose(): void {
+    this.wantWorker = false;
     this.worker?.terminate();
     this.worker = null;
     this.pending.clear();

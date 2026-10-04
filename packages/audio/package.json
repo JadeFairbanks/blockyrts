@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "render": "tsx scripts/render-wavs.ts",
+    "sounds:build": "tsx scripts/build-sound-files.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {

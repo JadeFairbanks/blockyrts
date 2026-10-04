@@ -36,7 +36,9 @@ interface BaseDef {
 
 export type SfxDef = { [G in GeneratorName]: BaseDef & { readonly gen: G; readonly params: ParamsOf<G> } }[GeneratorName];
 export type VoiceDef = BaseDef & { readonly gen: 'voice'; readonly params: { family: VoiceFamilyId; event: VoiceEventId } };
-export type AnySoundDef = SfxDef | VoiceDef;
+/** A sound that exists only as a finished file (no code-made version); silent without one. */
+export type FileSoundDef = BaseDef & { readonly gen: 'file' };
+export type AnySoundDef = SfxDef | VoiceDef | FileSoundDef;
 
 const DOC = 'Audio: Sounds';
 
@@ -174,7 +176,39 @@ export const VOICES: readonly VoiceDef[] = (Object.keys(VOICE_FAMILIES) as Voice
 
 export const SOUNDS: readonly AnySoundDef[] = [...SFX, ...VOICES];
 
-const BY_ID = new Map(SOUNDS.map((s) => [s.id, s]));
+/**
+ * The night monsters with their own call (as they strike) and death sound,
+ * from the sound redo's extras. Ids are "mob.<name>.call" and
+ * "mob.<name>.death"; the client maps a mob to its name (skeleton archers
+ * and bombers share "skeleton", both slimes "slime"). Others keep the
+ * shared monster death and make no call.
+ */
+export const MOB_SOUND_NAMES = [
+  'zombie', 'cave_bat', 'giant_rat', 'giant_spider', 'slime', 'skeleton', 'bloated_corpse', 'grave_hound', 'barrow_knight',
+  'plague_bearer', 'gravewing', 'bone_colossus', 'hollow_priest', 'cinderling', 'hellhound', 'fiend', 'chain_fiend',
+  'scorchwing', 'demon_brute', 'flamecaller', 'infernal_juggernaut', 'rift_scorpion', 'rift_centipede', 'rift_hornet',
+  'rift_beetle', 'rift_griffin', 'rift_minotaur', 'void_stalker', 'void_witch', 'abyssal_drake', 'archfiend', 'rift_colossus',
+  'morvath',
+] as const;
+export type MobSoundName = (typeof MOB_SOUND_NAMES)[number];
+
+/** The day's background loops (files only), heard under the music. */
+export const AMBIENCES = ['day', 'night', 'blood_night'] as const;
+export type AmbienceId = (typeof AMBIENCES)[number];
+
+function fileSound(id: string, label: string, opts: Partial<BaseDef>): FileSoundDef {
+  return {
+    id, label, group: 'combat', volume: 'effects', positional: true, variants: 2, level: 0.7, maxInstances: 3, maxSeconds: 2.5,
+    source: 'sound redo, extras', gen: 'file', ...opts,
+  };
+}
+
+export const EXTRA_SOUNDS: readonly FileSoundDef[] = MOB_SOUND_NAMES.flatMap((m) => [
+  fileSound(`mob.${m}.call`, `${m.replace(/_/g, ' ')} call`, { maxInstances: 3 }),
+  fileSound(`mob.${m}.death`, `${m.replace(/_/g, ' ')} death`, { level: 0.75, maxInstances: 4 }),
+]);
+
+const BY_ID = new Map<string, AnySoundDef>([...SOUNDS, ...EXTRA_SOUNDS].map((s) => [s.id, s]));
 
 export function soundDef(id: string): AnySoundDef | undefined {
   return BY_ID.get(id);

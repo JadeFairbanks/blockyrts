@@ -1,8 +1,10 @@
 // The match's sound (Audio): music that follows the day (day, dusk, night,
-// dawn and the blood night), horns at dusk and dawn, unit voice cues when
-// units are selected, ordered, hungry, under attack or out of a resource,
-// and the sound list: work, hits, blocks, deaths, explosions, torches, the
-// idle-worker alert, pings and the error sound. It only listens to what the
+// dawn and the blood night) with the day's ambience under it, horns at dusk
+// and dawn, unit voice cues when units are selected, ordered, hungry, under
+// attack or out of a resource, the night monsters' own calls and deaths, and
+// the sound list: work, hits, blocks, deaths, explosions, torches, the
+// idle-worker alert, pings and the error sound. The sounds are the sound
+// redo's files, with the code-made ones behind any that are missing. It only listens to what the
 // sim worker reports, so it never touches the game's state or its hash.
 // The Settings menu's three volumes apply at once.
 import { AudioEngine, type VoiceEventId, type VoiceFamilyId } from '@blockyrts/audio';
@@ -14,7 +16,8 @@ import { entityIdOf } from '../selection/types.ts';
 import { onSettingsChange, type Settings } from '../settings/settings.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import { setCueSink, type UiCue } from './cues.ts';
-import { deathSounds, eventCue, hitSound, hornFor, musicFor, orderVoice, voiceFamily, workSound, type Who } from './sound-map.ts';
+import { soundFiles } from './files.ts';
+import { ambienceFor, deathSounds, eventCue, hitSound, hornFor, mobSoundName, musicFor, orderVoice, voiceFamily, workSound, type Who } from './sound-map.ts';
 
 /** Sounds farther than this from the camera's ground point are not even looked at (the engine's falloff ends at 70 m). */
 const HEAR_M = 70;
@@ -29,6 +32,8 @@ const FIGHT_FULL = 12;
 const VOICE_GAP: Partial<Record<VoiceEventId, number>> = { select: 0.25, acknowledge: 0.25, attack: 0.4, under_attack: 3, hungry: 20, resource_out: 2, cannot: 1, death: 0.3, greet: 2, trade: 2, warn: 2 };
 /** Least time between two of the same alert sound. */
 const ALERT_GAP_S = 1.5;
+/** Least time between two calls of the same kind of monster (seconds), so a horde does not roar as one. */
+const MOB_CALL_GAP_S = 2.5;
 
 export class GameAudio {
   readonly engine: AudioEngine;
@@ -45,6 +50,8 @@ export class GameAudio {
   private focusX = 0;
   private focusZ = 0;
   private lastSelection = new Set<string>();
+  /** Monster kinds whose own sounds have started loading. */
+  private readonly mobsSeen = new Set<number>();
   private readonly off: () => void;
 
   constructor(
@@ -53,7 +60,7 @@ export class GameAudio {
     private readonly player: number,
     engine?: AudioEngine,
   ) {
-    this.engine = engine ?? new AudioEngine();
+    this.engine = engine ?? new AudioEngine({ files: soundFiles() });
     this.engine.attachUnlock();
     this.applyVolumes(settings);
     this.off = onSettingsChange((s) => this.applyVolumes(s));
@@ -97,6 +104,7 @@ export class GameAudio {
       this.period = c.period;
       this.cycle = c.cycle;
       this.engine.setMusicState(musicFor(c.period, bloodTonight));
+      this.engine.setAmbience(ambienceFor(c.period, bloodTonight));
       // Render the next track while this one plays: the blood night's at a blood dusk.
       if (c.period === Period.Dusk && bloodTonight) void this.engine.prepareMusic('blood_night');
     }
@@ -155,8 +163,19 @@ export class GameAudio {
       if (h.look === 'death') {
         const who = this.who(h.id) ?? this.whoBefore(h.id);
         const d = deathSounds(h.kind ?? UnitKind.Mob, who?.owner ?? (h.kind === UnitKind.Mob ? MONSTERS : 0), h.mob ?? 0);
-        if (this.engine.play(d.sound, at)) n++;
+        const sound = d.fallback && !this.engine.hasSound(d.sound) ? d.fallback : d.sound;
+        if (this.engine.play(sound, at)) n++;
         if (d.voice) this.voice(d.voice, 'death', at);
+        continue;
+      }
+      if (h.look === 'swing') {
+        // A night monster striking calls out, one of a kind at a time.
+        const who = this.who(h.id);
+        const own = who?.kind === UnitKind.Mob ? mobSoundName(who.mob) : null;
+        if (own && this.engine.hasSound(`mob.${own}.call`) && !this.recently(`mob.${own}.call`, MOB_CALL_GAP_S)) {
+          this.alertAt.set(`mob.${own}.call`, performance.now() / 1000);
+          if (this.engine.play(`mob.${own}.call`, at)) n++;
+        }
         continue;
       }
       const id = hitSound(h.look, this.who(h.id), h.look !== 'shot' && this.arrowNear(h.x, h.y, h.z));
@@ -164,21 +183,33 @@ export class GameAudio {
     }
   }
 
-  /** 0 to 1: how many hostile units stand near the camera. */
+  /** 0 to 1: how many hostile units stand near the camera. Every monster kind on the map has its sounds loaded on the way. */
   private fightNear(msg: StateMessage): number {
     const d = msg.data;
     const r = FIGHT_NEAR_M * WU_PER_METRE;
     const fx = this.focusX * WU_PER_METRE;
     const fz = this.focusZ * WU_PER_METRE;
     let n = 0;
-    for (let i = 0; i < msg.count && n < FIGHT_FULL; i++) {
+    for (let i = 0; i < msg.count; i++) {
       const o = i * STATE_STRIDE;
       if (d[o + S.owner] !== MONSTERS || d[o + S.hp]! <= 0) continue;
+      this.seeMob(d[o + S.kind]!, d[o + S.mob]!);
+      if (n >= FIGHT_FULL) continue;
       const dx = d[o + S.x]! - fx;
       const dz = d[o + S.z]! - fz;
       if (dx * dx + dz * dz <= r * r) n++;
     }
     return n / FIGHT_FULL;
+  }
+
+  /** A monster kind seen for the first time: its own call and death start loading, so the first one is heard. */
+  private seeMob(kind: number, mob: number): void {
+    if (kind !== UnitKind.Mob || this.mobsSeen.has(mob)) return;
+    this.mobsSeen.add(mob);
+    const own = mobSoundName(mob);
+    if (!own) return;
+    this.engine.preload(`mob.${own}.call`);
+    this.engine.preload(`mob.${own}.death`);
   }
 
   /** Work strikes of every worker near the camera that is chopping, mining, digging or building. */

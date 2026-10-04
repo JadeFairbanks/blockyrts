@@ -63,7 +63,7 @@ on any branch from the Actions tab.
 | `packages/tools` | Headless runner, desync tool, cross-browser test, the headless two-player network test, map viewer, model converter, balance harness, sim speed check |
 | `packages/protocol` | Relay message codecs, the lockstep scheduler, the save file container and the HTTP API shapes; see its README |
 | `packages/server` | Accounts and save API, lobby and lockstep relay in one Node process; see its README for settings |
-| `packages/audio` | Every sound and the music, synthesised in code; the Web Audio engine and an audition page (`pnpm audio:dev`) |
+| `packages/audio` | Every sound and the music: the sound redo's files (served from `packages/client/public/audio/`) with the code-made versions behind them; the Web Audio engine and an audition page (`pnpm audio:dev`) |
 | `packages/balance` | The balance editor: every balance value in the sim, browsable and editable, exported as a JSON list of changes; see its README |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
@@ -1638,6 +1638,43 @@ load, and their wild fills afresh round the units.
 7. The balance editor has **Wandering night monsters** under Mobs and nights
    (every number above) and SWOOP under Mob abilities (dive and climb speed,
    the pull-off's distance and height).
+
+## How a tester checks the sound redo
+
+Every sound in the game was remade by an outside sound service from the
+brief in the project's `audio/sound-redo-brief.txt`. The game now plays those
+files (`packages/client/public/audio/`, MP3, about 22 MB in all) and still
+makes any sound whose file is missing or will not load in code, as before.
+The original WAVs stay in the project's `audio/originals/`, never in the
+repo. No hash changed: sound only listens to the game.
+
+1. `pnpm test` runs `packages/client/test/sound-files.test.ts` (every sound,
+   take and music stem the game plays has a file on disk, within the brief's
+   lengths, music stems the same length; the extras are all there; each night
+   monster the redo voiced maps to its sounds by its sim name; monsters call
+   as they strike, one of a kind at a time, and fall back to the shared death
+   where a file is missing; the ambience follows the day) and the
+   `finished sound files` tests in `packages/audio/test/audio.test.ts` (the
+   cut back to the exact sound whether or not the browser drops the MP3
+   encoder's silence).
+2. **Menu.** `pnpm dev`, open http://localhost:5173/ and click anywhere: the
+   menu theme plays, and fades out as a game starts. The Settings music
+   slider in the menu changes it at once.
+3. **In the match.** Start a game and click once. Day music plays over
+   birdsong and breeze; work, hits and clicks are the new sounds. At dusk the
+   new horn, the dusk track and the night's crickets and wind; on a blood
+   night its own music and hot wind. Zombies, skeletons, rats, bats, spiders
+   and slimes call out as they strike and each dies with its own sound
+   (`?seed=1`, wait for night 0); the later night monsters and Morvath have
+   their own too.
+4. **Fallback.** Block `/audio/` in the browser's network tools (or delete a
+   file in `public/audio/`) and reload: the game plays the old code-made
+   sound for anything it cannot load, and the console says which.
+5. **New WAVs.** `pnpm --filter @blockyrts/audio sounds:build <folder>`
+   (needs ffmpeg) checks a delivery against the sound list, encodes it and
+   rewrites `packages/client/src/audio/sound-files.json`. Music and ambience
+   are encoded with a second of wrap-around each side and cut back after
+   decoding, so their loops have no seam.
 
 ## How a tester checks the balance editor
 
