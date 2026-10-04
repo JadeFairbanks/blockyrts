@@ -6,7 +6,9 @@
 // idle-worker alert, pings and the error sound. The sounds are the sound
 // redo's files, with the code-made ones behind any that are missing. It only listens to what the
 // sim worker reports, so it never touches the game's state or its hash.
-// The Settings menu's three volumes apply at once.
+// The Settings menu's three volumes apply at once. While the game is paused
+// only the music, the ambience and the interface's own sounds are heard
+// (Jade's Patch 3).
 import { AudioEngine, type VoiceEventId, type VoiceFamilyId } from '@blockyrts/audio';
 import { buildingSpec, clockAt, MONSTERS, type Order, Period, UnitKind, WU_PER_METRE } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
@@ -47,6 +49,7 @@ export class GameAudio {
   private readonly lit = new Map<number, boolean>();
   private readonly built = new Map<number, { complete: boolean; hp: number; maxHp: number; x: number; z: number; owner: number }>();
   private starving = false;
+  private paused = false;
   private focusX = 0;
   private focusZ = 0;
   private lastSelection = new Set<string>();
@@ -79,6 +82,22 @@ export class GameAudio {
     this.engine.setVolume('voice', s.voiceVolume);
   }
 
+  // ---- Pausing ----
+
+  /**
+   * The game stopped or went on (alone: the menu is open; online: the relay's
+   * pause). Paused, the world falls silent at once: work, fighting, voices,
+   * buildings, horns and alerts. The music and the ambience play on, and so
+   * do the interface's clicks.
+   */
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    this.engine.setWorldPaused(paused);
+    // The work strikes start afresh, out of step again, on resuming.
+    if (!paused) this.nextStrike.clear();
+  }
+
   // ---- Each frame ----
 
   /** The camera's ground point (metres): the listener, the music for the time of day and how fierce the fighting on screen is. */
@@ -86,7 +105,7 @@ export class GameAudio {
     this.focusX = focusX;
     this.focusZ = focusZ;
     this.engine.setListener(focusX, focusZ, 1, 0);
-    this.work(now / 1000);
+    if (!this.paused) this.work(now / 1000);
   }
 
   // ---- The sim's state messages ----
@@ -322,8 +341,9 @@ export class GameAudio {
     if (family) this.voice(family, 'select', { x: u.x / WU_PER_METRE, z: u.z / WU_PER_METRE }, true);
   }
 
+  /** The player's own clicks, placings, refusals and pings: heard while paused too. */
   private ui(c: UiCue): void {
-    this.engine.play(c);
+    this.engine.play(c, { ui: true });
   }
 
   // ---- Helpers ----

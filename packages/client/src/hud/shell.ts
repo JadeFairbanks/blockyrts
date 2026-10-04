@@ -717,10 +717,10 @@ export class GameShell {
       const now = performance.now();
       if (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null && (ev.bubble !== 'meal' || now >= this.mealBubbleAt)) {
         if (ev.bubble === 'meal') this.mealBubbleAt = now + MEAL_BUBBLE_GAP_MS;
-        this.bubbles.say(ev.speaker, ev.text, now, 'own');
+        this.bubbles.say(ev.speaker, ev.text, now, 'own', ev.hold);
       }
-    } else if (ev.building !== undefined) this.bubbles.speak({ id: ev.building, building: true }, ev.text, performance.now());
-    else if (ev.speaker) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+    } else if (ev.building !== undefined) this.bubbles.speak({ id: ev.building, building: true }, ev.text, performance.now(), 'own', ev.hold);
+    else if (ev.speaker) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own', ev.hold);
     if (ev.foreign && ev.faction && ev.player === this.player && ev.name) this.peoples.heard(ev.faction, ev.name, ev.text);
     if (!speechToPanel(ev, this.player)) return;
     this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker || undefined });
@@ -1580,9 +1580,12 @@ export class GameShell {
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
+    // The units at a timed action: their bars, and the bubbles that stay while the bars run (Jade's Patch 3).
+    const tinkering = this.game.tinkering();
+    const sitting = new Set(tinkering.map(([id]) => id));
     // No random remarks while the game is paused (Jade's patch notes 1).
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step);
-    this.tinkerBars.update(this.game.tinkering(), (id) => this.headOnScreen(id));
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
+    this.tinkerBars.update(tinkering, (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1777,10 +1780,15 @@ export class GameShell {
     const list = this.selection.list();
     this.refreshPortrait(list);
     this.buttons.get('clear')?.el.classList.toggle('idle', list.length === 0);
+    // Plain words with the player's own keys (Jade's Patch 3).
+    const key = (action: string): string => {
+      const id = keyFor(this.settings.keys, action);
+      return id === 'Backspace' ? 'Backspace' : keyLabel(id);
+    };
     this.panel.render(list, this.activeType(), [
-      `Left click or drag to select. Double click or ${CTRL_NAME} + click: all of that type on screen.`,
-      'Right click to give orders. Shift adds to the selection and queues orders.',
-      'F1: an idle gatherer. Backspace: your main base. ` + 1 to 0: save a control group.',
+      `Left click a unit to select it, or drag a box around several. Double click one (or ${CTRL_NAME} + click) to select all of its kind on screen.`,
+      'Right click to give an order. Hold Shift to add to the selection or to line up orders.',
+      `${key('idle')}: find an idle worker. ${key('townhall')}: go to your main base. Hold \` and press 1 to 0 to save a control group.`,
     ]);
   }
 
