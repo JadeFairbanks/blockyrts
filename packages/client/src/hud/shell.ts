@@ -1777,10 +1777,15 @@ export class GameShell {
     const list = this.selection.list();
     this.refreshPortrait(list);
     this.buttons.get('clear')?.el.classList.toggle('idle', list.length === 0);
+    // Plain words with the player's own keys (Jade's Patch 3).
+    const key = (action: string): string => {
+      const id = keyFor(this.settings.keys, action);
+      return id === 'Backspace' ? 'Backspace' : keyLabel(id);
+    };
     this.panel.render(list, this.activeType(), [
-      `Left click or drag to select. Double click or ${CTRL_NAME} + click: all of that type on screen.`,
-      'Right click to give orders. Shift adds to the selection and queues orders.',
-      'F1: an idle gatherer. Backspace: your main base. ` + 1 to 0: save a control group.',
+      `Left click a unit to select it, or drag a box around several. Double click one (or ${CTRL_NAME} + click) to select all of its kind on screen.`,
+      'Right click to give an order. Hold Shift to add to the selection or to line up orders.',
+      `${key('idle')}: find an idle worker. ${key('townhall')}: go to your main base. Hold \` and press 1 to 0 to save a control group.`,
     ]);
   }
 
