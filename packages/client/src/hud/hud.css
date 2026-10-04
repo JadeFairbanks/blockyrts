@@ -1881,8 +1881,11 @@ body.playing.touch .hud {
 .sel-title {
   flex: 0 1 auto;
   min-width: 0;
-  /* Room for the bars (and the close button): a mage's "Support mage (Novice Acolyte)" fits whole. */
+  /* Room for the bars (and the close button). */
   max-width: calc(100% - 172px);
+}
+.sel-title.long {
+  font-size: 17px;
 }
 .sel-extra {
   flex: 1 1 auto;

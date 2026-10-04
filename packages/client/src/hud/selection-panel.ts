@@ -339,6 +339,8 @@ export class SelectionPanel {
 
   private setTitle(text: string): void {
     if (this.title.textContent !== text) this.title.textContent = text;
+    // A long name ("Battle mage (Grand Magician)") steps down a size rather than lose its end.
+    this.title.classList.toggle('long', text.length > 22);
   }
 
   /** The own buildings of one kind with training cards, when they are all that is selected; else null. */
