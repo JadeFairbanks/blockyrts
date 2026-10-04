@@ -282,8 +282,7 @@ describe('the dusk goblin horde', () => {
       const z = b.z - 40 + Math.floor(k / 20) * 4;
       const why = placementBlocked(s, 0, BuildingKind.TorchPost, x, z);
       if (why !== Blocked.None && why !== Blocked.Node) continue;
-      const t = placeBuilding(s, 0, BuildingKind.TorchPost, 0, x, z, true);
-      t.fuelUntil = 10 * CYCLE_STEPS;
+      placeBuilding(s, 0, BuildingKind.TorchPost, 0, x, z, true);
       placed++;
     }
     expect(placed).toBe(6);
@@ -361,17 +360,16 @@ describe('goblin villages', () => {
     const e = s.entities;
     const b = bigHouse(s);
     const t = placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x + 20, b.z + 20, true);
-    t.fuelUntil = s.step + 5000;
     const [tx, tz] = buildingCentre(t);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: tx + 80 * M, z: tz }]);
     const mage = mobs(s, Mob.GoblinMage)[0]!;
     snuffEffect(s, mage, t);
-    expect(isLit(t, s.step)).toBe(false);
+    expect(isLit(t)).toBe(false);
     const pool = s.players[0]!.pool[Res.SoftwoodLumber]!;
     let worker = -1;
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) worker = i;
-    step(s, [{ kind: 'refuel', player: 0, units: [e.id[worker]!], building: t.id }]);
-    runUntil(s, () => isLit(t, s.step), 2000);
+    step(s, [{ kind: 'relight', player: 0, units: [e.id[worker]!], building: t.id }]);
+    runUntil(s, () => isLit(t), 2000);
     expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(pool);
   });
 });

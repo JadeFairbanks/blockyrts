@@ -195,7 +195,7 @@ function pickTorch(state: SimState, i: number): Building | undefined {
   let bestD = 0;
   const r2 = TORCH_HUNT_WU * TORCH_HUNT_WU;
   for (const b of state.buildings.list) {
-    if (b.owner >= state.players.length || !isLit(b, state.step)) continue;
+    if (b.owner >= state.players.length || !isLit(b)) continue;
     const [x, z] = buildingCentre(b);
     const d = dist2(x, z, e.x[i]!, e.z[i]!);
     if (d > r2 || (best && d >= bestD)) continue;
@@ -211,7 +211,7 @@ function litGate(state: SimState, b: Building): boolean {
   const [gx, gz] = buildingCentre(b);
   for (const l of state.buildings.list) {
     const light = buildingSpec(l.kind).light;
-    if (!light || l.owner !== b.owner || !isLit(l, state.step)) continue;
+    if (!light || l.owner !== b.owner || !isLit(l)) continue;
     const [lx, lz] = buildingCentre(l);
     const r = light.lightM * WU_PER_METRE;
     if (dist2(lx, lz, gx, gz) <= r * r) return true;
@@ -376,7 +376,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   if (what === With.Snuff) {
     // A raiding goblin puts a light out (Table 17: raids put out lights on the way).
     const b = state.buildings.get(id);
-    if (b && gapToBuilding(state, i, b) <= spec.reach + TOLERANCE && snuffLight(state, b)) {
+    if (b && gapToBuilding(state, i, b) <= spec.reach + TOLERANCE && snuffLight(b)) {
       const [x, z] = buildingCentre(b);
       state.events.push({ player: b.owner, kind: 'alert', text: `Goblins put out a ${buildingSpec(b.kind).name.toLowerCase()}. A worker can relight it.`, x, z });
     }

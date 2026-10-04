@@ -178,12 +178,12 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   };
 }
 
-/** Which panels the phone has unfolded. */
+/** Which panels the phone has unfolded, and whether the tester tools are open. */
 export interface Folds {
   map: boolean;
   info: boolean;
   stock: boolean;
-  /** The tester's debug readout and tools. */
+  /** The tester's debug readout and tools, on any screen: hidden until the key code opens them (input/tester-code.ts). */
   debug: boolean;
 }
 
@@ -213,7 +213,7 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, cardRows: number, fo
   L.selectionPanel.hidden = phone && !folds.info;
   L.stockpile.hidden = phone && !folds.stock;
   L.folds.hidden = !phone;
-  L.debug.hidden = phone && !folds.debug;
+  L.debug.hidden = !folds.debug;
   place(L.minimapPanel, g.minimap.x, null, lift, g.minimap.w, g.minimap.h, '0 100%');
   place(L.portraitPanel, g.portrait.x, null, lift, g.portrait.w, g.portrait.h, '0 100%');
   place(L.selectionPanel, g.middle.x, null, lift, g.middle.w, g.middle.h, '0 100%');

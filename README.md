@@ -135,7 +135,11 @@ reveal; two machines with the same seed show the same land and the same hash.*
    to walk your units out: the land they see turns from black to colour,
    and stays grey once they have left. The land round your buildings stays
    in colour (see "How a tester checks shared vision" below).
-3. The debug panel (top left) has the tools for looking around. **Reveal**
+3. The debug panel (top left) has the tools for looking around. In Patch 2
+   it is hidden until you type M N B V C X Z in order in the game (see "How
+   a tester checks Patch 2's lights, tips, tester tools and minimap"); every
+   check in this file that names the debug panel or the debug bar opens it
+   that way first. **Reveal**
    explores 150 m round the middle of the view, and the minimap fills in
    behind it. **Show all** draws the land without fog on your screen only,
    so you can pan across cells, barrier edges (low hills, ridges, cliffs,
@@ -203,8 +207,8 @@ out.* (The warrior joins in milestone 3.)
    press G: the Longhall is paid for, then right-click the Big House with
    workers to build it. Each level up to the Citadel has its own look.
 7. **Lights and night.** A torch post (2 softwood, 1 resin) claims 5 m round
-   it while lit and burns a softwood every 3 days; near the Big House it
-   refuels itself from the pool. At dusk the Everyone Home button (J) lights
+   it while lit. In Patch 2 lights need no fuel, and the bonfire (15
+   softwood) lights 20 m and claims 10 m. At dusk the Everyone Home button (J) lights
    up: it sends everyone to shelter in the Big House or a farm, and at day
    they come out and carry on. Lights more than 40 m from the main base are
    counted under the clock against the night's limit.
@@ -462,7 +466,7 @@ dawn.*
    the fifth kill, or a kill and a broken building, means war: the ring turns
    red, and every day 30 s after dawn 60% of its fighters (at least 4) march
    on your nearest building and go home at dusk. The mage snuffs lights on
-   the way (a worker on its refuel round relights them for nothing), hexes a
+   the way (right click one with a worker to relight it, 2 s), hexes a
    unit to stumble (slowed) and tosses sparks that leave wood smouldering.
    At peace a village rebuilds a hut every 5 days. Workers who break down a
    hut take 5 hardwood sticks and 2 hides from it.
@@ -889,8 +893,8 @@ flag are in the hash, and production queues record who paid).
 2. **The menu.** `pnpm dev` and open http://localhost:5173. The main menu has
    New game, Load game, Join game, Settings, Account and Quit, with the F11
    reminder (Ctrl + Cmd + F on a Mac) and a Full screen button. New game >
-   Play alone starts a game with first-day hints (Settings > Help turns them
-   off). `?seed=N` (and `&players=K`) still skips the menu for testers.
+   Play alone starts a game with first-day tips (Settings > Help > Tips turns
+   them off). `?seed=N` (and `&players=K`) still skips the menu for testers.
 3. **Two players on one machine.** Run the game server too
    (`pnpm --filter @blockyrts/server dev`, port 8080, in memory; `pnpm dev`
    passes `/api` and `/relay` to it). In one window: New game > Host a game
@@ -1068,7 +1072,7 @@ still load, with every player's explored land joined into one.
 
 1. `pnpm test` runs `packages/sim/test/vision.test.ts`: a lone building far
    from any unit explores and sees out to its sight from its walls; the sight
-   table (main base and towers 20 m, braziers 14 m, every other building
+   table (main base, towers and the bonfire 20 m, every other building
    10 m, `BUILDING_SIGHT_M`); fog halving it; a tower marking a lair found; a
    ranger on a tower seeing 10 m further and a worker sheltering inside not
    seeing; two players' units and buildings all in the side's vision and
@@ -1080,7 +1084,7 @@ still load, with every player's explored land joined into one.
    round the Big House is in colour out to 20 m from its walls with no unit
    near. Build a storehouse or a torch post at the edge of what you have
    explored and walk the workers home: the land 10 m round it stays in
-   colour, in sight, not grey. Towers see 20 m and braziers 14 m; on a fog
+   colour, in sight, not grey. Towers and bonfires see 20 m; on a fog
    night every building sees half as far. The Big House and towers also mark
    lairs and goblin villages they see on the minimap.
 3. **Two players.** Open `?seed=1&players=2`: both pockets are in colour
@@ -1675,6 +1679,59 @@ repo. No hash changed: sound only listens to the game.
    rewrites `packages/client/src/audio/sound-files.json`. Music and ambience
    are encoded with a second of wrap-around each side and cut back after
    decoding, so their loops have no seam.
+
+## How a tester checks Patch 2's lights, tips, tester tools and minimap
+
+Round 4 of the Patch 2 design (`blueprint/patch-2.md`). Saves from before
+Patch 2 do not load (the standing rule for every patch).
+
+1. `pnpm test` runs `packages/client/test/patch2-tips-tools-map.test.ts` (the
+   key code, the tips' timing and their one question, which units the
+   minimap shows and in what colour, enemies only in sight, no red among the
+   player colours) and the sim's light checks in `m2.test.ts`, `m5.test.ts`
+   and `vision.test.ts` (lights burn with no fuel, a snuffed light relit by
+   a worker in 2 s, the bonfire's 20 m sight).
+2. **Tester tools.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   start: there is no debug readout and no debug bar, and on a phone no ⚙
+   button among the folds. Type M N B V C X Z in order in the game: the
+   readout and the tools show, with the message "Tester tools shown. Type
+   the code again to hide them." Type it again and they hide. Any other key
+   or any click in between starts the count again (M N B Q V C X Z opens
+   nothing; nor does M N B V, a click, C X Z), and the keys keep their usual
+   jobs while you type them. A new game or a reload starts with them hidden.
+3. **Lights.** Select a worker: the Lights slot has the torch post (2
+   softwood, 1 resin, lights 10 m, claims 5 m) and the bonfire (15 softwood,
+   3 by 3, lights 20 m, claims 10 m, buildable from the start); the wall
+   torch and the lantern are greyed out as cut in Patch 2. Build both; select
+   one: "Lit. It needs no fuel." Let a few days pass with **Speed**: they
+   stay lit and no worker goes to feed them. The bonfire stands in as the
+   campfire model at twice its size until its own model arrives. A light a
+   goblin mage snuffs, or an outlying torch post a badger knocks over, reads
+   "Out: right click it with a worker to relight it."; right click it with a
+   worker, who walks over,
+   works at it for 2 s and lights it again for nothing. Lights more than 40 m
+   from the main base still count against the night's limit, a bonfire as
+   one.
+4. **Tips.** New game > Play alone (or `?seed=1` with Settings > Help > Tips
+   on). The first tip shows at the top of the view as outlined text with no
+   frame: "Tip: ..." with an ✕. It goes by itself after 12 s of game time
+   (paused time does not count); the next tip waits until you have done what
+   the last one said. Press ✕ on a tip: the text turns to "Turn tips off?"
+   with the question bubbles' Yes (a green tick) and No (a red cross), each
+   saying what it does in its tooltip. Yes: no more tips this game. No, or no answer in 12 s:
+   the tips go on, and every later ✕ just closes its tip without asking.
+   A new game asks again once. Settings > Help > Tips off: no tips at all.
+5. **Minimap.** Your units are 2 px dots and your buildings their footprint
+   (at least 2 px) in your colour, drawn over the land and under the lair,
+   village and people marks; your mercenaries are in your colour too. With
+   `?seed=1&players=2` (or two players in a lobby) the other player's are in
+   theirs. Night monsters, lair guardians, goblins, attacking wanderers and
+   peoples at war are red dots, and only while one of your side's units or
+   buildings sees them (**Show all** shows them all). Wild animals and
+   peoples at peace are not shown.
+6. **No red for players.** The lobby's colour picks are Blue, Green, Yellow,
+   Purple, Orange, Teal, Pink and White, each with its banner; red is kept
+   for enemies.
 
 ## How a tester checks troop names (Patch 2)
 

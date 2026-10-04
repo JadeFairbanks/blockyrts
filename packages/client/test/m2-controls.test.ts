@@ -19,7 +19,7 @@ function sel(key: string, kind: Selectable['kind'], typeKey: string, owner = ME,
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
   };
 }
 
@@ -81,7 +81,7 @@ describe('build menus', () => {
     const basic = menuSlots('basic');
     expect(basic[0]!.map((b) => b.kind)).toEqual([BuildingKind.MainBase]);
     expect(basic[1]!.map((b) => b.kind)).toEqual([BuildingKind.CropField, BuildingKind.VegetableFarm, BuildingKind.HerbBed, BuildingKind.LivestockFarm]);
-    expect(basic[12]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.WallTorch, BuildingKind.Brazier, BuildingKind.Lantern]);
+    expect(basic[12]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.WallTorch, BuildingKind.Bonfire, BuildingKind.Lantern]);
     expect(basic[14]).toEqual([]);
     expect(menuSlots('advanced')[14]).toEqual([]);
     expect(submenuChoices(basic[1]!).map((c) => c.name)).toEqual(['Wheat field', 'Corn field', 'Flax field', 'Potato farm', 'Carrot farm', 'Herb bed', 'Livestock farm']);

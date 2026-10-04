@@ -5,7 +5,6 @@
 // moving and striking is the night mobs' (combat/mob-ai.ts); this file only
 // decides what each one goes for.
 
-import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, dist2, isLit } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockOf, Period } from '../clock.ts';
@@ -70,10 +69,6 @@ export function nearestBuilding(state: SimState, x: number, z: number, r: number
     bestD = d;
   }
   return best;
-}
-
-function litLight(state: SimState): (b: Building) => boolean {
-  return (b) => buildingSpec(b.kind).light !== undefined && isLit(b, state.step);
 }
 
 /** Stands at its post: walks back there and waits. */
@@ -155,7 +150,7 @@ function runTribesman(state: SimState, i: number, spec: MobSpec): void {
     engageUnit(state, i, spec, t);
     return;
   }
-  const torch = spec.id === Mob.Kobold ? nearestBuilding(state, e.x[i]!, e.z[i]!, KOBOLD_TORCH_WU, litLight(state)) : undefined;
+  const torch = spec.id === Mob.Kobold ? nearestBuilding(state, e.x[i]!, e.z[i]!, KOBOLD_TORCH_WU, isLit) : undefined;
   const b = torch ?? (spec.vsWalls > 0 ? nearestBuilding(state, e.x[i]!, e.z[i]!, sight, () => true) : undefined);
   if (b) {
     attackBuilding(state, i, spec, b);
@@ -203,7 +198,7 @@ function runVillager(state: SimState, i: number, spec: MobSpec): void {
         engageUnit(state, i, spec, t);
         return;
       }
-      const light = nearestBuilding(state, e.x[i]!, e.z[i]!, RAID_LIGHT_WU, (b) => b.owner === enemy && litLight(state)(b));
+      const light = nearestBuilding(state, e.x[i]!, e.z[i]!, RAID_LIGHT_WU, (b) => b.owner === enemy && isLit(b));
       if (light) {
         if (spec.mana > 0 && snuffNear(state, i, light)) return;
         attackBuilding(state, i, spec, light, true);
@@ -230,7 +225,7 @@ function runVillager(state: SimState, i: number, spec: MobSpec): void {
   }
   // A mage at home snuffs the players' lights that come near the village.
   if (spec.mana > 0) {
-    const light = nearestBuilding(state, v.x, v.z, VILLAGE_AGGRO_WU, litLight(state));
+    const light = nearestBuilding(state, v.x, v.z, VILLAGE_AGGRO_WU, isLit);
     if (light && snuffNear(state, i, light)) return;
   }
   // Home: by day about the huts, at night by the fire.

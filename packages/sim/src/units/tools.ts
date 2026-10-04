@@ -56,7 +56,7 @@ export function workerMelee(e: EntityStore, i: number): MeleeStats {
 /** The tool a worker has in hand for what it is doing now (Seeing equipment), or 0. */
 export function toolInHand(e: EntityStore, i: number): number {
   const q = e.queue[i]![0];
-  if (q && (q.t === 'work' || q.t === 'repairAll' || q.t === 'refuel') && e.order[i] === OrderKind.Chop) return toolFor(e, i, ToolJob.Build);
+  if (q && (q.t === 'work' || q.t === 'repairAll' || q.t === 'relight') && e.order[i] === OrderKind.Chop) return toolFor(e, i, ToolJob.Build);
   switch (e.order[i]) {
     case OrderKind.Chop:
       return toolFor(e, i, ToolJob.Chop);

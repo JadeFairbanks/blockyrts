@@ -31,7 +31,7 @@ export interface Settings {
   musicVolume: number;
   effectsVolume: number;
   voiceVolume: number;
-  /** The first day's hints (Onboarding). */
+  /** The first day's tips (Onboarding; called tips from Patch 2). */
   hints: boolean;
   /** Tap controls for a touchscreen (patch notes 1): everything by tapping, no right click, no cursor lock or edge panning. */
   touch: boolean;
