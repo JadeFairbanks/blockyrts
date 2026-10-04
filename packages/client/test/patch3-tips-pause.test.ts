@@ -2,7 +2,7 @@
 // and the interface heard while the game is paused.
 import { AudioEngine, playsWhilePaused, SOUNDS, soundDef } from '@blockyrts/audio';
 import type { AudioEngine as Engine } from '@blockyrts/audio';
-import { BuildingKind, buildingSpec, OrderKind, UnitKind, WU_PER_METRE } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, clockAt, OrderKind, Period, STEPS_PER_SECOND, UnitKind, WU_PER_METRE } from '@blockyrts/sim';
 import { describe, expect, it } from 'vitest';
 import { GameAudio } from '../src/audio/game-audio.ts';
 import { cue } from '../src/audio/cues.ts';
@@ -10,7 +10,7 @@ import { GameInfo } from '../src/game/game-info.ts';
 import { menuSlots, submenuChoices } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type StateMessage } from '../src/messages.ts';
 import { sanitizeSettings } from '../src/settings/settings.ts';
-import { tipTexts } from '../src/ui/hints.ts';
+import { tipTexts, TORCH_TIP_STEP } from '../src/ui/hints.ts';
 
 describe('the tips (Patch 3)', () => {
   it('say how to light a torch in the clicks the player makes, with what it costs', () => {
@@ -32,6 +32,11 @@ describe('the tips (Patch 3)', () => {
     const rebound = tipTexts({ build: 'KeyK', home: 'KeyH' });
     expect(rebound.build).toContain('press K');
     expect(rebound.dusk).toContain('press H');
+  });
+
+  it('hold the torch tip until 10 s into the first dusk (Patch 3b)', () => {
+    const c = clockAt(TORCH_TIP_STEP);
+    expect(c).toMatchObject({ period: Period.Dusk, cycle: 0, into: 10 * STEPS_PER_SECOND });
   });
 
   it('stay short and plain', () => {

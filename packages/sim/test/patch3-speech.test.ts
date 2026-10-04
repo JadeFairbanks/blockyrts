@@ -15,6 +15,7 @@ import {
   Ask,
   createWorld,
   CYCLE_STEPS,
+  FIRST_KIT_ASK_STEPS,
   deserializeState,
   HURT_ASK_QUIET_STEPS,
   hurtUnit,
@@ -222,6 +223,10 @@ describe("a timed action's bubble (Jade's Patch 3: present tense, up while the b
 describe("the start's two upgrade questions (Jade's Patch 3)", () => {
   function start(): { s: SimState; kit: SimEvent; tools: SimEvent; advice: SimEvent[]; evs: SimEvent[] } {
     const s = createWorld(1, { peaceful: true });
+    // Nothing asks, and the main base says nothing, for the first 10 s of game time (Jade's Patch 3b).
+    const early = run(s, FIRST_KIT_ASK_STEPS);
+    expect(asked(early, Ask.Kit)).toEqual([]);
+    expect(early.filter((x) => x.kind === 'speech' && x.building !== undefined)).toEqual([]);
     const evs = run(s, 3 * SEC);
     const kits = asked(evs, Ask.Kit);
     const kit = kits.find((x) => x.text.includes('better kit'))!;

@@ -1,7 +1,8 @@
 // The selection panel, the middle of the bottom strip (Controls: Selecting
 // units and buildings; Patch 2, round 2: pictures and bars with sparse short
 // text, every full sentence in the tooltip of its picture). The title row
-// (Jade's Patch 3) runs the full width: the name as tall as two bars, a
+// (Jade's Patch 3) runs the full width: the name at the size of the bars'
+// words (Patch 3b; as tall as two bars in Patch 3), in the middle of the row, a
 // divider, then "HP:" and the health bar with its numbers to the clear
 // button, and under it "XP:" and the experience bar for a unit with ranks (a
 // mage's mana, a rider's mount or a building's progress as a row more).
@@ -64,7 +65,7 @@ import { hasRanks, xpView } from './xp-bar.ts';
 const MAX_PORTRAITS = 40;
 /** Most Barracks tiles in the row under the title. */
 const MAX_TILES = 10;
-/** The name takes at most this share of the title row beside its bars; a longer one goes on two lines at half the size. */
+/** The name takes at most this share of the title row beside its bars; a longer one goes on two lines. */
 const TITLE_SHARE = 0.5;
 
 /** A name on two lines, broken at the space that leaves the longer line shortest ("Support mage" over "(Novice Acolyte)"); one word stays whole. */
@@ -433,9 +434,9 @@ export class SelectionPanel {
   }
 
   /**
-   * The name is as tall as the two bars beside it (Jade's Patch 3). One too
-   * long for its share of the row goes on two lines at half the size; with no
-   * bars it may take the row up to the clear button.
+   * The name is the size of "HP:" and "XP:" beside it (Jade's Patch 3b), the
+   * bars taking the rest of the row. One too long for its share of the row
+   * goes on two lines; with no bars it may take the row up to the clear button.
    */
   private fitTitle(): void {
     const t = this.title;
