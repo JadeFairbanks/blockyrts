@@ -44,7 +44,10 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'cart':
       return 'cart';
     case 'train':
-      return typeKey.startsWith('mage:') ? 'mageRank' : 'rankUp';
+      // Only mages have a rank button (Patch 3: workers rank up by working; warriors train at the Barracks' card).
+      return typeKey.startsWith('mage:') ? 'mageRank' : null;
+    case 'retrain':
+      return 'retrain';
     case 'cast':
       return spellAction(o.spell);
     case 'hitch':

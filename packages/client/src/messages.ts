@@ -44,8 +44,7 @@ export type ToWorker =
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
  * rides and the mount's health; an engine's crew standing by and whether
- * something hauls it; its meal and hunger; a timed action under way; its
- * experience and what its next rank needs.
+ * something hauls it; its meal and hunger; a timed action under way.
  */
 export const STATE_STRIDE = 56;
 export const S = {
@@ -80,7 +79,15 @@ export const S = {
   swing: 23,
   flags: 24,
   lock: 25,
-  /** A unit's experience and what its next rank needs, whole points (sim rankXp; Jade's Patch 3 XP bar); next is 0 where experience leads no further. 26 and 27 held a warrior's trained skills and a cannon's powder charges, both cut in Patch 2. */
+  /**
+   * A unit that ranks (worker, troop, mage): its experience and the
+   * experience its next rank needs, whole points, both counted from nothing
+   * as Table 1 writes them (a Hand has 50 or more and needs 150 for Master
+   * worker); the need is 0 at the top rank, both 0 for what never ranks
+   * (Patch 3, sim combat.ts rankXp). The middle HUD's XP bar reads them.
+   * Before Patch 2, 26 and 27 held a warrior's trained skills and a cannon's
+   * powder charges.
+   */
   xp: 26,
   xpNext: 27,
   target: 28,

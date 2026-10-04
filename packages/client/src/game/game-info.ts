@@ -58,7 +58,7 @@ export interface UnitInfo {
   /** A unit that eats: its meal in quarters of nutrition, else 0; and the step it began starving, or 0. */
   meal: number;
   hungry: number;
-  /** Experience and what the next rank needs, whole points; xpNext is 0 where experience leads no further (Patch 3). */
+  /** A unit that ranks: its experience and what its next rank needs, whole points counted from nothing (Table 1); the need 0 at the top rank, both 0 for what never ranks (Patch 3). */
   xp: number;
   xpNext: number;
 }

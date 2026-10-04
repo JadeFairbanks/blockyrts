@@ -54,6 +54,7 @@ export * from './combat/spawn.ts';
 export * from './combat/deaths.ts';
 export * from './units/gear.ts';
 export * from './units/tinker.ts';
+export * from './units/ranks.ts';
 export * from './units/questions.ts';
 export * from './units/greyed.ts';
 export * from './units/tools.ts';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rankXp, UnitKind, type SimState } from '@blockyrts/sim';
+import { UnitKind } from '@blockyrts/sim';
 import { bestScale, MIDDLE_MAX_SCALE, MIDDLE_MIN_SCALE } from '../src/hud/middle-fit.ts';
 import { twoLines } from '../src/hud/selection-panel.ts';
 import { hasRanks, xpView } from '../src/hud/xp-bar.ts';
@@ -17,7 +17,7 @@ describe('the XP bar', () => {
 
   it('fills to the next rank and names it, the rank now first', () => {
     expect(xpView(UnitKind.Warrior, 2, 120, 150)).toEqual({ pct: 80, tip: 'Soldier: 120 of 150 XP to Veteran.' });
-    expect(xpView(UnitKind.Worker, 1, 120, 300)).toEqual({ pct: 40, tip: 'Labourer: 120 of 300 XP to Hand.' });
+    expect(xpView(UnitKind.Worker, 1, 30, 50)).toEqual({ pct: 60, tip: 'Labourer: 30 of 50 XP to Hand.' });
     expect(xpView(UnitKind.Warrior, 1, 0, 50)?.pct).toBe(0);
   });
 
@@ -26,8 +26,8 @@ describe('the XP bar', () => {
     expect(xpView(UnitKind.Mage, 6, 2400, 0)).toEqual({ pct: 100, tip: 'Grand Magician, the top rank: 2400 XP.' });
   });
 
-  it('says when only training reaches the next rank', () => {
-    expect(xpView(UnitKind.Worker, 1, 12, 0)).toEqual({ pct: 0, tip: 'Labourer: 12 XP. Hand comes by training, not experience.' });
+  it('shows an empty bar where the sim names no next need', () => {
+    expect(xpView(UnitKind.Worker, 1, 12, 0)).toEqual({ pct: 0, tip: 'Labourer: 12 XP.' });
   });
 
   it("says a mage above Adept Acolyte also trains at the Sanctum", () => {
@@ -36,13 +36,6 @@ describe('the XP bar', () => {
     expect(xpView(UnitKind.Mage, 1, 30, 40)?.tip).toBe('Novice Acolyte: 30 of 40 XP to Acolyte.');
   });
 
-  it('reads whole points and the next rank from the sim', () => {
-    const state = (kind: number, rank: number, xp: number): SimState => ({ entities: { kind: [kind], rank: [rank], xp: [xp] } }) as unknown as SimState;
-    expect(rankXp(state(UnitKind.Warrior, 2, 1234), 0)).toEqual([123, 150]);
-    expect(rankXp(state(UnitKind.Warrior, 5, 12000), 0)).toEqual([1200, 0]);
-    expect(rankXp(state(UnitKind.Mage, 1, 300), 0)).toEqual([30, 40]);
-    expect(rankXp(state(UnitKind.Animal, 0, 0), 0)).toEqual([0, 0]);
-  });
 });
 
 describe('a long name in the title row', () => {

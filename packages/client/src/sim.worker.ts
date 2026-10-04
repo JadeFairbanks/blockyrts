@@ -30,13 +30,13 @@ import {
   mageLock,
   mageSchoolsAt,
   tinkerProgress,
+  rankXp,
   troopDefault,
   troopTypesAt,
   upgradeProgress,
   productsOf,
   starvingSince,
   mealQuarters,
-  rankXp,
   FOODS,
   BUILDINGS,
   buildingName,
@@ -220,12 +220,12 @@ function postState(s: SimState): void {
     if (e.kind[i] === UnitKind.Engine) data[o + S.crew] = crewOf(s, i).length + (haulerOf(s, i) >= 0 ? 1000 : 0);
     data[o + S.meal] = mealQuarters(s, i);
     data[o + S.hungry] = starvingSince(s, i);
-    const [xp, xpNext] = rankXp(s, i);
-    data[o + S.xp] = xp;
-    data[o + S.xpNext] = xpNext;
     const [tinkerDone, tinkerOf] = tinkerProgress(s, i);
     data[o + S.tinkerDone] = tinkerDone;
     data[o + S.tinkerOf] = tinkerOf;
+    const [xp, xpNext] = rankXp(s, i);
+    data[o + S.xp] = xp;
+    data[o + S.xpNext] = xpNext;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {
