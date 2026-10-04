@@ -19,7 +19,7 @@ function sel(key: string, kind: Selectable['kind'], typeKey: string, owner = ME,
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
   };
 }
 
@@ -84,7 +84,7 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
       [BuildingKind.Forge], [BuildingKind.ArtilleryWorkshop], [BuildingKind.Barracks], [BuildingKind.MagiSanctum], [BuildingKind.ScholarsLodge], [BuildingKind.Mineshaft],
     ]);
     expect(slots[12]!.every((b) => b.group === 'Defences')).toBe(true);
-    expect(slots[13]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost]);
+    expect(slots[13]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.Bonfire]);
     expect(slots[14]).toEqual([]);
     expect(submenuChoices(slots[12]!).map((c) => c.name)).toEqual([
       'Softwood wall', 'Hardwood wall', 'Stone wall',
@@ -132,7 +132,7 @@ describe('the worker card', () => {
     expect(c.back()).toBe(true);
     expect(c.card()[12]!.face).toBe('Defences');
     c.card()[13]!.run({ shift: false, ctrl: false });
-    expect(c.card()[0]!.face).toBe('Torch post');
+    expect(c.card().slice(0, 2).map((e) => e?.face)).toEqual(['Torch post', 'Bonfire']);
     expect(c.back()).toBe(true);
     expect(c.back()).toBe(true);
     expect(c.card()[10]!.face).toBe('Build');

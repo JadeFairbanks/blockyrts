@@ -92,6 +92,9 @@ export function buildingIconFile(kind: number, level: number, variant = 0): stri
       return 'icon_workshop_t1';
     case BuildingKind.TorchPost:
       return 'icon_torch_post';
+    case BuildingKind.Bonfire:
+      // The campfire's picture stands in until the bonfire has its own.
+      return 'icon_cooking_campfire';
     case BuildingKind.ScholarsLodge:
       return 'icon_scholars_lodge';
     case BuildingKind.MagiSanctum:

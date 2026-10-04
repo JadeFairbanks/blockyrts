@@ -510,6 +510,7 @@ Patch 2 (2026-10-04, in build; the design record is blueprint/patch-2.md):
 - Training countdown fix (Bug fixes 1; picks in patch2-countdown-picks.md): the queue's "Complete in N seconds" is the sim's own time, sent with every update as the head item's steps left at its pace now, and "On hold" exactly while nothing moves it. Before Patch 2 the client guessed the pace from the rounded per mille bar, so the Magi Sanctum's seconds (and most troops') jumped up and down while they fell. One clock served every building queue, so every queue is fixed; the other countdowns (farm harvest, next meal, the day clock, fuel, spell cooldowns) already read the sim's numbers.
 - Fourteen buildings (round 1, PR #90; picks in patch2-buildings-picks.md): the 31 buildings in two menus become 14 in one Build menu (Big House, Farm, Barn, Storehouse, Fishing dock, Workshop, Forge, Artillery workshop, Barracks, Magi Sanctum, Scholar's Lodge, Mineshaft, and the Defences and Lights submenus); only the Big House keeps levels, and every tier a building used to need is now a main base level (Workshop recipes at 3, 5 and 7; Forge metals at 3, 5 and 7; the Artillery workshop's catapult at 5, ballista at 7 and cannons at 8; Mineshaft depth from Deep Mining I to III at main base 4, 6 and 8); the Workshop, Forge and Artillery workshop need no workers; cooking and the cooked foods are gone, so meat shows raw; the Farm grows Farm fare; the Barn has 10 stalls; cavalry trains at the Barracks from main base 3 on a horse from the nearest Barn; saves from before Patch 2 are refused. The Barn's animals and Farm fare food lines, the crewman, the ammunition cut and mining trips are Patch 2's second wave.
 - Question bubbles and the chat rule (round 3; picks in patch2-questions-picks.md): a unit or building asks its owner a short question in its bubble, with a green tick for Yes and a red cross for No; six questions (better kit, eat to heal, let me down, repair at dawn, look farther off, train another crewman); only urgent lines from the player's own units reach chat (see Unit speech and the message panel and Questions).
+- Lights, tips, tester tools and the minimap (round 4; picks in patch2-lights-tips-minimap-picks.md): no light needs fuel, and the lights are the torch post and a new bonfire (15 softwood, lights 20 m, claims 10 m) with the wall torch, brazier and lantern cut (see Light and torches); the first-day hints become tips, plain outlined text that goes by itself after 12 s of game time, with an X whose first press in a game asks "Turn tips off?" (Settings > Help > Tips); the tester tools and debug readout stay hidden until M N B V C X Z is typed in order in a game; the minimap shows units as dots and buildings by their footprint in their owner's colour, with enemies in red while seen, and red is no longer a player colour (White takes its place).
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
@@ -698,7 +699,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Dark edge | the line between explored and unexplored land; a spawn point sits on it at least 50 m from claimed land and 30 m from any player unit; in co-op the explored land and so the dark edge are shared, and the 50 m keeps off every player's claimed land, not only the target player's (s, shared vision); each player's night mobs may come from any part of the shared dark edge, ally-scouted land included, and march to the player they were sent for (s); if no such point exists the nearest unexplored spot 50 m from claimed land is used (s) |
 | Light and units out in the dark | spawn weight x0.25 within twice a light's radius, x0.5 within three times; x0.5 within 20 m of a player unit; weights multiply (s) |
 | Lair cadence | per player (Jade: the lair count and the cap multiply by the player count): 1 new lair every 3 nights to night 14, every 2 nights to night 44, 1 a night from 45, placed at dusk in a cell with no player building, preferring one next to claimed land, at least 40 m from claimed land; live lairs capped at 2 + night / 15 per player; a cleared site waits 10 days (doc, suggested) (s) |
-| Outlying torches | lights more than 40 m from any main base count (wall torches count half); limit 4 + night / 5; dusk goblins: 3 cutters and 1 slinger per light over the limit, 1 chief per 5 over, at most 40 (s) |
+| Outlying torches | lights more than 40 m from any main base count (wall torches counted half before Patch 2; a bonfire counts whole); limit 4 + night / 5; dusk goblins: 3 cutters and 1 slinger per light over the limit, 1 chief per 5 over, at most 40 (s) |
 | First night | budget 12 (roster) buys a fixed pick of 4 zombies, 2 cave bats, 2 giant rats, 1 giant spider and 1 slime (12.4 threat; the last pick may overrun by one mob), so all five of Jade's night 0 mobs come on night 0, with a single spider (s) |
 | Budget factors | (12 + 3n + 0.04n2) x the player count (three players, three times: Jade) x town (1 + 0.02 x (player buildings - 10), never below 1) (s) x provoked (1 + 0.1 per village or kingdom at war + 0.05 per territorial creature hunting the player) (s), plus the depth weighting below |
 | Depth weighting | each player unit or building standing outside the Heartland at dusk adds to that night's budget: Fringe 0.5%, Deepwoods 1%, Barrens 2%, Deadlands 4% each, capped at double the base budget; the extra mobs spawn at the dark edge nearest those assets and target them; deeper bands draw mob types from later nights (Deepwoods 10 nights ahead, Barrens 25, Deadlands 50) (s) |
@@ -714,6 +715,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 A lit torch extends the players' claimed land, where monsters almost never spawn (see "Threats"). Out in the unclaimed dark, light also lowers the chance of monsters spawning nearby: the closer a spot is to light, and to the players' units, the less likely a spawn there becomes. Light can only reduce the flow of monsters, never stop it, because monsters still spawn at the dark edge and in lairs and walk in.
 
 - **Light sources:** torch posts (a wooden post with an iron cup) and wall torches (in an iron bracket). Suggested: iron braziers, and glass-and-iron lanterns once glass can be made.
+- **In Patch 2 (Jade, 2026-10-04):** two lights only, the torch post as before and a new bonfire, and no light needs fuel. The wall torch, the brazier and the lantern are cut; the bonfire takes the brazier's place in the Lights menu.
 
 To stop players from simply lighting the whole map:
 
@@ -727,14 +729,15 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 
 | **Light** | **Light radius** | **Claimed radius** | **Fuel and burn** | **Cost** | **Build** | **Health** | **Spawn cut beyond its claim** | **Smashed by** |
 |---|---|---|---|---|---|---|---|---|
-| Torch post | 10 m (s) | 5 m (Jade) | 1 softwood lumber per 3 days; a worker refuels it, or the pool does automatically within 40 m of a main base | 2 softwood lumber, 1 resin (doc) | 10 ws | 40 | x0.25 to 20 m, x0.5 to 30 m | badger (beyond 40 m from a main base), goblins, kobolds (s) |
-| Wall torch | 6 m (s) | 5 m (Jade) | as the post | 1 softwood lumber, 1 resin (doc) | 5 ws | 30, dies with its wall | x0.25 to 12 m, x0.5 to 18 m | goblins (s) |
+| Torch post | 10 m (s) | 5 m (Jade) | none in Patch 2 (Jade); before Patch 2 1 softwood lumber per 3 days, a worker refuelled it, or the pool did automatically within 40 m of a main base | 2 softwood lumber, 1 resin (doc) | 10 ws | 40 | x0.25 to 20 m, x0.5 to 30 m | badger (beyond 40 m from a main base), goblins, kobolds (s) |
+| Bonfire (Patch 2) | 20 m (Jade) | 10 m (Jade) | none (Jade) | 15 softwood lumber (Jade) | 30 ws (s); 3 x 3 (s) | 150 (s) | x0.25 to 40 m, x0.5 to 60 m | goblins, kobolds (s) |
+| Wall torch: cut in Patch 2 | 6 m (s) | 5 m (Jade) | as the post | 1 softwood lumber, 1 resin (doc) | 5 ws | 30, dies with its wall | x0.25 to 12 m, x0.5 to 18 m | goblins (s) |
 | Campfire (cooking tier 1) | 8 m (s) | none (Jade) | 1 lumber per day | 5 softwood lumber | 10 ws | 60 | x0.25 to 16 m, x0.5 to 24 m | badger, wild boar, goblins (s) |
-| Brazier | 14 m (s) | none (Jade) | 1 coal per day | 10 stone, 2 bronze ingots | 60 ws | 150 | x0.25 to 28 m, x0.5 to 42 m | goblins and hobgoblins only (s) |
-| Lantern | 6 m (s) | none (Jade) | 1 resin per 5 days | 1 glass, 1 wrought iron, made at a Great Workshop in 20 s | 5 ws to hang | 20; 1 lb carried | as the wall torch | goblins (s) |
+| Brazier: cut in Patch 2, the bonfire takes its place | 14 m (s) | none (Jade) | 1 coal per day | 10 stone, 2 bronze ingots | 60 ws | 150 | x0.25 to 28 m, x0.5 to 42 m | goblins and hobgoblins only (s) |
+| Lantern: cut in Patch 2 | 6 m (s) | none (Jade) | 1 resin per 5 days | 1 glass, 1 wrought iron, made at a Great Workshop in 20 s | 5 ws to hang | 20; 1 lb carried | as the wall torch | goblins (s) |
 | Hand torch: gone with the items (M11, 2026-10-03); row kept for history | 4 m (s) | none (Jade) | burns one day, then is used up (s) | 1 softwood lumber, 1 resin (doc) | 5 s at the Big House | 1 lb carried (s) | x0.5 within 8 m of the carrier (s) |  |
 
-Snuff and Morvath's Crown of night put lights out without damage; a worker relights one in 2 s at no cost; a destroyed light is rebuilt from scratch (s). Which lights count against the dusk limit is in table 8.
+Snuff and Morvath's Crown of night put lights out without damage; a worker relights one in 2 s at no cost (right click it); a destroyed light is rebuilt from scratch (s). Which lights count against the dusk limit is in table 8.
 
 ### Threats
 
@@ -1253,7 +1256,7 @@ The screen is split into two zones, and almost every control rule below depends 
 
 - **Game view:** the 3D world. All selecting, ordering and building placement happens here.
 - **HUD:** every panel drawn over the game view. The HUD panels are:
-  - Minimap (bottom left): the whole explored map, with the current camera view drawn as an outlined box.
+  - Minimap (bottom left): the whole explored map, with the current camera view drawn as an outlined box. In Patch 2 (Jade, 2026-10-04) it also shows units and buildings, colour-coded: units as small dots (2 px, suggested) and buildings by their footprint (at least 2 px, suggested), drawn over the land and under the lair, village and people marks. Each player's are in that player's colour, mercenaries in their employer's; enemies are red (night monsters, lair guardians, goblins, attacking wanderers and peoples at war), and only while something on the players' side sees them. Wild animals and peoples at peace are not shown. Red is therefore not a colour a player can pick; White takes its place among the eight.
   - Selection panel (bottom centre): portraits of the selected units, or detailed stats when only one thing is selected.
   - Portrait (patch notes 1, PR #78): between the minimap and the selection panel, as tall as the command card; a live idle headshot of the selected unit, or a still of the building from about 45 degrees, for enemy and neutral things too. The minimap, portrait, selection panel and command card touch along the whole bottom edge.
   - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys"). Since patch notes 1 it is a row taller, spare room beside the selection panel becomes extra columns (up to 10, click only), and a long menu grows it upward before it pages (s).
@@ -1833,8 +1836,8 @@ Building sight (s, shared vision patch, PR #68, 2026-10-03; Jade asked that buil
 |---|---|
 | Main base (every level) | 20 m, so the town keeps watch at night while the workers shelter |
 | Tower (softwood, hardwood, stone) | 20 m, the same +10 m it gives its garrison |
-| Brazier | 14 m, as far as it lights |
-| Every other building, wall, gate, torch post, wall torch and lantern | 10 m, how far a building claims land; torch posts, wall torches and lanterns see 10 m lit or unlit |
+| Bonfire (Patch 2; the brazier's 14 m before Patch 2) | 20 m, as far as it lights |
+| Every other building, wall, gate and torch post | 10 m, how far a building claims land; torch posts see 10 m lit or unlit (so did the wall torches and lanterns cut in Patch 2) |
 | Earthworks and ramps | none (they are land, not buildings) |
 | A paid foundation | its full radius while it is being built, as it already claims land |
 
@@ -2046,7 +2049,7 @@ Knockback rule (s): 2 m if the target is no taller than 60% of the mount's shoul
 | Late mob tricks | plague bearer miasma 1 per s within 6 m, no healing; gravewing snatches lone workers within 30 m, 40 damage, held 2 s; bone colossus boulder every 8 s; hollow priest raises every 12 s, at most 6; hellhound 5 m cone, 24 over 2 s, every 8 s; fiend 40% faster below 30% health; chain fiend hook 10 m, 15, every 8 s; void stalker seen within 4 m unless lit, first strike x3; juggernaut 5 per s within 3 m of its sides, double damage from behind, no knockback; barrow knight blocks 60% of frontal projectile damage; void witch hex 10 m every 15 s, blink 15 m every 10 s; abyssal drake breath line 1.5 m wide; archfiend +20% damage within 15 m, 4 cinderlings every 20 s; rift colossus beam 200 every 10 s; Rift scorpion every other hit 10 plus 30 poison; Rift hornet slows 30% for 3 s; high flyers circle at 12 m; breakers cave in the land ahead; lair sleepers use no tricks |
 | Morvath | targets the first player still in the game; Crown of night 30 m; Ruin every 20 s, 3 s warning, 300 within 20 m; the Rift every 60 s, open 30 s, a demon every 3 s; spells start 20 s and 30 s after arrival; below half health flies at 4 m/s |
 | Controls | U Train opens Archery, Crossbow, Riding, Musket, Cannon, Back; R Ride or Dismount; engine card A, S, H, M, R Hitch (Let go), E Port; right clicks: engine on your horse or ox hitches, on the Citadel ports; warriors on your engine crew; workers on a damaged engine repair |
-| Debug buttons (test builds) | Stables, Siege kit, Gun kit, Citadel, Night mob (cycles nights 25 to 110 and the Rift-touched beasts), Wave (nights 30, 50, 85, 105), Morvath |
+| Debug buttons (test builds; in Patch 2 hidden in every build until M N B V C X Z is typed in order in a game, and the same code hides them again; any other key or a click starts the count again) | Stables, Siege kit, Gun kit, Citadel, Night mob (cycles nights 25 to 110 and the Rift-touched beasts), Wave (nights 30, 50, 85, 105), Morvath |
 
 ### Buildings
 
@@ -2960,7 +2963,7 @@ Jade approved these as written. The details are Claude's suggestions.
 - **Settings:** graphics quality (low, medium, high), resolution scale, shadows on or off, view distance, music, effects and voice volume, hotkeys, and the camera sliders.
   - Suggested, as built: the quality presets are in table 20, and each setting can still be changed after picking one. Hotkeys can rebind any key, except that Enter is kept for chat. Settings never change the game itself.
 - **Seeds:** every game has a seed shown in the pause menu. Players can type a seed when starting a game to play the same world again or share it with friends.
-- **Onboarding:** there is no tutorial. Instead, a short series of hints guides the first day: select a worker, gather wood, build, light a torch, shelter at dusk. Hints can be turned off in Settings. Suggested, as built: one hint at a time, each gone once done; the last is Everyone Home at dusk, and dusk skips straight to it.
+- **Onboarding:** there is no tutorial. Instead, a short series of hints guides the first day: select a worker, gather wood, build, light a torch, shelter at dusk. Hints can be turned off in Settings. Suggested, as built: one hint at a time, each gone once done; the last is Everyone Home at dusk, and dusk skips straight to it. In Patch 2 (Jade, 2026-10-04) they are tips: plain outlined text at the top of the view with no frame or background, 12 px, at most 440 px wide, each beginning "Tip:"; a tip goes by itself after 12 s of game time and its X closes it sooner; the first X in a game turns the text into "Turn tips off?" with Yes and No, Yes ending the tips for that game, No (or no answer in 12 s) leaving every later X to just close its tip. The Settings switch is called Tips.
 - **Browser check (suggested):** the menu checks the browser's features, not its name, and says plainly what is missing (a phone or tablet, no WebGL2, no save compression, no pointer lock).
 - **Browsers:** the latest two versions of Chrome, Edge, Firefox and Safari on desktop computers. Phones and tablets are not supported.
 - **Full screen:** the game reminds the player to press F11 for full screen when it starts, since some controls (such as Ctrl + number) only work in full screen.
@@ -2988,7 +2991,7 @@ Key: a value followed by (s) is suggested; a row ending in (s) is suggested thro
 | Graphics presets | Low: resolution 75%, no shadows, view near; Medium (default): 100%, shadows, medium; High: 100%, shadows, far |
 | Graphics ranges | resolution scale 50 to 100%; sun shadows cover 45 m round the camera; view distance near, medium, far = 5, 7, 9 chunk rings |
 | Volumes (default) | music 70%, effects 80%, voices 80% |
-| First-day hints | 5, one at a time: select a worker, gather wood, build, light a torch, Everyone Home at dusk |
+| First-day tips (hints before Patch 2) | 5, one at a time: select a worker, gather wood, build, light a torch, Everyone Home at dusk; each shows for 12 s of game time (Patch 2) |
 | Accounts | email, name, password of 8 or more characters; forgot password by email link |
 | Keys | [ Allies, ] Send resources, \ Map ping, Pause key, Enter chat; all rebindable except Enter |
 | Send resources | +10, +100, All or a typed amount; arrives at once |

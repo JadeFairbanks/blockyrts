@@ -459,29 +459,30 @@
   height: 32px;
   background: center / 32px 32px no-repeat;
 }
+/* The banners follow the lobby's colour list: Blue, Green, Yellow, Purple, Orange, Teal, Pink, White. */
 .lobby-banner[data-colour='0'] {
   background-image: url('../../../assets/src/ui/team_banner_1.png');
 }
 .lobby-banner[data-colour='1'] {
-  background-image: url('../../../assets/src/ui/team_banner_2.png');
-}
-.lobby-banner[data-colour='2'] {
   background-image: url('../../../assets/src/ui/team_banner_7.png');
 }
-.lobby-banner[data-colour='3'] {
+.lobby-banner[data-colour='2'] {
   background-image: url('../../../assets/src/ui/team_banner_5.png');
 }
-.lobby-banner[data-colour='4'] {
+.lobby-banner[data-colour='3'] {
   background-image: url('../../../assets/src/ui/team_banner_4.png');
 }
-.lobby-banner[data-colour='5'] {
+.lobby-banner[data-colour='4'] {
   background-image: url('../../../assets/src/ui/team_banner_6.png');
 }
-.lobby-banner[data-colour='6'] {
+.lobby-banner[data-colour='5'] {
   background-image: url('../../../assets/src/ui/team_banner_3.png');
 }
-.lobby-banner[data-colour='7'] {
+.lobby-banner[data-colour='6'] {
   background-image: url('../../../assets/src/ui/team_banner_8.png');
+}
+.lobby-banner[data-colour='7'] {
+  background-image: url('../../../assets/src/ui/team_banner_9.png');
 }
 .lobby-name {
   flex: 1;

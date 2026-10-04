@@ -26,8 +26,8 @@ export type UnitOrder =
   | { t: 'enter'; b: number; auto: number }
   /** A standing job: farm a farm, or craft in a production building, until given another order. */
   | { t: 'job'; b: number }
-  /** Refuel or relight a light. */
-  | { t: 'refuel'; b: number }
+  /** Relight a light that was put out. */
+  | { t: 'relight'; b: number }
   /** Rank training at a main base (Table 7: Worker to Hand, to Master): the worker goes inside until it is done. */
   | { t: 'train'; b: number }
   /** Attack one target (an entity id), chasing it until it dies or is lost. */
@@ -103,7 +103,7 @@ export type UnitOrderType = UnitOrder['t'];
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'refuel', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'port', 'loot', 'forage'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'skill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'port', 'loot', 'forage'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -117,7 +117,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   dropoff: ['b'],
   enter: ['b', 'auto'],
   job: ['b'],
-  refuel: ['b'],
+  relight: ['b'],
   train: ['b'],
   attack: ['id'],
   attackMove: ['x', 'z'],
@@ -185,8 +185,8 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return o.auto === ENTER_TOP ? 'Manning the top' : 'Sheltering';
     case 'job':
       return 'Working';
-    case 'refuel':
-      return 'Refuelling a light';
+    case 'relight':
+      return 'Relighting a light';
     case 'train':
     case 'skill':
       return 'Training';

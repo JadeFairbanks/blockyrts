@@ -137,7 +137,7 @@ describe('where wanderers come out', () => {
     let n = 0;
     watch(s, 60, (fresh) => {
       const shapes = claimShapes(s, 0);
-      const lights = s.buildings.list.filter((b) => buildingSpec(b.kind).light && isLit(b, s.step));
+      const lights = s.buildings.list.filter((b) => buildingSpec(b.kind).light && isLit(b));
       const ours = party(s);
       for (const i of fresh) {
         n++;

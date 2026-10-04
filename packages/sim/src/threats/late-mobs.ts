@@ -79,7 +79,7 @@ function isDemon(state: SimState, j: number): boolean {
 export function inLight(state: SimState, x: number, z: number): boolean {
   for (const b of state.buildings.list) {
     const light = buildingSpec(b.kind).light;
-    if (!light || !isLit(b, state.step)) continue;
+    if (!light || !isLit(b)) continue;
     const [lx, lz] = buildingCentre(b);
     const r = light.lightM * M;
     if (length2d(lx - x, lz - z) <= r) return true;
@@ -467,9 +467,9 @@ function morvath(state: SimState, i: number, second: boolean): void {
   // Crown of night: every torch within 30 m goes out.
   if (second) {
     for (const b of state.buildings.list) {
-      if (!isLit(b, now)) continue;
+      if (!isLit(b)) continue;
       const [x, z] = buildingCentre(b);
-      if (length2d(x - e.x[i]!, z - e.z[i]!) <= LATE.crown.radius) snuffLight(state, b);
+      if (length2d(x - e.x[i]!, z - e.z[i]!) <= LATE.crown.radius) snuffLight(b);
     }
   }
   // Second form.

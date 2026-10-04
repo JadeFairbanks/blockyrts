@@ -35,12 +35,14 @@ export const BuildingKind = {
   Earthworks: 15,
   Ramp: 16,
   TorchPost: 17,
-  WallHardwood: 18,
-  WallStone: 19,
-  GateHardwood: 20,
-  GateStone: 21,
-  TowerHardwood: 22,
-  TowerStone: 23,
+  /** Patch 2 (Jade, round 4): the bonfire, in place of the brazier. */
+  Bonfire: 18,
+  WallHardwood: 19,
+  WallStone: 20,
+  GateHardwood: 21,
+  GateStone: 22,
+  TowerHardwood: 23,
+  TowerStone: 24,
 } as const;
 export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -66,13 +68,11 @@ export interface LevelSpec {
   research: number;
 }
 
+/** A light (Table 18). Patch 2 (Jade): lights burn no fuel; once built, one burns until something puts it out. */
 export interface LightSpec {
   /** Light radius and claimed radius in metres (Table 18). */
   lightM: number;
   claimM: number;
-  /** Fuel burnt and how long one unit lasts, in steps. */
-  fuel: Res;
-  fuelSteps: number;
   /** Counts against the dusk limit (Table 8; wall torches counted half before Patch 2): 2 = whole, 1 = half, 0 = not at all. */
   outlyingHalves: number;
 }
@@ -131,7 +131,6 @@ const lvl = (name: string, cost: Cost, ws: number, health: number, o: Partial<Le
 const S = Res.SoftwoodLumber;
 const H = Res.HardwoodLumber;
 const ST = Res.Stone;
-const DAY = CYCLE_STEPS;
 
 const MAIN_BASE_GIVES = [
   'drop-off for everything, trains workers and tier 1 troops; shelters 8',
@@ -295,10 +294,17 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl('Lumber ramp', [[Res.LumberRamp, 1]], 5, 300, { gives: 'a ramp step of lumber' })],
   },
   {
-    kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light that claims the land 5 m around it while lit. Burns 1 softwood lumber every 3 days.',
+    kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light (10 m) that claims the land 5 m around it while lit. Needs no fuel.',
     slot: 14, group: 'Lights', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
-    light: { lightM: 10, claimM: 5, fuel: S, fuelSteps: 3 * DAY, outlyingHalves: 2 },
+    light: { lightM: 10, claimM: 5, outlyingHalves: 2 },
     levels: [lvl('Torch post', [[S, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
+  },
+  {
+    // Patch 2 (Jade): 15 softwood, light 20 m, claims 10 m. The size, build work, health and the whole count against the dusk limit are suggestions for Jade's rebalance.
+    kind: BuildingKind.Bonfire, name: 'Bonfire', purpose: 'A big fire that lights 20 m and claims the land 10 m around it while lit. Needs no fuel.',
+    slot: 14, group: 'Lights', w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
+    light: { lightM: 20, claimM: 10, outlyingHalves: 2 },
+    levels: [lvl('Bonfire', [[S, 15]], 30, 150, { gives: 'light 20 m, claims 10 m' })],
   },
   wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 300, true),
   wall(BuildingKind.WallStone, 'Stone wall', [[ST, 2]], 20, 1500, 360, false),
@@ -384,12 +390,10 @@ export function forgeStep(hasForge: boolean, base: number): number {
   return n;
 }
 
-/** Lights within this distance of a complete main base are refuelled from the pool by themselves (Table 18). */
-export const AUTO_REFUEL_M = 40;
 /** Lights farther than this from any main base count as outlying at dusk (Table 8). */
 export const OUTLYING_M = 40;
-/** A worker refuels or relights a light in 2 s (Table 18). */
-export const REFUEL_STEPS = 2 * STEPS_PER_SECOND;
+/** A worker relights a light that was put out in 2 s (Table 18). */
+export const RELIGHT_STEPS = 2 * STEPS_PER_SECOND;
 /** Claimed land around a player building, measured from its outer edge (Table 8, Jade). */
 export const BUILDING_CLAIM_M = 10;
 /** A building under construction has 10% of its health plus the share built (Table 4). */
@@ -403,14 +407,14 @@ export const SHELTER_LOSS_PER_MILLE = 100;
  * by building kind: what a building sees is in sight of every player, as a
  * unit's sight is (Fog of war). 10 m, as far as a building claims land; the
  * main base 20 m, so the town keeps its watch at night while its workers
- * shelter; a tower 20 m, the +10 m sight it gives its garrison (Table 4). A
- * fog night halves it, as all sight.
+ * shelter; a tower 20 m, the +10 m sight it gives its garrison (Table 4); a
+ * bonfire 20 m, as far as it lights. A fog night halves it, as all sight.
  */
 export const BUILDING_SIGHT_M: Readonly<Partial<Record<number, number>>> = {
   [BuildingKind.MainBase]: 20, [BuildingKind.Farm]: 10, [BuildingKind.Barn]: 10, [BuildingKind.Storehouse]: 10,
   [BuildingKind.FishingDock]: 10, [BuildingKind.Workshop]: 10, [BuildingKind.Forge]: 10, [BuildingKind.ArtilleryWorkshop]: 10,
   [BuildingKind.Barracks]: 10, [BuildingKind.MagiSanctum]: 10, [BuildingKind.ScholarsLodge]: 10, [BuildingKind.Mineshaft]: 10,
-  [BuildingKind.Wall]: 10, [BuildingKind.Gate]: 10, [BuildingKind.Tower]: 20, [BuildingKind.TorchPost]: 10,
+  [BuildingKind.Wall]: 10, [BuildingKind.Gate]: 10, [BuildingKind.Tower]: 20, [BuildingKind.TorchPost]: 10, [BuildingKind.Bonfire]: 20,
   [BuildingKind.WallHardwood]: 10, [BuildingKind.WallStone]: 10, [BuildingKind.GateHardwood]: 10, [BuildingKind.GateStone]: 10,
   [BuildingKind.TowerHardwood]: 20, [BuildingKind.TowerStone]: 20,
 };

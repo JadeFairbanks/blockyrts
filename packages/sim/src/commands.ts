@@ -482,9 +482,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (b && takesWorkers(b)) giveAll(state, o, () => ({ t: 'job', b: b.id }));
         break;
       }
-      case 'refuel': {
+      case 'relight': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b && buildingSpec(b.kind).light) giveAll(state, o, () => ({ t: 'refuel', b: b.id }));
+        if (b && buildingSpec(b.kind).light) giveAll(state, o, () => ({ t: 'relight', b: b.id }));
         break;
       }
       case 'trainRank': {

@@ -101,7 +101,7 @@ function darkTunnels(state: SimState): Array<[number, number]> {
   for (const t of state.threats.tunnels) {
     let lit = false;
     for (const b of state.buildings.list) {
-      if (!buildingSpec(b.kind).light || !isLit(b, state.step)) continue;
+      if (!buildingSpec(b.kind).light || !isLit(b)) continue;
       const [bx, bz] = buildingCentre(b);
       if (dist2(bx, bz, t.x, t.z) <= TUNNEL_DARK_WU * TUNNEL_DARK_WU) {
         lit = true;

@@ -26,6 +26,8 @@ export interface ModelAt {
   z: number;
   /** A colour (0xrrggbb) the model's texture is multiplied by: a stand-in model dressed as the building it stands in for. */
   tint?: number;
+  /** Drawn this many times its size: a stand-in until the building's own model comes (1 when left out). */
+  scale?: number;
 }
 
 /** Where a man stands on a building's top: Blockbench units from the level's corner, and up from its floor. */
@@ -339,6 +341,18 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       models: [{ id: 'torch_post', x: 8, z: 8 }],
       rows: [
         '#',
+      ],
+    },
+  ],
+  [BuildingKind.Bonfire]: [
+    {
+      models: [{ id: 'cooking_campfire', x: 24, z: 24, scale: 2 }],
+      // Patch 2: until the bonfire's own model comes, the campfire's at twice its size stands in. No one walks through the fire.
+      fitted: 'the fire (the campfire model stands in)',
+      rows: [
+        '###',
+        '###',
+        '###',
       ],
     },
   ],

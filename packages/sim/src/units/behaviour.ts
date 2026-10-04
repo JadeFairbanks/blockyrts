@@ -4,7 +4,7 @@
 // state machine whose phase is the unit's `act`. Every decision reads only
 // the state and the seeded streams, and units are visited in index order.
 
-import { BuildingKind, buildingName, buildingSpec, levelSpec, REFUEL_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
+import { BuildingKind, buildingName, buildingSpec, levelSpec, RELIGHT_STEPS, SHELTER_LOSS_PER_MILLE, workSteps, type BuildingSpec } from '../buildings/data.ts';
 import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../buildings/lights.ts';
 import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { fishOf, meatOf } from '../economy/food-kinds.ts';
@@ -409,9 +409,6 @@ function finishBuilding(state: SimState, b: Building): void {
   b.complete = true;
   b.doneAt = state.step;
   b.hp = Math.min(b.hp, maxHealth(b));
-  const light = buildingSpec(b.kind).light;
-  // A new light is lit with one fuel's worth (Table 18).
-  if (light) b.fuelUntil = state.step + light.fuelSteps;
   const [x, z] = buildingCentre(b);
   state.events.push({ player: b.owner, kind: 'info', text: `${buildingName(b.kind, b.level, b.variant)} is finished.`, x, z });
   computeEnclosed(state);
@@ -1108,12 +1105,11 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   return CONTINUE;
 }
 
-function runRefuel(state: SimState, i: number, o: Extract<UnitOrder, { t: 'refuel' }>): boolean {
+/** A worker relights a light that was put out: 2 s beside it, at no cost (Table 18; Patch 2: lights need no fuel). */
+function runRelight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'relight' }>): boolean {
   const e = state.entities;
   const b = state.buildings.get(o.b);
-  const light = b ? buildingSpec(b.kind).light : undefined;
-  if (!b || !light || !b.complete || b.owner !== e.owner[i]) return DONE;
-  if (b.fuelUntil - state.step >= light.fuelSteps) return DONE;
+  if (!b || !buildingSpec(b.kind).light || !b.complete || b.owner !== e.owner[i] || !isSnuffed(b)) return DONE;
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   if (e.act[i] === Act.Walk) {
     const r = walkTo(state, i, besideBuilding(b));
@@ -1124,17 +1120,8 @@ function runRefuel(state: SimState, i: number, o: Extract<UnitOrder, { t: 'refue
   }
   e.order[i] = OrderKind.Chop;
   e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < REFUEL_STEPS) return CONTINUE;
-  const pool = state.players[b.owner]!.pool;
-  if (pool[light.fuel]! <= 0 && !isSnuffed(b)) {
-    alert(state, b.owner, `Not enough ${RESOURCES[light.fuel]!.name.toLowerCase()} to refuel the ${buildingSpec(b.kind).name.toLowerCase()}.`, e.x[i]!, e.z[i]!, i);
-    return DONE;
-  }
-  // A light snuffed out is relit at no cost with the fuel it had left (Table 18).
-  if (relight(state, b)) return DONE;
-  pool[light.fuel] = pool[light.fuel]! - 1;
-  b.fuelUntil = Math.max(b.fuelUntil, state.step) + light.fuelSteps;
-  b.alerted &= ~2;
+  if (e.timer[i]! < RELIGHT_STEPS) return CONTINUE;
+  relight(b);
   return DONE;
 }
 
@@ -1263,8 +1250,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runEnter(state, i, o);
     case 'job':
       return runJob(state, i, o);
-    case 'refuel':
-      return runRefuel(state, i, o);
+    case 'relight':
+      return runRelight(state, i, o);
     case 'train':
       return runTrain(state, i, o);
     case 'attack':

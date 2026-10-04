@@ -357,6 +357,15 @@ export function makeLook(kind: number, level: number, variant: number, team: num
       p.box(w / 2 - 0.06, 0, d / 2 - 0.06, 0.12, 1.7, 0.12, C.darkWood).box(w / 2 - 0.1, 1.6, d / 2 - 0.1, 0.2, 0.18, 0.2, C.iron);
       p.flame(w / 2, 1.9, d / 2);
       break;
+    case BuildingKind.Bonfire:
+      // A ring of stones round a stack of logs, no spit (Jade): drawn until the campfire model stands in for it.
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        p.box(w / 2 + Math.cos(a) * 0.55 - 0.1, 0, d / 2 + Math.sin(a) * 0.55 - 0.1, 0.2, 0.18, 0.2, C.stone);
+      }
+      for (let k = 0; k < 3; k++) p.log(w / 2 - 0.45, 0.12 + k * 0.16, d / 2 - 0.2 + (k % 2) * 0.4, 0.09, 0.9, C.darkWood);
+      p.flame(w / 2, 0.6, d / 2);
+      break;
     default:
       // Not built in this milestone: a plain block in the building's size.
       p.house(0, 0, w, d, Math.min(3, 0.8 + w * 0.3), C.plank, C.slate);

@@ -1,24 +1,25 @@
 // Light and torches (Table 18) and claimed land (Table 8): which lights
-// burn, refuelling from the pool near a main base, the land the players
-// claim (5 m round a lit torch, 10 m round a building, and regions closed
-// off by barriers that hold a building) and the outlying light count at dusk.
+// burn, the land the players claim (5 m round a lit torch post, 10 m round a
+// lit bonfire or a building, and regions closed off by barriers that hold a
+// building) and the outlying light count at dusk. Patch 2 (Jade): lights need
+// no fuel; once built, a light burns until something puts it out (goblins, a
+// badger, Morvath's Crown of night), and a worker relights it in 2 s at no cost.
 
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { Walk, WALKER } from '../nav/grid.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
 import type { SimState } from '../state.ts';
 import type { World } from '../world/world.ts';
-import { AUTO_REFUEL_M, BUILDING_CLAIM_M, BuildingKind, buildingSpec, OUTLYING_M } from './data.ts';
+import { BUILDING_CLAIM_M, BuildingKind, buildingSpec, OUTLYING_M } from './data.ts';
 import { footprintRect, placedDims, type Building, type Placed } from './store.ts';
 
 /** A region bigger than this many coarse tiles (about 13,000 m2) is open land, not an enclosure. */
 export const ENCLOSURE_MAX_TILES = 4096;
 const ENCLOSURE_MAX_COLUMNS = ENCLOSURE_MAX_TILES * TILE_COLUMNS * TILE_COLUMNS;
-/** Auto-refuel tops a light up when it has less than this left. */
-const REFUEL_MARGIN_STEPS = 20 * 20;
 
-export function isLit(b: Building, step: number): boolean {
-  return b.complete && buildingSpec(b.kind).light !== undefined && b.fuelUntil > step;
+/** A finished light burns unless it has been put out. */
+export function isLit(b: Building): boolean {
+  return b.complete && buildingSpec(b.kind).light !== undefined && !isSnuffed(b);
 }
 
 /** The middle of a building's footprint, wu. */
@@ -46,57 +47,28 @@ export function nearMainBase(state: SimState, b: Building, m: number): boolean {
   return false;
 }
 
-/** Bit 4 of a light's `alerted`: snuffed out, its fuel left kept in `farmAcc` (lights have no farm). */
+/** Bit 4 of a light's `alerted`: put out, waiting for a worker to relight it. */
 const SNUFFED = 4;
 
 export function isSnuffed(b: Building): boolean {
   return (b.alerted & SNUFFED) !== 0;
 }
 
-/** Snuff puts a light out without damage (Table 18); the fuel it had left waits for a worker to relight it. Returns whether it was lit. */
-export function snuffLight(state: SimState, b: Building): boolean {
-  if (!isLit(b, state.step)) return false;
-  b.farmAcc = b.fuelUntil - state.step;
-  b.fuelUntil = state.step;
+/** Puts a light out without damage (Table 18). Returns whether it was lit. */
+export function snuffLight(b: Building): boolean {
+  if (!isLit(b)) return false;
   b.alerted |= SNUFFED;
   return true;
 }
 
-/** A worker relights a snuffed light in 2 s at no cost (Table 18). Returns whether it was snuffed. */
-export function relight(state: SimState, b: Building): boolean {
+/** A worker relights a light that was put out, in 2 s at no cost (Table 18). Returns whether it was out. */
+export function relight(b: Building): boolean {
   if (!isSnuffed(b)) return false;
-  b.fuelUntil = state.step + Math.max(1, b.farmAcc);
-  b.farmAcc = 0;
-  b.alerted &= ~(SNUFFED | 2);
+  b.alerted &= ~SNUFFED;
   return true;
 }
 
-/** Lights burn down; those near a main base are topped up from the pool, and one that goes out says so once. */
-export function updateLights(state: SimState): void {
-  for (const b of state.buildings.list) {
-    const light = buildingSpec(b.kind).light;
-    if (!light || !b.complete) continue;
-    const left = b.fuelUntil - state.step;
-    // A snuffed light waits for a worker; it does not refuel itself.
-    if (isSnuffed(b)) continue;
-    if (left < REFUEL_MARGIN_STEPS && nearMainBase(state, b, AUTO_REFUEL_M)) {
-      const pool = state.players[b.owner]!.pool;
-      if (pool[light.fuel]! > 0) {
-        pool[light.fuel] = pool[light.fuel]! - 1;
-        b.fuelUntil = Math.max(b.fuelUntil, state.step) + light.fuelSteps;
-        b.alerted &= ~2;
-        continue;
-      }
-    }
-    if (left === 0 && (b.alerted & 2) === 0) {
-      b.alerted |= 2;
-      const [x, z] = buildingCentre(b);
-      state.events.push({ player: b.owner, kind: 'alert', text: `A ${buildingSpec(b.kind).name.toLowerCase()} has burnt out. Send a worker to refuel it.`, x, z });
-    }
-  }
-}
-
-/** Claimed land as circles (lit torches, 5 m) and rectangles grown by 10 m (buildings), wu. */
+/** Claimed land as circles (lit torch posts 5 m, lit bonfires 10 m) and rectangles grown by 10 m (buildings), wu. */
 export interface ClaimShapes {
   circles: Array<[number, number, number]>;
   rects: Array<[number, number, number, number]>;
@@ -109,8 +81,8 @@ export function claimShapes(state: SimState, player: number): ClaimShapes {
     if (b.owner !== player) continue;
     const light = buildingSpec(b.kind).light;
     if (light) {
-      // No light other than torches claims land (Table 8, Jade).
-      if (light.claimM > 0 && isLit(b, state.step)) {
+      // A light claims land only while lit (Table 8, Jade).
+      if (light.claimM > 0 && isLit(b)) {
         const [x, z] = buildingCentre(b);
         out.circles.push([x, z, light.claimM * WU_PER_METRE]);
       }
@@ -260,15 +232,15 @@ const lastEnclosed = new WeakMap<World, { epoch: number; held: number[]; enclose
 
 /**
  * Lights more than 40 m from any of the player's main bases, counted in
- * halves (a light can count half), and the limit for the coming night:
- * 4 + night / 5 (Table 8). Over the limit, goblins come at dusk (M5).
+ * halves (a torch post and a bonfire count whole), and the limit for the
+ * coming night: 4 + night / 5 (Table 8). Over the limit, goblins come at dusk (M5).
  */
 export function outlyingLights(state: SimState, player: number, night: number): { halves: number; limit: number } {
   let halves = 0;
   for (const b of state.buildings.list) {
     if (b.owner !== player) continue;
     const light = buildingSpec(b.kind).light;
-    if (!light || light.outlyingHalves === 0 || !isLit(b, state.step)) continue;
+    if (!light || light.outlyingHalves === 0 || !isLit(b)) continue;
     if (!nearMainBase(state, b, OUTLYING_M)) halves += light.outlyingHalves;
   }
   return { halves, limit: 4 + floorDiv(night, 5) };

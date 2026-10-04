@@ -330,7 +330,7 @@ describe('building', () => {
     expect(torch.hp).toBe(4); // 10% of 40
     runUntil(s, () => torch.complete, 400);
     expect(torch.hp).toBe(40);
-    expect(isLit(torch, s.step)).toBe(true);
+    expect(isLit(torch)).toBe(true);
     const cx = (torch.x + 0.5) * WU_PER_COLUMN;
     const cz = (torch.z + 0.5) * WU_PER_COLUMN;
     expect(isClaimed(s, 0, cx + 4 * WU_PER_METRE, cz)).toBe(true);
@@ -518,24 +518,18 @@ describe('sheltering', () => {
 });
 
 describe('lights and claimed land', () => {
-  it('counts lights far from the base at dusk and burns fuel down', () => {
+  it('counts lights far from the base at dusk, and burns them without fuel (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     const far: Building[] = [];
     for (let k = 0; k < 6; k++) far.push(placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x + 120 + k * 3, b.z, false));
-    for (const t of far) {
-      t.complete = true;
-      t.fuelUntil = s.step + 3 * CYCLE_STEPS;
-    }
+    for (const t of far) t.complete = true;
     expect(outlyingLights(s, 0, 0)).toEqual({ halves: 12, limit: 4 });
     expect(outlyingLights(s, 0, 10).limit).toBe(6);
-    const near = placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x - 3, b.z, false);
-    near.complete = true;
-    near.fuelUntil = s.step + 10;
-    // Within 40 m of the Big House the pool refuels it.
-    run(s, 20);
-    expect(near.fuelUntil).toBeGreaterThan(s.step + 1000);
-    expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(39);
+    const wood = s.players[0]!.pool[Res.SoftwoodLumber];
+    run(s, 3 * CYCLE_STEPS + 20);
+    for (const t of far) expect(isLit(t)).toBe(true);
+    expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(wood);
   });
 
   it('claims 10 m round a building', () => {

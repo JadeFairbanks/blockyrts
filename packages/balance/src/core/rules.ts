@@ -31,7 +31,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
-  { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and torches, outlying lights and refuelling.' },
+  { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
   { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat, and how near others must stand for one to speak for them.' },
@@ -160,8 +160,7 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'buildings/data.ts:WORKER_FOOD': 'training',
   'buildings/data.ts:BUILDING_CLAIM_M': 'land',
   'buildings/data.ts:OUTLYING_M': 'land',
-  'buildings/data.ts:AUTO_REFUEL_M': 'land',
-  'buildings/data.ts:REFUEL_STEPS': 'land',
+  'buildings/data.ts:RELIGHT_STEPS': 'land',
   'buildings/data.ts:FARM_HARVEST_STEPS': 'food',
   // Patch 2: the Barn's stalls go with the animals, cavalry's main base level and the Forge's metal steps with training.
   'buildings/data.ts:BARN_STALLS': 'animals',
@@ -314,7 +313,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',
   speed: 'Speed', climbSpeed: 'Climbing speed', walk: 'Walking speed', run: 'Running speed', armourBp: 'Armour', pierceBp: 'Damage taken from piercing',
   bluntBp: 'Damage taken from blunt', spreadBp: 'Spread', blockBp: 'Shield block', firstNight: 'First night', halfWidth: 'Half width', height: 'Height',
-  heightCm: 'Height', lightM: 'Light radius', claimM: 'Claimed radius', fuelSteps: 'One fuel lasts', outlyingHalves: 'Counts against the dusk light limit (2 whole, 1 half)',
+  heightCm: 'Height', lightM: 'Light radius', claimM: 'Claimed radius', outlyingHalves: 'Counts against the dusk light limit (2 whole, 1 half)',
   makes: 'Makes', tier: 'Tier', cost: 'Cost', inputs: 'Inputs (any one way)', outputs: 'Outputs', at: 'Made at', madeAt: 'Made at', recipes: 'Recipe (any one way)',
   drops: 'Drops', loot: 'Loot', min: 'Least', max: 'Most', meat: 'Meat', extra: 'Also gives', perCell: 'Per cell', groupMin: 'Group of at least',
   groupMax: 'Group of at most', tameFood: 'Food to tame', tameFoods: 'Tamed with', tameSteps: 'Time to tame', tameAt: 'Kept at', upkeep: 'Upkeep a day', grassM2: 'Grazing area',
@@ -354,7 +353,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */
 export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'training:buildings/data.ts': 'Worker training', 'units:buildings/production.ts': 'Training', 'food:buildings/data.ts': 'Farms',
-  'food:buildings/production.ts': 'Slaughter', 'land:buildings/data.ts': 'Claimed land and refuelling', 'tools:units/behaviour.ts': 'Tool speed',
+  'food:buildings/production.ts': 'Slaughter', 'land:buildings/data.ts': 'Claimed land and relighting', 'tools:units/behaviour.ts': 'Tool speed',
   'world:units/behaviour.ts': 'Gathering', 'food:rules.ts': 'Upkeep', 'resources:rules.ts': 'Trinket worth', 'lairs:rules.ts': 'Lair clearing and hexes',
   'armour:rules.ts': 'Armour cap', 'pacing:rules.ts': 'Day and night', 'mobs:threats/data.ts': 'Blood and fog nights, depth', 'food:buildings/recipes.ts': 'Cooking',
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',

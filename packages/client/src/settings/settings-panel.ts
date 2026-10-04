@@ -1,6 +1,6 @@
 // The settings screen (Outside the match: Settings): graphics quality,
 // resolution scale, shadows, view distance, the three volumes, hotkeys, the
-// camera sliders and the first-day hints. The same panel opens from the main
+// camera sliders and the first-day tips. The same panel opens from the main
 // menu and from the in-game menu; every change is saved at once.
 import { ACTIONS, clashes, keyFor } from '../input/bindings.ts';
 import { keyId, keyLabel } from '../input/keys.ts';
@@ -140,7 +140,7 @@ export class SettingsPanel {
     toggle('Touch controls', () => settings.touch, (v) => (settings.touch = v), 'For a touchscreen: tap to select or give orders, drag to pan, pinch to zoom, hold for details; no right click');
 
     heading('Help');
-    toggle('First-day hints', () => settings.hints, (v) => (settings.hints = v), 'A few hints through the first day: select a worker, gather wood, build, light a torch, shelter at dusk');
+    toggle('Tips', () => settings.hints, (v) => (settings.hints = v), 'A few tips through the first day of a new game: select a worker, gather wood, build, light a torch, shelter at dusk');
 
     this.buildHotkeys();
   }
