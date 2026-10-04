@@ -11,6 +11,7 @@ import { BuildingKind, clockAt, Period, Res, STEPS_PER_SECOND } from '@blockyrts
 import type { GameInfo } from '../game/game-info.ts';
 import type { HudButton } from '../hud/buttons.ts';
 import type { GameShell } from '../hud/shell.ts';
+import { YesNoButtons } from '../hud/yes-no.ts';
 import type { Settings } from '../settings/settings.ts';
 
 /** How long a tip, or the question, shows: 12 s of game time (Jade). */
@@ -108,8 +109,7 @@ export class FirstDayHints {
   /** The buttons: the only part of a tip that takes clicks (a HUD panel of its own). */
   private readonly controls: HTMLElement;
   private readonly x: HudButton;
-  private readonly yes: HudButton;
-  private readonly no: HudButton;
+  private readonly yesNo: YesNoButtons;
   private tips: Tip[] = [];
   private series = new TipSeries(0);
   private wood = 0;
@@ -128,22 +128,40 @@ export class FirstDayHints {
     this.text.className = 'tip-text';
     this.controls = document.createElement('span');
     this.controls.className = 'tip-controls';
-    const btn = (id: string, face: string, name: string, description: string, onPress: () => void, icon?: string): HudButton =>
-      shell.buttons.add({ id, face, name, keys: [], description, className: 'tip-btn', onPress, ...(icon ? { icon: { layers: [{ file: icon }] } } : {}) });
-    this.x = btn('tip-close', '✕', 'Close the tip', 'Closes this tip now. The first time, it asks whether to turn tips off for this game.', () => {
-      this.series.close(this.game.step);
-      this.show();
+    this.x = shell.buttons.add({
+      id: 'tip-close',
+      face: '✕',
+      name: 'Close the tip',
+      keys: [],
+      description: 'Closes this tip now. The first time, it asks whether to turn tips off for this game.',
+      className: 'tip-btn',
+      onPress: () => {
+        this.series.close(this.game.step);
+        this.show();
+      },
     });
-    this.yes = btn('tip-yes', 'Yes', 'Turn tips off', 'No more tips for the rest of this game. The Tips switch in Settings turns them off for every game.', () => {
-      this.series.answer(true);
-      this.show();
-      this.shell.message('Tips are off for the rest of this game.');
-    }, 'icon_cmd_confirm');
-    this.no = btn('tip-no', 'No', 'Keep tips', 'Keeps the tips coming; from now on the ✕ just closes a tip.', () => {
-      this.series.answer(false);
-      this.show();
-    }, 'icon_cmd_cancel');
-    this.controls.append(this.x.el, this.yes.el, this.no.el);
+    // The question bubbles' Yes and No (round 3): the tick and the red cross.
+    this.yesNo = new YesNoButtons(shell.buttons, shell.panels, {
+      key: 'tips',
+      yes: {
+        name: 'Yes: turn tips off',
+        description: 'No more tips for the rest of this game. The Tips switch in Settings turns them off for every game.',
+        onPress: () => {
+          this.series.answer(true);
+          this.show();
+          this.shell.message('Tips are off for the rest of this game.');
+        },
+      },
+      no: {
+        name: 'No: keep tips',
+        description: 'Keeps the tips coming; from now on the ✕ just closes a tip.',
+        onPress: () => {
+          this.series.answer(false);
+          this.show();
+        },
+      },
+    });
+    this.controls.append(this.x.el, this.yesNo.el);
     this.box.append(this.text, this.controls);
     shell.layout.root.append(this.box);
     shell.panels.register('tip', this.controls);
@@ -195,7 +213,7 @@ export class FirstDayHints {
     this.box.hidden = text === '';
     this.text.textContent = text;
     this.x.el.hidden = v !== 'tip';
-    this.yes.el.hidden = this.no.el.hidden = v !== 'ask';
+    this.yesNo.el.hidden = v !== 'ask';
     this.shell.panels.measure();
   }
 

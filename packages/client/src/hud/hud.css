@@ -1230,17 +1230,10 @@ body.playing * {
   background: rgba(0, 0, 0, 0.3);
   border-color: rgba(244, 236, 210, 0.85);
 }
-/* Yes and No are the question buttons' tick and cross (Patch 2), at half size beside the 12 px text. */
-#hud .tip-box .hud-btn.tip-btn.has-icon {
-  width: 22px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0;
-}
-#hud .tip-box .tip-btn .btn-icon img {
-  width: 16px;
-  height: 16px;
-  image-rendering: auto;
+/* Yes and No are the question bubbles' pair (Patch 2), in line with the text. */
+#hud .tip-box .yes-no {
+  margin-top: 0;
+  gap: 6px;
 }
 .chain-label {
   position: absolute;
