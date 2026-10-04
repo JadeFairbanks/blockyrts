@@ -763,6 +763,10 @@ export class GameShell {
       if (this.bubbles.closeAsk(a.id)) this.input.refreshHover();
       return;
     }
+    if (a.retold) {
+      if (this.bubbles.retell(a.id, a.yes)) this.input.refreshHover();
+      return;
+    }
     const who: Speaker | null = ev.building !== undefined ? { id: ev.building, building: true } : ev.speaker !== undefined ? { id: ev.speaker } : null;
     if (!who) return;
     const buttons =

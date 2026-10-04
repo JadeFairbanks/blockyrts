@@ -3,7 +3,8 @@
 // the unit or the middle of the building's roof, and the speaker's other lines
 // do not cover it. The buttons themselves are HUD buttons, checked in a
 // browser. Jade's Patch 3 also holds some bubbles longer: a timed action's
-// line while the bar runs, and the main base's advice twice as long.
+// line while the bar runs, and the main base's advice twice as long; and a
+// question's Yes tooltip takes new words when the stock it counts changes.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpeechBubbles } from '../src/hud/bubbles.ts';
 import type { YesNoButtons } from '../src/hud/yes-no.ts';
@@ -32,8 +33,8 @@ class FakeEl {
 const anchor = { head: (id: number) => ({ x: id, y: 100 }), roof: (id: number) => ({ x: id, y: 50 }) };
 const nobody = (): Array<[number, string]> => [];
 
-function fakeButtons(): YesNoButtons & { dispose: ReturnType<typeof vi.fn> } {
-  return { el: new FakeEl(), dispose: vi.fn() } as unknown as YesNoButtons & { dispose: ReturnType<typeof vi.fn> };
+function fakeButtons(): YesNoButtons & { dispose: ReturnType<typeof vi.fn>; describe: ReturnType<typeof vi.fn> } {
+  return { el: new FakeEl(), dispose: vi.fn(), describe: vi.fn() } as unknown as YesNoButtons & { dispose: ReturnType<typeof vi.fn>; describe: ReturnType<typeof vi.fn> };
 }
 
 describe('question bubbles (Patch 2, round 3)', () => {
@@ -97,6 +98,23 @@ describe('question bubbles (Patch 2, round 3)', () => {
     expect(buttons.dispose).toHaveBeenCalledTimes(1);
     bubbles.say(7, "I'll fetch softwood from farther off.", 0);
     expect(root.children[0]!.children.map((c) => c.textContent)).toEqual(["I'll fetch softwood from farther off."]);
+  });
+
+  it("gives Yes's tooltip new words when the stock it counts changes (Jade's Patch 3), the bubble as it was", () => {
+    const root = new FakeEl();
+    const bubbles = new SpeechBubbles(root as unknown as HTMLElement);
+    const buttons = fakeButtons();
+    bubbles.ask(4, { id: 7 }, 'Four of us could use better tools. Upgrade?', 613, buttons);
+    bubbles.ask(6, { id: 8 }, 'Three of us could use better kit. Upgrade?', 613, null);
+    const q = root.children[0]!.children[0]!;
+    expect(bubbles.retell(4, 'The stock pays for 2 of the 4.')).toBe(true);
+    expect(buttons.describe).toHaveBeenCalledWith('yes', 'The stock pays for 2 of the 4.');
+    expect(root.children[0]!.children[0]).toBe(q);
+    expect(q.children[0]!.textContent).toBe('Four of us could use better tools. Upgrade?');
+    // Another player's question has no buttons here; a closed one is gone.
+    expect(bubbles.retell(6, 'x')).toBe(false);
+    bubbles.closeAsk(4);
+    expect(bubbles.retell(4, 'x')).toBe(false);
   });
 });
 
