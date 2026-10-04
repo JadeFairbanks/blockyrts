@@ -12,6 +12,7 @@
 //   audio.voice('worker', 'acknowledge', { x, z });
 //   audio.play('horn_dusk');              // a flat alert
 //   audio.setVolume('music', 0.5);        // the Settings sliders
+//   audio.setWorldPaused(true);           // the game is paused: music and ambience only
 import { SOUNDS, soundDef, voiceId, type AmbienceId, type AnySoundDef, type VolumeCategory } from '../manifest.ts';
 import { MUSIC_STATES, type MusicStateId } from '../music/score.ts';
 import type { VoiceEventId, VoiceFamilyId } from '../voice/voices.ts';
@@ -51,11 +52,31 @@ export interface PlayOptions {
   readonly gain?: number;
   /** A specific variant instead of the rotation. */
   readonly variant?: number;
+  /** The player's own interface (a click, a ping): it plays while the game is paused too. */
+  readonly ui?: boolean;
 }
+
+/**
+ * Whether a sound plays while the game is paused (Jade's Patch 3: "Only the
+ * music and ambient sounds like birds should be heard during a pause"). The
+ * music and the ambience loop are not one-shots and never stop; of the
+ * one-shots only the interface's own sounds play (s): its clicks and chimes,
+ * and anything the player's hands set off (`ui`).
+ */
+export function playsWhilePaused(def: Pick<AnySoundDef, 'group'>, opts: Pick<PlayOptions, 'ui'> = {}): boolean {
+  return def.group === 'interface' || opts.ui === true;
+}
+
+/** How fast the world's sounds already playing fade out as the game pauses (seconds). */
+const PAUSE_FADE_S = 0.08;
 
 interface Playing {
   readonly id: string;
   readonly src: AudioBufferSourceNode;
+  /** Its own gain node, faded out when the game pauses. */
+  readonly out: GainNode;
+  /** A sound of the world (not the interface): it stops when the game pauses. */
+  readonly world: boolean;
   readonly gain: number;
   /** Context time by which it has certainly finished. */
   readonly ends: number;
@@ -107,6 +128,7 @@ export class AudioEngine {
   private wantedFade = 4;
   private intensity = 0;
   private listener: Listener = { x: 0, z: 0, rightX: 1, rightZ: 0 };
+  private worldPaused = false;
   private unlockAttached = false;
   private readonly onVisibility = (): void => this.applyVisibility();
   private readonly muteWhenHidden: boolean;
@@ -232,6 +254,34 @@ export class AudioEngine {
     }
   }
 
+  // ------------------------------------------------------------ pause
+
+  /**
+   * The game is paused (or resumed): while paused the world falls silent.
+   * Its sounds already playing fade out at once and no new ones start; the
+   * music, the ambience and the interface's own sounds carry on. Resuming
+   * lets the world's sounds play again as the game sends them.
+   */
+  setWorldPaused(paused: boolean): void {
+    if (paused === this.worldPaused) return;
+    this.worldPaused = paused;
+    if (!paused) return;
+    const now = this.ctx.currentTime;
+    for (let i = this.playing.length - 1; i >= 0; i--) {
+      const p = this.playing[i]!;
+      if (!p.world) continue;
+      p.out.gain.cancelScheduledValues(now);
+      p.out.gain.setValueAtTime(p.out.gain.value, now);
+      p.out.gain.linearRampToValueAtTime(0, now + PAUSE_FADE_S);
+      p.src.stop(now + PAUSE_FADE_S + 0.02);
+      this.playing.splice(i, 1);
+    }
+  }
+
+  worldIsPaused(): boolean {
+    return this.worldPaused;
+  }
+
   // ------------------------------------------------------------ one-shots
 
   /** Where the camera is looking, in metres; call once a frame. */
@@ -250,6 +300,8 @@ export class AudioEngine {
       console.warn(`Unknown sound "${id}"`);
       return false;
     }
+    const world = !playsWhilePaused(def, opts);
+    if (world && this.worldPaused) return false;
     const bufs = this.buffers.get(id);
     if (!bufs) {
       this.request(def);
@@ -287,7 +339,7 @@ export class AudioEngine {
       g.connect(p);
       p.connect(this.buses[def.volume]);
     } else g.connect(this.buses[def.volume]);
-    const entry: Playing = { id, src, gain, ends: this.ctx.currentTime + src.buffer.duration / src.playbackRate.value + 0.1 };
+    const entry: Playing = { id, src, out: g, world, gain, ends: this.ctx.currentTime + src.buffer.duration / src.playbackRate.value + 0.1 };
     this.playing.push(entry);
     src.onended = () => {
       const i = this.playing.indexOf(entry);
