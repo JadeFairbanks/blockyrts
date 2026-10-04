@@ -107,6 +107,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'combat/fight.ts': 'units',
   'combat/deaths.ts': 'units',
   'units/behaviour.ts': 'units',
+  'units/spacing.ts': 'units',
   'units/ranks.ts': 'units',
   'units/gear.ts': 'training',
   'units/questions.ts': 'questions',
@@ -319,7 +320,12 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   speed10: 'Walking speed', walkShoot: 'Shoots while walking', fighter: 'Fighter (villagers flee instead)', ringWu: 'Buildings stand this far out',
   structures: 'Buildings', animals: 'Animals kept', good: 'Good', 'STOCK:count': 'Held when full', 'CARAVAN_GOODS:count': 'Held when full',
   'STOCK:pct': 'Sells at (of its worth)', 'CARAVAN_GOODS:pct': 'Sells at (of its worth)', price: 'Set price', daily: 'Refills every dawn',
-  sells: 'Sells cheap', lacks: 'Pays extra for', LEAVE_WU: 'Leave distance', LEAVE_STEPS: 'Leave after', 'GROVESINGER:treeWu': 'Counts as near a tree within',
+  sells: 'Sells cheap', lacks: 'Pays extra for', LEAVE_WU: 'Leave distance', LEAVE_STEPS: 'Leave after',
+  // Making room (Jade's Patch 3: anti-clumping).
+  SPACING_PM: 'Bodies stand apart by (of their two half widths; 0 turns it off)', SPACING_SLACK_WU: 'Near enough to leave be',
+  SPREAD_SPEED_WU: 'Steps aside at up to', SPREAD_PULL_PM: 'Makes up each step (of the overlap left)',
+  SPACING_SCAN: 'Most bodies one looks at a step', SPACING_NEIGHBOURS: 'Most bodies one makes room from at once', FOLLOW_WU: 'Followers keep within',
+  'GROVESINGER:treeWu': 'Counts as near a tree within',
   'GROVESINGER:nearTreeRefill': 'Refill near trees (hundredths a second)', 'GROVESINGER:barrenRefill': 'Refill in the Barrens (hundredths a second)',
   'ONE_IN:runkin': 'Runkin camps', 'ONE_IN:colony': 'Dwarf colonies', 'ONE_IN:city': 'Dwarf cities', 'ONE_IN:merc': 'Mercenary camps', 'ONE_IN:caravan': 'Elf caravans',
   RUNKIN_WOLF: 'Runkin camp animal', ELF_BEAR: 'Elf kingdom animal', ONE_IN: 'Found in one cell in so many (0 for never)',
@@ -406,6 +412,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
+  'units/spacing.ts': 'Making room (bodies standing on one another)',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
@@ -436,7 +443,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   // The swoop (Jade's patch notes 1) and the wandering night monsters.
   'SWOOP:diveSpeed': 'speed', 'SWOOP:climbSpeed': 'speed', 'SWOOP:pullLowCm': 'metresCm', 'SWOOP:pullHighCm': 'metresCm',
   WILD_FROM_NIGHT: 'night', WILD_HORDE_FROM_NIGHT: 'night', WILD_HORDE_PCT_PER_NIGHT: 'percent', WILD_HORDE_MIN: 'count', WILD_HORDE_MAX: 'count',
-  WILD_CAP_PER_PLAYER: 'count',
+  WILD_CAP_PER_PLAYER: 'count', SPACING_SCAN: 'count', SPACING_NEIGHBOURS: 'count',
   'FORAGE_GOODS:base': 'level', 'FORAGE_GOODS:forge': 'level', 'FORAGE_GOODS:plenty': 'count', LOOT_BOSS_HP: 'health',
   // Patch 3: the threat algorithm's weights (combat/threat.ts).
   'THREAT:unitHealth': 'health', 'THREAT:unitDpsTenths': 'tenths', 'THREAT:healthParts': 'number', 'THREAT:damageParts': 'number',

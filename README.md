@@ -105,7 +105,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 76c7c6a6`. Run it again: the same hash. (The
+   prints `final step 10000 hash dd6cdc90`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -114,7 +114,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `cf52a6d8`
+   step as the headless runner with no script: for seed 1 that is `5d6f44ab`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -153,9 +153,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `cd50d99f` at step 40, with two players `b2ec231a`. The land matches too.
+   `5d6f44ab` at step 40, with two players `f0c858ac`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 70071050`: two players dig trenches from a
+   prints `final step 10000 hash 755ada70`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -226,7 +226,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 55ba7d2b`: workers chop and quarry, the Big
+   prints `final step 10000 hash f9825ef3`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -296,14 +296,14 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 3d1af7ef`: two workers raise a gate and a
+   prints `final step 10000 hash 0dc93afa`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
    11); they hold inside the gate through night 0 while a debug skeleton
-   archer and bomber come at the camp (the spearman comes through, the
-   axemen fall and some columns are broken, but the Big House and all four
-   workers come through), then at dawn the workers dig a trench and heap an
+   archer and bomber come at the camp (the spearman and the axemen fall and
+   some columns are broken, but the Big House and all four workers come
+   through), then at dawn the workers dig a trench and heap an
    earth bank from its Earth.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
@@ -377,7 +377,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 387f9dc3`: two workers pick flint while two
+   prints `final step 10000 hash 9ae41482`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -480,7 +480,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 5e9fe863`: the debug tools put a Barracks
+   prints `final step 10000 hash f1199cd6`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -634,7 +634,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 3e0b6845`. The script plays by Patch 2's
+   prints `final step 10000 hash 5ab894a8`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
@@ -757,7 +757,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 88ac1c9d`: the debug tools put a Halfling
+    prints `final step 10000 hash 3c33e161`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -765,9 +765,9 @@ updated and still play out as they say).
     3 Copper Tokens to the village for 5 smoked fish, then a Bronze Charm to
     the caravan; the workers shelter in the Big House, war is declared on
     the village and the troops and mercenaries take it (two of its spearmen
-    ride out on war oxen with an archer behind each, and most of the troops
-    and a mercenary fall), the workers come out, and its plunder comes in
-    (livestock, bread and wrought iron); the mercenaries and the caravan
+    ride out on war oxen with an archer behind each; since Patch 3's making
+    room none of ours falls), the workers come out, and its plunder comes in
+    (livestock, weapon metal, farm fare and wrought iron); the mercenaries and the caravan
     leave at dusk; on day 2 three workers break down the village's abandoned
     barn for 20 softwood lumber. `pnpm test` runs it in Node,
     Chromium, Firefox and WebKit too.
@@ -872,7 +872,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 7c0e0096`. The script plays by Patch 2's
+   prints `final step 10000 hash 40c78f43`. The script plays by Patch 2's
    rules (before Patch 2 the gun kit trained warriors as cannon crew and
    warriors crewed the engines): the debug tools make the Big House a
    Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
@@ -885,7 +885,7 @@ M7 scripts were updated and still play out as they say).
    crewmen."); an ox hauls the catapult 40 m north, where its crew open fire
    on the goblin village by themselves, with no ammunition: the first hut
    falls, the next kills take the village to war, and by the next morning
-   only three damaged huts and one goblin are left; a horse hauls the bronze
+   only three damaged huts, the wolf pen and three goblins are left; a horse hauls the bronze
    cannon up into a Citadel port and the iron cannon's crew push it up into a
    second, each crew following its cannon in; through night 0 the port
    cannons, the ballista and the catapult fire at the night mobs, and the
@@ -1059,7 +1059,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 7c0e0096`, as in milestone 8 above.
+   prints `final step 10000 hash 40c78f43`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1191,7 +1191,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash 6d981785`: the four workers are given a
+   prints `final step 10000 hash 339943c7`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1199,7 +1199,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash 90929b73`: the debug tools heap a soil hill
+   prints `final step 10000 hash 9a41ebb5`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1642,14 +1642,16 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash dc29d0dc`: the debug tools explore 200 m round the
+   prints `final step 10000 hash f37f0d2f`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 86
    monsters are out at nightfall (27 before Patch 3 tripled them), round
-   them and round the workers at the camp, up to 230 at once later and 298
-   over the night; three of them go for a unit, and night 0's monsters marching on the camp fall on the warriors
-   and kill one; the other two end the night at about three quarters and
-   full health. They walk home at step 8200.
+   them and round the workers at the camp, up to 223 at once later and 296
+   by the end of the script, and all four workers at the camp fall; five of
+   them go for a unit, and night 0's monsters marching on the camp fall on
+   the warriors and kill one; the other two end the night at full health
+   and about three fifths. They walk home at step 8200, and on the way a
+   giant spider kills the wounded one.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm test` also runs `packages/sim/test/wanderers.test.ts`: where they
    come out (claimed land, lights, units, unexplored land, a peaceful game, a
@@ -2477,6 +2479,61 @@ rolls are `threats/wanderers.ts`.*
 6. **Two players.** `?seed=1&players=2`: each player's night is planned on
    its own budget, town, depth and lairs, so two players face twice the
    monsters, each base its own share (as before Patch 3; now a test).
+
+## How a tester checks making room (Patch 3)
+
+*Jade's ask (2026-10-04): units and monsters are discouraged from standing
+on top of one another, but nothing is ever a hard block; a clump of idle
+units spreads out by itself, no farther than it needs, onto ground they can
+stand on; workers never block or delay one another at their jobs. The pass
+is `packages/sim/src/units/spacing.ts`, run once a step from `step.ts`;
+picks in blueprint/patch3-anti-clumping-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/spacing.test.ts: ten
+   warriors stacked on one spot spread to no overlap within 3 s, all within
+   1.5 m of where they stood, then stand still with no orders; four in a
+   one-column pit and four on a one-column pillar stay where they are; five
+   in a one-column corridor spread along it only; a walker's every step is
+   the same with six stacked warriors in its way; six zombies round a
+   warrior on hold, and four warriors round one zombie, fan out and stay in
+   reach between blows; ten workers sent to one tree bring in as much
+   lumber as with making room switched off, and none is moved off its
+   column while it chops. m3.test.ts's night 0 behind the fence still ends
+   with the Big House untouched and every worker alive.
+2. **An idle clump.** `pnpm dev` and open http://localhost:5173/?seed=1.
+   Select one worker and right click a patch of open ground; then select
+   each of the other workers and warriors in turn and right click the same
+   spot (the middle of the green ring). Each one that arrives on top of
+   another turns and steps aside, and they end in a small knot about half
+   a metre apart and about a metre across, then stand still. Before Patch 3
+   they stood inside one another.
+3. **The land presses them together.** Type M N B V C X Z, press **Dig**
+   and send the units into the 3 m pit: they spread over its floor and none
+   is pushed up its 1 m sides. Units squeezed between buildings or walls
+   stay overlapped where there is no room.
+4. **Workers at work.** Select all four workers and right click one tree:
+   they walk out through one another, each takes a place round the tree and
+   chops at its usual pace without being shoved off it, and on the way to
+   and from the Big House they pass through anyone standing in the way.
+5. **Fighting.** At night, near your warriors, press **Crowd +200**:
+   zombies that reach a warrior stand round it rather than in one heap, and
+   warriors fighting one monster fan out round it. Zombies chewing at a wall
+   stand still and keep at the same piece, as before Patch 3.
+6. **The balance editor** (once republished from main): Units, Making
+   room: Bodies stand apart by 90%, Near enough to leave be 0.02 m, Steps
+   aside at up to 1 m/s, Makes up each step 50%, Most bodies one looks at a
+   step 32, Most bodies one makes room from at once 8. Setting the first to
+   0 turns making room off. Followers keep within (2.5 m) now shows under
+   Work and ranks.
+7. **Check scripts.** Every hash above is the one with making room. All
+   of them moved, since two of the start workers stand 46 cm apart and
+   step out to 52 cm in the first second. The stories that changed: in M3
+   one more fence piece is broken; in M5 a second warrior falls at the
+   goblin village and its wolf pen stands; in M7 no warrior falls taking
+   the Halfling village; in M8 three goblins and the wolf pen are left the
+   next morning; in the wanderers script the wounded warrior ends the
+   night at about three fifths of its health and a giant spider kills it
+   on the walk home, so one warrior comes back instead of two.
 
 ## How a tester checks the action and build menus (Patch 3)
 
