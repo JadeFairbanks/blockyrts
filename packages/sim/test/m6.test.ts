@@ -338,7 +338,8 @@ describe('Counterspell', () => {
       const s = createWorld(1);
       const e = s.entities;
       const w = warrior(s);
-      run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: e.x[w]! + 60 * M, z: e.z[w]! }]);
+      // A Heartland village, as before Jade's mini patch brought the Fringe nearer: 30 m out, not 60 m.
+      run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: e.x[w]! + 30 * M, z: e.z[w]! }]);
       let g = -1;
       for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.GoblinMage) g = i;
       const torch = placeBuilding(s, 0, BuildingKind.TorchPost, 0, Math.floor(e.x[g]! / WU_PER_COLUMN) + 20, Math.floor(e.z[g]! / WU_PER_COLUMN), true);

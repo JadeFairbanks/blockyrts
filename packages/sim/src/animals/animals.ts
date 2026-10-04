@@ -21,6 +21,7 @@ import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
 import { Band } from '../world/layout.ts';
+import { distanceToWater } from '../world/start.ts';
 import { Mat } from '../world/materials.ts';
 import { PropKind } from '../world/props.ts';
 import { deathHooks, gap, hurtUnit, sideOf, Side } from '../combat/combat.ts';
@@ -298,7 +299,11 @@ export function stockChunk(state: SimState, cx: number, cz: number, key: number)
   const x0 = cx * N;
   const z0 = cz * N;
   const layout = state.world.layout;
-  const band = layout.cell(layout.nearest(x0 + (N >> 1), z0 + (N >> 1))).band;
+  let band = layout.cell(layout.nearest(x0 + (N >> 1), z0 + (N >> 1))).band;
+  // A start pocket's water holds trout (Table 9) wherever its chunk falls: since Jade's mini patch made the
+  // basin 30% smaller, a yard's stream or pond can reach a chunk whose middle lies in a Fringe cell. A chunk
+  // it reaches lies within the chunk's half diagonal (46 columns, rounded up to 48) of its middle.
+  if (band !== Band.Heartland && state.world.gen.start.pockets.some((p) => distanceToWater(p.water, x0 + (N >> 1), z0 + (N >> 1)) <= (N * 3) >> 2)) band = Band.Heartland;
   const kind = band === Band.Heartland ? PropKind.FishTrout : band === Band.Fringe ? PropKind.FishSalmon : band === Band.Deepwoods ? PropKind.FishCatfish : -1;
   if (kind < 0) return;
   let water = 0;

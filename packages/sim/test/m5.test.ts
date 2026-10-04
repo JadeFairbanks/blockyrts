@@ -433,11 +433,12 @@ describe('determinism with the threats', () => {
     const play = (): SimState => {
       const s = createWorld(5);
       const [hx, hz] = home(s);
+      // 70% of the 70 and 80 m used before Jade's mini patch brought the rings 30% closer, so they stay on the basin's floor.
       run(s, 1, [
-        { kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: hx + 70 * M, z: hz },
-        { kind: 'debugThreat', player: 0, what: DebugThreat.Gnolls, x: hx - 70 * M, z: hz },
-        { kind: 'debugThreat', player: 0, what: DebugThreat.Lair + 2, x: hx, z: hz + 80 * M },
-        { kind: 'debugThreat', player: 0, what: DebugThreat.Creature + 1, x: hx, z: hz - 70 * M },
+        { kind: 'debugThreat', player: 0, what: DebugThreat.Village, x: hx + 49 * M, z: hz },
+        { kind: 'debugThreat', player: 0, what: DebugThreat.Gnolls, x: hx - 49 * M, z: hz },
+        { kind: 'debugThreat', player: 0, what: DebugThreat.Lair + 2, x: hx, z: hz + 56 * M },
+        { kind: 'debugThreat', player: 0, what: DebugThreat.Creature + 1, x: hx, z: hz - 49 * M },
       ]);
       run(s, 1200);
       return s;

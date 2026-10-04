@@ -335,8 +335,9 @@ export function elfKingdom(state: SimState): Faction {
 
 /** Whether a Deadlands cell holds a Dwarf city (about 1 in 120, from the seed alone, so a colony can point the way before anyone has been there). */
 export function holdsCity(state: SimState, cellId: number): boolean {
-  const cell = state.world.layout.cell(cellId);
-  const oneIn = ONE_IN.city[cell.band] ?? 0;
+  // The band from the cell's ring alone: nearestCity asks of every Deadlands cell to the world's edge, twice as
+  // many since the mini patch brought the rings 30% closer, and working each one out in full took many seconds.
+  const oneIn = ONE_IN.city[state.world.layout.bandOfRing(floorDiv(cellId, CELL_RING_SHIFT))] ?? 0;
   return oneIn > 0 && hash32(state.seed ^ SALT.city, cellId) % oneIn === 0;
 }
 
