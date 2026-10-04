@@ -583,6 +583,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     const t0 = performance.now();
     world.update(now, shell.cam.focus);
     shell.frame(dt, now);
+    audio.setPaused(stopped());
     audio.frame(shell.cam.focus.x, shell.cam.focus.z, now);
     renderer.render(scene, shell.cam.camera);
     // The draw calls are the world's: read them before the portrait's own render resets them.

@@ -7,15 +7,41 @@
 // tips for this game; No (or no answer in 12 s) closes the tip, and every
 // later X just closes its tip. The next tip waits until the player has done
 // what the last one said. Settings' Tips switch keeps them off in every game.
-import { BuildingKind, clockAt, Period, Res, STEPS_PER_SECOND } from '@blockyrts/sim';
+// Jade's Patch 3: each tip in plain words, naming the buttons as the player
+// sees them (their names come from the game's own data, the keys from the
+// player's bindings), and a flashing yellow arrow before "Tip:".
+import { BuildingKind, buildingSpec, clockAt, levelSpec, Period, Res, STEPS_PER_SECOND } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
+import { keyFor } from '../input/bindings.ts';
+import { keyLabel } from '../input/keys.ts';
 import type { HudButton } from '../hud/buttons.ts';
+import { costLine } from '../hud/commands.ts';
 import type { GameShell } from '../hud/shell.ts';
 import { YesNoButtons } from '../hud/yes-no.ts';
 import type { Settings } from '../settings/settings.ts';
 
 /** How long a tip, or the question, shows: 12 s of game time (Jade). */
 export const TIP_STEPS = 12 * STEPS_PER_SECOND;
+
+/** The arrow before "Tip:": a short shaft and a head pointing right, yellow with the tips' dark outline. */
+const TIP_ARROW_SVG =
+  '<svg viewBox="0 0 20 14" width="22" height="16"><path d="M1.5 4.5h9V1l8 6-8 6V9.5h-9z" fill="#f2d24b" stroke="#14100a" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+/** The tips' words, in order, and the line after the last; `keys` are the player's rebound hotkeys. Pure. */
+export function tipTexts(keys: Readonly<Record<string, string>>): { select: string; gather: string; build: string; torch: string; dusk: string; last: string } {
+  const key = (action: string): string => keyLabel(keyFor(keys, action));
+  const home = buildingSpec(BuildingKind.MainBase).levels[0]!.name;
+  const torch = buildingSpec(BuildingKind.TorchPost);
+  const lights = torch.group ?? 'Lights';
+  return {
+    select: 'Select a worker: left click one, or hold the left button and drag a box around several.',
+    gather: `Gather wood: with workers selected, right click a tree. They chop it and carry the wood to the ${home}.`,
+    build: `Build: select a worker and click Build in the action menu at the bottom right (or press ${key('build')}). Choose a building, then left click the ground to place it.`,
+    torch: `Light a torch: select a worker, click Build, then ${lights}, then ${torch.name}, and left click where you want it. It costs ${costLine(levelSpec(BuildingKind.TorchPost, 1).cost)} (cut down a pine or spruce for resin). Night monsters appear in the dark, away from lit land.`,
+    dusk: `Night is coming: click Everyone Home (the ⇊ button above the minimap, or press ${key('home')}) to send your workers inside. Your warriors stay out to guard.`,
+    last: 'That was the last tip. Survive the night! You can turn tips on or off in Settings (☰ Menu).',
+  };
+}
 
 interface Tip {
   text: string;
@@ -105,6 +131,8 @@ export class TipSeries {
 
 export class FirstDayHints {
   private readonly box: HTMLElement;
+  /** The flashing yellow arrow before "Tip:", pointing at the tip (Jade's Patch 3). */
+  private readonly arrow: HTMLElement;
   private readonly text: HTMLElement;
   /** The buttons: the only part of a tip that takes clicks (a HUD panel of its own). */
   private readonly controls: HTMLElement;
@@ -124,6 +152,10 @@ export class FirstDayHints {
     this.box = document.createElement('div');
     this.box.className = 'tip-box';
     this.box.hidden = true;
+    this.arrow = document.createElement('span');
+    this.arrow.className = 'tip-arrow';
+    this.arrow.setAttribute('aria-hidden', 'true');
+    this.arrow.innerHTML = TIP_ARROW_SVG;
     this.text = document.createElement('span');
     this.text.className = 'tip-text';
     this.controls = document.createElement('span');
@@ -162,7 +194,7 @@ export class FirstDayHints {
       },
     });
     this.controls.append(this.x.el, this.yesNo.el);
-    this.box.append(this.text, this.controls);
+    this.box.append(this.arrow, this.text, this.controls);
     shell.layout.root.append(this.box);
     shell.panels.register('tip', this.controls);
   }
@@ -184,16 +216,17 @@ export class FirstDayHints {
     const woodNow = (): number => this.game.have(Res.SoftwoodLumber) + this.game.have(Res.HardwoodLumber);
     this.wood = woodNow();
     this.buildings = this.own();
+    const t = tipTexts(this.settings.keys);
     this.tips = [
       {
-        text: 'Select a worker: left click one, or drag a box round several.',
-        done: () => this.shell.selection.list().some((t) => t.typeKey === 'worker' && t.owner === this.game.player),
+        text: t.select,
+        done: () => this.shell.selection.list().some((s) => s.typeKey === 'worker' && s.owner === this.game.player),
       },
-      { text: 'Gather wood: with workers selected, right click a tree. They carry it to the Big House.', done: () => woodNow() > this.wood },
-      { text: 'Build: with a worker selected press B (or click Build on the card), pick a building and left click to place it.', done: () => this.own() > this.buildings },
-      { text: 'Light a torch: build a Torch post (B, then Lights, then its key). Light claims land and keeps the night’s monsters back.', done: () => this.own(BuildingKind.TorchPost) > 0 },
+      { text: t.gather, done: () => woodNow() > this.wood },
+      { text: t.build, done: () => this.own() > this.buildings },
+      { text: t.torch, done: () => this.own(BuildingKind.TorchPost) > 0 },
       {
-        text: 'Dusk: shelter for the night. Click Everyone Home (⇊, beside the minimap) to send your workers inside; warriors hold the walls.',
+        text: t.dusk,
         when: () => this.period() === Period.Dusk,
         done: () => this.period() === Period.Night,
       },
@@ -211,6 +244,9 @@ export class FirstDayHints {
     if (text === this.shown) return;
     this.shown = text;
     this.box.hidden = text === '';
+    // A tip shows larger and bolder behind its arrow; the "Turn tips off?" question stays as it was.
+    this.box.classList.toggle('showing-tip', v === 'tip');
+    this.arrow.hidden = v !== 'tip';
     this.text.textContent = text;
     this.x.el.hidden = v !== 'tip';
     this.yesNo.el.hidden = v !== 'ask';
@@ -229,7 +265,7 @@ export class FirstDayHints {
     const floor = this.period() === Period.Dusk ? this.tips.length - 1 : 0;
     if (this.series.advance((k) => this.tips[k]!.done(), floor)) {
       this.show();
-      this.shell.message('That was the last tip. Survive the night! Tips can be turned off or on in Settings.');
+      this.shell.message(tipTexts(this.settings.keys).last);
       return;
     }
     this.show();

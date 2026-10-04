@@ -1743,6 +1743,31 @@ Patch 2 do not load (the standing rule for every patch).
    Purple, Orange, Teal, Pink and White, each with its banner; red is kept
    for enemies.
 
+## How a tester checks the tips and the paused sound (Patch 3)
+
+1. `pnpm test` runs `packages/client/test/patch3-tips-pause.test.ts`: the
+   tips name Build, Lights and Torch post as the build menu shows them, the
+   torch's cost and the player's own keys, and stay short; while paused the
+   audio engine fades out and refuses every world sound and keeps the
+   interface's; the match stops its work sounds while paused.
+2. **Tips.** Start a new game with Settings > Help > Tips on. Each tip shows
+   a flashing yellow arrow pointing right before "Tip:", and its words are a
+   little larger and bolder than before Patch 3. Read them in order (select
+   a worker, gather wood, build, light a torch, then at dusk Everyone Home):
+   each says what to click, and the torch tip reads "select a worker, click
+   Build, then Lights, then Torch post, and left click where you want it. It
+   costs 2 softwood lumber, 1 resin (cut down a pine or spruce for resin)."
+   Rebind Build or Everyone Home in Settings and start again: the tips name
+   the new key. The ✕, "Turn tips off?" and its Yes and No look and work as
+   before. With nothing selected, the middle panel's three help lines name
+   your own keys too.
+3. **Paused sound.** Put workers to chopping and digging near the camera and
+   wait for a fight or the dusk horn, then press F10 (alone, the open menu
+   is the pause): the chopping, fighting and voices stop at once, and the
+   music and the birds (the ambience) play on; the menu's clicks still
+   sound. Close the menu: the world is heard again. Online, either player's
+   Pause does the same on both machines.
+
 ## How a tester checks troop names (Patch 2)
 
 *A troop goes by its weapon tier's name, everywhere a unit is named; the type
