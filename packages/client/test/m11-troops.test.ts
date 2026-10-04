@@ -171,14 +171,14 @@ describe('the Barracks card', () => {
     const g = game({ buildings: [b], pool: STOCK });
     const { c, sent } = harness(g, b);
     const card = c.card();
-    expect(card.slice(0, 4).map((e) => [e!.action, e!.face, e!.key])).toEqual([
+    expect(card.slice(0, 4).map((e) => [e.action, e.face, e.key])).toEqual([
       ['trainClose', 'Close', 'KeyA'],
       ['trainLong', 'Long', 'KeyQ'],
       ['trainRanger', 'Ranger', 'KeyN'],
       ['trainBrawler', 'Brawler', 'KeyB'],
     ]);
     expect(card[3]!.reason).toBe('Needs a Forge.');
-    expect(card[9]!.face).toBe('Rally');
+    expect(card.find((e) => e.action === 'rally')!.face).toBe('Rally');
     // A pick in the panel changes what the button trains.
     pickTier(b, Troop.Long, 'w', 2);
     pickTier(b, Troop.Long, 'a', 1);

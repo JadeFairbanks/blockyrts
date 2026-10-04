@@ -92,7 +92,7 @@ describe('wall chains', () => {
   it('places one wall, then a stretch per click in any of eight directions, one order each, until right click', () => {
     const { c, sent, asks } = harness(game({ pool: [[Res.SoftwoodLumber, 100]] }));
     c.startPlacing(BuildingKind.Wall, 0);
-    expect(c.card()[14]!.face).toBe('Cancel');
+    expect(c.card().at(-1)!.face).toBe('Cancel');
     c.updatePlacing(at(10, 10), 0);
     expect(asks.at(-1)).toEqual([[10, 10]]);
     answer(c, asks);
@@ -102,7 +102,7 @@ describe('wall chains', () => {
     expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 10, z: 10, dir: 0, length: 0, skip: 0, queued: false }]);
     // The ghost stays, anchored: the card's corner button now ends the chain.
     expect(c.placing!.chain).toEqual({ x: 10, z: 10 });
-    expect(c.card()[14]!.face).toBe('Done');
+    expect(c.card().at(-1)!.face).toBe('Done');
     // On the wall just placed, the label says how to stop at one.
     expect(c.chainLabel()).toEqual({ text: 'Click again for just this one', hint: 'Or click further on to build a stretch', short: false });
     // East, a little off the line: it snaps east, and leaves out the anchor.
@@ -247,7 +247,7 @@ describe('tunnel chains', () => {
     expect(sent).toEqual([]);
     expect(c.chainLabel()).toEqual({ text: 'Click where the tunnel goes', hint: 'Right click to stop', short: false });
     expect(c.card()[2]!.lit).toBe(true);
-    expect(c.card()[14]!.face).toBe('Done');
+    expect(c.card().at(-1)!.face).toBe('Done');
     c.updateArea(at(13, 1));
     expect(c.tunnelPlan()).toMatchObject({ x: 5, z: 0, dir: 0, length: 8 });
     expect(c.chainLabel()!.text).toBe('3.6 m of tunnel, 2.25 m tall');

@@ -24,9 +24,11 @@ import type { UnitOrder } from './unit-orders.ts';
 import { Role } from '../threats/types.ts';
 import { say } from '../peoples/speech.ts';
 import { partnerOf } from './weight.ts';
+import { tinker } from './tinker.ts';
 import {
   applyKit,
   aTroop,
+  equipmentPlans,
   holderKind,
   Line,
   linePiece,
@@ -37,6 +39,7 @@ import {
   upgradePieces,
   upgradeSteps,
   upgradeTarget,
+  type EquipmentHolder,
   type KitHolder,
   type TechView,
 } from './kits.ts';
@@ -174,6 +177,76 @@ export function orderUpgrade(state: SimState, player: number, units: readonly nu
   return sent;
 }
 
+/**
+ * Upgrade equipment (Jade's Patch 2: one button for every combat unit but
+ * siege, and for workers' tools): each unit's weapon, then its armour, to the
+ * best tier researched the stock pays for, weapons first for every unit and
+ * the highest ranks first (kits.ts equipmentPlans). Each unit with something
+ * to take pays for it now and walks to the nearest place to upgrade, where it
+ * sits tinkering through each piece's time, the weapon first. Returns how
+ * many units were sent; when none were, the player hears why. The action
+ * menu's button and the better-kit question both give this order.
+ */
+export function orderUpgradeEquipment(state: SimState, player: number, units: readonly number[]): number {
+  const e = state.entities;
+  const p = state.players[player];
+  if (!p) return 0;
+  const tech = techOf(state, player);
+  const list: EquipmentHolder[] = [];
+  const places = new Map<number, Building>();
+  let why = '';
+  let whoWhy = -1;
+  for (const i of units) {
+    if (e.owner[i] !== player || e.hp[i]! <= 0) continue;
+    const h = kitHolder(state, i);
+    if (!h) continue;
+    // A unit with nowhere to go holds back no stock from the others.
+    const place = nearestUpgradePlace(state, i, h);
+    if (!place) {
+      if (!why) {
+        why = h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.';
+        whoWhy = i;
+      }
+      continue;
+    }
+    places.set(e.id[i]!, place);
+    list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pendingW: pendingKitUp(state, i, Line.Weapon) !== undefined, pendingA: pendingKitUp(state, i, Line.Armour) !== undefined });
+  }
+  let sent = 0;
+  for (const plan of equipmentPlans(list, p.pool, tech)) {
+    const i = e.indexOf(plan.id);
+    const h = kitHolder(state, i)!;
+    if (!plan.wPlan && !plan.aPlan) {
+      // A reason the player can act on beats one about having no place.
+      if (!why || whoWhy < 0 || why.startsWith('There is no')) {
+        why = plan.why;
+        whoWhy = i;
+      }
+      continue;
+    }
+    const place = places.get(plan.id)!;
+    const pieces: string[] = [];
+    // In front of whatever it was doing: the armour first, then the weapon before it, so the weapon goes on first.
+    if (plan.aPlan) {
+      pay(p.pool, plan.aPlan.cost);
+      inFront(state, i, { t: 'kitUp', line: Line.Armour, to: plan.a, ways: plan.aPlan.ways, paid: 1, b: place.id });
+      pieces.unshift(pieceName(h, Line.Armour, plan.a));
+    }
+    if (plan.wPlan) {
+      pay(p.pool, plan.wPlan.cost);
+      inFront(state, i, { t: 'kitUp', line: Line.Weapon, to: plan.w, ways: plan.wPlan.ways, paid: 1, b: place.id });
+      pieces.unshift(pieceName(h, Line.Weapon, plan.w));
+    }
+    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for ${pieces.map((x) => `a ${x}`).join(' and ')}.`, false, true);
+    sent++;
+  }
+  if (sent === 0 && why) {
+    if (whoWhy >= 0) say(state, whoWhy, why, true);
+    else state.events.push({ player, kind: 'alert', text: why });
+  }
+  return sent;
+}
+
 /** Gives back what an upgrade it had not finished paid (a new order, Stop, or death). */
 export function refundKit(state: SimState, i: number, o: UnitOrder): void {
   if (o.t !== 'kitUp' || !o.paid) return;
@@ -195,7 +268,7 @@ export function upgradeProgress(state: SimState, i: number): [number, number] {
   return h ? [e.timer[i]!, upgradeSteps(h, o.line, o.to)] : [0, 0];
 }
 
-/** Walks to the place to upgrade, waits beside it while the bar fills, and takes the new kit. */
+/** Walks to the place to upgrade, sits beside it tinkering while the bar fills, and takes the new kit. */
 export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
   const e = state.entities;
   const h = kitHolder(state, i);
@@ -223,9 +296,8 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
     e.act[i] = Act.Work;
     e.timer[i] = 0;
   }
-  e.order[i] = OrderKind.Idle;
-  e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < upgradeSteps(h, o.line, o.to)) return false;
+  // Beside it, the unit sits and tinkers while the bar over its head fills (Jade's Patch 2).
+  if (!tinker(state, i, upgradeSteps(h, o.line, o.to))) return false;
   finishKitUp(state, i, h, o);
   return true;
 }
