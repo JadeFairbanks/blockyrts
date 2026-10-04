@@ -150,7 +150,7 @@ describe('lairs', () => {
     expect(guards.length).toBeGreaterThan(0);
   });
 
-  it('sends a fifth of the night out of a lair 20 s after nightfall', () => {
+  it('sends a lair\'s own share out of it 20 s after nightfall (Patch 3: half its sleepers\' threat)', () => {
     const s = createWorld(1);
     const [hx, hz] = home(s);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Lair + 1, x: hx + 90 * M, z: hz }]);

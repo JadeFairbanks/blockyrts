@@ -9,10 +9,11 @@
 // spot on the dark edge, at least 50 m from claimed land and 30 m from any
 // of the players' units, weighted away from lights and units. The players
 // share what they have explored, so the dark edge is the whole side's, and
-// a spawn keeps off every player's claimed land, not only its target's. A fifth of
-// the budget comes out of the player's lairs (none spawns without one), and
-// the depth weighting's extras come out of the dark edge nearest the
-// player's deepest asset and go for it.
+// a spawn keeps off every player's claimed land, not only its target's. Four
+// fifths of the budget come out of the dark edge, and each of the player's
+// lairs sends monsters worth its own sleepers' threat besides (Jade's Patch
+// 3 notes: a budget per lair by its threat); the depth weighting's extras
+// come out of the dark edge nearest the player's deepest asset and go for it.
 
 import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, claimShapes, dist2, isLit, type ClaimShapes } from '../buildings/lights.ts';
@@ -25,7 +26,7 @@ import { addMob, townCentre } from './mob-ai.ts';
 import { Comes, Mob, MOBS, mobSpec } from './mobs.ts';
 import { DEPTH_AHEAD, LAIR_SHARE_DELAY_STEPS } from '../threats/data.ts';
 import { fogged, throughFog } from '../threats/fog.ts';
-import { lairsOf, lairSpawns } from '../threats/lairs.ts';
+import { lairBudgetTenths, lairsOf, lairSpawns } from '../threats/lairs.ts';
 import { Role } from '../threats/types.ts';
 
 /** Spawns stand off at least this far from claimed land and from the players' units (Table 8). */
@@ -39,9 +40,8 @@ export const FIRST_NIGHT: ReadonlyArray<readonly [Mob, number]> = [
   [Mob.GiantSpider, 1],
   [Mob.Slime, 1],
 ];
-/** The dark edge's share of the night's budget, per mille: 80%; the lairs' 20% comes only out of live lairs. */
+/** The dark edge's share of the night's budget, per mille: 80% (the lairs send their own on top, threats/data.ts LAIR_BUDGET_PCT). */
 const EDGE_SHARE_PM = 800;
-const LAIR_SHARE_PM = 200;
 /** On a fog night spawns stand off only 40 m from claimed land (s). */
 const FOG_CLAIM_STANDOFF_M = 40;
 /** Packs are 3 to 6 strong (s). */
@@ -128,9 +128,10 @@ interface Planned {
 /**
  * The mobs of a player's night (Rising difficulty; Table 8): the base
  * budget times their town and provoked factors (doubled on a blood night,
- * the extra spent on the rarer types), 80% from the dark edge and 20% out
- * of their lairs, plus the depth weighting's extras drawn from later
- * nights, sent for their deepest asset. Night 0 is its fixed pick only.
+ * the extra spent on the rarer types), 80% from the dark edge; each of their
+ * lairs' own budget out of it (its sleepers' threat, doubled on a blood
+ * night); plus the depth weighting's extras drawn from later nights, sent
+ * for their deepest asset. Night 0 is its fixed pick only.
  */
 export function nightMobs(state: SimState, player: number, night: number): Planned[] {
   const edge = (mob: number): Planned => ({ mob, role: Role.Night, ax: 0, az: 0, src: 0 });
@@ -143,15 +144,13 @@ export function nightMobs(state: SimState, player: number, night: number): Plann
   const count = new Map<number, number>();
   const out: Planned[] = pickMobs(state, floorDiv(total * EDGE_SHARE_PM, 1000), choices, night, count).map(edge);
   if (blood) out.push(...pickMobs(state, floorDiv(total * EDGE_SHARE_PM, 1000), rarer(night), night, count).map(edge));
-  // The lairs' fifth, shared equally among the player's live lairs (doubled on a blood night too).
-  const lairs = lairsOf(state, player);
-  if (lairs.length > 0) {
-    const share = floorDiv(floorDiv(total * LAIR_SHARE_PM, 1000) * (blood ? 2 : 1), lairs.length);
-    for (const l of lairs) {
-      const kinds = lairSpawns(state.entities.mob[l]!);
-      const own = choices.filter(([m]) => kinds.includes(m));
-      for (const mob of pickMobs(state, share, own.length > 0 ? own : choices, night, count)) out.push({ mob, role: Role.Night, ax: 0, az: 0, src: state.entities.id[l]! });
-    }
+  // Each live lair's own budget: its sleepers' threat (Jade's Patch 3 notes), doubled on a blood night too.
+  for (const l of lairsOf(state, player)) {
+    const lair = state.entities.mob[l]!;
+    const kinds = lairSpawns(lair);
+    const own = choices.filter(([m]) => kinds.includes(m));
+    const budget = lairBudgetTenths(lair, night) * (blood ? 2 : 1);
+    for (const mob of pickMobs(state, budget, own.length > 0 ? own : choices, night, count)) out.push({ mob, role: Role.Night, ax: 0, az: 0, src: state.entities.id[l]! });
   }
   // Depth weighting: deeper assets draw extras from later nights, sent for the deepest of them.
   if (r && r.depthPm > 0) {

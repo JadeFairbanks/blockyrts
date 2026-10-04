@@ -21,10 +21,10 @@ import { MONSTERS, sourceDistance2, UnitKind, VISION_STRIDE, type SimState } fro
 import { Band, Look } from '../world/layout.ts';
 import { gainXp } from '../combat/combat.ts';
 import { addMob } from '../combat/mob-ai.ts';
-import { isLair, mobSpec } from '../combat/mobs.ts';
+import { isLair, type Mob, mobSpec } from '../combat/mobs.ts';
 import { barrierSpot, cellAt, occupiedCells } from './cells.ts';
 import {
-  CLEARED_RADIUS_WU, CLEARED_WAIT_STEPS, HOARD_ROLLS, LAIR_CLAIM_GAP_WU, LAIR_GAP_WU, LAIR_UNIT_GAP_WU, lairCap, lairDue, LAIRS, lairSpec, LairSite, RIFT_SEEN_WU, type LairSpec,
+  CLEARED_RADIUS_WU, CLEARED_WAIT_STEPS, HOARD_ROLLS, LAIR_BUDGET_PCT, LAIR_CLAIM_GAP_WU, LAIR_GAP_WU, LAIR_UNIT_GAP_WU, lairCap, lairDue, LAIRS, lairSpec, LairSite, RIFT_SEEN_WU, type LairSpec,
 } from './data.ts';
 import { rollDropList } from './loot.ts';
 import { dropLoot } from '../units/loot.ts';
@@ -265,7 +265,7 @@ export function clearLair(state: SimState, l: number, taker: number, killer = -1
   if (taker >= 0 && taker < state.players.length) {
     const got = new Map<number, number>();
     const night = nightNow(state);
-    const kinds = spec.sleepers(night).length > 0 ? spec.sleepers(night) : spec.guardians;
+    const kinds = lairCompany(spec.mob, night);
     for (let k = 0; k < HOARD_ROLLS && kinds.length > 0; k++) rollDropList(state, mobSpec(kinds[k % kinds.length]!).drops, got);
     const band = state.world.layout.cell(cellAt(state, x, z)).band;
     const gem = HOARD_VALUABLE[band]!;
@@ -293,6 +293,26 @@ export function lairsOf(state: SimState, player: number): number[] {
 /** What comes out of a lair at night: its kinds unlocked tonight, else (rifts) any night mob unlocked tonight. */
 export function lairSpawns(mob: number): readonly number[] {
   return lairSpec(mob)?.spawns ?? [];
+}
+
+/** A lair's company on a night: its sleepers, or its guardians when it has none (a spider nest's spiders), as its hoard counts them. */
+export function lairCompany(mob: number, night: number): Mob[] {
+  const spec = lairSpec(mob);
+  if (!spec) return [];
+  const sleepers = spec.sleepers(night);
+  return sleepers.length > 0 ? sleepers : [...spec.guardians];
+}
+
+/** A lair's threat on a night, tenths: its company's threat added up (combat/threat.ts). */
+export function lairThreatTenths(mob: number, night: number): number {
+  let sum = 0;
+  for (const m of lairCompany(mob, night)) sum += mobSpec(m).threatTenths;
+  return sum;
+}
+
+/** What a lair sends each night, tenths of threat: its share of its own threat (Jade's Patch 3 notes: a budget per lair by its threat). */
+export function lairBudgetTenths(mob: number, night: number): number {
+  return floorDiv(lairThreatTenths(mob, night) * LAIR_BUDGET_PCT, 100);
 }
 
 /**
