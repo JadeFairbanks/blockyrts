@@ -103,6 +103,19 @@ export class GameInfo {
     return s.data.subarray(i * STATE_STRIDE, (i + 1) * STATE_STRIDE);
   }
 
+  /** Every unit sitting at a timed action now (Jade's Patch 2 tinkering): its id, the steps done and the steps it takes. */
+  tinkering(): Array<[number, number, number]> {
+    const out: Array<[number, number, number]> = [];
+    const s = this.state;
+    if (!s) return out;
+    for (let i = 0; i < s.count; i++) {
+      const o = i * STATE_STRIDE;
+      const of = s.data[o + S.tinkerOf]!;
+      if (of > 0) out.push([s.data[o + S.id]!, s.data[o + S.tinkerDone]!, of]);
+    }
+    return out;
+  }
+
   unit(id: number): UnitInfo | null {
     const i = this.unitIndex.get(id);
     const s = this.state;

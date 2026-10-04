@@ -1,6 +1,6 @@
 // Orders and the command card (Controls: Unit orders; Command card and
 // hotkeys; Building placement; Queuing orders with Shift; Production queues).
-// Works out the 15 buttons for the active subgroup, the targeted commands and
+// Works out the buttons for the active subgroup, the targeted commands and
 // their clicks, the smart right click, and the placement ghost with Shift
 // chains, wall chains clicked from point to point, and dragged lines of
 // lights; and the dig area, with tunnel chains clicked the same way. Orders go out through `issue`; what the
@@ -16,9 +16,6 @@ import {
   Line,
   linePiece,
   mainCost,
-  Research,
-  Skill,
-  SKILL_TRAINING,
   BUILDINGS,
   buildingSpec,
   footprintDims,
@@ -36,7 +33,6 @@ import {
   productSpec,
   RANK_TRAINING,
   Res,
-  RESEARCH,
   RESEARCH_PRODUCT,
   RESOURCES,
   schoolSpells,
@@ -64,8 +60,8 @@ import {
   troopProduct,
   TOOL_KITS,
   upgradePieces,
-  upgradeTarget,
-  type KitHolder,
+  equipmentPlans,
+  type EquipmentHolder,
   WU_PER_COLUMN,
   WU_PER_METRE,
   WU_PER_TERRAIN_UNIT,
@@ -83,10 +79,9 @@ import type { Settings } from '../settings/settings.ts';
 import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonIcon, ButtonPress } from './buttons.ts';
-import { buildIcon, buildingUpgradeIcon, productIcon, trainTroopIcon, upgradeIcon } from './card-icons.ts';
+import { buildIcon, buildingUpgradeIcon, equipIcon, productIcon, trainTroopIcon } from './card-icons.ts';
 import { buildingIconFile } from './unit-icons.ts';
 import { troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
-import { CLASSIC_SLOTS } from './hud-layout.ts';
 import { count } from './wording.ts';
 
 /** One button of the command card. */
@@ -115,15 +110,19 @@ export interface CardEntry {
   troop?: number;
 }
 
-export type Card = Array<CardEntry | null>;
+/** The command card's buttons in book order, left to right and top to bottom (Jade's Patch 2: no gaps, Cancel last). */
+export type Card = CardEntry[];
+
+/** A card while it is put together: some cards fill fixed places and leave gaps, which close up when it is shown. */
+type Slots = Array<CardEntry | null>;
 
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
-const ALLIED_ACTIONS = new Set(['attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
+const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch';
+type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch';
 
-/** Pages of the command card: the main card, the build menus and a building's K menu (smelting, cooking, research and the rest). */
-export type CardPage = 'main' | 'basic' | 'advanced' | 'make';
+/** Pages of the command card: the main card, the build menu (Jade's Patch 2: one, for basic and advanced buildings alike) and a building's K menu (smelting, cooking, research and the rest). */
+export type CardPage = 'main' | 'build' | 'make';
 
 /**
  * Dig (D) and earthworks: an area dragged on the ground, then confirmed with
@@ -197,8 +196,6 @@ const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Sto
 /** Earthworks variants shaped as a ramp: earth, lumber and stone. */
 const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
 
-const LOCK_FACES = ['Auto', 'Melee', 'Ranged'];
-
 /** The troop types' card actions, their buttons' faces and slots on a Barracks or Stables card (a main base shifts them one along for Worker). */
 const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>> = {
   [Troop.Close]: ['trainClose', 'Close', 0],
@@ -265,17 +262,16 @@ export interface CommandDeps {
   confirmWar(faction: number, then: () => void): void;
   /** The trade menu, or a mercenary camp's hire box. */
   openPeople(faction: number): void;
-  /** The card's size now: columns, rows by default, and the most rows a long menu may grow to (hud-layout.ts); the fixed 5 x 3 when left out. */
+  /** How many buttons the card can show at once, at the smallest size it may shrink them to (hud-layout.ts buttonRoom); 15 when left out. */
   slots?(): CardSize;
 }
 
 export interface CardSize {
-  cols: number;
-  rows: number;
-  maxRows: number;
+  /** The most buttons the card shows at once; a longer menu pages. */
+  most: number;
 }
 
-const CLASSIC_SIZE: CardSize = { cols: 5, rows: 3, maxRows: 3 };
+const CLASSIC_SIZE: CardSize = { most: 15 };
 
 /** Spacing of lights placed along a dragged line: 8 m, so their 5 m claims overlap. */
 export const LIGHT_LINE_SPACING_M = 8;
@@ -290,6 +286,16 @@ export function menuSlots(menu: 'basic' | 'advanced'): BuildingSpec[][] {
   const out: BuildingSpec[][] = Array.from({ length: 15 }, () => []);
   for (const b of BUILDINGS) if (b.menu === menu) out[gridSlot(b.slot)]!.push(b);
   return out;
+}
+
+/**
+ * The one build menu (Jade's Patch 2: basic and advanced buildings merge into
+ * one Build button): each entry one building, or several sharing a slot as a
+ * submenu, the basic buildings first and then the advanced, each in its old
+ * order.
+ */
+export function buildGroups(): BuildingSpec[][] {
+  return [...menuSlots('basic'), ...menuSlots('advanced')].filter((g) => g.length > 0);
 }
 
 /** The choices of a submenu: each building, each crop of a farm, each way of a gate or earthwork, in grid order. */
@@ -313,11 +319,18 @@ function seconds(ws: number): string {
   return ws >= 60 && ws % 60 === 0 ? `${ws / 60} min` : `${ws} s`;
 }
 
-/** The submenu names for shared slots. */
+/** The submenu names for shared slots of the basic menu. */
 const SUBMENU_NAMES: Record<string, string> = { '2': 'Farms', '10': 'Walls', '11': 'Earthworks', '13': 'Lights' };
 
+/** A submenu's name: its own, or the buildings in it. */
+function submenuName(specs: readonly BuildingSpec[]): string {
+  const first = specs[0]!;
+  return (first.menu === 'basic' ? SUBMENU_NAMES[String(first.slot)] : undefined) ?? specs.map((s) => s.name).join(', ');
+}
+
 export class Commands {
-  menu: { page: CardPage; sub: number } = { page: 'main', sub: -1 };
+  /** The card's page; in the build menu, the submenu open (-1 for none); the page of a menu too long for the card. */
+  menu: { page: CardPage; sub: number; more: number } = { page: 'main', sub: -1, more: 0 };
   targeting: Targeting | null = null;
   placing: Placing | null = null;
   area: Area | null = null;
@@ -388,8 +401,7 @@ export class Commands {
       return true;
     }
     if (this.menu.page !== 'main') {
-      const menus = this.menu.page === 'basic' || this.menu.page === 'advanced';
-      this.menu = this.menu.sub >= 0 && menus ? { page: this.menu.page, sub: -1 } : { page: 'main', sub: -1 };
+      this.menu = this.menu.sub >= 0 && this.menu.page === 'build' ? { page: 'build', sub: -1, more: 0 } : { page: 'main', sub: -1, more: 0 };
       this.d.changed();
       return true;
     }
@@ -398,7 +410,7 @@ export class Commands {
 
   /** The selection changed: menus, targets and ghosts belong to the old one. */
   reset(): void {
-    this.menu = { page: 'main', sub: -1 };
+    this.menu = { page: 'main', sub: -1, more: 0 };
     this.targeting = null;
     this.area = null;
     if (this.placing) this.endPlacing();
@@ -407,32 +419,34 @@ export class Commands {
   // ---- The card ----
 
   /**
-   * The card for the active subgroup: entries 0 to 14 are the fixed 5 x 3
-   * block with the grid keys, and any after that go in the extra slots round
-   * it (hud-layout.ts cardCells), click only. A long menu may run past the
-   * default rows; the shell grows the card upward to show it.
+   * The card for the active subgroup, its buttons in book order (Jade's
+   * Patch 2: the shell sizes them as squares to fill the card, growing it
+   * upward only when they cannot fit at the minimum). A command waiting for
+   * its target, a ghost or a dig area puts Cancel (or Done) last.
    */
   card(): Card {
-    const size = this.size();
-    const card: Card = Array.from({ length: Math.max(CLASSIC_SLOTS, size.cols * size.rows) }, () => null);
     const active = this.d.activeType();
-    if (this.placing || this.targeting || this.area) {
-      card[14] = this.cancelEntry();
-    }
-    if (active === null) return card;
-    if (this.area && active === 'worker') return this.areaCard(card);
+    const waiting = this.placing !== null || this.targeting !== null || this.area !== null;
+    const slots = active === null ? [] : this.slotsFor(active, waiting);
+    const out = slots.filter((e): e is CardEntry => e !== null);
+    if (waiting) out.push(this.cancelEntry());
+    return out;
+  }
+
+  private slotsFor(active: string, waiting: boolean): Slots {
+    if (this.area && active === 'worker') return this.areaCard();
     if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
-      if (this.alliedOnly(active)) return this.alliedCard(card, active);
-      if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
-      this.unitCard(card, active);
-    } else if (active.startsWith('engine:')) {
-      this.engineCard(card);
-    } else if (active.startsWith('building:')) {
-      const kind = Number(active.split(':')[1]);
-      if (this.menu.page === 'make') return this.makeCard(card, kind);
-      this.buildingCard(card, kind);
+      if (this.alliedOnly(active)) return this.alliedCard(active);
+      if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
+      return this.unitCard(active);
     }
-    return card;
+    if (active.startsWith('engine:')) return this.engineCard();
+    if (active.startsWith('building:')) {
+      const kind = Number(active.split(':')[1]);
+      if (this.menu.page === 'make') return this.makeCard(kind, waiting);
+      return this.buildingCard(kind, waiting);
+    }
+    return [];
   }
 
   /** Whether every selected unit of the active type is another player's, shared with this one. */
@@ -441,14 +455,9 @@ export class Commands {
     return list.length > 0 && list.every((t) => t.owner !== this.d.player);
   }
 
-  /** Shared units take the shared orders only (Allies panel): move, attack, patrol, hold, gather, shelter and garrison. */
-  private alliedCard(card: Card, active: string): Card {
-    this.unitCard(card, active);
-    for (let i = 0; i < card.length; i++) {
-      const e = card[i];
-      if (e && !ALLIED_ACTIONS.has(e.action)) card[i] = null;
-    }
-    return card;
+  /** Shared units take the shared orders only (Allies panel): move, attack, patrol, gather, unload and hunt. */
+  private alliedCard(active: string): Slots {
+    return this.unitCard(active).filter((e) => e !== null && ALLIED_ACTIONS.has(e.action));
   }
 
   private cancelEntry(): CardEntry {
@@ -493,103 +502,92 @@ export class Commands {
     return { action, face, name: name ?? face, key: this.key(action), description, enabled: false, reason, run: () => undefined };
   }
 
-  private unitCard(card: Card, active: string): void {
+  /**
+   * A unit's card (Jade's Patch 2 action menu overhaul): only the buttons her
+   * list names, as pictures. Combat troops: Attack, Patrol and Move, then
+   * Hunt, Eat and Upgrade equipment. Mages: Attack, Patrol and Move, their
+   * school's spells, Eat, Upgrade equipment and rank training. Workers: Move,
+   * Gather, Unload, Repair, Dig, Prospect and Build, then Eat, Upgrade
+   * equipment, rank training and the cart. [Before Patch 2 every unit also had
+   * Stop, Hold and Enter; troops had the weapon and armour upgrades and their
+   * Max twins, the ranged-or-melee lock and Cannon crew training.]
+   */
+  private unitCard(active: string): Slots {
     const t = this.targeting?.command;
-    card[0] = this.entry('attack', 'Attack', 'Then left click an enemy to attack it, or ground to attack-move there: walk, and fight whatever comes in range on the way. Right click or Esc cancels. Press twice (or double click) and each one attacks the nearest enemy it can see.', () => this.target('attack', 'attack'), { lit: t === 'attack', double: () => this.pickOwn(PickOwn.Attack, 'Each one attacks the nearest enemy it can see.') });
-    card[1] = this.entry('stop', 'Stop', 'Cancel every queued order; units stand still but fight back.', () => this.stop());
-    card[2] = this.entry('hold', 'Hold', 'Cancel every order and never move, not even to chase: they fight only what comes in reach. With Shift, they hold once their earlier orders are done.', () => this.hold(), { name: 'Hold Position' });
-    card[3] = this.entry('patrol', 'Patrol', 'Then left click ground: they walk back and forth between here and there, fighting whatever they meet.', () => this.target('patrol', 'patrol'), { lit: t === 'patrol' });
-    card[4] = this.entry('move', 'Move', 'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several.', () => this.target('move', 'move'), { lit: t === 'move' });
+    const attack = this.entry(
+      'attack',
+      'Attack',
+      'Then left click a unit to attack it, whoever it is: an enemy, prey, or even one of your own units or an ally\'s. Left click ground to attack-move there: walk, and fight whatever enemy comes in range on the way. Right click or Esc cancels. Press twice (or double click) and each one attacks the nearest enemy it can see.',
+      () => this.target('attack', 'attack'),
+      { lit: t === 'attack', double: () => this.pickOwn(PickOwn.Attack, 'Each one attacks the nearest enemy it can see.') },
+    );
+    const patrol = this.entry('patrol', 'Patrol', 'Then left click ground: they walk back and forth between here and there, fighting whatever they meet.', () => this.target('patrol', 'patrol'), { lit: t === 'patrol' });
+    const move = this.entry('move', 'Move', 'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several.', () => this.target('move', 'move'), { lit: t === 'move' });
     if (active === 'worker') {
       const workers = this.workerIds();
       const carrying = workers.some((id) => {
         const u = this.d.game.unit(id);
         return (u !== null && u.carryAmt > 0) || this.bagOf(id).length > 0;
       });
-      card[5] = this.entry(
-        'gather',
-        'Gather',
-        'The workers fetch the basic materials the camp can use by themselves: wood, sticks, stone and flint, clay, sand and coal as the main base grows, and ore once there is a forge for it, most of what the stock is shortest of, the nearest first. They look only where your side has explored, then farther out round its edge (never more than 25 m into the unknown), and never so far that they could not get home by nightfall; at dusk they come back to the nearest main base, and go out again in the day. To gather one tree, rock or bush, right-click it.',
-        () => this.forage(),
-      );
-      card[6] = carrying
-        ? this.entry('returnCargo', 'Return', 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node.', () => this.unitOrder({ kind: 'returnCargo' }), { name: 'Return Cargo' })
-        : this.off('returnCargo', 'Return', 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node.', 'They are not carrying anything.', 'Return Cargo');
-      card[7] = this.entry(
-        'repair',
-        'Repair',
-        'Then left click one of your buildings to build, upgrade or repair it. Press twice (or double click) and they repair every damaged building nearby, worst first.',
-        () => this.target('repair', 'repair'),
-        { lit: t === 'repair', double: () => this.repairAll() },
-      );
-      card[8] = this.entry(
-        'dig',
-        'Dig',
-        'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Clicking the side of a cliff or hillside starts a tunnel instead (D again, or Tunnel, for one on flat ground): click where it goes and each click digs the stretch from the last point, level, straight or diagonal; keep clicking to turn corners, right click ends it. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
-        () => this.startArea('dig', 0),
-      );
-      card[9] = this.entry(
-        'prospect',
-        'Prospect',
-        'Then left click the ground: a worker walks there and spends 40 s (20 s with a prospecting hammer) finding out what lies under it. The rating, Poor, Fair, Good or Rich, sets what a mineshaft there brings up (x0.5 to x2.5). Press twice (or double click) and each worker prospects where it stands.',
-        () => this.target('prospect', 'prospect'),
-        { lit: t === 'prospect', double: () => this.pickOwn(PickOwn.Prospect, 'Prospecting where they stand.') },
-      );
-      card[10] = this.entry('buildBasic', 'Build', 'Open the Basic Structures menu: homes, farms, storage, walls, lights. Grid keys pick a building; B is Back.', () => this.openMenu('basic'), { name: 'Build Basic Structures' });
-      card[11] = this.entry('buildAdvanced', 'Adv.', 'Open the Advanced Structures menu: buildings that need rare resources or technology.', () => this.openMenu('advanced'), { name: 'Build Advanced Structures' });
-      // Workers never patrol (s): the slot is their rank training, which the equipment panel used to hold.
-      card[3] = this.rankEntry(workers);
-      card[13] = this.upgradeEntry(workers, Line.Weapon, false);
-      if (!card[14]) card[14] = this.cartEntry(workers);
-    } else if (active.startsWith('mage:')) {
-      this.mageCard(card, active);
-    } else {
-      const troops = this.unitIds((u) => u.typeKey === 'warrior');
-      card[5] = this.upgradeEntry(troops, Line.Weapon, false);
-      card[6] = this.upgradeEntry(troops, Line.Armour, false);
-      card[7] = this.lockEntry();
-      card[8] = this.cannonEntry();
-      card[9] = this.entry(
+      const unload = 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node.';
+      return [
+        move,
+        this.entry(
+          'gather',
+          'Gather',
+          'The workers fetch the basic materials the camp can use by themselves: wood, sticks, stone and flint, clay, sand and coal as the main base grows, and ore once there is a forge for it, most of what the stock is shortest of, the nearest first. They look only where your side has explored, then farther out round its edge (never more than 25 m into the unknown), and never so far that they could not get home by nightfall; at dusk they come back to the nearest main base, and go out again in the day. To gather one tree, rock or bush, right-click it.',
+          () => this.forage(),
+        ),
+        carrying
+          ? this.entry('returnCargo', 'Unload', unload, () => this.unitOrder({ kind: 'returnCargo' }))
+          : this.off('returnCargo', 'Unload', unload, 'They are not carrying anything.'),
+        this.entry(
+          'repair',
+          'Repair',
+          'Then left click one of your buildings to build, upgrade or repair it. Press twice (or double click) and they repair every damaged building nearby, worst first.',
+          () => this.target('repair', 'repair'),
+          { lit: t === 'repair', double: () => this.repairAll() },
+        ),
+        this.entry(
+          'dig',
+          'Dig',
+          'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Clicking the side of a cliff or hillside starts a tunnel instead (D again, or Tunnel, for one on flat ground): click where it goes and each click digs the stretch from the last point, level, straight or diagonal; keep clicking to turn corners, right click ends it. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
+          () => this.startArea('dig', 0),
+        ),
+        this.entry(
+          'prospect',
+          'Prospect',
+          'Then left click the ground: a worker walks there and spends 40 s (20 s with a prospecting hammer) finding out what lies under it. The rating, Poor, Fair, Good or Rich, sets what a mineshaft there brings up (x0.5 to x2.5). Press twice (or double click) and each worker prospects where it stands.',
+          () => this.target('prospect', 'prospect'),
+          { lit: t === 'prospect', double: () => this.pickOwn(PickOwn.Prospect, 'Prospecting where they stand.') },
+        ),
+        this.entry('build', 'Build', 'Open the build menu: every building, homes, farms, storage, walls and lights first. Its keys pick a building; B is Back.', () => this.openMenu('build')),
+        this.eatEntry(),
+        this.equipEntry(workers),
+        this.rankEntry(workers),
+        this.cartEntry(workers),
+      ];
+    }
+    if (active.startsWith('mage:')) {
+      const ids = this.unitIds((u) => u.typeKey === active);
+      const school = active === 'mage:battle' ? 2 : 1;
+      // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
+      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids)];
+    }
+    const troops = this.unitIds((u) => u.typeKey === 'warrior');
+    return [
+      attack,
+      patrol,
+      move,
+      this.entry(
         'hunt',
         'Hunt',
         'The warriors go out after game, hares, deer and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you right-click one. To hunt one animal, right-click it.',
         () => this.huntAuto(),
-      );
-      card[10] = this.eatEntry();
-      // The Max twins show only when they would go further than the plain buttons.
-      card[11] = this.maxEntry(troops, Line.Weapon, card[5]);
-      card[13] = this.maxEntry(troops, Line.Armour, card[6]);
-    }
-    card[12] = this.entry(
-      'enter',
-      'Enter',
-      ENTER_HELP,
-      () => this.target('enter', 'enter'),
-      { lit: t === 'enter', double: () => this.pickOwn(PickOwn.Enter, ENTER_TWICE) },
-    );
-  }
-
-  /**
-   * A mage's card (Magic): her school's five spells in the middle row, each
-   * waiting for a click on its target, or cast on the best target by every
-   * selected mage when pressed twice; then Eat, rank training, Enter and gear.
-   */
-  private mageCard(card: Card, active: string): void {
-    const ids = this.unitIds((u) => u.typeKey === active);
-    const school = active === 'mage:battle' ? 2 : 1;
-    schoolSpells(school).slice(0, 5).forEach((spell, k) => {
-      card[5 + k] = this.spellEntry(ids, spell);
-    });
-    // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
-    card[10] = { ...this.eatEntry(), key: '' };
-    card[11] = this.mageRankEntry(ids);
-    card[13] = this.upgradeEntry(ids, Line.Weapon, false);
-    if (!card[14]) card[14] = this.upgradeEntry(ids, Line.Armour, false);
-    // The Max twins go in the extra slots when the card has them (a phone's has none: pressing an upgrade twice goes to the best).
-    if (card.length > CLASSIC_SLOTS + 1) {
-      card[CLASSIC_SLOTS] = this.maxEntry(ids, Line.Weapon, card[13]);
-      card[CLASSIC_SLOTS + 1] = card[14]?.action === 'cancel' ? null : this.maxEntry(ids, Line.Armour, card[14] ?? null);
-    }
+      ),
+      this.eatEntry(),
+      this.equipEntry(troops),
+    ];
   }
 
   /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */
@@ -602,12 +600,12 @@ export class Commands {
     const wait = usable.length > 0 && ready.length === 0 ? Math.min(...usable.map(([, , steps]) => steps)) : 0;
     const aim =
       s.target === 'ally'
-        ? 'Then left click one of your units.'
+        ? 'Then left click a unit: one of yours, an ally\'s, or anyone else\'s that is not an enemy.'
         : s.target === 'point'
           ? 'Then left click the ground where it lands.'
           : s.target === 'counter'
             ? 'Then left click an enemy that is casting.'
-            : 'Then left click an enemy.';
+            : 'Then left click a unit: an enemy, prey, or even one of your own.';
     const pick = s.target === 'counter' ? 'Pressed twice, each mage stops the nearest enemy spell.' : 'Pressed twice (or double clicked), every selected mage casts it on the best target herself.';
     const lines = [
       s.text,
@@ -674,7 +672,7 @@ export class Commands {
 
   private eatEntry(): CardEntry {
     const units = this.unitIds(geared);
-    const desc = `Walk to the nearest main base, storehouse or kitchen and eat: 2 food heals half their health over 10 s, and a remedy or a bandage from the stock heals what is left.`;
+    const desc = `Walk to the nearest main base, storehouse or kitchen and sit down there to eat for 10 s, with a bar over their heads: 2 food heals half their health over those 10 s, and a remedy or a bandage from the stock heals what is left. Hit by an enemy, they get up at once and their health still comes back.`;
     const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse || b.kind === BuildingKind.Cooking));
     if (!where) return this.off('eat', 'Eat', desc, 'There is no main base, storehouse or kitchen to eat at.');
     if (this.d.game.food() < EAT_NUTRITION) return this.off('eat', 'Eat', desc, this.d.game.food() === 0 ? 'There is no food.' : `Not enough food (needs ${EAT_NUTRITION}).`);
@@ -714,115 +712,59 @@ export class Commands {
     return this.d.game.info?.bags.find(([u]) => u === id)?.[1] ?? [];
   }
 
-  private lockEntry(): CardEntry {
-    const warriors = this.unitIds((u) => u.typeKey === 'warrior');
-    const lock = this.d.game.unit(warriors[0] ?? -1)?.lock ?? 0;
-    const next = (lock + 1) % 3;
-    return this.entry(
-      'lock',
-      LOCK_FACES[lock]!,
-      `Now: ${LOCK_FACES[lock]!.toLowerCase()}${lock === 0 ? ' (ranged while the enemy is far, melee when it gets close)' : ' only'}. Press to switch to ${LOCK_FACES[next]!.toLowerCase()}${next === 0 ? ' (switches by itself)' : ' only'}.`,
-      () => this.d.send({ kind: 'lock', player: this.d.player, units: warriors, lock: next }),
-      { name: 'Ranged or melee lock', lit: lock !== 0 },
-    );
-  }
-
-  /** Cannon crew training at a Gunnery yard (Table 7): the one skill left; every other weapon comes with its troop type. */
-  private cannonEntry(): CardEntry {
-    const skill = Skill.Cannon;
-    const t = SKILL_TRAINING[skill]!;
-    const at = buildingSpec(t.at).name;
-    const name = `Train in ${t.name}`;
-    const face = 'Cannon';
-    const desc = `Send them to a ${at} to learn ${t.name}, one at a time: ${t.food} food and ${t.steps / 20} s each. Cannon crew fire cannons; catapults and ballistas need no training.`;
-    const untrained = this.unitIds((u) => u.typeKey === 'warrior').filter((id) => ((this.d.game.unit(id)?.skills ?? 0) & skill) === 0);
-    if (untrained.length === 0) return this.off('train', face, desc, `They are already trained in ${t.name}.`, name);
-    if (t.research !== Research.None && !this.d.game.researched(t.research)) return this.off('train', face, desc, `Needs ${RESEARCH[t.research]!.name} researched.`, name);
-    const school = [...this.d.game.buildings.values()].find((b) => b.owner === this.d.player && b.kind === t.at && b.complete);
-    if (!school) return this.off('train', face, desc, `Needs a ${at}.`, name);
-    if (this.d.game.food() < t.food) return this.off('train', face, desc, `Not enough food (needs ${t.food}).`, name);
-    return this.entry('train', face, desc, () => this.d.send({ kind: 'trainSkill', player: this.d.player, units: untrained, building: school.id, skill, queued: this.d.queued() }), { name });
-  }
-
-  /** The selected units as the kit rules see them, with their ids. */
-  private holders(ids: number[]): Holder[] {
-    const out: Holder[] = [];
+  /** The selected units as Upgrade equipment sees them, with their ids and the lines they already have an upgrade on the way for. */
+  private holders(ids: number[]): EquipmentHolder[] {
+    const out: EquipmentHolder[] = [];
     for (const id of ids) {
       const u = this.d.game.unit(id);
       const kind = u ? holderKind(u.kind) : undefined;
       if (!u || !kind) continue;
-      out.push({ id, h: { kind, troop: u.troop, w: u.wTier, a: u.aTier }, rank: u.rank, pending: u.upLine !== 0 });
+      const q = this.d.game.queues.get(id) ?? [];
+      const pending = (line: number): boolean => q.some((o) => o.t === 'kitUp' && o.line === line);
+      out.push({ id, h: { kind, troop: u.troop, w: u.wTier, a: u.aTier }, rank: u.rank, pendingW: pending(Line.Weapon), pendingA: pending(Line.Armour) });
     }
     return out;
   }
 
   /**
-   * Upgrade weapon (tools, wand) or armour (robe) (Troops and gear:
-   * Upgrading): each unit the stock pays for, highest rank first, walks to
-   * the nearest Forge, Barracks or main base (cavalry also the Stables,
-   * mages also a Magi Sanctum) and gets its next tier there; Max goes to the best tier
-   * researched and paid for. Pressing it twice is Max too.
+   * Upgrade equipment (Jade's Patch 2): one button for what the Max twins of
+   * Upgrade weapon and Upgrade armour did. Each unit gets the best weapon (a
+   * worker's tools, a mage's wand) researched that the stock pays for, then
+   * the best armour (a mage's robe) from what is left, weapons first for all
+   * of them and the highest ranks first, as the sim plans it
+   * (equipmentPlans). They walk to the nearest Barracks, Forge or main base
+   * (a mage also a Magi Sanctum) and sit tinkering there, with a bar over
+   * their heads, for each piece's time.
    */
-  private upgradeEntry(ids: number[], line: number, max: boolean): CardEntry {
+  private equipEntry(ids: number[]): CardEntry {
     const list = this.holders(ids);
     const kind = list[0]?.h.kind ?? 'warrior';
-    const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
-    const action = line === Line.Weapon ? (max ? 'upgradeWeaponMax' : 'upgradeWeapon') : max ? 'upgradeArmourMax' : 'upgradeArmour';
-    const where = kind === 'mage' ? 'the nearest Magi Sanctum, Forge, Barracks or main base' : kind === 'worker' ? 'the nearest Forge, Barracks or main base' : 'the nearest Forge, Barracks or main base (cavalry also the Stables)';
-    const name = max ? `Upgrade ${what} to the best` : `Upgrade ${what}`;
-    const face = max ? `${capital(what)} max` : `${capital(what)} +`;
-    const plans = this.upgradePlans(list, line, max);
-    const sent = plans.filter((p) => p.to > 0);
+    const name = 'Upgrade equipment';
+    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : 'the best weapon, then the best armour,';
+    const where = kind === 'mage' ? 'the nearest Barracks, Forge, main base or Magi Sanctum' : 'the nearest Barracks, Forge or main base';
+    const plans = equipmentPlans(list, this.d.game.pool(), this.d.game.tech());
+    const sent = plans.filter((p) => p.w > 0 || p.a > 0);
     const lines = [
-      max ? `Each one gets the best ${what} researched that the stock pays for.` : `Each one gets the next tier of ${what}.`,
-      `They walk to ${where}, the highest ranks first, and pay from the stock; the old kit goes back to the stock in full when the new one goes on.`,
+      kind === 'worker'
+        ? 'Each one gets the best tools researched that the stock pays for, the highest ranks first.'
+        : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left.`,
+      `They walk to ${where} and sit tinkering there, with a bar over their heads, for each piece's time. The stock pays now; the old kit goes back to the stock in full when the new one goes on.`,
     ];
     if (sent.length > 0) {
       const p = sent[0]!;
-      const holder = list.find((x) => x.id === p.id)!;
-      const piece = linePiece(holder.h, line, p.to);
-      lines.push(`${sent.length === list.length ? 'All of them' : `${sent.length} of ${list.length}`} can go${piece ? `: the first to ${piece.name} (tier ${p.to}) for ${p.cost}` : ''}.`);
+      const h = list.find((x) => x.id === p.id)!.h;
+      const pieces = [
+        [Line.Weapon, p.w],
+        [Line.Armour, p.a],
+      ]
+        .filter(([, to]) => to! > 0)
+        .map(([line, to]) => `${linePiece(h, line!, to!)?.name ?? 'the next tier'} (tier ${to}) for ${costText(mainCost(upgradePieces(h, line!, to!)))}`);
+      lines.push(`${sent.length === list.length ? 'All of them' : `${sent.length} of ${list.length}`} can go: the first to ${pieces.join(', and ')}.`);
     }
-    if (!max && kind !== 'worker') lines.push('Press twice (or double click) for the best.');
     const reason = list.length === 0 ? 'Select a unit.' : sent.length === 0 ? (plans[0]?.why ?? 'Nothing to upgrade.') : '';
-    const run = (best: boolean): void => {
-      const units = list.map((x) => x.id);
-      if (units.length > 0) this.d.send({ kind: 'upgradeKit', player: this.d.player, units, line, max: best ? 1 : 0 });
-    };
-    const icon = upgradeIcon(kind === 'worker' || kind === 'mage' ? kind : 'warrior', line === Line.Weapon, max);
-    if (reason) return { ...this.off(action, face, lines.join(' '), reason, name), icon };
-    const extra: Partial<CardEntry> = { name, icon };
-    if (!max && kind !== 'worker') extra.double = () => run(true);
-    return this.entry(action, face, lines.join(' '), () => run(max), extra);
-  }
-
-  /** The Max twin of an upgrade button, or null when it would go no further than the plain one. */
-  private maxEntry(ids: number[], line: number, plain: CardEntry | null): CardEntry | null {
-    if (!plain) return null;
-    const list = this.holders(ids);
-    const one = this.upgradePlans(list, line, false);
-    const best = this.upgradePlans(list, line, true);
-    const differs = best.some((b, k) => b.to > (one[k]?.to ?? 0));
-    return differs ? this.upgradeEntry(ids, line, true) : null;
-  }
-
-  /** Where each unit's upgrade would go, as the sim works it out: the stock set aside unit by unit, highest rank first. */
-  private upgradePlans(list: readonly Holder[], line: number, max: boolean): Array<{ id: number; to: number; cost: string; why: string }> {
-    const pool = this.d.game.pool();
-    const tech = this.d.game.tech();
-    const held: Array<[number, number]> = [];
-    const order = [...list].sort((a, b) => b.rank - a.rank || a.id - b.id);
-    return order.map(({ id, h, pending }) => {
-      if (pending) return { id, to: 0, cost: '', why: 'Already on the way to an upgrade.' };
-      const t = upgradeTarget(h, line, max, pool, tech, held as Cost);
-      if ('why' in t) return { id, to: 0, cost: '', why: t.why };
-      for (const [r, n] of t.plan.cost) {
-        const at = held.findIndex(([x]) => x === r);
-        if (at >= 0) held[at] = [r, held[at]![1] + n];
-        else held.push([r, n]);
-      }
-      return { id, to: t.to, cost: costText(mainCost(upgradePieces(h, line, t.to))), why: '' };
-    });
+    const icon = equipIcon(kind);
+    if (reason) return { ...this.off('equip', 'Equip', lines.join(' '), reason, name), icon };
+    return this.entry('equip', 'Equip', lines.join(' '), () => this.d.send({ kind: 'upgradeEquipment', player: this.d.player, units: list.map((x) => x.id) }), { name, icon });
   }
 
   /** X: workers fetch a cart from the main base (an ox cart when their ox is hitched), or hand theirs back. */
@@ -841,26 +783,26 @@ export class Commands {
   }
 
   /**
-   * A siege engine's or cannon's card (Table 2f): move, attack, stop and
-   * hold; Hitch a horse or ox to haul it, or let it go; Enter takes a
-   * cannon up into a Citadel's cannon port.
+   * A siege engine's or cannon's card (Table 2f): attack and move; Hitch a
+   * horse or ox to haul it, or let it go; Port takes a cannon up into a
+   * Citadel's cannon port. [Before Patch 2 also Stop and Hold.]
    */
-  private engineCard(card: Card): void {
+  private engineCard(): Slots {
     const t = this.targeting?.command;
     const ids = this.unitIds((u) => u.typeKey.startsWith('engine:'));
-    card[0] = this.entry('attack', 'Attack', 'Then left click an enemy or one of its buildings to shoot at it (it closes in while hauled or pushed), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' });
-    card[1] = this.entry('stop', 'Stop', 'Cancel every queued order.', () => this.stop());
-    card[2] = this.entry('hold', 'Hold', 'Stay put and shoot what comes in range.', () => this.hold(), { name: 'Hold Position' });
-    card[4] = this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels need ramps, not steps.', () => this.target('move', 'move'), { lit: t === 'move' });
     const u = ids.length > 0 ? this.d.game.unit(ids[0]!) : null;
     const hauled = u !== null && u.partner !== 0;
-    card[5] = hauled
-      ? this.entry('hitch', 'Let go', 'Unhitch the horse or ox hauling it.', () => this.d.send({ kind: 'hitch', player: this.d.player, units: ids.slice(0, 1), target: 0, queued: false }), { name: 'Let the animal go' })
-      : this.entry('hitch', 'Hitch', 'Then left click one of your horses or oxen: it walks over and hauls the engine wherever it is sent (a horse is faster; an ox is slower but steadier). Right clicking the animal does the same.', () => this.target('hitch', 'hitch'), { lit: t === 'hitch', name: 'Hitch an animal' });
     const powder = u !== null && engineSpec(u.mob).powder;
-    card[12] = powder
-      ? this.entry('enter', 'Port', 'Then left click your Citadel (main base level 10): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls.', () => this.target('enter', 'enter'), { lit: t === 'enter', name: 'Into a cannon port' })
-      : this.off('enter', 'Port', 'Cannons go up into a Citadel\'s cannon ports.', 'Only cannons go in the cannon ports.', 'Into a cannon port');
+    return [
+      this.entry('attack', 'Attack', 'Then left click an enemy or one of its buildings to shoot at it (it closes in while hauled or pushed), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' }),
+      this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels need ramps, not steps.', () => this.target('move', 'move'), { lit: t === 'move' }),
+      hauled
+        ? this.entry('hitch', 'Let go', 'Unhitch the horse or ox hauling it.', () => this.d.send({ kind: 'hitch', player: this.d.player, units: ids.slice(0, 1), target: 0, queued: false }), { name: 'Let the animal go' })
+        : this.entry('hitch', 'Hitch', 'Then left click one of your horses or oxen: it walks over and hauls the engine wherever it is sent (a horse is faster; an ox is slower but steadier). Right clicking the animal does the same.', () => this.target('hitch', 'hitch'), { lit: t === 'hitch', name: 'Hitch an animal' }),
+      powder
+        ? this.entry('port', 'Port', 'Then left click your Citadel (main base level 10): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls. Right clicking the Citadel does the same.', () => this.target('port', 'port'), { lit: t === 'port', name: 'Into a cannon port' })
+        : this.off('port', 'Port', 'Cannons go up into a Citadel\'s cannon ports.', 'Only cannons go in the cannon ports.', 'Into a cannon port'),
+    ];
   }
 
   private rankEntry(workers: number[]): CardEntry {
@@ -880,58 +822,74 @@ export class Commands {
     return bases[0] ?? null;
   }
 
-  private buildMenuCard(card: Card): Card {
-    const page = this.menu.page as 'basic' | 'advanced';
-    const slots = menuSlots(page);
-    const choices: Array<{ spec: BuildingSpec; variant: number; name: string } | null> = [];
-    let sub: BuildingSpec[] | null = null;
-    if (this.menu.sub >= 0) {
-      sub = slots[this.menu.sub] ?? [];
-      for (const c of submenuChoices(sub)) choices.push(c);
-    }
-    for (let i = 0; i < 14; i++) {
-      if (sub) {
-        const c = choices[i];
-        if (c) card[i] = this.buildEntry(i, c.spec, c.variant, c.name);
-        continue;
-      }
-      const specs = slots[i]!;
-      if (specs.length === 1) card[i] = this.buildEntry(i, specs[0]!, 0, specs[0]!.name);
-      else if (specs.length > 1) {
-        const name = SUBMENU_NAMES[String(i + 1)] ?? specs.map((s) => s.name).join(', ');
+  /**
+   * The build menu (Jade's Patch 2: one Build button for basic and advanced
+   * buildings alike): a button per building, or per submenu of buildings
+   * sharing a slot, the basic ones first. The first 14 take the grid keys in
+   * order; B is Back. A menu longer than the card shows pages.
+   */
+  private buildMenuCard(waiting: boolean): Slots {
+    const groups = buildGroups();
+    const sub = this.menu.sub >= 0 ? groups[this.menu.sub] : undefined;
+    const list: CardEntry[] = [];
+    if (sub) submenuChoices(sub).forEach((c, k) => list.push(this.buildEntry(k, c.spec, c.variant, c.name)));
+    else {
+      groups.forEach((specs, k) => {
+        if (specs.length === 1) {
+          list.push(this.buildEntry(k, specs[0]!, 0, specs[0]!.name));
+          return;
+        }
+        const name = submenuName(specs);
         const any = specs.some((s) => this.d.game.info?.buildWhy[s.kind] === '');
-        card[i] = {
-          action: `menu-${i}`,
+        list.push({
+          action: `menu-${k}`,
           face: name,
           name,
-          key: GRID_CODES[i]!,
-          grid: true,
+          key: k < 14 ? GRID_CODES[k]! : '',
+          grid: k < 14,
           description: `${specs.map((s) => s.name).join(', ')}.`,
           icon: { layers: [{ file: buildingIconFile(specs[0]!.kind, 1, 0) }] },
           enabled: any,
           reason: any ? '' : (this.d.game.info?.buildWhy[specs[0]!.kind] ?? ''),
           run: () => {
-            this.menu = { page, sub: i };
+            this.menu = { page: 'build', sub: k, more: 0 };
             this.d.changed();
           },
-        };
-      }
+        });
+      });
     }
-    // A ghost or target waiting keeps its Cancel in the corner; otherwise B is Back.
-    if (!card[14]) {
-      card[14] = {
-        action: 'back',
-        face: 'Back',
-        name: 'Back',
-        key: GRID_CODES[14],
-        grid: true,
-        description: sub ? 'Back to the build menu.' : 'Back to the worker commands.',
-        enabled: true,
-        reason: '',
-        run: () => this.back(),
-      };
-    }
-    return card;
+    // A ghost or target waiting has its Cancel last instead of Back.
+    return this.paged(list, waiting ? [] : [this.backEntry(sub ? 'Back to the build menu.' : 'Back to the worker commands.')]);
+  }
+
+  /**
+   * A menu longer than the card can show (CardSize.most) in pages: as many as
+   * fit with More and the last button (Back, or Cancel while a ghost or a
+   * target waits), More turning to the next page.
+   */
+  private paged(list: CardEntry[], after: CardEntry[]): Slots {
+    const most = Math.max(3, this.size().most);
+    if (list.length + 1 <= most) return [...list, ...after];
+    const per = most - 2;
+    const pages = Math.ceil(list.length / per);
+    const at = this.menu.more % pages;
+    const more: CardEntry = {
+      action: 'more',
+      face: `More ${at + 1}/${pages}`,
+      name: 'Next page',
+      key: GRID_CODES[13],
+      grid: true,
+      description: `Page ${at + 1} of ${pages}. Show the next page.`,
+      enabled: true,
+      reason: '',
+      run: () => {
+        this.menu = { ...this.menu, more: (at + 1) % pages };
+        this.d.changed();
+      },
+    };
+    // The grid key V turns the page, so no button on the page keeps it.
+    const page = list.slice(at * per, (at + 1) * per).map((e) => (e.grid && e.key === GRID_CODES[13] ? { ...e, key: '', grid: false } : e));
+    return [...page, more, ...after];
   }
 
   private buildEntry(slot: number, spec: BuildingSpec, variant: number, name: string): CardEntry {
@@ -951,8 +909,8 @@ export class Commands {
       action: `build-${spec.kind}-${variant}`,
       face: name,
       name,
-      key: GRID_CODES[slot]!,
-      grid: true,
+      key: slot < 14 ? GRID_CODES[slot]! : '',
+      grid: slot < 14,
       description: lines.join(' '),
       icon: buildIcon(spec, variant),
       enabled: why === '',
@@ -962,9 +920,11 @@ export class Commands {
     };
   }
 
-  private buildingCard(card: Card, kind: number): void {
+  /** A building's card: its training, making and research, Rally, Upgrade, Unload and Cancel, in their places before Patch 2 with the gaps closed. */
+  private buildingCard(kind: number, waiting: boolean): Slots {
+    const card: Slots = Array.from({ length: 15 }, () => null);
     const all = this.buildings().filter((b) => b.kind === kind);
-    if (all.length === 0) return;
+    if (all.length === 0) return card;
     const spec = buildingSpec(kind);
     const first = all[0]!;
     // Production: workers at the main base and farms, troops at the Barracks, the Stables and (tier 1) the main base, planks at the mill, mages at the Sanctum.
@@ -1019,7 +979,7 @@ export class Commands {
         for (const b of all) if (b.inside.length > 0) this.d.send({ kind: 'unload', player: this.d.player, building: b.id, unit: 0 });
       }, { name: 'Unload All' });
     }
-    if (!card[14] && (!first.complete || first.upgrading)) {
+    if (!waiting && (!first.complete || first.upgrading)) {
       card[14] = this.entry(
         'cancelBuild',
         'Cancel',
@@ -1030,6 +990,7 @@ export class Commands {
         { name: first.complete ? 'Cancel upgrade' : 'Cancel construction' },
       );
     }
+    return card;
   }
 
   /** A training, making or research button, greyed out with the reason it cannot be queued. */
@@ -1107,46 +1068,23 @@ export class Commands {
 
   /**
    * K (smelt, cook, research, make, slaughter): a button per product the
-   * building makes, greyed out with the sim's reason. The first 13 sit in the
-   * fixed block with the grid keys; the rest fill the extra slots, and the
-   * card grows upward for them as far as the screen allows (HUD revamp).
-   * Past that, V shows the next page. B is Back.
+   * building makes, greyed out with the sim's reason. The first 13 take the
+   * grid keys; the card grows upward for the rest as far as the screen
+   * allows, and past that V shows the next page. B is Back.
    */
-  private makeCard(card: Card, kind: number): Card {
-    const page = 'make';
+  private makeCard(kind: number, waiting: boolean): Slots {
     const all = this.buildings().filter((b) => b.kind === kind && b.complete);
     const first = all[0];
+    const list: CardEntry[] = [];
     if (first) {
-      const list = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
-      const size = this.size();
-      const perPage = MAKE_PER_PAGE + Math.max(0, size.cols * size.maxRows - CLASSIC_SLOTS);
-      const pages = Math.max(1, Math.ceil(list.length / perPage));
-      const at = Math.max(0, this.menu.sub) % pages;
-      list.slice(at * perPage, (at + 1) * perPage).forEach(([p, why], k) => {
-        const ps = productSpec(p);
-        const face = shortFace(ps.name);
-        if (k < MAKE_PER_PAGE) card[k] = this.productEntry(all, p, `make-${p}`, face, k, why);
-        else card[CLASSIC_SLOTS + k - MAKE_PER_PAGE] = { ...this.productEntry(all, p, `make-${p}`, face, undefined, why), key: '' };
-      });
-      if (pages > 1) {
-        card[13] = {
-          action: 'more',
-          face: `More ${at + 1}/${pages}`,
-          name: 'Next page',
-          key: GRID_CODES[13],
-          grid: true,
-          description: `Page ${at + 1} of ${pages}. Show the next page.`,
-          enabled: true,
-          reason: '',
-          run: () => {
-            this.menu = { page, sub: (at + 1) % pages };
-            this.d.changed();
-          },
-        };
-      }
+      first.products
+        .filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)
+        .forEach(([p, why], k) => {
+          const e = this.productEntry(all, p, `make-${p}`, shortFace(productSpec(p).name), k < MAKE_KEYS ? k : undefined, why);
+          list.push(k < MAKE_KEYS ? e : { ...e, key: '' });
+        });
     }
-    card[14] = this.backEntry('Back to the building commands.');
-    return card;
+    return this.paged(list, waiting ? [] : [this.backEntry('Back to the building commands.')]);
   }
 
   private backEntry(description: string): CardEntry {
@@ -1154,7 +1092,8 @@ export class Commands {
   }
 
   /** Dig and earthworks: + and - set the depth or height, Tunnel (D again) clicks out a tunnel chain, Mark confirms, Esc cancels. */
-  private areaCard(card: Card): Card {
+  private areaCard(): Slots {
+    const card: Slots = Array.from({ length: 5 }, () => null);
     const a = this.area!;
     const plan = this.areaPlan();
     const chain = a.mode === 'dig' && (a.tunnel || a.chain !== null);
@@ -1193,16 +1132,6 @@ export class Commands {
     this.d.send({ ...o, player: this.d.player, units, queued: this.d.queued() } as Order);
   }
 
-  private stop(): void {
-    const units = this.unitIds();
-    if (units.length > 0) this.d.send({ kind: 'stop', player: this.d.player, units });
-  }
-
-  private hold(): void {
-    const units = this.unitIds();
-    if (units.length > 0) this.d.send({ kind: 'hold', player: this.d.player, units, queued: this.d.queued() });
-  }
-
   private repairAll(): void {
     this.targeting = null;
     this.unitOrder({ kind: 'repairAll' });
@@ -1228,7 +1157,7 @@ export class Commands {
   }
 
   private openMenu(page: CardPage): void {
-    this.menu = { page, sub: -1 };
+    this.menu = { page, sub: -1, more: 0 };
     this.d.changed();
   }
 
@@ -1245,8 +1174,8 @@ export class Commands {
         ok = this.ownBuilding(item) ? this.work(item!) : item && this.ownEngine(item) ? this.mend(item) : false;
         if (!ok) this.d.message('Pick one of your buildings, siege engines or cannons to build or repair.', 'alert');
         break;
-      case 'enter':
-        ok = this.ownBuilding(item) ? this.enter(item!) : item && this.ownEngine(item) ? this.crew(item) : false;
+      case 'port':
+        ok = this.ownBuilding(item) ? this.enter(item!) : false;
         break;
       case 'hitch':
         ok = item ? this.hitchTo(item) : false;
@@ -1261,7 +1190,7 @@ export class Commands {
         if (f !== null && item) {
           this.d.confirmWar(f, () => this.attack(item));
           ok = true;
-        } else ok = item && (this.enemy(item) || this.ruin(item)) ? this.attack(item) : ground ? this.attackMove(ground) : false;
+        } else ok = item && this.attackable(item) ? this.attack(item) : ground ? this.attackMove(ground) : false;
         break;
       }
       case 'patrol':
@@ -1296,15 +1225,37 @@ export class Commands {
       this.d.message(`Pick a spot on the ground for ${s.name}.`, 'alert');
       return false;
     }
-    const target = item && item.kind === 'unit' ? entityIdOf(item.key) : null;
+    // Jade's Patch 2: a spell used directly on a unit always casts, except that buffs and heals never land on an enemy.
+    const target = item && item.kind === 'unit' && item.typeKey !== 'wanderer' && !this.ruin(item) ? entityIdOf(item.key) : null;
     if (s.target === 'ally') {
-      if (target !== null && item!.owner !== MONSTERS && !item!.typeKey.startsWith('animal:')) return send(target, item!.centre);
-      this.d.message(`Pick one of your units for ${s.name}.`, 'alert');
+      if (target !== null && !this.enemy(item!)) return send(target, item!.centre);
+      this.d.message(target !== null ? `${s.name} cannot be cast on an enemy.` : `Pick a unit that is not an enemy for ${s.name}.`, 'alert');
       return false;
     }
-    if (target !== null && this.enemy(item!)) return send(target, item!.centre);
-    this.d.message(s.target === 'counter' ? 'Pick an enemy that is casting a spell.' : `Pick an enemy for ${s.name}.`, 'alert');
+    if (s.target === 'counter') {
+      if (target !== null && this.enemy(item!)) return send(target, item!.centre);
+      this.d.message('Pick an enemy that is casting a spell.', 'alert');
+      return false;
+    }
+    // An attack spell on one of the peoples at peace asks first, as Attack does.
+    const f = target !== null ? this.peopleAtPeace(item!) : null;
+    if (f !== null) {
+      this.d.confirmWar(f, () => send(target!, item!.centre));
+      return true;
+    }
+    if (target !== null) return send(target, item!.centre);
+    this.d.message(`Pick a unit for ${s.name}.`, 'alert');
     return false;
+  }
+
+  /**
+   * What Attack used directly on a unit attacks (Jade's Patch 2): any unit,
+   * prey, the player's own and allied units as much as monsters and the
+   * peoples at war, and what the peoples left (workers break it down).
+   * Wanderers are nobody's to fight, so a click on one attack-moves there.
+   */
+  private attackable(item: Selectable): boolean {
+    return item.kind === 'unit' && item.typeKey !== 'wanderer' && entityIdOf(item.key) !== null;
   }
 
   /** A unit the local player's units fight: monsters, and the neutral peoples at war with the player (other players are allies in this co-op game). */
@@ -1477,9 +1428,10 @@ export class Commands {
   }
 
   /** Whether a selectable is a finished tower, whose top men go up on. */
-  private isTower(item: Selectable): boolean {
+  /** A finished tower, or a main base from level 3: men go up on its top. */
+  private hasTop(item: Selectable): boolean {
     const b = this.buildingOf(item);
-    return b !== undefined && b.complete && buildingSpec(b.kind).defence === 'tower';
+    return b !== undefined && b.complete && garrisonRoom(b) > 0;
   }
 
   private enter(item: Selectable): boolean {
@@ -1569,9 +1521,9 @@ export class Commands {
         if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
       }
     }
-    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1).
+    // One of the player's towers, or a main base with a top (Jade's Patch 2 cut the Enter button): everyone on foot goes up on it (Jade's patch notes 1).
     const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
-    if (item && engines.length < units.length && this.ownBuilding(item) && this.isTower(item) && this.enter(item)) return;
+    if (item && engines.length < units.length && this.ownBuilding(item) && this.hasTop(item) && this.enter(item)) return;
     // Engines and cannons: an own horse or ox hitches, the Citadel takes a cannon into a port.
     if (item && engines.length > 0 && engines.length === units.length) {
       if (item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
@@ -1647,7 +1599,7 @@ export class Commands {
     if (this.workerIds().length === 0) return;
     this.targeting = null;
     if (this.placing) this.placing = null;
-    this.menu = { page: 'main', sub: -1 };
+    this.menu = { page: 'main', sub: -1, more: 0 };
     this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_HEIGHT_UNITS, tunnel: false, chain: null, stretches: 0, cursor: null };
     this.d.changed();
   }
@@ -2160,11 +2112,6 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
-/** Enter's tooltip, on every card that has it. */
-const ENTER_HELP =
-  'Then left click a building. On a tower (room for 4) or a main base from level 3 (room for 8), everyone on foot goes up on its top: archers shoot and mages cast from there, and the rest are out of reach of anything that walks and strike only at flyers that swoop down at them. Workers shelter inside main bases and farms, and once a top is full, taking 10% of the damage the building takes. Warriors clicked onto one of your siege engines or cannons crew it. Right click a tower to send them up too. Press twice (or double click) and each one goes to the nearest building with room: workers to shelter, everyone else up on a top.';
-const ENTER_TWICE = 'Workers shelter in the nearest building with room; everyone else goes up the nearest tower or main base top with room.';
-
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */
@@ -2219,8 +2166,8 @@ const EARTHWORK_HELP = [
   'Drag from the bottom of the slope to the top, like an earth ramp, but laid from stone ramp steps made at a workshop: one step for each 11 cm it rises in each column.',
 ];
 
-/** Products on one page of the K menu (slot 13 is the next page, 14 Back). */
-const MAKE_PER_PAGE = 13;
+/** Products of the K menu with a grid key (V turns a long menu's page, B is Back). */
+const MAKE_KEYS = 13;
 
 /** Spell button faces where the name is too long for the button. */
 const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell.AreaBlast]: 'Blast', [Spell.Counterspell]: 'Counter' };
@@ -2246,23 +2193,9 @@ export function shortFace(name: string): string {
   return words.length > 1 ? `${words[0]!.slice(0, 8)} ${words[words.length - 1]![0]}.` : plain.slice(0, 10);
 }
 
-/** "Weapon" from "weapon". */
-function capital(t: string): string {
-  return t.charAt(0).toUpperCase() + t.slice(1);
-}
-
 /** A worker's tool kit in words, by tier (Table 2c). */
 export function toolKitText(tier: number): string {
   return TOOL_KITS[tier]?.name ?? 'no tools';
 }
 
 const BLOCKED_TEXT = ['', 'the ground is too steep.', 'it cannot be built on water.', 'another building is in the way.', 'a tree, rock or bush is in the way.', 'that land is unexplored.'];
-
-/** A selected unit as the upgrade buttons see it. */
-interface Holder {
-  id: number;
-  h: KitHolder;
-  rank: number;
-  /** An upgrade already under way. */
-  pending: boolean;
-}

@@ -3,7 +3,7 @@
 // doing or walking to do, assuming it is not idle"). An attack-move marks
 // Attack while the units walk and while they fight on the way; a gather loop
 // marks Gather on the way to the drop-off too. Idle units mark nothing.
-import { buildingSpec, Line, type UnitOrder } from '@blockyrts/sim';
+import type { UnitOrder } from '@blockyrts/sim';
 import { spellAction } from '../input/bindings.ts';
 
 /** The card action a unit's current order belongs to, or null (a standing job, idle). */
@@ -18,23 +18,19 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
       return 'attack';
     case 'patrol':
       return 'patrol';
-    case 'hold':
-      return 'hold';
     case 'gather':
     case 'dropoff':
       return 'gather';
     case 'return':
       return 'returnCargo';
     case 'build':
-      return buildingSpec(o.kind).menu === 'advanced' ? 'buildAdvanced' : 'buildBasic';
+      return 'build';
     case 'work':
     case 'repairAll':
     case 'mend':
       return 'repair';
-    case 'enter':
     case 'port':
-    case 'crew':
-      return 'enter';
+      return 'port';
     case 'dig':
       return 'dig';
     case 'prospect':
@@ -44,13 +40,11 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'eat':
       return 'eat';
     case 'kitUp':
-      return o.line === Line.Weapon ? 'upgradeWeapon' : 'upgradeArmour';
+      return 'equip';
     case 'cart':
       return 'cart';
     case 'train':
       return typeKey.startsWith('mage:') ? 'mageRank' : 'rankUp';
-    case 'skill':
-      return 'train';
     case 'cast':
       return spellAction(o.spell);
     case 'hitch':

@@ -55,8 +55,9 @@ import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
-import { hudLayout, rowsFor, type HudGeometry } from './hud-layout.ts';
+import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles } from './bubbles.ts';
+import { TinkerBars } from './tinker-bars.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
@@ -196,6 +197,7 @@ export class GameShell {
   private readonly minimap: Minimap;
   private readonly messages: MessagePanel;
   private readonly bubbles: SpeechBubbles;
+  private readonly tinkerBars: TinkerBars;
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
   readonly inventory: InventoryUi;
@@ -242,7 +244,7 @@ export class GameShell {
   private height = 1;
   /** Where the panels go for this screen size, and the rows the card shows now. */
   private geometry: HudGeometry;
-  private cardRows = 0;
+  private cardFit: ButtonFit | null = null;
   /** The phone's unfolded panels. */
   private readonly folds: Folds = { map: false, info: true, stock: false, debug: false };
   private readonly startedAt = performance.now();
@@ -286,6 +288,8 @@ export class GameShell {
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
     this.visuals = new SelectionVisuals(opts.scene);
     this.minimap = new Minimap(this.layout.minimapEl, this.world.minimap);
+    // The tinkering bars go in first, so speech bubbles draw over them.
+    this.tinkerBars = new TinkerBars(this.layout.root);
     this.bubbles = new SpeechBubbles(this.layout.root);
     this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
       jumpTo: (x, z) => this.jumpTo(x, z),
@@ -337,7 +341,10 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
-      slots: () => ({ cols: this.geometry.cols, rows: this.geometry.rows, maxRows: this.geometry.maxRows }),
+      slots: () => {
+        const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
+        return { most: room.cols * room.rows };
+      },
     });
     this.input = new InputManager(
       {
@@ -495,7 +502,7 @@ export class GameShell {
       this.phoneFolded = this.geometry.phone;
       if (this.phoneFolded) this.messages.setCollapsed(true);
     }
-    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    applyGeometry(this.layout, this.geometry, this.cardFit, this.folds);
     fitDebug(this.layout, this.geometry);
     this.portraitRect = null;
     this.panels.measure();
@@ -515,7 +522,7 @@ export class GameShell {
     this.folds[which] = on;
     if (on && which === 'map') this.folds.info = false;
     if (on && which === 'info') this.folds.map = false;
-    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    applyGeometry(this.layout, this.geometry, this.cardFit, this.folds);
     this.portraitRect = null;
     this.panels.measure();
     for (const k of ['map', 'info', 'stock', 'debug'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
@@ -1521,6 +1528,7 @@ export class GameShell {
     this.minimap.draw(this.cam.footprint());
     // No random remarks while the game is paused (Jade's patch notes 1).
     this.bubbles.update(now, { head: (id) => this.headOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped());
+    this.tinkerBars.update(this.game.tinkering(), (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1756,27 +1764,21 @@ export class GameShell {
 
   private refreshCommandCard(): void {
     const card: Card = this.commands.card();
-    // A long menu grows the card upward, as far as the screen allows.
-    let last = -1;
-    for (let i = card.length - 1; i >= 0; i--) {
-      if (card[i]) {
-        last = i;
-        break;
-      }
-    }
+    // Jade's Patch 2: square buttons as big as the card holds, never under the minimum; the card grows upward only when they cannot fit at it.
     const g = this.geometry;
-    const rows = rowsFor(last, g.cols, g.rows, g.maxRows);
-    if (rows !== Math.max(this.cardRows, g.rows)) {
-      this.cardRows = rows;
-      applyGeometry(this.layout, g, rows, this.folds);
+    const inner = cardInner(g);
+    const fit = fitButtons(card.length, inner.w, inner.h, g.maxH);
+    const was = this.cardFit;
+    if (!was || was.size !== fit.size || was.cols !== fit.cols || was.rows !== fit.rows || was.height !== fit.height || was.shown !== fit.shown) {
+      this.cardFit = fit;
+      applyGeometry(this.layout, g, fit, this.folds);
       this.portraitRect = null;
       this.panels.measure();
       this.ensureCardButtons();
     }
-    const shown = g.cols * Math.max(rows, g.rows);
     for (let i = 0; i < this.cardButtons.length; i++) {
       const b = this.cardButtons[i]!;
-      const e = i < shown ? card[i] : null;
+      const e = i < fit.shown ? card[i] : undefined;
       if (!e) {
         b.el.hidden = true;
         continue;
@@ -1788,7 +1790,7 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}${i >= 15 ? ' extra' : ''}`,
+        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
       });
