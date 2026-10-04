@@ -30,6 +30,7 @@ import {
   RESOURCES,
   serializeState,
   settleDeaths,
+  spawnEngine,
   step,
   supplyNeed,
   Troop,
@@ -134,6 +135,9 @@ describe('the artillery crewman (Patch 2)', () => {
     }, engineSpec(Engine.Catapult).steps + 10);
     expect(crewSworn(s, cat).map((j) => isCrewman(s, j))).toEqual([true, true]);
     expect(s.events.some((ev) => ev.text === 'A catapult is ready, with its 2 crewmen. Its crew push it, or hitch a horse or an ox to haul it faster.')).toBe(true);
+    // An iron cannon reads "An".
+    spawnEngine(s, yard, Engine.IronCannon);
+    expect(s.events.at(-1)?.text).toBe('An iron cannon is ready, with its 2 crewmen. Its crew push it, or hitch a horse or an ox to haul it faster.');
   });
 
   it('a crewman falls: the engine asks for another, and Yes trains one at the nearest Artillery workshop who joins that engine', () => {
