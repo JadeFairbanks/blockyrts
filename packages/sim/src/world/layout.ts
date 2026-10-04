@@ -120,6 +120,22 @@ interface Site {
 
 const RING_SHIFT = 65536;
 
+/**
+ * Jade's mini patch (2026-10-04): the rings, and so the bands, are 30%
+ * closer together. Every cell size The world's Cell sizes give is scaled to
+ * 70% on the column grid, and each ring's radius is the sum of the sizes
+ * inside it, so every ring and band edge comes 30% nearer the start while
+ * the number of cells in each ring and the ring each band begins at stay as
+ * they were. The land itself (barriers, gaps, ponds, pockets, buildings) is
+ * not scaled.
+ */
+export const RING_SCALE_PER_MILLE = 700;
+
+/** A cell size from The world's Cell sizes, in metres, as columns at the mini patch's ring scale. */
+function scaledSize(m: number): number {
+  return floorDiv(metresToColumns(m) * RING_SCALE_PER_MILLE, 1000);
+}
+
 /** The start of each band, as ring indexes (ring 0 is the start basin). */
 export interface BandRings {
   fringe: number;
@@ -197,7 +213,7 @@ export class WorldLayout {
     // Table 9: 1 to 2 players 1 cell, 3 to 5 players 2 cells, 6 to 8 players 3 cells.
     this.basinCells = this.players <= 2 ? 1 : this.players <= 5 ? 2 : 3;
     const h = (n: number): number => hash2(this.seed, 0x6c61796f, n);
-    const s0 = metresToColumns(150 + (h(1) % 51));
+    const s0 = scaledSize(150 + (h(1) % 51));
     this.startSize = s0;
     const rot = h(2) & 0xffff;
     this.basin = [];
@@ -215,7 +231,7 @@ export class WorldLayout {
     // Ring 0 stands for the basin in the ring table.
     this.rings.push({ radius: 0, size: s0, count: this.basinCells, offset: 0 });
     // Cell sizes: rings 1 and 2 are 150 to 200 m; each later ring 10 to 30% larger up to 2.5 times the start size,
-    // then about that size (The world, Cell sizes).
+    // then about that size (The world, Cell sizes); all at the mini patch's 70% (RING_SCALE_PER_MILLE).
     const cap = floorDiv(s0 * 5, 2);
     let deepwoods = -1;
     let barrens = -1;
@@ -223,7 +239,7 @@ export class WorldLayout {
     let prevSize = 0;
     for (let r = 1; ; r++) {
       let size: number;
-      if (r <= 2) size = metresToColumns(150 + (h(10 + r) % 51));
+      if (r <= 2) size = scaledSize(150 + (h(10 + r) % 51));
       else if (barrens < 0) {
         size = floorDiv(prevSize * (110 + (h(10 + r) % 21)), 100);
         if (size >= cap) {

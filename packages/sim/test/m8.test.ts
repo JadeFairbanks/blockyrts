@@ -57,6 +57,8 @@ import {
   troopProduct,
   troopTypesAt,
   UnitKind,
+  isTree,
+  WU_PER_COLUMN,
   unlocked,
   validateOrder,
   WU_PER_METRE,
@@ -113,6 +115,20 @@ function spawn(s: SimState, mob: number, x: number, z: number): number {
 }
 
 /** A clear spot 30 m east of the Big House. */
+/** Fells every tree in a lane running east from x0 to x1 (wu), `half` either side of z. */
+function fellLane(s: SimState, x0: number, x1: number, z: number, half: number): void {
+  const n = 64 * WU_PER_COLUMN;
+  for (let cz = Math.floor((z - half) / n); cz <= Math.floor((z + half) / n); cz++) {
+    for (let cx = Math.floor(x0 / n); cx <= Math.floor(x1 / n); cx++) {
+      for (const p of s.world.props(cx, cz, s.step)) {
+        const px = (cx * 64 + p.lx) * WU_PER_COLUMN;
+        const pz = (cz * 64 + p.lz) * WU_PER_COLUMN;
+        if (isTree(p.kind) && px >= x0 && px <= x1 && Math.abs(pz - z) <= half) s.world.harvest(cx, cz, p.index, p.amount, s.step);
+      }
+    }
+  }
+}
+
 function field(s: SimState): [number, number] {
   const [x, z] = buildingCentre(bigHouse(s));
   return [x + 30 * M, z];
@@ -252,6 +268,9 @@ describe('siege engines (Table 2f)', () => {
     runUntil(s, () => e.x[e.indexOf(catId)]! >= x + 9 * M, 60 * SEC);
     const hut = spawn(s, Mob.GoblinHut, x + 10 * M + 35 * M, z);
     const hutId = e.id[hut]!;
+    // A lane felled to the hut: a flat lob stops at the first tree in its way, and since Jade's mini patch
+    // brought the rings 30% closer the Fringe's woods begin about 50 m from this Big House.
+    fellLane(s, x + 10 * M, x + 10 * M + 35 * M, z, 4 * M);
     // Warriors do not crew engines (Jade): the order is refused and they stay as they were.
     const w = warriors(s)[0]!;
     run(s, 1, [{ kind: 'crew', player: 0, units: [e.id[w]!], target: catId }]);

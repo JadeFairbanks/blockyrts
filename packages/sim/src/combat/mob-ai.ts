@@ -42,6 +42,9 @@ const TORCH_HUNT_WU = 40 * WU_PER_METRE;
 export const MOB_SEARCHES_PER_STEP = 6;
 /** A fine path is looked for again after this long. */
 const REPATH_STEPS = 40;
+/** What a mob's last fine search found when it did not find the way there, kept in its pathOk (goToward). */
+const NO_WAY = 0;
+const PART_WAY = 3;
 /** A mob running from the sun is gone after this long, or once this far from the town (s). */
 const FLEE_STEPS = 15 * STEPS_PER_SECOND;
 const FLEE_GONE_WU = 80 * WU_PER_METRE;
@@ -299,17 +302,26 @@ function goToward(state: SimState, i: number, spec: MobSpec, px: number, pz: num
   }
   const r = stepMob(state, i, spec, px, pz, speed, blocker);
   if (r !== BLOCKED_LAND) return r;
+  // A search that did not find the way there is not made again until a detour's time is up, and its answer
+  // stands meanwhile: a mob shut in by the land (on a ledge above a drop, since Jade's mini patch brought the
+  // Fringe's hills nearer the towns) searched again every step, each search ranging over all the land it could
+  // reach, and three of them took 10 ms a step.
+  if ((e.pathOk[i] === NO_WAY || e.pathOk[i] === PART_WAY) && state.step < e.waitUntil[i]!) return e.pathOk[i] === NO_WAY ? BLOCKED_LAND : MOVED;
   if (mobBudget.searches >= MOB_SEARCHES_PER_STEP) return MOVED;
   mobBudget.searches++;
   const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const found = state.paths.find(mobMover(spec), cx, cz, { ...pointGoal(floorDiv(px, WU_PER_COLUMN), floorDiv(pz, WU_PER_COLUMN)), max: 1 }, state.nav.layerAt(cx, cz, floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT)));
-  if (found.points.length === 0) return BLOCKED_LAND;
+  e.waitUntil[i] = state.step + REPATH_STEPS;
+  e.pathOk[i] = found.reached ? 1 : found.points.length === 0 ? NO_WAY : PART_WAY;
+  if (found.points.length === 0) {
+    e.path[i] = [];
+    return BLOCKED_LAND;
+  }
   const out: number[] = [];
   for (let k = 0; k < found.points.length; k++) out.push(found.points[k]! * WU_PER_COLUMN + (WU_PER_COLUMN >> 1));
   e.path[i] = out;
   e.pathAt[i] = 0;
-  e.waitUntil[i] = state.step + REPATH_STEPS;
   return MOVED;
 }
 

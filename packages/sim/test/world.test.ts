@@ -38,6 +38,10 @@ import {
   type GeneratedChunk,
   type SimState,
   meatOf,
+  footprintDims,
+  metresToColumns,
+  RING_SCALE_PER_MILLE,
+  StartBasin,
 } from '../src/index.ts';
 
 const passable = (e: { type: number; gaps: readonly unknown[] }): boolean => !blocksWalking(e.type as never) || e.gaps.length > 0;
@@ -65,6 +69,22 @@ describe('cell layout', () => {
       expect(cells).toBeGreaterThan(150);
     });
   }
+
+  it('brings every ring 30% closer, the bands with them (Jade\'s mini patch)', () => {
+    expect(RING_SCALE_PER_MILLE).toBe(700);
+    // The start cell and rings 1 and 2 are 150 to 200 m across at full scale (The world, Cell sizes), so 105 to 140 m.
+    const lo = Math.floor((metresToColumns(150) * 700) / 1000);
+    const hi = Math.floor((metresToColumns(200) * 700) / 1000);
+    for (let seed = 1; seed <= 50; seed++) {
+      const layout = new WorldLayout(seed, 1);
+      for (const ring of [0, 1, 2]) {
+        expect(layout.ringSize(ring)).toBeGreaterThanOrEqual(lo);
+        expect(layout.ringSize(ring)).toBeLessThanOrEqual(hi);
+      }
+      expect(layout.basinRadius).toBe(Math.floor(layout.ringSize(0) / 2));
+      expect(layout.ringRadius(1)).toBe(layout.basinRadius + Math.floor(layout.ringSize(1) / 2));
+    }
+  });
 
   it('puts the bands in depth order with the basin as the Heartland', () => {
     const layout = new WorldLayout(1, 1);
@@ -100,7 +120,7 @@ describe('world generation', () => {
     expect(chunkBytes(c.generateChunk(5, 5))).not.toEqual(chunkBytes(a.generateChunk(5, 5)));
   });
 
-  it('gives each player a flat pocket with its own water, far enough from the others', () => {
+  it('gives each player a flat pocket with its own water', () => {
     for (const players of [1, 3, 8]) {
       const w = new World(9, players);
       const pockets = w.gen.start.pockets;
@@ -112,10 +132,89 @@ describe('world generation', () => {
         let wet = 0;
         for (let dz = -12; dz <= 12; dz++) for (let dx = -12; dx <= 12; dx++) if (w.waterAt(p.water.x + dx, p.water.z + dz) !== NO_WATER) wet++;
         expect(wet).toBeGreaterThan(20);
-        for (const q of pockets) {
-          if (q === p) continue;
-          const d = Math.hypot(p.x - q.x, p.z - q.z) * 0.45;
-          expect(d).toBeGreaterThan(75);
+      }
+    }
+  });
+
+  it('puts the main bases 10 to 15 m apart edge to edge: a group up to four, a line from five (Jade\'s mini patch)', () => {
+    // The gap is measured from the Big House's outer edge; every level of the main base keeps the same 14-column plot.
+    const plot = footprintDims(BuildingKind.MainBase, 0, 1).w;
+    for (let level = 1; level <= 10; level++) {
+      const d = footprintDims(BuildingKind.MainBase, 0, level);
+      expect([d.ox, d.oz, d.w, d.d]).toEqual([0, 0, plot, plot]);
+    }
+    const gap = (a: { x: number; z: number }, b: { x: number; z: number }): number => Math.hypot(Math.max(0, Math.abs(a.x - b.x) - plot), Math.max(0, Math.abs(a.z - b.z) - plot)) * 0.45;
+    for (let players = 2; players <= 8; players++) {
+      for (let seed = 1; seed <= 60; seed++) {
+        const pk = new StartBasin(new WorldLayout(seed, players)).pockets;
+        const label = `${players} players, seed ${seed}`;
+        if (players <= 4) {
+          // Every base is a neighbour of every other.
+          for (const a of pk) {
+            for (const b of pk) {
+              if (a === b) continue;
+              expect(gap(a, b), label).toBeGreaterThanOrEqual(10);
+              expect(gap(a, b), label).toBeLessThanOrEqual(15);
+            }
+          }
+          continue;
+        }
+        // A line, in player order: next-door bases 10 to 15 m apart, the rest further, and none with more than two near it.
+        const first = pk[0]!;
+        const last = pk[players - 1]!;
+        const len = Math.hypot(last.x - first.x, last.z - first.z);
+        for (let i = 0; i < players; i++) {
+          const p = pk[i]!;
+          expect(Math.abs((p.x - first.x) * (last.z - first.z) - (p.z - first.z) * (last.x - first.x)) / len, label).toBeLessThanOrEqual(1);
+          let near = 0;
+          for (let j = 0; j < players; j++) {
+            if (j === i) continue;
+            const g = gap(p, pk[j]!);
+            if (Math.abs(i - j) === 1) {
+              expect(g, label).toBeGreaterThanOrEqual(10);
+              expect(g, label).toBeLessThanOrEqual(15);
+            } else expect(g, label).toBeGreaterThan(15);
+            if (g <= 15) near++;
+          }
+          expect(near, label).toBeLessThanOrEqual(2);
+        }
+      }
+    }
+  });
+
+  it('keeps a game for one on the basin middle, and puts every Halfling village down whatever the player count', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      for (let players = 1; players <= 8; players++) {
+        const layout = new WorldLayout(seed, players);
+        const basin = new StartBasin(layout);
+        expect(basin.villages.length, `${players} players, seed ${seed}`).toBe(layout.basinCells);
+        if (players === 1) {
+          const site = layout.site(layout.basinIds()[0]!);
+          expect([basin.pockets[0]!.x, basin.pockets[0]!.z, basin.pockets[0]!.yard]).toEqual([site.x, site.z, 0]);
+        }
+      }
+    }
+  });
+
+  it('starts each player\'s units and Table 9 set beside their own Big House', () => {
+    for (const players of [2, 3, 4, 6, 8]) {
+      for (const seed of [1, 2, 3]) {
+        const s = createWorld(seed, { players, peaceful: true });
+        const pk = s.world.gen.start.pockets;
+        const nearest = (x: number, z: number): number => {
+          let best = 0;
+          for (let p = 1; p < pk.length; p++) if (Math.hypot(x - pk[p]!.x, z - pk[p]!.z) < Math.hypot(x - pk[best]!.x, z - pk[best]!.z)) best = p;
+          return best;
+        };
+        const e = s.entities;
+        for (let i = 0; i < e.count; i++) if (e.owner[i]! < players) expect(nearest(e.x[i]! / WU_PER_COLUMN, e.z[i]! / WU_PER_COLUMN), `${players} players, seed ${seed}`).toBe(e.owner[i]);
+        for (const p of pk) {
+          for (const prop of s.world.gen.pocketProps(p)) {
+            const own = Math.hypot(prop.x - p.x, prop.z - p.z);
+            // In a group nothing lies nearer another Big House; in a line, nothing nearer another on its own side.
+            const rivals = pk.filter((q) => q !== p && (players <= 4 || q.outward === p.outward));
+            for (const q of rivals) expect(Math.hypot(prop.x - q.x, prop.z - q.z), `${players} players, seed ${seed}, ${PROPS[prop.kind]!.name}`).toBeGreaterThan(own);
+          }
         }
       }
     }
@@ -177,13 +276,19 @@ describe('terrain edits, water, regrowth and fog', () => {
   });
 
   it('lets a dug channel fill from a pond, keeping the volume, and settles nearly flat', () => {
-    const w = new World(1, 2);
-    const pond = w.gen.start.pockets[0]!.water;
+    const w = new World(2, 2);
+    const pocket = w.gen.start.pockets[0]!;
+    const pond = pocket.water;
     expect(pond.kind).toBe('pond');
+    // The channel runs from the pond towards its Big House, along whichever axis the house lies most along.
+    const alongX = Math.abs(pocket.x - pond.x) >= Math.abs(pocket.z - pond.z);
+    const sign = Math.sign(alongX ? pocket.x - pond.x : pocket.z - pond.z);
+    const at = (t: number, across: number): [number, number] => (alongX ? [pond.x + sign * t, pond.z + across] : [pond.x + across, pond.z + sign * t]);
     const volume = (): number => {
       let v = 0;
-      for (let z = pond.z - 20; z <= pond.z + 20; z++) {
-        for (let x = pond.x - 20; x <= pond.x + 60; x++) {
+      for (let across = -20; across <= 20; across++) {
+        for (let t = -20; t <= 60; t++) {
+          const [x, z] = at(t, across);
           const wl = w.waterAt(x, z);
           if (wl !== NO_WATER) v += wl - w.topAt(x, z) * 32;
         }
@@ -191,7 +296,9 @@ describe('terrain edits, water, regrowth and fog', () => {
       return v;
     };
     const before = volume();
-    w.editBox(pond.x + 7, pond.z - 1, pond.x + 40, pond.z + 1, -6, 4, Mat.Air);
+    const [x0, z0] = at(7, -1);
+    const [x1, z1] = at(40, 1);
+    w.editBox(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1), -6, 4, Mat.Air);
     let steps = 0;
     while (w.waterActive.size > 0 && steps < 5000) {
       w.flowWater();
@@ -199,10 +306,10 @@ describe('terrain edits, water, regrowth and fog', () => {
     }
     expect(w.waterActive.size).toBe(0);
     // Water reached the end of the channel and nothing was made or lost.
-    expect(w.waterAt(pond.x + 40, pond.z)).not.toBe(NO_WATER);
+    expect(w.waterAt(...at(40, 0))).not.toBe(NO_WATER);
     expect(volume()).toBe(before);
     // Neighbouring columns differ by at most one 32nd of a terrain unit.
-    for (let x = pond.x + 8; x < pond.x + 40; x++) expect(Math.abs(w.waterAt(x, pond.z) - w.waterAt(x + 1, pond.z))).toBeLessThanOrEqual(1);
+    for (let t = 8; t < 40; t++) expect(Math.abs(w.waterAt(...at(t, 0)) - w.waterAt(...at(t + 1, 0)))).toBeLessThanOrEqual(1);
   });
 
   it('keeps a stream at its level while it fills a channel', () => {

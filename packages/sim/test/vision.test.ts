@@ -216,9 +216,10 @@ describe('night spawns on the shared dark edge', () => {
   it('keep 50 m off every player\'s claimed land, not only the land of the player they come for', () => {
     const s = createWorld(5, { players: 2, peaceful: true });
     const [p0, p1] = [0, 1].map((p) => s.world.gen.start.pockets.find((q) => q.player === p)!);
-    // The pockets lie about 80 m apart, player 0's to the north (+z). Player 1 explores 40 m round
-    // its Big House, so the dark edge there runs 25 to 30 m from its claimed land; player 0 explores
-    // a patch 100 m north of its own, well clear of both.
+    // The Big Houses stand 12 m apart edge to edge (Jade's mini patch), player 1's at +z. Player 1
+    // explores 40 m round its Big House, so the dark edge there runs 25 to 30 m from its claimed land,
+    // and on its far side over 40 m from player 0's; player 0 explores a patch 100 m on along +z, past
+    // player 1's, well clear of both.
     const reveal = (player: number, x: number, z: number, m: number): Order =>
       ({ kind: 'debugReveal', player, x: x * WU_PER_COLUMN, z: z * WU_PER_COLUMN, radius: m * M });
     run(s, 1, [reveal(1, p1!.x, p1!.z, 40), reveal(0, p0!.x, p0!.z + 222, 30)]);

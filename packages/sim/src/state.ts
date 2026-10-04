@@ -8,7 +8,7 @@ import { BuildingKind, BUILDING_CLAIM_M, BUILDING_SIGHT_M, buildingSpec, levelSp
 import { footprintDims } from './buildings/footprints.ts';
 import { BuildingStore, footprintRect, garrisonRoom, type Building } from './buildings/store.ts';
 import { RESOURCE_COUNT, STARTING_STOCK } from './economy/resources.ts';
-import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
+import { cos16, floorDiv, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from './fixed.ts';
 import { NavGrid, PERSON, STEP_UNITS, UNDER } from './nav/grid.ts';
 import { Pathfinder } from './nav/path.ts';
 import { createStreams, hash32, type Streams } from './rng.ts';
@@ -993,10 +993,19 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     for (let n = 0; n < playerUnits; n++) {
       const id = state.nextEntityId++;
-      // A loose row 5 to 8 m south of the Big House's middle, outside its footprint.
       const h = hash32(state.seed, 1, pocket.player, n);
-      const x = px + ((h & 0xffff) % (2 * WU_PER_METRE)) - WU_PER_METRE + (n - (playerUnits >> 1)) * 2 * WU_PER_METRE;
-      const z = pz + (((h >>> 16) & 0xffff) % (3 * WU_PER_METRE)) + 5 * WU_PER_METRE;
+      let x: number;
+      let z: number;
+      if (pocket.yard === 0) {
+        // A loose row 5 to 8 m south of the Big House's middle, outside its footprint.
+        x = px + ((h & 0xffff) % (2 * WU_PER_METRE)) - WU_PER_METRE + (n - (playerUnits >> 1)) * 2 * WU_PER_METRE;
+        z = pz + (((h >>> 16) & 0xffff) % (3 * WU_PER_METRE)) + 5 * WU_PER_METRE;
+      } else {
+        // Beside a base among others (mini patch): the same loose row, 5 to 8 m out on its yard's side and centred
+        // on it, so it stands by its own Big House and nobody else's.
+        const across = ((h & 0xffff) % (2 * WU_PER_METRE)) - WU_PER_METRE + (2 * n - (playerUnits - 1)) * WU_PER_METRE;
+        [x, z] = yardSpot(px, pz, pocket.outward, (((h >>> 16) & 0xffff) % (3 * WU_PER_METRE)) + 5 * WU_PER_METRE, across);
+      }
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
   }
@@ -1006,8 +1015,10 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     for (let n = 0; n < warriors; n++) {
-      const x = px + (playerUnits + 1 + n) * 2 * WU_PER_METRE - (playerUnits >> 1) * 2 * WU_PER_METRE;
-      const z = pz + 6 * WU_PER_METRE;
+      let x = px + (playerUnits + 1 + n) * 2 * WU_PER_METRE - (playerUnits >> 1) * 2 * WU_PER_METRE;
+      let z = pz + 6 * WU_PER_METRE;
+      // Beside a base among others: a row 9.5 m out on its yard's side, just beyond the workers.
+      if (pocket.yard > 0) [x, z] = yardSpot(px, pz, pocket.outward, 9 * WU_PER_METRE + (WU_PER_METRE >> 1), (2 * n - (warriors - 1)) * WU_PER_METRE);
       addWarrior(state, pocket.player, x, z, Troop.Close, 1, 0);
     }
   }
@@ -1030,6 +1041,13 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
 
 /** Warrior health by rank (Table 1: Recruit 100 to Hero 180). */
 export const WARRIOR_HEALTH_BY_RANK: readonly number[] = [100, 100, 120, 140, 160, 180];
+
+/** A spot `out` wu from (x, z) along a 16-bit bearing and `across` wu to its left, wu. */
+function yardSpot(x: number, z: number, bearing: number, out: number, across: number): [number, number] {
+  const c = cos16(bearing);
+  const s = sin16(bearing);
+  return [x + floorDiv(out * c - across * s, 65536), z + floorDiv(out * s + across * c, 65536)];
+}
 
 /** A new troop of rank 1 of a type, with its weapon and armour tiers (a fist fighter by default); returns its index. */
 export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0): number {

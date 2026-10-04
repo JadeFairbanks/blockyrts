@@ -5,11 +5,11 @@
 
 import { COLUMNS_PER_CHUNK, floorDiv, length2d } from '../fixed.ts';
 import { ChunkBuilder, NO_WATER, WATER_PER_UNIT, type ChunkColumns } from './chunk.ts';
-import { Band, EdgeType, Look, metresToColumns, metresToUnits, type Cell, type Edge, type WorldLayout } from './layout.ts';
+import { Band, EdgeType, Look, metresToColumns, metresToUnits, RING_SCALE_PER_MILLE, type Cell, type Edge, type WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { centred, hash2, valueNoise } from './noise.ts';
 import { PropKind, PROPS } from './props.ts';
-import { falloff, polar, POCKET_BLEND_COLUMNS, POCKET_FLAT_COLUMNS, StartBasin, type Pocket } from './start.ts';
+import { distanceToPlot, distanceToWater, falloff, ironReach, keepToStretch, ownSideRoom, polar, POCKET_BLEND_COLUMNS, POCKET_FLAT_COLUMNS, StartBasin, yardStretch, type Pocket } from './start.ts';
 
 /** A generated prop: a resource node, tree or bush on the land. */
 export interface PropRecord {
@@ -151,6 +151,15 @@ function shoulder(x: number, flat: number): number {
 }
 
 const N = COLUMNS_PER_CHUNK;
+/** How far a yard's props keep off every Big House plot, and off every pocket's water and bog (s). */
+const YARD_PLOT_CLEAR = metresToColumns(7);
+const YARD_WATER_CLEAR = metresToColumns(2);
+/** Fit land for the start pockets (landFit, s): within 12 terrain units (1.35 m) of sea level, and level to 3 units. */
+const FIT_HEIGHT = 12;
+const FIT_ROUGH = 3;
+const FIT_SIDES: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/** Where a walk out from a Big House starts, columns from its middle: the edge of its plot (landWalk). */
+const YARD_WALK_FROM = 8;
 
 export class WorldGen {
   readonly layout: WorldLayout;
@@ -159,9 +168,12 @@ export class WorldGen {
   private readonly pairs = new Map<number, PairInfo>();
   private readonly features = new Map<number, CellFeatures>();
   private readonly pocketPropCache = new Map<number, Array<{ x: number; z: number; kind: number; amount: number }>>();
+  /** Cell sites near each chunk the start pockets' land was probed in. */
+  private readonly probeCands = new Map<number, Site[]>();
   /** Band boundaries as distances from the origin, columns. */
   private readonly bandEdges: number[];
-  private readonly bandBlend = metresToColumns(120);
+  /** How wide the land blends from one band's look to the next: 120 m, 30% narrower with the rings (mini patch, s). */
+  private readonly bandBlend = metresToColumns(floorDiv(120 * RING_SCALE_PER_MILLE, 1000));
   private readonly p = new Profile();
   private readonly s: number[];
 
@@ -175,6 +187,75 @@ export class WorldGen {
     // Independent noise seeds.
     this.s = [];
     for (let i = 0; i < 32; i++) this.s.push(hash2(this.seed, 0x6e6f6973, i));
+    // The pockets' water and iron go on fit land, judged on the land as generated (mini patch).
+    this.start.settle(this);
+  }
+
+  /** The land's height at a column as generated, terrain units, or null where it lies under water. */
+  private probeGround(x: number, z: number): number | null {
+    const cx = floorDiv(x, N);
+    const cz = floorDiv(z, N);
+    const key = (cx + 32768) * 65536 + (cz + 32768);
+    let cands = this.probeCands.get(key);
+    if (!cands) {
+      cands = this.chunkCandidates(cx, cz);
+      this.probeCands.set(key, cands);
+    }
+    const p = this.profile(x, z, cands);
+    return p.flags & F_WATER ? null : p.ground;
+  }
+
+  /**
+   * How far the land falls short of fit for a start pocket's water, iron or
+   * prop at the points given (x0, z0, x1, z1, ...), 0 where it is fit: dry,
+   * within 1.35 m of sea level, and level to within 3 terrain units of the
+   * land `step` columns away on each side (s). A pocket on a ridge's flank or
+   * a ravine's lip falls short, so its workers can always walk to what
+   * Table 9 gives them; the shortfall is the terrain units past those limits,
+   * and 64 for each wet column.
+   */
+  landMisfit(points: readonly number[], step: number): number {
+    let miss = 0;
+    for (let i = 0; i + 1 < points.length; i += 2) {
+      const x = points[i]!;
+      const z = points[i + 1]!;
+      const g = this.probeGround(x, z);
+      if (g === null) {
+        miss += 64;
+        continue;
+      }
+      miss += Math.max(0, Math.abs(g) - FIT_HEIGHT);
+      for (const [dx, dz] of FIT_SIDES) {
+        const n = this.probeGround(x + dx * step, z + dz * step);
+        miss += n === null ? 64 : Math.max(0, Math.abs(n - g) - FIT_ROUGH);
+      }
+    }
+    return miss;
+  }
+
+  /** Whether the land is fit at every point given (landMisfit is 0). */
+  landFit(points: readonly number[], step: number): boolean {
+    return this.landMisfit(points, step) === 0;
+  }
+
+  /**
+   * Whether the land lets a worker walk straight from a pocket's Big House at
+   * (x0, z0) out to (x1, z1): dry, and no rise or drop of more than 3 terrain
+   * units from one column to the next along the way, from the edge of its
+   * plot (s). Fit land at the far end can still sit in a pit or on a shelf
+   * past a ravine's lip; this keeps Table 9's props where the workers reach.
+   */
+  landWalk(x0: number, z0: number, x1: number, z1: number): boolean {
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const n = Math.max(Math.abs(dx), Math.abs(dz));
+    let last: number | null = null;
+    for (let i = Math.min(n, YARD_WALK_FROM); i <= n; i++) {
+      const g = this.probeGround(x0 + floorDiv(dx * i, n), z0 + floorDiv(dz * i, n));
+      if (g === null || (last !== null && Math.abs(g - last) > FIT_ROUGH)) return false;
+      last = g;
+    }
+    return true;
   }
 
   /** Continuous band index (1024 per band) by distance from the origin, for amplitudes that must not seam. */
@@ -273,9 +354,14 @@ export class WorldGen {
   }
 
   /** The pocket and village props of Table 9, in global columns. */
-  private pocketProps(pocket: Pocket): Array<{ x: number; z: number; kind: number; amount: number }> {
+  pocketProps(pocket: Pocket): Array<{ x: number; z: number; kind: number; amount: number }> {
     const cached = this.pocketPropCache.get(pocket.player);
     if (cached) return cached;
+    if (pocket.yard > 0) {
+      // Yards are filled together, in player order, so each keeps clear of the others whichever chunk asks first.
+      this.yardProps();
+      return this.pocketPropCache.get(pocket.player)!;
+    }
     const out: Array<{ x: number; z: number; kind: number; amount: number }> = [];
     const h = (a: number, b: number): number => hash2(this.seed, 0x7070 + pocket.player * 977 + a, b);
     const spacing = (x: number, z: number, min: number): boolean => out.every((o) => length2d(o.x - x, o.z - z) >= min);
@@ -286,7 +372,7 @@ export class WorldGen {
           const a = (pocket.outward + bearing + floorDiv(((r & 0xffff) - 32768) * spread, 32768)) & 0xffff;
           const d = metresToColumns(d0) + ((r >>> 16) % Math.max(1, metresToColumns(d1 - d0)));
           const c = polar(pocket.x, pocket.z, a, d);
-          if (attempt < 23 && !spacing(c.x, c.z, min)) continue;
+          if (attempt < 23 && (!spacing(c.x, c.z, min) || !this.landFit([c.x, c.z], 1) || !this.landWalk(pocket.x, pocket.z, c.x, c.z))) continue;
           out.push({ x: c.x, z: c.z, kind, amount: amounts[Math.min(i, amounts.length - 1)]! });
           break;
         }
@@ -304,17 +390,88 @@ export class WorldGen {
     place(2, PropKind.Herbs, [10], 32768, 6000, 12, 24, 4);
     place(2, PropKind.WildFlax, [10], 32768, 6000, 12, 24, 4);
     // Iron: a bog with 40 bog iron, or an iron rock of 60.
-    const iron = this.pocketIron(pocket);
-    if (pocket.bog) out.push({ x: iron.x, z: iron.z, kind: PropKind.BogIron, amount: 40 });
-    else out.push({ x: iron.x, z: iron.z, kind: PropKind.IronRock, amount: 60 });
+    out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? 40 : 60 });
     this.pocketPropCache.set(pocket.player, out);
     return out;
   }
 
-  /** Where a pocket's iron lies: 40 to 55 m out, behind and to one side. */
-  pocketIron(pocket: Pocket): { x: number; z: number } {
-    const r = hash2(this.seed, 0x69726f6e, pocket.player);
-    return polar(pocket.x, pocket.z, (pocket.outward - 27000 + ((r & 0xfff) - 2048)) & 0xffff, metresToColumns(40 + ((r >>> 12) % 16)));
+  /**
+   * Table 9's set for every pocket with a yard (a game for two or more, Jade's
+   * mini patch): the same props as a pocket of one, laid out in the yard on
+   * the side away from the other bases, the softwood stand in its middle,
+   * hazel, ores and stone to the sides and the small finds near the Big
+   * House (s). Each prop keeps 7 m off every Big House, off every pocket's
+   * water and bog, and its spacing from every prop already placed, the other
+   * pockets' too, nearer its own Big House than any other on its side of a
+   * line (ownSideRoom), on fit land its workers can walk straight out to; a prop
+   * with no such spot in 32 tries takes the try with the most room on such
+   * land, else the one with the most room.
+   */
+  private yardProps(): void {
+    const all: Array<{ x: number; z: number; min: number }> = [];
+    const pockets = this.start.pockets;
+    // The least room left by any of them, so a try short of one is never taken over a spot on top of another prop.
+    const room = (own: Pocket, x: number, z: number, min: number): number => {
+      let r = ownSideRoom(x, z, own.x, own.z, own.outward, pockets);
+      for (const pk of pockets) {
+        r = Math.min(r, distanceToPlot(x, z, pk.x, pk.z) - YARD_PLOT_CLEAR);
+        r = Math.min(r, distanceToWater(pk.water, x, z) - YARD_WATER_CLEAR);
+        r = Math.min(r, length2d(x - pk.iron.x, z - pk.iron.z) - ironReach(pk) - YARD_WATER_CLEAR);
+      }
+      for (const o of all) {
+        const need = Math.max(min, o.min);
+        const dx = Math.abs(o.x - x);
+        const dz = Math.abs(o.z - z);
+        if (dx >= need + r || dz >= need + r) continue;
+        r = Math.min(r, length2d(dx, dz) - need);
+      }
+      return r;
+    };
+    for (const pocket of pockets) {
+      const out: Array<{ x: number; z: number; kind: number; amount: number }> = [];
+      const h = (a: number, b: number): number => hash2(this.seed, 0x7070 + pocket.player * 977 + a, b);
+      const stretch = yardStretch(pocket, pockets);
+      // f and spread in 1/1024 of the yard's half angle either side of its middle.
+      const place = (n: number, kind: number, amounts: readonly number[], f: number, spread: number, d0: number, d1: number, min: number): void => {
+        const minC = metresToColumns(min);
+        for (let i = 0; i < n; i++) {
+          let best: { x: number; z: number } | null = null;
+          let bestRoom = -Infinity;
+          for (let attempt = 0; attempt < 32; attempt++) {
+            const r = h(kind * 64 + i, attempt);
+            const rel = floorDiv((f + floorDiv(((r & 0xffff) - 32768) * spread, 32768)) * pocket.yard, 1024);
+            const d = metresToColumns(d0) + ((r >>> 16) % Math.max(1, metresToColumns(d1 - d0)));
+            // In a line, within its own stretch of its side.
+            const out = polar(pocket.x, pocket.z, (pocket.outward + rel) & 0xffff, d);
+            const c = keepToStretch(out.x, out.z, pocket, stretch);
+            // Fit land a worker can walk out to outranks room, as for the pockets' water and iron.
+            let left = room(pocket, c.x, c.z, minC);
+            if (left <= bestRoom) continue;
+            if (!this.landFit([c.x, c.z], 1) || !this.landWalk(pocket.x, pocket.z, c.x, c.z)) left -= 1_000_000;
+            if (left > bestRoom) {
+              bestRoom = left;
+              best = c;
+            }
+            if (left >= 0) break;
+          }
+          out.push({ x: best!.x, z: best!.z, kind, amount: amounts[Math.min(i, amounts.length - 1)]! });
+          all.push({ x: best!.x, z: best!.z, min: minC });
+        }
+      };
+      const softwood = [PropKind.Pine, PropKind.Spruce, PropKind.SmallSoftwood];
+      // The stand first, out along the yard's middle 20 to 40 m from the Big House (480 lumber).
+      for (let i = 0; i < 24; i++) place(1, softwood[h(900, i) % 3]!, [20], 0, 700, 20, 40, 5);
+      place(8, PropKind.Hazel, [10], 600, 420, 12, 24, 4);
+      place(2, PropKind.FlintScatter, [20], -600, 420, 12, 24, 4);
+      place(2, PropKind.Herbs, [10], -600, 420, 12, 24, 4);
+      place(2, PropKind.WildFlax, [10], -600, 420, 12, 24, 4);
+      place(2, PropKind.CopperOutcrop, [60], 820, 200, 26, 40, 6);
+      place(1, PropKind.TinOutcrop, [30], 820, 200, 26, 40, 6);
+      place(2, PropKind.LooseStone, [40, 20], -820, 200, 24, 38, 5);
+      place(1, PropKind.StoneOutcrop, [200], -820, 200, 24, 38, 6);
+      out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? 40 : 60 });
+      this.pocketPropCache.set(pocket.player, out);
+    }
   }
 
   /**
@@ -506,7 +663,9 @@ export class WorldGen {
         p.marsh = false;
       }
     }
-    for (const pocket of this.start.pockets) {
+    // Only pockets whose water and iron are settled carve them (StartBasin.settle).
+    for (let k = 0; k < this.start.settled; k++) {
+      const pocket = this.start.pockets[k]!;
       const pw = pocket.water;
       if (Math.abs(x - pw.x) > pw.halfLength + pw.radius + 8 || Math.abs(z - pw.z) > pw.halfLength + pw.radius + 8) continue;
       if (pw.kind === 'pond') {
@@ -535,7 +694,7 @@ export class WorldGen {
         });
       }
       if (pocket.bog) {
-        const iron = this.pocketIron(pocket);
+        const iron = pocket.iron;
         if (this.bogEffect({ x: iron.x, z: iron.z, r: metresToColumns(7) }, x, z, 0)) {
           ground = Math.min(ground, -1);
           surfaceHint = Mat.Mud;
