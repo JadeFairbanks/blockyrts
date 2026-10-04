@@ -17,7 +17,7 @@ import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../u
 import { BuildingKind, buildingName, buildingSpec, FARM_HARVEST_STEPS, FARM_TIER_PER_MILLE, levelSpec, PLANK_STEPS, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre } from './lights.ts';
 import { bandAt } from './placement.ts';
-import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type RallyPoint } from './store.ts';
+import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
 import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
@@ -666,6 +666,46 @@ export function farmBandLine(state: SimState, b: Building): string {
   return `${pm === 500 ? 'Half' : `${floorDiv(pm, 10)}%`} yield in the ${where}: ${rule}.`;
 }
 
+/** How the head of a building's queue moves now: its whole length, in the units its progress counts, and how much each step adds (0: on hold). */
+export interface QueuePace {
+  whole: number;
+  perStep: number;
+}
+
+/**
+ * The pace of a building's head item: what the next step adds to it and when
+ * it is done. updateBuildings moves the item by exactly this, and the queue's
+ * countdown on the panel reads the same numbers, so the seconds it shows are
+ * the sim's own rather than a guess from the bar (Patch 2 bug fixes).
+ */
+export function queuePace(state: SimState, b: Building, head: QueueItem): QueuePace {
+  if (trainsUnit(head.product)) {
+    // A new unit waits at its first step until there is free supply for it.
+    const held = head.progress === 0 && supplyUsed(state, head.by) >= supplyCap(state, head.by);
+    return { whole: productSpec(head.product).steps, perStep: held ? 0 : 1 };
+  }
+  if (head.product >= RESEARCH_PRODUCT) {
+    // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
+    // Smithing, processing and crafting at a forge, kiln, tannery, herbalist or workshop need hands inside (s);
+    // the Manufactory works twice as fast. The Big House and cooking need none.
+    const whole = productSteps(state, b, head.product);
+    if (head.product < RECIPE_PRODUCT) return { whole: whole * 4, perStep: state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS[b.level - 1]! };
+    if (needsHands(b.kind)) return { whole, perStep: workersAt(state, b) * (b.kind === BuildingKind.Workshop && b.level >= 4 ? 2 : 1) };
+    return { whole, perStep: 1 };
+  }
+  // Planks: the mill works only with hands inside, faster with more of them.
+  return { whole: PLANK_STEPS, perStep: workersAt(state, b) };
+}
+
+/** What the queue's bar and countdown show for a building's head item, or null with nothing queued: work done of the whole, and the steps left at its pace now (0: on hold). */
+export function queueHead(state: SimState, b: Building): { done: number; whole: number; stepsLeft: number } | null {
+  const head = b.queue[0];
+  if (!head) return null;
+  const { whole, perStep } = queuePace(state, b, head);
+  const left = Math.max(0, whole - head.progress);
+  return { done: Math.min(head.progress, whole), whole, stepsLeft: perStep > 0 ? floorDiv(left + perStep - 1, perStep) : 0 };
+}
+
 /** One step of every building's own work. */
 export function updateBuildings(state: SimState): void {
   for (const b of state.buildings.list) {
@@ -673,18 +713,19 @@ export function updateBuildings(state: SimState): void {
     const pool = state.players[b.owner]!.pool;
     const head = b.queue[0];
     if (head) {
+      const pace = queuePace(state, b, head);
       if (trainsUnit(head.product)) {
-        const what = productSpec(head.product).name.toLowerCase();
-        if (head.progress === 0 && supplyUsed(state, head.by) >= supplyCap(state, head.by)) {
+        if (pace.perStep === 0) {
           if ((b.alerted & 1) === 0) {
             b.alerted |= 1;
+            const what = productSpec(head.product).name.toLowerCase();
             const [x, z] = buildingCentre(b);
             state.events.push({ player: head.by, kind: 'alert', text: `Not enough supply to train a ${what}. Build or upgrade farms.`, x, z });
           }
         } else {
           b.alerted &= ~1;
-          head.progress++;
-          if (head.progress >= productSpec(head.product).steps) {
+          head.progress += pace.perStep;
+          if (head.progress >= pace.whole) {
             b.queue.shift();
             if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
             else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
@@ -692,30 +733,12 @@ export function updateBuildings(state: SimState): void {
             else spawnWorker(state, b, head.by);
           }
         }
-      } else if (head.product >= RESEARCH_PRODUCT) {
-        // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
-        // Smithing, processing and crafting at a forge, kiln, tannery, herbalist or workshop need hands inside (s);
-        // the Manufactory works twice as fast. The Big House and cooking need none.
-        let rate = 1;
-        let whole = productSteps(state, b, head.product);
-        if (head.product < RECIPE_PRODUCT) {
-          rate = state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS[b.level - 1]!;
-          whole *= 4;
-        } else if (needsHands(b.kind)) {
-          rate = workersAt(state, b) * (b.kind === BuildingKind.Workshop && b.level >= 4 ? 2 : 1);
-        }
-        head.progress += rate;
-        if (head.progress >= whole) {
-          b.queue.shift();
-          finishProduct(state, b, head.product, head.by);
-        }
       } else {
-        // Planks: the mill works only with hands inside, faster with more of them.
-        const n = workersAt(state, b);
-        head.progress += n;
-        if (head.progress >= PLANK_STEPS) {
+        head.progress += pace.perStep;
+        if (head.progress >= pace.whole) {
           b.queue.shift();
-          pool[Res.Planks] = pool[Res.Planks]! + (b.level >= 2 ? 2 : 1);
+          if (head.product >= RESEARCH_PRODUCT) finishProduct(state, b, head.product, head.by);
+          else pool[Res.Planks] = pool[Res.Planks]! + (b.level >= 2 ? 2 : 1);
         }
       }
     }
