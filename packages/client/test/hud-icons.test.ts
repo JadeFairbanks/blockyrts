@@ -29,7 +29,7 @@ import { actionIcon, productIcon, spellIcon, upgradeIcon } from '../src/hud/card
 import { doingActions, orderAction } from '../src/hud/doing.ts';
 import { troopPanelFiles } from '../src/hud/icons.ts';
 import { hasKit } from '../src/hud/kit-icons.ts';
-import { guessSteps, QueueClock, queueText, STALL_STEPS, timeWords } from '../src/hud/queue-clock.ts';
+import { queueSeconds, queueText, timeWords } from '../src/hud/queue-clock.ts';
 import { buildingIconFile, modelIconFile, selectableIconFile, troopIconFile } from '../src/hud/unit-icons.ts';
 
 const drawn = (icon: ButtonIcon | undefined, what: string): void => {
@@ -151,33 +151,11 @@ describe('the queue countdown', () => {
     expect(timeWords(0)).toBe('0 seconds');
   });
 
-  it('guesses from the item\'s own time until the pace is seen, then counts down from the pace', () => {
-    const c = new QueueClock();
-    expect(c.secondsLeft(7, Product.Worker, 0, 100, 40 * S)).toBe(40);
-    // 10 per mille a second: one change sets the baseline, the next the pace.
-    c.note(7, Product.Worker, 0, 100);
-    c.note(7, Product.Worker, 10, 100 + S);
-    c.note(7, Product.Worker, 20, 100 + 2 * S);
-    expect(c.secondsLeft(7, Product.Worker, 20, 100 + 2 * S, null)).toBeCloseTo(98, 5);
-    // Half a second later with no new change it still counts down.
-    expect(c.secondsLeft(7, Product.Worker, 20, 100 + 2 * S + S / 2, null)).toBeCloseTo(97.5, 5);
-  });
-
-  it('goes on hold when the item stops moving, and starts over for a new item', () => {
-    const c = new QueueClock();
-    c.note(3, Product.Worker, 0, 0);
-    c.note(3, Product.Worker, 100, S);
-    c.note(3, Product.Worker, 200, 2 * S);
-    expect(c.secondsLeft(3, Product.Worker, 200, 2 * S + STALL_STEPS + 1, null)).toBeNull();
-    c.note(3, Product.SupportMage, 0, 3 * S);
-    expect(c.secondsLeft(3, Product.SupportMage, 0, 3 * S, 50 * S)).toBe(50);
-    c.keep(new Set());
-    expect(c.secondsLeft(3, Product.SupportMage, 0, 3 * S, null)).toBeNull();
-  });
-
-  it('needs hands for planks and workshop goods, and none for a worker', () => {
-    expect(guessSteps(Product.PlanksSoftwood, BuildingKind.LumberMill, 1, 0)).toBeNull();
-    expect(guessSteps(Product.PlanksSoftwood, BuildingKind.LumberMill, 1, 2)).toBeGreaterThan(0);
-    expect(guessSteps(Product.Worker, BuildingKind.MainBase, 1, 0)).toBeGreaterThan(0);
+  it('counts down from the steps left the sim sends, and is on hold when it sends none', () => {
+    expect(queueSeconds(40 * S, 0)).toBe(40);
+    // Steps run since the sim said so are already spent.
+    expect(queueSeconds(40 * S, S / 2)).toBe(39.5);
+    expect(queueSeconds(5, 100)).toBe(0);
+    expect(queueSeconds(0, 0)).toBeNull();
   });
 });

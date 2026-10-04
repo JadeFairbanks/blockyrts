@@ -1144,7 +1144,7 @@ export class Commands {
       const c = cardChoice(b, card);
       const product = cardProduct(card, c.w, c.a);
       this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count: 1 });
-      b.queue.push({ product, done: 0 });
+      b.queue.push({ product, done: 0, stepsLeft: 0 });
     }
     this.d.changed();
   }
@@ -1262,7 +1262,7 @@ export class Commands {
       ready.sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
       const b = ready[0]!;
       this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count: 1 });
-      b.queue.push({ product, done: 0 });
+      b.queue.push({ product, done: 0, stepsLeft: 0 });
     }
   }
 

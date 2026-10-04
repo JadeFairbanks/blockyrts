@@ -542,6 +542,29 @@ export interface SendResourcesOrder {
 }
 
 /**
+ * Yes or No to a question one of the player's units or buildings asked
+ * (Patch 2, round 3). It carries what the question was about, so Yes does
+ * the same on every machine whether or not that machine still has the
+ * question open: Yes runs the same code as the matching button's order.
+ */
+export interface AnswerOrder {
+  kind: 'answer';
+  player: number;
+  /** The question's number (AskInfo.id), so it closes. */
+  ask: number;
+  /** 1 Yes, 0 No. */
+  yes: number;
+  /** Which question (units/questions.ts Ask). */
+  q: number;
+  /** Who asked: an entity id, or a building id for a building's question. */
+  who: number;
+  /** The units it spoke for (entity ids); empty for a building's. */
+  units: number[];
+  /** The resource it was about, or -1. */
+  res: number;
+}
+
+/**
  * The player leaves the match for good (the relay's leave marker, when the
  * host carries on without a player who is gone): their side is shared out
  * as if eliminated.
@@ -552,6 +575,7 @@ export interface LeaveOrder {
 }
 
 export type Order =
+  | AnswerOrder
   | PickOwnOrder
   | PickUpOrder
   | ForageOrder
@@ -702,9 +726,10 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   pickOwn: ['command'],
   pickUp: ['target'],
   forage: [],
+  answer: ['ask', 'yes', 'q', 'who', 'res'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -779,6 +804,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'sendResources':
       if (o.to < 0 || o.to > 7 || o.res < 0 || o.res > 255 || o.amount < 1 || o.amount > 1_000_000_000) throw new Error('bad send resources');
+      return;
+    case 'answer':
+      if ((o.yes !== 0 && o.yes !== 1) || o.q < 1 || o.q > 15 || o.units.length > 256 || o.res < -1 || o.res > 255) throw new Error('bad answer');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

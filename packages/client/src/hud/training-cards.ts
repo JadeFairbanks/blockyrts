@@ -15,6 +15,7 @@ import type { ButtonIcon, HudButton, HudButtonDef } from './buttons.ts';
 import { armourPic, robePic, wandPic, weaponPic, type Pic } from './icons.ts';
 import { piecesStats } from './kit-text.ts';
 import {
+  aTroopName,
   cardAction,
   cardChoice,
   cardName,
@@ -270,7 +271,9 @@ export class TrainingCards {
     const cost = goodsText(mainCost(pieces));
     const time = piecesTime(pieces);
     const pay = cost ? `Costs ${cost}${time > 0 ? `; adds ${time} s to training` : ''}.` : 'Costs nothing.';
-    return [stats, pay].filter((x) => x).join('\n');
+    // A weapon tier names the troop it makes (Patch 2, troop names).
+    const makes = line === 'w' && !isMageCard(card) ? `Trains ${aTroopName(card, o.tier)}.` : '';
+    return [makes, stats, pay].filter((x) => x).join('\n');
   }
 
   /** Puts the open strip just above the middle, pointing at its slot. */

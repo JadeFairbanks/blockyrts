@@ -41,19 +41,29 @@ describe('one is singular', () => {
   });
 });
 
-describe('speech in the message panel', () => {
-  it('keeps an own unit\'s informational lines as bubbles and lets its alerts through', () => {
-    expect(speechToPanel({ quiet: true }, 0, true)).toBe(false);
-    expect(speechToPanel({ urgent: true }, 0, false)).toBe(true);
-    expect(speechToPanel({}, 0, false)).toBe(true);
-    expect(speechToPanel({ foreign: true, player: 0, quiet: true }, 0, true)).toBe(false);
+describe('speech in the message panel (Patch 2, What reaches chat)', () => {
+  it('lets through only the urgent lines of the player\'s own units', () => {
+    expect(speechToPanel({ player: 0, speaker: 5, urgent: true }, 0)).toBe(true);
+    expect(speechToPanel({ player: 0, speaker: 5 }, 0)).toBe(false);
+    expect(speechToPanel({ player: 0, speaker: 5, urgent: false }, 0)).toBe(false);
+    expect(speechToPanel({ player: 0, speaker: 5, quiet: true }, 0)).toBe(false);
+    // A building's urgent line ("No idle workers to repair them.").
+    expect(speechToPanel({ player: 0, urgent: true }, 0)).toBe(true);
   });
 
-  it('lets another people\'s lines through when said to the player, or important and heard', () => {
-    expect(speechToPanel({ foreign: true, player: 1, important: false }, 1, false)).toBe(true);
-    expect(speechToPanel({ foreign: true, player: -1, important: false }, 1, true)).toBe(false);
-    expect(speechToPanel({ foreign: true, player: -1, important: true, near: 0b10 }, 1, false)).toBe(true);
-    expect(speechToPanel({ foreign: true, player: -1, important: true, near: 0b01 }, 1, false)).toBe(false);
-    expect(speechToPanel({ foreign: true, player: -1, important: true, near: 0 }, 1, true)).toBe(true);
+  it('keeps out another player\'s units, a leaver\'s, questions and other peoples\' lines', () => {
+    // Another player's unit, or one a leaver left behind (its player is the leaver).
+    expect(speechToPanel({ player: 1, speaker: 5, urgent: true }, 0)).toBe(false);
+    // Questions are bubbles with buttons, never chat.
+    expect(speechToPanel({ kind: 'question', player: 0, speaker: 5, urgent: true }, 0)).toBe(false);
+    // Another people's lines, said to the player or not: their bubble, and a trade or hire answer in its menu.
+    expect(speechToPanel({ foreign: true, player: 0, speaker: 9 }, 0)).toBe(false);
+    expect(speechToPanel({ foreign: true, player: 0, speaker: 9, urgent: true }, 0)).toBe(false);
+    expect(speechToPanel({ foreign: true, player: -1, speaker: 9 }, 0)).toBe(false);
+  });
+
+  it('still lets through a people\'s line from afar, which has no one on the map to be a bubble', () => {
+    expect(speechToPanel({ foreign: true, player: 0, speaker: 0 }, 0)).toBe(true);
+    expect(speechToPanel({ foreign: true, player: 1, speaker: 0 }, 0)).toBe(false);
   });
 });

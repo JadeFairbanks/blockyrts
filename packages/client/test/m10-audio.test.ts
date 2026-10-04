@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SFX, soundDef } from '@blockyrts/audio';
-import { BuildingKind, DAY_STEPS, DUSK_STEPS, Engine, Mob, MONSTERS, NIGHT_STEPS, OrderKind, PEOPLES, PeopleUnit, Period, PISTOL_GEAR, RANGER_GEAR, SHIELD_GEAR, UnitKind, WU_PER_METRE, type HitEvent, type SimEvent } from '@blockyrts/sim';
+import { Ask, BuildingKind, DAY_STEPS, DUSK_STEPS, Engine, Mob, MONSTERS, NIGHT_STEPS, OrderKind, PEOPLES, PeopleUnit, Period, PISTOL_GEAR, RANGER_GEAR, SHIELD_GEAR, UnitKind, WU_PER_METRE, type HitEvent, type SimEvent } from '@blockyrts/sim';
 import type { AudioEngine } from '@blockyrts/audio';
 import { cue } from '../src/audio/cues.ts';
 import { GameAudio } from '../src/audio/game-audio.ts';
@@ -71,7 +71,9 @@ describe('the sound map (Audio)', () => {
     expect(workSound(OrderKind.Move, undefined)).toBeNull();
     expect(orderVoice('attack')).toBe('attack');
     expect(orderVoice('move')).toBe('acknowledge');
-    expect(eventCue({ kind: 'idle', text: 'I have run out of softwood lumber nearby.' })).toEqual({ sound: 'alert_idle_worker', voice: 'resource_out' });
+    expect(eventCue({ kind: 'question', text: 'No more softwood nearby. Look farther off?', ask: { q: Ask.Farther } })).toEqual({ sound: 'alert_idle_worker', voice: 'resource_out' });
+    expect(eventCue({ kind: 'question', text: 'No more softwood nearby. Look farther off?', ask: { q: Ask.Farther, closed: true } })).toEqual({ sound: null, voice: null });
+    expect(eventCue({ kind: 'question', text: "I'm hurt. Can I eat to heal?", ask: { q: Ask.Heal } }).sound).toBe('ui_message');
     expect(eventCue({ kind: 'speech', text: 'Help! I am being attacked!', urgent: true }).voice).toBe('under_attack');
     expect(eventCue({ kind: 'alert', text: 'Your workers are starving and slowed.' }).voice).toBe('hungry');
     expect(eventCue({ kind: 'alert', text: 'I cannot reach that.', urgent: true }).voice).toBe('cannot');
@@ -227,7 +229,7 @@ describe('the match plays every sound in the Audio list', () => {
 
     // Voices: the idle worker, hunger, an attack; selection and orders; the interface.
     const said = info(20, [], [
-      { player: 0, kind: 'idle', text: 'I have run out of loose stone nearby.', speaker: 1, x: 0, z: 0, urgent: true },
+      { player: 0, kind: 'question', text: 'No more loose stone nearby. Look farther off?', speaker: 1, x: 0, z: 0, ask: { id: 1, q: Ask.Farther, units: [1], res: 0, until: 600, yes: '', no: '' } },
       { player: 0, kind: 'speech', text: 'Help! I am being attacked!', speaker: 1, urgent: true, x: 0, z: 0 },
       { player: 0, kind: 'alert', text: 'Your workers are starving and slowed.' },
     ]);

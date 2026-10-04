@@ -505,6 +505,11 @@ Jade's play-test patch notes 1 (2026-10-03):
 - HUD revamp and touch play (PR #78; picks in hud-picks.md): the bottom strip runs edge to edge with a live portrait between the minimap and the selection panel; the command card is a row taller, takes spare room as extra columns (up to 10) and grows upward before it pages; units and buildings join in one selection with Shift, the most valuable type first, Tab through the rest (a plain box still takes units before buildings); pictures on the card with the words in tooltips, a doing-now marker and a live queue countdown; quiet speech stays in bubbles; one of anything is singular; the HUD wears the wooden kit and Jersey 10 (the HUD skin pass); smaller screens scale the HUD, phones fold its panels, and a first-load question on a touchscreen turns on tap controls (see Screen layout and mouse zones and Selecting units and buildings).
 - Hunting, loot and gathering (PR #81; picks in hunting-picks.md): kills drop loot instead of carcasses, picked up by right click and by idle units and handed in at dawn and in the day; Hunt and Gather each start with one press and bring units home by nightfall; a worker whose node runs out says what it gathers instead; idle fighters guard workers; information stays in bubbles (see Loot, Semi-automation and Unit speech).
 
+Patch 2 (2026-10-04, in build; the design record is blueprint/patch-2.md):
+
+- Training countdown fix (Bug fixes 1; picks in patch2-countdown-picks.md): the queue's "Complete in N seconds" is the sim's own time, sent with every update as the head item's steps left at its pace now, and "On hold" exactly while nothing moves it. Before Patch 2 the client guessed the pace from the rounded per mille bar, so the Magi Sanctum's seconds (and most troops') jumped up and down while they fell. One clock served every building queue, so every queue is fixed; the other countdowns (farm harvest, next meal, the day clock, fuel, spell cooldowns) already read the sim's numbers.
+- Question bubbles and the chat rule (round 3; picks in patch2-questions-picks.md): a unit or building asks its owner a short question in its bubble, with a green tick for Yes and a red cross for No; six questions (better kit, eat to heal, let me down, repair at dawn, look farther off, train another crewman); only urgent lines from the player's own units reach chat (see Unit speech and the message panel and Questions).
+
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
 - Redeploy the live site with the latest main.
@@ -952,7 +957,8 @@ Specialisations (doc, suggested): each Halfling village leans to one trade (crop
 | Caravans | start 60 m out and stop 14 m from the main base; a wandering caravan leaves at the second dusk after it was found |
 | Mercenaries | 2 silver each until dusk; a camp hires out 2 to 6 and gains one back every 2 days; Fringe camps Runkin archers and Halfling spearmen, Deepwoods camps Elf Bladewardens and Dwarf crossbowmen |
 | Daily life | heal 1 health every 2 s after 10 s out of a fight; a faction at peace gains back one lost person every 3 days; villagers wander up to 10 m; important lines reach the panel when a player unit is within 30 m or the speaker is on screen; a Dwarf colony's first trade names the direction of the nearest city |
-| Speech | remarks about every 9 s from a unit on screen; bubbles 3.5 s plus 40 ms per letter, at most 10 at once; urgent messages are alerts, idle workers and nightfall |
+| Speech | remarks about every 9 s from a unit on screen; bubbles 3.5 s plus 40 ms per letter, at most 10 at once; urgent messages are alerts, units' urgent lines and nightfall |
+| Questions (Patch 2) | a question waits 30 s of game time; at most 3 open per player; a unit asks to eat at 70% health or less; one speaks for others within 10 m (all Open for Jade's rebalance) |
 
 Troop rework (2026-10-03, (s), Open for Jade's rebalance): weapons, armour and tools are no longer items, so wherever a people above or in table 19 sold or bought one, it now trades the ingots and materials that made it at the same value: Halfling shortbows, shortswords and bucklers become their wood, leather and wrought iron (bloom iron is gone), and their bloom iron ingots become wrought iron. As built in Milestone 11 (s): Halflings sell 6 leather, 20 feathers and 10 wrought iron; plundering a people gives the metal of the weapons and shields its fighters carried; the peoples' own fighters keep fixed kits from the new gear catalogue. Goblin drops that were items: a goblin club gives 3 sticks (1 in 10), goblin arrows 2 to 4 feathers (3 in 10), a bronze spear 1 bronze ingot (15 in 100).
 
@@ -1529,8 +1535,26 @@ Units talk to their player. This is how the game tells the player what their uni
 - **When their speech reaches the message panel:** their random remarks never do. Their important speech (a greeting on first meeting, a warning, a declaration of war, a surrender offer) is added to a player's message panel if the player sees it on screen, or if one of the player's units is close enough that the speaker would be on screen if the camera were centred on that unit (suggested: within 30 m), even when the player is looking somewhere else.
 
 - **Information stays in bubbles:** lines that only say what a unit is doing (loot picked up, a hunt, a gatherer heading home, a new tool) are bubbles only, like random remarks; only lines that need the player reach the message panel (Jade's play-test notes, 2026-10-03).
+- **What reaches chat (Jade, Patch 2):** "The only non player text bubbles that end up in chat are ones that urgently need your attention from units that belong directly to you." A bubble goes to the message panel only when both hold: (1) the speaker belongs to you, not a unit you only control, not one a leaver left behind, not another people's; (2) it needs you now: an order you gave has failed, the unit is in danger or being harmed, or it has stopped and will not carry on without you. Those lines are urgent: they ping the minimap, flash the panel and join F4's list. Everything else is a bubble only. In Patch 2 "That cart is gone!" became urgent; "I'm not much help up here!", the mercenaries' dusk line and every other people's line left chat (the trade and hire menus show the trader's last answer inside the menu); the lines that became questions left it too. The game's own lines (war declared, a surrender offer, buildings, nights, research) are not bubbles and stay in chat. A people's line with no one on the map to say it (a faction that migrated) cannot be a bubble, so it still reaches chat (s).
 
-**The message panel.** Everything units say, apart from random remarks and information, also appears in the message panel with the name of the unit that said it, along with game alerts (such as "Night is falling") and messages from other players.
+#### Questions (Jade, Patch 2, round 3)
+
+Now and then a unit or building asks its owner a short question in its bubble, with two buttons under the words: a green tick (Yes) and the red cross of the action menu's Cancel (No). Each button's tooltip says in full what it does, and Yes's what it takes from the stock.
+
+- A question waits 30 s of game time (standing still while the game is paused) or until its owner clicks; a tap works with touch controls, and only the two buttons take clicks, so a click beside them still reaches the world.
+- One open question per unit or building, at most 3 per player; more wait their turn (s). While a unit has one up, its quiet lines do not cover it.
+- Other players see the bubble without the buttons; the words go to no chat (Jade). A leaver's units ask nothing, and questions are not saved: a loaded game starts with none.
+- Yes issues the same order on every machine as the matching button would. If it can no longer be done, the speaker says why. No, or no answer, does nothing, and the question rests before it is asked again.
+- The questions (Jade's table; wording and rests suggested):
+  1. Better kit: an idle or holding troop or mage, out of a fight, that the stock could kit better: "I could use better kit. Upgrade?" One speaks for the idle troops near it (within 10 m): "Four of us could use better kit. Upgrade?" Yes sends each to the best weapon and armour the stock pays for, the weapon first; asked again only once the stock pays for better still.
+  2. Hurt: a unit at or below 70% health, out of a fight and outside, with food in stock: "I'm hurt. Can I eat to heal?" (or "Three of us are hurt. Can we eat to heal?"). Yes has each eat at the nearest table, then carry on with what it was doing; asked again only after it was back above 70%.
+  3. A man up top who wants to fight what walks below: "Let me down to fight those zombies?" Yes lets him down to attack the nearest enemy on the ground. ("I'm not much help up here!" stays a bubble.)
+  4. Dawn: the main base, over the middle of its roof, once a dawn when buildings are damaged and a worker is idle: "Three buildings are damaged. Repair them?" Yes sends idle workers, the nearest first, one to a building, nearest the main base first.
+  5. A gatherer whose node ran out with nothing near to switch to: "No more softwood nearby. Look farther off?" (before Patch 2: "I have run out of softwood lumber nearby." and the idle alert). Yes sends it to the nearest node of that kind it can walk back from before nightfall.
+  6. An engine that lost a crewman: "A crewman fell. Train another?" Yes queues a crewman at the nearest Artillery workshop (asked once the crewman is in the game).
+- Cut by Jade: a dusk "Everyone home?" question and the light-out questions (the panel lines stay), and a third button.
+
+**The message panel.** What units say that needs the player (above) also appears in the message panel with the name of the unit that said it, along with game alerts (such as "Night is falling") and messages from other players.
 
 - The panel is semi-transparent until the cursor is over it, so it does not hide the game.
 - It can be scrolled up and down, and collapsed entirely to a small button.
@@ -1539,7 +1563,7 @@ Units talk to their player. This is how the game tells the player what their uni
 - Messages from other players are highlighted differently from unit speech and alerts.
 - A filter button switches between three views: everything; alerts and player messages only; and player messages only.
 
-**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, idle workers and nightfall count as urgent, and F4 steps through them). For these:
+**Urgent messages.** Some messages need the player's attention, such as an order blocked by terrain or a lack of resources (suggested, as built: alerts, units' urgent lines and nightfall count as urgent, and F4 steps through them; a gatherer that runs out asks a question instead in Patch 2). For these:
 
 - The minimap is always pinged at the spot where it happened.
 - If the panel is collapsed, its button flashes as an alarm.
@@ -1753,6 +1777,14 @@ Workers are trained at main bases and at farms.
 
 Warriors (troops) fight and hunt. Each troop is one of five types and keeps that type for good: close melee, long melee, ranger, brawler and cavalry. Its weapon and armour are not items: they are tiers chosen when it is trained and raised with the Upgrade buttons (see "Troops and gear" (Jade, 2026-10-03)).
 
+**Troop names (Jade, Patch 2):** a troop goes by its weapon tier's name in the selection panel, tooltips, bubbles and message lines, in place of its type, and the name changes the moment its weapon is upgraded; the type name stays on the training buttons. The rank follows in brackets: "Copper swordsman (Recruit)".
+- Close melee, tiers 0 to 8: Fist fighter, Club fighter, Flint axeman, Copper swordsman, Bronze swordsman, Iron swordsman, Broadswordsman, Steel swordsman, Champion.
+- Long melee, tiers 1 to 8: Spearman, Flint spearman, Copper spearman, Bronze spearman, Iron spearman, Pikeman, Halberdier, Greatswordsman.
+- Ranger, tiers 1 to 8: Slinger, Yew archer, Copper archer, Bronze archer, Iron archer, Marksman, Crossbowman, Musketeer.
+- Brawler: keeps its name.
+- Cavalry, tiers 1 to 8: Lancer, Flint lancer, Copper lancer, Bronze lancer, Iron lancer, Pike rider, Halberd rider, Greatsword rider.
+- Workers go by rank (Labourer, Hand, Master worker, Foreman, Elder); mages keep their school and rank ("Battle mage (Acolyte)").
+
 - **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Gear has no weight, so nothing it wears slows it down or stops it swimming (Jade, 2026-10-03).
 - **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel: bronze swords are short swords, since long bronze blades bend, and bronze armour stops at scale.
 - **Hunting:** warriors kill animals for meat, hides and feathers. A killed animal leaves no carcass: what it gives is loot (see "Loot") that the warrior takes into its bag, or that falls on the ground when the bag is full or the warrior is not beside it (Jade's play-test notes, 2026-10-03). A ranger kills game from range, so it walks over to pick up what it killed. Some animals run away; some fight back.
@@ -1915,7 +1947,7 @@ Direct collision works well, with a few additions so that it stays fair, fast an
 
 - Anyone on foot can man a tower (4 places) or a main base from level 3 (8 places): warriors of every kind, mages and workers. Riders get down first. They stand on the places the footprint table gives each level, drawn there (suggested).
 - Archers, musketeers, brawlers and mages shoot and cast from up there as before. Men without a ranged weapon are safe from anything that walks and from ranged monsters, and strike only at flying melee monsters that swoop down at them: cave bats, gravewings, rift hornets and rift griffins, which may now go for any man up top (Jade; the list is suggested).
-- While monsters are within 12 m, a man up top with no ranged weapon says "I'm not much help up here!", and a warrior one time in three "Let me get down there to fight those zombies!" (naming the nearest monster on the ground; with only flyers near he says the first line), as a bubble, at most once every 90 s per man and once every 20 s for a player's men (Jade's lines; the numbers are suggested).
+- While monsters are within 12 m, a man up top with no ranged weapon says "I'm not much help up here!", and a warrior one time in three asks "Let me down to fight those zombies?" with Yes and No (Patch 2, see Questions; before Patch 2 he said "Let me get down there to fight those zombies!"), naming the nearest monster on the ground (with only flyers near he says the first line), at most once every 90 s per man and once every 20 s for a player's men (Jade's lines; the numbers are suggested).
 - Workers sent in with E go up a top while there is room and shelter inside a main base once it is full; E pressed twice and Everyone Home shelter them inside (suggested).
 
 #### Rangers (agreed 2026-10-03)

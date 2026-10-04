@@ -32,6 +32,7 @@ import {
   TROOP_NAMES,
   troopPieces,
   troopProduct,
+  troopTierName,
   troopTiersAt,
   TRAINING,
   WAND_KITS,
@@ -304,11 +305,17 @@ export function troopCostText(_b: BuildingInfo, troop: number, w: number, a: num
   return `${kit ? `${kit}, ` : ''}${ps.food} food${horse}, 1 supply; ${Math.round(ps.steps / STEPS_PER_SECOND)} s`;
 }
 
-/** "Trains close melee: bronze shortsword, wooden shield, boiled-leather cuirass." or "Trains a Support mage (Novice Acolyte) with a hazel wand and a homespun robe." */
+/** "a Bronze swordsman", "an Iron archer": the troop a card's weapon tier makes, by its name (Patch 2, troop names). */
+export function aTroopName(troop: number, w: number): string {
+  const name = troopTierName(troop, w);
+  return `${/^[AEIOU]/i.test(name) ? 'an' : 'a'} ${name}`;
+}
+
+/** "Trains a Bronze swordsman: bronze shortsword, wooden shield, boiled-leather cuirass." or "Trains a Support mage (Novice Acolyte) with a hazel wand and a homespun robe." */
 export function cardTrainsText(card: number, w: number, a: number): string {
   const named = cardPieces(card, w, a).map((p) => lowerFirst(p.name));
   if (isMageCard(card)) return `Trains a ${mageTitle(cardSchool(card), 1)} with a ${named.join(' and a ')}.`;
-  return `Trains ${cardName(card).toLowerCase()}: ${named.join(', ')}${a === 0 ? ', no armour' : ''}.`;
+  return `Trains ${aTroopName(card, w)}: ${named.join(', ')}${a === 0 ? ', no armour' : ''}.`;
 }
 
 /** The card picture's tooltip lines: what it trains, its stats, its cost and time, and how the kit is chosen. */

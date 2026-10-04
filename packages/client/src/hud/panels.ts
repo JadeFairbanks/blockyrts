@@ -21,6 +21,14 @@ export class HudPanels {
     this.measure();
   }
 
+  /** Forgets a panel that is gone for good (a question bubble's buttons). */
+  unregister(el: HTMLElement): void {
+    const k = this.entries.findIndex((x) => x.el === el);
+    if (k < 0) return;
+    this.entries.splice(k, 1);
+    this.measure();
+  }
+
   /** Re-reads every panel's rectangle; call once a frame and after layout changes. Hidden panels drop out. */
   measure(): void {
     this.measured = [];

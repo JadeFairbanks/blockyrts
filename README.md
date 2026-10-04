@@ -1003,7 +1003,7 @@ milestone are refused with a message saying why.
    reasons, the Max twins, an old save refused).
 2. **The start.** `pnpm dev`, open http://localhost:5173/?seed=1. Four
    workers and three warriors with hardwood cudgels stand by the Big House.
-   Select a warrior: the panel reads "Close melee (Recruit)", its cudgel, no
+   Select a warrior: the panel reads "Club fighter (Recruit)" (in Patch 2; "Close melee (Recruit)" before), its cudgel, no
    armour, weapon tier 1 and armour tier 0.
 3. **The troop panel.** On the debug bar press **Troop kit**: a Barracks and
    a Steelworks appear in the middle of the view with the stock for every tier
@@ -1675,6 +1675,120 @@ repo. No hash changed: sound only listens to the game.
    rewrites `packages/client/src/audio/sound-files.json`. Music and ambience
    are encoded with a second of wrap-around each side and cut back after
    decoding, so their loops have no seam.
+
+## How a tester checks troop names (Patch 2)
+
+*A troop goes by its weapon tier's name, everywhere a unit is named; the type
+name stays on the training buttons; workers at rank 4 and 5 are Foreman and
+Elder. The names come from one sim function, `unitTitle()` in
+`packages/sim/src/units/names.ts`.*
+
+1. **The tests.** `pnpm test packages/sim/test/troop-names.test.ts`: every
+   weapon tier of every type has its name and the Brawler keeps its own, a
+   troop's name changes with its weapon tier and reads the same in its lines,
+   and Foreman, Elder and the mages' titles.
+2. **The start.** `pnpm dev`, open http://localhost:5173/?seed=1. Select one of
+   the three starting warriors: the panel reads "Club fighter (Recruit)" (live
+   now: "Close melee (Recruit)"). Hover its portrait: the same name.
+3. **An upgrade.** Press **Troop kit** on the debug bar, select a starting
+   warrior and upgrade its weapon: while the bar fills it is still a Club
+   fighter; the moment the bar is full the title reads the new tier's name
+   ("Flint axeman (Recruit)" one tier up, "Champion (Recruit)" at tier 8).
+4. **The Barracks.** Select the Barracks: the training buttons still say
+   Train close melee, Train long melee, Train ranger, Train brawler. Train a
+   long melee troop with an iron pike: the message reads "A new pikeman is
+   ready." and the troop's title "Pikeman (Recruit)". A ranger with a sling is
+   a Slinger, a bronze-tipped one a Bronze archer, a musket ranger a Musketeer;
+   a brawler stays "Brawler (Recruit)"; cavalry is a Lancer up to a
+   Greatsword rider.
+5. **Lines and bubbles.** A troop under attack speaks under its tier name in
+   the message panel ("Copper swordsman (Recruit)" rather than "Warrior
+   (Recruit)" before Patch 2); a mage speaks under its school and rank
+   ("Battle mage (Acolyte)"). Rank-ups read "A club fighter has risen to
+   Soldier."
+6. **Foreman and Elder.** A worker that reaches rank 4 or 5 in combat reads
+   "Worker (Foreman)" or "Worker (Elder)" (live now: "Worker (Rank 4)" and
+   "Worker (Rank 5)").
+
+## How a tester checks the question bubbles and the chat rule (Patch 2)
+
+Jade's Patch 2, round 3 and "What reaches chat" (blueprint/patch-2.md). The
+picks are in blueprint/patch2-questions-picks.md. Questions are not state:
+hashes and saves never see them, and a loaded game starts with none.
+
+1. **Better kit.** `pnpm dev`, open http://localhost:5173/?seed=1. Within a
+   second the three starting warriors' bubble asks "Three of us could use
+   better kit. Upgrade?" with a green tick and a red cross under it. Hover
+   each: the tooltip says what it does, Yes's with what it takes from the
+   stock. Click the tick: they walk off to upgrade, the weapon first. In a
+   new game click the cross instead: nothing happens, and they do not ask
+   again until the stock pays for something better.
+2. **The wait.** Leave a question alone: it goes after 30 s. Open F10 while
+   one is up: it stays as long as the game is paused, then waits out the
+   rest of its 30 s. Click beside the buttons: the click reaches the world
+   (the bubble itself takes none). With tap controls on, a tap on Yes or No
+   answers.
+3. **Hurt.** Let a worker or warrior fall to 70% health or less (a wolf will
+   do) and get away: out of the fight it asks "I'm hurt. Can I eat to heal?"
+   (with others hurt near it, "Three of us are hurt. Can we eat to heal?").
+   Yes: each walks to the nearest main base or storehouse, eats, and goes
+   back to what it was doing.
+4. **Up top.** Man a tower with close warriors and wait for night: now and
+   then one asks "Let me down to fight those zombies?" (naming what walks
+   below). Yes: he comes down and attacks the nearest one on the ground.
+   "I'm not much help up here!" stays a bubble and is no longer in chat.
+5. **Dawn.** Let something damage a building in the night, and keep a worker
+   idle: at dawn the main base asks over its roof "One building is damaged.
+   Repair it?". Yes: the nearest idle worker goes to repair it, one worker to
+   a building. It asks once a dawn.
+6. **Ran out.** Send a worker to the last tree of a far grove with nothing
+   else near: when it is gone it asks "No more softwood nearby. Look farther
+   off?" with the idle gatherer's sound (before Patch 2 it said "I have run
+   out of softwood lumber nearby." in chat). Yes: it walks to the nearest
+   softwood it can reach before nightfall and says so in a bubble.
+7. **At most three.** With several questions due at once, no more than
+   three are up for a player; the next comes up as one is answered or ends.
+8. **Online.** Two players as in milestone 9 step 3: each sees the other's
+   questions as plain bubbles without buttons, and neither sees them in
+   chat. The crewman question ("A crewman fell. Train another?") waits for
+   the Artillery workshop's crewman (Patch 2, wave 2).
+9. **The chat rule.** Only urgent lines from your own units reach the message
+   panel, each pinging the minimap and joining F4's list: "Help! I am being
+   attacked!", a failed order ("I cannot reach that.", "Not enough ...") and
+   now "That cart is gone!". Another people's greetings, trade answers and
+   war cries are bubbles only; open their trade or hire menu and the last
+   thing they said to you shows under its title. Their news (war declared,
+   a surrender offer) is still in chat as the game's own line.
+10. `pnpm test` runs `packages/sim/test/questions.test.ts` (each question,
+    Yes and No, the 30 s wait, three at a time, rests, a leaver's units, not
+    saved, every machine in step), `packages/client/test/question-bubbles.test.ts`
+    (the bubble waits in game time, over a roof for a building, buttons only
+    for the owner), `packages/client/test/hud-wording.test.ts` (the chat
+    rule) and `packages/client/test/m10-audio.test.ts` (the run-out cue).
+
+## How a tester checks the training countdown (Patch 2)
+
+Jade's bug: while the Magi Sanctum trained a mage, the queue's seconds jumped
+up and down while they fell. The countdown is now the sim's own time.
+
+1. Build a Magi Sanctum (or use the tester tools' Sanctum button), select it
+   and train a support or battle mage. Hover the mage's picture at the head
+   of the queue: "Complete in 80 seconds." falls by one each second, never
+   jumps back up, and the mage walks out as it passes 1 second.
+2. The same at the Barracks with any troop and at the Big House with a
+   worker.
+3. Use up the supply, then queue one more worker at the Big House: it reads
+   "On hold: nothing is working on it right now." until a farm frees supply,
+   then counts down.
+4. Queue a few planks at a lumber mill with nobody inside: on hold. Assign
+   one worker: once inside, it counts down. Assign a second: as it steps
+   inside, the seconds drop at once to the faster pace, then fall one a
+   second again.
+5. Pause: the seconds stand still.
+6. `pnpm test` runs packages/sim/test/queue-countdown.test.ts (every kind of
+   queue counts down one step a step and is done on the step it says) and
+   packages/client/test/queue-countdown.test.ts (a mage's hover text from 80
+   down to 1, never rising).
 
 ## How a tester checks the balance editor
 
