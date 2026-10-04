@@ -1710,6 +1710,30 @@ Elder. The names come from one sim function, `unitTitle()` in
    "Worker (Foreman)" or "Worker (Elder)" (live now: "Worker (Rank 4)" and
    "Worker (Rank 5)").
 
+## How a tester checks the training countdown (Patch 2)
+
+Jade's bug: while the Magi Sanctum trained a mage, the queue's seconds jumped
+up and down while they fell. The countdown is now the sim's own time.
+
+1. Build a Magi Sanctum (or use the tester tools' Sanctum button), select it
+   and train a support or battle mage. Hover the mage's picture at the head
+   of the queue: "Complete in 80 seconds." falls by one each second, never
+   jumps back up, and the mage walks out as it passes 1 second.
+2. The same at the Barracks with any troop and at the Big House with a
+   worker.
+3. Use up the supply, then queue one more worker at the Big House: it reads
+   "On hold: nothing is working on it right now." until a farm frees supply,
+   then counts down.
+4. Queue a few planks at a lumber mill with nobody inside: on hold. Assign
+   one worker: once inside, it counts down. Assign a second: as it steps
+   inside, the seconds drop at once to the faster pace, then fall one a
+   second again.
+5. Pause: the seconds stand still.
+6. `pnpm test` runs packages/sim/test/queue-countdown.test.ts (every kind of
+   queue counts down one step a step and is done on the step it says) and
+   packages/client/test/queue-countdown.test.ts (a mage's hover text from 80
+   down to 1, never rising).
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
