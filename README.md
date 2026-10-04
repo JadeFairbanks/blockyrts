@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `cd50d99f` at step 40, with two players `b2ec231a`. The land matches too.
+   `5d6f44ab` at step 40, with two players `f0c858ac`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
    prints `final step 10000 hash 755ada70`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
@@ -480,7 +480,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 5e9fe863`: the debug tools put a Barracks
+   prints `final step 10000 hash f1199cd6`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -634,7 +634,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash e90e0bff`: the debug tools put a Magi
+   prints `final step 10000 hash c26b0777`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -747,7 +747,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 88ac1c9d`: the debug tools put a Halfling
+    prints `final step 10000 hash 3c33e161`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -862,7 +862,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 7c0e0096`. The script plays by Patch 2's
+   prints `final step 10000 hash 40c78f43`. The script plays by Patch 2's
    rules (before Patch 2 the gun kit trained warriors as cannon crew and
    warriors crewed the engines): the debug tools make the Big House a
    Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
@@ -1049,7 +1049,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 7c0e0096`, as in milestone 8 above.
+   prints `final step 10000 hash 40c78f43`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1632,14 +1632,16 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash dc29d0dc`: the debug tools explore 200 m round the
+   prints `final step 10000 hash f37f0d2f`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 86
    monsters are out at nightfall (27 before Patch 3 tripled them), round
-   them and round the workers at the camp, up to 230 at once later and 298
-   over the night; three of them go for a unit, and night 0's monsters marching on the camp fall on the warriors
-   and kill one; the other two end the night at about three quarters and
-   full health. They walk home at step 8200.
+   them and round the workers at the camp, up to 223 at once later and 296
+   by the end of the script, and all four workers at the camp fall; five of
+   them go for a unit, and night 0's monsters marching on the camp fall on
+   the warriors and kill one; the other two end the night at full health
+   and about three fifths. They walk home at step 8200, and on the way a
+   giant spider kills the wounded one.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm test` also runs `packages/sim/test/wanderers.test.ts`: where they
    come out (claimed land, lights, units, unexplored land, a peaceful game, a
@@ -2502,13 +2504,15 @@ picks in blueprint/patch3-anti-clumping-picks.md.*
    step 32, Most bodies one makes room from at once 8. Setting the first to
    0 turns making room off. Followers keep within (2.5 m) now shows under
    Work and ranks.
-7. **Check scripts.** Every hash above is the one with making room. All of
-   them moved, since two of the start workers stand 46 cm apart and step
-   out to 52 cm in the first second. The stories that changed: in M3 one more fence piece is broken;
-   in M5 a second warrior falls at the goblin village and its wolf pen
-   stands; in M7 no warrior falls taking the Halfling village; in M8 three
-   goblins and the wolf pen are left the next morning; in the wanderers
-   script the wounded warrior ends at about two thirds of its health.
+7. **Check scripts.** Every hash above is the one with making room. All
+   of them moved, since two of the start workers stand 46 cm apart and
+   step out to 52 cm in the first second. The stories that changed: in M3
+   one more fence piece is broken; in M5 a second warrior falls at the
+   goblin village and its wolf pen stands; in M7 no warrior falls taking
+   the Halfling village; in M8 three goblins and the wolf pen are left the
+   next morning; in the wanderers script the wounded warrior ends the
+   night at about three fifths of its health and a giant spider kills it
+   on the walk home, so one warrior comes back instead of two.
 
 ## How a tester checks the action and build menus (Patch 3)
 
