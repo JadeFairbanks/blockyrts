@@ -253,6 +253,8 @@ describe('retraining an artillery crewman as a worker (Patch 3)', () => {
     const said = heard(s).find((ev) => ev.kind === 'speech' && ev.speaker === id);
     expect(said?.text).toBe('Retraining to be a worker.');
     expect(said?.quiet).toBe(true);
+    // The bubble stays up as long as the bar (the bubbles thread's hook).
+    expect(said?.hold).toBe('bar');
     expect(tinkerProgress(s, c)[1]).toBe(CREWMAN_RETRAIN_STEPS);
     expect(isCrewman(s, c)).toBe(true);
     // Hurt as he sits (a hurt unit's question bubble would take the place of the line above), he keeps his share of health.

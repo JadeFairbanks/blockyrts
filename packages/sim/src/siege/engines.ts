@@ -25,7 +25,7 @@ import { Act, besideBuilding, exitColumn, columnCentre, FAILED, giveOrder, leave
 import { applyKit, Troop } from '../units/kits.ts';
 import { WORKER_HEALTH_BY_RANK, Work, workXp } from '../units/ranks.ts';
 import { tinker } from '../units/tinker.ts';
-import { say } from '../peoples/speech.ts';
+import { say, sayTinkering } from '../peoples/speech.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
 import { CANNON_PORTS, CITADEL_LEVEL, CREW_REACH_WU, CREWMAN_RETRAIN_STEPS, Engine, engineSpec, HAUL_REACH_WU, type EngineSpec } from './data.ts';
 
@@ -454,7 +454,7 @@ export function runRetrain(state: SimState, j: number, o: Extract<UnitOrder, { t
     // Beside it he sits and tinkers while the bar fills, and says what he is doing (Patch 3: present tense).
     e.act[j] = Act.Work;
     e.timer[j] = 0;
-    say(state, j, 'Retraining to be a worker.', false, true);
+    sayTinkering(state, j, 'Retraining to be a worker.');
   }
   if (!tinker(state, j, CREWMAN_RETRAIN_STEPS)) return CONTINUE;
   becomeWorker(state, j);
