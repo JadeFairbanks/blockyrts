@@ -1766,6 +1766,52 @@ Patch 2 do not load (the standing rule for every patch).
    sound. Close the menu: the world is heard again. Online, either player's
    Pause does the same on both machines.
 
+## How a tester checks worker ranks and crew retraining (Patch 3)
+
+Jade's Patch 3 file, items 1 and 2. The picks are in
+blueprint/patch3-worker-ranks-crew-picks.md. Older sections above that send
+workers to train a rank with U describe the game before Patch 3.
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-ranks-crew.test.ts
+   (a load of pine teaches a worker 2.5 experience and the walk none; building
+   teaches; 12 steps of work make a tenth with starting tools and better tools
+   learn faster; a worker rises Labourer to Elder with its health, and
+   fighting adds to the same ladder; workers can no longer train a rank and a
+   worker's train order from an old save is dropped at no cost; the unit view
+   carries experience and the next rank's need; a horse hauls a catapult with
+   no crew, which still needs its 2 crewmen to fire; a crewman retrains at the
+   main base in 30 s saying so and gets up a Labourer, at no cost; a new order
+   cancels it; only crewmen take it, and with no main base he says so; a save
+   made while he retrains plays on the same), and the client's m2-controls,
+   m3-controls, m8-controls and hud-icons tests (no Rank button on the worker
+   card, Retrain on W on the crewman's card, the experience in the unit view).
+2. **No rank button.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   select a worker: Move, Gather, Unload, Repair, Dig, Prospect, Build, Eat,
+   Equip and Cart, with no Rank button, and U does nothing.
+3. **Workers rank up by working.** Put the four workers to chopping or
+   building and let them work: each minute of work is worth 10 experience
+   with their hardwood tools (walking teaches nothing), so a worker kept busy
+   rises to Hand after about five minutes of work, its name in the selection
+   panel changing from Labourer to Hand and its most health from 60 to 70.
+   Master worker takes 150, Foreman 400 and Elder 1000. Workers that only
+   fight learn very little. The tester tools' **Speed** button (type M N B V
+   C X Z first; a game alone) runs the game at 4 or 16 times speed to get
+   there sooner.
+   The XP bar under the name arrives with the middle HUD's Patch 3 work.
+4. **Towing needs no crew.** Type M N B V C X Z to show the tester tools and
+   press **Siege kit**. Select a crewman of the catapult and give him a Move
+   order far off, so the catapult has no crew by it. Press **Barn** for a
+   Barn with 2 horses and an ox, select the catapult, right click a horse to
+   hitch it and move the catapult: it rolls with no crewman near. It fires
+   only once its 2 crewmen stand by it again.
+5. **Retraining a crewman.** Select a crewman: his card has **Retrain** (W),
+   whose tooltip says it takes 30 s and costs nothing. Press W: he walks to
+   the Big House, sits down tinkering with a bar over his head and a bubble
+   saying "Retraining to be a worker.", and after 30 s gets up a worker, a
+   Labourer with hardwood tools, still selected. Give another crewman W and
+   then a Move before the bar fills: he gets up and stays a crewman. Nothing
+   in the stock changes either way.
+
 ## How a tester checks troop names (Patch 2)
 
 *A troop goes by its weapon tier's name, everywhere a unit is named; the type
