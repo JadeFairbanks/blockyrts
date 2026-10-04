@@ -943,6 +943,41 @@ body.playing * {
   opacity: 0.88;
   font-style: italic;
 }
+/* Questions (Patch 2, round 3): a bubble that waits for an answer, with its
+   owner's Yes and No under the words. Only the two buttons take clicks;
+   everywhere else the bubble lets the click through to the world. */
+.bubble.question {
+  max-width: 240px;
+  padding: 4px 8px 5px;
+  background: rgba(255, 246, 214, 0.97);
+  border: 1px solid rgba(150, 112, 38, 0.85);
+}
+.bubble.question .q-text {
+  display: block;
+  font-weight: 600;
+}
+.bubble.question:not(.mine) {
+  opacity: 0.9;
+}
+.yes-no {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.hud-btn.yes-no-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  pointer-events: auto;
+}
+.hud-btn.yes-no-btn .face {
+  line-height: 0;
+}
+.hud-btn.yes-no-btn .face svg {
+  width: 20px;
+  height: 20px;
+}
 
 /* The Peoples panel, the trade menu, the hire box and the war pop-up. */
 .peoples-panel,
@@ -998,6 +1033,13 @@ body.playing * {
   margin: 6px 0;
   color: #ffb08a;
   font-size: 12px;
+}
+/* What the trader or hirer last said to the player (Patch 2: it no longer goes to chat). */
+.dlg-said {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--parchment, #efe3c8);
 }
 .dlg-row {
   display: flex;

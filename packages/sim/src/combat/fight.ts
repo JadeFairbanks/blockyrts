@@ -209,7 +209,7 @@ export function salvageable(state: SimState, t: number): boolean {
 export const UP_TOP_FOE_WU = 12 * WU_PER_METRE;
 
 /** The nearest enemy within r of a unit, or -1; with grounded, only one that does not fly. */
-function nearestFoe(state: SimState, i: number, r: number, grounded = false): number {
+export function nearestFoe(state: SimState, i: number, r: number, grounded = false): number {
   const e = state.entities;
   let best = -1;
   let bestD = 0;

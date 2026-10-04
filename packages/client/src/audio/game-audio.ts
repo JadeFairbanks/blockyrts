@@ -242,6 +242,8 @@ export class GameAudio {
 
   onInfo(info: InfoMessage): void {
     for (const ev of info.events) {
+      // Everyone sees every question's bubble; only its owner hears it.
+      if (ev.kind === 'question' && ev.player !== this.player) continue;
       const cue = eventCue(ev);
       const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
       // The blood night's double horn plays at dusk with the clock; its warning event only stands in if that was missed.

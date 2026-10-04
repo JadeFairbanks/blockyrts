@@ -36,6 +36,7 @@ import { installLateMobs } from './threats/late-mobs.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
+import { updateQuestions } from './units/questions.ts';
 
 installDeathHooks();
 installAnimalHooks();
@@ -171,6 +172,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateMagic(state);
   refillMages(state);
   updateFood(state);
+  updateQuestions(state);
   settleDeaths(state);
   updateLoot(state);
   updateBuildings(state);

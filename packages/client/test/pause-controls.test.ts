@@ -52,7 +52,7 @@ describe('patch notes 1: no random remarks while paused', () => {
     vi.restoreAllMocks();
   });
 
-  const anchor = { head: () => ({ x: 100, y: 100 }) };
+  const anchor = { head: () => ({ x: 100, y: 100 }), roof: () => null };
   const speakers = (): Array<[number, string]> => [[7, 'worker']];
 
   it('says nothing while paused, and the wait for the next remark stands still', () => {
