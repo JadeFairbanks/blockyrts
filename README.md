@@ -2326,9 +2326,9 @@ measured with `packages/client/src/models/instanced-model.ts`.*
    drawn behind it.
 4. **Under a tree.** Walk a worker under a tall pine just north of its
    trunk: the crown hides it and it is outlined; a step out from under the
-   crown and the outline goes. Other players' units, monsters and animals
-   are never outlined, and neither are your units hidden only by each
-   other or standing in water.
+   crown and the outline goes. Your own units count as cover too, so a
+   worker behind your own cannon or horse is outlined. Other players' units,
+   monsters and animals are never outlined, and water hides no one.
 5. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
    running, `node packages/client/test-e2e/outline-look.mjs http://localhost:5198 /tmp/shots`
    plays steps 2 to 4 at 1920 by 1080 and prints ok or FAIL for each, the
