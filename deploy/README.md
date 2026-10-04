@@ -43,8 +43,9 @@ not security. The pieces, all in `deploy/pages/`:
   `<username>:<password>`; to change the login, put
   `printf 'admin:NEW' | sha256sum` into `LOGIN_SHA256`. It also answers
   `/robots.txt` with `Disallow: /` and marks every page `noindex`.
-- `static/_routes.json`: the game's data files (`/assets/`, `/models/`) skip
-  the gate, because a page load fetches about a thousand of them and each
+- `static/_routes.json`: the game's data files (`/assets/`, `/models/`,
+  `/audio/`) skip
+  the gate, because a page load fetches over a thousand of them and each
   gated request would count against the free plan's 100,000 Functions
   requests a day. Without the page they are just files.
 - `static/_headers`: `noindex` on those data files too.
