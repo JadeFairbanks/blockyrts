@@ -455,7 +455,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
       texts.push(...s.events.map((ev) => ev.text));
     }
     expect(base.queue[0]!.progress).toBe(0);
-    expect(texts).toContain('Not enough supply to train a long melee. Build or upgrade farms.');
+    expect(texts).toContain('Not enough supply to train a long melee. Build farms or upgrade the main base.');
   });
 });
 

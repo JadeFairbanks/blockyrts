@@ -117,7 +117,7 @@ export function troopWhy(g: GameInfo, b: BuildingInfo, troop: number, w: number,
   if (!planPieces(pieces, g.pool())) return `Not enough resources (${costText(mainCost(pieces))}).`;
   const info = g.info;
   if (info && g.food() < TRAINING.troopFood) return `Not enough food (${TRAINING.troopFood} food).`;
-  if (info && info.supplyUsed >= info.supplyCap) return `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+  if (info && info.supplyUsed >= info.supplyCap) return `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
   if (b.queue.length >= 5) return 'The queue is full (5).';
   return '';
 }

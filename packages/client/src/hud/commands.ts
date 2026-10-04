@@ -10,6 +10,7 @@ import { cue } from '../audio/cues.ts';
 import {
   BuildingKind,
   costText,
+  craftRate,
   EAT_NUTRITION,
   engineSpec,
   holderKind,
@@ -1063,16 +1064,18 @@ export class Commands {
     else if (ps.research !== undefined && [...g.buildings.values()].some((b) => b.owner === this.d.player && b.queue.some((q) => q.product === p))) reason = 'Being researched.';
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
     else if (ps.food === 0) reason = g.costProblem(ps.cost);
-    if (!reason && (p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+    if (!reason && (p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
     if (why !== undefined) reason = why;
     if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
+    // Patch 2: a crafting building makes goods at its own pace, with no workers.
+    const pace = ps.recipe !== undefined && all[0] ? craftRate(all[0].kind) : 1;
     return {
       action,
       face,
       name: ps.name,
       key: grid !== undefined ? GRID_CODES[grid]! : this.key(action),
       grid: grid !== undefined,
-      description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / 2) / 10} s. Shift: queue 5.`,
+      description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / pace / 2) / 10} s. Shift: queue 5.`,
       icon: productIcon(p),
       product: p,
       enabled: reason === '',

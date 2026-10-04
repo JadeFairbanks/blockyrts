@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BuildingKind,
   BUILDINGS,
+  CRAFT_PACE,
   Line,
   MONSTERS,
   productsOf,
@@ -277,7 +278,24 @@ describe('the Big House', () => {
     expect(rope.grid).toBe(true);
     expect(rope.enabled).toBe(false);
     expect(rope.reason).toContain('Not enough flax');
+    // The Big House makes rope at one worker's pace, as before Patch 2.
+    expect(rope.description).toContain('Time: 10 s.');
     expect(make[14]!.face).toBe('Back');
+  });
+
+  it('says a Workshop recipe\'s real time: it works on its own at the crafting pace (Patch 2)', () => {
+    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(30, BuildingKind.Workshop, { name: 'Workshop' })] });
+    const shop = g.buildings.get(30)!;
+    shop.products = productsOf({ kind: BuildingKind.Workshop, complete: true } as Parameters<typeof productsOf>[0]).map((p) => [p, '']);
+    const { c } = harness(g, [{ ...sel('b:30', `building:${BuildingKind.Workshop}:1`), kind: 'building' }], `building:${BuildingKind.Workshop}:1`);
+    const all = [c.card()];
+    const make = all[0]!.find((e) => e?.key === 'KeyK');
+    if (make) {
+      make.run(PRESS);
+      all.push(c.card());
+    }
+    const planks = all.flat().find((e) => e?.name === 'Planks from softwood')!;
+    expect(planks.description).toContain(`Time: ${5 / CRAFT_PACE} s.`);
   });
 
   it('lets warriors into a tower', () => {

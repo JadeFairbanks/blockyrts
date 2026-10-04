@@ -711,7 +711,7 @@ export function updateBuildings(state: SimState): void {
             b.alerted |= 1;
             const what = productSpec(head.product).name.toLowerCase();
             const [x, z] = buildingCentre(b);
-            state.events.push({ player: head.by, kind: 'alert', text: `Not enough supply to train a ${what}. Build or upgrade farms.`, x, z });
+            state.events.push({ player: head.by, kind: 'alert', text: `Not enough supply to train a ${what}. Build farms or upgrade the main base.`, x, z });
           }
         } else {
           b.alerted &= ~1;
