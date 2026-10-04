@@ -18,8 +18,8 @@
 //   fleeing): not at all, and it pushes no one: it passes through, so making
 //   room never slows a worker down or turns it the wrong way, and a horde
 //   reaches a wall where it would have.
-// - Everyone else standing (on Hold, waiting its turn at a node, a cart,
-//   an engine, a monster mid-swing or chewing at a wall, a lair): gives no
+// - Everyone else standing (on Hold, waiting its turn at a node, a siege
+//   engine, a monster mid-swing or chewing at a wall, a lair): gives no
 //   way, but others make room round it. A horde at a wall keeps chewing the
 //   piece on its line to its foe, as it would with no making room.
 //
@@ -291,7 +291,8 @@ function tether(state: SimState, p: number, x: number, z: number, exact = false)
   const d = length2d(x - ax, z - az);
   if (d <= most && d >= least) return [x, z];
   if (exact || d === 0) return null;
-  const to = d > most ? most : least;
+  // A hair inside the limit, so the rounding of the point never takes it back out.
+  const to = d > most ? Math.max(least, most - 2) : Math.min(most, least + 2);
   return [ax + floorDiv((x - ax) * to, d), az + floorDiv((z - az) * to, d)];
 }
 
@@ -391,6 +392,9 @@ function classify(state: SimState, i: number, p: number): number {
   if (atWork(order)) return Part.Cell;
   if (onTheMove(order)) return Part.None;
   if (order !== OrderKind.Idle) return Part.Still;
+  // Told to hold its ground: it does, foe or no foe.
+  const o = e.queue[i]![0];
+  if (o?.t === 'hold') return Part.Still;
   if (e.target[i] !== 0) {
     if (kind === UnitKind.Mage || e.atkAt[i] !== 0) return Part.Still;
     const t = e.indexOf(e.target[i]!);
@@ -400,7 +404,6 @@ function classify(state: SimState, i: number, p: number): number {
     const reach = meleeOf(state, i).reach;
     return tieToUnit(p, t, 0, reach, reach < OVER_WALL_REACH);
   }
-  const o = e.queue[i]![0];
   if (!o) return e.chasing[i] === 0 ? Part.Free : Part.Still;
   if (o.t === 'follow') {
     const t = e.indexOf(o.id);

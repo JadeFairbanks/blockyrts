@@ -14,6 +14,7 @@ import {
   halfWidth,
   isqrt,
   Mat,
+  meleeOf,
   Mob,
   mobSpec,
   OrderKind,
@@ -182,6 +183,36 @@ describe('making room', () => {
     let nearest = Infinity;
     for (const a of live) for (const b of live) if (a < b) nearest = Math.min(nearest, dist(s, a, b));
     expect(nearest).toBeGreaterThan(halfWidth(s, live[0]!));
+  });
+
+  it('lets warriors round one foe fan out between blows, each staying in its reach', () => {
+    const s = createWorld(1, { peaceful: true });
+    s.step = DAY_STEPS + DUSK_STEPS + 20;
+    const { x, z } = flatSpot(s, 16, 16);
+    const e = s.entities;
+    const foe = addMob(s, Mob.Zombie, 0, centre(x + 8), centre(z + 8), 0);
+    e.hp[foe] = e.maxHp[foe] = 100000;
+    const ids = stack(s, 4, centre(x + 4), centre(z + 8));
+    for (const i of ids) e.hp[i] = e.maxHp[i] = 100000;
+    Sim.applyOrders(s, [{ kind: 'attack', player: 0, units: ids.map((i) => e.id[i]!), target: e.id[foe]! }]);
+    let checked = 0;
+    let between = Infinity;
+    for (let k = 0; k < 400; k++) {
+      step(s);
+      let all = true;
+      for (const i of ids) {
+        if (e.order[i] !== OrderKind.Idle || e.target[i] !== e.id[foe] || e.atkAt[i] !== 0) {
+          all = false;
+          continue;
+        }
+        expect(gap(s, i, foe)).toBeLessThanOrEqual(meleeOf(s, i).reach);
+        checked++;
+      }
+      // While all four get their breath back between blows, how short of room the closest two stand.
+      if (all) between = worstShort(s, ids);
+    }
+    expect(checked).toBeGreaterThan(100);
+    expect(between).toBeLessThanOrEqual(0);
   });
 });
 
