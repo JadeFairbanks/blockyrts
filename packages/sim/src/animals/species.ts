@@ -96,7 +96,7 @@ export interface SpeciesSpec {
   tameAt: readonly number[];
   /** Food per cycle while working (pulling a cart or carrying a pack), 0 for none (Table 6). */
   upkeep: number;
-  /** Grazing need in m2 of grass within 30 m of its farm (Table 6), and nutrition a day from crops when short. */
+  /** Grazing need in m2 of grass within 30 m of its Barn (Table 6), and nutrition a day from farm fare when short. */
   grassM2: number;
   cropNutrition: number;
   /** Hauling: a cart's load and speed behind it, and a pack's load without one, tenths of a pound (Table 12). */
@@ -123,8 +123,8 @@ const F = Band.Fringe;
 const D = Band.Deepwoods;
 const B = Band.Barrens;
 const X = Band.Deadlands;
-const PLANT_FOODS: readonly Res[] = [Res.Wheat, Res.Carrots, Res.Corn];
-const ANY_FOOD: readonly Res[] = [Res.Wheat, Res.Carrots, Res.Corn, Res.Potatoes];
+/** What tamed animals and bait are fed (Patch 2, Jade: "animals eat farm fare"). */
+const FARM_FOOD: readonly Res[] = [Res.FarmFare];
 
 type Base = Omit<SpeciesSpec, 'id'>;
 const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameSteps' | 'tameAt' | 'upkeep' | 'grassM2' | 'cropNutrition' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot'> = {
@@ -134,23 +134,23 @@ const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra'
 const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damage' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
 
 const LIST: readonly Base[] = [
-  // Livestock and working animals. Cattle and chickens are tamed onto a livestock farm, horses at the Stables, oxen at either (s).
+  // Livestock and working animals, all kept in a Barn once tamed (Patch 2, Jade: in place of the livestock farm, the pen and barn and the Stables).
   sp({
     name: 'Cattle', model: 'cow', youngVariant: 'calf', nature: Nature.Shy, hp: 120, damage: 6, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(40), halfWidth: m(5), height: m(15),
-    meat: 6, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 10, tameFoods: ANY_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.LivestockFarm], grassM2: 20, cropNutrition: 2,
+    meat: 6, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], grassM2: 20, cropNutrition: 2,
   }),
   sp({
     name: 'Chicken', model: 'chicken_hen', youngVariant: 'chick', nature: Nature.Shy, hp: 10, damage: 1, attackSteps: ds(10), reach: m(5), walk: mps(8), run: mps(30), halfWidth: m(2), height: m(4),
-    meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 2, tameFoods: [Res.Wheat, Res.Corn], tameSteps: sec(20), tameAt: [BuildingKind.LivestockFarm], grassM2: 2, cropNutrition: 1,
+    meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 2, tameFoods: FARM_FOOD, tameSteps: sec(20), tameAt: [BuildingKind.Barn], grassM2: 2, cropNutrition: 1,
   }),
   sp({
     name: 'Horse', model: 'horse', youngVariant: 'foal', nature: Nature.Shy, hp: 160, damage: 8, attackSteps: ds(15), reach: m(15), walk: mps(20), run: mps(80), halfWidth: m(5), height: m(16),
-    meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: PLANT_FOODS, tameSteps: sec(45), tameAt: [BuildingKind.Stables], upkeep: 2, grassM2: 20, cropNutrition: 2,
+    meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: FARM_FOOD, tameSteps: sec(45), tameAt: [BuildingKind.Barn], upkeep: 2, grassM2: 20, cropNutrition: 2,
     cartTenthsLb: 4000, cartSpeed: mps(25), packTenthsLb: 1000,
   }),
   sp({
     name: 'Ox', model: 'ox', youngVariant: 'young', nature: Nature.Shy, hp: 250, armourBp: 1000, damage: 10, attackSteps: ds(18), reach: m(15), walk: mps(15), run: mps(40), halfWidth: m(6), height: m(15),
-    meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: ANY_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Stables, BuildingKind.LivestockFarm], upkeep: 3, grassM2: 20, cropNutrition: 2,
+    meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], upkeep: 3, grassM2: 20, cropNutrition: 2,
     cartTenthsLb: 6000, cartSpeed: mps(15), packTenthsLb: 1500,
   }),
   // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1).

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   Blocked,
   BuildingKind,
+  CRAFT_PACE,
   createWorld,
   Made,
   mageProduct,
@@ -26,7 +27,6 @@ import {
   supplyUsed,
   Troop,
   troopProduct,
-  UnitKind,
   workersAt,
   type Building,
   type Order,
@@ -129,7 +129,7 @@ describe('the queue countdown is the sim\'s own time', () => {
     expect(p.research & (1 << Research.Bronze)).not.toBe(0);
   });
 
-  it('counts a forge\'s smelting down at its hands\' pace once the worker is inside', () => {
+  it('counts a Forge\'s smelting down at the crafting pace, with no workers (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const forge = built(s, BuildingKind.Forge);
     const pool = s.players[0]!.pool;
@@ -137,19 +137,15 @@ describe('the queue countdown is the sim\'s own time', () => {
     pool[Res.Charcoal] = 20;
     pool[Res.HardwoodLumber] = 20;
     const copper = RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Copper ingot');
-    const e = s.entities;
-    let w = -1;
-    for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) w = e.id[i]!;
-    run(s, 1, [{ kind: 'assign', player: 0, units: [w], building: forge.id }]);
     produce(s, forge, copper);
-    // No hands yet: on hold, and the countdown says so.
-    expect(queueHead(s, forge)!.stepsLeft).toBe(0);
-    for (let k = 0; k < 4000 && workersAt(s, forge) === 0; k++) step(s);
-    expect(workersAt(s, forge)).toBe(1);
+    expect(workersAt(s, forge)).toBe(0);
+    // The step that queues it already works it: nothing waits for hands.
+    expect(forge.queue[0]!.progress).toBe(CRAFT_PACE);
+    expect(queueHead(s, forge)!.stepsLeft).toBe(Math.ceil((productSpec(copper).steps - CRAFT_PACE) / CRAFT_PACE));
     countsDownExactly(s, forge);
   });
 
-  it('is on hold (0 steps left) while nothing moves the item: no supply, or no hands at a mill', () => {
+  it('is on hold (0 steps left) while nothing moves the item: no supply (Patch 2: crafting never waits for hands)', () => {
     // Ten units fill the Big House's supply: a new worker waits at its first step.
     const s = createWorld(1, { playerUnits: 10, warriors: 0, peaceful: true });
     const house = bigHouse(s);
@@ -160,11 +156,11 @@ describe('the queue countdown is the sim\'s own time', () => {
     expect(house.queue[0]!.progress).toBe(0);
     expect(queueHead(s, house)!.stepsLeft).toBe(0);
 
-    const mill = built(s, BuildingKind.LumberMill);
-    produce(s, mill, Product.PlanksSoftwood);
-    expect(queueHead(s, mill)!.stepsLeft).toBe(0);
+    const shop = built(s, BuildingKind.Workshop);
+    produce(s, shop, RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood'));
+    expect(queueHead(s, shop)!.stepsLeft).toBeGreaterThan(0);
+    const before = shop.queue[0]!.progress;
     run(s, 20);
-    expect(mill.queue[0]!.progress).toBe(0);
-    expect(queueHead(s, mill)!.stepsLeft).toBe(0);
+    expect(shop.queue[0]!.progress).toBe(before + 20 * CRAFT_PACE);
   });
 });

@@ -17,7 +17,7 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, level = 1, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Citadel', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Citadel', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
     troops: [], horses: 0, farm: null, ...o,
   };
 }
@@ -43,7 +43,7 @@ function game(more: BuildingInfo[] = [], pool: Array<[number, number]> = []): Ga
     data[o + S.hp] = id === 7 ? 200 : 60;
     data[o + S.maxHp] = id === 7 ? 400 : 60;
     data[o + S.carryRes] = 255;
-    // Milestone 11: riding is no skill any more; cavalry is a troop type, trained at the Stables on a horse from its stalls.
+    // Milestone 11: riding is no skill any more; cavalry is a troop type, trained (Patch 2) at the Barracks on a horse from a Barn.
     if (kind === UnitKind.Warrior) {
       data[o + S.troop] = id === 3 ? Troop.Cavalry : Troop.Close;
       data[o + S.wTier] = 1;
@@ -88,18 +88,21 @@ const cannon = sel('e:7', `engine:${Engine.BronzeCannon}`);
 const horse = sel('e:8', 'animal:own:2');
 const citadel: Selectable = { key: 'b:20', kind: 'building', owner: ME, typeKey: 'building:0:10', centre: new THREE.Vector3(0, 0, 0), halfSize: new THREE.Vector3(5, 5, 5), label: 'Citadel' };
 
-describe('cavalry (C at the Stables)', () => {
-  const stables = (horses: number): BuildingInfo => building(21, BuildingKind.Stables, 1, { name: 'Stables', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }], horses });
+describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
+  const barracks = (horses: number): BuildingInfo => building(21, BuildingKind.Barracks, 1, { name: 'Barracks', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }], horses });
+  // The test town's main base is a Citadel, past the cavalry's main base 3 (m11-troops checks that reason).
+  const at = (b: BuildingInfo, pool: Array<[number, number]>) =>
+    harness([{ ...sel('b:21', `building:${BuildingKind.Barracks}:1`), kind: 'building' }], `building:${BuildingKind.Barracks}:1`, game([b], pool));
 
-  it('trains cavalry on C, only with a tamed, grown horse in the stalls', () => {
-    const pool: Array<[number, number]> = [[Res.Wheat, 100], [Res.Sticks, 10]];
-    const none = harness([{ ...sel('b:21', `building:${BuildingKind.Stables}:1`), kind: 'building' }], `building:${BuildingKind.Stables}:1`, game([stables(0)], pool));
-    const greyed = none.c.card()[0]!;
+  it('trains cavalry on C, only with a tamed, grown horse in a Barn', () => {
+    const pool: Array<[number, number]> = [[Res.FarmFare, 100], [Res.Sticks, 10]];
+    const none = at(barracks(0), pool);
+    const greyed = none.c.card()[4]!;
     expect(greyed).toMatchObject({ action: 'trainCavalry', face: 'Cavalry', key: 'KeyC', enabled: false });
-    expect(greyed.reason).toBe('No grown tamed horse ready.');
+    expect(greyed.reason).toBe('No grown tamed horse ready in a Barn.');
     expect(greyed.description).toContain('a tamed horse');
-    const one = harness([{ ...sel('b:21', `building:${BuildingKind.Stables}:1`), kind: 'building' }], `building:${BuildingKind.Stables}:1`, game([stables(1)], pool));
-    const train = one.c.card()[0]!;
+    const one = at(barracks(1), pool);
+    const train = one.c.card()[4]!;
     expect(train.enabled).toBe(true);
     train.run(PRESS);
     expect(one.sent.at(-1)).toEqual({ kind: 'produce', player: ME, building: 21, product: troopProduct(Troop.Cavalry, 1, 0), count: 1 });

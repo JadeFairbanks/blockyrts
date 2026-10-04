@@ -183,16 +183,6 @@ export function starvingSince(state: SimState, i: number): number {
   return h > 0 && mealQuarters(state, i) > 0 ? h : 0;
 }
 
-/** A save from before patch 1 kept starving by group: each unit that eats takes its group's. */
-export function hungerFromGroups(state: SimState): void {
-  const e = state.entities;
-  for (let i = 0; i < e.count; i++) {
-    if (mealQuarters(state, i) === 0) continue;
-    const p = state.players[e.owner[i]!]!;
-    e.hungry[i] = isTroop(state, i) ? p.starveTroops : p.starveWorkers;
-  }
-}
-
 /** Health back (or lost) per 15 s tick: a share of maximum health in per mille, rounded, at least 1 (patch 1). */
 export function healthPerTick(maxHp: number, perMille: number): number {
   return Math.max(1, floorDiv(maxHp * perMille + 500, 1000));
@@ -434,7 +424,7 @@ export function eatAt(state: SimState, i: number): string {
   return '';
 }
 
-/** Buildings that hold food, where a unit can eat (s): main bases, storehouses and cooking buildings. */
+/** Buildings that hold food, where a unit can eat (s): main bases and storehouses (Patch 2 cut the cooking buildings). */
 export function servesFood(kind: number): boolean {
-  return kind === BuildingKind.MainBase || kind === BuildingKind.Storehouse || kind === BuildingKind.Cooking;
+  return kind === BuildingKind.MainBase || kind === BuildingKind.Storehouse;
 }

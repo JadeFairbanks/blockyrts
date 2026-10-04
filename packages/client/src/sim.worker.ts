@@ -23,7 +23,7 @@ import {
   bagItems,
   FOG_TILE_COLUMNS,
   BuildingKind,
-  bestLevel,
+  forgeStepOf,
   productProblem,
   stalledHorses,
   mageDefault,
@@ -267,7 +267,6 @@ function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
 /** Buildings, the pool, order lists and events: what the HUD shows besides the units. */
 function postInfo(s: SimState): void {
   const buildings: BuildingInfo[] = s.buildings.list.map((b) => {
-    const light = BUILDINGS[b.kind]!.light;
     const total = workSteps(b.kind, 1);
     return {
       id: b.id,
@@ -286,8 +285,7 @@ function postInfo(s: SimState): void {
       upgraded: b.upgrading ? Math.min(1000, Math.floor((b.upProgress * 1000) / workSteps(b.kind, b.upgrading))) : 0,
       queue: queueInfo(s, b),
       rally: b.rally.map((r) => ({ ...r })),
-      lit: isLit(b, s.step),
-      fuelLeft: light && b.complete ? Math.max(0, b.fuelUntil - s.step) : 0,
+      lit: isLit(b),
       assigned: assigned(s, b.id).length,
       working: b.complete ? workersAt(s, b) : 0,
       inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
@@ -299,7 +297,7 @@ function postInfo(s: SimState): void {
       shared: b.shared !== 0,
       stock: b.stock.map(([r, n]): [number, number] => [r, n]),
       rating: b.rating,
-      herd: b.kind === BuildingKind.LivestockFarm || b.kind === BuildingKind.Stables ? animalsAt(s, b.id).length : 0,
+      herd: b.kind === BuildingKind.Barn ? animalsAt(s, b.id).length : 0,
       troops:
         usableBy(s, b, PLAYER) && b.complete
           ? troopTypesAt(b).map((troop) => {
@@ -314,7 +312,7 @@ function postInfo(s: SimState): void {
               return { school, w, a, lock: b.locks[mageLock(school)] ?? 0 };
             })
           : [],
-      horses: b.kind === BuildingKind.Stables && b.complete ? stalledHorses(s, b).length : 0,
+      horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
     };
   });
@@ -349,7 +347,7 @@ function postInfo(s: SimState): void {
       outlying: outlyingLights(s, PLAYER, night),
       buildWhy: BUILDINGS.map((spec) => buildRequirement(s, PLAYER, spec.kind)),
       research: me.research,
-      forge: bestLevel(s, PLAYER, BuildingKind.Forge),
+      forge: forgeStepOf(s, PLAYER),
       sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
       over: s.over,
       nights: nightsSurvived(s.over || s.step, s.blood),

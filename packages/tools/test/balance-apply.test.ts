@@ -70,7 +70,7 @@ describe('balance:apply', () => {
       ['Bronze time', 'applied'], ['Big House cost resource', 'applied'], ['Zombie pierce', 'applied'],
     ]);
     expect(result.alsoChanged).toEqual([]);
-    expect(readFileSync(join(src, 'combat/items.ts'), 'utf8')).toContain("steps: sec(90), forge: 1");
+    expect(readFileSync(join(src, 'combat/items.ts'), 'utf8')).toContain("steps: sec(90), made: Made.TinIngot");
     expect(readFileSync(join(src, 'buildings/data.ts'), 'utf8')).toContain("mainBase('Big House', [[S, 300], [Res.Flint, 150]], 1200");
     expect(readFileSync(join(src, 'combat/mobs.ts'), 'utf8')).toMatch(/drops: \[\{ res: Res\.Bone, min: 1, max: 1, chancePm: 150 \}[^\n]*\],?\s*pierceBp: 8000/);
   });

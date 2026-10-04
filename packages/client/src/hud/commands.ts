@@ -10,6 +10,7 @@ import { cue } from '../audio/cues.ts';
 import {
   BuildingKind,
   costText,
+  craftRate,
   EAT_NUTRITION,
   engineSpec,
   holderKind,
@@ -123,8 +124,8 @@ const ALLIED_ACTIONS = new Set(['attack', 'stop', 'hold', 'patrol', 'move', 'gat
 
 type TargetCommand = 'move' | 'repair' | 'enter' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch';
 
-/** Pages of the command card: the main card, the build menus and a building's K menu (smelting, cooking, research and the rest). */
-export type CardPage = 'main' | 'basic' | 'advanced' | 'make';
+/** Pages of the command card: the main card, the build menu (Patch 2: one, in place of Basic and Advanced) and a building's K menu (smelting, research and the rest). */
+export type CardPage = 'main' | 'build' | 'make';
 
 /**
  * Dig (D) and earthworks: an area dragged on the ground, then confirmed with
@@ -200,13 +201,14 @@ const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
 
 const LOCK_FACES = ['Auto', 'Melee', 'Ranged'];
 
-/** The troop types' card actions, their buttons' faces and slots on a Barracks or Stables card (a main base shifts them one along for Worker). */
+/** The troop types' card actions, their buttons' faces and slots on a Barracks card (a main base shifts them one along for Worker). */
 const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>> = {
   [Troop.Close]: ['trainClose', 'Close', 0],
   [Troop.Long]: ['trainLong', 'Long', 1],
   [Troop.Ranger]: ['trainRanger', 'Ranger', 2],
   [Troop.Brawler]: ['trainBrawler', 'Brawler', 3],
-  [Troop.Cavalry]: ['trainCavalry', 'Cavalry', 0],
+  // Patch 2: cavalry trains at the Barracks with the rest, after the brawler.
+  [Troop.Cavalry]: ['trainCavalry', 'Cavalry', 4],
 };
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
@@ -286,22 +288,26 @@ export function gridSlot(menuSlot: number): number {
   return menuSlot - 1;
 }
 
-/** The buildings of a build menu by grid slot: one kind, or several sharing a slot (shown as a submenu). */
-export function menuSlots(menu: 'basic' | 'advanced'): BuildingSpec[][] {
+/** The buildings of the build menu by grid slot: one kind, or a submenu's kinds (Defences, Lights) sharing a slot. */
+export function menuSlots(): BuildingSpec[][] {
   const out: BuildingSpec[][] = Array.from({ length: 15 }, () => []);
-  for (const b of BUILDINGS) if (b.menu === menu) out[gridSlot(b.slot)]!.push(b);
+  for (const b of BUILDINGS) if (b.slot > 0) out[gridSlot(b.slot)]!.push(b);
   return out;
 }
 
-/** The choices of a submenu: each building, each crop of a farm, each way of a gate or earthwork, in grid order. */
+/** Where a defence sits in the Defences submenu: walls, then gates, then towers, then earthworks, each softwood, hardwood, stone. */
+function defenceRank(spec: BuildingSpec): number {
+  return spec.site ? 3 : spec.defence === 'gate' ? 1 : spec.defence === 'tower' ? 2 : 0;
+}
+
+/** The choices of a submenu: each building, each way of a gate or earthwork, in grid order. */
 export function submenuChoices(specs: readonly BuildingSpec[]): Array<{ spec: BuildingSpec; variant: number; name: string }> {
   const out: Array<{ spec: BuildingSpec; variant: number; name: string }> = [];
-  for (const spec of specs) {
-    if (spec.crops && spec.kind !== BuildingKind.HerbBed) spec.crops.forEach((c, v) => out.push({ spec, variant: v, name: c.name }));
-    else if (spec.variants) spec.variants.forEach((name, v) => out.push({ spec, variant: v, name }));
+  for (const spec of [...specs].sort((a, b) => defenceRank(a) - defenceRank(b))) {
+    if (spec.variants) spec.variants.forEach((name, v) => out.push({ spec, variant: v, name }));
     else out.push({ spec, variant: 0, name: spec.name });
   }
-  return out.slice(0, 14);
+  return out;
 }
 
 /** "300 softwood lumber, 150 stone" */
@@ -314,11 +320,12 @@ function seconds(ws: number): string {
   return ws >= 60 && ws % 60 === 0 ? `${ws / 60} min` : `${ws} s`;
 }
 
-/** The submenu names for shared slots. */
-const SUBMENU_NAMES: Record<string, string> = { '2': 'Farms', '10': 'Walls', '11': 'Earthworks', '13': 'Lights' };
+/** Choices on one page of a long build submenu (slot 13 is the next page, 14 Back), as the K menu. */
+const BUILD_PER_PAGE = 13;
 
 export class Commands {
-  menu: { page: CardPage; sub: number } = { page: 'main', sub: -1 };
+  /** The card's page, the build submenu open (-1 none) and, in a long submenu or K menu, which page of it. */
+  menu: { page: CardPage; sub: number; more?: number } = { page: 'main', sub: -1 };
   targeting: Targeting | null = null;
   placing: Placing | null = null;
   area: Area | null = null;
@@ -389,8 +396,7 @@ export class Commands {
       return true;
     }
     if (this.menu.page !== 'main') {
-      const menus = this.menu.page === 'basic' || this.menu.page === 'advanced';
-      this.menu = this.menu.sub >= 0 && menus ? { page: this.menu.page, sub: -1 } : { page: 'main', sub: -1 };
+      this.menu = this.menu.sub >= 0 && this.menu.page === 'build' ? { page: 'build', sub: -1 } : { page: 'main', sub: -1 };
       this.d.changed();
       return true;
     }
@@ -424,7 +430,7 @@ export class Commands {
     if (this.area && active === 'worker') return this.areaCard(card);
     if (active === 'worker' || active === 'warrior' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(card, active);
-      if ((this.menu.page === 'basic' || this.menu.page === 'advanced') && active === 'worker') return this.buildMenuCard(card);
+      if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(card);
       this.unitCard(card, active);
     } else if (active.startsWith('engine:')) {
       this.engineCard(card);
@@ -536,8 +542,7 @@ export class Commands {
         () => this.target('prospect', 'prospect'),
         { lit: t === 'prospect', double: () => this.pickOwn(PickOwn.Prospect, 'Prospecting where they stand.') },
       );
-      card[10] = this.entry('buildBasic', 'Build', 'Open the Basic Structures menu: homes, farms, storage, walls, lights. Grid keys pick a building; B is Back.', () => this.openMenu('basic'), { name: 'Build Basic Structures' });
-      card[11] = this.entry('buildAdvanced', 'Adv.', 'Open the Advanced Structures menu: buildings that need rare resources or technology.', () => this.openMenu('advanced'), { name: 'Build Advanced Structures' });
+      card[10] = this.entry('build', 'Build', 'Open the build menu: every building, with walls, gates, towers and earthworks under Defences and lights under Lights. Grid keys pick a building; B is Back.', () => this.openMenu('build'), { name: 'Build' });
       // Workers never patrol (s): the slot is their rank training, which the equipment panel used to hold.
       card[3] = this.rankEntry(workers);
       card[13] = this.upgradeEntry(workers, Line.Weapon, false);
@@ -675,9 +680,9 @@ export class Commands {
 
   private eatEntry(): CardEntry {
     const units = this.unitIds(geared);
-    const desc = `Walk to the nearest main base, storehouse or kitchen and eat: 2 food heals half their health over 10 s, and a remedy or a bandage from the stock heals what is left.`;
-    const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse || b.kind === BuildingKind.Cooking));
-    if (!where) return this.off('eat', 'Eat', desc, 'There is no main base, storehouse or kitchen to eat at.');
+    const desc = `Walk to the nearest main base or storehouse and eat: 2 food heals half their health over 10 s, and a remedy or a bandage from the stock heals what is left.`;
+    const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse));
+    if (!where) return this.off('eat', 'Eat', desc, 'There is no main base or storehouse to eat at.');
     if (this.d.game.food() < EAT_NUTRITION) return this.off('eat', 'Eat', desc, this.d.game.food() === 0 ? 'There is no food.' : `Not enough food (needs ${EAT_NUTRITION}).`);
     return this.entry('eat', 'Eat', desc, () => this.d.send({ kind: 'eat', player: this.d.player, units, building: 0, queued: this.d.queued() }));
   }
@@ -728,7 +733,7 @@ export class Commands {
     );
   }
 
-  /** Cannon crew training at a Gunnery yard (Table 7): the one skill left; every other weapon comes with its troop type. */
+  /** Cannon crew training at an Artillery workshop (Table 7): the one skill left; every other weapon comes with its troop type. */
   private cannonEntry(): CardEntry {
     const skill = Skill.Cannon;
     const t = SKILL_TRAINING[skill]!;
@@ -760,8 +765,8 @@ export class Commands {
   /**
    * Upgrade weapon (tools, wand) or armour (robe) (Troops and gear:
    * Upgrading): each unit the stock pays for, highest rank first, walks to
-   * the nearest Forge, Barracks or main base (cavalry also the Stables,
-   * mages also a Magi Sanctum) and gets its next tier there; Max goes to the best tier
+   * the nearest Forge, Barracks or main base (mages also a Magi Sanctum)
+   * and gets its next tier there; Max goes to the best tier
    * researched and paid for. Pressing it twice is Max too.
    */
   private upgradeEntry(ids: number[], line: number, max: boolean): CardEntry {
@@ -769,7 +774,7 @@ export class Commands {
     const kind = list[0]?.h.kind ?? 'warrior';
     const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
     const action = line === Line.Weapon ? (max ? 'upgradeWeaponMax' : 'upgradeWeapon') : max ? 'upgradeArmourMax' : 'upgradeArmour';
-    const where = kind === 'mage' ? 'the nearest Magi Sanctum, Forge, Barracks or main base' : kind === 'worker' ? 'the nearest Forge, Barracks or main base' : 'the nearest Forge, Barracks or main base (cavalry also the Stables)';
+    const where = kind === 'mage' ? 'the nearest Magi Sanctum, Forge, Barracks or main base' : 'the nearest Forge, Barracks or main base';
     const name = max ? `Upgrade ${what} to the best` : `Upgrade ${what}`;
     const face = max ? `${capital(what)} max` : `${capital(what)} +`;
     const plans = this.upgradePlans(list, line, max);
@@ -881,57 +886,74 @@ export class Commands {
     return bases[0] ?? null;
   }
 
+  /**
+   * The build menu (Patch 2: one, in place of Basic and Advanced): a slot per
+   * building, and Defences and Lights opening their submenus. A submenu
+   * longer than the fixed block (Defences' 17 choices) runs into the extra
+   * slots round it as far as the card allows, then pages with V, as the K
+   * menu does. B is Back.
+   */
   private buildMenuCard(card: Card): Card {
-    const page = this.menu.page as 'basic' | 'advanced';
-    const slots = menuSlots(page);
-    const choices: Array<{ spec: BuildingSpec; variant: number; name: string } | null> = [];
-    let sub: BuildingSpec[] | null = null;
-    if (this.menu.sub >= 0) {
-      sub = slots[this.menu.sub] ?? [];
-      for (const c of submenuChoices(sub)) choices.push(c);
-    }
-    for (let i = 0; i < 14; i++) {
-      if (sub) {
-        const c = choices[i];
-        if (c) card[i] = this.buildEntry(i, c.spec, c.variant, c.name);
-        continue;
+    const slots = menuSlots();
+    const sub = this.menu.sub >= 0 ? (slots[this.menu.sub] ?? []) : null;
+    if (sub) {
+      const choices = submenuChoices(sub);
+      if (choices.length <= 14) choices.forEach((c, i) => (card[i] = this.buildEntry(i, c.spec, c.variant, c.name)));
+      else {
+        const size = this.size();
+        const perPage = BUILD_PER_PAGE + Math.max(0, size.cols * size.maxRows - CLASSIC_SLOTS);
+        const pages = Math.max(1, Math.ceil(choices.length / perPage));
+        const at = (this.menu.more ?? 0) % pages;
+        choices.slice(at * perPage, (at + 1) * perPage).forEach((c, k) => {
+          if (k < BUILD_PER_PAGE) card[k] = this.buildEntry(k, c.spec, c.variant, c.name);
+          else card[CLASSIC_SLOTS + k - BUILD_PER_PAGE] = { ...this.buildEntry(0, c.spec, c.variant, c.name), key: '', grid: false };
+        });
+        if (pages > 1) {
+          card[13] = {
+            action: 'more',
+            face: `More ${at + 1}/${pages}`,
+            name: 'Next page',
+            key: GRID_CODES[13],
+            grid: true,
+            description: `Page ${at + 1} of ${pages}. Show the next page.`,
+            enabled: true,
+            reason: '',
+            run: () => {
+              this.menu = { page: 'build', sub: this.menu.sub, more: at + 1 };
+              this.d.changed();
+            },
+          };
+        }
       }
-      const specs = slots[i]!;
-      if (specs.length === 1) card[i] = this.buildEntry(i, specs[0]!, 0, specs[0]!.name);
-      else if (specs.length > 1) {
-        const name = SUBMENU_NAMES[String(i + 1)] ?? specs.map((s) => s.name).join(', ');
-        const any = specs.some((s) => this.d.game.info?.buildWhy[s.kind] === '');
-        card[i] = {
-          action: `menu-${i}`,
-          face: name,
-          name,
-          key: GRID_CODES[i]!,
-          grid: true,
-          description: `${specs.map((s) => s.name).join(', ')}.`,
-          icon: { layers: [{ file: buildingIconFile(specs[0]!.kind, 1, 0) }] },
-          enabled: any,
-          reason: any ? '' : (this.d.game.info?.buildWhy[specs[0]!.kind] ?? ''),
-          run: () => {
-            this.menu = { page, sub: i };
-            this.d.changed();
-          },
-        };
+    } else {
+      for (let i = 0; i < 14; i++) {
+        const specs = slots[i]!;
+        const group = specs[0]?.group;
+        if (specs.length === 1 && !group) card[i] = this.buildEntry(i, specs[0]!, 0, specs[0]!.name);
+        else if (specs.length > 0) {
+          const name = group ?? specs.map((s) => s.name).join(', ');
+          const any = specs.some((s) => this.d.game.info?.buildWhy[s.kind] === '');
+          const icon = group === 'Defences' ? BuildingKind.Tower : specs[0]!.kind;
+          card[i] = {
+            action: `menu-${i}`,
+            face: name,
+            name,
+            key: GRID_CODES[i]!,
+            grid: true,
+            description: group === 'Defences' ? 'Walls, gates and towers of softwood, hardwood and stone, and earthworks.' : `${specs.map((s) => s.name).join(', ')}.`,
+            icon: { layers: [{ file: buildingIconFile(icon, 1, 0) }] },
+            enabled: any,
+            reason: any ? '' : (this.d.game.info?.buildWhy[specs[0]!.kind] ?? ''),
+            run: () => {
+              this.menu = { page: 'build', sub: i };
+              this.d.changed();
+            },
+          };
+        }
       }
     }
     // A ghost or target waiting keeps its Cancel in the corner; otherwise B is Back.
-    if (!card[14]) {
-      card[14] = {
-        action: 'back',
-        face: 'Back',
-        name: 'Back',
-        key: GRID_CODES[14],
-        grid: true,
-        description: sub ? 'Back to the build menu.' : 'Back to the worker commands.',
-        enabled: true,
-        reason: '',
-        run: () => this.back(),
-      };
-    }
+    if (!card[14]) card[14] = this.backEntry(sub ? 'Back to the build menu.' : 'Back to the worker commands.');
     return card;
   }
 
@@ -968,7 +990,7 @@ export class Commands {
     if (all.length === 0) return;
     const spec = buildingSpec(kind);
     const first = all[0]!;
-    // Production: workers at the main base and farms, troops at the Barracks, the Stables and (tier 1) the main base, planks at the mill, mages at the Sanctum.
+    // Production: workers at the main base and the Farm, troops at the Barracks and (tier 1) the main base, mages at the Sanctum.
     const rows: Array<[number, string, string, number]> = [];
     const main = kind === BuildingKind.MainBase;
     if (first.complete) {
@@ -978,7 +1000,6 @@ export class Commands {
         const at = main ? 4 : 0;
         rows.push([Product.SupportMage, 'trainSupportMage', 'Support', at], [Product.BattleMage, 'trainBattleMage', 'Battle', at + 1]);
       }
-      if (kind === BuildingKind.LumberMill) rows.push([Product.PlanksSoftwood, 'planksSoft', 'Planks S', 0], [Product.PlanksHardwood, 'planksHard', 'Planks H', 1]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
     if (first.complete) {
@@ -1049,16 +1070,18 @@ export class Commands {
     else if (ps.research !== undefined && [...g.buildings.values()].some((b) => b.owner === this.d.player && b.queue.some((q) => q.product === p))) reason = 'Being researched.';
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
     else if (ps.food === 0) reason = g.costProblem(ps.cost);
-    if (!reason && (p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build or upgrade farms.`;
+    if (!reason && (p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage) && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
     if (why !== undefined) reason = why;
     if (!reason && all.every((b) => b.queue.length >= 5)) reason = 'The queue is full (5).';
+    // Patch 2: a crafting building makes goods at its own pace, with no workers.
+    const pace = ps.recipe !== undefined && all[0] ? craftRate(all[0].kind) : 1;
     return {
       action,
       face,
       name: ps.name,
       key: grid !== undefined ? GRID_CODES[grid]! : this.key(action),
       grid: grid !== undefined,
-      description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / 2) / 10} s. Shift: queue 5.`,
+      description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / pace / 2) / 10} s. Shift: queue 5.`,
       icon: productIcon(p),
       product: p,
       enabled: reason === '',
@@ -1561,7 +1584,7 @@ export class Commands {
   /**
    * Right click: the obvious order for what is under the cursor (Smart order).
    * Workers gather from nodes, build or repair their own buildings, drop
-   * their load at drop-offs, take up a farm or the mill, refuel lights;
+   * their load at drop-offs, take up a farm or the mill, relight lights put out;
    * everyone follows friendly units and walks to ground. With only buildings
    * selected, it sets their rally point.
    */
@@ -1610,7 +1633,7 @@ export class Commands {
           if (full || carts.length > 0) return send({ kind: 'haul', player, units: full ? workers : carts, building: b.id, queued });
         }
         if (levelSpec(b.kind, b.level).workers > 0) return send({ kind: 'assign', player, units: workers, building: b.id, queued });
-        if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
+        if (spec.light && !b.lit) return send({ kind: 'relight', player, units: workers, building: b.id, queued });
       }
     }
     // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1).
@@ -2272,14 +2295,11 @@ const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell
 /** The K button by building kind: its face and tooltip. */
 const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.ScholarsLodge]: ['Research', 'Open the research menu: every step, greyed out with what it still needs. Research takes the lodge\'s time and stops while the troops starve. V shows the next page; B is Back.'],
-  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: smelting ore into ingots (copper, tin and bronze at a Casting Hearth, wrought iron at a Bloomery, iron at an Ironworks, steel and carbon steel at a Steelworks). Kit is made where a unit trains or upgrades, not here. Needs workers inside. B is Back.'],
-  [BuildingKind.Cooking]: ['Cook', 'Open the cooking menu: raw food into food with more nutrition, burning lumber or coal. V shows the next page; B is Back.'],
-  [BuildingKind.LivestockFarm]: ['Slaughter', 'Slaughter one of the grown animals of the farm for its meat and hides. The farm keeps its breeding pairs longest. B is Back.'],
-  [BuildingKind.Kiln]: ['Fire', 'Open the kiln menu: charcoal, bricks and glass. Needs workers inside. B is Back.'],
-  [BuildingKind.Tannery]: ['Tan', 'Open the tannery menu: leather, hardened leather and rope. Needs workers inside. B is Back.'],
-  [BuildingKind.HerbalistHut]: ['Brew', 'Open the herbalist menu: bandages, remedies and poison. Needs workers inside. B is Back.'],
+  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base level 3; pig iron and iron from 5; steel, carbon steel and gunpowder from 7. It works with no workers. Kit is made where a unit trains or upgrades, not here. V shows the next page; B is Back.'],
+  [BuildingKind.Barn]: ['Slaughter', 'Slaughter one of the grown animals of the Barn for its meat and hides. The Barn keeps its breeding pairs longest. B is Back.'],
   [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. B is Back.'],
-  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: carts, ramp steps, siege engines and the rest. Needs workers inside. V shows the next page; B is Back.'],
+  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, gravel, sticks, ramp steps, carts and trinkets, the better ones with the main base\'s levels. It works with no workers. V shows the next page; B is Back.'],
+  [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults from main base level 5, ballistas from 7, bronze and iron cannons from 8, and their shot. It works with no workers. B is Back.'],
 };
 
 /** A short button face from a product name. */

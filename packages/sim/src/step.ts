@@ -1,7 +1,7 @@
 // The step function: the only way the simulation advances. Inputs in, state
 // changed in place, a small result out.
 
-import { computeEnclosed, outlyingLights, updateLights } from './buildings/lights.ts';
+import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
 import { updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
@@ -177,7 +177,6 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateLoot(state);
   updateBuildings(state);
   updateMines(state);
-  updateLights(state);
   updateElimination(state);
   state.world.flowWater();
   forgetSideSight(state);

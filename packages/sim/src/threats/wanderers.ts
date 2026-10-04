@@ -59,7 +59,7 @@ export const WILD_HORDE_MAX = 8;
 export const WILD_WEAK_THREAT_TENTHS = 15;
 /** A wild spot keeps at least this many metres from every player's claimed land (towns, walls, torches, enclosures)... */
 export const WILD_CLAIM_GAP_M = 40;
-/** ...stays outside this many times a lit light's radius (a brazier, a torch, a tribe's camp fire)... */
+/** ...stays outside this many times a lit light's radius (a bonfire, a torch post, a tribe's camp fire)... */
 export const WILD_LIGHT_TIMES = 3;
 /** ...and keeps this many metres from the buildings of the peoples' villages, goblin villages and lairs. */
 export const WILD_VILLAGE_GAP_M = 50;
@@ -358,7 +358,7 @@ function wilds(state: SimState): Wilds {
   const lights: Wilds['lights'] = [];
   for (const b of state.buildings.list) {
     const l = buildingSpec(b.kind).light;
-    if (!l || !isLit(b, state.step)) continue;
+    if (!l || !isLit(b)) continue;
     const [x, z] = buildingCentre(b);
     lights.push([x, z, l.lightM * M * WILD_LIGHT_TIMES]);
   }

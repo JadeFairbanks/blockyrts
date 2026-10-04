@@ -19,7 +19,7 @@ function sel(key: string, kind: Selectable['kind'], typeKey: string, owner = ME,
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
   };
 }
 
@@ -76,15 +76,23 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
 
 const workers = [sel('e:1', 'unit', 'worker'), sel('e:2', 'unit', 'worker')];
 
-describe('build menus', () => {
-  it('put each building in its Table 4 slot, shared slots as submenus, B always Back', () => {
-    const basic = menuSlots('basic');
-    expect(basic[0]!.map((b) => b.kind)).toEqual([BuildingKind.MainBase]);
-    expect(basic[1]!.map((b) => b.kind)).toEqual([BuildingKind.CropField, BuildingKind.VegetableFarm, BuildingKind.HerbBed, BuildingKind.LivestockFarm]);
-    expect(basic[12]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.WallTorch, BuildingKind.Brazier, BuildingKind.Lantern]);
-    expect(basic[14]).toEqual([]);
-    expect(menuSlots('advanced')[14]).toEqual([]);
-    expect(submenuChoices(basic[1]!).map((c) => c.name)).toEqual(['Wheat field', 'Corn field', 'Flax field', 'Potato farm', 'Carrot farm', 'Herb bed', 'Livestock farm']);
+describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => {
+  it('puts each building in its slot, Defences and Lights as submenus, B always Back', () => {
+    const slots = menuSlots();
+    expect(slots.slice(0, 12).map((specs) => specs.map((b) => b.kind))).toEqual([
+      [BuildingKind.MainBase], [BuildingKind.Farm], [BuildingKind.Barn], [BuildingKind.Storehouse], [BuildingKind.FishingDock], [BuildingKind.Workshop],
+      [BuildingKind.Forge], [BuildingKind.ArtilleryWorkshop], [BuildingKind.Barracks], [BuildingKind.MagiSanctum], [BuildingKind.ScholarsLodge], [BuildingKind.Mineshaft],
+    ]);
+    expect(slots[12]!.every((b) => b.group === 'Defences')).toBe(true);
+    expect(slots[13]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.Bonfire]);
+    expect(slots[14]).toEqual([]);
+    expect(submenuChoices(slots[12]!).map((c) => c.name)).toEqual([
+      'Softwood wall', 'Hardwood wall', 'Stone wall',
+      'Softwood gate (east to west)', 'Softwood gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
+      'Stone gate (east to west)', 'Stone gate (north to south)',
+      'Softwood tower', 'Hardwood tower', 'Stone tower',
+      'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp',
+    ]);
     expect(GRID_CODES[14]).toBe('KeyB');
   });
 });
@@ -94,7 +102,8 @@ describe('the worker card', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
     // Milestone 11: workers never patrol, so rank training takes slot 3; the tools upgrade and the cart close the card.
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Rank', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', 'Adv.', 'Enter', 'Tools +', 'Cart']);
+    // Patch 2: one Build button; the slot Advanced had is empty.
+    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Rank', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', '', 'Enter', 'Tools +', 'Cart']);
     expect(card[9]!.enabled).toBe(true); // Prospect (milestone 4)
     expect(card[6]!.enabled).toBe(true); // worker 2 carries something
     expect(card[3]!.action).toBe('rankUp');
@@ -103,19 +112,28 @@ describe('the worker card', () => {
     expect(card.map((e) => e?.key ?? '')).toContain('KeyG');
   });
 
-  it('opens Basic Structures on B with grid keys, and a submenu for farms', () => {
+  it('opens the build menu on B with grid keys, Defences paging like the K menu, and Lights', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     c.card()[10]!.run({ shift: false, ctrl: false });
     let card = c.card();
     expect(card[0]!.face).toBe('Big House');
     expect(card[0]!.key).toBe('KeyQ');
-    expect(card[1]!.face).toBe('Farms');
+    expect(card[1]!.face).toBe('Farm');
+    expect(card[12]!.face).toBe('Defences');
+    expect(card[13]!.face).toBe('Lights');
     expect(card[14]!.face).toBe('Back');
-    card[1]!.run({ shift: false, ctrl: false });
+    card[12]!.run({ shift: false, ctrl: false });
     card = c.card();
-    expect(card[0]!.face).toBe('Wheat field');
+    expect(card[0]!.face).toBe('Softwood wall');
+    expect(card[13]!.action).toBe('more');
+    card[13]!.run({ shift: false, ctrl: false });
+    card = c.card();
+    expect(card[0]!.face).toBe('Earth ramp');
     expect(c.back()).toBe(true);
-    expect(c.card()[1]!.face).toBe('Farms');
+    expect(c.card()[12]!.face).toBe('Defences');
+    c.card()[13]!.run({ shift: false, ctrl: false });
+    expect(c.card().slice(0, 2).map((e) => e?.face)).toEqual(['Torch post', 'Bonfire']);
+    expect(c.back()).toBe(true);
     expect(c.back()).toBe(true);
     expect(c.card()[10]!.face).toBe('Build');
   });
@@ -131,7 +149,7 @@ describe('placement', () => {
   it('asks the sim for tiles, places on green with the builders, and refuses red or unaffordable spots', () => {
     const g = game([], [[Res.SoftwoodLumber, 100], [Res.Sticks, 20]]);
     const { c, sent, messages, asks } = harness(g, workers, 'worker');
-    c.startPlacing(BuildingKind.CropField, 1);
+    c.startPlacing(BuildingKind.Farm, 0);
     expect(c.card()[14]!.action).toBe('cancel');
     c.updatePlacing(new THREE.Vector3(10, 0, 10), 0);
     expect(asks.length).toBe(1);
@@ -140,16 +158,16 @@ describe('placement', () => {
     // Red tile: refused with the reason.
     const red = new Uint8Array(144);
     red[5] = 4;
-    c.onPlaced(BuildingKind.CropField, [{ x, z, tiles: red }]);
+    c.onPlaced(BuildingKind.Farm, [{ x, z, tiles: red }]);
     c.placeDown();
     c.placeUp();
     expect(sent).toEqual([]);
     expect(messages.at(-1)).toContain('in the way');
     // Green: one build order for both workers, and placement ends without Shift.
-    c.onPlaced(BuildingKind.CropField, [{ x, z, tiles: new Uint8Array(144) }]);
+    c.onPlaced(BuildingKind.Farm, [{ x, z, tiles: new Uint8Array(144) }]);
     c.placeDown();
     c.placeUp();
-    expect(sent).toEqual([{ kind: 'build', player: ME, units: [1, 2], building: BuildingKind.CropField, variant: 1, x, z, queued: false }]);
+    expect(sent).toEqual([{ kind: 'build', player: ME, units: [1, 2], building: BuildingKind.Farm, variant: 0, x, z, queued: false }]);
     expect(c.placing).toBeNull();
     // Not enough for a Big House: a message, nothing ordered.
     c.startPlacing(BuildingKind.MainBase, 0);
@@ -179,18 +197,18 @@ describe('placement', () => {
 
 describe('smart right click', () => {
   it('gathers from nodes, builds unfinished buildings, drops loads, assigns farmers and moves on ground', () => {
-    const field = building(20, BuildingKind.CropField);
+    const field = building(20, BuildingKind.Farm);
     const unfinished = building(21, BuildingKind.TorchPost, { complete: false, built: 300 });
-    const mill = building(22, BuildingKind.LumberMill);
+    const mill = building(22, BuildingKind.Storehouse);
     const g = game([field, unfinished, mill]);
     const { c, sent } = harness(g, workers, 'worker');
     c.smart(sel('p:1,2:3', 'node', 'node:pine', 255, { resource: 'softwood lumber' }), null);
     expect(sent.at(-1)).toMatchObject({ kind: 'gather', units: [1, 2], cx: 1, cz: 2, index: 3 });
-    c.smart(sel('b:21', 'building', 'building:18:1'), null);
+    c.smart(sel('b:21', 'building', `building:${BuildingKind.TorchPost}:1`), null);
     expect(sent.at(-1)).toMatchObject({ kind: 'work', building: 21 });
-    c.smart(sel('b:22', 'building', 'building:6:1'), null);
+    c.smart(sel('b:22', 'building', `building:${BuildingKind.Storehouse}:1`), null);
     expect(sent.at(-1)).toMatchObject({ kind: 'dropoff', units: [2], building: 22 });
-    c.smart(sel('b:20', 'building', 'building:1:1'), null);
+    c.smart(sel('b:20', 'building', `building:${BuildingKind.Farm}:1`), null);
     expect(sent.at(-1)).toMatchObject({ kind: 'assign', units: [1, 2], building: 20 });
     c.smart(null, new THREE.Vector3(2, 0, 3));
     expect(sent.at(-1)).toMatchObject({ kind: 'move', x: 16000, z: 24000 });

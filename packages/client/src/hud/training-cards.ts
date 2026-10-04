@@ -1,5 +1,5 @@
 // The training cards (Patch 2, round 2b, mock-up panels 1, 2 and 4): at a
-// Barracks, the Stables or a Magi Sanctum, one card per troop type or school,
+// Barracks or a Magi Sanctum, one card per troop type or school,
 // side by side under the title row. A card is the training picture (the bust
 // for the tier it would train, the action menu's key in its corner), the
 // name, two slots (weapon and armour, a mage's wand and robe) with their tier

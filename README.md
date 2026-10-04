@@ -135,7 +135,11 @@ reveal; two machines with the same seed show the same land and the same hash.*
    to walk your units out: the land they see turns from black to colour,
    and stays grey once they have left. The land round your buildings stays
    in colour (see "How a tester checks shared vision" below).
-3. The debug panel (top left) has the tools for looking around. **Reveal**
+3. The debug panel (top left) has the tools for looking around. In Patch 2
+   it is hidden until you type M N B V C X Z in order in the game (see "How
+   a tester checks Patch 2's lights, tips, tester tools and minimap"); every
+   check in this file that names the debug panel or the debug bar opens it
+   that way first. **Reveal**
    explores 150 m round the middle of the view, and the minimap fills in
    behind it. **Show all** draws the land without fog on your screen only,
    so you can pan across cells, barrier edges (low hills, ridges, cliffs,
@@ -203,8 +207,8 @@ out.* (The warrior joins in milestone 3.)
    press G: the Longhall is paid for, then right-click the Big House with
    workers to build it. Each level up to the Citadel has its own look.
 7. **Lights and night.** A torch post (2 softwood, 1 resin) claims 5 m round
-   it while lit and burns a softwood every 3 days; near the Big House it
-   refuels itself from the pool. At dusk the Everyone Home button (J) lights
+   it while lit. In Patch 2 lights need no fuel, and the bonfire (15
+   softwood) lights 20 m and claims 10 m. At dusk the Everyone Home button (J) lights
    up: it sends everyone to shelter in the Big House or a farm, and at day
    they come out and carry on. Lights more than 40 m from the main base are
    counted under the clock against the night's limit.
@@ -462,7 +466,7 @@ dawn.*
    the fifth kill, or a kill and a broken building, means war: the ring turns
    red, and every day 30 s after dawn 60% of its fighters (at least 4) march
    on your nearest building and go home at dusk. The mage snuffs lights on
-   the way (a worker on its refuel round relights them for nothing), hexes a
+   the way (right click one with a worker to relight it, 2 s), hexes a
    unit to stumble (slowed) and tosses sparks that leave wood smouldering.
    At peace a village rebuilds a hut every 5 days. Workers who break down a
    hut take 5 hardwood sticks and 2 hides from it.
@@ -889,8 +893,8 @@ flag are in the hash, and production queues record who paid).
 2. **The menu.** `pnpm dev` and open http://localhost:5173. The main menu has
    New game, Load game, Join game, Settings, Account and Quit, with the F11
    reminder (Ctrl + Cmd + F on a Mac) and a Full screen button. New game >
-   Play alone starts a game with first-day hints (Settings > Help turns them
-   off). `?seed=N` (and `&players=K`) still skips the menu for testers.
+   Play alone starts a game with first-day tips (Settings > Help > Tips turns
+   them off). `?seed=N` (and `&players=K`) still skips the menu for testers.
 3. **Two players on one machine.** Run the game server too
    (`pnpm --filter @blockyrts/server dev`, port 8080, in memory; `pnpm dev`
    passes `/api` and `/relay` to it). In one window: New game > Host a game
@@ -1068,7 +1072,7 @@ still load, with every player's explored land joined into one.
 
 1. `pnpm test` runs `packages/sim/test/vision.test.ts`: a lone building far
    from any unit explores and sees out to its sight from its walls; the sight
-   table (main base and towers 20 m, braziers 14 m, every other building
+   table (main base, towers and the bonfire 20 m, every other building
    10 m, `BUILDING_SIGHT_M`); fog halving it; a tower marking a lair found; a
    ranger on a tower seeing 10 m further and a worker sheltering inside not
    seeing; two players' units and buildings all in the side's vision and
@@ -1080,7 +1084,7 @@ still load, with every player's explored land joined into one.
    round the Big House is in colour out to 20 m from its walls with no unit
    near. Build a storehouse or a torch post at the edge of what you have
    explored and walk the workers home: the land 10 m round it stays in
-   colour, in sight, not grey. Towers see 20 m and braziers 14 m; on a fog
+   colour, in sight, not grey. Towers and bonfires see 20 m; on a fog
    night every building sees half as far. The Big House and towers also mark
    lairs and goblin villages they see on the minimap.
 3. **Two players.** Open `?seed=1&players=2`: both pockets are in colour
@@ -1420,40 +1424,36 @@ this change is asked to reload when it joins.
 ## How a tester checks farm harvests
 
 Jade's patch notes 1: no fallow days, each farmer speeds the harvest up, and a
-selected farm shows its harvest bar. The sim changed (farm yields come in
-harvests now), so the hashes of order scripts with farms moved; the save
-format did not, and a save's fields start their bars afresh.
+selected farm shows its harvest bar. Patch 2 made one Farm of farm fare in
+place of the crop fields, vegetable farms and herb bed, growing in full in
+every band, and moved the hens to the Barn.
 
-1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Build a wheat
-   field (B, W, Q) and right-click it with one worker. Select the field: under
-   its health and "1 of 2 farmers at work" a bar fills with the line "In 7
-   minutes 20 seconds, 6 wheat will be produced, giving a food value of 12."
-   There is no "Lying fallow" any more: the bar starts with the farmer's first
-   step of work.
+1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Build a Farm
+   (B, W) and right-click it with one worker. Select it: under its health and
+   "1 of 2 farmers at work" a bar fills with the line "In 7 minutes 20
+   seconds, 8 farm fare will be produced, giving a food value of 16." The bar
+   starts with the farmer's first step of work.
 2. Right-click it with a second worker. The time left halves (the bar fills
-   twice as fast); the harvest stays 6 wheat. Press **Speed** in the debug
-   panel (x16) and watch the bar fill: 6 wheat land in the inventory and the
-   bar starts again. A field of tier 2 takes three farmers, three times as
-   fast, with 9 wheat a harvest; tier 3 takes four, with 12.
+   twice as fast); the harvest stays 8 farm fare. Press **Speed** in the
+   debug panel (x16) and watch the bar fill: 8 farm fare land in the
+   inventory and the bar starts again. A third worker is turned away: the
+   Farm takes two.
 3. Take the farmers off (select them and give another order): the bar stands
    still and turns grey, and the line says no farmer is at work and what the
    next harvest will be.
-4. The line under the bar says what the band does: "Full yield in the
-   Heartland: crop fields make half in the Fringe and Deepwoods and nothing in
-   the Barrens or Deadlands." A crop field in the Fringe or Deepwoods says
-   "Half yield" and harvests 3 wheat; in the Barrens or Deadlands it says
-   "Nothing grows", shows no bar and lies bare. Vegetable farms and herb beds
-   say they grow in full in every band.
-5. A livestock farm with grown hens shows a bar running to the day's turn,
-   when they lay: "In 2 minutes, 2 eggs will be laid, giving a food value of
-   2." Times read 1 second, 1 minute, 2 minutes 5 seconds.
+4. The line under the bar says "Full yield in the Heartland: the Farm grows
+   in full in every band." A Farm in the Fringe, Barrens or Deadlands says
+   the same with its band and harvests 8 (before Patch 2 crop fields made
+   half in the Fringe and Deepwoods and nothing in the Barrens).
+5. A Barn with grown hens shows a bar running to the day's turn, when they
+   lay: "In 2 minutes, 2 eggs will be laid, giving a food value of 2." Times
+   read 1 second, 1 minute, 2 minutes 5 seconds.
 6. Unit tests: `packages/sim/test/farms.test.ts` (no fallow days, the pace
-   per farmer, the same harvest, three farmers at tier 2, the Fringe's half
-   carried over, nothing in the Barrens, an old save's field, the hens' bar)
-   and `packages/client/test/farm-panel.test.ts` (the line's wording and
-   plurals). The balance editor's Food group has **Farm harvest** (440 s):
-   the bar's length in one farmer's work; a shorter bar brings in less each
-   time at the same yield a day.
+   per farmer, the same harvest, every band in full, an old save's Farm, the
+   hens' bar) and `packages/client/test/farm-panel.test.ts` (the line's
+   wording and plurals). The balance editor's Food group has **Farm harvest**
+   (440 s): the bar's length in one farmer's work; a shorter bar brings in
+   less each time at the same yield a day.
 
 ## How a tester checks loot, Hunt and Gather
 
@@ -1676,6 +1676,59 @@ repo. No hash changed: sound only listens to the game.
    are encoded with a second of wrap-around each side and cut back after
    decoding, so their loops have no seam.
 
+## How a tester checks Patch 2's lights, tips, tester tools and minimap
+
+Round 4 of the Patch 2 design (`blueprint/patch-2.md`). Saves from before
+Patch 2 do not load (the standing rule for every patch).
+
+1. `pnpm test` runs `packages/client/test/patch2-tips-tools-map.test.ts` (the
+   key code, the tips' timing and their one question, which units the
+   minimap shows and in what colour, enemies only in sight, no red among the
+   player colours) and the sim's light checks in `m2.test.ts`, `m5.test.ts`
+   and `vision.test.ts` (lights burn with no fuel, a snuffed light relit by
+   a worker in 2 s, the bonfire's 20 m sight).
+2. **Tester tools.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   start: there is no debug readout and no debug bar, and on a phone no ⚙
+   button among the folds. Type M N B V C X Z in order in the game: the
+   readout and the tools show, with the message "Tester tools shown. Type
+   the code again to hide them." Type it again and they hide. Any other key
+   or any click in between starts the count again (M N B Q V C X Z opens
+   nothing; nor does M N B V, a click, C X Z), and the keys keep their usual
+   jobs while you type them. A new game or a reload starts with them hidden.
+3. **Lights.** Select a worker: the Lights slot (B then V) has the torch
+   post (2 softwood, 1 resin, lights 10 m, claims 5 m) and the bonfire (15
+   softwood, 3 by 3, lights 20 m, claims 10 m, buildable from the start);
+   the wall torch and the lantern are cut in Patch 2. Build both; select
+   one: "Lit. It needs no fuel." Let a few days pass with **Speed**: they
+   stay lit and no worker goes to feed them. The bonfire stands in as the
+   campfire model at twice its size until its own model arrives. A light a
+   goblin mage snuffs, or an outlying torch post a badger knocks over, reads
+   "Out: right click it with a worker to relight it."; right click it with a
+   worker, who walks over,
+   works at it for 2 s and lights it again for nothing. Lights more than 40 m
+   from the main base still count against the night's limit, a bonfire as
+   one.
+4. **Tips.** New game > Play alone (or `?seed=1` with Settings > Help > Tips
+   on). The first tip shows at the top of the view as outlined text with no
+   frame: "Tip: ..." with an ✕. It goes by itself after 12 s of game time
+   (paused time does not count); the next tip waits until you have done what
+   the last one said. Press ✕ on a tip: the text turns to "Turn tips off?"
+   with the question bubbles' Yes (a green tick) and No (a red cross), each
+   saying what it does in its tooltip. Yes: no more tips this game. No, or no answer in 12 s:
+   the tips go on, and every later ✕ just closes its tip without asking.
+   A new game asks again once. Settings > Help > Tips off: no tips at all.
+5. **Minimap.** Your units are 2 px dots and your buildings their footprint
+   (at least 2 px) in your colour, drawn over the land and under the lair,
+   village and people marks; your mercenaries are in your colour too. With
+   `?seed=1&players=2` (or two players in a lobby) the other player's are in
+   theirs. Night monsters, lair guardians, goblins, attacking wanderers and
+   peoples at war are red dots, and only while one of your side's units or
+   buildings sees them (**Show all** shows them all). Wild animals and
+   peoples at peace are not shown.
+6. **No red for players.** The lobby's colour picks are Blue, Green, Yellow,
+   Purple, Orange, Teal, Pink and White, each with its banner; red is kept
+   for enemies.
+
 ## How a tester checks troop names (Patch 2)
 
 *A troop goes by its weapon tier's name, everywhere a unit is named; the type
@@ -1766,6 +1819,77 @@ hashes and saves never see them, and a loaded game starts with none.
     for the owner), `packages/client/test/hud-wording.test.ts` (the chat
     rule) and `packages/client/test/m10-audio.test.ts` (the run-out cue).
 
+## How a tester checks the fourteen buildings (Patch 2)
+
+Jade's Patch 2, round 1 (blueprint/patch-2.md). The picks are in
+blueprint/patch2-buildings-picks.md. The build menu went from 31 entries in
+two menus to 14 in one; only the Big House keeps levels, and what a tier
+unlocked before now comes at the main base level that tier needed. Saves
+from before Patch 2 are refused with a plain message (the standing rule).
+Older sections above name buildings Patch 2 cut: read a crop field, vegetable
+farm or herb bed as the Farm; a pen and barn, livestock farm or Stables as
+the Barn (cavalry trains at the Barracks); a lumber mill, Tannery or
+Herbalist hut as the Workshop; a Kiln, Powder mill, Foundry, Casting Hearth,
+Bloomery, Ironworks or Steelworks as the Forge at a main base level; a
+Gunnery yard as the Artillery workshop. Cooking, the kitchens, the lantern,
+wall torch and brazier are gone.
+
+1. **One Build menu.** `pnpm dev`, open http://localhost:5173/?seed=1, select
+   the workers and press B: Big House (Q), Farm (W), Barn (E), Storehouse
+   (R), Fishing dock (T), Workshop (A), Forge (S), Artillery workshop (D),
+   Barracks (F), Magi Sanctum (G), Scholar's Lodge (Z), Mineshaft (X),
+   Defences (C) and Lights (V); B is Back. The worker card has one Build
+   button where Basic and Advanced were.
+2. **Defences and Lights.** C opens Defences: the softwood, hardwood and
+   stone walls, the gates each way, the towers, then the earthworks. It is
+   17 choices, so the last slot reads "More 1/2" (V) and shows the rest, as
+   the K menu pages. V in the build menu opens Lights: the torch post and
+   the bonfire.
+3. **The Farm and the Barn.** Build a Farm: two farmers grow farm fare ("A
+   hearty medley of vegetables"), 8 a farmer-day, and it gives 4 supply. The
+   **Barn** button on the debug bar puts down a red barn with 2 horses and an
+   ox in its stalls and 100 farm fare; select it: "3 animals; 3 of 10 stalls
+   taken". Workers tame cattle, chickens, horses and oxen into a Barn with
+   farm fare (a chicken is a sixth of a stall).
+4. **Cavalry at the Barracks.** Select a Barracks: Cavalry (C) sits after
+   the brawler, greyed "Needs a level 3 main base." until the main base is
+   level 3, then "Cavalry needs a tamed horse in a Barn." until one stands
+   in a Barn; trained, the horse leaves the nearest Barn.
+5. **No workers in crafting buildings.** Build a Workshop, a Forge or an
+   Artillery workshop: right-clicking it with workers does not assign them,
+   and their queues run on their own at the pace two workers had inside
+   before Patch 2 (the crafting pace), so a recipe that took one worker 10 s
+   takes 5 s; the K menu tooltip shows that time. The Workshop makes planks, leather, rope, bandages and
+   remedies, gravel, sticks, ramp steps, carts and trinkets; the Forge
+   smelts every metal and makes charcoal, bricks, glass and gunpowder; the
+   Artillery workshop makes catapults, ballistas and cannons. The Farm,
+   Mineshaft and Fishing dock keep their workers.
+6. **Main base levels.** Press K on a Forge: copper, tin and bronze ingots
+   from the start; wrought iron, charcoal, bricks and glass read "Needs a
+   level 3 main base."; pig iron and iron need 5; steel, carbon steel and
+   gunpowder 7. Kit tiers follow the same steps: a bronze kit needs a Forge,
+   a wrought iron one main base 3, steel 7. The Workshop's hand cart needs 3
+   and its ox cart 5; the Artillery workshop's catapult needs 5, its
+   ballista 7, its cannons 8. Research waits on main base levels too (Siege
+   engines 5, Deep Mining II 6, Steel and Gunpowder 7, Deep Mining III,
+   Muskets and Cannons 8). **Citadel** on the debug bar raises the main base
+   to 10.
+7. **Mines.** A Mineshaft has no tiers: every shaft digs to the depth its
+   owner's research reaches (Deep Mining II and III), so researching one
+   deepens the shafts already standing. A worked-out shaft says which
+   research digs deeper.
+8. **No cooking.** The K menus offer no food recipe; meat shows raw in the
+   inventory and is eaten as it is.
+9. **Saves.** Loading a save made before Patch 2 says it is from an older
+   version and loads nothing.
+10. `pnpm test` covers it in `packages/sim/test/farms.test.ts`, `m2`, `m3`,
+    `m4`, `m8` and `queue-countdown.test.ts` (the Farm, the Barn, workerless
+    crafting, Forge steps by main base level, cavalry at the Barracks, mine
+    depth by research), and `packages/client/test/m2-controls.test.ts` (the
+    one menu, Defences paging, Lights). `pnpm --filter @blockyrts/tools
+    balance --pacing` runs the pacing check on the new ladder, with no labour
+    counted for workerless crafting and 14 Farms in the night 110 town.
+
 ## How a tester checks the training countdown (Patch 2)
 
 Jade's bug: while the Magi Sanctum trained a mage, the queue's seconds jumped
@@ -1780,10 +1904,10 @@ up and down while they fell. The countdown is now the sim's own time.
 3. Use up the supply, then queue one more worker at the Big House: it reads
    "On hold: nothing is working on it right now." until a farm frees supply,
    then counts down.
-4. Queue a few planks at a lumber mill with nobody inside: on hold. Assign
-   one worker: once inside, it counts down. Assign a second: as it steps
-   inside, the seconds drop at once to the faster pace, then fall one a
-   second again.
+4. Queue a few planks at the Workshop: in Patch 2 it needs nobody inside
+   and counts down at once, at twice the pace of the planks' own time (the
+   crafting pace). Before Patch 2 a lumber mill with nobody inside was on
+   hold until a worker stepped in.
 5. Pause: the seconds stand still.
 6. `pnpm test` runs packages/sim/test/queue-countdown.test.ts (every kind of
    queue counts down one step a step and is done on the step it says) and
@@ -1800,11 +1924,13 @@ is what the game runs on. Its build is one self-contained HTML file.
    `packages/balance/dist/index.html` straight from disk). The left menu lists
    14 groups, from Buildings and levels to Pacing (Mages and spells among them), plus the blueprint's tables
    read only; the header names the commit the tables came from.
-2. Buildings and levels > Basic build menu > Big House. Its "Unlocks and uses"
+2. Buildings and levels > Build menu > Big House. Its "Unlocks and uses"
    box lists what each main base level unlocks (Barracks at level 2, and so
    on) and what is made there; click a chip and that entry opens. Research >
-   Bronze lists everything that needs it, and its "Forge level needed first"
-   names the Casting Hearth.
+   Bronze lists everything that needs it. Research > Steel shows "Main base
+   level needed" 7 (Patch 2: the Forge has no levels; its metal steps come
+   with the main base). Walls, gates, towers and earthworks are under Build
+   menu: Defences, the torch post under Build menu: Lights.
 3. Change Level 2: Longhall > Build work from 400 to 450. The row turns
    yellow with "was 400 ws" and a Reset, the menu shows a count, and the
    change appears on the right with a note box. Search "zombie health",

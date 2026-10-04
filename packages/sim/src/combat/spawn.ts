@@ -244,7 +244,7 @@ function weightsFor(state: SimState): Weights {
   const lights: Array<[number, number, number]> = [];
   for (const b of state.buildings.list) {
     const l = buildingSpec(b.kind).light;
-    if (!l || !isLit(b, state.step)) continue;
+    if (!l || !isLit(b)) continue;
     const [x, z] = buildingCentre(b);
     lights.push([x, z, throughFog(state, l.lightM * WU_PER_METRE)]);
   }

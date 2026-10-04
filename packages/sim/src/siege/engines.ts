@@ -334,7 +334,7 @@ export function crewWhy(state: SimState, j: number, i: number): string {
   if (e.kind[j] !== UnitKind.Warrior) return 'Only warriors crew engines and cannons.';
   if (e.mount[j]) return 'A rider must get down to crew it.';
   const spec = engineSpec(e.mob[i]!);
-  if (spec.crewSkill && (e.skills[j]! & spec.crewSkill) === 0) return 'Cannon crew need training at a Gunnery yard first.';
+  if (spec.crewSkill && (e.skills[j]! & spec.crewSkill) === 0) return 'Cannon crew need training at an Artillery workshop first.';
   return '';
 }
 

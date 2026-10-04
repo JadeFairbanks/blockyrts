@@ -55,7 +55,7 @@ export function catOf(good: number): Cat {
   return Cat.Other;
 }
 
-/** A resource's worth, tenths: Table 11's value, a trinket's metal and tier, cooked food 0.75 x its nutrition. */
+/** A resource's worth, tenths: Table 11's value, a trinket's metal and tier, any other food 0.75 x its nutrition. */
 export function resValueTenths(res: number): number {
   const v = RES_VALUE_TENTHS[res];
   if (v !== undefined) return v;

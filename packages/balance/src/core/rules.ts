@@ -20,7 +20,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'melee', label: 'Melee weapons', blurb: 'Table 2d. Close melee (one-handed, with a shield from the armour) and long melee and cavalry (two-handed, a critical in the outer third of reach) by tier: damage, swing time, reach, cost and time to make.' },
   { id: 'ranged', label: 'Ranged weapons', blurb: 'Table 2e. The ranger\'s ladder from sling to musket and the brawler\'s pistol and cutlass: damage, attack time, range, spread, cost and time to make; what flies and how. Ammunition is unlimited.' },
   { id: 'armour', label: 'Armour and shields', blurb: 'Table 3. Armour by tier for every troop (body, helmet and boots in one) and close melee\'s shields, which come with the armour: protection, block, cost and time to make.' },
-  { id: 'training', label: 'Training and upgrades', blurb: 'Table 7. What a troop, worker or mage costs to train, what each material tier needs (forge level and research), upgrade time and refund, and specialist training.' },
+  { id: 'training', label: 'Training and upgrades', blurb: 'Table 7. What a troop, worker or mage costs to train, what each material tier needs (Forge step and research; Patch 2: the steps come with main base levels), upgrade time and refund, and specialist training.' },
   { id: 'wands', label: 'Wands and robes', blurb: 'Table 13. Mages\' wands (spell power and extra mana) and robes (protection and mana regain) by tier: cost, time to make and what they need.' },
   { id: 'magic', label: 'Mages and spells', blurb: 'Mage ranks, mana and refill, the combat pause, rank training at the Magi Sanctum, and every spell (Table 13): mana, cooldown, range, power, radius and duration.' },
   { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, munitions, recipes, and the Citadel\'s cannon ports.' },
@@ -31,7 +31,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
-  { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and torches, outlying lights and refuelling.' },
+  { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
   { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat, and how near others must stand for one to speak for them.' },
@@ -160,17 +160,19 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'buildings/data.ts:WORKER_FOOD': 'training',
   'buildings/data.ts:BUILDING_CLAIM_M': 'land',
   'buildings/data.ts:OUTLYING_M': 'land',
-  'buildings/data.ts:AUTO_REFUEL_M': 'land',
-  'buildings/data.ts:REFUEL_STEPS': 'land',
+  'buildings/data.ts:RELIGHT_STEPS': 'land',
   'buildings/data.ts:FARM_HARVEST_STEPS': 'food',
-  'buildings/data.ts:FARM_TIER_PER_MILLE': 'food',
+  // Patch 2: the Barn's stalls go with the animals, cavalry's main base level and the Forge's metal steps with training.
+  'buildings/data.ts:BARN_STALLS': 'animals',
+  'buildings/data.ts:CHICKENS_PER_STALL': 'animals',
+  'buildings/data.ts:CAVALRY_BASE': 'training',
+  'buildings/data.ts:FORGE_STEP_BASE': 'training',
   'buildings/production.ts:SLAUGHTER_STEPS': 'food',
   'buildings/production.ts:SLAUGHTERED': 'food',
   'buildings/production.ts:PRODUCTS': 'buildings',
-  'buildings/recipes.ts:COOK_STEPS_PER_ITEM': 'food',
-  'buildings/recipes.ts:COOK_BATCH': 'food',
   'buildings/recipes.ts:TRINKET_STEPS': 'resources',
   'buildings/recipes.ts:TRINKET_INGOTS': 'resources',
+  'buildings/recipes.ts:TRINKET_TIER_BASE': 'resources',
   'combat/items.ts:RESEARCH': 'research',
   'combat/spawn.ts:CLAIM_STANDOFF_M': 'mobs',
   'rules.ts:DAY_STEPS': 'pacing',
@@ -260,7 +262,7 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   shot: 'shot', nature: 'nature', moves: 'moves', sun: 'sun', comes: 'comes', role: 'role', site: 'lairSite', minBand: 'band',
   bands: 'band', tameAt: 'building', tameFoods: 'res', hit: 'hit', made: 'made', group: 'resGroup', dig: 'digClass',
   'PROPS:tool': 'tool', 'SLAUGHTERED:*': 'species', 'FOODS:*': 'res', 'MEAT_BY_SPECIES:*': 'res',
-  'RESEARCH:at': 'building', 'SKILL_TRAINING:at': 'building', 'ENGINES:munition': 'res', 'MOUNTS:species': 'species',
+  'RESEARCH:at': 'building', 'SKILL_TRAINING:at': 'building', 'RECIPES:at': 'building', 'ENGINES:at': 'building', 'ENGINES:munition': 'res', 'MOUNTS:species': 'species',
   'PEOPLE_UNITS:people': 'people', 'PEOPLE_UNITS:weapon': 'gear', 'PEOPLE_UNITS:ranged': 'gear', 'PEOPLE_UNITS:armour': 'gear', 'PEOPLE_UNITS:shield': 'gear',
   RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
   // Troops and gear: a kit row's material tier, and a tool kit's tool tier for each job.
@@ -270,7 +272,7 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
 /** Keys that are identity, layout or prose: shown, not edited. */
 export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'id', 'kind', 'live', 'comesWith', 'menu', 'slot', 'craftSlot', 'w', 'd', 'solid', 'variants', 'turns', 'product', 'key', 'colour',
-  'defence', 'dropoff', 'site', 'raw', 'shape', 'trainsWorkers', 'heavy', 'oneHanded', 'tip', 'BUILDINGS:slot',
+  'defence', 'dropoff', 'site', 'raw', 'shape', 'trainsWorkers', 'heavy', 'oneHanded', 'tip', 'BUILDINGS:slot', 'BUILDINGS:group', 'crafts',
   'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank', 'PEOPLE_UNITS:people',
   // The peoples' gear is fixed rows of the gear catalogue (Troops and gear), not numbers to tune here.
   'PEOPLE_UNITS:weapon', 'PEOPLE_UNITS:ranged', 'PEOPLE_UNITS:armour', 'PEOPLE_UNITS:shield',
@@ -307,11 +309,11 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   refill: 'Refill (hundredths of a point a second)', crystals: 'Mana crystals', amount: 'Healing or damage', 'RESEARCH:at': 'Researched at',
   'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
   chancePm: 'Chance', weightTenthsLb: 'Weight', needsBase: 'Main base level needed', research: 'Research needed', research2: 'Also needs research',
-  after: 'Research needed first', forge: 'Forge level needed first', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
+  after: 'Research needed first', forge: 'Forge step needed first (1 any Forge; 2 to 4 its main base level)', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',
   speed: 'Speed', climbSpeed: 'Climbing speed', walk: 'Walking speed', run: 'Running speed', armourBp: 'Armour', pierceBp: 'Damage taken from piercing',
   bluntBp: 'Damage taken from blunt', spreadBp: 'Spread', blockBp: 'Shield block', firstNight: 'First night', halfWidth: 'Half width', height: 'Height',
-  heightCm: 'Height', lightM: 'Light radius', claimM: 'Claimed radius', fuelSteps: 'One fuel lasts', outlyingHalves: 'Counts against the dusk light limit (2 whole, 1 half)',
+  heightCm: 'Height', lightM: 'Light radius', claimM: 'Claimed radius', outlyingHalves: 'Counts against the dusk light limit (2 whole, 1 half)',
   makes: 'Makes', tier: 'Tier', cost: 'Cost', inputs: 'Inputs (any one way)', outputs: 'Outputs', at: 'Made at', madeAt: 'Made at', recipes: 'Recipe (any one way)',
   drops: 'Drops', loot: 'Loot', min: 'Least', max: 'Most', meat: 'Meat', extra: 'Also gives', perCell: 'Per cell', groupMin: 'Group of at least',
   groupMax: 'Group of at most', tameFood: 'Food to tame', tameFoods: 'Tamed with', tameSteps: 'Time to tame', tameAt: 'Kept at', upkeep: 'Upkeep a day', grassM2: 'Grazing area',
@@ -320,12 +322,12 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   damage: 'Damage', radius: 'Radius', unit: 'Damage to units', unitRadius: 'Radius on units', building: 'Damage to buildings', buildingRadius: 'Radius on buildings',
   bonusBp: 'Bonus', slowBp: 'Slow', poison: 'Poison', undead: 'Undead', arc: 'Shoots in an arc', arcs: 'Flies in an arc', guard: 'Guards', chase: 'Chases', roam: 'Roams',
   venom: 'Venom', swim: 'Swims', food: 'Food', load: 'Load', skill: 'Skill needed', blunt: 'Blunt', units: 'Units', glows: 'Glows', nutrition: 'Nutrition',
-  crops: 'Crops', cropBands: 'Crop yield falls outside the Heartland', sightBonusM: 'Extra sight inside', slots: 'Ranged slots', wooden: 'Wooden', light: 'Light',
+  crop: 'Crop', crafts: 'Works with no workers', sightBonusM: 'Extra sight inside', slots: 'Ranged slots', wooden: 'Wooden', light: 'Light',
   trot: 'Trot', gallop: 'Gallop', chargeRun: 'Straight gallop before a charge', shoulderCm: 'Shoulder height', minRange: 'Shortest range', reloadSteps: 'Reload',
   crew: 'Crew needed', crewSkill: 'Crew skill needed (16 = cannon crew)', pushed: 'Pushed by its crew', pierce: 'Pierces a second target', powder: 'Uses gunpowder',
   reachBonus: 'Extra reach mounted', leash: 'Chases no farther than', bowSpreadMul: 'Bow spread times', farShareBp: 'Thrown 2 m when no taller than this share of the shoulder',
   dig: 'Dig class', regrow: 'Regrows', smoulderPerSecond: 'Smoulder damage a second', smoulderSteps: 'Smoulder time', perSecond: 'Burn a second', seconds: 'Burn seconds',
-  base: 'Base level needed', rank: 'Rank', minBand: 'Shallowest band', guardians: 'Guardians', spawns: 'Spawns at night', bands: 'Bands', nature: 'Nature',
+  base: 'Main base level needed', rank: 'Rank', minBand: 'Shallowest band', guardians: 'Guardians', spawns: 'Spawns at night', bands: 'Bands', nature: 'Nature',
   moves: 'Moves as', sun: 'In the sun', comes: 'Comes', role: 'Role', shot: 'Shot', hit: 'Hit', tool: 'Tool tier', group: 'Group',
   // Troops and gear (units/kits.ts).
   timeS: 'Time to make', need: 'Material tier', swingDs: 'Swing time', reachCm: 'Reach', attackDs: 'Time between shots', rangeM: 'Range',
@@ -341,7 +343,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   WILD_WEAK_THREAT_TENTHS: 'Weak enough to come as a group (threat at most)', WILD_LIGHT_TIMES: 'Keeps outside this many light radii',
   WILD_TURN_DEG: 'Stroll turns at most (degrees)', WILD_LOOK_STEPS: 'Looks round for prey every',
   // Gather (units/forage.ts).
-  'FORAGE_GOODS:base': 'Main base level needed', 'FORAGE_GOODS:forge': 'Forge level needed', 'FORAGE_GOODS:plenty': 'Wanted until the stock holds',
+  'FORAGE_GOODS:base': 'Main base level needed', 'FORAGE_GOODS:forge': 'Forge step needed (1 any Forge; 2 to 4 its main base level)', 'FORAGE_GOODS:plenty': 'Wanted until the stock holds',
   LOOT_BOSS_HP: 'Rare and powerful from this much health',
   // Plants' growth stages (world/props.ts).
   fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
@@ -351,13 +353,13 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */
 export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'training:buildings/data.ts': 'Worker training', 'units:buildings/production.ts': 'Training', 'food:buildings/data.ts': 'Farms',
-  'food:buildings/production.ts': 'Slaughter', 'land:buildings/data.ts': 'Claimed land and refuelling', 'tools:units/behaviour.ts': 'Tool speed',
+  'food:buildings/production.ts': 'Slaughter', 'land:buildings/data.ts': 'Claimed land and relighting', 'tools:units/behaviour.ts': 'Tool speed',
   'world:units/behaviour.ts': 'Gathering', 'food:rules.ts': 'Upkeep', 'resources:rules.ts': 'Trinket worth', 'lairs:rules.ts': 'Lair clearing and hexes',
   'armour:rules.ts': 'Armour cap', 'pacing:rules.ts': 'Day and night', 'mobs:threats/data.ts': 'Blood and fog nights, depth', 'food:buildings/recipes.ts': 'Cooking',
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
   'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
-  'units/gear.ts': 'Specialist training', 'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Cooking and trinkets',
+  'units/gear.ts': 'Specialist training', 'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
@@ -376,7 +378,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
 export const KEY_ORDER: readonly string[] = [
   'levels', 'cost', 'recipes', 'inputs', 'outputs', 'makes', 'ws', 'steps', 'health', 'hp', 'damage', 'attackSteps', 'reach', 'range',
   'speed', 'walk', 'run', 'armourBp', 'melee', 'ranged', 'firstNight', 'needsBase', 'research', 'research2', 'after', 'forge', 'made', 'madeAt', 'at',
-  'supply', 'shelters', 'workers', 'light', 'crops',
+  'supply', 'shelters', 'workers', 'light', 'crop',
 ];
 
 /** Unit by key; `EXPORT:key` overrides by export, and a bare export name sets a scalar's unit. */

@@ -89,12 +89,13 @@ describe('buildings see', () => {
     expect(found).toBe(true);
   });
 
-  it('see by their row of the table: the main base and towers 20 m, a brazier 14 m, the rest 10 m', () => {
+  it('see by their row of the table: the main base and towers 20 m, a bonfire 20 m, the rest 10 m', () => {
     const s = createWorld(1, { peaceful: true });
     expect(buildingSight(s, bigHouse(s))).toBe(20 * M);
     expect(BUILDING_SIGHT_M[BuildingKind.Tower]).toBe(20);
     expect(BUILDING_SIGHT_M[BuildingKind.TowerStone]).toBe(20);
-    expect(BUILDING_SIGHT_M[BuildingKind.Brazier]).toBe(14);
+    expect(BUILDING_SIGHT_M[BuildingKind.TorchPost]).toBe(10);
+    expect(BUILDING_SIGHT_M[BuildingKind.Bonfire]).toBe(20);
     expect(BUILDING_SIGHT_M[BuildingKind.Wall]).toBe(10);
     // Every building a player can own has a row.
     for (let k = 0; k <= BuildingKind.TowerStone; k++) {

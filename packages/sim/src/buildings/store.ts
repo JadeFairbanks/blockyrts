@@ -2,8 +2,8 @@
 // plus the columns their footprints and solid parts cover (derived, rebuilt
 // on load). A building is a real object from the moment it is started
 // (Building placement). Its anchor never moves; which columns are solid can
-// change as it levels up, and a kitchen's footprint grows round the anchor
-// (footprints.ts): an upgrade takes the new level's footprint from the
+// change as the Big House levels up, and a footprint that grows grows round
+// the anchor (footprints.ts): an upgrade takes the new level's footprint from the
 // moment it is paid for, and gives it back if cancelled.
 
 import type { ByteReader, ByteWriter } from '../bytes.ts';
@@ -25,9 +25,9 @@ export const Product = {
 } as const;
 export type Product = number;
 /**
- * Research step r is product RESEARCH_PRODUCT + r; a processing or cooking
- * recipe (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a
- * species at a livestock farm, SLAUGHTER_PRODUCT + species; making a siege
+ * Research step r is product RESEARCH_PRODUCT + r; a crafting recipe
+ * (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a species at
+ * a Barn, SLAUGHTER_PRODUCT + species; making a siege
  * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine; a new troop
  * (units/kits.ts) TROOP_PRODUCT + type x 100 + weapon tier x 10 + armour
  * tier (troopProduct); a new mage with her kit picked at a Magi Sanctum
@@ -107,8 +107,6 @@ export interface Building {
   repairAcc: number;
   queue: QueueItem[];
   rally: RallyPoint[];
-  /** Lights: the step it burns until (lit while the step is below it). */
-  fuelUntil: number;
   /** Step construction finished. */
   doneAt: number;
   /** Farms: the harvest's progress, in farmer-steps of work (full at FARM_HARVEST_STEPS); the yield's thousandths carried between harvests are in `acc[0]`. */
@@ -132,10 +130,10 @@ export interface Building {
   /** Research the players it was inherited from had (a bit per step), which anyone using it may build on. */
   tech: number;
   /**
-   * Barracks and Stables: the padlock per troop type (Patch 2's training
-   * cards), by type; a Magi Sanctum's per school at mageLock (6 support, 7
-   * battle): 0 unlocked, else 1 + weapon (wand) tier x 10 + armour (robe)
-   * tier, the kit this building keeps training.
+   * Barracks: the padlock per troop type (Patch 2's training cards), by
+   * type; a Magi Sanctum's per school at mageLock (6 support, 7 battle): 0
+   * unlocked, else 1 + weapon (wand) tier x 10 + armour (robe) tier, the kit
+   * this building keeps training.
    */
   locks: number[];
 }
@@ -402,7 +400,8 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     }
     w.u8(b.rally.length);
     for (const p of b.rally) writeRally(w, p);
-    w.u32(b.fuelUntil);
+    // Was a light's fuel; lights burn without it from Patch 2. Kept as a zero so the save format stays as it was.
+    w.u32(0);
     w.u32(b.doneAt);
     w.i32(b.farmAcc);
     w.u8(b.alerted);
@@ -443,7 +442,6 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       repairAcc: r.i32(),
       queue: [],
       rally: [],
-      fuelUntil: 0,
       doneAt: 0,
       farmAcc: 0,
       alerted: 0,
@@ -469,7 +467,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     }
     const nr = r.u8();
     for (let p = 0; p < nr; p++) b.rally.push(readRally(r));
-    b.fuelUntil = r.u32();
+    r.u32();
     b.doneAt = r.u32();
     b.farmAcc = r.i32();
     b.alerted = r.u8();
@@ -493,7 +491,7 @@ export function buildingFields(b: Building): Record<string, number | string> {
   return {
     id: b.id, owner: b.owner, kind: b.kind, variant: b.variant, level: b.level, x: b.x, z: b.z, y: b.y, hp: b.hp,
     progress: b.progress, complete: b.complete ? 1 : 0, upgrading: b.upgrading, upProgress: b.upProgress, repairAcc: b.repairAcc,
-    queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), fuelUntil: b.fuelUntil, doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
+    queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
     costMul: b.costMul, rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech, locks: JSON.stringify(b.locks),
   };
 }

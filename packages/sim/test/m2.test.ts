@@ -38,6 +38,8 @@ import {
   Blocked,
   pointGoal,
   Product,
+  RECIPE_PRODUCT,
+  RECIPES,
   Res,
   serializeState,
   solidRect,
@@ -45,6 +47,7 @@ import {
   supplyCap,
   supplyUsed,
   UnitKind,
+  workersAt,
   WU_PER_COLUMN,
   WU_PER_METRE,
   type Building,
@@ -327,7 +330,7 @@ describe('building', () => {
     expect(torch.hp).toBe(4); // 10% of 40
     runUntil(s, () => torch.complete, 400);
     expect(torch.hp).toBe(40);
-    expect(isLit(torch, s.step)).toBe(true);
+    expect(isLit(torch)).toBe(true);
     const cx = (torch.x + 0.5) * WU_PER_COLUMN;
     const cz = (torch.z + 0.5) * WU_PER_COLUMN;
     expect(isClaimed(s, 0, cx + 4 * WU_PER_METRE, cz)).toBe(true);
@@ -342,15 +345,16 @@ describe('building', () => {
     run(s, 1, [{ kind: 'build', player: 0, units: [1, 2, 3], building: BuildingKind.Storehouse, variant: 0, x, z }]);
     runUntil(s, () => s.buildings.list.length === 2, 3000);
     expect(s.buildings.list.length).toBe(2);
-    expect(pool[Res.SoftwoodLumber]).toBe(0);
-    expect(pool[Res.Stone]).toBe(0);
+    // Patch 2: the Storehouse is a cheap drop-off, 30 softwood and no stone.
+    expect(pool[Res.SoftwoodLumber]).toBe(10);
+    expect(pool[Res.Stone]).toBe(20);
     const store = s.buildings.list[1]!;
     run(s, 200);
     expect(store.progress).toBeGreaterThan(200);
     run(s, 1, [{ kind: 'cancelBuild', player: 0, building: store.id }]);
     expect(s.buildings.list.length).toBe(1);
-    expect(pool[Res.SoftwoodLumber]).toBe(30);
-    expect(pool[Res.Stone]).toBe(15);
+    expect(pool[Res.SoftwoodLumber]).toBe(10 + 22);
+    expect(pool[Res.Stone]).toBe(20);
     run(s, 2);
     for (let i = 0; i < 3; i++) expect(s.entities.queue[i]!.length).toBe(0);
   });
@@ -427,45 +431,47 @@ describe('training and production queues', () => {
     expect(b.queue[0]!.progress).toBe(0);
   });
 
-  it('a lumber mill makes planks only with hands inside', () => {
+  it('a Workshop makes planks with no hands inside (Patch 2: crafting buildings need no workers)', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    const [x, z] = freeSpot(s, BuildingKind.LumberMill);
-    const mill = placeBuilding(s, 0, BuildingKind.LumberMill, 0, x, z, true);
-    run(s, 1, [{ kind: 'produce', player: 0, building: mill.id, product: Product.PlanksSoftwood, count: 2 }]);
+    const [x, z] = freeSpot(s, BuildingKind.Workshop);
+    const shop = placeBuilding(s, 0, BuildingKind.Workshop, 0, x, z, true);
+    const planks = RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood');
+    run(s, 1, [{ kind: 'produce', player: 0, building: shop.id, product: planks, count: 2 }]);
     expect(pool[Res.SoftwoodLumber]).toBe(38);
-    run(s, 200);
-    expect(pool[Res.Planks]).toBe(0);
-    run(s, 1, [{ kind: 'assign', player: 0, units: [1, 2], building: mill.id }]);
     runUntil(s, () => pool[Res.Planks] === 2, 3000);
-    expect(s.entities.inside[0]).toBe(mill.id);
+    expect(workersAt(s, shop)).toBe(0);
+    // Nobody can be assigned there.
+    run(s, 1, [{ kind: 'assign', player: 0, units: [1], building: shop.id }]);
+    run(s, 200);
+    expect(s.entities.inside[0]).not.toBe(shop.id);
   });
 });
 
 describe('farms', () => {
-  it('a wheat field with two farmers fills its harvest bar from the start and brings in 6 wheat', () => {
+  it('a Farm with two farmers fills its harvest bar from the start and brings in 8 farm fare', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    const [x, z] = freeSpot(s, BuildingKind.CropField);
-    const farm = placeBuilding(s, 0, BuildingKind.CropField, 0, x, z, true);
+    const [x, z] = freeSpot(s, BuildingKind.Farm);
+    const farm = placeBuilding(s, 0, BuildingKind.Farm, 0, x, z, true);
     // Kept back from meals (every food is eaten in turn) so the harvest shows in the pool.
-    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Wheat, on: 1 }]);
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.FarmFare, on: 1 }]);
     run(s, 1, [{ kind: 'assign', player: 0, units: [1, 2, 3], building: farm.id }]);
     run(s, 299);
-    // Two farmers at most at tier 1; the third was turned away.
+    // Two farmers at most; the third was turned away.
     expect(s.entities.queue[2]!.length).toBe(0);
     // No fallow days: the bar is already filling.
     expect(farm.farmAcc).toBeGreaterThan(0);
-    expect(pool[Res.Wheat]).toBe(0);
-    // Two farmers fill a one-farmer-day bar in half a day; the harvest is one farmer-day's 6 wheat (in the Heartland).
-    runUntil(s, () => pool[Res.Wheat]! > 0, FARM_HARVEST_STEPS);
-    expect(pool[Res.Wheat]).toBe(6);
+    expect(pool[Res.FarmFare]).toBe(0);
+    // Two farmers fill a one-farmer-day bar in half a day; the harvest is one farmer-day's 8 farm fare, in any band.
+    runUntil(s, () => pool[Res.FarmFare]! > 0, FARM_HARVEST_STEPS);
+    expect(pool[Res.FarmFare]).toBe(8);
   });
 
   it('farmers go into their farmhouse at dusk and back to the field at day', () => {
     const s = createWorld(1, { peaceful: true });
-    const [x, z] = freeSpot(s, BuildingKind.CropField);
-    const farm = placeBuilding(s, 0, BuildingKind.CropField, 0, x, z, true);
+    const [x, z] = freeSpot(s, BuildingKind.Farm);
+    const farm = placeBuilding(s, 0, BuildingKind.Farm, 0, x, z, true);
     run(s, 1, [{ kind: 'assign', player: 0, units: [1], building: farm.id }]);
     run(s, DAY_STEPS + 300);
     expect(s.entities.inside[0]).toBe(farm.id);
@@ -512,24 +518,18 @@ describe('sheltering', () => {
 });
 
 describe('lights and claimed land', () => {
-  it('counts lights far from the base at dusk and burns fuel down', () => {
+  it('counts lights far from the base at dusk, and burns them without fuel (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const b = bigHouse(s);
     const far: Building[] = [];
     for (let k = 0; k < 6; k++) far.push(placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x + 120 + k * 3, b.z, false));
-    for (const t of far) {
-      t.complete = true;
-      t.fuelUntil = s.step + 3 * CYCLE_STEPS;
-    }
+    for (const t of far) t.complete = true;
     expect(outlyingLights(s, 0, 0)).toEqual({ halves: 12, limit: 4 });
     expect(outlyingLights(s, 0, 10).limit).toBe(6);
-    const near = placeBuilding(s, 0, BuildingKind.TorchPost, 0, b.x - 3, b.z, false);
-    near.complete = true;
-    near.fuelUntil = s.step + 10;
-    // Within 40 m of the Big House the pool refuels it.
-    run(s, 20);
-    expect(near.fuelUntil).toBeGreaterThan(s.step + 1000);
-    expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(39);
+    const wood = s.players[0]!.pool[Res.SoftwoodLumber];
+    run(s, 3 * CYCLE_STEPS + 20);
+    for (const t of far) expect(isLit(t)).toBe(true);
+    expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(wood);
   });
 
   it('claims 10 m round a building', () => {

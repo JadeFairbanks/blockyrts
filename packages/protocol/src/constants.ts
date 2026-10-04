@@ -43,17 +43,19 @@ export const AUTOSAVES_PER_MATCH = 3;
 
 /**
  * The eight player colours offered in the lobby, in slot order of first pick.
- * Placeholder blue (52, 96, 178) on models is recoloured to these.
+ * Placeholder blue (52, 96, 178) on models is recoloured to these. Red is no
+ * player's colour (Patch 2, Jade): it marks enemies on the minimap, and White
+ * took its place at the end of the list.
  */
 export const PLAYER_COLOURS = [
   { name: 'Blue', hex: '#3460b2' },
-  { name: 'Red', hex: '#c0392b' },
   { name: 'Green', hex: '#3f9b3a' },
   { name: 'Yellow', hex: '#e0b62c' },
   { name: 'Purple', hex: '#7d4bb5' },
   { name: 'Orange', hex: '#e07a24' },
   { name: 'Teal', hex: '#22a3a0' },
   { name: 'Pink', hex: '#d965a6' },
+  { name: 'White', hex: '#e0e0e0' },
 ] as const;
 
 /** Guests appear as "Guest" and a random 4-digit number (Accounts and guests). */

@@ -27,6 +27,7 @@ export const Blocked = {
   Building: 3,
   Node: 4,
   Unexplored: 5,
+  /** Retired with the wall torch (Patch 2); the number stays so the others keep theirs. */
   NoWall: 6,
   /** A mineshaft stands on bare rock. */
   NotStone: 7,
@@ -35,7 +36,7 @@ export const Blocked = {
 } as const;
 export type Blocked = (typeof Blocked)[keyof typeof Blocked];
 
-export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', 'A wall torch must stand against a wall.', 'A mineshaft must stand on flat bare stone.', 'A fishing dock must stand at the water\'s edge.'] as const;
+export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', '', 'A mineshaft must stand on flat bare stone.', 'A fishing dock must stand at the water\'s edge.'] as const;
 
 /** How far a column may stand above or below the building's floor, in terrain units (about 45 cm). */
 export const LEVEL_TOLERANCE_UNITS = 4;
@@ -89,8 +90,8 @@ function tileBlocked(state: SimState, x: number, z: number, floor: number, prop:
 }
 
 /**
- * Why an upgrade cannot take the land its bigger footprint needs (a
- * kitchen's grows round it, Table 4), or None: the columns it adds are
+ * Why an upgrade cannot take the land its bigger footprint needs (a main
+ * base level that grows round its anchor), or None: the columns it adds are
  * checked as a new building's would be, against the building's own floor.
  */
 export function growthBlocked(state: SimState, b: Building, level: number): Blocked {
@@ -133,7 +134,6 @@ export function clearingOn(state: SimState, kind: number, x: number, z: number, 
 /** The first red tile's reason, or None when every tile is green. */
 export function placementBlocked(state: SimState, player: number, kind: number, x: number, z: number, variant = 0): Blocked {
   for (const r of placementTiles(state, player, kind, x, z, variant)) if (r !== Blocked.None) return r as Blocked;
-  if (kind === BuildingKind.WallTorch && !wallBeside(state, x, z)) return Blocked.NoWall;
   if (kind === BuildingKind.Mineshaft && !onStone(state, x, z, variant)) return Blocked.NotStone;
   if (kind === BuildingKind.FishingDock && !waterBeside(state, { kind, x, z, variant })) return Blocked.NoShore;
   return Blocked.None;
@@ -155,15 +155,6 @@ export function onStone(state: SimState, x: number, z: number, variant = 0): boo
   return rock * 2 >= spec.w * spec.d;
 }
 
-/** Whether a wall column stands right next to a column (a wall torch hangs on it). */
-export function wallBeside(state: SimState, x: number, z: number): boolean {
-  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-    const id = state.buildings.solidAt(x + dx, z + dz);
-    const b = id ? state.buildings.get(id) : undefined;
-    if (b && buildingSpec(b.kind).defence === 'wall') return true;
-  }
-  return false;
-}
 
 /** The highest level of a complete main base the player has (0 for none). */
 export function mainBaseLevel(state: SimState, player: number): number {

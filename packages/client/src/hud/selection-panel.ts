@@ -10,7 +10,6 @@
 // or its workers, lights, farm bar, men up top and inside; for several,
 // tabs with a picture and a count, and portraits with their bars.
 import {
-  BuildingKind,
   buildingSpec,
   engineSpec,
   isGame,
@@ -474,7 +473,7 @@ export class SelectionPanel {
     this.ownerTag(b.owner);
     this.push();
     if (own) this.queue(b);
-    // A training building's facts (a Stables' stalls, the rally route) stand in a column beside its cards.
+    // A training building's facts (its workers, the rally route) stand in a column beside its cards.
     const cards = own && b.complete && cardsOf(b).length > 0 ? this.cards.render(this.body, [b]) : null;
     this.buildingFacts(b, own, cards ?? this.body);
     if (b.farm) this.farmBar(b);
@@ -498,8 +497,7 @@ export class SelectionPanel {
       }, row);
     }
     if (own && b.herd > 0) {
-      const stalls = b.kind === BuildingKind.Stables ? 6 : 0;
-      this.chip('herd', { icon: pic(stalls ? 'icon_train_horse' : 'icon_pen_barn'), face: stalls ? `${b.herd}/${stalls}` : String(b.herd), name: stalls ? `Stalls: ${b.herd} of ${stalls} taken` : `${b.herd} animals`, description: b.status ? `${b.status}.` : '', className: 'count' }, row);
+      this.chip('herd', { icon: pic('icon_pen_barn'), face: String(b.herd), name: `${b.herd} animal${b.herd === 1 ? '' : 's'}`, description: b.status ? `${b.status}.` : '', className: 'count' }, row);
     }
     const light = spec.light;
     if (light && b.complete) {
@@ -586,7 +584,7 @@ export class SelectionPanel {
 
   // ---- Several Barracks ----
 
-  /** Only Barracks (or Stables, or Sanctums) selected: their cards, and a tile per building in the title row. */
+  /** Only Barracks (or only Sanctums) selected: their cards, and a tile per building in the title row. */
   private severalCards(list: readonly Selectable[], all: BuildingInfo[]): void {
     this.push();
     const tiles = document.createElement('div');

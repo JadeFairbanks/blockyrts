@@ -94,7 +94,7 @@ export function refillMana(state: SimState): void {
 /** Snuff lands: a lit light of the players goes out without damage (its mana went when the cast began). */
 export function snuffEffect(state: SimState, i: number, b: Building): void {
   void i;
-  if (!snuffLight(state, b)) return;
+  if (!snuffLight(b)) return;
   const [x, z] = buildingCentre(b);
   state.hits.push({ look: 'burst', x, y: buildingTop(b), z, id: b.id });
   state.events.push({ player: b.owner, kind: 'alert', text: `A goblin mage snuffed out a ${buildingSpec(b.kind).name.toLowerCase()}. A worker can relight it.`, x, z });

@@ -1,5 +1,5 @@
 // The training cards' choices (Patch 2, Troops and gear: Training troops):
-// which kit each card of a Barracks, Stables or Magi Sanctum trains next, and
+// which kit each card of a Barracks or Magi Sanctum trains next, and
 // why it cannot right now. A card is a troop type (1 to 5) or one of the
 // Sanctum's schools (6 support, 7 battle: the sim's mageLock). Unlocked, a
 // card follows the stock: the sim's best the pool pays for, weapon (or wand)
@@ -10,6 +10,7 @@
 import {
   ARMOUR_KITS,
   BuildingKind,
+  CAVALRY_BASE,
   costText,
   hasShield,
   MAGE_FOOD,
@@ -268,13 +269,14 @@ export function shortText(g: GameInfo, pieces: readonly Piece[], inStock = false
 /** Why a building cannot train a card's unit at these tiers now, or '', in the order before Patch 2. */
 export function cardWhy(g: GameInfo, b: BuildingInfo, card: number, w: number, a: number): string {
   if (!cardOffered(b, card, w, a)) return 'This building does not train that.';
+  if (card === Troop.Cavalry && g.mainBaseLevel() < CAVALRY_BASE) return `Needs a level ${CAVALRY_BASE} main base.`;
   const pieces = cardPieces(card, w, a);
   const tech = g.tech();
   for (const p of pieces) {
     const why = pieceProblem(p, tech.research, tech.forge, tech.researchName);
     if (why) return why;
   }
-  if (card === Troop.Cavalry && b.horses === 0) return 'No grown tamed horse ready.';
+  if (card === Troop.Cavalry && b.horses === 0) return 'No grown tamed horse ready in a Barn.';
   if (!planPieces(pieces, g.pool())) return shortText(g, pieces);
   const food = isMageCard(card) ? MAGE_FOOD : TRAINING.troopFood;
   const info = g.info;

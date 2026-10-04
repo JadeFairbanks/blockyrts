@@ -10,7 +10,7 @@ import { type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
 
-// Patch 2 (middle HUD and training cards): the cards of the Barracks, Stables
+// Patch 2 (middle HUD and training cards): the cards of the Barracks
 // and Magi Sanctum, their tooltips' words, and the Several panel's army line.
 
 const ME = 0;
@@ -18,7 +18,7 @@ const ME = 0;
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, fuelLeft: 0, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
     troops: [], horses: 0, farm: null, ...o,
   };
 }
@@ -75,12 +75,12 @@ describe('the Sanctum cards', () => {
     const card = mageLock(School.Support);
     expect(cardWhy(game([s]), s, card, 1, 1)).toBe('Short: 0 of 5 hardwood sticks.');
     expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3]]), s, card, 1, 1)).toBe('Not enough food (50).');
-    expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3], [Res.Wheat, 30]]), s, card, 1, 1)).toBe('');
+    expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3], [Res.FarmFare, 30]]), s, card, 1, 1)).toBe('');
   });
 
   it('train the mage with the wand and robe on the card', () => {
     const s = sanctum(212, 1, 1);
-    const g = game([s], [[Res.Sticks, 20], [Res.Flax, 9], [Res.Wheat, 100], [Res.CopperIngot, 2]]);
+    const g = game([s], [[Res.Sticks, 20], [Res.Flax, 9], [Res.FarmFare, 100], [Res.CopperIngot, 2]]);
     const sent: Order[] = [];
     const active = `building:${s.kind}:1`;
     const selection: Selectable[] = [{ key: `b:${s.id}`, kind: 'building', owner: ME, typeKey: active, centre: new THREE.Vector3(), halfSize: new THREE.Vector3(3, 3, 3), label: s.name }];

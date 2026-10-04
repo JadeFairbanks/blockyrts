@@ -1,8 +1,8 @@
 // What each building looks like when the model library has no model for it:
 // a few coloured blocks per kind and level, merged into one geometry with
 // vertex colours (one draw call per building). Every main base level has its
-// own look (Main base: Big House to Citadel), farms show their crop and tier,
-// the lumber mill grows a waterwheel, and lights carry a flame.
+// own look (Main base: Big House to Citadel), the Farm shows its crop, and
+// lights carry a flame.
 //
 // Local space: origin at the footprint's corner (smallest x and z) on the
 // floor, metres, x east, z south.
@@ -15,7 +15,7 @@ export interface Look {
   geometry: THREE.BufferGeometry;
   /** Height of the tallest part, metres. */
   height: number;
-  /** Where flames burn (lights, campfires), local metres. */
+  /** Where flames burn (lights), local metres. */
   flames: THREE.Vector3[];
 }
 
@@ -38,12 +38,8 @@ const C = {
   white: 0xf0ece0,
 } as const;
 
-/** Crop colours by farm kind and variant. */
-const CROP: Record<number, readonly number[]> = {
-  [BuildingKind.CropField]: [0xd9b84a, 0x9cb84a, 0x6e8fd0],
-  [BuildingKind.VegetableFarm]: [0x4f8a3a, 0x5f9a30],
-  [BuildingKind.HerbBed]: [0x3f9a5a],
-};
+/** The Farm's crop colour: a medley of green vegetables (Patch 2: farm fare). */
+const CROP = 0x5f9a3a;
 
 class Parts {
   readonly list: THREE.BufferGeometry[] = [];
@@ -258,17 +254,10 @@ function farm(p: Parts, kind: number, level: number, variant: number, fallow: bo
   const houseD = hd * COLUMN_M;
   // The field: soil with furrows, crops in rows unless it lies bare (nothing grows there).
   p.box(0, 0, 0, w, 0.06, d, C.soil);
-  const crop = CROP[kind]?.[variant];
-  if (kind === BuildingKind.LivestockFarm) {
-    p.fence(0.1, 0.1, w - 0.2, d - 0.2, C.wood, 0.9);
-    p.box(w - 1.6, 0, d - 0.9, 1.2, 0.35, 0.4, C.darkWood).box(w - 1.5, 0.3, d - 0.85, 1.0, 0.04, 0.3, C.water);
-    p.house(0, 0, houseW, houseD, 1.3, C.plank, C.thatch, 0.9);
-    return;
-  }
   for (let z = 0.3; z < d - 0.2; z += 0.6) {
     const x0 = z < houseD + 0.2 ? houseW + 0.2 : 0.2;
     p.box(x0, 0.06, z, w - x0 - 0.2, 0.05, 0.22, C.furrow);
-    if (crop !== undefined && !fallow) p.box(x0 + 0.05, 0.11, z + 0.03, w - x0 - 0.3, 0.25 + level * 0.08, 0.16, crop);
+    if (!fallow) p.box(x0 + 0.05, 0.11, z + 0.03, w - x0 - 0.3, 0.25 + level * 0.08, 0.16, CROP);
   }
   // The farmhouse in the corner, better at each tier.
   const wall = level >= 3 ? C.stone : C.plank;
@@ -349,23 +338,15 @@ export function makeLook(kind: number, level: number, variant: number, team: num
     case BuildingKind.MainBase:
       mainBase(p, level, team);
       break;
-    case BuildingKind.CropField:
-    case BuildingKind.VegetableFarm:
-    case BuildingKind.HerbBed:
-    case BuildingKind.LivestockFarm:
+    case BuildingKind.Farm:
       farm(p, kind, level, variant, fallow);
       break;
-    case BuildingKind.PenBarn:
-      p.house(0, 0, w / 2, d, 2.2, C.redRoof, C.slate, 1.3);
+    case BuildingKind.Barn:
+      // A red barn with white trim and its yard (Patch 2), until its model comes.
+      p.house(0, 0, w / 2, d, 2.6, C.redRoof, C.slate, 1.3);
+      p.box(w / 4 - 0.6, 0, d - 0.06, 1.2, 1.6, 0.08, C.white);
       p.fence(w / 2 + 0.05, 0.05, w / 2 - 0.1, d - 0.1, C.wood, 0.9);
       p.box(w / 2 + 0.4, 0, 0.4, 0.8, 0.5, 0.6, C.hay);
-      break;
-    case BuildingKind.LumberMill:
-      p.box(0, 0, 0, w, 0.2, d, C.darkWood);
-      p.box(0.2, 0, 0.2, w - 0.4, 2.0, d - 1.2, C.plank);
-      p.gable(0.2, 2.0, 0.2, w - 0.4, d - 1.2, 1.2, C.thatch);
-      for (let k = 0; k < 3; k++) p.log(0.4, 0.4 + (k === 2 ? 0.34 : 0), d - 0.7 + (k === 2 ? 0.2 : k * 0.4), 0.2, w - 0.8, C.wood);
-      if (level >= 2) p.wheel(w + 0.05, 1.1, d / 2 - 0.3, 1.1, 0.3, C.darkWood);
       break;
     case BuildingKind.Storehouse:
       p.box(0, 0, 0, w, 0.3, d, C.darkStone);
@@ -376,23 +357,14 @@ export function makeLook(kind: number, level: number, variant: number, team: num
       p.box(w / 2 - 0.06, 0, d / 2 - 0.06, 0.12, 1.7, 0.12, C.darkWood).box(w / 2 - 0.1, 1.6, d / 2 - 0.1, 0.2, 0.18, 0.2, C.iron);
       p.flame(w / 2, 1.9, d / 2);
       break;
-    case BuildingKind.WallTorch:
-      p.box(w / 2 - 0.05, 1.2, d / 2 - 0.05, 0.1, 0.4, 0.1, C.iron);
-      p.flame(w / 2, 1.7, d / 2);
-      break;
-    case BuildingKind.Brazier:
-      p.cyl(w / 2, 0, d / 2, 0.12, 0.9, C.iron).cyl(w / 2, 0.9, d / 2, 0.4, 0.25, C.iron, 10);
-      p.flame(w / 2, 1.3, d / 2);
-      break;
-    case BuildingKind.Cooking:
-      if (level === 1) {
-        for (let k = 0; k < 8; k++) {
-          const a = (k / 8) * Math.PI * 2;
-          p.box(w / 2 + Math.cos(a) * 0.35 - 0.08, 0, d / 2 + Math.sin(a) * 0.35 - 0.08, 0.16, 0.14, 0.16, C.stone);
-        }
-        p.box(w / 2 - 0.25, 0, d / 2 - 0.05, 0.5, 0.1, 0.1, C.darkWood);
-        p.flame(w / 2, 0.35, d / 2);
-      } else p.house(0, 0, w, d, 1.6, C.stone, C.redRoof);
+    case BuildingKind.Bonfire:
+      // A ring of stones round a stack of logs, no spit (Jade): drawn until the campfire model stands in for it.
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        p.box(w / 2 + Math.cos(a) * 0.55 - 0.1, 0, d / 2 + Math.sin(a) * 0.55 - 0.1, 0.2, 0.18, 0.2, C.stone);
+      }
+      for (let k = 0; k < 3; k++) p.log(w / 2 - 0.45, 0.12 + k * 0.16, d / 2 - 0.2 + (k % 2) * 0.4, 0.09, 0.9, C.darkWood);
+      p.flame(w / 2, 0.6, d / 2);
       break;
     default:
       // Not built in this milestone: a plain block in the building's size.

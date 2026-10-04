@@ -29,9 +29,7 @@ const LINE_KINDS: ReadonlySet<number> = new Set([
   BuildingKind.Earthworks,
   BuildingKind.Ramp,
   BuildingKind.TorchPost,
-  BuildingKind.WallTorch,
-  BuildingKind.Brazier,
-  BuildingKind.Lantern,
+  BuildingKind.Bonfire,
 ]);
 
 /** Whether a selectable is one of a wall line's pieces or a light (building type keys are 'building:kind:level'). */

@@ -30,6 +30,7 @@ import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
 import { Btn, InputManager, type Mods, type MouseTarget, type TouchHooks } from '../input/input-manager.ts';
 import { CTRL_NAME } from '../input/platform.ts';
+import { KeyCode } from '../input/tester-code.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
 import { Minimap } from '../minimap/minimap.ts';
 import { SelectionController } from '../selection/controller.ts';
@@ -244,8 +245,9 @@ export class GameShell {
   /** Where the panels go for this screen size, and the rows the card shows now. */
   private geometry: HudGeometry;
   private cardRows = 0;
-  /** The phone's unfolded panels. */
+  /** The phone's unfolded panels, and the tester tools (hidden until their key code is typed). */
   private readonly folds: Folds = { map: false, info: true, stock: false, debug: false };
+  private readonly testerCode = new KeyCode();
   private readonly startedAt = performance.now();
   /** The active subgroup's type. */
   private active: string | null = null;
@@ -362,6 +364,8 @@ export class GameShell {
       parent,
     );
     this.input.addArea('minimap', this.layout.minimapEl, this.minimapMouse());
+    // Any click or tap on the way cuts the tester tools' code short.
+    window.addEventListener('pointerdown', () => this.testerCode.reset(), true);
     // Touch controls turned on or off in Settings: the page follows at once.
     onSettingsChange(() => this.input.syncTouch());
     this.allies = new AlliesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
@@ -512,6 +516,15 @@ export class GameShell {
     this.panels.measure();
   }
 
+  /** The key code was typed: shows the tester tools, or hides them again (a new game or a reload starts with them hidden). */
+  private toggleTesterTools(): void {
+    this.folds.debug = !this.folds.debug;
+    applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
+    fitDebug(this.layout, this.geometry);
+    this.panels.measure();
+    this.message(this.folds.debug ? 'Tester tools shown. Type the code again to hide them.' : 'Tester tools hidden.');
+  }
+
   /** Phone: unfolds or folds a panel; the minimap and the selection share the strip, so one closes the other. */
   private toggleFold(which: keyof Folds): void {
     const on = !this.folds[which];
@@ -521,7 +534,7 @@ export class GameShell {
     applyGeometry(this.layout, this.geometry, this.cardRows, this.folds);
     this.portraitRect = null;
     this.panels.measure();
-    for (const k of ['map', 'info', 'stock', 'debug'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
+    for (const k of ['map', 'info', 'stock'] as const) this.buttons.get(`fold-${k}`)?.setLit(this.folds[k]);
   }
 
   /** The sim's answer about placement tiles. */
@@ -955,7 +968,6 @@ export class GameShell {
     fold('fold-map', '◫', 'Map', 'Show or hide the minimap and the buttons along its top (idle gatherer, army, camera spots).', () => this.toggleFold('map'));
     fold('fold-info', 'ⓘ', 'Selection', 'Show or hide the portrait and what is selected.', () => this.toggleFold('info')).setLit(this.folds.info);
     fold('fold-stock', '▦', 'Stock', 'Show or hide the inventory: what you have of every good.', () => this.toggleFold('stock'));
-    fold('fold-debug', '⚙', 'Tester tools', 'Show or hide the debug readout and the tester buttons.', () => this.toggleFold('debug'));
     fold('fold-chat', '✉', 'Messages', 'Show or hide the message panel. It flashes when something urgent comes in.', () => this.messages.setCollapsed(!this.messages.isCollapsed()));
     // Touch controls: a drag moves the camera, so the selection box waits for this button.
     const boxText = 'Touch controls: light it, then drag to draw a selection box round your units. A drag otherwise moves the camera.';
@@ -1334,6 +1346,9 @@ export class GameShell {
   // ---- Keyboard ----
 
   private keyDown(id: string, ev: KeyboardEvent): void {
+    // The tester tools' code counts only keys typed in the game itself; the keys still do their usual jobs.
+    if (this.menu.isOpen || this.input.mode !== 'game') this.testerCode.reset();
+    else if (this.testerCode.key(ev)) this.toggleTesterTools();
     if (this.menu.isOpen) {
       if (this.menu.capturing) return;
       if (id === 'Escape' || id === 'F10') this.closeMenu();
@@ -1731,7 +1746,7 @@ export class GameShell {
       case 'dropoff':
       case 'enter':
       case 'job':
-      case 'refuel':
+      case 'relight':
       case 'train': {
         const b = this.game.buildings.get(o.b);
         if (!b) return null;

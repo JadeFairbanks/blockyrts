@@ -6,7 +6,7 @@
 import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
-import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked, waterBeside } from './buildings/placement.ts';
+import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf } from './economy/resources.ts';
@@ -174,7 +174,6 @@ export function upgradeProblem(state: SimState, b: Building, by = b.owner): stri
   if (next.needs) return next.needs;
   if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
   if (next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
-  if (b.kind === BuildingKind.LumberMill && b.level === 1 && !waterBeside(state, b)) return 'The waterwheel needs a stream beside the mill.';
   const room = growthBlocked(state, b, b.level + 1);
   if (room !== Blocked.None) return `It needs more room round it to grow: ${BLOCKED_TEXT[room].charAt(0).toLowerCase()}${BLOCKED_TEXT[room].slice(1)}`;
   const pool = state.players[by]!.pool;
@@ -426,7 +425,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
-        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.crops?.length ?? spec.variants?.length ?? 1)) break;
+        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
         giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
         break;
       }
@@ -483,9 +482,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (b && takesWorkers(b)) giveAll(state, o, () => ({ t: 'job', b: b.id }));
         break;
       }
-      case 'refuel': {
+      case 'relight': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b && buildingSpec(b.kind).light) giveAll(state, o, () => ({ t: 'refuel', b: b.id }));
+        if (b && buildingSpec(b.kind).light) giveAll(state, o, () => ({ t: 'relight', b: b.id }));
         break;
       }
       case 'trainRank': {
