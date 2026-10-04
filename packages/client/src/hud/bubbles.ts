@@ -135,6 +135,14 @@ export class SpeechBubbles {
     return true;
   }
 
+  /** Yes's tooltip has new words (the stock it counts has changed, Patch 3). Returns whether the question is up here with its buttons. */
+  retell(ask: number, yes: string): boolean {
+    const q = this.questions.find((x) => x.ask === ask);
+    if (!q?.buttons) return false;
+    q.buttons.describe('yes', yes);
+    return true;
+  }
+
   /** Every question up now (ask numbers). */
   openAsks(): number[] {
     return this.questions.map((q) => q.ask);

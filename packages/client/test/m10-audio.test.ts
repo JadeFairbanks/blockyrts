@@ -74,6 +74,8 @@ describe('the sound map (Audio)', () => {
     expect(eventCue({ kind: 'question', text: 'No more softwood nearby. Look farther off?', ask: { q: Ask.Farther } })).toEqual({ sound: 'alert_idle_worker', voice: 'resource_out' });
     expect(eventCue({ kind: 'question', text: 'No more softwood nearby. Look farther off?', ask: { q: Ask.Farther, closed: true } })).toEqual({ sound: null, voice: null });
     expect(eventCue({ kind: 'question', text: "I'm hurt. Can I eat to heal?", ask: { q: Ask.Heal } }).sound).toBe('ui_message');
+    // New words for Yes's tooltip (Patch 3) make no sound: the question is already up.
+    expect(eventCue({ kind: 'question', text: 'Four of us could use better tools. Upgrade?', ask: { q: Ask.Kit, retold: true } })).toEqual({ sound: null, voice: null });
     expect(eventCue({ kind: 'speech', text: 'Help! I am being attacked!', urgent: true }).voice).toBe('under_attack');
     expect(eventCue({ kind: 'alert', text: 'Your workers are starving and slowed.' }).voice).toBe('hungry');
     expect(eventCue({ kind: 'alert', text: 'I cannot reach that.', urgent: true }).voice).toBe('cannot');

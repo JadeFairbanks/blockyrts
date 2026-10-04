@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { UnitKind } from '@blockyrts/sim';
+import { UnitKind, WARRIOR_XP_TENTHS, WORKER_XP_TENTHS } from '@blockyrts/sim';
 import { bestScale, MIDDLE_MAX_SCALE, MIDDLE_MIN_SCALE } from '../src/hud/middle-fit.ts';
 import { twoLines } from '../src/hud/selection-panel.ts';
-import { hasRanks, xpView } from '../src/hud/xp-bar.ts';
+import { hasRanks, rankFloor, xpView } from '../src/hud/xp-bar.ts';
 
 // Jade's Patch 3, the middle HUD: the XP bar under the health bar, the name
 // on two lines when it is too long for its share of the title row, and the
@@ -15,10 +15,28 @@ describe('the XP bar', () => {
     expect(xpView(UnitKind.Animal, 0, 0, 0)).toBeNull();
   });
 
-  it('fills to the next rank and names it, the rank now first', () => {
-    expect(xpView(UnitKind.Warrior, 2, 120, 150)).toEqual({ pct: 80, tip: 'Soldier: 120 of 150 XP to Veteran.' });
+  it('names the rank first, then the running count and the next rank', () => {
+    expect(xpView(UnitKind.Warrior, 2, 120, 150)?.tip).toBe('Soldier: 120 of 150 XP to Veteran.');
     expect(xpView(UnitKind.Worker, 1, 30, 50)).toEqual({ pct: 60, tip: 'Labourer: 30 of 50 XP to Hand.' });
     expect(xpView(UnitKind.Warrior, 1, 0, 50)?.pct).toBe(0);
+  });
+
+  it("reads each rank's threshold from the ladders, whole points", () => {
+    expect(rankFloor(UnitKind.Warrior, 3)).toBe(WARRIOR_XP_TENTHS[3]! / 10);
+    expect(rankFloor(UnitKind.Worker, 2)).toBe(WORKER_XP_TENTHS[2]! / 10);
+    expect(rankFloor(UnitKind.Worker, 1)).toBe(0);
+    expect(rankFloor(UnitKind.Animal, 3)).toBe(0);
+  });
+
+  it('fills from the rank the unit holds to the next: empty the moment it rises', () => {
+    // The coordinator's ruling: a new Veteran has made no progress toward Elite yet.
+    const vet = rankFloor(UnitKind.Warrior, 3);
+    const elite = rankFloor(UnitKind.Warrior, 4);
+    expect(xpView(UnitKind.Warrior, 3, vet, elite)).toEqual({ pct: 0, tip: `Veteran: ${vet} of ${elite} XP to Elite.` });
+    expect(xpView(UnitKind.Warrior, 3, (vet + elite) / 2, elite)?.pct).toBe(50);
+    expect(xpView(UnitKind.Warrior, 3, elite - 1, elite)?.pct).toBe(Math.floor(((elite - 1 - vet) * 100) / (elite - vet)));
+    // Below its own rank's threshold (a unit given a rank by other means), the bar stays empty.
+    expect(xpView(UnitKind.Warrior, 3, 0, elite)?.pct).toBe(0);
   });
 
   it('is full at the top rank', () => {

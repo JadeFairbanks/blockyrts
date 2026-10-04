@@ -599,6 +599,8 @@ export interface AskInfo {
   no: string;
   /** Set on the event that ends it: answered, unanswered in time, or its speaker gone. */
   closed?: boolean;
+  /** Set on an event that only gives Yes's tooltip new words (the stock it counts has changed since it was asked, Patch 3): the bubble stays as it is. */
+  retold?: boolean;
 }
 
 /**

@@ -1810,7 +1810,9 @@ and what its next rank needs (`rankXp`, unit fields 26 and 27).*
 3. **A troop.** Click a warrior: "Club fighter" (on two lines when the name
    is too long for half the row), HP and XP. Hover XP: "Recruit: 20 of 50
    XP to Soldier." Let it fight: the light blue bar fills; at 50 it becomes
-   a Soldier and the bar starts on Veteran's 150.
+   a Soldier and the bar empties, then fills from 50 toward Veteran's 150
+   (the tooltip keeps the running count: "Soldier: 50 of 150 XP to
+   Veteran.").
 4. **A mage and a rider.** Type M N B V C X Z, press **Sanctum**, **Mage
    kit** and **Barn**, train a Support mage at the Sanctum and a cavalryman
    at the Barracks. The mage's row has HP, XP and "MP:" (her mana) under it;
@@ -2001,7 +2003,14 @@ questions in `packages/sim/src/units/questions.ts`, the held bubbles in
    three walk off to upgrade their tools and the stock drops by exactly what
    they take. Then click the warriors' tick: they get only what is left (one
    flint hand-axe at the start). The other way round, the warriors take
-   their kit first. Nothing in the stock ever goes below zero.
+   their kit first. Nothing in the stock ever goes below zero. After either
+   tick, hover the other question's tick: its tooltip counts only what is
+   left (after the workers' Yes the warriors' says "The stock pays for 1 of
+   the 3, ... From the stock: 2 hardwood sticks, 1 flint."; after the
+   warriors' Yes the workers' says "The stock pays for 2 of the 4, ... From
+   the stock: 12 hardwood sticks, 2 flint, 10 stone."). It recounts whenever
+   the stock changes, and a question the stock no longer pays for any of
+   goes, to be asked again once it does.
 3. **The 10 s wait.** Leave the questions alone: they go after 10 s of game
    time (the balance editor's Questions group, QUESTION_WAIT_STEPS). Paused
    with F10, they stay.
@@ -2024,8 +2033,10 @@ questions in `packages/sim/src/units/questions.ts`, the held bubbles in
 7. `pnpm test` runs `packages/sim/test/patch3-speech.test.ts` (the attacker's
    name, the 10 s wait, eat to heal only when idle and its withdrawal, the
    upgrade lines and their holds, both start questions, the advice once and
-   only on the first day, first come first served three ways) and the held
-   bubbles in `packages/client/test/question-bubbles.test.ts`.
+   only on the first day, first come first served three ways, the other
+   tooltip recounted and a question withdrawn when the stock pays for none)
+   and the held bubbles and the recounted tooltip in
+   `packages/client/test/question-bubbles.test.ts`.
 
 ## How a tester checks the fourteen buildings (Patch 2)
 
