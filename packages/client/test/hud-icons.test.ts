@@ -25,7 +25,7 @@ import {
   troopProduct,
 } from '@blockyrts/sim';
 import type { ButtonIcon } from '../src/hud/buttons.ts';
-import { actionIcon, productIcon, spellIcon, upgradeIcon } from '../src/hud/card-icons.ts';
+import { actionIcon, equipIcon, productIcon, spellIcon } from '../src/hud/card-icons.ts';
 import { doingActions, orderAction } from '../src/hud/doing.ts';
 import { troopPanelFiles } from '../src/hud/icons.ts';
 import { hasKit } from '../src/hud/kit-icons.ts';
@@ -90,24 +90,25 @@ describe('one picture per thing', () => {
     for (const m of MOBS) if (!structure.test(m.model)) expect(modelIconFile(m.model), m.name).not.toBe('');
   });
 
-  it('draws every command, each spell of ours and the upgrades', () => {
+  it('draws every command, each spell of ours and Upgrade equipment', () => {
     const actions = [
-      'attack', 'stop', 'hold', 'patrol', 'move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'buildBasic', 'buildAdvanced',
-      'enter', 'unload', 'rally', 'craft', 'cancel', 'cancelBuild', 'back', 'hunt', 'eat', 'rankUp', 'mageRank', 'train', 'hitch',
+      'attack', 'patrol', 'move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'port',
+      'unload', 'rally', 'craft', 'cancel', 'cancelBuild', 'back', 'hunt', 'eat', 'rankUp', 'mageRank', 'hitch',
       'cart', 'deeper', 'shallower', 'tunnel', 'markArea', 'trainWorker', 'trainSupportMage', 'trainBattleMage',
     ];
     for (const a of actions) drawn(actionIcon(a, ''), a);
-    for (const face of ['Auto', 'Melee', 'Ranged']) drawn(actionIcon('lock', face), `lock ${face}`);
+    // Jade's Patch 2 cuts Stop, Hold, Enter, the lock, Cannon crew and the two build menus' own buttons.
+    for (const a of ['stop', 'hold', 'enter', 'lock', 'train', 'buildBasic', 'buildAdvanced']) expect(actionIcon(a, ''), a).toBeUndefined();
     drawn(actionIcon('more', 'More 2/3'), 'more');
     expect(actionIcon('more', 'More 2/3')!.tag).toBe('2/3');
     expect(actionIcon('cancel', 'Done')!.badge).toBe('ok');
     for (const s of SPELLS) if (s.school !== School.Grove) drawn(spellIcon(s.id), s.name);
     for (const kind of ['worker', 'warrior', 'mage'] as const) {
-      for (const weapon of [true, false]) {
-        drawn(upgradeIcon(kind, weapon, false), `${kind} upgrade`);
-        expect(upgradeIcon(kind, weapon, true).badge).toBe('max');
-      }
+      drawn(equipIcon(kind), `${kind} equipment`);
+      expect(equipIcon(kind).badge).toBe('max');
     }
+    // The weapon in front, the armour behind, each shifted to its side.
+    expect(equipIcon('warrior').layers.map((l) => l.shift)).toEqual(['left', 'right']);
   });
 
   it('crosses two swords for Attack', () => {
@@ -121,7 +122,10 @@ describe('the doing-now marker', () => {
   it('marks the action of each unit\'s current order', () => {
     expect(orderAction({ t: 'attackMove', x: 0, z: 0 } as never, 'warrior')).toBe('attack');
     expect(orderAction({ t: 'dropoff' } as never, 'worker')).toBe('gather');
-    expect(orderAction({ t: 'kitUp', line: Line.Armour } as never, 'warrior')).toBe('upgradeArmour');
+    expect(orderAction({ t: 'kitUp', line: Line.Armour } as never, 'warrior')).toBe('equip');
+    expect(orderAction({ t: 'build' } as never, 'worker')).toBe('build');
+    expect(orderAction({ t: 'port' } as never, 'engine:7')).toBe('port');
+    expect(orderAction({ t: 'hold' } as never, 'warrior')).toBeNull();
     expect(orderAction({ t: 'train' } as never, 'mage:battle')).toBe('mageRank');
     expect(orderAction({ t: 'train' } as never, 'worker')).toBe('rankUp');
     expect(orderAction(undefined, 'worker')).toBeNull();

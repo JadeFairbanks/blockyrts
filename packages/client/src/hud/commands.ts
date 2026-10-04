@@ -1428,6 +1428,11 @@ export class Commands {
   }
 
   /** Whether a selectable is a finished tower, whose top men go up on. */
+  private isTower(item: Selectable): boolean {
+    const b = this.buildingOf(item);
+    return b !== undefined && b.complete && buildingSpec(b.kind).defence === 'tower';
+  }
+
   /** A finished tower, or a main base from level 3: men go up on its top. */
   private hasTop(item: Selectable): boolean {
     const b = this.buildingOf(item);
@@ -1521,9 +1526,11 @@ export class Commands {
         if (spec.light) return send({ kind: 'refuel', player, units: workers, building: b.id, queued });
       }
     }
-    // One of the player's towers, or a main base with a top (Jade's Patch 2 cut the Enter button): everyone on foot goes up on it (Jade's patch notes 1).
+    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1). With Enter cut in Patch 2, a main
+    // base with a top takes men up too; workers alone still walk to it, as their main base is where they work.
     const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
-    if (item && engines.length < units.length && this.ownBuilding(item) && this.hasTop(item) && this.enter(item)) return;
+    const men = units.length > workers.length + engines.length;
+    if (item && engines.length < units.length && this.ownBuilding(item) && (this.isTower(item) || (men && this.hasTop(item))) && this.enter(item)) return;
     // Engines and cannons: an own horse or ox hitches, the Citadel takes a cannon into a port.
     if (item && engines.length > 0 && engines.length === units.length) {
       if (item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;

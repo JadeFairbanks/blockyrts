@@ -114,11 +114,15 @@ describe('cavalry (C at the Stables)', () => {
 });
 
 describe('engines and cannons', () => {
-  it('has Attack, Stop, Hold, Move, Hitch and Port', () => {
-    const { c } = harness([cannon], cannon.typeKey);
+  it("has Attack, Move, Hitch and Port (Jade's Patch 2 cuts Stop and Hold), and Port takes it up into a Citadel", () => {
+    const { c, sent } = harness([cannon], cannon.typeKey);
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', '', 'Move', 'Hitch', '', '', '', '', '', '', 'Port', '', '']);
-    expect(card[12]!.enabled).toBe(true);
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Hitch', 'Port']);
+    expect(card[3]!).toMatchObject({ action: 'port', key: 'KeyE', enabled: true });
+    card[3]!.run({ shift: false, ctrl: false });
+    expect(c.targeting?.command).toBe('port');
+    c.confirmTarget(citadel, null);
+    expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
   });
 
   it('hitches a horse, and goes up into a Citadel port, with right clicks', () => {

@@ -61,7 +61,7 @@ export function spellIcon(spell: number): ButtonIcon | undefined {
 /**
  * A command's picture by its action, for the buttons that did not get one of
  * their own. The face tells the few that change with the state apart: Done
- * against Cancel, Cart back, Let go, a page of a long menu, the lock's mode.
+ * against Cancel, Cart back, Let go, a page of a long menu.
  */
 export function actionIcon(action: string, face: string): ButtonIcon | undefined {
   if (action === 'more') {

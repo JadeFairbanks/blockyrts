@@ -10,14 +10,13 @@ import {
   Res,
   Research,
   RESOURCE_COUNT,
-  Skill,
   Troop,
   troopProduct,
   UnitKind,
   type Order,
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { AREA_DEFAULT_UNITS, Commands, menuSlots, submenuChoices, type CommandDeps } from '../src/hud/commands.ts';
+import { AREA_DEFAULT_UNITS, Commands, menuSlots, submenuChoices, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -117,22 +116,23 @@ const workers = [sel('e:1', 'worker'), sel('e:2', 'worker')];
 const zombie = sel('e:9', 'mob:0', MONSTERS);
 const at = (x: number, z: number): THREE.Vector3 => new THREE.Vector3(x, 0, z);
 const bit = (r: number): number => 1 << r;
+const button = (card: Card, action: string): CardEntry | undefined => card.find((e) => e.action === action);
 
 describe('the warrior card', () => {
-  it('has the movement row, then the two upgrades, the lock, Cannon, Hunt, Eat and Enter, and no Max twin when it would go no further', () => {
+  it("has only Jade's Patch 2 buttons: Attack, Patrol, Move, Hunt, Eat and Upgrade equipment", () => {
     const { c } = harness(game(), warriors, 'warrior');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Weapon +', 'Armour +', 'Auto', 'Cannon', 'Hunt', 'Eat', '', 'Enter', '', '']);
-    expect(card.slice(0, 5).every((e) => e!.enabled)).toBe(true);
-    expect(card.map((e) => e?.key ?? '')).toEqual(['KeyA', 'KeyS', 'KeyH', 'KeyP', 'KeyM', 'KeyQ', 'KeyX', 'KeyY', 'KeyU', 'KeyN', 'KeyF', '', 'KeyE', '', '']);
-    // The next tier of each line, and what it costs; a close melee fighter's first armour brings the wooden shield.
-    expect(card[5]!.name).toBe('Upgrade weapon');
-    expect(card[5]!.reason).toBe('Not enough resources (2 hardwood sticks, 1 flint).');
-    expect(card[6]!.reason).toBe('Not enough resources (4 leather, 3 planks).');
-    // Cannon crew is the one skill left, after Cannons at a Gunnery yard.
-    expect(card[8]!.name).toBe('Train in cannon crew');
-    expect(card[8]!.reason).toBe('Needs Cannons researched.');
-    expect(card[10]!.reason).toBe('There is no food.');
+    expect(card.map((e) => e.action)).toEqual(['attack', 'patrol', 'move', 'hunt', 'eat', 'equip']);
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Hunt', 'Eat', 'Equip']);
+    expect(card.slice(0, 4).every((e) => e.enabled)).toBe(true);
+    expect(card.map((e) => e.key)).toEqual(['KeyA', 'KeyP', 'KeyM', 'KeyN', 'KeyF', 'KeyQ']);
+    // Stop, Hold, Enter, the lock, Cannon crew and the two upgrades and their Max twins are gone [before Patch 2 they were all here].
+    for (const gone of ['stop', 'hold', 'enter', 'lock', 'train', 'upgradeWeapon', 'upgradeArmour', 'upgradeWeaponMax', 'upgradeArmourMax']) expect(button(card, gone)).toBeUndefined();
+    // The next weapon, and what it costs: weapons come first.
+    const equip = button(card, 'equip')!;
+    expect(equip.name).toBe('Upgrade equipment');
+    expect(equip.reason).toBe('Not enough resources (2 hardwood sticks, 1 flint).');
+    expect(button(card, 'eat')!.reason).toBe('There is no food.');
   });
 
   it('attacks a monster clicked with A, and attack-moves to ground', () => {
@@ -146,105 +146,100 @@ describe('the warrior card', () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'attackMove', units: [3, 4], x: 80000, z: -16000 });
   });
 
+  it("attacks one of your own units clicked with A (Jade's Patch 2: Attack on a unit always attacks)", () => {
+    const { c, sent } = harness(game(), warriors, 'warrior');
+    c.card()[0]!.run(PRESS);
+    c.confirmTarget(sel('e:1', 'worker'), at(4, 4));
+    expect(sent.at(-1)).toMatchObject({ kind: 'attack', units: [3, 4], target: 1 });
+  });
+
   it('attacks with a right click on a monster', () => {
     const { c, sent } = harness(game(), warriors, 'warrior');
     c.smart(zombie, at(4, 4));
     expect(sent.at(-1)).toMatchObject({ kind: 'attack', target: 9 });
   });
 
-  it('holds, patrols, cycles the lock and upgrades, the best when pressed twice', () => {
+  it('patrols, and upgrades equipment in one press', () => {
     const { c, sent } = harness(game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]] }), warriors, 'warrior');
-    c.card()[2]!.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'hold', units: [3, 4] });
-    c.card()[3]!.run(PRESS);
+    button(c.card(), 'patrol')!.run(PRESS);
     c.confirmTarget(null, at(1, 1));
     expect(sent.at(-1)).toMatchObject({ kind: 'patrol', x: 8000, z: 8000 });
-    c.card()[7]!.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'lock', units: [3, 4], lock: 1 });
-    const weapon = c.card()[5]!;
-    expect(weapon.enabled).toBe(true);
+    const equip = button(c.card(), 'equip')!;
+    expect(equip.enabled).toBe(true);
     // Both can go, the hero (rank 5) first.
-    expect(weapon.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 hardwood sticks, 1 flint.');
-    weapon.run(PRESS);
-    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Weapon, max: 0 });
-    weapon.double!(PRESS);
-    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Weapon, max: 1 });
+    expect(equip.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 hardwood sticks, 1 flint.');
+    expect(equip.double).toBeUndefined();
+    equip.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [3, 4] });
   });
 
-  it('shows the Max twins on Z and V only when they would go further than the plain buttons', () => {
-    // Flint hand-axes are the best there is without a forge: Max would go no further.
-    expect(harness(game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]] }), warriors, 'warrior').c.card()[11]).toBeNull();
-    // With a Casting Hearth and copper for both, Max goes to the copper short sword.
+  it('goes straight to the best weapon, and the best armour, the stock pays for', () => {
+    // With a Casting Hearth and copper for both, the copper short sword, past the flint hand-axe.
     const g = game({ pool: [[Res.Sticks, 10], [Res.Flint, 4], [Res.CopperIngot, 2], [Res.HardwoodLumber, 2]], forge: 1 });
-    const { c, sent } = harness(g, warriors, 'warrior');
-    const card = c.card();
-    expect(card[11]).toMatchObject({ action: 'upgradeWeaponMax', face: 'Weapon max', name: 'Upgrade weapon to the best', key: 'KeyZ', enabled: true });
-    expect(card[11]!.description).toContain('Copper short sword (tier 3)');
-    expect(card[13]).toBeNull();
-    card[11]!.run(PRESS);
-    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Weapon, max: 1 });
-    // Armour: leather for two jerkins and shields, and hardened leather for two cuirasses: Max skips the jerkin.
-    const a = harness(game({ pool: [[Res.Leather, 10], [Res.Planks, 6], [Res.HardenedLeather, 6]] }), warriors, 'warrior');
-    const armour = a.c.card();
-    expect(armour[6]!.enabled).toBe(true);
-    expect(armour[11]).toBeNull();
-    expect(armour[13]).toMatchObject({ action: 'upgradeArmourMax', face: 'Armour max', key: 'KeyV', enabled: true });
-    expect(armour[13]!.description).toContain('Boiled-leather cuirass (tier 2)');
-    armour[13]!.run(PRESS);
-    expect(a.sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [3, 4], line: Line.Armour, max: 1 });
+    const equip = button(harness(g, warriors, 'warrior').c.card(), 'equip')!;
+    expect(equip.enabled).toBe(true);
+    expect(equip.description).toContain('Copper short sword (tier 3)');
+    // Armour: leather for two jerkins and shields, and hardened leather for two cuirasses: the jerkin is skipped.
+    const a = button(harness(game({ pool: [[Res.Leather, 10], [Res.Planks, 6], [Res.HardenedLeather, 6]] }), warriors, 'warrior').c.card(), 'equip')!;
+    expect(a.enabled).toBe(true);
+    expect(a.description).toContain('Boiled-leather cuirass (tier 2)');
   });
 
-  it('greys an upgrade for units already on their way to one', () => {
-    const g = game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]], units: { 3: { upLine: 1, upTo: 2 }, 4: { upLine: 1, upTo: 2 } } });
-    const card = harness(g, warriors, 'warrior').c.card();
-    expect(card[5]!.enabled).toBe(false);
-    expect(card[5]!.reason).toBe('Already on the way to an upgrade.');
+  it('greys Upgrade equipment for units already on their way to an upgrade', () => {
+    const g = game({ pool: [[Res.Sticks, 10], [Res.Flint, 4]] });
+    for (const id of [3, 4]) g.queues.set(id, [{ t: 'kitUp', line: Line.Weapon, to: 2, ways: 1, paid: 1, b: 20 }]);
+    const equip = button(harness(g, warriors, 'warrior').c.card(), 'equip')!;
+    expect(equip.enabled).toBe(false);
+    expect(equip.reason).toBe('Already on the way to an upgrade.');
   });
 
-  it('sends untrained warriors to a Gunnery yard for cannon crew once Cannons is researched', () => {
+  it("has no Cannon crew button (Jade's Patch 2 cuts it)", () => {
     const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.GunneryYard)], pool: [[Res.Wheat, 100]], research: bit(Research.Cannons) });
-    const { c, sent } = harness(g, warriors, 'warrior');
-    const card = c.card();
-    expect(card[8]!.enabled).toBe(true);
-    card[8]!.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'trainSkill', building: 21, skill: Skill.Cannon, units: [3, 4] });
+    expect(button(harness(g, warriors, 'warrior').c.card(), 'train')).toBeUndefined();
+  });
+});
+
+describe("tinkering (Jade's Patch 2)", () => {
+  it('lists each unit sitting at a timed action, with how far it is, for the bar over its head', () => {
+    const g = game({ units: { 3: { tinkerDone: 40, tinkerOf: 200 }, 1: { tinkerDone: 0, tinkerOf: 100 } } });
+    expect(g.tinkering().sort((a, b) => a[0] - b[0])).toEqual([[1, 0, 100], [3, 40, 200]]);
+    expect(game().tinkering()).toEqual([]);
   });
 });
 
 describe('workers: rank, tools and carts (Milestone 11)', () => {
-  it('upgrades tools on Q a tier at a time, for those the stock pays for, with no Max twin', () => {
+  it('upgrades tools on Q to the best the stock pays for, for those it pays for', () => {
     // Worker 1 (stone and flint) needs a Casting Hearth for copper; worker 2 (hardwood) can go to stone and flint.
     const { c, sent } = harness(game({ pool: [[Res.Sticks, 6], [Res.Flint, 1], [Res.Stone, 5]] }), workers, 'worker');
-    const card = c.card();
-    expect(card[13]).toMatchObject({ action: 'upgradeWeapon', face: 'Tools +', name: 'Upgrade tools', key: 'KeyQ', enabled: true });
-    expect(card[13]!.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 hardwood sticks, 1 flint, 5 stone.');
-    expect(card[13]!.double).toBeUndefined();
-    expect(card[11]!.face).toBe('Adv.');
-    card[13]!.run(PRESS);
-    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [1, 2], line: Line.Weapon, max: 0 });
+    const equip = button(c.card(), 'equip')!;
+    expect(equip).toMatchObject({ face: 'Equip', name: 'Upgrade equipment', key: 'KeyQ', enabled: true });
+    expect(equip.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 hardwood sticks, 1 flint, 5 stone.');
+    expect(equip.double).toBeUndefined();
+    equip.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [1, 2] });
     // Worker 1 alone: copper tools need a Casting Hearth.
-    expect(harness(game(), [workers[0]!], 'worker').c.card()[13]!.reason).toBe('Needs a Casting Hearth.');
+    expect(button(harness(game(), [workers[0]!], 'worker').c.card(), 'equip')!.reason).toBe('Needs a Casting Hearth.');
   });
 
-  it('trains rank on U in place of patrol, at a Longhall', () => {
-    expect(harness(game({ pool: [[Res.Wheat, 100]] }), workers, 'worker').c.card()[3]!.reason).toBe('Needs a level 2 main base (Longhall).');
+  it('trains rank on U, at a Longhall', () => {
+    expect(button(harness(game({ pool: [[Res.Wheat, 100]] }), workers, 'worker').c.card(), 'rankUp')!.reason).toBe('Needs a level 2 main base (Longhall).');
     const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 2 })], pool: [[Res.Wheat, 100]] });
     const { c, sent } = harness(g, workers, 'worker');
-    const rank = c.card()[3]!;
-    expect(rank).toMatchObject({ action: 'rankUp', face: 'Rank', name: 'Upgrade rank (to Hand)', key: 'KeyU', enabled: true });
+    const rank = button(c.card(), 'rankUp')!;
+    expect(rank).toMatchObject({ face: 'Rank', name: 'Upgrade rank (to Hand)', key: 'KeyU', enabled: true });
     rank.run(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'trainRank', units: [1, 2], building: 20 });
   });
 
   it('fetches a cart from the stock on X, and hands it back', () => {
     const { c, sent } = harness(game({ pool: [[Res.HandCart, 1]] }), workers, 'worker');
-    const cart = c.card()[14]!;
-    expect(cart).toMatchObject({ action: 'cart', face: 'Cart', name: 'Fetch a cart', key: 'KeyX', enabled: true });
+    const cart = button(c.card(), 'cart')!;
+    expect(cart).toMatchObject({ face: 'Cart', name: 'Fetch a cart', key: 'KeyX', enabled: true });
     cart.run(PRESS);
     expect(sent.at(-1)).toEqual({ kind: 'cart', player: ME, units: [1, 2], back: 0 });
     const g = game({ units: { 1: { kit: Res.HandCart }, 2: { kit: Res.HandCart } } });
     const h = harness(g, workers, 'worker');
-    const back = h.c.card()[14]!;
+    const back = button(h.c.card(), 'cart')!;
     expect(back).toMatchObject({ face: 'Cart back', name: 'Hand the cart back', enabled: true });
     back.run(PRESS);
     expect(h.sent.at(-1)).toEqual({ kind: 'cart', player: ME, units: [1, 2], back: 1 });
@@ -270,36 +265,33 @@ describe('the Big House', () => {
     expect(card[1]!.description).toContain('Hardwood cudgel, no armour (weapon tier 1, armour tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
-    expect(card[7]!.key).toBe('KeyK');
-    card[7]!.run(PRESS);
+    const craft = button(card, 'craft')!;
+    expect(craft.key).toBe('KeyK');
+    craft.run(PRESS);
     const make = c.card();
-    const rope = make.find((e) => e?.name === 'Rope')!;
+    const rope = make.find((e) => e.name === 'Rope')!;
     expect(rope.grid).toBe(true);
     expect(rope.enabled).toBe(false);
     expect(rope.reason).toContain('Not enough flax');
-    expect(make[14]!.face).toBe('Back');
+    expect(make.at(-1)!.face).toBe('Back');
   });
 
-  it('lets warriors into a tower', () => {
-    const g = game({ buildings: [building(20, BuildingKind.MainBase), building(22, BuildingKind.Tower, { name: 'Softwood tower' })] });
-    const { c, sent } = harness(g, warriors, 'warrior');
-    c.card()[12]!.run(PRESS);
-    c.confirmTarget({ ...sel('b:22', 'building:14:1'), kind: 'building' }, at(0, 0));
-    expect(sent.at(-1)).toMatchObject({ kind: 'enter', building: 22 });
-  });
-
-  it('sends warriors and workers up a tower with a right click, but only walks them to a main base (patch notes 1)', () => {
+  it("sends warriors and workers up a tower with a right click, and warriors up a main base with room on top (Jade's Patch 2 cuts the Enter button)", () => {
     const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 3, name: 'Hall' }), building(22, BuildingKind.Tower, { name: 'Softwood tower' })] });
     const tower = { ...sel('b:22', 'building:14:1'), kind: 'building' as const };
     const house = { ...sel('b:20', 'building:0:3'), kind: 'building' as const };
     const men = harness(g, warriors, 'warrior');
     men.c.smart(tower, at(0, 0));
     expect(men.sent.at(-1)).toMatchObject({ kind: 'enter', units: [3, 4], building: 22 });
+    // A Hall has room up top [before Patch 2 a right click only walked them there; the Enter button took them up].
     men.c.smart(house, at(0, 0));
-    expect(men.sent.at(-1)).toMatchObject({ kind: 'move', units: [3, 4] });
+    expect(men.sent.at(-1)).toMatchObject({ kind: 'enter', units: [3, 4], building: 20 });
     const hands = harness(g, workers, 'worker');
     hands.c.smart(tower, at(0, 0));
     expect(hands.sent.at(-1)).toMatchObject({ kind: 'enter', units: [1, 2], building: 22 });
+    // Workers alone still only walk to a main base.
+    hands.c.smart(house, at(0, 0));
+    expect(hands.sent.at(-1)).toMatchObject({ kind: 'move', units: [1, 2] });
     // A tower still going up is built, not climbed.
     g.buildings.get(22)!.complete = false;
     hands.c.smart(tower, at(0, 0));
@@ -310,7 +302,7 @@ describe('the Big House', () => {
 describe('digging and earthworks', () => {
   it('marks a dig by dragging, sets its depth, and confirms with a click', () => {
     const { c, sent } = harness(game(), workers, 'worker');
-    c.card()[8]!.run(PRESS);
+    button(c.card(), 'dig')!.run(PRESS);
     expect(c.area?.mode).toBe('dig');
     c.areaDown(at(0.1, 0.1));
     c.updateArea(at(2, 0.5));
@@ -376,11 +368,11 @@ describe("Hunt, Gather and loot (Jade's play-test notes)", () => {
   it('sends the warriors out hunting with one press of Hunt, and the workers gathering with one press of Gather', () => {
     const g = game();
     const h = harness(g, warriors, 'warrior');
-    h.c.card()[9]!.run(PRESS);
+    button(h.c.card(), 'hunt')!.run(PRESS);
     expect(h.sent.at(-1)).toMatchObject({ kind: 'hunt', units: [3, 4], target: 0, auto: 1 });
     const w = harness(g, workers, 'worker');
-    expect(w.c.card()[5]!.face).toBe('Gather');
-    w.c.card()[5]!.run(PRESS);
+    expect(button(w.c.card(), 'gather')!.face).toBe('Gather');
+    button(w.c.card(), 'gather')!.run(PRESS);
     expect(w.sent.at(-1)).toMatchObject({ kind: 'forage', units: [1, 2] });
   });
 
@@ -391,11 +383,12 @@ describe("Hunt, Gather and loot (Jade's play-test notes)", () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'pickUp', target: 77 });
   });
 
-  it('lets workers carrying loot hand it in with Return', () => {
+  it('lets workers carrying loot hand it in with Unload', () => {
     const g = game();
     const { c } = harness(g, workers, 'worker');
-    expect(c.card()[6]!.enabled).toBe(false);
+    expect(button(c.card(), 'returnCargo')!.face).toBe('Unload');
+    expect(button(c.card(), 'returnCargo')!.enabled).toBe(false);
     g.info!.bags = [[1, [[Res.Venison, 4]]]];
-    expect(c.card()[6]!.enabled).toBe(true);
+    expect(button(c.card(), 'returnCargo')!.enabled).toBe(true);
   });
 });
