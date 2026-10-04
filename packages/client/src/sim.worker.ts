@@ -25,15 +25,12 @@ import {
   BuildingKind,
   bestLevel,
   productProblem,
-  RECIPE_PRODUCT,
   stalledHorses,
   tinkerProgress,
   troopDefault,
   troopTypesAt,
   upgradeProgress,
   productsOf,
-  productSteps,
-  RESEARCH_PRODUCT,
   starvingSince,
   mealQuarters,
   FOODS,
@@ -43,6 +40,7 @@ import {
   buildRequirement,
   farmBandLine,
   farmHarvest,
+  queueHead,
   chunkDelta,
   claimShapes,
   clockAt,
@@ -258,6 +256,15 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
   };
 }
 
+/** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
+function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
+  const h = queueHead(s, b);
+  return b.queue.map((q, k) => {
+    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0 };
+    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft };
+  });
+}
+
 /** Buildings, the pool, order lists and events: what the HUD shows besides the units. */
 function postInfo(s: SimState): void {
   const buildings: BuildingInfo[] = s.buildings.list.map((b) => {
@@ -278,7 +285,7 @@ function postInfo(s: SimState): void {
       built: Math.min(1000, Math.floor((b.progress * 1000) / total)),
       upgrading: b.upgrading,
       upgraded: b.upgrading ? Math.min(1000, Math.floor((b.upProgress * 1000) / workSteps(b.kind, b.upgrading))) : 0,
-      queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < RECIPE_PRODUCT ? 4 : 1)))) : 0 })),
+      queue: queueInfo(s, b),
       rally: b.rally.map((r) => ({ ...r })),
       lit: isLit(b, s.step),
       fuelLeft: light && b.complete ? Math.max(0, b.fuelUntil - s.step) : 0,

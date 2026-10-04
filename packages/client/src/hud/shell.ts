@@ -50,7 +50,7 @@ import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
-import { guessSteps, QueueClock } from './queue-clock.ts';
+import { queueSeconds } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
 import { ControlGroups } from './groups.ts';
@@ -213,8 +213,6 @@ export class GameShell {
   /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
   private portraitKey: string | null = null;
   private portraitRect: DOMRect | null = null;
-  /** The pace of every own building's head item, for the queue's countdown. */
-  private readonly queueClock = new QueueClock();
   private world: WorldHooks;
   private readonly extras: WorldExtras;
   private readonly game: GameInfo;
@@ -456,7 +454,7 @@ export class GameShell {
       queueLeft: (b) => {
         const head = b.queue[0];
         if (!head) return null;
-        return this.queueClock.secondsLeft(b.id, head.product, head.done, this.game.step, guessSteps(head.product, b.kind, b.level, b.working));
+        return queueSeconds(head.stepsLeft, this.game.step - (this.game.info?.step ?? this.game.step));
       },
     });
     this.buildButtons();
@@ -577,15 +575,6 @@ export class GameShell {
   }
 
   private onInfo(info: InfoMessage): void {
-    // The pace of what each own building makes, for the queue's countdown.
-    const making = new Set<number>();
-    for (const b of info.buildings) {
-      const head = b.owner === this.player ? b.queue[0] : undefined;
-      if (!head) continue;
-      making.add(b.id);
-      this.queueClock.note(b.id, head.product, head.done, info.step);
-    }
-    this.queueClock.keep(making);
     // The stockpile: food, supply and the inventory grid.
     this.inventory.update(info, this.game.foodValue());
     // Outlying lights against the coming night's limit (Table 8).

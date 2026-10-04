@@ -505,6 +505,10 @@ Jade's play-test patch notes 1 (2026-10-03):
 - HUD revamp and touch play (PR #78; picks in hud-picks.md): the bottom strip runs edge to edge with a live portrait between the minimap and the selection panel; the command card is a row taller, takes spare room as extra columns (up to 10) and grows upward before it pages; units and buildings join in one selection with Shift, the most valuable type first, Tab through the rest (a plain box still takes units before buildings); pictures on the card with the words in tooltips, a doing-now marker and a live queue countdown; quiet speech stays in bubbles; one of anything is singular; the HUD wears the wooden kit and Jersey 10 (the HUD skin pass); smaller screens scale the HUD, phones fold its panels, and a first-load question on a touchscreen turns on tap controls (see Screen layout and mouse zones and Selecting units and buildings).
 - Hunting, loot and gathering (PR #81; picks in hunting-picks.md): kills drop loot instead of carcasses, picked up by right click and by idle units and handed in at dawn and in the day; Hunt and Gather each start with one press and bring units home by nightfall; a worker whose node runs out says what it gathers instead; idle fighters guard workers; information stays in bubbles (see Loot, Semi-automation and Unit speech).
 
+Patch 2 (2026-10-04, in build; the design record is blueprint/patch-2.md):
+
+- Training countdown fix (Bug fixes 1; picks in patch2-countdown-picks.md): the queue's "Complete in N seconds" is the sim's own time, sent with every update as the head item's steps left at its pace now, and "On hold" exactly while nothing moves it. Before Patch 2 the client guessed the pace from the rounded per mille bar, so the Magi Sanctum's seconds (and most troops') jumped up and down while they fell. One clock served every building queue, so every queue is fixed; the other countdowns (farm harvest, next meal, the day clock, fuel, spell cooldowns) already read the sim's numbers.
+
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
 - Redeploy the live site with the latest main.
@@ -1752,6 +1756,14 @@ Workers are trained at main bases and at farms.
 #### Warriors
 
 Warriors (troops) fight and hunt. Each troop is one of five types and keeps that type for good: close melee, long melee, ranger, brawler and cavalry. Its weapon and armour are not items: they are tiers chosen when it is trained and raised with the Upgrade buttons (see "Troops and gear" (Jade, 2026-10-03)).
+
+**Troop names (Jade, Patch 2):** a troop goes by its weapon tier's name in the selection panel, tooltips, bubbles and message lines, in place of its type, and the name changes the moment its weapon is upgraded; the type name stays on the training buttons. The rank follows in brackets: "Copper swordsman (Recruit)".
+- Close melee, tiers 0 to 8: Fist fighter, Club fighter, Flint axeman, Copper swordsman, Bronze swordsman, Iron swordsman, Broadswordsman, Steel swordsman, Champion.
+- Long melee, tiers 1 to 8: Spearman, Flint spearman, Copper spearman, Bronze spearman, Iron spearman, Pikeman, Halberdier, Greatswordsman.
+- Ranger, tiers 1 to 8: Slinger, Yew archer, Copper archer, Bronze archer, Iron archer, Marksman, Crossbowman, Musketeer.
+- Brawler: keeps its name.
+- Cavalry, tiers 1 to 8: Lancer, Flint lancer, Copper lancer, Bronze lancer, Iron lancer, Pike rider, Halberd rider, Greatsword rider.
+- Workers go by rank (Labourer, Hand, Master worker, Foreman, Elder); mages keep their school and rank ("Battle mage (Acolyte)").
 
 - **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Gear has no weight, so nothing it wears slows it down or stops it swimming (Jade, 2026-10-03).
 - **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel: bronze swords are short swords, since long bronze blades bend, and bronze armour stops at scale.

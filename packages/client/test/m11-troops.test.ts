@@ -152,7 +152,7 @@ describe('troopWhy', () => {
     // Wheat feeds 2 a sheaf: 14 is 28 food, short of a troop's 30.
     expect(troopWhy(game({ buildings: [b], pool: [[Res.Wheat, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30 food).');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8). Build or upgrade farms.');
-    const full = barracks(123, 1, 0, { queue: Array.from({ length: 5 }, () => ({ product: troopProduct(Troop.Close, 1, 0), done: 0 })) });
+    const full = barracks(123, 1, 0, { queue: Array.from({ length: 5 }, () => ({ product: troopProduct(Troop.Close, 1, 0), done: 0, stepsLeft: 0 })) });
     expect(troopWhy(g, full, Troop.Close, 1, 0)).toBe('The queue is full (5).');
   });
 

@@ -15,7 +15,7 @@ import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, type MeleeStats } from './items.ts';
-import { CRIT, gearSpec } from '../units/kits.ts';
+import { aTroop, CRIT, gearSpec } from '../units/kits.ts';
 import { workerMelee } from '../units/tools.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
 import { engineSpec } from '../siege/data.ts';
@@ -488,7 +488,7 @@ export function gainXp(state: SimState, i: number, tenths: number): void {
     e.hp[i] = e.hp[i]! + hp - e.maxHp[i]!;
     e.maxHp[i] = hp;
     const names = warrior ? RANK_NAMES.warrior : RANK_NAMES.worker;
-    state.events.push({ player: e.owner[i]!, kind: 'info', text: `A ${warrior ? 'warrior' : 'worker'} has risen to ${names[r + 1]}.`, x: e.x[i]!, z: e.z[i]! });
+    state.events.push({ player: e.owner[i]!, kind: 'info', text: `${warrior ? aTroop(e.troop[i]!, e.wTier[i]!, true) : 'A worker'} has risen to ${names[r + 1]}.`, x: e.x[i]!, z: e.z[i]! });
   }
 }
 
