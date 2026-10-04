@@ -105,7 +105,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash b96aebc6`. Run it again: the same hash. (The
+   prints `final step 10000 hash 76c7c6a6`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    hash in the debug panel at the same step: for seed 1 with one player it is
    `55c6927f` at step 40, with two players `573b6ada`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 42e2ef70`: two players dig trenches from a
+   prints `final step 10000 hash 70071050`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -224,7 +224,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 9cc5fe20`: workers chop and quarry, the Big
+   prints `final step 10000 hash 55ba7d2b`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -294,7 +294,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 67be25f9`: two workers raise a gate and a
+   prints `final step 10000 hash 3d1af7ef`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -375,7 +375,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 92e79419`: two workers pick flint while two
+   prints `final step 10000 hash 387f9dc3`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -1179,7 +1179,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash 990993ff`: the four workers are given a
+   prints `final step 10000 hash 6d981785`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1187,7 +1187,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash dbd5b96b`: the debug tools heap a soil hill
+   prints `final step 10000 hash 90929b73`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1766,6 +1766,52 @@ Patch 2 do not load (the standing rule for every patch).
    music and the birds (the ambience) play on; the menu's clicks still
    sound. Close the menu: the world is heard again. Online, either player's
    Pause does the same on both machines.
+
+## How a tester checks worker ranks and crew retraining (Patch 3)
+
+Jade's Patch 3 file, items 1 and 2. The picks are in
+blueprint/patch3-worker-ranks-crew-picks.md. Older sections above that send
+workers to train a rank with U describe the game before Patch 3.
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-ranks-crew.test.ts
+   (a load of pine teaches a worker 2.5 experience and the walk none; building
+   teaches; 12 steps of work make a tenth with starting tools and better tools
+   learn faster; a worker rises Labourer to Elder with its health, and
+   fighting adds to the same ladder; workers can no longer train a rank and a
+   worker's train order from an old save is dropped at no cost; the unit view
+   carries experience and the next rank's need; a horse hauls a catapult with
+   no crew, which still needs its 2 crewmen to fire; a crewman retrains at the
+   main base in 30 s saying so and gets up a Labourer, at no cost; a new order
+   cancels it; only crewmen take it, and with no main base he says so; a save
+   made while he retrains plays on the same), and the client's m2-controls,
+   m3-controls, m8-controls and hud-icons tests (no Rank button on the worker
+   card, Retrain on W on the crewman's card, the experience in the unit view).
+2. **No rank button.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   select a worker: Move, Gather, Unload, Repair, Dig, Prospect, Build, Eat,
+   Equip and Cart, with no Rank button, and U does nothing.
+3. **Workers rank up by working.** Put the four workers to chopping or
+   building and let them work: each minute of work is worth 10 experience
+   with their hardwood tools (walking teaches nothing), so a worker kept busy
+   rises to Hand after about five minutes of work, its name in the selection
+   panel changing from Labourer to Hand and its most health from 60 to 70.
+   Master worker takes 150, Foreman 400 and Elder 1000. Workers that only
+   fight learn very little. The tester tools' **Speed** button (type M N B V
+   C X Z first; a game alone) runs the game at 4 or 16 times speed to get
+   there sooner.
+   The XP bar under the name arrives with the middle HUD's Patch 3 work.
+4. **Towing needs no crew.** Type M N B V C X Z to show the tester tools and
+   press **Siege kit**. Select a crewman of the catapult and give him a Move
+   order far off, so the catapult has no crew by it. Press **Barn** for a
+   Barn with 2 horses and an ox, select the catapult, right click a horse to
+   hitch it and move the catapult: it rolls with no crewman near. It fires
+   only once its 2 crewmen stand by it again.
+5. **Retraining a crewman.** Select a crewman: his card has **Retrain** (W),
+   whose tooltip says it takes 30 s and costs nothing. Press W: he walks to
+   the Big House, sits down tinkering with a bar over his head and a bubble
+   saying "Retraining to be a worker.", and after 30 s gets up a worker, a
+   Labourer with hardwood tools, still selected. Give another crewman W and
+   then a Move before the bar fills: he gets up and stays a crewman. Nothing
+   in the stock changes either way.
 
 ## How a tester checks troop names (Patch 2)
 

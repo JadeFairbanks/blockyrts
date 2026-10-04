@@ -499,6 +499,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) ? { t: 'train', b: b.id } : null));
         break;
       }
+      case 'retrain':
+        // Only artillery crewmen retrain (Patch 3); the main base is picked when each sets off.
+        giveAll(state, o, (i) => (isCrewman(state, i) ? { t: 'retrain', b: 0 } : null));
+        break;
       case 'produce': {
         const b = usableBuilding(state, o.player, o.building);
         if (!b) break;

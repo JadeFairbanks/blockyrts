@@ -99,10 +99,15 @@ export interface RelightOrder extends UnitsOrder {
   building: number;
 }
 
-/** Train workers to the next rank at a main base (Table 7). */
+/** Train warriors (at the Barracks) or mages (at the Magi Sanctum) to the next rank (Table 7; Patch 3: workers rank up by working). */
 export interface TrainRankOrder extends UnitsOrder {
   kind: 'trainRank';
   building: number;
+}
+
+/** Artillery crewmen retrain as workers at their nearest main base (Patch 3, Jade); anyone else in the selection is left as it was. */
+export interface RetrainOrder extends UnitsOrder {
+  kind: 'retrain';
 }
 
 /** Add items to a building's production queue (1, or 5 with Shift). */
@@ -650,6 +655,7 @@ export type Order =
   | AssignOrder
   | RelightOrder
   | TrainRankOrder
+  | RetrainOrder
   | ProduceOrder
   | CancelProduceOrder
   | UpgradeOrder
@@ -695,6 +701,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   assign: ['building'],
   relight: ['building'],
   trainRank: ['building'],
+  retrain: [],
   produce: ['building', 'product', 'count'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
@@ -748,7 +755,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {

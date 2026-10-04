@@ -275,7 +275,7 @@ function indexLabel(ctx: Ctx, key: string, i: number): string {
   };
   switch (key) {
     case 'WARRIOR_HEALTH_BY_RANK': case 'WARRIOR_XP_TENTHS': return rank('warrior');
-    case 'WORKER_HEALTH_BY_RANK': case 'WORKER_HEALTH_BY_RANK_COMBAT': case 'WORKER_COMBAT_XP_TENTHS': return rank('worker');
+    case 'WORKER_HEALTH_BY_RANK': case 'WORKER_XP_TENTHS': return rank('worker');
     case 'TOOL_SPEED_PER_MILLE': return r.tool.get(i) ?? `Tier ${i}`;
     case 'tools': return r.toolJob.get(i) ?? `${i + 1}`;
     case 'DEPTH_PM': case 'DEPTH_AHEAD': return r.band.get(i) ?? `Band ${i}`;
