@@ -634,18 +634,28 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash e90e0bff`: the debug tools put a Magi
-   Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
-   west, and two starting warriors upgrade to carbon steel and steel (Max);
-   the Sanctum trains a support and a battle mage and researches Hexcraft,
-   and both train to Acolyte; in night 0 the support mage quickens the
-   warrior, wards the crowd and heals while the battle mage beams and bolts
-   the monsters; at dawn Mage XP takes both to Adept Acolyte and then to
-   Mage, paying 2 mana crystals each (milestone 11: no rank wands); at a
-   goblin village 80 m north the warriors and the battle mage attack while
-   the support mage follows, Rally, Fireball, Fortify and Area blast are
-   cast, the battle mage counters the goblin mage, and all four walk home.
-   All ten spells land.
+   prints `final step 10000 hash 3e0b6845`. The script plays by Patch 2's
+   and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
+   mage" or "battle mage" order, and night 0's monsters came to the Big
+   House; now it trains the mage on her card with her wand and robe, and the
+   monsters come in from the west-north-west and go for the troop kit first):
+   the debug tools put a Magi Sanctum by the Big House, the mage kit in the
+   pool and a troop kit 20 m west, and two starting warriors upgrade to
+   carbon steel and steel (Max); the four workers gather until dusk, when
+   Everyone Home shelters them in the Big House; the Sanctum trains a support
+   and a battle mage, each with a hazel wand and a homespun robe, and
+   researches Hexcraft, and both train to Acolyte; at dusk the support mage
+   and a carbon steel warrior stand guard by the troop kit with the third
+   starting warrior out in front, and the battle mage joins them; in night 0
+   the support mage quickens the warrior, wards the crowd once Hexcraft is
+   done and heals the warrior in front while the battle mage beams a zombie
+   and bolts the rest, and before dawn they walk back to the Big House; at
+   dawn Mage XP takes both to Adept Acolyte and then to Mage, paying 2 mana
+   crystals each (milestone 11: no rank wands); at a goblin village 80 m
+   north the warriors attack, the battle mage fights from 22 m short of the
+   huts and the support mage follows, Rally, Fireball, Fortify and Area blast
+   are cast, the battle mage counters the goblin mage, and all four walk
+   home. All ten spells land, and nobody is killed.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 7
