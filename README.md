@@ -2344,6 +2344,60 @@ rolls are `threats/wanderers.ts`.*
    its own budget, town, depth and lairs, so two players face twice the
    monsters, each base its own share (as before Patch 3; now a test).
 
+## How a tester checks the action and build menus (Patch 3)
+
+*Jade's Patch 3, four items: buildings the stock cannot pay for are greyed
+out like those short of a prerequisite; a building whose card was one
+button opening a bigger menu opens on that menu; the active action marker
+is about twice as visible; and a click on a greyed-out button has whoever
+can sort out why ask, in a question bubble. Picks in
+blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
+`packages/client/src/hud/commands.ts`; the questions
+`packages/sim/src/units/greyed.ts`; the marker `.hud-btn.doing` in
+`packages/client/src/hud/hud.css`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-greyed.test.ts
+   (both reasons asked at once, a cause further down asked for, one
+   resource wanted twice asked for once with both amounts, the cap, the same
+   click twice, no change to the state hash, the Workshop offering planks,
+   the Scholar's Lodge offering research, a worker offering better tools,
+   idle warriors offering to hunt) and
+   packages/client/test/patch3-menus.test.ts.
+2. **Greyed by the stock.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   select the four workers and press B. The Forge, the Scholar's Lodge, the
+   Fishing dock and a second Big House are greyed out (before Patch 3 they
+   showed in red and could still be placed as a plan); hover the Forge:
+   "Not enough softwood lumber (needs 60, you have 40)." Clicking it or
+   pressing its key does not pick it up. The Barracks says its main base
+   level first, then the stock. The Farm, Barn, Storehouse and Workshop are
+   lit. Defences and Lights open as before and grey their own buildings.
+3. **Who sorts it out.** Still in the build menu, click the greyed Forge:
+   two workers ask "We need 20 more softwood lumber for the Forge. Shall I
+   go and gather some?" and "We need 20 more stone for the Forge. Shall I
+   go and gather some?". Tick one: it walks off to gather. Click the
+   Barracks: the softwood and stone questions count the Longhall too ("We
+   need 140 more softwood lumber for the Barracks and the Longhall."), as
+   the Barracks waits on a level 2 main base. Click the same button again
+   while its questions are up: nothing new; click another: the first
+   questions go and the new ones come.
+4. **One click less.** Type M N B V C X Z and press **Troop kit**, then
+   select the Forge: its smelting buttons show straight away, with no Smelt
+   and no Back (before Patch 3: one Smelt button). The Workshop, the
+   Scholar's Lodge and the Barn (its Slaughter) do the same; the Big House keeps its K menu
+   and the Artillery workshop its Engines, as they have more on their cards.
+5. **Greyed actions.** On that Forge click the greyed Copper ingot: a worker
+   asks "We need 2 more copper ore for the copper ingot, and my tools can't
+   break it. Shall I make stone and flint tools and go and gather some?";
+   Yes sends it to tinker its tools and then mine. Click Wrought iron:
+   the Forge asks "We need 2 more charcoal for the wrought iron. Shall I
+   make 3?" and Yes queues the charcoal. A greyed Barracks troop short of
+   food asks idle warriors to go hunting; the Big House's greyed Upgrade
+   asks workers for what the next level is short of.
+6. **The marker.** Select workers and press G (or right click a tree): the Gather button's gold
+   arrow is half as big again and its ring twice as thick and never dimmer
+   than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
+   from 30%).
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
