@@ -134,6 +134,14 @@ export const LAIR_GAP_WU = 40 * M;
 /** A cleared site holds no lair for 10 days, within 30 m of it (s). */
 export const CLEARED_WAIT_STEPS = 10 * CYCLE_STEPS;
 export const CLEARED_RADIUS_WU = 30 * M;
+/**
+ * Each night a live lair sends monsters worth this share of its own threat,
+ * percent: its company's threat added up (its sleepers, or its guards when
+ * it has none), so a mass grave sends more than a cave mouth (Jade's Patch 3
+ * notes; s: 50%, half its sleepers' worth, which keeps all the lairs together
+ * near the old fifth of the night through night 60). Doubled on a blood night.
+ */
+export const LAIR_BUDGET_PCT = 50;
 /** A lair's share of the night comes out of its mouth 20 s after night falls (Table 15). */
 export const LAIR_SHARE_DELAY_STEPS = 20 * SEC;
 /** Residents keep to their lair: they wake to what comes within 12 m, chase to 30 m, and stand in its shade by day (s). */

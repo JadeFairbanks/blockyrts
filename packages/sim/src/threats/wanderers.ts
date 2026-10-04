@@ -2,11 +2,12 @@
 // blueprint/wanderers-picks.md). At night monsters roam the wild: the land
 // the players have explored but not claimed. The wild is cut into 25 m
 // patches. A patch is filled the first time that night one of the players'
-// units, or of a people they have found, comes within 60 m of it: 1 or 2
+// units, or of a people they have found, comes within 60 m of it: three
+// rolls since Jade's Patch 3 tripled the wanderers (one before), each 1 or 2
 // monsters of one kind out of the night's pool (the weak common, the strong
-// rare), from night 5 now and then a larger group of one weak kind, and less
-// often where less of the patch is open ground far from towns, villages,
-// lairs and lights. They come out at least 35 m from the players' units, out
+// rare) on a spot of its own, from night 5 now and then a larger group of
+// one weak kind, and each less often where less of the patch is open ground
+// far from towns, villages, lairs and lights. They come out at least 35 m from the players' units, out
 // of sight, and a patch no one comes near for a while is emptied again until
 // someone does (unless its monsters fought), so the wild is full wherever
 // anyone goes and nothing runs where no one sees it. A wanderer roams round
@@ -38,6 +39,13 @@ const SEC = STEPS_PER_SECOND;
 
 /** The wild is cut into square patches this many metres wide; each holds its own wanderers. */
 export const WILD_PATCH_M = 25;
+/**
+ * How many wanderers come out, percent of Patch 1's: each patch rolls for
+ * its monsters this many times over, each roll on its own spot of the patch
+ * (a part roll by its chance), so the same land holds that many times the
+ * monsters (Jade's Patch 3 notes: triple the wandering night monsters).
+ */
+export const WILD_DENSITY_PCT = 300;
 /** Spots tested across a patch, per side (5 by 5, 5 m apart): the share that pass is how much of the patch is wild. */
 export const WILD_SAMPLES = 5;
 /** Wanderers come out from this night on. */
@@ -55,8 +63,8 @@ export const WILD_HORDE_MAX_PCT = 20;
 export const WILD_HORDE_MIN = 3;
 export const WILD_HORDE_GROW_NIGHTS = 10;
 export const WILD_HORDE_MAX = 8;
-/** Kinds of at most this threat (tenths) are weak enough to come as a group: the zombie, cave bat, giant rat, the goblin cutter and slinger, the cinderling. */
-export const WILD_WEAK_THREAT_TENTHS = 15;
+/** Kinds of at most this threat (tenths) are weak enough to come as a group: the zombie, cave bat, giant rat, skeleton archer, the goblin cutter and slinger, the cinderling (Patch 3: 1.7 on the worked-out threat, which keeps the same kinds and adds the archer, now as cheap as a zombie). */
+export const WILD_WEAK_THREAT_TENTHS = 17;
 /** A wild spot keeps at least this many metres from every player's claimed land (towns, walls, torches, enclosures)... */
 export const WILD_CLAIM_GAP_M = 40;
 /** ...stays outside this many times a lit light's radius (a bonfire, a torch post, a tribe's camp fire)... */
@@ -69,8 +77,8 @@ export const WILD_WAKE_M = 60;
 export const WILD_UNIT_GAP_M = 35;
 /** A patch that no such unit has been within this many metres of is emptied again (its monsters slip away unseen) while none of them has fought; it fills again when someone comes back. */
 export const WILD_SLEEP_M = 100;
-/** At most this many wanderers per player still in the game at once (a guard on the step's work). */
-export const WILD_CAP_PER_PLAYER = 150;
+/** At most this many wanderers per player still in the game at once (a guard on the step's work; tripled with the wanderers in Patch 3). */
+export const WILD_CAP_PER_PLAYER = 450;
 /** Patches are filled and emptied once a second. */
 export const WILD_CHECK_STEPS = SEC;
 /** A wanderer goes for prey it could reach in this long were the prey to stand still: a straight run over open ground, or any line for a flyer... */
@@ -319,13 +327,14 @@ export function hordeSize(night: number): number {
 }
 
 /**
- * What a patch holds on a night, by its hash alone (so the same patch
- * holds the same again if it is emptied and filled): nothing (with the
- * chance that its spots are not wild), else a horde of one weak kind, else
- * 1 or 2 of a kind. Returns the kind and how many.
+ * What one of a patch's rolls brings on a night, by its hash alone (so the
+ * same patch holds the same again if it is emptied and filled): nothing
+ * (with the chance that its spots are not wild), else a horde of one weak
+ * kind, else 1 or 2 of a kind. Returns the kind and how many. Roll 0 is
+ * Patch 1's one roll; Patch 3's extra rolls draw on numbers of their own.
  */
-export function patchRoll(seed: number, night: number, px: number, pz: number, wildPm: number): [number, number] {
-  const h = (k: number): number => hash32(seed, SALT, night, px, pz, k);
+export function patchRoll(seed: number, night: number, px: number, pz: number, wildPm: number, roll = 0): [number, number] {
+  const h = (k: number): number => hash32(seed, SALT, night, px, pz, k + ROLL_KEYS * roll);
   if (h(0) % 1000 >= wildPm) return [0, 0];
   if (h(1) % 100 < hordePct(night)) {
     const weak = wildPool(night, true);
@@ -537,6 +546,15 @@ function emptyQuiet(state: SimState, spots: ReadonlyArray<readonly [number, numb
   state.threats.wild = keep;
 }
 
+/** How many of a patch's hash numbers each roll draws on (patchRoll's 0 to 4, its spot's 5 and the part roll's 6). */
+const ROLL_KEYS = 8;
+
+/** How many times a patch rolls for its monsters tonight: WILD_DENSITY_PCT / 100, and one more by the chance of what is left over. */
+export function patchRolls(seed: number, night: number, px: number, pz: number): number {
+  const part = WILD_DENSITY_PCT % 100;
+  return floorDiv(WILD_DENSITY_PCT, 100) + (part > 0 && hash32(seed, SALT, night, px, pz, 6) % 100 < part ? 1 : 0);
+}
+
 /** Fills the patches near the wakers not filled tonight, in key order, while the cap allows. */
 function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, groups: Map<number, number[]>, night: number): void {
   const t = state.threats;
@@ -568,27 +586,33 @@ function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, 
     }
     // Every wild spot is in someone's sight: try again once they move on.
     if (open.length === 0) continue;
-    const [mob, n] = patchRoll(state.seed, night, px, pz, floorDiv(wild * 1000, WILD_SAMPLES * WILD_SAMPLES));
-    if (n === 0) {
-      t.wild.push({ px, pz, group: 0, size: 0 });
-      continue;
+    // Each roll (three since Patch 3) brings its own monsters to a spot of its own while spots last; they all count as the patch's one group.
+    const wildPm = floorDiv(wild * 1000, WILD_SAMPLES * WILD_SAMPLES);
+    let group = 0;
+    let size = 0;
+    for (let roll = 0; roll < patchRolls(state.seed, night, px, pz); roll++) {
+      const [mob, n] = patchRoll(state.seed, night, px, pz, wildPm, roll);
+      if (n === 0) continue;
+      const at = hash32(state.seed, SALT, night, px, pz, 5 + ROLL_KEYS * roll) % open.length;
+      const [x, z] = open[at]!;
+      if (open.length > 1) open.splice(at, 1);
+      if (group === 0) group = state.nextEntityId++;
+      const foe = nearestTown(state, x, z);
+      for (let k = 0; k < n; k++) {
+        // The first on the spot, the rest in a ring 1.5 m round it (a second ring past 7).
+        const [fx, fz] = forward(floorDiv(k * 65536, Math.min(6, Math.max(1, n - 1))) + ((group + roll) & 0x3fff));
+        const r = k === 0 ? 0 : k > 6 ? 3 * M : floorDiv(3 * M, 2);
+        const ox = floorDiv(fx * r, 65536);
+        const oz = floorDiv(fz * r, 65536);
+        const ok = state.nav.standable(floorDiv(x + ox, WU_PER_COLUMN), floorDiv(z + oz, WU_PER_COLUMN), WALKER);
+        const i = addWanderer(state, mob, ok ? x + ox : x, ok ? z + oz : z, night, group, foe);
+        state.entities.homeX[i] = x;
+        state.entities.homeZ[i] = z;
+      }
+      size += n;
     }
-    const [x, z] = open[hash32(state.seed, SALT, night, px, pz, 5) % open.length]!;
-    const group = state.nextEntityId++;
-    const foe = nearestTown(state, x, z);
-    for (let k = 0; k < n; k++) {
-      // The first on the spot, the rest in a ring 1.5 m round it (a second ring past 7).
-      const [fx, fz] = forward(floorDiv(k * 65536, Math.min(6, Math.max(1, n - 1))) + (group & 0x3fff));
-      const r = k === 0 ? 0 : k > 6 ? 3 * M : floorDiv(3 * M, 2);
-      const ox = floorDiv(fx * r, 65536);
-      const oz = floorDiv(fz * r, 65536);
-      const ok = state.nav.standable(floorDiv(x + ox, WU_PER_COLUMN), floorDiv(z + oz, WU_PER_COLUMN), WALKER);
-      const i = addWanderer(state, mob, ok ? x + ox : x, ok ? z + oz : z, night, group, foe);
-      state.entities.homeX[i] = x;
-      state.entities.homeZ[i] = z;
-    }
-    t.wild.push({ px, pz, group, size: n });
-    live += n;
+    t.wild.push({ px, pz, group, size });
+    live += size;
   }
 }
 

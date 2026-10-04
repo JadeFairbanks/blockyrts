@@ -45,6 +45,7 @@ export * from './combat/items.ts';
 export * from './units/kits.ts';
 export * from './units/names.ts';
 export * from './combat/mobs.ts';
+export * from './combat/threat.ts';
 export * from './combat/combat.ts';
 export * from './combat/projectiles.ts';
 export * from './combat/fight.ts';

@@ -96,7 +96,7 @@ export interface Catalog {
 
 const RES_PAIR_KEYS = new Set(['cost', 'inputs', 'outputs', 'extra', 'recipes', 'STARTING_STOCK', 'crops']);
 const PAIR_REFS: Readonly<Record<string, RefKind>> = {
-  cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res', FIRST_NIGHT: 'mob',
+  cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res', FIRST_NIGHT: 'mob', splitsInto: 'mob',
 };
 
 function isNumberPair(v: unknown): v is readonly [number, number] {
@@ -148,7 +148,7 @@ function buildRefNames(mods: SimModules): Record<RefKind, Map<number, string>> {
     resGroup: e('ResGroup'), unitKind: e('UnitKind'),
     people: l('PEOPLE_NAMES', null), faction: l('FACTION_KIND_NAMES', null), cat: capitalised(l('CAT_NAMES', null)),
     peopleUnit: peopleUnitNames(findExport(mods, 'PEOPLE_UNITS')), trinketMetal: l('TRINKET_METALS', null),
-    good: goodNames(mods),
+    good: goodNames(mods), trait: e('Trait'),
   };
 }
 
