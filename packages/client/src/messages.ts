@@ -226,6 +226,12 @@ export interface BuildingInfo {
    * 1 + weapon x 10 + armour).
    */
   troops: Array<{ troop: number; w: number; a: number; lock: number }>;
+  /**
+   * A Magi Sanctum (own and usable): each school it trains on its cards
+   * (Patch 2), with the default wand and robe tiers (the padlock's kit, else
+   * the best the stock pays for, wand first) and the padlock, as `troops`.
+   */
+  mages?: Array<{ school: number; w: number; a: number; lock: number }>;
   /** Barracks: tamed, grown horses free in the nearest Barn that has one (each new cavalry takes one, Patch 2). */
   horses: number;
   /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */

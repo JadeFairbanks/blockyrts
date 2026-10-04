@@ -1858,3 +1858,479 @@ body.playing.touch .hud {
 .sel-row.hunger.starving .hunger-bar > span {
   background: #e05a4a;
 }
+
+/* ---- Patch 2: the middle panel as pictures and bars (round 2). Every
+   sentence is in a tooltip; the title row carries the name, a badge or
+   level, the bars and the queue; the body the training cards, the kit and
+   small pictures with a count. ---- */
+:root {
+  --kit-health: url('../../../assets/src/ui/bar_health.png');
+  --kit-mana: url('../../../assets/src/ui/bar_mana.png');
+}
+.tt-body {
+  white-space: pre-line;
+}
+.tt-foot {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sel-head {
+  gap: 0;
+}
+.sel-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  /* Room for the bars (and the close button). */
+  max-width: calc(100% - 172px);
+}
+.sel-title.long {
+  font-size: 17px;
+}
+.sel-extra {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 8px;
+  overflow: hidden;
+}
+.sel-push {
+  flex: 1 1 0;
+}
+/* Pictures that only explain themselves: no frame, no hover glow. */
+.hud-btn.chip,
+.hud-btn.sel-bar {
+  border: 0 !important;
+  border-image: none !important;
+  background: none;
+  box-shadow: none;
+}
+.hud-btn.chip.hover {
+  filter: brightness(1.18);
+}
+.hud-btn.chip .btn-icon img {
+  width: 32px;
+  height: 32px;
+}
+.hud-btn.chip.badge {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.hud-btn.chip.badge .btn-icon img {
+  width: 16px;
+  height: 16px;
+}
+.hud-btn.chip.level {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border: 0 !important;
+  border-image: var(--kit-well) 4 fill / 4px !important;
+  font: 16px/1 var(--display);
+  color: var(--accent);
+}
+.hud-btn.chip.owner-tag {
+  flex: none;
+  height: 20px;
+  padding: 0 6px;
+  font: 16px/1 var(--display);
+  color: var(--owner, var(--text));
+  text-shadow: 1px 1px 0 #000;
+}
+.sel-bars {
+  flex: 0 0 auto;
+  width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hud-btn.sel-bar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+  image-rendering: pixelated;
+}
+.hud-btn.sel-bar.hp {
+  height: 13px;
+}
+.hud-btn.sel-bar .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--kit-health) 0 0 / 100% 100%;
+  image-rendering: pixelated;
+}
+.hud-btn.sel-bar .fill.low {
+  background: #d24a3a;
+}
+.hud-btn.sel-bar.mana .fill {
+  background: var(--kit-mana) 0 0 / 100% 100%;
+}
+.hud-btn.sel-bar.horse .fill {
+  background: #b07a42;
+}
+.hud-btn.sel-bar.build .fill,
+.hud-btn.sel-bar.meal .fill {
+  background: var(--kit-bar) 0 0 / 100% 100%;
+}
+.hud-btn.sel-bar .num {
+  position: relative;
+  display: block;
+  text-align: center;
+  font: 13px/13px var(--display);
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000;
+}
+.sel-head .sel-queue,
+.sel-tiles {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+.sel-head .hud-btn.portrait {
+  width: 24px;
+  height: 24px;
+}
+.sel-head .hud-btn.portrait .btn-icon img {
+  width: 24px;
+  height: 24px;
+}
+.sel-head .sel-row.more {
+  font: 15px/1 var(--display);
+  color: var(--muted);
+}
+.hud-btn.portrait.tile .tile-count {
+  position: absolute;
+  right: 1px;
+  top: 0;
+  font: 12px/1 var(--display);
+  color: var(--accent);
+  text-shadow: 1px 1px 0 #000;
+}
+.sel-body {
+  padding: 5px 8px;
+}
+.sel-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0 4px;
+}
+.hud-btn.chip.count,
+.hud-btn.chip.word,
+.hud-btn.chip.spell,
+.hud-btn.chip.crop,
+.hud-btn.chip.meal,
+.hud-btn.chip.notes,
+.hud-btn.chip.kit-slot {
+  flex: none;
+  height: 34px;
+  min-width: 34px;
+  border: 0 !important;
+  border-image: var(--kit-well) 4 fill / 4px !important;
+}
+.hud-btn.chip.has-icon.count,
+.hud-btn.chip.has-icon.word {
+  justify-content: flex-start;
+  padding: 0 6px 0 36px;
+}
+.hud-btn.chip.has-icon.count .btn-icon,
+.hud-btn.chip.has-icon.word .btn-icon {
+  right: auto;
+  width: 34px;
+}
+/* A chip with a picture keeps its words beside it. */
+.hud-btn.chip.has-icon.count > .face,
+.hud-btn.chip.has-icon.word > .face {
+  display: block;
+  font: 17px/1 var(--display);
+  white-space: nowrap;
+}
+.hud-btn.chip.count:not(.has-icon) > .face,
+.hud-btn.chip.word:not(.has-icon) > .face,
+.hud-btn.chip.notes > .face {
+  padding: 0 7px;
+  font: 17px/1 var(--display);
+  white-space: nowrap;
+}
+.hud-btn.chip.warn > .face {
+  color: #ff9a7a;
+}
+.hud-btn.chip .chip-count {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font: 14px/1 var(--display);
+  color: var(--parchment);
+  text-shadow: 1px 1px 0 #000;
+}
+.hud-btn.chip.notes > .face {
+  color: var(--accent);
+}
+.hud-btn.chip.kit-slot .btn-tag {
+  right: 3px;
+  bottom: 1px;
+}
+.hud-btn.chip.kit-slot.upgrading .up-bar {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 50%;
+  height: 5px;
+  margin-top: -2px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+}
+.hud-btn.chip .up-bar > span,
+.hud-btn.chip .meal-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--kit-bar) 0 0 / 100% 100%;
+}
+.hud-btn.chip.meal .meal-bar {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  height: 4px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+}
+.hud-btn.chip.meal.starving .meal-bar > span {
+  background: #e05a4a;
+}
+.kit-gap {
+  width: 8px;
+}
+.sel-row.doing {
+  font: 17px/1.1 var(--display);
+  color: var(--muted);
+}
+.hud-btn.chip.crew {
+  flex: none;
+  height: 34px;
+  gap: 0;
+  padding: 0 4px;
+  border: 0 !important;
+  border-image: var(--kit-well) 4 fill / 4px !important;
+}
+.hud-btn.chip.crew > img {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+.hud-btn.chip.crew > img.empty {
+  filter: grayscale(1) brightness(0.5);
+  opacity: 0.6;
+}
+.sel-strip.farm .hud-btn.sel-bar.meal {
+  flex: 1 1 auto;
+  max-width: 260px;
+  height: 16px;
+}
+.sel-strip.farm .hud-btn.sel-bar .num {
+  font-size: 14px;
+  line-height: 16px;
+}
+.sel-strip.garrison .hud-btn.portrait {
+  width: 30px;
+  height: 30px;
+}
+.sel-more {
+  align-self: center;
+  padding: 0 4px;
+  font: 16px/1 var(--display);
+  color: var(--muted);
+}
+.hud-btn.sub-tab.has-icon {
+  min-width: 52px;
+  height: 30px;
+  padding: 0 6px 0 30px;
+  justify-content: flex-start;
+}
+.hud-btn.sub-tab.has-icon .btn-icon {
+  right: auto;
+  width: 30px;
+}
+.hud-btn.sub-tab.has-icon .btn-icon img {
+  width: 24px;
+  height: 24px;
+}
+.hud-btn.sub-tab.has-icon > .face {
+  display: block;
+  font: 17px/1 var(--display);
+}
+
+/* The training cards (round 2b, mock-up panels 1, 2 and 4): the Barracks' five fit the middle at 400 px and up; narrower, the row scrolls sideways. */
+.kit-cards {
+  display: flex;
+  justify-content: safe center;
+  gap: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+.kit-card {
+  position: relative;
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 106px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  border: 4px solid transparent;
+  border-image: var(--kit-well) 4 fill / 4px;
+  image-rendering: pixelated;
+}
+.hud-btn.card-pic {
+  width: 44px;
+  height: 40px;
+}
+.hud-btn.card-pic .key {
+  left: 3px;
+  right: auto;
+  top: 1px;
+  font-size: 13px;
+}
+.hud-btn.card-pic .card-horses {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font: 14px/1 var(--display);
+  color: var(--parchment);
+  text-shadow: 1px 1px 0 #000;
+}
+.hud-btn.card-pic .card-horses.none {
+  color: #ff8a6a;
+}
+.hud-btn.card-lock {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 20px;
+  height: 20px;
+  border: 0 !important;
+  border-image: none !important;
+  background: none;
+}
+.hud-btn.card-lock .btn-icon img {
+  width: 16px;
+  height: 16px;
+}
+.hud-btn.card-lock.hover {
+  filter: brightness(1.3);
+}
+.card-name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 15px/1 var(--display);
+  color: var(--parchment);
+}
+.kit-card.cannot .card-name {
+  color: var(--muted);
+}
+.kit-cards.many .card-name {
+  font-size: 13px;
+}
+.card-slots {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  gap: 2px;
+}
+.hud-btn.card-slot,
+.hud-btn.tier-tile {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 0 !important;
+  border-image: var(--kit-well) 4 fill / 4px !important;
+}
+.hud-btn.card-slot.hover,
+.hud-btn.tier-tile.hover,
+.hud-btn.card-slot.open {
+  filter: brightness(1.25);
+}
+.hud-btn.card-slot .btn-tag,
+.hud-btn.tier-tile .btn-tag {
+  right: 2px;
+  bottom: 0;
+}
+/* Five cards in a 400 px middle: the slots give way a little rather than the row scrolling. */
+.hud-btn.card-slot {
+  flex: 0 1 34px;
+  width: auto;
+  min-width: 26px;
+  height: auto;
+  aspect-ratio: 1;
+}
+.hud-btn.card-slot .btn-icon img {
+  width: 94%;
+  height: 94%;
+}
+/* Red: the stock is short of it now (it can still be picked). Dark: not unlocked yet. Gold: the tier trained now. */
+.hud-btn.card-slot.short,
+.hud-btn.tier-tile.short {
+  outline: 2px solid #c8402e;
+  outline-offset: -2px;
+}
+.hud-btn.card-slot.short .btn-tag,
+.hud-btn.tier-tile.short .btn-tag {
+  color: #ff6a50;
+}
+.hud-btn.card-slot.dark .btn-icon,
+.hud-btn.tier-tile.dark .btn-icon {
+  filter: grayscale(1) brightness(0.45);
+  opacity: 0.7;
+}
+.hud-btn.tier-tile.current {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.hud-btn.tier-tile.disabled {
+  border-image-source: var(--kit-well) !important;
+}
+
+/* The tier strip: just above the middle, pointing at the slot that opened it. */
+.hud .panel.tier-strip {
+  position: fixed;
+  z-index: 40;
+  padding: 2px 3px;
+  border: 6px solid transparent;
+  border-image: var(--kit-popup) 12 fill / 6px round;
+}
+.tier-row {
+  display: flex;
+  gap: 3px;
+}
+.tier-point {
+  position: absolute;
+  bottom: -17px;
+  width: 0;
+  height: 0;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--accent);
+  filter: drop-shadow(0 1px 0 #000);
+}
+/* A training building's facts (a Stables' stalls, the rally route) stand in a column beside its cards. */
+.kit-cards > .sel-strip.facts {
+  flex: 0 0 auto;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  margin: 0;
+}

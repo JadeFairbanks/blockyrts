@@ -3,7 +3,7 @@
 // fell (Jade). The countdown now reads the sim's own steps left, so the
 // seconds only fall, one a second, the same way at every building.
 import { describe, expect, it } from 'vitest';
-import { Blocked, BuildingKind, createWorld, placeBuilding, placementBlocked, Product, queueHead, Res, step, STEPS_PER_SECOND, type Building, type SimState } from '@blockyrts/sim';
+import { Blocked, BuildingKind, createWorld, mageProduct, placeBuilding, placementBlocked, queueHead, Res, School, step, STEPS_PER_SECOND, type Building, type SimState } from '@blockyrts/sim';
 import { queueSeconds, queueText } from '../src/hud/queue-clock.ts';
 
 function sanctum(s: SimState): Building {
@@ -30,7 +30,8 @@ describe('the Magi Sanctum\'s training countdown', () => {
     pool[Res.Sticks] = 20;
     pool[Res.Flax] = 6;
     pool[Res.Venison] = 200;
-    step(s, [{ kind: 'produce', player: 0, building: b.id, product: Product.BattleMage, count: 1 }]);
+    // Patch 2: the Sanctum's battle mage card, with a hazel wand and a homespun robe.
+    step(s, [{ kind: 'produce', player: 0, building: b.id, product: mageProduct(School.Battle, 1, 1), count: 1 }]);
     const seen: number[] = [];
     while (b.queue.length > 0) {
       seen.push(shownSeconds(s, b));

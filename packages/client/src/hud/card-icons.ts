@@ -3,7 +3,7 @@
 // the card's training, making, building and upgrade buttons ask for their
 // own picture here with what they know (the product, the building, the kit).
 // The words stay in the tooltip, which says a little more than the old face.
-import { engineSpec, productSpec, recipeSpec, Research, SPELLS, speciesSpec, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+import { engineSpec, mageOf, productSpec, recipeSpec, Research, School, SPELLS, speciesSpec, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { ButtonIcon, IconBadge } from './buttons.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON } from './unit-icons.ts';
@@ -106,6 +106,8 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product === Product.BattleMage) return one(BATTLE_MAGE_ICON);
   const t = troopOf(product);
   if (t) return one(troopIconFile(t.troop, t.w));
+  const m = mageOf(product);
+  if (m) return one(m.school === School.Battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
   if (product < RESEARCH_PRODUCT) return undefined;
   const ps = productSpec(product);
   if (ps.research !== undefined) return one(RESEARCH_ICONS[ps.research] ?? 'icon_scriptorium');

@@ -7,7 +7,7 @@ import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from '
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, troopTiersAt, troopTypesAt, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf } from './economy/resources.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
@@ -586,15 +586,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'troopLock': {
         const b = usableBuilding(state, o.player, o.building);
-        if (!b || !(troopTypesAt(b) as number[]).includes(o.troop)) break;
-        if (o.lock > 0) {
-          const t = troopTiersAt(b, o.troop);
-          const w = floorDiv(o.lock - 1, 10);
-          const a = (o.lock - 1) % 10;
-          if (w < t.w[0] || w > t.w[1] || a < t.a[0] || a > t.a[1]) break;
-        }
-        while (b.locks.length <= o.troop) b.locks.push(0);
-        b.locks[o.troop] = o.lock;
+        if (b) setKitLock(b, o.troop, o.lock);
         break;
       }
       case 'lock':

@@ -58,7 +58,8 @@ import {
   SPELLS,
   Troop,
   TROOP_PRODUCT,
-  troopProduct,
+  mageLock,
+  School,
   TOOL_KITS,
   upgradePieces,
   equipmentPlans,
@@ -82,7 +83,7 @@ import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonIcon, ButtonPress } from './buttons.ts';
 import { buildIcon, buildingUpgradeIcon, equipIcon, productIcon, trainTroopIcon } from './card-icons.ts';
 import { buildingIconFile } from './unit-icons.ts';
-import { troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
+import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
 
 /** One button of the command card. */
@@ -212,7 +213,7 @@ const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey =
 
 /** Whether a building trains workers, warriors or mages, which come out to its rally point. */
 const trainsUnits = (b: BuildingInfo): boolean =>
-  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage);
+  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage);
 
 export interface Targeting {
   command: TargetCommand;
@@ -933,6 +934,11 @@ export class Commands {
         const [action, face, slot] = TROOP_ACTIONS[t.troop]!;
         card[slot + (main ? 1 : 0)] = this.troopEntry(all, t.troop, action, face);
       }
+      // The Magi Sanctum's cards (Patch 2): S and M train the wand and robe each card shows.
+      for (const m of first.mages ?? []) {
+        const support = m.school === School.Support;
+        card[support ? 0 : 1] = this.mageEntry(all, mageLock(m.school), support ? 'trainSupportMage' : 'trainBattleMage', support ? 'Support' : 'Battle');
+      }
     }
     if (first.complete && first.products.some(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)) {
       const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Grid keys pick one; V shows the next page; B is Back.'];
@@ -1036,20 +1042,58 @@ export class Commands {
     };
   }
 
-  /** The panel's picture button: train a troop type at one building. */
-  trainTroop(building: number, troop: number, count: number): void {
-    const b = this.d.game.buildings.get(building);
-    if (b) this.trainTroopAt([b], troop, count);
+  /** A Sanctum school's button: trains the wand and robe its card shows, greyed out with why it cannot. */
+  private mageEntry(all: BuildingInfo[], card: number, action: string, face: string): CardEntry {
+    const first = all[0]!;
+    const c = cardChoice(first, card);
+    const why = cardWhy(this.d.game, first, card, c.w, c.a);
+    const others = all.length > 1 ? ' With several selected, each trains its own pick and the shortest queue goes first.' : '';
+    const any = all.some((b) => {
+      const k = cardChoice(b, card);
+      return cardWhy(this.d.game, b, card, k.w, k.a) === '';
+    });
+    const p = cardProduct(card, c.w, c.a);
+    return {
+      action,
+      face,
+      name: productSpec(p).name,
+      key: this.key(action),
+      description: `${cardTrainsText(card, c.w, c.a)} Costs ${cardCostText(card, c.w, c.a)} Pick the wand and robe on the card in the panel.${others} Shift: queue 5.`,
+      icon: productIcon(p),
+      troop: card,
+      enabled: any,
+      reason: any ? '' : why,
+      run: (press) => this.trainCardAt(all, card, press.shift ? 5 : 1),
+    };
   }
 
-  /** Spreads troops over the buildings with the shortest queues, each with its own pick. */
+  /** The panel's picture button: train a troop type at one building. */
+  trainTroop(building: number, troop: number, count: number): void {
+    this.trainCard([building], troop, count);
+  }
+
+  /** A training card's picture: its unit at these buildings, the shortest queue first. */
+  trainCard(buildings: readonly number[], card: number, count: number): void {
+    const all = buildings.map((id) => this.d.game.buildings.get(id)).filter((b): b is BuildingInfo => b !== undefined);
+    this.trainCardAt(all, card, count);
+  }
+
   private trainTroopAt(all: BuildingInfo[], troop: number, count: number): void {
-    const ready = all.filter((b) => b.complete && b.troops.some((t) => t.troop === troop));
+    this.trainCardAt(all, troop, count);
+  }
+
+  /** Spreads a card's units over the buildings with the shortest queues, each with its own choice. */
+  private trainCardAt(all: BuildingInfo[], card: number, count: number): void {
+    const ready = all.filter((b) => {
+      if (!b.complete) return false;
+      const c = cardChoice(b, card);
+      return cardOffered(b, card, c.w, c.a);
+    });
     for (let k = 0; k < count && ready.length > 0; k++) {
       ready.sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
       const b = ready[0]!;
-      const c = troopChoice(b, troop);
-      const product = troopProduct(troop, c.w, c.a);
+      const c = cardChoice(b, card);
+      const product = cardProduct(card, c.w, c.a);
       this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count: 1 });
       b.queue.push({ product, done: 0, stepsLeft: 0 });
     }

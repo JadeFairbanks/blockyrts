@@ -26,6 +26,9 @@ import {
   forgeStepOf,
   productProblem,
   stalledHorses,
+  mageDefault,
+  mageLock,
+  mageSchoolsAt,
   tinkerProgress,
   troopDefault,
   troopTypesAt,
@@ -304,6 +307,13 @@ function postInfo(s: SimState): void {
           ? troopTypesAt(b).map((troop) => {
               const { w, a } = troopDefault(s, b, troop, PLAYER);
               return { troop, w, a, lock: b.locks[troop] ?? 0 };
+            })
+          : [],
+      mages:
+        usableBy(s, b, PLAYER) && b.complete
+          ? mageSchoolsAt(b).map((school) => {
+              const { w, a } = mageDefault(s, b, school, PLAYER);
+              return { school, w, a, lock: b.locks[mageLock(school)] ?? 0 };
             })
           : [],
       horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,

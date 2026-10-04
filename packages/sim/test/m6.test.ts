@@ -20,6 +20,7 @@ import {
   MAGE_RANKS,
   manaCap,
   MANA_SCALE,
+  mageProduct,
   Mob,
   placeBuilding,
   pendingKitUp,
@@ -108,16 +109,19 @@ describe('the Magi Sanctum', () => {
     const s = createPeaceful();
     const b = sanctum(s);
     const p = s.players[0]!;
+    // Patch 2: the Sanctum trains from its cards, with the wand and robe picked (tier 1 of each here).
+    const hazel = mageProduct(School.Battle, 1, 1);
+    expect(productProblem(s, b, Product.BattleMage)).toBe('This building cannot make that.');
     // Troops and gear: the kit is paid from the pool when she is queued; without it, the reason.
     p.pool[Res.Sticks] = 0;
     p.pool[Res.Flax] = 6;
     p.pool[Res.Venison] = 200;
-    expect(productProblem(s, b, Product.BattleMage)).toMatch(/^Not enough resources/);
+    expect(productProblem(s, b, hazel)).toMatch(/^Not enough resources/);
     p.pool[Res.Sticks] = 20;
-    expect(productProblem(s, b, Product.BattleMage)).toBe('');
+    expect(productProblem(s, b, hazel)).toBe('');
     const food = (): number => FOODS.reduce<number>((n, f) => n + p.pool[f]!, 0);
     const before = food();
-    run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: Product.BattleMage, count: 1 }]);
+    run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: hazel, count: 1 }]);
     expect(p.pool[Res.Sticks]).toBe(15);
     expect(p.pool[Res.Flax]).toBe(3);
     expect(food()).toBeLessThan(before);

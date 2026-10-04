@@ -38,8 +38,12 @@ export interface HudButtonDef {
   keys: string[];
   /** Badge text when it differs from the first key's label (e.g. "Shift" for a hold key). */
   badge?: string;
-  /** What it does, for the tooltip. */
+  /** What it does, for the tooltip (a line per line). */
   description: string;
+  /** A last, quieter tooltip line: what a click does ("Click to pick it."). */
+  foot?: string;
+  /** The tooltip leads with why it is greyed out (Patch 2: a training card's picture). */
+  reasonFirst?: boolean;
   /** Extra classes for the button element. */
   className?: string;
   onPress?: (p: ButtonPress) => void;
@@ -148,10 +152,13 @@ export class HudButton {
     return this.el.isConnected && this.el.getClientRects().length > 0;
   }
 
-  /** The tooltip lines: name and hotkey, what it does, and why it is greyed out. */
-  tooltip(): { title: string; key: string; body: string; reason: string } {
-    return { title: this.def.name, key: this.badge(), body: this.def.description, reason: this.disabledReason };
+  /** The tooltip lines: name and hotkey, what it does, why it is greyed out (or another reason it gives), and what a click does. */
+  tooltip(): { title: string; key: string; body: string; reason: string; foot: string; reasonFirst: boolean } {
+    return { title: this.def.name, key: this.badge(), body: this.def.description, reason: this.disabledReason || this.note, foot: this.def.foot ?? '', reasonFirst: this.def.reasonFirst === true };
   }
+
+  /** An orange tooltip line on a button that still works (a tier the stock is short of: it can be picked). */
+  note = '';
 }
 
 export class ButtonRegistry {
@@ -225,8 +232,8 @@ export class Tooltip {
 
   private fill(b: HudButton): void {
     const raw = b.tooltip();
-    const t = { title: oneIsSingular(raw.title), key: raw.key, body: oneIsSingular(raw.body), reason: oneIsSingular(raw.reason) };
-    const sig = `${t.title}|${t.key}|${t.body}|${t.reason}`;
+    const t = { title: oneIsSingular(raw.title), key: raw.key, body: oneIsSingular(raw.body), reason: oneIsSingular(raw.reason), foot: oneIsSingular(raw.foot) };
+    const sig = `${t.title}|${t.key}|${t.body}|${t.reason}|${t.foot}|${raw.reasonFirst}`;
     if (sig === this.sig) return;
     this.sig = sig;
     this.el.replaceChildren();
@@ -242,12 +249,17 @@ export class Tooltip {
     const body = document.createElement('div');
     body.className = 'tt-body';
     body.textContent = t.body;
-    this.el.append(head, body);
-    if (t.reason) {
-      const reason = document.createElement('div');
-      reason.className = 'tt-reason';
-      reason.textContent = t.reason;
-      this.el.append(reason);
+    body.hidden = t.body === '';
+    const reason = document.createElement('div');
+    reason.className = 'tt-reason';
+    reason.textContent = t.reason;
+    reason.hidden = t.reason === '';
+    this.el.append(head, ...(raw.reasonFirst ? [reason, body] : [body, reason]));
+    if (t.foot) {
+      const foot = document.createElement('div');
+      foot.className = 'tt-foot';
+      foot.textContent = t.foot;
+      this.el.append(foot);
     }
   }
 }
