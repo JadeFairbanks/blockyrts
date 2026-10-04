@@ -3,13 +3,16 @@
 // whole HUD, and a phone folds the panels away. Jade's Patch 2: the portrait
 // sits between the middle and the card, and the card's buttons are squares
 // sized to fill it, at least twice their old width and height, the card
-// growing upward only when they cannot fit at that.
+// growing upward only when they cannot fit at that. Jade, indev 0.8: the
+// minimum is the size at which the card holds twelve buttons.
 import { describe, expect, it } from 'vitest';
 import {
   BUTTON_FLOOR,
   BUTTON_MIN,
   buttonIcon,
+  buttonMin,
   buttonRoom,
+  CARD_HOLDS,
   CARD_PAD,
   cardInner,
   cardWidth,
@@ -178,7 +181,7 @@ describe('square buttons (Jade\'s Patch 2)', () => {
       const inner = cardInner(g);
       expect(g.maxH).toBeGreaterThanOrEqual(inner.h);
       for (const n of [1, 6, 11, 15, 30]) {
-        const fit = fitButtons(n, inner.w, inner.h, g.maxH);
+        const fit = fitButtons(n, inner.w, inner.h, g.maxH, g.buttonMin);
         expect((fit.height + 2 * CARD_PAD) * g.scale + TOP_RIGHT * g.scale, `${w} x ${h}, ${n} buttons`).toBeLessThanOrEqual(h);
         expect(fit.cols * fit.size + (fit.cols - 1) * GAP).toBeLessThanOrEqual(inner.w);
         expect(fit.rows * fit.size + (fit.rows - 1) * GAP).toBeLessThanOrEqual(fit.height);
@@ -187,9 +190,87 @@ describe('square buttons (Jade\'s Patch 2)', () => {
   });
 
   it('draws the kit pictures at whole or half steps up with the button', () => {
+    expect(buttonIcon(70)).toBe(32);
     expect(buttonIcon(52)).toBe(32);
     expect(buttonIcon(104)).toBe(64);
     expect(buttonIcon(89)).toBe(48);
     expect(buttonIcon(220)).toBe(128);
+  });
+});
+
+describe('the card holds twelve before it grows (Jade, indev 0.8)', () => {
+  // Desktop screens giving every card width from 5 to 10 columns.
+  const desktops = [1280, 1440, 1500, 1560, 1600, 1920].map((width) => hudLayout({ width, height: 900, topRight: TOP_RIGHT }));
+
+  it('covers every desktop card width', () => {
+    expect(desktops.map((g) => g.cols)).toEqual([5, 6, 7, 8, 9, 10]);
+  });
+
+  it('holds twelve in a clean grid at the card\'s standard size on every desktop', () => {
+    expect(CARD_HOLDS).toBe(12);
+    const grids = desktops.map((g) => {
+      const inner = cardInner(g);
+      const fit = fitButtons(CARD_HOLDS, inner.w, inner.h, g.maxH, g.buttonMin);
+      expect(fit.height, `${g.cols} columns`).toBe(inner.h);
+      expect(fit.size).toBe(g.buttonMin);
+      expect(fit.cols * fit.rows, `${g.cols} columns: no empty places`).toBe(CARD_HOLDS);
+      return `${fit.cols}x${fit.rows} ${fit.size}`;
+    });
+    expect(grids).toEqual(['4x3 66', '4x3 70', '4x3 70', '4x3 70', '6x2 80', '6x2 89']);
+  });
+
+  it('shrinks the buttons up to twelve, then keeps their size and grows upward', () => {
+    for (const g of desktops) {
+      const inner = cardInner(g);
+      let last = Infinity;
+      for (let n = 0; n <= 40; n++) {
+        const fit = fitButtons(n, inner.w, inner.h, g.maxH, g.buttonMin);
+        expect(fit.size, `${g.cols} columns, ${n} buttons`).toBeLessThanOrEqual(last);
+        expect(fit.size).toBeGreaterThanOrEqual(g.buttonMin);
+        // Never smaller than the card with nothing selected (Jade, indev 0.8): its width is fixed, its height only grows.
+        expect(fit.height).toBeGreaterThanOrEqual(inner.h);
+        if (n <= CARD_HOLDS) expect(fit.height).toBe(inner.h);
+        if (fit.height > inner.h) {
+          // Grown: no smaller than the minimum, and only as tall as the rows at it need.
+          const perRow = Math.floor((inner.w + GAP) / (g.buttonMin + GAP));
+          const rows = Math.ceil(n / perRow);
+          expect(fit.height).toBe(rows * g.buttonMin + (rows - 1) * GAP);
+        }
+        last = fit.size;
+      }
+    }
+  });
+
+  it('grows at the thirteenth on a six-column card, three rows of four at 70 px', () => {
+    const g = desktops[1]!;
+    const inner = cardInner(g);
+    expect(fitButtons(12, inner.w, inner.h, g.maxH, g.buttonMin)).toEqual({ size: 70, cols: 4, rows: 3, height: inner.h, shown: 12 });
+    const grown = fitButtons(13, inner.w, inner.h, g.maxH, g.buttonMin);
+    expect(grown).toMatchObject({ size: 70, cols: 4, rows: 4, height: 4 * 70 + 3 * GAP, shown: 13 });
+  });
+
+  it('leaves every card that fitted at Patch 2\'s minimum exactly as it was', () => {
+    for (const g of desktops) {
+      const inner = cardInner(g);
+      for (let n = 1; n <= 40; n++) {
+        const before = fitButtons(n, inner.w, inner.h, g.maxH, BUTTON_MIN);
+        if (before.height !== inner.h) continue;
+        expect(fitButtons(n, inner.w, inner.h, g.maxH, g.buttonMin), `${g.cols} columns, ${n} buttons`).toEqual(before);
+      }
+    }
+  });
+
+  it('keeps the minimum between the old button and Patch 2\'s, and a phone at Patch 2\'s', () => {
+    for (const g of desktops) {
+      expect(g.buttonMin).toBe(buttonMin(cardInner(g), CARD_HOLDS));
+      expect(g.buttonMin).toBeGreaterThanOrEqual(BUTTON_FLOOR);
+      expect(g.buttonMin).toBeLessThanOrEqual(BUTTON_MIN);
+    }
+    for (const [width, height] of [
+      [390, 844],
+      [844, 390],
+    ] as const) {
+      expect(hudLayout({ width, height, topRight: TOP_RIGHT }).buttonMin).toBe(BUTTON_MIN);
+    }
   });
 });
