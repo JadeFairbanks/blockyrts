@@ -408,6 +408,7 @@ export class InputManager {
     else if (c.kind === 'button') {
       c.btn.el.classList.remove('pressed');
       if (this.buttonAt(this.pos) === c.btn && c.btn.enabled) this.activate(c.btn, { shift: mods.shift, ctrl: mods.ctrl });
+      else if (this.buttonAt(this.pos) === c.btn) c.btn.def.onGreyPress?.();
     }
     return this.captures.size === 0;
   }
@@ -426,7 +427,10 @@ export class InputManager {
 
   /** A button pressed by its hotkey: the same as clicking it. */
   pressButton(btn: HudButton, press: ButtonPress): void {
-    if (!btn.enabled) return;
+    if (!btn.enabled) {
+      btn.def.onGreyPress?.();
+      return;
+    }
     cue('ui_click');
     btn.def.onPress?.(press);
   }

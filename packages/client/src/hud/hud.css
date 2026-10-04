@@ -790,9 +790,6 @@ body.playing * {
 .hud-btn.msg-btn.alert {
   color: #ffd27a;
 }
-.hud-btn.cmd.short:not(.disabled) .face {
-  color: #ff9a8a;
-}
 .hud-btn.cmd.grid .face {
   font-size: calc(9.5px * var(--card-k, 1));
   letter-spacing: -0.02em;
@@ -1501,14 +1498,16 @@ body.playing.touch .hud {
 }
 
 /* The doing-now marker (patch notes 1): a gold arrow bobbing over the action
-   the selection is doing or walking to do, and a slow glow round the button. */
+   the selection is doing or walking to do, and a slow glow round the button.
+   Patch 3 makes it about twice as visible: the arrow drawn at 3 px a pixel
+   (was 2), and the ring below twice as thick and never dimmer than 60%. */
 .hud-btn.doing::after {
   content: '';
   position: absolute;
-  left: calc(50% - 7px);
-  top: 1px;
-  width: 14px;
-  height: 10px;
+  left: calc(50% - 10.5px);
+  top: 2px;
+  width: 21px;
+  height: 15px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z' fill='%231a120c'/%3E%3Cpath d='M1 0h5v1h-1v1h-1v1h-1v-1h-1v-1h-1z' fill='%23ffd84a'/%3E%3C/svg%3E") center / contain no-repeat;
   image-rendering: pixelated;
   animation: doing-bob 0.8s steps(2, jump-none) infinite alternate;
@@ -1523,7 +1522,7 @@ body.playing.touch .hud {
     transform: translateY(0);
   }
   to {
-    transform: translateY(3px);
+    transform: translateY(4px);
   }
 }
 @keyframes doing-glow {
@@ -1863,25 +1862,26 @@ body.playing.touch .hud {
 .hud-btn.dlg-btn.danger {
   filter: sepia(0.35) hue-rotate(-25deg) saturate(1.6);
 }
-/* The doing-now glow as an outline: the frame's wood would cover an inset shadow. */
+/* The doing-now glow as an outline: the frame's wood would cover an inset shadow.
+   Patch 3: 4 px thick (was 2) and pulsing 60% to full (was 30% to 95%). */
 .hud-btn.doing {
   animation: doing-ring 1.6s ease-in-out infinite;
-  outline: 2px solid rgba(255, 216, 74, 0.35);
-  outline-offset: -3px;
+  outline: 4px solid rgba(255, 216, 74, 0.6);
+  outline-offset: -5px;
 }
 @keyframes doing-ring {
   0%,
   100% {
-    outline-color: rgba(255, 216, 74, 0.3);
+    outline-color: rgba(255, 216, 74, 0.6);
   }
   50% {
-    outline-color: rgba(255, 216, 74, 0.95);
+    outline-color: rgba(255, 226, 110, 1);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .hud-btn.doing {
     animation: none;
-    outline-color: rgba(255, 216, 74, 0.8);
+    outline-color: rgba(255, 216, 74, 0.95);
   }
 }
 /* The hunger line's bar (patch 1, food): the kit's trough and gold fill; red while starving. */
