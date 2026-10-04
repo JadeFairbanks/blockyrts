@@ -27,6 +27,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
   // Patch 2: the artillery crewman's own order, on a key no other unit card uses here (s).
   { id: 'crew', name: 'Crew an engine (artillery crewmen)', key: 'KeyC', group: 'Units' },
+  // Patch 3: an artillery crewman retrains as a worker; W for worker, a key no unit card uses (s). Workers' Upgrade rank (U) is gone: they rank up by working.
+  { id: 'retrain', name: 'Retrain as a worker (artillery crewmen)', key: 'KeyW', group: 'Units' },
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather (workers fetch what the camp needs, home by nightfall)', key: 'KeyG', group: 'Workers' },
@@ -35,7 +37,6 @@ export const ACTIONS: readonly Action[] = [
   { id: 'dig', name: 'Dig', key: 'KeyD', group: 'Workers' },
   { id: 'prospect', name: 'Prospect', key: 'KeyT', group: 'Workers' },
   { id: 'build', name: 'Build', key: 'KeyB', group: 'Workers' },
-  { id: 'rankUp', name: 'Upgrade rank (train at the main base)', key: 'KeyU', group: 'Workers' },
   { id: 'cart', name: 'Fetch a cart from the main base, or hand it back', key: 'KeyX', group: 'Workers' },
   // Each spell on its letter in Table 13; the two schools never share a card, so R, F and the rest serve both.
   // The players' spells (the Elves' Grovesingers cast their own, never on a key).

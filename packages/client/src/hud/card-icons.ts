@@ -37,12 +37,13 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   back: one('icon_cmd_back'),
   hunt: one('icon_cmd_hunt'),
   eat: one('icon_food'),
-  rankUp: one('icon_rank_worker_hand', 'up'),
   mageRank: one('icon_rank_mage_adept_acolyte', 'up'),
   hitch: one('icon_train_horse'),
   // Patch 2: the artillery crewman's Crew order shows the engine it goes to; its training button is its own bust.
   crew: one('icon_train_cannon'),
   trainCrewman: one(troopIconFile(Troop.Crew, 0)),
+  // Patch 3: Retrain shows what the crewman becomes.
+  retrain: one(WORKER_ICON, 'up'),
   cart: one('icon_hand_cart'),
   deeper: one('icon_cmd_dig', 'down'),
   shallower: one('icon_cmd_dig', 'up'),

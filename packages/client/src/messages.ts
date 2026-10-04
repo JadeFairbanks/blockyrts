@@ -46,7 +46,7 @@ export type ToWorker =
  * rides and the mount's health; an engine's crew standing by and whether
  * something hauls it; its meal and hunger; a timed action under way.
  */
-export const STATE_STRIDE = 56;
+export const STATE_STRIDE = 58;
 export const S = {
   id: 0,
   owner: 1,
@@ -122,6 +122,15 @@ export const S = {
   /** A timed action beside a building (Jade's Patch 2, sim units/tinker.ts): the steps done and the steps it takes, 0 when the unit is not sitting at one. */
   tinkerDone: 54,
   tinkerOf: 55,
+  /**
+   * A unit that ranks (worker, troop, mage): its experience and the
+   * experience its next rank needs, whole points, both counted from nothing
+   * as Table 1 writes them (a Hand has 50 or more and needs 150 for Master
+   * worker); the need is 0 at the top rank, both 0 for what never ranks
+   * (Patch 3, sim combat.ts xpView). The middle HUD's XP bar reads them.
+   */
+  xp: 56,
+  xpNext: 57,
 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */

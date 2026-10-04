@@ -208,7 +208,15 @@ describe("tinkering (Jade's Patch 2)", () => {
   });
 });
 
-describe('workers: rank, tools and carts (Milestone 11)', () => {
+describe('experience (Patch 3)', () => {
+  it("carries each unit's experience and what its next rank needs, for the middle HUD's bar", () => {
+    const g = game({ units: { 1: { xp: 52, xpNext: 150 } } });
+    expect([g.unit(1)!.xp, g.unit(1)!.xpNext]).toEqual([52, 150]);
+    expect([g.unit(2)!.xp, g.unit(2)!.xpNext]).toEqual([0, 0]);
+  });
+});
+
+describe('workers: tools and carts (Milestone 11)', () => {
   it('upgrades tools on Q to the best the stock pays for, for those it pays for', () => {
     // Worker 1 (stone and flint) needs a Forge for copper; worker 2 (hardwood) can go to stone and flint.
     const { c, sent } = harness(game({ pool: [[Res.Sticks, 6], [Res.Flint, 1], [Res.Stone, 5]] }), workers, 'worker');
@@ -222,14 +230,11 @@ describe('workers: rank, tools and carts (Milestone 11)', () => {
     expect(button(harness(game(), [workers[0]!], 'worker').c.card(), 'equip')!.reason).toBe('Needs a Forge.');
   });
 
-  it('trains rank on U, at a Longhall', () => {
-    expect(button(harness(game({ pool: [[Res.FarmFare, 100]] }), workers, 'worker').c.card(), 'rankUp')!.reason).toBe('Needs a level 2 main base (Longhall).');
+  it('has no rank training (Patch 3: a worker ranks up by building and gathering), and U is free', () => {
     const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 2 })], pool: [[Res.FarmFare, 100]] });
-    const { c, sent } = harness(g, workers, 'worker');
-    const rank = button(c.card(), 'rankUp')!;
-    expect(rank).toMatchObject({ face: 'Rank', name: 'Upgrade rank (to Hand)', key: 'KeyU', enabled: true });
-    rank.run(PRESS);
-    expect(sent.at(-1)).toMatchObject({ kind: 'trainRank', units: [1, 2], building: 20 });
+    const card = harness(g, workers, 'worker').c.card();
+    expect(button(card, 'rankUp')).toBeUndefined();
+    expect(card.map((e) => e.key)).not.toContain('KeyU');
   });
 
   it('fetches a cart from the stock on X, and hands it back', () => {

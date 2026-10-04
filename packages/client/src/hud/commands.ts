@@ -11,6 +11,7 @@ import {
   BuildingKind,
   costText,
   craftRate,
+  CREWMAN_RETRAIN_STEPS,
   EAT_NUTRITION,
   engineSpec,
   holderKind,
@@ -32,7 +33,6 @@ import {
   PickOwn,
   Product,
   productSpec,
-  RANK_TRAINING,
   Res,
   RESEARCH_PRODUCT,
   RESOURCES,
@@ -496,9 +496,11 @@ export class Commands {
    * Hunt, Eat and Upgrade equipment. Mages: Attack, Patrol and Move, their
    * school's spells, Eat, Upgrade equipment and rank training. Workers: Move,
    * Gather, Unload, Repair, Dig, Prospect and Build, then Eat, Upgrade
-   * equipment, rank training and the cart. [Before Patch 2 every unit also had
-   * Stop, Hold and Enter; troops had the weapon and armour upgrades and their
-   * Max twins, the ranged-or-melee lock and Cannon crew training.]
+   * equipment and the cart (Patch 3: no rank training, they rank up by
+   * working). Artillery crewmen: Attack, Patrol, Move, Crew, Eat and Retrain
+   * (Patch 3). [Before Patch 2 every unit also had Stop, Hold and Enter;
+   * troops had the weapon and armour upgrades and their Max twins, the
+   * ranged-or-melee lock and Cannon crew training.]
    */
   private unitCard(active: string): Slots {
     const t = this.targeting?.command;
@@ -552,7 +554,6 @@ export class Commands {
         this.entry('build', 'Build', 'Open the build menu: every building, with walls, gates, towers and earthworks under Defences and lights under Lights. Grid keys pick a building; B is Back.', () => this.openMenu('build')),
         this.eatEntry(),
         this.equipEntry(workers),
-        this.rankEntry(workers),
         this.cartEntry(workers),
       ];
     }
@@ -563,7 +564,7 @@ export class Commands {
       return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids)];
     }
     if (active === 'warrior:crew') {
-      // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine.
+      // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine, and Retrain makes it a worker (Patch 3).
       return [
         attack,
         patrol,
@@ -576,6 +577,7 @@ export class Commands {
           { lit: t === 'crew', name: 'Crew an engine' },
         ),
         this.eatEntry(),
+        this.retrainEntry(),
       ];
     }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
@@ -809,21 +811,12 @@ export class Commands {
     ];
   }
 
-  private rankEntry(workers: number[]): CardEntry {
-    const name = 'Upgrade rank';
-    const desc = 'Send them to train at a main base: Labourer to Hand (20 food, 60 s, needs a Longhall), Hand to Master worker (40 food, 120 s, needs a Marble Hall). Better ranks have more health.';
-    const ranks = workers.map((id) => this.d.game.unit(id)?.rank ?? 1);
-    const next = RANK_TRAINING.find((r) => ranks.some((k) => k + 1 === r.rank));
-    if (!next) return this.off('rankUp', 'Rank', desc, 'They are at the highest rank they can train to.', name);
-    const base = this.nearestBase(next.base);
-    if (!base) return this.off('rankUp', 'Rank', desc, `Needs a level ${next.base} main base (${levelSpec(BuildingKind.MainBase, next.base).name}).`, name);
-    if (this.d.game.food() < next.food) return this.off('rankUp', 'Rank', desc, `Not enough food (needs ${next.food}).`, name);
-    return this.entry('rankUp', 'Rank', desc, () => this.unitOrder({ kind: 'trainRank', building: base.id }), { name: `${name} (to ${next.name})` });
-  }
-
-  private nearestBase(level: number): BuildingInfo | null {
-    const bases = this.d.game.mainBases().filter((b) => b.complete && b.level >= level);
-    return bases[0] ?? null;
+  /** Retrain as a worker (Patch 3, Jade): the crewmen walk to the main base, sit with the bar over their heads and get up workers. */
+  private retrainEntry(): CardEntry {
+    const name = 'Retrain as a worker';
+    const desc = `They walk to the main base, sit tinkering for ${Math.round(CREWMAN_RETRAIN_STEPS / 20)} s and get up workers: Labourers with a hardwood tool kit, as from the Big House. No cost. A new order before the bar is full cancels it.`;
+    if (!this.d.game.mainBases().some((b) => b.complete)) return this.off('retrain', 'Retrain', desc, 'Needs a main base.', name);
+    return this.entry('retrain', 'Retrain', desc, () => this.d.send({ kind: 'retrain', player: this.d.player, units: this.unitIds((u) => u.typeKey === 'warrior:crew'), queued: this.d.queued() }), { name });
   }
 
   /**
@@ -1183,7 +1176,7 @@ export class Commands {
 
   // ---- Orders ----
 
-  private unitOrder(o: { kind: 'returnCargo' } | { kind: 'repairAll' } | { kind: 'trainRank'; building: number }, units = this.workerIds()): void {
+  private unitOrder(o: { kind: 'returnCargo' } | { kind: 'repairAll' }, units = this.workerIds()): void {
     if (units.length === 0) return;
     this.d.send({ ...o, player: this.d.player, units, queued: this.d.queued() } as Order);
   }
