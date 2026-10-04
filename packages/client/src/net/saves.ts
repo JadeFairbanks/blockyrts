@@ -12,10 +12,10 @@ const utf8 = { encode: (t: string): Uint8Array => new TextEncoder().encode(t), d
  * The game's save format version and the build that wrote a save. Every patch
  * raises it, and a save from an older version is refused with OLD_SAVE_TEXT,
  * never carried over (Jade, Patch 2: a standing rule). 2 was milestone 11's
- * troop rework; 3 was Patch 2; 4 is Jade's mini patch (base spacing and the
- * world 30% smaller).
+ * troop rework; 3 was Patch 2; 4 was Jade's mini patch (base spacing and the
+ * world 30% smaller); 5 is Patch 3.
  */
-export const SAVE_FORMAT_VERSION = 4;
+export const SAVE_FORMAT_VERSION = 5;
 export const GAME_VERSION = '0.11.0';
 export { OLD_SAVE_TEXT };
 

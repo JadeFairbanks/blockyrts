@@ -1277,6 +1277,44 @@ body.playing * {
   margin-top: 0;
   gap: 6px;
 }
+/* Jade's Patch 3: a tip's words about 10% larger and a step bolder (600 is the first weight heavier than regular in Windows' Segoe UI), the line as long in words as before; the question keeps its old look. */
+.tip-box.showing-tip {
+  max-width: min(484px, calc(100vw - 32px));
+}
+.tip-box.showing-tip .tip-text {
+  font-size: 13.2px;
+  font-weight: 600;
+}
+/* The flashing yellow arrow before "Tip:", pointing at the tip. */
+.tip-arrow {
+  display: flex;
+  flex: none;
+  /* Beside "Tip:" on the first line, however many lines the tip runs to. */
+  align-self: flex-start;
+  margin-top: 1px;
+  animation: tip-arrow-flash 0.9s ease-in-out infinite;
+}
+.tip-arrow[hidden] {
+  display: none;
+}
+.tip-arrow svg {
+  display: block;
+  filter: drop-shadow(0 0 3px rgba(242, 210, 75, 0.6));
+}
+@keyframes tip-arrow-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip-arrow {
+    animation: none;
+  }
+}
 .chain-label {
   position: absolute;
   z-index: 5;
