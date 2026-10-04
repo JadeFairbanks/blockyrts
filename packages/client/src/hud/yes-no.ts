@@ -67,6 +67,11 @@ export class YesNoButtons {
     return b;
   }
 
+  /** New words for one side's tooltip (a question's Yes counts the stock afresh, Patch 3). */
+  describe(side: 'yes' | 'no', description: string): void {
+    (side === 'yes' ? this.yes : this.no).def.description = description;
+  }
+
   /** Takes the buttons away for good: out of the page, the buttons and the panels. */
   dispose(): void {
     if (this.disposed) return;
