@@ -1800,8 +1800,9 @@ wall torch and brazier are gone.
    in a Barn; trained, the horse leaves the nearest Barn.
 5. **No workers in crafting buildings.** Build a Workshop, a Forge or an
    Artillery workshop: right-clicking it with workers does not assign them,
-   and their queues run on their own at twice a recipe's own time (the
-   crafting pace). The Workshop makes planks, leather, rope, bandages and
+   and their queues run on their own at the pace two workers had inside
+   before Patch 2 (the crafting pace), so a recipe that took one worker 10 s
+   takes 5 s; the K menu tooltip shows that time. The Workshop makes planks, leather, rope, bandages and
    remedies, gravel, sticks, ramp steps, carts and trinkets; the Forge
    smelts every metal and makes charcoal, bricks, glass and gunpowder; the
    Artillery workshop makes catapults, ballistas and cannons. The Farm,
