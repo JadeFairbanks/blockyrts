@@ -401,7 +401,7 @@ export class WorldView {
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
         const crew = d[o + S.crew]! % 1000;
         const hauled = d[o + S.crew]! >= 1000;
-        const details = [health, `Crew ${crew} of ${spec.crew} artillery crewmen.`, hauled ? 'Hauled by its animal.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
+        const details = [health, `Crew ${crew} of ${spec.crew} artillery crewmen.`, hauled ? 'Hauled by its animal, which stands in for its crew: it fires with none.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
         if (d[o + S.inside] !== 0) details.push('In a cannon port.');
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
