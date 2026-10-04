@@ -1800,7 +1800,9 @@ and what its next rank needs (`rankXp`, unit fields 26 and 27).*
 3. **A troop.** Click a warrior: "Club fighter" (on two lines when the name
    is too long for half the row), HP and XP. Hover XP: "Recruit: 20 of 50
    XP to Soldier." Let it fight: the light blue bar fills; at 50 it becomes
-   a Soldier and the bar starts on Veteran's 150.
+   a Soldier and the bar empties, then fills from 50 toward Veteran's 150
+   (the tooltip keeps the running count: "Soldier: 50 of 150 XP to
+   Veteran.").
 4. **A mage and a rider.** Type M N B V C X Z, press **Sanctum**, **Mage
    kit** and **Barn**, train a Support mage at the Sanctum and a cavalryman
    at the Barracks. The mage's row has HP, XP and "MP:" (her mana) under it;
