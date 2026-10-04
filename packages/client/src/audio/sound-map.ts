@@ -2,7 +2,7 @@
 // goes with each thing the sim reports. Pure functions over the client's
 // copies of the state, so they can be checked without a browser. The
 // engine that plays them is @blockyrts/audio.
-import type { MusicStateId, VoiceEventId, VoiceFamilyId } from '@blockyrts/audio';
+import { MOB_SOUND_NAMES, type AmbienceId, type MobSoundName, type MusicStateId, type VoiceEventId, type VoiceFamilyId } from '@blockyrts/audio';
 import { Engine, gearSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
 
 /** What the client knows about the thing a hit, death or shot names. */
@@ -30,6 +30,12 @@ export function musicFor(period: number, bloodTonight: boolean): MusicStateId {
     default:
       return 'day';
   }
+}
+
+/** The background loop for a moment of the day: the countryside by day and dawn, the night from dusk, the blood night's own. */
+export function ambienceFor(period: number, bloodTonight: boolean): AmbienceId {
+  if (period === Period.Night && bloodTonight) return 'blood_night';
+  return period === Period.Dusk || period === Period.Night ? 'night' : 'day';
 }
 
 /** The horn as a period begins: at dusk (the blood night's double horn when tonight is one) and at dawn; none otherwise. */
@@ -141,10 +147,39 @@ function bigBlast(mob: number): boolean {
   }
 }
 
-/** The sounds of a death: the body or the monster, and a death cry from those with a voice. */
-export function deathSounds(kind: number, owner: number, mob: number): { sound: string; voice: VoiceFamilyId | null } {
+const MOB_NAMES: ReadonlySet<string> = new Set(MOB_SOUND_NAMES);
+
+/**
+ * The name a night monster's own sounds go by ("mob.<name>.call" and
+ * ".death"), or null for those without (tribesmen, who have voices, and the
+ * creatures the sound redo did not cover).
+ */
+export function mobSoundName(mob: number): MobSoundName | null {
+  let name: string;
+  try {
+    name = mobSpec(mob).name.toLowerCase();
+  } catch {
+    return null;
+  }
+  // "Morvath, the Hollow Crown" is Morvath; skeleton archers and bombers rattle alike, and small slimes are slimes.
+  name = name.split(',')[0]!.trim();
+  if (name.startsWith('skeleton')) name = 'skeleton';
+  if (name === 'small slime') name = 'slime';
+  name = name.replace(/\s+/g, '_');
+  return MOB_NAMES.has(name) ? (name as MobSoundName) : null;
+}
+
+/**
+ * The sounds of a death: the body or the monster, and a death cry from those
+ * with a voice. A monster with its own death sound names it, with the shared
+ * monster death as the fallback where its file is missing.
+ */
+export function deathSounds(kind: number, owner: number, mob: number): { sound: string; voice: VoiceFamilyId | null; fallback?: string } {
   const voice = voiceFamily(kind, owner, mob);
-  if (kind === UnitKind.Mob && !voice) return { sound: 'death_monster', voice: null };
+  if (kind === UnitKind.Mob && !voice) {
+    const own = mobSoundName(mob);
+    return own ? { sound: `mob.${own}.death`, voice: null, fallback: 'death_monster' } : { sound: 'death_monster', voice: null };
+  }
   if (kind === UnitKind.Engine) return { sound: 'death_building', voice: null };
   return { sound: 'death_body', voice };
 }

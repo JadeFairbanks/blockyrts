@@ -1,0 +1,4100 @@
+{
+ "format": "mp3",
+ "entries": {
+  "chop.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12285,
+   "pre": 0,
+   "total": 12285,
+   "delay": 1105,
+   "padding": 434
+  },
+  "chop.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 11912,
+   "pre": 0,
+   "total": 11912,
+   "delay": 1105,
+   "padding": 807
+  },
+  "chop.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12478,
+   "pre": 0,
+   "total": 12478,
+   "delay": 1105,
+   "padding": 241
+  },
+  "chop.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12075,
+   "pre": 0,
+   "total": 12075,
+   "delay": 1105,
+   "padding": 644
+  },
+  "mine.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 27236,
+   "pre": 0,
+   "total": 27236,
+   "delay": 1105,
+   "padding": 459
+  },
+  "mine.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26104,
+   "pre": 0,
+   "total": 26104,
+   "delay": 1105,
+   "padding": 439
+  },
+  "mine.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26406,
+   "pre": 0,
+   "total": 26406,
+   "delay": 1105,
+   "padding": 137
+  },
+  "mine.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26650,
+   "pre": 0,
+   "total": 26650,
+   "delay": 1105,
+   "padding": 1045
+  },
+  "dig.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22182,
+   "pre": 0,
+   "total": 22182,
+   "delay": 1105,
+   "padding": 905
+  },
+  "dig.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19431,
+   "pre": 0,
+   "total": 19431,
+   "delay": 1105,
+   "padding": 200
+  },
+  "dig.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21063,
+   "pre": 0,
+   "total": 21063,
+   "delay": 1105,
+   "padding": 872
+  },
+  "dig.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19582,
+   "pre": 0,
+   "total": 19582,
+   "delay": 1105,
+   "padding": 49
+  },
+  "build.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 9834,
+   "pre": 0,
+   "total": 9834,
+   "delay": 1105,
+   "padding": 581
+  },
+  "build.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10142,
+   "pre": 0,
+   "total": 10142,
+   "delay": 1105,
+   "padding": 273
+  },
+  "build.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10019,
+   "pre": 0,
+   "total": 10019,
+   "delay": 1105,
+   "padding": 396
+  },
+  "build.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 9981,
+   "pre": 0,
+   "total": 9981,
+   "delay": 1105,
+   "padding": 434
+  },
+  "build_complete.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 43422,
+   "pre": 0,
+   "total": 43422,
+   "delay": 1105,
+   "padding": 401
+  },
+  "hit_blade.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16682,
+   "pre": 0,
+   "total": 16682,
+   "delay": 1105,
+   "padding": 645
+  },
+  "hit_blade.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16546,
+   "pre": 0,
+   "total": 16546,
+   "delay": 1105,
+   "padding": 781
+  },
+  "hit_blade.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16900,
+   "pre": 0,
+   "total": 16900,
+   "delay": 1105,
+   "padding": 427
+  },
+  "hit_blade.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16226,
+   "pre": 0,
+   "total": 16226,
+   "delay": 1105,
+   "padding": 1101
+  },
+  "hit_blunt.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13656,
+   "pre": 0,
+   "total": 13656,
+   "delay": 1105,
+   "padding": 215
+  },
+  "hit_blunt.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14654,
+   "pre": 0,
+   "total": 14654,
+   "delay": 1105,
+   "padding": 369
+  },
+  "hit_blunt.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13722,
+   "pre": 0,
+   "total": 13722,
+   "delay": 1105,
+   "padding": 149
+  },
+  "hit_blunt.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13859,
+   "pre": 0,
+   "total": 13859,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "hit_arrow.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10097,
+   "pre": 0,
+   "total": 10097,
+   "delay": 1105,
+   "padding": 318
+  },
+  "hit_arrow.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10181,
+   "pre": 0,
+   "total": 10181,
+   "delay": 1105,
+   "padding": 234
+  },
+  "hit_arrow.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10150,
+   "pre": 0,
+   "total": 10150,
+   "delay": 1105,
+   "padding": 265
+  },
+  "hit_arrow.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10085,
+   "pre": 0,
+   "total": 10085,
+   "delay": 1105,
+   "padding": 330
+  },
+  "hit_building.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20680,
+   "pre": 0,
+   "total": 20680,
+   "delay": 1105,
+   "padding": 103
+  },
+  "hit_building.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20640,
+   "pre": 0,
+   "total": 20640,
+   "delay": 1105,
+   "padding": 143
+  },
+  "hit_building.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20557,
+   "pre": 0,
+   "total": 20557,
+   "delay": 1105,
+   "padding": 226
+  },
+  "hit_building.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20724,
+   "pre": 0,
+   "total": 20724,
+   "delay": 1105,
+   "padding": 59
+  },
+  "block_wood.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12419,
+   "pre": 0,
+   "total": 12419,
+   "delay": 1105,
+   "padding": 300
+  },
+  "block_wood.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12488,
+   "pre": 0,
+   "total": 12488,
+   "delay": 1105,
+   "padding": 231
+  },
+  "block_wood.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12571,
+   "pre": 0,
+   "total": 12571,
+   "delay": 1105,
+   "padding": 148
+  },
+  "block_wood.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12501,
+   "pre": 0,
+   "total": 12501,
+   "delay": 1105,
+   "padding": 218
+  },
+  "block_metal.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 47843,
+   "pre": 0,
+   "total": 47843,
+   "delay": 1105,
+   "padding": 588
+  },
+  "block_metal.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 49374,
+   "pre": 0,
+   "total": 49374,
+   "delay": 1105,
+   "padding": 209
+  },
+  "block_metal.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 50604,
+   "pre": 0,
+   "total": 50604,
+   "delay": 1105,
+   "padding": 131
+  },
+  "block_metal.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 49509,
+   "pre": 0,
+   "total": 49509,
+   "delay": 1105,
+   "padding": 74
+  },
+  "death_body.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26223,
+   "pre": 0,
+   "total": 26223,
+   "delay": 1105,
+   "padding": 320
+  },
+  "death_body.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24430,
+   "pre": 0,
+   "total": 24430,
+   "delay": 1105,
+   "padding": 961
+  },
+  "death_body.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24152,
+   "pre": 0,
+   "total": 24152,
+   "delay": 1105,
+   "padding": 87
+  },
+  "death_body.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24766,
+   "pre": 0,
+   "total": 24766,
+   "delay": 1105,
+   "padding": 625
+  },
+  "death_monster.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31142,
+   "pre": 0,
+   "total": 31142,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "death_monster.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31170,
+   "pre": 0,
+   "total": 31170,
+   "delay": 1105,
+   "padding": 1133
+  },
+  "death_monster.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31183,
+   "pre": 0,
+   "total": 31183,
+   "delay": 1105,
+   "padding": 1120
+  },
+  "death_monster.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31156,
+   "pre": 0,
+   "total": 31156,
+   "delay": 1105,
+   "padding": 1147
+  },
+  "death_building.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 111609,
+   "pre": 0,
+   "total": 111609,
+   "delay": 1105,
+   "padding": 182
+  },
+  "death_building.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 113383,
+   "pre": 0,
+   "total": 113383,
+   "delay": 1105,
+   "padding": 712
+  },
+  "death_building.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 111131,
+   "pre": 0,
+   "total": 111131,
+   "delay": 1105,
+   "padding": 660
+  },
+  "explosion_small.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 41128,
+   "pre": 0,
+   "total": 41128,
+   "delay": 1105,
+   "padding": 391
+  },
+  "explosion_small.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 39152,
+   "pre": 0,
+   "total": 39152,
+   "delay": 1105,
+   "padding": 63
+  },
+  "explosion_small.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 42568,
+   "pre": 0,
+   "total": 42568,
+   "delay": 1105,
+   "padding": 103
+  },
+  "explosion_small.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 40385,
+   "pre": 0,
+   "total": 40385,
+   "delay": 1105,
+   "padding": 1134
+  },
+  "explosion_large.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 134975,
+   "pre": 0,
+   "total": 134975,
+   "delay": 1105,
+   "padding": 1008
+  },
+  "explosion_large.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 130648,
+   "pre": 0,
+   "total": 130648,
+   "delay": 1105,
+   "padding": 727
+  },
+  "explosion_large.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 145252,
+   "pre": 0,
+   "total": 145252,
+   "delay": 1105,
+   "padding": 1099
+  },
+  "shot_bow.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17365,
+   "pre": 0,
+   "total": 17365,
+   "delay": 1105,
+   "padding": 1114
+  },
+  "shot_bow.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16480,
+   "pre": 0,
+   "total": 16480,
+   "delay": 1105,
+   "padding": 847
+  },
+  "shot_bow.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15539,
+   "pre": 0,
+   "total": 15539,
+   "delay": 1105,
+   "padding": 636
+  },
+  "shot_bow.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15659,
+   "pre": 0,
+   "total": 15659,
+   "delay": 1105,
+   "padding": 516
+  },
+  "shot_sling.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10395,
+   "pre": 0,
+   "total": 10395,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "shot_sling.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 11229,
+   "pre": 0,
+   "total": 11229,
+   "delay": 1105,
+   "padding": 338
+  },
+  "shot_sling.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10236,
+   "pre": 0,
+   "total": 10236,
+   "delay": 1105,
+   "padding": 179
+  },
+  "shot_sling.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 10978,
+   "pre": 0,
+   "total": 10978,
+   "delay": 1105,
+   "padding": 589
+  },
+  "shot_musket.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58116,
+   "pre": 0,
+   "total": 58116,
+   "delay": 1105,
+   "padding": 683
+  },
+  "shot_musket.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52909,
+   "pre": 0,
+   "total": 52909,
+   "delay": 1105,
+   "padding": 130
+  },
+  "shot_musket.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52710,
+   "pre": 0,
+   "total": 52710,
+   "delay": 1105,
+   "padding": 329
+  },
+  "shot_musket.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52272,
+   "pre": 0,
+   "total": 52272,
+   "delay": 1105,
+   "padding": 767
+  },
+  "shot_cannon.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 121180,
+   "pre": 0,
+   "total": 121180,
+   "delay": 1105,
+   "padding": 979
+  },
+  "shot_cannon.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 120270,
+   "pre": 0,
+   "total": 120270,
+   "delay": 1105,
+   "padding": 737
+  },
+  "shot_cannon.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 121107,
+   "pre": 0,
+   "total": 121107,
+   "delay": 1105,
+   "padding": 1052
+  },
+  "spell_cast.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 36822,
+   "pre": 0,
+   "total": 36822,
+   "delay": 1105,
+   "padding": 89
+  },
+  "spell_cast.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 36606,
+   "pre": 0,
+   "total": 36606,
+   "delay": 1105,
+   "padding": 305
+  },
+  "spell_cast.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 37224,
+   "pre": 0,
+   "total": 37224,
+   "delay": 1105,
+   "padding": 839
+  },
+  "spell_cast.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 36732,
+   "pre": 0,
+   "total": 36732,
+   "delay": 1105,
+   "padding": 179
+  },
+  "torch_light.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 40233,
+   "pre": 0,
+   "total": 40233,
+   "delay": 1105,
+   "padding": 134
+  },
+  "torch_light.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 40092,
+   "pre": 0,
+   "total": 40092,
+   "delay": 1105,
+   "padding": 275
+  },
+  "torch_light.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 39689,
+   "pre": 0,
+   "total": 39689,
+   "delay": 1105,
+   "padding": 678
+  },
+  "torch_light.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 38826,
+   "pre": 0,
+   "total": 38826,
+   "delay": 1105,
+   "padding": 389
+  },
+  "torch_snuff.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26334,
+   "pre": 0,
+   "total": 26334,
+   "delay": 1105,
+   "padding": 209
+  },
+  "torch_snuff.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 29044,
+   "pre": 0,
+   "total": 29044,
+   "delay": 1105,
+   "padding": 955
+  },
+  "torch_snuff.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24430,
+   "pre": 0,
+   "total": 24430,
+   "delay": 1105,
+   "padding": 961
+  },
+  "torch_snuff.3": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26254,
+   "pre": 0,
+   "total": 26254,
+   "delay": 1105,
+   "padding": 289
+  },
+  "horn_dusk.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 187786,
+   "pre": 0,
+   "total": 187786,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "horn_dawn.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 179019,
+   "pre": 0,
+   "total": 179019,
+   "delay": 1105,
+   "padding": 740
+  },
+  "horn_blood_night.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 226851,
+   "pre": 0,
+   "total": 226851,
+   "delay": 1105,
+   "padding": 140
+  },
+  "alert_idle_worker.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 37274,
+   "pre": 0,
+   "total": 37274,
+   "delay": 1105,
+   "padding": 789
+  },
+  "ping.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 39920,
+   "pre": 0,
+   "total": 39920,
+   "delay": 1105,
+   "padding": 447
+  },
+  "error.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16783,
+   "pre": 0,
+   "total": 16783,
+   "delay": 1105,
+   "padding": 544
+  },
+  "alert_urgent.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 34991,
+   "pre": 0,
+   "total": 34991,
+   "delay": 1105,
+   "padding": 768
+  },
+  "alert_war.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 109136,
+   "pre": 0,
+   "total": 109136,
+   "delay": 1105,
+   "padding": 351
+  },
+  "ui_click.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 2637,
+   "pre": 0,
+   "total": 2637,
+   "delay": 1105,
+   "padding": 866
+  },
+  "ui_click.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 2642,
+   "pre": 0,
+   "total": 2642,
+   "delay": 1105,
+   "padding": 861
+  },
+  "ui_place.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 9798,
+   "pre": 0,
+   "total": 9798,
+   "delay": 1105,
+   "padding": 617
+  },
+  "ui_place.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 9848,
+   "pre": 0,
+   "total": 9848,
+   "delay": 1105,
+   "padding": 567
+  },
+  "ui_message.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15239,
+   "pre": 0,
+   "total": 15239,
+   "delay": 1105,
+   "padding": 936
+  },
+  "voice.worker.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18901,
+   "pre": 0,
+   "total": 18901,
+   "delay": 1105,
+   "padding": 730
+  },
+  "voice.worker.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20696,
+   "pre": 0,
+   "total": 20696,
+   "delay": 1105,
+   "padding": 87
+  },
+  "voice.worker.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21615,
+   "pre": 0,
+   "total": 21615,
+   "delay": 1105,
+   "padding": 320
+  },
+  "voice.worker.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20073,
+   "pre": 0,
+   "total": 20073,
+   "delay": 1105,
+   "padding": 710
+  },
+  "voice.worker.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22179,
+   "pre": 0,
+   "total": 22179,
+   "delay": 1105,
+   "padding": 908
+  },
+  "voice.worker.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23069,
+   "pre": 0,
+   "total": 23069,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.worker.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22621,
+   "pre": 0,
+   "total": 22621,
+   "delay": 1105,
+   "padding": 466
+  },
+  "voice.worker.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25726,
+   "pre": 0,
+   "total": 25726,
+   "delay": 1105,
+   "padding": 817
+  },
+  "voice.worker.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20120,
+   "pre": 0,
+   "total": 20120,
+   "delay": 1105,
+   "padding": 663
+  },
+  "voice.worker.hungry.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26997,
+   "pre": 0,
+   "total": 26997,
+   "delay": 1105,
+   "padding": 698
+  },
+  "voice.worker.hungry.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21276,
+   "pre": 0,
+   "total": 21276,
+   "delay": 1105,
+   "padding": 659
+  },
+  "voice.worker.hungry.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22372,
+   "pre": 0,
+   "total": 22372,
+   "delay": 1105,
+   "padding": 715
+  },
+  "voice.worker.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22451,
+   "pre": 0,
+   "total": 22451,
+   "delay": 1105,
+   "padding": 636
+  },
+  "voice.worker.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15007,
+   "pre": 0,
+   "total": 15007,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.worker.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17958,
+   "pre": 0,
+   "total": 17958,
+   "delay": 1105,
+   "padding": 521
+  },
+  "voice.worker.cannot.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23189,
+   "pre": 0,
+   "total": 23189,
+   "delay": 1105,
+   "padding": 1050
+  },
+  "voice.worker.cannot.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18314,
+   "pre": 0,
+   "total": 18314,
+   "delay": 1105,
+   "padding": 165
+  },
+  "voice.worker.cannot.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21180,
+   "pre": 0,
+   "total": 21180,
+   "delay": 1105,
+   "padding": 755
+  },
+  "voice.worker.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16638,
+   "pre": 0,
+   "total": 16638,
+   "delay": 1105,
+   "padding": 689
+  },
+  "voice.worker.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22115,
+   "pre": 0,
+   "total": 22115,
+   "delay": 1105,
+   "padding": 972
+  },
+  "voice.worker.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18637,
+   "pre": 0,
+   "total": 18637,
+   "delay": 1105,
+   "padding": 994
+  },
+  "voice.worker.resource_out.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 30588,
+   "pre": 0,
+   "total": 30588,
+   "delay": 1105,
+   "padding": 563
+  },
+  "voice.worker.resource_out.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26035,
+   "pre": 0,
+   "total": 26035,
+   "delay": 1105,
+   "padding": 508
+  },
+  "voice.worker.resource_out.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22472,
+   "pre": 0,
+   "total": 22472,
+   "delay": 1105,
+   "padding": 615
+  },
+  "voice.warrior.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13439,
+   "pre": 0,
+   "total": 13439,
+   "delay": 1105,
+   "padding": 432
+  },
+  "voice.warrior.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15396,
+   "pre": 0,
+   "total": 15396,
+   "delay": 1105,
+   "padding": 779
+  },
+  "voice.warrior.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16074,
+   "pre": 0,
+   "total": 16074,
+   "delay": 1105,
+   "padding": 101
+  },
+  "voice.warrior.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18091,
+   "pre": 0,
+   "total": 18091,
+   "delay": 1105,
+   "padding": 388
+  },
+  "voice.warrior.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18620,
+   "pre": 0,
+   "total": 18620,
+   "delay": 1105,
+   "padding": 1011
+  },
+  "voice.warrior.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15472,
+   "pre": 0,
+   "total": 15472,
+   "delay": 1105,
+   "padding": 703
+  },
+  "voice.warrior.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19124,
+   "pre": 0,
+   "total": 19124,
+   "delay": 1105,
+   "padding": 507
+  },
+  "voice.warrior.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18956,
+   "pre": 0,
+   "total": 18956,
+   "delay": 1105,
+   "padding": 675
+  },
+  "voice.warrior.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22661,
+   "pre": 0,
+   "total": 22661,
+   "delay": 1105,
+   "padding": 426
+  },
+  "voice.warrior.hungry.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18331,
+   "pre": 0,
+   "total": 18331,
+   "delay": 1105,
+   "padding": 148
+  },
+  "voice.warrior.hungry.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19106,
+   "pre": 0,
+   "total": 19106,
+   "delay": 1105,
+   "padding": 525
+  },
+  "voice.warrior.hungry.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18586,
+   "pre": 0,
+   "total": 18586,
+   "delay": 1105,
+   "padding": 1045
+  },
+  "voice.warrior.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20320,
+   "pre": 0,
+   "total": 20320,
+   "delay": 1105,
+   "padding": 463
+  },
+  "voice.warrior.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16369,
+   "pre": 0,
+   "total": 16369,
+   "delay": 1105,
+   "padding": 958
+  },
+  "voice.warrior.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17130,
+   "pre": 0,
+   "total": 17130,
+   "delay": 1105,
+   "padding": 197
+  },
+  "voice.warrior.cannot.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20044,
+   "pre": 0,
+   "total": 20044,
+   "delay": 1105,
+   "padding": 739
+  },
+  "voice.warrior.cannot.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12415,
+   "pre": 0,
+   "total": 12415,
+   "delay": 1105,
+   "padding": 304
+  },
+  "voice.warrior.cannot.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20444,
+   "pre": 0,
+   "total": 20444,
+   "delay": 1105,
+   "padding": 339
+  },
+  "voice.warrior.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16177,
+   "pre": 0,
+   "total": 16177,
+   "delay": 1105,
+   "padding": 1150
+  },
+  "voice.warrior.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14531,
+   "pre": 0,
+   "total": 14531,
+   "delay": 1105,
+   "padding": 492
+  },
+  "voice.warrior.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21665,
+   "pre": 0,
+   "total": 21665,
+   "delay": 1105,
+   "padding": 270
+  },
+  "voice.mage.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18162,
+   "pre": 0,
+   "total": 18162,
+   "delay": 1105,
+   "padding": 317
+  },
+  "voice.mage.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21734,
+   "pre": 0,
+   "total": 21734,
+   "delay": 1105,
+   "padding": 201
+  },
+  "voice.mage.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21835,
+   "pre": 0,
+   "total": 21835,
+   "delay": 1105,
+   "padding": 100
+  },
+  "voice.mage.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20123,
+   "pre": 0,
+   "total": 20123,
+   "delay": 1105,
+   "padding": 660
+  },
+  "voice.mage.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20290,
+   "pre": 0,
+   "total": 20290,
+   "delay": 1105,
+   "padding": 493
+  },
+  "voice.mage.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25528,
+   "pre": 0,
+   "total": 25528,
+   "delay": 1105,
+   "padding": 1015
+  },
+  "voice.mage.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26718,
+   "pre": 0,
+   "total": 26718,
+   "delay": 1105,
+   "padding": 977
+  },
+  "voice.mage.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19793,
+   "pre": 0,
+   "total": 19793,
+   "delay": 1105,
+   "padding": 990
+  },
+  "voice.mage.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23662,
+   "pre": 0,
+   "total": 23662,
+   "delay": 1105,
+   "padding": 577
+  },
+  "voice.mage.hungry.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21053,
+   "pre": 0,
+   "total": 21053,
+   "delay": 1105,
+   "padding": 882
+  },
+  "voice.mage.hungry.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16317,
+   "pre": 0,
+   "total": 16317,
+   "delay": 1105,
+   "padding": 1010
+  },
+  "voice.mage.hungry.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22704,
+   "pre": 0,
+   "total": 22704,
+   "delay": 1105,
+   "padding": 383
+  },
+  "voice.mage.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14771,
+   "pre": 0,
+   "total": 14771,
+   "delay": 1105,
+   "padding": 252
+  },
+  "voice.mage.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23600,
+   "pre": 0,
+   "total": 23600,
+   "delay": 1105,
+   "padding": 639
+  },
+  "voice.mage.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22427,
+   "pre": 0,
+   "total": 22427,
+   "delay": 1105,
+   "padding": 660
+  },
+  "voice.mage.cannot.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20247,
+   "pre": 0,
+   "total": 20247,
+   "delay": 1105,
+   "padding": 536
+  },
+  "voice.mage.cannot.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21587,
+   "pre": 0,
+   "total": 21587,
+   "delay": 1105,
+   "padding": 348
+  },
+  "voice.mage.cannot.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19764,
+   "pre": 0,
+   "total": 19764,
+   "delay": 1105,
+   "padding": 1019
+  },
+  "voice.mage.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17477,
+   "pre": 0,
+   "total": 17477,
+   "delay": 1105,
+   "padding": 1002
+  },
+  "voice.mage.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21122,
+   "pre": 0,
+   "total": 21122,
+   "delay": 1105,
+   "padding": 813
+  },
+  "voice.mage.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15437,
+   "pre": 0,
+   "total": 15437,
+   "delay": 1105,
+   "padding": 738
+  },
+  "voice.halfling.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14549,
+   "pre": 0,
+   "total": 14549,
+   "delay": 1105,
+   "padding": 474
+  },
+  "voice.halfling.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23158,
+   "pre": 0,
+   "total": 23158,
+   "delay": 1105,
+   "padding": 1081
+  },
+  "voice.halfling.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15594,
+   "pre": 0,
+   "total": 15594,
+   "delay": 1105,
+   "padding": 581
+  },
+  "voice.halfling.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18521,
+   "pre": 0,
+   "total": 18521,
+   "delay": 1105,
+   "padding": 1110
+  },
+  "voice.halfling.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19911,
+   "pre": 0,
+   "total": 19911,
+   "delay": 1105,
+   "padding": 872
+  },
+  "voice.halfling.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16829,
+   "pre": 0,
+   "total": 16829,
+   "delay": 1105,
+   "padding": 498
+  },
+  "voice.halfling.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22148,
+   "pre": 0,
+   "total": 22148,
+   "delay": 1105,
+   "padding": 939
+  },
+  "voice.halfling.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17150,
+   "pre": 0,
+   "total": 17150,
+   "delay": 1105,
+   "padding": 177
+  },
+  "voice.halfling.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18529,
+   "pre": 0,
+   "total": 18529,
+   "delay": 1105,
+   "padding": 1102
+  },
+  "voice.halfling.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19599,
+   "pre": 0,
+   "total": 19599,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.halfling.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12114,
+   "pre": 0,
+   "total": 12114,
+   "delay": 1105,
+   "padding": 605
+  },
+  "voice.halfling.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17340,
+   "pre": 0,
+   "total": 17340,
+   "delay": 1105,
+   "padding": 1139
+  },
+  "voice.halfling.greet.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19042,
+   "pre": 0,
+   "total": 19042,
+   "delay": 1105,
+   "padding": 589
+  },
+  "voice.halfling.greet.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19069,
+   "pre": 0,
+   "total": 19069,
+   "delay": 1105,
+   "padding": 562
+  },
+  "voice.halfling.greet.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15721,
+   "pre": 0,
+   "total": 15721,
+   "delay": 1105,
+   "padding": 454
+  },
+  "voice.halfling.trade.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23105,
+   "pre": 0,
+   "total": 23105,
+   "delay": 1105,
+   "padding": 1134
+  },
+  "voice.halfling.trade.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22913,
+   "pre": 0,
+   "total": 22913,
+   "delay": 1105,
+   "padding": 174
+  },
+  "voice.halfling.trade.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22243,
+   "pre": 0,
+   "total": 22243,
+   "delay": 1105,
+   "padding": 844
+  },
+  "voice.halfling.warn.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19507,
+   "pre": 0,
+   "total": 19507,
+   "delay": 1105,
+   "padding": 124
+  },
+  "voice.halfling.warn.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14290,
+   "pre": 0,
+   "total": 14290,
+   "delay": 1105,
+   "padding": 733
+  },
+  "voice.halfling.warn.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19673,
+   "pre": 0,
+   "total": 19673,
+   "delay": 1105,
+   "padding": 1110
+  },
+  "voice.halfling.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14075,
+   "pre": 0,
+   "total": 14075,
+   "delay": 1105,
+   "padding": 948
+  },
+  "voice.halfling.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17756,
+   "pre": 0,
+   "total": 17756,
+   "delay": 1105,
+   "padding": 723
+  },
+  "voice.halfling.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13694,
+   "pre": 0,
+   "total": 13694,
+   "delay": 1105,
+   "padding": 177
+  },
+  "voice.runkin.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22792,
+   "pre": 0,
+   "total": 22792,
+   "delay": 1105,
+   "padding": 295
+  },
+  "voice.runkin.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20896,
+   "pre": 0,
+   "total": 20896,
+   "delay": 1105,
+   "padding": 1039
+  },
+  "voice.runkin.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19593,
+   "pre": 0,
+   "total": 19593,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.runkin.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24077,
+   "pre": 0,
+   "total": 24077,
+   "delay": 1105,
+   "padding": 162
+  },
+  "voice.runkin.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20177,
+   "pre": 0,
+   "total": 20177,
+   "delay": 1105,
+   "padding": 606
+  },
+  "voice.runkin.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19883,
+   "pre": 0,
+   "total": 19883,
+   "delay": 1105,
+   "padding": 900
+  },
+  "voice.runkin.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24195,
+   "pre": 0,
+   "total": 24195,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.runkin.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20834,
+   "pre": 0,
+   "total": 20834,
+   "delay": 1105,
+   "padding": 1101
+  },
+  "voice.runkin.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19941,
+   "pre": 0,
+   "total": 19941,
+   "delay": 1105,
+   "padding": 842
+  },
+  "voice.runkin.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13922,
+   "pre": 0,
+   "total": 13922,
+   "delay": 1105,
+   "padding": 1101
+  },
+  "voice.runkin.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22079,
+   "pre": 0,
+   "total": 22079,
+   "delay": 1105,
+   "padding": 1008
+  },
+  "voice.runkin.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17573,
+   "pre": 0,
+   "total": 17573,
+   "delay": 1105,
+   "padding": 906
+  },
+  "voice.runkin.greet.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21153,
+   "pre": 0,
+   "total": 21153,
+   "delay": 1105,
+   "padding": 782
+  },
+  "voice.runkin.greet.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24639,
+   "pre": 0,
+   "total": 24639,
+   "delay": 1105,
+   "padding": 752
+  },
+  "voice.runkin.greet.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22162,
+   "pre": 0,
+   "total": 22162,
+   "delay": 1105,
+   "padding": 925
+  },
+  "voice.runkin.trade.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26236,
+   "pre": 0,
+   "total": 26236,
+   "delay": 1105,
+   "padding": 307
+  },
+  "voice.runkin.trade.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25530,
+   "pre": 0,
+   "total": 25530,
+   "delay": 1105,
+   "padding": 1013
+  },
+  "voice.runkin.trade.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22353,
+   "pre": 0,
+   "total": 22353,
+   "delay": 1105,
+   "padding": 734
+  },
+  "voice.runkin.warn.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21390,
+   "pre": 0,
+   "total": 21390,
+   "delay": 1105,
+   "padding": 545
+  },
+  "voice.runkin.warn.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18321,
+   "pre": 0,
+   "total": 18321,
+   "delay": 1105,
+   "padding": 158
+  },
+  "voice.runkin.warn.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23751,
+   "pre": 0,
+   "total": 23751,
+   "delay": 1105,
+   "padding": 488
+  },
+  "voice.runkin.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16504,
+   "pre": 0,
+   "total": 16504,
+   "delay": 1105,
+   "padding": 823
+  },
+  "voice.runkin.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19595,
+   "pre": 0,
+   "total": 19595,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.runkin.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15900,
+   "pre": 0,
+   "total": 15900,
+   "delay": 1105,
+   "padding": 275
+  },
+  "voice.elf.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25165,
+   "pre": 0,
+   "total": 25165,
+   "delay": 1105,
+   "padding": 226
+  },
+  "voice.elf.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25143,
+   "pre": 0,
+   "total": 25143,
+   "delay": 1105,
+   "padding": 248
+  },
+  "voice.elf.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17735,
+   "pre": 0,
+   "total": 17735,
+   "delay": 1105,
+   "padding": 744
+  },
+  "voice.elf.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22517,
+   "pre": 0,
+   "total": 22517,
+   "delay": 1105,
+   "padding": 570
+  },
+  "voice.elf.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20046,
+   "pre": 0,
+   "total": 20046,
+   "delay": 1105,
+   "padding": 737
+  },
+  "voice.elf.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19477,
+   "pre": 0,
+   "total": 19477,
+   "delay": 1105,
+   "padding": 154
+  },
+  "voice.elf.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23400,
+   "pre": 0,
+   "total": 23400,
+   "delay": 1105,
+   "padding": 839
+  },
+  "voice.elf.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24301,
+   "pre": 0,
+   "total": 24301,
+   "delay": 1105,
+   "padding": 1090
+  },
+  "voice.elf.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23394,
+   "pre": 0,
+   "total": 23394,
+   "delay": 1105,
+   "padding": 845
+  },
+  "voice.elf.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20229,
+   "pre": 0,
+   "total": 20229,
+   "delay": 1105,
+   "padding": 554
+  },
+  "voice.elf.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14374,
+   "pre": 0,
+   "total": 14374,
+   "delay": 1105,
+   "padding": 649
+  },
+  "voice.elf.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18037,
+   "pre": 0,
+   "total": 18037,
+   "delay": 1105,
+   "padding": 442
+  },
+  "voice.elf.greet.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21346,
+   "pre": 0,
+   "total": 21346,
+   "delay": 1105,
+   "padding": 589
+  },
+  "voice.elf.greet.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26630,
+   "pre": 0,
+   "total": 26630,
+   "delay": 1105,
+   "padding": 1065
+  },
+  "voice.elf.greet.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21006,
+   "pre": 0,
+   "total": 21006,
+   "delay": 1105,
+   "padding": 929
+  },
+  "voice.elf.trade.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24077,
+   "pre": 0,
+   "total": 24077,
+   "delay": 1105,
+   "padding": 162
+  },
+  "voice.elf.trade.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24758,
+   "pre": 0,
+   "total": 24758,
+   "delay": 1105,
+   "padding": 633
+  },
+  "voice.elf.trade.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24798,
+   "pre": 0,
+   "total": 24798,
+   "delay": 1105,
+   "padding": 593
+  },
+  "voice.elf.warn.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19455,
+   "pre": 0,
+   "total": 19455,
+   "delay": 1105,
+   "padding": 176
+  },
+  "voice.elf.warn.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23554,
+   "pre": 0,
+   "total": 23554,
+   "delay": 1105,
+   "padding": 685
+  },
+  "voice.elf.warn.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23468,
+   "pre": 0,
+   "total": 23468,
+   "delay": 1105,
+   "padding": 771
+  },
+  "voice.elf.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18314,
+   "pre": 0,
+   "total": 18314,
+   "delay": 1105,
+   "padding": 165
+  },
+  "voice.elf.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19388,
+   "pre": 0,
+   "total": 19388,
+   "delay": 1105,
+   "padding": 243
+  },
+  "voice.elf.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17110,
+   "pre": 0,
+   "total": 17110,
+   "delay": 1105,
+   "padding": 217
+  },
+  "voice.dwarf.select.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15287,
+   "pre": 0,
+   "total": 15287,
+   "delay": 1105,
+   "padding": 888
+  },
+  "voice.dwarf.select.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13997,
+   "pre": 0,
+   "total": 13997,
+   "delay": 1105,
+   "padding": 1026
+  },
+  "voice.dwarf.select.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21540,
+   "pre": 0,
+   "total": 21540,
+   "delay": 1105,
+   "padding": 395
+  },
+  "voice.dwarf.acknowledge.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18897,
+   "pre": 0,
+   "total": 18897,
+   "delay": 1105,
+   "padding": 734
+  },
+  "voice.dwarf.acknowledge.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16583,
+   "pre": 0,
+   "total": 16583,
+   "delay": 1105,
+   "padding": 744
+  },
+  "voice.dwarf.acknowledge.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18441,
+   "pre": 0,
+   "total": 18441,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.dwarf.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22032,
+   "pre": 0,
+   "total": 22032,
+   "delay": 1105,
+   "padding": 1055
+  },
+  "voice.dwarf.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20023,
+   "pre": 0,
+   "total": 20023,
+   "delay": 1105,
+   "padding": 760
+  },
+  "voice.dwarf.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24531,
+   "pre": 0,
+   "total": 24531,
+   "delay": 1105,
+   "padding": 860
+  },
+  "voice.dwarf.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17770,
+   "pre": 0,
+   "total": 17770,
+   "delay": 1105,
+   "padding": 709
+  },
+  "voice.dwarf.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20981,
+   "pre": 0,
+   "total": 20981,
+   "delay": 1105,
+   "padding": 954
+  },
+  "voice.dwarf.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18981,
+   "pre": 0,
+   "total": 18981,
+   "delay": 1105,
+   "padding": 650
+  },
+  "voice.dwarf.greet.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21122,
+   "pre": 0,
+   "total": 21122,
+   "delay": 1105,
+   "padding": 813
+  },
+  "voice.dwarf.greet.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17894,
+   "pre": 0,
+   "total": 17894,
+   "delay": 1105,
+   "padding": 585
+  },
+  "voice.dwarf.greet.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19093,
+   "pre": 0,
+   "total": 19093,
+   "delay": 1105,
+   "padding": 538
+  },
+  "voice.dwarf.trade.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23579,
+   "pre": 0,
+   "total": 23579,
+   "delay": 1105,
+   "padding": 660
+  },
+  "voice.dwarf.trade.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23993,
+   "pre": 0,
+   "total": 23993,
+   "delay": 1105,
+   "padding": 246
+  },
+  "voice.dwarf.trade.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26002,
+   "pre": 0,
+   "total": 26002,
+   "delay": 1105,
+   "padding": 541
+  },
+  "voice.dwarf.warn.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15284,
+   "pre": 0,
+   "total": 15284,
+   "delay": 1105,
+   "padding": 891
+  },
+  "voice.dwarf.warn.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26967,
+   "pre": 0,
+   "total": 26967,
+   "delay": 1105,
+   "padding": 728
+  },
+  "voice.dwarf.warn.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20509,
+   "pre": 0,
+   "total": 20509,
+   "delay": 1105,
+   "padding": 274
+  },
+  "voice.dwarf.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16277,
+   "pre": 0,
+   "total": 16277,
+   "delay": 1105,
+   "padding": 1050
+  },
+  "voice.dwarf.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16194,
+   "pre": 0,
+   "total": 16194,
+   "delay": 1105,
+   "padding": 1133
+  },
+  "voice.dwarf.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15045,
+   "pre": 0,
+   "total": 15045,
+   "delay": 1105,
+   "padding": 1130
+  },
+  "voice.goblin.alert.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18627,
+   "pre": 0,
+   "total": 18627,
+   "delay": 1105,
+   "padding": 1004
+  },
+  "voice.goblin.alert.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23703,
+   "pre": 0,
+   "total": 23703,
+   "delay": 1105,
+   "padding": 536
+  },
+  "voice.goblin.alert.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23740,
+   "pre": 0,
+   "total": 23740,
+   "delay": 1105,
+   "padding": 499
+  },
+  "voice.goblin.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21876,
+   "pre": 0,
+   "total": 21876,
+   "delay": 1105,
+   "padding": 59
+  },
+  "voice.goblin.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16072,
+   "pre": 0,
+   "total": 16072,
+   "delay": 1105,
+   "padding": 103
+  },
+  "voice.goblin.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24344,
+   "pre": 0,
+   "total": 24344,
+   "delay": 1105,
+   "padding": 1047
+  },
+  "voice.goblin.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14299,
+   "pre": 0,
+   "total": 14299,
+   "delay": 1105,
+   "padding": 724
+  },
+  "voice.goblin.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18530,
+   "pre": 0,
+   "total": 18530,
+   "delay": 1105,
+   "padding": 1101
+  },
+  "voice.goblin.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 15577,
+   "pre": 0,
+   "total": 15577,
+   "delay": 1105,
+   "padding": 598
+  },
+  "voice.goblin.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16041,
+   "pre": 0,
+   "total": 16041,
+   "delay": 1105,
+   "padding": 134
+  },
+  "voice.goblin.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17421,
+   "pre": 0,
+   "total": 17421,
+   "delay": 1105,
+   "padding": 1058
+  },
+  "voice.goblin.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14285,
+   "pre": 0,
+   "total": 14285,
+   "delay": 1105,
+   "padding": 738
+  },
+  "voice.kobold.alert.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18586,
+   "pre": 0,
+   "total": 18586,
+   "delay": 1105,
+   "padding": 1045
+  },
+  "voice.kobold.alert.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25919,
+   "pre": 0,
+   "total": 25919,
+   "delay": 1105,
+   "padding": 624
+  },
+  "voice.kobold.alert.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22215,
+   "pre": 0,
+   "total": 22215,
+   "delay": 1105,
+   "padding": 872
+  },
+  "voice.kobold.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19451,
+   "pre": 0,
+   "total": 19451,
+   "delay": 1105,
+   "padding": 180
+  },
+  "voice.kobold.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23747,
+   "pre": 0,
+   "total": 23747,
+   "delay": 1105,
+   "padding": 492
+  },
+  "voice.kobold.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 21846,
+   "pre": 0,
+   "total": 21846,
+   "delay": 1105,
+   "padding": 89
+  },
+  "voice.kobold.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13260,
+   "pre": 0,
+   "total": 13260,
+   "delay": 1105,
+   "padding": 611
+  },
+  "voice.kobold.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17261,
+   "pre": 0,
+   "total": 17261,
+   "delay": 1105,
+   "padding": 66
+  },
+  "voice.kobold.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17779,
+   "pre": 0,
+   "total": 17779,
+   "delay": 1105,
+   "padding": 700
+  },
+  "voice.kobold.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13843,
+   "pre": 0,
+   "total": 13843,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "voice.kobold.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16256,
+   "pre": 0,
+   "total": 16256,
+   "delay": 1105,
+   "padding": 1071
+  },
+  "voice.kobold.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19967,
+   "pre": 0,
+   "total": 19967,
+   "delay": 1105,
+   "padding": 816
+  },
+  "voice.gnoll.alert.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 27233,
+   "pre": 0,
+   "total": 27233,
+   "delay": 1105,
+   "padding": 462
+  },
+  "voice.gnoll.alert.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31304,
+   "pre": 0,
+   "total": 31304,
+   "delay": 1105,
+   "padding": 999
+  },
+  "voice.gnoll.alert.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 28450,
+   "pre": 0,
+   "total": 28450,
+   "delay": 1105,
+   "padding": 397
+  },
+  "voice.gnoll.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20448,
+   "pre": 0,
+   "total": 20448,
+   "delay": 1105,
+   "padding": 335
+  },
+  "voice.gnoll.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23789,
+   "pre": 0,
+   "total": 23789,
+   "delay": 1105,
+   "padding": 450
+  },
+  "voice.gnoll.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25545,
+   "pre": 0,
+   "total": 25545,
+   "delay": 1105,
+   "padding": 998
+  },
+  "voice.gnoll.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17705,
+   "pre": 0,
+   "total": 17705,
+   "delay": 1105,
+   "padding": 774
+  },
+  "voice.gnoll.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19201,
+   "pre": 0,
+   "total": 19201,
+   "delay": 1105,
+   "padding": 430
+  },
+  "voice.gnoll.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18547,
+   "pre": 0,
+   "total": 18547,
+   "delay": 1105,
+   "padding": 1084
+  },
+  "voice.gnoll.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17897,
+   "pre": 0,
+   "total": 17897,
+   "delay": 1105,
+   "padding": 582
+  },
+  "voice.gnoll.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19981,
+   "pre": 0,
+   "total": 19981,
+   "delay": 1105,
+   "padding": 802
+  },
+  "voice.gnoll.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22124,
+   "pre": 0,
+   "total": 22124,
+   "delay": 1105,
+   "padding": 963
+  },
+  "voice.hobgoblin.alert.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 20179,
+   "pre": 0,
+   "total": 20179,
+   "delay": 1105,
+   "padding": 604
+  },
+  "voice.hobgoblin.alert.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17946,
+   "pre": 0,
+   "total": 17946,
+   "delay": 1105,
+   "padding": 533
+  },
+  "voice.hobgoblin.alert.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 24580,
+   "pre": 0,
+   "total": 24580,
+   "delay": 1105,
+   "padding": 811
+  },
+  "voice.hobgoblin.attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 18063,
+   "pre": 0,
+   "total": 18063,
+   "delay": 1105,
+   "padding": 416
+  },
+  "voice.hobgoblin.attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19011,
+   "pre": 0,
+   "total": 19011,
+   "delay": 1105,
+   "padding": 620
+  },
+  "voice.hobgoblin.attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 19079,
+   "pre": 0,
+   "total": 19079,
+   "delay": 1105,
+   "padding": 552
+  },
+  "voice.hobgoblin.under_attack.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 11455,
+   "pre": 0,
+   "total": 11455,
+   "delay": 1105,
+   "padding": 112
+  },
+  "voice.hobgoblin.under_attack.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 16728,
+   "pre": 0,
+   "total": 16728,
+   "delay": 1105,
+   "padding": 599
+  },
+  "voice.hobgoblin.under_attack.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 12168,
+   "pre": 0,
+   "total": 12168,
+   "delay": 1105,
+   "padding": 551
+  },
+  "voice.hobgoblin.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 13473,
+   "pre": 0,
+   "total": 13473,
+   "delay": 1105,
+   "padding": 398
+  },
+  "voice.hobgoblin.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 14222,
+   "pre": 0,
+   "total": 14222,
+   "delay": 1105,
+   "padding": 801
+  },
+  "voice.hobgoblin.death.2": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 17352,
+   "pre": 0,
+   "total": 17352,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "music.day.base": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 3681391,
+   "pre": 44100,
+   "total": 3769591,
+   "delay": 1105,
+   "padding": 952
+  },
+  "music.day.tension": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 3681391,
+   "pre": 44100,
+   "total": 3769591,
+   "delay": 1105,
+   "padding": 952
+  },
+  "music.dusk.base": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 1764000,
+   "pre": 44100,
+   "total": 1852200,
+   "delay": 1105,
+   "padding": 263
+  },
+  "music.dusk.tension": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 1764000,
+   "pre": 44100,
+   "total": 1852200,
+   "delay": 1105,
+   "padding": 263
+  },
+  "music.night.base": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 3528000,
+   "pre": 44100,
+   "total": 3616200,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "music.night.tension": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 3528000,
+   "pre": 44100,
+   "total": 3616200,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "music.dawn.base": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 1924364,
+   "pre": 44100,
+   "total": 2012564,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "music.dawn.tension": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 1924364,
+   "pre": 44100,
+   "total": 2012564,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "music.blood_night.base": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 4032000,
+   "pre": 44100,
+   "total": 4120200,
+   "delay": 1105,
+   "padding": 551
+  },
+  "music.blood_night.tension": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 4032000,
+   "pre": 44100,
+   "total": 4120200,
+   "delay": 1105,
+   "padding": 551
+  },
+  "mob.zombie.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52479,
+   "pre": 0,
+   "total": 52479,
+   "delay": 1105,
+   "padding": 560
+  },
+  "mob.zombie.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 53802,
+   "pre": 0,
+   "total": 53802,
+   "delay": 1105,
+   "padding": 389
+  },
+  "mob.zombie.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 60858,
+   "pre": 0,
+   "total": 60858,
+   "delay": 1105,
+   "padding": 245
+  },
+  "mob.zombie.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52920,
+   "pre": 0,
+   "total": 52920,
+   "delay": 1105,
+   "padding": 119
+  },
+  "mob.cave_bat.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 23373,
+   "pre": 0,
+   "total": 23373,
+   "delay": 1105,
+   "padding": 866
+  },
+  "mob.cave_bat.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 22932,
+   "pre": 0,
+   "total": 22932,
+   "delay": 1105,
+   "padding": 155
+  },
+  "mob.cave_bat.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31311,
+   "pre": 0,
+   "total": 31311,
+   "delay": 1105,
+   "padding": 992
+  },
+  "mob.cave_bat.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 32634,
+   "pre": 0,
+   "total": 32634,
+   "delay": 1105,
+   "padding": 821
+  },
+  "mob.giant_rat.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 30870,
+   "pre": 0,
+   "total": 30870,
+   "delay": 1105,
+   "padding": 281
+  },
+  "mob.giant_rat.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 29106,
+   "pre": 0,
+   "total": 29106,
+   "delay": 1105,
+   "padding": 893
+  },
+  "mob.giant_rat.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 29988,
+   "pre": 0,
+   "total": 29988,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "mob.giant_rat.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 26901,
+   "pre": 0,
+   "total": 26901,
+   "delay": 1105,
+   "padding": 794
+  },
+  "mob.giant_spider.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 32193,
+   "pre": 0,
+   "total": 32193,
+   "delay": 1105,
+   "padding": 110
+  },
+  "mob.giant_spider.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 30870,
+   "pre": 0,
+   "total": 30870,
+   "delay": 1105,
+   "padding": 281
+  },
+  "mob.giant_spider.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 41454,
+   "pre": 0,
+   "total": 41454,
+   "delay": 1105,
+   "padding": 65
+  },
+  "mob.giant_spider.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 39690,
+   "pre": 0,
+   "total": 39690,
+   "delay": 1105,
+   "padding": 677
+  },
+  "mob.slime.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 28224,
+   "pre": 0,
+   "total": 28224,
+   "delay": 1105,
+   "padding": 623
+  },
+  "mob.slime.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 31311,
+   "pre": 0,
+   "total": 31311,
+   "delay": 1105,
+   "padding": 992
+  },
+  "mob.slime.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 36603,
+   "pre": 0,
+   "total": 36603,
+   "delay": 1105,
+   "padding": 308
+  },
+  "mob.slime.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 29547,
+   "pre": 0,
+   "total": 29547,
+   "delay": 1105,
+   "padding": 452
+  },
+  "mob.skeleton.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 28224,
+   "pre": 0,
+   "total": 28224,
+   "delay": 1105,
+   "padding": 623
+  },
+  "mob.skeleton.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 25578,
+   "pre": 0,
+   "total": 25578,
+   "delay": 1105,
+   "padding": 965
+  },
+  "mob.skeleton.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 53361,
+   "pre": 0,
+   "total": 53361,
+   "delay": 1105,
+   "padding": 830
+  },
+  "mob.skeleton.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 46746,
+   "pre": 0,
+   "total": 46746,
+   "delay": 1105,
+   "padding": 533
+  },
+  "mob.bloated_corpse.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59976,
+   "pre": 0,
+   "total": 59976,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "mob.bloated_corpse.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58212,
+   "pre": 0,
+   "total": 58212,
+   "delay": 1105,
+   "padding": 587
+  },
+  "mob.bloated_corpse.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 43218,
+   "pre": 0,
+   "total": 43218,
+   "delay": 1105,
+   "padding": 605
+  },
+  "mob.bloated_corpse.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 42336,
+   "pre": 0,
+   "total": 42336,
+   "delay": 1105,
+   "padding": 335
+  },
+  "mob.grave_hound.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 28224,
+   "pre": 0,
+   "total": 28224,
+   "delay": 1105,
+   "padding": 623
+  },
+  "mob.grave_hound.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 29988,
+   "pre": 0,
+   "total": 29988,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "mob.grave_hound.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 38367,
+   "pre": 0,
+   "total": 38367,
+   "delay": 1105,
+   "padding": 848
+  },
+  "mob.grave_hound.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 35721,
+   "pre": 0,
+   "total": 35721,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "mob.barrow_knight.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 55125,
+   "pre": 0,
+   "total": 55125,
+   "delay": 1105,
+   "padding": 218
+  },
+  "mob.barrow_knight.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59976,
+   "pre": 0,
+   "total": 59976,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "mob.barrow_knight.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 60858,
+   "pre": 0,
+   "total": 60858,
+   "delay": 1105,
+   "padding": 245
+  },
+  "mob.barrow_knight.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58653,
+   "pre": 0,
+   "total": 58653,
+   "delay": 1105,
+   "padding": 146
+  },
+  "mob.plague_bearer.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 54243,
+   "pre": 0,
+   "total": 54243,
+   "delay": 1105,
+   "padding": 1100
+  },
+  "mob.plague_bearer.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59094,
+   "pre": 0,
+   "total": 59094,
+   "delay": 1105,
+   "padding": 857
+  },
+  "mob.plague_bearer.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 44100,
+   "pre": 0,
+   "total": 44100,
+   "delay": 1105,
+   "padding": 875
+  },
+  "mob.plague_bearer.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 44100,
+   "pre": 0,
+   "total": 44100,
+   "delay": 1105,
+   "padding": 875
+  },
+  "mob.gravewing.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52479,
+   "pre": 0,
+   "total": 52479,
+   "delay": 1105,
+   "padding": 560
+  },
+  "mob.gravewing.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 56448,
+   "pre": 0,
+   "total": 56448,
+   "delay": 1105,
+   "padding": 47
+  },
+  "mob.gravewing.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58653,
+   "pre": 0,
+   "total": 58653,
+   "delay": 1105,
+   "padding": 146
+  },
+  "mob.gravewing.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58653,
+   "pre": 0,
+   "total": 58653,
+   "delay": 1105,
+   "padding": 146
+  },
+  "mob.bone_colossus.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 99666,
+   "pre": 0,
+   "total": 99666,
+   "delay": 1105,
+   "padding": 605
+  },
+  "mob.bone_colossus.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 93492,
+   "pre": 0,
+   "total": 93492,
+   "delay": 1105,
+   "padding": 1019
+  },
+  "mob.bone_colossus.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 105399,
+   "pre": 0,
+   "total": 105399,
+   "delay": 1105,
+   "padding": 632
+  },
+  "mob.bone_colossus.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 106722,
+   "pre": 0,
+   "total": 106722,
+   "delay": 1105,
+   "padding": 461
+  },
+  "mob.hollow_priest.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 64827,
+   "pre": 0,
+   "total": 64827,
+   "delay": 1105,
+   "padding": 884
+  },
+  "mob.hollow_priest.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 64827,
+   "pre": 0,
+   "total": 64827,
+   "delay": 1105,
+   "padding": 884
+  },
+  "mob.hollow_priest.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63063,
+   "pre": 0,
+   "total": 63063,
+   "delay": 1105,
+   "padding": 344
+  },
+  "mob.hollow_priest.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63504,
+   "pre": 0,
+   "total": 63504,
+   "delay": 1105,
+   "padding": 1055
+  },
+  "mob.cinderling.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 35280,
+   "pre": 0,
+   "total": 35280,
+   "delay": 1105,
+   "padding": 479
+  },
+  "mob.cinderling.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 32634,
+   "pre": 0,
+   "total": 32634,
+   "delay": 1105,
+   "padding": 821
+  },
+  "mob.cinderling.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 37044,
+   "pre": 0,
+   "total": 37044,
+   "delay": 1105,
+   "padding": 1019
+  },
+  "mob.cinderling.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 33075,
+   "pre": 0,
+   "total": 33075,
+   "delay": 1105,
+   "padding": 380
+  },
+  "mob.hellhound.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 49392,
+   "pre": 0,
+   "total": 49392,
+   "delay": 1105,
+   "padding": 191
+  },
+  "mob.hellhound.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52038,
+   "pre": 0,
+   "total": 52038,
+   "delay": 1105,
+   "padding": 1001
+  },
+  "mob.hellhound.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 50715,
+   "pre": 0,
+   "total": 50715,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "mob.hellhound.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 52038,
+   "pre": 0,
+   "total": 52038,
+   "delay": 1105,
+   "padding": 1001
+  },
+  "mob.fiend.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 57330,
+   "pre": 0,
+   "total": 57330,
+   "delay": 1105,
+   "padding": 317
+  },
+  "mob.fiend.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59976,
+   "pre": 0,
+   "total": 59976,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "mob.fiend.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59535,
+   "pre": 0,
+   "total": 59535,
+   "delay": 1105,
+   "padding": 416
+  },
+  "mob.fiend.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 62181,
+   "pre": 0,
+   "total": 62181,
+   "delay": 1105,
+   "padding": 74
+  },
+  "mob.chain_fiend.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 49833,
+   "pre": 0,
+   "total": 49833,
+   "delay": 1105,
+   "padding": 902
+  },
+  "mob.chain_fiend.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 48510,
+   "pre": 0,
+   "total": 48510,
+   "delay": 1105,
+   "padding": 1073
+  },
+  "mob.chain_fiend.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 61299,
+   "pre": 0,
+   "total": 61299,
+   "delay": 1105,
+   "padding": 956
+  },
+  "mob.chain_fiend.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59976,
+   "pre": 0,
+   "total": 59976,
+   "delay": 1105,
+   "padding": 1127
+  },
+  "mob.scorchwing.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 54243,
+   "pre": 0,
+   "total": 54243,
+   "delay": 1105,
+   "padding": 1100
+  },
+  "mob.scorchwing.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 50274,
+   "pre": 0,
+   "total": 50274,
+   "delay": 1105,
+   "padding": 461
+  },
+  "mob.scorchwing.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59094,
+   "pre": 0,
+   "total": 59094,
+   "delay": 1105,
+   "padding": 857
+  },
+  "mob.scorchwing.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63504,
+   "pre": 0,
+   "total": 63504,
+   "delay": 1105,
+   "padding": 1055
+  },
+  "mob.demon_brute.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 90846,
+   "pre": 0,
+   "total": 90846,
+   "delay": 1105,
+   "padding": 209
+  },
+  "mob.demon_brute.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 85113,
+   "pre": 0,
+   "total": 85113,
+   "delay": 1105,
+   "padding": 182
+  },
+  "mob.demon_brute.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 102312,
+   "pre": 0,
+   "total": 102312,
+   "delay": 1105,
+   "padding": 263
+  },
+  "mob.demon_brute.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 100548,
+   "pre": 0,
+   "total": 100548,
+   "delay": 1105,
+   "padding": 875
+  },
+  "mob.flamecaller.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 60858,
+   "pre": 0,
+   "total": 60858,
+   "delay": 1105,
+   "padding": 245
+  },
+  "mob.flamecaller.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 60858,
+   "pre": 0,
+   "total": 60858,
+   "delay": 1105,
+   "padding": 245
+  },
+  "mob.flamecaller.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59535,
+   "pre": 0,
+   "total": 59535,
+   "delay": 1105,
+   "padding": 416
+  },
+  "mob.flamecaller.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63063,
+   "pre": 0,
+   "total": 63063,
+   "delay": 1105,
+   "padding": 344
+  },
+  "mob.infernal_juggernaut.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 97902,
+   "pre": 0,
+   "total": 97902,
+   "delay": 1105,
+   "padding": 65
+  },
+  "mob.infernal_juggernaut.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 100107,
+   "pre": 0,
+   "total": 100107,
+   "delay": 1105,
+   "padding": 164
+  },
+  "mob.infernal_juggernaut.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 106722,
+   "pre": 0,
+   "total": 106722,
+   "delay": 1105,
+   "padding": 461
+  },
+  "mob.infernal_juggernaut.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 107163,
+   "pre": 0,
+   "total": 107163,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "mob.rift_scorpion.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 37044,
+   "pre": 0,
+   "total": 37044,
+   "delay": 1105,
+   "padding": 1019
+  },
+  "mob.rift_scorpion.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 38808,
+   "pre": 0,
+   "total": 38808,
+   "delay": 1105,
+   "padding": 407
+  },
+  "mob.rift_scorpion.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 45423,
+   "pre": 0,
+   "total": 45423,
+   "delay": 1105,
+   "padding": 704
+  },
+  "mob.rift_scorpion.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 42777,
+   "pre": 0,
+   "total": 42777,
+   "delay": 1105,
+   "padding": 1046
+  },
+  "mob.rift_centipede.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 42336,
+   "pre": 0,
+   "total": 42336,
+   "delay": 1105,
+   "padding": 335
+  },
+  "mob.rift_centipede.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 38367,
+   "pre": 0,
+   "total": 38367,
+   "delay": 1105,
+   "padding": 848
+  },
+  "mob.rift_centipede.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 43218,
+   "pre": 0,
+   "total": 43218,
+   "delay": 1105,
+   "padding": 605
+  },
+  "mob.rift_centipede.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 46305,
+   "pre": 0,
+   "total": 46305,
+   "delay": 1105,
+   "padding": 974
+  },
+  "mob.rift_hornet.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 41895,
+   "pre": 0,
+   "total": 41895,
+   "delay": 1105,
+   "padding": 776
+  },
+  "mob.rift_hornet.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 44100,
+   "pre": 0,
+   "total": 44100,
+   "delay": 1105,
+   "padding": 875
+  },
+  "mob.rift_hornet.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 37485,
+   "pre": 0,
+   "total": 37485,
+   "delay": 1105,
+   "padding": 578
+  },
+  "mob.rift_hornet.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 37044,
+   "pre": 0,
+   "total": 37044,
+   "delay": 1105,
+   "padding": 1019
+  },
+  "mob.rift_beetle.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 55125,
+   "pre": 0,
+   "total": 55125,
+   "delay": 1105,
+   "padding": 218
+  },
+  "mob.rift_beetle.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 55125,
+   "pre": 0,
+   "total": 55125,
+   "delay": 1105,
+   "padding": 218
+  },
+  "mob.rift_beetle.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58212,
+   "pre": 0,
+   "total": 58212,
+   "delay": 1105,
+   "padding": 587
+  },
+  "mob.rift_beetle.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 55566,
+   "pre": 0,
+   "total": 55566,
+   "delay": 1105,
+   "padding": 929
+  },
+  "mob.rift_griffin.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 55125,
+   "pre": 0,
+   "total": 55125,
+   "delay": 1105,
+   "padding": 218
+  },
+  "mob.rift_griffin.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 59094,
+   "pre": 0,
+   "total": 59094,
+   "delay": 1105,
+   "padding": 857
+  },
+  "mob.rift_griffin.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 60417,
+   "pre": 0,
+   "total": 60417,
+   "delay": 1105,
+   "padding": 686
+  },
+  "mob.rift_griffin.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63504,
+   "pre": 0,
+   "total": 63504,
+   "delay": 1105,
+   "padding": 1055
+  },
+  "mob.rift_minotaur.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 58212,
+   "pre": 0,
+   "total": 58212,
+   "delay": 1105,
+   "padding": 587
+  },
+  "mob.rift_minotaur.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 57771,
+   "pre": 0,
+   "total": 57771,
+   "delay": 1105,
+   "padding": 1028
+  },
+  "mob.rift_minotaur.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63504,
+   "pre": 0,
+   "total": 63504,
+   "delay": 1105,
+   "padding": 1055
+  },
+  "mob.rift_minotaur.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63063,
+   "pre": 0,
+   "total": 63063,
+   "delay": 1105,
+   "padding": 344
+  },
+  "mob.void_stalker.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 42777,
+   "pre": 0,
+   "total": 42777,
+   "delay": 1105,
+   "padding": 1046
+  },
+  "mob.void_stalker.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 41454,
+   "pre": 0,
+   "total": 41454,
+   "delay": 1105,
+   "padding": 65
+  },
+  "mob.void_stalker.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 49833,
+   "pre": 0,
+   "total": 49833,
+   "delay": 1105,
+   "padding": 902
+  },
+  "mob.void_stalker.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 51597,
+   "pre": 0,
+   "total": 51597,
+   "delay": 1105,
+   "padding": 290
+  },
+  "mob.void_witch.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63945,
+   "pre": 0,
+   "total": 63945,
+   "delay": 1105,
+   "padding": 614
+  },
+  "mob.void_witch.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 64827,
+   "pre": 0,
+   "total": 64827,
+   "delay": 1105,
+   "padding": 884
+  },
+  "mob.void_witch.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 63063,
+   "pre": 0,
+   "total": 63063,
+   "delay": 1105,
+   "padding": 344
+  },
+  "mob.void_witch.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 64386,
+   "pre": 0,
+   "total": 64386,
+   "delay": 1105,
+   "padding": 173
+  },
+  "mob.abyssal_drake.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 101871,
+   "pre": 0,
+   "total": 101871,
+   "delay": 1105,
+   "padding": 704
+  },
+  "mob.abyssal_drake.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 93933,
+   "pre": 0,
+   "total": 93933,
+   "delay": 1105,
+   "padding": 578
+  },
+  "mob.abyssal_drake.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 102753,
+   "pre": 0,
+   "total": 102753,
+   "delay": 1105,
+   "padding": 974
+  },
+  "mob.abyssal_drake.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 104517,
+   "pre": 0,
+   "total": 104517,
+   "delay": 1105,
+   "padding": 362
+  },
+  "mob.archfiend.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 88200,
+   "pre": 0,
+   "total": 88200,
+   "delay": 1105,
+   "padding": 551
+  },
+  "mob.archfiend.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 91728,
+   "pre": 0,
+   "total": 91728,
+   "delay": 1105,
+   "padding": 479
+  },
+  "mob.archfiend.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 100548,
+   "pre": 0,
+   "total": 100548,
+   "delay": 1105,
+   "padding": 875
+  },
+  "mob.archfiend.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 93933,
+   "pre": 0,
+   "total": 93933,
+   "delay": 1105,
+   "padding": 578
+  },
+  "mob.rift_colossus.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 105399,
+   "pre": 0,
+   "total": 105399,
+   "delay": 1105,
+   "padding": 632
+  },
+  "mob.rift_colossus.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 103635,
+   "pre": 0,
+   "total": 103635,
+   "delay": 1105,
+   "padding": 92
+  },
+  "mob.rift_colossus.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 104517,
+   "pre": 0,
+   "total": 104517,
+   "delay": 1105,
+   "padding": 362
+  },
+  "mob.rift_colossus.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 104958,
+   "pre": 0,
+   "total": 104958,
+   "delay": 1105,
+   "padding": 1073
+  },
+  "mob.morvath.call.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 107163,
+   "pre": 0,
+   "total": 107163,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "mob.morvath.call.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 108045,
+   "pre": 0,
+   "total": 108045,
+   "delay": 1105,
+   "padding": 290
+  },
+  "mob.morvath.death.0": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 107604,
+   "pre": 0,
+   "total": 107604,
+   "delay": 1105,
+   "padding": 731
+  },
+  "mob.morvath.death.1": {
+   "rate": 44100,
+   "channels": 1,
+   "frames": 107163,
+   "pre": 0,
+   "total": 107163,
+   "delay": 1105,
+   "padding": 1152
+  },
+  "ambience.day.0": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 2646000,
+   "pre": 44100,
+   "total": 2734200,
+   "delay": 1105,
+   "padding": 695
+  },
+  "ambience.night.0": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 2646000,
+   "pre": 44100,
+   "total": 2734200,
+   "delay": 1105,
+   "padding": 695
+  },
+  "ambience.blood_night.0": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 2646000,
+   "pre": 44100,
+   "total": 2734200,
+   "delay": 1105,
+   "padding": 695
+  },
+  "music.menu.base": {
+   "rate": 44100,
+   "channels": 2,
+   "frames": 3342316,
+   "pre": 44100,
+   "total": 3430516,
+   "delay": 1105,
+   "padding": 187
+  }
+ }
+}

@@ -1,9 +1,26 @@
 # @blockyrts/audio
 
-Every sound and piece of music in Survive and Conquer, generated in code.
-There are no audio files: each sound is synthesised from oscillators, noise,
-envelopes and filters, and the music is note data played by small synthetic
+Every sound and piece of music in Survive and Conquer. The game plays the
+sound redo's finished recordings (MP3s in `packages/client/public/audio/`,
+listed in `packages/client/src/audio/sound-files.json`) and keeps a version
+of every sound generated in code behind them: any sound whose file is
+missing or will not load is synthesised from oscillators, noise, envelopes
+and filters, and the music is note data played by small synthetic
 instruments. Renders are seeded, so the same sound always comes out the same.
+
+## Sound files
+
+`pnpm --filter @blockyrts/audio sounds:build <folder>` (needs ffmpeg) turns a
+folder of WAVs named as in the project's `audio/sound-redo-brief.txt` into
+the MP3s and the index. It refuses a folder missing any sound, take or music
+stem the game plays, and takes the extras when they are there: the night
+monsters' calls and deaths (`mob.<name>.call|death`, see `MOB_SOUND_NAMES`),
+the ambience loops and the menu theme, which exist only as files. The index
+records each sound's exact length and the MP3 encoder's added silence, and
+`trimRange` (`src/engine/files.ts`) cuts a decoded file back to the sound
+whether the browser dropped that silence or not. Loops are encoded with a
+second of their own end before and start after, and cut back, so they have
+no seam. The WAVs are never committed.
 
 ## Listening
 
@@ -33,7 +50,7 @@ instead (not committed).
 ```ts
 import { AudioEngine } from '@blockyrts/audio';
 
-const audio = new AudioEngine();
+const audio = new AudioEngine({ files });        // files: { base, index }; omit to make everything in code
 audio.attachUnlock();                          // browsers unlock audio on the first click or key
 audio.setMusicState('day');                    // crossfades; 'dusk', 'night', 'dawn', 'blood_night', or null
 audio.prepareMusic('blood_night');             // render ahead when the blood night warning shows at dusk
@@ -43,6 +60,8 @@ audio.play('chop', { x, z });                  // a sound in the world, with fal
 audio.voice('worker', 'acknowledge', { x, z });
 audio.play('horn_dusk');                       // flat alerts and interface sounds take no position
 audio.setVolume('music', 0.5);                 // Settings sliders: master, music, effects, voice
+audio.setAmbience('night');                    // the background loop: 'day', 'night', 'blood_night' or null
+audio.hasSound('mob.zombie.call');             // whether a sound can play (file-only sounds need their file)
 ```
 
 Everything renders in a Web Worker once (about two seconds for all sounds,

@@ -9,6 +9,7 @@ import { voice } from './voice/voices.ts';
 export function renderDef(def: AnySoundDef, variant: number, sr: number): Float32Array {
   const ctx: GenContext = { sr, rng: makeRng(hashString(`${def.id}#${variant}`)), variant };
   let buf: Float32Array;
+  if (def.gen === 'file') throw new Error(`${def.id} exists only as a sound file`);
   if (def.gen === 'voice') buf = voice(ctx, def.params);
   else {
     const gen = GENERATORS[def.gen] as (c: GenContext, p: unknown) => Float32Array;

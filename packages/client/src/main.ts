@@ -3,6 +3,7 @@
 // &players=N for extra start pockets), which starts a game alone at once.
 import './hud/hud.css';
 import './ui/screens.css';
+import { startMenuMusic } from './audio/menu-music.ts';
 import { runMatch, START_MODELS } from './game/match.ts';
 import { openModelLibrary, type ModelLibrary } from './models/index.ts';
 import { Api, joinCodeOf } from './net/api.ts';
@@ -43,12 +44,15 @@ async function main(): Promise<void> {
   if (quick) {
     plan = newSoloPlan(quick.seed, 'Player 1', '', quick.players);
   } else {
+    // The menu theme plays from the first click until the game starts.
+    const music = startMenuMusic(settings);
     // Who this page is: the stored session, or a new guest (the menu works without the server).
     await api.ensureSession().catch(() => undefined);
     const code = joinCodeOf(location.pathname, location.search);
     const start: MenuStart = code ? { page: 'join', code } : { page: 'main' };
     if (code) history.replaceState(null, '', '/');
     plan = await mainMenu(app, { api, settings }, start);
+    music?.stop();
   }
   await runMatch(app, plan, { api, settings, library, toMenu });
 }

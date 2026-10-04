@@ -1,6 +1,8 @@
-// The Web Audio playback engine the client uses. It renders every sound in
-// a worker once, then plays one-shots at world positions, voice cues, and
-// the music with crossfades between states.
+// The Web Audio playback engine the client uses. Each sound comes from a
+// finished file when the client hands it one (the sound redo), else it is
+// rendered in code in a worker once; then it plays one-shots at world
+// positions, voice cues, the music with crossfades between states, and the
+// background ambience.
 //
 //   const audio = new AudioEngine();
 //   audio.attachUnlock();                 // starts on the first click or key
@@ -10,9 +12,10 @@
 //   audio.voice('worker', 'acknowledge', { x, z });
 //   audio.play('horn_dusk');              // a flat alert
 //   audio.setVolume('music', 0.5);        // the Settings sliders
-import { SOUNDS, soundDef, voiceId, type AnySoundDef, type VolumeCategory } from '../manifest.ts';
-import type { MusicStateId } from '../music/score.ts';
+import { SOUNDS, soundDef, voiceId, type AmbienceId, type AnySoundDef, type VolumeCategory } from '../manifest.ts';
+import { MUSIC_STATES, type MusicStateId } from '../music/score.ts';
 import type { VoiceEventId, VoiceFamilyId } from '../voice/voices.ts';
+import { loadSoundFile, type SoundFiles } from './files.ts';
 import { Renderer } from './renderer.ts';
 import { DEFAULT_SPATIAL, falloff, panFor, sliderToGain, type Listener, type SpatialSettings } from './spatial.ts';
 
@@ -31,7 +34,14 @@ export interface AudioEngineOptions {
   readonly useWorker?: boolean;
   /** An existing context to play into, for tests or a host page. */
   readonly context?: AudioContext;
+  /** Finished sound files to play instead of the code-made sounds (any missing or failing file falls back to code). */
+  readonly files?: SoundFiles;
+  /** Load every sound when audio unlocks (default true); a page with only music passes false. */
+  readonly preload?: boolean;
 }
+
+/** A music track: a time of day, or the main menu's (files only). */
+export type MusicId = MusicStateId | 'menu';
 
 export interface PlayOptions {
   /** World position in metres; omit for a flat sound (alerts, interface). */
@@ -52,15 +62,22 @@ interface Playing {
 }
 
 interface MusicVoice {
-  readonly state: MusicStateId;
+  readonly state: MusicId;
   readonly out: GainNode;
   readonly tension: GainNode;
   readonly sources: AudioBufferSourceNode[];
 }
 
-/** The cycle of the day, for rendering the next state ahead of time. */
-const NEXT: Record<MusicStateId, MusicStateId> = { day: 'dusk', dusk: 'night', night: 'dawn', dawn: 'day', blood_night: 'dawn' };
-const MUSIC_CACHE = 3;
+/** The cycle of the day, for loading the next state ahead of time. */
+const NEXT: Record<MusicId, MusicId | null> = { day: 'dusk', dusk: 'night', night: 'dawn', dawn: 'day', blood_night: 'dawn', menu: null };
+/** Music states kept decoded: the one playing and the next. */
+const MUSIC_CACHE = 2;
+
+interface AmbienceVoice {
+  readonly id: AmbienceId;
+  readonly out: GainNode;
+  readonly src: AudioBufferSourceNode;
+}
 
 export class AudioEngine {
   readonly ctx: AudioContext;
@@ -77,11 +94,16 @@ export class AudioEngine {
   private readonly requested = new Set<string>();
   private readonly lastVariant = new Map<string, number>();
   private readonly playing: Playing[] = [];
-  private readonly music = new Map<MusicStateId, AudioBuffer[]>();
-  private readonly musicRequested = new Map<MusicStateId, Promise<void>>();
-  private readonly musicUse: MusicStateId[] = [];
+  private readonly music = new Map<MusicId, AudioBuffer[]>();
+  private readonly musicRequested = new Map<MusicId, Promise<void>>();
+  private readonly musicUse: MusicId[] = [];
   private current: MusicVoice | null = null;
-  private wanted: MusicStateId | null = null;
+  private wanted: MusicId | null = null;
+  private readonly files: SoundFiles | null;
+  private readonly preloadOnUnlock: boolean;
+  private readonly ambienceBufs = new Map<AmbienceId, Promise<AudioBuffer | null>>();
+  private ambience: AmbienceVoice | null = null;
+  private wantedAmbience: AmbienceId | null = null;
   private wantedFade = 4;
   private intensity = 0;
   private listener: Listener = { x: 0, z: 0, rightX: 1, rightZ: 0 };
@@ -95,6 +117,8 @@ export class AudioEngine {
     this.maxVoices = opts.maxVoices ?? 48;
     this.musicSr = opts.musicSampleRate ?? 32000;
     this.muteWhenHidden = opts.muteWhenHidden ?? true;
+    this.files = opts.files ?? null;
+    this.preloadOnUnlock = opts.preload ?? true;
     this.sfxRenderer = new Renderer(opts.useWorker ?? true);
     this.musicRenderer = new Renderer(opts.useWorker ?? true);
 
@@ -129,10 +153,10 @@ export class AudioEngine {
   /**
    * Browsers keep audio locked until the player clicks or presses a key.
    * Call this from such an event (or use attachUnlock). It also starts
-   * rendering every sound in the background.
+   * loading every sound in the background (unless `preload` is false).
    */
   async unlock(): Promise<void> {
-    this.preloadAll();
+    if (this.preloadOnUnlock) this.preloadAll();
     if (this.ctx.state === 'suspended' && !(this.muteWhenHidden && isHidden())) await this.ctx.resume();
   }
 
@@ -168,6 +192,7 @@ export class AudioEngine {
   dispose(): void {
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisibility);
     this.stopMusic(0);
+    this.stopAmbience(0);
     for (const p of this.playing) p.src.stop();
     this.sfxRenderer.dispose();
     this.musicRenderer.dispose();
@@ -293,9 +318,42 @@ export class AudioEngine {
     for (let i = this.playing.length - 1; i >= 0; i--) if (this.playing[i]!.ends < now) this.playing.splice(i, 1);
   }
 
+  /** Whether a sound can play at all: it is made in code, or its files are here. */
+  hasSound(id: string): boolean {
+    const def = soundDef(id);
+    return def !== undefined && (def.gen !== 'file' || this.fileNames(def) !== null);
+  }
+
+  /** Starts loading a sound before it is first played (a monster kind coming into view). */
+  preload(id: string): void {
+    const def = soundDef(id);
+    if (def) this.request(def);
+  }
+
+  /** The file names of every take of a sound, or null unless all of them are there. */
+  private fileNames(def: AnySoundDef): string[] | null {
+    if (!this.files) return null;
+    const names = Array.from({ length: def.variants }, (_, v) => `${def.id}.${v}`);
+    return names.every((n) => this.files!.index.entries[n]) ? names : null;
+  }
+
   private request(def: AnySoundDef): void {
     if (this.requested.has(def.id)) return;
     this.requested.add(def.id);
+    const names = this.fileNames(def);
+    if (names) {
+      Promise.all(names.map((n) => loadSoundFile(this.ctx, this.files!, n)))
+        .then((bufs) => this.buffers.set(def.id, bufs))
+        .catch((err: unknown) => {
+          console.warn(`Could not load the sound file for ${def.id}; ${def.gen === 'file' ? 'it stays silent' : 'making it in code'}`, err);
+          if (def.gen !== 'file') this.renderInCode(def);
+        });
+      return;
+    }
+    if (def.gen !== 'file') this.renderInCode(def);
+  }
+
+  private renderInCode(def: AnySoundDef): void {
     void this.sfxRenderer.render({ kind: 'sound', id: def.id, sr: this.ctx.sampleRate }).then((res) => {
       if (res.kind !== 'sound') {
         this.requested.delete(def.id);
@@ -319,7 +377,7 @@ export class AudioEngine {
    * time a state is used it is rendered in the background, which takes a
    * few seconds; prepareMusic renders one ahead of time. null stops it.
    */
-  setMusicState(state: MusicStateId | null, fade = 4): void {
+  setMusicState(state: MusicId | null, fade = 4): void {
     this.wanted = state;
     this.wantedFade = fade;
     if (state === null) {
@@ -332,7 +390,7 @@ export class AudioEngine {
     });
   }
 
-  musicState(): MusicStateId | null {
+  musicState(): MusicId | null {
     return this.wanted;
   }
 
@@ -350,27 +408,57 @@ export class AudioEngine {
     return this.intensity;
   }
 
-  /** Renders a state's music ahead of time (call at dusk for a coming blood night). */
-  prepareMusic(state: MusicStateId): Promise<void> {
+  /** Loads or renders a state's music ahead of time (call at dusk for a coming blood night). */
+  prepareMusic(state: MusicId): Promise<void> {
     if (this.music.has(state)) return Promise.resolve();
     let p = this.musicRequested.get(state);
     if (!p) {
-      p = this.musicRenderer.render({ kind: 'music', state, sr: this.musicSr }).then((res) => {
-        this.musicRequested.delete(state);
-        if (res.kind !== 'music') {
-          if (res.kind === 'error') console.warn(`Could not render music ${state}: ${res.message}`);
+      p = this.loadMusicFiles(state).then((loaded) => {
+        if (loaded) {
+          this.musicRequested.delete(state);
+          this.music.set(state, loaded);
+          this.touchMusic(state);
           return;
         }
-        const [bl, br, tl, tr] = res.channels as [Float32Array, Float32Array, Float32Array, Float32Array];
-        this.music.set(state, [this.toBuffer([bl, br], res.sr), this.toBuffer([tl, tr], res.sr)]);
-        this.touchMusic(state);
+        if (state === 'menu' || !MUSIC_STATES.includes(state)) {
+          this.musicRequested.delete(state);
+          return;
+        }
+        return this.renderMusicInCode(state);
       });
       this.musicRequested.set(state, p);
     }
     return p;
   }
 
-  private touchMusic(state: MusicStateId): void {
+  /** A state's stems from files (base, and tension when there is one), or null to make it in code. */
+  private async loadMusicFiles(state: MusicId): Promise<AudioBuffer[] | null> {
+    const names = [`music.${state}.base`, `music.${state}.tension`].filter((n) => this.files?.index.entries[n]);
+    if (!names.length) return null;
+    try {
+      // Decoded at the music rate (32 kHz by default) to keep long loops modest in memory.
+      const ctx = typeof OfflineAudioContext !== 'undefined' ? new OfflineAudioContext(2, 1, this.musicSr) : this.ctx;
+      return await Promise.all(names.map((n) => loadSoundFile(ctx, this.files!, n)));
+    } catch (err) {
+      console.warn(`Could not load the music files for ${state}; making it in code`, err);
+      return null;
+    }
+  }
+
+  private renderMusicInCode(state: MusicStateId): Promise<void> {
+    return this.musicRenderer.render({ kind: 'music', state, sr: this.musicSr }).then((res) => {
+      this.musicRequested.delete(state);
+      if (res.kind !== 'music') {
+        if (res.kind === 'error') console.warn(`Could not render music ${state}: ${res.message}`);
+        return;
+      }
+      const [bl, br, tl, tr] = res.channels as [Float32Array, Float32Array, Float32Array, Float32Array];
+      this.music.set(state, [this.toBuffer([bl, br], res.sr), this.toBuffer([tl, tr], res.sr)]);
+      this.touchMusic(state);
+    });
+  }
+
+  private touchMusic(state: MusicId): void {
     const i = this.musicUse.indexOf(state);
     if (i >= 0) this.musicUse.splice(i, 1);
     this.musicUse.push(state);
@@ -382,7 +470,7 @@ export class AudioEngine {
     }
   }
 
-  private startMusic(state: MusicStateId, fade: number): void {
+  private startMusic(state: MusicId, fade: number): void {
     const bufs = this.music.get(state);
     if (!bufs) return;
     this.touchMusic(state);
@@ -405,8 +493,9 @@ export class AudioEngine {
       return src;
     });
     this.current = { state, out, tension, sources };
-    // Render the next state in the day's cycle while this one plays.
-    void this.prepareMusic(NEXT[state]);
+    // Load the next state in the day's cycle while this one plays.
+    const next = NEXT[state];
+    if (next) void this.prepareMusic(next);
   }
 
   private stopMusic(fade: number): void {
@@ -418,6 +507,68 @@ export class AudioEngine {
     old.out.gain.setValueAtTime(old.out.gain.value, now);
     old.out.gain.linearRampToValueAtTime(0, now + Math.max(0.05, fade));
     for (const s of old.sources) s.stop(now + Math.max(0.05, fade) + 0.05);
+    setTimeout(() => old.out.disconnect(), (fade + 0.5) * 1000);
+  }
+
+  // ------------------------------------------------------------ ambience
+
+  /**
+   * The background loop under the music (day, night, blood night), on the
+   * effects slider, crossfading like the music. Files only: without its
+   * file there is no ambience. null stops it.
+   */
+  setAmbience(id: AmbienceId | null, fade = 4): void {
+    this.wantedAmbience = id;
+    if (id === null) {
+      this.stopAmbience(fade);
+      return;
+    }
+    if (this.ambience?.id === id) return;
+    void this.ambienceBuffer(id).then((buf) => {
+      if (!buf || this.wantedAmbience !== id || this.ambience?.id === id) return;
+      this.stopAmbience(fade);
+      const now = this.ctx.currentTime;
+      const out = this.ctx.createGain();
+      out.gain.setValueAtTime(0, now);
+      out.gain.linearRampToValueAtTime(1, now + Math.max(0.05, fade));
+      out.connect(this.buses.effects);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(out);
+      src.start(now + 0.05);
+      this.ambience = { id, out, src };
+    });
+  }
+
+  ambienceState(): AmbienceId | null {
+    return this.wantedAmbience;
+  }
+
+  private ambienceBuffer(id: AmbienceId): Promise<AudioBuffer | null> {
+    const name = `ambience.${id}.0`;
+    if (!this.files?.index.entries[name]) return Promise.resolve(null);
+    let p = this.ambienceBufs.get(id);
+    if (!p) {
+      const ctx = typeof OfflineAudioContext !== 'undefined' ? new OfflineAudioContext(2, 1, this.musicSr) : this.ctx;
+      p = loadSoundFile(ctx, this.files, name).catch((err: unknown) => {
+        console.warn(`Could not load the ambience ${id}`, err);
+        return null;
+      });
+      this.ambienceBufs.set(id, p);
+    }
+    return p;
+  }
+
+  private stopAmbience(fade: number): void {
+    const old = this.ambience;
+    if (!old) return;
+    this.ambience = null;
+    const now = this.ctx.currentTime;
+    old.out.gain.cancelScheduledValues(now);
+    old.out.gain.setValueAtTime(old.out.gain.value, now);
+    old.out.gain.linearRampToValueAtTime(0, now + Math.max(0.05, fade));
+    old.src.stop(now + Math.max(0.05, fade) + 0.05);
     setTimeout(() => old.out.disconnect(), (fade + 0.5) * 1000);
   }
 }

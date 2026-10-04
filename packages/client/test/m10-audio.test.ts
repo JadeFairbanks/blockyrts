@@ -58,7 +58,8 @@ describe('the sound map (Audio)', () => {
     expect(shotSound(unitWho(UnitKind.Warrior, { ranged: RANGER_GEAR[1]! }))).toBe('shot_sling');
     expect(shotSound(unitWho(UnitKind.Warrior, { ranged: RANGER_GEAR[7]! }))).toBe('shot_bow');
     expect(shotSound(unitWho(UnitKind.Engine, { mob: Engine.IronCannon }))).toBe('shot_cannon');
-    expect(deathSounds(UnitKind.Mob, MONSTERS, Mob.Zombie)).toEqual({ sound: 'death_monster', voice: null });
+    expect(deathSounds(UnitKind.Mob, MONSTERS, Mob.Zombie)).toEqual({ sound: 'mob.zombie.death', voice: null, fallback: 'death_monster' });
+    expect(deathSounds(UnitKind.Mob, MONSTERS, Mob.GiantCentipede)).toEqual({ sound: 'death_monster', voice: null });
     expect(deathSounds(UnitKind.Worker, 0, 0)).toEqual({ sound: 'death_body', voice: 'worker' });
   });
 
@@ -87,11 +88,17 @@ describe('the sound map (Audio)', () => {
 });
 
 /** A stand-in engine that records what the game asked it to play. */
-function fakeEngine(): { engine: AudioEngine; played: string[]; music: string[]; volumes: Record<string, number> } {
+function fakeEngine(files = false): { engine: AudioEngine; played: string[]; music: string[]; volumes: Record<string, number>; ambience: string[]; preloaded: string[] } {
   const played: string[] = [];
   const music: string[] = [];
   const volumes: Record<string, number> = {};
+  const ambience: string[] = [];
+  const preloaded: string[] = [];
   const engine = {
+    // With `files`, the monsters' own sounds are there; without, only the code-made ones.
+    hasSound: (id: string) => files || !id.startsWith('mob.'),
+    preload: (id: string) => preloaded.push(id),
+    setAmbience: (a: string | null) => a && ambience.push(a),
     attachUnlock: () => undefined,
     setVolume: (k: string, v: number) => (volumes[k] = v),
     setListener: () => undefined,
@@ -108,7 +115,7 @@ function fakeEngine(): { engine: AudioEngine; played: string[]; music: string[];
     },
     dispose: () => undefined,
   } as unknown as AudioEngine;
-  return { engine, played, music, volumes };
+  return { engine, played, music, volumes, ambience, preloaded };
 }
 
 interface U {
@@ -215,6 +222,7 @@ describe('the match plays every sound in the Audio list', () => {
     game.onState(msg);
     audio.onState(msg);
     expect(f.music).toEqual(['day', 'dusk', 'night', 'dawn']);
+    expect(f.ambience).toEqual(['day', 'night', 'night', 'day']);
     expect(f.played).toContain('horn_dawn');
 
     // Voices: the idle worker, hunger, an attack; selection and orders; the interface.
