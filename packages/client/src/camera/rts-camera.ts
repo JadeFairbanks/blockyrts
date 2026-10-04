@@ -10,10 +10,14 @@ import type { CameraLimits, GroundPicker } from '../selection/types.ts';
 export const CAMERA_PITCH_DEG = 55;
 /** Vertical field of view. */
 export const CAMERA_FOV_DEG = 40;
-/** Closest and farthest distance from the focus point, metres. */
+/**
+ * Closest and farthest distance from the focus point, and where a game and
+ * Reset zoom start, metres. Patch 2 (Jade): start 10% more zoomed in (40 to
+ * 36 m) and zoom out 20% less far (80 to 64 m).
+ */
 export const MIN_DISTANCE = 12;
-export const MAX_DISTANCE = 80;
-export const DEFAULT_DISTANCE = 40;
+export const MAX_DISTANCE = 64;
+export const DEFAULT_DISTANCE = 36;
 /** Pan speed at multiplier 1: this many camera distances per second (about 0.8 screen heights a second). */
 export const PAN_RATE = 0.9;
 /** Each wheel notch (deltaY 100) at zoom speed 1 changes the distance by this factor. */
