@@ -61,8 +61,10 @@ const BEAR_MOTHER_WU = 15 * M;
 const BADGER_REACH_WU = 30 * M;
 const BADGER_SHY_WU = 6 * M;
 const BADGER_REST_STEPS = 60 * STEPS_PER_SECOND;
-/** Tamed animals walk round within 15 m of their Barn by day (s); they eat farm fare, not its grass (Patch 2). */
-const HOME_YARD_WU = 15 * M;
+/** Barn animals walk round within 15 m of their Barn by day (s); they eat farm fare, not its grass (Patch 2). */
+export const BARN_YARD_WU = 15 * M;
+/** A Barn animal that finds no farm fare in the morning loses this share of its health (s), never the last of it. */
+export const BARN_HUNGER_PER_MILLE = 100;
 /** A working animal walks 2 m behind its worker (s). */
 const FOLLOW_WU = 2 * M;
 /** A Barn's big animals and chickens. */
@@ -694,7 +696,7 @@ function runTamed(state: SimState, i: number): void {
   }
   if (!b) return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
   const [hx, hz] = buildingCentre(b);
-  graze(state, i, hx, hz, HOME_YARD_WU);
+  graze(state, i, hx, hz, BARN_YARD_WU);
 }
 
 /** A monster close by (tamed animals run from it). */
@@ -825,8 +827,9 @@ export function layingHens(state: SimState, b: Building): number {
 /**
  * Each day as the sun comes up, in every finished Barn: the hens lay an egg
  * each (Table 6), and every animal eats its farm fare from the stock (Patch
- * 2). One that finds none goes hungry and loses a tenth of its health, never
- * the last of it (s); its owner hears of it once that morning.
+ * 2). One that finds none goes hungry and loses a tenth of its health
+ * (BARN_HUNGER_PER_MILLE), never the last of it; its owner hears of it once
+ * that morning.
  */
 function livestockDay(state: SimState): void {
   const e = state.entities;
@@ -840,7 +843,7 @@ function livestockDay(state: SimState): void {
     for (const j of herd) {
       const feed = speciesSpec(e.mob[j]!).barnFeed * QUARTERS;
       if (takeFood(player, feed, { only: BARN_FOOD, kept: true }) !== null) continue;
-      e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]!, 10));
+      e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]! * BARN_HUNGER_PER_MILLE, 1000));
       if (!hungry.has(b.owner)) hungry.set(b.owner, b);
     }
   }
