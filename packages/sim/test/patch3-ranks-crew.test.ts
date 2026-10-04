@@ -15,14 +15,18 @@ import {
   buildingCentre,
   createWorld,
   CREWMAN_RETRAIN_STEPS,
+  crewSworn,
   deserializeState,
   Engine,
   findNode,
   fireWhy,
   gainXp,
+  haulerOf,
   GATHER_XP_TENTHS_PER_MINUTE,
   hashState,
   isCrewman,
+  isTree,
+  Mob,
   rankTrainedAt,
   placementBlocked,
   Res,
@@ -217,7 +221,7 @@ describe('worker ranks (Patch 3)', () => {
 });
 
 describe('a towed engine (Patch 3)', () => {
-  it('a horse hauls a catapult with no crew; it still needs its crew to fire', () => {
+  it('a horse hauls a catapult with no crew', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const [x, z] = field(s);
@@ -227,7 +231,37 @@ describe('a towed engine (Patch 3)', () => {
     run(s, 1, [{ kind: 'hitch', player: 0, units: [catId], target: e.id[horse]! }]);
     run(s, 1, [{ kind: 'move', player: 0, units: [catId], x: x + 20 * M, z }]);
     runUntil(s, () => e.x[e.indexOf(catId)]! >= x + 19 * M, 90 * SEC);
-    expect(fireWhy(s, e.indexOf(catId))).toBe('It needs 2 crewmen standing by it to fire (0 now).');
+  });
+
+  it('fires with no crew while its horse or ox is hitched beside it (the coordinator\'s ruling on Jade\'s words); let go, it needs its crew again', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const [x, z] = field(s);
+    const bal = addEngine(s, 0, Engine.Ballista, x, z);
+    const balId = e.id[bal]!;
+    expect(fireWhy(s, bal)).toBe('It needs its crewman standing by it to fire (0 now).');
+    const ox = addAnimal(s, Species.Ox, 0, x - 3 * M, z, 0, 0);
+    run(s, 1, [{ kind: 'hitch', player: 0, units: [balId], target: e.id[ox]! }]);
+    runUntil(s, () => haulerOf(s, e.indexOf(balId)) >= 0, 30 * SEC);
+    expect(fireWhy(s, e.indexOf(balId))).toBe('');
+    // A goblin hut 20 m off, the trees in between felled: the uncrewed ballista breaks it.
+    run(s, 1, [{ kind: 'debugSpawn', player: 0, mob: Mob.GoblinHut, x: x + 20 * M, z }]);
+    let hut = -1;
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.GoblinHut && e.hp[i]! > 0) hut = i;
+    const hutId = e.id[hut]!;
+    const full = e.hp[hut]!;
+    const n = 64 * WU_PER_COLUMN;
+    for (let cz = Math.floor((z - 4 * M) / n); cz <= Math.floor((z + 4 * M) / n); cz++) {
+      for (let cx = Math.floor(x / n); cx <= Math.floor((x + 20 * M) / n); cx++) {
+        for (const p of s.world.props(cx, cz, s.step)) if (isTree(p.kind)) s.world.harvest(cx, cz, p.index, p.amount, s.step);
+      }
+    }
+    run(s, 1, [{ kind: 'attack', player: 0, units: [balId], target: hutId }]);
+    runUntil(s, () => e.indexOf(hutId) < 0 || e.hp[e.indexOf(hutId)]! < full, 60 * SEC);
+    expect(crewSworn(s, e.indexOf(balId)).length).toBe(0);
+    // Let go, it is an engine with no crew again.
+    run(s, 1, [{ kind: 'hitch', player: 0, units: [balId], target: 0 }]);
+    expect(fireWhy(s, e.indexOf(balId))).toBe('It needs its crewman standing by it to fire (0 now).');
   });
 });
 

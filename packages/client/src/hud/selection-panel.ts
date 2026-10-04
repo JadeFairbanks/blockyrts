@@ -907,7 +907,7 @@ export class SelectionPanel {
     }
     const hauled = u.crew >= 1000;
     const moves = hauled ? 'icon_train_horse' : crew >= spec.crew && spec.pushed > 0 ? 'icon_cmd_move' : '';
-    if (moves) this.chip('moves', { icon: pic(moves), name: hauled ? 'Hauled' : 'Pushed', description: hauled ? 'Hauled by its animal.' : 'Pushed by its crew.', className: 'spell' }, row);
+    if (moves) this.chip('moves', { icon: pic(moves), name: hauled ? 'Hauled' : 'Pushed', description: hauled ? 'Hauled by its animal, which stands in for its crew: it fires with none.' : 'Pushed by its crew.', className: 'spell' }, row);
     if (u.owner === this.a.player) {
       const q = this.a.game.queues.get(u.id) ?? [];
       this.row('doing', unitOrderText(q[0]));
