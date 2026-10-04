@@ -183,16 +183,6 @@ export function starvingSince(state: SimState, i: number): number {
   return h > 0 && mealQuarters(state, i) > 0 ? h : 0;
 }
 
-/** A save from before patch 1 kept starving by group: each unit that eats takes its group's. */
-export function hungerFromGroups(state: SimState): void {
-  const e = state.entities;
-  for (let i = 0; i < e.count; i++) {
-    if (mealQuarters(state, i) === 0) continue;
-    const p = state.players[e.owner[i]!]!;
-    e.hungry[i] = isTroop(state, i) ? p.starveTroops : p.starveWorkers;
-  }
-}
-
 /** Health back (or lost) per 15 s tick: a share of maximum health in per mille, rounded, at least 1 (patch 1). */
 export function healthPerTick(maxHp: number, perMille: number): number {
   return Math.max(1, floorDiv(maxHp * perMille + 500, 1000));

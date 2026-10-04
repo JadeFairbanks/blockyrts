@@ -28,6 +28,7 @@ import {
   Mount,
   nextMealIn,
   nodeResource,
+  OLD_SAVE_TEXT,
   payAny,
   PEOPLES,
   PropKind,
@@ -36,13 +37,13 @@ import {
   RESOURCES,
   Role,
   serializeState,
+  SNAPSHOT_VERSION,
   spanText,
   Species,
   STARVE_HARM_AFTER_STEPS,
   STARVE_HARM_PER_MILLE,
   starvingSince,
   step,
-  UnitKind,
   updateFood,
   WU_PER_METRE,
   type SimEvent,
@@ -238,44 +239,16 @@ describe('saves', () => {
     expect(hashState(back)).toBe(hashState(s));
   });
 
-  it('loads a save from before patch 1: Don\'t eat, the meal credit and the starving carry over', () => {
-    // Made on main before patch 1: seed 7, no food but 3 meat and 5 eggs, both kept back, everyone starving since step 2200, 3 quarters fed.
-    const bytes = new Uint8Array(gunzipSync(readFileSync(new URL('./fixtures/save-v13-starving.bin.gz', import.meta.url))));
-    const s = deserializeState(bytes);
-    const p = s.players[0]!;
-    expect([p.kept[Res.Venison], p.kept[Res.Eggs], p.kept[Res.Trout]]).toEqual([1, 1, 0]);
-    expect([p.pool[Res.Venison], p.open[Res.Venison]]).toEqual([3, 3]);
-    expect([p.starveWorkers, p.starveTroops, p.starveLodge]).toEqual([2200, 2200, 2200]);
-    const e = s.entities;
-    for (let i = 0; i < e.count; i++) {
-      if (e.owner[i] !== 0) continue;
-      const eats = e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior;
-      expect(starvingSince(s, i)).toBe(eats ? 2200 : 0);
+  it('refuses a save from an older version (Jade, Patch 2: every patch), with a plain sentence', () => {
+    // Made on main before patch 1 (version 13) and after the hunting patch (version 14): both are older than Patch 2's.
+    for (const name of ['save-v13-starving', 'save-v14-loot-starving']) {
+      const bytes = new Uint8Array(gunzipSync(readFileSync(new URL(`./fixtures/${name}.bin.gz`, import.meta.url))));
+      expect(() => deserializeState(bytes)).toThrow(OLD_SAVE_TEXT);
     }
-    // It plays on, still starving (the food left is kept back), and saves in the new form.
-    run(s, MEAL_STEPS);
-    expect(p.starveWorkers).toBe(2200);
-    expect(hashState(deserializeState(serializeState(s)))).toBe(hashState(s));
-  });
-
-  it('loads a save from the hunting patch (version 14): its loot and bags stay, its food carries over', () => {
-    // Made on main after loot came in: seed 7, 3 meat and 5 eggs kept back, everyone starving since step 2200,
-    // the first warrior carrying 2 meat and a hide, 4 meat lying on the ground.
-    const bytes = new Uint8Array(gunzipSync(readFileSync(new URL('./fixtures/save-v14-loot-starving.bin.gz', import.meta.url))));
-    const s = deserializeState(bytes);
-    const p = s.players[0]!;
-    expect([p.kept[Res.Venison], p.kept[Res.Eggs], p.kept[Res.Trout]]).toEqual([1, 1, 0]);
-    expect(p.pool[Res.Venison]).toBe(3);
-    expect([p.starveWorkers, p.starveTroops, p.starveLodge]).toEqual([2200, 2200, 2200]);
-    const e = s.entities;
-    expect(e.bag[e.indexOf(5)]).toEqual([Res.Venison, 2, Res.Hides, 1]);
-    expect(s.loot.map((l) => [l.res, l.amt])).toEqual([[Res.Venison, 4]]);
-    for (let i = 0; i < e.count; i++) {
-      if (e.owner[i] !== 0) continue;
-      const eats = e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior;
-      expect(starvingSince(s, i)).toBe(eats ? 2200 : 0);
-    }
-    run(s, MEAL_STEPS);
-    expect(hashState(deserializeState(serializeState(s)))).toBe(hashState(s));
+    // A snapshot written now, its version set back by one, is refused the same way.
+    const now = serializeState(stocked([Res.Venison]));
+    now[4] = (SNAPSHOT_VERSION - 1) & 0xff;
+    now[5] = (SNAPSHOT_VERSION - 1) >> 8;
+    expect(() => deserializeState(now)).toThrow(OLD_SAVE_TEXT);
   });
 });

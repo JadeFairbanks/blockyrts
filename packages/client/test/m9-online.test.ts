@@ -140,16 +140,19 @@ describe('Milestone 9: save files', () => {
     await expect(openSave(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]))).rejects.toThrow('not a Survive and Conquer save');
   });
 
-  it('refuses a save from before the troop rework (format 1), saying why', async () => {
-    // Milestone 11 made the format 2: a format 1 save holds items, which this version cannot read.
-    expect(SAVE_FORMAT_VERSION).toBe(2);
+  it('refuses a save from any older version (before Patch 2 and every patch after), saying why', async () => {
+    // Patch 2 made the format 3, and every patch raises it (Jade's standing rule): older saves are refused, never carried over.
+    expect(SAVE_FORMAT_VERSION).toBe(3);
+    expect(OLD_SAVE_TEXT).toBe('That save is from an older version of the game. Start a new game.');
     const s = createWorld(11, { players: 1, peaceful: true });
-    const header = { formatVersion: 1, gameVersion: '0.10.0', matchId: 'old', seed: 11, step: s.step, night: 0, label: 'Night 0', players: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] };
-    const old = await writeSaveFile(header, [{ tag: SaveSection.SimState, version: 1, data: serializeState(s) }]);
-    await expect(openSave(old)).rejects.toThrow(OLD_SAVE_TEXT);
+    for (const formatVersion of [1, 2]) {
+      const header = { formatVersion, gameVersion: '0.10.0', matchId: 'old', seed: 11, step: s.step, night: 0, label: 'Night 0', players: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] };
+      const old = await writeSaveFile(header, [{ tag: SaveSection.SimState, version: 1, data: serializeState(s) }]);
+      await expect(openSave(old)).rejects.toThrow(OLD_SAVE_TEXT);
+    }
     // The same game written now opens.
     const now = await makeSave({ matchId: 'new', seed: 11, seats: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] }, { step: s.step, night: 0, data: serializeState(s) }, 'Night 0');
-    expect(readSaveHeader(now).formatVersion).toBe(2);
+    expect(readSaveHeader(now).formatVersion).toBe(3);
     expect((await openSave(now)).header.matchId).toBe('new');
   });
 
