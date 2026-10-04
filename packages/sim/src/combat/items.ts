@@ -118,8 +118,6 @@ export interface ResearchSpec {
   at?: number;
   /** No longer a research step (its bit is kept so saved research masks still line up). */
   retired?: boolean;
-  /** What finishing it puts in the stock (Jade's mini balance: Bronze makes 12 bronze ingots). */
-  makes?: Cost;
 }
 
 const sec = (n: number): number => n * STEPS_PER_SECOND;
@@ -133,9 +131,8 @@ export const RESEARCH: readonly ResearchSpec[] = [
   },
   {
     id: Research.Bronze, name: 'Bronze', key: 'B', cost: [[Res.CopperIngot, 10], [Res.TinIngot, 2]], steps: sec(75), made: 0,
-    // Jade's mini balance: no tin ingot needs smelting first, and finishing it makes 12 bronze ingots (its 12 ingots, alloyed).
-    makes: [[Res.BronzeIngot, 12]],
-    opens: 'Tier 4 (bronze): bronze ingots, bronze weapons, armour and tools, and mining bog iron and iron rock. Finishing it makes 12 bronze ingots.',
+    // Jade's mini balance: no tin ingot needs smelting first; bronze ingots are still made at the Forge from copper and tin ingots.
+    opens: 'Tier 4 (bronze): bronze ingots, bronze weapons, armour and tools, and mining bog iron and iron rock.',
   },
   {
     id: Research.DeepMining1, name: 'Deep Mining I', key: 'D', cost: [[Res.BronzeIngot, 20], [Res.Stone, 50]], steps: sec(90), after: Research.Bronze, base: 4,

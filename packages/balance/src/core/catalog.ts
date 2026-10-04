@@ -94,7 +94,7 @@ export interface Catalog {
   refEntry: (kind: RefKind, id: number) => string | undefined;
 }
 
-const RES_PAIR_KEYS = new Set(['cost', 'inputs', 'outputs', 'extra', 'recipes', 'STARTING_STOCK', 'crops', 'makes']);
+const RES_PAIR_KEYS = new Set(['cost', 'inputs', 'outputs', 'extra', 'recipes', 'STARTING_STOCK', 'crops']);
 const PAIR_REFS: Readonly<Record<string, RefKind>> = {
   cost: 'res', inputs: 'res', outputs: 'res', extra: 'res', recipes: 'res', STARTING_STOCK: 'res', FIRST_NIGHT: 'mob', splitsInto: 'mob',
 };

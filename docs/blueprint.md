@@ -537,7 +537,7 @@ Mini balance 2 (2026-10-04, Jade's editor export "mini balance.json"; picks in m
 - Building costs: Big House 100 softwood and 50 stone (an extra one; was 300 and 150), Farm 20 lumber and 5 sticks with 10 supply (was 30, 10 and 4), Barn 30 lumber (was 40), Storehouse 15 lumber (was 30), Fishing dock 10 softwood (was 30), Scholar's Lodge 40 softwood (was 60), softwood and hardwood gates 4 (were 6), softwood and hardwood towers 15 (were 20), stone tower 30 stone (was 40), stone wall 1 stone (was 2). The Farm, Barn, Storehouse, Torch post and Bonfire take any lumber: softwood or hardwood, taken a piece at a time from whichever the stock holds most of; their cost reads "lumber" and a cancel gives back the lumber that was paid.
 - Cancelling an unfinished building refunds 80% (was 75%); a building can queue 10 (was 5).
 - Smelting a copper or tin ingot burns 1 charcoal, 1 coal, 2 hardwood or 4 softwood (lumber was 1).
-- Bronze research no longer needs a tin ingot smelted first, and finishing it makes 12 bronze ingots. Saves from before are refused (snapshot 20).
+- Bronze research no longer needs a tin ingot smelted first; bronze ingots are still made at the Forge from copper and tin ingots once it is done. Saves from before are refused (snapshot 20).
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 

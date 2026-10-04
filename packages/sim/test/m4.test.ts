@@ -117,7 +117,7 @@ function giveResearch(s: SimState, ...r: number[]): void {
 const recipe = (name: string): number => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === name);
 
 describe('research and the forge', () => {
-  it("has no Flint tools research at a Scholar's Lodge (flint gear needs none), and researches Bronze there, which makes 12 bronze ingots", () => {
+  it("has no Flint tools research at a Scholar's Lodge (flint gear needs none), and researches Bronze there with no tin ingot smelted first (mini balance)", () => {
     const s = createWorld(1, { peaceful: true });
     const lodge = built(s, BuildingKind.ScholarsLodge);
     built(s, BuildingKind.Forge);
@@ -129,13 +129,13 @@ describe('research and the forge', () => {
     expect(lodge.queue.length).toBe(0);
     pool[Res.CopperIngot] = 10;
     pool[Res.TinIngot] = 2;
-    // Jade's mini balance: no tin ingot needs smelting first, and finishing Bronze makes 12 bronze ingots.
+    // Jade's mini balance: no tin ingot needs smelting first.
     run(s, 1, [{ kind: 'produce', player: 0, building: lodge.id, product: RESEARCH_PRODUCT + Research.Bronze, count: 1 }]);
     expect(lodge.queue.length).toBe(1);
     expect(pool[Res.BronzeIngot]).toBe(0);
     runUntil(s, () => (s.players[0]!.research & (1 << Research.Bronze)) !== 0, 4000);
     expect(lodge.queue.length).toBe(0);
-    expect(pool[Res.BronzeIngot]).toBe(12);
+    expect(pool[Res.BronzeIngot]).toBe(0);
   });
 
   it('smelts copper and tin at the Forge with no workers (Patch 2), then bronze', () => {
