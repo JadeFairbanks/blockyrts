@@ -333,7 +333,9 @@ describe('animals', () => {
     const inBag = (): number => bagItems(s, a).find(([r]) => r === Res.Beef)?.[1] ?? 0;
     runUntil(s, () => inBag() > 0, 3000);
     const load = inBag();
-    expect(s.loot.filter((l) => l.res === Res.Beef)).toEqual([]);
+    // Patch 2: a cow gives 20 beef, so the 25 lb bag takes 10 and the rest lies on the ground for the player.
+    expect(load).toBe(10);
+    expect(s.loot.filter((l) => l.res === Res.Beef).map((l) => [l.amt, l.owner])).toEqual([[10, 0]]);
     // With nothing else to do it hands the meat in, well before dusk, and walks back to where it stood.
     runUntil(s, () => bagEmpty(s, a), 1500);
     expect(s.players[0]!.pool[Res.Beef]).toBe(meat + load);
@@ -380,7 +382,8 @@ describe('animals', () => {
     expect(herd()).toBe(3);
     const meat = s.players[0]!.pool[Res.Beef]!;
     run(s, 1, [{ kind: 'produce', player: 0, building: farm.id, product: SLAUGHTER_PRODUCT + Species.Cattle, count: 1 }]);
-    runUntil(s, () => s.players[0]!.pool[Res.Beef]! >= meat + 6, 400);
+    // Patch 2: a cow gives 20 beef, twenty times a chicken's meat (Jade).
+    runUntil(s, () => s.players[0]!.pool[Res.Beef]! >= meat + 20, 400);
     expect(herd()).toBe(2);
   });
 });

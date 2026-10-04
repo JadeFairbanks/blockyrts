@@ -4,18 +4,19 @@
 // the first time the players come near it, and only breeding adds more.
 // Wild animals graze round their spot, run, fight back, hunt in packs,
 // stalk, guard or knock over torches by their nature; tamed ones belong to
-// a Barn (Patch 2), graze round it by day, shelter in its stalls by night,
-// breed there and can be slaughtered.
+// a Barn (Patch 2), walk round it by day, shelter in its stalls by night,
+// eat farm fare from the stock every day (they cannot graze, Jade), breed
+// there and can be slaughtered.
 
 import { BARN_STALLS, BuildingKind, buildingName, CHICKENS_PER_STALL, OUTLYING_M } from '../buildings/data.ts';
 import { buildingCentre, dist2, isLit, nearMainBase, snuffLight } from '../buildings/lights.ts';
 import { placedDims, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { Res, type Cost } from '../economy/resources.ts';
-import { animalUpkeep, QUARTERS, takeFood } from '../economy/food.ts';
+import { animalUpkeep, itemQuarters, QUARTERS, takeFood } from '../economy/food.ts';
 import { cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { OrderKind, PEOPLES, standY, UnitKind, WILD, type PlayerState, type SimState } from '../state.ts';
+import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
@@ -60,9 +61,10 @@ const BEAR_MOTHER_WU = 15 * M;
 const BADGER_REACH_WU = 30 * M;
 const BADGER_SHY_WU = 6 * M;
 const BADGER_REST_STEPS = 60 * STEPS_PER_SECOND;
-/** Tamed animals graze within 15 m of their home by day (s) and need its grass within 30 m (Table 6). */
-const HOME_GRAZE_WU = 15 * M;
-const GRASS_REACH_COLUMNS = floorDiv(30 * M, COLUMN);
+/** Barn animals walk round within 15 m of their Barn by day (s); they eat farm fare, not its grass (Patch 2). */
+export const BARN_YARD_WU = 15 * M;
+/** A Barn animal that finds no farm fare in the morning loses this share of its health (s), never the last of it. */
+export const BARN_HUNGER_PER_MILLE = 100;
 /** A working animal walks 2 m behind its worker (s). */
 const FOLLOW_WU = 2 * M;
 /** A Barn's big animals and chickens. */
@@ -694,7 +696,7 @@ function runTamed(state: SimState, i: number): void {
   }
   if (!b) return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
   const [hx, hz] = buildingCentre(b);
-  graze(state, i, hx, hz, HOME_GRAZE_WU);
+  graze(state, i, hx, hz, BARN_YARD_WU);
 }
 
 /** A monster close by (tamed animals run from it). */
@@ -742,30 +744,35 @@ export function runAnimal(state: SimState, i: number): void {
 
 // ----- each day -----
 
-/** What a short-of-grass animal eats instead (Table 6; Patch 2: farm fare), by nutrition, exact to the quarter (a started one waits for the next). */
-const CROPS: readonly Res[] = [Res.FarmFare];
+/**
+ * What Barn animals eat (Patch 2, Jade: they cannot graze, so they eat farm
+ * fare), taken from the stock even when it is kept back from the units'
+ * meals, exact to the quarter (a started one waits for the next day).
+ */
+const BARN_FOOD: readonly Res[] = [Res.FarmFare];
 
-function eatCrops(p: PlayerState, need: number): boolean {
-  return takeFood(p, need * QUARTERS, { only: CROPS, kept: true }) !== null;
+/** A Barn's animals at home, not out working with a worker (a working animal eats with the workers instead). */
+function stalled(state: SimState, b: Building): number[] {
+  const e = state.entities;
+  return animalsAt(state, b.id).filter((j) => !e.partner[j]);
 }
 
-/** Grass within 30 m of a building, square metres, from a sample of every third column. */
-function grassNear(state: SimState, b: Building): number {
-  const [x, z] = buildingCentre(b);
-  const cx = floorDiv(x, COLUMN);
-  const cz = floorDiv(z, COLUMN);
-  const r = GRASS_REACH_COLUMNS;
-  let samples = 0;
-  for (let dz = -r; dz <= r; dz += 3) {
-    for (let dx = -r; dx <= r; dx += 3) {
-      if (dx * dx + dz * dz > r * r || state.buildings.footprintAt(cx + dx, cz + dz) !== 0) continue;
-      const layers = state.world.columnAt(cx + dx, cz + dz);
-      const top = layers[layers.length - 1];
-      if (top === Mat.Grass || top === Mat.DryGrass) samples++;
-    }
-  }
-  // Each sample stands for 9 columns of 0.2025 m2.
-  return floorDiv(samples * 9 * COLUMN_AREA_MM2, 1000);
+/** What a Barn's animals eat a day, in quarters of nutrition. */
+export function barnFeedQuarters(state: SimState, b: Building): number {
+  const e = state.entities;
+  let n = 0;
+  for (const j of stalled(state, b)) n += speciesSpec(e.mob[j]!).barnFeed * QUARTERS;
+  return n;
+}
+
+/** What a Barn's animals eat a day, in farm fare: "1", "2½", "¾" (rounded up to the quarter, so it never says less than they eat). */
+export function barnFeedText(state: SimState, b: Building): string {
+  const q = barnFeedQuarters(state, b);
+  const item = itemQuarters(Res.FarmFare);
+  const quarters = item > 0 ? floorDiv(q * 4 + item - 1, item) : 0;
+  const whole = floorDiv(quarters, 4);
+  const part = ['', '¼', '½', '¾'][quarters - whole * 4]!;
+  return `${whole > 0 || !part ? whole : ''}${part}`;
 }
 
 /** The young grow up (Young animals). */
@@ -817,27 +824,32 @@ export function layingHens(state: SimState, b: Building): number {
   return animalsAt(state, b.id).filter((j) => !e.partner[j] && e.mob[j] === Species.Chicken && e.sex[j] === 0 && e.born[j] === 0).length;
 }
 
-/** Hens lay an egg a day in a Barn; herds short of grass eat farm fare or go hungry (Table 6). */
+/**
+ * Each day as the sun comes up, in every finished Barn: the hens lay an egg
+ * each (Table 6), and every animal eats its farm fare from the stock (Patch
+ * 2). One that finds none goes hungry and loses a tenth of its health
+ * (BARN_HUNGER_PER_MILLE), never the last of it; its owner hears of it once
+ * that morning.
+ */
 function livestockDay(state: SimState): void {
   const e = state.entities;
+  const hungry = new Map<number, Building>();
   for (const b of state.buildings.list) {
     if (!b.complete || b.kind !== BuildingKind.Barn) continue;
-    const herd = animalsAt(state, b.id).filter((j) => !e.partner[j]);
+    const herd = stalled(state, b);
     if (herd.length === 0) continue;
     const player = state.players[b.owner]!;
-    const pool = player.pool;
-    pool[Res.Eggs] = pool[Res.Eggs]! + layingHens(state, b);
-    let need = 0;
-    for (const j of herd) need += speciesSpec(e.mob[j]!).grassM2;
-    const grass = grassNear(state, b);
-    if (grass >= need) continue;
-    // The share of the herd the grass does not cover eats farm fare, or goes hungry and loses a tenth of its health (s).
-    for (let k = herd.length - 1, short = need - grass; k >= 0 && short > 0; k--) {
-      const j = herd[k]!;
-      const s = speciesSpec(e.mob[j]!);
-      short -= s.grassM2;
-      if (!eatCrops(player, s.cropNutrition)) e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]!, 10));
+    player.pool[Res.Eggs] = player.pool[Res.Eggs]! + layingHens(state, b);
+    for (const j of herd) {
+      const feed = speciesSpec(e.mob[j]!).barnFeed * QUARTERS;
+      if (takeFood(player, feed, { only: BARN_FOOD, kept: true }) !== null) continue;
+      e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]! * BARN_HUNGER_PER_MILLE, 1000));
+      if (!hungry.has(b.owner)) hungry.set(b.owner, b);
     }
+  }
+  for (const [player, b] of hungry) {
+    const [x, z] = buildingCentre(b);
+    state.events.push({ player, kind: 'alert', text: 'Your Barn animals went hungry: there was not enough farm fare for them. Hungry animals lose health.', x, z });
   }
 }
 

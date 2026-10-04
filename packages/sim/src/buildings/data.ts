@@ -226,7 +226,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     // The livestock farm's cost from before Patch 2 (s, Jade's rebalance); no supply and no workers (s).
-    kind: BuildingKind.Barn, name: 'Barn', purpose: 'A red barn for tamed cattle, chickens, horses and oxen: 10 stalls, one big animal or up to 6 chickens to a stall. Workers tame animals once a Barn stands; they graze round it by day, shelter in it at night, breed, and hens lay eggs. Slaughter (K) takes a grown animal for its meat. Cavalry at the Barracks take their horses from the nearest Barn.',
+    kind: BuildingKind.Barn, name: 'Barn', purpose: 'A red barn for tamed cattle, chickens, horses and oxen: 10 stalls, one big animal or up to 6 chickens to a stall. Workers tame animals with farm fare once a Barn stands. The animals cannot graze, so each eats farm fare from the stock every morning (a hungry one loses health); they walk round the Barn by day, shelter in it at night, breed, and hens lay eggs. Slaughter (K) takes a grown animal for its meat: a cow gives twenty times a chicken. Cavalry at the Barracks take their horses from the nearest Barn.',
     slot: 3, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 450,
     levels: [lvl('Barn', [[S, 40], [Res.Sticks, 10]], 200, 400, { gives: '10 stalls, taming, breeding, eggs, slaughter' })],
   },

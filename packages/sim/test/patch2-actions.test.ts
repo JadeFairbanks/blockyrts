@@ -184,7 +184,7 @@ describe("Upgrade equipment (Jade's Patch 2)", () => {
 });
 
 describe("seated meals (Jade's Patch 2: eating is a timed action)", () => {
-  /** A hurt warrior sent to eat, stepped until it sits down; `meals` counts the meals it paid for at the table (its "Ate ... at the table." line). */
+  /** A hurt warrior sent to eat, stepped until it sits down; `meals` counts the meals it paid for at the table (its "I ate my fill of ..." line). */
   function hungry(): { s: SimState; i: number; go: (n: number) => void; meals: () => number } {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
@@ -194,7 +194,7 @@ describe("seated meals (Jade's Patch 2: eating is a timed action)", () => {
     e.hp[i] = Math.floor(e.maxHp[i]! / 4);
     let meals = 0;
     const count = (): void => {
-      meals += s.events.filter((v) => v.kind === 'speech' && v.speaker === id && v.text.endsWith('at the table.')).length;
+      meals += s.events.filter((v) => v.kind === 'speech' && v.speaker === id && v.text.startsWith('I ate my fill of ')).length;
     };
     step(s, [{ kind: 'eat', player: 0, units: [id], building: 0 }]);
     count();

@@ -1,13 +1,16 @@
 // Farm harvests (Jade, patch notes 1, 2026-10-03): no fallow days, a harvest
 // bar each farmer at work fills by a step a step, a harvest that stays the
 // same whatever the number of farmers, and what the selection panel reads.
-// Patch 2: one Farm of farm fare, in full in every band, and the Barn's hens.
+// Patch 2: one Farm of farm fare, in full in every band, and the Barn's hens
+// and its animals, which eat farm fare every morning (they cannot graze).
 import { describe, expect, it } from 'vitest';
 import {
   addAnimal,
   Band,
   bandAt,
   Blocked,
+  BARN_STALLS,
+  buildingStatus,
   BuildingKind,
   CYCLE_STEPS,
   createWorld,
@@ -18,7 +21,9 @@ import {
   placeBuilding,
   placementBlocked,
   Res,
+  RESOURCES,
   Species,
+  speciesSpec,
   step,
   UnitKind,
   workersAt,
@@ -172,5 +177,67 @@ describe('farm harvests', () => {
     run(s, h.whole - h.done);
     expect(pool[Res.Eggs]).toBe(eggs + 2);
     expect(farmHarvest(s, farm)!.done).toBe(0);
+  });
+});
+
+describe('the Barn (Patch 2)', () => {
+  /** A finished Barn by the camp with these grown animals at home (sex 0, hens that lay). */
+  function barnWith(s: SimState, animals: readonly number[]): [Building, number[]] {
+    const barn = farmNearCamp(s, BuildingKind.Barn);
+    const out = animals.map((sp, k) => {
+      const i = addAnimal(s, sp, 0, barn.x * WU_PER_COLUMN + k * 4000, barn.z * WU_PER_COLUMN - 8 * WU_PER_COLUMN, 0, 0);
+      s.entities.home[i] = barn.id;
+      return i;
+    });
+    return [barn, out];
+  }
+
+  /** Runs the step on which a new day starts, when the Barn's animals eat and its hens lay. */
+  function dayTurn(s: SimState): void {
+    s.step = CYCLE_STEPS * 2;
+    step(s);
+  }
+
+  it('its animals eat farm fare every morning, even farm fare kept back from meals, whatever grass is near', () => {
+    const s = createWorld(1, { peaceful: true });
+    const p = s.players[0]!;
+    // Two cows and six hens: three stalls, and 2 + 2 + 6 x 1 = 10 food, 5 farm fare a day.
+    const [barn] = barnWith(s, [Species.Cattle, Species.Cattle, ...Array<number>(6).fill(Species.Chicken)]);
+    expect(buildingStatus(s, barn)).toBe(`8 animals; 3 of ${BARN_STALLS} stalls taken; they eat 5 farm fare a day`);
+    p.pool[Res.FarmFare] = 12;
+    p.kept[Res.FarmFare] = 1;
+    const eggs = p.pool[Res.Eggs]!;
+    dayTurn(s);
+    expect(p.pool[Res.FarmFare]).toBe(7);
+    expect(p.pool[Res.Eggs]).toBe(eggs + 6);
+    // A single hen eats half a farm fare: the rest of the one she opened waits for the next day.
+    const s2 = createWorld(1, { peaceful: true });
+    const [barn2] = barnWith(s2, [Species.Chicken]);
+    expect(buildingStatus(s2, barn2)).toBe(`1 animal; 1 of ${BARN_STALLS} stalls taken; they eat ½ farm fare a day`);
+    s2.players[0]!.pool[Res.FarmFare] = 1;
+    s2.players[0]!.kept[Res.FarmFare] = 1;
+    dayTurn(s2);
+    expect([s2.players[0]!.pool[Res.FarmFare], s2.players[0]!.open[Res.FarmFare]]).toEqual([0, 4]);
+  });
+
+  it('with no farm fare its animals go hungry and lose a tenth of their health, and the owner hears of it once', () => {
+    const s = createWorld(1, { peaceful: true });
+    const [, [cow, hen]] = barnWith(s, [Species.Cattle, Species.Chicken]);
+    const e = s.entities;
+    s.players[0]!.pool[Res.FarmFare] = 0;
+    const hp = [e.hp[cow!]!, e.hp[hen!]!];
+    dayTurn(s);
+    expect([e.hp[cow!], e.hp[hen!]]).toEqual([hp[0]! - e.maxHp[cow!]! / 10, hp[1]! - e.maxHp[hen!]! / 10]);
+    expect(s.events.filter((v) => v.kind === 'alert' && v.text.startsWith('Your Barn animals went hungry')).length).toBe(1);
+    // Never the last of it.
+    e.hp[hen!] = 1;
+    dayTurn(s);
+    expect(e.hp[hen!]).toBe(1);
+  });
+
+  it('a cow gives twenty times the food of a chicken (Jade)', () => {
+    const food = (sp: number): number => speciesSpec(sp).meat * RESOURCES[sp === Species.Cattle ? Res.Beef : Res.Chicken]!.nutrition;
+    expect(food(Species.Cattle)).toBe(20 * food(Species.Chicken));
+    expect(speciesSpec(Species.Cattle).meat).toBe(20);
   });
 });
