@@ -1,7 +1,7 @@
 // Cloudflare Pages middleware for the indev site: a basic-auth gate and
 // search-engine delisting on every page of the Pages project (the play
 // domain, the pages.dev mirror and /balance/). It is a deterrent, not
-// security. The game's data files (/assets/, /models/) skip it, see
+// security. The game's data files (/assets/, /models/, /audio/) skip it, see
 // deploy/pages/static/_routes.json. When the gate comes off, remove the
 // delisting at the same time and add SEO (deploy/README.md).
 

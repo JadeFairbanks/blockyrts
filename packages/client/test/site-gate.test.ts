@@ -70,3 +70,13 @@ describe('indev password gate', () => {
     expect(await res.text()).toBe('User-agent: *\nDisallow: /\n');
   });
 });
+
+describe('indev gate routes', () => {
+  it('lets every folder of game data files skip the gate', async () => {
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const routes = JSON.parse(readFileSync(new URL('../../../deploy/pages/static/_routes.json', import.meta.url), 'utf8')) as { exclude: string[] };
+    // Each folder the client serves from public/ is fetched file by file.
+    const publicDirs = readdirSync(new URL('../public/', import.meta.url), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    for (const dir of ['assets', ...publicDirs]) expect(routes.exclude).toContain(`/${dir}/*`);
+  });
+});
