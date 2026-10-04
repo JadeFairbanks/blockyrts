@@ -498,7 +498,7 @@ export function gainXp(state: SimState, i: number, tenths: number): void {
  * 0 at the top rank, and both are 0 for what never ranks. A mage past Adept
  * Acolyte banks hers until she trains, so hers can pass the need.
  */
-export function xpView(state: SimState, i: number): [number, number] {
+export function rankXp(state: SimState, i: number): readonly [number, number] {
   const e = state.entities;
   const kind = e.kind[i]!;
   const ladder = kind === UnitKind.Worker ? WORKER_XP_TENTHS : kind === UnitKind.Warrior ? WARRIOR_XP_TENTHS : kind === UnitKind.Mage ? MAGE_XP_TENTHS : null;

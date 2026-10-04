@@ -40,7 +40,7 @@ import {
   workXp,
   WU_PER_COLUMN,
   WU_PER_METRE,
-  xpView,
+  rankXp,
   type Building,
   type Order,
   type SimEvent,
@@ -203,16 +203,16 @@ describe('worker ranks (Patch 3)', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const w = firstWorker(s);
-    expect(xpView(s, w)).toEqual([0, 50]);
+    expect(rankXp(s, w)).toEqual([0, 50]);
     gainXp(s, w, 525);
-    expect(xpView(s, w)).toEqual([52, 150]);
+    expect(rankXp(s, w)).toEqual([52, 150]);
     gainXp(s, w, 100000);
-    expect(xpView(s, w)).toEqual([Math.floor(e.xp[w]! / 10), 0]);
+    expect(rankXp(s, w)).toEqual([Math.floor(e.xp[w]! / 10), 0]);
     const [x, z] = field(s);
     const war = addWarrior(s, 0, x, z);
-    expect(xpView(s, war)).toEqual([0, WARRIOR_XP_TENTHS[2]! / 10]);
+    expect(rankXp(s, war)).toEqual([0, WARRIOR_XP_TENTHS[2]! / 10]);
     const cat = addEngine(s, 0, Engine.Catapult, x, z);
-    expect(xpView(s, cat)).toEqual([0, 0]);
+    expect(rankXp(s, cat)).toEqual([0, 0]);
   });
 });
 
