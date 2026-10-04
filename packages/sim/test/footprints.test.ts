@@ -264,10 +264,10 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     const said: string[] = [];
     for (let k = 0; k < 60; k++) {
       step(s);
-      for (const ev of s.events) if (ev.kind === 'speech' && ev.speaker === w) said.push(ev.text);
+      for (const ev of s.events) if ((ev.kind === 'speech' || ev.kind === 'question') && ev.speaker === w) said.push(ev.text);
     }
     expect(said.length).toBe(1);
-    expect(["I'm not much help up here!", 'Let me get down there to fight those zombies!']).toContain(said[0]);
+    expect(["I'm not much help up here!", 'Let me down to fight those zombies?']).toContain(said[0]);
   });
 
   it('has a warrior want to get down only to monsters on the ground, not to flyers', () => {
@@ -277,10 +277,11 @@ describe('manning towers and main base tops (patch notes 1)', () => {
       const w = ids(s, UnitKind.Warrior).find((id) => (id + Math.floor(s.step / (90 * 20))) % 3 === 0)!;
       const i = s.entities.indexOf(w);
       sayUpTop(s, i, foe(s));
-      return s.events.filter((ev) => ev.kind === 'speech' && ev.speaker === w).map((ev) => (ev.kind === 'speech' ? ev.text : ''))[0] ?? '';
+      // Patch 2: the eager one asks (a question with Yes and No); the others say so in a bubble.
+      return s.events.filter((ev) => (ev.kind === 'speech' || ev.kind === 'question') && ev.speaker === w).map((ev) => ev.text)[0] ?? '';
     };
-    expect(said((s) => addMob(s, Mob.Zombie, 0, s.entities.x[0]! + 8 * WU_PER_METRE, s.entities.z[0]!, 0))).toBe('Let me get down there to fight those zombies!');
-    expect(said((s) => addMob(s, Mob.GiantRat, 0, s.entities.x[0]! + 8 * WU_PER_METRE, s.entities.z[0]!, 0))).toBe('Let me get down there to fight those giant rats!');
+    expect(said((s) => addMob(s, Mob.Zombie, 0, s.entities.x[0]! + 8 * WU_PER_METRE, s.entities.z[0]!, 0))).toBe('Let me down to fight those zombies?');
+    expect(said((s) => addMob(s, Mob.GiantRat, 0, s.entities.x[0]! + 8 * WU_PER_METRE, s.entities.z[0]!, 0))).toBe('Let me down to fight those giant rats?');
     expect(said(() => -1)).toBe("I'm not much help up here!");
   });
 

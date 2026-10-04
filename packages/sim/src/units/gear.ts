@@ -110,8 +110,8 @@ export function pendingKitUp(state: SimState, i: number, line: number): KitUpOrd
   return state.entities.queue[i]!.find((q): q is KitUpOrder => q.t === 'kitUp' && q.line === line);
 }
 
-/** Puts an order in front of whatever the unit was doing. */
-function inFront(state: SimState, i: number, o: UnitOrder): void {
+/** Puts an order in front of whatever the unit was doing, so it carries on after. */
+export function inFront(state: SimState, i: number, o: UnitOrder): void {
   const e = state.entities;
   e.queue[i]!.unshift(o);
   e.act[i] = Act.Start;
@@ -316,7 +316,8 @@ export function runCart(state: SimState, i: number, o: CartOrder): boolean {
       pool[o.res] = pool[o.res]! - 1;
       e.kit[i] = o.res;
     } else {
-      say(state, i, 'That cart is gone!');
+      // An order that failed: it needs the player (Patch 2, What reaches chat).
+      say(state, i, 'That cart is gone!', true);
     }
   }
   return true;
