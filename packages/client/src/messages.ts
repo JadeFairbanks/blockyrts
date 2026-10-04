@@ -193,9 +193,8 @@ export interface BuildingInfo {
   /** Production queue: product and per mille done (the first only). */
   queue: Array<{ product: number; done: number }>;
   rally: RallyPoint[];
-  /** Lights: lit now, and steps of fuel left. */
+  /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
   lit: boolean;
-  fuelLeft: number;
   /** Workers assigned (farmers, mill hands) and at work now. */
   assigned: number;
   working: number;

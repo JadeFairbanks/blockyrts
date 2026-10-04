@@ -30,7 +30,7 @@ const LINE_KINDS: ReadonlySet<number> = new Set([
   BuildingKind.Ramp,
   BuildingKind.TorchPost,
   BuildingKind.WallTorch,
-  BuildingKind.Brazier,
+  BuildingKind.Bonfire,
   BuildingKind.Lantern,
 ]);
 

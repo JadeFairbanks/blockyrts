@@ -1707,7 +1707,7 @@ export class GameShell {
       case 'dropoff':
       case 'enter':
       case 'job':
-      case 'refuel':
+      case 'relight':
       case 'train': {
         const b = this.game.buildings.get(o.b);
         if (!b) return null;

@@ -380,9 +380,14 @@ export function makeLook(kind: number, level: number, variant: number, team: num
       p.box(w / 2 - 0.05, 1.2, d / 2 - 0.05, 0.1, 0.4, 0.1, C.iron);
       p.flame(w / 2, 1.7, d / 2);
       break;
-    case BuildingKind.Brazier:
-      p.cyl(w / 2, 0, d / 2, 0.12, 0.9, C.iron).cyl(w / 2, 0.9, d / 2, 0.4, 0.25, C.iron, 10);
-      p.flame(w / 2, 1.3, d / 2);
+    case BuildingKind.Bonfire:
+      // A ring of stones round a stack of logs, no spit (Jade): drawn until the campfire model stands in for it.
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        p.box(w / 2 + Math.cos(a) * 0.55 - 0.1, 0, d / 2 + Math.sin(a) * 0.55 - 0.1, 0.2, 0.18, 0.2, C.stone);
+      }
+      for (let k = 0; k < 3; k++) p.log(w / 2 - 0.45, 0.12 + k * 0.16, d / 2 - 0.2 + (k % 2) * 0.4, 0.09, 0.9, C.darkWood);
+      p.flame(w / 2, 0.6, d / 2);
       break;
     case BuildingKind.Cooking:
       if (level === 1) {

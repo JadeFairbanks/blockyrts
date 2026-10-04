@@ -338,7 +338,6 @@ describe('Counterspell', () => {
       let g = -1;
       for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.GoblinMage) g = i;
       const torch = placeBuilding(s, 0, BuildingKind.TorchPost, 0, Math.floor(e.x[g]! / WU_PER_COLUMN) + 20, Math.floor(e.z[g]! / WU_PER_COLUMN), true);
-      torch.fuelUntil = s.step + 5000;
       s.players[0]!.research |= 1 << Research.Hexcraft;
       if (counter) {
         const m = addMage(s, 0, e.x[g]! - 10 * M, e.z[g]!, School.Battle);
@@ -349,7 +348,7 @@ describe('Counterspell', () => {
       spend(s, g, Ability.Snuff);
       beginSpell(s, g, torch.id, SpellWith.Snuff);
       run(s, 2 * SEC);
-      expect(isLit(torch, s.step)).toBe(counter);
+      expect(isLit(torch)).toBe(counter);
       expect(e.mana[g]!).toBeLessThan(before);
     }
   });

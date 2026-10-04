@@ -165,7 +165,7 @@ function outlyingList(state: SimState, player: number): Array<[number, number]> 
   for (const b of state.buildings.list) {
     if (b.owner !== player) continue;
     const light = buildingSpec(b.kind).light;
-    if (!light || light.outlyingHalves === 0 || !isLit(b, state.step)) continue;
+    if (!light || light.outlyingHalves === 0 || !isLit(b)) continue;
     if (nearMainBase(state, b, OUTLYING_M)) continue;
     out.push(buildingCentre(b));
   }

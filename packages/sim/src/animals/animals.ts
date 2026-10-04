@@ -8,7 +8,7 @@
 // or the Stables by night, breed there and can be slaughtered.
 
 import { BuildingKind, buildingName, OUTLYING_M } from '../buildings/data.ts';
-import { buildingCentre, dist2, nearMainBase } from '../buildings/lights.ts';
+import { buildingCentre, dist2, isLit, nearMainBase, snuffLight } from '../buildings/lights.ts';
 import { placedDims, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { Res, type Cost } from '../economy/resources.ts';
@@ -581,12 +581,12 @@ function motherOfCub(state: SimState, i: number): boolean {
   return false;
 }
 
-/** The nearest lit torch post or wall torch out beyond the base (Light and torches: outlying), within a badger's reach. */
+/** The nearest lit torch post out beyond the base (Light and torches: outlying), within a badger's reach. */
 function outlyingTorch(state: SimState, x: number, z: number): Building | undefined {
   let best: Building | undefined;
   let bestD = 0;
   for (const b of state.buildings.list) {
-    if ((b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.WallTorch) || !b.complete || b.fuelUntil <= state.step) continue;
+    if (b.kind !== BuildingKind.TorchPost || !isLit(b)) continue;
     const [bx, bz] = buildingCentre(b);
     const d = dist2(bx, bz, x, z);
     if (d > BADGER_REACH_WU * BADGER_REACH_WU || (best && d >= bestD)) continue;
@@ -597,9 +597,9 @@ function outlyingTorch(state: SimState, x: number, z: number): Building | undefi
   return best;
 }
 
-/** A badger knocks a torch over (roster 6): it goes out and loses half its health (s). */
+/** A badger knocks a torch over (roster 6): it goes out until a worker relights it, and loses half its health (s). */
 function knockOver(state: SimState, b: Building, x: number, z: number): void {
-  b.fuelUntil = state.step;
+  snuffLight(b);
   b.hp = Math.max(1, b.hp >> 1);
   state.events.push({ player: b.owner, kind: 'alert', text: 'A badger knocked over an outlying torch. Relight it.', x, z });
 }

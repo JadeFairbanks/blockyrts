@@ -257,7 +257,6 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
 /** Buildings, the pool, order lists and events: what the HUD shows besides the units. */
 function postInfo(s: SimState): void {
   const buildings: BuildingInfo[] = s.buildings.list.map((b) => {
-    const light = BUILDINGS[b.kind]!.light;
     const total = workSteps(b.kind, 1);
     return {
       id: b.id,
@@ -276,8 +275,7 @@ function postInfo(s: SimState): void {
       upgraded: b.upgrading ? Math.min(1000, Math.floor((b.upProgress * 1000) / workSteps(b.kind, b.upgrading))) : 0,
       queue: b.queue.map((q, k) => ({ product: q.product, done: k === 0 ? Math.min(1000, Math.floor((q.progress * 1000) / Math.max(1, productSteps(s, b, q.product) * (q.product >= RESEARCH_PRODUCT && q.product < RECIPE_PRODUCT ? 4 : 1)))) : 0 })),
       rally: b.rally.map((r) => ({ ...r })),
-      lit: isLit(b, s.step),
-      fuelLeft: light && b.complete ? Math.max(0, b.fuelUntil - s.step) : 0,
+      lit: isLit(b),
       assigned: assigned(s, b.id).length,
       working: b.complete ? workersAt(s, b) : 0,
       inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
