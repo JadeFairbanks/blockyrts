@@ -539,6 +539,10 @@ Mini balance 2 (2026-10-04, Jade's editor export "mini balance.json"; picks in m
 - Smelting a copper or tin ingot burns 1 charcoal, 1 coal, 2 hardwood or 4 softwood (lumber was 1).
 - Bronze research no longer needs a tin ingot smelted first; bronze ingots are still made at the Forge from copper and tin ingots once it is done. Saves from before are refused (snapshot 20).
 
+Indev 0.8 (2026-10-04, Jade; in build):
+
+- Action card size (picks in action-menu-size-picks.md): the card holds twelve buttons before it grows upward; the buttons shrink to the size at which twelve fill the card at its standard size (70 px on a 6-column card, 89 px on a 10-column one) instead of stopping at 104 px, so the workers' card fits without growing; six buttons look as before, and a phone keeps 104 px (see Command card and hotkeys). Saves from indev 0.7 are refused (save format 7).
+
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
 - Redeploy the live site with the latest main.
@@ -1455,6 +1459,8 @@ The numbers are in the balance editor's Units group, under Making room.
   - Food for training: idle or holding warriors near the button's building go hunting ("We need 30 more food for training. Shall we go hunting?"), else a worker fishes.
   - When the one who would answer cannot do it now either, the reason it cannot is asked for instead, two steps down at most: the Longhall short of stone has a worker ask for the stone. A resource wanted twice is asked for once, both amounts together: "We need 140 more softwood lumber for the Barracks and the Longhall."
   - At most 4 questions a click, one per speaker; a speaker already asking something is passed over. Nothing is asked when no one can sort a reason out. The same click again while its questions are up does nothing; another click ends them. They are questions like any other (see Questions), but they answer a click, so they do not count toward the 3 a player may have open (s).
+
+**Indev 0.8 (Jade, 2026-10-04).** The card holds twelve buttons before it grows upward (Jade asked for 9 to 15, 10 to 12 by preference, with the buttons' minimum size lowered and a card of six looking as it did). The buttons are still squares as big as fit the card at its standard size; their minimum is now the size at which twelve fill it (s: twelve make a full grid on every desktop card width, 4 by 3 or 6 by 2): 66 px on a 5-column card, 70 px on 6 to 8 columns (7 and 8 columns hold 15 and 18 at that size before growing), 80 px on 9 and 89 px on 10, never above Patch 2's 104 px nor under 52 px. Past that the card grows upward just enough, at the minimum, as before. Every card that fitted at 104 px is unchanged, so six buttons are still two rows of three at 108 px, and the card is never smaller than with nothing selected. A phone keeps the 104 px minimum, so its buttons stay big enough for a thumb (s).
 
 Before Patch 2 (kept for the record; the bullets below are the card live before Patch 2): the command card is a grid of 15 buttons in 3 rows of 5 showing everything the selection can do. Each button shows its hotkey in the corner. Outside the build menus, hotkeys are letters named after the command:
 

@@ -2208,7 +2208,8 @@ portrait next to the card. The tinkering hook is `tinker(state, i, steps)` in
 3. **The workers' card.** Select the four workers: Move, Gather, Unload,
    Repair, Dig, Prospect, Build, Eat, Upgrade equipment, Rank, Cart. Eleven
    buttons do not fit at the minimum size, so the card grows upward to hold
-   them, still squares. Press B: one build menu, the fourteen buildings on
+   them, still squares (from indev 0.8 the card holds twelve before it
+   grows, so they fit; see the action card's twelve below). Press B: one build menu, the fourteen buildings on
    the grid keys, with walls, gates, towers and earthworks under Defences and
    the torch post and bonfire under Lights; B is Back.
 4. **Attack on a friend.** Select a warrior, press A and click one of your
@@ -2682,6 +2683,38 @@ blueprint/patch3-lair-alerts-picks.md. The alert is
 5. **The balance editor** (once republished from main) has
    LAIR_PING_STEPS (6 s), "Minimap ping at a new lair lasts", under Lairs,
    tribes and villages, Lair alerts.
+
+## How a tester checks the action card's twelve (indev 0.8)
+
+*Jade, 2026-10-04: the action card should hold more buttons before it grows
+upward, 9 to 15 (10 to 12 by preference), by lowering the buttons' minimum
+size, with a card of six looking as it did. The card now holds twelve: its
+buttons shrink until twelve fill it at its standard size, and only past that
+does it grow upward, at that size. Picks in
+blueprint/action-menu-size-picks.md. The rule is `CARD_HOLDS` and
+`buttonMin` in `packages/client/src/hud/hud-layout.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/hud-layout.test.ts:
+   twelve fill a clean grid at the card's standard size on every desktop
+   card width (5 to 10 columns), the buttons only shrink up to twelve and
+   then keep their size as the card grows, every card that fitted at 104 px
+   before is exactly as it was, the card is never smaller than with nothing
+   selected, and a phone keeps the 104 px minimum.
+2. **Six stay as they were.** `pnpm dev` on a screen about 1440 px wide,
+   open http://localhost:5173/?seed=1 and select the three warriors: six
+   buttons, two rows of three at 108 px, the card at its size with nothing
+   selected (356 by 244 px), as before.
+3. **The workers fit.** Select the four workers: their ten buttons sit in
+   three rows of four at 70 px and the card does not grow (before: four
+   rows of three at 104 px, the card grown two rows upward). Select a building with
+   seven buttons, such as the Big House: two rows of four at 80 px.
+4. **Past twelve.** Press B with the workers selected: the build menu's
+   fifteen buttons keep 70 px and the card grows upward to four rows of four.
+   On a 1920 px screen the minimum is 89 px (twelve as two rows of six), so
+   the workers' ten are two rows of five at 108 px and the build menu three
+   rows of five at 89 px.
+5. **Saves.** A save from indev 0.7 is refused: "That save is from an older
+   version of the game. Start a new game." (save format 7).
 
 ## How a tester checks the steady shadows
 
