@@ -157,42 +157,42 @@ const LIST: readonly Base[] = [
   // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1).
   sp({ name: 'Hare', model: 'hare', youngVariant: 'young', nature: Nature.Shy, hp: 20, damage: 0, attackSteps: ds(10), reach: m(5), walk: mps(15), run: mps(60), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 4 }),
   sp({ name: 'Deer', model: 'deer', youngVariant: 'young', nature: Nature.Shy, hp: 40, damage: 0, attackSteps: ds(10), reach: m(10), walk: mps(15), run: mps(70), halfWidth: m(4), height: m(14), meat: 4, extra: [[Res.Hides, 2]], bands: [H, F, D], perCell: 3, groupMin: 2, groupMax: 4 }),
-  sp({ name: 'Wild boar', model: 'wild_boar', nature: Nature.FightsBack, hp: 90, armourBp: 1000, damage: 12, attackSteps: ds(12), reach: m(12), walk: mps(15), run: mps(45), halfWidth: m(4), height: m(9), meat: 3, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 2, groupMin: 1, groupMax: 3 }),
+  sp({ name: 'Wild boar', model: 'wild_boar', nature: Nature.FightsBack, hp: 40, armourBp: 1000, damage: 8, attackSteps: ds(12), reach: m(12), walk: mps(15), run: mps(45), halfWidth: m(4), height: m(9), meat: 3, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 2, groupMin: 1, groupMax: 3 }),
   // Other wild creatures (roster 6.1).
   sp({ name: 'Wolf', model: 'wolf', youngVariant: 'young', nature: Nature.Pack, hp: 70, damage: 10, attackSteps: ds(10), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(4), height: m(8), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 3, groupMax: 5 }),
-  sp({ name: 'Lynx', model: 'lynx', nature: Nature.Stalker, hp: 60, damage: 10, attackSteps: ds(9), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(3), height: m(6), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
-  sp({ name: 'Giant frog', model: 'giant_frog', nature: Nature.Territorial, hp: 70, damage: 8, attackSteps: ds(12), reach: m(40), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(6), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
-  sp({ name: 'Crocodile', model: 'crocodile', nature: Nature.Territorial, hp: 220, armourBp: 3000, damage: 22, attackSteps: ds(18), reach: m(15), walk: mps(10), run: mps(25), swim: mps(50), halfWidth: m(6), height: m(5), meat: 3, extra: [[Res.Hides, 2]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
-  sp({ name: 'Giant crab', model: 'giant_crab', nature: Nature.FightsBack, hp: 80, armourBp: 4000, damage: 10, attackSteps: ds(13), reach: m(12), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(5), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
-  sp({ name: 'Badger', model: 'badger', nature: Nature.TorchBreaker, hp: 30, damage: 5, attackSteps: ds(10), reach: m(10), walk: mps(12), run: mps(25), halfWidth: m(3), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 1, groupMin: 1, groupMax: 1 }),
+  sp({ name: 'Lynx', model: 'lynx', nature: Nature.Stalker, hp: 36, damage: 8, attackSteps: ds(9), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(3), height: m(6), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
+  sp({ name: 'Giant frog', model: 'giant_frog', nature: Nature.Territorial, hp: 50, damage: 6, attackSteps: ds(12), reach: m(40), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(6), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
+  sp({ name: 'Crocodile', model: 'crocodile', nature: Nature.Territorial, hp: 180, armourBp: 3000, damage: 15, attackSteps: ds(18), reach: m(15), walk: mps(10), run: mps(25), swim: mps(50), halfWidth: m(6), height: m(5), meat: 3, extra: [[Res.Hides, 2]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
+  sp({ name: 'Giant crab', model: 'giant_crab', nature: Nature.FightsBack, hp: 50, armourBp: 4000, damage: 6, attackSteps: ds(13), reach: m(12), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(5), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
+  sp({ name: 'Badger', model: 'badger', nature: Nature.TorchBreaker, hp: 20, damage: 5, attackSteps: ds(10), reach: m(10), walk: mps(12), run: mps(25), halfWidth: m(3), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 1, groupMin: 1, groupMax: 1 }),
   // Bears (doc; Table 14's tamed bear for the numbers): never tamed, one pair and cubs per Deepwoods cell, 60 at most.
-  sp({ name: 'Bear', model: 'bear', youngVariant: 'cub', nature: Nature.Bear, hp: 400, armourBp: 1500, damage: 25, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(60), halfWidth: m(7), height: m(15), meat: 8, extra: [[Res.Hides, 2]], bands: [D], perCell: 1 }),
+  sp({ name: 'Bear', model: 'bear', youngVariant: 'cub', nature: Nature.Bear, hp: 200, armourBp: 1500, damage: 16, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(60), halfWidth: m(7), height: m(15), meat: 8, extra: [[Res.Hides, 2]], bands: [D], perCell: 1 }),
   // Territorial creatures (roster 6 and 6.1). Where they guard and how far they chase are mine (s): beetles 8 m and give up at 20 m,
   // a hornet nest 8 m and chases 60 m, vipers wait hidden until a unit is 3 m off, scorpions roam 25 m round their spot, and
   // griffins and minotaurs, once disturbed within 20 m and 15 m, hunt to the death.
   sp({
-    name: 'Giant beetle', model: 'giant_beetle', nature: Nature.Territorial, hp: 120, armourBp: 4000, damage: 14, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(30), halfWidth: m(6), height: m(6),
+    name: 'Giant beetle', model: 'giant_beetle', nature: Nature.Territorial, hp: 60, armourBp: 4000, damage: 4, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(30), halfWidth: m(6), height: m(6),
     meat: 0, bands: [F], perCell: 1, groupMin: 1, groupMax: 2, guard: m(80), chase: m(200), loot: [{ res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   }),
   sp({
-    name: 'Giant hornet', model: 'giant_hornet', nature: Nature.Nest, hp: 40, damage: 12, attackSteps: ds(15), reach: m(10), walk: mps(20), run: mps(60), halfWidth: m(3), height: m(3),
+    name: 'Giant hornet', model: 'giant_hornet', nature: Nature.Nest, hp: 10, damage: 4, attackSteps: ds(15), reach: m(10), walk: mps(20), run: mps(60), halfWidth: m(3), height: m(3),
     meat: 0, bands: [D], perCell: 1, groupMin: 3, groupMax: 5, guard: m(80), chase: m(600), loot: [{ res: Res.Venom, min: 1, max: 1, chancePm: 200 }],
   }),
   sp({
-    name: 'Viper', model: 'viper', nature: Nature.Territorial, hp: 50, damage: 6, attackSteps: ds(12), reach: m(15), walk: mps(8), run: mps(15), halfWidth: m(2), height: m(2),
+    name: 'Viper', model: 'viper', nature: Nature.Territorial, hp: 40, damage: 5, attackSteps: ds(12), reach: m(15), walk: mps(8), run: mps(15), halfWidth: m(2), height: m(2),
     meat: 0, extra: [[Res.Hides, 1]], bands: [B], perCell: 2, groupMin: 1, groupMax: 1, guard: m(30), chase: m(100), venom: 20, loot: [{ res: Res.Venom, min: 1, max: 1, chancePm: 300 }],
   }),
   sp({
-    name: 'Giant scorpion', model: 'giant_scorpion', nature: Nature.Territorial, hp: 110, armourBp: 3500, damage: 10, attackSteps: ds(12), reach: m(15), walk: mps(12), run: mps(30), halfWidth: m(6), height: m(5),
+    name: 'Giant scorpion', model: 'giant_scorpion', nature: Nature.Territorial, hp: 40, armourBp: 3500, damage: 6, attackSteps: ds(12), reach: m(15), walk: mps(12), run: mps(30), halfWidth: m(6), height: m(5),
     meat: 0, bands: [B], perCell: 1, groupMin: 1, groupMax: 2, guard: m(80), chase: m(250), roam: m(250), venom: 25,
     loot: [{ res: Res.Venom, min: 1, max: 1, chancePm: 400 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   }),
   sp({
-    name: 'Griffin', model: 'griffin', nature: Nature.Hunter, hp: 600, armourBp: 2000, damage: 35, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(40), halfWidth: m(10), height: m(18),
+    name: 'Griffin', model: 'griffin', nature: Nature.Hunter, hp: 300, armourBp: 2000, damage: 20, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(40), halfWidth: m(10), height: m(18),
     meat: 4, extra: [[Res.Feathers, 6]], bands: [B, X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(200), loot: [{ res: Res.Gold, min: 1, max: 1, chancePm: 50 }],
   }),
   sp({
-    name: 'Minotaur', model: 'minotaur', nature: Nature.Hunter, hp: 900, armourBp: 3000, damage: 45, attackSteps: ds(20), reach: m(25), walk: mps(15), run: mps(35), halfWidth: m(8), height: m(26),
+    name: 'Minotaur', model: 'minotaur', nature: Nature.Hunter, hp: 250, armourBp: 3000, damage: 30, attackSteps: ds(20), reach: m(25), walk: mps(15), run: mps(35), halfWidth: m(8), height: m(26),
     meat: 5, extra: [[Res.Hides, 3]], bands: [X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(150), loot: [{ res: Res.Gold, min: 2, max: 2, chancePm: 100 }],
   }),
   // Wild birds (s): geese in flocks by Heartland water, pheasants in the Fringe woods; hunted with N like deer, for meat and feathers.
