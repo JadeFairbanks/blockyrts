@@ -15,6 +15,7 @@ import {
   createWorld,
   CHUNK_SHIFT,
   CYCLE_STEPS,
+  DebugThreat,
   deserializeState,
   hashState,
   hurtUnit,
@@ -475,6 +476,24 @@ describe('mining', () => {
     // And back down it goes.
     runUntil(s, () => e.inside[i] === shaft.id, 60 * SEC);
     expect(e.queue[i]![0]).toEqual({ t: 'job', b: shaft.id });
+  });
+
+  it("the tester tools' Mine kit puts a finished Mineshaft and a Storehouse beside it, with Deep Mining I (Patch 2)", () => {
+    const s = createWorld(1, { peaceful: true });
+    const base = bigHouse(s);
+    const [x, z] = buildingCentre(base);
+    run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.MineKit, x: x + 40 * WU_PER_METRE, z }]);
+    const shaft = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.Mineshaft)!;
+    const store = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.Storehouse)!;
+    expect([shaft.complete, store.complete]).toEqual([true, true]);
+    expect(store.x).toBeGreaterThan(shaft.x);
+    expect(base.level).toBeGreaterThanOrEqual(4);
+    expect(s.players[0]!.research & (1 << Research.DeepMining1)).not.toBe(0);
+    // A worker assigned to it goes down the shaft.
+    const [a] = workers(s);
+    const i = s.entities.indexOf(a!);
+    run(s, 1, [{ kind: 'assign', player: 0, units: [a!], building: shaft.id }]);
+    runUntil(s, () => s.entities.inside[i] === shaft.id, 60 * SEC);
   });
 });
 

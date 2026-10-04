@@ -74,6 +74,8 @@ export const DebugThreat = {
   Citadel: 53,
   /** A finished Barracks and Forge at the spot, the main base raised to level 7 if lower (the Forge's steel step), the materials of every tier, 300 farm fare, and the research every tier needs (Troops and gear). */
   TroopKit: 54,
+  /** A finished Mineshaft centred on the spot and a finished Storehouse beside it, Deep Mining I researched and the main base raised to level 4 if lower (Patch 2: assign workers and watch them carry their bags). */
+  MineKit: 55,
   /** Night mobs from night 25 on, in roster order from 60 (LATE_MOBS). */
   LateMob: 60,
   /** Morvath, the Hollow Crown. */
@@ -189,6 +191,16 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     ];
     for (const [r, n] of stock) p.pool[r] = p.pool[r]! + n;
     for (const r of [Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets]) p.research |= 1 << r;
+    return;
+  }
+  if (what === DebugThreat.MineKit && p) {
+    const cx = floorDiv(x, WU_PER_COLUMN);
+    const cz = floorDiv(z, WU_PER_COLUMN);
+    const md = footprintDims(BuildingKind.Mineshaft, 0);
+    placeBuilding(state, player, BuildingKind.Mineshaft, 0, cx - (md.w >> 1), cz - (md.d >> 1), true);
+    placeBuilding(state, player, BuildingKind.Storehouse, 0, cx + (md.w >> 1) + 4, cz - (footprintDims(BuildingKind.Storehouse, 0).d >> 1), true);
+    raiseMainBase(state, player, 4);
+    p.research |= 1 << Research.DeepMining1;
     return;
   }
   if (what === DebugThreat.Citadel) {

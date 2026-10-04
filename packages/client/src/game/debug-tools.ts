@@ -138,6 +138,10 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.TroopKit);
     shell.message('Debug: a Barracks, a Forge, a level 7 main base and the stock for every tier.');
   });
+  add('dbg-mine', 'Mine kit', 'Debug: mine kit', 'Puts a finished Mineshaft in the middle of the view and a finished Storehouse beside it, researches Deep Mining I and raises your main base to level 4 if it is lower. Right click the shaft with workers to make them miners: each goes down, fills a 25 lb bag and carries it to the nearer of the Storehouse and your main base (Patch 2).', () => {
+    threat(DebugThreat.MineKit);
+    shell.message('Debug: a Mineshaft and a Storehouse placed in the middle of the view.');
+  });
   add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
     threat(DebugThreat.Citadel);
     shell.message('Debug: your main base is a Citadel now.');
