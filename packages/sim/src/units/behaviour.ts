@@ -66,7 +66,7 @@ export const NODE_SEARCH_COLUMNS = floorDiv(NODE_SEARCH_M * WU_PER_METRE, WU_PER
 /** Double-tapped Repair looks this far for damaged buildings (s). */
 export const REPAIR_SEARCH_M = 30;
 /** A follower stays within this distance of its leader. */
-const FOLLOW_WU = 2 * WU_PER_METRE + (WU_PER_METRE >> 1);
+export const FOLLOW_WU = 2 * WU_PER_METRE + (WU_PER_METRE >> 1);
 /** Workers flee this far from an attacker (Table 1). */
 export const FLEE_M = 10;
 /** Builders that can work on one building at once (number tables, header: 4, or 8 on a main base). */

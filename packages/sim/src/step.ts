@@ -37,6 +37,7 @@ import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
 import { crewHooks, updateQuestions } from './units/questions.ts';
+import { updateSpacing } from './units/spacing.ts';
 
 installDeathHooks();
 installAnimalHooks();
@@ -166,6 +167,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
     else if (e.kind[i] === UnitKind.Engine) runEngine(state, i);
     else runUnit(state, i);
   }
+  // Bodies standing on top of one another make room (Jade's Patch 3).
+  updateSpacing(state);
   trackRuns(state);
   updateProjectiles(state);
   updateSun(state);
