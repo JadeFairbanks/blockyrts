@@ -53,7 +53,7 @@ export const LOOT_BRAG_PCT = 200;
 /** So is any drop as rare as 5% a kill, or rarer (s). */
 export const LOOT_RARE_PM = 50;
 /** Monsters with this much health or more, and those that come only a few a night, count as rare and powerful: whatever they drop is remarked on (s). */
-export const LOOT_BOSS_HP = 1000;
+export const LOOT_BOSS_HP = 500;
 /** Idle units look about for loot once a second. */
 const THINK_STEPS = STEPS_PER_SECOND;
 
