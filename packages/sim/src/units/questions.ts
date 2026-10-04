@@ -29,7 +29,7 @@ import { UnitKind, type AskInfo, type SimEvent, type SimState } from '../state.t
 import { Role } from '../threats/types.ts';
 import { giveOrder, stopUnit } from './behaviour.ts';
 import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf } from './forage.ts';
-import { inFront, kitHolder, orderUpgrade, pendingKitUp, techOf } from './gear.ts';
+import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, techOf } from './gear.ts';
 import { Line, upgradeTarget, type KitHolder, type TechView } from './kits.ts';
 import { topOf } from './top.ts';
 
@@ -562,25 +562,9 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
   const speakerOk = speaker >= 0 && e.owner[speaker] === player && e.hp[speaker]! > 0;
   switch (o.q) {
     case Ask.Kit: {
+      // Upgrade equipment, as the action menu's button sends it (Patch 2): each unit's best weapon first, then the best armour, the stock pays for.
       const units = own(state, player, o.units).filter((i) => kitHolder(state, i) !== undefined);
-      const pool = state.players[player]!.pool;
-      const tech = techOf(state, player);
-      let sent = 0;
-      let why = '';
-      // The weapons first, then the armour, each to the best the stock pays for (Upgrade Weapon max, then Upgrade Armour max).
-      for (const line of [Line.Weapon, Line.Armour]) {
-        const can = units.filter((i) => {
-          if (pendingKitUp(state, i, line)) return false;
-          const t = upgradeTarget(kitHolder(state, i)!, line, true, pool, tech);
-          if ('why' in t) why ||= t.why;
-          return 'to' in t;
-        });
-        if (can.length > 0) sent += orderUpgrade(state, player, can, line, true);
-      }
-      if (sent === 0 && why) {
-        const who = speakerOk ? speaker : units[0];
-        if (who !== undefined) say(state, who, why, true);
-      }
+      orderUpgradeEquipment(state, player, units);
       return;
     }
     case Ask.Heal: {

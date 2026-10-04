@@ -9,14 +9,17 @@ import { goodIcon } from './inventory-icons.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON } from './unit-icons.ts';
 
 const one = (file: string, badge?: IconBadge, tag?: string): ButtonIcon => ({ layers: [{ file }], ...(badge ? { badge } : {}), ...(tag ? { tag } : {}) });
+/** Two pictures side by side, the first behind and to the left. */
+const pair = (back: string, front: string, badge: IconBadge, backFilter?: string): ButtonIcon => ({
+  layers: [{ file: back, shift: 'left', ...(backFilter ? { filter: backFilter } : {}) }, { file: front, shift: 'right' }],
+  badge,
+});
 
 /** Two swords, one mirrored: crossed. */
 export const ATTACK_ICON: ButtonIcon = { layers: [{ file: 'icon_cmd_attack' }, { file: 'icon_cmd_attack', mirror: true }] };
 
 const ACTION_ICONS: Record<string, ButtonIcon> = {
   attack: ATTACK_ICON,
-  stop: one('icon_cmd_stop'),
-  hold: one('icon_cmd_hold'),
   patrol: one('icon_cmd_patrol'),
   move: one('icon_cmd_move'),
   gather: one('icon_cmd_gather'),
@@ -25,7 +28,7 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   dig: one('icon_cmd_dig'),
   prospect: one('icon_cmd_prospect'),
   build: one('icon_cmd_build_basic'),
-  enter: one('icon_cmd_enter'),
+  port: one('icon_cmd_enter'),
   unload: one('icon_cmd_unload_all'),
   rally: one('icon_cmd_rally'),
   craft: one('icon_cmd_craft'),
@@ -36,7 +39,6 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   eat: one('icon_food'),
   rankUp: one('icon_rank_worker_hand', 'up'),
   mageRank: one('icon_rank_mage_adept_acolyte', 'up'),
-  train: one('icon_train_warrior_cannon_crew'),
   hitch: one('icon_train_horse'),
   cart: one('icon_hand_cart'),
   deeper: one('icon_cmd_dig', 'down'),
@@ -48,13 +50,6 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   trainBattleMage: one(BATTLE_MAGE_ICON),
 };
 
-/** The ranged-or-melee lock's three modes. */
-const LOCK_ICONS: Record<string, ButtonIcon> = {
-  Auto: one('icon_util_auto_equip'),
-  Melee: one('icon_sword_iron_wrought'),
-  Ranged: one('icon_bow'),
-};
-
 /** A spell's picture: its own card icon (Table 13). */
 export function spellIcon(spell: number): ButtonIcon | undefined {
   const s = SPELLS[spell];
@@ -64,7 +59,7 @@ export function spellIcon(spell: number): ButtonIcon | undefined {
 /**
  * A command's picture by its action, for the buttons that did not get one of
  * their own. The face tells the few that change with the state apart: Done
- * against Cancel, Cart back, Let go, a page of a long menu, the lock's mode.
+ * against Cancel, Cart back, Let go, a page of a long menu.
  */
 export function actionIcon(action: string, face: string): ButtonIcon | undefined {
   if (action === 'more') {
@@ -74,17 +69,15 @@ export function actionIcon(action: string, face: string): ButtonIcon | undefined
   if (action === 'cancel' && face === 'Done') return one('icon_cmd_cancel', 'ok');
   if (action === 'cart' && face !== 'Cart') return one('icon_hand_cart', 'down');
   if (action === 'hitch' && face === 'Let go') return one('icon_train_horse', 'cross');
-  if (action === 'lock') return LOCK_ICONS[face];
   if (action.startsWith('spell')) return spellIcon(Number(action.slice(5)));
   return ACTION_ICONS[action];
 }
 
-/** Weapon, armour, tools, wand and robe upgrades: the piece with an arrow (two arrows for the Max twins). */
-export function upgradeIcon(kind: 'worker' | 'warrior' | 'mage', weapon: boolean, max: boolean): ButtonIcon {
-  const badge: IconBadge = max ? 'max' : 'up';
-  if (kind === 'worker') return one('icon_tool_set_bronze', badge);
-  if (kind === 'mage') return weapon ? one('icon_wand_adept_acolyte', badge) : { layers: [{ file: 'icon_armour_leather', filter: 'hue-rotate(230deg) saturate(1.4)' }], badge };
-  return weapon ? one('icon_sword_iron_wrought', badge) : one('icon_armour_bronze_scale', badge);
+/** Upgrade equipment (Jade's Patch 2): the weapon in front of the armour with the double arrow of the best (a worker's tools alone, a mage's wand before her robe). */
+export function equipIcon(kind: 'worker' | 'warrior' | 'mage'): ButtonIcon {
+  if (kind === 'worker') return one('icon_tool_set_bronze', 'max');
+  if (kind === 'mage') return pair('icon_robe_3', 'icon_wand_adept_acolyte', 'max');
+  return pair('icon_armour_bronze_scale', 'icon_sword_iron_wrought', 'max');
 }
 
 /** A research step's picture (the kit draws the main ones; the rest show the lodge's books). */

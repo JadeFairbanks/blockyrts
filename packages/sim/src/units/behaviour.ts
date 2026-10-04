@@ -40,6 +40,7 @@ import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend } from '../siege/engines.ts';
 import { bagEmpty, handIn, lootIdle, runLoot } from './loot.ts';
 import { nextNode, runForage } from './forage.ts';
+import { tinker } from './tinker.ts';
 
 /** Phases of an order. */
 export const Act = {
@@ -1105,7 +1106,7 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   return CONTINUE;
 }
 
-/** A worker relights a light that was put out: 2 s beside it, at no cost (Table 18; Patch 2: lights need no fuel). */
+/** A worker relights a light that was put out: 2 s sitting beside it, at no cost (Table 18; Patch 2: lights need no fuel, and relighting is a timed action, units/tinker.ts). */
 function runRelight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'relight' }>): boolean {
   const e = state.entities;
   const b = state.buildings.get(o.b);
@@ -1118,9 +1119,8 @@ function runRelight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'reli
     e.act[i] = Act.Work;
     e.timer[i] = 0;
   }
-  e.order[i] = OrderKind.Chop;
-  e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < RELIGHT_STEPS) return CONTINUE;
+  // Sitting beside it, tinkering with the bar over its head (Jade's Patch 2 timed actions).
+  if (!tinker(state, i, RELIGHT_STEPS)) return CONTINUE;
   relight(b);
   return DONE;
 }
@@ -1317,6 +1317,8 @@ function runPatrol(state: SimState, i: number, o: Extract<UnitOrder, { t: 'patro
 export function runUnit(state: SimState, i: number): void {
   const e = state.entities;
   e.order[i] = OrderKind.Idle;
+  // A timed action sets it again on each step it goes on (units/tinker.ts).
+  e.tinker[i] = 0;
   // Held by a slime: it cannot act until let go.
   if (e.heldUntil[i]! > state.step) return;
   // Inside a building's walls (a game saved before they were walls): out first.

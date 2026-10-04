@@ -15,26 +15,20 @@ export interface Action {
 }
 
 export const ACTIONS: readonly Action[] = [
+  // Jade's Patch 2 cut Stop (S), Hold Position (H), Enter (E), the four weapon and armour upgrades (Q, X, Z, V), the lock (Y) and Cannon crew training (U).
   { id: 'attack', name: 'Attack', key: 'KeyA', group: 'Units' },
-  { id: 'stop', name: 'Stop', key: 'KeyS', group: 'Units' },
-  { id: 'hold', name: 'Hold Position', key: 'KeyH', group: 'Units' },
   { id: 'patrol', name: 'Patrol', key: 'KeyP', group: 'Units' },
   { id: 'move', name: 'Move', key: 'KeyM', group: 'Units' },
-  { id: 'enter', name: 'Enter', key: 'KeyE', group: 'Units' },
-  // Milestone 11 (Troops and gear): upgrades replace the equipment keys; Max goes as high as research and the stock allow.
-  { id: 'upgradeWeapon', name: 'Upgrade weapon (troops), tools (workers) or wand (mages)', key: 'KeyQ', group: 'Units' },
-  { id: 'upgradeArmour', name: 'Upgrade armour (troops) or robe (mages)', key: 'KeyX', group: 'Units' },
-  { id: 'upgradeWeaponMax', name: 'Upgrade weapon to the best', key: 'KeyZ', group: 'Units' },
-  { id: 'upgradeArmourMax', name: 'Upgrade armour to the best', key: 'KeyV', group: 'Units' },
-  { id: 'lock', name: 'Ranged or melee lock (rangers and brawlers)', key: 'KeyY', group: 'Units' },
-  { id: 'train', name: 'Train cannon crew (troops, at an Artillery workshop)', key: 'KeyU', group: 'Units' },
+  // Upgrade equipment takes the old Upgrade weapon key (s).
+  { id: 'equip', name: 'Upgrade equipment (the best weapon, then armour, the stock pays for)', key: 'KeyQ', group: 'Units' },
   { id: 'hitch', name: 'Hitch an animal or let it go (siege engines and cannons)', key: 'KeyR', group: 'Units' },
+  { id: 'port', name: 'Into a cannon port (cannons)', key: 'KeyE', group: 'Units' },
   { id: 'hunt', name: 'Hunt (warriors go out after game, home by nightfall)', key: 'KeyN', group: 'Units' },
   { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather (workers fetch what the camp needs, home by nightfall)', key: 'KeyG', group: 'Workers' },
-  { id: 'returnCargo', name: 'Return Cargo', key: 'KeyC', group: 'Workers' },
+  { id: 'returnCargo', name: 'Unload (take what they carry to a drop-off)', key: 'KeyC', group: 'Workers' },
   { id: 'repair', name: 'Repair', key: 'KeyR', group: 'Workers' },
   { id: 'dig', name: 'Dig', key: 'KeyD', group: 'Workers' },
   { id: 'prospect', name: 'Prospect', key: 'KeyT', group: 'Workers' },

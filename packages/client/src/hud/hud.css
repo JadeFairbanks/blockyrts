@@ -346,18 +346,37 @@ body.playing * {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Command card (bottom right): the fixed 5 x 3 block at the bottom right, extra slots round it (hud-layout.ts). */
+/* Command card (bottom right): square buttons filled like a book and centred in the card, sized to fill it (Jade's Patch 2, hud-layout.ts fitButtons). */
 .command-card {
-  --card-slot: 52px;
+  --card-slot: 104px;
+  --card-icon: 64px;
+  --card-k: 1.6;
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(5, var(--card-slot));
-  grid-template-rows: repeat(4, var(--card-slot));
+  grid-template-columns: repeat(2, var(--card-slot));
+  grid-template-rows: repeat(2, var(--card-slot));
+  justify-content: center;
+  align-content: center;
   gap: 4px;
   padding: 12px;
   border-right: 0;
   border-bottom: 0;
+}
+/* The pictures, key letters, badges and tags grow with the buttons. */
+.command-card .btn-icon img {
+  width: var(--card-icon);
+  height: var(--card-icon);
+}
+.command-card .btn-badge,
+.command-card .btn-tag {
+  transform: scale(var(--card-k));
+}
+.command-card .btn-badge {
+  transform-origin: 0 0;
+}
+.command-card .btn-tag {
+  transform-origin: 100% 100%;
 }
 .slot {
   position: relative;
@@ -368,7 +387,7 @@ body.playing * {
   inset: -1px;
   align-items: flex-end;
   padding-bottom: 5px;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--card-k, 1));
 }
 .hud-btn.cmd .key {
   font-size: 11px;
@@ -775,7 +794,7 @@ body.playing * {
   color: #ff9a8a;
 }
 .hud-btn.cmd.grid .face {
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--card-k, 1));
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
   text-align: center;
@@ -876,6 +895,30 @@ body.playing * {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+}
+/* The bar over a unit's head while it tinkers beside a building (Jade's Patch 2), under its speech bubble. */
+.tinker-bars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.tinker-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 6px;
+  box-sizing: border-box;
+  border: 1px solid #1a120a;
+  background: rgba(20, 14, 8, 0.75);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.tinker-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(#f2d27a, #c9962e);
 }
 .bubble {
   position: absolute;
@@ -1387,6 +1430,13 @@ body.playing.touch .hud {
 .btn-icon img.mirror {
   transform: scaleX(-1);
 }
+/* Two pictures side by side: the back one up and left, the front one down and right. */
+.btn-icon img.shift-left {
+  transform: translate(-22%, -12%);
+}
+.btn-icon img.shift-right {
+  transform: translate(22%, 12%);
+}
 .btn-badge {
   position: absolute;
   left: 3px;
@@ -1706,7 +1756,7 @@ body.playing.touch .hud {
   font-size: 14px;
 }
 .hud-btn.cmd .key {
-  font-size: 15px;
+  font-size: calc(15px * var(--card-k, 1));
   top: 1px;
   right: 4px;
 }

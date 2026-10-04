@@ -32,18 +32,21 @@ import {
   mobSpec,
   moveSpeed,
   NIGHT_STEPS,
+  OrderKind,
   nightLength,
   nightsSurvived,
   Period,
   placeBuilding,
   placementBlocked,
   Blocked,
+  RELIGHT_STEPS,
   Res,
   Role,
   serializeState,
   sightOf,
   Species,
   step,
+  tinkerProgress,
   UnitKind,
   WILD,
   WU_PER_COLUMN,
@@ -369,7 +372,17 @@ describe('goblin villages', () => {
     let worker = -1;
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) worker = i;
     step(s, [{ kind: 'relight', player: 0, units: [e.id[worker]!], building: t.id }]);
-    runUntil(s, () => isLit(t), 2000);
+    // It sits beside the light tinkering, with the bar over its head (Patch 2's timed actions), for 2 s.
+    let bar = 0;
+    runUntil(
+      s,
+      () => {
+        if (e.order[worker] === OrderKind.Tinker) bar = Math.max(bar, tinkerProgress(s, worker)[1]);
+        return isLit(t);
+      },
+      2000,
+    );
+    expect(bar).toBe(RELIGHT_STEPS);
     expect(s.players[0]!.pool[Res.SoftwoodLumber]).toBe(pool);
   });
 });

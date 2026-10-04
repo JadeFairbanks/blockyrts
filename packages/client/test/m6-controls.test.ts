@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, FOODS, Line, MONSTERS, Product, Res, RESOURCE_COUNT, Spell, UnitKind, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, FOODS, MONSTERS, Product, Res, RESOURCE_COUNT, Spell, UnitKind, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { Commands, type CommandDeps } from '../src/hud/commands.ts';
+import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { ACTIONS, clashes, keyFor } from '../src/input/bindings.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
@@ -86,80 +86,84 @@ const support = [sel('e:5', 'mage:support'), sel('e:6', 'mage:support')];
 const battle = [sel('e:7', 'mage:battle')];
 const warrior = sel('e:3', 'warrior');
 const zombie = sel('e:9', 'mob:0', MONSTERS);
+const button = (card: Card, action: string): CardEntry | undefined => card.find((e) => e.action === action);
 
 describe('the mage card', () => {
-  it('has the movement row, her five spells, then Eat, Rank, Enter and her wand and robe upgrades, each with a button', () => {
+  it("has Attack, Patrol and Move, her five spells, then Eat, Upgrade equipment and Rank (Jade's Patch 2)", () => {
     const { c } = harness(game(), support, 'mage:support');
     const card = c.card();
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Rank', 'Enter', 'Wand +', 'Robe +']);
-    expect(card.slice(5, 10).map((e) => e!.key)).toEqual(['KeyR', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank']);
+    expect(card.slice(3, 8).map((e) => e.key)).toEqual(['KeyR', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
     // A cooldown only delays a spell; rank and research grey it out with the reason.
-    expect(card[6]!.enabled).toBe(true);
-    expect(card[7]!.reason).toBe('Learned at rank 3.');
-    expect(card[9]!.reason).toBe('Needs Hexcraft researched at a Magi Sanctum.');
+    expect(card[4]!.enabled).toBe(true);
+    expect(card[5]!.reason).toBe('Learned at rank 3.');
+    expect(card[7]!.reason).toBe('Needs Hexcraft researched at a Magi Sanctum.');
     // F is Fortify here, so Eat is a click only.
-    expect(card[10]!.key).toBe('');
-    // No room for Max twins: the upgrades are Q and X, and pressing one twice goes to the best.
-    expect([card[13]!.key, card[14]!.key]).toEqual(['KeyQ', 'KeyX']);
+    expect(button(card, 'eat')!.key).toBe('');
+    // One Upgrade equipment for the wand and the robe [before Patch 2 Wand + and Robe +, each pressed twice for the best].
+    const equip = button(card, 'equip')!;
+    expect(equip.key).toBe('KeyQ');
     // A copper-tipped wand and a leather-trimmed robe (tier 2) are copper-age work.
-    expect(card[13]!.reason).toBe('Needs a Forge.');
-    expect(card[14]!.reason).toBe('Needs a Forge.');
-    const keys = card.filter((e) => e && e.key).map((e) => e!.key);
+    expect(equip.reason).toBe('Needs a Forge.');
+    for (const gone of ['stop', 'hold', 'enter', 'upgradeWeapon', 'upgradeArmour']) expect(button(card, gone)).toBeUndefined();
+    const keys = card.filter((e) => e.key).map((e) => e.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('upgrades a wand or a robe a tier at a time, or to the best when pressed twice', () => {
+  it('upgrades the wand, then the robe, to the best the stock pays for in one press', () => {
     const g = game({ pool: [[Res.Sticks, 10], [Res.CopperIngot, 2], [Res.Flax, 6], [Res.Leather, 2]], forge: 1 });
     const { c, sent } = harness(g, support, 'mage:support');
-    const card = c.card();
-    expect(card[13]).toMatchObject({ action: 'upgradeWeapon', name: 'Upgrade wand', enabled: true });
-    expect(card[13]!.description).toContain('the first to Copper-tipped wand (tier 2)');
-    expect(card[14]).toMatchObject({ action: 'upgradeArmour', name: 'Upgrade robe', enabled: true });
-    card[13]!.run(PRESS);
-    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [5, 6], line: Line.Weapon, max: 0 });
-    card[14]!.double!(PRESS);
-    expect(sent.at(-1)).toEqual({ kind: 'upgradeKit', player: ME, units: [5, 6], line: Line.Armour, max: 1 });
+    const equip = button(c.card(), 'equip')!;
+    expect(equip).toMatchObject({ name: 'Upgrade equipment', enabled: true });
+    expect(equip.description).toContain('the best wand, then the best robe');
+    expect(equip.description).toContain('the first to Copper-tipped wand (tier 2)');
+    equip.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [5, 6] });
   });
 
-  it('casts on the unit clicked, and on the best targets when pressed twice', () => {
+  it('casts on the unit clicked, never a heal on an enemy, and on the best targets when pressed twice', () => {
     const { c, sent, messages } = harness(game(), support, 'mage:support');
-    c.card()[5]!.run(PRESS);
+    c.card()[3]!.run(PRESS);
     expect(c.targeting).toMatchObject({ command: 'cast', spell: Spell.Heal });
     c.confirmTarget(zombie, new THREE.Vector3(4, 0, 4));
     expect(sent.length).toBe(0);
-    expect(messages.at(-1)).toBe('Pick one of your units for Heal.');
+    expect(messages.at(-1)).toBe('Heal cannot be cast on an enemy.');
     c.confirmTarget(warrior, null);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [5, 6], spell: Spell.Heal, target: 3, auto: 0 });
     expect(c.targeting).toBeNull();
-    c.card()[5]!.double!(PRESS);
+    c.card()[3]!.double!(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [5, 6], spell: Spell.Heal, target: 0, auto: 1 });
   });
 
-  it('aims an area spell at the ground and an attack at an enemy', () => {
+  it('aims an area spell at the ground and an attack at any unit clicked, an enemy or your own', () => {
     const { c, sent } = harness(game(), battle, 'mage:battle');
     const card = c.card();
-    expect(card.slice(5, 10).map((e) => e!.face)).toEqual(['Bolt', 'Beam', 'Fireball', 'Blast', 'Counter']);
-    card[6]!.run(PRESS);
+    expect(card.slice(3, 8).map((e) => e.face)).toEqual(['Bolt', 'Beam', 'Fireball', 'Blast', 'Counter']);
+    card[4]!.run(PRESS);
     c.confirmTarget(zombie, null);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [7], spell: Spell.Beam, target: 9 });
-    card[7]!.run(PRESS);
+    card[5]!.run(PRESS);
     c.confirmTarget(null, new THREE.Vector3(2, 0, -1));
     expect(sent.length).toBe(1);
-    expect(card[8]!.enabled).toBe(false);
+    expect(card[6]!.enabled).toBe(false);
+    // Jade's Patch 2: a spell used directly on a unit always casts, on your own warrior too.
+    card[4]!.run(PRESS);
+    c.confirmTarget(warrior, null);
+    expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [7], spell: Spell.Beam, target: 3 });
   });
 
   it('sends mages to rank training at a Magi Sanctum, with what each rank takes', () => {
-    const noSanctum = harness(game(), support, 'mage:support').c.card()[11]!;
+    const noSanctum = button(harness(game(), support, 'mage:support').c.card(), 'mageRank')!;
     expect(noSanctum.reason).toBe('Needs a Magi Sanctum.');
     const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.MagiSanctum)] });
     const { c, sent } = harness(g, support, 'mage:support');
-    const rank = c.card()[11]!;
+    const rank = button(c.card(), 'mageRank')!;
     expect(rank.enabled).toBe(true);
     rank.run(PRESS);
     // Adept Acolyte takes 2 mana crystals, which the pool lacks: only the Novice goes.
     expect(sent.at(-1)).toMatchObject({ kind: 'trainRank', units: [6], building: 21 });
     // The battle mage waits on experience for a rank wand.
-    expect(harness(g, battle, 'mage:battle').c.card()[11]!.reason).toBe('Training to Mage needs 300 experience from combat.');
+    expect(button(harness(g, battle, 'mage:battle').c.card(), 'mageRank')!.reason).toBe('Training to Mage needs 300 experience from combat.');
   });
 
   it('trains support and battle mages at the Sanctum on S and M', () => {

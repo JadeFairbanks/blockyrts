@@ -54,6 +54,8 @@ export const OrderKind = {
   Flee: 11,
   /** A mage casting or holding a beam (the clip follows the spell: castSpell, beamUntil). */
   Cast: 12,
+  /** Sitting by a building with its hands at work, the bar over its head filling (Jade's Patch 2: units/tinker.ts). */
+  Tinker: 13,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
@@ -279,6 +281,13 @@ export const UNIT_FIELDS = [
   ['shared', 'u8'],
   /** The step it first went without a meal (Food: starving), or 0 while it is fed; only units that eat (economy/food.ts) ever starve. */
   ['hungry', 'u32'],
+  /**
+   * A timed action beside a building (Jade's Patch 2: eating, upgrading, a
+   * light relit): how many steps it takes, while the unit sits tinkering with
+   * the bar over its head; the steps done are its timer. 0 when it is not
+   * tinkering. units/tinker.ts sets it.
+   */
+  ['tinker', 'u16'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -420,6 +429,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare ability2At: Uint32Array;
   declare lowUntil: Uint32Array;
   declare hungry: Uint32Array;
+  declare tinker: Uint16Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -717,6 +727,13 @@ export interface Projectile {
   damage: number;
   /** Bit 0 blunt, bit 1 fire, bit 2 web. */
   flags: number;
+  /**
+   * The unit it was aimed at (an entity id), or 0: that one it may hit
+   * whatever side it is on, so a shot from Attack used on a friend or a
+   * spell cast on one lands (Jade's Patch 2); every other unit it passes
+   * is hit only if the shooter's side may hit it.
+   */
+  mark: number;
 }
 
 /** A mob still to come tonight: when, what, against whom, and its group's spawn point once chosen. */
