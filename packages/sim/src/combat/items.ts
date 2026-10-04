@@ -8,10 +8,6 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { BuildingKind } from '../buildings/data.ts';
 
-/** The one specialist skill left (Experience and training): crewing a cannon, trained at the Artillery workshop (the Gunnery yard before Patch 2); a bit in a unit's skills. */
-export const Skill = { Cannon: 16 } as const;
-export type Skill = (typeof Skill)[keyof typeof Skill];
-
 /** How a melee weapon hits (Combat, Melee): a stab hits one target, an arc everything in front. */
 export const Hit = { Stab: 0, Arc: 1 } as const;
 export type Hit = (typeof Hit)[keyof typeof Hit];
@@ -161,7 +157,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
   },
   {
     id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), base: 5,
-    opens: 'The catapult and catapult stones at the Artillery workshop; the ballista and its bolts at main base 7.',
+    opens: 'The catapult at the Artillery workshop, and the ballista at main base 7.',
   },
   {
     id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), base: 7, made: Made.PigIron,
@@ -190,7 +186,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
   },
   {
     id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), after: Research.Gunpowder, base: 8,
-    opens: 'The bronze and iron cannons and cannonballs, and cannon crew training, at the Artillery workshop.',
+    opens: 'The bronze and iron cannons at the Artillery workshop.',
   },
 ];
 

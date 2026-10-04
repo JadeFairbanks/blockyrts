@@ -1,7 +1,7 @@
-// Upgrading units (Troops and gear: Upgrading units, Jade 2026-10-03) and
-// specialist training (Table 7: cannon crew at the Artillery workshop, the
-// Gunnery yard before Patch 2). There are
-// no items: Upgrade Weapon and Upgrade Armour raise a line of a unit's kit
+// Upgrading units (Troops and gear: Upgrading units, Jade 2026-10-03). Patch
+// 2 cut the last specialist training, cannon crew: artillery crewmen are
+// trained at the Artillery workshop (siege/data.ts CREWMAN). There are no
+// items: Upgrade Weapon and Upgrade Armour raise a line of a unit's kit
 // one tier, their Max twins to the best tier researched and affordable. The
 // new kit is paid from stock when the button is pressed, the most capable
 // units first (highest rank, then the lowest id), whole steps only; each
@@ -15,10 +15,8 @@ import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { forgeStepOf } from '../buildings/production.ts';
 import { costText, pay, refund, Res } from '../economy/resources.ts';
-import { STEPS_PER_SECOND } from '../fixed.ts';
-import { payFood } from '../economy/food.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
-import { hasResearch, RESEARCH, Research, Skill } from '../combat/items.ts';
+import { RESEARCH } from '../combat/items.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { Role } from '../threats/types.ts';
@@ -26,7 +24,6 @@ import { say } from '../peoples/speech.ts';
 import { partnerOf } from './weight.ts';
 import {
   applyKit,
-  aTroop,
   holderKind,
   Line,
   linePiece,
@@ -43,15 +40,6 @@ import {
 
 type KitUpOrder = Extract<UnitOrder, { t: 'kitUp' }>;
 type CartOrder = Extract<UnitOrder, { t: 'cart' }>;
-
-/**
- * Specialist training by skill bit (Table 7): cannon crew (after Cannons) at
- * the Artillery workshop (Patch 2, until the artillery crewman). Archery, the crossbow, the musket and riding went with
- * the troop types (Troops and gear).
- */
-export const SKILL_TRAINING: Readonly<Record<number, { name: string; food: number; steps: number; research: number; at: number }>> = {
-  [Skill.Cannon]: { name: 'cannon crew', food: 40, steps: 90 * STEPS_PER_SECOND, research: Research.Cannons, at: BuildingKind.ArtilleryWorkshop },
-};
 
 /** A unit's kit as the upgrade rules see it, or undefined for units that have none (mobs, animals, the peoples' units, mercenaries). */
 export function kitHolder(state: SimState, i: number): KitHolder | undefined {
@@ -320,50 +308,5 @@ export function runCart(state: SimState, i: number, o: CartOrder): boolean {
       say(state, i, 'That cart is gone!', true);
     }
   }
-  return true;
-}
-
-// ----- specialist training -----
-
-/** Specialist training (Table 7): the unit goes in, pays the food, and comes out trained. */
-export function runSkill(state: SimState, i: number, o: Extract<UnitOrder, { t: 'skill' }>): boolean {
-  const e = state.entities;
-  const b = state.buildings.get(o.b);
-  const t = SKILL_TRAINING[o.skill];
-  if (!t || !b || b.owner !== e.owner[i] || !b.complete || b.kind !== t.at || e.kind[i] !== UnitKind.Warrior) return true;
-  if ((e.skills[i]! & o.skill) !== 0) return true;
-  if (e.inside[i] !== b.id) {
-    if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
-    const r = walkTo(state, i, besideBuilding(b));
-    if (r === 0) return false;
-    if (r === 2) return true;
-    // One warrior trains at a time; the next waits beside the building (s).
-    for (let j = 0; j < e.count; j++) {
-      if (j !== i && e.inside[j] === b.id && e.queue[j]![0]?.t === 'skill') {
-        e.order[i] = OrderKind.Idle;
-        return false;
-      }
-    }
-    const p = state.players[b.owner]!;
-    if (!hasResearch(p.research, t.research as Research)) {
-      state.events.push({ player: b.owner, kind: 'alert', text: `Training in ${t.name} needs ${RESEARCH[t.research]!.name} researched first.`, x: e.x[i]!, z: e.z[i]! });
-      return true;
-    }
-    if (!payFood(p, t.food)) {
-      state.events.push({ player: b.owner, kind: 'alert', text: `Not enough food to train in ${t.name} (${t.food} food).`, x: e.x[i]!, z: e.z[i]! });
-      return true;
-    }
-    e.inside[i] = b.id;
-    const [x, z] = buildingCentre(b);
-    e.x[i] = x;
-    e.z[i] = z;
-    e.act[i] = Act.Inside;
-    e.timer[i] = 0;
-  }
-  e.order[i] = OrderKind.Idle;
-  e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < t.steps) return false;
-  e.skills[i] = e.skills[i]! | o.skill;
-  state.events.push({ player: b.owner, kind: 'info', text: `${aTroop(e.troop[i]!, e.wTier[i]!, true)} has learned ${t.name} at the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, x: e.x[i]!, z: e.z[i]! });
   return true;
 }

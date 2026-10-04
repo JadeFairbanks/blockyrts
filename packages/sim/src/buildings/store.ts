@@ -22,6 +22,8 @@ export const Product = {
   /** Table 7: a new Novice Acolyte, support or battle, with a hazel wand and a homespun robe. */
   SupportMage: 4,
   BattleMage: 5,
+  /** Patch 2: an artillery crewman, trained at the Artillery workshop (siege/data.ts CREWMAN). */
+  Crewman: 6,
 } as const;
 export type Product = number;
 /**
@@ -100,7 +102,7 @@ export interface Building {
   alerted: number;
   /** Research facilities: how many of them the player had when this one was paid for (each further one costs this much again on top). */
   costMul: number;
-  /** Mineshafts: the prospect rating of the spot (mining.ts Rating), loads brought up so far, and what waits at the shaft to be hauled. */
+  /** Mineshafts: the prospect rating of the spot (mining.ts Rating), loads brought up so far, and what waits at the shaft for a miner's bag. */
   rating: number;
   mined: number;
   stock: Array<[number, number]>;

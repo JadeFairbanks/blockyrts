@@ -15,11 +15,11 @@ import { placeBuilding, refitBuilding, UnitKind, WILD, type SimState } from '../
 import { BuildingKind, FORGE_STEP_BASE } from '../buildings/data.ts';
 import { footprintDims } from '../buildings/footprints.ts';
 import { Res } from '../economy/resources.ts';
-import { Research, Skill } from '../combat/items.ts';
+import { Research } from '../combat/items.ts';
 import { addMob } from '../combat/mob-ai.ts';
 import { maxHealth } from '../buildings/store.ts';
 import { CITADEL_LEVEL, Engine } from '../siege/data.ts';
-import { addEngine } from '../siege/engines.ts';
+import { addEngine, addFullCrew } from '../siege/engines.ts';
 import { summonBoss } from './boss.ts';
 import { BOSS_FIRST_NIGHT } from './types.ts';
 import { MAGE_XP_TENTHS, mageGainXp } from '../magic/mages.ts';
@@ -66,9 +66,9 @@ export const DebugThreat = {
   MageXp: 42,
   /** A finished Barn centred on the spot with 2 grown horses and an ox in its stalls, and 100 farm fare (Patch 2: the Stables' tool). */
   Barn: 50,
-  /** A catapult, a ballista and a bronze cannon at the spot; 20 catapult stones, ballista bolts, cannonballs and gunpowder; Siege engines, Gunpowder, Muskets and Cannons researched. */
+  /** A catapult, a ballista and a bronze cannon at the spot, each with its full crew of artillery crewmen, a finished Artillery workshop south of them to train more, 100 farm fare, and Siege engines, Gunpowder, Muskets and Cannons researched (Patch 2: no munitions). */
   SiegeKit: 51,
-  /** The carbon steel, planks, flint and gunpowder for four musket rangers; the gun research done; every warrior trained as cannon crew. */
+  /** The carbon steel, planks, flint and gunpowder for four musket rangers' kits, and the gun research done (Patch 2: no cannon crew training; artillery crewmen crew cannons). */
   GunKit: 52,
   /** The player's main base becomes a finished Citadel (level 10) with its 4 cannon ports. */
   Citadel: 53,
@@ -162,17 +162,17 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     return;
   }
   if (what === DebugThreat.SiegeKit && p) {
-    for (const [kind, k2] of [[Engine.Catapult, -1], [Engine.Ballista, 0], [Engine.BronzeCannon, 1]] as const) addEngine(state, player, kind, x + k2 * 5 * WU_PER_COLUMN, z);
-    for (const r of [Res.CatapultStone, Res.BallistaBolt, Res.Cannonball, Res.Gunpowder]) p.pool[r] = p.pool[r]! + 20;
+    for (const [kind, k2] of [[Engine.Catapult, -1], [Engine.Ballista, 0], [Engine.BronzeCannon, 1]] as const) addFullCrew(state, addEngine(state, player, kind, x + k2 * 5 * WU_PER_COLUMN, z));
+    const d = footprintDims(BuildingKind.ArtilleryWorkshop, 0);
+    placeBuilding(state, player, BuildingKind.ArtilleryWorkshop, 0, floorDiv(x, WU_PER_COLUMN) - (d.w >> 1), floorDiv(z, WU_PER_COLUMN) + 4, true);
+    p.pool[Res.FarmFare] = p.pool[Res.FarmFare]! + 100;
     for (const r of [Research.SiegeEngines, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
     return;
   }
   if (what === DebugThreat.GunKit && p) {
-    // Four musket rangers' kits (Table 2e) and the research for them and for cannons; the warriors learn cannon crew.
-    for (const [r, n] of [[Res.CarbonSteel, 4], [Res.Planks, 8], [Res.Flint, 4], [Res.Gunpowder, 24]] as const) p.pool[r] = p.pool[r]! + n;
+    // Four musket rangers' kits (Table 2e: a musket takes 1 gunpowder) and the research for them and for cannons.
+    for (const [r, n] of [[Res.CarbonSteel, 4], [Res.Planks, 8], [Res.Flint, 4], [Res.Gunpowder, 4]] as const) p.pool[r] = p.pool[r]! + n;
     for (const r of [Research.Steel, Research.CarbonSteel, Research.Gunpowder, Research.Muskets, Research.Cannons]) p.research |= 1 << r;
-    const e = state.entities;
-    for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.kind[i] === UnitKind.Warrior) e.skills[i] = e.skills[i]! | Skill.Cannon;
     return;
   }
   if (what === DebugThreat.TroopKit && p) {

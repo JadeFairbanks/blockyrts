@@ -314,13 +314,6 @@ export interface EarthworkOrder extends UnitsOrder {
   axis: number;
 }
 
-/** Specialist training at a building (Table 7: cannon crew at the Artillery workshop is skill 16). */
-export interface TrainSkillOrder extends UnitsOrder {
-  kind: 'trainSkill';
-  building: number;
-  skill: number;
-}
-
 /** Debug: puts resources into a player's pool. */
 export interface DebugGiveOrder {
   kind: 'debugGive';
@@ -498,12 +491,6 @@ export interface ProspectOrder extends UnitsOrder {
   z: number;
 }
 
-/** Haul what waits at a mineshaft to the drop-offs, over and over. */
-export interface HaulOrder extends UnitsOrder {
-  kind: 'haul';
-  building: number;
-}
-
 /** F9 Rations: 0 everyone eats, 1 troops only, 2 workers only. */
 export interface RationsOrder {
   kind: 'rations';
@@ -585,7 +572,6 @@ export type Order =
   | CrewOrder
   | MendOrder
   | ProspectOrder
-  | HaulOrder
   | RationsOrder
   | DontEatOrder
   | AttackOrder
@@ -600,7 +586,6 @@ export type Order =
   | WallStretchOrder
   | TunnelStretchOrder
   | EarthworkOrder
-  | TrainSkillOrder
   | DebugGiveOrder
   | DebugSpawnOrder
   | DebugThreatOrder
@@ -692,7 +677,6 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
   tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
   earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
-  trainSkill: ['building', 'skill'],
   debugGive: ['res', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
   debugThreat: ['what', 'x', 'z'],
@@ -704,7 +688,6 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   crew: ['target'],
   mend: ['target'],
   prospect: ['x', 'z'],
-  haul: ['building'],
   rations: ['rations'],
   dontEat: ['res', 'on'],
   tradeOffer: ['faction'],
@@ -724,7 +707,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   answer: ['ask', 'yes', 'q', 'who', 'res'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {

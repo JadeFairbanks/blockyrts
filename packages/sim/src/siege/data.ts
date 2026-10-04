@@ -1,14 +1,24 @@
 // Siege engines as data (Table 2f: catapult, ballista, bronze and iron
-// cannons; Table 2b's munitions; Main base: the Citadel's cannon ports).
-// An engine is a unit of kind Engine (state.ts) with its engine kind in the
-// mob field. It moves only when a horse or ox is hitched to it or its crew
-// push it, rolls on wheels (ramps, not steps), fires when its crew stands
-// by it, never heals by itself and is repaired by workers. Numbers are
-// Table 2f's; picks are (s).
+// cannons; Main base: the Citadel's cannon ports) and the artillery crewman
+// who works them (Patch 2). An engine is a unit of kind Engine (state.ts)
+// with its engine kind in the mob field. It moves only when a horse or ox is
+// hitched to it or its crew push it, rolls on wheels (ramps, not steps),
+// fires when its crew stands by it, never heals by itself and is repaired by
+// workers. Patch 2 (Jade): only artillery crewmen crew engines, every engine
+// rolls out with its full crew, and no attack of any kind uses ammunition,
+// so engines fire without stones, bolts, cannonballs or gunpowder. Numbers
+// are Table 2f's; picks are (s).
 
 import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { BuildingKind } from '../buildings/data.ts';
+
+/**
+ * The artillery crewman (Patch 2, Jade), trained at the Artillery workshop:
+ * its food and seconds to train (s, Jade's rebalance). It takes 1 supply,
+ * like any troop, and fights with its fists.
+ */
+export const CREWMAN = { food: 30, seconds: 30 };
 
 export const Engine = { Catapult: 0, Ballista: 1, BronzeCannon: 2, IronCannon: 3, DwarfCannon: 4 } as const;
 export type Engine = (typeof Engine)[keyof typeof Engine];
@@ -16,8 +26,6 @@ export type Engine = (typeof Engine)[keyof typeof Engine];
 /** Research ids (combat/items.ts Research), kept as numbers so this module stays a leaf. */
 const SIEGE_ENGINES = 8;
 const CANNONS = 15;
-/** combat/items.ts Skill.Cannon. */
-const CANNON_SKILL = 16;
 
 export interface EngineSpec {
   id: Engine;
@@ -32,21 +40,19 @@ export interface EngineSpec {
   range: number;
   minRange: number;
   reloadSteps: number;
-  /** Crew it needs standing by to fire, and the skill they need (Skill bit, 0 for none). */
+  /** Artillery crewmen it rolls out with, and needs standing by to fire. */
   crew: number;
-  crewSkill: number;
   /** Hauled by a horse or an ox, or pushed by its crew, wu per step. */
   horse: number;
   ox: number;
   pushed: number;
-  /** What a shot uses from the pool: one of this, and for cannons a gunpowder charge (10 to one gunpowder). */
-  munition: Res;
-  powder: boolean;
-  /** The shot it fires (combat/items.ts Shot). */
+  /** The shot it fires (combat/items.ts Shot); it takes nothing from the stock (Patch 2). */
   shot: number;
+  /** A cannon, which alone goes up into a Citadel's cannon port. */
+  cannon: boolean;
   /** Largest miss as a share of the distance, bp (s). */
   spreadBp: number;
-  /** Where it is made (the Artillery workshop, Patch 2; -1 for none) and the main base level it needs. */
+  /** Where it is made (the Artillery workshop, Patch 2; -1 for none) and the main base level it needs. Its crew's food is paid with it (CREWMAN). */
   at: number;
   base: number;
   research: number;
@@ -68,40 +74,40 @@ export const ENGINE_SHOT = { Cannonball: 13, CatapultStone: 14, BallistaBolt: 15
 export const ENGINES: readonly EngineSpec[] = [
   {
     id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, pierce: false,
-    range: cm(5000), minRange: cm(1500), reloadSteps: sec(15), crew: 2, crewSkill: 0, horse: v10(20), ox: v10(15), pushed: v10(8),
-    munition: Res.CatapultStone, powder: false, shot: ENGINE_SHOT.CatapultStone, spreadBp: 600,
+    range: cm(5000), minRange: cm(1500), reloadSteps: sec(15), crew: 2, horse: v10(20), ox: v10(15), pushed: v10(8),
+    shot: ENGINE_SHOT.CatapultStone, cannon: false, spreadBp: 600,
     // Patch 2: from main base 5, where the Great Workshop stood before; 120 s with no crew, what 240 s took two workers (s, Jade's rebalance).
     at: BuildingKind.ArtilleryWorkshop, base: 5, research: SIEGE_ENGINES, cost: [[H, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120),
     halfWidth: cm(150), height: cm(300),
   },
   {
     id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, pierce: true,
-    range: cm(4500), minRange: cm(500), reloadSteps: sec(8), crew: 1, crewSkill: 0, horse: v10(25), ox: v10(15), pushed: v10(10),
-    munition: Res.BallistaBolt, powder: false, shot: ENGINE_SHOT.BallistaBolt, spreadBp: 200,
+    range: cm(4500), minRange: cm(500), reloadSteps: sec(8), crew: 1, horse: v10(25), ox: v10(15), pushed: v10(10),
+    shot: ENGINE_SHOT.BallistaBolt, cannon: false, spreadBp: 200,
     // Patch 2: from main base 7, the Manufactory's level; 120 s as the catapult (s, Jade's rebalance).
     at: BuildingKind.ArtilleryWorkshop, base: 7, research: SIEGE_ENGINES, cost: [[H, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(120),
     halfWidth: cm(120), height: cm(180),
   },
   {
     id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 150, pierce: false,
-    range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: CANNON_SKILL, horse: v10(25), ox: v10(15), pushed: v10(10),
-    munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
+    range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: v10(25), ox: v10(15), pushed: v10(10),
+    shot: ENGINE_SHOT.Cannonball, cannon: true, spreadBp: 300,
     // Patch 2: from main base 8, the Foundry's level, at the same pace the Foundry had.
     at: BuildingKind.ArtilleryWorkshop, base: 8, research: CANNONS, cost: [[Res.BronzeIngot, 20], [H, 10]], steps: sec(180),
     halfWidth: cm(110), height: cm(150),
   },
   {
     id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, pierce: false,
-    range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: CANNON_SKILL, horse: v10(25), ox: v10(15), pushed: v10(10),
-    munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
+    range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: v10(25), ox: v10(15), pushed: v10(10),
+    shot: ENGINE_SHOT.Cannonball, cannon: true, spreadBp: 300,
     at: BuildingKind.ArtilleryWorkshop, base: 8, research: CANNONS, cost: [[Res.WroughtIron, 12], [H, 10]], steps: sec(150),
     halfWidth: cm(110), height: cm(150),
   },
   {
     // A Dwarf city's own cannon (Table 19: "its own Dwarf cannons are not for sale"): the iron cannon's numbers, never made by players.
     id: Engine.DwarfCannon, name: 'Dwarf cannon', model: 'cannon_dwarf', hp: 500, damage: 150, pierce: false,
-    range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, crewSkill: 0, horse: 0, ox: 0, pushed: 0,
-    munition: Res.Cannonball, powder: true, shot: ENGINE_SHOT.Cannonball, spreadBp: 300,
+    range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: 0, ox: 0, pushed: 0,
+    shot: ENGINE_SHOT.Cannonball, cannon: true, spreadBp: 300,
     at: -1, base: 0, research: 0, cost: [], steps: 0,
     halfWidth: cm(110), height: cm(150),
   },
@@ -124,8 +130,6 @@ export const CREW_GUARD_WU = 6 * WU_PER_METRE;
 export const HAUL_REACH_WU = 5 * WU_PER_METRE;
 /** Engines see 20 m by themselves (s); their crew's eyes do the rest. */
 export const ENGINE_SIGHT_WU = 20 * WU_PER_METRE;
-/** Gunpowder charges in one unit of gunpowder (Table 2b). */
-export const CHARGES_PER_POWDER = 10;
 /** A Citadel (main base level 10) has 4 cannon ports on its roof (Table 4). */
 export const CITADEL_LEVEL = 10;
 export const CANNON_PORTS = 4;

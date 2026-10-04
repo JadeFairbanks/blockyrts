@@ -13,7 +13,7 @@
 import { floorDiv, length2d, WU_PER_COLUMN } from '../fixed.ts';
 import { RESOURCE_COUNT } from '../economy/resources.ts';
 import { addAnimal } from '../animals/animals.ts';
-import { addEngine } from '../siege/engines.ts';
+import { addEngine, addFullCrew } from '../siege/engines.ts';
 import { UnitKind, type SimState } from '../state.ts';
 import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, ENGINE_GOODS, INSULT_STEPS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
 import { directions, factionMembers, nearestCity } from './factions.ts';
@@ -285,7 +285,8 @@ function give(state: SimState, player: number, good: number, n: number, x: numbe
     return;
   }
   if (isEngineGood(good)) {
-    for (let k = 0; k < n; k++) addEngine(state, player, good - ENGINE_GOODS, x + (k + 1) * WU_PER_COLUMN * 5, z);
+    // A bought cannon comes with its crew of artillery crewmen, as every engine does (Patch 2) (s).
+    for (let k = 0; k < n; k++) addFullCrew(state, addEngine(state, player, good - ENGINE_GOODS, x + (k + 1) * WU_PER_COLUMN * 5, z));
     return;
   }
   p.pool[good] = p.pool[good]! + n;

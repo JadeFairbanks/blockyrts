@@ -150,8 +150,6 @@ export const UNIT_FIELDS = [
   ['power', 'u16'],
   /** Combat experience in tenths (rules.ts). */
   ['xp', 'i32'],
-  /** Trained skills (combat/items.ts Skill): cannon crew. */
-  ['skills', 'u8'],
   /** 0 switches by itself, 1 melee only, 2 ranged only (Warriors: the lock). */
   ['lock', 'u8'],
   /**
@@ -166,8 +164,6 @@ export const UNIT_FIELDS = [
   ['weapon', 'u8'],
   ['ranged', 'u8'],
   ['shield', 'u8'],
-  /** An engine's loaded shots (siege/engines.ts). */
-  ['ammo', 'u16'],
   /** Lair structures: what they hold (threats/lairs.ts). */
   ['picked', 'u16'],
   /** The unit or building it is fighting, or 0. */
@@ -336,7 +332,6 @@ export class EntityStore implements Record<FieldName, Column> {
   declare foe: Uint8Array;
   declare power: Uint16Array;
   declare xp: Int32Array;
-  declare skills: Uint8Array;
   declare lock: Uint8Array;
   declare troop: Uint8Array;
   declare wTier: Uint8Array;
@@ -344,7 +339,6 @@ export class EntityStore implements Record<FieldName, Column> {
   declare weapon: Uint8Array;
   declare ranged: Uint8Array;
   declare shield: Uint8Array;
-  declare ammo: Uint16Array;
   declare picked: Uint16Array;
   declare target: Uint32Array;
   declare atkAt: Uint32Array;

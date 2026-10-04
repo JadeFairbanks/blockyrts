@@ -18,8 +18,8 @@ import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CR
 import { buildingCentre, dist2 } from './lights.ts';
 import { bandAt } from './placement.ts';
 import { ENGINE_PRODUCT, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
-import { engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
-import { spawnEngine } from '../siege/engines.ts';
+import { CREWMAN, engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
+import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { addAnimal, animalsAt, layingHens, stallsTaken } from '../animals/animals.ts';
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
@@ -28,6 +28,7 @@ import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
+import { crewHooks } from '../units/questions.ts';
 import {
   kitName,
   mainCost,
@@ -104,6 +105,12 @@ export function productSpec(product: Product): ProductSpec {
       tooltip: `A new Novice Acolyte who ${support ? 'heals and strengthens your units' : 'attacks with spells'}, with a hazel wand and a homespun robe (Table 7). Needs free supply.`,
     };
   }
+  if (product === Product.Crewman) {
+    return {
+      product, name: TROOP_NAMES[Troop.Crew]!, key: 'C', steps: CREWMAN.seconds * STEPS_PER_SECOND, cost: [], food: CREWMAN.food,
+      tooltip: `A new artillery crewman (Patch 2): the only unit that crews catapults, ballistas and cannons; it fights with its fists. Pays ${CREWMAN.food} food. Needs free supply. It goes to crew the nearest of your engines that is a crewman short.`,
+    };
+  }
   const t = troopOf(product);
   if (t) {
     const pieces = troopPieces(t.troop, t.w, t.a);
@@ -119,7 +126,11 @@ export function productSpec(product: Product): ProductSpec {
   }
   if (product >= ENGINE_PRODUCT) {
     const s = engineSpec(product - ENGINE_PRODUCT);
-    return { product, name: s.name, key: '', steps: s.steps, cost: s.cost, food: 0, engine: s.id, tooltip: `A ${s.name.toLowerCase()} rolls out when it is done (Table 2f). Hitch a horse or an ox to it, or give it a crew.` };
+    const crew = s.crew === 1 ? 'its artillery crewman' : `its ${s.crew} artillery crewmen`;
+    return {
+      product, name: s.name, key: '', steps: s.steps, cost: s.cost, food: s.crew * CREWMAN.food, engine: s.id,
+      tooltip: `A ${s.name.toLowerCase()} rolls out with ${crew} when it is done (Table 2f; Patch 2), and fires without ammunition. Pays the crew's food too (${s.crew * CREWMAN.food}), and needs free supply for them.`,
+    };
   }
   if (product >= SLAUGHTER_PRODUCT) {
     const s = speciesSpec(product - SLAUGHTER_PRODUCT);
@@ -263,8 +274,9 @@ export function productsOf(b: Building): Product[] {
     for (const r of RESEARCH) if (r.id !== Research.None && !r.retired && r.at === undefined) out.push(RESEARCH_PRODUCT + r.id);
   } else if (buildingSpec(b.kind).trainsWorkers) out.push(Product.Worker);
   if (b.kind === BuildingKind.Barn) for (const s of SLAUGHTERED) out.push(SLAUGHTER_PRODUCT + s);
+  // Artillery crewmen, then siege engines and cannons, at the Artillery workshop (Table 2f; Patch 2).
+  if (b.kind === BuildingKind.ArtilleryWorkshop) out.push(Product.Crewman);
   for (const id of recipesAt(b.kind)) out.push(RECIPE_PRODUCT + id);
-  // Siege engines and cannons at the Artillery workshop (Table 2f; Patch 2).
   for (const id of PLAYER_ENGINES) if (engineSpec(id).at === b.kind) out.push(ENGINE_PRODUCT + id);
   return out;
 }
@@ -339,6 +351,8 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     const why = baseProblem(state, user, s.base);
     if (why) return why;
     if (!hasResearch(research, s.research as Research)) return `Needs ${RESEARCH[s.research]!.name} researched first.`;
+    // The engine's materials here; its crew's food below.
+    for (const [res, n] of spec.cost) if (pool[res]! < n) return `Not enough resources (${costText(spec.cost)}).`;
   } else if (spec.recipe !== undefined) {
     const r = recipeSpec(spec.recipe);
     if (r.later) return r.later;
@@ -382,12 +396,19 @@ export function researchFacilities(state: SimState, player: number): number {
   return n;
 }
 
-/** Products that are new units: workers, troops and mages. */
+/** Products that are new units: workers, troops, mages and artillery crewmen. */
 export function trainsUnit(product: number): boolean {
-  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product >= TROOP_PRODUCT;
+  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product >= TROOP_PRODUCT;
 }
 
-/** Supply in use: one per worker, warrior and mage, one per research facility, plus each unit being trained for the player (animals use none). */
+/** Supply a product's new units take: 1 for a unit trained, an engine's crew (Patch 2), else 0. */
+export function supplyNeed(product: number): number {
+  if (trainsUnit(product)) return 1;
+  if (product >= ENGINE_PRODUCT && product < TROOP_PRODUCT) return engineSpec(product - ENGINE_PRODUCT).crew;
+  return 0;
+}
+
+/** Supply in use: one per worker, warrior and mage, one per research facility, plus the units being made for the player (animals and engines use none; an engine's crew do). */
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
@@ -396,7 +417,7 @@ export function supplyUsed(state: SimState, player: number): number {
   for (const b of state.buildings.list) {
     if (b.owner === player && b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
     const h = b.queue[0];
-    if (h && h.by === player && trainsUnit(h.product) && h.progress > 0) n++;
+    if (h && h.by === player && h.progress > 0) n += supplyNeed(h.product);
   }
   return n;
 }
@@ -423,10 +444,11 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
     // "Meat" or "fish" in a recipe is paid with the kinds in stock, and those come back if it is cancelled.
     for (const [res, n] of payAny(pool, payableInputs(recipeSpec(spec.recipe), pool)!)) paid.push([res, n]);
   } else if (spec.food > 0) {
-    // The kit first (it was checked), then the food, exact to the quarter (written as minus its quarters).
+    // The kit (or an engine's materials) first (it was checked), then the food, exact to the quarter (written as minus its quarters).
     const kit = spec.pieces ? planPieces(spec.pieces, pool) : null;
     if (spec.pieces && !kit) return `Not enough resources (${costText(spec.cost)}).`;
     if (kit) take(kit.cost);
+    if (spec.engine !== undefined) take(spec.cost);
     const food = payFood(player, spec.food);
     if (!food) {
       for (const [res, n] of paid) pool[res] = pool[res]! + n;
@@ -510,6 +532,64 @@ function spawnMage(state: SimState, b: Building, school: number, owner: number):
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
   state.events.push({ player: owner, kind: 'info', text: `A new ${school === School.Battle ? 'battle' : 'support'} mage is ready.`, x, z });
+}
+
+/** Engines of a player's a crewman short (fewer told to crew it than it needs), nearest a point first (lowest id on a tie). */
+export function enginesShortOfCrew(state: SimState, player: number, x: number, z: number): number[] {
+  const e = state.entities;
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < e.count; i++) {
+    if (e.kind[i] !== UnitKind.Engine || e.owner[i] !== player || e.hp[i]! <= 0) continue;
+    if (crewSworn(state, i).length < engineSpec(e.mob[i]!).crew) out.push([i, dist2(e.x[i]!, e.z[i]!, x, z)]);
+  }
+  return out.sort((p, q) => p[1] - q[1] || e.id[p[0]]! - e.id[q[0]]!).map(([i]) => i);
+}
+
+/** The finished Artillery workshop nearest an engine that its owner may use, or undefined. */
+export function nearestCrewTrainer(state: SimState, engine: number): Building | undefined {
+  const e = state.entities;
+  const player = e.owner[engine]!;
+  let best: Building | undefined;
+  let bestD = 0;
+  for (const b of state.buildings.list) {
+    if (!b.complete || b.kind !== BuildingKind.ArtilleryWorkshop || !usableBy(state, b, player)) continue;
+    const [bx, bz] = buildingCentre(b);
+    const d = dist2(bx, bz, e.x[engine]!, e.z[engine]!);
+    if (!best || d < bestD) {
+      best = b;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Fills the hooks of the "A crewman fell. Train another?" question (units/
+ * questions.ts crewHooks, Patch 2): an engine that lost a crewman asks when
+ * an Artillery workshop stands, and Yes queues a crewman at the nearest one,
+ * who joins the nearest engine a crewman short when trained.
+ */
+export function installCrewHooks(): void {
+  crewHooks.trainer = nearestCrewTrainer;
+  crewHooks.train = (state, engine, at) => queueProduct(state, at, Product.Crewman, state.entities.owner[engine]!);
+  // What Yes takes is food, which the hook's resource list cannot hold; the queue's tooltip names it.
+  crewHooks.cost = () => [];
+}
+
+/** A new artillery crewman joins the nearest engine a crewman short (Patch 2: training one replaces one who fell); with none short, he follows the rally route. */
+function spawnCrewman(state: SimState, b: Building, owner: number): void {
+  const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
+  const x = columnCentre(cx);
+  const z = columnCentre(cz);
+  const [g] = enginesShortOfCrew(state, owner, x, z);
+  const i = addCrewman(state, owner, x, z, g ?? -1);
+  if (g !== undefined) {
+    state.events.push({ player: owner, kind: 'info', text: `A new artillery crewman is ready and goes to crew the ${engineName(state, g).toLowerCase()}.`, x, z });
+    return;
+  }
+  const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
+  for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
+  state.events.push({ player: owner, kind: 'info', text: 'A new artillery crewman is ready.', x, z });
 }
 
 /** Grown animals of a species in a Barn that are not out working, males last (s: the herd keeps its breeding pairs longest). */
@@ -675,11 +755,10 @@ export interface QueuePace {
  * the sim's own rather than a guess from the bar (Patch 2 bug fixes).
  */
 export function queuePace(state: SimState, b: Building, head: QueueItem): QueuePace {
-  if (trainsUnit(head.product)) {
-    // A new unit waits at its first step until there is free supply for it.
-    const held = head.progress === 0 && supplyUsed(state, head.by) >= supplyCap(state, head.by);
-    return { whole: productSpec(head.product).steps, perStep: held ? 0 : 1 };
-  }
+  // A new unit, or an engine with its crew (Patch 2), waits at its first step until there is free supply for them.
+  const held = head.progress === 0 && supplyNeed(head.product) > 0 && supplyUsed(state, head.by) + supplyNeed(head.product) > supplyCap(state, head.by);
+  if (trainsUnit(head.product)) return { whole: productSpec(head.product).steps, perStep: held ? 0 : 1 };
+  if (held) return { whole: productSteps(state, b, head.product), perStep: 0 };
   // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
   // Crafting buildings work with no hands at CRAFT_PACE (Patch 2); engines, slaughter and the Big House's rope at 1.
   const whole = productSteps(state, b, head.product);
@@ -705,26 +784,27 @@ export function updateBuildings(state: SimState): void {
     const head = b.queue[0];
     if (head) {
       const pace = queuePace(state, b, head);
-      if (trainsUnit(head.product)) {
-        if (pace.perStep === 0) {
-          if ((b.alerted & 1) === 0) {
-            b.alerted |= 1;
-            const what = productSpec(head.product).name.toLowerCase();
-            const [x, z] = buildingCentre(b);
-            state.events.push({ player: head.by, kind: 'alert', text: `Not enough supply to train a ${what}. Build farms or upgrade the main base.`, x, z });
-          }
-        } else {
-          b.alerted &= ~1;
-          head.progress += pace.perStep;
-          if (head.progress >= pace.whole) {
-            b.queue.shift();
-            if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
-            else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
-            else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
-            else spawnWorker(state, b, head.by);
-          }
+      if (supplyNeed(head.product) > 0 && pace.perStep === 0) {
+        if ((b.alerted & 1) === 0) {
+          b.alerted |= 1;
+          const what = productSpec(head.product).name.toLowerCase();
+          const [x, z] = buildingCentre(b);
+          const text = trainsUnit(head.product) ? `Not enough supply to train ${/^[aeiou]/.test(what) ? 'an' : 'a'} ${what}.` : `Not enough supply for the ${what}'s crew.`;
+          state.events.push({ player: head.by, kind: 'alert', text: `${text} Build farms or upgrade the main base.`, x, z });
+        }
+      } else if (trainsUnit(head.product)) {
+        b.alerted &= ~1;
+        head.progress += pace.perStep;
+        if (head.progress >= pace.whole) {
+          b.queue.shift();
+          if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
+          else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
+          else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
+          else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by);
+          else spawnWorker(state, b, head.by);
         }
       } else {
+        b.alerted &= ~1;
         head.progress += pace.perStep;
         if (head.progress >= pace.whole) {
           b.queue.shift();
@@ -744,9 +824,10 @@ export function buildingStatus(state: SimState, b: Building): string {
   if (isFarm(b.kind)) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work`;
   if (b.kind === BuildingKind.Barn) return `${animalsAt(state, b.id).length} animals; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken`;
   if (b.kind === BuildingKind.Mineshaft) {
-    const miners = `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} miners at work`;
+    const most = levelSpec(b.kind, b.level).workers;
+    const miners = `${Math.min(most, assigned(state, b.id).length)} of ${most} miners, ${workersAt(state, b)} down the shaft`;
     const rating = b.rating > 0 ? `; the spot is ${RATING_NAMES[b.rating - 1]}` : '';
-    const waiting = b.stock.length > 0 ? `; waiting to be hauled: ${costText(b.stock.map(([r, n]) => [r as Res, n] as const))}` : '';
+    const waiting = b.stock.length > 0 ? `; dug out for the next bag: ${costText(b.stock.map(([r, n]) => [r as Res, n] as const))}` : '';
     return `${workedOut(state, b) ? 'Worked out' : miners}${rating}${waiting}`;
   }
   if (b.kind === BuildingKind.FishingDock) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} fishing${dockStretch(state, b) ? '' : '; no stretch within 30 m has fish to spare'}`;

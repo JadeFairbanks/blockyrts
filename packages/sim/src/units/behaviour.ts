@@ -27,18 +27,19 @@ import { ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
-import { refundKit, runCart, runKitUp, runSkill } from './gear.ts';
+import { refundKit, runCart, runKitUp } from './gear.ts';
 import { runDig } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
-import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './field.ts';
+import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { askHooks, speakerName } from '../peoples/speech.ts';
 import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend } from '../siege/engines.ts';
-import { bagEmpty, handIn, lootIdle, runLoot } from './loot.ts';
+import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from './loot.ts';
+import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
 import { nextNode, runForage } from './forage.ts';
 
 /** Phases of an order. */
@@ -532,7 +533,7 @@ export function fleeFrom(state: SimState, i: number, ax: number, az: number): vo
 /** Whether an order keeps a unit inside the building it is in. */
 function keepsInside(o: UnitOrder | undefined, inside: number): boolean {
   if (!o || inside === 0) return false;
-  return (o.t === 'enter' || o.t === 'job' || o.t === 'train' || o.t === 'skill') && o.b === inside;
+  return (o.t === 'enter' || o.t === 'job' || o.t === 'train') && o.b === inside;
 }
 
 /** Gives a unit an order: added to the end with Shift, otherwise replacing everything it was doing. */
@@ -1070,6 +1071,7 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
     if (e.act[i] === Act.Start) alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} has all the workers it can take.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
+  if (b.kind === BuildingKind.Mineshaft) return runMiner(state, i, b);
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   // Farmers work the field by day and shelter in their own farmhouse at dusk and night; mill hands work inside.
   const indoors = !isFarm(b.kind) || isDark(state.step, state.blood);
@@ -1103,6 +1105,71 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   }
   e.order[i] = OrderKind.Farm;
   return CONTINUE;
+}
+
+/**
+ * A miner's trips (Patch 2, Jade: "the worker goes to it, disappears into
+ * the mine for however long it takes to fill its inventory weight wise, and
+ * then returns to drop off point"). It drops whatever it carries first, goes
+ * down the shaft and digs (it counts as a miner only while down there); once
+ * a 25 lb bagful waits, the miner who has been down longest takes it out to
+ * the nearest main base or Storehouse, hands it in and comes back. At dusk
+ * and at night it stays down and digs on, and carries out at dawn (s).
+ */
+function runMiner(state: SimState, i: number, b: Building): boolean {
+  const e = state.entities;
+  if (e.act[i] === Act.Start) {
+    const res = e.carryAmt[i]! > 0 ? e.carryRes[i]! : -1;
+    const loaded = e.carryAmt[i]! > 0 || !bagEmpty(state, i);
+    e.act[i] = loaded && nearestDropoff(state, i, res) ? Act.ToDrop : Act.Walk;
+    if (e.inside[i] === b.id) e.act[i] = Act.Work;
+  }
+  if (e.act[i] === Act.ToDrop) {
+    const r = toDropoff(state, i, null);
+    if (r === MOVING) return CONTINUE;
+    if (r === FAILED) return DONE;
+    e.act[i] = Act.Walk;
+    resetWalk(state, i);
+    return CONTINUE;
+  }
+  if (e.act[i] !== Act.Work) {
+    const r = walkTo(state, i, besideBuilding(b));
+    if (r === MOVING) return CONTINUE;
+    if (r === FAILED) {
+      alert(state, b.owner, 'A miner cannot reach the mineshaft.', e.x[i]!, e.z[i]!, i);
+      return DONE;
+    }
+    if (e.carryAmt[i]! > 0) unload(state, i);
+    goInside(state, i, b);
+    e.act[i] = Act.Work;
+    e.timer[i] = 0;
+    return CONTINUE;
+  }
+  if (e.inside[i] !== b.id) {
+    e.act[i] = Act.Walk;
+    return CONTINUE;
+  }
+  e.timer[i] = e.timer[i]! + 1;
+  if (isDark(state.step, state.blood) || b.stock.length === 0 || firstMiner(state, b) !== i) return CONTINUE;
+  const room = bagFreeTenthsLb(state, i);
+  if (stockTenthsLb(b) < room && !workedOut(state, b)) return CONTINUE;
+  for (const [res, n] of fillBag(b, room)) addToBag(state, i, res, n);
+  if (bagEmpty(state, i)) return CONTINUE;
+  leaveBuilding(state, i);
+  resetWalk(state, i);
+  e.act[i] = Act.ToDrop;
+  return CONTINUE;
+}
+
+/** The miner down a shaft longest (ties to the lower index): the next to carry a bagful out. */
+function firstMiner(state: SimState, b: Building): number {
+  const e = state.entities;
+  let best = -1;
+  for (const j of assigned(state, b.id)) {
+    if (e.inside[j] !== b.id || e.act[j] !== Act.Work) continue;
+    if (best < 0 || e.timer[j]! > e.timer[best]!) best = j;
+  }
+  return best;
 }
 
 /** A worker relights a light that was put out: 2 s beside it, at no cost (Table 18; Patch 2: lights need no fuel). */
@@ -1269,8 +1336,6 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runCart(state, i, o);
     case 'dig':
       return runDig(state, i, o);
-    case 'skill':
-      return runSkill(state, i, o);
     case 'hunt':
       return runHunt(state, i, o);
     case 'tame':
@@ -1281,8 +1346,6 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runHitch(state, i, o);
     case 'prospect':
       return runProspect(state, i, o);
-    case 'haul':
-      return runHaul(state, i, o);
     case 'cast':
       // The fight layer carries a cast out (magic/cast.ts); reaching here means it is over.
       return DONE;

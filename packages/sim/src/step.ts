@@ -2,7 +2,7 @@
 // changed in place, a small result out.
 
 import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
-import { updateBuildings } from './buildings/production.ts';
+import { installCrewHooks, updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
@@ -40,6 +40,7 @@ import { updateQuestions } from './units/questions.ts';
 
 installDeathHooks();
 installAnimalHooks();
+installCrewHooks();
 installFoes();
 installLateMobs();
 mountHooks.rearRider = rearRider;

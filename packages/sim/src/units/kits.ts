@@ -19,12 +19,18 @@ import { Tool, ToolJob, TOOL_JOBS } from '../world/props.ts';
 import { FORGE_STEP_BASE } from '../buildings/data.ts';
 import type { EntityStore } from '../state.ts';
 
-/** The five troop types (Jade), fixed when a troop is trained; workers and mages have none. */
-export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5 } as const;
+/**
+ * The five troop types (Jade), fixed when a troop is trained; workers and
+ * mages have none. Patch 2 adds the artillery crewman (Jade), trained at the
+ * Artillery workshop: the only unit that crews an engine, bare-handed like a
+ * tier 0 close melee, with no kit to upgrade (siege/data.ts CREWMAN).
+ */
+export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5, Crew: 6 } as const;
 export type Troop = (typeof Troop)[keyof typeof Troop];
+/** The troop types a Barracks trains (the crewman is the Artillery workshop's). */
 export const TROOP_TYPES: readonly Troop[] = [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler, Troop.Cavalry];
 /** The troop types' names, for the training buttons; a trained troop goes by its weapon tier's name (TROOP_TIER_NAMES). */
-export const TROOP_NAMES: readonly string[] = ['Warrior', 'Close melee', 'Long melee', 'Ranger', 'Brawler', 'Cavalry'];
+export const TROOP_NAMES: readonly string[] = ['Warrior', 'Close melee', 'Long melee', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman'];
 /**
  * A troop's name by its weapon tier, [type][tier] (Patch 2, Jade): '' where a
  * type has no such tier. The brawler keeps its type name (Jade).
@@ -36,6 +42,7 @@ export const TROOP_TIER_NAMES: readonly (readonly string[])[] = [
   ['', 'Slinger', 'Yew archer', 'Copper archer', 'Bronze archer', 'Iron archer', 'Marksman', 'Crossbowman', 'Musketeer'],
   [],
   ['', 'Lancer', 'Flint lancer', 'Copper lancer', 'Bronze lancer', 'Iron lancer', 'Pike rider', 'Halberd rider', 'Greatsword rider'],
+  [],
 ];
 
 /** A troop's name: its weapon tier's ("Copper swordsman"), else its type's ("Brawler"). */
@@ -50,7 +57,7 @@ export function aTroop(troop: number, weaponTier: number, start = false): string
   return `${start ? a.charAt(0).toUpperCase() + a.slice(1) : a} ${name}`;
 }
 /** Command card letters (s): A Close melee, Q Long melee, N Ranger, B Brawler and C Cavalry at the Barracks (Patch 2: the Stables are gone) (L is Follow, G a building's upgrade). */
-export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C'];
+export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C', ''];
 
 /** Which line of kit an upgrade raises: a troop's weapon or armour, a worker's tools, a mage's wand or robe. */
 export const Line = { Weapon: 0, Armour: 1 } as const;
@@ -507,10 +514,11 @@ export function hasShield(troop: number): boolean {
   return troop === Troop.Close;
 }
 
-/** The lowest and highest weapon tiers a troop type has (close melee 0 to 8, long melee, rangers and cavalry 1 to 8, brawlers 8 only). */
+/** The lowest and highest weapon tiers a troop type has (close melee 0 to 8, long melee, rangers and cavalry 1 to 8, brawlers 8 only, crewmen their fists only). */
 export function weaponTiers(troop: number): readonly [number, number] {
   if (troop === Troop.Close) return [0, TOP_TIER];
   if (troop === Troop.Brawler) return [TOP_TIER, TOP_TIER];
+  if (troop === Troop.Crew) return [0, 0];
   return [1, TOP_TIER];
 }
 
@@ -696,10 +704,11 @@ export function holderKind(unitKind: number): KitHolder['kind'] | undefined {
   return undefined;
 }
 
-/** The highest tier a line of a unit's kit goes to: 8 for troops and tools, 6 for wands and robes; 0 where there is no such line. */
+/** The highest tier a line of a unit's kit goes to: 8 for troops and tools, 6 for wands and robes; 0 where there is no such line (a crewman has none). */
 export function lineTop(h: KitHolder, line: number): number {
   if (h.kind === 'mage') return TOP_MAGE_TIER;
   if (h.kind === 'worker') return line === Line.Weapon ? TOP_TIER : 0;
+  if (h.troop === Troop.Crew) return 0;
   if (line === Line.Weapon) return h.troop === Troop.Brawler ? 0 : weaponTiers(h.troop)[1];
   return TOP_TIER;
 }
@@ -757,7 +766,7 @@ export interface TechView {
 export function upgradeTarget(h: KitHolder, line: number, max: boolean, pool: Int32Array, tech: TechView, held: Cost = []): { to: number; plan: { cost: Cost; ways: number } } | { why: string } {
   const top = lineTop(h, line);
   const cur = lineTier(h, line);
-  if (top === 0) return { why: h.troop === Troop.Brawler ? 'A brawler is tier 8 only.' : 'Nothing to upgrade.' };
+  if (top === 0) return { why: h.troop === Troop.Brawler ? 'A brawler is tier 8 only.' : h.troop === Troop.Crew ? 'An artillery crewman has no kit to upgrade.' : 'Nothing to upgrade.' };
   if (cur >= top) return { why: 'Already the best there is.' };
   let first = '';
   for (let to = max ? top : cur + 1; to > cur; to--) {

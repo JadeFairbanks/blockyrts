@@ -8,8 +8,10 @@ import { floorDiv } from '../fixed.ts';
 /**
  * Resource ids. The first 20 are the doc's main list in its order, then the
  * additional list, then made goods. Patch 2 cut the crops (wheat, potatoes,
- * carrots and corn), every cooked food and the glass lantern, and the ids
- * after them closed up; farm fare took wheat's place.
+ * carrots and corn), every cooked food and the glass lantern, and then all
+ * the siege munitions (cannonballs, catapult stones and ballista bolts: no
+ * attack uses ammunition), and the ids after them closed up; farm fare took
+ * wheat's place.
  */
 export const Res = {
   SoftwoodLumber: 0,
@@ -84,36 +86,32 @@ export const Res = {
   // Trinkets (Trinkets): every metal in every tier, then the two special ones. TRINKET_BASE + metal * 4 + tier - 1.
   Moonleaf: 89,
   Sunheart: 90,
-  // Milestone 8: siege munitions (Table 2b, Table 12).
-  Cannonball: 91,
-  CatapultStone: 92,
-  BallistaBolt: 93,
   // Patch 1: raw meat by the animal it came from, and fish by species (food-kinds.ts says which animal gives which).
-  Beef: 94,
-  Chicken: 95,
-  HorseMeat: 96,
-  HareMeat: 97,
-  BoarMeat: 98,
-  WolfMeat: 99,
-  LynxMeat: 100,
-  BadgerMeat: 101,
-  BearMeat: 102,
-  FrogLegs: 103,
-  CrabMeat: 104,
-  CrocodileMeat: 105,
-  GooseMeat: 106,
-  PheasantMeat: 107,
-  GriffinMeat: 108,
-  MinotaurMeat: 109,
-  RatMeat: 110,
-  Salmon: 111,
-  Catfish: 112,
+  Beef: 91,
+  Chicken: 92,
+  HorseMeat: 93,
+  HareMeat: 94,
+  BoarMeat: 95,
+  WolfMeat: 96,
+  LynxMeat: 97,
+  BadgerMeat: 98,
+  BearMeat: 99,
+  FrogLegs: 100,
+  CrabMeat: 101,
+  CrocodileMeat: 102,
+  GooseMeat: 103,
+  PheasantMeat: 104,
+  GriffinMeat: 105,
+  MinotaurMeat: 106,
+  RatMeat: 107,
+  Salmon: 108,
+  Catfish: 109,
   /**
    * Any kind of raw meat or fish, for what a recipe or a trade asks for: never
    * held in a pool, paid with whatever kinds are in stock (haveOf, payAny).
    */
-  AnyMeat: 113,
-  AnyFish: 114,
+  AnyMeat: 110,
+  AnyFish: 111,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -233,9 +231,6 @@ export const RESOURCES: readonly ResourceInfo[] = [
   ...trinkets(),
   r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at the Workshop (main base 5). For trading with villages.', 0, false),
   r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at the Workshop (main base 7). For trading with villages.', 0, false),
-  r(Res.Cannonball, 'Cannonball', 'Cannonballs', G, 60, 'An iron ingot or 2 stone at the Artillery workshop. A cannon shot also burns 1 gunpowder charge.', 0, false),
-  r(Res.CatapultStone, 'Catapult stone', 'Catapult stones', G, 400, 'A stone shaped at the Artillery workshop.', 0, false),
-  r(Res.BallistaBolt, 'Ballista bolt', 'Ballista bolts', G, 50, 'Hardwood and wrought iron at the Artillery workshop, 5 at a time.', 0, false),
   // Raw meat by animal and fish by species (Table 6: every meat 4, every fish 3; Table 12: 2.5 lb each).
   r(Res.Beef, 'Beef', 'Beef', F, 25, 'Slaughtering or hunting cattle and oxen.', 4),
   r(Res.Chicken, 'Chicken', 'Chicken', F, 25, 'Slaughtering or hunting chickens.', 4),
