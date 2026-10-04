@@ -1843,12 +1843,14 @@ workers to train a rank with U describe the game before Patch 3.
    fighting adds to the same ladder; workers can no longer train a rank and a
    worker's train order from an old save is dropped at no cost; the unit view
    carries experience and the next rank's need; a horse hauls a catapult with
-   no crew, which still needs its 2 crewmen to fire; a crewman retrains at the
-   main base in 30 s saying so and gets up a Labourer, at no cost; a new order
-   cancels it; only crewmen take it, and with no main base he says so; a save
-   made while he retrains plays on the same), and the client's m2-controls,
-   m3-controls, m8-controls and hud-icons tests (no Rank button on the worker
-   card, Retrain on W on the crewman's card, the experience in the unit view).
+   no crew, and an ox hitched to a ballista with no crew lets it fire and
+   break a goblin hut, then let go it needs its crewman again; a crewman
+   retrains at the main base in 30 s saying so and gets up a Labourer, at no
+   cost; a new order cancels it; only crewmen take it, and with no main base
+   he says so; a save made while he retrains plays on the same), and the
+   client's m2-controls, m3-controls, m8-controls and hud-icons tests (no
+   Rank button on the worker card, Retrain on W on the crewman's card, the
+   experience in the unit view).
 2. **No rank button.** `pnpm dev`, open http://localhost:5173/?seed=1 and
    select a worker: Move, Gather, Unload, Repair, Dig, Prospect, Build, Eat,
    Equip and Cart, with no Rank button, and U does nothing.
@@ -1863,11 +1865,13 @@ workers to train a rank with U describe the game before Patch 3.
    there sooner.
    The XP bar under the name arrives with the middle HUD's Patch 3 work.
 4. **Towing needs no crew.** Type M N B V C X Z to show the tester tools and
-   press **Siege kit**. Select a crewman of the catapult and give him a Move
-   order far off, so the catapult has no crew by it. Press **Barn** for a
+   press **Siege kit**. Select the catapult's two crewmen and move them far
+   off, so the catapult has no crew by it. Press **Barn** for a
    Barn with 2 horses and an ox, select the catapult, right click a horse to
-   hitch it and move the catapult: it rolls with no crewman near. It fires
-   only once its 2 crewmen stand by it again.
+   hitch it and move the catapult: it rolls with no crewman near. Scroll
+   the view about 30 m from it and press **Night mob**: it fires with no
+   crew while the horse is hitched. Select the catapult and press R (Let
+   go): it stops firing until its 2 crewmen stand by it again.
 5. **Retraining a crewman.** Select a crewman: his card has **Retrain** (W),
    whose tooltip says it takes 30 s and costs nothing. Press W: he walks to
    the Big House, sits down tinkering with a bar over his head and a bubble
