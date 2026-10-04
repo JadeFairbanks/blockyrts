@@ -26,6 +26,7 @@ import { barrierSpot, cellAt, occupiedCells } from './cells.ts';
 import {
   CLEARED_RADIUS_WU, CLEARED_WAIT_STEPS, HOARD_ROLLS, LAIR_CLAIM_GAP_WU, LAIR_GAP_WU, LAIR_UNIT_GAP_WU, lairCap, lairDue, LAIRS, lairSpec, LairSite, RIFT_SEEN_WU, type LairSpec,
 } from './data.ts';
+import { alertLair } from './lair-alert.ts';
 import { rollDropList } from './loot.ts';
 import { dropLoot } from '../units/loot.ts';
 import { Role } from './types.ts';
@@ -205,7 +206,7 @@ export function placeLairs(state: SimState, night: number): void {
   }
 }
 
-/** Puts a lair in the world for a player, with its guardians at their posts; returns its index. */
+/** Puts a lair in the world for a player, with its guardians at their posts, and alerts every player (Patch 3); returns its id. */
 export function addLair(state: SimState, spec: LairSpec, player: number, x: number, z: number, night: number): number {
   const e = state.entities;
   const l = addMob(state, spec.mob, player, x, z, night);
@@ -216,6 +217,7 @@ export function addLair(state: SimState, spec: LairSpec, player: number, x: numb
     const [gx, gz] = around(x, z, a, GUARD_POST_WU);
     addResident(state, m, player, gx, gz, night, id, x, z);
   });
+  alertLair(state, spec.mob, player, x, z);
   return id;
 }
 

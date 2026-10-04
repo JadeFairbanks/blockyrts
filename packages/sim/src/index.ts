@@ -68,6 +68,7 @@ export * from './threats/cells.ts';
 export * from './threats/fog.ts';
 export * from './threats/loot.ts';
 export * from './threats/lairs.ts';
+export * from './threats/lair-alert.ts';
 export * from './threats/nights.ts';
 export * from './threats/tribes.ts';
 export * from './threats/villages.ts';
