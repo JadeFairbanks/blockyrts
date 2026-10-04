@@ -1753,6 +1753,14 @@ Workers are trained at main bases and at farms.
 
 Warriors (troops) fight and hunt. Each troop is one of five types and keeps that type for good: close melee, long melee, ranger, brawler and cavalry. Its weapon and armour are not items: they are tiers chosen when it is trained and raised with the Upgrade buttons (see "Troops and gear" (Jade, 2026-10-03)).
 
+**Troop names (Jade, Patch 2):** a troop goes by its weapon tier's name in the selection panel, tooltips, bubbles and message lines, in place of its type, and the name changes the moment its weapon is upgraded; the type name stays on the training buttons. The rank follows in brackets: "Copper swordsman (Recruit)".
+- Close melee, tiers 0 to 8: Fist fighter, Club fighter, Flint axeman, Copper swordsman, Bronze swordsman, Iron swordsman, Broadswordsman, Steel swordsman, Champion.
+- Long melee, tiers 1 to 8: Spearman, Flint spearman, Copper spearman, Bronze spearman, Iron spearman, Pikeman, Halberdier, Greatswordsman.
+- Ranger, tiers 1 to 8: Slinger, Yew archer, Copper archer, Bronze archer, Iron archer, Marksman, Crossbowman, Musketeer.
+- Brawler: keeps its name.
+- Cavalry, tiers 1 to 8: Lancer, Flint lancer, Copper lancer, Bronze lancer, Iron lancer, Pike rider, Halberd rider, Greatsword rider.
+- Workers go by rank (Labourer, Hand, Master worker, Foreman, Elder); mages keep their school and rank ("Battle mage (Acolyte)").
+
 - **Speed:** a warrior's base running speed is 3 m/s (a placeholder), so 30 seconds of running covers about 90 m. Gear has no weight, so nothing it wears slows it down or stops it swimming (Jade, 2026-10-03).
 - **Material limits follow real life.** Bronze is heavy for what it gives and softer than good iron and steel: bronze swords are short swords, since long bronze blades bend, and bronze armour stops at scale.
 - **Hunting:** warriors kill animals for meat, hides and feathers. A killed animal leaves no carcass: what it gives is loot (see "Loot") that the warrior takes into its bag, or that falls on the ground when the bag is full or the warrior is not beside it (Jade's play-test notes, 2026-10-03). A ranger kills game from range, so it walks over to pick up what it killed. Some animals run away; some fight back.
