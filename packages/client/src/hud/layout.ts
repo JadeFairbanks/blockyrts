@@ -23,7 +23,7 @@ export interface HudLayout {
   portraitIcon: HTMLImageElement;
   selectionPanel: HTMLElement;
   selectionTitle: HTMLElement;
-  /** The title row's pictures and bars after the name (Patch 2): rank badge, health, the queue. */
+  /** The title row after the name (Jade's Patch 3): a divider, then the health bar and the bars under it (experience, mana, a mount, building) to the clear button. */
   selectionExtra: HTMLElement;
   selectionCorner: HTMLElement;
   /** The tier strip a training card's slot opens just above the middle (Patch 2). */
@@ -90,14 +90,17 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   portraitIcon.hidden = true;
   portraitWindow.append(portraitIcon);
 
-  // Selection panel (the middle of the bottom strip).
+  // Selection panel (the middle of the bottom strip). Under the control groups, the title row and the body sit in
+  // one block that the panel scales to fill the room left (Jade's Patch 3, selection-panel.ts fit).
   const selectionPanel = div('panel selection-panel', root);
   const groupTabs = div('group-tabs', selectionPanel);
-  const selHead = div('sel-head', selectionPanel);
+  const selFit = div('sel-fit', selectionPanel);
+  const selContent = div('sel-content', selFit);
+  const selHead = div('sel-head', selContent);
   const selectionTitle = div('sel-title', selHead, 'Nothing selected');
   const selectionExtra = div('sel-extra', selHead);
   const selectionCorner = div('sel-corner', selHead);
-  const selectionBody = div('sel-body', selectionPanel);
+  const selectionBody = div('sel-body', selContent);
   selectionBody.dataset.scroll = '';
 
   // Command card (bottom right): a slot per button, square and centred (applyGeometry sizes them and adds slots as a card needs them).
@@ -229,7 +232,14 @@ export function applyGeometry(L: HudLayout, g: HudGeometry, fit: ButtonFit | nul
   L.debug.hidden = !folds.debug;
   place(L.minimapPanel, g.minimap.x, null, lift, g.minimap.w, g.minimap.h, '0 100%');
   place(L.portraitPanel, g.portrait.x, null, lift, g.portrait.w, g.portrait.h, '0 100%');
-  place(L.selectionPanel, g.middle.x, null, lift, g.middle.w, g.middle.h, '0 100%');
+  // Jade's Patch 3: the middle grows upward when what it shows needs more room even at its own size (selection-panel.ts
+  // fit, as the card grows for its buttons), never past the portrait beside it, and never on a phone (s).
+  const mid = L.selectionPanel.dataset;
+  const midMost = phone ? g.middle.h : Math.max(g.middle.h, g.portrait.h);
+  mid.h = String(g.middle.h / s);
+  mid.most = String(midMost / s);
+  const midH = Math.min(midMost, Math.max(g.middle.h, Math.round(Number(mid.want ?? 0) * s)));
+  place(L.selectionPanel, g.middle.x, null, lift, g.middle.w, midH, '0 100%');
   place(L.commandCard, null, 0, 0, g.card.w, cardH, '100% 100%');
   setCardGrid(L, fit);
   const top = L.topRight.style;
