@@ -9,11 +9,16 @@
 // Riders sit on their mount's model at its rider slot, siege engines and
 // cannons stand on their own models (a cannon in a Citadel's port on the
 // roof), the Rift-touched beasts shed violet motes and a cloaked void
-// stalker shows only as a shimmer.
+// stalker shows only as a shimmer. The models take the fog of war like the
+// land (remembered lairs and huts darkened), and the local player's own
+// units carry their ids for the hidden-unit outlines (Jade's Patch 3,
+// hidden-outlines.ts).
 import * as THREE from 'three';
 import { engineSpec, gearSpec, HOP_STEPS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
-import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
+import { InstancedModel, MarkMode, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
+import { fowPatch, type FowUniforms } from './fog-material.ts';
+import type { OwnDraw } from './hidden-outlines.ts';
 
 const STEP_MS = 50;
 const MAX_UNITS = 2048;
@@ -162,29 +167,55 @@ interface Corpse {
   mob: number;
 }
 
+/** One instanced model of a body with a set of parts, and how many of its instances this frame are the local player's own units, and outlined. */
+interface PoolEntry {
+  m: InstancedModel;
+  n: number;
+  own: number;
+  outlined: number;
+  /** The counts as of the last commit, for the outline passes after it. */
+  ownDrawn: number;
+  outlinedDrawn: number;
+}
+
+/** An instance taken from a pool. */
+interface PoolSlot {
+  m: InstancedModel;
+  i: number;
+  e: PoolEntry;
+}
+
 /** Instanced models of one body, one per set of visible parts. */
 class BodyPool {
-  private readonly byKey = new Map<string, { m: InstancedModel; n: number }>();
+  private readonly byKey = new Map<string, PoolEntry>();
 
   constructor(
-    private readonly scene: THREE.Scene,
+    private readonly parent: THREE.Object3D,
     readonly model: ModelData,
+    private readonly patch: ModelShaderPatch | undefined,
   ) {}
 
   /** The instance to fill for a look; parts the model does not have are skipped. */
-  take(parts: readonly string[]): { m: InstancedModel; i: number } | null {
+  take(parts: readonly string[]): PoolSlot | null {
     const have = parts.filter((p) => this.model.partNames.includes(p)).sort();
     const key = have.join(',');
     let e = this.byKey.get(key);
     if (!e) {
-      const m = new InstancedModel(this.model, MAX_UNITS);
+      const m = new InstancedModel(this.model, MAX_UNITS, this.patch);
       for (const p of have) m.setPartVisible(p, true);
-      this.scene.add(m.object);
-      e = { m, n: 0 };
+      this.parent.add(m.object);
+      e = { m, n: 0, own: 0, outlined: 0, ownDrawn: 0, outlinedDrawn: 0 };
       this.byKey.set(key, e);
     }
     if (e.n >= MAX_UNITS) return null;
-    return { m: e.m, i: e.n++ };
+    return { m: e.m, i: e.n++, e };
+  }
+
+  /** Marks a slot as one of the local player's own units (its entity id), outlined or not. */
+  mark(slot: PoolSlot, id: number, outlined: boolean): void {
+    slot.m.setMark(slot.i, id, outlined);
+    slot.e.own++;
+    if (outlined) slot.e.outlined++;
   }
 
   commit(): void {
@@ -192,6 +223,22 @@ class BodyPool {
       e.m.setCount(e.n);
       e.m.commit();
       e.n = 0;
+      e.ownDrawn = e.own;
+      e.outlinedDrawn = e.outlined;
+      e.own = 0;
+      e.outlined = 0;
+    }
+  }
+
+  /**
+   * Sets the pool up for an outline pass (a MarkMode): the mark material, and
+   * only the models the pass needs drawn. Null puts it back as it was.
+   */
+  pass(mode: number | null): void {
+    for (const e of this.byKey.values()) {
+      const drawn = e.m.instanceCount > 0;
+      e.m.useMarkMaterial(mode !== null);
+      e.m.object.visible = drawn && (mode === null || mode === MarkMode.Ids || (mode === MarkMode.Own ? e.ownDrawn > 0 : e.outlinedDrawn > 0));
     }
   }
 
@@ -250,6 +297,10 @@ class AttachPool {
       e.mesh.instanceMatrix.needsUpdate = true;
       e.n = 0;
     }
+  }
+
+  setVisible(on: boolean): void {
+    for (const e of this.meshes.values()) e.mesh.visible = on;
   }
 }
 
@@ -338,11 +389,20 @@ export interface UnitsFrame {
   groundAt(x: number, z: number): number;
   /** Tells the selection where unit i stands this frame (metres, its middle). */
   place(i: number, x: number, y: number, z: number): void;
+  /** Entity ids of the local player's units to outline this frame (hidden-outlines.ts). */
+  outlined?: ReadonlySet<number>;
 }
 
 export class UnitsView {
   private lib: ModelLibrary | null = null;
+  /** Every unit, creature and corpse model, in one group the outline passes draw on their own. */
+  readonly bodyGroup = new THREE.Group();
   private readonly bodies = new Map<string, BodyPool>();
+  /** The fog of war on the models, when the world gives one. */
+  private readonly patch: ModelShaderPatch | undefined;
+  /** The local player's own units drawn this frame, where and how big (owned), out of a pool of records reused frame to frame. */
+  private readonly owned: OwnDraw[] = [];
+  private readonly ownedPool: OwnDraw[] = [];
   private readonly asked = new Set<string>();
   private readonly attach: AttachPool;
   private readonly particles: Particles;
@@ -363,7 +423,13 @@ export class UnitsView {
   private readonly fired = new Map<number, number>();
   private lastFrame = 0;
 
-  constructor(private readonly scene: THREE.Scene) {
+  constructor(
+    private readonly scene: THREE.Scene,
+    fow?: FowUniforms,
+  ) {
+    this.patch = fow ? { key: 'fow', apply: fowPatch(fow, false) } : undefined;
+    this.bodyGroup.name = 'unit models';
+    scene.add(this.bodyGroup);
     this.attach = new AttachPool(scene, null);
     this.particles = new Particles(scene);
     this.blocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial(), MAX_UNITS);
@@ -403,9 +469,45 @@ export class UnitsView {
       }
       return null;
     }
-    b = new BodyPool(this.scene, model);
+    b = new BodyPool(this.bodyGroup, model, this.patch);
     this.bodies.set(id, b);
     return b;
+  }
+
+  /** The local player's own units drawn this frame. */
+  ownDraws(): readonly OwnDraw[] {
+    return this.owned;
+  }
+
+  /** Sets every body model up for an outline pass (a MarkMode), or back as it was (null). */
+  passPools(mode: number | null): void {
+    for (const b of this.bodies.values()) b.pass(mode);
+  }
+
+  /** Hides (or shows again) what hangs on or flies round the units, which hides nothing: carried items, loads, shots, beams and bursts. */
+  hideExtras(hidden: boolean): void {
+    this.attach.setVisible(!hidden);
+    this.loads.visible = !hidden;
+    this.shots.visible = !hidden;
+    this.beams.visible = !hidden;
+    this.particles.mesh.visible = !hidden;
+  }
+
+  /** Notes one of the local player's own units drawn this frame: its id, its feet (metres), its height and reach round its middle. */
+  private noteOwn(id: number, x: number, y: number, z: number, h: number, r: number, outlined: boolean): void {
+    let rec = this.ownedPool[this.owned.length];
+    if (!rec) {
+      rec = { id: 0, x: 0, y: 0, z: 0, h: 0, r: 0, outlined: false };
+      this.ownedPool.push(rec);
+    }
+    rec.id = id;
+    rec.x = x;
+    rec.y = y;
+    rec.z = z;
+    rec.h = h;
+    rec.r = r;
+    rec.outlined = outlined;
+    this.owned.push(rec);
   }
 
   /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. */
@@ -443,6 +545,7 @@ export class UnitsView {
     this.where.clear();
     let beaming = false;
     for (let i = 0; i < curr.count && !beaming; i++) beaming = d[i * STATE_STRIDE + S.beam] !== 0;
+    this.owned.length = 0;
     for (let i = 0; i < curr.count; i++) {
       const o = i * STATE_STRIDE;
       // A cannon in a Citadel's port and the men up on a tower or a main base's top are drawn there; everything else inside a building is hidden.
@@ -457,6 +560,9 @@ export class UnitsView {
       const owner = d[o + S.owner]!;
       const kind = d[o + S.kind]!;
       f.place(i, x, y, z);
+      // The local player's own units carry their ids for the outline passes (never a monster).
+      const own = owner === f.player && kind !== UnitKind.Mob;
+      const outlined = own && (f.outlined?.has(id) ?? false);
       if (beaming) this.where.set(id, new THREE.Vector3(x, y, z));
       const mobUnit = kind === UnitKind.Mob;
       // Lairs and the goblins' buildings stay on the map once found, like the land; creatures only while in sight.
@@ -512,7 +618,7 @@ export class UnitsView {
         continue;
       }
       if (kind === UnitKind.Engine) {
-        blocks = this.drawEngine(f, d, o, x, y, z, heading, colour, clipT, blocks);
+        blocks = this.drawEngine(f, d, o, x, y, z, heading, colour, clipT, blocks, own ? id : 0, outlined);
         continue;
       }
       if (kind === UnitKind.Animal) {
@@ -525,7 +631,13 @@ export class UnitsView {
           const slot = pool.take([]);
           // A stand-in model is sized to the animal's own height; the young are the adult model at half size.
           const fit = pool.model.id === spec.model ? 1 : spec.height / WU_PER_METRE / Math.max(0.05, pool.model.boundingBox.max.y - pool.model.boundingBox.min.y);
-          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, animalClip(pool.model, d, o, moving), clipT, null, fit * scale);
+          if (slot) {
+            slot.m.setInstance(slot.i, x, y, z, heading, animalClip(pool.model, d, o, moving), clipT, null, fit * scale);
+            if (own) {
+              pool.mark(slot, id, outlined);
+              this.noteOwn(id, x, y, z, (spec.height * scale) / WU_PER_METRE, (spec.halfWidth * 1.6 * scale) / WU_PER_METRE, outlined);
+            }
+          }
         } else {
           dummy.position.set(x, y, z);
           dummy.rotation.set(0, heading, 0);
@@ -548,26 +660,33 @@ export class UnitsView {
       // A rider sits at its mount's rider slot, its hips on the saddle.
       const mount = d[o + S.mount]!;
       let ry = y;
+      const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
       if (mount !== 0) {
-        const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
-        const seat = this.drawMount(d, o, mount, x, y, z, heading, clipT, owner === PEOPLES ? null : colour, blocks);
+        const seat = this.drawMount(d, o, mount, x, y, z, heading, clipT, owner === PEOPLES ? null : colour, blocks, own ? id : 0, outlined);
         blocks = seat.blocks;
         ry = seat.y - tall * HIP_SHARE;
       }
-      const own = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
-      const pool = own ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
+      const kin = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
+      const pool = kin ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
       const crewman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Crew && colour !== null;
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : crewman ? sooty(colour) : colour;
-      if (own) {
-        const slot = own.take([]);
-        const clip = mount !== 0 ? rideClip(own.model.clips, d, o) : own.model.clips.has(look.clip) ? look.clip : mobClip(own.model, d, o);
-        if (slot) slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
+      let drawn = false;
+      if (kin) {
+        const slot = kin.take([]);
+        const clip = mount !== 0 ? rideClip(kin.model.clips, d, o) : kin.model.clips.has(look.clip) ? look.clip : mobClip(kin.model, d, o);
+        if (slot) {
+          slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
+          if (own) kin.mark(slot, id, outlined);
+          drawn = true;
+        }
       } else if (pool) {
         const slot = pool.take(look.parts);
         if (slot) {
           const pose = mount === 0 && sat >= 0 ? tinkerPose(pool.model.clips, sat, id) : null;
           const clip = pose?.clip ?? (mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip);
           slot.m.setInstance(slot.i, x, ry, z, heading, clip, pose?.t ?? clipT, tint);
+          if (own) pool.mark(slot, id, outlined);
+          drawn = true;
           for (const [item, bone] of look.attach) {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
@@ -576,13 +695,14 @@ export class UnitsView {
       } else {
         dummy.position.set(x, ry, z);
         dummy.rotation.set(0, heading, 0);
-        const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
         dummy.scale.set(0.45, tall, 0.45);
         dummy.updateMatrix();
         this.blocks.setMatrixAt(blocks, dummy.matrix);
         this.blocks.setColorAt(blocks, tint ?? f.neutral);
         blocks++;
       }
+      // A rider reaches from the ground under its mount to the top of its head.
+      if (drawn && own) this.noteOwn(id, x, y, z, ry - y + tall + 0.15, mount !== 0 ? 1.3 : 0.45, outlined);
       const carry = d[o + S.carryRes]!;
       if (carry !== NO_CARRY && d[o + S.carryAmt]! > 0) {
         // On the back: behind the unit (the model faces -Z at heading 0).
@@ -618,7 +738,7 @@ export class UnitsView {
    * gallop or charge once the run counts as a charge), else a block the
    * mount's size. Returns the height of the rider's seat, metres.
    */
-  private drawMount(d: Int32Array, o: number, mount: number, x: number, y: number, z: number, heading: number, clipT: number, colour: THREE.Color | null, blocks: number): { y: number; blocks: number } {
+  private drawMount(d: Int32Array, o: number, mount: number, x: number, y: number, z: number, heading: number, clipT: number, colour: THREE.Color | null, blocks: number, ownId: number, outlined: boolean): { y: number; blocks: number } {
     const spec = mountSpec(mount);
     const pool = this.body(spec.model);
     const flags = d[o + S.flags]!;
@@ -629,6 +749,8 @@ export class UnitsView {
         const clips = pool.model.clips;
         const clip = flags & UnitFlag.Charging ? firstClip(clips, ['charge', 'gallop', 'run', 'walk']) : moving ? firstClip(clips, ['trot', 'walk']) : 'idle';
         slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, colour);
+        // The mount carries its rider's id: one silhouette for the outline.
+        if (ownId) pool.mark(slot, ownId, outlined);
         const b = pool.bone('slot_rider');
         if (b >= 0) {
           const at = new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, b, this.mat));
@@ -651,7 +773,7 @@ export class UnitsView {
   }
 
   /** A siege engine or cannon: its model with the clip for what it does (towed, aimed, firing), smoke when it fires, else a wooden block its size. */
-  private drawEngine(f: UnitsFrame, d: Int32Array, o: number, x: number, y: number, z: number, heading: number, colour: THREE.Color | null, clipT: number, blocks: number): number {
+  private drawEngine(f: UnitsFrame, d: Int32Array, o: number, x: number, y: number, z: number, heading: number, colour: THREE.Color | null, clipT: number, blocks: number, ownId: number, outlined: boolean): number {
     if (!f.seen(x, z)) return blocks;
     const spec = engineSpec(d[o + S.mob]!);
     const id = d[o + S.id]!;
@@ -672,7 +794,13 @@ export class UnitsView {
       const clips = pool.model.clips;
       const hauled = d[o + S.crew]! >= 1000;
       const clip = firing ? 'fire' : d[o + S.order] === OrderKind.Move ? (hauled ? 'move_towed' : firstClip(clips, ['move', 'move_towed'])) : d[o + S.target] !== 0 ? 'aim' : d[o + S.hp]! * 3 < d[o + S.maxHp]! ? firstClip(clips, ['damaged', 'idle']) : 'idle';
-      if (slot) slot.m.setInstance(slot.i, x, y, z, heading, clip, firing ? 0 : clipT, colour);
+      if (slot) {
+        slot.m.setInstance(slot.i, x, y, z, heading, clip, firing ? 0 : clipT, colour);
+        if (ownId) {
+          pool.mark(slot, ownId, outlined);
+          this.noteOwn(ownId, x, y, z, spec.height / WU_PER_METRE, (spec.halfWidth * 1.6) / WU_PER_METRE, outlined);
+        }
+      }
       return blocks;
     }
     if (blocks >= MAX_UNITS) return blocks;
