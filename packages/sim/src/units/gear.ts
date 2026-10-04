@@ -20,7 +20,7 @@ import { RESEARCH } from '../combat/items.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { Role } from '../threats/types.ts';
-import { say } from '../peoples/speech.ts';
+import { say, sayTinkering } from '../peoples/speech.ts';
 import { partnerOf } from './weight.ts';
 import { tinker } from './tinker.ts';
 import {
@@ -283,6 +283,8 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
     }
     e.act[i] = Act.Work;
     e.timer[i] = 0;
+    // What it is doing, in the present tense, its bubble up while the bar runs (Jade's Patch 3).
+    sayTinkering(state, i, `Upgrading to ${pieceName(h, o.line, o.to)}.`);
   }
   // Beside it, the unit sits and tinkers while the bar over its head fills (Jade's Patch 2).
   if (!tinker(state, i, upgradeSteps(h, o.line, o.to))) return false;
@@ -305,6 +307,8 @@ function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): v
   if (o.line === Line.Weapon) e.wTier[i] = o.to;
   else e.aTier[i] = o.to;
   applyKit(e, i, h.kind);
+  // Done, after its last piece: the next piece's bar would cover the line at once (Jade's Patch 3: no past tense while a bar runs).
+  if (e.queue[i]![1]?.t === 'kitUp') return;
   say(state, i, h.kind === 'worker' ? `New tools: ${pieceName(h, o.line, o.to)}.` : `Upgraded to ${pieceName(h, o.line, o.to)}.`, false, true);
 }
 

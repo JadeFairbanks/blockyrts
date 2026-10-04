@@ -1,10 +1,12 @@
 // Questions (Patch 2, round 3: actionable bubbles). Now and then one of a
 // player's units or buildings asks its owner a short question in its bubble,
-// with Yes and No buttons. A question waits 30 s of game time (standing still
-// while the game is paused, since the sim does), or until its owner answers;
-// a unit or building has one open at a time, a player at most 3, and more
-// wait their turn. Other players see the bubble without the buttons; the
-// text goes to no chat. The units a leaver left behind ask nothing.
+// with Yes and No buttons. A question waits 10 s of game time (Jade's Patch
+// 3; standing still while the game is paused, since the sim does), or until
+// its owner answers, or until it no longer holds (a hurt unit's, once it is
+// busy or hit again); a unit or building has one open at a time, a player
+// at most 3, and more wait their turn. Other players see the bubble without
+// the buttons; the text goes to no chat. The units a leaver left behind ask
+// nothing.
 //
 // Yes is an order (AnswerOrder) carrying what the question was about, and
 // runs the same code the matching button's order runs, so every machine
@@ -35,7 +37,7 @@ import { topOf } from './top.ts';
 
 /** The questions (Patch 2, round 3's table, in its order). */
 export const Ask = {
-  /** A troop or mage could use better kit: Upgrade? */
+  /** A troop or mage could use better kit, or a worker better tools (Jade's Patch 3): Upgrade? */
   Kit: 1,
   /** A hurt unit asks to eat to heal. */
   Heal: 2,
@@ -50,12 +52,18 @@ export const Ask = {
 } as const;
 export type Ask = (typeof Ask)[keyof typeof Ask];
 
-/** How long a question waits for its owner's answer (Jade): 30 s of game time. */
-export const QUESTION_WAIT_STEPS = 30 * STEPS_PER_SECOND;
+/** How long a question waits for its owner's answer (Jade's Patch 3; 30 s in Patch 2): 10 s of game time. */
+export const QUESTION_WAIT_STEPS = 10 * STEPS_PER_SECOND;
 /** Open questions one player may have at once (s); the next waits its turn. */
 export const OPEN_QUESTIONS_PER_PLAYER = 3;
 /** A unit at or below this share of its health asks to eat to heal (Jade: 70%), and asks again only once it is back above it. */
 export const HURT_ASK_PM = 700;
+/**
+ * A hurt unit asks to eat only while idle and once nothing has hurt it for
+ * this long (Jade's Patch 3: never while it is being attacked or doing
+ * something) (s): 5 s. Hurt again while it asks, it stops asking.
+ */
+export const HURT_ASK_QUIET_STEPS = 5 * STEPS_PER_SECOND;
 /** How near another unit must stand for the one asking to speak for it too ("Four of us could use better kit.") (s): 10 m. */
 export const SPEAK_FOR_M = 10;
 
@@ -80,6 +88,14 @@ interface Question {
   /** Who asks: an entity id, or a building id when `building`. */
   who: number;
   building: boolean;
+  /**
+   * Whether the question still holds, checked every step while it is up; when
+   * it no longer does it is withdrawn (its bubble goes on every machine) and
+   * `unask` runs, so it can be asked afresh later. Questions without it hold
+   * until answered or out of time.
+   */
+  holds?: () => boolean;
+  unask?: () => void;
 }
 
 /** A question waiting for a free place among its player's open ones: made afresh when its turn comes, or null if it no longer holds. */
@@ -101,6 +117,8 @@ interface Book {
   hurt: Set<number>;
   /** Ask.Repair: the cycle each player's main base last asked in, plus 1. */
   dawn: number[];
+  /** The players whose main base gave its word of advice on tools (once a game, Jade's Patch 3). */
+  advised: Set<number>;
 }
 
 /** Not state: the open questions and what each was last asked about. */
@@ -109,7 +127,7 @@ const books = new WeakMap<SimState, Book>();
 function bookOf(state: SimState): Book {
   let b = books.get(state);
   if (!b) {
-    b = { open: [], waiting: [], stepAt: -1, stepCount: 0, kit: new Map(), hurt: new Set(), dawn: [] };
+    b = { open: [], waiting: [], stepAt: -1, stepCount: 0, kit: new Map(), hurt: new Set(), dawn: [], advised: new Set() };
     books.set(state, b);
   }
   return b;
@@ -242,10 +260,10 @@ function kitOffer(h: KitHolder, pool: Int32Array, tech: TechView): { w: number; 
   return { w: 'to' in w ? w.to : h.w, a: 'to' in a ? a.to : h.a, cost };
 }
 
-/** Whether a unit could use better kit than it has and than it was last offered, for its offer packed (weapon x 16 + armour); -1 if not. */
+/** Whether a unit could use better kit (a worker, better tools) than it has and than it was last offered, for its offer packed (weapon x 16 + armour); -1 if not. */
 function wantsKit(state: SimState, book: Book, i: number, pool: Int32Array, tech: TechView): number {
   const e = state.entities;
-  if (e.kind[i] !== UnitKind.Warrior && e.kind[i] !== UnitKind.Mage) return -1;
+  if (e.kind[i] !== UnitKind.Warrior && e.kind[i] !== UnitKind.Mage && e.kind[i] !== UnitKind.Worker) return -1;
   if (!ownUnit(state, i) || !idleOrHolding(state, i) || !calm(state, i) || inQuestion(book, e.id[i]!)) return -1;
   const h = kitHolder(state, i);
   if (!h || pendingKitUp(state, i, Line.Weapon) || pendingKitUp(state, i, Line.Armour)) return -1;
@@ -256,11 +274,17 @@ function wantsKit(state: SimState, book: Book, i: number, pool: Int32Array, tech
   return offer.w > w || offer.a > a ? offer.w * 16 + offer.a : -1;
 }
 
-/** What a group's upgrades would take from the stock, worked out as Yes would spend it: every weapon first, then the armour. */
-function kitCost(state: SimState, units: readonly number[], pool: Int32Array, tech: TechView): Cost {
+/**
+ * What a group's upgrades would take from the stock, worked out as Yes would
+ * spend it: every weapon first, then the armour; and how many of the group
+ * the stock pays for (each unit pays as it is sent, the highest rank first,
+ * until the stock runs short: never more than it holds, Jade's Patch 3).
+ */
+function kitCost(state: SimState, units: readonly number[], pool: Int32Array, tech: TechView): { cost: Cost; paid: number } {
   const e = state.entities;
   const left = Int32Array.from(pool);
   const total = new Map<Res, number>();
+  const paid = new Set<number>();
   const order = [...units].sort((a, b) => e.rank[b]! - e.rank[a]! || e.id[a]! - e.id[b]!);
   for (const line of [Line.Weapon, Line.Armour]) {
     for (const i of order) {
@@ -269,21 +293,33 @@ function kitCost(state: SimState, units: readonly number[], pool: Int32Array, te
       const t = upgradeTarget(h, line, true, left, tech);
       if (!('to' in t)) continue;
       pay(left, t.plan.cost);
+      paid.add(i);
       for (const [r, n] of t.plan.cost) total.set(r, (total.get(r) ?? 0) + n);
     }
   }
-  return [...total];
+  return { cost: [...total], paid: paid.size };
 }
+
+/**
+ * What Upgrade equipment would give the start's workers is the stock the
+ * first buildings need: the main base says so once a game, as the start's
+ * two upgrade questions come (Jade's Patch 3). Her line ends "And remember",
+ * unfinished; the bubble stops at "choose wisely." until she finishes it.
+ */
+const TOOLS_ADVICE = 'If you upgrade all their tools you may not be able to make any structures right away, choose wisely.';
 
 function askKit(state: SimState, book: Book, i: number, pool: Int32Array, tech: TechView, offer: number): void {
   const e = state.entities;
   const player = e.owner[i]!;
-  // The idle troops near it that could use better kit too: it speaks for them.
+  // Workers ask about their tools, troops and mages about their kit: two questions (Jade's Patch 3).
+  const workers = e.kind[i] === UnitKind.Worker;
+  // The idle units of its kind near it that could use better kit too: it speaks for them.
   const group = [i];
   const offers = [offer];
   const r = SPEAK_FOR_M * WU_PER_METRE;
   for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, r)) {
     if (j === i || e.owner[j] !== player || length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > r) continue;
+    if ((e.kind[j] === UnitKind.Worker) !== workers) continue;
     const o = wantsKit(state, book, j, pool, tech);
     if (o < 0) continue;
     group.push(j);
@@ -295,12 +331,28 @@ function askKit(state: SimState, book: Book, i: number, pool: Int32Array, tech: 
     book.kit.set(e.id[j]!, Math.max(offers[k]! >> 4, was >> 4) * 16 + Math.max(offers[k]! & 15, was & 15));
   });
   const n = group.length;
-  const cost = kitCost(state, group, pool, tech);
+  const { cost, paid } = kitCost(state, group, pool, tech);
   const where = group.some((j) => e.kind[j] === UnitKind.Mage) ? 'Forge, Barracks, main base or Magi Sanctum' : 'Forge, Barracks or main base';
-  const text = n === 1 ? 'I could use better kit. Upgrade?' : `${countWord(n)} of us could use better kit. Upgrade?`;
-  const yes = `${n === 1 ? 'It goes' : `All ${n} go`} to the nearest ${where} and ${n === 1 ? 'takes' : 'take'} the best weapon and armour the stock pays for, the weapon first.${cost.length ? ` From the stock: ${costText(cost)}.` : ''}`;
-  const no = `${n === 1 ? 'It keeps its' : 'They keep their'} kit. Asked again only once the stock pays for something better still.`;
+  const kit = workers ? 'tools' : 'kit';
+  const text = n === 1 ? `I could use better ${kit}. Upgrade?` : `${countWord(n)} of us could use better ${kit}. Upgrade?`;
+  const best = workers ? 'the best tools' : 'the best weapon and armour';
+  const first = workers ? '' : ', the weapon first';
+  const from = cost.length ? ` From the stock: ${costText(cost)}.` : '';
+  let yes: string;
+  if (n === 1) yes = `It goes to the nearest ${where} and takes ${best} the stock pays for${first}.${from}`;
+  // The stock may not stretch to all of them: those it pays for go, the highest rank first, and the rest keep theirs.
+  else if (paid > 0 && paid < n) yes = `The stock pays for ${paid} of the ${n}, the highest rank first: they go to the nearest ${where} and take ${best} it pays for${first}; the rest keep their ${kit}.${from}`;
+  else yes = `All ${n} go to the nearest ${where} and take ${best} the stock pays for${first}.${from}`;
+  const no = `${n === 1 ? 'It keeps its' : 'They keep their'} ${kit}. Asked again only once the stock pays for something better still.`;
   put(state, unitQuestion(state, Ask.Kit, i, group, text, yes, no));
+  // The start's tools question comes with the main base's word of advice, once a game, on the first day.
+  if (workers && !book.advised.has(player) && clockAt(state.step, state.blood).cycle === 0) {
+    const base = mainBaseOf(state, player);
+    if (base) {
+      book.advised.add(player);
+      sayBuilding(state, base, TOOLS_ADVICE, false, 'long');
+    }
+  }
 }
 
 // ----- 2: hurt -----
@@ -310,12 +362,19 @@ function hurtNow(state: SimState, i: number): boolean {
   return e.hp[i]! * 1000 <= e.maxHp[i]! * HURT_ASK_PM;
 }
 
-/** Whether a unit is hurt enough to ask to eat, and has not asked about this wound. */
+/** Idle (no orders, or holding its ground), not fighting, and hurt by nothing lately: a hurt unit may ask to eat (Jade's Patch 3). */
+function restful(state: SimState, i: number): boolean {
+  const e = state.entities;
+  const hurtAt = e.hurtAt[i]!;
+  return idleOrHolding(state, i) && calm(state, i) && e.tinker[i] === 0 && (hurtAt === 0 || state.step - hurtAt >= HURT_ASK_QUIET_STEPS);
+}
+
+/** Whether a unit is hurt enough to ask to eat, idle and left alone, and has not asked about this wound. */
 function wantsFood(state: SimState, book: Book, i: number): boolean {
   const e = state.entities;
   const k = e.kind[i];
   if (k !== UnitKind.Worker && k !== UnitKind.Warrior && k !== UnitKind.Mage) return false;
-  if (!ownUnit(state, i) || e.inside[i] !== 0 || !calm(state, i) || !hurtNow(state, i)) return false;
+  if (!ownUnit(state, i) || !restful(state, i) || !hurtNow(state, i)) return false;
   // Already eating or healing from a meal at a table, or asked about this wound.
   if (book.hurt.has(e.id[i]!) || e.mendUntil[i]! > state.step || e.queue[i]!.some((o) => o.t === 'eat')) return false;
   return !inQuestion(book, e.id[i]!);
@@ -336,7 +395,19 @@ function askHeal(state: SimState, book: Book, i: number): void {
   const text = n === 1 ? "I'm hurt. Can I eat to heal?" : `${countWord(n)} of us are hurt. Can we eat to heal?`;
   const yes = `${n === 1 ? 'It goes' : `All ${n} go`} to the nearest main base or storehouse to eat, then carry on. From the stock: ${EAT_NUTRITION} food each${n > 1 ? ` (${EAT_NUTRITION * n} food)` : ''}, healing half ${n === 1 ? 'its' : 'their'} health over 10 seconds, and a remedy or bandage each if one is in stock and needed.`;
   const no = `${n === 1 ? 'It carries' : 'They carry'} on and heal slowly by ${n === 1 ? 'itself' : 'themselves'} while fed. Asked again only after ${n === 1 ? 'its' : 'their'} health has been back above ${pct}%.`;
-  put(state, unitQuestion(state, Ask.Heal, i, group, text, yes, no));
+  const q = unitQuestion(state, Ask.Heal, i, group, text, yes, no);
+  // Asked only while every one of them is idle and left alone: once one is given an order, fights or is hurt, the
+  // question goes, and they may ask again when idle (Jade's Patch 3).
+  const ids = group.map((j) => e.id[j]!);
+  q.holds = () =>
+    ids.every((id) => {
+      const j = e.indexOf(id);
+      return j < 0 || e.hp[j]! <= 0 || restful(state, j);
+    });
+  q.unask = () => {
+    for (const id of ids) book.hurt.delete(id);
+  };
+  put(state, q);
 }
 
 // ----- 3: down from the top -----
@@ -490,6 +561,10 @@ export function updateQuestions(state: SimState): void {
       gone = i < 0 || e.hp[i]! <= 0 || e.owner[i] !== q.player;
     }
     if (gone || state.step >= q.info.until || !asks(state, q.player)) close(state, q);
+    else if (q.holds && !q.holds()) {
+      close(state, q);
+      q.unask?.();
+    }
   }
   if (book.waiting.length > 0) {
     const still: Waiting[] = [];
@@ -509,7 +584,7 @@ export function updateQuestions(state: SimState): void {
     const c = clockAt(state.step, state.blood);
     if (c.period === Period.Dawn) for (let p = 0; p < state.players.length; p++) if (asks(state, p)) askRepair(state, book, p, c.cycle);
   }
-  // Each unit once a second, at its own moment: better kit, or a wound.
+  // Each unit once a second, at its own moment: better kit (a worker, better tools), or a wound.
   const tech: Array<TechView | undefined> = [];
   for (let i = 0; i < e.count; i++) {
     if ((state.step + e.id[i]!) % STEPS_PER_SECOND !== 0) continue;
@@ -522,7 +597,7 @@ export function updateQuestions(state: SimState): void {
       askHeal(state, book, i);
       continue;
     }
-    if (e.kind[i] !== UnitKind.Warrior && e.kind[i] !== UnitKind.Mage) continue;
+    if (e.kind[i] !== UnitKind.Warrior && e.kind[i] !== UnitKind.Mage && e.kind[i] !== UnitKind.Worker) continue;
     const pool = state.players[player]!.pool;
     const t = (tech[player] ??= techOf(state, player));
     const offer = wantsKit(state, book, i, pool, t);
@@ -651,5 +726,34 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
       if (why) say(state, speaker, why, true);
       return;
     }
+    default:
+      answerHooks.other(state, o);
   }
+}
+
+// ----- questions other modules ask (Patch 3) -----
+
+/** Yes to a question another module asked (units/greyed.ts: a greyed-out button clicked): that module answers it. It has closed already. */
+export const answerHooks: { other: (state: SimState, o: AnswerOrder) => void } = { other: () => {} };
+
+/**
+ * A question another module asks (Patch 3): put up at once, past the cap on
+ * open questions, with the same wait and the same bubble. `who` is an
+ * entity id, or a building id when `building`. Returns its id.
+ */
+export function askNow(state: SimState, player: number, who: number, building: boolean, info: Omit<AskInfo, 'id' | 'until'>, text: string): number {
+  const q: Question = { player, who, building, text, info: { ...info, id: 0, until: 0, units: [...info.units] } };
+  put(state, q);
+  return q.info.id;
+}
+
+/** Ends a player's open questions of these kinds (Patch 3). */
+export function closeAsks(state: SimState, player: number, kinds: readonly number[]): void {
+  for (const q of [...bookOf(state).open]) if (q.player === player && kinds.includes(q.info.q)) close(state, q);
+}
+
+/** Whether a unit (entity id) or a building has a question open, asking or spoken for. */
+export function isAsking(state: SimState, id: number, building: boolean): boolean {
+  const book = bookOf(state);
+  return building ? buildingAsking(book, id) : inQuestion(book, id);
 }

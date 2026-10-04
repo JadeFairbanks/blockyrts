@@ -1873,9 +1873,9 @@ hashes and saves never see them, and a loaded game starts with none.
    stock. Click the tick: they walk off to upgrade, the weapon first. In a
    new game click the cross instead: nothing happens, and they do not ask
    again until the stock pays for something better.
-2. **The wait.** Leave a question alone: it goes after 30 s. Open F10 while
-   one is up: it stays as long as the game is paused, then waits out the
-   rest of its 30 s. Click beside the buttons: the click reaches the world
+2. **The wait.** Leave a question alone: it goes after 10 s (30 s before
+   Patch 3). Open F10 while one is up: it stays as long as the game is
+   paused, then waits out the rest of its 10 s. Click beside the buttons: the click reaches the world
    (the bubble itself takes none). With tap controls on, a tap on Yes or No
    answers.
 3. **Hurt.** Let a worker or warrior fall to 70% health or less (a wolf will
@@ -1904,17 +1904,65 @@ hashes and saves never see them, and a loaded game starts with none.
    the Artillery workshop's crewman (Patch 2, wave 2).
 9. **The chat rule.** Only urgent lines from your own units reach the message
    panel, each pinging the minimap and joining F4's list: "Help! I am being
-   attacked!", a failed order ("I cannot reach that.", "Not enough ...") and
+   attacked by a zombie!" (naming the attacker since Patch 3), a failed order ("I cannot reach that.", "Not enough ...") and
    now "That cart is gone!". Another people's greetings, trade answers and
    war cries are bubbles only; open their trade or hire menu and the last
    thing they said to you shows under its title. Their news (war declared,
    a surrender offer) is still in chat as the game's own line.
 10. `pnpm test` runs `packages/sim/test/questions.test.ts` (each question,
-    Yes and No, the 30 s wait, three at a time, rests, a leaver's units, not
+    Yes and No, the 10 s wait, three at a time, rests, a leaver's units, not
     saved, every machine in step), `packages/client/test/question-bubbles.test.ts`
     (the bubble waits in game time, over a roof for a building, buttons only
     for the owner), `packages/client/test/hud-wording.test.ts` (the chat
     rule) and `packages/client/test/m10-audio.test.ts` (the run-out cue).
+
+## How a tester checks Patch 3's speech: who attacks, questions and held bubbles
+
+*Jade's Patch 3 (2026-10-04), the speech items. Picks in
+blueprint/patch3-bubbles-chat-picks.md. The lines are in
+`packages/sim/src/peoples/speech.ts` (sayAttacked, aFoe, sayTinkering), the
+questions in `packages/sim/src/units/questions.ts`, the held bubbles in
+`packages/client/src/hud/bubbles.ts`.*
+
+1. **Both start questions.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Within a second the three warriors ask "Three of us could use better kit.
+   Upgrade?" and the four workers "Four of us could use better tools.
+   Upgrade?" (before Patch 3 only the warriors asked). Hover the workers'
+   tick: the start's stock pays for three workers' tools, and the tooltip
+   says "The stock pays for 3 of the 4, the highest rank first: ...; the rest
+   keep their tools." At the same moment the Big House says over its roof
+   "If you upgrade all their tools you may not be able to make any structures
+   right away, choose wisely." in a plain bubble, for twice as long as a
+   usual bubble (about 15 s), and never again that game. It is not in chat.
+2. **First come, first served.** In a new game click the workers' tick first:
+   three walk off to upgrade their tools and the stock drops by exactly what
+   they take. Then click the warriors' tick: they get only what is left (one
+   flint hand-axe at the start). The other way round, the warriors take
+   their kit first. Nothing in the stock ever goes below zero.
+3. **The 10 s wait.** Leave the questions alone: they go after 10 s of game
+   time (the balance editor's Questions group, QUESTION_WAIT_STEPS). Paused
+   with F10, they stay.
+4. **Who attacks.** Let a zombie or a wolf reach a worker: the chat line is
+   "Help! I am being attacked by a zombie!" (or "... by a wolf!"); a warrior
+   says "We are under attack from a giant spider!", a mage "I am under attack
+   from an ash golem!". It names the enemy whose blow made it speak.
+5. **Eat to heal only when idle.** Let a worker fall to 70% health or less
+   and keep it busy (gathering, walking, fighting): it does not ask. Leave it
+   idle, out of the fight: 5 s after its last hurt it asks "I'm hurt. Can I
+   eat to heal?". Give it an order while the question is up: the question
+   goes at once, and it may ask again once it is idle.
+6. **Bubbles held for the bar.** Say Yes to a hurt unit's question: as it sits
+   at the main base its bubble reads "I'm eating my fill of venison." (before
+   Patch 3 "I ate my fill of venison.") and stays up the whole 10 s the bar
+   runs, going when the bar does. A warrior given Upgrade equipment with a
+   weapon and armour to take says "Upgrading to flint hand-axe." for the
+   first bar, then "Upgrading to leather jerkin." for the second, and
+   "Upgraded to leather jerkin." only when it gets up.
+7. `pnpm test` runs `packages/sim/test/patch3-speech.test.ts` (the attacker's
+   name, the 10 s wait, eat to heal only when idle and its withdrawal, the
+   upgrade lines and their holds, both start questions, the advice once and
+   only on the first day, first come first served three ways) and the held
+   bubbles in `packages/client/test/question-bubbles.test.ts`.
 
 ## How a tester checks the fourteen buildings (Patch 2)
 
@@ -2301,6 +2349,60 @@ in `packages/sim/src/world/layout.ts`.*
    change any fight with an animal or tribesman.
 3. **Saves.** A save from indev 0.5 is refused: "That save is from an older
    version of the game. Start a new game." (save format 5, snapshot 19).
+
+## How a tester checks the action and build menus (Patch 3)
+
+*Jade's Patch 3, four items: buildings the stock cannot pay for are greyed
+out like those short of a prerequisite; a building whose card was one
+button opening a bigger menu opens on that menu; the active action marker
+is about twice as visible; and a click on a greyed-out button has whoever
+can sort out why ask, in a question bubble. Picks in
+blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
+`packages/client/src/hud/commands.ts`; the questions
+`packages/sim/src/units/greyed.ts`; the marker `.hud-btn.doing` in
+`packages/client/src/hud/hud.css`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-greyed.test.ts
+   (both reasons asked at once, a cause further down asked for, one
+   resource wanted twice asked for once with both amounts, the cap, the same
+   click twice, no change to the state hash, the Workshop offering planks,
+   the Scholar's Lodge offering research, a worker offering better tools,
+   idle warriors offering to hunt) and
+   packages/client/test/patch3-menus.test.ts.
+2. **Greyed by the stock.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   select the four workers and press B. The Forge, the Scholar's Lodge, the
+   Fishing dock and a second Big House are greyed out (before Patch 3 they
+   showed in red and could still be placed as a plan); hover the Forge:
+   "Not enough softwood lumber (needs 60, you have 40)." Clicking it or
+   pressing its key does not pick it up. The Barracks says its main base
+   level first, then the stock. The Farm, Barn, Storehouse and Workshop are
+   lit. Defences and Lights open as before and grey their own buildings.
+3. **Who sorts it out.** Still in the build menu, click the greyed Forge:
+   two workers ask "We need 20 more softwood lumber for the Forge. Shall I
+   go and gather some?" and "We need 20 more stone for the Forge. Shall I
+   go and gather some?". Tick one: it walks off to gather. Click the
+   Barracks: the softwood and stone questions count the Longhall too ("We
+   need 140 more softwood lumber for the Barracks and the Longhall."), as
+   the Barracks waits on a level 2 main base. Click the same button again
+   while its questions are up: nothing new; click another: the first
+   questions go and the new ones come.
+4. **One click less.** Type M N B V C X Z and press **Troop kit**, then
+   select the Forge: its smelting buttons show straight away, with no Smelt
+   and no Back (before Patch 3: one Smelt button). The Workshop, the
+   Scholar's Lodge and the Barn (its Slaughter) do the same; the Big House keeps its K menu
+   and the Artillery workshop its Engines, as they have more on their cards.
+5. **Greyed actions.** On that Forge click the greyed Copper ingot: a worker
+   asks "We need 2 more copper ore for the copper ingot, and my tools can't
+   break it. Shall I make stone and flint tools and go and gather some?";
+   Yes sends it to tinker its tools and then mine. Click Wrought iron:
+   the Forge asks "We need 2 more charcoal for the wrought iron. Shall I
+   make 3?" and Yes queues the charcoal. A greyed Barracks troop short of
+   food asks idle warriors to go hunting; the Big House's greyed Upgrade
+   asks workers for what the next level is short of.
+6. **The marker.** Select workers and press G (or right click a tree): the Gather button's gold
+   arrow is half as big again and its ring twice as thick and never dimmer
+   than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
+   from 30%).
 
 ## How a tester checks the balance editor
 
