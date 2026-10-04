@@ -7,8 +7,9 @@
 // units/questions.ts; what is said here hands over to them through askHooks.
 
 import { floorDiv, length2d, STEPS_PER_SECOND } from '../fixed.ts';
-import { PEOPLES, UnitKind, type SimEvent, type SimState } from '../state.ts';
+import { PEOPLES, UnitKind, type BubbleHold, type SimEvent, type SimState } from '../state.ts';
 import { mobSpec } from '../combat/mobs.ts';
+import { speciesSpec } from '../animals/species.ts';
 import { unitTitleOf } from '../units/names.ts';
 import { Role } from '../threats/types.ts';
 import { engineSpec } from '../siege/data.ts';
@@ -74,14 +75,25 @@ export function speakerName(state: SimState, i: number): string {
  * line only tells what the unit is doing, and waits while the unit has a
  * question open (Patch 2, round 3).
  */
-export function say(state: SimState, i: number, text: string, urgent = false, quiet = false): void {
+export function say(state: SimState, i: number, text: string, urgent = false, quiet = false, hold?: BubbleHold): void {
   const e = state.entities;
   const player = e.owner[i]!;
   if (player >= state.players.length) return;
   if (quiet && askingAt.get(state)?.has(e.id[i]!)) return;
   const ev: SimEvent = { player, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), urgent, x: e.x[i]!, z: e.z[i]! };
   if (quiet) ev.quiet = true;
+  if (hold) ev.hold = hold;
   state.events.push(ev);
+}
+
+/**
+ * What a unit says as it sits down to a timed action (units/tinker.ts), in
+ * the present tense ("Upgrading to bronze scale armour."): a quiet line whose
+ * bubble stays up for as long as its progress bar runs (Jade's Patch 3).
+ * Call it on the step the unit sits down, the step its bar starts.
+ */
+export function sayTinkering(state: SimState, i: number, text: string): void {
+  say(state, i, text, false, true, 'bar');
 }
 
 /** Not state: when each unit last said each kind of quiet line (chatter). */
@@ -135,8 +147,12 @@ export function sayForeign(state: SimState, i: number, text: string, important: 
   });
 }
 
-/** A player's unit was hurt by an enemy: it says so, now and then (Unit speech: triggered speech). */
-export function sayAttacked(state: SimState, i: number): void {
+/**
+ * A player's unit was hurt by an enemy, the unit at index `a`: it says so,
+ * now and then, naming the enemy whose blow made it speak (Unit speech:
+ * triggered speech; Jade's Patch 3: "We are under attack from a zombie!").
+ */
+export function sayAttacked(state: SimState, i: number, a: number): void {
   const e = state.entities;
   const player = e.owner[i]!;
   if (player >= state.players.length) return;
@@ -150,8 +166,31 @@ export function sayAttacked(state: SimState, i: number): void {
   t.players[player] = state.step;
   t.units.set(e.id[i]!, state.step);
   if (t.units.size > 512) t.units.clear();
-  const line = e.kind[i] === UnitKind.Worker ? 'Help! I am being attacked!' : e.kind[i] === UnitKind.Mage ? 'I am under attack!' : 'We are under attack!';
+  const foe = aFoe(state, a);
+  const line = e.kind[i] === UnitKind.Worker ? `Help! I am being attacked by ${foe}!` : e.kind[i] === UnitKind.Mage ? `I am under attack from ${foe}!` : `We are under attack from ${foe}!`;
   say(state, i, line, true);
+}
+
+/**
+ * An enemy as a unit names it in a sentence (Jade's Patch 3): "a zombie",
+ * "an ash golem", "a wolf", "a Halfling spearman" (the peoples' names keep
+ * their capitals), or a boss by its name alone ("Morvath").
+ */
+export function aFoe(state: SimState, j: number): string {
+  const e = state.entities;
+  let name: string;
+  if (j < 0) name = 'enemy';
+  else if (e.kind[j] === UnitKind.Animal) name = speciesSpec(e.mob[j]!).name.toLowerCase();
+  else if (e.kind[j] === UnitKind.Mob) {
+    name = mobSpec(e.mob[j]!).name;
+    // Morvath, the Hollow Crown: one of him, by his name.
+    const comma = name.indexOf(',');
+    if (comma >= 0) return name.slice(0, comma);
+    name = name.toLowerCase();
+  } else if (e.kind[j] === UnitKind.Engine) name = engineSpec(e.mob[j]!).name.toLowerCase();
+  else if (e.owner[j] === PEOPLES || e.role[j] === Role.Mercenary || e.role[j] === Role.People) name = peopleUnitSpec(e.mob[j]!).name;
+  else name = unitTitleOf(state, j).toLowerCase();
+  return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 }
 
 /** A man up top with nothing to shoot says so while monsters are at the base: a player's men at most once per 20 s, one man at most once per 90 s (s). */
@@ -192,10 +231,12 @@ export function sayUpTop(state: SimState, i: number, foe: number): void {
  * A player's building says something to its player (Patch 2: buildings get
  * bubbles too, over the middle of the roof), as a unit's say does.
  */
-export function sayBuilding(state: SimState, b: Building, text: string, urgent = false): void {
+export function sayBuilding(state: SimState, b: Building, text: string, urgent = false, hold?: BubbleHold): void {
   if (b.owner >= state.players.length) return;
   const [x, z] = buildingCentre(b);
-  state.events.push({ player: b.owner, kind: 'speech', text, building: b.id, name: buildingName(b.kind, b.level, b.variant), urgent, x, z });
+  const ev: SimEvent = { player: b.owner, kind: 'speech', text, building: b.id, name: buildingName(b.kind, b.level, b.variant), urgent, x, z };
+  if (hold) ev.hold = hold;
+  state.events.push(ev);
 }
 
 /** What a man calls the enemy he sees: "those zombies", or a boss by name. */

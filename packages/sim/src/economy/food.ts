@@ -16,7 +16,7 @@ import { ceilDiv, floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { HORSE_UPKEEP, Mount, mountSpec } from '../mounts/data.ts';
 import { CYCLE_STEPS, NUTRITION_PER_CYCLE } from '../rules.ts';
 import { hash32 } from '../rng.ts';
-import { UnitKind, type PlayerState, type SimState } from '../state.ts';
+import { UnitKind, type BubbleHold, type PlayerState, type SimState } from '../state.ts';
 import { BuildingKind } from '../buildings/data.ts';
 import { FOODS, RESOURCES, Res } from './resources.ts';
 import { Role } from '../threats/types.ts';
@@ -244,11 +244,11 @@ const NO_FOOD_LINES: readonly string[] = [
  * lines stay out of the message panel, patch 1), except its first missed
  * meal, an alert (urgent) that reaches the panel too.
  */
-function chatter(state: SimState, i: number, text: string, bubble: 'meal' | 'hungry', urgent = false): void {
+function chatter(state: SimState, i: number, text: string, bubble: 'meal' | 'hungry', urgent = false, hold?: BubbleHold): void {
   const e = state.entities;
   // Animals do not talk; working horses and oxen eat and starve quietly.
   if (e.kind[i] === UnitKind.Animal) return;
-  state.events.push({ player: e.owner[i]!, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), x: e.x[i]!, z: e.z[i]!, bubble, ...(urgent ? { urgent: true } : {}) });
+  state.events.push({ player: e.owner[i]!, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), x: e.x[i]!, z: e.z[i]!, bubble, ...(urgent ? { urgent: true } : {}), ...(hold ? { hold } : {}) });
 }
 
 function ateLine(state: SimState, i: number, taken: FoodTaken, starved: boolean): string {
@@ -420,8 +420,9 @@ export function eatAt(state: SimState, i: number): string {
   const p = state.players[e.owner[i]!]!;
   const taken = payFood(p, EAT_NUTRITION);
   if (!taken) return `Not enough food to eat (${EAT_NUTRITION} food).`;
-  // Seated at a main base or storehouse: a fuller meal, named plainly (Patch 2, s).
-  chatter(state, i, `I ate my fill of ${listText(taken.map(([f]) => RESOURCES[f]!.name.toLowerCase()))}.`, 'meal');
+  // Seated at a main base or storehouse: a fuller meal, named plainly (Patch 2, s), in the present tense while it sits
+  // eating, its bubble up for as long as the bar over its head runs (Jade's Patch 3).
+  chatter(state, i, `I'm eating my fill of ${listText(taken.map(([f]) => RESOURCES[f]!.name.toLowerCase()))}.`, 'meal', false, 'bar');
   const max = e.maxHp[i]!;
   const missing = max - e.hp[i]!;
   mend(state, i, floorDiv(max * EAT_HEAL_PER_MILLE, 1000), EAT_STEPS);

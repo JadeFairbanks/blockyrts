@@ -233,11 +233,13 @@ describe('meals', () => {
     expect(meal.map((v) => v.text)).toEqual(['Food at last! I ate some salmon. My horse ate too.']);
   });
 
-  it('a unit eating at a main base says it ate its fill', () => {
+  it('a unit eating at a main base says it is eating its fill, its bubble held while the bar runs', () => {
     const s = stocked([Res.FarmFare]);
     const w = eaters(s)[0]!;
     expect(eatAt(s, w)).toBe('');
-    expect(s.events.filter((v) => v.speaker === s.entities.id[w]! && v.bubble === 'meal').map((v) => v.text)).toEqual(['I ate my fill of farm fare.']);
+    const said = s.events.filter((v) => v.speaker === s.entities.id[w]! && v.bubble === 'meal');
+    expect(said.map((v) => v.text)).toEqual(["I'm eating my fill of farm fare."]);
+    expect(said[0]!.hold).toBe('bar');
   });
 
   it('says amounts and spans in words, with the right plurals', () => {
