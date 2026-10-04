@@ -128,8 +128,8 @@ export class FirstDayHints {
     this.text.className = 'tip-text';
     this.controls = document.createElement('span');
     this.controls.className = 'tip-controls';
-    const btn = (id: string, face: string, name: string, description: string, onPress: () => void): HudButton =>
-      shell.buttons.add({ id, face, name, keys: [], description, className: 'tip-btn', onPress });
+    const btn = (id: string, face: string, name: string, description: string, onPress: () => void, icon?: string): HudButton =>
+      shell.buttons.add({ id, face, name, keys: [], description, className: 'tip-btn', onPress, ...(icon ? { icon: { layers: [{ file: icon }] } } : {}) });
     this.x = btn('tip-close', '✕', 'Close the tip', 'Closes this tip now. The first time, it asks whether to turn tips off for this game.', () => {
       this.series.close(this.game.step);
       this.show();
@@ -138,11 +138,11 @@ export class FirstDayHints {
       this.series.answer(true);
       this.show();
       this.shell.message('Tips are off for the rest of this game.');
-    });
+    }, 'icon_cmd_confirm');
     this.no = btn('tip-no', 'No', 'Keep tips', 'Keeps the tips coming; from now on the ✕ just closes a tip.', () => {
       this.series.answer(false);
       this.show();
-    });
+    }, 'icon_cmd_cancel');
     this.controls.append(this.x.el, this.yes.el, this.no.el);
     this.box.append(this.text, this.controls);
     shell.layout.root.append(this.box);

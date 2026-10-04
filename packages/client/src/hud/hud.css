@@ -1155,7 +1155,7 @@ body.playing * {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
   width: max-content;
   max-width: min(440px, calc(100vw - 32px));
@@ -1187,6 +1187,18 @@ body.playing * {
 #hud .tip-box .hud-btn.tip-btn.hover {
   background: rgba(0, 0, 0, 0.3);
   border-color: rgba(244, 236, 210, 0.85);
+}
+/* Yes and No are the question buttons' tick and cross (Patch 2), at half size beside the 12 px text. */
+#hud .tip-box .hud-btn.tip-btn.has-icon {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+}
+#hud .tip-box .tip-btn .btn-icon img {
+  width: 16px;
+  height: 16px;
+  image-rendering: auto;
 }
 .chain-label {
   position: absolute;

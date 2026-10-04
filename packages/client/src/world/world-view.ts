@@ -86,6 +86,8 @@ const WORLD_EDGE_M = WORLD_EDGE_WU / WU_PER_METRE;
 /** Player colours when the lobby gives none: the lobby's own list in order (decision 8's placeholder blue is player 1). */
 export const PLAYER_COLOURS = LOBBY_COLOURS.map((c) => new THREE.Color(c.hex));
 const NEUTRAL_COLOUR = new THREE.Color(0x8a8a80);
+/** The dark edge round each unit and building on the minimap (s). */
+const MINIMAP_EDGE = 'rgba(10, 10, 8, 0.85)';
 /** The minimap colour of each people (Halflings, Runkin, Elves, Dwarves). */
 const PEOPLE_MARKS = ['#8ac850', '#b08050', '#50c0a8', '#a8a8b8'];
 
@@ -1046,19 +1048,33 @@ export class WorldView {
   /**
    * Over the land (Patch 2, Jade): every player's buildings as their
    * footprints (at least 2 px) and units as 2 px dots in that player's colour,
-   * enemies the players' side sees in red; then the marks on top.
+   * enemies the players' side sees in red; then the marks on top. Each has a
+   * 1 px dark edge (s), drawn under all the colours so a crowd reads as one
+   * patch, and so green still shows on grass.
    */
   private paintMinimapThings(ctx: CanvasRenderingContext2D, dpr: number): void {
     const px = 1 / Math.max(1e-6, ctx.getTransform().a);
     const dot = 2 * dpr * px;
-    const colour = (side: number): string => (side === ENEMY ? ENEMY_RED : `#${(this.colours[side] ?? NEUTRAL_COLOUR).getHexString()}`);
+    const edge = dpr * px;
+    const colours = new Map<number, string>();
+    const colour = (side: number): string => {
+      let c = colours.get(side);
+      if (c === undefined) {
+        c = side === ENEMY ? ENEMY_RED : `#${(this.colours[side] ?? NEUTRAL_COLOUR).getHexString()}`;
+        colours.set(side, c);
+      }
+      return c;
+    };
+    // x, z, width, depth in metres, then the colour, for every thing in drawing order.
+    const rects: number[] = [];
+    const sides: string[] = [];
     for (const b of this.game?.info?.buildings ?? []) {
       if (b.owner >= this.players) continue;
       const [x0, z0, x1, z1] = footprintRect(b);
       const w = Math.max(dot, (x1 - x0 + 1) * COLUMN_M);
       const d = Math.max(dot, (z1 - z0 + 1) * COLUMN_M);
-      ctx.fillStyle = colour(b.owner);
-      ctx.fillRect((x0 + x1 + 1) * COLUMN_M * 0.5 - w / 2, (z0 + z1 + 1) * COLUMN_M * 0.5 - d / 2, w, d);
+      rects.push((x0 + x1 + 1) * COLUMN_M * 0.5 - w / 2, (z0 + z1 + 1) * COLUMN_M * 0.5 - d / 2, w, d);
+      sides.push(colour(b.owner));
     }
     const st = this.curr;
     if (st) {
@@ -1073,10 +1089,16 @@ export class WorldView {
           const x = v[o + S.x]!;
           const z = v[o + S.z]!;
           if (enemies && !this.showAll && !inSight(this.vision, VISION_STRIDE, x, z)) continue;
-          ctx.fillStyle = colour(side);
-          ctx.fillRect(x / WU_PER_METRE - dot / 2, z / WU_PER_METRE - dot / 2, dot, dot);
+          rects.push(x / WU_PER_METRE - dot / 2, z / WU_PER_METRE - dot / 2, dot, dot);
+          sides.push(colour(side));
         }
       }
+    }
+    ctx.fillStyle = MINIMAP_EDGE;
+    for (let k = 0; k < rects.length; k += 4) ctx.fillRect(rects[k]! - edge, rects[k + 1]! - edge, rects[k + 2]! + 2 * edge, rects[k + 3]! + 2 * edge);
+    for (let k = 0; k < rects.length; k += 4) {
+      ctx.fillStyle = sides[k >> 2]!;
+      ctx.fillRect(rects[k]!, rects[k + 1]!, rects[k + 2]!, rects[k + 3]!);
     }
     // Lairs (dark red squares) and goblin villages (ochre rings, red at war) the player has found (Table 15: minimap marks).
     for (const m of this.game?.info?.marks ?? []) {
