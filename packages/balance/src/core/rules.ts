@@ -258,7 +258,7 @@ export const PLACEHOLDER_ROWS: ReadonlySet<string> = new Set([
 export type RefKind =
   | 'res' | 'mob' | 'research' | 'building' | 'gear' | 'shot' | 'tool' | 'toolJob' | 'tierNeed' | 'nature' | 'moves' | 'sun' | 'comes' | 'role'
   | 'lairSite' | 'band' | 'hit' | 'made' | 'species' | 'material' | 'digClass' | 'rations' | 'resGroup' | 'unitKind'
-  | 'people' | 'faction' | 'cat' | 'peopleUnit' | 'trinketMetal';
+  | 'people' | 'faction' | 'cat' | 'peopleUnit' | 'trinketMetal' | 'good';
 
 /** Keys that hold a reference, wherever they appear; `EXPORT:key` overrides by export. */
 export const REF_KEYS: Readonly<Record<string, RefKind>> = {
@@ -268,6 +268,8 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   'PROPS:tool': 'tool', 'SLAUGHTERED:*': 'species', 'FOODS:*': 'res', 'MEAT_BY_SPECIES:*': 'res',
   'RESEARCH:at': 'building', 'RECIPES:at': 'building', 'ENGINES:at': 'building', 'MOUNTS:species': 'species',
   'PEOPLE_UNITS:people': 'people', 'PEOPLE_UNITS:weapon': 'gear', 'PEOPLE_UNITS:ranged': 'gear', 'PEOPLE_UNITS:armour': 'gear', 'PEOPLE_UNITS:shield': 'gear',
+  // A people's lean: the goods it sells cheap and pays extra for (resources, live animals or engines).
+  'LEANS:sells': 'good', 'LEANS:lacks': 'good',
   RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
   // Troops and gear: a kit row's material tier, and a tool kit's tool tier for each job.
   need: 'tierNeed', 'TOOL_KITS:tools': 'tool',

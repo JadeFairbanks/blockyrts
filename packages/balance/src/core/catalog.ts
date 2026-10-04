@@ -148,7 +148,18 @@ function buildRefNames(mods: SimModules): Record<RefKind, Map<number, string>> {
     resGroup: e('ResGroup'), unitKind: e('UnitKind'),
     people: l('PEOPLE_NAMES', null), faction: l('FACTION_KIND_NAMES', null), cat: capitalised(l('CAT_NAMES', null)),
     peopleUnit: peopleUnitNames(findExport(mods, 'PEOPLE_UNITS')), trinketMetal: l('TRINKET_METALS', null),
+    good: goodNames(mods),
   };
+}
+
+/** Every trade good by id: the resources, then live animals (LIVE_GOODS + species) and engines (ENGINE_GOODS + kind). */
+function goodNames(mods: SimModules): Map<number, string> {
+  const out = namesFromList(findExport(mods, 'RESOURCES'), 'id');
+  const live = findExport(mods, 'LIVE_GOODS');
+  const engines = findExport(mods, 'ENGINE_GOODS');
+  if (typeof live === 'number') for (const [id, name] of namesFromList(findExport(mods, 'SPECIES'), 'id')) out.set(live + id, `Live ${name.toLowerCase()}`);
+  if (typeof engines === 'number') for (const [id, name] of namesFromList(findExport(mods, 'ENGINES'), 'id')) out.set(engines + id, name);
+  return out;
 }
 
 /** The material tiers (Troops and gear) as "3: copper". */
