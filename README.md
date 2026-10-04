@@ -634,7 +634,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 3e0b6845`. The script plays by Patch 2's
+   prints `final step 10000 hash 5ab894a8`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
