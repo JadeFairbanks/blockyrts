@@ -126,7 +126,7 @@ describe('the card tooltips', () => {
 describe('the Several panel', () => {
   const unit = (label: string): Selectable => ({ key: label, kind: 'unit', owner: ME, typeKey: 'warrior', centre: new THREE.Vector3(), halfSize: new THREE.Vector3(), label });
 
-  it('puts the rank in the badge, not the title', () => {
+  it("keeps the rank out of the title (the XP bar's tooltip names it, Patch 3)", () => {
     expect(bareName('Close melee (Veteran)')).toBe('Close melee');
     expect(bareName('Barracks')).toBe('Barracks');
   });
