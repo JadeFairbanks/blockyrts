@@ -791,6 +791,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_earth | ui/icon_earth.png | 1 | 32x32 | K1 resource icon earth: sack + heap of contents. |
 | icon_eggs | ui/icon_eggs.png | 1 | 32x32 | K1 resource icon eggs (rendered from egg_basket.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_emerald | ui/icon_emerald.png | 1 | 32x32 | K1 resource icon emerald (rendered from gem_emerald.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_farm_fare | ui/icon_farm_fare.png | 1 | 32x32 | K1 resource icon farm_fare (Patch 2): "a hearty medley of vegetables" heaped in a wooden bowl (cabbage, carrots, turnip, onion, potatoes, beans), 32x32, 1px outline, top-left light. |
 | icon_feathers | ui/icon_feathers.png | 1 | 32x32 | K1 resource icon feathers (rendered from feather_bundle.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_fish | ui/icon_fish.png | 1 | 32x32 | K1 resource icon fish (rendered from fish_carried.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_fish_catfish | ui/icon_fish_catfish.png | 1 | 32x32 | K1 resource icon fish_catfish: the giant catfish lying on its belly, head and barbels toward the viewer (rendered from fish_carried_catfish.bbmodel at icon_fish's view, yaw 213, pitch 29; drawn at half its length with thickened, longer barbels so it fills the square, colours lifted 1.2x to the trout icon's brightness), 32x32, 1px outline, top-left light. |
@@ -913,6 +914,12 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_prospecting_hammer_iron_bloom | ui/icon_prospecting_hammer_iron_bloom.png | 1 | 32x32 | K2 item icon prospecting_hammer_iron_bloom (rendered from prospecting_hammer.bbmodel + prospecting_hammer_iron_bloom.png), tier iron_bloom. |
 | icon_prospecting_hammer_iron_refined | ui/icon_prospecting_hammer_iron_refined.png | 1 | 32x32 | K2 item icon prospecting_hammer_iron_refined (rendered from prospecting_hammer.bbmodel + prospecting_hammer_iron_refined.png), tier iron_refined. |
 | icon_prospecting_hammer_iron_wrought | ui/icon_prospecting_hammer_iron_wrought.png | 1 | 32x32 | K2 item icon prospecting_hammer_iron_wrought (rendered from prospecting_hammer.bbmodel + prospecting_hammer_iron_wrought.png), tier iron_wrought. |
+| icon_robe_1 | ui/icon_robe_1.png | 1 | 32x32 | K2 item icon robe tier 1, Homespun robe (Patch 2 Sanctum cards): undyed flax, rope belt. 32x32, 1px outline, top-left light. |
+| icon_robe_2 | ui/icon_robe_2.png | 1 | 32x32 | K2 item icon robe tier 2, Leather-trimmed robe (Patch 2 Sanctum cards): flax with leather trim, cuffs and belt. 32x32, 1px outline, top-left light. |
+| icon_robe_3 | ui/icon_robe_3.png | 1 | 32x32 | K2 item icon robe tier 3, Hardened-leather robe (Patch 2 Sanctum cards): grey-green with an oxblood hardened-leather yoke. 32x32, 1px outline, top-left light. |
+| icon_robe_4 | ui/icon_robe_4.png | 1 | 32x32 | K2 item icon robe tier 4, Warded robe (Patch 2 Sanctum cards): deep blue with pale trim and a glowing ward crystal clasp. 32x32, 1px outline, top-left light. |
+| icon_robe_5 | ui/icon_robe_5.png | 1 | 32x32 | K2 item icon robe tier 5, Rune-stitched vestments (Patch 2 Sanctum cards): purple with copper-thread runes and copper trim. 32x32, 1px outline, top-left light. |
+| icon_robe_6 | ui/icon_robe_6.png | 1 | 32x32 | K2 item icon robe tier 6, Archmage's mantle (Patch 2 Sanctum cards): midnight violet mantle and high collar, gold trim, steel belt, glowing violet clasp. 32x32, 1px outline, top-left light. |
 | icon_saw_bronze | ui/icon_saw_bronze.png | 1 | 32x32 | K2 item icon saw_bronze (rendered from saw.bbmodel + saw_bronze.png), tier bronze. |
 | icon_saw_hq_steel | ui/icon_saw_hq_steel.png | 1 | 32x32 | K2 item icon saw_hq_steel (rendered from saw.bbmodel + saw_hq_steel.png), tier hq_steel. |
 | icon_saw_iron_bloom | ui/icon_saw_iron_bloom.png | 1 | 32x32 | K2 item icon saw_iron_bloom (rendered from saw.bbmodel + saw_iron_bloom.png), tier iron_bloom. |
@@ -1167,6 +1174,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_cmd_build_advanced | ui/icon_cmd_build_advanced.png | 1 | 32x32 | K4 Build Advanced Structures: a hammer and a cut stone block. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
 | icon_cmd_build_basic | ui/icon_cmd_build_basic.png | 1 | 32x32 | K4 Build Basic Structures: a hammer and a log. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
 | icon_cmd_cancel | ui/icon_cmd_cancel.png | 1 | 32x32 | K4 Cancel: a red cross. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
+| icon_cmd_confirm | ui/icon_cmd_confirm.png | 1 | 32x32 | K4 Confirm (Patch 2 yes/no bubbles): a green tick, the twin of icon_cmd_cancel. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
 | icon_cmd_craft | ui/icon_cmd_craft.png | 1 | 32x32 | K4 Craft: an anvil with a hammer. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
 | icon_cmd_dig | ui/icon_cmd_dig.png | 1 | 32x32 | K4 Dig: a shovel in earth. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
 | icon_cmd_enter | ui/icon_cmd_enter.png | 1 | 32x32 | K4 Enter: a doorway with an arrow going in. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
@@ -1252,6 +1260,8 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | cursor_patrol | ui/cursor_patrol.png | 1 | 32x32 | K9 cursor patrol: yellow patrol reticle; hotspot at the centre. 32x32. Hotspot (click point) x=15, y=15 (pixels from top-left). |
 | cursor_pointer | ui/cursor_pointer.png | 1 | 32x32 | K9 cursor pointer: default pointer arrow, pale parchment with a dark outline. 32x32. Hotspot (click point) x=1, y=1 (pixels from top-left). |
 | cursor_repair | ui/cursor_repair.png | 1 | 32x32 | K9 cursor repair: repair: a hammer, head at top-left; hotspot at the head's striking corner. 32x32. Hotspot (click point) x=3, y=3 (pixels from top-left). |
+| icon_padlock_closed | ui/icon_padlock_closed.png | 1 | 16x16 | K7 padlock, closed (Patch 2 kit cards: the kit is locked): brass body, steel shackle. 16x16. |
+| icon_padlock_open | ui/icon_padlock_open.png | 1 | 16x16 | K7 padlock, open (Patch 2 kit cards: not locked): all grey, the shackle lifted out on one side. 16x16. |
 | icon_rank_mage_acolyte | ui/icon_rank_mage_acolyte.png | 1 | 16x16 | K7 mage rank 2 (Acolyte): 2 small violet gem(s). 16x16 badge for portraits and above units. |
 | icon_rank_mage_adept_acolyte | ui/icon_rank_mage_adept_acolyte.png | 1 | 16x16 | K7 mage rank 3 (Adept Acolyte): 3 small violet gem(s). 16x16 badge for portraits and above units. |
 | icon_rank_mage_grand_magician | ui/icon_rank_mage_grand_magician.png | 1 | 16x16 | K7 mage rank 6 (Grand Magician): 6 small violet gem(s), gold border. 16x16 badge for portraits and above units. |
@@ -1264,6 +1274,8 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_rank_warrior_recruit | ui/icon_rank_warrior_recruit.png | 1 | 16x16 | K7 warrior rank 1 (Recruit): 1 bronze chevron. 16x16 badge for portraits and above units. |
 | icon_rank_warrior_soldier | ui/icon_rank_warrior_soldier.png | 1 | 16x16 | K7 warrior rank 2 (Soldier): 2 bronze chevrons. 16x16 badge for portraits and above units. |
 | icon_rank_warrior_veteran | ui/icon_rank_warrior_veteran.png | 1 | 16x16 | K7 warrior rank 3 (Veteran): 3 bronze chevrons. 16x16 badge for portraits and above units. |
+| icon_rank_worker_elder | ui/icon_rank_worker_elder.png | 1 | 16x16 | K7 worker rank 5 (Elder): two crossed hammers with gold heads. 16x16 badge for portraits and above units. |
+| icon_rank_worker_foreman | ui/icon_rank_worker_foreman.png | 1 | 16x16 | K7 worker rank 4 (Foreman): two crossed hammers with steel heads. 16x16 badge for portraits and above units. |
 | icon_rank_worker_hand | ui/icon_rank_worker_hand.png | 1 | 16x16 | K7 worker rank 2 (Hand): 2 small tool mark(s). 16x16 badge for portraits and above units. |
 | icon_rank_worker_labourer | ui/icon_rank_worker_labourer.png | 1 | 16x16 | K7 worker rank 1 (Labourer): 1 small tool mark(s). 16x16 badge for portraits and above units. |
 | icon_rank_worker_master | ui/icon_rank_worker_master.png | 1 | 16x16 | K7 worker rank 3 (Master): 3 small tool mark(s). 16x16 badge for portraits and above units. |
