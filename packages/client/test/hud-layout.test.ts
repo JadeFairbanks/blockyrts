@@ -223,10 +223,12 @@ describe('the card holds twelve before it grows (Jade, indev 0.8)', () => {
     for (const g of desktops) {
       const inner = cardInner(g);
       let last = Infinity;
-      for (let n = 1; n <= 40; n++) {
+      for (let n = 0; n <= 40; n++) {
         const fit = fitButtons(n, inner.w, inner.h, g.maxH, g.buttonMin);
         expect(fit.size, `${g.cols} columns, ${n} buttons`).toBeLessThanOrEqual(last);
         expect(fit.size).toBeGreaterThanOrEqual(g.buttonMin);
+        // Never smaller than the card with nothing selected (Jade, indev 0.8): its width is fixed, its height only grows.
+        expect(fit.height).toBeGreaterThanOrEqual(inner.h);
         if (n <= CARD_HOLDS) expect(fit.height).toBe(inner.h);
         if (fit.height > inner.h) {
           // Grown: no smaller than the minimum, and only as tall as the rows at it need.
