@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { ACTIONS, clashes, GRID_CODES, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
-import { Commands, menuSlots, submenuChoices, type CommandDeps } from '../src/hud/commands.ts';
+import { Commands, menuSlots, submenuChoices, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { groupOfKey, GroupStore } from '../src/hud/groups.ts';
 import { subgroups } from '../src/hud/selection-panel.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
@@ -76,6 +76,13 @@ function harness(g: GameInfo, selection: Selectable[], active: string | null) {
 
 const workers = [sel('e:1', 'unit', 'worker'), sel('e:2', 'unit', 'worker')];
 
+/** A card's button by what it does. */
+function button(card: Card, action: string): CardEntry {
+  const e = card.find((x) => x.action === action);
+  if (!e) throw new Error(`no ${action} on the card: ${card.map((x) => x.action).join(', ')}`);
+  return e;
+}
+
 describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => {
   it('puts each building in its slot, Defences and Lights as submenus, B always Back', () => {
     const slots = menuSlots();
@@ -98,50 +105,77 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
 });
 
 describe('the worker card', () => {
-  it('has the movement row, the gatherer row and the build row, greyed where a later milestone brings it', () => {
+  it('has only the buttons Jade\'s Patch 2 list names, in book order with no gaps', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
-    // Milestone 11: workers never patrol, so rank training takes slot 3; the tools upgrade and the cart close the card.
-    // Patch 2: one Build button; the slot Advanced had is empty.
-    expect(card.map((e) => e?.face ?? '')).toEqual(['Attack', 'Stop', 'Hold', 'Rank', 'Move', 'Gather', 'Return', 'Repair', 'Dig', 'Prospect', 'Build', '', 'Enter', 'Tools +', 'Cart']);
-    expect(card[9]!.enabled).toBe(true); // Prospect (milestone 4)
-    expect(card[6]!.enabled).toBe(true); // worker 2 carries something
-    expect(card[3]!.action).toBe('rankUp');
-    expect(card[13]!.reason).toBe('Not enough resources (3 hardwood sticks).');
-    expect(card[14]!.reason).toBe('There are no carts in the stock (make one at a Workshop).');
-    expect(card.map((e) => e?.key ?? '')).toContain('KeyG');
+    // Move, Jade's gather, unload, repair, dig and prospect, one Build, then Eat, Upgrade equipment, rank training and the cart.
+    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'rankUp', 'cart']);
+    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Unload', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Rank', 'Cart']);
+    expect(button(card, 'prospect').enabled).toBe(true); // Prospect (milestone 4)
+    expect(button(card, 'returnCargo').enabled).toBe(true); // worker 2 carries something
+    expect(button(card, 'returnCargo').name).toBe('Unload');
+    expect(button(card, 'equip').reason).toBe('Not enough resources (3 hardwood sticks).');
+    expect(button(card, 'cart').reason).toBe('There are no carts in the stock (make one at a Workshop).');
+    expect(card.map((e) => e.key)).toContain('KeyG');
+    // Before Patch 2: Attack, Stop, Hold and Enter, and Basic and Advanced build menus.
+    for (const gone of ['attack', 'stop', 'hold', 'enter', 'patrol', 'buildBasic', 'buildAdvanced']) expect(card.some((e) => e.action === gone)).toBe(false);
   });
 
-  it('opens the build menu on B with grid keys, Defences paging like the K menu, and Lights', () => {
+  it('opens the one build menu on B: the fourteen buildings on the grid keys, Defences and Lights as submenus', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
-    c.card()[10]!.run({ shift: false, ctrl: false });
+    // A desktop card shows 40 buttons at the smallest size before it pages.
+    (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 40 });
+    expect(button(c.card(), 'build').key).toBe('KeyB');
+    button(c.card(), 'build').run({ shift: false, ctrl: false });
     let card = c.card();
     expect(card[0]!.face).toBe('Big House');
     expect(card[0]!.key).toBe('KeyQ');
     expect(card[1]!.face).toBe('Farm');
     expect(card[12]!.face).toBe('Defences');
     expect(card[13]!.face).toBe('Lights');
+    // The fourteen and Back fit one page, and Back closes the menu on B.
+    expect(card).toHaveLength(15);
+    expect(card.slice(0, 14).every((e) => e.grid && e.key !== '')).toBe(true);
     expect(card[14]!.face).toBe('Back');
+    expect(card[14]!.key).toBe('KeyB');
     card[12]!.run({ shift: false, ctrl: false });
     card = c.card();
-    expect(card[0]!.face).toBe('Softwood wall');
-    expect(card[13]!.action).toBe('more');
-    card[13]!.run({ shift: false, ctrl: false });
-    card = c.card();
-    expect(card[0]!.face).toBe('Earth ramp');
+    // Defences' 17 choices fit a desktop card; past the 14 grid keys the buttons are clicks.
+    expect(card.map((e) => e.face)).toEqual([
+      'Softwood wall', 'Hardwood wall', 'Stone wall',
+      'Softwood gate (east to west)', 'Softwood gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
+      'Stone gate (east to west)', 'Stone gate (north to south)',
+      'Softwood tower', 'Hardwood tower', 'Stone tower',
+      'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Back',
+    ]);
+    expect(card.slice(14, -1).every((e) => e.key === '')).toBe(true);
+    expect(card.at(-1)!.key).toBe('KeyB');
     expect(c.back()).toBe(true);
     expect(c.card()[12]!.face).toBe('Defences');
     c.card()[13]!.run({ shift: false, ctrl: false });
-    expect(c.card().slice(0, 2).map((e) => e?.face)).toEqual(['Torch post', 'Bonfire']);
+    expect(c.card().map((e) => e.face)).toEqual(['Torch post', 'Bonfire', 'Back']);
     expect(c.back()).toBe(true);
     expect(c.back()).toBe(true);
-    expect(c.card()[10]!.face).toBe('Build');
+    expect(button(c.card(), 'build').face).toBe('Build');
+  });
+
+  it('pages a menu longer than the card can show', () => {
+    const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
+    (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 10 });
+    button(c.card(), 'build').run({ shift: false, ctrl: false });
+    const card = c.card();
+    expect(card).toHaveLength(10);
+    expect(card.at(-2)!.action).toBe('more');
+    expect(card.at(-2)!.key).toBe('KeyV');
+    expect(card.at(-1)!.action).toBe('back');
+    card.at(-2)!.run({ shift: false, ctrl: false });
+    expect(c.card()[0]!.face).not.toBe('Big House');
   });
 
   it('honours rebound keys', () => {
     const { c } = harness(game([]), workers, 'worker');
     (c as unknown as { d: CommandDeps }).d.settings.keys.gather = 'KeyK';
-    expect(c.card()[5]!.key).toBe('KeyK');
+    expect(button(c.card(), 'gather').key).toBe('KeyK');
   });
 });
 
@@ -150,7 +184,7 @@ describe('placement', () => {
     const g = game([], [[Res.SoftwoodLumber, 100], [Res.Sticks, 20]]);
     const { c, sent, messages, asks } = harness(g, workers, 'worker');
     c.startPlacing(BuildingKind.Farm, 0);
-    expect(c.card()[14]!.action).toBe('cancel');
+    expect(c.card().at(-1)!.action).toBe('cancel');
     c.updatePlacing(new THREE.Vector3(10, 0, 10), 0);
     expect(asks.length).toBe(1);
     const [, spots] = asks[0]!;
@@ -221,7 +255,7 @@ describe('smart right click', () => {
     expect(sent.at(-1)).toEqual({ kind: 'rally', player: ME, building: 9, add: false, point: 'node', x: 0, z: 0, id: 7 });
     const card = c.card();
     expect(card[0]!.face).toBe('Worker');
-    expect(card[9]!.face).toBe('Rally');
+    expect(button(card, 'rally').face).toBe('Rally');
     card[0]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce').length).toBe(5);
   });
@@ -257,7 +291,12 @@ describe('hotkey bindings', () => {
     expect(keyFor({}, 'gather')).toBe('KeyG');
     expect(keyFor({ gather: 'KeyK' }, 'gather')).toBe('KeyK');
     expect(sanitizeBindings({ gather: 'KeyK', nonsense: 'KeyX', move: 5 })).toEqual({ gather: 'KeyK' });
-    expect(clashes({}, 'gather', 'KeyC')).toEqual(['Return Cargo']);
+    expect(clashes({}, 'gather', 'KeyC')).toEqual(['Unload (take what they carry to a drop-off)']);
     expect(new Set(ACTIONS.map((a) => a.id)).size).toBe(ACTIONS.length);
+    // Jade's Patch 2 cut these buttons, so their keys go too, and an old saved binding for one is dropped.
+    for (const gone of ['stop', 'hold', 'enter', 'upgradeWeapon', 'upgradeArmour', 'upgradeWeaponMax', 'upgradeArmourMax', 'lock', 'train', 'buildBasic', 'buildAdvanced']) expect(ACTIONS.some((a) => a.id === gone)).toBe(false);
+    expect(sanitizeBindings({ stop: 'KeyK', equip: 'KeyK' })).toEqual({ equip: 'KeyK' });
+    expect(keyFor({}, 'equip')).toBe('KeyQ');
+    expect(keyFor({}, 'build')).toBe('KeyB');
   });
 });

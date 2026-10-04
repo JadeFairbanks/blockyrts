@@ -9,7 +9,7 @@ import { RESOURCE_COUNT } from './economy/resources.ts';
 import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loot, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
-const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
+const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags', 'mark'] as const satisfies ReadonlyArray<keyof Projectile>;
 const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
@@ -165,8 +165,10 @@ function peoplesJson(ps: PeoplesState): string {
 const MAGIC = 0x53434153; // "SACS" read little-endian
 /**
  * 17: Patch 2, the fourteen buildings (building kinds, resources and recipes
- * renumbered). Every patch raises it, and a snapshot from any other version
- * is refused, never carried over (Jade, Patch 2: a standing rule).
+ * renumbered), each unit's timed action (the tinker column) and the unit a
+ * shot was aimed at (projectile mark). Every patch raises it, and a snapshot
+ * from any other version is refused, never carried over (Jade, Patch 2: a
+ * standing rule).
  */
 export const SNAPSHOT_VERSION = 17;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */

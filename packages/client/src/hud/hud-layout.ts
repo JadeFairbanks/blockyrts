@@ -1,23 +1,29 @@
 // Where the HUD's panels go for a screen size (HUD revamp, patch notes 1): the
-// bottom strip runs the whole bottom edge, minimap | portrait | middle |
-// command card, and the room the middle does not need becomes more card
-// columns. On a smaller screen every panel shrinks by one scale so nothing is
-// lost; on a phone the panels fold away under buttons in the bottom left
-// corner and the command card stays out. Pure, so the sizes can be tested.
+// bottom strip runs the whole bottom edge, minimap | middle | portrait |
+// command card (Jade's Patch 2 moves the portrait next to the card), and the
+// room the middle does not need becomes a wider card. On a smaller screen
+// every panel shrinks by one scale so nothing is lost; on a phone the panels
+// fold away under buttons in the bottom left corner and the command card
+// stays out. The card's buttons are squares sized to fill it (fitButtons).
+// Pure, so the sizes can be tested.
 
-/** One command card button, its gap, and the frame round the slots (unscaled CSS px). */
+/** One command card button before Patch 2, its gap, and the frame round the buttons (unscaled CSS px). The card's width is still counted in these. */
 export const SLOT = 52;
 export const GAP = 4;
 export const PITCH = SLOT + GAP;
 export const CARD_PAD = 12;
-/** The card's fixed block: 3 rows of 5 with the grid keys, always at the bottom right. */
+/** The card before Patch 2: 3 rows of 5 with the grid keys (a phone's card is still that size). */
 export const CLASSIC_COLS = 5;
 export const CLASSIC_ROWS = 3;
 export const CLASSIC_SLOTS = CLASSIC_COLS * CLASSIC_ROWS;
-/** One row more than the fixed block by default (patch notes: taller than the middle). */
+/** The card's standard height: one row more than the classic block (patch notes: taller than the middle). */
 export const DEFAULT_ROWS = 4;
 /** The card stops widening here; any more room goes to the middle. */
 export const MAX_COLS = 10;
+/** Jade's Patch 2: an action button is at least twice as wide and twice as tall as before Patch 2 (4x its area). */
+export const BUTTON_MIN = 2 * SLOT;
+/** Where the screen is too short for the card to grow far enough, buttons shrink below the minimum, but never below the size before Patch 2 (s). */
+export const BUTTON_FLOOR = SLOT;
 /** The minimap with its utility bar along the top. */
 export const MINIMAP_W = 352;
 export const MINIMAP_H = 262;
@@ -53,15 +59,16 @@ export interface HudGeometry {
   phone: boolean;
   /** Every panel is drawn at this scale (1 on a desktop screen). */
   scale: number;
+  /** The card's width, in columns of the button before Patch 2 (cardWidth). */
   cols: number;
-  /** Rows when nothing needs more. */
+  /** The card's standard height, in rows of the button before Patch 2 (cardHeight). */
   rows: number;
-  /** Most rows a long menu may grow to before it pages, keeping clear of the top right block. */
-  maxRows: number;
+  /** The tallest the space inside the card's frame may grow (unscaled px), keeping clear of the top right block. */
+  maxH: number;
   minimap: Box;
   portrait: Box;
   middle: Box;
-  /** The card at its default rows; x is from the right edge. */
+  /** The card at its standard height; x is from the right edge. */
   card: Box;
   /** The phone's fold buttons, when shown. */
   folds: Box | null;
@@ -90,10 +97,10 @@ export function isPhone(width: number, height: number): boolean {
   return width < PHONE_WIDTH || height < PHONE_HEIGHT || fullScale(width, height) < MIN_SCALE;
 }
 
-/** How many rows fit under the top right block at a scale. */
-function rowsUnder(height: number, scale: number, topRight: number): number {
+/** The tallest the inside of a card with these standard rows may grow under the top right block at a scale (unscaled px). */
+function heightUnder(height: number, scale: number, topRight: number, rows: number): number {
   const room = height / scale - topRight - 8;
-  return Math.max(CLASSIC_ROWS, Math.floor((room - 2 * CARD_PAD + GAP) / PITCH));
+  return Math.max(cardHeight(rows) - 2 * CARD_PAD, Math.floor(room - 2 * CARD_PAD));
 }
 
 export function hudLayout(input: LayoutInput): HudGeometry {
@@ -117,10 +124,11 @@ export function hudLayout(input: LayoutInput): HudGeometry {
     scale: s,
     cols,
     rows,
-    maxRows: Math.max(rows, rowsUnder(H, s, input.topRight)),
+    maxH: heightUnder(H, s, input.topRight, rows),
     minimap: { x: 0, w: mmW, h: px(MINIMAP_H) },
-    portrait: { x: mmW, w: ptW, h: px(ch) },
-    middle: { x: mmW + ptW, w: W - mmW - ptW - cardW, h: px(MIDDLE_H) },
+    // Jade's Patch 2: the portrait sits between the middle and the card [before Patch 2: between the minimap and the middle].
+    portrait: { x: W - cardW - ptW, w: ptW, h: px(ch) },
+    middle: { x: mmW, w: W - mmW - ptW - cardW, h: px(MIDDLE_H) },
     card: { x: 0, w: cardW, h: px(ch) },
     folds: null,
     stacked: false,
@@ -154,42 +162,84 @@ function phoneLayout(input: LayoutInput): HudGeometry {
     scale: s,
     cols,
     rows,
-    maxRows: Math.max(rows, rowsUnder(H, s, input.topRight)),
+    maxH: heightUnder(H, s, input.topRight, rows),
     minimap: { x: left, w: Math.min(px(MINIMAP_W), span), h: Math.min(px(MINIMAP_H), Math.round(H * 0.5)) },
-    portrait: { x: left, w: ptW, h: stripH },
-    middle: { x: left + ptW, w: span - ptW, h: stripH },
+    // The portrait next to the card here too (Jade's Patch 2).
+    portrait: { x: left + span - ptW, w: ptW, h: stripH },
+    middle: { x: left, w: span - ptW, h: stripH },
     card: { x: 0, w: cardW, h: cardH },
     folds: { x: 0, w: foldW, h: H },
     stacked,
   };
 }
 
+/** The space inside the card's frame at its standard size (unscaled px). */
+export function cardInner(g: Pick<HudGeometry, 'cols' | 'rows'>): { w: number; h: number } {
+  return { w: cardWidth(g.cols) - 2 * CARD_PAD, h: cardHeight(g.rows) - 2 * CARD_PAD };
+}
+
+/** Square buttons in a grid: their size (unscaled px), and the columns and rows they fill. */
+export interface ButtonGrid {
+  size: number;
+  cols: number;
+  rows: number;
+}
+
+export interface ButtonFit extends ButtonGrid {
+  /** The space inside the card's frame, top to bottom (unscaled px): the standard height, or more when the card grew upward. */
+  height: number;
+  /** How many of the buttons show: all of them, unless they cannot fit even at the floor (a long menu then pages, CardSize.most). */
+  shown: number;
+}
+
 /**
- * The cells of a card with these columns and rows, in the order the card's
- * entries fill them: entries 0 to 14 are the fixed block at the bottom right
- * (row by row, so the grid keys keep their places), then the extra slots,
- * first those beside the block (row by row), then the rows above it from the
- * bottom up, so a long menu grows upward. Each cell is [row, col] from the
- * top left.
+ * The biggest squares that hold n buttons in a space w by h, filled like a
+ * book: the number of columns that gives the biggest squares, and of those
+ * the one that leaves the fewest empty places.
  */
-export function cardCells(cols: number, rows: number): Array<[number, number]> {
-  const out: Array<[number, number]> = [];
-  const top = rows - CLASSIC_ROWS;
-  const left = cols - CLASSIC_COLS;
-  for (let r = 0; r < CLASSIC_ROWS; r++) for (let c = 0; c < CLASSIC_COLS; c++) out.push([top + r, left + c]);
-  for (let r = 0; r < CLASSIC_ROWS; r++) for (let c = 0; c < left; c++) out.push([top + r, c]);
-  for (let r = top - 1; r >= 0; r--) for (let c = 0; c < cols; c++) out.push([r, c]);
-  return out;
+export function squares(n: number, w: number, h: number): ButtonGrid {
+  const count = Math.max(1, n);
+  let best: ButtonGrid = { size: -1, cols: 1, rows: count };
+  for (let c = 1; c <= count; c++) {
+    const r = Math.ceil(count / c);
+    const size = Math.floor(Math.min((w - (c - 1) * GAP) / c, (h - (r - 1) * GAP) / r));
+    if (size > best.size || (size === best.size && c * r < best.cols * best.rows)) best = { size, cols: c, rows: r };
+  }
+  return best;
 }
 
-/** The rows a card needs to show its last entry (the default at least, the most at most). */
-export function rowsFor(lastEntry: number, cols: number, rows: number, maxRows: number): number {
-  let r = rows;
-  while (r < maxRows && cols * r <= lastEntry) r++;
-  return r;
+/**
+ * Jade's Patch 2 button sizing: the action menu's buttons are squares as big
+ * as fit in the card at its standard size (w by h inside the frame), but never
+ * under BUTTON_MIN. When they cannot all fit at the minimum, the card grows
+ * upward just enough to hold them at it. Where the screen is too short for
+ * that (the card stops under the top right block, maxH), they shrink to fit,
+ * never under BUTTON_FLOOR (s); a menu too long even for that pages.
+ */
+export function fitButtons(n: number, w: number, h: number, maxH: number): ButtonFit {
+  const count = Math.max(1, n);
+  const here = squares(count, w, h);
+  if (here.size >= BUTTON_MIN) return { ...here, height: h, shown: n };
+  const top = Math.max(h, maxH);
+  const perRow = Math.max(1, Math.floor((w + GAP) / (BUTTON_MIN + GAP)));
+  const rows = Math.ceil(count / perRow);
+  const need = rows * BUTTON_MIN + (rows - 1) * GAP;
+  if (need <= top) {
+    const height = Math.max(h, need);
+    return { ...squares(count, w, height), height, shown: n };
+  }
+  const most = squares(count, w, top);
+  if (most.size >= BUTTON_FLOOR) return { ...most, height: top, shown: n };
+  const room = buttonRoom(w, top);
+  return { size: BUTTON_FLOOR, cols: room.cols, rows: room.rows, height: top, shown: Math.min(n, room.cols * room.rows) };
 }
 
-/** Extra slots past the fixed block for a card of these columns and rows. */
-export function extraSlots(cols: number, rows: number): number {
-  return cols * rows - CLASSIC_SLOTS;
+/** The most buttons a card can show at once, at the floor size in a space w by h. */
+export function buttonRoom(w: number, h: number): { cols: number; rows: number } {
+  return { cols: Math.max(1, Math.floor((w + GAP) / (BUTTON_FLOOR + GAP))), rows: Math.max(1, Math.floor((h + GAP) / (BUTTON_FLOOR + GAP))) };
+}
+
+/** The picture on a button this size: the 32 px kit pictures at a whole or half step up, about 60% of the button (unscaled px). */
+export function buttonIcon(size: number): number {
+  return Math.max(32, Math.floor((size * 0.62) / 16) * 16);
 }

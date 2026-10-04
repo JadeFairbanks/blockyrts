@@ -285,7 +285,7 @@ export class SelectionPanel {
       // Up top (towers, a main base from level 3) and sheltering inside, each a row of portraits that let one out.
       const top = garrisonRoom(b);
       if (top > 0) {
-        this.row('label', b.up.length > 0 ? `Up top: ${b.up.length} of ${top} (click one to bring it down):` : `Up top: room for ${top}. Select men, press ${this.a.keyName('enter')} (Enter) and click it${spec.defence === 'tower' ? ', or right click it' : ''}.`);
+        this.row('label', b.up.length > 0 ? `Up top: ${b.up.length} of ${top} (click one to bring it down):` : `Up top: room for ${top}. Select men and right click it.`);
         if (b.up.length > 0) this.portraits(b, b.up, 'top', 'Click to bring this one down.');
       }
       const sheltering = b.inside.filter((id) => !b.up.includes(id));

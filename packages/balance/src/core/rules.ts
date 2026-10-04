@@ -63,6 +63,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
+  // The longest timed action the 16-bit tinker column can count (Patch 2): a storage limit, not balance.
+  'units/tinker.ts:TINKER_MAX_STEPS',
   // The food kinds' lists (which goods are meats and fish, in the inventory's order) and the meal accounts' unit.
   'economy/food-kinds.ts:MEATS', 'economy/food-kinds.ts:FISHES', 'economy/food.ts:QUARTERS',
   'economy/resources.ts:TRINKET_BASE', 'economy/resources.ts:FOODS', 'economy/resources.ts:TRINKET_METALS', 'economy/resources.ts:TRINKET_TIERS',
