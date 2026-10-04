@@ -523,6 +523,7 @@ Jade's mini patch (2026-10-04; picks in mini-patch-spawns-picks.md):
 Patch 3 (2026-10-04):
 
 - Balance changes (Jade's editor export balance-changes-2026-10-04.json; picks in patch3-balance-picks.md): wild animals, the hostile tribes, village goblins and the wolf rider, the Elf caravan wagon and five Halfling units take Jade's new health and damage (for example bear 200 health and 16 damage, was 400 and 25; minotaur 250 and 30, was 900 and 45; hobgoblin 60 and 10, was 220 and 22), and a monster counts as rare and powerful for loot remarks from 500 health (was 1,000). Saves from before Patch 3 are refused (snapshot 19, save format 5).
+- Threat, lairs and wanderers (Jade's Patch 3 notes; picks in patch3-threat-waves-picks.md): every night mob's threat is worked out from its numbers and traits by one algorithm (see Night mobs, Threat), never set by hand (zombie 1.5, giant spider 2.1, was 1 and 3); each live lair sends half its own company's threat a night on top of the dark edge's 80% (was a fifth of the night shared among the lairs); each wild patch rolls three times, so three times as many wandering night monsters come out; each player's waves were already planned on their own budget, so two players face twice the monsters.
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
