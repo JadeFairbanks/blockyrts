@@ -226,8 +226,8 @@ describe('trade', () => {
     const s = createWorld(1);
     const f = place(s, FactionKind.DwarfColony);
     bring(s, unit(s, UnitKind.Worker), f);
-    s.players[0]!.pool[Res.Wheat] = 5000;
-    run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.Wheat, 5000] }]);
+    s.players[0]!.pool[Res.FarmFare] = 5000;
+    run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.FarmFare, 5000] }]);
     expect(offerOf(s, f.id, 0)!.worth).toBe(DAILY_BUY_TENTHS);
   });
 
@@ -235,8 +235,8 @@ describe('trade', () => {
     const s = createWorld(1);
     const f = place(s, FactionKind.HalflingVillage);
     bring(s, unit(s, UnitKind.Worker), f);
-    s.players[0]!.pool[Res.Wheat] = 20;
-    const offer: Order = { kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.Wheat, 20] };
+    s.players[0]!.pool[Res.FarmFare] = 20;
+    const offer: Order = { kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.FarmFare, 20] };
     for (let k = 0; k < 3; k++) {
       run(s, 1, [offer]);
       expect(offerOf(s, f.id, 0)).toBeDefined();
@@ -285,9 +285,9 @@ describe('war', () => {
     expect(f.kills[0]).toBe(half);
     expect(f.surrender).toBe(1);
     expect(texts(s).some((t) => t.includes('offer to surrender'))).toBe(true);
-    // Plunder is food and metal for the pool: the Halflings' bread and wrought iron, their weapons as their metal.
+    // Plunder is food and metal for the pool: the Halflings' farm fare (Patch 2: in place of bread) and wrought iron, their weapons as their metal.
     const [food, metal] = PLUNDER_GOODS[People.Halfling];
-    expect([food, metal]).toEqual([Res.Bread, Res.WroughtIron]);
+    expect([food, metal]).toEqual([Res.FarmFare, Res.WroughtIron]);
     const had = [s.players[0]!.pool[food]!, s.players[0]!.pool[metal]!];
     run(s, 1, [{ kind: 'surrender', player: 0, faction: f.id, accept: 1 }]);
     expect(f.war).toBe(0);

@@ -147,24 +147,19 @@ describe('walkable footprints (patch notes 1)', () => {
     expect(s.nav.standable(x, z, PERSON)).toBe(true);
   });
 
-  it('grows a kitchen round where it was placed once its upgrade is paid for, and gives the room back on a cancel', () => {
+  it('keeps the main base on its own ground as it levels up (Patch 2: the one building with levels; its footprint never grows)', () => {
     const s = createWorld(1, { peaceful: true });
     const h = bigHouse(s);
-    const [x, z] = spotNear(s, BuildingKind.Cooking, h.x + 24, h.z + 24);
-    const b = placeBuilding(s, 0, BuildingKind.Cooking, 0, x, z, true);
-    expect(footprintRect(b)).toEqual([x, z, x + 1, z + 1]);
-    expect(growthBlocked(s, b, 2)).toBe(Blocked.None);
-    b.upgrading = 2;
-    refitBuilding(s, b);
-    // Table 4: the cook hut is 6 columns square, centred on the campfire's spot.
-    expect(footprintRect(b)).toEqual([x - 2, z - 2, x + 3, z + 3]);
-    expect(s.buildings.footprintAt(x - 2, z - 2)).toBe(b.id);
-    b.upgrading = 0;
-    refitBuilding(s, b);
-    expect(s.buildings.footprintAt(x - 2, z - 2)).toBe(0);
-    // A torch post where the hut would grow is in the way.
-    placeBuilding(s, 0, BuildingKind.TorchPost, 0, x + 3, z, true);
-    expect(growthBlocked(s, b, 2)).not.toBe(Blocked.None);
+    const rect = footprintRect(h);
+    for (let level = 2; level <= 10; level++) {
+      expect(growthBlocked(s, h, level)).toBe(Blocked.None);
+      h.upgrading = level;
+      refitBuilding(s, h);
+      expect(footprintRect(h)).toEqual(rect);
+    }
+    h.upgrading = 0;
+    refitBuilding(s, h);
+    expect(footprintRect(h)).toEqual(rect);
   });
 });
 

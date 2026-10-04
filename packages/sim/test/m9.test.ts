@@ -135,7 +135,7 @@ describe('Milestone 9: a player leaves', () => {
     expect(at(s, w)[0]).toBeLessThan(x0);
     // Player 3 trains a worker at the inherited Big House, paying with their own food; it is theirs.
     const food = (p: number): number => FOODS.reduce<number>((n, f) => n + s.players[p]!.pool[f]!, 0);
-    s.players[2]!.pool[Res.Bread] = s.players[2]!.pool[Res.Bread]! + 100;
+    s.players[2]!.pool[Res.FarmFare] = s.players[2]!.pool[Res.FarmFare]! + 100;
     const heirFood = food(0);
     const mine = unitsOf(s, 2).length;
     step(s, [{ kind: 'produce', player: 2, building: base, product: Product.Worker, count: 1 }]);

@@ -77,7 +77,7 @@ function stocked(foods: readonly Res[]): SimState {
 
 describe('meals', () => {
   it('eats every kind of food in turn, not all the meat first', () => {
-    const foods = [Res.Venison, Res.Trout, Res.Eggs, Res.Wheat, Res.Bread];
+    const foods = [Res.Venison, Res.Trout, Res.Eggs, Res.FarmFare, Res.Beef];
     const s = stocked(foods);
     const p = s.players[0]!;
     const before = foodQuarters(p);
@@ -94,7 +94,7 @@ describe('meals', () => {
   });
 
   it('loses no food and gains none in splitting items between meals', () => {
-    const s = stocked([Res.Venison, Res.Trout, Res.Eggs, Res.Potatoes, Res.Stew]);
+    const s = stocked([Res.Venison, Res.Trout, Res.Eggs, Res.FarmFare, Res.Salmon]);
     const p = s.players[0]!;
     const before = foodQuarters(p);
     // Two days: 7 eaters x 2 food a day x 2, to the quarter.
