@@ -135,8 +135,10 @@ reveal; two machines with the same seed show the same land and the same hash.*
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
    with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
    to walk your units out: the land they see turns from black to colour,
-   and stays grey once they have left. The land round your buildings stays
-   in colour (see "How a tester checks shared vision" below).
+   and stays darker, still in colour, once they have left (grey before
+   Patch 3; see "How a tester checks the fog look and hidden-unit
+   outlines"). The land round your buildings stays fully lit (see "How a
+   tester checks shared vision" below).
 3. The debug panel (top left) has the tools for looking around. In Patch 2
    it is hidden until you type M N B V C X Z in order in the game (see "How
    a tester checks Patch 2's lights, tips, tester tools and minimap"); every
@@ -1766,6 +1768,66 @@ Patch 2 do not load (the standing rule for every patch).
    sound. Close the menu: the world is heard again. Online, either player's
    Pause does the same on both machines.
 
+## How a tester checks the middle's bars and layout (Patch 3)
+
+*Jade's Patch 3, the middle HUD items: the title row runs the full width
+with "HP:" and "XP:" bars to the clear button, the queue moves under it, and
+everything under the control groups grows to fill the section. Picks in
+blueprint/patch3-middle-hud-picks.md. The panel is
+`packages/client/src/hud/selection-panel.ts`, the fill
+`packages/client/src/hud/middle-fit.ts`, the XP bar's words
+`packages/client/src/hud/xp-bar.ts`; the sim sends each unit's experience
+and what its next rank needs (`rankXp`, unit fields 26 and 27).*
+
+1. **The tests.** `pnpm test` runs
+   `packages/client/test/patch3-middle-hud.test.ts`: the XP bar shows for
+   workers, troops and mages only, fills toward the next rank and words its
+   tooltip ("Soldier: 120 of 150 XP to Veteran."), is full at the top rank;
+   a long name breaks into two even lines; the fill takes the largest
+   twentieth that fits, up to 3 times, and shrinks to no less than three
+   quarters before it scrolls.
+2. **One worker.** `pnpm dev`, open http://localhost:5173/?seed=1 and click a
+   worker. The row under the control groups reads "Worker" in large letters
+   as tall as the two bars beside it, a thin vertical line, then "HP:" and
+   the health bar with 60/60 on it running to the ✕ button, and under it
+   "XP:" and a bar as long and as tall. No rank badge. The ✕ (F3 in its
+   corner) is as tall as the row. Hover the XP bar: "Labourer: 0 of 50 XP
+   to Hand." Set it building or gathering and the bar fills as it works
+   (the worker ranks of Patch 3, the section below). The tool, the bowl and
+   "Idle" under it are larger than live now: the whole block has grown to
+   fill the section, its pictures square, nothing stretched.
+3. **A troop.** Click a warrior: "Club fighter" (on two lines when the name
+   is too long for half the row), HP and XP. Hover XP: "Recruit: 20 of 50
+   XP to Soldier." Let it fight: the light blue bar fills; at 50 it becomes
+   a Soldier and the bar starts on Veteran's 150.
+4. **A mage and a rider.** Type M N B V C X Z, press **Sanctum**, **Mage
+   kit** and **Barn**, train a Support mage at the Sanctum and a cavalryman
+   at the Barracks. The mage's row has HP, XP and "MP:" (her mana) under it;
+   the rider's HP, XP and "Horse:"; every bar the same height, the ✕ as tall
+   as the three rows.
+5. **The Big House.** Select it and press A a few times: the workers queue
+   under the title row as large pictures read from the left, the first with
+   its bar, then a dark well for each place still free (5 in all). Click one
+   to cancel it. "Level 7" (with **Citadel**, else its level) is the first
+   picture under the queue.
+6. **The Barracks.** Press **Troop kit** and select the Barracks: the title
+   row with its health bar, the five wells of its queue, then the five cards
+   from the left. The section is taller than before (it grows upward just
+   enough, as the action menu's card does, never past the portrait beside
+   it). Click a card: its unit fills the first well. Open a weapon slot: the
+   tier strip still opens just above the middle, pointing at the slot.
+7. **Several.** Drag a box round everything: "7 selected" large, the ✕ at
+   the row's right end, the tabs and portraits under it filling the
+   section.
+8. **Sizes.** Resize the window to 1024 by 768 and to a phone (844 by 390):
+   the same layout at every size; on a phone the section does not grow, and
+   a Barracks' cards shrink a little to fit rather than hide their slots.
+   `node packages/client/test-e2e/middle-look.mjs http://localhost:5198
+   /tmp/shots` (with `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running) saves each of these at four screen sizes and checks the bars
+   run to the ✕, the XP bar matches the HP bar, the tier strip sits above
+   the middle and nothing spills past the frame.
+
 ## How a tester checks worker ranks and crew retraining (Patch 3)
 
 Jade's Patch 3 file, items 1 and 2. The picks are in
@@ -2228,7 +2290,8 @@ orders (`mageProduct`, `setKitLock`).*
    middle reads "Nothing selected" and the three help lines, as live now.
    The camera is a little closer than live now; zoom all the way out: it
    stops at 64 m (live now: 80 m). Home comes back to 36 m.
-3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it,
+3. **One unit.** Click a warrior: "Club fighter", a gold chevron after it
+   (Patch 3 replaces the chevron with a divider and an XP bar, see below),
    the health bar with 100/100 on it, then the cudgel and armour slots with
    their tier numbers, the bowl with the next meal's bar, and "Idle". Hover
    each picture: the sentences live now in the panel are in its tooltip
@@ -2244,8 +2307,8 @@ orders (`mageProduct`, `setKitLock`).*
    slot showing the tier it would train now, and an open grey padlock.
    Hover a picture: the troop it trains by name ("Trains a Champion: ..."),
    its numbers, its cost, "Follows the stock: the best kit it pays for,
-   weapon first." Click it: one queues, shown in the title row; Shift +
-   click: five.
+   weapon first." Click it: one queues, shown in the title row (under it
+   since Patch 3); Shift + click: five.
 6. **The tier strip.** Click Close melee's weapon slot: a strip of tiers 0
    to 8 opens above the middle, pointing at the slot, the current tier in
    gold. Hover tier 3: "Trains a Copper swordsman.", the damage with the
@@ -2262,8 +2325,8 @@ orders (`mageProduct`, `setKitLock`).*
    saved with the game). Pick another tier on the locked card: the lock
    moves to it. Only the padlock opens it again.
 8. **Several Barracks.** Build a second Barracks and select both: the cards
-   show the first one's kits and a tile per Barracks in the title row with
-   its queue count. The padlock locks both; with one locked, it opens it.
+   show the first one's kits and a tile per Barracks in the title row (under
+   it since Patch 3) with its queue count. The padlock locks both; with one locked, it opens it.
 9. **Cavalry.** Before main base 3 the Cavalry card is grey with "Needs a
    level 3 main base."; with no horse in a Barn, "No grown tamed horse ready
    in a Barn.". Press **Barn** for a Barn with horses: the card counts the
@@ -2397,6 +2460,60 @@ blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
    arrow is half as big again and its ring twice as thick and never dimmer
    than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
    from 30%).
+
+## How a tester checks the fog look and hidden-unit outlines (Patch 3)
+
+*Jade's ask (2026-10-04): land that has been explored but is not seen right
+now by your or your allies' units and buildings looks darkened, not greyscale;
+and when one of your units is 80% or more hidden from the camera (by trees,
+buildings, very large units) an outline is drawn round its silhouette,
+cheaply enough not to cause lag. Picks in
+blueprint/patch3-fog-outlines-picks.md. The remembered-land shading is
+`packages/client/src/world/fog-material.ts`; the measuring and the outline
+`packages/client/src/world/hidden-outlines.ts`; which units take part
+`packages/client/src/world/units-view.ts`; the flat colours they are
+measured with `packages/client/src/models/instanced-model.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch3-fog-outlines.test.ts:
+   the fog shader keeps 70% of the colour at 60% brightness and reaches the
+   unit, creature and building models too; units are marked by id, negative
+   when outlined; the measuring picture is counted per unit; the outline
+   comes on at 80% hidden, stays down to 70% and for 0.4 s after, and goes
+   when the unit is no longer drawn; the screen box of your units ignores
+   units off the screen or behind the camera.
+2. **Remembered land.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   walk a warrior 45 m out of the camp and back. The land it saw out there
+   stays darker than the land in sight but keeps its greens and browns (it
+   was grey before); trees, rocks, lairs and huts standing on it are
+   darkened the same way. Unexplored land is still black, and on a fog
+   night the fog lies over both as before.
+3. **An outline behind a building.** Type M N B V C X Z, press **Citadel**,
+   and walk a worker round behind the Citadel (north of it, the side away
+   from the camera). Once 80% of it is hidden a line in your colour, a
+   little lighter, with a thin dark edge, is drawn round its shape on top
+   of the Citadel. Walk it back out in front and the line goes after a
+   moment. A level 1 Big House is too low to hide a worker, so nothing is
+   drawn behind it.
+4. **Under a tree.** Walk a worker under a tall pine just north of its
+   trunk: the crown hides it and it is outlined; a step out from under the
+   crown and the outline goes. Your own units count as cover too, so a
+   worker behind your own cannon or horse is outlined. Other players' units,
+   monsters and animals are never outlined, and water hides no one.
+5. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/outline-look.mjs http://localhost:5198 /tmp/shots`
+   plays steps 2 to 4 at 1920 by 1080 and prints ok or FAIL for each, the
+   share of the unit hidden and what the measurements cost.
+   `node packages/client/test-e2e/outline-perf.mjs http://localhost:5198 /tmp/shots after`
+   (and the same on a checkout from before Patch 3 with `before`) prints the
+   main thread's milliseconds a frame in a busy camp and at night with 400
+   monsters. Add `--gpu` on a machine with a graphics card; without it
+   Chromium draws in software and only the main-thread times compare.
+6. **No lag.** With none of your units on the screen nothing extra is
+   done. With some in view, a small picture of the part of the screen round
+   them is drawn eight times a second at a quarter of the screen's size and
+   read back without waiting for the card. The outline itself is drawn only
+   while a unit is hidden, and only over the outlined units' corner of the
+   screen. The numbers measured are in the picks file.
 
 ## How a tester checks the balance editor
 
