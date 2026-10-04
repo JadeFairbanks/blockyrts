@@ -1717,7 +1717,8 @@ Patch 2 do not load (the standing rule for every patch).
    frame: "Tip: ..." with an ✕. It goes by itself after 12 s of game time
    (paused time does not count); the next tip waits until you have done what
    the last one said. Press ✕ on a tip: the text turns to "Turn tips off?"
-   with Yes and No. Yes: no more tips this game. No, or no answer in 12 s:
+   with the question bubbles' Yes (a green tick) and No (a red cross), each
+   saying what it does in its tooltip. Yes: no more tips this game. No, or no answer in 12 s:
    the tips go on, and every later ✕ just closes its tip without asking.
    A new game asks again once. Settings > Help > Tips off: no tips at all.
 5. **Minimap.** Your units are 2 px dots and your buildings their footprint
