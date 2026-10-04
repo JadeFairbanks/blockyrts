@@ -94,6 +94,16 @@ describe('catalog', () => {
     expect(other.map((e) => e.id)).toEqual([]);
   });
 
+  it('names the goods a people sells cheap and pays extra for, live animals too', () => {
+    const lean = [...cat.fields.values()].filter((f) => f.module === 'peoples/data.ts' && (f.path.includes('sells') || f.path.includes('lacks')));
+    expect(lean.length).toBeGreaterThan(10);
+    for (const f of lean) {
+      expect(f.ref, f.id).toBe('good');
+      expect(cat.refNames.good.get(f.value as number), f.id).toBeDefined();
+    }
+    expect([...cat.refNames.good.values()]).toContain('Live cattle');
+  });
+
   it('shows a kit row in the blueprint\'s units, its tier fixed and its material tier linked', () => {
     const at = (path: Array<string | number>) => cat.fields.get(pathKey('units/kits.ts', path))!;
     const bronze = cat.entries.get('units/kits.ts:CLOSE_KITS:4')!;
