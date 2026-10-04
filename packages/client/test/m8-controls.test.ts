@@ -162,4 +162,20 @@ describe('engines and cannons', () => {
     const w = harness([sel('e:4', 'warrior')], 'warrior');
     expect(w.c.card().some((e) => e?.action === 'crew')).toBe(false);
   });
+
+  it('gives the artillery crewman a Retrain button (W, Patch 3) that sends him to the main base to become a worker', () => {
+    const { c, sent } = harness([sel('e:3', 'warrior:crew'), sel('e:4', 'warrior')], 'warrior:crew');
+    const retrain = c.card().find((e) => e?.action === 'retrain')!;
+    expect(retrain).toMatchObject({ face: 'Retrain', name: 'Retrain as a worker', key: 'KeyW', enabled: true });
+    expect(retrain.description).toContain('No cost.');
+    retrain.run(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'retrain', player: ME, units: [3], queued: false });
+    // Without a finished main base it is greyed, saying why.
+    const g = game();
+    g.buildings.get(20)!.complete = false;
+    const off = harness([sel('e:3', 'warrior:crew')], 'warrior:crew', g).c.card().find((e) => e?.action === 'retrain')!;
+    expect([off.enabled, off.reason]).toEqual([false, 'Needs a main base.']);
+    // Troops have none.
+    expect(harness([sel('e:4', 'warrior')], 'warrior').c.card().some((e) => e?.action === 'retrain')).toBe(false);
+  });
 });

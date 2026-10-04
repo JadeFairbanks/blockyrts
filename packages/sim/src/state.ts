@@ -150,7 +150,7 @@ export const UNIT_FIELDS = [
   ['mob', 'u8'],
   ['foe', 'u8'],
   ['power', 'u16'],
-  /** Combat experience in tenths (rules.ts). */
+  /** Experience in tenths (rules.ts): from fighting, and a worker's from its work too (Patch 3, units/ranks.ts). */
   ['xp', 'i32'],
   /** 0 switches by itself, 1 melee only, 2 ranged only (Warriors: the lock). */
   ['lock', 'u8'],
@@ -284,6 +284,12 @@ export const UNIT_FIELDS = [
    * tinkering. units/tinker.ts sets it.
    */
   ['tinker', 'u16'],
+  /**
+   * A worker's work not yet worth a tenth of experience (Patch 3: workers rank
+   * up by building and gathering; units/ranks.ts workXp): pace times
+   * experience a minute, a step at a time.
+   */
+  ['workXp', 'u32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -424,6 +430,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare lowUntil: Uint32Array;
   declare hungry: Uint32Array;
   declare tinker: Uint16Array;
+  declare workXp: Uint32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -583,7 +590,9 @@ export interface AskInfo {
   units: number[];
   /** The resource it is about (Ask.Farther), or -1. */
   res: number;
-  /** The step it stops waiting for an answer: 30 s of game time after it was asked. */
+  /** How many Yes makes (Patch 3: batches a greyed-out button's question queues), when it says. */
+  n?: number;
+  /** The step it stops waiting for an answer: QUESTION_WAIT_STEPS (10 s of game time) after it was asked. */
   until: number;
   /** What Yes and No do, in full, for the buttons' tooltips (Yes's also says what it takes from the stock). */
   yes: string;
@@ -637,7 +646,17 @@ export interface SimEvent {
    * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
    */
   bubble?: 'meal' | 'hungry';
+  /** Speech: how long its bubble stays, when not the usual few seconds (BubbleHold). */
+  hold?: BubbleHold;
 }
+
+/**
+ * How long a speech bubble stays (Jade's Patch 3): 'bar' while its speaker
+ * sits at the timed action that made it speak, as long as the progress bar
+ * over its head runs (units/tinker.ts); 'long' twice the usual time (the
+ * main base's word of advice at the start).
+ */
+export type BubbleHold = 'bar' | 'long';
 
 export interface SimState {
   seed: number;

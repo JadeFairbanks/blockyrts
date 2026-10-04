@@ -30,6 +30,7 @@ import {
   mageLock,
   mageSchoolsAt,
   tinkerProgress,
+  rankXp,
   troopDefault,
   troopTypesAt,
   upgradeProgress,
@@ -222,6 +223,9 @@ function postState(s: SimState): void {
     const [tinkerDone, tinkerOf] = tinkerProgress(s, i);
     data[o + S.tinkerDone] = tinkerDone;
     data[o + S.tinkerOf] = tinkerOf;
+    const [xp, xpNext] = rankXp(s, i);
+    data[o + S.xp] = xp;
+    data[o + S.xpNext] = xpNext;
   }
   const shots = new Int32Array(s.projectiles.length * SHOT_STRIDE);
   s.projectiles.forEach((p, k) => {

@@ -28,7 +28,7 @@ export type UnitOrder =
   | { t: 'job'; b: number }
   /** Relight a light that was put out. */
   | { t: 'relight'; b: number }
-  /** Rank training at a main base (Table 7: Worker to Hand, to Master): the worker goes inside until it is done. */
+  /** Rank training (Table 7): a warrior at the Barracks, a mage at the Magi Sanctum, inside until it is done (Patch 3: workers no longer train their rank). */
   | { t: 'train'; b: number }
   /** Attack one target (an entity id), chasing it until it dies or is lost. */
   | { t: 'attack'; id: number }
@@ -92,14 +92,16 @@ export type UnitOrder =
    * (0 to 65535); k 2 is home for the night. The gathering itself is a
    * 'gather' order put in front of this one.
    */
-  | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number };
+  | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number }
+  /** An artillery crewman retrains as a worker (Patch 3): walks to his nearest main base (b, 0 until chosen), sits tinkering for the time it takes and gets up a worker. */
+  | { t: 'retrain'; b: number };
 
 export type UnitOrderType = UnitOrder['t'];
 
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -133,6 +135,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   port: ['b'],
   loot: ['id', 'hand', 'back', 'x', 'z'],
   forage: ['res', 'x', 'z', 'k', 'ang'],
+  retrain: ['b'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -219,5 +222,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
     case 'forage':
       return o.k === 2 ? 'Home for the night' : o.k === 1 ? 'Looking for materials' : 'Gathering';
+    case 'retrain':
+      return 'Retraining as a worker';
   }
 }

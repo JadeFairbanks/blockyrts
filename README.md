@@ -105,7 +105,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 17807290`. Run it again: the same hash. (The
+   prints `final step 10000 hash 76c7c6a6`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    hash in the debug panel at the same step: for seed 1 with one player it is
    `4de9ac4b` at step 40, with two players `f444c4cc`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 51cfda50`: two players dig trenches from a
+   prints `final step 10000 hash 70071050`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -224,7 +224,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash a4b8ef69`: workers chop and quarry, the Big
+   prints `final step 10000 hash 55ba7d2b`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -294,7 +294,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 3bc2c7b5`: two workers raise a gate and a
+   prints `final step 10000 hash 3d1af7ef`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -375,7 +375,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 277b4efc`: two workers pick flint while two
+   prints `final step 10000 hash 387f9dc3`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -478,7 +478,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 1ee7bd38`: the debug tools put a Barracks
+   prints `final step 10000 hash bde7d2a9`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -632,7 +632,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash ab70ccc9`: the debug tools put a Magi
+   prints `final step 10000 hash 5e47102b`: the debug tools put a Magi
    Sanctum by the Big House, the mage kit in the stock and a troop kit 20 m
    west, and two starting warriors upgrade to carbon steel and steel (Max);
    the Sanctum trains a support and a battle mage and researches Hexcraft,
@@ -745,7 +745,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 7f968021`: the debug tools put a Halfling
+    prints `final step 10000 hash b4bb22c3`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -860,7 +860,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash efbc11a5`. The script plays by Patch 2's
+   prints `final step 10000 hash 67847560`. The script plays by Patch 2's
    rules (before Patch 2 the gun kit trained warriors as cannon crew and
    warriors crewed the engines): the debug tools make the Big House a
    Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
@@ -1047,7 +1047,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash efbc11a5`, as in milestone 8 above.
+   prints `final step 10000 hash 67847560`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1179,7 +1179,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash 59ec3993`: the four workers are given a
+   prints `final step 10000 hash 6d981785`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1187,7 +1187,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash e0fcb2eb`: the debug tools heap a soil hill
+   prints `final step 10000 hash 90929b73`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1629,7 +1629,7 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash 4653235a`: the debug tools explore 200 m round the
+   prints `final step 10000 hash b6a7f1d4`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 27
    monsters are out at nightfall, round them and round the workers at the
@@ -1766,6 +1766,52 @@ Patch 2 do not load (the standing rule for every patch).
    sound. Close the menu: the world is heard again. Online, either player's
    Pause does the same on both machines.
 
+## How a tester checks worker ranks and crew retraining (Patch 3)
+
+Jade's Patch 3 file, items 1 and 2. The picks are in
+blueprint/patch3-worker-ranks-crew-picks.md. Older sections above that send
+workers to train a rank with U describe the game before Patch 3.
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-ranks-crew.test.ts
+   (a load of pine teaches a worker 2.5 experience and the walk none; building
+   teaches; 12 steps of work make a tenth with starting tools and better tools
+   learn faster; a worker rises Labourer to Elder with its health, and
+   fighting adds to the same ladder; workers can no longer train a rank and a
+   worker's train order from an old save is dropped at no cost; the unit view
+   carries experience and the next rank's need; a horse hauls a catapult with
+   no crew, which still needs its 2 crewmen to fire; a crewman retrains at the
+   main base in 30 s saying so and gets up a Labourer, at no cost; a new order
+   cancels it; only crewmen take it, and with no main base he says so; a save
+   made while he retrains plays on the same), and the client's m2-controls,
+   m3-controls, m8-controls and hud-icons tests (no Rank button on the worker
+   card, Retrain on W on the crewman's card, the experience in the unit view).
+2. **No rank button.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   select a worker: Move, Gather, Unload, Repair, Dig, Prospect, Build, Eat,
+   Equip and Cart, with no Rank button, and U does nothing.
+3. **Workers rank up by working.** Put the four workers to chopping or
+   building and let them work: each minute of work is worth 10 experience
+   with their hardwood tools (walking teaches nothing), so a worker kept busy
+   rises to Hand after about five minutes of work, its name in the selection
+   panel changing from Labourer to Hand and its most health from 60 to 70.
+   Master worker takes 150, Foreman 400 and Elder 1000. Workers that only
+   fight learn very little. The tester tools' **Speed** button (type M N B V
+   C X Z first; a game alone) runs the game at 4 or 16 times speed to get
+   there sooner.
+   The XP bar under the name arrives with the middle HUD's Patch 3 work.
+4. **Towing needs no crew.** Type M N B V C X Z to show the tester tools and
+   press **Siege kit**. Select a crewman of the catapult and give him a Move
+   order far off, so the catapult has no crew by it. Press **Barn** for a
+   Barn with 2 horses and an ox, select the catapult, right click a horse to
+   hitch it and move the catapult: it rolls with no crewman near. It fires
+   only once its 2 crewmen stand by it again.
+5. **Retraining a crewman.** Select a crewman: his card has **Retrain** (W),
+   whose tooltip says it takes 30 s and costs nothing. Press W: he walks to
+   the Big House, sits down tinkering with a bar over his head and a bubble
+   saying "Retraining to be a worker.", and after 30 s gets up a worker, a
+   Labourer with hardwood tools, still selected. Give another crewman W and
+   then a Move before the bar fills: he gets up and stays a crewman. Nothing
+   in the stock changes either way.
+
 ## How a tester checks troop names (Patch 2)
 
 *A troop goes by its weapon tier's name, everywhere a unit is named; the type
@@ -1813,9 +1859,9 @@ hashes and saves never see them, and a loaded game starts with none.
    stock. Click the tick: they walk off to upgrade, the weapon first. In a
    new game click the cross instead: nothing happens, and they do not ask
    again until the stock pays for something better.
-2. **The wait.** Leave a question alone: it goes after 30 s. Open F10 while
-   one is up: it stays as long as the game is paused, then waits out the
-   rest of its 30 s. Click beside the buttons: the click reaches the world
+2. **The wait.** Leave a question alone: it goes after 10 s (30 s before
+   Patch 3). Open F10 while one is up: it stays as long as the game is
+   paused, then waits out the rest of its 10 s. Click beside the buttons: the click reaches the world
    (the bubble itself takes none). With tap controls on, a tap on Yes or No
    answers.
 3. **Hurt.** Let a worker or warrior fall to 70% health or less (a wolf will
@@ -1844,17 +1890,65 @@ hashes and saves never see them, and a loaded game starts with none.
    the Artillery workshop's crewman (Patch 2, wave 2).
 9. **The chat rule.** Only urgent lines from your own units reach the message
    panel, each pinging the minimap and joining F4's list: "Help! I am being
-   attacked!", a failed order ("I cannot reach that.", "Not enough ...") and
+   attacked by a zombie!" (naming the attacker since Patch 3), a failed order ("I cannot reach that.", "Not enough ...") and
    now "That cart is gone!". Another people's greetings, trade answers and
    war cries are bubbles only; open their trade or hire menu and the last
    thing they said to you shows under its title. Their news (war declared,
    a surrender offer) is still in chat as the game's own line.
 10. `pnpm test` runs `packages/sim/test/questions.test.ts` (each question,
-    Yes and No, the 30 s wait, three at a time, rests, a leaver's units, not
+    Yes and No, the 10 s wait, three at a time, rests, a leaver's units, not
     saved, every machine in step), `packages/client/test/question-bubbles.test.ts`
     (the bubble waits in game time, over a roof for a building, buttons only
     for the owner), `packages/client/test/hud-wording.test.ts` (the chat
     rule) and `packages/client/test/m10-audio.test.ts` (the run-out cue).
+
+## How a tester checks Patch 3's speech: who attacks, questions and held bubbles
+
+*Jade's Patch 3 (2026-10-04), the speech items. Picks in
+blueprint/patch3-bubbles-chat-picks.md. The lines are in
+`packages/sim/src/peoples/speech.ts` (sayAttacked, aFoe, sayTinkering), the
+questions in `packages/sim/src/units/questions.ts`, the held bubbles in
+`packages/client/src/hud/bubbles.ts`.*
+
+1. **Both start questions.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Within a second the three warriors ask "Three of us could use better kit.
+   Upgrade?" and the four workers "Four of us could use better tools.
+   Upgrade?" (before Patch 3 only the warriors asked). Hover the workers'
+   tick: the start's stock pays for three workers' tools, and the tooltip
+   says "The stock pays for 3 of the 4, the highest rank first: ...; the rest
+   keep their tools." At the same moment the Big House says over its roof
+   "If you upgrade all their tools you may not be able to make any structures
+   right away, choose wisely." in a plain bubble, for twice as long as a
+   usual bubble (about 15 s), and never again that game. It is not in chat.
+2. **First come, first served.** In a new game click the workers' tick first:
+   three walk off to upgrade their tools and the stock drops by exactly what
+   they take. Then click the warriors' tick: they get only what is left (one
+   flint hand-axe at the start). The other way round, the warriors take
+   their kit first. Nothing in the stock ever goes below zero.
+3. **The 10 s wait.** Leave the questions alone: they go after 10 s of game
+   time (the balance editor's Questions group, QUESTION_WAIT_STEPS). Paused
+   with F10, they stay.
+4. **Who attacks.** Let a zombie or a wolf reach a worker: the chat line is
+   "Help! I am being attacked by a zombie!" (or "... by a wolf!"); a warrior
+   says "We are under attack from a giant spider!", a mage "I am under attack
+   from an ash golem!". It names the enemy whose blow made it speak.
+5. **Eat to heal only when idle.** Let a worker fall to 70% health or less
+   and keep it busy (gathering, walking, fighting): it does not ask. Leave it
+   idle, out of the fight: 5 s after its last hurt it asks "I'm hurt. Can I
+   eat to heal?". Give it an order while the question is up: the question
+   goes at once, and it may ask again once it is idle.
+6. **Bubbles held for the bar.** Say Yes to a hurt unit's question: as it sits
+   at the main base its bubble reads "I'm eating my fill of venison." (before
+   Patch 3 "I ate my fill of venison.") and stays up the whole 10 s the bar
+   runs, going when the bar does. A warrior given Upgrade equipment with a
+   weapon and armour to take says "Upgrading to flint hand-axe." for the
+   first bar, then "Upgrading to leather jerkin." for the second, and
+   "Upgraded to leather jerkin." only when it gets up.
+7. `pnpm test` runs `packages/sim/test/patch3-speech.test.ts` (the attacker's
+   name, the 10 s wait, eat to heal only when idle and its withdrawal, the
+   upgrade lines and their holds, both start questions, the advice once and
+   only on the first day, first come first served three ways) and the held
+   bubbles in `packages/client/test/question-bubbles.test.ts`.
 
 ## How a tester checks the fourteen buildings (Patch 2)
 
@@ -2293,6 +2387,60 @@ picks in blueprint/patch3-anti-clumping-picks.md.*
    stands; in M7 no warrior falls taking the Halfling village; in M8 three
    goblins and the wolf pen are left the next morning; in the wanderers
    script the wounded warrior ends at about two thirds of its health.
+
+## How a tester checks the action and build menus (Patch 3)
+
+*Jade's Patch 3, four items: buildings the stock cannot pay for are greyed
+out like those short of a prerequisite; a building whose card was one
+button opening a bigger menu opens on that menu; the active action marker
+is about twice as visible; and a click on a greyed-out button has whoever
+can sort out why ask, in a question bubble. Picks in
+blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
+`packages/client/src/hud/commands.ts`; the questions
+`packages/sim/src/units/greyed.ts`; the marker `.hud-btn.doing` in
+`packages/client/src/hud/hud.css`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-greyed.test.ts
+   (both reasons asked at once, a cause further down asked for, one
+   resource wanted twice asked for once with both amounts, the cap, the same
+   click twice, no change to the state hash, the Workshop offering planks,
+   the Scholar's Lodge offering research, a worker offering better tools,
+   idle warriors offering to hunt) and
+   packages/client/test/patch3-menus.test.ts.
+2. **Greyed by the stock.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   select the four workers and press B. The Forge, the Scholar's Lodge, the
+   Fishing dock and a second Big House are greyed out (before Patch 3 they
+   showed in red and could still be placed as a plan); hover the Forge:
+   "Not enough softwood lumber (needs 60, you have 40)." Clicking it or
+   pressing its key does not pick it up. The Barracks says its main base
+   level first, then the stock. The Farm, Barn, Storehouse and Workshop are
+   lit. Defences and Lights open as before and grey their own buildings.
+3. **Who sorts it out.** Still in the build menu, click the greyed Forge:
+   two workers ask "We need 20 more softwood lumber for the Forge. Shall I
+   go and gather some?" and "We need 20 more stone for the Forge. Shall I
+   go and gather some?". Tick one: it walks off to gather. Click the
+   Barracks: the softwood and stone questions count the Longhall too ("We
+   need 140 more softwood lumber for the Barracks and the Longhall."), as
+   the Barracks waits on a level 2 main base. Click the same button again
+   while its questions are up: nothing new; click another: the first
+   questions go and the new ones come.
+4. **One click less.** Type M N B V C X Z and press **Troop kit**, then
+   select the Forge: its smelting buttons show straight away, with no Smelt
+   and no Back (before Patch 3: one Smelt button). The Workshop, the
+   Scholar's Lodge and the Barn (its Slaughter) do the same; the Big House keeps its K menu
+   and the Artillery workshop its Engines, as they have more on their cards.
+5. **Greyed actions.** On that Forge click the greyed Copper ingot: a worker
+   asks "We need 2 more copper ore for the copper ingot, and my tools can't
+   break it. Shall I make stone and flint tools and go and gather some?";
+   Yes sends it to tinker its tools and then mine. Click Wrought iron:
+   the Forge asks "We need 2 more charcoal for the wrought iron. Shall I
+   make 3?" and Yes queues the charcoal. A greyed Barracks troop short of
+   food asks idle warriors to go hunting; the Big House's greyed Upgrade
+   asks workers for what the next level is short of.
+6. **The marker.** Select workers and press G (or right click a tree): the Gather button's gold
+   arrow is half as big again and its ring twice as thick and never dimmer
+   than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
+   from 30%).
 
 ## How a tester checks the balance editor
 

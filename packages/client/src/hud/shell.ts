@@ -717,10 +717,10 @@ export class GameShell {
       const now = performance.now();
       if (ev.speaker !== undefined && this.headOnScreen(ev.speaker) !== null && (ev.bubble !== 'meal' || now >= this.mealBubbleAt)) {
         if (ev.bubble === 'meal') this.mealBubbleAt = now + MEAL_BUBBLE_GAP_MS;
-        this.bubbles.say(ev.speaker, ev.text, now, 'own');
+        this.bubbles.say(ev.speaker, ev.text, now, 'own', ev.hold);
       }
-    } else if (ev.building !== undefined) this.bubbles.speak({ id: ev.building, building: true }, ev.text, performance.now());
-    else if (ev.speaker) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own');
+    } else if (ev.building !== undefined) this.bubbles.speak({ id: ev.building, building: true }, ev.text, performance.now(), 'own', ev.hold);
+    else if (ev.speaker) this.bubbles.say(ev.speaker, ev.text, performance.now(), ev.foreign ? 'foreign' : 'own', ev.hold);
     if (ev.foreign && ev.faction && ev.player === this.player && ev.name) this.peoples.heard(ev.faction, ev.name, ev.text);
     if (!speechToPanel(ev, this.player)) return;
     this.messages.add({ text: ev.text, kind: 'speech', name: ev.name, urgent: ev.urgent, at, unit: ev.speaker || undefined });
@@ -779,7 +779,7 @@ export class GameShell {
   /** Yes or No: the answer goes to the sim as an order (every machine does the same), and the bubble goes at once. */
   private answer(ev: SimEvent, yes: boolean): void {
     const a = ev.ask!;
-    this.opts.issueOrder({ kind: 'answer', player: this.player, ask: a.id, yes: yes ? 1 : 0, q: a.q, who: ev.building ?? ev.speaker ?? 0, units: [...a.units], res: a.res });
+    this.opts.issueOrder({ kind: 'answer', player: this.player, ask: a.id, yes: yes ? 1 : 0, q: a.q, who: ev.building ?? ev.speaker ?? 0, units: [...a.units], res: a.res, ...(a.n !== undefined ? { n: a.n } : {}) });
     this.bubbles.closeAsk(a.id);
     this.input.refreshHover();
   }
@@ -1580,9 +1580,12 @@ export class GameShell {
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
     this.minimap.draw(this.cam.footprint());
+    // The units at a timed action: their bars, and the bubbles that stay while the bars run (Jade's Patch 3).
+    const tinkering = this.game.tinkering();
+    const sitting = new Set(tinkering.map(([id]) => id));
     // No random remarks while the game is paused (Jade's patch notes 1).
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step);
-    this.tinkerBars.update(this.game.tinkering(), (id) => this.headOnScreen(id));
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
+    this.tinkerBars.update(tinkering, (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1851,9 +1854,10 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.short ? ' short' : ''}`,
+        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
+        ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
