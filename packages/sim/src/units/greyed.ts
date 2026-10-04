@@ -13,7 +13,9 @@
 // (they share its wait and its Yes and No):
 // - a resource on the land: the nearest worker with the tools for it, out of
 //   those gathering or idle first ("We need 40 more stone for the Forge.
-//   Shall I go and gather some?"); fish for food the same way;
+//   Shall I go and gather some?"); fish for food the same way; when no
+//   worker's tools can work it, the nearest that could with the cheapest
+//   tools the stock pays for offers to make them first;
 // - a resource made from others: a building that makes it ("Shall I smelt
 //   10?"), at the Forge, Workshop or main base;
 // - research: the Scholar's Lodge (or Magi Sanctum) that researches it;
@@ -21,8 +23,9 @@
 // - food: idle warriors, to go hunting.
 // When that one cannot do it now either (the Forge short of ore, the
 // upgrade short of stone), the causes of that come next, as far as
-// GREY_DEPTH steps down. Nothing that can sort a cause out (no Forge, no
-// research building, no worker with the tools in reach) asks nothing for it.
+// GREY_DEPTH steps down; a resource wanted at two steps is asked for once,
+// with both amounts. Nothing that can sort a cause out (no Forge, no
+// research building, nothing a worker can reach) asks nothing for it.
 //
 // Yes runs the order the matching button runs. Like the other questions,
 // none of this is state, and nothing here draws on a random stream.
