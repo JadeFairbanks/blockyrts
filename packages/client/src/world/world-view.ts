@@ -50,6 +50,7 @@ import type { GameInfo } from '../game/game-info.ts';
 import type { DeltasMessage, FogMessage, StateMessage, VisionMessage } from '../messages.ts';
 import { S, SpellOn, STATE_STRIDE, UnitFlag } from '../messages.ts';
 import { ENEMY, ENEMY_RED, HIDDEN, inSight, unitSide } from '../minimap/things.ts';
+import { boundsHolding } from '../minimap/transform.ts';
 import type { ModelLibrary } from '../models/index.ts';
 import { NOBODY, type GroundPicker, type MinimapSource, type Selectable, type SelectableSource } from '../selection/types.ts';
 import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.ts';
@@ -76,6 +77,8 @@ const FOG_COLOUR = 0x8a9098;
 const FOG_NEAR_M = 28;
 const FOG_FAR_M = 95;
 const FOG_OFF_M = 100000;
+/** The minimap keeps this much land round a mark outside the explored land, metres, so a lair's dot is never cut at its edge. */
+const MARK_MARGIN_M = 10;
 const FOG_TILES_PER_CHUNK = 16;
 /** Seconds between redraws of full-detail chunks so growing trees and regrowing bushes show. */
 const GROWTH_REFRESH_S = 20;
@@ -499,12 +502,15 @@ export class WorldView {
       const sig = `${info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';')}|${info.peoples.map((f) => `${f.id},${f.x >> 12},${f.z >> 12},${f.war ? 1 : 0},${f.status}`).join(';')}`;
       if (sig !== this.marksSig) {
         this.marksSig = sig;
+        this.markPoints = info.marks.map((m) => ({ x: m.x / WU_PER_METRE, z: m.z / WU_PER_METRE }));
         this.minimapVersion++;
       }
     });
   }
 
   private marksSig = '';
+  /** Where the minimap's marks stand, metres: it always shows them, explored land or not (Patch 3: every lair). */
+  private markPoints: Array<{ x: number; z: number }> = [];
 
   onDeltas(msg: DeltasMessage): void {
     const deltas: ChunkDelta[] = msg.deltas;
@@ -1038,10 +1044,11 @@ export class WorldView {
     this.minimapVersion++;
   }
 
+  /** The explored land, grown to hold every mark (Patch 3: a lair out in unexplored land still shows its dot). */
   private minimapBounds(): { minX: number; minZ: number; maxX: number; maxZ: number } {
     const b = this.exploredBounds;
-    if (!b.any) return { minX: -150, minZ: -150, maxX: 150, maxZ: 150 };
-    return { minX: b.minX, minZ: b.minZ, maxX: b.maxX, maxZ: b.maxZ };
+    const land = b.any ? { minX: b.minX, minZ: b.minZ, maxX: b.maxX, maxZ: b.maxZ } : { minX: -150, minZ: -150, maxX: 150, maxZ: 150 };
+    return boundsHolding(land, this.markPoints, MARK_MARGIN_M);
   }
 
   private paintMinimap(ctx: CanvasRenderingContext2D): void {
@@ -1107,7 +1114,7 @@ export class WorldView {
       ctx.fillStyle = sides[k >> 2]!;
       ctx.fillRect(rects[k]!, rects[k + 1]!, rects[k + 2]!, rects[k + 3]!);
     }
-    // Lairs (dark red squares) and goblin villages (ochre rings, red at war) the player has found (Table 15: minimap marks).
+    // Every lair (dark red squares; Patch 3: explored land or not) and the goblin villages (ochre rings, red at war) the players have found (Table 15: minimap marks).
     for (const m of this.game?.info?.marks ?? []) {
       const x = m.x / WU_PER_METRE;
       const z = m.z / WU_PER_METRE;

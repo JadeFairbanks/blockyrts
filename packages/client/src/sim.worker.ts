@@ -53,7 +53,6 @@ import {
   COLUMNS_PER_CHUNK,
   createWorld,
   fogged,
-  isLair,
   InputLog,
   isLit,
   levelSpec,
@@ -91,7 +90,8 @@ import {
 } from '@blockyrts/sim';
 import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ThreatMark, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { threatMarks } from './minimap/marks.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -366,7 +366,7 @@ function postInfo(s: SimState): void {
       blood: s.blood.slice(),
       fog: fogged(s),
       ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
-      marks: threatMarks(s),
+      marks: threatMarks(s, PLAYER),
       spells,
       mageRanks,
       peoples: peoplesInfo(s, PLAYER),
@@ -383,19 +383,6 @@ function postInfo(s: SimState): void {
 
 /** A fog tile's width, wu. */
 const FOG_TILE_WU = FOG_TILE_COLUMNS * WU_PER_COLUMN;
-
-/** The lairs and goblin villages any player has seen (the players share what they see); war is the local player's. */
-function threatMarks(s: SimState): ThreatMark[] {
-  const e = s.entities;
-  const bit = 1 << PLAYER;
-  const side = (1 << s.players.length) - 1;
-  const out: ThreatMark[] = [];
-  for (let i = 0; i < e.count; i++) {
-    if (e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && isLair(e.mob[i]!) && (e.picked[i]! & side) !== 0) out.push({ mob: e.mob[i]!, x: e.x[i]!, z: e.z[i]!, war: false });
-  }
-  for (const v of s.threats.villages) if (v.seen & side) out.push({ mob: -1, x: v.x, z: v.z, war: (v.war & bit) !== 0 });
-  return out;
-}
 
 /** What the players' side sees now, for the fog of war: every player's units and buildings (sim/state.ts visionSources). */
 function postVision(s: SimState): void {

@@ -19,6 +19,18 @@ export function normalizeBounds(b: Bounds): Bounds {
   return { minX: cx - hw, minZ: cz - hh, maxX: cx + hw, maxZ: cz + hh };
 }
 
+/** Grows bounds to hold every point (metres) with a margin round it: marks the minimap must show wherever they are (Patch 3: every lair, explored land or not). */
+export function boundsHolding(b: Bounds, points: ReadonlyArray<{ x: number; z: number }>, margin: number): Bounds {
+  const out = { ...b };
+  for (const p of points) {
+    out.minX = Math.min(out.minX, p.x - margin);
+    out.minZ = Math.min(out.minZ, p.z - margin);
+    out.maxX = Math.max(out.maxX, p.x + margin);
+    out.maxZ = Math.max(out.maxZ, p.z + margin);
+  }
+  return out;
+}
+
 /** Canvas pixels = world metres * scale + offset; the bounds fit the canvas, centred, keeping their shape. */
 export interface MapTransform {
   scale: number;

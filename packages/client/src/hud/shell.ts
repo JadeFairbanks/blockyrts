@@ -302,7 +302,7 @@ export class GameShell {
         this.jumpTo(t.centre.x, t.centre.z);
         return true;
       },
-      ping: (x, z) => this.minimap.ping(x, z),
+      ping: (x, z, style) => this.minimap.ping(x, z, style),
       clock: () => formatClock((performance.now() - this.startedAt) / 1000),
     });
     this.peoples = new PeoplesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
@@ -687,7 +687,8 @@ export class GameShell {
     // A unit's own alert ("I cannot reach that.") is speech too: its bubble, and its name in the panel.
     if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now());
     const kind: MessageKind = urgent ? 'alert' : 'system';
-    this.messages.add({ text: this.named(ev.text), kind, name: ev.name, urgent, at, unit: ev.speaker });
+    // A new lair (Patch 3) pings the minimap in red.
+    this.messages.add({ text: this.named(ev.text), kind, name: ev.name, urgent, at, unit: ev.speaker, ping: ev.lair !== undefined ? 'lair' : undefined });
     if (ev.faction && (ev.urgent || urgent)) this.buttons.get('peoples')?.setLit(true);
     if (urgent && at) {
       this.urgent.unshift({ ...at, text: ev.text });

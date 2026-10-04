@@ -5,6 +5,7 @@
 // collapses to a small button that flashes on an urgent message, and a
 // click on a message jumps the camera to the unit that said it or to where
 // it happened. Urgent messages stand out and ping the minimap.
+import type { PingStyle } from '../minimap/minimap.ts';
 import type { ButtonRegistry, HudButton } from './buttons.ts';
 import type { HudPanels } from './panels.ts';
 import { oneIsSingular } from './wording.ts';
@@ -26,6 +27,8 @@ export interface PanelMessage {
   at?: { x: number; z: number } | undefined;
   /** The unit that said it (entity id): a click follows it to where it is now. */
   unit?: number | undefined;
+  /** How an urgent message's ping looks: gold, or red for a new lair (Patch 3). */
+  ping?: PingStyle | undefined;
 }
 
 /** The three views of the filter button (doc): everything; alerts and player messages; player messages only. */
@@ -59,7 +62,7 @@ export interface MessagePanelActions {
   /** The camera to a unit where it stands now; false when it is gone. */
   jumpToUnit(id: number): boolean;
   /** A ping on the minimap, metres. */
-  ping(x: number, z: number): void;
+  ping(x: number, z: number, style?: PingStyle): void;
   /** Seconds since the match began, for the time stamp. */
   clock(): string;
 }
@@ -164,7 +167,7 @@ export class MessagePanel {
     }
     if (atBottom) this.list.scrollTop = this.list.scrollHeight;
     if (m.urgent) {
-      if (m.at) this.a.ping(m.at.x, m.at.z);
+      if (m.at) this.a.ping(m.at.x, m.at.z, m.ping);
       if (this.collapsed) this.openPanel.classList.add('flash');
     }
   }

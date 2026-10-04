@@ -305,7 +305,7 @@ export interface InfoMessage {
   fog: boolean;
   /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
   ruins: Array<[number, number, number]>;
-  /** Lairs and goblin villages the local player has seen, for the minimap (wu). */
+  /** Every standing lair (Patch 3: explored land or not) and the goblin villages the players have seen, for the minimap (wu). */
   marks: ThreatMark[];
   /** The local player's mages: per mage id, each spell of her school with why it cannot be cast now ('' when it can) and the steps until it is ready. */
   spells: Array<[number, Array<[number, string, number]>]>;

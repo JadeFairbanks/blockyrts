@@ -427,8 +427,10 @@ dawn.*
    from claimed land and 30 m from your units, at a barrier's foot for a cave
    mouth (finished unlit tunnels count as caves). Then one every 3 nights to
    night 14, every 2 to night 44 and one a night after that, at most 2 + 1
-   per 15 nights alive per player. A lair shows on the minimap as a red
-   square once one of your units has seen it (rifts from 120 m at night).
+   per 15 nights alive per player. A lair shows on every player's minimap
+   as a red square from the moment it appears, explored land or not, with
+   an alert and a red ping (Patch 3; see "How a tester checks lair alerts";
+   before Patch 3 it showed once one of your units had seen it).
    Its guardians stand round it and its sleepers wait inside; each night a
    fifth of your wave comes out of it 20 s after nightfall. Attack it by day:
    "The barrow is stirring" means the sleepers are out. When it falls you
@@ -2642,6 +2644,44 @@ measured with `packages/client/src/models/instanced-model.ts`.*
    read back without waiting for the card. The outline itself is drawn only
    while a unit is hidden, and only over the outlined units' corner of the
    screen. The numbers measured are in the picks file.
+
+## How a tester checks lair alerts (Patch 3)
+
+*Jade's ask (Patch 3): when a lair spawns, all players get an alert and a
+ping on their minimap, and players always see the red dot of every lair on
+their minimap, even in unexplored land. Picks in
+blueprint/patch3-lair-alerts-picks.md. The alert is
+`packages/sim/src/threats/lair-alert.ts`; the dots
+`packages/client/src/minimap/marks.ts`; the red ping
+`packages/client/src/minimap/minimap.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch3-lair-alerts.test.ts
+   (the alert at dusk of night 3 with the lair's kind, way and distance
+   from the main base and its spot; every player told, another player's lair
+   naming whose land it is by; only the kind with no main base) and
+   packages/client/test/patch3-lair-alerts.test.ts (a lair far out in land
+   nobody has seen is on every player's minimap until it is broken, the map
+   widens to hold it, the red ping lasts 6 s and plays the map ping sound).
+2. **The alert.** `pnpm dev`, open http://localhost:5173/?seed=1, start and
+   type M N B V C X Z. Pan the view out past the explored land with the
+   arrow keys and press **Lair: Barrow**. Every player gets one red line in
+   the message panel, such as "A lair has appeared: a barrow to the east,
+   about 120 m from your main base." (the way and the distance from your
+   Big House, in tens of metres), with the map ping's
+   glassy chime and red rings pulsing on the minimap at the lair for 6 s
+   (an urgent message's rings are gold for 4 s). Click the line or press F4
+   to jump there. In a normal game the first comes at dusk of night 3, with
+   the dusk horn.
+3. **The dot.** The lair's dark red square shows on the minimap at once,
+   on the dark unexplored part of the map; if it lies past the explored
+   land the minimap widens to hold it. It stays until the lair is broken,
+   and loads with a save (it is worked out from the lairs standing).
+4. **Two players.** `?seed=1&players=2`: a lair placed for the other player
+   reads "A lair has appeared by Player 2's land: a barrow to the ...", with
+   their name in place of Player 2, and both players see its dot and ping.
+5. **The balance editor** (once republished from main) has
+   LAIR_PING_STEPS (6 s), "Minimap ping at a new lair lasts", under Lairs,
+   tribes and villages, Lair alerts.
 
 ## How a tester checks the balance editor
 

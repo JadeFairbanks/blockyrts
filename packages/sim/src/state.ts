@@ -643,6 +643,8 @@ export interface SimEvent {
   z?: number;
   /** A sound cue to play with it (the blood night's double horn), for the client. */
   sound?: string;
+  /** A lair that has just appeared (Patch 3): its mob kind, for the client's ping and sound. */
+  lair?: number;
   /**
    * Speech for the bubble only, never the message panel (patch 1): a unit's
    * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
