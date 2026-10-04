@@ -37,6 +37,13 @@ export interface MinimapSource {
   paint(ctx: CanvasRenderingContext2D): void;
   /** A counter that increases whenever paint would draw something different. */
   version(): number;
+  /**
+   * Paints what moves over the land, a few times a second: units and
+   * buildings in their owner's colour, enemies in sight in red, then the
+   * marks (lairs, villages, peoples). Same transform as paint; `dpr` device
+   * pixels make one CSS pixel.
+   */
+  paintThings?(ctx: CanvasRenderingContext2D, dpr: number): void;
 }
 
 /** The world rectangle the camera focus may move in, metres. */

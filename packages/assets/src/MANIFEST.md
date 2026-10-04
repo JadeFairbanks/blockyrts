@@ -1481,6 +1481,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | team_banner_6 | ui/team_banner_6.png | 1 | 32x32 | K11 player 6 banner icon (orange, RGB (200, 104, 36)), 32x32. |
 | team_banner_7 | ui/team_banner_7.png | 1 | 32x32 | K11 player 7 banner icon (green, RGB (64, 128, 52)), 32x32. |
 | team_banner_8 | ui/team_banner_8.png | 1 | 32x32 | K11 player 8 banner icon (pink, RGB (196, 100, 140)), 32x32. |
+| team_banner_9 | ui/team_banner_9.png | 1 | 32x32 | Patch 2 white player banner icon (RGB (216, 216, 210)), 32x32: team_banner_2's red cloth recoloured, since red is no player's colour from Patch 2. |
 | team_swatch_1 | ui/team_swatch_1.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 1 (blue, RGB (52, 96, 178)), 12x12 swatch. |
 | team_swatch_2 | ui/team_swatch_2.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 2 (red, RGB (176, 48, 40)), 12x12 swatch. |
 | team_swatch_3 | ui/team_swatch_3.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 3 (teal, RGB (40, 140, 132)), 12x12 swatch. |
