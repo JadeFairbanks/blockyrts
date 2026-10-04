@@ -507,6 +507,7 @@ Jade's play-test patch notes 1 (2026-10-03):
 
 Patch 2 (2026-10-04, in build; the design record is blueprint/patch-2.md):
 
+- Action menu and upgrade button (Jade's RTF; picks in patch2-action-menu-picks.md): a button survives only if Jade's list names it, so combat units keep Attack, Patrol and Move, troops (not siege or mages) Hunt, every eater Eat, and workers Gather, Unload, Repair, Dig and Prospect, with one Build for basic and advanced alike; Stop, Hold, Enter, the lock, Cannon crew and the four upgrade buttons go. Attack used directly on a unit always attacks it, prey, friend or foe (attack-move keeps its discretion), and a spell used on a unit always casts, except that buffs and heals never land on enemies. One Upgrade equipment button (Q) gives each unit the best weapon, then the best armour, researched that the stock pays for, weapons first for all of them; the unit walks to the nearest Barracks, Forge or main base and sits tinkering with a bar over its head. Eating is the same timed action: seated for 10 s, getting up when hit. The buttons are squares sized to fill the card, at least twice as wide and twice as tall as before Patch 2, the card growing upward only when they cannot fit at that; the portrait moves next to the card (minimap, middle, portrait, card); "Locked to melee." leaves the middle (see Command card and hotkeys).
 - Training countdown fix (Bug fixes 1; picks in patch2-countdown-picks.md): the queue's "Complete in N seconds" is the sim's own time, sent with every update as the head item's steps left at its pace now, and "On hold" exactly while nothing moves it. Before Patch 2 the client guessed the pace from the rounded per mille bar, so the Magi Sanctum's seconds (and most troops') jumped up and down while they fell. One clock served every building queue, so every queue is fixed; the other countdowns (farm harvest, next meal, the day clock, fuel, spell cooldowns) already read the sim's numbers.
 
 Waiting on Jade's word, in no set order (s, 2026-10-03):
@@ -1252,8 +1253,8 @@ The screen is split into two zones, and almost every control rule below depends 
 - **HUD:** every panel drawn over the game view. The HUD panels are:
   - Minimap (bottom left): the whole explored map, with the current camera view drawn as an outlined box.
   - Selection panel (bottom centre): portraits of the selected units, or detailed stats when only one thing is selected.
-  - Portrait (patch notes 1, PR #78): between the minimap and the selection panel, as tall as the command card; a live idle headshot of the selected unit, or a still of the building from about 45 degrees, for enemy and neutral things too. The minimap, portrait, selection panel and command card touch along the whole bottom edge.
-  - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys"). Since patch notes 1 it is a row taller, spare room beside the selection panel becomes extra columns (up to 10, click only), and a long menu grows it upward before it pages (s).
+  - Portrait (patch notes 1, PR #78): between the selection panel and the command card since Patch 2 (Jade: minimap, middle, portrait, card) [before Patch 2: between the minimap and the selection panel], as tall as the command card; a live idle headshot of the selected unit, or a still of the building from about 45 degrees, for enemy and neutral things too. The minimap, portrait, selection panel and command card touch along the whole bottom edge.
+  - Command card (bottom right): a 3-row by 5-column grid of buttons for the selected units (see "Command card and grid hotkeys"). Since patch notes 1 it is a row taller, spare room beside the selection panel becomes extra columns (up to 10, click only), and a long menu grows it upward before it pages (s). In Patch 2 its buttons are squares sized to fill it, never under twice the old size, and it grows upward only when they cannot fit at that (see Command card and hotkeys).
   - Resource bar (top right): stockpiled resources, expandable to show every resource type (see "Resources" below).
   - **Inventory grid (Jade, 2026-10-03; in development):** the stockpile is shown in a more Minecraft-style inventory of equal square slots, each with the good's picture and its count in the corner; hovering a slot gives its name and rate (suggested). 16 slots are visible, and it scrolls once there are more than 16 types of goods (Jade), by mouse wheel and by visible arrows (suggested). Slots keep a fixed order by category: woods, stone and flint, ores, metals, foods, crafting goods, crystals; a good held at any point in the match keeps its slot, greyed at zero (suggested). It wears the HUD's wooden kit since the HUD skin pass (PR #78).
   - Clock (top centre): the current day or night, time remaining, and the night count.
@@ -1383,7 +1384,18 @@ Dead units drop out of their groups automatically. When a group of identical bui
 
 #### Command card and hotkeys
 
-The command card is a grid of 15 buttons in 3 rows of 5 showing everything the selection can do. Each button shows its hotkey in the corner. Outside the build menus, hotkeys are letters named after the command:
+**Patch 2 (Jade's RTF, 2026-10-04).** A button survives only if Jade's list names it, and buttons stay pictures. The card shows only the buttons the selection has, in order, with no gaps, filled like a book (left to right, top to bottom) and centred. Each button is a square as big as fits in the card, but never less than twice the width and twice the height of a button before Patch 2 (104 px at full size, 4 times the area); when the buttons cannot all fit at that size the card grows upward just enough, and only then (s: where the screen is too short for that, they shrink to fit, never below the size before Patch 2, and a menu too long even for that pages). The portrait sits between the selection panel and the card. The cards in Patch 2:
+
+- Warriors: A Attack, P Patrol, M Move, N Hunt, F Eat, Q Upgrade equipment.
+- Mages: A Attack, P Patrol, M Move, the school's five spells, Eat (a click), Q Upgrade equipment, U Rank.
+- Workers: M Move, G Gather, C Unload (Return Cargo: take what they carry, and loot, to the nearest drop-off), R Repair, D Dig, T Prospect, B Build (one menu, basic buildings first, then advanced), F Eat, Q Upgrade equipment (tools), U Rank, X Cart (s: Rank and Cart stay; workers have no Attack).
+- Siege engines and cannons: A Attack, M Move, R Hitch (Let go), E Port (cannons only) (s).
+- Attack used directly on a unit always attacks it: prey, a friend or a foe, even the player's own units; Attack on the ground (attack-move) still fights only enemies on the way. Wanderers are nobody's to fight, so Attack on one attack-moves there (s).
+- A spell used directly on a unit always casts, except that buffs and heals never land on enemies ("Heal cannot be cast on an enemy.").
+- Upgrade equipment: one button for every combat troop except siege (and the workers' tools): each unit gets the best weapon, then the best armour, researched that the stock pays for, weapons first for every unit and the highest ranks first, then armour from what is left (s). Mages get a wand and a robe; the brawler has one kit. The unit walks to the nearest Barracks, Forge or main base (mages also a Magi Sanctum) and sits tinkering there with a progress bar over its head for each piece's time.
+- Going inside or up top is a right click (s): men (warriors, mages) right clicking a tower or a main base with room on top go up; workers alone still go up a tower and walk to a main base.
+
+Before Patch 2 (kept for the record; the bullets below are the card live before Patch 2): the command card is a grid of 15 buttons in 3 rows of 5 showing everything the selection can do. Each button shows its hotkey in the corner. Outside the build menus, hotkeys are letters named after the command:
 
 - Every unit that can move: A Attack, S Stop, H Hold Position, P Patrol, M Move. These buttons are always in the same five places on the top row. Workers have no Patrol: that slot holds U Upgrade rank (suggested, Milestone 11).
 - Gatherers also have: G Gather, C Return Cargo, R Repair (buildings and mechanical units), D Dig, T Prospect, B Build Basic Structures, V Build Advanced Structures, Q Upgrade tools and X Fetch a cart (pressed again, hand it back) (suggested, Milestone 11).
@@ -1559,8 +1571,8 @@ The game must be fully playable without touching the keyboard. Keyboard controls
 
 | **Keyboard control** | **Mouse equivalent** |
 |---|---|
-| Unit command hotkeys (A, S, H, P, M, G, C, R, D, T, E, U, Q, X, Z, V) | Click the matching button on the command card. Commands that need a target then work the same way (click a spot or a unit). |
-| Build menus (B, V) and grid keys in a build menu | Click Build Basic or Build Advanced on the command card, then click the building. |
+| Unit command hotkeys (A, P, M, G, C, R, D, T, E, U, Q, X, N, F; before Patch 2 also S, H, Z, V) | Click the matching button on the command card. Commands that need a target then work the same way (click a spot or a unit). |
+| Build menu (B) and grid keys in a build menu | Click Build on the command card (Patch 2: one Build button; before Patch 2 Build Basic and Build Advanced), then click the building. |
 | Production hotkeys in buildings | Click the item's button. Each click adds one to the queue. |
 | Troop tiers and Lock at a Barracks, Stables or main base | Pick the tiers in the dropdowns and tick Lock with the mouse; there are no keys for them. |
 | Shift (queue orders, place several buildings, add rally points) | Click the Queue Mode button on the utility bar. While it is lit, every order, building placement and rally point is added to the queue exactly as if Shift were held. Click it again to turn it off. It also turns off by itself when the selection changes. |
@@ -1604,12 +1616,13 @@ Because the game runs in a web browser, some key combinations above are normally
 | Left click / left drag | Select / box select (box stays inside the game view) |
 | Right click | Smart order (move, attack, gather, follow, build) |
 | Shift + any order | Add to the order queue |
-| A / S / H / P / M | Attack / Stop / Hold Position / Patrol / Move |
-| G / C / R (gatherers) | Gather / Return Cargo / Repair |
+| A / P / M | Attack / Patrol / Move (Patch 2; before Patch 2 also S Stop and H Hold Position) |
+| G / C / R (gatherers) | Gather / Unload (Return Cargo) / Repair |
+| Q | Upgrade equipment (Patch 2) |
 | N (warriors) | Hunt (suggested letter) |
 | R, K, F, Y, W / R, B, F, T, C (mages) | Support spells / battle spells; U Rank (suggested) |
 | O | Peoples panel (suggested; rebinding it moves its badge) |
-| R, E (engines) / U (Gunnery yard) | Hitch, Port / Cannon crew training (suggested) |
+| R, E (engines) | Hitch, Port (suggested; Patch 2 cuts the Gunnery yard's U Cannon crew training) |
 | Any targeted command twice | The unit picks its own target (A, G, E, T, R, N and spells; Move and Patrol only keep targeting) (suggested) |
 | Shift + H | Queue Hold Position after earlier orders |
 | D / T (workers) | Dig / Prospect |
@@ -2328,6 +2341,7 @@ Weapon and armour tiers are chosen independently, so any weapon can go with any 
 
 #### Upgrading units
 
+- **Patch 2 (Jade's RTF, 2026-10-04):** one Upgrade equipment button (Q) replaces Upgrade Weapon, Upgrade Armour and their Max twins, for every combat troop except siege and for the workers' tools. Each selected unit gets the best weapon, then the best armour, researched that the stock pays for: weapons first for every unit, the highest ranks first, then armour from what is left (s). Mages get the wand, then the robe; the brawler has one kit. The unit walks to the nearest Barracks, Forge or main base (mages also a Magi Sanctum, cavalry also the Stables) and sits beside it tinkering, hands at its chest and head bowed, with a progress bar over its head for each piece's time; the payment and the full refund of the old kit work as below. The sim command is `upgradeEquipment` (units/gear.ts orderUpgradeEquipment, planned by equipmentPlans in units/kits.ts), so other features (the question bubbles) can send it. Tinkering is one timed-action mechanic, `tinker(state, i, steps)` in units/tinker.ts: eating (10 s) uses it too, and a unit hit by an enemy while it sits at a meal gets up at once, its healing still coming. The bullets below are the rules before Patch 2 where they differ.
 - Select one warrior or a group and click Upgrade on the command card. Each unit walks to the nearest Forge, Barracks or main base and stands beside it; speech bubbles tell the player what is happening (Jade), such as "Off to the Forge for a bronze spear." on the way, "Upgraded to ..." when done, and the first unit's reason when none can go (s, M11). Cavalry can also upgrade at the Stables, and mages at a Magi Sanctum (s).
 - There are separate Upgrade Weapon and Upgrade Armour buttons (Jade). Each moves the unit up one tier and pays the ingots or other materials from stock (Jade).
 - An Upgrade Max twin of each takes the unit to the best tier researched and affordable; it appears only when it would give a different result from the plain button, so there can be up to 4 buttons (Jade).
@@ -2885,7 +2899,7 @@ Two buttons next to the resource bar open the multiplayer tools. Both are clicka
 - You keep full control of your units too. If two players order the same unit, the latest order wins.
 - Resources gathered by your units always go to your own pool, whoever ordered them to gather.
 - Map pings (suggested): a player can click a Ping button (or press \) and then a spot on the map or minimap to flash it for everyone, with a sound and "Look here" with their name, to point out a threat or a target. Right click or Esc cancels.
-- Selecting only allied units shows a short command card (suggested): Attack, Stop, Hold, Patrol, Move, Gather, Return cargo.
+- Selecting only allied units shows a short command card (suggested): Attack, Patrol, Move, Gather, Hunt, Unload (Patch 2; before Patch 2 also Stop and Hold).
 - **Who sees what (suggested):** chat lines, pings, joins, leaves and pauses go to every player. A player's own alerts (attacks, deaths, trades, sent resources) go only to them. Messages name players by their names, never "Player 2".
 - **Pause (Jade's patch notes 1, 2026-10-03):** alone, opening the F10 menu pauses the game and closing it carries on, with no Pause or Resume button (the account page holds the game too); the Pause key and the ❚❚ button open the menu. Online, opening the menu does not pause. The menu has one Pause button, and any player may press it, or the Pause key or ❚❚: the game stops for everyone, every player's menu opens with the button reading Resume, and everyone is told who paused (a message, a line in the menu and the banner). When any player presses Resume, everyone is told who resumed and every menu closes. Suggested, as built: a player's pause stays in force if they lose the connection, so the others can resume it; the banner keeps a Resume button for a player who closed their menu.
 - **Random remarks (patch notes 1):** units make no random remarks while the game is paused, and the wait for the next one stands still.

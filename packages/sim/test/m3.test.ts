@@ -633,6 +633,7 @@ describe('orders for units that are gone', () => {
       { kind: 'attack', player: 0, units: gone, target: 999 },
       { kind: 'hold', player: 0, units: gone },
       { kind: 'upgradeKit', player: 0, units: gone, line: 0, max: 1 },
+      { kind: 'upgradeEquipment', player: 0, units: gone },
       { kind: 'cart', player: 0, units: gone, back: 0 },
       { kind: 'troopLock', player: 0, building: 999, troop: 1, lock: 12 },
       { kind: 'lock', player: 0, units: gone, lock: 1 },
