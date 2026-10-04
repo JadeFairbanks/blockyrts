@@ -1,5 +1,5 @@
 {
- "description": "M8 check script, seed 1, one player, with night mobs: the debug tools make the Big House a Citadel (building 8, level 10, four cannon ports), put a Stables 20 m east (building 9) with two horses (ids 10, 11) and an ox (id 12), a siege kit 20 m west (catapult 13, ballista 14, bronze cannon 15, 20 of each munition and the research), a goblin village 80 m north (its huts include id 22) and a troop kit 20 m east and 20 m south of the Big House (a Barracks, a level 4 forge, the materials and research of every tier); the Big House trains a long-melee spearman (troop product 4306, id 218) and the Stables trains a bronze cavalry rider (troop product 4640: cavalry, weapon and armour tier 4, id 350), who uses up horse 10 from its stalls and comes out mounted (Troops and gear: cavalry is a troop type trained at the Stables); the ox is hitched to the catapult and hauls it 40 m north, and horse 11 is hitched to the bronze cannon and hauls it into one of the Citadel's ports on the roof; at dusk the gun kit trains every warrior to crew a cannon, two of the starting warriors (5, 6) go up into the port to crew the cannon and the third (7) and the spearman crew the catapult; the catapult is told to break hut 22 and goes on to break more of the village, which goes to war; the crew fight off the goblins that reach the catapult; through night 0 the port cannon fires at the night mobs, and the rider attack-moves 40 m south-west, where his first blow on a zombie after a straight gallop is a charge (double damage, knocked back); at dawn he rides home to the Stables. Debug threats: 10 goblin village, 50 Stables, 51 siege kit, 52 gun kit, 53 Citadel, 54 troop kit, 60 on the late night mobs, 90 Morvath, 91 on a late wave. Products: 4096 + troop x 100 + weapon tier x 10 + armour tier. Moves are world units (8,000 per metre).",
+ "description": "M8 check script, seed 1, one player, with night mobs, as Patch 2 plays it: the debug tools make the Big House a Citadel (building 8, level 10, four cannon ports), put a Barn 20 m east (building 9) with two horses (ids 10, 11) and an ox (id 12), a siege kit 20 m west (catapult 13 with its crewmen 14 and 15, ballista 16 with crewman 17, bronze cannon 18 with crewmen 19 and 20, a finished Artillery workshop, building 21, 100 farm fare and the Siege engines, Gunpowder, Muskets and Cannons research; no munitions: Patch 2 cut all ammunition), a goblin village 80 m north (its huts include id 28) and a troop kit 20 m east and 20 m south of the Big House (a Barracks, building 46, a Forge, the materials and research of every tier); the Big House trains a long-melee spearman (troop product 4306, id 224); the Barracks trains a bronze cavalry rider (troop product 4640: cavalry, weapon and armour tier 4, id 361), who uses up horse 10 from the Barn and comes out mounted (Patch 2: cavalry trains at the Barracks on a horse from the nearest Barn); the Artillery workshop casts an iron cannon (engine product 2051, id 358), which rolls out with its two artillery crewmen (359, 360), their food paid with it (Patch 2: every engine rolls out with its full crew, and only artillery crewmen crew engines); the ox is hitched to the catapult and hauls it 40 m north, where its crew open fire on the goblin village by themselves: the first hut falls, the next kills take the village to war, and by dusk the catapult has broken most of the village and killed its goblins; horse 11 is hitched to the bronze cannon and hauls it up into one of the Citadel's ports, and the iron cannon's crew push it up into a second port, each crew following its cannon in; through night 0 the port cannons, the ballista and the catapult fire at the night mobs, and the rider attack-moves 40 m north-west, where his first blow on a zombie after a straight gallop is a charge (double damage, knocked back about a metre); at dawn the catapult shoots down the goblin warband and the rider rides home. Debug threats: 10 goblin village, 50 Barn, 51 siege kit, 52 gun kit, 53 Citadel, 54 troop kit, 55 mine kit, 60 on the late night mobs, 90 Morvath, 91 on a late wave. Products: 6 artillery crewman, 2048 + engine (0 catapult, 1 ballista, 2 bronze cannon, 3 iron cannon), 4096 + troop x 100 + weapon tier x 10 + armour tier. Moves are world units (8,000 per metre).",
  "players": 1,
  "frames": [
   {
@@ -60,8 +60,20 @@
     {
      "kind": "produce",
      "player": 0,
-     "building": 9,
+     "building": 46,
      "product": 4640,
+     "count": 1
+    }
+   ]
+  },
+  {
+   "step": 12,
+   "orders": [
+    {
+     "kind": "produce",
+     "player": 0,
+     "building": 21,
+     "product": 2051,
      "count": 1
     }
    ]
@@ -81,7 +93,7 @@
      "kind": "hitch",
      "player": 0,
      "units": [
-      15
+      18
      ],
      "target": 11
     }
@@ -103,71 +115,36 @@
      "kind": "enter",
      "player": 0,
      "units": [
-      15
+      18
      ],
      "building": 8
     }
    ]
   },
   {
-   "step": 3610,
+   "step": 3100,
    "orders": [
     {
-     "kind": "debugThreat",
+     "kind": "enter",
      "player": 0,
-     "what": 52,
-     "x": 0,
-     "z": 0
+     "units": [
+      358
+     ],
+     "building": 8
     }
    ]
   },
   {
-   "step": 3620,
-   "orders": [
-    {
-     "kind": "crew",
-     "player": 0,
-     "units": [
-      5,
-      6
-     ],
-     "target": 15
-    },
-    {
-     "kind": "crew",
-     "player": 0,
-     "units": [
-      7,
-      218
-     ],
-     "target": 13
-    }
-   ]
-  },
-  {
-   "step": 3900,
-   "orders": [
-    {
-     "kind": "attack",
-     "player": 0,
-     "units": [
-      13
-     ],
-     "target": 22
-    }
-   ]
-  },
-  {
-   "step": 4700,
+   "step": 4420,
    "orders": [
     {
      "kind": "attackMove",
      "player": 0,
      "units": [
-      350
+      361
      ],
      "x": -240000,
-     "z": 240000
+     "z": -240000
     }
    ]
   },
@@ -178,7 +155,7 @@
      "kind": "move",
      "player": 0,
      "units": [
-      350
+      361
      ],
      "x": 120000,
      "z": 48000
