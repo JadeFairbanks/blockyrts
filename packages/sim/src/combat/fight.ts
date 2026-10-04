@@ -28,6 +28,7 @@ import { mayMan, onTop, topOf } from '../units/top.ts';
 import { School } from '../magic/spells.ts';
 import { beyondReach } from '../units/forage.ts';
 import { chatter } from '../peoples/speech.ts';
+import { tinkering } from '../units/tinker.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
 export const LEASH_WU = 20 * WU_PER_METRE;
@@ -184,12 +185,18 @@ function canHarm(state: SimState, i: number, t: number): boolean {
   return !soaring(state, t) && !meleeOf(state, i).oneHanded;
 }
 
-/** Whether a target is one this unit may fight now; `chase` also allows a wild animal it was told to attack or hunt, and a building the peoples left for a worker to break down. */
+/**
+ * Whether a target is one this unit may fight now. `chase` is a target it was
+ * told to go for: it also allows a wild animal, one of the players' own units
+ * (Jade's Patch 2: Attack used on a unit always attacks, prey, friend or foe)
+ * and a building the peoples left, for a worker to break down.
+ */
 export function validTarget(state: SimState, i: number, t: number, chase = false): boolean {
   const e = state.entities;
   if (t < 0 || t === i || e.hp[t]! <= 0 || e.inside[t] !== 0) return false;
   if (hostile(state, i, t)) return true;
-  return chase && sideOf(state, i) === Side.Players && (huntable(state, t) || (e.kind[i] === UnitKind.Worker && salvageable(state, t)));
+  if (!chase || sideOf(state, i) !== Side.Players) return false;
+  return huntable(state, t) || sideOf(state, t) === Side.Players || (e.kind[i] === UnitKind.Worker && salvageable(state, t));
 }
 
 /** A building the neutral peoples left behind: workers may break it down for its materials. */
@@ -587,6 +594,14 @@ export function onUnitHurt(state: SimState, i: number, from: number, fresh: bool
   const a = e.indexOf(from);
   if (a < 0 || !hostile(state, i, a)) return;
   if (sideOf(state, i) === Side.Players && e.kind[i] !== UnitKind.Animal) sayAttacked(state, i);
+  // Hurt by a foe while sitting at a meal (Jade's Patch 2: seated for 10 s), it gets up: the meal is eaten and its healing goes on.
+  if (e.queue[i]![0]?.t === 'eat' && tinkering(state, i)) {
+    e.queue[i]!.shift();
+    e.tinker[i] = 0;
+    e.act[i] = Act.Start;
+    e.timer[i] = 0;
+    resetWalk(state, i);
+  }
   if (fresh && e.kind[i] === UnitKind.Worker && sideOf(state, i) === Side.Players) callGuards(state, i, a);
   if (!fresh || e.kind[i] !== UnitKind.Worker || e.inside[i] !== 0) return;
   const o = e.queue[i]![0];

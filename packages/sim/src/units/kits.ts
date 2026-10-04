@@ -751,3 +751,77 @@ export function upgradeTarget(h: KitHolder, line: number, max: boolean, pool: In
   }
   return { why: first };
 }
+
+/** A unit as Upgrade equipment sees it: its id, kit and rank, and the lines it already has an upgrade on the way for. */
+export interface EquipmentHolder {
+  id: number;
+  h: KitHolder;
+  rank: number;
+  pendingW: boolean;
+  pendingA: boolean;
+}
+
+/** One unit's share of an Upgrade equipment press: the tier each line goes to (0: it stays) and how it is paid, or why neither moves. */
+export interface EquipmentPlan {
+  id: number;
+  w: number;
+  a: number;
+  wPlan: { cost: Cost; ways: number } | null;
+  aPlan: { cost: Cost; ways: number } | null;
+  why: string;
+}
+
+/** Reasons that only say a line has nowhere to go, which give way to a reason the player can do something about. */
+const NOWHERE_TO_GO = new Set(['Already the best there is.', 'Nothing to upgrade.', 'A brawler is tier 8 only.']);
+
+/**
+ * Upgrade equipment (Jade's Patch 2): one press does what the Max twins of
+ * Upgrade weapon and Upgrade armour did together. Each unit's weapon (a
+ * worker's tools, a mage's wand) goes to the best tier researched that the
+ * stock pays for, then its armour (a mage's robe); workers have no armour.
+ * Weapons come first for every unit, the highest rank first, so a short
+ * stock buys weapons before armour; then armour from what is left. The sim
+ * pays exactly these plans and the action menu shows them, so the two agree.
+ */
+export function equipmentPlans(units: readonly EquipmentHolder[], pool: Int32Array, tech: TechView): EquipmentPlan[] {
+  const order = [...units].sort((a, b) => b.rank - a.rank || a.id - b.id);
+  const held: Array<[Res, number]> = [];
+  const hold = (cost: Cost): void => {
+    for (const [r, n] of cost) {
+      const at = held.findIndex(([x]) => x === r);
+      if (at >= 0) held[at] = [r, held[at]![1] + n];
+      else held.push([r, n]);
+    }
+  };
+  const plans: EquipmentPlan[] = order.map((u) => ({ id: u.id, w: 0, a: 0, wPlan: null, aPlan: null, why: '' }));
+  const whys = order.map(() => ['', '']);
+  for (const line of [Line.Weapon, Line.Armour]) {
+    order.forEach((u, k) => {
+      if (line === Line.Armour && u.h.kind === 'worker') return;
+      if (line === Line.Weapon ? u.pendingW : u.pendingA) {
+        whys[k]![line] = 'Already on the way to an upgrade.';
+        return;
+      }
+      const t = upgradeTarget(u.h, line, true, pool, tech, held);
+      if ('why' in t) {
+        whys[k]![line] = t.why;
+        return;
+      }
+      hold(t.plan.cost);
+      const p = plans[k]!;
+      if (line === Line.Weapon) {
+        p.w = t.to;
+        p.wPlan = t.plan;
+      } else {
+        p.a = t.to;
+        p.aPlan = t.plan;
+      }
+    });
+  }
+  plans.forEach((p, k) => {
+    if (p.w || p.a) return;
+    const [w, a] = whys[k]!;
+    p.why = (w && !NOWHERE_TO_GO.has(w) ? w : '') || (a && !NOWHERE_TO_GO.has(a) ? a : '') || w || a || 'Nothing to upgrade.';
+  });
+  return plans;
+}

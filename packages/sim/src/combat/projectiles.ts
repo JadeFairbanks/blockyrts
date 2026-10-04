@@ -186,15 +186,16 @@ export function fireAt(state: SimState, shooter: number, fromX: number, fromY: n
     ax += ox;
     az += oz;
   }
-  launch(state, shooter, fromX, fromY, fromZ, ax, ay, az, shot, damage, flags, clearLob(state, shot, fromX, fromY, fromZ, ax, ay, az, false));
+  launch(state, shooter, fromX, fromY, fromZ, ax, ay, az, shot, damage, flags, clearLob(state, shot, fromX, fromY, fromZ, ax, ay, az, false), e.id[t]!);
 }
 
-export function launch(state: SimState, shooter: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, shot: number, damage: number, flags: number, lobPct = 100): void {
+/** Puts a shot in the air from one point to another; `mark` is the unit it was aimed at, which it may hit whatever its side (0 for none). */
+export function launch(state: SimState, shooter: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, shot: number, damage: number, flags: number, lobPct = 100, mark = 0): void {
   const e = state.entities;
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lobPct);
   state.projectiles.push({
     shot, side: sideOf(state, shooter), shooter: e.id[shooter]!, owner: e.owner[shooter]!, faction: e.owner[shooter] === PEOPLES ? e.group[shooter]! : 0,
-    x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, flags,
+    x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, flags, mark,
   });
   state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]! });
 }
@@ -221,7 +222,7 @@ export function hasClearLob(state: SimState, shot: number, x0: number, y0: numbe
 
 function clearPath(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, lob: number, ownOnly: boolean): boolean {
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lob);
-  const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, faction: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, flags: 0 };
+  const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, faction: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, flags: 0, mark: 0 };
   const startBuilding = state.buildings.solidAt(floorDiv(x0, WU_PER_COLUMN), floorDiv(z0, WU_PER_COLUMN));
   const endBuilding = state.buildings.solidAt(floorDiv(x1, WU_PER_COLUMN), floorDiv(z1, WU_PER_COLUMN));
   for (let k = 0; k < s.t; k++) {
@@ -296,7 +297,7 @@ export function updateProjectiles(state: SimState): void {
       let hit = -1;
       for (const j of near) {
         if (e.hp[j]! <= 0 || j === shooter) continue;
-        if (!shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
+        if (!shotMayHit(state, p.side, p.faction, p.owner, j) && e.id[j] !== p.mark) continue;
         let jx = e.x[j]!;
         let jy = e.y[j]!;
         let jz = e.z[j]!;

@@ -13,7 +13,7 @@ import type { Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { Res } from '../economy/resources.ts';
 import { PROSPECT_TOOL_TIER } from './kits.ts';
-import { eatAt, servesFood } from '../economy/food.ts';
+import { EAT_STEPS, eatAt, servesFood } from '../economy/food.ts';
 import { RESOURCES } from '../economy/resources.ts';
 import { atan2Angle, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
@@ -26,6 +26,7 @@ import { bagEmpty, bagRoom, bagTenthsLb, LOOT_BAG_TENTHS_LB, LOOT_CLAIM_M, preyN
 import { meatOf } from '../economy/food-kinds.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { carryCapacity } from './weight.ts';
+import { tinker } from './tinker.ts';
 
 const CONTINUE = false;
 const DONE = true;
@@ -388,13 +389,21 @@ export function runEat(state: SimState, i: number, o: Extract<UnitOrder, { t: 'e
     return DONE;
   }
   o.b = b.id;
-  if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
-  const r = walkTo(state, i, besideBuilding(b));
-  if (r === MOVING) return CONTINUE;
-  if (r === FAILED) return DONE;
-  const why = eatAt(state, i);
-  if (why) alert(state, e.owner[i]!, why, e.x[i]!, e.z[i]!);
-  return DONE;
+  if (e.act[i] !== Act.Work) {
+    if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
+    const r = walkTo(state, i, besideBuilding(b));
+    if (r === MOVING) return CONTINUE;
+    if (r === FAILED) return DONE;
+    const why = eatAt(state, i);
+    if (why) {
+      alert(state, e.owner[i]!, why, e.x[i]!, e.z[i]!);
+      return DONE;
+    }
+    // Then it sits by the building for the meal, tinkering with the bar over its head, while it heals (Jade's Patch 2).
+    e.act[i] = Act.Work;
+    e.timer[i] = 0;
+  }
+  return tinker(state, i, EAT_STEPS) ? DONE : CONTINUE;
 }
 
 /** Lets go of a worker's working animal (it goes back to its home). */

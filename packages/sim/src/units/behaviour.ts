@@ -1332,6 +1332,8 @@ function runPatrol(state: SimState, i: number, o: Extract<UnitOrder, { t: 'patro
 export function runUnit(state: SimState, i: number): void {
   const e = state.entities;
   e.order[i] = OrderKind.Idle;
+  // A timed action sets it again on each step it goes on (units/tinker.ts).
+  e.tinker[i] = 0;
   // Held by a slime: it cannot act until let go.
   if (e.heldUntil[i]! > state.step) return;
   // Inside a building's walls (a game saved before they were walls): out first.

@@ -235,6 +235,17 @@ export interface UpgradeKitOrder {
   max: number;
 }
 
+/**
+ * Upgrade equipment (Jade's Patch 2): every upgrade the stock pays for at
+ * once, the weapon (tools, wand) before the armour (robe), each to the best
+ * tier researched (units/gear.ts orderUpgradeEquipment).
+ */
+export interface UpgradeEquipmentOrder {
+  kind: 'upgradeEquipment';
+  player: number;
+  units: number[];
+}
+
 /** Workers fetch a cart from a main base's stock (back 0) or hand theirs in (back 1). */
 export interface CartOrder {
   kind: 'cart';
@@ -569,6 +580,7 @@ export type Order =
   | PatrolOrder
   | HoldOrder
   | UpgradeKitOrder
+  | UpgradeEquipmentOrder
   | CartOrder
   | TroopLockOrder
   | LockOrder
@@ -661,6 +673,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   patrol: ['x', 'z'],
   hold: [],
   upgradeKit: ['line', 'max'],
+  upgradeEquipment: [],
   cart: ['back'],
   troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
@@ -699,7 +712,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   forage: [],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'refuel', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'trainSkill', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'haul', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {

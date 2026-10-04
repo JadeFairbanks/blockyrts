@@ -10,7 +10,7 @@ import { giveFood, hungerFromGroups } from './economy/food.ts';
 import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loot, type PendingSpawn, type PlayerState, type Projectile, type SimState, type Site } from './state.ts';
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
-const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags'] as const satisfies ReadonlyArray<keyof Projectile>;
+const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags', 'mark'] as const satisfies ReadonlyArray<keyof Projectile>;
 const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
@@ -168,12 +168,16 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
 /**
  * 14: each unit's loot bag and the loot on the ground. 15: patch 1's food,
  * each unit's hunger, Don't eat per kind and each food's started item. 16:
- * the wandering monsters' patches (threats.wild). Versions 13 to 15 still
- * load: 13 with no loot, 13 and 14 with their food carried over, and all
- * three with no wild (its patches fill afresh).
+ * the wandering monsters' patches (threats.wild). 17: Patch 2's timed
+ * actions (each unit's tinker column) and the unit a shot was aimed at
+ * (projectile mark). Versions 13 to 16 still load: 13 with no loot, 13 and
+ * 14 with their food carried over, 13 to 15 with no wild (its patches fill
+ * afresh), and all four with nobody tinkering and no shot marked.
  */
-export const SNAPSHOT_VERSION = 16;
+export const SNAPSHOT_VERSION = 17;
 const OLDEST_VERSION = 13;
+/** The last version before Patch 2's timed actions and marked shots. */
+const OLD_TINKER_VERSION = 16;
 /** The last version before patch 1's food: no unit hunger column, Don't eat as a bit per FOODS entry, and the town's meal credit in quarters instead of each food's started item. */
 const OLD_FOOD_VERSION = 14;
 const OLD_FOOD_PLAYER_FIELDS = ['research', 'out', 'made', 'dontEat', 'rations', 'fed', 'starveWorkers', 'starveTroops', 'share'] as const;
@@ -275,6 +279,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const version = r.u16();
   if (version < OLDEST_VERSION || version > SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version ${version}`);
   const oldFood = version <= OLD_FOOD_VERSION;
+  const oldTinker = version <= OLD_TINKER_VERSION;
   const seed = r.u32();
   const step = r.u32();
   const nextEntityId = r.u32();
@@ -287,6 +292,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   e.count = n;
   for (const [name, t] of UNIT_FIELDS) {
     if (oldFood && name === 'hungry') continue;
+    if (oldTinker && name === 'tinker') continue;
     const col = e[name];
     for (let i = 0; i < n; i++) col[i] = readField(r, t);
   }
@@ -362,7 +368,8 @@ export function deserializeState(bytes: Uint8Array): SimState {
     }
     return out;
   };
-  const projectiles = readRecords<Projectile>(PROJECTILE_FIELDS);
+  const projectiles = readRecords<Projectile>(oldTinker ? PROJECTILE_FIELDS.filter((f) => f !== 'mark') : PROJECTILE_FIELDS);
+  for (const p of projectiles) p.mark ??= 0;
   const spawns = readRecords<PendingSpawn>(SPAWN_FIELDS);
   const sites = readRecords<Site>(SITE_FIELDS);
   const loot = version >= 14 ? readRecords<Loot>(LOOT_FIELDS) : [];

@@ -15,15 +15,15 @@ import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, PickOwn, type Order } from './orders.ts';
 import { NO_CARRY, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
-import { hostile, huntable } from './combat/combat.ts';
+import { huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { canGarrison, pickTarget, salvageable } from './combat/fight.ts';
+import { canGarrison, pickTarget, validTarget } from './combat/fight.ts';
 import { RESEARCH } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt } from './clock.ts';
-import { orderCart, orderUpgrade, SKILL_TRAINING } from './units/gear.ts';
+import { orderCart, orderUpgrade, orderUpgradeEquipment, SKILL_TRAINING } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
@@ -543,9 +543,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'attack': {
         const t = e.indexOf(o.target);
         if (t < 0 || e.hp[t]! <= 0) break;
-        // Animals are killed with an attack order first (Gathering resources); a wild one is fair game.
-        // A building the peoples left is broken down by workers for its materials.
-        giveAll(state, o, (i) => (hostile(state, i, t) || huntable(state, t) || (e.kind[i] === UnitKind.Worker && salvageable(state, t)) ? { t: 'attack', id: o.target } : null), true);
+        // Attack used on a unit always attacks (Jade's Patch 2): a foe, a wild animal, or one of the players'
+        // own or allied units. A building the peoples left is broken down by workers for its materials; the
+        // peoples at peace are attacked only once the player has declared war (the page asks first).
+        giveAll(state, o, (i) => (i !== t && validTarget(state, i, t, true) ? { t: 'attack', id: o.target } : null), true);
         break;
       }
       case 'attackMove': {
@@ -576,6 +577,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'upgradeKit':
         orderUpgrade(state, o.player, ownUnits(state, o.player, o.units), o.line, o.max === 1);
+        break;
+      case 'upgradeEquipment':
+        orderUpgradeEquipment(state, o.player, ownUnits(state, o.player, o.units));
         break;
       case 'cart':
         orderCart(state, o.player, ownUnits(state, o.player, o.units), o.back === 1);
