@@ -1003,7 +1003,7 @@ milestone are refused with a message saying why.
    reasons, the Max twins, an old save refused).
 2. **The start.** `pnpm dev`, open http://localhost:5173/?seed=1. Four
    workers and three warriors with hardwood cudgels stand by the Big House.
-   Select a warrior: the panel reads "Close melee (Recruit)", its cudgel, no
+   Select a warrior: the panel reads "Club fighter (Recruit)" (in Patch 2; "Close melee (Recruit)" before), its cudgel, no
    armour, weapon tier 1 and armour tier 0.
 3. **The troop panel.** On the debug bar press **Troop kit**: a Barracks and
    a Steelworks appear in the middle of the view with the stock for every tier
@@ -1675,6 +1675,41 @@ repo. No hash changed: sound only listens to the game.
    rewrites `packages/client/src/audio/sound-files.json`. Music and ambience
    are encoded with a second of wrap-around each side and cut back after
    decoding, so their loops have no seam.
+
+## How a tester checks troop names (Patch 2)
+
+*A troop goes by its weapon tier's name, everywhere a unit is named; the type
+name stays on the training buttons; workers at rank 4 and 5 are Foreman and
+Elder. The names come from one sim function, `unitTitle()` in
+`packages/sim/src/units/names.ts`.*
+
+1. **The tests.** `pnpm test packages/sim/test/troop-names.test.ts`: every
+   weapon tier of every type has its name and the Brawler keeps its own, a
+   troop's name changes with its weapon tier and reads the same in its lines,
+   and Foreman, Elder and the mages' titles.
+2. **The start.** `pnpm dev`, open http://localhost:5173/?seed=1. Select one of
+   the three starting warriors: the panel reads "Club fighter (Recruit)" (live
+   now: "Close melee (Recruit)"). Hover its portrait: the same name.
+3. **An upgrade.** Press **Troop kit** on the debug bar, select a starting
+   warrior and press Upgrade Weapon: while the bar fills it is still a Club
+   fighter; the moment the bar is full the title reads "Flint axeman
+   (Recruit)". Upgrade Weapon Max goes straight to the best tier's name the stock allows
+   ("Champion" at tier 8).
+4. **The Barracks.** Select the Barracks: the training buttons still say
+   Train close melee, Train long melee, Train ranger, Train brawler. Train a
+   long melee troop with an iron pike: the message reads "A new pikeman is
+   ready." and the troop's title "Pikeman (Recruit)". A ranger with a sling is
+   a Slinger, a bronze-tipped one a Bronze archer, a musket ranger a Musketeer;
+   a brawler stays "Brawler (Recruit)"; cavalry is a Lancer up to a
+   Greatsword rider.
+5. **Lines and bubbles.** A troop under attack speaks under its tier name in
+   the message panel ("Copper swordsman (Recruit)" rather than "Warrior
+   (Recruit)" before Patch 2); a mage speaks under its school and rank
+   ("Battle mage (Acolyte)"). Rank-ups read "A club fighter has risen to
+   Soldier."
+6. **Foreman and Elder.** A worker that reaches rank 4 or 5 in combat reads
+   "Worker (Foreman)" or "Worker (Elder)" (live now: "Worker (Rank 4)" and
+   "Worker (Rank 5)").
 
 ## How a tester checks the balance editor
 
