@@ -34,7 +34,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
-  { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them.' },
+  { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go.' },
   { id: 'pacing', label: 'Pacing', blurb: 'The day and night clock and the other timings everything else counts in.' },
   { id: 'other', label: 'Other numbers', blurb: 'Numbers in the sim that no other group claims yet. New tables show up here until they are given a home.' },
   { id: 'tables', label: 'Blueprint tables (read only)', blurb: 'The blueprint\'s numbered tables as the sim reads them, for reference. Change these through the blueprint, not here.' },
@@ -84,6 +84,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
   'units/kits.ts:ROBE_GEAR',
+  // Worker ranks (Patch 3): the rank names are words, and Work names what a worker is doing (building or gathering).
+  'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -104,8 +106,10 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'combat/fight.ts': 'units',
   'combat/deaths.ts': 'units',
   'units/behaviour.ts': 'units',
+  'units/ranks.ts': 'units',
   'units/gear.ts': 'training',
   'units/questions.ts': 'questions',
+  'units/greyed.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
   'units/field.ts': 'animals',
@@ -178,6 +182,8 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'combat/items.ts:RESEARCH': 'research',
   // Patch 2: the artillery crewman's food and time go with the other troops' training.
   'siege/data.ts:CREWMAN': 'training',
+  // Patch 3: retraining a crewman as a worker goes beside his own training.
+  'siege/data.ts:CREWMAN_RETRAIN_STEPS': 'training',
   'combat/spawn.ts:CLAIM_STANDOFF_M': 'mobs',
   'rules.ts:DAY_STEPS': 'pacing',
   'rules.ts:DUSK_STEPS': 'pacing',
@@ -351,6 +357,11 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Gather (units/forage.ts).
   'FORAGE_GOODS:base': 'Main base level needed', 'FORAGE_GOODS:forge': 'Forge step needed (1 any Forge; 2 to 4 its main base level)', 'FORAGE_GOODS:plenty': 'Wanted until the stock holds',
   LOOT_BOSS_HP: 'Rare and powerful from this much health',
+  // Worker ranks (Patch 3) and retraining a crewman.
+  WORKER_XP_TENTHS: 'Experience needed for each rank', WORKER_HEALTH_BY_RANK: 'Health by rank',
+  BUILD_XP_TENTHS_PER_MINUTE: 'Experience for a minute of building (starting tools)',
+  GATHER_XP_TENTHS_PER_MINUTE: 'Experience for a minute of gathering (starting tools)',
+  CREWMAN_RETRAIN_STEPS: 'Retraining a crewman as a worker takes',
   // Plants' growth stages (world/props.ts).
   fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
   buildOver: 'Buildings can go over it', clearSteps: 'Time a builder takes to pull it up (0: trampled)',
@@ -363,7 +374,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'world:units/behaviour.ts': 'Gathering', 'food:rules.ts': 'Upkeep', 'resources:rules.ts': 'Trinket worth', 'lairs:rules.ts': 'Lair clearing and hexes',
   'armour:rules.ts': 'Armour cap', 'pacing:rules.ts': 'Day and night', 'mobs:threats/data.ts': 'Blood and fog nights, depth', 'food:buildings/recipes.ts': 'Cooking',
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
-  'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'buildings/production.ts': 'Training',
+  'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'units/ranks.ts': 'Worker ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
   'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'world/props.ts': 'Props',
@@ -409,6 +420,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   WILD_FROM_NIGHT: 'night', WILD_HORDE_FROM_NIGHT: 'night', WILD_HORDE_PCT_PER_NIGHT: 'percent', WILD_HORDE_MIN: 'count', WILD_HORDE_MAX: 'count',
   WILD_CAP_PER_PLAYER: 'count',
   'FORAGE_GOODS:base': 'level', 'FORAGE_GOODS:forge': 'level', 'FORAGE_GOODS:plenty': 'count', LOOT_BOSS_HP: 'health',
+  BUILD_XP_TENTHS_PER_MINUTE: 'xpTenths', GATHER_XP_TENTHS_PER_MINUTE: 'xpTenths',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */

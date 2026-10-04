@@ -20,6 +20,13 @@ import { BuildingKind } from '../buildings/data.ts';
  */
 export const CREWMAN = { food: 30, seconds: 30 };
 
+/**
+ * Retraining an artillery crewman as a worker (Patch 3, Jade): he sits
+ * tinkering beside the main base this long, at no cost, and gets up a
+ * Labourer with a starting tool kit (s: as long as training him took).
+ */
+export const CREWMAN_RETRAIN_STEPS = 30 * STEPS_PER_SECOND;
+
 export const Engine = { Catapult: 0, Ballista: 1, BronzeCannon: 2, IronCannon: 3, DwarfCannon: 4 } as const;
 export type Engine = (typeof Engine)[keyof typeof Engine];
 

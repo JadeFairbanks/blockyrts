@@ -775,5 +775,34 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
       if (why) say(state, speaker, why, true);
       return;
     }
+    default:
+      answerHooks.other(state, o);
   }
+}
+
+// ----- questions other modules ask (Patch 3) -----
+
+/** Yes to a question another module asked (units/greyed.ts: a greyed-out button clicked): that module answers it. It has closed already. */
+export const answerHooks: { other: (state: SimState, o: AnswerOrder) => void } = { other: () => {} };
+
+/**
+ * A question another module asks (Patch 3): put up at once, past the cap on
+ * open questions, with the same wait and the same bubble. `who` is an
+ * entity id, or a building id when `building`. Returns its id.
+ */
+export function askNow(state: SimState, player: number, who: number, building: boolean, info: Omit<AskInfo, 'id' | 'until'>, text: string): number {
+  const q: Question = { player, who, building, text, info: { ...info, id: 0, until: 0, units: [...info.units] } };
+  put(state, q);
+  return q.info.id;
+}
+
+/** Ends a player's open questions of these kinds (Patch 3). */
+export function closeAsks(state: SimState, player: number, kinds: readonly number[]): void {
+  for (const q of [...bookOf(state).open]) if (q.player === player && kinds.includes(q.info.q)) close(state, q);
+}
+
+/** Whether a unit (entity id) or a building has a question open, asking or spoken for. */
+export function isAsking(state: SimState, id: number, building: boolean): boolean {
+  const book = bookOf(state);
+  return building ? buildingAsking(book, id) : inQuestion(book, id);
 }

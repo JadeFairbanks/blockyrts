@@ -99,10 +99,15 @@ export interface RelightOrder extends UnitsOrder {
   building: number;
 }
 
-/** Train workers to the next rank at a main base (Table 7). */
+/** Train warriors (at the Barracks) or mages (at the Magi Sanctum) to the next rank (Table 7; Patch 3: workers rank up by working). */
 export interface TrainRankOrder extends UnitsOrder {
   kind: 'trainRank';
   building: number;
+}
+
+/** Artillery crewmen retrain as workers at their nearest main base (Patch 3, Jade); anyone else in the selection is left as it was. */
+export interface RetrainOrder extends UnitsOrder {
+  kind: 'retrain';
 }
 
 /** Add items to a building's production queue (1, or 5 with Shift). */
@@ -560,6 +565,27 @@ export interface AnswerOrder {
   units: number[];
   /** The resource it was about, or -1. */
   res: number;
+  /** How many Yes makes (AskInfo.n), when the question says. */
+  n?: number;
+}
+
+/**
+ * A greyed-out button clicked (Patch 3): the build menu's buildings, a
+ * building's training, making and research, its Upgrade. The units and
+ * buildings best placed to sort out why it is greyed each ask their owner
+ * (units/greyed.ts).
+ */
+export interface GreyedOrder {
+  kind: 'greyed';
+  player: number;
+  /** What was clicked (units/greyed.ts Greyed): a building to place, a product, or a building's upgrade. */
+  what: number;
+  /** The building kind (a building to place) or the product; 0 for an upgrade. */
+  id: number;
+  /** The building whose button it is (a product or an upgrade), or 0. */
+  building: number;
+  /** The selected units: workers nearest them are asked first. */
+  units: number[];
 }
 
 /**
@@ -574,6 +600,7 @@ export interface LeaveOrder {
 
 export type Order =
   | AnswerOrder
+  | GreyedOrder
   | PickOwnOrder
   | PickUpOrder
   | ForageOrder
@@ -628,6 +655,7 @@ export type Order =
   | AssignOrder
   | RelightOrder
   | TrainRankOrder
+  | RetrainOrder
   | ProduceOrder
   | CancelProduceOrder
   | UpgradeOrder
@@ -673,6 +701,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   assign: ['building'],
   relight: ['building'],
   trainRank: ['building'],
+  retrain: [],
   produce: ['building', 'product', 'count'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
@@ -723,9 +752,10 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   pickUp: ['target'],
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
+  greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -803,6 +833,10 @@ export function validateOrder(o: Order): void {
       return;
     case 'answer':
       if ((o.yes !== 0 && o.yes !== 1) || o.q < 1 || o.q > 15 || o.units.length > 256 || o.res < -1 || o.res > 255) throw new Error('bad answer');
+      if (o.n !== undefined && (!isInt(o.n) || o.n < 0 || o.n > 99)) throw new Error('bad answer');
+      return;
+    case 'greyed':
+      if (o.what < 0 || o.what > 2 || o.id < 0 || o.id > 0xffff || o.units.length > 256) throw new Error('bad greyed-out click');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');
