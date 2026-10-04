@@ -189,7 +189,7 @@ function worth(res: number): number {
   return RES_VALUE_TENTHS[res] ?? 10;
 }
 
-/** Whether a mob counts as rare and powerful: one with 1000 health or more, or one that comes only a few a night (s). */
+/** Whether a mob counts as rare and powerful: one with LOOT_BOSS_HP health or more, or one that comes only a few a night (s). */
 export function notableMob(spec: MobSpec): boolean {
   return spec.hp >= LOOT_BOSS_HP || spec.perNight > 0;
 }

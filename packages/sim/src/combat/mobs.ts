@@ -403,7 +403,7 @@ export const MOBS: readonly MobSpec[] = [
   stand(Mob.DwarfMineshaft, 'Dwarf mineshaft', 'dwarf_mineshaft', 0, 700, 600, 500),
   stand(Mob.DwarfHall, 'Pillared hall', 'dwarf_hall', 0, 2000, 1200, 800),
   stand(Mob.DwarfCityGate, 'City gate', 'dwarf_city_gate', 0, 3000, 1200, 1000),
-  // Milestone 8. A goblin wolf rider (roster 6.3, Table 14): the rider's 50 health with its wolf's 70 beside it (the entity's mount),
+  // Milestone 8. A goblin wolf rider (roster 6.3, Table 14): the rider's 45 health (50 before Patch 3) with its wolf's 70 beside it (the entity's mount),
   // the rider's spear 9 a second at 2 m and the wolf's bite; at a gallop of 5.5 m/s. Without its wolf it is a goblin on foot.
   {
     ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 45, armourBp: 1000, damage: 9, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
