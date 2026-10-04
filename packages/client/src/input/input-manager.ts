@@ -83,6 +83,8 @@ export interface InputHooks {
   game: MouseTarget;
   /** Touch controls (patch notes 1); without them a touch is the browser's mouse emulation. */
   touch?: TouchHooks;
+  /** Any press, before anything handles it, with the element under it; true swallows it (a pop-up closing). */
+  anyPress?(button: number, inHud: boolean, el: Element | null): boolean;
   /** A press landed on a HUD panel, before any button or area there handles it. */
   hudPress(panel: PanelRect, button: number, area: string | null): void;
   keyDown(id: string, ev: KeyboardEvent): void;
@@ -357,6 +359,10 @@ export class InputManager {
     if (this.captures.has(button)) return;
 
     const panel = this.panels.at(this.pos);
+    if (this.hooks.anyPress?.(button, panel !== null, document.elementFromPoint(this.pos.x, this.pos.y))) {
+      this.captures.set(button, { kind: 'hud' });
+      return;
+    }
     if (!panel) {
       this.captures.set(button, { kind: 'game' });
       this.hooks.game.down(button, this.pos, mods);
@@ -407,6 +413,8 @@ export class InputManager {
   }
 
   private activate(btn: HudButton, press: ButtonPress): void {
+    // A picture that only explains itself (the middle panel's bars and kit) does nothing, without a click sound.
+    if (!btn.def.onPress && !btn.def.onDoubleClick) return;
     const now: ClickRecord & { id: string } = { t: performance.now(), x: this.pos.x, y: this.pos.y, id: btn.def.id };
     const prev = this.lastButtonClick?.id === btn.def.id ? this.lastButtonClick : null;
     const dbl = isDoubleClick(prev, now);

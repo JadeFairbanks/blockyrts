@@ -17,6 +17,8 @@ import {
   UnitKind,
   WU_PER_METRE,
   troopOf,
+  mageLock,
+  mageOf,
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
@@ -342,6 +344,7 @@ export class GameShell {
     this.input = new InputManager(
       {
         game: this.gameMouse(),
+        anyPress: (button, inHud, el) => this.panel.cards.pressed(button === Btn.Left, inHud, el),
         hudPress: (_panel, button, area) => {
           // Clicking a HUD panel other than the minimap cancels a targeted command (not the ghost: the card is how the player picks another).
           if (this.commands.targeting && area !== 'minimap' && button !== Btn.Middle) {
@@ -407,7 +410,7 @@ export class GameShell {
       centreOn: (list) => this.centreOn(list),
       message: (t) => this.message(t),
     });
-    this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionBody, this.buttons, {
+    this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionExtra, this.layout.selectionBody, this.layout.tierStrip, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),
       mana: (t) => {
@@ -434,8 +437,9 @@ export class GameShell {
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
       keyName: (action) => keyLabel(keyFor(this.settings.keys, action)),
       game: this.game,
-      trainTroop: (b, troop, count) => this.commands.trainTroop(b, troop, count),
+      trainCard: (ids, card, count) => this.commands.trainCard(ids, card, count),
       lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),
+      ownerTag: (owner) => (owner < this.opts.players ? { name: session.name(owner), colour: session.colour(owner) } : null),
       troopsChanged: () => {
         this.selectionDirty = true;
         this.cardDirty = true;
@@ -1304,6 +1308,7 @@ export class GameShell {
     }
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
+      if (this.panel.cards.close()) return;
       if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
@@ -1739,6 +1744,8 @@ export class GameShell {
             doing.add(`product:${head.product}`);
             const t = troopOf(head.product);
             if (t) doing.add(`troop:${t.troop}`);
+            const m = mageOf(head.product);
+            if (m) doing.add(`troop:${mageLock(m.school)}`);
           }
           if (b.upgrading) doing.add('upgrade');
         }

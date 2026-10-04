@@ -96,7 +96,7 @@ describe('cavalry (C at the Stables)', () => {
     const none = harness([{ ...sel('b:21', `building:${BuildingKind.Stables}:1`), kind: 'building' }], `building:${BuildingKind.Stables}:1`, game([stables(0)], pool));
     const greyed = none.c.card()[0]!;
     expect(greyed).toMatchObject({ action: 'trainCavalry', face: 'Cavalry', key: 'KeyC', enabled: false });
-    expect(greyed.reason).toBe('Cavalry needs a tamed, grown horse in the stalls.');
+    expect(greyed.reason).toBe('No grown tamed horse ready.');
     expect(greyed.description).toContain('a tamed horse');
     const one = harness([{ ...sel('b:21', `building:${BuildingKind.Stables}:1`), kind: 'building' }], `building:${BuildingKind.Stables}:1`, game([stables(1)], pool));
     const train = one.c.card()[0]!;

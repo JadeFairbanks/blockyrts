@@ -1,31 +1,65 @@
-// The selection panel (Controls: Selecting units and buildings): one thing's
-// name and details, or a portrait for each thing grouped by type with a
-// health bar under each, subgroup tabs with the active one bright, and for a
-// building its production queue (click to cancel), the units inside (click to
-// let one out), its workers and its rally route; at a farm, the harvest bar
-// (farm-panel.ts); at a Barracks, the Stables
-// or a main base, the troop panel (Troops and gear: Training troops): a
-// picture button per troop type, weapon and armour tier dropdowns with icons,
-// a Lock, and what the choice costs.
-import { buildingSpec, kitName, productSpec, troopOf, Troop, UnitKind } from '@blockyrts/sim';
-import type { GameInfo } from '../game/game-info.ts';
+// The selection panel, the middle of the bottom strip (Controls: Selecting
+// units and buildings; Patch 2, round 2: pictures and bars with sparse short
+// text, every full sentence in the tooltip of its picture). The title row
+// carries the name, a rank badge or level, the health bar with its numbers
+// (a mage's mana, a rider's horse or a building's progress under it), the
+// queue as pictures and the close button. Under it: for nothing selected,
+// the three help lines; for one unit, its kit slots with tier numbers and
+// what applies now (loot, load, the next meal, spells on it) and a word for
+// what it is doing; for one building, its training cards (training-cards.ts)
+// or its workers, lights, farm bar, men up top and inside; for several,
+// tabs with a picture and a count, and portraits with their bars.
+import {
+  BuildingKind,
+  buildingSpec,
+  engineSpec,
+  isGame,
+  itemsText,
+  kitName,
+  linePiece,
+  Mount,
+  productSpec,
+  RANK_NAMES,
+  RATING_NAMES,
+  RESOURCES,
+  ROBE_KITS,
+  shieldRow,
+  speciesSpec,
+  STEPS_PER_SECOND,
+  TOOL_KITS,
+  troopOf,
+  Troop,
+  unitOrderText,
+  UnitKind,
+  WAND_KITS,
+  weaponPiece,
+  ARMOUR_KITS,
+  type Piece,
+} from '@blockyrts/sim';
+import type { GameInfo, UnitInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
-import { FarmBlock } from './farm-panel.ts';
-import { armourIcon, autoIcon, setIcon, troopIcon, weaponIcon } from './icons.ts';
-import { armourOptions, pickTier, troopChoice, troopCostText, troopName, troopWhy, weaponOptions, type TierOption } from './troops.ts';
+import { SpellOn } from '../messages.ts';
 import { CTRL_NAME } from '../input/platform.ts';
-import { isOwn } from '../selection/rules.ts';
-import { NOBODY, type Selectable } from '../selection/types.ts';
-import type { ButtonIcon, ButtonPress, ButtonRegistry, HudButton } from './buttons.ts';
+import { buildingIdOf, entityIdOf, NOBODY, type Selectable } from '../selection/types.ts';
+import type { ButtonIcon, ButtonPress, ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
 import { productIcon } from './card-icons.ts';
 import { garrisonRoom } from './commands.ts';
+import { harvestText } from './farm-panel.ts';
 import { hungerLine, type HungerView } from './hunger.ts';
+import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { goodIcon } from './inventory-icons.ts';
+import { kitUrl } from './kit-icons.ts';
+import { pieceStats } from './kit-text.ts';
 import { queueText } from './queue-clock.ts';
-import { BATTLE_MAGE_ICON, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
+import { TrainingCards } from './training-cards.ts';
+import { cardsOf, keepPicks } from './troops.ts';
+import { BATTLE_MAGE_ICON, buildingIconFile, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
 
-/** Most portraits shown at once; the rest are counted. */
+/** Most portraits shown at once; the rest are counted ("+8"). */
 const MAX_PORTRAITS = 40;
+/** Most Barracks tiles in the title row. */
+const MAX_TILES = 10;
 
 export interface PanelActions {
   player: number;
@@ -48,10 +82,10 @@ export interface PanelActions {
   unitName(id: number): string;
   /** The label of the key bound to an action now. */
   keyName(action: string): string;
-  /** The troop panel: the game it reads, training (Shift: 5), the Lock, and a pick that changes the card. */
+  /** The training cards: the game they read, training (Shift: 5), the padlock, and a change that redraws the card. */
   game: GameInfo;
-  trainTroop(building: number, troop: number, count: number): void;
-  lockTroop(building: number, troop: number, lock: number): void;
+  trainCard(buildings: number[], card: number, count: number): void;
+  lockTroop(building: number, card: number, lock: number): void;
   troopsChanged(): void;
   /** A type's worth, for the subgroup order of a mixed selection. */
   worth?(typeKey: string, items: readonly Selectable[]): number;
@@ -59,9 +93,12 @@ export interface PanelActions {
   look?(t: Selectable): UnitLook | null;
   /** Seconds until a building's head item is done, or null while it is on hold (queue-clock.ts). */
   queueLeft?(b: BuildingInfo): number | null;
+  /** Another player's name and colour, for the title row of their units and buildings. */
+  ownerTag?(owner: number): { name: string; colour: string } | null;
 }
 
 const pic = (file: string): ButtonIcon | undefined => (file ? { layers: [{ file }] } : undefined);
+const layer = (p: Pic, tag?: string): ButtonIcon => ({ layers: [p.filter ? { file: p.file, filter: p.filter } : { file: p.file }], ...(tag !== undefined ? { tag } : {}) });
 
 /** Fixed order of types in the panel, so the same army always looks the same. */
 export function typeOrder(typeKey: string): number {
@@ -104,14 +141,51 @@ function unitInfoIcon(u: { kind: number; troop: number; wTier: number; school: n
   return WORKER_ICON;
 }
 
-function shortType(t: Selectable): string {
-  return t.label.replace(/ \(.*\)$/, '');
+/** A name without its rank in brackets: "Close melee (Veteran)" is "Close melee", the rank going to its badge. */
+export function bareName(label: string): string {
+  return label.replace(/ \([^)]*\)$/, '');
 }
 
-function ownerText(owner: number, player: number): string {
-  if (owner === player) return 'Yours';
-  if (owner === NOBODY) return 'Nobody’s';
-  return `Player ${owner + 1}`;
+/** "5 Close melee, 4 Rangers": the troops of a selection by name, most first. */
+export function armyMix(items: readonly Selectable[]): string {
+  const counts = new Map<string, number>();
+  for (const t of items) counts.set(bareName(t.label), (counts.get(bareName(t.label)) ?? 0) + 1);
+  const plural = (name: string, n: number): string => {
+    if (n === 1 || /(melee|cavalry|s)$/i.test(name)) return name;
+    if (/man$/.test(name)) return `${name.slice(0, -3)}men`;
+    return `${name}s`;
+  };
+  return [...counts].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([name, n]) => `${n} ${plural(name, n)}`).join(', ');
+}
+
+/** The rank badge of a worker or troop: the kit's chevrons, star and hammers. */
+const WARRIOR_BADGES = ['', 'recruit', 'soldier', 'veteran', 'elite', 'hero'];
+const WORKER_BADGES = ['', 'labourer', 'hand', 'master', 'foreman', 'elder'];
+
+/** What the spells on a unit look like (the kit has quickened, fortified, rallied and hexed; the ward and heal spells stand for the rest). */
+const SPELL_PICS: ReadonlyArray<readonly [number, string, string]> = [
+  [SpellOn.Quicken, 'icon_status_quickened', 'Quickened'],
+  [SpellOn.Fortify, 'icon_status_fortified', 'Fortified'],
+  [SpellOn.Rally, 'icon_status_rallied', 'Rallied'],
+  [SpellOn.Warding, 'icon_spell_warding', 'Warded'],
+  [SpellOn.Healing, 'icon_spell_heal', 'Being healed'],
+  [SpellOn.Hexed, 'icon_status_hexed', 'Hexed'],
+];
+
+/** A number in a picture's bottom corner (a count). */
+function tag(text: string): HTMLElement {
+  const t = document.createElement('span');
+  t.className = 'chip-count';
+  t.textContent = text;
+  return t;
+}
+
+/** A bar in the title row or under a picture, kept to move every frame without a redraw. */
+interface LiveBar {
+  fill: HTMLElement;
+  num: HTMLElement | null;
+  btn: HudButton | null;
+  read: () => { pct: number; text: string; tip: string; low?: boolean } | null;
 }
 
 export class SelectionPanel {
@@ -121,29 +195,49 @@ export class SelectionPanel {
   private sig = '';
   private readonly bars = new Map<string, HTMLElement>();
   private readonly manaBars = new Map<string, HTMLElement>();
-  /** The single selection's hunger line (patch 1): the text, the bar's fill and the starving status, kept to update in place. */
-  private hunger: { next: HTMLElement; fill: HTMLElement; status: HTMLElement } | null = null;
-  /** An open tier dropdown of the troop panel. */
-  private menu: { b: number; troop: number; line: 'w' | 'a' } | null = null;
+  /** Bars that move every frame: the title row's, a meal's, an upgrade's, a farm's, the Barracks tiles'. */
+  private live: LiveBar[] = [];
   /** The shown queue's head: its button and bar, updated live (patch notes 1). */
   private head: { btn: HudButton; bar: HTMLElement } | null = null;
-  /** A farm's harvest bar, moved in place between redraws. */
-  private farm: FarmBlock | null = null;
+  /** The training cards and their tier strip. */
+  readonly cards: TrainingCards;
+  /** The building ids whose card picks still hold (Jade: only while selected). */
+  private selected = '';
 
   constructor(
     private readonly title: HTMLElement,
+    private readonly extra: HTMLElement,
     private readonly body: HTMLElement,
+    strip: HTMLElement,
     private readonly buttons: ButtonRegistry,
     private readonly a: PanelActions,
-  ) {}
+  ) {
+    this.cards = new TrainingCards(
+      {
+        button: (id, def) => this.button(id, def),
+        game: a.game,
+        keyName: (action) => a.keyName(action),
+        train: (ids, card, count) => a.trainCard(ids, card, count),
+        lock: (orders, card) => {
+          for (const o of orders) a.lockTroop(o.building, card, o.lock);
+        },
+        changed: () => {
+          this.sig = '';
+          a.troopsChanged();
+        },
+      },
+      strip,
+    );
+  }
 
   private clear(): void {
     this.head = null;
     this.used = new Set();
     this.bars.clear();
     this.manaBars.clear();
-    this.farm = null;
+    this.live = [];
     this.body.replaceChildren();
+    this.extra.replaceChildren();
   }
 
   /** Drops the buttons the last redraw did not use. */
@@ -155,16 +249,26 @@ export class SelectionPanel {
     }
   }
 
-  private button(id: string, def: Omit<Parameters<ButtonRegistry['add']>[0], 'id'>): HudButton {
+  private button(id: string, def: Omit<HudButtonDef, 'id'>): HudButton {
     this.used.add(id);
     const old = this.dynamic.get(id);
     if (old) {
       old.redefine({ id, ...def });
-      for (const c of [...old.el.children]) if (c.classList.contains('hp')) c.remove();
+      old.note = '';
+      old.setEnabled(true);
+      old.setLit(false);
+      for (const c of [...old.el.children]) if (!c.classList.contains('face') && !c.classList.contains('key') && !c.classList.contains('btn-icon')) c.remove();
       return old;
     }
     const b = this.buttons.add({ id, ...def });
     this.dynamic.set(id, b);
+    return b;
+  }
+
+  /** A picture that only explains itself: its tooltip carries the sentences. */
+  private chip(id: string, o: { icon?: ButtonIcon | undefined; face?: string; name: string; description: string; className?: string; foot?: string }, parent: HTMLElement): HudButton {
+    const b = this.button(id, { face: o.face ?? '', icon: o.icon, name: oneIsSingular(o.name), keys: [], description: o.description, ...(o.foot ? { foot: o.foot } : {}), className: `chip ${o.className ?? ''}`.trim() });
+    parent.append(b.el);
     return b;
   }
 
@@ -176,10 +280,288 @@ export class SelectionPanel {
     return d;
   }
 
-  /** A row of portraits of units in a building, each letting that one out when clicked. */
-  private portraits(b: BuildingInfo, ids: readonly number[], key: string, description: string): void {
+  private strip(cls: string, parent: HTMLElement = this.body): HTMLElement {
+    const d = document.createElement('div');
+    d.className = `sel-strip ${cls}`.trim();
+    parent.append(d);
+    return d;
+  }
+
+  /** Redraws when what is shown changed; otherwise only the bars move. */
+  render(list: readonly Selectable[], active: string | null, hints: string[]): void {
+    const one = list.length === 1 ? list[0]! : null;
+    const b = one ? this.a.building(one) : undefined;
+    const cardSet = this.cardSet(list);
+    // A card's pick holds only while its building stays selected (Jade).
+    const ids = list.map((t) => buildingIdOf(t.key)).filter((id): id is number => id !== null);
+    const sel = ids.join('.');
+    if (sel !== this.selected) {
+      this.selected = sel;
+      keepPicks(new Set(ids));
+    }
+    const sig = [
+      list.map((t) => `${t.key}:${t.label}:${(t.details ?? []).join('|')}`).join(','),
+      active,
+      b ? this.buildingSig(b) : '',
+      cardSet ? `${cardSet.map((x) => `${x.id}.${x.queue.length}.${x.queue.map((q) => q.product).join('-')}`).join(',')}#${this.cards.sig(cardSet)}` : '',
+      one && !b ? this.unitSig(one) : '',
+      hints.join('|'),
+    ].join('#');
+    if (sig === this.sig) {
+      this.update(list, b);
+      this.cards.place(this.panelEl());
+      return;
+    }
+    this.sig = sig;
+    this.clear();
+    if (list.length === 0) {
+      this.setTitle('Nothing selected');
+      for (const h of hints) this.row('hint', h);
+    } else if (cardSet && cardSet.length > 1) {
+      this.setTitle(bareName(cardSet[0]!.name));
+      this.severalCards(list, cardSet);
+    } else if (one) {
+      this.setTitle(one.kind === 'unit' && !one.typeKey.startsWith('mage:') ? bareName(one.label) : one.label);
+      if (b) this.oneBuilding(one, b);
+      else this.oneThing(one);
+    } else {
+      this.setTitle(`${list.length} selected`);
+      this.multi(list, active);
+    }
+    if (!cardSet) this.cards.none();
+    this.update(list, b);
+    this.sweep();
+    this.cards.place(this.panelEl());
+  }
+
+  private panelEl(): HTMLElement {
+    return this.body.closest<HTMLElement>('.selection-panel') ?? this.body;
+  }
+
+  private setTitle(text: string): void {
+    if (this.title.textContent !== text) this.title.textContent = text;
+  }
+
+  /** The own buildings of one kind with training cards, when they are all that is selected; else null. */
+  private cardSet(list: readonly Selectable[]): BuildingInfo[] | null {
+    if (list.length === 0 || list.some((t) => t.kind !== 'building')) return null;
+    const all: BuildingInfo[] = [];
+    for (const t of list) {
+      const b = this.a.building(t);
+      if (!b || (b.owner !== this.a.player && !b.shared) || cardsOf(b).length === 0) return null;
+      if (all[0] && all[0].kind !== b.kind) return null;
+      all.push(b);
+    }
+    return all;
+  }
+
+  // ---- The title row ----
+
+  /** A bar with its numbers on it (health), or a thin one under it (mana, a horse, a building's progress). */
+  private bar(kind: 'hp' | 'mana' | 'horse' | 'build' | 'meal' | 'up', parent: HTMLElement, read: LiveBar['read'], name: string, withNum = true, id = `bar-${kind}`): HTMLElement {
+    const btn = this.button(id, { face: '', name, keys: [], description: '', className: `sel-bar ${kind}` });
+    const fill = document.createElement('span');
+    fill.className = 'fill';
+    btn.el.append(fill);
+    let num: HTMLElement | null = null;
+    if (withNum) {
+      num = document.createElement('span');
+      num.className = 'num';
+      btn.el.append(num);
+    }
+    parent.append(btn.el);
+    this.live.push({ fill, num, btn, read });
+    return btn.el;
+  }
+
+  /** The bars after the name: health, and under it mana, the horse, or a building's construction or upgrade. */
+  private titleBars(t: Selectable, b: BuildingInfo | undefined, u: UnitInfo | null): void {
+    const box = document.createElement('div');
+    box.className = 'sel-bars';
+    this.extra.append(box);
+    this.bar('hp', box, () => {
+      const h = this.a.health(t);
+      if (!h || h[1] <= 0) return null;
+      const pct = Math.max(0, Math.min(100, Math.round((h[0] * 100) / h[1])));
+      return { pct, text: `${h[0]}/${h[1]}`, tip: `Health ${h[0]} of ${h[1]}.`, low: pct < 35 };
+    }, 'Health');
+    if (u && u.kind === UnitKind.Mage) {
+      this.bar('mana', box, () => {
+        const m = this.a.mana(t);
+        if (!m) return null;
+        return { pct: m[1] > 0 ? Math.max(0, Math.min(100, Math.round((m[0] * 100) / m[1]))) : 0, text: '', tip: `Mana ${m[0]} of ${m[1]}.` };
+      }, 'Mana', false);
+    }
+    if (u && u.mount !== Mount.None) {
+      const unit = u.id;
+      this.bar('horse', box, () => {
+        const v = this.a.game.unit(unit);
+        if (!v || v.mountMax <= 0) return null;
+        return { pct: Math.max(0, Math.min(100, Math.round((v.mountHp * 100) / v.mountMax))), text: '', tip: `Riding: its mount's health is ${v.mountHp} of ${v.mountMax}.` };
+      }, 'Mount', false);
+    }
+    if (b && (!b.complete || b.upgrading)) {
+      const id = b.id;
+      this.bar('build', box, () => {
+        const v = this.a.game.buildings.get(id);
+        if (!v) return null;
+        const per = v.complete ? v.upgraded : v.built;
+        const pct = Math.floor(per / 10);
+        return { pct, text: '', tip: v.complete ? `Upgrading: ${pct}%.` : `Under construction: ${pct}%.` };
+      }, b.complete ? 'Upgrading' : 'Under construction', false);
+    }
+  }
+
+  /** Another player's name in their colour, after the bars (others' units and buildings only). */
+  private ownerTag(owner: number): void {
+    if (owner === this.a.player || owner === NOBODY || owner >= 8) return;
+    const tag = this.a.ownerTag?.(owner) ?? { name: `Player ${owner + 1}`, colour: '' };
+    const b = this.chip('owner', { face: tag.name, name: tag.name, description: 'Not yours: you can look but not give orders.', className: 'owner-tag' }, this.extra);
+    if (tag.colour) b.el.style.setProperty('--owner', tag.colour);
+  }
+
+  /** A gap that pushes what follows to the right end of the title row. */
+  private push(): void {
+    const s = document.createElement('span');
+    s.className = 'sel-push';
+    this.extra.append(s);
+  }
+
+  /** The queue as pictures in the title row: the first with its bar; a click cancels one, refunded in full. */
+  private queue(b: BuildingInfo): void {
+    if (b.queue.length === 0) return;
     const q = document.createElement('div');
     q.className = 'sel-queue';
+    b.queue.forEach((item, k) => {
+      const ps = productSpec(item.product);
+      const t = troopOf(item.product);
+      const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a).toLowerCase()})` : ps.name;
+      // The same picture as the unit once it is out, and as the button that queued it.
+      const icon = productIcon(item.product);
+      const btn = this.button(`queue${k}`, {
+        face: icon ? '' : name.slice(0, 1),
+        icon,
+        name: `${name}: cancel`,
+        keys: [],
+        description: queueText(k === 0, k === 0 ? (this.a.queueLeft?.(b) ?? null) : null),
+        className: 'portrait queue-item',
+        onPress: () => this.a.cancelQueued(b.id, k),
+      });
+      if (k === 0) {
+        const bar = document.createElement('span');
+        bar.className = 'hp';
+        bar.style.width = `${item.done / 10}%`;
+        btn.el.append(bar);
+        this.head = { btn, bar };
+      }
+      q.append(btn.el);
+    });
+    this.extra.append(q);
+  }
+
+  // ---- One building ----
+
+  private buildingSig(b: BuildingInfo): string {
+    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : ''].join('/');
+  }
+
+  private oneBuilding(t: Selectable, b: BuildingInfo): void {
+    const spec = buildingSpec(b.kind);
+    const own = b.owner === this.a.player || b.shared;
+    // The level as a number beside the name, where the building has levels.
+    if (spec.levels.length > 1 && b.complete) this.chip('level', { face: String(b.level), name: `Level ${b.level} of ${spec.levels.length}`, description: b.name, className: 'level' }, this.extra);
+    this.titleBars(t, b, null);
+    this.ownerTag(b.owner);
+    this.push();
+    if (own) this.queue(b);
+    // A training building's facts (a Stables' stalls, the rally route) stand in a column beside its cards.
+    const cards = own && b.complete && cardsOf(b).length > 0 ? this.cards.render(this.body, [b]) : null;
+    this.buildingFacts(b, own, cards ?? this.body);
+    if (b.farm) this.farmBar(b);
+    if (own) this.garrison(b);
+    if (!own && t.details) this.notes(t, t.details.slice(1));
+  }
+
+  /** The small pictures with a count: workers, stalls, a light's reach, a mine's rating and goods, the rally route. */
+  private buildingFacts(b: BuildingInfo, own: boolean, parent: HTMLElement): void {
+    const spec = buildingSpec(b.kind);
+    const row = this.strip('facts', parent);
+    const room = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
+    if (own && room > 0) {
+      const at = b.status && !b.status.startsWith('Under construction') && !b.status.startsWith('Upgrading') ? `${b.status}.` : '';
+      this.chip('workers', {
+        icon: pic(WORKER_ICON),
+        face: `${b.assigned}/${room}`,
+        name: `Workers: ${b.assigned} of ${room}`,
+        description: [at, `${b.working} at work now.`, 'Right-click it with workers to assign them.'].filter((x) => x).join('\n'),
+        className: `count${b.status.includes('no stretch') ? ' warn' : ''}`,
+      }, row);
+    }
+    if (own && b.herd > 0) {
+      const stalls = b.kind === BuildingKind.Stables ? 6 : 0;
+      this.chip('herd', { icon: pic(stalls ? 'icon_train_horse' : 'icon_pen_barn'), face: stalls ? `${b.herd}/${stalls}` : String(b.herd), name: stalls ? `Stalls: ${b.herd} of ${stalls} taken` : `${b.herd} animals`, description: b.status ? `${b.status}.` : '', className: 'count' }, row);
+    }
+    const light = spec.light;
+    if (light && b.complete) {
+      if (b.lit) {
+        this.chip('light', { icon: pic('icon_torch_post'), face: `${light.lightM} m`, name: 'Light', description: `Lights ${light.lightM} m round it.`, className: 'count' }, row);
+        if (light.claimM > 0) this.chip('claim', { icon: pic(`team_banner_${Math.min(8, b.owner + 1)}`), face: `${light.claimM} m`, name: 'Claim', description: `Claims ${light.claimM} m round it while lit.`, className: 'count' }, row);
+      } else {
+        this.chip('light', { icon: pic('icon_torch_post'), face: 'Out', name: 'Out', description: `Put out: no light, no claim. Lit, it lights ${light.lightM} m${light.claimM > 0 ? ` and claims ${light.claimM} m` : ''}.`, className: 'count warn' }, row);
+      }
+    }
+    if (b.rating > 0) this.chip('rating', { face: RATING_NAMES[b.rating - 1] ?? '', name: 'The spot', description: b.status ? `${b.status}.` : '', className: 'word' }, row);
+    b.stock.forEach(([res, n], k) => {
+      const g = goodIcon(res);
+      this.chip(`stock${k}`, { icon: g ? layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }) : undefined, face: String(n), name: RESOURCES[res]?.name ?? 'Goods', description: `${itemsText([[res, n]])} waiting to be hauled.`, className: 'count' }, row);
+    });
+    if (own && b.rally.length > 0) this.chip('rally', { icon: pic('icon_cmd_rally'), face: String(b.rally.length), name: 'Rally route', description: `New units go along ${b.rally.length} point${b.rally.length > 1 ? 's' : ''}. Right-click the ground with it selected to set another.`, className: 'count' }, row);
+    if (row.childElementCount === 0) row.remove();
+  }
+
+  /** A farm's harvest: the crop's picture and "6 in 3:40" on its bar, the sentences in the tooltip. */
+  private farmBar(b: BuildingInfo): void {
+    const f = b.farm!;
+    if (!f.grows && !f.band) return;
+    const row = this.strip('farm');
+    const g = goodIcon(f.res);
+    if (g) this.chip('crop', { icon: layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }), name: RESOURCES[f.res]?.name ?? 'Harvest', description: f.band || harvestText(f), className: 'crop' }, row);
+    if (!f.grows) return;
+    const id = b.id;
+    this.bar('meal', row, () => {
+      const v = this.a.game.buildings.get(id)?.farm;
+      if (!v) return null;
+      const s = Math.ceil(v.stepsLeft / STEPS_PER_SECOND);
+      const time = v.stepsLeft > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'still';
+      return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${v.items} in ${time}`, tip: [harvestText(v), v.band].filter((x) => x).join('\n') };
+    }, 'Harvest', true, 'farm-bar');
+  }
+
+  /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
+  private garrison(b: BuildingInfo): void {
+    const spec = buildingSpec(b.kind);
+    const top = garrisonRoom(b);
+    if (top > 0) {
+      const row = this.strip('garrison');
+      this.chip('top', {
+        icon: pic('icon_tower_softwood'),
+        face: `Up top ${b.up.length}/${top}`,
+        name: `Up top: ${b.up.length} of ${top}`,
+        description: b.up.length > 0 ? 'Click one to bring it down.' : `Select men, press ${this.a.keyName('enter')} (Enter) and click it${spec.defence === 'tower' ? ', or right click it' : ''}.`,
+        className: 'word',
+      }, row);
+      this.portraits(b, b.up, 'top', 'Click to bring this one down.', row);
+    }
+    const sheltering = b.inside.filter((id) => !b.up.includes(id));
+    if (sheltering.length > 0) {
+      const row = this.strip('garrison');
+      this.chip('inside', { icon: pic('icon_status_sheltered'), face: `Inside ${sheltering.length}`, name: `Inside: ${sheltering.length}`, description: 'Click one to let it out.', className: 'word' }, row);
+      this.portraits(b, sheltering, 'inside', 'Click to let this one out.', row);
+    }
+  }
+
+  /** A row of portraits of units in a building, each letting that one out when clicked. */
+  private portraits(b: BuildingInfo, ids: readonly number[], key: string, description: string, parent: HTMLElement): void {
     for (const id of ids) {
       const btn = this.button(`${key}${id}`, {
         face: '',
@@ -190,271 +572,251 @@ export class SelectionPanel {
         className: 'portrait',
         onPress: () => this.a.letOut(b.id, id),
       });
-      q.append(btn.el);
+      parent.append(btn.el);
     }
-    this.body.append(q);
   }
 
-  /** Redraws when what is shown changed; otherwise only the health bars move. */
-  render(list: readonly Selectable[], active: string | null, hints: string[]): void {
-    const one = list.length === 1 ? list[0]! : null;
-    const b = one ? this.a.building(one) : undefined;
-    const sig = [
-      list.map((t) => `${t.key}:${t.label}:${(t.details ?? []).join('|')}`).join(','),
-      active,
-      b ? `${b.queue.map((q) => `${q.product}`).join('.')}/${b.inside.join('.')}/${b.up.join('.')}/${b.rally.length}/${b.assigned}/${b.working}/${b.farm ? Number(b.farm.grows) : ''}` : '',
-      b && b.owner === this.a.player ? this.troopSig(b) : '',
-      hints.join('|'),
-    ].join('#');
-    if (sig === this.sig) {
-      this.updateBars(list);
-      if (b) this.updateHead(b);
-      if (one) this.updateHunger(one);
-      if (this.farm && b?.farm) this.farm.update(b.farm);
+  /** Lines with no picture of their own (the peoples' buildings, a resource node): one marker whose tooltip holds them. */
+  private notes(t: Selectable, lines: readonly string[], parent?: HTMLElement): void {
+    const text = lines.filter((l) => l && !/^Health \d/.test(l));
+    if (text.length === 0) return;
+    const row = parent ?? this.strip('facts');
+    this.chip('notes', { face: '?', name: t.label, description: text.join('\n'), className: 'notes' }, row);
+  }
+
+  // ---- Several Barracks ----
+
+  /** Only Barracks (or Stables, or Sanctums) selected: their cards, and a tile per building in the title row. */
+  private severalCards(list: readonly Selectable[], all: BuildingInfo[]): void {
+    this.push();
+    const tiles = document.createElement('div');
+    tiles.className = 'sel-tiles';
+    list.slice(0, MAX_TILES).forEach((t, k) => {
+      const b = all[k]!;
+      const btn = this.button(`tile-${b.id}`, {
+        face: '',
+        icon: pic(buildingIconFile(b.kind, b.level, b.variant)),
+        name: `${bareName(b.name)}: ${b.queue.length} in the queue`,
+        keys: [],
+        description: `Click: select only this one. Shift + click or right click: remove it.`,
+        className: 'portrait tile',
+        onPress: (p) => this.a.portrait(t, p),
+        onRightClick: () => this.a.portraitRight(t),
+        onDoubleClick: () => this.a.portraitDouble(t),
+      });
+      if (b.queue.length > 0) {
+        const n = document.createElement('span');
+        n.className = 'tile-count';
+        n.textContent = String(b.queue.length);
+        btn.el.append(n);
+      }
+      const bar = document.createElement('span');
+      bar.className = 'hp';
+      btn.el.append(bar);
+      this.bars.set(t.key, bar);
+      tiles.append(btn.el);
+    });
+    this.extra.append(tiles);
+    if (list.length > MAX_TILES) this.row('more', `+${list.length - MAX_TILES}`, this.extra);
+    this.cards.render(this.body, all);
+  }
+
+  // ---- One unit, animal, monster, engine, loot or node ----
+
+  private unitSig(t: Selectable): string {
+    const id = entityIdOf(t.key);
+    const u = id === null ? null : this.a.game.unit(id);
+    if (!u) return '';
+    const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
+    return [u.kind, u.troop, u.wTier, u.aTier, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
+  }
+
+  private oneThing(t: Selectable): void {
+    const id = entityIdOf(t.key);
+    const u = id === null ? null : this.a.game.unit(id);
+    if (t.kind === 'unit') this.titleBars(t, undefined, u);
+    if (u && (u.kind === UnitKind.Warrior || u.kind === UnitKind.Worker)) this.badge(u);
+    this.ownerTag(t.owner);
+    if (u && (u.kind === UnitKind.Warrior || u.kind === UnitKind.Worker || u.kind === UnitKind.Mage) && !u.group) {
+      this.unitBody(t, u);
       return;
     }
-    this.sig = sig;
-    this.clear();
-    if (list.length === 0) {
-      this.setTitle('Nothing selected');
-      for (const h of hints) this.row('hint', h);
-    } else if (one) {
-      this.setTitle(one.label);
-      this.single(one, b);
-    } else {
-      this.setTitle(`${list.length} selected`);
-      this.multi(list, active);
-      this.updateBars(list);
+    if (u && u.kind === UnitKind.Engine) this.engine(t, u);
+    else if (u && u.kind === UnitKind.Animal) this.animal(t, u);
+    else if (t.typeKey === 'loot') this.lootPile(t);
+    else this.notes(t, t.details ?? []);
+  }
+
+  /** The rank badge after the name. */
+  private badge(u: UnitInfo): void {
+    const worker = u.kind === UnitKind.Worker;
+    const name = (worker ? RANK_NAMES.worker : RANK_NAMES.warrior)[u.rank] ?? `Rank ${u.rank}`;
+    const file = `icon_rank_${worker ? 'worker' : 'warrior'}_${(worker ? WORKER_BADGES : WARRIOR_BADGES)[u.rank] ?? ''}`;
+    this.chip('rank', { icon: pic(file), face: '', name, description: `Rank ${u.rank} of 5.`, className: 'badge' }, this.extra);
+    // The badge sits right after the name, before the bars.
+    this.extra.prepend(this.extra.lastElementChild!);
+  }
+
+  /** A worker's, troop's or mage's kit slots, then what applies now, then a word for what it is doing. */
+  private unitBody(t: Selectable, u: UnitInfo): void {
+    const row = this.strip('kit');
+    const slots = this.kitSlots(u);
+    slots.forEach((s, k) => {
+      const btn = this.chip(`slot${k}`, { icon: layer(s.pic, s.tag), name: s.name, description: s.text, className: 'kit-slot' }, row);
+      if (s.line >= 0 && u.upLine - 1 === s.line) {
+        const piece = linePiece({ kind: u.kind === UnitKind.Worker ? 'worker' : u.kind === UnitKind.Mage ? 'mage' : 'warrior', troop: u.troop, w: u.wTier, a: u.aTier }, s.line, u.upTo);
+        const unit = u.id;
+        const bar = document.createElement('span');
+        bar.className = 'up-bar';
+        const fill = document.createElement('span');
+        bar.append(fill);
+        btn.el.append(bar);
+        btn.el.classList.add('upgrading');
+        this.live.push({
+          fill,
+          num: null,
+          btn,
+          read: () => {
+            const v = this.a.game.unit(unit);
+            if (!v || v.upLine === 0) return null;
+            const pct = Math.floor(v.upDone / 10);
+            return { pct, text: '', tip: `${s.text}\nUpgrading to ${piece?.name ?? 'the next tier'}: ${v.upDone > 0 ? `${pct}%` : 'on the way'}.` };
+          },
+        });
+      }
+    });
+    const gap = document.createElement('span');
+    gap.className = 'kit-gap';
+    row.append(gap);
+    // Loot in the bag (own units), a worker's load, the next meal, the spells on it.
+    const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
+    if (bag.length > 0) this.chip('loot', { icon: pic('icon_status_carrying'), name: 'Loot', description: `${itemsText(bag)}.`, className: 'count' }, row).el.append(tag(String(bag.reduce((n, [, c]) => n + c, 0))));
+    if (u.kind === UnitKind.Worker && u.carryAmt > 0 && RESOURCES[u.carryRes]) {
+      const g = goodIcon(u.carryRes);
+      const c = this.chip('carry', { icon: g ? layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }) : pic('icon_status_carrying'), name: 'Carrying', description: `Carrying ${itemsText([[u.carryRes, u.carryAmt]])}.`, className: 'count' }, row);
+      c.el.append(tag(String(u.carryAmt)));
     }
-    this.sweep();
-  }
-
-  private setTitle(text: string): void {
-    if (this.title.textContent !== text) this.title.textContent = text;
-  }
-
-  private single(t: Selectable, b: BuildingInfo | undefined): void {
-    for (const d of t.details ?? []) this.row('', d);
-    this.hunger = null;
     if (this.a.hunger(t)) {
-      const box = this.row('hunger', '');
-      const next = document.createElement('span');
+      const meal = this.chip('meal', { icon: pic('icon_status_hungry'), name: 'Hunger', description: '', className: 'meal' }, row);
       const bar = document.createElement('span');
-      bar.className = 'hunger-bar';
+      bar.className = 'meal-bar';
       const fill = document.createElement('span');
       bar.append(fill);
-      box.append(next, bar);
-      this.hunger = { next, fill, status: this.row('hunger-status', '') };
-      this.updateHunger(t);
-    }
-    if (b && b.owner === this.a.player) {
-      const spec = buildingSpec(b.kind);
-      if (b.queue.length > 0) {
-        const q = document.createElement('div');
-        q.className = 'sel-queue';
-        this.row('label', 'Queue (click to cancel, refunded in full):');
-        b.queue.forEach((item, k) => {
-          const ps = productSpec(item.product);
-          const t = troopOf(item.product);
-          const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a).toLowerCase()})` : ps.name;
-          // The same picture as the unit once it is out, and as the button that queued it.
-          const icon = productIcon(item.product);
-          const btn = this.button(`queue${k}`, {
-            face: icon ? '' : name.slice(0, 1),
-            icon,
-            name: `${name}: cancel`,
-            keys: [],
-            description: queueText(k === 0, k === 0 ? (this.a.queueLeft?.(b) ?? null) : null),
-            className: 'portrait queue-item',
-            onPress: () => this.a.cancelQueued(b.id, k),
-          });
-          if (k === 0) {
-            const bar = document.createElement('span');
-            bar.className = 'hp';
-            bar.style.width = `${item.done / 10}%`;
-            btn.el.append(bar);
-            this.head = { btn, bar };
-          }
-          q.append(btn.el);
-        });
-        this.body.append(q);
-      }
-      // A farm's harvest under its queue, above the farmers sheltering inside at night.
-      this.farmRows(b);
-      if (b.complete && b.troops.length > 0) this.troopPanel(b);
-      // Up top (towers, a main base from level 3) and sheltering inside, each a row of portraits that let one out.
-      const top = garrisonRoom(b);
-      if (top > 0) {
-        this.row('label', b.up.length > 0 ? `Up top: ${b.up.length} of ${top} (click one to bring it down):` : `Up top: room for ${top}. Select men, press ${this.a.keyName('enter')} (Enter) and click it${spec.defence === 'tower' ? ', or right click it' : ''}.`);
-        if (b.up.length > 0) this.portraits(b, b.up, 'top', 'Click to bring this one down.');
-      }
-      const sheltering = b.inside.filter((id) => !b.up.includes(id));
-      if (sheltering.length > 0) {
-        this.row('label', `Inside (${sheltering.length}; click one to let it out):`);
-        this.portraits(b, sheltering, 'inside', 'Click to let this one out.');
-      }
-      const workers = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
-      if (workers > 0) this.row('', `Workers: ${b.assigned} of ${workers} assigned (right-click it with workers to assign them).`);
-      if (b.rally.length > 0) this.row('owner', `Rally route: ${b.rally.length} point${b.rally.length > 1 ? 's' : ''}.`);
-    } else if (b) this.farmRows(b);
-    this.row('owner', ownerText(t.owner, this.a.player));
-    if (!isOwn(t, this.a.player)) this.row('hint', 'Not yours: you can look but not give orders.');
-  }
-
-  /** A farm's harvest bar, its line and its band line (farm-panel.ts). */
-  private farmRows(b: BuildingInfo): void {
-    if (!b.farm) return;
-    this.farm = new FarmBlock(this.body);
-    this.farm.update(b.farm);
-  }
-
-  /** What the troop panel shows, so it redraws when a choice, a Lock or what the pool pays for changes. */
-  private troopSig(b: BuildingInfo): string {
-    if (!b.complete || b.troops.length === 0) return '';
-    const g = this.a.game;
-    const m = this.menu && this.menu.b === b.id ? `${this.menu.troop}${this.menu.line}` : '';
-    const rows = b.troops.map((t) => {
-      const c = troopChoice(b, t.troop);
-      const opts = [...weaponOptions(g, b, t.troop), ...armourOptions(g, b, t.troop)].map((o) => (o.why ? (o.short ? 's' : 'n') : 'y')).join('');
-      return `${t.troop}:${c.w}.${c.a}.${t.lock}:${troopWhy(g, b, t.troop, c.w, c.a)}:${opts}`;
-    });
-    return `${m}|${b.horses}|${rows.join(';')}`;
-  }
-
-  /** The troop panel, or the open dropdown's list of tiers. */
-  private troopPanel(b: BuildingInfo): void {
-    const g = this.a.game;
-    const menu = this.menu && this.menu.b === b.id && b.troops.some((t) => t.troop === this.menu!.troop) ? this.menu : null;
-    if (menu) {
-      this.tierMenu(b, menu.troop, menu.line);
-      return;
-    }
-    this.row('label', b.troops.some((t) => t.troop === Troop.Cavalry) ? `Train cavalry (${b.horses} tamed horse${b.horses === 1 ? '' : 's'} in the stalls):` : 'Train troops (pick the kit, then click the picture; Shift: 5):');
-    for (const t of b.troops) {
-      const c = troopChoice(b, t.troop);
-      const why = troopWhy(g, b, t.troop, c.w, c.a);
-      const row = document.createElement('div');
-      row.className = 'troop-row';
-      const name = troopName(t.troop);
-      const cost = troopCostText(b, t.troop, c.w, c.a);
-      const pic = this.button(`troop-${t.troop}`, {
-        face: '',
-        name: `Train ${name.toLowerCase()}`,
-        keys: [],
-        description: `${kitName(t.troop, c.w, c.a)}. Cost: ${cost}. The kit is made here while it trains. Shift + click: 5.`,
-        className: 'portrait troop-pic',
-        onPress: (p) => this.a.trainTroop(b.id, t.troop, p.shift ? 5 : 1),
-      });
-      pic.setEnabled(why === '', why);
-      setIcon(pic.el, troopIcon(t.troop, c.w, 26));
-      const weapons = weaponOptions(g, b, t.troop);
-      const wName = weapons.find((o) => o.tier === c.w)?.name ?? '';
-      const wBtn = this.button(`troopw-${t.troop}`, {
-        face: `${c.w} ${shortKit(wName)}`,
-        name: `${name}: weapon`,
-        keys: [],
-        description: `Weapon tier ${c.w}: ${wName}. Click to pick another tier.${weapons.length < 2 ? ' This type has only the one.' : ''}`,
-        className: 'troop-pick',
-        onPress: () => this.openMenu(b, t.troop, 'w'),
-      });
-      wBtn.setEnabled(weapons.length > 1 && t.lock === 0, t.lock ? 'Locked: unlock to change it.' : 'There is only the one.');
-      setIcon(wBtn.el, weaponIcon(t.troop, c.w));
-      const armours = armourOptions(g, b, t.troop);
-      const aName = armours.find((o) => o.tier === c.a)?.name ?? '';
-      const aBtn = this.button(`troopa-${t.troop}`, {
-        face: `${c.a} ${shortKit(aName)}`,
-        name: `${name}: armour`,
-        keys: [],
-        description: `Armour tier ${c.a}: ${aName}. Click to pick another tier.`,
-        className: 'troop-pick',
-        onPress: () => this.openMenu(b, t.troop, 'a'),
-      });
-      aBtn.setEnabled(t.lock === 0, 'Locked: unlock to change it.');
-      setIcon(aBtn.el, armourIcon(c.a));
-      const lock = this.button(`troopl-${t.troop}`, {
-        face: t.lock ? 'Locked' : 'Lock',
-        name: t.lock ? 'Unlock' : 'Lock this kit',
-        keys: [],
-        description: t.lock
-          ? 'This building always trains this kit. Click to unlock: it goes back to the best the stock pays for.'
-          : 'Keep this weapon and armour for this troop type at this building, even when the stock could pay for better or worse. Allies see it too.',
-        className: 'troop-lock',
-        onPress: () => this.a.lockTroop(b.id, t.troop, t.lock ? 0 : 1 + c.w * 10 + c.a),
-      });
-      lock.setLit(t.lock !== 0);
-      row.append(pic.el, wBtn.el, aBtn.el, lock.el);
-      this.body.append(row);
-      const line = this.row(why ? 'troop-cost short' : 'troop-cost', `${name}: ${cost}${c.picked || t.lock ? '' : ' (best the stock pays for)'}${why ? `. ${why}` : ''}`);
-      line.title = why;
-    }
-  }
-
-  private openMenu(b: BuildingInfo, troop: number, line: 'w' | 'a'): void {
-    this.menu = { b: b.id, troop, line };
-    this.sig = '';
-    this.a.troopsChanged();
-  }
-
-  private closeMenu(): void {
-    this.menu = null;
-    this.sig = '';
-    this.a.troopsChanged();
-  }
-
-  /** A dropdown's tiers as buttons: Best affordable first, each tier with its icon, greyed with what it needs. */
-  private tierMenu(b: BuildingInfo, troop: number, line: 'w' | 'a'): void {
-    const g = this.a.game;
-    const opts: TierOption[] = line === 'w' ? weaponOptions(g, b, troop) : armourOptions(g, b, troop);
-    const c = troopChoice(b, troop);
-    this.row('label', `${troopName(troop)}: pick the ${line === 'w' ? 'weapon' : 'armour'} (red: the stock is short of it now).`);
-    const list = document.createElement('div');
-    list.className = 'troop-menu';
-    const auto = this.button('tier-auto', {
-      face: 'Best affordable',
-      name: 'Best affordable',
-      keys: [],
-      description: 'The best weapon the stock pays for, then the best armour with it. It changes as the stock does.',
-      className: 'troop-opt',
-      onPress: () => {
-        pickTier(b, troop, line, null);
-        this.closeMenu();
-      },
-    });
-    auto.setLit(!c.picked);
-    setIcon(auto.el, autoIcon());
-    list.append(auto.el);
-    for (const o of opts) {
-      const btn = this.button(`tier-${o.tier}`, {
-        face: `${o.tier} ${o.name}`,
-        name: o.name,
-        keys: [],
-        description: `Tier ${o.tier}.${o.why ? ` ${o.why}` : ''}`,
-        className: `troop-opt${o.short ? ' short' : ''}`,
-        onPress: () => {
-          pickTier(b, troop, line, o.tier);
-          this.closeMenu();
+      meal.el.append(bar);
+      this.live.push({
+        fill,
+        num: null,
+        btn: meal,
+        read: () => {
+          const v = this.a.hunger(t);
+          if (!v) return null;
+          const line = hungerLine(v);
+          const starving = line.status !== '';
+          meal.el.classList.toggle('starving', starving);
+          const img = meal.el.querySelector<HTMLImageElement>('.btn-icon img');
+          const want = starving ? 'icon_status_starving' : 'icon_status_hungry';
+          if (img && !img.src.includes(want)) meal.redefine({ ...meal.def, icon: pic(want) });
+          return { pct: line.pct, text: '', tip: [line.next, line.status].filter((x) => x).join('\n') };
         },
       });
-      btn.setEnabled(o.why === '' || o.short, o.why);
-      btn.setLit(c.picked && (line === 'w' ? c.w : c.a) === o.tier);
-      setIcon(btn.el, line === 'w' ? weaponIcon(troop, o.tier) : armourIcon(o.tier));
-      list.append(btn.el);
     }
-    const back = this.button('tier-back', { face: 'Back', name: 'Back', keys: [], description: 'Close the list.', className: 'troop-opt', onPress: () => this.closeMenu() });
-    list.append(back.el);
-    this.body.append(list);
+    for (const [bit, file, name] of SPELL_PICS) {
+      if ((u.spells & bit) === 0) continue;
+      this.chip(`spell${bit}`, { icon: pic(file), name, description: `${name}: a mage's spell is on it.`, className: 'spell' }, row);
+    }
+    if (u.owner === this.a.player) {
+      const q = this.a.game.queues.get(u.id) ?? [];
+      this.row('doing', `${unitOrderText(q[0])}${q.length > 1 ? ` +${q.length - 1}` : ''}`);
+    }
   }
+
+  /** The kit a unit wears, slot by slot: picture, tier number, name and numbers. */
+  private kitSlots(u: UnitInfo): Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> {
+    const named = (p: Piece | undefined, tier: number, what: string): { name: string; text: string } =>
+      p && (tier > 0 || what === 'weapon') ? { name: `${p.name}, tier ${tier}`, text: pieceStats(p) } : { name: `No ${what}`, text: `No ${what}.` };
+    if (u.kind === UnitKind.Worker) {
+      const k = TOOL_KITS[u.wTier];
+      return [{ pic: toolPic(u.wTier), tag: String(u.wTier), ...named(k, u.wTier, 'tools'), line: 0 }];
+    }
+    if (u.kind === UnitKind.Mage) {
+      return [
+        { pic: wandPic(u.wTier), tag: String(u.wTier), ...named(WAND_KITS[u.wTier], u.wTier, 'wand'), line: 0 },
+        { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
+      ];
+    }
+    const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [
+      { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
+      { pic: armourPic(u.aTier), tag: String(u.aTier), ...named(ARMOUR_KITS[u.aTier], u.aTier, 'armour'), line: 1 },
+    ];
+    // Close melee's shield comes with the armour: no number of its own.
+    if (u.troop === Troop.Close && u.aTier > 0) {
+      const s = shieldRow(u.aTier);
+      out.push({ pic: shieldPic(s.tier), name: s.name, text: `${pieceStats(s)}\nComes with the armour.`, line: -1 });
+    }
+    return out;
+  }
+
+  /** An engine: its crew as small crewmen, filled or empty, and how it moves, the sentences in the tooltip. */
+  private engine(t: Selectable, u: UnitInfo): void {
+    const spec = engineSpec(u.mob);
+    const row = this.strip('facts');
+    const crew = u.crew % 1000;
+    const c = this.chip('crew', { face: '', name: `Crew ${crew} of ${spec.crew}`, description: (t.details ?? []).slice(1).join('\n'), className: 'crew' }, row);
+    for (let k = 0; k < spec.crew; k++) {
+      const img = document.createElement('img');
+      img.src = kitUrl('icon_train_warrior_cannon_crew');
+      img.alt = '';
+      img.draggable = false;
+      if (k >= crew) img.className = 'empty';
+      c.el.append(img);
+    }
+    const hauled = u.crew >= 1000;
+    const moves = hauled ? 'icon_train_horse' : crew >= spec.crew && spec.pushed > 0 ? 'icon_cmd_move' : '';
+    if (moves) this.chip('moves', { icon: pic(moves), name: hauled ? 'Hauled' : 'Pushed', description: hauled ? 'Hauled by its animal.' : 'Pushed by its crew.', className: 'spell' }, row);
+    if (u.owner === this.a.player) {
+      const q = this.a.game.queues.get(u.id) ?? [];
+      this.row('doing', unitOrderText(q[0]));
+    }
+  }
+
+  /** An animal: its name and health bar; a wild one a Tame or Hunt picture with the hint in its tooltip. */
+  private animal(t: Selectable, u: UnitInfo): void {
+    const spec = speciesSpec(u.mob);
+    const lines = (t.details ?? []).slice(1);
+    if (lines.length === 0) return;
+    const row = this.strip('facts');
+    const tame = spec.tameAt.length > 0 && t.owner === NOBODY;
+    const hunt = t.owner === NOBODY && isGame(spec.id);
+    const file = u.partner ? WORKER_ICON : tame ? 'icon_rope' : hunt ? 'icon_cmd_hunt' : '';
+    this.chip('animal', { icon: pic(file), face: file ? '' : '?', name: u.partner ? 'Working' : tame ? 'Tame' : hunt ? 'Hunt' : t.label, description: lines.join('\n'), className: file ? 'spell' : 'notes' }, row);
+  }
+
+  /** Loot on the ground: the good's picture and the count, the sentences in the tooltip. */
+  private lootPile(t: Selectable): void {
+    const m = /^(.*) \((\d+)\)$/.exec(t.label);
+    const res = m ? RESOURCES.findIndex((r) => r.name === m[1]) : -1;
+    const row = this.strip('facts');
+    const g = res >= 0 ? goodIcon(res) : undefined;
+    const c = this.chip('pile', { icon: g ? layer({ file: g.file }) : undefined, face: g ? '' : '?', name: t.label, description: (t.details ?? []).join('\n'), className: 'count' }, row);
+    if (m) c.el.append(tag(m[2]!));
+  }
+
+  // ---- Several ----
 
   private multi(list: readonly Selectable[], active: string | null): void {
     const groups = subgroups(list, this.a.worth);
     const tabs = document.createElement('div');
     tabs.className = 'sel-tabs';
     for (const g of groups) {
+      const first = g.items[0]!;
+      const army = g.typeKey === 'warrior';
+      const file = army ? 'icon_util_select_army' : selectableIconFile(g.typeKey, this.a.look?.(first) ?? null);
       const t = this.button(`sub-${g.typeKey}`, {
-        face: `${shortType(g.items[0]!)} ${g.items.length}`,
-        name: shortType(g.items[0]!),
+        face: file ? String(g.items.length) : `${bareName(first.label)} ${g.items.length}`,
+        icon: pic(file),
+        name: army ? 'Troops' : bareName(first.label),
         keys: [],
-        description: 'Click: make this the active subgroup (its commands and portrait show; Tab and Shift + Tab step through the types). Double click: keep only these. Right click: remove them.',
+        description: `${army ? `${armyMix(g.items)}.\n` : ''}Click: make this the active subgroup (its commands and portrait show; Tab and Shift + Tab step through the types). Double click: keep only these. Right click: remove them.`,
         className: 'sub-tab',
         onPress: () => this.a.activate(g.typeKey),
         onDoubleClick: () => this.a.keepType(g.typeKey),
@@ -496,8 +858,32 @@ export class SelectionPanel {
         grid.append(p.el);
       }
     }
+    if (list.length > shown) {
+      const more = document.createElement('span');
+      more.className = 'sel-more';
+      more.textContent = `+${list.length - shown}`;
+      grid.append(more);
+    }
     this.body.append(grid);
-    if (list.length > shown) this.row('owner', `and ${list.length - shown} more`);
+  }
+
+  // ---- Every frame ----
+
+  private update(list: readonly Selectable[], b: BuildingInfo | undefined): void {
+    this.updateBars(list);
+    if (b) this.updateHead(b);
+    for (const l of this.live) {
+      const v = l.read();
+      const pct = v ? v.pct : 0;
+      const w = `${pct}%`;
+      if (l.fill.style.width !== w) l.fill.style.width = w;
+      // The kit's health bar runs red to green along the whole bar: the fill shows the part up to the health left.
+      const size = pct > 0 ? `${Math.round(10000 / pct)}% 100%` : '';
+      if (l.fill.style.backgroundSize !== size) l.fill.style.backgroundSize = size;
+      if (l.num && v && l.num.textContent !== v.text) l.num.textContent = v.text;
+      if (v) l.fill.classList.toggle('low', v.low === true);
+      if (l.btn && v && l.btn.def.description !== v.tip) l.btn.def = { ...l.btn.def, description: v.tip };
+    }
   }
 
   /** The head of the queue counts down: its bar and its hover text follow the sim every refresh. */
@@ -509,20 +895,6 @@ export class SelectionPanel {
     if (h.bar.style.width !== w) h.bar.style.width = w;
     const text = queueText(true, this.a.queueLeft?.(b) ?? null);
     if (h.btn.def.description !== text) h.btn.def = { ...h.btn.def, description: text };
-  }
-
-  /** The hunger line, every frame: the countdown moves without redrawing the panel. */
-  private updateHunger(t: Selectable): void {
-    const h = this.hunger;
-    const v = h ? this.a.hunger(t) : null;
-    if (!h || !v) return;
-    const line = hungerLine(v);
-    if (h.next.textContent !== line.next) h.next.textContent = line.next;
-    const w = `${line.pct}%`;
-    if (h.fill.style.width !== w) h.fill.style.width = w;
-    if (h.status.textContent !== line.status) h.status.textContent = line.status;
-    h.status.hidden = line.status === '';
-    h.next.parentElement!.classList.toggle('starving', line.status !== '');
   }
 
   private updateBars(list: readonly Selectable[]): void {
@@ -542,11 +914,4 @@ export class SelectionPanel {
       }
     }
   }
-}
-
-/** A kit name short enough for a dropdown button: "Recurve bow, iron arrowheads" to "Recurve bow (iron)". */
-function shortKit(name: string): string {
-  const m = /^(.*), (.*) arrowheads$/.exec(name);
-  if (m) return `${m[1]} (${m[2]})`;
-  return name.replace(/, .*$/, '');
 }

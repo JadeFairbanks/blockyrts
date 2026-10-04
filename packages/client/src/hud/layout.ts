@@ -23,7 +23,11 @@ export interface HudLayout {
   portraitIcon: HTMLImageElement;
   selectionPanel: HTMLElement;
   selectionTitle: HTMLElement;
+  /** The title row's pictures and bars after the name (Patch 2): rank badge, health, the queue. */
+  selectionExtra: HTMLElement;
   selectionCorner: HTMLElement;
+  /** The tier strip a training card's slot opens just above the middle (Patch 2). */
+  tierStrip: HTMLElement;
   selectionBody: HTMLElement;
   groupTabs: HTMLElement;
   commandCard: HTMLElement;
@@ -91,6 +95,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const groupTabs = div('group-tabs', selectionPanel);
   const selHead = div('sel-head', selectionPanel);
   const selectionTitle = div('sel-title', selHead, 'Nothing selected');
+  const selectionExtra = div('sel-extra', selHead);
   const selectionCorner = div('sel-corner', selHead);
   const selectionBody = div('sel-body', selectionPanel);
   selectionBody.dataset.scroll = '';
@@ -145,6 +150,10 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   panels.register('top-right', topRight);
   panels.register('clock', clock);
   panels.register('debug', debug);
+  // Last, so it is on top of the strip it opens over.
+  const tierStrip = div('panel tier-strip', root);
+  tierStrip.hidden = true;
+  panels.register('tier-strip', tierStrip);
 
   return {
     root,
@@ -160,7 +169,9 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     portraitIcon,
     selectionPanel,
     selectionTitle,
+    selectionExtra,
     selectionCorner,
+    tierStrip,
     selectionBody,
     groupTabs,
     commandCard,
