@@ -1,5 +1,5 @@
 {
- "description": "M6 check script, seed 1, one player, with night mobs: the debug tools put a finished Magi Sanctum 20 m east of the Big House (building 9) and a mage kit in the pool (sticks and flax for two hazel wands and homespun robes, 20 mana crystals, 200 bread, 6 hexstone, 20 herbs), and a troop kit (a Barracks, a level 4 forge, the materials and research of every tier) 20 m west; the first two starting warriors (units 5 and 6) press Upgrade Weapon Max and Upgrade Armour Max and come back from the Big House in carbon steel and steel (Troops and gear); the Sanctum trains a support mage (id 228) and a battle mage (id 320) and researches Hexcraft; each trains to Acolyte there as soon as she is out; at dusk the support mage stands by the Big House with warrior 5, and the battle mage joins them when her training is done; in night 0 the support mage quickens the warrior (Quicken on unit 5), wards the crowd (Warding pressed twice) and heals by herself, and the battle mage beams a monster (Beam pressed twice) and bolts by herself; at dawn the debug Mage XP button twice takes both to Adept Acolyte and then to the experience for Mage, and they train to Mage, paying 2 mana crystals each; a goblin village goes up 80 m north; both warriors and the battle mage attack-move on it with the support mage following warrior 5; Rally, Fireball, Fortify and Area blast are pressed twice there, the support mage heals too, the battle mage counters the goblin mage's spells, the village declares war, and all four walk home (the village now keeps wolf riders and a pen, so it takes two warriors). Debug threats 40 Sanctum, 41 mage kit, 42 mage experience, 54 troop kit. Spells: 0 Heal, 1 Quicken, 2 Fortify, 3 Rally, 4 Arcane bolt, 5 Beam, 6 Fireball, 7 Area blast, 8 Warding, 9 Counterspell. Products: 4 support mage, 5 battle mage, 14 Hexcraft. Moves are world units (8,000 per metre).",
+ "description": "M6 check script, seed 1, one player, with night mobs. It plays by Patch 2's and Patch 3's rules: the Magi Sanctum trains a mage with the wand and robe on her card (products 8303 and 8403: a support and a battle Novice with a hazel wand and a homespun robe; the old products 4 and 5 are refused), and night 0's monsters come in from the west-north-west, past the troop kit. The debug tools put a finished Magi Sanctum 20 m east of the Big House (building 9) and a mage kit in the pool (sticks and flax for two hazel wands and homespun robes, 20 mana crystals, 200 farm fare, 6 hexstone, 20 herbs), and a troop kit (a Barracks, a level 4 forge, the materials and research of every tier) 20 m west; the four workers gather until dusk, when Everyone Home shelters them in the Big House (they come out at daybreak and carry on); the first two starting warriors (units 5 and 6) press Upgrade Weapon Max and Upgrade Armour Max and come back from the Big House in carbon steel and steel (Troops and gear); the Sanctum trains a support mage (id 228) and a battle mage (id 320) and researches Hexcraft; each trains to Acolyte there as soon as she is out; at dusk the support mage and warrior 5 stand guard 22 m west of the Big House, by the troop kit, with the third starting warrior (unit 7, still in his cudgel and no armour) a few metres out in front, and the battle mage joins them when her training is done; in night 0 the support mage quickens warrior 5 (Quicken on unit 5), wards the crowd once Hexcraft is done (Warding pressed twice) and heals warrior 7 by herself, and the battle mage beams a zombie (Beam pressed twice) and bolts the rest by herself; before dawn the four walk back to the Big House; at dawn the debug Mage XP button twice takes both mages to Adept Acolyte and then to the experience for Mage, and they train to Mage, paying 2 mana crystals each; a goblin village goes up 80 m north; both warriors attack-move on it, the battle mage walks to 22 m short of the huts and fights from there, and the support mage follows warrior 5; Rally, Fireball, Fortify and Area blast are pressed twice there, the support mage heals too, the battle mage counters the goblin mage's spells, the village declares war, and all four walk home (the village now keeps wolf riders and a pen, so it takes two warriors). Debug threats 10 goblin village, 40 Sanctum, 41 mage kit, 42 mage experience, 54 troop kit. Spells: 0 Heal, 1 Quicken, 2 Fortify, 3 Rally, 4 Arcane bolt, 5 Beam, 6 Fireball, 7 Area blast, 8 Warding, 9 Counterspell. Products: 8303 support mage and 8403 battle mage (8192 + school x 100 + wand tier x 10 + robe tier), 14 Hexcraft. Moves are world units (8,000 per metre).",
  "players": 1,
  "frames": [
   {
@@ -35,14 +35,14 @@
      "kind": "produce",
      "player": 0,
      "building": 9,
-     "product": 4,
+     "product": 8303,
      "count": 1
     },
     {
      "kind": "produce",
      "player": 0,
      "building": 9,
-     "product": 5,
+     "product": 8403,
      "count": 1
     },
     {
@@ -119,6 +119,15 @@
    ]
   },
   {
+   "step": 3650,
+   "orders": [
+    {
+     "kind": "everyoneHome",
+     "player": 0
+    }
+   ]
+  },
+  {
    "step": 4000,
    "orders": [
     {
@@ -128,8 +137,17 @@
       5,
       228
      ],
-     "x": 40000,
-     "z": 64000
+     "x": -176000,
+     "z": -16000
+    },
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      7
+     ],
+     "x": -216000,
+     "z": -40000
     }
    ]
   },
@@ -154,13 +172,13 @@
      "units": [
       320
      ],
-     "x": 30400,
-     "z": 73600
+     "x": -152000,
+     "z": -8000
     }
    ]
   },
   {
-   "step": 4900,
+   "step": 5050,
    "orders": [
     {
      "kind": "cast",
@@ -192,6 +210,31 @@
      "x": 0,
      "z": 0,
      "auto": 1
+    }
+   ]
+  },
+  {
+   "step": 7700,
+   "orders": [
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      5,
+      7,
+      228
+     ],
+     "x": 40000,
+     "z": 64000
+    },
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      320
+     ],
+     "x": 30400,
+     "z": 73600
     }
    ]
   },
@@ -260,11 +303,19 @@
      "player": 0,
      "units": [
       5,
-      6,
-      320
+      6
      ],
      "x": 0,
      "z": -560000
+    },
+    {
+     "kind": "move",
+     "player": 0,
+     "units": [
+      320
+     ],
+     "x": 0,
+     "z": -464000
     },
     {
      "kind": "follow",
