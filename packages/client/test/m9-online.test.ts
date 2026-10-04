@@ -141,18 +141,18 @@ describe('Milestone 9: save files', () => {
   });
 
   it('refuses a save from any older version (before Patch 2 and every patch after), saying why', async () => {
-    // Patch 2 made the format 3 and the mini patch 4, and every patch raises it (Jade's standing rule): older saves are refused, never carried over.
-    expect(SAVE_FORMAT_VERSION).toBe(4);
+    // Patch 2 made the format 3, the mini patch 4 and Patch 3 5, and every patch raises it (Jade's standing rule): older saves are refused, never carried over.
+    expect(SAVE_FORMAT_VERSION).toBe(5);
     expect(OLD_SAVE_TEXT).toBe('That save is from an older version of the game. Start a new game.');
     const s = createWorld(11, { players: 1, peaceful: true });
-    for (const formatVersion of [1, 2, 3]) {
+    for (const formatVersion of [1, 2, 3, 4]) {
       const header = { formatVersion, gameVersion: '0.10.0', matchId: 'old', seed: 11, step: s.step, night: 0, label: 'Night 0', players: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] };
       const old = await writeSaveFile(header, [{ tag: SaveSection.SimState, version: 1, data: serializeState(s) }]);
       await expect(openSave(old)).rejects.toThrow(OLD_SAVE_TEXT);
     }
     // The same game written now opens.
     const now = await makeSave({ matchId: 'new', seed: 11, seats: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] }, { step: s.step, night: 0, data: serializeState(s) }, 'Night 0');
-    expect(readSaveHeader(now).formatVersion).toBe(4);
+    expect(readSaveHeader(now).formatVersion).toBe(5);
     expect((await openSave(now)).header.matchId).toBe('new');
   });
 
