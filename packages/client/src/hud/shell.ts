@@ -1834,9 +1834,10 @@ export class GameShell {
   private refreshCommandCard(): void {
     const card: Card = this.commands.card();
     // Jade's Patch 2: square buttons as big as the card holds, never under the minimum; the card grows upward only when they cannot fit at it.
+    // Jade, indev 0.8: the minimum is the size at which the card holds CARD_HOLDS buttons (g.buttonMin).
     const g = this.geometry;
     const inner = cardInner(g);
-    const fit = fitButtons(card.length, inner.w, inner.h, g.maxH);
+    const fit = fitButtons(card.length, inner.w, inner.h, g.maxH, g.buttonMin);
     const was = this.cardFit;
     if (!was || was.size !== fit.size || was.cols !== fit.cols || was.rows !== fit.rows || was.height !== fit.height || was.shown !== fit.shown) {
       this.cardFit = fit;

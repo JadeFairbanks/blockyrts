@@ -24,6 +24,14 @@ export const MAX_COLS = 10;
 export const BUTTON_MIN = 2 * SLOT;
 /** Where the screen is too short for the card to grow far enough, buttons shrink below the minimum, but never below the size before Patch 2 (s). */
 export const BUTTON_FLOOR = SLOT;
+/**
+ * Jade, indev 0.8: the card at its standard size holds this many buttons before
+ * they stop shrinking and it grows upward (she asked for 9 to 15, 10 to 12 by
+ * preference; [before: as many as fit at BUTTON_MIN, 4 on a 5-column card to 10
+ * on a 10-column one]). Twelve fills a clean grid on every desktop card, 4 by 3
+ * or 6 by 2 (s). Not on a phone, whose buttons stay big enough for a thumb (s).
+ */
+export const CARD_HOLDS = 12;
 /** The minimap with its utility bar along the top. */
 export const MINIMAP_W = 352;
 export const MINIMAP_H = 262;
@@ -65,6 +73,8 @@ export interface HudGeometry {
   rows: number;
   /** The tallest the space inside the card's frame may grow (unscaled px), keeping clear of the top right block. */
   maxH: number;
+  /** The smallest the card's buttons get before it grows upward (unscaled px; buttonMin). */
+  buttonMin: number;
   minimap: Box;
   portrait: Box;
   middle: Box;
@@ -125,6 +135,7 @@ export function hudLayout(input: LayoutInput): HudGeometry {
     cols,
     rows,
     maxH: heightUnder(H, s, input.topRight, rows),
+    buttonMin: buttonMin(cardInner({ cols, rows }), CARD_HOLDS),
     minimap: { x: 0, w: mmW, h: px(MINIMAP_H) },
     // Jade's Patch 2: the portrait sits between the middle and the card [before Patch 2: between the minimap and the middle].
     portrait: { x: W - cardW - ptW, w: ptW, h: px(ch) },
@@ -163,6 +174,7 @@ function phoneLayout(input: LayoutInput): HudGeometry {
     cols,
     rows,
     maxH: heightUnder(H, s, input.topRight, rows),
+    buttonMin: BUTTON_MIN,
     minimap: { x: left, w: Math.min(px(MINIMAP_W), span), h: Math.min(px(MINIMAP_H), Math.round(H * 0.5)) },
     // The portrait next to the card here too (Jade's Patch 2).
     portrait: { x: left + span - ptW, w: ptW, h: stripH },
@@ -209,21 +221,33 @@ export function squares(n: number, w: number, h: number): ButtonGrid {
 }
 
 /**
+ * The smallest a card's buttons get before the card grows upward (Jade,
+ * indev 0.8): the size `holds` buttons are in the card at its standard size
+ * (w by h inside the frame), so that many always fit before it grows. Never
+ * above BUTTON_MIN, Patch 2's minimum, nor under BUTTON_FLOOR.
+ */
+export function buttonMin(inner: { w: number; h: number }, holds: number): number {
+  return clamp(squares(holds, inner.w, inner.h).size, BUTTON_FLOOR, BUTTON_MIN);
+}
+
+/**
  * Jade's Patch 2 button sizing: the action menu's buttons are squares as big
  * as fit in the card at its standard size (w by h inside the frame), but never
- * under BUTTON_MIN. When they cannot all fit at the minimum, the card grows
- * upward just enough to hold them at it. Where the screen is too short for
- * that (the card stops under the top right block, maxH), they shrink to fit,
- * never under BUTTON_FLOOR (s); a menu too long even for that pages.
+ * under the minimum (min: BUTTON_MIN in Patch 2; from indev 0.8 the size at
+ * which the card holds CARD_HOLDS, HudGeometry.buttonMin). When they cannot all
+ * fit at the minimum, the card grows upward just enough to hold them at it.
+ * Where the screen is too short for that (the card stops under the top right
+ * block, maxH), they shrink to fit, never under BUTTON_FLOOR (s); a menu too
+ * long even for that pages.
  */
-export function fitButtons(n: number, w: number, h: number, maxH: number): ButtonFit {
+export function fitButtons(n: number, w: number, h: number, maxH: number, min: number = BUTTON_MIN): ButtonFit {
   const count = Math.max(1, n);
   const here = squares(count, w, h);
-  if (here.size >= BUTTON_MIN) return { ...here, height: h, shown: n };
+  if (here.size >= min) return { ...here, height: h, shown: n };
   const top = Math.max(h, maxH);
-  const perRow = Math.max(1, Math.floor((w + GAP) / (BUTTON_MIN + GAP)));
+  const perRow = Math.max(1, Math.floor((w + GAP) / (min + GAP)));
   const rows = Math.ceil(count / perRow);
-  const need = rows * BUTTON_MIN + (rows - 1) * GAP;
+  const need = rows * min + (rows - 1) * GAP;
   if (need <= top) {
     const height = Math.max(h, need);
     return { ...squares(count, w, height), height, shown: n };
