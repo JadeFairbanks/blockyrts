@@ -83,7 +83,7 @@ export function manaCap(state: SimState, i: number): number {
 }
 
 /** A new Novice Acolyte of a school, with a full mana bar, a hazel wand and a homespun robe; returns her index. */
-export function addMage(state: SimState, owner: number, x: number, z: number, school: number): number {
+export function addMage(state: SimState, owner: number, x: number, z: number, school: number, wand = 1, robe = 1): number {
   const id = state.nextEntityId++;
   const e = state.entities;
   const i = e.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Mage);
@@ -91,8 +91,8 @@ export function addMage(state: SimState, owner: number, x: number, z: number, sc
   e.rank[i] = 1;
   e.hp[i] = mageRank(1).health;
   e.maxHp[i] = mageRank(1).health;
-  e.wTier[i] = 1;
-  e.aTier[i] = 1;
+  e.wTier[i] = wand;
+  e.aTier[i] = robe;
   applyKit(e, i, 'mage');
   e.mana[i] = manaCap(state, i);
   e.homeX[i] = x;

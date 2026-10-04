@@ -27,6 +27,9 @@ import {
   productProblem,
   RECIPE_PRODUCT,
   stalledHorses,
+  mageDefault,
+  mageLock,
+  mageSchoolsAt,
   troopDefault,
   troopTypesAt,
   upgradeProgress,
@@ -295,6 +298,13 @@ function postInfo(s: SimState): void {
           ? troopTypesAt(b).map((troop) => {
               const { w, a } = troopDefault(s, b, troop, PLAYER);
               return { troop, w, a, lock: b.locks[troop] ?? 0 };
+            })
+          : [],
+      mages:
+        usableBy(s, b, PLAYER) && b.complete
+          ? mageSchoolsAt(b).map((school) => {
+              const { w, a } = mageDefault(s, b, school, PLAYER);
+              return { school, w, a, lock: b.locks[mageLock(school)] ?? 0 };
             })
           : [],
       horses: b.kind === BuildingKind.Stables && b.complete ? stalledHorses(s, b).length : 0,

@@ -30,13 +30,16 @@ export type Product = number;
  * species at a livestock farm, SLAUGHTER_PRODUCT + species; making a siege
  * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine; a new troop
  * (units/kits.ts) TROOP_PRODUCT + type x 100 + weapon tier x 10 + armour
- * tier (troopProduct).
+ * tier (troopProduct); a new mage with her kit picked at a Magi Sanctum
+ * (Patch 2), MAGE_PRODUCT + school x 100 + wand tier x 10 + robe tier
+ * (mageProduct).
  */
 export const RESEARCH_PRODUCT = 8;
 export const RECIPE_PRODUCT = 512;
 export const SLAUGHTER_PRODUCT = 1024;
 export const ENGINE_PRODUCT = 2048;
 export const TROOP_PRODUCT = 4096;
+export const MAGE_PRODUCT = 8192;
 
 /** The product for a new troop of a type with a weapon tier and an armour tier. */
 export function troopProduct(troop: number, weapon: number, armour: number): Product {
@@ -45,9 +48,21 @@ export function troopProduct(troop: number, weapon: number, armour: number): Pro
 
 /** A troop product's type and tiers, or undefined for any other product. */
 export function troopOf(product: Product): { troop: number; w: number; a: number } | undefined {
-  if (product < TROOP_PRODUCT) return undefined;
+  if (product < TROOP_PRODUCT || product >= MAGE_PRODUCT) return undefined;
   const n = product - TROOP_PRODUCT;
   return { troop: floorDiv(n, 100), w: floorDiv(n, 10) % 10, a: n % 10 };
+}
+
+/** The product for a new mage of a school (magic/spells.ts School) with a wand tier and a robe tier, trained at a Magi Sanctum (Patch 2). */
+export function mageProduct(school: number, wand: number, robe: number): Product {
+  return MAGE_PRODUCT + school * 100 + wand * 10 + robe;
+}
+
+/** A Sanctum mage product's school and wand and robe tiers, or undefined for any other product. */
+export function mageOf(product: Product): { school: number; w: number; a: number } | undefined {
+  if (product < MAGE_PRODUCT) return undefined;
+  const n = product - MAGE_PRODUCT;
+  return { school: floorDiv(n, 100), w: floorDiv(n, 10) % 10, a: n % 10 };
 }
 
 export interface QueueItem {
@@ -117,9 +132,10 @@ export interface Building {
   /** Research the players it was inherited from had (a bit per step), which anyone using it may build on. */
   tech: number;
   /**
-   * Barracks, Stables and main bases: the Lock per troop type (Barracks and
-   * Stables panel), by type: 0 unlocked, else 1 + weapon tier x 10 + armour
-   * tier, the combination this building keeps making.
+   * Barracks and Stables: the padlock per troop type (Patch 2's training
+   * cards), by type; a Magi Sanctum's per school at mageLock (6 support, 7
+   * battle): 0 unlocked, else 1 + weapon (wand) tier x 10 + armour (robe)
+   * tier, the kit this building keeps training.
    */
   locks: number[];
 }
