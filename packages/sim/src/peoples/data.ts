@@ -135,10 +135,10 @@ const STEEL_HEATER = SHIELD_GEAR[shieldRow(7).tier]!;
  * Hammerguards a two-handed war hammer; crossbowmen short range, hard-hitting.
  */
 export const PEOPLE_UNITS: readonly PeopleUnitSpec[] = [
-  unit({ id: PeopleUnit.HalflingMale, name: 'Halfling', people: People.Halfling, model: 'halfling_male', hp: 60, speed10: 26, fighter: false, heightCm: 150 }),
-  unit({ id: PeopleUnit.HalflingFemale, name: 'Halfling', people: People.Halfling, model: 'halfling_female', hp: 50, speed10: 26, fighter: false, heightCm: 100 }),
-  unit({ id: PeopleUnit.HalflingSpearman, name: 'Halfling spearman', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: SPEAR_BRONZE, armour: PeopleGear.HalflingHelm, shield: PeopleGear.Buckler, heightCm: 150 }),
-  unit({ id: PeopleUnit.HalflingArcher, name: 'Halfling archer', people: People.Halfling, model: 'halfling_archer', hp: 70, speed10: 26, fighter: true, ranged: PeopleGear.Shortbow, weapon: PeopleGear.Shortsword, heightCm: 150 }),
+  unit({ id: PeopleUnit.HalflingMale, name: 'Halfling', people: People.Halfling, model: 'halfling_male', hp: 40, speed10: 26, fighter: false, heightCm: 150 }),
+  unit({ id: PeopleUnit.HalflingFemale, name: 'Halfling', people: People.Halfling, model: 'halfling_female', hp: 30, speed10: 26, fighter: false, heightCm: 100 }),
+  unit({ id: PeopleUnit.HalflingSpearman, name: 'Halfling spearman', people: People.Halfling, model: 'halfling_spearman', hp: 45, speed10: 26, fighter: true, weapon: SPEAR_BRONZE, armour: PeopleGear.HalflingHelm, shield: PeopleGear.Buckler, heightCm: 150 }),
+  unit({ id: PeopleUnit.HalflingArcher, name: 'Halfling archer', people: People.Halfling, model: 'halfling_archer', hp: 40, speed10: 26, fighter: true, ranged: PeopleGear.Shortbow, weapon: PeopleGear.Shortsword, heightCm: 150 }),
   unit({ id: PeopleUnit.RunkinMale, name: 'Runkin', people: People.Runkin, model: 'runkin_male', hp: 70, speed10: 30, fighter: false, heightCm: 150 }),
   unit({ id: PeopleUnit.RunkinFemale, name: 'Runkin', people: People.Runkin, model: 'runkin_female', hp: 70, speed10: 30, fighter: false, heightCm: 150 }),
   unit({ id: PeopleUnit.RunkinArcher, name: 'Runkin archer', people: People.Runkin, model: 'runkin_archer', hp: 80, speed10: 30, fighter: true, ranged: LONGBOW, weapon: CUDGEL, armour: PeopleGear.Leathers, walkShoot: true, heightCm: 150 }),
@@ -153,7 +153,7 @@ export const PEOPLE_UNITS: readonly PeopleUnitSpec[] = [
   unit({ id: PeopleUnit.DwarfCrossbowman, name: 'Dwarf Crossbowman', people: People.Dwarf, model: 'dwarf_crossbowman', hp: 130, speed10: 22, fighter: true, ranged: PeopleGear.DwarfCrossbow, weapon: SWORD_STEEL, armour: PeopleGear.DwarfMail, heightCm: 130 }),
   // Milestone 8. The war ox's front rider carries the spearman's bronze spear, and its rear rider's shortbow is the ox's own attack
   // (mounts/data.ts); the bear rider the Bladewarden's glaive; both ride at the mount's speeds (Table 14).
-  unit({ id: PeopleUnit.HalflingOxRider, name: 'Halfling ox rider', people: People.Halfling, model: 'halfling_spearman', hp: 90, speed10: 26, fighter: true, weapon: SPEAR_BRONZE, armour: PeopleGear.HalflingHelm, heightCm: 150, mount: WAR_OX }),
+  unit({ id: PeopleUnit.HalflingOxRider, name: 'Halfling ox rider', people: People.Halfling, model: 'halfling_spearman', hp: 60, speed10: 26, fighter: true, weapon: SPEAR_BRONZE, armour: PeopleGear.HalflingHelm, heightCm: 150, mount: WAR_OX }),
   unit({ id: PeopleUnit.ElfBearRider, name: 'Elf bear rider', people: People.Elf, model: 'elf_bear_rider', hp: 160, speed10: 34, fighter: true, weapon: PeopleGear.Glaive, armour: PeopleGear.Leathers, heightCm: 190, mount: WAR_BEAR }),
   // Gunner: "Cities only. Musket, slow to reload." Cannon crew: "Cities only. Defends the city walls." (s: a flintlock musket;
   // the crew carry steel swords and work the city's two cannons at the gate.)

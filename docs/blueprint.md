@@ -520,6 +520,10 @@ Jade's mini patch (2026-10-04; picks in mini-patch-spawns-picks.md):
 
 - Spawns and world scale: in a game for two or more the main bases stand 10 to 15 m apart, measured from the outer edge of each Big House, two to four players in a tight group and five to eight in a straight line, so no base is surrounded; each base's Table 9 set lies in its own yard on the side away from the others (see Each player's pocket). Every cell is 30% smaller across, so every ring and band begins 30% nearer the start (see Cell sizes). Saves from before it are refused (save format 4).
 
+Patch 3 (2026-10-04):
+
+- Balance changes (Jade's editor export balance-changes-2026-10-04.json; picks in patch3-balance-picks.md): wild animals, the hostile tribes, village goblins and the wolf rider, the Elf caravan wagon and five Halfling units take Jade's new health and damage (for example bear 200 health and 16 damage, was 400 and 25; minotaur 250 and 30, was 900 and 45; hobgoblin 60 and 10, was 220 and 22), and a monster counts as rare and powerful for loot remarks from 500 health (was 1,000). Saves from before Patch 3 are refused (snapshot 19, save format 5).
+
 Waiting on Jade's word, in no set order (s, 2026-10-03):
 
 - Redeploy the live site with the latest main.
@@ -1498,7 +1502,7 @@ What a kill drops (a hunted animal's meat, hides and feathers, a monster's drops
 - **Who takes it:** the unit that made the kill takes what fits in its bag, if it is within 4 m (suggested); then the other units of its side within 4 m, nearest first; the rest falls on the ground there, shown as the good's icon. Every living unit carries a bag of 25 lb (Table 12's carrying limit (suggested)), a worker's gathered load counting against it. Engines and animals carry nothing: they do not eat. A cannon cannot pick loot up, but its crew can.
 - **Picking it up:** right click loot with units and the nearest of them with room walk over, as many as it takes to carry it all; any loot can be picked up this way. By themselves, units pick up their own side's loot (and loot that is anyone's) when they would otherwise be idle, the fighting is done and no enemy is within 15 m of them or the loot (suggested): within 15 m, or 40 m for the unit that made the kill, so a ranger goes back for what it shot (suggested). At dusk and at night they only pick up loot within 5 m (suggested). Units with fighting, guarding or other orders finish those first.
 - **Handing it in:** a unit idle in the dawn or the day takes its bag to the nearest drop-off that takes everything (a main base or a storehouse), then walks back to where it stood. Gatherers hand their bags in with every load, and Return Cargo hands a bag in. Loot left on the ground rots after 3 days and nights (suggested).
-- **Talking about it:** units say what they picked up now and then (one time in four, at most once in 10 seconds for a player's units (suggested)), as a bubble only. A find worth remarking on is always announced with an exclamation, in its bubble: anything from a boss or a rare and powerful monster (1,000 health or more, or one that comes only a few a night), any drop as rare as 5% a kill, and any find worth twice what that creature usually drops (suggested), as in "A ruby and 4 gold from Morvath!" Hunters say what prey they got instead: "Got a deer: 4 meat and 2 hides."
+- **Talking about it:** units say what they picked up now and then (one time in four, at most once in 10 seconds for a player's units (suggested)), as a bubble only. A find worth remarking on is always announced with an exclamation, in its bubble: anything from a boss or a rare and powerful monster (500 health or more since Patch 3, 1,000 before; or one that comes only a few a night), any drop as rare as 5% a kill, and any find worth twice what that creature usually drops (suggested), as in "A ruby and 4 gold from Morvath!" Hunters say what prey they got instead: "Got a deer: 4 meat and 2 hides."
 
 #### Digging and prospecting
 
