@@ -566,18 +566,46 @@ export function newPlayer(pool: Int32Array): PlayerState {
 export const PLAYER_FIELDS = ['research', 'out', 'made', 'rations', 'mealTurn', 'starveWorkers', 'starveTroops', 'starveLodge', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /**
+ * A question a unit or building asks its owner (Patch 2, round 3: actionable
+ * bubbles), as the client needs it to draw the bubble and its Yes and No
+ * buttons, or the news that it has ended.
+ */
+export interface AskInfo {
+  /** The question's number in this game (one count for every player). */
+  id: number;
+  /** Which question (units/questions.ts Ask). */
+  q: number;
+  /** The units it speaks for (entity ids, the speaker first; empty for a building's). */
+  units: number[];
+  /** The resource it is about (Ask.Farther), or -1. */
+  res: number;
+  /** The step it stops waiting for an answer: 30 s of game time after it was asked. */
+  until: number;
+  /** What Yes and No do, in full, for the buttons' tooltips (Yes's also says what it takes from the stock). */
+  yes: string;
+  no: string;
+  /** Set on the event that ends it: answered, unanswered in time, or its speaker gone. */
+  closed?: boolean;
+}
+
+/**
  * Something the players should hear about: the message panel's alerts,
- * built-and-trained notes, the idle gatherer cue, and what units say (Unit
- * speech and the message panel).
+ * built-and-trained notes, what units say (Unit speech and the message
+ * panel), and the questions they ask (Patch 2; a gatherer that runs out
+ * asks "Look farther off?" where it once raised the idle alert).
  */
 export interface SimEvent {
-  /** Player it is for, or -1 for everyone. */
+  /** Player it is for (a question's: its owner, though every player sees its bubble), or -1 for everyone. */
   player: number;
-  kind: 'alert' | 'info' | 'idle' | 'period' | 'speech' | 'prospect';
+  kind: 'alert' | 'info' | 'period' | 'speech' | 'prospect' | 'question';
   text: string;
   /** Speech: the unit that said it (an entity id), and its name for the panel ("Halfling spearman", "Worker"). */
   speaker?: number;
   name?: string;
+  /** Speech or a question from a building (Patch 2: over the middle of its roof): its id; there is no speaker then. */
+  building?: number;
+  /** A question (kind 'question'), or its end. */
+  ask?: AskInfo;
   /** Speech: needs the player's attention (an order it cannot carry out, under attack): the minimap pings, the panel flashes. */
   urgent?: boolean;
   /** Speech that only tells what a unit is doing (loot it picked up, a hunt, a gatherer heading home): a bubble, not a line in the panel. */

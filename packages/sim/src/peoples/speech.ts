@@ -1,14 +1,20 @@
 // Unit speech (Unit speech and the message panel): what units say as
-// events. The players' own units speak to their player (into the panel and
-// as a bubble); another people's units speak as bubbles, and their
-// important lines reach the panel of each player with a unit near enough
-// to hear them. Random remarks are the client's alone (never state).
+// events. Every line is a bubble over its speaker; which lines also reach a
+// player's message panel is the client's call (Patch 2, What reaches chat:
+// the speaker is the player's own and the line is urgent). Another people's
+// units speak as bubbles too. Random remarks are the client's alone (never
+// state). The questions units and buildings ask (Patch 2) live in
+// units/questions.ts; what is said here hands over to them through askHooks.
 
 import { floorDiv, length2d, STEPS_PER_SECOND } from '../fixed.ts';
 import { PEOPLES, UnitKind, type SimEvent, type SimState } from '../state.ts';
 import { mobSpec } from '../combat/mobs.ts';
 import { unitTitleOf } from '../units/names.ts';
 import { Role } from '../threats/types.ts';
+import { engineSpec } from '../siege/data.ts';
+import { buildingName } from '../buildings/data.ts';
+import { buildingCentre } from '../buildings/lights.ts';
+import type { Building } from '../buildings/store.ts';
 import { FactionKind, LEADER_NAMES, peopleUnitSpec, SPEECH_NEAR_WU } from './data.ts';
 import { factionById } from './types.ts';
 
@@ -18,6 +24,32 @@ const ATTACKED_UNIT_GAP = 30 * STEPS_PER_SECOND;
 
 /** Not state: when each player's units and each unit last said they were under attack. */
 const attackedAt = new WeakMap<SimState, { players: number[]; units: Map<number, number> }>();
+
+/**
+ * The questions (units/questions.ts, Patch 2) that speech and the rest of
+ * the sim hand over to, set when that module loads (it needs this one).
+ */
+export const askHooks: {
+  /** A man up top who wants to get down to `foe` asks to; false when he cannot ask now (his player has 3 open). */
+  down: (state: SimState, i: number, foe: number) => boolean;
+  /** A gatherer working by hand ran out of `res` nearby. */
+  ranOut: (state: SimState, i: number, res: number) => void;
+  /** A player's unit fell: an engine it crewed may ask for another. */
+  fell: (state: SimState, i: number) => void;
+} = { down: () => false, ranOut: () => {}, fell: () => {} };
+
+/** Not state: the units with a question open, by entity id (their quiet lines wait). */
+const askingAt = new WeakMap<SimState, Set<number>>();
+
+/** The units with a question open now (entity ids), for units/questions.ts to keep. */
+export function asking(state: SimState): Set<number> {
+  let s = askingAt.get(state);
+  if (!s) {
+    s = new Set();
+    askingAt.set(state, s);
+  }
+  return s;
+}
 
 /** The name a unit speaks under in the message panel. */
 export function speakerName(state: SimState, i: number): string {
@@ -30,19 +62,23 @@ export function speakerName(state: SimState, i: number): string {
     if (e.kind[i] === UnitKind.Animal) return 'Animal';
     return peopleUnitSpec(e.mob[i]!).name;
   }
+  if (e.kind[i] === UnitKind.Engine) return engineSpec(e.mob[i]!).name;
   return unitTitleOf(state, i);
 }
 
 /**
- * One of the players' units says something to its player; urgent lines ping
- * the minimap and flash the panel. A quiet line only tells what the unit is
- * doing: it shows as a bubble and stays out of the panel, as random remarks
- * do (Jade's play-test notes).
+ * One of the players' units says something to its player. An urgent line
+ * needs the player now (an order failed, danger or harm, or it stopped and
+ * will not carry on alone): it goes to its owner's message panel too, pings
+ * the minimap and flashes the panel (Patch 2, What reaches chat). A quiet
+ * line only tells what the unit is doing, and waits while the unit has a
+ * question open (Patch 2, round 3).
  */
 export function say(state: SimState, i: number, text: string, urgent = false, quiet = false): void {
   const e = state.entities;
   const player = e.owner[i]!;
   if (player >= state.players.length) return;
+  if (quiet && askingAt.get(state)?.has(e.id[i]!)) return;
   const ev: SimEvent = { player, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), urgent, x: e.x[i]!, z: e.z[i]! };
   if (quiet) ev.quiet = true;
   state.events.push(ev);
@@ -127,9 +163,11 @@ const upTopAt = new WeakMap<SimState, { players: number[]; units: Map<number, nu
 
 /**
  * A man on a tower or a main base's top with no bow or gun sees an enemy
- * close (Jade's patch notes 1): "I'm not much help up here!", and a warrior
- * one time in three wants to get down to foe, the nearest enemy on the
- * ground, instead (-1 when only flyers are near: they are not down there).
+ * close (Jade's patch notes 1): "I'm not much help up here!", a bubble only
+ * (Patch 2: nothing to do about it), and a warrior one time in three asks
+ * to get down to foe, the nearest enemy on the ground, instead (Patch 2,
+ * round 3's question; -1 when only flyers are near: they are not down
+ * there). With 3 questions of his player's open he waits his turn.
  */
 export function sayUpTop(state: SimState, i: number, foe: number): void {
   const e = state.entities;
@@ -142,15 +180,26 @@ export function sayUpTop(state: SimState, i: number, foe: number): void {
   }
   if (state.step - (t.players[player] ?? -UP_TOP_PLAYER_GAP) < UP_TOP_PLAYER_GAP) return;
   if (state.step - (t.units.get(e.id[i]!) ?? -UP_TOP_UNIT_GAP) < UP_TOP_UNIT_GAP) return;
+  const eager = foe >= 0 && e.kind[i] === UnitKind.Warrior && (e.id[i]! + floorDiv(state.step, UP_TOP_UNIT_GAP)) % 3 === 0;
+  if (eager && !askHooks.down(state, i, foe)) return;
   t.players[player] = state.step;
   t.units.set(e.id[i]!, state.step);
   if (t.units.size > 512) t.units.clear();
-  const eager = foe >= 0 && e.kind[i] === UnitKind.Warrior && (e.id[i]! + floorDiv(state.step, UP_TOP_UNIT_GAP)) % 3 === 0;
-  say(state, i, eager ? `Let me get down there to fight ${foesName(state, foe)}!` : "I'm not much help up here!");
+  if (!eager) say(state, i, "I'm not much help up here!", false, true);
+}
+
+/**
+ * A player's building says something to its player (Patch 2: buildings get
+ * bubbles too, over the middle of the roof), as a unit's say does.
+ */
+export function sayBuilding(state: SimState, b: Building, text: string, urgent = false): void {
+  if (b.owner >= state.players.length) return;
+  const [x, z] = buildingCentre(b);
+  state.events.push({ player: b.owner, kind: 'speech', text, building: b.id, name: buildingName(b.kind, b.level, b.variant), urgent, x, z });
 }
 
 /** What a man calls the enemy he sees: "those zombies", or a boss by name. */
-function foesName(state: SimState, j: number): string {
+export function foesName(state: SimState, j: number): string {
   const e = state.entities;
   if (e.kind[j] !== UnitKind.Mob) return 'them';
   const name = e.owner[j] === PEOPLES ? speakerName(state, j) : mobSpec(e.mob[j]!).name;

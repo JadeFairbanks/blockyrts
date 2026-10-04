@@ -35,7 +35,7 @@ import { runEat, runHaul, runHitch, runHunt, runProspect, runTame } from './fiel
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
-import { speakerName } from '../peoples/speech.ts';
+import { askHooks, speakerName } from '../peoples/speech.ts';
 import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend } from '../siege/engines.ts';
 import { bagEmpty, handIn, lootIdle, runLoot } from './loot.ts';
@@ -623,11 +623,6 @@ function runFollow(state: SimState, i: number, o: Extract<UnitOrder, { t: 'follo
   return CONTINUE;
 }
 
-function idleAlert(state: SimState, i: number, res: number): void {
-  const e = state.entities;
-  state.events.push({ player: e.owner[i]!, kind: 'idle', text: `I have run out of ${RESOURCES[res]!.name.toLowerCase()} nearby.`, x: e.x[i]!, z: e.z[i]!, speaker: e.id[i]!, name: speakerName(state, i), urgent: true });
-}
-
 function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gather' }>): boolean {
   const e = state.entities;
   // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home.
@@ -662,8 +657,9 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       e.nodeI[i] = -1;
       return CONTINUE;
     }
-    // A hunter's or hauler's carcass is done: the hunt behind it carries on without an idle cue; a gatherer working by itself looks farther.
-    if (res >= 0 && after !== 'hunt' && after !== 'forage') idleAlert(state, i, res);
+    // A hunter's or hauler's carcass is done: the hunt behind it carries on without a word; a gatherer working by itself looks farther.
+    // One working by hand asks whether to look farther off (Patch 2, round 3) [before Patch 2: "I have run out of (resource) nearby." and it stood].
+    if (res >= 0 && after !== 'hunt' && after !== 'forage') askHooks.ranOut(state, i, res);
     e.nodeI[i] = -1;
     return DONE;
   };
