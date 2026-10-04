@@ -49,6 +49,8 @@ export interface HudButtonDef {
   onPress?: (p: ButtonPress) => void;
   onRightClick?: (p: ButtonPress) => void;
   onDoubleClick?: (p: ButtonPress) => void;
+  /** A click or its key while it is greyed out (Patch 3: the command card asks those who can sort out why). */
+  onGreyPress?: () => void;
 }
 
 export class HudButton {

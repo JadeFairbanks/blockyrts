@@ -58,6 +58,8 @@ import {
   SPELLS,
   Troop,
   TROOP_PRODUCT,
+  troopProduct,
+  Greyed,
   mageLock,
   School,
   TOOL_KITS,
@@ -101,10 +103,10 @@ export interface CardEntry {
   /** Why it is greyed out. */
   reason: string;
   lit?: boolean;
-  /** Shown in red: it cannot be paid for right now (the ghost still appears, so the player can plan). */
-  short?: boolean;
   run(p: ButtonPress): void;
   double?(p: ButtonPress): void;
+  /** A click while it is greyed out (Jade's Patch 3): those who can sort out why ask, in bubbles (sim units/greyed.ts). */
+  grey?(): void;
   /** Its picture, when it has one of its own (card-icons.ts); else the shell picks one by action. */
   icon?: ButtonIcon | undefined;
   /** What it trains or makes, so the card can mark what a building is making now. */
@@ -432,9 +434,24 @@ export class Commands {
     if (active.startsWith('building:')) {
       const kind = Number(active.split(':')[1]);
       if (this.menu.page === 'make') return this.makeCard(kind, waiting);
-      return this.buildingCard(kind, waiting);
+      const card = this.buildingCard(kind, waiting);
+      // Jade's Patch 3: a card whose one button only opens a bigger menu (the Forge's Smelt) opens on that menu, with no Back.
+      if (Commands.lone(card)) return this.makeCard(kind, waiting, false);
+      return card;
     }
     return [];
+  }
+
+  /**
+   * Whether a card is one button that only opens a bigger menu (Jade's
+   * Patch 3: "a single button ... which then opens [a] menu ... feels like
+   * an extra pointless click"): the Forge's Smelt, the Workshop's Make, the
+   * Scholar's Lodge's Research and the Barn's Slaughter, while nothing else
+   * is on their cards.
+   */
+  static lone(card: Slots): boolean {
+    const shown = card.filter((e): e is CardEntry => e !== null);
+    return shown.length === 1 && shown[0]!.action === 'craft';
   }
 
   /** Whether every selected unit of the active type is another player's, shared with this one. */
@@ -860,6 +877,7 @@ export class Commands {
               this.menu = { page: 'build', sub: i, more: 0 };
               this.d.changed();
             },
+            grey: () => this.greyed(Greyed.Building, specs[0]!.kind),
           });
         }
       }
@@ -898,11 +916,19 @@ export class Commands {
     return [...page, more, ...after];
   }
 
+  /**
+   * A building of the build menu. Greyed out while its prerequisite is
+   * missing, and (Jade's Patch 3) while the stock cannot pay for it, so it
+   * cannot be picked up to place; a click on it then asks those who can
+   * sort it out. [Before Patch 3 a building the stock could not pay for
+   * showed in red and could still be placed as a plan.]
+   */
   private buildEntry(slot: number, spec: BuildingSpec, variant: number, name: string): CardEntry {
     const l = spec.levels[0]!;
+    const cost = spec.site ? (EARTHWORK_COSTS[variant] ?? l.cost) : this.buildCost(spec.kind);
     const why = this.d.game.info?.buildWhy[spec.kind] ?? spec.comesWith;
-    const short = this.d.game.costProblem(l.cost);
-    const lines = [spec.purpose, `Cost: ${costLine(l.cost)}. Build time: ${seconds(l.ws)} of one worker's work.`];
+    const short = this.d.game.costProblem(cost);
+    const lines = [spec.purpose, `Cost: ${costLine(cost)}. Build time: ${seconds(l.ws)} of one worker's work.`];
     if (l.gives) lines.push(`Gives: ${l.gives}.`);
     if (l.supply) lines.push(`Supply +${l.supply}.`);
     if (spec.light) lines.push(`Light ${spec.light.lightM} m${spec.light.claimM ? `, claims ${spec.light.claimM} m while lit` : ''}.`);
@@ -910,7 +936,7 @@ export class Commands {
     else if (Commands.chained(spec.kind)) lines.push(WALL_CHAIN_HELP);
     else if (spec.w === 1 && spec.d === 1) lines.push('Drag to place a line of them, 8 m apart.');
     if (!spec.site && !Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
-    if (short) lines.push(short);
+    const reason = [why, short].filter((x) => x).join(' ');
     return {
       action: `build-${spec.kind}-${variant}`,
       face: name,
@@ -919,11 +945,24 @@ export class Commands {
       grid: slot < 14,
       description: lines.join(' '),
       icon: buildIcon(spec, variant),
-      enabled: why === '',
-      reason: why,
-      short: short !== '',
+      enabled: reason === '',
+      reason,
       run: () => (spec.site ? this.startArea('earthwork', variant) : this.startPlacing(spec.kind, variant)),
+      grey: () => this.greyed(Greyed.Building, spec.kind),
     };
+  }
+
+  /** What a new building of a kind costs: its level 1 cost, times one more than the Scholar's Lodges standing for another Lodge (Research: rising facility cost). Earthworks: EARTHWORK_COSTS. */
+  private buildCost(kind: number): Cost {
+    const cost = levelSpec(kind, 1).cost;
+    if (kind !== BuildingKind.ScholarsLodge) return cost;
+    const m = [...this.d.game.buildings.values()].filter((b) => b.owner === this.d.player && b.kind === kind).length + 1;
+    return cost.map(([r, n]) => [r, n * m] as const);
+  }
+
+  /** A greyed-out button clicked (Jade's Patch 3): the sim has the units and buildings that can sort out why ask, in bubbles. */
+  private greyed(what: number, id: number, building = 0): void {
+    this.d.send({ kind: 'greyed', player: this.d.player, what, id, building, units: this.unitIds() });
   }
 
   /** A building's card: its training, making and research, Rally, Upgrade, Unload and Cancel, in their places before Patch 2 with the gaps closed. */
@@ -984,6 +1023,7 @@ export class Commands {
         run: () => {
           for (const b of all) this.d.send({ kind: 'upgrade', player: this.d.player, building: b.id });
         },
+        grey: () => this.greyed(Greyed.Upgrade, 0, first.id),
       };
     }
     if (all.some((b) => b.inside.length > 0)) {
@@ -1037,6 +1077,7 @@ export class Commands {
       enabled: reason === '',
       reason,
       run: (press) => this.produce(all, p, press.shift ? 5 : 1),
+      grey: () => this.greyed(Greyed.Product, p, all[0]!.id),
     };
   }
 
@@ -1061,6 +1102,7 @@ export class Commands {
       enabled: any,
       reason: any ? '' : why,
       run: (press) => this.trainTroopAt(all, troop, press.shift ? 5 : 1),
+      grey: () => this.greyed(Greyed.Product, troopProduct(troop, c.w, c.a), first.id),
     };
   }
 
@@ -1086,6 +1128,7 @@ export class Commands {
       enabled: any,
       reason: any ? '' : why,
       run: (press) => this.trainCardAt(all, card, press.shift ? 5 : 1),
+      grey: () => this.greyed(Greyed.Product, p, first.id),
     };
   }
 
@@ -1123,12 +1166,13 @@ export class Commands {
   }
 
   /**
-   * K (smelt, cook, research, make, slaughter): a button per product the
+   * K (smelt, research, make, slaughter): a button per product the
    * building makes, greyed out with the sim's reason. The first 13 take the
    * grid keys; the card grows upward for the rest as far as the screen
-   * allows, and past that V shows the next page. B is Back.
+   * allows, and past that V shows the next page. B is Back, except where
+   * the building's card had nothing but K, so it opens here (Patch 3).
    */
-  private makeCard(kind: number, waiting: boolean): Slots {
+  private makeCard(kind: number, waiting: boolean, back = true): Slots {
     const all = this.buildings().filter((b) => b.kind === kind && b.complete);
     const first = all[0];
     const list: CardEntry[] = [];
@@ -1140,7 +1184,7 @@ export class Commands {
           list.push(k < MAKE_KEYS ? e : { ...e, key: '' });
         });
     }
-    return this.paged(list, waiting ? [] : [this.backEntry('Back to the building commands.')]);
+    return this.paged(list, waiting || !back ? [] : [this.backEntry('Back to the building commands.')]);
   }
 
   private backEntry(description: string): CardEntry {
@@ -2174,6 +2218,9 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
+/** What one column of each earthwork takes, by variant (Earth bank, Earth ramp, Fill, Lumber ramp, Stone ramp; sim units/dig.ts): greyed out without it (Patch 3). */
+const EARTHWORK_COSTS: readonly Cost[] = [[[Res.Earth, 1]], [[Res.Earth, 1]], [[Res.Earth, 1]], [[Res.LumberRamp, 1]], [[Res.StoneRamp, 1]]];
+
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */
