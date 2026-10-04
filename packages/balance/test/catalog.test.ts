@@ -88,6 +88,12 @@ describe('catalog', () => {
     expect(cat.entries.get('units/kits.ts:SHIELD_KITS:1')!.label).toBe('Wooden shield');
   });
 
+  it('leaves nothing under Other numbers', () => {
+    // A new sim table belongs in a group (MODULE_GROUPS) or, if it is plumbing, in SKIP_EXPORTS (src/core/rules.ts).
+    const other = cat.groups.find((g) => g.id === 'other')?.entries ?? [];
+    expect(other.map((e) => e.id)).toEqual([]);
+  });
+
   it('shows a kit row in the blueprint\'s units, its tier fixed and its material tier linked', () => {
     const at = (path: Array<string | number>) => cat.fields.get(pathKey('units/kits.ts', path))!;
     const bronze = cat.entries.get('units/kits.ts:CLOSE_KITS:4')!;
