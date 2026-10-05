@@ -18,7 +18,7 @@ import { UnitKind, standY, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
 import { bodyHeight, dealt, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
-import { addMob, engageUnit, inheritRole, lateHooks, playerUnit } from '../combat/mob-ai.ts';
+import { addMob, combatTroop, engageUnit, inheritRole, lateHooks, playerUnit, turnedOnTroops } from '../combat/mob-ai.ts';
 import { Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
 import { buildingTop, FIRE, launch, POISON } from '../combat/projectiles.ts';
 import { knockBack } from '../mounts/riding.ts';
@@ -170,8 +170,8 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
   switch (spec.id) {
     case Mob.Gravewing:
     case Mob.RiftGriffin: {
-      // It goes for a lone worker when it sees one.
-      if (t >= 0 && loneWorker(state, t)) return false;
+      // It goes for a lone worker when it sees one, unless a troop's blow has turned it on the troops (Jade's Patch 4).
+      if (t >= 0 && (loneWorker(state, t) || (combatTroop(state, t) && turnedOnTroops(state, i)))) return false;
       const w = nearestLoneWorker(state, i);
       if (w < 0) return false;
       engageUnit(state, i, spec, w);

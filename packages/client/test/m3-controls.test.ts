@@ -17,7 +17,8 @@ import {
   type Order,
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { AREA_DEFAULT_UNITS, Commands, menuSlots, submenuChoices, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { AREA_DEFAULT_UNITS, Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { menuSlots, submenuChoices } from '../src/hud/menu-keys.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -256,7 +257,7 @@ describe('the Big House', () => {
   /** What the sim worker sends for a Big House: its three troop types at tier 1, and what it makes. */
   const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
 
-  it('trains close melee, long melee and rangers on A, Q and N, and makes rope with grid keys', () => {
+  it('trains close melee, long melee and rangers on A, Q and N, and makes rope on R (Patch 4: no grid keys)', () => {
     const g = game({ pool: [[Res.FarmFare, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
     const house = g.buildings.get(20)!;
     house.troops = troops;
@@ -276,7 +277,8 @@ describe('the Big House', () => {
     craft.run(PRESS);
     const make = c.card();
     const rope = make.find((e) => e.name === 'Rope')!;
-    expect(rope.grid).toBe(true);
+    expect(rope.key).toBe('KeyR');
+    expect(rope.menu).toBe(true);
     expect(rope.enabled).toBe(false);
     expect(rope.reason).toContain('Not enough flax');
     // The Big House makes rope at one worker's pace, as before Patch 2.

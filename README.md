@@ -114,7 +114,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `5d6f44ab`
+   step as the headless runner with no script: for seed 1 that is `74238647`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `5d6f44ab` at step 40, with two players `f0c858ac`. The land matches too.
+   `74238647` at step 40, with two players `613ef031`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
    prints `final step 10000 hash 4f285c95`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
@@ -185,9 +185,11 @@ out.* (The warrior joins in milestone 3.)
    trees run out, the worker goes idle, a message says so, and the Idle
    Gatherer button (F1, bottom left, with the number of idle workers)
    selects it and centres on it. C returns cargo; G then a click gathers.
-3. **Build.** With workers selected press B (Basic Structures). Buildings
-   sit on the grid keys Q W E R T / A S D F G / Z X C V, with B for Back:
-   B then W opens Farms, B then C opens Lights. Pick one and a ghost follows
+3. **Build.** With workers selected press B (Build; Basic Structures before
+   Patch 2). Each building is on the letter in its button's corner, and Esc
+   goes back: B then F is a Farm, B then T opens Lights (Patch 4; before,
+   the buildings sat on the grid layout Q W E R T / A S D F G / Z X C V with
+   B for Back, so B then W opened Farms). Pick one and a ghost follows
    the cursor with a green or red tile per column, the 10 m of land it will
    claim, and for lights their light and claim rings. Left click places it
    (Shift + click places several and keeps the ghost); drag with a torch post
@@ -196,7 +198,8 @@ out.* (The warrior joins in milestone 3.)
    red cannot be paid for yet. The cost is taken when a worker arrives and
    starts; scaffolding goes up and the building rises as it is built. Select
    an unfinished building and press X to take it down for 80% back.
-4. **Farm.** Build a wheat field (B, W, Q), then right-click it with two
+4. **Farm.** Build a wheat field (B, W, Q; since Patch 2 the Farm, B then F
+   from Patch 4), then right-click it with two
    workers: they become its farmers. The field grows at once: its panel shows
    a harvest bar filling and when the next 6 wheat come in (see "How a tester
    checks farm harvests"). Press **Speed** in the debug panel for 4 or 16
@@ -213,8 +216,10 @@ out.* (The warrior joins in milestone 3.)
 7. **Lights and night.** A torch post (2 softwood, 1 resin) claims 5 m round
    it while lit. In Patch 2 lights need no fuel, and the bonfire (15
    softwood) lights 20 m and claims 10 m. At dusk the Everyone Home button (J) lights
-   up: it sends everyone to shelter in the Big House or a farm, and at day
-   they come out and carry on. Lights more than 40 m from the main base are
+   up: it sends everyone to shelter in the Big House or a farm, and at dawn,
+   once no monster within 25 m of their shelter is alive (in the day whatever
+   the monsters do), they come out and carry on (Patch 4; at daybreak
+   before). Lights more than 40 m from the main base are
    counted under the clock against the night's limit.
 8. **Orders and groups.** Shift queues orders (hold Shift to see the queue
    lines). M moves, S stops, E enters a building, R repairs (press R twice to
@@ -255,7 +260,8 @@ main base or farm left ends the game with the night count as the score.*
    Without walls, night 0 is hard: the zombies, bats, rats and spiders that
    come out of the dark edge will kill the warrior and chew down the Big
    House. With **Speed** in the debug panel you can get there quickly.
-3. **Walls.** Workers, B then G (Walls): softwood, hardwood and stone walls,
+3. **Walls.** Workers, B then D (Defences; before Patch 4, B then G opened
+   Walls): softwood, hardwood and stone walls,
    gates (east to west or north to south) and towers. Click with a wall to
    place one, then click further points: each click builds the whole stretch
    from the last point (see wall and tunnel chains below); gates are 3 columns wide and let your
@@ -270,8 +276,9 @@ main base or farm left ends the game with the night count as the score.*
    Melee only, Ranged only. Spears stab over a wall; clubs and axes cannot
    reach across it. Hits throw sparks, splinters or blood, units limp when
    hurt, and the dead lie for a few seconds then sink.
-5. **Equipment.** Select the Big House: K opens the crafting menu on the grid
-   keys (K then A makes a hardwood club); F refurbishes items back into
+5. **Equipment.** Select the Big House: K opens the crafting menu, each
+   product on the letter shown on its button (Patch 4; before, on the grid
+   keys: K then A made a hardwood club); F refurbishes items back into
    resources; A trains a warrior for 30 food and a club from the stock. Select
    units and press Q (Equip Best): they walk to the Big House and take the
    best they can use, highest rank first. With one unit selected, I opens its
@@ -291,14 +298,16 @@ main base or farm left ends the game with the night count as the score.*
    (see wall and tunnel chains below). Digging
    gives Earth (or stone, flint, sand...), which the workers carry to the
    nearest main base or Storehouse 25 lb at a time and then come back to the
-   dig (Patch 4; before it, what was dug went straight to the pool). B, Z
-   (Earthworks) heaps an earth bank, a ramp (drag from the bottom to the top)
-   or fill from that Earth. Marked areas stay outlined until done; right-click one with workers
-   to help. Zombies walk round a trench they cannot climb out of.
+   dig (Patch 4; before it, what was dug went straight to the pool). B, D and
+   then K, P or I (Earthworks, under Defences since Patch 2; before Patch 4,
+   B, Z) heaps an earth bank, a ramp (drag from the bottom to the top) or
+   fill from that Earth. A marked area shows its box while a selected worker
+   is on it and a dotted line otherwise, until done; right-click one with
+   workers to help. Zombies walk round a trench they cannot climb out of.
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 889b9dbd`: two workers raise a gate and a
+   prints `final step 10000 hash 1413e911`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -484,7 +493,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 3d213056`: the debug tools put a Barracks
+   prints `final step 10000 hash 979222b0`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -638,7 +647,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash f07b60b2`. The script plays by Patch 2's
+   prints `final step 10000 hash 33c77694`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
@@ -761,7 +770,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 98689ff7`: the debug tools put a Halfling
+    prints `final step 10000 hash 6f42256b`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -1158,7 +1167,8 @@ time, and each stretch reaches the sim as one order (its start, one of eight
 directions and a length). Placement rules, costs and dig rates are as they
 were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
 
-1. **A wall chain.** Select workers, B, G and a wall. Click: one wall is
+1. **A wall chain.** Select workers, B, D and a wall (W is the softwood
+   wall; before Patch 4, B, G and a wall). Click: one wall is
    placed there and the ghost stays. Move the mouse: the stretch from that
    wall to the cursor shows as a ghost, snapped to the nearest of the eight
    directions, with what it builds and costs beside the cursor ("9 walls:
@@ -1457,7 +1467,7 @@ place of the crop fields, vegetable farms and herb bed, growing in full in
 every band, and moved the hens to the Barn.
 
 1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Build a Farm
-   (B, W) and right-click it with one worker. Select it: under its health and
+   (B, F; before Patch 4, B, W) and right-click it with one worker. Select it: under its health and
    "1 of 2 farmers at work" a bar fills with the line "In 7 minutes 20
    seconds, 8 farm fare will be produced, giving a food value of 16." The bar
    starts with the farmer's first step of work.
@@ -1539,7 +1549,10 @@ before. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    the edge of the explored land, nearest the base first and sweeping round,
    no more than 25 m into the dark. At dusk they drop off their loads, say
    so ("Getting dark. Back to the base."), and go into the main base for the
-   night; at daybreak they go out again.
+   night; at daybreak they go out again. (Patch 4: workers near a building
+   and a troop ask to work on through the night instead, and those that go
+   in come out at dawn once no monster is near; see "How a tester checks
+   working through the night".)
 7. **Running out.** Right-click a small flint rock with a worker and let it
    run out with no flint near: the worker says what it gathers instead, and
    why (for example "No more flint here, and we're out of stone. I'll fetch
@@ -1568,9 +1581,10 @@ and every hash are unchanged. Picks in blueprint/hud-picks.md.
 1. **The strip.** `pnpm dev`, open http://localhost:5173/?seed=1 at 1920 x
    1080. Along the bottom edge, touching: the minimap with the utility bar
    on top, the portrait, the selection panel, the command card. The card is
-   4 rows tall and 10 columns wide here; the usual 5 x 3 block with the grid
-   keys is its bottom right corner. At 1280 x 720 the card has 5 columns; at
-   1024 x 768 the whole HUD is drawn smaller and nothing is cut off.
+   4 rows tall and 10 columns wide here; the usual 5 x 3 block (with the
+   grid keys until Patch 4) is its bottom right corner. At 1280 x 720 the
+   card has 5 columns; at 1024 x 768 the whole HUD is drawn smaller and
+   nothing is cut off.
 2. **Portrait.** Click a warrior: its head and shoulders, in its kit,
    breathing in its idle clip. Click the Big House: the house from about 45
    degrees. A deer or a beetle (debug "Creature") shows whole; a tree shows
@@ -1648,16 +1662,18 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash 28c43f0b`: the debug tools explore 200 m round the
+   prints `final step 10000 hash fc109fc4`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 86
    monsters are out at nightfall (27 before Patch 3 tripled them), round
-   them and round the workers at the camp, up to 223 at once later and 296
+   them and round the workers at the camp, up to 225 at once later and 296
    by the end of the script, and all four workers at the camp fall; five of
    them go for a unit, and night 0's monsters marching on the camp fall on
    the warriors and kill one; the other two end the night at full health
-   and about three fifths. They walk home at step 8200, and on the way a
-   giant spider kills the wounded one.
+   and about three fifths. They walk home at step 8200; a giant spider
+   goes for the wounded one on the way and falls to it before its bite
+   lands, so both come home (before Patch 4 the bite landed and its poison
+   killed the wounded one).
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm test` also runs `packages/sim/test/wanderers.test.ts`: where they
    come out (claimed land, lights, units, unexplored land, a peaceful game, a
@@ -1728,7 +1744,7 @@ Patch 2 do not load (the standing rule for every patch).
    or any click in between starts the count again (M N B Q V C X Z opens
    nothing; nor does M N B V, a click, C X Z), and the keys keep their usual
    jobs while you type them. A new game or a reload starts with them hidden.
-3. **Lights.** Select a worker: the Lights slot (B then V) has the torch
+3. **Lights.** Select a worker: Lights (B then T; before Patch 4, B then V) has the torch
    post (2 softwood, 1 resin, lights 10 m, claims 5 m) and the bonfire (15
    softwood, 3 by 3, lights 20 m, claims 10 m, buildable from the start);
    the wall torch and the lantern are cut in Patch 2. Build both; select
@@ -2062,16 +2078,17 @@ Gunnery yard as the Artillery workshop. Cooking, the kitchens, the lantern,
 wall torch and brazier are gone.
 
 1. **One Build menu.** `pnpm dev`, open http://localhost:5173/?seed=1, select
-   the workers and press B: Big House (Q), Farm (W), Barn (E), Storehouse
-   (R), Fishing dock (T), Workshop (A), Forge (S), Artillery workshop (D),
-   Barracks (F), Magi Sanctum (G), Scholar's Lodge (Z), Mineshaft (X),
-   Defences (C) and Lights (V); B is Back. The worker card has one Build
-   button where Basic and Advanced were.
-2. **Defences and Lights.** C opens Defences: the softwood, hardwood and
+   the workers and press B: Big House, Farm, Barn, Storehouse, Fishing
+   dock, Workshop, Forge, Artillery workshop, Barracks, Magi Sanctum,
+   Scholar's Lodge, Mineshaft, Defences and Lights, and Back. From Patch 4
+   each is on a letter of its name (H F R S I W G A B M C N D T) and Back on
+   Esc; before, they sat on the grid layout Q to V with B for Back. The
+   worker card has one Build button where Basic and Advanced were.
+2. **Defences and Lights.** D opens Defences: the softwood, hardwood and
    stone walls, the gates each way, the towers, then the earthworks. It is
-   17 choices, so the last slot reads "More 1/2" (V) and shows the rest, as
-   the K menu pages. V in the build menu opens Lights: the torch post and
-   the bonfire.
+   17 choices, so on a card too small for them the last slot reads "More
+   1/2" (+; V before Patch 4) and shows the rest, as the K menu pages. T in
+   the build menu opens Lights: the torch post and the bonfire.
 3. **The Farm and the Barn.** Build a Farm: two farmers grow farm fare ("A
    hearty medley of vegetables"), 8 a farmer-day, and it gives 10 supply. The
    **Barn** button on the debug bar puts down a red barn with 2 horses and an
@@ -2214,8 +2231,8 @@ portrait next to the card. The tinkering hook is `tinker(state, i, steps)` in
    buttons do not fit at the minimum size, so the card grows upward to hold
    them, still squares (from indev 0.8 the card holds twelve before it
    grows, so they fit; see the action card's twelve below). Press B: one build menu, the fourteen buildings on
-   the grid keys, with walls, gates, towers and earthworks under Defences and
-   the torch post and bonfire under Lights; B is Back.
+   letters of their names (on the grid keys before Patch 4), with walls, gates, towers and earthworks under Defences and
+   the torch post and bonfire under Lights; Esc is Back.
 4. **Attack on a friend.** Select a warrior, press A and click one of your
    own workers: the warrior walks over and hits it. Press A and click the
    ground: it attack-moves and leaves your own units alone.
@@ -2596,6 +2613,59 @@ blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
    than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
    from 30%).
 
+## How a tester checks the build menu's letters (Patch 4)
+
+*Jade's Patch 4: the build menu's hotkeys followed the grid layout (each
+building on the key in its place on the keyboard, Q to V, with B for Back)
+while no other button did; the grid goes and the buildings' keys work like
+every other button's. Picks in blueprint/patch4-hotkeys-picks.md. The
+menus and their letters are `packages/client/src/hud/menu-keys.ts`; every
+menu button is an action in `packages/client/src/input/bindings.ts`, so it
+shows in the settings. Client only: no sim change, no save format change.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch4-hotkeys.test.ts
+   (every building's letter, Defences and Lights, Esc for Back and + for
+   More, a rebound key on its button, the K menus' letters, no two buttons
+   of one menu on one key and none on L, J or O) and the m2 and m3 controls
+   tests.
+2. **The build menu.** `pnpm dev`, open http://localhost:5173/?seed=1, select
+   the four workers and press B. Each button shows its letter in its
+   corner: Big House H, Farm F, Barn R, Storehouse S, Fishing dock I,
+   Workshop W, Forge G, Artillery workshop A, Barracks B, Magi Sanctum M,
+   Scholar's Lodge C, Mineshaft N, Defences D, Lights T, and Back Esc.
+   Press F: the Farm's ghost is on the cursor (before Patch 4, F picked the
+   Barracks and W the Farm). Hovering a button shows the same letter beside
+   its name.
+3. **Defences and Lights.** B, D: the softwood, hardwood and stone walls on
+   W, H and S; the softwood gates on G (east to west) and F (north to
+   south), the hardwood ones on A and D, the stone ones on E and U; the
+   towers on T, R and N; earth bank K, earth ramp P, fill I, lumber ramp B
+   and stone ramp M. B, T, B picks up a bonfire, and B, T, T a torch post
+   once there is resin (at the start it is greyed out, and T asks who can
+   sort that out, as a click does). Esc goes back a step at a time. A menu
+   the card cannot hold even at its smallest buttons (on a short screen)
+   pages, and + turns the page (V before Patch 4).
+4. **Any keyboard layout.** Menu keys now go by the letter a key types, as
+   every other command's do, so on a French keyboard the key marked F still
+   picks the Farm (before Patch 4 the build menu went by where a key sits).
+5. **The K menus.** Type M N B V C X Z, press **Troop kit** and select the
+   Forge: copper ingot C, tin ingot T, bronze ingots B, wrought iron W, pig
+   iron P, iron ingot I, steel ingot S, carbon steel ingot A, charcoal H,
+   bricks R, glass G, gunpowder U (before Patch 4: Q W E R T, A S D F G, Z
+   X); H queues charcoal. Each product takes the first free initial of its name, else the
+   first free letter of its name. The Workshop has more products than
+   letters: 20 of its 43 get one and the rest are clicks until given a key.
+6. **Rebinding.** Open the menu (F10), Hotkeys: the build menu, Defences,
+   Lights and each building's K menu have a group of their own (the note
+   that build menu keys "follow the grid Q to B and stay as they are" is
+   gone). Click Farm's key, press Y, close the menu: B, Y picks up the Farm
+   and its button shows Y. "Reset all hotkeys" puts F back.
+7. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/hotkeys-look.mjs http://localhost:5198 /tmp/shots`
+   drives the build menu, Defences and Lights from the keyboard, places a
+   bonfire and a Farm, reads the Forge's and the main base's K menus and
+   queues charcoal on H, printing ok or FAIL for each.
+
 ## How a tester checks the fog look and hidden-unit outlines (Patch 3)
 
 *Jade's ask (2026-10-04): land that has been explored but is not seen right
@@ -2759,6 +2829,208 @@ up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
    land redraws in each part), the box off the texel grid by up to half a texel,
    and screen corners up to 17 m outside the box zoomed out.
 
+## How a tester checks marked digs (Patch 4)
+
+*Jade, 2026-10-05: after starting to dig, the outline stayed visible until
+the job was done. Now the full outline shows only while a selected worker is
+working on that dig; otherwise a single thin dotted line, as thick as each
+line of the outline, shows where the dig goes. Workers still join a dig as
+before. Picks in blueprint/patch4-dig-outline-picks.md. Which sites show in
+full and each site's dotted trace are `sitesInOrders` and `siteTraces` in
+`packages/client/src/hud/site-marks.ts`, drawn by `Overlay.dotted` and
+`drawSites` in `packages/client/src/hud/shell.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch4-dig-outline.test.ts:
+   a site shows in full when a selected worker has it in its orders, now or
+   lined up after its current job, and not for unselected workers' digs;
+   a dig, bank, fill or ramp is traced round its edge on the land, a marked
+   tunnel round its edge at its floor, and a tunnel chain's stretch along its
+   middle at its floor, each stretch meeting the next at their corner (also
+   round a closed loop, in any order, and not across different floors); the
+   dots are 15 cm long, one to a column, with one centred on every corner.
+2. **In the game.** `pnpm dev`, open http://localhost:5173/?seed=1, select a
+   worker, press D and drag a dig south of the Big House, left click: the
+   see-through box shows while the worker stays selected, also before it
+   gets there. Click the ground to select nothing: the box gives way to a
+   dotted orange line round the dig, on the land at its rim. Select another
+   worker: still the dotted line. Right-click the dotted area with it: that
+   worker joins, and now its box shows. With Shift held, a worker given a
+   second dig shows both boxes.
+3. **Tunnels.** Build the tester Hill (M N B V C X Z, then Hill), select a
+   worker, Dig, click the hill's south face and click into it and out of its
+   east side, then right click: with the worker selected each stretch has its
+   box; with nothing selected a dotted violet line runs along the middle of
+   the tunnel at its floor, seen through the hill, turning the corner as one
+   path.
+4. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/dig-outline-look.mjs http://localhost:5198 /tmp/shots`
+   gives three workers a dig, an underground tunnel chain and an earth bank,
+   and looks with nothing selected, each worker selected in turn and all of
+   them selected, printing ok or FAIL for each.
+
+## How a tester checks monsters turning on the troops (Patch 4)
+
+*Jade's Patch 4: an enemy monster that is chasing a worker or attacking a
+building and gets attacked by a troop switches to attacking the nearest
+troop, not necessarily the one that hit it. A troop is any combat unit:
+warriors of every kind (rangers, brawlers, cavalry, crewmen, mercenaries),
+mages and siege engines; workers are not. Picks in
+blueprint/patch4-mob-aggro-picks.md. The rule is `TROOP_AGGRO`,
+`troopAggro` and `combatTroop` in `packages/sim/src/combat/mob-ai.ts`, used
+there by the night monsters and the skeleton bombers and by wanderers
+(`threats/wanderers.ts`), lair dwellers, tribes, raiders and villages
+(`threats/foes.ts`) and the high flyers (`threats/late-mobs.ts`).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch4-mob-aggro.test.ts:
+   a zombie chasing a worker that an archer shoots from 18 m goes for the
+   swordsman 7 m off instead, and keeps him while the archer shoots again;
+   it goes back to the worker once no troop has hurt it for 5 s and its
+   troop is out of its chase; a zombie breaking the Big House turns on an
+   archer 22 m off that shot it; when the troop that hurt it cannot be
+   reached it looks 12 m round itself for another, 6 m on a fog night; a
+   worker's blow neither turns it nor hides a troop's blow just before; 0
+   in the editor turns the rule off; a skeleton bomber runs at the nearest
+   troop and goes off beside it; a wanderer, a lair's guardian (within its
+   leash), a tribesman and his band, and a gravewing (which no longer
+   snatches a lone worker) turn on the troops too; two idle warriors peel a zombie off a worker in a full game;
+   and a save taken while a monster is turned carries on to the same hash.
+2. **A worker chased.** `pnpm dev`, open http://localhost:5173/?seed=1, type
+   M N B V C X Z and press **Speed** until dusk on day 1. Send one worker to
+   fell trees about 25 m out from the Big House and stand the three warriors
+   together about 10 m from it. When a monster chases the worker, select one
+   warrior and right-click the monster: after the first blow it leaves the
+   worker and goes for the nearest warrior, which may not be the one that
+   hit it. It keeps that warrior until one of them falls, or until the
+   warrior is more than 20 m off and no troop has hurt it for 5 s; then it
+   goes back to what it was doing.
+3. **A building under attack.** Press **Troop kit** and train a crossbow
+   ranger at the Barracks. At dusk press Everyone Home so the monsters break
+   at the Big House, and have the ranger shoot one from about 20 m: that
+   monster leaves the house for the nearest troop (the ranger, if no other
+   is nearer), while the ones nobody hit keep breaking. A monster hit by a
+   man up a tower, whom it cannot reach, comes off the wall only for a troop
+   on the ground within 12 m of it (or as far as the tower, if that is
+   farther). Wild animals and territorial creatures (**Creature** on the
+   debug bar) are not monsters and still go for whoever hurt them.
+4. **Fog.** Press **Fog** before dusk: the 12 m look round itself is 6 m on
+   a fog night. A troop that hit it still draws it from any distance.
+5. **The balance editor** (once republished from main): Mobs and nights,
+   Mob behaviour: "A troop's blow turns a monster on the troops for" 5 s and
+   "It looks for the nearest troop at least this far" 12 m. Setting the
+   first to 0 turns the rule off.
+6. **Check scripts.** The M5, M6, M7 and wanderers hashes above are the ones
+   with Patch 4 (M0 to M4, M8 and the wall and tunnel chains do not move).
+   The stories that changed: in M5 one warrior falls at the goblin village
+   instead of two; in the wanderers script the most monsters out at once is
+   225 instead of 223, and on the walk home the giant spider falls to the
+   wounded warrior before its bite lands, so both come home. M6 and M7 end
+   as before. The step-40 hashes at the top of this file (`74238647`, with
+   two players `613ef031`) were out of date on main before Patch 4 and are
+   corrected here; Patch 4 does not change them.
+
+## How a tester checks work that waits (Patch 4)
+
+*Jade's Patch 4, three questions that ask by themselves: a farm that has sat
+empty for more than a minute asks to send a nearby worker; a building going
+up that no one has worked on for more than a minute asks for a builder (never
+at dusk or night); and a worker idle for more than a minute offers to farm,
+gather or help build. Picks in blueprint/patch4-worker-questions-picks.md.
+The questions are `packages/sim/src/units/work-asks.ts`; their numbers are on
+the balance editor's Questions page "Work that waits".*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch4-work-asks.test.ts:
+   each question comes after a minute and not before, never at dusk or night,
+   and a minute after dawn begins; one idle worker speaks for those near it;
+   Yes gathers, farms or builds as the question said; No rests until the next
+   day; the question goes when a worker is given an order or a farmer is
+   assigned; a farm with a farmer, or with no worker within 30 m, never asks;
+   the idle workers farm first and offer to help build a site; and Yes does
+   the same on a machine that loaded the game and never saw the question.
+2. **Idle workers.** `pnpm dev`, open http://localhost:5173/?seed=1 and leave
+   the four workers alone. About a minute in, one of them asks for all four:
+   "Four of us have nothing to do. Shall we gather?" Hover the tick: "All 4
+   gather what the side needs most, as the Gather button sends them." Click
+   it: they go gathering. Click the cross instead (or let it run out): they
+   stay idle and ask again only the next day, or a minute after their next
+   work ends.
+3. **An empty farm.** Build a Farm near the Big House and give the workers
+   nothing more to do. A minute after it is finished, the farm asks over its
+   roof: "No one is farming here. Send a worker?" Yes sends the nearest idle
+   worker (one gathering if none is idle) to farm it, handing in any load on
+   the way. Assign a farmer yourself while it asks: the bubble goes.
+4. **A building no one works on.** Start a Storehouse with one worker, then
+   send that worker off to gather. A minute later the site asks: "No one is
+   building this storehouse. Send a builder?" Yes sends a worker to finish
+   it. With idle workers near, they offer "Shall we help build the
+   storehouse?" instead of gathering. Start a site just before dusk and leave
+   it: nothing asks through dusk and the night, and it asks a minute after
+   dawn begins.
+5. **What reaches chat.** None of these goes to chat. Only "No worker is free
+   nearby to farm here." (or "... to build here."), when Yes finds no one
+   left to send, is urgent and does.
+
+## How a tester checks working through the night (Patch 4)
+
+*Jade's Patch 4 file (2026-10-05): workers gathering within 25 m of a
+building and within 50 m of a troop (any combat unit) no longer stop and go
+home by themselves at dusk, but ask "Should I keep working through the
+night?"; Yes lets them work on, No sends them to an empty farm, or the main
+base when there is none, and no answer counts as Yes for this one. Workers
+who went into the main base for the night come out in the day whatever the
+monsters do, or at dawn once no monster within 25 m is alive, and carry on
+with their task or gather if they had none. Picks in
+blueprint/patch4-night-work-picks.md. The rules are
+`packages/sim/src/units/night-work.ts`, with the dusk turn in
+`packages/sim/src/units/forage.ts`. Not live until Jade says so.*
+
+1. **The tests.** `pnpm test` runs `packages/sim/test/patch4-night-work.test.ts`:
+   the 25 m measured from a building's walls (a torch post or bonfire is not
+   a building here) and the 50 m to any warrior (an artillery crewman too),
+   mage or engine; one worker asking for the four round the Big House at
+   dusk; no answer, then working all night only within 25 m of a building
+   while the stock grows; Yes; No with no farm (into the main base, out at
+   dawn, gathering on); No with an empty farm (two become its farmers, the
+   rest go to the main base); no troop near, or farther than 25 m from every
+   building, and they go home without asking as before; the question gone
+   once they are all given other orders; a save in the night keeping who
+   works on; staying in at dawn while a monster lives within 25 m and out
+   once it dies; out in the day whatever the monsters do; Everyone Home by
+   day unchanged; a worker its player sends in by night out at dawn too.
+2. **The question.** `pnpm dev`, open http://localhost:5173/?seed=1 and,
+   with 40 s of the first day left, select the four workers and press
+   **Gather** (G): they go for what lies round the Big House, where the
+   three warriors stand. (A worker given a move order stops gathering by
+   itself, so move the warriors, not the workers.) At dusk one of
+   them asks "Should the four of us keep working through the night?" in a
+   bubble with a green tick and a red cross; its question goes past the 3 a
+   player may have open. Hover the tick and the cross for what each does in
+   full. Leave it: after 10 s the bubble goes and they keep gathering in the
+   dark (their panel says "Gathering through the night"), only what lies
+   within 25 m of a building, and come in once nothing is left there
+   ("Nothing left to gather near the buildings. Heading in.").
+3. **Yes and No.** Tick it another dusk: the same, at once. Cross it with no
+   farm standing: "Heading in for the night.", they drop off their loads and
+   go into the Big House. Build a Farm (B, then the Farm) with no farmers
+   and cross it the next dusk: "Off to work the farm.", two of them drop off
+   their loads and become its farmers (into the farmhouse tonight, on the
+   field from daybreak) and the other two go into the Big House.
+4. **Who does not ask.** Walk the warriors 60 m away first: at dusk the
+   workers go home without asking, as before Patch 4. Workers gathering by a
+   lone torch post far out go home too. A worker sent to one node with a
+   right click is never stopped at dusk, as before.
+5. **Out at dawn.** Let a night's monsters come to the Big House with the
+   workers inside: at dawn they stay in while a monster within 25 m of it is
+   alive and come out once the last one burns or falls, carrying on with what
+   they had queued, or gathering (G) when they had nothing. By day they come
+   out whatever the monsters do. Everyone Home (J) pressed at dusk, or E on
+   the Big House with workers in the dark, works the same way.
+6. **The editor.** The balance editor's new **Working through the night**
+   group holds the 25 m to a building, the 50 m to a troop, the 25 m a
+   worker gathers within at night, the 30 m one worker asks for the others
+   within, the 25 m clear of monsters at dawn and how often they look out.
+7. **Saves.** Who works on is kept in each worker's orders, which saves
+   already hold, so this needs no save format change of its own.
+
 ## How a tester checks diggers turning in (Patch 4)
 
 *Jade, Patch 4: workers digging should turn in what they carry as gatherers
@@ -2822,8 +3094,8 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    dig it from its rim (they cannot drop that far) and all get home with
    their loads; before, one walking off from near the rim's corner could
    give up with "I cannot reach a drop-off."
-9. **Earthworks.** B, Z (an earth bank, a ramp, fill) takes its Earth from
-   the stock as before; the workers carry nothing.
+9. **Earthworks.** B, D and then K, P or I (an earth bank, a ramp, fill)
+   takes its Earth from the stock as before; the workers carry nothing.
 10. **Saves.** This part of Patch 4 changes no save format; a save taken
    while a digger carries a load or cuts its stairs carries on as it was.
 

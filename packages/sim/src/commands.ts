@@ -23,14 +23,14 @@ import { canGarrison, pickTarget, validTarget } from './combat/fight.ts';
 import { RESEARCH } from './combat/items.ts';
 import { addMob } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
-import { clockAt } from './clock.ts';
+import { clockAt, isDark } from './clock.ts';
 import { orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
 import { unitsOnTop } from './units/top.ts';
-import { ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
+import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
@@ -221,9 +221,10 @@ function applyCancelBuild(state: SimState, b: Building): void {
   }
 }
 
-/** Everyone Home: units without a standing job go to the nearest shelter with room; farmers go to their own farm. */
+/** Everyone Home: units without a standing job go to the nearest shelter with room; farmers go to their own farm. In the dark they go in for the night (ENTER_NIGHT: out at dawn once no monster is near, Jade's Patch 4), by day until daybreak. */
 export function everyoneHome(state: SimState, player: number): void {
   const e = state.entities;
+  const auto = isDark(state.step, state.blood) ? ENTER_NIGHT : 1;
   const shelters = state.buildings.list.filter((b) => b.owner === player && shelterRoom(b) > 0);
   const taken = new Map<number, number>();
   for (const b of shelters) taken.set(b.id, shelteredIn(state, b.id).length);
@@ -245,8 +246,8 @@ export function everyoneHome(state: SimState, player: number): void {
     }
     if (!best) continue;
     taken.set(best.id, taken.get(best.id)! + 1);
-    // Sheltering goes in front of what the unit was doing; at daybreak it comes out and carries on.
-    e.queue[i]!.unshift({ t: 'enter', b: best.id, auto: 1 });
+    // Sheltering goes in front of what the unit was doing; at dawn or daybreak it comes out and carries on.
+    e.queue[i]!.unshift({ t: 'enter', b: best.id, auto });
     e.act[i] = Act.Start;
     e.timer[i] = 0;
     resetWalk(state, i);
@@ -256,8 +257,13 @@ export function everyoneHome(state: SimState, player: number): void {
 /** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and level 3+ main bases), else shelter inside (workers), else nothing. */
 export function enterOrder(state: SimState, i: number, b: Building): UnitOrder | null {
   if (garrisonRoom(b) > 0 && canGarrison(state, i)) return { t: 'enter', b: b.id, auto: ENTER_TOP };
-  if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: 0 };
+  if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: shelterAuto(state) };
   return null;
+}
+
+/** A worker sent to shelter by its player: in the dark it goes in for the night and comes out at dawn once no monster is near (Jade's Patch 4: any worker that retreated there at night); by day it stays until let out. */
+function shelterAuto(state: SimState): number {
+  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
 }
 
 /**
@@ -309,7 +315,7 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
         }
         if (best) {
           taken.set(best.id, taken.get(best.id)! + 1);
-          u = { t: 'enter', b: best.id, auto: worker ? 0 : ENTER_TOP };
+          u = { t: 'enter', b: best.id, auto: worker ? shelterAuto(state) : ENTER_TOP };
         }
         break;
       }

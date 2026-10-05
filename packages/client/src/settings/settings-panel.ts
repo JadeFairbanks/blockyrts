@@ -155,13 +155,14 @@ export class SettingsPanel {
     keys.append(summary);
     const note = document.createElement('p');
     note.className = 'note';
-    note.textContent = 'Click a key, then press the new one (Esc keeps the old one). Build menu keys follow the grid Q to B and stay as they are.';
+    note.textContent = 'Click a key, then press the new one (Esc keeps the old one).';
     keys.append(note);
     const warn = document.createElement('p');
     warn.className = 'note warn';
     const keyButtons = new Map<string, HTMLButtonElement>();
     const show = (): void => {
-      for (const [id, b] of keyButtons) b.textContent = keyLabel(keyFor(settings.keys, id));
+      // A K menu with more products than letters leaves the rest as clicks until given a key.
+      for (const [id, b] of keyButtons) b.textContent = keyLabel(keyFor(settings.keys, id)) || 'None';
     };
     let group = '';
     for (const a of ACTIONS) {
