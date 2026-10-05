@@ -304,7 +304,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash ffb058ba`: two workers raise a gate and a
+   prints `final step 10000 hash 1ef26330`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -490,7 +490,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash e481e798`: the debug tools put a Barracks
+   prints `final step 10000 hash 2bc73b11`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -644,7 +644,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 50281863`. The script plays by Patch 2's
+   prints `final step 10000 hash 7d4bfb82`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
@@ -767,7 +767,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 6a57ea0a`: the debug tools put a Halfling
+    prints `final step 10000 hash aaae0843`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -2973,9 +2973,12 @@ the distance is `START_OUTCROP_NEAR_M` and `START_OUTCROP_FAR_M` in
 7. **Check scripts.** Every hash in this file is new with Patch 4: the state
    hash counts the snapshot version, which is 21 now, and the land a seed
    makes is different. The stories are as they were, with the same units and
-   buildings at the end; the outcrop is nearer, so M2 ends with 5 more stone,
-   M4 with 15 more and M6 with 5 more, and the step-40 hashes at the top of
-   this file are `fc7a33f8`, with two players `3a816b4a`.
+   buildings at the end; with the outcrop nearer, M2 ends with 5 more stone,
+   M4, M5 and M6 with 15 more (M5 with 5 less softwood) and M7 with 10 less.
+   The step-40 hashes at the top of this file are `fc7a33f8`, with two
+   players `3a816b4a`. Working through the night (Patch 4) had already moved
+   the M3, M5, M6 and M7 hashes on main (M3's workers finish more of the
+   wall ring); the ones here count both.
 
 ## How a tester checks work that waits (Patch 4)
 
