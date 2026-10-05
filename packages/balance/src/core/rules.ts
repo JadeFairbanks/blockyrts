@@ -381,6 +381,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'THREAT:wallsPct': 'Damage to walls counts as damage to units', 'THREAT:onceSeconds': 'A blast it dies in counts over',
   'THREAT:speedPctPerMs': 'Speed: per metre a second over the reference', 'THREAT:speedRefTenths': 'Speed: the reference', 'THREAT:speedMinPct': 'Speed: at least', 'THREAT:speedMaxPct': 'Speed: at most',
   'THREAT:rangedMaxPct': 'A ranged attack adds up to', 'THREAT:rangedFullM': 'A ranged attack adds the most from', 'THREAT:overWallReachCm': 'Reach that strikes over walls',
+  // The night's budget, term by term (Jade's formula: 12 + (n - 1) + 3n + 0.04n²).
+  'NIGHT_BUDGET:startTenths': 'Start (the 12)', 'NIGHT_BUDGET:rampTenths': 'Each night after the first, extra (the n − 1)',
+  'NIGHT_BUDGET:perNightTenths': 'Each night (the 3n)', 'NIGHT_BUDGET:curveThousandths': 'Curve (the 0.04n²)', 'NIGHT_BUDGET:scalePct': 'Whole budget scaled',
   TRAIT_PCT: 'What each trait adds', LAIR_BUDGET_PCT: 'Each lair sends a night (of its own threat)', WILD_DENSITY_PCT: 'How many wanderers (of Patch 1\'s)',
   // Worker ranks (Patch 3) and retraining a crewman.
   WORKER_XP_TENTHS: 'Experience needed for each rank', WORKER_HEALTH_BY_RANK: 'Health by rank',
@@ -450,6 +453,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   // Patch 3: the threat algorithm's weights (combat/threat.ts).
   'THREAT:unitHealth': 'health', 'THREAT:unitDpsTenths': 'tenths', 'THREAT:healthParts': 'number', 'THREAT:damageParts': 'number',
   'THREAT:onceSeconds': 'wholeSeconds', 'THREAT:speedRefTenths': 'speedTenths', 'THREAT:rangedFullM': 'metres', 'THREAT:overWallReachCm': 'metresCm',
+  'NIGHT_BUDGET:startTenths': 'tenths', 'NIGHT_BUDGET:rampTenths': 'tenths', 'NIGHT_BUDGET:perNightTenths': 'tenths', 'NIGHT_BUDGET:curveThousandths': 'thousandths',
   BUILD_XP_TENTHS_PER_MINUTE: 'xpTenths', GATHER_XP_TENTHS_PER_MINUTE: 'xpTenths',
 };
 

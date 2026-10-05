@@ -8,7 +8,7 @@ import { STEPS_PER_SECOND, WU_PER_METRE } from '@blockyrts/sim';
 export type UnitId =
   | 'number' | 'seconds' | 'workerSeconds' | 'percentBp' | 'percentPm' | 'percent' | 'metresWu' | 'speed'
   | 'metresCm' | 'metres' | 'squareMetres' | 'health' | 'damage' | 'lbTenths' | 'tenths' | 'xpTenths' | 'level'
-  | 'count' | 'nutrition' | 'night' | 'perMilleRaw' | 'vpTenths' | 'speedTenths' | 'wholeSeconds' | 'deciseconds';
+  | 'count' | 'nutrition' | 'night' | 'perMilleRaw' | 'vpTenths' | 'speedTenths' | 'wholeSeconds' | 'deciseconds' | 'thousandths';
 
 export interface UnitSpec {
   /** Shown after the value; '' for none. */
@@ -41,6 +41,7 @@ export const UNITS: Readonly<Record<UnitId, UnitSpec>> = {
   damage: { suffix: 'dmg', scale: 1, hint: 'damage per hit, before armour' },
   lbTenths: { suffix: 'lb', scale: 10, hint: 'pounds (held in tenths)' },
   tenths: { suffix: '', scale: 10, hint: 'held in tenths' },
+  thousandths: { suffix: '', scale: 1000, hint: 'held in thousandths' },
   xpTenths: { suffix: 'XP', scale: 10, hint: 'experience (held in tenths)' },
   nutrition: { suffix: 'nutrition', scale: 1, hint: 'nutrition points' },
   vpTenths: { suffix: 'vp', scale: 10, hint: 'trade value points (held in tenths)' },

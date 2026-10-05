@@ -51,9 +51,32 @@ const PACK_MAX = 6;
 const GROUP_SPREAD_WU = 2 * WU_PER_METRE;
 const TILE_WU = WU_PER_COLUMN * FOG_TILE_COLUMNS;
 
-/** The night's budget in tenths of threat: 12 + 3n + 0.04n^2 (Rising difficulty). */
-export function nightBudgetTenths(night: number): number {
-  return 120 + 30 * night + floorDiv(4 * night * night, 10);
+/** The terms of the night's budget (Rising difficulty; Jade 2026-10-04): 12 + (n - 1) + 3n + 0.04n^2 threat on night n, scaled by scalePct. */
+export interface NightBudget {
+  /** The start: threat every night begins with (the 12), held in tenths. */
+  startTenths: number;
+  /** Added for each night after the first (the n - 1), held in tenths. */
+  rampTenths: number;
+  /** Added for each night (the 3n), held in tenths. */
+  perNightTenths: number;
+  /** The curve: this times the night squared (the 0.04n^2), held in thousandths. */
+  curveThousandths: number;
+  /** The whole budget scaled up or down, percent. */
+  scalePct: number;
+}
+
+export const NIGHT_BUDGET: NightBudget = {
+  startTenths: 120,
+  rampTenths: 10,
+  perNightTenths: 30,
+  curveThousandths: 40,
+  scalePct: 100,
+};
+
+/** The night's budget in tenths of threat: 12 + (n - 1) + 3n + 0.04n^2 (each term rounded down to a tenth), times the scale. */
+export function nightBudgetTenths(night: number, b: NightBudget = NIGHT_BUDGET): number {
+  const raw = b.startTenths + b.rampTenths * Math.max(0, night - 1) + b.perNightTenths * night + floorDiv(b.curveThousandths * night * night, 100);
+  return floorDiv(raw * b.scalePct, 100);
 }
 
 /** The mobs that may come on a night, with their pick weights: 3 for those unlocked in the last 10 nights, else 1. */

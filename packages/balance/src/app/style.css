@@ -318,3 +318,21 @@ nav.menu .entry.special .icon { color: var(--accent); }
 }
 .tree-details .close:hover { color: var(--ink); border-color: var(--muted); }
 .tree-details h3 small { color: var(--muted); font-weight: 400; }
+
+/* The night budget's preview: nights 1 to 100 */
+.budget { margin: 18px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.budget h3 { margin: 0 0 6px; font-size: 15px; }
+.budget .formula { margin: 0 0 4px; }
+.budget .formula .was { color: var(--muted); }
+.budget .doc { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.budget-chart { display: block; width: 100%; height: auto; max-height: 180px; margin-bottom: 10px; }
+.budget-chart .grid { stroke: var(--line); stroke-width: 1; }
+.budget-chart path { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
+.budget-chart .now { stroke: var(--accent); }
+.budget-chart .was { stroke: var(--muted); stroke-dasharray: 5 4; stroke-width: 1.5; }
+.budget-table { overflow-x: auto; }
+.budget-table table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; width: 100%; }
+.budget-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 3px 8px 3px 0; white-space: nowrap; }
+.budget-table td { text-align: right; padding: 3px 6px; border-top: 1px solid var(--line); }
+.budget-table td.up { color: var(--up); font-weight: 600; background: var(--changed); }
+.budget-table td.down { color: var(--down); font-weight: 600; background: var(--changed); }

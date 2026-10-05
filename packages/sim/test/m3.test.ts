@@ -216,7 +216,7 @@ describe('night 0', () => {
     const picked = pickNight(s, 0).sort((a, b) => a - b);
     expect(picked).toEqual([Mob.Zombie, Mob.Zombie, Mob.Zombie, Mob.Zombie, Mob.CaveBat, Mob.CaveBat, Mob.GiantRat, Mob.GiantRat, Mob.GiantSpider, Mob.Slime]);
     expect(nightBudgetTenths(0)).toBe(120);
-    expect(nightBudgetTenths(10)).toBe(460);
+    expect(nightBudgetTenths(10)).toBe(550);
   });
 });
 
