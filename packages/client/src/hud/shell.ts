@@ -1395,9 +1395,8 @@ export class GameShell {
     if (id === k('centre')) return this.centreSelection();
     if (id === k('urgent')) return this.jumpUrgent();
     const press: ButtonPress = { shift: ev.shiftKey, ctrl: false };
-    // In a build menu the grid keys go by key position.
-    const grid = this.cardButtons.find((b) => !b.el.hidden && b.def.keys[0] === ev.code && b.el.classList.contains('grid'));
-    const btn = grid ?? this.buttons.forKey(id);
+    // Jade's Patch 4: the build and K menus' keys are letters like every other button's (before, they went by key position).
+    const btn = this.buttons.forKey(id);
     if (!btn) return;
     const now = performance.now();
     const twice = this.lastKey.id === id && now - this.lastKey.t <= DOUBLE_TAP_MS;
@@ -1860,7 +1859,7 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.grid ? ' grid' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
+        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),

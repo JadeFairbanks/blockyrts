@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { ACTIONS, clashes, GRID_CODES, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
-import { Commands, menuSlots, submenuChoices, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { ACTIONS, clashes, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
+import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { menuSlots, submenuChoices } from '../src/hud/menu-keys.ts';
 import { groupOfKey, GroupStore } from '../src/hud/groups.ts';
 import { subgroups } from '../src/hud/selection-panel.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
@@ -84,7 +85,7 @@ function button(card: Card, action: string): CardEntry {
 }
 
 describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => {
-  it('puts each building in its slot, Defences and Lights as submenus, B always Back', () => {
+  it('puts each building in its place, Defences and Lights as submenus', () => {
     const slots = menuSlots();
     expect(slots.slice(0, 12).map((specs) => specs.map((b) => b.kind))).toEqual([
       [BuildingKind.MainBase], [BuildingKind.Farm], [BuildingKind.Barn], [BuildingKind.Storehouse], [BuildingKind.FishingDock], [BuildingKind.Workshop],
@@ -92,7 +93,8 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
     ]);
     expect(slots[12]!.every((b) => b.group === 'Defences')).toBe(true);
     expect(slots[13]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.Bonfire]);
-    expect(slots[14]).toEqual([]);
+    // Patch 4: no fifteenth place kept for Back on the grid's B.
+    expect(slots).toHaveLength(14);
     expect(submenuChoices(slots[12]!).map((c) => c.name)).toEqual([
       'Softwood wall', 'Hardwood wall', 'Stone wall',
       'Softwood gate (east to west)', 'Softwood gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
@@ -100,7 +102,6 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
       'Softwood tower', 'Hardwood tower', 'Stone tower',
       'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp',
     ]);
-    expect(GRID_CODES[14]).toBe('KeyB');
   });
 });
 
@@ -122,7 +123,7 @@ describe('the worker card', () => {
     for (const gone of ['attack', 'stop', 'hold', 'enter', 'patrol', 'buildBasic', 'buildAdvanced']) expect(card.some((e) => e.action === gone)).toBe(false);
   });
 
-  it('opens the one build menu on B: the fourteen buildings on the grid keys, Defences and Lights as submenus', () => {
+  it('opens the one build menu on B: the fourteen buildings on their letters, Defences and Lights as submenus', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     // A desktop card shows 40 buttons at the smallest size before it pages.
     (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 40 });
@@ -130,18 +131,19 @@ describe('the worker card', () => {
     button(c.card(), 'build').run({ shift: false, ctrl: false });
     let card = c.card();
     expect(card[0]!.face).toBe('Big House');
-    expect(card[0]!.key).toBe('KeyQ');
+    expect(card[0]!.key).toBe('KeyH');
     expect(card[1]!.face).toBe('Farm');
+    expect(card[1]!.key).toBe('KeyF');
     expect(card[12]!.face).toBe('Defences');
     expect(card[13]!.face).toBe('Lights');
-    // The fourteen and Back fit one page, and Back closes the menu on B.
+    // The fourteen and Back fit one page; Back is Esc (Patch 4; before, B on the grid).
     expect(card).toHaveLength(15);
-    expect(card.slice(0, 14).every((e) => e.grid && e.key !== '')).toBe(true);
+    expect(card.slice(0, 14).every((e) => e.menu && /^Key[A-Z]$/.test(e.key))).toBe(true);
     expect(card[14]!.face).toBe('Back');
-    expect(card[14]!.key).toBe('KeyB');
+    expect(card[14]!.key).toBe('Escape');
     card[12]!.run({ shift: false, ctrl: false });
     card = c.card();
-    // Defences' 17 choices fit a desktop card; past the 14 grid keys the buttons are clicks.
+    // Defences' 17 choices fit a desktop card, every one on a letter of its own (Patch 4; before, the last three were clicks).
     expect(card.map((e) => e.face)).toEqual([
       'Softwood wall', 'Hardwood wall', 'Stone wall',
       'Softwood gate (east to west)', 'Softwood gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
@@ -149,8 +151,9 @@ describe('the worker card', () => {
       'Softwood tower', 'Hardwood tower', 'Stone tower',
       'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Back',
     ]);
-    expect(card.slice(14, -1).every((e) => e.key === '')).toBe(true);
-    expect(card.at(-1)!.key).toBe('KeyB');
+    expect(card.slice(0, -1).every((e) => /^Key[A-Z]$/.test(e.key))).toBe(true);
+    expect(new Set(card.map((e) => e.key)).size).toBe(card.length);
+    expect(card.at(-1)!.key).toBe('Escape');
     expect(c.back()).toBe(true);
     expect(c.card()[12]!.face).toBe('Defences');
     c.card()[13]!.run({ shift: false, ctrl: false });
@@ -167,7 +170,7 @@ describe('the worker card', () => {
     const card = c.card();
     expect(card).toHaveLength(10);
     expect(card.at(-2)!.action).toBe('more');
-    expect(card.at(-2)!.key).toBe('KeyV');
+    expect(card.at(-2)!.key).toBe('Equal');
     expect(card.at(-1)!.action).toBe('back');
     card.at(-2)!.run({ shift: false, ctrl: false });
     expect(c.card()[0]!.face).not.toBe('Big House');
