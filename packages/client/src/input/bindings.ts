@@ -2,16 +2,19 @@
 // hotkeys: "All hotkeys can be rebound in the settings menu. Rebinding
 // changes the key shown on each button."). Keys are binding names as keyId
 // gives them: letters by the character they type ('KeyA'), the rest by
-// physical code ('F1', 'Backspace'). The build menu grid keys follow the key
-// position instead and are not rebound.
+// physical code ('F1', 'Backspace'). Jade's Patch 4: the build menu and the
+// K menus follow the same rule, a letter per button (hud/menu-keys.ts);
+// before, their keys went by position on the keyboard, Q to B, and could not
+// be rebound.
 import { School, SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
+import { buildMenuActions, makeMenuActions } from '../hud/menu-keys.ts';
 
 export interface Action {
   id: string;
   name: string;
   key: string;
-  /** Where it applies, for the settings list. */
-  group: 'Units' | 'Workers' | 'Mages' | 'Buildings' | 'Camera and selection' | 'Players';
+  /** Where it applies, for the settings list: Units, Workers, a menu ('Build menu', 'Forge menu'), Mages, Buildings, Camera and selection, Players. */
+  group: string;
 }
 
 export const ACTIONS: readonly Action[] = [
@@ -38,6 +41,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'prospect', name: 'Prospect', key: 'KeyT', group: 'Workers' },
   { id: 'build', name: 'Build', key: 'KeyB', group: 'Workers' },
   { id: 'cart', name: 'Fetch a cart from the main base, or hand it back', key: 'KeyX', group: 'Workers' },
+  // Jade's Patch 4: every building in the build menu on a letter of its own.
+  ...buildMenuActions(),
   // Each spell on its letter in Table 13; the two schools never share a card, so R, F and the rest serve both.
   // The players' spells (the Elves' Grovesingers cast their own, never on a key).
   ...SPELLS.filter((s) => s.school !== School.Grove).map((s): Action => ({ id: spellAction(s.id), name: `${s.name} (${SCHOOL_NAMES[s.school]!.toLowerCase()}s)`, key: `Key${s.key}`, group: 'Mages' })),
@@ -57,6 +62,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
   { id: 'trainCrewman', name: 'Train Artillery crewman (Artillery workshop)', key: 'KeyE', group: 'Buildings' },
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
+  // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
+  ...makeMenuActions(),
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
@@ -82,9 +89,6 @@ export function spellAction(spell: number): string {
 }
 
 const DEFAULTS = new Map(ACTIONS.map((a) => [a.id, a.key]));
-
-/** Grid keys of the build menus by slot, as physical codes (the same position on any layout). */
-export const GRID_CODES = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB'] as const;
 
 /** The key bound to an action: the player's binding, else the default. */
 export function keyFor(bindings: Readonly<Record<string, string>>, action: string): string {
