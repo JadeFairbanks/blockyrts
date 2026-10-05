@@ -450,10 +450,20 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'repairAll':
         giveAll(state, o, () => ({ t: 'repairAll' }));
         break;
-      case 'returnCargo':
+      case 'returnCargo': {
+        // A digger with a load goes back to its dig after, as a gatherer goes back to its node (Patch 4).
+        const digs = new Map<number, UnitOrder>();
+        if (o.queued !== true) {
+          for (const i of ownUnits(state, o.player, o.units, true)) {
+            const now = e.queue[i]![0];
+            if (now?.t === 'dig' && e.carryAmt[i]! > 0) digs.set(i, now);
+          }
+        }
         // A gatherer takes its load (and its loot with it); any other unit hands in its loot.
         giveAll(state, o, (i) => (e.carryAmt[i]! > 0 ? { t: 'return' } : bagEmpty(state, i) ? null : { t: 'loot', id: 0, hand: 1, back: 0, x: 0, z: 0 }), true);
+        for (const [i, dig] of digs) e.queue[i]!.push(dig);
         break;
+      }
       case 'pickUp':
         orderPickUp(state, o);
         break;

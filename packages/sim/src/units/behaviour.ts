@@ -28,7 +28,7 @@ import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
-import { runDig } from './dig.ts';
+import { digStairsOut, runDig, runStairs } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
 import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
@@ -202,7 +202,19 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
     ncz = col(nz);
   }
   if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, m, level) < 0) {
-    if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
+    if ((e.stuck[i] = e.stuck[i]! + 1) > 3) {
+      // Before giving up, once: a path's straight stretches run from column centres (nav/path.ts), and off
+      // its column's centre the line can clip a drop the path passes by, so it steps back to the centre
+      // and goes on from there (a digger leaving the rim of a pit cut the pit's corner and gave up, Patch 4).
+      const mx = columnCentre(cx);
+      const mz = columnCentre(cz);
+      if (e.stuck[i] === 4 && (e.x[i] !== mx || e.z[i] !== mz)) {
+        e.path[i] = [mx, mz, ...pts.slice(k)];
+        e.pathAt[i] = 0;
+        return MOVING;
+      }
+      return FAILED;
+    }
     e.pathOk[i] = 2;
     return MOVING;
   }
@@ -774,8 +786,13 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
 /** Resin from felling one softwood tree (s): torches need it and no node gives it. */
 export const RESIN_PER_SOFTWOOD_TREE = 2;
 
-/** Walks the unit's load (or, with none, its loot bag) to a drop-off (a given one, or the nearest that takes it) and unloads it there. */
-export function toDropoff(state: SimState, i: number, target: Building | null): WalkResult {
+/**
+ * Walks the unit's load (or, with none, its loot bag) to a drop-off (a given
+ * one, or the nearest that takes it) and unloads it there. With no way
+ * there and `stairs`, a worker shut in a hole digs crude stairs out first
+ * (units/dig.ts digStairsOut, Patch 4), and the walk goes on after.
+ */
+export function toDropoff(state: SimState, i: number, target: Building | null, stairs = false): WalkResult {
   const e = state.entities;
   const res = e.carryAmt[i]! > 0 ? e.carryRes[i]! : -1;
   const b = target ?? nearestDropoff(state, i, res);
@@ -785,7 +802,10 @@ export function toDropoff(state: SimState, i: number, target: Building | null): 
   }
   const r = walkTo(state, i, besideBuilding(b));
   if (r === ARRIVED) unload(state, i, b);
-  if (r === FAILED) alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
+  if (r === FAILED) {
+    if (stairs && digStairsOut(state, i)) return MOVING;
+    alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
+  }
   return r;
 }
 
@@ -805,7 +825,8 @@ function backToNode(state: SimState, i: number): boolean {
 function runReturn(state: SimState, i: number, target: Building | null): boolean {
   const e = state.entities;
   if (e.carryAmt[i] === 0 && bagEmpty(state, i)) return backToNode(state, i);
-  const r = toDropoff(state, i, target);
+  // Unload in a hole a digger is shut in: it digs its way out first (Patch 4).
+  const r = toDropoff(state, i, target, true);
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
   return backToNode(state, i);
@@ -1352,6 +1373,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runCart(state, i, o);
     case 'dig':
       return runDig(state, i, o);
+    case 'stairs':
+      return runStairs(state, i, o);
     case 'hunt':
       return runHunt(state, i, o);
     case 'tame':

@@ -155,7 +155,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    hash in the debug panel at the same step: for seed 1 with one player it is
    `fc7a33f8` at step 40, with two players `3a816b4a`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash bc4268d7`: two players dig trenches from a
+   prints `final step 10000 hash 7b2e4549`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -296,23 +296,26 @@ main base or farm left ends the game with the night count as the score.*
    about 2 m starts a tunnel instead (+ and - then set its height); D again,
    or a click on a cliff face, digs a level tunnel in a chain of stretches
    (see wall and tunnel chains below). Digging
-   puts Earth (or stone, flint, sand...) in the pool. B, D and then K, P or
-   I (Earthworks, under Defences since Patch 2; before Patch 4, B, Z) heaps
-   an earth bank, a ramp (drag from the bottom to the top) or fill from that
-   Earth. A marked area shows its box while a selected worker is on it and a
-   dotted line otherwise, until done; right-click one with workers to help. Zombies walk round a trench they cannot climb out of.
+   gives Earth (or stone, flint, sand...), which the workers carry to the
+   nearest main base or Storehouse 25 lb at a time and then come back to the
+   dig (Patch 4; before it, what was dug went straight to the pool). B, D and
+   then K, P or I (Earthworks, under Defences since Patch 2; before Patch 4,
+   B, Z) heaps an earth bank, a ramp (drag from the bottom to the top) or
+   fill from that Earth. A marked area shows its box while a selected worker
+   is on it and a dotted line otherwise, until done; right-click one with
+   workers to help. Zombies walk round a trench they cannot climb out of.
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash 1ef26330`: two workers raise a gate and a
+   prints `final step 10000 hash e78c2c0e`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
    11); they hold inside the gate through night 0 while a debug skeleton
    archer and bomber come at the camp (the spearman and the axemen fall and
    some columns are broken, but the Big House and all four workers come
-   through), then at dawn the workers dig a trench and heap an
-   earth bank from its Earth.
+   through), then at dawn the workers dig a trench, carry its Earth to the
+   Big House 5 at a time (Patch 4) and heap an earth bank from it.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 
 ## How a tester checks milestone 4
@@ -1210,10 +1213,12 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash b8ff9f54`: the debug tools heap a soil hill
-   south-east of the camp and the four workers dig a tunnel chain from its
-   west face: east 3 columns, south 3, south-east 2 and east 4, out of its
-   east side, 480 bites of soil by step 7300; then worker 1 walks to a point
+   prints `final step 10000 hash f50b27b3`: the debug tools heap a soil hill
+   south-east of the camp, the four workers put up a Storehouse north of it
+   at (17, 21) and dig a tunnel chain from its west face: east 3 columns,
+   south 3, south-east 2 and east 4, out of its east side, 480 bites of soil
+   carried 5 at a time to the Storehouse (Patch 4) and finished by step 8200;
+   then worker 1 walks to a point
    deep under the hill where only the tunnel leads, and on round the
    tunnel's corners and out of the far side, on its floor all the way.
    `pnpm test` runs both in Node, Chromium, Firefox and WebKit too.
@@ -3082,6 +3087,74 @@ blueprint/patch4-night-work-picks.md. The rules are
    within, the 25 m clear of monsters at dawn and how often they look out.
 7. **Saves.** Who works on is kept in each worker's orders, which saves
    already hold, so this needs no save format change of its own.
+
+## How a tester checks diggers turning in (Patch 4)
+
+*Jade, Patch 4: workers digging should turn in what they carry as gatherers
+do and go back to their task, and miners too if they did not already. Before
+Patch 4 every bite dug went straight to the stock, with nothing carried;
+miners have carried 25 lb bags out of the shaft to the nearest drop-off since
+Patch 2 (step 8 of the mining trips section above), so they are unchanged.
+Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
+`packages/sim/src/units/dig.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch4-dig-turn-in.test.ts:
+   one worker digging a pit 4 columns square and 1 m deep carries 5 Earth
+   (25 lb) a trip to the Big House, 29 trips with the last 4 taken home
+   after "The dig is finished.", and the stock does not move while it digs;
+   a Storehouse nearer than the Big House takes every load; a hand cart
+   fills to 30 Earth (150 lb) before the trip; through soil over stone each
+   load is one kind and the worker goes back to the column it left, so only
+   the last load of each kind is short; a worker that comes carrying
+   softwood takes it home before it digs; Unload sends a digger home and
+   back to its dig; an earth bank still takes its Earth from the stock and
+   nobody carries; four workers in a pit 12 columns square and 1 m deep
+   dig crude stairs out into its side, a clamber at a time, leave on the
+   ground what they cannot carry, pick it up when they come back, finish
+   the pit with every unit of earth accounted for and can all walk out,
+   and a save taken as one cuts its stairs carries on to the same hash;
+   four workers digging a pit 6 columns square and 3 m deep from its rim
+   all get home with their loads. m4.test.ts still runs the miners' bag
+   trips, a nearer Storehouse and the trip out at dawn.
+2. **A small dig.** `pnpm dev`, open http://localhost:5173/?seed=1, select
+   one worker, press D and drag a small square near the Big House, a few
+   steps deep, then click. The stock's Earth stays where it is while the
+   worker digs; after five bites its panel shows it carrying 5 Earth, it
+   walks to the Big House, the Earth goes up by 5, and it walks back to the
+   column it left and digs on. When the dig is finished it takes what it
+   still carries home.
+3. **A Storehouse.** Build a Storehouse beside a dig away from the Big
+   House: the diggers take their loads to it, the nearer drop-off. With no
+   drop-off at all the order ends with "There is nowhere to drop off earth.
+   Build a storehouse.", as it does for a gatherer.
+4. **A hand cart.** A worker that has taken a hand cart (X, made at the
+   Workshop from main base 3) digs 30 Earth before each trip.
+5. **Two kinds.** Dig deep where stone lies under the soil, with a stone
+   maul or a pickaxe: a worker fills its load with Earth while any soil is
+   left near it, then goes home and starts on the stone, never mixing the
+   two; a worker that is given the dig while carrying something else hands
+   that in first.
+6. **Unload.** Select a digger carrying a load and press C (Unload): it
+   takes the load home and goes back to the dig, where before it would
+   have stopped.
+7. **Crude stairs (Jade).** Dig a square about 5 m across and three steps
+   deep (about 1 m) with all four workers. They step down into it to reach
+   its middle; once its sides are taller than a worker can step up (45 cm),
+   a worker with a full load digs stairs out into the nearest side ("Digging
+   stairs out" in its panel): a step 56 cm down beside the floor, then one
+   11 cm down behind it. Its hands are full, so the earth from the stairs is
+   left in a pile at their foot (an Earth icon on the ground); it walks up
+   the stairs with its load, hands it in, and when it comes back it picks
+   the pile up first ("Picking up loot") and then digs on. Later trips walk
+   up the same stairs, which stay when the pit is finished.
+8. **A deep pit.** Dig a square about 3 m across and 3 m deep: the workers
+   dig it from its rim (they cannot drop that far) and all get home with
+   their loads; before, one walking off from near the rim's corner could
+   give up with "I cannot reach a drop-off."
+9. **Earthworks.** B, D and then K, P or I (an earth bank, a ramp, fill)
+   takes its Earth from the stock as before; the workers carry nothing.
+10. **Saves.** This part of Patch 4 changes no save format; a save taken
+   while a digger carries a load or cuts its stairs carries on as it was.
 
 ## How a tester checks the balance editor
 
