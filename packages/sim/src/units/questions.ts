@@ -784,7 +784,7 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
       return;
     }
     default:
-      answerHooks.other(state, o);
+      (answerers.get(o.q) ?? answerHooks.other)(state, o);
   }
 }
 
@@ -813,4 +813,49 @@ export function closeAsks(state: SimState, player: number, kinds: readonly numbe
 export function isAsking(state: SimState, id: number, building: boolean): boolean {
   const book = bookOf(state);
   return building ? buildingAsking(book, id) : inQuestion(book, id);
+}
+
+// ----- questions other modules ask by themselves (Patch 4) -----
+
+/**
+ * A question another module asks by itself (Patch 4: units/work-asks.ts),
+ * not in answer to a click: it counts toward its player's open questions and
+ * takes the same wait, bubble, buttons and withdrawing as this module's own.
+ * `who` is an entity id (the speaker, first in `units`), or a building id
+ * when `building` (then `units` is empty).
+ */
+export interface OwnQuestion {
+  player: number;
+  who: number;
+  building: boolean;
+  q: number;
+  units: readonly number[];
+  text: string;
+  yes: string;
+  no: string;
+  holds?: () => boolean;
+  unask?: () => void;
+  recount?: () => string | null;
+}
+
+/** Whether a player may be asked another question now: still in the game, with fewer than OPEN_QUESTIONS_PER_PLAYER open. */
+export function canAsk(state: SimState, player: number): boolean {
+  return asks(state, player) && hasRoom(state, player);
+}
+
+/** Puts up a question another module asks by itself (check canAsk first); returns its id. */
+export function askOwn(state: SimState, a: OwnQuestion): number {
+  const q: Question = { player: a.player, who: a.who, building: a.building, text: a.text, info: { id: 0, q: a.q, units: [...a.units], res: -1, until: 0, yes: a.yes, no: a.no } };
+  if (a.holds) q.holds = a.holds;
+  if (a.unask) q.unask = a.unask;
+  if (a.recount) q.recount = a.recount;
+  put(state, q);
+  return q.info.id;
+}
+
+/** Yes to the questions of these kinds is answered by `fn` (Patch 4), which then runs in place of answerHooks.other; the question has closed already. */
+const answerers = new Map<number, (state: SimState, o: AnswerOrder) => void>();
+
+export function answerKinds(kinds: readonly number[], fn: (state: SimState, o: AnswerOrder) => void): void {
+  for (const k of kinds) answerers.set(k, fn);
 }

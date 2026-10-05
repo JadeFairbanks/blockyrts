@@ -38,6 +38,7 @@ import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
 import { crewHooks, updateQuestions } from './units/questions.ts';
 import { updateSpacing } from './units/spacing.ts';
+import { updateWorkAsks } from './units/work-asks.ts';
 
 installDeathHooks();
 installAnimalHooks();
@@ -178,6 +179,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   refillMages(state);
   updateFood(state);
   updateQuestions(state);
+  // Jade's Patch 4: an empty farm, a building no one works on and an idle worker ask by themselves.
+  updateWorkAsks(state);
   settleDeaths(state);
   updateLoot(state);
   updateBuildings(state);
