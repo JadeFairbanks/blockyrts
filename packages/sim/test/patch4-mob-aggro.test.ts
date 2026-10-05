@@ -227,6 +227,24 @@ describe('a monster a troop hurts turns on the nearest troop (Jade\'s Patch 4)',
     expect(targetOf(s, zombie)).toBe(worker);
   });
 
+  it('is off with 0 in the editor', () => {
+    const { s, x, z, worker } = field();
+    const zombie = addMob(s, Mob.Zombie, 0, x + 5 * M, z, 1);
+    const sword = addWarrior(s, 0, x + 5 * M, z + 7 * M, Troop.Close, 1);
+    const was = TROOP_AGGRO.steps;
+    TROOP_AGGRO.steps = 0;
+    try {
+      fresh(s);
+      runMob(s, zombie);
+      hit(s, zombie, sword);
+      fresh(s);
+      runMob(s, zombie);
+      expect(targetOf(s, zombie)).toBe(worker);
+    } finally {
+      TROOP_AGGRO.steps = was;
+    }
+  });
+
   it('turns a skeleton bomber on the nearest troop, and it goes off beside it', () => {
     const { s, x, z } = field();
     const e = s.entities;

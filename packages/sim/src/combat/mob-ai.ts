@@ -186,6 +186,8 @@ export function combatTroop(state: SimState, j: number): boolean {
 
 /** The troop that hurt a monster in the last TROOP_AGGRO.steps, the latest blow first (its attacker, else the players' units that hit it), if it is still alive; -1 for none. */
 function troopHurt(state: SimState, i: number): number {
+  // 0 in the editor turns the rule off.
+  if (TROOP_AGGRO.steps <= 0) return -1;
   const e = state.entities;
   const since = state.step - TROOP_AGGRO.steps;
   if (e.attacker[i] && e.hurtAt[i]! >= since) {
