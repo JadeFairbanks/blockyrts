@@ -11,7 +11,7 @@ import { clockOf, Period } from '../clock.ts';
 import { length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { OrderKind, type SimState } from '../state.ts';
 import { gap } from '../combat/combat.ts';
-import { attackBuilding, beginSpell, engageUnit, mobHooks, playerUnit, SpellWith, walkMob } from '../combat/mob-ai.ts';
+import { attackBuilding, beginSpell, combatTroop, engageUnit, mobHooks, playerUnit, SpellWith, troopAggro, walkMob } from '../combat/mob-ai.ts';
 import { Mob, type MobSpec } from '../combat/mobs.ts';
 import { Ability, ABILITIES, canUse, spend } from './abilities.ts';
 import { LAIR_AGGRO_WU, LAIR_LEASH_WU, TRIBE_SIGHT_WU, VILLAGE_AGGRO_WU, VILLAGE_CHASE_WU, HUT_RING_WU } from './data.ts';
@@ -88,6 +88,9 @@ function runResident(state: SimState, i: number, spec: MobSpec): void {
   const leash = (j: number): boolean => length2d(e.x[j]! - lx, e.z[j]! - lz) <= LAIR_LEASH_WU;
   let t = e.target[i] ? e.indexOf(e.target[i]!) : -1;
   if (t >= 0 && (!playerUnit(state, t) || !leash(t))) t = -1;
+  // Hurt by a troop, it turns on the nearest troop within its leash (Jade's Patch 4).
+  const turn = troopAggro(state, i, spec, t, (j) => playerUnit(state, j) && leash(j));
+  if (turn >= 0) t = turn;
   if (t < 0) {
     const a = provoker(state, i);
     if (a >= 0 && leash(a)) t = a;
@@ -122,11 +125,14 @@ function runTribesman(state: SimState, i: number, spec: MobSpec): void {
   }
   const sight = throughFog(state, TRIBE_SIGHT_WU);
   const a = provoker(state, i);
+  // Hurt by a troop, it turns on the nearest troop rather than the one that hurt it, and the band with it (Jade's Patch 4).
+  const turn = troopAggro(state, i, spec, -1, (j) => playerUnit(state, j));
   if (band.camp) {
-    if (a >= 0) {
-      band.target = e.id[a]!;
+    const f = turn >= 0 ? turn : a;
+    if (f >= 0) {
+      band.target = e.id[f]!;
       band.sawAt = state.step;
-      engageUnit(state, i, spec, a);
+      engageUnit(state, i, spec, f);
       return;
     }
     const k = e.id[i]! % 8;
@@ -141,7 +147,10 @@ function runTribesman(state: SimState, i: number, spec: MobSpec): void {
     band.target = 0;
     t = -1;
   }
-  if (a >= 0 && (t < 0 || gap(state, i, a) < gap(state, i, t))) t = a;
+  if (turn >= 0) {
+    // A quarry that is a troop itself is kept while it is the nearer.
+    if (t < 0 || !combatTroop(state, t) || gap(state, i, turn) < gap(state, i, t)) t = turn;
+  } else if (a >= 0 && (t < 0 || gap(state, i, a) < gap(state, i, t))) t = a;
   if (t < 0) t = nearestPlayerUnit(state, e.x[i]!, e.z[i]!, sight);
   if (t >= 0) {
     if (band.target !== e.id[t]) band.sawAt = state.step;
@@ -190,9 +199,11 @@ function runVillager(state: SimState, i: number, spec: MobSpec): void {
     if (enemy < 0) {
       e.act[i] = 0;
     } else {
-      let t = a >= 0 ? a : nearestPlayerUnit(state, e.x[i]!, e.z[i]!, throughFog(state, RAID_FIGHT_WU));
+      // Hurt by a troop, a raider turns on the nearest troop of the side it raids or of the troop's (Jade's Patch 4).
+      const turn = troopAggro(state, i, spec, -1, (j) => playerUnit(state, j) && (e.owner[j] === enemy || (a >= 0 && e.owner[j] === e.owner[a])));
+      let t = turn >= 0 ? turn : a >= 0 ? a : nearestPlayerUnit(state, e.x[i]!, e.z[i]!, throughFog(state, RAID_FIGHT_WU));
       // Raiders fight the side they are at war with, and whoever attacks them.
-      if (t >= 0 && t !== a && e.owner[t] !== enemy) t = -1;
+      if (t >= 0 && t !== a && t !== turn && e.owner[t] !== enemy) t = -1;
       if (t >= 0) {
         if (spec.mana > 0 && magic(state, i, t)) return;
         engageUnit(state, i, spec, t);
@@ -216,6 +227,9 @@ function runVillager(state: SimState, i: number, spec: MobSpec): void {
   const near = (j: number, r: number): boolean => length2d(e.x[j]! - v.x, e.z[j]! - v.z) <= r;
   let t = e.target[i] ? e.indexOf(e.target[i]!) : -1;
   if (t >= 0 && (!playerUnit(state, t) || !near(t, VILLAGE_CHASE_WU))) t = -1;
+  // Hurt by a troop, it turns on the nearest troop within its chase (Jade's Patch 4).
+  const turn = troopAggro(state, i, spec, t, (j) => playerUnit(state, j) && near(j, VILLAGE_CHASE_WU));
+  if (turn >= 0) t = turn;
   if (t < 0 && a >= 0 && near(a, VILLAGE_CHASE_WU)) t = a;
   if (t < 0) t = nearestPlayerUnit(state, v.x, v.z, throughFog(state, VILLAGE_AGGRO_WU));
   if (t >= 0) {

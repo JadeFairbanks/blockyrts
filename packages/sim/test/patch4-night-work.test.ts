@@ -135,7 +135,7 @@ function stockOf(s: SimState): number {
 }
 
 describe('where a worker may work on through the night (Jade: 25 m to a building, 50 m to a troop)', () => {
-  it('measures to a building from its walls, not counting lights, and to any combat unit but an artillery crewman', () => {
+  it('measures to a building from its walls, not counting lights, and to any combat unit, an artillery crewman too', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const b = bigHouse(s);
@@ -164,10 +164,10 @@ describe('where a worker may work on through the night (Jade: 25 m to a building
     for (const w of units(s, UnitKind.Warrior)) e.x[w] = e.x[w]! + 150 * M;
     run(s, 1);
     expect(nearTroop(s, bx, bz)).toBe(false);
-    // A lone artillery crewman is no troop.
+    // An artillery crewman is a troop too (combatTroop, as for the monsters turning on the troops), and a worker is not.
     addCrewman(s, 0, bx + 3 * M, bz);
     run(s, 1);
-    expect(nearTroop(s, bx, bz)).toBe(false);
+    expect(nearTroop(s, bx, bz)).toBe(true);
   });
 });
 

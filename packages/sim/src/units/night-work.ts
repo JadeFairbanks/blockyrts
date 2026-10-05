@@ -21,6 +21,7 @@ import { BuildingKind, levelSpec } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
+import { combatTroop } from '../combat/mob-ai.ts';
 import { length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder } from '../orders.ts';
 import { say } from '../peoples/speech.ts';
@@ -29,13 +30,12 @@ import { Role } from '../threats/types.ts';
 import { Act, assigned, giveOrder, isFarm, leaveBuilding, resetWalk, takesWorkers } from './behaviour.ts';
 import { fromBuilding, nightHooks, startForage } from './forage.ts';
 import { bagEmpty } from './loot.ts';
-import { Troop } from './kits.ts';
 import { answerKinds, askNow, isAsking } from './questions.ts';
 import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
 
 /** At dusk, a worker gathering by itself this near one of the players' buildings (measured from its walls; lights and earthworks are not buildings here) may ask to work on through the night (Jade): 25 m. */
 export const NIGHT_WORK_BUILDING_M = 25;
-/** ...and this near a troop: any combat unit of the players', a warrior (not an artillery crewman), a mage or an engine (Jade): 50 m. */
+/** ...and this near a troop: any combat unit of the players', a warrior of any type, a mage or an engine (Jade): 50 m. */
 export const NIGHT_WORK_TROOP_M = 50;
 /** Working on through the night, a worker gathers only nodes this near one of the players' buildings, and comes in once none is left (s): 25 m, as near as it had to be to ask. */
 export const NIGHT_WORK_REACH_M = 25;
@@ -71,13 +71,10 @@ export function nearBuilding(state: SimState, x: number, z: number, m: number): 
   return false;
 }
 
-/** A troop, as Jade means it: any combat unit of any player's (a hired mercenary too): a warrior other than an artillery crewman, a mage or an engine, alive. */
+/** A troop, as Jade means it: any combat unit (combat/mob-ai.ts combatTroop, the same as Patch 4's monsters turning on the troops: every warrior type, an artillery crewman too, a mage or an engine) of any player's, a hired mercenary too, alive. */
 function isTroop(state: SimState, j: number): boolean {
   const e = state.entities;
-  if (e.hp[j]! <= 0 || e.owner[j]! >= state.players.length) return false;
-  const k = e.kind[j];
-  if (k === UnitKind.Warrior) return e.troop[j] !== Troop.Crew;
-  return k === UnitKind.Mage || k === UnitKind.Engine;
+  return e.hp[j]! > 0 && e.owner[j]! < state.players.length && combatTroop(state, j);
 }
 
 /** Whether a troop stands within NIGHT_WORK_TROOP_M of a point (wu), on the ground or up on a building's top. */

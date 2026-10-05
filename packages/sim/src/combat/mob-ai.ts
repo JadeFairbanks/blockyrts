@@ -160,6 +160,84 @@ function prey(state: SimState, spec: MobSpec, j: number): boolean {
   return swoops(spec) && state.entities.hp[j]! > 0 && onTop(state, j) && sideOf(state, j) === Side.Players;
 }
 
+// ----- turning on the troops (Jade's Patch 4) -----
+
+/**
+ * Jade's Patch 4: a monster chasing a worker or breaking a building (going
+ * for anything but a troop) that a troop hurts turns on the nearest troop,
+ * not necessarily the one that hurt it. It looks for one as far round itself
+ * as the troop that hurt it stands, and at least lookWu (s: a monster's
+ * sight, halved on a fog night). It stays turned while a troop has hurt it
+ * in the last `steps` (s): on a troop it keeps that one as it keeps any foe,
+ * and after that it goes back to what it would do.
+ */
+export const TROOP_AGGRO = {
+  /** A troop's blow turns it on the troops for this long. */
+  steps: 5 * STEPS_PER_SECOND,
+  /** It looks for the nearest troop at least this far round itself, halved on a fog night. */
+  lookWu: 12 * WU_PER_METRE,
+};
+
+/** Whether a unit is a troop in Jade's sense, any combat unit: a warrior of every type (a rider, a brawler and an artillery crewman too), a mage or an engine, the players' or a people's. */
+export function combatTroop(state: SimState, j: number): boolean {
+  const k = state.entities.kind[j];
+  return k === UnitKind.Warrior || k === UnitKind.Mage || k === UnitKind.Engine;
+}
+
+/** The troop that hurt a monster in the last TROOP_AGGRO.steps, the latest blow first (its attacker, else the players' units that hit it), if it is still alive; -1 for none. */
+function troopHurt(state: SimState, i: number): number {
+  // 0 in the editor turns the rule off.
+  if (TROOP_AGGRO.steps <= 0) return -1;
+  const e = state.entities;
+  const since = state.step - TROOP_AGGRO.steps;
+  if (e.attacker[i] && e.hurtAt[i]! >= since) {
+    const a = e.indexOf(e.attacker[i]!);
+    if (a >= 0 && e.hp[a]! > 0 && combatTroop(state, a)) return a;
+  }
+  // A worker's blow since does not hide a troop's: the players' hitters keep each one's latest blow, the latest last.
+  const list = e.hitters[i]!;
+  for (let k = list.length - 2; k >= 0; k -= 2) {
+    if (list[k + 1]! < since) continue;
+    const a = e.indexOf(list[k]!);
+    if (a >= 0 && e.hp[a]! > 0 && combatTroop(state, a)) return a;
+  }
+  return -1;
+}
+
+/** Whether a troop has hurt a monster lately (TROOP_AGGRO), so it keeps to the troops. */
+export function turnedOnTroops(state: SimState, i: number): boolean {
+  return troopHurt(state, i) >= 0;
+}
+
+/**
+ * Who a monster fights now that a troop has hurt it (Jade's Patch 4): `cur`,
+ * the foe it has, when that is a troop; else the nearest troop it `may` go
+ * for, within reach of its look. -1 when no troop has hurt it lately, or none
+ * is there to go for, and it goes on as it would.
+ */
+export function troopAggro(state: SimState, i: number, spec: MobSpec, cur: number, may: (j: number) => boolean): number {
+  const h = troopHurt(state, i);
+  if (h < 0) return -1;
+  if (cur >= 0 && combatTroop(state, cur)) return cur;
+  const e = state.entities;
+  const look = fogged(state) ? TROOP_AGGRO.lookWu >> 1 : TROOP_AGGRO.lookWu;
+  const r = Math.max(look, gap(state, i, h));
+  const near = state.grid.nearOthers(e.x[i]!, e.z[i]!, r);
+  if (swoops(spec)) near.push(...state.grid.nearTops(e.x[i]!, e.z[i]!, r));
+  let best = -1;
+  let bestD = 0;
+  for (const j of near) {
+    if (!combatTroop(state, j) || !may(j)) continue;
+    const d = gap(state, i, j);
+    if (d > r) continue;
+    if (best < 0 || d < bestD || (d === bestD && e.id[j]! < e.id[best]!)) {
+      best = j;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 /** The players' unit a mob goes for: the one that hurt it, else the closest in sight (hounds: workers and archers first; a swooping flyer, men up top too). */
 function pickUnit(state: SimState, i: number, spec: MobSpec): number {
   const e = state.entities;
@@ -735,7 +813,21 @@ function actMob(state: SimState, i: number, spec: MobSpec): void {
     return;
   }
   const blocker = { id: 0 };
+  const may = (j: number): boolean => prey(state, spec, j);
   if (bomber(spec)) {
+    // Hurt by a troop, it goes for the nearest troop and goes off beside it, as against a crowd (Jade's Patch 4).
+    const k = troopAggro(state, i, spec, -1, may);
+    if (k >= 0) {
+      e.target[i] = e.id[k]!;
+      if (gap(state, i, k) <= BOMB_REACH_WU) {
+        explode(state, i, false);
+        return;
+      }
+      const r = goToward(state, i, spec, e.x[k]!, e.z[k]!, blocker);
+      if (r !== MOVED) blocked(state, i, spec, r, blocker);
+      return;
+    }
+    if (e.indexOf(e.target[i]!) >= 0) e.target[i] = 0;
     const crowd = crowdNear(state, i);
     if (crowd) {
       for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, BOMB_REACH_WU)) {
@@ -754,7 +846,7 @@ function actMob(state: SimState, i: number, spec: MobSpec): void {
   // Goblins put out torches first.
   if (spec.id === Mob.GoblinCutter || spec.id === Mob.GoblinChief) {
     const torch = pickTorch(state, i);
-    if (torch && pickUnit(state, i, spec) < 0) {
+    if (torch && troopAggro(state, i, spec, -1, may) < 0 && pickUnit(state, i, spec) < 0) {
       if (gapToBuilding(state, i, torch) <= spec.reach) begin(state, i, spec, torch.id, With.Building);
       else {
         const [x, z] = buildingCentre(torch);
@@ -765,7 +857,11 @@ function actMob(state: SimState, i: number, spec: MobSpec): void {
     }
   }
   let t = e.indexOf(e.target[i]!);
-  if (t < 0 || !prey(state, spec, t) || gap(state, i, t) > GIVE_UP_WU) t = pickUnit(state, i, spec);
+  if (t >= 0 && (!prey(state, spec, t) || gap(state, i, t) > GIVE_UP_WU)) t = -1;
+  // Hurt by a troop, it leaves a worker or a building for the nearest troop (Jade's Patch 4).
+  const k = troopAggro(state, i, spec, t, may);
+  if (k >= 0) t = k;
+  else if (t < 0) t = pickUnit(state, i, spec);
   if (spec.firstNight >= LATE_FIRST_NIGHT && lateHooks.act(state, i, spec, t)) return;
   if (t < 0) {
     e.target[i] = 0;
@@ -1000,15 +1096,20 @@ export function engageUnit(state: SimState, i: number, spec: MobSpec, t: number)
 /** How many other targets an archer tries for a clear shot in one step. */
 const CLEAR_SHOT_TRIES = 4;
 
-/** The target, or the nearest other unit in range with a clear arc when the target has none (the clear shot search). */
+/**
+ * The target, or the nearest other unit in range with a clear arc when the
+ * target has none (the clear shot search); one turned on the troops (Jade's
+ * Patch 4) takes only another troop.
+ */
 function shotAt(state: SimState, i: number, spec: MobSpec, t: number): number {
   const e = state.entities;
   const fromY = e.y[i]! + floorDiv(spec.height * 2, 3);
   const clear = (j: number): boolean => hasClearLob(state, spec.shot, e.x[i]!, fromY, e.z[i]!, e.x[j]!, e.y[j]! + floorDiv(bodyHeight(state, j), 2), e.z[j]!);
   if (clear(t)) return t;
+  const troops = combatTroop(state, t) && turnedOnTroops(state, i);
   const near: Array<[number, number]> = [];
   for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, spec.range)) {
-    if (j === t || !playerUnit(state, j)) continue;
+    if (j === t || !playerUnit(state, j) || (troops && !combatTroop(state, j))) continue;
     const d = gap(state, i, j);
     if (d <= spec.range) near.push([d, j]);
   }

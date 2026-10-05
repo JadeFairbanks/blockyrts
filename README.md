@@ -114,7 +114,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `5d6f44ab`
+   step as the headless runner with no script: for seed 1 that is `74238647`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `5d6f44ab` at step 40, with two players `f0c858ac`. The land matches too.
+   `74238647` at step 40, with two players `613ef031`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
    prints `final step 10000 hash 5e4221d3`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
@@ -293,8 +293,8 @@ main base or farm left ends the game with the night count as the score.*
    (see wall and tunnel chains below). Digging
    puts Earth (or stone, flint, sand...) in the pool. B, Z (Earthworks) heaps
    an earth bank, a ramp (drag from the bottom to the top) or fill from that
-   Earth. Marked areas stay outlined until done; right-click one with workers
-   to help. Zombies walk round a trench they cannot climb out of.
+   Earth. A marked area shows its box while a selected worker is on it and a
+   dotted line otherwise, until done; right-click one with workers to help. Zombies walk round a trench they cannot climb out of.
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
@@ -484,7 +484,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 3d213056`: the debug tools put a Barracks
+   prints `final step 10000 hash 6fa730f1`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -638,7 +638,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash f07b60b2`. The script plays by Patch 2's
+   prints `final step 10000 hash 251f2bd3`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
@@ -761,7 +761,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 98689ff7`: the debug tools put a Halfling
+    prints `final step 10000 hash a139cc11`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -1649,16 +1649,18 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash 28c43f0b`: the debug tools explore 200 m round the
+   prints `final step 10000 hash fc109fc4`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 86
    monsters are out at nightfall (27 before Patch 3 tripled them), round
-   them and round the workers at the camp, up to 223 at once later and 296
+   them and round the workers at the camp, up to 225 at once later and 296
    by the end of the script, and all four workers at the camp fall; five of
    them go for a unit, and night 0's monsters marching on the camp fall on
    the warriors and kill one; the other two end the night at full health
-   and about three fifths. They walk home at step 8200, and on the way a
-   giant spider kills the wounded one.
+   and about three fifths. They walk home at step 8200; a giant spider
+   goes for the wounded one on the way and falls to it before its bite
+   lands, so both come home (before Patch 4 the bite landed and its poison
+   killed the wounded one).
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm test` also runs `packages/sim/test/wanderers.test.ts`: where they
    come out (claimed land, lights, units, unexplored land, a peaceful game, a
@@ -2760,6 +2762,105 @@ up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
    land redraws in each part), the box off the texel grid by up to half a texel,
    and screen corners up to 17 m outside the box zoomed out.
 
+## How a tester checks marked digs (Patch 4)
+
+*Jade, 2026-10-05: after starting to dig, the outline stayed visible until
+the job was done. Now the full outline shows only while a selected worker is
+working on that dig; otherwise a single thin dotted line, as thick as each
+line of the outline, shows where the dig goes. Workers still join a dig as
+before. Picks in blueprint/patch4-dig-outline-picks.md. Which sites show in
+full and each site's dotted trace are `sitesInOrders` and `siteTraces` in
+`packages/client/src/hud/site-marks.ts`, drawn by `Overlay.dotted` and
+`drawSites` in `packages/client/src/hud/shell.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch4-dig-outline.test.ts:
+   a site shows in full when a selected worker has it in its orders, now or
+   lined up after its current job, and not for unselected workers' digs;
+   a dig, bank, fill or ramp is traced round its edge on the land, a marked
+   tunnel round its edge at its floor, and a tunnel chain's stretch along its
+   middle at its floor, each stretch meeting the next at their corner (also
+   round a closed loop, in any order, and not across different floors); the
+   dots are 15 cm long, one to a column, with one centred on every corner.
+2. **In the game.** `pnpm dev`, open http://localhost:5173/?seed=1, select a
+   worker, press D and drag a dig south of the Big House, left click: the
+   see-through box shows while the worker stays selected, also before it
+   gets there. Click the ground to select nothing: the box gives way to a
+   dotted orange line round the dig, on the land at its rim. Select another
+   worker: still the dotted line. Right-click the dotted area with it: that
+   worker joins, and now its box shows. With Shift held, a worker given a
+   second dig shows both boxes.
+3. **Tunnels.** Build the tester Hill (M N B V C X Z, then Hill), select a
+   worker, Dig, click the hill's south face and click into it and out of its
+   east side, then right click: with the worker selected each stretch has its
+   box; with nothing selected a dotted violet line runs along the middle of
+   the tunnel at its floor, seen through the hill, turning the corner as one
+   path.
+4. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/dig-outline-look.mjs http://localhost:5198 /tmp/shots`
+   gives three workers a dig, an underground tunnel chain and an earth bank,
+   and looks with nothing selected, each worker selected in turn and all of
+   them selected, printing ok or FAIL for each.
+
+## How a tester checks monsters turning on the troops (Patch 4)
+
+*Jade's Patch 4: an enemy monster that is chasing a worker or attacking a
+building and gets attacked by a troop switches to attacking the nearest
+troop, not necessarily the one that hit it. A troop is any combat unit:
+warriors of every kind (rangers, brawlers, cavalry, crewmen, mercenaries),
+mages and siege engines; workers are not. Picks in
+blueprint/patch4-mob-aggro-picks.md. The rule is `TROOP_AGGRO`,
+`troopAggro` and `combatTroop` in `packages/sim/src/combat/mob-ai.ts`, used
+there by the night monsters and the skeleton bombers and by wanderers
+(`threats/wanderers.ts`), lair dwellers, tribes, raiders and villages
+(`threats/foes.ts`) and the high flyers (`threats/late-mobs.ts`).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch4-mob-aggro.test.ts:
+   a zombie chasing a worker that an archer shoots from 18 m goes for the
+   swordsman 7 m off instead, and keeps him while the archer shoots again;
+   it goes back to the worker once no troop has hurt it for 5 s and its
+   troop is out of its chase; a zombie breaking the Big House turns on an
+   archer 22 m off that shot it; when the troop that hurt it cannot be
+   reached it looks 12 m round itself for another, 6 m on a fog night; a
+   worker's blow neither turns it nor hides a troop's blow just before; 0
+   in the editor turns the rule off; a skeleton bomber runs at the nearest
+   troop and goes off beside it; a wanderer, a lair's guardian (within its
+   leash), a tribesman and his band, and a gravewing (which no longer
+   snatches a lone worker) turn on the troops too; two idle warriors peel a zombie off a worker in a full game;
+   and a save taken while a monster is turned carries on to the same hash.
+2. **A worker chased.** `pnpm dev`, open http://localhost:5173/?seed=1, type
+   M N B V C X Z and press **Speed** until dusk on day 1. Send one worker to
+   fell trees about 25 m out from the Big House and stand the three warriors
+   together about 10 m from it. When a monster chases the worker, select one
+   warrior and right-click the monster: after the first blow it leaves the
+   worker and goes for the nearest warrior, which may not be the one that
+   hit it. It keeps that warrior until one of them falls, or until the
+   warrior is more than 20 m off and no troop has hurt it for 5 s; then it
+   goes back to what it was doing.
+3. **A building under attack.** Press **Troop kit** and train a crossbow
+   ranger at the Barracks. At dusk press Everyone Home so the monsters break
+   at the Big House, and have the ranger shoot one from about 20 m: that
+   monster leaves the house for the nearest troop (the ranger, if no other
+   is nearer), while the ones nobody hit keep breaking. A monster hit by a
+   man up a tower, whom it cannot reach, comes off the wall only for a troop
+   on the ground within 12 m of it (or as far as the tower, if that is
+   farther). Wild animals and territorial creatures (**Creature** on the
+   debug bar) are not monsters and still go for whoever hurt them.
+4. **Fog.** Press **Fog** before dusk: the 12 m look round itself is 6 m on
+   a fog night. A troop that hit it still draws it from any distance.
+5. **The balance editor** (once republished from main): Mobs and nights,
+   Mob behaviour: "A troop's blow turns a monster on the troops for" 5 s and
+   "It looks for the nearest troop at least this far" 12 m. Setting the
+   first to 0 turns the rule off.
+6. **Check scripts.** The M5, M6, M7 and wanderers hashes above are the ones
+   with Patch 4 (M0 to M4, M8 and the wall and tunnel chains do not move).
+   The stories that changed: in M5 one warrior falls at the goblin village
+   instead of two; in the wanderers script the most monsters out at once is
+   225 instead of 223, and on the walk home the giant spider falls to the
+   wounded warrior before its bite lands, so both come home. M6 and M7 end
+   as before. The step-40 hashes at the top of this file (`74238647`, with
+   two players `613ef031`) were out of date on main before Patch 4 and are
+   corrected here; Patch 4 does not change them.
+
 ## How a tester checks working through the night (Patch 4)
 
 *Jade's Patch 4 file (2026-10-05): workers gathering within 25 m of a
@@ -2776,8 +2877,8 @@ blueprint/patch4-night-work-picks.md. The rules are
 
 1. **The tests.** `pnpm test` runs `packages/sim/test/patch4-night-work.test.ts`:
    the 25 m measured from a building's walls (a torch post or bonfire is not
-   a building here) and the 50 m to any warrior, mage or engine but an
-   artillery crewman; one worker asking for the four round the Big House at
+   a building here) and the 50 m to any warrior (an artillery crewman too),
+   mage or engine; one worker asking for the four round the Big House at
    dusk; no answer, then working all night only within 25 m of a building
    while the stock grows; Yes; No with no farm (into the main base, out at
    dawn, gathering on); No with an empty farm (two become its farmers, the
