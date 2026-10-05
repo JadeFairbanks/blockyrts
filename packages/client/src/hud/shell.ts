@@ -70,6 +70,7 @@ import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
+import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
 import { speechToPanel } from './wording.ts';
 import { goodIcon } from './inventory-icons.ts';
@@ -1682,7 +1683,12 @@ export class GameShell {
     o.end();
   }
 
-  /** Marked digs and earthworks stay outlined until done; the area being marked shows the cut or heap as a see-through box. */
+  /**
+   * Marked digs and earthworks until done (Jade's Patch 4): the full
+   * see-through box while a selected worker has the site in its orders, and
+   * otherwise one thin dotted line tracing it (site-marks.ts). The area being
+   * marked shows the cut or heap as a see-through box.
+   */
   private drawSites(o: Overlay, h: (x: number, z: number) => number): void {
     const tu = TERRAIN_UNIT_M;
     const box = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number, c: THREE.Color): void => {
@@ -1691,11 +1697,26 @@ export class GameShell {
     const stretch = (x: number, z: number, dir: number, length: number, width: number, y0: number, y1: number, c: THREE.Color): void => {
       for (const [x0, z0, x1, z1] of stretchBoxes(x, z, dir, length, width)) box(x0, z0, x1, z1, y0, y1, c);
     };
-    for (const s of this.game.info?.sites ?? []) {
+    const sites = this.game.info?.sites ?? [];
+    const selected: number[] = [];
+    for (const t of this.selection.list()) {
+      const id = entityIdOf(t.key);
+      if (id !== null && t.owner === this.player) selected.push(id);
+    }
+    const worked = sitesInOrders(selected, this.game.queues);
+    const traces = siteTraces(sites);
+    for (const s of sites) {
+      const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel || s.kind === SiteKind.TunnelLine ? TUNNEL : HEAP;
+      if (!worked.has(s.id)) {
+        for (const r of traces.get(s.id) ?? []) {
+          const y = r.y;
+          o.dotted(r.ax, r.az, r.bx, r.bz, y === null ? (x, z) => h(x + r.nx * TRACE_NUDGE_M, z + r.nz * TRACE_NUDGE_M) + TRACE_LIFT_M : () => y, c);
+        }
+        continue;
+      }
       const cx = ((s.x0 + s.x1 + 1) / 2) * COLUMN_M;
       const cz = ((s.z0 + s.z1 + 1) / 2) * COLUMN_M;
       const ground = h(cx, cz);
-      const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel || s.kind === SiteKind.TunnelLine ? TUNNEL : HEAP;
       if (s.kind === SiteKind.TunnelLine) {
         const { dir, length } = stretchBetween(s.x0, s.z0, s.x1, s.z1);
         stretch(s.x0, s.z0, dir, length, s.axis, s.level * tu, s.level2 * tu, c);
