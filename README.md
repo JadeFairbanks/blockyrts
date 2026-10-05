@@ -185,9 +185,11 @@ out.* (The warrior joins in milestone 3.)
    trees run out, the worker goes idle, a message says so, and the Idle
    Gatherer button (F1, bottom left, with the number of idle workers)
    selects it and centres on it. C returns cargo; G then a click gathers.
-3. **Build.** With workers selected press B (Basic Structures). Buildings
-   sit on the grid keys Q W E R T / A S D F G / Z X C V, with B for Back:
-   B then W opens Farms, B then C opens Lights. Pick one and a ghost follows
+3. **Build.** With workers selected press B (Build; Basic Structures before
+   Patch 2). Each building is on the letter in its button's corner, and Esc
+   goes back: B then F is a Farm, B then T opens Lights (Patch 4; before,
+   the buildings sat on the grid layout Q W E R T / A S D F G / Z X C V with
+   B for Back, so B then W opened Farms). Pick one and a ghost follows
    the cursor with a green or red tile per column, the 10 m of land it will
    claim, and for lights their light and claim rings. Left click places it
    (Shift + click places several and keeps the ghost); drag with a torch post
@@ -196,7 +198,8 @@ out.* (The warrior joins in milestone 3.)
    red cannot be paid for yet. The cost is taken when a worker arrives and
    starts; scaffolding goes up and the building rises as it is built. Select
    an unfinished building and press X to take it down for 80% back.
-4. **Farm.** Build a wheat field (B, W, Q), then right-click it with two
+4. **Farm.** Build a wheat field (B, W, Q; since Patch 2 the Farm, B then F
+   from Patch 4), then right-click it with two
    workers: they become its farmers. The field grows at once: its panel shows
    a harvest bar filling and when the next 6 wheat come in (see "How a tester
    checks farm harvests"). Press **Speed** in the debug panel for 4 or 16
@@ -255,7 +258,8 @@ main base or farm left ends the game with the night count as the score.*
    Without walls, night 0 is hard: the zombies, bats, rats and spiders that
    come out of the dark edge will kill the warrior and chew down the Big
    House. With **Speed** in the debug panel you can get there quickly.
-3. **Walls.** Workers, B then G (Walls): softwood, hardwood and stone walls,
+3. **Walls.** Workers, B then D (Defences; before Patch 4, B then G opened
+   Walls): softwood, hardwood and stone walls,
    gates (east to west or north to south) and towers. Click with a wall to
    place one, then click further points: each click builds the whole stretch
    from the last point (see wall and tunnel chains below); gates are 3 columns wide and let your
@@ -270,8 +274,9 @@ main base or farm left ends the game with the night count as the score.*
    Melee only, Ranged only. Spears stab over a wall; clubs and axes cannot
    reach across it. Hits throw sparks, splinters or blood, units limp when
    hurt, and the dead lie for a few seconds then sink.
-5. **Equipment.** Select the Big House: K opens the crafting menu on the grid
-   keys (K then A makes a hardwood club); F refurbishes items back into
+5. **Equipment.** Select the Big House: K opens the crafting menu, each
+   product on the letter shown on its button (Patch 4; before, on the grid
+   keys: K then A made a hardwood club); F refurbishes items back into
    resources; A trains a warrior for 30 food and a club from the stock. Select
    units and press Q (Equip Best): they walk to the Big House and take the
    best they can use, highest rank first. With one unit selected, I opens its
@@ -289,7 +294,8 @@ main base or farm left ends the game with the night count as the score.*
    about 2 m starts a tunnel instead (+ and - then set its height); D again,
    or a click on a cliff face, digs a level tunnel in a chain of stretches
    (see wall and tunnel chains below). Digging
-   puts Earth (or stone, flint, sand...) in the pool. B, Z (Earthworks) heaps
+   puts Earth (or stone, flint, sand...) in the pool. B, D and then K, P or
+   I (Earthworks, under Defences since Patch 2; before Patch 4, B, Z) heaps
    an earth bank, a ramp (drag from the bottom to the top) or fill from that
    Earth. A marked area shows its box while a selected worker is on it and a
    dotted line otherwise, until done; right-click one with workers to help. Zombies walk round a trench they cannot climb out of.
@@ -1156,7 +1162,8 @@ time, and each stretch reaches the sim as one order (its start, one of eight
 directions and a length). Placement rules, costs and dig rates are as they
 were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
 
-1. **A wall chain.** Select workers, B, G and a wall. Click: one wall is
+1. **A wall chain.** Select workers, B, D and a wall (W is the softwood
+   wall; before Patch 4, B, G and a wall). Click: one wall is
    placed there and the ghost stays. Move the mouse: the stretch from that
    wall to the cursor shows as a ghost, snapped to the nearest of the eight
    directions, with what it builds and costs beside the cursor ("9 walls:
@@ -1453,7 +1460,7 @@ place of the crop fields, vegetable farms and herb bed, growing in full in
 every band, and moved the hens to the Barn.
 
 1. `pnpm dev`, open http://localhost:5173/?seed=1 and start. Build a Farm
-   (B, W) and right-click it with one worker. Select it: under its health and
+   (B, F; before Patch 4, B, W) and right-click it with one worker. Select it: under its health and
    "1 of 2 farmers at work" a bar fills with the line "In 7 minutes 20
    seconds, 8 farm fare will be produced, giving a food value of 16." The bar
    starts with the farmer's first step of work.
@@ -1564,9 +1571,10 @@ and every hash are unchanged. Picks in blueprint/hud-picks.md.
 1. **The strip.** `pnpm dev`, open http://localhost:5173/?seed=1 at 1920 x
    1080. Along the bottom edge, touching: the minimap with the utility bar
    on top, the portrait, the selection panel, the command card. The card is
-   4 rows tall and 10 columns wide here; the usual 5 x 3 block with the grid
-   keys is its bottom right corner. At 1280 x 720 the card has 5 columns; at
-   1024 x 768 the whole HUD is drawn smaller and nothing is cut off.
+   4 rows tall and 10 columns wide here; the usual 5 x 3 block (with the
+   grid keys until Patch 4) is its bottom right corner. At 1280 x 720 the
+   card has 5 columns; at 1024 x 768 the whole HUD is drawn smaller and
+   nothing is cut off.
 2. **Portrait.** Click a warrior: its head and shoulders, in its kit,
    breathing in its idle clip. Click the Big House: the house from about 45
    degrees. A deer or a beetle (debug "Creature") shows whole; a tree shows
@@ -1726,7 +1734,7 @@ Patch 2 do not load (the standing rule for every patch).
    or any click in between starts the count again (M N B Q V C X Z opens
    nothing; nor does M N B V, a click, C X Z), and the keys keep their usual
    jobs while you type them. A new game or a reload starts with them hidden.
-3. **Lights.** Select a worker: the Lights slot (B then V) has the torch
+3. **Lights.** Select a worker: Lights (B then T; before Patch 4, B then V) has the torch
    post (2 softwood, 1 resin, lights 10 m, claims 5 m) and the bonfire (15
    softwood, 3 by 3, lights 20 m, claims 10 m, buildable from the start);
    the wall torch and the lantern are cut in Patch 2. Build both; select
@@ -2060,16 +2068,17 @@ Gunnery yard as the Artillery workshop. Cooking, the kitchens, the lantern,
 wall torch and brazier are gone.
 
 1. **One Build menu.** `pnpm dev`, open http://localhost:5173/?seed=1, select
-   the workers and press B: Big House (Q), Farm (W), Barn (E), Storehouse
-   (R), Fishing dock (T), Workshop (A), Forge (S), Artillery workshop (D),
-   Barracks (F), Magi Sanctum (G), Scholar's Lodge (Z), Mineshaft (X),
-   Defences (C) and Lights (V); B is Back. The worker card has one Build
-   button where Basic and Advanced were.
-2. **Defences and Lights.** C opens Defences: the softwood, hardwood and
+   the workers and press B: Big House, Farm, Barn, Storehouse, Fishing
+   dock, Workshop, Forge, Artillery workshop, Barracks, Magi Sanctum,
+   Scholar's Lodge, Mineshaft, Defences and Lights, and Back. From Patch 4
+   each is on a letter of its name (H F R S I W G A B M C N D T) and Back on
+   Esc; before, they sat on the grid layout Q to V with B for Back. The
+   worker card has one Build button where Basic and Advanced were.
+2. **Defences and Lights.** D opens Defences: the softwood, hardwood and
    stone walls, the gates each way, the towers, then the earthworks. It is
-   17 choices, so the last slot reads "More 1/2" (V) and shows the rest, as
-   the K menu pages. V in the build menu opens Lights: the torch post and
-   the bonfire.
+   17 choices, so on a card too small for them the last slot reads "More
+   1/2" (+; V before Patch 4) and shows the rest, as the K menu pages. T in
+   the build menu opens Lights: the torch post and the bonfire.
 3. **The Farm and the Barn.** Build a Farm: two farmers grow farm fare ("A
    hearty medley of vegetables"), 8 a farmer-day, and it gives 10 supply. The
    **Barn** button on the debug bar puts down a red barn with 2 horses and an
@@ -2212,8 +2221,8 @@ portrait next to the card. The tinkering hook is `tinker(state, i, steps)` in
    buttons do not fit at the minimum size, so the card grows upward to hold
    them, still squares (from indev 0.8 the card holds twelve before it
    grows, so they fit; see the action card's twelve below). Press B: one build menu, the fourteen buildings on
-   the grid keys, with walls, gates, towers and earthworks under Defences and
-   the torch post and bonfire under Lights; B is Back.
+   letters of their names (on the grid keys before Patch 4), with walls, gates, towers and earthworks under Defences and
+   the torch post and bonfire under Lights; Esc is Back.
 4. **Attack on a friend.** Select a warrior, press A and click one of your
    own workers: the warrior walks over and hits it. Press A and click the
    ground: it attack-moves and leaves your own units alone.
@@ -2594,6 +2603,59 @@ blueprint/patch3-menus-picks.md. The greying and the lone-menu rule are
    than 60% (before Patch 3 a 14 by 10 px arrow and a 2 px ring pulsing
    from 30%).
 
+## How a tester checks the build menu's letters (Patch 4)
+
+*Jade's Patch 4: the build menu's hotkeys followed the grid layout (each
+building on the key in its place on the keyboard, Q to V, with B for Back)
+while no other button did; the grid goes and the buildings' keys work like
+every other button's. Picks in blueprint/patch4-hotkeys-picks.md. The
+menus and their letters are `packages/client/src/hud/menu-keys.ts`; every
+menu button is an action in `packages/client/src/input/bindings.ts`, so it
+shows in the settings. Client only: no sim change, no save format change.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch4-hotkeys.test.ts
+   (every building's letter, Defences and Lights, Esc for Back and + for
+   More, a rebound key on its button, the K menus' letters, no two buttons
+   of one menu on one key and none on L, J or O) and the m2 and m3 controls
+   tests.
+2. **The build menu.** `pnpm dev`, open http://localhost:5173/?seed=1, select
+   the four workers and press B. Each button shows its letter in its
+   corner: Big House H, Farm F, Barn R, Storehouse S, Fishing dock I,
+   Workshop W, Forge G, Artillery workshop A, Barracks B, Magi Sanctum M,
+   Scholar's Lodge C, Mineshaft N, Defences D, Lights T, and Back Esc.
+   Press F: the Farm's ghost is on the cursor (before Patch 4, F picked the
+   Barracks and W the Farm). Hovering a button shows the same letter beside
+   its name.
+3. **Defences and Lights.** B, D: the softwood, hardwood and stone walls on
+   W, H and S; the softwood gates on G (east to west) and F (north to
+   south), the hardwood ones on A and D, the stone ones on E and U; the
+   towers on T, R and N; earth bank K, earth ramp P, fill I, lumber ramp B
+   and stone ramp M. B, T, B picks up a bonfire, and B, T, T a torch post
+   once there is resin (at the start it is greyed out, and T asks who can
+   sort that out, as a click does). Esc goes back a step at a time. A menu
+   the card cannot hold even at its smallest buttons (on a short screen)
+   pages, and + turns the page (V before Patch 4).
+4. **Any keyboard layout.** Menu keys now go by the letter a key types, as
+   every other command's do, so on a French keyboard the key marked F still
+   picks the Farm (before Patch 4 the build menu went by where a key sits).
+5. **The K menus.** Type M N B V C X Z, press **Troop kit** and select the
+   Forge: copper ingot C, tin ingot T, bronze ingots B, wrought iron W, pig
+   iron P, iron ingot I, steel ingot S, carbon steel ingot A, charcoal H,
+   bricks R, glass G, gunpowder U (before Patch 4: Q W E R T, A S D F G, Z
+   X); H queues charcoal. Each product takes the first free initial of its name, else the
+   first free letter of its name. The Workshop has more products than
+   letters: 20 of its 43 get one and the rest are clicks until given a key.
+6. **Rebinding.** Open the menu (F10), Hotkeys: the build menu, Defences,
+   Lights and each building's K menu have a group of their own (the note
+   that build menu keys "follow the grid Q to B and stay as they are" is
+   gone). Click Farm's key, press Y, close the menu: B, Y picks up the Farm
+   and its button shows Y. "Reset all hotkeys" puts F back.
+7. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/hotkeys-look.mjs http://localhost:5198 /tmp/shots`
+   drives the build menu, Defences and Lights from the keyboard, places a
+   bonfire and a Farm, reads the Forge's and the main base's K menus and
+   queues charcoal on H, printing ok or FAIL for each.
+
 ## How a tester checks the fog look and hidden-unit outlines (Patch 3)
 
 *Jade's ask (2026-10-04): land that has been explored but is not seen right
@@ -2909,6 +2971,47 @@ the distance is `START_OUTCROP_NEAR_M` and `START_OUTCROP_FAR_M` in
    buildings at the end; the outcrop is nearer, so M2 ends with 5 more stone,
    M4 with 15 more and M6 with 5 more, and the step-40 hashes at the top of
    this file are `fc7a33f8`, with two players `3a816b4a`.
+
+## How a tester checks work that waits (Patch 4)
+
+*Jade's Patch 4, three questions that ask by themselves: a farm that has sat
+empty for more than a minute asks to send a nearby worker; a building going
+up that no one has worked on for more than a minute asks for a builder (never
+at dusk or night); and a worker idle for more than a minute offers to farm,
+gather or help build. Picks in blueprint/patch4-worker-questions-picks.md.
+The questions are `packages/sim/src/units/work-asks.ts`; their numbers are on
+the balance editor's Questions page "Work that waits".*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch4-work-asks.test.ts:
+   each question comes after a minute and not before, never at dusk or night,
+   and a minute after dawn begins; one idle worker speaks for those near it;
+   Yes gathers, farms or builds as the question said; No rests until the next
+   day; the question goes when a worker is given an order or a farmer is
+   assigned; a farm with a farmer, or with no worker within 30 m, never asks;
+   the idle workers farm first and offer to help build a site; and Yes does
+   the same on a machine that loaded the game and never saw the question.
+2. **Idle workers.** `pnpm dev`, open http://localhost:5173/?seed=1 and leave
+   the four workers alone. About a minute in, one of them asks for all four:
+   "Four of us have nothing to do. Shall we gather?" Hover the tick: "All 4
+   gather what the side needs most, as the Gather button sends them." Click
+   it: they go gathering. Click the cross instead (or let it run out): they
+   stay idle and ask again only the next day, or a minute after their next
+   work ends.
+3. **An empty farm.** Build a Farm near the Big House and give the workers
+   nothing more to do. A minute after it is finished, the farm asks over its
+   roof: "No one is farming here. Send a worker?" Yes sends the nearest idle
+   worker (one gathering if none is idle) to farm it, handing in any load on
+   the way. Assign a farmer yourself while it asks: the bubble goes.
+4. **A building no one works on.** Start a Storehouse with one worker, then
+   send that worker off to gather. A minute later the site asks: "No one is
+   building this storehouse. Send a builder?" Yes sends a worker to finish
+   it. With idle workers near, they offer "Shall we help build the
+   storehouse?" instead of gathering. Start a site just before dusk and leave
+   it: nothing asks through dusk and the night, and it asks a minute after
+   dawn begins.
+5. **What reaches chat.** None of these goes to chat. Only "No worker is free
+   nearby to farm here." (or "... to build here."), when Yes finds no one
+   left to send, is urgent and does.
 
 ## How a tester checks the balance editor
 

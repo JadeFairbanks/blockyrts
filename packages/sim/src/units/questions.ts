@@ -687,6 +687,11 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
   const book = bookOf(state);
   const q = book.open.find((x) => x.info.id === o.ask && x.player === o.player);
   if (q) close(state, q);
+  const theirs = answerKinds.get(o.q);
+  if (theirs) {
+    theirs(state, o);
+    return;
+  }
   if (o.yes !== 1) return;
   const e = state.entities;
   const player = o.player;
@@ -814,3 +819,48 @@ export function isAsking(state: SimState, id: number, building: boolean): boolea
   const book = bookOf(state);
   return building ? buildingAsking(book, id) : inQuestion(book, id);
 }
+
+// ----- questions other modules ask by themselves (Patch 4) -----
+
+/**
+ * A question another module asks by itself (Patch 4: units/work-asks.ts),
+ * not in answer to a click: it counts toward its player's open questions and
+ * takes the same wait, bubble, buttons and withdrawing as this module's own.
+ * `who` is an entity id (the speaker, first in `units`), or a building id
+ * when `building` (then `units` is empty).
+ */
+export interface OwnQuestion {
+  player: number;
+  who: number;
+  building: boolean;
+  q: number;
+  units: readonly number[];
+  text: string;
+  yes: string;
+  no: string;
+  holds?: () => boolean;
+  unask?: () => void;
+  recount?: () => string | null;
+}
+
+/** Whether a player may be asked another question now: still in the game, with fewer than OPEN_QUESTIONS_PER_PLAYER open. */
+export function canAsk(state: SimState, player: number): boolean {
+  return asks(state, player) && hasRoom(state, player);
+}
+
+/** Puts up a question another module asks by itself (check canAsk first); returns its id. */
+export function askOwn(state: SimState, a: OwnQuestion): number {
+  const q: Question = { player: a.player, who: a.who, building: a.building, text: a.text, info: { id: 0, q: a.q, units: [...a.units], res: -1, until: 0, yes: a.yes, no: a.no } };
+  if (a.holds) q.holds = a.holds;
+  if (a.unask) q.unask = a.unask;
+  if (a.recount) q.recount = a.recount;
+  put(state, q);
+  return q.info.id;
+}
+
+/**
+ * Answers to questions of other kinds, by kind (Patch 4: units/work-asks.ts,
+ * units/night-work.ts): run for Yes and No alike, once the question has
+ * closed, in place of this module's own answers and answerHooks.other.
+ */
+export const answerKinds = new Map<number, (state: SimState, o: AnswerOrder) => void>();

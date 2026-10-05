@@ -12,7 +12,7 @@ export const SLOT = 52;
 export const GAP = 4;
 export const PITCH = SLOT + GAP;
 export const CARD_PAD = 12;
-/** The card before Patch 2: 3 rows of 5 with the grid keys (a phone's card is still that size). */
+/** The card before Patch 2: 3 rows of 5 (a phone's card is still that size). */
 export const CLASSIC_COLS = 5;
 export const CLASSIC_ROWS = 3;
 export const CLASSIC_SLOTS = CLASSIC_COLS * CLASSIC_ROWS;

@@ -789,7 +789,7 @@ body.playing * {
 .hud-btn.msg-btn.alert {
   color: #ffd27a;
 }
-.hud-btn.cmd.grid .face {
+.hud-btn.cmd.menu-item .face {
   font-size: calc(9.5px * var(--card-k, 1));
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
