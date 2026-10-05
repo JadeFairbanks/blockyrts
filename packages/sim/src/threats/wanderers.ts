@@ -20,7 +20,7 @@ import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, claimShapes, dist2, enclosedKey, isLit, type ClaimShapes } from '../buildings/lights.ts';
 import { clockOf, Period } from '../clock.ts';
 import { bomber, Comes, flies, mobSpec, MOBS, Sun, type MobSpec } from '../combat/mobs.ts';
-import { addMob, engageUnit, explode, lateHooks, mobMover, townCentre, vanish, walkMob } from '../combat/mob-ai.ts';
+import { addMob, engageUnit, explode, lateHooks, mobMover, townCentre, troopAggro, vanish, walkMob } from '../combat/mob-ai.ts';
 import { forward, gap, Side, sideOf } from '../combat/combat.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
@@ -193,14 +193,16 @@ function provokedBy(state: SimState, i: number): number {
 
 /**
  * One step of a wanderer (runMob's foe hook, after its attack and recovery
- * timers): what hurt it, else the prey it has while that stays close and on
- * its ground, else new prey in its aggro; with none it roams round its spot.
+ * timers): what hurt it (the nearest troop when a troop did, Jade's Patch
+ * 4), else the prey it has while that stays close and on its ground, else
+ * new prey in its aggro; with none it roams round its spot.
  */
 export function runWild(state: SimState, i: number, spec: MobSpec): void {
   const e = state.entities;
   const hx = e.homeX[i]!;
   const hz = e.homeZ[i]!;
-  let t = provokedBy(state, i);
+  let t = troopAggro(state, i, spec, -1, (j) => wildPrey(state, j));
+  if (t < 0) t = provokedBy(state, i);
   if (t < 0 && e.target[i]) {
     const c = e.indexOf(e.target[i]!);
     if (c >= 0 && wildPrey(state, c) && gap(state, i, c) <= aggroReach(state, i) + WILD_GIVE_UP_M * M && length2d(e.x[c]! - hx, e.z[c]! - hz) <= WILD_LEASH_M * M) t = c;
