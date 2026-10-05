@@ -64,6 +64,7 @@ import { LootView } from './loot-view.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
 import { HiddenOutlines, type OutlineStats } from './hidden-outlines.ts';
+import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
 
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
 const FULL_DETAIL_RING = 2;
@@ -225,7 +226,6 @@ export class WorldView {
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
   private shadows = false;
-  private lastShadowSweep = 0;
   readonly buildings: BuildingsView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
@@ -240,22 +240,16 @@ export class WorldView {
     this.colours = PLAYER_COLOURS.map((c, p) => (opts.colours?.[p] ? new THREE.Color(opts.colours[p]) : c));
 
     const scene = this.scene;
+    // Everything added to the world casts and takes the sun's shadows from its first frame (sun-shadows.ts).
+    keepShadowFlags(scene);
     scene.background = new THREE.Color(0x07080a);
     // Fog nights (Table 8): a grey fog that closes in round the view; out of sight while there is none.
     scene.fog = new THREE.Fog(FOG_COLOUR, FOG_OFF_M, FOG_OFF_M * 2);
     this.hemi = new THREE.HemisphereLight(0xdfefff, 0x4a4a3a, 1.15);
     scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff2dc, 1.7);
-    sun.position.set(40, 80, 25);
-    // Shadows (Settings: graphics), when on: a 90 m square round the camera's focus.
-    sun.shadow.mapSize.set(2048, 2048);
-    const sc = sun.shadow.camera;
-    sc.left = -45;
-    sc.right = 45;
-    sc.top = 45;
-    sc.bottom = -45;
-    sc.near = 1;
-    sc.far = 260;
+    // Shadows (Settings: graphics), when on: a box round the ground on screen, aimed each frame by aimSun.
+    setUpSun(sun);
     sun.shadow.bias = -0.0005;
     scene.add(sun, sun.target);
     this.sun = sun;
@@ -576,34 +570,19 @@ export class WorldView {
       this.viewRing = g.viewRing;
       if (Number.isFinite(this.focusChunk.cx)) this.chooseChunks(this.focusChunk.cx, this.focusChunk.cz);
     }
+    // Every mesh keeps its shadow flags (keepShadowFlags), so the setting is the sun's alone.
     if (g.shadows !== this.shadows) {
       this.shadows = g.shadows;
       this.sun.castShadow = g.shadows;
-      this.markShadows();
     }
   }
 
-  /** Every mesh casts and takes shadows while they are on (new ones join on the next sweep). */
-  private markShadows(): void {
-    const on = this.shadows;
-    this.scene.traverse((o) => {
-      if (!(o as THREE.Mesh).isMesh) return;
-      const m = o as THREE.Mesh;
-      const see = (Array.isArray(m.material) ? m.material[0] : m.material)?.transparent !== true;
-      m.castShadow = on && see;
-      m.receiveShadow = on;
-    });
+  /** Aims the sun's shadow box at the ground on screen; call once the camera has moved for the frame, just before it is drawn. */
+  aimSun(camera: THREE.Camera, focus: THREE.Vector3): void {
+    if (this.shadows) aimSun(this.sun, camera, focus.y);
   }
 
   update(now: number, focus: THREE.Vector3): void {
-    if (this.shadows) {
-      this.sun.target.position.set(focus.x, focus.y, focus.z);
-      this.sun.position.set(focus.x + 40, focus.y + 80, focus.z + 25);
-      if (now - this.lastShadowSweep > 1000) {
-        this.lastShadowSweep = now;
-        this.markShadows();
-      }
-    }
     this.updateUnits(now);
     this.lootView.update(now);
     this.updateSky();
