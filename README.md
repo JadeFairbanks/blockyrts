@@ -2789,11 +2789,13 @@ the distance is `START_OUTCROP_NEAR_M` and `START_OUTCROP_FAR_M` in
    room for it.
 4. **The Heartland.** Type M N B V C X Z, press **Reveal** and **Show all**:
    the basin round the pocket, out to where the Fringe's birches and
-   hornbeams begin, holds twice as many outcrops over a few seeds as before.
-   Seed 1 with one player has 3 away from the pocket (before: 2), with four
-   players 4 (before: 2). Nothing else in the scatter moves: every tree and
-   node stands where it did, and the new outcrops take spots where nothing
-   stood.
+   hornbeams begin, holds twice as many outcrops as before, counted over a
+   few seeds: `?seed=4&players=4` has 4 away from the pockets (before: 1),
+   `?seed=6&players=4` 4 (before: 1), seed 1 with one player 3 (before: 2).
+   A game for one or two players has a single Heartland cell, so most seeds
+   there show none or one besides the base's own. Nothing else in the scatter
+   moves: every tree and node stands where it did, and the new outcrops take
+   spots where nothing stood.
 5. **Saves.** A save from indev 0.8 is refused: "That save is from an older
    version of the game. Start a new game." (save format 8, Patch 4's one bump;
    snapshot 21).
