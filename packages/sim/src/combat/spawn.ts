@@ -53,15 +53,15 @@ const TILE_WU = WU_PER_COLUMN * FOG_TILE_COLUMNS;
 
 /** The terms of the night's budget (Rising difficulty; Jade 2026-10-04): 12 + (n - 1) + 3n + 0.04n^2 threat on night n, scaled by scalePct. */
 export interface NightBudget {
-  /** The budget's start, tenths of threat (the 12). */
+  /** The start: threat every night begins with (the 12), held in tenths. */
   startTenths: number;
-  /** Added for each night after the first, tenths of threat (the n - 1). */
+  /** Added for each night after the first (the n - 1), held in tenths. */
   rampTenths: number;
-  /** Added for each night, tenths of threat (the 3n). */
+  /** Added for each night (the 3n), held in tenths. */
   perNightTenths: number;
-  /** The curve, thousandths of threat times the night squared (the 0.04n^2). */
+  /** The curve: this times the night squared (the 0.04n^2), held in thousandths. */
   curveThousandths: number;
-  /** The whole budget scaled, percent. */
+  /** The whole budget scaled up or down, percent. */
   scalePct: number;
 }
 
