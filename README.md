@@ -105,7 +105,7 @@ steps from seed 1 in Node, Chrome and Firefox and get three identical state
 hashes; a scripted order list replays to the same hash.*
 
 1. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m0-demo.json --quiet`
-   prints `final step 10000 hash 37dc8aa4`. Run it again: the same hash. (The
+   prints `final step 10000 hash 7a6598ed`. Run it again: the same hash. (The
    M0, M1, M2 and M4 scripts run with `"peaceful": true`, no night mobs, so they
    keep checking the world and the economy; M3's script has the monsters.)
 2. `pnpm test` runs the same seed and script in Node twice and in headless
@@ -114,7 +114,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `5d6f44ab`
+   step as the headless runner with no script: for seed 1 that is `fc7a33f8`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -153,9 +153,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `5d6f44ab` at step 40, with two players `f0c858ac`. The land matches too.
+   `fc7a33f8` at step 40, with two players `3a816b4a`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
-   prints `final step 10000 hash 5e4221d3`: two players dig trenches from a
+   prints `final step 10000 hash bc4268d7`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
    `pnpm test` runs it in Node, Chromium, Firefox and WebKit too.
 6. `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --edges --out map.png`
@@ -226,7 +226,7 @@ out.* (The warrior joins in milestone 3.)
    notes 1, when Space became Centre on the selection). Every hotkey
    can be rebound in the menu (F10, Hotkeys).
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m2-camp.json --quiet`
-   prints `final step 10000 hash 6203826d`: workers chop and quarry, the Big
+   prints `final step 10000 hash ec2fbd37`: workers chop and quarry, the Big
    House trains a worker rallied onto the trees, a wheat field and a torch
    post go up, farmers farm, the choppers move on to more pines when their
    first trees fall, everyone goes home at dusk and comes out at day, a group
@@ -296,7 +296,7 @@ main base or farm left ends the game with the night count as the score.*
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
-   prints `final step 10000 hash abc788c7`: two workers raise a gate and a
+   prints `final step 10000 hash ffb058ba`: two workers raise a gate and a
    softwood wall ring while two chop and then join them; the Big House
    trains a long-melee spearman and the three starting warriors walk to it
    to upgrade their cudgels to flint hand-axes (Upgrade Weapon, milestone
@@ -377,7 +377,7 @@ workers but not troops.*
    stretch within 30 m that still has more than half its fish, moving on as
    stretches run low; workers with a rod or net fish from the shore.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m4-economy.json --quiet`
-   prints `final step 10000 hash 2b50b4d0`: two workers pick flint while two
+   prints `final step 10000 hash 360f14c0`: two workers pick flint while two
    chop; a starting warrior hunts with N double-tapped, wears down the deer
    north of the camp with its cudgel, brings the meat home and walks home at
    dusk; a worker prospects (Fair); Rations goes to troops only and the
@@ -482,7 +482,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 3d213056`: the debug tools put a Barracks
+   prints `final step 10000 hash af031387`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -636,7 +636,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash f07b60b2`. The script plays by Patch 2's
+   prints `final step 10000 hash 2fc9393a`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
@@ -759,7 +759,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash 98689ff7`: the debug tools put a Halfling
+    prints `final step 10000 hash e7c4f31c`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -874,7 +874,7 @@ M7 scripts were updated and still play out as they say).
    stalkers shimmer while cloaked, and the Rift-touched beasts shed violet
    motes until their own textures arrive.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 2e7fdc19`. The script plays by Patch 2's
+   prints `final step 10000 hash 7937dc6c`. The script plays by Patch 2's
    rules (before Patch 2 the gun kit trained warriors as cannon crew and
    warriors crewed the engines): the debug tools make the Big House a
    Citadel, put a Barn with two horses and an ox 20 m east, a siege kit 20 m
@@ -1061,7 +1061,7 @@ milestone are refused with a message saying why.
    Hunt (N) wild geese by Heartland water or pheasants in the Fringe woods for
    meat and feathers, which bow and crossbow rangers need.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m8-siege.json --quiet`
-   prints `final step 10000 hash 2e7fdc19`, as in milestone 8 above.
+   prints `final step 10000 hash 7937dc6c`, as in milestone 8 above.
 
 ## How a tester checks the model catalogue on mobs
 
@@ -1193,7 +1193,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    refused with a message. Units walk through the finished tunnel; right-click
    a marked stretch with more workers to help.
 6. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-walls.json --quiet`
-   prints `final step 10000 hash 666ab9f3`: the four workers are given a
+   prints `final step 10000 hash 130f68b4`: the four workers are given a
    chain of softwood walls a stretch at a time from (0, 20), east 9, south 5,
    south-west 3, west 6 and north 8 back to the first wall (34 walls, a
    closed ring, from the 40 softwood lumber the camp starts with); a second
@@ -1201,7 +1201,7 @@ were. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    lumber for 6 of its 9 walls, so 6 are planned from its start. All 40
    stand by step 1500.
 7. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/chain-tunnel.json --quiet`
-   prints `final step 10000 hash de1ff17d`: the debug tools heap a soil hill
+   prints `final step 10000 hash b8ff9f54`: the debug tools heap a soil hill
    south-east of the camp and the four workers dig a tunnel chain from its
    west face: east 3 columns, south 3, south-east 2 and east 4, out of its
    east side, 480 bites of soil by step 7300; then worker 1 walks to a point
@@ -1644,7 +1644,7 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash 28c43f0b`: the debug tools explore 200 m round the
+   prints `final step 10000 hash 80e25d94`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 86
    monsters are out at nightfall (27 before Patch 3 tripled them), round
@@ -2754,6 +2754,53 @@ up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
    each. Before the fix it found such frames in all three (with 28 to 67
    land redraws in each part), the box off the texel grid by up to half a texel,
    and screen corners up to 17 m outside the box zoomed out.
+
+## How a tester checks the stone outcrops (Patch 4)
+
+*Jade's Patch 4 file (2026-10-05): "double the amount of stone outcroppings
+spawning randomly in heartlands, and make sure at least one is by each
+starting base location." The Heartland's scatter (the start basin's cells)
+puts down 4 stone outcrops in 10,000 candidate spots, twice the 2 before, and
+each base's own outcrop of 200 (Table 9's, which every base already had)
+stands 11 to 16 m from the middle of its Big House, where the start sees it:
+before, it lay 18 to 38 m out, in the dark on most games for two or more.
+Picks in blueprint/patch4-stone-outcroppings-picks.md. The scatter is
+`HEARTLAND_STONE_OUTCROPS_PER_10000` in `packages/sim/src/world/generate.ts`;
+the distance is `START_OUTCROP_NEAR_M` and `START_OUTCROP_FAR_M` in
+`packages/sim/src/world/start.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/world.test.ts: for 1 to
+   8 players over 10 seeds, every base has its one outcrop of 200 within 11
+   to 16 m of its Big House's middle (to within a column), 7 m off every
+   plot in a game for two or more; in play it stands whole on land the
+   start has already seen; and over 12 seeds of a three-player basin the
+   scatter holds about 4 outcrops to every 10 loose stone (before Patch 4,
+   2 to 10).
+2. **One player.** `pnpm dev`, open http://localhost:5173/?seed=1: the
+   stone outcrop, the biggest grey rock cluster, stands 15 m west of the
+   Big House in the lit land from the first moment (before Patch 4: 23 m
+   west, at the edge of the dark). The two loose stone piles are where
+   they were, 19 and 29 m out beyond it.
+3. **Two and four.** `?seed=1&players=2`: your outcrop stands 15 m out on
+   your yard's side, the other base's 12 m out on its own, both lit at the
+   start (before: 29 and 35 m, both in the dark). `?seed=1&players=4`: each
+   base's 12 to 15 m out (before: 26 to 36 m). Flint, herbs and flax on
+   that side of the yard (now and then a loose stone pile too) shift to make
+   room for it.
+4. **The Heartland.** Type M N B V C X Z, press **Reveal** and **Show all**:
+   the basin round the pocket, out to where the Fringe's birches and
+   hornbeams begin, holds twice as many outcrops over a few seeds as before.
+   Seed 1 with one player has 3 away from the pocket (before: 2), with four
+   players 4 (before: 2). Nothing else in the scatter moves: every tree and
+   node stands where it did, and the new outcrops take spots where nothing
+   stood.
+5. **Saves.** A save from indev 0.8 is refused: "That save is from an older
+   version of the game. Start a new game." (save format 8, Patch 4's one bump;
+   snapshot 21).
+6. **The balance editor** (once republished from main): World and terrain,
+   World generation: "Stone outcrops in the Heartland, per 10,000 spots"
+   (4); Start basins: "Each base's stone outcrop, nearest its Big House's
+   middle" (11 m) and "farthest from its middle" (16 m).
 
 ## How a tester checks the balance editor
 

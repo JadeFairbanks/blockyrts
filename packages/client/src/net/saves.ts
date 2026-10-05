@@ -14,9 +14,10 @@ const utf8 = { encode: (t: string): Uint8Array => new TextEncoder().encode(t), d
  * never carried over (Jade, Patch 2: a standing rule). 2 was milestone 11's
  * troop rework; 3 was Patch 2; 4 was Jade's mini patch (base spacing and the
  * world 30% smaller); 5 was Patch 3; 6 was Patch 3b (the start's asks wait 10 s);
- * 7 is indev 0.8 (the action card holds 12 buttons before it grows).
+ * 7 was indev 0.8 (the action card holds 12 buttons before it grows); 8 is
+ * Patch 4, one bump for the whole patch.
  */
-export const SAVE_FORMAT_VERSION = 7;
+export const SAVE_FORMAT_VERSION = 8;
 export const GAME_VERSION = '0.11.0';
 export { OLD_SAVE_TEXT };
 
