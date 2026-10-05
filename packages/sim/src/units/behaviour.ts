@@ -14,7 +14,7 @@ import { isDark } from '../clock.ts';
 import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
-import { CLIMBING_OUT, PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
+import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
@@ -28,7 +28,7 @@ import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
-import { runDig } from './dig.ts';
+import { digStairsOut, runDig, runStairs } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
 import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
@@ -56,8 +56,6 @@ export const Act = {
   Wait: 4,
   /** Inside a building. */
   Inside: 5,
-  /** A digger climbing out of the hole it dug, on its way to a drop-off (units/dig.ts). */
-  Climb: 6,
 } as const;
 
 /** Path searches allowed per step, shared by every unit (the rest wait a step). */
@@ -204,7 +202,19 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
     ncz = col(nz);
   }
   if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, m, level) < 0) {
-    if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
+    if ((e.stuck[i] = e.stuck[i]! + 1) > 3) {
+      // Before giving up, once: a path's straight stretches run from column centres (nav/path.ts), and off
+      // its column's centre the line can clip a drop the path passes by, so it steps back to the centre
+      // and goes on from there (a digger leaving the rim of a pit cut the pit's corner and gave up, Patch 4).
+      const mx = columnCentre(cx);
+      const mz = columnCentre(cz);
+      if (e.stuck[i] === 4 && (e.x[i] !== mx || e.z[i] !== mz)) {
+        e.path[i] = [mx, mz, ...pts.slice(k)];
+        e.pathAt[i] = 0;
+        return MOVING;
+      }
+      return FAILED;
+    }
     e.pathOk[i] = 2;
     return MOVING;
   }
@@ -231,7 +241,6 @@ export function moverOf(state: SimState, i: number): Mover {
     return w >= 0 && onWheels(state, w) ? WHEELS : PERSON;
   }
   if (onWheels(state, i)) return WHEELS;
-  if (e.act[i] === Act.Climb) return CLIMBING_OUT;
   return PERSON;
 }
 
@@ -778,10 +787,10 @@ export const RESIN_PER_SOFTWOOD_TREE = 2;
 /**
  * Walks the unit's load (or, with none, its loot bag) to a drop-off (a given
  * one, or the nearest that takes it) and unloads it there. With no way
- * there, `climb` may start the unit climbing out of a hole instead (a
- * digger, units/dig.ts), and the walk goes on.
+ * there and `stairs`, a worker shut in a hole digs crude stairs out first
+ * (units/dig.ts digStairsOut, Patch 4), and the walk goes on after.
  */
-export function toDropoff(state: SimState, i: number, target: Building | null, climb?: () => boolean): WalkResult {
+export function toDropoff(state: SimState, i: number, target: Building | null, stairs = false): WalkResult {
   const e = state.entities;
   const res = e.carryAmt[i]! > 0 ? e.carryRes[i]! : -1;
   const b = target ?? nearestDropoff(state, i, res);
@@ -792,7 +801,7 @@ export function toDropoff(state: SimState, i: number, target: Building | null, c
   const r = walkTo(state, i, besideBuilding(b));
   if (r === ARRIVED) unload(state, i, b);
   if (r === FAILED) {
-    if (climb?.()) return MOVING;
+    if (stairs && digStairsOut(state, i)) return MOVING;
     alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
   }
   return r;
@@ -814,7 +823,8 @@ function backToNode(state: SimState, i: number): boolean {
 function runReturn(state: SimState, i: number, target: Building | null): boolean {
   const e = state.entities;
   if (e.carryAmt[i] === 0 && bagEmpty(state, i)) return backToNode(state, i);
-  const r = toDropoff(state, i, target);
+  // Unload in a hole a digger is shut in: it digs its way out first (Patch 4).
+  const r = toDropoff(state, i, target, true);
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
   return backToNode(state, i);
@@ -1356,6 +1366,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runCart(state, i, o);
     case 'dig':
       return runDig(state, i, o);
+    case 'stairs':
+      return runStairs(state, i, o);
     case 'hunt':
       return runHunt(state, i, o);
     case 'tame':

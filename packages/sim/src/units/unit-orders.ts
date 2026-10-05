@@ -53,6 +53,13 @@ export type UnitOrder =
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
   /**
+   * Crude stairs out of a hole a worker is shut in (Patch 4, units/dig.ts):
+   * from the floor column (x, z), level y terrain units, n columns cut
+   * outward in direction dir (0 +x, 1 -x, 2 +z, 3 -z), each a clamber above
+   * the last. Put in front of the order that wants it out.
+   */
+  | { t: 'stairs'; x: number; z: number; y: number; dir: number; n: number }
+  /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
    * 40 m leash of (x, z) wu, carries what it can home and repeats. A worker
@@ -101,7 +108,7 @@ export type UnitOrderType = UnitOrder['t'];
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain', 'stairs'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -124,6 +131,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   kitUp: ['line', 'to', 'ways', 'paid', 'b'],
   cart: ['b', 'res'],
   dig: ['site'],
+  stairs: ['x', 'z', 'y', 'dir', 'n'],
   hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],
@@ -200,6 +208,8 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Fetching a cart';
     case 'dig':
       return 'Digging';
+    case 'stairs':
+      return 'Digging stairs out';
     case 'hunt':
       return 'Hunting';
     case 'tame':

@@ -536,7 +536,7 @@ export class Commands {
         const u = this.d.game.unit(id);
         return (u !== null && u.carryAmt > 0) || this.bagOf(id).length > 0;
       });
-      const unload = 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node.';
+      const unload = 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node or the dig.';
       return [
         move,
         this.entry(
@@ -558,7 +558,7 @@ export class Commands {
         this.entry(
           'dig',
           'Dig',
-          'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Clicking the side of a cliff or hillside starts a tunnel instead (D again, or Tunnel, for one on flat ground): click where it goes and each click digs the stretch from the last point, level, straight or diagonal; keep clicking to turn corners, right click ends it. Digging gives Earth, stone or what the ground is made of. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
+          'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Clicking the side of a cliff or hillside starts a tunnel instead (D again, or Tunnel, for one on flat ground): click where it goes and each click digs the stretch from the last point, level, straight or diagonal; keep clicking to turn corners, right click ends it. Digging gives Earth, stone or what the ground is made of, which the workers carry to the nearest main base or Storehouse, 25 lb at a time, coming back to dig on. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
           () => this.startArea('dig', 0),
         ),
         this.entry(

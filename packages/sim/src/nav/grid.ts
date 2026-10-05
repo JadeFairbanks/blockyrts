@@ -80,8 +80,6 @@ export const WHEELS: Mover = { id: 6, canSwim: false, passGates: true, wheels: t
 export const SWIMMER: Mover = { id: 7, canSwim: true };
 /** Monsters 2.5 m tall and up on the ground: they jump rises of up to 6 units (67 cm) (s). */
 export const BIG_WALKER: Mover = { id: 8, canSwim: false, clamber: 6 };
-/** A digger shut in the hole it dug climbing out at its edge (Patch 4 (s), units/dig.ts): any rise, for that short way only. */
-export const CLIMBING_OUT: Mover = { id: 9, canSwim: true, passGates: true, climbs: true };
 
 interface NavChunk {
   version: number;
