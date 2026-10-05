@@ -28,7 +28,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
   { id: 'loot', label: 'Loot, hunting and gathering', blurb: 'What kills drop and who carries it: the loot bag, how near units pick loot up by themselves, how long it lies, when a find is remarked on; how far Hunt and Gather go from home (back by nightfall), what Gather fetches and how far into the unknown it looks, and fighters coming to a worker\'s help.' },
-  { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks.' },
+  { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks, and (Patch 4) how a monster a troop hurts turns on the nearest troop.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
@@ -385,6 +385,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // The night's budget, term by term (Jade's formula: 12 + (n - 1) + 3n + 0.04n²).
   'NIGHT_BUDGET:startTenths': 'Start (the 12)', 'NIGHT_BUDGET:rampTenths': 'Each night after the first, extra (the n − 1)',
   'NIGHT_BUDGET:perNightTenths': 'Each night (the 3n)', 'NIGHT_BUDGET:curveThousandths': 'Curve (the 0.04n²)', 'NIGHT_BUDGET:scalePct': 'Whole budget scaled',
+  // Turning on the troops (Jade's Patch 4).
+  'TROOP_AGGRO:steps': 'A troop\'s blow turns a monster on the troops for',
+  'TROOP_AGGRO:lookWu': 'It looks for the nearest troop at least this far (as far as the troop that hit it if farther; halved on a fog night)',
   TRAIT_PCT: 'What each trait adds', LAIR_BUDGET_PCT: 'Each lair sends a night (of its own threat)', WILD_DENSITY_PCT: 'How many wanderers (of Patch 1\'s)',
   // Worker ranks (Patch 3) and retraining a crewman.
   WORKER_XP_TENTHS: 'Experience needed for each rank', WORKER_HEALTH_BY_RANK: 'Health by rank',
