@@ -43,14 +43,14 @@ import { bagEmpty } from './loot.ts';
 import { answerKinds, askOwn, canAsk, isAsking, SPEAK_FOR_M } from './questions.ts';
 import type { UnitOrder } from './unit-orders.ts';
 
-/** The questions (units/questions.ts Ask is 1 to 9, units/greyed.ts GreyAsk 10 to 15). */
+/** The questions (units/questions.ts Ask keeps 1 to 9, units/greyed.ts GreyAsk 10 to 15, units/night-work.ts 16 for working through the night). */
 export const WorkAsk = {
   /** A farm stood empty a minute: send a worker? */
-  Farm: 16,
+  Farm: 17,
   /** An unfinished building no one has worked on for a minute: send a builder? */
-  Site: 17,
+  Site: 18,
   /** A worker idle a minute: farm, help build or gather? */
-  Idle: 18,
+  Idle: 19,
 } as const;
 
 /** A farm with no farmer asks for one once it has stood empty this long by dawn and day (Jade's Patch 4: "more than a minute"). */
@@ -600,4 +600,4 @@ function answerWork(state: SimState, o: AnswerOrder): void {
   }
 }
 
-answerKinds(Object.values(WorkAsk), answerWork);
+for (const k of Object.values(WorkAsk)) answerKinds.set(k, answerWork);

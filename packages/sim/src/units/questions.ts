@@ -687,6 +687,11 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
   const book = bookOf(state);
   const q = book.open.find((x) => x.info.id === o.ask && x.player === o.player);
   if (q) close(state, q);
+  const theirs = answerKinds.get(o.q);
+  if (theirs) {
+    theirs(state, o);
+    return;
+  }
   if (o.yes !== 1) return;
   const e = state.entities;
   const player = o.player;
@@ -784,7 +789,7 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
       return;
     }
     default:
-      (answerers.get(o.q) ?? answerHooks.other)(state, o);
+      answerHooks.other(state, o);
   }
 }
 
@@ -853,9 +858,9 @@ export function askOwn(state: SimState, a: OwnQuestion): number {
   return q.info.id;
 }
 
-/** Yes to the questions of these kinds is answered by `fn` (Patch 4), which then runs in place of answerHooks.other; the question has closed already. */
-const answerers = new Map<number, (state: SimState, o: AnswerOrder) => void>();
-
-export function answerKinds(kinds: readonly number[], fn: (state: SimState, o: AnswerOrder) => void): void {
-  for (const k of kinds) answerers.set(k, fn);
-}
+/**
+ * Answers to questions of other kinds, by kind (Patch 4: units/work-asks.ts,
+ * units/night-work.ts): run for Yes and No alike, once the question has
+ * closed, in place of this module's own answers and answerHooks.other.
+ */
+export const answerKinds = new Map<number, (state: SimState, o: AnswerOrder) => void>();
