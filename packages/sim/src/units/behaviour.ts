@@ -23,7 +23,7 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
-import { ENTER_TOP, type UnitOrder } from './unit-orders.ts';
+import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
@@ -997,15 +997,20 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   e.act[i] = Act.Inside;
   if (top) climbUp(state, i, b, o, topRoom);
   // A worker whose way up was full shelters inside instead.
-  else if (o.auto === ENTER_TOP) o.auto = 0;
+  else if (o.auto === ENTER_TOP) o.auto = shelterFallback(state);
   return CONTINUE;
+}
+
+/** A worker sent up top that shelters inside instead: in the dark it is in for the night and comes out at dawn once no monster is near (Jade's Patch 4, units/night-work.ts); by day it stays until let out. */
+function shelterFallback(state: SimState): number {
+  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
 }
 
 /** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
 function climbUp(state: SimState, i: number, b: Building, o: Extract<UnitOrder, { t: 'enter' }>, room: number): void {
   const e = state.entities;
   if (unitsOnTop(state, b.id).filter((j) => j !== i).length >= room) {
-    if (e.kind[i] === UnitKind.Worker) o.auto = 0;
+    if (e.kind[i] === UnitKind.Worker) o.auto = shelterFallback(state);
     return;
   }
   o.auto = ENTER_TOP;

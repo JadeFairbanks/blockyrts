@@ -423,4 +423,28 @@ describe('out again at dawn (Jade\'s Patch 4)', () => {
     expect(e.inside[w2!]).toBe(0);
     expect(e.inside[w1!]).toBe(b.id);
   });
+
+  it('a worker sent up a full main base top by night shelters inside for the night, and comes out at dawn', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const b = bigHouse(s);
+    b.level = 3;
+    // Its 8 places up top taken: the three warriors and five crewmen.
+    const [bx, bz] = [(b.x + 2) * WU_PER_COLUMN, (b.z + 2) * WU_PER_COLUMN];
+    const crew = [0, 1, 2, 3, 4].map((k) => addCrewman(s, 0, bx + (8 + k) * M, bz));
+    const men = [...units(s, UnitKind.Warrior)];
+    expect(men.length).toBe(8);
+    expect(men).toEqual(expect.arrayContaining(crew));
+    run(s, 1, [{ kind: 'enter', player: 0, units: ids(s, men), building: b.id }]);
+    runUntil(s, () => men.every((j) => e.inside[j] === b.id), 60 * SEC);
+    const [w] = units(s, UnitKind.Worker);
+    s.step = NIGHT + 5 * SEC;
+    run(s, 1, [{ kind: 'enter', player: 0, units: [e.id[w!]!], building: b.id }]);
+    runUntil(s, () => e.inside[w!] === b.id, 60 * SEC);
+    expect(e.queue[w!]![0]).toEqual({ t: 'enter', b: b.id, auto: ENTER_NIGHT });
+    s.step = DAWN - 1;
+    run(s, 3);
+    expect(e.inside[w!]).toBe(0);
+    for (const j of men) expect(e.inside[j]).toBe(b.id);
+  });
 });
