@@ -1,7 +1,11 @@
 // Lines drawn over the world each frame: rally routes, Shift queue paths,
-// claim and light rings, planned building outlines. Rebuilt from scratch every
-// frame between begin() and end(); drawn on top of the land.
+// claim and light rings, planned building outlines, marked digs. Rebuilt from
+// scratch every frame between begin() and end(); drawn on top of the land.
 import * as THREE from 'three';
+
+/** A dotted line's dots: 15 cm long, about one every 45 cm, a column (s). */
+export const DOT_M = 0.15;
+export const DOT_EVERY_M = 0.45;
 
 export class Overlay {
   private readonly lines: THREE.LineSegments;
@@ -71,6 +75,30 @@ export class Overlay {
       const t1 = Math.min(1, (k + 0.6) / steps);
       this.vertex(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0, a.z + (b.z - a.z) * t0, c);
       this.vertex(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1, a.z + (b.z - a.z) * t1, c);
+    }
+  }
+
+  /**
+   * A dotted line (Jade's Patch 4: a marked dig nobody selected is working
+   * on): dots 15 cm long, about one a column (45 cm), the first centred on
+   * `a` and the last on `b`, so corners and ends are marked; `y` gives the
+   * height at each end of a dot.
+   */
+  dotted(ax: number, az: number, bx: number, bz: number, y: (x: number, z: number) => number, c: THREE.Color): void {
+    const len = Math.hypot(bx - ax, bz - az);
+    if (len === 0) return;
+    const n = Math.max(1, Math.round(len / DOT_EVERY_M));
+    const half = DOT_M / 2 / len;
+    this.reserve((n + 1) * 2);
+    for (let k = 0; k <= n; k++) {
+      const t0 = Math.max(0, k / n - half);
+      const t1 = Math.min(1, k / n + half);
+      const x0 = ax + (bx - ax) * t0;
+      const z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1;
+      const z1 = az + (bz - az) * t1;
+      this.vertex(x0, y(x0, z0), z0, c);
+      this.vertex(x1, y(x1, z1), z1, c);
     }
   }
 
