@@ -114,7 +114,7 @@ hashes; a scripted order list replays to the same hash.*
 3. In a real Chrome or Firefox: `pnpm dev`, open http://localhost:5173/?seed=1
    and watch the step counter and the hash (taken every 20 steps). Until you
    give an order, every machine and browser shows the same hash at the same
-   step as the headless runner with no script: for seed 1 that is `74238647`
+   step as the headless runner with no script: for seed 1 that is `fc7a33f8`
    at step 40 (`pnpm sim:run --seed 1 --steps 40`). Right-click the ground to
    move your units, which changes the hash from then on.
 
@@ -153,7 +153,7 @@ reveal; two machines with the same seed show the same land and the same hash.*
    selected trees, bushes and rocks: trees fall and drop seeds.
 4. Two machines: open the same seed and player count on both and compare the
    hash in the debug panel at the same step: for seed 1 with one player it is
-   `74238647` at step 40, with two players `613ef031`. The land matches too.
+   `fc7a33f8` at step 40, with two players `3a816b4a`. The land matches too.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m1-world.json --quiet`
    prints `final step 10000 hash bc4268d7`: two players dig trenches from a
    pond and a stream, raise a wall, fell trees and walk out of the basin.
@@ -482,7 +482,7 @@ dawn.*
    Deadlands) or a minotaur (Deadlands), once disturbed, hunts its quarry
    down.
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m5-threats.json --quiet`
-   prints `final step 10000 hash 6fa730f1`: the debug tools put a Barracks
+   prints `final step 10000 hash e481e798`: the debug tools put a Barracks
    and a level 4 forge 44 m north with the stock for every tier (Troop kit),
    a barrow 60 m east of the Big House and a cave mouth 60 m west; the
    Barracks trains a crossbow ranger while the three starting warriors
@@ -636,7 +636,7 @@ and spells), and each script still plays out as its description says.
    throw out motes in the spell's colour, and units with a spell on them
    give off a few.
 8. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m6-mages.json --quiet`
-   prints `final step 10000 hash 251f2bd3`. The script plays by Patch 2's
+   prints `final step 10000 hash 50281863`. The script plays by Patch 2's
    and Patch 3's rules (before Patch 2 the Sanctum took a plain "support
    mage" or "battle mage" order, and night 0's monsters came to the Big
    House; now it trains the mage on her card with her wand and robe, and the
@@ -759,7 +759,7 @@ updated and still play out as they say).
 9. **The look.** The peoples use their own models (people, buildings,
    wagons, beasts).
 10. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m7-peoples.json --quiet`
-    prints `final step 10000 hash a139cc11`: the debug tools put a Halfling
+    prints `final step 10000 hash 6a57ea0a`: the debug tools put a Halfling
     village 40 m north, a mercenary camp 15 m east, the trade kit in the
     pool and a troop kit 20 m west, and send an Elf caravan; the Barracks
     trains a ranger with wrought-iron arrowheads and two starting warriors
@@ -1644,7 +1644,7 @@ load, and their wild fills afresh round the units.
    take it. **Night mob** in the debug panel brings a gravewing (night 30) to
    see the high flyer's swoop from 12 m.
 5. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/wanderers.json --quiet`
-   prints `final step 10000 hash fc109fc4`: the debug tools explore 200 m round the
+   prints `final step 10000 hash e49bae41`: the debug tools explore 200 m round the
    camp, and the three warriors walk 90 m east at dusk, into the Fringe
    since Jade's mini patch, and stand there through night 0. About 86
    monsters are out at nightfall (27 before Patch 3 tripled them), round
@@ -2846,15 +2846,14 @@ there by the night monsters and the skeleton bombers and by wanderers
    Mob behaviour: "A troop's blow turns a monster on the troops for" 5 s and
    "It looks for the nearest troop at least this far" 12 m. Setting the
    first to 0 turns the rule off.
-6. **Check scripts.** The M5, M6, M7 and wanderers hashes above are the ones
-   with Patch 4 (M0 to M4, M8 and the wall and tunnel chains do not move).
-   The stories that changed: in M5 one warrior falls at the goblin village
-   instead of two; in the wanderers script the most monsters out at once is
-   225 instead of 223, and on the walk home the giant spider falls to the
-   wounded warrior before its bite lands, so both come home. M6 and M7 end
-   as before. The step-40 hashes at the top of this file (`74238647`, with
-   two players `613ef031`) were out of date on main before Patch 4 and are
-   corrected here; Patch 4 does not change them.
+6. **Check scripts.** Monsters turning on the troops changed the M5, M6, M7
+   and wanderers hashes (M0 to M4, M8 and the wall and tunnel chains did not
+   move for it); every hash in this file changed again with the stone
+   outcrops (see below). The stories that changed: in M5 one warrior falls
+   at the goblin village instead of two; in the wanderers script the most
+   monsters out at once is 225 instead of 223, and on the walk home the
+   giant spider falls to the wounded warrior before its bite lands, so both
+   come home. M6 and M7 end as before.
 
 ## How a tester checks the stone outcrops (Patch 4)
 
@@ -2904,6 +2903,12 @@ the distance is `START_OUTCROP_NEAR_M` and `START_OUTCROP_FAR_M` in
    World generation: "Stone outcrops in the Heartland, per 10,000 spots"
    (4); Start basins: "Each base's stone outcrop, nearest its Big House's
    middle" (11 m) and "farthest from its middle" (16 m).
+7. **Check scripts.** Every hash in this file is new with Patch 4: the state
+   hash counts the snapshot version, which is 21 now, and the land a seed
+   makes is different. The stories are as they were, with the same units and
+   buildings at the end; the outcrop is nearer, so M2 ends with 5 more stone,
+   M4 with 15 more and M6 with 5 more, and the step-40 hashes at the top of
+   this file are `fc7a33f8`, with two players `3a816b4a`.
 
 ## How a tester checks the balance editor
 
