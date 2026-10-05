@@ -11,6 +11,8 @@ import { h, put } from './dom.ts';
 import { groupIcon, spreadBar, treeIcon } from './visuals.ts';
 import { pickInTree, renderTree, type TreeDeps } from './tree-view.ts';
 import { buildTree } from '../core/tree.ts';
+import { budgetFieldIds, budgetView } from '../core/budget.ts';
+import { budgetPanel } from './budget-view.ts';
 
 const cat = buildCatalog(simModules, simDocs);
 const session = new Session(cat);
@@ -19,6 +21,8 @@ const STORE_KEY = 'blockyrts-balance-session';
 let selected = '';
 let query = '';
 let lastReport: { title: string; report: LoadReport } | null = null;
+/** Redraws a live preview on the open page (the night budget's) after a value is set. */
+let afterSet: (() => void) | null = null;
 
 // ---------- saving the session in this browser
 
@@ -260,6 +264,7 @@ function openEntry(id: string, fieldId?: string): void {
 
 function renderMain(): void {
   mainEl.replaceChildren();
+  afterSet = null;
   if (query) return renderSearch();
   if (selected === TREE) return renderTree(mainEl, treeDeps);
   const e = cat.entries.get(selected);
@@ -277,7 +282,22 @@ function renderMain(): void {
   const links = linksPanel(e);
   if (links) mainEl.append(links);
   for (const c of e.children) if (c.type !== 'text') mainEl.append(node(c));
+  const budget = budgetPreview(e);
+  if (budget) mainEl.append(budget);
   mainEl.append(entryNoteBox(e));
+}
+
+/** Nights 1 to 100 of the night budget, on the page that holds its terms, redrawn as they change. */
+function budgetPreview(e: Entry): HTMLElement | null {
+  const ids = budgetFieldIds(simModules);
+  if (!ids || !Object.values(ids).some((id) => cat.fields.get(id)?.entryId === e.id)) return null;
+  const read = (id: string): RawValue | undefined => {
+    const f = cat.fields.get(id);
+    return f ? session.current(f) : undefined;
+  };
+  const panel = budgetPanel(() => budgetView(simModules, read));
+  afterSet = panel.refresh;
+  return panel.el;
 }
 
 function textNode(t: CatNode): HTMLElement {
@@ -418,6 +438,7 @@ function fieldRow(f: FieldNode, withTrail: boolean): HTMLElement {
       session.set(f.id, v);
       save();
       draw();
+      afterSet?.();
       renderSide();
       renderMenu();
     };
