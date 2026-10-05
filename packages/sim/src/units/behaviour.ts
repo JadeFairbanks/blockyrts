@@ -14,7 +14,7 @@ import { isDark } from '../clock.ts';
 import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
-import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
+import { CLIMBING_OUT, PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
@@ -56,6 +56,8 @@ export const Act = {
   Wait: 4,
   /** Inside a building. */
   Inside: 5,
+  /** A digger climbing out of the hole it dug, on its way to a drop-off (units/dig.ts). */
+  Climb: 6,
 } as const;
 
 /** Path searches allowed per step, shared by every unit (the rest wait a step). */
@@ -229,6 +231,7 @@ export function moverOf(state: SimState, i: number): Mover {
     return w >= 0 && onWheels(state, w) ? WHEELS : PERSON;
   }
   if (onWheels(state, i)) return WHEELS;
+  if (e.act[i] === Act.Climb) return CLIMBING_OUT;
   return PERSON;
 }
 
@@ -772,8 +775,13 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
 /** Resin from felling one softwood tree (s): torches need it and no node gives it. */
 export const RESIN_PER_SOFTWOOD_TREE = 2;
 
-/** Walks the unit's load (or, with none, its loot bag) to a drop-off (a given one, or the nearest that takes it) and unloads it there. */
-export function toDropoff(state: SimState, i: number, target: Building | null): WalkResult {
+/**
+ * Walks the unit's load (or, with none, its loot bag) to a drop-off (a given
+ * one, or the nearest that takes it) and unloads it there. With no way
+ * there, `climb` may start the unit climbing out of a hole instead (a
+ * digger, units/dig.ts), and the walk goes on.
+ */
+export function toDropoff(state: SimState, i: number, target: Building | null, climb?: () => boolean): WalkResult {
   const e = state.entities;
   const res = e.carryAmt[i]! > 0 ? e.carryRes[i]! : -1;
   const b = target ?? nearestDropoff(state, i, res);
@@ -783,7 +791,10 @@ export function toDropoff(state: SimState, i: number, target: Building | null): 
   }
   const r = walkTo(state, i, besideBuilding(b));
   if (r === ARRIVED) unload(state, i, b);
-  if (r === FAILED) alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
+  if (r === FAILED) {
+    if (climb?.()) return MOVING;
+    alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
+  }
   return r;
 }
 

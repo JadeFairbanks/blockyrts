@@ -3,21 +3,27 @@
 // take bites off the top of the columns, one terrain unit at a time, each
 // bite's time in proportion to its volume at the tool tier's rate for the
 // material, varying a quarter either way. Every bite gives one of what it
-// carved straight to the pool (Earth from soil). Earthworks heap Earth
-// back up: a bank or fill to a level, a ramp from one level to another.
-// A tunnel chain's stretch is a line of columns instead of a box.
+// carved (Earth from soil), which the worker carries like a gatherer's load:
+// a full load goes to the nearest drop-off and the worker comes back to the
+// dig (Patch 4; before it, every bite went straight to the pool). Earthworks
+// heap Earth back up from the pool: a bank or fill to a level, a ramp from
+// one level to another. A tunnel chain's stretch is a line of columns
+// instead of a box.
 
 import { stretchBetween, stretchCells, stretchEnd, TUNNEL_WIDTH_COLUMNS } from '../buildings/chains.ts';
 import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
-import { OrderKind, rampSite, SiteKind, tunnelSite, UnitKind, type SimState, type Site } from '../state.ts';
+import { NO_CARRY, OrderKind, rampSite, SiteKind, tunnelSite, UnitKind, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool, ToolJob } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
-import { Act, columnCentre, resetWalk, walkTo } from './behaviour.ts';
+import { PERSON, TOP } from '../nav/grid.ts';
+import { pointGoal } from '../nav/path.ts';
+import { Act, ARRIVED, columnCentre, FAILED, MOVING, resetWalk, toDropoff, unitLevel, walkTo } from './behaviour.ts';
 import { Work, workXp } from './ranks.ts';
 import { toolTier } from './tools.ts';
 import type { UnitOrder } from './unit-orders.ts';
+import { carryCapacity } from './weight.ts';
 
 /** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by the tier of the worker's digging tool (Tool order) and dig class; no flint tool digs. */
 const RATES: Record<number, readonly number[]> = {
@@ -110,6 +116,17 @@ function nextBite(state: SimState, s: Site, x: number, z: number): { mat: number
   return null;
 }
 
+/** What the next bite off a column of a dig or tunnel gives, or -1 when the column is done. */
+function yieldAt(state: SimState, s: Site, x: number, z: number): number {
+  const bite = nextBite(state, s, x, z);
+  return bite ? yieldOf(bite.mat) : -1;
+}
+
+/** Whether a site heaps the land up (a bank, fill or ramp) rather than carving it. */
+function heapSite(kind: number): boolean {
+  return kind === SiteKind.Bank || rampSite(kind);
+}
+
 /** Whether a column of a site still needs work, and can take it now (no unit or building on it). */
 function needsWork(state: SimState, s: Site, x: number, z: number): boolean {
   if (state.buildings.footprintAt(x, z) !== 0) return false;
@@ -149,21 +166,30 @@ function taken(state: SimState, site: number, except: number): Set<number> {
   return out;
 }
 
-/** The column of a site a worker should take next: the nearest that needs work and is free. */
-function pickColumn(state: SimState, s: Site, i: number): [number, number] | null {
+/**
+ * The column of a site a worker should take next: the nearest that needs
+ * work and is free. A worker carrying a load (`want`, or -1) takes the
+ * nearest whose next bite gives more of the same, if there is one, so a
+ * load fills with one kind as a gatherer's does (s).
+ */
+function pickColumn(state: SimState, s: Site, i: number, want: number): [number, number] | null {
   const e = state.entities;
   const ux = floorDiv(e.x[i]!, WU_PER_COLUMN);
   const uz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const busy = taken(state, s.id, i);
   let best: [number, number] | null = null;
   let bestD = 0;
+  let bestMatch = false;
   for (const [x, z] of siteCells(s)) {
     if (busy.has(z * 0x100000 + x)) continue;
     const d = (x - ux) * (x - ux) + (z - uz) * (z - uz);
-    if (best && d >= bestD) continue;
+    if (best && d >= bestD && (bestMatch || want < 0)) continue;
     if (!needsWork(state, s, x, z)) continue;
+    const match = want >= 0 && yieldAt(state, s, x, z) === want;
+    if (best && (match ? bestMatch && d >= bestD : bestMatch || d >= bestD)) continue;
     best = [x, z];
     bestD = d;
+    bestMatch = match;
   }
   return best;
 }
@@ -180,24 +206,133 @@ function finishIfDone(state: SimState, s: Site): boolean {
   const [x, z] = [columnCentre((s.x0 + s.x1) >> 1), columnCentre((s.z0 + s.z1) >> 1)];
   const what = s.kind === SiteKind.Dig ? 'The dig' : tunnelSite(s.kind) ? 'The tunnel' : s.kind === SiteKind.Ramp ? 'The earth ramp' : s.kind === SiteKind.LumberRamp ? 'The lumber ramp' : s.kind === SiteKind.StoneRamp ? 'The stone ramp' : 'The earth bank';
   state.events.push({ player: s.owner, kind: 'info', text: `${what} is finished.`, x, z });
+  // Its diggers take what they still carry to a drop-off before they stop, as a gatherer's last load goes home (s).
+  if (!heapSite(s.kind)) {
+    const e = state.entities;
+    for (let j = 0; j < e.count; j++) {
+      const o = e.queue[j]![0];
+      if (o?.t !== 'dig' || o.site !== s.id || e.carryAmt[j] === 0 || e.act[j] === Act.ToDrop || e.act[j] === Act.Climb) continue;
+      homeWithLoad(state, j);
+    }
+  }
   // A finished tunnel is a cave while it stays unlit (Keeping digging fair: cave-type lairs can appear in it);
   // a chain's stretch only where it runs under ground, not where it cut through open land.
   if (s.kind === SiteKind.Tunnel || (s.kind === SiteKind.TunnelLine && cells.some(([cx, cz]) => state.world.topAt(cx, cz) >= s.level2))) state.threats.tunnels.push({ x, z });
   return true;
 }
 
-/** One step of a worker on a dig or earthworks site. */
+/** Sends a digger off with its load: to the nearest drop-off, then back to the dig (or done, if the dig has finished meanwhile). */
+function homeWithLoad(state: SimState, i: number): boolean {
+  const e = state.entities;
+  e.act[i] = Act.ToDrop;
+  // On the way, its timer counts the holes it has climbed out of (s).
+  e.timer[i] = 0;
+  resetWalk(state, i);
+  return false;
+}
+
+/** A digger climbs out of at most this many holes on one trip to a drop-off (s). */
+const CLIMBS_PER_TRIP = 3;
+/** It looks for the edge over at most this much ground it can walk: the largest dig's box (s). */
+const CLIMB_SEARCH_COLUMNS = SITE_MAX_COLUMNS * SITE_MAX_COLUMNS;
+const SIDES: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * Where a worker shut in a hole climbs out (Patch 4 (s): a pit deeper than
+ * a person clambers out of, 45 cm, which it stepped down into as it dug):
+ * of the ground it can walk to, the column nearest it with a higher
+ * neighbour it can stand on but not step or clamber up to; that neighbour.
+ * Null when there is none, or that ground is wider than any dig (it is not
+ * in a hole).
+ */
+function climbOutTo(state: SimState, i: number): [number, number] | null {
+  const e = state.entities;
+  const nav = state.nav;
+  const x0 = floorDiv(e.x[i]!, WU_PER_COLUMN);
+  const z0 = floorDiv(e.z[i]!, WU_PER_COLUMN);
+  // Not from a tunnel's floor: it walks out of a tunnel the way it came in.
+  if (nav.layerAt(x0, z0, unitLevel(state, i)) !== TOP) return null;
+  const seen = new Set<number>([z0 * 0x100000 + x0]);
+  const open = [x0, z0];
+  for (let k = 0; k < open.length; k += 2) {
+    if (k >> 1 >= CLIMB_SEARCH_COLUMNS) return null;
+    const x = open[k]!;
+    const z = open[k + 1]!;
+    for (const [dx, dz] of SIDES) {
+      const nx = x + dx;
+      const nz = z + dz;
+      const key = nz * 0x100000 + nx;
+      if (seen.has(key)) continue;
+      if (nav.stepCost(x, z, nx, nz, PERSON) >= 0) {
+        seen.add(key);
+        open.push(nx, nz);
+      } else if (nav.standable(nx, nz, PERSON) && nav.level(nx, nz) > nav.level(x, z)) {
+        return [nx, nz];
+      }
+    }
+  }
+  return null;
+}
+
+/** A digger that cannot walk to a drop-off starts climbing out of the hole it is in, if it is in one; whether it does. */
+function startClimb(state: SimState, i: number): boolean {
+  const e = state.entities;
+  if (e.timer[i]! >= CLIMBS_PER_TRIP) return false;
+  const out = climbOutTo(state, i);
+  if (!out) return false;
+  e.timer[i] = e.timer[i]! + 1;
+  e.climbX[i] = out[0];
+  e.climbZ[i] = out[1];
+  e.act[i] = Act.Climb;
+  resetWalk(state, i);
+  return true;
+}
+
+/** Whether a digger is on its way to a drop-off with its load (a finished dig sends its diggers off with what they carry). */
+function goingHome(state: SimState, i: number): boolean {
+  return state.entities.act[i] === Act.ToDrop;
+}
+
+/**
+ * One step of a worker on a dig or earthworks site. A digger carries what
+ * it carves as a gatherer carries its load (Patch 4, Jade: "they should
+ * still be required to, and then return to their task just like with
+ * gathering"): 25 lb of it, or a cart's or pack's load, then to the nearest
+ * main base or Storehouse and back to the dig, and the last load home when
+ * the dig is finished.
+ */
 export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'dig' }>): boolean {
   const e = state.entities;
+  if (e.kind[i] !== UnitKind.Worker) return true;
   const s = siteOf(state, o.site);
-  if (!s || s.owner !== e.owner[i] || e.kind[i] !== UnitKind.Worker) return true;
-  const heap = s.kind === SiteKind.Bank || rampSite(s.kind);
+  if (e.act[i] === Act.Climb) {
+    // Climbing out at the hole's edge, then on to the drop-off.
+    if (walkTo(state, i, pointGoal(e.climbX[i]!, e.climbZ[i]!)) === MOVING) return false;
+    e.act[i] = Act.ToDrop;
+    resetWalk(state, i);
+  }
+  if (e.act[i] === Act.ToDrop) {
+    const r = e.carryAmt[i]! > 0 ? toDropoff(state, i, null, () => startClimb(state, i)) : ARRIVED;
+    if (r === MOVING) return false;
+    if (r === FAILED || !s) return true;
+    e.act[i] = Act.Start;
+    resetWalk(state, i);
+  }
+  if (!s || s.owner !== e.owner[i]) return true;
+  const heap = heapSite(s.kind);
+  // What it carries off the dig, or -1 (heaping takes Earth from the pool and carries nothing).
+  const load = !heap && e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY ? e.carryRes[i]! : -1;
   if (e.act[i] === Act.Start || (e.act[i] === Act.Work && !needsWork(state, s, e.climbX[i]!, e.climbZ[i]!))) {
-    const c = pickColumn(state, s, i);
+    // It came with a full load: to the drop-off first.
+    if (load >= 0 && e.carryAmt[i]! >= carryCapacity(state, i, load)) return homeWithLoad(state, i);
+    const c = pickColumn(state, s, i, load);
     if (!c) {
-      finishIfDone(state, s);
-      return true;
+      if (finishIfDone(state, s)) return !goingHome(state, i);
+      // No column free for it now: its last load goes home first.
+      return load >= 0 ? homeWithLoad(state, i) : true;
     }
+    // Carrying what no column left gives (another layer, or a load from before the dig): home with it first, then back (s).
+    if (load >= 0 && yieldAt(state, s, c[0], c[1]) !== load) return homeWithLoad(state, i);
     e.climbX[i] = c[0];
     e.climbZ[i] = c[1];
     e.act[i] = Act.Walk;
@@ -236,7 +371,8 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
       e.waitUntil[i] = HEAP_STEPS;
     } else {
       const bite = nextBite(state, s, cx, cz);
-      if (!bite) {
+      // Done, or a layer of something other than its load: another column, or home with the load (s).
+      if (!bite || (load >= 0 && yieldOf(bite.mat) !== load)) {
         e.act[i] = Act.Start;
         return false;
       }
@@ -270,16 +406,24 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   } else {
     const bite = nextBite(state, s, cx, cz);
     if (bite) {
-      state.world.editBox(cx, cz, cx, cz, bite.y, bite.y + 1, Mat.Air);
       const res = yieldOf(bite.mat);
-      pool[res] = pool[res]! + 1;
+      // Something else turned up under its load since the bite began: another column, or home with the load.
+      if (e.carryAmt[i]! > 0 && e.carryRes[i] !== res) {
+        e.act[i] = Act.Start;
+        return false;
+      }
+      state.world.editBox(cx, cz, cx, cz, bite.y, bite.y + 1, Mat.Air);
+      e.carryAmt[i] = e.carryAmt[i]! + 1;
+      e.carryRes[i] = res;
       state.hits.push({ look: bite.mat === Mat.Timber ? 'wood' : bite.mat >= Mat.Stone && bite.mat !== Mat.Ash && bite.mat !== Mat.DeadEarth ? 'stone' : 'shake', x: tx, y: bite.y * 900, z: tz, id: e.id[i]! });
     }
   }
   if (!needsWork(state, s, cx, cz)) {
     e.act[i] = Act.Start;
-    if (finishIfDone(state, s)) return true;
+    if (finishIfDone(state, s)) return !goingHome(state, i);
   }
+  // A full load (25 lb, or a cart's or pack's) goes to the nearest drop-off, and the worker comes back.
+  if (!heap && e.carryAmt[i]! > 0 && e.carryAmt[i]! >= carryCapacity(state, i, e.carryRes[i]!)) return homeWithLoad(state, i);
   return false;
 }
 
