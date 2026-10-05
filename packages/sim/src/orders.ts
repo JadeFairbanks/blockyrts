@@ -832,7 +832,7 @@ export function validateOrder(o: Order): void {
       if (o.to < 0 || o.to > 7 || o.res < 0 || o.res > 255 || o.amount < 1 || o.amount > 1_000_000_000) throw new Error('bad send resources');
       return;
     case 'answer':
-      if ((o.yes !== 0 && o.yes !== 1) || o.q < 1 || o.q > 15 || o.units.length > 256 || o.res < -1 || o.res > 255) throw new Error('bad answer');
+      if ((o.yes !== 0 && o.yes !== 1) || o.q < 1 || o.q > 31 || o.units.length > 256 || o.res < -1 || o.res > 255) throw new Error('bad answer');
       if (o.n !== undefined && (!isInt(o.n) || o.n < 0 || o.n > 99)) throw new Error('bad answer');
       return;
     case 'greyed':

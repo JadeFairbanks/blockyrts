@@ -213,8 +213,10 @@ out.* (The warrior joins in milestone 3.)
 7. **Lights and night.** A torch post (2 softwood, 1 resin) claims 5 m round
    it while lit. In Patch 2 lights need no fuel, and the bonfire (15
    softwood) lights 20 m and claims 10 m. At dusk the Everyone Home button (J) lights
-   up: it sends everyone to shelter in the Big House or a farm, and at day
-   they come out and carry on. Lights more than 40 m from the main base are
+   up: it sends everyone to shelter in the Big House or a farm, and at dawn,
+   once no monster within 25 m of their shelter is alive (in the day whatever
+   the monsters do), they come out and carry on (Patch 4; at daybreak
+   before). Lights more than 40 m from the main base are
    counted under the clock against the night's limit.
 8. **Orders and groups.** Shift queues orders (hold Shift to see the queue
    lines). M moves, S stops, E enters a building, R repairs (press R twice to
@@ -1535,7 +1537,10 @@ before. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    the edge of the explored land, nearest the base first and sweeping round,
    no more than 25 m into the dark. At dusk they drop off their loads, say
    so ("Getting dark. Back to the base."), and go into the main base for the
-   night; at daybreak they go out again.
+   night; at daybreak they go out again. (Patch 4: workers near a building
+   and a troop ask to work on through the night instead, and those that go
+   in come out at dawn once no monster is near; see "How a tester checks
+   working through the night".)
 7. **Running out.** Right-click a small flint rock with a worker and let it
    run out with no flint near: the worker says what it gathers instead, and
    why (for example "No more flint here, and we're out of stone. I'll fetch
@@ -2754,6 +2759,68 @@ up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
    each. Before the fix it found such frames in all three (with 28 to 67
    land redraws in each part), the box off the texel grid by up to half a texel,
    and screen corners up to 17 m outside the box zoomed out.
+
+## How a tester checks working through the night (Patch 4)
+
+*Jade's Patch 4 file (2026-10-05): workers gathering within 25 m of a
+building and within 50 m of a troop (any combat unit) no longer stop and go
+home by themselves at dusk, but ask "Should I keep working through the
+night?"; Yes lets them work on, No sends them to an empty farm, or the main
+base when there is none, and no answer counts as Yes for this one. Workers
+who went into the main base for the night come out in the day whatever the
+monsters do, or at dawn once no monster within 25 m is alive, and carry on
+with their task or gather if they had none. Picks in
+blueprint/patch4-night-work-picks.md. The rules are
+`packages/sim/src/units/night-work.ts`, with the dusk turn in
+`packages/sim/src/units/forage.ts`. Not live until Jade says so.*
+
+1. **The tests.** `pnpm test` runs `packages/sim/test/patch4-night-work.test.ts`:
+   the 25 m measured from a building's walls (a torch post or bonfire is not
+   a building here) and the 50 m to any warrior, mage or engine but an
+   artillery crewman; one worker asking for the four round the Big House at
+   dusk; no answer, then working all night only within 25 m of a building
+   while the stock grows; Yes; No with no farm (into the main base, out at
+   dawn, gathering on); No with an empty farm (two become its farmers, the
+   rest go to the main base); no troop near, or farther than 25 m from every
+   building, and they go home without asking as before; the question gone
+   once they are all given other orders; a save in the night keeping who
+   works on; staying in at dawn while a monster lives within 25 m and out
+   once it dies; out in the day whatever the monsters do; Everyone Home by
+   day unchanged; a worker its player sends in by night out at dawn too.
+2. **The question.** `pnpm dev`, open http://localhost:5173/?seed=1 and,
+   with 40 s of the first day left, select the four workers and press
+   **Gather** (G): they go for what lies round the Big House, where the
+   three warriors stand. (A worker given a move order stops gathering by
+   itself, so move the warriors, not the workers.) At dusk one of
+   them asks "Should the four of us keep working through the night?" in a
+   bubble with a green tick and a red cross; its question goes past the 3 a
+   player may have open. Hover the tick and the cross for what each does in
+   full. Leave it: after 10 s the bubble goes and they keep gathering in the
+   dark (their panel says "Gathering through the night"), only what lies
+   within 25 m of a building, and come in once nothing is left there
+   ("Nothing left to gather near the buildings. Heading in.").
+3. **Yes and No.** Tick it another dusk: the same, at once. Cross it with no
+   farm standing: "Heading in for the night.", they drop off their loads and
+   go into the Big House. Build a Farm (B, then the Farm) with no farmers
+   and cross it the next dusk: "Off to work the farm.", two of them drop off
+   their loads and become its farmers (into the farmhouse tonight, on the
+   field from daybreak) and the other two go into the Big House.
+4. **Who does not ask.** Walk the warriors 60 m away first: at dusk the
+   workers go home without asking, as before Patch 4. Workers gathering by a
+   lone torch post far out go home too. A worker sent to one node with a
+   right click is never stopped at dusk, as before.
+5. **Out at dawn.** Let a night's monsters come to the Big House with the
+   workers inside: at dawn they stay in while a monster within 25 m of it is
+   alive and come out once the last one burns or falls, carrying on with what
+   they had queued, or gathering (G) when they had nothing. By day they come
+   out whatever the monsters do. Everyone Home (J) pressed at dusk, or E on
+   the Big House with workers in the dark, works the same way.
+6. **The editor.** The balance editor's new **Working through the night**
+   group holds the 25 m to a building, the 50 m to a troop, the 25 m a
+   worker gathers within at night, the 30 m one worker asks for the others
+   within, the 25 m clear of monsters at dawn and how often they look out.
+7. **Saves.** Who works on is kept in each worker's orders, which saves
+   already hold, so this needs no save format change of its own.
 
 ## How a tester checks the balance editor
 

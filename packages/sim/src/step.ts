@@ -37,6 +37,7 @@ import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
 import { crewHooks, updateQuestions } from './units/questions.ts';
+import { releaseSheltered } from './units/night-work.ts';
 import { updateSpacing } from './units/spacing.ts';
 
 installDeathHooks();
@@ -127,7 +128,7 @@ function periodChange(state: SimState): void {
     }
   }
   if (p === Period.Day) {
-    // Units sent home at dusk come out at daybreak and carry on with what they were doing.
+    // Units sent home by day (Everyone Home) come out at daybreak and carry on with what they were doing; those in for the night come out in releaseSheltered.
     const e = state.entities;
     for (let i = 0; i < e.count; i++) {
       const h = e.queue[i]![0];
@@ -157,6 +158,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   state.grid.rebuild(e, (i) => onTop(state, i));
   applyOrders(state, orders);
   periodChange(state);
+  // Workers in for the night come out at dawn once no monster is near, or in the day (Jade's Patch 4).
+  releaseSheltered(state);
   updateSpawns(state);
   updateAnimals(state);
   for (let i = 0; i < e.count; i++) {

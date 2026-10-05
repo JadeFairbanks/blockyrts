@@ -687,6 +687,9 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
   const book = bookOf(state);
   const q = book.open.find((x) => x.info.id === o.ask && x.player === o.player);
   if (q) close(state, q);
+  // A kind another module answers itself, Yes and No alike (Patch 4).
+  const answers = answerKinds.get(o.q);
+  if (answers) return answers(state, o);
   if (o.yes !== 1) return;
   const e = state.entities;
   const player = o.player;
@@ -794,12 +797,21 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
 export const answerHooks: { other: (state: SimState, o: AnswerOrder) => void } = { other: () => {} };
 
 /**
+ * Question kinds whose module answers Yes and No alike (Patch 4: units/night-work.ts,
+ * where No does something and no answer counts as Yes), by kind. Each module
+ * adds its own when it loads; the question has closed already.
+ */
+export const answerKinds = new Map<number, (state: SimState, o: AnswerOrder) => void>();
+
+/**
  * A question another module asks (Patch 3): put up at once, past the cap on
  * open questions, with the same wait and the same bubble. `who` is an
- * entity id, or a building id when `building`. Returns its id.
+ * entity id, or a building id when `building`. With `holds` (Patch 4), it is
+ * withdrawn on every machine once that turns false. Returns its id.
  */
-export function askNow(state: SimState, player: number, who: number, building: boolean, info: Omit<AskInfo, 'id' | 'until'>, text: string): number {
+export function askNow(state: SimState, player: number, who: number, building: boolean, info: Omit<AskInfo, 'id' | 'until'>, text: string, holds?: () => boolean): number {
   const q: Question = { player, who, building, text, info: { ...info, id: 0, until: 0, units: [...info.units] } };
+  if (holds) q.holds = holds;
   put(state, q);
   return q.info.id;
 }

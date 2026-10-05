@@ -40,7 +40,7 @@ import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend, runRetrain } from '../siege/engines.ts';
 import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from './loot.ts';
 import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
-import { nextNode, runForage } from './forage.ts';
+import { goesHome, nextNode, runForage } from './forage.ts';
 import { tinker } from './tinker.ts';
 import { Work, workXp } from './ranks.ts';
 
@@ -618,9 +618,10 @@ function runFollow(state: SimState, i: number, o: Extract<UnitOrder, { t: 'follo
 
 function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gather' }>): boolean {
   const e = state.entities;
-  // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home.
+  // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home, unless it works on through the night (Jade's Patch 4).
   const after = e.queue[i]![1]?.t;
-  if (after === 'forage' && isDark(state.step, state.blood)) return DONE;
+  const nightForage = after === 'forage' && isDark(state.step, state.blood);
+  if (nightForage && goesHome(state, i)) return DONE;
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
     const kind = view?.kind ?? -1;
@@ -633,9 +634,10 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   }
   // When a node has run out, go to the closest one of the same resource; with none nearby, a basic material
   // gives way to what the side needs most for the walk (saying why), else the last load goes home and it stands idle.
+  // Working on through the night, the forage order behind chooses the next node, near the buildings.
   const runOut = (res: number, near: [number, number]): boolean => {
-    const alt = res >= 0 ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
-    const next = alt ?? (res >= 0 && after !== 'hunt' ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);
+    const alt = res >= 0 && !nightForage ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
+    const next = alt ?? (res >= 0 && after !== 'hunt' && !nightForage ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);
     if (next) {
       o.cx = next.cx;
       o.cz = next.cz;
