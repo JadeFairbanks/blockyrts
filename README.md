@@ -2755,6 +2755,47 @@ up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
    land redraws in each part), the box off the texel grid by up to half a texel,
    and screen corners up to 17 m outside the box zoomed out.
 
+## How a tester checks work that waits (Patch 4)
+
+*Jade's Patch 4, three questions that ask by themselves: a farm that has sat
+empty for more than a minute asks to send a nearby worker; a building going
+up that no one has worked on for more than a minute asks for a builder (never
+at dusk or night); and a worker idle for more than a minute offers to farm,
+gather or help build. Picks in blueprint/patch4-worker-questions-picks.md.
+The questions are `packages/sim/src/units/work-asks.ts`; their numbers are on
+the balance editor's Questions page "Work that waits".*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch4-work-asks.test.ts:
+   each question comes after a minute and not before, never at dusk or night,
+   and a minute after dawn begins; one idle worker speaks for those near it;
+   Yes gathers, farms or builds as the question said; No rests until the next
+   day; the question goes when a worker is given an order or a farmer is
+   assigned; a farm with a farmer, or with no worker within 30 m, never asks;
+   the idle workers farm first and offer to help build a site; and Yes does
+   the same on a machine that loaded the game and never saw the question.
+2. **Idle workers.** `pnpm dev`, open http://localhost:5173/?seed=1 and leave
+   the four workers alone. About a minute in, one of them asks for all four:
+   "Four of us have nothing to do. Shall we gather?" Hover the tick: "All 4
+   gather what the side needs most, as the Gather button sends them." Click
+   it: they go gathering. Click the cross instead (or let it run out): they
+   stay idle and ask again only the next day, or a minute after their next
+   work ends.
+3. **An empty farm.** Build a Farm near the Big House and give the workers
+   nothing more to do. A minute after it is finished, the farm asks over its
+   roof: "No one is farming here. Send a worker?" Yes sends the nearest idle
+   worker (one gathering if none is idle) to farm it, handing in any load on
+   the way. Assign a farmer yourself while it asks: the bubble goes.
+4. **A building no one works on.** Start a Storehouse with one worker, then
+   send that worker off to gather. A minute later the site asks: "No one is
+   building this storehouse. Send a builder?" Yes sends a worker to finish
+   it. With idle workers near, they offer "Shall we help build the
+   storehouse?" instead of gathering. Start a site just before dusk and leave
+   it: nothing asks through dusk and the night, and it asks a minute after
+   dawn begins.
+5. **What reaches chat.** None of these goes to chat. Only "No worker is free
+   nearby to farm here." (or "... to build here."), when Yes finds no one
+   left to send, is urgent and does.
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
