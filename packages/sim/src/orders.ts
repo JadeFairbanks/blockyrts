@@ -557,7 +557,7 @@ export interface AnswerOrder {
   ask: number;
   /** 1 Yes, 0 No. */
   yes: number;
-  /** Which question (units/questions.ts Ask). */
+  /** Which question (units/questions.ts Ask, units/greyed.ts GreyAsk, units/work-asks.ts WorkAsk): 1 to 31. */
   q: number;
   /** Who asked: an entity id, or a building id for a building's question. */
   who: number;

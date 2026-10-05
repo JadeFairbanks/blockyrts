@@ -35,7 +35,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
-  { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go.' },
+  { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go; and (Patch 4) how long a farm stands empty, a building goes unworked or a worker stands idle before it asks, and how near a worker must be to be sent.' },
   { id: 'pacing', label: 'Pacing', blurb: 'The day and night clock and the other timings everything else counts in.' },
   { id: 'other', label: 'Other numbers', blurb: 'Numbers in the sim that no other group claims yet. New tables show up here until they are given a home.' },
   { id: 'tables', label: 'Blueprint tables (read only)', blurb: 'The blueprint\'s numbered tables as the sim reads them, for reference. Change these through the blueprint, not here.' },
@@ -115,6 +115,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/gear.ts': 'training',
   'units/questions.ts': 'questions',
   'units/greyed.ts': 'questions',
+  'units/work-asks.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
   'units/field.ts': 'animals',
@@ -401,6 +402,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   NIGHT_WORK_BUILDING_M: 'Asks at dusk when within this of a building', NIGHT_WORK_TROOP_M: '...and within this of a troop',
   NIGHT_WORK_REACH_M: 'Working on, gathers only within this of a building', NIGHT_WORK_SPEAK_FOR_M: 'One worker asks for the others within',
   DAWN_CLEAR_M: 'Out at dawn once no monster is alive within this of the shelter', DAWN_LOOK_STEPS: 'Sheltering workers look out every',
+  // Work that waits (Patch 4): an empty farm, a building no one works on, an idle worker.
+  FARM_EMPTY_ASK_STEPS: 'An empty farm asks for a worker after', SITE_UNWORKED_ASK_STEPS: 'A building no one works on asks for a builder after',
+  WORKER_IDLE_ASK_STEPS: 'An idle worker asks for work after', WORK_ASK_NEAR_M: 'A worker counts as nearby within',
   // Plants' growth stages (world/props.ts).
   fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
   buildOver: 'Buildings can go over it', clearSteps: 'Time a builder takes to pull it up (0: trampled)',
@@ -430,6 +434,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
+  'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
