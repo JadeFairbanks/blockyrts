@@ -1572,8 +1572,9 @@ and every hash are unchanged. Picks in blueprint/hud-picks.md.
    1080. Along the bottom edge, touching: the minimap with the utility bar
    on top, the portrait, the selection panel, the command card. The card is
    4 rows tall and 10 columns wide here; the usual 5 x 3 block (with the
-   grid keys until Patch 4) is its bottom right corner. At 1280 x 720 the card has 5 columns; at
-   1024 x 768 the whole HUD is drawn smaller and nothing is cut off.
+   grid keys until Patch 4) is its bottom right corner. At 1280 x 720 the
+   card has 5 columns; at 1024 x 768 the whole HUD is drawn smaller and
+   nothing is cut off.
 2. **Portrait.** Click a warrior: its head and shoulders, in its kit,
    breathing in its idle clip. Click the Big House: the house from about 45
    degrees. A deer or a beetle (debug "Creature") shows whole; a tree shows
@@ -2627,9 +2628,11 @@ shows in the settings. Client only: no sim change, no save format change.*
    W, H and S; the softwood gates on G (east to west) and F (north to
    south), the hardwood ones on A and D, the stone ones on E and U; the
    towers on T, R and N; earth bank K, earth ramp P, fill I, lumber ramp B
-   and stone ramp M. B, T, T picks up a torch post; B, T, B a bonfire. Esc
-   goes back a step at a time. On a phone-sized card Defences takes two
-   pages and More turns them on + (V before Patch 4).
+   and stone ramp M. B, T, B picks up a bonfire, and B, T, T a torch post
+   once there is resin (at the start it is greyed out, and T asks who can
+   sort that out, as a click does). Esc goes back a step at a time. A menu
+   the card cannot hold even at its smallest buttons (on a short screen)
+   pages, and + turns the page (V before Patch 4).
 4. **Any keyboard layout.** Menu keys now go by the letter a key types, as
    every other command's do, so on a French keyboard the key marked F still
    picks the Farm (before Patch 4 the build menu went by where a key sits).
@@ -2637,7 +2640,7 @@ shows in the settings. Client only: no sim change, no save format change.*
    Forge: copper ingot C, tin ingot T, bronze ingots B, wrought iron W, pig
    iron P, iron ingot I, steel ingot S, carbon steel ingot A, charcoal H,
    bricks R, glass G, gunpowder U (before Patch 4: Q W E R T, A S D F G, Z
-   X). Each product takes the first free initial of its name, else the
+   X); H queues charcoal. Each product takes the first free initial of its name, else the
    first free letter of its name. The Workshop has more products than
    letters: 20 of its 43 get one and the rest are clicks until given a key.
 6. **Rebinding.** Open the menu (F10), Hotkeys: the build menu, Defences,
@@ -2645,6 +2648,11 @@ shows in the settings. Client only: no sim change, no save format change.*
    that build menu keys "follow the grid Q to B and stay as they are" is
    gone). Click Farm's key, press Y, close the menu: B, Y picks up the Farm
    and its button shows Y. "Reset all hotkeys" puts F back.
+7. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/hotkeys-look.mjs http://localhost:5198 /tmp/shots`
+   drives the build menu, Defences and Lights from the keyboard, places a
+   bonfire and a Farm, reads the Forge's and the main base's K menus and
+   queues charcoal on H, printing ok or FAIL for each.
 
 ## How a tester checks the fog look and hidden-unit outlines (Patch 3)
 
