@@ -408,6 +408,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Plants' growth stages (world/props.ts).
   fromPm: 'Reached at (of its growing time)', sizePm: 'Drawn at (of full size)', yieldPm: 'Holds (of its full yield)',
   buildOver: 'Buildings can go over it', clearSteps: 'Time a builder takes to pull it up (0: trampled)',
+  // Stone outcrops (Patch 4): the Heartland's scatter and each base's own.
+  HEARTLAND_STONE_OUTCROPS_PER_10000: 'Stone outcrops in the Heartland, per 10,000 spots',
+  START_OUTCROP_NEAR_M: 'Each base\'s stone outcrop, nearest its Big House\'s middle', START_OUTCROP_FAR_M: 'Each base\'s stone outcrop, farthest from its middle',
 };
 
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */
@@ -422,7 +425,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'threats/lair-alert.ts': 'Lair alerts', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
-  'world/start.ts': 'Start basins', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
+  'world/start.ts': 'Start basins', 'world/generate.ts': 'World generation', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
   'magic/spells.ts': 'Spells and mage ranks', 'magic/mages.ts': 'Mage training and mana', 'magic/cast.ts': 'Casting',
   'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': 'Siege engines and cannon ports', 'training:siege/data.ts': 'Artillery crewman', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
   'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': 'Siege engines and cannon ports', 'threats/late-mobs.ts': 'Late night mobs\' abilities',
