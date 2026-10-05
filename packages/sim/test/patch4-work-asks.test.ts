@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   Blocked,
+  buildingCentre,
   BuildingKind,
   constructionHealth,
   createWorld,
@@ -193,6 +194,25 @@ describe('Patch 4: an empty farm asks for a worker', () => {
     for (const i of workers(s)) expect(fromBuilding(far, e.x[i]!, e.z[i]!)).toBeGreaterThan(WORK_ASK_NEAR_M * WU_PER_METRE);
     const evs = run(s, FARM_EMPTY_ASK_STEPS + 3 * SEC, [{ kind: 'assign', player: 0, units: [e.id[workers(s)[0]!]!], building: farm.id, queued: false }]);
     expect(asked(evs, WorkAsk.Farm)).toEqual([]);
+  });
+
+  it("Yes's tooltip follows the worker it would send, told once when it changes", () => {
+    const s = world();
+    const farm = putNear(s, BuildingKind.Farm, true);
+    const { ev } = untilAsked(s, WorkAsk.Farm, FARM_EMPTY_ASK_STEPS + 3 * SEC);
+    const e = s.entities;
+    // Every worker steps 3 m farther off: the next second's count tells the new distance, once.
+    const [cx, cz] = buildingCentre(farm);
+    for (const i of workers(s)) {
+      const dx = e.x[i]! - cx;
+      const dz = e.z[i]! - cz;
+      const len = Math.hypot(dx, dz);
+      e.x[i] = e.x[i]! + Math.round((dx * 3 * WU_PER_METRE) / len);
+      e.z[i] = e.z[i]! + Math.round((dz * 3 * WU_PER_METRE) / len);
+    }
+    const told = run(s, 3 * SEC).filter((x) => x.kind === 'question' && x.ask!.retold && x.ask!.id === ev.ask!.id);
+    expect(told.length).toBe(1);
+    expect(told[0]!.ask!.yes).not.toBe(ev.ask!.yes);
   });
 
   it('is withdrawn when the player assigns a farmer while it is up', () => {

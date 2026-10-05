@@ -238,7 +238,8 @@ function askFarm(state: SimState, book: WorkBook, b: Building, w: Wait, worker: 
   const player = b.owner;
   w.asked = true;
   const id = b.id;
-  const yes = sendText(state, worker, 'to farm here');
+  // Yes's tooltip as last told (recount keeps it in step with who would go).
+  let yes = sendText(state, worker, 'to farm here');
   book.sending.set(id, state.entities.id[worker.i]!);
   askOwn(state, {
     player,
@@ -260,7 +261,8 @@ function askFarm(state: SimState, book: WorkBook, b: Building, w: Wait, worker: 
       const now = farmWant(state, state.buildings.get(id), player);
       if (!now) return null;
       book.sending.set(id, state.entities.id[now.i]!);
-      return sendText(state, now, 'to farm here');
+      yes = sendText(state, now, 'to farm here');
+      return yes;
     },
   });
 }
@@ -288,8 +290,8 @@ function siteWant(state: SimState, b: Building | undefined, player: number): { i
 
 function askSite(state: SimState, book: WorkBook, b: Building, w: Wait, worker: { i: number; free: number; d: number }, works: Map<number, number>): void {
   const player = b.owner;
-  const others = sitesBy(state, b, works).filter((s) => !isAsking(state, s.id, true));
-  const group = [b, ...others];
+  // The same sites Yes will send the builder to (worked out again then from the state alone).
+  const group = [b, ...sitesBy(state, b, works)];
   for (const s of group) {
     const v = s === b ? w : waited(state, book.sites, s.id, SITE_UNWORKED_ASK_STEPS) ?? book.sites.get(s.id)!;
     v.asked = true;
@@ -298,7 +300,7 @@ function askSite(state: SimState, book: WorkBook, b: Building, w: Wait, worker: 
   const n = group.length;
   const text = n > 1 ? `No one is building these ${countWord(n).toLowerCase()} buildings. Send a builder?` : b.complete ? `No one is working on the upgrade to ${siteName(b)}. Send a builder?` : `No one is building this ${siteName(b)}. Send a builder?`;
   const to = n > 1 ? 'and builds them one after another, the nearest first' : b.complete ? 'to work on the upgrade' : 'to build it';
-  const yes = sendText(state, worker, to);
+  let yes = sendText(state, worker, to);
   const id = b.id;
   book.sending.set(id, state.entities.id[worker.i]!);
   askOwn(state, {
@@ -323,7 +325,8 @@ function askSite(state: SimState, book: WorkBook, b: Building, w: Wait, worker: 
       const now = siteWant(state, state.buildings.get(id), player);
       if (!now) return null;
       book.sending.set(id, state.entities.id[now.i]!);
-      return sendText(state, now, to);
+      yes = sendText(state, now, to);
+      return yes;
     },
   });
 }
