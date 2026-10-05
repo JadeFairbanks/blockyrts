@@ -297,8 +297,8 @@ main base or farm left ends the game with the night count as the score.*
    puts Earth (or stone, flint, sand...) in the pool. B, D and then K, P or
    I (Earthworks, under Defences since Patch 2; before Patch 4, B, Z) heaps
    an earth bank, a ramp (drag from the bottom to the top) or fill from that
-   Earth. Marked areas stay outlined until done; right-click one with workers
-   to help. Zombies walk round a trench they cannot climb out of.
+   Earth. A marked area shows its box while a selected worker is on it and a
+   dotted line otherwise, until done; right-click one with workers to help. Zombies walk round a trench they cannot climb out of.
 8. **Losing.** When every worker is dead and no main base or farm stands, the
    game is over and the screen shows the nights survived.
 9. `pnpm sim:run --seed 1 --steps 10000 --orders packages/tools/orders/m3-nights.json --quiet`
@@ -2808,6 +2808,45 @@ up to a second. Picks in blueprint/shadow-flicker-picks.md. The fix is
    each. Before the fix it found such frames in all three (with 28 to 67
    land redraws in each part), the box off the texel grid by up to half a texel,
    and screen corners up to 17 m outside the box zoomed out.
+
+## How a tester checks marked digs (Patch 4)
+
+*Jade, 2026-10-05: after starting to dig, the outline stayed visible until
+the job was done. Now the full outline shows only while a selected worker is
+working on that dig; otherwise a single thin dotted line, as thick as each
+line of the outline, shows where the dig goes. Workers still join a dig as
+before. Picks in blueprint/patch4-dig-outline-picks.md. Which sites show in
+full and each site's dotted trace are `sitesInOrders` and `siteTraces` in
+`packages/client/src/hud/site-marks.ts`, drawn by `Overlay.dotted` and
+`drawSites` in `packages/client/src/hud/shell.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/client/test/patch4-dig-outline.test.ts:
+   a site shows in full when a selected worker has it in its orders, now or
+   lined up after its current job, and not for unselected workers' digs;
+   a dig, bank, fill or ramp is traced round its edge on the land, a marked
+   tunnel round its edge at its floor, and a tunnel chain's stretch along its
+   middle at its floor, each stretch meeting the next at their corner (also
+   round a closed loop, in any order, and not across different floors); the
+   dots are 15 cm long, one to a column, with one centred on every corner.
+2. **In the game.** `pnpm dev`, open http://localhost:5173/?seed=1, select a
+   worker, press D and drag a dig south of the Big House, left click: the
+   see-through box shows while the worker stays selected, also before it
+   gets there. Click the ground to select nothing: the box gives way to a
+   dotted orange line round the dig, on the land at its rim. Select another
+   worker: still the dotted line. Right-click the dotted area with it: that
+   worker joins, and now its box shows. With Shift held, a worker given a
+   second dig shows both boxes.
+3. **Tunnels.** Build the tester Hill (M N B V C X Z, then Hill), select a
+   worker, Dig, click the hill's south face and click into it and out of its
+   east side, then right click: with the worker selected each stretch has its
+   box; with nothing selected a dotted violet line runs along the middle of
+   the tunnel at its floor, seen through the hill, turning the corner as one
+   path.
+4. **In the browser, by script.** With `pnpm --filter @blockyrts/client exec vite --port 5198`
+   running, `node packages/client/test-e2e/dig-outline-look.mjs http://localhost:5198 /tmp/shots`
+   gives three workers a dig, an underground tunnel chain and an earth bank,
+   and looks with nothing selected, each worker selected in turn and all of
+   them selected, printing ok or FAIL for each.
 
 ## How a tester checks the balance editor
 
