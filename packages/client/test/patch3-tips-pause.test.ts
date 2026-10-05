@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { GameAudio } from '../src/audio/game-audio.ts';
 import { cue } from '../src/audio/cues.ts';
 import { GameInfo } from '../src/game/game-info.ts';
-import { menuSlots, submenuChoices } from '../src/hud/commands.ts';
+import { menuSlots, submenuChoices } from '../src/hud/menu-keys.ts';
 import { S, STATE_STRIDE, type StateMessage } from '../src/messages.ts';
 import { sanitizeSettings } from '../src/settings/settings.ts';
 import { tipTexts, TORCH_TIP_STEP } from '../src/ui/hints.ts';

@@ -18,7 +18,6 @@ import {
   Line,
   linePiece,
   mainCost,
-  BUILDINGS,
   buildingSpec,
   footprintDims,
   kitName,
@@ -75,7 +74,7 @@ import {
 } from '@blockyrts/sim';
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
-import { GRID_CODES, keyFor, spellAction } from '../input/bindings.ts';
+import { keyFor, spellAction } from '../input/bindings.ts';
 import type { BuildingInfo, PeopleInfo } from '../messages.ts';
 import { isOwn } from '../selection/rules.ts';
 import { buildingIdOf, entityIdOf, lootIdOf, type Selectable } from '../selection/types.ts';
@@ -84,6 +83,7 @@ import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonIcon, ButtonPress } from './buttons.ts';
 import { buildIcon, buildingUpgradeIcon, equipIcon, productIcon, trainTroopIcon } from './card-icons.ts';
+import { makeAction, menuSlots, MORE_ACTION, placeAction, submenuAction, submenuChoices } from './menu-keys.ts';
 import { buildingIconFile } from './unit-icons.ts';
 import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
@@ -94,10 +94,10 @@ export interface CardEntry {
   action: string;
   face: string;
   name: string;
-  /** Binding name: a letter by character ('KeyG'), or a grid position by physical code in a build menu. */
+  /** Binding name: a letter by character ('KeyG'), else a physical code ('Escape', 'Equal'); '' for a click only. */
   key: string;
-  /** In a build menu the key is a key position, not a character. */
-  grid?: boolean;
+  /** A build or K menu button: its face is a name, set small. */
+  menu?: boolean;
   description: string;
   enabled: boolean;
   /** Why it is greyed out. */
@@ -280,33 +280,6 @@ const CLASSIC_SIZE: CardSize = { most: 15 };
 
 /** Spacing of lights placed along a dragged line: 8 m, so their 5 m claims overlap. */
 export const LIGHT_LINE_SPACING_M = 8;
-
-/** Grid slot (0..14) of a Table 4 menu slot (1-based); slot 15 (B) is always Back. */
-export function gridSlot(menuSlot: number): number {
-  return menuSlot - 1;
-}
-
-/** The buildings of the build menu by grid slot: one kind, or a submenu's kinds (Defences, Lights) sharing a slot. */
-export function menuSlots(): BuildingSpec[][] {
-  const out: BuildingSpec[][] = Array.from({ length: 15 }, () => []);
-  for (const b of BUILDINGS) if (b.slot > 0) out[gridSlot(b.slot)]!.push(b);
-  return out;
-}
-
-/** Where a defence sits in the Defences submenu: walls, then gates, then towers, then earthworks, each softwood, hardwood, stone. */
-function defenceRank(spec: BuildingSpec): number {
-  return spec.site ? 3 : spec.defence === 'gate' ? 1 : spec.defence === 'tower' ? 2 : 0;
-}
-
-/** The choices of a submenu: each building, each way of a gate or earthwork, in grid order. */
-export function submenuChoices(specs: readonly BuildingSpec[]): Array<{ spec: BuildingSpec; variant: number; name: string }> {
-  const out: Array<{ spec: BuildingSpec; variant: number; name: string }> = [];
-  for (const spec of [...specs].sort((a, b) => defenceRank(a) - defenceRank(b))) {
-    if (spec.variants) spec.variants.forEach((name, v) => out.push({ spec, variant: v, name }));
-    else out.push({ spec, variant: 0, name: spec.name });
-  }
-  return out;
-}
 
 /** "300 softwood lumber, 150 stone" */
 export function costLine(cost: Cost): string {
@@ -568,7 +541,7 @@ export class Commands {
           () => this.target('prospect', 'prospect'),
           { lit: t === 'prospect', double: () => this.pickOwn(PickOwn.Prospect, 'Prospecting where they stand.') },
         ),
-        this.entry('build', 'Build', 'Open the build menu: every building, with walls, gates, towers and earthworks under Defences and lights under Lights. Grid keys pick a building; B is Back.', () => this.openMenu('build')),
+        this.entry('build', 'Build', 'Open the build menu: every building, with walls, gates, towers and earthworks under Defences and lights under Lights. Each one\'s key is on its button; Esc goes back.', () => this.openMenu('build')),
         this.eatEntry(),
         this.equipEntry(workers),
         this.cartEntry(workers),
@@ -838,30 +811,32 @@ export class Commands {
 
   /**
    * The build menu (Jade's Patch 2: one Build button, fourteen buildings): a
-   * button per building on its grid key, with Defences and Lights opening
-   * their submenus. A submenu longer than the card (Defences' 17 choices)
-   * shows pages. B is Back.
+   * button per building, with Defences and Lights opening their submenus. A
+   * submenu longer than the card (Defences' 17 choices) shows pages. Each
+   * button is on a letter of its own, as everywhere on the card (Jade's
+   * Patch 4; before, the key in its place on the keyboard's grid, Q to V,
+   * with B Back); Esc is Back.
    */
   private buildMenuCard(waiting: boolean): Slots {
     const slots = menuSlots();
     const sub = this.menu.sub >= 0 ? (slots[this.menu.sub] ?? []) : null;
     const list: CardEntry[] = [];
-    if (sub) submenuChoices(sub).forEach((c, k) => list.push(this.buildEntry(k, c.spec, c.variant, c.name)));
+    if (sub) submenuChoices(sub).forEach((c) => list.push(this.buildEntry(c.spec, c.variant, c.name)));
     else {
-      for (let i = 0; i < 14; i++) {
-        const specs = slots[i]!;
+      slots.forEach((specs, i) => {
         const group = specs[0]?.group;
-        if (specs.length === 1 && !group) list.push(this.buildEntry(i, specs[0]!, 0, specs[0]!.name));
+        if (specs.length === 1 && !group) list.push(this.buildEntry(specs[0]!, 0, specs[0]!.name));
         else if (specs.length > 0) {
           const name = group ?? specs.map((s) => s.name).join(', ');
           const any = specs.some((s) => this.d.game.info?.buildWhy[s.kind] === '');
           const icon = group === 'Defences' ? BuildingKind.Tower : specs[0]!.kind;
+          const action = submenuAction(name);
           list.push({
-            action: `menu-${i}`,
+            action,
             face: name,
             name,
-            key: GRID_CODES[i]!,
-            grid: true,
+            key: this.key(action),
+            menu: true,
             description: group === 'Defences' ? 'Walls, gates and towers of softwood, hardwood and stone, and earthworks.' : `${specs.map((s) => s.name).join(', ')}.`,
             icon: { layers: [{ file: buildingIconFile(icon, 1, 0) }] },
             enabled: any,
@@ -873,7 +848,7 @@ export class Commands {
             grey: () => this.greyed(Greyed.Building, specs[0]!.kind),
           });
         }
-      }
+      });
     }
     // A ghost or target waiting has its Cancel last instead of Back.
     return this.paged(list, waiting ? [] : [this.backEntry(sub ? 'Back to the build menu.' : 'Back to the worker commands.')]);
@@ -882,7 +857,7 @@ export class Commands {
   /**
    * A menu longer than the card can show (CardSize.most) in pages: as many as
    * fit with More and the last button (Back, or Cancel while a ghost or a
-   * target waits), More turning to the next page.
+   * target waits), More (+) turning to the next page.
    */
   private paged(list: CardEntry[], after: CardEntry[]): Slots {
     const most = Math.max(3, this.size().most);
@@ -891,11 +866,11 @@ export class Commands {
     const pages = Math.ceil(list.length / per);
     const at = this.menu.more % pages;
     const more: CardEntry = {
-      action: 'more',
+      action: MORE_ACTION,
       face: `More ${at + 1}/${pages}`,
       name: 'Next page',
-      key: GRID_CODES[13],
-      grid: true,
+      key: this.key(MORE_ACTION),
+      menu: true,
       description: `Page ${at + 1} of ${pages}. Show the next page.`,
       enabled: true,
       reason: '',
@@ -904,8 +879,8 @@ export class Commands {
         this.d.changed();
       },
     };
-    // The grid key V turns the page, so no button on the page keeps it.
-    const page = list.slice(at * per, (at + 1) * per).map((e) => (e.grid && e.key === GRID_CODES[13] ? { ...e, key: '', grid: false } : e));
+    // More's key turns the page, so a button rebound onto it is a click on this page.
+    const page = list.slice(at * per, (at + 1) * per).map((e) => (e.key === more.key ? { ...e, key: '' } : e));
     return [...page, more, ...after];
   }
 
@@ -916,7 +891,7 @@ export class Commands {
    * sort it out. [Before Patch 3 a building the stock could not pay for
    * showed in red and could still be placed as a plan.]
    */
-  private buildEntry(slot: number, spec: BuildingSpec, variant: number, name: string): CardEntry {
+  private buildEntry(spec: BuildingSpec, variant: number, name: string): CardEntry {
     const l = spec.levels[0]!;
     const cost = spec.site ? (EARTHWORK_COSTS[variant] ?? l.cost) : this.buildCost(spec.kind);
     const why = this.d.game.info?.buildWhy[spec.kind] ?? spec.comesWith;
@@ -930,12 +905,13 @@ export class Commands {
     else if (spec.w === 1 && spec.d === 1) lines.push('Drag to place a line of them, 8 m apart.');
     if (!spec.site && !Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
     const reason = [why, short].filter((x) => x).join(' ');
+    const action = placeAction(spec.kind, variant);
     return {
-      action: `build-${spec.kind}-${variant}`,
+      action,
       face: name,
       name,
-      key: slot < 14 ? GRID_CODES[slot]! : '',
-      grid: slot < 14,
+      key: this.key(action),
+      menu: true,
       description: lines.join(' '),
       icon: buildIcon(spec, variant),
       enabled: reason === '',
@@ -991,7 +967,7 @@ export class Commands {
       }
     }
     if (first.complete && first.products.some(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)) {
-      const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Grid keys pick one; V shows the next page; B is Back.'];
+      const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Each item\'s key is on its button; Esc goes back.'];
       // A main base's mages sit on 4 and 5, so its K menu (rope) moves along.
       card[main ? 7 : 5] = this.entry('craft', what[0], what[1], () => this.openMenu('make'), { name: what[0] });
     }
@@ -1038,8 +1014,8 @@ export class Commands {
     return card;
   }
 
-  /** A training, making or research button, greyed out with the reason it cannot be queued. */
-  private productEntry(all: BuildingInfo[], p: number, action: string, face: string, grid?: number, why?: string): CardEntry {
+  /** A training, making or research button, greyed out with the reason it cannot be queued; a K menu's products are menu buttons. */
+  private productEntry(all: BuildingInfo[], p: number, action: string, face: string, why?: string, menu = false): CardEntry {
     const ps = productSpec(p);
     const g = this.d.game;
     const info = g.info;
@@ -1062,8 +1038,8 @@ export class Commands {
       action,
       face,
       name: ps.name,
-      key: grid !== undefined ? GRID_CODES[grid]! : this.key(action),
-      grid: grid !== undefined,
+      key: this.key(action),
+      ...(menu ? { menu } : {}),
       description: `${ps.tooltip} Cost: ${costs}. Time: ${Math.round(ps.steps / pace / 2) / 10} s. Shift: queue 5.`,
       icon: productIcon(p),
       product: p,
@@ -1160,10 +1136,11 @@ export class Commands {
 
   /**
    * K (smelt, research, make, slaughter): a button per product the
-   * building makes, greyed out with the sim's reason. The first 13 take the
-   * grid keys; the card grows upward for the rest as far as the screen
-   * allows, and past that V shows the next page. B is Back, except where
-   * the building's card had nothing but K, so it opens here (Patch 3).
+   * building makes, greyed out with the sim's reason, each on a letter from
+   * its name (Jade's Patch 4; before, the first 13 on the grid keys Q to C).
+   * The card grows upward as far as the screen allows, and past that More
+   * (+) shows the next page. Back (Esc) returns, except where the building's
+   * card had nothing but K, so it opens here (Patch 3).
    */
   private makeCard(kind: number, waiting: boolean, back = true): Slots {
     const all = this.buildings().filter((b) => b.kind === kind && b.complete);
@@ -1172,16 +1149,13 @@ export class Commands {
     if (first) {
       first.products
         .filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)
-        .forEach(([p, why], k) => {
-          const e = this.productEntry(all, p, `make-${p}`, shortFace(productSpec(p).name), k < MAKE_KEYS ? k : undefined, why);
-          list.push(k < MAKE_KEYS ? e : { ...e, key: '' });
-        });
+        .forEach(([p, why]) => list.push(this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true)));
     }
     return this.paged(list, waiting || !back ? [] : [this.backEntry('Back to the building commands.')]);
   }
 
   private backEntry(description: string): CardEntry {
-    return { action: 'back', face: 'Back', name: 'Back', key: GRID_CODES[14], grid: true, description, enabled: true, reason: '', run: () => this.back() };
+    return { action: 'back', face: 'Back', name: 'Back', key: 'Escape', menu: true, description, enabled: true, reason: '', run: () => this.back() };
   }
 
   /** Dig and earthworks: + and - set the depth or height, Tunnel (D again) clicks out a tunnel chain, Mark confirms, Esc cancels. */
@@ -2268,20 +2242,17 @@ const EARTHWORK_HELP = [
   'Drag from the bottom of the slope to the top, like an earth ramp, but laid from stone ramp steps made at a workshop: one step for each 11 cm it rises in each column.',
 ];
 
-/** Products of the K menu with a grid key (V turns a long menu's page, B is Back). */
-const MAKE_KEYS = 13;
-
 /** Spell button faces where the name is too long for the button. */
 const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell.AreaBlast]: 'Blast', [Spell.Counterspell]: 'Counter' };
 
 /** The K button by building kind: its face and tooltip. */
 const MAKE_WORDS: Record<number, [string, string]> = {
-  [BuildingKind.ScholarsLodge]: ['Research', 'Open the research menu: every step, greyed out with what it still needs. Research takes the lodge\'s time and stops while the troops starve. V shows the next page; B is Back.'],
-  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base level 3; pig iron and iron from 5; steel, carbon steel and gunpowder from 7. It works with no workers. Kit is made where a unit trains or upgrades, not here. V shows the next page; B is Back.'],
-  [BuildingKind.Barn]: ['Slaughter', 'Slaughter one of the grown animals of the Barn for its meat and hides. The Barn keeps its breeding pairs longest. B is Back.'],
-  [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. B is Back.'],
-  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, gravel, sticks, ramp steps, carts and trinkets, the better ones with the main base\'s levels. It works with no workers. V shows the next page; B is Back.'],
-  [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults from main base level 5, ballistas from 7, bronze and iron cannons from 8, and their shot. It works with no workers. B is Back.'],
+  [BuildingKind.ScholarsLodge]: ['Research', 'Open the research menu: every step, greyed out with what it still needs. Research takes the lodge\'s time and stops while the troops starve. Each step\'s key is on its button; Esc goes back.'],
+  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base level 3; pig iron and iron from 5; steel, carbon steel and gunpowder from 7. It works with no workers. Kit is made where a unit trains or upgrades, not here. Each one\'s key is on its button; Esc goes back.'],
+  [BuildingKind.Barn]: ['Slaughter', 'Slaughter one of the grown animals of the Barn for its meat and hides. The Barn keeps its breeding pairs longest. Esc goes back.'],
+  [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. Esc goes back.'],
+  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, gravel, sticks, ramp steps, carts and trinkets, the better ones with the main base\'s levels. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
+  [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults from main base level 5, ballistas from 7, bronze and iron cannons from 8, and their shot. It works with no workers. Esc goes back.'],
 };
 
 /** A short button face from a product name. */
