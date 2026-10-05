@@ -67,6 +67,17 @@ const MAIN_BASE_PLOT_COLUMNS = 14;
 /** The mini patch's gap between neighbouring main bases in a game for two or more, edge to edge (Jade): 10 to 15 m. */
 export const BASE_GAP_MIN_M = 10;
 export const BASE_GAP_MAX_M = 15;
+/**
+ * How far each base's stone outcrop (Table 9's one of 200) stands from the
+ * middle of its Big House, metres (Jade's Patch 4: "make sure at least one is
+ * by each starting base location"): 11 to 16 m, so 6.5 to 13 m out from the
+ * plot's edge, well inside the 20 m the main base sees from the start, and in
+ * view on the first screen (s). Before Patch 4 it lay with the loose stone,
+ * 18 to 30 m out in a game for one and 24 to 38 m in a yard, often past that
+ * sight in the dark.
+ */
+export const START_OUTCROP_NEAR_M = 11;
+export const START_OUTCROP_FAR_M = 16;
 
 /** Half the yard's angle by the shape of the group (s): wide for two, narrower as the group closes round. */
 const YARD_TWO = floorDiv(80 * 65536, 360);

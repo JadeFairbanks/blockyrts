@@ -9,7 +9,7 @@ import { Band, EdgeType, Look, metresToColumns, metresToUnits, RING_SCALE_PER_MI
 import { Mat } from './materials.ts';
 import { centred, hash2, valueNoise } from './noise.ts';
 import { PropKind, PROPS } from './props.ts';
-import { distanceToPlot, distanceToWater, falloff, ironReach, keepToStretch, ownSideRoom, polar, POCKET_BLEND_COLUMNS, POCKET_FLAT_COLUMNS, StartBasin, yardStretch, type Pocket } from './start.ts';
+import { distanceToPlot, distanceToWater, falloff, ironReach, keepToStretch, ownSideRoom, polar, POCKET_BLEND_COLUMNS, POCKET_FLAT_COLUMNS, START_OUTCROP_FAR_M, START_OUTCROP_NEAR_M, StartBasin, yardStretch, type Pocket } from './start.ts';
 
 /** A generated prop: a resource node, tree or bush on the land. */
 export interface PropRecord {
@@ -89,6 +89,17 @@ interface CellFeatures {
   bogs: Bog[];
   spring: Spring | null;
 }
+
+/**
+ * Stone outcrops in the Heartland's scatter, per 10,000 candidate spots (one
+ * spot every 1.8 m of level open ground, after the trees): 4, twice the 2
+ * before Patch 4 (Jade: "double the amount of stone outcroppings spawning
+ * randomly in heartlands"). The Heartland is the start basin's cells; each
+ * pocket's own flat ground takes no scatter, and its outcrop is Table 9's
+ * (START_OUTCROP_NEAR_M). Every other node keeps its chance and its spot:
+ * the new outcrops go only on spots where nothing stood before (nodeKind).
+ */
+export const HEARTLAND_STONE_OUTCROPS_PER_10000 = 4;
 
 // Per-column flags kept while a chunk is generated, used to place props.
 const F_WATER = 1;
@@ -385,7 +396,8 @@ export class WorldGen {
     place(2, PropKind.CopperOutcrop, [60], -11000, 2500, 22, 34, 6);
     place(1, PropKind.TinOutcrop, [30], -11000, 2500, 22, 34, 6);
     place(2, PropKind.LooseStone, [40, 20], -18000, 2500, 18, 30, 5);
-    place(1, PropKind.StoneOutcrop, [200], -18000, 2500, 18, 30, 6);
+    // The outcrop on the stone's side but by the Big House, in its sight from the start (Jade's Patch 4).
+    place(1, PropKind.StoneOutcrop, [200], -18000, 2500, START_OUTCROP_NEAR_M, START_OUTCROP_FAR_M, 6);
     place(2, PropKind.FlintScatter, [20], 32768, 6000, 12, 24, 4);
     place(2, PropKind.Herbs, [10], 32768, 6000, 12, 24, 4);
     place(2, PropKind.WildFlax, [10], 32768, 6000, 12, 24, 4);
@@ -462,13 +474,15 @@ export class WorldGen {
       // The stand first, out along the yard's middle 20 to 40 m from the Big House (480 lumber).
       for (let i = 0; i < 24; i++) place(1, softwood[h(900, i) % 3]!, [20], 0, 700, 20, 40, 5);
       place(8, PropKind.Hazel, [10], 600, 420, 12, 24, 4);
+      // The outcrop on the stone's side but by the Big House, in its sight from the start (Jade's Patch 4), before
+      // the small finds that share that side with it, so they make room for it.
+      place(1, PropKind.StoneOutcrop, [200], -820, 200, START_OUTCROP_NEAR_M, START_OUTCROP_FAR_M, 6);
       place(2, PropKind.FlintScatter, [20], -600, 420, 12, 24, 4);
       place(2, PropKind.Herbs, [10], -600, 420, 12, 24, 4);
       place(2, PropKind.WildFlax, [10], -600, 420, 12, 24, 4);
       place(2, PropKind.CopperOutcrop, [60], 820, 200, 26, 40, 6);
       place(1, PropKind.TinOutcrop, [30], 820, 200, 26, 40, 6);
       place(2, PropKind.LooseStone, [40, 20], -820, 200, 24, 38, 5);
-      place(1, PropKind.StoneOutcrop, [200], -820, 200, 24, 38, 6);
       out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? 40 : 60 });
       this.pocketPropCache.set(pocket.player, out);
     }
@@ -1164,9 +1178,14 @@ export class WorldGen {
   private nodeKind(band: number, look: number, f: number, r: number, v: number, surface: number): number {
     const table: Array<[number, number]> = [];
     switch (band) {
-      case Band.Heartland:
-        table.push([PropKind.Hazel, 40], [PropKind.Herbs, 12], [PropKind.WildFlax, 8], [PropKind.LooseStone, 10], [PropKind.FlintScatter, 8], [PropKind.StoneOutcrop, 2], [PropKind.CopperOutcrop, 2], [PropKind.TinOutcrop, 1]);
+      case Band.Heartland: {
+        // The first 2 outcrops keep their place in the roll from before Patch 4 and the rest come after the tin, so every
+        // node keeps the spot it had and the new outcrops go only where nothing stood.
+        const outcrops = Math.min(HEARTLAND_STONE_OUTCROPS_PER_10000, 2);
+        table.push([PropKind.Hazel, 40], [PropKind.Herbs, 12], [PropKind.WildFlax, 8], [PropKind.LooseStone, 10], [PropKind.FlintScatter, 8], [PropKind.StoneOutcrop, outcrops], [PropKind.CopperOutcrop, 2], [PropKind.TinOutcrop, 1]);
+        table.push([PropKind.StoneOutcrop, HEARTLAND_STONE_OUTCROPS_PER_10000 - outcrops]);
         break;
+      }
       case Band.Fringe:
         table.push([PropKind.StoneOutcrop, 10], [PropKind.CoalSeam, 3], [PropKind.IronRock, 4], [PropKind.Herbs, 6], [PropKind.WildFlax, 5], [PropKind.MarbleRock, (v & 7) === 0 ? 1 : 0]);
         break;

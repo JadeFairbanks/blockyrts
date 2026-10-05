@@ -249,7 +249,7 @@ export const NUMBER_TABLES: readonly NumberTable[] = [
       [{"text":"Softwood stand","suggested":false,"marked":false},{"text":"24 trees (480 lumber), 20 to 40 m from the Big House","suggested":true,"marked":false}],
       [{"text":"Hazel bushes","suggested":false,"marked":false},{"text":"8 (80 sticks, regrowing)","suggested":true,"marked":false}],
       [{"text":"Copper outcrops / tin outcrop","suggested":false,"marked":false},{"text":"2 of 60 ore / 1 of 30 ore","suggested":true,"marked":false}],
-      [{"text":"Stone","suggested":false,"marked":false},{"text":"loose stone 60 and one 200 outcrop","suggested":true,"marked":false}],
+      [{"text":"Stone","suggested":false,"marked":false},{"text":"loose stone 60 and one 200 outcrop, the outcrop by the Big House: 11 to 16 m from its middle (Jade's Patch 4)","suggested":false,"marked":false}],
       [{"text":"Flint scatter / herbs / wild flax","suggested":false,"marked":false},{"text":"40 / 20 / 20","suggested":true,"marked":false}],
       [{"text":"Water","suggested":false,"marked":false},{"text":"one stream stretch of at least 60 m2 (15 trout) or a pond of 40 m2, within 60 m, with its own flock of 3 to 5 wild geese (s, M11)","suggested":true,"marked":false}],
       [{"text":"Food","suggested":false,"marked":false},{"text":"25 meat, 10 fish, 10 eggs: 140 nutrition, 10 days for the starting seven (4 workers and 3 warriors, Jade, 2026-10-03; the earlier 15 meat for five was Jade's; 25 meat (s, M11), Open for Jade's rebalance)","suggested":true,"marked":false}],

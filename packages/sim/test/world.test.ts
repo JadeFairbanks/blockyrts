@@ -42,6 +42,14 @@ import {
   metresToColumns,
   RING_SCALE_PER_MILLE,
   StartBasin,
+  BUILDING_SIGHT_M,
+  CHUNK_SHIFT,
+  distanceToPlot,
+  FOG_TILE_COLUMNS,
+  HEARTLAND_STONE_OUTCROPS_PER_10000,
+  PropKind,
+  START_OUTCROP_FAR_M,
+  START_OUTCROP_NEAR_M,
 } from '../src/index.ts';
 
 const passable = (e: { type: number; gaps: readonly unknown[] }): boolean => !blocksWalking(e.type as never) || e.gaps.length > 0;
@@ -218,6 +226,78 @@ describe('world generation', () => {
         }
       }
     }
+  });
+});
+
+describe('stone outcrops (Jade\'s Patch 4)', () => {
+  it('stands a stone outcrop of 200 by every Big House, in what it sees from the start', () => {
+    // Jade: "make sure at least one is by each starting base location". Table 9's outcrop stands 11 to 16 m from the
+    // Big House's middle, to within a column either way (whole columns of 0.45 m), and in a line a try can be pulled in
+    // along it a little more.
+    const near = metresToColumns(START_OUTCROP_NEAR_M) - 2;
+    const far = metresToColumns(START_OUTCROP_FAR_M) + 1;
+    for (let players = 1; players <= 8; players++) {
+      for (let seed = 1; seed <= 10; seed++) {
+        const gen = new WorldGen(new WorldLayout(seed, players));
+        const label = `${players} players, seed ${seed}`;
+        const pockets = gen.start.pockets;
+        for (const p of pockets) {
+          const own = gen.pocketProps(p).filter((o) => o.kind === PropKind.StoneOutcrop);
+          expect(own.length, label).toBe(1);
+          const o = own[0]!;
+          expect(o.amount).toBe(200);
+          const d = Math.hypot(o.x - p.x, o.z - p.z);
+          expect(d, label).toBeGreaterThanOrEqual(near);
+          expect(d, label).toBeLessThan(far);
+          // Among other bases, 7 m off every Big House plot, as every yard prop.
+          if (players > 1) for (const q of pockets) expect(distanceToPlot(o.x, o.z, q.x, q.z), label).toBeGreaterThanOrEqual(metresToColumns(7));
+        }
+      }
+    }
+    // In play: whole, and on land the start already sees (the main base sees 20 m out from its plot's edge).
+    const sight = metresToColumns(BUILDING_SIGHT_M[BuildingKind.MainBase]!);
+    for (const players of [1, 2, 4, 8]) {
+      const s = createWorld(1, { players, peaceful: true });
+      for (const p of s.world.gen.start.pockets) {
+        const o = s.world.gen.pocketProps(p).find((q) => q.kind === PropKind.StoneOutcrop)!;
+        expect(distanceToPlot(o.x, o.z, p.x, p.z)).toBeLessThan(sight - metresToColumns(5));
+        expect(s.world.isExplored(Math.floor(o.x / FOG_TILE_COLUMNS), Math.floor(o.z / FOG_TILE_COLUMNS)), `${players} players`).toBe(true);
+        const cx = o.x >> CHUNK_SHIFT;
+        const cz = o.z >> CHUNK_SHIFT;
+        const there = s.world.props(cx, cz, s.step).find((v) => v.kind === PropKind.StoneOutcrop && (cx << CHUNK_SHIFT) + v.lx === o.x && (cz << CHUNK_SHIFT) + v.lz === o.z);
+        expect(there?.amount, `${players} players`).toBe(200);
+      }
+    }
+  });
+
+  it('scatters twice as many stone outcrops through the Heartland as before Patch 4', () => {
+    // Jade: "double the amount of stone outcroppings spawning randomly in heartlands": 4 in 10,000 spots, was 2.
+    expect(HEARTLAND_STONE_OUTCROPS_PER_10000).toBe(4);
+    // Loose stone (10 in 10,000) is only ever scattered in the Heartland and is unchanged, so outcrops now come about
+    // 4 to its 10 (before Patch 4 these seeds gave 19 to 83, 0.23). Each pocket's own Table 9 props are left out.
+    let outcrops = 0;
+    let loose = 0;
+    const N = 1 << CHUNK_SHIFT;
+    for (let seed = 1; seed <= 12; seed++) {
+      const layout = new WorldLayout(seed, 3);
+      const gen = new WorldGen(layout);
+      const own = new Set(gen.start.pockets.flatMap((p) => gen.pocketProps(p).map((q) => `${q.x},${q.z}`)));
+      const r = Math.ceil((layout.basinRadius + 20) / N);
+      for (let cz = -r; cz < r; cz++) {
+        for (let cx = -r; cx < r; cx++) {
+          for (const q of gen.generateChunk(cx, cz).props) {
+            const x = cx * N + q.lx;
+            const z = cz * N + q.lz;
+            if (own.has(`${x},${z}`) || layout.cell(layout.nearest(x, z)).band !== Band.Heartland) continue;
+            if (q.kind === PropKind.StoneOutcrop) outcrops++;
+            if (q.kind === PropKind.LooseStone) loose++;
+          }
+        }
+      }
+    }
+    expect(loose).toBeGreaterThan(60);
+    expect(outcrops / loose).toBeGreaterThan(0.3);
+    expect(outcrops / loose).toBeLessThan(0.5);
   });
 });
 
