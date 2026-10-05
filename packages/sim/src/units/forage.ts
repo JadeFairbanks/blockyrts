@@ -6,7 +6,9 @@
 // explored land nearest the base first, sweeping on round it, so that on a
 // blank map the search is a widening spiral, and where hunters or the player
 // went farther they search the edges of that too. At dusk they come back to
-// the nearest main base and go in, and at daybreak they carry on.
+// the nearest main base and go in, unless they may work on through the night
+// and ask (Jade's Patch 4, units/night-work.ts); they come out again at dawn
+// once no monster is near, or in the day, and carry on.
 //
 // The same choice, distance weighed against need, picks what a worker
 // gathers next when its node runs out and there is no more of it nearby; it
@@ -34,7 +36,7 @@ import { propInfo } from '../world/props.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import { Act, besideBuilding, columnCentre, FAILED, gatherable, MOVING, nearestDropoff, nearestStandable, nodeResource, resetWalk, shelterRoom, unitsInside, walkTo, workersOnNode } from './behaviour.ts';
 import { bagEmpty } from './loot.ts';
-import type { UnitOrder } from './unit-orders.ts';
+import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
 import { cartSpeed } from './weight.ts';
 
 /** A basic material gatherers fetch by themselves once the side can use it: from main base level `base` and Forge step `forge` (buildings/data.ts forgeStep; 0: no Forge needed), counted as plenty at `plenty` in the stock. */
@@ -94,6 +96,18 @@ const Talk = { Off: 1, Look: 2, Dusk: 4, Gone: 5 } as const;
 function col(wu: number): number {
   return floorDiv(wu, WU_PER_COLUMN);
 }
+
+/**
+ * Working through the night (Jade's Patch 4), set by units/night-work.ts so
+ * this module never imports the questions: whether a worker that dusk finds
+ * gathering by itself works on (and asks), where it may gather while it does,
+ * and whether a shelter is clear of monsters for coming out at dawn.
+ */
+export const nightHooks: {
+  workOn: (state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>) => boolean;
+  reach: (state: SimState) => (x: number, z: number) => boolean;
+  clear: (state: SimState, b: Building) => boolean;
+} = { workOn: () => false, reach: () => () => true, clear: () => true };
 
 // ----- home and reach -----
 
@@ -352,18 +366,13 @@ export function nextNode(state: SimState, i: number, res: number, x: number, z: 
 
 // ----- the order -----
 
-/** Whether it is the hours to work out in the field: the day (dawn is still dangerous, and dusk sends everyone home). */
-function workingHours(state: SimState): boolean {
-  return clockAt(state.step, state.blood).period === Period.Day;
-}
-
 const DUSK_LINES = ['Getting dark. Back to the base.', 'Dusk already. Heading home.', 'Back to the base before nightfall.'] as const;
 
-/** At dusk: drop off what it carries, then into the nearest main base for the night (out again at daybreak), or wait beside it when it is full. */
+/** At dusk: drop off what it carries, then into the nearest main base for the night (out again at dawn once no monster is near, or in the day), or wait beside it when it is full. */
 function homeForNight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
   const e = state.entities;
-  if (o.k !== 2) {
-    o.k = 2;
+  if (o.k !== FORAGE_HOME) {
+    o.k = FORAGE_HOME;
     resetWalk(state, i);
     chatter(state, i, Talk.Dusk, 60 * STEPS_PER_SECOND, DUSK_LINES[e.id[i]! % DUSK_LINES.length]!);
   }
@@ -380,7 +389,7 @@ function homeForNight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'fo
   if (!b) return CONTINUE;
   const inside = unitsInside(state, b.id).filter((j) => e.kind[j] === UnitKind.Worker).length;
   if (inside < shelterRoom(b)) {
-    e.queue[i]!.unshift({ t: 'enter', b: b.id, auto: 1 });
+    e.queue[i]!.unshift({ t: 'enter', b: b.id, auto: ENTER_NIGHT });
     e.act[i] = Act.Start;
     resetWalk(state, i);
     return CONTINUE;
@@ -389,16 +398,35 @@ function homeForNight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'fo
   return CONTINUE;
 }
 
+/** In the dark: whether a worker gathering by itself works on through the night (Jade's Patch 4), decided once a night, the first dark step it gathers. */
+function worksOnTonight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
+  if (o.k === FORAGE_HOME) return false;
+  if (o.k === FORAGE_NIGHT) return true;
+  return nightHooks.workOn(state, i, o);
+}
+
+/** A worker gathering by itself at a node, in the dark: whether it stops now to go home for the night (not when it works on through the night). */
+export function goesHome(state: SimState, i: number): boolean {
+  const o = state.entities.queue[i]![1];
+  return o?.t !== 'forage' || !worksOnTonight(state, i, o);
+}
+
 export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
   const e = state.entities;
   if (e.kind[i] !== UnitKind.Worker) return DONE;
   const p = clockAt(state.step, state.blood).period;
-  if (p === Period.Dusk || p === Period.Night) return homeForNight(state, i, o);
-  if (!workingHours(state)) return CONTINUE;
-  if (o.k === 2) {
+  const dark = p === Period.Dusk || p === Period.Night;
+  if (dark) {
+    if (!worksOnTonight(state, i, o)) return homeForNight(state, i, o);
+  } else if (o.k === FORAGE_HOME) {
+    // Out again in the day, or at dawn once no monster is near the main base (Jade's Patch 4; before it, at daybreak).
+    if (p === Period.Dawn) {
+      const b = homeBaseNear(state, e.owner[i]!, e.x[i]!, e.z[i]!);
+      if (b && !nightHooks.clear(state, b)) return CONTINUE;
+    }
     o.k = 0;
     o.res = -1;
-  }
+  } else if (o.k === FORAGE_NIGHT) o.k = 0;
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   const h = homeOf(state, i);
   if (o.k !== 1 || state.step >= e.waitUntil[i]!) {
@@ -407,17 +435,27 @@ export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t:
     const x = e.x[i]!;
     const z = e.z[i]!;
     const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * M;
-    const fits = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+    const home = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+    // Working on through the night, only what lies near a building (s).
+    const near = dark ? nightHooks.reach(state) : undefined;
+    const fits = near ? (px: number, pz: number): boolean => (!home || home(px, pz)) && near(px, pz) : home;
     const pick = chooseNode(state, i, x, z, max, wants(state, e.owner[i]!), fits);
     if (pick) {
       if (pick.res !== o.res) chatter(state, i, Talk.Off, 30 * STEPS_PER_SECOND, `Off to gather ${resName(pick.res)}.`);
       o.res = pick.res;
-      o.k = 0;
+      if (o.k === 1) o.k = 0;
       e.queue[i]!.unshift({ t: 'gather', cx: pick.cx, cz: pick.cz, i: pick.i });
       e.act[i] = Act.Start;
       e.timer[i] = 0;
       resetWalk(state, i);
       return CONTINUE;
+    }
+    if (dark) {
+      // Nothing left near the buildings: in for the night, never out into the dark looking.
+      o.k = FORAGE_HOME;
+      resetWalk(state, i);
+      chatter(state, i, Talk.Dusk, 60 * STEPS_PER_SECOND, 'Nothing left to gather near the buildings. Heading in.');
+      return homeForNight(state, i, o);
     }
     if (o.k !== 1) {
       if (!h) {
