@@ -876,7 +876,7 @@ export class GameShell {
       face: '⇊',
       name: 'Everyone Home',
       keys: k('home'),
-      description: 'Send every unit without a standing job to the nearest shelter (main base or farm). Lights up at dusk. Farmers go to their own farm by themselves; at daybreak everyone comes out and carries on.',
+      description: 'Send every unit without a standing job to the nearest shelter (main base or farm). Lights up at dusk. Farmers go to their own farm by themselves. Sent in the dark, they come out at dawn once no monster is within 25 m (in the day whatever the monsters do) and carry on, or gather if they had nothing to do; sent by day, they come out at daybreak.',
       onPress: () => {
         this.opts.issueOrder({ kind: 'everyoneHome', player: this.player });
         this.message('Everyone home: workers are heading for shelter.');

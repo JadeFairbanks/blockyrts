@@ -317,6 +317,8 @@ describe('the questions (Patch 2, round 3)', () => {
     expect(() => validateOrder(good)).not.toThrow();
     expect(() => validateOrder({ ...good, yes: 2 })).toThrow();
     expect(() => validateOrder({ ...good, q: 0 })).toThrow();
+    // Patch 4: kinds go up to 31 (16 is working through the night).
+    expect(() => validateOrder({ ...good, q: 16 })).not.toThrow();
     expect(() => validateOrder({ ...good, q: 32 })).toThrow();
     expect(() => validateOrder({ ...good, res: 256 })).toThrow();
   });

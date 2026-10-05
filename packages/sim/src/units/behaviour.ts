@@ -23,7 +23,7 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
-import { ENTER_TOP, type UnitOrder } from './unit-orders.ts';
+import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
@@ -40,7 +40,7 @@ import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend, runRetrain } from '../siege/engines.ts';
 import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from './loot.ts';
 import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
-import { nextNode, runForage } from './forage.ts';
+import { goesHome, nextNode, runForage } from './forage.ts';
 import { tinker } from './tinker.ts';
 import { Work, workXp } from './ranks.ts';
 
@@ -618,9 +618,10 @@ function runFollow(state: SimState, i: number, o: Extract<UnitOrder, { t: 'follo
 
 function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gather' }>): boolean {
   const e = state.entities;
-  // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home.
+  // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home, unless it works on through the night (Jade's Patch 4).
   const after = e.queue[i]![1]?.t;
-  if (after === 'forage' && isDark(state.step, state.blood)) return DONE;
+  const nightForage = after === 'forage' && isDark(state.step, state.blood);
+  if (nightForage && goesHome(state, i)) return DONE;
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
     const kind = view?.kind ?? -1;
@@ -633,9 +634,10 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   }
   // When a node has run out, go to the closest one of the same resource; with none nearby, a basic material
   // gives way to what the side needs most for the walk (saying why), else the last load goes home and it stands idle.
+  // Working on through the night, the forage order behind chooses the next node, near the buildings.
   const runOut = (res: number, near: [number, number]): boolean => {
-    const alt = res >= 0 ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
-    const next = alt ?? (res >= 0 && after !== 'hunt' ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);
+    const alt = res >= 0 && !nightForage ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
+    const next = alt ?? (res >= 0 && after !== 'hunt' && !nightForage ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);
     if (next) {
       o.cx = next.cx;
       o.cz = next.cz;
@@ -995,15 +997,20 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   e.act[i] = Act.Inside;
   if (top) climbUp(state, i, b, o, topRoom);
   // A worker whose way up was full shelters inside instead.
-  else if (o.auto === ENTER_TOP) o.auto = 0;
+  else if (o.auto === ENTER_TOP) o.auto = shelterFallback(state);
   return CONTINUE;
+}
+
+/** A worker sent up top that shelters inside instead: in the dark it is in for the night and comes out at dawn once no monster is near (Jade's Patch 4, units/night-work.ts); by day it stays until let out. */
+function shelterFallback(state: SimState): number {
+  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
 }
 
 /** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
 function climbUp(state: SimState, i: number, b: Building, o: Extract<UnitOrder, { t: 'enter' }>, room: number): void {
   const e = state.entities;
   if (unitsOnTop(state, b.id).filter((j) => j !== i).length >= room) {
-    if (e.kind[i] === UnitKind.Worker) o.auto = 0;
+    if (e.kind[i] === UnitKind.Worker) o.auto = shelterFallback(state);
     return;
   }
   o.auto = ENTER_TOP;

@@ -801,10 +801,12 @@ export const answerHooks: { other: (state: SimState, o: AnswerOrder) => void } =
 /**
  * A question another module asks (Patch 3): put up at once, past the cap on
  * open questions, with the same wait and the same bubble. `who` is an
- * entity id, or a building id when `building`. Returns its id.
+ * entity id, or a building id when `building`. With `holds` (Patch 4), it is
+ * withdrawn on every machine once that turns false. Returns its id.
  */
-export function askNow(state: SimState, player: number, who: number, building: boolean, info: Omit<AskInfo, 'id' | 'until'>, text: string): number {
+export function askNow(state: SimState, player: number, who: number, building: boolean, info: Omit<AskInfo, 'id' | 'until'>, text: string, holds?: () => boolean): number {
   const q: Question = { player, who, building, text, info: { ...info, id: 0, until: 0, units: [...info.units] } };
+  if (holds) q.holds = holds;
   put(state, q);
   return q.info.id;
 }

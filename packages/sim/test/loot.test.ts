@@ -274,11 +274,13 @@ describe('Hunt', () => {
 });
 
 describe('Gather', () => {
-  it('sends workers to fetch what the camp needs, and home to the main base at dusk, out again in the day', () => {
+  it('sends workers to fetch what the camp needs, and home to the main base at dusk (no troop near them), out again in the day', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     s.step = DAY_STEPS - 60 * 20;
     const b = bigHouse(s);
+    // The start's warriors far off, so no troop stands within 50 m and dusk sends the workers home without asking (Jade's Patch 4).
+    for (const w of own(s, UnitKind.Warrior)) e.x[w] = e.x[w]! + 150 * M;
     const workers = own(s, UnitKind.Worker).slice(0, 2);
     const seen: SimEvent[] = [];
     run(s, 1, [{ kind: 'forage', player: 0, units: workers.map((i) => e.id[i]!) }], seen);

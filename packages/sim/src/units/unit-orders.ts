@@ -22,7 +22,12 @@ export type UnitOrder =
   | { t: 'return' }
   /** Drop the load at this building, then back to the node. */
   | { t: 'dropoff'; b: number }
-  /** Go inside a shelter, or up on a building's top. auto = 1 when Everyone Home or a farm sent it (it comes out at daybreak); ENTER_TOP up top (units/top.ts). */
+  /**
+   * Go inside a shelter, or up on a building's top. auto = 1 when Everyone
+   * Home sent it by day (it comes out at daybreak); ENTER_NIGHT when it went
+   * in for the night (units/night-work.ts: out at dawn once no monster is
+   * near, or in the day); ENTER_TOP up top (units/top.ts).
+   */
   | { t: 'enter'; b: number; auto: number }
   /** A standing job: farm a farm, or craft in a production building, until given another order. */
   | { t: 'job'; b: number }
@@ -89,8 +94,10 @@ export type UnitOrder =
    * the side needs, at nodes it has seen, venturing out no farther than
    * needed (units/forage.ts). `res` is what it is after (-1 none yet); while
    * k is 1 it is looking for more out at (x, z) wu, on a bearing of `ang`
-   * (0 to 65535); k 2 is home for the night. The gathering itself is a
-   * 'gather' order put in front of this one.
+   * (0 to 65535); k 2 (FORAGE_HOME) is home for the night, k 3
+   * (FORAGE_NIGHT) working on through the night (Jade's Patch 4,
+   * units/night-work.ts). The gathering itself is a 'gather' order put in
+   * front of this one.
    */
   | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number }
   /** An artillery crewman retrains as a worker (Patch 3): walks to his nearest main base (b, 0 until chosen), sits tinkering for the time it takes and gets up a worker. */
@@ -100,6 +107,12 @@ export type UnitOrderType = UnitOrder['t'];
 
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
+/** An enter order's `auto` for a worker that went into a shelter for the night (Jade's Patch 4, units/night-work.ts): it comes out at dawn once no monster is near, or in the day. */
+export const ENTER_NIGHT = 3;
+/** A Gather order's `k` while it is home for the night (units/forage.ts). */
+export const FORAGE_HOME = 2;
+/** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
+export const FORAGE_NIGHT = 3;
 
 const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain'];
 
@@ -221,7 +234,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'loot':
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
     case 'forage':
-      return o.k === 2 ? 'Home for the night' : o.k === 1 ? 'Looking for materials' : 'Gathering';
+      return o.k === FORAGE_HOME ? 'Home for the night' : o.k === 1 ? 'Looking for materials' : o.k === FORAGE_NIGHT ? 'Gathering through the night' : 'Gathering';
     case 'retrain':
       return 'Retraining as a worker';
   }

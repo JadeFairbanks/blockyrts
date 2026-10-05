@@ -59,6 +59,7 @@ export * from './units/spacing.ts';
 export * from './units/ranks.ts';
 export * from './units/questions.ts';
 export * from './units/greyed.ts';
+export * from './units/night-work.ts';
 export * from './units/work-asks.ts';
 export * from './units/tools.ts';
 export * from './units/dig.ts';
