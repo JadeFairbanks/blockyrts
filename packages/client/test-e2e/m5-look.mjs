@@ -4,8 +4,7 @@
 //   node packages/client/test-e2e/m5-look.mjs http://localhost:5198 /tmp/shots
 //
 // Starts seed 1, places a barrow, a goblin village and a gnoll band with the
-// debug buttons, calls fog and a blood night, and saves m5-*.png screenshots
-// (the blood night itself is red and twice as long once night falls).
+// debug buttons, calls fog, and saves m5-*.png screenshots.
 /* global window, document -- used inside page.evaluate callbacks */
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -47,8 +46,6 @@ await jump(home.x, home.z);
 await press('dbg-fog');
 await page.waitForTimeout(5000);
 await shot('fog');
-await press('dbg-blood');
-await page.waitForTimeout(500);
 const clock = await page.locator('.clock').first().textContent();
 const messages = await page.locator('.message-list').first().textContent();
 console.log('clock:', clock);

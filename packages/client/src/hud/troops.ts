@@ -269,7 +269,7 @@ export function shortText(g: GameInfo, pieces: readonly Piece[], inStock = false
 /** Why a building cannot train a card's unit at these tiers now, or '', in the order before Patch 2. */
 export function cardWhy(g: GameInfo, b: BuildingInfo, card: number, w: number, a: number): string {
   if (!cardOffered(b, card, w, a)) return 'This building does not train that.';
-  if (card === Troop.Cavalry && g.mainBaseLevel() < CAVALRY_BASE) return `Needs a level ${CAVALRY_BASE} main base.`;
+  if (card === Troop.Cavalry && g.mainBaseLevel() < CAVALRY_BASE) return `Needs a tier ${CAVALRY_BASE} main base.`;
   const pieces = cardPieces(card, w, a);
   const tech = g.tech();
   for (const p of pieces) {

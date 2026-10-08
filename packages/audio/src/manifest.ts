@@ -4,8 +4,8 @@
 // snuffed out, horns at dusk and dawn, the idle-worker alert, map pings and
 // an error sound"); the `source` of each entry says where its name comes
 // from. Entries marked "pick" are sounds the doc implies but does not list
-// (the blood night's double horn, shots, spells, urgent alerts, interface
-// ticks); they are cheap and the client may ignore them.
+// (shots, spells, urgent alerts, interface ticks); they are cheap and the
+// client may ignore them.
 import { type GeneratorName, type ParamsOf } from './sfx/generators.ts';
 import { FAMILY_EVENTS, VOICE_FAMILIES, type VoiceEventId, type VoiceFamilyId } from './voice/voices.ts';
 
@@ -131,8 +131,6 @@ export const SFX: readonly SfxDef[] = [
     { variants: 1, level: 0.8, maxInstances: 1, maxSeconds: 5.5, reverb: { mix: 0.35, room: 0.9 } }),
   sfx('horn_dawn', 'Horn at dawn', 'alerts', 'horn', { notes: [[45, 0.5], [0, 0.08], [50, 0.5], [0, 0.08], [57, 1.4]], bright: 0.8, dur: 3.6 },
     { variants: 1, level: 0.8, maxInstances: 1, maxSeconds: 5.5, reverb: { mix: 0.35, room: 0.9 } }),
-  sfx('horn_blood_night', 'Double horn: blood night', 'alerts', 'horn', { notes: [[44, 1], [0, 0.25], [44, 1], [0, 0.15], [50, 1.6]], bright: 0.9, dur: 5 },
-    { variants: 1, level: 0.85, maxInstances: 1, maxSeconds: 6.5, reverb: { mix: 0.35, room: 0.9 }, source: 'Table 8 (blood night: a double horn)' }),
   sfx('alert_idle_worker', 'Idle worker alert', 'alerts', 'chime', { notes: [76, 72], spacing: 0.16, ...MARIMBA, decay: 0.5, dur: 1 },
     { variants: 1, level: 0.6, maxInstances: 1 }),
   sfx('ping', 'Map ping', 'alerts', 'chime', { notes: [84], spacing: 0, ...GLASS, decay: 0.35, dur: 1.4, echo: { delay: 0.16, count: 3, feedback: 0.45 } },
@@ -193,7 +191,7 @@ export const MOB_SOUND_NAMES = [
 export type MobSoundName = (typeof MOB_SOUND_NAMES)[number];
 
 /** The day's background loops (files only), heard under the music. */
-export const AMBIENCES = ['day', 'night', 'blood_night'] as const;
+export const AMBIENCES = ['day', 'night'] as const;
 export type AmbienceId = (typeof AMBIENCES)[number];
 
 function fileSound(id: string, label: string, opts: Partial<BaseDef>): FileSoundDef {

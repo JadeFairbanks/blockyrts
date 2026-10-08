@@ -263,7 +263,7 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
 }
 
 function nightOf(state: SimState): number {
-  return clockAt(state.step, state.blood).cycle;
+  return clockAt(state.step).cycle;
 }
 
 /** A worker of the players' with nobody else of theirs within 6 m, out in the open. */

@@ -52,7 +52,6 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
   writeRecords(w, t.bands, BAND_FIELDS);
   writeRecords(w, t.burns, BURN_FIELDS);
   writeRecords(w, t.dusk, DUSK_FIELDS);
-  w.i32(t.bloodSpent);
   w.i32(t.fog);
   const keys = [...t.checked].sort((a, b) => a - b);
   w.u32(keys.length);
@@ -79,7 +78,6 @@ function readThreats(r: ByteReader): ThreatState {
   const bands = readRecordList<TribeBand>(r, BAND_FIELDS);
   const burns = readRecordList<Burn>(r, BURN_FIELDS);
   const dusk = readRecordList<DuskReading>(r, DUSK_FIELDS);
-  const bloodSpent = r.i32();
   const fog = r.i32();
   const checked = new Set<number>();
   const n = r.u32();
@@ -91,7 +89,7 @@ function readThreats(r: ByteReader): ThreatState {
   const bossHp = r.i32();
   const bossId = r.i32();
   const wild = readRecordList<WildPatch>(r, WILD_FIELDS);
-  return { ruins, villages, bands, burns, dusk, bloodSpent, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
+  return { ruins, villages, bands, burns, dusk, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
 }
 
 /** The threats as canonical text for diffing: each record as its fields in serialisation order. */
@@ -99,7 +97,7 @@ function threatsJson(t: ThreatState): string {
   const rows = <T,>(list: readonly T[], fields: ReadonlyArray<keyof T>): unknown[] => list.map((r) => fields.map((f) => r[f]));
   return JSON.stringify({
     ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
-    burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), bloodSpent: t.bloodSpent, fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
+    burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
     boss: [t.bossNext, t.bossHp, t.bossId], wild: rows(t.wild, WILD_FIELDS),
   });
 }
@@ -172,11 +170,13 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * the patch's other threads). 20: Jade's mini balance (a building keeps what
  * was paid to start it, for an exact refund of "any lumber"). 21: Patch 4, one
  * bump for the whole patch (its stone outcrops change the land a seed makes, so
- * an older snapshot's land no longer matches its seed). Every patch raises it, and a snapshot
+ * an older snapshot's land no longer matches its seed). 22: Patch 5's foundations
+ * (four main base tiers, no blood nights, no earthworks, ramps or gravel). Every
+ * patch raises it, and a snapshot
  * from any other version is refused, never carried over (Jade, Patch 2: a
  * standing rule).
  */
-export const SNAPSHOT_VERSION = 21;
+export const SNAPSHOT_VERSION = 22;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
@@ -263,8 +263,6 @@ export function serializeState(state: SimState): Uint8Array {
   }
   w.u32(state.over);
   w.u8(state.peaceful);
-  w.u16(state.blood.length);
-  for (const b of state.blood) w.u32(b);
   writeThreats(w, state.threats);
   writePeoples(w, state.peoples);
   writeWorld(w, state.world);
@@ -368,15 +366,12 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const stockedChunks = readKeys();
   const over = r.u32();
   const peaceful = r.u8();
-  const blood: number[] = [];
-  const nb = r.u16();
-  for (let k = 0; k < nb; k++) blood.push(r.u32());
   const threats = readThreats(r);
   const peoples = readPeoples(r);
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, blood, threats, peoples });
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, threats, peoples });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -469,7 +464,6 @@ export function diffStates(a: SimState, b: SimState): string | null {
   }
   const ov = scalar('over', a.over, b.over) ?? scalar('peaceful', a.peaceful, b.peaceful);
   if (ov) return ov;
-  if (JSON.stringify(a.blood) !== JSON.stringify(b.blood)) return `blood: ${JSON.stringify(a.blood)} vs ${JSON.stringify(b.blood)}`;
   const ta = threatsJson(a.threats);
   const tb = threatsJson(b.threats);
   if (ta !== tb) return `threats: ${ta.slice(0, 160)} vs ${tb.slice(0, 160)}`;

@@ -1,9 +1,9 @@
 // The state the threats of milestone 5 keep beside the units: cleared lair
-// sites, goblin villages, hostile tribe bands, the blood night triggers
-// spent, the fog night, the dusk reading of each player's difficulty and
-// wood smouldering from fire. Lairs, huts and the creatures themselves are
-// entities (combat/mobs.ts); these records hold what ties them together.
-// Every field is an integer so the records serialise and hash like the rest.
+// sites, goblin villages, hostile tribe bands, the fog night, the dusk
+// reading of each player's difficulty and wood smouldering from fire. Lairs,
+// huts and the creatures themselves are entities (combat/mobs.ts); these
+// records hold what ties them together. Every field is an integer so the
+// records serialise and hash like the rest.
 
 /** A destroyed lair: its ruin stays (the lair's destroyed model), and no lair is placed near it for 10 days. */
 export interface Ruin {
@@ -93,8 +93,6 @@ export interface ThreatState {
   bands: TribeBand[];
   burns: Burn[];
   dusk: DuskReading[];
-  /** Bits by depth band whose blood night is spent. */
-  bloodSpent: number;
   /** 1 + the night that is a fog night, or 0. */
   fog: number;
   /** Cells checked for a goblin village. */
@@ -113,7 +111,7 @@ export interface ThreatState {
 export const BOSS_FIRST_NIGHT = 110;
 
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], bloodSpent: 0, fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [] };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [] };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */

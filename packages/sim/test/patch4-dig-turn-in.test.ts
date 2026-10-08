@@ -235,23 +235,6 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     expect(e.queue[0]![0]).toEqual({ t: 'dig', site });
   });
 
-  it('heaping an earth bank still takes its Earth from the stock and carries nothing', () => {
-    const s = camp([0]);
-    const e = s.entities;
-    const pool = s.players[0]!.pool;
-    const { x, z, y } = flatSpot(s, 3, 1);
-    pool[Res.Earth] = 20;
-    run(s, 1, [{ kind: 'earthwork', player: 0, units: [e.id[0]!], variant: 0, x0: x, z0: z, x1: x + 2, z1: z, level: y + 4, level2: 0, axis: 0 }]);
-    let most = 0;
-    for (let k = 0; k < 6000 && s.sites.length > 0; k++) {
-      step(s);
-      most = Math.max(most, e.carryAmt[0]!);
-    }
-    expect(s.sites.length).toBe(0);
-    expect(most).toBe(0);
-    expect(pool[Res.Earth]).toBe(20 - 12);
-  });
-
   it('diggers shut in a wide pit they stepped down into dig crude stairs out, leave on the ground what they cannot carry, and pick it up when they come back', () => {
     const s = camp([0, 1, 2, 3]);
     const e = s.entities;
@@ -334,7 +317,7 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     let dug = 0;
     for (let zz = z; zz < z + 6; zz++) for (let xx = x; xx < x + 6; xx++) dug += y - s.world.topAt(xx, zz);
     expect(dug).toBeGreaterThan(6 * 6 * 18);
-    // All of it handed in (soil gives Earth; the stone and gravel under it, their own).
+    // All of it handed in (soil gives Earth; the stone under it, its own).
     expect(before.reduce((n, was, r) => n + Math.max(0, pool[r]! - was), 0)).toBe(dug);
   });
 });

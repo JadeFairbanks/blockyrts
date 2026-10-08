@@ -11,16 +11,23 @@ const call = (path: string, auth?: string): Promise<Response> =>
     next: async () => new Response('the game', { headers: { 'content-type': 'text/html' } }),
   });
 
+/** version.json as it first stood, before Patch 5 raised it to 1.0. */
+const early = { stage: 'indev', next: '0.2' };
+
 describe('game version', () => {
   it('starts at indev 0.2, the build live before the version line counting as 0.1', () => {
-    expect(file).toEqual({ stage: 'indev', next: '0.2' });
-    expect(deployVersion(file, [], [])).toEqual({ label: 'indev 0.2', tag: 'live-0.2', fresh: true });
+    expect(deployVersion(early, [], [])).toEqual({ label: 'indev 0.2', tag: 'live-0.2', fresh: true });
+  });
+
+  it('ships Patch 5 as indev 1.0, after indev 0.9', () => {
+    expect(file).toEqual({ stage: 'indev', next: '1.0' });
+    expect(deployVersion(file, ['live-0.8', 'live-0.9'], [])).toEqual({ label: 'indev 1.0', tag: 'live-1.0', fresh: true });
   });
 
   it('goes up by 0.1 each deploy, through whole numbers', () => {
-    expect(deployVersion(file, ['live-0.1', 'live-0.2'], []).label).toBe('indev 0.3');
-    expect(deployVersion(file, ['live-0.9'], []).tag).toBe('live-1.0');
-    expect(deployVersion(file, ['live-0.1', 'live-0.10', 'other', 'live-x'], []).label).toBe('indev 0.2');
+    expect(deployVersion(early, ['live-0.1', 'live-0.2'], []).label).toBe('indev 0.3');
+    expect(deployVersion(early, ['live-0.9'], []).tag).toBe('live-1.0');
+    expect(deployVersion(early, ['live-0.1', 'live-0.10', 'other', 'live-x'], []).label).toBe('indev 0.2');
   });
 
   it('takes a bigger step or a new stage from version.json', () => {
@@ -29,7 +36,7 @@ describe('game version', () => {
   });
 
   it('keeps the version when the same commit is deployed again', () => {
-    expect(deployVersion(file, ['live-0.1', 'live-0.2'], ['live-0.2'])).toEqual({ label: 'indev 0.2', tag: 'live-0.2', fresh: false });
+    expect(deployVersion(early, ['live-0.1', 'live-0.2'], ['live-0.2'])).toEqual({ label: 'indev 0.2', tag: 'live-0.2', fresh: false });
   });
 
   it('reads and writes tenths', () => {

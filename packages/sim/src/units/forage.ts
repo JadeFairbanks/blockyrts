@@ -39,7 +39,7 @@ import { bagEmpty } from './loot.ts';
 import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
 import { cartSpeed } from './weight.ts';
 
-/** A basic material gatherers fetch by themselves once the side can use it: from main base level `base` and Forge step `forge` (buildings/data.ts forgeStep; 0: no Forge needed), counted as plenty at `plenty` in the stock. */
+/** A basic material gatherers fetch by themselves once the side can use it: from main base tier `base` and Forge step `forge` (buildings/data.ts forgeStep; 0: no Forge needed), counted as plenty at `plenty` in the stock. */
 export interface ForageGood {
   res: Res;
   base: number;
@@ -49,10 +49,10 @@ export interface ForageGood {
 
 /**
  * What gatherers fetch by themselves (s): wood, sticks, stone and flint from
- * the start; clay, sand and coal once the main base reaches level 3 (the
+ * the start; clay, sand and coal once the main base reaches tier 2 (the
  * Forge's bricks and wrought iron need them); copper and tin ore once a
  * Forge stands, bog iron and iron rock at its wrought iron step; marble
- * from main base level 4 (the Marble Hall needs it). Each is wanted the more
+ * from main base tier 3 (the Citadel needs it). Each is wanted the more
  * the further the stock is below plenty.
  */
 export const FORAGE_GOODS: readonly ForageGood[] = [
@@ -61,14 +61,14 @@ export const FORAGE_GOODS: readonly ForageGood[] = [
   { res: Res.Sticks, base: 1, forge: 0, plenty: 40 },
   { res: Res.Stone, base: 1, forge: 0, plenty: 100 },
   { res: Res.Flint, base: 1, forge: 0, plenty: 40 },
-  { res: Res.Clay, base: 3, forge: 0, plenty: 40 },
-  { res: Res.Sand, base: 3, forge: 0, plenty: 30 },
-  { res: Res.Coal, base: 3, forge: 0, plenty: 40 },
+  { res: Res.Clay, base: 2, forge: 0, plenty: 40 },
+  { res: Res.Sand, base: 2, forge: 0, plenty: 30 },
+  { res: Res.Coal, base: 2, forge: 0, plenty: 40 },
   { res: Res.CopperOre, base: 1, forge: 1, plenty: 40 },
   { res: Res.TinOre, base: 1, forge: 1, plenty: 20 },
   { res: Res.BogIron, base: 1, forge: 2, plenty: 40 },
   { res: Res.IronRock, base: 1, forge: 2, plenty: 40 },
-  { res: Res.Marble, base: 4, forge: 0, plenty: 40 },
+  { res: Res.Marble, base: 3, forge: 0, plenty: 40 },
 ];
 /** How much a material counts against distance, per mille: this much at plenty, rising to 1000 more at none (s). */
 export const FORAGE_NEED_FLOOR_PM = 100;
@@ -414,7 +414,7 @@ export function goesHome(state: SimState, i: number): boolean {
 export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
   const e = state.entities;
   if (e.kind[i] !== UnitKind.Worker) return DONE;
-  const p = clockAt(state.step, state.blood).period;
+  const p = clockAt(state.step).period;
   const dark = p === Period.Dusk || p === Period.Night;
   if (dark) {
     if (!worksOnTonight(state, i, o)) return homeForNight(state, i, o);

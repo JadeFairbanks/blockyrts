@@ -1,8 +1,8 @@
-// The music, as note data. Five states from the doc's Audio list: day, dusk,
-// night, dawn and blood night. Each state is a loop of whole bars made of
-// layers; layers go into one of two stems: "base", which always plays, and
-// "tension", which the game fades in by intensity (a fight by day, a wave
-// at the walls by night).
+// The music, as note data. Four states from the doc's Audio list: day, dusk,
+// night and dawn. Each state is a loop of whole bars made of layers; layers
+// go into one of two stems: "base", which always plays, and "tension",
+// which the game fades in by intensity (a fight by day, a wave at the walls
+// by night).
 //
 // Pattern notation, one token per step (an eighth note unless a state says
 // otherwise): a note such as C4, F#3 or Bb2; a chord such as G3+B3+D4; "."
@@ -12,8 +12,8 @@
 // than the loop repeats.
 import type { InstrumentId } from './instruments.ts';
 
-export type MusicStateId = 'day' | 'dusk' | 'night' | 'dawn' | 'blood_night';
-export const MUSIC_STATES: readonly MusicStateId[] = ['day', 'dusk', 'night', 'dawn', 'blood_night'];
+export type MusicStateId = 'day' | 'dusk' | 'night' | 'dawn';
+export const MUSIC_STATES: readonly MusicStateId[] = ['day', 'dusk', 'night', 'dawn'];
 
 export type Stem = 'base' | 'tension';
 
@@ -43,9 +43,6 @@ export interface MusicStateDef {
 
 /** Repeats each bar pattern `n` times. */
 const rep = (n: number, bar: string): string => Array.from({ length: n }, () => bar).join(' | ');
-
-/** Turns a note name up an octave: C2 to C3. */
-const oct = (note: string): string => note.replace(/(-?\d)$/, (d) => String(Number(d) + 1));
 
 /** A held chord for a whole bar of `steps` steps. */
 const held = (chords: readonly string[], steps: number): string =>
@@ -185,40 +182,7 @@ const dawn: MusicStateDef = {
   ],
 };
 
-// ---------------------------------------------------------------- blood night
-// C minor, fast and relentless: driven bass, choir, brass stabs, big drums.
-
-const BLOOD_CHORDS = ['C3+G3+C4+Eb4', 'C3+G3+C4+Eb4', 'Ab2+Eb3+C4', 'G2+D3+B3', 'C3+G3+C4+Eb4', 'Db3+Ab3+F4', 'Ab2+Eb3+C4', 'G2+D3+B3',
-  'F2+C3+Ab3', 'F2+C3+Ab3', 'Db3+Ab3+F4', 'G2+D3+B3', 'C3+G3+C4+Eb4', 'Db3+Ab3+F4', 'G2+D3+B3', 'G2+D3+B3'];
-const BLOOD_ROOTS = ['C2', 'C2', 'Ab1', 'G1', 'C2', 'Db2', 'Ab1', 'G1', 'F1', 'F1', 'Db2', 'G1', 'C2', 'Db2', 'G1', 'G1'];
-
-const bloodNight: MusicStateDef = {
-  id: 'blood_night',
-  title: 'Blood night',
-  bpm: 126,
-  beatsPerBar: 4,
-  stepsPerBeat: 2,
-  bars: 16,
-  room: 0.75,
-  layers: [
-    { name: 'choir', instrument: 'choir', stem: 'base', pattern: held(BLOOD_CHORDS, 8), gain: 0.5, pan: 0, reverb: 0.55 },
-    { name: 'driven bass', instrument: 'growlBass', stem: 'base', pattern: BLOOD_ROOTS.map((r) => `${r}! ${r} ${oct(r)} ${r} ${r}! ${r} ${oct(r)} ${r}`).join(' | '), gain: 0.55, pan: 0, reverb: 0.08 },
-    { name: 'drums', instrument: 'drums', stem: 'base', pattern: rep(16, 'B! . S . K K S .'), gain: 0.7, pan: 0, reverb: 0.25 },
-    {
-      name: 'horn', instrument: 'brightBrass', stem: 'base', gain: 0.55, pan: 0.2, reverb: 0.45,
-      pattern: [
-        'C4 - - - - - Eb4 -', 'D4 - - - B3 - - -', 'C4 - - - Eb4 - Ab4 -', 'G4 - - - - - - -',
-        'C5 - - - Bb4 - G4 -', 'Ab4 - - - F4 - Db4 -', 'Eb4 - - - C4 - Eb4 -', 'D4 - - - B3 - - -',
-        'C4 - F4 - Ab4 - C5 -', 'Bb4 - Ab4 - G4 - F4 -', 'Ab4 - - - F4 - Db4 -', 'D4 - - - G4 - - -',
-        'C5 - - - G4 - Eb4 -', 'F4 - - - Db4 - - -', 'B3 - - - D4 - F4 -', 'G4 - - - - - - -',
-      ].join(' | '),
-    },
-    { name: 'toms', instrument: 'drums', stem: 'tension', pattern: rep(16, 't t T t t! t T T'), gain: 0.55, pan: -0.15, reverb: 0.25 },
-    { name: 'stabs', instrument: 'brightBrass', stem: 'tension', pattern: BLOOD_CHORDS.map((c) => `${c}! . . ${c}_ . . . .`).join(' | '), gain: 0.35, pan: 0.25, reverb: 0.4 },
-  ],
-};
-
-export const MUSIC: Record<MusicStateId, MusicStateDef> = { day, dusk, night, dawn, blood_night: bloodNight };
+export const MUSIC: Record<MusicStateId, MusicStateDef> = { day, dusk, night, dawn };
 
 /** Seconds in one loop of a state. */
 export function loopSeconds(def: MusicStateDef): number {

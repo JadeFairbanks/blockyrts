@@ -636,8 +636,8 @@ export class SelectionPanel {
   private buildingFacts(b: BuildingInfo, own: boolean, parent: HTMLElement): void {
     const spec = buildingSpec(b.kind);
     const row = this.strip('facts', parent);
-    // The level, where the building has levels (the Big House): first of its facts, the title row being the name and bars only (Patch 3).
-    if (spec.levels.length > 1 && b.complete) this.chip('level', { face: `Level ${b.level}`, name: `Level ${b.level} of ${spec.levels.length}`, description: b.name, className: 'word' }, row);
+    // The tier, where the building has tiers (the main base, four from Patch 5): first of its facts, the title row being the name and bars only (Patch 3).
+    if (spec.levels.length > 1 && b.complete) this.chip('level', { face: `Tier ${b.level}`, name: `Tier ${b.level} of ${spec.levels.length}`, description: b.name, className: 'word' }, row);
     const room = b.complete ? (spec.levels[b.level - 1]?.workers ?? 0) : 0;
     if (own && room > 0) {
       const at = b.status && !b.status.startsWith('Under construction') && !b.status.startsWith('Upgrading') ? `${b.status}.` : '';
@@ -743,7 +743,7 @@ export class SelectionPanel {
       const b = all[k]!;
       const btn = this.button(`tile-${b.id}`, {
         face: '',
-        icon: pic(buildingIconFile(b.kind, b.level, b.variant)),
+        icon: pic(buildingIconFile(b.kind, b.level)),
         name: `${bareName(b.name)}: ${b.queue.length} in the queue`,
         keys: [],
         description: `Click: select only this one. Shift + click or right click: remove it.`,

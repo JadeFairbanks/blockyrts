@@ -2,7 +2,7 @@
 // cannons; Main base: the Citadel's cannon ports) and the artillery crewman
 // who works them (Patch 2). An engine is a unit of kind Engine (state.ts)
 // with its engine kind in the mob field. It moves only when a horse or ox is
-// hitched to it or its crew push it, rolls on wheels (ramps, not steps),
+// hitched to it or its crew push it, rolls on wheels (gentle slopes, not steps),
 // fires when its crew stands by it, never heals by itself and is repaired by
 // workers. Patch 2 (Jade): only artillery crewmen crew engines, every engine
 // rolls out with its full crew, and no attack of any kind uses ammunition,
@@ -59,7 +59,7 @@ export interface EngineSpec {
   cannon: boolean;
   /** Largest miss as a share of the distance, bp (s). */
   spreadBp: number;
-  /** Where it is made (the Artillery workshop, Patch 2; -1 for none) and the main base level it needs. Its crew's food is paid with it (CREWMAN). */
+  /** Where it is made (the Artillery workshop, Patch 2; -1 for none) and the main base tier it needs (Patch 5). Its crew's food is paid with it (CREWMAN). */
   at: number;
   base: number;
   research: number;
@@ -73,7 +73,8 @@ export interface EngineSpec {
 const cm = (c: number): number => floorDiv(c * WU_PER_METRE, 100);
 const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STEPS_PER_SECOND);
 const sec = (n: number): number => n * STEPS_PER_SECOND;
-const H = Res.HardwoodLumber;
+/** Either lumber (Patch 5). */
+const L = Res.AnyLumber;
 
 /** combat/items.ts Shot ids for the engines' shots (kept as numbers so this module stays a leaf). */
 export const ENGINE_SHOT = { Cannonball: 13, CatapultStone: 14, BallistaBolt: 15 } as const;
@@ -83,31 +84,31 @@ export const ENGINES: readonly EngineSpec[] = [
     id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, pierce: false,
     range: cm(5000), minRange: cm(1500), reloadSteps: sec(15), crew: 2, horse: v10(20), ox: v10(15), pushed: v10(8),
     shot: ENGINE_SHOT.CatapultStone, cannon: false, spreadBp: 600,
-    // Patch 2: from main base 5, where the Great Workshop stood before; 120 s with no crew, what 240 s took two workers (s, Jade's rebalance).
-    at: BuildingKind.ArtilleryWorkshop, base: 5, research: SIEGE_ENGINES, cost: [[H, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120),
+    // Patch 2: from main base 5, where the Great Workshop stood before (tier 3 from Patch 5); 120 s with no crew, what 240 s took two workers (s, Jade's rebalance).
+    at: BuildingKind.ArtilleryWorkshop, base: 3, research: SIEGE_ENGINES, cost: [[L, 40], [Res.Planks, 20], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120),
     halfWidth: cm(150), height: cm(300),
   },
   {
     id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, pierce: true,
     range: cm(4500), minRange: cm(500), reloadSteps: sec(8), crew: 1, horse: v10(25), ox: v10(15), pushed: v10(10),
     shot: ENGINE_SHOT.BallistaBolt, cannon: false, spreadBp: 200,
-    // Patch 2: from main base 7, the Manufactory's level; 120 s as the catapult (s, Jade's rebalance).
-    at: BuildingKind.ArtilleryWorkshop, base: 7, research: SIEGE_ENGINES, cost: [[H, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(120),
+    // Patch 2: from main base 7, the Manufactory's level (tier 3 from Patch 5); 120 s as the catapult (s, Jade's rebalance).
+    at: BuildingKind.ArtilleryWorkshop, base: 3, research: SIEGE_ENGINES, cost: [[L, 40], [Res.WroughtIron, 20], [Res.Rope, 10]], steps: sec(120),
     halfWidth: cm(120), height: cm(180),
   },
   {
     id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: v10(25), ox: v10(15), pushed: v10(10),
     shot: ENGINE_SHOT.Cannonball, cannon: true, spreadBp: 300,
-    // Patch 2: from main base 8, the Foundry's level, at the same pace the Foundry had.
-    at: BuildingKind.ArtilleryWorkshop, base: 8, research: CANNONS, cost: [[Res.BronzeIngot, 20], [H, 10]], steps: sec(180),
+    // Patch 2: from main base 8, the Foundry's level (tier 4 from Patch 5), at the same pace the Foundry had.
+    at: BuildingKind.ArtilleryWorkshop, base: 4, research: CANNONS, cost: [[Res.BronzeIngot, 20], [L, 10]], steps: sec(180),
     halfWidth: cm(110), height: cm(150),
   },
   {
     id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, pierce: false,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: v10(25), ox: v10(15), pushed: v10(10),
     shot: ENGINE_SHOT.Cannonball, cannon: true, spreadBp: 300,
-    at: BuildingKind.ArtilleryWorkshop, base: 8, research: CANNONS, cost: [[Res.WroughtIron, 12], [H, 10]], steps: sec(150),
+    at: BuildingKind.ArtilleryWorkshop, base: 4, research: CANNONS, cost: [[Res.WroughtIron, 12], [L, 10]], steps: sec(150),
     halfWidth: cm(110), height: cm(150),
   },
   {
@@ -137,6 +138,6 @@ export const CREW_GUARD_WU = 6 * WU_PER_METRE;
 export const HAUL_REACH_WU = 5 * WU_PER_METRE;
 /** Engines see 20 m by themselves (s); their crew's eyes do the rest. */
 export const ENGINE_SIGHT_WU = 20 * WU_PER_METRE;
-/** A Citadel (main base level 10) has 4 cannon ports on its roof (Table 4). */
-export const CITADEL_LEVEL = 10;
+/** A Citadel (main base tier 4; level 10 before Patch 5) has 4 cannon ports on its roof (Table 4). */
+export const CITADEL_LEVEL = 4;
 export const CANNON_PORTS = 4;

@@ -139,7 +139,7 @@ export const CLEARED_RADIUS_WU = 30 * M;
  * percent: its company's threat added up (its sleepers, or its guards when
  * it has none), so a mass grave sends more than a cave mouth (Jade's Patch 3
  * notes; s: 50%, half its sleepers' worth, which keeps all the lairs together
- * near the old fifth of the night through night 60). Doubled on a blood night.
+ * near the old fifth of the night through night 60).
  */
 export const LAIR_BUDGET_PCT = 50;
 /** A lair's share of the night comes out of its mouth 20 s after night falls (Table 15). */
@@ -152,15 +152,12 @@ export const RIFT_SEEN_WU = 120 * M;
 /** The hoard's one valuable by band: Heartland silver, Fringe gold, Deepwoods emerald, Barrens ruby, Deadlands diamond (Table 15). */
 export const HOARD_ROLLS = 10;
 
-// ----- Table 8: the budget factors, depth and the blood and fog nights -----
+// ----- Table 8: the budget factors, depth and the fog night -----
 
 /** Depth weight per unit or building outside the Heartland, per mille of the base budget: Fringe 5, Deepwoods 10, Barrens 20, Deadlands 40. */
 export const DEPTH_PM: readonly number[] = [0, 5, 10, 20, 40];
 /** Deeper bands draw mob types from later nights: Deepwoods 10 nights ahead, Barrens 25, Deadlands 50. */
 export const DEPTH_AHEAD: readonly number[] = [0, 0, 10, 25, 50];
-/** A blood night falls when the players' claimed cells reach 60% of a band's cells, never before night 13. */
-export const BLOOD_SHARE_PM = 600;
-export const BLOOD_FLOOR_NIGHT = 13;
 /** The fog night: 10% a night from night 5 (s). */
 export const FOG_CHANCE_PCT = 10;
 export const FOG_FROM_NIGHT = 5;

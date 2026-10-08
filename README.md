@@ -1,14 +1,14 @@
 # Survive and Conquer
 
 A co-op browser RTS survival game: build by day, hold the walls by night, and
-see how many nights you last. The design spec is [docs/blueprint.md](docs/blueprint.md),
-a copy of the canonical blueprint document.
+see how many nights you last. The design lives in the code and its data tables;
+each patch's notes are under `blueprint/` in the project files.
 
 The build order's milestones 0 to 11 are in: the deterministic sim and its
 tools, the generated world with the camera, HUD and minimap, workers and
 building, warriors, combat and the nights, the economy (research, smelting,
-food, animals, mining), the threats beyond the nights (lairs, blood and fog
-nights, tribes, goblin villages, creatures), the mages with their ten
+food, animals, mining), the threats beyond the nights (lairs, fog nights,
+tribes, goblin villages, creatures), the mages with their ten
 spells, the neutral peoples, the Stables and siege, the menus and online
 play, audio and the balance pass, and the troop rework (five troop types
 trained at their tier, weapon and armour upgrades, no items). Each
@@ -34,7 +34,7 @@ pnpm install
 | `pnpm dev` | The client at http://localhost:5173 |
 | `pnpm audio:dev` | The audio audition page at http://localhost:5174 |
 | `pnpm balance:dev` | The balance editor at http://localhost:5175 |
-| `pnpm --filter @blockyrts/tools balance` | The balance harness: pacing, supply at night 110 and the wave checks (`--pacing`, `--nights`, `--seeds`, `--blood`, `--csv`; docs/balance-pass.md) |
+| `pnpm --filter @blockyrts/tools balance` | The balance harness: pacing, supply at night 110 and the wave checks (`--pacing`, `--nights`, `--seeds`, `--csv`; docs/balance-pass.md) |
 | `pnpm --filter @blockyrts/tools perf:sim` | Sim step time with thousands of monsters (`--units`, `--steps`, `--seed`; docs/performance.md) |
 | `pnpm --filter @blockyrts/tools balance:apply <file>` | Applies a balance editor export to the sim's data files (`--dry-run`, `--force`) |
 | `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
@@ -67,20 +67,12 @@ on any branch from the Actions tab.
 | `packages/balance` | The balance editor: every balance value in the sim, browsable and editable, exported as a JSON list of changes; see its README |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
-## The number tables
+## The data tables
 
-`packages/sim/src/data/number-tables.ts` holds the blueprint's tables 1 to 19
-(Table 2 as 2a to 2f) as data: every cell's text and whether it is a
-suggested value, marked (s), that the balance pass may retune. It is generated
-from `docs/blueprint.md`, which is itself generated from the canonical .docx:
-
-```sh
-python3 packages/tools/scripts/extract-blueprint.py <path to adventure-blueprint-controls.docx> docs/blueprint.md
-pnpm --filter @blockyrts/tools gen:tables
-```
-
-A test fails if the committed tables are out of date with `docs/blueprint.md`.
-The rules every table uses (armour cap, shields, fire, experience, ranks,
+Every number the game runs on is a data row next to the system that uses it
+(buildings, recipes, kits, research, mobs and the rest under `packages/sim/src`).
+The old blueprint document and the number tables generated from it are retired
+(Patch 5). The rules every table uses (armour cap, shields, fire, experience, ranks,
 nutrition and trade value) are integer functions in `packages/sim/src/rules.ts`.
 
 ## The headless runner
@@ -1002,7 +994,7 @@ against it step by step).
    prints the pacing check and supply at night 110 in a second;
    `pnpm --filter @blockyrts/tools balance` adds the wave checks at nights 0,
    10, 20, 40, 60, 80 and 110 on seeds 1 to 3 (about 10 minutes; `--nights`,
-   `--seeds`, `--blood`, `--csv`). Nights 0 to 80 hold, night 110 falls. See
+   `--seeds`, `--csv`; `--blood` until Patch 5 removed blood nights). Nights 0 to 80 hold, night 110 falls. See
    [docs/balance-pass.md](docs/balance-pass.md) for what each column means
    and what looked off. No (s) value was retuned (Jade's rebalance comes
    next).
@@ -3156,6 +3148,61 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
 10. **Saves.** This part of Patch 4 changes no save format; a save taken
    while a digger carries a load or cuts its stairs carries on as it was.
 
+## How a tester checks Patch 5's foundations
+
+*Jade's Patch 5, the pieces every other Patch 5 change builds on: the main
+base's ten levels become four tiers (GP-11); earthworks, ramps, ramp steps
+and gravel are removed (GP-44, GP-45); either kind of lumber pays wherever
+lumber or sticks are needed, and hardwood items are wooden (GP-41); one
+kind of stick, 4 from a lumber in 20 s at a Storehouse (GP-39, GP-40); the
+main base's Make button makes rope (GP-14); worker tools hit 2 less (BL-1);
+and blood nights are gone (BG-1, BG-2). Picks in
+blueprint/patch5-foundations-picks.md. The tiers are the main base rows in
+`packages/sim/src/buildings/data.ts` (`MAIN_BASE_TIER_LEVELS` says which old
+level's model each tier wears); the lumber rule is `Res.AnyLumber` with
+`payAny` in `packages/sim/src/economy/food-kinds.ts`. The milestone sections
+above that mention levels 2 to 10, earthworks, ramps, gravel or blood nights
+describe the game before Patch 5.*
+
+1. **The tests.** `pnpm test`: the sim's m2, m3, m4 and m8 tests upgrade to
+   the Hall and train, smelt and research at the tiers; patch3-greyed asks
+   for the Hall and offers to fell softwood for lumber; tables.test keeps
+   the tool damage; m3-controls and patch4-hotkeys find Make rope on K; and
+   m9-online refuses a save of format 8.
+2. **The tiers.** `pnpm dev`, open http://localhost:5173/?seed=1 and select
+   the Big House: its chip reads "Tier 1 of 4" and Upgrade offers the Hall
+   for 110 lumber, 45 stone and 15 sticks. Type M N B V C X Z and press
+   **Citadel**: the main base is the Citadel (tier 4), drawn as before with
+   its cannon ports. **Troop kit** raises it to the Keep (tier 3).
+3. **What each tier opens.** With a Big House, the build menu greys out the
+   Barracks ("Needs a tier 2 main base") and the Magi Sanctum, Mineshaft and
+   Artillery workshop (tier 3). At the Scholar's Lodge, Muskets and Cannons
+   want tier 4; Deep Mining III, Steel and Gunpowder want tier 3.
+4. **Either lumber.** Start a game and gather only hardwood (the Fringe's
+   oaks): a Farm, the Hall and a Workshop's planks all take it. Hover a
+   cost: it reads "lumber", not "softwood lumber". Only Build, Defences,
+   Hardwood wall, gate and tower still name hardwood.
+5. **Defences.** Build, Defences shows 12 choices: wooden, hardwood and stone
+   walls, the six gates and the three towers. No earth bank, ramp, fill,
+   lumber ramp or stone ramp; no gravel in the stock bar.
+6. **Rope and sticks.** Select the Big House: K is **Make rope** (2 flax),
+   with no menu. Put up a Storehouse: its K is **Make sticks**, 1 lumber for
+   4 sticks in 20 s. The Workshop's menu has Sticks (4) too, at its own
+   pace (10 s).
+7. **Worker damage.** A worker with the starting wooden tools hits for 2,
+   with stone and flint tools 3, up to 9 with carbon steel (before: 4, 5
+   and 11).
+8. **No blood nights.** Play into night 13 and beyond with the Heartland
+   held: no "A blood night is coming", no red night, no double horn; the
+   clock reads "Night 13" as on any night. Fog nights still come.
+9. **Saves and version.** A save from indev 0.9 is refused: "That save is
+   from an older version of the game. Start a new game." (save format 9,
+   snapshot 22). The main menu reads "indev 1.0 (dev build)" locally, and
+   the next deploy takes indev 1.0.
+10. **Check scripts.** Every hash moves with the snapshot version; m3-nights
+    no longer heaps an earthwork, m5-threats no longer starts a blood night,
+    and m2-camp and m4-economy use the closed-up building ids.
+
 ## How a tester checks the balance editor
 
 The editor reads the sim's own data modules when it is built, so what it shows
@@ -3164,8 +3211,8 @@ is what the game runs on. Its build is one self-contained HTML file.
 1. `pnpm balance:dev` and open http://localhost:5175 (or
    `pnpm --filter @blockyrts/balance build` and open
    `packages/balance/dist/index.html` straight from disk). The left menu lists
-   14 groups, from Buildings and levels to Pacing (Mages and spells among them), plus the blueprint's tables
-   read only; the header names the commit the tables came from.
+   14 groups, from Buildings and levels to Pacing (Mages and spells among them);
+   the header names the commit the tables came from.
 2. Buildings and levels > Build menu > Big House. Its "Unlocks and uses"
    box lists what each main base level unlocks (Barracks at level 2, and so
    on) and what is made there; click a chip and that entry opens. Research >
@@ -3218,6 +3265,75 @@ and its protocol are tested headless.
    the `S3_*` variables (or `SAVE_STORE=disk`) before either command. CI runs
    the test against PostgreSQL 16 and S3Mock (an S3-compatible test server), and builds the server's Docker
    image and checks `/healthz`.
+
+## How a tester checks How to Play and the patch notes (Patch 5)
+
+How to Play shows every number the game runs on, read from the sim's own
+tables, so it changes whenever the balance does; the patch notes are written
+for players.
+
+1. The main menu has **How to play**, and under it **Patch notes** with a
+   "New update: Patch 5" mark, bright gold until the notes are opened in this
+   browser, then dim.
+2. How to play opens full-window: guides and a card for every section on the
+   front page, every section and page in the sidebar, and a search box (Enter
+   opens the first result, Esc clears it). Search "bone": the Bone page comes
+   first, then the monsters that drop it. **Return to main menu** at the top
+   right goes back.
+3. Every building, unit table, weapon, armour and tool tier, spell, recipe,
+   good, animal, monster, lair, people and rule table has a page: its
+   picture, its headline numbers as tiles, every other number in rows,
+   costs as picture chips, drops as a table, numbers at zero on one line at
+   the end, and "Linked pages" (what needs it, makes it, drops it or uses
+   it). The Big House shows each level with its own picture. A table only the
+   catalog knows lands under "More numbers" until it is given a section in
+   `packages/client/src/ui/how-to-play/categories.ts`.
+4. The address follows the page (`#how-to-play/monsters/zombie`): the
+   browser's Back button goes back a page, and opening such a link from
+   outside starts on that page. `#patch-notes` opens the patch notes.
+5. Patch notes: every update newest first, each split into Bug fixes,
+   Balance, Gameplay and content, and Quality of life, with no names of
+   people and nothing about tools only the developers use (a test checks
+   the words).
+6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
+   <folder>` drives all of this in a browser and saves pictures of it.
+
+## How a tester checks the late-night lag, the cursor, the void and the minimap (Patch 5)
+
+*Patch 5 bugs BG-2 to BG-5: the lag and slowed clock around night 15, the
+cursor vanishing after switching tabs, black void showing in ravines and pits,
+and the minimap failing far from the base. Causes and picks in
+blueprint/patch5-bugs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-night-lag.test.ts:
+   through six rounds of digging, heaping and water running into the holes,
+   the town fields and coarse crossings kept up to date in place match ones
+   built afresh from a copy of the game (as after loading a save), and they
+   were repaired rather than rebuilt; water reads only as wading, swimming
+   and a swimmer's level. packages/client/test/mesher.test.ts checks a ravine
+   wall drawn down to a floor below its own lowest layer, a chunk's edge drawn
+   down to the lowest its neighbour can show at less detail, and far chunks'
+   skirts hanging below all land. packages/client/test/minimap-transform.test.ts
+   checks the minimap shows small land whole and, past 600 m, a window round
+   the camera that keeps its scale and stays put under a click or drag.
+2. **Night 15.** Play into a siege (or press Wave in the tester tools near
+   the town at night) with breakers smashing ground near the town and water
+   flowing into the holes. The game keeps time: the day clock runs at its
+   normal pace and two players stay in step.
+3. **The cursor.** In a game, switch to another tab and back (or alt-tab
+   away and back) without moving the mouse: the cursor shows at once. With
+   cursor lock on, it shows again when the lock returns.
+4. **No void.** Find a ravine and look along it and down into it from every
+   side, close up and zoomed out, and dig a pit next to higher ground (Dig in
+   the tester tools, or workers' Dig): walls go all the way down to the floor
+   and no black shows anywhere below the land.
+5. **The minimap far out.** Send units a long way from the base (or use
+   Reveal at spots far apart). Once the explored land is more than about
+   600 m across, the minimap stops shrinking: it shows a window round the
+   camera at a readable scale, moves with the camera when the camera leaves
+   it, and stays still while you click or drag on it. Lairs off the window
+   show pinned to its edge, fainter, on the side they lie; pings off it ring
+   at the edge.
 
 ## License
 

@@ -322,19 +322,6 @@ export interface TunnelStretchOrder extends UnitsOrder {
   level2: number;
 }
 
-/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill, 3 a lumber ramp, 4 a stone ramp. */
-export interface EarthworkOrder extends UnitsOrder {
-  kind: 'earthwork';
-  variant: number;
-  x0: number;
-  z0: number;
-  x1: number;
-  z1: number;
-  level: number;
-  level2: number;
-  axis: number;
-}
-
 /** Debug: puts resources into a player's pool. */
 export interface DebugGiveOrder {
   kind: 'debugGive';
@@ -343,7 +330,7 @@ export interface DebugGiveOrder {
   count: number;
 }
 
-/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature, a blood night or fog (threats/debug.ts DebugThreat). */
+/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature or fog (threats/debug.ts DebugThreat). */
 export interface DebugThreatOrder {
   kind: 'debugThreat';
   player: number;
@@ -629,7 +616,6 @@ export type Order =
   | DigOrder
   | WallStretchOrder
   | TunnelStretchOrder
-  | EarthworkOrder
   | DebugGiveOrder
   | DebugSpawnOrder
   | DebugThreatOrder
@@ -723,7 +709,6 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
   tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
-  earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
   debugGive: ['res', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
   debugThreat: ['what', 'x', 'z'],
@@ -755,7 +740,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -782,7 +767,6 @@ export function validateOrder(o: Order): void {
       if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
       return;
     case 'dig':
-    case 'earthwork':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
       return;
     case 'wallStretch':

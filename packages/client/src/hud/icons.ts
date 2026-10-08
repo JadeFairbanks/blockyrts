@@ -134,7 +134,7 @@ export function robePic(tier: number): Pic {
   return { file: 'icon_armour_leather', filter: `hue-rotate(230deg) saturate(1.4)${tier <= 0 ? ' grayscale(1) opacity(0.4)' : ''}` };
 }
 
-/** A worker's tool kit by tier: the hardwood axe, then the kit's tool sets (stone and flint to carbon steel). */
+/** A worker's tool kit by tier: the wooden axe, then the kit's tool sets (stone and flint to carbon steel). */
 const TOOLS: readonly Pic[] = [
   { file: 'icon_tool_set_stone', filter: NONE },
   { file: 'icon_axe_hardwood' },

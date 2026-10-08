@@ -9,7 +9,7 @@ describe('one is singular', () => {
     expect(oneIsSingular('Lying fallow for 2 more minutes')).toBe('Lying fallow for 2 more minutes');
     expect(oneIsSingular('0 of 1 workers inside')).toBe('0 of 1 worker inside');
     expect(oneIsSingular('1 of 2 farmers at work; 1 animals')).toBe('1 of 2 farmers at work; 1 animal');
-    expect(oneIsSingular('Cost: 1 hardwood sticks, 1 eggs, 1 feathers, 1 potatoes')).toBe('Cost: 1 hardwood stick, 1 egg, 1 feather, 1 potato');
+    expect(oneIsSingular('Cost: 1 sticks, 1 eggs, 1 feathers, 1 potatoes')).toBe('Cost: 1 stick, 1 egg, 1 feather, 1 potato');
     expect(oneIsSingular('1 berries and 1 torches')).toBe('1 berry and 1 torch');
     expect(oneIsSingular('1 Rubies')).toBe('1 Ruby');
     expect(oneIsSingular('1 oxen')).toBe('1 ox');
