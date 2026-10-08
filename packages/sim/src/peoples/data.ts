@@ -116,7 +116,7 @@ const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'ranged' | 'armour' | 'shield' 
   weapon: 0, ranged: 0, armour: 0, shield: 0, walkShoot: false, mount: 0, ...o,
 });
 
-/** The players' kit rows the peoples carry too (Troops and gear): a hardwood cudgel, a flint and a bronze spear, a longbow, a steel side-sword, a flintlock musket and a steel heater. */
+/** The players' kit rows the peoples carry too (Troops and gear): a wooden cudgel, a flint and a bronze spear, a longbow, a steel side-sword, a flintlock musket and a steel heater. */
 const CUDGEL = CLOSE_GEAR[1]!;
 const SPEAR_FLINT = LONG_GEAR[2]!;
 const SPEAR_BRONZE = LONG_GEAR[4]!;
@@ -486,7 +486,7 @@ export const CARAVAN_GOODS: readonly StockRow[] = [
 /** The worth of each resource, tenths of a vp (Table 11). Any other food is 0.75 x its nutrition. */
 export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.SoftwoodLumber]: 10, [Res.HardwoodLumber]: 20, [Res.Sticks]: 5, [Res.Planks]: 15, [Res.Stone]: 10, [Res.Flint]: 10, [Res.Clay]: 10, [Res.Sand]: 10,
-  [Res.Gravel]: 5, [Res.Earth]: 2, [Res.Bricks]: 10, [Res.Glass]: 30, [Res.Resin]: 10, [Res.Bone]: 10,
+  [Res.Earth]: 2, [Res.Bricks]: 10, [Res.Glass]: 30, [Res.Resin]: 10, [Res.Bone]: 10,
   [Res.Coal]: 20, [Res.Charcoal]: 15, [Res.CopperOre]: 20, [Res.TinOre]: 30, [Res.BogIron]: 20, [Res.IronRock]: 20, [Res.VeinIron]: 40, [Res.LeadOre]: 30,
   [Res.Saltpetre]: 40, [Res.Sulphur]: 60, [Res.Marble]: 60,
   // Every meat is worth 3 vp and every fish 2, as the one meat and fish were (patch 1 food kinds, s).
@@ -501,8 +501,8 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   [Res.SteelIngot]: 300, [Res.CarbonSteel]: 600, [Res.Gunpowder]: 16,
   [Res.Gold]: 400, [Res.Silver]: 150, [Res.Emeralds]: 500, [Res.Rubies]: 600, [Res.Diamonds]: 1000, [Res.ManaCrystal]: 300, [Res.DemonHorn]: 200,
   [Res.Hexstone]: 100, [Res.Venom]: 50, [Res.SpiderSilk]: 30,
-  // Not in Table 11 (s): rope as two flax; hardened leather, carts and ramp steps as twice their inputs.
-  [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20, [Res.LumberRamp]: 40, [Res.StoneRamp]: 40,
+  // Not in Table 11 (s): rope as two flax; hardened leather and carts as twice their inputs.
+  [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20,
   [Res.Moonleaf]: 7250, [Res.Sunheart]: 12000,
 };
 

@@ -27,7 +27,7 @@ export function partnerOf(state: SimState, i: number): number {
 /** Whether a unit moves on wheels: a worker with a hand cart, or with an ox or horse cart and its animal. */
 export function onWheels(state: SimState, i: number): boolean {
   const e = state.entities;
-  // A siege engine rolls on wheels too (Table 2f: ramps, not steps).
+  // A siege engine rolls on wheels too (Table 2f: gentle slopes, not steps).
   if (e.kind[i] === UnitKind.Engine) return true;
   return e.kit[i] === Res.HandCart || (e.kit[i] === Res.OxCart && partnerOf(state, i) >= 0);
 }

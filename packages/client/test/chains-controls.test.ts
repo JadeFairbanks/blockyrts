@@ -45,7 +45,7 @@ function game(w: World = {}): GameInfo {
     type: 'info', step: 10, pool, supplyUsed: 2, supplyCap: 8, buildings: (w.walls ?? []).map(([x, z], k) => ({ id: 100 + k, owner: ME, kind: BuildingKind.Wall, variant: 0, level: 1, x, z, y: 0, complete: true }) as BuildingInfo), queues: w.queues ?? [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: w.sites ?? [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -96,7 +96,7 @@ describe('wall chains', () => {
     c.updatePlacing(at(10, 10), 0);
     expect(asks.at(-1)).toEqual([[10, 10]]);
     answer(c, asks);
-    expect(c.chainLabel()).toEqual({ text: '1 softwood wall: 1 softwood lumber', hint: 'Click to place it, then click further on for a stretch', short: false });
+    expect(c.chainLabel()).toEqual({ text: '1 wooden wall: 1 lumber', hint: 'Click to place it, then click further on for a stretch', short: false });
     c.placeDown();
     c.placeUp();
     expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 10, z: 10, dir: 0, length: 0, skip: 0, queued: false }]);
@@ -109,7 +109,7 @@ describe('wall chains', () => {
     c.updatePlacing(at(16, 11), 1);
     expect(asks.at(-1)).toEqual([[11, 10], [12, 10], [13, 10], [14, 10], [15, 10], [16, 10]]);
     answer(c, asks, (x) => (x === 13 ? 4 : 0));
-    expect(c.chainLabel()).toEqual({ text: '5 walls: 5 softwood lumber, 1 skipped', hint: 'Click to build to here, right click to finish', short: false });
+    expect(c.chainLabel()).toEqual({ text: '5 walls: 5 lumber, 1 skipped', hint: 'Click to build to here, right click to finish', short: false });
     c.placeUp();
     expect(sent.at(-1)).toEqual({ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 10, z: 10, dir: 0, length: 6, skip: 1, queued: true });
     expect(c.placing!.chain).toEqual({ x: 16, z: 10 });
@@ -188,7 +188,7 @@ describe('wall chains', () => {
     // Six south: room for 4 (the first wall counts once the sim reports it in the workers' lists).
     c.updatePlacing(at(10, 16), 1);
     answer(c, asks);
-    expect(c.chainLabel()).toMatchObject({ text: '6 walls: 6 softwood lumber, enough for 4', short: true });
+    expect(c.chainLabel()).toMatchObject({ text: '6 walls: 6 lumber, enough for 4', short: true });
     const ghost = c.updatePlacing(at(10, 16), 2)!;
     expect(ghost.spots.map((s) => s.short)).toEqual([false, false, false, false, true, true]);
     c.placeUp();
@@ -210,7 +210,7 @@ describe('wall chains', () => {
     c.updatePlacing(at(25, 20), 1);
     expect(asks.at(-1)).toEqual([[21, 20], [22, 20], [24, 20], [25, 20]]);
     answer(c, asks);
-    expect(c.chainLabel()!.text).toBe('4 walls: 4 softwood lumber');
+    expect(c.chainLabel()!.text).toBe('4 walls: 4 lumber');
     c.placeUp();
     expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 20, z: 20, dir: 0, length: 5, skip: 1, queued: true }]);
   });
@@ -240,7 +240,7 @@ describe('tunnel chains', () => {
 
   it('starts on a cliff face, floored at the ground in front, and digs a stretch per click, level, as one order each', () => {
     const { c, sent } = harness(game(), cliff);
-    c.startArea('dig', 0);
+    c.startArea();
     // A press on the face's west side, 0.5 m up.
     c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
     expect(c.area!.chain).toEqual({ x: 5, z: 0, floor: 0 });
@@ -269,7 +269,7 @@ describe('tunnel chains', () => {
   it('digs level from the ground clicked with Tunnel (D again) on, and digs down otherwise', () => {
     const ground = (x: number): number => (x >= 4.5 ? 20 * UNIT_M : 4 * UNIT_M);
     const { c, sent, shift } = harness(game(), ground);
-    c.startArea('dig', 0);
+    c.startArea();
     const tunnel = c.card()[2]!;
     expect(tunnel.face).toBe('Tunnel');
     expect(tunnel.key).toBe('KeyD');

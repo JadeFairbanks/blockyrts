@@ -47,7 +47,7 @@ function game(w: World): GameInfo {
     type: 'info', step: 10, pool, supplyUsed: used, supplyCap: cap, buildings: w.buildings, queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: w.research ?? 0, forge: w.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -145,8 +145,8 @@ describe('weaponOptions and armourOptions', () => {
     // Short of flint: a red tier, not a locked one, and the tile names what is short.
     expect(long[1]).toMatchObject({ tier: 2, name: 'Flint-headed spear', why: 'Short: 0 of 1 flint in stock.', short: true });
     expect(long[3]!.why).toBe('Needs Bronze researched first.');
-    expect(long[4]!.why).toBe('Needs a level 3 main base.');
-    expect(long[6]!.why).toBe('Needs a level 7 main base.');
+    expect(long[4]!.why).toBe('Needs a tier 2 main base.');
+    expect(long[6]!.why).toBe('Needs a tier 3 main base.');
     // Close melee starts at fists; the brawler has one kit; rangers name their bows.
     expect(weaponOptions(g, b, Troop.Close)[0]).toMatchObject({ tier: 0, name: 'Fists', why: '' });
     expect(weaponOptions(g, b, Troop.Brawler).map((o) => [o.tier, o.name])).toEqual([[8, 'Flintlock pistol and cutlass']]);
@@ -156,7 +156,7 @@ describe('weaponOptions and armourOptions', () => {
   it('offer a main base tier 1 at most, and put close melee shields in the armour names', () => {
     const house = building(111, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] });
     const g = game({ buildings: [house] });
-    expect(weaponOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['Fists', 'Hardwood cudgel']);
+    expect(weaponOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['Fists', 'Wooden cudgel']);
     expect(armourOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin, wooden shield']);
     expect(armourOptions(g, house, Troop.Long).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin']);
     expect(armourOptions(g, barracks(112), Troop.Close)[3]!.name).toBe('Copper scale jack, boiled-leather targe');
@@ -176,7 +176,7 @@ describe('troopWhy', () => {
     expect(troopWhy(g, b, Troop.Brawler, 1, 0)).toBe('This building does not train that.');
     expect(troopWhy(g, b, Troop.Close, 3, 0)).toBe('Needs a Forge.');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, forge: 4, research: bit(Research.Steel) }), b, Troop.Ranger, 7, 0)).toBe('Needs Crossbows researched first.');
-    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Short: 0 of 3 hardwood sticks.');
+    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Short: 0 of 3 sticks.');
     // Farm fare feeds 2 a portion: 14 is 28 food, short of a troop's 30.
     expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30).');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8).');
@@ -184,10 +184,10 @@ describe('troopWhy', () => {
     expect(troopWhy(g, full, Troop.Close, 1, 0)).toBe('The queue is full (5).');
   });
 
-  it('wants main base 3 and a tamed, grown horse in a Barn for cavalry (Patch 2: trained at the Barracks)', () => {
+  it('wants main base tier 2 and a tamed, grown horse in a Barn for cavalry (Patch 2: trained at the Barracks)', () => {
     const b = barracks(124, 1, 0, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }] });
-    expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a level 3 main base.');
-    const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 3 })], pool: STOCK });
+    expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a tier 2 main base.');
+    const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 2 })], pool: STOCK });
     expect(troopWhy(g, b, Troop.Cavalry, 1, 0)).toBe('No grown tamed horse ready in a Barn.');
     expect(troopWhy(g, { ...b, horses: 2 }, Troop.Cavalry, 1, 0)).toBe('');
   });
@@ -224,6 +224,6 @@ describe('the Barracks card', () => {
     const { c } = harness(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b);
     const close = c.card()[0]!;
     expect(close.enabled).toBe(false);
-    expect(close.reason).toBe('Short: 0 of 3 hardwood sticks.');
+    expect(close.reason).toBe('Short: 0 of 3 sticks.');
   });
 });

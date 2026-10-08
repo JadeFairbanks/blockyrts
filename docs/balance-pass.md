@@ -10,10 +10,10 @@ Jade is rebalancing everything after this milestone and replacing the tech pacin
 ```
 pnpm --filter @blockyrts/tools balance --pacing        # pacing and supply only, about a second
 pnpm --filter @blockyrts/tools balance                 # plus every wave night, seeds 1 to 3, about 10 minutes
-pnpm --filter @blockyrts/tools balance --nights 40,60 --seeds 1 [--blood] [--csv out.csv]
+pnpm --filter @blockyrts/tools balance --nights 40,60 --seeds 1 [--csv out.csv]
 ```
 
-`--blood` makes each night a blood night. `--csv` writes the wave rows to a file, relative to where the command was run.
+`--csv` writes the wave rows to a file, relative to where the command was run.
 
 ## What it measures
 
@@ -51,7 +51,6 @@ The check runs one real night of the sim per seed, at nights 0, 10, 20, 40, 60, 
 - **Defenders:** warriors in the night's kit, plus crossbows and muskets with their ammunition. From night 60 there are cannons in Citadel ports.
 - **Mages:** mages on the main base's parapets once it is level 3 or more. On the ground their Arcane bolt cannot clear the wall.
 - **Night 0:** four workers who fight.
-- **Blood night:** the fixture claims enough of the Heartland to set off its blood night, so the band is marked spent. `--blood` runs one on purpose.
 
 The scripted defence gives orders every half second:
 

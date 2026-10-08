@@ -1,5 +1,5 @@
 {
- "description": "M3 check script, seed 1, one player, with night mobs: two workers chop while two raise a softwood gate on the south side and a wall ring 2 columns out from the Big House, and the choppers join them; the Big House trains a long-melee spearman (a fire-hardened spear; troop product 4306, unit 202) and the three starting warriors (units 5 to 7) walk to it to upgrade their hardwood cudgels to flint hand-axes (Upgrade Weapon; Troops and gear); a worker starts a trench west of the ring; the warriors and the spearman take up a spot inside the gate and hold, and the workers go home at dusk; night 0 comes, and a skeleton archer and a bomber are sent at the camp (debug); at dawn two workers dig the trench, the other two heap an earth bank north-west of the ring from its Earth, and the warriors (those alive) patrol with the melee lock and attack-move east. Ids as of M11: the Big House is building 8. Building spots are columns (45 cm); moves are world units (8,000 per metre).",
+ "description": "M3 check script, seed 1, one player, with night mobs: two workers chop while two raise a wooden gate on the south side and a wall ring 2 columns out from the Big House, and the choppers join them; the Big House trains a long-melee spearman (a fire-hardened spear; troop product 4306, unit 202) and the three starting warriors (units 5 to 7) walk to it to upgrade their wooden cudgels to flint hand-axes (Upgrade Weapon; Troops and gear); a worker starts a trench west of the ring; the warriors and the spearman take up a spot inside the gate and hold, and the workers go home at dusk; night 0 comes, and a skeleton archer and a bomber are sent at the camp (debug); at dawn two workers dig the trench, and the warriors (those alive) patrol with the melee lock and attack-move east. Ids as of M11: the Big House is building 8. Building spots are columns (45 cm); moves are world units (8,000 per metre).",
  "players": 1,
  "frames": [
   { "step": 5, "orders": [ {"kind":"gather","player":0,"units":[1,2],"cx":-1,"cz":-1,"index":2}, {"kind":"produce","player":0,"building":8,"product":4306,"count":1} ] },
@@ -13,7 +13,6 @@
   { "step": 5200, "orders": [ {"kind":"debugSpawn","player":0,"mob":6,"x":81000,"z":1800}, {"kind":"debugSpawn","player":0,"mob":8,"x":95400,"z":-9000} ] },
   { "step": 8100, "orders": [ {"kind":"patrol","player":0,"units":[5,6,7,202],"x":1800,"z":19800}, {"kind":"lock","player":0,"units":[5,6,7,202],"lock":1} ] },
   { "step": 8050, "orders": [ {"kind":"dig","player":0,"units":[1,2],"x0":-13,"z0":-7,"x1":-12,"z1":-1,"level":-9,"level2":0,"tunnel":0} ] },
-  { "step": 8900, "orders": [ {"kind":"earthwork","player":0,"units":[3,4],"variant":0,"x0":-12,"z0":11,"x1":-8,"z1":11,"level":4,"level2":0,"axis":0} ] },
   { "step": 9200, "orders": [ {"kind":"attackMove","player":0,"units":[5,6,7,202],"x":66600,"z":1800} ] }
  ]
 }

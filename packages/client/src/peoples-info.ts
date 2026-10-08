@@ -44,7 +44,7 @@ function inStockNow(f: Faction): number[] {
 
 function hireWhy(s: SimState, f: Faction, player: number): string {
   if (f.status !== Status.Settled) return 'They have gone.';
-  if (isDark(s.step, s.blood)) return 'Mercenaries hire out by day only.';
+  if (isDark(s.step)) return 'Mercenaries hire out by day only.';
   if (f.survivors <= 0) return 'Nobody here for hire today.';
   if (!inReach(s, f, player)) return 'Bring one of your units within 15 m of the camp.';
   return '';

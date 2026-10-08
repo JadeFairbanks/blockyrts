@@ -1,7 +1,6 @@
 // Resource nodes and other generated props (Table 5: Resource nodes per band;
-// Generated rocks and trees). The numbers are typed copies of Table 5's rows;
-// test/world-props.test.ts checks every one against the table's text, so the
-// blueprint stays the source.
+// Generated rocks and trees). The numbers began as typed copies of the old
+// blueprint's Table 5; since Patch 5 retired it, these rows are the source.
 
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
@@ -82,7 +81,7 @@ export interface PropInfo {
   yield: number;
   /** Table 5 "Per load". */
   perLoad: number;
-  /** Table 5 "Time per load" in steps, with hardwood tools. */
+  /** Table 5 "Time per load" in steps, with wooden tools. */
   loadSteps: number;
   /** Table 5 "Gatherers". */
   gatherers: number;
@@ -115,7 +114,7 @@ export const PROPS: readonly PropInfo[] = [
   tree(PropKind.Pine, 'Pine', 20, 15, 1, Tool.Hardwood, 60 * MINUTE, SOFTWOOD_ROW, 'softwood lumber'),
   tree(PropKind.Spruce, 'Spruce', 20, 15, 1, Tool.Hardwood, 60 * MINUTE, SOFTWOOD_ROW, 'softwood lumber'),
   tree(PropKind.SmallSoftwood, 'Small softwood', 20, 15, 1, Tool.Hardwood, 60 * MINUTE, SOFTWOOD_ROW, 'softwood lumber'),
-  node(PropKind.Hazel, 'Hazel bush', PropShape.Bush, 'hardwood sticks', 10, 10, 10, 1, Tool.Hardwood, 'Hazel bush', ['2 days'], 2 * CYCLE_STEPS),
+  node(PropKind.Hazel, 'Hazel bush', PropShape.Bush, 'sticks', 10, 10, 10, 1, Tool.Hardwood, 'Hazel bush', ['2 days'], 2 * CYCLE_STEPS),
   tree(PropKind.Birch, 'Birch', 15, 20, 1, Tool.Flint, 180 * MINUTE, SMALL_HW_ROW, 'hardwood lumber'),
   tree(PropKind.Hornbeam, 'Hornbeam', 15, 20, 1, Tool.Flint, 180 * MINUTE, SMALL_HW_ROW, 'hardwood lumber'),
   tree(PropKind.Oak, 'Great oak', 40, 20, 2, Tool.Copper, 360 * MINUTE, LARGE_HW_ROW, 'hardwood lumber'),

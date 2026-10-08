@@ -302,7 +302,7 @@ function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): v
     refundKit(state, i, o);
     return;
   }
-  if (TRAINING.upgradeRefundPm > 0 && owner < state.players.length) refund(state.players[owner]!.pool, mainCost(replacedPieces(h, o.line, o.to)), TRAINING.upgradeRefundPm);
+  if (TRAINING.upgradeRefundPm > 0 && owner < state.players.length) refund(state.players[owner]!.pool, piecesCost(replacedPieces(h, o.line, o.to), 0), TRAINING.upgradeRefundPm);
   o.paid = 0;
   if (o.line === Line.Weapon) e.wTier[i] = o.to;
   else e.aTier[i] = o.to;
@@ -350,7 +350,7 @@ export function orderCart(state: SimState, player: number, units: readonly numbe
     inFront(state, i, { t: 'cart', b: base.id, res });
     sent++;
   }
-  if (sent === 0 && !back) state.events.push({ player, kind: 'alert', text: 'No cart in stock. Carts are made at the Workshop: hand carts from main base level 3, ox and horse carts from level 5.' });
+  if (sent === 0 && !back) state.events.push({ player, kind: 'alert', text: 'No cart in stock. Carts are made at the Workshop: hand carts from main base tier 2, ox and horse carts from tier 3.' });
   return sent;
 }
 

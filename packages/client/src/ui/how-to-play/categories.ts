@@ -135,11 +135,11 @@ export const CATEGORIES: readonly Category[] = [
 export const FALLBACK_CATEGORY = 'more';
 
 /**
- * Catalog groups How to Play leaves out: the old design document's tables,
- * kept in the code as read-only copies. Every number in them that the game
- * uses is shown, live, in the sections above.
+ * Catalog groups How to Play leaves out. None since Patch 5 retired the old
+ * design document's tables group; every number the game uses is shown, live,
+ * in the sections above.
  */
-export const LEFT_OUT_GROUPS: ReadonlySet<string> = new Set(['tables']);
+export const LEFT_OUT_GROUPS: ReadonlySet<string> = new Set<string>();
 
 /**
  * Sub-headings for pages from a section's second and later groups that have

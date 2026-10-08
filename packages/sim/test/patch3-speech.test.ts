@@ -243,7 +243,7 @@ describe("the start's two upgrade questions (Jade's Patch 3)", () => {
     expect([...tools.ask!.units].sort()).toEqual(units(s, UnitKind.Worker).map((i) => e.id[i]!).sort());
     // The start's stock pays for three workers' tools: the tooltip says so.
     expect(tools.ask!.yes).toBe(
-      'The stock pays for 3 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 18 hardwood sticks, 3 flint, 15 stone.',
+      'The stock pays for 3 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 18 sticks, 3 flint, 15 stone.',
     );
   });
 
@@ -295,7 +295,7 @@ describe("the start's two upgrade questions (Jade's Patch 3)", () => {
     expect(told.length).toBe(1);
     expect(told[0]).toMatchObject({ player: 0, speaker: tools.speaker, text: tools.text });
     expect(told[0]!.ask!.id).toBe(tools.ask!.id);
-    const yes = 'The stock pays for 2 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 12 hardwood sticks, 2 flint, 10 stone.';
+    const yes = 'The stock pays for 2 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 12 sticks, 2 flint, 10 stone.';
     expect(told[0]!.ask!.yes).toBe(yes);
     expect(openQuestions(s).find((x) => x.id === tools.ask!.id)!.yes).toBe(yes);
     // It is what Yes now does: two workers go.

@@ -632,7 +632,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   const e = state.entities;
   // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home, unless it works on through the night (Jade's Patch 4).
   const after = e.queue[i]![1]?.t;
-  const nightForage = after === 'forage' && isDark(state.step, state.blood);
+  const nightForage = after === 'forage' && isDark(state.step);
   if (nightForage && goesHome(state, i)) return DONE;
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
@@ -1024,7 +1024,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
 
 /** A worker sent up top that shelters inside instead: in the dark it is in for the night and comes out at dawn once no monster is near (Jade's Patch 4, units/night-work.ts); by day it stays until let out. */
 function shelterFallback(state: SimState): number {
-  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
+  return isDark(state.step) ? ENTER_NIGHT : 0;
 }
 
 /** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
@@ -1104,12 +1104,12 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   if (b.kind === BuildingKind.Mineshaft) return runMiner(state, i, b);
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   // Farmers work the field by day and shelter in their own farmhouse at dusk and night; mill hands work inside.
-  const indoors = !isFarm(b.kind) || isDark(state.step, state.blood);
+  const indoors = !isFarm(b.kind) || isDark(state.step);
   if (indoors) {
     if (e.inside[i] === b.id) {
       e.act[i] = Act.Work;
       // A dock hand learns as it fishes, by day as a gatherer works (Patch 3); a farmer sheltering for the night does not.
-      if (!isDark(state.step, state.blood)) workXp(state, i, Work.Gather);
+      if (!isDark(state.step)) workXp(state, i, Work.Gather);
       return CONTINUE;
     }
     const r = walkTo(state, i, besideBuilding(b));
@@ -1184,7 +1184,7 @@ function runMiner(state: SimState, i: number, b: Building): boolean {
     return CONTINUE;
   }
   e.timer[i] = e.timer[i]! + 1;
-  const dark = isDark(state.step, state.blood);
+  const dark = isDark(state.step);
   // A miner down the shaft learns as it digs, by day as a gatherer works (Patch 3).
   if (!dark) workXp(state, i, Work.Gather);
   if (dark || b.stock.length === 0 || firstMiner(state, b) !== i) return CONTINUE;
@@ -1301,7 +1301,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   if (!b || !t || b.kind !== rankTrainedAt(e.kind[i]!) || !b.complete || b.owner !== e.owner[i]) return DONE;
   if (e.inside[i] !== b.id) {
     if (mainBaseLevel(state, b.owner) < t.base) {
-      alert(state, b.owner, `Training to ${t.name} needs a level ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
+      alert(state, b.owner, `Training to ${t.name} needs a tier ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     const r = walkTo(state, i, besideBuilding(b));
