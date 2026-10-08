@@ -54,7 +54,7 @@ export function budgetPanel(read: () => BudgetView | null): { el: HTMLElement; r
       h('h3', {}, 'Threat by night, 1 to 100'),
       h('p', { class: 'formula' }, 'Night n: ', h('b', {}, budgetFormulaText(v.terms)),
         changed ? h('span', { class: 'was' }, ` (night 100: ${threat(last.tenths)}, was ${threat(last.tableTenths)})`) : ` (night 100: ${threat(last.tenths)})`),
-      h('p', { class: 'doc' }, 'One player\'s budget for the night, before their town and provocations: the dark edge spends 80% of it, and each live lair adds its own on top (Lairs, tribes and villages). Night 0 has its fixed list instead. Each counted building past 10 adds 2%, and a blood night spends the edge\'s share twice.'),
+      h('p', { class: 'doc' }, 'One player\'s budget for the night, before their town and provocations: the dark edge spends 80% of it, and each live lair adds its own on top (Lairs, tribes and villages). Night 0 has its fixed list instead. Each counted building past 10 adds 2%.'),
       chart(v),
       h('div', { class: 'budget-table' }, h('table', {}, h('tbody', {}, ...rows))),
     );

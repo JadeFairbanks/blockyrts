@@ -6,7 +6,7 @@
 //
 //   pnpm --filter @blockyrts/tools balance                  everything, seeds 1 to 3 (about 10 minutes)
 //   pnpm --filter @blockyrts/tools balance --pacing         the pacing and supply checks only (a second)
-//   pnpm --filter @blockyrts/tools balance --nights 0,10 --seeds 1,2 [--blood] [--csv out.csv]
+//   pnpm --filter @blockyrts/tools balance --nights 0,10 --seeds 1,2 [--csv out.csv]
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -19,7 +19,6 @@ const { values } = parseArgs({
     seeds: { type: 'string', default: '1,2,3' },
     csv: { type: 'string' },
     pacing: { type: 'boolean', default: false },
-    blood: { type: 'boolean', default: false },
   },
 });
 const cwd = process.env.INIT_CWD ?? process.cwd();
@@ -34,7 +33,7 @@ console.log(`\nSupply at night 110: ${t.warriors} warriors, ${t.mages} mages, ${
 console.log(`supply ${sup.supplyUsed} of ${sup.supplyCap}; ${sup.nutritionPerDay} nutrition a day, ${sup.perFarmer} per farmer as farm fare: ${sup.farmersNeeded} farmers (room for ${sup.farmersRoom}): ${sup.ok ? 'carries' : 'SHORT'}`);
 if (values.pacing) process.exit(0);
 
-console.log(`\nWave versus defence${values.blood ? ' (blood nights)' : ''}:`);
+console.log('\nWave versus defence:');
 const nights = values.nights.split(',').map(Number);
 const seeds = values.seeds.split(',').map(Number);
 const rows: NightRow[] = [];
@@ -42,7 +41,7 @@ console.log(NIGHT_COLUMNS.join(','));
 for (const night of nights) {
   for (const seed of seeds) {
     const t0 = process.hrtime.bigint();
-    const row = runNight(seed, night, values.blood);
+    const row = runNight(seed, night);
     rows.push(row);
     console.log(NIGHT_COLUMNS.map((k) => String(row[k])).join(','), `# ${(Number(process.hrtime.bigint() - t0) / 1e9).toFixed(1)} s`);
   }
