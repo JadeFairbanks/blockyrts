@@ -38,13 +38,12 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go; and (Patch 4) how long a farm stands empty, a building goes unworked or a worker stands idle before it asks, and how near a worker must be to be sent.' },
   { id: 'pacing', label: 'Pacing', blurb: 'The day and night clock and the other timings everything else counts in.' },
   { id: 'other', label: 'Other numbers', blurb: 'Numbers in the sim that no other group claims yet. New tables show up here until they are given a home.' },
-  { id: 'tables', label: 'Blueprint tables (read only)', blurb: 'The blueprint\'s numbered tables as the sim reads them, for reference. Change these through the blueprint, not here.' },
 ];
 
 /** Modules that hold no balance at all: maths, serialisation, ids, the state layout. */
 export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
-  'data/tables.ts', 'data/table-types.ts', 'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
+  'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
   'nav/path.ts', 'threats/debug.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
   'magic/cast.ts', 'units/names.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
 ]);
@@ -153,7 +152,6 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'nav/grid.ts': 'world',
   'clock.ts': 'pacing',
   'rules.ts': 'units',
-  'data/number-tables.ts': 'tables',
   'mounts/data.ts': 'siege',
   'mounts/riding.ts': 'siege',
   'siege/data.ts': 'siege',

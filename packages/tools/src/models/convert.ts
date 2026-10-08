@@ -1,5 +1,5 @@
 // Converts one Blockbench model into a .glb plus a JSON sidecar
-// (docs/blueprint.md, technical decision 8).
+// (the old blueprint's technical decision 8).
 //
 // Conventions, matching Blockbench's own three.js scene and its glTF export:
 // - Blockbench coordinates are three.js coordinates (x right, y up, north is

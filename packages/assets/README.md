@@ -2,8 +2,7 @@
 
 Source art for the game. Models are made in Blockbench; the game never loads a
 `.bbmodel` at runtime. At build time the model converter in `packages/tools`
-turns each model into a `.glb` and packs the textures into texture arrays
-(technical decision 8 in docs/blueprint.md). The converter is M1 work; until
+turns each model into a `.glb` and packs the textures into texture arrays. The converter is M1 work; until
 then `pnpm assets:manifest` only lists the manifest and checks it against the
 files.
 

@@ -1,8 +1,8 @@
 # Survive and Conquer
 
 A co-op browser RTS survival game: build by day, hold the walls by night, and
-see how many nights you last. The design spec is [docs/blueprint.md](docs/blueprint.md),
-a copy of the canonical blueprint document.
+see how many nights you last. The design lives in the code and its data tables;
+each patch's notes are under `blueprint/` in the project files.
 
 The build order's milestones 0 to 11 are in: the deterministic sim and its
 tools, the generated world with the camera, HUD and minimap, workers and
@@ -67,20 +67,12 @@ on any branch from the Actions tab.
 | `packages/balance` | The balance editor: every balance value in the sim, browsable and editable, exported as a JSON list of changes; see its README |
 | `packages/assets` | Source models and images; see its README for the layout and rules asset pull requests follow |
 
-## The number tables
+## The data tables
 
-`packages/sim/src/data/number-tables.ts` holds the blueprint's tables 1 to 19
-(Table 2 as 2a to 2f) as data: every cell's text and whether it is a
-suggested value, marked (s), that the balance pass may retune. It is generated
-from `docs/blueprint.md`, which is itself generated from the canonical .docx:
-
-```sh
-python3 packages/tools/scripts/extract-blueprint.py <path to adventure-blueprint-controls.docx> docs/blueprint.md
-pnpm --filter @blockyrts/tools gen:tables
-```
-
-A test fails if the committed tables are out of date with `docs/blueprint.md`.
-The rules every table uses (armour cap, shields, fire, experience, ranks,
+Every number the game runs on is a data row next to the system that uses it
+(buildings, recipes, kits, research, mobs and the rest under `packages/sim/src`).
+The old blueprint document and the number tables generated from it are retired
+(Patch 5). The rules every table uses (armour cap, shields, fire, experience, ranks,
 nutrition and trade value) are integer functions in `packages/sim/src/rules.ts`.
 
 ## The headless runner
@@ -3164,8 +3156,8 @@ is what the game runs on. Its build is one self-contained HTML file.
 1. `pnpm balance:dev` and open http://localhost:5175 (or
    `pnpm --filter @blockyrts/balance build` and open
    `packages/balance/dist/index.html` straight from disk). The left menu lists
-   14 groups, from Buildings and levels to Pacing (Mages and spells among them), plus the blueprint's tables
-   read only; the header names the commit the tables came from.
+   14 groups, from Buildings and levels to Pacing (Mages and spells among them);
+   the header names the commit the tables came from.
 2. Buildings and levels > Build menu > Big House. Its "Unlocks and uses"
    box lists what each main base level unlocks (Barracks at level 2, and so
    on) and what is made there; click a chip and that entry opens. Research >
