@@ -3251,6 +3251,73 @@ for players.
 6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
    <folder>` drives all of this in a browser and saves pictures of it.
 
+## How a tester checks the open site, open games and the debugger (Patch 5)
+
+The site is public, games can be found in a list, and the debugger is new and
+for the admin accounts only. `pnpm --filter @blockyrts/server dev` and
+`pnpm dev` give a local server and page; `pnpm --filter @blockyrts/server
+test` and `npx vitest run packages/sim/test/patch5-godmode.test.ts
+packages/client/test/patch5-debugger.test.ts` cover the same ground headless.
+
+1. **The site.** No password prompt and no "indev" login page: the main menu
+   loads straight away. The page source has the title, a description, link
+   preview tags and a short summary for readers without JavaScript.
+   `/balance/` is gone (the editor stays a private tool, `pnpm balance:dev`).
+   A production build given `VITE_SITE_URL` writes `robots.txt` (open, with
+   the sitemap) and `sitemap.xml` (deploy/README.md, "Public site and
+   search").
+2. **Open games.** Join game has an **Open games** button under the code
+   box. It lists each lobby waiting for players with its host, how many are
+   in it, the places free and whether it continues a save. Public games come
+   first with a **Join** button; private games are listed below them, marked
+   private, and their **Join with code** goes back to the code box. Joining
+   by code or invite link works as before.
+3. **Private games.** New game and Load game's host page have a **Private
+   game** switch. A private game still shows in the list, below the public
+   ones, but only someone with the code can join it.
+4. **Kicking.** In the lobby the host has a **Remove** button by each other
+   player. After confirming, that player goes back to the menu with "The host
+   removed you from that game." and cannot join that game again, by code, by
+   link or from the list (the server remembers their account, their session
+   and, for a guest, their address).
+5. **Outdated saves.** When the server starts it deletes the files of every
+   save older than the live save format. In Load game, such a save stays in
+   its owner's list, greyed, with "This save is no longer valid: it is out of
+   date with the live game." and an **OK, remove it** button that removes it
+   for good. Saves kept in the browser that are out of date show the same
+   way.
+6. **Who can open the debugger.** Only the accounts `jade` and `Proteus`
+   (any capitals; the server decides, `DEBUG_ACCOUNTS` changes the list).
+   Signed in as one of them, in a match, type M N B V C X Z: the debug panel
+   opens at the top left as before, and the same keys close it. Signed out or
+   on any other account the keys do nothing, and the relay drops debug orders
+   from other players. A dev build (`pnpm dev`) lets anyone open it and keeps
+   the old tester buttons (Troop kit, Creature, Hill, Crowd +200 and the
+   rest named in the checks above) after the new ones; the site's build does
+   not include them.
+7. **Godmode.** Press **Godmode** (it lights). Every building builds at once
+   where you place it, with no costs, no workers walking there and no main
+   base level or research needed; upgrades, research and training finish at
+   once (cavalry needs no horse). The inventory turns into a grid of every
+   unit in the game: workers, each troop type at its top kit, both mages, a
+   crewman, the five engines, every animal, every monster, Morvath and every
+   lair. Click one: its model follows the cursor. Click the ground to place
+   it (it stays on the cursor to place more); right click or Esc lets go. A
+   unit of yours is yours, a farm animal is yours, a wild animal is wild, a
+   monster attacks. While a unit is on the cursor the action card is one
+   large **Cancel placement** button, the card's usual size; moving the
+   cursor over it (or clicking it) lets go of the unit. Close the debugger
+   with godmode on: godmode ends and your own stock comes back.
+8. **The other buttons.** **Village** builds the named village in the middle
+   of the view and moves on to the next (Halfling village, Runkin camp, Elf
+   caravan, Dwarf colony, Dwarf city, mercenary camp, goblin village). **Elf
+   kingdom** takes the camera there and reveals the land round it. **Max
+   rank** raises every unit of yours to its top rank; **Heal all** heals your
+   units and mends your buildings; **Kill selected** kills the selection;
+   **Clear monsters** removes every monster within 60 m of the middle of the
+   view. **Reveal**, **Show all**, **Blood night**, **Fog**, **Wave** and
+   (offline) **Speed** work as before.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

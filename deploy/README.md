@@ -106,6 +106,11 @@ The workflows expect these, and do not create them:
 | `ALLOWED_ORIGINS` | `https://play.<DOMAIN>` |
 | `SESSION_SECRET` | generated on first boot, kept on the volume |
 | `TRUSTED_PROXY` | `cloudflare` (read the client address from `CF-Connecting-IP`) |
+| `DEBUG_ACCOUNTS` | not set: the accounts that may open the debugger are `jade,proteus` (any capitals); set it, comma-separated, to change them |
+
+On start the server deletes the files of every save older than the live save
+format (Patch 5) and logs how many; the saves' owners still see them, marked
+out of date, until they remove them from Load game.
 
 The client is built with `VITE_SERVER_URL=https://api.<DOMAIN>`.
 
