@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   bagItems,
   Ability,
-  Band,
-  bloodBand,
-  CELL_RING_SHIFT,
   BuildingKind,
   buildingCentre,
   canUse,
@@ -12,7 +9,6 @@ import {
   stumbleEffect,
   spend,
   settleDeaths,
-  clockAt,
   createWorld,
   CYCLE_STEPS,
   DAY_STEPS,
@@ -30,11 +26,7 @@ import {
   Mob,
   mobSpec,
   moveSpeed,
-  NIGHT_STEPS,
   OrderKind,
-  nightLength,
-  nightsSurvived,
-  Period,
   placeBuilding,
   placementBlocked,
   Blocked,
@@ -106,23 +98,6 @@ function events(s: SimState, n: number): string[] {
   }
   return out;
 }
-
-describe('the clock with blood nights', () => {
-  it('makes a blood night twice as long and shifts every later period', () => {
-    const blood = [13];
-    const nightStart = 13 * CYCLE_STEPS + DAY_STEPS + DUSK_STEPS;
-    expect(nightLength(13, blood)).toBe(2 * NIGHT_STEPS);
-    expect(nightLength(14, blood)).toBe(NIGHT_STEPS);
-    expect(clockAt(nightStart + NIGHT_STEPS + 5, blood).period).toBe(Period.Night);
-    expect(clockAt(nightStart + 2 * NIGHT_STEPS, blood).period).toBe(Period.Dawn);
-    // The next day starts a night's length later than it would have.
-    const c = clockAt(14 * CYCLE_STEPS + NIGHT_STEPS, blood);
-    expect(c.period).toBe(Period.Day);
-    expect(c.cycle).toBe(14);
-    expect(nightsSurvived(nightStart + NIGHT_STEPS + 5, blood)).toBe(13);
-    expect(nightsSurvived(nightStart + 2 * NIGHT_STEPS, blood)).toBe(14);
-  });
-});
 
 describe('lairs', () => {
   it('follows the cadence and the cap of Table 8', () => {
@@ -201,76 +176,7 @@ describe('lairs', () => {
   });
 });
 
-describe('blood and fog nights', () => {
-  /** The cells of a band: those whose site lies in it (a cell's band since Patch 5, WL-8). */
-  const cellsOf = (s: SimState, band: Band): number[] => {
-    const layout = s.world.layout;
-    const out: number[] = [];
-    for (let r = 0; r < Math.min(layout.ringCount, layout.bands.deadlands + 2); r++) {
-      for (let k = 0; k < layout.ringCellCount(r); k++) if (layout.bandOf(r * CELL_RING_SHIFT + k) === band) out.push(r * CELL_RING_SHIFT + k);
-    }
-    return out;
-  };
-  /** A torch at the site of each of the first n cells (a claimed cell is one holding a building), beside the main bases. */
-  const hold = (s: SimState, cells: readonly number[], n: number): void => {
-    const proto = bigHouse(s);
-    const keep = s.buildings.list.filter((b) => b.kind === BuildingKind.MainBase);
-    s.buildings.list.length = 0;
-    s.buildings.list.push(...keep);
-    for (const id of cells.slice(0, n)) {
-      const site = s.world.layout.site(id);
-      s.buildings.list.push({ ...proto, id: 900000 + id, x: site.x, z: site.z });
-    }
-  };
-
-  it('falls on night 13 once the players hold 60% of the Heartland, with the warning, and never before', () => {
-    const s = createWorld(1);
-    // Since Patch 5 the Heartland reaches 155 to 175 m from the main bases (WL-8), so it has more cells than the basin.
-    const cells = cellsOf(s, Band.Heartland);
-    expect(cells.length).toBeGreaterThan(1);
-    hold(s, cells, Math.ceil((cells.length * 6) / 10));
-    toPeriod(s, 12, DUSK_START);
-    step(s);
-    expect(s.blood).toEqual([]);
-    toPeriod(s, 13, DUSK_START);
-    s.blood = [];
-    step(s);
-    expect(s.blood).toEqual([13]);
-    expect(s.events.some((ev) => ev.text.startsWith('A blood night is coming') && ev.sound === 'double-horn')).toBe(true);
-    // Spent: the Heartland gives no second one.
-    toPeriod(s, 14, DUSK_START + NIGHT_STEPS);
-    step(s);
-    expect(s.blood).toEqual([13]);
-  });
-
-  it('falls when the players hold 60% of the Fringe, once the Heartland\'s is spent', () => {
-    const s = createWorld(1);
-    s.threats.bloodSpent = 1 << Band.Heartland;
-    const cells = cellsOf(s, Band.Fringe);
-    const need = Math.ceil((cells.length * 6) / 10);
-    hold(s, cells, need - 1);
-    expect(bloodBand(s, 20)).toBe(-1);
-    hold(s, cells, need);
-    expect(bloodBand(s, 20)).toBe(Band.Fringe);
-    toPeriod(s, 20, DUSK_START);
-    s.events = [];
-    step(s);
-    expect(s.blood).toEqual([20]);
-    expect(s.events.some((ev) => ev.text.includes('A blood night is coming') && ev.text.includes('Fringe') && ev.sound === 'double-horn')).toBe(true);
-  });
-
-  it('spends the doubled budget with the extra on the rarer kinds', () => {
-    const a = createWorld(1);
-    const b = createWorld(1);
-    b.blood = [20];
-    const count = (s: SimState): number => {
-      toPeriod(s, 20, DAY_STEPS + DUSK_STEPS);
-      step(s);
-      return s.spawns.length;
-    };
-    expect(count(b)).toBeGreaterThan(count(a) * 3 / 2);
-  });
-
+describe('fog nights', () => {
   it('halves sight in fog until the day', () => {
     const s = createWorld(1);
     const w = warrior(s);

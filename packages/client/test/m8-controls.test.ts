@@ -53,10 +53,10 @@ function game(more: BuildingInfo[] = [], pool: Array<[number, number]> = []): Ga
   const p = new Int32Array(RESOURCE_COUNT);
   for (const [r, n] of pool) p[r] = n;
   const info: InfoMessage = {
-    type: 'info', step: 10, pool: p, supplyUsed: 4, supplyCap: 8, buildings: [building(20, BuildingKind.MainBase, 10), ...more], queues: [], events: [],
+    type: 'info', step: 10, pool: p, supplyUsed: 4, supplyCap: 8, buildings: [building(20, BuildingKind.MainBase, 4), ...more], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -86,11 +86,11 @@ function harness(selection: Selectable[], active: string, g: GameInfo = game()) 
 
 const cannon = sel('e:7', `engine:${Engine.BronzeCannon}`);
 const horse = sel('e:8', 'animal:own:2');
-const citadel: Selectable = { key: 'b:20', kind: 'building', owner: ME, typeKey: 'building:0:10', centre: new THREE.Vector3(0, 0, 0), halfSize: new THREE.Vector3(5, 5, 5), label: 'Citadel' };
+const citadel: Selectable = { key: 'b:20', kind: 'building', owner: ME, typeKey: 'building:0:4', centre: new THREE.Vector3(0, 0, 0), halfSize: new THREE.Vector3(5, 5, 5), label: 'Citadel' };
 
 describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
   const barracks = (horses: number): BuildingInfo => building(21, BuildingKind.Barracks, 1, { name: 'Barracks', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }], horses });
-  // The test town's main base is a Citadel, past the cavalry's main base 3 (m11-troops checks that reason).
+  // The test town's main base is a Citadel, past the cavalry's main base tier 2 (m11-troops checks that reason).
   const at = (b: BuildingInfo, pool: Array<[number, number]>) =>
     harness([{ ...sel('b:21', `building:${BuildingKind.Barracks}:1`), kind: 'building' }], `building:${BuildingKind.Barracks}:1`, game([b], pool));
 

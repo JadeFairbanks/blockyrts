@@ -8,7 +8,7 @@ describe('what the panel says about growing plants', () => {
   it('calls a hazel picked bare a hazel sapling that holds nothing yet', () => {
     expect(propLabel(PropKind.Hazel, Stage.Sapling, 0)).toBe('Hazel sapling');
     const lines = propDetails(PropKind.Hazel, Stage.Sapling, 0, 10, 4 * MINUTE + 100);
-    expect(lines).toContain('Holds nothing to gather yet: it grows hardwood sticks once it is bigger.');
+    expect(lines).toContain('Holds nothing to gather yet: it grows sticks once it is bigger.');
     expect(lines).toContain('Grows into a young hazel bush in about 4 minutes.');
     expect(lines).toContain('Buildings can go over it: the builder pulls it up first.');
     // Nothing to gather, so no gatherer or tool lines.

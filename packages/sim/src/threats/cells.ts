@@ -1,12 +1,12 @@
 // The world's cells as the threats see them: which cell a point is in,
 // which cells hold the players' buildings (claimed cells, for lair placement
-// and the blood night trigger), how many cells a depth band has, and the
-// spots the land offers a lair: cave mouths and the foot of barrier edges.
+// and the tribes' camps), which rings a depth band spans, and the spots the
+// land offers a lair: cave mouths and the foot of barrier edges.
 
 import { buildingCentre } from '../buildings/lights.ts';
 import { floorDiv, isqrt, WU_PER_COLUMN } from '../fixed.ts';
 import type { SimState } from '../state.ts';
-import { Band, caveFoot, CELL_RING_SHIFT, EdgeType, type WorldLayout } from '../world/layout.ts';
+import { Band, caveFoot, EdgeType, type WorldLayout } from '../world/layout.ts';
 
 /** The cell a point (wu) is in. */
 export function cellAt(state: SimState, x: number, z: number): number {
@@ -49,22 +49,6 @@ export function bandRings(layout: WorldLayout, band: Band): [number, number] {
     default:
       return [b.deadlands, layout.ringCount];
   }
-}
-
-/**
- * How many cells a band has: those whose site lies in it (WorldLayout.bandOf),
- * found in the rings out to one past the Deadlands' first; the endless
- * Deadlands by its rings.
- */
-export function bandCellCount(layout: WorldLayout, band: Band): number {
-  let n = 0;
-  if (band === Band.Deadlands) {
-    for (let r = layout.bands.deadlands; r < layout.ringCount; r++) n += layout.ringCellCount(r);
-    return n;
-  }
-  const last = Math.min(layout.ringCount, layout.bands.deadlands + 2);
-  for (let r = 0; r < last; r++) for (let k = 0; k < layout.ringCellCount(r); k++) if (layout.bandOf(r * CELL_RING_SHIFT + k) === band) n++;
-  return n;
 }
 
 /**

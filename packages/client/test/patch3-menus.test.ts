@@ -43,7 +43,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     type: 'info', step: 10, pool: p, supplyUsed: 2, supplyCap: 8, buildings, queues: [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -105,20 +105,11 @@ describe('the build menu greys out what the stock cannot pay for (Patch 3)', () 
   });
 
   it("prices a second Scholar's Lodge twice, as the sim does", () => {
-    const cost = levelSpec(BuildingKind.ScholarsLodge, 1).cost.map(([r, n]) => [r, n] as [number, number]);
+    const cost = levelSpec(BuildingKind.ScholarsLodge, 1).cost.map(([r, n]) => [r === Res.AnyLumber ? Res.SoftwoodLumber : r, n] as [number, number]);
     expect(button(open(cost).c.card(), "Scholar's Lodge").enabled).toBe(true);
     const second = button(open(cost, [building(30, BuildingKind.ScholarsLodge)]).c.card(), "Scholar's Lodge");
     expect(second.enabled).toBe(false);
     expect(second.description).toContain(`${cost[0]![1] * 2} `);
-  });
-
-  it('greys out each earthwork by what one column of it takes: earth, or the ramp steps', () => {
-    const { c } = open([[Res.LumberRamp, 4]]);
-    button(c.card(), 'Defences').run(PRESS);
-    const card = c.card();
-    expect(button(card, 'Earth bank')).toMatchObject({ enabled: false, reason: 'Not enough earth (needs 1, you have 0).' });
-    expect(button(card, 'Lumber ramp').enabled).toBe(true);
-    expect(button(card, 'Stone ramp').reason).toMatch(/^Not enough stone ramp step/);
   });
 
   it('asks the sim on a click while greyed out, with the selected workers', () => {

@@ -175,7 +175,7 @@ describe('research and the forge', () => {
     expect(pool[Res.CopperIngot]).toBe(1);
   });
 
-  it('smelts metals and makes charcoal, bricks, glass and gunpowder, each at its main base level (Patch 2: no Forge levels)', () => {
+  it('smelts metals and makes charcoal, bricks, glass and gunpowder, each at its main base tier (Patch 2: no Forge levels)', () => {
     const s = createWorld(1, { peaceful: true });
     const forge = built(s, BuildingKind.Forge);
     const goods = [Res.CopperIngot, Res.TinIngot, Res.BronzeIngot, Res.WroughtIron, Res.PigIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Charcoal, Res.Bricks, Res.Glass, Res.Gunpowder];
@@ -191,7 +191,7 @@ describe('research and the forge', () => {
       'Copper ingot', 'Tin ingot', 'Bronze ingots (10)', 'Wrought iron', 'Pig iron', 'Iron ingot', 'Steel ingot', 'Carbon steel ingot',
       'Charcoal (3)', 'Bricks (4)', 'Glass', 'Gunpowder',
     ]);
-    // Copper from the start, wrought iron and charcoal at main base 3, pig iron at 5, steel at 7.
+    // Copper from the start, wrought iron and charcoal at main base tier 2, pig iron and steel at tier 3 (Patch 5: levels 3, 5 and 7 before).
     const pool = s.players[0]!.pool;
     pool[Res.CopperOre] = 10;
     pool[Res.BogIron] = 10;
@@ -205,14 +205,14 @@ describe('research and the forge', () => {
       return productProblem(s, forge, recipe(name));
     };
     expect(need(1, 'Copper ingot')).toBe('');
-    expect(need(1, 'Wrought iron')).toBe('Needs a level 3 main base.');
-    expect(need(1, 'Charcoal (3)')).toBe('Needs a level 3 main base.');
-    expect(need(3, 'Wrought iron')).toBe('');
-    expect(need(3, 'Charcoal (3)')).toBe('');
-    expect(need(3, 'Pig iron')).toBe('Needs a level 5 main base.');
-    expect(need(5, 'Pig iron')).toBe('');
-    expect(need(5, 'Steel ingot')).toBe('Needs a level 7 main base.');
-    expect(need(7, 'Steel ingot')).toBe('');
+    expect(need(1, 'Wrought iron')).toBe('Needs a tier 2 main base.');
+    expect(need(1, 'Charcoal (3)')).toBe('Needs a tier 2 main base.');
+    expect(need(2, 'Wrought iron')).toBe('');
+    expect(need(2, 'Charcoal (3)')).toBe('');
+    expect(need(2, 'Pig iron')).toBe('Needs a tier 3 main base.');
+    expect(need(2, 'Steel ingot')).toBe('Needs a tier 3 main base.');
+    expect(need(3, 'Pig iron')).toBe('');
+    expect(need(3, 'Steel ingot')).toBe('');
   });
 
   it('smelts wrought iron from bog iron at the Forge with no workers, at the crafting pace', () => {
@@ -247,7 +247,7 @@ describe('the Workshop (Patch 2: the tannery, lumber mill and herbalist hut in o
     const tannery = built(s, BuildingKind.Workshop);
     const pool = s.players[0]!.pool;
     pool[Res.Hides] = 4;
-    for (const name of ['Leather', 'Hardened leather', 'Rope', 'Planks from softwood', 'Bandage', 'Healing remedy']) expect(productsOf(tannery)).toContain(recipe(name));
+    for (const name of ['Leather', 'Hardened leather', 'Rope', 'Planks', 'Bandage', 'Healing remedy']) expect(productsOf(tannery)).toContain(recipe(name));
     run(s, 1, [{ kind: 'produce', player: 0, building: tannery.id, product: recipe('Leather'), count: 4 }]);
     expect(pool[Res.Hides]).toBe(0);
     runUntil(s, () => pool[Res.Leather]! >= 4, 4000);
@@ -504,7 +504,7 @@ describe('mining', () => {
     const store = s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.Storehouse)!;
     expect([shaft.complete, store.complete]).toEqual([true, true]);
     expect(store.x).toBeGreaterThan(shaft.x);
-    expect(base.level).toBeGreaterThanOrEqual(4);
+    expect(base.level).toBeGreaterThanOrEqual(3);
     expect(s.players[0]!.research & (1 << Research.DeepMining1)).not.toBe(0);
     // A worker assigned to it goes down the shaft.
     const [a] = workers(s);
@@ -526,7 +526,7 @@ describe('carts and tools (Troops and gear: workers)', () => {
     const texts: string[] = [];
     step(s, [{ kind: 'cart', player: 0, units: [a!], back: 0 }]);
     texts.push(...s.events.map((ev) => ev.text));
-    expect(texts).toContain('No cart in stock. Carts are made at the Workshop: hand carts from main base level 3, ox and horse carts from level 5.');
+    expect(texts).toContain('No cart in stock. Carts are made at the Workshop: hand carts from main base tier 2, ox and horse carts from tier 3.');
     expect(e.queue[ia]!.length).toBe(0);
     // One in stock and two workers asking: the first takes it.
     pool[Res.HandCart] = 1;

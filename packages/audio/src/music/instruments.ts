@@ -1,5 +1,5 @@
 // Music instruments. Each adds one note into a mono layer buffer.
-import { Biquad, OnePole, Saw, TAU, jitter, samples, white } from '../dsp/core.ts';
+import { Biquad, OnePole, Saw, TAU, samples, white } from '../dsp/core.ts';
 import { addModes, addNoise, addThud, pluckString, renderBrass, type GenContext } from '../sfx/generators.ts';
 
 export type NoteFn = (ctx: GenContext, out: Float32Array, at: number, freq: number, len: number, vel: number) => void;
@@ -65,21 +65,6 @@ const bass: NoteFn = (ctx, out, at, freq, len, vel) => {
   }
 };
 
-/** Driven bass for the blood night. */
-const growlBass: NoteFn = (ctx, out, at, freq, len, vel) => {
-  const { sr } = ctx;
-  const start = Math.round(at * sr);
-  const n = Math.min(out.length - start, samples(len + 0.08, sr));
-  const saw = new Saw(ctx.rng());
-  const lp = new Biquad('lowpass', freq * 6, 2, sr);
-  for (let i = 0; i < n; i++) {
-    const t = i / sr;
-    const env = Math.min(1, t / 0.004) * (t < len ? 0.6 + 0.4 * Math.exp(-t / 0.08) : Math.max(0, 1 - (t - len) / 0.08) * 0.6);
-    if ((i & 15) === 0) lp.set(freq * (2 + 6 * Math.exp(-t / 0.07)), 2);
-    out[start + i] = out[start + i]! + Math.tanh(lp.process(saw.next(freq, sr)) * 2.2) * env * vel * 0.5;
-  }
-};
-
 /** Bells and chimes: inharmonic struck partials. */
 const bell: NoteFn = (ctx, out, at, freq, _len, vel) => {
   addModes(ctx, out, at, { freqs: [freq, freq * 2.01, freq * 3.02, freq * 4.17, freq * 5.43], decays: [1.2, 0.7, 0.4, 0.22, 0.12], amps: [1, 0.5, 0.3, 0.2, 0.1] }, vel * 0.5);
@@ -105,29 +90,8 @@ const flute: NoteFn = (ctx, out, at, freq, len, vel) => {
 
 /** Brass, shared with the horns. */
 const brass: NoteFn = (ctx, out, at, freq, len, vel) => renderBrass(ctx, out, at, freq, len, 0.45, vel * 0.5);
-const brightBrass: NoteFn = (ctx, out, at, freq, len, vel) => renderBrass(ctx, out, at, freq, len, 0.9, vel * 0.45);
 
-/** A wordless choir: several detuned voices through "ah" formants. */
-const choir: NoteFn = (ctx, out, at, freq, len, vel) => {
-  const { sr, rng } = ctx;
-  const start = Math.round(at * sr);
-  const release = 1;
-  const attack = Math.min(0.5, len * 0.4);
-  const n = Math.min(out.length - start, samples(len + release, sr));
-  const voices = [0, 1, 2, 3].map(() => ({ s: new Saw(rng()), d: jitter(rng, 1, 0.006), ph: rng() * TAU }));
-  const formants = [[700, 1, 10], [1150, 0.5, 12], [2600, 0.25, 15]].map(([f, g, q]) => ({ f: new Biquad('bandpass', f!, q!, sr), g: g! }));
-  for (let i = 0; i < n; i++) {
-    const t = i / sr;
-    const env = t < attack ? t / attack : t < len ? 1 : Math.max(0, 1 - (t - len) / release);
-    let x = 0;
-    for (const v of voices) x += v.s.next(freq * v.d * (1 + 0.005 * Math.sin(v.ph + TAU * 5 * t)), sr);
-    let y = 0;
-    for (const f of formants) y += f.f.process(x) * f.g;
-    out[start + i] = out[start + i]! + y * env * vel * 0.5;
-  }
-};
-
-export const INSTRUMENTS = { lute, pad, darkPad, bass, growlBass, bell, flute, brass, brightBrass, choir } as const;
+export const INSTRUMENTS = { lute, pad, darkPad, bass, bell, flute, brass } as const;
 export type InstrumentId = keyof typeof INSTRUMENTS;
 
 // ---------------------------------------------------------------- drums
@@ -140,11 +104,6 @@ export const DRUMS: Record<string, DrumFn> = {
   K: (ctx, out, at, vel) => {
     addThud(ctx, out, at, 115, 45, 0.28, vel);
     addNoise(ctx, out, at, { lp: 1200, decay: 0.025, gain: vel * 0.4 });
-  },
-  // Huge boom for the blood night.
-  B: (ctx, out, at, vel) => {
-    addThud(ctx, out, at, 80, 30, 0.55, vel * 1.1);
-    addNoise(ctx, out, at, { lp: 600, decay: 0.08, gain: vel * 0.5 });
   },
   // Low and high toms.
   T: (ctx, out, at, vel) => {
@@ -166,11 +125,6 @@ export const DRUMS: Record<string, DrumFn> = {
   },
   // Shaker.
   s: (ctx, out, at, vel) => addNoise(ctx, out, at, { hp: 5000, attack: 0.012, decay: 0.035, gain: vel * 0.35 }),
-  // Snare-ish rattle drum.
-  S: (ctx, out, at, vel) => {
-    addThud(ctx, out, at, 210, 175, 0.06, vel * 0.5);
-    addNoise(ctx, out, at, { bp: 2600, q: 0.7, decay: 0.09, gain: vel * 0.7 });
-  },
 };
 
 function addAt(out: Float32Array, src: Float32Array, at: number, sr: number): void {

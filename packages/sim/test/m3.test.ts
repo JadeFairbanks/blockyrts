@@ -149,7 +149,7 @@ function insideSpots(s: SimState): Array<[number, number]> {
   return [[b.x - 2, b.z + 7], [b.x + 15, b.z + 7], [b.x + 7, b.z - 2], [b.x + 7, b.z + 15], [b.x - 2, b.z - 2], [b.x + 15, b.z + 15], [b.x + 15, b.z - 2], [b.x - 2, b.z + 15]];
 }
 
-/** Brings every unit inside the ring line, then closes a softwood wall ring round the Big House (resource props are cleared for it). */
+/** Brings every unit inside the ring line, then closes a wooden wall ring round the Big House (resource props are cleared for it). */
 function fenceIn(s: SimState): void {
   const spots = insideSpots(s);
   run(s, 900, ownIds(s).map((id, n) => ({ kind: 'move', player: 0, units: [id], x: centre(spots[n]![0]), z: centre(spots[n]![1]) }) as Order));
@@ -170,10 +170,10 @@ function toNight(s: SimState, night: number): void {
 }
 
 describe('night 0', () => {
-  it('is survived by the three starting warriors and four workers behind a softwood fence', () => {
+  it('is survived by the three starting warriors and four workers behind a wooden fence', () => {
     const s = createWorld(1);
     const e = s.entities;
-    // Close melee with hardwood cudgels and no armour (Troops and gear: starting units).
+    // Close melee with wooden cudgels and no armour (Troops and gear: starting units).
     for (const i of [4, 5, 6]) {
       expect(e.troop[i]).toBe(Troop.Close);
       expect(e.weapon[i]).toBe(CLOSE_GEAR[1]);
@@ -321,7 +321,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const pool = s.players[0]!.pool;
     giveResearch(s, Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets);
     built(s, BuildingKind.Forge);
-    mainBaseAt(s, 7);
+    mainBaseAt(s, 3);
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.SoftwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.Feathers, Res.Rope]) pool[r] = 50;
     for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 20;
     pool[Res.Venison] = 200;
@@ -369,8 +369,8 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     built(s, BuildingKind.Forge);
     expect(productProblem(s, barracks, troopProduct(Troop.Close, 3, 0))).toBe('');
     expect(productProblem(s, barracks, troopProduct(Troop.Long, 4, 0))).toBe('Needs Bronze researched first.');
-    // Patch 2: wrought iron comes at main base level 3, not a Bloomery.
-    expect(productProblem(s, barracks, troopProduct(Troop.Ranger, 5, 0))).toBe('Needs a level 3 main base.');
+    // Patch 2: wrought iron comes with the main base, not a Bloomery (Patch 5: at tier 2).
+    expect(productProblem(s, barracks, troopProduct(Troop.Ranger, 5, 0))).toBe('Needs a tier 2 main base.');
     // Nothing affordable at a tier: the panel's default drops to the best the stock pays for.
     giveResearch(s, Research.Bronze);
     expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1 });
@@ -381,7 +381,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const pool = s.players[0]!.pool;
     giveResearch(s, Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets);
     built(s, BuildingKind.Forge);
-    mainBaseAt(s, 7);
+    mainBaseAt(s, 3);
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.CopperIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 50;
     const base = bigHouse(s)!;
     expect(troopTypesAt(base)).toEqual([Troop.Close, Troop.Long, Troop.Ranger]);
@@ -418,7 +418,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const food = foodQuarters(player);
     const used = supplyUsed(s, 0);
     run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
-    // A hardwood cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
+    // A wooden cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
     expect(kit()).toEqual([before[0]! - 3, before[1]! - 4, before[2]! - 3]);
     // Exactly 30 food, in quarters: nothing lost to rounding.
     expect(foodQuarters(player)).toBe(food - 30 * 4);
@@ -507,8 +507,10 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
     const e = s.entities;
     const pool = s.players[0]!.pool;
     built(s, BuildingKind.Forge);
-    mainBaseAt(s, 5);
-    // Bronze is not researched, the iron broadsword is 1 ingot short, steel needs main base 7: the best is the wrought iron sword.
+    mainBaseAt(s, 3);
+    // Bronze and Steel are not researched and the iron broadsword is 1 ingot short: the best is the wrought iron sword.
+    // Its 1 lumber comes from the hardwood, the only lumber in stock (Patch 5: either kind pays).
+    pool[Res.SoftwoodLumber] = 0;
     pool[Res.CopperIngot] = 1;
     pool[Res.BronzeIngot] = 2;
     pool[Res.WroughtIron] = 2;
@@ -648,7 +650,6 @@ describe('orders for units that are gone', () => {
       { kind: 'troopLock', player: 0, building: 999, troop: 1, lock: 12 },
       { kind: 'lock', player: 0, units: gone, lock: 1 },
       { kind: 'dig', player: 0, units: gone, x0: 0, z0: 0, x1: 1, z1: 1, level: -4, level2: 0, tunnel: 0 },
-      { kind: 'earthwork', player: 0, units: gone, variant: 0, x0: 0, z0: 0, x1: 1, z1: 1, level: 4, level2: 0, axis: 0 },
     ];
     const before = hashState(s);
     expect(() => step(s, orders)).not.toThrow();

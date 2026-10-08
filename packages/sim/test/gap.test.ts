@@ -136,9 +136,9 @@ describe('early tools by job', () => {
     expect(flint.name).toBe('Flint axe and knife');
     expect(flint.jobs).toBe((1 << ToolJob.Chop) | (1 << ToolJob.Cut));
     expect(TOOL_GEAR[2]![ToolJob.Cut]).toBe(FLINT);
-    // The kit's blow is the tier's (Table 2c: 5), whichever of its tools is in hand.
-    for (const g of [MAUL, HAMMER, FLINT]) expect(toolMelee(g).damage).toBe(5);
-    expect(toolMelee(TOOL_GEAR[1]![ToolJob.Chop]!).damage).toBe(4);
+    // The kit's blow is the tier's (Table 2c's 5, less 2 since Patch 5), whichever of its tools is in hand.
+    for (const g of [MAUL, HAMMER, FLINT]) expect(toolMelee(g).damage).toBe(3);
+    expect(toolMelee(TOOL_GEAR[1]![ToolJob.Chop]!).damage).toBe(2);
     expect(gearSpec(TOOL_GEAR[1]![0]!).jobs).toBe(ALL_JOBS);
     expect(gearSpec(TOOL_GEAR[3]![0]!).jobs).toBe(ALL_JOBS);
     // No flint pick, no flint mallet, no stone axe: the jobs do not overlap.
@@ -228,12 +228,14 @@ describe('early tools by job', () => {
     expect(digRate(Tool.Hardwood, Mat.Stone)).toBe(0);
   });
 
-  it('build and repair 15% faster with a stone hammer than with the hardwood mallet', () => {
+  it('build and repair 15% faster with a stone hammer than with the wooden mallet', () => {
     const work = (hammer: boolean): number => {
       const s = createWorld(1, { peaceful: true });
       const pool = s.players[0]!.pool;
-      pool[Res.SoftwoodLumber] = 100;
-      pool[Res.Stone] = 40;
+      // The Hall (Patch 5's tier 2): 110 lumber, 45 stone and 15 sticks.
+      pool[Res.SoftwoodLumber] = 200;
+      pool[Res.Stone] = 100;
+      pool[Res.Sticks] = 50;
       if (hammer) s.entities.toolBuild[0] = HAMMER;
       const b = bigHouse(s);
       run(s, 1, [{ kind: 'upgrade', player: 0, building: b.id }]);
@@ -256,9 +258,11 @@ describe('early tools by job', () => {
     expect([e.toolChop[0], e.toolBreak[0], e.toolBuild[0], e.toolCut[0]]).toEqual([FLINT, MAUL, HAMMER, FLINT]);
     expect(heldTools(e, 0)).toEqual([FLINT, MAUL, HAMMER]);
     // The worker fights with the kit's blow.
-    expect(workerMelee(e, 0).damage).toBe(5);
-    // Copper tools need a Forge (Patch 2: any Forge, in place of a Casting Hearth): 2 copper ingots and 2 hardwood, half of 35 s beside the nearest Forge or main base.
+    expect(workerMelee(e, 0).damage).toBe(3);
+    // Copper tools need a Forge (Patch 2: any Forge, in place of a Casting Hearth): 2 copper ingots and 2 lumber, half of 35 s beside the nearest Forge or main base.
     pool[Res.CopperIngot] = 2;
+    // Either lumber pays (Patch 5): only hardwood is in stock here.
+    pool[Res.SoftwoodLumber] = 0;
     pool[Res.HardwoodLumber] = 2;
     const said: string[] = [];
     for (let k = 0; k < 2; k++) {

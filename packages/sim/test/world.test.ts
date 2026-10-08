@@ -15,19 +15,16 @@ import {
   createWorld,
   CYCLE_STEPS,
   DIG_LIMIT_UNITS,
-  getTable,
   hashState,
   Mat,
   NO_WATER,
   PROPS,
-  PropShape,
   Res,
   Species,
   speciesSpec,
   Stage,
   step,
   stockCell,
-  Tool,
   Troop,
   revealVision,
   UnitKind,
@@ -308,45 +305,6 @@ describe('stone outcrops (Jade\'s Patch 4)', () => {
     expect(outcrops / loose).toBeGreaterThan(0.3);
     expect(outcrops / loose).toBeLessThan(0.5);
   });
-});
-
-describe('Table 5 records', () => {
-  const table = getTable('5');
-  const col = (name: string): number => table.columns.indexOf(name);
-  // A stone outcrop takes the hardwood digging stick (or a stone maul); copper and tin take a stone maul (Table 2c).
-  // The table's bloom iron is the wrought-iron tier (Troops and gear).
-  const toolText: Record<number, RegExp> = { [Tool.Hardwood]: /^hardwood( digging stick or stone maul \(s\))?$/, [Tool.Stone]: /^stone maul \(s\)$/, [Tool.Flint]: /^flint$/, [Tool.Copper]: /^copper$/, [Tool.Bronze]: /^bronze$/, [Tool.WroughtIron]: /^(bloom|wrought) iron$/ };
-  // Patch 5's props and changed rows have no Table 5 row (the docx is gone): test/patch5-world.test.ts holds their numbers.
-  for (const p of PROPS.filter((q) => q.row !== '')) {
-    it(`${p.name} matches "${p.row}"`, () => {
-      const row = table.rows.find((r) => r[0]!.text === p.row);
-      expect(row, p.row).toBeTruthy();
-      const text = (c: string): string => row![col(c)]!.text;
-      const all = row!.map((c) => c.text).join(' | ');
-      for (const s of p.check) expect(all).toContain(s);
-      if (p.yield === 0) {
-        // Dead trees give no lumber; a carcass or a fish stretch holds what its animal or water gives.
-        expect(text('Yield per node')).toMatch(/no lumber|meat|per 4 m2/);
-        return;
-      }
-      if (!p.check.some((s) => text('Yield per node').includes(s))) expect(parseInt(text('Yield per node'), 10)).toBe(p.yield);
-      if (!p.check.some((s) => text('Per load').includes(s))) expect(parseInt(text('Per load'), 10)).toBe(p.perLoad);
-      if (!p.check.some((s) => text('Time per load').includes(s))) expect(text('Time per load')).toBe(`${p.loadSteps / 20} s`);
-      expect(parseInt(text('Gatherers'), 10)).toBe(p.gatherers);
-      expect(text('Tool needed')).toMatch(toolText[p.tool]!);
-      const regrowth = text('Regrowth');
-      const m = /(\d+) (min|hours|days)/.exec(regrowth);
-      if (!m) {
-        expect(regrowth).toMatch(/^none/);
-        expect(p.regrowSteps).toBe(0);
-      } else {
-        const n = Number(m[1]);
-        const steps = m[2] === 'min' ? n * 60 * 20 : m[2] === 'hours' ? n * 3600 * 20 : n * CYCLE_STEPS;
-        expect(p.regrowSteps).toBe(steps);
-        if (p.shape === PropShape.Tree) expect(regrowth.includes('2 seeds') ? 2 : p.seeds).toBe(p.seeds);
-      }
-    });
-  }
 });
 
 describe('terrain edits, water, regrowth and fog', () => {

@@ -121,7 +121,7 @@ function think(state: SimState, f: Faction, i: number, war: boolean): void {
   if (!fighter) {
     // Villagers: home at dark and at war, else a stroll among their buildings now and then.
     if (e.queue[i]!.length > 0) return;
-    if (war || isDark(state.step, state.blood)) {
+    if (war || isDark(state.step)) {
       toPost(state, i);
       return;
     }
@@ -271,7 +271,7 @@ export function hire(state: SimState, player: number, factionId: number, count: 
     state.events.push({ player, kind: 'alert', text: 'Bring one of your units within 15 m of the camp to hire.', faction: f.id });
     return;
   }
-  if (isDark(state.step, state.blood)) {
+  if (isDark(state.step)) {
     if (speaker >= 0) sayForeign(state, speaker, MERC_LINES.home, true, player, f.id);
     return;
   }
@@ -410,7 +410,7 @@ function groveMana(state: SimState, i: number): void {
 export function updatePeoples(state: SimState): void {
   const e = state.entities;
   const ps = state.peoples;
-  const dark = isDark(state.step, state.blood);
+  const dark = isDark(state.step);
   for (const f of [...ps.factions]) {
     if (f.status === Status.Leaving) {
       if (thinks(state, f.id)) updateLeaving(state, f, LEAVE_STEPS);

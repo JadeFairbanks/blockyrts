@@ -70,7 +70,7 @@ function moverOf(cls: MobClass): Mover {
 /** Whether a building is something mobs come for, rather than a barrier on the way (walls, gates, towers) or a light. */
 export function isGoal(kind: number): boolean {
   const s = buildingSpec(kind);
-  return !s.defence && !s.light && !s.site;
+  return !s.defence && !s.light;
 }
 
 /**

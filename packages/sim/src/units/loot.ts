@@ -468,7 +468,7 @@ export function runLoot(state: SimState, i: number, o: Extract<UnitOrder, { t: '
 
 /** Whether loot may be handed in now: in the dawn or the day. */
 function handingTime(state: SimState): boolean {
-  const p = clockAt(state.step, state.blood).period;
+  const p = clockAt(state.step).period;
   return p === Period.Day || p === Period.Dawn;
 }
 

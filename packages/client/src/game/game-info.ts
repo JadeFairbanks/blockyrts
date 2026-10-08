@@ -262,7 +262,7 @@ export class GameInfo {
     return [...this.buildings.values()].filter((b) => b.owner === this.player && b.kind === BuildingKind.MainBase);
   }
 
-  /** Highest complete main base level the local player has. */
+  /** Highest complete main base tier the local player has. */
   mainBaseLevel(): number {
     let best = 0;
     for (const b of this.mainBases()) if (b.complete && b.level > best) best = b.level;

@@ -814,9 +814,6 @@ body.playing * {
 .clock[data-period='2'] .clock-day {
   color: #9ab4ff;
 }
-.clock.blood .clock-day {
-  color: #ff5a4a;
-}
 .clock.fog .clock-day::after {
   content: ' · fog';
   color: #b8c0c8;

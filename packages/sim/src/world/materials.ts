@@ -1,5 +1,6 @@
-// What the land is made of (Terrain: "soil, sand, gravel, clay, stone, marble,
-// ore-bearing rock and so on"). A material is one byte in a column layer.
+// What the land is made of (Terrain: soil, sand, clay, stone, marble,
+// ore-bearing rock and so on; Patch 5 took gravel out). A material is one
+// byte in a column layer.
 
 export const Mat = {
   Air: 0,
@@ -11,27 +12,24 @@ export const Mat = {
   /** Bog and marsh ground. */
   Mud: 4,
   Sand: 5,
-  Gravel: 6,
-  Clay: 7,
-  Stone: 8,
-  Marble: 9,
-  CopperOre: 10,
-  TinOre: 11,
-  IronRock: 12,
-  VeinIron: 13,
-  Coal: 14,
+  Clay: 6,
+  Stone: 7,
+  Marble: 8,
+  CopperOre: 9,
+  TinOre: 10,
+  IronRock: 11,
+  VeinIron: 12,
+  Coal: 13,
   /** Volcanic ash ground of the Deadlands. */
-  Ash: 15,
+  Ash: 14,
   /** Dark volcanic rock. */
-  Basalt: 16,
+  Basalt: 15,
   /** Dead, grey earth of the Barrens and Deadlands. */
-  DeadEarth: 17,
-  /** Lumber ramp steps laid by workers (Earthworks). */
-  Timber: 18,
+  DeadEarth: 16,
 } as const;
 export type Mat = (typeof Mat)[keyof typeof Mat];
 
-/** How a material digs (Table 10 columns): soil, the loose clay/sand/gravel column, or rock. */
+/** How a material digs (Table 10 columns): soil, the loose clay and sand column, or rock. */
 export const DigClass = { None: 0, Soil: 1, Loose: 2, Rock: 3 } as const;
 export type DigClass = (typeof DigClass)[keyof typeof DigClass];
 
@@ -51,7 +49,6 @@ export const MATERIALS: readonly MaterialInfo[] = [
   { name: 'soil', dig: DigClass.Soil, yields: 'earth', colour: 0x7a5a3a },
   { name: 'mud', dig: DigClass.Soil, yields: 'earth', colour: 0x4f4632 },
   { name: 'sand', dig: DigClass.Loose, yields: 'sand', colour: 0xd8c690 },
-  { name: 'gravel', dig: DigClass.Loose, yields: 'gravel', colour: 0x8e8a82 },
   { name: 'clay', dig: DigClass.Loose, yields: 'clay', colour: 0xa86f4c },
   { name: 'stone', dig: DigClass.Rock, yields: 'stone', colour: 0x8a8c8e },
   { name: 'marble', dig: DigClass.Rock, yields: 'marble', colour: 0xe4e1da },
@@ -63,7 +60,6 @@ export const MATERIALS: readonly MaterialInfo[] = [
   { name: 'ash', dig: DigClass.Soil, yields: 'earth', colour: 0x55504c },
   { name: 'basalt', dig: DigClass.Rock, yields: 'stone', colour: 0x3c3a3a },
   { name: 'dead earth', dig: DigClass.Soil, yields: 'earth', colour: 0x6d6457 },
-  { name: 'timber', dig: DigClass.Loose, yields: 'softwood lumber', colour: 0x9a6a3a },
 ];
 
 export const MATERIAL_COUNT = MATERIALS.length;

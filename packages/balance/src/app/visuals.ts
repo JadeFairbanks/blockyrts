@@ -28,7 +28,6 @@ const ICONS: Record<string, string> = {
   resources: 'M8 1.5 14 4.8v6.4L8 14.5 2 11.2V4.8ZM2 4.8 8 8l6-3.2M8 8v6.5',
   world: 'M1.5 13.5 6 5l3 5 1.5-2.5 4 6ZM4.6 7.7 6 9l1.3-1.4',
   pacing: 'M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2Zm0 2.5V8l2.5 1.8',
-  tables: 'M2 2.5h12v11H2ZM2 6h12M2 9.5h12M6 2.5v11',
   other: 'M3.5 8h.1M8 8h.1M12.5 8h.1',
   tree: 'M2 3.5h4v3H2ZM10 2h4v3h-4ZM10 7h4v3h-4ZM10 12h4v3h-4ZM6 5h2v8.5h2M8 8.5h2M8 3.5h2',
 };

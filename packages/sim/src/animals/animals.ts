@@ -561,7 +561,7 @@ function runWild(state: SimState, i: number): void {
     case Nature.TorchBreaker: {
       const near = nearbyPrey(state, e.x[i]!, e.z[i]!, BADGER_SHY_WU);
       if (near.length > 0) return flee(state, i, near[0]!);
-      if (state.step >= e.abilityAt[i]! && !isDark(state.step, state.blood)) {
+      if (state.step >= e.abilityAt[i]! && !isDark(state.step)) {
         const torch = outlyingTorch(state, e.x[i]!, e.z[i]!);
         if (torch) {
           const [tx, tz] = buildingCentre(torch);
@@ -680,7 +680,7 @@ function runTamed(state: SimState, i: number): void {
   const b = state.buildings.get(e.home[i]!);
   const a = recentAttacker(state, i) >= 0 ? recentAttacker(state, i) : monsterNear(state, i);
   if (a >= 0 && e.inside[i] === 0) return flee(state, i, a);
-  if (isDark(state.step, state.blood) && b) {
+  if (isDark(state.step) && b) {
     const shelter = shelterFor(b);
     if (shelter) {
       if (e.inside[i] === shelter.id) return;
@@ -696,7 +696,7 @@ function runTamed(state: SimState, i: number): void {
     }
   }
   if (e.inside[i] !== 0) {
-    if (isDark(state.step, state.blood)) return;
+    if (isDark(state.step)) return;
     goOutside(state, i);
   }
   if (!b) return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
