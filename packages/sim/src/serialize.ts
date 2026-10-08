@@ -172,11 +172,13 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * the patch's other threads). 20: Jade's mini balance (a building keeps what
  * was paid to start it, for an exact refund of "any lumber"). 21: Patch 4, one
  * bump for the whole patch (its stone outcrops change the land a seed makes, so
- * an older snapshot's land no longer matches its seed). Every patch raises it, and a snapshot
+ * an older snapshot's land no longer matches its seed). 22: Patch 5's foundations
+ * (four main base tiers, no blood nights, no earthworks, ramps or gravel). Every
+ * patch raises it, and a snapshot
  * from any other version is refused, never carried over (Jade, Patch 2: a
  * standing rule).
  */
-export const SNAPSHOT_VERSION = 21;
+export const SNAPSHOT_VERSION = 22;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
