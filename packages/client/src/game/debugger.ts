@@ -4,10 +4,10 @@
 // place any unit from the inventory), a village of any of the peoples, the
 // Elf kingdom shown, every unit to its top rank, and the tools godmode does
 // not cover: heal all, kill the selection, clear the monsters, reveal the
-// land, show all, the coming night as a blood night or a fog night, a late
-// night's wave, and (alone) the game's speed. Each acts at the middle of the
-// view, through the sim as an order, so it is in the hash and online reaches
-// every player. A dev build keeps the old tester tools beside them.
+// land, show all, fog for the coming night, a late night's wave, and (alone)
+// the game's speed. Each acts at the middle of the view, through the sim as
+// an order, so it is in the hash and online reaches every player. A dev
+// build keeps the old tester tools beside them.
 import { DebugThreat, DebugTool, FactionKind, WAVE_NIGHTS, WU_PER_METRE, type Order } from '@blockyrts/sim';
 import type { GameShell } from '../hud/shell.ts';
 import { entityIdOf } from '../selection/types.ts';
@@ -80,10 +80,9 @@ export function addDebugger(shell: GameShell, world: WorldView, PLAYER: number, 
     shell.buttons.get('dbg-all')?.setLit(world.showingAll);
   });
   const threat = (what: number): void => order({ kind: 'debugThreat', player: PLAYER, what, ...focus() });
-  add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
   add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
   let wave = 0;
-  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player, no blood night) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105.', () => {
+  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105.', () => {
     threat(DebugThreat.Wave + wave);
     wave = (wave + 1) % WAVE_NIGHTS.length;
     shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);

@@ -3315,8 +3315,9 @@ packages/client/test/patch5-debugger.test.ts` cover the same ground headless.
    rank** raises every unit of yours to its top rank; **Heal all** heals your
    units and mends your buildings; **Kill selected** kills the selection;
    **Clear monsters** removes every monster within 60 m of the middle of the
-   view. **Reveal**, **Show all**, **Blood night**, **Fog**, **Wave** and
-   (offline) **Speed** work as before.
+   view. **Reveal**, **Show all**, **Fog**, **Wave** and (offline)
+   **Speed** work as before (blood nights leave the game in Patch 5, and
+   their button with them).
 
 ## License
 
