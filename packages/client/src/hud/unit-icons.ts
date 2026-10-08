@@ -54,7 +54,6 @@ export function modelIconFile(model: string): string {
 /** A building's picture by kind and level (the main base's tiers). */
 export function buildingIconFile(kind: number, level: number): string {
   const l = Math.max(1, level);
-  const tier = (base: string, most: number): string => `icon_${base}${Math.min(l, most)}`;
   switch (kind) {
     case BuildingKind.MainBase:
       // Patch 5: four tiers, each drawn as the old level it stands on.

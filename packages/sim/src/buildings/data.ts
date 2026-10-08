@@ -148,7 +148,6 @@ const mainBase = (name: string, cost: Cost, ws: number, health: number, supply: 
 
 /** Research steps buildings need (the same numbers as combat/items.ts Research). */
 const DEEP_MINING_1 = 3;
-const BRONZE = 2;
 
 /** A wall column (Table 4): 1 x 1, 3 m tall (stone 3.6 m). */
 /** 360 as '3.6', 300 as '3'. */

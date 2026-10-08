@@ -39,7 +39,7 @@ import { RECIPE_PRODUCT, RESEARCH_PRODUCT, type Building, type Product } from '.
 import { hasResearch, RESEARCH, type Research } from '../combat/items.ts';
 import { eatableFood } from '../economy/food.ts';
 import { haveOf, payAny } from '../economy/food-kinds.ts';
-import { costText, FOODS, pay, RESOURCES, type Cost } from '../economy/resources.ts';
+import { costText, FOODS, pay, Res, RESOURCES, type Cost } from '../economy/resources.ts';
 import { ceilDiv, floorDiv, length2d, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder, GreyedOrder } from '../orders.ts';
 import { say, sayBuilding } from '../peoples/speech.ts';
@@ -463,9 +463,11 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
       };
     }
     case 'res': {
-      const name = RESOURCES[need.res]!.name.toLowerCase();
-      if (!need.made && NODE_RES.has(need.res)) {
-        const w = gatherer(state, player, new Map([[need.res, 1000]]), ax, az, used);
+      // Lumber of either kind (Patch 5): the worker fells softwood, the trees round every base.
+      const res = need.res === Res.AnyLumber ? Res.SoftwoodLumber : need.res;
+      const name = RESOURCES[res]!.name.toLowerCase();
+      if (!need.made && NODE_RES.has(res)) {
+        const w = gatherer(state, player, new Map([[res, 1000]]), ax, az, used);
         if (w >= 0) {
           return {
             ask: {
@@ -473,7 +475,7 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
               building: false,
               q: GreyAsk.Gather,
               units: [e.id[w]!],
-              res: need.res,
+              res,
               text: `We need ${amount(need.res, need.n, true)}${forText(need.for)}. Shall I go and gather some?`,
               yes: `It gathers ${name} from the nearest place it can walk back from before nightfall, and keeps at it. Takes nothing from the stock.`,
               no: 'It carries on with what it was doing.',
@@ -510,8 +512,8 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
         }
       }
       // On the land, but no worker's tools can work it (copper ore before a stone maul): better tools first.
-      if (!need.made && NODE_RES.has(need.res)) {
-        const t = toolsAsk(state, player, need, ax, az, used);
+      if (!need.made && NODE_RES.has(res)) {
+        const t = toolsAsk(state, player, { ...need, res }, ax, az, used);
         if (t.ask || t.deeper.length > 0) return t;
       }
       return first ? { ask: null, deeper: productNeeds(state, first.b, first.product, player) } : none;

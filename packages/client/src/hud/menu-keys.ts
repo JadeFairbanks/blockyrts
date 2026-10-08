@@ -132,14 +132,20 @@ export function menuLetters(names: readonly string[]): string[] {
   });
 }
 
-/** The buildings with a K menu, in the build menu's order. */
-const MAKERS: readonly number[] = BUILDINGS.filter((b) => b.slot > 0 && makeList(b.kind).length > 0)
+/** The buildings with a K menu, in the build menu's order (Patch 5: not one that makes a single good, which is on its card as Make rope or Make sticks). */
+const MAKERS: readonly number[] = BUILDINGS.filter((b) => b.slot > 0 && makeList(b.kind).length > 0 && !makesOne(b.kind))
   .sort((a, b) => a.slot - b.slot)
   .map((b) => b.kind);
 
 /** The products of a building kind's K menu, in its order: everything it makes but workers, troops and mages. */
 export function makeList(kind: number): number[] {
   return productsOf({ kind, complete: true, level: 1 } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+}
+
+/** Whether a building kind makes one good and no research, so its card has Make <good> on K and no menu (Patch 5). */
+export function makesOne(kind: number): boolean {
+  const list = makeList(kind);
+  return list.length === 1 && productSpec(list[0]!).recipe !== undefined;
 }
 
 /** Every K menu's default letters, by binding name. */
