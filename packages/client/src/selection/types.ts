@@ -31,19 +31,22 @@ export interface SelectableSource {
 export type GroundPicker = (ray: THREE.Raycaster) => THREE.Vector3 | null;
 
 export interface MinimapSource {
-  /** World-space rectangle (metres) the minimap should show: the explored bounds, never smaller than 300 m a side. */
+  /** World-space rectangle (metres) of all the land the minimap could show: the explored bounds, never smaller than 300 m a side. */
   bounds(): { minX: number; minZ: number; maxX: number; maxZ: number };
-  /** Called when the minimap needs a redraw; paint explored land into ctx, which is already transformed so 1 unit = 1 metre in world x/z. */
-  paint(ctx: CanvasRenderingContext2D): void;
+  /** Called when the minimap needs a redraw; paint explored land into ctx, which is already transformed so 1 unit = 1 metre in world x/z. `shown` is the part of the land the minimap shows. */
+  paint(ctx: CanvasRenderingContext2D, shown?: { minX: number; minZ: number; maxX: number; maxZ: number }): void;
   /** A counter that increases whenever paint would draw something different. */
   version(): number;
   /**
    * Paints what moves over the land, a few times a second: units and
    * buildings in their owner's colour, enemies in sight in red, then the
    * marks (lairs, villages, peoples). Same transform as paint; `dpr` device
-   * pixels make one CSS pixel.
+   * pixels make one CSS pixel. `shown` is the part of the land the minimap
+   * shows: marks off it are pinned to its edge.
    */
-  paintThings?(ctx: CanvasRenderingContext2D, dpr: number): void;
+  paintThings?(ctx: CanvasRenderingContext2D, dpr: number, shown?: { minX: number; minZ: number; maxX: number; maxZ: number }): void;
+  /** The camera's focus (metres), which the minimap follows over land too big to show whole (Patch 5 BG-5). */
+  focus?(): { x: number; z: number } | null;
 }
 
 /** The world rectangle the camera focus may move in, metres. */

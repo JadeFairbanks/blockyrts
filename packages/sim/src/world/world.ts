@@ -7,6 +7,7 @@
 // (Technology, World generation and terrain; technical decision 5).
 
 import { COLUMNS_PER_CHUNK, floorDiv, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import { standLevel, waterFlag } from '../nav/grid.ts';
 import {
   CHUNK_SHIFT,
   chunkKey,
@@ -23,6 +24,11 @@ import { hash2 } from './noise.ts';
 import { fishAt, growth, growthStages, isFish, isTree, propInfo, PROPS, Stage } from './props.ts';
 
 const N = COLUMNS_PER_CHUNK;
+/** A column and its four sides; the four sides alone. */
+const AROUND = [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+const SIDES = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+/** Walk-map changes remembered per chunk (navChangesSince); a cache further behind redoes the whole chunk. */
+const NAV_LOG_MAX = 512;
 /** Generated chunks kept in memory (technical decision 5: 2,048, least recently used first out). */
 export const CHUNK_CACHE_BUDGET = 2048;
 /** Fog tiles: 4 x 4 columns (1.8 m), 16 x 16 per chunk, one bit each. */
@@ -130,6 +136,16 @@ export class World {
   builtOn: ((x: number, z: number) => boolean) | null = null;
   /** Not state: bumped with every walk-map version, so a cache can tell nothing changed at all with one compare. */
   navEpoch = 0;
+  /**
+   * Not state: per chunk, the column behind each of its recent walk-map
+   * versions (-1 for the whole chunk), from the version after `base` on, so a
+   * cache a few versions behind can redo only what those columns touch
+   * (navChangesSince).
+   */
+  private readonly navLog = new Map<number, { base: number; cols: number[] }>();
+  /** Not state: the generated chunk asked for last. */
+  private lastKey = Number.NaN;
+  private last: { columns: ChunkColumns; props: PropRecord[] } | null = null;
 
   constructor(seed: number, players: number) {
     this.seed = seed >>> 0;
@@ -143,18 +159,23 @@ export class World {
   /** The generated chunk, from the cache or freshly made. */
   generated(cx: number, cz: number): { columns: ChunkColumns; props: PropRecord[] } {
     const key = chunkKey(cx, cz);
+    // The chunk asked for last is the most recently used already: no need to move it up again
+    // (water flow asks for a column's chunk several times per column).
+    if (key === this.lastKey && this.last) return this.last;
     let g = this.cache.get(key);
     if (g) {
       this.cache.delete(key);
       this.cache.set(key, g);
-      return g;
+    } else {
+      g = this.gen.generateChunk(cx, cz);
+      this.cache.set(key, g);
+      if (this.cache.size > CHUNK_CACHE_BUDGET) {
+        const oldest = this.cache.keys().next().value!;
+        this.cache.delete(oldest);
+      }
     }
-    g = this.gen.generateChunk(cx, cz);
-    this.cache.set(key, g);
-    if (this.cache.size > CHUNK_CACHE_BUDGET) {
-      const oldest = this.cache.keys().next().value!;
-      this.cache.delete(oldest);
-    }
+    this.lastKey = key;
+    this.last = g;
     return g;
   }
 
@@ -318,9 +339,9 @@ export class World {
       c.water[l.i] = wl > oldTop * WATER_PER_UNIT ? wl + (top - oldTop) * WATER_PER_UNIT : NO_WATER;
       this.waterMoved.add(key);
     }
-    for (const [dx, dz] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const) this.waterActive.add(colKey(x + dx, z + dz));
+    for (const [dx, dz] of AROUND) this.waterActive.add(colKey(x + dx, z + dz));
     this.dirty.add(key);
-    this.touchNav(key);
+    this.touchNav(key, l.i);
     // Scenery and props on a dug or built column go.
     this.removePropsOn(l.cx, l.cz, l.i);
     return true;
@@ -363,29 +384,64 @@ export class World {
   private setWater(x: number, z: number, w: number): void {
     const l = this.locate(x, z);
     const c = this.editable(l.cx, l.cz);
-    if (c.water[l.i] === w) return;
+    const was = c.water[l.i]!;
+    if (was === w) return;
     c.water[l.i] = w;
     const key = chunkKey(l.cx, l.cz);
     this.waterMoved.add(key);
     this.dirty.add(key);
-    this.touchNav(key);
+    // Only a change the walk map can see makes it out of date: flowing water
+    // moves a 32nd at a time on many columns every step, and touching the walk
+    // map for each threw away the walk maps, the coarse crossings and the
+    // monsters' town fields round it over and over (the late-night lag,
+    // Patch 5 BG-2).
+    const top = c.top(l.i);
+    if (waterFlag(top, was) !== waterFlag(top, w) || standLevel(top, was) !== standLevel(top, w)) this.touchNav(key, l.i);
   }
 
-  /** Marks a chunk's walk map out of date (land, water or a building changed). */
-  touchNav(key: number): void {
-    this.navVersions.set(key, (this.navVersions.get(key) ?? 0) + 1);
+  /** Marks a chunk's walk map out of date (land, water or a building changed): at one column (a local index), or all of it (-1). */
+  touchNav(key: number, col = -1): void {
+    const v = (this.navVersions.get(key) ?? 0) + 1;
+    this.navVersions.set(key, v);
     this.navEpoch++;
+    let log = this.navLog.get(key);
+    if (!log) {
+      log = { base: v - 1, cols: [] };
+      this.navLog.set(key, log);
+    }
+    log.cols.push(col);
+    if (log.cols.length > NAV_LOG_MAX) {
+      const drop = log.cols.length - (NAV_LOG_MAX >> 1);
+      log.cols.splice(0, drop);
+      log.base += drop;
+    }
+  }
+
+  /**
+   * The columns whose walk-map data changed in a chunk since a version of it,
+   * as global x, z pairs (a column may come more than once); null when that
+   * is not known: too many versions ago, or a change to the whole chunk (a
+   * building's marks).
+   */
+  navChangesSince(key: number, version: number): number[] | null {
+    const now = this.navVersion(key);
+    if (version === now) return [];
+    const log = this.navLog.get(key);
+    if (!log || version < log.base || version > now) return null;
+    const x0 = chunkKeyX(key) * N;
+    const z0 = chunkKeyZ(key) * N;
+    const out: number[] = [];
+    for (let j = version - log.base; j < log.cols.length; j++) {
+      const i = log.cols[j]!;
+      if (i < 0) return null;
+      out.push(x0 + (i % N), z0 + floorDiv(i, N));
+    }
+    return out;
   }
 
   /** The walk-map version of a chunk. */
   navVersion(key: number): number {
     return this.navVersions.get(key) ?? 0;
-  }
-
-  private isSource(x: number, z: number): { source: boolean; level: number } {
-    const l = this.locate(x, z);
-    const g = this.generated(l.cx, l.cz).columns;
-    return { source: g.source[l.i] === 1, level: g.water[l.i]! };
   }
 
   /**
@@ -402,26 +458,51 @@ export class World {
     const work = keys.slice(0, WATER_BUDGET);
     for (const k of work) this.waterActive.delete(k);
     const wake = (x: number, z: number): void => {
-      for (const [dx, dz] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const) this.waterActive.add(colKey(x + dx, z + dz));
+      for (const [dx, dz] of AROUND) this.waterActive.add(colKey(x + dx, z + dz));
+    };
+    // The columns as they stand and the generated sources (rivers and
+    // streams) of the chunk last looked in, as topAt and waterAt give them,
+    // without a chunk lookup for every read: up to WATER_BUDGET columns a
+    // step, each read several times. Looked up afresh after any change, which
+    // may have made the chunk's own copy.
+    let ck = Number.NaN;
+    let cols: ChunkColumns | null = null;
+    let src: Uint8Array | null = null;
+    const at = (x: number, z: number): number => {
+      const cx = x >> CHUNK_SHIFT;
+      const cz = z >> CHUNK_SHIFT;
+      const key = chunkKey(cx, cz);
+      if (key !== ck) {
+        const g = this.generated(cx, cz).columns;
+        ck = key;
+        cols = this.edited.get(key) ?? g;
+        src = g.source;
+      }
+      return (z - cz * N) * N + (x - cx * N);
     };
     for (const k of work) {
       const x = colKeyX(k);
       const z = colKeyZ(k);
-      const ground = this.topAt(x, z) * WATER_PER_UNIT;
-      const source = this.isSource(x, z);
-      for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
-        const w = this.waterAt(x, z);
+      let i = at(x, z);
+      const ground = cols!.top(i) * WATER_PER_UNIT;
+      const source = src![i] === 1;
+      for (const [dx, dz] of SIDES) {
+        i = at(x, z);
+        const w = cols!.water[i]!;
         if (w === NO_WATER || w <= ground) break;
         const nx = x + dx;
         const nz = z + dz;
-        const nGround = this.topAt(nx, nz) * WATER_PER_UNIT;
-        const nw = this.waterAt(nx, nz);
+        const j = at(nx, nz);
+        const nGround = cols!.top(j) * WATER_PER_UNIT;
+        const nw = cols!.water[j]!;
+        const nSource = src![j] === 1;
         const ln = nw === NO_WATER ? nGround : nw;
         const f = Math.min((w - ln) >> 1, w - ground);
         if (f <= 0) continue;
         // A river or stream keeps its level: its inflow replaces what flows out.
-        if (!source.source) this.setWater(x, z, w - f > ground ? w - f : NO_WATER);
-        if (!this.isSource(nx, nz).source) this.setWater(nx, nz, ln + f);
+        if (!source) this.setWater(x, z, w - f > ground ? w - f : NO_WATER);
+        if (!nSource) this.setWater(nx, nz, ln + f);
+        ck = Number.NaN;
         wake(x, z);
         wake(nx, nz);
       }

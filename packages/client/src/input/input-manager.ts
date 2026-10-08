@@ -153,12 +153,20 @@ export class InputManager {
     document.addEventListener('mouseout', (e) => {
       if (!this.locked && e.relatedTarget === null) {
         this.inWindow = false;
-        this.cursor.show(false);
+        this.syncCursor();
+      }
+    });
+    document.addEventListener('mouseover', (e) => {
+      // The real cursor came back in from outside the window.
+      if (e.relatedTarget === null && !this.touchEcho()) {
+        this.inWindow = true;
+        this.syncCursor();
       }
     });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === document.body;
       if (this.locked) this.inWindow = true;
+      this.syncCursor();
     });
     window.addEventListener('resize', () => this.clampPos());
   }
@@ -181,7 +189,7 @@ export class InputManager {
     const playing = mode === 'game';
     document.body.classList.toggle('playing', playing);
     this.syncTouch();
-    this.cursor.show(playing && this.inWindow && !this.touchOn());
+    this.syncCursor();
     if (!playing) {
       this.releaseAll();
       this.setHover(null, null);
@@ -198,10 +206,21 @@ export class InputManager {
   syncTouch(): void {
     const on = this.touchOn();
     document.body.classList.toggle('touch', on);
-    if (on && this.mode === 'game') {
-      this.cursor.show(false);
-      this.releaseLock();
-    }
+    if (on && this.mode === 'game') this.releaseLock();
+    this.syncCursor();
+  }
+
+  /**
+   * Shows the drawn cursor exactly when it should be: while playing, without
+   * touch controls, with the real cursor in the window or locked. Worked out
+   * from those three every time any of them changes, never switched on or off
+   * by itself, so it cannot be left hidden: the system cursor is hidden while
+   * playing, and the lock coming back after the cursor had left the window
+   * (switching tabs and back) left the drawn one hidden too, with no cursor
+   * at all until the menu was opened and closed (Patch 5 BG-3).
+   */
+  private syncCursor(): void {
+    this.cursor.show(this.mode === 'game' && this.inWindow && !this.touchOn());
   }
 
   /** Asks for the pointer lock if the setting is on; needs a user gesture, and the browser may refuse. */
@@ -259,7 +278,7 @@ export class InputManager {
     this.clampPos();
     if (!this.inWindow) {
       this.inWindow = true;
-      this.cursor.show(this.mode === 'game' && !this.touchOn());
+      this.syncCursor();
     }
   }
 
@@ -271,10 +290,11 @@ export class InputManager {
   private onMove(e: MouseEvent): void {
     if (this.touchEcho()) return;
     if (this.mode !== 'game') {
-      // Outside play, remember where the real cursor is, so the game's cursor starts there.
+      // Outside play, remember where the real cursor is, so the game's cursor starts there; it is in the window.
       if (!this.locked) {
         this.pos.x = e.clientX;
         this.pos.y = e.clientY;
+        this.inWindow = true;
       }
       return;
     }
