@@ -95,11 +95,33 @@ export function keyFor(bindings: Readonly<Record<string, string>>, action: strin
   return bindings[action] ?? DEFAULTS.get(action) ?? '';
 }
 
+/**
+ * The build menu's building kinds as indev 0.9 numbered them, by their names
+ * now: a binding saved then ('build-19-0', the hardwood wall) keeps its
+ * building (Patch 5 cut the earthworks and the ramp, and the numbers after
+ * them closed up). K menu bindings saved then went by recipe numbers that
+ * shifted too; they are dropped, so those buttons are back on their default
+ * letters rather than on another product's.
+ */
+const KINDS_09 = [
+  'MainBase', 'Farm', 'Barn', 'Storehouse', 'FishingDock', 'Workshop', 'Forge', 'ArtilleryWorkshop', 'Barracks', 'MagiSanctum', 'ScholarsLodge', 'Mineshaft',
+  'Wall', 'Gate', 'Tower', 'Earthworks', 'Ramp', 'TorchPost', 'Bonfire', 'WallHardwood', 'WallStone', 'GateHardwood', 'GateStone', 'TowerHardwood', 'TowerStone',
+];
+
+/** A binding name as stored, brought up to date: indev 0.9's numbered build menu names become named ones. */
+function migrateAction(id: string): string {
+  const old = /^build-(\d+)-(\d+)$/.exec(id);
+  if (!old) return id;
+  const name = KINDS_09[Number(old[1])];
+  return name ? `build-${name}-${old[2]}` : id;
+}
+
 /** Keeps only known actions bound to plausible key names. */
 export function sanitizeBindings(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {};
   if (raw === null || typeof raw !== 'object') return out;
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [stored, v] of Object.entries(raw as Record<string, unknown>)) {
+    const k = migrateAction(stored);
     if (DEFAULTS.has(k) && typeof v === 'string' && /^[A-Za-z0-9]{1,20}$/.test(v)) out[k] = v;
   }
   return out;
