@@ -1,7 +1,7 @@
 // Night spawning (Rising difficulty: the night budget and its factors;
 // Table 8: claimed land, the dark edge, light and unit weights, first
-// night, split and picking, first appearance, depth weighting, lairs and
-// the blood night; Threats). As night falls, each player's night is
+// night, split and picking, first appearance, depth weighting and lairs;
+// Threats). As night falls, each player's night is
 // planned: its budget, grown by their town, what they provoked and how
 // deep they stand, is spent on the mobs unlocked so far, and each mob is
 // given a time by how it comes (a wave at once, packs, a trickle, or
@@ -17,9 +17,10 @@
 
 import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, claimShapes, dist2, isLit, type ClaimShapes } from '../buildings/lights.ts';
-import { clockAt, nightLength, Period } from '../clock.ts';
+import { clockAt, Period } from '../clock.ts';
 import { floorDiv, isqrt, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { WALKER } from '../nav/grid.ts';
+import { NIGHT_STEPS } from '../rules.ts';
 import { UnitKind, type PendingSpawn, type SimState } from '../state.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import { addMob, townCentre } from './mob-ai.ts';
@@ -89,12 +90,6 @@ export function unlocked(night: number): Array<[number, number]> {
   return out;
 }
 
-/** A blood night's rarer types (Table 8): the half of tonight's unlocked mobs with the highest threat (ties to the lower id), evenly weighted (s). */
-export function rarer(night: number): Array<[number, number]> {
-  const all = unlocked(night).sort((a, b) => mobSpec(b[0]).threatTenths - mobSpec(a[0]).threatTenths || a[0] - b[0]);
-  return all.slice(0, Math.max(1, (all.length + 1) >> 1)).map(([m]) => [m, 1]);
-}
-
 /** Picks the night's mobs for one player: Night 0's fixed list, else weighted picks until the edge's share of the base budget is spent. */
 export function pickNight(state: SimState, night: number): number[] {
   if (night === 0) {
@@ -150,11 +145,10 @@ interface Planned {
 
 /**
  * The mobs of a player's night (Rising difficulty; Table 8): the base
- * budget times their town and provoked factors (doubled on a blood night,
- * the extra spent on the rarer types), 80% from the dark edge; each of their
- * lairs' own budget out of it (its sleepers' threat, doubled on a blood
- * night); plus the depth weighting's extras drawn from later nights, sent
- * for their deepest asset. Night 0 is its fixed pick only.
+ * budget times their town and provoked factors, 80% from the dark edge;
+ * each of their lairs' own budget out of it (its sleepers' threat); plus
+ * the depth weighting's extras drawn from later nights, sent for their
+ * deepest asset. Night 0 is its fixed pick only.
  */
 export function nightMobs(state: SimState, player: number, night: number): Planned[] {
   const edge = (mob: number): Planned => ({ mob, role: Role.Night, ax: 0, az: 0, src: 0 });
@@ -162,18 +156,15 @@ export function nightMobs(state: SimState, player: number, night: number): Plann
   const base = nightBudgetTenths(night);
   const r = state.threats.dusk[player];
   const total = r ? floorDiv(floorDiv(base * r.townPm, 1000) * r.provokedPm, 1000) : base;
-  const blood = state.blood.includes(night);
   const choices = unlocked(night);
   const count = new Map<number, number>();
   const out: Planned[] = pickMobs(state, floorDiv(total * EDGE_SHARE_PM, 1000), choices, night, count).map(edge);
-  if (blood) out.push(...pickMobs(state, floorDiv(total * EDGE_SHARE_PM, 1000), rarer(night), night, count).map(edge));
-  // Each live lair's own budget: its sleepers' threat (Jade's Patch 3 notes), doubled on a blood night too.
+  // Each live lair's own budget: its sleepers' threat (Jade's Patch 3 notes).
   for (const l of lairsOf(state, player)) {
     const lair = state.entities.mob[l]!;
     const kinds = lairSpawns(lair);
     const own = choices.filter(([m]) => kinds.includes(m));
-    const budget = lairBudgetTenths(lair, night) * (blood ? 2 : 1);
-    for (const mob of pickMobs(state, budget, own.length > 0 ? own : choices, night, count)) out.push({ mob, role: Role.Night, ax: 0, az: 0, src: state.entities.id[l]! });
+    for (const mob of pickMobs(state, lairBudgetTenths(lair, night), own.length > 0 ? own : choices, night, count)) out.push({ mob, role: Role.Night, ax: 0, az: 0, src: state.entities.id[l]! });
   }
   // Depth weighting: deeper assets draw extras from later nights, sent for the deepest of them.
   if (r && r.depthPm > 0) {
@@ -194,7 +185,6 @@ export function planNight(state: SimState, player: number, night: number, start:
   const rng = state.rng.spawns;
   const mobs = nightMobs(state, player, night);
   const out: PendingSpawn[] = [];
-  const length = nightLength(night, state.blood);
   let group = state.spawns.reduce((g, s) => Math.max(g, s.group), 0) + 1;
   const spawn = (at: number, p: Planned, g: number): PendingSpawn => ({ at, mob: p.mob, player, group: g, x: 0, z: 0, placed: 0, role: p.role, ax: p.ax, az: p.az, src: p.src });
   const fromLairs = new Map<number, Planned[]>();
@@ -229,12 +219,12 @@ export function planNight(state: SimState, player: number, night: number, start:
       let k = 0;
       while (k < list.length) {
         const n = Math.min(list.length - k, PACK_MIN + rng.nextInt(PACK_MAX - PACK_MIN + 1));
-        const at = start + rng.nextInt(floorDiv(length * 2, 3));
+        const at = start + rng.nextInt(floorDiv(NIGHT_STEPS * 2, 3));
         const g = group++;
         for (let q = 0; q < n; q++) out.push(spawn(at + q * 5, list[k++]!, g));
       }
     } else {
-      const span = comes === Comes.Trickle ? floorDiv(length * 3, 4) : floorDiv(length, 2);
+      const span = comes === Comes.Trickle ? floorDiv(NIGHT_STEPS * 3, 4) : floorDiv(NIGHT_STEPS, 2);
       for (const p of list) out.push(spawn(start + rng.nextInt(span), p, group++));
     }
   }
@@ -425,7 +415,7 @@ function fallbackPoint(state: SimState, player: number, claims: readonly Claims[
  * has not come yet never does.
  */
 export function updateSpawns(state: SimState): void {
-  const c = clockAt(state.step, state.blood);
+  const c = clockAt(state.step);
   if (c.period === Period.Night && c.into === 0 && !state.peaceful) {
     for (let p = 0; p < state.players.length; p++) {
       if (state.players[p]!.out) continue;

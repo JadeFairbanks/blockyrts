@@ -1,8 +1,7 @@
 // The debug tools' threats (M5's tester checks): a lair of any kind, a
-// goblin village, a tribe's band or a territorial creature at a point, a
-// blood night for the coming night, and fog now. Also M6's mage tools: a
-// finished Magi Sanctum, two mages' kit materials and crystals, and experience for
-// every mage's next rank. And M8's: a Barn with horses (the Stables before
+// goblin village, a tribe's band or a territorial creature at a point, and
+// fog now. Also M6's mage tools: a finished Magi Sanctum, two mages' kit
+// materials and crystals, and experience for every mage's next rank. And M8's: a Barn with horses (the Stables before
 // Patch 2), a siege kit, a
 // gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
 // night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
@@ -30,7 +29,7 @@ import { Mob, mobSpec } from '../combat/mobs.ts';
 import { cellAt } from './cells.ts';
 import { LAIRS } from './data.ts';
 import { addLair, nightNow } from './lairs.ts';
-import { startBlood, startFog } from './nights.ts';
+import { startFog } from './nights.ts';
 import { spawnBand } from './tribes.ts';
 import { buildVillage } from './villages.ts';
 import { spreadTop } from '../units/top.ts';
@@ -54,7 +53,6 @@ export const DebugThreat = {
   Gnolls: 11,
   Kobolds: 12,
   Hobgoblins: 13,
-  BloodNight: 20,
   Fog: 21,
   /** Territorial creatures from 30: beetle, hornet nest, viper, scorpion, griffin, minotaur. */
   Creature: 30,
@@ -116,10 +114,6 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
   }
   if (what >= DebugThreat.Gnolls && what <= DebugThreat.Hobgoblins) {
     spawnBand(state, clockOf(state).cycle, { tribe: TRIBE_MOBS[what - DebugThreat.Gnolls]!, x, z });
-    return;
-  }
-  if (what === DebugThreat.BloodNight) {
-    startBlood(state, comingNight(state), -1);
     return;
   }
   if (what === DebugThreat.Fog) {

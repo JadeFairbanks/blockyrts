@@ -1,20 +1,20 @@
 // What dusk decides about the coming night (Rising difficulty; Table 8;
 // Day and night): each player's difficulty reading (town size, provoked
 // tribes and creatures, how deep their units and buildings stand), whether
-// it is a blood night, whether fog rolls in, the goblin horde that comes for
-// outlying lights over the limit, the new lairs, and the tribes making camp.
+// fog rolls in, the goblin horde that comes for outlying lights over the
+// limit, the new lairs, and the tribes making camp.
 
 import { BuildingKind, buildingSpec, OUTLYING_M } from '../buildings/data.ts';
 import { buildingCentre, isLit, nearMainBase, outlyingLights } from '../buildings/lights.ts';
 import { floorDiv, length2d } from '../fixed.ts';
 import { UnitKind, WILD, type SimState } from '../state.ts';
-import { BAND_NAMES, Band } from '../world/layout.ts';
+import { Band } from '../world/layout.ts';
 import { Nature, speciesSpec } from '../animals/species.ts';
 import { addMob } from '../combat/mob-ai.ts';
 import { Mob } from '../combat/mobs.ts';
 import { edgePointNear } from '../combat/spawn.ts';
-import { bandAtWu, bandCellCount, occupiedCells } from './cells.ts';
-import { BLOOD_FLOOR_NIGHT, BLOOD_SHARE_PM, DEPTH_PM, FOG_CHANCE_PCT, FOG_FROM_NIGHT } from './data.ts';
+import { bandAtWu } from './cells.ts';
+import { DEPTH_PM, FOG_CHANCE_PCT, FOG_FROM_NIGHT } from './data.ts';
 import { placeLairs } from './lairs.ts';
 import { Role, type DuskReading } from './types.ts';
 
@@ -89,32 +89,6 @@ export function readDusk(state: SimState, player: number): DuskReading {
   return { townPm, provokedPm, depthPm: Math.min(DEPTH_CAP_PM, depthPm), ax, az, band, building };
 }
 
-/**
- * The blood night trigger (Jade): the players' claimed cells reach 60% of a
- * band's cells, checked at dusk, never before night 13, once per band, none
- * in the Deadlands. Returns the band that fired, or -1.
- */
-export function bloodBand(state: SimState, night: number): number {
-  if (night < BLOOD_FLOOR_NIGHT) return -1;
-  const layout = state.world.layout;
-  const held = [0, 0, 0, 0, 0];
-  for (const c of occupiedCells(state).keys()) held[layout.cell(c).band]!++;
-  for (let b: number = Band.Heartland; b < Band.Deadlands; b++) {
-    if (state.threats.bloodSpent & (1 << b)) continue;
-    if (held[b]! * 1000 >= BLOOD_SHARE_PM * bandCellCount(layout, b as Band)) return b;
-  }
-  return -1;
-}
-
-/** Makes a night a blood night: it runs twice as long, its band's trigger is spent, and everyone hears the double horn. */
-export function startBlood(state: SimState, night: number, band: number): void {
-  if (!state.blood.includes(night)) state.blood.push(night);
-  state.blood.sort((a, b) => a - b);
-  if (band >= 0) state.threats.bloodSpent |= 1 << band;
-  const where = band >= 0 ? ` The players hold most of the ${BAND_NAMES[band]}.` : '';
-  state.events.push({ player: -1, kind: 'alert', text: `A blood night is coming: it lasts twice as long and brings more of the rarer monsters.${where}`, sound: 'double-horn' });
-}
-
 /** Fog rolls in for the night (Table 8): it clears with the day. */
 export function startFog(state: SimState, night: number): void {
   state.threats.fog = night + 1;
@@ -176,9 +150,7 @@ function outlyingList(state: SimState, player: number): Array<[number, number]> 
 export function atDusk(state: SimState, night: number): void {
   if (state.peaceful) return;
   state.threats.dusk = state.players.map((_, p) => readDusk(state, p));
-  const band = bloodBand(state, night);
-  if (band >= 0) startBlood(state, night, band);
-  else if (night >= FOG_FROM_NIGHT && state.rng.weather.nextInt(100) < FOG_CHANCE_PCT) startFog(state, night);
+  if (night >= FOG_FROM_NIGHT && state.rng.weather.nextInt(100) < FOG_CHANCE_PCT) startFog(state, night);
   duskHorde(state, night);
   placeLairs(state, night);
 }

@@ -500,7 +500,7 @@ function askIdle(state: SimState, book: WorkBook, i: number, w: Wait): void {
  */
 export function updateWorkAsks(state: SimState): void {
   const book = bookOf(state);
-  if (isDark(state.step, state.blood)) {
+  if (isDark(state.step)) {
     book.farms.clear();
     book.sites.clear();
     book.idle.clear();

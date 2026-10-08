@@ -343,7 +343,7 @@ export interface DebugGiveOrder {
   count: number;
 }
 
-/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature, a blood night or fog (threats/debug.ts DebugThreat). */
+/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature or fog (threats/debug.ts DebugThreat). */
 export interface DebugThreatOrder {
   kind: 'debugThreat';
   player: number;
