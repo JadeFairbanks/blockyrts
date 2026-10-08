@@ -1,7 +1,8 @@
-// The main menu (Outside the match): New game, Load game, Join game,
-// Settings, Account and Quit, with the F11 reminder and a Full screen
-// button. Each choice is a page in the same box; the menu ends with a match
-// to play.
+// The main menu (Outside the match): New game, Load game, Join game, How to
+// play, Patch notes (with the newest update's name), Settings, Account and
+// Quit, with the F11 reminder and a Full screen button. Each choice is a
+// page in the same box, except How to Play and the patch notes, which open
+// full-window over it; the menu ends with a match to play.
 import { ApiErrorCode, type RoomStateMessage, type SaveSummary } from '@blockyrts/protocol';
 import type { MatchPlan } from '../game/match.ts';
 import { IS_MAC } from '../input/platform.ts';
@@ -14,8 +15,10 @@ import { MAX_SEED, parseSeed, randomSeed } from '../start/seed.ts';
 import { GAME_VERSION } from '../version.ts';
 import { accountPage } from './account.ts';
 import lobbyMap from './art/lobby-map.webp';
+import { bookFromHash } from './book-links.ts';
 import { button, el, field, input, Screen, status, whenText } from './dom.ts';
 import { lobby } from './lobby.ts';
+import { LATEST_PATCH, latestSeen } from './patch-notes/notes.ts';
 import { supportFacts, supportProblems } from './support.ts';
 
 export interface MenuContext {
@@ -23,8 +26,15 @@ export interface MenuContext {
   settings: Settings;
 }
 
-/** Where the menu opens: the front page, or straight into joining a code (an invite link). */
-export type MenuStart = { page: 'main' } | { page: 'join'; code: string };
+/** Where the menu opens: the front page, straight into joining a code (an invite link), or How to Play or the patch notes (their links). */
+export type MenuStart = { page: 'main' } | { page: 'join'; code: string } | { page: 'how-to-play'; slug: string } | { page: 'patch-notes' };
+
+/** The menu page a link's address (#how-to-play/..., #patch-notes) opens, else the front page. */
+export function menuStartFromHash(hash: string): MenuStart {
+  const at = bookFromHash(hash);
+  if (!at) return { page: 'main' };
+  return at.book === 'patch-notes' ? { page: 'patch-notes' } : { page: 'how-to-play', slug: at.slug };
+}
 
 function failureText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -74,6 +84,10 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
       button(box, 'New game', newGame, 'primary big');
       button(box, 'Load game', load, 'big');
       button(box, 'Join game', () => join(''), 'big');
+      button(box, 'How to play', () => howToPlay(''), 'big');
+      const news = el('div', 'update-row', undefined, box);
+      button(news, 'Patch notes', patchNotes);
+      el('span', `update-mark${latestSeen() ? '' : ' unread'}`, `New update: ${LATEST_PATCH.name}`, news);
       button(box, 'Settings', settingsPage, 'big');
       button(box, 'Account', account, 'big');
       button(box, 'Quit', quit, 'big');
@@ -315,6 +329,14 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
       })();
     };
 
+    // ---- How to Play and the patch notes: full-window screens over the menu, loaded when first opened ----
+    const howToPlay = (slug: string): void => {
+      void import('./how-to-play/page.ts').then(({ howToPlay: open }) => open(app, slug)).then(main, (e: unknown) => console.warn('How to Play did not open', e));
+    };
+    const patchNotes = (): void => {
+      void import('./patch-notes/page.ts').then(({ patchNotes: open }) => open(app)).then(main, (e: unknown) => console.warn('the patch notes did not open', e));
+    };
+
     // ---- Quit ----
     const quit = (): void => {
       window.close();
@@ -325,5 +347,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
 
     if (start.page === 'join') join(start.code);
     else main();
+    if (start.page === 'how-to-play') howToPlay(start.slug);
+    else if (start.page === 'patch-notes') patchNotes();
   });
 }
