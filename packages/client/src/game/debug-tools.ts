@@ -91,7 +91,6 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   });
   cycler('dbg-tribe', 'Tribe', ['Gnolls', 'Kobolds', 'Hobgoblins'], DebugThreat.Gnolls, 'Puts a band of the named hostile tribe (Table 16) in the middle of the view; each press moves on to the next tribe.');
   cycler('dbg-creature', 'Creature', ['Giant beetle', 'Giant hornets', 'Viper', 'Giant scorpion', 'Griffin', 'Minotaur'], DebugThreat.Creature, 'Puts the named territorial creature in the middle of the view; each press moves on to the next.');
-  add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
   add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
   // Milestone 6's mages.
   add('dbg-sanctum', 'Sanctum', 'Debug: Magi Sanctum', 'Puts a finished Magi Sanctum in the middle of the view: it trains support and battle mages, upgrades their wands and robes, and researches Hexcraft.', () => {
@@ -148,7 +147,7 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   });
   cycler('dbg-late', 'Night mob', LATE_MOBS.map((m) => mobSpec(m).name), DebugThreat.LateMob, 'Puts the named night mob (nights 25 to 110, and the Rift-touched beasts) in the middle of the view; each press moves on to the next.');
   let wave = 0;
-  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player, no blood night) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
+  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
     threat(DebugThreat.Wave + wave);
     wave = (wave + 1) % WAVE_NIGHTS.length;
     shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);

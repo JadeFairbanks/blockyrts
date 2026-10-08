@@ -793,15 +793,6 @@
    "delay": 1105,
    "padding": 740
   },
-  "horn_blood_night.0": {
-   "rate": 44100,
-   "channels": 1,
-   "frames": 226851,
-   "pre": 0,
-   "total": 226851,
-   "delay": 1105,
-   "padding": 140
-  },
   "alert_idle_worker.0": {
    "rate": 44100,
    "channels": 1,
@@ -2854,24 +2845,6 @@
    "delay": 1105,
    "padding": 1152
   },
-  "music.blood_night.base": {
-   "rate": 44100,
-   "channels": 2,
-   "frames": 4032000,
-   "pre": 44100,
-   "total": 4120200,
-   "delay": 1105,
-   "padding": 551
-  },
-  "music.blood_night.tension": {
-   "rate": 44100,
-   "channels": 2,
-   "frames": 4032000,
-   "pre": 44100,
-   "total": 4120200,
-   "delay": 1105,
-   "padding": 551
-  },
   "mob.zombie.call.0": {
    "rate": 44100,
    "channels": 1,
@@ -4070,15 +4043,6 @@
    "padding": 695
   },
   "ambience.night.0": {
-   "rate": 44100,
-   "channels": 2,
-   "frames": 2646000,
-   "pre": 44100,
-   "total": 2734200,
-   "delay": 1105,
-   "padding": 695
-  },
-  "ambience.blood_night.0": {
    "rate": 44100,
    "channels": 2,
    "frames": 2646000,

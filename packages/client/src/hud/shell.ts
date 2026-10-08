@@ -582,14 +582,11 @@ export class GameShell {
 
   /** Day N and the time left in the period; Dusk, Night N, Dawn (Day and night: 3 min, 40 s, 3 min, 40 s). */
   private updateClock(step: number): void {
-    const blood = this.game.info?.blood ?? [];
-    const c = clockAt(step, blood);
-    const night = blood.includes(c.cycle) ? 'Blood night' : 'Night';
-    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `${night} ${c.cycle}` : `Dawn · ${night} ${c.cycle}`;
+    const c = clockAt(step);
+    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `Night ${c.cycle}` : `Dawn · Night ${c.cycle}`;
     setText(this.layout.clockDay, name);
     setText(this.layout.clockTime, `${formatClock(c.left / 20)} left`);
     this.layout.clock.dataset.period = String(c.period);
-    this.layout.clock.classList.toggle('blood', blood.includes(c.cycle) && c.period !== Period.Day);
     this.layout.clock.classList.toggle('fog', this.game.info?.fog === true);
   }
 
@@ -608,7 +605,7 @@ export class GameShell {
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
     idleBtn?.setFace(idle > 0 ? `⚒${idle}` : '⚒').setLit(idle > 0);
-    const p = clockAt(info.step, info.blood).period;
+    const p = clockAt(info.step).period;
     this.buttons.get('home')?.setLit(p === Period.Dusk);
     this.buttons.get('rations')?.setLit(info.rations !== 0).setFace(RATIONS_FACES[info.rations] ?? '▤');
     if ((info.over > 0 || info.out) && !this.overShown) this.showGameOver(info);
