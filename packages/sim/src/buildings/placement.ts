@@ -197,10 +197,9 @@ export function buildCost(state: SimState, player: number, kind: number): Cost {
   return levelSpec(kind, 1).cost.map(([r, n]) => [r, n * m] as const);
 }
 
-/** The band of the land under a column. */
+/** The band of the land under a column: by its distance from the nearest main base (Jade's Patch 5, WL-8). */
 export function bandAt(state: SimState, x: number, z: number): Band {
-  const layout = state.world.layout;
-  return layout.cell(layout.nearest(x, z)).band;
+  return state.world.gen.columnBand(x, z);
 }
 
 function hasWater(w: number, top: number): boolean {

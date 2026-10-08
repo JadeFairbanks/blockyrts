@@ -18,7 +18,7 @@ import { WAND_GEAR } from '../units/kits.ts';
 import { addMob, vanish } from '../combat/mob-ai.ts';
 import { MANA_SCALE, School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
-import { CELL_RING_SHIFT, type Cell } from '../world/layout.ts';
+import { Band, CELL_RING_SHIFT, type Cell } from '../world/layout.ts';
 import {
   APART_WU, BAND_SIZE_PCT, CAT_COUNT, ELF_KINGDOM_RING_INTO_DEEPWOODS, FactionKind, GROVESINGER, HALFLING_WAR_OXEN, KEEP_AWAY_WU, KIND_PEOPLE, LAYOUTS, LEANS, MERC_MAX, MERC_MIN,
   MERC_UNITS, ONE_IN, PeopleUnit, peopleUnitSpec, Status,
@@ -317,11 +317,17 @@ export function spotIn(state: SimState, cell: Cell, salt: number, keepAway = KEE
   return null;
 }
 
-/** The Elf kingdom's cell: a seeded place round the ring one in from the Deepwoods' edge. */
+/** The Elf kingdom's cell: a seeded place round the ring one in from the Deepwoods' edge, in a Deepwoods cell. */
 export function elfKingdomCell(state: SimState): number {
   const layout = state.world.layout;
   const ring = Math.min(layout.bands.deepwoods + ELF_KINGDOM_RING_INTO_DEEPWOODS, layout.bands.barrens - 1);
-  const k = hash32(state.seed ^ SALT.kingdom) % layout.ringCellCount(ring);
+  const n = layout.ringCellCount(ring);
+  const k = hash32(state.seed ^ SALT.kingdom) % n;
+  // Since Patch 5 a ring can hold cells of two bands (a cell's band is its site's, WL-8): the first Deepwoods cell from there on.
+  for (let t = 0; t < n; t++) {
+    const id = ring * CELL_RING_SHIFT + ((k + t) % n);
+    if (layout.bandOf(id) === Band.Deepwoods) return id;
+  }
   return ring * CELL_RING_SHIFT + k;
 }
 
@@ -335,9 +341,9 @@ export function elfKingdom(state: SimState): Faction {
 
 /** Whether a Deadlands cell holds a Dwarf city (about 1 in 120, from the seed alone, so a colony can point the way before anyone has been there). */
 export function holdsCity(state: SimState, cellId: number): boolean {
-  // The band from the cell's ring alone: nearestCity asks of every Deadlands cell to the world's edge, twice as
+  // The band at the cell's site alone: nearestCity asks of every Deadlands cell to the world's edge, twice as
   // many since the mini patch brought the rings 30% closer, and working each one out in full took many seconds.
-  const oneIn = ONE_IN.city[state.world.layout.bandOfRing(floorDiv(cellId, CELL_RING_SHIFT))] ?? 0;
+  const oneIn = ONE_IN.city[state.world.layout.bandOf(cellId)] ?? 0;
   return oneIn > 0 && hash32(state.seed ^ SALT.city, cellId) % oneIn === 0;
 }
 
@@ -346,7 +352,8 @@ export function nearestCity(state: SimState, x: number, z: number): number {
   const layout = state.world.layout;
   let best = -1;
   let bestD = 0;
-  for (let r = layout.bands.deadlands; r < layout.ringCount; r++) {
+  // From a ring before the Deadlands' first: a cell takes the band at its own site (Patch 5), so some there are Deadlands.
+  for (let r = Math.max(1, layout.bands.deadlands - 1); r < layout.ringCount; r++) {
     const n = layout.ringCellCount(r);
     for (let k = 0; k < n; k++) {
       const id = r * CELL_RING_SHIFT + k;

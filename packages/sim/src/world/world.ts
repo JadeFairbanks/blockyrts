@@ -16,7 +16,7 @@ import {
   WATER_PER_UNIT,
   type ChunkColumns,
 } from './chunk.ts';
-import { WorldGen, type PropRecord } from './generate.ts';
+import { NATURAL_FLOOR_UNITS, WorldGen, type PropRecord } from './generate.ts';
 import { WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { hash2 } from './noise.ts';
@@ -31,6 +31,22 @@ export const FOG_TILES_PER_CHUNK = 16;
 const FOG_BYTES = (FOG_TILES_PER_CHUNK * FOG_TILES_PER_CHUNK) >> 3;
 /** Dig limit: 3 m below sea level or below the natural ground where that is lower (Terrain, Digging). */
 export const DIG_LIMIT_UNITS = 27;
+/**
+ * A felled tree's seeds take root only this far from every other tree,
+ * metres (Jade's Patch 5, WL-1: forests "become impassable" as the game goes
+ * on; s), so a wood never grows thicker than this.
+ */
+export const SEED_SPACING_M = 4;
+
+/**
+ * How deep digging goes at a column whose natural ground is at `natural`,
+ * terrain units: the dig limit, but never more than 6 m below sea level
+ * (Jade's Patch 5, WL-2: "Players dig depths still have the same limits
+ * unless where it conflicts with the hard cap").
+ */
+export function digFloor(natural: number): number {
+  return Math.max(-NATURAL_FLOOR_UNITS, Math.min(0, natural) - DIG_LIMIT_UNITS);
+}
 /** Water flow work per step, in columns. */
 const WATER_BUDGET = 8192;
 
@@ -252,7 +268,7 @@ export class World {
     for (let z = za; z <= zb; z++) {
       for (let x = xa; x <= xb; x++) {
         let lo = bottom;
-        if (material === Mat.Air) lo = Math.max(lo, Math.min(0, this.naturalTop(x, z)) - DIG_LIMIT_UNITS);
+        if (material === Mat.Air) lo = Math.max(lo, digFloor(this.naturalTop(x, z)));
         if (top <= lo) continue;
         if (this.editColumn(x, z, lo, top, material)) changed++;
       }
@@ -515,6 +531,9 @@ export class World {
       this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: false });
     } else {
       this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: true });
+      // A coal rock's stone, a silver or gold node's, stays where it stood (Jade's Patch 5, WL-4 and WL-7).
+      const left = info.leaves;
+      if (left) this.addProp(cx * N + r.lx, cz * N + r.lz, left.kind, hash2(r.variant, 0x6c656674, 0), left.min + ((r.variant >>> 7) % (left.max - left.min + 1)), step);
     }
     return taken;
   }
@@ -534,7 +553,23 @@ export class World {
     return { cx, cz, i: this.generated(cx, cz).props.length + list.length - 1 };
   }
 
-  /** Felled trees drop seeds around them that grow into saplings (The world, Regrowth). */
+  /** Whether a tree (a seed or bigger) stands within SEED_SPACING_M of a column. */
+  private treeNear(gx: number, gz: number, step: number): boolean {
+    const r = floorDiv(SEED_SPACING_M * 20, 9);
+    for (let cz = (gz - r) >> CHUNK_SHIFT; cz <= (gz + r) >> CHUNK_SHIFT; cz++) {
+      for (let cx = (gx - r) >> CHUNK_SHIFT; cx <= (gx + r) >> CHUNK_SHIFT; cx++) {
+        for (const v of this.props(cx, cz, step)) {
+          if (!isTree(v.kind)) continue;
+          const dx = cx * N + v.lx - gx;
+          const dz = cz * N + v.lz - gz;
+          if (dx * dx + dz * dz <= r * r) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** Felled trees drop seeds around them that grow into saplings (The world, Regrowth), never nearer another tree than SEED_SPACING_M. */
   private dropSeeds(cx: number, cz: number, tree: PropRecord, seeds: number, step: number): void {
     for (let s = 0; s < seeds; s++) {
       const h = hash2(tree.variant, step, s);
@@ -549,7 +584,7 @@ export class World {
       const lz = gz - tcz * N;
       const c = this.columns(tcx, tcz);
       const i = lz * N + lx;
-      if (c.water[i] !== NO_WATER || this.builtOn?.(gx, gz)) continue;
+      if (c.water[i] !== NO_WATER || this.builtOn?.(gx, gz) || this.treeNear(gx, gz, step)) continue;
       const key = chunkKey(tcx, tcz);
       const list = this.addedProps.get(key) ?? [];
       list.push({ kind: tree.kind, lx, lz, y: c.top(i), variant: hash2(h, gx, gz), age: -step, amount: PROPS[tree.kind]!.yield });
