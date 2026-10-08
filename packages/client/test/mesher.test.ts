@@ -111,3 +111,38 @@ describe('generated props', () => {
     }
   });
 });
+
+describe('no void under the world (Patch 5 BG-4)', () => {
+  /** The lowest y (metres) of the quads facing a direction. */
+  const lowest = (m: MeshArrays, nx: number, nz: number): number => {
+    let y = Infinity;
+    for (let q = 0; q < quads(m); q++) {
+      if (Math.sign(m.normals[q * 12]!) !== nx || Math.sign(m.normals[q * 12 + 2]!) !== nz) continue;
+      for (let v = 0; v < 4; v++) y = Math.min(y, m.positions[q * 12 + v * 3 + 1]!);
+    }
+    return y;
+  };
+
+  it('draws a ravine wall all the way down to a floor below the wall’s own lowest layer', () => {
+    // Column 650's east neighbour is a ravine floor at -200, far under the wall's bottom at -36.
+    const c = chunk((i) => (i === 651 ? [[-236, -200, Mat.Stone]] : [[-36, 26, Mat.Stone], [26, 27, Mat.Grass]]));
+    const m = meshChunk({ centre: c, west: c, east: c, north: c, south: c });
+    expect(lowest(m, 1, 0)).toBeCloseTo(-200 * UNIT_M);
+  });
+
+  it('draws a chunk’s edge down to the lowest the next chunk can show at less detail', () => {
+    // The next chunk is as high at its edge but dips two columns in, where a far chunk takes its sample.
+    const centre = chunk(() => [[-40, 20, Mat.Stone]]);
+    const next = chunk((i) => (i % 64 === 2 ? [[-40, 5, Mat.Stone]] : [[-40, 20, Mat.Stone]]));
+    const m = meshChunk({ centre, west: centre, east: next, north: centre, south: centre });
+    expect(lowest(m, 1, 0)).toBeCloseTo(5 * UNIT_M);
+    // Against land as high all round there is nothing to show.
+    expect(lowest(m, -1, 0)).toBe(Infinity);
+  });
+
+  it('hangs far chunks’ skirts below all land', () => {
+    const gen = new WorldGen(new WorldLayout(1, 1));
+    const lr = meshLowRes(gen.lowRes(3, 3, 4)).land;
+    expect(lowest(lr, 1, 0)).toBeLessThan(-600 * UNIT_M);
+  });
+});

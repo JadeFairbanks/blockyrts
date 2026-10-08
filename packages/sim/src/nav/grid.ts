@@ -44,6 +44,22 @@ export const Walk = {
   Gate: 8,
 } as const;
 
+/**
+ * The walk-map flag of a column's water: Walk.Wade, Walk.Deep, or 0 with
+ * none above its ground. The walk map sees water only through this and
+ * standLevel, so a change that leaves both the same (water settling by a
+ * 32nd) changes nothing a walker or a path can tell.
+ */
+export function waterFlag(top: number, water: number): number {
+  if (water === NO_WATER || water <= top * WATER_PER_UNIT) return 0;
+  return water - top * WATER_PER_UNIT > WADE_UNITS * WATER_PER_UNIT ? Walk.Deep : Walk.Wade;
+}
+
+/** The level a unit stands at on a column, terrain units: its ground, or in deep water a swimmer's, FLOAT_UNITS under the surface. */
+export function standLevel(top: number, water: number): number {
+  return waterFlag(top, water) === Walk.Deep ? Math.max(top, (water >> 5) - FLOAT_UNITS) : top;
+}
+
 /** Movement abilities of a unit class. */
 export interface Mover {
   /** One id per set of abilities: the pathfinder keeps a coarse edge cache per id. */
@@ -144,18 +160,10 @@ export class NavGrid {
     for (let i = 0; i < N * N; i++) {
       const top = cols.top(i);
       const w = cols.water[i]!;
-      let lv = top;
-      let f = 0;
-      if (w !== NO_WATER && w > top * WATER_PER_UNIT) {
-        const depth = w - top * WATER_PER_UNIT;
-        if (depth > WADE_UNITS * WATER_PER_UNIT) {
-          f |= Walk.Deep;
-          lv = Math.max(top, (w >> 5) - FLOAT_UNITS);
-        } else f |= Walk.Wade;
-      }
+      let f = waterFlag(top, w);
       if (solid?.has(i)) f |= Walk.Blocked;
       if (gates?.has(i)) f |= Walk.Gate;
-      level[i] = lv;
+      level[i] = standLevel(top, w);
       flags[i] = f;
       // The highest gap between two layers that a person fits in.
       const s = cols.start[i]! * 3;
