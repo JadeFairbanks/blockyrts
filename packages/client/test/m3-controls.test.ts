@@ -18,7 +18,6 @@ import {
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { AREA_DEFAULT_UNITS, Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
-import { menuSlots, submenuChoices } from '../src/hud/menu-keys.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -41,7 +40,7 @@ interface World {
   buildings?: BuildingInfo[];
   pool?: Array<[number, number]>;
   research?: number;
-  /** The Forge's metal step (Patch 2: 0 no Forge, 1 any Forge, 2 to 4 by main base level 3, 5 and 7). */
+  /** The Forge's metal step (Patch 2: 0 no Forge, 1 any Forge, 2 to 4 by main base tier 2, 3 and 3). */
   forge?: number;
   /** Per unit id: state fields to set on top of the defaults. */
   units?: Record<number, Partial<Record<keyof typeof S, number>>>;
@@ -67,7 +66,7 @@ function game(w: World = {}): GameInfo {
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
     data[o + S.carryRes] = 255;
-    // Milestone 11: a troop is a type and two tiers; the warriors start as close melee with a hardwood cudgel (weapon tier 1) and no armour.
+    // Milestone 11: a troop is a type and two tiers; the warriors start as close melee with a wooden cudgel (weapon tier 1) and no armour.
     if (kind === UnitKind.Warrior) {
       data[o + S.troop] = Troop.Close;
       data[o + S.wTier] = 1;
@@ -83,7 +82,7 @@ function game(w: World = {}): GameInfo {
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: w.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: w.research ?? 0, forge: w.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -133,7 +132,7 @@ describe('the warrior card', () => {
     // The next weapon, and what it costs: weapons come first.
     const equip = button(card, 'equip')!;
     expect(equip.name).toBe('Upgrade equipment');
-    expect(equip.reason).toBe('Not enough resources (2 hardwood sticks, 1 flint).');
+    expect(equip.reason).toBe('Not enough resources (2 sticks, 1 flint).');
     expect(button(card, 'eat')!.reason).toBe('There is no food.');
   });
 
@@ -169,7 +168,7 @@ describe('the warrior card', () => {
     const equip = button(c.card(), 'equip')!;
     expect(equip.enabled).toBe(true);
     // Both can go, the hero (rank 5) first.
-    expect(equip.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 hardwood sticks, 1 flint.');
+    expect(equip.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 sticks, 1 flint.');
     expect(equip.double).toBeUndefined();
     equip.run(PRESS);
     expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [3, 4] });
@@ -223,7 +222,7 @@ describe('workers: tools and carts (Milestone 11)', () => {
     const { c, sent } = harness(game({ pool: [[Res.Sticks, 6], [Res.Flint, 1], [Res.Stone, 5]] }), workers, 'worker');
     const equip = button(c.card(), 'equip')!;
     expect(equip).toMatchObject({ face: 'Equip', name: 'Upgrade equipment', key: 'KeyQ', enabled: true });
-    expect(equip.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 hardwood sticks, 1 flint, 5 stone.');
+    expect(equip.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 sticks, 1 flint, 5 stone.');
     expect(equip.double).toBeUndefined();
     equip.run(PRESS);
     expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [1, 2] });
@@ -257,7 +256,7 @@ describe('the Big House', () => {
   /** What the sim worker sends for a Big House: its three troop types at tier 1, and what it makes. */
   const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
 
-  it('trains close melee, long melee and rangers on A, Q and N, and makes rope on R (Patch 4: no grid keys)', () => {
+  it('trains close melee, long melee and rangers on A, Q and N, and makes rope on K (Patch 5: Make rope on the card)', () => {
     const g = game({ pool: [[Res.FarmFare, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
     const house = g.buildings.get(20)!;
     house.troops = troops;
@@ -269,21 +268,18 @@ describe('the Big House', () => {
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
     expect(card[1]!.name).toBe('Train close melee');
-    expect(card[1]!.description).toContain('Hardwood cudgel, no armour (weapon tier 1, armour tier 0)');
+    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
-    const craft = button(card, 'craft')!;
-    expect(craft.key).toBe('KeyK');
-    craft.run(PRESS);
-    const make = c.card();
-    const rope = make.find((e) => e.name === 'Rope')!;
-    expect(rope.key).toBe('KeyR');
-    expect(rope.menu).toBe(true);
+    // Patch 5: the Make button is Make rope itself, on K, with no menu behind it.
+    const rope = button(card, 'craft')!;
+    expect(rope.key).toBe('KeyK');
+    expect([rope.face, rope.name]).toEqual(['Make rope', 'Make rope']);
+    expect(rope.menu).toBeUndefined();
     expect(rope.enabled).toBe(false);
     expect(rope.reason).toContain('Not enough flax');
     // The Big House makes rope at one worker's pace, as before Patch 2.
     expect(rope.description).toContain('Time: 10 s.');
-    expect(make.at(-1)!.face).toBe('Back');
   });
 
   it('says a Workshop recipe\'s real time: it works on its own at the crafting pace (Patch 2)', () => {
@@ -297,12 +293,12 @@ describe('the Big House', () => {
       make.run(PRESS);
       all.push(c.card());
     }
-    const planks = all.flat().find((e) => e.name === 'Planks from softwood')!;
+    const planks = all.flat().find((e) => e.name === 'Planks')!;
     expect(planks.description).toContain(`Time: ${5 / CRAFT_PACE} s.`);
   });
 
   it("sends warriors and workers up a tower with a right click, and warriors up a main base with room on top (Jade's Patch 2 cuts the Enter button)", () => {
-    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 3, name: 'Hall' }), building(22, BuildingKind.Tower, { name: 'Softwood tower' })] });
+    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 3, name: 'Hall' }), building(22, BuildingKind.Tower, { name: 'Wooden tower' })] });
     const tower = { ...sel('b:22', 'building:14:1'), kind: 'building' as const };
     const house = { ...sel('b:20', 'building:0:3'), kind: 'building' as const };
     const men = harness(g, warriors, 'warrior');
@@ -324,11 +320,11 @@ describe('the Big House', () => {
   });
 });
 
-describe('digging and earthworks', () => {
+describe('digging', () => {
   it('marks a dig by dragging, sets its depth, and confirms with a click', () => {
     const { c, sent } = harness(game(), workers, 'worker');
     button(c.card(), 'dig')!.run(PRESS);
-    expect(c.area?.mode).toBe('dig');
+    expect(c.area).not.toBeNull();
     c.areaDown(at(0.1, 0.1));
     c.updateArea(at(2, 0.5));
     c.areaUp();
@@ -343,7 +339,7 @@ describe('digging and earthworks', () => {
   it('tunnels when the marked box climbs a face', () => {
     const cliff = (x: number): number => (x > 1 ? 3 : 0);
     const { c, sent } = harness(game(), workers, 'worker', cliff);
-    c.startArea('dig', 0);
+    c.startArea();
     c.areaDown(at(0.2, 0.2));
     c.updateArea(at(4, 1));
     c.areaUp();
@@ -357,7 +353,7 @@ describe('digging and earthworks', () => {
     const units = 0.1125;
     const cliff = (x: number): number => (x >= 2.25 ? 10 * units : 0);
     const { c, sent } = harness(game(), workers, 'worker', cliff);
-    c.startArea('dig', 0);
+    c.startArea();
     c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
     // Face column 5 (2.25 m / 0.45 m); nothing is dug until the next click.
     expect(c.area!.chain).toEqual({ x: 5, z: 0, floor: 0 });
@@ -368,24 +364,10 @@ describe('digging and earthworks', () => {
   it('digs down, not sideways, when the press is on top of the ground or on a low step', () => {
     const step = (x: number): number => (x >= 2.25 ? 3 * 0.1125 : 0);
     const { c } = harness(game(), workers, 'worker', step);
-    c.startArea('dig', 0);
+    c.startArea();
     c.areaDown(new THREE.Vector3(2.25, 0.1, 0.2));
     c.areaUp();
     expect(c.areaPlan()!.tunnel).toBe(false);
-  });
-
-  it('offers banks, ramps and fill in the Defences submenu (Patch 2: Earthworks moved there), and orders a ramp up a step', () => {
-    const slot = menuSlots().findIndex((specs) => specs.some((s) => s.kind === BuildingKind.Earthworks));
-    expect(submenuChoices(menuSlots()[slot]!).map((c) => c.name).slice(-5)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp']);
-    const step = (x: number): number => (x > 2 ? 0.9 : 0);
-    const { c, sent } = harness(game({ pool: [[Res.Earth, 50]] }), workers, 'worker', step);
-    c.startArea('earthwork', 1);
-    c.areaDown(at(4, 0.2));
-    c.updateArea(at(0.2, 0.2));
-    c.areaUp();
-    c.confirmArea();
-    // Dragged from high (x 4 m) to low: the low-x end is the bottom.
-    expect(sent.at(-1)).toMatchObject({ kind: 'earthwork', variant: 1, axis: 0, x0: 0, x1: 8, level: 0, level2: 8 });
   });
 });
 

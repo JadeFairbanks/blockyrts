@@ -1,4 +1,4 @@
-// The rules every number table uses (docs/blueprint.md, Rising difficulty >
+// The rules every number table uses (the old blueprint's Rising difficulty >
 // Reading the number tables). Percentages are basis points (1% = 100 bp) so
 // every value is an integer; experience is in tenths so a threat of 12.4
 // stays exact.

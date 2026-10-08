@@ -1,16 +1,17 @@
-// The match's sound (Audio): music that follows the day (day, dusk, night,
-// dawn and the blood night) with the day's ambience under it, horns at dusk
-// and dawn, unit voice cues when units are selected, ordered, hungry, under
-// attack or out of a resource, the night monsters' own calls and deaths, and
-// the sound list: work, hits, blocks, deaths, explosions, torches, the
-// idle-worker alert, pings and the error sound. The sounds are the sound
-// redo's files, with the code-made ones behind any that are missing. It only listens to what the
-// sim worker reports, so it never touches the game's state or its hash.
+// The match's sound (Audio): music that follows the day (day, dusk, night
+// and dawn) with the day's ambience under it, horns at dusk and dawn, unit
+// voice cues when units are selected, ordered, hungry, under attack or out
+// of a resource, the night monsters' own calls and deaths, and the sound
+// list: work, hits, blocks, deaths, explosions, torches, the idle-worker
+// alert, pings and the error sound. The sounds are the sound redo's files,
+// with the code-made ones behind any that are missing. It only listens to
+// what the sim worker reports, so it never touches the game's state or its
+// hash.
 // The Settings menu's three volumes apply at once. While the game is paused
 // only the music, the ambience and the interface's own sounds are heard
 // (Jade's Patch 3).
 import { AudioEngine, type VoiceEventId, type VoiceFamilyId } from '@blockyrts/audio';
-import { buildingSpec, clockAt, MONSTERS, type Order, Period, UnitKind, WU_PER_METRE } from '@blockyrts/sim';
+import { buildingSpec, clockAt, MONSTERS, type Order, UnitKind, WU_PER_METRE } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import { S, SHOT_STRIDE, STATE_STRIDE, type InfoMessage, type StateMessage } from '../messages.ts';
 import type { Selectable } from '../selection/types.ts';
@@ -111,21 +112,17 @@ export class GameAudio {
   // ---- The sim's state messages ----
 
   onState(msg: StateMessage): void {
-    const blood = this.game.info?.blood ?? [];
-    const c = clockAt(msg.step, blood);
-    const bloodTonight = blood.includes(c.cycle);
+    const c = clockAt(msg.step);
     if (c.period !== this.period || c.cycle !== this.cycle) {
       // Horns only as a period begins in play, not when a game loads part-way through one.
       if (this.period >= 0) {
-        const horn = hornFor(c.period, bloodTonight);
+        const horn = hornFor(c.period);
         if (horn) this.alert(horn, 0);
       }
       this.period = c.period;
       this.cycle = c.cycle;
-      this.engine.setMusicState(musicFor(c.period, bloodTonight));
-      this.engine.setAmbience(ambienceFor(c.period, bloodTonight));
-      // Render the next track while this one plays: the blood night's at a blood dusk.
-      if (c.period === Period.Dusk && bloodTonight) void this.engine.prepareMusic('blood_night');
+      this.engine.setMusicState(musicFor(c.period));
+      this.engine.setAmbience(ambienceFor(c.period));
     }
     this.hits(msg);
     this.last = msg;
@@ -265,10 +262,6 @@ export class GameAudio {
       if (ev.kind === 'question' && ev.player !== this.player) continue;
       const cue = eventCue(ev);
       const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
-      // The blood night's double horn plays at dusk with the clock; its warning event only stands in if that was missed.
-      if (cue.sound === 'horn_blood_night') {
-        if (this.recently('horn_blood_night', 10)) continue;
-      }
       if (cue.sound) this.alert(cue.sound, cue.sound === 'ui_message' ? 0.5 : ALERT_GAP_S);
       if (cue.voice && ev.speaker) {
         const who = this.who(ev.speaker);

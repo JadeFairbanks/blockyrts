@@ -16,12 +16,12 @@ export function menuSlots(): BuildingSpec[][] {
   return out;
 }
 
-/** Where a defence sits in the Defences submenu: walls, then gates, then towers, then earthworks, each softwood, hardwood, stone. */
+/** Where a defence sits in the Defences submenu: walls, then gates, then towers, each wood, hardwood, stone. */
 function defenceRank(spec: BuildingSpec): number {
-  return spec.site ? 3 : spec.defence === 'gate' ? 1 : spec.defence === 'tower' ? 2 : 0;
+  return spec.defence === 'gate' ? 1 : spec.defence === 'tower' ? 2 : 0;
 }
 
-/** The choices of a submenu: each building, each way of a gate or earthwork, in menu order. */
+/** The choices of a submenu: each building, each way of a gate, in menu order. */
 export function submenuChoices(specs: readonly BuildingSpec[]): Array<{ spec: BuildingSpec; variant: number; name: string }> {
   const out: Array<{ spec: BuildingSpec; variant: number; name: string }> = [];
   for (const spec of [...specs].sort((a, b) => defenceRank(a) - defenceRank(b))) {
@@ -31,7 +31,7 @@ export function submenuChoices(specs: readonly BuildingSpec[]): Array<{ spec: Bu
   return out;
 }
 
-/** The binding name of a building (or one way of a gate or earthwork) in the build menu; also its button's action. */
+/** The binding name of a building (or one way of a gate) in the build menu; also its button's action. */
 export function placeAction(kind: number, variant: number): string {
   return `build-${kind}-${variant}`;
 }
@@ -59,7 +59,7 @@ export const HUD_LETTERS: ReadonlySet<string> = new Set(['L', 'J', 'O']);
 /**
  * The build menu's letters (s, Jade's Patch 4): the first letter of the name
  * where it is free, the buildings built most often first, else a letter from
- * the name. Gates and earthworks list a letter per way, in variant order.
+ * the name. Gates list a letter per way, in variant order.
  */
 const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.MainBase]: 'H',
@@ -74,7 +74,7 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.MagiSanctum]: 'M',
   [BuildingKind.ScholarsLodge]: 'C',
   [BuildingKind.Mineshaft]: 'N',
-  // Defences: walls on W and their material, gates and towers on letters of their names, earthworks last.
+  // Defences: walls on W and their material, gates and towers on letters of their names.
   [BuildingKind.Wall]: 'W',
   [BuildingKind.WallHardwood]: 'H',
   [BuildingKind.WallStone]: 'S',
@@ -84,7 +84,6 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.Tower]: 'T',
   [BuildingKind.TowerHardwood]: 'R',
   [BuildingKind.TowerStone]: 'N',
-  [BuildingKind.Earthworks]: ['K', 'P', 'I', 'B', 'M'],
   // Lights: B then T then T is a torch post.
   [BuildingKind.TorchPost]: 'T',
   [BuildingKind.Bonfire]: 'B',
@@ -94,7 +93,7 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
 const SUBMENU_KEYS: Readonly<Record<string, string>> = { Defences: 'D', Lights: 'T' };
 
 /** What a submenu holds, for its button's name in the settings. */
-const SUBMENU_NAMES: Readonly<Record<string, string>> = { Defences: 'Defences (walls, gates, towers, earthworks)', Lights: 'Lights (torch post, bonfire)' };
+const SUBMENU_NAMES: Readonly<Record<string, string>> = { Defences: 'Defences (walls, gates, towers)', Lights: 'Lights (torch post, bonfire)' };
 
 function placeKey(kind: number, variant: number): string {
   const k = PLACE_KEYS[kind];
@@ -133,14 +132,20 @@ export function menuLetters(names: readonly string[]): string[] {
   });
 }
 
-/** The buildings with a K menu, in the build menu's order. */
-const MAKERS: readonly number[] = BUILDINGS.filter((b) => b.slot > 0 && makeList(b.kind).length > 0)
+/** The buildings with a K menu, in the build menu's order (Patch 5: not one that makes a single good, which is on its card as Make rope or Make sticks). */
+const MAKERS: readonly number[] = BUILDINGS.filter((b) => b.slot > 0 && makeList(b.kind).length > 0 && !makesOne(b.kind))
   .sort((a, b) => a.slot - b.slot)
   .map((b) => b.kind);
 
 /** The products of a building kind's K menu, in its order: everything it makes but workers, troops and mages. */
 export function makeList(kind: number): number[] {
   return productsOf({ kind, complete: true, level: 1 } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+}
+
+/** Whether a building kind makes one good and no research, so its card has Make <good> on K and no menu (Patch 5). */
+export function makesOne(kind: number): boolean {
+  const list = makeList(kind);
+  return list.length === 1 && productSpec(list[0]!).recipe !== undefined;
 }
 
 /** Every K menu's default letters, by binding name. */

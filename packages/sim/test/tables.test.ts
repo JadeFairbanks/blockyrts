@@ -6,11 +6,8 @@ import {
   CLOSE_GEAR,
   CLOSE_KITS,
   gearSpec,
-  getTable,
   LONG_GEAR,
   LONG_KITS,
-  lookup,
-  NUMBER_TABLES,
   RANGER_GEAR,
   RANGER_KITS,
   Research,
@@ -21,7 +18,6 @@ import {
   SHIELD_KITS,
   shieldRow,
   Shot,
-  tablesNumbered,
   TIER_NEEDS,
   TOOL_GEAR,
   TOOL_KITS,
@@ -34,59 +30,7 @@ import {
   type Piece,
 } from '../src/index.ts';
 
-describe('the number tables', () => {
-  it('include every table from 1 to 19', () => {
-    const numbers = new Set(NUMBER_TABLES.map((t) => t.table));
-    for (let n = 1; n <= 19; n++) expect(numbers.has(n), `table ${n}`).toBe(true);
-  });
-
-  it('have unique ids, Table 2 in its parts and Tables 3 and 13 in two each', () => {
-    const ids = NUMBER_TABLES.map((t) => t.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    // Unit stats, then building sight (shared vision patch).
-    expect(tablesNumbered(1).map((t) => t.id)).toEqual(['1.1', '1.2']);
-    // Melee is close melee (2d.1) and long melee and cavalry (2d.2) (Troops and gear).
-    expect(tablesNumbered(2).map((t) => t.id)).toEqual(['2a', '2b', '2c', '2d.1', '2d.2', '2e', '2f']);
-    // Armour and shields; spells, then wands and robes.
-    expect(tablesNumbered(3).map((t) => t.id)).toEqual(['3.1', '3.2']);
-    expect(tablesNumbered(13).map((t) => t.id)).toEqual(['13.1', '13.2']);
-  });
-
-  it('have rows as wide as their columns', () => {
-    for (const t of NUMBER_TABLES) {
-      expect(t.columns.length).toBeGreaterThan(1);
-      expect(t.rows.length).toBeGreaterThan(0);
-      for (const r of t.rows) expect(r.length, `table ${t.id}`).toBe(t.columns.length);
-    }
-  });
-
-  it('carry the suggested flags from the key', () => {
-    // Own mark.
-    const hand = lookup('1.1', ['Worker', '2 Hand'], 'Health');
-    expect(hand).toEqual({ text: '70 (s)', suggested: true, marked: true });
-    // A value marked (doc) in a suggested row stays fixed.
-    const t2f = getTable('2f');
-    const cart = t2f.rows.find((r) => r[0]!.text === 'Hand cart')!;
-    expect(cart.some((c) => c.suggested)).toBe(true);
-    const madeAt = cart[t2f.columns.indexOf('Made at')]!;
-    expect(madeAt.text).toMatch(/\(doc\)$/);
-    expect(madeAt.suggested).toBe(false);
-    // A sub-table captioned "all (s)" is suggested in every cell with a number.
-    expect(getTable('2b').rows.every((r) => r.every((c) => c.suggested === /\d/.test(c.text)))).toBe(true);
-    // A column headed "Cost (s)" is suggested.
-    const bronze = getTable('2a').rows.find((r) => r[0]!.text === 'Bronze')!;
-    expect(bronze[2]!).toEqual({ text: '10 copper ingots, 2 tin ingots', suggested: true, marked: false });
-    // Labels without numbers are never suggested by a row mark.
-    expect(lookup('1.1', ['Worker', '2 Hand'], 'Unit').suggested).toBe(false);
-  });
-
-  it('strip markdown from headers', () => {
-    expect(getTable('1.1').columns[0]).toBe('Unit');
-    expect(getTable('8').title).toBe('Night spawn geometry');
-  });
-});
-
-// ----- the kit tables (Troops and gear; Tables 2c, 2d.1, 2d.2, 2e, 3.1, 3.2 and 13.2) -----
+// ----- the kit tables (Troops and gear) -----
 
 /** A piece's every way of paying is something, in whole positive amounts (tier 0 is nothing, or none at all for a type that starts at 1). */
 function sanePiece(p: Piece, what: string): void {
@@ -101,14 +45,6 @@ function sanePiece(p: Piece, what: string): void {
   expect(p.timeS, what).toBeGreaterThan(0);
   expect(p.name, what).not.toBe('');
 }
-
-/** A table's rows by their first cell. */
-function rowsOf(id: string): Map<string, string[]> {
-  const t = getTable(id);
-  return new Map(t.rows.map((r) => [r[0]!.text, r.map((c) => c.text)]));
-}
-
-const num = (text: string): number => parseFloat(text);
 
 describe('the kit tables', () => {
   it('have a row for every tier, indexed by tier', () => {
@@ -164,7 +100,9 @@ describe('the kit tables', () => {
     TOOL_KITS.forEach((k, t) => {
       expect(k.tools.length).toBe(4);
       if (t > 0) {
-        expect(k.damage).toBeGreaterThan(TOOL_KITS[t - 1]!.damage);
+        // Patch 5 (BL-1): tools hit 2 less, so the wooden tools hit as hard as bare hands (2).
+        if (t === 1) expect(k.damage).toBe(TOOL_KITS[0]!.damage);
+        else expect(k.damage).toBeGreaterThan(TOOL_KITS[t - 1]!.damage);
         for (let j = 0; j < 4; j++) expect(k.tools[j]!).toBeGreaterThanOrEqual(TOOL_KITS[t - 1]!.tools[j]!);
       }
     });
@@ -175,56 +113,6 @@ describe('the kit tables', () => {
     ROBE_KITS.forEach((k, t) => {
       if (t > 0) expect(k.protectionPct).toBeGreaterThanOrEqual(ROBE_KITS[t - 1]!.protectionPct);
     });
-  });
-
-  it('match the blueprint\'s melee, ranged, armour, shield, tool and wand tables', () => {
-    for (const [id, rows] of [['2d.1', CLOSE_KITS], ['2d.2', LONG_KITS.slice(1)]] as const) {
-      const doc = rowsOf(id);
-      for (const k of rows) {
-        const r = doc.get(String(k.tier))!;
-        expect(r, `${id} ${k.tier}`).toBeDefined();
-        expect(r[1]!.toLowerCase().startsWith(k.name.toLowerCase()), `${id} ${k.tier}`).toBe(true);
-        expect(num(r[2]!), `${id} ${k.tier}`).toBe(k.damage);
-        expect(Math.round(num(r[3]!) * 10), `${id} ${k.tier}`).toBe(k.swingDs);
-        expect(Math.round(num(r[4]!) * 100), `${id} ${k.tier}`).toBe(k.reachCm);
-        expect(num(r[7]!), `${id} ${k.tier}`).toBe(k.timeS);
-      }
-    }
-    const t2e = rowsOf('2e');
-    for (const k of RANGER_KITS.slice(1)) {
-      const r = t2e.get(String(k.tier))!;
-      expect(r[1]!.toLowerCase().startsWith(k.name.toLowerCase()), `2e ${k.tier}`).toBe(true);
-      expect([num(r[2]!), Math.round(num(r[3]!) * 10), num(r[4]!), num(r[5]!), num(r[7]!)], `2e ${k.tier}`).toEqual([k.damage, k.attackDs, k.rangeM, k.spreadPct, k.timeS]);
-    }
-    const t31 = rowsOf('3.1');
-    for (const k of ARMOUR_KITS.slice(1)) {
-      const r = t31.get(String(k.tier))!;
-      expect(r[1]!.toLowerCase()).toBe(k.name.toLowerCase());
-      expect([num(r[2]!), num(r[5]!)], `3.1 ${k.tier}`).toEqual([k.protectionPct, k.timeS]);
-    }
-    const t32 = getTable('3.2').rows.map((r) => r.map((c) => c.text));
-    for (const k of SHIELD_KITS.slice(1)) {
-      const r = t32.find((x) => x[1]!.toLowerCase().startsWith(k.name.toLowerCase()))!;
-      expect(r, k.name).toBeDefined();
-      expect([num(r[2]!), num(r[4]!)], k.name).toEqual([k.blockPct, k.timeS]);
-    }
-    const t2c = rowsOf('2c');
-    for (const k of TOOL_KITS.slice(1)) {
-      const r = t2c.get(String(k.tier))!;
-      expect(r[1]!.split(' ')[0], `2c ${k.tier}`).toBe(k.name.split(' ')[0]);
-      expect([num(r[3]!), num(r[5]!)], `2c ${k.tier}`).toEqual([k.damage, k.timeS]);
-    }
-    const t132 = rowsOf('13.2');
-    for (let t = 1; t <= TOP_MAGE_TIER; t++) {
-      const r = t132.get(String(t))!;
-      const w = WAND_KITS[t]!;
-      const robe = ROBE_KITS[t]!;
-      expect(r[1]!.toLowerCase().startsWith(w.name.toLowerCase()), `13.2 wand ${t}`).toBe(true);
-      expect(r[2]).toMatch(new RegExp(`^x${(w.powerPct / 100).toFixed(2).replace(/0$/, '(0)?')}, \\+${w.mana}$`));
-      expect(r[4]!.toLowerCase().startsWith(robe.name.toLowerCase()), `13.2 robe ${t}`).toBe(true);
-      expect(r[5]).toBe(`${robe.protectionPct}%, +${robe.regainPct}%`);
-      expect(r[7]).toBe(`${w.timeS} / ${robe.timeS} s`);
-    }
   });
 
   it('give the ranger one ladder: a sling, a longbow, the recurve bow four times, a crossbow and a musket', () => {

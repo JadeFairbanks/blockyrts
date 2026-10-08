@@ -1,6 +1,6 @@
 # Performance notes (milestone 10)
 
-The targets come from Technical decisions 10 in the blueprint:
+The targets come from Technical decisions 10 in the old blueprint:
 
 | Target | Minimum machine | Reference machine |
 |---|---|---|

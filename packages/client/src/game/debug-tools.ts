@@ -91,7 +91,6 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   });
   cycler('dbg-tribe', 'Tribe', ['Gnolls', 'Kobolds', 'Hobgoblins'], DebugThreat.Gnolls, 'Puts a band of the named hostile tribe (Table 16) in the middle of the view; each press moves on to the next tribe.');
   cycler('dbg-creature', 'Creature', ['Giant beetle', 'Giant hornets', 'Viper', 'Giant scorpion', 'Griffin', 'Minotaur'], DebugThreat.Creature, 'Puts the named territorial creature in the middle of the view; each press moves on to the next.');
-  add('dbg-blood', 'Blood night', 'Debug: blood night', 'Makes the coming night a blood night, with its warning: twice as long, with more of the rarer monsters.', () => threat(DebugThreat.BloodNight));
   add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
   // Milestone 6's mages.
   add('dbg-sanctum', 'Sanctum', 'Debug: Magi Sanctum', 'Puts a finished Magi Sanctum in the middle of the view: it trains support and battle mages, upgrades their wands and robes, and researches Hexcraft.', () => {
@@ -121,7 +120,7 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
   add('dbg-caravan', 'Caravan', 'Debug: Elf caravan', 'Meets the Elves and sends their caravan to your main base now (by day; it waits for the morning at night). It stops outside the base, trades, and leaves at dusk.', () => people(DEBUG_CARAVAN));
   add('dbg-tradekit', 'Trade kit', 'Debug: trade kit', 'Puts 20 silver, 6 Copper Tokens, 2 Bronze Charms and 5 gold in the pool, to trade with and to hire mercenaries.', () => people(DEBUG_TRADE_KIT));
   // Milestone 8's mounts, engines, guns and the late nights, at the middle of the view.
-  add('dbg-barn', 'Barn', 'Debug: Barn', 'Puts a finished Barn in the middle of the view with 2 grown horses and an ox in its stalls, and 100 farm fare: cavalry trained at a Barracks (from main base level 3) takes a horse from it.', () => {
+  add('dbg-barn', 'Barn', 'Debug: Barn', 'Puts a finished Barn in the middle of the view with 2 grown horses and an ox in its stalls, and 100 farm fare: cavalry trained at a Barracks (from main base tier 2) takes a horse from it.', () => {
     threat(DebugThreat.Barn);
     shell.message('Debug: a Barn with 2 horses and an ox placed in the middle of the view.');
   });
@@ -133,22 +132,22 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.GunKit);
     shell.message('Debug: musket materials and powder added, and the gun research done.');
   });
-  // Milestone 11's troops: a Barracks, a Forge, a main base of level 7 and the stock for every tier.
-  add('dbg-troops', 'Troop kit', 'Debug: troop kit', 'Puts a finished Barracks and Forge in the middle of the view, raises your main base to level 7 if it is lower (the Forge\'s steel step), puts 20 of every ingot, the leather, feathers, gunpowder and wood for every tier and 300 farm fare in the pool, and researches every tier\'s needs. Select the Barracks to train any troop at any tier.', () => {
+  // Milestone 11's troops: a Barracks, a Forge, a tier 3 main base and the stock for every tier.
+  add('dbg-troops', 'Troop kit', 'Debug: troop kit', 'Puts a finished Barracks and Forge in the middle of the view, raises your main base to tier 3 if it is lower (the Forge\'s steel step), puts 20 of every ingot, the leather, feathers, gunpowder and wood for every tier and 300 farm fare in the pool, and researches every tier\'s needs. Select the Barracks to train any troop at any tier.', () => {
     threat(DebugThreat.TroopKit);
-    shell.message('Debug: a Barracks, a Forge, a level 7 main base and the stock for every tier.');
+    shell.message('Debug: a Barracks, a Forge, a tier 3 main base and the stock for every tier.');
   });
-  add('dbg-mine', 'Mine kit', 'Debug: mine kit', 'Puts a finished Mineshaft in the middle of the view and a finished Storehouse beside it, researches Deep Mining I and raises your main base to level 4 if it is lower. Right click the shaft with workers to make them miners: each goes down, fills a 25 lb bag and carries it to the nearer of the Storehouse and your main base (Patch 2).', () => {
+  add('dbg-mine', 'Mine kit', 'Debug: mine kit', 'Puts a finished Mineshaft in the middle of the view and a finished Storehouse beside it, researches Deep Mining I and raises your main base to tier 3 if it is lower. Right click the shaft with workers to make them miners: each goes down, fills a 25 lb bag and carries it to the nearer of the Storehouse and your main base (Patch 2).', () => {
     threat(DebugThreat.MineKit);
     shell.message('Debug: a Mineshaft and a Storehouse placed in the middle of the view.');
   });
-  add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (level 10) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
+  add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (tier 4) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
     threat(DebugThreat.Citadel);
     shell.message('Debug: your main base is a Citadel now.');
   });
   cycler('dbg-late', 'Night mob', LATE_MOBS.map((m) => mobSpec(m).name), DebugThreat.LateMob, 'Puts the named night mob (nights 25 to 110, and the Rift-touched beasts) in the middle of the view; each press moves on to the next.');
   let wave = 0;
-  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player, no blood night) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
+  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
     threat(DebugThreat.Wave + wave);
     wave = (wave + 1) % WAVE_NIGHTS.length;
     shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);

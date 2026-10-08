@@ -64,7 +64,7 @@ function modeOf(state: SimState, i: number): Mode {
       return Mode.Attack;
     case 'hunt':
       // Home for the night, a hunter out with Hunt stands by like an idle unit and fights back; one sent after an animal goes on after it.
-      return e.kind[i] !== UnitKind.Warrior ? Mode.None : o.auto && isDark(state.step, state.blood) ? Mode.Idle : Mode.Hunt;
+      return e.kind[i] !== UnitKind.Warrior ? Mode.None : o.auto && isDark(state.step) ? Mode.Idle : Mode.Hunt;
     case 'loot':
       // Fetching loot or handing it in by itself, a fighter still fights back as an idle one does.
       return o.back !== 0 && e.kind[i] !== UnitKind.Worker ? Mode.Idle : Mode.None;
@@ -157,13 +157,13 @@ export function targetLost(state: SimState, i: number, t: number): boolean {
   return sideOf(state, i) !== Side.Players || !sideSees(state, t);
 }
 
-/** The building a unit shoots from the top of (a tower, or a level 3+ main base), or undefined. */
+/** The building a unit shoots from the top of (a tower, or a main base of tier 2 and up), or undefined. */
 export function garrisonOf(state: SimState, i: number): Building | undefined {
   const b = topOf(state, i);
   return b && rangedOf(state, i) ? b : undefined;
 }
 
-/** Whether a unit may go up on a tower or a level 3+ main base (units/top.ts): anyone on foot. */
+/** Whether a unit may go up on a tower or a main base of tier 2 and up (units/top.ts): anyone on foot. */
 export function canGarrison(state: SimState, i: number): boolean {
   return mayMan(state, i);
 }
@@ -452,7 +452,7 @@ export function fightStep(state: SimState, i: number): boolean {
     // At dusk the hunt ends; on the Hunt button's hunt, quarry that runs past where the hunter can get home from by nightfall is let go.
     const fled = o.auto !== 0 && t >= 0 && beyondReach(state, i, e.x[t]!, e.z[t]!);
     if (fled) o.id = 0;
-    if (isDark(state.step, state.blood) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    if (isDark(state.step) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       if (e.target[i] !== 0) disengage(state, i);
       return false;
     }

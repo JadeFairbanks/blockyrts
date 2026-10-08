@@ -8,7 +8,7 @@
 //   cheapest recipe (the batch time plus its inputs; Patch 2: the Workshop,
 //   Forge and Artillery workshop need no workers, so their batch time is no
 //   one's labour and only the inputs count).
-// - Each tier's ladder: the main base levels, buildings and research it needs
+// - Each tier's ladder: the main base tiers, buildings and research it needs
 //   and the first kits it arms (TIERS below; only the structure lives here,
 //   every number comes from the sim). Its labour is the build work (ws) plus
 //   the worker-seconds of every material; its research runs in a Scholar's
@@ -22,6 +22,7 @@
 // change to costs, rates or research times moves a tier a night or ten.
 import {
   BuildingKind,
+  LUMBERS,
   CYCLE_STEPS,
   DAWN_STEPS,
   DAY_STEPS,
@@ -93,6 +94,8 @@ export function resourceCost(): (res: number) => number {
     const info = RESOURCES[res];
     const prop = info ? byName.get(info.name.toLowerCase()) : undefined;
     if (prop) best = Math.min(best, (sec(prop.loadSteps) + WALK_S + (FAR_S[res] ?? 0)) / prop.perLoad);
+    // "Lumber" in a cost (Patch 5: either kind) costs what the cheaper kind does.
+    if (res === Res.AnyLumber) for (const k of LUMBERS) best = Math.min(best, cost(k));
     for (const r of RECIPES) {
       const out = r.outputs.find(([o]) => o === res);
       if (!out) continue;
@@ -131,7 +134,7 @@ export interface Tier {
 const B = (building: number, level: number): Rung => ({ building, level });
 const R = (research: number): Rung => ({ research });
 const K = (pieces: readonly Piece[], count: number): Rung => ({ pieces, count });
-/** Main base levels 2 to n (the Big House is level 1 and comes with the start). */
+/** Main base tiers 2 to n (the Big House is tier 1 and comes with the start). */
 const base = (n: number): Rung[] => Array.from({ length: n - 1 }, (_, k) => B(BuildingKind.MainBase, k + 2));
 
 /** The ladder (only its structure; every cost, time and rate comes from the sim). Each tier includes the ones before. */
@@ -144,18 +147,18 @@ export const TIERS: readonly Tier[] = [
   {
     // Rangers with wrought-iron arrowheads, and wrought-iron mail (the crossbow is steel now, tier 7).
     name: 'Wrought iron and mail', target: [13, 18],
-    // Patch 2: the Forge has no levels; wrought iron, charcoal and bricks come at main base 3, iron at 5.
-    rungs: [...base(5), K([RANGER_KITS[5]!], 4), K([ARMOUR_KITS[5]!], 10)],
+    // Patch 2: the Forge has no levels; wrought iron, charcoal and bricks come at main base tier 2 (Patch 5's tiers).
+    rungs: [...base(2), K([RANGER_KITS[5]!], 4), K([ARMOUR_KITS[5]!], 10)],
   },
   {
     name: 'Steel and crossbows', target: [25, 30],
-    rungs: [B(BuildingKind.MainBase, 6), B(BuildingKind.MainBase, 7), R(Research.Steel), R(Research.Crossbows), K([CLOSE_KITS[7]!], 8), K([RANGER_KITS[7]!], 4)],
+    rungs: [B(BuildingKind.MainBase, 3), R(Research.Steel), R(Research.Crossbows), K([CLOSE_KITS[7]!], 8), K([RANGER_KITS[7]!], 4)],
   },
   {
     // The musket is a carbon-steel ranger kit (tier 8).
     name: 'Muskets and cannons', target: [40, 48],
-    // Patch 2: gunpowder at the Forge from main base 7; cannons at the Artillery workshop from 8.
-    rungs: [B(BuildingKind.MainBase, 8), B(BuildingKind.ArtilleryWorkshop, 1), R(Research.CarbonSteel), R(Research.Gunpowder), R(Research.Muskets), R(Research.Cannons), K([RANGER_KITS[8]!], 8)],
+    // Gunpowder at the Forge from main base tier 3; cannons at the Artillery workshop at tier 4 (Patch 5).
+    rungs: [B(BuildingKind.MainBase, 4), B(BuildingKind.ArtilleryWorkshop, 1), R(Research.CarbonSteel), R(Research.Gunpowder), R(Research.Muskets), R(Research.Cannons), K([RANGER_KITS[8]!], 8)],
   },
 ];
 
@@ -238,7 +241,7 @@ export interface SupplyAssumptions {
  * balance (4 before), so food sets the count: the town keeps 7 Farms for the
  * 14 farmers it needs (s).
  */
-export const NIGHT_110_TOWN: SupplyAssumptions = { warriors: 45, mages: 6, workers: 52, lodges: 2, mainBaseLevel: 10, farms: 7 };
+export const NIGHT_110_TOWN: SupplyAssumptions = { warriors: 45, mages: 6, workers: 52, lodges: 2, mainBaseLevel: 4, farms: 7 };
 
 export interface SupplyRow {
   supplyCap: number;

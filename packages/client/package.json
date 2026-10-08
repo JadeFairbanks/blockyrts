@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@blockyrts/audio": "workspace:*",
+    "@blockyrts/balance": "workspace:*",
     "@blockyrts/protocol": "workspace:*",
     "@blockyrts/sim": "workspace:*",
     "three": "0.186.1"

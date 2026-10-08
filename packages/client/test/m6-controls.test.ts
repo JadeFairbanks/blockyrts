@@ -56,7 +56,7 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings: o.buildings ?? [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: o.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [],
     spells: o.spells ?? [
       [5, [[Spell.Heal, '', 0], [Spell.Quicken, 'Not ready yet.', 60], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Needs Hexcraft researched at a Magi Sanctum.', 0]]],
       [6, [[Spell.Heal, 'Not enough mana (15).', 0], [Spell.Quicken, 'Learned at rank 2.', 0], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Learned at rank 2.', 0]]],

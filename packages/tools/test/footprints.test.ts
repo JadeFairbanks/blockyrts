@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, buildingSpec, footprintDims, FOOTPRINTS } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, footprintDims, FOOTPRINTS, PARAPET_SLOTS, PARAPET_TIER } from '@blockyrts/sim';
 import { checkFootprints } from '../src/models/footprints.ts';
 import { readModel } from '../src/models/model-files.ts';
 
@@ -8,8 +8,8 @@ describe('building footprints', () => {
   const checks = checkFootprints(readModel);
 
   it('measures every modelled level as the table has it', () => {
-    // Patch 2: fourteen buildings, so fewer modelled levels than the 31 entries before it.
-    expect(checks.length).toBeGreaterThan(12);
+    // Patch 2: fourteen buildings, so fewer modelled levels than the 31 entries before it; Patch 5: the main base's four tiers.
+    expect(checks.length).toBeGreaterThanOrEqual(10);
     for (const c of checks) expect(c.measured, `kind ${c.kind} level ${c.level}`).toEqual([...c.table]);
   });
 
@@ -19,7 +19,7 @@ describe('building footprints', () => {
 
   it('keeps the Citadel shut and the Big House yard open', () => {
     const big = footprintDims(BuildingKind.MainBase, 0, 1);
-    const citadel = footprintDims(BuildingKind.MainBase, 0, 10);
+    const citadel = footprintDims(BuildingKind.MainBase, 0, 4);
     // The Citadel's ring walls and shut gate close the whole footprint; the Big House leaves its yard to walk in.
     expect(citadel.cells.length).toBe(14 * 14);
     expect(big.cells.length).toBeLessThan(14 * 14 / 2);
@@ -31,7 +31,7 @@ describe('building footprints', () => {
       const d = footprintDims(k, 0, 1);
       expect([d.w, d.d], s.name).toEqual([s.w, s.d]);
       for (let l = 1; l <= s.levels.length; l++) {
-        const room = s.slots ?? (k === BuildingKind.MainBase && l >= 3 ? 8 : 0);
+        const room = s.slots ?? (k === BuildingKind.MainBase && l >= PARAPET_TIER ? PARAPET_SLOTS : 0);
         expect(footprintDims(k, 0, l).posts.length, `${s.name} level ${l}`).toBe(room);
       }
       expect(FOOTPRINTS[k]!.length).toBeLessThanOrEqual(s.levels.length);
