@@ -1,9 +1,9 @@
 // The debug tools' threats (M5's tester checks): a lair of any kind, a
 // goblin village, a tribe's band or a territorial creature at a point, and
 // fog now. Also M6's mage tools: a finished Magi Sanctum, two mages' kit
-// materials and crystals, and experience for every mage's next rank. And M8's: a Barn with horses (the Stables before
-// Patch 2), a siege kit, a
-// gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
+// materials and crystals, and experience for every mage's next rank. And
+// M8's: a Barn with horses (the Stables before Patch 2), a siege kit, a gun
+// kit, a Citadel, each night mob from night 25 on, Morvath, and a late
 // night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
 // 105) at once.
 

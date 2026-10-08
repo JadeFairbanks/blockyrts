@@ -1,19 +1,19 @@
 // Night spawning (Rising difficulty: the night budget and its factors;
 // Table 8: claimed land, the dark edge, light and unit weights, first
 // night, split and picking, first appearance, depth weighting and lairs;
-// Threats). As night falls, each player's night is
-// planned: its budget, grown by their town, what they provoked and how
-// deep they stand, is spent on the mobs unlocked so far, and each mob is
-// given a time by how it comes (a wave at once, packs, a trickle, or
-// alone). A group's spawn point is chosen when its first member arrives: a
-// spot on the dark edge, at least 50 m from claimed land and 30 m from any
-// of the players' units, weighted away from lights and units. The players
-// share what they have explored, so the dark edge is the whole side's, and
-// a spawn keeps off every player's claimed land, not only its target's. Four
-// fifths of the budget come out of the dark edge, and each of the player's
-// lairs sends monsters worth its own sleepers' threat besides (Jade's Patch
-// 3 notes: a budget per lair by its threat); the depth weighting's extras
-// come out of the dark edge nearest the player's deepest asset and go for it.
+// Threats). As night falls, each player's night is planned: its budget,
+// grown by their town, what they provoked and how deep they stand, is spent
+// on the mobs unlocked so far, and each mob is given a time by how it comes
+// (a wave at once, packs, a trickle, or alone). A group's spawn point is
+// chosen when its first member arrives: a spot on the dark edge, at least
+// 50 m from claimed land and 30 m from any of the players' units, weighted
+// away from lights and units. The players share what they have explored, so
+// the dark edge is the whole side's, and a spawn keeps off every player's
+// claimed land, not only its target's. Four fifths of the budget come out of
+// the dark edge, and each of the player's lairs sends monsters worth its own
+// sleepers' threat besides (Jade's Patch 3 notes: a budget per lair by its
+// threat); the depth weighting's extras come out of the dark edge nearest
+// the player's deepest asset and go for it.
 
 import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, claimShapes, dist2, isLit, type ClaimShapes } from '../buildings/lights.ts';
