@@ -59,3 +59,32 @@ export function mapToWorld(t: MapTransform, b: Bounds, px: number, py: number): 
 export function sameBounds(a: Bounds, b: Bounds): boolean {
   return a.minX === b.minX && a.minZ === b.minZ && a.maxX === b.maxX && a.maxZ === b.maxZ;
 }
+
+/** The least land the minimap shows across its shorter side once the land is too big to show whole, metres; past that it follows the camera (Patch 5 BG-5). */
+export const MAX_MINIMAP_SIDE = 600;
+
+/**
+ * The part of the land the minimap shows (Patch 5 BG-5). It fitted all the
+ * explored land in, so the farther units went the smaller everything drew,
+ * until the map was a thin line with the base a speck on it. Now the land
+ * shows whole while it fits in MAX_MINIMAP_SIDE across the minimap's shorter
+ * side (aspect: its width over its height), and past that a window of that
+ * size round the camera's focus. The window stays put while the focus is
+ * inside it, so a click or a drag on the minimap never moves the map under
+ * the cursor, and it never strays off the land.
+ */
+export function minimapWindow(all: Bounds, prev: Bounds | null, focus: { x: number; z: number } | null, aspect: number): Bounds {
+  const allW = all.maxX - all.minX;
+  const allH = all.maxZ - all.minZ;
+  const w = Math.min(allW, MAX_MINIMAP_SIDE * Math.max(1, aspect));
+  const h = Math.min(allH, MAX_MINIMAP_SIDE * Math.max(1, 1 / aspect));
+  if (w === allW && h === allH) return all;
+  const inside = (b: Bounds, x: number, z: number): boolean => x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ;
+  const keep = prev !== null && Math.abs(prev.maxX - prev.minX - w) < 1e-6 && Math.abs(prev.maxZ - prev.minZ - h) < 1e-6 && (focus === null || inside(prev, focus.x, focus.z));
+  if (keep && prev.minX >= all.minX && prev.maxX <= all.maxX && prev.minZ >= all.minZ && prev.maxZ <= all.maxZ) return prev;
+  let cx = keep ? (prev.minX + prev.maxX) / 2 : focus ? focus.x : (all.minX + all.maxX) / 2;
+  let cz = keep ? (prev.minZ + prev.maxZ) / 2 : focus ? focus.z : (all.minZ + all.maxZ) / 2;
+  cx = Math.min(all.maxX - w / 2, Math.max(all.minX + w / 2, cx));
+  cz = Math.min(all.maxZ - h / 2, Math.max(all.minZ + h / 2, cz));
+  return { minX: cx - w / 2, minZ: cz - h / 2, maxX: cx + w / 2, maxZ: cz + h / 2 };
+}

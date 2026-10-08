@@ -6,7 +6,7 @@ import type * as THREE from 'three';
 import { LAIR_PING_STEPS, STEPS_PER_SECOND } from '@blockyrts/sim';
 import type { Pt } from '../hud/rects.ts';
 import type { MinimapSource } from '../selection/types.ts';
-import { fitBounds, mapToWorld, normalizeBounds, sameBounds, worldToMap, type Bounds, type MapTransform } from './transform.ts';
+import { fitBounds, mapToWorld, minimapWindow, normalizeBounds, sameBounds, worldToMap, type Bounds, type MapTransform } from './transform.ts';
 
 const UNEXPLORED = '#0b0e12';
 /**
@@ -79,7 +79,8 @@ export class Minimap {
       this.land.width = this.things.width = this.view.width = w;
       this.land.height = this.things.height = this.view.height = h;
     }
-    const b = normalizeBounds(this.source.bounds());
+    // All the explored land, or past MAX_MINIMAP_SIDE a window of it round the camera (Patch 5 BG-5).
+    const b = minimapWindow(normalizeBounds(this.source.bounds()), this.paintedBounds, this.source.focus?.() ?? null, w / h);
     const version = this.source.version();
     if (resized || version !== this.paintedVersion || !this.paintedBounds || !sameBounds(b, this.paintedBounds)) {
       this.bounds = b;
@@ -90,7 +91,7 @@ export class Minimap {
       c.fillRect(0, 0, w, h);
       c.setTransform(this.t.scale, 0, 0, this.t.scale, this.t.ox, this.t.oy);
       c.save();
-      this.source.paint(c);
+      this.source.paint(c, b);
       c.restore();
       this.paintedVersion = version;
       this.paintedBounds = b;
@@ -105,7 +106,7 @@ export class Minimap {
       if (this.source.paintThings) {
         c.setTransform(this.t.scale, 0, 0, this.t.scale, this.t.ox, this.t.oy);
         c.save();
-        this.source.paintThings(c, dpr);
+        this.source.paintThings(c, dpr, this.bounds);
         c.restore();
       }
     }
@@ -143,7 +144,9 @@ export class Minimap {
     this.pings = this.pings.filter((p) => now - p.t0 < PINGS[p.style].ms);
     for (const p of this.pings) {
       const look = PINGS[p.style];
-      const at = worldToMap(this.t, p.x, p.z);
+      // A ping off the part of the land shown rings at its edge, on the side it lies (Patch 5 BG-5).
+      const b = this.bounds;
+      const at = worldToMap(this.t, Math.min(b.maxX, Math.max(b.minX, p.x)), Math.min(b.maxZ, Math.max(b.minZ, p.z)));
       const k = (now - p.t0) / look.ms;
       for (const lag of [0, 0.35]) {
         const f = ((now - p.t0) / PULSE_MS + lag) % 1;
