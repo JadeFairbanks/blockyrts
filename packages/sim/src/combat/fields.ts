@@ -50,7 +50,7 @@ export interface Field {
    * walk map inside its window, and any change to that walk map makes a new
    * field, so an answer once found holds for the field's life.
    */
-  next?: Int32Array;
+  next?: Int32Array | undefined;
 }
 
 /** Not state: fields per world (one world per game), per player and class. */
@@ -143,6 +143,7 @@ export function fieldFor(state: SimState, player: number, cls: MobClass): Field 
   const old = m.get(key);
   let f: Field;
   if (old && old.sig.length === sig.length && old.sig.every((v, k) => v === sig[k])) f = old;
+  else if (old && old.sig.length === sig.length && repair(state, player, old, sig)) f = old;
   else {
     f = build(state, player, cls, win, sig);
     m.set(key, f);
@@ -151,12 +152,11 @@ export function fieldFor(state: SimState, player: number, cls: MobClass): Field 
   return f;
 }
 
-function build(state: SimState, player: number, cls: MobClass, win: { x0: number; z0: number; w: number; h: number }, sig: number[]): Field {
+/** The goal tiles and the break costs of the walls and buildings in a window. */
+function marks(state: SimState, player: number, cls: MobClass, win: { x0: number; z0: number; w: number; h: number }): { pen: Int32Array; goal: Uint8Array } {
   const { x0, z0, w, h } = win;
-  const n = w * h;
-  const cost = new Int32Array(n).fill(UNREACHED);
-  const pen = new Int32Array(n);
-  const goal = new Uint8Array(n);
+  const pen = new Int32Array(w * h);
+  const goal = new Uint8Array(w * h);
   const inWin = (tx: number, tz: number): boolean => tx >= x0 && tz >= z0 && tx < x0 + w && tz < z0 + h;
   for (const b of state.buildings.list) {
     const [sx0, sz0, sx1, sz1] = solidRect(b);
@@ -171,12 +171,102 @@ function build(state: SimState, player: number, cls: MobClass, win: { x0: number
       }
     }
   }
+  return { pen, goal };
+}
+
+function build(state: SimState, player: number, cls: MobClass, win: { x0: number; z0: number; w: number; h: number }, sig: number[]): Field {
+  const { x0, z0, w, h } = win;
+  const n = w * h;
+  const cost = new Int32Array(n).fill(UNREACHED);
+  const { pen, goal } = marks(state, player, cls, win);
   const heap = new Heap();
   for (let k = 0; k < n; k++) {
     if (!goal[k]) continue;
     cost[k] = 0;
     heap.push(0, k);
   }
+  const f: Field = { x0, z0, w, h, cost, pen, goal, cls, sig };
+  flood(state, f, heap);
+  return f;
+}
+
+
+/**
+ * Brings a field up to date in place after walk-map changes in its window,
+ * with the same window, goals and break costs; false when those differ (a
+ * full build is then needed). The field holds each tile's cheapest cost to
+ * the town, which is one answer however it is found, so the result is the
+ * same as a full build's. A changed column alters the crossings of the tiles
+ * it lies in or borders (a chunk changed as a whole, those of its tiles and
+ * the ring round them); every way through an altered crossing then reaches
+ * the town from one of those tiles or a neighbour of one, so it costs at
+ * least the cheapest such tile's old cost T. A tile already cheaper than T
+ * kept its old way, which is untouched and still the cheapest; only the
+ * tiles at T or more are worked out again, from those below it. Flowing
+ * water and smashed ground (the breakers) change the walk map near the town
+ * nearly every step of a siege, and a full build of every field each step
+ * was the late-night lag (Patch 5 BG-2).
+ */
+function repair(state: SimState, player: number, f: Field, sig: number[]): boolean {
+  const { x0, z0, w, h } = f;
+  if (sig[0] !== x0 || sig[1] !== z0 || sig[2] !== w || sig[3] !== h) return false;
+  const { pen, goal } = marks(state, player, f.cls, f);
+  for (let k = 0; k < w * h; k++) if (pen[k] !== f.pen[k] || goal[k] !== f.goal[k]) return false;
+  // The signature's chunk versions, row by row over the window's chunks and one more round them.
+  const c0x = floorDiv(x0, 16) - 1;
+  const c0z = floorDiv(z0, 16) - 1;
+  const cw = floorDiv(x0 + w - 1, 16) + 1 - c0x + 1;
+  const cost = f.cost;
+  let t = UNREACHED;
+  let near = false;
+  // The tiles whose crossings changed, and their neighbours: one tile round them.
+  const reach = (ax: number, az: number, bx: number, bz: number): void => {
+    for (let tz = Math.max(z0, az - 1); tz <= Math.min(z0 + h - 1, bz + 1); tz++) {
+      for (let tx = Math.max(x0, ax - 1); tx <= Math.min(x0 + w - 1, bx + 1); tx++) {
+        near = true;
+        t = Math.min(t, cost[(tz - z0) * w + (tx - x0)]!);
+      }
+    }
+  };
+  for (let k = 4; k < sig.length; k++) {
+    if (sig[k] === f.sig[k]) continue;
+    const cx = c0x + ((k - 4) % cw);
+    const cz = c0z + floorDiv(k - 4, cw);
+    const cols = state.world.navChangesSince(chunkKey(cx, cz), f.sig[k]!);
+    if (cols === null) {
+      reach(cx * 16 - 1, cz * 16 - 1, cx * 16 + 16, cz * 16 + 16);
+      continue;
+    }
+    for (let q = 0; q < cols.length; q += 2) reach(floorDiv(cols[q]! - 1, TILE_COLUMNS), floorDiv(cols[q + 1]! - 1, TILE_COLUMNS), floorDiv(cols[q]! + 1, TILE_COLUMNS), floorDiv(cols[q + 1]! + 1, TILE_COLUMNS));
+  }
+  if (t === 0) return false;
+  f.sig = sig;
+  f.next = undefined;
+  // Changes only in the ring of chunks round the window, out of reach of its tiles: every cost stands.
+  if (!near) return true;
+  for (let k = 0; k < w * h; k++) if (cost[k]! >= t) cost[k] = UNREACHED;
+  // Start again from every settled tile beside one to work out.
+  const heap = new Heap();
+  for (let k = 0; k < w * h; k++) {
+    if (cost[k] === UNREACHED) continue;
+    const tx = k % w;
+    const tz = floorDiv(k, w);
+    for (let d = 0; d < 8; d++) {
+      const nx = tx + DIRS[d]![0];
+      const nz = tz + DIRS[d]![1];
+      if (nx < 0 || nz < 0 || nx >= w || nz >= h || cost[nz * w + nx] !== UNREACHED) continue;
+      heap.push(cost[k]!, k);
+      break;
+    }
+  }
+  flood(state, f, heap);
+  return true;
+}
+
+/** Dijkstra out from the tiles in the heap: each tile's cheapest cost to reach a goal, walking round or breaking through. */
+function flood(state: SimState, f: Field, heap: Heap): void {
+  const { x0, z0, w, h, cost, pen, goal, cls } = f;
+  const inWin = (tx: number, tz: number): boolean => tx >= x0 && tz >= z0 && tx < x0 + w && tz < z0 + h;
   const mover = moverOf(cls);
   const paths = state.paths;
   while (heap.size > 0) {
@@ -201,7 +291,6 @@ function build(state: SimState, player: number, cls: MobClass, win: { x0: number
       heap.push(nc, k);
     }
   }
-  return { x0, z0, w, h, cost, pen, goal, cls, sig };
 }
 
 /** The opposite of a DIRS index. */
