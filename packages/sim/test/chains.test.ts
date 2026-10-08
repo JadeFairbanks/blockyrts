@@ -190,7 +190,7 @@ describe('wall chains', () => {
     expect(s.entities.queue[1]!.filter((o) => o.t === 'build').slice(-2).map((o) => (o.t === 'build' ? [o.x, o.z] : null))).toEqual([[x + 5, z + 1], [x + 5, z + 2]]);
     // Nothing left: the next stretch is refused with the reason.
     const none = texts(s, 1, [{ kind: 'wallStretch', ...base, x: x + 5, z: z + 5, dir: 4, length: 3, skip: 1, queued: true }]);
-    expect(none.some((t) => t.startsWith('Not enough softwood lumber for another softwood wall'))).toBe(true);
+    expect(none.some((t) => t.startsWith('Not enough softwood lumber for another wooden wall'))).toBe(true);
     expect(s.entities.queue[1]!.filter((o) => o.t === 'build' || o.t === 'work').length).toBe(8);
   });
 

@@ -97,7 +97,7 @@ describe('a click on a greyed-out building (Patch 3)', () => {
     expect(up.text).toBe('We need a level 2 main base for the Barracks. Upgrade to Longhall?');
     expect(up.ask!.yes).toContain('From the stock now: 100 softwood lumber, 40 stone.');
     const gather = qs.find((x) => x.ask!.q === GreyAsk.Gather)!;
-    expect(gather.text).toBe('We need 20 more hardwood sticks for the Barracks. Shall I go and gather some?');
+    expect(gather.text).toBe('We need 20 more sticks for the Barracks. Shall I go and gather some?');
     expect(gather.ask!.res).toBe(Res.Sticks);
     expect(s.entities.kind[s.entities.indexOf(gather.speaker!)]).toBe(UnitKind.Worker);
     // Yes to both: the Big House starts its upgrade, the worker goes for sticks.
@@ -209,7 +209,7 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
     const qs = asked(s, [click(Greyed.Product, copper, forge.id)]);
     expect(qs.map((x) => [x.ask!.q, x.ask!.res])).toEqual([[GreyAsk.Tools, Res.CopperOre]]);
     expect(qs[0]!.text).toBe("We need 2 more copper ore for the copper ingot, and my tools can't break it. Shall I make stone and flint tools and go and gather some?");
-    expect(qs[0]!.ask!.yes).toContain('From the stock now: 6 hardwood sticks, 1 flint, 5 stone.');
+    expect(qs[0]!.ask!.yes).toContain('From the stock now: 6 sticks, 1 flint, 5 stone.');
     step(s, [yes(qs[0]!)]);
     const i = s.entities.indexOf(qs[0]!.speaker!);
     const [up, gather] = s.entities.queue[i]!;

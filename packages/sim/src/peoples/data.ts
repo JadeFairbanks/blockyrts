@@ -116,7 +116,7 @@ const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'ranged' | 'armour' | 'shield' 
   weapon: 0, ranged: 0, armour: 0, shield: 0, walkShoot: false, mount: 0, ...o,
 });
 
-/** The players' kit rows the peoples carry too (Troops and gear): a hardwood cudgel, a flint and a bronze spear, a longbow, a steel side-sword, a flintlock musket and a steel heater. */
+/** The players' kit rows the peoples carry too (Troops and gear): a wooden cudgel, a flint and a bronze spear, a longbow, a steel side-sword, a flintlock musket and a steel heater. */
 const CUDGEL = CLOSE_GEAR[1]!;
 const SPEAR_FLINT = LONG_GEAR[2]!;
 const SPEAR_BRONZE = LONG_GEAR[4]!;

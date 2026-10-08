@@ -149,7 +149,7 @@ function insideSpots(s: SimState): Array<[number, number]> {
   return [[b.x - 2, b.z + 7], [b.x + 15, b.z + 7], [b.x + 7, b.z - 2], [b.x + 7, b.z + 15], [b.x - 2, b.z - 2], [b.x + 15, b.z + 15], [b.x + 15, b.z - 2], [b.x - 2, b.z + 15]];
 }
 
-/** Brings every unit inside the ring line, then closes a softwood wall ring round the Big House (resource props are cleared for it). */
+/** Brings every unit inside the ring line, then closes a wooden wall ring round the Big House (resource props are cleared for it). */
 function fenceIn(s: SimState): void {
   const spots = insideSpots(s);
   run(s, 900, ownIds(s).map((id, n) => ({ kind: 'move', player: 0, units: [id], x: centre(spots[n]![0]), z: centre(spots[n]![1]) }) as Order));
@@ -170,10 +170,10 @@ function toNight(s: SimState, night: number): void {
 }
 
 describe('night 0', () => {
-  it('is survived by the three starting warriors and four workers behind a softwood fence', () => {
+  it('is survived by the three starting warriors and four workers behind a wooden fence', () => {
     const s = createWorld(1);
     const e = s.entities;
-    // Close melee with hardwood cudgels and no armour (Troops and gear: starting units).
+    // Close melee with wooden cudgels and no armour (Troops and gear: starting units).
     for (const i of [4, 5, 6]) {
       expect(e.troop[i]).toBe(Troop.Close);
       expect(e.weapon[i]).toBe(CLOSE_GEAR[1]);
@@ -418,7 +418,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const food = foodQuarters(player);
     const used = supplyUsed(s, 0);
     run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
-    // A hardwood cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
+    // A wooden cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
     expect(kit()).toEqual([before[0]! - 3, before[1]! - 4, before[2]! - 3]);
     // Exactly 30 food, in quarters: nothing lost to rounding.
     expect(foodQuarters(player)).toBe(food - 30 * 4);

@@ -91,10 +91,10 @@ describe('the build menu on letters (Patch 4)', () => {
     ]);
     button(c.card(), 'Defences').run(PRESS);
     expect(read(c.card())).toEqual([
-      'Softwood wall=W', 'Hardwood wall=H', 'Stone wall=S',
-      'Softwood gate (east to west)=G', 'Softwood gate (north to south)=F', 'Hardwood gate (east to west)=A', 'Hardwood gate (north to south)=D',
+      'Wooden wall=W', 'Hardwood wall=H', 'Stone wall=S',
+      'Wooden gate (east to west)=G', 'Wooden gate (north to south)=F', 'Hardwood gate (east to west)=A', 'Hardwood gate (north to south)=D',
       'Stone gate (east to west)=E', 'Stone gate (north to south)=U',
-      'Softwood tower=T', 'Hardwood tower=R', 'Stone tower=N',
+      'Wooden tower=T', 'Hardwood tower=R', 'Stone tower=N',
       'Earth bank=K', 'Earth ramp=P', 'Fill=I', 'Lumber ramp=B', 'Stone ramp=M', 'Back=Esc',
     ]);
     c.back();
@@ -110,7 +110,7 @@ describe('the build menu on letters (Patch 4)', () => {
     button(c.card(), 'Defences').run(PRESS);
     const first = c.card();
     expect(read(first).slice(-2)).toEqual(['Next page=+', 'Back=Esc']);
-    expect(read(first)[0]).toBe('Softwood wall=W');
+    expect(read(first)[0]).toBe('Wooden wall=W');
     // Thirteen a page, then More and Back.
     first.at(-2)!.run(PRESS);
     expect(read(c.card())).toEqual(['Earth ramp=P', 'Fill=I', 'Lumber ramp=B', 'Stone ramp=M', 'Next page=+', 'Back=Esc']);
@@ -123,7 +123,7 @@ describe('the build menu on letters (Patch 4)', () => {
     expect(button(c.card(), 'Farm').key).toBe('KeyY');
     keys[placeAction(BuildingKind.Wall, 0)] = 'Equal';
     button(c.card(), 'Defences').run(PRESS);
-    expect(button(c.card(), 'Softwood wall').key).toBe('');
+    expect(button(c.card(), 'Wooden wall').key).toBe('');
     expect(button(c.card(), 'More 1/2').key).toBe('Equal');
   });
 

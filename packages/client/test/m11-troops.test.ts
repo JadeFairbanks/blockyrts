@@ -156,7 +156,7 @@ describe('weaponOptions and armourOptions', () => {
   it('offer a main base tier 1 at most, and put close melee shields in the armour names', () => {
     const house = building(111, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] });
     const g = game({ buildings: [house] });
-    expect(weaponOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['Fists', 'Hardwood cudgel']);
+    expect(weaponOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['Fists', 'Wooden cudgel']);
     expect(armourOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin, wooden shield']);
     expect(armourOptions(g, house, Troop.Long).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin']);
     expect(armourOptions(g, barracks(112), Troop.Close)[3]!.name).toBe('Copper scale jack, boiled-leather targe');
@@ -176,7 +176,7 @@ describe('troopWhy', () => {
     expect(troopWhy(g, b, Troop.Brawler, 1, 0)).toBe('This building does not train that.');
     expect(troopWhy(g, b, Troop.Close, 3, 0)).toBe('Needs a Forge.');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, forge: 4, research: bit(Research.Steel) }), b, Troop.Ranger, 7, 0)).toBe('Needs Crossbows researched first.');
-    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Short: 0 of 3 hardwood sticks.');
+    expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b, Troop.Close, 1, 1)).toBe('Short: 0 of 3 sticks.');
     // Farm fare feeds 2 a portion: 14 is 28 food, short of a troop's 30.
     expect(troopWhy(game({ buildings: [b], pool: [[Res.FarmFare, 14], [Res.Sticks, 20]] }), b, Troop.Close, 1, 0)).toBe('Not enough food (30).');
     expect(troopWhy(game({ buildings: [b], pool: STOCK, supply: [8, 8] }), b, Troop.Close, 1, 0)).toBe('Not enough supply (8 of 8).');
@@ -224,6 +224,6 @@ describe('the Barracks card', () => {
     const { c } = harness(game({ buildings: [b], pool: [[Res.FarmFare, 100]] }), b);
     const close = c.card()[0]!;
     expect(close.enabled).toBe(false);
-    expect(close.reason).toBe('Short: 0 of 3 hardwood sticks.');
+    expect(close.reason).toBe('Short: 0 of 3 sticks.');
   });
 });

@@ -96,7 +96,7 @@ describe('wall chains', () => {
     c.updatePlacing(at(10, 10), 0);
     expect(asks.at(-1)).toEqual([[10, 10]]);
     answer(c, asks);
-    expect(c.chainLabel()).toEqual({ text: '1 softwood wall: 1 softwood lumber', hint: 'Click to place it, then click further on for a stretch', short: false });
+    expect(c.chainLabel()).toEqual({ text: '1 wooden wall: 1 softwood lumber', hint: 'Click to place it, then click further on for a stretch', short: false });
     c.placeDown();
     c.placeUp();
     expect(sent).toEqual([{ kind: 'wallStretch', player: ME, units: [1, 2], building: BuildingKind.Wall, x: 10, z: 10, dir: 0, length: 0, skip: 0, queued: false }]);

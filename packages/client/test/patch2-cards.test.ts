@@ -73,7 +73,7 @@ describe('the Sanctum cards', () => {
   it('say why a mage cannot be trained, short stock first', () => {
     const s = sanctum(211);
     const card = mageLock(School.Support);
-    expect(cardWhy(game([s]), s, card, 1, 1)).toBe('Short: 0 of 5 hardwood sticks.');
+    expect(cardWhy(game([s]), s, card, 1, 1)).toBe('Short: 0 of 5 sticks.');
     expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3]]), s, card, 1, 1)).toBe('Not enough food (50).');
     expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3], [Res.FarmFare, 30]]), s, card, 1, 1)).toBe('');
   });
@@ -104,7 +104,7 @@ describe('the card tooltips', () => {
     expect(cardTooltip(Troop.Long, { w: 2, a: 1, picked: true, locked: false }, 'Barracks').split('\n')).toEqual([
       'Trains a Flint spearman: flint-headed spear, leather jerkin.',
       'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 10%.',
-      'Costs 30 food, 3 hardwood sticks, 1 flint, 3 leather. 1 minute 25 seconds, 1 supply.',
+      'Costs 30 food, 3 sticks, 1 flint, 3 leather. 1 minute 25 seconds, 1 supply.',
       'Picked: until this Barracks is deselected.',
     ]);
     expect(cardTooltip(mageLock(School.Battle), { w: 1, a: 1, picked: false, locked: true }, 'Magi Sanctum')).toContain('Locked: always this kit here; allies see it.');

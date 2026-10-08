@@ -227,7 +227,7 @@ describe('early tools by job', () => {
     expect(digRate(Tool.Hardwood, Mat.Stone)).toBe(0);
   });
 
-  it('build and repair 15% faster with a stone hammer than with the hardwood mallet', () => {
+  it('build and repair 15% faster with a stone hammer than with the wooden mallet', () => {
     const work = (hammer: boolean): number => {
       const s = createWorld(1, { peaceful: true });
       const pool = s.players[0]!.pool;

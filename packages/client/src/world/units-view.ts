@@ -1076,7 +1076,7 @@ function workerLook(d: Int32Array, o: number): Look {
   const attach: Array<[string, string]> = [];
   const working = order === OrderKind.Chop || order === OrderKind.Mine || order === OrderKind.Attack || order === OrderKind.Shoot;
   // The tool for the job in hand (Table 2c): the stone maul and hammer and the flint axe have their own models; the
-  // hardwood set and the metal sets show the body's hoe for digging and farming and its hardwood axe otherwise.
+  // hardwood set and the metal sets show the body's hoe for digging and farming and its wooden axe otherwise.
   const tool = d[o + S.toolHand]!;
   const own = TOOL_MODELS.has(gearModel(tool)) ? gearModel(tool) : '';
   if (own && (working || order === OrderKind.Dig)) attach.push([own, 'slot_hand_r']);

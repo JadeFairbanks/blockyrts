@@ -34,7 +34,7 @@ for (const [p, s] of Object.entries(IRREGULAR)) SINGULAR.set(p, s);
 
 /** Words before the "1" that make it a label, not a count: "tier 1 tools", "Player 1 workers". */
 const LABELS = ['tier', 'level', 'rank', 'night', 'day', 'player', 'base', 'wave', 'group', 'slot', 'table', 'step', 'no\\.', 'number', 'version'];
-/** A word between the count and the noun may be any but these: "1 more minute", "1 hardwood stick", but not "1 of the walls". */
+/** A word between the count and the noun may be any but these: "1 more minute", "1 stick", but not "1 of the walls". */
 const NOT_BETWEEN = new Set(['of', 'the', 'and', 'or', 'in', 'to', 'at', 'for', 'with', 'from', 'by', 'on', 'per', 'a', 'an', 'each', 'every', 'all', 'your', 'their', 'its', 'our', 'my', 'these', 'those', 'than']);
 
 const ONE = new RegExp(

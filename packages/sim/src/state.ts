@@ -714,7 +714,7 @@ export interface WorldOptions {
   players?: number;
   /** Workers each player starts with: 4 (Premise, Starting setup). */
   playerUnits?: number;
-  /** Warriors each player starts with: 3 close-melee troops with hardwood cudgels and no armour (Troops and gear: starting units). */
+  /** Warriors each player starts with: 3 close-melee troops with wooden cudgels and no armour (Troops and gear: starting units). */
   warriors?: number;
   /** Neutral units that wander on their own, drawing on the 'ai' stream (M0's test of the streams). */
   wanderers?: number;
@@ -970,7 +970,7 @@ function freeColumnNear(state: SimState, x: number, z: number): [number, number]
 
 /**
  * Builds a new game: the world from the seed and player count, and in each
- * player's pocket a level 1 Big House with four workers round it, hardwood
+ * player's pocket a tier 1 Big House with four workers round it, wooden
  * tools and the starting stock (Premise, Starting setup; Table 6 and 9).
  */
 export function createWorld(seed: number, options: WorldOptions = {}): SimState {
@@ -1026,7 +1026,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
   }
-  // Then the starting warriors, a little east of the workers: close melee, a hardwood cudgel, no armour (Jade).
+  // Then the starting warriors, a little east of the workers: close melee, a wooden cudgel, no armour (Jade).
   const warriors = options.warriors ?? 3;
   for (const pocket of world.gen.start.pockets) {
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
