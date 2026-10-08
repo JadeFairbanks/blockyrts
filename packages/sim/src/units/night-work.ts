@@ -170,7 +170,7 @@ export function workOnTonight(state: SimState, i: number, o: ForageOrder): boole
   const text = n === 1 ? 'Should I keep working through the night?' : `Should the ${NUMBER_WORDS[n] ?? String(n)} of us keep working through the night?`;
   const yes = `${n === 1 ? 'It keeps' : 'They keep'} gathering through the night, taking only what lies within ${NIGHT_WORK_REACH_M} m of a building, and ${n === 1 ? 'comes' : 'come'} in once nothing is left there. Not answering counts as Yes. Takes nothing from the stock.`;
   const ids = group.map((j) => e.id[j]!);
-  askNow(state, player, e.id[i]!, false, { q: NIGHT_WORK_ASK, units: ids, res: -1, yes, no: noText(state, player, n, e.x[i]!, e.z[i]!) }, text, () => isDark(state.step, state.blood) && ids.some((id) => workingOn(state, id, player)));
+  askNow(state, player, e.id[i]!, false, { q: NIGHT_WORK_ASK, units: ids, res: -1, yes, no: noText(state, player, n, e.x[i]!, e.z[i]!) }, text, () => isDark(state.step) && ids.some((id) => workingOn(state, id, player)));
   return true;
 }
 
@@ -259,7 +259,7 @@ export function comeOut(state: SimState, i: number): void {
  * still on their way in turn back the same way).
  */
 export function releaseSheltered(state: SimState): void {
-  const c = clockAt(state.step, state.blood);
+  const c = clockAt(state.step);
   const p = c.period;
   if (p !== Period.Dawn && p !== Period.Day) return;
   if (c.into !== 0 && state.step % DAWN_LOOK_STEPS !== 0) return;

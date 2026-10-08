@@ -414,7 +414,7 @@ export function goesHome(state: SimState, i: number): boolean {
 export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
   const e = state.entities;
   if (e.kind[i] !== UnitKind.Worker) return DONE;
-  const p = clockAt(state.step, state.blood).period;
+  const p = clockAt(state.step).period;
   const dark = p === Period.Dusk || p === Period.Night;
   if (dark) {
     if (!worksOnTonight(state, i, o)) return homeForNight(state, i, o);

@@ -16,7 +16,6 @@ import {
   addMage,
   addWarrior,
   applyKit,
-  Band,
   Blocked,
   BuildingKind,
   buildingCentre,
@@ -37,7 +36,6 @@ import {
   MONSTERS,
   Moves,
   nightBudgetTenths,
-  nightLength,
   Period,
   placeBuilding,
   placementBlocked,
@@ -48,7 +46,6 @@ import {
   Shot,
   standY,
   stepOffSolid,
-  startBlood,
   step,
   Troop,
   UnitKind,
@@ -156,7 +153,6 @@ export function defenceFor(night: number): Defence {
 export interface NightRow {
   seed: number;
   night: number;
-  blood: boolean;
   budgetTenths: number;
   /** Threat the spawner planned for the night (tenths): the edge's 80% plus any lair share. */
   plannedTenths: number;
@@ -184,7 +180,6 @@ export interface NightRow {
   boltsShot: number;
   musketShots: number;
   cannonShots: number;
-  nightSeconds: number;
   outcome: 'held' | 'breached' | 'lost';
 }
 
@@ -268,7 +263,7 @@ function ringSpots(r: Ring, n: number, inset: number): Array<[number, number]> {
 }
 
 /** The fixture town for a night on a fresh world from a seed; returns the state at the end of the day before. */
-export function buildFixture(seed: number, d: Defence, blood = false): { state: SimState; ring: Ring; gaps: number; towers: Building[] } {
+export function buildFixture(seed: number, d: Defence): { state: SimState; ring: Ring; gaps: number; towers: Building[] } {
   const s = createWorld(seed);
   const p = s.players[0]!;
   const b = mainBase(s);
@@ -382,10 +377,6 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
   const [hx, hz] = spots[0] ?? [ring.x0 + STAB_INSET, ring.z0 + STAB_INSET];
   workers.forEach((id, k) => setDown(s, e.indexOf(id), hx + 1 + (k & 1), hz + 1 + (k >> 1)));
   if (!d.workersFight) orders.push({ kind: 'enter', player: 0, units: workers, building: b.id });
-  // The ring's buildings claim most of the small Heartland: its one blood night is taken as spent on night 13, as in play,
-  // so the checked nights are ordinary ones (the Balance notes' budgets); blood nights are checked on their own (bloodNight).
-  if (d.night >= 13) s.threats.bloodSpent |= 1 << Band.Heartland;
-  if (blood) startBlood(s, d.night, -1);
   // The clock to two minutes before dusk on day N, then everyone takes up their places.
   s.step = d.night * CYCLE_STEPS + DAY_STEPS - 2400;
   step(s, orders);
@@ -555,9 +546,9 @@ function wallCount(s: SimState, kind: number): number {
 }
 
 /** Runs one night against its fixture: through dusk and the night to the first step of dawn. */
-export function runNight(seed: number, night: number, blood = false): NightRow {
+export function runNight(seed: number, night: number): NightRow {
   const d = defenceFor(night);
-  const { state: s, ring, gaps } = buildFixture(seed, d, blood);
+  const { state: s, ring, gaps } = buildFixture(seed, d);
   const e = s.entities;
   const b = mainBase(s);
   const baseHp = b.hp;
@@ -588,7 +579,6 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
     if (sp.player !== 0) continue;
     planned += mobSpec(sp.mob).threatTenths;
   }
-  const length = nightLength(d.night, s.blood);
   const seen = new Set<number>();
   let firstWall = -1;
   let firstInside = -1;
@@ -607,7 +597,7 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
   const ofTheNight = (i: number): boolean => e.owner[i] === MONSTERS && e.kind[i] === UnitKind.Mob && e.hp[i]! > 0 && (e.id[i]! > firstId || isBoss(e.mob[i]!));
   const live = new Map<number, number>();
   const script = new ScriptedDefence(s, ring, d.workersFight);
-  while (clockAt(s.step, s.blood).period === Period.Night && s.over === 0) {
+  while (clockAt(s.step).period === Period.Night && s.over === 0) {
     step(s, s.step % 10 === 0 ? script.orders() : undefined);
     countShots();
     const t = s.step - nightStart;
@@ -641,7 +631,6 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
   const row: NightRow = {
     seed,
     night,
-    blood: s.blood.includes(night),
     budgetTenths: nightBudgetTenths(night),
     plannedTenths: planned,
     mobs,
@@ -665,7 +654,6 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
     boltsShot: shots.bolts,
     musketShots: shots.balls,
     cannonShots: shots.cannon,
-    nightSeconds: Math.round(length / 20),
     // Breached: a wall column or the gate broken (climbers getting over a whole wall is part of the plan on early nights).
     outcome: s.over !== 0 || b.hp <= 0 ? 'lost' : wallsLost > 0 ? 'breached' : 'held',
   };
@@ -673,6 +661,6 @@ export function runNight(seed: number, night: number, blood = false): NightRow {
 }
 
 export const NIGHT_COLUMNS: ReadonlyArray<keyof NightRow> = [
-  'seed', 'night', 'blood', 'budgetTenths', 'plannedTenths', 'mobs', 'mobsHp', 'killed', 'aliveAtDawn', 'warriors', 'warriorsLost', 'mages', 'magesLost', 'workersLost',
-  'wallColumns', 'wallsLost', 'gaps', 'firstWallBreakS', 'firstInsideS', 'baseHpLostPct', 'bossKilled', 'bossHpPm', 'arrowsShot', 'boltsShot', 'musketShots', 'cannonShots', 'nightSeconds', 'outcome',
+  'seed', 'night', 'budgetTenths', 'plannedTenths', 'mobs', 'mobsHp', 'killed', 'aliveAtDawn', 'warriors', 'warriorsLost', 'mages', 'magesLost', 'workersLost',
+  'wallColumns', 'wallsLost', 'gaps', 'firstWallBreakS', 'firstInsideS', 'baseHpLostPct', 'bossKilled', 'bossHpPm', 'arrowsShot', 'boltsShot', 'musketShots', 'cannonShots', 'outcome',
 ];

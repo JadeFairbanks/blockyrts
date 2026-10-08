@@ -64,7 +64,7 @@ function modeOf(state: SimState, i: number): Mode {
       return Mode.Attack;
     case 'hunt':
       // Home for the night, a hunter out with Hunt stands by like an idle unit and fights back; one sent after an animal goes on after it.
-      return e.kind[i] !== UnitKind.Warrior ? Mode.None : o.auto && isDark(state.step, state.blood) ? Mode.Idle : Mode.Hunt;
+      return e.kind[i] !== UnitKind.Warrior ? Mode.None : o.auto && isDark(state.step) ? Mode.Idle : Mode.Hunt;
     case 'loot':
       // Fetching loot or handing it in by itself, a fighter still fights back as an idle one does.
       return o.back !== 0 && e.kind[i] !== UnitKind.Worker ? Mode.Idle : Mode.None;
@@ -452,7 +452,7 @@ export function fightStep(state: SimState, i: number): boolean {
     // At dusk the hunt ends; on the Hunt button's hunt, quarry that runs past where the hunter can get home from by nightfall is let go.
     const fled = o.auto !== 0 && t >= 0 && beyondReach(state, i, e.x[t]!, e.z[t]!);
     if (fled) o.id = 0;
-    if (isDark(state.step, state.blood) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
+    if (isDark(state.step) || fled || !validTarget(state, i, t, true) || gap(state, i, t) > sightOf(state, i) + LOST_WU) {
       if (e.target[i] !== 0) disengage(state, i);
       return false;
     }

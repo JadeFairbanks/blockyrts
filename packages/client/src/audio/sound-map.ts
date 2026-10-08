@@ -18,13 +18,13 @@ export interface Who {
   order: number;
 }
 
-/** The music for a moment of the day (Audio: day, dusk, night, dawn and a blood-night track). */
-export function musicFor(period: number, bloodTonight: boolean): MusicStateId {
+/** The music for a moment of the day (Audio: day, dusk, night and dawn). */
+export function musicFor(period: number): MusicStateId {
   switch (period) {
     case Period.Dusk:
       return 'dusk';
     case Period.Night:
-      return bloodTonight ? 'blood_night' : 'night';
+      return 'night';
     case Period.Dawn:
       return 'dawn';
     default:
@@ -32,15 +32,14 @@ export function musicFor(period: number, bloodTonight: boolean): MusicStateId {
   }
 }
 
-/** The background loop for a moment of the day: the countryside by day and dawn, the night from dusk, the blood night's own. */
-export function ambienceFor(period: number, bloodTonight: boolean): AmbienceId {
-  if (period === Period.Night && bloodTonight) return 'blood_night';
+/** The background loop for a moment of the day: the countryside by day and dawn, the night from dusk. */
+export function ambienceFor(period: number): AmbienceId {
   return period === Period.Dusk || period === Period.Night ? 'night' : 'day';
 }
 
-/** The horn as a period begins: at dusk (the blood night's double horn when tonight is one) and at dawn; none otherwise. */
-export function hornFor(period: number, bloodTonight: boolean): string | null {
-  if (period === Period.Dusk) return bloodTonight ? 'horn_blood_night' : 'horn_dusk';
+/** The horn as a period begins: at dusk and at dawn; none otherwise. */
+export function hornFor(period: number): string | null {
+  if (period === Period.Dusk) return 'horn_dusk';
   if (period === Period.Dawn) return 'horn_dawn';
   return null;
 }
@@ -202,13 +201,12 @@ export function orderVoice(orderKind: string): VoiceEventId {
 }
 
 /** What a sim event says out loud: a sound, and a voice cue from its speaker. */
-export function eventCue(ev: { kind: string; text: string; urgent?: boolean | undefined; foreign?: boolean | undefined; sound?: string | undefined; lair?: number | undefined; ask?: { q: number; closed?: boolean | undefined; retold?: boolean | undefined } | undefined }): { sound: string | null; voice: VoiceEventId | null } {
+export function eventCue(ev: { kind: string; text: string; urgent?: boolean | undefined; foreign?: boolean | undefined; lair?: number | undefined; ask?: { q: number; closed?: boolean | undefined; retold?: boolean | undefined } | undefined }): { sound: string | null; voice: VoiceEventId | null } {
   if (ev.kind === 'question') {
     // A question as it goes up (Patch 2): the gatherer that ran out keeps the idle gatherer's alert and voice; the others chime.
     if (!ev.ask || ev.ask.closed || ev.ask.retold) return { sound: null, voice: null };
     return ev.ask.q === Ask.Farther ? { sound: 'alert_idle_worker', voice: 'resource_out' } : { sound: 'ui_message', voice: null };
   }
-  if (ev.sound === 'double-horn') return { sound: 'horn_blood_night', voice: null };
   // A new lair (Patch 3): the map ping, with the red ping on the minimap.
   if (ev.lair !== undefined) return { sound: 'ping', voice: null };
   const t = ev.text.toLowerCase();

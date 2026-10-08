@@ -43,7 +43,7 @@ function killerOf(state: SimState, i: number, taker: number): number {
 function onMobDeath(state: SimState, i: number, taker: number): void {
   const e = state.entities;
   const spec = mobSpec(e.mob[i]!);
-  const now = clockAt(state.step, state.blood);
+  const now = clockAt(state.step);
   const night = now.cycle - (now.period === Period.Night || now.period === Period.Dusk ? 0 : 1);
   const killer = taker >= 0 && taker < state.players.length ? killerOf(state, i, taker) : -1;
   if (taker >= 0 && taker < state.players.length) {
@@ -167,8 +167,8 @@ function hasWorkers(state: SimState, player: number): boolean {
  * The score: nights survived, counted as the dawns reached (Winning,
  * losing and score). Night n is survived once its dawn begins.
  */
-export function nightsSurvived(step: number, blood: readonly number[] = []): number {
-  const c = clockAt(step, blood);
+export function nightsSurvived(step: number): number {
+  const c = clockAt(step);
   return c.cycle + (c.period === Period.Dawn ? 1 : 0);
 }
 
@@ -186,7 +186,7 @@ export function updateElimination(state: SimState): void {
   }
   if (state.players.every((ps) => ps.out)) {
     state.over = state.step;
-    const n = nightsSurvived(state.step, state.blood);
+    const n = nightsSurvived(state.step);
     state.events.push({ player: -1, kind: 'alert', text: `The game is over. Nights survived: ${n}.` });
   }
 }

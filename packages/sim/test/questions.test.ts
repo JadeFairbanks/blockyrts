@@ -255,7 +255,7 @@ describe('the questions (Patch 2, round 3)', () => {
     const t = placeBuilding(s, 0, BuildingKind.Tower, 0, x, z, true);
     t.hp = Math.floor(maxHealth(t) / 2);
     s.step = DAY_STEPS + DUSK_STEPS + NIGHT_STEPS - 1;
-    expect(clockAt(s.step + 1, s.blood).period).toBe(Period.Dawn);
+    expect(clockAt(s.step + 1).period).toBe(Period.Dawn);
     const ev = untilAsked(s, (x2) => x2.ask!.q === Ask.Repair, 2 * STEPS_PER_SECOND);
     expect(ev.building).toBe(h.id);
     expect(ev.speaker).toBeUndefined();

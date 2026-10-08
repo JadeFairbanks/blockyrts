@@ -38,8 +38,7 @@ describe('the sound list', () => {
     for (const ids of Object.values(DOC_SOUNDS)) for (const id of ids) expect(soundDef(id), id).toBeDefined();
   });
 
-  it('has the blood night double horn and the voice moments the doc names', () => {
-    expect(soundDef('horn_blood_night')).toBeDefined();
+  it('has the voice moments the doc names', () => {
     // "short voice cues when units get orders, are hungry, are under attack, or run out of a resource"
     expect(FAMILY_EVENTS.worker).toEqual(expect.arrayContaining(['acknowledge', 'select', 'hungry', 'under_attack', 'resource_out', 'cannot']));
     for (const fam of ['warrior', 'mage'] as const) expect(FAMILY_EVENTS[fam]).toEqual(expect.arrayContaining(['acknowledge', 'select', 'hungry', 'under_attack']));
@@ -96,8 +95,8 @@ describe('rendering every sound', () => {
 });
 
 describe('music', () => {
-  it('has the five states the doc names', () => {
-    expect([...MUSIC_STATES].sort()).toEqual(['blood_night', 'dawn', 'day', 'dusk', 'night']);
+  it('has the four states the doc names', () => {
+    expect([...MUSIC_STATES].sort()).toEqual(['dawn', 'day', 'dusk', 'night']);
   });
 
   for (const state of MUSIC_STATES) {

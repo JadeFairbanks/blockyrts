@@ -641,8 +641,6 @@ export interface SimEvent {
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
   z?: number;
-  /** A sound cue to play with it (the blood night's double horn), for the client. */
-  sound?: string;
   /** A lair that has just appeared (Patch 3): its mob kind, for the client's ping and sound. */
   lair?: number;
   /**
@@ -689,9 +687,7 @@ export interface SimState {
   over: number;
   /** 1 for no night mobs (tests and the debug tools). */
   peaceful: number;
-  /** The nights that were or are blood nights, ascending (Day and night: they last twice as long). */
-  blood: number[];
-  /** Lairs, villages, tribes, the blood and fog nights (milestone 5). */
+  /** Lairs, villages, tribes and the fog nights (milestone 5). */
   threats: ThreatState;
   /** The neutral peoples: villages, camps, the Elf kingdom and its caravans, Dwarf colonies and cities, mercenary camps (milestone 7). */
   peoples: PeoplesState;
@@ -995,7 +991,6 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     stockedChunks: new Set(),
     over: 0,
     peaceful: options.peaceful ? 1 : 0,
-    blood: [],
     threats: newThreats(),
     peoples: newPeoples(),
   });

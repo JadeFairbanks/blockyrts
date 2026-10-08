@@ -119,11 +119,10 @@ describe('the night monsters own sounds', () => {
 });
 
 describe('the ambience', () => {
-  it('follows the day: countryside by day and dawn, night from dusk, the blood night its own', () => {
-    expect(ambienceFor(Period.Day, false)).toBe('day');
-    expect(ambienceFor(Period.Dusk, true)).toBe('night');
-    expect(ambienceFor(Period.Night, false)).toBe('night');
-    expect(ambienceFor(Period.Night, true)).toBe('blood_night');
-    expect(ambienceFor(Period.Dawn, true)).toBe('day');
+  it('follows the day: countryside by day and dawn, night from dusk', () => {
+    expect(ambienceFor(Period.Day)).toBe('day');
+    expect(ambienceFor(Period.Dusk)).toBe('night');
+    expect(ambienceFor(Period.Night)).toBe('night');
+    expect(ambienceFor(Period.Dawn)).toBe('day');
   });
 });

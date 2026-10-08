@@ -879,15 +879,13 @@ export class WorldView {
   private readonly daySun = new THREE.Color(0xfff2dc);
   private readonly nightSun = new THREE.Color(0x8aa0d8);
   private readonly duskSun = new THREE.Color(0xff9a5a);
-  private readonly bloodHemi = new THREE.Color(0xb05048);
-  private readonly bloodSun = new THREE.Color(0xff5a40);
   /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
   private fogK = 0;
   private lastSky = 0;
 
   /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
   darkness(): number {
-    const c = clockAt(this.simStep, this.game?.info?.blood);
+    const c = clockAt(this.simStep);
     const f = c.into / (c.into + c.left);
     switch (c.period) {
       case Period.Day:
@@ -909,19 +907,12 @@ export class WorldView {
     this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
     this.sun.intensity = 1.7 - 1.35 * k;
     this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
-    // A blood night: the night light turns red.
-    const info = this.game?.info;
-    const c = clockAt(this.simStep, info?.blood);
-    if (info?.blood.includes(c.cycle) && c.period !== Period.Day) {
-      this.hemi.color.lerp(this.bloodHemi, k * 0.55);
-      this.sun.color.lerp(this.bloodSun, k * 0.6);
-    }
     this.buildings.darkness = k;
     // The fog rolls in and lifts over a few seconds.
     const now = performance.now();
     const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
     this.lastSky = now;
-    const want = info?.fog ? 1 : 0;
+    const want = this.game?.info?.fog ? 1 : 0;
     this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
     const fog = this.scene.fog as THREE.Fog;
     if (this.fogK <= 0.001) {

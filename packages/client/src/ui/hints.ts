@@ -25,8 +25,7 @@ export const TIP_STEPS = 12 * STEPS_PER_SECOND;
 /**
  * The torch tip waits for 10 s into the first dusk (Jade's Patch 3b), the
  * dusk tip showing until then: the game's step, never a clock, so it stands
- * still while paused. The first dusk starts after the first day; no blood
- * night comes before it to move it.
+ * still while paused. The first dusk starts after the first day.
  */
 export const TORCH_TIP_STEP = DAY_STEPS + 10 * STEPS_PER_SECOND;
 
@@ -214,7 +213,7 @@ export class FirstDayHints {
 
   private period(): number {
     const info = this.game.info;
-    return info ? clockAt(info.step, info.blood).period : Period.Day;
+    return info ? clockAt(info.step).period : Period.Day;
   }
 
   /** Starts the series (a new game; a loaded one has no tips). */

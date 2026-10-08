@@ -225,7 +225,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
 /** Everyone Home: units without a standing job go to the nearest shelter with room; farmers go to their own farm. In the dark they go in for the night (ENTER_NIGHT: out at dawn once no monster is near, Jade's Patch 4), by day until daybreak. */
 export function everyoneHome(state: SimState, player: number): void {
   const e = state.entities;
-  const auto = isDark(state.step, state.blood) ? ENTER_NIGHT : 1;
+  const auto = isDark(state.step) ? ENTER_NIGHT : 1;
   const shelters = state.buildings.list.filter((b) => b.owner === player && shelterRoom(b) > 0);
   const taken = new Map<number, number>();
   for (const b of shelters) taken.set(b.id, shelteredIn(state, b.id).length);
@@ -264,7 +264,7 @@ export function enterOrder(state: SimState, i: number, b: Building): UnitOrder |
 
 /** A worker sent to shelter by its player: in the dark it goes in for the night and comes out at dawn once no monster is near (Jade's Patch 4: any worker that retreated there at night); by day it stays until let out. */
 function shelterAuto(state: SimState): number {
-  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
+  return isDark(state.step) ? ENTER_NIGHT : 0;
 }
 
 /**
@@ -781,7 +781,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.res < RESOURCES.length && !isAnyRes(o.res)) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
-        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
         break;
       case 'debugThreat':
         debugThreat(state, o.player, o.what, o.x, o.z);

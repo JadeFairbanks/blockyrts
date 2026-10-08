@@ -300,8 +300,7 @@ export interface InfoMessage {
   open: Int32Array;
   starveWorkers: boolean;
   starveTroops: boolean;
-  /** Blood nights called so far (they shift the clock), and whether a fog night lies now. */
-  blood: number[];
+  /** Whether a fog night lies now. */
   fog: boolean;
   /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
   ruins: Array<[number, number, number]>;
