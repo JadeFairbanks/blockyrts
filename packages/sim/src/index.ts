@@ -100,3 +100,4 @@ export * from './siege/data.ts';
 export * from './siege/engines.ts';
 export * from './threats/late-mobs.ts';
 export * from './threats/boss.ts';
+export * from './threats/springs.ts';

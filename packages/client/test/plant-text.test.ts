@@ -19,7 +19,8 @@ describe('what the panel says about growing plants', () => {
     expect(propLabel(PropKind.Pine, Stage.Young, 7)).toBe('Young pine (7 softwood lumber)');
     expect(propLabel(PropKind.Pine, Stage.Grown, 20)).toBe('Pine (20 softwood lumber)');
     expect(propLabel(PropKind.Oak, Stage.Sapling, 0)).toBe('Great oak sapling');
-    expect(propLabel(PropKind.DeadTree, Stage.Grown, 0)).toBe('Dead tree (no lumber)');
+    // Dead wood yields lumber since Patch 5 (WL-11).
+    expect(propLabel(PropKind.DeadTree, Stage.Grown, 10)).toBe('Dead tree (10 softwood lumber)');
     const young = propDetails(PropKind.Pine, Stage.Young, 7, 20, 30);
     expect(young).toContain('Still growing: 7 of the 20 softwood lumber it holds when grown.');
     // Part-chopped young: 2 of its 7 left, so 15 when grown.

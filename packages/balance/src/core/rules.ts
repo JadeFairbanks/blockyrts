@@ -159,6 +159,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/late-mobs.ts': 'mobs',
   'threats/boss.ts': 'mobs',
   'threats/wanderers.ts': 'mobs',
+  'threats/springs.ts': 'lairs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {

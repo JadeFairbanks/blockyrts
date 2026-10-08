@@ -1502,6 +1502,10 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | team_swatch_6 | ui/team_swatch_6.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 6 (orange, RGB (200, 104, 36)), 12x12 swatch. |
 | team_swatch_7 | ui/team_swatch_7.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 7 (green, RGB (64, 128, 52)), 12x12 swatch. |
 | team_swatch_8 | ui/team_swatch_8.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 8 (pink, RGB (196, 100, 140)), 12x12 swatch. |
+| icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | Patch 5 resource icon black_berries (GP-31): four dark purple drupe berries under a stalk and two leaves, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
+| icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | Patch 5 resource icon raspberries (GP-31): four red drupe berries under a stalk and two leaves, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
+| icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | Patch 5 resource icon blueberries (GP-31): five round blue berries under a stalk and two leaves, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
+| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | Patch 5 resource icon mushrooms (GP-30): two edible mushrooms, domed tan caps on pale stems, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
 
 ## sky
 

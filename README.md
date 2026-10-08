@@ -3298,6 +3298,56 @@ for players.
 6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
    <folder>` drives all of this in a browser and saves pictures of it.
 
+## How a tester checks Patch 5's world
+
+The land is measured from the main bases now, cliffs before the Barrens have
+become mountains, and there are new things to find and gather. Start a game
+(`?seed=1` gives the same world each time).
+
+1. Bands: the Heartland reaches 155 to 175 m from the nearest main base in
+   every direction, then the Fringe, the Deepwoods and the Barrens are each
+   155 to 175 m wide, and the Deadlands go on from there. Each border
+   wanders about 5 m. Farms, mines and the threat count the band where they
+   stand.
+2. Before the Barrens there are no small cliffs or ledges: the old cliff
+   lines are broad mountains, rock on top and grass lower down, with open
+   passes. Parts of the Heartland, Barrens and Deadlands roll in gentle
+   hills, never within 50 m of a start. Villages stand on flat ground, and
+   bogs lie in hollows.
+3. One peak of 11 to 14 m stands 100 to 125 m from the first player's main
+   base.
+4. Nothing natural lies deeper than 6 m below sea level, ravines are 3 to
+   5 m deep, and digging stops at the same 6 m.
+5. Woods are thinner and walkable, the Heartland's most of all, and a felled
+   tree's seeds only take root 4 m or more from any other tree.
+6. Boulders, 3 m tall, about one every 4 or 5 chunks and none within 40 m
+   of a main base: 400 stone, 3 workers at once, a digging stick or better.
+7. Coal rocks, grey rocks with black chunks set in them: copper picks or
+   better, 20 to 30 coal, then 40 to 60 stone left behind as an outcrop.
+8. Mountains before the Barrens very rarely hold a silver node (1 to 4
+   silver, then 10 to 20 loose stone) and more rarely a gold node (1 to 2
+   gold, then 6 to 12 loose stone), both with copper picks.
+9. Flax grows in fields of 8 to 16 plants in about a third of the
+   Heartland's, Fringe's and Deepwoods' chunks, the ones with few trees,
+   never in bogs: three looks that gather alike, and a tall one twice the
+   height that gives 20 flax. Picked bare, it grows back in 3 minutes.
+10. Edible mushrooms at the feet of trees (one for every 3 trees in a chunk,
+    10 at most) and black berry, raspberry and blueberry bushes: 1 food a
+    mushroom or a bunch of berries, each in its own inventory slot. A berry
+    bush picked bare keeps its leaves and its berries come back in 2
+    minutes.
+11. Iron rock: the Fringe's half the size and half as many as before, the
+    Deepwoods' a fifth smaller again and 80% as many as the Fringe's, the
+    Barrens' and Deadlands' as the Fringe's were. Marble rock turns up in
+    the Fringe and the Deepwoods.
+12. Hot springs, a pool with a stone rim and sulphur on it, in about 1 in 5
+    Barrens and Deadlands chunks. The first time your units come near one,
+    an ash golem stands on its rim: it grumbles at units within 25 m, wakes
+    with a roar when they come within 12 m, and growls as it fights. Killed,
+    it never comes back. None in a peaceful game.
+13. Dead trees give 10 softwood lumber and thorn bushes 10 sticks; neither
+    grows back.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).
