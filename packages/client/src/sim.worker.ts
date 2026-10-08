@@ -84,6 +84,8 @@ import {
   MANA_SCALE,
   mageMaxMana,
   mageTrainingProblem,
+  mageTrainingProgress,
+  autocastOn,
   schoolSpells,
   spellProblem,
   spellReadyAt,
@@ -324,7 +326,8 @@ function postInfo(s: SimState): void {
   });
   const e = s.entities;
   const queues: Array<[number, UnitOrder[]]> = [];
-  const spells: Array<[number, Array<[number, string, number]>]> = [];
+  const spells: Array<[number, Array<[number, string, number, number]>]> = [];
+  const mageTraining: Array<[number, number, number]> = [];
   const mageRanks: Array<[number, string]> = [];
   const bags: Array<[number, Array<[number, number]>]> = [];
   for (let i = 0; i < e.count; i++) {
@@ -332,7 +335,11 @@ function postInfo(s: SimState): void {
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
     if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
-    if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
+    if (e.kind[i] === UnitKind.Mage) {
+      spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step), autocastOn(s, i, sp) ? 1 : 0])]);
+      const training = mageTrainingProgress(s, i);
+      if (training) mageTraining.push([e.id[i]!, training.done, training.total]);
+    }
   }
   const c = clockAt(s.step);
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
@@ -367,6 +374,7 @@ function postInfo(s: SimState): void {
       ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
       marks: threatMarks(s, PLAYER),
       spells,
+      mageTraining,
       mageRanks,
       peoples: peoplesInfo(s, PLAYER),
       players: s.players.map((ps) => ({ share: ps.share, out: ps.out !== 0 })),

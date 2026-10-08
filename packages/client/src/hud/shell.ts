@@ -1873,11 +1873,13 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
+        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.autocast ? ' autocast' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
+        ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p), rightWhenGrey: true } : {}),
       });
+      b.setCool(e.cool ?? 0);
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);

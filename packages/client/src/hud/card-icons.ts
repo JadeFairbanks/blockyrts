@@ -3,7 +3,7 @@
 // the card's training, making, building and upgrade buttons ask for their
 // own picture here with what they know (the product, the building, the kit).
 // The words stay in the tooltip, which says a little more than the old face.
-import { engineSpec, mageOf, productSpec, recipeSpec, Research, School, SPELLS, speciesSpec, Troop, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+import { engineSpec, mageOf, productSpec, recipeSpec, Research, School, Spell, SPELLS, speciesSpec, Troop, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { ButtonIcon, IconBadge } from './buttons.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON } from './unit-icons.ts';
@@ -54,10 +54,15 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   trainBattleMage: one(BATTLE_MAGE_ICON),
 };
 
+/** Spells that share another spell's picture until they have their own, with the tint that tells them apart (Patch 5: Energy dart is Arcane bolt's orb in the pale gold of light). */
+const SPELL_TINTS: Record<number, string> = { [Spell.EnergyDart]: 'hue-rotate(130deg) saturate(1.2) brightness(1.3)' };
+
 /** A spell's picture: its own card icon (Table 13). */
 export function spellIcon(spell: number): ButtonIcon | undefined {
   const s = SPELLS[spell];
-  return s ? one(s.icon) : undefined;
+  if (!s) return undefined;
+  const tint = SPELL_TINTS[spell];
+  return tint ? { layers: [{ file: s.icon, filter: tint }] } : one(s.icon);
 }
 
 /**

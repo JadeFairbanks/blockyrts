@@ -14,6 +14,7 @@
 // with a picture and a count, and portraits with their bars. The title row
 // and all under it grow together to fill the section (middle-fit.ts).
 import {
+  BuildingKind,
   buildingSpec,
   engineSpec,
   isGame,
@@ -217,6 +218,8 @@ export class SelectionPanel {
   private live: LiveBar[] = [];
   /** The shown queue's head: its button and bar, updated live (patch notes 1). */
   private head: { btn: HudButton; bar: HTMLElement } | null = null;
+  /** Mages training a rank at the shown Magi Sanctum (Patch 5, MB-24): each one's bar, by unit id, updated live. */
+  private readonly trainBars = new Map<number, HTMLElement>();
   /** The training cards and their tier strip. */
   readonly cards: TrainingCards;
   /** The building ids whose card picks still hold (Jade: only while selected). */
@@ -263,6 +266,7 @@ export class SelectionPanel {
 
   private clear(): void {
     this.head = null;
+    this.trainBars.clear();
     this.used = new Set();
     this.bars.clear();
     this.manaBars.clear();
@@ -616,7 +620,7 @@ export class SelectionPanel {
   // ---- One building ----
 
   private buildingSig(b: BuildingInfo): string {
-    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : ''].join('/');
+    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), this.inTraining(b).join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : ''].join('/');
   }
 
   private oneBuilding(t: Selectable, b: BuildingInfo): void {
@@ -703,10 +707,42 @@ export class SelectionPanel {
       this.portraits(b, b.up, 'top', 'Click to bring this one down.', row);
     }
     const sheltering = b.inside.filter((id) => !b.up.includes(id));
-    if (sheltering.length > 0) {
+    // Patch 5 (MB-24): at a Magi Sanctum, mages training a rank read Training, on cards the size of a queue's with their bars.
+    const training = this.inTraining(b);
+    if (training.length > 0) {
+      const row = this.strip('garrison training');
+      this.chip('training', { icon: pic('icon_rank_mage_adept_acolyte'), face: `Training ${training.length}`, name: `Training: ${training.length}`, description: 'Training a rank. Click one to let her out.', className: 'word' }, row);
+      this.portraits(b, training, 'training', 'Training a rank. Click to let her out.', row);
+      for (const id of training) {
+        const card = this.dynamic.get(`training${id}`);
+        if (!card) continue;
+        const bar = document.createElement('span');
+        bar.className = 'hp';
+        card.el.append(bar);
+        this.trainBars.set(id, bar);
+      }
+      this.updateTraining();
+    }
+    const resting = sheltering.filter((id) => !training.includes(id));
+    if (resting.length > 0) {
       const row = this.strip('garrison');
-      this.chip('inside', { icon: pic('icon_status_sheltered'), face: `Inside ${sheltering.length}`, name: `Inside: ${sheltering.length}`, description: 'Click one to let it out.', className: 'word' }, row);
-      this.portraits(b, sheltering, 'inside', 'Click to let this one out.', row);
+      this.chip('inside', { icon: pic('icon_status_sheltered'), face: `Inside ${resting.length}`, name: `Inside: ${resting.length}`, description: 'Click one to let it out.', className: 'word' }, row);
+      this.portraits(b, resting, 'inside', 'Click to let this one out.', row);
+    }
+  }
+
+  /** The mages training a rank inside a Magi Sanctum (Patch 5). */
+  private inTraining(b: BuildingInfo): number[] {
+    if (b.kind !== BuildingKind.MagiSanctum) return [];
+    return b.inside.filter((id) => !b.up.includes(id) && this.a.game.mageTraining(id) !== null);
+  }
+
+  /** The training mages' bars follow the sim every refresh. */
+  private updateTraining(): void {
+    for (const [id, bar] of this.trainBars) {
+      const t = this.a.game.mageTraining(id);
+      const w = `${t && t.total > 0 ? Math.min(100, Math.floor((t.done * 100) / t.total)) : 100}%`;
+      if (bar.style.width !== w) bar.style.width = w;
     }
   }
 
@@ -1008,6 +1044,7 @@ export class SelectionPanel {
   private update(list: readonly Selectable[], b: BuildingInfo | undefined): void {
     this.updateBars(list);
     if (b) this.updateHead(b);
+    this.updateTraining();
     for (const l of this.live) {
       const v = l.read();
       const pct = v ? v.pct : 0;

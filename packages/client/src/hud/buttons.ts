@@ -48,6 +48,8 @@ export interface HudButtonDef {
   className?: string;
   onPress?: (p: ButtonPress) => void;
   onRightClick?: (p: ButtonPress) => void;
+  /** The right click works while it is greyed out too (Patch 5: a spell's autocast). */
+  rightWhenGrey?: boolean;
   onDoubleClick?: (p: ButtonPress) => void;
   /** A click or its key while it is greyed out (Patch 3: the command card asks those who can sort out why). */
   onGreyPress?: () => void;
@@ -58,6 +60,7 @@ export class HudButton {
   private readonly keyEl: HTMLElement;
   private readonly faceEl: HTMLElement;
   private iconEl: HTMLElement | null = null;
+  private coolEl: HTMLElement | null = null;
   private iconSig = '';
   enabled = true;
   /** Why it is greyed out, for the tooltip. */
@@ -128,6 +131,20 @@ export class HudButton {
 
   setLit(on: boolean): this {
     this.el.classList.toggle('lit', on);
+    return this;
+  }
+
+  /** A spell's cooldown (Patch 5, VX-9): the share of it still to run, 0 to 1; dark over the button, which a clock hand sweeps off (hud.css .cool). */
+  setCool(left: number): this {
+    if (left > 0 && !this.coolEl) {
+      this.coolEl = document.createElement('span');
+      this.coolEl.className = 'cool';
+      this.el.append(this.coolEl);
+    }
+    if (this.coolEl) {
+      this.coolEl.hidden = left <= 0;
+      this.coolEl.style.setProperty('--cool', String(Math.max(0, Math.min(1, left))));
+    }
     return this;
   }
 
