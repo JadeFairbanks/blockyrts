@@ -100,7 +100,7 @@ describe('the Sanctum cards', () => {
 describe('the card tooltips', () => {
   it('name the kit, its numbers, its cost with counted ingots, and the card state', () => {
     expect(cardTrainsText(Troop.Close, 4, 3)).toBe('Trains a Bronze swordsman: bronze shortsword, copper scale jack, boiled-leather targe.');
-    expect(cardCostText(Troop.Close, 4, 3)).toBe('30 food, 2 bronze ingots, 1 hardwood lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 3 minutes, 1 supply.');
+    expect(cardCostText(Troop.Close, 4, 3)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 3 minutes, 1 supply.');
     expect(cardTooltip(Troop.Long, { w: 2, a: 1, picked: true, locked: false }, 'Barracks').split('\n')).toEqual([
       'Trains a Flint spearman: flint-headed spear, leather jerkin.',
       'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 10%.',

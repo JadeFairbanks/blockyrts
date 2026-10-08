@@ -40,7 +40,7 @@ interface World {
   buildings?: BuildingInfo[];
   pool?: Array<[number, number]>;
   research?: number;
-  /** The Forge's metal step (Patch 2: 0 no Forge, 1 any Forge, 2 to 4 by main base level 3, 5 and 7). */
+  /** The Forge's metal step (Patch 2: 0 no Forge, 1 any Forge, 2 to 4 by main base tier 2, 3 and 3). */
   forge?: number;
   /** Per unit id: state fields to set on top of the defaults. */
   units?: Record<number, Partial<Record<keyof typeof S, number>>>;
@@ -256,7 +256,7 @@ describe('the Big House', () => {
   /** What the sim worker sends for a Big House: its three troop types at tier 1, and what it makes. */
   const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
 
-  it('trains close melee, long melee and rangers on A, Q and N, and makes rope on R (Patch 4: no grid keys)', () => {
+  it('trains close melee, long melee and rangers on A, Q and N, and makes rope on K (Patch 5: Make rope on the card)', () => {
     const g = game({ pool: [[Res.FarmFare, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
     const house = g.buildings.get(20)!;
     house.troops = troops;
@@ -271,18 +271,15 @@ describe('the Big House', () => {
     expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
-    const craft = button(card, 'craft')!;
-    expect(craft.key).toBe('KeyK');
-    craft.run(PRESS);
-    const make = c.card();
-    const rope = make.find((e) => e.name === 'Rope')!;
-    expect(rope.key).toBe('KeyR');
-    expect(rope.menu).toBe(true);
+    // Patch 5: the Make button is Make rope itself, on K, with no menu behind it.
+    const rope = button(card, 'craft')!;
+    expect(rope.key).toBe('KeyK');
+    expect([rope.face, rope.name]).toEqual(['Make rope', 'Make rope']);
+    expect(rope.menu).toBeUndefined();
     expect(rope.enabled).toBe(false);
     expect(rope.reason).toContain('Not enough flax');
     // The Big House makes rope at one worker's pace, as before Patch 2.
     expect(rope.description).toContain('Time: 10 s.');
-    expect(make.at(-1)!.face).toBe('Back');
   });
 
   it('says a Workshop recipe\'s real time: it works on its own at the crafting pace (Patch 2)', () => {
@@ -296,7 +293,7 @@ describe('the Big House', () => {
       make.run(PRESS);
       all.push(c.card());
     }
-    const planks = all.flat().find((e) => e.name === 'Planks from softwood')!;
+    const planks = all.flat().find((e) => e.name === 'Planks')!;
     expect(planks.description).toContain(`Time: ${5 / CRAFT_PACE} s.`);
   });
 

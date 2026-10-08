@@ -152,7 +152,7 @@ describe('Milestone 9: save files', () => {
     }
     // The same game written now opens.
     const now = await makeSave({ matchId: 'new', seed: 11, seats: [{ slot: 0, name: 'Jade', colour: 0, accountId: '' }] }, { step: s.step, night: 0, data: serializeState(s) }, 'Night 0');
-    expect(readSaveHeader(now).formatVersion).toBe(8);
+    expect(readSaveHeader(now).formatVersion).toBe(9);
     expect((await openSave(now)).header.matchId).toBe('new');
   });
 

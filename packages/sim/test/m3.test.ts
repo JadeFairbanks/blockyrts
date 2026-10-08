@@ -321,7 +321,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const pool = s.players[0]!.pool;
     giveResearch(s, Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets);
     built(s, BuildingKind.Forge);
-    mainBaseAt(s, 7);
+    mainBaseAt(s, 3);
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.SoftwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.Feathers, Res.Rope]) pool[r] = 50;
     for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 20;
     pool[Res.Venison] = 200;
@@ -369,8 +369,8 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     built(s, BuildingKind.Forge);
     expect(productProblem(s, barracks, troopProduct(Troop.Close, 3, 0))).toBe('');
     expect(productProblem(s, barracks, troopProduct(Troop.Long, 4, 0))).toBe('Needs Bronze researched first.');
-    // Patch 2: wrought iron comes at main base level 3, not a Bloomery.
-    expect(productProblem(s, barracks, troopProduct(Troop.Ranger, 5, 0))).toBe('Needs a level 3 main base.');
+    // Patch 2: wrought iron comes with the main base, not a Bloomery (Patch 5: at tier 2).
+    expect(productProblem(s, barracks, troopProduct(Troop.Ranger, 5, 0))).toBe('Needs a tier 2 main base.');
     // Nothing affordable at a tier: the panel's default drops to the best the stock pays for.
     giveResearch(s, Research.Bronze);
     expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1 });
@@ -381,7 +381,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const pool = s.players[0]!.pool;
     giveResearch(s, Research.Bronze, Research.Steel, Research.CarbonSteel, Research.Crossbows, Research.Gunpowder, Research.Muskets);
     built(s, BuildingKind.Forge);
-    mainBaseAt(s, 7);
+    mainBaseAt(s, 3);
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.CopperIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 50;
     const base = bigHouse(s)!;
     expect(troopTypesAt(base)).toEqual([Troop.Close, Troop.Long, Troop.Ranger]);
@@ -507,8 +507,10 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
     const e = s.entities;
     const pool = s.players[0]!.pool;
     built(s, BuildingKind.Forge);
-    mainBaseAt(s, 5);
-    // Bronze is not researched, the iron broadsword is 1 ingot short, steel needs main base 7: the best is the wrought iron sword.
+    mainBaseAt(s, 3);
+    // Bronze and Steel are not researched and the iron broadsword is 1 ingot short: the best is the wrought iron sword.
+    // Its 1 lumber comes from the hardwood, the only lumber in stock (Patch 5: either kind pays).
+    pool[Res.SoftwoodLumber] = 0;
     pool[Res.CopperIngot] = 1;
     pool[Res.BronzeIngot] = 2;
     pool[Res.WroughtIron] = 2;

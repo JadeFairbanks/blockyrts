@@ -105,7 +105,7 @@ describe('the build menu greys out what the stock cannot pay for (Patch 3)', () 
   });
 
   it("prices a second Scholar's Lodge twice, as the sim does", () => {
-    const cost = levelSpec(BuildingKind.ScholarsLodge, 1).cost.map(([r, n]) => [r, n] as [number, number]);
+    const cost = levelSpec(BuildingKind.ScholarsLodge, 1).cost.map(([r, n]) => [r === Res.AnyLumber ? Res.SoftwoodLumber : r, n] as [number, number]);
     expect(button(open(cost).c.card(), "Scholar's Lodge").enabled).toBe(true);
     const second = button(open(cost, [building(30, BuildingKind.ScholarsLodge)]).c.card(), "Scholar's Lodge");
     expect(second.enabled).toBe(false);

@@ -100,7 +100,9 @@ describe('the kit tables', () => {
     TOOL_KITS.forEach((k, t) => {
       expect(k.tools.length).toBe(4);
       if (t > 0) {
-        expect(k.damage).toBeGreaterThan(TOOL_KITS[t - 1]!.damage);
+        // Patch 5 (BL-1): tools hit 2 less, so the wooden tools hit as hard as bare hands (2).
+        if (t === 1) expect(k.damage).toBe(TOOL_KITS[0]!.damage);
+        else expect(k.damage).toBeGreaterThan(TOOL_KITS[t - 1]!.damage);
         for (let j = 0; j < 4; j++) expect(k.tools[j]!).toBeGreaterThanOrEqual(TOOL_KITS[t - 1]!.tools[j]!);
       }
     });

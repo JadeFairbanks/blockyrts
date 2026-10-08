@@ -100,7 +100,6 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
       'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
       'Wooden tower', 'Hardwood tower', 'Stone tower',
-      'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp',
     ]);
   });
 });
@@ -143,13 +142,12 @@ describe('the worker card', () => {
     expect(card[14]!.key).toBe('Escape');
     card[12]!.run({ shift: false, ctrl: false });
     card = c.card();
-    // Defences' 17 choices fit a desktop card, every one on a letter of its own (Patch 4; before, the last three were clicks).
+    // Defences' 12 choices fit a desktop card, every one on a letter of its own (Patch 5: earthworks and ramps are gone).
     expect(card.map((e) => e.face)).toEqual([
       'Wooden wall', 'Hardwood wall', 'Stone wall',
       'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
-      'Wooden tower', 'Hardwood tower', 'Stone tower',
-      'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Back',
+      'Wooden tower', 'Hardwood tower', 'Stone tower', 'Back',
     ]);
     expect(card.slice(0, -1).every((e) => /^Key[A-Z]$/.test(e.key))).toBe(true);
     expect(new Set(card.map((e) => e.key)).size).toBe(card.length);

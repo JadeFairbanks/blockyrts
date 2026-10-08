@@ -183,7 +183,7 @@ describe('riding and charges (Table 14)', () => {
     expect(e.hp[w]).toBe(hp);
   });
 
-  it('trains cavalry at the Barracks from main base 3 on a tamed horse from the nearest Barn: the horse is used up and the rider comes out mounted (Patch 2)', () => {
+  it('trains cavalry at the Barracks from main base tier 2 on a tamed horse from the nearest Barn: the horse is used up and the rider comes out mounted (Patch 2)', () => {
     const s = createWorld(1, { peaceful: true });
     const [x, z] = field(s);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Barn, x, z }]);
@@ -204,8 +204,8 @@ describe('riding and charges (Table 14)', () => {
     // A fire-hardened spear (4 sticks) and no armour: the kit, the food and one of the horses.
     const product = troopProduct(Troop.Cavalry, 1, 0);
     p.pool[Res.Sticks] = 12;
-    expect(productProblem(s, stables, product)).toBe('Needs a level 3 main base.');
-    base.level = 3;
+    expect(productProblem(s, stables, product)).toBe('Needs a tier 2 main base.');
+    base.level = 2;
     expect(productProblem(s, stables, product)).toBe('');
     run(s, 1, [{ kind: 'produce', player: 0, building: stables.id, product, count: 1 }]);
     expect(stables.queue.length).toBe(1);
@@ -303,7 +303,7 @@ describe('siege engines (Table 2f)', () => {
 });
 
 describe('tier 8: the Artillery workshop and the Citadel ports', () => {
-  it('trains a musketeer, a tier 8 ranger, at the Barracks once Gunpowder and Muskets are researched, with a Forge and main base 7', () => {
+  it('trains a musketeer, a tier 8 ranger, at the Barracks once Gunpowder and Muskets are researched, with a Forge and main base tier 3', () => {
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
@@ -314,9 +314,9 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
     const product = troopProduct(Troop.Ranger, 8, 0);
     expect(productProblem(s, barracks, product)).toBe('Needs a Forge.');
     placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 18, base.z, true);
-    // Patch 2: the Forge's steel step comes with main base level 7.
-    expect(productProblem(s, barracks, product)).toBe('Needs a level 7 main base.');
-    base.level = 7;
+    // Patch 2: the Forge's steel step comes with the main base (Patch 5: tier 3).
+    expect(productProblem(s, barracks, product)).toBe('Needs a tier 3 main base.');
+    base.level = 3;
     expect(productProblem(s, barracks, product)).toBe(`Needs ${RESEARCH[Research.CarbonSteel]!.name} researched first.`);
     p.research |= 1 << Research.Steel;
     p.research |= 1 << Research.CarbonSteel;

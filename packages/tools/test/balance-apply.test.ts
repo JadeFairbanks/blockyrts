@@ -48,12 +48,12 @@ describe('balance:apply', () => {
     const src = copySim('one');
     const before = readFileSync(join(src, 'buildings/data.ts'), 'utf8');
     const result = await applyChanges(file([
-      { module: 'buildings/data.ts', path: ['BUILDINGS', 0, 'levels', 1, 'ws'], label: 'Longhall build work', old: 400, new: 450, unit: '', oldDisplay: '', newDisplay: '' },
+      { module: 'buildings/data.ts', path: ['BUILDINGS', 0, 'levels', 1, 'ws'], label: 'Hall build work', old: 420, new: 450, unit: '', oldDisplay: '', newDisplay: '' },
     ]), { simSrc: src });
     expect(result.outcomes.map((o) => o.status)).toEqual(['applied']);
     expect(result.alsoChanged).toEqual([]);
     const after = readFileSync(join(src, 'buildings/data.ts'), 'utf8');
-    expect(after).toBe(before.replace("mainBase('Longhall', [[S, 100], [ST, 40]], 400,", "mainBase('Longhall', [[S, 100], [ST, 40]], 450,"));
+    expect(after).toBe(before.replace("mainBase('Hall', [[L, 110], [ST, 45], [Res.Sticks, 15]], 420,", "mainBase('Hall', [[L, 110], [ST, 45], [Res.Sticks, 15]], 450,"));
   });
 
   it('writes a time through its helper, a resource by name, and a row of its own over a shared default', async () => {
@@ -72,7 +72,7 @@ describe('balance:apply', () => {
     // Patch 3: a monster's threat is worked out from its numbers, so the zombie's (1.5) follows its pierce.
     expect(result.alsoChanged).toEqual([{ key: 'combat/mobs.ts#MOBS.0.threatTenths', before: 15, after: 16 }]);
     expect(readFileSync(join(src, 'combat/items.ts'), 'utf8')).toContain("steps: sec(90), made: 0,");
-    expect(readFileSync(join(src, 'buildings/data.ts'), 'utf8')).toContain("mainBase('Big House', [[S, 100], [Res.Flint, 50]], 1200");
+    expect(readFileSync(join(src, 'buildings/data.ts'), 'utf8')).toContain("mainBase('Big House', [[L, 100], [Res.Flint, 50]], 1200");
     expect(readFileSync(join(src, 'combat/mobs.ts'), 'utf8')).toMatch(/drops: \[\{ res: Res\.Bone, min: 1, max: 1, chancePm: 150 \}[^\n]*\],?\s*pierceBp: 8000/);
   });
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, productsOf, productSpec, RESEARCH_PRODUCT, RESOURCE_COUNT, TROOP_PRODUCT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
-import { HUD_LETTERS, makeAction, makeList, menuLetters, MORE_ACTION, placeAction } from '../src/hud/menu-keys.ts';
+import { HUD_LETTERS, makeAction, makeList, makesOne, menuLetters, MORE_ACTION, placeAction } from '../src/hud/menu-keys.ts';
 import { ACTIONS, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
 import { keyLabel } from '../src/input/keys.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
@@ -63,6 +63,11 @@ function harness(g: GameInfo, selection: Selectable[], active: string, most = 40
   return { c: new Commands(deps), sent, keys };
 }
 
+/** Shrinks the card to 8 buttons, so Defences' 12 choices page. */
+function small(c: Commands): void {
+  (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 8 });
+}
+
 const workers: Selectable[] = [1, 2].map((id) => ({ key: `e:${id}`, kind: 'unit', owner: ME, typeKey: 'worker', centre: new THREE.Vector3(), halfSize: new THREE.Vector3(0.3, 0.8, 0.3), label: 'Worker' }));
 
 function picked(b: BuildingInfo): Selectable {
@@ -94,8 +99,7 @@ describe('the build menu on letters (Patch 4)', () => {
       'Wooden wall=W', 'Hardwood wall=H', 'Stone wall=S',
       'Wooden gate (east to west)=G', 'Wooden gate (north to south)=F', 'Hardwood gate (east to west)=A', 'Hardwood gate (north to south)=D',
       'Stone gate (east to west)=E', 'Stone gate (north to south)=U',
-      'Wooden tower=T', 'Hardwood tower=R', 'Stone tower=N',
-      'Earth bank=K', 'Earth ramp=P', 'Fill=I', 'Lumber ramp=B', 'Stone ramp=M', 'Back=Esc',
+      'Wooden tower=T', 'Hardwood tower=R', 'Stone tower=N', 'Back=Esc',
     ]);
     c.back();
     button(c.card(), 'Lights').run(PRESS);
@@ -104,16 +108,20 @@ describe('the build menu on letters (Patch 4)', () => {
   });
 
   it('keeps the letters on a page of a menu too long for the card, with More on +', () => {
-    // A phone's card shows 15: Defences' 17 choices take two pages.
+    // A phone's card shows 15, which holds Defences' 12 choices since Patch 5 cut the earthworks; on a card of 8 they take two pages.
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker', 15);
     button(c.card(), 'Build').run(PRESS);
     button(c.card(), 'Defences').run(PRESS);
+    small(c);
     const first = c.card();
     expect(read(first).slice(-2)).toEqual(['Next page=+', 'Back=Esc']);
     expect(read(first)[0]).toBe('Wooden wall=W');
-    // Thirteen a page, then More and Back.
+    // Six a page, then More and Back.
     first.at(-2)!.run(PRESS);
-    expect(read(c.card())).toEqual(['Earth ramp=P', 'Fill=I', 'Lumber ramp=B', 'Stone ramp=M', 'Next page=+', 'Back=Esc']);
+    expect(read(c.card())).toEqual([
+      'Hardwood gate (north to south)=D', 'Stone gate (east to west)=E', 'Stone gate (north to south)=U',
+      'Wooden tower=T', 'Hardwood tower=R', 'Stone tower=N', 'Next page=+', 'Back=Esc',
+    ]);
   });
 
   it('shows a rebound key on the button, and a button rebound onto + is a click while More is on its page', () => {
@@ -123,6 +131,7 @@ describe('the build menu on letters (Patch 4)', () => {
     expect(button(c.card(), 'Farm').key).toBe('KeyY');
     keys[placeAction(BuildingKind.Wall, 0)] = 'Equal';
     button(c.card(), 'Defences').run(PRESS);
+    small(c);
     expect(button(c.card(), 'Wooden wall').key).toBe('');
     expect(button(c.card(), 'More 1/2').key).toBe('Equal');
   });
@@ -163,22 +172,24 @@ describe('the K menus on letters (Patch 4)', () => {
     // It opens on its menu with no Back (Patch 3): thirteen a page and More.
     const card = c.card();
     expect(card).toHaveLength(14);
-    expect(read(card).slice(0, 5)).toEqual(['Planks from softwood=P', 'Planks from hardwood=H', 'Leather=E', 'Hardened leather=A', 'Rope=R']);
+    // Patch 5: one Planks from either lumber, so Hardened leather takes the H.
+    expect(read(card).slice(0, 5)).toEqual(['Planks=P', 'Leather=E', 'Hardened leather=H', 'Rope=R', 'Bandage=B']);
     expect(read(card).at(-1)).toBe('Next page=+');
-    expect(card.at(-1)!.face).toBe('More 1/4');
+    expect(card.at(-1)!.face).toBe('More 1/3');
     card[0]!.run(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'produce', building: 32 });
-    // Its twenty-eight trinkets cannot all have a letter from their names: twenty of the 43 get one; the rest are clicks until given a key in the settings.
+    // Its twenty-eight trinkets cannot all have a letter from their names: twenty of the 39 get one (Patch 5 cut 4 recipes); the rest are clicks until given a key in the settings.
     const all = makeList(BuildingKind.Workshop).map((p) => keyFor({}, makeAction(BuildingKind.Workshop, p)));
     expect(all.filter((k) => k !== '').length).toBe(20);
-    expect(all.filter((k) => k === '').length).toBe(23);
+    expect(all.filter((k) => k === '').length).toBe(19);
   });
 
-  it('opens the Big House\'s K menu on rope at R, with Back on Esc', () => {
+  it('makes rope on the Big House\'s K, with no menu behind it (Patch 5)', () => {
     const house = building(20, BuildingKind.MainBase, { products: products(BuildingKind.MainBase) });
     const { c } = harness(game([house]), [picked(house)], 'building:0:1');
-    button(c.card(), 'Make').run(PRESS);
-    expect(read(c.card())).toEqual(['Rope=R', 'Back=Esc']);
+    const rope = button(c.card(), 'Make rope');
+    expect(rope.key).toBe('KeyK');
+    expect(rope.menu).toBeUndefined();
   });
 });
 
@@ -188,14 +199,15 @@ describe('the menus\' hotkeys in the settings (Patch 4)', () => {
   it('list every button of the build menu and every K menu product, so each can be rebound', () => {
     expect(menus).toEqual([
       'Build menu', 'Build menu: Defences', 'Build menu: Lights',
-      'Big House menu', 'Barn menu', 'Workshop menu', 'Forge menu', 'Artillery workshop menu', 'Magi Sanctum menu', "Scholar's Lodge menu",
+      'Barn menu', 'Workshop menu', 'Forge menu', 'Artillery workshop menu', 'Magi Sanctum menu', "Scholar's Lodge menu",
     ]);
     for (const b of BUILDINGS) {
       if (b.slot === 0) continue;
       if (b.variants) b.variants.forEach((_, v) => expect(keyFor({}, placeAction(b.kind, v))).toMatch(/^Key[A-Z]$/));
       else expect(keyFor({}, placeAction(b.kind, 0))).toMatch(/^Key[A-Z]$/);
       const made = productsOf({ kind: b.kind, complete: true } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
-      for (const p of made) expect(ACTIONS.some((a) => a.id === makeAction(b.kind, p))).toBe(true);
+      // Patch 5: the Big House's Make rope and the Storehouse's Make sticks are on the card's K, not in a menu.
+      for (const p of made) expect(ACTIONS.some((a) => a.id === makeAction(b.kind, p))).toBe(!makesOne(b.kind));
     }
     expect(sanitizeBindings({ [placeAction(BuildingKind.Farm, 0)]: 'KeyY', [MORE_ACTION]: 'KeyV' })).toEqual({ [placeAction(BuildingKind.Farm, 0)]: 'KeyY', [MORE_ACTION]: 'KeyV' });
     expect(new Set(ACTIONS.map((a) => a.id)).size).toBe(ACTIONS.length);

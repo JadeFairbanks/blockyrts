@@ -177,20 +177,21 @@ describe('wall chains', () => {
   it('places as far as the stock allows from the anchor, counting what is planned already, and says so', () => {
     const s = createWorld(1, { peaceful: true });
     const { x, z } = flatSpot(s, 12, 4);
-    s.players[0]!.pool[Res.SoftwoodLumber] = 8;
+    s.players[0]!.pool[Res.SoftwoodLumber] = 5;
+    s.players[0]!.pool[Res.HardwoodLumber] = 3;
     const base = { player: 0, units: ids(s), building: BuildingKind.Wall };
     const said = texts(s, 1, [
       { kind: 'wallStretch', ...base, x, z, dir: 0, length: 5, skip: 0 },
       // The second stretch finds 6 of the 8 planned already.
       { kind: 'wallStretch', ...base, x: x + 5, z, dir: 2, length: 5, skip: 1, queued: true },
     ]);
-    expect(said).toContain('Enough softwood lumber for 2 of the 5 walls in that stretch: they are planned from its start.');
+    expect(said).toContain('Enough lumber for 2 of the 5 walls in that stretch: they are planned from its start.');
     const planned = s.entities.queue[1]!.filter((o) => o.t === 'build' || o.t === 'work');
     expect(planned.length).toBe(8);
     expect(s.entities.queue[1]!.filter((o) => o.t === 'build').slice(-2).map((o) => (o.t === 'build' ? [o.x, o.z] : null))).toEqual([[x + 5, z + 1], [x + 5, z + 2]]);
     // Nothing left: the next stretch is refused with the reason.
     const none = texts(s, 1, [{ kind: 'wallStretch', ...base, x: x + 5, z: z + 5, dir: 4, length: 3, skip: 1, queued: true }]);
-    expect(none.some((t) => t.startsWith('Not enough softwood lumber for another wooden wall'))).toBe(true);
+    expect(none.some((t) => t.startsWith('Not enough lumber for another wooden wall'))).toBe(true);
     expect(s.entities.queue[1]!.filter((o) => o.t === 'build' || o.t === 'work').length).toBe(8);
   });
 

@@ -157,7 +157,7 @@ describe('the queue countdown is the sim\'s own time', () => {
     expect(queueHead(s, house)!.stepsLeft).toBe(0);
 
     const shop = built(s, BuildingKind.Workshop);
-    produce(s, shop, RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood'));
+    produce(s, shop, RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks'));
     expect(queueHead(s, shop)!.stepsLeft).toBeGreaterThan(0);
     const before = shop.queue[0]!.progress;
     run(s, 20);

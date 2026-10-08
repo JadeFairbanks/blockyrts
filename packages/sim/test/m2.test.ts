@@ -374,20 +374,23 @@ describe('building', () => {
     expect(tiles[0]).not.toBe(Blocked.None);
   });
 
-  it('upgrades the Big House to a Longhall: paid from the panel, built by workers', () => {
+  it('upgrades the Big House to the Hall, tier 2 (Patch 5): paid from the panel in either lumber, built by workers', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
-    pool[Res.SoftwoodLumber] = 100;
-    pool[Res.Stone] = 40;
+    pool[Res.SoftwoodLumber] = 60;
+    pool[Res.HardwoodLumber] = 50;
+    pool[Res.Stone] = 45;
+    pool[Res.Sticks] = 15;
     const b = bigHouse(s);
     run(s, 1, [{ kind: 'upgrade', player: 0, building: b.id }]);
     expect(b.upgrading).toBe(2);
-    expect(pool[Res.SoftwoodLumber]).toBe(0);
+    // 110 lumber of either kind, 45 stone and 15 sticks.
+    expect([pool[Res.SoftwoodLumber], pool[Res.HardwoodLumber], pool[Res.Stone], pool[Res.Sticks]]).toEqual([0, 0, 0, 0]);
     run(s, 1, [{ kind: 'work', player: 0, units: [1, 2, 3, 4], building: b.id }]);
-    // 400 ws with 4 workers is 100 s, plus the walk.
-    runUntil(s, () => b.level === 2, 2600);
-    expect(b.hp).toBe(1600);
-    expect(supplyCap(s, 0)).toBe(12);
+    // 420 ws with 4 workers is 105 s, plus the walk.
+    runUntil(s, () => b.level === 2, 3000);
+    expect(b.hp).toBe(2000);
+    expect(supplyCap(s, 0)).toBe(16);
   });
 
   it('repairs a damaged building with a double-tapped Repair', () => {
@@ -440,7 +443,7 @@ describe('training and production queues', () => {
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.Workshop);
     const shop = placeBuilding(s, 0, BuildingKind.Workshop, 0, x, z, true);
-    const planks = RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood');
+    const planks = RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks');
     run(s, 1, [{ kind: 'produce', player: 0, building: shop.id, product: planks, count: 2 }]);
     expect(pool[Res.SoftwoodLumber]).toBe(38);
     runUntil(s, () => pool[Res.Planks] === 2, 3000);

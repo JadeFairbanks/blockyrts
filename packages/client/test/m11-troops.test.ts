@@ -145,8 +145,8 @@ describe('weaponOptions and armourOptions', () => {
     // Short of flint: a red tier, not a locked one, and the tile names what is short.
     expect(long[1]).toMatchObject({ tier: 2, name: 'Flint-headed spear', why: 'Short: 0 of 1 flint in stock.', short: true });
     expect(long[3]!.why).toBe('Needs Bronze researched first.');
-    expect(long[4]!.why).toBe('Needs a level 3 main base.');
-    expect(long[6]!.why).toBe('Needs a level 7 main base.');
+    expect(long[4]!.why).toBe('Needs a tier 2 main base.');
+    expect(long[6]!.why).toBe('Needs a tier 3 main base.');
     // Close melee starts at fists; the brawler has one kit; rangers name their bows.
     expect(weaponOptions(g, b, Troop.Close)[0]).toMatchObject({ tier: 0, name: 'Fists', why: '' });
     expect(weaponOptions(g, b, Troop.Brawler).map((o) => [o.tier, o.name])).toEqual([[8, 'Flintlock pistol and cutlass']]);
@@ -184,10 +184,10 @@ describe('troopWhy', () => {
     expect(troopWhy(g, full, Troop.Close, 1, 0)).toBe('The queue is full (5).');
   });
 
-  it('wants main base 3 and a tamed, grown horse in a Barn for cavalry (Patch 2: trained at the Barracks)', () => {
+  it('wants main base tier 2 and a tamed, grown horse in a Barn for cavalry (Patch 2: trained at the Barracks)', () => {
     const b = barracks(124, 1, 0, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }] });
-    expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a level 3 main base.');
-    const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 3 })], pool: STOCK });
+    expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a tier 2 main base.');
+    const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 2 })], pool: STOCK });
     expect(troopWhy(g, b, Troop.Cavalry, 1, 0)).toBe('No grown tamed horse ready in a Barn.');
     expect(troopWhy(g, { ...b, horses: 2 }, Troop.Cavalry, 1, 0)).toBe('');
   });
