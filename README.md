@@ -7,8 +7,8 @@ each patch's notes are under `blueprint/` in the project files.
 The build order's milestones 0 to 11 are in: the deterministic sim and its
 tools, the generated world with the camera, HUD and minimap, workers and
 building, warriors, combat and the nights, the economy (research, smelting,
-food, animals, mining), the threats beyond the nights (lairs, blood and fog
-nights, tribes, goblin villages, creatures), the mages with their ten
+food, animals, mining), the threats beyond the nights (lairs, fog nights,
+tribes, goblin villages, creatures), the mages with their ten
 spells, the neutral peoples, the Stables and siege, the menus and online
 play, audio and the balance pass, and the troop rework (five troop types
 trained at their tier, weapon and armour upgrades, no items). Each
@@ -34,7 +34,7 @@ pnpm install
 | `pnpm dev` | The client at http://localhost:5173 |
 | `pnpm audio:dev` | The audio audition page at http://localhost:5174 |
 | `pnpm balance:dev` | The balance editor at http://localhost:5175 |
-| `pnpm --filter @blockyrts/tools balance` | The balance harness: pacing, supply at night 110 and the wave checks (`--pacing`, `--nights`, `--seeds`, `--blood`, `--csv`; docs/balance-pass.md) |
+| `pnpm --filter @blockyrts/tools balance` | The balance harness: pacing, supply at night 110 and the wave checks (`--pacing`, `--nights`, `--seeds`, `--csv`; docs/balance-pass.md) |
 | `pnpm --filter @blockyrts/tools perf:sim` | Sim step time with thousands of monsters (`--units`, `--steps`, `--seed`; docs/performance.md) |
 | `pnpm --filter @blockyrts/tools balance:apply <file>` | Applies a balance editor export to the sim's data files (`--dry-run`, `--force`) |
 | `pnpm --filter @blockyrts/tools map-viewer --seed 1 --size 3000 --out map.png` | Draws a seed's land from above as a PNG (`--players`, `--metres-per-pixel`, `--centre-x`, `--centre-z`, `--edges`) |
@@ -994,7 +994,7 @@ against it step by step).
    prints the pacing check and supply at night 110 in a second;
    `pnpm --filter @blockyrts/tools balance` adds the wave checks at nights 0,
    10, 20, 40, 60, 80 and 110 on seeds 1 to 3 (about 10 minutes; `--nights`,
-   `--seeds`, `--blood`, `--csv`). Nights 0 to 80 hold, night 110 falls. See
+   `--seeds`, `--csv`; `--blood` until Patch 5 removed blood nights). Nights 0 to 80 hold, night 110 falls. See
    [docs/balance-pass.md](docs/balance-pass.md) for what each column means
    and what looked off. No (s) value was retuned (Jade's rebalance comes
    next).
@@ -3147,6 +3147,61 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    takes its Earth from the stock as before; the workers carry nothing.
 10. **Saves.** This part of Patch 4 changes no save format; a save taken
    while a digger carries a load or cuts its stairs carries on as it was.
+
+## How a tester checks Patch 5's foundations
+
+*Jade's Patch 5, the pieces every other Patch 5 change builds on: the main
+base's ten levels become four tiers (GP-11); earthworks, ramps, ramp steps
+and gravel are removed (GP-44, GP-45); either kind of lumber pays wherever
+lumber or sticks are needed, and hardwood items are wooden (GP-41); one
+kind of stick, 4 from a lumber in 20 s at a Storehouse (GP-39, GP-40); the
+main base's Make button makes rope (GP-14); worker tools hit 2 less (BL-1);
+and blood nights are gone (BG-1, BG-2). Picks in
+blueprint/patch5-foundations-picks.md. The tiers are the main base rows in
+`packages/sim/src/buildings/data.ts` (`MAIN_BASE_TIER_LEVELS` says which old
+level's model each tier wears); the lumber rule is `Res.AnyLumber` with
+`payAny` in `packages/sim/src/economy/food-kinds.ts`. The milestone sections
+above that mention levels 2 to 10, earthworks, ramps, gravel or blood nights
+describe the game before Patch 5.*
+
+1. **The tests.** `pnpm test`: the sim's m2, m3, m4 and m8 tests upgrade to
+   the Hall and train, smelt and research at the tiers; patch3-greyed asks
+   for the Hall and offers to fell softwood for lumber; tables.test keeps
+   the tool damage; m3-controls and patch4-hotkeys find Make rope on K; and
+   m9-online refuses a save of format 8.
+2. **The tiers.** `pnpm dev`, open http://localhost:5173/?seed=1 and select
+   the Big House: its chip reads "Tier 1 of 4" and Upgrade offers the Hall
+   for 110 lumber, 45 stone and 15 sticks. Type M N B V C X Z and press
+   **Citadel**: the main base is the Citadel (tier 4), drawn as before with
+   its cannon ports. **Troop kit** raises it to the Keep (tier 3).
+3. **What each tier opens.** With a Big House, the build menu greys out the
+   Barracks ("Needs a tier 2 main base") and the Magi Sanctum, Mineshaft and
+   Artillery workshop (tier 3). At the Scholar's Lodge, Muskets and Cannons
+   want tier 4; Deep Mining III, Steel and Gunpowder want tier 3.
+4. **Either lumber.** Start a game and gather only hardwood (the Fringe's
+   oaks): a Farm, the Hall and a Workshop's planks all take it. Hover a
+   cost: it reads "lumber", not "softwood lumber". Only Build, Defences,
+   Hardwood wall, gate and tower still name hardwood.
+5. **Defences.** Build, Defences shows 12 choices: wooden, hardwood and stone
+   walls, the six gates and the three towers. No earth bank, ramp, fill,
+   lumber ramp or stone ramp; no gravel in the stock bar.
+6. **Rope and sticks.** Select the Big House: K is **Make rope** (2 flax),
+   with no menu. Put up a Storehouse: its K is **Make sticks**, 1 lumber for
+   4 sticks in 20 s. The Workshop's menu has Sticks (4) too, at its own
+   pace (10 s).
+7. **Worker damage.** A worker with the starting wooden tools hits for 2,
+   with stone and flint tools 3, up to 9 with carbon steel (before: 4, 5
+   and 11).
+8. **No blood nights.** Play into night 13 and beyond with the Heartland
+   held: no "A blood night is coming", no red night, no double horn; the
+   clock reads "Night 13" as on any night. Fog nights still come.
+9. **Saves and version.** A save from indev 0.9 is refused: "That save is
+   from an older version of the game. Start a new game." (save format 9,
+   snapshot 22). The main menu reads "indev 1.0 (dev build)" locally, and
+   the next deploy takes indev 1.0.
+10. **Check scripts.** Every hash moves with the snapshot version; m3-nights
+    no longer heaps an earthwork, m5-threats no longer starts a blood night,
+    and m2-camp and m4-economy use the closed-up building ids.
 
 ## How a tester checks the balance editor
 
