@@ -3171,7 +3171,7 @@ describe the game before Patch 5.*
    m9-online refuses a save of format 8.
 2. **The tiers.** `pnpm dev`, open http://localhost:5173/?seed=1 and select
    the Big House: its chip reads "Tier 1 of 4" and Upgrade offers the Hall
-   for 110 lumber, 45 stone and 15 sticks. Type M N B V C X Z and press
+   for 118 lumber and 45 stone. Type M N B V C X Z and press
    **Citadel**: the main base is the Citadel (tier 4), drawn as before with
    its cannon ports. **Troop kit** raises it to the Keep (tier 3).
 3. **What each tier opens.** With a Big House, the build menu greys out the
