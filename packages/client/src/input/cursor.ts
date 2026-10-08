@@ -65,7 +65,7 @@ export class VirtualCursor {
   }
 
   show(on: boolean): void {
-    this.el.hidden = !on;
+    if (this.el.hidden !== !on) this.el.hidden = !on;
   }
 
   private place(): void {

@@ -304,6 +304,42 @@ export class Pathfinder {
       c.epoch = w.navEpoch;
       return c;
     }
+    if (c) {
+      // Redo only the tiles whose crossings can have changed. A tile's
+      // crossings read its own columns and the ring of columns round it, so
+      // a changed column touches the tiles it lies in or borders; a chunk
+      // changed as a whole (or too long ago to say where) touches its own
+      // tiles and the ring of tiles round it. The rest are as a full rebuild
+      // would make them. Flowing water and smashed ground change a column or
+      // two at a time, and rebuilding the whole chunk and its eight
+      // neighbours for each was most of the late-night lag (Patch 5 BG-2).
+      const redo = new Uint8Array(TILES_PER_CHUNK * TILES_PER_CHUNK);
+      const tx0 = cx << 4;
+      const tz0 = cz << 4;
+      const mark = (ax: number, az: number, bx: number, bz: number): void => {
+        for (let tz = Math.max(az, tz0); tz <= Math.min(bz, tz0 + TILES_PER_CHUNK - 1); tz++) {
+          for (let tx = Math.max(ax, tx0); tx <= Math.min(bx, tx0 + TILES_PER_CHUNK - 1); tx++) redo[(tz - tz0) * TILES_PER_CHUNK + (tx - tx0)] = 1;
+        }
+      };
+      for (let n = 0; n < 9; n++) {
+        if (c.versions[n] === versions[n]) continue;
+        const ncx = cx + (n % 3) - 1;
+        const ncz = cz + floorDiv(n, 3) - 1;
+        const cols = w.navChangesSince(chunkKey(ncx, ncz), c.versions[n]!);
+        if (cols === null) {
+          mark((ncx << 4) - 1, (ncz << 4) - 1, (ncx << 4) + TILES_PER_CHUNK, (ncz << 4) + TILES_PER_CHUNK);
+          continue;
+        }
+        for (let k = 0; k < cols.length; k += 2) mark(floorDiv(cols[k]! - 1, TILE_COLUMNS), floorDiv(cols[k + 1]! - 1, TILE_COLUMNS), floorDiv(cols[k]! + 1, TILE_COLUMNS), floorDiv(cols[k + 1]! + 1, TILE_COLUMNS));
+      }
+      for (let t = 0; t < TILES_PER_CHUNK * TILES_PER_CHUNK; t++) {
+        if (!redo[t]) continue;
+        for (let d = 0; d < 8; d++) c.edges[t * 8 + d] = this.tileEdge(tx0 + (t & 15), tz0 + (t >> 4), d, m);
+      }
+      c.versions = versions;
+      c.epoch = w.navEpoch;
+      return c;
+    }
     const edges = new Uint16Array(TILES_PER_CHUNK * TILES_PER_CHUNK * 8);
     for (let t = 0; t < TILES_PER_CHUNK * TILES_PER_CHUNK; t++) {
       const tx = (cx << 4) + (t & 15);
