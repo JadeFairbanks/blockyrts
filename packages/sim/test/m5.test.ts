@@ -3,7 +3,6 @@ import {
   bagItems,
   Ability,
   Band,
-  bandRings,
   bloodBand,
   CELL_RING_SHIFT,
   BuildingKind,
@@ -203,8 +202,33 @@ describe('lairs', () => {
 });
 
 describe('blood and fog nights', () => {
-  it('falls on night 13 once the players hold the Heartland, with the warning, and never before', () => {
+  /** The cells of a band: those whose site lies in it (a cell's band since Patch 5, WL-8). */
+  const cellsOf = (s: SimState, band: Band): number[] => {
+    const layout = s.world.layout;
+    const out: number[] = [];
+    for (let r = 0; r < Math.min(layout.ringCount, layout.bands.deadlands + 2); r++) {
+      for (let k = 0; k < layout.ringCellCount(r); k++) if (layout.bandOf(r * CELL_RING_SHIFT + k) === band) out.push(r * CELL_RING_SHIFT + k);
+    }
+    return out;
+  };
+  /** A torch at the site of each of the first n cells (a claimed cell is one holding a building), beside the main bases. */
+  const hold = (s: SimState, cells: readonly number[], n: number): void => {
+    const proto = bigHouse(s);
+    const keep = s.buildings.list.filter((b) => b.kind === BuildingKind.MainBase);
+    s.buildings.list.length = 0;
+    s.buildings.list.push(...keep);
+    for (const id of cells.slice(0, n)) {
+      const site = s.world.layout.site(id);
+      s.buildings.list.push({ ...proto, id: 900000 + id, x: site.x, z: site.z });
+    }
+  };
+
+  it('falls on night 13 once the players hold 60% of the Heartland, with the warning, and never before', () => {
     const s = createWorld(1);
+    // Since Patch 5 the Heartland reaches 155 to 175 m from the main bases (WL-8), so it has more cells than the basin.
+    const cells = cellsOf(s, Band.Heartland);
+    expect(cells.length).toBeGreaterThan(1);
+    hold(s, cells, Math.ceil((cells.length * 6) / 10));
     toPeriod(s, 12, DUSK_START);
     step(s);
     expect(s.blood).toEqual([]);
@@ -222,25 +246,11 @@ describe('blood and fog nights', () => {
   it('falls when the players hold 60% of the Fringe, once the Heartland\'s is spent', () => {
     const s = createWorld(1);
     s.threats.bloodSpent = 1 << Band.Heartland;
-    const layout = s.world.layout;
-    const [r0, r1] = bandRings(layout, Band.Fringe);
-    const cells: number[] = [];
-    for (let r = r0; r < r1; r++) for (let k = 0; k < layout.ringCellCount(r); k++) cells.push(r * CELL_RING_SHIFT + k);
-    // A torch at the site of each held cell (a claimed cell is one holding a building).
-    const hold = (n: number): void => {
-      const proto = bigHouse(s);
-      const keep = s.buildings.list.filter((b) => b.kind === BuildingKind.MainBase);
-      s.buildings.list.length = 0;
-      s.buildings.list.push(...keep);
-      for (const id of cells.slice(0, n)) {
-        const site = layout.site(id);
-        s.buildings.list.push({ ...proto, id: 900000 + id, x: site.x, z: site.z });
-      }
-    };
+    const cells = cellsOf(s, Band.Fringe);
     const need = Math.ceil((cells.length * 6) / 10);
-    hold(need - 1);
+    hold(s, cells, need - 1);
     expect(bloodBand(s, 20)).toBe(-1);
-    hold(need);
+    hold(s, cells, need);
     expect(bloodBand(s, 20)).toBe(Band.Fringe);
     toPeriod(s, 20, DUSK_START);
     s.events = [];

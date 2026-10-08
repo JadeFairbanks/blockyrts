@@ -3,6 +3,8 @@ import {
   addAnimal,
   addWarrior,
   Band,
+  BAND_WIDTH_MAX_M,
+  BAND_WIDTH_MIN_M,
   bandRings,
   BuildingKind,
   CELL_RING_SHIFT,
@@ -94,14 +96,21 @@ describe('cell layout', () => {
     }
   });
 
-  it('puts the bands in depth order with the basin as the Heartland', () => {
+  it('puts the bands in depth order, each 155 to 175 m wide (Jade\'s Patch 5, WL-8), with the basin in the Heartland', () => {
     const layout = new WorldLayout(1, 1);
     const b = layout.bands;
     expect(layout.bandOfRing(0)).toBe(0);
-    expect(b.fringe).toBe(1);
+    expect(b.fringe).toBeGreaterThan(0);
     expect(b.deepwoods).toBeGreaterThan(b.fringe);
     expect(b.barrens).toBeGreaterThan(b.deepwoods);
-    expect(b.deadlands).toBe(b.barrens + 3);
+    expect(b.deadlands).toBeGreaterThan(b.barrens);
+    let at = 0;
+    for (const start of layout.bandStarts) {
+      const wide = ((start - at) * 9) / 20;
+      expect(wide).toBeGreaterThanOrEqual(BAND_WIDTH_MIN_M - 1);
+      expect(wide).toBeLessThanOrEqual(BAND_WIDTH_MAX_M + 1);
+      at = start;
+    }
     expect(layout.basinIds().length).toBe(1);
     expect(new WorldLayout(1, 4).basinIds().length).toBe(2);
     expect(new WorldLayout(1, 8).basinIds().length).toBe(3);
@@ -307,7 +316,8 @@ describe('Table 5 records', () => {
   // A stone outcrop takes the hardwood digging stick (or a stone maul); copper and tin take a stone maul (Table 2c).
   // The table's bloom iron is the wrought-iron tier (Troops and gear).
   const toolText: Record<number, RegExp> = { [Tool.Hardwood]: /^hardwood( digging stick or stone maul \(s\))?$/, [Tool.Stone]: /^stone maul \(s\)$/, [Tool.Flint]: /^flint$/, [Tool.Copper]: /^copper$/, [Tool.Bronze]: /^bronze$/, [Tool.WroughtIron]: /^(bloom|wrought) iron$/ };
-  for (const p of PROPS) {
+  // Patch 5's props and changed rows have no Table 5 row (the docx is gone): test/patch5-world.test.ts holds their numbers.
+  for (const p of PROPS.filter((q) => q.row !== '')) {
     it(`${p.name} matches "${p.row}"`, () => {
       const row = table.rows.find((r) => r[0]!.text === p.row);
       expect(row, p.row).toBeTruthy();
