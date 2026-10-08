@@ -34,14 +34,16 @@ export interface MageRank {
  * Table 1 and Table 13 by rank: Novice Acolyte to Grand Magician. Refill
  * from the doc's times to fill an empty bar (2:00, 1:49, 1:40, 1:32, 1:26,
  * 1:17). Spell power is +10% a rank (rules.ts rankSpellPowerBonusBp).
+ * Patch 5 (VX-8): every rank's mana bar is 10 lower (was 100 to 200); the
+ * refill rates are unchanged.
  */
 export const MAGE_RANKS: readonly MageRank[] = [
-  { rank: 1, name: 'Novice Acolyte', xp: 0, health: 70, mana: 100, refill: 83 },
-  { rank: 2, name: 'Acolyte', xp: 40, health: 80, mana: 120, refill: 110 },
-  { rank: 3, name: 'Adept Acolyte', xp: 120, health: 90, mana: 140, refill: 140 },
-  { rank: 4, name: 'Mage', xp: 300, health: 100, mana: 160, refill: 174 },
-  { rank: 5, name: 'Master Mage', xp: 800, health: 110, mana: 180, refill: 209 },
-  { rank: 6, name: 'Grand Magician', xp: 2000, health: 120, mana: 200, refill: 260 },
+  { rank: 1, name: 'Novice Acolyte', xp: 0, health: 70, mana: 90, refill: 83 },
+  { rank: 2, name: 'Acolyte', xp: 40, health: 80, mana: 110, refill: 110 },
+  { rank: 3, name: 'Adept Acolyte', xp: 120, health: 90, mana: 130, refill: 140 },
+  { rank: 4, name: 'Mage', xp: 300, health: 100, mana: 150, refill: 174 },
+  { rank: 5, name: 'Master Mage', xp: 800, health: 110, mana: 170, refill: 209 },
+  { rank: 6, name: 'Grand Magician', xp: 2000, health: 120, mana: 190, refill: 260 },
 ];
 
 export const MAGE_TOP_RANK = 6;
