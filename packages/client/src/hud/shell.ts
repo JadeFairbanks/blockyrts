@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import {
   buildingSpec,
   clockAt,
+  GOD_SPAWNS,
   nextMealIn,
   Period,
   RESOURCES,
@@ -26,6 +27,7 @@ import { cue } from '../audio/cues.ts';
 import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.ts';
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
 import { GameInfo } from '../game/game-info.ts';
+import { godGhostRow } from '../game/god-ghost.ts';
 import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
 import { Btn, InputManager, type Mods, type MouseTarget, type TouchHooks } from '../input/input-manager.ts';
@@ -99,6 +101,8 @@ export interface WorldExtras {
   seen(x: number, z: number): boolean;
   node(cx: number, cz: number, index: number): Selectable | undefined;
   setGhost(g: Ghost | null): void;
+  /** Godmode's unit on the cursor: its state row standing at a point (metres), or nothing. */
+  setUnitGhost(row: Int32Array | null, x: number, z: number): void;
   setPlanned(): void;
   overlay: Overlay;
 }
@@ -251,6 +255,17 @@ export class GameShell {
   /** The phone's unfolded panels, and the tester tools (hidden until their key code is typed). */
   private readonly folds: Folds = { map: false, info: true, stock: false, debug: false };
   private readonly testerCode = new KeyCode();
+  /** Whether the key code opens the debugger (Jade's Patch 5: only for the admin accounts, as the server says; anyone on a dev build). */
+  debugAllowed = false;
+  /** Godmode asked for from the debugger and not yet turned off. */
+  private godWanted = false;
+  /** Godmode came on with the debugger shut (a save made in godmode): it has been told to end. */
+  private godOffSent = false;
+  /** Godmode: the GOD_SPAWNS entry on the cursor (-1 for none), and its look. */
+  private godPick = -1;
+  private godGhost: Int32Array | null = null;
+  /** Godmode's Cancel placement button: over the whole command card, at the card's own size, while a unit is on the cursor. */
+  private readonly godCancel: HudButton;
   private readonly startedAt = performance.now();
   /** The active subgroup's type. */
   private active: string | null = null;
@@ -391,7 +406,19 @@ export class GameShell {
         this.message(on ? `${RESOURCES[res]!.name} is kept back: nobody eats it.` : `${RESOURCES[res]!.name} is eaten again.`);
       },
       addWheel: (id, el, onWheel) => this.input.addWheel(id, el, onWheel),
+      pickSpawn: (k) => this.pickSpawn(k),
     });
+    this.godCancel = this.buttons.add({
+      id: 'god-cancel',
+      face: 'Cancel placement',
+      name: 'Cancel placement',
+      keys: [],
+      description: 'Puts away the unit on the cursor: moving the cursor here does too. Godmode stays on.',
+      className: 'god-cancel',
+      onPress: () => this.dropSpawn(),
+    });
+    this.godCancel.el.hidden = true;
+    this.layout.commandCard.append(this.godCancel.el);
     // Another player's units this player may order: shared with them, or inherited from a player who left.
     setSharedControl((t, player) => {
       const info = this.game.info;
@@ -524,13 +551,59 @@ export class GameShell {
     this.panels.measure();
   }
 
-  /** The key code was typed: shows the tester tools, or hides them again (a new game or a reload starts with them hidden). */
+  /**
+   * The key code was typed: shows the debugger, or hides it again (a new game
+   * or a reload starts with it hidden). Jade's Patch 5: it opens only for the
+   * admin accounts, and does nothing for anyone else; closing it ends godmode.
+   */
   private toggleTesterTools(): void {
+    if (!this.debugAllowed) return;
     this.folds.debug = !this.folds.debug;
+    if (!this.folds.debug) this.setGod(false);
     applyGeometry(this.layout, this.geometry, this.cardFit, this.folds);
     fitDebug(this.layout, this.geometry);
     this.panels.measure();
     this.message(this.folds.debug ? 'Tester tools shown. Type the code again to hide them.' : 'Tester tools hidden.');
+  }
+
+  /** The debugger's Godmode button. */
+  toggleGod(): void {
+    this.setGod(!this.godWanted);
+  }
+
+  /** Turns godmode on or off (the debugger's Godmode button; off when the debugger closes). */
+  setGod(on: boolean): void {
+    if (!on) this.dropSpawn();
+    if (on === this.godWanted && on === (this.game.info?.god === true)) return;
+    this.godWanted = on;
+    this.opts.issueOrder({ kind: 'debugGod', player: this.player, on: on ? 1 : 0 });
+    this.buttons.get('dbg-god')?.setLit(on);
+  }
+
+  /** Godmode: puts one of GOD_SPAWNS on the cursor, to place with a click on the ground (the inventory's spawn grid). */
+  private pickSpawn(k: number): void {
+    if (this.game.info?.god !== true || !GOD_SPAWNS[k]) return;
+    // A building's ghost, a dig or a targeted order in hand is put away first.
+    while (this.commands.placing || this.commands.area || this.commands.targeting) if (!this.commands.back()) break;
+    this.godPick = k;
+    this.godGhost = godGhostRow(k, this.player);
+    this.godCancel.el.hidden = false;
+  }
+
+  /** Godmode: the unit on the cursor is put away and the usual cursor comes back. */
+  private dropSpawn(): void {
+    if (this.godPick < 0) return;
+    this.godPick = -1;
+    this.godGhost = null;
+    this.godCancel.el.hidden = true;
+    this.extras.setUnitGhost(null, 0, 0);
+  }
+
+  /** Whether the cursor is over godmode's Cancel placement button. */
+  private overGodCancel(p: Pt): boolean {
+    if (this.godCancel.el.hidden) return false;
+    const r = this.godCancel.el.getBoundingClientRect();
+    return p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom;
   }
 
   /** Phone: unfolds or folds a panel; the minimap and the selection share the strip, so one closes the other. */
@@ -594,7 +667,15 @@ export class GameShell {
   }
 
   private onInfo(info: InfoMessage): void {
-    // The stockpile: food, supply and the inventory grid.
+    // Godmode lives only while the debugger is open (Jade's Patch 5): a save made in godmode comes back without it.
+    const god = info.god === true;
+    if (god && !this.folds.debug && !this.godOffSent) {
+      this.godOffSent = true;
+      this.godWanted = true;
+      this.setGod(false);
+    } else if (!god) this.godOffSent = false;
+    this.buttons.get('dbg-god')?.setLit(god);
+    // The stockpile: food, supply and the inventory grid (in godmode, what it can place).
     this.inventory.update(info, this.game.foodValue());
     // Outlying lights against the coming night's limit (Table 8).
     const o = info.outlying;
@@ -676,6 +757,8 @@ export class GameShell {
 
   private onEvent(ev: SimEvent): void {
     const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
+    // The debugger's Elf kingdom button: the camera goes there at once.
+    if (ev.look && at) this.jumpTo(at.x, at.z);
     if (ev.kind === 'question') {
       this.onQuestion(ev);
       return;
@@ -1371,7 +1454,8 @@ export class GameShell {
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
       if (this.panel.cards.close()) return;
-      if (this.selector.dragging) this.selector.cancel();
+      if (this.godPick >= 0) this.dropSpawn();
+      else if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
       else if (this.allies.closeTop()) return;
@@ -1419,7 +1503,12 @@ export class GameShell {
           return;
         }
         if (button === Btn.Left) {
-          if (this.commands.area) {
+          if (this.godPick >= 0) {
+            // Godmode: the unit on the cursor is placed there, and stays on the cursor for the next.
+            this.leftConsumed = true;
+            const at = this.cam.pick(p);
+            if (at) this.opts.issueOrder({ kind: 'debugPlace', player: this.player, what: this.godPick, x: Math.round(at.x * WU_PER_METRE), z: Math.round(at.z * WU_PER_METRE) });
+          } else if (this.commands.area) {
             this.leftConsumed = true;
             this.commands.areaDown(this.cam.pick(p));
           } else if (this.commands.placing) {
@@ -1438,8 +1527,9 @@ export class GameShell {
           this.setFollow(null);
           this.cam.grabStart(p);
         } else if (button === Btn.Right) {
-          // Right click ends a wall or tunnel chain, or puts the ghost or the dig away.
-          if (this.commands.area || this.commands.placing || this.commands.targeting) this.commands.back();
+          // Right click ends a wall or tunnel chain, or puts the ghost, the dig or godmode's unit away.
+          if (this.godPick >= 0) this.dropSpawn();
+          else if (this.commands.area || this.commands.placing || this.commands.targeting) this.commands.back();
           else if (!this.selector.dragging) {
             const u = this.under(p);
             this.commands.smart(u.item, u.ground);
@@ -1597,6 +1687,14 @@ export class GameShell {
     this.commands.updateArea(inGameView ? this.cam.pick(pos) : null);
     this.extras.setGhost(ghost);
     this.drawOverlay(ghost);
+    // Godmode's unit on the cursor, where it points; the cursor over Cancel placement puts it away (Jade's Patch 5).
+    if (this.godPick >= 0) {
+      if (this.game.info?.god !== true || this.commands.placing || this.commands.area || this.commands.targeting || this.overGodCancel(pos)) this.dropSpawn();
+      else {
+        const at = inGameView ? this.cam.pick(pos) : null;
+        this.extras.setUnitGhost(at ? this.godGhost : null, at?.x ?? 0, at?.z ?? 0);
+      }
+    }
     const label = inGameView ? this.commands.chainLabel() : null;
     this.chainLabel.hidden = label === null;
     if (label) {
@@ -1612,6 +1710,7 @@ export class GameShell {
     const t = this.commands.targeting;
     if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
     else if (this.commands.area && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_YELLOW });
+    else if (this.godPick >= 0 && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_GREEN });
     else if (this.edgeDir) this.input.cursor.setShape({ kind: 'pan', dx: this.edgeDir.dx, dy: this.edgeDir.dy });
     else this.input.cursor.setShape({ kind: 'arrow' });
 

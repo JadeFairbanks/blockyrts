@@ -42,6 +42,8 @@ async function main(): Promise<void> {
   const quick = startFromUrl(location.search);
   let plan;
   if (quick) {
+    // A signed-in page knows its account (the debugger opens only for the admin accounts); no guest is made for it.
+    if (api.token) await api.ensureSession().catch(() => undefined);
     plan = newSoloPlan(quick.seed, 'Player 1', '', quick.players);
   } else {
     // The menu theme plays from the first click until the game starts.
