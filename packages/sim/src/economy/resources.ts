@@ -183,9 +183,9 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.BogIron, 'Bog iron', 'Bog iron', M, 50, 'Bog iron patches (bronze tools).'),
   r(Res.IronRock, 'Iron rock', 'Iron rock', M, 50, 'Iron rock (bronze tools).'),
   r(Res.VeinIron, 'Vein iron ore', 'Vein iron', M, 50, 'Seams inside ridges (wrought iron tools) and mineshafts.'),
-  r(Res.PigIron, 'Pig iron ingot', 'Pig iron', M, 50, 'Vein iron at the Forge (main base 5).', 0, false),
-  r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Pig iron at the Forge (main base 5).', 0, false),
-  r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at the Forge (main base 7), after Steel.', 0, false),
+  r(Res.PigIron, 'Pig iron ingot', 'Pig iron', M, 50, 'Vein iron at the Forge (main base tier 3).', 0, false),
+  r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Pig iron at the Forge (main base tier 3).', 0, false),
+  r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at the Forge (main base tier 3), after Steel.', 0, false),
   r(Res.Eggs, 'Eggs', 'Eggs', A, 5, 'Hens in a Barn.', 1),
   r(Res.Feathers, 'Feathers', 'Feathers', A, 1, 'Chickens, hunted wild geese and pheasants, and Runkin traders. Bow and crossbow rangers need them.'),
   r(Res.Gold, 'Gold', 'Gold', A, 10, 'Mostly mineshafts; very rarely, on the surface.'),
@@ -195,10 +195,10 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Silver, 'Silver', 'Silver', A, 10, 'Mineshafts, often with lead ore.'),
   r(Res.Marble, 'Marble', 'Marble', A, 100, 'Marble rock (bronze tools).'),
   r(Res.Earth, 'Earth', 'Earth', A, 50, 'Digging soil.'),
-  r(Res.Sticks, 'Hardwood sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or hardwood lumber at a workshop.'),
+  r(Res.Sticks, 'Sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or 4 from a lumber of either kind at a Storehouse or the Workshop.'),
   r(Res.Clay, 'Clay', 'Clay', A, 50, 'Clay banks by rivers and wetlands.'),
   r(Res.Sand, 'Sand', 'Sand', A, 50, 'Riverbeds and beaches.'),
-  r(Res.Charcoal, 'Charcoal', 'Charcoal', A, 25, 'Hardwood burnt at the Forge (main base 3).', 0, false),
+  r(Res.Charcoal, 'Charcoal', 'Charcoal', A, 25, 'Lumber burnt at the Forge (main base tier 2).', 0, false),
   r(Res.Saltpetre, 'Saltpetre', 'Saltpetre', A, 25, 'Cave floors in the Fringe and deeper.'),
   r(Res.Sulphur, 'Sulphur', 'Sulphur', A, 25, 'Volcanic ground and hot springs, far out.'),
   r(Res.FarmFare, 'Farm fare', 'Farm fare', A, 10, 'A hearty medley of vegetables, grown at the Farm.', 2),
@@ -213,20 +213,20 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.LeadOre, 'Lead ore', 'Lead ore', A, 50, 'Deepwoods and deeper, beside silver-grey rock (bronze tools).'),
   r(Res.ManaCrystal, 'Mana crystal', 'Mana', A, 5, 'Rare nodes in the Deadlands, and some magical creatures.'),
   r(Res.Planks, 'Planks', 'Planks', G, 50, 'Lumber at the Workshop.', 0, false),
-  r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at the Forge (main base 3).', 0, false),
-  r(Res.Glass, 'Glass', 'Glass', G, 25, 'Sand at the Forge (main base 3).', 0, false),
-  r(Res.Rope, 'Rope', 'Rope', G, 10, 'Leather or flax at the Workshop or the Big House.', 0, false),
+  r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at the Forge (main base tier 2).', 0, false),
+  r(Res.Glass, 'Glass', 'Glass', G, 25, 'Sand at the Forge (main base tier 2).', 0, false),
+  r(Res.Rope, 'Rope', 'Rope', G, 10, 'Leather or flax at the Workshop or the main base.', 0, false),
   r(Res.HardenedLeather, 'Hardened leather', 'Hard leather', G, 25, 'Leather hardened at the Workshop.', 0, false),
-  r(Res.WroughtIron, 'Wrought iron', 'Wrought iron', G, 50, 'Any iron ore at the Forge (main base 3).', 0, false),
-  r(Res.HandCart, 'Hand cart', 'Hand carts', G, 500, 'Planks and hardwood at the Workshop (main base 3). A worker takes one with X.', 0, false),
-  r(Res.CarbonSteel, 'Carbon steel ingot', 'Carbon steel', G, 50, 'Iron and plenty of charcoal at the Forge (main base 7), slowly, after Carbon steel.', 0, false),
-  r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at the Forge (main base 7), after Gunpowder. Musket rangers and brawlers need it.', 0, false),
-  r(Res.OxCart, 'Ox or horse cart', 'Ox carts', G, 500, 'Planks, hardwood, leather and wrought iron at the Workshop (main base 5). A worker takes one with X.', 0, false),
+  r(Res.WroughtIron, 'Wrought iron', 'Wrought iron', G, 50, 'Any iron ore at the Forge (main base tier 2).', 0, false),
+  r(Res.HandCart, 'Hand cart', 'Hand carts', G, 500, 'Planks and lumber at the Workshop (main base tier 2). A worker takes one with X.', 0, false),
+  r(Res.CarbonSteel, 'Carbon steel ingot', 'Carbon steel', G, 50, 'Iron and plenty of charcoal at the Forge (main base tier 3), slowly, after Carbon steel.', 0, false),
+  r(Res.Gunpowder, 'Gunpowder', 'Powder', G, 10, 'Saltpetre, sulphur and charcoal at the Forge (main base tier 3), after Gunpowder. Musket rangers and brawlers need it.', 0, false),
+  r(Res.OxCart, 'Ox or horse cart', 'Ox carts', G, 500, 'Planks, lumber, leather and wrought iron at the Workshop (main base tier 3). A worker takes one with X.', 0, false),
   r(Res.Bandage, 'Bandage', 'Bandages', G, 5, 'An herb and flax or leather at the Workshop. Heals 30 over 15 s.', 0, false),
   r(Res.Remedy, 'Healing remedy', 'Remedies', G, 5, 'Two herbs and a glass bottle at the Workshop. Heals 60 over 5 s.', 0, false),
   ...trinkets(),
-  r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at the Workshop (main base 5). For trading with villages.', 0, false),
-  r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at the Workshop (main base 7). For trading with villages.', 0, false),
+  r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at the Workshop (main base tier 3). For trading with villages.', 0, false),
+  r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at the Workshop (main base tier 3). For trading with villages.', 0, false),
   // Raw meat by animal and fish by species (Table 6: every meat 4, every fish 3; Table 12: 2.5 lb each).
   r(Res.Beef, 'Beef', 'Beef', F, 25, 'Slaughtering or hunting cattle and oxen.', 4),
   r(Res.Chicken, 'Chicken', 'Chicken', F, 25, 'Slaughtering or hunting chickens.', 4),
@@ -273,7 +273,7 @@ export function resourceByName(name: string): number {
       return Res.SoftwoodLumber;
     case 'hardwood lumber':
       return Res.HardwoodLumber;
-    case 'hardwood sticks':
+    case 'sticks':
       return Res.Sticks;
     case 'medicinal herbs':
       return Res.Herbs;

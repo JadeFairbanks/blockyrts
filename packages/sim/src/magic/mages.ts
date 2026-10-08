@@ -16,8 +16,8 @@ const SEC = STEPS_PER_SECOND;
 /** Table 7: a new mage (Novice Acolyte) costs 50 food and a hazel wand and homespun robe (units/kits.ts), and takes 60 s plus the kit's time. */
 export const MAGE_FOOD = 50;
 export const MAGE_TRAIN_STEPS = 60 * SEC;
-/** Mages are also trained at a main base of level 6 or higher (Magic). */
-export const MAGE_MAIN_BASE_LEVEL = 6;
+/** Mages are also trained at a main base of tier 3 or higher (Magic: level 6 before Patch 5). */
+export const MAGE_MAIN_BASE_LEVEL = 3;
 
 /** Experience for each mage rank, tenths (Table 1: Acolyte 40 to Grand Magician 2000), by rank. */
 export const MAGE_XP_TENTHS: readonly number[] = [0, ...MAGE_RANKS.map((r) => r.xp * XP_TENTHS)];

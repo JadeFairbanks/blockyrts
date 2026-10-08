@@ -212,7 +212,7 @@ export interface BuildingInfo {
   working: number;
   /** Units in it: sheltering inside, and up on its top (also in `up`). */
   inside: number[];
-  /** The units up on its top (towers, a main base from level 3), entity ids. */
+  /** The units up on its top (towers, a main base from tier 2), entity ids. */
   up: number[];
   /** The panel's status line. */
   status: string;

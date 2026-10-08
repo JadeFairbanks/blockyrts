@@ -1,7 +1,7 @@
 // The balance harness's wave versus defence checks (Technical decisions 11;
 // Balance notes: "Wave versus a reasonable defence"). For a night N it
 // builds a fixture town round the start pocket's Big House: the main base at
-// the level the pacing check expects by then, a closed ring of walls with
+// the tier the pacing check expects by then, a closed ring of walls with
 // towers at the corners, and the defence the Balance notes name for that
 // night (warriors at their tier and rank, crossbows and muskets in the
 // towers, mages, cannons). Then it jumps the clock to the end of day N, lets
@@ -11,6 +11,7 @@
 // seed and night always give the same row.
 import {
   addCrewman,
+  PARAPET_TIER,
   addEngine,
   addMage,
   addWarrior,
@@ -69,7 +70,7 @@ export interface Kit {
 /** The defence the Balance notes set against a night (s, from "Wave versus a reasonable defence"). */
 export interface Defence {
   night: number;
-  /** Main base level by then (the pacing check). */
+  /** Main base tier by then (the pacing check). */
   baseLevel: number;
   wall: number;
   tower: number;
@@ -111,35 +112,35 @@ export const DEFENCES: readonly Defence[] = [
   {
     night: 0, baseLevel: 1, wall: BuildingKind.Wall, tower: 0, pad: 4, melee: [[3, CUDGEL], [1, HARDWOOD_SPEAR]], rank: 1, ranged: [],
     mages: { support: 0, battle: 0, rank: 1 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: true,
-    note: 'the 3 starting warriors (hardwood cudgels), 1 fire-hardened spear trained at the Big House, 4 workers, softwood fence',
+    note: 'the 3 starting warriors (wooden cudgels), 1 fire-hardened spear trained at the Big House, 4 workers, wooden fence',
   },
   {
-    night: 10, baseLevel: 3, wall: BuildingKind.WallHardwood, tower: 0, pad: 4, melee: [[3, BRONZE_SWORD], [3, BRONZE_SPEAR]], rank: 2, ranged: [],
+    night: 10, baseLevel: 2, wall: BuildingKind.WallHardwood, tower: 0, pad: 4, melee: [[3, BRONZE_SWORD], [3, BRONZE_SPEAR]], rank: 2, ranged: [],
     mages: { support: 0, battle: 0, rank: 1 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
     note: '6 warriors in bronze behind a hardwood fence',
   },
   {
-    night: 20, baseLevel: 5, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 5, melee: [[5, WROUGHT_SWORD], [5, WROUGHT_SPEAR]], rank: 2,
+    night: 20, baseLevel: 3, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 5, melee: [[5, WROUGHT_SWORD], [5, WROUGHT_SPEAR]], rank: 2,
     ranged: [[4, WROUGHT_BOW]], mages: { support: 0, battle: 0, rank: 1 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
     note: '10 warriors in wrought iron and mail, 4 rangers (wrought-iron arrowheads), the first stone walls',
   },
   {
-    night: 40, baseLevel: 7, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 6, melee: [[8, STEEL_SWORD], [8, STEEL_HALBERD]], rank: 3,
+    night: 40, baseLevel: 3, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 6, melee: [[8, STEEL_SWORD], [8, STEEL_HALBERD]], rank: 3,
     ranged: [[8, CROSSBOW]], mages: { support: 1, battle: 2, rank: 3 }, cannons: { kind: 0, count: 0, ports: false }, workersFight: false,
     note: '16 steel warriors, 8 crossbows, 3 mages, stone walls',
   },
   {
-    night: 60, baseLevel: 9, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 7, melee: [[12, STEEL_SWORD], [13, STEEL_HALBERD]], rank: 4,
+    night: 60, baseLevel: 4, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 7, melee: [[12, STEEL_SWORD], [13, STEEL_HALBERD]], rank: 4,
     ranged: [[8, MUSKET]], mages: { support: 2, battle: 2, rank: 4 }, cannons: { kind: Engine.IronCannon, count: 2, ports: false }, workersFight: false,
     note: '25 carbon steel warriors, 8 muskets, 2 cannons, 4 mages, stone walls',
   },
   {
-    night: 80, baseLevel: 10, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 8, melee: [[15, STEEL_SWORD], [15, STEEL_HALBERD]], rank: 4,
+    night: 80, baseLevel: 4, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 8, melee: [[15, STEEL_SWORD], [15, STEEL_HALBERD]], rank: 4,
     ranged: [[15, MUSKET]], mages: { support: 2, battle: 4, rank: 5 }, cannons: { kind: Engine.IronCannon, count: 4, ports: true }, workersFight: false,
     note: '30 carbon steel warriors at Elite, 15 muskets, 4 cannons in the Citadel ports, 6 mages',
   },
   {
-    night: 110, baseLevel: 10, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 8, melee: [[15, STEEL_SWORD], [15, STEEL_HALBERD]], rank: 5,
+    night: 110, baseLevel: 4, wall: BuildingKind.WallStone, tower: BuildingKind.TowerStone, pad: 8, melee: [[15, STEEL_SWORD], [15, STEEL_HALBERD]], rank: 5,
     ranged: [[15, MUSKET]], mages: { support: 0, battle: 6, rank: 6 }, cannons: { kind: Engine.IronCannon, count: 4, ports: true }, workersFight: false,
     note: '30 Hero warriors, 15 muskets, 4 cannons in the Citadel ports, 6 battle mages (and Morvath)',
   },
@@ -335,7 +336,7 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
     const units = rangedIds.slice(k * 4, k * 4 + 4);
     if (units.length > 0) orders.push({ kind: 'enter', player: 0, units, building: t.id });
   });
-  // Mages up on the main base's parapets (8 places from level 3), where a bolt clears the wall; the Arcane bolt flies flat
+  // Mages up on the main base's parapets (8 places from tier 2), where a bolt clears the wall; the Arcane bolt flies flat
   // and cannot clear a wall from the ground, so a mage down there walks out of the gate to find a shot.
   const mageSpots = ringSpots(ring, d.mages.support + d.mages.battle, STAB_INSET + 1);
   const mageIds: number[] = [];
@@ -345,7 +346,7 @@ export function buildFixture(seed: number, d: Defence, blood = false): { state: 
     setMageRank(s, i, d.mages.rank);
     mageIds.push(e.id[i]!);
   }
-  if (mageIds.length > 0 && d.baseLevel >= 3) orders.push({ kind: 'enter', player: 0, units: mageIds, building: b.id });
+  if (mageIds.length > 0 && d.baseLevel >= PARAPET_TIER) orders.push({ kind: 'enter', player: 0, units: mageIds, building: b.id });
   // Cannons: up in the Citadel's ports (the corners of its roof), or on the ground inside the ring; each with its own crew
   // of artillery crewmen, as every cannon rolls out (Patch 2: only they crew engines).
   if (d.cannons.count > 0) {

@@ -22,6 +22,8 @@ import {
   footprintDims,
   kitName,
   levelSpec,
+  PARAPET_SLOTS,
+  PARAPET_TIER,
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
@@ -415,7 +417,7 @@ export class Commands {
    */
   static lone(card: Slots): boolean {
     const shown = card.filter((e): e is CardEntry => e !== null);
-    return shown.length === 1 && shown[0]!.action === 'craft';
+    return shown.length === 1 && shown[0]!.action === 'craft' && shown[0]!.product === undefined;
   }
 
   /** Whether every selected unit of the active type is another player's, shared with this one. */
@@ -782,12 +784,12 @@ export class Commands {
     const cannon = u !== null && engineSpec(u.mob).cannon;
     return [
       this.entry('attack', 'Attack', 'Then left click an enemy or one of its buildings to shoot at it (it closes in while hauled or pushed), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' }),
-      this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels need ramps, not steps.', () => this.target('move', 'move'), { lit: t === 'move' }),
+      this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels take gentle slopes, not steps.', () => this.target('move', 'move'), { lit: t === 'move' }),
       hauled
         ? this.entry('hitch', 'Let go', 'Unhitch the horse or ox hauling it.', () => this.d.send({ kind: 'hitch', player: this.d.player, units: ids.slice(0, 1), target: 0, queued: false }), { name: 'Let the animal go' })
         : this.entry('hitch', 'Hitch', 'Then left click one of your horses or oxen: it walks over and hauls the engine wherever it is sent (a horse is faster; an ox is slower but steadier). Right clicking the animal does the same.', () => this.target('hitch', 'hitch'), { lit: t === 'hitch', name: 'Hitch an animal' }),
       cannon
-        ? this.entry('port', 'Port', 'Then left click your Citadel (main base level 10): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls. Right clicking the Citadel does the same.', () => this.target('port', 'port'), { lit: t === 'port', name: 'Into a cannon port' })
+        ? this.entry('port', 'Port', 'Then left click your Citadel (main base tier 4): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls. Right clicking the Citadel does the same.', () => this.target('port', 'port'), { lit: t === 'port', name: 'Into a cannon port' })
         : this.off('port', 'Port', 'Cannons go up into a Citadel\'s cannon ports.', 'Only cannons go in the cannon ports.', 'Into a cannon port'),
     ];
   }
@@ -795,7 +797,7 @@ export class Commands {
   /** Retrain as a worker (Patch 3, Jade): the crewmen walk to the main base, sit with the bar over their heads and get up workers. */
   private retrainEntry(): CardEntry {
     const name = 'Retrain as a worker';
-    const desc = `They walk to the main base, sit tinkering for ${Math.round(CREWMAN_RETRAIN_STEPS / 20)} s and get up workers: Labourers with a hardwood tool kit, as from the Big House. No cost. A new order before the bar is full cancels it.`;
+    const desc = `They walk to the main base, sit tinkering for ${Math.round(CREWMAN_RETRAIN_STEPS / 20)} s and get up workers: Labourers with a wooden tool kit, as from the main base. No cost. A new order before the bar is full cancels it.`;
     if (!this.d.game.mainBases().some((b) => b.complete)) return this.off('retrain', 'Retrain', desc, 'Needs a main base.', name);
     return this.entry('retrain', 'Retrain', desc, () => this.d.send({ kind: 'retrain', player: this.d.player, units: this.unitIds((u) => u.typeKey === 'warrior:crew'), queued: this.d.queued() }), { name });
   }
@@ -936,7 +938,7 @@ export class Commands {
     const main = kind === BuildingKind.MainBase;
     if (first.complete) {
       if (spec.trainsWorkers) rows.push([Product.Worker, 'trainWorker', 'Worker', 0]);
-      // Mages at a Magi Sanctum, and at a main base of level 6 and up (Magic), after the main base's troops.
+      // Mages at a Magi Sanctum, and at a main base of tier 3 and up (Magic), after the main base's troops.
       if (first.products.some(([p]) => p === Product.SupportMage)) {
         const at = main ? 4 : 0;
         rows.push([Product.SupportMage, 'trainSupportMage', 'Support', at], [Product.BattleMage, 'trainBattleMage', 'Battle', at + 1]);
@@ -956,10 +958,17 @@ export class Commands {
         card[support ? 0 : 1] = this.mageEntry(all, mageLock(m.school), support ? 'trainSupportMage' : 'trainBattleMage', support ? 'Support' : 'Battle');
       }
     }
-    if (first.complete && first.products.some(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)) {
+    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT) : [];
+    // A main base's mages sit on 4 and 5, so its K button moves along.
+    const makeSlot = main ? 7 : 5;
+    if (made.length === 1 && productSpec(made[0]![0]).recipe !== undefined) {
+      // Patch 5: a building that makes one good has it on its own card (the main base's Make rope, the Storehouse's Make sticks), not in a menu.
+      const [p, why] = made[0]!;
+      const name = `Make ${shortFace(productSpec(p).name).toLowerCase()}`;
+      card[makeSlot] = { ...this.productEntry(all, p, 'craft', name, why), name };
+    } else if (made.length > 0) {
       const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Each item\'s key is on its button; Esc goes back.'];
-      // A main base's mages sit on 4 and 5, so its K menu (rope) moves along.
-      card[main ? 7 : 5] = this.entry('craft', what[0], what[1], () => this.openMenu('make'), { name: what[0] });
+      card[makeSlot] = this.entry('craft', what[0], what[1], () => this.openMenu('make'), { name: what[0] });
     }
     if (first.complete && trainsUnits(first)) {
       card[9] = this.entry('rally', 'Rally', 'Then left click ground, a unit or a resource node: new units go there (workers gather, on a node). Shift adds a waypoint. Right click with the building selected does the same.', () => this.target('rally', 'rally'), {
@@ -1488,7 +1497,7 @@ export class Commands {
     return b !== undefined && b.complete && buildingSpec(b.kind).defence === 'tower';
   }
 
-  /** A finished tower, or a main base from level 3: men go up on its top. */
+  /** A finished tower, or a main base from tier 2: men go up on its top. */
   private hasTop(item: Selectable): boolean {
     const b = this.buildingOf(item);
     return b !== undefined && b.complete && garrisonRoom(b) > 0;
@@ -1500,7 +1509,7 @@ export class Commands {
     if (!b || units.length === 0) return false;
     const room = b.complete ? levelSpec(b.kind, b.level).shelters + garrisonRoom(b) : 0;
     if (room === 0) {
-      this.d.message(`${b.name} cannot take anyone in. Men go up on towers and on a main base from level 3; workers shelter in main bases and farms.`, 'alert');
+      this.d.message(`${b.name} cannot take anyone in. Men go up on towers and on a main base from tier 2; workers shelter in main bases and farms.`, 'alert');
       return false;
     }
     this.d.send({ kind: 'enter', player: this.d.player, units, building: b.id, queued: this.d.queued() });
@@ -2166,12 +2175,12 @@ export function stretchBoxes(x: number, z: number, dir: number, length: number, 
   return out;
 }
 
-/** A garrison: a tower's slots, or the parapets of a level 3 main base (Table 4). */
+/** A garrison: a tower's slots, or the parapets of a main base from tier 2 (Table 4). */
 export function garrisonRoom(b: Pick<BuildingInfo, 'kind' | 'level' | 'complete'>): number {
   if (!b.complete) return 0;
   const spec = buildingSpec(b.kind);
   if (spec.slots) return spec.slots;
-  return b.kind === BuildingKind.MainBase && b.level >= 3 ? 8 : 0;
+  return b.kind === BuildingKind.MainBase && b.level >= PARAPET_TIER ? PARAPET_SLOTS : 0;
 }
 
 
@@ -2181,11 +2190,11 @@ const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell
 /** The K button by building kind: its face and tooltip. */
 const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.ScholarsLodge]: ['Research', 'Open the research menu: every step, greyed out with what it still needs. Research takes the lodge\'s time and stops while the troops starve. Each step\'s key is on its button; Esc goes back.'],
-  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base level 3; pig iron and iron from 5; steel, carbon steel and gunpowder from 7. It works with no workers. Kit is made where a unit trains or upgrades, not here. Each one\'s key is on its button; Esc goes back.'],
+  [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base tier 2; pig iron, iron, steel, carbon steel and gunpowder from tier 3. It works with no workers. Kit is made where a unit trains or upgrades, not here. Each one\'s key is on its button; Esc goes back.'],
   [BuildingKind.Barn]: ['Slaughter', 'Slaughter one of the grown animals of the Barn for its meat and hides. The Barn keeps its breeding pairs longest. Esc goes back.'],
   [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. Esc goes back.'],
   [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, sticks, carts and trinkets, the better ones with the main base\'s tiers. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
-  [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults from main base level 5, ballistas from 7, bronze and iron cannons from 8, and their shot. It works with no workers. Esc goes back.'],
+  [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults and ballistas from main base tier 3, bronze and iron cannons at tier 4. It works with no workers. Esc goes back.'],
 };
 
 /** A short button face from a product name. */

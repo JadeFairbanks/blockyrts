@@ -9,8 +9,8 @@ import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
-import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf, type Cost } from './economy/resources.ts';
-import { isAnyRes } from './economy/food-kinds.ts';
+import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
+import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
@@ -176,12 +176,12 @@ export function upgradeProblem(state: SimState, b: Building, by = b.owner): stri
   const next = spec.levels[b.level];
   if (!next) return 'It is at its highest level.';
   if (next.needs) return next.needs;
-  if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
+  if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a tier ${next.needsBase} main base.`;
   if (next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
   const room = growthBlocked(state, b, b.level + 1);
   if (room !== Blocked.None) return `It needs more room round it to grow: ${BLOCKED_TEXT[room].charAt(0).toLowerCase()}${BLOCKED_TEXT[room].slice(1)}`;
   const pool = state.players[by]!.pool;
-  if (!canAfford(pool, next.cost)) return `Not enough ${RESOURCES[shortOf(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
+  if (!canAffordAny(pool, next.cost)) return `Not enough ${RESOURCES[shortOfAny(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
   return '';
 }
 
@@ -192,7 +192,8 @@ function applyUpgrade(state: SimState, b: Building, by: number): void {
     return;
   }
   const next = levelSpec(b.kind, b.level + 1);
-  pay(state.players[by]!.pool, next.cost);
+  // Kind by kind, so a cancel gives back the lumber it was paid in (Patch 5: a tier's lumber is either kind).
+  b.paid = payAny(state.players[by]!.pool, next.cost);
   b.upgrading = b.level + 1;
   b.upProgress = 0;
   refitBuilding(state, b);
@@ -214,7 +215,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
     return;
   }
   if (b.upgrading) {
-    refund(pool, levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
+    refund(pool, b.paid.length ? (b.paid as Cost) : levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
     b.upgrading = 0;
     b.upProgress = 0;
     refitBuilding(state, b);
@@ -254,7 +255,7 @@ export function everyoneHome(state: SimState, player: number): void {
   }
 }
 
-/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and level 3+ main bases), else shelter inside (workers), else nothing. */
+/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and main bases of tier 2 and up), else shelter inside (workers), else nothing. */
 export function enterOrder(state: SimState, i: number, b: Building): UnitOrder | null {
   if (garrisonRoom(b) > 0 && canGarrison(state, i)) return { t: 'enter', b: b.id, auto: ENTER_TOP };
   if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: shelterAuto(state) };
@@ -358,7 +359,7 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   for (const kind of planned.values()) for (const [r, n] of buildCost(state, o.player, kind)) owed.set(r, (owed.get(r) ?? 0) + n);
   const cost = buildCost(state, o.player, o.building);
   const pool = state.players[o.player]!.pool;
-  const { room, short } = stretchRoom((r) => pool[r]!, owed, cost);
+  const { room, short } = stretchRoom((r) => haveOf(pool, r), owed, cost);
   const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;

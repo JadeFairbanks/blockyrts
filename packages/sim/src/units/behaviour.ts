@@ -1301,7 +1301,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   if (!b || !t || b.kind !== rankTrainedAt(e.kind[i]!) || !b.complete || b.owner !== e.owner[i]) return DONE;
   if (e.inside[i] !== b.id) {
     if (mainBaseLevel(state, b.owner) < t.base) {
-      alert(state, b.owner, `Training to ${t.name} needs a level ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
+      alert(state, b.owner, `Training to ${t.name} needs a tier ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     const r = walkTo(state, i, besideBuilding(b));

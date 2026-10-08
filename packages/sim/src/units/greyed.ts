@@ -7,7 +7,7 @@
 //
 // A click on a greyed building in the build menu, or on a building's greyed
 // training, making, research or Upgrade, sends a GreyedOrder. The sim works
-// out every cause (a main base level, research, each resource it is short
+// out every cause (a main base tier, research, each resource it is short
 // of, food, supply) and, for each, the unit or building that can sort it out
 // asks its owner, all at once, in the question bubbles of units/questions.ts
 // (they share its wait and its Yes and No):
@@ -19,7 +19,7 @@
 // - a resource made from others: a building that makes it ("Shall I smelt
 //   10?"), at the Forge, Workshop or main base;
 // - research: the Scholar's Lodge (or Magi Sanctum) that researches it;
-// - a main base level, or supply: the main base, to upgrade;
+// - a main base tier, or supply: the main base, to upgrade;
 // - food: idle warriors, to go hunting.
 // When that one cannot do it now either (the Forge short of ore, the
 // upgrade short of stone), the causes of that come next, as far as
@@ -38,7 +38,7 @@ import { payableInputs, RECIPES } from '../buildings/recipes.ts';
 import { RECIPE_PRODUCT, RESEARCH_PRODUCT, type Building, type Product } from '../buildings/store.ts';
 import { hasResearch, RESEARCH, type Research } from '../combat/items.ts';
 import { eatableFood } from '../economy/food.ts';
-import { haveOf } from '../economy/food-kinds.ts';
+import { haveOf, payAny } from '../economy/food-kinds.ts';
 import { costText, FOODS, pay, RESOURCES, type Cost } from '../economy/resources.ts';
 import { ceilDiv, floorDiv, length2d, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder, GreyedOrder } from '../orders.ts';
@@ -75,7 +75,7 @@ export const GreyAsk = {
   Make: 12,
   /** A research building: research it (res is the research). */
   Research: 13,
-  /** The main base: upgrade to its next level. */
+  /** The main base: upgrade to its next tier. */
   Upgrade: 14,
   /** A worker whose tools cannot work a resource (res): better tools, as Upgrade equipment makes them, then gather it. */
   Tools: 15,
@@ -178,7 +178,7 @@ function waysNeeds(pool: Int32Array, ways: readonly Cost[], label: string): Need
   return best ?? [];
 }
 
-/** A kit's causes: each piece's metal step (a main base level) and research, then what its first way of paying is short of after the pieces before it. */
+/** A kit's causes: each piece's metal step (a main base tier) and research, then what its first way of paying is short of after the pieces before it. */
 function piecesNeeds(state: SimState, player: number, research: number, pieces: readonly Piece[], label: string): Need[] {
   const out: Need[] = [];
   const forge = forgeStepOf(state, player);
@@ -192,17 +192,19 @@ function piecesNeeds(state: SimState, player: number, research: number, pieces: 
   const left = Int32Array.from(state.players[player]!.pool);
   const short = new Map<number, number>();
   for (const p of pieces) {
-    const way = p.cost.find((c) => c.every(([r, n]) => left[r]! >= n)) ?? p.cost[0] ?? [];
+    const way = p.cost.find((c) => c.every(([r, n]) => haveOf(left, r) >= n)) ?? p.cost[0] ?? [];
     for (const [r, n] of way) {
-      if (left[r]! < n) short.set(r, (short.get(r) ?? 0) + n - Math.max(0, left[r]!));
-      left[r] = Math.max(0, left[r]! - n);
+      // "Lumber" is either kind (Patch 5): what is left of both counts, and is used up kind by kind.
+      const have = Math.max(0, haveOf(left, r));
+      if (have < n) short.set(r, (short.get(r) ?? 0) + n - have);
+      payAny(left, [[r, Math.min(n, have)]]);
     }
   }
   for (const [res, n] of short) out.push({ k: 'res', res, n, for: label });
   return out;
 }
 
-/** Why a research step cannot start: the main base level, the step before it, a thing smelted once, and its fee. */
+/** Why a research step cannot start: the main base tier, the step before it, a thing smelted once, and its fee. */
 function researchNeeds(state: SimState, player: number, r: number, tech: number): Need[] {
   const spec = RESEARCH[r];
   const p = state.players[player]!;
@@ -268,7 +270,7 @@ function upgradeNeeds(state: SimState, b: Building, player: number): Need[] {
   return out;
 }
 
-/** Why a building cannot be placed: its main base level, its research, and its cost. */
+/** Why a building cannot be placed: its main base tier, its research, and its cost. */
 function buildingNeeds(state: SimState, player: number, kind: number): Need[] {
   const spec = buildingSpec(kind);
   if (!spec.live) return [];
@@ -367,7 +369,7 @@ function mainBase(state: SimState, player: number): Building | undefined {
   return best;
 }
 
-/** The main base asks to go up a level ('base' and 'supply'); or, when it cannot, null and what stops it. */
+/** The main base asks to go up a tier ('base' and 'supply'); or, when it cannot, null and what stops it. */
 function upgradeAsk(state: SimState, player: number, why: string, used: Set<string>): { ask: Asking | null; deeper: Need[] } {
   const b = mainBase(state, player);
   if (!b || b.upgrading || used.has(`b${b.id}`) || isAsking(state, b.id, true)) return { ask: null, deeper: [] };
@@ -382,7 +384,7 @@ function upgradeAsk(state: SimState, player: number, why: string, used: Set<stri
       units: [],
       res: -1,
       text: `${why} Upgrade to ${next.name}?`,
-      yes: `The main base goes up to ${next.name} (level ${b.level + 1}). From the stock now: ${costText(next.cost)}. Then workers build it: right-click it with workers.${next.supply ? ` Supply ${next.supply}.` : ''}`,
+      yes: `The main base goes up to ${next.name} (tier ${b.level + 1}). From the stock now: ${costText(next.cost)}. Then workers build it: right-click it with workers.${next.supply ? ` Supply ${next.supply}.` : ''}`,
       no: 'It stays as it is.',
     },
     deeper: [],
@@ -396,7 +398,7 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
   switch (need.k) {
     case 'base':
       if (mainBaseLevel(state, player) >= need.level) return none;
-      return upgradeAsk(state, player, `We need a level ${need.level} main base${forText(need.for)}.`, used);
+      return upgradeAsk(state, player, `We need a tier ${need.level} main base${forText(need.for)}.`, used);
     case 'supply': {
       // Only an upgrade the stock pays for now, and only one that gives supply: a Farm cannot be put up from a bubble.
       const b = mainBase(state, player);
@@ -603,8 +605,8 @@ function withTools<T>(state: SimState, i: number, tier: number, look: () => T): 
 /**
  * The questions for a click's causes: breadth first, the click's own causes
  * before what stops their answers, each cause once, each speaker once. A
- * resource wanted again further down (the Barracks's softwood, then the
- * Longhall's that its main base level waits on) is added to the question
+ * resource wanted again further down (the Barracks's lumber, then the
+ * Hall's that its main base tier waits on) is added to the question
  * already asking for it: both costs less what the stock has, for both.
  */
 function askingFor(state: SimState, player: number, needs: Need[], ax: number, az: number): Asking[] {

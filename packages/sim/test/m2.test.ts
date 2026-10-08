@@ -105,7 +105,7 @@ function freeSpot(s: SimState, kind: number): [number, number] {
 }
 
 describe('the starting camp', () => {
-  it('is a finished level 1 Big House, four workers with hardwood tools, three close-melee troops and the starting stock', () => {
+  it('is a finished level 1 Big House, four workers with wooden tools, three close-melee troops and the starting stock', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     expect(e.count).toBe(7);
@@ -117,7 +117,7 @@ describe('the starting camp', () => {
       expect(e.hp[i]).toBe(60);
       expect(e.id[i]).toBe(i + 1);
     }
-    // Troops and gear: starting units: close melee with tier 1 weapons (hardwood cudgels) and no armour.
+    // Troops and gear: starting units: close melee with tier 1 weapons (wooden cudgels) and no armour.
     for (let i = 4; i < 7; i++) {
       expect(e.kind[i]).toBe(UnitKind.Warrior);
       expect(e.id[i]).toBe(i + 1);

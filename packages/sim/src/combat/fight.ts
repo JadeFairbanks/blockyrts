@@ -157,13 +157,13 @@ export function targetLost(state: SimState, i: number, t: number): boolean {
   return sideOf(state, i) !== Side.Players || !sideSees(state, t);
 }
 
-/** The building a unit shoots from the top of (a tower, or a level 3+ main base), or undefined. */
+/** The building a unit shoots from the top of (a tower, or a main base of tier 2 and up), or undefined. */
 export function garrisonOf(state: SimState, i: number): Building | undefined {
   const b = topOf(state, i);
   return b && rangedOf(state, i) ? b : undefined;
 }
 
-/** Whether a unit may go up on a tower or a level 3+ main base (units/top.ts): anyone on foot. */
+/** Whether a unit may go up on a tower or a main base of tier 2 and up (units/top.ts): anyone on foot. */
 export function canGarrison(state: SimState, i: number): boolean {
   return mayMan(state, i);
 }

@@ -66,7 +66,7 @@ function game(w: World = {}): GameInfo {
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
     data[o + S.carryRes] = 255;
-    // Milestone 11: a troop is a type and two tiers; the warriors start as close melee with a hardwood cudgel (weapon tier 1) and no armour.
+    // Milestone 11: a troop is a type and two tiers; the warriors start as close melee with a wooden cudgel (weapon tier 1) and no armour.
     if (kind === UnitKind.Warrior) {
       data[o + S.troop] = Troop.Close;
       data[o + S.wTier] = 1;
@@ -132,7 +132,7 @@ describe('the warrior card', () => {
     // The next weapon, and what it costs: weapons come first.
     const equip = button(card, 'equip')!;
     expect(equip.name).toBe('Upgrade equipment');
-    expect(equip.reason).toBe('Not enough resources (2 hardwood sticks, 1 flint).');
+    expect(equip.reason).toBe('Not enough resources (2 sticks, 1 flint).');
     expect(button(card, 'eat')!.reason).toBe('There is no food.');
   });
 
@@ -168,7 +168,7 @@ describe('the warrior card', () => {
     const equip = button(c.card(), 'equip')!;
     expect(equip.enabled).toBe(true);
     // Both can go, the hero (rank 5) first.
-    expect(equip.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 hardwood sticks, 1 flint.');
+    expect(equip.description).toContain('All of them can go: the first to Flint hand-axe (tier 2) for 2 sticks, 1 flint.');
     expect(equip.double).toBeUndefined();
     equip.run(PRESS);
     expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [3, 4] });
@@ -222,7 +222,7 @@ describe('workers: tools and carts (Milestone 11)', () => {
     const { c, sent } = harness(game({ pool: [[Res.Sticks, 6], [Res.Flint, 1], [Res.Stone, 5]] }), workers, 'worker');
     const equip = button(c.card(), 'equip')!;
     expect(equip).toMatchObject({ face: 'Equip', name: 'Upgrade equipment', key: 'KeyQ', enabled: true });
-    expect(equip.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 hardwood sticks, 1 flint, 5 stone.');
+    expect(equip.description).toContain('1 of 2 can go: the first to Stone and flint tools (tier 2) for 6 sticks, 1 flint, 5 stone.');
     expect(equip.double).toBeUndefined();
     equip.run(PRESS);
     expect(sent.at(-1)).toEqual({ kind: 'upgradeEquipment', player: ME, units: [1, 2] });
@@ -268,7 +268,7 @@ describe('the Big House', () => {
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
     expect(card[1]!.name).toBe('Train close melee');
-    expect(card[1]!.description).toContain('Hardwood cudgel, no armour (weapon tier 1, armour tier 0)');
+    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
     const craft = button(card, 'craft')!;
@@ -301,7 +301,7 @@ describe('the Big House', () => {
   });
 
   it("sends warriors and workers up a tower with a right click, and warriors up a main base with room on top (Jade's Patch 2 cuts the Enter button)", () => {
-    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 3, name: 'Hall' }), building(22, BuildingKind.Tower, { name: 'Softwood tower' })] });
+    const g = game({ buildings: [building(20, BuildingKind.MainBase, { level: 3, name: 'Hall' }), building(22, BuildingKind.Tower, { name: 'Wooden tower' })] });
     const tower = { ...sel('b:22', 'building:14:1'), kind: 'building' as const };
     const house = { ...sel('b:20', 'building:0:3'), kind: 'building' as const };
     const men = harness(g, warriors, 'warrior');

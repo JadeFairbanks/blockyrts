@@ -3,7 +3,7 @@
 // icon matches the unit's selection icon"; no more letters for workers and
 // mages). Troops show their weapon: the kit's training busts by troop type
 // and weapon tier. Creatures, animals and the peoples use their portraits.
-import { BuildingKind, engineSpec, mobSpec, peopleUnitSpec, speciesSpec, Troop } from '@blockyrts/sim';
+import { BuildingKind, engineSpec, MAIN_BASE_TIER_LEVELS, mobSpec, peopleUnitSpec, speciesSpec, Troop } from '@blockyrts/sim';
 import { firstKit } from './kit-icons.ts';
 
 /** A troop's picture by type and weapon tier (Troops and gear: the weapon ladders). */
@@ -57,7 +57,8 @@ export function buildingIconFile(kind: number, level: number): string {
   const tier = (base: string, most: number): string => `icon_${base}${Math.min(l, most)}`;
   switch (kind) {
     case BuildingKind.MainBase:
-      return tier('main_base_l', 10);
+      // Patch 5: four tiers, each drawn as the old level it stands on.
+      return `icon_main_base_l${MAIN_BASE_TIER_LEVELS[Math.min(l, MAIN_BASE_TIER_LEVELS.length) - 1]!}`;
     case BuildingKind.Farm:
       return 'icon_crop_field_t1';
     case BuildingKind.Barn:
