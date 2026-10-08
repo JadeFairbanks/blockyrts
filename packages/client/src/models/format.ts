@@ -40,6 +40,8 @@ export interface ModelSidecar {
   bones: SidecarBone[];
   /** Equipment parts; vertex attribute _PART is 0 for the body, 1 + index for a part. */
   parts: string[];
+  /** The parts shown in Blockbench by default (the model's own kit); absent from sidecars built before Patch 5. */
+  partsShown?: string[];
   clips: SidecarClip[];
   /** Rest-pose bounds of the body without parts, metres. */
   bounds: { min: Vec3; max: Vec3 };

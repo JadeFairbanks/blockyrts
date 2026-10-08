@@ -2,7 +2,9 @@
 // packages/assets/base/models (the project's own bodies) and
 // packages/assets/src/models (the modelling bot's pull requests) into
 // packages/client/public/models/<id>.glb and <id>.json, plus index.json.
-// A world prop's state sets (state-sets.ts) are written as <id>@<set> too.
+// A world prop's state sets (state-sets.ts) are written as <id>@<set> too, and
+// an item's texture variants (<id>_<variant>.png beside it: metal tiers) as
+// <id>@<variant>.
 //
 //   pnpm --filter @blockyrts/tools models:build [--out <dir>] [--assets <dir>]
 //
@@ -12,12 +14,46 @@
 // Every rule violation is printed; any violation that the model's
 // MANIFEST.md row does not waive fails the build (exit code 1).
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { basename, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { convertModel, type ConvertedModel } from './convert.ts';
 import { deviationsFor, parseManifestDeviations } from './manifest.ts';
 import { CATEGORIES } from './rules.ts';
+import { pngSize } from './png.ts';
 import { STATE_SEP, STATE_SET_CATEGORIES, stateSetVariants } from './state-sets.ts';
+
+/** Categories whose texture variants are written out as drawn models: the items' metal tiers (Patch 5: every kit tier drawn). */
+export const TEXTURE_VARIANT_CATEGORIES: readonly string[] = ['items'];
+
+/**
+ * A model's texture variants: the PNGs beside it named <id>_<variant>.png
+ * that belong to no longer model id in the same folder (sword_steel_steel.png
+ * is sword_steel's, not sword's), the same size as its first texture. Each
+ * comes back as a copy of the file with that texture embedded in its place.
+ */
+export function textureVariants(file: string, raw: unknown): Array<{ variant: string; raw: unknown }> {
+  const id = basename(file, '.bbmodel');
+  const dir = dirname(file);
+  const names = readdirSync(dir).sort();
+  const ids = names.filter((n) => n.endsWith('.bbmodel')).map((n) => basename(n, '.bbmodel'));
+  const textures = (raw as { textures?: Array<{ source?: string }> }).textures;
+  const first = textures?.[0]?.source;
+  if (!first?.startsWith('data:image/png;base64,')) return [];
+  const size = pngSize(Buffer.from(first.slice('data:image/png;base64,'.length), 'base64'));
+  const out: Array<{ variant: string; raw: unknown }> = [];
+  for (const n of names) {
+    if (!n.endsWith('.png') || !n.startsWith(`${id}_`)) continue;
+    const stem = basename(n, '.png');
+    if (ids.some((other) => other.length > id.length && (stem === other || stem.startsWith(`${other}_`)))) continue;
+    const png = readFileSync(join(dir, n));
+    const s = pngSize(png);
+    if (!size || !s || s.width !== size.width || s.height !== size.height) continue;
+    const copy = structuredClone(raw) as { textures: Array<{ source?: string }> };
+    copy.textures[0]!.source = `data:image/png;base64,${png.toString('base64')}`;
+    out.push({ variant: stem.slice(id.length + 1), raw: copy });
+  }
+  return out;
+}
 
 export const ASSETS_DIR = fileURLToPath(new URL('../../../assets/', import.meta.url));
 export const DEFAULT_OUT_DIR = fileURLToPath(new URL('../../../client/public/models/', import.meta.url));
@@ -97,14 +133,16 @@ export function buildModels(options: { assetsDir?: string; outDir?: string | nul
       models.push(result);
       if (result.errors.length === 0 && result.glb && result.sidecar) {
         index.push({ id, category, glb: `${id}.glb`, json: `${id}.json` });
-        // Each state set as a drawn model of its own, under the same rules and waivers.
-        if (STATE_SET_CATEGORIES.includes(category)) {
-          for (const v of stateSetVariants(raw)) {
-            const vid = `${id}${STATE_SEP}${v.set}`;
-            const variant = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
-            models.push(variant);
-            if (variant.errors.length === 0 && variant.glb && variant.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json` });
-          }
+        // Each state set and texture variant as a drawn model of its own, under the same rules and waivers.
+        const variants = [
+          ...(STATE_SET_CATEGORIES.includes(category) ? stateSetVariants(raw).map((v) => ({ name: v.set, raw: v.raw })) : []),
+          ...(TEXTURE_VARIANT_CATEGORIES.includes(category) ? textureVariants(file, raw).map((v) => ({ name: v.variant, raw: v.raw })) : []),
+        ];
+        for (const v of variants) {
+          const vid = `${id}${STATE_SEP}${v.name}`;
+          const variant = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
+          models.push(variant);
+          if (variant.errors.length === 0 && variant.glb && variant.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json` });
         }
       }
     }
