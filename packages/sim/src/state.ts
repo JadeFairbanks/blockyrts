@@ -821,8 +821,12 @@ export interface Site {
   axis: number;
 }
 
-/** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
+/**
+ * What a hit looks like (Generated rocks and trees: hit particles). Patch 5:
+ * 'sweep' is the Dreadnought's swing landing, its crescent drawn in front of
+ * him; 'warcry' a remark of his, said with his war cry.
+ */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'sweep' | 'warcry';
 
 export interface HitEvent {
   look: HitLook;

@@ -15,7 +15,7 @@ import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, type MeleeStats } from './items.ts';
-import { aTroop, CRIT, gearSpec } from '../units/kits.ts';
+import { aTroop, CRIT, gearSpec, SECOND_BLOW, Slot, Troop } from '../units/kits.ts';
 import { workerMelee } from '../units/tools.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
 import { engineSpec } from '../siege/data.ts';
@@ -222,21 +222,34 @@ export function shieldBlock(state: SimState, i: number): number {
   return gearSpec(e.shield[i]!).blockBp ?? 0;
 }
 
-/** The melee weapon a unit of the players fights with now: its weapon, or its tool or fists. */
+/** The melee weapon a unit of the players fights with now: its weapon (its second blow while that swings, Patch 5), or its tool or fists. */
 export function meleeOf(state: SimState, i: number): MeleeStats {
-  const w = handMelee(state, i);
+  const w = handMelee(state, i, state.entities.atkWith[i] === SECOND_BLOW);
   // From the saddle a weapon reaches 0.5 m farther (Table 1's mounted row).
   return state.entities.mount[i] ? { ...w, reach: w.reach + MOUNTED.reachBonus } : w;
 }
 
-function handMelee(state: SimState, i: number): MeleeStats {
+function handMelee(state: SimState, i: number, second = false): MeleeStats {
   const e = state.entities;
   const id = e.weapon[i]!;
   if (id) {
-    const m = gearSpec(id).melee;
+    const g = gearSpec(id);
+    const m = (second ? g.melee2 : undefined) ?? g.melee;
     if (m) return m;
   }
   return workerMelee(e, i);
+}
+
+/**
+ * The blow a unit of the players swings next, as atkWith holds it: its
+ * weapon's (Slot.Weapon), or for a weapon with a second blow (the
+ * Dreadnought's mace, Patch 5) the other one from its last, a smash first.
+ */
+export function nextBlow(state: SimState, i: number): number {
+  const e = state.entities;
+  const id = e.weapon[i]!;
+  if (!id || !gearSpec(id).melee2) return Slot.Weapon;
+  return e.atkWith[i] === Slot.Weapon ? SECOND_BLOW : Slot.Weapon;
 }
 
 export interface Blow {
@@ -383,13 +396,18 @@ export function inArc(state: SimState, i: number, x: number, z: number): boolean
   return dx * fx + dz * fz >= len * 46341;
 }
 
-/** A swing begins: it lands at 40% of the attack time, the next may start when the attack time is up (s). */
-export function startSwing(state: SimState, i: number, target: number, attackSteps: number, withSlot: number): void {
+/**
+ * A swing begins: it lands at 40% of the attack time, or where its clip
+ * strikes (`landSteps`, Patch 5), slowed or quickened with the attack time;
+ * the next may start when the attack time is up (s).
+ */
+export function startSwing(state: SimState, i: number, target: number, attackSteps: number, withSlot: number, landSteps = 0): void {
   const e = state.entities;
-  attackSteps = hexed(state, i, attackSteps);
+  const steps = hexed(state, i, attackSteps);
   e.target[i] = target;
-  e.atkAt[i] = state.step + Math.max(1, floorDiv(attackSteps * 2, 5));
-  e.atkNext[i] = state.step + attackSteps;
+  const land = landSteps > 0 ? floorDiv(landSteps * steps, Math.max(1, attackSteps)) : floorDiv(steps * 2, 5);
+  e.atkAt[i] = state.step + Math.max(1, land);
+  e.atkNext[i] = state.step + steps;
   e.atkWith[i] = withSlot;
   e.order[i] = OrderKind.Attack;
   // After a long enough run at a gallop this swing is a charge (Table 14).
@@ -447,11 +465,15 @@ export function landPlayerSwing(state: SimState, i: number, w: MeleeStats): void
     hurtUnit(state, t, blow(critDamage(state, i, t, w, damage)));
     if (charge) chargeKnock(state, i, t);
   }
-  if (w.hit !== Hit.Arc) return;
+  if (w.hit === Hit.Stab) return;
+  // A sweep (Patch 5: the Dreadnought's swing) hits everything in its arc in full, and its crescent shows there.
+  const sweep = w.hit === Hit.Sweep;
+  if (sweep) state.hits.push({ look: 'sweep', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]!, heading: e.heading[i]! });
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, w.reach + WU_PER_METRE)) {
     if (j === t || j === i || e.hp[j]! <= 0 || !hostile(state, i, j)) continue;
     if (!canReach(state, i, j, w) || !inArc(state, i, e.x[j]!, e.z[j]!)) continue;
-    hurtUnit(state, j, blow(Math.max(1, critDamage(state, i, j, w, damage) >> 1)));
+    const d = critDamage(state, i, j, w, damage);
+    hurtUnit(state, j, blow(sweep ? d : Math.max(1, d >> 1)));
     if (charge) chargeKnock(state, i, j);
   }
 }
@@ -478,6 +500,8 @@ export function gainXp(state: SimState, i: number, tenths: number): void {
     return;
   }
   e.xp[i] = e.xp[i]! + tenths;
+  // The Dreadnought never ranks up (Patch 5, s): his 200 health is his own (Jade), not the ranks' table.
+  if (e.troop[i] === Troop.Dreadnought) return;
   for (;;) {
     const r = e.rank[i]!;
     if (r >= 5) return;
@@ -501,7 +525,7 @@ export function gainXp(state: SimState, i: number, tenths: number): void {
 export function rankXp(state: SimState, i: number): readonly [number, number] {
   const e = state.entities;
   const kind = e.kind[i]!;
-  const ladder = kind === UnitKind.Worker ? WORKER_XP_TENTHS : kind === UnitKind.Warrior ? WARRIOR_XP_TENTHS : kind === UnitKind.Mage ? MAGE_XP_TENTHS : null;
+  const ladder = kind === UnitKind.Worker ? WORKER_XP_TENTHS : kind === UnitKind.Warrior && e.troop[i] !== Troop.Dreadnought ? WARRIOR_XP_TENTHS : kind === UnitKind.Mage ? MAGE_XP_TENTHS : null;
   if (!ladder || e.owner[i]! >= state.players.length) return [0, 0];
   const r = e.rank[i]!;
   const top = kind === UnitKind.Mage ? MAGE_TOP_RANK : 5;

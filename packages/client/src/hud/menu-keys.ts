@@ -11,7 +11,7 @@ import type { Action } from '../input/bindings.ts';
 
 /** The buildings of the build menu in its order: one kind, or a submenu's kinds (Defences, Lights) sharing a place. */
 export function menuSlots(): BuildingSpec[][] {
-  const out: BuildingSpec[][] = Array.from({ length: 14 }, () => []);
+  const out: BuildingSpec[][] = Array.from({ length: Math.max(...BUILDINGS.map((b) => b.slot)) }, () => []);
   for (const b of BUILDINGS) if (b.slot > 0) out[b.slot - 1]!.push(b);
   return out;
 }
@@ -74,6 +74,8 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.MagiSanctum]: 'M',
   [BuildingKind.ScholarsLodge]: 'C',
   [BuildingKind.Mineshaft]: 'N',
+  // Patch 5: V, for the Tavern's T is the Lights' and its other letters are taken.
+  [BuildingKind.Tavern]: 'V',
   // Defences: walls on W and their material, gates and towers on letters of their names.
   [BuildingKind.Wall]: 'W',
   [BuildingKind.WallHardwood]: 'H',

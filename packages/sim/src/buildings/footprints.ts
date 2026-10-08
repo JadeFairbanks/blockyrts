@@ -255,6 +255,8 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.Barracks]: [block(10, 10)],
   [BuildingKind.Mineshaft]: [block(6, 6)],
   [BuildingKind.Forge]: [block(8, 8)],
+  // Patch 5: the Tavern's model (10 x 10 columns) comes with the asset batch; until then it is drawn as a block.
+  [BuildingKind.Tavern]: [block(10, 10)],
 };
 
 /** A kind's footprint at a level. */
