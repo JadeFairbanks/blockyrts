@@ -10,7 +10,7 @@ import { floorDiv } from '../fixed.ts';
 import { Band } from '../world/layout.ts';
 import { CHUNK_SHIFT, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
-import type { SimState } from '../state.ts';
+import { isGod, type SimState } from '../state.ts';
 import { BuildingKind, buildingSpec, levelSpec } from './data.ts';
 import { footprintDims } from './footprints.ts';
 import { Mat } from '../world/materials.ts';
@@ -171,6 +171,8 @@ export function buildRequirement(state: SimState, player: number, kind: number):
   if (!spec.live) return spec.comesWith;
   const l = levelSpec(kind, 1);
   if (l.needs) return l.needs;
+  // Godmode needs no main base level or research first, and has no cap on research buildings (Jade's Patch 5).
+  if (isGod(state, player)) return '';
   if (l.needsBase > mainBaseLevel(state, player)) return `Needs a level ${l.needsBase} main base.`;
   if (l.research && (state.players[player]!.research & (1 << l.research)) === 0) return `Needs ${RESEARCH[l.research]!.name} researched first.`;
   if (kind === BuildingKind.ScholarsLodge && countOf(state, player, kind) >= RESEARCH_FACILITY_CAP) return `At most ${RESEARCH_FACILITY_CAP} research buildings.`;

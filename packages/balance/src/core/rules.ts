@@ -45,7 +45,7 @@ export const GROUPS: readonly GroupSpec[] = [
 export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
   'data/tables.ts', 'data/table-types.ts', 'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
-  'nav/path.ts', 'threats/debug.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
+  'nav/path.ts', 'threats/debug.ts', 'debug/god.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
   'magic/cast.ts', 'units/names.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
 ]);
 
