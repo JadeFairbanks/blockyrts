@@ -271,7 +271,7 @@ function upgradeNeeds(state: SimState, b: Building, player: number): Need[] {
 /** Why a building cannot be placed: its main base level, its research, and its cost. */
 function buildingNeeds(state: SimState, player: number, kind: number): Need[] {
   const spec = buildingSpec(kind);
-  if (!spec.live || spec.site) return [];
+  if (!spec.live) return [];
   const l = levelSpec(kind, 1);
   const label = `the ${spec.name}`;
   const out: Need[] = [];

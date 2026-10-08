@@ -185,7 +185,6 @@ const RALLY = new THREE.Color(0xf2d24b);
 const QUEUE = new THREE.Color(0x63e06b);
 const LIGHT = new THREE.Color(0xff9a40);
 const DIG = new THREE.Color(0xe08a3a);
-const HEAP = new THREE.Color(0x9ad05a);
 const TUNNEL = new THREE.Color(0xb48ae8);
 
 export class GameShell {
@@ -1683,10 +1682,10 @@ export class GameShell {
   }
 
   /**
-   * Marked digs and earthworks until done (Jade's Patch 4): the full
+   * Marked digs and tunnels until done (Jade's Patch 4): the full
    * see-through box while a selected worker has the site in its orders, and
    * otherwise one thin dotted line tracing it (site-marks.ts). The area being
-   * marked shows the cut or heap as a see-through box.
+   * marked shows the cut as a see-through box.
    */
   private drawSites(o: Overlay, h: (x: number, z: number) => number): void {
     const tu = TERRAIN_UNIT_M;
@@ -1705,7 +1704,7 @@ export class GameShell {
     const worked = sitesInOrders(selected, this.game.queues);
     const traces = siteTraces(sites);
     for (const s of sites) {
-      const c = s.kind === SiteKind.Dig ? DIG : s.kind === SiteKind.Tunnel || s.kind === SiteKind.TunnelLine ? TUNNEL : HEAP;
+      const c = s.kind === SiteKind.Dig ? DIG : TUNNEL;
       if (!worked.has(s.id)) {
         for (const r of traces.get(s.id) ?? []) {
           const y = r.y;
@@ -1720,7 +1719,6 @@ export class GameShell {
         const { dir, length } = stretchBetween(s.x0, s.z0, s.x1, s.z1);
         stretch(s.x0, s.z0, dir, length, s.axis, s.level * tu, s.level2 * tu, c);
       } else if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
-      else if (s.kind === SiteKind.Ramp || s.kind === SiteKind.LumberRamp || s.kind === SiteKind.StoneRamp) box(s.x0, s.z0, s.x1, s.z1, Math.min(s.level, s.level2) * tu, Math.max(s.level, s.level2) * tu, c);
       else box(s.x0, s.z0, s.x1, s.z1, s.level * tu, ground + 0.1, c);
     }
     // A tunnel chain: its anchor, and the next stretch towards the cursor.
@@ -1734,10 +1732,8 @@ export class GameShell {
     }
     const plan = this.commands.areaPlan();
     if (!plan || !a) return;
-    const c = a.mode === 'earthwork' ? HEAP : plan.tunnel ? TUNNEL : DIG;
-    if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, c);
-    else if (a.mode === 'earthwork' && (a.variant === 1 || a.variant === 3 || a.variant === 4)) box(plan.x0, plan.z0, plan.x1, plan.z1, Math.min(plan.level, plan.level2) * tu, Math.max(plan.level, plan.level2) * tu, c);
-    else box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, (a.mode === 'dig' ? plan.top : plan.low) * tu + 0.05, c);
+    if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, TUNNEL);
+    else box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.top * tu + 0.05, DIG);
   }
 
   private rallyPoint(r: { t: 'ground'; x: number; z: number } | { t: 'unit'; id: number } | { t: 'node'; cx: number; cz: number; i: number }): THREE.Vector3 | null {

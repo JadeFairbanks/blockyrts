@@ -5,8 +5,8 @@
  "frames": [
   { "step": 5, "orders": [ { "kind": "gather", "player": 0, "units": [ 1, 2 ], "cx": -1, "cz": -1, "index": 2 }, { "kind": "gather", "player": 0, "units": [ 3 ], "cx": -1, "cz": -1, "index": 8 } ] },
   { "step": 6, "orders": [ { "kind": "produce", "player": 0, "building": 8, "product": 0, "count": 1 }, { "kind": "rally", "player": 0, "building": 8, "add": false, "point": "node", "x": -1, "z": -1, "id": 2 } ] },
-  { "step": 10, "orders": [ { "kind": "build", "player": 0, "units": [ 4 ], "building": 1, "variant": 0, "x": 18, "z": 8 }, { "kind": "build", "player": 0, "units": [ 4 ], "building": 18, "variant": 0, "x": -13, "z": 11, "queued": true }, { "kind": "gather", "player": 0, "units": [ 4 ], "cx": 0, "cz": -1, "index": 11, "queued": true } ] },
-  { "step": 2600, "orders": [ { "kind": "build", "player": 0, "units": [ 3 ], "building": 18, "variant": 0, "x": -13, "z": 11 }, { "kind": "gather", "player": 0, "units": [ 3 ], "cx": -1, "cz": -1, "index": 8, "queued": true } ] },
+  { "step": 10, "orders": [ { "kind": "build", "player": 0, "units": [ 4 ], "building": 1, "variant": 0, "x": 18, "z": 8 }, { "kind": "build", "player": 0, "units": [ 4 ], "building": 15, "variant": 0, "x": -13, "z": 11, "queued": true }, { "kind": "gather", "player": 0, "units": [ 4 ], "cx": 0, "cz": -1, "index": 11, "queued": true } ] },
+  { "step": 2600, "orders": [ { "kind": "build", "player": 0, "units": [ 3 ], "building": 15, "variant": 0, "x": -13, "z": 11 }, { "kind": "gather", "player": 0, "units": [ 3 ], "cx": -1, "cz": -1, "index": 8, "queued": true } ] },
   { "step": 2650, "orders": [ { "kind": "gather", "player": 0, "units": [ 1, 119 ], "cx": 0, "cz": -1, "index": 0 }, { "kind": "gather", "player": 0, "units": [ 2 ], "cx": -1, "cz": -1, "index": 3, "queued": true } ] },
   { "step": 3100, "orders": [ { "kind": "assign", "player": 0, "units": [ 4 ], "building": 69 } ] },
   { "step": 3700, "orders": [ { "kind": "everyoneHome", "player": 0 } ] },

@@ -1,7 +1,6 @@
 // Resource nodes and other generated props (Table 5: Resource nodes per band;
-// Generated rocks and trees). The numbers are typed copies of Table 5's rows;
-// test/world-props.test.ts checks every one against the table's text, so the
-// blueprint stays the source.
+// Generated rocks and trees). The numbers began as typed copies of the old
+// blueprint's Table 5; since Patch 5 retired it, these rows are the source.
 
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';

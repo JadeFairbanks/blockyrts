@@ -10,7 +10,7 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 
-/** Building kinds. Patch 2 cut 17 of them and the ids closed up; the ones it kept or added are in build menu order, then the defences' other materials. */
+/** Building kinds. Patch 2 cut 17 of them and Patch 5 the earthworks and ramps, and the ids closed up each time; the ones kept or added are in build menu order, then the defences' other materials. */
 export const BuildingKind = {
   MainBase: 0,
   /** Patch 2: one Farm, in place of the crop field, vegetable farm and herb bed. */
@@ -32,17 +32,15 @@ export const BuildingKind = {
   Wall: 12,
   Gate: 13,
   Tower: 14,
-  Earthworks: 15,
-  Ramp: 16,
-  TorchPost: 17,
+  TorchPost: 15,
   /** Patch 2 (Jade, round 4): the bonfire, in place of the brazier. */
-  Bonfire: 18,
-  WallHardwood: 19,
-  WallStone: 20,
-  GateHardwood: 21,
-  GateStone: 22,
-  TowerHardwood: 23,
-  TowerStone: 24,
+  Bonfire: 16,
+  WallHardwood: 17,
+  WallStone: 18,
+  GateHardwood: 19,
+  GateStone: 20,
+  TowerHardwood: 21,
+  TowerStone: 22,
 } as const;
 export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -87,7 +85,7 @@ export interface BuildingSpec {
    * 14; 0 for none. Kinds that share a slot open a submenu named `group`.
    */
   slot: number;
-  /** The submenu a kind sits in: Defences (walls, gates, towers, earthworks) or Lights. */
+  /** The submenu a kind sits in: Defences (walls, gates and towers) or Lights. */
   group?: 'Defences' | 'Lights';
   /** Footprint in 45 cm columns at level 1; which columns are solid, and how it grows, is in footprints.ts. */
   w: number;
@@ -120,8 +118,6 @@ export interface BuildingSpec {
   slots?: number;
   /** Extra sight for the units inside, metres (towers +10 m). */
   sightBonusM?: number;
-  /** Earthworks are dug or heaped land, not a building: they have their own order. */
-  site?: boolean;
 }
 
 const lvl = (name: string, cost: Cost, ws: number, health: number, o: Partial<LevelSpec> = {}): LevelSpec => ({
@@ -162,7 +158,7 @@ function metresText(cm: number): string {
   return rest === 0 ? `${whole}` : `${whole}.${rest % 10 === 0 ? floorDiv(rest, 10) : rest}`;
 }
 
-/** Walls, gates, towers and earthworks share the Defences slot (Patch 2). */
+/** Walls, gates and towers share the Defences slot (Patch 2). */
 const DEFENCES = { slot: 13, group: 'Defences' } as const;
 
 function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightCm: number, wooden: boolean): SpecInput {
@@ -245,9 +241,9 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     // The Work Hut's cost from before Patch 2 (s, Jade's rebalance).
-    kind: BuildingKind.Workshop, name: 'Workshop', purpose: 'Makes everything made by hand, with no workers: planks, leather, hardened leather and rope, bandages and remedies, gravel, sticks and ramp steps, carts and trinkets. Better goods come with the main base\'s levels.',
+    kind: BuildingKind.Workshop, name: 'Workshop', purpose: 'Makes everything made by hand, with no workers: planks, leather, hardened leather and rope, bandages and remedies, sticks, carts and trinkets. Better goods come with the main base\'s tiers.',
     slot: 6, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', crafts: true,
-    levels: [lvl('Workshop', [[S, 40], [ST, 20]], 200, 600, { gives: 'planks, leather, rope, medicine, gravel, sticks, ramp steps, carts, trinkets' })],
+    levels: [lvl('Workshop', [[S, 40], [ST, 20]], 200, 600, { gives: 'planks, leather, rope, medicine, sticks, carts, trinkets' })],
   },
   {
     // The Casting Hearth's cost from before Patch 2 (s, Jade's rebalance).
@@ -284,17 +280,6 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   wall(BuildingKind.Wall, 'Softwood wall', [[S, 1]], 5, 300, 300, true),
   gate(BuildingKind.Gate, 'Softwood gate', [[S, 4]], 30, 600, true),
   tower(BuildingKind.Tower, 'Softwood tower', [[S, 15]], 100, 800, true),
-  {
-    kind: BuildingKind.Earthworks, name: 'Earthworks', purpose: 'Earth banks, ramps and fill, heaped by workers from Earth in the pool: 1 Earth and 5 worker-seconds per column per 11 cm step. Lumber and stone ramps use ramp steps made at the Workshop (5 and 8 worker-seconds a step). Drag to mark it.',
-    ...DEFENCES, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightCm: 0,
-    variants: ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'],
-    levels: [lvl('Earthworks', [[Res.Earth, 1]], 5, 1, { gives: 'built on the spot' })],
-  },
-  {
-    kind: BuildingKind.Ramp, name: 'Lumber or stone ramp', purpose: 'Ramps made at the Workshop and placed by workers: choose Lumber ramp or Stone ramp under Earthworks.',
-    slot: 0, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'Placed from Earthworks: choose Lumber ramp or Stone ramp there.', heightCm: 50, site: true,
-    levels: [lvl('Lumber ramp', [[Res.LumberRamp, 1]], 5, 300, { gives: 'a ramp step of lumber' })],
-  },
   {
     kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light (10 m) that claims the land 5 m around it while lit. Needs no fuel.',
     slot: 14, group: 'Lights', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,

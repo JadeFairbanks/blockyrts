@@ -648,7 +648,6 @@ describe('orders for units that are gone', () => {
       { kind: 'troopLock', player: 0, building: 999, troop: 1, lock: 12 },
       { kind: 'lock', player: 0, units: gone, lock: 1 },
       { kind: 'dig', player: 0, units: gone, x0: 0, z0: 0, x1: 1, z1: 1, level: -4, level2: 0, tunnel: 0 },
-      { kind: 'earthwork', player: 0, units: gone, variant: 0, x0: 0, z0: 0, x1: 1, z1: 1, level: 4, level2: 0, axis: 0 },
     ];
     const before = hashState(s);
     expect(() => step(s, orders)).not.toThrow();

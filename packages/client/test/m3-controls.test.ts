@@ -18,7 +18,6 @@ import {
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { AREA_DEFAULT_UNITS, Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
-import { menuSlots, submenuChoices } from '../src/hud/menu-keys.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -324,11 +323,11 @@ describe('the Big House', () => {
   });
 });
 
-describe('digging and earthworks', () => {
+describe('digging', () => {
   it('marks a dig by dragging, sets its depth, and confirms with a click', () => {
     const { c, sent } = harness(game(), workers, 'worker');
     button(c.card(), 'dig')!.run(PRESS);
-    expect(c.area?.mode).toBe('dig');
+    expect(c.area).not.toBeNull();
     c.areaDown(at(0.1, 0.1));
     c.updateArea(at(2, 0.5));
     c.areaUp();
@@ -343,7 +342,7 @@ describe('digging and earthworks', () => {
   it('tunnels when the marked box climbs a face', () => {
     const cliff = (x: number): number => (x > 1 ? 3 : 0);
     const { c, sent } = harness(game(), workers, 'worker', cliff);
-    c.startArea('dig', 0);
+    c.startArea();
     c.areaDown(at(0.2, 0.2));
     c.updateArea(at(4, 1));
     c.areaUp();
@@ -357,7 +356,7 @@ describe('digging and earthworks', () => {
     const units = 0.1125;
     const cliff = (x: number): number => (x >= 2.25 ? 10 * units : 0);
     const { c, sent } = harness(game(), workers, 'worker', cliff);
-    c.startArea('dig', 0);
+    c.startArea();
     c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
     // Face column 5 (2.25 m / 0.45 m); nothing is dug until the next click.
     expect(c.area!.chain).toEqual({ x: 5, z: 0, floor: 0 });
@@ -368,24 +367,10 @@ describe('digging and earthworks', () => {
   it('digs down, not sideways, when the press is on top of the ground or on a low step', () => {
     const step = (x: number): number => (x >= 2.25 ? 3 * 0.1125 : 0);
     const { c } = harness(game(), workers, 'worker', step);
-    c.startArea('dig', 0);
+    c.startArea();
     c.areaDown(new THREE.Vector3(2.25, 0.1, 0.2));
     c.areaUp();
     expect(c.areaPlan()!.tunnel).toBe(false);
-  });
-
-  it('offers banks, ramps and fill in the Defences submenu (Patch 2: Earthworks moved there), and orders a ramp up a step', () => {
-    const slot = menuSlots().findIndex((specs) => specs.some((s) => s.kind === BuildingKind.Earthworks));
-    expect(submenuChoices(menuSlots()[slot]!).map((c) => c.name).slice(-5)).toEqual(['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp']);
-    const step = (x: number): number => (x > 2 ? 0.9 : 0);
-    const { c, sent } = harness(game({ pool: [[Res.Earth, 50]] }), workers, 'worker', step);
-    c.startArea('earthwork', 1);
-    c.areaDown(at(4, 0.2));
-    c.updateArea(at(0.2, 0.2));
-    c.areaUp();
-    c.confirmArea();
-    // Dragged from high (x 4 m) to low: the low-x end is the bottom.
-    expect(sent.at(-1)).toMatchObject({ kind: 'earthwork', variant: 1, axis: 0, x0: 0, x1: 8, level: 0, level2: 8 });
   });
 });
 

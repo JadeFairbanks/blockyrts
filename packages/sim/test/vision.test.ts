@@ -98,10 +98,7 @@ describe('buildings see', () => {
     expect(BUILDING_SIGHT_M[BuildingKind.Bonfire]).toBe(20);
     expect(BUILDING_SIGHT_M[BuildingKind.Wall]).toBe(10);
     // Every building a player can own has a row.
-    for (let k = 0; k <= BuildingKind.TowerStone; k++) {
-      if (k === BuildingKind.Earthworks || k === BuildingKind.Ramp) continue;
-      expect(BUILDING_SIGHT_M[k]).toBeGreaterThan(0);
-    }
+    for (let k = 0; k <= BuildingKind.TowerStone; k++) expect(BUILDING_SIGHT_M[k]).toBeGreaterThan(0);
   });
 
   it('see half as far on a fog night', () => {

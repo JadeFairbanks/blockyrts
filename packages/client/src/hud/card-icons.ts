@@ -126,9 +126,9 @@ export function productIcon(product: number): ButtonIcon | undefined {
   return undefined;
 }
 
-/** A building's button in a build menu: the building's picture (earthworks by their way). */
-export function buildIcon(spec: BuildingSpec, variant: number): ButtonIcon {
-  return one(buildingIconFile(spec.kind, 1, variant));
+/** A building's button in a build menu: the building's picture. */
+export function buildIcon(spec: BuildingSpec): ButtonIcon {
+  return one(buildingIconFile(spec.kind, 1));
 }
 
 /** A building's Upgrade button: the next level's picture with an arrow. */

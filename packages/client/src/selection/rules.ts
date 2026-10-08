@@ -15,7 +15,7 @@ export const HIT_PAD_PX = 5;
 /** The fields of a Selectable the rules look at. */
 export type SelInfo = Pick<Selectable, 'key' | 'kind' | 'owner' | 'typeKey'>;
 
-/** Walls, gates, towers, earthworks, ramps and lights: a drag box takes them only when it catches nothing else of the player's. */
+/** Walls, gates, towers and lights: a drag box takes them only when it catches nothing else of the player's. */
 const LINE_KINDS: ReadonlySet<number> = new Set([
   BuildingKind.Wall,
   BuildingKind.WallHardwood,
@@ -26,8 +26,6 @@ const LINE_KINDS: ReadonlySet<number> = new Set([
   BuildingKind.Tower,
   BuildingKind.TowerHardwood,
   BuildingKind.TowerStone,
-  BuildingKind.Earthworks,
-  BuildingKind.Ramp,
   BuildingKind.TorchPost,
   BuildingKind.Bonfire,
 ]);

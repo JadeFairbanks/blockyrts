@@ -11,7 +11,8 @@ import { floorDiv } from '../fixed.ts';
  * carrots and corn), every cooked food and the glass lantern, and then all
  * the siege munitions (cannonballs, catapult stones and ballista bolts: no
  * attack uses ammunition), and the ids after them closed up; farm fare took
- * wheat's place.
+ * wheat's place. Patch 5 cut gravel and the ramp steps, and the ids closed up
+ * again.
  */
 export const Res = {
   SoftwoodLumber: 0,
@@ -44,81 +45,77 @@ export const Res = {
   Silver: 26,
   Marble: 27,
   Earth: 28,
-  Gravel: 29,
-  Sticks: 30,
-  Clay: 31,
-  Sand: 32,
-  Charcoal: 33,
-  Saltpetre: 34,
-  Sulphur: 35,
+  Sticks: 29,
+  Clay: 30,
+  Sand: 31,
+  Charcoal: 32,
+  Saltpetre: 33,
+  Sulphur: 34,
   /** Patch 2: the Farm's one food, "a hearty medley of vegetables" (Jade). */
-  FarmFare: 36,
-  Flax: 37,
-  Hides: 38,
-  Bone: 39,
-  Resin: 40,
-  SpiderSilk: 41,
-  DemonHorn: 42,
-  Hexstone: 43,
-  Venom: 44,
-  LeadOre: 45,
-  ManaCrystal: 46,
+  FarmFare: 35,
+  Flax: 36,
+  Hides: 37,
+  Bone: 38,
+  Resin: 39,
+  SpiderSilk: 40,
+  DemonHorn: 41,
+  Hexstone: 42,
+  Venom: 43,
+  LeadOre: 44,
+  ManaCrystal: 45,
   // Made goods the tables name (Table 2b, Table 4).
-  Planks: 47,
-  Bricks: 48,
-  Glass: 49,
-  Rope: 50,
+  Planks: 46,
+  Bricks: 47,
+  Glass: 48,
+  Rope: 49,
   /** Leather hardened at the Workshop (Troops and gear). */
-  HardenedLeather: 51,
-  WroughtIron: 52,
+  HardenedLeather: 50,
+  WroughtIron: 51,
   /** Carts made at the Workshop (Table 2f), taken by workers with X. */
-  HandCart: 53,
+  HandCart: 52,
   /** Carbon steel, which replaced high-quality steel (Troops and gear). */
-  CarbonSteel: 54,
-  Gunpowder: 55,
-  OxCart: 56,
+  CarbonSteel: 53,
+  Gunpowder: 54,
+  OxCart: 55,
   // Medicine (Food and medicine).
-  Bandage: 57,
-  Remedy: 58,
-  // Workshop goods: ramp steps of lumber or stone, placed with Earthworks.
-  LumberRamp: 59,
-  StoneRamp: 60,
+  Bandage: 56,
+  Remedy: 57,
   // Trinkets (Trinkets): every metal in every tier, then the two special ones. TRINKET_BASE + metal * 4 + tier - 1.
-  Moonleaf: 89,
-  Sunheart: 90,
+  Moonleaf: 86,
+  Sunheart: 87,
   // Patch 1: raw meat by the animal it came from, and fish by species (food-kinds.ts says which animal gives which).
-  Beef: 91,
-  Chicken: 92,
-  HorseMeat: 93,
-  HareMeat: 94,
-  BoarMeat: 95,
-  WolfMeat: 96,
-  LynxMeat: 97,
-  BadgerMeat: 98,
-  BearMeat: 99,
-  FrogLegs: 100,
-  CrabMeat: 101,
-  CrocodileMeat: 102,
-  GooseMeat: 103,
-  PheasantMeat: 104,
-  GriffinMeat: 105,
-  MinotaurMeat: 106,
-  RatMeat: 107,
-  Salmon: 108,
-  Catfish: 109,
+  Beef: 88,
+  Chicken: 89,
+  HorseMeat: 90,
+  HareMeat: 91,
+  BoarMeat: 92,
+  WolfMeat: 93,
+  LynxMeat: 94,
+  BadgerMeat: 95,
+  BearMeat: 96,
+  FrogLegs: 97,
+  CrabMeat: 98,
+  CrocodileMeat: 99,
+  GooseMeat: 100,
+  PheasantMeat: 101,
+  GriffinMeat: 102,
+  MinotaurMeat: 103,
+  RatMeat: 104,
+  Salmon: 105,
+  Catfish: 106,
   /**
    * Any kind of raw meat or fish, for what a recipe or a trade asks for, and
    * any lumber (softwood or hardwood) for what a building costs: never held in
    * a pool, paid with whatever kinds are in stock (haveOf, payAny).
    */
-  AnyMeat: 110,
-  AnyFish: 111,
-  AnyLumber: 112,
+  AnyMeat: 107,
+  AnyFish: 108,
+  AnyLumber: 109,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
 /** The first trinket: metal m (TRINKET_METALS order) at tier t (1 to 4) is TRINKET_BASE + m * 4 + t - 1. */
-export const TRINKET_BASE = 61;
+export const TRINKET_BASE = 58;
 export const TRINKET_METALS = ['Copper', 'Tin', 'Bronze', 'Iron', 'Steel', 'Silver', 'Gold'] as const;
 export const TRINKET_TIERS = ['Token', 'Charm', 'Brooch', 'Heirloom'] as const;
 
@@ -198,7 +195,6 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Silver, 'Silver', 'Silver', A, 10, 'Mineshafts, often with lead ore.'),
   r(Res.Marble, 'Marble', 'Marble', A, 100, 'Marble rock (bronze tools).'),
   r(Res.Earth, 'Earth', 'Earth', A, 50, 'Digging soil.'),
-  r(Res.Gravel, 'Gravel', 'Gravel', A, 50, 'Digging gravel, or crushing stone at a workshop.'),
   r(Res.Sticks, 'Hardwood sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or hardwood lumber at a workshop.'),
   r(Res.Clay, 'Clay', 'Clay', A, 50, 'Clay banks by rivers and wetlands.'),
   r(Res.Sand, 'Sand', 'Sand', A, 50, 'Riverbeds and beaches.'),
@@ -228,8 +224,6 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.OxCart, 'Ox or horse cart', 'Ox carts', G, 500, 'Planks, hardwood, leather and wrought iron at the Workshop (main base 5). A worker takes one with X.', 0, false),
   r(Res.Bandage, 'Bandage', 'Bandages', G, 5, 'An herb and flax or leather at the Workshop. Heals 30 over 15 s.', 0, false),
   r(Res.Remedy, 'Healing remedy', 'Remedies', G, 5, 'Two herbs and a glass bottle at the Workshop. Heals 60 over 5 s.', 0, false),
-  r(Res.LumberRamp, 'Lumber ramp step', 'Lumber ramp', G, 25, 'Lumber at the Workshop: two ramp steps from 1 lumber. Placed with Earthworks.', 0, false),
-  r(Res.StoneRamp, 'Stone ramp step', 'Stone ramp', G, 50, 'Stone at the Workshop: two ramp steps from 2 stone. Placed with Earthworks.', 0, false),
   ...trinkets(),
   r(Res.Moonleaf, 'Moonleaf', 'Moonleaf', T, 2, 'Silver and emeralds at the Workshop (main base 5). For trading with villages.', 0, false),
   r(Res.Sunheart, 'Sunheart', 'Sunheart', T, 2, 'Gold and rubies at the Workshop (main base 7). For trading with villages.', 0, false),

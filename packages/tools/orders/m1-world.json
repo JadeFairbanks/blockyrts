@@ -5,7 +5,7 @@
     { "step": 5, "orders": [{ "kind": "debugHarvest", "player": 0, "cx": -1, "cz": 0, "index": 8, "amount": 10 }] },
     { "step": 20, "orders": [{ "kind": "terrain", "player": 0, "x0": -65, "z0": 85, "x1": -63, "z1": 113, "bottom": -6, "top": 4, "material": 0 }] },
     { "step": 30, "orders": [{ "kind": "terrain", "player": 1, "x0": 32, "z0": -106, "x1": 34, "z1": -80, "bottom": -6, "top": 4, "material": 0 }] },
-    { "step": 40, "orders": [{ "kind": "terrain", "player": 0, "x0": 30, "z0": 40, "x1": 30, "z1": 80, "bottom": -2, "top": 9, "material": 8 }] },
+    { "step": 40, "orders": [{ "kind": "terrain", "player": 0, "x0": 30, "z0": 40, "x1": 30, "z1": 80, "bottom": -2, "top": 9, "material": 7 }] },
     { "step": 60, "orders": [{ "kind": "move", "player": 0, "units": [1, 2, 3, 4, 9, 10, 11], "x": -230400, "z": 360000 }] },
     { "step": 80, "orders": [{ "kind": "move", "player": 1, "units": [5, 6, 7, 8, 12, 13, 14], "x": 118800, "z": -331200 }] },
     { "step": 300, "orders": [{ "kind": "debugReveal", "player": 0, "x": 3200000, "z": 0, "radius": 800000 }] },

@@ -743,7 +743,7 @@ export class SelectionPanel {
       const b = all[k]!;
       const btn = this.button(`tile-${b.id}`, {
         face: '',
-        icon: pic(buildingIconFile(b.kind, b.level, b.variant)),
+        icon: pic(buildingIconFile(b.kind, b.level)),
         name: `${bareName(b.name)}: ${b.queue.length} in the queue`,
         keys: [],
         description: `Click: select only this one. Shift + click or right click: remove it.`,

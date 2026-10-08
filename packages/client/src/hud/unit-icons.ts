@@ -51,8 +51,8 @@ export function modelIconFile(model: string): string {
   return firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, MODEL_STAND_INS[model] ?? '');
 }
 
-/** A building's picture by kind, level (the Big House) and (earthworks) variant. */
-export function buildingIconFile(kind: number, level: number, variant = 0): string {
+/** A building's picture by kind and level (the main base's tiers). */
+export function buildingIconFile(kind: number, level: number): string {
   const l = Math.max(1, level);
   const tier = (base: string, most: number): string => `icon_${base}${Math.min(l, most)}`;
   switch (kind) {
@@ -85,11 +85,6 @@ export function buildingIconFile(kind: number, level: number, variant = 0): stri
       return 'icon_tower_hardwood';
     case BuildingKind.TowerStone:
       return 'icon_tower_stone';
-    case BuildingKind.Earthworks:
-      // Earth bank, earth ramp, fill, lumber ramp, stone ramp.
-      return ['icon_earth', 'icon_ramp_earth', 'icon_earth', 'icon_ramp_lumber', 'icon_ramp_stone'][variant] ?? 'icon_ramp_earth';
-    case BuildingKind.Ramp:
-      return l >= 2 ? 'icon_ramp_stone' : 'icon_ramp_lumber';
     case BuildingKind.Workshop:
       return 'icon_workshop_t1';
     case BuildingKind.TorchPost:

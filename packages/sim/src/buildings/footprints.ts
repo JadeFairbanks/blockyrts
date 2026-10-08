@@ -46,9 +46,9 @@ export interface LevelFootprint {
   posts?: readonly Post[];
 }
 
-/** A footprint w x d with the solid part a w x d block at its corner. */
-function block(w: number, d: number, sw = w, sd = d): LevelFootprint {
-  return { rows: Array.from({ length: d }, (_, z) => (z < sd ? '#'.repeat(sw) + '.'.repeat(w - sw) : '.'.repeat(w))) };
+/** A footprint w x d, solid in full. */
+function block(w: number, d: number): LevelFootprint {
+  return { rows: Array.from({ length: d }, () => '#'.repeat(w)) };
 }
 
 /** A tower's deck, 4.1 m up (the 5 m tower less its parapet): a man at each corner. */
@@ -366,8 +366,6 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.Tower]: TOWER,
   [BuildingKind.TowerHardwood]: TOWER,
   [BuildingKind.TowerStone]: TOWER,
-  [BuildingKind.Earthworks]: [block(1, 1, 0, 0)],
-  [BuildingKind.Ramp]: [block(1, 1)],
   [BuildingKind.Workshop]: [block(8, 8)],
   [BuildingKind.ScholarsLodge]: [block(8, 8)],
   [BuildingKind.MagiSanctum]: [block(8, 8)],

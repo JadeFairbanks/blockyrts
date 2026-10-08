@@ -112,15 +112,6 @@ describe('the build menu greys out what the stock cannot pay for (Patch 3)', () 
     expect(second.description).toContain(`${cost[0]![1] * 2} `);
   });
 
-  it('greys out each earthwork by what one column of it takes: earth, or the ramp steps', () => {
-    const { c } = open([[Res.LumberRamp, 4]]);
-    button(c.card(), 'Defences').run(PRESS);
-    const card = c.card();
-    expect(button(card, 'Earth bank')).toMatchObject({ enabled: false, reason: 'Not enough earth (needs 1, you have 0).' });
-    expect(button(card, 'Lumber ramp').enabled).toBe(true);
-    expect(button(card, 'Stone ramp').reason).toMatch(/^Not enough stone ramp step/);
-  });
-
   it('asks the sim on a click while greyed out, with the selected workers', () => {
     const { c, sent } = open([]);
     const farm = button(c.card(), 'Farm');

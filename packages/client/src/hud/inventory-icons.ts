@@ -65,7 +65,6 @@ set(Res.Diamonds, 'diamond');
 set(Res.Silver, 'silver');
 set(Res.Marble, 'marble');
 set(Res.Earth, 'earth');
-set(Res.Gravel, 'gravel');
 set(Res.Sticks, 'hardwood_sticks');
 set(Res.Clay, 'clay');
 set(Res.Sand, 'sand');
@@ -95,8 +94,6 @@ set(Res.Gunpowder, 'gunpowder');
 set(Res.OxCart, 'ox_cart');
 set(Res.Bandage, 'bandage');
 set(Res.Remedy, 'healing_remedy');
-set(Res.LumberRamp, 'ramp_lumber');
-set(Res.StoneRamp, 'ramp_stone');
 TRINKET_METALS.forEach((metal, m) =>
   TRINKET_TIERS.forEach((tier, t) => set(trinketRes(m, t + 1), `trinket_${tier.toLowerCase()}_${metal.toLowerCase()}`)),
 );
@@ -116,13 +113,13 @@ export const SUPPLY_ICON = 'icon_supply';
 // Only the icons above go into the build, each as its own file fetched when a slot first shows it.
 const URLS = import.meta.glob<string>(
   [
-    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,stone,flint,marble,gravel,earth,clay,sand,coal,charcoal}.png',
+    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,stone,flint,marble,earth,clay,sand,coal,charcoal}.png',
     '../../../assets/src/ui/icon_{copper_ore,tin_ore,bog_iron,iron_rock,vein_iron_ore,lead_ore,saltpetre,sulphur,silver,gold,emerald,ruby,diamond,hexstone,mana_crystal}.png',
     '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
-    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder,ramp_lumber,ramp_stone}.png',
+    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
     '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',

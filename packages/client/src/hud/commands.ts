@@ -129,19 +129,16 @@ type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' 
 export type CardPage = 'main' | 'build' | 'make';
 
 /**
- * Dig (D) and earthworks: an area dragged on the ground, then confirmed with
- * a left click (Dig: area, depth, preview); or, for Dig, a tunnel chain
- * clicked from point to point (Digging: tunnel chains).
+ * Dig (D): an area dragged on the ground, then confirmed with a left click
+ * (Dig: area, depth, preview); or a tunnel chain clicked from point to point
+ * (Digging: tunnel chains).
  */
 export interface Area {
-  mode: 'dig' | 'earthwork';
-  /** Earthworks: 0 earth bank, 1 earth ramp, 2 fill, 3 lumber ramp, 4 stone ramp. */
-  variant: number;
   /** Global columns where the drag started, and where it is now or ended. */
   from: { x: number; z: number } | null;
   to: { x: number; z: number } | null;
   dragging: boolean;
-  /** Dig depth or bank height, terrain units. */
+  /** Dig depth, terrain units. */
   units: number;
   /** A tunnel's height, terrain units. */
   tunnelUnits: number;
@@ -172,23 +169,20 @@ export interface AreaPlan {
   z1: number;
   /** Dig: the face is a hillside, so this is a tunnel. */
   tunnel: boolean;
-  /** As in the dig and earthwork orders (terrain units). */
+  /** As in the dig order (terrain units). */
   level: number;
   level2: number;
-  axis: number;
   /** Ground at the drag start, and the highest and lowest ground in the box (terrain units). */
   start: number;
   top: number;
   low: number;
-  /** Earthworks: Earth it needs (one per column per terrain unit raised). */
-  earth: number;
 }
 
 /** A terrain unit in metres (about 11 cm). */
 export const TERRAIN_UNIT_M = WU_PER_TERRAIN_UNIT / WU_PER_METRE;
 /** Depth and height steps of the + and - buttons and the wheel: 3 units, about 34 cm (s). */
 export const AREA_STEP_UNITS = 3;
-/** Depth of a new dig and height of a new bank: 9 units, about 1 m (s). */
+/** Depth of a new dig: 9 units, about 1 m (s). */
 export const AREA_DEFAULT_UNITS = 9;
 /** The dig limit: 3 m below the natural ground (Digging and building up the land). */
 export const AREA_MAX_UNITS = 27;
@@ -196,9 +190,6 @@ export const AREA_MAX_UNITS = 27;
 export const TUNNEL_FACE_UNITS = 20;
 /** A press on the side of land at least this much taller than the ground in front of it (a rise nobody can jump, 5 units) starts a tunnel chain into that face (s). */
 export const FACE_MIN_UNITS = 5;
-const EARTHWORK_NAMES = ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'];
-/** Earthworks variants shaped as a ramp: earth, lumber and stone. */
-const rampVariant = (v: number): boolean => v === 1 || v === 3 || v === 4;
 
 /** The troop types' card actions, their buttons' faces and slots on a Barracks card (a main base shifts them one along for Worker). */
 const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>> = {
@@ -532,7 +523,7 @@ export class Commands {
           'dig',
           'Dig',
           'Then left drag over the ground to mark an area. + and - (or the wheel) set the depth, about 34 cm a step, down to the 3 m limit; a see-through box shows the cut. Left click confirms. Clicking the side of a cliff or hillside starts a tunnel instead (D again, or Tunnel, for one on flat ground): click where it goes and each click digs the stretch from the last point, level, straight or diagonal; keep clicking to turn corners, right click ends it. Digging gives Earth, stone or what the ground is made of, which the workers carry to the nearest main base or Storehouse, 25 lb at a time, coming back to dig on. Earth digs with any digging tool; rock needs a stone maul or a pickaxe, marble a bronze pickaxe.',
-          () => this.startArea('dig', 0),
+          () => this.startArea(),
         ),
         this.entry(
           'prospect',
@@ -541,7 +532,7 @@ export class Commands {
           () => this.target('prospect', 'prospect'),
           { lit: t === 'prospect', double: () => this.pickOwn(PickOwn.Prospect, 'Prospecting where they stand.') },
         ),
-        this.entry('build', 'Build', 'Open the build menu: every building, with walls, gates, towers and earthworks under Defences and lights under Lights. Each one\'s key is on its button; Esc goes back.', () => this.openMenu('build')),
+        this.entry('build', 'Build', 'Open the build menu: every building, with walls, gates and towers under Defences and lights under Lights. Each one\'s key is on its button; Esc goes back.', () => this.openMenu('build')),
         this.eatEntry(),
         this.equipEntry(workers),
         this.cartEntry(workers),
@@ -837,8 +828,8 @@ export class Commands {
             name,
             key: this.key(action),
             menu: true,
-            description: group === 'Defences' ? 'Walls, gates and towers of softwood, hardwood and stone, and earthworks.' : `${specs.map((s) => s.name).join(', ')}.`,
-            icon: { layers: [{ file: buildingIconFile(icon, 1, 0) }] },
+            description: group === 'Defences' ? 'Walls, gates and towers of wood, hardwood and stone.' : `${specs.map((s) => s.name).join(', ')}.`,
+            icon: { layers: [{ file: buildingIconFile(icon, 1) }] },
             enabled: any,
             reason: any ? '' : (this.d.game.info?.buildWhy[specs[0]!.kind] ?? ''),
             run: () => {
@@ -893,17 +884,16 @@ export class Commands {
    */
   private buildEntry(spec: BuildingSpec, variant: number, name: string): CardEntry {
     const l = spec.levels[0]!;
-    const cost = spec.site ? (EARTHWORK_COSTS[variant] ?? l.cost) : this.buildCost(spec.kind);
+    const cost = this.buildCost(spec.kind);
     const why = this.d.game.info?.buildWhy[spec.kind] ?? spec.comesWith;
     const short = this.d.game.costProblem(cost);
     const lines = [spec.purpose, `Cost: ${costLine(cost)}. Build time: ${seconds(l.ws)} of one worker's work.`];
     if (l.gives) lines.push(`Gives: ${l.gives}.`);
     if (l.supply) lines.push(`Supply +${l.supply}.`);
     if (spec.light) lines.push(`Light ${spec.light.lightM} m${spec.light.claimM ? `, claims ${spec.light.claimM} m while lit` : ''}.`);
-    if (spec.site) lines.push(EARTHWORK_HELP[variant] ?? '');
-    else if (Commands.chained(spec.kind)) lines.push(WALL_CHAIN_HELP);
+    if (Commands.chained(spec.kind)) lines.push(WALL_CHAIN_HELP);
     else if (spec.w === 1 && spec.d === 1) lines.push('Drag to place a line of them, 8 m apart.');
-    if (!spec.site && !Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
+    if (!Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
     const reason = [why, short].filter((x) => x).join(' ');
     const action = placeAction(spec.kind, variant);
     return {
@@ -913,15 +903,15 @@ export class Commands {
       key: this.key(action),
       menu: true,
       description: lines.join(' '),
-      icon: buildIcon(spec, variant),
+      icon: buildIcon(spec),
       enabled: reason === '',
       reason,
-      run: () => (spec.site ? this.startArea('earthwork', variant) : this.startPlacing(spec.kind, variant)),
+      run: () => this.startPlacing(spec.kind, variant),
       grey: () => this.greyed(Greyed.Building, spec.kind),
     };
   }
 
-  /** What a new building of a kind costs: its level 1 cost, times one more than the Scholar's Lodges standing for another Lodge (Research: rising facility cost). Earthworks: EARTHWORK_COSTS. */
+  /** What a new building of a kind costs: its level 1 cost, times one more than the Scholar's Lodges standing for another Lodge (Research: rising facility cost). */
   private buildCost(kind: number): Cost {
     const cost = levelSpec(kind, 1).cost;
     if (kind !== BuildingKind.ScholarsLodge) return cost;
@@ -1158,33 +1148,27 @@ export class Commands {
     return { action: 'back', face: 'Back', name: 'Back', key: 'Escape', menu: true, description, enabled: true, reason: '', run: () => this.back() };
   }
 
-  /** Dig and earthworks: + and - set the depth or height, Tunnel (D again) clicks out a tunnel chain, Mark confirms, Esc cancels. */
+  /** Dig: + and - set the depth or height, Tunnel (D again) clicks out a tunnel chain, Mark confirms, Esc cancels. */
   private areaCard(): Slots {
     const card: Slots = Array.from({ length: 5 }, () => null);
     const a = this.area!;
     const plan = this.areaPlan();
-    const chain = a.mode === 'dig' && (a.tunnel || a.chain !== null);
+    const chain = a.tunnel || a.chain !== null;
     const tunnel = chain || plan?.tunnel === true;
-    const what = a.mode === 'dig' ? (tunnel ? 'tunnel height' : 'depth') : 'height';
-    const fixed = a.mode === 'earthwork' && a.variant !== 0;
+    const what = tunnel ? 'tunnel height' : 'depth';
     const m = ((tunnel ? a.tunnelUnits : a.units) * TERRAIN_UNIT_M).toFixed(2);
-    const down = a.mode === 'dig' && !tunnel;
-    if (!fixed) {
-      card[0] = this.entry('deeper', down ? 'Deeper' : 'Higher', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
-      card[1] = this.entry('shallower', down ? 'Shallower' : 'Lower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
-    }
-    if (a.mode === 'dig') card[2] = this.entry('tunnel', 'Tunnel', TUNNEL_CHAIN_HELP, () => this.toggleTunnel(), { key: this.key('dig'), lit: chain, name: 'Dig a tunnel' });
+    card[0] = this.entry('deeper', tunnel ? 'Higher' : 'Deeper', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
+    card[1] = this.entry('shallower', tunnel ? 'Lower' : 'Shallower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
+    card[2] = this.entry('tunnel', 'Tunnel', TUNNEL_CHAIN_HELP, () => this.toggleTunnel(), { key: this.key('dig'), lit: chain, name: 'Dig a tunnel' });
     if (chain) return card;
     const ready = plan !== null && !a.dragging;
-    const name = a.mode === 'dig' ? (tunnel ? 'Dig the tunnel' : 'Dig it out') : `Make the ${EARTHWORK_NAMES[a.variant]!.toLowerCase()}`;
-    const stuff = HEAP_STUFF[a.variant] ?? HEAP_STUFF[0]!;
-    const earth = a.mode === 'earthwork' && plan ? ` It needs ${plan.earth} ${stuff[1]} (you have ${this.d.game.have(stuff[0])}).` : '';
+    const name = tunnel ? 'Dig the tunnel' : 'Dig it out';
     card[4] = {
       action: 'markArea',
       face: 'Mark',
       name,
       key: '',
-      description: `Mark the area for the selected workers. Left clicking the ground does the same.${earth}`,
+      description: 'Mark the area for the selected workers. Left clicking the ground does the same.',
       enabled: ready,
       reason: ready ? '' : 'Drag over the ground first.',
       run: () => this.confirmArea(),
@@ -1646,7 +1630,7 @@ export class Commands {
     return true;
   }
 
-  /** Right click on a marked dig or earthwork: the workers help with it. */
+  /** Right click on a marked dig or tunnel: the workers help with it. */
   private helpSite(workers: number[], at: THREE.Vector3): boolean {
     const x = Math.floor(at.x / COLUMN_M);
     const z = Math.floor(at.z / COLUMN_M);
@@ -1660,20 +1644,19 @@ export class Commands {
       return true;
     }
     const box = { player: this.d.player, units: workers, x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1, level: site.level, level2: site.level2, queued: this.d.queued() };
-    if (site.kind === SiteKind.Dig || site.kind === SiteKind.Tunnel) this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : 0 });
-    else this.d.send({ kind: 'earthwork', ...box, variant: site.kind === SiteKind.Ramp ? 1 : site.kind === SiteKind.LumberRamp ? 3 : site.kind === SiteKind.StoneRamp ? 4 : 0, axis: site.axis });
+    this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : 0 });
     this.d.marker(at, 'target');
     return true;
   }
 
-  // ---- Dig and earthworks ----
+  // ---- Dig ----
 
-  startArea(mode: 'dig' | 'earthwork', variant: number): void {
+  startArea(): void {
     if (this.workerIds().length === 0) return;
     this.targeting = null;
     if (this.placing) this.placing = null;
     this.menu = { page: 'main', sub: -1, more: 0 };
-    this.area = { mode, variant, from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_HEIGHT_UNITS, tunnel: false, chain: null, stretches: 0, cursor: null };
+    this.area = { from: null, to: null, dragging: false, units: AREA_DEFAULT_UNITS, tunnelUnits: TUNNEL_HEIGHT_UNITS, tunnel: false, chain: null, stretches: 0, cursor: null };
     this.d.changed();
   }
 
@@ -1702,7 +1685,7 @@ export class Commands {
   areaDown(ground: THREE.Vector3 | null): void {
     const a = this.area;
     if (!a) return;
-    if (a.mode === 'dig' && (a.chain || a.tunnel)) {
+    if (a.chain || a.tunnel) {
       this.tunnelClick(ground);
       return;
     }
@@ -1713,7 +1696,7 @@ export class Commands {
     if (!ground) return;
     const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
     // A press on the side of a cliff or hillside starts a tunnel chain into it instead.
-    if (a.mode === 'dig' && this.faceAt(ground, c.x, c.z)) {
+    if (this.faceAt(ground, c.x, c.z)) {
       this.tunnelClick(ground);
       return;
     }
@@ -1828,7 +1811,7 @@ export class Commands {
   areaPlan(): AreaPlan | null {
     const a = this.area;
     if (!a || !a.from || !a.to) return null;
-    const sig = `${a.mode},${a.variant},${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits}`;
+    const sig = `${a.from.x},${a.from.z},${a.to.x},${a.to.z},${a.units},${a.tunnelUnits}`;
     if (sig === this.plan.sig) return this.plan.plan;
     const lim = SITE_MAX_COLUMNS - 1;
     const tx = a.from.x + Math.max(-lim, Math.min(lim, a.to.x - a.from.x));
@@ -1848,51 +1831,21 @@ export class Commands {
         low = Math.min(low, h);
       }
     }
-    const axis = Math.abs(tx - a.from.x) >= Math.abs(tz - a.from.z) ? 0 : 1;
-    const plan: AreaPlan = { x0, z0, x1, z1, tunnel: false, level: 0, level2: 0, axis: 0, start, top, low, earth: 0 };
-    if (a.mode === 'dig') {
-      plan.tunnel = top - start >= TUNNEL_FACE_UNITS;
-      plan.level = plan.tunnel ? start : start - a.units;
-      plan.level2 = plan.tunnel ? start + a.tunnelUnits : 0;
-    } else if (rampVariant(a.variant)) {
-      // A ramp from the ground where the drag started to the ground where it ended; level is at the low-x (or low-z) end.
-      const end = g(tx, tz);
-      const forward = axis === 0 ? tx >= a.from.x : tz >= a.from.z;
-      plan.axis = axis;
-      plan.level = forward ? start : end;
-      plan.level2 = forward ? end : start;
-    } else {
-      plan.level = a.variant === 2 ? start : start + a.units;
-    }
-    if (a.mode === 'earthwork') {
-      const len = plan.axis === 0 ? x1 - x0 : z1 - z0;
-      for (let z = z0; z <= z1; z++) {
-        for (let x = x0; x <= x1; x++) {
-          const at = plan.axis === 0 ? x - x0 : z - z0;
-          const want = rampVariant(a.variant) && len > 0 ? plan.level + Math.floor(((plan.level2 - plan.level) * at) / len) : plan.level;
-          plan.earth += Math.max(0, want - g(x, z));
-        }
-      }
-    }
+    const tunnel = top - start >= TUNNEL_FACE_UNITS;
+    const plan: AreaPlan = { x0, z0, x1, z1, tunnel, level: tunnel ? start : start - a.units, level2: tunnel ? start + a.tunnelUnits : 0, start, top, low };
     this.plan = { sig, plan };
     return plan;
   }
 
-  /** Sends the dig or earthwork order for the marked area. */
+  /** Sends the dig order for the marked area. */
   confirmArea(): void {
     const a = this.area;
     const plan = this.areaPlan();
     const units = this.workerIds();
     if (!a || !plan || units.length === 0) return;
     const box = { player: this.d.player, units, x0: plan.x0, z0: plan.z0, x1: plan.x1, z1: plan.z1, level: plan.level, level2: plan.level2, queued: this.d.queued() };
-    if (a.mode === 'dig') {
-      this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
-      this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
-    } else {
-      const [res, what, where] = HEAP_STUFF[a.variant] ?? HEAP_STUFF[0]!;
-      if (this.d.game.have(res) < plan.earth) this.d.message(`Not enough ${what} yet (needs ${plan.earth}): the workers heap what there is and wait for more. ${where}`, 'alert');
-      this.d.send({ kind: 'earthwork', ...box, variant: a.variant, axis: plan.axis });
-    }
+    this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
+    this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
     const cx = ((plan.x0 + plan.x1 + 1) / 2) * COLUMN_M;
     const cz = ((plan.z0 + plan.z1 + 1) / 2) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'target');
@@ -2185,9 +2138,6 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
-/** What one column of each earthwork takes, by variant (Earth bank, Earth ramp, Fill, Lumber ramp, Stone ramp; sim units/dig.ts): greyed out without it (Patch 3). */
-const EARTHWORK_COSTS: readonly Cost[] = [[[Res.Earth, 1]], [[Res.Earth, 1]], [[Res.Earth, 1]], [[Res.LumberRamp, 1]], [[Res.StoneRamp, 1]]];
-
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */
@@ -2224,23 +2174,6 @@ export function garrisonRoom(b: Pick<BuildingInfo, 'kind' | 'level' | 'complete'
   return b.kind === BuildingKind.MainBase && b.level >= 3 ? 8 : 0;
 }
 
-const EARTH = RESOURCES.findIndex((r) => r.name === 'Earth');
-/** What each earthworks variant is heaped from: the resource, its name, and where it comes from. */
-const HEAP_STUFF: ReadonlyArray<readonly [number, string, string]> = [
-  [EARTH, 'Earth', 'Dig somewhere to get Earth.'],
-  [EARTH, 'Earth', 'Dig somewhere to get Earth.'],
-  [EARTH, 'Earth', 'Dig somewhere to get Earth.'],
-  [RESOURCES.findIndex((r) => r.name === 'Lumber ramp step'), 'lumber ramp steps', 'Make them at a workshop.'],
-  [RESOURCES.findIndex((r) => r.name === 'Stone ramp step'), 'stone ramp steps', 'Make them at a workshop.'],
-];
-
-const EARTHWORK_HELP = [
-  'Drag over the ground to mark it; + and - set the height of the bank. Left click confirms. Earth comes from digging.',
-  'Drag from the bottom of the slope to the top: the ramp climbs from the ground where the drag starts to the ground where it ends.',
-  'Drag over a hole or ditch, starting on its rim: it is filled up to the ground where the drag starts.',
-  'Drag from the bottom of the slope to the top, like an earth ramp, but laid from lumber ramp steps made at a workshop: one step for each 11 cm it rises in each column.',
-  'Drag from the bottom of the slope to the top, like an earth ramp, but laid from stone ramp steps made at a workshop: one step for each 11 cm it rises in each column.',
-];
 
 /** Spell button faces where the name is too long for the button. */
 const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell.AreaBlast]: 'Blast', [Spell.Counterspell]: 'Counter' };
@@ -2251,7 +2184,7 @@ const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base level 3; pig iron and iron from 5; steel, carbon steel and gunpowder from 7. It works with no workers. Kit is made where a unit trains or upgrades, not here. Each one\'s key is on its button; Esc goes back.'],
   [BuildingKind.Barn]: ['Slaughter', 'Slaughter one of the grown animals of the Barn for its meat and hides. The Barn keeps its breeding pairs longest. Esc goes back.'],
   [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. Esc goes back.'],
-  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, gravel, sticks, ramp steps, carts and trinkets, the better ones with the main base\'s levels. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
+  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, sticks, carts and trinkets, the better ones with the main base\'s tiers. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
   [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults from main base level 5, ballistas from 7, bronze and iron cannons from 8, and their shot. It works with no workers. Esc goes back.'],
 };
 

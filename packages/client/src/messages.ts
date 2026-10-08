@@ -283,7 +283,7 @@ export interface InfoMessage {
   /** Research done, a bit per Research id, and the Forge step the town is at (what kit tiers need: sim forgeStep). */
   research: number;
   forge: number;
-  /** Dig and earthwork sites of the local player. */
+  /** Dig and tunnel sites of the local player. */
   sites: Site[];
   /** The step the game ended (0 while it goes on), and the nights survived. */
   over: number;

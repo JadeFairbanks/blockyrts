@@ -33,7 +33,7 @@ import { bagEmpty } from './loot.ts';
 import { answerKinds, askNow, isAsking } from './questions.ts';
 import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
 
-/** At dusk, a worker gathering by itself this near one of the players' buildings (measured from its walls; lights and earthworks are not buildings here) may ask to work on through the night (Jade): 25 m. */
+/** At dusk, a worker gathering by itself this near one of the players' buildings (measured from its walls; lights are not buildings here) may ask to work on through the night (Jade): 25 m. */
 export const NIGHT_WORK_BUILDING_M = 25;
 /** ...and this near a troop: any combat unit of the players', a warrior of any type, a mage or an engine (Jade): 50 m. */
 export const NIGHT_WORK_TROOP_M = 50;
@@ -55,10 +55,10 @@ type ForageOrder = Extract<UnitOrder, { t: 'forage' }>;
 
 // ----- where it may work on -----
 
-/** What counts as a building here: a finished one standing, not a light (torch post, bonfire) or an earthwork (s). */
+/** What counts as a building here: a finished one standing, not a light (torch post, bonfire) (s). */
 function counts(b: Building): boolean {
   if (!b.complete || b.hp <= 0) return false;
-  return b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.Bonfire && b.kind !== BuildingKind.Earthworks && b.kind !== BuildingKind.Ramp;
+  return b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.Bonfire;
 }
 
 /** Whether a point (wu) lies within `m` metres of a building of any player's (co-op: the players' side), from its walls. */

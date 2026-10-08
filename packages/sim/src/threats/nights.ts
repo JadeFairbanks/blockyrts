@@ -4,7 +4,7 @@
 // it is a blood night, whether fog rolls in, the goblin horde that comes for
 // outlying lights over the limit, the new lairs, and the tribes making camp.
 
-import { BuildingKind, buildingSpec, OUTLYING_M } from '../buildings/data.ts';
+import { buildingSpec, OUTLYING_M } from '../buildings/data.ts';
 import { buildingCentre, isLit, nearMainBase, outlyingLights } from '../buildings/lights.ts';
 import { floorDiv, length2d } from '../fixed.ts';
 import { UnitKind, WILD, type SimState } from '../state.ts';
@@ -18,7 +18,7 @@ import { BLOOD_FLOOR_NIGHT, BLOOD_SHARE_PM, DEPTH_PM, FOG_CHANCE_PCT, FOG_FROM_N
 import { placeLairs } from './lairs.ts';
 import { Role, type DuskReading } from './types.ts';
 
-/** Town size: buildings beyond the first 10 add 2% each (Table 8); walls, gates, towers, lights and earthworks do not count (s). */
+/** Town size: buildings beyond the first 10 add 2% each (Table 8); walls, gates, towers and lights do not count (s). */
 const TOWN_FREE = 10;
 const TOWN_PM_EACH = 20;
 /** Provoked: +10% per village at war with the player, +5% per territorial creature hunting them (Table 8). */
@@ -31,7 +31,7 @@ const HORDE = { cutters: 3, slingers: 1, chiefEvery: 5, max: 40 };
 
 function counts(b: { kind: number; complete: boolean }): boolean {
   const s = buildingSpec(b.kind);
-  return b.complete && !s.defence && !s.light && b.kind !== BuildingKind.Earthworks && b.kind !== BuildingKind.Ramp;
+  return b.complete && !s.defence && !s.light;
 }
 
 /** A territorial creature hunting one of the player's units (Table 8: provoked). */

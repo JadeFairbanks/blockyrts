@@ -3,11 +3,13 @@
 // them (Jade, 2026-10-04): the Workshop does what the Lumber mill, Tannery
 // and Herbalist hut did, the Forge what the Kiln and Powder mill did, and
 // the Artillery workshop what the Foundry did; none of them has tiers, and
-// what a tier opened comes at the main base level that tier needed. Cooking
+// what a tier opened comes at the main base tier that level fell into. Cooking
 // is gone, and so is all siege shot: the Artillery workshop makes only its
 // engines and artillery crewmen (buildings/production.ts). Every recipe takes resources from the pool when it is queued and
 // puts resources back when it is done. A recipe lists its ways of being paid
 // ("1 lumber, 1 charcoal or 1 coal"); the first the pool can pay is used.
+// "Lumber" is either kind, softwood or hardwood (Patch 5, Jade: "Make all
+// things that require lumber or sticks able to use either type of lumber").
 
 import { Res, TRINKET_METALS, trinketRes, type Cost } from '../economy/resources.ts';
 import { haveOf } from '../economy/food-kinds.ts';
@@ -38,6 +40,8 @@ export interface RecipeSpec {
 const sec = (n: number): number => n * STEPS_PER_SECOND;
 const H = Res.HardwoodLumber;
 const S = Res.SoftwoodLumber;
+/** Any lumber, softwood or hardwood, whichever is in stock (Patch 5). */
+const L = Res.AnyLumber;
 /** Fuel at a forge: 1 lumber, 1 charcoal or 1 coal (Table 2b). */
 const FUELS: readonly Res[] = [Res.Charcoal, Res.Coal, H, S];
 const COAL_OR_CHARCOAL: readonly Res[] = [Res.Charcoal, Res.Coal];
@@ -52,6 +56,8 @@ const ORE_FUEL: Cost = [[Res.Charcoal, 1], [Res.Coal, 1], [H, 2], [S, 4]];
 const withFuelAmounts = (rest: Cost, fuels: Cost): Cost[] => fuels.map((f): Cost => [...rest, f]);
 const FORGE = [BuildingKind.Forge] as const;
 const WORKSHOP = [BuildingKind.Workshop] as const;
+/** Sticks are cut at the Workshop and, from Patch 5, at a Storehouse (Jade). */
+const STICK_MAKERS = [BuildingKind.Workshop, BuildingKind.Storehouse] as const;
 
 /** Research ids (combat/items.ts Research) and Made bits, kept as numbers here so this module stays a leaf. */
 const BRONZE = 2;
@@ -106,27 +112,24 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   { name: 'Steel ingot', at: FORGE, base: FORGE_STEP_BASE[4]!, inputs: withFuel([[Res.IronIngot, 1]], COAL_OR_CHARCOAL, 2), outputs: [[Res.SteelIngot, 1]], steps: sec(15), research: STEEL },
   { name: 'Carbon steel ingot', at: FORGE, base: FORGE_STEP_BASE[4]!, inputs: [[[Res.IronIngot, 2], [Res.Charcoal, 6]]], outputs: [[Res.CarbonSteel, 1]], steps: sec(60), research: CARBON_STEEL },
   // What the Kiln made, at main base 3 where the Kiln could be built, and the Powder mill's gunpowder at 7 (Patch 2: only for the musket and its research; no shot burns a charge).
-  { name: 'Charcoal (3)', at: FORGE, base: 3, inputs: [[[H, 2]]], outputs: [[Res.Charcoal, 3]], steps: sec(10), research: 0 },
+  { name: 'Charcoal (3)', at: FORGE, base: 3, inputs: [[[L, 2]]], outputs: [[Res.Charcoal, 3]], steps: sec(10), research: 0 },
   { name: 'Bricks (4)', at: FORGE, base: 3, inputs: withFuel([[Res.Clay, 2]], COAL_OR_CHARCOAL), outputs: [[Res.Bricks, 4]], steps: sec(10), research: 0 },
   { name: 'Glass', at: FORGE, base: 3, inputs: withFuel([[Res.Sand, 2]], FUELS), outputs: [[Res.Glass, 1]], steps: sec(10), research: 0 },
   { name: 'Gunpowder', at: FORGE, base: 7, inputs: [[[Res.Saltpetre, 2], [Res.Sulphur, 1], [Res.Charcoal, 1]]], outputs: [[Res.Gunpowder, 1]], steps: sec(15), research: GUNPOWDER },
   // The Workshop: what the Lumber mill made (1 lumber to 1 plank; the waterwheel's 2 went with the mill), then the Tannery's leather
-  // work, with rope at the Big House too, then the Herbalist hut's medicine.
-  { name: 'Planks from softwood', at: WORKSHOP, base: 0, inputs: [[[S, 1]]], outputs: [[Res.Planks, 1]], steps: sec(5), research: 0 },
-  { name: 'Planks from hardwood', at: WORKSHOP, base: 0, inputs: [[[H, 1]]], outputs: [[Res.Planks, 1]], steps: sec(5), research: 0 },
+  // work, with rope at the main base too, then the Herbalist hut's medicine.
+  { name: 'Planks', at: WORKSHOP, base: 0, inputs: [[[L, 1]]], outputs: [[Res.Planks, 1]], steps: sec(5), research: 0 },
   { name: 'Leather', at: WORKSHOP, base: 0, inputs: [[[Res.Hides, 1]]], outputs: [[Res.Leather, 1]], steps: sec(15), research: 0 },
   { name: 'Hardened leather', at: WORKSHOP, base: 0, inputs: [[[Res.Leather, 2]]], outputs: [[Res.HardenedLeather, 1]], steps: sec(20), research: 0 },
   { name: 'Rope', at: [BuildingKind.Workshop, BuildingKind.MainBase], base: 0, inputs: [[[Res.Leather, 1]], [[Res.Flax, 2]]], outputs: [[Res.Rope, 1]], steps: sec(10), research: 0 },
   { name: 'Bandage', at: WORKSHOP, base: 0, inputs: [[[Res.Herbs, 1], [Res.Flax, 1]], [[Res.Herbs, 1], [Res.Leather, 1]]], outputs: [[Res.Bandage, 1]], steps: sec(10), research: 0 },
   { name: 'Healing remedy', at: WORKSHOP, base: 0, inputs: [[[Res.Herbs, 2], [Res.Glass, 1]]], outputs: [[Res.Remedy, 1]], steps: sec(20), research: 0 },
-  // The Workshop's own: gravel, sticks and ramp steps from the start, hand carts at main base 3, ox carts at 5.
-  { name: 'Gravel', at: WORKSHOP, base: 0, inputs: [[[Res.Stone, 1]]], outputs: [[Res.Gravel, 1]], steps: sec(5), research: 0 },
-  { name: 'Hardwood sticks (2)', at: WORKSHOP, base: 0, inputs: [[[H, 1]]], outputs: [[Res.Sticks, 2]], steps: sec(5), research: 0 },
-  { name: 'Lumber ramp steps (2)', at: WORKSHOP, base: 0, inputs: [[[S, 1]], [[H, 1]]], outputs: [[Res.LumberRamp, 2]], steps: sec(10), research: 0 },
-  { name: 'Stone ramp steps (2)', at: WORKSHOP, base: 0, inputs: [[[Res.Stone, 2]]], outputs: [[Res.StoneRamp, 2]], steps: sec(15), research: 0 },
+  // Sticks (Patch 5, Jade: "one lumber makes 4 sticks, taking 20 seconds"; one kind of stick): 20 s at a Storehouse, which works at 1,
+  // and half that at the Workshop's CRAFT_PACE. Then the Workshop's carts: hand carts at main base 3, ox carts at 5.
+  { name: 'Sticks (4)', at: STICK_MAKERS, base: 0, inputs: [[[L, 1]]], outputs: [[Res.Sticks, 4]], steps: sec(20), research: 0 },
   // Carts (Table 2f): made as goods, and taken by a worker with X (Troops and gear: carts stay).
-  { name: 'Hand cart', at: WORKSHOP, base: 3, inputs: [[[Res.Planks, 6], [H, 4]]], outputs: [[Res.HandCart, 1]], steps: sec(60), research: 0 },
-  { name: 'Ox or horse cart', at: WORKSHOP, base: 5, inputs: [[[Res.Planks, 12], [H, 8], [Res.Leather, 4], [Res.WroughtIron, 2]]], outputs: [[Res.OxCart, 1]], steps: sec(120), research: 0 },
+  { name: 'Hand cart', at: WORKSHOP, base: 3, inputs: [[[Res.Planks, 6], [L, 4]]], outputs: [[Res.HandCart, 1]], steps: sec(60), research: 0 },
+  { name: 'Ox or horse cart', at: WORKSHOP, base: 5, inputs: [[[Res.Planks, 12], [L, 8], [Res.Leather, 4], [Res.WroughtIron, 2]]], outputs: [[Res.OxCart, 1]], steps: sec(120), research: 0 },
   ...trinketRecipes(),
   { name: 'Moonleaf', at: WORKSHOP, base: 5, inputs: [[[Res.Silver, 3], [Res.Emeralds, 2]]], outputs: [[Res.Moonleaf, 1]], steps: sec(180), research: 0 },
   { name: 'Sunheart', at: WORKSHOP, base: 7, inputs: [[[Res.Gold, 3], [Res.Rubies, 2]]], outputs: [[Res.Sunheart, 1]], steps: sec(240), research: 0 },

@@ -240,7 +240,7 @@ describe('tunnel chains', () => {
 
   it('starts on a cliff face, floored at the ground in front, and digs a stretch per click, level, as one order each', () => {
     const { c, sent } = harness(game(), cliff);
-    c.startArea('dig', 0);
+    c.startArea();
     // A press on the face's west side, 0.5 m up.
     c.areaDown(new THREE.Vector3(2.25, 0.5, 0.2));
     expect(c.area!.chain).toEqual({ x: 5, z: 0, floor: 0 });
@@ -269,7 +269,7 @@ describe('tunnel chains', () => {
   it('digs level from the ground clicked with Tunnel (D again) on, and digs down otherwise', () => {
     const ground = (x: number): number => (x >= 4.5 ? 20 * UNIT_M : 4 * UNIT_M);
     const { c, sent, shift } = harness(game(), ground);
-    c.startArea('dig', 0);
+    c.startArea();
     const tunnel = c.card()[2]!;
     expect(tunnel.face).toBe('Tunnel');
     expect(tunnel.key).toBe('KeyD');

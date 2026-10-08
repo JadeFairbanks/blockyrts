@@ -440,7 +440,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
-        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
+        if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
         giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
         break;
       }
@@ -622,13 +622,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
         break;
-      case 'dig':
-      case 'earthwork': {
+      case 'dig': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const kind = o.kind === 'dig' ? (o.tunnel ? SiteKind.Tunnel : SiteKind.Dig) : ([SiteKind.Bank, SiteKind.Ramp, SiteKind.Bank, SiteKind.LumberRamp, SiteKind.StoneRamp][o.variant] ?? SiteKind.Bank);
-        const axis = o.kind === 'earthwork' ? o.axis & 1 : 0;
-        const site = markSite(state, o.player, kind, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, axis);
+        const site = markSite(state, o.player, o.tunnel ? SiteKind.Tunnel : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
         if (typeof site === 'string') {
           alert(state, o.player, site);
           break;
