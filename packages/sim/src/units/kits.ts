@@ -155,6 +155,8 @@ export interface RobeKit extends Piece {
 const ST = Res.Sticks;
 const FL = Res.Flint;
 const STONE = Res.Stone;
+/** Lumber of either kind (Patch 5, Jade: "Make all things that require lumber or sticks able to use either type of lumber"). */
+const LU = Res.AnyLumber;
 const HW = Res.HardwoodLumber;
 const SW = Res.SoftwoodLumber;
 const PL = Res.Planks;
@@ -172,7 +174,7 @@ const CS = Res.CarbonSteel;
 const GP = Res.Gunpowder;
 const MC = Res.ManaCrystal;
 
-/** Every way of paying `base` plus one resource from each choice ("3 lumber, 1 sinew or flax": softwood or hardwood, sinew or flax). */
+/** Every way of paying `base` plus one resource from each choice ("1 sinew or flax"). */
 function ways(base: Cost, ...choices: ReadonlyArray<ReadonlyArray<readonly [Res, number]>>): Cost[] {
   let out: Cost[] = [base];
   for (const c of choices) out = out.flatMap((w) => c.map((x): Cost => [...w, x]));
@@ -191,14 +193,14 @@ const close = (tier: number, name: string, model: string, damage: number, swingD
 /** Close melee: a one-handed weapon; the shield comes with the armour (Table 3). Tier 0 is the fist fighter's fists. */
 export const CLOSE_KITS: readonly MeleeKit[] = [
   close(0, 'Fists', '', 4, 12, 100, Hit.Stab, true, [[]], 0),
-  close(1, 'Hardwood cudgel', 'club', 8, 13, 120, Hit.Arc, true, only([[ST, 3]]), 10),
+  close(1, 'Wooden cudgel', 'club', 8, 13, 120, Hit.Arc, true, only([[ST, 3]]), 10),
   close(2, 'Flint hand-axe', 'axe_war_flint', 10, 13, 120, Hit.Arc, false, only([[ST, 2], [FL, 1]]), 10),
-  close(3, 'Copper short sword', 'axe_war', 12, 13, 120, Hit.Arc, false, only([[CU, 1], [HW, 1]]), 20),
-  close(4, 'Bronze shortsword', 'sword_short', 16, 12, 120, Hit.Arc, false, only([[BZ, 2], [HW, 1], [LE, 1]]), 30),
-  close(5, 'Wrought iron sword', 'sword', 21, 12, 120, Hit.Arc, false, only([[WI, 2], [HW, 1], [LE, 1]]), 30),
-  close(6, 'Iron broadsword', 'sword', 24, 12, 120, Hit.Arc, false, only([[IRON, 2], [HW, 1], [LE, 1]]), 30),
-  close(7, 'Steel side-sword', 'sword_steel', 30, 12, 130, Hit.Arc, false, only([[STEEL, 3], [HW, 1], [LE, 1]]), 45),
-  close(8, 'Basket-hilted broadsword', 'sword_steel', 36, 12, 130, Hit.Arc, false, only([[CS, 3], [HW, 1], [LE, 1]]), 60),
+  close(3, 'Copper short sword', 'axe_war', 12, 13, 120, Hit.Arc, false, only([[CU, 1], [LU, 1]]), 20),
+  close(4, 'Bronze shortsword', 'sword_short', 16, 12, 120, Hit.Arc, false, only([[BZ, 2], [LU, 1], [LE, 1]]), 30),
+  close(5, 'Wrought iron sword', 'sword', 21, 12, 120, Hit.Arc, false, only([[WI, 2], [LU, 1], [LE, 1]]), 30),
+  close(6, 'Iron broadsword', 'sword', 24, 12, 120, Hit.Arc, false, only([[IRON, 2], [LU, 1], [LE, 1]]), 30),
+  close(7, 'Steel side-sword', 'sword_steel', 30, 12, 130, Hit.Arc, false, only([[STEEL, 3], [LU, 1], [LE, 1]]), 45),
+  close(8, 'Basket-hilted broadsword', 'sword_steel', 36, 12, 130, Hit.Arc, false, only([[CS, 3], [LU, 1], [LE, 1]]), 60),
 ];
 
 /**
@@ -210,12 +212,12 @@ export const LONG_KITS: readonly MeleeKit[] = [
   close(0, 'None', '', 0, 14, 0, Hit.Stab, false, [], 0),
   close(1, 'Fire-hardened spear', 'spear_hardwood', 9, 14, 250, Hit.Stab, false, only([[ST, 4]]), 10),
   close(2, 'Flint-headed spear', 'spear_flint', 12, 14, 250, Hit.Stab, false, only([[ST, 3], [FL, 1]]), 10),
-  close(3, 'Copper leaf-blade spear', 'spear', 15, 14, 250, Hit.Stab, false, only([[CU, 1], [HW, 1]]), 20),
-  close(4, 'Bronze spear', 'spear', 18, 14, 250, Hit.Stab, false, only([[BZ, 1], [HW, 1]]), 25),
-  close(5, 'Crude iron spear', 'spear', 28, 16, 250, Hit.Stab, false, only([[WI, 3], [HW, 2]]), 40),
-  close(6, 'Iron pike', 'pike', 32, 16, 350, Hit.Stab, false, only([[IRON, 3], [HW, 2]]), 40),
-  close(7, 'Steel halberd', 'halberd', 38, 16, 250, Hit.Arc, false, only([[STEEL, 3], [HW, 2]]), 45),
-  close(8, 'Zweihänder', 'halberd', 45, 16, 200, Hit.Arc, false, only([[CS, 3], [HW, 2]]), 60),
+  close(3, 'Copper leaf-blade spear', 'spear', 15, 14, 250, Hit.Stab, false, only([[CU, 1], [LU, 1]]), 20),
+  close(4, 'Bronze spear', 'spear', 18, 14, 250, Hit.Stab, false, only([[BZ, 1], [LU, 1]]), 25),
+  close(5, 'Crude iron spear', 'spear', 28, 16, 250, Hit.Stab, false, only([[WI, 3], [LU, 2]]), 40),
+  close(6, 'Iron pike', 'pike', 32, 16, 350, Hit.Stab, false, only([[IRON, 3], [LU, 2]]), 40),
+  close(7, 'Steel halberd', 'halberd', 38, 16, 250, Hit.Arc, false, only([[STEEL, 3], [LU, 2]]), 45),
+  close(8, 'Zweihänder', 'halberd', 45, 16, 200, Hit.Arc, false, only([[CS, 3], [LU, 2]]), 60),
 ];
 
 /** A hit in the outer third of a long weapon's reach is a critical (s), for +30% (Jade). */
@@ -229,7 +231,7 @@ const ranged = (tier: number, name: string, model: string, damage: number, attac
 
 /** A recurve bow with arrowheads of one metal (Table 2e: 3 lumber, 1 sinew or flax, 1 ingot, 1 feather). */
 const recurve = (tier: number, metal: string, damage: number, ingot: Res): RangedKit =>
-  ranged(tier, `Recurve bow, ${metal} arrowheads`, 'bow', damage, 20, 25, 6, Shot.Arrow, false, ways([[ingot, 1], [FE, 1]], [[SW, 3], [HW, 3]], [[ROPE, 1], [FX, 1]]), 35);
+  ranged(tier, `Recurve bow, ${metal} arrowheads`, 'bow', damage, 20, 25, 6, Shot.Arrow, false, ways([[ingot, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 35);
 
 /**
  * The ranger: one ladder with deliberate repeats (Jade): a sling, a yew
@@ -239,17 +241,17 @@ const recurve = (tier: number, metal: string, damage: number, ingot: Res): Range
 export const RANGER_KITS: readonly RangedKit[] = [
   ranged(0, 'None', '', 0, 20, 0, 0, Shot.Arrow, false, [], 0),
   ranged(1, 'Leather sling', 'sling', 8, 20, 20, 8, Shot.SlingStone, true, [[[LE, 1]], [[FX, 1]]], 10),
-  ranged(2, 'Yew longbow', 'bow', 10, 20, 25, 6, Shot.Arrow, false, ways([[FL, 1], [FE, 1]], [[SW, 3], [HW, 3]], [[ROPE, 1], [FX, 1]]), 35),
+  ranged(2, 'Yew longbow', 'bow', 10, 20, 25, 6, Shot.Arrow, false, ways([[FL, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 35),
   recurve(3, 'copper', 12, CU),
   recurve(4, 'bronze', 13, BZ),
   recurve(5, 'wrought-iron', 15, WI),
   recurve(6, 'iron', 16, IRON),
-  ranged(7, 'Steel-prod crossbow', 'crossbow_steel', 40, 45, 34, 3, Shot.Bolt, false, only([[STEEL, 3], [WI, 1], [PL, 2], [FX, 1], [HW, 1], [FE, 1]]), 75, [Research.Crossbows]),
+  ranged(7, 'Steel-prod crossbow', 'crossbow_steel', 40, 45, 34, 3, Shot.Bolt, false, only([[STEEL, 3], [WI, 1], [PL, 2], [FX, 1], [LU, 1], [FE, 1]]), 75, [Research.Crossbows]),
   ranged(8, 'Flintlock musket', 'musket', 60, 80, 40, 4, Shot.MusketBall, false, only([[CS, 1], [PL, 2], [FL, 1], [GP, 1]]), 90, [Research.Gunpowder, Research.Muskets]),
 ];
 
 /** The brawler, tier 8 only: a flintlock pistol and a cutlass (the tier 8 close-melee row), one kit (Table 2e). */
-export const BRAWLER_KIT: RangedKit = ranged(8, 'Flintlock pistol and cutlass', 'pistol', 40, 60, 15, 6, Shot.MusketBall, false, only([[CS, 4], [PL, 1], [FL, 1], [HW, 1], [LE, 1], [GP, 1]]), 120, [
+export const BRAWLER_KIT: RangedKit = ranged(8, 'Flintlock pistol and cutlass', 'pistol', 40, 60, 15, 6, Shot.MusketBall, false, only([[CS, 4], [PL, 1], [FL, 1], [LU, 1], [LE, 1], [GP, 1]]), 120, [
   Research.Gunpowder,
   Research.Muskets,
 ]);
@@ -296,30 +298,33 @@ export function shieldRow(armourTier: number): ShieldKit {
 
 const metalTools = (tier: number, metal: string, tool: Tool, damage: number, ingot: Res, timeS: number): ToolKit => ({
   tier, name: `${metal} tools`, model: 'axe', tools: [tool, tool, tool, tool], names: [`${metal} axe`, `${metal} pickaxe`, `${metal} hammer`, `${metal} sickle`].map((n) => n.toLowerCase()),
-  models: ['axe', 'axe', 'axe', 'axe'], damage, cost: only([[ingot, 2], [HW, 2]]), timeS, need: tier,
+  models: ['axe', 'axe', 'axe', 'axe'], damage, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
 });
 
 /**
  * One kit per tier covers every tool a worker uses (Jade): axe, pick or
  * maul, hammer, hoe, sickle, fishing gear and, from copper, the prospecting
- * hammer. Each job works at its tool tier's pace (behaviour.ts).
+ * hammer. Each job works at its tool tier's pace (behaviour.ts). Patch 5
+ * (Jade, BL-1): a worker's blow is 2 weaker at every tier, 2 with wooden
+ * tools to 9 with carbon steel. Tier 0 is the bare-handed blow anyone
+ * without a tool strikes (Table 1: fists 2), not a worker's tier, and stays.
  */
 export const TOOL_KITS: readonly ToolKit[] = [
   { tier: 0, name: 'No tools', model: '', tools: [0, 0, 0, 0], names: ['', '', '', ''], models: ['', '', '', ''], damage: 2, cost: [[]], timeS: 0, need: 0 },
   {
-    tier: 1, name: 'Hardwood tools', model: 'axe_hardwood', tools: [Tool.Hardwood, Tool.Hardwood, Tool.Hardwood, Tool.Hardwood],
-    names: ['hardwood axe', 'digging stick', 'hardwood mallet', 'hardwood hoe'], models: ['axe_hardwood', 'axe_hardwood', 'axe_hardwood', 'axe_hardwood'], damage: 4, cost: only([[ST, 3]]), timeS: 10, need: 1,
+    tier: 1, name: 'Wooden tools', model: 'axe_hardwood', tools: [Tool.Hardwood, Tool.Hardwood, Tool.Hardwood, Tool.Hardwood],
+    names: ['wooden axe', 'digging stick', 'wooden mallet', 'wooden hoe'], models: ['axe_hardwood', 'axe_hardwood', 'axe_hardwood', 'axe_hardwood'], damage: 2, cost: only([[ST, 3]]), timeS: 10, need: 1,
   },
   {
     tier: 2, name: 'Stone and flint tools', model: 'axe_flint', tools: [Tool.Flint, Tool.Stone, Tool.Stone, Tool.Flint],
-    names: ['flint axe and knife', 'stone maul', 'stone hammer', 'flint axe and knife'], models: ['axe_flint', 'maul_stone', 'hammer_stone', 'axe_flint'], damage: 5, cost: only([[ST, 6], [FL, 1], [STONE, 5]]), timeS: 30, need: 2,
+    names: ['flint axe and knife', 'stone maul', 'stone hammer', 'flint axe and knife'], models: ['axe_flint', 'maul_stone', 'hammer_stone', 'axe_flint'], damage: 3, cost: only([[ST, 6], [FL, 1], [STONE, 5]]), timeS: 30, need: 2,
   },
-  metalTools(3, 'Copper', Tool.Copper, 6, CU, 35),
-  metalTools(4, 'Bronze', Tool.Bronze, 7, BZ, 35),
-  metalTools(5, 'Wrought iron', Tool.WroughtIron, 8, WI, 40),
-  metalTools(6, 'Iron', Tool.Iron, 9, IRON, 40),
-  metalTools(7, 'Steel', Tool.Steel, 10, STEEL, 45),
-  metalTools(8, 'Carbon steel', Tool.CarbonSteel, 11, CS, 55),
+  metalTools(3, 'Copper', Tool.Copper, 4, CU, 35),
+  metalTools(4, 'Bronze', Tool.Bronze, 5, BZ, 35),
+  metalTools(5, 'Wrought iron', Tool.WroughtIron, 6, WI, 40),
+  metalTools(6, 'Iron', Tool.Iron, 7, IRON, 40),
+  metalTools(7, 'Steel', Tool.Steel, 8, STEEL, 45),
+  metalTools(8, 'Carbon steel', Tool.CarbonSteel, 9, CS, 55),
 ];
 
 /** Prospecting takes 20 s with a tier 3 tool kit or better (the prospecting hammer), 40 s without (Table 2c). */
@@ -342,10 +347,10 @@ export const WAND_KITS: readonly WandKit[] = [
   wand(0, 'No wand', '', 100, 0, [], 0),
   wand(1, 'Hazel wand', 'wand', 100, 0, [[ST, 5]], 10),
   wand(2, 'Copper-tipped wand', 'wand', 105, 10, [[ST, 5], [CU, 1]], 20),
-  wand(3, 'Bronze-bound staff', 'wand_mage', 110, 20, [[HW, 2], [BZ, 2]], 30),
-  wand(4, 'Iron-shod staff', 'wand_mage', 115, 30, [[HW, 2], [IRON, 2]], 30),
-  wand(5, 'Crystal staff', 'wand_master_mage', 120, 40, [[HW, 2], [STEEL, 2], [MC, 2]], 45),
-  wand(6, 'Archstaff', 'wand_grand_magician', 125, 50, [[HW, 2], [CS, 2], [MC, 5]], 60),
+  wand(3, 'Bronze-bound staff', 'wand_mage', 110, 20, [[LU, 2], [BZ, 2]], 30),
+  wand(4, 'Iron-shod staff', 'wand_mage', 115, 30, [[LU, 2], [IRON, 2]], 30),
+  wand(5, 'Crystal staff', 'wand_master_mage', 120, 40, [[LU, 2], [STEEL, 2], [MC, 2]], 45),
+  wand(6, 'Archstaff', 'wand_grand_magician', 125, 50, [[LU, 2], [CS, 2], [MC, 5]], 60),
 ];
 
 /** Mages' robes: the robe sets protection and mana regain. They show on the mage model itself (no separate model until the model thread makes them). */
@@ -565,16 +570,28 @@ export function piecesTime(pieces: readonly Piece[]): number {
   return s;
 }
 
+/** Adds n of a resource to a summed cost. */
+function addTo(cost: Array<[Res, number]>, r: Res, n: number): void {
+  if (n <= 0) return;
+  const at = cost.findIndex(([x]) => x === r);
+  if (at >= 0) cost[at] = [r, cost[at]![1] + n];
+  else cost.push([r, n]);
+}
+
 /**
  * How a set of pieces would be paid from a pool: each piece takes the first
- * way of paying that what is left covers, in turn. Returns the summed cost
- * and which way each piece took (a digit each, base 8, first piece lowest),
- * or null when the pool cannot cover it. `held` is set aside first (a
- * troop's food, or what earlier units in the same click took).
+ * way of paying that what is left covers, in turn. "Lumber" (Patch 5: either
+ * kind) is taken a piece at a time from whichever kind is in larger stock,
+ * softwood on a tie, as food-kinds.ts payAny does. Returns the summed cost,
+ * kind by kind, and which way each piece took with how much of its lumber
+ * was hardwood (a digit each, base 64: the way plus 8 times the hardwood,
+ * first piece lowest), or null when the pool cannot cover it. `held` is set
+ * aside first (a troop's food, or what earlier units in the same click took).
  */
 export function planPieces(pieces: readonly Piece[], pool: Int32Array, held: Cost = []): { cost: Cost; ways: number } | null {
   const left = new Map<number, number>();
   const have = (r: number): number => (left.has(r) ? left.get(r)! : pool[r]!);
+  const haveOf = (r: number): number => (r === LU ? have(SW) + have(HW) : have(r));
   for (const [r, n] of held) left.set(r, have(r) - n);
   const cost: Array<[Res, number]> = [];
   let code = 0;
@@ -582,53 +599,70 @@ export function planPieces(pieces: readonly Piece[], pool: Int32Array, held: Cos
   for (const p of pieces) {
     let chosen = -1;
     for (let k = 0; k < p.cost.length; k++) {
-      if (p.cost[k]!.every(([r, n]) => have(r) >= n)) {
+      if (p.cost[k]!.every(([r, n]) => haveOf(r) >= n)) {
         chosen = k;
         break;
       }
     }
     if (chosen < 0) return null;
+    let hard = 0;
     for (const [r, n] of p.cost[chosen]!) {
-      left.set(r, have(r) - n);
-      const at = cost.findIndex(([x]) => x === r);
-      if (at >= 0) cost[at] = [r, cost[at]![1] + n];
-      else cost.push([r, n]);
+      if (r !== LU) {
+        left.set(r, have(r) - n);
+        addTo(cost, r, n);
+        continue;
+      }
+      for (let k = 0; k < n; k++) {
+        const kind = have(HW) > have(SW) ? HW : SW;
+        if (kind === HW) hard++;
+        left.set(kind, have(kind) - 1);
+        addTo(cost, kind, 1);
+      }
     }
-    code += chosen * mul;
-    mul *= 8;
+    code += (chosen + 8 * hard) * mul;
+    mul *= 64;
   }
   return { cost, ways: code };
 }
 
-/** The cost of a set of pieces paid the ways a plan chose (to give it back). */
+/** The cost of a set of pieces paid the ways a plan chose, kind by kind (to give it back); with 0, the first ways in softwood. */
 export function piecesCost(pieces: readonly Piece[], ways: number): Cost {
   const cost: Array<[Res, number]> = [];
   let code = ways;
   for (const p of pieces) {
-    const way = p.cost[code % 8] ?? p.cost[0] ?? [];
-    code = floorDiv(code, 8);
+    const digit = code % 64;
+    code = floorDiv(code, 64);
+    const way = p.cost[digit % 8] ?? p.cost[0] ?? [];
+    let hard = floorDiv(digit, 8);
     for (const [r, n] of way) {
-      const at = cost.findIndex(([x]) => x === r);
-      if (at >= 0) cost[at] = [r, cost[at]![1] + n];
-      else cost.push([r, n]);
+      if (r !== LU) {
+        addTo(cost, r, n);
+        continue;
+      }
+      const h = Math.min(hard, n);
+      hard -= h;
+      addTo(cost, HW, h);
+      addTo(cost, SW, n - h);
     }
   }
   return cost;
 }
 
-/** The first (main) way of paying a set of pieces, for the panel's cost line. */
+/** The first (main) way of paying a set of pieces, for the panel's cost line: "lumber" stays either kind. */
 export function mainCost(pieces: readonly Piece[]): Cost {
-  return piecesCost(pieces, 0);
+  const cost: Array<[Res, number]> = [];
+  for (const p of pieces) for (const [r, n] of p.cost[0] ?? []) addTo(cost, r, n);
+  return cost;
 }
 
 /**
  * Why a piece cannot be had yet, or '': its tier's Forge step and research,
  * and its own research. `forge` is the metal step the player's town is at
- * (buildings/data.ts forgeStep): a Forge, then main base levels.
+ * (buildings/data.ts forgeStep): a Forge, then main base tiers.
  */
 export function pieceProblem(p: Piece, research: number, forge: number, researchName: (r: Research) => string): string {
   const need = TIER_NEEDS[p.need]!;
-  if (forge < need.forge) return forge === 0 ? 'Needs a Forge.' : `Needs a level ${FORGE_STEP_BASE[need.forge]} main base.`;
+  if (forge < need.forge) return forge === 0 ? 'Needs a Forge.' : `Needs a tier ${FORGE_STEP_BASE[need.forge]} main base.`;
   for (const r of [...need.research, ...(p.research ?? [])]) if (!hasResearch(research, r)) return `Needs ${researchName(r)} researched first.`;
   return '';
 }

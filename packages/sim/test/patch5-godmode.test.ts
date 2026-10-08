@@ -95,11 +95,11 @@ describe('godmode (Patch 5)', () => {
     expect(Array.from(p.pool)).toEqual(Array.from(before));
   });
 
-  it('builds at once where it is placed, with no main base level, research or worker trip needed, and upgrades at once', () => {
+  it('builds at once where it is placed, with no main base tier, research or worker trip needed, and upgrades at once', () => {
     const s = createWorld(5, { peaceful: true });
     const e = s.entities;
     expect(bigHouse(s).level).toBe(1);
-    // Without godmode a Barracks needs a level 2 main base.
+    // Without godmode a Barracks needs a tier 2 main base.
     const [x, z] = freeSpot(s, BuildingKind.Barracks);
     const build: Order = { kind: 'build', player: 0, units: [e.id[0]!], building: BuildingKind.Barracks, variant: 0, x, z };
     run(s, [build], 5);

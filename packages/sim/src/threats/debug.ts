@@ -1,10 +1,9 @@
 // The debug tools' threats (M5's tester checks): a lair of any kind, a
-// goblin village, a tribe's band or a territorial creature at a point, a
-// blood night for the coming night, and fog now. Also M6's mage tools: a
-// finished Magi Sanctum, two mages' kit materials and crystals, and experience for
-// every mage's next rank. And M8's: a Barn with horses (the Stables before
-// Patch 2), a siege kit, a
-// gun kit, a Citadel, each night mob from night 25 on, Morvath, and a late
+// goblin village, a tribe's band or a territorial creature at a point, and
+// fog now. Also M6's mage tools: a finished Magi Sanctum, two mages' kit
+// materials and crystals, and experience for every mage's next rank. And
+// M8's: a Barn with horses (the Stables before Patch 2), a siege kit, a gun
+// kit, a Citadel, each night mob from night 25 on, Morvath, and a late
 // night's wave (what the dark edge's budget buys on nights 30, 50, 85 and
 // 105) at once.
 
@@ -12,7 +11,7 @@ import { clockOf, Period } from '../clock.ts';
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pickNight } from '../combat/spawn.ts';
 import { placeBuilding, refitBuilding, UnitKind, WILD, type SimState } from '../state.ts';
-import { BuildingKind, FORGE_STEP_BASE } from '../buildings/data.ts';
+import { BuildingKind, FORGE_STEP_BASE, levelSpec } from '../buildings/data.ts';
 import { footprintDims } from '../buildings/footprints.ts';
 import { Res } from '../economy/resources.ts';
 import { Research } from '../combat/items.ts';
@@ -30,12 +29,12 @@ import { Mob, mobSpec } from '../combat/mobs.ts';
 import { cellAt } from './cells.ts';
 import { LAIRS } from './data.ts';
 import { addLair, nightNow } from './lairs.ts';
-import { startBlood, startFog } from './nights.ts';
+import { startFog } from './nights.ts';
 import { spawnBand } from './tribes.ts';
 import { buildVillage } from './villages.ts';
 import { spreadTop } from '../units/top.ts';
 
-/** The player's first main base, finished at a level (at least the one it has), its health full and its top manned as that level has it. */
+/** The player's first main base, finished at a tier (at least the one it has), its health full and its top manned as that level has it. */
 function raiseMainBase(state: SimState, player: number, level: number): void {
   const b = state.buildings.list.find((q) => q.owner === player && q.kind === BuildingKind.MainBase);
   if (!b) return;
@@ -54,7 +53,6 @@ export const DebugThreat = {
   Gnolls: 11,
   Kobolds: 12,
   Hobgoblins: 13,
-  BloodNight: 20,
   Fog: 21,
   /** Territorial creatures from 30: beetle, hornet nest, viper, scorpion, griffin, minotaur. */
   Creature: 30,
@@ -70,11 +68,11 @@ export const DebugThreat = {
   SiegeKit: 51,
   /** The carbon steel, planks, flint and gunpowder for four musket rangers' kits, and the gun research done (Patch 2: no cannon crew training; artillery crewmen crew cannons). */
   GunKit: 52,
-  /** The player's main base becomes a finished Citadel (level 10) with its 4 cannon ports. */
+  /** The player's main base becomes a finished Citadel (tier 4) with its 4 cannon ports. */
   Citadel: 53,
-  /** A finished Barracks and Forge at the spot, the main base raised to level 7 if lower (the Forge's steel step), the materials of every tier, 300 farm fare, and the research every tier needs (Troops and gear). */
+  /** A finished Barracks and Forge at the spot, the main base raised to tier 3 if lower (the Forge's steel step), the materials of every tier, 300 farm fare, and the research every tier needs (Troops and gear). */
   TroopKit: 54,
-  /** A finished Mineshaft centred on the spot and a finished Storehouse beside it, Deep Mining I researched and the main base raised to level 4 if lower (Patch 2: assign workers and watch them carry their bags). */
+  /** A finished Mineshaft centred on the spot and a finished Storehouse beside it, Deep Mining I researched and the main base raised to tier 3 if lower (Patch 2: assign workers and watch them carry their bags). */
   MineKit: 55,
   /** Night mobs from night 25 on, in roster order from 60 (LATE_MOBS). */
   LateMob: 60,
@@ -116,10 +114,6 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
   }
   if (what >= DebugThreat.Gnolls && what <= DebugThreat.Hobgoblins) {
     spawnBand(state, clockOf(state).cycle, { tribe: TRIBE_MOBS[what - DebugThreat.Gnolls]!, x, z });
-    return;
-  }
-  if (what === DebugThreat.BloodNight) {
-    startBlood(state, comingNight(state), -1);
     return;
   }
   if (what === DebugThreat.Fog) {
@@ -199,7 +193,7 @@ export function debugThreat(state: SimState, player: number, what: number, x: nu
     const md = footprintDims(BuildingKind.Mineshaft, 0);
     placeBuilding(state, player, BuildingKind.Mineshaft, 0, cx - (md.w >> 1), cz - (md.d >> 1), true);
     placeBuilding(state, player, BuildingKind.Storehouse, 0, cx + (md.w >> 1) + 4, cz - (footprintDims(BuildingKind.Storehouse, 0).d >> 1), true);
-    raiseMainBase(state, player, 4);
+    raiseMainBase(state, player, levelSpec(BuildingKind.Mineshaft, 1).needsBase);
     p.research |= 1 << Research.DeepMining1;
     return;
   }

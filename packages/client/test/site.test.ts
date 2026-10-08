@@ -13,6 +13,11 @@ describe('game version', () => {
     expect(deployVersion(file, [], [])).toEqual({ label: `${file.stage} ${file.next}`, tag: `live-${file.next}`, fresh: true });
   });
 
+  it('ships Patch 5 as indev 1.0, after indev 0.9', () => {
+    expect(file).toEqual({ stage: 'indev', next: '1.0' });
+    expect(deployVersion(file, ['live-0.8', 'live-0.9'], [])).toEqual({ label: 'indev 1.0', tag: 'live-1.0', fresh: true });
+  });
+
   it('goes up by 0.1 each deploy, through whole numbers', () => {
     expect(deployVersion({ stage: 'indev', next: '0.2' }, ['live-0.1', 'live-0.2'], []).label).toBe('indev 0.3');
     expect(deployVersion({ stage: 'indev', next: '0.2' }, ['live-0.9'], []).tag).toBe('live-1.0');

@@ -1,6 +1,6 @@
 // What each building looks like when the model library has no model for it:
 // a few coloured blocks per kind and level, merged into one geometry with
-// vertex colours (one draw call per building). Every main base level has its
+// vertex colours (one draw call per building). Every main base tier has its
 // own look (Main base: Big House to Citadel), the Farm shows its crop, and
 // lights carry a flame.
 //
@@ -8,7 +8,7 @@
 // floor, metres, x east, z south.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BuildingKind, buildingSpec, footprintDims } from '@blockyrts/sim';
+import { BuildingKind, buildingSpec, footprintDims, MAIN_BASE_TIER_LEVELS } from '@blockyrts/sim';
 import { COLUMN_M } from './mesher.ts';
 
 export interface Look {
@@ -164,7 +164,7 @@ class Parts {
   }
 }
 
-/** The main base at each level, inside its 10 x 10 column core (4.5 m), 0.9 m in from the footprint edge. */
+/** The main base at each old level (a tier draws the level it stands on, MAIN_BASE_TIER_LEVELS), inside its 10 x 10 column core (4.5 m), 0.9 m in from the footprint edge. */
 function mainBase(p: Parts, level: number, team: number): void {
   const o = 2 * COLUMN_M;
   const s = 10 * COLUMN_M;
@@ -336,7 +336,7 @@ export function makeLook(kind: number, level: number, variant: number, team: num
       break;
     }
     case BuildingKind.MainBase:
-      mainBase(p, level, team);
+      mainBase(p, MAIN_BASE_TIER_LEVELS[level - 1] ?? 1, team);
       break;
     case BuildingKind.Farm:
       farm(p, kind, level, variant, fallow);

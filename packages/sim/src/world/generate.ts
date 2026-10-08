@@ -630,7 +630,7 @@ export class WorldGen {
       ground = Math.min(ground, g);
       waterLevel = Math.max(waterLevel, lvl);
       source = 1;
-      surfaceHint = Mat.Gravel;
+      surfaceHint = Mat.Sand;
     });
     for (const bog of feat.bogs) {
       if (this.bogEffect(bog, x, z, smooth)) {
@@ -704,7 +704,7 @@ export class WorldGen {
           ground = g;
           waterLevel = lvl;
           source = 1;
-          surfaceHint = Mat.Gravel;
+          surfaceHint = Mat.Sand;
         });
       }
       if (pocket.bog) {
@@ -980,12 +980,12 @@ export class WorldGen {
     const rock = volcanic ? Mat.Basalt : Mat.Stone;
     const soilTop = p.surface === Mat.Grass || p.surface === Mat.DryGrass ? 1 : 0;
     const soilMat =
-      p.surface === Mat.Mud ? Mat.Mud : p.surface === Mat.Ash ? Mat.Ash : p.surface === Mat.DeadEarth ? Mat.DeadEarth : p.surface === Mat.Sand || p.surface === Mat.Gravel || p.surface === Mat.Clay ? p.surface : Mat.Soil;
+      p.surface === Mat.Mud ? Mat.Mud : p.surface === Mat.Ash ? Mat.Ash : p.surface === Mat.DeadEarth ? Mat.DeadEarth : p.surface === Mat.Sand || p.surface === Mat.Clay ? p.surface : Mat.Soil;
     const soil = Math.min(p.soil, ground - bottom - 1);
-    // Clay, sand or gravel lens under the soil in places.
+    // Clay or sand lens under the soil in places (Patch 5 took gravel out).
     const ln = valueNoise(oreSeed + 1, x, z, 5);
     const lens = p.soil > 0 && ln > 40000 ? (ln - 40000) >> 12 : 0;
-    const lensMat = [Mat.Clay, Mat.Sand, Mat.Gravel][hash2(oreSeed, x >> 5, z >> 5) % 3]!;
+    const lensMat = [Mat.Clay, Mat.Sand][hash2(oreSeed, x >> 5, z >> 5) % 2]!;
     const rockTop = ground - soil - lens;
     // Ore deeper down in places (found later by prospecting and mineshafts), vein iron inside ridges.
     const stack: number[] = [];

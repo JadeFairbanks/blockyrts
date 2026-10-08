@@ -38,12 +38,13 @@ const drawn = (icon: ButtonIcon | undefined, what: string): void => {
 };
 
 describe('one picture per thing', () => {
-  it('draws every building at every level, and each earthwork', () => {
+  it('draws every building at every level', () => {
     for (const kind of Object.values(BuildingKind)) {
       for (let level = 1; level <= 10; level++) expect(hasKit(buildingIconFile(kind, level)), `kind ${kind} level ${level}`).toBe(true);
     }
-    for (let v = 0; v < 5; v++) expect(hasKit(buildingIconFile(BuildingKind.Earthworks, 1, v))).toBe(true);
-    expect(buildingIconFile(BuildingKind.MainBase, 4)).toBe('icon_main_base_l4');
+    // Patch 5: the main base's four tiers are drawn as the old levels 1, 3, 6 and 10.
+    expect(buildingIconFile(BuildingKind.MainBase, 2)).toBe('icon_main_base_l3');
+    expect(buildingIconFile(BuildingKind.MainBase, 4)).toBe('icon_main_base_l10');
     // Patch 2: only the main base keeps levels; every other building has its one picture.
     expect(buildingIconFile(BuildingKind.Forge, 9)).toBe('icon_forge_l1');
   });

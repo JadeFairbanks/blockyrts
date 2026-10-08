@@ -29,7 +29,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
   { id: 'loot', label: 'Loot, hunting and gathering', blurb: 'What kills drop and who carries it: the loot bag, how near units pick loot up by themselves, how long it lies, when a find is remarked on; how far Hunt and Gather go from home (back by nightfall), what Gather fetches and how far into the unknown it looks, and fighters coming to a worker\'s help.' },
   { id: 'nightwork', label: 'Working through the night', blurb: 'Jade\'s Patch 4: how near a building and a troop a worker gathering by itself must be at dusk to ask "Should I keep working through the night?" instead of going home, how near the buildings it then gathers, how far one worker asks for the others, and when workers who went in for the night come out at dawn (no monster alive within this of their shelter).' },
-  { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, blood and fog nights, special attacks, and (Patch 4) how a monster a troop hurts turns on the nearest troop.' },
+  { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, fog nights, special attacks, and (Patch 4) how a monster a troop hurts turns on the nearest troop.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
@@ -38,13 +38,12 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go; and (Patch 4) how long a farm stands empty, a building goes unworked or a worker stands idle before it asks, and how near a worker must be to be sent.' },
   { id: 'pacing', label: 'Pacing', blurb: 'The day and night clock and the other timings everything else counts in.' },
   { id: 'other', label: 'Other numbers', blurb: 'Numbers in the sim that no other group claims yet. New tables show up here until they are given a home.' },
-  { id: 'tables', label: 'Blueprint tables (read only)', blurb: 'The blueprint\'s numbered tables as the sim reads them, for reference. Change these through the blueprint, not here.' },
 ];
 
 /** Modules that hold no balance at all: maths, serialisation, ids, the state layout. */
 export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
-  'data/tables.ts', 'data/table-types.ts', 'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
+  'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
   'nav/path.ts', 'threats/debug.ts', 'debug/god.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
   'magic/cast.ts', 'units/names.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
 ]);
@@ -72,7 +71,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'world/materials.ts:MATERIAL_COUNT', 'world/world.ts:CHUNK_CACHE_BUDGET', 'world/world.ts:FOG_TILES_PER_CHUNK', 'world/world.ts:FOG_TILE_COLUMNS',
   'world/layout.ts:CELL_RING_SHIFT', 'world/layout.ts:BAND_NAMES', 'world/layout.ts:EDGE_NAMES', 'world/layout.ts:LOOK_NAMES',
   'buildings/mining.ts:RATING_NAMES', 'buildings/placement.ts:BLOCKED_TEXT', 'economy/food.ts:RATIONS_TEXT', 'clock.ts:PERIOD_NAMES',
-  'clock.ts:NO_BLOOD', 'combat/combat.ts:RANK_NAMES', 'rules.ts:BP', 'rules.ts:XP_TENTHS', 'rules.ts:VP_SOFTWOOD_LUMBER',
+  'combat/combat.ts:RANK_NAMES', 'rules.ts:BP', 'rules.ts:XP_TENTHS', 'rules.ts:VP_SOFTWOOD_LUMBER',
   'commands.ts:FLOW_FIELD_GROUP', 'nav/grid.ts:WALKER', 'nav/grid.ts:PERSON', 'nav/grid.ts:PERSON_ARMOURED', 'nav/grid.ts:CLIMBER',
   'nav/grid.ts:CLIMBER_PLAN', 'nav/grid.ts:MOB_PLAN', 'nav/grid.ts:SWIMMER', 'nav/grid.ts:WHEELS', 'world/props.ts:PROPS:check',
   // Mana's fixed-point scale, the rank count, and tables worked out from MAGE_RANKS.
@@ -153,7 +152,6 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'nav/grid.ts': 'world',
   'clock.ts': 'pacing',
   'rules.ts': 'units',
-  'data/number-tables.ts': 'tables',
   'mounts/data.ts': 'siege',
   'mounts/riding.ts': 'siege',
   'siege/data.ts': 'siege',
@@ -205,8 +203,6 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'rules.ts:LAIR_CLEAR_RADIUS_M': 'lairs',
   'rules.ts:HEX_SLOW_BP': 'lairs',
   'rules.ts:ARMOUR_CAP_BP': 'armour',
-  'threats/data.ts:BLOOD_FLOOR_NIGHT': 'mobs',
-  'threats/data.ts:BLOOD_SHARE_PM': 'mobs',
   'threats/data.ts:FOG_CHANCE_PCT': 'mobs',
   'threats/data.ts:FOG_FROM_NIGHT': 'mobs',
   'threats/data.ts:DEPTH_PM': 'mobs',
@@ -418,7 +414,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'training:buildings/data.ts': 'Worker training', 'units:buildings/production.ts': 'Training', 'food:buildings/data.ts': 'Farms',
   'food:buildings/production.ts': 'Slaughter', 'land:buildings/data.ts': 'Claimed land and relighting', 'tools:units/behaviour.ts': 'Tool speed',
   'world:units/behaviour.ts': 'Gathering', 'food:rules.ts': 'Upkeep', 'resources:rules.ts': 'Trinket worth', 'lairs:rules.ts': 'Lair clearing and hexes',
-  'armour:rules.ts': 'Armour cap', 'pacing:rules.ts': 'Day and night', 'mobs:threats/data.ts': 'Blood and fog nights, depth', 'food:buildings/recipes.ts': 'Cooking',
+  'armour:rules.ts': 'Armour cap', 'pacing:rules.ts': 'Day and night', 'mobs:threats/data.ts': 'Fog nights, depth', 'food:buildings/recipes.ts': 'Cooking',
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
   'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'units/ranks.ts': 'Worker ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',

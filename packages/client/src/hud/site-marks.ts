@@ -1,8 +1,8 @@
-// How marked digs, tunnels and earthworks show on the overlay (Jade's Patch 4;
+// How marked digs and tunnels show on the overlay (Jade's Patch 4;
 // Controls: Dig). The full see-through box shows only while a selected worker
 // has the site in its orders, digging it now or lined up after its current
 // job. Every other site is traced by one thin dotted line instead: round the
-// edge of a dug or heaped area, on the land beside it, and along the middle of
+// edge of a dug area, on the land beside it, and along the middle of
 // a tunnel at its floor, joined from stretch to stretch so a chain reads as one
 // path. Either way any worker can still be right-clicked onto it to help.
 
@@ -24,14 +24,14 @@ export interface TraceRun {
   nz: number;
 }
 
-/** How far outside an area its trace looks up the land, metres: the next column over, so the line rides the rim of a dig or the foot of a heap (s). */
+/** How far outside an area its trace looks up the land, metres: the next column over, so the line rides the rim of a dig (s). */
 export const TRACE_NUDGE_M = 0.05;
 /** How far over the land or a tunnel's floor the trace is drawn, metres: as the light and claim rings (s). */
 export const TRACE_LIFT_M = 0.08;
 /** A joined corner of a tunnel chain lies within this many columns of the column the stretches share; anything further is drawn as a plain link (s). */
 const JOIN_REACH_COLUMNS = 2;
 
-/** The sites in these units' order lists: what the selected workers are digging or heaping now, or have lined up after it. */
+/** The sites in these units' order lists: what the selected workers are digging now, or have lined up after it. */
 export function sitesInOrders(ids: Iterable<number>, queues: ReadonlyMap<number, readonly UnitOrder[]>): Set<number> {
   const out = new Set<number>();
   for (const id of ids) for (const o of queues.get(id) ?? []) if (o.t === 'dig') out.add(o.site);
@@ -67,7 +67,7 @@ function middleLine(s: Site): { ax: number; az: number; bx: number; bz: number; 
 }
 
 /**
- * The dotted trace of each site, by site id. A dig, bank, fill or ramp is
+ * The dotted trace of each site, by site id. A dig is
  * traced round its edge on the land; a marked tunnel round its edge at its
  * floor; a tunnel chain's stretch along its middle at its floor, and where
  * one stretch starts on the column another ends on at the same floor, both

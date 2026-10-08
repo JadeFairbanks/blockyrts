@@ -9,7 +9,7 @@ import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { costText, Res, RESOURCES, type Cost } from '../economy/resources.ts';
 import { eatableFood, giveFood, payFood } from '../economy/food.ts';
-import { meatOf, payAny } from '../economy/food-kinds.ts';
+import { haveOf, meatOf, payAny } from '../economy/food-kinds.ts';
 import { addWarrior, isGod, UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
 import { Band, BAND_NAMES } from '../world/layout.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
@@ -205,7 +205,7 @@ export function stalledHorses(state: SimState, b: Building, player = b.owner): n
   return [];
 }
 
-/** The Forge step a player's town is at (buildings/data.ts forgeStep): a finished Forge, then main base levels. */
+/** The Forge step a player's town is at (buildings/data.ts forgeStep): a finished Forge, then main base tiers. */
 export function forgeStepOf(state: SimState, player: number): number {
   // Godmode has the Forge's every step (Jade's Patch 5).
   if (isGod(state, player)) return FORGE_STEP_BASE.length - 1;
@@ -359,7 +359,7 @@ export function productsOf(b: Building): Product[] {
   const out: Product[] = [];
   if (b.kind === BuildingKind.MainBase) {
     out.push(Product.Worker);
-    // Main bases of level 6 or higher train mages too (Magic).
+    // Main bases of tier 3 or higher train mages too (Magic).
     if (b.level >= MAGE_MAIN_BASE_LEVEL) out.push(Product.SupportMage, Product.BattleMage);
   } else if (b.kind === BuildingKind.MagiSanctum) {
     // Its mages come from its cards with their kit picked (mageSchoolsAt, Patch 2); research is made here.
@@ -417,14 +417,14 @@ export function researchProblem(state: SimState, player: number, r: ResearchSpec
   return '';
 }
 
-/** The main base level a recipe, engine, research or troop needs (Patch 2), as a reason, or ''. */
+/** The main base tier a recipe, engine, research or troop needs (Patch 2; tiers from Patch 5), as a reason, or ''. */
 export function baseProblem(state: SimState, player: number, base: number): string {
-  return base > 0 && !isGod(state, player) && bestLevel(state, player, BuildingKind.MainBase) < base ? `Needs a level ${base} main base.` : '';
+  return base > 0 && !isGod(state, player) && bestLevel(state, player, BuildingKind.MainBase) < base ? `Needs a tier ${base} main base.` : '';
 }
 
 /**
  * Why a product cannot be queued at a building now, or '' if it can:
- * the main base level, research, a horse in a Barn, the stock, the pool.
+ * the main base tier, research, a horse in a Barn, the stock, the pool.
  * `user` is the player queueing it, who pays: the owner, or anyone still in
  * at an inherited building, where the research it brings counts too.
  */
@@ -450,7 +450,7 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     if (why) return why;
     if (!hasResearch(research, s.research as Research)) return `Needs ${RESEARCH[s.research]!.name} researched first.`;
     // The engine's materials here; its crew's food below.
-    for (const [res, n] of spec.cost) if (pool[res]! < n) return `Not enough resources (${costText(spec.cost)}).`;
+    for (const [res, n] of spec.cost) if (haveOf(pool, res) < n) return `Not enough resources (${costText(spec.cost)}).`;
   } else if (spec.recipe !== undefined) {
     const r = recipeSpec(spec.recipe);
     if (r.later) return r.later;
@@ -470,7 +470,7 @@ export function productProblem(state: SimState, b: Building, product: Product, u
   if (spec.food > 0) {
     if (eatableFood(player) < spec.food) return `Not enough food (${spec.food} food).`;
   } else {
-    for (const [res, n] of spec.cost) if (pool[res]! < n) return `Not enough resources (${costText(spec.cost)}).`;
+    for (const [res, n] of spec.cost) if (haveOf(pool, res) < n) return `Not enough resources (${costText(spec.cost)}).`;
   }
   return '';
 }
@@ -530,9 +530,9 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
   const player = state.players[by]!;
   const pool = player.pool;
   const paid: Array<[number, number]> = [];
-  const take = (cost: ReadonlyArray<readonly [number, number]>): void => {
-    for (const [res, n] of cost) {
-      pool[res] = pool[res]! - n;
+  const take = (cost: Cost): void => {
+    // "Lumber" in a research or engine cost (Patch 5: either kind) is paid with the kinds in stock, and those come back if it is cancelled.
+    for (const [res, n] of payAny(pool, cost)) {
       const at = paid.findIndex(([r]) => r === res);
       if (at >= 0) paid[at] = [res, paid[at]![1] + n];
       else paid.push([res, n]);

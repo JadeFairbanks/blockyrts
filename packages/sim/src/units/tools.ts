@@ -74,10 +74,10 @@ export function toolInHand(e: EntityStore, i: number): number {
 const METALS = ['copper', 'bronze', 'wrought iron', 'iron', 'steel', 'carbon steel'];
 /** Each job's tool by tier from hardwood to flint (Table 2c); copper and up are the metal's axe, pickaxe, hammer and sickle. */
 const EARLY: readonly (readonly string[])[] = [
-  ['hardwood axe', '', 'flint axe'],
+  ['wooden axe', '', 'flint axe'],
   ['digging stick', 'stone maul', ''],
-  ['hardwood mallet', 'stone hammer', ''],
-  ['hardwood hoe', '', 'flint knife'],
+  ['wooden mallet', 'stone hammer', ''],
+  ['wooden hoe', '', 'flint knife'],
 ];
 const METAL_TOOL = ['axe', 'pickaxe', 'hammer', 'sickle'];
 

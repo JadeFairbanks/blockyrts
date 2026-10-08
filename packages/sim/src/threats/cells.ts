@@ -1,7 +1,7 @@
 // The world's cells as the threats see them: which cell a point is in,
 // which cells hold the players' buildings (claimed cells, for lair placement
-// and the blood night trigger), how many cells a depth band has, and the
-// spots the land offers a lair: cave mouths and the foot of barrier edges.
+// and the tribes' camps), which rings a depth band spans, and the spots the
+// land offers a lair: cave mouths and the foot of barrier edges.
 
 import { buildingCentre } from '../buildings/lights.ts';
 import { floorDiv, isqrt, WU_PER_COLUMN } from '../fixed.ts';
@@ -49,14 +49,6 @@ export function bandRings(layout: WorldLayout, band: Band): [number, number] {
     default:
       return [b.deadlands, layout.ringCount];
   }
-}
-
-/** How many cells a band has. */
-export function bandCellCount(layout: WorldLayout, band: Band): number {
-  const [r0, r1] = bandRings(layout, band);
-  let n = 0;
-  for (let r = r0; r < r1; r++) n += layout.ringCellCount(r);
-  return n;
 }
 
 /**

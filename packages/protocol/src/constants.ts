@@ -11,9 +11,10 @@ export const PROTOCOL_VERSION = 5;
  * milestone 11's troop rework; 3 was Patch 2; 4 was Jade's mini patch (base
  * spacing and the world 30% smaller); 5 was Patch 3; 6 was Patch 3b (the
  * start's asks wait 10 s); 7 was indev 0.8 (the action card holds 12 buttons
- * before it grows); 8 is Patch 4, one bump for the whole patch.
+ * before it grows); 8 was Patch 4; 9 is Patch 5 (indev 1.0), one bump for
+ * the whole patch.
  */
-export const SAVE_FORMAT_VERSION = 8;
+export const SAVE_FORMAT_VERSION = 9;
 
 /** Up to 8 players play together (Multiplayer and saving). */
 export const MAX_PLAYERS = 8;

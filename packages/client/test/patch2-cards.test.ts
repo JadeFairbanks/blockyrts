@@ -37,7 +37,7 @@ function game(buildings: BuildingInfo[], stock: Array<[number, number]> = []): G
     type: 'info', step: 10, pool, supplyUsed: 4, supplyCap: 8, buildings, queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -73,7 +73,7 @@ describe('the Sanctum cards', () => {
   it('say why a mage cannot be trained, short stock first', () => {
     const s = sanctum(211);
     const card = mageLock(School.Support);
-    expect(cardWhy(game([s]), s, card, 1, 1)).toBe('Short: 0 of 5 hardwood sticks.');
+    expect(cardWhy(game([s]), s, card, 1, 1)).toBe('Short: 0 of 5 sticks.');
     expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3]]), s, card, 1, 1)).toBe('Not enough food (50).');
     expect(cardWhy(game([s], [[Res.Sticks, 5], [Res.Flax, 3], [Res.FarmFare, 30]]), s, card, 1, 1)).toBe('');
   });
@@ -100,11 +100,11 @@ describe('the Sanctum cards', () => {
 describe('the card tooltips', () => {
   it('name the kit, its numbers, its cost with counted ingots, and the card state', () => {
     expect(cardTrainsText(Troop.Close, 4, 3)).toBe('Trains a Bronze swordsman: bronze shortsword, copper scale jack, boiled-leather targe.');
-    expect(cardCostText(Troop.Close, 4, 3)).toBe('30 food, 2 bronze ingots, 1 hardwood lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 3 minutes, 1 supply.');
+    expect(cardCostText(Troop.Close, 4, 3)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 3 minutes, 1 supply.');
     expect(cardTooltip(Troop.Long, { w: 2, a: 1, picked: true, locked: false }, 'Barracks').split('\n')).toEqual([
       'Trains a Flint spearman: flint-headed spear, leather jerkin.',
       'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 10%.',
-      'Costs 30 food, 3 hardwood sticks, 1 flint, 3 leather. 1 minute 25 seconds, 1 supply.',
+      'Costs 30 food, 3 sticks, 1 flint, 3 leather. 1 minute 25 seconds, 1 supply.',
       'Picked: until this Barracks is deselected.',
     ]);
     expect(cardTooltip(mageLock(School.Battle), { w: 1, a: 1, picked: false, locked: true }, 'Magi Sanctum')).toContain('Locked: always this kit here; allies see it.');

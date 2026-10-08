@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { hashString } from '../src/dsp/core.ts';
 import { trimRange } from '../src/engine/files.ts';
@@ -15,7 +14,7 @@ function fingerprint(buf: Float32Array): number {
   return hashString(Array.from(buf.subarray(0, 4000), (x) => x.toFixed(6)).join(','));
 }
 
-/** Each sound the doc's Audio section names, and the ids that play it. */
+/** Each sound the design names (the old blueprint's Audio section), and the ids that play it. */
 const DOC_SOUNDS: Record<string, readonly string[]> = {
   chopping: ['chop'],
   mining: ['mine'],
@@ -35,24 +34,11 @@ const DOC_SOUNDS: Record<string, readonly string[]> = {
 };
 
 describe('the sound list', () => {
-  it('covers every sound the doc names, and the doc list has not changed under us', () => {
-    const doc = readFileSync(new URL('../../../docs/blueprint.md', import.meta.url), 'utf8');
-    const line = doc.split('\n').find((l) => l.startsWith('- **Sounds:**'));
-    expect(line, 'Audio > Sounds line in docs/blueprint.md').toBeDefined();
-    const phrases = line!
-      .replace('- **Sounds:**', '')
-      .replace(/\.$/, '')
-      .split(/,\s*|\s+and\s+/)
-      .map((p) => p.trim())
-      .filter(Boolean);
-    for (const phrase of phrases) {
-      expect(DOC_SOUNDS, `doc sound "${phrase}" has no entry here; add it to the manifest`).toHaveProperty([phrase]);
-    }
+  it('covers every sound the design names', () => {
     for (const ids of Object.values(DOC_SOUNDS)) for (const id of ids) expect(soundDef(id), id).toBeDefined();
   });
 
-  it('has the blood night double horn and the voice moments the doc names', () => {
-    expect(soundDef('horn_blood_night')).toBeDefined();
+  it('has the voice moments the doc names', () => {
     // "short voice cues when units get orders, are hungry, are under attack, or run out of a resource"
     expect(FAMILY_EVENTS.worker).toEqual(expect.arrayContaining(['acknowledge', 'select', 'hungry', 'under_attack', 'resource_out', 'cannot']));
     for (const fam of ['warrior', 'mage'] as const) expect(FAMILY_EVENTS[fam]).toEqual(expect.arrayContaining(['acknowledge', 'select', 'hungry', 'under_attack']));
@@ -109,8 +95,8 @@ describe('rendering every sound', () => {
 });
 
 describe('music', () => {
-  it('has the five states the doc names', () => {
-    expect([...MUSIC_STATES].sort()).toEqual(['blood_night', 'dawn', 'day', 'dusk', 'night']);
+  it('has the four states the doc names', () => {
+    expect([...MUSIC_STATES].sort()).toEqual(['dawn', 'day', 'dusk', 'night']);
   });
 
   for (const state of MUSIC_STATES) {

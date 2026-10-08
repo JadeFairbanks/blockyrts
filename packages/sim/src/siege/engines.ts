@@ -2,7 +2,7 @@
 // Main base: the Citadel's cannon ports; Table 19's Dwarf city cannons). An
 // engine is a unit that never eats, never heals and is repaired by workers.
 // It moves only while a hitched horse or ox walks beside it, or while
-// enough of its crew stand by to push it, and rolls on wheels (ramps, not
+// enough of its crew stand by to push it, and rolls on wheels (gentle slopes, not
 // steps). It fires while its crew stand by it and it stands still: at what
 // it was told to attack, else at the nearest foe in range. Patch 2 (Jade):
 // an engine rolls out of the Artillery workshop with its full crew of
@@ -290,7 +290,7 @@ function waitForHaul(state: SimState, i: number): false {
   return false;
 }
 
-/** Cannon ports a Citadel has (Table 4: 4 on a main base of level 10), or 0. */
+/** Cannon ports a Citadel has (Table 4: 4 on a tier 4 main base), or 0. */
 export function portRoom(b: Building): number {
   return b.complete && b.kind === BuildingKind.MainBase && b.level >= CITADEL_LEVEL ? CANNON_PORTS : 0;
 }
@@ -340,7 +340,7 @@ function toPort(state: SimState, i: number, id: number): boolean {
 export function portWhy(state: SimState, i: number, b: Building): string {
   const spec = engineSpec(state.entities.mob[i]!);
   if (!spec.cannon) return 'Only cannons go in the Citadel\'s cannon ports.';
-  if (portRoom(b) === 0) return 'Only a Citadel (main base level 10) has cannon ports.';
+  if (portRoom(b) === 0) return 'Only a Citadel (main base tier 4) has cannon ports.';
   if (inPorts(state, b) >= portRoom(b)) return 'Every cannon port is taken.';
   return '';
 }

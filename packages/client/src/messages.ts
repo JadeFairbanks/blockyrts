@@ -212,7 +212,7 @@ export interface BuildingInfo {
   working: number;
   /** Units in it: sheltering inside, and up on its top (also in `up`). */
   inside: number[];
-  /** The units up on its top (towers, a main base from level 3), entity ids. */
+  /** The units up on its top (towers, a main base from tier 2), entity ids. */
   up: number[];
   /** The panel's status line. */
   status: string;
@@ -283,7 +283,7 @@ export interface InfoMessage {
   /** Research done, a bit per Research id, and the Forge step the town is at (what kit tiers need: sim forgeStep). */
   research: number;
   forge: number;
-  /** Dig and earthwork sites of the local player. */
+  /** Dig and tunnel sites of the local player. */
   sites: Site[];
   /** The step the game ended (0 while it goes on), and the nights survived. */
   over: number;
@@ -300,8 +300,7 @@ export interface InfoMessage {
   open: Int32Array;
   starveWorkers: boolean;
   starveTroops: boolean;
-  /** Blood nights called so far (they shift the clock), and whether a fog night lies now. */
-  blood: number[];
+  /** Whether a fog night lies now. */
   fog: boolean;
   /** The debugger's godmode is on for the local player (Jade's Patch 5); absent when it is off. */
   god?: boolean;

@@ -82,7 +82,7 @@ export function addDebugger(shell: GameShell, world: WorldView, PLAYER: number, 
   const threat = (what: number): void => order({ kind: 'debugThreat', player: PLAYER, what, ...focus() });
   add('dbg-fog', 'Fog', 'Debug: fog night', 'Brings fog for the coming night (from now until day): everyone sees half as far and lights reach half as far.', () => threat(DebugThreat.Fog));
   let wave = 0;
-  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105.', () => {
+  add('dbg-wave', `Wave: night ${WAVE_NIGHTS[0]}`, 'Debug: a late night\'s wave', 'Spawns in the middle of the view what the dark edge\'s budget buys on the named night (one player) and lists it in the messages; each press moves on to the next of nights 30, 50, 85 and 105. Night 85 buys infernal juggernauts.', () => {
     threat(DebugThreat.Wave + wave);
     wave = (wave + 1) % WAVE_NIGHTS.length;
     shell.buttons.get('dbg-wave')?.setFace(`Wave: night ${WAVE_NIGHTS[wave]}`);

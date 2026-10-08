@@ -99,7 +99,7 @@ function renderLayer(def: MusicStateDef, layer: Layer, sr: number, loopLen: numb
       for (const n of ev.notes) fn(ctx, buf, at, 440 * Math.pow(2, (n - 69) / 12), ev.steps * stepSec, vel / Math.sqrt(ev.notes.length));
     }
   }
-  if (layer.instrument === 'pad' || layer.instrument === 'choir' || layer.instrument === 'darkPad') highpassInPlace(buf, 90, sr);
+  if (layer.instrument === 'pad' || layer.instrument === 'darkPad') highpassInPlace(buf, 90, sr);
   // Fold the tail onto the start so the loop has no seam.
   const out = buf.slice(0, loopLen);
   for (let i = loopLen; i < buf.length; i++) out[i % loopLen] = out[i % loopLen]! + buf[i]!;

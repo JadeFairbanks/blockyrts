@@ -12,16 +12,14 @@ import { DEFAULT_SETTINGS, saveSettings, sanitizeSettings } from '../src/setting
 const unitWho = (kind: number, extra: Partial<Who> = {}): Who => ({ kind, owner: 0, mob: 0, ranged: 0, shield: 0, order: 0, ...extra });
 
 describe('the sound map (Audio)', () => {
-  it('plays a track for each time of day, the blood night its own', () => {
-    expect(musicFor(Period.Day, false)).toBe('day');
-    expect(musicFor(Period.Dusk, true)).toBe('dusk');
-    expect(musicFor(Period.Night, false)).toBe('night');
-    expect(musicFor(Period.Night, true)).toBe('blood_night');
-    expect(musicFor(Period.Dawn, true)).toBe('dawn');
-    expect(hornFor(Period.Dusk, false)).toBe('horn_dusk');
-    expect(hornFor(Period.Dusk, true)).toBe('horn_blood_night');
-    expect(hornFor(Period.Dawn, false)).toBe('horn_dawn');
-    expect(hornFor(Period.Night, false)).toBeNull();
+  it('plays a track for each time of day', () => {
+    expect(musicFor(Period.Day)).toBe('day');
+    expect(musicFor(Period.Dusk)).toBe('dusk');
+    expect(musicFor(Period.Night)).toBe('night');
+    expect(musicFor(Period.Dawn)).toBe('dawn');
+    expect(hornFor(Period.Dusk)).toBe('horn_dusk');
+    expect(hornFor(Period.Dawn)).toBe('horn_dawn');
+    expect(hornFor(Period.Night)).toBeNull();
   });
 
   it('gives each unit its voice', () => {
@@ -80,11 +78,10 @@ describe('the sound map (Audio)', () => {
     expect(eventCue({ kind: 'alert', text: 'Your workers are starving and slowed.' }).voice).toBe('hungry');
     expect(eventCue({ kind: 'alert', text: 'I cannot reach that.', urgent: true }).voice).toBe('cannot');
     expect(eventCue({ kind: 'alert', text: 'A goblin village has declared war on you.' }).sound).toBe('alert_war');
-    expect(eventCue({ kind: 'alert', text: 'A blood night is coming.', sound: 'double-horn' }).sound).toBe('horn_blood_night');
   });
 
   it('names only sounds the audio package has', () => {
-    const ids = ['chop', 'mine', 'dig', 'build', 'build_complete', 'hit_blade', 'hit_blunt', 'hit_arrow', 'hit_building', 'block_wood', 'block_metal', 'death_body', 'death_monster', 'death_building', 'explosion_small', 'explosion_large', 'shot_bow', 'shot_sling', 'shot_musket', 'shot_cannon', 'spell_cast', 'torch_light', 'torch_snuff', 'horn_dusk', 'horn_dawn', 'horn_blood_night', 'alert_idle_worker', 'ping', 'error', 'alert_urgent', 'alert_war', 'ui_click', 'ui_place', 'ui_message'];
+    const ids = ['chop', 'mine', 'dig', 'build', 'build_complete', 'hit_blade', 'hit_blunt', 'hit_arrow', 'hit_building', 'block_wood', 'block_metal', 'death_body', 'death_monster', 'death_building', 'explosion_small', 'explosion_large', 'shot_bow', 'shot_sling', 'shot_musket', 'shot_cannon', 'spell_cast', 'torch_light', 'torch_snuff', 'horn_dusk', 'horn_dawn', 'alert_idle_worker', 'ping', 'error', 'alert_urgent', 'alert_war', 'ui_click', 'ui_place', 'ui_message'];
     for (const id of ids) expect(soundDef(id), id).toBeDefined();
     // Every effect the package makes is played by something in the game.
     expect(SFX.map((s) => s.id).sort()).toEqual([...ids].sort());
@@ -155,7 +152,7 @@ function building(id: number, extra: Partial<BuildingInfo>): BuildingInfo {
 }
 
 function info(step: number, buildings: BuildingInfo[], events: SimEvent[] = [], extra: Partial<InfoMessage> = {}): InfoMessage {
-  return { type: 'info', step, buildings, events, queues: [], blood: [], starveWorkers: false, starveTroops: false, ...extra } as unknown as InfoMessage;
+  return { type: 'info', step, buildings, events, queues: [], starveWorkers: false, starveTroops: false, ...extra } as unknown as InfoMessage;
 }
 
 describe('the match plays every sound in the Audio list', () => {

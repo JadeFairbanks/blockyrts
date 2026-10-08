@@ -9,8 +9,8 @@ import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
-import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf, type Cost } from './economy/resources.ts';
-import { isAnyRes } from './economy/food-kinds.ts';
+import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
+import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
@@ -177,14 +177,14 @@ export function upgradeProblem(state: SimState, b: Building, by = b.owner): stri
   const next = spec.levels[b.level];
   if (!next) return 'It is at its highest level.';
   if (next.needs) return next.needs;
-  // Godmode needs no main base level or research first (Jade's Patch 5).
+  // Godmode needs no main base tier or research first (Jade's Patch 5).
   const god = isGod(state, by);
-  if (!god && next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
+  if (!god && next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a tier ${next.needsBase} main base.`;
   if (!god && next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
   const room = growthBlocked(state, b, b.level + 1);
   if (room !== Blocked.None) return `It needs more room round it to grow: ${BLOCKED_TEXT[room].charAt(0).toLowerCase()}${BLOCKED_TEXT[room].slice(1)}`;
   const pool = state.players[by]!.pool;
-  if (!canAfford(pool, next.cost)) return `Not enough ${RESOURCES[shortOf(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
+  if (!canAffordAny(pool, next.cost)) return `Not enough ${RESOURCES[shortOfAny(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
   return '';
 }
 
@@ -195,7 +195,8 @@ function applyUpgrade(state: SimState, b: Building, by: number): void {
     return;
   }
   const next = levelSpec(b.kind, b.level + 1);
-  pay(state.players[by]!.pool, next.cost);
+  // Kind by kind, so a cancel gives back the lumber it was paid in (Patch 5: a tier's lumber is either kind).
+  b.paid = payAny(state.players[by]!.pool, next.cost);
   b.upgrading = b.level + 1;
   b.upProgress = 0;
   refitBuilding(state, b);
@@ -245,7 +246,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
     return;
   }
   if (b.upgrading) {
-    refund(pool, levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
+    refund(pool, b.paid.length ? (b.paid as Cost) : levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
     b.upgrading = 0;
     b.upProgress = 0;
     refitBuilding(state, b);
@@ -255,7 +256,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
 /** Everyone Home: units without a standing job go to the nearest shelter with room; farmers go to their own farm. In the dark they go in for the night (ENTER_NIGHT: out at dawn once no monster is near, Jade's Patch 4), by day until daybreak. */
 export function everyoneHome(state: SimState, player: number): void {
   const e = state.entities;
-  const auto = isDark(state.step, state.blood) ? ENTER_NIGHT : 1;
+  const auto = isDark(state.step) ? ENTER_NIGHT : 1;
   const shelters = state.buildings.list.filter((b) => b.owner === player && shelterRoom(b) > 0);
   const taken = new Map<number, number>();
   for (const b of shelters) taken.set(b.id, shelteredIn(state, b.id).length);
@@ -285,7 +286,7 @@ export function everyoneHome(state: SimState, player: number): void {
   }
 }
 
-/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and level 3+ main bases), else shelter inside (workers), else nothing. */
+/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and main bases of tier 2 and up), else shelter inside (workers), else nothing. */
 export function enterOrder(state: SimState, i: number, b: Building): UnitOrder | null {
   if (garrisonRoom(b) > 0 && canGarrison(state, i)) return { t: 'enter', b: b.id, auto: ENTER_TOP };
   if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: shelterAuto(state) };
@@ -294,7 +295,7 @@ export function enterOrder(state: SimState, i: number, b: Building): UnitOrder |
 
 /** A worker sent to shelter by its player: in the dark it goes in for the night and comes out at dawn once no monster is near (Jade's Patch 4: any worker that retreated there at night); by day it stays until let out. */
 function shelterAuto(state: SimState): number {
-  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
+  return isDark(state.step) ? ENTER_NIGHT : 0;
 }
 
 /**
@@ -389,7 +390,7 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   for (const kind of planned.values()) for (const [r, n] of buildCost(state, o.player, kind)) owed.set(r, (owed.get(r) ?? 0) + n);
   const cost = buildCost(state, o.player, o.building);
   const pool = state.players[o.player]!.pool;
-  const { room, short } = stretchRoom((r) => pool[r]!, owed, cost);
+  const { room, short } = stretchRoom((r) => haveOf(pool, r), owed, cost);
   const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;
@@ -476,7 +477,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
-        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
+        if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
         if (isGod(state, o.player)) buildNow(state, o.player, o.building, o.variant, o.x, o.z);
         else giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
         break;
@@ -659,13 +660,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
         break;
-      case 'dig':
-      case 'earthwork': {
+      case 'dig': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const kind = o.kind === 'dig' ? (o.tunnel ? SiteKind.Tunnel : SiteKind.Dig) : ([SiteKind.Bank, SiteKind.Ramp, SiteKind.Bank, SiteKind.LumberRamp, SiteKind.StoneRamp][o.variant] ?? SiteKind.Bank);
-        const axis = o.kind === 'earthwork' ? o.axis & 1 : 0;
-        const site = markSite(state, o.player, kind, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, axis);
+        const site = markSite(state, o.player, o.tunnel ? SiteKind.Tunnel : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
         if (typeof site === 'string') {
           alert(state, o.player, site);
           break;
@@ -820,7 +818,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.res < RESOURCES.length && !isAnyRes(o.res)) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
-        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
         break;
       case 'debugThreat':
         debugThreat(state, o.player, o.what, o.x, o.z);

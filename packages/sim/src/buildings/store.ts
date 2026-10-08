@@ -9,7 +9,7 @@
 import type { ByteReader, ByteWriter } from '../bytes.ts';
 import { COLUMNS_PER_CHUNK, floorDiv } from '../fixed.ts';
 import { CHUNK_SHIFT, chunkKey } from '../world/chunk.ts';
-import { BuildingKind, buildingSpec, levelSpec, workSteps, UNFINISHED_HEALTH_PER_MILLE } from './data.ts';
+import { BuildingKind, buildingSpec, levelSpec, PARAPET_SLOTS, PARAPET_TIER, workSteps, UNFINISHED_HEALTH_PER_MILLE } from './data.ts';
 import { footprintDims, type Dims } from './footprints.ts';
 
 const N = COLUMNS_PER_CHUNK;
@@ -144,12 +144,12 @@ export interface Building {
   locks: number[];
 }
 
-/** Ranged units a building takes on its top (Table 4: towers 4, a main base's parapets 8 from level 3). */
+/** Ranged units a building takes on its top (Table 4: towers 4, a main base's parapets 8 from tier 2). */
 export function garrisonRoom(b: Building): number {
   if (!b.complete) return 0;
   const spec = buildingSpec(b.kind);
   if (spec.slots) return spec.slots;
-  if (b.kind === BuildingKind.MainBase && b.level >= 3) return 8;
+  if (b.kind === BuildingKind.MainBase && b.level >= PARAPET_TIER) return PARAPET_SLOTS;
   return 0;
 }
 

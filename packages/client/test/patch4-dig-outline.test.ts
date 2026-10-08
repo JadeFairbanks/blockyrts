@@ -71,19 +71,6 @@ describe('the dotted trace of an area', () => {
     ]);
   });
 
-  it('traces banks, fills and ramps the same way, on the land', () => {
-    for (const kind of [SiteKind.Bank, SiteKind.Ramp, SiteKind.LumberRamp, SiteKind.StoneRamp]) {
-      const runs = siteTraces([site(1, kind, 0, 0, 3, 1, 9, 18)]).get(1)!;
-      expect(runs.map(cols)).toEqual([
-        [0, 0, 4, 0],
-        [4, 0, 4, 2],
-        [4, 2, 0, 2],
-        [0, 2, 0, 0],
-      ]);
-      expect(runs.every((r) => r.y === null)).toBe(true);
-    }
-  });
-
   it('traces a marked tunnel round its edge at its floor', () => {
     const runs = siteTraces([site(1, SiteKind.Tunnel, 0, 0, 3, 1, -20, 0)]).get(1)!;
     expect(runs).toHaveLength(4);
