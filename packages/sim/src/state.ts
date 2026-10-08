@@ -248,6 +248,8 @@ export const UNIT_FIELDS = [
   ['healFrom', 'u32'],
   /** A support mage's health healed in combat not yet worth a tenth of experience (1 XP per 25 healed). */
   ['healXp', 'u8'],
+  /** Patch 5 (MB-14, MB-15, MB-18): a mage's spells on autocast, a bit per spell id (magic/spells.ts defaultAutocast). */
+  ['autocast', 'u32'],
   /** Milestone 7: an Elf Grovesinger's Barkskin on a unit until this step (Table 13: +25% armour). */
   ['barkUntil', 'u32'],
   /** A wild animal answering the Grovesinger's Call of the wild fights for her faction until this step, then goes wild again. */
@@ -411,6 +413,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare healLeft: Int32Array;
   declare healFrom: Uint32Array;
   declare healXp: Uint8Array;
+  declare autocast: Uint32Array;
   declare barkUntil: Uint32Array;
   declare calledUntil: Uint32Array;
   declare mount: Uint8Array;

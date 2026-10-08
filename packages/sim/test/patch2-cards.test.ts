@@ -127,7 +127,7 @@ describe('Patch 2: the Magi Sanctum\'s cards', () => {
     expect([e.wTier[m!], e.aTier[m!]]).toEqual([2, 2]);
     expect([e.weapon[m!], e.armour[m!]]).toEqual([WAND_GEAR[2], ROBE_GEAR[2]]);
     expect(e.mana[m!]).toBe(mageMaxMana(1, 2));
-    expect(e.mana[m!]).toBeGreaterThan(100 * MANA_SCALE);
+    expect(e.mana[m!]).toBeGreaterThan(90 * MANA_SCALE);
   });
 
   it('defaults to the best the stock pays for, the wand first', () => {

@@ -209,16 +209,32 @@ export function launch(state: SimState, shooter: number, x0: number, y0: number,
  * target is far enough away for a lob to clear it.
  */
 export function clearLob(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ownOnly: boolean): number {
-  const lobs = SHOTS[shot]!.arcs ? LOBS : LOBS.slice(0, 1);
-  for (const lob of lobs) if (clearPath(state, shot, x0, y0, z0, x1, y1, z1, lob, ownOnly)) return lob;
+  for (const lob of lobsFor(shot, x0, z0, x1, z1)) if (clearPath(state, shot, x0, y0, z0, x1, y1, z1, lob, ownOnly)) return lob;
   return ownOnly ? 0 : 100;
 }
 
 /** Whether any lob clears every building in the way (monsters picking a target they can hit). */
 export function hasClearLob(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
-  const lobs = SHOTS[shot]!.arcs ? LOBS : LOBS.slice(0, 1);
-  for (const lob of lobs) if (clearPath(state, shot, x0, y0, z0, x1, y1, z1, lob, false)) return true;
+  for (const lob of lobsFor(shot, x0, z0, x1, z1)) if (clearPath(state, shot, x0, y0, z0, x1, y1, z1, lob, false)) return true;
   return false;
+}
+
+/**
+ * The lobs a shot may try: the flattest only for a shot that flies straight;
+ * for a mage's bolt (Patch 5, MB-23) only those whose arc keeps under its
+ * limit, the top no higher above the straight line than maxRiseBp of the
+ * distance (a parabola's top is g t^2 / 8 above its chord).
+ */
+function lobsFor(shot: number, x0: number, z0: number, x1: number, z1: number): readonly number[] {
+  const spec = SHOTS[shot]!;
+  if (!spec.arcs) return LOBS.slice(0, 1);
+  if (!spec.maxRiseBp) return LOBS;
+  const d = length2d(x1 - x0, z1 - z0);
+  return LOBS.filter((lob) => {
+    if (lob === 100) return true;
+    const t = solve(shot, x0, 0, z0, x1, 0, z1, lob).t;
+    return GRAVITY * t * t * 10000 <= 8 * d * spec.maxRiseBp!;
+  });
 }
 
 function clearPath(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, lob: number, ownOnly: boolean): boolean {
