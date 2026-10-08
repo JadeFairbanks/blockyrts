@@ -11,7 +11,7 @@ import { loadSettings } from './settings/settings.ts';
 import { startFromUrl } from './start/seed.ts';
 import { resetPasswordPage } from './ui/account.ts';
 import { Screen } from './ui/dom.ts';
-import { mainMenu, newSoloPlan, type MenuStart } from './ui/main-menu.ts';
+import { mainMenu, menuStartFromHash, newSoloPlan, type MenuStart } from './ui/main-menu.ts';
 import { askTouch, hasTouchScreen, touchQuestionDue } from './ui/touch-ask.ts';
 
 async function main(): Promise<void> {
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
     // Who this page is: the stored session, or a new guest (the menu works without the server).
     await api.ensureSession().catch(() => undefined);
     const code = joinCodeOf(location.pathname, location.search);
-    const start: MenuStart = code ? { page: 'join', code } : { page: 'main' };
+    const start: MenuStart = code ? { page: 'join', code } : menuStartFromHash(location.hash);
     if (code) history.replaceState(null, '', '/');
     plan = await mainMenu(app, { api, settings }, start);
     music?.stop();
