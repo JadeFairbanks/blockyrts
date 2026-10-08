@@ -59,6 +59,9 @@ importers:
       '@blockyrts/audio':
         specifier: workspace:*
         version: link:../audio
+      '@blockyrts/balance':
+        specifier: workspace:*
+        version: link:../balance
       '@blockyrts/protocol':
         specifier: workspace:*
         version: link:../protocol

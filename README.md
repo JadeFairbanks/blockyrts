@@ -3266,6 +3266,38 @@ and its protocol are tested headless.
    the test against PostgreSQL 16 and S3Mock (an S3-compatible test server), and builds the server's Docker
    image and checks `/healthz`.
 
+## How a tester checks How to Play and the patch notes (Patch 5)
+
+How to Play shows every number the game runs on, read from the sim's own
+tables, so it changes whenever the balance does; the patch notes are written
+for players.
+
+1. The main menu has **How to play**, and under it **Patch notes** with a
+   "New update: Patch 5" mark, bright gold until the notes are opened in this
+   browser, then dim.
+2. How to play opens full-window: guides and a card for every section on the
+   front page, every section and page in the sidebar, and a search box (Enter
+   opens the first result, Esc clears it). Search "bone": the Bone page comes
+   first, then the monsters that drop it. **Return to main menu** at the top
+   right goes back.
+3. Every building, unit table, weapon, armour and tool tier, spell, recipe,
+   good, animal, monster, lair, people and rule table has a page: its
+   picture, its headline numbers as tiles, every other number in rows,
+   costs as picture chips, drops as a table, numbers at zero on one line at
+   the end, and "Linked pages" (what needs it, makes it, drops it or uses
+   it). The Big House shows each level with its own picture. A table only the
+   catalog knows lands under "More numbers" until it is given a section in
+   `packages/client/src/ui/how-to-play/categories.ts`.
+4. The address follows the page (`#how-to-play/monsters/zombie`): the
+   browser's Back button goes back a page, and opening such a link from
+   outside starts on that page. `#patch-notes` opens the patch notes.
+5. Patch notes: every update newest first, each split into Bug fixes,
+   Balance, Gameplay and content, and Quality of life, with no names of
+   people and nothing about tools only the developers use (a test checks
+   the words).
+6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
+   <folder>` drives all of this in a browser and saves pictures of it.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).
