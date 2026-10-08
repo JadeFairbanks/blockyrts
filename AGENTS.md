@@ -1,6 +1,6 @@
 # blockyrts
 
-Shared instructions for AI coding agents (Claude Code and Grok Build) working in this repo.
+Shared instructions for AI coding agents working in this repo.
 
 - Work on a feature branch and open a pull request; don't push straight to `main`.
 - Keep commits small with clear messages.
