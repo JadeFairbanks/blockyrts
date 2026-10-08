@@ -49,10 +49,17 @@ export async function startApp(config: Config, deps: AppDeps = {}): Promise<App>
   if (!mailer) log('server: no EMAIL_API_KEY, password reset email is off (an admin can set a password with --set-password)');
 
   const addressOf = addressReader(config.trustedProxy);
-  const accounts = new AccountService({ db, mailer, publicUrl: config.publicUrl });
+  const accounts = new AccountService({ db, mailer, publicUrl: config.publicUrl, debugAccounts: config.debugAccounts });
   const saves = new SaveService({ db, blobs });
   const relay = new Relay({ accounts, saves, db, tokenOf, addressOf, allowedOrigins: config.allowedOrigins, log, ...(deps.timings ? { timings: deps.timings } : {}) });
   saves.liveHostAccount = (matchId) => relay.hostAccountOf(matchId);
+  // A new version is live: older saves' files go, in the background (Patch 5).
+  void saves
+    .expireOutdated()
+    .then((n) => {
+      if (n > 0) log(`server: removed ${n} save files from older versions of the game`);
+    })
+    .catch((e: unknown) => log(`server: could not remove outdated saves: ${String(e)}`));
   const handler = createHttpHandler({
     accounts,
     saves,

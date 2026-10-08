@@ -1,7 +1,19 @@
 // Numbers and names the client and the server must agree on.
 
-/** Bumped whenever a message layout changes, so mismatched clients refuse to join. */
-export const PROTOCOL_VERSION = 4;
+/** Bumped whenever a message layout changes, so mismatched clients refuse to join. 5: Patch 5's open lobbies, private games, kicks and the debugger flag. */
+export const PROTOCOL_VERSION = 5;
+
+/**
+ * The game's save format version. Every patch raises it, and a save from an
+ * older version is refused with OLD_SAVE_TEXT, never carried over (Jade,
+ * Patch 2: a standing rule). The server removes older saves' files and lists
+ * them as out of date until their owner acknowledges them (Patch 5). 2 was
+ * milestone 11's troop rework; 3 was Patch 2; 4 was Jade's mini patch (base
+ * spacing and the world 30% smaller); 5 was Patch 3; 6 was Patch 3b (the
+ * start's asks wait 10 s); 7 was indev 0.8 (the action card holds 12 buttons
+ * before it grows); 8 is Patch 4, one bump for the whole patch.
+ */
+export const SAVE_FORMAT_VERSION = 8;
 
 /** Up to 8 players play together (Multiplayer and saving). */
 export const MAX_PLAYERS = 8;

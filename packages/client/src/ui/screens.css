@@ -412,6 +412,33 @@
   padding: 1px 10px 3px;
   font-size: 20px;
 }
+/* A save out of date with the live game (Patch 5): greyed out, with only the button that takes it away. */
+.save-row.outdated .save-title,
+.save-row.outdated .save-text > .note:not(.warn) {
+  color: var(--parchment-muted);
+  opacity: 0.6;
+}
+/* Private games sit below the public ones in the open games list (Patch 5). */
+.save-row.private .save-title {
+  color: #d9b878;
+}
+.dialog .private-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 8px;
+  margin: 8px 0;
+}
+.dialog .private-toggle small {
+  grid-column: 2;
+  color: var(--parchment-muted);
+}
+/* The host's Remove button on each other player's row in the lobby (Patch 5). */
+.dialog .lobby-player button.kick {
+  min-height: 28px;
+  padding: 0 8px 2px;
+  font-size: 18px;
+}
 
 /* ---- The lobby ---- */
 .invite {

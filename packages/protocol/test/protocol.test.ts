@@ -19,6 +19,7 @@ import {
   slotMask,
   WireError,
   writeSaveFile,
+  withoutDebugOrders,
   Writer,
   type ClientMessage,
   type ServerMessage,
@@ -72,6 +73,14 @@ describe('orders', () => {
     const w = new Writer().varuint(1).u8(6).varuint(1).str('__proto__').u8(0);
     expect(() => decodeOrders(w.finish())).toThrow(WireError);
   });
+
+  it('drops only the debugger\'s orders for players who may not use it (Patch 5)', () => {
+    const plain = encodeOrders([{ kind: 'move', player: 0, units: [1] }]);
+    expect(withoutDebugOrders(plain)).toBe(plain);
+    expect(withoutDebugOrders(NO_ORDERS)).toBe(NO_ORDERS);
+    const mixed = encodeOrders([{ kind: 'debugGod', player: 0, on: true }, { kind: 'move', player: 0, units: [1] }, { kind: 'terrain', player: 0 }]);
+    expect(decodeOrders(withoutDebugOrders(mixed))).toEqual([{ kind: 'move', player: 0, units: [1] }]);
+  });
 });
 
 describe('messages', () => {
@@ -79,8 +88,8 @@ describe('messages', () => {
 
   const client: ClientMessage[] = [
     { type: 'hello', version: 1, token: 'abc' },
-    { type: 'createRoom', seed: 42, saveId: '' },
-    { type: 'createRoom', seed: null, saveId: 'some-save' },
+    { type: 'createRoom', seed: 42, saveId: '', private: false },
+    { type: 'createRoom', seed: null, saveId: 'some-save', private: true },
     { type: 'joinRoom', code: 'ABC234', rejoinToken: 'tok', haveStep: -1 },
     { type: 'joinRoom', code: 'ABC234', rejoinToken: '', haveStep: 4000 },
     { type: 'setColour', colour: 5 },
@@ -96,10 +105,11 @@ describe('messages', () => {
     { type: 'authenticate', token: 't' },
     { type: 'chat', text: 'Wall breaker at the east gate!' },
     { type: 'mapPing', x: -8000, z: 16000 },
+    { type: 'kick', slot: 3 },
   ];
 
   const server: ServerMessage[] = [
-    { type: 'welcome', version: 1, name: 'Guest 4821', accountId: '', guest: true },
+    { type: 'welcome', version: 1, name: 'Guest 4821', accountId: '', guest: true, debugger: false },
     { type: 'error', code: 'room_full', message: 'That game is full.' },
     {
       type: 'roomState',
@@ -108,6 +118,7 @@ describe('messages', () => {
       phase: 1,
       seed: 99,
       fromSave: true,
+      private: true,
       hostSlot: 0,
       yourSlot: 1,
       rejoinToken: 'r',
@@ -128,6 +139,7 @@ describe('messages', () => {
     { type: 'desync', step: 60, minority: 2 },
     { type: 'ping', serverTime: 1 },
     { type: 'roomClosed', reason: 0 },
+    { type: 'roomClosed', reason: 3 },
     { type: 'chat', slot: 1, name: 'Jade', text: 'hi' },
     { type: 'mapPing', slot: 0, x: 1, z: -1 },
   ];
