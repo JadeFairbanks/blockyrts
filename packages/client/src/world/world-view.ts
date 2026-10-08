@@ -37,10 +37,8 @@ import {
   School,
   FactionKind,
   LEADER_NAMES,
-  Mob,
   PEOPLES,
   peopleUnitSpec,
-  TRADE_BUILDINGS,
   engineSpec,
   mountSpec,
   Mount,
@@ -461,17 +459,18 @@ export class WorldView {
       u.label = spec.name;
       u.typeKey = `peoples:${mob}`;
       u.owner = PEOPLES;
-      const trade = TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon;
-      u.details = [title, health, f?.war ? 'At war with you.' : trade ? 'Right click it with one of your units to trade.' : ''].filter(Boolean);
+      // Patch 5 (GP-46): any of their buildings opens trade, or the hire box at a mercenary camp.
+      const what = f?.kind === FactionKind.MercCamp ? 'Right click it to hire mercenaries.' : 'Right click it to trade. One of your units must be within 10 m of one of their buildings.';
+      u.details = [title, health, f?.war ? 'At war with you.' : what];
       return;
     }
     const spec = peopleUnitSpec(mob);
     if (owner !== PEOPLES) {
-      // A mercenary the local player (or an ally) hired: theirs until dusk.
+      // A mercenary the local player (or an ally) hired: theirs for good (Patch 5).
       if (owner === NEUTRAL || owner >= 8) return;
       u.label = `Mercenary ${spec.name.toLowerCase()}`;
       u.typeKey = `merc:${mob}`;
-      u.details = [health, owner === this.player ? 'Hired until dusk, when it walks back to its camp.' : 'Hired by an ally until dusk.'];
+      u.details = [health, owner === this.player ? 'Hired for good. It takes 1 supply and eats like any troop.' : 'Hired by an ally.'];
       return;
     }
     const id = d[o + S.id]!;

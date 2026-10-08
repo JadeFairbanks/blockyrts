@@ -27,7 +27,6 @@ import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../com
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
-import { Role } from '../threats/types.ts';
 import type { crewHooks } from '../units/questions.ts';
 import {
   kitName,
@@ -504,8 +503,8 @@ export function supplyNeed(product: number): number {
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
-  // Mercenaries use none: they are the camp's.
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.role[i] !== Role.Mercenary && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
+  // Hired mercenaries count like any troop: from Patch 5 they are the player's for good (s).
+  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
   for (const b of state.buildings.list) {
     if (b.owner === player && b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
     const h = b.queue[0];
