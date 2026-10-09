@@ -8,13 +8,19 @@
 // table's `effect`, so a new spell is a row in spells.ts and, only when no
 // effect fits, a new function here.
 //
-// Mages fight from the fight layer (combat/fight.ts calls mageStep): idle,
-// on Stop, attack-moving, patrolling or holding, a support mage heals hurt
-// units by herself and a battle mage throws Arcane bolts at what she picks
-// as a warrior would; a battle mage who knows Counterspell stops any enemy
-// spell cast within range whatever she is doing. Every other spell is cast
-// from its command card button (or hotkey) on a target, or double-tapped to
-// let each mage pick her own. Out of mana, a mage taps with her wand.
+// Mages fight from the fight layer (combat/fight.ts calls mageStep). Patch 5
+// (MB-14 to MB-18, MB-21): what a mage does by herself is her autocast
+// spells, set with a right click on their buttons. Idle, on Stop,
+// attack-moving, patrolling or holding, a support mage heals whoever could
+// use it and casts her buffs in combat on the unit most valuable and most in
+// danger; a mage fights with her attack spell on autocast (a battle mage
+// keeps one, the Arcane bolt to start with; a support mage her Energy dart),
+// on attack orders too, and with none on she does not attack; Counterspell
+// on autocast stops any enemy spell cast within range whatever she is doing.
+// A left click on a spell's button casts it directly on a target (every
+// selected mage who knows it, VX-10), or a double tap lets each pick her own.
+// The players' mages never fight in melee; only the Elves' Grovesingers
+// still tap with their wands.
 
 import { buildingSpec } from '../buildings/data.ts';
 import { garrisonRoom, type Building } from '../buildings/store.ts';
@@ -32,8 +38,8 @@ import { clearLob, fireAt, HAND_HEIGHT, lineOfSight, ProjectileFlag } from '../c
 import { smoulder } from '../threats/burns.ts';
 import { moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
-import { inCombat, spellPowerBp } from './mages.ts';
-import { CAST_STEPS, FIREBALL_BURN, FIREBALL_SPLASH, FIREBALL_WOOD_MULTIPLIER, MAGE_LEASH_WU, MANA_SCALE, School, Spell, SPELLS, spellSpec, type SpellSpec } from './spells.ts';
+import { autocastOn, inCombat, spellPowerBp } from './mages.ts';
+import { CAST_STEPS, FIREBALL_BURN, FIREBALL_SPLASH, FIREBALL_WOOD_MULTIPLIER, MAGE_LEASH_WU, MANA_SCALE, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec, type SpellSpec } from './spells.ts';
 
 const M = WU_PER_METRE;
 /** A mage's spell cooldowns sit in the unit's cooldown list after the goblin abilities' ids. */
@@ -160,7 +166,7 @@ function canReachWith(state: SimState, i: number, s: SpellSpec, t: number, x: nu
   const [ox, oy, oz] = eye(state, i);
   if (t >= 0) {
     const ty = e.y[t]! + (bodyHeight(state, t) >> 1);
-    return s.projectile ? clearLob(state, s.id === Spell.Fireball ? Shot.Fireball : s.id === Spell.ThornVolley ? Shot.Thorn : Shot.ArcaneBolt, ox, oy, oz, e.x[t]!, ty, e.z[t]!, true) > 0 : lineOfSight(state, ox, oy, oz, e.x[t]!, ty, e.z[t]!);
+    return s.projectile ? clearLob(state, s.shot, ox, oy, oz, e.x[t]!, ty, e.z[t]!, true) > 0 : lineOfSight(state, ox, oy, oz, e.x[t]!, ty, e.z[t]!);
   }
   const cx = floorDiv(x, WU_PER_COLUMN);
   const cz = floorDiv(z, WU_PER_COLUMN);
@@ -208,9 +214,12 @@ function resolveCast(state: SimState, i: number): void {
   const s = spellSpec(e.castSpell[i]! - 1);
   e.castSpell[i] = 0;
   e.castAt[i] = 0;
-  const t = e.castTarget[i] ? e.indexOf(e.castTarget[i]!) : -1;
+  let t = e.castTarget[i] ? e.indexOf(e.castTarget[i]!) : -1;
   e.castTarget[i] = 0;
-  if (s.target !== 'point' && !targetOk(state, i, s, t, true)) return;
+  if (s.target === 'point') {
+    // An area spell cast on a unit (Patch 5, MB-25) lands where that unit is now; if it is gone, where it was.
+    if (t >= 0 && (e.hp[t]! <= 0 || e.inside[t] !== 0)) t = -1;
+  } else if (!targetOk(state, i, s, t, true)) return;
   if (e.mana[i]! < s.mana * MANA_SCALE || spellReadyAt(state, i, s.id) > state.step) return;
   e.mana[i] = e.mana[i]! - s.mana * MANA_SCALE;
   startCooldown(state, i, s);
@@ -240,6 +249,20 @@ function enemiesNear(state: SimState, i: number, x: number, z: number, radius: n
   const out: number[] = [];
   for (const j of state.grid.near(x, z, radius)) {
     if (j === i || e.hp[j]! <= 0 || e.inside[j] !== 0 || !hostile(state, i, j)) continue;
+    if (length2d(e.x[j]! - x, e.z[j]! - z) > radius + halfWidth(state, j)) continue;
+    out.push(j);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** Every unit within a radius of a spot that is not a player's (Area blast, MB-25), in index order: monsters, wild animals and the peoples, hostile or not. */
+function othersNear(state: SimState, i: number, x: number, z: number, radius: number): number[] {
+  const e = state.entities;
+  const out: number[] = [];
+  for (const j of state.grid.near(x, z, radius)) {
+    if (j === i || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.owner[j]! < state.players.length) continue;
+    const side = sideOf(state, j);
+    if (side !== Side.Monsters && side !== Side.Wild && side !== Side.Peoples) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > radius + halfWidth(state, j)) continue;
     out.push(j);
   }
@@ -281,7 +304,7 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   },
   bolt(state, i, s, t) {
     const [x, y, z] = eye(state, i);
-    fireAt(state, i, x, y, z, t, Shot.ArcaneBolt, spellAmount(state, i, s), 0, ProjectileFlag.Spell);
+    fireAt(state, i, x, y, z, t, s.shot, spellAmount(state, i, s), 0, ProjectileFlag.Spell);
   },
   fireball(state, i, s, t) {
     const [x, y, z] = eye(state, i);
@@ -298,7 +321,8 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   blast(state, i, s, _t, x, z) {
     const e = state.entities;
     const damage = spellAmount(state, i, s);
-    for (const j of enemiesNear(state, i, x, z, s.radius)) hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true });
+    // Patch 5 (MB-25): "damaging every non player unit be it hostile or not": monsters, wild animals and the peoples alike.
+    for (const j of othersNear(state, i, x, z, s.radius)) hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true });
   },
   counter(state, _i, _s, t) {
     cancelSpell(state, t);
@@ -427,20 +451,98 @@ export function updateMagic(state: SimState): void {
 
 // ----- choosing targets by herself -----
 
-/** The hurt unit a support mage should Heal: the one missing the most beyond heals under way, within reach, lowest id on ties. */
+/**
+ * A unit a support mage looks after by herself (Patch 5, MB-15): one of her
+ * player's people, and an allied player's while shared control is on between
+ * the two (either way), or one inherited by every player still in.
+ */
+function lookedAfter(state: SimState, i: number, j: number): boolean {
+  if (!ally(state, i, j) || !person(state, j)) return false;
+  const e = state.entities;
+  const a = e.owner[i]!;
+  const b = e.owner[j]!;
+  if (a === b || e.shared[j] !== 0) return true;
+  const pa = state.players[a];
+  const pb = state.players[b];
+  return !!pa && !!pb && ((pa.share & (1 << b)) !== 0 || (pb.share & (1 << a)) !== 0);
+}
+
+/**
+ * The hurt unit a support mage should Heal: one she looks after that misses
+ * at least half a heal beyond heals under way (MB-15: "don't waste it on
+ * someone only missing 2 hp"), the one missing the most, within reach, lowest
+ * id on ties.
+ */
 function healTarget(state: SimState, i: number, s: SpellSpec, radius: number): number {
   const e = state.entities;
   const amount = spellAmount(state, i, s);
   let best = -1;
   let bestMissing = 0;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, radius)) {
-    if (!ally(state, i, j) || !person(state, j)) continue;
+    if (!lookedAfter(state, i, j)) continue;
     const missing = e.maxHp[j]! - e.hp[j]! - (e.healUntil[j]! > state.step ? e.healLeft[j]! : 0);
     if (missing * AUTO_HEAL_SHARE < amount) continue;
     if (gap(state, i, j) > radius) continue;
     if (best < 0 || missing > bestMissing || (missing === bestMissing && e.id[j]! < e.id[best]!)) {
       best = j;
       bestMissing = missing;
+    }
+  }
+  return best;
+}
+
+/** Enemies this close to a unit put it in danger (Patch 5, MB-17; s). */
+const DANGER_WU = 6 * M;
+/** A unit's worth for a buff (s): its full health, and 20 a rank and 10 a tier of its weapon and armour (or wand and robe). */
+const WORTH_PER_RANK = 20;
+const WORTH_PER_TIER = 10;
+
+/** Which unit field holds each buff's end, so a buff already on is not cast again. */
+const BUFF_UNTIL: Partial<Record<SpellSpec['effect'], 'quickUntil' | 'fortUntil' | 'rallyUntil' | 'wardUntil'>> = { quicken: 'quickUntil', fortify: 'fortUntil', rally: 'rallyUntil', ward: 'wardUntil' };
+
+/** How much a unit is worth keeping alive. */
+function worth(state: SimState, j: number): number {
+  const e = state.entities;
+  return e.maxHp[j]! + WORTH_PER_RANK * e.rank[j]! + WORTH_PER_TIER * (e.wTier[j]! + e.aTier[j]!);
+}
+
+/**
+ * How much danger a unit is in: 0 out of combat (not hurt in the last 10 s,
+ * no enemy within 6 m); else 100 for each enemy within 6 m and 1 for each
+ * percent of its health gone, plus 1.
+ */
+function danger(state: SimState, j: number): number {
+  const e = state.entities;
+  let n = 0;
+  for (const k of state.grid.near(e.x[j]!, e.z[j]!, DANGER_WU)) {
+    if (e.hp[k]! <= 0 || e.inside[k] !== 0 || !hostile(state, j, k)) continue;
+    if (length2d(e.x[k]! - e.x[j]!, e.z[k]! - e.z[j]!) <= DANGER_WU + halfWidth(state, k)) n++;
+  }
+  if (n === 0 && !inCombat(state, j)) return 0;
+  return 100 * n + floorDiv((e.maxHp[j]! - e.hp[j]!) * 100, Math.max(1, e.maxHp[j]!)) + 1;
+}
+
+/**
+ * The unit a buff on autocast goes to (Patch 5, MB-17: "only during combat,
+ * and to the unit who is most valuable and most in danger"): one she looks
+ * after within the spell's range, in combat and without that buff on now,
+ * with the most worth times danger, lowest id on ties; -1 for none. An area
+ * buff lands on that unit's spot.
+ */
+function buffTarget(state: SimState, i: number, s: SpellSpec): number {
+  const e = state.entities;
+  const field = BUFF_UNTIL[s.effect];
+  let best = -1;
+  let bestScore = 0;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, s.range)) {
+    if (!lookedAfter(state, i, j) || gap(state, i, j) > s.range) continue;
+    if (field && e[field][j]! > state.step) continue;
+    const d = danger(state, j);
+    if (d === 0) continue;
+    const score = worth(state, j) * d;
+    if (best < 0 || score > bestScore || (score === bestScore && e.id[j]! < e.id[best]!)) {
+      best = j;
+      bestScore = score;
     }
   }
   return best;
@@ -485,8 +587,8 @@ function casterNear(state: SimState, i: number, radius: number): number {
  * A double-tapped spell: the target a mage picks herself, as a unit, or -1
  * with the spot in out. Heal the most hurt; Quicken a unit that is
  * fighting (the nearest), else the nearest warrior; area help where most
- * units stand; bolts, beams and fireballs at the warrior's own pick; Area
- * blast where most enemies stand; Counterspell the nearest enemy caster.
+ * units stand; bolts, darts, beams and fireballs at the warrior's own pick;
+ * Area blast where most enemies stand; Counterspell the nearest enemy caster.
  */
 function autoTarget(state: SimState, i: number, s: SpellSpec, out: { x: number; z: number }): number | null {
   const e = state.entities;
@@ -530,6 +632,13 @@ function autoTarget(state: SimState, i: number, s: SpellSpec, out: { x: number; 
   }
 }
 
+/** The attack spell a mage has on autocast and knows (Patch 5, MB-14, MB-16), the first in table order, or -1 for none: then she does not attack. */
+export function attackSpell(state: SimState, i: number): number {
+  const e = state.entities;
+  for (const s of SPELLS) if (s.school === e.school[i] && s.role === 'attack' && autocastOn(state, i, s.id) && knowsSpell(state, i, s.id)) return s.id;
+  return -1;
+}
+
 // ----- the fight layer for mages -----
 
 const enum Mode {
@@ -548,7 +657,7 @@ function modeOf(o: UnitOrder | undefined): Mode {
   return Mode.None;
 }
 
-/** The wand tap: up close only (Table 1: 3 every 1.5 s). */
+/** The wand tap: up close only (Table 1: 3 every 1.5 s). Since Patch 5 (MB-21) only the Elves' Grovesingers tap. */
 function tap(state: SimState, i: number, t: number): boolean {
   const e = state.entities;
   const w = meleeOf(state, i);
@@ -573,36 +682,43 @@ function approach(state: SimState, i: number, x: number, z: number, reach: numbe
 }
 
 /**
- * A battle mage fights one target: an Arcane bolt when it is ready and she
- * has a clear shot, closing in to find one; else her wand if it is close;
- * else she waits for the next bolt (or, told to attack it, walks up to tap
- * it when her mana is gone).
+ * A mage fights one target with her attack spell (Patch 5, MB-14): she casts
+ * it when it is ready and she has a clear shot and the mana, closing in to
+ * find one; between casts she stands and waits (MB-21: no melee at all).
+ * Out of mana she walks in only when told to attack it. Area blast on
+ * autocast is cast on the target itself (MB-25).
  */
-function fightWithBolts(state: SimState, i: number, t: number, canMove: boolean, ordered: boolean): boolean {
+function fightWith(state: SimState, i: number, t: number, spell: number, canMove: boolean, ordered: boolean): boolean {
   const e = state.entities;
-  const s = spellSpec(Spell.ArcaneBolt);
+  const s = spellSpec(spell);
   const d = gap(state, i, t);
-  // Bolts by herself only while the table says so (spells.ts auto); told to attack, she always may.
-  const known = knowsSpell(state, i, s.id) && (s.auto || ordered);
   const mana = e.mana[i]! >= s.mana * MANA_SCALE;
-  if (known && mana) {
-    if (d <= s.range && canReachWith(state, i, s, t, 0, 0)) {
-      face(state, i, t);
-      if (spellReadyAt(state, i, s.id) <= state.step) beginCast(state, i, s, t, 0, 0);
-      else e.order[i] = OrderKind.Idle;
-      return true;
-    }
-    if (!canMove) return tap(state, i, t);
-    chase(state, i, t, Math.max(meleeOf(state, i).reach, Math.min(s.range - RANGE_MARGIN_WU, d - 2 * M)));
+  if (d <= s.range && canReachWith(state, i, s, t, 0, 0)) {
+    face(state, i, t);
+    if (mana && spellReadyAt(state, i, s.id) <= state.step) beginCast(state, i, s, t, 0, 0);
+    else e.order[i] = OrderKind.Idle;
     return true;
   }
-  if (tap(state, i, t)) return true;
-  face(state, i, t);
-  if (!canMove) return false;
-  // Waiting in range for her mana; told to attack, she walks up and taps instead.
-  if (!ordered && d <= s.range) return true;
-  chase(state, i, t, meleeOf(state, i).reach);
+  if (!canMove || (!mana && !ordered)) return false;
+  chase(state, i, t, Math.max(M, Math.min(s.range - RANGE_MARGIN_WU, d - 2 * M)));
   return true;
+}
+
+/**
+ * Her heal and buffs on autocast (Patch 5, MB-15, MB-17), in table order: a
+ * Heal for whoever she looks after could use one, then each buff in combat
+ * on the unit most valuable and most in danger. True when she began a cast.
+ */
+function supportAuto(state: SimState, i: number): boolean {
+  const e = state.entities;
+  for (const s of SPELLS) {
+    if (s.school !== e.school[i] || (s.role !== 'heal' && s.role !== 'buff') || !autocastOn(state, i, s.id) || !canCast(state, i, s.id)) continue;
+    const t = s.role === 'heal' ? healTarget(state, i, s, s.range) : buffTarget(state, i, s);
+    if (t < 0 || !canReachWith(state, i, s, t, 0, 0)) continue;
+    beginCast(state, i, s, t, 0, 0);
+    return true;
+  }
+  return false;
 }
 
 /** Inside a building that is not a tower or parapet (training, sheltering): she casts nothing. */
@@ -644,7 +760,11 @@ function runCastOrder(state: SimState, i: number, o: Extract<UnitOrder, { t: 'ca
     o.auto = 0;
     o.x = x;
     o.z = z;
-  } else if (s.target !== 'point') {
+  } else if (s.target === 'point') {
+    // Patch 5 (MB-25): an area spell cast on a unit follows it; if the unit is gone, it lands on the spot.
+    t = o.id ? e.indexOf(o.id) : -1;
+    if (t >= 0 && (e.hp[t]! <= 0 || e.inside[t] !== 0)) t = -1;
+  } else {
     t = e.indexOf(o.id);
     if (!targetOk(state, i, s, t, true)) return done();
   }
@@ -676,8 +796,8 @@ function runCastOrder(state: SimState, i: number, o: Extract<UnitOrder, { t: 'ca
  */
 export function mageStep(state: SimState, i: number): boolean {
   const e = state.entities;
-  // Counterspell: by herself, whatever she is doing (her own cast is dropped for it, costing nothing), when she knows it and it is ready.
-  if (spellSpec(Spell.Counterspell).auto && e.school[i] === School.Battle && e.castSpell[i] !== Spell.Counterspell + 1 && canCast(state, i, Spell.Counterspell) && !insideOther(state, i)) {
+  // Counterspell on autocast: whatever she is doing (her own cast is dropped for it, costing nothing), when she knows it and it is ready.
+  if (autocastOn(state, i, Spell.Counterspell) && e.castSpell[i] !== Spell.Counterspell + 1 && canCast(state, i, Spell.Counterspell) && !insideOther(state, i)) {
     const c = casterNear(state, i, spellSpec(Spell.Counterspell).range);
     if (c >= 0) beginCast(state, i, spellSpec(Spell.Counterspell), c, 0, 0);
   }
@@ -696,17 +816,17 @@ export function mageStep(state: SimState, i: number): boolean {
   if (o?.t === 'cast') return runCastOrder(state, i, o);
   if (o?.t === 'attack') {
     const t = e.indexOf(o.id);
-    if (!validTarget(state, i, t, true) || targetLost(state, i, t)) {
+    const spell = attackSpell(state, i);
+    if (!validTarget(state, i, t, true) || targetLost(state, i, t) || spell < 0) {
+      // With no attack spell on autocast she does not attack (MB-14), and says so.
+      if (spell < 0 && e.owner[i]! < state.players.length) state.events.push({ player: e.owner[i]!, kind: 'alert', text: `A ${SCHOOL_NAMES[e.school[i]!]!.toLowerCase()} has no attack spell on autocast. Right-click one of her spells to set one.`, x: e.x[i]!, z: e.z[i]! });
       e.queue[i]!.shift();
       e.target[i] = 0;
       resetWalk(state, i);
       return false;
     }
     e.target[i] = o.id;
-    if (e.school[i] === School.Battle) return fightWithBolts(state, i, t, true, true);
-    if (tap(state, i, t)) return true;
-    chase(state, i, t, meleeOf(state, i).reach);
-    return true;
+    return fightWith(state, i, t, spell, true, true);
   }
   const mode = garrisoned ? Mode.Hold : modeOf(o);
   if (mode === Mode.None) {
@@ -716,24 +836,15 @@ export function mageStep(state: SimState, i: number): boolean {
   }
   const hold = mode === Mode.Hold;
   if (e.school[i] === School.Grove) return groveStep(state, i, hold);
-  // A support mage heals by herself.
-  if (e.school[i] === School.Support) {
-    const s = spellSpec(Spell.Heal);
-    if (s.auto && canCast(state, i, s.id)) {
-      const t = healTarget(state, i, s, s.range);
-      if (t >= 0 && canReachWith(state, i, s, t, 0, 0)) {
-        beginCast(state, i, s, t, 0, 0);
-        return true;
-      }
-    }
-    if (garrisoned) return false;
-    // Up close she taps with her wand; she never goes looking for a fight.
-    const t = pickTarget(state, i, meleeOf(state, i).reach + M);
-    if (t >= 0 && tap(state, i, t)) return true;
-    return hold;
+  if (supportAuto(state, i)) return true;
+  // With an attack spell on autocast she picks targets as a warrior does, within its range, and goes no more than 15 m after them.
+  const spell = attackSpell(state, i);
+  if (spell < 0) {
+    e.target[i] = 0;
+    e.chasing[i] = 0;
+    return hold && !garrisoned;
   }
-  // A battle mage picks targets as a warrior does, within her bolt's range, and goes no more than 15 m after them.
-  const range = spellSpec(Spell.ArcaneBolt).range;
+  const range = spellSpec(spell).range;
   const acquire = hold ? range : mode === Mode.Seek ? Math.max(range, sightOf(state, i)) : range;
   let t = e.indexOf(e.target[i]!);
   if (!validTarget(state, i, t) || gap(state, i, t) > acquire + MAGE_LEASH_WU) t = -1;
@@ -767,7 +878,7 @@ export function mageStep(state: SimState, i: number): boolean {
     return hold && !garrisoned;
   }
   e.target[i] = e.id[t]!;
-  const fought = fightWithBolts(state, i, t, !hold, false);
+  const fought = fightWith(state, i, t, spell, !hold, false);
   if (!fought) e.target[i] = 0;
   return garrisoned ? false : fought || hold;
 }

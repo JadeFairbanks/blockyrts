@@ -55,8 +55,10 @@ export const Shot = {
   BronzeCannonball: 20,
   /** Jade's Patch 5: the necromancer's crimson bolt. */
   NecroBolt: 21,
+  /** Patch 5 (MB-16): a support mage's Energy dart, an arrow made of light. */
+  EnergyDart: 22,
   /** Jade's Patch 5 (MF-7): the Fae Guardian's pink-magenta bolt. */
-  FairyBolt: 22,
+  FairyBolt: 23,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -236,7 +238,18 @@ export interface ShotSpec {
   chips?: number;
   /** How its splash looks where it lands (state.ts HitLook), when not the usual blast. */
   burst?: 'crimson' | 'fairy';
+  /**
+   * Patch 5 (MB-23): a mage's bolt arcs over a wall in its way, but only so
+   * far: the top of its arc may rise above the straight line to its mark by
+   * at most this share of the distance, bp (none for no limit).
+   */
+  maxRiseBp?: number;
+  /** Patch 5 (MB-20): a bolt of magic; where it ends the screen shows a burst of its light (a 'zap' hit). */
+  magic?: boolean;
 }
+
+/** MB-23's limit for the mages' bolts (s): the arc's top at most a third of the distance above the straight line, so a bolt never climbs 8 m to come down 2 m away. */
+const BOLT_RISE_BP = 3333;
 
 export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'arrow', model: 'arrow_flight', vsWalls: 0 },
@@ -247,11 +260,12 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(1400), STEPS_PER_SECOND), arcs: true, name: 'web', model: 'web_glob', vsWalls: 0 },
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'fire arrow', model: 'arrow_fire', vsWalls: 0 },
   { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt_flight', vsWalls: 0 },
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spell_spark_toss', vsWalls: 0 },
-  { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'spell_bolt', vsWalls: 0 },
-  // Milestone 6: the battle mages' projectiles (s): the orb flies straight at 20 m/s, the fireball is lobbed at 16 m/s.
-  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: false, name: 'arcane bolt', model: 'spell_bolt', vsWalls: 2 },
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'fireball', model: 'spell_fireball', vsWalls: 30 },
+  // Patch 5: the spark, the mana bolt, the Arcane bolt and the hellfire fly as Jade's own models (spell_projectiles_replacements).
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spark', vsWalls: 0, magic: true },
+  { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'mana_bolt', vsWalls: 0, magic: true },
+  // Milestone 6: the battle mages' projectiles (s): the orb at 20 m/s, the fireball lobbed at 16 m/s. Patch 5 (MB-23): the orb arcs too, and both keep under the bolts' arc limit.
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'arcane bolt', model: 'arcane_bolt', vsWalls: 2, maxRiseBp: BOLT_RISE_BP, magic: true },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'fireball', model: 'spell_fireball', vsWalls: 30, maxRiseBp: BOLT_RISE_BP },
   // Milestone 7: a Grovesinger's thorn flies as an arrow does (s).
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'thorn', model: 'spell_thorn_volley', vsWalls: 0 },
   // Milestone 8 (s): a cannonball flies at 40 m/s in a low arc, a catapult stone is lobbed at 20 m/s, a ballista bolt flies flat at 40 m/s
@@ -268,12 +282,14 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(8000), STEPS_PER_SECOND), arcs: false, name: 'musket ball', model: 'musket_ball', vsWalls: 2 },
   { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 24, splashRadius: cm(200) },
   { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 19, splashRadius: cm(200), ignite: true },
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'spell_fireball', vsWalls: 30, splash: 14, splashRadius: cm(200), vsWoodBp: 30000 },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'hellfire', vsWalls: 30, splash: 14, splashRadius: cm(200), vsWoodBp: 30000, magic: true },
   // Patch 5 (Jade, MB-8): the bronze cannon's shot, smaller than the iron cannon's in every way and still more than the catapult's
   // against walls (s: 300 against walls, 35 within 1.5 m).
   { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'bronze cannonball', model: 'cannonball_iron', vsWalls: 300, splash: 35, splashRadius: cm(150), fells: 4, chips: 5 },
   // Jade's Patch 5 (MB-5): the necromancer's bolt, 35 within 0.5 m of where it lands besides the 35 to whoever it strikes; it flies straight at 18 m/s (s).
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'crimson bolt', model: 'necromancer_bolt', vsWalls: 5, splash: 35, splashRadius: cm(50), burst: 'crimson' },
+  // Patch 5 (MB-16): the Energy dart, a little faster than the Arcane bolt (s), under the same arc limit.
+  { speed: floorDiv(cm(2200), STEPS_PER_SECOND), arcs: true, name: 'energy dart', model: 'energy_dart', vsWalls: 1, maxRiseBp: BOLT_RISE_BP, magic: true },
   // Jade's Patch 5 (MF-7, decisions 2.2): the Fae Guardian's bolt, 30 to all within 2 m of where it lands besides the 30 to whoever it strikes, in a big
   // explosion of its own pink-magenta; it flies straight at 16 m/s (s).
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'fairy bolt', model: 'fairy_bolt', vsWalls: 0, splash: 30, splashRadius: cm(200), burst: 'fairy' },
@@ -281,5 +297,5 @@ export const SHOTS: readonly ShotSpec[] = [
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
 export function spellShot(shot: number): boolean {
-  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.FairyBolt;
+  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.EnergyDart || shot === Shot.FairyBolt;
 }

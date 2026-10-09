@@ -28,11 +28,12 @@
 // she sways up and down in her wrath.
 import * as THREE from 'three';
 import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
+import { S, SHOT_STRIDE, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
 import type { OwnDraw } from './hidden-outlines.ts';
+import { SpellFx, wandTip } from './spell-fx.ts';
 import { Hearts } from './hearts.ts';
 
 const STEP_MS = 50;
@@ -352,6 +353,8 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   // A bronze cannon's shot (Patch 5, MB-8), and the necromancer's crimson bolt (Jade's Patch 5), until their models are in the library.
   { len: 0.12, w: 0.12, colour: 0x8a5a2a },
   { len: 0.5, w: 0.2, colour: 0xc0102a },
+  // Patch 5: a support mage's Energy dart, pale gold light (spell-fx.ts draws it once its model is in).
+  { len: 0.3, w: 0.05, colour: 0xfff0b0 },
   // The Fae Guardian's bolt (Jade's Patch 5), until its model is in the library.
   { len: 0.5, w: 0.2, colour: 0xeb3dda },
 ];
@@ -368,36 +371,6 @@ const SHOT_MODELS_BACKWARD: ReadonlySet<number> = new Set([Shot.NecroBolt, Shot.
 /** After his change, Morvath's wings stay spread this long, ms: the rest of the 5 s his wings drain (sim LATE.wings) after the 3.4 s change. */
 const MORVATH_WINGS_MS = 1600;
 const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-
-/** Where a spell lands, by Spell: the colour of its motes, how many and how far they fly. */
-const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up: number }> = [
-  { colour: 0x8ae070, n: 10, speed: 0.8, up: 1.8 },
-  { colour: 0xf0e060, n: 10, speed: 1.2, up: 1.2 },
-  { colour: 0x9ab0c8, n: 24, speed: 2.4, up: 1 },
-  { colour: 0xff6040, n: 24, speed: 2.4, up: 1.4 },
-  { colour: 0xd8b8ff, n: 8, speed: 1.8, up: 1.4 },
-  { colour: 0xc8a0ff, n: 4, speed: 1.2, up: 1 },
-  { colour: 0xff8020, n: 40, speed: 4.5, up: 3 },
-  { colour: 0xb080ff, n: 60, speed: 6, up: 2.5 },
-  { colour: 0x60a0ff, n: 24, speed: 2.4, up: 1.2 },
-  { colour: 0xffffff, n: 16, speed: 2, up: 2 },
-  // The Grovesingers': Rootbind, Thorn volley, Barkskin, Mending bloom, Call of the wild.
-  { colour: 0x6a5a2a, n: 24, speed: 1.2, up: 0.6 },
-  { colour: 0x5a8a30, n: 10, speed: 2, up: 1 },
-  { colour: 0x8a6a40, n: 20, speed: 1, up: 1.6 },
-  { colour: 0xf0a0c8, n: 24, speed: 1, up: 1.8 },
-  { colour: 0xe0b040, n: 30, speed: 3, up: 1.2 },
-];
-
-/** Motes rising off a unit with a spell on it, by SpellOn bit. */
-const SPELL_ON_COLOURS: ReadonlyArray<readonly [number, number]> = [
-  [SpellOn.Healing, 0x8ae070],
-  [SpellOn.Quicken, 0xf0e060],
-  [SpellOn.Fortify, 0x9ab0c8],
-  [SpellOn.Rally, 0xff6040],
-  [SpellOn.Warding, 0x60a0ff],
-  [SpellOn.Hexed, 0x6a3a8a],
-];
 
 /** A rank wand's model in a Mage's, Master Mage's or Grand Magician's hand, by Item. */
 const SCHOOL_LOOKS = ['support', 'support', 'battle'];
@@ -851,9 +824,12 @@ export class UnitsView {
   private readonly blocks: THREE.InstancedMesh;
   private readonly loads: THREE.InstancedMesh;
   private readonly shots: THREE.InstancedMesh;
-  private readonly beams: THREE.InstancedMesh;
-  /** Where each unit stands this frame (metres), by entity id, while a beam is held. */
+  /** Patch 5: the magic on screen, glowing (spell-fx.ts). */
+  private readonly spellFx: SpellFx;
+  /** Where each unit stands this frame (metres), by entity id, while a beam is held or a spell rides on a unit. */
   private readonly where = new Map<number, THREE.Vector3>();
+  /** Where each mage holding a Beam has her wand's tip this frame (Patch 5, MB-22), by entity id. */
+  private readonly tips = new Map<number, THREE.Vector3>();
   private readonly dummy = new THREE.Object3D();
   private readonly mat = new THREE.Matrix4();
   private readonly corpses: Corpse[] = [];
@@ -917,15 +893,13 @@ export class UnitsView {
     this.shots.count = 0;
     this.shots.frustumCulled = false;
     scene.add(this.shots);
-    this.beams = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: 0xd8b8ff, transparent: true, opacity: 0.85 }), 256);
-    this.beams.count = 0;
-    this.beams.frustumCulled = false;
-    scene.add(this.beams);
+    this.spellFx = new SpellFx(scene);
   }
 
   setModels(lib: ModelLibrary): void {
     this.lib = lib;
     this.attach.setLibrary(lib);
+    this.spellFx.setLibrary(lib);
   }
 
   private body(wanted: string): BodyPool | null {
@@ -1013,7 +987,7 @@ export class UnitsView {
     this.halos.mesh.visible = !hidden;
     this.loads.visible = !hidden;
     this.shots.visible = !hidden;
-    this.beams.visible = !hidden;
+    this.spellFx.setVisible(!hidden);
     this.particles.mesh.visible = !hidden;
     this.crescents.setVisible(!hidden);
   }
@@ -1187,8 +1161,8 @@ export class UnitsView {
         }
       }
       if (h.look === 'death') this.muzzles.delete(h.id);
-      const spell = h.look === 'spell' ? SPELL_LOOKS[h.spell ?? 0] : undefined;
-      if (spell) this.particles.spawn(x, y, z, spell.colour, spell.n, spell.speed, spell.up);
+      // Patch 5 (MB-20, MB-25, VX-5): spells land, and bolts of magic end, in their own light (spell-fx.ts).
+      if (h.look === 'spell' || h.look === 'zap') this.spellFx.onHit(h, x, y, z);
     }
   }
 
@@ -1205,6 +1179,8 @@ export class UnitsView {
     const dummy = this.dummy;
     const live = new Set<number>();
     this.where.clear();
+    this.tips.clear();
+    this.spellFx.begin(now);
     this.byId.clear();
     let beaming = false;
     for (let i = 0; i < curr.count; i++) {
@@ -1234,7 +1210,7 @@ export class UnitsView {
       // The local player's own units carry their ids for the outline passes (never a monster).
       const own = owner === f.player && kind !== UnitKind.Mob;
       const outlined = own && (f.outlined?.has(id) ?? false);
-      if (beaming) this.where.set(id, new THREE.Vector3(x, y, z));
+      if (beaming || this.spellFx.following) this.where.set(id, new THREE.Vector3(x, y, z));
       const mobUnit = kind === UnitKind.Mob;
       // Lairs and the goblins' buildings stay on the map once found, like the land; creatures only while in sight.
       const structure = mobUnit && mobSpec(d[o + S.mob]!).role === Role.Structure;
@@ -1353,10 +1329,9 @@ export class UnitsView {
         }
         continue;
       }
+      // A unit under a spell sparkles in its light (Patch 5: the effect sprites, spell-fx.ts).
       const on = d[o + S.spells]!;
-      if (on !== 0 && f.seen(x, z)) {
-        for (const [bit, c] of SPELL_ON_COLOURS) if (on & bit && Math.random() < dt * 4) this.particles.spawn(x, y + 0.3 + Math.random() * 1.2, z, c, 1, 0.3, 0.8);
-      }
+      if (on !== 0 && f.seen(x, z)) this.spellFx.aura(on, x, y, z, 1.7);
       // The neutral peoples (and the mercenaries they hire out): their own bodies once the models are in, until then a person's body in their people's colour.
       const people = owner === PEOPLES || d[o + S.group] !== 0;
       if (owner === PEOPLES && !f.seen(x, z)) continue;
@@ -1429,6 +1404,9 @@ export class UnitsView {
               if (Math.random() < dt * 5) this.particles.spawn(head.x, head.y + 0.15, head.z, school === School.Battle ? 0xff6a20 : 0xfff4c0, 1, 0.3, 0.9);
             }
           }
+          // Patch 5 (MB-22, VX-5): a held Beam leaves from her wand's tip, and a spell's light gathers there while she casts.
+          const hand = kind === UnitKind.Mage && (d[o + S.beam] !== 0 || d[o + S.cast] !== 0) ? pool.bone('slot_hand_r') : -1;
+          if (hand >= 0) this.tips.set(id, wandTip(slot.m, slot.i, hand, this.lib?.models.get(look.attach.find(([, b]) => b === 'slot_hand_r')?.[0] ?? ''), new THREE.Vector3()));
         }
       } else {
         dummy.position.set(x, ry, z);
@@ -1483,6 +1461,7 @@ export class UnitsView {
     this.drawShots(f, prev ? alpha : 1, dt);
     this.drawBeams(f);
     this.particles.update(dt);
+    this.spellFx.end(this.where);
     this.hearts.update(now);
     this.sparks.update(dt);
     this.smoke.update(dt);
@@ -1571,11 +1550,9 @@ export class UnitsView {
     return blocks + 1;
   }
 
-  /** A held Beam: a violet-white bar from the mage's hand to her target, flickering a little. */
+  /** A held Beam (Patch 5, MB-22): a stream of light from her wand's tip (her hand before her pose is known) to the target's chest; and the light of a spell being cast (VX-5). */
   private drawBeams(f: UnitsFrame): void {
     const d = f.curr.data;
-    const dummy = this.dummy;
-    const dir = new THREE.Vector3();
     let k = 0;
     for (let i = 0; i < f.curr.count && k < 256; i++) {
       const o = i * STATE_STRIDE;
@@ -1583,23 +1560,19 @@ export class UnitsView {
       if (target === 0 || d[o + S.kind] !== UnitKind.Mage) continue;
       const a = this.where.get(d[o + S.id]!);
       const b = this.where.get(target);
-      if (!a || !b) continue;
-      // From her wand hand to the target's chest.
-      const from = new THREE.Vector3(a.x, a.y + 1.1, a.z);
-      const to = new THREE.Vector3(b.x, b.y + 0.9, b.z);
-      dir.subVectors(to, from);
-      const len = dir.length();
-      if (len < 0.1) continue;
-      dummy.position.copy(from);
-      dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
-      const w = 0.07 + Math.random() * 0.04;
-      dummy.scale.set(w, w, len);
-      dummy.updateMatrix();
-      this.beams.setMatrixAt(k++, dummy.matrix);
-      if (Math.random() < 0.3) this.particles.spawn(to.x, to.y, to.z, 0xc8a0ff, 1, 1, 1);
+      if (!a || !b || !f.seen(a.x, a.z)) continue;
+      const from = this.tips.get(d[o + S.id]!) ?? new THREE.Vector3(a.x, a.y + 1.1, a.z);
+      this.spellFx.beam(from, new THREE.Vector3(b.x, b.y + 0.9, b.z));
+      k++;
     }
-    this.beams.count = k;
-    this.beams.instanceMatrix.needsUpdate = true;
+    // Patch 5 (VX-5): a mage casting, her spell's light gathering at her wand's tip.
+    for (let i = 0; i < f.curr.count; i++) {
+      const o = i * STATE_STRIDE;
+      const cast = d[o + S.cast]!;
+      if (cast === 0 || d[o + S.beam] !== 0 || d[o + S.kind] !== UnitKind.Mage) continue;
+      const tip = this.tips.get(d[o + S.id]!);
+      if (tip && f.seen(tip.x, tip.z)) this.spellFx.casting(cast - 1, tip);
+    }
   }
 
   private drawCorpses(t: number, blocks: number): number {
@@ -1689,6 +1662,9 @@ export class UnitsView {
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
+      else dir.set(0, 0, -1);
+      // Patch 5: bolts of magic fly as their own models, glowing, with a trail (spell-fx.ts).
+      if (this.spellFx.shot(s[o + 6]!, x, y, z, dir)) continue;
       if (SHOT_MODELS_BACKWARD.has(s[o + 6]!)) dummy.quaternion.multiply(HALF_TURN);
       const gun = GUNPOWDER.has(s[o + 6]!);
       // A bronze cannon's shot is smaller than an iron one's (MB-8).

@@ -58,8 +58,8 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
     research: 0, forge: o.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [],
     spells: o.spells ?? [
-      [5, [[Spell.Heal, '', 0], [Spell.Quicken, 'Not ready yet.', 60], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Needs Hexcraft researched at a Magi Sanctum.', 0]]],
-      [6, [[Spell.Heal, 'Not enough mana (15).', 0], [Spell.Quicken, 'Learned at rank 2.', 0], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Learned at rank 2.', 0]]],
+      [5, [[Spell.Heal, '', 0, 1], [Spell.Quicken, 'Not ready yet.', 60], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Needs Hexcraft researched at a Magi Sanctum.', 0], [Spell.EnergyDart, '', 0, 1]]],
+      [6, [[Spell.Heal, 'Not enough mana (15).', 0, 1], [Spell.Quicken, 'Learned at rank 2.', 0], [Spell.Fortify, 'Learned at rank 3.', 0], [Spell.Rally, 'Learned at rank 4.', 0], [Spell.Warding, 'Learned at rank 2.', 0], [Spell.EnergyDart, '', 0, 0]]],
       [7, [[Spell.ArcaneBolt, '', 0], [Spell.Beam, '', 0], [Spell.Fireball, '', 0], [Spell.AreaBlast, 'Learned at rank 4.', 0], [Spell.Counterspell, 'Needs Hexcraft researched at a Magi Sanctum.', 0]]],
     ],
     mageRanks: o.mageRanks ?? [[5, ''], [6, ''], [7, 'Training to Mage needs 300 experience from combat.']],
@@ -89,14 +89,15 @@ const zombie = sel('e:9', 'mob:0', MONSTERS);
 const button = (card: Card, action: string): CardEntry | undefined => card.find((e) => e.action === action);
 
 describe('the mage card', () => {
-  it("has Attack, Patrol and Move, her five spells, then Eat, Upgrade equipment and Rank (Jade's Patch 2)", () => {
+  it("has Attack and Move, her spells, then Eat, Upgrade equipment, Rank and Run/Walk (Jade's Patch 2; Patch 5 adds Energy dart and Run/Walk)", () => {
     const { c } = harness(game(), support, 'mage:support');
     const card = c.card();
-    // Patch 5's Run/Walk last, the twelfth.
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank', 'Walk']);
-    expect(card.slice(3, 8).map((e) => e.key)).toEqual(['KeyR', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
-    // A cooldown only delays a spell; rank and research grey it out with the reason.
+    // Patch 5: Energy dart beside Heal, and Run/Walk last; the six spells leave no room for Patrol.
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Heal', 'Dart', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank', 'Walk']);
+    expect(card.slice(2, 8).map((e) => e.key)).toEqual(['KeyR', 'KeyD', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
+    // A cooldown only delays a spell, its button dark under the clock hand; rank and research grey it out with the reason.
     expect(card[4]!.enabled).toBe(true);
+    expect(card[4]!.cool).toBeGreaterThan(0);
     expect(card[5]!.reason).toBe('Learned at rank 3.');
     expect(card[7]!.reason).toBe('Needs Hexcraft researched at a Magi Sanctum.');
     // F is Fortify here, so Eat is a click only.
@@ -109,6 +110,20 @@ describe('the mage card', () => {
     for (const gone of ['stop', 'hold', 'enter', 'upgradeWeapon', 'upgradeArmour']) expect(button(card, gone)).toBeUndefined();
     const keys = card.filter((e) => e.key).map((e) => e.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('turns a spell on or off autocast with a right click (Patch 5, MB-18)', () => {
+    const { c, sent } = harness(game(), support, 'mage:support');
+    const card = c.card();
+    // Both have Heal on autocast: the ring shows and a right click takes it off; only one has Energy dart, so it goes on for both.
+    const heal = card.find((e) => e.face === 'Heal')!;
+    const dart = card.find((e) => e.face === 'Dart')!;
+    expect(heal.autocast).toBe(true);
+    expect(dart.autocast).toBe(false);
+    heal.right!(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'autocast', player: ME, units: [5, 6], spell: Spell.Heal, on: 0 });
+    dart.right!(PRESS);
+    expect(sent.at(-1)).toEqual({ kind: 'autocast', player: ME, units: [5, 6], spell: Spell.EnergyDart, on: 1 });
   });
 
   it('upgrades the wand, then the robe, to the best the stock pays for in one press', () => {
@@ -124,7 +139,8 @@ describe('the mage card', () => {
 
   it('casts on the unit clicked, never a heal on an enemy, and on the best targets when pressed twice', () => {
     const { c, sent, messages } = harness(game(), support, 'mage:support');
-    c.card()[3]!.run(PRESS);
+    // Heal is the support card's third button (Patch 5: no Patrol on it).
+    c.card()[2]!.run(PRESS);
     expect(c.targeting).toMatchObject({ command: 'cast', spell: Spell.Heal });
     c.confirmTarget(zombie, new THREE.Vector3(4, 0, 4));
     expect(sent.length).toBe(0);
@@ -132,7 +148,7 @@ describe('the mage card', () => {
     c.confirmTarget(warrior, null);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [5, 6], spell: Spell.Heal, target: 3, auto: 0 });
     expect(c.targeting).toBeNull();
-    c.card()[3]!.double!(PRESS);
+    c.card()[2]!.double!(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [5, 6], spell: Spell.Heal, target: 0, auto: 1 });
   });
 
@@ -182,7 +198,7 @@ describe('the mage card', () => {
 
   it('gives every spell its letter from Table 13 with no clash among the mage keys', () => {
     const spells = ACTIONS.filter((a) => a.group === 'Mages');
-    expect(spells.length).toBe(11);
+    expect(spells.length).toBe(12);
     for (const a of spells) expect(clashes({}, a.id, keyFor({}, a.id)).filter((n) => !/(support|battle) mages/.test(n))).toEqual([]);
   });
 });

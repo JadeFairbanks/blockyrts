@@ -366,8 +366,10 @@ export interface InfoMessage {
   ruins: Array<[number, number, number]>;
   /** Every standing lair (Patch 3: explored land or not) and the goblin villages the players have seen, for the minimap (wu). */
   marks: ThreatMark[];
-  /** The local player's mages: per mage id, each spell of her school with why it cannot be cast now ('' when it can) and the steps until it is ready. */
-  spells: Array<[number, Array<[number, string, number]>]>;
+  /** The local player's mages: per mage id, each spell of her school with why it cannot be cast now ('' when it can), the steps until it is ready, and 1 when it is on her autocast (Patch 5). */
+  spells: Array<[number, Array<[number, string, number, number?]>]>;
+  /** The local player's mages training a rank at a Magi Sanctum (Patch 5, MB-24): mage id, steps done and steps in all. */
+  mageTraining?: Array<[number, number, number]>;
   /** The local player's mages: why each cannot start her next rank training for her experience or rank, or ''. */
   mageRanks: Array<[number, string]>;
   /** The neutral peoples the local player has seen, met or is at war with. */
