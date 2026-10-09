@@ -240,6 +240,8 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   // Patch 3: retraining a crewman as a worker goes beside his own training.
   'siege/data.ts:CREWMAN_RETRAIN_STEPS': 'training',
   'combat/spawn.ts:CLAIM_STANDOFF_M': 'mobs',
+  // Patch 5: the least bog a Bog guardian keeps goes with the keepers.
+  'world/generate.ts:GUARDED_BOG_MIN_M2': 'mobs',
   'rules.ts:DAY_STEPS': 'pacing',
   'rules.ts:DUSK_STEPS': 'pacing',
   'rules.ts:NIGHT_STEPS': 'pacing',
@@ -509,7 +511,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
   'threats/necromancer.ts': 'The necromancer', 'mobs:threats/necromancer.ts': 'The necromancer',
   'threats/guardians.ts': 'Mana crystal guardians', 'mobs:threats/guardians.ts': 'Mana crystal guardians',
-  'threats/keepers.ts': 'The Bog guardian and the Fae Guardian', 'mobs:threats/keepers.ts': 'The Bog guardian and the Fae Guardian',
+  'threats/keepers.ts': 'The Bog guardian and the Fae Guardian', 'mobs:threats/keepers.ts': 'The Bog guardian and the Fae Guardian', 'mobs:world/generate.ts': 'The Bog guardian and the Fae Guardian',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'buildings/farm-boost.ts': 'Fertilizing farms', 'animals/barn.ts': 'The Barn', 'units/barn-hand.ts': 'The barn hand',

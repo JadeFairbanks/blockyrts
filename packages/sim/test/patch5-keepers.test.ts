@@ -42,6 +42,7 @@ import { ARMOUR_KITS, CLOSE_KITS, LONG_KITS, RANGER_KITS, ROBE_KITS, TOOL_GEAR, 
 import { hash2 } from '../src/world/noise.ts';
 import { ToolJob } from '../src/world/props.ts';
 import { Band } from '../src/world/layout.ts';
+import { bogAreaM2, bogGuarded, GUARDED_BOG_MIN_M2 } from '../src/world/generate.ts';
 
 const M = WU_PER_METRE;
 
@@ -108,6 +109,19 @@ describe('the guarded bogs (MB-11)', () => {
     }
     expect(nuggets).toBeGreaterThanOrEqual(3);
     expect(nuggets).toBeLessThanOrEqual(6);
+    // GP-29: two bog pear bushes at a guarded bog; MB-11: a bog of 18 m2 or less has no guardian.
+    let pears = 0;
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const cx = (bog.x >> 6) + dx;
+        const cz = (bog.z >> 6) + dz;
+        for (const r of s.world.propRecords(cx, cz)) if (r.kind === PropKind.BogPearBush && inBog(cx * COLUMNS_PER_CHUNK + r.lx, cz * COLUMNS_PER_CHUNK + r.lz)) pears++;
+      }
+    }
+    expect(pears).toBe(2);
+    expect(bogAreaM2(bog)).toBeGreaterThan(GUARDED_BOG_MIN_M2);
+    expect(bogGuarded({ r: metresToColumns(2) })).toBe(false);
+    expect(bogGuarded({ r: metresToColumns(3) })).toBe(true);
     // The start's workers are within 60 m: its keeper comes at once, 400 health, walking slower than a worker; none in a peaceful game.
     run(s, 10);
     const k = s.threats.keepers.find((x) => x.kind === 0 && Math.hypot(x.x / WU_PER_COLUMN - bog.x, x.z / WU_PER_COLUMN - bog.z) < 2)!;
@@ -259,6 +273,9 @@ describe('the Fae Guardian (MF-1 to MF-12)', () => {
     // Yes: she kills whoever mines it with her bolts, 30 to all within 2 m, then settles, her tooltip gone for good.
     answer(s, q, 0, true, wid);
     expect(k.mode).toBe(KeeperMode.Defending);
+    // MF-3: turned on a thief, she flies high, out of a polearm's reach, and her tooltip stops (MF-12).
+    expect(e.mob[f()]).toBe(Mob.FaeGuardianAloft);
+    expect(keeperWarns(s, f())).toBe(false);
     let burst = false;
     for (let n = 0; n < 1200 && e.indexOf(wid) >= 0; n++) {
       step(s);
@@ -268,6 +285,7 @@ describe('the Fae Guardian (MF-1 to MF-12)', () => {
     expect(e.indexOf(wid)).toBe(-1);
     run(s, 40);
     expect(k.mode).toBe(KeeperMode.Calm);
+    expect(e.mob[f()]).toBe(Mob.FaeGuardian);
     expect(keeperWarns(s, f())).toBe(false);
     // Struck, she is wrathful for good: high, fast, out of a polearm's reach, running.
     landAt(s, w2, k.x - 6 * M, k.z);
@@ -331,6 +349,7 @@ describe('what the keepers drop (MB-11, MF-6, MF-11)', () => {
       expect(silver).toBeLessThanOrEqual(15);
       expect(items.find(([r]) => r === Res.Gold)?.[1] ?? 0).toBeLessThanOrEqual(2);
       expect(items.filter(([r]) => r === Res.Emeralds || r === Res.Rubies || r === Res.Diamonds).length).toBeLessThanOrEqual(1);
+      expect(items.find(([r]) => r === Res.BogPear)?.[1]).toBe(1);
     }
     const mage = new Set<number>([...WAND_KITS, ...ROBE_KITS].filter((k) => k.tier > 0).flatMap((k) => k.items));
     for (let n = 0; n < 100; n++) {
