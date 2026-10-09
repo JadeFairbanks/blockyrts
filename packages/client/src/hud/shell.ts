@@ -88,6 +88,7 @@ import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
 import { troopIconFile } from './unit-icons.ts';
 import { CardPop, ITEM_MENU } from './card-pop.ts';
+import { SCROLL_AREA, scrollTarget, syncScrollBars } from './game-scroll.ts';
 import { itemChoices, type ItemMenuActions } from './item-menu.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
@@ -483,6 +484,8 @@ export class GameShell {
       parent,
     );
     this.input.addArea('minimap', this.layout.minimapEl, this.minimapMouse());
+    // Every list's scroll bar is the game's own (Patch 7, J-16, game-scroll.ts): its handle drags and its track pages.
+    this.input.addTarget(SCROLL_AREA, scrollTarget);
     // Any click or tap on the way cuts the tester tools' code short.
     window.addEventListener('pointerdown', () => this.testerCode.reset(), true);
     // Touch controls turned on or off in Settings: the page follows at once.
@@ -1886,6 +1889,8 @@ export class GameShell {
   frame(dt: number, now: number): void {
     this.skyDial.draw(now);
     this.panels.measure();
+    // The layout is fresh after the panels' measure: the scroll bars follow their lists at no extra cost.
+    syncScrollBars(this.input.pos);
     const panelRects = this.panels.rects();
     const pos = this.input.pos;
     const playing = this.input.mode === 'game';

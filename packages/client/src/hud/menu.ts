@@ -9,6 +9,7 @@
 import { IS_MAC } from '../input/platform.ts';
 import { SettingsPanel } from '../settings/settings-panel.ts';
 import type { Settings } from '../settings/settings.ts';
+import { gameScroll } from './game-scroll.ts';
 
 export interface MenuActions {
   /** Closes the menu (alone, the game carries on). */
@@ -52,6 +53,8 @@ export class GameMenu {
     box.className = 'dialog menu';
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', 'Game menu');
+    // The game's own scroll bar when the settings make it long (Patch 7, J-16).
+    gameScroll(box);
     this.el.append(box);
     parent.append(this.el);
 
