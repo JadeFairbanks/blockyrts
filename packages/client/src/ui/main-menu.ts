@@ -5,6 +5,7 @@
 // full-window over it; the menu ends with a match to play.
 import { ApiErrorCode, readSaveHeader, SAVE_FORMAT_VERSION, type OpenRoom, type RoomStateMessage, type SaveSummary } from '@blockyrts/protocol';
 import type { MatchPlan } from '../game/match.ts';
+import type { ModelLibrary } from '../models/index.ts';
 import { IS_MAC } from '../input/platform.ts';
 import { ApiFailure, normaliseCode, type Api } from '../net/api.ts';
 import { RelayClient } from '../net/relay.ts';
@@ -24,6 +25,8 @@ import { supportFacts, supportProblems } from './support.ts';
 export interface MenuContext {
   api: Api;
   settings: Settings;
+  /** The game's models, loading while the menu is open (How to Play draws some of its pages' models from it). */
+  library?: Promise<ModelLibrary | null>;
 }
 
 /** Where the menu opens: the front page, straight into joining a code (an invite link), or How to Play or the patch notes (their links). */
@@ -413,7 +416,7 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
 
     // ---- How to Play and the patch notes: full-window screens over the menu, loaded when first opened ----
     const howToPlay = (slug: string): void => {
-      void import('./how-to-play/page.ts').then(({ howToPlay: open }) => open(app, slug)).then(main, (e: unknown) => console.warn('How to Play did not open', e));
+      void import('./how-to-play/page.ts').then(({ howToPlay: open }) => open(app, slug, ctx.library ?? null)).then(main, (e: unknown) => console.warn('How to Play did not open', e));
     };
     const patchNotes = (): void => {
       void import('./patch-notes/page.ts').then(({ patchNotes: open }) => open(app)).then(main, (e: unknown) => console.warn('the patch notes did not open', e));

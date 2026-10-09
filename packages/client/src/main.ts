@@ -53,7 +53,7 @@ async function main(): Promise<void> {
     const code = joinCodeOf(location.pathname, location.search);
     const start: MenuStart = code ? { page: 'join', code } : menuStartFromHash(location.hash);
     if (code) history.replaceState(null, '', '/');
-    plan = await mainMenu(app, { api, settings }, start);
+    plan = await mainMenu(app, { api, settings, library }, start);
     music?.stop();
   }
   await runMatch(app, plan, { api, settings, library, toMenu });

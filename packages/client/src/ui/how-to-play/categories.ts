@@ -159,6 +159,29 @@ export const GROUP_HEADINGS: Readonly<Record<string, string>> = {
 /** The catalog's sub-menu names, as How to Play's sidebar shows them. */
 export const MENU_NAMES: Readonly<Record<string, string>> = {
   'Rules and settings': 'Rules',
+  // Monsters, by what they are to a player.
+  'Night mobs': 'Night monsters',
+  'Resident mobs': 'Lair residents',
+  'Tribe mobs': 'Tribesmen',
+  'Village mobs': 'Goblin villagers',
+  'Structure mobs': 'Lairs and buildings',
+  'People mobs': "The peoples' wagons",
+  'Encounter mobs': "The stone circles' keepers",
+  // Animals, by how they act.
+  'Shy animals': 'Shy',
+  'Fights back animals': 'Fight back when hurt',
+  'Pack animals': 'Hunt in packs',
+  'Stalker animals': 'Stalkers',
+  'Territorial animals': 'Territorial',
+  'Torch breaker animals': 'Break torches',
+  'Bear animals': 'Bears',
+  'Nest animals': 'Guard their nests',
+  'Hunter animals': 'Hunters',
+  // Goods.
+  'Goods resources': 'Goods',
+  'Trinkets resources': 'Trinkets',
+  'Food resources': 'Food',
+  'Gear resources': 'Gear',
 };
 
 export function categoryOf(group: string): string {

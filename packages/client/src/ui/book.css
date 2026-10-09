@@ -40,6 +40,19 @@
   image-rendering: pixelated;
   flex: none;
 }
+/* Screenshots of the game and a page's model drawn by the game (model-view.ts) are smooth. */
+.book .pic.photo,
+.book .pic.model {
+  image-rendering: auto;
+}
+.book .pic.big.model {
+  width: 144px;
+  height: 144px;
+  padding: 0;
+}
+.book .pic.photo.tiny {
+  object-fit: cover;
+}
 .book a {
   color: var(--gold);
   text-decoration: none;
@@ -315,7 +328,6 @@
   border: 10px solid transparent;
   border-image: var(--frame-panel) 12 / 20px round;
   background: #1a1410 center 30% / cover no-repeat;
-  image-rendering: pixelated;
   overflow: hidden;
 }
 .hero::before {

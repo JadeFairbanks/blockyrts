@@ -8,6 +8,7 @@ import { articleBlocks, type Block, type Links, type Pic } from './article.ts';
 import { GUIDES_SECTION, pageByTitle, searchPages, type Book, type Related, type RelatedItem } from './book.ts';
 import { CATEGORIES, categoryOf, FALLBACK_CATEGORY, GROUP_HEADINGS, LEFT_OUT_GROUPS, MENU_NAMES, type Category } from './categories.ts';
 import { GUIDES, type Guide } from './guides.ts';
+import { plainWords } from './plain-words.ts';
 
 export interface Article {
   /** Its address: "guides/premise", "monsters/zombie". */
@@ -20,6 +21,8 @@ export interface Article {
   entry: Entry | null;
   guide: Guide | null;
   pic: Pic | null;
+  /** The catalogue model the page draws when it has no picture ('' for none). */
+  model: string;
   /** Lower-case words a search matches first: the title, sub-heading, section and the page's own words. */
   words: string;
   /** Lower-case names the page refers to (a mob's drops, a recipe's goods), matched last. */
@@ -45,6 +48,8 @@ export interface Pictures {
   entry(entry: Entry): Pic | null;
   ref(kind: string, id: number): Pic | null;
   level(entry: Entry, level: number): Pic | null;
+  /** The model a page with no picture draws ('' for none); tests may leave it out. */
+  model?(entry: Entry): string;
 }
 
 export interface Wiki {
@@ -92,6 +97,7 @@ const sentence = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): Wiki {
   const catalog = buildCatalog(mods, docs);
+  plainWords(catalog);
   const articles: Article[] = [];
   const bySlug = new Map<string, Article>();
   const slugByEntry = new Map<string, string>();
@@ -115,6 +121,7 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
       entry: null,
       guide: g,
       pic: { file: g.picture },
+      model: '',
       words: [g.title, g.summary, ...g.parts.flatMap((p) => [p.heading ?? '', ...p.paragraphs, ...(p.bullets ?? [])])].join(' ').toLowerCase(),
       more: '',
     };
@@ -122,7 +129,7 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
     guideShelf.push(a);
   }
   const sections: Section[] = [
-    { id: GUIDES_SECTION, label: 'Guides', blurb: 'The premise and how to play.', pic: { file: 'icon_scriptorium' }, shelves: [{ heading: '', articles: guideShelf }], count: guideShelf.length },
+    { id: GUIDES_SECTION, label: 'Guides', blurb: 'The premise and how to play.', pic: { file: 'portrait_worker_labourer' }, shelves: [{ heading: '', articles: guideShelf }], count: guideShelf.length },
   ];
 
   // ---- A page for every catalog entry, filed by section ----
@@ -153,6 +160,7 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
               ? GROUP_HEADINGS[group] ?? groupLabel.get(group) ?? ''
               : '';
       const texts = textOf(entry.children);
+      const pic = pictures.entry(entry);
       const a: Article = {
         slug: `${c.id}/${slugify(entry.label)}`,
         title: entry.label,
@@ -160,7 +168,8 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
         heading,
         entry,
         guide: null,
-        pic: pictures.entry(entry),
+        pic,
+        model: pic ? '' : pictures.model?.(entry) ?? '',
         words: [entry.label, heading, c.label, ...texts].join(' ').toLowerCase(),
         more: '',
       };
@@ -248,7 +257,7 @@ export function bookOf(w: Wiki): Book {
   return {
     sections: w.sections.map((s) => ({ id: s.id, label: s.label, blurb: s.blurb, pic: s.pic, count: s.count, shelves: s.shelves.map((sh) => ({ heading: sh.heading, slugs: sh.articles.map((a) => a.slug) })) })),
     articles: w.articles.map((a) => ({
-      slug: a.slug, title: a.title, category: a.category, heading: a.heading, pic: a.pic, words: a.words, more: a.more,
+      slug: a.slug, title: a.title, category: a.category, heading: a.heading, pic: a.pic, model: a.model, words: a.words, more: a.more,
       guide: a.guide, blocks: w.blocks(a), related: w.related(a),
     })),
   };

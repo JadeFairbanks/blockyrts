@@ -5,6 +5,7 @@
 // rest. Pure (no page, no pictures' files), so tests can check that every
 // number the sim exports lands on a page.
 import { toDisplay, UNITS, type Catalog, type CatNode, type Entry, type FieldNode, type UnitId } from '@blockyrts/balance';
+import { isInternal } from './plain-words.ts';
 
 type PairNode = Extract<CatNode, { type: 'pair' }>;
 type SectionNode = Extract<CatNode, { type: 'section' }>;
@@ -198,6 +199,11 @@ function blocksOf(ctx: Ctx, nodes: readonly CatNode[], details: boolean, skip: R
       out.push({ kind: 'text', label: n.label, text: n.text });
     } else if (n.type === 'field') {
       if (skip.has(n.id)) continue;
+      // The code's own bookkeeping (plain-words.ts) is counted as shown and left off.
+      if (isInternal(n)) {
+        ctx.seen.add(n.id);
+        continue;
+      }
       if (!details && isZero(ctx.cat, n)) {
         ctx.seen.add(n.id);
         (n.value === false ? no : zero).push(n.label);

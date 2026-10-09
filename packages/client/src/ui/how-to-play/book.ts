@@ -4,6 +4,21 @@
 import type { Block, Pic } from './article.ts';
 import type { Guide } from './guides.ts';
 
+/**
+ * How a guide's picture names a model of the game's catalogue instead of a
+ * file: "model:trilithon_intact" draws that model once on the page
+ * (model-view.ts), as a page with no kit picture draws its own.
+ *
+ * Pictures in How to Play: a page about a thing shows its interface-kit icon
+ * or portrait, or else its model drawn by the game; nothing gets a picture
+ * made for it. Screenshots of the game (shot_*, scripts/make-shots.mjs) are
+ * only for the guides (guides.ts) and the patch notes. When a later update changes
+ * something so that a screenshot no longer shows the game as it is, the
+ * screenshot is removed, not retaken, and the guide names the thing's model
+ * (or kit picture) in its place.
+ */
+export const MODEL_PICTURE = 'model:';
+
 export interface RelatedItem {
   title: string;
   slug: string;
@@ -24,6 +39,8 @@ export interface BookArticle {
   /** Its sub-heading in the sidebar ('' for none). */
   heading: string;
   pic: Pic | null;
+  /** The catalogue model the page draws when it has no picture ('' for none). */
+  model: string;
   /** Lower-case words a search matches first: the title, sub-heading, section and the page's own words. */
   words: string;
   /** Lower-case names the page refers to (a mob's drops, a recipe's goods), matched last. */

@@ -183,7 +183,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
         },
         {
           title: 'Earth rampart',
-          text: 'New in the Defences menu (M): an earth rampart, a 2 m tall chunk of earth chained point to point like a wall. Each chunk costs 5 earth and has 300 health, as much as a wooden wall. Nothing can climb it, and it cannot be dug away.',
+          text: 'New in the Defences menu (M): an earth rampart, a 2 m tall chunk of earth chained point to point like a wall. Each chunk costs 10 earth, a worker’s full load, and has 300 health, as much as one wooden wall column. Your units cannot climb it (monsters that climb walls still go over it), and it cannot be dug away.',
           picture: 'icon_rampart_earth',
         },
         {

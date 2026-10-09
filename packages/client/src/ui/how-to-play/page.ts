@@ -9,7 +9,8 @@ import '../book.css';
 import { bookFromHash, HOW_TO_PLAY_HASH } from '../book-links.ts';
 import { button, el } from '../dom.ts';
 import type { Block, Fact, Pic } from './article.ts';
-import { GUIDES_SECTION, pageByTitle, searchPages, SEARCH_LIMIT, type Book, type BookArticle, type BookSection } from './book.ts';
+import { GUIDES_SECTION, MODEL_PICTURE, pageByTitle, searchPages, SEARCH_LIMIT, type Book, type BookArticle, type BookSection } from './book.ts';
+import type { ModelLibrary } from '../../models/index.ts';
 import { pictureUrl } from './picture-url.ts';
 
 /** The book, with its pages by address and title. */
@@ -54,12 +55,40 @@ function loadBook(): Promise<Reader> {
 function picture(p: Pic | null, cls: string, parent: HTMLElement): HTMLImageElement | null {
   const url = p ? pictureUrl(p.file) : '';
   if (!url) return null;
-  const img = el('img', `pic ${cls}`, undefined, parent);
+  // A screenshot is drawn smooth; the kit's pixel art stays sharp.
+  const img = el('img', `pic ${cls}${p?.file.startsWith('shot_') ? ' photo' : ''}`, undefined, parent);
   img.src = url;
   img.alt = '';
   img.loading = 'lazy';
   if (p?.filter) img.style.filter = p.filter;
   return img;
+}
+
+/** The library of the game's models the menu is loading, for the pages that draw a model; null when there is none. */
+let models: Promise<ModelLibrary | null> | null = null;
+let drewModels = false;
+
+/** A page's model drawn once (model-view.ts), for a page with no kit picture. */
+function modelPicture(id: string, parent: HTMLElement, cls = 'big'): void {
+  const library = models;
+  if (!library) return;
+  const img = el('img', `pic ${cls} model`, undefined, parent);
+  img.alt = '';
+  img.hidden = true;
+  drewModels = true;
+  void Promise.all([library, import('./model-view.ts')]).then(async ([lib, view]) => {
+    const url = lib ? await view.modelPicture(lib, id) : '';
+    if (url) {
+      img.src = url;
+      img.hidden = false;
+    } else img.remove();
+  });
+}
+
+/** A guide's picture: a screenshot or kit picture by file name, or a model by MODEL_PICTURE and its id. */
+function guidePicture(file: string, cls: string, parent: HTMLElement): void {
+  if (file.startsWith(MODEL_PICTURE)) modelPicture(file.slice(MODEL_PICTURE.length), parent, cls);
+  else picture({ file }, cls, parent);
 }
 
 const href = (slug: string): string => `${HOW_TO_PLAY_HASH}${slug ? `/${slug}` : ''}`;
@@ -85,8 +114,9 @@ function richText(w: Reader, text: string, parent: HTMLElement): void {
   }
 }
 
-/** Opens How to Play over the main menu; resolves when the player goes back to the menu. */
-export async function howToPlay(app: HTMLElement, start = ''): Promise<void> {
+/** Opens How to Play over the main menu; resolves when the player goes back to the menu. `library` is the game's models, for the pages that draw one. */
+export async function howToPlay(app: HTMLElement, start = '', library: Promise<ModelLibrary | null> | null = null): Promise<void> {
+  models = library;
   const wait = el('div', 'book book-wait', undefined, app);
   el('p', '', 'Opening How to Play…', wait);
   let w: Reader;
@@ -114,6 +144,7 @@ export async function howToPlay(app: HTMLElement, start = ''): Promise<void> {
     const close = (): void => {
       window.removeEventListener('hashchange', onHash);
       root.remove();
+      if (drewModels) void import('./model-view.ts').then((m) => m.closeModelViews());
       if (location.hash.startsWith(HOW_TO_PLAY_HASH)) history.replaceState(null, '', `${location.pathname}${location.search}`);
       resolve();
     };
@@ -229,9 +260,12 @@ function frontLink(text: string, parent: HTMLElement): void {
   a.href = href('');
 }
 
+/** Whether a picture is a screenshot of the game (shown wide) rather than a kit picture. */
+const isShot = (file: string | undefined): boolean => !!file?.startsWith('shot_');
+
 function frontPage(w: Reader, page: HTMLElement): void {
   const hero = el('div', 'hero', undefined, page);
-  const url = pictureUrl('menu_background');
+  const url = pictureUrl('shot_citadel');
   if (url) hero.style.backgroundImage = `url("${url}")`;
   el('h1', '', 'How to Play', hero);
   const premise = w.articles.find((a) => a.guide)?.guide;
@@ -243,7 +277,7 @@ function frontPage(w: Reader, page: HTMLElement): void {
   for (const a of w.shelf(guideSection?.shelves[0]?.slugs ?? [])) {
     const card = el('a', 'card guide-card', undefined, guides);
     card.href = href(a.slug);
-    picture(a.pic, a.pic?.file.startsWith('icon_') ? 'icon' : 'scene', card);
+    guidePicture(a.pic?.file ?? '', isShot(a.pic?.file) ? 'scene' : 'icon', card);
     el('strong', '', a.title, card);
     el('span', '', a.guide?.summary ?? '', card);
   }
@@ -284,10 +318,10 @@ function guidePage(w: Reader, a: BookArticle, page: HTMLElement): void {
   const g = a.guide!;
   crumbs(w, a, page);
   el('h1', '', g.title, page);
-  if (a.pic && !a.pic.file.startsWith('icon_')) picture(a.pic, 'banner', page);
+  if (a.pic && isShot(a.pic.file)) picture(a.pic, 'banner', page);
   for (const part of g.parts) {
     const sec = el('section', 'guide-part', undefined, page);
-    if (part.picture) picture({ file: part.picture }, part.picture.startsWith('icon_') ? 'icon side-pic' : 'scene side-pic', sec);
+    if (part.picture) guidePicture(part.picture, isShot(part.picture) ? 'scene side-pic' : 'icon side-pic', sec);
     if (part.heading) el('h2', '', part.heading, sec);
     for (const p of part.paragraphs) richText(w, p, el('p', '', undefined, sec));
     if (part.bullets?.length) {
@@ -311,7 +345,7 @@ function crumbs(w: Reader, a: BookArticle, page: HTMLElement): void {
 function articlePage(w: Reader, a: BookArticle, page: HTMLElement): void {
   crumbs(w, a, page);
   const head = el('div', 'page-head', undefined, page);
-  picture(a.pic, 'big', head);
+  if (!picture(a.pic, 'big', head) && a.model) modelPicture(a.model, head);
   el('h1', '', a.title, head);
   drawBlocks(a.blocks, page);
   const related = a.related;

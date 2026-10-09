@@ -1,10 +1,14 @@
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { importSimModules, readSimDocs } from '@blockyrts/balance/node';
+import type { Block } from '../src/ui/how-to-play/article.ts';
+import { MODEL_PICTURE } from '../src/ui/how-to-play/book.ts';
 import { bookFromHash } from '../src/ui/book-links.ts';
 import { LEFT_OUT_GROUPS } from '../src/ui/how-to-play/categories.ts';
 import { GUIDES } from '../src/ui/how-to-play/guides.ts';
 import { pictureUrl } from '../src/ui/how-to-play/picture-url.ts';
-import { buildingPic, entryPic, goodPic } from '../src/ui/how-to-play/pictures.ts';
+import { buildingPic, entryModel, entryPic, goodPic } from '../src/ui/how-to-play/pictures.ts';
 import { bookOf, buildWiki } from '../src/ui/how-to-play/wiki.ts';
 import { NOTE_CATEGORIES, PATCH_NOTES } from '../src/ui/patch-notes/notes.ts';
 
@@ -17,7 +21,45 @@ const w = buildWiki(mods, readSimDocs(), {
   entry: (e) => entryPic(e, mods),
   ref: (kind, id) => (kind === 'res' ? goodPic(id) : null),
   level: (e, level) => (e.path[0] === 'BUILDINGS' ? buildingPic((mods[e.module]!.BUILDINGS as Array<{ kind: number }>)[e.path[1] as number]!.kind, level) : null),
+  model: (e) => entryModel(e, mods),
 });
+
+/** Every catalogue model's id, from its Blockbench source (a look "~x" or state set "@x" is drawn from the same file). */
+const MODEL_IDS = new Set(
+  (readdirSync(join(import.meta.dirname, '../../assets/src/models'), { recursive: true }) as string[])
+    .filter((f) => f.endsWith('.bbmodel'))
+    .map((f) => f.slice(f.lastIndexOf('/') + 1, -'.bbmodel'.length)),
+);
+const modelExists = (id: string): boolean => MODEL_IDS.has(id.split(/[~@]/)[0]!);
+
+/** Every label a page shows. */
+function labelsOf(blocks: readonly Block[], out: string[] = []): string[] {
+  for (const b of blocks) {
+    switch (b.kind) {
+      case 'text':
+        out.push(b.label);
+        break;
+      case 'tiles':
+      case 'facts':
+        for (const f of b.facts) out.push(f.label);
+        break;
+      case 'chips':
+        out.push(b.label, ...b.items.map((i) => i.label));
+        break;
+      case 'table':
+        out.push(b.label, ...b.columns, ...b.rows.map((r) => r.label));
+        break;
+      case 'group':
+        out.push(b.label);
+        labelsOf(b.blocks, out);
+        break;
+      case 'zero':
+        out.push(...b.zero, ...b.no);
+        break;
+    }
+  }
+  return out;
+}
 const included = [...w.catalog.entries.values()].filter((e) => !LEFT_OUT_GROUPS.has(e.group));
 
 describe('How to Play pages', () => {
@@ -70,6 +112,35 @@ describe('How to Play pages', () => {
     expect(bare).toEqual([]);
   });
 
+  it('draws its model for a page with no picture, and only a model the catalogue has', () => {
+    const elfHall = w.byTitle('Elf hall')!;
+    expect(elfHall.pic).toBeNull();
+    expect(elfHall.model).toBe('elf_hall');
+    expect(w.byTitle('Intact trilithon')?.model).toBe('trilithon_intact');
+    const drawn = w.articles.filter((a) => a.model);
+    expect(drawn.length).toBeGreaterThan(50);
+    expect(drawn.filter((a) => a.pic || !modelExists(a.model)).map((a) => `${a.title}: ${a.model}`)).toEqual([]);
+  });
+
+  it('names its numbers in plain words, not the code\'s', () => {
+    const codeLike = /^half width$|[a-z][A-Z]|\b(wu|bp|pm|pct|ds|steps|tu)$|^[A-Za-z ]+ (s|m|ms)$/;
+    const bad = new Set<string>();
+    for (const a of w.articles) for (const l of labelsOf(w.blocks(a))) if (codeLike.test(l.trim())) bad.add(`${a.title}: ${l}`);
+    expect([...bad]).toEqual([]);
+  });
+
+  it('gives every guide pictures of the game: screenshots, kit pictures or models, never a stand-in', () => {
+    const pictures = GUIDES.flatMap((g) => [g.picture, ...g.parts.map((p) => p.picture ?? '')]).filter(Boolean);
+    const bad = pictures.filter((f) => (f.startsWith(MODEL_PICTURE) ? !modelExists(f.slice(MODEL_PICTURE.length)) : !pictureUrl(f)) || f === 'icon_scriptorium');
+    expect(bad).toEqual([]);
+    expect(pictures.filter((f) => f.startsWith('shot_')).length).toBeGreaterThan(5);
+  });
+
+  it('never mentions a patch in the guides (they tell the game as it is)', () => {
+    for (const g of GUIDES) expect(JSON.stringify(g), g.title).not.toMatch(/\bpatch(es)?\b/i);
+    expect(w.articles.filter((a) => /\bpatch \d/i.test(a.title)).map((a) => a.title)).toEqual([]);
+  });
+
   it("links guides only to pages that exist", () => {
     const text = GUIDES.flatMap((g) => g.parts.flatMap((p) => [...p.paragraphs, ...(p.bullets ?? [])])).join('\n');
     const links = [...text.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1]!);
@@ -101,6 +172,13 @@ describe('patch notes', () => {
     for (const n of PATCH_NOTES) for (const k of Object.keys(n.changes)) expect(NOTE_CATEGORIES.map((c) => c.id)).toContain(k);
     // Every patch but the newest keeps the version and date it went live with.
     for (const n of PATCH_NOTES.slice(1)) expect(n.version && n.date, n.name).toBeTruthy();
+  });
+
+  it("shows its screenshots: a leader's offer under Quests and the quest menu under Quest menu", () => {
+    const items = PATCH_NOTES.flatMap((n) => Object.values(n.changes).flat());
+    const shots = items.filter((i) => i?.shot).map((i) => [i!.title, i!.shot!] as const);
+    expect(shots).toEqual(expect.arrayContaining([['Quests', 'shot_quest_offer'], ['Quest menu', 'shot_quest_menu']]));
+    expect(shots.filter(([, f]) => !pictureUrl(f))).toEqual([]);
   });
 
   it("names no person and nothing only the developers see, in the notes or the guides", () => {
