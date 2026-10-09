@@ -523,10 +523,15 @@ const dreadBlow = (b: DreadnoughtBlow): MeleeStats => ({
   damage: b.damage, attackSteps: ds(DREADNOUGHT_KIT.attackDs), reach: cm(DREADNOUGHT_KIT.reachCm), hit: b.hit, blunt: true, oneHanded: false, crit: false, landSteps: ds(b.landDs),
 });
 
+/** The armour row his plate matches (DREADNOUGHT_KIT.armourTier, held to the ladder). */
+export function dreadnoughtArmour(): ArmourKit {
+  return ARMOUR_KITS[Math.max(0, Math.min(TOP_TIER, DREADNOUGHT_KIT.armourTier))]!;
+}
+
 /** The Dreadnought's gear: drawn as part of his own model (heavy_knight), so neither has a model of its own. */
 export const DREADNOUGHT_GEAR = {
   mace: add({ name: DREADNOUGHT_KIT.mace, slot: Slot.Weapon, tier: TOP_TIER, model: '', melee: dreadBlow(DREADNOUGHT_KIT.smash), melee2: dreadBlow(DREADNOUGHT_KIT.swing) }),
-  plate: add({ name: DREADNOUGHT_KIT.plate, slot: Slot.Armour, tier: TOP_TIER, model: '', armourBp: ARMOUR_KITS[DREADNOUGHT_KIT.armourTier]!.protectionPct * 100 }),
+  plate: add({ name: DREADNOUGHT_KIT.plate, slot: Slot.Armour, tier: TOP_TIER, model: '', armourBp: dreadnoughtArmour().protectionPct * 100 }),
 } as const;
 
 /** atkWith while a weapon's second blow (GearSpec.melee2) swings: past the slots. */

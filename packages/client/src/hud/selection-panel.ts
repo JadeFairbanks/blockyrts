@@ -37,6 +37,8 @@ import {
   WAND_KITS,
   weaponPiece,
   ARMOUR_KITS,
+  DREADNOUGHT_KIT,
+  dreadnoughtArmour,
   type Piece,
 } from '@blockyrts/sim';
 import type { GameInfo, UnitInfo } from '../game/game-info.ts';
@@ -522,8 +524,8 @@ export class SelectionPanel {
       const pct = Math.max(0, Math.min(100, Math.round((h[0] * 100) / h[1])));
       return { pct, text: `${h[0]}/${h[1]}`, tip: `Health ${h[0]} of ${h[1]}.`, low: pct < 35 };
     }, 'Health');
-    // Another player's units show their experience too; the peoples' and the monsters' have no ranks.
-    if (u && hasRanks(u.kind) && u.owner < 8) {
+    // Another player's units show their experience too; the peoples' and the monsters' have no ranks, nor has the Dreadnought (Patch 5).
+    if (u && hasRanks(u.kind) && u.owner < 8 && !(u.kind === UnitKind.Warrior && u.troop === Troop.Dreadnought)) {
       const unit = u.id;
       label('XP:');
       this.bar('xp', box, () => {
@@ -904,6 +906,15 @@ export class SelectionPanel {
       return [
         { pic: wandPic(u.wTier), tag: String(u.wTier), ...named(WAND_KITS[u.wTier], u.wTier, 'wand'), line: 0 },
         { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
+      ];
+    }
+    // The Dreadnought (Patch 5, GP-21): the mace and plate he came with, never changed.
+    if (u.troop === Troop.Dreadnought) {
+      const k = DREADNOUGHT_KIT;
+      const keeps = 'He keeps it: it is never upgraded or changed.';
+      return [
+        { pic: { file: 'icon_mace_iron_refined' }, name: k.mace, text: `A smash of ${k.smash.damage} at one enemy, then a sweep of ${k.swing.damage} at every enemy in front of him, by turns, one every ${k.attackDs / 10} s; reach ${k.reachCm / 100} m.\n${keeps}`, line: -1 },
+        { pic: armourPic(dreadnoughtArmour().tier), name: k.plate, text: `Protection ${dreadnoughtArmour().protectionPct}%, as a ${dreadnoughtArmour().name} of high carbon steel. No shield.\n${keeps}`, line: -1 },
       ];
     }
     const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [

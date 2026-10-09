@@ -58,6 +58,7 @@ import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { propDetails, propLabel } from './plant-text.ts';
 import { BuildingsView } from './buildings-view.ts';
+import { TavernView } from './tavern-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { LootView } from './loot-view.ts';
@@ -233,6 +234,8 @@ export class WorldView {
   private viewRing = QUARTER_DETAIL_RING;
   private shadows = false;
   readonly buildings: BuildingsView;
+  /** The Tavern's lit windows, smoke and bar (Patch 5). */
+  private readonly taverns: TavernView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
   /** Unit keys inside buildings this step (not drawn, not selectable). */
@@ -284,6 +287,7 @@ export class WorldView {
     this.unitsView = new UnitsView(scene, this.fow);
     this.outlines = new HiddenOutlines(scene, this.unitsView, this.colours[this.player] ?? NEUTRAL_COLOUR);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
+    this.taverns = new TavernView(scene, this.player);
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
@@ -601,6 +605,7 @@ export class WorldView {
     this.lootView.update(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
+    if (this.game) this.taverns.update(this.game, now, focus, this.buildings.darkness);
     const fcx = Math.floor(focus.x / CHUNK_M);
     const fcz = Math.floor(focus.z / CHUNK_M);
     if (fcx !== this.focusChunk.cx || fcz !== this.focusChunk.cz) {
