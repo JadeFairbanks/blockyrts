@@ -1,0 +1,29 @@
+name: Server load
+
+# How busy the test server is: the Droplet's CPU, memory, load and network
+# from DigitalOcean Monitoring, and the rooms open now from /healthz. Run by
+# hand only. Read-only: it changes nothing on the server or anywhere else.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: How many hours back to look (up to 336)
+        type: number
+        default: 24
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read the server's load
+        run: python3 deploy/scripts/server-load.py
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          DOMAIN: ${{ vars.DOMAIN }}
+          HOURS: ${{ inputs.hours }}
