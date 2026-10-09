@@ -1554,7 +1554,6 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_bow_recurve | ui/icon_bow_recurve.png | 1 | 32x32 | K2 item icon bow_recurve (rendered from bow_recurve.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_crew_outfit | ui/icon_crew_outfit.png | 1 | 32x32 | K2 item icon crew_outfit (rendered from crew_outfit.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_cutlass | ui/icon_cutlass.png | 1 | 32x32 | K2 item icon cutlass (rendered from cutlass.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
-| icon_goose | ui/icon_goose.png | 1 | 32x32 | K4 animal icon goose (rendered from goose.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_hammer_iron | ui/icon_hammer_iron.png | 1 | 32x32 | K2 item icon hammer_iron (rendered from hammer_iron.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_hat_farmer | ui/icon_hat_farmer.png | 1 | 32x32 | K2 item icon hat_farmer (rendered from hat_farmer.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_main_base_citadel | ui/icon_main_base_citadel.png | 1 | 32x32 | K3 building icon main_base_citadel (rendered from main_base_citadel.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
