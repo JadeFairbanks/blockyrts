@@ -632,7 +632,7 @@ function ownRow(item: Res, k: MeleeKit, model: string): number {
   return id;
 }
 /** The obsidian hand-axe in hand: the bronze shortsword's numbers, its own model. */
-export const OBSIDIAN_AXE_GEAR: number = ownRow(Res.ObsidianHandAxe, CLOSE_KITS[4]!, 'axe_hand_obsidian');
+export const OBSIDIAN_AXE_GEAR: number = ownRow(Res.ObsidianHandAxe, CLOSE_KITS[4]!, 'obsidian_handaxe_held');
 
 /** The gear row of its own an item goes on as, or 0 when it takes its piece's row. */
 export function ownGear(item: Res | undefined): number {
