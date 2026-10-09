@@ -204,9 +204,10 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
       // Supply 10, not Table 4's 8 (s): Jade's extra starting supply for the three starting warriors (Troops and gear: starting units).
       mainBase('Big House', [[L, 100], [ST, 50]], 1200, 1200, 10, 1),
       // Patch 5 (Jade): the tiers are the old levels 3, 6 and 10, each at that level's own upgrade cost, work and health. Only the
-      // Citadel asks for more than wood and stone: the Keep's bricks and marble became stone and its wrought iron lumber, at
-      // equal trade value (peoples/data.ts), and the Citadel adds a mana crystal (her words).
-      mainBase('Hall', [[L, 110], [ST, 45], [Res.Sticks, 15]], 420, 2000, 16, 2),
+      // Citadel asks for more than wood and stone: the Hall's sticks became lumber (15 sticks, 7.5 lumber, rounded up), the Keep's
+      // bricks and marble stone and its wrought iron lumber, at equal trade value (peoples/data.ts), and the Citadel adds a
+      // mana crystal (her words).
+      mainBase('Hall', [[L, 118], [ST, 45]], 420, 2000, 16, 2),
       mainBase('Keep', [[L, 235], [ST, 370]], 800, 3600, 30, 3),
       mainBase('Citadel', [[L, 200], [ST, 300], [Res.Bricks, 150], [Res.Marble, 125], [Res.SteelIngot, 50], [Res.Gold, 5], [Res.ManaCrystal, 1]], 2000, 7500, 50, 4),
     ],
