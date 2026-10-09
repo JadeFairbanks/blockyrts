@@ -318,7 +318,6 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cutlass | models/items/cutlass/cutlass.bbmodel | 9 | 32x32 |  |
 | zweihander | models/items/zweihander/zweihander.bbmodel | 11 | 64x64 |  |
 | spear_iron_crude | models/items/spear_iron_crude/spear_iron_crude.bbmodel | 8 | 128x128 |  |
-| axe_hand_obsidian | models/items/axe_hand_obsidian/axe_hand_obsidian.bbmodel | 8 | 32x64 |  |
 | bow_recurve | models/items/bow_recurve/bow_recurve.bbmodel | 11 | 64x64 |  |
 | shield_targe | models/items/shield_targe/shield_targe.bbmodel | 11 | 64x64 |  |
 | shield_rotella | models/items/shield_rotella/shield_rotella.bbmodel | 11 | 128x64 |  |
@@ -331,7 +330,6 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | farm_fare | models/items/farm_fare/farm_fare.bbmodel | 11 | 32x32 |  |
 | moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
 | bog_pear | models/items/bog_pear/bog_pear.bbmodel | 10 | 64x64 |  |
-| obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
 | armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
 | black_berries | models/items/black_berries/black_berries.bbmodel | 11 | 32x16 |  |
 | raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
