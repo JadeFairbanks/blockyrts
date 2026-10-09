@@ -88,7 +88,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
+import { cloaked, crewOf, haulerOf, isCrystalGuardian, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
@@ -176,6 +176,7 @@ function postState(s: SimState): void {
     if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
+    if (isCrystalGuardian(s, i)) flags |= UnitFlag.Guardian;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.target] = e.target[i]!;

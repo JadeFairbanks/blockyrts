@@ -399,11 +399,13 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Mob) {
         const spec = mobSpec(d[o + S.mob]!);
-        u.label = spec.name;
+        // A mana crystal's guardian is named for what it guards (Jade's Patch 5, MB-13).
+        const guardian = (d[o + S.flags]! & UnitFlag.Guardian) !== 0;
+        u.label = guardian ? 'Mana crystal guardian' : spec.name;
         u.typeKey = `mob:${spec.id}`;
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
-        u.details = [health];
+        u.details = guardian ? [`${spec.name}. It keeps to its crystal and never comes back once killed.`, health] : [health];
       } else if (kind === UnitKind.Engine) {
         const spec = engineSpec(d[o + S.mob]!);
         u.label = spec.name;
