@@ -85,12 +85,13 @@ export const REACH_M = 4;
 export interface LootLine {
   /** SC-6's chance of the line, per cent. */
   pct: number;
-  res: Res;
+  /** A Res (a number, as a trinket has no name of its own). */
+  res: number;
   count: number;
 }
 
 /** The Gold Token, the first tier of gold trinket: SC-6's "Gold Trinket" (s). */
-const GOLD_TOKEN = (TRINKET_BASE + 6 * 4) as Res;
+const GOLD_TOKEN = TRINKET_BASE + 6 * 4;
 
 /** SC-6, line by line, in her order. */
 export const CHEST_LOOT: readonly LootLine[] = [

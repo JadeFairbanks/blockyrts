@@ -23,7 +23,7 @@ TRINKET_METALS.forEach((_, m) => TRINKET_TIERS.forEach((_t, t) => trinkets.push(
  */
 export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res[] }> = [
   { name: 'Woods', items: [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Sticks, Res.Planks, Res.Resin] },
-  { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Marble, Res.Earth, Res.Clay, Res.Sand] },
+  { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Obsidian, Res.Marble, Res.Bluestone, Res.Earth, Res.Clay, Res.Sand] },
   {
     name: 'Ores',
     items: [Res.Coal, Res.Charcoal, Res.CopperOre, Res.TinOre, Res.BogIron, Res.IronRock, Res.VeinIron, Res.LeadOre, Res.Saltpetre, Res.Sulphur],
@@ -39,6 +39,10 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       ...FISHES,
       Res.Eggs,
       Res.FarmFare,
+      Res.HawthorneFruit,
+      Res.Honey,
+      Res.HawthorneCider,
+      Res.EnchantedWine,
       Res.Herbs,
       Res.Bandage,
       Res.Remedy,
@@ -57,14 +61,17 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       Res.SpiderSilk,
       Res.Venom,
       Res.DemonHorn,
+      Res.MoonRose,
+      Res.AncientSeed,
       Res.Bricks,
       Res.Glass,
       Res.Gunpowder,
       Res.HandCart,
       Res.OxCart,
+      Res.PanFlute,
     ],
   },
-  { name: 'Trinkets', items: [...trinkets, Res.Moonleaf, Res.Sunheart] },
+  { name: 'Trinkets', items: [...trinkets, Res.Moonleaf, Res.Sunheart, Res.BluestoneTrinket, Res.MoonIdol, Res.HeadlessIdol] },
   { name: 'Crystals', items: [Res.Hexstone, Res.ManaCrystal, Res.Emeralds, Res.Rubies, Res.Diamonds] },
 ];
 

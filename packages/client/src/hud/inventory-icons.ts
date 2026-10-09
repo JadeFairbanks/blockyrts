@@ -100,6 +100,19 @@ TRINKET_METALS.forEach((metal, m) =>
 // Moonleaf is made of silver and emeralds, Sunheart of gold and rubies.
 set(Res.Moonleaf, 'trinket_moonleaf_silver');
 set(Res.Sunheart, 'trinket_sunheart_gold');
+// Patch 5's stone circles: each rendered from Jade's own model of it.
+set(Res.Bluestone, 'bluestone');
+set(Res.Obsidian, 'obsidian');
+set(Res.AncientSeed, 'ancient_seed');
+set(Res.HawthorneFruit, 'hawthorne_fruit');
+set(Res.PanFlute, 'pan_flute');
+set(Res.BluestoneTrinket, 'trinket_bluestone');
+set(Res.Honey, 'honey');
+set(Res.EnchantedWine, 'enchanted_wine');
+set(Res.HawthorneCider, 'hawthorne_cider');
+set(Res.MoonRose, 'moon_rose');
+set(Res.MoonIdol, 'moon_idol');
+set(Res.HeadlessIdol, 'headless_idol');
 
 /** A good's icon. */
 export function goodIcon(res: number): GoodIcon | undefined {
@@ -122,7 +135,8 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
-    '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',
+    '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold,bluestone}.png',
+    '../../../assets/src/ui/icon_{bluestone,obsidian,ancient_seed,hawthorne_fruit,pan_flute,honey,enchanted_wine,hawthorne_cider,moon_rose,moon_idol,headless_idol}.png',
   ],
   { eager: true, query: '?no-inline', import: 'default' },
 );

@@ -842,7 +842,9 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 
 | id | path | frames | size | notes, deviations and reasons |
 |---|---|---|---|---|
+| icon_ancient_seed | ui/icon_ancient_seed.png | 1 | 32x32 | K1 resource icon ancient_seed (rendered from ancient_seed.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_bandage | ui/icon_bandage.png | 1 | 32x32 | K1 resource icon bandage (rendered from bandage_roll.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bluestone | ui/icon_bluestone.png | 1 | 32x32 | K1 resource icon bluestone (rendered from bluestone.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_bog_iron | ui/icon_bog_iron.png | 1 | 32x32 | K1 resource icon bog_iron (rendered from ore_bog_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bone | ui/icon_bone.png | 1 | 32x32 | K1 resource icon bone (rendered from bone_bundle.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bread | ui/icon_bread.png | 1 | 32x32 | K1 resource icon bread (rendered from bread_loaf.bbmodel), 32x32, 1px outline, top-left light. |
@@ -858,6 +860,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_earth | ui/icon_earth.png | 1 | 32x32 | K1 resource icon earth: sack + heap of contents. |
 | icon_eggs | ui/icon_eggs.png | 1 | 32x32 | K1 resource icon eggs (rendered from egg_basket.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_emerald | ui/icon_emerald.png | 1 | 32x32 | K1 resource icon emerald (rendered from gem_emerald.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_enchanted_wine | ui/icon_enchanted_wine.png | 1 | 32x32 | K1 resource icon enchanted_wine (rendered from enchanted_wine.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_farm_fare | ui/icon_farm_fare.png | 1 | 32x32 | K1 resource icon farm_fare (Patch 2): "a hearty medley of vegetables" heaped in a wooden bowl (cabbage, carrots, turnip, onion, potatoes, beans), 32x32, 1px outline, top-left light. |
 | icon_feathers | ui/icon_feathers.png | 1 | 32x32 | K1 resource icon feathers (rendered from feather_bundle.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_fish | ui/icon_fish.png | 1 | 32x32 | K1 resource icon fish (rendered from fish_carried.bbmodel), 32x32, 1px outline, top-left light. |
@@ -874,9 +877,13 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_hardened_leather | ui/icon_hardened_leather.png | 1 | 32x32 | K1 resource icon hardened_leather: icon_leather recoloured to dark oxblood boiled leather with a waxed gloss and a stitched hem. |
 | icon_hardwood_lumber | ui/icon_hardwood_lumber.png | 1 | 32x32 | K1 resource icon hardwood_lumber (rendered from log_hardwood.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hardwood_sticks | ui/icon_hardwood_sticks.png | 1 | 32x32 | K1 resource icon hardwood_sticks (rendered from sticks_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hawthorne_cider | ui/icon_hawthorne_cider.png | 1 | 32x32 | K1 resource icon hawthorne_cider (rendered from hawthorne_cider.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
+| icon_hawthorne_fruit | ui/icon_hawthorne_fruit.png | 1 | 32x32 | K1 resource icon hawthorne_fruit (rendered from hawthorne_fruit.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
+| icon_headless_idol | ui/icon_headless_idol.png | 1 | 32x32 | K1 resource icon headless_idol (rendered from headless_god_idol.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_healing_remedy | ui/icon_healing_remedy.png | 1 | 32x32 | K1 resource icon healing_remedy (rendered from healing_remedy.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hexstone | ui/icon_hexstone.png | 1 | 32x32 | K1 resource icon hexstone (rendered from hexstone.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hides | ui/icon_hides.png | 1 | 32x32 | K1 resource icon hides (rendered from hide_rolled.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_honey | ui/icon_honey.png | 1 | 32x32 | K1 resource icon honey (rendered from honey_pot.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_ingot_bronze | ui/icon_ingot_bronze.png | 1 | 32x32 | K1 resource icon ingot_bronze (rendered from ingot_bronze.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_ingot_carbon_steel | ui/icon_ingot_carbon_steel.png | 1 | 32x32 | K1 resource icon ingot_carbon_steel: icon_ingot_hq_steel recoloured to blued gunmetal, so it reads apart from steel and iron. |
 | icon_ingot_copper | ui/icon_ingot_copper.png | 1 | 32x32 | K1 resource icon ingot_copper (rendered from ingot_copper.bbmodel), 32x32, 1px outline, top-left light. |
@@ -913,7 +920,11 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_meat_venison | ui/icon_meat_venison.png | 1 | 32x32 | K1 resource icon meat_venison: a lean, deep dark red haunch on a long slim bone, one thin seam of fat (meat_haunch layout as a generated cube set, rendered at icon_meat's view), 32x32, 1px outline, top-left light. |
 | icon_meat_wolf | ui/icon_meat_wolf.png | 1 | 32x32 | K1 resource icon meat_wolf: a dull brownish-red haunch under a ragged grey fur edge (meat_haunch layout as a generated cube set, rendered at icon_meat's view), 32x32, 1px outline, top-left light. |
 | icon_medicinal_herbs | ui/icon_medicinal_herbs.png | 1 | 32x32 | K1 resource icon medicinal_herbs (rendered from herb_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_moon_idol | ui/icon_moon_idol.png | 1 | 32x32 | K1 resource icon moon_idol (rendered from moon_goddess_idol.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
+| icon_moon_rose | ui/icon_moon_rose.png | 1 | 32x32 | K1 resource icon moon_rose (rendered from moon_rose_bush_bloomed.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
+| icon_obsidian | ui/icon_obsidian.png | 1 | 32x32 | K1 resource icon obsidian (rendered from obsidian_chunk.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_ox_cart | ui/icon_ox_cart.png | 1 | 32x32 | K1 resource icon ox_cart (rendered from cart_ox.bbmodel, shafts drawn at 30% length), 32x32, 1px outline, top-left light; the plain item icon for the inventory grid (icon_train_ox_cart is the training button). |
+| icon_pan_flute | ui/icon_pan_flute.png | 1 | 32x32 | K1 resource icon pan_flute (rendered from pan_flute.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_pie | ui/icon_pie.png | 1 | 32x32 | K1 resource icon pie (rendered from pie.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_planks | ui/icon_planks.png | 1 | 32x32 | K1 resource icon planks (rendered from planks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_potatoes | ui/icon_potatoes.png | 1 | 32x32 | K1 resource icon potatoes: sack + heap of contents. |
@@ -938,6 +949,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_sulphur | ui/icon_sulphur.png | 1 | 32x32 | K1 resource icon sulphur (rendered from sulphur_lump.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_supply | ui/icon_supply.png | 1 | 32x32 | K1 supply total (resource bar): a small house with a figure beside it. |
 | icon_tin_ore | ui/icon_tin_ore.png | 1 | 32x32 | K1 resource icon tin_ore (rendered from ore_tin.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_trinket_bluestone | ui/icon_trinket_bluestone.png | 1 | 32x32 | K1 resource icon trinket_bluestone (rendered from bluestone_trinket.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_vein_iron_ore | ui/icon_vein_iron_ore.png | 1 | 32x32 | K1 resource icon vein_iron_ore (rendered from ore_vein_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_venom | ui/icon_venom.png | 1 | 32x32 | K1 resource icon venom (rendered from venom_vial.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_wheat | ui/icon_wheat.png | 1 | 32x32 | K1 resource icon wheat (rendered from wheat_sheaf.bbmodel), 32x32, 1px outline, top-left light. |
