@@ -3912,7 +3912,9 @@ the box and the press on a face).*
    letting one column get more than 34 cm below another and never reaching
    more than 2 m over its head (climbing the mound for its top), and leaves
    the ground level with the click;
-   a pit goes down the same way, a layer at a time; four workers tunnel
+   a pit goes down the same way, a layer at a time; a wild animal stuck in
+   a pit does not hold it up (the ground under it is dug and it drops with
+   the floor); four workers tunnel
    8 columns into a 9 m cliff (too tall to climb) from its face, coming
    back round the cliff from their main base behind it, and a worker walks
    to the far end. packages/client/test/m3-controls.test.ts checks the
