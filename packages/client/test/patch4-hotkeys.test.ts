@@ -175,13 +175,14 @@ describe('the K menus on letters (Patch 4)', () => {
     // Patch 5: one Planks from either lumber, so Hardened leather takes the H.
     expect(read(card).slice(0, 5)).toEqual(['Planks=P', 'Leather=E', 'Hardened leather=H', 'Rope=R', 'Bandage=B']);
     expect(read(card).at(-1)).toBe('Next page=+');
-    expect(card.at(-1)!.face).toBe('More 1/3');
+    // Patch 5: bonemeal's x1, x10 and All buttons make a fourth page.
+    expect(card.at(-1)!.face).toBe('More 1/4');
     card[0]!.run(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'produce', building: 32 });
-    // Its twenty-eight trinkets cannot all have a letter from their names: twenty of the 39 get one (Patch 5 cut 4 recipes); the rest are clicks until given a key in the settings.
+    // Its twenty-eight trinkets cannot all have a letter from their names: twenty of the 40 get one (Patch 5 cut 4 recipes and added bonemeal); the rest are clicks until given a key in the settings.
     const all = makeList(BuildingKind.Workshop).map((p) => keyFor({}, makeAction(BuildingKind.Workshop, p)));
     expect(all.filter((k) => k !== '').length).toBe(20);
-    expect(all.filter((k) => k === '').length).toBe(19);
+    expect(all.filter((k) => k === '').length).toBe(20);
   });
 
   it('makes rope on the Big House\'s K, with no menu behind it (Patch 5)', () => {
