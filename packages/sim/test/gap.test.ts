@@ -350,6 +350,19 @@ describe('moving over the land', () => {
     expect(s.nav.climbStep(x + 9, z, x + 10, z, worker, y + 36)).toBe(true);
   });
 
+  it('never climbs an earth rampart: it blocks its columns like any wall (Patch 5 decision 3: climbing is for land and rock only)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const { x, z } = flatSpot(s, 8, 4);
+    const b = placeBuilding(s, 0, BuildingKind.EarthRampart, 0, x + 3, z + 1, true);
+    const solid: Array<[number, number]> = [];
+    for (let dz = -1; dz < 4; dz++) for (let dx = -1; dx < 4; dx++) if (s.buildings.solidAt(x + 3 + dx, z + 1 + dz) === b.id) solid.push([x + 3 + dx, z + 1 + dz]);
+    expect(solid).toHaveLength(4);
+    const [cx, cz] = solid[0]!;
+    // A worker climbs faces of land up to 7 m, but not the 2 m rampart.
+    expect(s.nav.stepCost(cx - 1, cz, cx, cz, gaitMover(Gait.Worker))).toBe(-1);
+    expect(s.nav.stepCost(cx - 1, cz, cx, cz, gaitMover(Gait.Fighter))).toBe(-1);
+  });
+
   it('hops onto a 5 unit platform, climbs a 3 m face at a fifth of its walk, and a fighter never gets onto a 4.5 m one', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;

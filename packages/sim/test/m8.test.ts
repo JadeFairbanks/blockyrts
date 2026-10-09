@@ -393,6 +393,16 @@ describe('tier 8: the Artillery workshop and the Citadel\'s engine platform', ()
     run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: up, count: 1 }]);
     runUntil(s, () => e.mob[e.indexOf(gunId)] === Engine.Mangonel, engineSpec(Engine.Mangonel).steps + 10 * SEC);
     expect(e.inside[e.indexOf(gunId)]).toBe(base.id);
+    // Destroyed, its crew stay up there and man the next one built there, with no new crewmen.
+    const crewIds = crewSworn(s, e.indexOf(gunId)).map((j) => e.id[j]!);
+    expect(crewIds).toHaveLength(engineSpec(Engine.Mangonel).crew);
+    e.hp[e.indexOf(gunId)] = 0;
+    run(s, 5 * SEC);
+    expect(crewIds.every((id) => e.inside[e.indexOf(id)] === base.id)).toBe(true);
+    expect(productProblem(s, base, ENGINE_PRODUCT + Engine.Mangonel)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: ENGINE_PRODUCT + Engine.Mangonel, count: 1 }]);
+    runUntil(s, () => platformEngine(s, base.id) >= 0, engineSpec(Engine.Mangonel).steps + 10 * SEC);
+    expect(crewSworn(s, platformEngine(s, base.id)).map((j) => e.id[j]!).sort()).toEqual([...crewIds].sort());
   });
 
   it('a Dwarf city fields gunners, cannon crew and two cannons', () => {

@@ -59,7 +59,7 @@ import { bestScale, MIDDLE_MARGIN } from './middle-fit.ts';
 import { queueText } from './queue-clock.ts';
 import { TrainingCards } from './training-cards.ts';
 import { cardsOf, keepPicks } from './troops.ts';
-import { BATTLE_MAGE_ICON, buildingIconFile, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
+import { buildingIconFile, mageIconFile, selectableIconFile, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
 import { hasRanks, xpView } from './xp-bar.ts';
 
@@ -158,10 +158,10 @@ function glyph(t: Selectable): string {
 }
 
 /** A unit's picture from the sim's copy of it (the units inside a building). */
-function unitInfoIcon(u: { kind: number; troop: number; wTier: number; school: number } | null): string {
+function unitInfoIcon(u: { kind: number; troop: number; wTier: number; aTier: number; school: number } | null): string {
   if (!u) return WORKER_ICON;
   if (u.kind === UnitKind.Warrior) return troopIconFile(u.troop, u.wTier);
-  if (u.kind === UnitKind.Mage) return u.school === 2 ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON;
+  if (u.kind === UnitKind.Mage) return mageIconFile(u.school === 2, u.aTier);
   return WORKER_ICON;
 }
 
