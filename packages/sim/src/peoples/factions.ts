@@ -20,7 +20,7 @@ import { MANA_SCALE, School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
 import { Band, CELL_RING_SHIFT, type Cell } from '../world/layout.ts';
 import {
-  APART_WU, BAND_SIZE_PCT, CAT_COUNT, ELF_KINGDOM_RING_INTO_DEEPWOODS, FactionKind, GROVESINGER, HALFLING_WAR_OXEN, KEEP_AWAY_WU, KIND_PEOPLE, LAYOUTS, LEANS, MERC_MAX, MERC_MIN,
+  APART_WU, BAND_SIZE_PCT, ELF_KINGDOM_RING_INTO_DEEPWOODS, FactionKind, GROVESINGER, HALFLING_WAR_OXEN, KEEP_AWAY_WU, KIND_PEOPLE, LAYOUTS, LEANS, MERC_MAX, MERC_MIN,
   MERC_UNITS, ONE_IN, PeopleUnit, peopleUnitSpec, Status,
 } from './data.ts';
 import { fillStock } from './stock.ts';
@@ -85,7 +85,7 @@ export function newFaction(state: SimState, kind: number, cell: number, x: numbe
     id: state.nextEntityId++, kind, people, parent: 0, cell, x, z, band, lean: leans > 0 ? seed % leans : -1, seed, status: Status.Settled, built: 0,
     war: 0, met: 0, traded: 0, seen: 0, founded: 0, dead: 0, kills: per(), lastTaker: -1, surrender: 0, leader: 0,
     closedUntil: per(), lastOffer: per(), declines: per(), warnings: per(), warnedAt: per(),
-    stock: [], stockMax: [], bought: new Array<number>(CAT_COUNT).fill(0), day: 0, nextAt: 0, regrowAt: 0,
+    stock: [], stockMax: [], bought: 0, day: 0, nextAt: 0, regrowAt: 0,
     caravanAt: per(), visits: -1, leaveAt: 0, leftAt: 0, toX: 0, toZ: 0, toCell: 0, survivors: 0, rebuildUntil: 0, size: 0, oxen: 0,
   };
   state.peoples.factions.push(f);

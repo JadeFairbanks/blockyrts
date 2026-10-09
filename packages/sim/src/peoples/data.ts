@@ -197,9 +197,6 @@ export const SALVAGE: Readonly<Partial<Record<number, ReadonlyArray<readonly [Re
   [Mob.DwarfCityGate]: [[Res.Stone, 60]],
 };
 
-/** Buildings that open the trade menu when right-clicked (Neutral villages and trade: "by using some of its buildings") (s). */
-export const TRADE_BUILDINGS: readonly number[] = [Mob.HalflingInn, Mob.HalflingBarn, Mob.RunkinDryingRack, Mob.ElfHall, Mob.ElfCaravanWagon, Mob.DwarfForge, Mob.DwarfHall];
-
 /** A faction's plan: its buildings and people (s), and the ring they stand in. */
 export interface Layout {
   structures: ReadonlyArray<readonly [number, number]>;
@@ -345,27 +342,57 @@ export const REFUSE = -1;
 
 /**
  * What each people pays, percent of value by category (Table 11, Table 19;
- * "anything else 50%" (s)). Halflings refuse gold, silver and gems (doc);
- * Elves are insulted by lumber (handled as a refusal that closes trade).
+ * "anything else 50%" (s)). Halflings refuse gems (doc); Elves are insulted
+ * by lumber (handled as a refusal that closes trade). Patch 5 (Jade, BL-4):
+ * "All factions now value gold and silver at least moderately", so the
+ * Halflings pay 70% for raw gold and silver and for silver and gold
+ * trinkets (they refused the metal and paid 35% for the trinkets) (s: 70%).
  */
 export const PAY_PCT: Readonly<Record<People, readonly number[]>> = {
   //                     food gear armour ingots trinkets precious-trinkets lumber precious gems livestock other
-  [People.Halfling]: [110, 70, 50, 60, 50, 35, 30, REFUSE, REFUSE, 50, 50],
+  [People.Halfling]: [110, 70, 50, 60, 50, 70, 30, 70, REFUSE, 50, 50],
   [People.Runkin]: [100, 110, 50, 50, 80, 70, 40, 70, 50, 50, 50],
   [People.Elf]: [100, 60, 60, 60, 130, 130, REFUSE, 100, 100, 60, 60],
   [People.Dwarf]: [110, 50, 50, 80, 100, 100, 50, 110, 110, 50, 50],
 };
 
-/** Table 11: a village buys at most about 300 vp of one kind of good a day (tenths). */
-export const DAILY_BUY_TENTHS = 3000;
+/**
+ * What a single good fetches from each people, percent of its worth, in place
+ * of its category's: the goods Jade named in Patch 5. Earth: "Nobody accepts
+ * dirt as a tradable item" (GP-46, BL-3). Stone: "very low value to sell"
+ * (GP-46) (s: 20%; the Dwarves sell it at its full worth, see STOCK). Diamonds:
+ * the Dwarves and the Elves buy them high (decisions 2.5) (s: 150%; Halflings
+ * still refuse gems). Bluestone "sells well" (decisions 2.5) (s: full worth or
+ * more to everyone). Moon Roses are "the best trade good the Elves buy"
+ * (decisions 2.5) (s: 250%, more than they pay for anything else). Order:
+ * Halflings, Runkin, Elves, Dwarves.
+ */
+export const GOOD_PAY_PCT: Readonly<Partial<Record<number, readonly [number, number, number, number]>>> = {
+  [Res.Earth]: [REFUSE, REFUSE, REFUSE, REFUSE],
+  [Res.Stone]: [20, 20, 20, 20],
+  [Res.Diamonds]: [REFUSE, 50, 150, 150],
+  [Res.Bluestone]: [100, 100, 120, 130],
+  [Res.MoonRose]: [50, 50, 250, 50],
+};
+
+/**
+ * Patch 5 (Jade, GP-46): "You can trade a fixed level of value per settlement
+ * per day, with smaller villages/settlements/etc having proportionally less
+ * trade availability per day. This trade amount is shared by players same way
+ * as physical resources, one player can exhaust it." What each kind of
+ * settlement buys in a day, tenths of a vp (s), grown with the band as its
+ * people are (BAND_SIZE_PCT; a caravan is the same size everywhere). It
+ * replaced Table 11's 300 vp of each kind of good a day.
+ */
+export const DAILY_TRADE_TENTHS: readonly number[] = [4000, 3000, 12000, 4000, 5000, 15000, 0];
 /** Table 11: its stock refills about 20% a day (of what it holds when full). */
 export const RESTOCK_PCT = 20;
 /** The village answers an offer with 3 bundles (doc). */
 export const BUNDLES = 3;
 /** Each bundle comes to between 85% and 100% of what the offer is worth to them, when the stock allows (s). */
 export const BUNDLE_MIN_PCT = 85;
-/** Trade opens only while one of the player's units is within about 15 m (doc, suggested). */
-export const TRADE_RANGE_WU = 15 * M;
+/** Patch 5 (Jade, GP-46): "you have to be within 10m of any given village building with a unit to trade with them" (measured to the building's edge). Hiring at a mercenary camp too (s). */
+export const TRADE_RANGE_WU = 10 * M;
 /** Mood (doc, suggested): the same goods offered again after turning down the answer three times in a day closes trade until dawn. */
 export const MOOD_DECLINES = 3;
 /** An Elf insulted by lumber closes trade to that player for a day (Table 19). */
@@ -465,6 +492,8 @@ export const STOCK: readonly (readonly StockRow[])[] = [
   [
     row(Res.SteelIngot, 5, 150, { daily: true }), row(Res.BronzeIngot, 26), row(Res.WroughtIron, 35), row(Res.IronIngot, 6, 150),
     row(Res.Emeralds, 3), row(Res.Rubies, 2), row(Res.Diamonds, 1),
+    // Patch 5 (Jade, GP-46): stone is "very low value to sell but not always to buy": the Dwarves sell it at its full worth (s).
+    row(Res.Stone, 40),
   ],
   // Dwarf city: the steel and hardened leather of its armour and weapons at about 3 x make cost (1.5 x value), gold, gems, and 2 carbon steel ingots a day (Table 19).
   [
@@ -473,6 +502,7 @@ export const STOCK: readonly (readonly StockRow[])[] = [
     // Table 19's guns: 1 cannon a day, bronze or iron, whichever is bought first (trade.ts); 3 muskets' carbon steel a day, with powder (s: counts).
     row(engine(Engine.BronzeCannon), 1, 100, { price: 4200, daily: true }), row(engine(Engine.IronCannon), 1, 100, { price: 3840, daily: true }),
     row(Res.Gunpowder, 20, 100, { price: 480 }),
+    row(Res.Stone, 80),
   ],
   // Mercenary camp: hires only.
   [],
@@ -504,6 +534,8 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   // Not in Table 11 (s): rope as two flax; hardened leather and carts as twice their inputs.
   [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20,
   [Res.Moonleaf]: 7250, [Res.Sunheart]: 12000,
+  // Patch 5's Stone Circle goods (s): bluestone stands in for marble and "sells well", at twice marble's worth; a Moon Rose 30 vp.
+  [Res.Bluestone]: 120, [Res.MoonRose]: 300,
   // Patch 5 SC-12, the Bluestone Trinket: "50% more valued than bronze trinkets": 1.5 x the bronze Heirloom's 144 vp (s).
   [Res.BluestoneTrinket]: 2160,
 };
@@ -586,8 +618,17 @@ export const CARAVAN_STOP_WU = 14 * M;
 /** A wandering caravan met before the Elves leaves at the second dusk after it was found (s). */
 export const WANDER_DUSKS = 2;
 
-/** Mercenaries (Table 11): 2 silver per warrior for the day; a camp hires out 2 to 6, and gains one back every 2 days (s). */
-export const HIRE_SILVER = 2;
+/**
+ * Mercenaries (Table 11): a camp hires out 2 to 6, and gains one back every 2
+ * days (s). Patch 5 (Jade, BL-4): "Mercenaries hired are now permanently
+ * yours. Mercenaries can be hired for gold as well, with 1 gold being worth 7
+ * silver." A hire for good costs (s) 7 silver (or 1 gold) a head at a Fringe
+ * camp and 14 silver (or 2 gold) at a Deepwoods camp, where the fighters are
+ * Elves and Dwarves; it was 2 silver for one day. A hired mercenary takes 1
+ * supply like any troop (s).
+ */
+export const HIRE_SILVER: Readonly<Partial<Record<Band, number>>> = { [Band.Fringe]: 7, [Band.Deepwoods]: 14 };
+export const SILVER_PER_GOLD = 7;
 export const MERC_MIN = 2;
 export const MERC_MAX = 6;
 export const MERC_REFILL_STEPS = 2 * DAY;
@@ -625,6 +666,10 @@ export interface Lines {
   close: string;
   nothing: string;
   leave: string;
+  /** Patch 5: earth offered ("Nobody accepts dirt"), the day's trade used up, and an offer cut down to what is left of it (s). */
+  dirt: string;
+  full: string;
+  trimmed: string;
 }
 
 export const LINES: Readonly<Record<People, Lines>> = {
@@ -633,11 +678,14 @@ export const LINES: Readonly<Record<People, Lines>> = {
     trade: 'Ooh, shiny. Not much use for it, but shiny.',
     attacked: 'Ruffians! Ring the bell!',
     surrender: 'Enough! Take the beasts, take what you like, just let us go.',
-    refuse: 'Gold? Gems? Shiny rocks never filled a pantry.',
+    refuse: 'Gems? Shiny stones never filled a pantry.',
     lumber: 'Wood? We have trees of our own, thank you.',
     close: 'Enough haggling for one day. Come back in the morning.',
     nothing: 'We have nothing worth that, I am afraid.',
     leave: 'Come on, all of you. We are leaving.',
+    dirt: 'Dirt? We have a whole field of it, thank you.',
+    full: 'That is all the trading we can manage today. Come back in the morning.',
+    trimmed: 'We can only manage this much more today. The rest you can keep.',
   },
   [People.Runkin]: {
     greet: 'Hunters? Good. Take only what you need.',
@@ -649,6 +697,9 @@ export const LINES: Readonly<Record<People, Lines>> = {
     close: 'You go round and round like a dog at its tail. Tomorrow.',
     nothing: 'The camp has nothing that big to give.',
     leave: 'Pack the hides. We find new ground.',
+    dirt: 'Dirt is under every foot. Bring us something we cannot dig.',
+    full: 'The camp has traded enough for one day. Tomorrow.',
+    trimmed: 'Only this much more today. Keep the rest.',
   },
   [People.Elf]: {
     greet: 'You walk under old trees, stranger. Walk gently.',
@@ -660,6 +711,9 @@ export const LINES: Readonly<Record<People, Lines>> = {
     close: 'We have said what we will say today.',
     nothing: 'Nothing we carry is worth so much.',
     leave: 'The road calls. Farewell.',
+    dirt: 'The earth is not ours to buy, nor yours to sell.',
+    full: 'We have traded all we will today.',
+    trimmed: 'This much, and no more today.',
   },
   [People.Dwarf]: {
     greet: 'Surface folk. Mind where you step, it\'s all ours below.',
@@ -671,6 +725,9 @@ export const LINES: Readonly<Record<People, Lines>> = {
     close: 'Haggle all you like tomorrow. We\'re done today.',
     nothing: 'Nothing in the vaults matches that.',
     leave: 'This isn\'t over. We remember every grudge.',
+    dirt: 'We dig that out to throw it away.',
+    full: 'Vaults are shut for the day. Come back tomorrow.',
+    trimmed: 'We\'ll take this much today. Not a nugget more.',
   },
 };
 
@@ -678,7 +735,7 @@ export const LINES: Readonly<Record<People, Lines>> = {
 export const TREE_WARNING_LINES = ['Put down the axe.', 'The forest remembers. Stop.', 'Last warning, axe-bearer.'] as const;
 /** Dwarf lines on paid reparations (doc), and after a first trade (s, with the direction filled in). */
 export const REPARATIONS_PAID_LINE = 'Paid in full. We\'ll forget. Mostly.';
-export const MERC_LINES = { greet: 'Swords for hire. Two silver a head, one day\'s work.', hired: 'Silver first, then we march. Lead on.', home: 'Sun\'s down. Our day\'s done.', none: 'Nobody here for hire today.' } as const;
+export const MERC_LINES = { greet: 'Swords for hire. Pay once and we march with you for good.', hired: 'Paid in full. We march with you from now on. Lead on.', home: 'Sun\'s down. Come back in the light.', none: 'Nobody here for hire today.' } as const;
 
 /**
  * Random remarks (Unit speech: speech bubbles only, never in the message
