@@ -47,6 +47,8 @@ export const Shot = {
   FirePitch: 18,
   /** A flamecaller's fireball. */
   Hellfire: 19,
+  /** Patch 5 (Jade, MB-8): a bronze cannon's smaller shot, with a smaller blast than the iron cannon's. */
+  BronzeCannonball: 20,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -214,6 +216,14 @@ export interface ShotSpec {
   splashRadius?: number;
   ignite?: boolean;
   vsWoodBp?: number;
+  /**
+   * Patch 5 (Jade, MB-6), an engine's shot: the largest tree a direct hit
+   * blows apart and fells (world/props.ts Stage; a catapult stone only small
+   * ones), and the columns of earthy ground it chips where it lands, which
+   * lie there as earth to pick up (combat/blasts.ts).
+   */
+  fells?: number;
+  chips?: number;
 }
 
 export const SHOTS: readonly ShotSpec[] = [
@@ -224,7 +234,7 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: true, name: 'sling stone', model: 'sling_stone', vsWalls: 0 },
   { speed: floorDiv(cm(1400), STEPS_PER_SECOND), arcs: true, name: 'web', model: 'web_glob', vsWalls: 0 },
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'fire arrow', model: 'arrow_fire', vsWalls: 0 },
-  { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt', vsWalls: 0 },
+  { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt_flight', vsWalls: 0 },
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spell_spark_toss', vsWalls: 0 },
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'spell_bolt', vsWalls: 0 },
   // Milestone 6: the battle mages' projectiles (s): the orb flies straight at 20 m/s, the fireball is lobbed at 16 m/s.
@@ -237,13 +247,18 @@ export const SHOTS: readonly ShotSpec[] = [
   // (60 to the barrier, roster), the scorchwing's pitch and the flamecaller's fireball (x3 against wood is in the mob's rules).
   // Splashes (Table 2f, roster): a cannonball 50 within 2 m, a catapult stone 80 within 3 m, the boulder 25 within 2 m, burning pitch
   // 20 within 2 m and alight; the flamecaller's 30 with a 2 m splash of half that (s) and triple against wood.
-  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400, splash: 50, splashRadius: cm(200) },
-  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200, splash: 80, splashRadius: cm(300) },
+  // Patch 5 (Jade, MB-6; s): a cannonball fells any tree it hits and chips 9 columns of ground, a bronze one 5, a catapult stone
+  // breaks only saplings and young trees and chips 1.
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400, splash: 50, splashRadius: cm(200), fells: 4, chips: 9 },
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200, splash: 80, splashRadius: cm(300), fells: 2, chips: 1 },
   { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: false, name: 'ballista bolt', model: 'ballista_bolt', vsWalls: 20 },
   { speed: floorDiv(cm(8000), STEPS_PER_SECOND), arcs: false, name: 'musket ball', model: 'musket_ball', vsWalls: 2 },
   { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 25, splashRadius: cm(200) },
   { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 20, splashRadius: cm(200), ignite: true },
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'spell_fireball', vsWalls: 30, splash: 15, splashRadius: cm(200), vsWoodBp: 30000 },
+  // Patch 5 (Jade, MB-8): the bronze cannon's shot, smaller than the iron cannon's in every way and still more than the catapult's
+  // against walls (s: 300 against walls, 35 within 1.5 m).
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'bronze cannonball', model: 'cannonball_iron', vsWalls: 300, splash: 35, splashRadius: cm(150), fells: 4, chips: 5 },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */

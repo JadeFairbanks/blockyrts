@@ -6,7 +6,7 @@
 // build menu's letters are picked by hand (s); a K menu's come from its
 // products' names by one rule (menuLetters). Esc is Back and + turns a long
 // menu's page (s).
-import { BUILDINGS, BuildingKind, buildingSpec, productsOf, productSpec, RESEARCH_PRODUCT, TROOP_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+import { BUILDINGS, BuildingKind, buildingSpec, engineSpec, FIXED_ENGINES, Product, productsOf, productSpec, RESEARCH_PRODUCT, TROOP_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { Action } from '../input/bindings.ts';
 
 /** The buildings of the build menu in its order: one kind, or a submenu's kinds (Defences, Lights) sharing a place. */
@@ -66,6 +66,11 @@ export function makeAction(kind: number, product: number): string {
   return `make-${kindName(kind)}-${productName(product)}`;
 }
 
+/** The binding name of a button in the Citadel's Build defense menu (Patch 5): a fixed engine, built or upgraded to, or (-1) the garrison crewman. */
+export function defenseAction(engine: number): string {
+  return engine < 0 ? 'defense-crew' : `defense-${engine}`;
+}
+
 /** The page turn of a menu too long for the card (More). */
 export const MORE_ACTION = 'more';
 
@@ -104,6 +109,8 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.Tower]: 'T',
   [BuildingKind.TowerHardwood]: 'R',
   [BuildingKind.TowerStone]: 'N',
+  // Patch 5: the earth rampart on M, eaRth raMpart (E and R are taken).
+  [BuildingKind.EarthRampart]: 'M',
   // Lights: B then T then T is a torch post.
   [BuildingKind.TorchPost]: 'T',
   [BuildingKind.Bonfire]: 'B',
@@ -131,7 +138,7 @@ const SMALL_WORDS = new Set(['A', 'AN', 'AND', 'FROM', 'OF', 'OR', 'THE', 'TO'])
  * nothing. A word every button shares ("Slaughter" at the Barn) and a count
  * in brackets do not count. Never J, L or O (HUD_LETTERS).
  */
-export function menuLetters(names: readonly string[]): string[] {
+export function menuLetters(names: readonly string[], reserved: readonly string[] = []): string[] {
   const words = names.map((n) =>
     n
       .replace(/\([^)]*\)/g, ' ')
@@ -140,7 +147,7 @@ export function menuLetters(names: readonly string[]): string[] {
       .filter((w) => w !== '' && !SMALL_WORDS.has(w)),
   );
   const shared = names.length > 1 ? new Set(words[0]!.filter((w) => words.every((ws) => ws.includes(w)))) : new Set<string>();
-  const taken = new Set(HUD_LETTERS);
+  const taken = new Set([...HUD_LETTERS, ...reserved]);
   return words.map((all) => {
     const own = all.filter((w) => !shared.has(w));
     const ws = own.length > 0 ? own : all;
@@ -168,12 +175,38 @@ export function makesOne(kind: number): boolean {
   return list.length === 1 && productSpec(list[0]!).recipe !== undefined;
 }
 
+/**
+ * At most this many, a building's K list is on its own card, a button each,
+ * with no menu button (Jade's decisions 2.17, the Artillery workshop: "just
+ * have that building's action menu be artillery crewmen and the engines,
+ * nothing hidden under a make button"; s: the same for every list this
+ * short, the Magi Sanctum's Hexcraft and the Barn's slaughter).
+ */
+export const FLAT_MAKE = 4;
+
+/** Whether a building kind's K list sits on its card itself (FLAT_MAKE). */
+export function flatMake(kind: number): boolean {
+  const n = makeList(kind).length;
+  return n > 0 && n <= FLAT_MAKE && !makesOne(kind);
+}
+
+/** The letters (bindings.ts defaults) a flat card's other buttons are on, which its products leave alone: what it trains, and Rally. */
+function cardLetters(kind: number): string[] {
+  const made = productsOf({ kind, complete: true, level: 1 } as Parameters<typeof productsOf>[0]);
+  const out: string[] = [];
+  if (made.includes(Product.Worker)) out.push('W');
+  if (made.includes(Product.SupportMage) || kind === BuildingKind.MagiSanctum) out.push('S', 'M');
+  if (made.includes(Product.Crewman)) out.push('E');
+  if (out.length > 0) out.push('R');
+  return out;
+}
+
 /** Every K menu's default letters, by binding name. */
 const MAKE_KEYS: ReadonlyMap<string, string> = (() => {
   const out = new Map<string, string>();
   for (const kind of MAKERS) {
     const list = makeList(kind);
-    const letters = menuLetters(list.map((p) => productSpec(p).name));
+    const letters = menuLetters(list.map((p) => productSpec(p).name), flatMake(kind) ? cardLetters(kind) : []);
     list.forEach((p, k) => out.set(makeAction(kind, p), letters[k] ? `Key${letters[k]}` : ''));
   }
   return out;
@@ -197,11 +230,19 @@ export function buildMenuActions(): Action[] {
   return out;
 }
 
+/** The Build defense menu's buttons as hotkeys (Patch 5): each fixed engine, then the garrison crewman, on letters of their names. */
+export function defenseMenuActions(): Action[] {
+  const names = [...FIXED_ENGINES.map((id) => engineSpec(id).name), 'Garrison artillery crewman'];
+  const letters = menuLetters(names);
+  const ids = [...FIXED_ENGINES, -1];
+  return ids.map((id, k) => ({ id: defenseAction(id), name: id < 0 ? 'Train garrison artillery crewman' : `${names[k]} (build, or upgrade to it)`, key: letters[k] ? `Key${letters[k]}` : '', group: 'Citadel: Build defense' }));
+}
+
 /** Every K menu's products as hotkeys, for the settings list: a group per building. */
 export function makeMenuActions(): Action[] {
   const out: Action[] = [];
   for (const kind of MAKERS) {
-    for (const p of makeList(kind)) out.push({ id: makeAction(kind, p), name: productSpec(p).name, key: MAKE_KEYS.get(makeAction(kind, p)) ?? '', group: `${buildingSpec(kind).name} menu` });
+    for (const p of makeList(kind)) out.push({ id: makeAction(kind, p), name: productSpec(p).name, key: MAKE_KEYS.get(makeAction(kind, p)) ?? '', group: `${buildingSpec(kind).name}${flatMake(kind) ? ' card' : ' menu'}` });
   }
   return out;
 }

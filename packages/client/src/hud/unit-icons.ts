@@ -48,7 +48,9 @@ const MODEL_STAND_INS: Record<string, string> = {
  */
 export function modelIconFile(model: string): string {
   const bare = model.replace(/^(chicken|fish|wild)_/, '');
-  return firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, MODEL_STAND_INS[model] ?? '');
+  const own = firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, MODEL_STAND_INS[model] ?? '');
+  // A Citadel's fixed engine has the picture of the engine it is built from until it has one of its own (Patch 5).
+  return own || (model.endsWith('_fixed') ? modelIconFile(model.slice(0, -'_fixed'.length)) : '');
 }
 
 /** A building's picture by kind and level (the main base's tiers). */
