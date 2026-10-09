@@ -202,6 +202,20 @@ export const PROPS: readonly PropInfo[] = [
   node(PropKind.LargeManaCrystal, 'Large mana crystal', PropShape.Crystal, 'mana crystal', 40, 1, 30, 2, Tool.Bronze, P5),
 ];
 
+/**
+ * Jade's Patch 5, GP-30: "A single mushroom regrows within 3m of where it was
+ * picked within 1-3.5 minutes (this means that yes, mushrooms can migrate over
+ * time ...)". A picked mushroom is gone, and a new one comes up on a column
+ * within radiusM of it, minS to maxS seconds later (s: anywhere in her range,
+ * rolled from the pick), in whatever chunk that column lies (world.ts spread).
+ */
+export const MUSHROOM_SPREAD = { radiusM: 3, minS: 60, maxS: 210 };
+
+/** Whether a prop, picked bare, comes up again near where it stood rather than growing back in place (GP-30's mushrooms). */
+export function spreads(kind: number): boolean {
+  return kind === PropKind.Mushroom;
+}
+
 /** Whether a prop is a fish stretch. */
 export function isFish(kind: number): boolean {
   return kind === PropKind.FishTrout || kind === PropKind.FishSalmon || kind === PropKind.FishCatfish;

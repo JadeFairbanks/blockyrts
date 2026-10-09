@@ -44,6 +44,7 @@ import {
   replacedItem,
   takesTips,
   TIPS_KIT,
+  Troop,
   upgradePieces,
   upgradeSteps,
   upgradeTarget,
@@ -78,11 +79,19 @@ export function techOf(state: SimState, player: number): TechView {
   };
 }
 
-/** Whether a building is a place a unit can upgrade beside: a Forge, Barracks or main base; the Magi Sanctum for mages. */
+/** Whether a building is a place a unit can upgrade beside: a Forge, Barracks or main base; the Magi Sanctum for mages; only a main base for a woodsman (Jade's WD-3). */
 export function upgradesAt(h: KitHolder, kind: number): boolean {
+  if (h.kind === 'warrior' && h.troop === Troop.Woodsman) return kind === BuildingKind.MainBase;
   if (kind === BuildingKind.Forge || kind === BuildingKind.Barracks || kind === BuildingKind.MainBase) return true;
   if (kind === BuildingKind.MagiSanctum) return h.kind === 'mage';
   return false;
+}
+
+/** What a unit with nowhere to upgrade hears. */
+function noPlaceText(h: KitHolder): string {
+  if (h.kind === 'mage') return 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.';
+  if (h.kind === 'warrior' && h.troop === Troop.Woodsman) return 'A woodsman upgrades his weapon only at a main base.';
+  return 'There is no Forge, Barracks or main base to upgrade at.';
 }
 
 /** The finished building of the unit's owner nearest it that passes a test, or undefined. */
@@ -202,7 +211,7 @@ export function orderUpgrade(state: SimState, player: number, units: readonly nu
     const place = nearestUpgradePlace(state, i, h);
     if (!place) {
       if (!why) {
-        why = h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.';
+        why = noPlaceText(h);
         whoWhy = i;
       }
       continue;
@@ -248,7 +257,7 @@ export function orderUpgradeEquipment(state: SimState, player: number, units: re
     const place = nearestUpgradePlace(state, i, h);
     if (!place) {
       if (!why) {
-        why = h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.';
+        why = noPlaceText(h);
         whoWhy = i;
       }
       continue;

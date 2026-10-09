@@ -47,6 +47,7 @@ import { runCrew, runMend, runRetrain } from '../siege/engines.ts';
 import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from './loot.ts';
 import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
 import { goesHome, nextNode, runForage } from './forage.ts';
+import { runWoods } from './woods.ts';
 import { tinker } from './tinker.ts';
 import { Work, workXp } from './ranks.ts';
 
@@ -82,8 +83,6 @@ export function builderLimit(kind: number): number {
   return kind === BuildingKind.MainBase ? 8 : 4;
 }
 /** Gather, dig and build speed by tool tier, per mille (Table 2c): a job goes at the pace of the worker's tool for it. */
-/** Fishing's pace per mille against a node's own load time: 1 fish per 10 s with any tool kit (Table 2c). */
-const FISH_PACE = 1500;
 export const TOOL_SPEED_PER_MILLE: readonly number[] = [1000, 1000, 1150, 1250, 1500, 1750, 2250, 2500, 3000, 3500];
 
 export const MOVING = 0;
@@ -313,9 +312,9 @@ export function nodeResource(kind: number, variant = 0): number {
   return resourceByName(propInfo(kind).resource);
 }
 
-/** Whether a worker can gather a node now: holding something (a sapling holds nothing yet), and its tool for the node's job is good enough. */
+/** Whether a worker can gather a node now: holding something (a sapling holds nothing yet), and its tool for the node's job is good enough. Fish only woodsmen catch (Patch 5, Jade's FR-1: units/woods.ts). */
 export function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
-  if (!view || view.amount <= 0) return false;
+  if (!view || view.amount <= 0 || isFish(view.kind)) return false;
   const info = propInfo(view.kind);
   return nodeResource(view.kind, view.variant) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
 }
@@ -518,7 +517,7 @@ export function leaveBuilding(state: SimState, i: number): void {
   e.heading[i] = 32768;
 }
 
-function goInside(state: SimState, i: number, b: Building): void {
+export function goInside(state: SimState, i: number, b: Building): void {
   const e = state.entities;
   e.inside[i] = b.id;
   const [x, z] = buildingCentre(b);
@@ -700,7 +699,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   }
   // When a node has run out, go to the closest one of the same resource; with none nearby, a basic material
   // gives way to what the side needs most for the walk (saying why), else the last load goes home and it stands idle.
-  // Working on through the night, the forage order behind chooses the next node, near the buildings.
+  // Working on through the night, the forage order behind chooses the next node, by the main base.
   const runOut = (res: number, near: [number, number]): boolean => {
     const alt = res >= 0 && !nightForage ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
     const next = alt ?? (res >= 0 && after !== 'hunt' && !nightForage ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);
@@ -783,8 +782,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       const [nx, nz] = nodeColumn(o, view);
       e.heading[i] = headingTowards(columnCentre(nx) - e.x[i]!, columnCentre(nz) - e.z[i]!);
       e.order[i] = info.shape === PropShape.Tree || info.shape === PropShape.Bush ? OrderKind.Chop : info.shape === PropShape.Plant ? OrderKind.Farm : OrderKind.Mine;
-      // Every tool kit fishes 1 fish per 10 s (Table 2c); other nodes go at the tool's pace.
-      const pace = isFish(view.kind) ? FISH_PACE : gatherPace(state, i, view.kind);
+      // Nodes go at the tool's pace.
+      const pace = gatherPace(state, i, view.kind);
       e.timer[i] = e.timer[i]! + pace;
       // A worker learns as it gathers (Patch 3: experience for the work, at the work's pace).
       workXp(state, i, Work.Gather, pace);
@@ -814,8 +813,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
         const pool = state.players[e.owner[i]!]!.pool;
         for (const [r, n] of carcassExtra(view.variant)) pool[r] = pool[r]! + n;
       }
-      // A cart or pack is filled at the node before the trip home, and so is a fisher's catch.
-      if (e.carryAmt[i]! < carryCapacity(state, i, res) && (before - taken > 0 || isFish(view.kind))) return CONTINUE;
+      // A cart or pack is filled at the node before the trip home.
+      if (e.carryAmt[i]! < carryCapacity(state, i, res) && before - taken > 0) return CONTINUE;
       // Patch 5 (Jade, BL-12: a cart worth using): a cart or pack with room left moves on to the nearest node of the same kind before the trip home (s).
       if (e.carryAmt[i]! < carryCapacity(state, i, res) && rawLimitTenthsLb(state, i) > RAW_CARRY_TENTHS_LB) {
         const alt = findNode(state, i, res, nx, nz, NODE_SEARCH_COLUMNS, o);
@@ -1120,7 +1119,7 @@ export function shelteredIn(state: SimState, id: number): number[] {
   return unitsInside(state, id).filter((j) => !onTop(state, j));
 }
 
-/** Buildings that take assigned workers: the Farm, the Mineshaft and the Fishing dock (Patch 2: crafting buildings take none). */
+/** Buildings that take assigned workers: the Farm, the Barn and the Mineshaft (Patch 2: crafting buildings take none; Patch 5: no fishing dock). */
 export function takesWorkers(b: Building): boolean {
   return b.complete && levelSpec(b.kind, b.level).workers > 0;
 }
@@ -1129,6 +1128,9 @@ export function takesWorkers(b: Building): boolean {
 export function isFarm(kind: number): boolean {
   return kind === BuildingKind.Farm;
 }
+
+/** The Barn's hand's day and night (Patch 5), set by units/barn-hand.ts so this module never imports the questions. */
+export const jobHooks: { barn: (state: SimState, i: number, b: Building) => boolean } = { barn: () => false };
 
 /** Workers whose current order is a job at a building, in index order. */
 export function assigned(state: SimState, id: number): number[] {
@@ -1179,6 +1181,8 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
     return DONE;
   }
   if (b.kind === BuildingKind.Mineshaft) return runMiner(state, i, b);
+  // Patch 5: the Barn's hand tends the animals outside by day (units/barn-hand.ts).
+  if (b.kind === BuildingKind.Barn) return jobHooks.barn(state, i, b);
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   // Farmers work the field by day and shelter in their own farmhouse at dusk and night; mill hands work inside.
   const indoors = !isFarm(b.kind) || isDark(state.step);
@@ -1452,6 +1456,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runDig(state, i, o);
     case 'hunt':
       return runHunt(state, i, o);
+    case 'woods':
+      return runWoods(state, i, o);
     case 'tame':
       return runTame(state, i, o);
     case 'eat':

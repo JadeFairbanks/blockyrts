@@ -53,9 +53,9 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | chicken_rooster | models/animals/chicken_rooster/chicken_rooster.bbmodel | 19 | 64x64 |  |
 | wolf | models/animals/wolf/wolf.bbmodel | 25 | 64x128 + 2 variants (runkin, young) |  |
 | bear | models/animals/bear/bear.bbmodel | 22 | 128x256 + 1 variants (cub) |  |
-| fish_trout | models/animals/fish_trout/fish_trout.bbmodel | 15 | 64x64 + 1 variants (young) |  |
-| fish_salmon | models/animals/fish_salmon/fish_salmon.bbmodel | 16 | 64x64 + 1 variants (young) |  |
-| fish_giant_catfish | models/animals/fish_giant_catfish/fish_giant_catfish.bbmodel | 17 | 64x128 + 1 variants (young) |  |
+| fish_trout | models/animals/fish_trout/fish_trout.bbmodel | 32 | 256x256 | Patch 5: the supplied trout (FR-2), which swims in the water; placement: centred on its body at its swimming depth, not standing on y = 0 |
+| fish_salmon | models/animals/fish_salmon/fish_salmon.bbmodel | 32 | 256x256 | Patch 5: the supplied salmon (FR-2), which swims in the water; placement: centred on its body at its swimming depth, not standing on y = 0 or centred on its bottom quarter |
+| fish_giant_catfish | models/animals/fish_giant_catfish/fish_giant_catfish.bbmodel | 46 | 256x256 | Patch 5: the supplied giant catfish (FR-2), which swims in the water; placement: centred on its body at its swimming depth, not standing on y = 0; 46 cubes, over the animal budget, for its barbels and fins as supplied |
 | hare | models/animals/hare/hare.bbmodel | 20 | 64x64 + 1 variants (young) |  |
 | deer | models/animals/deer/deer.bbmodel | 30 | 128x128 + 2 variants (hind, young) | the game hides the `antlers` group for the deer_hind and deer_young textures |
 | badger | models/animals/badger/badger.bbmodel | 105 | 256x128 | Jade's own model (models/existing_mobs/badger), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 105 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves); its `hips` bone renamed `pelvis` (a four-legged body, not the humanoid baseline) |
@@ -838,6 +838,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_bandage | ui/icon_bandage.png | 1 | 32x32 | K1 resource icon bandage (rendered from bandage_roll.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bog_iron | ui/icon_bog_iron.png | 1 | 32x32 | K1 resource icon bog_iron (rendered from ore_bog_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bone | ui/icon_bone.png | 1 | 32x32 | K1 resource icon bone (rendered from bone_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bonemeal | ui/icon_bonemeal.png | 1 | 32x32 | Patch 5 resource icon bonemeal: the sand sack paled to bonemeal cream, a bone on its front. |
 | icon_bread | ui/icon_bread.png | 1 | 32x32 | K1 resource icon bread (rendered from bread_loaf.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bricks | ui/icon_bricks.png | 1 | 32x32 | K1 resource icon bricks (rendered from bricks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_carrots | ui/icon_carrots.png | 1 | 32x32 | K1 resource icon carrots (rendered from carrot_bunch.bbmodel), 32x32, 1px outline, top-left light. |

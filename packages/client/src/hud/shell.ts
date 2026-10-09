@@ -70,6 +70,8 @@ import { SpeechBubbles, type Speaker } from './bubbles.ts';
 import { remarkLine, remarkVoice, sceneOf } from './remarks.ts';
 import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
 import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
+import { boostStackBars } from './boost-bars.ts';
+import { TameTip } from './tame-tip.ts';
 import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -228,6 +230,7 @@ export class GameShell {
    * key ('e:<id>' or 'b:<id>'), in the order they stack, and the bar stack draws them with the rest.
    */
   readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
+  private readonly tameTip: TameTip;
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
   /** The Tavern's Hire Dreadnought window (Patch 5). */
@@ -360,6 +363,9 @@ export class GameShell {
       building: (id) => this.game.buildings.get(id),
       extra: (key) => (this.stackBars.length === 0 ? [] : this.stackBars.flatMap((f) => f(key))),
     };
+    // The bonemeal boost's bar in each boosted farm's stack (Jade's UI-17).
+    this.stackBars.push((key) => boostStackBars(key, (id) => this.game.buildings.get(id)));
+    this.tameTip = new TameTip(this.layout.root);
     this.bubbles = new SpeechBubbles(this.layout.root);
     this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
       jumpTo: (x, z) => this.jumpTo(x, z),
@@ -1895,6 +1901,7 @@ export class GameShell {
       const scene = sceneOf(this.game, id, voice);
       return scene ? remarkLine(scene) : null;
     });
+    this.tameTip.update(inGameView && this.commands.workerIds().length > 0, this.selector.highlighted, (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -2273,7 +2280,7 @@ export class GameShell {
 }
 
 /** Commands whose cursor is the tool for the job (Jade's Patch 5, CT-1: "something basic and visually clear that fits it"). */
-const TOOL_CURSORS: Partial<Record<string, ToolCursor>> = { gather: 'axe', hunt: 'spear', repair: 'hammer' };
+const TOOL_CURSORS: Partial<Record<string, ToolCursor>> = { gather: 'axe', hunt: 'spear', repair: 'hammer', fish: 'rod', forage: 'berries' };
 
 /** The portrait's window is a button: its tooltip names what is shown, a click centres the camera on it. */
 const PORTRAIT_VIEW = { id: 'portrait-view', face: '', name: 'Portrait', keys: [], description: '', className: 'portrait-view' };

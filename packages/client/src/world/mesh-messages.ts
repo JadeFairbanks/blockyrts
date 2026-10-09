@@ -32,6 +32,8 @@ export interface PropSummary {
   /** Its cubes in the chunk's cube mesh: the first and how many (Patch 5, UI-5: the hover outline draws just them). */
   first: number;
   cubes: number;
+  /** A fish stretch: the open water its live fish swim in (Patch 5, FR-2), x, y, z per column, metres (x and z within the chunk, y the water's surface). */
+  water?: number[];
   /** Where it stands, metres in the chunk: its column's middle and the ground (Patch 5: a prop drawn as a catalogue model stands here). */
   baseX: number;
   baseY: number;

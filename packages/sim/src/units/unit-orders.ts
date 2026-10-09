@@ -101,12 +101,22 @@ export type UnitOrder =
    * k is 1 it is looking for more out at (x, z) wu, on a bearing of `ang`
    * (0 to 65535); k 2 (FORAGE_HOME) is home for the night, k 3
    * (FORAGE_NIGHT) working on through the night (Jade's Patch 4,
-   * units/night-work.ts). The gathering itself is a 'gather' order put in
-   * front of this one.
+   * units/night-work.ts); with the FORAGE_OWN bit its player set it
+   * gathering in the dark (GP-24). The gathering itself is a 'gather' order
+   * put in front of this one.
    */
   | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number }
   /** An artillery crewman retrains as a worker (Patch 3): walks to his nearest main base (b, 0 until chosen), sits tinkering for the time it takes and gets up a worker. */
-  | { t: 'retrain'; b: number };
+  | { t: 'retrain'; b: number }
+  /**
+   * The woodsman's work (Patch 5, Jade's WD-1 and WD-5, units/woods.ts):
+   * fishing and foraging, each on (1) or off, both at once if the player
+   * likes. (cx, cz, i) is the fish stretch or wild food he is working or
+   * walking to (i -1: none yet); k holds WOODS_* bits; (x, z) wu is where he
+   * set out, for his reach with no main base; (ex, ez) wu where he is
+   * looking when nothing is in sight.
+   */
+  | { t: 'woods'; fish: number; forage: number; cx: number; cz: number; i: number; k: number; x: number; z: number; ex: number; ez: number };
 
 export type UnitOrderType = UnitOrder['t'];
 
@@ -116,12 +126,19 @@ export const ENTER_TOP = 2;
 export const ENTER_IN = 4;
 /** An enter order's `auto` for a worker that went into a shelter for the night (Jade's Patch 4, units/night-work.ts): it comes out at dawn once no monster is near, or in the day. */
 export const ENTER_NIGHT = 3;
+/** A woods order's `k` bits (units/woods.ts): home for the night; walking out to look about; his last look-about walk failed; his spot is the one the player picked (CT-1's left click), worked down further. */
+export const WOODS_HOME = 1;
+export const WOODS_SEARCH = 2;
+export const WOODS_TURNED = 4;
+export const WOODS_PICKED = 8;
+/** A Gather order's `k` bit while its player set it gathering in the dark: it works on all that night as by day (Jade's GP-24), the bit gone at dawn (units/forage.ts). */
+export const FORAGE_OWN = 16;
 /** A Gather order's `k` while it is home for the night (units/forage.ts). */
 export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -155,6 +172,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   loot: ['id', 'hand', 'back', 'x', 'z'],
   forage: ['res', 'x', 'z', 'k', 'ang'],
   retrain: ['b'],
+  woods: ['fish', 'forage', 'cx', 'cz', 'i', 'k', 'x', 'z', 'ex', 'ez'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -237,9 +255,13 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Repairing';
     case 'loot':
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
-    case 'forage':
-      return o.k === FORAGE_HOME ? 'Home for the night' : o.k === 1 ? 'Looking for materials' : o.k === FORAGE_NIGHT ? 'Gathering through the night' : 'Gathering';
+    case 'forage': {
+      const k = o.k & ~FORAGE_OWN;
+      return k === FORAGE_HOME ? 'Home for the night' : k === 1 ? 'Looking for materials' : k === FORAGE_NIGHT || k !== o.k ? 'Gathering through the night' : 'Gathering';
+    }
     case 'retrain':
       return 'Retraining as a worker';
+    case 'woods':
+      return (o.k & WOODS_HOME) !== 0 ? 'Home for the night' : o.fish && o.forage ? 'Foraging and fishing' : o.fish ? 'Fishing' : 'Foraging';
   }
 }

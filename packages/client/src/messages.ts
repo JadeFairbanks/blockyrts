@@ -150,11 +150,11 @@ export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 
  * Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there
  * though it is inside; Climbing: a monster on a wall or one of the players'
  * units on a face; Running: moving at its run; RunMode: its Run/Walk button
- * is on Run; Guardian: a mana crystal's guardian, Jade's Patch 5; Warns: a
- * keeper whose tooltip still warns, Jade's Patch 5 MB-12 and MF-12. A
- * keeper that runs carries Running too).
+ * is on Run; Guardian: a mana crystal's guardian, Jade's Patch 5; BarnHand: a worker who
+ * is a Barn's barn hand; Warns: a keeper whose tooltip still warns, Jade's Patch 5 MB-12
+ * and MF-12. A keeper that runs carries Running too).
  */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, Guardian: 65536, Warns: 131072 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, Guardian: 65536, BarnHand: 131072, Warns: 262144 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -221,8 +221,8 @@ export interface BuildingInfo {
   /**
    * Production queue: product, and for the first only the per mille done and
    * the steps it has left at the sim's own pace now (0 while it is on hold);
-   * a stack being scrapped (Patch 5) has `count`, how many are left with the
-   * one under way.
+   * a stack (Patch 5: bonemeal, or gear being scrapped) has `count`, how many
+   * are left with the one under way.
    */
   queue: Array<{ product: number; done: number; stepsLeft: number; count?: number }>;
   rally: RallyPoint[];
@@ -271,8 +271,19 @@ export interface BuildingInfo {
   horses: number;
   /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */
   farm: FarmInfo | null;
+  /** Finished farms: the bonemeal boost (Patch 5, UI-17; sim buildings/farm-boost.ts farmBoost), or null. */
+  boost?: FarmBoost | null;
   /** A finished Tavern (Patch 5): its till, its bar to the next silver ingot and its counters, or null. */
   tavern?: TavernPanel | null;
+}
+
+/** A farm's boost (Patch 5): steps left of the one running and its whole, the boosts waiting, Auto fertilize, and a Sweet Hawthorne within 30 m. */
+export interface FarmBoost {
+  left: number;
+  whole: number;
+  queued: number;
+  auto: boolean;
+  hawthorne: boolean;
 }
 
 /** A Tavern as the panel shows it (Patch 5, Jade, GP-20). */
@@ -367,6 +378,8 @@ export interface InfoMessage {
   loot: LootInfo[];
   /** The local player's units' loot bags: per unit id, (resource, count) pairs. */
   bags: Array<[number, Array<[number, number]>]>;
+  /** The local player's woodsmen's food lines (Patch 5, Jade's WD-7): per id, the food brought in and eaten (quarters), over how many steps, and its colour (sim Keep). */
+  woodsmen?: Array<[number, number, number, number, number]>;
   /** The local player's units that carry (workers, troops, mages): per unit id, what they carry and the most they can, tenths of a pound (Patch 5, GP-7: the unit inventory's weight). */
   carry: Array<[number, number, number]>;
   /** Spells on units (any side's): per unit id, (SpellOn bit, steps left) for each, for the bars on their pictures (Patch 5, GP-34). */
