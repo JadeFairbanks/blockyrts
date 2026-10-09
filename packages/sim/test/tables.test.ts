@@ -127,7 +127,7 @@ describe('the kit tables', () => {
     expect(recurves.map((k) => k.tier)).toEqual([3, 4, 5, 6]);
     for (const k of recurves) {
       expect(k.name).toMatch(/^Recurve bow, /);
-      expect([k.shot, k.model, k.attackDs, k.rangeM, k.spreadPct, k.timeS]).toEqual([Shot.Arrow, 'bow', 20, 25, 6, 35]);
+      expect([k.shot, k.model, k.attackDs, k.rangeM, k.spreadPct, k.timeS]).toEqual([Shot.Arrow, 'bow_recurve', 20, 25, 6, 35]);
     }
     expect(crossbow!.name).toMatch(/crossbow/i);
     expect(crossbow!.shot).toBe(Shot.Bolt);

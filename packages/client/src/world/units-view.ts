@@ -107,7 +107,7 @@ const BODY_PROPS: Readonly<Record<string, string>> = {
   linstock: 'linstock',
   axe_hardwood: 'hardwood_axe',
   'hoe@hardwood': 'hoe',
-  hammer: 'hammer',
+  hammer_iron: 'hammer',
   fishing_rod: 'fishing_rod',
   spade: 'spade',
 };
@@ -302,6 +302,9 @@ const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 
 /** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */
 const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
+
+/** How near the shot's start (metres) a gun's drawn muzzle must be for its flash to come out of it. */
+const MUZZLE_NEAR_M = 1.5;
 
 /** Seconds a gun's smoke rises after a shot (Jade's MB-7): a cannon 5, a musket 4, the brawler's pistol 3. */
 const GUN_SMOKE = { cannon: 5, musket: 4, pistol: 3 };
@@ -504,6 +507,20 @@ class AttachPool {
   setLibrary(lib: ModelLibrary): void {
     this.lib = lib;
   }
+
+  /** Where an item's muzzle is (its slot_muzzle bone, metres in the item's own space), null when it has none or is not loaded yet. */
+  muzzle(id: string): THREE.Vector3 | null {
+    const model = this.lib?.models.get(id);
+    if (!model) return null;
+    let at = this.muzzles.get(id);
+    if (at === undefined) {
+      const b = model.boneNames.indexOf('slot_muzzle');
+      at = b >= 0 ? new THREE.Vector3().setFromMatrixPosition(model.restWorld[b]!) : null;
+      this.muzzles.set(id, at);
+    }
+    return at;
+  }
+  private readonly muzzles = new Map<string, THREE.Vector3 | null>();
 
   /** Whether the item is drawn now (loaded), asking for it otherwise. */
   has(id: string): boolean {
@@ -848,6 +865,8 @@ export class UnitsView {
   private readonly tinkerStart = new Map<number, number>();
   /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
   private readonly fired = new Map<number, number>();
+  /** Where each unit's gun with a muzzle (the brawler's pistol) was last drawn, metres, by entity id: its flash comes out of it. */
+  private readonly muzzleAt = new Map<number, THREE.Vector3>();
   /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
   private readonly held = new Map<number, { clip: string; t0: number; until: number; then?: { clip: string; ms: number } }>();
   /** Each Morvath's form last seen, by entity id, and where each stands now (metres), for the life drained into him. */
@@ -1110,7 +1129,10 @@ export class UnitsView {
         const u = who?.(h.id);
         if (u && u.kind !== UnitKind.Engine) {
           const seconds = u.ranged === PISTOL_GEAR ? GUN_SMOKE.pistol : h.shot === Shot.MusketBall ? GUN_SMOKE.musket : GUN_SMOKE.cannon;
-          this.gunFire(x, y, z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
+          // Out of its gun's muzzle where it was drawn by the shooter (not a place left from long ago).
+          const drawn = this.muzzleAt.get(h.id);
+          const at = drawn && Math.abs(drawn.x - x) < MUZZLE_NEAR_M && Math.abs(drawn.z - z) < MUZZLE_NEAR_M ? drawn : null;
+          this.gunFire(at?.x ?? x, at?.y ?? y, at?.z ?? z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
         }
       }
       const spell = h.look === 'spell' ? SPELL_LOOKS[h.spell ?? 0] : undefined;
@@ -1326,6 +1348,8 @@ export class UnitsView {
             const m = slot.m.boneWorld(slot.i, b, this.mat);
             if (stow !== Stow.None) m.multiply(STOW_TURN[`${stow}${POINT_UP.test(item) ? 'up' : 'down'}`]!);
             this.attach.add(item, m, tint);
+            const muzzle = stow === Stow.None ? this.attach.muzzle(item) : null;
+            if (muzzle) this.muzzleAt.set(id, (this.muzzleAt.get(id) ?? new THREE.Vector3()).copy(muzzle).applyMatrix4(m));
           }
           if (load.hold && !inCart) {
             const b = pool.bone(HOLD_SLOTS[load.hold]);
@@ -1836,18 +1860,22 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
     held = (pieces.length > ToolJob.Cut ? pieces[job] : job === ToolJob.Cut ? pieces[pieces.length - 1] : pieces[0]) ?? '';
   }
   if (held) wear(look, held, parts);
-  // The rest of the kit: every piece of every tool it has, each once, on the hips and back.
+  // The rest of the kit: every piece of every tool it has, each once, on the hips and back; a hammer hangs at the hip.
   const stows: ReadonlyArray<readonly [string, number]> = [['slot_hip_r', Stow.Hip], ['slot_hip_l', Stow.Hip], ['slot_back', Stow.Back], ['slot_quiver', Stow.Back]];
   const shown = new Set([held]);
-  let k = 0;
+  const rest: string[] = [];
   for (const tool of [hand, d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!]) {
     for (const p of tool ? piecesOf(tool) : []) {
       if (shown.has(p)) continue;
       shown.add(p);
-      const at = stows[k++];
-      if (at) wear(look, p, parts, at[1], at[0]);
+      rest.push(p);
     }
   }
+  rest.sort((a, b) => Number(/^hammer/.test(b)) - Number(/^hammer/.test(a)));
+  rest.forEach((p, k) => {
+    const at = stows[k];
+    if (at) wear(look, p, parts, at[1], at[0]);
+  });
   rankBands(look, d[o + S.rank]!);
   const cart = d[o + S.kit]!;
   let clip = 'idle';
@@ -1938,8 +1966,10 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
   const ranged = d[o + S.ranged]!;
   // A ranger's close weapon is its fists: its bow, sling or gun stays in hand.
   const inHand = swing === Slot.Ranged + 1 || (ranged && piecesOf(weapon).length === 0) ? ranged : weapon;
-  for (const p of piecesOf(inHand)) wear(look, p, parts);
-  for (const p of piecesOf(inHand === ranged ? weapon : ranged)) wear(look, p, parts, Stow.Back);
+  // The brawler's close weapon, the tier 8 close-melee row, is drawn as the brawler's cutlass (Table 2e).
+  const pieces = (gear: number): readonly string[] => (gear === weapon && d[o + S.troop] === Troop.Brawler ? ['cutlass'] : piecesOf(gear));
+  for (const p of pieces(inHand)) wear(look, p, parts);
+  for (const p of pieces(inHand === ranged ? weapon : ranged)) wear(look, p, parts, Stow.Back);
   const shot = gearModel(ranged);
   if (/^bow/.test(shot)) wear(look, 'quiver', parts);
   else if (/^crossbow/.test(shot)) wear(look, 'bolt_case', parts);
