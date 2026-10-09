@@ -289,6 +289,19 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | pie | models/items/pie/pie.bbmodel | 4 | 32x32 |  |
 | bandage_roll | models/items/bandage_roll/bandage_roll.bbmodel | 3 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
 | healing_remedy | models/items/healing_remedy/healing_remedy.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| sword_copper_short | models/items/sword_copper_short/sword_copper_short.bbmodel | 9 | 32x32 |  |
+| sword_basket_hilt | models/items/sword_basket_hilt/sword_basket_hilt.bbmodel | 11 | 32x64 |  |
+| cutlass | models/items/cutlass/cutlass.bbmodel | 9 | 32x32 |  |
+| zweihander | models/items/zweihander/zweihander.bbmodel | 11 | 64x64 |  |
+| spear_iron_crude | models/items/spear_iron_crude/spear_iron_crude.bbmodel | 8 | 128x128 |  |
+| axe_hand_obsidian | models/items/axe_hand_obsidian/axe_hand_obsidian.bbmodel | 8 | 32x64 |  |
+| bow_recurve | models/items/bow_recurve/bow_recurve.bbmodel | 11 | 64x64 |  |
+| shield_targe | models/items/shield_targe/shield_targe.bbmodel | 11 | 64x64 |  |
+| shield_rotella | models/items/shield_rotella/shield_rotella.bbmodel | 11 | 128x64 |  |
+| armour_copper_scale | models/items/armour_copper_scale/armour_copper_scale.bbmodel | 14 | 128x64 | cube budget: 14 cubes for the scale rows / plates over the leather or cloth backing (Patch 5) |
+| armour_iron_plates | models/items/armour_iron_plates/armour_iron_plates.bbmodel | 14 | 128x64 | cube budget: 14 cubes for the scale rows / plates over the leather or cloth backing (Patch 5) |
+| pistol | models/items/pistol/pistol.bbmodel | 11 | 32x32 |  |
+| hammer_iron | models/items/hammer_iron/hammer_iron.bbmodel | 7 | 32x32 |  |
 
 ## mechanical
 
