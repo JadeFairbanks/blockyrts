@@ -3,7 +3,8 @@
 // their kit drawn at its tier (Patch 5, Jade: "no invisible equippable gear"):
 // the weapon in hand and the other carried, shield, armour worn on the body,
 // helmet, quiver or bolt case, a worker's tool for the job in hand and the
-// rest of its kit hung on it, what it carries and its cart. Each task plays
+// rest of its kit hung on it, what it carries and its cart, and from rank 2
+// the rank's bands on the left arm. Each task plays
 // its own clip. Every night mob is on its catalogue model with the gear it is
 // made with (a coloured block until the model is in the library); the
 // injured and death clips, arrows, stones and webs in flight, and the little
@@ -1717,6 +1718,7 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
       if (at) wear(look, p, parts, at[1], at[0]);
     }
   }
+  rankBands(look, d[o + S.rank]!);
   const cart = d[o + S.kit]!;
   let clip = 'idle';
   if (swing !== 0) clip = 'attack_1h_slash';
@@ -1738,6 +1740,11 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
   }
   look.clip = clipOr(body, clip, c.moving);
   return look;
+}
+
+/** A worker's or warrior's rank on the left upper arm, over any armour: bands from rank 2 (rank_mark_2 to _5; rank 1 has none). */
+function rankBands(look: Look, rank: number): void {
+  if (rank >= 2) look.worn.push(`rank_mark_${Math.min(5, rank)}`);
 }
 
 /** The job of the tool a worker has in hand, as the sim picks it (units/tools.ts toolInHand): building and relighting, chopping, mining and digging, or farming. */
@@ -1808,6 +1815,7 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
   else if (/^crossbow/.test(shot)) wear(look, 'bolt_case', parts);
   for (const p of piecesOf(d[o + S.shield]!)) wear(look, p, parts);
   for (const p of piecesOf(d[o + S.armour]!)) wear(look, p, parts);
+  rankBands(look, d[o + S.rank]!);
   if (d[o + S.task] === Task.Crew && d[o + S.troop] === Troop.Crew && swing === 0 && body) {
     if (c.moving) look.clip = 'cannon_push';
     else {

@@ -520,7 +520,7 @@ export class GameShell {
       look: (t) => {
         const u = entityIdOf(t.key);
         const info = u === null ? null : this.game.unit(u);
-        return info ? { troop: info.troop, wTier: info.wTier } : null;
+        return info ? { troop: info.troop, wTier: info.wTier, aTier: info.aTier } : null;
       },
       queueLeft: (b) => {
         const head = b.queue[0];

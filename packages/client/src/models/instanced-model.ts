@@ -299,6 +299,16 @@ export class InstancedModel {
     this.material.color.set(colour);
   }
 
+  /** Draws every instance see-through at this opacity, over the rest and casting no shadow: a placement ghost or a planned building. */
+  seeThrough(opacity: number): void {
+    this.material.transparent = true;
+    this.material.opacity = opacity;
+    this.material.depthWrite = false;
+    // The texture's cut-outs stay cut out at the lower alpha.
+    this.material.alphaTest = 0.5 * opacity;
+    this.object.renderOrder = 6;
+  }
+
   /** Clip names this model has. */
   get clipNames(): string[] {
     return this.clipList.map((c) => c.name);
