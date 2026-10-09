@@ -3651,16 +3651,17 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    and dark. The ball flies as its model (the bronze cannon's smaller) with a
    faint grey dash behind it by day and a bright orange streak at night.
    Each has its gun's sound.
-10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
-    grass or soil it leaves a heap of earth to pick up. One that hits a tree
-    fells it, leaving half its lumber. A catapult stone throws up dirt, no
+10. **Blasts.** A cannonball landing explodes with a flash of light (a blink
+    that lights the ground round it, strong at night, faint by day), fire,
+    dirt and smoke; on grass or soil it leaves a heap of earth to pick up.
+    One that hits a tree fells it, leaving half its lumber. A catapult stone throws up dirt, no
     fire, leaves less earth, and fells only small trees. A bronze cannon's
     shot is smaller, with a smaller blast.
 11. **The wall breaker.** A skeleton bomber, hooded with red eyes and a black
     skull-marked bomb, has its fuse fizzing with tiny sparks at the fuse's tip.
-    When it goes off: an explosion, smoke rising for 3 s and a shallow
-    crater; it hurts units half as much as before. Kill one before it reaches
-    a wall and nothing goes off, and no bomb falls.
+    When it goes off: a flash of light, an explosion, smoke rising for 3 s
+    and a shallow crater; it hurts units half as much as before. Kill one
+    before it reaches a wall and nothing goes off, and no bomb falls.
 12. **Engines on your own.** Select an engine, Attack, and click one of your
     own units: it fires at it.
 

@@ -774,6 +774,100 @@ class Smoke {
 
 const SMOKE_PALE = new THREE.Color(0xb8b8b2);
 
+/**
+ * An explosion's flash (Jade, Patch 5: "a rapid burst of light, like a real
+ * explosion at night"): a cannonball going off or a wall breaker's bomb.
+ * `life` seconds, a glowing ball `ball` metres across at its widest, and a
+ * light reaching `reach` metres at `peak` candela in the dark.
+ */
+export const FLASH = {
+  cannon: { life: 0.15, ball: 1.2, reach: 12, peak: 40 },
+  bomb: { life: 0.22, ball: 1.8, reach: 16, peak: 60 },
+} as const;
+type FlashLook = (typeof FLASH)[keyof typeof FLASH];
+/** Warm white, the colour of the flash. */
+const FLASH_COLOUR = new THREE.Color(0xffdca0);
+/** Point lights the world's own units view keeps for flashes (a fixed number, so shaders never recompile; the newest flash takes the oldest's). */
+export const FLASH_LIGHTS = 2;
+const MAX_FLASHES = 32;
+
+/**
+ * Explosions' flashes: a glowing ball that swells and fades, unlit and added
+ * to what is behind it, and a point light that lights the ground and walls
+ * round it, both gone in a blink; strong in the dark, faint by day.
+ */
+export class Flashes {
+  private readonly balls: THREE.InstancedMesh;
+  private readonly p = new Float32Array(MAX_FLASHES * 5); // x y z age life
+  private readonly size = new Float32Array(MAX_FLASHES);
+  private n = 0;
+  private readonly lights: Array<{ l: THREE.PointLight; age: number; life: number; peak: number }> = [];
+  private next = 0;
+  private readonly dummy = new THREE.Object3D();
+  private readonly colour = new THREE.Color();
+
+  constructor(scene: THREE.Scene, lights: number) {
+    this.balls = new THREE.InstancedMesh(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), MAX_FLASHES);
+    this.balls.frustumCulled = false;
+    this.balls.count = 0;
+    scene.add(this.balls);
+    for (let i = 0; i < lights; i++) {
+      const l = new THREE.PointLight(FLASH_COLOUR, 0, 10, 1.4);
+      scene.add(l);
+      this.lights.push({ l, age: 0, life: 0, peak: 0 });
+    }
+  }
+
+  add(x: number, y: number, z: number, look: FlashLook): void {
+    if (this.n < MAX_FLASHES) {
+      const o = this.n * 5;
+      this.p.set([x, y + 0.3, z, 0, look.life], o);
+      this.size[this.n++] = look.ball;
+    }
+    const s = this.lights[this.next];
+    if (!s) return;
+    this.next = (this.next + 1) % this.lights.length;
+    s.l.position.set(x, y + 1, z);
+    s.l.distance = look.reach;
+    s.age = 0;
+    s.life = look.life;
+    s.peak = look.peak;
+  }
+
+  /** dark: 0 by day, 1 at night. */
+  update(dt: number, dark: number): void {
+    const p = this.p;
+    let w = 0;
+    for (let r = 0; r < this.n; r++) {
+      const o = r * 5;
+      const age = p[o + 3]! + dt;
+      const life = p[o + 4]!;
+      if (age >= life) continue;
+      const d = w * 5;
+      p.copyWithin(d, o, o + 5);
+      p[d + 3] = age;
+      this.size[w] = this.size[r]!;
+      const t = age / life;
+      // Out at once to most of its size, then a last swell as it dies away.
+      this.dummy.position.set(p[d]!, p[d + 1]!, p[d + 2]!);
+      this.dummy.scale.setScalar(this.size[w]! * (0.6 + 0.4 * Math.sqrt(t)));
+      this.dummy.updateMatrix();
+      this.balls.setMatrixAt(w, this.dummy.matrix);
+      this.balls.setColorAt(w, this.colour.copy(FLASH_COLOUR).multiplyScalar((1 - t) * (1 - t) * (0.3 + 0.7 * dark)));
+      w++;
+    }
+    this.n = w;
+    this.balls.count = w;
+    this.balls.instanceMatrix.needsUpdate = true;
+    if (this.balls.instanceColor) this.balls.instanceColor.needsUpdate = true;
+    for (const s of this.lights) {
+      s.age += dt;
+      const t = s.life > 0 ? s.age / s.life : 1;
+      s.l.intensity = t >= 1 ? 0 : s.peak * (1 - t) * (1 - t) * (0.15 + 0.85 * dark);
+    }
+  }
+}
+
 export interface UnitsFrame {
   curr: StateMessage;
   prev: StateMessage | null;
@@ -818,6 +912,8 @@ export class UnitsView {
   /** Sparks and a muzzle's flash (Patch 5, MB-7): unlit, tiny, so they show at night. */
   private readonly sparks: Particles;
   private readonly smoke: Smoke;
+  /** Explosions' flashes of light (Patch 5): a cannonball going off, a wall breaker's bomb. */
+  private readonly flashes: Flashes;
   /** A gunpowder shot in flight (VX-4): unlit streaks, faint by day and bright orange in the dark. */
   private readonly streaks: THREE.InstancedMesh;
   /** 0 by day, 1 at night (world-view sets it each frame): how a gunpowder shot shows. */
@@ -864,9 +960,11 @@ export class UnitsView {
   private readonly morvathAt = new Map<number, THREE.Vector3>();
   private lastFrame = 0;
 
+  /** flashLights: point lights for explosions' flashes, only on the world's own view (FLASH_LIGHTS). */
   constructor(
     private readonly scene: THREE.Scene,
     fow?: FowUniforms,
+    flashLights = 0,
   ) {
     this.patch = fow ? { key: 'fow', apply: fowPatch(fow, false) } : undefined;
     this.bodyGroup.name = 'unit models';
@@ -877,6 +975,7 @@ export class UnitsView {
     this.hearts = new Hearts(scene);
     this.sparks = new Particles(scene, 0.03, true);
     this.smoke = new Smoke(scene);
+    this.flashes = new Flashes(scene, flashLights);
     this.streaks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }), MAX_SHOTS);
     this.streaks.count = 0;
     this.streaks.frustumCulled = false;
@@ -1149,6 +1248,8 @@ export class UnitsView {
         this.sparks.spawn(x, y + 0.2, z, 0xffd060, 30, 6, 3, 0.3);
       }
       if (h.look === 'bomb') this.smoke.add(x, y + 0.3, z, BOMB_SMOKE_S, 0.9);
+      // A cannonball (a cannon's 'blast'; a colossus's slam or a fire splash is not one) or a wall breaker going off flashes.
+      if (h.look === 'bomb' || (h.look === 'blast' && who?.(h.id)?.kind === UnitKind.Engine)) this.flashes.add(x, y, z, h.look === 'bomb' ? FLASH.bomb : FLASH.cannon);
       if (h.look === 'fell') this.particles.spawn(x, y + 1, z, 0x3a6a2a, 14, 2.4, 2.4);
       // A soldier's musket or pistol (an engine's muzzle flash is drawn with the engine, at its muzzle).
       if (h.look === 'shot' && h.shot !== undefined && GUNPOWDER.has(h.shot)) {
@@ -1466,6 +1567,7 @@ export class UnitsView {
     this.hearts.update(now);
     this.sparks.update(dt);
     this.smoke.update(dt);
+    this.flashes.update(dt, Math.min(1, Math.max(0, this.darkness)));
     this.crescents.update(now);
   }
 

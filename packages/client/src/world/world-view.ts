@@ -61,7 +61,7 @@ import { propDetails, propLabel } from './plant-text.ts';
 import { circlePieceDetails, circlePieceLabel } from './circle-text.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { TavernView } from './tavern-view.ts';
-import { UnitsView } from './units-view.ts';
+import { FLASH_LIGHTS, UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { FishView } from './fish-view.ts';
 import { LootView } from './loot-view.ts';
@@ -377,7 +377,7 @@ export class WorldView {
       this.inflight.push(0);
     }
 
-    this.unitsView = new UnitsView(scene, this.fow);
+    this.unitsView = new UnitsView(scene, this.fow, FLASH_LIGHTS);
     this.outlines = new HiddenOutlines(scene, this.unitsView, this.colours[this.player] ?? NEUTRAL_COLOUR);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
     this.taverns = new TavernView(scene);
