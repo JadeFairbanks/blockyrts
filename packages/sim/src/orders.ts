@@ -488,8 +488,8 @@ export interface DebugPlaceOrder {
   z: number;
 }
 
-/** The debugger's other buttons (debug/god.ts): every unit to its top rank, all healed, the monsters round a point cleared, the Elf kingdom shown. */
-export const DebugTool = { MaxRank: 0, HealAll: 1, ClearFoes: 2, ElfKingdom: 3 } as const;
+/** The debugger's other buttons (debug/god.ts): every unit to its top rank, all healed, the monsters round a point cleared, the Elf kingdom shown, the stone circles shown one by one (circles/act.ts). */
+export const DebugTool = { MaxRank: 0, HealAll: 1, ClearFoes: 2, ElfKingdom: 3, StoneCircle: 4 } as const;
 export type DebugTool = (typeof DebugTool)[keyof typeof DebugTool];
 
 /** Debug: one of the debugger's buttons (DebugTool), at a point (wu) where it needs one. */
@@ -737,11 +737,41 @@ export interface LeaveOrder {
   player: number;
 }
 
+/**
+ * A unit at a stone circle (Patch 5, circles/act.ts): the nearest of the
+ * units walks to the altar or a chest and does `act` (CircleAct: leave the
+ * Goddess her gifts, take the idol, open a chest, take a chest's slot), or
+ * plants an Ancient Seed or cuts down a bare Sweet Hawthorne on a column.
+ * `arg` is the chest number, or for taking, chest * 8 + slot; for planting
+ * and cutting down, `circle` is the column's x and `arg` its z, and with no
+ * units the nearest worker not at a farm or barn plants the seed (SC-8).
+ */
+export interface CircleOrder extends UnitsOrder {
+  kind: 'circle';
+  circle: number;
+  act: number;
+  arg: number;
+}
+
+/**
+ * Use an item (Patch 5; decisions 3.6's one right-click menu, circles/items.ts):
+ * from the inventory, or from the bag of `unit` (an entity id, 0 for none),
+ * which also plays the Pan Flute where it stands.
+ */
+export interface UseItemOrder {
+  kind: 'useItem';
+  player: number;
+  res: number;
+  unit: number;
+}
+
 export type Order =
   | UnloadItemOrder
   | DropItemOrder
   | EquipOrder
   | ShelterOrder
+  | CircleOrder
+  | UseItemOrder
   | AnswerOrder
   | GreyedOrder
   | PickOwnOrder
@@ -925,9 +955,11 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
   greyed: ['what', 'id', 'building'],
+  circle: ['circle', 'act', 'arg'],
+  useItem: ['res', 'unit'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill', 'woods']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -991,7 +1023,7 @@ export function validateOrder(o: Order): void {
       if (o.what < 0 || o.what > 0xffff) throw new Error('bad godmode placement');
       return;
     case 'debugTool':
-      if (o.tool < DebugTool.MaxRank || o.tool > DebugTool.ElfKingdom) throw new Error('bad debug tool');
+      if (o.tool < DebugTool.MaxRank || o.tool > DebugTool.StoneCircle) throw new Error('bad debug tool');
       return;
     case 'debugKill':
       if (o.units.length > 256) throw new Error('kill at most 256 units at once');
@@ -1052,6 +1084,15 @@ export function validateOrder(o: Order): void {
       return;
     case 'greyed':
       if (o.what < 0 || o.what > 2 || o.id < 0 || o.id > 0xffff || o.units.length > 256) throw new Error('bad greyed-out click');
+      return;
+    case 'circle':
+      // Planting and cutting down (acts 4 and 5) name a column: `circle` its x and `arg` its z.
+      if (o.act === 4 || o.act === 5) {
+        if (!isInt(o.circle) || !isInt(o.arg) || Math.abs(o.circle) > 300_000 || Math.abs(o.arg) > 300_000) throw new Error('bad stone circle order');
+      } else if (o.circle < 0 || o.circle > 255 || o.act < 0 || o.act > 3 || o.arg < 0 || o.arg > 63) throw new Error('bad stone circle order');
+      return;
+    case 'useItem':
+      if (o.res < 0 || o.res > 255 || o.unit < 0) throw new Error('bad item use');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

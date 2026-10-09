@@ -617,6 +617,21 @@ body.playing * {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+/* The little sky by the clock (Patch 5): the art set's sky, sun, moon, stars and clouds at half size. */
+.clock {
+  padding-left: 76px;
+}
+.clock-sky {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 56px;
+  height: 28px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
 
 /* Debug readout (top left, small). */
 .debug {
@@ -998,6 +1013,7 @@ body.playing * {
 .peoples-panel,
 .trade-dialog,
 .hire-dialog,
+.circle-dialog,
 .war-confirm {
   z-index: 5;
   padding: 10px 12px 12px;
@@ -1012,6 +1028,7 @@ body.playing * {
 .peoples-panel,
 .trade-dialog,
 .hire-dialog,
+.circle-dialog,
 .allies-panel,
 .send-dialog {
   display: flex;
@@ -1056,6 +1073,14 @@ body.playing * {
   width: min(420px, calc(100vw - 32px));
 }
 .hire-dialog {
+  max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
+}
+/* Patch 5's stone circles: a bluestone chest's spaces and an altar, laid out like the hire box. */
+.circle-dialog {
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
   max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
 }
 .war-confirm {

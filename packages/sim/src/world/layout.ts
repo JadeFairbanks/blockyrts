@@ -316,6 +316,11 @@ export class WorldLayout {
    * Measures the bands from these main bases (StartBasin: the start
    * pockets), columns, forgetting every cell and edge worked out before.
    */
+  /** The main bases the bands are measured from, columns (the land's textures follow the bands too). */
+  get bandAnchors(): ReadonlyArray<{ x: number; z: number }> {
+    return this.anchors;
+  }
+
   setBandAnchors(points: ReadonlyArray<{ x: number; z: number }>): void {
     if (points.length === 0) return;
     this.anchors = points.map((p) => ({ x: p.x, z: p.z }));

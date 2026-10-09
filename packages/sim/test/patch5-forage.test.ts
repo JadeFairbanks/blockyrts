@@ -81,7 +81,8 @@ describe('wild food (Patch 5)', () => {
   it('Forage takes every prop marked forage, and the wild foods are plant food for taming and the Barn', () => {
     for (const k of [PropKind.Mushroom, PropKind.BlackBerryBush, PropKind.RaspberryBush, PropKind.BlueberryBush]) expect(isForage(k)).toBe(true);
     for (const k of [PropKind.Hazel, PropKind.Herbs, PropKind.Pine, PropKind.FishTrout]) expect(isForage(k)).toBe(false);
-    expect(PLANT_FOODS).toEqual([Res.FarmFare, Res.BlackBerries, Res.Raspberries, Res.Blueberries, Res.Mushrooms]);
+    // The Stone circles' Sweet Hawthorne fruit last; never the bog pear, kept for the Halfling Elder.
+    expect(PLANT_FOODS).toEqual([Res.FarmFare, Res.BlackBerries, Res.Raspberries, Res.Blueberries, Res.Mushrooms, Res.HawthorneFruit]);
   });
 
   it('a picked mushroom comes up again within 3 m, 1 to 3.5 minutes later, and its record moves with it', () => {

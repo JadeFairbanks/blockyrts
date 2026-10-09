@@ -364,6 +364,15 @@ export class World {
     }
   }
 
+  /**
+   * Sets what a prop holds, as if never picked, unless it is gone (Patch 5:
+   * the Moon Roses opening on a Bright Night and closing at daybreak).
+   */
+  restock(cx: number, cz: number, index: number, amount: number): void {
+    if (this.propChanges.get(chunkKey(cx, cz))?.get(index)?.removed) return;
+    this.changeProp(cx, cz, index, { amount, cutAt: -1, removed: false });
+  }
+
   /** Pulls up one prop for good (a builder clearing a sapling off a building spot). */
   removeProp(cx: number, cz: number, index: number): void {
     this.changeProp(cx, cz, index, { amount: 0, cutAt: -1, removed: true });

@@ -116,7 +116,9 @@ export type UnitOrder =
    * set out, for his reach with no main base; (ex, ez) wu where he is
    * looking when nothing is in sight.
    */
-  | { t: 'woods'; fish: number; forage: number; cx: number; cz: number; i: number; k: number; x: number; z: number; ex: number; ez: number };
+  | { t: 'woods'; fish: number; forage: number; cx: number; cz: number; i: number; k: number; x: number; z: number; ex: number; ez: number }
+  /** At a stone circle (Patch 5, circles/act.ts): walk to its altar or a chest and do `act` (CircleAct) with `arg`. */
+  | { t: 'circle'; circle: number; act: number; arg: number };
 
 export type UnitOrderType = UnitOrder['t'];
 
@@ -138,7 +140,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods', 'circle'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -173,6 +175,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   forage: ['res', 'x', 'z', 'k', 'ang'],
   retrain: ['b'],
   woods: ['fish', 'forage', 'cx', 'cz', 'i', 'k', 'x', 'z', 'ex', 'ez'],
+  circle: ['circle', 'act', 'arg'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -263,5 +266,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Retraining as a worker';
     case 'woods':
       return (o.k & WOODS_HOME) !== 0 ? 'Home for the night' : o.fish && o.forage ? 'Foraging and fishing' : o.fish ? 'Fishing' : 'Foraging';
+    case 'circle':
+      return 'Going to the stone circle';
   }
 }

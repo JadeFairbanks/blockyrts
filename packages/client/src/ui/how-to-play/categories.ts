@@ -111,9 +111,9 @@ export const CATEGORIES: readonly Category[] = [
   {
     id: 'world',
     label: 'The world',
-    blurb: 'Land, trees, rocks, ores, mining, digging and how units move over the ground.',
+    blurb: 'Land, trees, rocks, ores, mining, digging, how units move over the ground, and the stone circles.',
     picture: 'icon_stone',
-    groups: ['world'],
+    groups: ['world', 'circles'],
   },
   {
     id: 'rules',
@@ -153,6 +153,7 @@ export const GROUP_HEADINGS: Readonly<Record<string, string>> = {
   nightwork: 'Working through the night',
   questions: 'Questions your units ask',
   units: 'Units and ranks',
+  circles: 'Stone circles',
 };
 
 /** The catalog's sub-menu names, as How to Play's sidebar shows them. */

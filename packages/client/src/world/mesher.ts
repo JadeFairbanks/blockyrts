@@ -6,7 +6,7 @@
 // Positions are metres relative to the chunk's corner. Colours are the
 // material's colour; the terrain shader adds the pixel texture and the fog.
 
-import { CHUNK_COLUMNS, COLUMNS_PER_CHUNK as N, MATERIALS, NO_WATER, WATER_PER_UNIT, type ChunkColumns, type LowResChunk } from '@blockyrts/sim';
+import { CHUNK_COLUMNS, COLUMNS_PER_CHUNK as N, Mat, MATERIALS, NO_WATER, WADE_UNITS, WATER_PER_UNIT, type ChunkColumns, type LowResChunk } from '@blockyrts/sim';
 
 /** A column stride in metres (45 cm). */
 export const COLUMN_M = 0.45;
@@ -18,6 +18,8 @@ export interface MeshArrays {
   positions: Float32Array;
   normals: Int8Array;
   colors: Uint8Array;
+  /** Each vertex's material (sim Mat), for the land's textures; 255 for none. */
+  mats: Uint8Array;
   indices: Uint32Array;
 }
 
@@ -26,9 +28,10 @@ export class QuadBuffer {
   private pos: number[] = [];
   private nrm: number[] = [];
   private col: number[] = [];
+  private mat: number[] = [];
   quads = 0;
 
-  add(x: number, y: number, z: number, ux: number, uy: number, uz: number, vx: number, vy: number, vz: number, nx: number, ny: number, nz: number, rgb: number): void {
+  add(x: number, y: number, z: number, ux: number, uy: number, uz: number, vx: number, vy: number, vz: number, nx: number, ny: number, nz: number, rgb: number, mat = 255): void {
     // (u x v) must point along n for counter-clockwise front faces.
     const cx = uy * vz - uz * vy;
     const cy = uz * vx - ux * vz;
@@ -45,6 +48,7 @@ export class QuadBuffer {
     for (let k = 0; k < 4; k++) {
       this.nrm.push(nx * 127, ny * 127, nz * 127);
       this.col.push(r, g, b);
+      this.mat.push(mat);
     }
     this.quads++;
   }
@@ -55,7 +59,7 @@ export class QuadBuffer {
       const v = q * 4;
       indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
     }
-    return { positions: new Float32Array(this.pos), normals: new Int8Array(this.nrm), colors: new Uint8Array(this.col), indices };
+    return { positions: new Float32Array(this.pos), normals: new Int8Array(this.nrm), colors: new Uint8Array(this.col), mats: new Uint8Array(this.mat), indices };
   }
 }
 
@@ -144,7 +148,7 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
       }
       for (let r = 0; r < d; r++) done.fill(1, (lz + r) * N + lx, (lz + r) * N + lx + w);
       const top = Math.floor(k / 256) - 32768;
-      q.add(lx * COLUMN_M, top * UNIT_M, lz * COLUMN_M, w * COLUMN_M, 0, 0, 0, 0, d * COLUMN_M, 0, 1, 0, colourOf(k & 255));
+      q.add(lx * COLUMN_M, top * UNIT_M, lz * COLUMN_M, w * COLUMN_M, 0, 0, 0, 0, d * COLUMN_M, 0, 1, 0, colourOf(k & 255), k & 255);
     }
   }
 
@@ -160,8 +164,8 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
       const y1 = L[s + k * 3 + 1]!;
       const m = L[s + k * 3 + 2]!;
       // Only where air touches: layers often sit right on one another.
-      if (k < n - 1 && L[s + (k + 1) * 3]! > y1) q.add(lx * COLUMN_M, y1 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, 1, 0, colourOf(m));
-      if (k > 0 && L[s + (k - 1) * 3 + 1]! < y0) q.add(lx * COLUMN_M, y0 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, -1, 0, colourOf(m));
+      if (k < n - 1 && L[s + (k + 1) * 3]! > y1) q.add(lx * COLUMN_M, y1 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, 1, 0, colourOf(m), m);
+      if (k > 0 && L[s + (k - 1) * 3 + 1]! < y0) q.add(lx * COLUMN_M, y0 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, -1, 0, colourOf(m), m);
     }
   }
 
@@ -179,8 +183,8 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
         const y1 = (rest % 32768) - 16384;
         const y0 = Math.floor(rest / 32768) - 16384;
         const plane = (sign > 0 ? a + 1 : a) * COLUMN_M;
-        if (alongX) q.add(plane, y0 * UNIT_M, from * COLUMN_M, 0, 0, (to - from) * COLUMN_M, 0, (y1 - y0) * UNIT_M, 0, sign, 0, 0, colourOf(mat));
-        else q.add(from * COLUMN_M, y0 * UNIT_M, plane, (to - from) * COLUMN_M, 0, 0, 0, (y1 - y0) * UNIT_M, 0, 0, 0, sign, colourOf(mat));
+        if (alongX) q.add(plane, y0 * UNIT_M, from * COLUMN_M, 0, 0, (to - from) * COLUMN_M, 0, (y1 - y0) * UNIT_M, 0, sign, 0, 0, colourOf(mat), mat);
+        else q.add(from * COLUMN_M, y0 * UNIT_M, plane, (to - from) * COLUMN_M, 0, 0, 0, (y1 - y0) * UNIT_M, 0, 0, 0, sign, colourOf(mat), mat);
       };
       for (let b = 0; b <= N; b++) {
         seen.clear();
@@ -235,14 +239,33 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
   return q.finish();
 }
 
-/** Water surfaces (merged by level) and the edges where water meets lower dry land. */
+/**
+ * Which of the art set's water tiles a stretch of water takes (Patch 5): a
+ * bog's brown-green over mud, deep water past wading depth (where units
+ * cannot walk), shallow water otherwise; the sides where water stands above
+ * lower land, and the shore foam strips along the edges of each surface.
+ */
+export const WaterKind = { Shallow: 0, Deep: 1, Stream: 2, Bog: 3, Side: 4, FoamAlongZ: 5, FoamAlongX: 6 } as const;
+/** The shore foam's strip: 4 of a tile's 16 pixels. */
+export const FOAM_M = COLUMN_M / 4;
+
+function waterKind(depth: number, ground: number): number {
+  if (ground === Mat.Mud) return WaterKind.Bog;
+  return depth > WADE_UNITS * WATER_PER_UNIT ? WaterKind.Deep : WaterKind.Shallow;
+}
+
+/** Water surfaces (merged by level and kind), the edges where water meets lower dry land, and foam along the shore. */
 export function meshWater(h: ChunkNeighbourhood): MeshArrays | null {
   const c = h.centre;
   const q = new QuadBuffer();
   const level = new Int32Array(CHUNK_COLUMNS).fill(NO_WATER);
+  const kind = new Uint8Array(CHUNK_COLUMNS);
   for (let i = 0; i < CHUNK_COLUMNS; i++) {
     const w = c.water[i]!;
-    if (w !== NO_WATER && w > c.top(i) * WATER_PER_UNIT) level[i] = w;
+    if (w !== NO_WATER && w > c.top(i) * WATER_PER_UNIT) {
+      level[i] = w;
+      kind[i] = waterKind(w - c.top(i) * WATER_PER_UNIT, c.topMaterial(i));
+    }
   }
   const done = new Uint8Array(CHUNK_COLUMNS);
   const colour = 0x3b6fa8;
@@ -251,16 +274,17 @@ export function meshWater(h: ChunkNeighbourhood): MeshArrays | null {
       const i = lz * N + lx;
       const k = level[i]!;
       if (done[i] || k === NO_WATER) continue;
+      const kd = kind[i]!;
       let w = 1;
-      while (lx + w < N && !done[i + w] && level[i + w] === k) w++;
+      while (lx + w < N && !done[i + w] && level[i + w] === k && kind[i + w] === kd) w++;
       let d = 1;
       grow: while (lz + d < N) {
         const row = (lz + d) * N + lx;
-        for (let t = 0; t < w; t++) if (done[row + t] || level[row + t] !== k) break grow;
+        for (let t = 0; t < w; t++) if (done[row + t] || level[row + t] !== k || kind[row + t] !== kd) break grow;
         d++;
       }
       for (let r = 0; r < d; r++) done.fill(1, (lz + r) * N + lx, (lz + r) * N + lx + w);
-      q.add(lx * COLUMN_M, (k / WATER_PER_UNIT) * UNIT_M, lz * COLUMN_M, w * COLUMN_M, 0, 0, 0, 0, d * COLUMN_M, 0, 1, 0, colour);
+      q.add(lx * COLUMN_M, (k / WATER_PER_UNIT) * UNIT_M, lz * COLUMN_M, w * COLUMN_M, 0, 0, 0, 0, d * COLUMN_M, 0, 1, 0, colour, kd);
     }
   }
   // Edges: water standing above a dry neighbour's top shows its side.
@@ -281,14 +305,21 @@ export function meshWater(h: ChunkNeighbourhood): MeshArrays | null {
       if (!nb) continue;
       const ni = nz * N + nx;
       if (nb.water[ni] !== NO_WATER) continue;
-      const bottom = Math.max(own, nb.top(ni) * WATER_PER_UNIT);
-      if (bottom >= w) continue;
-      const y0 = (bottom / WATER_PER_UNIT) * UNIT_M;
       const y1 = (w / WATER_PER_UNIT) * UNIT_M;
       const px = (dx > 0 ? lx + 1 : lx) * COLUMN_M;
       const pz = (dz > 0 ? lz + 1 : lz) * COLUMN_M;
-      if (dx !== 0) q.add(px, y0, lz * COLUMN_M, 0, 0, COLUMN_M, 0, y1 - y0, 0, dx, 0, 0, colour);
-      else q.add(lx * COLUMN_M, y0, pz, COLUMN_M, 0, 0, 0, y1 - y0, 0, 0, 0, dz, colour);
+      if (nb.top(ni) * WATER_PER_UNIT >= w) {
+        // The shore: a strip of foam on the water along the bank, just above the surface.
+        const y = y1 + 0.004;
+        if (dx !== 0) q.add(dx > 0 ? px - FOAM_M : px, y, lz * COLUMN_M, FOAM_M, 0, 0, 0, 0, COLUMN_M, 0, 1, 0, colour, WaterKind.FoamAlongZ);
+        else q.add(lx * COLUMN_M, y, dz > 0 ? pz - FOAM_M : pz, COLUMN_M, 0, 0, 0, 0, FOAM_M, 0, 1, 0, colour, WaterKind.FoamAlongX);
+        continue;
+      }
+      const bottom = Math.max(own, nb.top(ni) * WATER_PER_UNIT);
+      if (bottom >= w) continue;
+      const y0 = (bottom / WATER_PER_UNIT) * UNIT_M;
+      if (dx !== 0) q.add(px, y0, lz * COLUMN_M, 0, 0, COLUMN_M, 0, y1 - y0, 0, dx, 0, 0, colour, WaterKind.Side);
+      else q.add(lx * COLUMN_M, y0, pz, COLUMN_M, 0, 0, 0, y1 - y0, 0, 0, 0, dz, colour, WaterKind.Side);
     }
   }
   return q.quads > 0 ? q.finish() : null;
@@ -317,14 +348,15 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
         d++;
       }
       for (let r = 0; r < d; r++) done.fill(1, (j + r) * size + i, (j + r) * size + i + w);
-      q.add(i * cell, (Math.floor(k / 256) - 32768) * UNIT_M, j * cell, w * cell, 0, 0, 0, 0, d * cell, 0, 1, 0, colourOf(k & 255));
+      q.add(i * cell, (Math.floor(k / 256) - 32768) * UNIT_M, j * cell, w * cell, 0, 0, 0, 0, d * cell, 0, 1, 0, colourOf(k & 255), k & 255);
     }
   }
   for (let j = 0; j < size; j++) {
     for (let i = 0; i < size; i++) {
       const k = j * size + i;
       const top = lr.top[k]!;
-      const colour = colourOf(lr.material[k] === 1 || lr.material[k] === 2 ? 3 : lr.material[k]!);
+      const sideMat = lr.material[k] === 1 || lr.material[k] === 2 ? 3 : lr.material[k]!;
+      const colour = colourOf(sideMat);
       for (const [di, dj] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
         const ni = i + di;
         const nj = j + dj;
@@ -333,11 +365,11 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
         if (low >= top) continue;
         const y0 = low * UNIT_M;
         const y1 = top * UNIT_M;
-        if (di !== 0) q.add((di > 0 ? i + 1 : i) * cell, y0, j * cell, 0, 0, cell, 0, y1 - y0, 0, di, 0, 0, colour);
-        else q.add(i * cell, y0, (dj > 0 ? j + 1 : j) * cell, cell, 0, 0, 0, y1 - y0, 0, 0, 0, dj, colour);
+        if (di !== 0) q.add((di > 0 ? i + 1 : i) * cell, y0, j * cell, 0, 0, cell, 0, y1 - y0, 0, di, 0, 0, colour, sideMat);
+        else q.add(i * cell, y0, (dj > 0 ? j + 1 : j) * cell, cell, 0, 0, 0, y1 - y0, 0, 0, 0, dj, colour, sideMat);
       }
       const w = lr.water[k]!;
-      if (w !== NO_WATER && w > top * WATER_PER_UNIT) wq.add(i * cell, (w / WATER_PER_UNIT) * UNIT_M, j * cell, cell, 0, 0, 0, 0, cell, 0, 1, 0, 0x3b6fa8);
+      if (w !== NO_WATER && w > top * WATER_PER_UNIT) wq.add(i * cell, (w / WATER_PER_UNIT) * UNIT_M, j * cell, cell, 0, 0, 0, 0, cell, 0, 1, 0, 0x3b6fa8, waterKind(w - top * WATER_PER_UNIT, lr.material[k]!));
     }
   }
   return { land: q.finish(), water: wq.quads > 0 ? wq.finish() : null };

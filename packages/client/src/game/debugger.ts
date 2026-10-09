@@ -61,6 +61,7 @@ export function addDebugger(shell: GameShell, world: WorldView, PLAYER: number, 
     shell.buttons.get('dbg-villages')?.setFace(`Village: ${VILLAGES[village]!.name}`);
   });
   add('dbg-elves', 'Elf kingdom', 'Debug: Elf kingdom', 'Takes the camera to the Elf kingdom and reveals the land round it, building the kingdom where it stands if nobody has been near it yet.', () => tool(DebugTool.ElfKingdom));
+  add('dbg-circle', 'Stone circle', 'Debug: stone circle', 'Takes the camera to the stone circle nearest the middle of the view and reveals the land round it; pressed again there, it goes on to the next circle (Patch 5).', () => tool(DebugTool.StoneCircle));
   add('dbg-rank', 'Max rank', 'Debug: max rank', 'Raises every one of your workers, troops and mages to the top rank at once, at full health.', () => tool(DebugTool.MaxRank));
   add('dbg-heal', 'Heal all', 'Debug: heal all', 'Heals every one of your units and engines to full (and fills the mages\' mana), and mends every one of your buildings.', () => tool(DebugTool.HealAll));
   add('dbg-kill', 'Kill selected', 'Debug: kill selected', 'Kills the selected units at once, whoever\'s they are: they die as in a fight, and drop what they would.', () => {
