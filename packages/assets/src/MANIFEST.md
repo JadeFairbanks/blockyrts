@@ -1,4 +1,4 @@
-# Asset manifest
+| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | K1 resource icon mushrooms (rendered from mushroom.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | K1 resource icon blueberries (rendered from blueberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | K1 resource icon raspberries (rendered from raspberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | K1 resource icon black_berries (rendered from black_berries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |# Asset manifest
 
 One row per model file under `models/`. Cube counts include cubes hidden by default; texture sizes are the embedded texture (also committed as `<file>.png`), followed by any colour or material variants (`<file>_<variant>.png`, same UV layout). Each model's full notes (hit box, move speeds, key times, attachment points, second grip distances) are in its Blockbench description.
 
@@ -53,9 +53,9 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | chicken_rooster | models/animals/chicken_rooster/chicken_rooster.bbmodel | 19 | 64x64 |  |
 | wolf | models/animals/wolf/wolf.bbmodel | 25 | 64x128 + 2 variants (runkin, young) |  |
 | bear | models/animals/bear/bear.bbmodel | 22 | 128x256 + 1 variants (cub) |  |
-| fish_trout | models/animals/fish_trout/fish_trout.bbmodel | 15 | 64x64 + 1 variants (young) |  |
-| fish_salmon | models/animals/fish_salmon/fish_salmon.bbmodel | 16 | 64x64 + 1 variants (young) |  |
-| fish_giant_catfish | models/animals/fish_giant_catfish/fish_giant_catfish.bbmodel | 17 | 64x128 + 1 variants (young) |  |
+| fish_trout | models/animals/fish_trout/fish_trout.bbmodel | 32 | 256x256 | Patch 5: the supplied trout (FR-2), which swims in the water; placement: centred on its body at its swimming depth, not standing on y = 0 |
+| fish_salmon | models/animals/fish_salmon/fish_salmon.bbmodel | 32 | 256x256 | Patch 5: the supplied salmon (FR-2), which swims in the water; placement: centred on its body at its swimming depth, not standing on y = 0 or centred on its bottom quarter |
+| fish_giant_catfish | models/animals/fish_giant_catfish/fish_giant_catfish.bbmodel | 46 | 256x256 | Patch 5: the supplied giant catfish (FR-2), which swims in the water; placement: centred on its body at its swimming depth, not standing on y = 0; 46 cubes, over the animal budget, for its barbels and fins as supplied |
 | hare | models/animals/hare/hare.bbmodel | 20 | 64x64 + 1 variants (young) |  |
 | deer | models/animals/deer/deer.bbmodel | 30 | 128x128 + 2 variants (hind, young) | the game hides the `antlers` group for the deer_hind and deer_young textures |
 | badger | models/animals/badger/badger.bbmodel | 105 | 256x128 | Jade's own model (models/existing_mobs/badger), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 105 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves); its `hips` bone renamed `pelvis` (a four-legged body, not the humanoid baseline) |
@@ -331,6 +331,10 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | bog_pear | models/items/bog_pear/bog_pear.bbmodel | 10 | 64x64 |  |
 | obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
 | armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
+| black_berries | models/items/black_berries/black_berries.bbmodel | 11 | 32x16 |  |
+| raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
+| blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
+| mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
 
 ## mechanical
 
@@ -895,6 +899,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_bluestone | ui/icon_bluestone.png | 1 | 32x32 | K1 resource icon bluestone (rendered from bluestone.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_bog_iron | ui/icon_bog_iron.png | 1 | 32x32 | K1 resource icon bog_iron (rendered from ore_bog_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bone | ui/icon_bone.png | 1 | 32x32 | K1 resource icon bone (rendered from bone_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bonemeal | ui/icon_bonemeal.png | 1 | 32x32 | Patch 5 resource icon bonemeal: the sand sack paled to bonemeal cream, a bone on its front. |
 | icon_bread | ui/icon_bread.png | 1 | 32x32 | K1 resource icon bread (rendered from bread_loaf.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bricks | ui/icon_bricks.png | 1 | 32x32 | K1 resource icon bricks (rendered from bricks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_carrots | ui/icon_carrots.png | 1 | 32x32 | K1 resource icon carrots (rendered from carrot_bunch.bbmodel), 32x32, 1px outline, top-left light. |
@@ -1686,6 +1691,10 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_spell_thorn_volley | ui/icon_spell_thorn_volley.png | 1 | 32x32 | K4 spell icon thorn_volley (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_train_warrior_brawler | ui/icon_train_warrior_brawler.png | 1 | 32x32 | K4 training icon train_warrior_brawler: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
 | icon_train_warrior_zweihander | ui/icon_train_warrior_zweihander.png | 1 | 32x32 | K4 training icon train_warrior_zweihander: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
+| icon_dreadnought | ui/icon_dreadnought.png | 1 | 32x32 | K4 training icon for the Dreadnought (rendered from heavy_knight.bbmodel in Patch 5): the portrait framing at 32x32 on the portrait background. |
+| portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_pheasant | ui/portrait_pheasant.png | 1 | 64x64 | K6 unit portrait pheasant: animal: pheasant. 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 
 ## sky
 

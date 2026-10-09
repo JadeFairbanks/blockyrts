@@ -191,18 +191,20 @@ export const Res = {
   Raspberries: 174,
   Blueberries: 175,
   Mushrooms: 176,
+  /** Patch 5 (Jade): ground from bone at the Workshop, 1 to 1; 2 fertilize a farm. */
+  Bonemeal: 177,
   // Patch 5's other Stone Circle goods (circles/data.ts; Jade's Stone Circle document and her answers 2.5 and 10).
-  AncientSeed: 177,
-  HawthorneFruit: 178,
-  PanFlute: 179,
-  BluestoneTrinket: 180,
-  Honey: 181,
-  EnchantedWine: 182,
-  HawthorneCider: 183,
-  MoonIdol: 184,
-  HeadlessIdol: 185,
+  AncientSeed: 178,
+  HawthorneFruit: 179,
+  PanFlute: 180,
+  BluestoneTrinket: 181,
+  Honey: 182,
+  EnchantedWine: 183,
+  HawthorneCider: 184,
+  MoonIdol: 185,
+  HeadlessIdol: 186,
   /** Jade's GP-29: the bog pear, 14 food, wanted by the Halfling Elder (QV-16). */
-  BogPear: 186,
+  BogPear: 187,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -437,6 +439,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Raspberries, 'Raspberries', 'Raspberries', F, 5, 'Raspberry bushes, in the Heartland and the Fringe: a bunch is 1 food.', 1),
   r(Res.Blueberries, 'Blueberries', 'Blueberries', F, 5, 'Blueberry bushes, in the Fringe and the Deepwoods: a bunch is 1 food.', 1),
   r(Res.Mushrooms, 'Edible mushrooms', 'Mushrooms', F, 3, 'At the feet of trees, from the Heartland to the Deepwoods: 1 food each.', 1),
+  r(Res.Bonemeal, 'Bonemeal', 'Bonemeal', A, 10, 'Ground from bone at the Workshop. Fertilize a farm with 2 for 30% more farm fare for 2 minutes.'),
   // The other Stone Circle goods (Jade's Stone Circle document; weights (s); food values in farm fare from her answers 2.5: farm fare is 2).
   r(Res.AncientSeed, 'Ancient Seed', 'Ancient seeds', A, 1, 'Bluestone chests in stone circles. A small teardrop shaped black seed: right click it to plant a Sweet Hawthorne in grass or dirt.', 0, false),
   r(Res.HawthorneFruit, 'Hawthorne fruit', 'Hawthorne', F, 5, 'Sweet Hawthorne trees: a large ruby-red fruit the size of a small apple, honey-sweet with deeper spice notes. Worth two farm fare.', 4),

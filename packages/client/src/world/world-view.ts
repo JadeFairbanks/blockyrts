@@ -61,6 +61,7 @@ import { BuildingsView } from './buildings-view.ts';
 import { TavernView } from './tavern-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
+import { FishView } from './fish-view.ts';
 import { LootView } from './loot-view.ts';
 import { glitterOfResource, WorldFx, type GlitterSpot } from './sparkle.ts';
 import { Overlay } from './overlay.ts';
@@ -294,6 +295,8 @@ export class WorldView {
   private lastFx = 0;
   /** A fog night's drifting fog banks (Patch 5). */
   private readonly fogDrift: FogDrift;
+  /** The live fish in the water and the woodsmen's catches (Patch 5, FR-2). */
+  private readonly fishView: FishView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -374,6 +377,7 @@ export class WorldView {
     this.lootView = new LootView(scene);
     this.propModels = new PropModelsView(scene, { key: 'fow', apply: fowPatch(this.fow, false) });
     this.fx = new WorldFx(scene);
+    this.fishView = new FishView(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -436,6 +440,7 @@ export class WorldView {
   setModels(lib: ModelLibrary): void {
     this.models = lib;
     this.unitsView.setModels(lib);
+    this.fishView.setModels(lib);
     this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
@@ -529,9 +534,10 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
         const troop = d[o + S.troop]!;
-        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting; so is the Dreadnought (Patch 5).
+        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting; so are the
+        // woodsman, not one of the army F2 selects (Jade's WD-4), and the Dreadnought (Patch 5).
         const dread = troop === Troop.Dreadnought;
-        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : dread ? 'warrior:dreadnought' : 'warrior';
+        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : troop === Troop.Woodsman ? 'warrior:woods' : dread ? 'warrior:dreadnought' : 'warrior';
         // A double click's types (Jade's Patch 5, CT-5): cavalry (anyone mounted), close melee, long melee, and every other kind its own.
         u.clickType = d[o + S.mount] !== Mount.None || troop === Troop.Cavalry ? 'warrior:cavalry' : `warrior:${troop}`;
         u.label = this.title(d, o, kind);
@@ -615,6 +621,7 @@ export class WorldView {
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now(), (id) => this.game?.unit(id) ?? null);
+    this.fishView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
   }
 
   /** A worker's, troop's or mage's name: the sim's unitTitle, so it reads the same as its bubbles and lines. */
@@ -775,8 +782,9 @@ export class WorldView {
     this.updateUnits(now);
     this.lootView.update(now);
     this.tellPropModels(now);
-    this.propModels.update(this.modelChunks(), this.game?.info?.circles, this.hoverKeys, now);
+    this.propModels.update(this.modelChunks(), this.game?.info?.circles, this.hoverKeys);
     this.updateFx(now);
+    this.fishView.update(now, focus, (id) => this.game?.unit(id) ?? null);
     this.updateSky();
     this.fogDrift.update(this.fogK, focus, now);
     this.terrain.terrainTime.value = now / 1000;
@@ -905,6 +913,7 @@ export class WorldView {
     c.props = m.props.map((p) => this.propSelectable(c, p));
     c.glitter = this.glitterOf(c, m.props);
     this.glitterDirty = true;
+    this.fishView.setChunk(ck(c.cx, c.cz), c.cx, c.cz, m.props);
     for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
     c.models = [];
     for (const p of m.props) if (p.model) c.models.push({ key: `p:${c.cx},${c.cz}:${p.index}`, kind: p.kind, variant: p.variant, ox: c.cx * CHUNK_M, oz: c.cz * CHUNK_M, model: p.model });
@@ -985,6 +994,7 @@ export class WorldView {
 
   private dropChunk(c: ChunkView): void {
     this.glitterDirty = true;
+    this.fishView.dropChunk(ck(c.cx, c.cz));
     if (!c.group) return;
     this.scene.remove(c.group);
     c.group.traverse((o) => {

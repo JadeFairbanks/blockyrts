@@ -4,9 +4,9 @@
 import {
   CIRCLE_TYPE_NAMES,
   CircleType,
-  HAWTHORNE_BOOST_M,
-  HAWTHORNE_BOOST_PCT,
   HAWTHORNE_LUMBER,
+  HAWTHORNE_M,
+  HAWTHORNE_PCT,
   PropKind,
   Stage,
   trilithonRow,
@@ -45,7 +45,7 @@ export function circlePieceDetails(kind: number, stage: number, amount: number, 
       return amount > 0 ? [] : ['Its roses open only on a Bright Night.'];
     case PropKind.SweetHawthorne:
       return [
-        `Farms within ${HAWTHORNE_BOOST_M} m grow ${HAWTHORNE_BOOST_PCT}% more food, and animals within ${HAWTHORNE_BOOST_M} m breed ${HAWTHORNE_BOOST_PCT}% faster.`,
+        `Farms within ${HAWTHORNE_M} m grow ${HAWTHORNE_PCT}% more food, and animals within ${HAWTHORNE_M} m breed ${HAWTHORNE_PCT}% faster.`,
         amount > 0 && stage !== Stage.Young ? 'Pick its fruit before it can be cut down.' : `Right click it with a worker to cut it down for ${HAWTHORNE_LUMBER} hardwood lumber.`,
       ];
     default:

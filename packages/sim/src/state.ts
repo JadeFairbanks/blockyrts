@@ -57,6 +57,10 @@ export const OrderKind = {
   Cast: 12,
   /** Sitting by a building with its hands at work, the bar over its head filling (Jade's Patch 2: units/tinker.ts). */
   Tinker: 13,
+  /** The woodsman (Patch 5): fishing with his rod (fish_cast, then fish_wait), and picking wild food low (forage_low) or high (forage_high), units/woods.ts. Numbered apart from the rest so other kinds added beside them never share a number. */
+  Fish: 24,
+  ForageLow: 25,
+  ForageHigh: 26,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
@@ -143,10 +147,12 @@ export const UNIT_FIELDS = [
   ['nodeI', 'i32'],
   /** Next waypoint in its path. */
   ['pathAt', 'u16'],
-  /** 1 when its path reaches the goal, 0 when it only gets as near as it can. */
+  /** 1 when its path reaches the goal, 0 when it only gets as near as it can, 2 with no path yet, 4 on a leg of a long trip (Patch 5: behaviour.ts PATH_LEG). */
   ['pathOk', 'u8'],
   /** Failed path attempts in a row. */
   ['stuck', 'u8'],
+  /** The step before which a unit whose walk fails neither looks round nor says again that it is stuck (Patch 5, GP-22: units/stuck.ts). */
+  ['stuckSaid', 'u32'],
   /** Step at which to try again when waiting. */
   ['waitUntil', 'u32'],
   /** Mobs: which mob (combat/mobs.ts), the player it was sent against, and its strength per mille (+0.5% a night). */
@@ -368,6 +374,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare pathAt: Uint16Array;
   declare pathOk: Uint8Array;
   declare stuck: Uint8Array;
+  declare stuckSaid: Uint32Array;
   declare waitUntil: Uint32Array;
   declare mob: Uint8Array;
   declare foe: Uint8Array;
@@ -480,6 +487,8 @@ export class EntityStore implements Record<FieldName, Column> {
   cools: number[][] = [];
   /** The players' units: loot carried to hand in, as (resource, count) pairs (units/loot.ts). */
   bag: number[][] = [];
+  /** Woodsmen: food brought in and eaten, minute by minute (units/woodsman.ts); empty for everyone else. */
+  ledger: number[][] = [];
 
   private readonly index = new Map<number, number>();
 
@@ -527,6 +536,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters[i] = [];
     this.cools[i] = [];
     this.bag[i] = [];
+    this.ledger[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
     return i;
@@ -545,6 +555,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters.splice(i, 1);
     this.cools.splice(i, 1);
     this.bag.splice(i, 1);
+    this.ledger.splice(i, 1);
     this.count--;
     this.reindex();
   }
@@ -695,6 +706,8 @@ export interface SimEvent {
   lair?: number;
   /** A stone circle's bluestone chest a unit has just opened (Patch 5): circle * 8 + chest number, for the client's chest panel. */
   chest?: number;
+  /** A unit's alert that it is stuck (Patch 5, GP-22): its owner's minimap pings it every 5 s until they look at it. */
+  stuck?: true;
   /**
    * Speech for the bubble only, never the message panel (patch 1): a unit's
    * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
@@ -891,9 +904,10 @@ export interface Site {
  * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
  * summoner `id`. 'sweep': the Dreadnought's swing landing, its crescent drawn in front of him; 'warcry': a remark
- * of his, said with his war cry.
+ * of his, said with his war cry. 'heart': two animals mating (BL-10), over each of them. 'catch': a woodsman's fish
+ * coming up out of the water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1).
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'heart' | 'catch';
 
 export interface HitEvent {
   look: HitLook;
@@ -902,7 +916,7 @@ export interface HitEvent {
   z: number;
   /** The entity hit, swinging or dying (0 for none). */
   id: number;
-  /** Death: what died (UnitKind and mob, and a warrior's troop type: the Dreadnought falls as himself, Patch 5), for the death animation. */
+  /** Death: what died (UnitKind and mob, and a warrior's troop type: the Dreadnought falls as himself, Patch 5), for the death animation; a 'heart' (Patch 5): the animal's species in mob. */
   kind?: number;
   mob?: number;
   troop?: number;
@@ -967,6 +981,9 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     shared: 0,
     tech: 0,
     locks: [],
+    boostLeft: 0,
+    boosts: 0,
+    boostAuto: 0,
   };
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);

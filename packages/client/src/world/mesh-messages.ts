@@ -21,8 +21,6 @@ export interface PropModelPlace {
   z: number;
   yaw: number;
   scale: number;
-  clip?: string;
-  copies?: ReadonlyArray<readonly [number, number, number]>;
 }
 
 /** A prop in a full-detail chunk, for selection and the panel. Positions in metres from the chunk corner. */
@@ -53,6 +51,8 @@ export interface PropSummary {
   variant: number;
   /** Its catalogue model, once loaded (it has no cubes then), or null. */
   model: PropModelPlace | null;
+  /** A fish stretch: the open water its live fish swim in (Patch 5, FR-2), x, y, z per column, metres (x and z within the chunk, y the water's surface). */
+  water?: number[];
 }
 
 export interface MeshResult {

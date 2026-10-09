@@ -1,6 +1,6 @@
 // Mineshafts and prospecting (Mineshafts and prospecting; Table 5 prospect
-// and mineshaft rows) and the fishing dock's catch (Semi-automation:
-// fishing). Minerals lie hidden by the seed: every patch of ground has a
+// and mineshaft rows). Patch 5 took the fishing dock out: only woodsmen
+// fish (units/woods.ts). Minerals lie hidden by the seed: every patch of ground has a
 // rating that Prospect (T) reveals and that sets a mineshaft's output there.
 // Miners inside a shaft bring up stone, ore, coal, gold and gems. Patch 2
 // (Jade): the shaft is a collection point like a node. A miner stays down
@@ -8,15 +8,12 @@
 // or Storehouse and comes back; no one hauls from a shaft any more.
 
 import { CYCLE_STEPS } from '../rules.ts';
-import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
-import { fishOf } from '../economy/food-kinds.ts';
 import { Res, RESOURCES } from '../economy/resources.ts';
 import type { SimState } from '../state.ts';
 import { hasResearch, Research } from '../combat/items.ts';
 import { Band } from '../world/layout.ts';
-import { CHUNK_SHIFT } from '../world/chunk.ts';
-import { isFish } from '../world/props.ts';
 import { BuildingKind } from './data.ts';
 import { buildingCentre } from './lights.ts';
 import type { Building } from './store.ts';
@@ -166,62 +163,9 @@ function mine(state: SimState, b: Building): void {
   }
 }
 
-/** Dock hands fish at net speed, 1 fish per 10 s each (Table 2c), from the nearest stretch within 30 m above half its fish (s). */
-export const DOCK_FISH_STEPS = 10 * STEPS_PER_SECOND;
-const DOCK_REACH_WU = 30 * WU_PER_METRE;
-
-/** The stretch a dock fishes now: the nearest within reach that holds more than half what it can (Semi-automation: fishing). */
-export function dockStretch(state: SimState, b: Building): { cx: number; cz: number; i: number; kind: number } | null {
-  const [x, z] = buildingCentre(b);
-  const gx = floorDiv(x, WU_PER_COLUMN);
-  const gz = floorDiv(z, WU_PER_COLUMN);
-  const r = floorDiv(DOCK_REACH_WU, WU_PER_COLUMN);
-  let best: { cx: number; cz: number; i: number; kind: number } | null = null;
-  let bestD = 0;
-  for (let cz = (gz - r) >> CHUNK_SHIFT; cz <= (gz + r) >> CHUNK_SHIFT; cz++) {
-    for (let cx = (gx - r) >> CHUNK_SHIFT; cx <= (gx + r) >> CHUNK_SHIFT; cx++) {
-      for (const p of state.world.props(cx, cz, state.step)) {
-        if (!isFish(p.kind) || p.amount * 2 <= p.most) continue;
-        const px = (cx << CHUNK_SHIFT) + p.lx - gx;
-        const pz = (cz << CHUNK_SHIFT) + p.lz - gz;
-        const d = px * px + pz * pz;
-        if (d > r * r || (best && d >= bestD)) continue;
-        best = { cx, cz, i: p.index, kind: p.kind };
-        bestD = d;
-      }
-    }
-  }
-  return best;
-}
-
-function fishFromDock(state: SimState, b: Building): void {
-  const hands = workersAt(state, b);
-  if (hands === 0) return;
-  b.farmAcc += hands;
-  if (b.farmAcc < DOCK_FISH_STEPS) return;
-  const n = floorDiv(b.farmAcc, DOCK_FISH_STEPS);
-  b.farmAcc -= n * DOCK_FISH_STEPS;
-  const at = dockStretch(state, b);
-  if (!at) {
-    if ((b.alerted & 4) === 0) {
-      b.alerted |= 4;
-      const [x, z] = buildingCentre(b);
-      state.events.push({ player: b.owner, kind: 'alert', text: 'The fishing dock has no stretch within 30 m with fish to spare.', x, z });
-    }
-    return;
-  }
-  b.alerted &= ~4;
-  const got = state.world.harvest(at.cx, at.cz, at.i, n, state.step);
-  const pool = state.players[b.owner]!.pool;
-  const fish = fishOf(at.kind);
-  pool[fish] = pool[fish]! + got;
-}
-
-/** Each step: shafts are mined and docks fished. */
+/** Each step: shafts are mined (Patch 5: the fishing dock is gone, and only woodsmen fish, units/woods.ts). */
 export function updateMines(state: SimState): void {
   for (const b of state.buildings.list) {
-    if (!b.complete) continue;
-    if (b.kind === BuildingKind.Mineshaft) mine(state, b);
-    else if (b.kind === BuildingKind.FishingDock) fishFromDock(state, b);
+    if (b.complete && b.kind === BuildingKind.Mineshaft) mine(state, b);
   }
 }

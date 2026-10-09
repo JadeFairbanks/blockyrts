@@ -8,9 +8,13 @@
 import * as THREE from 'three';
 import { cue } from '../audio/cues.ts';
 import {
+  BOOST_PCT,
+  BOOST_QUEUE_LIMIT,
+  BOOST_STEPS,
   BuildingKind,
   CircleAct,
   costText,
+  FERTILIZE_BONEMEAL,
   craftRate,
   DREADNOUGHT,
   DREADNOUGHT_TEXT,
@@ -117,6 +121,7 @@ import { defenseAction, flatMake, MAKE_SUBMENUS, makeAction, makeList, makeSub, 
 import { buildingIconFile } from './unit-icons.ts';
 import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
+import { woodsOn, woodsWhat, type WoodsWhat } from './woods.ts';
 
 /** One button of the command card. */
 export interface CardEntry {
@@ -135,7 +140,7 @@ export interface CardEntry {
   lit?: boolean;
   run(p: ButtonPress): void;
   double?(p: ButtonPress): void;
-  /** A right click (Jade's Patch 5, CT-1 and UI-13: the button's auto function), and a touch held on it. */
+  /** A right click (Jade's Patch 5, CT-1 and UI-13: the button's auto function; Fertilize's Auto fertilize), and a touch held on it. */
   right?(p: ButtonPress): void;
   /** Its auto function is on for the selection (UI-13: autorepair): a small mark on the button. */
   auto?: boolean;
@@ -168,7 +173,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'equip' | 'plant';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage' | 'equip' | 'plant';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -267,11 +272,11 @@ const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>>
 };
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
-const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey === 'warrior:dreadnought' || u.typeKey.startsWith('mage:');
+const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey === 'warrior:woods' || u.typeKey === 'warrior:dreadnought' || u.typeKey.startsWith('mage:');
 
 /** Whether a building trains workers, warriors or mages, which come out to its rally point. */
 const trainsUnits = (b: BuildingInfo): boolean =>
-  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage) || b.kind === BuildingKind.Tavern;
+  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage || p === Product.Woodsman) || b.kind === BuildingKind.Tavern;
 
 export interface Targeting {
   command: TargetCommand;
@@ -469,7 +474,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:dreadnought' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active === 'warrior:dreadnought' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
@@ -577,7 +582,7 @@ export class Commands {
     const move = this.entry(
       'move',
       'Move',
-      'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several. Units on foot jump small rises and climb cliffs of earth and rock by themselves where the way needs it, at a fifth of their walking pace: workers up to 7 m, troops and mages up to 4 m. They never climb walls or buildings.',
+      'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several. Units on foot jump small rises and climb cliffs of earth and rock by themselves where the way needs it, at a fifth of their walking pace: workers and woodsmen up to 7 m, troops and mages up to 4 m. They never climb walls or buildings.',
       () => this.target('move', 'move'),
       { lit: t === 'move' },
     );
@@ -645,6 +650,11 @@ export class Commands {
         pace,
       ];
     }
+    if (active === 'warrior:woods') {
+      // The woodsman (Patch 5, Jade's WD-1 and WD-2): move and attack, Fish and Forage, Eat and Upgrade equipment, and Run or Walk as every unit on foot.
+      const men = this.unitIds((u) => u.typeKey === 'warrior:woods');
+      return [attack, move, this.woodsEntry(men, 1), this.woodsEntry(men, 2), this.eatEntry(), this.equipEntry(men), pace];
+    }
     // The Dreadnought (Patch 5, GP-21): no Upgrade equipment (he keeps his mace and plate) and no Hunt (he is hired to fight);
     // he never climbs, jumps higher and pays double for running (units/moves.ts Gait.Dreadnought).
     if (active === 'warrior:dreadnought') {
@@ -666,7 +676,7 @@ export class Commands {
       this.entry(
         'hunt',
         'Hunt',
-        'Then left click a wild animal: the warriors hunt it, then go on hunting as usual.\nRight click (or press twice): the warriors go out after game, hares, deer and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you pick one.',
+        'Then left click a wild animal: the warriors hunt it, then go on hunting as usual.\nRight click (or press twice): the warriors go out after game, hares, deer and wild birds, pick the berries on bushes close by, take what they carry home when their bags are full (or cannot take the meat of the next kill) and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you pick one.',
         () => this.target('hunt', 'hunt'),
         { lit: t === 'hunt', right: () => this.huntAuto(), double: () => this.huntAuto() },
       ),
@@ -674,6 +684,43 @@ export class Commands {
       this.equipEntry(troops),
       pace,
     ];
+  }
+
+  /**
+   * The woodsman's Fish (1) and Forage (2) buttons (Jade's WD-1, WD-5 and
+   * CT-1): a left click, then a stretch of water or wild food, works that one
+   * and goes on by himself; a right click (or pressing twice) turns doing it
+   * by himself on or off. Fishing and foraging can both be on at once; the
+   * button is marked while it is on for all of them.
+   */
+  private woodsEntry(men: number[], what: WoodsWhat): CardEntry {
+    const fish = what === 1;
+    const action = fish ? 'fish' : 'forage';
+    const on = woodsOn(this.d.game.queues, men, what);
+    const desc = fish
+      ? "Then left click a stretch of water with fish in it: the woodsmen fish it down to its last pair, then go on fishing by themselves.\nRight click (or press twice): they fish by themselves, or stop. Each goes to the nearest stretch with fish to spare and leaves it half its fish, so it breeds back; he takes his catch home when his bag cannot take another fish, and goes back out. They never go farther than they could walk back from in dusk's 40 s, so they are home by nightfall, and go out again in the day. Fishing and foraging can both be on: they take whatever they come across."
+      : "Then left click wild food: berries, mushrooms and the like. The woodsmen pick it, then go on foraging by themselves.\nRight click (or press twice): they forage by themselves, or stop. Each goes to the nearest wild food ready to pick and takes his bag home when it is full, and goes back out; home by nightfall, out again in the day. Fishing and foraging can both be on: they take whatever they come across.";
+    const auto = (): void => this.woodsAuto(men, what, on ? 0 : 1);
+    if (men.length === 0) return this.off(action, fish ? 'Fish' : 'Forage', desc, 'Select a woodsman.');
+    return this.entry(action, fish ? 'Fish' : 'Forage', desc, () => this.target(action, action), { lit: this.targeting?.command === action, auto: on, right: auto, double: auto });
+  }
+
+  /** Fish or Forage by himself, on or off, for every selected woodsman. */
+  private woodsAuto(men: number[], what: WoodsWhat, on: number): void {
+    if (men.length === 0) return;
+    this.targeting = null;
+    this.d.send({ kind: 'woods', player: this.d.player, units: men, what, on, cx: 0, cz: 0, index: -1, queued: this.d.queued() });
+    this.d.message(on ? (what === 1 ? 'Fishing by themselves.' : 'Foraging by themselves.') : what === 1 ? 'No more fishing.' : 'No more foraging.');
+    this.d.changed();
+  }
+
+  /** A fish stretch or wild food picked for the woodsmen: they work it, then go on (CT-1). */
+  private woodsAt(item: Selectable, what: WoodsWhat, men = this.unitIds((u) => u.typeKey === 'warrior:woods')): boolean {
+    const m = /^p:(-?\d+),(-?\d+):(\d+)$/.exec(item.key);
+    if (!m || men.length === 0 || woodsWhat(item.typeKey) !== what) return false;
+    this.d.send({ kind: 'woods', player: this.d.player, units: men, what, on: 1, cx: Number(m[1]), cz: Number(m[2]), index: Number(m[3]), queued: this.d.queued() });
+    this.d.marker(item.centre, 'target');
+    return true;
   }
 
   /**
@@ -860,14 +907,18 @@ export class Commands {
     const list = this.holders(ids);
     const kind = list[0]?.h.kind ?? 'warrior';
     const name = 'Upgrade equipment';
-    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : 'the best weapon, then the best armour, then a shield (close melee) and poison tips (bows),';
-    const where = kind === 'mage' ? 'the nearest Barracks, Forge, main base or Magi Sanctum' : 'the nearest Barracks, Forge or main base';
+    // A woodsman wears no armour and upgrades his long weapon only at a main base (Patch 5, Jade's WD-2 and WD-3).
+    const woods = list.length > 0 && list.every((x) => x.h.kind === 'warrior' && x.h.troop === Troop.Woodsman);
+    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : woods ? 'the best long weapon' : 'the best weapon, then the best armour, then a shield (close melee) and poison tips (bows),';
+    const where = kind === 'mage' ? 'the nearest Barracks, Forge, main base or Magi Sanctum' : woods ? 'the nearest main base' : 'the nearest Barracks, Forge or main base';
     const plans = equipmentPlans(list, this.d.game.pool(), this.d.game.tech());
     const sent = plans.filter((p) => p.to.some((to) => to > 0));
     const lines = [
       kind === 'worker'
         ? 'Each one gets the best tools researched that the stock pays for, the highest ranks first.'
-        : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left, and shields last.`,
+        : woods
+          ? `Each one gets ${what} researched that the stock pays for, the highest ranks first. A woodsman wears no armour.`
+          : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left, and shields last.`,
       'A ready item in stock goes on first, at no cost and in a fifth of the time, unless a better one can be made.',
       `They walk to ${where} and sit tinkering there, with a bar over their heads, for each piece's time. The stock pays now; the old piece goes to stock as an item when the new one goes on.`,
     ];
@@ -1077,8 +1128,12 @@ export class Commands {
       }
       // Patch 2: the Artillery workshop trains the artillery crewman, first on its card; its engines follow it (Patch 5, flatMake).
       if (first.products.some(([p]) => p === Product.Crewman)) rows.push([Product.Crewman, 'trainCrewman', 'Crewman', 0]);
+      // Patch 5: the Scholar's Lodge trains the woodsman, first on its card.
+      if (first.products.some(([p]) => p === Product.Woodsman)) rows.push([Product.Woodsman, 'trainWoodsman', 'Woodsman', 0]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
+    // Patch 5 (Jade's GP-38): Fertilize on a farm's card, beside Train worker.
+    if (kind === BuildingKind.Farm && first.complete) card[1] = this.fertilizeEntry(all.filter((b) => b.complete));
     // Patch 5: the Tavern's Open for business, Withdraw funds and Hire Dreadnought (GP-20, GP-21).
     if (first.complete && first.tavern) [card[0], card[1], card[2]] = this.tavernEntries(all, first.tavern);
     if (first.complete) {
@@ -1092,8 +1147,8 @@ export class Commands {
         card[support ? 0 : 1] = this.mageEntry(all, mageLock(m.school), support ? 'trainSupportMage' : 'trainBattleMage', support ? 'Support' : 'Battle');
       }
     }
-    // A Citadel's fixed engines are in its Build defense menu (Patch 5), not with what it makes.
-    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && !PLATFORM.has(p)) : [];
+    // A Citadel's fixed engines are in its Build defense menu (Patch 5), not with what it makes; the Lodge's woodsman is on its card.
+    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && !PLATFORM.has(p) && p !== Product.Woodsman) : [];
     // A main base's mages sit on 4 and 5, so its K button moves along.
     const makeSlot = main ? 7 : 5;
     if (flatMake(kind) && made.length > 0) {
@@ -1220,7 +1275,7 @@ export class Commands {
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
     // An engine pays its resources and its crew's food (Patch 2).
     if (!reason && (ps.food === 0 || ps.engine !== undefined)) reason = g.costProblem(ps.cost);
-    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman || p === Product.GarrisonCrewman;
+    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman || p === Product.GarrisonCrewman || p === Product.Woodsman;
     // A fixed engine's upgrade brings only the crewmen it adds (Patch 5).
     const crew = ps.engine === undefined ? 0 : ps.upgrade !== undefined ? engineUpgradeCrew(ps.upgrade as Engine, ps.engine as Engine) : engineSpec(ps.engine).crew;
     if (!reason && unit && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
@@ -1242,6 +1297,37 @@ export class Commands {
       reason,
       run: (press) => this.produce(all, p, press.shift ? 5 : 1),
       grey: () => this.greyed(Greyed.Product, p, all[0]!.id),
+    };
+  }
+
+  /**
+   * Fertilize (Jade's GP-38 and her decisions 2.5): left click boosts each
+   * selected farm now, or queues one more boost behind the one running; right
+   * click turns Auto fertilize on or off for them all (marked while it is on, as CT-1's auto buttons are).
+   * It is never greyed out, so that Auto fertilize can be set before there is
+   * bonemeal: what stops a boost now heads its tooltip, and the sim says it.
+   */
+  private fertilizeEntry(all: BuildingInfo[]): CardEntry {
+    const g = this.d.game;
+    const ids = all.map((b) => b.id);
+    const auto = all.length > 0 && all.every((b) => b.boost?.auto === true);
+    const full = all.every((b) => (b.boost?.left ?? 0) > 0 && (b.boost?.queued ?? 0) >= BOOST_QUEUE_LIMIT);
+    const reason = full ? `Each farm already has ${BOOST_QUEUE_LIMIT} boosts waiting.` : g.costProblem([[Res.Bonemeal, FERTILIZE_BONEMEAL]]) ? `Needs ${FERTILIZE_BONEMEAL} bonemeal. The Workshop grinds bonemeal from bone.` : '';
+    const minutes = BOOST_STEPS / STEPS_PER_SECOND / 60;
+    const several = all.length > 1 ? ` With ${all.length} farms selected, each one fertilizes (${FERTILIZE_BONEMEAL * all.length} bonemeal).` : '';
+    const send = (on: number): void => this.d.send({ kind: 'fertilize', player: this.d.player, buildings: ids, auto: on });
+    return {
+      action: 'fertilize',
+      face: 'Fertilize',
+      name: auto ? 'Fertilize (Auto fertilize is on)' : 'Fertilize',
+      key: this.key('fertilize'),
+      description: `${reason ? `${reason}\n` : ''}Cost: ${FERTILIZE_BONEMEAL} bonemeal. The farm grows ${BOOST_PCT}% more farm fare for ${minutes} minutes. Pressed while a boost runs, one more waits behind it (up to ${BOOST_QUEUE_LIMIT}).${several}\nRight click: Auto fertilize ${auto ? 'off' : 'on'}. While it is on, a new boost is paid for whenever one runs out and a farmer is at work, for as long as the bonemeal lasts.`,
+      icon: { layers: [{ file: 'icon_bonemeal' }] },
+      auto,
+      enabled: true,
+      reason: '',
+      run: () => send(0),
+      right: () => send(1),
     };
   }
 
@@ -1356,13 +1442,19 @@ export class Commands {
     const list: CardEntry[] = [];
     const sub = this.menu.sub;
     if (first) {
-      const made = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+      const made = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && p !== Product.Woodsman);
       for (const [p, why] of made) {
         if (makeSub(p) !== sub) continue;
         if (sub === SCRAP_SUB) {
           // Only the equipment in stock (Jade, GP-3: "all your weapons/armors/sheilds").
           if ((this.d.game.pool()[recipeSpec(productSpec(p).recipe!).scrap!] ?? 0) > 0) list.push(this.scrapEntry(all, kind, p, why));
-        } else list.push(this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true));
+        } else {
+          const one = this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true);
+          const r = productSpec(p).recipe;
+          // Bonemeal (Patch 5, decisions 2.5): x1, x10 or all, as Scrap does.
+          if (r !== undefined && recipeSpec(r).stack) list.push(this.stackEntry(all, p, one));
+          else list.push(one);
+        }
       }
       if (sub < 0) MAKE_SUBMENUS.forEach((_, k) => made.some(([p]) => makeSub(p) === k) && list.push(this.makeSubEntry(kind, k)));
     }
@@ -1478,6 +1570,37 @@ export class Commands {
     this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count });
     if (!b.queue.some((q) => q.product === product)) b.queue.push({ product, done: 0, stepsLeft: 0 });
     this.d.changed();
+  }
+
+  /**
+   * A good made in stacks (Patch 5's bonemeal, Jade's decisions 2.5: x1, x10
+   * or "all bones", "like Scrap in GP-3"): click makes one, Shift + click ten,
+   * and a right click offers one, ten or as many as the stock pays for, each
+   * order one place in the queue whose count goes down as each is made.
+   */
+  private stackEntry(all: BuildingInfo[], p: number, one: CardEntry): CardEntry {
+    const ps = productSpec(p);
+    const what = ps.name.toLowerCase();
+    const inputs = recipeSpec(ps.recipe!).inputs[0] ?? [];
+    const from = inputs.map(([r]) => RESOURCES[r]?.name.toLowerCase() ?? '').join(' and ');
+    const send = (count: number): void => {
+      const ready = all.filter((b) => b.complete).sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
+      const b = ready[0];
+      if (!b) return;
+      this.d.send({ kind: 'stack', player: this.d.player, building: b.id, product: p, count });
+      b.queue.push({ product: p, done: 0, stepsLeft: 0, ...(count > 1 ? { count } : {}) });
+      this.d.changed();
+    };
+    return {
+      ...one,
+      description: `${one.description.replace(/ Shift: queue 5\.$/, '')}\nClick: make 1. Shift + click: make 10. Right click: Make 1, Make 10 or Make all. A stack takes one place in the queue and counts down as each is made; cancelling it gives back what is not yet used.`,
+      run: (press) => send(press.shift ? 10 : 1),
+      choices: () => [
+        { name: 'Make 1', description: `Make one ${what}.`, run: () => send(1) },
+        { name: 'Make 10', description: `Make up to ten ${what}, in one place in the queue.`, run: () => send(10) },
+        { name: 'Make all', description: `Make as much ${what} as the stock's ${from} pays for, in one place in the queue.`, run: () => send(0) },
+      ],
+    };
   }
 
   /**
@@ -1640,6 +1763,14 @@ export class Commands {
       case 'hunt':
         ok = item !== null && this.wildAnimal(item) && this.hunt(item, true);
         if (!ok) this.d.message('Pick a wild animal to hunt.', 'alert');
+        break;
+      case 'fish':
+        ok = item?.kind === 'node' && this.woodsAt(item, 1);
+        if (!ok) this.d.message('Pick a stretch of water with fish in it.', 'alert');
+        break;
+      case 'forage':
+        ok = item?.kind === 'node' && this.woodsAt(item, 2);
+        if (!ok) this.d.message('Pick wild food: berries, mushrooms and the like.', 'alert');
         break;
       case 'cast':
         ok = this.cast(t.spell ?? 0, item, ground);
@@ -1989,6 +2120,14 @@ export class Commands {
     if (loot !== null) {
       this.d.send({ kind: 'pickUp', player, units, target: loot, queued });
       this.d.marker(item!.centre, 'target');
+      return;
+    }
+    // A fish stretch or wild food: the woodsmen fish or forage it (Patch 5); workers and the rest walk there.
+    const woodsmen = this.unitIds((u) => u.typeKey === 'warrior:woods');
+    const what = item?.kind === 'node' ? woodsWhat(item.typeKey) : 0;
+    if (item && what && woodsmen.length > 0 && this.woodsAt(item, what, woodsmen)) {
+      const others = units.filter((id) => !woodsmen.includes(id));
+      if (others.length > 0 && ground) this.d.send({ kind: 'move', player, units: others, x: Math.round(ground.x * WU_PER_METRE), z: Math.round(ground.z * WU_PER_METRE), queued });
       return;
     }
     if (item?.kind === 'node' && workers.length > 0 && item.resource) {

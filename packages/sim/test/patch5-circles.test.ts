@@ -4,6 +4,7 @@
 // idols, the chests and the Bright Nights carried through a save.
 import { describe, expect, it } from 'vitest';
 import {
+  addWarrior,
   brightFor,
   chestLoot,
   chestSlots,
@@ -15,9 +16,11 @@ import {
   circleSites,
   CircleType,
   circlesAtPeriod,
+  clockAt,
   cloneState,
   createWorld,
   CYCLE_STEPS,
+  fairyHooks,
   hashState,
   haveOf,
   nextNight,
@@ -35,8 +38,11 @@ import {
   showCircle,
   skyBright,
   step,
+  STEPS_PER_SECOND,
   Trilithon,
+  Troop,
   useProblem,
+  WOODS_HOME,
   WorldLayout,
   type CircleSite,
   type SimState,
@@ -225,6 +231,37 @@ describe('stone circles in the world', () => {
     expect(tree.amount).toBe(10);
     expect(hawthorneNear(s, x + 20 * 8000, z)).toBe(true);
     expect(hawthorneNear(s, x + 40 * 8000, z)).toBe(false);
+    // The farms' and the breeding's own code asks through the Food thread's hook.
+    expect(fairyHooks.hawthorneNear).toBe(hawthorneNear);
+  });
+
+  it('sends a woodsman who forages out for the open Moon Roses on his own Bright Night, then home (SCA-8)', () => {
+    const s = createWorld(3, { players: 1, peaceful: true });
+    const e = s.entities;
+    const i = e.indexOf(1);
+    const gx = Math.floor(e.x[i]! / COL) + 6;
+    const gz = Math.floor(e.z[i]! / COL);
+    const rose = s.world.addProp(gx, gz, PropKind.MoonRoseBush, 0, 0, s.step);
+    const w = addWarrior(s, 0, e.x[i]!, e.z[i]! + 4 * 8000, Troop.Woodsman, 1, 0);
+    s.circles.blessed[0] = nextNight(s.step);
+    step(s, [{ kind: 'woods', player: 0, units: [e.id[w]!], what: 2, on: 1, cx: 0, cz: 0, index: -1 }]);
+    while (clockAt(s.step).period !== Period.Night) step(s);
+    s.world.restock(rose.cx, rose.cz, rose.i, 3);
+    // In his bag or handed in.
+    const roses = (): number => {
+      const g = e.bag[w]!;
+      let n = s.players[0]!.pool[Res.MoonRose]!;
+      for (let k = 0; k < g.length; k += 2) if (g[k] === Res.MoonRose) n += g[k + 1]!;
+      return n;
+    };
+    const had = roses();
+    for (let k = 0; k < 90 * STEPS_PER_SECOND && s.world.prop(rose.cx, rose.cz, rose.i, s.step)!.amount > 0; k++) step(s);
+    expect(s.world.prop(rose.cx, rose.cz, rose.i, s.step)!.amount).toBe(0);
+    expect(roses() - had).toBe(3);
+    step(s);
+    step(s);
+    expect(e.queue[w]![0]).toMatchObject({ t: 'woods', forage: 1 });
+    expect((e.queue[w]![0] as { k: number }).k & WOODS_HOME).toBe(WOODS_HOME);
   });
 });
 

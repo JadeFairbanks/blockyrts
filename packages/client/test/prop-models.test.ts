@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CircleType, growthStages, PropKind, PROPS, Stage } from '@blockyrts/sim';
+import { CircleType, growthStages, isFish, PropKind, PROPS, Stage } from '@blockyrts/sim';
 import { describe, expect, it } from 'vitest';
 import { PENDING_PROP_MODELS, PROP_MODEL_IDS, propModel } from '../src/world/prop-models.ts';
 
@@ -90,10 +90,10 @@ describe('every world prop drawn with its own model (Patch 5)', () => {
     for (const id of PROP_MODEL_IDS) expect(drawable(id), id).toBe(true);
   });
 
-  it('has a model for every prop but sand, and the ones Patch 5 still waits on', () => {
+  it('has a model for every prop but sand and the fish stretches, whose live fish are fish-view.ts\'s', () => {
     for (const p of PROPS) {
       const m = propModel(p.kind, Stage.Grown, 0, 1);
-      if (p.kind === PropKind.Sand) {
+      if (p.kind === PropKind.Sand || isFish(p.kind)) {
         expect(m).toBeNull();
         continue;
       }

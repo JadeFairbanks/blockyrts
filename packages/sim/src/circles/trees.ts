@@ -5,12 +5,13 @@
 
 import { COLUMNS_PER_CHUNK, length2d, WU_PER_COLUMN } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
+import { fairyHooks, HAWTHORNE_M } from '../buildings/farm-boost.ts';
 import type { SimState } from '../state.ts';
 import { CHUNK_SHIFT, chunkKey, NO_WATER } from '../world/chunk.ts';
 import { Mat } from '../world/materials.ts';
 import { PropKind, PROPS } from '../world/props.ts';
 import { brightAt } from './bright.ts';
-import { CircleProp, CircleType, DRESSING, HAWTHORNE_BOOST_M, HAWTHORNE_FRUIT, circleMetres as m, ROSES_PER_BUSH } from './data.ts';
+import { CircleProp, CircleType, DRESSING, HAWTHORNE_FRUIT, circleMetres as m, ROSES_PER_BUSH } from './data.ts';
 import { circlePieces, circleSites, pieceSlot } from './place.ts';
 
 const COL = WU_PER_COLUMN;
@@ -135,13 +136,13 @@ function felled(state: SimState, gx: number, gz: number): boolean {
 }
 
 /**
- * Whether a grown Sweet Hawthorne stands within HAWTHORNE_BOOST_M of a point
+ * Whether a grown Sweet Hawthorne stands within HAWTHORNE_M of a point
  * (wu): "Farms within 30 m of the sweet hawthorne get a 35% boost to food
  * production ... Animals within 30 m of the sweet hawthorne reproduce 35%
  * more rapidly" (SC-9). The circles' own trees and the ones grown from seed.
  */
 export function hawthorneNear(state: SimState, x: number, z: number): boolean {
-  const r = m(HAWTHORNE_BOOST_M);
+  const r = m(HAWTHORNE_M);
   const layout = state.world.layout;
   for (const s of circleSites(layout)) {
     if (s.type === CircleType.Generic || s.type === CircleType.Boneyard || length2d(s.x - x, s.z - z) > r + HAWTHORNE_REACH) continue;
@@ -156,3 +157,6 @@ export function hawthorneNear(state: SimState, x: number, z: number): boolean {
   }
   return false;
 }
+
+// The farms' harvest and the animals' breeding ask it (buildings/farm-boost.ts, animals/animals.ts).
+fairyHooks.hawthorneNear = hawthorneNear;

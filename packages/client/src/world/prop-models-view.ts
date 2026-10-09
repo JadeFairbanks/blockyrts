@@ -1,5 +1,6 @@
 // The world props' own models (Patch 5): every tree, sapling and seed, bush,
-// rock, ore, carcass and fish stretch, and the stone circles' pieces, drawn
+// rock, ore and carcass, and the stone circles' pieces (a fish stretch's live
+// fish are fish-view.ts's), drawn
 // with its catalogue model (prop-models.ts) in the full-detail chunks round
 // the camera, one instanced draw per model. A prop's cubes stand in until its
 // model has loaded (the mesh workers leave them out from then on). The idols
@@ -36,24 +37,10 @@ const FIRST_ROOM = 64;
 const BONE = new THREE.Matrix4();
 const AT = new THREE.Vector3();
 
-interface Animated {
-  draw: InstancedModel;
-  i: number;
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  clip: string;
-  phase: number;
-  scale: number;
-  hovered: boolean;
-}
-
 export class PropModelsView {
   private lib: ModelLibrary | null = null;
-  /** By model id, and `<id>|<clip>` for the ones that play a clip. */
+  /** By model id. */
   private readonly draws = new Map<string, InstancedModel>();
-  private animated: Animated[] = [];
   private dirty = true;
   private sig = '';
 
@@ -79,10 +66,9 @@ export class PropModelsView {
 
   /**
    * Brings the draws in line with the props in view: rebuilt when the chunks,
-   * the hover, the idols taken or the chests opened change; the fish swim
-   * every frame.
+   * the hover, the idols taken or the chests opened change.
    */
-  update(props: Iterable<readonly PlacedProp[]>, circles: CirclesView | null | undefined, hover: ReadonlySet<string>, now: number): void {
+  update(props: Iterable<readonly PlacedProp[]>, circles: CirclesView | null | undefined, hover: ReadonlySet<string>): void {
     const lib = this.lib;
     if (!lib) return;
     const taken = circles?.taken ?? [];
@@ -93,14 +79,6 @@ export class PropModelsView {
       this.dirty = true;
     }
     if (this.dirty) this.rebuild(lib, props, new Set(taken), new Set(opened), hover);
-    if (this.animated.length > 0) {
-      const t = now / 1000;
-      for (const a of this.animated) {
-        a.draw.setInstance(a.i, a.x, a.y, a.z, a.yaw, a.clip, t + a.phase, null, a.scale);
-        if (a.hovered) a.draw.setHover(a.i);
-      }
-      for (const [key, d] of this.draws) if (key.includes('|')) d.commit();
-    }
   }
 
   private draw(lib: ModelLibrary, key: string, id: string, need: number): InstancedModel | null {
@@ -129,9 +107,8 @@ export class PropModelsView {
       for (const p of list) {
         const m = p.model;
         if (!lib.models.has(m.id)) continue;
-        const key = m.clip ? `${m.id}|${m.clip}` : m.id;
-        let e = byKey.get(key);
-        if (!e) byKey.set(key, (e = { id: m.id, list: [] }));
+        let e = byKey.get(m.id);
+        if (!e) byKey.set(m.id, (e = { id: m.id, list: [] }));
         e.list.push(p);
         if (p.kind === PropKind.CircleAltar) {
           const idol = IDOL_MODEL[variantType(p.variant)];
@@ -139,12 +116,10 @@ export class PropModelsView {
         }
       }
     }
-    this.animated = [];
     const counts = new Map<string, number>();
     const altars = new Map<string, { draw: InstancedModel; i: number; model: ModelData }>();
     for (const [key, { id, list }] of byKey) {
-      const copies = list.reduce((n, p) => n + (p.model.copies?.length ?? 1), 0);
-      const d = this.draw(lib, key, id, copies);
+      const d = this.draw(lib, key, id, list.length);
       if (!d) continue;
       let n = 0;
       for (const p of list) {
@@ -152,18 +127,6 @@ export class PropModelsView {
         const x = p.ox + m.x;
         const z = p.oz + m.z;
         const clip = p.kind === PropKind.BluestoneChest && opened.has(variantCircle(p.variant) * 8 + variantLook(p.variant)) ? 'idle_open' : '';
-        if (m.copies) {
-          const c = Math.cos(m.yaw);
-          const s = Math.sin(m.yaw);
-          for (const [dx, dz, turn] of m.copies) {
-            const at = { draw: d, i: n, x: x + c * dx + s * dz, y: m.y, z: z - s * dx + c * dz, yaw: m.yaw + turn, clip: m.clip ?? '', phase: turn, scale: m.scale, hovered: hover.has(p.key) };
-            d.setInstance(n, at.x, at.y, at.z, at.yaw, at.clip, at.phase, null, m.scale);
-            if (m.clip) this.animated.push(at);
-            if (hover.has(p.key)) d.setHover(n);
-            n++;
-          }
-          continue;
-        }
         d.setInstance(n, x, m.y, z, m.yaw, clip, 0, null, m.scale);
         if (hover.has(p.key)) d.setHover(n);
         if (p.kind === PropKind.CircleAltar) altars.set(p.key, { draw: d, i: n, model: d.model });

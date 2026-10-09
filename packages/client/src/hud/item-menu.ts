@@ -77,7 +77,7 @@ export function itemChoices(at: ItemAt, a: ItemMenuActions): CardChoice[] {
       greyed(
         {
           name: 'Equip',
-          description: `Then left click one of your units: it walks to the nearest Barracks, Forge or main base (a mage also a Magi Sanctum) and puts on the ${name} from the stock there, in a fifth of the usual time. Its old piece goes to the stock.`,
+          description: `Then left click one of your units: it walks to the nearest main base, Storehouse, Barracks or Forge (a mage also a Magi Sanctum) and puts on the ${name} from the stock there, in a fifth of the usual time. Its old piece goes to the stock.`,
           run: () => a.equip(at.res),
         },
         none,

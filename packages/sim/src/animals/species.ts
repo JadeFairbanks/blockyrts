@@ -90,11 +90,16 @@ export interface SpeciesSpec {
   /** A pack's or herd's group size (wolves 3 to 5). */
   groupMin: number;
   groupMax: number;
-  /** Taming (Table 14): how many of its bait it takes (Patch 2: farm fare, Jade) and how long a worker stands by it; where it can live; 0 for never. */
+  /**
+   * Taming (Patch 5, Jade's GP-35 and GP-36): the food value it takes, fed to
+   * it from the stock at TAME_FOOD_PER_SECOND, in the foods it eats (plant
+   * food for every animal tamed now); where it can live; 0 for never.
+   */
   tameFood: number;
   tameFoods: readonly Res[];
-  tameSteps: number;
   tameAt: readonly number[];
+  /** How often a grown female has young (BL-10: prey animals half as often again as before Patch 5), steps; 0 for never. */
+  breedSteps: number;
   /** Food per cycle while working (pulling a cart or carrying a pack), 0 for none (Table 6). */
   upkeep: number;
   /** Nutrition it eats a day from the farm fare in stock while it lives in a Barn (Patch 2, Jade: Barn animals cannot graze, they eat farm fare). */
@@ -116,19 +121,28 @@ export interface SpeciesSpec {
 const m = (metres10: number): number => floorDiv(metres10 * WU_PER_METRE, 10);
 const mps = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STEPS_PER_SECOND);
 const ds = (tenths: number): number => floorDiv(tenths * STEPS_PER_SECOND, 10);
-const sec = (n: number): number => n * STEPS_PER_SECOND;
 
 const H = Band.Heartland;
 const F = Band.Fringe;
 const D = Band.Deepwoods;
 const B = Band.Barrens;
 const X = Band.Deadlands;
-/** What tamed animals and bait are fed (Patch 2, Jade: "what do animals eat now if they don't graze? farm fare is the answer"). */
-const FARM_FOOD: readonly Res[] = [Res.FarmFare];
+/**
+ * Plant food (Patch 5, Jade: "Herbivore animals and chickens must be tamed
+ * with plant based foods (farm fare, berries, etc)"): what bait is and what
+ * Barn animals eat at night: farm fare first, then the wild foods (GP-30,
+ * GP-32; s: mushrooms count as plant food). New forage goods join it here:
+ * the Sweet Hawthorne's fruit last (the Stone circles' s); never the bog
+ * pear, kept for the Halfling Elder who wants one (QV-16).
+ */
+export const PLANT_FOODS: readonly Res[] = [Res.FarmFare, Res.BlackBerries, Res.Raspberries, Res.Blueberries, Res.Mushrooms, Res.HawthorneFruit];
+/** Pairs bred every 10 days before Patch 5 (doc); prey animals breed 50% more now (Jade, BL-10): every 6⅔ days. Bears keep the old pace. */
+const OLD_BREED_STEPS = 10 * CYCLE_STEPS;
+const PREY_BREED_STEPS = floorDiv(OLD_BREED_STEPS * 2, 3);
 
 type Base = Omit<SpeciesSpec, 'id'>;
-const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameSteps' | 'tameAt' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot'> = {
-  youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameSteps: 0, tameAt: [], upkeep: 0, barnFeed: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
+const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameAt' | 'breedSteps' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot'> = {
+  youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameAt: [], breedSteps: 0, upkeep: 0, barnFeed: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
   guard: 0, chase: 0, roam: 0, venom: 0, loot: [],
 };
 const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damageTenths' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
@@ -136,31 +150,32 @@ const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | '
 const LIST: readonly Base[] = [
   // Livestock and working animals, all kept in a Barn once tamed (Patch 2, Jade: in place of the livestock farm, the pen and barn and the Stables).
   // A cow gives twenty times a chicken's food (Jade): 20 beef against 1 chicken meat, 4 food each (s, Jade's rebalance). In a Barn
-  // they eat farm fare every day, as much as they ate of crops when short of grass before Patch 2 (s, Jade's rebalance).
+  // they eat every day, as much as they ate of crops when short of grass before Patch 2 (s, Jade's rebalance). Taming (Patch 5,
+  // Jade): a chicken 3 food, cattle 20; a horse 15 and an ox 20 by their size and worth beside those (s).
   sp({
     name: 'Cattle', model: 'cow', youngVariant: 'calf', nature: Nature.Shy, hp: 120, damageTenths: 60, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(40), halfWidth: m(5), height: m(15),
-    meat: 20, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], barnFeed: 2,
+    meat: 20, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 20, tameFoods: PLANT_FOODS, tameAt: [BuildingKind.Barn], breedSteps: PREY_BREED_STEPS, barnFeed: 2,
   }),
   sp({
     name: 'Chicken', model: 'chicken_hen', youngVariant: 'chick', nature: Nature.Shy, hp: 10, damageTenths: 10, attackSteps: ds(10), reach: m(5), walk: mps(8), run: mps(30), halfWidth: m(2), height: m(4),
-    meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 2, tameFoods: FARM_FOOD, tameSteps: sec(20), tameAt: [BuildingKind.Barn], barnFeed: 1,
+    meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 3, tameFoods: PLANT_FOODS, tameAt: [BuildingKind.Barn], breedSteps: PREY_BREED_STEPS, barnFeed: 1,
   }),
   sp({
     name: 'Horse', model: 'horse', youngVariant: 'foal', nature: Nature.Shy, hp: 160, damageTenths: 80, attackSteps: ds(15), reach: m(15), walk: mps(20), run: mps(80), halfWidth: m(5), height: m(16),
-    meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: FARM_FOOD, tameSteps: sec(45), tameAt: [BuildingKind.Barn], upkeep: 2, barnFeed: 2,
+    meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 15, tameFoods: PLANT_FOODS, tameAt: [BuildingKind.Barn], breedSteps: PREY_BREED_STEPS, upkeep: 2, barnFeed: 2,
     // Patch 5 (BL-12): a horse cart holds 700 lb (it held 400) (s).
     cartTenthsLb: 7000, cartSpeed: mps(25), packTenthsLb: 1000,
   }),
   sp({
     name: 'Ox', model: 'ox', youngVariant: 'young', nature: Nature.Shy, hp: 250, armourBp: 1000, damageTenths: 100, attackSteps: ds(18), reach: m(15), walk: mps(15), run: mps(40), halfWidth: m(6), height: m(15),
-    meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], upkeep: 3, barnFeed: 2,
+    meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 20, tameFoods: PLANT_FOODS, tameAt: [BuildingKind.Barn], breedSteps: PREY_BREED_STEPS, upkeep: 3, barnFeed: 2,
     // Patch 5 (BL-12): an ox cart holds 1000 lb (it held 600) (s).
     cartTenthsLb: 10000, cartSpeed: mps(15), packTenthsLb: 1500,
   }),
-  // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1).
-  sp({ name: 'Hare', model: 'hare', youngVariant: 'young', nature: Nature.Shy, hp: 20, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(15), run: mps(60), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 4 }),
-  sp({ name: 'Deer', model: 'deer', youngVariant: 'young', nature: Nature.Shy, hp: 40, damageTenths: 0, attackSteps: ds(10), reach: m(10), walk: mps(15), run: mps(70), halfWidth: m(4), height: m(14), meat: 4, extra: [[Res.Hides, 2]], bands: [H, F, D], perCell: 3, groupMin: 2, groupMax: 4 }),
-  sp({ name: 'Wild boar', model: 'wild_boar', nature: Nature.FightsBack, hp: 40, armourBp: 1000, damageTenths: 80, attackSteps: ds(12), reach: m(12), walk: mps(15), run: mps(45), halfWidth: m(4), height: m(9), meat: 3, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 2, groupMin: 1, groupMax: 3 }),
+  // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1). From Patch 5 they breed in the wild like the herds (Jade, BL-10).
+  sp({ name: 'Hare', model: 'hare', youngVariant: 'young', nature: Nature.Shy, hp: 20, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(15), run: mps(60), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 4, breedSteps: PREY_BREED_STEPS }),
+  sp({ name: 'Deer', model: 'deer', youngVariant: 'young', nature: Nature.Shy, hp: 40, damageTenths: 0, attackSteps: ds(10), reach: m(10), walk: mps(15), run: mps(70), halfWidth: m(4), height: m(14), meat: 4, extra: [[Res.Hides, 2]], bands: [H, F, D], perCell: 3, groupMin: 2, groupMax: 4, breedSteps: PREY_BREED_STEPS }),
+  sp({ name: 'Wild boar', model: 'wild_boar', nature: Nature.FightsBack, hp: 40, armourBp: 1000, damageTenths: 80, attackSteps: ds(12), reach: m(12), walk: mps(15), run: mps(45), halfWidth: m(4), height: m(9), meat: 3, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 2, groupMin: 1, groupMax: 3, breedSteps: PREY_BREED_STEPS }),
   // Other wild creatures (roster 6.1).
   sp({ name: 'Wolf', model: 'wolf', youngVariant: 'young', nature: Nature.Pack, hp: 70, damageTenths: 85, attackSteps: ds(10), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(4), height: m(8), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 3, groupMax: 5 }),
   sp({ name: 'Lynx', model: 'lynx', nature: Nature.Stalker, hp: 36, damageTenths: 80, attackSteps: ds(9), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(3), height: m(6), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
@@ -169,7 +184,7 @@ const LIST: readonly Base[] = [
   sp({ name: 'Giant crab', model: 'giant_crab', nature: Nature.FightsBack, hp: 50, armourBp: 4000, damageTenths: 60, attackSteps: ds(13), reach: m(12), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(5), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
   sp({ name: 'Badger', model: 'badger', nature: Nature.TorchBreaker, hp: 20, damageTenths: 50, attackSteps: ds(10), reach: m(10), walk: mps(12), run: mps(25), halfWidth: m(3), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 1, groupMin: 1, groupMax: 1 }),
   // Bears (doc; Table 14's tamed bear for the numbers): never tamed, one pair and cubs per Deepwoods cell, 60 at most.
-  sp({ name: 'Bear', model: 'bear', youngVariant: 'cub', nature: Nature.Bear, hp: 200, armourBp: 1500, damageTenths: 160, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(60), halfWidth: m(7), height: m(15), meat: 8, extra: [[Res.Hides, 2]], bands: [D], perCell: 1 }),
+  sp({ name: 'Bear', model: 'bear', youngVariant: 'cub', nature: Nature.Bear, hp: 200, armourBp: 1500, damageTenths: 160, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(60), halfWidth: m(7), height: m(15), meat: 8, extra: [[Res.Hides, 2]], bands: [D], perCell: 1, breedSteps: OLD_BREED_STEPS }),
   // Territorial creatures (roster 6 and 6.1). Where they guard and how far they chase are mine (s): beetles 8 m and give up at 20 m,
   // a hornet nest 8 m and chases 60 m, vipers wait hidden until a unit is 3 m off, scorpions roam 25 m round their spot, and
   // griffins and minotaurs, once disturbed within 20 m and 15 m, hunt to the death.
@@ -199,8 +214,8 @@ const LIST: readonly Base[] = [
     meat: 5, extra: [[Res.Hides, 3]], bands: [X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(150), loot: [{ res: Res.Gold, min: 2, max: 2, chancePm: 100 }],
   }),
   // Wild birds (s): geese in flocks by Heartland water, pheasants in the Fringe woods; hunted with N like deer, for meat and feathers.
-  sp({ name: 'Wild goose', model: 'wild_goose', nature: Nature.Shy, hp: 15, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5 }),
-  sp({ name: 'Pheasant', model: 'pheasant', nature: Nature.Shy, hp: 10, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Feathers, 2]], bands: [F], perCell: 2, groupMin: 1, groupMax: 2 }),
+  sp({ name: 'Wild goose', model: 'wild_goose', nature: Nature.Shy, hp: 15, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5, breedSteps: PREY_BREED_STEPS }),
+  sp({ name: 'Pheasant', model: 'pheasant', nature: Nature.Shy, hp: 10, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Feathers, 2]], bands: [F], perCell: 2, groupMin: 1, groupMax: 2, breedSteps: PREY_BREED_STEPS }),
 ];
 
 export const SPECIES: readonly SpeciesSpec[] = LIST.map((s, id) => ({ ...s, id: id as Species }));
@@ -211,9 +226,14 @@ export function speciesSpec(id: number): SpeciesSpec {
   return s;
 }
 
-/** Herd animals that live in pairs and breed (Wild herds; Bears). */
-export function breeds(id: number): boolean {
+/** Herd animals that live in pairs (Wild herds; Bears): a cell is stocked with them a male and a female at a time. */
+export function inPairs(id: number): boolean {
   return id === Species.Cattle || id === Species.Chicken || id === Species.Horse || id === Species.Ox || id === Species.Bear;
+}
+
+/** Animals that have young (Wild herds; Bears; Patch 5, Jade's BL-10: the game too). */
+export function breeds(id: number): boolean {
+  return speciesSpec(id).breedSteps > 0;
 }
 
 /** Game a hunt goes after on its own (Hunting): not bears or territorial creatures. */
@@ -221,8 +241,7 @@ export function isGame(id: number): boolean {
   return id === Species.Hare || id === Species.Deer || id === Species.Boar || id === Species.GiantCrab || id === Species.WildGoose || id === Species.Pheasant;
 }
 
-/** Pairs breed every 10 days and the young grow up in 2 (doc). */
-export const BREED_STEPS = 10 * CYCLE_STEPS;
+/** The young grow up in 2 days (doc). */
 export const YOUNG_STEPS = 2 * CYCLE_STEPS;
 /** Bears: at most 60 in the whole world (doc). */
 export const BEAR_CAP = 60;

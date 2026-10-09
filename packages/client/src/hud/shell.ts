@@ -70,6 +70,8 @@ import { SpeechBubbles, type Speaker } from './bubbles.ts';
 import { remarkLine, remarkVoice, sceneOf } from './remarks.ts';
 import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
 import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
+import { boostStackBars } from './boost-bars.ts';
+import { TameTip } from './tame-tip.ts';
 import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -194,6 +196,10 @@ const CAMERA_SLOTS = 3;
 const URGENT_KEEP = 8;
 /** Meal bubbles at most this often, ms (patch 1, s): a hundred units eat about once a second between them. */
 const MEAL_BUBBLE_GAP_MS = 1000;
+/** A stuck unit (Patch 5, GP-22) pings its owner's minimap this often until they look at it, ms. */
+const STUCK_PING_MS = 5000;
+/** A stuck unit that has moved this far from where it got stuck is free again, metres. */
+const STUCK_FREE_M = 5;
 const TARGET_GREEN = '#5ee06a';
 const TARGET_YELLOW = '#f2d24b';
 const TARGET_RED = '#e8503a';
@@ -226,6 +232,7 @@ export class GameShell {
    * key ('e:<id>' or 'b:<id>'), in the order they stack, and the bar stack draws them with the rest.
    */
   readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
+  private readonly tameTip: TameTip;
   readonly peoples: PeoplesUi;
   /** The stone circles' chest and altar panels (Patch 5). */
   readonly circles: CirclesUi;
@@ -310,6 +317,8 @@ export class GameShell {
   private townCycle = 0;
   private readonly urgent: Array<{ x: number; z: number; text: string }> = [];
   private urgentAt = -1;
+  /** The player's stuck units (Patch 5, GP-22), by id: where each got stuck (m) and when its next minimap ping is due (ms). */
+  private readonly stuckUnits = new Map<number, { x: number; z: number; next: number }>();
   private lastInfoStep = -1;
   private lastPlannedSig = '';
   private overShown = false;
@@ -360,6 +369,9 @@ export class GameShell {
       building: (id) => this.game.buildings.get(id),
       extra: (key) => (this.stackBars.length === 0 ? [] : this.stackBars.flatMap((f) => f(key))),
     };
+    // The bonemeal boost's bar in each boosted farm's stack (Jade's UI-17).
+    this.stackBars.push((key) => boostStackBars(key, (id) => this.game.buildings.get(id)));
+    this.tameTip = new TameTip(this.layout.root);
     this.bubbles = new SpeechBubbles(this.layout.root);
     this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
       jumpTo: (x, z) => this.jumpTo(x, z),
@@ -870,7 +882,9 @@ export class GameShell {
     }
     const urgent = ev.kind === 'alert' || (ev.kind === 'period' && ev.text.startsWith('Night is falling'));
     // A unit's own alert ("I cannot reach that.") is speech too: its bubble, and its name in the panel.
-    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now());
+    // A stuck unit's bubble lingers, and its minimap ping comes back every 5 s until the player looks at it (Patch 5, GP-22).
+    if (ev.speaker !== undefined) this.bubbles.say(ev.speaker, ev.text, performance.now(), 'own', ev.stuck ? 'linger' : undefined);
+    if (ev.stuck && ev.speaker !== undefined && at && ev.player === this.player) this.stuckUnits.set(ev.speaker, { ...at, next: performance.now() + STUCK_PING_MS });
     const kind: MessageKind = urgent ? 'alert' : 'system';
     // A new lair (Patch 3) pings the minimap in red.
     this.messages.add({ text: this.named(ev.text), kind, name: ev.name, urgent, at, unit: ev.speaker, ping: ev.lair !== undefined ? 'lair' : undefined });
@@ -949,6 +963,24 @@ export class GameShell {
     const b = this.fresh.get(`b:${h.id}`);
     if (b && Math.abs(b.centre.x - x) <= b.halfSize.x + 1 && Math.abs(b.centre.z - z) <= b.halfSize.z + 1) return { x, y: b.centre.y, z };
     return { x, y, z };
+  }
+
+  /**
+   * Patch 5, GP-22: each of the player's stuck units pings the minimap where
+   * it stands every 5 s, until the camera shows it, it has got 5 m clear, or
+   * it is gone (dead, or inside a building).
+   */
+  private pingStuck(now: number): void {
+    for (const [id, s] of this.stuckUnits) {
+      const t = this.fresh.get(`e:${id}`);
+      if (!t || this.headOnScreen(id) !== null || Math.hypot(t.centre.x - s.x, t.centre.z - s.z) > STUCK_FREE_M) {
+        this.stuckUnits.delete(id);
+        continue;
+      }
+      if (now < s.next) continue;
+      s.next = now + STUCK_PING_MS;
+      this.minimap.ping(t.centre.x, t.centre.z);
+    }
   }
 
   /** The top of a unit's head on screen, px, or null when it is off screen or out of sight. */
@@ -1877,6 +1909,7 @@ export class GameShell {
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
     this.world.hover?.(this.selector.highlighted);
     this.visuals.update(this.selection.list(), this.player, now);
+    this.pingStuck(now);
     this.minimap.draw(this.cam.footprint());
     // Patch 5: each unit's and building's bar stack, the stars over other players' things and the damage numbers
     // (world-marks.ts); the units at a timed action have their bar there.
@@ -1889,6 +1922,7 @@ export class GameShell {
       const scene = sceneOf(this.game, id, voice);
       return scene ? remarkLine(scene) : null;
     });
+    this.tameTip.update(inGameView && this.commands.workerIds().length > 0, this.selector.highlighted, (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -2267,7 +2301,7 @@ export class GameShell {
 }
 
 /** Commands whose cursor is the tool for the job (Jade's Patch 5, CT-1: "something basic and visually clear that fits it"). */
-const TOOL_CURSORS: Partial<Record<string, ToolCursor>> = { gather: 'axe', hunt: 'spear', repair: 'hammer' };
+const TOOL_CURSORS: Partial<Record<string, ToolCursor>> = { gather: 'axe', hunt: 'spear', repair: 'hammer', fish: 'rod', forage: 'berries' };
 
 /** The portrait's window is a button: its tooltip names what is shown, a click centres the camera on it. */
 const PORTRAIT_VIEW = { id: 'portrait-view', face: '', name: 'Portrait', keys: [], description: '', className: 'portrait-view' };

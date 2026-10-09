@@ -197,12 +197,14 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * gear (close melee's shield and a ranger's poison tips on every unit, the
  * shield in a troop's product and a Barracks padlock). 30: Patch 5's digging
  * (a dig order's layer and missed columns, and digs drawn upwards). 31:
- * Patch 5's stone circles (the Goddess's blessing, the idols, the Pan
- * Flute's plays, the Sweet Hawthornes and a unit's circle order). Every
- * patch raises it, and a snapshot from any other version is refused, never
- * carried over (Jade, Patch 2: a standing rule).
+ * Patch 5's pathing (when a stuck unit may next say so). 32: Patch 5's farms
+ * and animals (bonemeal, farm boosts, stacked queue items, the woodsman and
+ * his woods order and food line). 33: Patch 5's stone circles (the Goddess's
+ * blessing, the idols, the Pan Flute's plays, the Sweet Hawthornes and a
+ * unit's circle order). Every patch raises it, and a snapshot from any other
+ * version is refused, never carried over (Jade, Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 31;
+export const SNAPSHOT_VERSION = 33;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
@@ -255,6 +257,9 @@ export function serializeState(state: SimState): Uint8Array {
     const g = e.bag[i]!;
     w.u16(g.length);
     for (const v of g) w.i32(v);
+    const l = e.ledger[i]!;
+    w.u16(l.length);
+    for (const v of l) w.i32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
@@ -337,6 +342,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const ng = r.u16();
     for (let k = 0; k < ng; k++) g.push(r.i32());
     e.bag[i] = g;
+    const l: number[] = [];
+    const nl = r.u16();
+    for (let k = 0; k < nl; k++) l.push(r.i32());
+    e.ledger[i] = l;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -462,6 +471,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const ga = JSON.stringify(ea.bag[i]);
     const gb = JSON.stringify(eb.bag[i]);
     if (ga !== gb) return `entities[${i}].bag: ${ga} vs ${gb}`;
+    const la = JSON.stringify(ea.ledger[i]);
+    const lb = JSON.stringify(eb.ledger[i]);
+    if (la !== lb) return `entities[${i}].ledger: ${la} vs ${lb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;

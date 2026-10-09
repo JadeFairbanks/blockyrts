@@ -458,7 +458,7 @@ describe('training and production queues', () => {
 });
 
 describe('farms', () => {
-  it('a Farm with two farmers fills its harvest bar from the start and brings in 8 farm fare', () => {
+  it('a Farm with two farmers fills its harvest bar from the start and brings in 10 farm fare', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const [x, z] = freeSpot(s, BuildingKind.Farm);
@@ -473,9 +473,9 @@ describe('farms', () => {
     // No fallow days: the bar is already filling.
     expect(farm.farmAcc).toBeGreaterThan(0);
     expect(pool[Res.FarmFare]).toBe(0);
-    // Two farmers fill a one-farmer-day bar in half a day; the harvest is one farmer-day's 8 farm fare, in any band.
+    // Two farmers fill a one-farmer-day bar in half a day; the harvest is one farmer-day's 10 farm fare (Patch 5), in any band.
     runUntil(s, () => pool[Res.FarmFare]! > 0, FARM_HARVEST_STEPS);
-    expect(pool[Res.FarmFare]).toBe(8);
+    expect(pool[Res.FarmFare]).toBe(10);
   });
 
   it('farmers go into their farmhouse at dusk and back to the field at day', () => {
@@ -613,7 +613,7 @@ describe('moving over the land', () => {
     expect(atGoal(pointGoal(sx + 10, sz), r.points[r.points.length - 2]!, r.points[r.points.length - 1]!)).toBe(true);
   });
 
-  it('moves a group of 8 or more with one flow field and keeps them apart at the goal', () => {
+  it('moves a group of 8 or more, each finding its own way, and keeps them apart at the goal', () => {
     const s = createWorld(1, { playerUnits: 10, peaceful: true });
     const e = s.entities;
     const units = Array.from({ length: 10 }, (_, k) => k + 1);

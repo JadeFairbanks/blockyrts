@@ -1,5 +1,6 @@
 // Which catalogue model draws each world prop: trees, saplings and seeds at
-// each growth stage, bushes, herbs and flax, rocks and ore, carcasses, fish,
+// each growth stage, bushes, herbs and flax, rocks and ore, carcasses (a fish
+// stretch's live fish are fish-view.ts's),
 // and the stone circles' pieces (Patch 5: every prop shows its own model).
 // The mesh workers leave out a prop's procedural cubes once its model has
 // loaded (props-gen.ts draws it until then, and draws the props with no
@@ -30,10 +31,6 @@ export interface PropModel {
   scale: number;
   /** Its turn, radians (three.js rotation.y, 0 facing -Z). */
   yaw: number;
-  /** A looping clip it plays (fish swimming), or none for the model at rest. */
-  clip?: string;
-  /** More than one of it on the spot (a fish stretch's fish): offsets in metres and an extra turn, each. */
-  copies?: ReadonlyArray<readonly [number, number, number]>;
 }
 
 /** Each tree kind's species part of the catalogue ids (tree_<species>, sapling_<species>). */
@@ -123,12 +120,6 @@ function carcassModel(species: number): string {
   }
 }
 
-const FISH: Readonly<Record<number, string>> = {
-  [PropKind.FishTrout]: 'fish_trout',
-  [PropKind.FishSalmon]: 'fish_salmon',
-  [PropKind.FishCatfish]: 'fish_giant_catfish',
-};
-
 /** A circle type's texture look on its trilithons and altar (Jade's stone_circle models). */
 function circleLook(type: number): string {
   if (type === CircleType.Lunar) return '~lunar';
@@ -203,13 +194,6 @@ export function propModel(kind: number, stage: number, variant = 0, amount = 1):
     }
     case PropKind.Carcass:
       return { id: carcassModel(variant), scale: 1, yaw: quarterTurn(variant * 0x9e3779b1) };
-    case PropKind.FishTrout:
-    case PropKind.FishSalmon:
-    case PropKind.FishCatfish: {
-      // A few fish nosing about the stretch, swimming.
-      const turn = quarterTurn(variant);
-      return { id: FISH[kind]!, scale: 1, yaw: turn, clip: 'swim', copies: [[-0.4, -0.2, 0], [0.35, 0.1, 2.4], [0, 0.45, 4.1]] };
-    }
     // The stone circles (SC-2 to SC-9, SCA-1, SCA-8, SCB-1).
     case PropKind.Trilithon:
       return at(`${trilithonRow(variantLook(variant)).model}${circleLook(variantType(variant))}`);

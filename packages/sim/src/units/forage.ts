@@ -5,10 +5,13 @@
 // out, never more than 25 m into land no one has seen: round the edge of the
 // explored land nearest the base first, sweeping on round it, so that on a
 // blank map the search is a widening spiral, and where hunters or the player
-// went farther they search the edges of that too. At dusk they come back to
-// the nearest main base and go in, unless they may work on through the night
-// and ask (Jade's Patch 4, units/night-work.ts); they come out again at dawn
-// once no monster is near, or in the day, and carry on.
+// went farther they search the edges of that too. At dusk they go in for the
+// night, to a farm or a barn with animals that has room first, then the
+// nearest main base, an empty barn last (Jade's GP-24), unless they may work
+// on through the night and ask (Jade's Patch 4, units/night-work.ts); they
+// come out again at dawn once no monster is near, or in the day, and carry
+// on. Set gathering by their player in the dark, they work on as by day all
+// that night (GP-24).
 //
 // The same choice, distance weighed against need, picks what a worker
 // gathers next when its node runs out and there is no more of it nearby; it
@@ -34,9 +37,10 @@ import { UnitKind, type SimState } from '../state.ts';
 import { CHUNK_SHIFT, chunkKey } from '../world/chunk.ts';
 import { propInfo } from '../world/props.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
-import { Act, besideBuilding, columnCentre, FAILED, gatherable, MOVING, nearestDropoff, nearestStandable, nodeResource, resetWalk, shelterRoom, unitsInside, walkTo, workersOnNode } from './behaviour.ts';
+import { Act, besideBuilding, columnCentre, FAILED, gatherable, isFarm, MOVING, nearestDropoff, nearestStandable, nodeResource, resetWalk, shelterRoom, walkTo, workersOnNode } from './behaviour.ts';
 import { bagEmpty } from './loot.ts';
-import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
+import { onTop } from './top.ts';
+import { ENTER_NIGHT, ENTER_TOP, FORAGE_HOME, FORAGE_NIGHT, FORAGE_OWN, type UnitOrder } from './unit-orders.ts';
 import { cartSpeed } from './weight.ts';
 
 /** A basic material gatherers fetch by themselves once the side can use it: from main base tier `base` and Forge step `forge` (buildings/data.ts forgeStep; 0: no Forge needed), counted as plenty at `plenty` in the stock. */
@@ -172,7 +176,12 @@ export function homeOf(state: SimState, i: number): Home | undefined {
   const b = homeBaseNear(state, e.owner[i]!, e.x[i]!, e.z[i]!);
   if (!b) return undefined;
   const [x, z] = buildingCentre(b);
-  return { b, x, z, reach: HOME_SLACK_M * M + floorDiv(homePace(state, i) * DUSK_STEPS * HOME_PATH_PM, 1000) };
+  return { b, x, z, reach: duskReach(state, i) };
+}
+
+/** How far a unit can walk in dusk's 40 s at its own pace (paths a fifth longer than the straight line), plus the 4 m it may stop short (wu). */
+function duskReach(state: SimState, i: number): number {
+  return HOME_SLACK_M * M + floorDiv(homePace(state, i) * DUSK_STEPS * HOME_PATH_PM, 1000);
 }
 
 /** How far a point is from a home building for the walk back: the straight distance, and its ground's height above or below the floor at HOME_RISE_WEIGHT. */
@@ -381,7 +390,73 @@ export function nextNode(state: SimState, i: number, res: number, x: number, z: 
 
 const DUSK_LINES = ['Getting dark. Back to the base.', 'Dusk already. Heading home.', 'Back to the base before nightfall.'] as const;
 
-/** At dusk: drop off what it carries, then into the nearest main base for the night (out again at dawn once no monster is near, or in the day), or wait beside it when it is full. */
+/** Not state: who is in or on the way into each building for the night, and the animals each Barn holds, counted once a step (and kept up as workers choose). */
+const nightCache = new WeakMap<SimState, { step: number; taken: Map<number, number>; herds: Map<number, number> }>();
+
+function nightCounts(state: SimState): { taken: Map<number, number>; herds: Map<number, number> } {
+  let c = nightCache.get(state);
+  if (c && c.step === state.step) return c;
+  const e = state.entities;
+  const taken = new Map<number, number>();
+  const herds = new Map<number, number>();
+  for (let j = 0; j < e.count; j++) {
+    if (e.hp[j]! <= 0) continue;
+    if (e.kind[j] === UnitKind.Animal) {
+      if (e.home[j]) herds.set(e.home[j]!, (herds.get(e.home[j]!) ?? 0) + 1);
+      continue;
+    }
+    if (e.kind[j] !== UnitKind.Worker) continue;
+    const h = e.queue[j]![0];
+    // Inside (not up on its top), or on the way in: sheltering, or a farmer or barn hand at the job he spends the night at.
+    const b = e.inside[j] !== 0 ? (onTop(state, j) ? 0 : e.inside[j]!) : h?.t === 'enter' && h.auto !== ENTER_TOP ? h.b : h?.t === 'job' ? h.b : 0;
+    if (b) taken.set(b, (taken.get(b) ?? 0) + 1);
+  }
+  c = { step: state.step, taken, herds };
+  nightCache.set(state, c);
+  return c;
+}
+
+/** The places a building has left for the night: its shelter, less those in it or on their way in (its own workers among them). */
+function roomTonight(b: Building, taken: Map<number, number>): number {
+  return b.hp > 0 ? shelterRoom(b) - (taken.get(b.id) ?? 0) : 0;
+}
+
+/**
+ * Where a worker gathering by itself goes in for the night (Jade's GP-24): a
+ * farm, or a barn with animals in it, that still has room, the nearest it can
+ * reach in dusk's 40 s; else the nearest main base with room; an empty barn
+ * last. Undefined when every one is full.
+ */
+function retreatFor(state: SimState, i: number): Building | undefined {
+  const e = state.entities;
+  const player = e.owner[i]!;
+  const x = e.x[i]!;
+  const z = e.z[i]!;
+  const { taken, herds } = nightCounts(state);
+  const reach = duskReach(state, i);
+  const nearest = (fits: (b: Building) => boolean): Building | undefined => {
+    let best: Building | undefined;
+    let bestD = 0;
+    for (const b of state.buildings.list) {
+      if (b.owner !== player || !b.complete || !fits(b) || roomTonight(b, taken) <= 0) continue;
+      const d = dist2(...buildingCentre(b), x, z);
+      if (!best || d < bestD) {
+        best = b;
+        bestD = d;
+      }
+    }
+    return best;
+  };
+  const barn = (b: Building): boolean => b.kind === BuildingKind.Barn;
+  const pick =
+    nearest((b) => (isFarm(b.kind) || (barn(b) && (herds.get(b.id) ?? 0) > 0)) && fromBuilding(b, x, z) <= reach) ??
+    nearest((b) => b.kind === BuildingKind.MainBase) ??
+    nearest((b) => barn(b) && (herds.get(b.id) ?? 0) === 0);
+  if (pick) taken.set(pick.id, (taken.get(pick.id) ?? 0) + 1);
+  return pick;
+}
+
+/** At dusk: drop off what it carries, then in for the night where there is room (retreatFor; out again at dawn once no monster is near, or in the day), or wait beside the main base when all are full. */
 function homeForNight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
   const e = state.entities;
   if (o.k !== FORAGE_HOME) {
@@ -398,21 +473,33 @@ function homeForNight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'fo
       return CONTINUE;
     }
   }
-  const b = homeBaseNear(state, e.owner[i]!, e.x[i]!, e.z[i]!);
-  if (!b) return CONTINUE;
-  const inside = unitsInside(state, b.id).filter((j) => e.kind[j] === UnitKind.Worker).length;
-  if (inside < shelterRoom(b)) {
-    e.queue[i]!.unshift({ t: 'enter', b: b.id, auto: ENTER_NIGHT });
+  const shelter = retreatFor(state, i);
+  if (shelter) {
+    e.queue[i]!.unshift({ t: 'enter', b: shelter.id, auto: ENTER_NIGHT });
     e.act[i] = Act.Start;
     resetWalk(state, i);
     return CONTINUE;
   }
+  const b = homeBaseNear(state, e.owner[i]!, e.x[i]!, e.z[i]!);
+  if (!b) return CONTINUE;
   if (walkTo(state, i, besideBuilding(b)) !== MOVING) resetWalk(state, i);
   return CONTINUE;
 }
 
+/** A Gather order's state in `k` (0 gathering, 1 looking farther out, FORAGE_HOME, FORAGE_NIGHT), without its FORAGE_OWN bit. */
+function kOf(o: Extract<UnitOrder, { t: 'forage' }>): number {
+  return o.k & ~FORAGE_OWN;
+}
+
+/** Sets a Gather order's state, keeping its FORAGE_OWN bit. */
+function setK(o: Extract<UnitOrder, { t: 'forage' }>, k: number): void {
+  o.k = (o.k & FORAGE_OWN) | k;
+}
+
 /** In the dark: whether a worker gathering by itself works on through the night (Jade's Patch 4), decided once a night, the first dark step it gathers. */
 function worksOnTonight(state: SimState, i: number, o: Extract<UnitOrder, { t: 'forage' }>): boolean {
+  // Set gathering by its player in the dark: on all night, as by day (Jade's GP-24).
+  if ((o.k & FORAGE_OWN) !== 0) return true;
   if (o.k === FORAGE_HOME) return false;
   if (o.k === FORAGE_NIGHT) return true;
   return nightHooks.workOn(state, i, o);
@@ -429,6 +516,8 @@ export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t:
   if (e.kind[i] !== UnitKind.Worker) return DONE;
   const p = clockAt(state.step).period;
   const dark = p === Period.Dusk || p === Period.Night;
+  // Under the night's rules: in the dark, unless its player set it gathering then (the word lasts until dawn, units/night-work.ts).
+  const night = dark && (o.k & FORAGE_OWN) === 0;
   if (dark) {
     if (!worksOnTonight(state, i, o)) return homeForNight(state, i, o);
   } else if (o.k === FORAGE_HOME) {
@@ -442,7 +531,7 @@ export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t:
   } else if (o.k === FORAGE_NIGHT) o.k = 0;
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   const h = homeOf(state, i);
-  if (o.k !== 1 || state.step >= e.waitUntil[i]!) {
+  if (kOf(o) !== 1 || state.step >= e.waitUntil[i]!) {
     // Exploring, it looks again every 2 s for something it now knows of.
     e.waitUntil[i] = state.step + 2 * STEPS_PER_SECOND;
     const x = e.x[i]!;
@@ -450,27 +539,27 @@ export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t:
     const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * M;
     const home = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
     // Working on through the night, only what lies near a building (s).
-    const near = dark ? nightHooks.reach(state) : undefined;
+    const near = night ? nightHooks.reach(state) : undefined;
     const fits = near ? (px: number, pz: number): boolean => (!home || home(px, pz)) && near(px, pz) : home;
     const pick = chooseNode(state, i, x, z, max, wants(state, e.owner[i]!), fits);
     if (pick) {
       if (pick.res !== o.res) chatter(state, i, Talk.Off, 30 * STEPS_PER_SECOND, `Off to gather ${resName(pick.res)}.`);
       o.res = pick.res;
-      if (o.k === 1) o.k = 0;
+      if (kOf(o) === 1) setK(o, 0);
       e.queue[i]!.unshift({ t: 'gather', cx: pick.cx, cz: pick.cz, i: pick.i });
       e.act[i] = Act.Start;
       e.timer[i] = 0;
       resetWalk(state, i);
       return CONTINUE;
     }
-    if (dark) {
-      // Nothing left near the buildings: in for the night, never out into the dark looking.
+    if (night) {
+      // Nothing left near the main base: in for the night, never out into the dark looking.
       o.k = FORAGE_HOME;
       resetWalk(state, i);
-      chatter(state, i, Talk.Dusk, 60 * STEPS_PER_SECOND, 'Nothing left to gather near the buildings. Heading in.');
+      chatter(state, i, Talk.Dusk, 60 * STEPS_PER_SECOND, 'Nothing left to gather by the main base. Heading in.');
       return homeForNight(state, i, o);
     }
-    if (o.k !== 1) {
+    if (kOf(o) !== 1) {
       if (!h) {
         // Nowhere to come home to and nothing near: the player has to step in.
         say(state, i, 'Nothing we need around here, and no main base to work from.', true);
@@ -481,27 +570,29 @@ export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t:
       o.x = t.x;
       o.z = t.z;
       o.ang = t.ang;
-      o.k = 1;
+      setK(o, 1);
       resetWalk(state, i);
       chatter(state, i, Talk.Look, 60 * STEPS_PER_SECOND, 'Nothing we need around here. Looking farther out.');
     }
   }
-  if (o.k === 1) {
+  if (kOf(o) === 1) {
     const r = walkTo(state, i, { ...pointGoal(col(o.x), col(o.z)), max: 2 });
     if (r === MOVING) return CONTINUE;
     // Cliffs or water in the way: on round to the next bearing.
     if (r === FAILED) o.ang = (o.ang + 4096) & 0xffff;
-    o.k = 0;
+    setK(o, 0);
     e.waitUntil[i] = 0;
     resetWalk(state, i);
   }
   return CONTINUE;
 }
 
-/** The Gather button's order for a worker: gather by itself, the first sweep starting from the bearing it stands at round its base. */
-export function startForage(state: SimState, i: number): UnitOrder {
+/** The Gather button's order for a worker: gather by itself, the first sweep starting from the bearing it stands at round its base. Its player's (`own`) in the dark, it works on all that night as by day (Jade's GP-24). */
+export function startForage(state: SimState, i: number, own = false): UnitOrder {
   const e = state.entities;
   const h = homeOf(state, i);
   const ang = h ? atan2Angle(e.z[i]! - h.z, e.x[i]! - h.x) : 0;
-  return { t: 'forage', res: -1, x: 0, z: 0, k: 0, ang };
+  const p = clockAt(state.step).period;
+  const k = own && (p === Period.Dusk || p === Period.Night) ? FORAGE_OWN : 0;
+  return { t: 'forage', res: -1, x: 0, z: 0, k, ang };
 }

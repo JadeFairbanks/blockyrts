@@ -190,9 +190,7 @@ export const HAWTHORNE_GROW_NIGHTS = 5;
 /** SC-9: "gives 10 hawthorne fruit. It takes 3 days for a hawthorne harvest to regrow." */
 export const HAWTHORNE_FRUIT = 10;
 export const HAWTHORNE_REGROW_DAYS = 3;
-/** SC-9: "Farms within 30 m of the sweet hawthorne get a 35% boost ... Animals within 30 m ... reproduce 35% more rapidly." */
-export const HAWTHORNE_BOOST_M = 30;
-export const HAWTHORNE_BOOST_PCT = 35;
+// SC-9's 30 m and 35% for farms and animals are the Food thread's HAWTHORNE_M and HAWTHORNE_PCT (buildings/farm-boost.ts).
 /** A planter spends this long setting the seed in the ground (s). */
 export const PLANT_STEPS = 4 * STEPS_PER_SECOND;
 /** Cutting down a fruitless Sweet Hawthorne takes as long as a birch and gives its lumber (s): hardwood, as the doc's black-wooded small hardwood. */
