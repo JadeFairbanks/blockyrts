@@ -20,7 +20,7 @@ import { bandAt } from './placement.ts';
 import { ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
 import { CREWMAN, engineSpec, PLAYER_ENGINES, upgradeOf } from '../siege/data.ts';
 import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines.ts';
-import { finishUpgrade, platformOf, platformProblem, platformProducts, spawnFixedEngine, spawnGarrisonCrewman, upgradeCost, upgradeCrew, upgradeSteps } from '../siege/platform.ts';
+import { finishUpgrade, platformOf, platformProblem, platformProducts, spawnFixedEngine, spawnGarrisonCrewman, engineUpgradeCost, engineUpgradeCrew, engineUpgradeSteps } from '../siege/platform.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { addAnimal, animalsAt, barnFeedText, layingHens, stallsTaken } from '../animals/animals.ts';
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
@@ -149,10 +149,10 @@ export function productSpec(product: Product): ProductSpec {
   if (up) {
     // Patch 5 (Jade, CT-3): the difference in cost and time, and the food of the crewman it brings.
     const to = engineSpec(up.to);
-    const more = upgradeCrew(up.from, up.to);
+    const more = engineUpgradeCrew(up.from, up.to);
     const crewman = more > 0 ? ` From one crewman to two: if the one is alive when it is done, the second comes with it (pays his food, ${more * CREWMAN.food}, and needs free supply).` : '';
     return {
-      product, name: `Upgrade to ${to.name}`, key: '', steps: upgradeSteps(up.from, up.to), cost: upgradeCost(up.from, up.to), food: more * CREWMAN.food, engine: up.to, upgrade: up.from,
+      product, name: `Upgrade to ${to.name}`, key: '', steps: engineUpgradeSteps(up.from, up.to), cost: engineUpgradeCost(up.from, up.to), food: more * CREWMAN.food, engine: up.to, upgrade: up.from,
       tooltip: `The ${engineSpec(up.from).name.toLowerCase()} on the engine platform becomes ${/^[aeiou]/i.test(to.name) ? 'an' : 'a'} ${to.name.toLowerCase()}, for what the ${to.name.toLowerCase()} costs beyond it. It cannot fire while the upgrade is being built.${crewman}`,
     };
   }
@@ -535,7 +535,7 @@ export function supplyNeed(product: number): number {
   if (trainsUnit(product)) return 1;
   if (product >= ENGINE_PRODUCT && product < TROOP_PRODUCT) {
     const up = upgradeOf(product - ENGINE_PRODUCT);
-    return up ? upgradeCrew(up.from, up.to) : engineSpec(product - ENGINE_PRODUCT).crew;
+    return up ? engineUpgradeCrew(up.from, up.to) : engineSpec(product - ENGINE_PRODUCT).crew;
   }
   return 0;
 }

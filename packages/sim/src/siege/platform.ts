@@ -38,7 +38,7 @@ export function platformProducts(): number[] {
 }
 
 /** An upgrade's cost: what the new engine takes beyond the old one, resource by resource (Jade: "the resources ... difference"). */
-export function upgradeCost(from: Engine, to: Engine): Cost {
+export function engineUpgradeCost(from: Engine, to: Engine): Cost {
   const had = engineSpec(from).cost;
   const out: Array<readonly [Res, number]> = [];
   for (const [res, n] of engineSpec(to).cost) {
@@ -49,13 +49,13 @@ export function upgradeCost(from: Engine, to: Engine): Cost {
 }
 
 /** An upgrade's time: the difference, but at least UPGRADE_MIN_TIME_BP of the new engine's time (s). */
-export function upgradeSteps(from: Engine, to: Engine): number {
+export function engineUpgradeSteps(from: Engine, to: Engine): number {
   const steps = engineSpec(to).steps;
   return Math.max(steps - engineSpec(from).steps, floorDiv(steps * UPGRADE_MIN_TIME_BP, 10000));
 }
 
 /** Garrison crewmen an upgrade brings: the new engine's crew beyond the old one's (Jade: from one crewman to two, the second comes with it). */
-export function upgradeCrew(from: Engine, to: Engine): number {
+export function engineUpgradeCrew(from: Engine, to: Engine): number {
   return Math.max(0, engineSpec(to).crew - engineSpec(from).crew);
 }
 
@@ -186,6 +186,6 @@ export function finishUpgrade(state: SimState, b: Building, item: QueueItem): vo
   e.mob[on] = up.to;
   e.maxHp[on] = after.hp;
   e.hp[on] = Math.max(1, after.hp - lost);
-  if (crewSworn(state, on).length >= before.crew) for (let k = upgradeCrew(up.from, up.to); k > 0; k--) addPlatformCrewman(state, b, on, pl);
+  if (crewSworn(state, on).length >= before.crew) for (let k = engineUpgradeCrew(up.from, up.to); k > 0; k--) addPlatformCrewman(state, b, on, pl);
   state.events.push({ player: item.by, kind: 'info', text: `The ${lower(before.name)} on the engine platform is now ${article(after.name).toLowerCase()} ${lower(after.name)}.`, x: e.x[on]!, z: e.z[on]! });
 }
