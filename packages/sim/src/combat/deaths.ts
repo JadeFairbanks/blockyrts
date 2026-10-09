@@ -57,6 +57,7 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
     dropLoot(state, e.x[i]!, e.z[i]!, items, { killer, owner: taker, brag: lootBrag(spec.drops, rolled, notableMob(spec)), src: spec.id + 1 });
   }
   // A people's building or wagon falls; one they left gives its materials to the workers who broke it down.
+  peoplesHooks.kill(state, i, taker);
   if (e.owner[i] === PEOPLES) peoplesHooks.death(state, i, taker);
   else if (e.owner[i] === NEUTRAL && e.group[i] !== 0 && hitByWorker(state, i) && taker >= 0) peoplesHooks.salvage(state, i, taker);
   // A lair falls (its hoard and the warriors' experience); a village counts its losses towards war.

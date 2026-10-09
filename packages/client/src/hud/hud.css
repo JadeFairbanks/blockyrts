@@ -2964,6 +2964,99 @@ body.playing.touch .hud {
   box-shadow: inset 0 0 0 1.5px #5fb0ff, 0 0 6px rgba(95, 176, 255, 0.7);
 }
 
+/* ---- Patch 5 (QV-14): the quest menu's button, the messages button's size,
+   right above it (above the message panel while that is open), starting
+   collapsed and marked like it for quests not yet looked at; its menu opens
+   in the same corner, its body scrolling under its title. ---- */
+.hud .panel.quests-open {
+  left: var(--strip-left, 0px);
+  bottom: calc(var(--strip-h, calc(var(--mm-h) + var(--util-h))) + 24px * var(--hud-s, 1));
+  padding: 0;
+  border: 0;
+  border-image: none;
+  background: none;
+  transform: scale(var(--hud-s, 1));
+  transform-origin: 0 100%;
+}
+.hud .panel.quests-open.over-messages,
+.quests-panel.over-messages {
+  bottom: calc(var(--strip-h, calc(var(--mm-h) + var(--util-h))) + 8px + 172px * var(--hud-s, 1));
+}
+.hud-btn.quest-open {
+  width: 25px;
+  height: 22px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.quests-open.unread .hud-btn.quest-open {
+  box-shadow: inset 0 0 0 1.5px #5fb0ff, 0 0 6px rgba(95, 176, 255, 0.7);
+}
+.quests-panel {
+  left: calc(var(--strip-left, 0px) + 8px);
+  bottom: calc(var(--strip-h, calc(var(--mm-h) + var(--util-h))) + 24px * var(--hud-s, 1));
+  width: min(340px, calc(100vw - 24px));
+  max-height: 300px;
+  box-sizing: border-box;
+  transform: scale(var(--hud-s, 1));
+  transform-origin: 0 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.quests-panel .dlg-body > * {
+  flex: none;
+}
+.quest-none {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.quest-row {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(170, 186, 204, 0.18);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.quest-row.ready .quest-title {
+  color: #ffe08a;
+}
+.quest-title,
+.quest-section {
+  margin: 0 0 2px;
+  font-size: 13px;
+}
+.quest-section {
+  margin-top: 8px;
+}
+.quest-giver,
+.quest-reward {
+  opacity: 0.8;
+}
+.quest-progress {
+  color: #9ad8ff;
+}
+.quest-tools {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.quest-hint {
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: rgba(255, 224, 138, 0.12);
+  font-style: italic;
+}
+.quest-timer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.quest-timer-name {
+  opacity: 0.8;
+}
+
 /* Jade's Patch 5 (UI-13): a button whose auto function is on for the
    selection (Repair's autorepair) wears a small green AUTO tag along its
    bottom edge. Repair All (GP-25) sits with the camera spots, its picture

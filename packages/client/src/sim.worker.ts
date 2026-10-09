@@ -31,6 +31,8 @@ import {
   canLoot,
   carryView,
   circlesView,
+  questsView,
+  questTimers,
   FOG_TILE_COLUMNS,
   BuildingKind,
   forgeStepOf,
@@ -501,6 +503,8 @@ function postInfo(s: SimState): void {
       carry,
       effects,
       circles: circlesView(s, PLAYER, openedChests),
+      quests: questsView(s, PLAYER),
+      questTimers: questTimers(s, PLAYER),
     },
     [pool.buffer, open.buffer],
   );

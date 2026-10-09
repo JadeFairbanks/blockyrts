@@ -45,7 +45,28 @@ export const PATCH_NOTES: readonly PatchNote[] = [
     headline: 'A new way to learn the game, and a home for every update.',
     intro: ['The full list of this update’s changes is on its way. Here is what is new on the main menu.'],
     changes: {
+      gameplay: [
+        {
+          title: 'Quests',
+          text: 'The peoples now have quests for you. Once you have met a Halfling village, Runkin camp, Dwarf colony or Dwarf city, or the Elves, and are at peace with them, their leader asks over their head whether you will take on their task. Answer Yes with one of your units within 15 m of the leader to take it, and come back with a unit when it is done to claim the reward, straight into your inventory.',
+          details: [
+            'Halflings, the Bog Pear: bring the Village elder a bog pear from a bog. While you hold one, the elder offers to take it for 50 farm fare (100 food), 50 softwood lumber and 50 stone. Hint: "It\'s in a bog. Duh."',
+            'Runkin, the Raid: wipe out the band of gnolls, kobolds or hobgoblins nearest the camp, which your minimap pings when you take the quest, and come back for 10 leather and 4 bronze ingots.',
+            'Elves, Fae Guardians: kill 2 Fae Guardians, then come back to the Elf steward or any caravan master for 3 basket-hilted broadswords, 3 fluted Gothic harnesses and 3 steel rotellas, all carbon steel. Hint: "Fae Guardians protect mana stones. They are flying so swords won\'t be much help."',
+            'Dwarf colonies, Griffin Hunt: kill 2 griffins for 15 silver ingots. Dwarf cities, Minotaur Hunt: kill 2 minotaurs for 8 gold ingots. Each pings the nearest beast when taken.',
+            'Each player has their own copy of every quest: another player\'s progress never counts for you. A quest stays open until you claim it, and comes back 20 days after you do.',
+            'A people at war with you offers no quest and takes no claims until there is peace again.',
+          ],
+          picture: 'portrait_halfling_male',
+        },
+      ],
       qol: [
+        {
+          title: 'Quest menu',
+          text: 'A small ! button right above the messages button opens your quests: what each asks, how far along you are, the reward, and a Hint that shows a tip or pings your target on the minimap. It starts folded, and a number on it counts quests you have taken or finished and not looked at yet.',
+          details: ["Under your quests it also tracks the stone circles: the Moon Goddess's blessing and the nights to your next Bright Night."],
+          picture: 'icon_scriptorium',
+        },
         {
           title: 'How to Play',
           text: 'A new How to Play button on the main menu opens a guide to the whole game: the premise, guides on how to play, and a page for every building, unit, weapon, piece of armour, spell, recipe, item, animal and monster.',

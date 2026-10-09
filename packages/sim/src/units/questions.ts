@@ -174,7 +174,8 @@ function asks(state: SimState, player: number): boolean {
 
 function openFor(book: Book, player: number): number {
   let n = 0;
-  for (const q of book.open) if (q.player === player) n++;
+  // Another people's questions (a keeper's promise, the peoples' quests, Patch 5) stand over their speakers and take no place.
+  for (const q of book.open) if (q.player === player && !q.foreign) n++;
   return n;
 }
 
