@@ -26,8 +26,8 @@ export interface ModelAt {
   z: number;
   /** A colour (0xrrggbb) the model's texture is multiplied by: a stand-in model dressed as the building it stands in for. */
   tint?: number;
-  /** Drawn this many times its size: a stand-in until the building's own model comes (1 when left out). */
-  scale?: number;
+  /** Drawn at this size, per mille (1000 when left out): a model built bigger than its footprint, drawn to fit it. */
+  scalePm?: number;
 }
 
 /** Where a man stands on a building's top: Blockbench units from the level's corner, and up from its floor. */
@@ -100,8 +100,8 @@ const FARM: readonly LevelFootprint[] = [
 /**
  * The footprint table: every kind, one entry per level (a kind with fewer
  * entries than levels keeps its last one for the rest). The main base's four
- * tiers (Patch 5) stand on the old levels 1, 3, 6 and 10; the models of the
- * old levels between them stay in the catalogue, unused.
+ * tiers (Patch 5) are the old levels 1, 3 and 6 and the Citadel; the models of
+ * the other old levels stay in the catalogue, unused.
  */
 export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.MainBase]: [
@@ -194,22 +194,22 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
     },
   ],
   [BuildingKind.Farm]: FARM,
-  // A stand-in until the outside modeller's red barn comes (Patch 2): the old pen and barn, painted red, in a 12 x 12 yard.
+  // The red barn (Patch 5) in a 12 x 12 yard.
   [BuildingKind.Barn]: [
     {
-      models: [{ id: 'pen_barn', x: 96, z: 96, tint: 0xd8584a }],
+      models: [{ id: 'barn', x: 95, z: 95 }],
       rows: [
         '............',
         '............',
         '............',
         '............',
-        '............',
-        '..########..',
-        '..########..',
-        '...######...',
-        '...######...',
-        '...######...',
-        '..########..',
+        '....#######.',
+        '....#######.',
+        '....#######.',
+        '....#######.',
+        '....#######.',
+        '....#######.',
+        '....#######.',
         '............',
       ],
     },
@@ -259,9 +259,9 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   ],
   [BuildingKind.Bonfire]: [
     {
-      models: [{ id: 'cooking_campfire', x: 24, z: 24, scale: 2 }],
-      // Patch 2: until the bonfire's own model comes, the campfire's at twice its size stands in. No one walks through the fire.
-      fitted: 'the fire (the campfire model stands in)',
+      models: [{ id: 'bonfire', x: 25, z: 24 }],
+      // No one walks through the fire, though its logs stand lower than a walker's body.
+      fitted: 'the fire',
       rows: [
         '###',
         '###',
@@ -283,12 +283,98 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.TowerStone]: towerAt('tower_stone', 171),
   // Patch 5 (Jade, GP-43): 2 columns square, as its model is.
   [BuildingKind.EarthRampart]: [{ models: [{ id: 'rampart_earth', x: 16, z: 16 }], rows: ['##', '##'] }],
-  [BuildingKind.Workshop]: [block(8, 8)],
-  [BuildingKind.ScholarsLodge]: [block(8, 8)],
-  [BuildingKind.MagiSanctum]: [block(8, 8)],
-  [BuildingKind.Barracks]: [block(10, 10)],
-  [BuildingKind.Mineshaft]: [block(6, 6)],
-  [BuildingKind.Forge]: [block(8, 8)],
+  // Patch 5: every building its own model, centred in its footprint.
+  [BuildingKind.Workshop]: [
+    {
+      models: [{ id: 'workshop_t1', x: 61, z: 59 }],
+      rows: [
+        '........',
+        '........',
+        '.#####..',
+        '.#####..',
+        '.#####..',
+        '.#####..',
+        '.#####..',
+        '........',
+      ],
+    },
+  ],
+  [BuildingKind.ScholarsLodge]: [
+    {
+      models: [{ id: 'scholars_lodge', x: 65, z: 56 }],
+      rows: [
+        '........',
+        '#####...',
+        '########',
+        '########',
+        '########',
+        '########',
+        '#####...',
+        '........',
+      ],
+    },
+  ],
+  [BuildingKind.MagiSanctum]: [
+    {
+      models: [{ id: 'magi_sanctum', x: 64, z: 64 }],
+      rows: [
+        '........',
+        '..####..',
+        '..####..',
+        '..####..',
+        '..####..',
+        '..####..',
+        '........',
+        '........',
+      ],
+    },
+  ],
+  // The hall is 13 columns long: drawn at three quarters to fit its 10 x 10 footprint.
+  [BuildingKind.Barracks]: [
+    {
+      models: [{ id: 'barracks', x: 79, z: 81, scalePm: 750 }],
+      rows: [
+        '..........',
+        '..........',
+        '..........',
+        '..........',
+        '..........',
+        '########..',
+        '########..',
+        '########..',
+        '########..',
+        '..........',
+      ],
+    },
+  ],
+  [BuildingKind.Mineshaft]: [
+    {
+      models: [{ id: 'mineshaft_t1', x: 48, z: 49 }],
+      rows: [
+        '......',
+        '...##.',
+        '..##..',
+        '..##..',
+        '..##..',
+        '......',
+      ],
+    },
+  ],
+  [BuildingKind.Forge]: [
+    {
+      models: [{ id: 'forge_l1', x: 65, z: 68 }],
+      rows: [
+        '........',
+        '.#......',
+        '.######.',
+        '.######.',
+        '.######.',
+        '.######.',
+        '.######.',
+        '........',
+      ],
+    },
+  ],
 };
 
 /** A kind's footprint at a level. */

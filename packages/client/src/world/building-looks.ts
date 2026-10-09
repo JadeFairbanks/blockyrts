@@ -413,7 +413,7 @@ export function makeLook(kind: number, level: number, variant: number, team: num
       p.flame(w / 2, 1.9, d / 2);
       break;
     case BuildingKind.Bonfire:
-      // A ring of stones round a stack of logs, no spit (Jade): drawn until the campfire model stands in for it.
+      // A ring of stones round a stack of logs, no spit (Jade): the placement ghost, and the bonfire until its model loads.
       for (let k = 0; k < 10; k++) {
         const a = (k / 10) * Math.PI * 2;
         p.box(w / 2 + Math.cos(a) * 0.55 - 0.1, 0, d / 2 + Math.sin(a) * 0.55 - 0.1, 0.2, 0.18, 0.2, C.stone);
