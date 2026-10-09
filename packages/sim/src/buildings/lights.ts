@@ -6,7 +6,7 @@
 // badger, Morvath's Crown of night), and a worker relights it in 2 s at no cost.
 
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { Walk, WALKER } from '../nav/grid.ts';
+import { MOB_WALKER, Walk } from '../nav/grid.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
 import type { SimState } from '../state.ts';
 import type { World } from '../world/world.ts';
@@ -195,8 +195,8 @@ export function computeEnclosed(state: SimState): void {
           overflow = true;
           break;
         }
-        // Could a walker standing there step in here?
-        if (nav.stepCost(nx, nz, x, z, WALKER) < 0) continue;
+        // Could a monster standing there step or jump in here (1 m, Patch 5 MB-3)?
+        if (nav.stepCost(nx, nz, x, z, MOB_WALKER) < 0) continue;
         seen.add(k);
         queue.push(nx, nz);
         if (seen.size > ENCLOSURE_MAX_COLUMNS) {

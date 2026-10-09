@@ -286,7 +286,7 @@ export function pickTarget(state: SimState, i: number, range: number, structures
   return best;
 }
 
-/** One step straight towards (or, with a negative speed, away from) a point, if the land allows it. */
+/** One step straight towards (or, with a negative speed, away from) a point, if the land allows it without a climb (a climb is a walk's, Patch 5). */
 export function stepToward(state: SimState, i: number, x: number, z: number, speed: number): boolean {
   const e = state.entities;
   const dx = x - e.x[i]!;
@@ -301,7 +301,7 @@ export function stepToward(state: SimState, i: number, x: number, z: number, spe
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const ncx = floorDiv(nx, WU_PER_COLUMN);
   const ncz = floorDiv(nz, WU_PER_COLUMN);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) return false;
+  if ((ncx !== cx || ncz !== cz) && state.nav.hopCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) return false;
   e.heading[i] = headingTowards(sign * dx, sign * dz);
   landAt(state, i, nx, nz);
   e.order[i] = OrderKind.Move;

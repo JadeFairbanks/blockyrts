@@ -59,6 +59,9 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   trainBattleMage: one(BATTLE_MAGE_ICON),
 };
 
+const WALK_ICON: ButtonIcon = one('icon_cmd_move', undefined, 'Walk');
+const RUN_ICON: ButtonIcon = { layers: [{ file: 'icon_cmd_move', shift: 'left' }, { file: 'icon_cmd_move', shift: 'right' }], tag: 'Run' };
+
 /** A spell's picture: its own card icon (Table 13). */
 export function spellIcon(spell: number): ButtonIcon | undefined {
   const s = SPELLS[spell];
@@ -76,6 +79,8 @@ export function actionIcon(action: string, face: string): ButtonIcon | undefined
     return { layers: [{ file: 'icon_cmd_back', mirror: true }], ...(page ? { tag: page } : {}) };
   }
   if (action === 'cancel' && face === 'Done') return one('icon_cmd_cancel', 'ok');
+  // Patch 5's Run/Walk: one boot walking, two boots running.
+  if (action === 'pace') return face === 'Run' ? RUN_ICON : WALK_ICON;
   if (action === 'cart' && face !== 'Cart') return one('icon_hand_cart', 'down');
   if (action === 'hitch' && face === 'Let go') return one('icon_train_horse', 'cross');
   if (action.startsWith('spell')) return spellIcon(Number(action.slice(5)));

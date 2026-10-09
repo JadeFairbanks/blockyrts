@@ -27,7 +27,7 @@ import { mainBaseLevel } from '../buildings/placement.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { Res, RESOURCES } from '../economy/resources.ts';
-import { atan2Angle, cos16, floorDiv, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { atan2Angle, cos16, floorDiv, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { mountSpec } from '../mounts/data.ts';
 import { pointGoal } from '../nav/path.ts';
 import { chatter, say } from '../peoples/speech.ts';
@@ -88,6 +88,13 @@ export const GATHER_SWITCH_M = 30;
 export const HOME_PATH_PM = 800;
 /** ...to within 4 m of the nearest main base (Jade). */
 export const HOME_SLACK_M = 4;
+/**
+ * Patch 5: every metre a place lies above or below home's floor counts as 5
+ * metres more of the walk back, as climbing goes at a fifth of a walk
+ * (units/moves.ts), so the units out by themselves stay where they can get
+ * home by nightfall now that they jump and climb farther (s).
+ */
+export const HOME_RISE_WEIGHT = 5;
 
 const M = WU_PER_METRE;
 const CONTINUE = false;
@@ -177,10 +184,16 @@ function duskReach(state: SimState, i: number): number {
   return HOME_SLACK_M * M + floorDiv(homePace(state, i) * DUSK_STEPS * HOME_PATH_PM, 1000);
 }
 
+/** How far a point is from a home building for the walk back: the straight distance, and its ground's height above or below the floor at HOME_RISE_WEIGHT. */
+export function fromHome(state: SimState, b: Building, x: number, z: number): number {
+  const rise = state.world.topAt(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN)) - b.y;
+  return fromBuilding(b, x, z) + Math.abs(rise) * WU_PER_TERRAIN_UNIT * HOME_RISE_WEIGHT;
+}
+
 /** Whether a point lies beyond a unit's reach from home (never, with no main base). */
 export function beyondReach(state: SimState, i: number, x: number, z: number): boolean {
   const h = homeOf(state, i);
-  return h !== undefined && fromBuilding(h.b, x, z) > h.reach;
+  return h !== undefined && fromHome(state, h.b, x, z) > h.reach;
 }
 
 /**
@@ -199,7 +212,7 @@ export function exploreTarget(state: SimState, h: Home, from: number): { x: numb
   for (let k = 0; k < edge.length; k += 2) {
     const x = edge[k]! * tile + (tile >> 1);
     const z = edge[k + 1]! * tile + (tile >> 1);
-    if (fromBuilding(h.b, x, z) > h.reach) continue;
+    if (fromHome(state, h.b, x, z) > h.reach) continue;
     const ang = atan2Angle(z - h.z, x - h.x);
     const turn = (ang - from) & 0xffff;
     const cost = length2d(x - h.x, z - h.z) + floorDiv(turn * turnWu, SIXTH);
@@ -213,7 +226,7 @@ export function exploreTarget(state: SimState, h: Home, from: number): { x: numb
   const ex = edge[best]! * tile + (tile >> 1);
   const ez = edge[best + 1]! * tile + (tile >> 1);
   // On into the dark, straight out from the base, no more than 25 m and never past the reach.
-  const out = Math.max(0, Math.min(FORAGE_DARK_M * M, h.reach - fromBuilding(h.b, ex, ez)));
+  const out = Math.max(0, Math.min(FORAGE_DARK_M * M, h.reach - fromHome(state, h.b, ex, ez)));
   const tx = ex + floorDiv(cos16(bestAng) * out, 65536);
   const tz = ez + floorDiv(sin16(bestAng) * out, 65536);
   const [cx, cz] = nearestStandable(state, col(tx), col(tz), 6);
@@ -349,7 +362,7 @@ export function nextNode(state: SimState, i: number, res: number, x: number, z: 
   if (!want.has(res)) want.set(res, FORAGE_NEED_FLOOR_PM);
   const h = foraging ? homeOf(state, i) : undefined;
   const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * M;
-  const fits = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+  const fits = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
   const pick = chooseNode(state, i, x, z, max, want, fits, skip);
   if (!pick) return null;
   const was = resName(res);
@@ -524,7 +537,7 @@ export function runForage(state: SimState, i: number, o: Extract<UnitOrder, { t:
     const x = e.x[i]!;
     const z = e.z[i]!;
     const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * M;
-    const home = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+    const home = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
     // Working on through the night, only what lies near a building (s).
     const near = night ? nightHooks.reach(state) : undefined;
     const fits = near ? (px: number, pz: number): boolean => (!home || home(px, pz)) && near(px, pz) : home;

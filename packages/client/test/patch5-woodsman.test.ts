@@ -79,11 +79,11 @@ function button(card: Card, face: string): CardEntry {
 const woods = (what: number, on: number, cx = 0, cz = 0, index = -1): Order => ({ kind: 'woods', player: ME, units: [1, 2], what, on, cx, cz, index, queued: false });
 
 describe('the woodsman card (Patch 5)', () => {
-  it('has Attack, Move, Fish and Forage, Eat and Upgrade equipment, each on its own key', () => {
+  it('has Attack, Move, Fish and Forage, Eat, Upgrade equipment and Run or Walk, each on its own key', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), woodsmen, 'warrior:woods');
     const card = c.card();
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Fish', 'Forage', 'Eat', 'Equip']);
-    expect(card.map((e) => keyLabel(e.key))).toEqual(['A', 'M', 'I', 'G', 'F', 'Q']);
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Fish', 'Forage', 'Eat', 'Equip', 'Walk']);
+    expect(card.map((e) => keyLabel(e.key))).toEqual(['A', 'M', 'I', 'G', 'F', 'Q', 'H']);
   });
 
   it('a right click turns fishing or foraging by himself on, or off when it is on; both can be on at once', () => {

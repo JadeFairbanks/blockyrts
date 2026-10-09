@@ -17,6 +17,9 @@ import {
   createWorld,
   DAY_STEPS,
   deserializeState,
+  Gait,
+  gaitOf,
+  gaitSpec,
   DUSK_STEPS,
   fromBuilding,
   hashState,
@@ -182,7 +185,7 @@ describe('the woodsman (Patch 5)', () => {
     expect(e.ledger[i]!.length).toBeGreaterThan(0);
   });
 
-  it('hits 2 less than a spearman with the same spear, wears no armour, and upgrades only at a main base', () => {
+  it('hits 2 less than a spearman with the same spear, wears no armour, upgrades only at a main base, and climbs as a worker does', () => {
     const s = createWorld(1, { peaceful: true });
     const [hx, hz] = buildingCentre(bigHouse(s));
     const w = addWarrior(s, 0, hx + 8 * M, hz, Troop.Woodsman, 1, 0);
@@ -193,6 +196,8 @@ describe('the woodsman (Patch 5)', () => {
     expect(lineTop(h, Line.Weapon)).toBeGreaterThan(1);
     expect([BuildingKind.MainBase, BuildingKind.Forge, BuildingKind.Barracks].map((k) => upgradesAt(h, k))).toEqual([true, false, false]);
     expect(upgradesAt({ ...h, troop: Troop.Long }, BuildingKind.Forge)).toBe(true);
+    expect(gaitOf(s, w)).toBe(Gait.Woodsman);
+    expect(gaitSpec(Gait.Woodsman).climb).toBe(gaitSpec(Gait.Worker).climb);
   });
 
   it('there is no fishing dock to build, and workers sent to a fish stretch are told only woodsmen fish', () => {

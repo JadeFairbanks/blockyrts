@@ -28,7 +28,7 @@ import { CHUNK_SHIFT, chunkKey, NO_WATER, WATER_PER_UNIT } from '../world/chunk.
 import { isFish, propInfo } from '../world/props.ts';
 import { FOG_TILE_COLUMNS, type PropView, type World } from '../world/world.ts';
 import { Act, besideBuilding, columnCentre, FAILED, giveOrder, MOVING, nearestDropoff, nodeResource, nodeView, resetWalk, walkTo } from './behaviour.ts';
-import { exploreTarget, fromBuilding, HOME_SLACK_M, homeBaseNear, homeOf, wanderTarget, type Home } from './forage.ts';
+import { exploreTarget, fromHome, HOME_SLACK_M, homeBaseNear, homeOf, wanderTarget, type Home } from './forage.ts';
 import { addToBag, bagEmpty, bagRoom } from './loot.ts';
 import { WOODS_HOME, WOODS_PICKED, WOODS_SEARCH, WOODS_TURNED, type UnitOrder } from './unit-orders.ts';
 import { isWoodsman } from './woodsman.ts';
@@ -114,8 +114,8 @@ function othersOn(state: SimState, i: number, cx: number, cz: number, index: num
 }
 
 /** Whether a point is within his reach: from home, else 40 m of where he set out. */
-function inReach(h: Home | undefined, o: WoodsOrder, x: number, z: number): boolean {
-  return h ? fromBuilding(h.b, x, z) <= h.reach : length2d(x - o.x, z - o.z) <= WOODS.leashM * M;
+function inReach(state: SimState, h: Home | undefined, o: WoodsOrder, x: number, z: number): boolean {
+  return h ? fromHome(state, h.b, x, z) <= h.reach : length2d(x - o.x, z - o.z) <= WOODS.leashM * M;
 }
 
 /**
@@ -144,7 +144,7 @@ function nearestSpot(state: SimState, i: number, h: Home | undefined, o: WoodsOr
         const d = dist2(columnCentre(px), columnCentre(pz), x, z);
         if (best && d >= bestD) continue;
         if (!world.isExplored(floorDiv(px, FOG_TILE_COLUMNS), floorDiv(pz, FOG_TILE_COLUMNS))) continue;
-        if (!inReach(h, o, columnCentre(px), columnCentre(pz))) continue;
+        if (!inReach(state, h, o, columnCentre(px), columnCentre(pz))) continue;
         if (othersOn(state, i, cx, cz, p.index) >= propInfo(p.kind).gatherers) continue;
         best = { cx, cz, i: p.index };
         bestD = d;
