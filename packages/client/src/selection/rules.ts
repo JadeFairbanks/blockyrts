@@ -13,7 +13,12 @@ export const DOUBLE_CLICK_PX = 4;
 export const HIT_PAD_PX = 5;
 
 /** The fields of a Selectable the rules look at. */
-export type SelInfo = Pick<Selectable, 'key' | 'kind' | 'owner' | 'typeKey'>;
+export type SelInfo = Pick<Selectable, 'key' | 'kind' | 'owner' | 'typeKey' | 'clickType'>;
+
+/** What "all of this type" means for a thing (Jade's Patch 5, CT-5: troops by cavalry, close melee, long melee and each other kind). */
+export function typeOf(t: SelInfo): string {
+  return t.clickType ?? t.typeKey;
+}
 
 /** Walls, gates, towers and lights: a drag box takes them only when it catches nothing else of the player's. */
 const LINE_KINDS: ReadonlySet<number> = new Set([
@@ -144,7 +149,7 @@ export function sameTypeInView<T extends SelInfo>(inView: readonly ScreenItem<T>
   if (isOwn(clicked, player)) {
     out = inView
       .map((s) => s.item)
-      .filter((t) => isOwn(t, player) && t.kind === clicked.kind && t.typeKey === clicked.typeKey);
+      .filter((t) => isOwn(t, player) && t.kind === clicked.kind && typeOf(t) === typeOf(clicked));
   } else if (clicked.kind === 'node') {
     out = inView.map((s) => s.item).filter((t) => t.kind === 'node' && t.typeKey === clicked.typeKey);
   } else {
@@ -152,6 +157,17 @@ export function sameTypeInView<T extends SelInfo>(inView: readonly ScreenItem<T>
   }
   if (!out.some((t) => t.key === clicked.key)) out.unshift(clicked);
   return out;
+}
+
+/**
+ * A double click on one of the units of a mixed selection (Jade's Patch 5,
+ * CT-5): only the units of its type in that selection stay. Null when the
+ * selection held one type only, or not the thing clicked.
+ */
+export function typeWithin<T extends SelInfo>(before: readonly T[], clicked: T): T[] | null {
+  if (!before.some((t) => t.key === clicked.key)) return null;
+  if (new Set(before.map(typeOf)).size < 2) return null;
+  return before.filter((t) => typeOf(t) === typeOf(clicked));
 }
 
 /** Whether a thing may join an existing selection: own things with own things, nodes with nodes. */

@@ -10,6 +10,12 @@ export interface Selectable {
   owner: number;
   /** 'worker', 'warrior', 'node:pine', ... used for "all of this type". */
   typeKey: string;
+  /**
+   * Where a double click's "all of this type" draws its line more finely than
+   * typeKey (Jade's Patch 5, CT-5): troops split into cavalry, close melee,
+   * long melee and each other kind. Absent: typeKey.
+   */
+  clickType?: string;
   /** World-space centre of its bounding box, metres. */
   centre: THREE.Vector3;
   /** World-space half extents. */

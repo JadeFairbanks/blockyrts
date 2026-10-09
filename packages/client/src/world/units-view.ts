@@ -176,6 +176,8 @@ interface PoolEntry {
   /** The counts as of the last commit, for the outline passes after it. */
   ownDrawn: number;
   outlinedDrawn: number;
+  /** Instances taken this frame for what the cursor is over (Patch 5, UI-5), marked at the commit. */
+  hovered: number[];
 }
 
 /** An instance taken from a pool. */
@@ -193,6 +195,8 @@ class BodyPool {
     private readonly parent: THREE.Object3D,
     readonly model: ModelData,
     private readonly patch: ModelShaderPatch | undefined,
+    /** On while the unit being drawn is under the cursor: what it takes is marked for the hover outline. */
+    private readonly hoverNow: { on: boolean },
   ) {}
 
   /** The instance to fill for a look; parts the model does not have are skipped. */
@@ -204,10 +208,11 @@ class BodyPool {
       const m = new InstancedModel(this.model, MAX_UNITS, this.patch);
       for (const p of have) m.setPartVisible(p, true);
       this.parent.add(m.object);
-      e = { m, n: 0, own: 0, outlined: 0, ownDrawn: 0, outlinedDrawn: 0 };
+      e = { m, n: 0, own: 0, outlined: 0, ownDrawn: 0, outlinedDrawn: 0, hovered: [] };
       this.byKey.set(key, e);
     }
     if (e.n >= MAX_UNITS) return null;
+    if (this.hoverNow.on) e.hovered.push(e.n);
     return { m: e.m, i: e.n++, e };
   }
 
@@ -221,6 +226,8 @@ class BodyPool {
   commit(): void {
     for (const e of this.byKey.values()) {
       e.m.setCount(e.n);
+      for (const i of e.hovered) e.m.setHover(i);
+      e.hovered.length = 0;
       e.m.commit();
       e.n = 0;
       e.ownDrawn = e.own;
@@ -238,7 +245,8 @@ class BodyPool {
     for (const e of this.byKey.values()) {
       const drawn = e.m.instanceCount > 0;
       e.m.useMarkMaterial(mode !== null);
-      e.m.object.visible = drawn && (mode === null || mode === MarkMode.Ids || (mode === MarkMode.Own ? e.ownDrawn > 0 : e.outlinedDrawn > 0));
+      const some = mode === MarkMode.Own ? e.ownDrawn > 0 : mode === MarkMode.Hover ? e.m.hoveredCount > 0 : e.outlinedDrawn > 0;
+      e.m.object.visible = drawn && (mode === null || mode === MarkMode.Ids || some);
     }
   }
 
@@ -391,6 +399,8 @@ export interface UnitsFrame {
   place(i: number, x: number, y: number, z: number): void;
   /** Entity ids of the local player's units to outline this frame (hidden-outlines.ts). */
   outlined?: ReadonlySet<number>;
+  /** Entity ids of the units the cursor is over, for their silhouette outline (Patch 5, UI-5). */
+  hovered?: ReadonlySet<number>;
 }
 
 export class UnitsView {
@@ -398,6 +408,7 @@ export class UnitsView {
   /** Every unit, creature and corpse model, in one group the outline passes draw on their own. */
   readonly bodyGroup = new THREE.Group();
   private readonly bodies = new Map<string, BodyPool>();
+  private readonly hoverNow = { on: false };
   /** The fog of war on the models, when the world gives one. */
   private readonly patch: ModelShaderPatch | undefined;
   /** The local player's own units drawn this frame, where and how big (owned), out of a pool of records reused frame to frame. */
@@ -469,7 +480,7 @@ export class UnitsView {
       }
       return null;
     }
-    b = new BodyPool(this.bodyGroup, model, this.patch);
+    b = new BodyPool(this.bodyGroup, model, this.patch, this.hoverNow);
     this.bodies.set(id, b);
     return b;
   }
@@ -551,6 +562,7 @@ export class UnitsView {
       // A cannon in a Citadel's port and the men up on a tower or a main base's top are drawn there; everything else inside a building is hidden.
       if (d[o + S.inside] !== 0 && d[o + S.kind] !== UnitKind.Engine && !(d[o + S.flags]! & UnitFlag.OnTop)) continue;
       const id = d[o + S.id]!;
+      this.hoverNow.on = f.hovered?.has(id) ?? false;
       const p = prev && alpha < 1 && prev.data[o + S.id] === id ? prev.data : d;
       const x = (p[o + S.x]! + (d[o + S.x]! - p[o + S.x]!) * alpha) / WU_PER_METRE;
       const hop = hopAt(d, o, alpha);
@@ -715,6 +727,7 @@ export class UnitsView {
         loads++;
       }
     }
+    this.hoverNow.on = false;
     for (const id of this.swingStart.keys()) if (!live.has(id)) this.swingStart.delete(id);
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
