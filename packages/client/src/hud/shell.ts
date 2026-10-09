@@ -62,6 +62,7 @@ import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
+import { remarkLine, remarkVoice, sceneOf } from './remarks.ts';
 import { TinkerBars } from './tinker-bars.ts';
 import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
@@ -884,9 +885,11 @@ export class GameShell {
       if (t.typeKey.startsWith('people:')) {
         const spec = PEOPLE_UNITS[Number(t.typeKey.slice(7))];
         if (spec) out.push([id, REMARK_KEYS[spec.people]!]);
-      } else if (t.owner === this.player) {
-        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey.startsWith('warrior') ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
-        if (key) out.push([id, key]);
+      } else if (t.owner < 8 && (t.typeKey === 'worker' || t.typeKey.startsWith('warrior') || t.typeKey.startsWith('mage:'))) {
+        // Every player's workers, troops and mages (Jade's Patch 5, GP-28), each in its own voice.
+        const u = this.game.unit(id);
+        const voice = u ? remarkVoice(u.kind, u.troop, u.mount) : '';
+        if (voice) out.push([id, voice]);
       }
     }
     return out;
@@ -1675,7 +1678,10 @@ export class GameShell {
     const tinkering = this.game.tinkering();
     const sitting = new Set(tinkering.map(([id]) => id));
     // No random remarks while the game is paused (Jade's patch notes 1).
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
+    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting, (id, voice) => {
+      const scene = sceneOf(this.game, id, voice);
+      return scene ? remarkLine(scene) : null;
+    });
     this.tinkerBars.update(tinkering, (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
