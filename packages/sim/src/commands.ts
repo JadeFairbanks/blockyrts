@@ -41,7 +41,7 @@ import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
-import { actSpot, CircleAct, doAct, onColumn, planter, unitAt } from './circles/act.ts';
+import { actSpot, CircleAct, doAct, onColumn, planter, showCircle, unitAt } from './circles/act.ts';
 import { useItem } from './circles/items.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
@@ -963,6 +963,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         else if (o.tool === DebugTool.HealAll) healAll(state, o.player);
         else if (o.tool === DebugTool.ClearFoes) clearFoes(state, o.player, o.x, o.z);
         else if (o.tool === DebugTool.ElfKingdom) showElves(state, o.player);
+        else if (o.tool === DebugTool.StoneCircle) showCircle(state, o.player, o.x, o.z);
         break;
       case 'debugKill':
         killUnits(state, o.units);

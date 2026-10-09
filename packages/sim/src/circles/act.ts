@@ -15,10 +15,11 @@ import { Act, FAILED, MOVING, walkTo } from '../units/behaviour.ts';
 import { OrderKind, UnitKind } from '../state.ts';
 import { BuildingKind } from '../buildings/data.ts';
 import { PropKind } from '../world/props.ts';
+import { BAND_NAMES } from '../world/layout.ts';
 import { nextNight } from './bright.ts';
-import { CircleProp, CircleType, CLEARING_M, GIFT_GOLD, GIFT_ROSES, GIFT_SILVER, HAWTHORNE_FELL_STEPS, HAWTHORNE_LUMBER, circleMetres as m, PLANT_STEPS, REACH_M } from './data.ts';
+import { CIRCLE_TYPE_NAMES, CircleProp, CircleType, CLEARING_M, GIFT_GOLD, GIFT_ROSES, GIFT_SILVER, HAWTHORNE_FELL_STEPS, HAWTHORNE_LUMBER, circleMetres as m, PLANT_STEPS, REACH_M } from './data.ts';
 import { Disturb, disturbed } from './disturb.ts';
-import { chestLoot, circleNear, circlePieces, circleSite, idolOf, type CirclePiece } from './place.ts';
+import { chestLoot, circleNear, circlePieces, circleSite, circleSites, idolOf, type CirclePiece } from './place.ts';
 import { hawthorneFelled, plantHawthorne, plantSpotProblem, propOn } from './trees.ts';
 
 const COL = WU_PER_COLUMN;
@@ -273,4 +274,25 @@ export function runCircle(state: SimState, i: number, o: Extract<UnitOrder, { t:
   }
   doAct(state, i, o.circle, o.act, o.arg);
   return DONE;
+}
+
+/** How near the camera must look at a circle for the debugger's button to move on to the next one, metres. */
+const SHOW_NEXT_M = 40;
+
+/**
+ * The debugger's Stone circle button: the camera goes to the circle nearest
+ * to where it looks, or on to the next circle when it is already looking at
+ * one, and the land round it is revealed.
+ */
+export function showCircle(state: SimState, player: number, x: number, z: number): void {
+  const sites = circleSites(state.world.layout);
+  if (sites.length === 0) {
+    state.events.push({ player, kind: 'info', text: 'Debug: this world has no stone circle.' });
+    return;
+  }
+  let near = sites[0]!;
+  for (const s of sites) if (length2d(s.x - x, s.z - z) < length2d(near.x - x, near.z - z)) near = s;
+  const site = length2d(near.x - x, near.z - z) < m(SHOW_NEXT_M) ? sites[(near.id + 1) % sites.length]! : near;
+  state.world.reveal(site.x, site.z, m(CLEARING_M + 20));
+  state.events.push({ player, kind: 'info', text: `Debug: ${CIRCLE_TYPE_NAMES[site.type]} ${site.id + 1} of ${sites.length}, in the ${BAND_NAMES[site.band]}.`, x: site.x, z: site.z, look: true });
 }

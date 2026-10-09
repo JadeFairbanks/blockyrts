@@ -439,8 +439,8 @@ export interface DebugPlaceOrder {
   z: number;
 }
 
-/** The debugger's other buttons (debug/god.ts): every unit to its top rank, all healed, the monsters round a point cleared, the Elf kingdom shown. */
-export const DebugTool = { MaxRank: 0, HealAll: 1, ClearFoes: 2, ElfKingdom: 3 } as const;
+/** The debugger's other buttons (debug/god.ts): every unit to its top rank, all healed, the monsters round a point cleared, the Elf kingdom shown, the stone circles shown one by one (circles/act.ts). */
+export const DebugTool = { MaxRank: 0, HealAll: 1, ClearFoes: 2, ElfKingdom: 3, StoneCircle: 4 } as const;
 export type DebugTool = (typeof DebugTool)[keyof typeof DebugTool];
 
 /** Debug: one of the debugger's buttons (DebugTool), at a point (wu) where it needs one. */
@@ -882,7 +882,7 @@ export function validateOrder(o: Order): void {
       if (o.what < 0 || o.what > 0xffff) throw new Error('bad godmode placement');
       return;
     case 'debugTool':
-      if (o.tool < DebugTool.MaxRank || o.tool > DebugTool.ElfKingdom) throw new Error('bad debug tool');
+      if (o.tool < DebugTool.MaxRank || o.tool > DebugTool.StoneCircle) throw new Error('bad debug tool');
       return;
     case 'debugKill':
       if (o.units.length > 256) throw new Error('kill at most 256 units at once');

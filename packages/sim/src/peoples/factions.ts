@@ -9,6 +9,8 @@
 // caravan. Peoples are placed in peaceful games too: they are not monsters.
 
 import { buildingCentre } from '../buildings/lights.ts';
+import { CLEARING_M } from '../circles/data.ts';
+import { circleNear } from '../circles/place.ts';
 import { cos16, floorDiv, isqrt, length2d, sin16, TRIG_ONE, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { WALKER } from '../nav/grid.ts';
 import { hash32 } from '../rng.ts';
@@ -293,6 +295,8 @@ export function buildFaction(state: SimState, f: Faction): void {
 /** Whether a faction may stand round a middle: standable, away from the players, and apart from other factions and goblin villages. */
 export function roomFor(state: SimState, x: number, z: number, keepAway = KEEP_AWAY_WU): boolean {
   if (!state.nav.standable(floorDiv(x, COL), floorDiv(z, COL), WALKER)) return false;
+  // No village in a stone circle's clearing (Patch 5).
+  if (circleNear(state.world.layout, x, z, CLEARING_M)) return false;
   const e = state.entities;
   for (let i = 0; i < e.count; i++) if (e.owner[i]! < state.players.length && length2d(e.x[i]! - x, e.z[i]! - z) < keepAway) return false;
   for (const b of state.buildings.list) {
