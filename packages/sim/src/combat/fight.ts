@@ -500,6 +500,12 @@ export function fightStep(state: SimState, i: number): boolean {
     leashed = true;
   }
   if (t >= 0 && gap(state, i, t) > acquire + LEASH_WU) t = -1;
+  // Held on a target it cannot get at (a zombie chewing the far side of a wall), it turns on whatever is biting it from within reach.
+  if (t >= 0 && !hold && !rangedOf(state, i) && state.step - e.hurtAt[i]! < 100 && e.attacker[i] !== e.id[t]) {
+    const a = e.indexOf(e.attacker[i]!);
+    const w = meleeOf(state, i);
+    if (a >= 0 && validTarget(state, i, a) && canHarm(state, i, a) && canReach(state, i, a, w) && !canReach(state, i, t, w)) t = a;
+  }
   if (t < 0) {
     if (e.target[i] !== 0) disengage(state, i);
     // Walking back from a leashed chase, it takes no new target until it is halfway home.

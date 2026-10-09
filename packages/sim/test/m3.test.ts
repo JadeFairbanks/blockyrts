@@ -184,13 +184,13 @@ describe('night 0', () => {
     expect(clockAt(s.step).period).toBe(Period.Dawn);
     expect(s.over).toBe(0);
     expect(bigHouse(s)!.hp).toBe(1200);
-    // Cudgels are too short to stab over the fence (a polearm's 2 m does): a zombie chews through a corner and the
-    // troops fight it there, so not all three come through; every worker does.
-    expect(alive(s, UnitKind.Warrior)).toBeGreaterThanOrEqual(1);
+    // Cudgels are too short to stab over the fence (a polearm's 2 m does): the night comes at the corner nearest the
+    // dark edge (Patch 5 MB-1: the waves go for the base), a zombie chews at it and the troops hold it there until the
+    // rats, the spider and the slime come over; on this seed none of the three comes through, but every worker does.
     expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): the slime comes
-    // last, for the side of the fence nearest the Big House's walls, and is still chewing at it when the sun comes up.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect([Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
+    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): a zombie is
+    // still chewing at the corner and the slime, last, at the fence when the sun comes up.
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect([Mob.Zombie, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
   });
 
   it('never ends the game while the Big House stands', () => {

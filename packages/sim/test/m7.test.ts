@@ -304,7 +304,9 @@ describe('war', () => {
     expect(empty).toBeGreaterThanOrEqual(0);
     runUntil(s, () => f.status === Status.Gone, 120 * SEC);
     expect(peopleOf(s, f.id).length).toBe(0);
-    // A worker breaks one down for its materials.
+    // A worker breaks one down for its materials. Since Patch 5 the night's waves go for the players' units out in the
+    // open (MB-1), and this one stands alone 70 m out into the night, so the night stays away for it.
+    s.peaceful = 1;
     const w = unit(s, UnitKind.Worker);
     landAt(s, w, e.x[empty]! + 2 * M, e.z[empty]!);
     const before = s.players[0]!.pool.reduce((a, b) => a + b, 0);
