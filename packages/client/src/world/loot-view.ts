@@ -78,6 +78,13 @@ export class LootView {
     for (const [id, p] of this.pieces) p.sprite.position.y = p.y + BOB_M * Math.sin(now / 450 + id);
   }
 
+  /** The icons of the loot the cursor is over (keys 'l:<id>'), for the hover outline (Patch 5, UI-5). */
+  hoverSprites(keys: ReadonlySet<string>): THREE.Sprite[] {
+    const out: THREE.Sprite[] = [];
+    for (const [id, p] of this.pieces) if (keys.has(`l:${id}`)) out.push(p.sprite);
+    return out;
+  }
+
   selectables(): Iterable<Selectable> {
     return [...this.pieces.values()].map((p) => p.sel);
   }

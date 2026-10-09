@@ -292,6 +292,8 @@ export const UNIT_FIELDS = [
    * experience a minute, a step at a time.
    */
   ['workXp', 'u32'],
+  /** 1 when a worker is on autorepair (Jade's Patch 5, UI-13; units/repairs.ts): it fixes what of its owner's is damaged within 8 m of it. */
+  ['autoRepair', 'u8'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -434,6 +436,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hungry: Uint32Array;
   declare tinker: Uint16Array;
   declare workXp: Uint32Array;
+  declare autoRepair: Uint8Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -838,7 +841,8 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'zap';
+/** 'tick': no look of its own, only the damage of a blow that lands every step (a beam), which the screen adds up for its number (Patch 5, UI-10). */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'zap';
 
 export interface HitEvent {
   look: HitLook;
@@ -853,6 +857,8 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
+  /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
+  dmg?: number;
   /** A bolt of magic ending (look 'zap', Patch 5): which shot (combat/items.ts Shot). */
   shot?: number;
 }

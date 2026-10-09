@@ -8,8 +8,8 @@ import { RESOURCES, Res } from '../economy/resources.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { engineSpec } from '../siege/data.ts';
 import {
-  BAND_STOCK_PCT, CARAVAN_GOODS, Cat, COOKED_HUNDREDTHS_PER_NUTRITION, FactionKind, ENGINE_GOODS, LEAN_PAY_PCT, LEAN_SELL_PCT, LEANS, LIVE_GOODS,
-  LIVE_VALUE_TENTHS, PAY_PCT, REFUSE, RES_VALUE_TENTHS, RESTOCK_PCT, STOCK, trinketMetal, trinketValueTenths, type StockRow,
+  BAND_SIZE_PCT, BAND_STOCK_PCT, CARAVAN_GOODS, Cat, COOKED_HUNDREDTHS_PER_NUTRITION, DAILY_TRADE_TENTHS, FactionKind, ENGINE_GOODS, GOOD_PAY_PCT, LEAN_PAY_PCT,
+  LEAN_SELL_PCT, LEANS, LIVE_GOODS, LIVE_VALUE_TENTHS, PAY_PCT, REFUSE, RES_VALUE_TENTHS, RESTOCK_PCT, STOCK, trinketMetal, trinketValueTenths, type StockRow,
 } from './data.ts';
 import type { Faction } from './types.ts';
 
@@ -73,8 +73,10 @@ export function valueTenths(good: number): number {
   return resValueTenths(good);
 }
 
-/** What a faction pays for a good, percent of its worth, or REFUSE: its people's table, more for what its lean lacks. */
+/** What a faction pays for a good, percent of its worth, or REFUSE: the good's own row if it has one (earth, stone, diamonds...), else its people's table, more for what its lean lacks. */
 export function payPct(f: Faction, good: number): number {
+  const own = GOOD_PAY_PCT[good]?.[f.people];
+  if (own !== undefined) return own;
   const pct = PAY_PCT[f.people as 0 | 1 | 2 | 3][catOf(good)]!;
   if (pct === REFUSE) return REFUSE;
   const lean = f.lean >= 0 ? LEANS[f.people as 0 | 1 | 2 | 3][f.lean] : undefined;
@@ -115,9 +117,20 @@ export function fillStock(f: Faction): void {
   }
 }
 
-/** Each dawn: the day's buying starts afresh and the stock refills 20% of full (the daily rows to full). */
+/** What a settlement trades in a day, tenths (GP-46): its kind's, grown with the band as its people are; a caravan is the same everywhere. */
+export function dailyTradeTenths(f: Faction): number {
+  const base = DAILY_TRADE_TENTHS[f.kind] ?? 0;
+  return f.kind === FactionKind.ElfCaravan ? base : floorDiv(base * (BAND_SIZE_PCT[f.band] ?? 100), 100);
+}
+
+/** What is left of today's trade with a settlement, tenths, shared by every player (GP-46). */
+export function tradeRoomTenths(f: Faction): number {
+  return Math.max(0, dailyTradeTenths(f) - f.bought);
+}
+
+/** Each dawn: the day's trading starts afresh and the stock refills 20% of full (the daily rows to full). */
 export function restock(f: Faction): void {
-  f.bought.fill(0);
+  f.bought = 0;
   const rows = stockRows(f);
   for (let k = 0; k < f.stock.length; k += 2) {
     const max = f.stockMax[k + 1]!;

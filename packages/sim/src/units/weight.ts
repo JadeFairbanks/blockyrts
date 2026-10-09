@@ -1,9 +1,12 @@
 // Carrying (Table 12; Troops and gear: weight). Gear has no weight and
 // nothing a unit wears slows it (Jade, 2026-10-03). A worker's carrying
 // limit stays only to decide when it walks back with its load: 25 lb of raw
-// materials, or more with a cart at the cart's own pace: a hand cart 150 lb
-// at 2 m/s, an ox or horse cart 600 or 400 lb behind its animal; an ox or
-// horse led without a cart carries a pack of 150 or 100 lb.
+// materials, or more with a cart at the cart's own pace: a hand cart 250 lb
+// at 2 m/s, an ox or horse cart 1000 or 700 lb behind its animal; an ox or
+// horse led without a cart carries a pack of 150 or 100 lb. Patch 5 (Jade,
+// BL-12: "make sure to balance the cart ... make ore fairly heavy and make the
+// cart hold a lot"): the carts hold more (they held 150, 600 and 400 lb), ore
+// weighs 8 lb, and a cart moves on to the next node before going home (s).
 
 import { loadCapacity, RAW_CARRY_TENTHS_LB, Res } from '../economy/resources.ts';
 import { floorDiv } from '../fixed.ts';
@@ -11,8 +14,8 @@ import { NO_CARRY, UnitKind, type SimState } from '../state.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 
-/** A hand cart's load (Table 12): 150 lb of raw materials. */
-export const HAND_CART_TENTHS_LB = 1500;
+/** A hand cart's load: 250 lb of raw materials (Table 12's 150 lb, raised in Patch 5) (s). */
+export const HAND_CART_TENTHS_LB = 2500;
 /** A hand cart is pushed at 2 m/s (Table 12). */
 export const HAND_CART_SPEED = floorDiv(2 * WU_PER_METRE, STEPS_PER_SECOND);
 
