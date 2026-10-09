@@ -4,10 +4,10 @@
 // sim's tables; the page turns file names into URLs with picture-url.ts).
 // A row with a `model` (or a `mob` whose model it borrows) gets its
 // portrait without being listed here, so new creatures and units have
-// pictures as soon as the kit draws them. A row with a model and no kit
-// picture (a lair, a people's building, a tree or rock) names its model
-// instead (entryModel), and the page draws that model once (model-view.ts):
-// pages never get a picture made for them.
+// pictures as soon as the kit draws them. A row with a model names it
+// (entryModel), and the page shows that model live (model-view.ts) in place
+// of a portrait or of no picture; an icon stays: pages never get a picture
+// made for them.
 import type { Entry, SimModules } from '@blockyrts/balance';
 import { valueAt } from '@blockyrts/balance';
 import { MOBS, RESEARCH_PRODUCT, SPELLS, Stage, Troop } from '@blockyrts/sim';
@@ -103,9 +103,9 @@ function propModelOf(kind: number): string {
 }
 
 /**
- * The catalogue model a page draws when it has no kit picture: its row's
- * own `model`, the model of the `mob` it stands for, or a prop's model; ''
- * for none. The page draws it once, still (model-view.ts).
+ * The catalogue model a page shows: its row's own `model`, the model of
+ * the `mob` it stands for, or a prop's model; '' for none. The page shows
+ * it live (model-view.ts) unless the page's picture is an icon.
  */
 export function entryModel(entry: Entry, mods: SimModules): string {
   const rec = valueAt(mods[entry.module] ?? {}, entry.path) as Record<string, unknown> | undefined;

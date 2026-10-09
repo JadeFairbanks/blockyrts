@@ -3310,25 +3310,56 @@ for players.
 8. Labels read as plain words: "Body width 0.8 m", not "Half width" in world
    units, and a keeper's "Sounds the alarm every" at least 5 s, at most 20 s,
    not "Alarm s" 1 and 2 (`plain-words.ts`).
-9. A page with no icon or portrait (Elf hall, Barrow, Intact trilithon, Pine,
-   Boulder) draws the thing's own model once, at the top of the page. Some
-   guides show a model too: a torch for Day and night, an Elf hall for
-   Playing together, a Dwarf city gate for the peoples, a signpost for the
-   world and a trilithon for stone circles.
+9. Patch 7: every thing the game draws shows its model live (see "How a
+   tester checks How to Play's sheets and models (Patch 7)" below).
 10. The patch notes: the newest update shows the game's version and the day
     the site was built for it (left blank in a dev build), with a link to
     each of its four categories under it in the sidebar. The Quests and Quest
     menu notes carry screenshots of a leader's offer and the quest menu.
 
-Pictures in How to Play: a page about a thing shows its kit icon or
-portrait, or draws its model; nothing gets a picture made for it.
-Screenshots of the game are only for the guides and the patch notes, taken
-by `pnpm --filter @blockyrts/client shots [name ...]`
-(`packages/client/scripts/make-shots.mjs`, after
+Pictures in How to Play (Patch 7): a thing the game draws shows its model,
+live; a thing that is 2D in the game too (an icon, a map mark) keeps that
+picture; nothing gets a picture made for it. Screenshots of the game are
+only for the patch notes, taken by `pnpm --filter @blockyrts/client shots
+[name ...]` (`packages/client/scripts/make-shots.mjs`, after
 `pnpm --filter @blockyrts/tools models:build`). When an update changes
 something so that a screenshot no longer shows the game as it is, the
-screenshot is removed, not retaken, and its guide names the thing's model
-(`model:<id>`) or kit picture instead.
+screenshot is removed, not retaken.
+
+## How a tester checks How to Play's sheets and models (Patch 7)
+
+1. One sheet per thing. Search "Fae": one Fae Guardian under Monsters (her
+   form aloft is a part of her sheet, "Second form: aloft, once attacked"),
+   and the guides. Morvath has one sheet with his form aloft on it. No
+   section has two pages of one name: the skeletons' arrows are part of the
+   Arrow page, a Boneyard Circle's dead tree part of the Dead tree page ("In a Boneyard
+   Circle").
+2. No sheet for several monsters together. The Bog guardian's sheet has
+   "Keeping its bog", "What it drops" and "Where it lives"; the Fae
+   Guardian's has "Keeping her crystal" and "What she drops"; the Great
+   White Ape, Silenus, the satyrs, the Sabretooth tiger and the Lich each
+   have "At its stone circle"; each late monster has its "Abilities"
+   (the Hellhound's breath, the Void witch's hex and blink, Morvath's ruin,
+   staff and wings); the Ash golem and Mana wraith have "Guarding mana
+   crystals". The same goes for the rest of the book: the Tavern's meals are
+   on the Tavern, the Dreadnought's training on the Dreadnought, the
+   Headless God Idol's use on its item page. Rules about everything (spawning,
+   threat, fog nights, flying) stay on their rules pages. Where a rule goes
+   is `packages/client/src/ui/how-to-play/sheets.ts`.
+3. Models, live. A monster, animal, person, unit, lair, people's building,
+   tree or rock shows its model at the top of its page in place of the old
+   portrait: playing its idle animation, the whole body in view, and turning
+   round when dragged left or right. The section cards and the sidebar show
+   the same models, small: still, moving while the pointer is on them, and
+   a card's model turns when dragged too. The front page shows the Citadel; the guides show
+   a model where they had screenshots (the Big House, the Citadel, the Barn,
+   the Barracks, a stone tower, a Halfling, a worker). Icons stay as they
+   are: buildings, goods, gear, spells and research keep their icons.
+4. Cheap: a picture out of view is not drawn and its model is not loaded
+   until it comes into view; a small picture moves only under the pointer;
+   a model with no idle animation (a lair, a building) is drawn once and
+   again only while it is dragged. A model that cannot be drawn shows its
+   old 2D picture instead.
 
 ## How a tester checks Patch 5's world
 
