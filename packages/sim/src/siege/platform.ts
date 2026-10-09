@@ -94,7 +94,7 @@ export function platformProblem(state: SimState, b: Building, product: number, u
   if (!workshop) return 'Needs an Artillery workshop.';
   const queued = platformQueued(b);
   if (queued) return upgradeOf(queued.product - ENGINE_PRODUCT) ? `The ${lower(name || 'engine')} is being upgraded.` : 'An engine is already being built for the engine platform.';
-  if (!up) return on >= 0 ? `${article(name)} ${lower(name)} already stands on the engine platform. Upgrade it instead.` : '';
+  if (!up) return on >= 0 ? `The engine platform already holds ${article(name).toLowerCase()} ${lower(name)}.` : '';
   if (on < 0) return 'There is no engine on the engine platform to upgrade.';
   if (e.mob[on] !== up.from) return `The engine platform holds ${article(name).toLowerCase()} ${lower(name)}.`;
   return '';

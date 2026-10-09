@@ -92,7 +92,7 @@ describe('one picture per thing', () => {
 
   it('draws every command, each spell of ours and Upgrade equipment', () => {
     const actions = [
-      'attack', 'patrol', 'move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'port',
+      'attack', 'patrol', 'move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'buildDefense',
       'unload', 'rally', 'craft', 'cancel', 'cancelBuild', 'back', 'hunt', 'eat', 'mageRank', 'retrain', 'hitch',
       'cart', 'deeper', 'shallower', 'tunnel', 'markArea', 'trainWorker', 'trainSupportMage', 'trainBattleMage',
     ];
@@ -124,7 +124,6 @@ describe('the doing-now marker', () => {
     expect(orderAction({ t: 'dropoff' } as never, 'worker')).toBe('gather');
     expect(orderAction({ t: 'kitUp', line: Line.Armour } as never, 'warrior')).toBe('equip');
     expect(orderAction({ t: 'build' } as never, 'worker')).toBe('build');
-    expect(orderAction({ t: 'port' } as never, 'engine:7')).toBe('port');
     expect(orderAction({ t: 'hold' } as never, 'warrior')).toBeNull();
     expect(orderAction({ t: 'train' } as never, 'mage:battle')).toBe('mageRank');
     // A worker's train order (from a save before Patch 3) marks nothing; an artillery crewman retraining marks Retrain.

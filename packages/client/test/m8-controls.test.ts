@@ -117,23 +117,17 @@ describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
 });
 
 describe('engines and cannons', () => {
-  it("has Attack, Move, Hitch and Port (Jade's Patch 2 cuts Stop and Hold), and Port takes it up into a Citadel", () => {
-    const { c, sent } = harness([cannon], cannon.typeKey);
-    const card = c.card();
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Hitch', 'Port']);
-    expect(card[3]!).toMatchObject({ action: 'port', key: 'KeyE', enabled: true });
-    card[3]!.run({ shift: false, ctrl: false });
-    expect(c.targeting?.command).toBe('port');
-    c.confirmTarget(citadel, null);
-    expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
+  it("has Attack, Move and Hitch (Jade's Patch 2 cuts Stop and Hold; Patch 5 the cannon ports' Port)", () => {
+    const { c } = harness([cannon], cannon.typeKey);
+    expect(c.card().map((e) => e.face)).toEqual(['Attack', 'Move', 'Hitch']);
   });
 
-  it('hitches a horse, and goes up into a Citadel port, with right clicks', () => {
+  it('hitches a horse with a right click, and never goes into the Citadel (Patch 5)', () => {
     const { c, sent } = harness([cannon], cannon.typeKey);
     c.smart(horse, null);
     expect(sent.at(-1)).toMatchObject({ kind: 'hitch', units: [7], target: 8 });
     c.smart(citadel, null);
-    expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
+    expect(sent.at(-1)?.kind).not.toBe('enter');
   });
 
   it('artillery crewmen right clicking it crew it (Patch 2: warriors only follow it); workers repair it', () => {

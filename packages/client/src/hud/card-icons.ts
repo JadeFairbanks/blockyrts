@@ -28,7 +28,6 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   dig: one('icon_cmd_dig'),
   prospect: one('icon_cmd_prospect'),
   build: one('icon_cmd_build_basic'),
-  port: one('icon_cmd_enter'),
   unload: one('icon_cmd_unload_all'),
   rally: one('icon_cmd_rally'),
   craft: one('icon_cmd_craft'),
@@ -42,6 +41,8 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   // Patch 2: the artillery crewman's Crew order shows the engine it goes to; its training button is its own bust.
   crew: one('icon_train_cannon'),
   trainCrewman: one(troopIconFile(Troop.Crew, 0)),
+  // Patch 5: the Citadel's Build defense menu.
+  buildDefense: one('icon_train_cannon'),
   // Patch 3: Retrain shows what the crewman becomes.
   retrain: one(WORKER_ICON, 'up'),
   cart: one('icon_hand_cart'),
@@ -108,7 +109,7 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product === Product.Worker) return one(WORKER_ICON);
   if (product === Product.SupportMage) return one(SUPPORT_MAGE_ICON);
   if (product === Product.BattleMage) return one(BATTLE_MAGE_ICON);
-  if (product === Product.Crewman) return one(troopIconFile(Troop.Crew, 0));
+  if (product === Product.Crewman || product === Product.GarrisonCrewman) return one(troopIconFile(Troop.Crew, 0));
   const t = troopOf(product);
   if (t) return one(troopIconFile(t.troop, t.w));
   const m = mageOf(product);
@@ -116,7 +117,11 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product < RESEARCH_PRODUCT) return undefined;
   const ps = productSpec(product);
   if (ps.research !== undefined) return one(RESEARCH_ICONS[ps.research] ?? 'icon_scriptorium');
-  if (ps.engine !== undefined) return one(modelIconFile(engineSpec(ps.engine).model));
+  if (ps.engine !== undefined) {
+    // A fixed engine shows the engine it is built from (Patch 5); an upgrade has the arrow.
+    const spec = engineSpec(ps.engine);
+    return one(modelIconFile(engineSpec(spec.mobile >= 0 ? spec.mobile : spec.id).model), ps.upgrade !== undefined ? 'up' : undefined);
+  }
   if (ps.slaughter !== undefined) return one(modelIconFile(speciesSpec(ps.slaughter).model));
   if (ps.recipe !== undefined) {
     const out = recipeSpec(ps.recipe).outputs[0]?.[0];

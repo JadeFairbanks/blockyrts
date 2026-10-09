@@ -539,8 +539,10 @@ export function fleeFrom(state: SimState, i: number, ax: number, az: number): vo
 // ----- the orders -----
 
 /** Whether an order keeps a unit inside the building it is in. */
-function keepsInside(o: UnitOrder | undefined, inside: number): boolean {
+function keepsInside(state: SimState, o: UnitOrder | undefined, inside: number): boolean {
   if (!o || inside === 0) return false;
+  // A garrison crewman stays up on the Citadel's platform with his fixed engine (Patch 5).
+  if (o.t === 'crew') return state.entities.inside[state.entities.indexOf(o.id)] === inside;
   return (o.t === 'enter' || o.t === 'job' || o.t === 'train') && o.b === inside;
 }
 
@@ -572,7 +574,8 @@ export function stopUnit(state: SimState, i: number): void {
   e.act[i] = Act.Start;
   e.timer[i] = 0;
   resetWalk(state, i);
-  if (e.inside[i] !== 0) leaveBuilding(state, i);
+  // A fixed engine never comes down from its Citadel's platform (Patch 5).
+  if (e.inside[i] !== 0 && e.kind[i] !== UnitKind.Engine) leaveBuilding(state, i);
 }
 
 /** A new order (not queued) or Stop breaks off a spell being cast (nothing is paid until it lands) or a Beam being held. */
@@ -1437,13 +1440,13 @@ export function runUnit(state: SimState, i: number): void {
       else if (guard === 0) lootIdle(state, i);
       return;
     }
-    if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(o, e.inside[i]!)) leaveBuilding(state, i);
+    if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(state, o, e.inside[i]!)) leaveBuilding(state, i);
     if (!runOrder(state, i, o)) return;
     // Done: on to the next order.
     if (e.queue[i]![0] === o) e.queue[i]!.shift();
     e.act[i] = Act.Start;
     e.timer[i] = 0;
     resetWalk(state, i);
-    if (e.queue[i]!.length > 0 && e.inside[i] !== 0 && !keepsInside(e.queue[i]![0], e.inside[i]!)) leaveBuilding(state, i);
+    if (e.queue[i]!.length > 0 && e.inside[i] !== 0 && !keepsInside(state, e.queue[i]![0], e.inside[i]!)) leaveBuilding(state, i);
   }
 }

@@ -527,6 +527,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (!b) break;
         for (const j of unitsInside(state, b.id)) {
           if (o.unit !== 0 && e.id[j] !== o.unit) continue;
+          // The fixed engine and its crew stay on the Citadel's platform (Patch 5).
+          if (e.kind[j] === UnitKind.Engine || platformCrew(state, j)) continue;
           stopUnit(state, j);
         }
         break;

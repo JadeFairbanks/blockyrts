@@ -141,7 +141,7 @@ export function addDebugTools(shell: GameShell, world: WorldView, PLAYER: number
     threat(DebugThreat.MineKit);
     shell.message('Debug: a Mineshaft and a Storehouse placed in the middle of the view.');
   });
-  add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (tier 4) with its 4 cannon ports: select a cannon and right click the Citadel to haul it up into a port.', () => {
+  add('dbg-citadel', 'Citadel', 'Debug: Citadel', 'Makes your main base a finished Citadel (tier 4) with its engine platform: its Build defense menu builds a fixed engine up there (with an Artillery workshop).', () => {
     threat(DebugThreat.Citadel);
     shell.message('Debug: your main base is a Citadel now.');
   });
