@@ -20,7 +20,8 @@ export type PauseReason = (typeof PauseReason)[keyof typeof PauseReason];
 export const HostChoice = { Wait: 0, CarryOn: 1, SaveAndQuit: 2 } as const;
 export type HostChoice = (typeof HostChoice)[keyof typeof HostChoice];
 
-export const CloseReason = { SavedAndQuit: 0, Abandoned: 1, ServerShutdown: 2 } as const;
+/** Why a room closed for a player. Kicked: the host removed this player from the lobby (Patch 5); the room goes on without them. */
+export const CloseReason = { SavedAndQuit: 0, Abandoned: 1, ServerShutdown: 2, Kicked: 3 } as const;
 export type CloseReason = (typeof CloseReason)[keyof typeof CloseReason];
 
 /** Frame flags. Leave: the relay's marker that this slot plays no more after this step (eliminated or departed). */
@@ -50,8 +51,8 @@ export interface PlayerInfo {
 export type ClientMessage =
   /** First message on a socket. `token` is a session token for clients that cannot send the cookie; '' otherwise. */
   | { type: 'hello'; version: number; token: string }
-  /** Host a new game (seed, or a random one when null) or continue a saved one (saveId). */
-  | { type: 'createRoom'; seed: number | null; saveId: string }
+  /** Host a new game (seed, or a random one when null) or continue a saved one (saveId). A private game is listed under the open games but joined only by its code (Patch 5). */
+  | { type: 'createRoom'; seed: number | null; saveId: string; private: boolean }
   /** Join by code. On rejoin: the token from RoomState, and the step the client's state is at (-1 if it has none). */
   | { type: 'joinRoom'; code: string; rejoinToken: string; haveStep: number }
   | { type: 'setColour'; colour: number }
@@ -70,7 +71,9 @@ export type ClientMessage =
   /** Re-identifies this socket after the player made an account mid-match. */
   | { type: 'authenticate'; token: string }
   | { type: 'chat'; text: string }
-  | { type: 'mapPing'; x: number; z: number };
+  | { type: 'mapPing'; x: number; z: number }
+  /** The host removes a player from the lobby; they cannot come back to this room (Patch 5). */
+  | { type: 'kick'; slot: number };
 
 const C = {
   hello: 1,
@@ -89,6 +92,7 @@ const C = {
   authenticate: 14,
   chat: 15,
   mapPing: 16,
+  kick: 17,
 } as const;
 
 export function encodeClient(m: ClientMessage): Uint8Array {
@@ -99,7 +103,7 @@ export function encodeClient(m: ClientMessage): Uint8Array {
       w.u16(m.version).str(m.token);
       break;
     case 'createRoom':
-      w.bool(m.seed !== null).u32(m.seed ?? 0).str(m.saveId);
+      w.bool(m.seed !== null).u32(m.seed ?? 0).str(m.saveId).bool(m.private);
       break;
     case 'joinRoom':
       w.str(m.code).str(m.rejoinToken).varint(m.haveStep);
@@ -140,6 +144,9 @@ export function encodeClient(m: ClientMessage): Uint8Array {
     case 'mapPing':
       w.i32(m.x).i32(m.z);
       break;
+    case 'kick':
+      w.u8(m.slot);
+      break;
   }
   return w.finish();
 }
@@ -160,7 +167,7 @@ export function decodeClient(bytes: Uint8Array): ClientMessage {
     case C.createRoom: {
       const hasSeed = r.bool();
       const seed = r.u32();
-      m = { type: 'createRoom', seed: hasSeed ? seed : null, saveId: r.str(64) };
+      m = { type: 'createRoom', seed: hasSeed ? seed : null, saveId: r.str(64), private: r.bool() };
       break;
     }
     case C.joinRoom:
@@ -205,6 +212,9 @@ export function decodeClient(bytes: Uint8Array): ClientMessage {
     case C.mapPing:
       m = { type: 'mapPing', x: r.i32(), z: r.i32() };
       break;
+    case C.kick:
+      m = { type: 'kick', slot: r.u8() };
+      break;
     default:
       throw new WireError(`unknown client message ${tag}`);
   }
@@ -222,6 +232,8 @@ export interface RoomStateMessage {
   seed: number;
   /** True when the room continues a saved game: its slots are the save's players. */
   fromSave: boolean;
+  /** A private game: listed under the open games, joined only by its code (Patch 5). */
+  private: boolean;
   hostSlot: number;
   /** This client's slot, and the token that lets it rejoin after losing the connection. */
   yourSlot: number;
@@ -230,7 +242,8 @@ export interface RoomStateMessage {
 }
 
 export type ServerMessage =
-  | { type: 'welcome'; version: number; name: string; accountId: string; guest: boolean }
+  /** `debugger`: this account may open the debugger (Patch 5: the server decides). */
+  | { type: 'welcome'; version: number; name: string; accountId: string; guest: boolean; debugger: boolean }
   /** A refused request. `code` is a stable machine-readable word; `message` is for people. */
   | { type: 'error'; code: string; message: string }
   | RoomStateMessage
@@ -330,13 +343,13 @@ export function encodeServer(m: ServerMessage): Uint8Array {
   w.u8(S[m.type]);
   switch (m.type) {
     case 'welcome':
-      w.u16(m.version).str(m.name).str(m.accountId).bool(m.guest);
+      w.u16(m.version).str(m.name).str(m.accountId).bool(m.guest).bool(m.debugger);
       break;
     case 'error':
       w.str(m.code).str(m.message);
       break;
     case 'roomState':
-      w.str(m.code).str(m.matchId).u8(m.phase).u32(m.seed).bool(m.fromSave).u8(m.hostSlot);
+      w.str(m.code).str(m.matchId).u8(m.phase).u32(m.seed).bool(m.fromSave).bool(m.private).u8(m.hostSlot);
       w.u8(m.yourSlot).str(m.rejoinToken).u8(m.players.length);
       for (const p of m.players) w.u8(p.slot).str(p.name).u8(p.colour).bool(p.ready).u8(p.presence).bool(p.guest).str(p.accountId);
       break;
@@ -396,7 +409,7 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
   let m: ServerMessage;
   switch (tag) {
     case S.welcome:
-      m = { type: 'welcome', version: r.u16(), name: r.str(), accountId: r.str(), guest: r.bool() };
+      m = { type: 'welcome', version: r.u16(), name: r.str(), accountId: r.str(), guest: r.bool(), debugger: r.bool() };
       break;
     case S.error:
       m = { type: 'error', code: r.str(), message: r.str() };
@@ -407,6 +420,7 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
       const phase = enumValue<RoomPhase>(r.u8(), 2, 'phase');
       const seed = r.u32();
       const fromSave = r.bool();
+      const isPrivate = r.bool();
       const hostSlot = r.u8();
       const yourSlot = r.u8();
       const rejoinToken = r.str();
@@ -423,7 +437,7 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
           accountId: r.str(),
         });
       }
-      m = { type: 'roomState', code, matchId, phase, seed, fromSave, hostSlot, yourSlot, rejoinToken, players };
+      m = { type: 'roomState', code, matchId, phase, seed, fromSave, private: isPrivate, hostSlot, yourSlot, rejoinToken, players };
       break;
     }
     case S.gameStart:
@@ -480,7 +494,7 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
       m = { type: 'ping', serverTime: r.u32() };
       break;
     case S.roomClosed:
-      m = { type: 'roomClosed', reason: enumValue<CloseReason>(r.u8(), 2, 'close reason') };
+      m = { type: 'roomClosed', reason: enumValue<CloseReason>(r.u8(), 3, 'close reason') };
       break;
     case S.chat:
       m = { type: 'chat', slot: r.u8(), name: r.str(), text: r.str() };

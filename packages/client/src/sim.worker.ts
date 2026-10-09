@@ -364,6 +364,7 @@ function postInfo(s: SimState): void {
       starveWorkers: me.starveWorkers > 0,
       starveTroops: me.starveTroops > 0,
       fog: fogged(s),
+      god: me.god === 1,
       ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
       marks: threatMarks(s, PLAYER),
       spells,

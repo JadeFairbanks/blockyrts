@@ -30,6 +30,8 @@ export const ApiRoutes = {
   save: (saveId: string): string => `/api/saves/${encodeURIComponent(saveId)}`,
   /** GET -> RoomInfo: what an invite link /join/<code> resolves to. */
   room: (code: string): string => `/api/rooms/${encodeURIComponent(code)}`,
+  /** GET -> { rooms: OpenRoom[] }: the lobbies waiting for players, public first (Patch 5). */
+  rooms: '/api/rooms',
   health: '/healthz',
 } as const;
 
@@ -44,6 +46,8 @@ export interface SessionResponse {
   account: AccountInfo | null;
   /** The in-game name: the username, or "Guest 4821". */
   name: string;
+  /** This account may open the debugger (Patch 5: only the admin accounts; the server decides). */
+  debugger: boolean;
   /**
    * The session token (also set as the httpOnly cookie). A browser presents it
    * on an open relay socket with the authenticate message after a guest makes
@@ -56,6 +60,8 @@ export interface MeResponse {
   account: AccountInfo | null;
   name: string | null;
   guest: boolean;
+  /** This account may open the debugger (Patch 5). */
+  debugger: boolean;
 }
 
 export interface SavePlayerSummary {
@@ -76,6 +82,12 @@ export interface SaveSummary {
   sizeBytes: number;
   /** ISO 8601; the Load screen's "last played". */
   createdAt: string;
+  /**
+   * From an older version of the game than the live one (Patch 5): its file
+   * is gone from the server, and the Load screen shows it greyed out until
+   * its owner acknowledges it, which deletes it for good.
+   */
+  outdated: boolean;
 }
 
 export interface RoomInfo {
@@ -85,6 +97,19 @@ export interface RoomInfo {
   players: number;
   /** Open slots a newcomer could take (0 once running: only the match's own players may rejoin). */
   openSlots: number;
+  fromSave: boolean;
+}
+
+/** A lobby in the Join game list (Patch 5): public games first, then private ones, whose code is not shown. */
+export interface OpenRoom {
+  /** The join code, or '' for a private game (a player needs the code from its host). */
+  code: string;
+  hostName: string;
+  players: number;
+  /** Places a newcomer could take. */
+  openSlots: number;
+  private: boolean;
+  /** A continued saved game: only its own players' places are open. */
   fromSave: boolean;
 }
 
@@ -110,6 +135,8 @@ export const ApiErrorCode = {
   /** A guest tried to save: the client offers to make an account (Accounts and guests). */
   GuestMustRegister: 'guest_must_register',
   BadSave: 'bad_save',
+  /** A save from an older version of the game than the live one (Patch 5). */
+  SaveOutdated: 'save_outdated',
   SaveTooLarge: 'save_too_large',
   QuotaExceeded: 'quota_exceeded',
   RateLimited: 'rate_limited',
