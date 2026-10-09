@@ -1326,15 +1326,15 @@ export class GameShell {
 
   // ---- Players ----
 
-  /** Another player's chat line (only the panel, never a bubble). */
-  chatLine(name: string, text: string): void {
-    this.messages.addPlayer(name, text);
+  /** A player's chat line (only the panel, never a bubble); another player's counts as unread while the panel is collapsed. */
+  chatLine(name: string, text: string, other = true): void {
+    this.messages.addPlayer(name, text, other);
   }
 
   /** A player pinged a spot (metres): it flashes on the minimap and in the view, and the panel says who. */
-  pinged(name: string, x: number, z: number): void {
+  pinged(name: string, x: number, z: number, other = false): void {
     cue('ping');
-    this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z } });
+    this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z }, other });
     this.visuals.orderMarker(new THREE.Vector3(x, this.extras.heightAt(x, z), z), 'target');
     this.urgent.unshift({ x, z, text: `${name} pinged the map.` });
     this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);

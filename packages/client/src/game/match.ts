@@ -512,10 +512,10 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         shell.message('The game went out of step between players; it is being reloaded from one copy.', 'alert');
         break;
       case 'chat':
-        shell.chatLine(m.name, m.text);
+        shell.chatLine(m.name, m.text, m.slot !== room?.yourSlot);
         break;
       case 'mapPing':
-        shell.pinged(slotName(m.slot), m.x / WU_PER_METRE, m.z / WU_PER_METRE);
+        shell.pinged(slotName(m.slot), m.x / WU_PER_METRE, m.z / WU_PER_METRE, m.slot !== room?.yourSlot);
         break;
       case 'roomClosed':
         leaving = true;
