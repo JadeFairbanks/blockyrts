@@ -43,6 +43,7 @@ import { OrderKind, UnitKind, type SimState } from '../state.ts';
 import { giveOrder, stopUnit } from '../units/behaviour.ts';
 import { ROBE_KITS, TOP_MAGE_TIER, WAND_KITS } from '../units/kits.ts';
 import { answerKinds, askForever, asksOf, closeAsksBy } from '../units/questions.ts';
+import { bogGuarded } from '../world/generate.ts';
 import { metresToColumns } from '../world/layout.ts';
 import { PropKind, propInfo, PropShape } from '../world/props.ts';
 import { colKey } from '../world/world.ts';
@@ -203,9 +204,9 @@ function addKeeper(state: SimState, kind: KeeperKind, mob: Mob, foe: number, x: 
 }
 
 /**
- * Every 2 s: each bog and large mana crystal one of the players' units has
- * come within 60 m of for the first time gets its keeper (none in a
- * peaceful game), and is kept from then on.
+ * Every 2 s: each bog over 18 m2 (bogGuarded) and large mana crystal one
+ * of the players' units has come within 60 m of for the first time gets its
+ * keeper (none in a peaceful game), and is kept from then on.
  */
 function wakeKeepers(state: SimState): void {
   const e = state.entities;
@@ -224,7 +225,7 @@ function wakeKeepers(state: SimState): void {
     looked.add(tile);
     for (const bog of gen.bogsNear(gx, gz, reach)) {
       const key = colKey(bog.x, bog.z);
-      if (guarded.has(key)) continue;
+      if (guarded.has(key) || !bogGuarded(bog)) continue;
       guarded.add(key);
       addKeeper(state, KeeperKind.Bog, Mob.BogGuardian, o, wuOf(bog.x), wuOf(bog.z), standAt(state, bog.x, bog.z), bog.r * WU_PER_COLUMN);
     }
@@ -357,15 +358,23 @@ function putPleas(state: SimState, i: number, k: Keeper): void {
   }
 }
 
+/** The Fae Guardian flies high (out of a polearm's reach, and faster) or comes back down to her crystal. */
+function fly(state: SimState, i: number, high: boolean): void {
+  const e = state.entities;
+  const mob = high ? Mob.FaeGuardianAloft : Mob.FaeGuardian;
+  if (e.mob[i] === mob) return;
+  e.mob[i] = mob;
+  e.speed[i] = mobSpec(mob).speed;
+}
+
 /** She goes for a thief, or (wrathful) for everyone, and is riled for good. */
 function rile(state: SimState, i: number, k: Keeper, t: number, wrath: boolean): void {
   const e = state.entities;
+  // MF-3: "When aggroed, it flies higher, only able to be hit by ranged": for good in her wrath, while she goes for a thief otherwise.
+  fly(state, i, true);
   if (wrath) {
     setMode(state, k, KeeperMode.Wrath);
     k.unit = 0;
-    // MF-3: high, fast and out of a polearm's reach for good.
-    e.mob[i] = Mob.FaeGuardianAloft;
-    e.speed[i] = mobSpec(Mob.FaeGuardianAloft).speed;
     sayForeign(state, i, pick(state, k, FAE_LINES.wrath, 4), true);
     k.next = within(state, k, KEEPERS.fae.fightLineS, 5);
   } else {
@@ -499,6 +508,7 @@ function tendFae(state: SimState, i: number, k: Keeper, second: boolean): void {
         return;
       }
       setMode(state, k, KeeperMode.Calm);
+      fly(state, i, false);
       k.unit = 0;
       e.target[i] = 0;
       return;
@@ -714,6 +724,7 @@ export function keeperLoot(state: SimState, mob: number): Rolled | null {
     out.items.push([Res.Silver, roll(l.silverMin, l.silverMax)]);
     const gold = roll(0, l.goldMax);
     if (gold > 0) out.items.push([Res.Gold, gold]);
+    out.items.push([Res.BogPear, 1]);
     for (let n = roll(l.weaponsMin, l.weaponsMax); n > 0; n--) out.items.push(...necromancerHooks.gear(state, roll(l.weaponLow, l.weaponHigh), false));
     if (rng.nextInt(1000) < l.gemPm) out.items.push([GEMS[rng.nextInt(GEMS.length)]!, 1]);
     return out;

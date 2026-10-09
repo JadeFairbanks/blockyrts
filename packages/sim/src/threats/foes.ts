@@ -21,6 +21,8 @@ import { peoplesHooks } from '../peoples/hooks.ts';
 import { runWild } from './wanderers.ts';
 import { runGuardian } from './guardians.ts';
 import { runKeeper } from './keepers.ts';
+import { runEncounter } from './encounters.ts';
+import { runUnleashed } from './headless.ts';
 
 const M = WU_PER_METRE;
 /** A foe that was hurt goes for its attacker for this long. */
@@ -301,6 +303,8 @@ function runFoe(state: SimState, i: number, spec: MobSpec): void {
   else if (role === Role.Wild) runWild(state, i, spec);
   else if (role === Role.Guardian) runGuardian(state, i, spec);
   else if (role === Role.Keeper) runKeeper(state, i, spec);
+  else if (role === Role.Encounter) runEncounter(state, i, spec);
+  else if (role === Role.Unleashed) runUnleashed(state, i, spec);
 }
 
 export function installFoes(): void {

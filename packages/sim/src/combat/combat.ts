@@ -57,6 +57,9 @@ export function hostile(state: SimState, a: number, b: number): boolean {
   const sa = sideOf(state, a);
   const sb = sideOf(state, b);
   const e = state.entities;
+  // A stone circle's keeper at peace with a player (Jade's Patch 5: the Great White Ape and Silenus' band, until wronged).
+  if (sa === Side.Monsters && sb === Side.Players && e.role[a] === Role.Encounter) return !peaceHooks.encounter(state, a, e.owner[b]!);
+  if (sb === Side.Monsters && sa === Side.Players && e.role[b] === Role.Encounter) return !peaceHooks.encounter(state, b, e.owner[a]!);
   if (sa === Side.Wild || sb === Side.Wild) {
     const [w, o] = sa === Side.Wild ? [a, b] : [b, a];
     const so = sideOf(state, o);
@@ -72,6 +75,9 @@ export function hostile(state: SimState, a: number, b: number): boolean {
   }
   return sa !== Side.None && sb !== Side.None && sa !== sb;
 }
+
+/** Jade's Patch 5 stone circles: whether a circle's keeper is at peace with a player (threats/encounters.ts sets it). */
+export const peaceHooks: { encounter: (state: SimState, i: number, player: number) => boolean } = { encounter: () => false };
 
 /** Whether a shot from a side (and a people's faction, and a player) may hit a unit: never its own side, a people's only at war. */
 export function shotMayHit(state: SimState, side: number, faction: number, owner: number, j: number): boolean {
@@ -612,7 +618,9 @@ export const deathHooks: {
   building: (state: SimState, b: Building) => void;
   /** An animal died: its carcass (animals/animals.ts). */
   animal: (state: SimState, i: number) => void;
-} = { mob: () => {}, unit: () => {}, building: () => {}, animal: () => {} };
+  /** A mob at 0 health that does not die after all (threats/encounters.ts: Silenus' tiger turns back into him); true when it lives on. */
+  spare: (state: SimState, i: number) => boolean;
+} = { mob: () => {}, unit: () => {}, building: () => {}, animal: () => {}, spare: () => false };
 
 /**
  * Settles everything that fell this step, in the order it fell: experience
@@ -635,6 +643,8 @@ export function settleDeaths(state: SimState): void {
         e.remove(id);
         continue;
       }
+      // Silenus' tiger falls and he is himself again (Jade's SCS-4): no death.
+      if (e.kind[i] === UnitKind.Mob && deathHooks.spare(state, i)) continue;
       state.hits.push({ look: 'death', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id, kind: e.kind[i]!, mob: e.mob[i]!, heading: e.heading[i]!, troop: e.troop[i]! });
       if (e.kind[i] === UnitKind.Mob) {
         deathHooks.mob(state, i, shareKill(state, i));

@@ -23,7 +23,7 @@ import { onPlatform, onTop } from '../units/top.ts';
 import { aimsOf, atBase, nearestAim, WAVE_AIMS } from './aims.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
-import { BLAST, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
+import { BLAST, blowTenths, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
 import { chargeKnock, startCharge, takeCharge } from '../mounts/riding.ts';
 import { fireAt, hasClearLob, noteFlight, POISON, ProjectileFlag } from './projectiles.ts';
 import { MANA_SCALE } from '../magic/spells.ts';
@@ -87,7 +87,9 @@ export const lateHooks: {
   hit: (state: SimState, i: number, spec: MobSpec, t: number, d: number) => void;
   building: (state: SimState, i: number, spec: MobSpec, b: Building) => void;
   hitMul: (state: SimState, i: number, spec: MobSpec) => number;
-} = { act: () => false, strike: () => {}, hit: () => {}, building: () => {}, hitMul: () => 1 };
+  /** Jade's Patch 5: a stone circle's keeper (the Great White Ape on the monsters at his circle) or an unleashed monster (on a faction's buildings) lands a blow on a mob. */
+  mobBlow: (state: SimState, i: number, spec: MobSpec, t: number) => void;
+} = { act: () => false, strike: () => {}, hit: () => {}, building: () => {}, hitMul: () => 1, mobBlow: () => {} };
 
 /** Not state: fine path searches made this step (reset by the step function). */
 export const mobBudget = { searches: 0 };
@@ -495,7 +497,11 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     return;
   }
   const t = e.indexOf(id);
-  if (t < 0 || !prey(state, spec, t)) return;
+  if (t < 0) return;
+  if (!prey(state, spec, t)) {
+    if (e.hp[t]! > 0 && (e.role[i] === Role.Encounter || e.role[i] === Role.Unleashed)) lateHooks.mobBlow(state, i, spec, t);
+    return;
+  }
   const fromY = e.y[i]! + floorDiv(spec.height * 2, 3);
   if (what === With.Shot) {
     // A goblin mage's ranged attack is its Spark toss, paid in mana.
@@ -509,7 +515,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
       return;
     }
     const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : spellShot(spec.shot) ? ProjectileFlag.Spell : 0;
-    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealtTenths(state, i, spec.damageTenths), spec.spreadBp, flags);
+    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealtTenths(state, i, blowTenths(state.rng.combat, spec)), spec.spreadBp, flags);
     return;
   }
   if (what === With.Web) {
@@ -520,7 +526,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   if (!inReach(state, i, t, { ...spec, reach: spec.reach + TOLERANCE })) return;
   // A charge doubles the blow and throws the smaller back (Table 14); a hidden void stalker's first strike is triple.
   const charge = takeCharge(state, i);
-  const blow = { damage: dealtTenths(state, i, spec.damageTenths) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  const blow = { damage: dealtTenths(state, i, blowTenths(state.rng.combat, spec)) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
   if (spec.slamRadius > 0) {
     // The Rift colossus's ground slam: everything within 6 m.
     state.hits.push({ look: 'blast', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
@@ -1319,8 +1325,8 @@ export function updateSun(state: SimState): void {
 /** A lair's resident stands in its shade by day: within 30 m of its lair while the lair stands (s). */
 function inShade(state: SimState, i: number): boolean {
   const e = state.entities;
-  // A mana crystal's guardian never burns (Jade's Patch 5, MB-13).
-  if (e.role[i] === Role.Guardian) return true;
+  // A mana crystal's guardian never burns (Jade's Patch 5, MB-13), nor do a stone circle's undead, who keep to its stones.
+  if (e.role[i] === Role.Guardian || e.role[i] === Role.Encounter) return true;
   if (e.role[i] !== Role.Resident) return false;
   const l = e.indexOf(e.group[i]!);
   return l >= 0 && e.hp[l]! > 0 && length2d(e.x[l]! - e.x[i]!, e.z[l]! - e.z[i]!) <= LAIR_LEASH_WU;

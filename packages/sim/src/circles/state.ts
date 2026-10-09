@@ -2,7 +2,8 @@
 // their trilithons, chests and plants, are made from the seed (place.ts) and
 // changed like any other prop; this is only what belongs to the players: the
 // Goddess's blessing, the idols' nights, the Pan Flute's plays, which
-// altars have lost their idol, and the Sweet Hawthornes planted and cut down.
+// altars have lost their idol, the Sweet Hawthornes planted and cut down, and
+// the nights the Headless God Idol turned a player's waves on a faction.
 
 import type { ByteReader, ByteWriter } from '../bytes.ts';
 
@@ -21,13 +22,19 @@ export interface CircleState {
   planted: number[];
   /** The stone circles' own Sweet Hawthornes that were cut down: pairs of (column x, column z). */
   felled: number[];
+  /** Per player: the night the Headless God Idol last sent their waves against a faction (SCB-4), or -1; and that faction's id. */
+  headless: number[];
+  headlessFaction: number[];
 }
 
 export function newCircles(players: number): CircleState {
-  return { blessed: Array(players).fill(-1), idolNight: Array(players).fill(-1), flute: Array(players).fill(0), taken: [], chests: [], planted: [], felled: [] };
+  return {
+    blessed: Array(players).fill(-1), idolNight: Array(players).fill(-1), flute: Array(players).fill(0), taken: [], chests: [], planted: [], felled: [],
+    headless: Array(players).fill(-1), headlessFaction: Array(players).fill(0),
+  };
 }
 
-const LISTS = ['blessed', 'idolNight', 'flute', 'taken', 'chests', 'planted', 'felled'] as const;
+const LISTS = ['blessed', 'idolNight', 'flute', 'taken', 'chests', 'planted', 'felled', 'headless', 'headlessFaction'] as const;
 
 export function writeCircles(w: ByteWriter, c: CircleState): void {
   for (const k of LISTS) {
@@ -50,7 +57,9 @@ export function readCircles(r: ByteReader): CircleState {
   const chests = read();
   const planted = read();
   const felled = read();
-  return { blessed, idolNight, flute, taken, chests, planted, felled };
+  const headless = read();
+  const headlessFaction = read();
+  return { blessed, idolNight, flute, taken, chests, planted, felled, headless, headlessFaction };
 }
 
 /** The circles' state as canonical text for diffing. */

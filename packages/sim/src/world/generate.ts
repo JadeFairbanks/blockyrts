@@ -386,13 +386,40 @@ const SPRING_LEVEL_SPREAD = 8;
 export const BOULDER_HALF = 3;
 /** A mountain's pass blends into its flanks over this, columns (s; a ridge's over 10). */
 const MOUNTAIN_GAP_BLEND = 24;
-/** A guarded bog's bog iron (MB-11: "doubled amounts of bog iron"): Table 9's 40, twice over. Every bog has a guardian. */
+/**
+ * MB-11: "Bogs which are more than approximately 18m squared have a bog
+ * guardian". Every bog the land makes now is some 110 to 250 m2, so each has
+ * one; a smaller bog would not (and has Table 9's bog iron, no nuggets, no
+ * bog pears).
+ */
+export const GUARDED_BOG_MIN_M2 = 18;
+/** A guarded bog's bog iron (MB-11: "doubled amounts of bog iron"): Table 9's 40, twice over. */
 const GUARDED_BOG_IRON = 80;
+const BOG_IRON = 40;
 /** A pocket bog's radius, columns: its 7 m before the noise on its edge (bogsNear). */
 const POCKET_BOG_R = metresToColumns(7);
 /** How many silver nuggets lie on a guarded bog's ground (MB-11, s). */
 const BOG_NUGGETS_MIN = 3;
 const BOG_NUGGETS_MAX = 6;
+/** GP-29: "Max 2 bushes per bog", only at the bogs a Bog guardian keeps; they stand this far out from its middle, a share of its reach, per mille (s). */
+const BOG_PEAR_BUSHES = 2;
+const BOG_PEAR_REACH_PM = 650;
+
+/** A bog's area, m2: its reach before the noise on its edge, as a circle. */
+export function bogAreaM2(bog: { r: number }): number {
+  // pi as 355 / 113, a column 0.45 m (0.2025 m2).
+  return floorDiv(bog.r * bog.r * 2025 * 355, 113 * 10000);
+}
+
+/** A pocket bog's bog iron: doubled when it has a guardian, as every pocket bog (7 m across its middle) does. */
+function pocketBogIron(): number {
+  return bogGuarded({ r: POCKET_BOG_R }) ? GUARDED_BOG_IRON : BOG_IRON;
+}
+
+/** Whether a bog has a Bog guardian (MB-11: more than about 18 m2). */
+export function bogGuarded(bog: { r: number }): boolean {
+  return bogAreaM2(bog) > GUARDED_BOG_MIN_M2;
+}
 /** How far a cell's large mana crystal may lie from its site, columns: a quarter of at most 120 m (cellFeatures), and a step. */
 const CRYSTAL_SPREAD = metresToColumns(30) + 2;
 /** Where a large mana crystal tries to stand, columns from its spot, nearest first (placeLargeCrystal). */
@@ -846,7 +873,7 @@ export class WorldGen {
     place(2, PropKind.Herbs, [10], 32768, 6000, 12, 24, 4);
     place(2, PropKind.WildFlax, [10], 32768, 6000, 12, 24, 4);
     // Iron: a bog with 80 bog iron (40 before Jade's Patch 5, MB-11: doubled in every bog with a guardian), or an iron rock of 60.
-    out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? GUARDED_BOG_IRON : 60 });
+    out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? pocketBogIron() : 60 });
     this.pocketPropCache.set(pocket.player, out);
     return out;
   }
@@ -927,7 +954,7 @@ export class WorldGen {
       place(2, PropKind.CopperOutcrop, [60], 820, 200, 26, 40, 6);
       place(1, PropKind.TinOutcrop, [30], 820, 200, 26, 40, 6);
       place(2, PropKind.LooseStone, [40, 20], -820, 200, 24, 38, 5);
-      out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? GUARDED_BOG_IRON : 60 });
+      out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? pocketBogIron() : 60 });
       this.pocketPropCache.set(pocket.player, out);
     }
   }
@@ -1679,12 +1706,16 @@ export class WorldGen {
         for (const bog of feat.bogs) {
           const bx = bog.x - x0;
           const bz = bog.z - z0;
-          if (bx >= 0 && bz >= 0 && bx < N && bz < N) add(PropKind.BogIron, bx, bz, GUARDED_BOG_IRON, 0, hash2(this.seed, bog.x, bog.z));
+          if (bx >= 0 && bz >= 0 && bx < N && bz < N) add(PropKind.BogIron, bx, bz, bogGuarded(bog) ? GUARDED_BOG_IRON : BOG_IRON, 0, hash2(this.seed, bog.x, bog.z));
         }
       }
     }
-    // Jade's Patch 5: silver nuggets on the ground of every bog with a guardian (MB-11), and the large mana crystals the Fae Guardians keep (MF-2).
-    for (const bog of this.bogsNear(x0 + (N >> 1), z0 + (N >> 1), N)) this.placeNuggets(bog, x0, z0, c, add);
+    // Jade's Patch 5: silver nuggets (MB-11) and bog pear bushes (GP-29) at every bog with a guardian, and the large mana crystals the Fae Guardians keep (MF-2).
+    for (const bog of this.bogsNear(x0 + (N >> 1), z0 + (N >> 1), N)) {
+      if (!bogGuarded(bog)) continue;
+      this.placeNuggets(bog, x0, z0, c, add);
+      this.placeBogPears(bog, x0, z0, c, add);
+    }
     this.placeLargeCrystal(cx, cz, c, add);
     return props;
   }
@@ -1692,9 +1723,8 @@ export class WorldGen {
   /**
    * Every bog whose middle lies within `radius` columns of (x, z): the
    * cells' (the Heartland's and the Fringe's) and the pockets' (Table 9's
-   * iron). Since Jade's Patch 5 (MB-11) each has a Bog guardian: every bog
-   * the land makes is some 110 to 250 m2, well over her "approximately 18m
-   * squared".
+   * iron). Since Jade's Patch 5 (MB-11) each one over 18 m2 has a Bog
+   * guardian (bogGuarded): every bog the land makes is some 110 to 250 m2.
    */
   bogsNear(x: number, z: number, radius: number): Bog[] {
     const out: Bog[] = [];
@@ -1748,6 +1778,32 @@ export class WorldGen {
       const lz = at.z - z0;
       if (lx < 0 || lz < 0 || lx >= N || lz >= N || c.taken[lz * N + lx]) continue;
       add(PropKind.SilverNugget, lx, lz, 1, 0, hk);
+    }
+  }
+
+  /**
+   * A guarded bog's bog pear bushes (GP-29: "Only grows at bogs with a bog
+   * guardian ... Max 2 bushes per bog") that lie in this chunk: two, on
+   * opposite sides of its middle, about two thirds of its reach out (s), on the
+   * first dry free column at or round each spot (a bog may lie across a
+   * cell's edge, so its edge does not stop them); each holds one pear.
+   */
+  private placeBogPears(bog: Bog, x0: number, z0: number, c: ChunkLand, add: AddProp): void {
+    const h = hash2(this.seed ^ 0x70656172, bog.x, bog.z);
+    const reach = floorDiv(bog.r * BOG_PEAR_REACH_PM, 1000);
+    for (let k = 0; k < BOG_PEAR_BUSHES; k++) {
+      const at = polar(bog.x, bog.z, (h + k * 32768) & 0xffff, reach);
+      // Only the chunk its spot lies in places it, so no two chunks each find a column for it.
+      if (at.x - x0 < 0 || at.z - z0 < 0 || at.x - x0 >= N || at.z - z0 >= N) continue;
+      for (const [ox, oz] of CRYSTAL_TRIES) {
+        const lx = at.x + ox - x0;
+        const lz = at.z + oz - z0;
+        if (lx < 0 || lz < 0 || lx >= N || lz >= N) continue;
+        const i = lz * N + lx;
+        if (c.taken[i] || c.flags[i]! & (F_WATER | F_BANK)) continue;
+        add(PropKind.BogPearBush, lx, lz, 1, 0, hash2(h, k, 0x70656172));
+        break;
+      }
     }
   }
 

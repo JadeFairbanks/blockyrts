@@ -914,7 +914,11 @@ export interface Site {
  * Jade's Patch 5 keepers (threats/keepers.ts): 'fairy' the Fae Guardian's bolt bursting in pink-magenta over its 2 m
  * (MF-7); 'roar' and 'alarm' a keeper at `id` roaring as it turns angry and looking alarmed (MB-11's clips).
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'heart' | 'catch' | 'zap' | 'fairy' | 'roar' | 'alarm';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'heart' | 'catch' | 'zap' | 'fairy' | 'roar' | 'alarm'
+  // Jade's Patch 5 stone circles (threats/encounters.ts): the Ape's leap and its thunderclap, his grab, planting, worship and rage; the Trickster vanishing and
+  // coming back; Silenus turning into the tiger and back; a lash of thorns and entangling roots (`to` the caster); the Lich's Sacrificial Rite (`to` the Lich,
+  // `n` the health he took) and Touch of the Grave; a Reveler drinking.
+  | 'leap' | 'thunder' | 'grab' | 'plant' | 'worship' | 'enrage' | 'vanish' | 'ambush' | 'transform' | 'lash' | 'roots' | 'rite' | 'grave' | 'drink';
 
 export interface HitEvent {
   look: HitLook;

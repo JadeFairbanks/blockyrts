@@ -340,6 +340,8 @@ export interface CommandDeps {
   hireDreadnought?(buildings: readonly number[]): void;
   /** Opens a stone circle's altar panel (Patch 5, SCA-2): leave the Goddess her gifts, take the idol. */
   openAltar?(circle: number, type: number): void;
+  /** Opens the Great White Ape's goods (Patch 5, SCA-2), by his circle. */
+  openApe?(circle: number): void;
   /** How many buttons the card can show at once, at the smallest size it may shrink them to (hud-layout.ts buttonRoom); 15 when left out. */
   slots?(): CardSize;
 }
@@ -1914,6 +1916,16 @@ export class Commands {
     return true;
   }
 
+  /** Right click on the Great White Ape while he is at peace with the player (Jade's SCA-2): his goods, not an attack (Attack still fights him). */
+  private ape(item: Selectable): boolean {
+    if (!this.d.openApe || item.kind !== 'unit' || item.owner !== MONSTERS) return false;
+    const id = entityIdOf(item.key);
+    const a = this.d.game.info?.circles?.apes.find((v) => v.id === id);
+    if (!a?.peace) return false;
+    this.d.openApe(a.circle);
+    return true;
+  }
+
   /**
    * Right click on a stone circle's piece (Patch 5): a unit opens a bluestone
    * chest (SC-6), the altar's panel opens (SCA-2), a worker cuts down a bare
@@ -2138,8 +2150,8 @@ export class Commands {
       if (this.buildings().length > 0) this.rally(item, ground);
       // A stone circle's altar panel opens with nothing selected too, as the trade menus do.
       else if (item?.prop && this.circlePiece(item, [], [])) return;
-      // Their trade menu opens with nothing selected too (it says what is needed).
-      else if (item) this.talkTo(item);
+      // Their trade menu opens with nothing selected too (it says what is needed), and the Great White Ape's goods.
+      else if (item && !this.ape(item)) this.talkTo(item);
       return;
     }
     const workers = this.workerIds();
@@ -2209,6 +2221,7 @@ export class Commands {
       if (workers.length > 0 && u && u.hp < u.maxHp && this.mend(item)) return;
       if (this.crew(item)) return;
     }
+    if (item && this.ape(item)) return;
     if (item && this.enemy(item) && this.attack(item)) return;
     if (item && this.talkTo(item)) return;
     if (item && this.ruin(item) && workers.length > 0 && this.attack(item)) return;

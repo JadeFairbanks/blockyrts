@@ -36,6 +36,7 @@ import { lairBudgetTenths, lairsOf, lairSpawns } from '../threats/lairs.ts';
 import { brightTonight } from '../threats/bright.ts';
 import { giveWaveGear } from '../threats/loot.ts';
 import { necromancerNight } from '../threats/necromancer.ts';
+import { headlessTonight, unleash, unleashedSpot } from '../threats/headless.ts';
 import { Role } from '../threats/types.ts';
 
 /** Spawns stand off at least this far from claimed land and from the players' units (Table 8). */
@@ -484,6 +485,9 @@ export function updateSpawns(state: SimState): void {
       const planned = planNight(state, p, c.cycle, state.step);
       // Patch 5 (GP-1): now and then one of them carries a weapon, armour or shield.
       giveWaveGear(state, planned, p, c.cycle);
+      // Jade's SCB-4: the Headless God Idol turns tonight's waves on a faction.
+      const f = headlessTonight(state, p, c.cycle);
+      if (f) unleash(state, planned, p, f);
       state.spawns.push(...planned);
     }
     state.spawns.sort((a, b) => a.at - b.at || a.group - b.group || a.player - b.player);
@@ -504,7 +508,7 @@ export function updateSpawns(state: SimState): void {
       x = state.entities.x[l]!;
       z = state.entities.z[l]!;
     } else if (!s.placed) {
-      [x, z] = s.role === Role.Aimed ? edgePointAround(state, s.player, s.ax, s.az) : spawnPoint(state, s.player);
+      [x, z] = s.role === Role.Unleashed ? unleashedSpot(state, s.ax, s.az, s.group) : s.role === Role.Aimed ? edgePointAround(state, s.player, s.ax, s.az) : spawnPoint(state, s.player);
       // The rest of the group comes out at the same spot.
       for (const o of state.spawns) {
         if (o.group !== s.group) continue;
@@ -525,11 +529,13 @@ export function updateSpawns(state: SimState): void {
       state.entities.carryRes[i] = s.gear;
       state.entities.carryAmt[i] = 1;
     }
-    if (s.role === Role.Aimed) {
+    if (s.role === Role.Aimed || s.role === Role.Unleashed) {
       const e = state.entities;
-      e.role[i] = Role.Aimed;
+      e.role[i] = s.role;
       e.homeX[i] = s.ax;
       e.homeZ[i] = s.az;
+      // Unleashed (SCB-4): on the faction the idol named, not on the player.
+      if (s.role === Role.Unleashed) e.group[i] = state.circles.headlessFaction[s.player] ?? 0;
     }
   }
 }

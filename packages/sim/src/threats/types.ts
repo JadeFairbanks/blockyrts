@@ -122,6 +122,82 @@ export interface Keeper {
   riled: number;
 }
 
+/**
+ * Jade's Patch 5 stone circles (threats/encounters.ts): what keeps a circle,
+ * the Great White Ape at a Lunar Circle, Silenus and his satyrs, the Lich and
+ * his undead at a Boneyard. Its members are entities of Role.Encounter in
+ * group `circle`. It stays once its leader is killed, so it never comes back.
+ */
+export interface Encounter {
+  /** The circle (circles/place.ts CircleSite.id) and its type (circles/data.ts CircleType). */
+  circle: number;
+  type: number;
+  /** The leader's entity id (the Ape, Silenus or his tiger, the Lich), 0 once he is dead. */
+  leader: number;
+  /** EncounterMode. */
+  mode: number;
+  /** Bits by player: those it fights now, and those it is set against for good (the Ape's lasting rage; those who wronged the satyrs). */
+  foes: number;
+  sworn: number;
+  /** The Ape (SCA-3), bits by player: whose warning is up, and who said Sorry. */
+  warned: number;
+  sorry: number;
+  /** The unit it is about (an entity id, 0 for none): the one the Ape watches or warned. */
+  unit: number;
+  /** Steps: its next line, it stands until `still`, its mode last changed, its next spot to wander to, its next planting (the Ape) or its next look round. */
+  next: number;
+  still: number;
+  since: number;
+  roam: number;
+  plantAt: number;
+  /** The Ape: how many seconds he has fought the players in all, how many flowers and fruit trees he has planted, and 1 while he walks to plant one (e.targetX, e.targetZ). */
+  fought: number;
+  planted: number;
+  planting: number;
+  /** The step none of its foes was last near, while it fights. */
+  quietSince: number;
+  /** Silenus while he is the tiger: his health and greatest health then (0 when he is himself), and the step he last changed. */
+  heldHp: number;
+  heldMax: number;
+  changed: number;
+  /** The leader's leap (the Ape's, the tiger's): from and to (wu), its start and its end, and its next. */
+  leapX0: number;
+  leapZ0: number;
+  leapX1: number;
+  leapZ1: number;
+  leapAt: number;
+  leapEnd: number;
+  leapNext: number;
+  /** The Ape's toss: the unit thrown (an entity id, 0 for none), from and to (wu), when it leaves his hand and when it lands, and his next. */
+  toss: number;
+  tossX0: number;
+  tossZ0: number;
+  tossX1: number;
+  tossZ1: number;
+  tossAt: number;
+  tossEnd: number;
+  tossNext: number;
+  /** Steps: Silenus' next lash of thorns and entangling roots, and the Lich's next Sacrificial Rite. */
+  lashNext: number;
+  rootsNext: number;
+  riteNext: number;
+  /** The Ape's goods left today (SCA-2): bundles of hawthorne fruit, honey and enchanted wine, and the day they were counted. */
+  fruit: number;
+  honey: number;
+  wine: number;
+  day: number;
+}
+
+/** Something timed that lies on a unit (threats/encounters.ts): a Trickster vanished, Touch of the Grave, entangling roots. */
+export interface Mark {
+  /** The unit's entity id; MarkKind; the step it ends; who put it there (an entity id); its next tick. */
+  id: number;
+  kind: number;
+  until: number;
+  from: number;
+  next: number;
+}
+
 export interface ThreatState {
   ruins: Ruin[];
   villages: Village[];
@@ -144,13 +220,16 @@ export interface ThreatState {
   guarded: Set<number>;
   /** Jade's Patch 5 (MB-11, MF-1): the Bog guardians and Fae Guardians alive, in the order they came (their bog's or crystal's column is in `guarded`). */
   keepers: Keeper[];
+  /** Jade's Patch 5 stone circles: each circle's keepers since a player's unit first came near it, by circle; and what lies on units (threats/encounters.ts). */
+  encounters: Encounter[];
+  marks: Mark[];
 }
 
 /** Morvath's first night (roster 5.25). */
 export const BOSS_FIRST_NIGHT = 110;
 
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [], guarded: new Set(), keepers: [] };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [], guarded: new Set(), keepers: [], encounters: [], marks: [] };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */
@@ -177,5 +256,9 @@ export const Role = {
   Guardian: 9,
   /** Jade's Patch 5 (MB-11, MF-1): the Bog guardian of a bog or the Fae Guardian of a large mana crystal, its Keeper record in state.threats.keepers (threats/keepers.ts). */
   Keeper: 10,
+  /** Jade's Patch 5 stone circles: one of the keepers of circle `group`, its Encounter record in state.threats.encounters (threats/encounters.ts). */
+  Encounter: 11,
+  /** Jade's Patch 5 (SCB-4): a night monster the Headless God Idol sent against faction `group` (homeX, homeZ its middle) in place of its foe (threats/encounters.ts). */
+  Unleashed: 12,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];

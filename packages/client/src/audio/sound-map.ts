@@ -153,6 +153,17 @@ export function hitSound(look: HitLook, who: Who | null, arrow: boolean): string
       return 'explosion_small';
     case 'shot':
       return shotSound(who);
+    // Jade's Patch 5 stone circles: the Great White Ape's thunderclap; Silenus' lash, roots and change, a satyr vanishing and leaping out, the Lich's rite and Touch of the Grave.
+    case 'thunder':
+      return 'explosion_large';
+    case 'lash':
+    case 'roots':
+    case 'transform':
+    case 'vanish':
+    case 'ambush':
+    case 'rite':
+    case 'grave':
+      return 'spell_cast';
     default:
       // swing, shake and death are handled elsewhere (deathSounds) or silent.
       return null;

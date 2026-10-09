@@ -1087,7 +1087,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'useItem': {
         const k = o.unit ? e.indexOf(o.unit) : -1;
-        useItem(state, o.player, o.res, k >= 0 && e.owner[k] === o.player ? k : -1);
+        useItem(state, o.player, o.res, k >= 0 && e.owner[k] === o.player ? k : -1, o.arg ?? -1);
         break;
       }
       case 'leave':

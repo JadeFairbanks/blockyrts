@@ -1,19 +1,24 @@
 // The stone circles' panels (Patch 5): a bluestone chest's five spaces to
-// take from (SC-6), and an altar (SCA-2): leave the Moon Goddess her gifts,
-// or take the idol, asked Yes or No first. The same pattern as the trade
+// take from (SC-6), an altar (SCA-2): leave the Moon Goddess her gifts, or
+// take the idol, asked Yes or No first; the Great White Ape's goods (SCA-2)
+// and the factions the Headless God Idol can turn the player's waves on
+// (SCB-4). The same pattern as the trade
 // menus (decisions 2.16 lists the stone circle menu with them): the title and
 // its × stay put while the body scrolls, and every good keeps its picture,
 // name and count at full size.
 import {
+  APE_LINES,
   BLESSED_EVERY_NIGHTS,
   CHEST_SLOTS,
   CIRCLE_TYPE_NAMES,
   CircleAct,
   CircleType,
+  ENCOUNTERS,
   GIFT_GOLD,
   GIFT_ROSES,
   GIFT_SILVER,
   goodName,
+  HEADLESS,
   IDOL_USE_EVERY_NIGHTS,
   Res,
   UnitKind,
@@ -40,14 +45,22 @@ export function idolWarning(type: number): string {
   return 'The Headless God Idol leaves its altar for good.';
 }
 
+/** What the Great White Ape trades (SCA-2), in the order of the sim's goods (0, 1, 2), and how many of each a bundle holds. */
+const APE_GOODS: ReadonlyArray<readonly [Res, number]> = [
+  [Res.HawthorneFruit, ENCOUNTERS.ape.goods.fruit],
+  [Res.Honey, ENCOUNTERS.ape.goods.honey],
+  [Res.EnchantedWine, ENCOUNTERS.ape.goods.wine],
+];
+
 /**
  * The Stone Circle items' own entries in the item menu (decisions 3.6: "Use,
  * Equip, Plant seed, ..."): Plant seed for an Ancient Seed (SC-8), Play for
- * the Pan Flute (SC-11), Use for the Moon Goddess idol (answer 2.8) and Drink
- * for enchanted wine in a mage's own inventory (answer 2.5). Each is greyed
- * out with the sim's reason when it cannot be used now (circles/items.ts).
+ * the Pan Flute (SC-11), Use for the Moon Goddess idol (answer 2.8) and the
+ * Headless God Idol (SCB-4, which asks for the faction first) and Drink for
+ * enchanted wine in a mage's own inventory (answer 2.5). Each is greyed out
+ * with the sim's reason when it cannot be used now (circles/items.ts).
  */
-export function registerCircleItemUses(game: GameInfo, player: number, send: (o: Order) => void, startPlant: () => void): void {
+export function registerCircleItemUses(game: GameInfo, player: number, send: (o: Order) => void, startPlant: () => void, openHeadless: () => void): void {
   const inStock = (at: { unit: number | null }, what: string): string =>
     at.unit !== null ? `Unload it to the stock first: ${what} is used from there.` : '';
   const simWhy = (res: number): string => game.info?.circles?.uses.find((u) => u[0] === res)?.[2] ?? 'There is none in the stock.';
@@ -68,6 +81,11 @@ export function registerCircleItemUses(game: GameInfo, player: number, send: (o:
     why: (at) => inStock(at, 'the idol') || simWhy(Res.MoonIdol),
     run: () => send({ kind: 'useItem', player, res: Res.MoonIdol, unit: -1 }),
   });
+  registerItemUse(Res.HeadlessIdol, {
+    description: `Turn the coming night's waves of monsters away from you and onto a faction you are at war with, or declare war on one with it. Once every ${HEADLESS.everyNights} nights.`,
+    why: (at) => inStock(at, 'the idol') || simWhy(Res.HeadlessIdol),
+    run: () => openHeadless(),
+  });
   registerItemUse(Res.EnchantedWine, {
     name: 'Drink',
     description: 'A mage drinks it and gets back 50 mana. In the stock it is food like any other.',
@@ -82,8 +100,18 @@ export function registerCircleItemUses(game: GameInfo, player: number, send: (o:
 export class CirclesUi {
   private readonly chest: HTMLElement;
   private readonly altar: HTMLElement;
+  private readonly apePanel: HTMLElement;
+  private readonly headless: HTMLElement;
   private readonly chestButtons: Buttons;
   private readonly altarButtons: Buttons;
+  private readonly apeButtons: Buttons;
+  private readonly headlessButtons: Buttons;
+  /** The Great White Ape's goods open: his circle, or -1. */
+  private apeCircle = -1;
+  /** The Headless God Idol's factions are open. */
+  private headlessOpen = false;
+  private apeSig = '';
+  private headlessSig = '';
   /** The chest open (circle * 8 + chest), or -1. */
   private chestKey = -1;
   /** The altar open: its circle and the circle's type, or circle -1. */
@@ -103,19 +131,50 @@ export class CirclesUi {
   ) {
     this.chest = el('div', 'panel circle-dialog chest-dialog', root);
     this.altar = el('div', 'panel circle-dialog altar-dialog', root);
-    for (const p of [this.chest, this.altar]) {
+    this.apePanel = el('div', 'panel circle-dialog ape-dialog', root);
+    this.headless = el('div', 'panel circle-dialog headless-dialog', root);
+    for (const p of [this.chest, this.altar, this.apePanel, this.headless]) {
       p.hidden = true;
       p.dataset.scroll = '';
     }
     panels.register('chest', this.chest);
     panels.register('altar', this.altar);
+    panels.register('ape', this.apePanel);
+    panels.register('headless', this.headless);
     this.chestButtons = new Buttons(buttons, 'chest');
     this.altarButtons = new Buttons(buttons, 'altar');
+    this.apeButtons = new Buttons(buttons, 'ape');
+    this.headlessButtons = new Buttons(buttons, 'headless');
+  }
+
+  /** Right click on the Great White Ape at peace with the player: his goods. */
+  openApe(circle: number): void {
+    this.closeAll();
+    this.apeCircle = circle;
+    this.apePanel.hidden = false;
+    this.apeSig = '';
+    this.refresh();
+  }
+
+  /** The Headless God Idol's Use: the factions it can turn the player's waves on. */
+  openHeadless(): void {
+    this.closeAll();
+    this.headlessOpen = true;
+    this.headless.hidden = false;
+    this.headlessSig = '';
+    this.refresh();
+  }
+
+  private closeAll(): void {
+    this.closeChest();
+    this.closeAltar();
+    this.closeApe();
+    this.closeHeadless();
   }
 
   /** One of the player's units opened a bluestone chest: its spaces show. */
   openChest(key: number): void {
-    this.closeAltar();
+    this.closeAll();
     this.chestKey = key;
     this.chest.hidden = false;
     this.chestSig = '';
@@ -124,7 +183,7 @@ export class CirclesUi {
 
   /** Right click on an altar. */
   openAltar(circle: number, type: number): void {
-    this.closeChest();
+    this.closeAll();
     this.altarAt = { circle, type };
     this.askIdol = false;
     this.altar.hidden = false;
@@ -146,6 +205,14 @@ export class CirclesUi {
       } else this.closeAltar();
       return true;
     }
+    if (this.apeCircle >= 0) {
+      this.closeApe();
+      return true;
+    }
+    if (this.headlessOpen) {
+      this.closeHeadless();
+      return true;
+    }
     return false;
   }
 
@@ -153,6 +220,20 @@ export class CirclesUi {
   refresh(): void {
     if (this.chestKey >= 0) this.drawChest();
     if (this.altarAt.circle >= 0) this.drawAltar();
+    if (this.apeCircle >= 0) this.drawApe();
+    if (this.headlessOpen) this.drawHeadless();
+  }
+
+  private closeApe(): void {
+    this.apeCircle = -1;
+    this.apePanel.hidden = true;
+    this.apeButtons.clear();
+  }
+
+  private closeHeadless(): void {
+    this.headlessOpen = false;
+    this.headless.hidden = true;
+    this.headlessButtons.clear();
   }
 
   private closeChest(): void {
@@ -223,7 +304,9 @@ export class CirclesUi {
     const gold = this.game.have(Res.Gold);
     const silver = this.game.have(Res.Silver);
     const roses = this.game.have(Res.MoonRose);
-    const sig = JSON.stringify([why, taken, gold, silver, roses, this.askIdol, v?.blessed]);
+    // SCA-4: the Great White Ape, while he lives, warns whoever would take the idol.
+    const ape = type === CircleType.Lunar && (v?.apes.some((a) => a.circle === circle) ?? false);
+    const sig = JSON.stringify([why, taken, gold, silver, roses, this.askIdol, v?.blessed, ape]);
     if (sig === this.altarSig) return;
     this.altarSig = sig;
     this.altarButtons.clear();
@@ -234,6 +317,7 @@ export class CirclesUi {
     if (this.askIdol && idol >= 0) {
       el('p', 'dlg-note', body, `Take the ${goodName(idol)}?`);
       el('p', 'dlg-why', body, idolWarning(type));
+      if (ape) el('p', 'dlg-why', body, `The Great White Ape is watching: "${APE_LINES.idolWarn}"`);
       const row = el('div', 'dlg-row', body);
       this.altarButtons.add(row, {
         face: 'Yes',
@@ -288,5 +372,77 @@ export class CirclesUi {
         why?.[2] ?? '',
       );
     }
+  }
+
+  /** The Great White Ape's goods (SCA-2), in the trade menus' pattern: a bundle of each for silver, so many a day; a unit walks to him to buy. */
+  private drawApe(): void {
+    const circle = this.apeCircle;
+    const v = this.game.info?.circles?.apes.find((a) => a.circle === circle) ?? null;
+    const silver = this.game.have(Res.Silver);
+    const sig = JSON.stringify([v, silver]);
+    if (sig === this.apeSig) return;
+    this.apeSig = sig;
+    this.apeButtons.clear();
+    const { head, body } = frame(this.apePanel, 'Great White Ape');
+    this.apeButtons.add(head, { face: '×', name: 'Close', description: 'Close (Esc).', className: 'dlg-close', onPress: () => this.closeApe() });
+    if (!v) {
+      el('p', 'dlg-note', body, 'The Great White Ape is not here.');
+      return;
+    }
+    const g = ENCOUNTERS.ape.goods;
+    el('p', 'dlg-note', body, `He tends the Moon Goddess's garden and trades its gifts: a bundle for ${g.silver} silver, ${g.perDay} bundles of each a day. Your selected unit walks over to buy.`);
+    const purse = el('div', 'hire-purse', body);
+    goodRow(purse, Res.Silver, 'Silver', silver);
+    const list = el('div', 'dlg-row', body);
+    APE_GOODS.forEach(([res, n], good) => {
+      const left = v.left[good] ?? 0;
+      const name = goodName(res);
+      this.apeButtons.good(
+        list,
+        res,
+        `×${n}`,
+        {
+          name: `Buy ${n} ${name}`,
+          description: `A unit buys ${n} ${name.toLowerCase()} from him for ${g.silver} silver. ${left} ${left === 1 ? 'bundle' : 'bundles'} left today.`,
+          className: 'dlg-btn bundle',
+          onPress: () => this.a.send(this.order(circle, CircleAct.Buy, good)),
+        },
+        v.why || (left <= 0 ? 'He has no more of that today.' : silver < g.silver ? `It costs ${g.silver} silver.` : ''),
+      );
+    });
+    el('p', 'dlg-note', body, `Left today: ${APE_GOODS.map(([res], k) => `${v.left[k] ?? 0} of ${goodName(res).toLowerCase()}`).join(', ')}.`);
+  }
+
+  /** The Headless God Idol (SCB-4): the factions it can turn the coming night's waves on; one at peace is declared war on. */
+  private drawHeadless(): void {
+    const v = this.game.info?.circles;
+    const why = v?.uses.find((u) => u[0] === Res.HeadlessIdol)?.[2] ?? 'You have no Headless God Idol.';
+    const targets = v?.headless ?? [];
+    const names = targets.map(([id]) => this.game.faction(id)?.title ?? 'A settlement you have seen');
+    const sig = JSON.stringify([why, targets, names]);
+    if (sig === this.headlessSig) return;
+    this.headlessSig = sig;
+    this.headlessButtons.clear();
+    const { head, body } = frame(this.headless, 'Headless God Idol');
+    this.headlessButtons.add(head, { face: '×', name: 'Close', description: 'Close (Esc).', className: 'dlg-close', onPress: () => this.closeHeadless() });
+    el('p', 'dlg-note', body, `The coming night's waves of monsters fall on the faction you choose instead of on you. Once every ${HEADLESS.everyNights} nights.`);
+    if (why) el('p', 'dlg-why', body, why);
+    const list = el('div', 'dlg-row', body);
+    targets.forEach(([id, war], k) => {
+      this.headlessButtons.add(
+        list,
+        {
+          face: war ? names[k]! : `${names[k]!} (declares war)`,
+          name: `Unleash your waves on ${names[k]!}`,
+          description: war ? 'You are at war with them: the coming night, your waves fall on them.' : 'Using the idol on them declares war on them, and the coming night your waves fall on them.',
+          className: 'dlg-btn danger',
+          onPress: () => {
+            this.a.send({ kind: 'useItem', player: this.player, res: Res.HeadlessIdol, unit: -1, arg: id });
+            this.closeHeadless();
+          },
+        },
+        why,
+      );
+    });
   }
 }

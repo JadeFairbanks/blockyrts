@@ -1,7 +1,8 @@
 // What a player's unit does at a stone circle: leave the Goddess her gifts
 // (Jade's answer 9), take an idol from the altar (SCA-4, SCB-4), open a
-// bluestone chest and take what is in it (SC-6). The unit walks there first;
-// the act happens once it stands within reach.
+// bluestone chest and take what is in it (SC-6), buy from the Great White Ape
+// (SCA-2). The unit walks there first; the act happens once it stands within
+// reach.
 
 import { canAfford, pay, Res, RESOURCES, type Cost } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN } from '../fixed.ts';
@@ -18,7 +19,7 @@ import { PropKind } from '../world/props.ts';
 import { BAND_NAMES } from '../world/layout.ts';
 import { nextNight } from './bright.ts';
 import { CIRCLE_TYPE_NAMES, CircleProp, CircleType, CLEARING_M, GIFT_GOLD, GIFT_ROSES, GIFT_SILVER, HAWTHORNE_FELL_STEPS, HAWTHORNE_LUMBER, circleMetres as m, PLANT_STEPS, REACH_M } from './data.ts';
-import { Disturb, disturbed } from './disturb.ts';
+import { circleHooks, Disturb, disturbed } from './disturb.ts';
 import { chestLoot, circleNear, circlePieces, circleSite, circleSites, idolOf, type CirclePiece } from './place.ts';
 import { hawthorneFelled, plantHawthorne, plantSpotProblem, propOn } from './trees.ts';
 
@@ -29,11 +30,13 @@ const DONE = true;
 /**
  * The acts, as a circle order's `act`. Planting an Ancient Seed (SC-8) and
  * cutting down a bare Sweet Hawthorne are done on a column anywhere: their
- * order's `circle` is the column's x and `arg` its z.
+ * order's `circle` is the column's x and `arg` its z. Buying from the Ape is
+ * done beside him: `arg` is the good (0 hawthorne fruit, 1 honey, 2 enchanted
+ * wine).
  */
-export const CircleAct = { Gift: 0, TakeIdol: 1, OpenChest: 2, TakeChest: 3, Plant: 4, Fell: 5 } as const;
+export const CircleAct = { Gift: 0, TakeIdol: 1, OpenChest: 2, TakeChest: 3, Plant: 4, Fell: 5, Buy: 6 } as const;
 export type CircleAct = (typeof CircleAct)[keyof typeof CircleAct];
-export const CIRCLE_ACTS = 6;
+export const CIRCLE_ACTS = 7;
 
 /** Whether an act is done on a column rather than at a circle. */
 export function onColumn(act: number): boolean {
@@ -86,6 +89,7 @@ export function actSpot(state: SimState, circle: number, act: number, arg: numbe
   const s = circleSite(state.world.layout, circle);
   if (!s) return null;
   if (act === CircleAct.Gift || act === CircleAct.TakeIdol) return [s.x, s.z];
+  if (act === CircleAct.Buy) return circleHooks.apeAt(state, circle);
   const p = chestPiece(state, circle, act === CircleAct.TakeChest ? floorDiv(arg, 8) : arg);
   return p ? [p.gx * COL + (COL >> 1), p.gz * COL + (COL >> 1)] : null;
 }
@@ -111,6 +115,8 @@ export function actProblem(state: SimState, player: number, circle: number, act:
   const s = circleSite(state.world.layout, circle);
   if (!s) return 'There is no stone circle there.';
   switch (act) {
+    case CircleAct.Buy:
+      return circleHooks.buyProblem(state, player, circle, arg);
     case CircleAct.Gift: {
       if (s.type !== CircleType.Lunar) return 'Only the Moon Goddess takes gifts, at her altar in a Great White Ape Lunar Circle.';
       if (state.circles.taken.includes(circle)) return 'The Goddess\'s idol is gone from this altar.';
@@ -202,6 +208,9 @@ export function doAct(state: SimState, i: number, circle: number, act: number, a
   }
   const s = circleSite(state.world.layout, circle)!;
   switch (act) {
+    case CircleAct.Buy:
+      circleHooks.buy(state, i, circle, arg);
+      return;
     case CircleAct.Gift: {
       pay(state.players[player]!.pool, giftCost(state, player));
       const night = nextNight(state.step);
@@ -254,7 +263,7 @@ export function runCircle(state: SimState, i: number, o: Extract<UnitOrder, { t:
     const r = walkTo(state, i, { ...pointGoal(floorDiv(x, COL), floorDiv(z, COL)), max: floorDiv(m(REACH_M), COL) - 1 });
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) {
-      say(state, i, onColumn(o.act) ? 'I cannot reach that spot.' : 'I cannot reach that spot in the stone circle.', true);
+      say(state, i, onColumn(o.act) ? 'I cannot reach that spot.' : o.act === CircleAct.Buy ? 'I cannot reach the Great White Ape.' : 'I cannot reach that spot in the stone circle.', true);
       return DONE;
     }
   }
