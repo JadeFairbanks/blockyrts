@@ -100,6 +100,9 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
   'units/kits.ts:ROBE_GEAR', 'units/kits.ts:OBSIDIAN_AXE_GEAR',
+  // Patch 7's gear catalogue: the rarity names and colours, the Dreadnought's line, and the loot gear rows and the list of
+  // gear items, which are worked out from LOOT_KITS and the kit tables (change those rows instead).
+  'units/kits.ts:RARITY_NAMES', 'units/kits.ts:RARITY_COLOURS', 'units/kits.ts:SMASHING_LINE', 'units/kits.ts:LOOT_GEAR', 'units/kits.ts:GEAR_ITEMS',
   // Worker ranks (Patch 3): the rank names are words, and Work names what a worker is doing (building or gathering).
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
@@ -279,6 +282,11 @@ export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
   'units/kits.ts:SHIELD_KITS': 'armour',
   'units/kits.ts:WAND_KITS': 'wands',
   'units/kits.ts:ROBE_KITS': 'wands',
+  // Patch 7: looted gear goes with the loot, the Fae Guardian's mana regain with the wands, and the Workshop's scrap times with the recipes.
+  'units/kits.ts:LOOT_KITS': 'loot',
+  'units/kits.ts:FAE_REGAIN_PCT': 'wands',
+  'units/kits.ts:SCRAP_SECONDS': 'recipes',
+  'units/kits.ts:MORVATH_STAFF_SCRAP_SECONDS': 'recipes',
   'economy/food.ts:FACILITY_UPKEEP': 'food',
   // Jade's play-test notes: the Hunt button's reach and trips home, and fighters guarding workers, go with loot and gathering.
   'units/field.ts:HUNT_LEASH_WU': 'loot',
@@ -293,7 +301,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
   'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS', 'mounts/data.ts:MOUNTS', 'siege/data.ts:ENGINES',
   'units/kits.ts:TIER_NEEDS', 'units/kits.ts:TOOL_KITS', 'units/kits.ts:CLOSE_KITS', 'units/kits.ts:LONG_KITS', 'units/kits.ts:RANGER_KITS',
-  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS', 'units/moves.ts:GAITS', 'circles/data.ts:TRILITHONS',
+  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS', 'units/kits.ts:LOOT_KITS', 'units/moves.ts:GAITS', 'circles/data.ts:TRILITHONS',
 ]);
 
 /** Single records shown as an entry of their own, like one row of an entry array. */
@@ -307,9 +315,10 @@ export const ENTRY_RECORDS: ReadonlySet<string> = new Set(['units/kits.ts:BRAWLE
 export const KIT_MENUS: Readonly<Record<string, string>> = {
   TIER_NEEDS: 'Material tiers', TOOL_KITS: 'Tool kits', CLOSE_KITS: 'Close melee', LONG_KITS: 'Long melee and cavalry', RANGER_KITS: 'Rangers',
   BRAWLER_KIT: 'Brawlers', ARMOUR_KITS: 'Armour', SHIELD_KITS: 'Shields (close melee)', WAND_KITS: 'Wands', ROBE_KITS: 'Robes',
+  LOOT_KITS: 'Looted gear',
 };
-/** Kit tables whose rows are not labelled by their tier (none since Patch 5 gave shields tiers of their own). */
-export const UNTIERED_KITS: ReadonlySet<string> = new Set<string>();
+/** Kit tables whose rows are not labelled by their tier: Patch 7's looted gear (its tier is only the look's material). */
+export const UNTIERED_KITS: ReadonlySet<string> = new Set<string>(['LOOT_KITS']);
 
 /**
  * Rows that are placeholders, not kit: a tier with nothing in it (no long
@@ -441,6 +450,10 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   tools: 'Tool tier for each job', powerPct: 'Spell power', 'WAND_KITS:mana': 'Extra mana', regainPct: 'Extra mana regain', 'TOOL_KITS:damage': 'A worker\'s damage',
   'CRIT:outerPm': 'Outer share of reach that crits', 'CRIT:bonusPct': 'Critical damage bonus', troopFood: 'Troop food', troopS: 'Troop training time',
   upgradeTimePm: 'Least upgrade time (of the new piece\'s time to make)', fitTimePm: 'Time to put on a ready item (of the piece\'s time to make)',
+  // Patch 7: the Dreadnought with another weapon, and the looted pieces.
+  'DREADNOUGHT_KIT:damagePm': 'Damage with another weapon (of its damage, per thousand)', 'DREADNOUGHT_KIT:maceHeft': 'Heft of his mace',
+  'DREADNOUGHT_KIT:stature': 'Stature of his harness', 'LOOT_KITS:size': 'Heft (weapons, wands, shields) or Stature (armour, robes)',
+  'LOOT_KITS:rarity': 'Rarity (0 common, 1 rare, 2 epic, 3 legendary)', 'LOOT_KITS:tier': 'Material tier (its look and sound)', 'LOOT_KITS:scrap': 'Scrap yield',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
   'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
   'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',

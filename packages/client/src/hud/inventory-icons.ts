@@ -147,6 +147,24 @@ for (const [table, picOf] of KIT_PICS) {
     }
   }
 }
+// Patch 7's looted pieces: until the icons rendered from their models come in, each borrows the picture
+// of the ladder piece it goes on as (the loop above), or of the nearest piece where it goes on as none
+// (the Dreadnought's weapons and armour, and the pieces that fit nobody). Witchwood borrows the sticks', tinted.
+set(Res.MinotaurGreatAxe, 'axe_hq_steel');
+set(Res.ArchfiendGreatsword, 'zweihander');
+set(Res.BogGuardianClub, 'club');
+set(Res.MorvathStaff, 'wand_grand_magician');
+set(Res.FiendShoulderPlate, 'armour_iron_plates');
+set(Res.MinotaurBracers, 'armour_steel_plate_steel');
+set(Res.GoblinLeathers, 'armour_leather');
+set(Res.GoblinChiefHelmet, 'helmet_bronze');
+set(Res.ArchfiendPlate, 'armour_steel_plate_hq_steel');
+set(Res.JuggernautPlating, 'armour_iron_plates');
+set(Res.HalflingIronCap, 'helmet_iron_nasal_iron_refined');
+set(Res.DwarfPlate, 'armour_steel_plate_steel');
+set(Res.DwarfMail, 'armour_iron_mail_iron_refined');
+set(Res.HeavySpikedMace, 'mace_iron_refined');
+set(Res.Witchwood, 'hardwood_sticks', { tint: 'hue-rotate(250deg) saturate(1.6) brightness(0.8)' });
 // Jade's Patch 5 wild foods (GP-30, GP-31).
 set(Res.BlackBerries, 'black_berries');
 set(Res.Raspberries, 'raspberries');

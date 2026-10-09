@@ -16,7 +16,7 @@ import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, type MeleeStats } from './items.ts';
-import { aTroop, CRIT, gearSpec, SECOND_BLOW, Slot, Troop } from '../units/kits.ts';
+import { aTroop, CRIT, DREADNOUGHT_GEAR, dreadnoughtMelee, gearSpec, SECOND_BLOW, Slot, Troop } from '../units/kits.ts';
 import { workerMelee } from '../units/tools.ts';
 import { isWoodsman, WOODSMAN } from '../units/woodsman.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
@@ -240,14 +240,17 @@ export function meleeOf(state: SimState, i: number): MeleeStats {
 function handMelee(state: SimState, i: number, second = false): MeleeStats {
   const e = state.entities;
   const id = e.weapon[i]!;
+  // The Dreadnought with anything but his own mace (Patch 7, plan 2.3): 1.5 times its damage, every swing a full sweep.
+  const dread = e.kind[i] === UnitKind.Warrior && e.troop[i] === Troop.Dreadnought && id !== DREADNOUGHT_GEAR.mace;
   if (id) {
     const g = gearSpec(id);
     const m = (second ? g.melee2 : undefined) ?? g.melee;
     // A woodsman deals 2 less than a warrior with the same weapon (Jade's WD-3).
     if (m && isWoodsman(e, i)) return { ...m, damage: Math.max(1, m.damage - WOODSMAN.damageLess) };
-    if (m) return m;
+    if (m) return dread ? dreadnoughtMelee(m) : m;
   }
-  return workerMelee(e, i);
+  const bare = workerMelee(e, i);
+  return dread ? dreadnoughtMelee(bare) : bare;
 }
 
 /**

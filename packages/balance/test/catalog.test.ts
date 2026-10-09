@@ -235,7 +235,7 @@ describe('session', () => {
     const damage = cat.fields.get(pathKey('units/kits.ts', ['CLOSE_KITS', 4, 'damage']))!;
     const swing = cat.fields.get(pathKey('units/kits.ts', ['CLOSE_KITS', 4, 'swingDs']))!;
     const flax = cat.fields.get(pathKey('units/kits.ts', ['ARMOUR_KITS', 3, 'cost', 1, 2, 1]))!;
-    s.set(damage.id, 17);
+    s.set(damage.id, 12);
     s.set(swing.id, fromDisplay('1.1', swing.unit)!);
     s.set(flax.id, 2);
     s.entryNotes.set('units/kits.ts:BRAWLER_KIT', 'pistol feels weak');
@@ -247,7 +247,7 @@ describe('session', () => {
       },
       {
         module: 'units/kits.ts', path: ['CLOSE_KITS', 4, 'damage'], label: 'Melee weapons > Tier 4: Bronze shortsword > Damage',
-        old: 16, new: 17, unit: 'damage per hit, before armour', oldDisplay: '16 dmg', newDisplay: '17 dmg',
+        old: 11, new: 12, unit: 'damage per hit, before armour', oldDisplay: '11 dmg', newDisplay: '12 dmg',
       },
       {
         module: 'units/kits.ts', path: ['CLOSE_KITS', 4, 'swingDs'], label: 'Melee weapons > Tier 4: Bronze shortsword > Swing time',

@@ -10,6 +10,7 @@ import {
   productSpec,
   Res,
   Research,
+  NO_CARRY,
   RESOURCE_COUNT,
   Troop,
   troopProduct,
@@ -65,7 +66,7 @@ function game(w: World = {}): GameInfo {
     data[o + S.rank] = rank;
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
-    data[o + S.carryRes] = 255;
+    data[o + S.carryRes] = NO_CARRY;
     // Milestone 11: a troop is a type and two tiers; the warriors start as close melee with a wooden cudgel (weapon tier 1) and no armour.
     if (kind === UnitKind.Warrior) {
       data[o + S.troop] = Troop.Close;

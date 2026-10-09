@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, FOODS, MONSTERS, Product, Res, RESOURCE_COUNT, Spell, UnitKind, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, FOODS, MONSTERS, Product, Res, NO_CARRY, RESOURCE_COUNT, Spell, UnitKind, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { ACTIONS, clashes, keyFor } from '../src/input/bindings.ts';
@@ -42,7 +42,7 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
     data[b + S.school] = school;
     data[b + S.hp] = 60;
     data[b + S.maxHp] = 60;
-    data[b + S.carryRes] = 255;
+    data[b + S.carryRes] = NO_CARRY;
     if (kind === UnitKind.Mage) {
       data[b + S.wTier] = 1;
       data[b + S.aTier] = 1;

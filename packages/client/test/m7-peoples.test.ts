@@ -9,6 +9,7 @@ import {
   PEOPLES,
   PeopleUnit,
   Res,
+  NO_CARRY,
   RESOURCE_COUNT,
   Status,
   UnitKind,
@@ -64,7 +65,7 @@ function game(f: PeopleInfo): GameInfo {
     data[o + S.rank] = 1;
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
-    data[o + S.carryRes] = 255;
+    data[o + S.carryRes] = NO_CARRY;
     if (owner === PEOPLES) data[o + S.group] = VILLAGE;
   });
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: rows.length, data, shots: new Int32Array(0), hits: [] });

@@ -4681,6 +4681,31 @@ in deploy/README.md, "Installable app".*
    Android shows its menu, then Add app to Home screen. Firefox on a Mac or
    Linux shows no button, since it cannot install web apps.
 
+## How a tester checks the gear catalogue and saves (Patch 7)
+
+*The foundation of Patch 7's gear: every looted piece's numbers, rarity,
+Heft and Stature, which units can use it, how pieces rank, the Dreadnought's
+rules, witchwood, scrapping, and saves that hold the new goods. Picks in
+blueprint/patch7/gear-catalogue-picks.md. The menus, drops, equip orders and
+models come with the other Patch 7 changes.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch7-gear.test.ts:
+   every new good is gear (witchwood is a material), night mob drops are
+   common, no looted weapon hits for its mob's blow, who can use what and
+   the reasons shown when not (the Dreadnought's "I need something for
+   smashing."), pieces ranked best first, wearing and taking off, the
+   Dreadnought's 1.5 times and full sweep with a great weapon, the Fae
+   Guardian's wand and robe adding 25% mana regain each, witchwood in a wand
+   recipe, scrap times by rarity, and a save with the new goods loading back
+   the same.
+2. **In a game.** Swordsmen, spearmen and the Dreadnought's sweep hit 30%
+   less (a new swordsman's cudgel shows Damage 6). The Workshop lists a
+   scrap recipe for every piece of gear, rarer pieces taking longer.
+   **Upgrade equipment** skips a tier that is not better by the numbers: a
+   crossbowman keeps the crossbow, a pikeman the pike.
+3. **Saves.** A save from Patch 6 says it is from an older version of the
+   game.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

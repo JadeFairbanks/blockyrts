@@ -82,7 +82,8 @@ describe('the kit tables', () => {
         expect(k.damage, `${name} ${k.tier}`).toBeGreaterThan(0);
         expect(k.swingDs, `${name} ${k.tier}`).toBeGreaterThan(0);
         expect(k.reachCm, `${name} ${k.tier}`).toBeGreaterThanOrEqual(100);
-        if (n > 0) expect(k.damage, `${name} ${k.tier}`).toBeGreaterThan(rows[n - 1]!.damage);
+        // Patch 7 (plan 3): area weapons hit 30% less, so the halberd's damage is checked against area weapons only.
+        if (n > 0 && k.hit === rows[n - 1]!.hit) expect(k.damage, `${name} ${k.tier}`).toBeGreaterThan(rows[n - 1]!.damage);
       });
     }
     // Long melee and cavalry reach further than close melee.

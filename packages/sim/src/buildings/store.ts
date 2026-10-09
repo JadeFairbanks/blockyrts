@@ -434,7 +434,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
       w.u16(q.count);
       w.u8(q.paid.length);
       for (const [res, n] of q.paid) {
-        w.u8(res);
+        w.u16(res);
         w.i32(n);
       }
     }
@@ -450,7 +450,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     w.i32(b.mined);
     w.u8(b.stock.length);
     for (const [res, n] of b.stock) {
-      w.u8(res);
+      w.u16(res);
       w.i32(n);
     }
     w.u8(b.acc.length);
@@ -461,7 +461,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     for (const v of b.locks) w.u16(v);
     w.u8(b.paid.length);
     for (const [res, n] of b.paid) {
-      w.u8(res);
+      w.u16(res);
       w.i32(n);
     }
     w.i32(b.boostLeft);
@@ -516,7 +516,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       const count = r.u16();
       const np = r.u8();
       const paid: Array<[number, number]> = [];
-      for (let p = 0; p < np; p++) paid.push([r.u8(), r.i32()]);
+      for (let p = 0; p < np; p++) paid.push([r.u16(), r.i32()]);
       b.queue.push({ product, progress, paid, by, horse, engine, count });
     }
     const nr = r.u8();
@@ -529,7 +529,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     b.rating = r.u8();
     b.mined = r.i32();
     const ns = r.u8();
-    for (let k2 = 0; k2 < ns; k2++) b.stock.push([r.u8(), r.i32()]);
+    for (let k2 = 0; k2 < ns; k2++) b.stock.push([r.u16(), r.i32()]);
     const na = r.u8();
     for (let k2 = 0; k2 < na; k2++) b.acc.push(r.i32());
     b.shared = r.u8();
@@ -537,7 +537,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     const nl = r.u8();
     for (let k2 = 0; k2 < nl; k2++) b.locks.push(r.u16());
     const np2 = r.u8();
-    for (let k2 = 0; k2 < np2; k2++) b.paid.push([r.u8(), r.i32()]);
+    for (let k2 = 0; k2 < np2; k2++) b.paid.push([r.u16(), r.i32()]);
     b.boostLeft = r.i32();
     b.boosts = r.u8();
     b.boostAuto = r.u8();

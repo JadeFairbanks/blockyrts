@@ -205,6 +205,65 @@ export const Res = {
   HeadlessIdol: 186,
   /** Jade's GP-29: the bog pear, 14 food, wanted by the Halfling Elder (QV-16). */
   BogPear: 187,
+  /**
+   * Patch 7 (Jade: "Every single weapon used by a mob will now be made into
+   * an item"): the monsters' weapons, shields, armour and robes, the pieces
+   * that fit nobody and are only scrapped, the neutral peoples' own pieces,
+   * the Dreadnought's mace, and witchwood, a material from casters' staffs.
+   * Each piece is a good like the ladder's (units/kits.ts names its gear row).
+   */
+  GoblinDagger: 188,
+  GoblinChiefCleaver: 189,
+  HobgoblinSword: 190,
+  BarrowKnightLongsword: 191,
+  FiendCleaver: 192,
+  PlagueCenser: 193,
+  ChainAndHook: 194,
+  GoblinFeatheredSpear: 195,
+  KoboldSpear: 196,
+  GnollSpear: 197,
+  MinotaurGreatAxe: 198,
+  ArchfiendGreatsword: 199,
+  BogGuardianClub: 200,
+  GoblinSling: 201,
+  GoblinBow: 202,
+  SkeletonRecurveBow: 203,
+  GoblinHexStick: 204,
+  HollowPriestStaff: 205,
+  NecromancerStaff: 206,
+  FlamecallerStaff: 207,
+  FaeStarWand: 208,
+  MorvathStaff: 209,
+  GoblinPlankShield: 210,
+  HobgoblinShield: 211,
+  BarrowKnightKiteShield: 212,
+  GnollBracer: 213,
+  HobgoblinArmour: 214,
+  BarrowKnightMail: 215,
+  VoidStalkerCloak: 216,
+  FiendShoulderPlate: 217,
+  MinotaurBracers: 218,
+  PlagueBearerRobe: 219,
+  HollowPriestRobe: 220,
+  NecromancerRobe: 221,
+  FlamecallerRobe: 222,
+  FaeGuardianRobe: 223,
+  GoblinLeathers: 224,
+  GoblinChiefHelmet: 225,
+  ArchfiendPlate: 226,
+  JuggernautPlating: 227,
+  HalflingIronCap: 228,
+  DwarfPlate: 229,
+  DwarfMail: 230,
+  HalflingShortsword: 231,
+  HalflingShortbow: 232,
+  HalflingBuckler: 233,
+  ElfGlaive: 234,
+  ElfLongbow: 235,
+  DwarfWarAxe: 236,
+  DwarfWarHammer: 237,
+  HeavySpikedMace: 238,
+  Witchwood: 239,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -334,6 +393,76 @@ function gearItems(): ResourceInfo[] {
   return rows.map(([id, name, weight]) => r(id, name, name, Gr, weight, GEAR_SOURCE, 0, false));
 }
 
+/** Where a looted piece comes from (Patch 7). */
+const LOOT_SOURCE = 'Dropped by the creature or people it belonged to. A unit it fits can wear or wield it; the Workshop scraps it for its materials.';
+/** Where a piece that fits nobody comes from (Patch 7, plan 4.3: scrap only). */
+const SCRAP_SOURCE = 'Dropped by the creature or people it belonged to. It fits none of your units: the Workshop scraps it for its materials.';
+
+/**
+ * Patch 7's looted pieces in id order: name and carrying weight, tenths of a
+ * pound, as the ladder's (s): a dagger 1 lb, a sword 3 lb, a two-handed
+ * weapon 5 lb and more, a shield 3 to 6 lb, armour 4 to 18 lb, a robe 3 lb.
+ * The heaviest are held to 25 lb so one always fits a unit's bag (s): the
+ * great weapons 15 lb, the Dreadnought's mace 20 lb, the Bog guardian's club,
+ * Morvath's staff and the biggest plate 25 lb.
+ */
+function lootItems(): ResourceInfo[] {
+  const rows: Array<[Res, string, number, string]> = [
+    [Res.GoblinDagger, 'Goblin dagger', 10, LOOT_SOURCE],
+    [Res.GoblinChiefCleaver, "Goblin chief's cleaver", 40, LOOT_SOURCE],
+    [Res.HobgoblinSword, 'Hobgoblin sword', 30, LOOT_SOURCE],
+    [Res.BarrowKnightLongsword, "Barrow knight's longsword", 35, LOOT_SOURCE],
+    [Res.FiendCleaver, "Fiend's cleaver", 60, LOOT_SOURCE],
+    [Res.PlagueCenser, 'Plague censer', 40, LOOT_SOURCE],
+    [Res.ChainAndHook, 'Chain and hook', 60, LOOT_SOURCE],
+    [Res.GoblinFeatheredSpear, 'Goblin feathered spear', 40, LOOT_SOURCE],
+    [Res.KoboldSpear, 'Kobold spear', 50, LOOT_SOURCE],
+    [Res.GnollSpear, 'Gnoll spear', 50, LOOT_SOURCE],
+    [Res.MinotaurGreatAxe, "Minotaur's great axe", 150, LOOT_SOURCE],
+    [Res.ArchfiendGreatsword, "Archfiend's greatsword", 150, LOOT_SOURCE],
+    [Res.BogGuardianClub, "Bog guardian's club", 250, SCRAP_SOURCE],
+    [Res.GoblinSling, 'Goblin sling', 5, LOOT_SOURCE],
+    [Res.GoblinBow, 'Goblin bow', 15, LOOT_SOURCE],
+    [Res.SkeletonRecurveBow, "Skeleton's recurve bow", 20, LOOT_SOURCE],
+    [Res.GoblinHexStick, 'Goblin hex stick', 10, LOOT_SOURCE],
+    [Res.HollowPriestStaff, "Hollow priest's staff", 30, LOOT_SOURCE],
+    [Res.NecromancerStaff, "Necromancer's staff", 30, LOOT_SOURCE],
+    [Res.FlamecallerStaff, "Flamecaller's staff", 50, LOOT_SOURCE],
+    [Res.FaeStarWand, 'Fae star wand', 5, LOOT_SOURCE],
+    [Res.MorvathStaff, "Morvath's staff", 250, "The Hollow Crown's own staff, a trophy: no one can wield it. The Workshop scraps it for its materials, slowly."],
+    [Res.GoblinPlankShield, 'Goblin plank shield', 30, LOOT_SOURCE],
+    [Res.HobgoblinShield, 'Hobgoblin shield', 60, LOOT_SOURCE],
+    [Res.BarrowKnightKiteShield, "Barrow knight's kite shield", 60, LOOT_SOURCE],
+    [Res.GnollBracer, 'Gnoll bracer', 10, LOOT_SOURCE],
+    [Res.HobgoblinArmour, 'Hobgoblin armour', 150, LOOT_SOURCE],
+    [Res.BarrowKnightMail, "Barrow knight's mail and helm", 180, LOOT_SOURCE],
+    [Res.VoidStalkerCloak, "Void stalker's cloak and hood", 40, LOOT_SOURCE],
+    [Res.FiendShoulderPlate, "Fiend's shoulder plate", 120, LOOT_SOURCE],
+    [Res.MinotaurBracers, "Minotaur's bracers and pauldron", 120, LOOT_SOURCE],
+    [Res.PlagueBearerRobe, "Plague bearer's robe", 30, LOOT_SOURCE],
+    [Res.HollowPriestRobe, "Hollow priest's robe", 30, LOOT_SOURCE],
+    [Res.NecromancerRobe, "Necromancer's robe", 30, LOOT_SOURCE],
+    [Res.FlamecallerRobe, "Flamecaller's robe", 30, LOOT_SOURCE],
+    [Res.FaeGuardianRobe, "Fae Guardian's robe", 20, LOOT_SOURCE],
+    [Res.GoblinLeathers, 'Goblin leathers', 40, SCRAP_SOURCE],
+    [Res.GoblinChiefHelmet, "Goblin chief's helmet", 30, SCRAP_SOURCE],
+    [Res.ArchfiendPlate, "Archfiend's plate", 250, SCRAP_SOURCE],
+    [Res.JuggernautPlating, "Juggernaut's plating", 250, SCRAP_SOURCE],
+    [Res.HalflingIronCap, 'Halfling iron cap', 20, SCRAP_SOURCE],
+    [Res.DwarfPlate, 'Dwarf plate and sallet', 200, SCRAP_SOURCE],
+    [Res.DwarfMail, 'Dwarf mail and sallet', 150, SCRAP_SOURCE],
+    [Res.HalflingShortsword, 'Halfling shortsword', 30, LOOT_SOURCE],
+    [Res.HalflingShortbow, 'Halfling shortbow', 20, LOOT_SOURCE],
+    [Res.HalflingBuckler, 'Halfling buckler', 30, LOOT_SOURCE],
+    [Res.ElfGlaive, 'Elf glaive', 60, LOOT_SOURCE],
+    [Res.ElfLongbow, 'Elf longbow', 20, LOOT_SOURCE],
+    [Res.DwarfWarAxe, 'Dwarf war axe', 40, LOOT_SOURCE],
+    [Res.DwarfWarHammer, 'Dwarf war hammer', 80, LOOT_SOURCE],
+    [Res.HeavySpikedMace, 'Heavy spiked mace', 200, "The Dreadnought's own mace. Only a Dreadnought can swing it; the Workshop scraps it for its materials."],
+  ];
+  return rows.map(([id, name, weight, source]) => r(id, name, name, Gr, weight, source, 0, false));
+}
+
 /**
  * Every resource, indexed by id. Weights from Table 12; nutrition from Table 6.
  * Patch 5 (Jade, BL-12: "make ore fairly heavy and make the cart hold a
@@ -452,6 +581,9 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.HeadlessIdol, 'Headless God Idol', 'Headless idol', T, 15, 'Taken from the altar of a Boneyard Circle.', 0, false),
   // GP-29: "edible ... It is a dark purple color ... a single pumpkin sized pear ... giving 14 food value" (s: 5 lb).
   r(Res.BogPear, 'Bog pear', 'Bog pears', F, 50, 'Low dark purple bushes at the bogs a Bog guardian keeps: a pumpkin-sized pear worth 14 food. A Halfling Elder wants one.', 14),
+  ...lootItems(),
+  // Patch 7: witchwood, from casters' staffs at the Workshop (s: a pound).
+  r(Res.Witchwood, 'Witchwood', 'Witchwood', A, 10, "Scrapped from casters' staffs at the Workshop. Stands in for a mana crystal in wand and robe recipes.", 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

@@ -29,7 +29,7 @@ import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../com
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
 import { FARM_PACE, farmPace, updateFarmBoost } from './farm-boost.ts';
 import { barnTended } from '../animals/barn.ts';
-import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
+import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS, manaCap } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
 import type { crewHooks } from '../units/questions.ts';
 import {
@@ -40,7 +40,6 @@ import {
   piecesProblem,
   piecesSteps,
   piecesTime,
-  ownGear,
   planPieces,
   ROBE_KITS,
   TOOL_KITS,
@@ -56,6 +55,7 @@ import {
   WAND_KITS,
   weaponPiece,
   weaponTiers,
+  wearPaidItems,
   hasShield,
   type Piece,
 } from '../units/kits.ts';
@@ -808,9 +808,8 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   const x = columnCentre(cx);
   const z = columnCentre(cz);
   const i = addWarrior(state, owner, x, z, t.troop as Troop, t.w, t.a, t.s);
-  // Trained with a weapon item that has a gear row of its own (the obsidian hand-axe), it goes on as itself.
-  const own = weaponPiece(t.troop, t.w)?.items.find((r) => ownGear(r) !== 0 && paid.some(([q, n]) => q === r && n > 0));
-  if (own !== undefined) state.entities.weapon[i] = ownGear(own);
+  // Trained with an item that has a gear row of its own (a looted piece, the obsidian hand-axe), it goes on as itself.
+  wearPaidItems(state.entities, i, troopPieces(t.troop, t.w, t.a, t.s), paid);
   state.entities.heading[i] = 32768;
   // Cavalry rides out on the horse it was given (Jade: the horse is used up).
   if (t.troop === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, barnsNear(state, b, owner)[0]?.id ?? 0, Math.max(0, horse - 1));
@@ -845,11 +844,14 @@ function spawnDreadnought(state: SimState, b: Building, owner: number): void {
   dreadnoughtHired(state, i);
 }
 
-function spawnMage(state: SimState, b: Building, school: number, owner: number, wand = 1, robe = 1): void {
+function spawnMage(state: SimState, b: Building, school: number, owner: number, wand = 1, robe = 1, paid: ReadonlyArray<readonly [number, number]> = []): void {
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
   const i = addMage(state, owner, x, z, school, wand, robe);
+  // A looted wand or robe it was trained with goes on as itself (Patch 7), and her mana bar fills to it.
+  wearPaidItems(state.entities, i, magePieces(wand, robe), paid);
+  state.entities.mana[i] = manaCap(state, i);
   state.entities.heading[i] = 32768;
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
@@ -1158,7 +1160,7 @@ export function updateBuildings(state: SimState): void {
           b.queue.shift();
           const m = mageOf(head.product);
           if (dreadnoughtOf(head.product)) spawnDreadnought(state, b, head.by);
-          else if (m) spawnMage(state, b, m.school, head.by, m.w, m.a);
+          else if (m) spawnMage(state, b, m.school, head.by, m.w, m.a, head.paid);
           else if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse, head.paid);
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);

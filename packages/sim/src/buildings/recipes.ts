@@ -14,8 +14,8 @@
 import { Res, RESOURCES, TRINKET_METALS, trinketRes, type Cost } from '../economy/resources.ts';
 import { haveOf } from '../economy/food-kinds.ts';
 import { STEPS_PER_SECOND } from '../fixed.ts';
-import { gearItemPieces, scrapYield } from '../units/kits.ts';
-import { BuildingKind, FORGE_STEP_BASE } from './data.ts';
+import { scrapItems, scrapSeconds } from '../units/kits.ts';
+import { BuildingKind, CRAFT_PACE, FORGE_STEP_BASE } from './data.ts';
 
 export interface RecipeSpec {
   id: number;
@@ -113,12 +113,14 @@ function trinketRecipes(): Array<Omit<RecipeSpec, 'id'>> {
 /**
  * Scrap equipment at the Workshop (Patch 5, GP-3): a weapon, armour, shield,
  * tool kit, wand or robe from stock back to the materials it is made from
- * (units/kits.ts scrapYield), "a blanket 10s per item" (Jade): 20 s of work
- * at the Workshop's CRAFT_PACE.
+ * (units/kits.ts scrapYieldOf). Patch 7 (plan 6): every piece, the looted
+ * ones too, for its own yield, in a time by its grade (common 10 s, rare
+ * 30 s, epic 90 s, legendary 3 minutes, Morvath's staff 4 minutes;
+ * scrapSeconds), of work at the Workshop's CRAFT_PACE.
  */
 function scrapRecipes(): Array<Omit<RecipeSpec, 'id'>> {
-  return gearItemPieces().map(([item, p]) => ({
-    name: `Scrap ${RESOURCES[item]!.name.toLowerCase()}`, at: WORKSHOP, base: 0, inputs: [[[item, 1]]], outputs: scrapYield(p), steps: sec(20), research: 0, scrap: item,
+  return scrapItems().map(([item, outputs]) => ({
+    name: `Scrap ${RESOURCES[item]!.name.toLowerCase()}`, at: WORKSHOP, base: 0, inputs: [[[item, 1]]], outputs, steps: sec(scrapSeconds(item) * CRAFT_PACE), research: 0, scrap: item,
   }));
 }
 

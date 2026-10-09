@@ -132,8 +132,8 @@ export const UNIT_FIELDS = [
   ['toolBreak', 'u8'],
   ['toolBuild', 'u8'],
   ['toolCut', 'u8'],
-  /** What it carries (a resource id) and how much; carryRes 255 when empty. */
-  ['carryRes', 'u8'],
+  /** What it carries (a resource id) and how much; carryRes NO_CARRY when empty. Patch 7: two bytes, for goods past 255. */
+  ['carryRes', 'u16'],
   ['carryAmt', 'u16'],
   /** The building it is inside, or 0. */
   ['inside', 'u32'],
@@ -175,10 +175,10 @@ export const UNIT_FIELDS = [
   ['aTier', 'u8'],
   ['sTier', 'u8'],
   ['tips', 'u8'],
-  /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. */
-  ['weapon', 'u8'],
-  ['ranged', 'u8'],
-  ['shield', 'u8'],
+  /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. Patch 7: two bytes, for gear rows past 255 (a tool's stay one: units/kits.ts makes them first). */
+  ['weapon', 'u16'],
+  ['ranged', 'u16'],
+  ['shield', 'u16'],
   /** Lair structures: what they hold (threats/lairs.ts). */
   ['picked', 'u16'],
   /** The unit or building it is fighting, or 0. */
@@ -210,9 +210,9 @@ export const UNIT_FIELDS = [
   ['fuseAt', 'u32'],
   /** Mobs: 1 when running for the dark (dawn, or a goblin with loot). */
   ['fleeing', 'u8'],
-  /** Armour (or a mage's robe), a gear id; and a worker's cart (economy Res.HandCart or Res.OxCart, 0 for none). */
-  ['armour', 'u8'],
-  ['kit', 'u8'],
+  /** Armour (or a mage's robe), a gear id; and a worker's cart (economy Res.HandCart or Res.OxCart, 0 for none). Two bytes each (Patch 7). */
+  ['armour', 'u16'],
+  ['kit', 'u16'],
   /** Healing over time from eating and medicine (Food): health still to come, until this step. */
   ['mendUntil', 'u32'],
   ['mendLeft', 'i32'],
@@ -342,8 +342,8 @@ function makeColumn(t: ColumnType, n: number): Column {
 }
 
 
-/** No resource carried. */
-export const NO_CARRY = 255;
+/** No resource carried (Patch 7: past every good, now that goods go past 255). */
+export const NO_CARRY = 0xffff;
 
 export class EntityStore implements Record<FieldName, Column> {
   declare id: Uint32Array;
@@ -365,7 +365,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare toolBreak: Uint8Array;
   declare toolBuild: Uint8Array;
   declare toolCut: Uint8Array;
-  declare carryRes: Uint8Array;
+  declare carryRes: Uint16Array;
   declare carryAmt: Uint16Array;
   declare inside: Uint32Array;
   declare act: Uint8Array;
@@ -388,9 +388,9 @@ export class EntityStore implements Record<FieldName, Column> {
   declare aTier: Uint8Array;
   declare sTier: Uint8Array;
   declare tips: Uint8Array;
-  declare weapon: Uint8Array;
-  declare ranged: Uint8Array;
-  declare shield: Uint8Array;
+  declare weapon: Uint16Array;
+  declare ranged: Uint16Array;
+  declare shield: Uint16Array;
   declare picked: Uint16Array;
   declare target: Uint32Array;
   declare atkAt: Uint32Array;
@@ -412,8 +412,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare abilityAt: Uint32Array;
   declare fuseAt: Uint32Array;
   declare fleeing: Uint8Array;
-  declare armour: Uint8Array;
-  declare kit: Uint8Array;
+  declare armour: Uint16Array;
+  declare kit: Uint16Array;
   declare mendUntil: Uint32Array;
   declare mendLeft: Int32Array;
   declare dotUntil: Uint32Array;
