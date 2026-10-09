@@ -107,6 +107,10 @@ export const PropKind = {
    * pumpkin-sized pear at a time.
    */
   BogPearBush: 57,
+  /** Small silver nuggets on the ground of a bog with a Bog guardian (Jade's Patch 5, MB-11); they never come back. */
+  SilverNugget: 58,
+  /** A large mana crystal node of 40 crystals, a Fae Guardian's (Jade's Patch 5, MF-2, MF-4). */
+  LargeManaCrystal: 59,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -245,6 +249,10 @@ export const PROPS: readonly PropInfo[] = [
   tree(PropKind.CirclePine, 'Pine', 20, 15, 1, Tool.Hardwood, 60 * MINUTE, P5, 'softwood lumber'),
   // GP-29: "each growing a single pumpkin sized pear max, each pear taking 3 minutes to regrow".
   { ...berries(PropKind.BogPearBush, 'Bog pear bush', 'bog pear'), yield: 1, yieldMax: 1, perLoad: 1, regrowSteps: 3 * MINUTE },
+  // MB-11: "small silver nuggets ... These do not regenerate, the same way stone does not regenerate" (s: 1 silver each, picked up in 5 s by hand).
+  node(PropKind.SilverNugget, 'Silver nugget', PropShape.Rocks, 'silver', 1, 1, 5, 1, Tool.None, P5),
+  // MF-4: "large mana crystal nodes with 40 mana crystals each", gathered as the small ones are.
+  node(PropKind.LargeManaCrystal, 'Large mana crystal', PropShape.Crystal, 'mana crystal', 40, 1, 30, 2, Tool.Bronze, P5),
 ];
 
 /**

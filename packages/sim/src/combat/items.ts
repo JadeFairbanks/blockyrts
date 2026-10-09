@@ -57,6 +57,8 @@ export const Shot = {
   NecroBolt: 21,
   /** Patch 5 (MB-16): a support mage's Energy dart, an arrow made of light. */
   EnergyDart: 22,
+  /** Jade's Patch 5 (MF-7): the Fae Guardian's pink-magenta bolt. */
+  FairyBolt: 23,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -235,7 +237,7 @@ export interface ShotSpec {
   fells?: number;
   chips?: number;
   /** How its splash looks where it lands (state.ts HitLook), when not the usual blast. */
-  burst?: 'crimson';
+  burst?: 'crimson' | 'fairy';
   /**
    * Patch 5 (MB-23): a mage's bolt arcs over a wall in its way, but only so
    * far: the top of its arc may rise above the straight line to its mark by
@@ -288,9 +290,12 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'crimson bolt', model: 'necromancer_bolt', vsWalls: 5, splash: 35, splashRadius: cm(50), burst: 'crimson' },
   // Patch 5 (MB-16): the Energy dart, a little faster than the Arcane bolt (s), under the same arc limit.
   { speed: floorDiv(cm(2200), STEPS_PER_SECOND), arcs: true, name: 'energy dart', model: 'energy_dart', vsWalls: 1, maxRiseBp: BOLT_RISE_BP, magic: true },
+  // Jade's Patch 5 (MF-7, decisions 2.2): the Fae Guardian's bolt, 30 to all within 2 m of where it lands besides the 30 to whoever it strikes, in a big
+  // explosion of its own pink-magenta; it flies straight at 16 m/s (s).
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'fairy bolt', model: 'fairy_bolt', vsWalls: 0, splash: 30, splashRadius: cm(200), burst: 'fairy' },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
 export function spellShot(shot: number): boolean {
-  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.EnergyDart;
+  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.EnergyDart || shot === Shot.FairyBolt;
 }
