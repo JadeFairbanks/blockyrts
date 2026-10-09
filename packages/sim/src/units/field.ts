@@ -46,6 +46,8 @@ const Seen = 1;
 const Search = 2;
 const AtHome = 4;
 const Turned = 8;
+/** Its quarry is the one the player picked (Jade's Patch 5, CT-1: Hunt's left click): chased whatever the leash or the hour, then the hunt goes on as usual. */
+export const HUNT_PICKED = 16;
 /** Kinds of quiet line, for chatter's spacing (forage.ts uses 1 to 5). */
 const Talk = { Spotted: 6, Look: 7, Away: 8, Carry: 9, Dusk: 10, Back: 11 } as const;
 
@@ -226,7 +228,7 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
   const e = state.entities;
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   if (e.kind[i] === UnitKind.Worker) return runHauler(state, i, o);
-  if (o.auto && isDark(state.step)) return huntHome(state, i, o);
+  if (o.auto && (o.k & HUNT_PICKED) === 0 && isDark(state.step)) return huntHome(state, i, o);
   if (o.k & AtHome) {
     // Out again at daybreak; the dawn is still the monsters'.
     if (clockAt(state.step).period !== Period.Day) return CONTINUE;
@@ -237,7 +239,7 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
   // The fight layer chases a quarry it can see; here the quarry is out of its sight, dead, lost or not chosen yet.
   const t = o.id ? e.indexOf(o.id) : -1;
   if (o.id !== 0 && isQuarry(state, t)) {
-    if (o.auto && !inReach(h, o, e.x[t]!, e.z[t]!)) {
+    if (o.auto && (o.k & HUNT_PICKED) === 0 && !inReach(h, o, e.x[t]!, e.z[t]!)) {
       // It ran past where the hunter can get home from by nightfall: let it go.
       o.id = 0;
       o.k &= ~Seen;
@@ -253,7 +255,7 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
     o.id = 0;
     // What fell out of its reach (a ranger shoots from afar), unless workers came along to haul it.
     const l = haulersWith(state, i) ? -1 : huntLoot(state, i, e.id[i]!, (o.k & Seen) !== 0 ? o.kx : e.x[i]!, (o.k & Seen) !== 0 ? o.kz : e.z[i]!);
-    o.k &= ~Seen;
+    o.k &= ~(Seen | HUNT_PICKED);
     if (l >= 0) return fetch(state, i, l, 0);
   }
   if (!o.auto) return DONE;
