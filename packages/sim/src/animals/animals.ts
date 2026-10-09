@@ -4,18 +4,25 @@
 // the first time the players come near it, and only breeding adds more.
 // Wild animals graze round their spot, run, fight back, hunt in packs,
 // stalk, guard or knock over torches by their nature; tamed ones belong to
-// a Barn (Patch 2), walk round it by day, shelter in its stalls by night,
-// eat farm fare from the stock every day (they cannot graze, Jade), breed
-// there and can be slaughtered.
+// a Barn (Patch 2). Patch 5 (Jade's GP-37 and BL-10): with the Barn's hand at
+// work they graze round it by day in the Heartland, Fringe and Deepwoods,
+// which saves a share of their feed, shelter in its stalls by night and eat
+// plant food from the stock then; a grown female ready for young seeks out a
+// male and they mate side by side, hearts over them both; and they can be
+// slaughtered. A newly tamed animal follows its worker until it is within
+// 5 m of a Barn of its owner's with room.
 
 import { BARN_STALLS, BuildingKind, buildingName, CHICKENS_PER_STALL, OUTLYING_M } from '../buildings/data.ts';
+import { fairyHooks, HAWTHORNE_PCT } from '../buildings/farm-boost.ts';
+import { bandAt } from '../buildings/placement.ts';
+import { BARN_YARD_WU, barnTended } from './barn.ts';
 import { buildingCentre, dist2, isLit, nearMainBase, snuffLight } from '../buildings/lights.ts';
 import { placedDims, type Building } from '../buildings/store.ts';
-import { isDark } from '../clock.ts';
+import { clockAt, isDark, Period } from '../clock.ts';
 import { Res, type Cost } from '../economy/resources.ts';
-import { animalUpkeep, itemQuarters, QUARTERS, takeFood } from '../economy/food.ts';
-import { cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { CYCLE_STEPS } from '../rules.ts';
+import { animalUpkeep, QUARTERS, takeFood } from '../economy/food.ts';
+import { ceilDiv, cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { CYCLE_STEPS, DAY_STEPS, DUSK_STEPS } from '../rules.ts';
 import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
@@ -30,7 +37,7 @@ import { hasWaterAt } from '../buildings/placement.ts';
 import { rollDropList } from '../threats/loot.ts';
 import { dropLoot, lootBrag } from '../units/loot.ts';
 import { meatOf } from '../economy/food-kinds.ts';
-import { BEAR_CAP, BREED_STEPS, breeds, Nature, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
+import { BEAR_CAP, breeds, inPairs, Nature, PLANT_FOODS, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
 
 const COLUMN = WU_PER_COLUMN;
 const M = WU_PER_METRE;
@@ -62,12 +69,22 @@ const BEAR_MOTHER_WU = 15 * M;
 const BADGER_REACH_WU = 30 * M;
 const BADGER_SHY_WU = 6 * M;
 const BADGER_REST_STEPS = 60 * STEPS_PER_SECOND;
-/** Barn animals walk round within 15 m of their Barn by day (s); they eat farm fare, not its grass (Patch 2). */
-export const BARN_YARD_WU = 15 * M;
-/** A Barn animal that finds no farm fare in the morning loses this share of its health (s), never the last of it. */
+/** A Barn animal that finds no plant food at nightfall loses this share of its health (s), never the last of it. */
 export const BARN_HUNGER_PER_MILLE = 100;
-/** A working animal walks 2 m behind its worker (s). */
+/** Grazing round its Barn by day saves a quarter of an animal's feed (s; Jade: "This offsets their food cost slightly"). */
+export const GRAZE_SAVES_PM = 250;
+/** A working or newly tamed animal walks 2 m behind its worker (s). */
 const FOLLOW_WU = 2 * M;
+/** A newly tamed animal joins a Barn of its owner's with room once it is this near it (Jade, GP-35): 5 m. */
+const JOIN_BARN_WU = 5 * M;
+/** Farther behind its worker than this while he walks, it hurries to catch up within CATCH_UP_STEPS (Jade, GP-35): 10 m and 2 s. */
+const CATCH_UP_WU = 10 * M;
+const CATCH_UP_STEPS = 2 * STEPS_PER_SECOND;
+/** Stuck, it is brought to its worker once he is this far off (Jade, GP-35): 5 m. */
+const STUCK_WU = 5 * M;
+/** A wild female ready for young looks for a male within 30 m (doc), and none is born where the kind already crowds 60 m round (s). */
+const MATE_SEEK_WU = 30 * M;
+const CROWD_WU = 60 * M;
 /** A Barn's big animals and chickens. */
 function herdOf(state: SimState, b: Building): [number, number] {
   const e = state.entities;
@@ -117,7 +134,7 @@ export function addAnimal(state: SimState, species: number, owner: number, x: nu
   e.sex[i] = sex;
   e.homeX[i] = x;
   e.homeZ[i] = z;
-  e.breedAt[i] = (young ? grownAt : state.step) + BREED_STEPS;
+  e.breedAt[i] = (young ? grownAt : state.step) + s.breedSteps;
   e.heading[i] = hash(state, id) & 0xffff;
   e.wanderAt[i] = state.step + 20 + (hash(state, id, 1) % 200);
   return i;
@@ -263,7 +280,7 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
         spot = landNear(state, cx, cz, false);
       }
       if (!spot) continue;
-      const herd = breeds(s.id);
+      const herd = inPairs(s.id);
       const n = herd ? 2 : s.groupMin + (hash(state, cellId, s.id, g, 99) % (s.groupMax - s.groupMin + 1));
       for (let k = 0; k < n; k++) {
         const h = hash(state, cellId, s.id, g, k, 5);
@@ -477,14 +494,20 @@ function keepTarget(state: SimState, i: number, reach: number): number {
 function runWild(state: SimState, i: number): void {
   const e = state.entities;
   const s = speciesSpec(e.mob[i]!);
-  // Held still by a worker taming it.
+  // Held still by a worker taming it, its bar over its head (units/field.ts runTame); left alone, the bar goes.
   if (e.waitUntil[i]! > state.step) {
     e.target[i] = 0;
     return;
   }
+  if (e.tinker[i] !== 0) {
+    e.tinker[i] = 0;
+    e.timer[i] = 0;
+  }
   const hx = e.homeX[i]!;
   const hz = e.homeZ[i]!;
   const a = recentAttacker(state, i);
+  // Game and herds ready for young seek a mate (Patch 5, Jade's BL-10), unless something just hurt them.
+  if (a < 0 && (s.nature === Nature.Shy || s.nature === Nature.FightsBack || s.nature === Nature.Bear) && mateStep(state, i, undefined)) return;
   switch (s.nature) {
     case Nature.Shy:
       if (a >= 0) return flee(state, i, a);
@@ -649,11 +672,11 @@ function goOutside(state: SimState, i: number): void {
 
 function runTamed(state: SimState, i: number): void {
   const e = state.entities;
-  e.target[i] = 0;
-  // A working animal walks behind its worker.
+  // A working animal walks behind its worker; a newly tamed one follows its worker to a Barn (Jade, GP-35).
   if (e.partner[i]) {
     const w = e.indexOf(e.partner[i]!);
     if (w >= 0 && e.hp[w]! > 0 && e.partner[w] === e.id[i]) {
+      e.target[i] = 0;
       if (e.inside[i] !== 0) goOutside(state, i);
       const d = length2d(e.x[w]! - e.x[i]!, e.z[w]! - e.z[i]!);
       if (d > FOLLOW_WU) {
@@ -669,6 +692,7 @@ function runTamed(state: SimState, i: number): void {
       } else e.order[i] = OrderKind.Idle;
       return;
     }
+    if (w >= 0 && e.hp[w]! > 0 && e.home[i] === 0) return followToBarn(state, i, w);
     e.partner[i] = 0;
   }
   const home = state.buildings.get(e.home[i]!);
@@ -679,29 +703,212 @@ function runTamed(state: SimState, i: number): void {
   }
   const b = state.buildings.get(e.home[i]!);
   const a = recentAttacker(state, i) >= 0 ? recentAttacker(state, i) : monsterNear(state, i);
-  if (a >= 0 && e.inside[i] === 0) return flee(state, i, a);
-  if (isDark(state.step) && b) {
-    const shelter = shelterFor(b);
-    if (shelter) {
-      if (e.inside[i] === shelter.id) return;
-      const [sx, sz] = buildingCentre(shelter);
-      if (length2d(sx - e.x[i]!, sz - e.z[i]!) > 5 * M) {
-        goTo(state, i, sx, sz, false);
-        return;
-      }
-      e.inside[i] = shelter.id;
-      e.x[i] = sx;
-      e.z[i] = sz;
+  if (a >= 0 && e.inside[i] === 0) {
+    e.target[i] = 0;
+    return flee(state, i, a);
+  }
+  const shelter = b ? shelterFor(b) : undefined;
+  // Out round the Barn by day only while its hand is at work, and only where there is grass (Patch 5, Jade); in its stalls the rest of the time.
+  if (shelter && !grazesOut(state, shelter)) {
+    e.target[i] = 0;
+    if (e.inside[i] === shelter.id) return;
+    const [sx, sz] = buildingCentre(shelter);
+    if (length2d(sx - e.x[i]!, sz - e.z[i]!) > 5 * M) {
+      goTo(state, i, sx, sz, false);
       return;
     }
+    e.inside[i] = shelter.id;
+    e.x[i] = sx;
+    e.z[i] = sz;
+    return;
   }
-  if (e.inside[i] !== 0) {
-    if (isDark(state.step)) return;
-    goOutside(state, i);
+  if (e.inside[i] !== 0) goOutside(state, i);
+  if (!b) {
+    e.target[i] = 0;
+    return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
   }
-  if (!b) return graze(state, i, e.homeX[i]!, e.homeZ[i]!, GRAZE_WU);
+  if (mateStep(state, i, b)) return;
+  e.target[i] = 0;
   const [hx, hz] = buildingCentre(b);
   graze(state, i, hx, hz, BARN_YARD_WU);
+}
+
+/** Not state: each Barn's band, which never changes. */
+const grassCache = new WeakMap<Building, boolean>();
+
+/** Whether a Barn stands where its animals find grass (Jade, GP-37): the Heartland, the Fringe or the Deepwoods. */
+export function barnHasGrass(state: SimState, b: Building): boolean {
+  let grass = grassCache.get(b);
+  if (grass === undefined) {
+    const [x, z] = buildingCentre(b);
+    const band = bandAt(state, floorDiv(x, COLUMN), floorDiv(z, COLUMN));
+    grass = band === Band.Heartland || band === Band.Fringe || band === Band.Deepwoods;
+    grassCache.set(b, grass);
+  }
+  return grass;
+}
+
+/** Whether a Barn's animals are out grazing now: by day, with the hand at work and grass round it. */
+function grazesOut(state: SimState, b: Building): boolean {
+  return clockAt(state.step).period === Period.Day && barnTended(state, b) && barnHasGrass(state, b);
+}
+
+/** A finished Barn of a player's within JOIN_BARN_WU of a point (wu) with a stall for one more of a species, nearest first. */
+function barnToJoin(state: SimState, player: number, species: number, x: number, z: number): Building | undefined {
+  let best: Building | undefined;
+  let bestD = 0;
+  for (const b of state.buildings.list) {
+    if (b.owner !== player || b.kind !== BuildingKind.Barn || !b.complete) continue;
+    const [bx, bz] = buildingCentre(b);
+    const { w, d } = placedDims(b);
+    const reach = JOIN_BARN_WU + (Math.max(w, d) >> 1) * COLUMN;
+    const dd = dist2(bx, bz, x, z);
+    if (dd > reach * reach || (best && dd >= bestD) || !hasRoom(state, b, species)) continue;
+    best = b;
+    bestD = dd;
+  }
+  return best;
+}
+
+/**
+ * A newly tamed animal follows the worker who tamed it (Jade, GP-35) until it
+ * is within 5 m of a Barn of its owner's with room, and is that Barn's from
+ * then on. More than 10 m behind, it hurries to catch up within 2 s; stuck
+ * (a cliff, a hole), it is brought to him once he is more than 5 m off, or
+ * straight into the Barn once he stands within 5 m of one.
+ */
+function followToBarn(state: SimState, i: number, w: number): void {
+  const e = state.entities;
+  const s = speciesSpec(e.mob[i]!);
+  e.target[i] = 0;
+  if (e.inside[i] !== 0) goOutside(state, i);
+  const join = barnToJoin(state, e.owner[i]!, s.id, e.x[i]!, e.z[i]!);
+  if (join) return joinBarn(state, i, join);
+  // Its worker gone indoors: it waits by the door.
+  if (e.inside[w] !== 0) return graze(state, i, e.x[i]!, e.z[i]!, 2 * M);
+  const d = length2d(e.x[w]! - e.x[i]!, e.z[w]! - e.z[i]!);
+  if (d <= FOLLOW_WU) {
+    e.order[i] = OrderKind.Idle;
+    return;
+  }
+  const hurry = d > CATCH_UP_WU ? ceilDiv(d - FOLLOW_WU, CATCH_UP_STEPS) : Math.min(s.run, Math.max(s.walk, d - FOLLOW_WU));
+  if (stepToward(state, i, e.x[w]!, e.z[w]!, Math.max(s.walk, hurry))) return;
+  // Stuck: into the Barn its worker stands by, or to its worker once he is far enough off.
+  const by = barnToJoin(state, e.owner[i]!, s.id, e.x[w]!, e.z[w]!);
+  if (by) return joinBarn(state, i, by);
+  if (d <= STUCK_WU) return;
+  e.x[i] = e.x[w]!;
+  e.z[i] = e.z[w]!;
+  e.y[i] = e.y[w]!;
+}
+
+/** A newly tamed animal joins a Barn. */
+function joinBarn(state: SimState, i: number, b: Building): void {
+  const e = state.entities;
+  e.partner[i] = 0;
+  e.home[i] = b.id;
+  const [hx, hz] = buildingCentre(b);
+  e.homeX[i] = hx;
+  e.homeZ[i] = hz;
+  state.events.push({ player: e.owner[i]!, kind: 'info', text: `The tamed ${speciesSpec(e.mob[i]!).name.toLowerCase()} is in the ${buildingName(b.kind, b.level, b.variant).toLowerCase()} now.`, x: e.x[i]!, z: e.z[i]! });
+}
+
+// ----- having young (Patch 5, Jade's BL-10) -----
+
+/** Whether an animal is a grown female ready for young. */
+function readyForYoung(state: SimState, i: number): boolean {
+  const e = state.entities;
+  return e.sex[i] === 0 && e.born[i] === 0 && breeds(e.mob[i]!) && e.breedAt[i]! <= state.step;
+}
+
+/** Whether animal m is a mate for female i: a grown male of her kind and side (in her Barn's yard when tamed). */
+function mateFor(state: SimState, i: number, m: number, barn: Building | undefined): boolean {
+  const e = state.entities;
+  if (m < 0 || m === i || e.kind[m] !== UnitKind.Animal || e.hp[m]! <= 0 || e.mob[m] !== e.mob[i] || e.owner[m] !== e.owner[i]) return false;
+  if (e.sex[m] !== 1 || e.born[m] !== 0) return false;
+  return barn ? e.home[m] === barn.id && e.inside[m] === 0 && !e.partner[m] : true;
+}
+
+/** Whether there is room for one more of a female's kind: a free stall in her Barn, or in the wild her kind not crowding 60 m round (bears one pair and their cubs, 60 in all). */
+function roomForYoung(state: SimState, i: number, barn: Building | undefined): boolean {
+  const e = state.entities;
+  const species = e.mob[i]!;
+  if (barn) return hasRoom(state, barn, species);
+  const kin = state.grid.near(e.x[i]!, e.z[i]!, CROWD_WU).filter((j) => e.kind[j] === UnitKind.Animal && e.mob[j] === species && e.owner[j] === e.owner[i] && e.hp[j]! > 0).length;
+  return species === Species.Bear ? kin < 4 && bearCount(state) < BEAR_CAP : kin < 4 * speciesSpec(species).perCell;
+}
+
+/** The nearest mate for a female: in her Barn's yard, or within 30 m in the wild; -1 for none. */
+function nearestMate(state: SimState, i: number, barn: Building | undefined): number {
+  const e = state.entities;
+  const r = barn ? 2 * BARN_YARD_WU : MATE_SEEK_WU;
+  let best = -1;
+  let bestD = 0;
+  for (const j of state.grid.near(e.x[i]!, e.z[i]!, r)) {
+    if (!mateFor(state, i, j, barn)) continue;
+    const d = length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!);
+    if (d > r || (best >= 0 && (d > bestD || (d === bestD && e.id[j]! > e.id[best]!)))) continue;
+    best = j;
+    bestD = d;
+  }
+  return best;
+}
+
+/** How long until a female is ready again: her kind's pace, 35% quicker within 30 m of a Sweet Hawthorne (Jade, SC-9). */
+function breedPause(state: SimState, i: number): number {
+  const e = state.entities;
+  const steps = speciesSpec(e.mob[i]!).breedSteps;
+  return fairyHooks.hawthorneNear(state, e.x[i]!, e.z[i]!) ? floorDiv(steps * 100, 100 + HAWTHORNE_PCT) : steps;
+}
+
+/**
+ * A grown female ready for young (Jade, BL-10: "have them seek out a mate
+ * when ready to mate"): she looks for a male of her kind once a second while
+ * there is room for the young, walks to him, and once they stand side by side
+ * hearts show over them both and the young is born. True while she is about
+ * it, so nothing else moves her this step. Her mate is kept in her target.
+ */
+function mateStep(state: SimState, i: number, barn: Building | undefined): boolean {
+  const e = state.entities;
+  if (!readyForYoung(state, i)) return false;
+  let m = e.target[i] ? e.indexOf(e.target[i]!) : -1;
+  // Busy with something else (a bear's fight): not now.
+  if (m >= 0 && e.kind[m] !== UnitKind.Animal) return false;
+  if (!mateFor(state, i, m, barn)) {
+    e.target[i] = 0;
+    if ((state.step + e.id[i]!) % STEPS_PER_SECOND !== 0) return false;
+    if (!roomForYoung(state, i, barn)) {
+      // The wild kind is crowding: she tries again a day later; a full Barn has her wait for a stall.
+      if (!barn) e.breedAt[i] = state.step + CYCLE_STEPS;
+      return false;
+    }
+    m = nearestMate(state, i, barn);
+    if (m < 0) return false;
+    e.target[i] = e.id[m]!;
+  }
+  const s = speciesSpec(e.mob[i]!);
+  if (length2d(e.x[m]! - e.x[i]!, e.z[m]! - e.z[i]!) > 2 * s.halfWidth + M) {
+    if (!goTo(state, i, e.x[m]!, e.z[m]!, false)) e.target[i] = 0;
+    return true;
+  }
+  e.target[i] = 0;
+  haveYoung(state, i, m, barn);
+  return true;
+}
+
+/** Side by side: hearts over the pair (the page draws them, BL-10) and the young is born by its mother (a Barn's needs a stall still). */
+function haveYoung(state: SimState, i: number, m: number, barn: Building | undefined): void {
+  const e = state.entities;
+  if (barn && !hasRoom(state, barn, e.mob[i]!)) return;
+  e.breedAt[i] = state.step + breedPause(state, i);
+  for (const j of [i, m]) state.hits.push({ look: 'heart', x: e.x[j]!, y: e.y[j]!, z: e.z[j]!, id: e.id[j]! });
+  const species = e.mob[i]!;
+  const owner = e.owner[i]!;
+  const k = addAnimal(state, species, owner, e.x[i]!, e.z[i]! + COLUMN, state.step + YOUNG_STEPS, hash(state, e.id[i]!, state.step) & 1);
+  e.homeX[k] = e.homeX[i]!;
+  e.homeZ[k] = e.homeZ[i]!;
+  e.home[k] = e.home[i]!;
+  if (owner < state.players.length) state.events.push({ player: owner, kind: 'info', text: `A young ${speciesSpec(species).name.toLowerCase()} was born.`, x: e.x[i]!, z: e.z[i]! });
 }
 
 /** A monster close by (tamed animals run from it). */
@@ -750,11 +957,12 @@ export function runAnimal(state: SimState, i: number): void {
 // ----- each day -----
 
 /**
- * What Barn animals eat (Patch 2, Jade: they cannot graze, so they eat farm
- * fare), taken from the stock even when it is kept back from the units'
- * meals, exact to the quarter (a started one waits for the next day).
+ * What Barn animals eat (Patch 5, Jade's GP-37: "At night if they need to
+ * eat, they can consume plant based foods"), taken from the stock even when
+ * it is kept back from the units' meals, exact to the quarter (a started one
+ * waits for the next night).
  */
-const BARN_FOOD: readonly Res[] = [Res.FarmFare];
+const BARN_FOOD: readonly Res[] = PLANT_FOODS;
 
 /** A Barn's animals at home, not out working with a worker (a working animal eats with the workers instead). */
 function stalled(state: SimState, b: Building): number[] {
@@ -762,21 +970,25 @@ function stalled(state: SimState, b: Building): number[] {
   return animalsAt(state, b.id).filter((j) => !e.partner[j]);
 }
 
+/** What one Barn animal eats a night, in quarters of nutrition: its feed, less what grazing saved by day where its hand let it out on grass. */
+function feedQuarters(state: SimState, b: Building, species: number): number {
+  const q = speciesSpec(species).barnFeed * QUARTERS;
+  return barnTended(state, b) && barnHasGrass(state, b) ? q - floorDiv(q * GRAZE_SAVES_PM, 1000) : q;
+}
+
 /** What a Barn's animals eat a day, in quarters of nutrition. */
 export function barnFeedQuarters(state: SimState, b: Building): number {
   const e = state.entities;
   let n = 0;
-  for (const j of stalled(state, b)) n += speciesSpec(e.mob[j]!).barnFeed * QUARTERS;
+  for (const j of stalled(state, b)) n += feedQuarters(state, b, e.mob[j]!);
   return n;
 }
 
-/** What a Barn's animals eat a day, in farm fare: "1", "2½", "¾" (rounded up to the quarter, so it never says less than they eat). */
+/** What a Barn's animals eat a day, in food: "1", "2½", "¾" (rounded up to the quarter, so it never says less than they eat). */
 export function barnFeedText(state: SimState, b: Building): string {
   const q = barnFeedQuarters(state, b);
-  const item = itemQuarters(Res.FarmFare);
-  const quarters = item > 0 ? floorDiv(q * 4 + item - 1, item) : 0;
-  const whole = floorDiv(quarters, 4);
-  const part = ['', '¼', '½', '¾'][quarters - whole * 4]!;
+  const whole = floorDiv(q, 4);
+  const part = ['', '¼', '½', '¾'][q - whole * 4]!;
   return `${whole > 0 || !part ? whole : ''}${part}`;
 }
 
@@ -792,51 +1004,29 @@ function growUp(state: SimState): void {
   }
 }
 
-/** A pair's young: wild pairs while their cell is not crowded, tamed pairs in a Barn with a stall to spare (Wild herds; Table 6). */
-function breed(state: SimState): void {
-  const e = state.entities;
-  const n0 = e.count;
-  for (let i = 0; i < n0; i++) {
-    if (e.kind[i] !== UnitKind.Animal || e.hp[i]! <= 0 || e.sex[i] !== 0 || e.born[i] !== 0 || !breeds(e.mob[i]!) || e.breedAt[i]! > state.step) continue;
-    e.breedAt[i] = state.step + BREED_STEPS;
-    const species = e.mob[i]!;
-    const owner = e.owner[i]!;
-    let male = -1;
-    if (owner === WILD) {
-      for (const j of state.grid.near(e.x[i]!, e.z[i]!, 30 * M)) if (e.kind[j] === UnitKind.Animal && e.mob[j] === species && e.owner[j] === WILD && e.sex[j] === 1 && e.born[j] === 0) male = j;
-      if (male < 0) continue;
-      // Crowding: no more than twice a cell's start (s); bears one pair and their cubs a cell, 60 in all (doc).
-      const kin = state.grid.near(e.x[i]!, e.z[i]!, 60 * M).filter((j) => e.kind[j] === UnitKind.Animal && e.mob[j] === species && e.owner[j] === WILD).length;
-      if (species === Species.Bear ? kin >= 4 || bearCount(state) >= BEAR_CAP : kin >= 4 * speciesSpec(species).perCell) continue;
-    } else {
-      const home = state.buildings.get(e.home[i]!);
-      if (!home || !hasRoom(state, home, species)) continue;
-      const herd = animalsAt(state, home.id);
-      male = herd.find((j) => e.mob[j] === species && e.sex[j] === 1 && e.born[j] === 0) ?? -1;
-      if (male < 0) continue;
-    }
-    const k = addAnimal(state, species, owner, e.x[i]!, e.z[i]! + COLUMN, state.step + YOUNG_STEPS, hash(state, e.id[i]!, state.step) & 1);
-    e.homeX[k] = e.homeX[i]!;
-    e.homeZ[k] = e.homeZ[i]!;
-    e.home[k] = e.home[i]!;
-    if (owner < state.players.length) state.events.push({ player: owner, kind: 'info', text: `A young ${speciesSpec(species).name.toLowerCase()} was born.`, x: e.x[i]!, z: e.z[i]! });
-  }
-}
-
-/** Grown hens in a Barn, each laying an egg at the next day's turn (Table 6). */
+/** Grown hens in a Barn, each laying an egg at the next day's turn while the barn hand is at work (Table 6; Patch 5). */
 export function layingHens(state: SimState, b: Building): number {
   const e = state.entities;
   return animalsAt(state, b.id).filter((j) => !e.partner[j] && e.mob[j] === Species.Chicken && e.sex[j] === 0 && e.born[j] === 0).length;
 }
 
+/** Each day as the sun comes up, in every finished Barn with its hand at work: the hens lay an egg each (Table 6). */
+function layEggs(state: SimState): void {
+  for (const b of state.buildings.list) {
+    if (!b.complete || b.kind !== BuildingKind.Barn || !barnTended(state, b)) continue;
+    const player = state.players[b.owner]!;
+    player.pool[Res.Eggs] = player.pool[Res.Eggs]! + layingHens(state, b);
+  }
+}
+
 /**
- * Each day as the sun comes up, in every finished Barn: the hens lay an egg
- * each (Table 6), and every animal eats its farm fare from the stock (Patch
- * 2). One that finds none goes hungry and loses a tenth of its health
+ * Each night as it falls, in every finished Barn: every animal eats its feed
+ * of plant food from the stock (Patch 5), less what it grazed by day. One that
+ * finds none goes hungry and loses a tenth of its health
  * (BARN_HUNGER_PER_MILLE), never the last of it; its owner hears of it once
- * that morning.
+ * that night.
  */
-function livestockDay(state: SimState): void {
+function feedLivestock(state: SimState): void {
   const e = state.entities;
   const hungry = new Map<number, Building>();
   for (const b of state.buildings.list) {
@@ -844,28 +1034,30 @@ function livestockDay(state: SimState): void {
     const herd = stalled(state, b);
     if (herd.length === 0) continue;
     const player = state.players[b.owner]!;
-    player.pool[Res.Eggs] = player.pool[Res.Eggs]! + layingHens(state, b);
     for (const j of herd) {
-      const feed = speciesSpec(e.mob[j]!).barnFeed * QUARTERS;
-      if (takeFood(player, feed, { only: BARN_FOOD, kept: true }) !== null) continue;
+      if (takeFood(player, feedQuarters(state, b, e.mob[j]!), { only: BARN_FOOD, kept: true }) !== null) continue;
       e.hp[j] = Math.max(1, e.hp[j]! - floorDiv(e.maxHp[j]! * BARN_HUNGER_PER_MILLE, 1000));
       if (!hungry.has(b.owner)) hungry.set(b.owner, b);
     }
   }
   for (const [player, b] of hungry) {
     const [x, z] = buildingCentre(b);
-    state.events.push({ player, kind: 'alert', text: 'Your Barn animals went hungry: there was not enough farm fare for them. Hungry animals lose health.', x, z });
+    state.events.push({ player, kind: 'alert', text: 'Your Barn animals went hungry: there was not enough plant food for them. Hungry animals lose health.', x, z });
   }
 }
 
+/** The step in each day the night falls on: the Barn animals' feed (Patch 5). */
+const NIGHTFALL = DAY_STEPS + DUSK_STEPS;
+
 export function updateAnimals(state: SimState): void {
   if (state.step % STOCK_CHECK_STEPS === 0) updateStocking(state);
-  // Each day as the sun comes up.
-  if (state.step > 0 && state.step % CYCLE_STEPS === 0) {
+  const into = state.step % CYCLE_STEPS;
+  // Each day as the sun comes up (the young are born whenever a pair meets, Patch 5).
+  if (state.step > 0 && into === 0) {
     growUp(state);
-    breed(state);
-    livestockDay(state);
+    layEggs(state);
   }
+  if (into === NIGHTFALL) feedLivestock(state);
 }
 
 // ----- deaths -----

@@ -25,6 +25,8 @@ import { addAnimal, animalsAt, barnFeedText, layingHens, stallsTaken } from '../
 import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
 import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../combat/items.ts';
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
+import { FARM_PACE, farmPace, updateFarmBoost } from './farm-boost.ts';
+import { barnTended } from '../animals/barn.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
 import { Role } from '../threats/types.ts';
@@ -559,8 +561,50 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
     e.hp[h] = -1;
     state.dying.push(e.id[h]!);
   }
-  b.queue.push({ product, paid, progress: 0, by, horse, engine });
+  b.queue.push({ product, paid, progress: 0, by, horse, engine, count: 0 });
   return '';
+}
+
+/** The most one stack holds (Patch 5): the count is 16 bits in a save. */
+export const STACK_MAX = 9999;
+
+/**
+ * Queues a stack of a recipe made in stacks (Patch 5, recipes.ts stack: the
+ * Workshop's bonemeal, x1, x10 or all): `n` of them, or 0 for as many as the
+ * stock pays for, all in one queue slot, paid in full now. Returns '' or why
+ * it could not be queued.
+ */
+export function queueStack(state: SimState, b: Building, product: Product, n: number, by = b.owner): string {
+  const spec = productSpec(product);
+  if (spec.recipe === undefined || !recipeSpec(spec.recipe).stack) return queueProduct(state, b, product, by);
+  if (!offers(b, product)) return 'This building cannot make that.';
+  if (b.queue.length >= QUEUE_LIMIT) return 'The queue is full.';
+  const why = productProblem(state, b, product, by);
+  if (why) return why;
+  const batch = recipeSpec(spec.recipe).inputs[0] ?? [];
+  const pool = state.players[by]!.pool;
+  let most = STACK_MAX;
+  for (const [res, k] of batch) if (k > 0) most = Math.min(most, floorDiv(pool[res]!, k));
+  const count = n > 0 ? Math.min(n, most) : most;
+  if (count <= 0) return `Not enough resources (${costText(batch)}).`;
+  const paid: Array<[number, number]> = [];
+  for (const [res, k] of batch) {
+    pool[res] = pool[res]! - k * count;
+    paid.push([res, k * count]);
+  }
+  b.queue.push({ product, paid, progress: 0, by, horse: 0, engine: 0, count: count - 1 });
+  return '';
+}
+
+/** One of a stack is done: the bar starts again for the next, and what was paid for the one done is no longer refunded. */
+function nextOfStack(head: QueueItem): void {
+  const batch = recipeSpec(productSpec(head.product).recipe!).inputs[0] ?? [];
+  for (const [res, k] of batch) {
+    const at = head.paid.findIndex(([r]) => r === res);
+    if (at >= 0) head.paid[at] = [res, Math.max(0, head.paid[at]![1] - k)];
+  }
+  head.count--;
+  head.progress = 0;
 }
 
 /** Cancels a queued item and refunds what was paid, in full (and a new cavalry's horse goes back to the nearest Barn). */
@@ -737,7 +781,7 @@ function finishProduct(state: SimState, b: Building, product: number, by: number
   }
 }
 
-/** Workers at work in a building now (farmers in the field or sheltering in their farmhouse, miners, dock hands). */
+/** Workers at work in a building now (farmers in the field or sheltering in their farmhouse, miners, the barn hand). */
 export function workersAt(state: SimState, b: Building): number {
   const e = state.entities;
   let n = 0;
@@ -772,8 +816,10 @@ export function harvestPerMille(state: SimState, b: Building): number {
 
 /**
  * A farm's work for one step (Jade, patch notes 1): each farmer at work adds a
- * step to the harvest bar, and a full bar puts the harvest straight into the
- * pool, whole items only, the thousandths carried to the next one.
+ * step to the harvest bar (Patch 5: FARM_PACE units, more while fertilized or
+ * by a Sweet Hawthorne, buildings/farm-boost.ts), and a full bar puts the
+ * harvest straight into the pool, whole items only, the thousandths carried
+ * to the next one.
  */
 function growFarm(state: SimState, b: Building, pool: Int32Array): void {
   const crop = buildingSpec(b.kind).crop;
@@ -782,8 +828,10 @@ function growFarm(state: SimState, b: Building, pool: Int32Array): void {
   // A save from before harvest bars kept thousandths times steps here: start its bar afresh.
   if (b.farmAcc >= 2 * whole) b.farmAcc = 0;
   const per = harvestPerMille(state, b);
+  const farmers = workersAt(state, b);
+  updateFarmBoost(state, b, farmers > 0);
   if (per <= 0) return;
-  b.farmAcc += workersAt(state, b);
+  b.farmAcc += farmers * farmPace(state, b);
   while (b.farmAcc >= whole) {
     b.farmAcc -= whole;
     const total = (b.acc[0] ?? 0) + per;
@@ -793,9 +841,9 @@ function growFarm(state: SimState, b: Building, pool: Int32Array): void {
   }
 }
 
-/** The harvest bar's length in farmer-steps, never below one. */
+/** The harvest bar's length in FARM_PACE units of farmers' work (Patch 5; a farmer-step before), never below one. */
 function harvestSteps(): number {
-  return Math.max(1, FARM_HARVEST_STEPS);
+  return Math.max(1, FARM_HARVEST_STEPS) * FARM_PACE;
 }
 
 /** What the panel's harvest bar shows (Jade, patch notes 1): what the next harvest brings in and how far along it is. */
@@ -825,10 +873,10 @@ export function farmHarvest(state: SimState, b: Building): FarmHarvest | null {
     const items = floorDiv((b.acc[0] ?? 0) + per, 1000);
     const whole = harvestSteps();
     const done = Math.min(b.farmAcc, whole);
-    return { res: crop.res, items, food: items * RESOURCES[crop.res]!.nutrition, grows: per > 0, done, whole, perStep: per > 0 ? workersAt(state, b) : 0 };
+    return { res: crop.res, items, food: items * RESOURCES[crop.res]!.nutrition, grows: per > 0, done, whole, perStep: per > 0 ? workersAt(state, b) * farmPace(state, b) : 0 };
   }
   if (b.kind !== BuildingKind.Barn) return null;
-  const hens = layingHens(state, b);
+  const hens = barnTended(state, b) ? layingHens(state, b) : 0;
   if (hens === 0) return null;
   // The hens lay in the step that starts on the day's turn, so the bar is full just before it.
   const done = (state.step + CYCLE_STEPS - 1) % CYCLE_STEPS;
@@ -863,6 +911,8 @@ export function queuePace(state: SimState, b: Building, head: QueueItem): QueueP
   const whole = productSteps(state, b, head.product);
   if (head.product < RECIPE_PRODUCT) return { whole: whole * 4, perStep: state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS };
   if (head.product < SLAUGHTER_PRODUCT) return { whole, perStep: craftRate(b.kind) };
+  // Patch 5 (Jade): a Barn works only with its barn hand there, slaughter too.
+  if (head.product < ENGINE_PRODUCT && b.kind === BuildingKind.Barn && !barnTended(state, b)) return { whole, perStep: 0 };
   return { whole, perStep: 1 };
 }
 
@@ -908,7 +958,9 @@ export function updateBuildings(state: SimState): void {
         b.alerted &= ~1;
         head.progress += pace.perStep;
         if (head.progress >= pace.whole) {
-          b.queue.shift();
+          // A stack (Patch 5) keeps its slot until the last of it is done.
+          if (head.count > 0) nextOfStack(head);
+          else b.queue.shift();
           finishProduct(state, b, head.product, head.by);
         }
       }
@@ -925,8 +977,9 @@ export function buildingStatus(state: SimState, b: Building): string {
   if (isFarm(b.kind)) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work`;
   if (b.kind === BuildingKind.Barn) {
     const n = animalsAt(state, b.id).length;
-    const feed = n > 0 ? `; they eat ${barnFeedText(state, b)} farm fare a day` : '';
-    return `${n} animal${n === 1 ? '' : 's'}; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken${feed}`;
+    const feed = n > 0 ? `; they eat ${barnFeedText(state, b)} food a day` : '';
+    const hand = barnTended(state, b) ? '' : '. No barn hand: nothing grazes, breeds, lays or is slaughtered until a worker is assigned';
+    return `${n} animal${n === 1 ? '' : 's'}; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken${feed}${hand}`;
   }
   if (b.kind === BuildingKind.Mineshaft) {
     const most = levelSpec(b.kind, b.level).workers;

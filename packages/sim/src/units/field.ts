@@ -14,14 +14,14 @@ import type { Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { Res } from '../economy/resources.ts';
 import { PROSPECT_TOOL_TIER } from './kits.ts';
-import { EAT_STEPS, eatAt, servesFood } from '../economy/food.ts';
+import { EAT_STEPS, eatAt, itemQuarters, QUARTERS, servesFood, takeFood } from '../economy/food.ts';
 import { RESOURCES } from '../economy/resources.ts';
-import { atan2Angle, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { atan2Angle, floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
 import { OrderKind, UnitKind, WILD, type SimState } from '../state.ts';
 import { isGame, Nature, speciesSpec } from '../animals/species.ts';
 import { newHome } from '../animals/animals.ts';
-import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, walkTo } from './behaviour.ts';
+import { Act, ARRIVED, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, walkTo } from './behaviour.ts';
 import { exploreTarget, fromBuilding, HOME_SLACK_M, homeOf, homeBaseNear, wanderTarget, type Home } from './forage.ts';
 import { bagEmpty, bagRoom, bagTenthsLb, LOOT_BAG_TENTHS_LB, LOOT_CLAIM_M, preyName } from './loot.ts';
 import { meatOf } from '../economy/food-kinds.ts';
@@ -47,7 +47,7 @@ const Search = 2;
 const AtHome = 4;
 const Turned = 8;
 /** Kinds of quiet line, for chatter's spacing (forage.ts uses 1 to 5). */
-const Talk = { Spotted: 6, Look: 7, Away: 8, Carry: 9, Dusk: 10, Back: 11 } as const;
+const Talk = { Spotted: 6, Look: 7, Away: 8, Carry: 9, Dusk: 10, Back: 11, Bait: 12 } as const;
 
 function col(wu: number): number {
   return floorDiv(wu, WU_PER_COLUMN);
@@ -300,6 +300,27 @@ export function tameable(species: number): boolean {
   return speciesSpec(species).tameAt.length > 0;
 }
 
+/** How fast a worker feeds an animal he tames (Jade, GP-36): 2 food a second. */
+export const TAME_FOOD_PER_SECOND = 2;
+
+/** Steps a taming takes: the animal's food at TAME_FOOD_PER_SECOND (a chicken 1.5 s, cattle 10 s). */
+export function tameSteps(species: number): number {
+  return Math.max(1, floorDiv(speciesSpec(species).tameFood * STEPS_PER_SECOND, TAME_FOOD_PER_SECOND));
+}
+
+/** The quarters of food a taming has fed by step k of `steps` (rounded down, so it is all paid on the last). */
+function fedBy(food: number, k: number, steps: number): number {
+  return floorDiv(food * QUARTERS * k, steps);
+}
+
+/** The quarters of an animal's foods a player has, kept back from meals or not (bait is for animals, as Barn feed is). */
+function baitQuarters(state: SimState, player: number, foods: readonly Res[]): number {
+  const p = state.players[player]!;
+  let n = 0;
+  for (const f of foods) n += p.pool[f]! * itemQuarters(f) + p.open[f]!;
+  return n;
+}
+
 /** Why a worker cannot tame an animal now, or ''. */
 export function tameProblem(state: SimState, player: number, t: number): string {
   const e = state.entities;
@@ -307,17 +328,26 @@ export function tameProblem(state: SimState, player: number, t: number): string 
   const s = speciesSpec(e.mob[t]!);
   if (!tameable(s.id)) return `A ${s.name.toLowerCase()} can never be tamed.`;
   if (!newHome(state, player, s.id)) return `Needs a ${s.tameAt.map((k) => buildingName(k, 1, 0).toLowerCase()).join(' or a ')} with room first.`;
-  const pool = state.players[player]!.pool;
-  let have = 0;
-  for (const r of s.tameFoods) have += pool[r]!;
-  if (have < s.tameFood) return `Needs ${s.tameFood} ${s.tameFoods.map((r) => RESOURCES[r]!.name.toLowerCase()).join(', ')} to tame it.`;
+  // What is left to feed it (a taming already begun has fed some).
+  const fed = e.tinker[t] === tameSteps(s.id) ? fedBy(s.tameFood, e.timer[t]!, e.tinker[t]!) : 0;
+  if (baitQuarters(state, player, s.tameFoods) < s.tameFood * QUARTERS - fed) return `Needs ${s.tameFood} food of plant food (${s.tameFoods.map((r) => RESOURCES[r]!.name.toLowerCase()).join(', ')}) to tame it.`;
   return '';
 }
 
+/**
+ * Taming (Jade's GP-35 and GP-36): the worker walks up to the wild animal
+ * and feeds it from the stock, not from his own bag, at 2 food a second, a
+ * bar over its head filling as he does, while it stands still for him. Once
+ * its whole cost is fed it is the player's and follows him (animals.ts
+ * followToBarn); he walks it to the nearest Barn of his with room, and the
+ * order ends once it is in. A taming left half done is lost with what it ate.
+ */
 export function runTame(state: SimState, i: number, o: Extract<UnitOrder, { t: 'tame' }>): boolean {
   const e = state.entities;
   const t = e.indexOf(o.id);
   const player = e.owner[i]!;
+  // Tamed: lead it home.
+  if (t >= 0 && e.owner[t] === player && e.kind[t] === UnitKind.Animal) return leadHome(state, i, t);
   const why = tameProblem(state, player, t);
   if (why) {
     alert(state, player, why, e.x[i]!, e.z[i]!);
@@ -337,30 +367,48 @@ export function runTame(state: SimState, i: number, o: Extract<UnitOrder, { t: '
     }
     return CONTINUE;
   }
-  // Standing by with the food: the animal grows calm and stays put (s).
+  // Standing by it with the food: it stands still and eats, its bar (its tinker column) filling.
   e.act[i] = Act.Work;
   e.order[i] = OrderKind.Idle;
-  e.wanderAt[t] = state.step + STEPS_PER_SECOND;
-  e.timer[i] = e.timer[i]! + 1;
-  if (e.timer[i]! < s.tameSteps) return CONTINUE;
-  // The food is given at the end (s).
-  const pool = state.players[player]!.pool;
-  let owed = s.tameFood;
-  for (const r of s.tameFoods) {
-    const take = Math.min(owed, pool[r]!);
-    pool[r] = pool[r]! - take;
-    owed -= take;
+  e.heading[i] = headingTowards(e.x[t]! - e.x[i]!, e.z[t]! - e.z[i]!);
+  e.waitUntil[t] = state.step + 2;
+  const steps = tameSteps(s.id);
+  if (e.tinker[t] !== steps) {
+    e.tinker[t] = steps;
+    e.timer[t] = 0;
   }
-  const home = newHome(state, player, s.id, e.x[t]!, e.z[t]!)!;
+  const k = e.timer[t]!;
+  const due = fedBy(s.tameFood, k + 1, steps) - fedBy(s.tameFood, k, steps);
+  if (due > 0 && takeFood(state.players[player]!, due, { only: s.tameFoods, kept: true }) === null) {
+    chatter(state, i, Talk.Bait, 20 * STEPS_PER_SECOND, `Out of plant food to tame the ${s.name.toLowerCase()}.`);
+    return CONTINUE;
+  }
+  e.timer[t] = k + 1;
+  if (e.timer[t]! < steps) return CONTINUE;
+  // Tamed: it is the player's, and follows the worker to a Barn.
+  e.tinker[t] = 0;
+  e.timer[t] = 0;
   e.owner[t] = player;
-  e.home[t] = home.id;
+  e.home[t] = 0;
+  e.partner[t] = e.id[i]!;
   e.target[t] = 0;
   e.queue[t] = [];
-  const [hx, hz] = buildingCentre(home);
-  e.homeX[t] = hx;
-  e.homeZ[t] = hz;
-  state.events.push({ player, kind: 'info', text: `A wild ${s.name.toLowerCase()} has been tamed and goes to the ${buildingName(home.kind, home.level, home.variant).toLowerCase()}.`, x: e.x[t]!, z: e.z[t]! });
-  return DONE;
+  e.act[i] = Act.Walk;
+  resetWalk(state, i);
+  state.events.push({ player, kind: 'info', text: `A wild ${s.name.toLowerCase()} has been tamed. It follows the worker to a Barn.`, x: e.x[t]!, z: e.z[t]! });
+  return CONTINUE;
+}
+
+/** After taming: the worker walks to the nearest Barn of his with room for it, until it has gone in (or no longer follows him). */
+function leadHome(state: SimState, i: number, t: number): boolean {
+  const e = state.entities;
+  if (e.home[t] !== 0 || e.partner[t] !== e.id[i] || e.hp[t]! <= 0) return DONE;
+  const b = newHome(state, e.owner[i]!, e.mob[t]!, e.x[i]!, e.z[i]!);
+  if (!b) return DONE;
+  const r = walkTo(state, i, besideBuilding(b));
+  if (r === FAILED) return DONE;
+  if (r === ARRIVED) e.order[i] = OrderKind.Idle;
+  return CONTINUE;
 }
 
 /** The nearest building of the player's where a unit can eat. */

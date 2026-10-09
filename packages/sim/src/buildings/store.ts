@@ -83,6 +83,8 @@ export interface QueueItem {
   horse: number;
   /** A new artillery crewman queued by an engine's "A crewman fell" question (Patch 2): that engine's entity id, which he joins if it is still a crewman short; or 0. */
   engine: number;
+  /** A stack (Patch 5, recipes.ts stack): how many more are made after this one, the bar repeating; 0 for a single item. */
+  count: number;
 }
 
 /** A rally point: ground (wu), a unit to follow, or a resource node to gather from. */
@@ -142,6 +144,14 @@ export interface Building {
    * this building keeps training.
    */
   locks: number[];
+  /**
+   * Farms (Patch 5, Jade: fertilize with bonemeal): steps left of the boost
+   * running now, boosts paid for and waiting their turn, and 1 while Auto
+   * fertilize keeps the farm boosted as long as the bonemeal lasts.
+   */
+  boostLeft: number;
+  boosts: number;
+  boostAuto: number;
 }
 
 /** Ranged units a building takes on its top (Table 4: towers 4, a main base's parapets 8 from tier 2). */
@@ -399,6 +409,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
       w.u8(q.by);
       w.u8(q.horse);
       w.u32(q.engine);
+      w.u16(q.count);
       w.u8(q.paid.length);
       for (const [res, n] of q.paid) {
         w.u8(res);
@@ -431,6 +442,9 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
       w.u8(res);
       w.i32(n);
     }
+    w.i32(b.boostLeft);
+    w.u8(b.boosts);
+    w.u8(b.boostAuto);
   }
 }
 
@@ -466,6 +480,9 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       shared: 0,
       tech: 0,
       locks: [],
+      boostLeft: 0,
+      boosts: 0,
+      boostAuto: 0,
     };
     const nq = r.u8();
     for (let q = 0; q < nq; q++) {
@@ -474,10 +491,11 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
       const by = r.u8();
       const horse = r.u8();
       const engine = r.u32();
+      const count = r.u16();
       const np = r.u8();
       const paid: Array<[number, number]> = [];
       for (let p = 0; p < np; p++) paid.push([r.u8(), r.i32()]);
-      b.queue.push({ product, progress, paid, by, horse, engine });
+      b.queue.push({ product, progress, paid, by, horse, engine, count });
     }
     const nr = r.u8();
     for (let p = 0; p < nr; p++) b.rally.push(readRally(r));
@@ -498,6 +516,9 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     for (let k2 = 0; k2 < nl; k2++) b.locks.push(r.u8());
     const np2 = r.u8();
     for (let k2 = 0; k2 < np2; k2++) b.paid.push([r.u8(), r.i32()]);
+    b.boostLeft = r.i32();
+    b.boosts = r.u8();
+    b.boostAuto = r.u8();
     store.add(b, touch);
   }
 }
@@ -509,5 +530,6 @@ export function buildingFields(b: Building): Record<string, number | string> {
     progress: b.progress, complete: b.complete ? 1 : 0, upgrading: b.upgrading, upProgress: b.upProgress, repairAcc: b.repairAcc,
     queue: JSON.stringify(b.queue), rally: JSON.stringify(b.rally), doneAt: b.doneAt, farmAcc: b.farmAcc, alerted: b.alerted,
     costMul: b.costMul, paid: JSON.stringify(b.paid), rating: b.rating, mined: b.mined, stock: JSON.stringify(b.stock), acc: JSON.stringify(b.acc), shared: b.shared, tech: b.tech, locks: JSON.stringify(b.locks),
+    boostLeft: b.boostLeft, boosts: b.boosts, boostAuto: b.boostAuto,
   };
 }

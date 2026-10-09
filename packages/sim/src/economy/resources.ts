@@ -111,6 +111,8 @@ export const Res = {
   AnyMeat: 107,
   AnyFish: 108,
   AnyLumber: 109,
+  /** Patch 5 (Jade): ground from bone at the Workshop, 1 to 1; 2 fertilize a farm. */
+  Bonemeal: 110,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -250,6 +252,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
+  r(Res.Bonemeal, 'Bonemeal', 'Bonemeal', A, 10, 'Ground from bone at the Workshop. Fertilize a farm with 2 for 30% more farm fare for 2 minutes.'),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

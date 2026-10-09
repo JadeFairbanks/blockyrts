@@ -822,7 +822,8 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
+/** 'heart': two animals mating (Patch 5, Jade's BL-10), over each of them. */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'heart';
 
 export interface HitEvent {
   look: HitLook;
@@ -888,6 +889,9 @@ export function placeBuilding(state: SimState, owner: number, kind: number, vari
     shared: 0,
     tech: 0,
     locks: [],
+    boostLeft: 0,
+    boosts: 0,
+    boostAuto: 0,
   };
   const [x0, z0, x1, z1] = footprintRect(b);
   state.world.clearProps(x0, z0, x1, z1);

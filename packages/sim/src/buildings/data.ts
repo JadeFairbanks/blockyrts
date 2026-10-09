@@ -212,17 +212,19 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     ],
   },
   {
-    // The tier 1 crop field's numbers from before Patch 2 (s, Jade's rebalance); a farmer grows 8 farm fare a day, the potato farm's 16 food.
-    kind: BuildingKind.Farm, name: 'Farm', purpose: 'Grows farm fare, a hearty medley of vegetables, with 2 assigned farmers, in full in every band. Gives supply, trains workers, shelters its farmers.',
+    // The tier 1 crop field's numbers from before Patch 2 (s, Jade's rebalance); a farmer grew 8 farm fare a day, the potato farm's 16 food.
+    // Patch 5 (Jade: "Buff farm output by approximately 20%. maintaining whole numbers"): 10 a day, the nearest whole number to 9.6.
+    kind: BuildingKind.Farm, name: 'Farm', purpose: 'Grows farm fare, a hearty medley of vegetables, with 2 assigned farmers, in full in every band. Fertilize with bonemeal for 30% more for 2 minutes. Gives supply, trains workers, shelters its farmers.',
     slot: 2, w: 12, d: 12, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
-    crop: { res: Res.FarmFare, perDay: 8 },
+    crop: { res: Res.FarmFare, perDay: 10 },
     levels: [lvl('Farm', [[L, 20], [Res.Sticks, 5]], 150, 400, { supply: 10, shelters: 4, workers: 2, gives: '2 farmers grow farm fare; trains workers; the farmhouse shelters 4' })],
   },
   {
-    // The livestock farm's cost from before Patch 2 (s, Jade's rebalance); no supply and no workers (s).
-    kind: BuildingKind.Barn, name: 'Barn', purpose: 'A red barn for tamed cattle, chickens, horses and oxen: 10 stalls, one big animal or up to 6 chickens to a stall. Workers tame animals with farm fare once a Barn stands. The animals cannot graze, so each eats farm fare from the stock every morning (a hungry one loses health); they walk round the Barn by day, shelter in it at night, breed, and hens lay eggs. Slaughter (K) takes a grown animal for its meat: a cow gives twenty times a chicken. Cavalry at the Barracks take their horses from the nearest Barn.',
+    // The livestock farm's cost from before Patch 2 (s, Jade's rebalance); no supply (s). Patch 5 (Jade): one barn hand works it, and the
+    // farmhouse-like loft shelters him and one more worker for the night (s).
+    kind: BuildingKind.Barn, name: 'Barn', purpose: 'A red barn for tamed cattle, chickens, horses and oxen: 10 stalls, one big animal or up to 6 chickens to a stall. It needs one assigned worker, the barn hand, who tends the animals outside by day. Workers tame animals with plant food once a Barn stands. By day the animals graze round the Barn, which saves some of their feed in the Heartland, Fringe and Deepwoods; at night they shelter in it and eat plant food from the stock (a hungry one loses health). With the barn hand at work they breed, hens lay eggs, and Slaughter (K) takes a grown animal for its meat: a cow gives twenty times a chicken. Cavalry at the Barracks take their horses from the nearest Barn.',
     slot: 3, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 450,
-    levels: [lvl('Barn', [[L, 30], [Res.Sticks, 10]], 200, 400, { gives: '10 stalls, taming, breeding, eggs, slaughter' })],
+    levels: [lvl('Barn', [[L, 30], [Res.Sticks, 10]], 200, 400, { shelters: 2, workers: 1, gives: '10 stalls and a barn hand: taming, grazing, breeding, eggs, slaughter' })],
   },
   {
     // Cheap to build (Jade): 30 softwood and 100 worker-seconds (s, Jade's rebalance).

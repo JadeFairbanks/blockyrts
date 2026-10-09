@@ -7,7 +7,8 @@ import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from '
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, queueStack, setKitLock, usableBy } from './buildings/production.ts';
+import { fertilizable, fertilize, setAutoFertilize } from './buildings/farm-boost.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
 import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
@@ -39,6 +40,7 @@ import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
+import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
 export const FLOW_FIELD_GROUP = 8;
@@ -426,6 +428,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
     if (o.player >= state.players.length && o.kind !== 'terrain' && o.kind !== 'debugHarvest') continue;
     // An eliminated player gives no more orders.
     if (o.player < state.players.length && state.players[o.player]!.out) continue;
+    // Patch 5 (Jade): a barn hand asks before an order takes him off his job (units/barn-hand.ts).
+    const hands = barnHandsIn(state, o);
     switch (o.kind) {
       case 'move':
         applyMove(state, o);
@@ -527,6 +531,33 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (!b) break;
         for (let k = 0; k < o.count; k++) {
           const why = queueProduct(state, b, o.product, o.player);
+          if (why) {
+            alert(state, o.player, why);
+            break;
+          }
+        }
+        break;
+      }
+      case 'stack': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (!b) break;
+        const why = queueStack(state, b, o.product, o.count, o.player);
+        if (why) alert(state, o.player, why);
+        break;
+      }
+      case 'fertilize': {
+        const farms: Building[] = [];
+        for (const id of o.buildings) {
+          const b = usableBuilding(state, o.player, id);
+          if (b && fertilizable(b) && !farms.includes(b)) farms.push(b);
+        }
+        if (o.auto === 1) {
+          const on = farms.some((b) => b.boostAuto === 0);
+          for (const b of farms) setAutoFertilize(b, on);
+          break;
+        }
+        for (const b of farms) {
+          const why = fertilize(state, b, o.player);
           if (why) {
             alert(state, o.player, why);
             break;
@@ -817,6 +848,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         eliminate(state, o.player, `Player ${o.player + 1} has left the game.`);
         break;
     }
+    if (hands.length > 0) keepBarnHands(state, hands);
   }
 }
 

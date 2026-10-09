@@ -299,18 +299,29 @@ describe('animals', () => {
     expect(wild).toBeGreaterThan(20);
   });
 
-  it('tames a wild horse into a Barn stall with 5 farm fare (Patch 2: the Stables are cut)', () => {
+  it('tames a wild horse with 15 food of plant food fed at 2 a second, and it follows its worker into a Barn (Patch 5)', () => {
     const s = createWorld(1, { peaceful: true });
     const stables = built(s, BuildingKind.Barn);
-    s.players[0]!.pool[Res.FarmFare] = 5;
+    // 15 food is 7½ farm fare: 8 are opened, half of the last left over (4 quarters).
+    s.players[0]!.pool[Res.FarmFare] = 8;
     const e = s.entities;
     const w = e.indexOf(workers(s)[0]!);
-    const h = addAnimal(s, Species.Horse, WILD, e.x[w]! + 6 * WU_PER_METRE, e.z[w]!, 0, 0);
+    // Well away from the Barn, so that it has to be led there.
+    const [bx, bz] = [stables.x * WU_PER_COLUMN, stables.z * WU_PER_COLUMN];
+    e.x[w] = bx;
+    e.z[w] = bz + 24 * WU_PER_METRE;
+    const h = addAnimal(s, Species.Horse, WILD, bx, bz + 30 * WU_PER_METRE, 0, 0);
     const id = e.id[h]!;
     run(s, 1, [{ kind: 'tame', player: 0, units: [e.id[w]!], target: id }]);
-    runUntil(s, () => e.owner[e.indexOf(id)] === 0, 2000);
-    expect(e.home[e.indexOf(id)]).toBe(stables.id);
-    expect(s.players[0]!.pool[Res.FarmFare]).toBe(0);
+    // The bar over its head fills for 7½ s once the worker stands by it.
+    runUntil(s, () => e.tinker[e.indexOf(id)] !== 0, 2000);
+    expect(e.tinker[e.indexOf(id)]).toBe(150);
+    runUntil(s, () => e.owner[e.indexOf(id)] === 0, 200);
+    expect([s.players[0]!.pool[Res.FarmFare], s.players[0]!.open[Res.FarmFare]]).toEqual([0, 4]);
+    // It follows the worker to the Barn and joins it there.
+    expect(e.partner[e.indexOf(id)]).toBe(e.id[w]);
+    runUntil(s, () => e.home[e.indexOf(id)] === stables.id, 4000);
+    expect(e.partner[e.indexOf(id)]).toBe(0);
   });
 
   it('rangers hunt a deer with N and bring the meat home', () => {
@@ -382,22 +393,30 @@ describe('animals', () => {
     expect(bagEmpty(s, w)).toBe(true);
   });
 
-  it('a Barn breeds its pair and slaughters for meat', () => {
+  it('a Barn with its hand at work breeds its pair, who meet with hearts, and slaughters for meat', () => {
     const s = createWorld(1, { peaceful: true });
     const farm = built(s, BuildingKind.Barn);
     const [x, z] = [farm.x * WU_PER_COLUMN, farm.z * WU_PER_COLUMN];
-    const cow = addAnimal(s, Species.Cattle, 0, x, z, 0, 0);
-    const bull = addAnimal(s, Species.Cattle, 0, x + WU_PER_METRE, z, 0, 1);
+    const cow = addAnimal(s, Species.Cattle, 0, x, z - 6 * WU_PER_METRE, 0, 0);
+    const bull = addAnimal(s, Species.Cattle, 0, x + 4 * WU_PER_METRE, z - 6 * WU_PER_METRE, 0, 1);
     s.entities.home[cow] = farm.id;
     s.entities.home[bull] = farm.id;
-    s.entities.breedAt[cow] = CYCLE_STEPS;
-    run(s, CYCLE_STEPS + 2);
+    s.entities.breedAt[cow] = 0;
     const herd = (): number => {
       let n = 0;
       for (let i = 0; i < s.entities.count; i++) if (s.entities.kind[i] === UnitKind.Animal && s.entities.home[i] === farm.id) n++;
       return n;
     };
-    expect(herd()).toBe(3);
+    // No hand, no young.
+    run(s, 200);
+    expect(herd()).toBe(2);
+    run(s, 1, [{ kind: 'assign', player: 0, units: [workers(s)[0]!], building: farm.id }]);
+    let hearts = 0;
+    runUntil(s, () => {
+      hearts += s.hits.filter((h) => h.look === 'heart').length;
+      return herd() === 3;
+    }, 3000);
+    expect(hearts).toBe(2);
     const meat = s.players[0]!.pool[Res.Beef]!;
     run(s, 1, [{ kind: 'produce', player: 0, building: farm.id, product: SLAUGHTER_PRODUCT + Species.Cattle, count: 1 }]);
     // Patch 2: a cow gives 20 beef, twenty times a chicken's meat (Jade).

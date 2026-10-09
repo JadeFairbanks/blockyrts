@@ -119,6 +119,28 @@ export interface ProduceOrder {
   count: number;
 }
 
+/** Queue a stack of a recipe made in stacks (Patch 5: the Workshop's bonemeal, x1, x10 or all): `count` of them, or 0 for as many as the stock pays for, in one queue slot. */
+export interface StackOrder {
+  kind: 'stack';
+  player: number;
+  building: number;
+  product: number;
+  count: number;
+}
+
+/**
+ * Fertilize farms with bonemeal (Patch 5, Jade's GP-38 and decisions 2.5):
+ * auto 0 boosts each farm now, or queues one more boost behind the one it
+ * has; auto 1 turns Auto fertilize on for them all, or off when it is on for
+ * every one already.
+ */
+export interface FertilizeOrder {
+  kind: 'fertilize';
+  player: number;
+  buildings: number[];
+  auto: number;
+}
+
 /** Cancel a queued item, refunded in full. */
 export interface CancelProduceOrder {
   kind: 'cancelProduce';
@@ -643,6 +665,8 @@ export type Order =
   | TrainRankOrder
   | RetrainOrder
   | ProduceOrder
+  | StackOrder
+  | FertilizeOrder
   | CancelProduceOrder
   | UpgradeOrder
   | CancelBuildOrder
@@ -668,6 +692,7 @@ export function canonicalOrders(orders: readonly Order[]): Order[] {
 /** A deep copy of an order (the input log keeps its own). */
 export function copyOrder(o: Order): Order {
   if (o.kind === 'tradeOffer') return { ...o, goods: [...o.goods] };
+  if (o.kind === 'fertilize') return { ...o, buildings: [...o.buildings] };
   return 'units' in o ? { ...o, units: [...o.units] } : { ...o };
 }
 
@@ -689,6 +714,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   trainRank: ['building'],
   retrain: [],
   produce: ['building', 'product', 'count'],
+  stack: ['building', 'product', 'count'],
+  fertilize: ['auto'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
   cancelBuild: ['building'],
@@ -765,6 +792,12 @@ export function validateOrder(o: Order): void {
       return;
     case 'produce':
       if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
+      return;
+    case 'stack':
+      if (o.count < 0 || o.count > 9999) throw new Error('a stack is 0 (all) to 9999');
+      return;
+    case 'fertilize':
+      if (!Array.isArray(o.buildings) || o.buildings.length > 64 || !o.buildings.every(isInt) || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad fertilize order');
       return;
     case 'dig':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');

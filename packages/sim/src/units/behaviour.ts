@@ -468,7 +468,7 @@ export function leaveBuilding(state: SimState, i: number): void {
   e.heading[i] = 32768;
 }
 
-function goInside(state: SimState, i: number, b: Building): void {
+export function goInside(state: SimState, i: number, b: Building): void {
   const e = state.entities;
   e.inside[i] = b.id;
   const [x, z] = buildingCentre(b);
@@ -1053,6 +1053,9 @@ export function isFarm(kind: number): boolean {
   return kind === BuildingKind.Farm;
 }
 
+/** The Barn's hand's day and night (Patch 5), set by units/barn-hand.ts so this module never imports the questions. */
+export const jobHooks: { barn: (state: SimState, i: number, b: Building) => boolean } = { barn: () => false };
+
 /** Workers whose current order is a job at a building, in index order. */
 export function assigned(state: SimState, id: number): number[] {
   const e = state.entities;
@@ -1102,6 +1105,8 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
     return DONE;
   }
   if (b.kind === BuildingKind.Mineshaft) return runMiner(state, i, b);
+  // Patch 5: the Barn's hand tends the animals outside by day (units/barn-hand.ts).
+  if (b.kind === BuildingKind.Barn) return jobHooks.barn(state, i, b);
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   // Farmers work the field by day and shelter in their own farmhouse at dusk and night; mill hands work inside.
   const indoors = !isFarm(b.kind) || isDark(state.step);

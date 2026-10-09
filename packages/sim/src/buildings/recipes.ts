@@ -35,6 +35,12 @@ export interface RecipeSpec {
   made?: number;
   /** Later milestones: why it is greyed. */
   later?: string;
+  /**
+   * Made in stacks (Patch 5, Jade's decisions 2.5: bonemeal x1, x10 or all
+   * the bones): a stack takes one queue slot, paid in full when queued, and
+   * its count goes down as each one is done.
+   */
+  stack?: boolean;
 }
 
 const sec = (n: number): number => n * STEPS_PER_SECOND;
@@ -133,6 +139,8 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   ...trinketRecipes(),
   { name: 'Moonleaf', at: WORKSHOP, base: 3, inputs: [[[Res.Silver, 3], [Res.Emeralds, 2]]], outputs: [[Res.Moonleaf, 1]], steps: sec(180), research: 0 },
   { name: 'Sunheart', at: WORKSHOP, base: 3, inputs: [[[Res.Gold, 3], [Res.Rubies, 2]]], outputs: [[Res.Sunheart, 1]], steps: sec(240), research: 0 },
+  // Patch 5 (Jade: "Workshop now makes bonemeal from bones, 1:1"): 4 s a bone (s), 2 s at the Workshop's pace, in stacks.
+  { name: 'Bonemeal', at: WORKSHOP, base: 0, inputs: [[[Res.Bone, 1]]], outputs: [[Res.Bonemeal, 1]], steps: sec(4), research: 0, stack: true },
 ];
 
 export const RECIPES: readonly RecipeSpec[] = LIST.map((r, id) => ({ ...r, id }));
