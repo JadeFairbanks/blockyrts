@@ -1,10 +1,10 @@
-// The site's version line, and the public site's search and preview pieces
-// (Patch 5: the password gate and delisting came off; deploy/README.md).
+// The site's version line, and its search and preview pieces: the site is a
+// learning project behind a sign-in page (site-gate.test.ts; deploy/README.md).
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { deployVersion, fromTenths, toTenths } from '../../../deploy/scripts/game-version.ts';
 import file from '../../../version.json';
-import { robotsTxt, SITE_DESCRIPTION, SITE_IMAGE, siteHead, sitemapXml, siteUrl } from '../site.ts';
+import { GATE_SCRIPT, gateScript, robotsTxt, SITE_DESCRIPTION, SITE_IMAGE, siteHead, sitemapXml, sitePlugin, siteUrl } from '../site.ts';
 
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -42,13 +42,16 @@ describe('game version', () => {
   });
 });
 
-describe('public site', () => {
-  it('has no password gate or delisting left', () => {
-    expect(existsSync(new URL('../../../deploy/pages/functions', import.meta.url))).toBe(false);
-    expect(existsSync(new URL('../../../deploy/pages/static/_routes.json', import.meta.url))).toBe(false);
+describe('site', () => {
+  it('deploys the sign-in middleware with its login, and no balance editor', () => {
+    expect(existsSync(new URL('../../../deploy/pages/functions/_middleware.ts', import.meta.url))).toBe(true);
     const deploy = read('../../../.github/workflows/deploy.yml');
     expect(deploy).not.toMatch(/balance/i);
     expect(deploy).toContain('VITE_SITE_URL');
+    expect(deploy).toContain('cp deploy/pages/static/_routes.json deploy/pages/static/_headers packages/client/dist/');
+    expect(deploy).toContain('pages secret put SITE_LOGIN_HASH --project-name blockyrts');
+    // The secret is checked before anything is built or pushed.
+    expect(deploy.indexOf('SITE_LOGIN_HASH secret is missing')).toBeLessThan(deploy.indexOf('pnpm install'));
   });
 
   it('keeps only the pages.dev addresses out of search results', () => {
@@ -61,10 +64,13 @@ describe('public site', () => {
     ]);
   });
 
-  it('describes the game in the page for search engines and link previews', () => {
+  it('calls the site a learning project in the page for search engines and link previews, and nowhere a game', () => {
     const html = read('../index.html');
     expect(html).not.toMatch(/noindex/);
+    expect(SITE_DESCRIPTION).toBe('Survive and Conquer is a learning project.');
+    expect(html).toContain('<title>Survive and Conquer: a learning project</title>');
     for (const name of ['description', 'og:description', 'twitter:description']) expect(html).toContain(`"${name}" content="${SITE_DESCRIPTION}"`);
+    expect(html).not.toMatch(/game/i);
     expect(html).toContain('<noscript>');
     expect(html).toContain('href="/favicon.svg"');
     expect(existsSync(new URL(`../public${SITE_IMAGE}`, import.meta.url))).toBe(true);
@@ -81,7 +87,18 @@ describe('public site', () => {
     const head = siteHead('https://play.example.com');
     expect(head).toContain('<link rel="canonical" href="https://play.example.com/" />');
     expect(head).toContain(`content="https://play.example.com${SITE_IMAGE}"`);
+    expect(head).not.toMatch(/game/i);
     const json = /<script type="application\/ld\+json">(.*)<\/script>/.exec(head)?.[1];
-    expect(JSON.parse(json ?? '')).toMatchObject({ '@type': 'VideoGame', numberOfPlayers: { maxValue: 8 } });
+    expect(JSON.parse(json ?? '')).toEqual({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Survive and Conquer', description: SITE_DESCRIPTION, url: 'https://play.example.com/' });
+  });
+
+  it('writes the sign-in page\'s bcryptjs beside index.html in every build', () => {
+    const files = new Map<string, string>();
+    const hook = sitePlugin(null).generateBundle;
+    const run = (typeof hook === 'function' ? hook : hook?.handler) as (this: unknown) => void;
+    run.call({ emitFile: (f: { fileName: string; source: string }) => files.set(f.fileName, f.source) });
+    expect(files.get(GATE_SCRIPT)).toBe(gateScript());
+    expect(gateScript()).toContain('global.bcrypt = ');
+    expect([...files.keys()].sort()).toEqual([GATE_SCRIPT, 'robots.txt']);
   });
 });

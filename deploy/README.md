@@ -31,28 +31,52 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 `compose.yml` and `droplet/backup.sh`. Every minute, a timer on the Droplet
 (`droplet/update.sh`) pulls both images and runs `docker compose up -d`.
 
-## Public site and search
+## Sign-in page and search
 
-The site is public: no password, and search engines may list it (Patch 5;
-the indev password gate and its delisting came off then, and the deploy that
-ships Patch 5 is the one that removes them from the live site). The balance
-editor is no longer published at `/balance/`; it stays a private tool
-(`pnpm balance:dev`).
+A sign-in page stands in front of the whole site, the play domain and the
+`blockyrts.pages.dev` mirror alike, so passers-by do not reach the game or its
+server. It is a deterrent, not security: the server's own address is not
+behind it. (The indev password gate from before Patch 5 came off with Patch 5;
+this one came back after it, in a different form.)
 
-- `packages/client/index.html` carries the title, the description, the
-  link-preview tags, the icon and a short summary for readers without
-  JavaScript.
-- `packages/client/site.ts` is a Vite plugin. When the build is given the
+- `deploy/pages/functions/_middleware.ts` is a Pages Functions middleware.
+  Without the sign-in cookie it answers every page with the sign-in form; with
+  it, the site as usual. The user name is in the file (`Admin`, any capitals).
+  The password is a bcrypt hash in the `SITE_LOGIN_HASH` secret (below); the
+  Deploy workflow copies it into the Pages project as a secret of the same
+  name before each deploy, so neither the hash nor the password is in the
+  repository. One bcrypt check costs several times the free plan's 10 ms of
+  CPU a request, so the browser does it: the page carries the hash's salt,
+  works out the bcrypt hash of what was typed with bcryptjs
+  (`/gate/bcrypt.js`, which the client build writes) and posts it to
+  `/login`, where the middleware only compares it and sets a signed cookie
+  for 30 days. Changing the hash signs everyone out.
+- `deploy/pages/static/_routes.json` lets the game's files (`/assets/`,
+  `/models/`, `/audio/`), `/gate/`, the icon, the preview picture,
+  `robots.txt` and `sitemap.xml` skip the middleware, so loading the game
+  costs no Functions requests (the free plan has 100,000 a day).
+- The site calls itself a learning project, not a game, everywhere search
+  engines and link previews look. Search engines and previews read the
+  sign-in page, which carries the title, description, preview tags and
+  structured data. Behind it, `packages/client/index.html` carries the same
+  words and a short summary for readers without JavaScript, and
+  `packages/client/site.ts` is a Vite plugin: when the build is given the
   site's address as `VITE_SITE_URL` (Deploy sets `https://play.<DOMAIN>`), it
   adds the canonical link, the preview's address and picture
-  (`public/og-image.jpg`, 1200 by 630) and the game's structured data, and
-  writes `robots.txt` (open, with the sitemap) and `sitemap.xml`.
-- `deploy/pages/static/_headers`: `noindex` on the `blockyrts.pages.dev`
-  mirror and on each deploy's preview address only, so searches find the play
-  domain alone. Deploy copies it into the site.
+  (`public/og-image.jpg`, 1200 by 630) and the structured data, and writes
+  `robots.txt` (open, with the sitemap) and `sitemap.xml`.
+- `deploy/pages/static/_headers`: `noindex` on the mirror and each deploy's
+  preview address, so searches find the play domain alone. These rules do
+  not reach what a Function answers, so the middleware repeats them.
 
-The site has no Pages Functions, so nothing counts against the Functions
-request limit.
+The balance editor is no longer published at `/balance/`; it stays a private
+tool (`pnpm balance:dev`).
+
+To change the password, put a new bcrypt hash (from any bcrypt or htpasswd
+generator; `$2y$`, `$2b$` and `$2a$` all work) in the `SITE_LOGIN_HASH`
+secret and run Deploy. To take the sign-in page off, delete
+`deploy/pages/functions` and `_routes.json` and their steps in the Deploy
+workflow.
 
 ## Game version
 
@@ -75,6 +99,7 @@ deploy. Local builds show the next number marked as a dev build.
 | `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare account ID |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | secrets | R2 API token, Object Read & Write, bucket `blockyrts-saves` (create the bucket first) |
 | `RESEND_API_KEY` | secret, optional | Resend sending key for `mail.<DOMAIN>`; without it password-reset email is off |
+| `SITE_LOGIN_HASH` | secret | The sign-in page's password as a bcrypt hash; Deploy stops without it |
 
 ## Contract with `packages/server` (owned by the server thread)
 

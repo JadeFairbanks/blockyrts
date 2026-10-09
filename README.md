@@ -3393,8 +3393,9 @@ packages/client/test/patch5-debugger.test.ts` cover the same ground headless.
    preview tags and a short summary for readers without JavaScript.
    `/balance/` is gone (the editor stays a private tool, `pnpm balance:dev`).
    A production build given `VITE_SITE_URL` writes `robots.txt` (open, with
-   the sitemap) and `sitemap.xml` (deploy/README.md, "Public site and
-   search").
+   the sitemap) and `sitemap.xml` (deploy/README.md, "Sign-in page and
+   search"). A sign-in page came back in front of the site after Patch 5;
+   see "How a tester checks the sign-in page" below.
 2. **Open games.** Join game has an **Open games** button under the code
    box. It lists each lobby waiting for players with its host, how many are
    in it, the places free and whether it continues a save. Public games come
@@ -4623,6 +4624,34 @@ blueprint/patch5-release-check-picks.md.*
 6. **Fish.** Find a giant catfish stretch on a narrow river: the fish hold in
    the water facing along it and drift up and back, none of them hanging out
    over the bank; in wide water they swim round.
+
+## How a tester checks the sign-in page
+
+*A user name and password in front of the site again, so passers-by do not
+use the game server, and the site describing itself to search engines and
+link previews as a learning project. Picks in
+blueprint/site-gate-labeling-picks.md; how it works in deploy/README.md,
+"Sign-in page and search".*
+
+1. **The tests.** `pnpm test` runs packages/client/test/site-gate.test.ts
+   (a made-up `$2y$` bcrypt login: the browser's bcryptjs result signs in
+   and sets the cookie, a wrong password or user name does not, a bad or
+   expired cookie gets the sign-in page, no login set up serves nothing, and
+   the game's files skip the middleware) and packages/client/test/site.test.ts
+   (the page's title, description, preview tags and structured data say "a
+   learning project" and nowhere "game").
+2. **On the live site, after the next deploy.** Opening
+   https://play.surviveandconquer.cc shows "Survive and Conquer, A learning
+   project. Sign in to continue." with a user name and password. User name
+   `Admin` (any capitals) and the password whose hash is in the
+   `SITE_LOGIN_HASH` secret open the main menu; anything else says "That
+   user name and password do not match." The browser stays signed in for 30
+   days. The page source of the sign-in page has the learning-project title
+   and description and no hash.
+3. **Locally.** Build the client, then from `deploy/pages` run
+   `npx wrangler@4 pages dev ../../packages/client/dist --binding
+   SITE_LOGIN_HASH=<a bcrypt hash>` (after copying `static/_routes.json`
+   into the dist folder) and sign in at http://localhost:8788.
 
 ## License
 
