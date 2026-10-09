@@ -105,6 +105,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'combat/threat.ts': 'mobs',
   'combat/spawn.ts': 'mobs',
   'combat/mob-ai.ts': 'mobs',
+  'combat/aims.ts': 'mobs',
   'combat/combat.ts': 'units',
   'combat/fight.ts': 'units',
   'combat/deaths.ts': 'units',
@@ -159,6 +160,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/late-mobs.ts': 'mobs',
   'threats/boss.ts': 'mobs',
   'threats/wanderers.ts': 'mobs',
+  'threats/bright.ts': 'mobs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
@@ -319,6 +321,10 @@ export const HIDDEN_KEYS: ReadonlySet<string> = new Set([
 
 /** Readable names for keys, used before the generic split of camelCase. */
 export const KEY_LABELS: Readonly<Record<string, string>> = {
+  'WAVE_AIMS:baseM': 'A base: buildings within', 'WAVE_AIMS:openM': 'Out in the open: farther outside every base than', 'WAVE_AIMS:partyM': 'A party: units within',
+  'WAVE_AIMS:buildingWorth': 'Worth to the waves: a building', 'WAVE_AIMS:unitWorth': 'Worth to the waves: a unit out in the open',
+  'WAVE_AIMS:edgeSpreadM': 'Comes out at most this much farther than the nearest edge', 'WAVE_AIMS:baseReachM': 'Takes up the town\'s paths within',
+  'PERCH_ATTACK:steps': 'Shot at from a building this lately', 'PERCH_ATTACK:withinWu': 'Breaks that building within',
   speed10: 'Walking speed', walkShoot: 'Shoots while walking', fighter: 'Fighter (villagers flee instead)', ringWu: 'Buildings stand this far out',
   structures: 'Buildings', animals: 'Animals kept', good: 'Good', 'STOCK:count': 'Held when full', 'CARAVAN_GOODS:count': 'Held when full',
   'STOCK:pct': 'Sells at (of its worth)', 'CARAVAN_GOODS:pct': 'Sells at (of its worth)', price: 'Set price', daily: 'Refills every dawn',
@@ -431,6 +437,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
+  'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
@@ -471,6 +478,9 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   'THREAT:onceSeconds': 'wholeSeconds', 'THREAT:speedRefTenths': 'speedTenths', 'THREAT:rangedFullM': 'metres', 'THREAT:overWallReachCm': 'metresCm',
   'NIGHT_BUDGET:startTenths': 'tenths', 'NIGHT_BUDGET:rampTenths': 'tenths', 'NIGHT_BUDGET:perNightTenths': 'tenths', 'NIGHT_BUDGET:curveThousandths': 'thousandths',
   BUILD_XP_TENTHS_PER_MINUTE: 'xpTenths', GATHER_XP_TENTHS_PER_MINUTE: 'xpTenths',
+  // Patch 5: what the waves go for (combat/aims.ts) and the towers they break.
+  'WAVE_AIMS:baseM': 'metres', 'WAVE_AIMS:openM': 'metres', 'WAVE_AIMS:partyM': 'metres', 'WAVE_AIMS:edgeSpreadM': 'metres', 'WAVE_AIMS:baseReachM': 'metres',
+  'WAVE_AIMS:buildingWorth': 'number', 'WAVE_AIMS:unitWorth': 'number',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */
