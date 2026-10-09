@@ -30,8 +30,8 @@ import {
   itemsText,
   kitName,
   linePiece,
+  lineTier,
   Mount,
-  ownGearItem,
   productSpec,
   QUEUE_LIMIT,
   RATING_NAMES,
@@ -52,6 +52,7 @@ import {
   WAND_KITS,
   weaponPiece,
   ARMOUR_KITS,
+  DREADNOUGHT_GEAR,
   DREADNOUGHT_KIT,
   dreadnoughtArmour,
   type Piece,
@@ -68,7 +69,7 @@ import { effectLeftText, effectPct } from './effects.ts';
 import { harvestText } from './farm-panel.ts';
 import { hungerLine, type HungerView } from './hunger.ts';
 import { armourPic, robePic, shieldPic, tipsPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
-import { compareTip, rarityClass, shineOf } from './gear-compare.ts';
+import { compareTip, gearText, rarityClass, shineOf } from './gear-compare.ts';
 import { holderOf, slotHasMenu, wornGear, wornItem } from './gear-menus.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { slotCount } from './inventory.ts';
@@ -1201,21 +1202,16 @@ export class SelectionPanel {
         { pic: { file: 'icon_fishing_rod' }, name: rod.name, text: 'He fishes with it; it comes with him. A woodsman wears no armour.', line: -1 },
       ];
     }
-    // The Dreadnought (Patch 5, GP-21): the mace and plate he came with, never changed.
+    // The Dreadnought (Patch 5, GP-21): the mace and plate he came with; from Patch 7 they come off and he can hold other great weapons (plan 2.3), shown as themselves below.
     if (u.troop === Troop.Dreadnought) {
       const k = DREADNOUGHT_KIT;
-      const keeps = 'He keeps it: it is never upgraded or changed.';
-      return [
-        { pic: { file: 'icon_mace_iron_refined' }, name: k.mace, text: `A smash of ${k.smash.damage} at one enemy, then a sweep of ${k.swing.damage} at every enemy in front of him, by turns, one every ${k.attackDs / 10} s; reach ${k.reachCm / 100} m.\n${keeps}`, line: -1 },
-        { pic: armourPic(dreadnoughtArmour().tier), name: k.plate, text: `Protection ${dreadnoughtArmour().protectionPct}%, as a ${dreadnoughtArmour().name} of high carbon steel. No shield.\n${keeps}`, line: -1 },
-      ];
+      return this.looted(u, [
+        { pic: { file: 'icon_mace_iron_refined' }, name: k.mace, text: `A smash of ${k.smash.damage} at one enemy, then a sweep of ${k.swing.damage} at every enemy in front of him, by turns, one every ${k.attackDs / 10} s; reach ${k.reachCm / 100} m.`, line: 0 },
+        { pic: armourPic(dreadnoughtArmour().tier), name: k.plate, text: `Protection ${dreadnoughtArmour().protectionPct}%, as a ${dreadnoughtArmour().name} of high carbon steel. No shield.`, line: 1 },
+      ]);
     }
-    // A weapon item with a gear row of its own (the obsidian hand-axe) shows as itself, with its piece's numbers.
-    const own = ownGearItem(u.weapon);
-    const g = own !== undefined ? goodIcon(own) : undefined;
+    // A weapon item with a gear row of its own (the obsidian hand-axe, Patch 7's looted pieces) shows as itself (looted, below).
     const weapon = { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 };
-    if (own !== undefined) weapon.name = `${RESOURCES[own]!.name}, tier ${u.wTier}`;
-    if (g) weapon.pic = g.tint ? { file: g.file, filter: g.tint } : { file: g.file };
     const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [
       weapon,
       { pic: armourPic(u.aTier), tag: String(u.aTier), ...named(ARMOUR_KITS[u.aTier], u.aTier, 'armour'), line: 1 },
@@ -1229,7 +1225,31 @@ export class SelectionPanel {
     if (u.troop === Troop.Close) out.push({ pic: shieldPic(u.sTier), tag: String(u.sTier), ...named(SHIELD_KITS[u.sTier], u.sTier, 'shield'), line: 2 });
     // A bow or crossbow ranger's poison tips, while it has them.
     if (u.tips > 0 && takesTips(u.troop, u.wTier)) out.push({ pic: tipsPic(u.wTier), name: TIPS_KIT.name, text: `${TIPS_KIT.name}: its arrows or bolts poison like a viper's bite.`, line: 3 });
-    return out;
+    return this.looted(u, out);
+  }
+
+  /**
+   * A looted piece a unit wears (Patch 7: a monster's or one of the peoples'
+   * weapon, shield, armour or robe) shows as itself in its slot: its own
+   * picture, name and numbers, no tier number; ladder pieces keep their tier's.
+   */
+  private looted<T extends { pic: Pic; tag?: string; name: string; text: string; line: number }>(u: UnitInfo, slots: T[]): T[] {
+    const h = holderOf(u);
+    if (!h || u.troop === Troop.Brawler) return slots;
+    for (const s of slots) {
+      if (s.line < 0 || s.line > 2) continue;
+      const res = wornItem(u, s.line);
+      const ladder = linePiece(h, s.line, lineTier(h, s.line))?.items[0];
+      // The Dreadnought's own mace and plate keep their words.
+      const gear = wornGear(u, s.line);
+      if (res === undefined || res === ladder || gear === DREADNOUGHT_GEAR.mace || gear === DREADNOUGHT_GEAR.plate) continue;
+      const g = goodIcon(res);
+      if (g) s.pic = g.tint ? { file: g.file, filter: g.tint } : { file: g.file };
+      delete s.tag;
+      s.name = RESOURCES[res]!.name;
+      s.text = gearText(wornGear(u, s.line), h);
+    }
+    return slots;
   }
 
   /** An engine: its crew as small crewmen, filled or empty, and how it moves, the sentences in the tooltip. */

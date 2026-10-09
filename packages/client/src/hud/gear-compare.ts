@@ -8,6 +8,7 @@
 import {
   Body,
   bodyOf,
+  DREADNOUGHT_GEAR,
   dreadnoughtMelee,
   FIT_RANGES,
   fits,
@@ -24,6 +25,7 @@ import {
   Troop,
   WU_PER_METRE,
   type GearSpec,
+  type MeleeStats,
 } from '@blockyrts/sim';
 import type { CompareRow, CompareTip } from './buttons.ts';
 import type { RowValue } from './card-pop.ts';
@@ -72,9 +74,9 @@ const n = (key: string, label: string, value: number, unit: string, lowBetter = 
   ...(lowBetter ? { lowBetter } : {}),
 });
 
-/** Whether a holder is the Dreadnought (his blows are 1.5 times, plan 2.3). */
-function big(h: KitHolder | null): boolean {
-  return h !== null && bodyOf(h) === Body.Dreadnought;
+/** A blow in the holder's hands: the Dreadnought's are 1.5 times with any weapon but his own mace (plan 2.3). */
+function blow(gear: number, h: KitHolder | null, m: MeleeStats): MeleeStats {
+  return h !== null && bodyOf(h) === Body.Dreadnought && gear !== DREADNOUGHT_GEAR.mace ? dreadnoughtMelee(m) : m;
 }
 
 /** A gear row's numbers, in the holder's hands (the Dreadnought hits 1.5 times as hard with any weapon but his own mace). */
@@ -82,7 +84,7 @@ export function gearNums(gear: number, h: KitHolder | null = null): GearNum[] {
   const g: GearSpec = gearSpec(gear);
   const out: GearNum[] = [];
   if (g.melee) {
-    const m = big(h) ? dreadnoughtMelee(g.melee) : g.melee;
+    const m = blow(gear, h, g.melee);
     out.push(n('damage', 'Damage', m.damage, ''), n('swing', 'Swing', m.attackSteps / STEPS_PER_SECOND, 's', true), n('reach', 'Reach', m.reach / WU_PER_METRE, 'm'));
   } else if (g.ranged) {
     const r = g.ranged;
@@ -98,10 +100,19 @@ export function gearNums(gear: number, h: KitHolder | null = null): GearNum[] {
   return out;
 }
 
+/** A piece's numbers in a sentence for its slot's tooltip ("Damage 17, Swing 1.2 s, Reach 1.3 m. Heft 33."). */
+export function gearText(gear: number, h: KitHolder | null = null): string {
+  const nums = gearNums(gear, h);
+  const size = nums.filter((x) => x.key === 'heft' || x.key === 'stature');
+  const rest = nums.filter((x) => x.key !== 'heft' && x.key !== 'stature');
+  const say = (list: GearNum[]): string => (list.length > 0 ? `${list.map((x) => `${x.label} ${x.text}`).join(', ')}.` : '');
+  return [say(rest), say(size)].filter((t) => t).join(' ');
+}
+
 /** The number a row ranks by and shows (plan 2.4), with its words for a menu's line ("damage a second"). */
 export function headNum(gear: number, h: KitHolder | null = null): { value: number; text: string; words: string } | null {
   const g = gearSpec(gear);
-  const hit = g.melee ? (big(h) ? dreadnoughtMelee(g.melee) : g.melee) : g.ranged;
+  const hit = g.melee ? blow(gear, h, g.melee) : g.ranged;
   if (hit) {
     const v = round1((hit.damage * STEPS_PER_SECOND) / Math.max(1, hit.attackSteps));
     return { value: v, text: `${fmt(v)}/s`, words: `${fmt(v)} damage a second` };
