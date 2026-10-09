@@ -1,34 +1,24 @@
 // The site's search and link-preview pieces. The site describes itself as a
-// learning project. A sign-in page stands in front of it
+// learning project. A sign-in box stands in front of it
 // (deploy/pages/functions/_middleware.ts), so search engines and link
-// previews read that page, which uses the same words; index.html, behind it,
-// carries the title, description, preview tags and a short no-script summary.
-// This Vite plugin adds what needs the site's own address, which the Deploy
-// workflow passes as VITE_SITE_URL: the canonical link, the preview's address
-// and picture, the structured data, robots.txt and sitemap.xml. It also
-// writes the sign-in page's copy of bcryptjs. A build without an address
-// (local, CI) gets an open robots.txt and the sign-in script.
+// previews read the page behind the box, which uses the same words;
+// index.html, behind it, carries the title, description, preview tags and a
+// short no-script summary. This Vite plugin adds what needs the site's own
+// address, which the Deploy workflow passes as VITE_SITE_URL: the canonical
+// link, the preview's address and picture, the structured data, robots.txt
+// and sitemap.xml. A build without an address (local, CI) gets an open
+// robots.txt.
 
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import type { Plugin } from 'vite';
 
 /** The site's name, as the page title and previews show it. */
 export const SITE_TITLE = 'Survive and Conquer';
 
-/** One line for search results and link previews (index.html and the sign-in page carry the same words). */
+/** One line for search results and link previews (index.html and the page behind the sign-in box carry the same words). */
 export const SITE_DESCRIPTION = 'Survive and Conquer is a learning project.';
 
 /** The share picture, in public/ (1200 by 630, from the main menu's battle). */
 export const SITE_IMAGE = '/og-image.jpg';
-
-/** Where the sign-in page loads bcryptjs from (its browser build, which sets window.bcrypt). */
-export const GATE_SCRIPT = 'gate/bcrypt.js';
-
-/** bcryptjs's browser build, for the sign-in page. */
-export function gateScript(): string {
-  return readFileSync(createRequire(import.meta.url).resolve('bcryptjs'), 'utf8');
-}
 
 /** The site's address without a trailing slash, or null when none (or not a web address) is given. */
 export function siteUrl(raw: string | undefined): string | null {
@@ -74,7 +64,7 @@ export function siteHead(site: string): string {
     .join('\n');
 }
 
-/** The Vite plugin: the address's head tags in index.html, robots.txt and sitemap.xml beside it, and the sign-in script. Builds only. */
+/** The Vite plugin: the address's head tags in index.html, and robots.txt and sitemap.xml beside it. Builds only. */
 export function sitePlugin(site: string | null): Plugin {
   return {
     name: 'blockyrts-site',
@@ -84,7 +74,6 @@ export function sitePlugin(site: string | null): Plugin {
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robotsTxt(site) });
-      this.emitFile({ type: 'asset', fileName: GATE_SCRIPT, source: gateScript() });
       if (site) this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml(site) });
     },
   };

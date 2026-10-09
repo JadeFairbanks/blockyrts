@@ -3394,7 +3394,7 @@ packages/client/test/patch5-debugger.test.ts` cover the same ground headless.
    `/balance/` is gone (the editor stays a private tool, `pnpm balance:dev`).
    A production build given `VITE_SITE_URL` writes `robots.txt` (open, with
    the sitemap) and `sitemap.xml` (deploy/README.md, "Sign-in page and
-   search"). A sign-in page came back in front of the site after Patch 5;
+   search"). A sign-in box came back in front of the site after Patch 5;
    see "How a tester checks the sign-in page" below.
 2. **Open games.** Join game has an **Open games** button under the code
    box. It lists each lobby waiting for players with its host, how many are
@@ -4627,34 +4627,30 @@ blueprint/patch5-release-check-picks.md.*
 
 ## How a tester checks the sign-in page
 
-*A user name and password in front of the site again, so passers-by do not
-use the game server, and the site describing itself to search engines and
-link previews as a learning project. Picks in
+*The browser's user name and password box in front of the site again, so
+passers-by do not use the game server, and the site describing itself to
+search engines and link previews as a learning project. Picks in
 blueprint/site-gate-labeling-picks.md; how it works in deploy/README.md,
 "Sign-in page and search".*
 
 1. **The tests.** `pnpm test` runs packages/client/test/site-gate.test.ts
-   (made-up logins: Deploy's hash of the password is stable and takes the
-   password as typed, even one that looks like a bcrypt hash; the browser's
-   bcryptjs result signs in and sets the cookie, a wrong password or user
-   name does not, a bad or expired cookie gets the sign-in page, no login set
-   up serves nothing, and the game's files skip the middleware) and
-   packages/client/test/site.test.ts (the page's title, description, preview
-   tags and structured data say "a learning project" and nowhere "game").
+   (a made-up password that looks like a bcrypt hash: typed exactly, with
+   `Admin` in any capitals, it opens the site and sets the cookie; a wrong
+   password, user name or header gets the box again, a bad or expired cookie
+   too, no password set up serves nothing, and the game's files skip the
+   middleware) and packages/client/test/site.test.ts (the page behind the
+   box and index.html say "a learning project" and nowhere "game").
 2. **On the live site, after the next deploy.** Opening
-   https://play.surviveandconquer.cc shows "Survive and Conquer, A learning
-   project. Sign in to continue." with a user name and password. User name
-   `Admin` (any capitals) and the password in the `SITE_PASSWORD` secret (or
-   `SITE_LOGIN_HASH`, its older name), typed exactly, open the main menu;
-   anything else says "That user name and password do not match." The
-   browser stays signed in for 30 days. The page source of the sign-in page
-   has the learning-project title and description and no hash.
+   https://play.surviveandconquer.cc brings up the browser's sign-in box.
+   User name `Admin` (any capitals) and the password in the `SITE_PASSWORD`
+   secret (or `SITE_LOGIN_HASH`, its older name), typed exactly, open the
+   main menu; anything else brings the box back. Closing the box shows
+   "Survive and Conquer, A learning project. Reload the page to sign in."
+   The browser stays signed in for 30 days.
 3. **Locally.** Build the client, then from `deploy/pages` run
    `npx wrangler@4 pages dev ../../packages/client/dist --binding
-   SITE_LOGIN_HASH=<hash>` (after copying `static/_routes.json` into the dist
-   folder), where the hash is what `SITE_PASSWORD=<a password> node
-   deploy/scripts/site-login-cli.ts` prints, and sign in at
-   http://localhost:8788.
+   SITE_PASSWORD=<a password>` (after copying `static/_routes.json` into the
+   dist folder) and open http://localhost:8788.
 
 ## How a tester checks the installable app
 
