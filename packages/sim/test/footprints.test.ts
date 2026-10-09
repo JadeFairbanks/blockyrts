@@ -173,8 +173,8 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     const e = s.entities;
     runUntil(s, () => unitsOnTop(s, t.id).length === 4, 3000);
     const up = unitsOnTop(s, t.id);
-    // The deck is 146 units (4.1 m) up; each stands on a corner of his own.
-    for (const i of up) expect(e.y[i]).toBe(t.y * WU_PER_TERRAIN_UNIT + 146 * WU_PER_MODEL_UNIT);
+    // The deck is 124 units (3.5 m) up (Patch 5: the tower models' deck); each stands on a corner of his own.
+    for (const i of up) expect(e.y[i]).toBe(t.y * WU_PER_TERRAIN_UNIT + 124 * WU_PER_MODEL_UNIT);
     expect(new Set(up.map((i) => `${e.x[i]},${e.z[i]}`)).size).toBe(4);
     run(s, 600);
     // The fifth found it full: a tower has no shelter below.
@@ -182,7 +182,7 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     expect(s.entities.inside.filter((v) => v === t.id).length).toBe(4);
   });
 
-  it('takes workers up a tier 2 main base first, and shelters them inside once its top is full or when sent home', () => {
+  it('shelters workers inside a tier 2 main base, sends one up on its ramparts from the panel, and back in with E twice', () => {
     const s = createWorld(1, { peaceful: true, playerUnits: 4 });
     const b = bigHouse(s);
     b.level = 2;
@@ -191,11 +191,16 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     run(s, 1, [{ kind: 'enter', player: 0, units: workers, building: b.id }]);
     runUntil(s, () => workers.every((id) => s.entities.inside[s.entities.indexOf(id)] === b.id), 3000);
     const e = s.entities;
+    // Workers go deeper inside a main base (Jade's Patch 5, decisions 3.8) [before, up top first while there was room]; by day until let out.
     for (const id of workers) {
       const i = e.indexOf(id);
-      expect(onTop(s, i)).toBe(true);
-      expect(e.queue[i]![0]).toEqual({ t: 'enter', b: b.id, auto: ENTER_TOP });
+      expect(onTop(s, i)).toBe(false);
+      expect(e.queue[i]![0]).toEqual({ t: 'enter', b: b.id, auto: 0 });
     }
+    // The main base's panel sends one up on the ramparts (GP-10).
+    run(s, 1, [{ kind: 'shelter', player: 0, building: b.id, unit: workers[0]! }]);
+    expect(onTop(s, e.indexOf(workers[0]!))).toBe(true);
+    expect(e.queue[e.indexOf(workers[0]!)]![0]).toEqual({ t: 'enter', b: b.id, auto: ENTER_TOP });
     // E twice shelters workers inside, out of reach of the swooping bats.
     run(s, 1, [{ kind: 'pickOwn', player: 0, units: workers, command: PickOwn.Enter }]);
     run(s, 2);

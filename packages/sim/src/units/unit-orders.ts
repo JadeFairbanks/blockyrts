@@ -55,15 +55,14 @@ export type UnitOrder =
   | { t: 'kitUp'; line: number; to: number; ways: number; paid: number; b: number }
   /** A worker takes a cart from the pool at a main base (res: economy Res.HandCart or Res.OxCart), or hands its cart back there (res 0). */
   | { t: 'cart'; b: number; res: number }
-  /** Dig out, or heap up, a marked site (Digging and building up the land). */
-  | { t: 'dig'; site: number }
   /**
-   * Crude stairs out of a hole a worker is shut in (Patch 4, units/dig.ts):
-   * from the floor column (x, z), level y terrain units, n columns cut
-   * outward in direction dir (0 +x, 1 -x, 2 +z, 3 -z), each a clamber above
-   * the last. Put in front of the order that wants it out.
+   * Dig out a marked site (Digging). `band`: the level, terrain units, the
+   * digger takes its column down to before it moves on to another (Jade's
+   * Patch 5, GP-4: the high points first, spread over the area); `miss`: the
+   * walks to a column it could not reach since its last load home, so it
+   * takes the nearest column rather than the highest (units/dig.ts).
    */
-  | { t: 'stairs'; x: number; z: number; y: number; dir: number; n: number }
+  | { t: 'dig'; site: number; band: number; miss: number }
   /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
@@ -86,12 +85,11 @@ export type UnitOrder =
   | { t: 'crew'; id: number }
   /** A worker repairs a siege engine or cannon (id). */
   | { t: 'mend'; id: number }
-  /** A cannon is hauled into one of the Citadel's (building b) cannon ports. */
-  | { t: 'port'; b: number }
   /**
    * Loot (units/loot.ts): pick up the loot `id` lying on the ground (and
    * whatever else lies right by it), then with `hand` hand the bag in at the
-   * nearest drop-off, then with `back` walk back to (x, z) wu, where the unit
+   * nearest drop-off (hand 2 + a good: only that good, load and bag, at the
+   * nearest drop-off that takes it; Patch 5's Unload), then with `back` walk back to (x, z) wu, where the unit
    * stood when it went by itself (back is set only on what a unit does by
    * itself, and then it fights back on the way like an idle unit).
    */
@@ -114,6 +112,8 @@ export type UnitOrderType = UnitOrder['t'];
 
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
+/** An enter order's `auto` for a troop or mage sheltering deeper inside a main base (Jade's Patch 5, GP-10, units/shelter.ts): it stays until let out. */
+export const ENTER_IN = 4;
 /** An enter order's `auto` for a worker that went into a shelter for the night (Jade's Patch 4, units/night-work.ts): it comes out at dawn once no monster is near, or in the day. */
 export const ENTER_NIGHT = 3;
 /** A Gather order's `k` while it is home for the night (units/forage.ts). */
@@ -121,7 +121,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain', 'stairs'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -143,8 +143,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   hold: [],
   kitUp: ['line', 'to', 'ways', 'paid', 'b'],
   cart: ['b', 'res'],
-  dig: ['site'],
-  stairs: ['x', 'z', 'y', 'dir', 'n'],
+  dig: ['site', 'band', 'miss'],
   hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],
@@ -153,7 +152,6 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
   crew: ['id'],
   mend: ['id'],
-  port: ['b'],
   loot: ['id', 'hand', 'back', 'x', 'z'],
   forage: ['res', 'x', 'z', 'k', 'ang'],
   retrain: ['b'],
@@ -200,7 +198,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'dropoff':
       return 'Returning cargo';
     case 'enter':
-      return o.auto === ENTER_TOP ? 'Manning the top' : 'Sheltering';
+      return o.auto === ENTER_TOP ? 'Manning the top' : o.auto === ENTER_IN ? 'Sheltering deeper inside' : 'Sheltering';
     case 'job':
       return 'Working';
     case 'relight':
@@ -221,8 +219,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Fetching a cart';
     case 'dig':
       return 'Digging';
-    case 'stairs':
-      return 'Digging stairs out';
     case 'hunt':
       return 'Hunting';
     case 'tame':
@@ -239,8 +235,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Crewing';
     case 'mend':
       return 'Repairing';
-    case 'port':
-      return 'Going to a cannon port';
     case 'loot':
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
     case 'forage':

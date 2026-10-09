@@ -3,7 +3,7 @@
 // index, then the order each player gave them in). Every order is plain
 // integers (and booleans), so it checks, copies and travels easily.
 
-import { TUNNEL_MAX_UNITS, TUNNEL_MIN_UNITS, TUNNEL_STRETCH_MAX_COLUMNS, WALL_STRETCH_MAX_COLUMNS } from './buildings/chains.ts';
+import { DIG_UP_MAX_UNITS, TUNNEL_MAX_UNITS, TUNNEL_MIN_UNITS, TUNNEL_STRETCH_MAX_COLUMNS, WALL_STRETCH_MAX_COLUMNS } from './buildings/chains.ts';
 
 /** Orders given to some of a player's units; `queued` is Shift (added to the end of each unit's list). */
 interface UnitsOrder {
@@ -122,13 +122,28 @@ export interface RetrainOrder extends UnitsOrder {
   kind: 'retrain';
 }
 
-/** Add items to a building's production queue (1, or 5 with Shift). */
+/** Add items to a building's production queue (1, or 5 with Shift; Scrap equipment's stacks any number, Patch 5). */
 export interface ProduceOrder {
   kind: 'produce';
   player: number;
   building: number;
   product: number;
   count: number;
+}
+
+/** The Tavern's Open for business button (Patch 5): open 1 opens it, 0 closes it. */
+export interface TavernOpenOrder {
+  kind: 'tavernOpen';
+  player: number;
+  building: number;
+  open: number;
+}
+
+/** The Tavern's Withdraw funds button (Patch 5): the whole silver ingots in its till go to the player's stock. */
+export interface TavernWithdrawOrder {
+  kind: 'tavernWithdraw';
+  player: number;
+  building: number;
 }
 
 /** Cancel a queued item, refunded in full. */
@@ -285,6 +300,14 @@ export interface TroopLockOrder {
   lock: number;
 }
 
+/** Run/Walk (Patch 5 GP-16): run 1 sets the units on foot to Run, 0 to Walk. */
+export interface PaceOrder {
+  kind: 'pace';
+  player: number;
+  units: number[];
+  run: number;
+}
+
 /** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
 export interface LockOrder {
   kind: 'lock';
@@ -293,7 +316,11 @@ export interface LockOrder {
   lock: number;
 }
 
-/** D Dig: a box of columns down to a floor (terrain units), or a tunnel between a floor and a roof. */
+/**
+ * D Dig: a box of columns down to a floor (terrain units; `tunnel` 0), a
+ * tunnel between a floor and a roof (1), or a dig drawn upwards from a floor
+ * to a roof (2; Jade's Patch 5, GP-4: levelling a hill or a mountain).
+ */
 export interface DigOrder extends UnitsOrder {
   kind: 'dig';
   x0: number;
@@ -492,6 +519,35 @@ export interface PickUpOrder extends UnitsOrder {
   target: number;
 }
 
+/**
+ * One good a unit carries (Patch 5, GP-7: the unit inventory's right-click
+ * menu). Unload walks it to the nearest drop-off that takes it and hands in
+ * all of that good (res -1: everything it carries), then the unit carries
+ * on; Drop puts all of it down on the ground at the unit's feet.
+ */
+export interface UnloadItemOrder extends UnitsOrder {
+  kind: 'unloadItem';
+  res: number;
+}
+export interface DropItemOrder extends UnitsOrder {
+  kind: 'dropItem';
+  res: number;
+}
+
+/** Equip (Patch 5, GP-2): a unit walks to the nearest place to upgrade and puts on the stock's item res (a weapon, armour, shield, tools, wand or robe), as Upgrade equipment does. */
+export interface EquipOrder extends UnitsOrder {
+  kind: 'equip';
+  res: number;
+}
+
+/** A unit in a main base moves between the ramparts and deeper inside (Patch 5, GP-10), where there is room. */
+export interface ShelterOrder {
+  kind: 'shelter';
+  player: number;
+  building: number;
+  unit: number;
+}
+
 /** Gather: workers fetch the basic materials the side can use, by themselves, and come home at dusk. */
 export interface ForageOrder extends UnitsOrder {
   kind: 'forage';
@@ -645,6 +701,10 @@ export interface LeaveOrder {
 }
 
 export type Order =
+  | UnloadItemOrder
+  | DropItemOrder
+  | EquipOrder
+  | ShelterOrder
   | AnswerOrder
   | GreyedOrder
   | PickOwnOrder
@@ -673,6 +733,7 @@ export type Order =
   | CartOrder
   | TroopLockOrder
   | LockOrder
+  | PaceOrder
   | DigOrder
   | WallStretchOrder
   | TunnelStretchOrder
@@ -709,6 +770,8 @@ export type Order =
   | TrainRankOrder
   | RetrainOrder
   | ProduceOrder
+  | TavernOpenOrder
+  | TavernWithdrawOrder
   | CancelProduceOrder
   | UpgradeOrder
   | CancelBuildOrder
@@ -757,6 +820,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   trainRank: ['building'],
   retrain: [],
   produce: ['building', 'product', 'count'],
+  tavernOpen: ['building', 'open'],
+  tavernWithdraw: ['building'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
   cancelBuild: ['building'],
@@ -774,6 +839,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   cart: ['back'],
   troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
+  pace: ['run'],
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
   tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
@@ -808,12 +874,16 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   leave: [],
   pickOwn: ['command'],
   pickUp: ['target'],
+  unloadItem: ['res'],
+  dropItem: ['res'],
+  equip: ['res'],
+  shelter: ['building', 'unit'],
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -837,10 +907,16 @@ export function validateOrder(o: Order): void {
       if (o.radius < 0 || o.radius > 2000 * 8000) throw new Error('reveal radius out of range');
       return;
     case 'produce':
-      if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
+      // 1, or 5 with Shift; a stack of scraps (Patch 5) any number to 9999.
+      if (o.count < 1 || o.count > 9999) throw new Error('produce count must be 1 to 9999');
+      return;
+    case 'tavernOpen':
+      if (o.open !== 0 && o.open !== 1) throw new Error('tavernOpen open must be 0 or 1');
       return;
     case 'dig':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
+      if (o.tunnel !== 0 && o.tunnel !== 1 && o.tunnel !== 2) throw new Error('a dig goes down (0), into a tunnel (1) or up (2)');
+      if (o.tunnel === 2 && (o.level2 <= o.level || o.level2 - o.level > DIG_UP_MAX_UNITS)) throw new Error(`a dig drawn upwards is 1 to ${DIG_UP_MAX_UNITS} terrain units tall`);
       return;
     case 'wallStretch':
       if (o.dir < 0 || o.dir > 7 || o.length < 0 || o.length > WALL_STRETCH_MAX_COLUMNS || (o.skip !== 0 && o.skip !== 1)) throw new Error(`a wall stretch runs 0 to ${WALL_STRETCH_MAX_COLUMNS} columns in one of 8 directions`);
@@ -873,6 +949,9 @@ export function validateOrder(o: Order): void {
     case 'cart':
       if (o.back !== 0 && o.back !== 1) throw new Error('bad cart order');
       return;
+    case 'pace':
+      if (o.run !== 0 && o.run !== 1) throw new Error('bad Run/Walk order');
+      return;
     case 'troopLock':
       if (o.troop < 1 || o.troop > 7 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
       return;
@@ -881,6 +960,13 @@ export function validateOrder(o: Order): void {
       return;
     case 'dontEat':
       if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
+      return;
+    case 'unloadItem':
+      if (o.res < -1 || o.res > 254) throw new Error('bad unload: a good, or -1 for everything');
+      return;
+    case 'dropItem':
+    case 'equip':
+      if (o.res < 0 || o.res > 254) throw new Error(`bad ${o.kind}: a good`);
       return;
     case 'pickOwn':
       if (o.command < 0 || o.command > 3) throw new Error('bad pick-own command');

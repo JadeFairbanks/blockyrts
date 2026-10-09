@@ -168,10 +168,13 @@ describe('godmode (Patch 5)', () => {
     expect(e.mount[troop(Troop.Cavalry)]).toBe(Mount.Horse);
     // Morvath comes once; a second is refused while he is out.
     const morvath = GOD_SPAWNS.findIndex((g) => g.what === 'boss');
-    const before = e.count;
+    const next = s.nextEntityId;
     run(s, [at(morvath)]);
     expect([...Array(e.count).keys()].filter((i) => e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.Morvath).length).toBe(1);
-    expect(e.count).toBeLessThanOrEqual(before);
+    // Nothing comes for the refused click: on this step the necromancer placed above may raise his dead (Patch 5, MB-5),
+    // wild animals may wander in, and a slime killed by the units placed above splits (the Dreadnought sweeps), but no other monster.
+    const added = [...Array(e.count).keys()].filter((i) => e.id[i]! >= next && e.kind[i] === UnitKind.Mob);
+    expect(added.filter((i) => e.mob[i] !== Mob.Zombie && e.mob[i] !== Mob.SkeletonArcher && e.mob[i] !== Mob.SmallSlime)).toEqual([]);
   });
 
   it('raises every unit to the top rank, heals everything, kills chosen units and clears the monsters round a point', () => {

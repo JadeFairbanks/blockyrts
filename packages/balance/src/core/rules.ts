@@ -23,7 +23,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'training', label: 'Training and upgrades', blurb: 'Table 7. What a troop, worker or mage costs to train, what each material tier needs (Forge step and research; Patch 2: the steps come with main base levels), upgrade time and refund, and the artillery crewman\'s food and time (Patch 2).' },
   { id: 'wands', label: 'Wands and robes', blurb: 'Table 13. Mages\' wands (spell power and extra mana) and robes (protection and mana regain) by tier: cost, time to make and what they need.' },
   { id: 'magic', label: 'Mages and spells', blurb: 'Mage ranks, mana and refill, the combat pause, rank training at the Magi Sanctum, and every spell (Table 13): mana, cooldown, range, power, radius and duration.' },
-  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, and the Citadel\'s cannon ports. Patch 2: engines take no munitions, and every engine rolls out with its crew of artillery crewmen.' },
+  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, and the Citadel\'s engine platform (Patch 5: its fixed engines and their upgrades). Patch 2: engines take no munitions, and every engine rolls out with its crew of artillery crewmen.' },
   { id: 'recipes', label: 'Recipes', blurb: 'What production buildings turn into what: inputs, outputs, time and where.' },
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
@@ -50,11 +50,13 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
 
 /** Single exports that are plumbing, ids or names rather than balance. */
 export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
+  // Patch 5: which ingots the necromancer drops and which kinds guard a mana crystal are lists of ids, told in their files' words.
+  'threats/necromancer.ts:NECROMANCER_INGOTS', 'threats/guardians.ts:GUARDIAN_KINDS',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
   // Building shapes (one per level) and an enter order's flag: layout and plumbing, not balance.
-  'buildings/footprints.ts:FOOTPRINTS', 'units/unit-orders.ts:ENTER_TOP',
+  'buildings/footprints.ts:FOOTPRINTS', 'units/unit-orders.ts:ENTER_TOP', 'units/unit-orders.ts:ENTER_IN', 'units/loot.ts:HAND_ONE', 'units/loot.ts:DROPPED',
   // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
   'peoples/data.ts:PEOPLE_NAMES', 'peoples/data.ts:PERSON_NAMES', 'peoples/data.ts:FACTION_KIND_NAMES', 'peoples/data.ts:KIND_PEOPLE',
   'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:LIVE_GOODS', 'peoples/data.ts:ENGINE_GOODS',
@@ -78,16 +80,22 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'magic/spells.ts:MANA_SCALE', 'magic/spells.ts:MAGE_TOP_RANK', 'magic/mages.ts:MAGE_XP_TENTHS', 'magic/mages.ts:MAGE_RANK_NAMES',
   // The engines' shot ids and the list of engines a player can make.
   'siege/data.ts:ENGINE_SHOT', 'siege/data.ts:PLAYER_ENGINES',
+  // Patch 5: the engines' ids (the fixed ones are built from the mobile rows by id), the fixed ladder, the upgrade
+  // products' offset and the Citadel's tier are identity, not numbers to tune.
+  'siege/data.ts:Engine', 'siege/data.ts:FIXED_ENGINES', 'siege/data.ts:ENGINE_UPGRADE', 'siege/data.ts:CITADEL_LEVEL',
   // Troops and gear: the troop types' names and keys, the top tiers (the tables' lengths), and the gear catalogue, which
   // is worked out from the kit tables (change the kit rows instead) or holds the peoples' fixed gear.
   'units/kits.ts:TROOP_TYPES', 'units/kits.ts:TROOP_NAMES', 'units/kits.ts:TROOP_TIER_NAMES', 'units/kits.ts:TROOP_KEYS', 'units/kits.ts:TOP_TIER', 'units/kits.ts:TOP_MAGE_TIER',
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
-  'units/kits.ts:ROBE_GEAR',
+  'units/kits.ts:ROBE_GEAR', 'units/kits.ts:OBSIDIAN_AXE_GEAR',
   // Worker ranks (Patch 3): the rank names are words, and Work names what a worker is doing (building or gathering).
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
   'units/night-work.ts:NIGHT_WORK_ASK', 'units/unit-orders.ts:ENTER_NIGHT', 'units/unit-orders.ts:FORAGE_HOME', 'units/unit-orders.ts:FORAGE_NIGHT',
+  // The Dreadnought (Patch 5): his lines and description are words, his gear is worked out from DREADNOUGHT_KIT, and his second blow's slot is plumbing.
+  'units/dreadnought.ts:DREADNOUGHT_REMARKS', 'units/dreadnought.ts:DREADNOUGHT_HIRED', 'buildings/production.ts:DREADNOUGHT_TEXT',
+  'units/kits.ts:DREADNOUGHT_GEAR', 'units/kits.ts:SECOND_BLOW',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -99,26 +107,35 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'buildings/recipes.ts': 'recipes',
   'buildings/lights.ts': 'land',
   'buildings/mining.ts': 'world',
+  // Patch 5: the Tavern's row, and the Dreadnought's it hires.
+  'buildings/tavern.ts': 'buildings',
+  'units/dreadnought.ts': 'training',
   'combat/items.ts': 'ranged',
   'combat/projectiles.ts': 'ranged',
+  'combat/blasts.ts': 'ranged',
   'combat/mobs.ts': 'mobs',
   'combat/threat.ts': 'mobs',
   'combat/spawn.ts': 'mobs',
   'combat/mob-ai.ts': 'mobs',
+  'combat/aims.ts': 'mobs',
   'combat/combat.ts': 'units',
   'combat/fight.ts': 'units',
   'combat/deaths.ts': 'units',
   'units/behaviour.ts': 'units',
+  'units/shelter.ts': 'units',
   'units/spacing.ts': 'units',
   'units/ranks.ts': 'units',
   'units/gear.ts': 'training',
   'units/questions.ts': 'questions',
   'units/greyed.ts': 'questions',
   'units/work-asks.ts': 'questions',
+  'units/make-asks.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
+  'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
   'units/night-work.ts': 'nightwork',
   'units/dig.ts': 'world',
@@ -160,6 +177,10 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/late-mobs.ts': 'mobs',
   'threats/boss.ts': 'mobs',
   'threats/wanderers.ts': 'mobs',
+  'threats/bright.ts': 'mobs',
+  'threats/necromancer.ts': 'mobs',
+  'threats/guardians.ts': 'mobs',
+  'threats/springs.ts': 'lairs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
@@ -236,7 +257,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
   'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS', 'mounts/data.ts:MOUNTS', 'siege/data.ts:ENGINES',
   'units/kits.ts:TIER_NEEDS', 'units/kits.ts:TOOL_KITS', 'units/kits.ts:CLOSE_KITS', 'units/kits.ts:LONG_KITS', 'units/kits.ts:RANGER_KITS',
-  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS',
+  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS', 'units/moves.ts:GAITS',
 ]);
 
 /** Single records shown as an entry of their own, like one row of an entry array. */
@@ -244,15 +265,15 @@ export const ENTRY_RECORDS: ReadonlySet<string> = new Set(['units/kits.ts:BRAWLE
 
 /**
  * Troops and gear: the kit tables' sub-menus, by export. Each row is a tier of
- * kit, labelled "Tier 4: Bronze shortsword" (shields by name: their tier is
- * the armour's they come with).
+ * kit, labelled "Tier 4: Bronze shortsword" (shields too from Patch 5, a line
+ * of their own).
  */
 export const KIT_MENUS: Readonly<Record<string, string>> = {
   TIER_NEEDS: 'Material tiers', TOOL_KITS: 'Tool kits', CLOSE_KITS: 'Close melee', LONG_KITS: 'Long melee and cavalry', RANGER_KITS: 'Rangers',
   BRAWLER_KIT: 'Brawlers', ARMOUR_KITS: 'Armour', SHIELD_KITS: 'Shields (close melee)', WAND_KITS: 'Wands', ROBE_KITS: 'Robes',
 };
-/** Kit tables whose rows are not labelled by their tier. */
-export const UNTIERED_KITS: ReadonlySet<string> = new Set(['SHIELD_KITS']);
+/** Kit tables whose rows are not labelled by their tier (none since Patch 5 gave shields tiers of their own). */
+export const UNTIERED_KITS: ReadonlySet<string> = new Set<string>();
 
 /**
  * Rows that are placeholders, not kit: a tier with nothing in it (no long
@@ -305,6 +326,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   // Patch 3: a night monster's threat is worked out from its numbers and traits (combat/threat.ts), never set by hand;
   // the reach that strikes over walls mirrors the combat rule (combat.ts OVER_WALL_REACH), set there.
   'MOBS:threatTenths', 'THREAT:overWallReachCm',
+  // Patch 5: which mobile engine a fixed one is built from; its numbers are that engine's, tuned there.
+  'ENGINES:mobile',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
@@ -322,6 +345,19 @@ export const HIDDEN_KEYS: ReadonlySet<string> = new Set([
 
 /** Readable names for keys, used before the generic split of camelCase. */
 export const KEY_LABELS: Readonly<Record<string, string>> = {
+  'WAVE_AIMS:baseM': 'A base: buildings within', 'WAVE_AIMS:openM': 'Out in the open: farther outside every base than', 'WAVE_AIMS:partyM': 'A party: units within',
+  'WAVE_AIMS:buildingWorth': 'Worth to the waves: a building', 'WAVE_AIMS:unitWorth': 'Worth to the waves: a unit out in the open',
+  'WAVE_AIMS:edgeSpreadM': 'Comes out at most this much farther than the nearest edge', 'WAVE_AIMS:baseReachM': 'Takes up the town\'s paths within',
+  'PERCH_ATTACK:steps': 'Shot at from a building this lately', 'PERCH_ATTACK:withinWu': 'Breaks that building within',
+  // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
+  'staff:splashTenths': 'Staff splash', 'staff:radius': 'Staff splash within', 'wings:steps': 'Wings drain over', 'wings:total': 'Wings drain at most', 'wings:radius': 'Wings drain within',
+  'NECROMANCER:summonSteps': 'Summons every', 'NECROMANCER:summonMin': 'Summons at least', 'NECROMANCER:summonMax': 'Summons at most', 'NECROMANCER:ringM': 'They rise round him within',
+  'NECROMANCER:bubbleS': 'His bubbles stay', 'NECROMANCER:gearMin': 'Drops: weapons or armours, at least', 'NECROMANCER:gearMax': 'Drops: weapons or armours, at most',
+  'NECROMANCER:gearLowTier': 'Drops: lowest tier', 'NECROMANCER:gearHighTier': 'Drops: highest tier (or the highest a player can make)',
+  'NECROMANCER:ingotMin': 'Drops: ingots, at least', 'NECROMANCER:ingotMax': 'Drops: ingots, at most', 'NECROMANCER:boneMin': 'Drops: bones, at least', 'NECROMANCER:boneMax': 'Drops: bones, at most',
+  'NECROMANCER:crystalPm': 'Drops: a mana crystal, chance',
+  'CRYSTAL_GUARDS:min': 'Guardians a crystal, at least', 'CRYSTAL_GUARDS:max': 'Guardians a crystal, at most', 'CRYSTAL_GUARDS:leashM': 'Keep within', 'CRYSTAL_GUARDS:chaseM': 'Chase no farther than',
+  'CRYSTAL_GUARDS:wakeM': 'Come when a unit first comes within', 'CRYSTAL_GUARDS:postM': 'Stand round it at', 'CRYSTAL_GUARDS:everySteps': 'Looked for every',
   speed10: 'Walking speed', walkShoot: 'Shoots while walking', fighter: 'Fighter (villagers flee instead)', ringWu: 'Buildings stand this far out',
   structures: 'Buildings', animals: 'Animals kept', good: 'Good', 'STOCK:count': 'Held when full', 'CARAVAN_GOODS:count': 'Held when full',
   'STOCK:pct': 'Sells at (of its worth)', 'CARAVAN_GOODS:pct': 'Sells at (of its worth)', price: 'Set price', daily: 'Refills every dawn',
@@ -337,7 +373,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   RUNKIN_WOLF: 'Runkin camp animal', ELF_BEAR: 'Elf kingdom animal', ONE_IN: 'Found in one cell in so many (0 for never)',
   res: 'Resource', hexcraft: 'Needs Hexcraft', projectile: 'Flies (walls and trees stop it)', auto: 'Cast by herself', bp: 'Strength',
   refill: 'Refill (hundredths of a point a second)', crystals: 'Mana crystals', amount: 'Healing or damage', 'RESEARCH:at': 'Researched at',
-  'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
+  'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', damageTenths: 'Damage', poisonTenths: 'Poison over 5 s', perSecondTenths: 'Damage a second', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
   chancePm: 'Chance', weightTenthsLb: 'Weight', needsBase: 'Main base level needed', research: 'Research needed', research2: 'Also needs research',
   after: 'Research needed first', forge: 'Forge step needed first (1 any Forge; 2 to 4 its main base level)', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',
@@ -364,7 +400,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   spreadPct: 'Spread (of the range)', protectionPct: 'Protection', blockPct: 'Shield block', fromArmour: 'Comes with armour tier',
   tools: 'Tool tier for each job', powerPct: 'Spell power', 'WAND_KITS:mana': 'Extra mana', regainPct: 'Extra mana regain', 'TOOL_KITS:damage': 'A worker\'s damage',
   'CRIT:outerPm': 'Outer share of reach that crits', 'CRIT:bonusPct': 'Critical damage bonus', troopFood: 'Troop food', troopS: 'Troop training time',
-  upgradeTimePm: 'Upgrade time (of the new piece\'s time to make)', upgradeRefundPm: 'Refund of the old piece on upgrade',
+  upgradeTimePm: 'Least upgrade time (of the new piece\'s time to make)', fitTimePm: 'Time to put on a ready item (of the piece\'s time to make)',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
   'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
   'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',
@@ -421,28 +457,33 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
   'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'units/ranks.ts': 'Worker ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
-  'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
+  'units/weight.ts': 'Carrying', 'units/shelter.ts': 'Sheltering in the main base', 'units/moves.ts': 'Running and climbing', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'threats/lair-alert.ts': 'Lair alerts', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'world/generate.ts': 'World generation', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
   'magic/spells.ts': 'Spells and mage ranks', 'magic/mages.ts': 'Mage training and mana', 'magic/cast.ts': 'Casting',
-  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': 'Siege engines and cannon ports', 'training:siege/data.ts': 'Artillery crewman', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
-  'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': 'Siege engines and cannon ports', 'threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': "Siege engines and the Citadel's engine platform", 'training:siege/data.ts': 'Artillery crewman', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': "Siege engines and the Citadel's engine platform", 'threats/late-mobs.ts': 'Late night mobs\' abilities',
   'threats/boss.ts': 'Morvath',
-  'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
+  'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'combat/blasts.ts': 'Blasts and craters', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
   'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
+  'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
+  'threats/necromancer.ts': 'The necromancer', 'mobs:threats/necromancer.ts': 'The necromancer',
+  'threats/guardians.ts': 'Mana crystal guardians', 'mobs:threats/guardians.ts': 'Mana crystal guardians',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
+  'units/make-asks.ts': 'The Workshop\'s offer to make something',
+  'threats/loot.ts': 'Weapons, armour and shields in the night waves',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
 /** Keys shown first in a record, in this order; the rest follow in source order. */
 export const KEY_ORDER: readonly string[] = [
-  'levels', 'cost', 'recipes', 'inputs', 'outputs', 'makes', 'ws', 'steps', 'health', 'hp', 'damage', 'attackSteps', 'reach', 'range',
+  'levels', 'cost', 'recipes', 'inputs', 'outputs', 'makes', 'ws', 'steps', 'health', 'hp', 'damage', 'damageTenths', 'attackSteps', 'reach', 'range',
   'speed', 'walk', 'run', 'armourBp', 'melee', 'ranged', 'firstNight', 'needsBase', 'research', 'research2', 'after', 'forge', 'made', 'madeAt', 'at',
   'supply', 'shelters', 'workers', 'light', 'crop',
 ];
@@ -450,14 +491,14 @@ export const KEY_ORDER: readonly string[] = [
 /** Unit by key; `EXPORT:key` overrides by export, and a bare export name sets a scalar's unit. */
 export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   speed10: 'speedTenths', price: 'vpTenths',
-  ws: 'workerSeconds', 'SPELLS:bp': 'percentBp', hp: 'health', health: 'health', damage: 'damage', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
+  ws: 'workerSeconds', 'SPELLS:bp': 'percentBp', hp: 'health', health: 'health', damage: 'damage', damageTenths: 'damageTenths', poisonTenths: 'damageTenths', perSecondTenths: 'damageTenths', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
   chancePm: 'percentPm', weightTenthsLb: 'lbTenths', needsBase: 'level', forge: 'level', supply: 'count', shelters: 'count', workers: 'count',
   reach: 'metresWu', range: 'metresWu', radius: 'metresWu', halfWidth: 'metresWu', height: 'metresWu', unitRadius: 'metresWu', buildingRadius: 'metresWu',
   'melee:min': 'metresWu', speed: 'speed', climbSpeed: 'speed', walk: 'speed', run: 'speed', cartSpeed: 'speed', heightCm: 'metresCm', lightM: 'metres',
   claimM: 'metres', sightBonusM: 'metres', firstNight: 'night', cartTenthsLb: 'lbTenths', packTenthsLb: 'lbTenths',
   meat: 'count', makes: 'count', perCell: 'count', groupMin: 'count', groupMax: 'count', tameFood: 'count', upkeep: 'nutrition', barnFeed: 'nutrition',
   nutrition: 'nutrition', food: 'nutrition', tier: 'level', base: 'level', rank: 'level', mana: 'number', smoulderPerSecond: 'damage', perSecond: 'damage',
-  seconds: 'number', extra: 'number',
+  seconds: 'number', extra: 'number', runFood: 'nutrition',
   trot: 'speed', gallop: 'speed', chargeRun: 'metresWu', shoulderCm: 'metresCm', minRange: 'metresWu', reachBonus: 'metresWu', sight: 'metresWu', leash: 'metresWu',
   far: 'metresWu', near: 'metresWu', 'ENGINES:horse': 'speed', 'ENGINES:ox': 'speed', 'ENGINES:pushed': 'speed', 'ENGINES:crew': 'count',
   // Troops and gear: the kit tables are written in the blueprint's own units.
@@ -474,6 +515,14 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   'THREAT:onceSeconds': 'wholeSeconds', 'THREAT:speedRefTenths': 'speedTenths', 'THREAT:rangedFullM': 'metres', 'THREAT:overWallReachCm': 'metresCm',
   'NIGHT_BUDGET:startTenths': 'tenths', 'NIGHT_BUDGET:rampTenths': 'tenths', 'NIGHT_BUDGET:perNightTenths': 'tenths', 'NIGHT_BUDGET:curveThousandths': 'thousandths',
   BUILD_XP_TENTHS_PER_MINUTE: 'xpTenths', GATHER_XP_TENTHS_PER_MINUTE: 'xpTenths',
+  // Patch 5: what the waves go for (combat/aims.ts) and the towers they break.
+  'WAVE_AIMS:baseM': 'metres', 'WAVE_AIMS:openM': 'metres', 'WAVE_AIMS:partyM': 'metres', 'WAVE_AIMS:edgeSpreadM': 'metres', 'WAVE_AIMS:baseReachM': 'metres',
+  'WAVE_AIMS:buildingWorth': 'number', 'WAVE_AIMS:unitWorth': 'number',
+  // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
+  'staff:splashTenths': 'damageTenths', 'wings:total': 'health',
+  'NECROMANCER:ringM': 'metres', 'NECROMANCER:bubbleS': 'wholeSeconds', 'NECROMANCER:summonMin': 'count', 'NECROMANCER:summonMax': 'count',
+  'NECROMANCER:gearMin': 'count', 'NECROMANCER:gearMax': 'count', 'NECROMANCER:ingotMin': 'count', 'NECROMANCER:ingotMax': 'count', 'NECROMANCER:boneMin': 'count', 'NECROMANCER:boneMax': 'count',
+  'CRYSTAL_GUARDS:min': 'count', 'CRYSTAL_GUARDS:max': 'count', 'CRYSTAL_GUARDS:leashM': 'metres', 'CRYSTAL_GUARDS:chaseM': 'metres', 'CRYSTAL_GUARDS:wakeM': 'metres', 'CRYSTAL_GUARDS:postM': 'metres',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */

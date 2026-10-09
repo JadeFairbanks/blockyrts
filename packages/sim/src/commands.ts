@@ -5,32 +5,35 @@
 
 import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
-import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
+import { chainPiece, plannedSpots, stretchRoom, stretchSpots } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, setKitLock, stacks, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
+import { isTavern, setTavernOpen, withdrawFunds } from './buildings/tavern.ts';
+import { isDreadnought } from './units/dreadnought.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
 import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
-import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, DebugTool, PickOwn, type Order } from './orders.ts';
 import { isGod, NO_CARRY, placeBuilding, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
 import { huntable } from './combat/combat.ts';
-import { Rations } from './economy/food.ts';
+import { eatNeed, Rations } from './economy/food.ts';
 import { hitchProblem, HUNT_PICKED, tameProblem, unhitch } from './units/field.ts';
 import { canGarrison, pickTarget, rangedOf, validTarget } from './combat/fight.ts';
 import { RESEARCH } from './combat/items.ts';
 import { addMob, combatTroop } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt, isDark } from './clock.ts';
-import { orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
+import { inFront, orderCart, orderEquip, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
-import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
+import { bagEmpty, canLoot, carriedOf, dropItem, HAND_ONE, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
 import { callRepairs } from './units/repairs.ts';
-import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
-import { unitsOnTop } from './units/top.ts';
+import { hasRunButton } from './units/moves.ts';
+import { Act, columnCentre, findNode, giveOrder, moverOf, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
+import { menOnTop, platformCrew, topRoom } from './units/top.ts';
+import { goesInside, insideAuto, mayShelter, swapShelter } from './units/shelter.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
@@ -39,7 +42,7 @@ import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem } from './magic/cast.ts';
 import { setAutocast } from './magic/mages.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
-import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
+import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 
@@ -88,6 +91,8 @@ function ownUnits(state: SimState, player: number, ids: readonly number[], allie
   for (const id of ids) {
     const i = e.indexOf(id);
     if (i < 0 || seen.has(i) || !commandable(state, player, i, allies) || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Animal) continue;
+    // A fixed engine's garrison crewmen are stuck up on its platform for good (Patch 5, Jade's CT-3): they take no orders.
+    if (platformCrew(state, i)) continue;
     seen.add(i);
     out.push(i);
   }
@@ -145,8 +150,10 @@ function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
   const goal = pointGoal(floorDiv(tx, WU_PER_COLUMN), floorDiv(tz, WU_PER_COLUMN));
   const field = state.paths.flowField(goal, { x0, z0, x1, z1 });
   units.forEach((i, k) => {
+    // One on a face finds its way once it is off it (units/moves.ts).
+    if (e.onFace[i] !== 0) return;
     const [gx, gz] = targets[k]!;
-    const r = state.paths.findWithField(field, PERSON, floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN), pointGoal(floorDiv(gx, WU_PER_COLUMN), floorDiv(gz, WU_PER_COLUMN)));
+    const r = state.paths.findWithField(field, moverOf(state, i), floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN), pointGoal(floorDiv(gx, WU_PER_COLUMN), floorDiv(gz, WU_PER_COLUMN)));
     const pts = r.points.map(columnCentre);
     if (r.reached) {
       if (pts.length > 0) {
@@ -289,11 +296,15 @@ export function everyoneHome(state: SimState, player: number): void {
   }
 }
 
-/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and main bases of tier 2 and up), else shelter inside (workers), else nothing. */
+/**
+ * What Enter on one of its own buildings asks a unit to do: go up on its top
+ * (anyone on foot; towers and main bases of tier 2 and up), or shelter
+ * inside (workers; in a main base troops and mages too, Patch 5's GP-10,
+ * units/shelter.ts goesInside saying which first), else nothing.
+ */
 export function enterOrder(state: SimState, i: number, b: Building): UnitOrder | null {
-  if (garrisonRoom(b) > 0 && canGarrison(state, i)) return { t: 'enter', b: b.id, auto: ENTER_TOP };
-  if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: shelterAuto(state) };
-  return null;
+  if (!(garrisonRoom(b) > 0 && canGarrison(state, i)) && !mayShelter(state, i, b)) return null;
+  return { t: 'enter', b: b.id, auto: goesInside(state, i, b) ? insideAuto(state, i) : ENTER_TOP };
 }
 
 /**
@@ -328,14 +339,15 @@ function headedIn(state: SimState, b: Building): [number, number] {
  * room for, the rest keep what they were doing (and stay selected). Up its
  * top go the best ranged troops first, then mages, then the rest, workers
  * last; workers that find no room up there shelter inside while there is
- * room. Engines never go in (a cannon into a port is the order above).
+ * room. Engines never go in (Patch 5: the cannon ports are gone).
  */
 function applyEnter(state: SimState, o: Extract<Order, { kind: 'enter' }>, b: Building): void {
   const e = state.entities;
   const units = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner && e.inside[i] !== b.id);
   if (units.length === 0) return;
   const [upHeaded, shelterHeaded] = headedIn(state, b);
-  let up = garrisonRoom(b) > 0 ? garrisonRoom(b) - unitsOnTop(state, b.id).length - upHeaded : 0;
+  // A Citadel's top holds its engine platform's 4 too while no fixed engine stands there (units/top.ts).
+  let up = garrisonRoom(b) > 0 ? topRoom(state, b) - menOnTop(state, b.id).length - upHeaded : 0;
   let shelter = shelterRoom(b) - shelteredIn(state, b.id).length - shelterHeaded;
   units.sort((a, c) => topOrder(state, a) - topOrder(state, c) || a - c);
   let sent = 0;
@@ -344,10 +356,17 @@ function applyEnter(state: SimState, o: Extract<Order, { kind: 'enter' }>, b: Bu
     const order = enterOrder(state, i, b);
     if (!order || order.t !== 'enter') continue;
     tried++;
-    if (order.auto === ENTER_TOP && up > 0) up--;
-    else if (e.kind[i] === UnitKind.Worker && shelter > 0) {
-      shelter--;
-      order.auto = shelterAuto(state);
+    // Where it goes first, else the other place with room (Patch 5, GP-10).
+    if (order.auto === ENTER_TOP) {
+      if (up > 0) up--;
+      else if (shelter > 0 && mayShelter(state, i, b)) {
+        shelter--;
+        order.auto = insideAuto(state, i);
+      } else continue;
+    } else if (shelter > 0) shelter--;
+    else if (up > 0 && garrisonRoom(b) > 0 && canGarrison(state, i)) {
+      up--;
+      order.auto = ENTER_TOP;
     } else continue;
     giveOrder(state, i, order, o.queued === true);
     sent++;
@@ -422,9 +441,9 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
         let bestD = 0;
         for (const b of state.buildings.list) {
           if (b.owner !== e.owner[i]) continue;
-          const room = worker ? shelterRoom(b) : garrisonRoom(b);
+          const room = worker ? shelterRoom(b) : topRoom(state, b);
           if (room === 0) continue;
-          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : unitsOnTop(state, b.id).length);
+          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : menOnTop(state, b.id).length);
           if (taken.get(b.id)! >= room) continue;
           const [bx, bz] = buildingCentre(b);
           const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
@@ -462,7 +481,9 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
 function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretch' }>): void {
   const e = state.entities;
   const spec = buildingSpec(o.building);
-  if (spec.defence !== 'wall' || spec.w !== 1 || spec.d !== 1) return;
+  // Walls a column at a time; the earth rampart a 2 x 2 chunk at a time (Patch 5).
+  const size = chainPiece(spec);
+  if (size === 0) return;
   const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
   if (workers.length === 0) return;
   const why = buildRequirement(state, o.player, o.building);
@@ -479,7 +500,7 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   const cost = buildCost(state, o.player, o.building);
   const pool = state.players[o.player]!.pool;
   const { room, short } = stretchRoom((r) => haveOf(pool, r), owed, cost);
-  const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
+  const cells = stretchSpots(o.x, o.z, o.dir, o.length, size).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;
   // A column planned already, or with a wall standing or started on it (a chain closing on its anchor, or joining a wall built before), is passed over without a word.
@@ -519,7 +540,7 @@ function applyTunnelStretch(state: SimState, o: Extract<Order, { kind: 'tunnelSt
     alert(state, o.player, site);
     return;
   }
-  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id, band: 0, miss: 0 }, o.queued === true);
 }
 
 /**
@@ -601,6 +622,22 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'pickUp':
         orderPickUp(state, o);
         break;
+      case 'unloadItem':
+        // The unit inventory (Patch 5, GP-7): one good to the nearest drop-off that takes it, in front of what the unit was doing; -1 all it carries.
+        for (const i of ownUnits(state, o.player, o.units)) {
+          if (o.res >= 0 ? carriedOf(state, i, o.res) === 0 : e.carryAmt[i]! === 0 && bagEmpty(state, i)) continue;
+          inFront(state, i, o.res >= 0 ? { t: 'loot', id: 0, hand: HAND_ONE + o.res, back: 0, x: 0, z: 0 } : e.carryAmt[i]! > 0 ? { t: 'return' } : { t: 'loot', id: 0, hand: 1, back: 0, x: 0, z: 0 });
+        }
+        break;
+      case 'dropItem':
+        for (const i of ownUnits(state, o.player, o.units)) dropItem(state, i, o.res);
+        break;
+      case 'equip':
+        orderEquip(state, o.player, ownUnits(state, o.player, o.units), o.res);
+        break;
+      case 'shelter':
+        swapShelter(state, o.player, o.building, o.unit);
+        break;
       case 'forage': {
         const workers = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) alert(state, o.player, 'Only workers gather. Select workers.');
@@ -610,20 +647,16 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'dropoff': {
         // A shared unit drops off and shelters only at its own owner's buildings (and its load goes to its owner's pool).
         const b = state.buildings.get(o.building);
-        if (b) giveAll(state, o, (i) => (e.carryAmt[i]! > 0 && e.owner[i] === b.owner ? { t: 'dropoff', b: o.building } : null), true);
+        // A loot bag alone goes in where everything is taken (Patch 5, GP-5: workers turn in all they carry).
+        const all = b !== undefined && buildingSpec(b.kind).dropoff === 'all';
+        if (b) giveAll(state, o, (i) => ((e.carryAmt[i]! > 0 || (all && !bagEmpty(state, i))) && e.owner[i] === b.owner ? { t: 'dropoff', b: o.building } : null), true);
         break;
       }
       case 'enter': {
         const b = state.buildings.get(o.building);
         if (!b) break;
-        // A cannon is hauled up into a Citadel's cannon port (Table 4).
-        const cannons = b.owner === o.player ? ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine) : [];
-        if (cannons.length > 0) {
-          const why = portWhy(state, cannons[0]!, b);
-          if (why) alert(state, o.player, why);
-          else for (const i of cannons) giveOrder(state, i, { t: 'port', b: b.id }, o.queued === true);
-        }
         // Anyone on foot goes up a tower or a main base's top; workers shelter where there is no top (units/top.ts).
+        // No engine goes in: the cannon ports are gone (Patch 5, CT-3).
         applyEnter(state, o, b);
         break;
       }
@@ -632,6 +665,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (!b) break;
         for (const j of unitsInside(state, b.id)) {
           if (o.unit !== 0 && e.id[j] !== o.unit) continue;
+          // The fixed engine and its crew stay on the Citadel's platform (Patch 5).
+          if (e.kind[j] === UnitKind.Engine || platformCrew(state, j)) continue;
           stopUnit(state, j);
         }
         break;
@@ -648,7 +683,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainRank': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) ? { t: 'train', b: b.id } : null));
+        // The Dreadnought has no ranks to train (Patch 5).
+        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) && !isDreadnought(e, i) ? { t: 'train', b: b.id } : null));
         break;
       }
       case 'retrain':
@@ -658,7 +694,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'produce': {
         const b = usableBuilding(state, o.player, o.building);
         if (!b) break;
-        for (let k = 0; k < o.count; k++) {
+        // A stack (Scrap equipment, Patch 5) takes its whole count in one queue slot.
+        if (stacks(o.product)) {
+          const why = queueProduct(state, b, o.product, o.player, 0, o.count);
+          if (why) alert(state, o.player, why);
+          break;
+        }
+        for (let k = 0; k < Math.min(o.count, 5); k++) {
           const why = queueProduct(state, b, o.product, o.player);
           if (why) {
             // Several selected buildings each train one (Jade's Patch 5, GP-15): those the stock runs out for say why once.
@@ -667,6 +709,16 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
             break;
           }
         }
+        break;
+      }
+      case 'tavernOpen': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (b) setTavernOpen(b, o.open === 1, o.player);
+        break;
+      }
+      case 'tavernWithdraw': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (b && isTavern(b) && withdrawFunds(state, b, o.player) === 0) alert(state, o.player, 'There is no whole silver ingot in the till yet.');
         break;
       }
       case 'cancelProduce': {
@@ -754,6 +806,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (b) setKitLock(b, o.troop, o.lock);
         break;
       }
+      case 'pace':
+        for (const i of ownUnits(state, o.player, o.units, true)) if (hasRunButton(state, i)) e.running[i] = o.run === 1 ? 1 : 0;
+        break;
       case 'lock':
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
@@ -761,12 +816,12 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'dig': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const site = markSite(state, o.player, o.tunnel ? SiteKind.Tunnel : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
+        const site = markSite(state, o.player, o.tunnel === 1 ? SiteKind.Tunnel : o.tunnel === 2 ? SiteKind.Up : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
         if (typeof site === 'string') {
           alert(state, o.player, site);
           break;
         }
-        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id, band: 0, miss: 0 }, o.queued === true);
         break;
       }
       case 'wallStretch':
@@ -846,7 +901,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       }
       case 'eat':
-        giveAll(state, o, (i) => (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage ? { t: 'eat', b: o.building } : null));
+        // Only the hurt eat (Jade's Patch 5, GP-27).
+        giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage) && eatNeed(e.hp[i]!, e.maxHp[i]!) > 0 ? { t: 'eat', b: o.building } : null));
         break;
       case 'hitch': {
         // An engine takes a horse or an ox to haul it (Table 2f); target 0 lets it go.

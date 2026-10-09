@@ -5,10 +5,16 @@
 // land), and hopping up 3 to 4 unit rises (Moving over the land).
 import { describe, expect, it } from 'vitest';
 import {
-  BIG_WALKER,
+  CLIMB_COST_PER_UNIT,
+  Gait,
+  gaitMover,
+  MOB_WALKER,
   BuildingKind,
   CHUNK_SHIFT,
   createWorld,
+  deserializeState,
+  hashState,
+  serializeState,
   digRate,
   gearSpec,
   Line,
@@ -39,6 +45,7 @@ import {
   ALL_JOBS,
   WU_PER_COLUMN,
   WU_PER_TERRAIN_UNIT,
+  WALK_SPEED_WU,
   type Building,
   type Order,
   type SimState,
@@ -88,14 +95,14 @@ function freeSpot(s: SimState, kind: number): [number, number] {
   throw new Error('no free spot');
 }
 
-/** The nearest prop of a kind to the first worker, as the gather order addresses it. */
-function nearestProp(s: SimState, kind: number): { cx: number; cz: number; index: number } {
+/** The nearest prop of a kind to the first worker within `reach` columns, as the gather order addresses it. */
+function nearestProp(s: SimState, kind: number, reach = 200): { cx: number; cz: number; index: number } {
   const x = col(s.entities.x[0]!);
   const z = col(s.entities.z[0]!);
   let best: { cx: number; cz: number; index: number } | null = null;
   let bestD = Infinity;
-  for (let cz = (z - 200) >> CHUNK_SHIFT; cz <= (z + 200) >> CHUNK_SHIFT; cz++) {
-    for (let cx = (x - 200) >> CHUNK_SHIFT; cx <= (x + 200) >> CHUNK_SHIFT; cx++) {
+  for (let cz = (z - reach) >> CHUNK_SHIFT; cz <= (z + reach) >> CHUNK_SHIFT; cz++) {
+    for (let cx = (x - reach) >> CHUNK_SHIFT; cx <= (x + reach) >> CHUNK_SHIFT; cx++) {
       for (const p of s.world.props(cx, cz, s.step)) {
         if (p.kind !== kind || p.amount <= 0) continue;
         const d = ((cx << CHUNK_SHIFT) + p.lx - x) ** 2 + ((cz << CHUNK_SHIFT) + p.lz - z) ** 2;
@@ -152,7 +159,7 @@ describe('early tools by job', () => {
     expect(toolNeeded(ToolJob.Break, Tool.Flint)).toBe('copper pickaxe');
   });
 
-  it('are had at the Big House on day 0: Upgrade Tools pays 6 sticks, 1 flint and 5 stone and takes 15 s', () => {
+  it('are had at the Big House on day 0: Upgrade Tools pays 6 sticks, 1 flint and 5 stone and takes 20 s', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
@@ -161,7 +168,7 @@ describe('early tools by job', () => {
     const flint = pool[Res.Flint]!;
     run(s, 1, [{ kind: 'upgradeKit', player: 0, units: [e.id[0]!], line: Line.Weapon, max: 0 }]);
     expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 6, flint - 1, stone - 5]);
-    // Half the kit's 30 s beside the Big House.
+    // The 30 s kit less the 10 s of the wooden one it replaces (Patch 5, BL-11: never quicker than training it), beside the Big House.
     let bar = 0;
     let beside = 0;
     runUntil(
@@ -176,10 +183,10 @@ describe('early tools by job', () => {
       },
       1000,
     );
-    expect(bar).toBe(300);
-    expect(beside).toBeGreaterThanOrEqual(299);
-    // The hardwood kit is scrapped with a full refund (3 sticks).
-    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 3, flint - 1, stone - 5]);
+    expect(bar).toBe(400);
+    expect(beside).toBeGreaterThanOrEqual(399);
+    // The wooden tools go to stock as an item (Patch 5, GP-3), no longer back to their sticks.
+    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone], pool[Res.WoodenTools]]).toEqual([sticks - 6, flint - 1, stone - 5, 1]);
   });
 
   it('quarry a stone outcrop with the digging stick, and mine copper only with a stone maul (Table 5)', () => {
@@ -211,7 +218,8 @@ describe('early tools by job', () => {
     const e = s.entities;
     e.toolBreak[0] = MAUL;
     e.toolBuild[0] = HAMMER;
-    const birch = nearestProp(s, PropKind.Birch);
+    // Birch grows in the Fringe, 155 to 175 m out since Patch 5 (WL-8).
+    const birch = nearestProp(s, PropKind.Birch, 480);
     expect(texts(s, 3, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...birch }])).toContain('Birch: needs a flint axe or better.');
     e.toolChop[0] = FLINT;
     run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...birch }]);
@@ -310,41 +318,98 @@ function raise(s: SimState, x0: number, z0: number, x1: number, z1: number, from
 const centre = (c: number): number => c * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
 
 describe('moving over the land', () => {
-  it('walks up 2 units, jumps 3 to 4 at a cost, and is blocked by 5 (big monsters jump 6)', () => {
+  it('walks up 2 units, jumps up to 5 (Patch 5: 20% higher), climbs a face slowly, and a monster jumps 1 m', () => {
     const s = createWorld(1, { peaceful: true });
-    const { x, z, y } = flatSpot(s, 8, 2);
+    const { x, z, y } = flatSpot(s, 12, 2);
     raise(s, x + 1, z, x + 1, z, y, y + 2);
-    raise(s, x + 3, z, x + 3, z, y, y + 4);
-    raise(s, x + 5, z, x + 5, z, y, y + 5);
-    raise(s, x + 7, z, x + 7, z, y, y + 6);
-    expect(s.nav.stepCost(x, z, x + 1, z, PERSON)).toBe(10);
-    expect(s.nav.stepCost(x + 2, z, x + 3, z, PERSON)).toBe(20);
-    expect(s.nav.stepCost(x + 4, z, x + 5, z, PERSON)).toBe(-1);
-    expect(s.nav.stepCost(x + 6, z, x + 7, z, PERSON)).toBe(-1);
-    expect(s.nav.stepCost(x + 6, z, x + 7, z, BIG_WALKER)).toBeGreaterThan(0);
-    // Down: a drop of up to 9 units is stepped or jumped down.
-    expect(s.nav.stepCost(x + 5, z, x + 4, z, PERSON)).toBe(10);
+    raise(s, x + 3, z, x + 3, z, y, y + 5);
+    raise(s, x + 5, z, x + 5, z, y, y + 6);
+    raise(s, x + 7, z, x + 7, z, y, y + 9);
+    raise(s, x + 9, z, x + 9, z, y, y + 36);
+    const worker = gaitMover(Gait.Worker);
+    const fighter = gaitMover(Gait.Fighter);
+    expect(s.nav.stepCost(x, z, x + 1, z, fighter)).toBe(10);
+    expect(s.nav.stepCost(x + 2, z, x + 3, z, fighter)).toBe(20);
+    // 6 units is a climb for the players' units: 5 times a walk's cost a unit up.
+    expect(s.nav.stepCost(x + 4, z, x + 5, z, fighter)).toBe(10 + 6 * CLIMB_COST_PER_UNIT);
+    expect(s.nav.climbStep(x + 4, z, x + 5, z, fighter, y)).toBe(true);
+    expect(s.nav.hopCost(x + 4, z, x + 5, z, fighter, y)).toBe(-1);
+    // 36 units (4.05 m): a worker climbs it (up to 7 m), a fighter does not (up to 4 m).
+    expect(s.nav.stepCost(x + 8, z, x + 9, z, worker)).toBeGreaterThan(0);
+    expect(s.nav.stepCost(x + 8, z, x + 9, z, fighter)).toBe(-1);
+    // The peoples' units keep their 4 unit jump and never climb.
+    expect(s.nav.stepCost(x + 2, z, x + 3, z, PERSON)).toBe(-1);
+    // Monsters jump 1 m (9 units, MB-3), no more.
+    expect(s.nav.stepCost(x + 6, z, x + 7, z, MOB_WALKER)).toBe(20);
+    expect(s.nav.stepCost(x + 8, z, x + 9, z, MOB_WALKER)).toBe(-1);
+    // A horse jumps 2.5 m and never climbs.
+    const horse = gaitMover(Gait.Cavalry);
+    expect(s.nav.stepCost(x + 6, z, x + 7, z, horse)).toBe(20);
+    expect(s.nav.stepCost(x + 8, z, x + 9, z, horse)).toBe(-1);
+    // Down: a drop of up to 9 units is stepped or jumped down; more is climbed down.
+    expect(s.nav.stepCost(x + 5, z, x + 4, z, fighter)).toBe(10);
+    expect(s.nav.climbStep(x + 9, z, x + 10, z, worker, y + 36)).toBe(true);
   });
 
-  it('hops up onto a 4 unit platform, slowing for a moment, but cannot get onto a 5 unit one', () => {
+  it('never climbs an earth rampart: it blocks its columns like any wall (Patch 5 decision 3: climbing is for land and rock only)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const { x, z } = flatSpot(s, 8, 4);
+    const b = placeBuilding(s, 0, BuildingKind.EarthRampart, 0, x + 3, z + 1, true);
+    const solid: Array<[number, number]> = [];
+    for (let dz = -1; dz < 4; dz++) for (let dx = -1; dx < 4; dx++) if (s.buildings.solidAt(x + 3 + dx, z + 1 + dz) === b.id) solid.push([x + 3 + dx, z + 1 + dz]);
+    expect(solid).toHaveLength(4);
+    const [cx, cz] = solid[0]!;
+    // A worker climbs faces of land up to 7 m, but not the 2 m rampart.
+    expect(s.nav.stepCost(cx - 1, cz, cx, cz, gaitMover(Gait.Worker))).toBe(-1);
+    expect(s.nav.stepCost(cx - 1, cz, cx, cz, gaitMover(Gait.Fighter))).toBe(-1);
+  });
+
+  it('hops onto a 5 unit platform, climbs a 3 m face at a fifth of its walk, and a fighter never gets onto a 4.5 m one', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
-    const { x, z, y } = flatSpot(s, 16, 7);
-    raise(s, x, z, x + 4, z + 4, y, y + 4);
-    raise(s, x + 10, z, x + 14, z + 4, y, y + 5);
+    const { x, z, y } = flatSpot(s, 20, 7);
+    raise(s, x, z, x + 4, z + 4, y, y + 5);
+    raise(s, x + 7, z, x + 11, z + 4, y, y + 27);
+    raise(s, x + 14, z, x + 18, z + 4, y, y + 40);
     const id = e.id[0]!;
     run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 2), z: centre(z + 2) }]);
     let hopped = 0;
     runUntil(s, () => {
-      if (e.hopUntil[0]! > s.step && e.hopRise[0] === 4 * WU_PER_TERRAIN_UNIT) hopped++;
+      if (e.hopUntil[0]! > s.step && e.hopRise[0] === 5 * WU_PER_TERRAIN_UNIT) hopped++;
       return col(e.x[0]!) === x + 2 && col(e.z[0]!) === z + 2;
     }, 4000);
     expect(hopped).toBeGreaterThan(0);
-    expect(e.y[0]).toBe((y + 4) * WU_PER_TERRAIN_UNIT);
-    // Off it again and towards the 5 unit platform: it never gets on.
-    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 12), z: centre(z + 2) }]);
-    run(s, 1500);
-    expect(e.y[0]! < (y + 5) * WU_PER_TERRAIN_UNIT).toBe(true);
+    expect(e.y[0]).toBe((y + 5) * WU_PER_TERRAIN_UNIT);
+    // Onto the 3 m block (22 units above the platform): down off the platform, then up the face.
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 9), z: centre(z + 2) }]);
+    let onFace = 0;
+    runUntil(s, () => {
+      if (e.onFace[0] !== 0) onFace++;
+      return col(e.x[0]!) === x + 9 && col(e.z[0]!) === z + 2;
+    }, 6000);
+    expect(e.y[0]).toBe((y + 27) * WU_PER_TERRAIN_UNIT);
+    // 27 units up at a fifth of 2.55 m/s: about 119 steps on the face (more with the climb back down off the platform).
+    expect(onFace).toBeGreaterThanOrEqual(Math.floor((27 * WU_PER_TERRAIN_UNIT * 5) / WALK_SPEED_WU));
+    // Saved and loaded while it climbs back down the 3 m face, it carries on the same.
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 13), z: centre(z + 6) }]);
+    runUntil(s, () => e.onFace[0] !== 0 && e.y[0]! < (y + 20) * WU_PER_TERRAIN_UNIT, 2000);
+    expect(e.onFace[0]).toBe(1);
+    const half = serializeState(s);
+    run(s, 300);
+    const copy = deserializeState(half);
+    while (copy.step < s.step) step(copy);
+    expect(hashState(copy)).toBe(hashState(s));
+    // A fighter (the first warrior), set down beside the 4.5 m block, cannot climb it.
+    const w = e.indexOf(e.id[4]!);
+    expect(e.kind[w]).toBe(1);
+    e.x[w] = centre(x + 13);
+    e.z[w] = centre(z + 6);
+    e.y[w] = y * WU_PER_TERRAIN_UNIT;
+    run(s, 1, [{ kind: 'move', player: 0, units: [e.id[w]!], x: centre(x + 16), z: centre(z + 2) }]);
+    run(s, 2000);
+    const onBlock = col(e.x[w]!) >= x + 14 && col(e.x[w]!) <= x + 18 && col(e.z[w]!) >= z && col(e.z[w]!) <= z + 4;
+    expect(onBlock).toBe(false);
+    expect(e.y[w]! < (y + 40) * WU_PER_TERRAIN_UNIT).toBe(true);
   });
 });
 

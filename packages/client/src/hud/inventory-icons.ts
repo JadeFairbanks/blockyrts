@@ -1,8 +1,27 @@
 // Each good's picture in the inventory grid: the catalogue's 32 x 32 interface
 // icons (packages/assets/src/ui, wishlist section K), drawn at their own size
 // so the pixels stay crisp. An icon may still take a tint (a good borrowing a
-// near one's icon) or have a solid background keyed out; none does today.
-import { Res, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
+// near one's icon, as obsidian borrows flint's) or have a solid background
+// keyed out.
+import {
+  ARMOUR_KITS,
+  BRAWLER_KIT,
+  CLOSE_KITS,
+  LONG_KITS,
+  RANGER_KITS,
+  Res,
+  ROBE_KITS,
+  SHIELD_KITS,
+  TOOL_KITS,
+  TRINKET_METALS,
+  TRINKET_TIERS,
+  trinketRes,
+  Troop,
+  WAND_KITS,
+  type Piece,
+} from '@blockyrts/sim';
+import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { kitUrl } from './kit-icons.ts';
 
 export interface GoodIcon {
   /** The file under packages/assets/src/ui, without .png. */
@@ -100,9 +119,39 @@ TRINKET_METALS.forEach((metal, m) =>
 // Moonleaf is made of silver and emeralds, Sunheart of gold and rubies.
 set(Res.Moonleaf, 'trinket_moonleaf_silver');
 set(Res.Sunheart, 'trinket_sunheart_gold');
-// Patch 5's Stone Circle goods borrow marble's and the herbs' pictures, tinted, until icons of their own are made.
-set(Res.Bluestone, 'marble', { tint: 'sepia(1) hue-rotate(170deg) saturate(2.4) brightness(0.85)' });
-set(Res.MoonRose, 'medicinal_herbs', { tint: 'sepia(1) hue-rotate(230deg) saturate(1.6) brightness(1.25)' });
+// Patch 5's Stone Circle goods and the satyrs' hand-axe, each its own picture (the icon batch).
+set(Res.Bluestone, 'bluestone');
+set(Res.MoonRose, 'moon_rose');
+set(Res.ObsidianHandAxe, 'axe_hand_obsidian');
+// Patch 5: obsidian borrows flint's picture, darkened.
+set(Res.Obsidian, 'flint', { tint: 'brightness(0.45) saturate(0.3) contrast(1.4)' });
+set(Res.PoisonTips, 'arrow_poison_flint');
+// Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes are goods in the stock, each with the picture its slot shows.
+const KIT_PICS: ReadonlyArray<readonly [readonly Piece[], (tier: number) => Pic]> = [
+  [CLOSE_KITS, (t) => weaponPic(Troop.Close, t)],
+  [LONG_KITS, (t) => weaponPic(Troop.Long, t)],
+  [RANGER_KITS, (t) => weaponPic(Troop.Ranger, t)],
+  [[BRAWLER_KIT], () => weaponPic(Troop.Brawler, 8)],
+  [ARMOUR_KITS, armourPic],
+  [SHIELD_KITS, shieldPic],
+  [TOOL_KITS, toolPic],
+  [WAND_KITS, wandPic],
+  [ROBE_KITS, robePic],
+];
+for (const [table, picOf] of KIT_PICS) {
+  for (const p of table) {
+    for (const r of p.items) {
+      if (ICONS.has(r)) continue;
+      const pic = picOf(p.tier);
+      ICONS.set(r, { file: pic.file, ...(pic.filter ? { tint: pic.filter } : {}) });
+    }
+  }
+}
+// Jade's Patch 5 wild foods (GP-30, GP-31).
+set(Res.BlackBerries, 'black_berries');
+set(Res.Raspberries, 'raspberries');
+set(Res.Blueberries, 'blueberries');
+set(Res.Mushrooms, 'mushrooms');
 
 /** A good's icon. */
 export function goodIcon(res: number): GoodIcon | undefined {
@@ -116,12 +165,13 @@ export const SUPPLY_ICON = 'icon_supply';
 // Only the icons above go into the build, each as its own file fetched when a slot first shows it.
 const URLS = import.meta.glob<string>(
   [
-    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,stone,flint,marble,earth,clay,sand,coal,charcoal}.png',
+    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,moon_rose,stone,flint,marble,bluestone,earth,clay,sand,coal,charcoal}.png',
     '../../../assets/src/ui/icon_{copper_ore,tin_ore,bog_iron,iron_rock,vein_iron_ore,lead_ore,saltpetre,sulphur,silver,gold,emerald,ruby,diamond,hexstone,mana_crystal}.png',
     '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
+    '../../../assets/src/ui/icon_{black_berries,raspberries,blueberries,mushrooms}.png',
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
@@ -130,7 +180,7 @@ const URLS = import.meta.glob<string>(
   { eager: true, query: '?no-inline', import: 'default' },
 );
 
-/** An icon file's URL in the build, or '' if the build left it out. */
+/** An icon file's URL in the build, or '' if the build left it out (gear borrows the interface kit's pictures, all in the build). */
 export function iconUrl(file: string): string {
-  return URLS[`../../../assets/src/ui/${file}.png`] ?? '';
+  return URLS[`../../../assets/src/ui/${file}.png`] ?? kitUrl(file);
 }

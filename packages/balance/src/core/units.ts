@@ -7,7 +7,7 @@ import { STEPS_PER_SECOND, WU_PER_METRE } from '@blockyrts/sim';
 
 export type UnitId =
   | 'number' | 'seconds' | 'workerSeconds' | 'percentBp' | 'percentPm' | 'percent' | 'metresWu' | 'speed'
-  | 'metresCm' | 'metres' | 'squareMetres' | 'health' | 'damage' | 'lbTenths' | 'tenths' | 'xpTenths' | 'level'
+  | 'metresCm' | 'metres' | 'squareMetres' | 'health' | 'damage' | 'damageTenths' | 'lbTenths' | 'tenths' | 'xpTenths' | 'level'
   | 'count' | 'nutrition' | 'night' | 'perMilleRaw' | 'vpTenths' | 'speedTenths' | 'wholeSeconds' | 'deciseconds' | 'thousandths';
 
 export interface UnitSpec {
@@ -39,6 +39,7 @@ export const UNITS: Readonly<Record<UnitId, UnitSpec>> = {
   squareMetres: { suffix: 'm²', scale: 1, hint: 'square metres' },
   health: { suffix: 'HP', scale: 1, hint: 'health points' },
   damage: { suffix: 'dmg', scale: 1, hint: 'damage per hit, before armour' },
+  damageTenths: { suffix: 'dmg', scale: 10, hint: 'damage per hit, before armour (held in tenths; 8.5 hits for 8 or 9, half the time each)' },
   lbTenths: { suffix: 'lb', scale: 10, hint: 'pounds (held in tenths)' },
   tenths: { suffix: '', scale: 10, hint: 'held in tenths' },
   thousandths: { suffix: '', scale: 1000, hint: 'held in thousandths' },

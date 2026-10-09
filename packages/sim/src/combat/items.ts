@@ -8,8 +8,12 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { BuildingKind } from '../buildings/data.ts';
 
-/** How a melee weapon hits (Combat, Melee): a stab hits one target, an arc everything in front. */
-export const Hit = { Stab: 0, Arc: 1 } as const;
+/**
+ * How a melee weapon hits (Combat, Melee): a stab hits one target, an arc
+ * everything in front (the rest for half), a sweep everything in front in
+ * full (Patch 5: the Dreadnought's swing).
+ */
+export const Hit = { Stab: 0, Arc: 1, Sweep: 2 } as const;
 export type Hit = (typeof Hit)[keyof typeof Hit];
 
 /** The flying things (How ranged attacks hit): each has its speed and drop. */
@@ -47,8 +51,12 @@ export const Shot = {
   FirePitch: 18,
   /** A flamecaller's fireball. */
   Hellfire: 19,
+  /** Patch 5 (Jade, MB-8): a bronze cannon's smaller shot, with a smaller blast than the iron cannon's. */
+  BronzeCannonball: 20,
+  /** Jade's Patch 5: the necromancer's crimson bolt. */
+  NecroBolt: 21,
   /** Patch 5 (MB-16): a support mage's Energy dart, an arrow made of light. */
-  EnergyDart: 20,
+  EnergyDart: 22,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -64,6 +72,8 @@ export interface MeleeStats {
   oneHanded: boolean;
   /** Long melee and cavalry: a hit in the outer third of reach is a critical for +30% (Long melee: the edge of reach). */
   crit: boolean;
+  /** Steps from the swing's start to the blow, where its clip strikes (Patch 5: the Dreadnought's); 40% of the attack time when left out. */
+  landSteps?: number;
 }
 
 export interface RangedStats {
@@ -217,6 +227,16 @@ export interface ShotSpec {
   ignite?: boolean;
   vsWoodBp?: number;
   /**
+   * Patch 5 (Jade, MB-6), an engine's shot: the largest tree a direct hit
+   * blows apart and fells (world/props.ts Stage; a catapult stone only small
+   * ones), and the columns of earthy ground it chips where it lands, which
+   * lie there as earth to pick up (combat/blasts.ts).
+   */
+  fells?: number;
+  chips?: number;
+  /** How its splash looks where it lands (state.ts HitLook), when not the usual blast. */
+  burst?: 'crimson';
+  /**
    * Patch 5 (MB-23): a mage's bolt arcs over a wall in its way, but only so
    * far: the top of its arc may rise above the straight line to its mark by
    * at most this share of the distance, bp (none for no limit).
@@ -237,7 +257,7 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: true, name: 'sling stone', model: 'sling_stone', vsWalls: 0 },
   { speed: floorDiv(cm(1400), STEPS_PER_SECOND), arcs: true, name: 'web', model: 'web_glob', vsWalls: 0 },
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'fire arrow', model: 'arrow_fire', vsWalls: 0 },
-  { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt', vsWalls: 0 },
+  { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt_flight', vsWalls: 0 },
   // Patch 5: the spark, the mana bolt, the Arcane bolt and the hellfire fly as Jade's own models (spell_projectiles_replacements).
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spark', vsWalls: 0, magic: true },
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'mana_bolt', vsWalls: 0, magic: true },
@@ -249,20 +269,28 @@ export const SHOTS: readonly ShotSpec[] = [
   // Milestone 8 (s): a cannonball flies at 40 m/s in a low arc, a catapult stone is lobbed at 20 m/s, a ballista bolt flies flat at 40 m/s
   // (their damage against walls is the engine's, siege/data.ts); a musket ball flies straight at 80 m/s; the bone colossus's boulder
   // (60 to the barrier, roster), the scorchwing's pitch and the flamecaller's fireball (x3 against wood is in the mob's rules).
-  // Splashes (Table 2f, roster): a cannonball 50 within 2 m, a catapult stone 80 within 3 m, the boulder 25 within 2 m, burning pitch
-  // 20 within 2 m and alight; the flamecaller's 30 with a 2 m splash of half that (s) and triple against wood.
-  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400, splash: 50, splashRadius: cm(200) },
-  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200, splash: 80, splashRadius: cm(300) },
+  // Splashes (Table 2f, roster): a cannonball 50 within 2 m, a catapult stone 80 within 3 m, the boulder 24 within 2 m, burning pitch
+  // 19 within 2 m and alight; the flamecaller's 30 with a 2 m splash of 14 and triple against wood. The mobs' three were 25, 20 and 15
+  // before Patch 5's 5% cut on the night mobs (Jade's BL-5), rounded to the nearest whole.
+  // Patch 5 (Jade, MB-6; s): a cannonball fells any tree it hits and chips 9 columns of ground, a bronze one 5, a catapult stone
+  // breaks only saplings and young trees and chips 1.
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'cannonball', model: 'cannonball_iron', vsWalls: 400, splash: 50, splashRadius: cm(200), fells: 4, chips: 9 },
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'catapult stone', model: 'catapult_stone', vsWalls: 200, splash: 80, splashRadius: cm(300), fells: 2, chips: 1 },
   { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: false, name: 'ballista bolt', model: 'ballista_bolt', vsWalls: 20 },
   { speed: floorDiv(cm(8000), STEPS_PER_SECOND), arcs: false, name: 'musket ball', model: 'musket_ball', vsWalls: 2 },
-  { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 25, splashRadius: cm(200) },
-  { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 20, splashRadius: cm(200), ignite: true },
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'hellfire', vsWalls: 30, splash: 15, splashRadius: cm(200), vsWoodBp: 30000, magic: true },
+  { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 24, splashRadius: cm(200) },
+  { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 19, splashRadius: cm(200), ignite: true },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'hellfire', vsWalls: 30, splash: 14, splashRadius: cm(200), vsWoodBp: 30000, magic: true },
+  // Patch 5 (Jade, MB-8): the bronze cannon's shot, smaller than the iron cannon's in every way and still more than the catapult's
+  // against walls (s: 300 against walls, 35 within 1.5 m).
+  { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'bronze cannonball', model: 'cannonball_iron', vsWalls: 300, splash: 35, splashRadius: cm(150), fells: 4, chips: 5 },
+  // Jade's Patch 5 (MB-5): the necromancer's bolt, 35 within 0.5 m of where it lands besides the 35 to whoever it strikes; it flies straight at 18 m/s (s).
+  { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'crimson bolt', model: 'necromancer_bolt', vsWalls: 5, splash: 35, splashRadius: cm(50), burst: 'crimson' },
   // Patch 5 (MB-16): the Energy dart, a little faster than the Arcane bolt (s), under the same arc limit.
   { speed: floorDiv(cm(2200), STEPS_PER_SECOND), arcs: true, name: 'energy dart', model: 'energy_dart', vsWalls: 1, maxRiseBp: BOLT_RISE_BP, magic: true },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
 export function spellShot(shot: number): boolean {
-  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.EnergyDart;
+  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.EnergyDart;
 }

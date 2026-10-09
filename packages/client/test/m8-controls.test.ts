@@ -18,7 +18,7 @@ function building(id: number, kind: number, level = 1, o: Partial<BuildingInfo> 
   return {
     id, owner: ME, kind, variant: 0, level, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Citadel', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -57,7 +57,7 @@ function game(more: BuildingInfo[] = [], pool: Array<[number, number]> = []): Ga
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -89,7 +89,7 @@ const horse = sel('e:8', 'animal:own:2');
 const citadel: Selectable = { key: 'b:20', kind: 'building', owner: ME, typeKey: 'building:0:4', centre: new THREE.Vector3(0, 0, 0), halfSize: new THREE.Vector3(5, 5, 5), label: 'Citadel' };
 
 describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
-  const barracks = (horses: number): BuildingInfo => building(21, BuildingKind.Barracks, 1, { name: 'Barracks', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }], horses });
+  const barracks = (horses: number): BuildingInfo => building(21, BuildingKind.Barracks, 1, { name: 'Barracks', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, s: 0, lock: 0 }], horses });
   // The test town's main base is a Citadel, past the cavalry's main base tier 2 (m11-troops checks that reason).
   const at = (b: BuildingInfo, pool: Array<[number, number]>) =>
     harness([{ ...sel('b:21', `building:${BuildingKind.Barracks}:1`), kind: 'building' }], `building:${BuildingKind.Barracks}:1`, game([b], pool));
@@ -117,23 +117,17 @@ describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
 });
 
 describe('engines and cannons', () => {
-  it("has Attack, Move, Hitch and Port (Jade's Patch 2 cuts Stop and Hold), and Port takes it up into a Citadel", () => {
-    const { c, sent } = harness([cannon], cannon.typeKey);
-    const card = c.card();
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Hitch', 'Port']);
-    expect(card[3]!).toMatchObject({ action: 'port', key: 'KeyE', enabled: true });
-    card[3]!.run({ shift: false, ctrl: false });
-    expect(c.targeting?.command).toBe('port');
-    c.confirmTarget(citadel, null);
-    expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
+  it("has Attack, Move and Hitch (Jade's Patch 2 cuts Stop and Hold; Patch 5 the cannon ports' Port)", () => {
+    const { c } = harness([cannon], cannon.typeKey);
+    expect(c.card().map((e) => e.face)).toEqual(['Attack', 'Move', 'Hitch']);
   });
 
-  it('hitches a horse, and goes up into a Citadel port, with right clicks', () => {
+  it('hitches a horse with a right click, and never goes into the Citadel (Patch 5)', () => {
     const { c, sent } = harness([cannon], cannon.typeKey);
     c.smart(horse, null);
     expect(sent.at(-1)).toMatchObject({ kind: 'hitch', units: [7], target: 8 });
     c.smart(citadel, null);
-    expect(sent.at(-1)).toMatchObject({ kind: 'enter', units: [7], building: 20 });
+    expect(sent.at(-1)?.kind).not.toBe('enter');
   });
 
   it('artillery crewmen right clicking it crew it (Patch 2: warriors only follow it); workers repair it', () => {

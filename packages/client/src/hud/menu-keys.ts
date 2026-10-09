@@ -5,13 +5,15 @@
 // and hotkeys: "Two buttons on the same card never share a letter"). The
 // build menu's letters are picked by hand (s); a K menu's come from its
 // products' names by one rule (menuLetters). Esc is Back and + turns a long
-// menu's page (s).
-import { BUILDINGS, BuildingKind, buildingSpec, productsOf, productSpec, RESEARCH_PRODUCT, TROOP_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+// menu's page (s). Patch 5 (Jade's UI-8 and GP-3): the Workshop's trinkets sit
+// under a Trinkets button and the scrapping of equipment under Scrap
+// equipment, each a submenu with letters of its own.
+import { BUILDINGS, BuildingKind, buildingSpec, engineSpec, FIXED_ENGINES, Product, productsOf, productSpec, recipeSpec, RESEARCH_PRODUCT, ResGroup, RESOURCES, TROOP_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { Action } from '../input/bindings.ts';
 
 /** The buildings of the build menu in its order: one kind, or a submenu's kinds (Defences, Lights) sharing a place. */
 export function menuSlots(): BuildingSpec[][] {
-  const out: BuildingSpec[][] = Array.from({ length: 14 }, () => []);
+  const out: BuildingSpec[][] = Array.from({ length: Math.max(...BUILDINGS.map((b) => b.slot)) }, () => []);
   for (const b of BUILDINGS) if (b.slot > 0) out[b.slot - 1]!.push(b);
   return out;
 }
@@ -66,6 +68,32 @@ export function makeAction(kind: number, product: number): string {
   return `make-${kindName(kind)}-${productName(product)}`;
 }
 
+/** A K menu's submenus, by number: the Workshop's trinkets and its scrapping of equipment (Patch 5). */
+export const MAKE_SUBMENUS: readonly string[] = ['Trinkets', 'Scrap equipment'];
+
+/** The scrapping submenu's number. */
+export const SCRAP_SUB = 1;
+
+/** Which submenu of a K menu a product sits in (MAKE_SUBMENUS), or -1 for the menu itself. */
+export function makeSub(product: number): number {
+  const r = productSpec(product).recipe;
+  if (r === undefined) return -1;
+  const spec = recipeSpec(r);
+  if (spec.scrap !== undefined) return SCRAP_SUB;
+  const out = spec.outputs[0]?.[0];
+  return out !== undefined && RESOURCES[out]?.group === ResGroup.Trinkets ? 0 : -1;
+}
+
+/** The binding name of the button opening a K menu's submenu. */
+export function makeSubAction(kind: number, sub: number): string {
+  return `make-${kind}-sub${sub}`;
+}
+
+/** The binding name of a button in the Citadel's Build defense menu (Patch 5): a fixed engine, built or upgraded to, or (-1) the garrison crewman. */
+export function defenseAction(engine: number): string {
+  return engine < 0 ? 'defense-crew' : `defense-${engine}`;
+}
+
 /** The page turn of a menu too long for the card (More). */
 export const MORE_ACTION = 'more';
 
@@ -94,6 +122,8 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.MagiSanctum]: 'M',
   [BuildingKind.ScholarsLodge]: 'C',
   [BuildingKind.Mineshaft]: 'N',
+  // Patch 5: V, for the Tavern's T is the Lights' and its other letters are taken.
+  [BuildingKind.Tavern]: 'V',
   // Defences: walls on W and their material, gates and towers on letters of their names.
   [BuildingKind.Wall]: 'W',
   [BuildingKind.WallHardwood]: 'H',
@@ -104,6 +134,8 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   [BuildingKind.Tower]: 'T',
   [BuildingKind.TowerHardwood]: 'R',
   [BuildingKind.TowerStone]: 'N',
+  // Patch 5: the earth rampart on M, eaRth raMpart (E and R are taken).
+  [BuildingKind.EarthRampart]: 'M',
   // Lights: B then T then T is a torch post.
   [BuildingKind.TorchPost]: 'T',
   [BuildingKind.Bonfire]: 'B',
@@ -131,7 +163,7 @@ const SMALL_WORDS = new Set(['A', 'AN', 'AND', 'FROM', 'OF', 'OR', 'THE', 'TO'])
  * nothing. A word every button shares ("Slaughter" at the Barn) and a count
  * in brackets do not count. Never J, L or O (HUD_LETTERS).
  */
-export function menuLetters(names: readonly string[]): string[] {
+export function menuLetters(names: readonly string[], reserved: readonly string[] = []): string[] {
   const words = names.map((n) =>
     n
       .replace(/\([^)]*\)/g, ' ')
@@ -140,7 +172,7 @@ export function menuLetters(names: readonly string[]): string[] {
       .filter((w) => w !== '' && !SMALL_WORDS.has(w)),
   );
   const shared = names.length > 1 ? new Set(words[0]!.filter((w) => words.every((ws) => ws.includes(w)))) : new Set<string>();
-  const taken = new Set(HUD_LETTERS);
+  const taken = new Set([...HUD_LETTERS, ...reserved]);
   return words.map((all) => {
     const own = all.filter((w) => !shared.has(w));
     const ws = own.length > 0 ? own : all;
@@ -168,13 +200,52 @@ export function makesOne(kind: number): boolean {
   return list.length === 1 && productSpec(list[0]!).recipe !== undefined;
 }
 
-/** Every K menu's default letters, by binding name. */
+/**
+ * At most this many, a building's K list is on its own card, a button each,
+ * with no menu button (Jade's decisions 2.17, the Artillery workshop: "just
+ * have that building's action menu be artillery crewmen and the engines,
+ * nothing hidden under a make button"; s: the same for every list this
+ * short, the Magi Sanctum's Hexcraft and the Barn's slaughter).
+ */
+export const FLAT_MAKE = 4;
+
+/** Whether a building kind's K list sits on its card itself (FLAT_MAKE). */
+export function flatMake(kind: number): boolean {
+  const n = makeList(kind).length;
+  return n > 0 && n <= FLAT_MAKE && !makesOne(kind);
+}
+
+/** The letters (bindings.ts defaults) a flat card's other buttons are on, which its products leave alone: what it trains, and Rally. */
+function cardLetters(kind: number): string[] {
+  const made = productsOf({ kind, complete: true, level: 1 } as Parameters<typeof productsOf>[0]);
+  const out: string[] = [];
+  if (made.includes(Product.Worker)) out.push('W');
+  if (made.includes(Product.SupportMage) || kind === BuildingKind.MagiSanctum) out.push('S', 'M');
+  if (made.includes(Product.Crewman)) out.push('E');
+  if (out.length > 0) out.push('R');
+  return out;
+}
+
+/** A K menu's pages: the menu itself (its products, then its submenus' buttons) and each submenu, as binding names and names. */
+function makePages(kind: number): Array<{ sub: number; actions: Array<{ id: string; name: string; opens: boolean }> }> {
+  const list = makeList(kind);
+  const subs = MAKE_SUBMENUS.map((_, k) => k).filter((k) => list.some((p) => makeSub(p) === k));
+  const item = (p: number): { id: string; name: string; opens: boolean } => ({ id: makeAction(kind, p), name: productSpec(p).name, opens: false });
+  return [
+    { sub: -1, actions: [...list.filter((p) => makeSub(p) < 0).map(item), ...subs.map((k) => ({ id: makeSubAction(kind, k), name: MAKE_SUBMENUS[k]!, opens: true }))] },
+    ...subs.map((k) => ({ sub: k, actions: list.filter((p) => makeSub(p) === k).map(item) })),
+  ];
+}
+
+/** Every K menu's default letters, by binding name: each page's own, as each fills the card alone; a submenu's button picks first (Trinkets on T, Scrap equipment on S). */
 const MAKE_KEYS: ReadonlyMap<string, string> = (() => {
   const out = new Map<string, string>();
   for (const kind of MAKERS) {
-    const list = makeList(kind);
-    const letters = menuLetters(list.map((p) => productSpec(p).name));
-    list.forEach((p, k) => out.set(makeAction(kind, p), letters[k] ? `Key${letters[k]}` : ''));
+    for (const page of makePages(kind)) {
+      const order = [...page.actions.filter((a) => a.opens), ...page.actions.filter((a) => !a.opens)];
+      const letters = menuLetters(order.map((a) => a.name), page.sub < 0 && flatMake(kind) ? cardLetters(kind) : []);
+      order.forEach((a, k) => out.set(a.id, letters[k] ? `Key${letters[k]}` : ''));
+    }
   }
   return out;
 })();
@@ -197,11 +268,22 @@ export function buildMenuActions(): Action[] {
   return out;
 }
 
+/** The Build defense menu's buttons as hotkeys (Patch 5): each fixed engine, then the garrison crewman, on letters of their names. */
+export function defenseMenuActions(): Action[] {
+  const names = [...FIXED_ENGINES.map((id) => engineSpec(id).name), 'Garrison artillery crewman'];
+  const letters = menuLetters(names);
+  const ids = [...FIXED_ENGINES, -1];
+  return ids.map((id, k) => ({ id: defenseAction(id), name: id < 0 ? 'Train garrison artillery crewman' : `${names[k]} (build, or upgrade to it)`, key: letters[k] ? `Key${letters[k]}` : '', group: 'Citadel: Build defense' }));
+}
+
 /** Every K menu's products as hotkeys, for the settings list: a group per building. */
 export function makeMenuActions(): Action[] {
   const out: Action[] = [];
   for (const kind of MAKERS) {
-    for (const p of makeList(kind)) out.push({ id: makeAction(kind, p), name: productSpec(p).name, key: MAKE_KEYS.get(makeAction(kind, p)) ?? '', group: `${buildingSpec(kind).name} menu` });
+    for (const page of makePages(kind)) {
+      const group = `${buildingSpec(kind).name}${page.sub >= 0 ? ` menu: ${MAKE_SUBMENUS[page.sub]}` : flatMake(kind) ? ' card' : ' menu'}`;
+      for (const a of page.actions) out.push({ id: a.id, name: a.name, key: MAKE_KEYS.get(a.id) ?? '', group });
+    }
   }
   return out;
 }

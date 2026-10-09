@@ -13,13 +13,16 @@ import {
   buildingTop,
   createWorld,
   CRIT,
+  crewSworn,
   CYCLE_STEPS,
   DAY_STEPS,
   DebugThreat,
   deserializeState,
   DUSK_STEPS,
   Engine,
+  ENGINE_PRODUCT,
   engineSpec,
+  engineUpgrade,
   ENGINE_GOODS,
   goodName,
   inStock,
@@ -40,6 +43,7 @@ import {
   PeopleUnit,
   pickNight,
   placeBuilding,
+  platformEngine,
   productProblem,
   RANGER_GEAR,
   Res,
@@ -302,15 +306,15 @@ describe('siege engines (Table 2f)', () => {
   });
 });
 
-describe('tier 8: the Artillery workshop and the Citadel ports', () => {
+describe('tier 8: the Artillery workshop and the Citadel\'s engine platform', () => {
   it('trains a musketeer, a tier 8 ranger, at the Barracks once Gunpowder and Muskets are researched, with a Forge and main base tier 3', () => {
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
     const p = s.players[0]!;
     p.pool[Res.Venison] = 200;
-    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder.
-    for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1]] as const) p.pool[r] = n;
+    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder, and from Patch 5 two lead ore.
+    for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1], [Res.LeadOre, 2]] as const) p.pool[r] = n;
     const product = troopProduct(Troop.Ranger, 8, 0);
     expect(productProblem(s, barracks, product)).toBe('Needs a Forge.');
     placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 18, base.z, true);
@@ -349,35 +353,56 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
     expect(e.queue[c]![0]).toEqual({ t: 'crew', id: e.id[gun]! });
   });
 
-  it('hauls a bronze cannon into a Citadel port, where its crew fire it from the roof', () => {
+  it('builds a fixed engine on the Citadel\'s platform with its crew, which shoots from up there, never comes down and upgrades', () => {
     const s = createWorld(1, { peaceful: true });
     const base = bigHouse(s);
     const [bx, bz] = buildingCentre(base);
     run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.Citadel, x: bx, z: bz }]);
-    run(s, 1, [{ kind: 'debugThreat', player: 0, what: DebugThreat.GunKit, x: bx, z: bz }]);
     const p = s.players[0]!;
     const e = s.entities;
-    const gun = addEngine(s, 0, Engine.BronzeCannon, bx + 20 * M, bz);
+    p.research = 0x7fffffff;
+    for (const r of [Res.Planks, Res.Rope, Res.WroughtIron, Res.BronzeIngot, Res.LeadOre, Res.Venison]) p.pool[r] = 500;
+    p.pool[Res.SoftwoodLumber] = 500;
+    const springald = ENGINE_PRODUCT + Engine.Springald;
+    expect(productProblem(s, base, springald)).toBe('Needs an Artillery workshop.');
+    placeBuilding(s, 0, BuildingKind.ArtilleryWorkshop, 0, base.x + 20, base.z, true);
+    expect(productProblem(s, base, springald)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: springald, count: 1 }]);
+    runUntil(s, () => platformEngine(s, base.id) >= 0, engineSpec(Engine.Springald).steps + 10 * SEC);
+    const gun = platformEngine(s, base.id);
     const gunId = e.id[gun]!;
-    const horse = addAnimal(s, Species.Horse, 0, bx + 24 * M, bz, 0, 0);
-    run(s, 1, [{ kind: 'hitch', player: 0, units: [gunId], target: e.id[horse]! }]);
-    run(s, 1, [{ kind: 'enter', player: 0, units: [gunId], building: base.id }]);
-    runUntil(s, () => e.inside[e.indexOf(gunId)] === base.id, 90 * SEC);
-    const g = e.indexOf(gunId);
-    expect(e.y[g]).toBe(buildingTop(base));
-    const crew = [addCrewman(s, 0, bx + 12 * M, bz), addCrewman(s, 0, bx + 12 * M, bz + 2 * M)].map((i) => e.id[i]!);
-    run(s, 1, [{ kind: 'crew', player: 0, units: crew, target: gunId }]);
-    runUntil(s, () => crew.every((id) => e.inside[e.indexOf(id)] === base.id), 60 * SEC);
+    expect(e.mob[gun]).toBe(Engine.Springald);
+    expect(e.y[gun]).toBeGreaterThan(buildingTop(base) - 1);
+    expect(crewSworn(s, gun).every((j) => e.inside[j] === base.id)).toBe(true);
+    expect(crewSworn(s, gun)).toHaveLength(engineSpec(Engine.Springald).crew);
+    // Stop and Unload leave it and its crew up there; it shoots what comes in reach.
+    run(s, 1, [{ kind: 'stop', player: 0, units: [gunId] }, { kind: 'unload', player: 0, building: base.id, unit: 0 }]);
+    expect(e.inside[e.indexOf(gunId)]).toBe(base.id);
+    expect(crewSworn(s, e.indexOf(gunId)).every((j) => e.inside[j] === base.id)).toBe(true);
     toNight(s, 2);
-    const powder = p.pool[Res.Gunpowder]!;
-    const zombie = spawn(s, Mob.Zombie, e.x[g]! + 35 * M, e.z[g]!);
+    const zombie = spawn(s, Mob.Zombie, e.x[gun]! + 25 * M, e.z[gun]!);
     const zid = e.id[zombie]!;
     e.speed[zombie] = 0;
     e.hp[zombie] = 1000;
     e.maxHp[zombie] = 1000;
     runUntil(s, () => e.hp[e.indexOf(zid)]! < 1000, 20 * SEC);
-    // Patch 2: no cannonballs and no powder charge spent.
-    expect(p.pool[Res.Gunpowder]).toBe(powder);
+    // Upgraded one rung for the difference, keeping its place.
+    const up = ENGINE_PRODUCT + engineUpgrade(Engine.Springald, Engine.Mangonel);
+    expect(productProblem(s, base, ENGINE_PRODUCT + Engine.Mangonel)).toBe('The engine platform already holds a springald.');
+    expect(productProblem(s, base, up)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: up, count: 1 }]);
+    runUntil(s, () => e.mob[e.indexOf(gunId)] === Engine.Mangonel, engineSpec(Engine.Mangonel).steps + 10 * SEC);
+    expect(e.inside[e.indexOf(gunId)]).toBe(base.id);
+    // Destroyed, its crew stay up there and man the next one built there, with no new crewmen.
+    const crewIds = crewSworn(s, e.indexOf(gunId)).map((j) => e.id[j]!);
+    expect(crewIds).toHaveLength(engineSpec(Engine.Mangonel).crew);
+    e.hp[e.indexOf(gunId)] = 0;
+    run(s, 5 * SEC);
+    expect(crewIds.every((id) => e.inside[e.indexOf(id)] === base.id)).toBe(true);
+    expect(productProblem(s, base, ENGINE_PRODUCT + Engine.Mangonel)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: ENGINE_PRODUCT + Engine.Mangonel, count: 1 }]);
+    runUntil(s, () => platformEngine(s, base.id) >= 0, engineSpec(Engine.Mangonel).steps + 10 * SEC);
+    expect(crewSworn(s, platformEngine(s, base.id)).map((j) => e.id[j]!).sort()).toEqual([...crewIds].sort());
   });
 
   it('a Dwarf city fields gunners, cannon crew and two cannons', () => {

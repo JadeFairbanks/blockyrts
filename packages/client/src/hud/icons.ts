@@ -2,8 +2,9 @@
 // dropdowns with icons), drawn from the interface kit like the command card
 // and the selection grid (patch notes 1: one picture per thing). Each weapon
 // and armour tier shows its own piece where the kit draws one; the few the
-// kit lacks borrow the nearest and say which in a tint.
-import { Troop } from '@blockyrts/sim';
+// kit lacks borrow the nearest and say which in a tint (Patch 5's icon batch
+// drew every new kit piece; an empty slot shows greyed).
+import { RANGER_KITS, Shot, Troop } from '@blockyrts/sim';
 import { kitUrl } from './kit-icons.ts';
 import { troopIconFile } from './unit-icons.ts';
 
@@ -15,30 +16,30 @@ export interface Pic {
 
 const NONE = 'grayscale(1) opacity(0.4)';
 
-/** Close melee by tier: fists, cudgel, flint hand-axe, copper and bronze short swords, iron and steel swords. */
+/** Close melee by tier: fists, cudgel, flint hand-axe, copper and bronze short swords, iron and steel swords, the basket-hilted broadsword. */
 const CLOSE: readonly Pic[] = [
   { file: 'icon_club', filter: NONE },
   { file: 'icon_club' },
   { file: 'icon_axe_war_flint' },
-  { file: 'icon_sword_short' },
+  { file: 'icon_sword_copper_short' },
   { file: 'icon_sword_short_bronze' },
   { file: 'icon_sword_iron_wrought' },
   { file: 'icon_sword_iron_refined' },
   { file: 'icon_sword_steel_steel' },
-  { file: 'icon_sword_steel_hq_steel' },
+  { file: 'icon_sword_basket_hilt' },
 ];
 
-/** Long melee and cavalry by tier: the spears, the iron pike, the steel halberd, the Zweihänder. */
+/** Long melee and cavalry by tier: the spears, the crude iron spear, the iron pike, the steel halberd, the Zweihänder. */
 const LONG: readonly Pic[] = [
   { file: 'icon_spear_hardwood', filter: NONE },
   { file: 'icon_spear_hardwood' },
   { file: 'icon_spear_flint' },
   { file: 'icon_spear' },
   { file: 'icon_spear_bronze' },
-  { file: 'icon_spear', filter: 'grayscale(0.8) brightness(0.85)' },
+  { file: 'icon_spear_iron_crude' },
   { file: 'icon_pike_steel' },
   { file: 'icon_halberd_steel' },
-  { file: 'icon_halberd_hq_steel' },
+  { file: 'icon_zweihander' },
 ];
 
 /** The ranger's one ladder: sling, longbow, the recurve bow at 3 to 6, crossbow, musket. */
@@ -46,23 +47,26 @@ const RANGER: readonly Pic[] = [
   { file: 'icon_sling', filter: NONE },
   { file: 'icon_sling' },
   { file: 'icon_bow' },
-  { file: 'icon_bow' },
-  { file: 'icon_bow' },
-  { file: 'icon_bow' },
-  { file: 'icon_bow' },
+  { file: 'icon_bow_recurve' },
+  { file: 'icon_bow_recurve' },
+  { file: 'icon_bow_recurve' },
+  { file: 'icon_bow_recurve' },
   { file: 'icon_crossbow_steel_steel' },
   { file: 'icon_musket_steel' },
 ];
 
-/** Armour by tier: none, the two leathers, copper and bronze scale, mail, plates, the two harnesses. */
+/** The brawler's flintlock pistol. */
+const BRAWLER: Pic = { file: 'icon_pistol' };
+
+/** Armour by tier: none, the two leathers, copper and bronze scale, mail, the iron coat of plates, the two harnesses. */
 const ARMOUR: readonly Pic[] = [
   { file: 'icon_armour_leather', filter: NONE },
   { file: 'icon_armour_leather' },
   { file: 'icon_armour_leather', filter: 'brightness(0.72) saturate(1.2)' },
-  { file: 'icon_armour_bronze_scale', filter: 'hue-rotate(-14deg) saturate(1.35)' },
+  { file: 'icon_armour_copper_scale' },
   { file: 'icon_armour_bronze_scale' },
   { file: 'icon_armour_iron_mail_iron_wrought' },
-  { file: 'icon_armour_iron_mail_iron_refined' },
+  { file: 'icon_armour_iron_plates' },
   { file: 'icon_armour_steel_plate_steel' },
   { file: 'icon_armour_steel_plate_hq_steel' },
 ];
@@ -91,8 +95,8 @@ export function weaponPic(troop: number, tier: number): Pic {
     case Troop.Ranger:
       return RANGER[t]!;
     case Troop.Brawler:
-      // The flintlock pistol and cutlass: the cutlass is the tier 8 close-melee blade.
-      return CLOSE[8]!;
+      // The flintlock pistol (its cutlass is the tier 8 close-melee row, drawn as a cutlass).
+      return BRAWLER;
     default:
       return CLOSE[0]!;
   }
@@ -103,19 +107,24 @@ export function armourPic(tier: number): Pic {
   return ARMOUR[Math.max(0, Math.min(8, tier))]!;
 }
 
-/** Close melee's shields by shield row (SHIELD_KITS): wood, the boiled-leather targe, the iron-rimmed and the two steel heaters. */
+/** Close melee's shields by shield row (SHIELD_KITS): wood, the boiled-leather targe, the iron-rimmed and steel heaters, the steel rotella. */
 const SHIELD: readonly Pic[] = [
   { file: 'icon_shield_wood_iron_bloom', filter: NONE },
   { file: 'icon_shield_wood_iron_bloom' },
-  { file: 'icon_shield_wicker' },
+  { file: 'icon_shield_targe' },
   { file: 'icon_shield_iron_kite_iron_refined' },
   { file: 'icon_shield_steel_heater_steel' },
-  { file: 'icon_shield_steel_heater_hq_steel' },
+  { file: 'icon_shield_rotella' },
 ];
 
 /** A shield row's picture (0: none, greyed). */
 export function shieldPic(row: number): Pic {
   return SHIELD[Math.max(0, Math.min(SHIELD.length - 1, row))]!;
+}
+
+/** A ranger's poison tips (Patch 5): poisoned arrows on a bow, poisoned bolts on a crossbow. */
+export function tipsPic(weaponTier: number): Pic {
+  return { file: RANGER_KITS[weaponTier]?.shot === Shot.Bolt ? 'icon_bolt_poison_steel' : 'icon_arrow_poison_flint' };
 }
 
 /** Wands by tier, 1 to 6: the kit's six rank wands in order (hazel to the archstaff). */
@@ -169,7 +178,7 @@ export function autoIcon(size = 20): string {
 
 /** The kit file names behind the troop panel's pictures, for the test that every one exists. */
 export function troopPanelFiles(): string[] {
-  return [...CLOSE, ...LONG, ...RANGER, ...ARMOUR, ...SHIELD, ...TOOLS].map((p) => p.file).concat(WAND, [1, 2, 3, 4, 5, 6].map((t) => `icon_robe_${t}`), 'icon_util_auto_equip');
+  return [...CLOSE, ...LONG, ...RANGER, BRAWLER, ...ARMOUR, ...SHIELD, ...TOOLS].map((p) => p.file).concat(WAND, [1, 2, 3, 4, 5, 6].map((t) => `icon_robe_${t}`), 'icon_util_auto_equip');
 }
 
 /** Puts an icon in front of a button's face text. */

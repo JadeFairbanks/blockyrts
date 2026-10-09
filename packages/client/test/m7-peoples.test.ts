@@ -40,7 +40,7 @@ function building(id: number, kind: number): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0,
   };
 }
 
@@ -73,7 +73,7 @@ function game(f: PeopleInfo): GameInfo {
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [f], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;

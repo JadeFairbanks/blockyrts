@@ -49,9 +49,9 @@ import { UnitKind, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { propJob, PROPS } from '../world/props.ts';
 import { giveOrder, nodeResource } from './behaviour.ts';
-import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf, type NodePick } from './forage.ts';
+import { chooseNode, fromBuilding, fromHome, GATHER_SWITCH_M, homeOf, type NodePick } from './forage.ts';
 import { inFront, kitHolder, nearestUpgradePlace, pendingKitUp, techOf } from './gear.ts';
-import { Line, pieceProblem, planPieces, TIER_NEEDS, TOOL_GEAR, TOOL_KITS, upgradePieces, type Piece } from './kits.ts';
+import { Line, pieceProblem, piecesProblem, planPieces, TIER_NEEDS, TOOL_GEAR, TOOL_KITS, upgradePieces, type Piece } from './kits.ts';
 import { TOOL_FIELDS } from './tools.ts';
 import { answerHooks, askNow, closeAsks, isAsking, openQuestions, SPEAK_FOR_M } from './questions.ts';
 
@@ -301,7 +301,7 @@ function findNode(state: SimState, i: number, want: ReadonlyMap<number, number>)
   const z = e.z[i]!;
   const h = homeOf(state, i);
   const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * WU_PER_METRE;
-  const fits = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+  const fits = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
   return chooseNode(state, i, x, z, max, new Map(want), fits);
 }
 
@@ -485,7 +485,8 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
         }
       }
       // Made from other things: a building that makes it, the one with the shortest queue.
-      const recipes = RECIPES.filter((r) => r.outputs.some(([o]) => o === need.res));
+      // Never a scrap (Patch 5), which breaks up a piece of equipment rather than making the good.
+      const recipes = RECIPES.filter((r) => r.scrap === undefined && r.outputs.some(([o]) => o === need.res));
       let first: { b: Building; product: Product } | null = null;
       for (const r of recipes) {
         const product = RECIPE_PRODUCT + r.id;
@@ -583,7 +584,8 @@ function toolsFor(state: SimState, player: number, i: number, res: number, job: 
     if (kit.tools[job]! <= tool) continue;
     tool = kit.tools[job]!;
     const pieces = upgradePieces(h, Line.Weapon, to);
-    if (pieces.some((p) => pieceProblem(p, tech.research, tech.forge, tech.researchName) !== '')) return null;
+    // A tool kit in stock goes on whatever is researched (Patch 5, GP-1).
+    if (piecesProblem(pieces, pool, tech.research, tech.forge, tech.researchName) !== '') return null;
     const pick = withTools(state, i, to, () => findNode(state, i, want));
     if (!pick) continue;
     const plan = planPieces(pieces, pool);
@@ -747,7 +749,7 @@ function answerGreyed(state: SimState, o: AnswerOrder): void {
     case GreyAsk.Make: {
       const b = state.buildings.get(o.who);
       if (!b || !b.complete || !usableBy(state, b, player) || o.res < 0) return;
-      const products = RECIPES.filter((r) => r.outputs.some(([x]) => x === o.res)).map((r) => RECIPE_PRODUCT + r.id).filter((x) => offers(b, x));
+      const products = RECIPES.filter((r) => r.scrap === undefined && r.outputs.some(([x]) => x === o.res)).map((r) => RECIPE_PRODUCT + r.id).filter((x) => offers(b, x));
       const product = products.find((x) => productProblem(state, b, x, player) === '') ?? products[0];
       if (product === undefined) return;
       // The making button's order, once for each batch.

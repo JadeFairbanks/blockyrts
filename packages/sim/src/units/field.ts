@@ -14,7 +14,7 @@ import type { Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { Res } from '../economy/resources.ts';
 import { PROSPECT_TOOL_TIER } from './kits.ts';
-import { EAT_STEPS, eatAt, servesFood } from '../economy/food.ts';
+import { EAT_STEPS, eatAt, eatNeed, servesFood } from '../economy/food.ts';
 import { RESOURCES } from '../economy/resources.ts';
 import { atan2Angle, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
@@ -22,7 +22,7 @@ import { OrderKind, UnitKind, WILD, type SimState } from '../state.ts';
 import { isGame, Nature, speciesSpec } from '../animals/species.ts';
 import { newHome } from '../animals/animals.ts';
 import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, walkTo } from './behaviour.ts';
-import { exploreTarget, fromBuilding, HOME_SLACK_M, homeOf, homeBaseNear, wanderTarget, type Home } from './forage.ts';
+import { exploreTarget, fromHome, HOME_SLACK_M, homeOf, homeBaseNear, wanderTarget, type Home } from './forage.ts';
 import { bagEmpty, bagRoom, bagTenthsLb, LOOT_BAG_TENTHS_LB, LOOT_CLAIM_M, preyName } from './loot.ts';
 import { meatOf } from '../economy/food-kinds.ts';
 import type { UnitOrder } from './unit-orders.ts';
@@ -65,9 +65,9 @@ function isQuarry(state: SimState, t: number): boolean {
   return t >= 0 && e.kind[t] === UnitKind.Animal && e.owner[t] === WILD && e.hp[t]! > 0;
 }
 
-/** Whether a point is within a hunter's reach: from home (forage.ts homeOf), or 40 m of where it set out (from) with no main base. */
-function inReach(h: Home | undefined, from: { x: number; z: number }, x: number, z: number): boolean {
-  return h ? fromBuilding(h.b, x, z) <= h.reach : length2d(x - from.x, z - from.z) <= HUNT_LEASH_WU;
+/** Whether a point is within a hunter's reach: from home (forage.ts homeOf, fromHome), or 40 m of where it set out (from) with no main base. */
+function inReach(state: SimState, h: Home | undefined, from: { x: number; z: number }, x: number, z: number): boolean {
+  return h ? fromHome(state, h.b, x, z) <= h.reach : length2d(x - from.x, z - from.z) <= HUNT_LEASH_WU;
 }
 
 /** The quarry another hunter of the same player is after, by id. */
@@ -102,7 +102,7 @@ export function nearestGame(state: SimState, i: number, h: Home | undefined, fro
   let bestD = 0;
   for (const j of state.grid.near(x, z, r)) {
     if (!isQuarry(state, j) || !isGame(e.mob[j]!) || speciesSpec(e.mob[j]!).nature === Nature.FightsBack) continue;
-    if (!inReach(h, from, e.x[j]!, e.z[j]!) || !sideSees(state, j)) continue;
+    if (!inReach(state, h, from, e.x[j]!, e.z[j]!) || !sideSees(state, j)) continue;
     // Lower is better: untaken before taken, wounded before whole, then the distance, then the id.
     const key = (taken.has(e.id[j]!) ? 2 : 0) + (e.hp[j]! < e.maxHp[j]! ? 0 : 1);
     const d = length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!);
@@ -239,7 +239,7 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
   // The fight layer chases a quarry it can see; here the quarry is out of its sight, dead, lost or not chosen yet.
   const t = o.id ? e.indexOf(o.id) : -1;
   if (o.id !== 0 && isQuarry(state, t)) {
-    if (o.auto && (o.k & HUNT_PICKED) === 0 && !inReach(h, o, e.x[t]!, e.z[t]!)) {
+    if (o.auto && (o.k & HUNT_PICKED) === 0 && !inReach(state, h, o, e.x[t]!, e.z[t]!)) {
       // It ran past where the hunter can get home from by nightfall: let it go.
       o.id = 0;
       o.k &= ~Seen;
@@ -384,6 +384,8 @@ function nearestTable(state: SimState, i: number): Building | undefined {
 
 export function runEat(state: SimState, i: number, o: Extract<UnitOrder, { t: 'eat' }>): boolean {
   const e = state.entities;
+  // A unit at full health does not eat (Jade's Patch 5, GP-27), one healed on its way there included.
+  if (e.act[i] !== Act.Work && eatNeed(e.hp[i]!, e.maxHp[i]!) === 0) return DONE;
   let b = o.b ? state.buildings.get(o.b) : undefined;
   if (!b || b.owner !== e.owner[i] || !b.complete || !servesFood(b.kind)) b = nearestTable(state, i);
   if (!b) {
