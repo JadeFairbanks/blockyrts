@@ -107,3 +107,4 @@ export * from './circles/state.ts';
 export * from './circles/bright.ts';
 export * from './circles/act.ts';
 export * from './circles/items.ts';
+export * from './circles/info.ts';

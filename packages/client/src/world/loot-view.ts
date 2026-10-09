@@ -7,6 +7,7 @@ import { RESOURCES, WU_PER_METRE } from '@blockyrts/sim';
 import { goodIcon, iconUrl } from '../hud/inventory-icons.ts';
 import type { LootInfo } from '../messages.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
+import { glitterOfGood, type GlitterSpot } from './sparkle.ts';
 
 /** How big an icon stands, and how high above the ground its middle floats, metres. */
 const SIZE_M = 0.55;
@@ -18,6 +19,8 @@ interface Piece {
   sel: Selectable;
   /** Its resting height, metres. */
   y: number;
+  /** Its glitter (Patch 5, VX-6: gold and silver), or null. */
+  glitter: GlitterSpot | null;
 }
 
 export class LootView {
@@ -43,9 +46,11 @@ export class LootView {
         const y = l.y / WU_PER_METRE + LIFT_M;
         sprite.position.set(l.x / WU_PER_METRE, y, l.z / WU_PER_METRE);
         this.group.add(sprite);
+        const colour = glitterOfGood(l.res);
         p = {
           sprite,
           y,
+          glitter: colour ? { x: sprite.position.x, y: y - SIZE_M / 2, z: sprite.position.z, r: SIZE_M / 2, colour } : null,
           sel: {
             key: `l:${l.id}`,
             kind: 'node',
@@ -76,6 +81,13 @@ export class LootView {
   /** Each frame: the icons bob gently. */
   update(now: number): void {
     for (const [id, p] of this.pieces) p.sprite.position.y = p.y + BOB_M * Math.sin(now / 450 + id);
+  }
+
+  /** The gold and silver lying on the ground, to glitter. */
+  glitter(): GlitterSpot[] {
+    const out: GlitterSpot[] = [];
+    for (const p of this.pieces.values()) if (p.glitter) out.push(p.glitter);
+    return out;
   }
 
   selectables(): Iterable<Selectable> {

@@ -19,7 +19,9 @@ import {
   CYCLE_STEPS,
   hashState,
   nextNight,
+  payAny,
   Res,
+  RESOURCE_COUNT,
   RINGS,
   skyBright,
   step,
@@ -84,6 +86,17 @@ describe('stone circles (SC-2, SC-3)', () => {
       expect(loot.length).toBeGreaterThan(0);
       expect(loot.length).toBeLessThanOrEqual(5);
     }
+  });
+});
+
+describe('the circle goods (answer 2.5)', () => {
+  it('pay for marble with bluestone and for flint with obsidian, 1 for 1, once the good itself runs out', () => {
+    const pool = new Int32Array(RESOURCE_COUNT);
+    pool[Res.Flint] = 2;
+    pool[Res.Obsidian] = 5;
+    pool[Res.Bluestone] = 4;
+    expect(payAny(pool, [[Res.Flint, 4], [Res.Marble, 3]])).toEqual([[Res.Flint, 2], [Res.Bluestone, 3], [Res.Obsidian, 2]].sort((a, b) => a[0]! - b[0]!));
+    expect([pool[Res.Flint], pool[Res.Obsidian], pool[Res.Bluestone]]).toEqual([0, 3, 1]);
   });
 });
 

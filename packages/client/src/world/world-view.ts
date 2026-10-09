@@ -44,6 +44,7 @@ import {
   engineSpec,
   mountSpec,
   Mount,
+  IDOL_AREA_M,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
@@ -61,6 +62,8 @@ import { BuildingsView } from './buildings-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { LootView } from './loot-view.ts';
+import { glitterOfResource, Muzzle, WorldFx, type GlitterSpot } from './sparkle.ts';
+import { shotSound } from '../audio/sound-map.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
 import { HiddenOutlines, type OutlineStats } from './hidden-outlines.ts';
@@ -78,6 +81,20 @@ const FOG_COLOUR = 0x8a9098;
 const FOG_NEAR_M = 28;
 const FOG_FAR_M = 95;
 const FOG_OFF_M = 100000;
+/**
+ * A Bright Night (Patch 5, SCA-6: "Illuminated by a full, smiling moon whose
+ * light casts an eerie but also comforting subtle white glowing gradient over
+ * the night"): the night lit whiter and brighter, and a pale moonlit haze that
+ * grows with distance, so the land glows towards the top of the screen. Near a
+ * Lunar circle the Moon Roses' musk tints the air slightly rosy (SCA-8) (s).
+ */
+const BRIGHT_HEMI = new THREE.Color(0xc4d0ec);
+const BRIGHT_MOON = new THREE.Color(0xe6ecff);
+const BRIGHT_HAZE = 0x8f9bb8;
+const BRIGHT_HAZE_NEAR_M = 40;
+const BRIGHT_HAZE_FAR_M = 520;
+const ROSY = new THREE.Color(0xffc8dc);
+const ROSY_M = 70;
 /** The minimap keeps this much land round a mark outside the explored land, metres, so a lair's dot is never cut at its edge. */
 const MARK_MARGIN_M = 10;
 const FOG_TILES_PER_CHUNK = 16;
@@ -164,6 +181,8 @@ interface ChunkView {
   heights: Int16Array | null;
   size: number;
   props: Selectable[];
+  /** Its gold and silver, to glitter (Patch 5, VX-6). */
+  glitter: GlitterSpot[];
   meshedAt: number;
 }
 
@@ -228,6 +247,10 @@ export class WorldView {
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
+  /** Muzzle flashes and gold and silver glitter (Patch 5, VX-6). */
+  private readonly fx: WorldFx;
+  private glitterDirty = true;
+  private lastFx = 0;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -287,6 +310,7 @@ export class WorldView {
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
+    this.fx = new WorldFx(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -439,6 +463,22 @@ export class WorldView {
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
+    this.muzzles(msg);
+  }
+
+  /** A flash where a musket, pistol or cannon fires (Patch 5, VX-6). */
+  private muzzles(msg: StateMessage): void {
+    for (const h of msg.hits) {
+      if (h.look !== 'shot') continue;
+      const x = h.x / WU_PER_METRE;
+      const z = h.z / WU_PER_METRE;
+      if (!this.seenNow(x, z)) continue;
+      const u = this.game?.unit(h.id);
+      if (!u) continue;
+      const sound = shotSound({ kind: u.kind, owner: u.owner, mob: u.mob, ranged: u.ranged, shield: u.shield, order: u.order });
+      if (sound === 'shot_musket') this.fx.fire(x, h.y / WU_PER_METRE, z, Muzzle.Gun);
+      else if (sound === 'shot_cannon') this.fx.fire(x, h.y / WU_PER_METRE, z, Muzzle.Cannon);
+    }
   }
 
   /** A worker's, troop's or mage's name: the sim's unitTitle, so it reads the same as its bubbles and lines. */
@@ -501,6 +541,7 @@ export class WorldView {
     // Lairs and villages found, a village going to war or a lair cleared repaint the minimap.
     game.onInfoUpdate((info) => {
       this.lootView.sync(info.loot);
+      this.glitterDirty = true;
       const sig = `${info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';')}|${info.peoples.map((f) => `${f.id},${f.x >> 12},${f.z >> 12},${f.war ? 1 : 0},${f.status}`).join(';')}`;
       if (sig !== this.marksSig) {
         this.marksSig = sig;
@@ -596,6 +637,7 @@ export class WorldView {
     this.minimapFocus = focus;
     this.updateUnits(now);
     this.lootView.update(now);
+    this.updateFx(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
     const fcx = Math.floor(focus.x / CHUNK_M);
@@ -641,7 +683,7 @@ export class WorldView {
     for (const [key, w] of want) {
       if (this.chunks.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number) as [number, number];
-      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], meshedAt: 0 });
+      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0 });
     }
   }
 
@@ -707,6 +749,8 @@ export class WorldView {
     c.heights = m.heights;
     c.size = m.size;
     c.props = m.props.map((p) => this.propSelectable(c, p));
+    c.glitter = this.glitterOf(c, m.props);
+    this.glitterDirty = true;
     c.meshedAt = performance.now();
   }
 
@@ -755,7 +799,31 @@ export class WorldView {
     };
   }
 
+  /** A chunk's gold and silver props that still hold some, to glitter. */
+  private glitterOf(c: ChunkView, props: readonly PropSummary[]): GlitterSpot[] {
+    const out: GlitterSpot[] = [];
+    for (const p of props) {
+      const colour = p.amount > 0 ? glitterOfResource(propInfo(p.kind).resource) : 0;
+      if (colour) out.push({ x: c.cx * CHUNK_M + p.x, y: p.y, z: c.cz * CHUNK_M + p.z, r: Math.max(p.hx, p.hz, 0.2), colour });
+    }
+    return out;
+  }
+
+  /** The glitter winks on what is near the view, the flashes fade. */
+  private updateFx(now: number): void {
+    const dt = this.lastFx ? Math.min(0.1, (now - this.lastFx) / 1000) : 0;
+    this.lastFx = now;
+    if (this.glitterDirty) {
+      this.glitterDirty = false;
+      const spots = this.lootView.glitter();
+      for (const c of this.chunks.values()) if (c.lod === 1) for (const g of c.glitter) spots.push(g);
+      this.fx.setSpots(spots);
+    }
+    this.fx.update(dt, (x, z) => this.seenNow(x, z));
+  }
+
   private dropChunk(c: ChunkView): void {
+    this.glitterDirty = true;
     if (!c.group) return;
     this.scene.remove(c.group);
     c.group.traverse((o) => {
@@ -934,6 +1002,9 @@ export class WorldView {
   private readonly duskSun = new THREE.Color(0xff9a5a);
   /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
   private fogK = 0;
+  /** How bright the night is drawn, 0 to 1, and how rosy, easing towards a Bright Night's (Patch 5). */
+  private brightK = 0;
+  private rosyK = 0;
   private lastSky = 0;
 
   /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
@@ -965,10 +1036,26 @@ export class WorldView {
     const now = performance.now();
     const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
     this.lastSky = now;
+    // A Bright Night comes on and goes over a few seconds too, and only shows in the dark.
+    const [bright, rosy] = this.brightHere();
+    this.brightK += Math.sign(bright - this.brightK) * Math.min(Math.abs(bright - this.brightK), dt / 4);
+    this.rosyK += Math.sign(rosy - this.rosyK) * Math.min(Math.abs(rosy - this.rosyK), dt / 4);
+    const b = this.brightK * k;
+    if (b > 0.001) {
+      this.hemi.intensity += 0.4 * b;
+      this.hemi.color.lerp(BRIGHT_HEMI, 0.7 * b).lerp(ROSY, 0.18 * this.rosyK * k);
+      this.sun.intensity += 0.5 * b;
+      this.sun.color.lerp(BRIGHT_MOON, 0.8 * b);
+    }
     const want = this.game?.info?.fog ? 1 : 0;
     this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
     const fog = this.scene.fog as THREE.Fog;
-    if (this.fogK <= 0.001) {
+    if (this.fogK <= 0.001 && b > 0.001) {
+      // The moonlit haze: nothing near, paler with distance.
+      fog.near = BRIGHT_HAZE_NEAR_M;
+      fog.far = BRIGHT_HAZE_FAR_M / b;
+      fog.color.setHex(BRIGHT_HAZE).lerp(ROSY, 0.25 * this.rosyK);
+    } else if (this.fogK <= 0.001) {
       fog.near = FOG_OFF_M;
       fog.far = FOG_OFF_M * 2;
     } else {
@@ -977,6 +1064,23 @@ export class WorldView {
       fog.far = FOG_FAR_M + off;
       fog.color.setHex(FOG_COLOUR).multiplyScalar(1 - 0.6 * k);
     }
+  }
+
+  /**
+   * Whether the night is bright where the camera looks (anyone's Bright Night,
+   * or a Moon Goddess idol's night within 200 m of its circle), and whether
+   * the Moon Roses' musk is in the air there (a bright night near a Lunar circle).
+   */
+  private brightHere(): [number, number] {
+    const v = this.game?.info?.circles;
+    const f = this.minimapFocus;
+    if (!v || !f) return [0, 0];
+    let bright = v.brightSky;
+    for (const [, x, z] of v.idolAreas) if (Math.hypot(x / WU_PER_METRE - f.x, z / WU_PER_METRE - f.z) < IDOL_AREA_M) bright = true;
+    if (!bright) return [0, 0];
+    let rosy = 0;
+    for (const [x, z] of v.roses) if (Math.hypot(x / WU_PER_METRE - f.x, z / WU_PER_METRE - f.z) < ROSY_M) rosy = 1;
+    return [1, rosy];
   }
 
   // ---- Hooks ----

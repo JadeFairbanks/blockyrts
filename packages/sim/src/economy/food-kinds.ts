@@ -107,11 +107,12 @@ export function kindsOf(res: number): readonly Res[] {
 
 /**
  * Goods that stand in for another, 1 for 1, in any cost paid through these
- * helpers, used only once the good itself runs out: bluestone for marble
- * (Jade's answer 2.5, Patch 5 stone circles).
+ * helpers, used only once the good itself runs out (Jade's answer 2.5, Patch
+ * 5 stone circles): bluestone for marble, obsidian for flint.
  */
 export const STAND_INS: Readonly<Partial<Record<number, readonly Res[]>>> = {
   [Res.Marble]: [Res.Bluestone],
+  [Res.Flint]: [Res.Obsidian],
 };
 
 /** How many of a resource a pool holds; for "meat", "fish" or "lumber", of every kind together; with its stand-ins (STAND_INS). */

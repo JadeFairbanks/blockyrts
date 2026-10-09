@@ -655,7 +655,9 @@ export class GameShell {
   /** Day N and the time left in the period; Dusk, Night N, Dawn (Day and night: 3 min, 40 s, 3 min, 40 s). */
   private updateClock(step: number): void {
     const c = clockAt(step);
-    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `Night ${c.cycle}` : `Dawn · Night ${c.cycle}`;
+    // A Bright Night (Patch 5 stone circles) names itself.
+    const night = this.game.info?.circles?.brightSky ? 'Bright Night' : 'Night';
+    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `${night} ${c.cycle}` : `Dawn · ${night} ${c.cycle}`;
     setText(this.layout.clockDay, name);
     setText(this.layout.clockTime, `${formatClock(c.left / 20)} left`);
     this.layout.clock.dataset.period = String(c.period);

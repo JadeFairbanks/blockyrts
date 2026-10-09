@@ -1,7 +1,7 @@
 // Messages between the page and the sim worker. Local to the client; the
 // network protocol lives in @blockyrts/protocol.
 import type { OutgoingFrame, WireFrame } from '@blockyrts/protocol';
-import type { ChunkDelta, ClaimShapes, HitEvent, Order, RallyPoint, SimEvent, Site, UnitOrder } from '@blockyrts/sim';
+import type { ChunkDelta, CirclesView, ClaimShapes, HitEvent, Order, RallyPoint, SimEvent, Site, UnitOrder } from '@blockyrts/sim';
 
 /** An online match's lockstep set-up: this client's relay slot, each sim player's slot, the epoch, the playing slots and the input delay. */
 export interface NetStart {
@@ -320,6 +320,8 @@ export interface InfoMessage {
   loot: LootInfo[];
   /** The local player's units' loot bags: per unit id, (resource, count) pairs. */
   bags: Array<[number, Array<[number, number]>]>;
+  /** Patch 5's stone circles: the Bright Night sky, the idols, the altar's acts, the chests opened and the items to use. */
+  circles?: CirclesView;
 }
 
 /** A piece of loot on the ground as the screen sees it. */
