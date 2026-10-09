@@ -197,7 +197,8 @@ function tower(kind: BuildingKind, name: string, cost: Cost, ws: number, health:
  * about 1 m across (2 columns square), placed a stretch at a time like a wall
  * and a wall in every other way. Each has the health of one wooden wall
  * column, so for its length it is much weaker; each takes one worker's full
- * load of earth (25 lb: 5 earth). It is a building, so no dig takes it away.
+ * load of earth (25 lb: 10 earth since BL-2 halved earth's weight). It is a
+ * building, so no dig takes it away.
  */
 function rampart(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number): SpecInput {
   return {
@@ -315,8 +316,8 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   gate(BuildingKind.GateStone, 'Stone gate', [[ST, 10], [L, 2]], 90, 3000, false),
   tower(BuildingKind.TowerHardwood, 'Hardwood tower', [[H, 15]], 150, 1600, true),
   tower(BuildingKind.TowerStone, 'Stone tower', [[ST, 30], [L, 10]], 300, 4000, false),
-  // Patch 5 (Jade, GP-43): 5 earth (one worker's 25 lb load) and the wooden wall's 300 health; its build work is a pick (s).
-  rampart(BuildingKind.EarthRampart, 'Earth rampart', [[Res.Earth, 5]], 8, 300),
+  // Patch 5 (Jade, GP-43): "one worker inventory of earth", 10 earth (a 25 lb load, BL-2), and the wooden wall's 300 health; its build work is a pick (s).
+  rampart(BuildingKind.EarthRampart, 'Earth rampart', [[Res.Earth, 10]], 8, 300),
 ]);
 
 export function buildingSpec(kind: number): BuildingSpec {
