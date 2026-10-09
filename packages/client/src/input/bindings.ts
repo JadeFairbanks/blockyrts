@@ -22,6 +22,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'attack', name: 'Attack', key: 'KeyA', group: 'Units' },
   { id: 'patrol', name: 'Patrol', key: 'KeyP', group: 'Units' },
   { id: 'move', name: 'Move', key: 'KeyM', group: 'Units' },
+  // Patch 5: Run or Walk, on a key no unit card uses (s).
+  { id: 'pace', name: 'Run or walk (units on foot)', key: 'KeyH', group: 'Units' },
   // Upgrade equipment takes the old Upgrade weapon key (s).
   { id: 'equip', name: 'Upgrade equipment (the best weapon, then armour, the stock pays for)', key: 'KeyQ', group: 'Units' },
   { id: 'hitch', name: 'Hitch an animal or let it go (siege engines and cannons)', key: 'KeyR', group: 'Units' },
