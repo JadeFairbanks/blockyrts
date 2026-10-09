@@ -563,6 +563,8 @@ export const RANK_NAMES = {
 /** Adds experience and ranks the unit up as far as it reaches (a worker's and a mage's by their own ladders). */
 export function gainXp(state: SimState, i: number, tenths: number): void {
   const e = state.entities;
+  // A skeleton archer the Deathless Shroud raised never ranks up (Patch 7): its 10 health are Jade's.
+  if (e.role[i] === Role.Risen) return;
   if (e.kind[i] === UnitKind.Mage) {
     mageGainXp(state, i, tenths);
     return;
@@ -679,7 +681,8 @@ export function settleDeaths(state: SimState): void {
         deathHooks.animal(state, i);
       } else {
         deathHooks.unit(state, i);
-        if (sideOf(state, i) === Side.Players) {
+        // A risen skeleton archer's fall is no news (Patch 7): it was raised to fall.
+        if (sideOf(state, i) === Side.Players && e.role[i] !== Role.Risen) {
           const what = e.role[i] === Role.Mercenary ? 'A mercenary' : e.kind[i] === UnitKind.Warrior ? 'A warrior' : e.kind[i] === UnitKind.Mage ? 'A mage' : 'A worker';
           const text = e.kind[i] === UnitKind.Engine ? `A ${engineSpec(e.mob[i]!).name.toLowerCase()} has been destroyed.` : `${what} has been killed.`;
           state.events.push({ player: e.owner[i]!, kind: 'alert', text, x: e.x[i]!, z: e.z[i]! });

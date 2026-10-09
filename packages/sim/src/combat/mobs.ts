@@ -652,10 +652,12 @@ const MOB_ROWS: readonly MobRow[] = [
   {
     // SCB-2: "750 HP", his Acrid Wind "deals 5-16 dmg" (his attack, every 3 s at up to 18 m, s); he hovers at 1.6 m/s (s). Undead. His drops (s: Jade named
     // none): 3 mana crystals, 2 to 4 gold, and a diamond half the time.
+    // Patch 7 (Jade, 23:05 UTC 2026-10-09): "The lich should have a drop that is legendary tier (robes) with a 25% drop rate": the Deathless Shroud.
     ...base, id: Mob.Lich, name: 'Lich', model: 'lich', firstNight: 0, hp: 750, armourBp: 1000, damageTenths: 50, damageMaxTenths: 160, attackSteps: ds(30),
     reach: cm(150), range: cm(1800), shot: Shot.AcridWind, spreadBp: 200, speed: v10(16), vsWalls: 10,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 150, halfWidth: cm(45), height: cm(230), undead: true,
-    drops: [{ res: Res.ManaCrystal, min: 3, max: 3, chancePm: 1000 }, { res: Res.Gold, min: 2, max: 4, chancePm: 1000 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 500 }],
+    drops: [{ res: Res.ManaCrystal, min: 3, max: 3, chancePm: 1000 }, { res: Res.Gold, min: 2, max: 4, chancePm: 1000 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 500 },
+      { res: Res.DeathlessShroud, min: 1, max: 1, chancePm: 250 }],
   },
 ];
 

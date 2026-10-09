@@ -10,8 +10,10 @@
 // small item (Jade, 22:08: "you can place them as a small item (same size
 // they display at on the mob) wherever you like, and they have an aoe radius
 // of that effect of 15m each"; buildings/data.ts BogTrophy and
-// VictorsTrophy). Two copies of the same piece in reach of one unit count
-// once; different effects add up (the plan's rule). Only the players' units
+// VictorsTrophy). The lich's Deathless Shroud raises skeleton archers for
+// its wearer and keeps debuffs off them (Jade, 23:05 UTC: Grave guard). Two
+// copies of the same piece in reach of one unit count once; different
+// effects add up (the plan's rule). Only the players' units
 // feel them: a people's own Elf glaive and longbow do nothing more than they
 // did. Everything here is worked out from the state as it stands, in
 // integers; nothing here is state.
@@ -20,11 +22,14 @@ import { BuildingKind, buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building, BuildingStore } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
+import { Mob, mobSpec } from '../combat/mobs.ts';
 import { Res } from '../economy/resources.ts';
-import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
-import { MONSTERS, UnitKind, type SimState } from '../state.ts';
+import { floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { WALKER } from '../nav/grid.ts';
+import { MONSTERS, standY, UnitKind, type SimState } from '../state.ts';
+import { dropMark, MarkKind, markOn } from '../threats/marks.ts';
 import { Role } from '../threats/types.ts';
-import { LootEffect, GEAR } from './kits.ts';
+import { LootEffect, GEAR, RISEN_BOW_GEAR, Troop } from './kits.ts';
 
 /** Fury (the fiend's cleaver, as the fiend's frenzy): its holder attacks this much faster, bp, while its health is under this share of its most, per mille. */
 export const FURY = { attackBp: 2000, underPm: 500 };
@@ -62,6 +67,20 @@ export const BOG_TROPHY = { slowBp: 1000, reach: 15 * WU_PER_METRE };
  */
 export const VICTORS_TROPHY = { bonusBp: 500, reach: 15 * WU_PER_METRE };
 
+/**
+ * Grave guard (the Deathless Shroud, the lich's robe; Jade, 23:05 UTC
+ * 2026-10-09: "when you take damage wearing the lich's robes ... it spawns a
+ * friendly skeleton archer, up to 1 every 12 seconds"): a skeleton archer
+ * rises beside the mage wearing it, the mage's player's to order as a
+ * mercenary is (Role.Risen), with this much health, for this long; then it
+ * falls at once (Jade: "it loses all its hp instantly and plays the death
+ * animation"). The wearer is also immune to debuffs (cleanse).
+ */
+export const GRAVE_GUARD = { everySteps: 12 * STEPS_PER_SECOND, lifeSteps: 25 * STEPS_PER_SECOND, hp: 10 };
+
+/** What a risen skeleton archer is called, in its panel and its lines. */
+export const RISEN_NAME = 'Risen skeleton archer';
+
 /** An effect's name, the pieces that carry it and what it does, for the gear's hover and How to play. */
 export interface EffectSpec {
   id: LootEffect;
@@ -95,6 +114,12 @@ export const LOOT_EFFECTS: readonly EffectSpec[] = [
     name: "Victor's trophy",
     items: [Res.MorvathStaff],
     text: `Place it anywhere as a trophy: your units within ${metres(VICTORS_TROPHY.reach)} m of it gain ${pct(VICTORS_TROPHY.bonusBp)}% damage, protection, attack speed, move speed, work speed and spell power.`,
+  },
+  {
+    id: LootEffect.GraveGuard,
+    name: 'Grave guard',
+    items: [Res.DeathlessShroud],
+    text: `When the mage wearing it takes damage, a skeleton archer with ${GRAVE_GUARD.hp} health rises beside the mage to fight for you for ${seconds(GRAVE_GUARD.lifeSteps)} s, at most one every ${seconds(GRAVE_GUARD.everySteps)} s. The wearer cannot be poisoned, slowed, hexed, sickened, rooted or cursed.`,
   },
 ];
 
@@ -251,14 +276,124 @@ export function wearsFaeSet(state: SimState, i: number): boolean {
   return e.kind[i] === UnitKind.Mage && gearEffect(e.weapon[i]!) === LootEffect.FaeSet && gearEffect(e.armour[i]!) === LootEffect.FaeSet && ours(state, i);
 }
 
+/** Whether a unit is one of the players' mages wearing the Deathless Shroud. */
+export function wearsShroud(state: SimState, i: number): boolean {
+  const e = state.entities;
+  return e.kind[i] === UnitKind.Mage && gearEffect(e.armour[i]!) === LootEffect.GraveGuard && ours(state, i);
+}
+
+/** Whether a unit is a skeleton archer the Deathless Shroud raised (Role.Risen). */
+export function isRisen(state: SimState, i: number): boolean {
+  return state.entities.role[i] === Role.Risen;
+}
+
+/** Whether nothing that lingers on a unit can take hold of it (the Deathless Shroud's wearer): for those that put one on at once, as the Root spell. */
+export function debuffImmune(state: SimState, i: number): boolean {
+  return wearsShroud(state, i);
+}
+
 /**
- * Every few seconds (FAE_SET.everySteps), each of the players' mages out in
- * the open wearing the whole Fae set heals the players' units round the mage,
- * the mage too, once each however many such mages are near (no two copies of an
- * effect count twice). A unit sheltering inside a building is out of reach.
+ * Takes every debuff off the Shroud's wearer (s: what lingers on a unit and
+ * does it harm): poison, venom and burning, the slows of a grasp, a web or a
+ * sting, a hex, a miasma's sickness, entangling roots and Touch of the
+ * Grave. A grab, a toss or a slime's engulf is a blow, not a debuff, and
+ * still lands.
+ */
+function cleanse(state: SimState, i: number): void {
+  const e = state.entities;
+  e.slowUntil[i] = 0;
+  e.slowBp[i] = 0;
+  e.hexUntil[i] = 0;
+  e.dotUntil[i] = 0;
+  e.dotLeft[i] = 0;
+  e.sickUntil[i] = 0;
+  const id = e.id[i]!;
+  if (markOn(state, id, MarkKind.Roots) >= 0) {
+    dropMark(state, id, MarkKind.Roots);
+    e.heldUntil[i] = 0;
+  }
+  dropMark(state, id, MarkKind.Grave);
+}
+
+/** Where a risen archer may stand beside its mage, tried in turn, wu: a metre to one side, then the others. */
+const BESIDE: ReadonlyArray<readonly [number, number]> = [[WU_PER_METRE, 0], [-WU_PER_METRE, 0], [0, WU_PER_METRE], [0, -WU_PER_METRE]];
+
+/** A skeleton archer rises beside the Shroud's wearer w (Grave guard): its player's, as the skeleton archer is, with the skeleton archer's bow. Returns its index. */
+function raiseArcher(state: SimState, w: number): number {
+  const e = state.entities;
+  const spec = mobSpec(Mob.SkeletonArcher);
+  let x = e.x[w]!;
+  let z = e.z[w]!;
+  for (const [dx, dz] of BESIDE) {
+    if (!state.nav.standable(floorDiv(x + dx, WU_PER_COLUMN), floorDiv(z + dz, WU_PER_COLUMN), WALKER)) continue;
+    x += dx;
+    z += dz;
+    break;
+  }
+  const j = e.add(state.nextEntityId++, e.owner[w]!, x, standY(state, x, z), z, spec.speed, UnitKind.Warrior);
+  e.troop[j] = Troop.Ranger;
+  e.mob[j] = Mob.SkeletonArcher;
+  e.role[j] = Role.Risen;
+  e.hp[j] = GRAVE_GUARD.hp;
+  e.maxHp[j] = GRAVE_GUARD.hp;
+  e.ranged[j] = RISEN_BOW_GEAR;
+  e.homeX[j] = x;
+  e.homeZ[j] = z;
+  e.heading[j] = e.heading[w]!;
+  // When it falls (abilityAt is a monster's clock, never a player's troop's).
+  e.abilityAt[j] = state.step + GRAVE_GUARD.lifeSteps;
+  state.grid.insert(e, j);
+  return j;
+}
+
+/** Steps a unit out of the building it is in (units/behaviour.ts leaveBuilding), installed by step.ts: this module loads before that one. */
+export const risenHooks: { leave: (state: SimState, i: number) => void } = { leave: () => {} };
+
+/** A risen archer's time is up: it drops to 0 health at once and dies as any unit does (settleDeaths), out in the open so its fall is seen. */
+function fallRisen(state: SimState, i: number): void {
+  const e = state.entities;
+  if (e.inside[i] !== 0) risenHooks.leave(state, i);
+  e.hp[i] = 0;
+  state.dying.push(e.id[i]!);
+}
+
+/**
+ * Every step: the Deathless Shroud keeps debuffs off its wearers and raises
+ * a skeleton archer for one hurt since the last step, once its 12 s are up
+ * (abilityAt, unused by the players' mages, holds when the next may rise; a
+ * mage sheltering inside raises none); a risen archer whose time is up
+ * falls. Then, every few seconds (FAE_SET.everySteps), the Fae set heals.
  */
 export function updateLootEffects(state: SimState): void {
-  if (state.step % FAE_SET.everySteps !== 0) return;
+  const e = state.entities;
+  const now = state.step;
+  let raise: number[] | null = null;
+  for (let i = 0; i < e.count; i++) {
+    if (e.hp[i]! <= 0) continue;
+    if (e.role[i] === Role.Risen) {
+      if (e.abilityAt[i]! <= now) fallRisen(state, i);
+      continue;
+    }
+    if (!wearsShroud(state, i)) continue;
+    cleanse(state, i);
+    // Hurt this step, or last step after this ran; and not before its last archer's 12 s were up.
+    const hurt = e.hurtAt[i]!;
+    if (hurt !== 0 && hurt + 1 >= now && hurt >= e.abilityAt[i]! && e.inside[i] === 0) (raise ??= []).push(i);
+  }
+  for (const w of raise ?? []) {
+    e.abilityAt[w] = now + GRAVE_GUARD.everySteps;
+    raiseArcher(state, w);
+  }
+  if (now % FAE_SET.everySteps === 0) faeHeal(state);
+}
+
+/**
+ * Each of the players' mages out in the open wearing the whole Fae set heals
+ * the players' units round the mage, the mage too, once each however many
+ * such mages are near (no two copies of an effect count twice). A unit
+ * sheltering inside a building is out of reach.
+ */
+function faeHeal(state: SimState): void {
   const e = state.entities;
   const healed = new Set<number>();
   const r = FAE_SET.reach;

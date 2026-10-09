@@ -39,6 +39,7 @@ import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { goesInside, insideAuto, mayShelter, swapShelter } from './units/shelter.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
+import { Role } from './threats/types.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
@@ -728,8 +729,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainRank': {
         const b = ownBuilding(state, o.player, o.building);
-        // The Dreadnought has no ranks to train (Patch 5).
-        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) && !isDreadnought(e, i) ? { t: 'train', b: b.id } : null));
+        // The Dreadnought has no ranks to train (Patch 5), nor a skeleton archer the Deathless Shroud raised (Patch 7).
+        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) && !isDreadnought(e, i) && e.role[i] !== Role.Risen ? { t: 'train', b: b.id } : null));
         break;
       }
       case 'retrain':

@@ -555,7 +555,7 @@ export type Slot = (typeof Slot)[keyof typeof Slot];
  * a gear row carries its own here (GearSpec.effect), the two trophies on
  * their building kinds.
  */
-export const LootEffect = { None: 0, Fury: 1, Warlord: 2, Reaper: 3, FarSight: 4, FaeSet: 5, BogTrophy: 6, VictorsTrophy: 7 } as const;
+export const LootEffect = { None: 0, Fury: 1, Warlord: 2, Reaper: 3, FarSight: 4, FaeSet: 5, BogTrophy: 6, VictorsTrophy: 7, GraveGuard: 8 } as const;
 export type LootEffect = (typeof LootEffect)[keyof typeof LootEffect];
 
 /** One thing a unit holds or wears, with its stats in sim units. */
@@ -672,6 +672,12 @@ export const CLOSE_GEAR: readonly number[] = CLOSE_KITS.map((k) => add({ name: k
 export const LONG_GEAR: readonly number[] = LONG_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Weapon, tier: k.tier, model: k.model, melee: meleeStats(k, false, true), heft: k.heft, rarity: troopRarity(k.tier), item: k.items[0] })));
 export const RANGER_GEAR: readonly number[] = RANGER_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Ranged, tier: k.tier, model: k.model, ranged: rangedStats(k), heft: k.heft, rarity: troopRarity(k.tier), item: k.items[0] })));
 export const PISTOL_GEAR: number = add({ name: 'Flintlock pistol', slot: Slot.Ranged, tier: 8, model: BRAWLER_KIT.model, ranged: rangedStats(BRAWLER_KIT), kind: GearKind.Pistol, heft: BRAWLER_KIT.heft, rarity: troopRarity(BRAWLER_KIT.tier), item: BRAWLER_KIT.items[0] });
+/**
+ * The bow a skeleton archer the Deathless Shroud raises shoots (Patch 7, Jade: it uses the skeleton archer's own bow attack): the
+ * monster's numbers (combat/mobs.ts SkeletonArcher: 8.6 damage, made a whole 9 (s), every 2.2 s at up to 18 m, its bone arrows).
+ * No good: it is never taken off, and is lost with the archer.
+ */
+export const RISEN_BOW_GEAR: number = add({ name: "Skeleton archer's bow", slot: Slot.Ranged, tier: 4, model: 'bow_skeleton_recurve', ranged: { damage: 9, attackSteps: ds(22), range: cm(1800), spreadBp: 700, shot: Shot.BoneArrow, blunt: false } });
 export const ARMOUR_GEAR: readonly number[] = ARMOUR_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Armour, tier: k.tier, model: k.model, armourBp: k.protectionPct * 100, stature: k.stature, rarity: troopRarity(k.tier), item: k.items[0] })));
 /** Shields: tier 1 and 2 common, 3 and 4 rare, 5 epic (plan 3); a row's tier is the material it needs, its rung the shield tier. */
 export const SHIELD_GEAR: readonly number[] = SHIELD_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Shield, tier: k.need, rung: k.tier, model: k.model, blockBp: k.blockPct * 100, heft: k.heft, rarity: ladderRarity(k.tier, 3, 5), item: k.items[0] })));
@@ -906,6 +912,9 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.ElfLongbow, E, GearKind.Ranged, 44, 8, 'bow', [[SW, 3], [CS, 1], [FE, 1], [ROPE, 1]], { ...shoots(24, 20, 40, 4, Shot.Arrow), effect: LootEffect.FarSight }),
   loot(Res.DwarfWarAxe, R, GearKind.OneHanded, 30, 7, 'axe_war', [[STEEL, 3], [SW, 1], [LE, 1]], swings(18, 13, 120, Hit.Arc)),
   loot(Res.DwarfWarHammer, R, GearKind.Great, 64, 7, 'mace', [[STEEL, 3], [SW, 2]], swings(24, 18, 160, Hit.Arc, true)),
+  // Jade (23:05 UTC 2026-10-09): the lich's legendary robe, "appropriate stats for tier (worse than morvoth items by alot though)": as the
+  // tier 6 robe, Stature 20, mages only (plan 4.3); it raises skeleton archers and blocks debuffs (Grave guard, units/effects.ts).
+  loot(Res.DeathlessShroud, L, GearKind.Robe, 20, 6, 'robe_lich', [[Res.SpiderSilk, 3], [Res.Bone, 3], [MC, 2], [Res.Diamonds, 1]], { ...asRobe(6), effect: LootEffect.GraveGuard }),
 ];
 
 /** What the Workshop gives back for the Dreadnought's mace (s: carbon steel and hardwood, a little under a two-handed carbon steel piece twice over). */

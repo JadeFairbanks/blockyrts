@@ -29,7 +29,7 @@ import { updateSeen } from './threats/lairs.ts';
 import { guardSpring, updateSprings } from './threats/springs.ts';
 import { updateMagic } from './magic/cast.ts';
 import { refillMages } from './magic/mages.ts';
-import { updateLootEffects } from './units/effects.ts';
+import { risenHooks, updateLootEffects } from './units/effects.ts';
 import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
 import { checkPeoples } from './peoples/factions.ts';
 import { peoplesHooks } from './peoples/hooks.ts';
@@ -69,6 +69,7 @@ stockHooks.cell = (state, cellId) => {
 peoplesHooks.death = onPeoplesDeath;
 peoplesHooks.salvage = onSalvage;
 peoplesHooks.wagon = runWagon;
+risenHooks.leave = leaveBuilding;
 peoplesHooks.beast = runBeast;
 peoplesHooks.treeCut = onTreeCut;
 peoplesHooks.kill = onQuestKill;

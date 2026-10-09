@@ -24,6 +24,18 @@ import {
   FAR_SIGHT,
   FURY,
   gearEffect,
+  gearSpec,
+  GRAVE_GUARD,
+  kitHolder,
+  markOn,
+  MarkKind,
+  mealQuarters,
+  mobSpec,
+  putMark,
+  Rarity,
+  ROBE_KITS,
+  Shot,
+  unitSupply,
   hexed,
   hurtBuilding,
   hurtUnit,
@@ -52,6 +64,7 @@ import {
   UnitKind,
   updateLootEffects,
   VICTORS_TROPHY,
+  wearsShroud,
   WARLORD,
   WU_PER_COLUMN,
   WU_PER_METRE,
@@ -333,5 +346,101 @@ describe('the trophies', () => {
     expect(e.kind[mob]).toBe(UnitKind.Mob);
     expect(effectWorkBp(s, mob)).toBe(0);
     expect(effectMoveBp(s, mob)).toBe(0);
+  });
+});
+
+describe('the Deathless Shroud (Jade, 23:05 UTC: the lich\'s robe)', () => {
+  it('is a legendary robe as the tier 6 one, Stature 20, a quarter of the time from the lich', () => {
+    const g = gearSpec(ownGear(Res.DeathlessShroud));
+    expect(g.effect).toBe(LootEffect.GraveGuard);
+    expect(g.rarity).toBe(Rarity.Legendary);
+    expect(g.stature).toBe(20);
+    expect(g.armourBp).toBe(ROBE_KITS[6]!.protectionPct * 100);
+    expect(g.robe?.regainPct).toBe(ROBE_KITS[6]!.regainPct);
+    expect(itemEffect(Res.DeathlessShroud)).toBe(LootEffect.GraveGuard);
+    expect(mobSpec(Mob.Lich).drops).toContainEqual({ res: Res.DeathlessShroud, min: 1, max: 1, chancePm: 250 });
+  });
+
+  it('raises a skeleton archer of 10 health beside its hurt wearer, one every 12 s, which falls when its 25 s are up', () => {
+    const { s, x, z } = setup();
+    const e = s.entities;
+    const m = addMage(s, 0, x, z, School.Battle);
+    e.armour[m] = ownGear(Res.DeathlessShroud);
+    regrid(s);
+    expect(wearsShroud(s, m)).toBe(true);
+    const risen = (): number[] => {
+      const out: number[] = [];
+      for (let i = 0; i < e.count; i++) if (e.role[i] === Role.Risen && e.hp[i]! > 0) out.push(i);
+      return out;
+    };
+    const hit = (): void => void hurtUnit(s, m, { damage: 3, from: 0, projectile: false, blunt: false, pierce: false });
+    s.step = 1000;
+    runEffects(s);
+    expect(risen()).toEqual([]);
+    hit();
+    runEffects(s);
+    const [a] = risen();
+    expect(a).toBeDefined();
+    expect(e.owner[a!]).toBe(0);
+    expect(e.kind[a!]).toBe(UnitKind.Warrior);
+    expect(e.mob[a!]).toBe(Mob.SkeletonArcher);
+    expect([e.hp[a!], e.maxHp[a!]]).toEqual([GRAVE_GUARD.hp, GRAVE_GUARD.hp]);
+    expect(gearSpec(e.ranged[a!]!).ranged?.shot).toBe(Shot.BoneArrow);
+    expect(Math.abs(e.x[a!]! - x) + Math.abs(e.z[a!]! - z)).toBeLessThanOrEqual(M);
+    // It costs no supply and eats nothing, and its gear cannot be changed.
+    expect(unitSupply(e, a!)).toBe(0);
+    expect(mealQuarters(s, a!)).toBe(0);
+    expect(kitHolder(s, a!)).toBeUndefined();
+    // Hurt again within 12 s: no second archer; after them, another.
+    s.step += 1;
+    hit();
+    runEffects(s);
+    expect(risen()).toHaveLength(1);
+    s.step = 1000 + GRAVE_GUARD.everySteps;
+    hit();
+    runEffects(s);
+    expect(risen()).toHaveLength(2);
+    // An old hurt raises none once a step has gone by.
+    s.step = 1000 + 2 * GRAVE_GUARD.everySteps + 2;
+    runEffects(s);
+    expect(risen()).toHaveLength(2);
+    // The first falls at its 25 s, quietly; the second stands a while yet.
+    const id = e.id[a!]!;
+    s.step = 1000 + GRAVE_GUARD.lifeSteps;
+    s.events.length = 0;
+    runEffects(s);
+    expect(e.hp[e.indexOf(id)]).toBe(0);
+    settleDeaths(s);
+    expect(e.indexOf(id)).toBe(-1);
+    expect(s.hits.some((h) => h.look === 'death' && h.id === id)).toBe(true);
+    expect(s.events.filter((v) => v.kind === 'alert')).toEqual([]);
+    expect(risen()).toHaveLength(1);
+  });
+
+  it('keeps every debuff off its wearer, and only its wearer', () => {
+    const { s, x, z } = setup();
+    const e = s.entities;
+    const m = addMage(s, 0, x, z, School.Battle);
+    e.armour[m] = ownGear(Res.DeathlessShroud);
+    const plain = addMage(s, 0, x + 2 * M, z, School.Battle);
+    regrid(s);
+    s.step = 1000;
+    for (const i of [m, plain]) {
+      e.slowUntil[i] = 2000;
+      e.slowBp[i] = 3000;
+      e.hexUntil[i] = 2000;
+      e.dotUntil[i] = 2000;
+      e.dotLeft[i] = 10;
+      e.sickUntil[i] = 2000;
+      e.heldUntil[i] = 2000;
+      putMark(s, e.id[i]!, MarkKind.Roots, 2000, 0);
+      putMark(s, e.id[i]!, MarkKind.Grave, 2000, 0);
+    }
+    runEffects(s);
+    expect([e.slowUntil[m], e.hexUntil[m], e.dotUntil[m], e.dotLeft[m], e.sickUntil[m], e.heldUntil[m]]).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(markOn(s, e.id[m]!, MarkKind.Roots)).toBe(-1);
+    expect(markOn(s, e.id[m]!, MarkKind.Grave)).toBe(-1);
+    expect([e.slowUntil[plain], e.hexUntil[plain], e.dotUntil[plain], e.sickUntil[plain], e.heldUntil[plain]]).toEqual([2000, 2000, 2000, 2000, 2000]);
+    expect(markOn(s, e.id[plain]!, MarkKind.Roots)).toBeGreaterThanOrEqual(0);
   });
 });
