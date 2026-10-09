@@ -1614,6 +1614,10 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_spell_thorn_volley | ui/icon_spell_thorn_volley.png | 1 | 32x32 | K4 spell icon thorn_volley (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_train_warrior_brawler | ui/icon_train_warrior_brawler.png | 1 | 32x32 | K4 training icon train_warrior_brawler: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
 | icon_train_warrior_zweihander | ui/icon_train_warrior_zweihander.png | 1 | 32x32 | K4 training icon train_warrior_zweihander: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
+| icon_dreadnought | ui/icon_dreadnought.png | 1 | 32x32 | K4 training icon for the Dreadnought (rendered from heavy_knight.bbmodel in Patch 5): the portrait framing at 32x32 on the portrait background. |
+| portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_pheasant | ui/portrait_pheasant.png | 1 | 64x64 | K6 unit portrait pheasant: animal: pheasant. 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 
 ## sky
 
