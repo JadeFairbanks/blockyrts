@@ -84,20 +84,20 @@ function beside(s: SimState, kind: number, dx = 18): Building {
 }
 
 describe('a click on a greyed-out building (Patch 3)', () => {
-  it('asks for both reasons at once: the main base to go up a level, and a worker to gather what is short', () => {
+  it('asks for both reasons at once: the main base to go up a tier, and a worker to gather what is short', () => {
     const s = plainWorld();
     const pool = s.players[0]!.pool;
-    // The Longhall is paid for; the Barracks needs it and 20 sticks.
+    // The Hall is paid for; the Barracks needs it and 20 sticks.
     pool[Res.SoftwoodLumber] = 300;
     pool[Res.Stone] = 300;
     const qs = asked(s, [click(Greyed.Building, BuildingKind.Barracks, 0, workerIds(s))]);
     expect(qs.map((x) => x.ask!.q).sort()).toEqual([GreyAsk.Gather, GreyAsk.Upgrade].sort());
     const up = qs.find((x) => x.ask!.q === GreyAsk.Upgrade)!;
     expect(up.building).toBe(bigHouse(s).id);
-    expect(up.text).toBe('We need a level 2 main base for the Barracks. Upgrade to Longhall?');
-    expect(up.ask!.yes).toContain('From the stock now: 100 softwood lumber, 40 stone.');
+    expect(up.text).toBe('We need a tier 2 main base for the Barracks. Upgrade to Hall?');
+    expect(up.ask!.yes).toContain('From the stock now: 118 lumber, 45 stone.');
     const gather = qs.find((x) => x.ask!.q === GreyAsk.Gather)!;
-    expect(gather.text).toBe('We need 20 more hardwood sticks for the Barracks. Shall I go and gather some?');
+    expect(gather.text).toBe('We need 20 more sticks for the Barracks. Shall I go and gather some?');
     expect(gather.ask!.res).toBe(Res.Sticks);
     expect(s.entities.kind[s.entities.indexOf(gather.speaker!)]).toBe(UnitKind.Worker);
     // Yes to both: the Big House starts its upgrade, the worker goes for sticks.
@@ -118,14 +118,14 @@ describe('a click on a greyed-out building (Patch 3)', () => {
     s.players[0]!.pool[Res.SoftwoodLumber] = 300;
     s.players[0]!.pool[Res.Sticks] = 50;
     const qs = asked(s, [click(Greyed.Building, BuildingKind.Barracks, 0, workerIds(s))]);
-    // The Barracks's own stone (40) is the same cause as the Longhall's (40): one question for both.
+    // The Barracks's own stone (40) is the same cause as the Hall's (45): one question for both.
     expect(qs.map((x) => [x.ask!.q, x.ask!.res])).toEqual([[GreyAsk.Gather, Res.Stone]]);
-    expect(qs[0]!.text).toBe('We need 80 more stone for the Barracks and the Longhall. Shall I go and gather some?');
+    expect(qs[0]!.text).toBe('We need 85 more stone for the Barracks and the Hall. Shall I go and gather some?');
   });
 
   it('asks nothing when nobody can sort it out, and never more than its cap', () => {
     const s = plainWorld();
-    // A Mineshaft: a level 4 main base, Deep Mining I (no research building), bronze ingots (no Forge), hardwood and stone.
+    // A Mineshaft: a tier 3 main base, Deep Mining I (no research building), bronze ingots (no Forge), lumber and stone.
     const qs = asked(s, [click(Greyed.Building, BuildingKind.Mineshaft, 0, workerIds(s))]);
     expect(qs.length).toBeLessThanOrEqual(GREY_ASKS_MAX);
     expect(qs.every((x) => x.ask!.q === GreyAsk.Gather)).toBe(true);
@@ -166,16 +166,17 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
     expect([make.ask!.q, make.building, make.ask!.res, make.ask!.n]).toEqual([GreyAsk.Make, shop.id, Res.Planks, 6]);
     expect(make.text).toBe('We need 6 more planks for the hand cart. Shall I make 6?');
     step(s, [yes(make)]);
-    expect(shop.queue.map((q) => q.product)).toEqual(Array.from({ length: 6 }, () => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood')));
+    expect(shop.queue.map((q) => q.product)).toEqual(Array.from({ length: 6 }, () => RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks')));
   });
 
   it('has a worker offer to gather what a recipe is short of', () => {
     const s = plainWorld();
     const shop = beside(s, BuildingKind.Workshop);
-    const planks = RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks from softwood');
+    const planks = RECIPE_PRODUCT + RECIPES.findIndex((r) => r.name === 'Planks');
     const qs = asked(s, [click(Greyed.Product, planks, shop.id)]);
+    // Either lumber makes planks (Patch 5): the worker offers to fell softwood.
     expect(qs.map((x) => [x.ask!.q, x.ask!.res])).toEqual([[GreyAsk.Gather, Res.SoftwoodLumber]]);
-    expect(qs[0]!.text).toBe('We need 1 more softwood lumber for the planks from softwood. Shall I go and gather some?');
+    expect(qs[0]!.text).toBe('We need 1 more lumber for the planks. Shall I go and gather some?');
   });
 
   it('has the Scholar\'s Lodge offer research a recipe needs, and Yes queues it there', () => {
@@ -209,7 +210,7 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
     const qs = asked(s, [click(Greyed.Product, copper, forge.id)]);
     expect(qs.map((x) => [x.ask!.q, x.ask!.res])).toEqual([[GreyAsk.Tools, Res.CopperOre]]);
     expect(qs[0]!.text).toBe("We need 2 more copper ore for the copper ingot, and my tools can't break it. Shall I make stone and flint tools and go and gather some?");
-    expect(qs[0]!.ask!.yes).toContain('From the stock now: 6 hardwood sticks, 1 flint, 5 stone.');
+    expect(qs[0]!.ask!.yes).toContain('From the stock now: 6 sticks, 1 flint, 5 stone.');
     step(s, [yes(qs[0]!)]);
     const i = s.entities.indexOf(qs[0]!.speaker!);
     const [up, gather] = s.entities.queue[i]!;
@@ -222,12 +223,12 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
   it('asks the main base to upgrade for its own greyed Upgrade only through what it is short of', () => {
     const s = plainWorld();
     const qs = asked(s, [click(Greyed.Upgrade, 0, bigHouse(s).id)]);
-    // The Longhall needs softwood and stone: workers for each.
+    // The Hall needs lumber and stone: workers for each, the lumber as softwood (Patch 5).
     expect(qs.map((x) => [x.ask!.q, x.ask!.res]).sort()).toEqual([
       [GreyAsk.Gather, Res.SoftwoodLumber],
       [GreyAsk.Gather, Res.Stone],
-    ]);
-    expect(qs[0]!.text).toMatch(/for the Longhall\. Shall I go and gather some\?$/);
+    ].sort());
+    expect(qs[0]!.text).toMatch(/for the Hall\. Shall I go and gather some\?$/);
   });
 
   it('sends idle warriors hunting for food a troop needs, one speaking for those round it', () => {

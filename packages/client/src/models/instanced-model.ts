@@ -1,4 +1,4 @@
-// One draw call per model type for any number of instances (docs/blueprint.md,
+// One draw call per model type for any number of instances (the old blueprint,
 // technical decision 7): each vertex carries the index of the bone it moves
 // with (rigid cubes, no skin weights), and each instance's bone matrices sit in
 // a float DataTexture, four RGBA texels (the four columns) per matrix, that the

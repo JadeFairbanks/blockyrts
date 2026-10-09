@@ -2,11 +2,12 @@
 // trade menu and the Peoples panel show (Neutral villages and trade). Runs in
 // the sim worker; reads the state, never changes it.
 import {
-  CAT_COUNT,
-  DAILY_BUY_TENTHS,
+  dailyTradeTenths,
   FactionKind,
   factionTitle,
   fightersOf,
+  hireGold,
+  hireSilver,
   inReach,
   isDark,
   LEANS,
@@ -16,8 +17,10 @@ import {
   payPct,
   peopleOf,
   reparationsOwed,
+  OUT_OF_REACH,
   Status,
   tradeProblem,
+  tradeRoomTenths,
   warFaction,
   type Faction,
   type SimState,
@@ -44,9 +47,9 @@ function inStockNow(f: Faction): number[] {
 
 function hireWhy(s: SimState, f: Faction, player: number): string {
   if (f.status !== Status.Settled) return 'They have gone.';
-  if (isDark(s.step, s.blood)) return 'Mercenaries hire out by day only.';
+  if (isDark(s.step)) return 'Mercenaries hire out by day only.';
   if (f.survivors <= 0) return 'Nobody here for hire today.';
-  if (!inReach(s, f, player)) return 'Bring one of your units within 15 m of the camp.';
+  if (!inReach(s, f, player)) return OUT_OF_REACH;
   return '';
 }
 
@@ -69,8 +72,6 @@ export function peoplesInfo(s: SimState, player: number): PeopleInfo[] {
     const o = offerOf(s, f.id, player);
     const standing = peopleOf(s, f.id).filter((j) => e.hp[j]! > 0);
     const wants = merc ? [] : [...PAY_PCT[people]];
-    const room: number[] = [];
-    for (let c = 0; c < CAT_COUNT; c++) room.push(Math.max(0, DAILY_BUY_TENTHS - (f.bought[c] ?? 0)));
     const pays: number[] = [];
     if (!merc) for (const g of mine) pays.push(g, payPct(f, g));
     out.push({
@@ -94,10 +95,11 @@ export function peoplesInfo(s: SimState, player: number): PeopleInfo[] {
       tradeWhy: merc ? 'Mercenaries only hire out their swords.' : tradeProblem(s, f, player),
       stock: merc ? [] : inStockNow(f),
       wants,
-      room,
+      room: merc ? 0 : tradeRoomTenths(f),
+      day: merc ? 0 : dailyTradeTenths(f),
       pays,
       offer: o ? { goods: [...o.goods], worth: o.worth, bundles: o.bundles.map((b) => [...b]) } : null,
-      hire: merc ? { left: f.survivors, size: f.size, why: hireWhy(s, f, player) } : null,
+      hire: merc ? { left: f.survivors, size: f.size, why: hireWhy(s, f, player), silver: hireSilver(f), gold: hireGold(f) } : null,
       visiting: f.kind === FactionKind.ElfCaravan && f.visits === player,
     });
   }

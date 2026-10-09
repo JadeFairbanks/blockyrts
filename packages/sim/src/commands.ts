@@ -3,19 +3,19 @@
 // checked here against the state: a player only orders their own units and
 // buildings, and units that cannot carry an order out ignore it.
 
-import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
+import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
-import { canAfford, costText, FOODS, pay, refund, Res, RESOURCES, shortOf, type Cost } from './economy/resources.ts';
-import { isAnyRes } from './economy/food-kinds.ts';
+import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
+import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
 import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
-import { canonicalOrders, PickOwn, type Order } from './orders.ts';
-import { NO_CARRY, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
+import { canonicalOrders, DebugTool, PickOwn, type Order } from './orders.ts';
+import { isGod, NO_CARRY, placeBuilding, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
 import { huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
 import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
@@ -28,10 +28,11 @@ import { orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts'
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
-import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
 import { unitsOnTop } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
+import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
@@ -176,12 +177,14 @@ export function upgradeProblem(state: SimState, b: Building, by = b.owner): stri
   const next = spec.levels[b.level];
   if (!next) return 'It is at its highest level.';
   if (next.needs) return next.needs;
-  if (next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a level ${next.needsBase} main base.`;
-  if (next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
+  // Godmode needs no main base tier or research first (Jade's Patch 5).
+  const god = isGod(state, by);
+  if (!god && next.needsBase > Math.max(mainBaseLevel(state, b.owner), b.kind === BuildingKind.MainBase ? b.level : 0)) return `Needs a tier ${next.needsBase} main base.`;
+  if (!god && next.research && ((state.players[by]!.research | b.tech) & (1 << next.research)) === 0) return `Needs ${RESEARCH[next.research]!.name} researched first.`;
   const room = growthBlocked(state, b, b.level + 1);
   if (room !== Blocked.None) return `It needs more room round it to grow: ${BLOCKED_TEXT[room].charAt(0).toLowerCase()}${BLOCKED_TEXT[room].slice(1)}`;
   const pool = state.players[by]!.pool;
-  if (!canAfford(pool, next.cost)) return `Not enough ${RESOURCES[shortOf(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
+  if (!canAffordAny(pool, next.cost)) return `Not enough ${RESOURCES[shortOfAny(pool, next.cost)]!.name.toLowerCase()} (${costText(next.cost)}).`;
   return '';
 }
 
@@ -192,12 +195,41 @@ function applyUpgrade(state: SimState, b: Building, by: number): void {
     return;
   }
   const next = levelSpec(b.kind, b.level + 1);
-  pay(state.players[by]!.pool, next.cost);
+  // Kind by kind, so a cancel gives back the lumber it was paid in (Patch 5: a tier's lumber is either kind).
+  b.paid = payAny(state.players[by]!.pool, next.cost);
   b.upgrading = b.level + 1;
   b.upProgress = 0;
   refitBuilding(state, b);
+  // Godmode: one step of work, done here, finishes it.
+  if (isGod(state, b.owner)) {
+    workOn(state, b);
+    return;
+  }
   const [x, z] = buildingCentre(b);
   state.events.push({ player: by, kind: 'info', text: `Upgrade to ${next.name} paid for. Right-click it with workers to build it.`, x, z });
+}
+
+/**
+ * Godmode's Build (Jade's Patch 5: "you can build anything instantly"): the
+ * building stands finished on the spot at once, with no worker walking
+ * there; a blocked spot is refused as it is for workers. Returns whether it
+ * was built.
+ */
+function buildNow(state: SimState, player: number, kind: number, variant: number, x: number, z: number): boolean {
+  const name = buildingName(kind, 1, variant);
+  const why = buildRequirement(state, player, kind);
+  if (why) {
+    alert(state, player, `${name}: ${why}`);
+    return false;
+  }
+  const blocked = placementBlocked(state, player, kind, x, z, variant);
+  if (blocked !== Blocked.None) {
+    alert(state, player, `The spot for the ${name.toLowerCase()} is blocked. ${BLOCKED_TEXT[blocked]}`);
+    return false;
+  }
+  // Placed as workers start it, then one step of work, which finishes it in godmode.
+  workOn(state, placeBuilding(state, player, kind, variant, x, z, false));
+  return true;
 }
 
 // A Yes to "Upgrade to ...?" from a greyed-out button's question (Patch 3) runs the Upgrade button's own code.
@@ -214,7 +246,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
     return;
   }
   if (b.upgrading) {
-    refund(pool, levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
+    refund(pool, b.paid.length ? (b.paid as Cost) : levelSpec(b.kind, b.upgrading).cost, CANCEL_REFUND_PER_MILLE);
     b.upgrading = 0;
     b.upProgress = 0;
     refitBuilding(state, b);
@@ -224,7 +256,7 @@ function applyCancelBuild(state: SimState, b: Building): void {
 /** Everyone Home: units without a standing job go to the nearest shelter with room; farmers go to their own farm. In the dark they go in for the night (ENTER_NIGHT: out at dawn once no monster is near, Jade's Patch 4), by day until daybreak. */
 export function everyoneHome(state: SimState, player: number): void {
   const e = state.entities;
-  const auto = isDark(state.step, state.blood) ? ENTER_NIGHT : 1;
+  const auto = isDark(state.step) ? ENTER_NIGHT : 1;
   const shelters = state.buildings.list.filter((b) => b.owner === player && shelterRoom(b) > 0);
   const taken = new Map<number, number>();
   for (const b of shelters) taken.set(b.id, shelteredIn(state, b.id).length);
@@ -254,7 +286,7 @@ export function everyoneHome(state: SimState, player: number): void {
   }
 }
 
-/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and level 3+ main bases), else shelter inside (workers), else nothing. */
+/** What Enter on one of its own buildings asks a unit to do: go up on its top (anyone on foot; towers and main bases of tier 2 and up), else shelter inside (workers), else nothing. */
 export function enterOrder(state: SimState, i: number, b: Building): UnitOrder | null {
   if (garrisonRoom(b) > 0 && canGarrison(state, i)) return { t: 'enter', b: b.id, auto: ENTER_TOP };
   if (state.entities.kind[i] === UnitKind.Worker && shelterRoom(b) > 0) return { t: 'enter', b: b.id, auto: shelterAuto(state) };
@@ -263,7 +295,7 @@ export function enterOrder(state: SimState, i: number, b: Building): UnitOrder |
 
 /** A worker sent to shelter by its player: in the dark it goes in for the night and comes out at dawn once no monster is near (Jade's Patch 4: any worker that retreated there at night); by day it stays until let out. */
 function shelterAuto(state: SimState): number {
-  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
+  return isDark(state.step) ? ENTER_NIGHT : 0;
 }
 
 /**
@@ -358,7 +390,7 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   for (const kind of planned.values()) for (const [r, n] of buildCost(state, o.player, kind)) owed.set(r, (owed.get(r) ?? 0) + n);
   const cost = buildCost(state, o.player, o.building);
   const pool = state.players[o.player]!.pool;
-  const { room, short } = stretchRoom((r) => pool[r]!, owed, cost);
+  const { room, short } = stretchRoom((r) => haveOf(pool, r), owed, cost);
   const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;
@@ -371,6 +403,11 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
     if (planned.has(`${x},${z}`) || walled(x, z)) continue;
     if (placementBlocked(state, o.player, o.building, x, z) !== Blocked.None) blocked++;
     else open.push([x, z]);
+  }
+  // Godmode: every wall of the stretch stands at once.
+  if (isGod(state, o.player)) {
+    for (const [x, z] of open) buildNow(state, o.player, o.building, 0, x, z);
+    return;
   }
   const take = open.slice(0, room);
   for (const i of workers) take.forEach(([x, z], k) => giveOrder(state, i, { t: 'build', kind: o.building, variant: 0, x, z }, o.queued === true || k > 0));
@@ -440,8 +477,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'build': {
         const spec = buildingSpec(o.building);
-        if (!spec.live || spec.site || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
-        giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
+        if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
+        if (isGod(state, o.player)) buildNow(state, o.player, o.building, o.variant, o.x, o.z);
+        else giveAll(state, o, () => ({ t: 'build', kind: o.building, variant: o.variant, x: o.x, z: o.z }));
         break;
       }
       case 'work':
@@ -622,13 +660,10 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;
         break;
-      case 'dig':
-      case 'earthwork': {
+      case 'dig': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const kind = o.kind === 'dig' ? (o.tunnel ? SiteKind.Tunnel : SiteKind.Dig) : ([SiteKind.Bank, SiteKind.Ramp, SiteKind.Bank, SiteKind.LumberRamp, SiteKind.StoneRamp][o.variant] ?? SiteKind.Bank);
-        const axis = o.kind === 'earthwork' ? o.axis & 1 : 0;
-        const site = markSite(state, o.player, kind, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, axis);
+        const site = markSite(state, o.player, o.tunnel ? SiteKind.Tunnel : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
         if (typeof site === 'string') {
           alert(state, o.player, site);
           break;
@@ -783,10 +818,25 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.res < RESOURCES.length && !isAnyRes(o.res)) state.players[o.player]!.pool[o.res] = state.players[o.player]!.pool[o.res]! + o.count;
         break;
       case 'debugSpawn':
-        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step, state.blood).cycle);
+        if (o.mob >= 0 && o.mob < MOBS.length) addMob(state, o.mob, o.player, o.x, o.z, clockAt(state.step).cycle);
         break;
       case 'debugThreat':
         debugThreat(state, o.player, o.what, o.x, o.z);
+        break;
+      case 'debugGod':
+        setGod(state, o.player, o.on === 1);
+        break;
+      case 'debugPlace':
+        godPlace(state, o.player, o.what, o.x, o.z);
+        break;
+      case 'debugTool':
+        if (o.tool === DebugTool.MaxRank) maxRanks(state, o.player);
+        else if (o.tool === DebugTool.HealAll) healAll(state, o.player);
+        else if (o.tool === DebugTool.ClearFoes) clearFoes(state, o.player, o.x, o.z);
+        else if (o.tool === DebugTool.ElfKingdom) showElves(state, o.player);
+        break;
+      case 'debugKill':
+        killUnits(state, o.units);
         break;
       case 'tradeOffer':
       case 'tradeTake':

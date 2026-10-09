@@ -15,7 +15,7 @@ import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { forgeStepOf } from '../buildings/production.ts';
 import { costText, pay, refund, Res } from '../economy/resources.ts';
-import { UnitKind, type SimState } from '../state.ts';
+import { isGod, UnitKind, type SimState } from '../state.ts';
 import { RESEARCH } from '../combat/items.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
 import type { UnitOrder } from './unit-orders.ts';
@@ -56,7 +56,8 @@ export function kitHolder(state: SimState, i: number): KitHolder | undefined {
 /** What a player has for the kit's needs: research, the Forge step their town is at and research names. */
 export function techOf(state: SimState, player: number): TechView {
   return {
-    research: state.players[player]!.research,
+    // Godmode has every research (Jade's Patch 5).
+    research: isGod(state, player) ? -1 : state.players[player]!.research,
     forge: forgeStepOf(state, player),
     researchName: (r) => RESEARCH[r]?.name ?? 'research',
   };
@@ -287,7 +288,8 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
     sayTinkering(state, i, `Upgrading to ${pieceName(h, o.line, o.to)}.`);
   }
   // Beside it, the unit sits and tinkers while the bar over its head fills (Jade's Patch 2).
-  if (!tinker(state, i, upgradeSteps(h, o.line, o.to))) return false;
+  // Godmode: the new piece goes on at once.
+  if (!tinker(state, i, isGod(state, e.owner[i]!) ? 1 : upgradeSteps(h, o.line, o.to))) return false;
   finishKitUp(state, i, h, o);
   return true;
 }
@@ -302,7 +304,7 @@ function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): v
     refundKit(state, i, o);
     return;
   }
-  if (TRAINING.upgradeRefundPm > 0 && owner < state.players.length) refund(state.players[owner]!.pool, mainCost(replacedPieces(h, o.line, o.to)), TRAINING.upgradeRefundPm);
+  if (TRAINING.upgradeRefundPm > 0 && owner < state.players.length) refund(state.players[owner]!.pool, piecesCost(replacedPieces(h, o.line, o.to), 0), TRAINING.upgradeRefundPm);
   o.paid = 0;
   if (o.line === Line.Weapon) e.wTier[i] = o.to;
   else e.aTier[i] = o.to;
@@ -350,7 +352,7 @@ export function orderCart(state: SimState, player: number, units: readonly numbe
     inFront(state, i, { t: 'cart', b: base.id, res });
     sent++;
   }
-  if (sent === 0 && !back) state.events.push({ player, kind: 'alert', text: 'No cart in stock. Carts are made at the Workshop: hand carts from main base level 3, ox and horse carts from level 5.' });
+  if (sent === 0 && !back) state.events.push({ player, kind: 'alert', text: 'No cart in stock. Carts are made at the Workshop: hand carts from main base tier 2, ox and horse carts from tier 3.' });
   return sent;
 }
 

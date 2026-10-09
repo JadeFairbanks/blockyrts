@@ -106,11 +106,11 @@ describe('walkable footprints (patch notes 1)', () => {
     expect(walkable()).toBeGreaterThan(100);
     expect(s.buildings.solidAt(b.x + 4, b.z + 6)).toBe(b.id);
     expect(s.buildings.solidAt(b.x + 12, b.z + 6)).toBe(0);
-    b.level = 10;
+    b.level = 4;
     refitBuilding(s, b);
     // The Citadel: ring walls, corner towers and a shut gate close the whole footprint.
     expect(walkable()).toBe(0);
-    expect(footprintDims(BuildingKind.MainBase, 0, 10).cells.length).toBe(14 * 14);
+    expect(footprintDims(BuildingKind.MainBase, 0, 4).cells.length).toBe(14 * 14);
   });
 
   it('moves a unit off columns a building fills when it goes up or grows', () => {
@@ -182,10 +182,10 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     expect(s.entities.inside.filter((v) => v === t.id).length).toBe(4);
   });
 
-  it('takes workers up a level 3 main base first, and shelters them inside once its top is full or when sent home', () => {
+  it('takes workers up a tier 2 main base first, and shelters them inside once its top is full or when sent home', () => {
     const s = createWorld(1, { peaceful: true, playerUnits: 4 });
     const b = bigHouse(s);
-    b.level = 3;
+    b.level = 2;
     refitBuilding(s, b);
     const workers = ids(s, UnitKind.Worker);
     run(s, 1, [{ kind: 'enter', player: 0, units: workers, building: b.id }]);

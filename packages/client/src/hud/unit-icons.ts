@@ -3,7 +3,7 @@
 // icon matches the unit's selection icon"; no more letters for workers and
 // mages). Troops show their weapon: the kit's training busts by troop type
 // and weapon tier. Creatures, animals and the peoples use their portraits.
-import { BuildingKind, engineSpec, mobSpec, peopleUnitSpec, speciesSpec, Troop } from '@blockyrts/sim';
+import { BuildingKind, engineSpec, MAIN_BASE_TIER_LEVELS, mobSpec, peopleUnitSpec, School, speciesSpec, Troop, weaponTiers, type GodSpawn } from '@blockyrts/sim';
 import { firstKit } from './kit-icons.ts';
 
 /** A troop's picture by type and weapon tier (Troops and gear: the weapon ladders). */
@@ -51,13 +51,13 @@ export function modelIconFile(model: string): string {
   return firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, MODEL_STAND_INS[model] ?? '');
 }
 
-/** A building's picture by kind, level (the Big House) and (earthworks) variant. */
-export function buildingIconFile(kind: number, level: number, variant = 0): string {
+/** A building's picture by kind and level (the main base's tiers). */
+export function buildingIconFile(kind: number, level: number): string {
   const l = Math.max(1, level);
-  const tier = (base: string, most: number): string => `icon_${base}${Math.min(l, most)}`;
   switch (kind) {
     case BuildingKind.MainBase:
-      return tier('main_base_l', 10);
+      // Patch 5: four tiers, each drawn as the old level it stands on.
+      return `icon_main_base_l${MAIN_BASE_TIER_LEVELS[Math.min(l, MAIN_BASE_TIER_LEVELS.length) - 1]!}`;
     case BuildingKind.Farm:
       return 'icon_crop_field_t1';
     case BuildingKind.Barn:
@@ -85,11 +85,6 @@ export function buildingIconFile(kind: number, level: number, variant = 0): stri
       return 'icon_tower_hardwood';
     case BuildingKind.TowerStone:
       return 'icon_tower_stone';
-    case BuildingKind.Earthworks:
-      // Earth bank, earth ramp, fill, lumber ramp, stone ramp.
-      return ['icon_earth', 'icon_ramp_earth', 'icon_earth', 'icon_ramp_lumber', 'icon_ramp_stone'][variant] ?? 'icon_ramp_earth';
-    case BuildingKind.Ramp:
-      return l >= 2 ? 'icon_ramp_stone' : 'icon_ramp_lumber';
     case BuildingKind.Workshop:
       return 'icon_workshop_t1';
     case BuildingKind.TorchPost:
@@ -152,5 +147,21 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
       return modelIconFile(peopleUnitSpec(n).model);
     default:
       return '';
+  }
+}
+
+/** The picture of something godmode places (the debugger's spawn grid, Jade's Patch 5): the players' units as their training buttons show them, the rest by their model ('' for none). */
+export function godSpawnIconFile(g: GodSpawn): string {
+  switch (g.what) {
+    case 'worker':
+      return WORKER_ICON;
+    case 'troop':
+      return troopIconFile(g.id, weaponTiers(g.id)[1]);
+    case 'mage':
+      return g.id === School.Battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON;
+    case 'crewman':
+      return troopIconFile(Troop.Crew, 0);
+    default:
+      return modelIconFile(g.model);
   }
 }

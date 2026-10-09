@@ -37,10 +37,8 @@ import {
   School,
   FactionKind,
   LEADER_NAMES,
-  Mob,
   PEOPLES,
   peopleUnitSpec,
-  TRADE_BUILDINGS,
   engineSpec,
   mountSpec,
   Mount,
@@ -124,6 +122,12 @@ export function spellsOnText(bits: number): string {
 
 const ck = (cx: number, cz: number): string => `${cx},${cz}`;
 const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** The world rectangle (metres) a minimap canvas shows under its current transform. */
+function visibleOn(ctx: CanvasRenderingContext2D): { minX: number; minZ: number; maxX: number; maxZ: number } {
+  const m = ctx.getTransform();
+  return { minX: -m.e / m.a, minZ: -m.f / m.d, maxX: (ctx.canvas.width - m.e) / m.a, maxZ: (ctx.canvas.height - m.f) / m.d };
+}
 
 
 function geometryOf(a: MeshArrays): THREE.BufferGeometry {
@@ -288,7 +292,8 @@ export class WorldView {
       bounds: () => this.minimapBounds(),
       paint: (ctx) => this.paintMinimap(ctx),
       version: () => this.minimapVersion,
-      paintThings: (ctx, dpr) => this.paintMinimapThings(ctx, dpr),
+      paintThings: (ctx, dpr, shown) => this.paintMinimapThings(ctx, dpr, shown),
+      focus: () => this.minimapFocus,
     };
     this.hooks = {
       ground,
@@ -302,6 +307,7 @@ export class WorldView {
   setModels(lib: ModelLibrary): void {
     this.models = lib;
     this.unitsView.setModels(lib);
+    this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
   }
@@ -461,17 +467,18 @@ export class WorldView {
       u.label = spec.name;
       u.typeKey = `peoples:${mob}`;
       u.owner = PEOPLES;
-      const trade = TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon;
-      u.details = [title, health, f?.war ? 'At war with you.' : trade ? 'Right click it with one of your units to trade.' : ''].filter(Boolean);
+      // Patch 5 (GP-46): any of their buildings opens trade, or the hire box at a mercenary camp.
+      const what = f?.kind === FactionKind.MercCamp ? 'Right click it to hire mercenaries.' : 'Right click it to trade. One of your units must be within 10 m of one of their buildings.';
+      u.details = [title, health, f?.war ? 'At war with you.' : what];
       return;
     }
     const spec = peopleUnitSpec(mob);
     if (owner !== PEOPLES) {
-      // A mercenary the local player (or an ally) hired: theirs until dusk.
+      // A mercenary the local player (or an ally) hired: theirs for good (Patch 5).
       if (owner === NEUTRAL || owner >= 8) return;
       u.label = `Mercenary ${spec.name.toLowerCase()}`;
       u.typeKey = `merc:${mob}`;
-      u.details = [health, owner === this.player ? 'Hired until dusk, when it walks back to its camp.' : 'Hired by an ally until dusk.'];
+      u.details = [health, owner === this.player ? 'Hired for good. It takes 1 supply and eats like any troop.' : 'Hired by an ally.'];
       return;
     }
     const id = d[o + S.id]!;
@@ -480,7 +487,7 @@ export class WorldView {
     u.typeKey = `people:${mob}`;
     u.owner = PEOPLES;
     u.halfSize.set(0.3, spec.heightCm / 200, 0.3);
-    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click with one of your units to hire mercenaries.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click with one of your units to trade.' : '';
+    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click to hire mercenaries. One of your units must be within 10 m of their camp.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click to trade. One of your units must be within 10 m of one of their buildings.' : '';
     const details = [title, health];
     if (kind === UnitKind.Mage) details.push(`Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`);
     if (what) details.push(what);
@@ -503,6 +510,8 @@ export class WorldView {
   }
 
   private marksSig = '';
+  /** The camera's focus as of the last frame, which the minimap follows over land too big to show whole (Patch 5 BG-5). */
+  private minimapFocus: { x: number; z: number } | null = null;
   /** Where the minimap's marks stand, metres: it always shows them, explored land or not (Patch 3: every lair). */
   private markPoints: Array<{ x: number; z: number }> = [];
 
@@ -583,6 +592,7 @@ export class WorldView {
   }
 
   update(now: number, focus: THREE.Vector3): void {
+    this.minimapFocus = focus;
     this.updateUnits(now);
     this.lootView.update(now);
     this.updateSky();
@@ -818,7 +828,49 @@ export class WorldView {
 
   // ---- Units ----
 
+  /** Godmode's unit on the cursor (Jade's Patch 5): one state row, drawn solid by a units view of its own where the cursor points. */
+  private ghostUnits: UnitsView | null = null;
+  private readonly ghostMsg: StateMessage = { type: 'state', step: 0, hash: 0, hashStep: 0, count: 0, data: new Int32Array(STATE_STRIDE), shots: new Int32Array(0), hits: [] };
+
+  /** Shows a unit's state row standing at a point (metres) on the ground, or nothing (null). */
+  setUnitGhost(row: Int32Array | null, x: number, z: number): void {
+    const m = this.ghostMsg;
+    if (!row) {
+      m.count = 0;
+      return;
+    }
+    if (!this.ghostUnits) {
+      this.ghostUnits = new UnitsView(this.scene);
+      if (this.models) this.ghostUnits.setModels(this.models);
+    }
+    m.data.set(row);
+    m.data[S.x] = Math.round(x * WU_PER_METRE);
+    m.data[S.z] = Math.round(z * WU_PER_METRE);
+    m.data[S.y] = Math.round(this.groundAt(x, z) * WU_PER_METRE);
+    m.count = 1;
+  }
+
+  private updateGhostUnit(now: number): void {
+    const g = this.ghostUnits;
+    if (!g) return;
+    g.update({
+      curr: this.ghostMsg,
+      prev: null,
+      sinceMs: 0,
+      now,
+      player: this.player,
+      colours: this.colours,
+      neutral: NEUTRAL_COLOUR,
+      seen: () => true,
+      known: () => true,
+      ruins: [],
+      groundAt: (x, z) => this.groundAt(x, z),
+      place: () => undefined,
+    });
+  }
+
   private updateUnits(now: number): void {
+    this.updateGhostUnit(now);
     const curr = this.curr;
     if (!curr) return;
     this.unitsView.update({
@@ -879,15 +931,13 @@ export class WorldView {
   private readonly daySun = new THREE.Color(0xfff2dc);
   private readonly nightSun = new THREE.Color(0x8aa0d8);
   private readonly duskSun = new THREE.Color(0xff9a5a);
-  private readonly bloodHemi = new THREE.Color(0xb05048);
-  private readonly bloodSun = new THREE.Color(0xff5a40);
   /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
   private fogK = 0;
   private lastSky = 0;
 
   /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
   darkness(): number {
-    const c = clockAt(this.simStep, this.game?.info?.blood);
+    const c = clockAt(this.simStep);
     const f = c.into / (c.into + c.left);
     switch (c.period) {
       case Period.Day:
@@ -909,19 +959,12 @@ export class WorldView {
     this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
     this.sun.intensity = 1.7 - 1.35 * k;
     this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
-    // A blood night: the night light turns red.
-    const info = this.game?.info;
-    const c = clockAt(this.simStep, info?.blood);
-    if (info?.blood.includes(c.cycle) && c.period !== Period.Day) {
-      this.hemi.color.lerp(this.bloodHemi, k * 0.55);
-      this.sun.color.lerp(this.bloodSun, k * 0.6);
-    }
     this.buildings.darkness = k;
     // The fog rolls in and lifts over a few seconds.
     const now = performance.now();
     const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
     this.lastSky = now;
-    const want = info?.fog ? 1 : 0;
+    const want = this.game?.info?.fog ? 1 : 0;
     this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
     const fog = this.scene.fog as THREE.Fog;
     if (this.fogK <= 0.001) {
@@ -1032,9 +1075,14 @@ export class WorldView {
 
   private paintMinimap(ctx: CanvasRenderingContext2D): void {
     ctx.imageSmoothingEnabled = false;
+    // Only the tiles on the canvas: past MAX_MINIMAP_SIDE the minimap shows a window of the land (Patch 5 BG-5).
+    const v = visibleOn(ctx);
     for (const t of this.minimapTiles.values()) {
       if (!t.rgba) continue;
-      ctx.drawImage(t.canvas, t.cx * CHUNK_M, t.cz * CHUNK_M, CHUNK_M, CHUNK_M);
+      const x = t.cx * CHUNK_M;
+      const z = t.cz * CHUNK_M;
+      if (x > v.maxX || z > v.maxZ || x + CHUNK_M < v.minX || z + CHUNK_M < v.minZ) continue;
+      ctx.drawImage(t.canvas, x, z, CHUNK_M, CHUNK_M);
     }
   }
 
@@ -1045,7 +1093,7 @@ export class WorldView {
    * 1 px dark edge (s), drawn under all the colours so a crowd reads as one
    * patch, and so green still shows on grass.
    */
-  private paintMinimapThings(ctx: CanvasRenderingContext2D, dpr: number): void {
+  private paintMinimapThings(ctx: CanvasRenderingContext2D, dpr: number, shown?: { minX: number; minZ: number; maxX: number; maxZ: number }): void {
     const px = 1 / Math.max(1e-6, ctx.getTransform().a);
     const dot = 2 * dpr * px;
     const edge = dpr * px;
@@ -1095,8 +1143,16 @@ export class WorldView {
     }
     // Every lair (dark red squares; Patch 3: explored land or not) and the goblin villages (ochre rings, red at war) the players have found (Table 15: minimap marks).
     for (const m of this.game?.info?.marks ?? []) {
-      const x = m.x / WU_PER_METRE;
-      const z = m.z / WU_PER_METRE;
+      let x = m.x / WU_PER_METRE;
+      let z = m.z / WU_PER_METRE;
+      // Off the part of the land shown (Patch 5 BG-5): pinned to its edge and fainter, so every lair still shows which way it lies.
+      const inset = 5 * px;
+      const off = shown !== undefined && (x < shown.minX || x > shown.maxX || z < shown.minZ || z > shown.maxZ);
+      if (off) {
+        x = Math.min(shown.maxX - inset, Math.max(shown.minX + inset, x));
+        z = Math.min(shown.maxZ - inset, Math.max(shown.minZ + inset, z));
+      }
+      ctx.globalAlpha = off ? 0.6 : 1;
       ctx.lineWidth = 1.5 * px;
       ctx.strokeStyle = '#000000';
       if (m.mob >= 0) {
@@ -1112,6 +1168,7 @@ export class WorldView {
         ctx.stroke();
       }
     }
+    ctx.globalAlpha = 1;
     // The neutral peoples found: a diamond in each people's colour, ringed red at war.
     for (const f of this.game?.info?.peoples ?? []) {
       const x = f.x / WU_PER_METRE;

@@ -108,7 +108,7 @@ export interface ResearchSpec {
   cost: Cost;
   steps: number;
   opens: string;
-  /** What must come first: a main base level (Patch 2: in place of a forge level or a building), another research, a thing made once. */
+  /** What must come first: a main base tier (Patch 2: in place of a forge level or a building; Patch 5: tiers, not levels), another research, a thing made once. */
   base?: number;
   after?: Research;
   made?: number;
@@ -135,7 +135,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Tier 4 (bronze): bronze ingots, bronze weapons, armour and tools, and mining bog iron and iron rock.',
   },
   {
-    id: Research.DeepMining1, name: 'Deep Mining I', key: 'D', cost: [[Res.BronzeIngot, 20], [Res.Stone, 50]], steps: sec(90), after: Research.Bronze, base: 4,
+    id: Research.DeepMining1, name: 'Deep Mining I', key: 'D', cost: [[Res.BronzeIngot, 20], [Res.Stone, 50]], steps: sec(90), after: Research.Bronze, base: 3,
     opens: 'The Mineshaft: stone and copper, tin, iron rock or coal.',
   },
   {
@@ -145,7 +145,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
   },
   {
     // One crossbow research (Jade), after Steel (s): the tier 7 steel-prod crossbow for rangers.
-    id: Research.Crossbows, name: 'Crossbows', key: 'C', cost: [[Res.WroughtIron, 10], [Res.HardwoodLumber, 20]], steps: sec(90), after: Research.Steel,
+    id: Research.Crossbows, name: 'Crossbows', key: 'C', cost: [[Res.WroughtIron, 10], [Res.AnyLumber, 20]], steps: sec(90), after: Research.Steel,
     opens: 'The tier 7 steel-prod crossbow for rangers.',
   },
   {
@@ -153,15 +153,15 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'The Warding and Counterspell spells.',
   },
   {
-    id: Research.DeepMining2, name: 'Deep Mining II', key: 'E', cost: [[Res.WroughtIron, 30], [Res.Stone, 100], [Res.Silver, 3]], steps: sec(120), base: 6,
+    id: Research.DeepMining2, name: 'Deep Mining II', key: 'E', cost: [[Res.WroughtIron, 30], [Res.Stone, 100], [Res.Silver, 3]], steps: sec(120), base: 3,
     opens: 'Every mineshaft digs deeper: vein iron, coal, silver or gold, gems.',
   },
   {
-    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.HardwoodLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), base: 5,
-    opens: 'The catapult at the Artillery workshop, and the ballista at main base 7.',
+    id: Research.SiegeEngines, name: 'Siege engines', key: 'G', cost: [[Res.AnyLumber, 40], [Res.Rope, 10], [Res.BronzeIngot, 10]], steps: sec(120), base: 3,
+    opens: 'The catapult and the ballista at the Artillery workshop.',
   },
   {
-    id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), base: 7, made: Made.PigIron,
+    id: Research.Steel, name: 'Steel', key: 'S', cost: [[Res.PigIron, 10], [Res.Charcoal, 20]], steps: sec(150), base: 3, made: Made.PigIron,
     opens: 'Tier 7 (steel): steel ingots, and steel weapons, armour and tools.',
   },
   {
@@ -174,19 +174,19 @@ export const RESEARCH: readonly ResearchSpec[] = [
     opens: 'Nothing: the crossbow is ranger tier 7.',
   },
   {
-    id: Research.DeepMining3, name: 'Deep Mining III', key: 'M', cost: [[Res.SteelIngot, 30], [Res.Stone, 200], [Res.Gold, 3], [Res.Silver, 3]], steps: sec(180), after: Research.Steel, base: 8,
+    id: Research.DeepMining3, name: 'Deep Mining III', key: 'M', cost: [[Res.SteelIngot, 30], [Res.Stone, 200], [Res.Gold, 3], [Res.Silver, 3]], steps: sec(180), after: Research.Steel, base: 3,
     opens: 'Every mineshaft digs deepest: more vein iron and coal, lead, gold, gems; never worked out.',
   },
   {
-    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), base: 7,
+    id: Research.Gunpowder, name: 'Gunpowder', key: 'P', cost: [[Res.Saltpetre, 10], [Res.Sulphur, 5], [Res.Charcoal, 10]], steps: sec(150), base: 3,
     opens: 'Gunpowder at the Forge.',
   },
   {
-    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), after: Research.Gunpowder, base: 8,
+    id: Research.Muskets, name: 'Muskets', key: 'U', cost: [[Res.SteelIngot, 10], [Res.Gunpowder, 10]], steps: sec(180), after: Research.Gunpowder, base: 4,
     opens: 'The tier 8 flintlock musket ranger, and the brawler (with Carbon steel).',
   },
   {
-    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.HardwoodLumber, 20]], steps: sec(210), after: Research.Gunpowder, base: 8,
+    id: Research.Cannons, name: 'Cannons', key: 'N', cost: [[Res.BronzeIngot, 20], [Res.Gunpowder, 10], [Res.AnyLumber, 20]], steps: sec(210), after: Research.Gunpowder, base: 4,
     opens: 'The bronze and iron cannons at the Artillery workshop.',
   },
 ];

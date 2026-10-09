@@ -33,7 +33,7 @@ import { bagEmpty } from './loot.ts';
 import { answerKinds, askNow, isAsking } from './questions.ts';
 import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
 
-/** At dusk, a worker gathering by itself this near one of the players' buildings (measured from its walls; lights and earthworks are not buildings here) may ask to work on through the night (Jade): 25 m. */
+/** At dusk, a worker gathering by itself this near one of the players' buildings (measured from its walls; lights are not buildings here) may ask to work on through the night (Jade): 25 m. */
 export const NIGHT_WORK_BUILDING_M = 25;
 /** ...and this near a troop: any combat unit of the players', a warrior of any type, a mage or an engine (Jade): 50 m. */
 export const NIGHT_WORK_TROOP_M = 50;
@@ -55,10 +55,10 @@ type ForageOrder = Extract<UnitOrder, { t: 'forage' }>;
 
 // ----- where it may work on -----
 
-/** What counts as a building here: a finished one standing, not a light (torch post, bonfire) or an earthwork (s). */
+/** What counts as a building here: a finished one standing, not a light (torch post, bonfire) (s). */
 function counts(b: Building): boolean {
   if (!b.complete || b.hp <= 0) return false;
-  return b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.Bonfire && b.kind !== BuildingKind.Earthworks && b.kind !== BuildingKind.Ramp;
+  return b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.Bonfire;
 }
 
 /** Whether a point (wu) lies within `m` metres of a building of any player's (co-op: the players' side), from its walls. */
@@ -170,7 +170,7 @@ export function workOnTonight(state: SimState, i: number, o: ForageOrder): boole
   const text = n === 1 ? 'Should I keep working through the night?' : `Should the ${NUMBER_WORDS[n] ?? String(n)} of us keep working through the night?`;
   const yes = `${n === 1 ? 'It keeps' : 'They keep'} gathering through the night, taking only what lies within ${NIGHT_WORK_REACH_M} m of a building, and ${n === 1 ? 'comes' : 'come'} in once nothing is left there. Not answering counts as Yes. Takes nothing from the stock.`;
   const ids = group.map((j) => e.id[j]!);
-  askNow(state, player, e.id[i]!, false, { q: NIGHT_WORK_ASK, units: ids, res: -1, yes, no: noText(state, player, n, e.x[i]!, e.z[i]!) }, text, () => isDark(state.step, state.blood) && ids.some((id) => workingOn(state, id, player)));
+  askNow(state, player, e.id[i]!, false, { q: NIGHT_WORK_ASK, units: ids, res: -1, yes, no: noText(state, player, n, e.x[i]!, e.z[i]!) }, text, () => isDark(state.step) && ids.some((id) => workingOn(state, id, player)));
   return true;
 }
 
@@ -259,7 +259,7 @@ export function comeOut(state: SimState, i: number): void {
  * still on their way in turn back the same way).
  */
 export function releaseSheltered(state: SimState): void {
-  const c = clockAt(state.step, state.blood);
+  const c = clockAt(state.step);
   const p = c.period;
   if (p !== Period.Dawn && p !== Period.Day) return;
   if (c.into !== 0 && state.step % DAWN_LOOK_STEPS !== 0) return;

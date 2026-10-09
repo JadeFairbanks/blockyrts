@@ -3,7 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   CloseReason,
+  decodeOrders,
   decodeServer,
+  encodeOrders,
   FrameFlag,
   HostChoice,
   NO_ORDERS,
@@ -13,6 +15,8 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from '@blockyrts/protocol';
+import type { AccountService } from '../src/accounts.ts';
+import { Relay } from '../src/relay/relay.ts';
 import { Room, type Conn } from '../src/relay/room.ts';
 
 class FakeConn implements Conn {
@@ -20,7 +24,11 @@ class FakeConn implements Conn {
   readonly id = FakeConn.next++;
   readonly got: ServerMessage[] = [];
   closed: number | null = null;
-  constructor(public identity: Conn['identity']) {}
+  debugger = false;
+  constructor(
+    public identity: Conn['identity'],
+    readonly address = '10.0.0.1',
+  ) {}
   send(bytes: Uint8Array): void {
     this.got.push(decodeServer(bytes));
   }
@@ -235,5 +243,79 @@ describe('match', () => {
     start();
     send(0, { type: 'hostChoice', slot: 0, choice: HostChoice.SaveAndQuit });
     expect(conns[1]!.last('roomClosed')).toEqual({ type: 'roomClosed', reason: CloseReason.SavedAndQuit });
+  });
+});
+
+describe('Patch 5: kicks, private games and the debugger', () => {
+  const joinMsg = { type: 'joinRoom', code: 'ABCDEF', rejoinToken: '', haveStep: -1 } as const;
+
+  it('lets the host remove a player in the lobby, who cannot come back', () => {
+    const { room, conns, send } = setup(3);
+    send(1, { type: 'kick', slot: 2 });
+    expect(conns[1]!.last('error')?.code).toBe('not_host');
+    send(0, { type: 'kick', slot: 2 });
+    expect(conns[2]!.last('roomClosed')).toEqual({ type: 'roomClosed', reason: CloseReason.Kicked });
+    expect(conns[2]!.closed).toBe(1000);
+    expect(conns[0]!.last('roomState')!.players.map((p) => p.slot)).toEqual([0, 1]);
+    // The same guest again, with a new session from the same address: refused.
+    const back = new FakeConn({ tokenHash: 'new', account: null, name: 'p2 again' });
+    expect(room.join(back, joinMsg, 0)).toBe(false);
+    expect(back.last('error')?.code).toBe('kicked');
+    expect(room.bans({ accountId: '', tokenHash: 'x', address: '10.0.0.1' })).toBe(true);
+    // A signed-in player from that address is someone else.
+    expect(room.join(person('friend', 'acc9'), joinMsg, 0)).toBe(true);
+  });
+
+  it('keeps a kicked account out from anywhere, and allows no kicks once the match runs', () => {
+    const { room, conns, send, start } = setup(2);
+    const acc = person('named', 'acc5');
+    room.join(acc, joinMsg, 0);
+    send(0, { type: 'kick', slot: 2 });
+    const again = new FakeConn({ tokenHash: 'other', account: { id: 'acc5', email: 'n@x.y', username: 'named' }, name: 'named' }, '192.168.1.1');
+    expect(room.join(again, joinMsg, 0)).toBe(false);
+    start();
+    send(0, { type: 'kick', slot: 1 });
+    expect(conns[0]!.last('error')?.code).toBe('not_lobby');
+  });
+
+  it('says whether a game is private', () => {
+    const room = new Room({ code: 'PRIV', matchId: 'm', seed: 1, save: null, now: 0, isPrivate: true, hooks: { setMatchOwner: () => undefined, closed: () => undefined, log: () => undefined } });
+    const c = person('host');
+    room.create(c, 0);
+    expect(c.last('roomState')!.private).toBe(true);
+  });
+
+  it('drops debugger orders from players the server does not allow, and keeps the rest', () => {
+    const { conns, send, start } = setup(2);
+    conns[0]!.debugger = true;
+    start();
+    const orders = encodeOrders([{ kind: 'debugGod', player: 0, on: true }, { kind: 'hold', player: 0, units: [] }]);
+    send(0, { type: 'frame', step: 0, orders });
+    send(1, { type: 'frame', step: 0, orders });
+    const frames = conns[1]!.all('frame').map((m) => decodeOrders(m.frame.orders).map((o) => o['kind']));
+    expect(frames).toEqual([['debugGod', 'hold'], ['hold']]);
+  });
+
+  it('lists open games public first, newest first, and hides private codes and games that kicked you', () => {
+    const relay = new Relay({ accounts: {} as AccountService, saves: {} as never, db: {} as never, tokenOf: () => '', addressOf: () => '', allowedOrigins: [], log: () => undefined });
+    const hooks = { setMatchOwner: () => undefined, closed: () => undefined, log: () => undefined };
+    const open = (code: string, now: number, isPrivate: boolean): Room => {
+      const r = new Room({ code, matchId: code, seed: 1, save: null, now, isPrivate, hooks });
+      r.create(person(`host ${code}`), now);
+      relay.rooms.set(code, r);
+      return r;
+    };
+    open('PUBOLD', 1, false);
+    open('PRIVAT', 3, true);
+    const kicker = open('PUBNEW', 2, false);
+    const full = open('FULLUP', 4, false);
+    for (let i = 1; i < 8; i++) full.join(person(`f${i}`), { type: 'joinRoom', code: 'FULLUP', rejoinToken: '', haveStep: -1 }, 4);
+    const victim = new FakeConn({ tokenHash: 'vt', account: null, name: 'v' }, '1.2.3.4');
+    kicker.join(victim, { type: 'joinRoom', code: 'PUBNEW', rejoinToken: '', haveStep: -1 }, 2);
+    kicker.handle(kicker.players[0]!.conn!, { type: 'kick', slot: 1 }, 2);
+    const seen = (accountId: string, tokenHash: string, address: string): string[] => relay.openRooms({ accountId, tokenHash, address }).map((r) => r.code || `private:${r.hostName}`);
+    expect(seen('', 'anyone', '9.9.9.9')).toEqual(['PUBNEW', 'PUBOLD', 'private:host PRIVAT']);
+    expect(seen('', 'vt', '5.5.5.5')).toEqual(['PUBOLD', 'private:host PRIVAT']);
+    void relay.close();
   });
 });

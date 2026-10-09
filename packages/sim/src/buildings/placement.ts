@@ -10,7 +10,7 @@ import { floorDiv } from '../fixed.ts';
 import { Band } from '../world/layout.ts';
 import { CHUNK_SHIFT, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
-import type { SimState } from '../state.ts';
+import { isGod, type SimState } from '../state.ts';
 import { BuildingKind, buildingSpec, levelSpec } from './data.ts';
 import { footprintDims } from './footprints.ts';
 import { Mat } from '../world/materials.ts';
@@ -156,7 +156,7 @@ export function onStone(state: SimState, x: number, z: number, variant = 0): boo
 }
 
 
-/** The highest level of a complete main base the player has (0 for none). */
+/** The highest tier of a complete main base the player has (0 for none). */
 export function mainBaseLevel(state: SimState, player: number): number {
   let best = 0;
   for (const b of state.buildings.list) {
@@ -165,13 +165,15 @@ export function mainBaseLevel(state: SimState, player: number): number {
   return best;
 }
 
-/** Why a building (level 1) cannot be ordered at all, or '' if it can: not live yet, a missing research, or the main base level. */
+/** Why a building (level 1) cannot be ordered at all, or '' if it can: not live yet, a missing research, or the main base tier. */
 export function buildRequirement(state: SimState, player: number, kind: number): string {
   const spec = buildingSpec(kind);
   if (!spec.live) return spec.comesWith;
   const l = levelSpec(kind, 1);
   if (l.needs) return l.needs;
-  if (l.needsBase > mainBaseLevel(state, player)) return `Needs a level ${l.needsBase} main base.`;
+  // Godmode needs no main base tier or research first, and has no cap on research buildings (Jade's Patch 5).
+  if (isGod(state, player)) return '';
+  if (l.needsBase > mainBaseLevel(state, player)) return `Needs a tier ${l.needsBase} main base.`;
   if (l.research && (state.players[player]!.research & (1 << l.research)) === 0) return `Needs ${RESEARCH[l.research]!.name} researched first.`;
   if (kind === BuildingKind.ScholarsLodge && countOf(state, player, kind) >= RESEARCH_FACILITY_CAP) return `At most ${RESEARCH_FACILITY_CAP} research buildings.`;
   return '';

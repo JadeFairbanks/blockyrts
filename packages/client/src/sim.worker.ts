@@ -334,7 +334,7 @@ function postInfo(s: SimState): void {
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
     if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
   }
-  const c = clockAt(s.step, s.blood);
+  const c = clockAt(s.step);
   const night = c.period === Period.Dawn ? c.cycle + 1 : c.cycle;
   const me = s.players[PLAYER]!;
   const pool = me.pool.slice();
@@ -356,15 +356,15 @@ function postInfo(s: SimState): void {
       forge: forgeStepOf(s, PLAYER),
       sites: s.sites.filter((x) => x.owner === PLAYER).map((x) => ({ ...x })),
       over: s.over,
-      nights: nightsSurvived(s.over || s.step, s.blood),
+      nights: nightsSurvived(s.over || s.step),
       out: me.out !== 0,
       rations: me.rations,
       kept: FOODS.filter((f) => me.kept[f]),
       open,
       starveWorkers: me.starveWorkers > 0,
       starveTroops: me.starveTroops > 0,
-      blood: s.blood.slice(),
       fog: fogged(s),
+      god: me.god === 1,
       ruins: s.threats.ruins.map((r): [number, number, number] => [r.mob, r.x, r.z]),
       marks: threatMarks(s, PLAYER),
       spells,
@@ -439,7 +439,7 @@ function runStep(s: SimState, orders: Order[]): void {
   for (const h of s.hits) hits.push(h);
   postState(s);
   // Autosave at every dawn (Saving and disconnects): the same bytes on every machine.
-  if (periodStarting(s.step - 1, s.blood) === Period.Dawn) {
+  if (periodStarting(s.step - 1) === Period.Dawn) {
     const data = serializeState(s);
     send({ type: 'dawn', step: s.step, night: nightOf(s), data }, [data.buffer]);
   }
@@ -460,7 +460,7 @@ function heard(s: SimState, ev: SimEvent): boolean {
 
 /** The night count for a save's header and the Load screen: the nights survived so far. */
 function nightOf(s: SimState): number {
-  return nightsSurvived(s.step, s.blood);
+  return nightsSurvived(s.step);
 }
 
 /** One online step's orders: each slot's, stamped with its seat (the relay says who sent a frame), then the leavers. */

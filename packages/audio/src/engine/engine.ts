@@ -90,7 +90,7 @@ interface MusicVoice {
 }
 
 /** The cycle of the day, for loading the next state ahead of time. */
-const NEXT: Record<MusicId, MusicId | null> = { day: 'dusk', dusk: 'night', night: 'dawn', dawn: 'day', blood_night: 'dawn', menu: null };
+const NEXT: Record<MusicId, MusicId | null> = { day: 'dusk', dusk: 'night', night: 'dawn', dawn: 'day', menu: null };
 /** Music states kept decoded: the one playing and the next. */
 const MUSIC_CACHE = 2;
 
@@ -448,7 +448,7 @@ export class AudioEngine {
 
   /**
    * How tense the music is, 0 to 1: fades in each state's tension layers
-   * (war drums, battle drums, stabs). The client raises it when fighting
+   * (war drums, battle drums, alarm bells). The client raises it when fighting
    * is on screen.
    */
   setMusicIntensity(value: number, seconds = 2): void {
@@ -460,7 +460,7 @@ export class AudioEngine {
     return this.intensity;
   }
 
-  /** Loads or renders a state's music ahead of time (call at dusk for a coming blood night). */
+  /** Loads or renders a state's music ahead of time. */
   prepareMusic(state: MusicId): Promise<void> {
     if (this.music.has(state)) return Promise.resolve();
     let p = this.musicRequested.get(state);
@@ -565,7 +565,7 @@ export class AudioEngine {
   // ------------------------------------------------------------ ambience
 
   /**
-   * The background loop under the music (day, night, blood night), on the
+   * The background loop under the music (day and night), on the
    * effects slider, crossfading like the music. Files only: without its
    * file there is no ambience. null stops it.
    */

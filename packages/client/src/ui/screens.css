@@ -412,6 +412,33 @@
   padding: 1px 10px 3px;
   font-size: 20px;
 }
+/* A save out of date with the live game (Patch 5): greyed out, with only the button that takes it away. */
+.save-row.outdated .save-title,
+.save-row.outdated .save-text > .note:not(.warn) {
+  color: var(--parchment-muted);
+  opacity: 0.6;
+}
+/* Private games sit below the public ones in the open games list (Patch 5). */
+.save-row.private .save-title {
+  color: #d9b878;
+}
+.dialog .private-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 8px;
+  margin: 8px 0;
+}
+.dialog .private-toggle small {
+  grid-column: 2;
+  color: var(--parchment-muted);
+}
+/* The host's Remove button on each other player's row in the lobby (Patch 5). */
+.dialog .lobby-player button.kick {
+  min-height: 28px;
+  padding: 0 8px 2px;
+  font-size: 18px;
+}
 
 /* ---- The lobby ---- */
 .invite {
@@ -758,5 +785,47 @@
   .touch-answers button.big {
     min-height: 50px;
     font-size: 24px;
+  }
+}
+
+/* How to Play and Patch notes on the main menu, with the newest update's name (EX-4: "New update: ..."). */
+.main-menu .update-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(380px, 100%);
+}
+.main-menu .update-row button {
+  flex: 1;
+}
+.update-mark {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: rgba(240, 200, 96, 0.16);
+  border: 1px solid rgba(240, 200, 96, 0.45);
+  font: 13px/1.2 system-ui, sans-serif;
+  color: var(--gold);
+  text-shadow: 1px 1px 0 var(--ink);
+  white-space: nowrap;
+}
+.update-mark.unread {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 700;
+  text-shadow: none;
+  animation: update-glow 1.8s ease-in-out infinite alternate;
+}
+@keyframes update-glow {
+  from {
+    box-shadow: 0 0 0 rgba(240, 200, 96, 0);
+  }
+  to {
+    box-shadow: 0 0 14px rgba(240, 200, 96, 0.75);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-mark.unread {
+    animation: none;
   }
 }

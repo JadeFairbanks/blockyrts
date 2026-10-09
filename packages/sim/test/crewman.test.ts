@@ -119,13 +119,13 @@ describe('the artillery crewman (Patch 2)', () => {
     const { s, yard } = setup();
     const e = s.entities;
     const p = s.players[0]!;
-    bigHouse(s).level = 5;
+    bigHouse(s).level = 3;
     p.research |= 1 << Research.SiegeEngines;
     const product = ENGINE_PRODUCT + Engine.Catapult;
     expect(productSpec(product).food).toBe(engineSpec(Engine.Catapult).crew * CREWMAN.food);
     expect(supplyNeed(product)).toBe(2);
     expect(productProblem(s, yard, product)).toMatch(/^Not enough resources/);
-    for (const [r, n] of engineSpec(Engine.Catapult).cost) p.pool[r] = n;
+    for (const [r, n] of engineSpec(Engine.Catapult).cost) p.pool[r === Res.AnyLumber ? Res.SoftwoodLumber : r] = n;
     expect(productProblem(s, yard, product)).toBe('');
     run(s, 1, [{ kind: 'produce', player: 0, building: yard.id, product, count: 1 }]);
     let cat = -1;

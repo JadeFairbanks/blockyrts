@@ -45,7 +45,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     type: 'info', step: 10, pool: p, supplyUsed: 2, supplyCap: 8, buildings, queues: [[1, []], [2, []]], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -96,11 +96,10 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
     // Patch 4: no fifteenth place kept for Back on the grid's B.
     expect(slots).toHaveLength(14);
     expect(submenuChoices(slots[12]!).map((c) => c.name)).toEqual([
-      'Softwood wall', 'Hardwood wall', 'Stone wall',
-      'Softwood gate (east to west)', 'Softwood gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
+      'Wooden wall', 'Hardwood wall', 'Stone wall',
+      'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
-      'Softwood tower', 'Hardwood tower', 'Stone tower',
-      'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp',
+      'Wooden tower', 'Hardwood tower', 'Stone tower',
     ]);
   });
 });
@@ -116,7 +115,7 @@ describe('the worker card', () => {
     expect(button(card, 'prospect').enabled).toBe(true); // Prospect (milestone 4)
     expect(button(card, 'returnCargo').enabled).toBe(true); // worker 2 carries something
     expect(button(card, 'returnCargo').name).toBe('Unload');
-    expect(button(card, 'equip').reason).toBe('Not enough resources (3 hardwood sticks).');
+    expect(button(card, 'equip').reason).toBe('Not enough resources (3 sticks).');
     expect(button(card, 'cart').reason).toBe('There are no carts in the stock (make one at a Workshop).');
     expect(card.map((e) => e.key)).toContain('KeyG');
     // Before Patch 2: Attack, Stop, Hold and Enter, and Basic and Advanced build menus.
@@ -143,13 +142,12 @@ describe('the worker card', () => {
     expect(card[14]!.key).toBe('Escape');
     card[12]!.run({ shift: false, ctrl: false });
     card = c.card();
-    // Defences' 17 choices fit a desktop card, every one on a letter of its own (Patch 4; before, the last three were clicks).
+    // Defences' 12 choices fit a desktop card, every one on a letter of its own (Patch 5: earthworks and ramps are gone).
     expect(card.map((e) => e.face)).toEqual([
-      'Softwood wall', 'Hardwood wall', 'Stone wall',
-      'Softwood gate (east to west)', 'Softwood gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
+      'Wooden wall', 'Hardwood wall', 'Stone wall',
+      'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
-      'Softwood tower', 'Hardwood tower', 'Stone tower',
-      'Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp', 'Back',
+      'Wooden tower', 'Hardwood tower', 'Stone tower', 'Back',
     ]);
     expect(card.slice(0, -1).every((e) => /^Key[A-Z]$/.test(e.key))).toBe(true);
     expect(new Set(card.map((e) => e.key)).size).toBe(card.length);

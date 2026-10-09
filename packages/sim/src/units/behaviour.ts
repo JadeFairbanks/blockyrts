@@ -11,20 +11,20 @@ import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/foo
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
-import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
+import { costText, RAW_CARRY_TENTHS_LB, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
-import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
+import { HOP_SLOW_BP, hoppingUp, isGod, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
-import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
+import { carryCapacity, cartSpeed, onWheels, rawLimitTenthsLb } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
@@ -383,13 +383,14 @@ export function workOn(state: SimState, b: Building): void {
   if (!b.complete) {
     const total = workSteps(b.kind, 1);
     const before = constructionHealth(b.kind, b.progress);
-    b.progress++;
+    // Godmode (Jade's Patch 5: "you can build anything instantly"): one step of work finishes it.
+    b.progress = isGod(state, b.owner) ? total : b.progress + 1;
     b.hp += constructionHealth(b.kind, b.progress) - before;
     if (b.progress >= total) finishBuilding(state, b);
     return;
   }
   if (b.upgrading > 0) {
-    b.upProgress++;
+    b.upProgress = isGod(state, b.owner) ? workSteps(b.kind, b.upgrading) : b.upProgress + 1;
     if (b.upProgress >= workSteps(b.kind, b.upgrading)) {
       const oldMax = maxHealth(b);
       b.level = b.upgrading;
@@ -632,7 +633,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   const e = state.entities;
   // Gathering by itself (the Gather button): at dusk it stops and the forage order behind takes it home, unless it works on through the night (Jade's Patch 4).
   const after = e.queue[i]![1]?.t;
-  const nightForage = after === 'forage' && isDark(state.step, state.blood);
+  const nightForage = after === 'forage' && isDark(state.step);
   if (nightForage && goesHome(state, i)) return DONE;
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
@@ -732,10 +733,11 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       e.timer[i] = e.timer[i]! + pace;
       // A worker learns as it gathers (Patch 3: experience for the work, at the work's pace).
       workXp(state, i, Work.Gather, pace);
-      if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
-      e.timer[i] = 0;
       const room = carryCapacity(state, i, res) - (e.carryRes[i] === res ? e.carryAmt[i]! : 0);
       const want = Math.max(1, Math.min(info.perLoad, room));
+      // Less than a full load (the last of a cart, or 3 of the heavier ore, Patch 5) takes its share of the time (s).
+      if (e.timer[i]! < floorDiv(info.loadSteps * 1000 * want, info.perLoad)) return CONTINUE;
+      e.timer[i] = 0;
       const before = view.amount;
       const taken = state.world.harvest(o.cx, o.cz, o.i, want, state.step);
       // An Elf may be watching (Elves: tree warnings).
@@ -759,6 +761,18 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       }
       // A cart or pack is filled at the node before the trip home, and so is a fisher's catch.
       if (e.carryAmt[i]! < carryCapacity(state, i, res) && (before - taken > 0 || isFish(view.kind))) return CONTINUE;
+      // Patch 5 (Jade, BL-12: a cart worth using): a cart or pack with room left moves on to the nearest node of the same kind before the trip home (s).
+      if (e.carryAmt[i]! < carryCapacity(state, i, res) && rawLimitTenthsLb(state, i) > RAW_CARRY_TENTHS_LB) {
+        const alt = findNode(state, i, res, nx, nz, NODE_SEARCH_COLUMNS, o);
+        if (alt) {
+          o.cx = alt.cx;
+          o.cz = alt.cz;
+          o.i = alt.i;
+          e.act[i] = Act.Walk;
+          resetWalk(state, i);
+          return CONTINUE;
+        }
+      }
       e.act[i] = Act.ToDrop;
       resetWalk(state, i);
       return CONTINUE;
@@ -1024,7 +1038,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
 
 /** A worker sent up top that shelters inside instead: in the dark it is in for the night and comes out at dawn once no monster is near (Jade's Patch 4, units/night-work.ts); by day it stays until let out. */
 function shelterFallback(state: SimState): number {
-  return isDark(state.step, state.blood) ? ENTER_NIGHT : 0;
+  return isDark(state.step) ? ENTER_NIGHT : 0;
 }
 
 /** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
@@ -1104,12 +1118,12 @@ function runJob(state: SimState, i: number, o: Extract<UnitOrder, { t: 'job' }>)
   if (b.kind === BuildingKind.Mineshaft) return runMiner(state, i, b);
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   // Farmers work the field by day and shelter in their own farmhouse at dusk and night; mill hands work inside.
-  const indoors = !isFarm(b.kind) || isDark(state.step, state.blood);
+  const indoors = !isFarm(b.kind) || isDark(state.step);
   if (indoors) {
     if (e.inside[i] === b.id) {
       e.act[i] = Act.Work;
       // A dock hand learns as it fishes, by day as a gatherer works (Patch 3); a farmer sheltering for the night does not.
-      if (!isDark(state.step, state.blood)) workXp(state, i, Work.Gather);
+      if (!isDark(state.step)) workXp(state, i, Work.Gather);
       return CONTINUE;
     }
     const r = walkTo(state, i, besideBuilding(b));
@@ -1184,7 +1198,7 @@ function runMiner(state: SimState, i: number, b: Building): boolean {
     return CONTINUE;
   }
   e.timer[i] = e.timer[i]! + 1;
-  const dark = isDark(state.step, state.blood);
+  const dark = isDark(state.step);
   // A miner down the shaft learns as it digs, by day as a gatherer works (Patch 3).
   if (!dark) workXp(state, i, Work.Gather);
   if (dark || b.stock.length === 0 || firstMiner(state, b) !== i) return CONTINUE;
@@ -1301,7 +1315,7 @@ function runTrain(state: SimState, i: number, o: Extract<UnitOrder, { t: 'train'
   if (!b || !t || b.kind !== rankTrainedAt(e.kind[i]!) || !b.complete || b.owner !== e.owner[i]) return DONE;
   if (e.inside[i] !== b.id) {
     if (mainBaseLevel(state, b.owner) < t.base) {
-      alert(state, b.owner, `Training to ${t.name} needs a level ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
+      alert(state, b.owner, `Training to ${t.name} needs a tier ${t.base} main base.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     const r = walkTo(state, i, besideBuilding(b));

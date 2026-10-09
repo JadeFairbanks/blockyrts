@@ -462,26 +462,6 @@ export function buildCatalog(mods: SimModules, docs: SimDocs): Catalog {
       const doc = declared[name]?.doc ?? '';
       const base: Omit<Ctx, 'entryId'> = { mods, docs, refs, module, exportName: name, fields };
 
-      if (name === 'NUMBER_TABLES' && Array.isArray(value)) {
-        for (const t of value as Array<{ id: string; title: string; caption: string; columns: string[]; rows: Array<Array<{ text: string; suggested: boolean }>>; notes: string[] }>) {
-          const id = `${module}:${name}:${t.id}`;
-          const children: CatNode[] = [];
-          if (t.caption) children.push({ type: 'text', label: 'Caption', text: t.caption });
-          t.rows.forEach((row) => {
-            const head = row[0]?.text ?? '';
-            children.push({
-              type: 'section', label: head.length > 80 ? `${head.slice(0, 77)}...` : head, doc: '', open: true,
-              children: row.slice(1).map((c, ci) => ({ type: 'text', label: `${t.columns[ci + 1] ?? ''}${c.suggested ? ' (suggested)' : ''}`, text: c.text })),
-            });
-          });
-          t.notes.forEach((n) => children.push({ type: 'text', label: 'Note', text: n }));
-          const e: Entry = { id, group, menu: [], label: `Table ${t.id}: ${t.title}`, module, path: [name], doc: '', children, usedBy: [] };
-          entries.set(id, e);
-          byGroup.get(group)!.push(e);
-        }
-        continue;
-      }
-
       // One entry per record: a row of an entry array, or a single record (the brawler's kit).
       const addRecord = (r: Record<string, unknown>, path: DataPath, id: string, i: number): void => {
         const ctx: Ctx = { ...base, entryId: id };

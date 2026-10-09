@@ -4,13 +4,19 @@
 // Big House has levels. Every other building is built once and never
 // upgraded; what one of its old tiers or levels unlocked now comes at the
 // main base level that tier needed (recipes.ts, siege/data.ts, the research
-// in combat/items.ts and the kit tiers in units/kits.ts).
+// in combat/items.ts and the kit tiers in units/kits.ts). Patch 5 (Jade)
+// condensed the main base's ten levels into four tiers, and every main base
+// requirement moved to the tier its old level fell into: levels 2 and 3 to
+// tier 2, 4 to 7 to tier 3, 8 to 10 to tier 4 (Deep Mining III to tier 3),
+// so only the Cannons and Muskets research and the Citadel's own engines
+// wait on tier 4. Lumber in a cost is either kind (Patch 5), but for the
+// hardwood walls, gates and towers.
 
 import { Res, type Cost } from '../economy/resources.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 
-/** Building kinds. Patch 2 cut 17 of them and the ids closed up; the ones it kept or added are in build menu order, then the defences' other materials. */
+/** Building kinds. Patch 2 cut 17 of them and Patch 5 the earthworks and ramps, and the ids closed up each time; the ones kept or added are in build menu order, then the defences' other materials. */
 export const BuildingKind = {
   MainBase: 0,
   /** Patch 2: one Farm, in place of the crop field, vegetable farm and herb bed. */
@@ -32,21 +38,19 @@ export const BuildingKind = {
   Wall: 12,
   Gate: 13,
   Tower: 14,
-  Earthworks: 15,
-  Ramp: 16,
-  TorchPost: 17,
+  TorchPost: 15,
   /** Patch 2 (Jade, round 4): the bonfire, in place of the brazier. */
-  Bonfire: 18,
-  WallHardwood: 19,
-  WallStone: 20,
-  GateHardwood: 21,
-  GateStone: 22,
-  TowerHardwood: 23,
-  TowerStone: 24,
+  Bonfire: 16,
+  WallHardwood: 17,
+  WallStone: 18,
+  GateHardwood: 19,
+  GateStone: 20,
+  TowerHardwood: 21,
+  TowerStone: 22,
 } as const;
 export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
 
-/** One level of a building: the Big House has ten (costs above the first are the upgrade's cost), every other building one. */
+/** One level of a building: the main base has four, its tiers (costs above the first are the upgrade's cost), every other building one. */
 export interface LevelSpec {
   name: string;
   cost: Cost;
@@ -54,7 +58,7 @@ export interface LevelSpec {
   ws: number;
   health: number;
   supply: number;
-  /** Main base level needed to place or upgrade to this level; 0 for none. */
+  /** Main base tier needed to place or upgrade to this level; 0 for none. */
   needsBase: number;
   /** A research or other need not met in this milestone, shown as the greyed reason; '' for none. */
   needs: string;
@@ -87,7 +91,7 @@ export interface BuildingSpec {
    * 14; 0 for none. Kinds that share a slot open a submenu named `group`.
    */
   slot: number;
-  /** The submenu a kind sits in: Defences (walls, gates, towers, earthworks) or Lights. */
+  /** The submenu a kind sits in: Defences (walls, gates and towers) or Lights. */
   group?: 'Defences' | 'Lights';
   /** Footprint in 45 cm columns at level 1; which columns are solid, and how it grows, is in footprints.ts. */
   w: number;
@@ -116,35 +120,27 @@ export interface BuildingSpec {
   defence?: 'wall' | 'gate' | 'tower';
   /** Wooden (softwood or hardwood): chips of wood when hit, rats gnaw wooden gates. */
   wooden?: boolean;
-  /** Men it takes on its top (Table 4: tower 4 slots; parapets 8 from main base level 3), anyone on foot (units/top.ts). */
+  /** Men it takes on its top (Table 4: tower 4 slots; parapets 8 from main base tier 2), anyone on foot (units/top.ts). */
   slots?: number;
   /** Extra sight for the units inside, metres (towers +10 m). */
   sightBonusM?: number;
-  /** Earthworks are dug or heaped land, not a building: they have their own order. */
-  site?: boolean;
 }
 
 const lvl = (name: string, cost: Cost, ws: number, health: number, o: Partial<LevelSpec> = {}): LevelSpec => ({
   name, cost, ws, health, supply: 0, needsBase: 0, needs: '', shelters: 0, workers: 0, gives: '', research: 0, ...o,
 });
 
-const S = Res.SoftwoodLumber;
-/** Any lumber, softwood or hardwood, whichever is in stock (Jade's mini balance: the Farm, Barn, Storehouse, Torch post and Bonfire). */
+/** Any lumber, softwood or hardwood, whichever is in stock (Jade's mini balance; every lumber cost from Patch 5). */
 const L = Res.AnyLumber;
+/** Hardwood itself: only the hardwood walls, gates and towers ask for it (Patch 5). */
 const H = Res.HardwoodLumber;
 const ST = Res.Stone;
 
 const MAIN_BASE_GIVES = [
   'drop-off for everything, trains workers and tier 1 troops; shelters 8',
-  'Barracks',
-  'parapets with room for 8 up top; cavalry; the Forge\'s wrought iron, charcoal, bricks and glass; the Workshop\'s charms and hand carts',
-  'Magi Sanctum, Mineshaft',
-  'the Forge\'s pig iron and iron; the Workshop\'s brooches, moonleafs and ox carts; the Artillery workshop and catapults; the first marble level',
-  'trains mages',
-  'the Forge\'s steel, carbon steel and gunpowder; the Workshop\'s heirlooms and sunhearts; ballistas',
-  'cannons',
-  'marble facing and banners',
-  '4 cannon ports on the roof',
+  'the Barracks; parapets with room for 8 up top; cavalry; the Forge\'s wrought iron, charcoal, bricks and glass; the Workshop\'s charms and hand carts',
+  'the Magi Sanctum, Mineshaft and Artillery workshop; trains mages; the Forge\'s pig iron, iron, steel, carbon steel and gunpowder; the Workshop\'s brooches, heirlooms, moonleafs, sunhearts and ox carts; catapults and ballistas; marble',
+  'the Cannons and Muskets research and cannons; 4 cannon ports on the roof',
 ];
 
 const mainBase = (name: string, cost: Cost, ws: number, health: number, supply: number, n: number, needs = ''): LevelSpec =>
@@ -152,7 +148,6 @@ const mainBase = (name: string, cost: Cost, ws: number, health: number, supply: 
 
 /** Research steps buildings need (the same numbers as combat/items.ts Research). */
 const DEEP_MINING_1 = 3;
-const BRONZE = 2;
 
 /** A wall column (Table 4): 1 x 1, 3 m tall (stone 3.6 m). */
 /** 360 as '3.6', 300 as '3'. */
@@ -162,7 +157,7 @@ function metresText(cm: number): string {
   return rest === 0 ? `${whole}` : `${whole}.${rest % 10 === 0 ? floorDiv(rest, 10) : rest}`;
 }
 
-/** Walls, gates, towers and earthworks share the Defences slot (Patch 2). */
+/** Walls, gates and towers share the Defences slot (Patch 2). */
 const DEFENCES = { slot: 13, group: 'Defences' } as const;
 
 function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightCm: number, wooden: boolean): SpecInput {
@@ -203,20 +198,18 @@ const withHeights = (specs: SpecInput[]): BuildingSpec[] => specs.map((sp) => ({
 /** Indexed by kind: the rows are in BuildingKind order. */
 export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
-    kind: BuildingKind.MainBase, name: 'Big House', purpose: 'The main base: drop-off for every resource, trains workers and tier 1 troops, shelters workers at night; from level 3 men go up on its parapets (E and click it). The only building with levels: it upgrades to level 10, and each level unlocks what the other buildings make.',
+    kind: BuildingKind.MainBase, name: 'Big House', purpose: 'The main base: drop-off for every resource, trains workers and tier 1 troops, shelters workers at night; from tier 2 men go up on its parapets (E and click it). The only building with tiers: it upgrades to tier 4, the Citadel, and each tier unlocks what the other buildings make.',
     slot: 1, w: 14, d: 14, dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightCm: 600,
     levels: [
       // Supply 10, not Table 4's 8 (s): Jade's extra starting supply for the three starting warriors (Troops and gear: starting units).
-      mainBase('Big House', [[S, 100], [ST, 50]], 1200, 1200, 10, 1),
-      mainBase('Longhall', [[S, 100], [ST, 40]], 400, 1600, 12, 2),
-      mainBase('Hall', [[S, 110], [ST, 45], [Res.Sticks, 15]], 420, 2000, 16, 3),
-      { ...mainBase('Stockade Hall', [[S, 120], [ST, 60], [H, 25], [Res.BronzeIngot, 5]], 450, 2500, 20, 4), research: BRONZE },
-      mainBase('Marble Hall', [[H, 75], [ST, 100], [Res.Bricks, 20], [Res.Marble, 20], [Res.BronzeIngot, 10]], 600, 3000, 25, 5),
-      mainBase('Keep', [[H, 100], [ST, 150], [Res.Bricks, 40], [Res.Marble, 30], [Res.WroughtIron, 15]], 800, 3600, 30, 6),
-      mainBase('Fortified Keep', [[H, 125], [ST, 200], [Res.Bricks, 60], [Res.Marble, 40], [Res.WroughtIron, 25]], 1000, 4200, 35, 7),
-      mainBase('Castle', [[H, 150], [ST, 250], [Res.Bricks, 100], [Res.Marble, 50], [Res.IronIngot, 30]], 1200, 5000, 40, 8),
-      mainBase('Great Castle', [[H, 150], [ST, 250], [Res.Bricks, 100], [Res.Marble, 75], [Res.SteelIngot, 30]], 1500, 6000, 45, 9),
-      mainBase('Citadel', [[H, 200], [ST, 300], [Res.Bricks, 150], [Res.Marble, 125], [Res.SteelIngot, 50], [Res.Gold, 5]], 2000, 7500, 50, 10),
+      mainBase('Big House', [[L, 100], [ST, 50]], 1200, 1200, 10, 1),
+      // Patch 5 (Jade): the tiers are the old levels 3, 6 and 10, each at that level's own upgrade cost, work and health. Only the
+      // Citadel asks for more than wood and stone: the Hall's sticks became lumber (15 sticks, 7.5 lumber, rounded up), the Keep's
+      // bricks and marble stone and its wrought iron lumber, at equal trade value (peoples/data.ts), and the Citadel adds a
+      // mana crystal (her words).
+      mainBase('Hall', [[L, 118], [ST, 45]], 420, 2000, 16, 2),
+      mainBase('Keep', [[L, 235], [ST, 370]], 800, 3600, 30, 3),
+      mainBase('Citadel', [[L, 200], [ST, 300], [Res.Bricks, 150], [Res.Marble, 125], [Res.SteelIngot, 50], [Res.Gold, 5], [Res.ManaCrystal, 1]], 2000, 7500, 50, 4),
     ],
   },
   {
@@ -241,60 +234,50 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
     kind: BuildingKind.FishingDock, name: 'Fishing dock', purpose: 'Workers fish faster and in deeper water, and shelter inside.',
     slot: 5, w: 6, d: 4, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Fishing dock', [[S, 10], [Res.Rope, 5]], 150, 400, { shelters: 3, workers: 3, gives: '3 workers fish at net speed in any depth and shelter inside' })],
+    levels: [lvl('Fishing dock', [[L, 10], [Res.Rope, 5]], 150, 400, { shelters: 3, workers: 3, gives: '3 workers fish at net speed in any depth and shelter inside' })],
   },
   {
     // The Work Hut's cost from before Patch 2 (s, Jade's rebalance).
-    kind: BuildingKind.Workshop, name: 'Workshop', purpose: 'Makes everything made by hand, with no workers: planks, leather, hardened leather and rope, bandages and remedies, gravel, sticks and ramp steps, carts and trinkets. Better goods come with the main base\'s levels.',
+    kind: BuildingKind.Workshop, name: 'Workshop', purpose: 'Makes everything made by hand, with no workers: planks, leather, hardened leather and rope, bandages and remedies, sticks, carts and trinkets. Better goods come with the main base\'s tiers.',
     slot: 6, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', crafts: true,
-    levels: [lvl('Workshop', [[S, 40], [ST, 20]], 200, 600, { gives: 'planks, leather, rope, medicine, gravel, sticks, ramp steps, carts, trinkets' })],
+    levels: [lvl('Workshop', [[L, 40], [ST, 20]], 200, 600, { gives: 'planks, leather, rope, medicine, sticks, carts, trinkets' })],
   },
   {
     // The Casting Hearth's cost from before Patch 2 (s, Jade's rebalance).
-    kind: BuildingKind.Forge, name: 'Forge', purpose: 'Makes everything made with fire, with no workers: ingots, charcoal, bricks, glass and gunpowder. Each metal comes with a main base level. Troops and workers upgrade their gear beside it.',
+    kind: BuildingKind.Forge, name: 'Forge', purpose: 'Makes everything made with fire, with no workers: ingots, charcoal, bricks, glass and gunpowder. Each metal comes with a main base tier. Troops and workers upgrade their gear beside it.',
     slot: 7, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', crafts: true,
-    levels: [lvl('Forge', [[S, 60], [ST, 40]], 300, 600, { gives: 'copper, tin and bronze; wrought iron, charcoal, bricks and glass at main base 3; pig iron and iron at 5; steel, carbon steel and gunpowder at 7' })],
+    levels: [lvl('Forge', [[L, 60], [ST, 40]], 300, 600, { gives: 'copper, tin and bronze; wrought iron, charcoal, bricks and glass at main base tier 2; pig iron, iron, steel, carbon steel and gunpowder at tier 3' })],
   },
   {
-    // The Great Workshop's upgrade cost from before Patch 2, from main base 5, where its first engine opens (s, Jade's rebalance).
-    kind: BuildingKind.ArtilleryWorkshop, name: 'Artillery workshop', purpose: 'Builds every siege engine, with no workers: catapults from main base 5, ballistas from 7, bronze and iron cannons from 8 after Cannons. Each rolls out with its full crew of artillery crewmen (catapult 2, ballista 1, cannon 2), and it trains crewmen to replace any who fall. No engine needs ammunition.',
+    // The Great Workshop's upgrade cost from before Patch 2, from main base tier 3, where its first engine opens (s, Jade's rebalance).
+    kind: BuildingKind.ArtilleryWorkshop, name: 'Artillery workshop', purpose: 'Builds every siege engine, with no workers: catapults and ballistas from main base tier 3, bronze and iron cannons at tier 4 after Cannons. Each rolls out with its full crew of artillery crewmen (catapult 2, ballista 1, cannon 2), and it trains crewmen to replace any who fall. No engine needs ammunition.',
     slot: 8, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', crafts: true,
-    levels: [lvl('Artillery workshop', [[H, 50], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 10]], 400, 1200, { needsBase: 5, gives: 'catapults, ballistas, cannons' })],
+    levels: [lvl('Artillery workshop', [[L, 50], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 10]], 400, 1200, { needsBase: 3, gives: 'catapults, ballistas, cannons' })],
   },
   {
-    kind: BuildingKind.Barracks, name: 'Barracks', purpose: 'Trains troops of every type and tier (close melee, long melee, ranger, brawler, and cavalry from main base 3 on a horse from the nearest Barn), trains them to Soldier and Veteran, and upgrades their gear.',
+    kind: BuildingKind.Barracks, name: 'Barracks', purpose: 'Trains troops of every type and tier (close melee, long melee, ranger, brawler, and cavalry from main base tier 2 on a horse from the nearest Barn), trains them to Soldier and Veteran, and upgrades their gear.',
     slot: 9, w: 10, d: 10, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Barracks', [[S, 80], [ST, 40], [Res.Sticks, 20]], 400, 1000, { needsBase: 2, gives: 'troops of every type and tier, rank training' })],
+    levels: [lvl('Barracks', [[L, 80], [ST, 40], [Res.Sticks, 20]], 400, 1000, { needsBase: 2, gives: 'troops of every type and tier, rank training' })],
   },
   {
     kind: BuildingKind.MagiSanctum, name: 'Magi Sanctum', purpose: 'Trains support and battle mages and their ranks, upgrades their wands and robes, and researches Hexcraft.',
     slot: 10, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Magi Sanctum', [[H, 40], [ST, 60], [Res.Bricks, 20], [Res.ManaCrystal, 1]], 450, 1200, { needsBase: 4, gives: 'novices, mage ranks, wand and robe upgrades' })],
+    levels: [lvl('Magi Sanctum', [[L, 40], [ST, 60], [Res.Bricks, 20], [Res.ManaCrystal, 1]], 450, 1200, { needsBase: 3, gives: 'novices, mage ranks, wand and robe upgrades' })],
   },
   {
     kind: BuildingKind.ScholarsLodge, name: "Scholar's Lodge", purpose: 'Research, one step at a time: pay the fee and it loads like training. Eats 2 food a day and uses 1 supply. Each further one costs more; at most 10.',
     slot: 11, w: 8, d: 8, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl("Scholar's Lodge", [[S, 40], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' })],
+    levels: [lvl("Scholar's Lodge", [[L, 40], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' })],
   },
   {
     kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on flat stone. 4 assigned miners go down, fill a 25 lb bag with stone, ore, coal, gold or gems, and carry it to the nearest main base or Storehouse (assign them with a right click). Deep Mining II and III let every shaft dig deeper. Prospect first (T) to see how rich the spot is.',
     slot: 12, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
-    levels: [lvl('Mineshaft', [[H, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 4, workers: 4, research: DEEP_MINING_1, gives: '4 miners: stone, ores, coal, gold and gems by depth' })],
+    levels: [lvl('Mineshaft', [[L, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 3, workers: 4, research: DEEP_MINING_1, gives: '4 miners: stone, ores, coal, gold and gems by depth' })],
   },
-  wall(BuildingKind.Wall, 'Softwood wall', [[S, 1]], 5, 300, 300, true),
-  gate(BuildingKind.Gate, 'Softwood gate', [[S, 4]], 30, 600, true),
-  tower(BuildingKind.Tower, 'Softwood tower', [[S, 15]], 100, 800, true),
-  {
-    kind: BuildingKind.Earthworks, name: 'Earthworks', purpose: 'Earth banks, ramps and fill, heaped by workers from Earth in the pool: 1 Earth and 5 worker-seconds per column per 11 cm step. Lumber and stone ramps use ramp steps made at the Workshop (5 and 8 worker-seconds a step). Drag to mark it.',
-    ...DEFENCES, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', site: true, heightCm: 0,
-    variants: ['Earth bank', 'Earth ramp', 'Fill', 'Lumber ramp', 'Stone ramp'],
-    levels: [lvl('Earthworks', [[Res.Earth, 1]], 5, 1, { gives: 'built on the spot' })],
-  },
-  {
-    kind: BuildingKind.Ramp, name: 'Lumber or stone ramp', purpose: 'Ramps made at the Workshop and placed by workers: choose Lumber ramp or Stone ramp under Earthworks.',
-    slot: 0, w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'Placed from Earthworks: choose Lumber ramp or Stone ramp there.', heightCm: 50, site: true,
-    levels: [lvl('Lumber ramp', [[Res.LumberRamp, 1]], 5, 300, { gives: 'a ramp step of lumber' })],
-  },
+  // Patch 5 (Jade): wooden walls, gates and towers of either lumber, and hardwood ones that fall between them and stone.
+  wall(BuildingKind.Wall, 'Wooden wall', [[L, 1]], 5, 300, 300, true),
+  gate(BuildingKind.Gate, 'Wooden gate', [[L, 4]], 30, 600, true),
+  tower(BuildingKind.Tower, 'Wooden tower', [[L, 15]], 100, 800, true),
   {
     kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light (10 m) that claims the land 5 m around it while lit. Needs no fuel.',
     slot: 14, group: 'Lights', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
@@ -311,9 +294,9 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   wall(BuildingKind.WallHardwood, 'Hardwood wall', [[H, 1]], 8, 600, 300, true),
   wall(BuildingKind.WallStone, 'Stone wall', [[ST, 1]], 20, 1500, 360, false),
   gate(BuildingKind.GateHardwood, 'Hardwood gate', [[H, 4]], 45, 1200, true),
-  gate(BuildingKind.GateStone, 'Stone gate', [[ST, 10], [H, 2]], 90, 3000, false),
+  gate(BuildingKind.GateStone, 'Stone gate', [[ST, 10], [L, 2]], 90, 3000, false),
   tower(BuildingKind.TowerHardwood, 'Hardwood tower', [[H, 15]], 150, 1600, true),
-  tower(BuildingKind.TowerStone, 'Stone tower', [[ST, 30], [H, 10]], 300, 4000, false),
+  tower(BuildingKind.TowerStone, 'Stone tower', [[ST, 30], [L, 10]], 300, 4000, false),
 ]);
 
 export function buildingSpec(kind: number): BuildingSpec {
@@ -328,7 +311,7 @@ export function levelSpec(kind: number, level: number): LevelSpec {
   return l;
 }
 
-/** The name a building shows: its level's name ("Longhall" for a level 2 main base). `variant` is kept for the gates' callers. */
+/** The name a building shows: its level's name ("Hall" for a tier 2 main base). `variant` is kept for the gates' callers. */
 export function buildingName(kind: number, level: number, _variant = 0): string {
   return levelSpec(kind, level).name;
 }
@@ -371,20 +354,26 @@ export const CRAFT_PACE = 2;
  */
 export const BARN_STALLS = 10;
 export const CHICKENS_PER_STALL = 6;
-/** Cavalry trains at the Barracks from this main base level (Patch 2, Jade), as at the Stables before. */
-export const CAVALRY_BASE = 3;
+/** Cavalry trains at the Barracks from this main base tier (Patch 2, Jade, at level 3; tier 2 from Patch 5), as at the Stables before. */
+export const CAVALRY_BASE = 2;
+/** The old main base level each tier stands on (Patch 5): its model, picture and footprint are that level's. */
+export const MAIN_BASE_TIER_LEVELS: readonly number[] = [1, 3, 6, 10];
+/** Men go up on a main base's parapets from this tier (Table 4: level 3 before Patch 5), 8 of them. */
+export const PARAPET_TIER = 2;
+export const PARAPET_SLOTS = 8;
 
 /**
  * The Forge's metal steps (Patch 2: the Forge has no levels), by the main
- * base level each needs: 1 (copper, tin and bronze) with the Forge built, 2
- * (wrought iron) at main base 3, 3 (pig iron and iron) at 5, 4 (steel and
- * carbon steel) at 7, the levels the Bloomery, Ironworks and Steelworks
- * needed before Patch 2. Kit tiers, research and foraging that needed a
- * forge level need its step now (units/kits.ts TIER_NEEDS).
+ * base tier each needs: 1 (copper, tin and bronze) with the Forge built, 2
+ * (wrought iron) at tier 2, 3 (pig iron and iron) and 4 (steel and carbon
+ * steel) at tier 3. Before Patch 5 they were main base levels 3, 5 and 7,
+ * the levels the Bloomery, Ironworks and Steelworks needed before Patch 2.
+ * Kit tiers, research and foraging that needed a forge level need its step
+ * now (units/kits.ts TIER_NEEDS).
  */
-export const FORGE_STEP_BASE: readonly number[] = [0, 0, 3, 5, 7];
+export const FORGE_STEP_BASE: readonly number[] = [0, 0, 2, 3, 3];
 
-/** The metal step a town is at: 0 with no finished Forge, else the highest step its main base level reaches. */
+/** The metal step a town is at: 0 with no finished Forge, else the highest step its main base tier reaches. */
 export function forgeStep(hasForge: boolean, base: number): number {
   if (!hasForge) return 0;
   let n = 1;

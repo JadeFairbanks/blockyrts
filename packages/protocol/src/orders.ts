@@ -110,3 +110,26 @@ export function decodeOrders<T = { [key: string]: OrderValue }>(bytes: Uint8Arra
 
 /** The encoding of an empty order list, the payload of nearly every frame. */
 export const NO_ORDERS = encodeOrders([]);
+
+/**
+ * Whether an order is one of the debugger's (Patch 5): its kind starts with
+ * "debug", or it is a raw terrain edit. Online, the relay drops these from
+ * anyone the server does not let use the debugger.
+ */
+export function isDebugOrder(o: { [key: string]: OrderValue }): boolean {
+  const kind = o['kind'];
+  return typeof kind === 'string' && (kind === 'terrain' || kind.startsWith('debug'));
+}
+
+/** A frame's orders without the debugger's; the same bytes when there were none (or the payload does not decode, which the sim then refuses as before). */
+export function withoutDebugOrders(bytes: Uint8Array): Uint8Array {
+  if (bytes.length <= NO_ORDERS.length) return bytes;
+  let orders: Array<{ [key: string]: OrderValue }>;
+  try {
+    orders = decodeOrders(bytes);
+  } catch {
+    return bytes;
+  }
+  const kept = orders.filter((o) => !isDebugOrder(o));
+  return kept.length === orders.length ? bytes : encodeOrders(kept);
+}

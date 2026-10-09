@@ -3,21 +3,13 @@
 // each returning player their own people. The newest dawn autosave of each
 // recent match is also kept in this browser (IndexedDB), and any save can be
 // downloaded as a .sac file and opened again from the Load screen.
-import { readSaveFile, SaveSection, writeSaveFile, type SaveHeader, type SavePlayer } from '@blockyrts/protocol';
+import { readSaveFile, SAVE_FORMAT_VERSION, SaveSection, writeSaveFile, type SaveHeader, type SavePlayer } from '@blockyrts/protocol';
 import { OLD_SAVE_TEXT } from '@blockyrts/sim';
 
 const utf8 = { encode: (t: string): Uint8Array => new TextEncoder().encode(t), decode: (b: Uint8Array): string => new TextDecoder().decode(b) };
 
-/**
- * The game's save format version and the build that wrote a save. Every patch
- * raises it, and a save from an older version is refused with OLD_SAVE_TEXT,
- * never carried over (Jade, Patch 2: a standing rule). 2 was milestone 11's
- * troop rework; 3 was Patch 2; 4 was Jade's mini patch (base spacing and the
- * world 30% smaller); 5 was Patch 3; 6 was Patch 3b (the start's asks wait 10 s);
- * 7 was indev 0.8 (the action card holds 12 buttons before it grows); 8 is
- * Patch 4, one bump for the whole patch.
- */
-export const SAVE_FORMAT_VERSION = 8;
+/** The game's save format version (in the protocol since Patch 5, so the server knows it too) and the build that wrote a save. */
+export { SAVE_FORMAT_VERSION };
 export const GAME_VERSION = '0.11.0';
 export { OLD_SAVE_TEXT };
 

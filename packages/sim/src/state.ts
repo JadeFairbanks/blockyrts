@@ -553,6 +553,10 @@ export interface PlayerState {
   starveLodge: number;
   /** Allies panel: the players this player lets command their units, a bit per player ("Share control"). */
   share: number;
+  /** Godmode (the debugger, Jade's Patch 5): 1 while it is on (debug/god.ts). */
+  god: number;
+  /** The player's own stock, kept aside while godmode fills the pool, and put back when it ends. */
+  godPool: Int32Array;
 }
 
 /** A player's side at the start of a game, with this pool. */
@@ -570,11 +574,18 @@ export function newPlayer(pool: Int32Array): PlayerState {
     starveTroops: 0,
     starveLodge: 0,
     share: 0,
+    god: 0,
+    godPool: new Int32Array(pool.length),
   };
 }
 
-/** The per-player scalars after the pool and stock, in the order they are serialised (the open and kept arrays follow them). */
-export const PLAYER_FIELDS = ['research', 'out', 'made', 'rations', 'mealTurn', 'starveWorkers', 'starveTroops', 'starveLodge', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
+/** Whether a player is in godmode (the debugger, Jade's Patch 5): everything is built and made at once, free, and needs nothing first. */
+export function isGod(state: SimState, player: number): boolean {
+  return state.players[player]?.god === 1;
+}
+
+/** The per-player scalars after the pool and stock, in the order they are serialised (the open, kept and godPool arrays follow them). */
+export const PLAYER_FIELDS = ['research', 'out', 'made', 'rations', 'mealTurn', 'starveWorkers', 'starveTroops', 'starveLodge', 'share', 'god'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /**
  * A question a unit or building asks its owner (Patch 2, round 3: actionable
@@ -641,8 +652,8 @@ export interface SimEvent {
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
   z?: number;
-  /** A sound cue to play with it (the blood night's double horn), for the client. */
-  sound?: string;
+  /** The camera goes there at once (the debugger's Elf kingdom button). */
+  look?: boolean;
   /** A lair that has just appeared (Patch 3): its mob kind, for the client's ping and sound. */
   lair?: number;
   /**
@@ -678,7 +689,7 @@ export interface SimState {
   projectiles: Projectile[];
   /** Tonight's mobs still to come (Table 8: how they arrive). */
   spawns: PendingSpawn[];
-  /** Marked digs and earthworks. */
+  /** Marked digs and tunnels. */
   sites: Site[];
   /** Loot lying on the ground (units/loot.ts), oldest first. */
   loot: Loot[];
@@ -689,9 +700,7 @@ export interface SimState {
   over: number;
   /** 1 for no night mobs (tests and the debug tools). */
   peaceful: number;
-  /** The nights that were or are blood nights, ascending (Day and night: they last twice as long). */
-  blood: number[];
-  /** Lairs, villages, tribes, the blood and fog nights (milestone 5). */
+  /** Lairs, villages, tribes and the fog nights (milestone 5). */
   threats: ThreatState;
   /** The neutral peoples: villages, camps, the Elf kingdom and its caravans, Dwarf colonies and cities, mercenary camps (milestone 7). */
   peoples: PeoplesState;
@@ -714,7 +723,7 @@ export interface WorldOptions {
   players?: number;
   /** Workers each player starts with: 4 (Premise, Starting setup). */
   playerUnits?: number;
-  /** Warriors each player starts with: 3 close-melee troops with hardwood cudgels and no armour (Troops and gear: starting units). */
+  /** Warriors each player starts with: 3 close-melee troops with wooden cudgels and no armour (Troops and gear: starting units). */
   warriors?: number;
   /** Neutral units that wander on their own, drawing on the 'ai' stream (M0's test of the streams). */
   wanderers?: number;
@@ -795,23 +804,16 @@ export interface Loot {
   src: number;
 }
 
-/** Site kinds: a dig down, a tunnel into a hillside, earth heaped to a level, an earth ramp. */
-/** Ramps of lumber or stone (Earthworks) are placed from workshop-made ramp steps instead of Earth. */
-export const SiteKind = { Dig: 0, Tunnel: 1, Bank: 2, Ramp: 3, LumberRamp: 4, StoneRamp: 5, TunnelLine: 6 } as const;
+/** Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel chain (Patch 5 took out the earthworks: banks, fill and ramps). */
+export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2 } as const;
 
 /** Whether a site is a tunnel: a marked box, or a stretch of a tunnel chain. */
 export function tunnelSite(kind: number): boolean {
   return kind === SiteKind.Tunnel || kind === SiteKind.TunnelLine;
 }
 
-/** Whether a site is shaped as a ramp (rising from one end to the other). */
-export function rampSite(kind: number): boolean {
-  return kind === SiteKind.Ramp || kind === SiteKind.LumberRamp || kind === SiteKind.StoneRamp;
-}
-
 /**
- * Marked land for workers to dig out or heap up (Digging and building up the
- * land). Levels in terrain units. A box from (x0, z0) to (x1, z1), except a
+ * Marked land for workers to dig out (Digging). Levels in terrain units. A box from (x0, z0) to (x1, z1), except a
  * tunnel chain's stretch (TunnelLine), which runs from its anchor (x0, z0) to
  * its end (x1, z1) along one of the eight directions, `axis` columns wide
  * (buildings/chains.ts).
@@ -824,11 +826,11 @@ export interface Site {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the floor to dig down to. Bank and fill: the top to heap to. Ramp: the top at (x0, z0)'s end. */
+  /** Dig: the floor to dig down to. Tunnels: the floor. */
   level: number;
-  /** Ramp: the top at the far end; tunnels: the roof. */
+  /** Tunnels: the roof. */
   level2: number;
-  /** Ramp: 0 rises along x, 1 along z. TunnelLine: its width in columns. */
+  /** TunnelLine: its width in columns. */
   axis: number;
 }
 
@@ -977,7 +979,7 @@ function freeColumnNear(state: SimState, x: number, z: number): [number, number]
 
 /**
  * Builds a new game: the world from the seed and player count, and in each
- * player's pocket a level 1 Big House with four workers round it, hardwood
+ * player's pocket a tier 1 Big House with four workers round it, wooden
  * tools and the starting stock (Premise, Starting setup; Table 6 and 9).
  */
 export function createWorld(seed: number, options: WorldOptions = {}): SimState {
@@ -1002,7 +1004,6 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     stockedChunks: new Set(),
     over: 0,
     peaceful: options.peaceful ? 1 : 0,
-    blood: [],
     threats: newThreats(),
     peoples: newPeoples(),
   });
@@ -1033,7 +1034,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
   }
-  // Then the starting warriors, a little east of the workers: close melee, a hardwood cudgel, no armour (Jade).
+  // Then the starting warriors, a little east of the workers: close melee, a wooden cudgel, no armour (Jade).
   const warriors = options.warriors ?? 3;
   for (const pocket of world.gen.start.pockets) {
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);

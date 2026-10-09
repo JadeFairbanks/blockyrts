@@ -14,7 +14,7 @@ import { spawnPoint } from '../combat/spawn.ts';
 export const BOSS_RETURN_NIGHTS = 10;
 
 /** His entity's index while he is out, or -1. */
-function bossIndex(state: SimState): number {
+export function bossIndex(state: SimState): number {
   const t = state.threats;
   if (!t.bossId) return -1;
   const i = state.entities.indexOf(t.bossId);
@@ -64,7 +64,7 @@ export function updateBoss(state: SimState): void {
   if (!t.bossId || bossIndex(state) >= 0) return;
   const e = state.entities;
   const i = e.indexOf(t.bossId);
-  const night = clockAt(state.step, state.blood).cycle;
+  const night = clockAt(state.step).cycle;
   t.bossId = 0;
   t.bossHp = 0;
   t.bossNext = night + BOSS_RETURN_NIGHTS;

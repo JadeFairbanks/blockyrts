@@ -176,7 +176,7 @@ function endHunt(state: SimState, i: number, o: UnitOrder): boolean {
 function runHauler(state: SimState, i: number, o: Extract<UnitOrder, { t: 'hunt' }>): boolean {
   const e = state.entities;
   const h = e.indexOf(o.id);
-  if (isDark(state.step, state.blood) || h < 0 || e.hp[h]! <= 0 || !hunting(state, h)) return endHunt(state, i, o);
+  if (isDark(state.step) || h < 0 || e.hp[h]! <= 0 || !hunting(state, h)) return endHunt(state, i, o);
   if (bagFull(state, i) && nearestDropoff(state, i, -1)) return fetch(state, i, 0, 1);
   const l = huntLoot(state, i, e.id[h]!, e.x[i]!, e.z[i]!);
   if (l >= 0) return fetch(state, i, l, 0);
@@ -226,10 +226,10 @@ export function runHunt(state: SimState, i: number, o: Extract<UnitOrder, { t: '
   const e = state.entities;
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   if (e.kind[i] === UnitKind.Worker) return runHauler(state, i, o);
-  if (o.auto && isDark(state.step, state.blood)) return huntHome(state, i, o);
+  if (o.auto && isDark(state.step)) return huntHome(state, i, o);
   if (o.k & AtHome) {
     // Out again at daybreak; the dawn is still the monsters'.
-    if (clockAt(state.step, state.blood).period !== Period.Day) return CONTINUE;
+    if (clockAt(state.step).period !== Period.Day) return CONTINUE;
     o.k = 0;
     chatter(state, i, Talk.Back, 60 * STEPS_PER_SECOND, 'Back to the hunt.');
   }

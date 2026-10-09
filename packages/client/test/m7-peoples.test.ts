@@ -3,9 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILDINGS,
   BuildingKind,
-  CAT_COUNT,
-  catOf,
-  DAILY_BUY_TENTHS,
   FactionKind,
   Mob,
   People,
@@ -21,19 +18,21 @@ import {
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type CommandDeps } from '../src/hud/commands.ts';
 import { FILTERS, MESSAGES_KEPT, overflow, shownUnder, type MessageKind } from '../src/hud/message-panel.ts';
-import { goodsText, offerWorth, statusText, worthWords } from '../src/hud/peoples-ui.ts';
+import { goodsText, offerSum, offerWorth, statusText, tradeLeftWords, worthWords } from '../src/hud/peoples-ui.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage, type PeopleInfo } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
 
 const ME = 0;
 const VILLAGE = 5;
+/** A day of trade in the tests, tenths of a value point. */
+const DAY = 4000;
 
 function faction(o: Partial<PeopleInfo> = {}): PeopleInfo {
   return {
     id: VILLAGE, kind: FactionKind.HalflingVillage, people: People.Halfling, status: Status.Settled, title: 'Appledell (Halfling village)', lean: '',
     x: 0, z: 0, war: false, met: true, traded: false, leader: 30, fighters: 4, standing: 9, founded: 9, surrender: false, owed: 0, tradeWhy: '',
-    stock: [], wants: [], room: new Array<number>(CAT_COUNT).fill(DAILY_BUY_TENTHS), pays: [], offer: null, hire: null, visiting: false, ...o,
+    stock: [], wants: [], room: DAY, day: DAY, pays: [], offer: null, hire: null, visiting: false, ...o,
   };
 }
 
@@ -73,7 +72,7 @@ function game(f: PeopleInfo): GameInfo {
     type: 'info', step: 10, pool: new Int32Array(RESOURCE_COUNT), supplyUsed: 2, supplyCap: 8, buildings: [building(20, BuildingKind.MainBase)], queues: [], events: [],
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
-    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, blood: [], fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [f], players: [{ share: 0, out: false }],
+    rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [f], players: [{ share: 0, out: false }],
     loot: [], bags: [],
   };
   g.onInfo(info);
@@ -138,23 +137,24 @@ describe('the message panel', () => {
 });
 
 describe('the trade menu', () => {
-  it('reckons an offer as the sim does: what they pay, no more than they still buy of a kind, refused goods nothing', () => {
+  it('reckons an offer as the sim does: what they pay, no more than their trade left today, refused goods nothing', () => {
     const wood = Res.SoftwoodLumber;
     const v = valueTenths(wood);
     const f = faction({ pays: [wood, 50, Res.Gold, -1] });
     expect(offerWorth(f, new Map([[wood, 10]]))).toBe(Math.floor((v * 10 * 50) / 100));
     expect(offerWorth(f, new Map([[Res.Gold, 10]]))).toBe(0);
-    const room = new Array<number>(CAT_COUNT).fill(DAILY_BUY_TENTHS);
-    room[catOf(wood)] = 7;
-    expect(offerWorth({ ...f, room }, new Map([[wood, 1000]]))).toBe(7);
+    expect(offerWorth({ ...f, room: 7 }, new Map([[wood, 1000]]))).toBe(7);
+    expect(offerSum(f, new Map([[wood, 1000]]))).toBeGreaterThan(7);
     // A good they were never asked about counts nothing.
     expect(offerWorth(f, new Map([[Res.Stone, 5]]))).toBe(0);
   });
 
   it('words the worth bar and lists goods', () => {
-    expect(worthWords(0)).toMatch(/Put goods/);
-    expect(worthWords(DAILY_BUY_TENTHS)).toBe('A rich offer.');
-    expect(worthWords(Math.floor(DAILY_BUY_TENTHS / 20))).toBe('A small offer.');
+    expect(worthWords(0, DAY)).toMatch(/Put goods/);
+    expect(worthWords(DAY, DAY)).toBe('A rich offer.');
+    expect(worthWords(Math.floor(DAY / 20), DAY)).toBe('A small offer.');
+    expect(tradeLeftWords(0, DAY)).toMatch(/dawn/);
+    expect(tradeLeftWords(DAY, DAY)).toMatch(/whole day/);
     expect(goodsText([Res.SoftwoodLumber, 5])).toMatch(/×5$/);
     expect(goodsText([Res.SoftwoodLumber, 1])).not.toMatch(/×/);
   });
@@ -165,7 +165,7 @@ describe('the trade menu', () => {
     expect(statusText(faction({ war: true }))).toBe('At war with you.');
     expect(statusText(faction({ war: true, surrender: true }))).toMatch(/surrender/);
     expect(statusText(faction({ status: Status.Migrated, war: true }))).toMatch(/reparations/);
-    expect(statusText(faction({ kind: FactionKind.MercCamp, hire: { left: 3, size: 6, why: '' } }))).toMatch(/^3 of 6 for hire/);
+    expect(statusText(faction({ kind: FactionKind.MercCamp, hire: { left: 3, size: 6, why: '', silver: 7, gold: 1 } }))).toMatch(/^3 of 6 for hire at 7 silver or 1 gold/);
   });
 });
 

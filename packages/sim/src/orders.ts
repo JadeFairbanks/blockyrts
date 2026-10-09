@@ -322,19 +322,6 @@ export interface TunnelStretchOrder extends UnitsOrder {
   level2: number;
 }
 
-/** Earthworks: variant 0 an earth bank, 1 an earth ramp (level at x0/z0's end to level2 at the far end along axis), 2 fill, 3 a lumber ramp, 4 a stone ramp. */
-export interface EarthworkOrder extends UnitsOrder {
-  kind: 'earthwork';
-  variant: number;
-  x0: number;
-  z0: number;
-  x1: number;
-  z1: number;
-  level: number;
-  level2: number;
-  axis: number;
-}
-
 /** Debug: puts resources into a player's pool. */
 export interface DebugGiveOrder {
   kind: 'debugGive';
@@ -343,7 +330,7 @@ export interface DebugGiveOrder {
   count: number;
 }
 
-/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature, a blood night or fog (threats/debug.ts DebugThreat). */
+/** Debug: a threat at a point (wu) for the player: a lair, a goblin village, a tribe's band, a territorial creature or fog (threats/debug.ts DebugThreat). */
 export interface DebugThreatOrder {
   kind: 'debugThreat';
   player: number;
@@ -397,12 +384,13 @@ export interface ReparationsOrder {
   faction: number;
 }
 
-/** Hire mercenaries from a camp for the day (2 silver each). */
+/** Hire mercenaries from a camp for good (Patch 5): paid in silver, or in gold when `gold` is 1. */
 export interface HireOrder {
   kind: 'hire';
   player: number;
   faction: number;
   count: number;
+  gold?: number;
 }
 
 /** Debug: one of the peoples at a point (wu): a faction kind (peoples/data.ts FactionKind), 7 an Elf caravan to the player now, 8 meet the Elves. */
@@ -421,6 +409,42 @@ export interface DebugSpawnOrder {
   mob: number;
   x: number;
   z: number;
+}
+
+/** Debug (Jade's Patch 5): godmode on (1) or off (0) for the player (debug/god.ts). */
+export interface DebugGodOrder {
+  kind: 'debugGod';
+  player: number;
+  on: number;
+}
+
+/** Debug: godmode places one of GOD_SPAWNS (debug/god.ts) at a point (wu). */
+export interface DebugPlaceOrder {
+  kind: 'debugPlace';
+  player: number;
+  what: number;
+  x: number;
+  z: number;
+}
+
+/** The debugger's other buttons (debug/god.ts): every unit to its top rank, all healed, the monsters round a point cleared, the Elf kingdom shown. */
+export const DebugTool = { MaxRank: 0, HealAll: 1, ClearFoes: 2, ElfKingdom: 3 } as const;
+export type DebugTool = (typeof DebugTool)[keyof typeof DebugTool];
+
+/** Debug: one of the debugger's buttons (DebugTool), at a point (wu) where it needs one. */
+export interface DebugToolOrder {
+  kind: 'debugTool';
+  player: number;
+  tool: number;
+  x: number;
+  z: number;
+}
+
+/** Debug: kills the given units outright, whoever's they are. */
+export interface DebugKillOrder {
+  kind: 'debugKill';
+  player: number;
+  units: number[];
 }
 
 /** What a targeted command pressed twice asks each unit to pick for itself (Controls: "Double-tap for auto-target"). */
@@ -629,7 +653,6 @@ export type Order =
   | DigOrder
   | WallStretchOrder
   | TunnelStretchOrder
-  | EarthworkOrder
   | DebugGiveOrder
   | DebugSpawnOrder
   | DebugThreatOrder
@@ -641,6 +664,10 @@ export type Order =
   | ReparationsOrder
   | HireOrder
   | DebugPeoplesOrder
+  | DebugGodOrder
+  | DebugPlaceOrder
+  | DebugToolOrder
+  | DebugKillOrder
   | MoveOrder
   | StopOrder
   | FollowOrder
@@ -723,7 +750,6 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
   tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
-  earthwork: ['variant', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'],
   debugGive: ['res', 'count'],
   debugSpawn: ['mob', 'x', 'z'],
   debugThreat: ['what', 'x', 'z'],
@@ -745,6 +771,10 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   reparations: ['faction'],
   hire: ['faction', 'count'],
   debugPeoples: ['what', 'x', 'z'],
+  debugGod: ['on'],
+  debugPlace: ['what', 'x', 'z'],
+  debugTool: ['tool', 'x', 'z'],
+  debugKill: [],
   shareControl: ['with', 'on'],
   sendResources: ['to', 'res', 'amount'],
   leave: [],
@@ -755,7 +785,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'earthwork', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -782,7 +812,6 @@ export function validateOrder(o: Order): void {
       if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
       return;
     case 'dig':
-    case 'earthwork':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
       return;
     case 'wallStretch':
@@ -794,6 +823,18 @@ export function validateOrder(o: Order): void {
       return;
     case 'debugGive':
       if (o.count < 1 || o.count > 100000 || o.res < 0 || o.res > 255) throw new Error('debug give out of range');
+      return;
+    case 'debugGod':
+      if (o.on !== 0 && o.on !== 1) throw new Error('godmode is on or off');
+      return;
+    case 'debugPlace':
+      if (o.what < 0 || o.what > 0xffff) throw new Error('bad godmode placement');
+      return;
+    case 'debugTool':
+      if (o.tool < DebugTool.MaxRank || o.tool > DebugTool.ElfKingdom) throw new Error('bad debug tool');
+      return;
+    case 'debugKill':
+      if (o.units.length > 256) throw new Error('kill at most 256 units at once');
       return;
     case 'upgradeKit':
       if ((o.line !== 0 && o.line !== 1) || (o.max !== 0 && o.max !== 1)) throw new Error('bad upgrade');
@@ -824,6 +865,7 @@ export function validateOrder(o: Order): void {
       return;
     case 'hire':
       if (o.count < 1 || o.count > 6) throw new Error('hire 1 to 6');
+      if (o.gold !== undefined && o.gold !== 0 && o.gold !== 1) throw new Error('hire pays in silver (0) or gold (1)');
       return;
     case 'shareControl':
       if (o.with < 0 || o.with > 7 || (o.on !== 0 && o.on !== 1)) throw new Error('bad share control');

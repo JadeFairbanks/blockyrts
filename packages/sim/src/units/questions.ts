@@ -393,7 +393,7 @@ function askKit(state: SimState, book: Book, i: number, pool: Int32Array, tech: 
     });
   put(state, q);
   // The start's tools question comes with the main base's word of advice, once a game, on the first day.
-  if (workers && !book.advised.has(player) && clockAt(state.step, state.blood).cycle === 0) {
+  if (workers && !book.advised.has(player) && clockAt(state.step).cycle === 0) {
     const base = mainBaseOf(state, player);
     if (base) {
       book.advised.add(player);
@@ -637,7 +637,7 @@ export function updateQuestions(state: SimState): void {
   }
   // At dawn, once a second, each player's main base may ask about repairs.
   if (state.step % STEPS_PER_SECOND === 0) {
-    const c = clockAt(state.step, state.blood);
+    const c = clockAt(state.step);
     if (c.period === Period.Dawn) for (let p = 0; p < state.players.length; p++) if (asks(state, p)) askRepair(state, book, p, c.cycle);
   }
   // Each unit once a second, at its own moment: better kit (a worker, better tools; not in the first 10 s), or a wound.
