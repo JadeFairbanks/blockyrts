@@ -4214,7 +4214,9 @@ picking berries),
    every 3 meals, yellow between.
 8. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
    click makes one, Shift + click ten, and a right click offers Make 1,
-   Make 10 or Make all, each order one stack in the queue counting down. On a farm's
+   Make 10 or Make all, each order one stack in the queue counting down.
+   Bonemeal's icon is a tied sack with a small bone leaning on it, and a
+   worker carrying bonemeal holds that sack. On a farm's
    card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
    2 minutes; pressed again, more boosts wait behind it (up to 10). Right
    click turns Auto fertilize on or off. Beside the farm's workers,

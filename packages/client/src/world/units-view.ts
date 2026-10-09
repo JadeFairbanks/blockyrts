@@ -208,6 +208,7 @@ const GOODS: Partial<Record<number, string>> = {
   [Res.Flax]: 'flax_bundle',
   [Res.Hides]: 'hide_rolled',
   [Res.Bone]: 'bone_bundle',
+  [Res.Bonemeal]: 'bonemeal',
   [Res.Resin]: 'resin_pot',
   [Res.SpiderSilk]: 'spider_silk',
   [Res.DemonHorn]: 'demon_horn',
