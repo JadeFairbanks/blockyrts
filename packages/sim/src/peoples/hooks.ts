@@ -16,4 +16,6 @@ export const peoplesHooks: {
   beast: (state: SimState, i: number) => void;
   /** A player's unit took wood from a tree (Elves' tree warnings). */
   treeCut: (state: SimState, i: number, x: number, z: number) => void;
-} = { death: () => {}, salvage: () => {}, wagon: () => {}, beast: () => {}, treeCut: () => {} };
+  /** A mob or a wild animal died, `taker` the player whose unit killed it, or -1 (the quests' kills, Patch 5). */
+  kill: (state: SimState, i: number, taker: number) => void;
+} = { death: () => {}, salvage: () => {}, wagon: () => {}, beast: () => {}, treeCut: () => {}, kill: () => {} };

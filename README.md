@@ -3723,6 +3723,64 @@ The numbers are rows in `packages/sim/src/peoples/data.ts`
 11. **Saves and checks.** Snapshot version 24 (the faction record keeps one
     number for the day's trade); check scripts' hashes move with it.
 
+## How a tester checks Patch 5's quests
+
+*Jade's Patch 5, section 18 (QV-1 to QV-34): one quest for each Halfling
+village, Runkin camp and the Elves, as she wrote them, and one for Dwarf
+colonies and one for Dwarf cities (QV-34); the quest menu over the messages
+button (QV-14) with the Stone Circle timers (decisions 3.6, QoL 3). Picks
+in blueprint/patch5-peoples-picks.md. The quests are rows in
+`packages/sim/src/peoples/quest-data.ts` (`QUESTS`, `QUEST_REACH_M`,
+`QUEST_REPEAT_STEPS`); the logic is `packages/sim/src/peoples/quests.ts`.*
+
+1. **The tests.** `pnpm test`: the sim's patch5-quests tests take and claim
+   the bog pear quest (not taken from 40 m, back after 20 days), wipe out a
+   kobold band for the Runkin, count two Fae Guardians for the Elves, and
+   carry the quest state through a save.
+2. **An offer.** `pnpm dev`, open http://localhost:5173/?seed=1, type M N B
+   V C X Z and press **Village** until a Halfling village stands in view.
+   Walk a worker up to it: once met, the Village elder's bubble asks you to
+   bring a bog pear, with a tick and a cross, and it stays over the elder
+   until you answer. Walk the worker 30 m off and press the tick: the elder
+   asks for one of your people to come closer, and the offer stays up.
+   Bring the worker back and press the tick: "Quest taken". The cross
+   instead hides the offer for a minute.
+3. **The quest menu.** The small **!** button right above the messages
+   button (it starts folded) shows a blue mark and a 1. Open it: The Bog
+   Pear, its task, "No bog pear in your inventory yet.", its reward, and
+   **Hint** (its tooltip and a click both say "It's in a bog. Duh.") and
+   **Show giver** (the camera goes to the village). The mark is gone. With
+   the message panel open the button sits above it. Esc folds the menu.
+4. **The claim.** Get a bog pear from the bushes at a guarded bog (until
+   the bushes are in the game, step 1's test covers the claim). Once it is
+   in your inventory the elder asks you to claim the reward and keeps
+   asking while you hold the pear; the quest menu marks it ready. Tick with
+   a worker near: the pear goes and 50 farm fare, 50 softwood lumber and 50
+   stone arrive. The elder offers the quest again 20 days later.
+5. **The raid.** **Village** until a Runkin camp shows. With no tribe band
+   in the world the Camp elder offers nothing; once one roams (or the
+   debugger's threat button makes one) the offer names its kind. Take it:
+   the minimap pings the band, and the menu's **Hint** pings it again. Kill
+   the band with your troops and go back: 10 leather and 4 bronze ingots.
+6. **The Elves.** An Elf caravan's master (or the Elf steward at the
+   kingdom) offers Fae Guardians. Kill two (godmode's grid has the Fae
+   Guardian; ones killed before taking the quest do not count), then any
+   caravan master or the steward pays 3 basket-hilted broadswords, 3 fluted
+   Gothic harnesses and 3 steel rotellas. A peaceful game never offers it.
+7. **The Dwarves.** A Dwarf colony's foreman asks for 2 griffins (15 silver
+   ingots) and a Dwarf city's thane for 2 minotaurs (8 gold ingots); taking
+   either pings the nearest beast, and **Hint** pings it again.
+8. **Per player.** Two players: each gets their own offer bubble over the
+   same elder, and one player's kills or claim never count for the other.
+9. **War.** Declare war on a village with a quest taken: its offer goes and
+   it takes no claim until there is peace again.
+10. **Stone circles.** With the Goddess's blessing, the quest menu shows it
+    and the nights to your next Bright Night ("Tonight", "Tomorrow night",
+    "In 4 nights").
+11. **Saves and checks.** Snapshot version 36 (each faction keeps each
+    player's quest stage, turn, kills and band); check scripts' hashes move
+    with it.
+
 ## How a tester checks the controls, HUD and markers (Patch 5)
 
 *Jade's Patch 5, sections 11, 26 and 27: left click to target and right click

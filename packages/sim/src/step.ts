@@ -32,6 +32,7 @@ import { refillMages } from './magic/mages.ts';
 import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
 import { checkPeoples } from './peoples/factions.ts';
 import { peoplesHooks } from './peoples/hooks.ts';
+import { onQuestKill, updateQuests } from './peoples/quests.ts';
 import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts';
 import { trackRuns } from './mounts/riding.ts';
 import { runEngine } from './siege/engines.ts';
@@ -67,6 +68,7 @@ peoplesHooks.salvage = onSalvage;
 peoplesHooks.wagon = runWagon;
 peoplesHooks.beast = runBeast;
 peoplesHooks.treeCut = onTreeCut;
+peoplesHooks.kill = onQuestKill;
 aimHooks.ahead = flyerAhead;
 hurtHooks.unit = (state, i, from, fresh) => {
   onUnitHurt(state, i, from, fresh);
@@ -190,6 +192,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateThreats(state);
   updateSprings(state);
   updatePeoples(state);
+  updateQuests(state);
   updateMagic(state);
   refillMages(state);
   updateFood(state);

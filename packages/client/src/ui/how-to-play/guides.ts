@@ -2,7 +2,7 @@
 // number in them comes from the game's own data, so a guide stays right
 // when the balance changes. [[Page name]] links to a page of numbers by its
 // title (How to Play's tests check that every link finds its page).
-import { CYCLE_STEPS, DAWN_STEPS, DAY_STEPS, DUSK_STEPS, MEAL_STEPS, MOBS, NIGHT_STEPS, NUTRITION_PER_CYCLE, STEPS_PER_SECOND } from '@blockyrts/sim';
+import { CYCLE_STEPS, DAWN_STEPS, DAY_STEPS, DUSK_STEPS, MEAL_STEPS, MOBS, NIGHT_STEPS, NUTRITION_PER_CYCLE, Quest, QUEST_REACH_M, QUEST_REPEAT_STEPS, QUESTS, rewardText, STEPS_PER_SECOND } from '@blockyrts/sim';
 import { UNITS, type UnitId } from '@blockyrts/balance';
 import { unitHint } from './article.ts';
 
@@ -50,6 +50,15 @@ const UNIT_LINES: ReadonlyArray<readonly [UnitId, string]> = [
   ['xpTenths', 'Experience is in experience points (XP):'],
   ['nutrition', 'Food is in nutrition:'],
 ];
+
+/** A quest's row, its reward in words, and how many it asks to kill. */
+const quest = (id: number) => QUESTS.find((q) => q.id === id)!;
+const reward = (id: number): string => rewardText(quest(id));
+const kills = (id: number): number => {
+  const n = quest(id).need;
+  return n.t === 'mobs' || n.t === 'animals' ? n.n : 0;
+};
+const repeatDays = Math.round(QUEST_REPEAT_STEPS / CYCLE_STEPS);
 
 export const GUIDES: readonly Guide[] = [
   {
@@ -115,6 +124,72 @@ export const GUIDES: readonly Guide[] = [
       {
         heading: 'Zero and none',
         paragraphs: ['Numbers that are zero for a thing, and switches that are off, are gathered on one line at the end of each part of a page, so the numbers that matter stand out.'],
+      },
+    ],
+  },
+  {
+    id: 'quests',
+    title: 'Quests',
+    summary: 'The tasks the peoples give, and how to take them on and claim their rewards.',
+    picture: 'portrait_halfling_male',
+    parts: [
+      {
+        paragraphs: [
+          'Every Halfling village, Runkin camp, Dwarf colony and Dwarf city, and the Elves, has a quest for you. Once you have met them and are at peace with them, their leader shows it in a bubble over their head with a Yes and a No, and keeps it there until you answer.',
+          `To take a quest on, answer Yes with one of your units within ${QUEST_REACH_M} m of the leader. No, and they ask again a minute later.`,
+          `When the task is done, the leader asks whether you want to claim your reward. Answer Yes with a unit within ${QUEST_REACH_M} m and the reward goes straight into your inventory.`,
+          `Quests are your own: in a game with friends, each of you takes, works on and claims your own copy, and nobody else's progress counts for you. A quest stays open until you claim it, and the same leader offers it to you again ${repeatDays} days after you claim it.`,
+        ],
+      },
+      {
+        heading: 'The quest menu',
+        paragraphs: [
+          'The small ! button right above the messages button opens your quests: what each asks, how far along you are, the reward and a Hint. A number on the button counts quests you have taken or finished and not looked at yet.',
+          "Under your quests the menu also tracks the stone circles: the Moon Goddess's blessing and the nights to your next Bright Night.",
+        ],
+      },
+      {
+        heading: 'Halflings: the Bog Pear',
+        picture: 'icon_bog_pear',
+        paragraphs: [
+          `The Village elder craves a bog pear. Find one and bring it home: once one is in your inventory, the elder asks you to claim your reward for as long as you hold it. Claiming hands over the pear for ${reward(Quest.BogPear)}.`,
+          "There is no ping for this one. The Hint says: It's in a bog. Duh.",
+        ],
+      },
+      {
+        heading: 'Runkin: the Raid',
+        picture: 'portrait_kobold',
+        paragraphs: [
+          'The Camp elder wants the nearest band of gnolls, kobolds or hobgoblins wiped out. Taking the quest pings the band on your minimap, and the Hint pings it again wherever it has roamed. The quest is offered only while a band is about.',
+          `When the last of the band falls, with at least one of them killed by your units, go back to the Camp elder to claim ${reward(Quest.Raid)}. If someone else wipes the band out before you have killed one, the next nearest band is marked instead.`,
+        ],
+      },
+      {
+        heading: 'Elves: Fae Guardians',
+        picture: 'portrait_fairy',
+        paragraphs: [
+          `The Elf steward or any caravan master asks you to kill ${kills(Quest.Fae)} Fae Guardians, the fairies that keep the large mana crystals. Only the ones you kill after taking the quest count. Then bring a unit back to the Elf steward or any caravan master to claim ${reward(Quest.Fae)}, all of carbon steel.`,
+          "There is no ping. The Hint says: Fae Guardians protect mana stones. They are flying so swords won't be much help.",
+          'Fae Guardians never come back once killed, so the quest is not offered once fewer than two are left in the world, nor in a peaceful game.',
+        ],
+      },
+      {
+        heading: 'Dwarf colonies: Griffin Hunt',
+        picture: 'portrait_griffin',
+        paragraphs: [
+          `The Colony foreman asks you to kill ${kills(Quest.Griffins)} griffins, which nest in the Barrens and the Deadlands. Taking the quest pings the nearest griffin, and the Hint pings it again. Come back to the foreman to claim ${reward(Quest.Griffins)}.`,
+        ],
+      },
+      {
+        heading: 'Dwarf cities: Minotaur Hunt',
+        picture: 'portrait_minotaur',
+        paragraphs: [
+          `The City thane asks you to kill ${kills(Quest.Minotaurs)} minotaurs, which roam the Deadlands. Taking the quest pings the nearest minotaur, and the Hint pings it again. Come back to the thane to claim ${reward(Quest.Minotaurs)}.`,
+        ],
+      },
+      {
+        heading: 'War and quests',
+        paragraphs: ['A people at war with you offers nothing and takes no claims. A quest you had taken waits until there is peace again.'],
       },
     ],
   },

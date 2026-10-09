@@ -110,6 +110,8 @@ export * from './peoples/war.ts';
 export * from './peoples/ai.ts';
 export * from './peoples/orders.ts';
 export * from './peoples/hooks.ts';
+export * from './peoples/quest-data.ts';
+export * from './peoples/quests.ts';
 export * from './mounts/data.ts';
 export * from './mounts/riding.ts';
 export * from './siege/data.ts';
