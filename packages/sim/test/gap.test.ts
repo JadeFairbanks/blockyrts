@@ -232,10 +232,9 @@ describe('early tools by job', () => {
     const work = (hammer: boolean): number => {
       const s = createWorld(1, { peaceful: true });
       const pool = s.players[0]!.pool;
-      // The Hall (Patch 5's tier 2): 110 lumber, 45 stone and 15 sticks.
+      // The Hall (Patch 5's tier 2): 118 lumber and 45 stone.
       pool[Res.SoftwoodLumber] = 200;
       pool[Res.Stone] = 100;
-      pool[Res.Sticks] = 50;
       if (hammer) s.entities.toolBuild[0] = HAMMER;
       const b = bigHouse(s);
       run(s, 1, [{ kind: 'upgrade', player: 0, building: b.id }]);
