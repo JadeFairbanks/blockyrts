@@ -79,6 +79,10 @@ export const PropKind = {
   /** Small silver and gold nodes on the mountains (WL-4). */
   SilverNode: 40,
   GoldNode: 41,
+  /** Small silver nuggets on the ground of a bog with a Bog guardian (Jade's Patch 5, MB-11); they never come back. */
+  SilverNugget: 42,
+  /** A large mana crystal node of 40 crystals, a Fae Guardian's (Jade's Patch 5, MF-2, MF-4). */
+  LargeManaCrystal: 43,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -192,6 +196,10 @@ export const PROPS: readonly PropInfo[] = [
   // worth from single silver ore node ... the nodes also give more stone than the ore", copper picks or better.
   { ...node(PropKind.SilverNode, 'Silver ore node', PropShape.Rocks, 'silver', 1, 2, 20, 1, Tool.Copper, P5), yieldMax: 4, leaves: { kind: PropKind.LooseStone, min: 10, max: 20 } },
   { ...node(PropKind.GoldNode, 'Gold ore node', PropShape.Rocks, 'gold', 1, 1, 20, 1, Tool.Copper, P5), yieldMax: 2, leaves: { kind: PropKind.LooseStone, min: 6, max: 12 } },
+  // MB-11: "small silver nuggets ... These do not regenerate, the same way stone does not regenerate" (s: 1 silver each, picked up in 5 s by hand).
+  node(PropKind.SilverNugget, 'Silver nugget', PropShape.Rocks, 'silver', 1, 1, 5, 1, Tool.None, P5),
+  // MF-4: "large mana crystal nodes with 40 mana crystals each", gathered as the small ones are.
+  node(PropKind.LargeManaCrystal, 'Large mana crystal', PropShape.Crystal, 'mana crystal', 40, 1, 30, 2, Tool.Bronze, P5),
 ];
 
 /** Whether a prop is a fish stretch. */
