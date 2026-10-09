@@ -21,6 +21,7 @@ import { throughFog } from './threats/fog.ts';
 import { MOUNTED } from './mounts/data.ts';
 import { onTop } from './units/top.ts';
 import { newPeoples, type PeoplesState } from './peoples/types.ts';
+import { newCircles, type CircleState } from './circles/state.ts';
 
 /** Owner value for entities that belong to no player. */
 export const NEUTRAL = 255;
@@ -643,6 +644,8 @@ export interface SimEvent {
   z?: number;
   /** A lair that has just appeared (Patch 3): its mob kind, for the client's ping and sound. */
   lair?: number;
+  /** A stone circle's bluestone chest a unit has just opened (Patch 5): circle * 8 + chest number, for the client's chest panel. */
+  chest?: number;
   /**
    * Speech for the bubble only, never the message panel (patch 1): a unit's
    * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
@@ -691,6 +694,8 @@ export interface SimState {
   threats: ThreatState;
   /** The neutral peoples: villages, camps, the Elf kingdom and its caravans, Dwarf colonies and cities, mercenary camps (milestone 7). */
   peoples: PeoplesState;
+  /** The stone circles: the Goddess's blessing, the idols' nights, the Pan Flute's plays (Patch 5, circles/). */
+  circles: CircleState;
   /** Not state: what was hit or died this step, for the hit particles and death animations. */
   hits: HitEvent[];
   /** Not state: where units stand this step (rebuilt each step). */
@@ -993,6 +998,7 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
     peaceful: options.peaceful ? 1 : 0,
     threats: newThreats(),
     peoples: newPeoples(),
+    circles: newCircles(world.players),
   });
   for (let p = 0; p < world.players; p++) {
     const pool = new Int32Array(RESOURCE_COUNT);

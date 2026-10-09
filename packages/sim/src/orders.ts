@@ -585,7 +585,34 @@ export interface LeaveOrder {
   player: number;
 }
 
+/**
+ * A unit at a stone circle (Patch 5, circles/act.ts): the nearest of the
+ * units walks to the altar or a chest and does `act` (CircleAct: leave the
+ * Goddess her gifts, take the idol, open a chest, take a chest's slot).
+ * `arg` is the chest number, or for taking, chest * 8 + slot.
+ */
+export interface CircleOrder extends UnitsOrder {
+  kind: 'circle';
+  circle: number;
+  act: number;
+  arg: number;
+}
+
+/**
+ * Use an item (Patch 5; decisions 3.6's one right-click menu, circles/items.ts):
+ * from the inventory, or from the bag of `unit` (an entity id, 0 for none),
+ * which also plays the Pan Flute where it stands.
+ */
+export interface UseItemOrder {
+  kind: 'useItem';
+  player: number;
+  res: number;
+  unit: number;
+}
+
 export type Order =
+  | CircleOrder
+  | UseItemOrder
   | AnswerOrder
   | GreyedOrder
   | PickOwnOrder
@@ -738,9 +765,11 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
   greyed: ['what', 'id', 'building'],
+  circle: ['circle', 'act', 'arg'],
+  useItem: ['res', 'unit'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'circle']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -821,6 +850,12 @@ export function validateOrder(o: Order): void {
       return;
     case 'greyed':
       if (o.what < 0 || o.what > 2 || o.id < 0 || o.id > 0xffff || o.units.length > 256) throw new Error('bad greyed-out click');
+      return;
+    case 'circle':
+      if (o.circle < 0 || o.circle > 255 || o.act < 0 || o.act > 3 || o.arg < 0 || o.arg > 63) throw new Error('bad stone circle order');
+      return;
+    case 'useItem':
+      if (o.res < 0 || o.res > 255 || o.unit < 0) throw new Error('bad item use');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

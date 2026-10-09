@@ -42,6 +42,7 @@ import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from '
 import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
 import { goesHome, nextNode, runForage } from './forage.ts';
 import { tinker } from './tinker.ts';
+import { runCircle } from '../circles/act.ts';
 import { Work, workXp } from './ranks.ts';
 
 /** Phases of an order. */
@@ -1401,6 +1402,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runLoot(state, i, o);
     case 'forage':
       return runForage(state, i, o);
+    case 'circle':
+      return runCircle(state, i, o);
   }
 }
 

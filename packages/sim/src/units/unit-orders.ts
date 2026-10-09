@@ -108,7 +108,9 @@ export type UnitOrder =
    */
   | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number }
   /** An artillery crewman retrains as a worker (Patch 3): walks to his nearest main base (b, 0 until chosen), sits tinkering for the time it takes and gets up a worker. */
-  | { t: 'retrain'; b: number };
+  | { t: 'retrain'; b: number }
+  /** At a stone circle (Patch 5, circles/act.ts): walk to its altar or a chest and do `act` (CircleAct) with `arg`. */
+  | { t: 'circle'; circle: number; act: number; arg: number };
 
 export type UnitOrderType = UnitOrder['t'];
 
@@ -121,7 +123,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain', 'stairs'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain', 'stairs', 'circle'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -157,6 +159,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   loot: ['id', 'hand', 'back', 'x', 'z'],
   forage: ['res', 'x', 'z', 'k', 'ang'],
   retrain: ['b'],
+  circle: ['circle', 'act', 'arg'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -247,5 +250,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return o.k === FORAGE_HOME ? 'Home for the night' : o.k === 1 ? 'Looking for materials' : o.k === FORAGE_NIGHT ? 'Gathering through the night' : 'Gathering';
     case 'retrain':
       return 'Retraining as a worker';
+    case 'circle':
+      return 'Going to the stone circle';
   }
 }

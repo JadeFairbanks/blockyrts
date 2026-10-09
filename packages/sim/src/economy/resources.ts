@@ -111,6 +111,19 @@ export const Res = {
   AnyMeat: 107,
   AnyFish: 108,
   AnyLumber: 109,
+  // Patch 5's Stone Circle goods (circles/data.ts; Jade's Stone Circle document and her answers 2.5 and 10).
+  Bluestone: 110,
+  Obsidian: 111,
+  AncientSeed: 112,
+  HawthorneFruit: 113,
+  PanFlute: 114,
+  BluestoneTrinket: 115,
+  Honey: 116,
+  EnchantedWine: 117,
+  HawthorneCider: 118,
+  MoonRose: 119,
+  MoonIdol: 120,
+  HeadlessIdol: 121,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -250,6 +263,19 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
+  // Stone Circle goods (Jade's Stone Circle document; weights (s); food values in farm fare from her answers 2.5: farm fare is 2).
+  r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 60, 'Bluestone rubble and the trilithons of stone circles (iron tools or better). Stands in for marble in any recipe, and sells well.'),
+  r(Res.Obsidian, 'Obsidian', 'Obsidian', A, 10, 'Bluestone chests in stone circles.'),
+  r(Res.AncientSeed, 'Ancient Seed', 'Ancient seeds', A, 1, 'Bluestone chests in stone circles. A small teardrop shaped black seed: right click it to plant a Sweet Hawthorne in grass or dirt.', 0, false),
+  r(Res.HawthorneFruit, 'Hawthorne fruit', 'Hawthorne', F, 5, 'Sweet Hawthorne trees: a large ruby-red fruit the size of a small apple, honey-sweet with deeper spice notes. Worth two farm fare.', 4),
+  r(Res.PanFlute, 'Pan Flute', 'Pan Flutes', T, 3, 'Bluestone chests in stone circles. Right click it to play a peaceful tune that draws every neutral animal within 300 m toward your base. It can be played 10 times.', 0, false),
+  r(Res.BluestoneTrinket, 'Bluestone Trinket', 'Bluestone trinkets', T, 1, 'Bluestone chests in stone circles. Highly valued in trade: 50% more than bronze trinkets.', 0, false),
+  r(Res.Honey, 'Honey', 'Honey', F, 10, 'Bought from the Great White Ape. Worth three farm fare.', 6),
+  r(Res.EnchantedWine, 'Enchanted wine', 'Wine', F, 10, 'Bought from the Great White Ape. Worth two farm fare; used from a mage\'s bag it also refills 50 mana.', 4),
+  r(Res.HawthorneCider, 'Hawthorne cider', 'Cider', F, 10, 'Dropped by satyr revelers. Worth two farm fare.', 4),
+  r(Res.MoonRose, 'Moon Rose', 'Moon Roses', A, 1, 'Moon Rose bushes, which bloom only on a Bright Night. Part of the lavish gifts the Moon Goddess asks for.'),
+  r(Res.MoonIdol, 'Moon Goddess Idol', 'Moon idol', T, 15, 'Taken from the altar of a Great White Ape Lunar Circle. Right click it to make the next night a Bright Night for you, once every 10 nights.', 0, false),
+  r(Res.HeadlessIdol, 'Headless God Idol', 'Headless idol', T, 15, 'Taken from the altar of a Boneyard Circle.', 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;
@@ -311,6 +337,12 @@ export function resourceByName(name: string): number {
       return Res.Emeralds;
     case 'mana crystal':
       return Res.ManaCrystal;
+    case 'bluestone':
+      return Res.Bluestone;
+    case 'hawthorne fruit':
+      return Res.HawthorneFruit;
+    case 'moon rose':
+      return Res.MoonRose;
     // A carcass gives its animal's meat and a fish stretch its species (units/behaviour.ts nodeResource): these stand for the kind.
     case 'meat':
       return Res.AnyMeat;

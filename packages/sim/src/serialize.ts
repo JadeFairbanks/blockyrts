@@ -18,6 +18,7 @@ import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { floorDiv } from './fixed.ts';
 import type { Burn, DuskReading, Ruin, ThreatState, TribeBand, Village, WildPatch } from './threats/types.ts';
 import { FACTION_FIELDS, FACTION_LISTS, type Faction, type Offer, type PeoplesState } from './peoples/types.ts';
+import { circlesJson, readCircles, writeCircles } from './circles/state.ts';
 
 const RUIN_FIELDS = ['mob', 'x', 'z', 'at'] as const satisfies ReadonlyArray<keyof Ruin>;
 const VILLAGE_FIELDS = ['id', 'cell', 'x', 'z', 'band', 'size', 'mage', 'war', 'warned', 'razed', 'rebuildAt', 'raided', 'seen'] as const satisfies ReadonlyArray<keyof Village>;
@@ -171,12 +172,14 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * was paid to start it, for an exact refund of "any lumber"). 21: Patch 4, one
  * bump for the whole patch (its stone outcrops change the land a seed makes, so
  * an older snapshot's land no longer matches its seed). 22: Patch 5's foundations
- * (four main base tiers, no blood nights, no earthworks, ramps or gravel). Every
+ * (four main base tiers, no blood nights, no earthworks, ramps or gravel). 23:
+ * Patch 5's stone circles (the Goddess's blessing, the idols and the Pan
+ * Flute's plays). Every
  * patch raises it, and a snapshot
  * from any other version is refused, never carried over (Jade, Patch 2: a
  * standing rule).
  */
-export const SNAPSHOT_VERSION = 22;
+export const SNAPSHOT_VERSION = 23;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
@@ -265,6 +268,7 @@ export function serializeState(state: SimState): Uint8Array {
   w.u8(state.peaceful);
   writeThreats(w, state.threats);
   writePeoples(w, state.peoples);
+  writeCircles(w, state.circles);
   writeWorld(w, state.world);
   return w.finish();
 }
@@ -368,10 +372,11 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const peaceful = r.u8();
   const threats = readThreats(r);
   const peoples = readPeoples(r);
+  const circles = readCircles(r);
   const world = readWorld(r, seed);
   if (!r.done) throw new Error('trailing bytes in snapshot');
   e.reindex();
-  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, threats, peoples });
+  return attachNav({ seed, step, nextEntityId, rng, entities: e, world, players, buildings, enclosed, projectiles, spawns, sites, loot, stockedCells, stockedChunks, over, peaceful, threats, peoples, circles });
 }
 
 /** The 32-bit desync hash: FNV-1a over the canonical serialisation. */
@@ -470,6 +475,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
   const pa = peoplesJson(a.peoples);
   const pb = peoplesJson(b.peoples);
   if (pa !== pb) return `peoples: ${pa.slice(0, 160)} vs ${pb.slice(0, 160)}`;
+  const ca = circlesJson(a.circles);
+  const cb = circlesJson(b.circles);
+  if (ca !== cb) return `circles: ${ca.slice(0, 160)} vs ${cb.slice(0, 160)}`;
   return diffWorlds(a, b);
 }
 

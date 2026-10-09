@@ -105,9 +105,22 @@ export function kindsOf(res: number): readonly Res[] {
   return [res as Res];
 }
 
-/** How many of a resource a pool holds; for "meat", "fish" or "lumber", of every kind together. */
+/**
+ * Goods that stand in for another, 1 for 1, in any cost paid through these
+ * helpers, used only once the good itself runs out: bluestone for marble
+ * (Jade's answer 2.5, Patch 5 stone circles).
+ */
+export const STAND_INS: Readonly<Partial<Record<number, readonly Res[]>>> = {
+  [Res.Marble]: [Res.Bluestone],
+};
+
+/** How many of a resource a pool holds; for "meat", "fish" or "lumber", of every kind together; with its stand-ins (STAND_INS). */
 export function haveOf(pool: ArrayLike<number>, res: number): number {
-  if (!isAnyRes(res)) return pool[res] ?? 0;
+  if (!isAnyRes(res)) {
+    let n = pool[res] ?? 0;
+    for (const s of STAND_INS[res] ?? []) n += pool[s] ?? 0;
+    return n;
+  }
   let n = 0;
   for (const k of kindsOf(res)) n += pool[k] ?? 0;
   return n;
@@ -135,8 +148,15 @@ export function payAny(pool: Int32Array, cost: Cost): Array<[Res, number]> {
   const add = (res: Res, n: number): void => void taken.set(res, (taken.get(res) ?? 0) + n);
   for (const [res, n] of cost) {
     if (!isAnyRes(res)) {
-      pool[res] = pool[res]! - n;
-      add(res, n);
+      // The good itself first, then its stand-ins in order.
+      let left = n;
+      for (const k of [res, ...(STAND_INS[res] ?? [])]) {
+        const t = k === res && !STAND_INS[res] ? left : Math.min(left, Math.max(0, pool[k]!));
+        if (t <= 0) continue;
+        pool[k] = pool[k]! - t;
+        add(k, t);
+        left -= t;
+      }
       continue;
     }
     const kinds = kindsOf(res);
