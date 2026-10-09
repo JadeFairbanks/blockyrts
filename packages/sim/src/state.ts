@@ -558,6 +558,10 @@ export interface PlayerState {
   starveLodge: number;
   /** Allies panel: the players this player lets command their units, a bit per player ("Share control"). */
   share: number;
+  /** Godmode (the debugger, Jade's Patch 5): 1 while it is on (debug/god.ts). */
+  god: number;
+  /** The player's own stock, kept aside while godmode fills the pool, and put back when it ends. */
+  godPool: Int32Array;
 }
 
 /** A player's side at the start of a game, with this pool. */
@@ -575,11 +579,18 @@ export function newPlayer(pool: Int32Array): PlayerState {
     starveTroops: 0,
     starveLodge: 0,
     share: 0,
+    god: 0,
+    godPool: new Int32Array(pool.length),
   };
 }
 
-/** The per-player scalars after the pool and stock, in the order they are serialised (the open and kept arrays follow them). */
-export const PLAYER_FIELDS = ['research', 'out', 'made', 'rations', 'mealTurn', 'starveWorkers', 'starveTroops', 'starveLodge', 'share'] as const satisfies ReadonlyArray<keyof PlayerState>;
+/** Whether a player is in godmode (the debugger, Jade's Patch 5): everything is built and made at once, free, and needs nothing first. */
+export function isGod(state: SimState, player: number): boolean {
+  return state.players[player]?.god === 1;
+}
+
+/** The per-player scalars after the pool and stock, in the order they are serialised (the open, kept and godPool arrays follow them). */
+export const PLAYER_FIELDS = ['research', 'out', 'made', 'rations', 'mealTurn', 'starveWorkers', 'starveTroops', 'starveLodge', 'share', 'god'] as const satisfies ReadonlyArray<keyof PlayerState>;
 
 /**
  * A question a unit or building asks its owner (Patch 2, round 3: actionable
@@ -646,6 +657,8 @@ export interface SimEvent {
   /** Where it happened, wu (the Space key jumps there); absent for none. */
   x?: number;
   z?: number;
+  /** The camera goes there at once (the debugger's Elf kingdom button). */
+  look?: boolean;
   /** A lair that has just appeared (Patch 3): its mob kind, for the client's ping and sound. */
   lair?: number;
   /**

@@ -128,7 +128,7 @@ export function createHttpHandler(opts: HttpOptions): (req: IncomingMessage, res
   };
 
   const session = (res: ServerResponse, status: number, s: { token: string; identity: Identity }): void => {
-    const body: SessionResponse = { account: s.identity.account, name: s.identity.name, token: s.token };
+    const body: SessionResponse = { account: s.identity.account, name: s.identity.name, debugger: opts.accounts.canDebug(s.identity), token: s.token };
     sendJson(res, status, body, cookie(s.token, SESSION_DAYS * 86_400));
   };
 
@@ -171,7 +171,7 @@ export function createHttpHandler(opts: HttpOptions): (req: IncomingMessage, res
     }
     if (path === ApiRoutes.me && method === 'GET') {
       const id = await who();
-      const body: MeResponse = { account: id?.account ?? null, name: id?.name ?? null, guest: id !== null && id.account === null };
+      const body: MeResponse = { account: id?.account ?? null, name: id?.name ?? null, guest: id !== null && id.account === null, debugger: opts.accounts.canDebug(id) };
       return sendJson(res, 200, body);
     }
     if (path === ApiRoutes.passwordResets && method === 'POST') {
@@ -219,6 +219,10 @@ export function createHttpHandler(opts: HttpOptions): (req: IncomingMessage, res
       await opts.saves.delete(await who(), decodeURIComponent(save[1]!));
       res.statusCode = 204;
       return void res.end();
+    }
+    if (path === ApiRoutes.rooms && method === 'GET') {
+      const id = await who();
+      return sendJson(res, 200, { rooms: opts.relay.openRooms({ accountId: id?.account?.id ?? '', tokenHash: id?.tokenHash ?? '', address: opts.addressOf(req) }) });
     }
     const room = /^\/api\/rooms\/([^/]+)$/.exec(path);
     if (room && method === 'GET') {

@@ -378,14 +378,14 @@ describe('building', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     pool[Res.SoftwoodLumber] = 60;
-    pool[Res.HardwoodLumber] = 50;
+    pool[Res.HardwoodLumber] = 58;
     pool[Res.Stone] = 45;
     pool[Res.Sticks] = 15;
     const b = bigHouse(s);
     run(s, 1, [{ kind: 'upgrade', player: 0, building: b.id }]);
     expect(b.upgrading).toBe(2);
-    // 110 lumber of either kind, 45 stone and 15 sticks.
-    expect([pool[Res.SoftwoodLumber], pool[Res.HardwoodLumber], pool[Res.Stone], pool[Res.Sticks]]).toEqual([0, 0, 0, 0]);
+    // 118 lumber of either kind and 45 stone; no sticks (tier 2 is wood and stone only).
+    expect([pool[Res.SoftwoodLumber], pool[Res.HardwoodLumber], pool[Res.Stone], pool[Res.Sticks]]).toEqual([0, 0, 0, 15]);
     run(s, 1, [{ kind: 'work', player: 0, units: [1, 2, 3, 4], building: b.id }]);
     // 420 ws with 4 workers is 105 s, plus the walk.
     runUntil(s, () => b.level === 2, 3000);

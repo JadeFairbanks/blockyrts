@@ -53,7 +53,7 @@ describe('balance:apply', () => {
     expect(result.outcomes.map((o) => o.status)).toEqual(['applied']);
     expect(result.alsoChanged).toEqual([]);
     const after = readFileSync(join(src, 'buildings/data.ts'), 'utf8');
-    expect(after).toBe(before.replace("mainBase('Hall', [[L, 110], [ST, 45], [Res.Sticks, 15]], 420,", "mainBase('Hall', [[L, 110], [ST, 45], [Res.Sticks, 15]], 450,"));
+    expect(after).toBe(before.replace("mainBase('Hall', [[L, 118], [ST, 45]], 420,", "mainBase('Hall', [[L, 118], [ST, 45]], 450,"));
   });
 
   it('writes a time through its helper, a resource by name, and a row of its own over a shared default', async () => {

@@ -11,6 +11,7 @@ import {
   PROTOCOL_VERSION,
   readSaveFile,
   RELAY_PATH,
+  SAVE_FORMAT_VERSION,
   SaveSection,
   writeSaveFile,
   type ClientMessage,
@@ -41,7 +42,7 @@ export function makeTestWorld(seed: number): SimState {
 export async function saveFileOf(state: SimState, matchId: string, room: RoomStateMessage | null, accountIds: Map<number, string>, label = ''): Promise<Uint8Array> {
   return writeSaveFile(
     {
-      formatVersion: 2,
+      formatVersion: SAVE_FORMAT_VERSION,
       gameVersion: '0.11.0-m11',
       matchId,
       seed: state.seed,
