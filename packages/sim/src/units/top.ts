@@ -73,13 +73,33 @@ export function platformEngine(state: SimState, id: number): number {
   return -1;
 }
 
-/** Whether a unit is an artillery crewman crewing a fixed engine up on its platform. */
+/**
+ * Whether a unit is a garrison artillery crewman up on a Citadel's engine
+ * platform: crewing its fixed engine, or left there when that engine was
+ * destroyed. Jade (CT-3): they "are stuck up there all game until killed or
+ * they die", so they stay to man the next engine built there.
+ */
 export function platformCrew(state: SimState, i: number): boolean {
   const e = state.entities;
   const o = e.queue[i]![0];
   if (o?.t !== 'crew' || e.inside[i] === 0) return false;
   const k = e.indexOf(o.id);
-  return k >= 0 && e.kind[k] === UnitKind.Engine && e.inside[k] === e.inside[i];
+  if (k >= 0 && e.kind[k] === UnitKind.Engine && e.hp[k]! > 0) return e.inside[k] === e.inside[i];
+  const b = state.buildings.get(e.inside[i]!);
+  return b !== undefined && footprintDims(b.kind, b.variant, b.level).platform !== undefined;
+}
+
+/** Garrison crewmen up on a Citadel's platform whose fixed engine was destroyed, waiting for the next one. */
+export function strandedCrew(state: SimState, id: number): number[] {
+  const e = state.entities;
+  const out: number[] = [];
+  for (let j = 0; j < e.count; j++) {
+    const o = e.queue[j]![0];
+    if (e.inside[j] !== id || e.hp[j]! <= 0 || o?.t !== 'crew' || !platformCrew(state, j)) continue;
+    const k = e.indexOf(o.id);
+    if (k < 0 || e.hp[k]! <= 0) out.push(j);
+  }
+  return out;
 }
 
 /** Whether a unit stands on a Citadel's engine platform: its fixed engine, that engine's crew, or one of the men standing there. */
