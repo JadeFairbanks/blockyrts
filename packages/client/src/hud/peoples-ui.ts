@@ -2,16 +2,15 @@
 // the war pop-up, the mercenaries' hire box and the Peoples panel. Each is a
 // HUD panel with HUD buttons, so all of it works with the mouse alone and
 // with the cursor locked. Values stay hidden: the menu shows goods, never
-// prices, and a rough worth bar under the offer box.
+// prices, and rough bars for the offer's worth and their trade left today.
+// Patch 5 (decisions 2.16): the title and its × stay put while the rest
+// scrolls, and every good keeps its picture, name and count at full size.
 import {
   Cat,
-  CAT_COUNT,
   CAT_NAMES,
   catOf,
-  DAILY_BUY_TENTHS,
   FactionKind,
   goodName,
-  HIRE_SILVER,
   MERC_MAX,
   OFFER_SLOTS,
   People,
@@ -23,43 +22,59 @@ import {
   type Order,
 } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
+import type { MouseTarget } from '../input/input-manager.ts';
 import type { PeopleInfo } from '../messages.ts';
-import type { ButtonPress, ButtonRegistry, HudButtonDef } from './buttons.ts';
+import type { ButtonPress, ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
+import { amountBox, FOCUS_BOX, goodCount, goodPic, goodRow } from './goods-ui.ts';
 import type { HudPanels } from './panels.ts';
 
 export interface PeoplesActions {
   send(o: Order): void;
   jumpTo(x: number, z: number): void;
   message(text: string, kind?: 'system' | 'alert'): void;
+  /** Lets a click on an amount box focus it (the cursor may be locked). */
+  addArea(id: string, el: HTMLElement, target: MouseTarget): void;
 }
 
-/** What the worth bar says of an offer, by how much of a day's buying of one kind it comes to (s). */
-export function worthWords(worth: number): string {
+/** What the worth bar says of an offer, by how much of their whole day of trade it comes to (s). */
+export function worthWords(worth: number, day: number): string {
   if (worth <= 0) return 'Put goods in the box to make an offer.';
-  const k = worth / DAILY_BUY_TENTHS;
+  const k = day > 0 ? worth / day : 1;
   if (k < 0.1) return 'A small offer.';
-  if (k < 0.4) return 'A fair offer.';
-  if (k < 0.9) return 'A good offer.';
+  if (k < 0.3) return 'A fair offer.';
+  if (k < 0.6) return 'A good offer.';
   return 'A rich offer.';
+}
+
+/** What the bar of their trade left today says (Patch 5, GP-46: a day of trade per settlement, shared by every player). */
+export function tradeLeftWords(room: number, day: number): string {
+  if (room <= 0) return 'They have traded all they will today. More at dawn.';
+  const k = day > 0 ? room / day : 1;
+  if (k >= 0.95) return 'A whole day of trade is left.';
+  if (k >= 0.5) return 'Most of today\'s trade is left.';
+  if (k >= 0.2) return 'Some of today\'s trade is left.';
+  return 'Only a little trade is left today.';
+}
+
+/** What an offer's goods come to at what the faction pays, tenths, before their day of trade is reckoned; refused goods count nothing. */
+export function offerSum(f: Pick<PeopleInfo, 'pays'>, goods: ReadonlyMap<number, number>): number {
+  let sum = 0;
+  for (const [good, n] of goods) {
+    const at = f.pays.findIndex((g, k) => k % 2 === 0 && g === good);
+    const pct = at >= 0 ? f.pays[at + 1]! : REFUSE;
+    if (pct === REFUSE || n <= 0) continue;
+    sum += Math.floor((valueTenths(good) * n * pct) / 100);
+  }
+  return sum;
 }
 
 /**
  * What an offer is worth to a faction, tenths, as the sim reckons it: each
- * good at what they pay for it, each kind of good no more than they still
- * buy today. Refused goods count nothing.
+ * good at what they pay for it, the whole no more than their trade left
+ * today (Patch 5, GP-46). Refused goods count nothing.
  */
 export function offerWorth(f: Pick<PeopleInfo, 'pays' | 'room'>, goods: ReadonlyMap<number, number>): number {
-  const byCat = new Array<number>(CAT_COUNT).fill(0);
-  for (const [good, n] of goods) {
-    const at = f.pays.findIndex((g, k) => k % 2 === 0 && g === good);
-    const pct = at >= 0 ? f.pays[at + 1]! : REFUSE;
-    if (pct === REFUSE) continue;
-    const c = catOf(good);
-    byCat[c] = byCat[c]! + Math.floor((valueTenths(good) * n * pct) / 100);
-  }
-  let worth = 0;
-  for (let c = 0; c < CAT_COUNT; c++) worth += Math.min(byCat[c]!, f.room[c] ?? 0);
-  return worth;
+  return Math.min(offerSum(f, goods), Math.max(0, f.room));
 }
 
 /** "Smoked fish ×5, Halfling shortbow" */
@@ -69,13 +84,18 @@ export function goodsText(pairs: readonly number[]): string {
   return out.join(', ');
 }
 
+/** A mercenary's price: "7 silver or 1 gold". */
+export function hirePrice(hire: Pick<NonNullable<PeopleInfo['hire']>, 'silver' | 'gold'>): string {
+  return `${hire.silver} silver or ${hire.gold} gold`;
+}
+
 /** The faction's state in a few words, for the Peoples panel. */
 export function statusText(f: PeopleInfo): string {
   if (f.status === Status.Leaving) return 'Leaving their home.';
   if (f.status === Status.Migrated) return 'Gone to rebuild elsewhere. They will raid you until you pay reparations.';
   if (f.surrender) return 'They offer to surrender: accept or refuse.';
   if (f.war) return 'At war with you.';
-  if (f.kind === FactionKind.MercCamp) return `${f.hire?.left ?? 0} of ${f.hire?.size ?? 0} for hire, ${HIRE_SILVER} silver each for a day.`;
+  if (f.kind === FactionKind.MercCamp) return `${f.hire?.left ?? 0} of ${f.hire?.size ?? 0} for hire at ${f.hire ? hirePrice(f.hire) : '?'} each, yours for good.`;
   if (f.kind === FactionKind.ElfCaravan) return f.visiting ? 'A caravan at your main base. It leaves at dusk.' : 'A wandering caravan.';
   return f.traded ? 'At peace. You have traded with them.' : 'At peace.';
 }
@@ -90,12 +110,21 @@ class Buttons {
     private readonly prefix: string,
   ) {}
 
-  add(parent: HTMLElement, def: Omit<HudButtonDef, 'id' | 'keys'> & { keys?: string[] }, disabled = ''): void {
+  add(parent: HTMLElement, def: Omit<HudButtonDef, 'id' | 'keys'> & { keys?: string[] }, disabled = ''): HudButton {
     const id = `${this.prefix}-${this.n++}`;
     const b = this.reg.add({ keys: [], ...def, id });
     if (disabled) b.setEnabled(false, disabled);
     this.ids.push(id);
     parent.append(b.el);
+    return b;
+  }
+
+  /** A good's button: its picture, its name on the face and its count at the end. */
+  good(parent: HTMLElement, good: number, count: number | string, def: Omit<HudButtonDef, 'id' | 'keys' | 'face'>, disabled = ''): HudButton {
+    const b = this.add(parent, { ...def, face: goodName(good) }, disabled);
+    b.el.prepend(goodPic(good));
+    b.el.append(goodCount(count));
+    return b;
   }
 
   clear(): void {
@@ -110,6 +139,22 @@ function el(tag: string, cls: string, parent?: HTMLElement, text?: string): HTML
   if (text !== undefined) e.textContent = text;
   parent?.append(e);
   return e;
+}
+
+/** A panel's title row and the body under it, which scrolls on its own so the title and its × always show (decisions 2.16). */
+function frame(panel: HTMLElement, title: string): { head: HTMLElement; body: HTMLElement } {
+  panel.replaceChildren();
+  const head = el('div', 'dlg-head', panel);
+  el('h3', 'dlg-title', head, title);
+  const body = el('div', 'dlg-body', panel);
+  body.dataset.scroll = '';
+  return { head, body };
+}
+
+/** An amount box in this panel has the keyboard: the panel waits to be drawn again until it is left. */
+function typing(panel: HTMLElement): boolean {
+  const a = document.activeElement;
+  return a instanceof HTMLInputElement && panel.contains(a);
 }
 
 export class PeoplesUi {
@@ -129,6 +174,12 @@ export class PeoplesUi {
   private listSig = '';
   private tradeSig = '';
   private hireSig = '';
+  /** The hire box pays in gold rather than silver (Patch 5, BL-4: 1 gold for 7 silver). */
+  private payGold = false;
+  /** The offer's worth bar and words, kept to follow an amount as it is typed. */
+  private worthFill: HTMLElement | null = null;
+  private worthText: HTMLElement | null = null;
+  private worthOver: HTMLElement | null = null;
   private warThen: (() => void) | null = null;
   /** The last thing each faction said to this player (Patch 2: the trade menu and hire box show it, since chat no longer carries it). */
   private readonly said = new Map<number, { name: string; text: string }>();
@@ -273,6 +324,7 @@ export class PeoplesUi {
   }
 
   private closeTrade(): void {
+    if (typing(this.trade)) (document.activeElement as HTMLElement).blur();
     this.tradeWith = 0;
     this.trade.hidden = true;
     this.tradeButtons.clear();
@@ -285,6 +337,11 @@ export class PeoplesUi {
     this.hireButtons.clear();
   }
 
+  /** The × in a panel's title row: always in sight, since only the body under it scrolls. */
+  private closeButton(bs: Buttons, head: HTMLElement, description: string, onPress: () => void): void {
+    bs.add(head, { face: '×', name: 'Close', description, className: 'dlg-close', onPress });
+  }
+
   // ---- The Peoples panel ----
 
   private drawList(): void {
@@ -293,22 +350,21 @@ export class PeoplesUi {
     if (sig === this.listSig) return;
     this.listSig = sig;
     this.listButtons.clear();
-    this.list.replaceChildren();
-    const head = el('div', 'dlg-head', this.list);
-    el('h3', 'dlg-title', head, 'Peoples');
-    this.listButtons.add(head, { face: '×', name: 'Close', description: 'Close the Peoples panel (O or Esc).', className: 'dlg-close', onPress: () => this.togglePanel() });
+    const { head, body } = frame(this.list, 'Peoples');
+    this.closeButton(this.listButtons, head, 'Close the Peoples panel (O or Esc).', () => this.togglePanel());
     if (all.length === 0) {
-      el('p', 'dlg-note', this.list, 'You have not met any of the neutral peoples yet. Halflings live in the Heartland; Runkin, Dwarves, Elves and mercenaries farther out.');
+      el('p', 'dlg-note', body, 'You have not met any of the neutral peoples yet. Halflings live in the Heartland; Runkin, Dwarves, Elves and mercenaries farther out.');
       return;
     }
     for (const f of all) {
-      const row = el('div', 'ppl-row', this.list);
+      const row = el('div', 'ppl-row', body);
       el('div', `ppl-name${f.war ? ' war' : ''}`, row, f.title);
       el('div', 'ppl-status', row, `${statusText(f)}${f.kind !== FactionKind.MercCamp ? ` Fighters: ${f.fighters}.` : ''}`);
       const btns = el('div', 'dlg-row', row);
       this.listButtons.add(btns, { face: 'Go there', name: 'Go there', description: 'Centre the camera on them.', className: 'dlg-btn', onPress: () => this.a.jumpTo(f.x / WU_PER_METRE, f.z / WU_PER_METRE) });
       if (f.kind === FactionKind.MercCamp) {
-        this.listButtons.add(btns, { face: 'Hire', name: 'Hire mercenaries', description: `Hire up to ${MERC_MAX} for the day at ${HIRE_SILVER} silver each; they walk home at dusk.`, className: 'dlg-btn', onPress: () => this.openHire(f.id) }, f.hire?.why ?? '');
+        const price = f.hire ? ` at ${hirePrice(f.hire)} each` : '';
+        this.listButtons.add(btns, { face: 'Hire', name: 'Hire mercenaries', description: `Hire up to ${MERC_MAX}${price}. They are yours for good, 1 supply each.`, className: 'dlg-btn', onPress: () => this.openHire(f.id) }, f.hire?.why ?? '');
       } else if (f.status === Status.Settled) {
         this.listButtons.add(btns, { face: 'Trade', name: 'Trade', description: 'Open their trade menu: put goods in the offer box and they answer with three bundles.', className: 'dlg-btn', onPress: () => this.openTrade(f.id) }, f.tradeWhy);
         if (!f.war) this.listButtons.add(btns, { face: 'War', name: 'Declare war', description: 'Asks first: your allies are drawn in, and their people fight yours on sight.', className: 'dlg-btn danger', onPress: () => this.confirmWar(f.id) });
@@ -354,17 +410,42 @@ export class PeoplesUi {
     return at >= 0 ? f.pays[at + 1]! : REFUSE;
   }
 
+  /** Puts n more of a good in the offer box (fewer for n < 0), at most what the player has. */
   private put(good: number, n: number): void {
-    const cur = this.draft.get(good) ?? 0;
-    if (cur === 0 && this.draft.size >= OFFER_SLOTS) {
+    const cur = this.draft.get(good);
+    if (cur === undefined && this.draft.size >= OFFER_SLOTS) {
       this.a.message(`The offer box holds ${OFFER_SLOTS} kinds of goods.`, 'alert');
       return;
     }
-    const next = Math.max(0, Math.min(this.have(good), cur + n));
-    if (next === 0) this.draft.delete(good);
-    else this.draft.set(good, next);
+    this.change(() => {
+      const next = Math.max(0, Math.min(this.have(good), (cur ?? 0) + n));
+      if (next === 0) this.draft.delete(good);
+      else this.draft.set(good, next);
+    });
+  }
+
+  /** A press that changes the offer box: a box being typed in lets go first, then the menu is drawn again. */
+  private change(fn: () => void): void {
+    if (typing(this.trade)) (document.activeElement as HTMLElement).blur();
+    fn();
     this.tradeSig = '';
     this.drawTrade();
+  }
+
+  /** The offer's worth bar, words and warning, from the box as it stands (also while an amount is typed). */
+  private drawWorth(f: PeopleInfo, goods: ReadonlyMap<number, number>, worth = offerWorth(f, goods)): void {
+    if (this.worthFill) this.worthFill.style.width = `${f.day > 0 ? Math.min(100, Math.round((worth / f.day) * 100)) : 0}%`;
+    if (this.worthText) this.worthText.textContent = worthWords(worth, f.day);
+    if (this.worthOver) this.worthOver.hidden = f.offer !== null || offerSum(f, goods) <= Math.max(0, f.room);
+  }
+
+  /** Leaving an amount box draws the menu again, unless the press went to another box in it. */
+  private boxLeft(): void {
+    window.setTimeout(() => {
+      if (typing(this.trade)) return;
+      this.tradeSig = '';
+      this.drawTrade();
+    }, 0);
   }
 
   private drawTrade(): void {
@@ -373,6 +454,8 @@ export class PeoplesUi {
       this.closeTrade();
       return;
     }
+    // Not while an amount is typed: leaving the box draws it again.
+    if (typing(this.trade)) return;
     // Goods the player no longer has leave the box.
     for (const [g, n] of [...this.draft]) {
       const h = this.have(g);
@@ -380,35 +463,39 @@ export class PeoplesUi {
       else if (n > h) this.draft.set(g, h);
     }
     const mine = this.mine();
-    const sig = JSON.stringify([f.stock, f.tradeWhy, f.offer, f.pays, f.room, mine, [...this.draft], this.said.get(f.id)]);
+    const sig = JSON.stringify([f.stock, f.tradeWhy, f.offer, f.pays, f.wants, f.room, f.day, mine, [...this.draft], this.said.get(f.id)]);
     if (sig === this.tradeSig) return;
     this.tradeSig = sig;
     this.tradeButtons.clear();
-    const t = this.trade;
-    t.replaceChildren();
-    const head = el('div', 'dlg-head', t);
-    el('h3', 'dlg-title', head, `Trade with ${f.title}`);
-    this.tradeButtons.add(head, { face: '×', name: 'Close', description: 'Close the trade menu (Esc). An offer left open stays open.', className: 'dlg-close', onPress: () => this.closeTrade() });
-    this.saidLine(t, f.id);
-    if (f.lean) el('p', 'dlg-note', t, `They lean to ${f.lean}: what they make of it is cheap, and they pay well for what they lack.`);
-    if (f.tradeWhy) el('p', 'dlg-why', t, f.tradeWhy);
-    const cols = el('div', 'trade-cols', t);
+    const { head, body } = frame(this.trade, `Trade with ${f.title}`);
+    this.closeButton(this.tradeButtons, head, 'Close the trade menu (Esc). An offer left open stays open.', () => this.closeTrade());
+    this.saidLine(body, f.id);
+    if (f.lean) el('p', 'dlg-note', body, `They lean to ${f.lean}: what they make of it is cheap, and they pay well for what they lack.`);
+    if (f.tradeWhy) el('p', 'dlg-why', body, f.tradeWhy);
+
+    // Their trade left today, shared by every player (Patch 5, GP-46).
+    const left = el('div', 'trade-left', body);
+    el('div', 'trade-head', left, 'Their trade left today');
+    const leftBar = el('div', 'worth-bar', left);
+    el('div', 'worth-fill left', leftBar).style.width = `${f.day > 0 ? Math.min(100, Math.round((Math.max(0, f.room) / f.day) * 100)) : 0}%`;
+    el('div', 'worth-words', left, `${tradeLeftWords(f.room, f.day)} Every player trades from the same day's trade; it fills again at dawn.`);
+
+    const cols = el('div', 'trade-cols', body);
 
     // What they sell, and what they want.
     const theirs = el('div', 'trade-col', cols);
     el('div', 'trade-head', theirs, 'They sell today');
     const stock = el('div', 'trade-list', theirs);
+    stock.dataset.scroll = '';
     if (f.stock.length === 0) el('div', 'trade-good muted', stock, 'Nothing left today. Their stock refills each morning.');
-    for (let k = 0; k < f.stock.length; k += 2) el('div', 'trade-good', stock, f.stock[k + 1] === 1 ? goodName(f.stock[k]!) : `${goodName(f.stock[k]!)} ×${f.stock[k + 1]}`);
+    for (let k = 0; k + 1 < f.stock.length; k += 2) goodRow(stock, f.stock[k]!, goodName(f.stock[k]!), f.stock[k + 1]!);
     el('div', 'trade-head', theirs, 'They want');
-    const wants = el('div', 'trade-list', theirs);
+    const wants = el('div', 'trade-notes', theirs);
     const well = CAT_NAMES.filter((_, c) => (f.wants[c] ?? 0) >= 100);
     const refused = CAT_NAMES.filter((_, c) => f.wants[c] === REFUSE);
-    const full = CAT_NAMES.filter((_, c) => f.wants[c] !== REFUSE && (f.room[c] ?? 0) <= 0);
     if (well.length) el('div', 'trade-good', wants, `Pay well for ${well.join(', ')}.`);
-    el('div', 'trade-good muted', wants, 'Take most other goods for less.');
+    el('div', 'trade-good muted', wants, 'Take most other goods for less. Stone fetches little, and nobody takes earth.');
     if (refused.length) el('div', 'trade-good refused', wants, `Will not take ${refused.join(', ')}.`);
-    if (full.length) el('div', 'trade-good refused', wants, `Have bought all the ${full.join(', ')} they want today.`);
 
     // The player's goods: click puts one in the box, Shift + click or right click puts ten.
     const yours = el('div', 'trade-col', cols);
@@ -419,17 +506,18 @@ export class PeoplesUi {
     for (const [good, n] of mine) {
       const refusedGood = this.pays(f, good) === REFUSE;
       const inBox = this.draft.get(good) ?? 0;
-      this.tradeButtons.add(
+      this.tradeButtons.good(
         pool,
+        good,
+        n - inBox,
         {
-          face: `${goodName(good)} ${n - inBox}`,
           name: goodName(good),
-          description: 'Click to put one in the offer box; Shift + click or right click puts ten.',
+          description: 'Click to put one in the offer box; Shift + click or right click puts ten. Type an amount in the box.',
           className: `trade-item${refusedGood ? ' refused' : ''}`,
           onPress: (p: ButtonPress) => this.put(good, p.shift ? 10 : 1),
           onRightClick: () => this.put(good, 10),
         },
-        refusedGood ? (f.people === People.Elf && catOf(good) === Cat.Lumber ? 'The Elves take lumber as an insult: offering it closes trade with you for a day.' : 'They will not take this.') : open ? 'Withdraw the open offer to change it.' : f.tradeWhy,
+        refusedGood ? (f.people === People.Elf && catOf(good) === Cat.Lumber ? 'The Elves take lumber as an insult: offering it closes trade with you for a day.' : good === Res.Earth ? 'Nobody takes earth.' : 'They will not take this.') : open ? 'Withdraw the open offer to change it.' : f.tradeWhy,
       );
     }
     if (mine.length === 0) el('div', 'trade-good muted', pool, 'Your stock is empty.');
@@ -438,30 +526,43 @@ export class PeoplesUi {
     const box = el('div', 'trade-col', cols);
     el('div', 'trade-head', box, 'Your offer');
     const offered = el('div', 'trade-list offer', box);
+    offered.dataset.scroll = '';
     const goods = open ? new Map<number, number>(pairsOf(f.offer!.goods)) : this.draft;
-    if (goods.size === 0) el('div', 'trade-good muted', offered, 'Click your goods to put them here.');
+    if (goods.size === 0) el('div', 'trade-good muted', offered, 'Click your goods to put them here, then type how many.');
     for (const [good, n] of goods) {
-      this.tradeButtons.add(
-        offered,
-        {
-          face: `${goodName(good)} ×${n}`,
-          name: goodName(good),
-          description: 'Click to take one back out; right click takes them all.',
-          className: 'trade-item in-box',
-          onPress: () => this.put(good, -1),
-          onRightClick: () => this.put(good, -n),
+      if (open) {
+        goodRow(offered, good, goodName(good), n);
+        continue;
+      }
+      const line = el('div', 'good-row offer-line', offered);
+      line.append(goodPic(good));
+      el('span', 'good-name', line, goodName(good));
+      const most = this.have(good);
+      const amount = amountBox(
+        n,
+        most,
+        `How many ${goodName(good)} to offer`,
+        (v) => {
+          this.draft.set(good, v);
+          this.drawWorth(f, this.draft);
         },
-        open ? 'Withdraw the open offer to change it.' : '',
+        () => this.boxLeft(),
       );
+      this.a.addArea('trade-amount', amount, FOCUS_BOX);
+      line.append(amount);
+      this.tradeButtons.add(line, { face: 'All', name: 'All of it', description: `Offer all ${most} you have.`, className: 'dlg-btn mini', onPress: () => this.change(() => this.draft.set(good, most)) });
+      this.tradeButtons.add(line, { face: '×', name: 'Take out', description: 'Take this good out of the offer box.', className: 'dlg-btn mini', onPress: () => this.change(() => this.draft.delete(good)) });
     }
-    const worth = open ? f.offer!.worth : offerWorth(f, goods);
+    if (!open && goods.size > 0) this.tradeButtons.add(offered, { face: 'Clear', name: 'Clear the offer box', description: 'Take everything back out of the offer box.', className: 'dlg-btn', onPress: () => this.change(() => this.draft.clear()) });
     const bar = el('div', 'worth-bar', box);
-    const fill = el('div', 'worth-fill', bar);
-    fill.style.width = `${Math.min(100, Math.round((worth / DAILY_BUY_TENTHS) * 100))}%`;
-    el('div', 'worth-words', box, worthWords(worth));
+    this.worthFill = el('div', 'worth-fill', bar);
+    this.worthText = el('div', 'worth-words', box);
+    this.worthOver = el('div', 'dlg-why', box, 'More than they will trade today: they take only what fits and leave you the rest.');
+    this.drawWorth(f, goods, open ? f.offer!.worth : undefined);
     if (open) el('div', 'trade-head', box, 'They offer');
     const actions = el('div', 'dlg-row', box);
     if (!open) {
+      const empty = [...this.draft.values()].every((v) => v <= 0);
       this.tradeButtons.add(
         actions,
         {
@@ -469,23 +570,35 @@ export class PeoplesUi {
           name: 'Make offer',
           description: 'They weigh your goods and answer with three bundles of about that worth from their stock.',
           className: 'dlg-btn primary',
-          onPress: () => this.a.send({ kind: 'tradeOffer', player: this.player, faction: f.id, goods: [...this.draft].flat() }),
+          onPress: () => {
+            if (typing(this.trade)) (document.activeElement as HTMLElement).blur();
+            this.a.send({ kind: 'tradeOffer', player: this.player, faction: f.id, goods: [...this.draft].filter(([, v]) => v > 0).flat() });
+          },
         },
-        f.tradeWhy || (this.draft.size === 0 ? 'Put goods in the offer box first.' : ''),
+        f.tradeWhy || (empty ? 'Put goods in the offer box first.' : f.room <= 0 ? tradeLeftWords(f.room, f.day) : ''),
       );
       return;
     }
     f.offer!.bundles.forEach((b, k) => {
-      this.tradeButtons.add(actions, {
-        face: goodsText(b),
-        name: `Take bundle ${k + 1}`,
-        description: 'Take this bundle: the goods change hands at once.',
-        className: 'dlg-btn bundle',
-        onPress: () => {
-          this.a.send({ kind: 'tradeTake', player: this.player, faction: f.id, bundle: k });
-          this.draft.clear();
+      const btn = this.tradeButtons.add(
+        actions,
+        {
+          face: '',
+          name: `Take bundle ${k + 1}: ${goodsText(b)}`,
+          description: 'Take this bundle: the goods change hands at once.',
+          className: 'dlg-btn bundle',
+          onPress: () => {
+            this.a.send({ kind: 'tradeTake', player: this.player, faction: f.id, bundle: k });
+            this.draft.clear();
+          },
         },
-      }, f.tradeWhy);
+        f.tradeWhy,
+      );
+      for (const [good, n] of pairsOf(b)) {
+        const g = el('span', 'bundle-good', btn.el);
+        g.append(goodPic(good));
+        el('span', 'good-name', g, n === 1 ? goodName(good) : `${goodName(good)} ×${n}`);
+      }
     });
     this.tradeButtons.add(actions, {
       face: 'Withdraw',
@@ -508,26 +621,43 @@ export class PeoplesUi {
       this.closeHire();
       return;
     }
+    const info = this.game.info;
     const silver = this.game.have(Res.Silver);
-    const sig = JSON.stringify([f.hire, silver, this.said.get(f.id)]);
+    const gold = this.game.have(Res.Gold);
+    const room = info ? Math.max(0, info.supplyCap - info.supplyUsed) : 0;
+    const sig = JSON.stringify([f.hire, silver, gold, room, this.payGold, this.said.get(f.id)]);
     if (sig === this.hireSig) return;
     this.hireSig = sig;
     this.hireButtons.clear();
-    const h = this.hire;
-    h.replaceChildren();
-    const head = el('div', 'dlg-head', h);
-    el('h3', 'dlg-title', head, f.title);
-    this.hireButtons.add(head, { face: '×', name: 'Close', description: 'Close (Esc).', className: 'dlg-close', onPress: () => this.closeHire() });
-    this.saidLine(h, f.id);
-    el('p', 'dlg-note', h, `Swords for hire: ${HIRE_SILVER} silver a head for one day. They fight for you until dusk, then walk home. ${f.hire.left} of ${f.hire.size} here now; you have ${silver} silver.`);
-    if (f.hire.why) el('p', 'dlg-why', h, f.hire.why);
-    const row = el('div', 'dlg-row', h);
-    for (let n = 1; n <= Math.max(1, Math.min(MERC_MAX, f.hire.left)); n++) {
-      const cost = n * HIRE_SILVER;
+    const hire = f.hire;
+    const { head, body } = frame(this.hire, f.title);
+    this.closeButton(this.hireButtons, head, 'Close (Esc).', () => this.closeHire());
+    this.saidLine(body, f.id);
+    el('p', 'dlg-note', body, `Swords for hire at ${hirePrice(hire)} a head. Once hired they are yours for good: each takes 1 supply and eats like any troop. ${hire.left} of ${hire.size} here now.`);
+    const purse = el('div', 'hire-purse', body);
+    goodRow(purse, Res.Silver, 'Silver', silver);
+    goodRow(purse, Res.Gold, 'Gold', gold);
+    el('div', 'good-row muted', purse, `Room for ${room} more supply.`);
+    if (hire.why) el('p', 'dlg-why', body, hire.why);
+    const pay = el('div', 'dlg-row', body);
+    this.hireButtons.good(pay, Res.Silver, hire.silver, { name: 'Pay in silver', description: `Pay ${hire.silver} silver a head.`, className: 'dlg-btn pay-pick', onPress: () => { this.payGold = false; this.drawHire(); } }).setLit(!this.payGold);
+    this.hireButtons.good(pay, Res.Gold, hire.gold, { name: 'Pay in gold', description: `Pay ${hire.gold} gold a head (1 gold is worth 7 silver).`, className: 'dlg-btn pay-pick', onPress: () => { this.payGold = true; this.drawHire(); } }).setLit(this.payGold);
+    const price = this.payGold ? hire.gold : hire.silver;
+    const coin = this.payGold ? 'gold' : 'silver';
+    const purseNow = this.payGold ? gold : silver;
+    const row = el('div', 'dlg-row', body);
+    for (let n = 1; n <= Math.max(1, Math.min(MERC_MAX, hire.left)); n++) {
+      const cost = n * price;
       this.hireButtons.add(
         row,
-        { face: `Hire ${n} (${cost} silver)`, name: `Hire ${n}`, description: `${n} mercenar${n === 1 ? 'y' : 'ies'} until dusk for ${cost} silver.`, className: 'dlg-btn', onPress: () => this.a.send({ kind: 'hire', player: this.player, faction: f.id, count: n }) },
-        f.hire.why || (n > f.hire.left ? 'Nobody here for hire today.' : silver < cost ? `Needs ${cost} silver; you have ${silver}.` : ''),
+        {
+          face: `Hire ${n} (${cost} ${coin})`,
+          name: `Hire ${n}`,
+          description: `${n} mercenar${n === 1 ? 'y' : 'ies'} for ${cost} ${coin}, yours for good.`,
+          className: 'dlg-btn',
+          onPress: () => this.a.send({ kind: 'hire', player: this.player, faction: f.id, count: n, ...(this.payGold ? { gold: 1 } : {}) }),
+        },
+        hire.why || (n > hire.left ? 'Nobody here for hire now.' : n > room ? `Needs ${n} supply; you have room for ${room}.` : purseNow < cost ? `Needs ${cost} ${coin}; you have ${purseNow}.` : ''),
       );
     }
   }

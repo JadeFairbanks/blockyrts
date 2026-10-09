@@ -396,12 +396,13 @@ export interface ReparationsOrder {
   faction: number;
 }
 
-/** Hire mercenaries from a camp for the day (2 silver each). */
+/** Hire mercenaries from a camp for good (Patch 5): paid in silver, or in gold when `gold` is 1. */
 export interface HireOrder {
   kind: 'hire';
   player: number;
   faction: number;
   count: number;
+  gold?: number;
 }
 
 /** Debug: one of the peoples at a point (wu): a faction kind (peoples/data.ts FactionKind), 7 an Elf caravan to the player now, 8 meet the Elves. */
@@ -883,6 +884,7 @@ export function validateOrder(o: Order): void {
       return;
     case 'hire':
       if (o.count < 1 || o.count > 6) throw new Error('hire 1 to 6');
+      if (o.gold !== undefined && o.gold !== 0 && o.gold !== 1) throw new Error('hire pays in silver (0) or gold (1)');
       return;
     case 'shareControl':
       if (o.with < 0 || o.with > 7 || (o.on !== 0 && o.on !== 1)) throw new Error('bad share control');

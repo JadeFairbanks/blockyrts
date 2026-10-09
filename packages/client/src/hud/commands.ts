@@ -27,9 +27,9 @@ import {
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
-  Mob,
   PEOPLES,
-  TRADE_BUILDINGS,
+  OUT_OF_REACH,
+  HAND_CART_TENTHS_LB,
   nextMageTraining,
   PickOwn,
   Product,
@@ -769,7 +769,7 @@ export class Commands {
     const back = units.length > 0 && units.every((u) => u.kit !== 0);
     const desc = back
       ? 'Take the carts back to the main base and hand them in to the stock.'
-      : 'Walk to the main base and take a cart from the stock: a hand cart carries 150 lb, an ox cart (for a worker with an ox hitched) much more. Make carts at a Workshop.';
+      : `Walk to the main base and take a cart from the stock: a hand cart carries ${HAND_CART_TENTHS_LB / 10} lb (ten times a load on foot), an ox cart (for a worker with an ox hitched) far more. A cart fills up at the next node of the same kind before the trip home. Make carts at a Workshop.`;
     const name = back ? 'Hand the cart back' : 'Fetch a cart';
     const base = this.d.game.mainBases().some((b) => b.complete);
     if (!base) return this.off('cart', 'Cart', desc, 'There is no main base.', name);
@@ -1393,15 +1393,21 @@ export class Commands {
     return item.kind === 'unit' && item.typeKey.startsWith('ruin:');
   }
 
-  /** Right click on the peoples at peace: their leader, a trade building or a caravan opens trade; a mercenary camp the hire box. */
+  /**
+   * Right click on the peoples at peace: any of their buildings (Patch 5,
+   * GP-46: "you can click to trade on any of their buildings"), their leader
+   * or a caravan opens trade; a mercenary camp the hire box. Selected units
+   * with none in reach walk up to the building (s).
+   */
   private talkTo(item: Selectable): boolean {
     const f = this.factionOf(item);
     if (!f || f.war || item.owner !== PEOPLES) return false;
     const id = entityIdOf(item.key);
-    const mob = Number(item.typeKey.split(':')[1]);
-    const trader = item.typeKey.startsWith('peoples:') ? TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon : id === f.leader;
+    const trader = item.typeKey.startsWith('peoples:') || id === f.leader;
     if (!trader && f.kind !== FactionKind.ElfCaravan && f.kind !== FactionKind.MercCamp) return false;
     this.d.openPeople(f.id);
+    const why = f.kind === FactionKind.MercCamp ? (f.hire?.why ?? '') : f.tradeWhy;
+    if (why === OUT_OF_REACH && this.unitIds().length > 0) this.moveTo(item.centre);
     return true;
   }
 
@@ -1591,6 +1597,8 @@ export class Commands {
     const units = this.unitIds();
     if (units.length === 0) {
       if (this.buildings().length > 0) this.rally(item, ground);
+      // Their trade menu opens with nothing selected too (it says what is needed).
+      else if (item) this.talkTo(item);
       return;
     }
     const workers = this.workerIds();
