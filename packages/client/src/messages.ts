@@ -44,9 +44,10 @@ export type ToWorker =
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
  * rides and the mount's health; an engine's crew standing by and whether
- * something hauls it; its meal and hunger; a timed action under way.
+ * something hauls it; its meal and hunger; a timed action under way; what
+ * work it is at, for its clip and the tool in its hand.
  */
-export const STATE_STRIDE = 58;
+export const STATE_STRIDE = 59;
 export const S = {
   id: 0,
   owner: 1,
@@ -135,7 +136,12 @@ export const S = {
   /** Close melee's shield tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison tips on. */
   sTier: 56,
   tips: 57,
+  /** A worker's work now (Task), for its clip and the tool in its hand (Patch 5); 0 for none. */
+  task: 58,
 } as const;
+
+/** What a worker is at (S.task): each has a clip of its own and the tool for it in hand (Patch 5, units-view.ts). */
+export const Task = { None: 0, Chop: 1, Mine: 2, Gather: 3, Fish: 4, Butcher: 5, Field: 6, Clear: 7, Build: 8, Relight: 9, Prospect: 10, Dig: 11, Tame: 12, Crew: 13 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;

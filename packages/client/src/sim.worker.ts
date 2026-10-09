@@ -90,8 +90,9 @@ import {
   spellReadyAt,
 } from '@blockyrts/sim';
 import { cloaked, crewOf, haulerOf, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
+import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
@@ -132,6 +133,43 @@ const HURT_SHOW_STEPS = 8;
 
 function send(msg: FromWorker, transfer: Transferable[] = []): void {
   self.postMessage(msg, { transfer });
+}
+
+/** A gathered node's work by its shape (props.ts PropShape): trees and bushes chopped, plants picked, fish caught, carcasses butchered, the rest mined. */
+const GATHER_TASKS: Record<number, number> = { [PropShape.Tree]: Task.Chop, [PropShape.Bush]: Task.Chop, [PropShape.Plant]: Task.Gather, [PropShape.Fish]: Task.Fish, [PropShape.Carcass]: Task.Butcher };
+
+/** What a worker is at now (Task), from the order at the head of its list and how it is working it; 0 while it walks or waits. */
+function taskOf(s: SimState, i: number): number {
+  const e = s.entities;
+  const order = e.order[i]!;
+  const head = e.queue[i]![0];
+  // Standing by a wild animal with its food; at a gun, pushing it or working it.
+  if (head?.t === 'tame' && order === OrderKind.Idle) return Task.Tame;
+  if (head?.t === 'crew') return Task.Crew;
+  if (order !== OrderKind.Chop && order !== OrderKind.Mine && order !== OrderKind.Farm && order !== OrderKind.Dig) return Task.None;
+  switch (head?.t) {
+    case 'gather': {
+      const view = s.world.prop(head.cx, head.cz, head.i, s.step);
+      return view ? (GATHER_TASKS[propInfo(view.kind).shape] ?? Task.Mine) : Task.None;
+    }
+    case 'work':
+    case 'repairAll':
+    case 'mend':
+      return Task.Build;
+    // Saplings and sprouts pulled off a building's spot.
+    case 'build':
+      return Task.Clear;
+    case 'relight':
+      return Task.Relight;
+    case 'prospect':
+      return Task.Prospect;
+    case 'job':
+      return order === OrderKind.Farm ? Task.Field : Task.None;
+    case 'dig':
+    case 'stairs':
+      return Task.Dig;
+  }
+  return order === OrderKind.Dig ? Task.Dig : Task.None;
 }
 
 function postState(s: SimState): void {
@@ -227,6 +265,15 @@ function postState(s: SimState): void {
     const [tinkerDone, tinkerOf] = tinkerProgress(s, i);
     data[o + S.tinkerDone] = tinkerDone;
     data[o + S.tinkerOf] = tinkerOf;
+    if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior) {
+      const task = taskOf(s, i);
+      data[o + S.task] = task;
+      // Prospecting shows its bar like a timed action (Patch 5): the steps done of the steps it takes with the worker's tools.
+      if (task === Task.Prospect) {
+        data[o + S.tinkerDone] = e.timer[i]!;
+        data[o + S.tinkerOf] = e.wTier[i]! >= PROSPECT_TOOL_TIER ? PROSPECT_HAMMER_STEPS : PROSPECT_STEPS;
+      }
+    }
     const [xp, xpNext] = rankXp(s, i);
     data[o + S.xp] = xp;
     data[o + S.xpNext] = xpNext;

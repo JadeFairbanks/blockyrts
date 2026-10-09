@@ -5,7 +5,8 @@ export type Vec3 = [number, number, number];
 
 export interface ModelIndex {
   version: 1;
-  models: { id: string; category: string; glb: string; json: string }[];
+  /** lazy: loaded only once the game asks for it (request or ready), never in the background. */
+  models: { id: string; category: string; glb: string; json: string; lazy?: true }[];
 }
 
 export interface SidecarBone {
@@ -40,6 +41,8 @@ export interface ModelSidecar {
   bones: SidecarBone[];
   /** Equipment parts; vertex attribute _PART is 0 for the body, 1 + index for a part. */
   parts: string[];
+  /** The parts shown in Blockbench by default (the model's own kit); absent from sidecars built before Patch 5. */
+  partsShown?: string[];
   clips: SidecarClip[];
   /** Rest-pose bounds of the body without parts, metres. */
   bounds: { min: Vec3; max: Vec3 };

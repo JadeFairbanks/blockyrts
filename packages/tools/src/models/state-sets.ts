@@ -1,14 +1,15 @@
 // State sets as drawn models of their own. A world prop's model keeps its
 // other looks as groups Blockbench hides by default: bush_hazel's `cut` and
 // `regrown`, a crop's `sprout`, `growing`, `ripe` and `harvested`, a rock's
-// `depleted`, a light's `unlit`. The converter leaves hidden groups out, so
+// `depleted`, a light's `unlit`, a building's `construction_0` to
+// `construction_66` and `ruined` (Patch 5). The converter leaves hidden groups out, so
 // each set becomes a model of its own, `<id>@<set>`: the same file with that
 // set shown and the look it replaces (its visible sibling groups with cubes,
 // such as `full`, `seeded` or `lit`) hidden. The game picks the drawn id from
 // the prop's state (client world/prop-models.ts for growth stages).
 
-/** Categories whose state sets are written out as drawn models (buildings' construction stages are drawn another way). */
-export const STATE_SET_CATEGORIES: readonly string[] = ['world-props'];
+/** Categories whose state sets are written out as drawn models: world props, and buildings' construction stages and ruins (Patch 5). */
+export const STATE_SET_CATEGORIES: readonly string[] = ['world-props', 'buildings'];
 
 /** Separates a model id from its state set in a drawn id. */
 export const STATE_SEP = '@';
