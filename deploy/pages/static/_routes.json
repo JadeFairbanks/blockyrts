@@ -8,6 +8,9 @@
     "/gate/*",
     "/favicon.svg",
     "/og-image.jpg",
+    "/manifest.webmanifest",
+    "/sw.js",
+    "/icons/*",
     "/robots.txt",
     "/sitemap.xml"
   ]

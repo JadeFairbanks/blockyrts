@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "art": "node scripts/make-art.mjs",
+    "icons": "node scripts/make-icons.mjs",
     "shots": "node scripts/make-shots.mjs"
   },
   "dependencies": {

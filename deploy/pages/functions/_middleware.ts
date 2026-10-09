@@ -2,7 +2,8 @@
 // play domain and the pages.dev mirror), so passers-by do not reach the game
 // or its server. It is a deterrent, not security. The game's files (/assets/,
 // /models/, /audio/), the sign-in page's script (/gate/), the icon, the
-// preview picture, robots.txt and sitemap.xml skip it, see
+// preview picture, robots.txt, sitemap.xml and the installable app's
+// manifest, service worker and icons skip it, see
 // deploy/pages/static/_routes.json; deploy/README.md has the whole picture.
 //
 // The login is the user name below and a bcrypt hash of the password, which

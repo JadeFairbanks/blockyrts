@@ -53,8 +53,9 @@ this one came back after it, in a different form.)
   for 30 days. Changing the hash signs everyone out.
 - `deploy/pages/static/_routes.json` lets the game's files (`/assets/`,
   `/models/`, `/audio/`), `/gate/`, the icon, the preview picture,
-  `robots.txt` and `sitemap.xml` skip the middleware, so loading the game
-  costs no Functions requests (the free plan has 100,000 a day).
+  `robots.txt`, `sitemap.xml` and the installable app's files (below) skip
+  the middleware, so loading the game costs no Functions requests (the free
+  plan has 100,000 a day).
 - The site calls itself a learning project, not a game, everywhere search
   engines and link previews look. Search engines and previews read the
   sign-in page, which carries the title, description, preview tags and
@@ -77,6 +78,24 @@ generator; `$2y$`, `$2b$` and `$2a$` all work) in the `SITE_LOGIN_HASH`
 secret and run Deploy. To take the sign-in page off, delete
 `deploy/pages/functions` and `_routes.json` and their steps in the Deploy
 workflow.
+
+## Installable app
+
+The game installs as an app, from the main menu's **Install app** button
+(`packages/client/src/ui/install.ts`). `packages/client/public/manifest.webmanifest`
+gives its name, icons (`public/icons/`, drawn from the site icon by
+`pnpm --filter @blockyrts/client icons`), full screen and landscape; the
+client build writes the service worker, `sw.js` (`packages/client/pwa.ts`).
+The worker keeps only the build's own files under `/assets/`, in a store
+named for the build, and never a page, so the sign-in page always decides
+what opens and a deploy's new page is always the one served. Models, sounds
+and the game server pass straight through it.
+
+`_routes.json` lets `/manifest.webmanifest`, `/sw.js` and `/icons/` skip the
+sign-in middleware: browsers fetch the manifest without the sign-in cookie,
+and the worker has to be able to update itself for a signed-out browser.
+They hold nothing private, and as plain files they cost no Functions
+requests.
 
 ## Game version
 
