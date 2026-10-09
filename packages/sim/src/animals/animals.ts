@@ -901,7 +901,7 @@ function haveYoung(state: SimState, i: number, m: number, barn: Building | undef
   const e = state.entities;
   if (barn && !hasRoom(state, barn, e.mob[i]!)) return;
   e.breedAt[i] = state.step + breedPause(state, i);
-  for (const j of [i, m]) state.hits.push({ look: 'heart', x: e.x[j]!, y: e.y[j]!, z: e.z[j]!, id: e.id[j]! });
+  for (const j of [i, m]) state.hits.push({ look: 'heart', x: e.x[j]!, y: e.y[j]!, z: e.z[j]!, id: e.id[j]!, mob: e.mob[j]! });
   const species = e.mob[i]!;
   const owner = e.owner[i]!;
   const k = addAnimal(state, species, owner, e.x[i]!, e.z[i]! + COLUMN, state.step + YOUNG_STEPS, hash(state, e.id[i]!, state.step) & 1);

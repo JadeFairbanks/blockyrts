@@ -43,6 +43,7 @@ import {
   buildingStatus,
   buildRequirement,
   farmBandLine,
+  farmBoost,
   farmHarvest,
   queueHead,
   chunkDelta,
@@ -88,7 +89,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
+import { barnOf, cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
@@ -176,6 +177,8 @@ function postState(s: SimState): void {
     if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
+    // A Barn's hand (Patch 5): he wears the farmer's hat while he is one (Jade's GP-37).
+    if (e.kind[i] === UnitKind.Worker && barnOf(s, i)) flags |= UnitFlag.BarnHand;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.target] = e.target[i]!;
@@ -265,8 +268,9 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
   return b.queue.map((q, k) => {
-    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0 };
-    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft };
+    const count = q.count > 0 ? { count: q.count } : {};
+    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0, ...count };
+    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft, ...count };
   });
 }
 
@@ -320,6 +324,7 @@ function postInfo(s: SimState): void {
           : [],
       horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
+      boost: farmBoost(s, b),
     };
   });
   const e = s.entities;

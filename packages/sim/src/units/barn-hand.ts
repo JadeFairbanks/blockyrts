@@ -92,10 +92,10 @@ export function runBarnHand(state: SimState, i: number, b: Building): boolean {
     if (r === MOVING) return CONTINUE;
     e.act[i] = Act.Work;
   }
-  // Seeing to it: forking hay, brushing, a hand on its flank.
+  // Seeing to it, standing by it with empty hands (no tool to draw: he carries none).
   const [tx, tz] = a >= 0 ? [e.x[a]!, e.z[a]!] : [bx, bz];
   if (tx !== e.x[i] || tz !== e.z[i]) e.heading[i] = headingTowards(tx - e.x[i]!, tz - e.z[i]!);
-  e.order[i] = OrderKind.Farm;
+  e.order[i] = OrderKind.Idle;
   workXp(state, i, Work.Gather);
   return CONTINUE;
 }

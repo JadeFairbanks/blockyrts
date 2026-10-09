@@ -19,6 +19,7 @@ import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } fr
 import { InstancedModel, MarkMode, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
 import type { OwnDraw } from './hidden-outlines.ts';
+import { Hearts } from './hearts.ts';
 
 const STEP_MS = 50;
 const MAX_UNITS = 2048;
@@ -406,6 +407,7 @@ export class UnitsView {
   private readonly asked = new Set<string>();
   private readonly attach: AttachPool;
   private readonly particles: Particles;
+  private readonly hearts: Hearts;
   private readonly blocks: THREE.InstancedMesh;
   private readonly loads: THREE.InstancedMesh;
   private readonly shots: THREE.InstancedMesh;
@@ -432,6 +434,7 @@ export class UnitsView {
     scene.add(this.bodyGroup);
     this.attach = new AttachPool(scene, null);
     this.particles = new Particles(scene);
+    this.hearts = new Hearts(scene);
     this.blocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial(), MAX_UNITS);
     this.blocks.count = 0;
     this.blocks.frustumCulled = false;
@@ -522,6 +525,8 @@ export class UnitsView {
         const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? 'warrior' : h.kind === UnitKind.Mage ? 'mage' : 'worker';
         this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1 });
       }
+      // Two animals breeding (Patch 5, Jade's BL-10): a heart over each.
+      if (h.look === 'heart') this.hearts.spawn(x, y + speciesSpec(h.mob ?? 0).height / WU_PER_METRE + 0.3, z, now);
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
       if (h.look === 'blast') this.particles.spawn(x, y, z, 0x505050, 24, 3, 3);
@@ -731,6 +736,7 @@ export class UnitsView {
     this.drawShots(f, prev ? alpha : 1);
     this.drawBeams(f);
     this.particles.update(dt);
+    this.hearts.update(now);
   }
 
   /**

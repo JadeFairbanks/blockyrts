@@ -75,6 +75,7 @@ set(Res.FarmFare, 'farm_fare');
 set(Res.Flax, 'flax');
 set(Res.Hides, 'hides');
 set(Res.Bone, 'bone');
+set(Res.Bonemeal, 'bonemeal');
 set(Res.Resin, 'resin');
 set(Res.SpiderSilk, 'spider_silk');
 set(Res.DemonHorn, 'demon_horn');
@@ -119,7 +120,7 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
-    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
+    '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,bonemeal,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
     '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',

@@ -832,7 +832,7 @@ export interface HitEvent {
   z: number;
   /** The entity hit, swinging or dying (0 for none). */
   id: number;
-  /** Death: what died (UnitKind and mob), for the death animation. */
+  /** Death: what died (UnitKind and mob), for the death animation; a 'heart' (Patch 5): the animal's species in mob. */
   kind?: number;
   mob?: number;
   heading?: number;

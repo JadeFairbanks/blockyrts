@@ -138,7 +138,7 @@ export const S = {
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
 /** Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there though it is inside). */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, BarnHand: 8192 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -202,8 +202,8 @@ export interface BuildingInfo {
   /** Level being built as an upgrade, or 0, and how far, per mille. */
   upgrading: number;
   upgraded: number;
-  /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold). */
-  queue: Array<{ product: number; done: number; stepsLeft: number }>;
+  /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold); a stack (Patch 5's bonemeal) has `count` more to make after this one. */
+  queue: Array<{ product: number; done: number; stepsLeft: number; count?: number }>;
   rally: RallyPoint[];
   /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
   lit: boolean;
@@ -245,6 +245,17 @@ export interface BuildingInfo {
   horses: number;
   /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */
   farm: FarmInfo | null;
+  /** Finished farms: the bonemeal boost (Patch 5, UI-17; sim buildings/farm-boost.ts farmBoost), or null. */
+  boost?: FarmBoost | null;
+}
+
+/** A farm's boost (Patch 5): steps left of the one running and its whole, the boosts waiting, Auto fertilize, and a Sweet Hawthorne within 30 m. */
+export interface FarmBoost {
+  left: number;
+  whole: number;
+  queued: number;
+  auto: boolean;
+  hawthorne: boolean;
 }
 
 /** A farm's next harvest as the panel shows it (Jade, patch notes 1). */

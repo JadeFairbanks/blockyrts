@@ -8,8 +8,13 @@
 import * as THREE from 'three';
 import { cue } from '../audio/cues.ts';
 import {
+  BOOST_PCT,
+  BOOST_QUEUE_LIMIT,
+  BOOST_STEPS,
   BuildingKind,
   costText,
+  FERTILIZE_BONEMEAL,
+  recipeSpec,
   craftRate,
   CREWMAN_RETRAIN_STEPS,
   EAT_NUTRITION,
@@ -44,6 +49,7 @@ import {
   SITE_MAX_COLUMNS,
   snapStretch,
   speciesSpec,
+  STEPS_PER_SECOND,
   stretchBetween,
   stretchCells,
   stretchEnd,
@@ -107,6 +113,8 @@ export interface CardEntry {
   lit?: boolean;
   run(p: ButtonPress): void;
   double?(p: ButtonPress): void;
+  /** A right click (Patch 5: Fertilize's Auto fertilize). */
+  right?(): void;
   /** A click while it is greyed out (Jade's Patch 3): those who can sort out why ask, in bubbles (sim units/greyed.ts). */
   grey?(): void;
   /** Its picture, when it has one of its own (card-icons.ts); else the shell picks one by action. */
@@ -947,6 +955,8 @@ export class Commands {
       if (first.products.some(([p]) => p === Product.Crewman)) rows.push([Product.Crewman, 'trainCrewman', 'Crewman', 0]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
+    // Patch 5 (Jade's GP-38): Fertilize on a farm's card, beside Train worker.
+    if (kind === BuildingKind.Farm && first.complete) card[1] = this.fertilizeEntry(all.filter((b) => b.complete));
     if (first.complete) {
       for (const t of first.troops) {
         const [action, face, slot] = TROOP_ACTIONS[t.troop]!;
@@ -1049,6 +1059,37 @@ export class Commands {
     };
   }
 
+  /**
+   * Fertilize (Jade's GP-38 and her decisions 2.5): left click boosts each
+   * selected farm now, or queues one more boost behind the one running; right
+   * click turns Auto fertilize on or off for them all (lit while it is on).
+   * It is never greyed out, so that Auto fertilize can be set before there is
+   * bonemeal: what stops a boost now heads its tooltip, and the sim says it.
+   */
+  private fertilizeEntry(all: BuildingInfo[]): CardEntry {
+    const g = this.d.game;
+    const ids = all.map((b) => b.id);
+    const auto = all.length > 0 && all.every((b) => b.boost?.auto === true);
+    const full = all.every((b) => (b.boost?.left ?? 0) > 0 && (b.boost?.queued ?? 0) >= BOOST_QUEUE_LIMIT);
+    const reason = full ? `Each farm already has ${BOOST_QUEUE_LIMIT} boosts waiting.` : g.costProblem([[Res.Bonemeal, FERTILIZE_BONEMEAL]]) ? `Needs ${FERTILIZE_BONEMEAL} bonemeal. The Workshop grinds bonemeal from bone.` : '';
+    const minutes = BOOST_STEPS / STEPS_PER_SECOND / 60;
+    const several = all.length > 1 ? ` With ${all.length} farms selected, each one fertilizes (${FERTILIZE_BONEMEAL * all.length} bonemeal).` : '';
+    const send = (on: number): void => this.d.send({ kind: 'fertilize', player: this.d.player, buildings: ids, auto: on });
+    return {
+      action: 'fertilize',
+      face: 'Fertilize',
+      name: auto ? 'Fertilize (Auto fertilize is on)' : 'Fertilize',
+      key: this.key('fertilize'),
+      description: `${reason ? `${reason}\n` : ''}Cost: ${FERTILIZE_BONEMEAL} bonemeal. The farm grows ${BOOST_PCT}% more farm fare for ${minutes} minutes. Pressed while a boost runs, one more waits behind it (up to ${BOOST_QUEUE_LIMIT}).${several}\nRight click: Auto fertilize ${auto ? 'off' : 'on'}. While it is on, a new boost is paid for whenever one runs out and a farmer is at work, for as long as the bonemeal lasts.`,
+      icon: { layers: [{ file: 'icon_bonemeal' }], ...(auto ? { tag: 'Auto' } : {}) },
+      lit: auto,
+      enabled: true,
+      reason: '',
+      run: () => send(0),
+      right: () => send(1),
+    };
+  }
+
   /** A troop type's button: trains the kit picked in the panel (or the building's default), greyed out with why it cannot. */
   private troopEntry(all: BuildingInfo[], troop: number, action: string, face: string): CardEntry {
     const first = all[0]!;
@@ -1148,9 +1189,48 @@ export class Commands {
     if (first) {
       first.products
         .filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)
-        .forEach(([p, why]) => list.push(this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true)));
+        .forEach(([p, why]) => {
+          const one = this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true);
+          const r = productSpec(p).recipe;
+          if (r === undefined || !recipeSpec(r).stack) return void list.push(one);
+          list.push(...this.stackEntries(all, p, one));
+        });
     }
     return this.paged(list, waiting || !back ? [] : [this.backEntry('Back to the building commands.')]);
+  }
+
+  /**
+   * A good made in stacks (Patch 5's bonemeal, Jade's decisions 2.5): Make
+   * one, ten, or as many as the stock pays for, each order one place in the
+   * queue whose count goes down as each is made.
+   */
+  private stackEntries(all: BuildingInfo[], p: number, one: CardEntry): CardEntry[] {
+    const ps = productSpec(p);
+    const what = ps.name.toLowerCase();
+    const inputs = recipeSpec(ps.recipe!).inputs[0] ?? [];
+    const from = inputs.map(([r]) => RESOURCES[r]?.name.toLowerCase() ?? '').join(' and ');
+    const stack = ' A stack takes one place in the queue and counts down as each is made; cancelling it gives back what is not yet used.';
+    const send = (count: number): void => {
+      const ready = all.filter((b) => b.complete).sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
+      const b = ready[0];
+      if (!b) return;
+      this.d.send({ kind: 'stack', player: this.d.player, building: b.id, product: p, count });
+      b.queue.push({ product: p, done: 0, stepsLeft: 0, count: Math.max(0, count - 1) });
+    };
+    const entry = (action: string, face: string, name: string, count: number, text: string): CardEntry => ({
+      ...one,
+      action,
+      face,
+      name,
+      key: this.key(action),
+      description: `${text}${stack} ${one.description.replace(/ Shift: queue 5\.$/, '')}`,
+      run: () => send(count),
+    });
+    return [
+      { ...entry(one.action, one.face, one.name, 1, `Make 1 ${what}.`), run: (press) => send(press.shift ? 10 : 1) },
+      entry('stack10', 'x10', `Make 10 ${what}`, 10, `Make 10 ${what} as one stack (fewer if the stock runs short).`),
+      entry('stackAll', 'All', `Make ${what} from all ${from}`, 0, `Make as much ${what} as the stock's ${from} pays for, as one stack.`),
+    ];
   }
 
   private backEntry(description: string): CardEntry {

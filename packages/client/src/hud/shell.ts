@@ -61,6 +61,8 @@ import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
 import { TinkerBars } from './tinker-bars.ts';
+import { BoostBars } from './boost-bars.ts';
+import { TameTip } from './tame-tip.ts';
 import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -202,6 +204,8 @@ export class GameShell {
   private readonly messages: MessagePanel;
   private readonly bubbles: SpeechBubbles;
   private readonly tinkerBars: TinkerBars;
+  private readonly boostBars: BoostBars;
+  private readonly tameTip: TameTip;
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
   readonly inventory: InventoryUi;
@@ -293,6 +297,8 @@ export class GameShell {
     this.minimap = new Minimap(this.layout.minimapEl, this.world.minimap);
     // The tinkering bars go in first, so speech bubbles draw over them.
     this.tinkerBars = new TinkerBars(this.layout.root);
+    this.boostBars = new BoostBars(this.layout.root);
+    this.tameTip = new TameTip(this.layout.root);
     this.bubbles = new SpeechBubbles(this.layout.root);
     this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
       jumpTo: (x, z) => this.jumpTo(x, z),
@@ -1587,6 +1593,8 @@ export class GameShell {
     // No random remarks while the game is paused (Jade's patch notes 1).
     this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
     this.tinkerBars.update(tinkering, (id) => this.headOnScreen(id));
+    this.boostBars.update(this.game.buildings.values(), (id) => this.roofOnScreen(id));
+    this.tameTip.update(inGameView && this.commands.workerIds().length > 0, this.selector.highlighted, (id) => this.headOnScreen(id));
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1877,6 +1885,7 @@ export class GameShell {
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
+        ...(e.right ? { onRightClick: () => e.right!() } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);

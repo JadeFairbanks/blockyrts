@@ -62,6 +62,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
   { id: 'trainCrewman', name: 'Train Artillery crewman (Artillery workshop)', key: 'KeyE', group: 'Buildings' },
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
+  // Patch 5: a farm's Fertilize (right click: Auto fertilize).
+  { id: 'fertilize', name: 'Fertilize (farms; right click turns Auto fertilize on or off)', key: 'KeyF', group: 'Buildings' },
   // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
   ...makeMenuActions(),
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },

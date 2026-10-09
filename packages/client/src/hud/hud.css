@@ -913,6 +913,23 @@ body.playing * {
   width: 0;
   background: linear-gradient(#f2d27a, #c9962e);
 }
+/* Patch 5: the bonemeal boost over a farm, its waiting boosts beside it. */
+.boost-bar {
+  width: 44px;
+}
+.boost-bar .tinker-fill {
+  background: #c9d98a;
+}
+.boost-count {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translate(3px, -50%);
+  font: 11px/1 var(--display);
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  white-space: nowrap;
+}
 .bubble {
   position: absolute;
   left: 0;
@@ -1319,6 +1336,11 @@ body.playing * {
   background: rgba(20, 18, 12, 0.85);
   border: 1px solid rgba(242, 210, 75, 0.55);
   pointer-events: none;
+}
+.chain-label.tame-tip {
+  left: 0;
+  top: 0;
+  text-align: center;
 }
 .chain-label.short {
   color: #ffb0a0;
@@ -2095,6 +2117,29 @@ body.playing.touch .hud {
 .hud-btn.chip.crew > img.empty {
   filter: grayscale(1) brightness(0.5);
   opacity: 0.6;
+}
+/* Patch 5 (Jade's UI-17): "Boost remaining:" and its bar beside a farm's workers. */
+.boost-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+}
+.boost-box .bar-label {
+  font: 13px/1 var(--display);
+  color: var(--text);
+  white-space: nowrap;
+}
+.boost-box .hud-btn.sel-bar.boost {
+  width: 130px;
+  height: 16px;
+}
+.hud-btn.sel-bar.boost .fill {
+  background: #c9d98a;
+}
+.boost-box .hud-btn.sel-bar .num {
+  font-size: 13px;
+  line-height: 16px;
 }
 .sel-strip.farm .hud-btn.sel-bar.meal {
   flex: 1 1 auto;
