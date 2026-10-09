@@ -89,17 +89,17 @@ const zombie = sel('e:9', 'mob:0', MONSTERS);
 const button = (card: Card, action: string): CardEntry | undefined => card.find((e) => e.action === action);
 
 describe('the mage card', () => {
-  it("has Attack and Move, her spells, then Eat, Upgrade equipment, Rank and Run/Walk (Jade's Patch 2; Patch 5 adds Energy dart and Run/Walk)", () => {
+  it("has Attack, Patrol and Move, her spells, then Eat, Upgrade equipment, Rank and Run/Walk (Jade's Patch 2; Patch 5 adds Energy dart and Run/Walk)", () => {
     const { c } = harness(game(), support, 'mage:support');
     const card = c.card();
-    // Patch 5: Energy dart beside Heal, and Run/Walk last; the six spells leave no room for Patrol.
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Move', 'Heal', 'Dart', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank', 'Walk']);
-    expect(card.slice(2, 8).map((e) => e.key)).toEqual(['KeyR', 'KeyD', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
+    // Patch 5: Energy dart beside Heal, and Run/Walk last: thirteen, the card growing a row.
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Dart', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank', 'Walk']);
+    expect(card.slice(3, 9).map((e) => e.key)).toEqual(['KeyR', 'KeyD', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
     // A cooldown only delays a spell, its button dark under the clock hand; rank and research grey it out with the reason.
-    expect(card[4]!.enabled).toBe(true);
-    expect(card[4]!.cool).toBeGreaterThan(0);
-    expect(card[5]!.reason).toBe('Learned at rank 3.');
-    expect(card[7]!.reason).toBe('Needs Hexcraft researched at a Magi Sanctum.');
+    expect(card[5]!.enabled).toBe(true);
+    expect(card[5]!.cool).toBeGreaterThan(0);
+    expect(card[6]!.reason).toBe('Learned at rank 3.');
+    expect(card[8]!.reason).toBe('Needs Hexcraft researched at a Magi Sanctum.');
     // F is Fortify here, so Eat is a click only.
     expect(button(card, 'eat')!.key).toBe('');
     // One Upgrade equipment for the wand and the robe [before Patch 2 Wand + and Robe +, each pressed twice for the best].
@@ -139,8 +139,7 @@ describe('the mage card', () => {
 
   it('casts on the unit clicked, never a heal on an enemy, and on the best targets when pressed twice', () => {
     const { c, sent, messages } = harness(game(), support, 'mage:support');
-    // Heal is the support card's third button (Patch 5: no Patrol on it).
-    c.card()[2]!.run(PRESS);
+    c.card()[3]!.run(PRESS);
     expect(c.targeting).toMatchObject({ command: 'cast', spell: Spell.Heal });
     c.confirmTarget(zombie, new THREE.Vector3(4, 0, 4));
     expect(sent.length).toBe(0);
@@ -148,7 +147,7 @@ describe('the mage card', () => {
     c.confirmTarget(warrior, null);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [5, 6], spell: Spell.Heal, target: 3, auto: 0 });
     expect(c.targeting).toBeNull();
-    c.card()[2]!.double!(PRESS);
+    c.card()[3]!.double!(PRESS);
     expect(sent.at(-1)).toMatchObject({ kind: 'cast', units: [5, 6], spell: Spell.Heal, target: 0, auto: 1 });
   });
 
