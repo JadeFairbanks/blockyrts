@@ -242,16 +242,19 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
 /**
  * Which of the art set's water tiles a stretch of water takes (Patch 5): a
  * bog's brown-green over mud, deep water past wading depth (where units
- * cannot walk), shallow water otherwise; the sides where water stands above
- * lower land, and the shore foam strips along the edges of each surface.
+ * cannot walk), the running water of a stream or a river's shallows (the
+ * columns the world gives an inflow, ChunkColumns.source), shallow water
+ * otherwise; the sides where water stands above lower land, and the shore
+ * foam strips along the edges of each surface.
  */
 export const WaterKind = { Shallow: 0, Deep: 1, Stream: 2, Bog: 3, Side: 4, FoamAlongZ: 5, FoamAlongX: 6 } as const;
 /** The shore foam's strip: 4 of a tile's 16 pixels. */
 export const FOAM_M = COLUMN_M / 4;
 
-function waterKind(depth: number, ground: number): number {
+function waterKind(depth: number, ground: number, running: boolean): number {
   if (ground === Mat.Mud) return WaterKind.Bog;
-  return depth > WADE_UNITS * WATER_PER_UNIT ? WaterKind.Deep : WaterKind.Shallow;
+  if (depth > WADE_UNITS * WATER_PER_UNIT) return WaterKind.Deep;
+  return running ? WaterKind.Stream : WaterKind.Shallow;
 }
 
 /** Water surfaces (merged by level and kind), the edges where water meets lower dry land, and foam along the shore. */
@@ -264,7 +267,7 @@ export function meshWater(h: ChunkNeighbourhood): MeshArrays | null {
     const w = c.water[i]!;
     if (w !== NO_WATER && w > c.top(i) * WATER_PER_UNIT) {
       level[i] = w;
-      kind[i] = waterKind(w - c.top(i) * WATER_PER_UNIT, c.topMaterial(i));
+      kind[i] = waterKind(w - c.top(i) * WATER_PER_UNIT, c.topMaterial(i), c.source[i] === 1);
     }
   }
   const done = new Uint8Array(CHUNK_COLUMNS);
@@ -369,7 +372,7 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
         else q.add(i * cell, y0, (dj > 0 ? j + 1 : j) * cell, cell, 0, 0, 0, y1 - y0, 0, 0, 0, dj, colour, sideMat);
       }
       const w = lr.water[k]!;
-      if (w !== NO_WATER && w > top * WATER_PER_UNIT) wq.add(i * cell, (w / WATER_PER_UNIT) * UNIT_M, j * cell, cell, 0, 0, 0, 0, cell, 0, 1, 0, 0x3b6fa8, waterKind(w - top * WATER_PER_UNIT, lr.material[k]!));
+      if (w !== NO_WATER && w > top * WATER_PER_UNIT) wq.add(i * cell, (w / WATER_PER_UNIT) * UNIT_M, j * cell, cell, 0, 0, 0, 0, cell, 0, 1, 0, 0x3b6fa8, waterKind(w - top * WATER_PER_UNIT, lr.material[k]!, false));
     }
   }
   return { land: q.finish(), water: wq.quads > 0 ? wq.finish() : null };

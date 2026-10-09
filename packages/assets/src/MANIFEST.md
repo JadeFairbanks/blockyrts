@@ -318,7 +318,6 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | cutlass | models/items/cutlass/cutlass.bbmodel | 9 | 32x32 |  |
 | zweihander | models/items/zweihander/zweihander.bbmodel | 11 | 64x64 |  |
 | spear_iron_crude | models/items/spear_iron_crude/spear_iron_crude.bbmodel | 8 | 128x128 |  |
-| axe_hand_obsidian | models/items/axe_hand_obsidian/axe_hand_obsidian.bbmodel | 8 | 32x64 |  |
 | bow_recurve | models/items/bow_recurve/bow_recurve.bbmodel | 11 | 64x64 |  |
 | shield_targe | models/items/shield_targe/shield_targe.bbmodel | 11 | 64x64 |  |
 | shield_rotella | models/items/shield_rotella/shield_rotella.bbmodel | 11 | 128x64 |  |
@@ -331,13 +330,13 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | farm_fare | models/items/farm_fare/farm_fare.bbmodel | 11 | 32x32 |  |
 | moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
 | bog_pear | models/items/bog_pear/bog_pear.bbmodel | 10 | 64x64 |  |
-| obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
 | armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
 | black_berries | models/items/black_berries/black_berries.bbmodel | 11 | 32x16 |  |
 | raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
 | blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
 | mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
 | bonemeal | models/items/bonemeal/bonemeal.bbmodel | 11 | 64x32 |  |
+| obsidian_handaxe_held | models/items/obsidian_handaxe_held/obsidian_handaxe_held.bbmodel | 35 | 256x256 | cube budget: 35 cubes, Jade's obsidian_handaxe turned to the held convention |
 
 ## mechanical
 
@@ -1663,7 +1662,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | Patch 5 resource icon mushrooms (GP-30): two edible mushrooms, domed tan caps on pale stems, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
 | icon_armour_copper_scale | ui/icon_armour_copper_scale.png | 1 | 32x32 | K2 item icon armour_copper_scale (rendered from armour_copper_scale.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_armour_iron_plates | ui/icon_armour_iron_plates.png | 1 | 32x32 | K2 item icon armour_iron_plates (rendered from armour_iron_plates.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
-| icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from axe_hand_obsidian.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from obsidian_handaxe.bbmodel, Jade's model and the game's obsidian hand-axe, in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_barn | ui/icon_barn.png | 1 | 32x32 | K3 building icon barn (rendered from barn.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bog_pear | ui/icon_bog_pear.png | 1 | 32x32 | K2 item icon bog_pear (rendered from bog_pear.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bonfire | ui/icon_bonfire.png | 1 | 32x32 | K3 building icon bonfire (rendered from bonfire.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
@@ -1696,7 +1695,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_cannon_iron_fixed | ui/icon_cannon_iron_fixed.png | 1 | 32x32 | K4 unit card cannon_iron_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
 | icon_catapult_fixed | ui/icon_catapult_fixed.png | 1 | 32x32 | K4 unit card catapult_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
 | icon_dwarf_cannon_crew | ui/icon_dwarf_cannon_crew.png | 1 | 32x32 | K4 unit card dwarf_cannon_crew (rendered from its model in Patch 5), 32x32 on the portrait background. |
-| icon_obsidian | ui/icon_obsidian.png | 1 | 32x32 | K1/K2 icon obsidian (rendered from its model in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_obsidian | ui/icon_obsidian.png | 1 | 32x32 | K1 resource icon obsidian (rendered from obsidian_chunk.bbmodel, Jade's model, in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_spell_barkskin | ui/icon_spell_barkskin.png | 1 | 32x32 | K4 spell icon barkskin (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_spell_call_wild | ui/icon_spell_call_wild.png | 1 | 32x32 | K4 spell icon call_wild (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_spell_mending_bloom | ui/icon_spell_mending_bloom.png | 1 | 32x32 | K4 spell icon mending_bloom (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |

@@ -429,7 +429,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
   // Patch 5's Stone Circle goods traded first (s: weights as marble and herbs).
   r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 100, 'Bluestone rubble and the trilithons of stone circles (iron tools or better). Stands in for marble in any recipe, and sells well.'),
-  r(Res.MoonRose, 'Moon Rose', 'Moon Rose', A, 5, 'Moon Rose bushes at a Lunar stone circle, open only on a Bright Night. The Moon Goddess asks for them among her gifts, and the Elves pay more for them than for anything else.'),
+  r(Res.MoonRose, 'Moon Rose', 'Moon Rose', A, 5, 'Moon Rose bushes at a Lunar stone circle, open only on a bright night. The Moon Goddess asks for them among her gifts, and the Elves pay more for them than for anything else.'),
   ...gearItems(),
   r(Res.ObsidianHandAxe, 'Obsidian hand-axe', 'Obsidian axe', Gr, 30, `The satyrs' weapon. ${GEAR_SOURCE} It fits as a bronze shortsword: a close melee troop takes it in place of one.`, 0, false),
   r(Res.Obsidian, 'Obsidian', 'Obsidian', A, 10, 'Stone circle chests. Counts as flint wherever flint is needed.'),

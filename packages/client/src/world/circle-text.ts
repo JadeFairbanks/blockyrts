@@ -42,7 +42,7 @@ export function circlePieceDetails(kind: number, stage: number, amount: number, 
     case PropKind.BluestoneChest:
       return ['Right click it with a unit to open it and take what is inside.'];
     case PropKind.MoonRoseBush:
-      return amount > 0 ? [] : ['Its roses open only on a Bright Night.'];
+      return amount > 0 ? [] : ['Its roses open only on a bright night: a Bright Night, or one night in three by a Lunar circle with its idol.'];
     case PropKind.SweetHawthorne:
       return [
         `Farms within ${HAWTHORNE_M} m grow ${HAWTHORNE_PCT}% more food, and animals within ${HAWTHORNE_M} m breed ${HAWTHORNE_PCT}% faster.`,

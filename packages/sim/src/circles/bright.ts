@@ -63,6 +63,18 @@ export function brightAt(state: SimState, x: number, z: number, night: number): 
   return skyBright(state, night) || idolAreaAt(state, x, z, night) !== undefined;
 }
 
+/**
+ * Whether the Moon Roses open anywhere on a night: at every Lunar circle on
+ * anyone's Bright Night, and round a Lunar circle whose idol makes that
+ * night bright there (SCA-8; answer 2.8), so a woodsman knows whether to
+ * look for them.
+ */
+export function rosesOpen(state: SimState, night: number): boolean {
+  if (skyBright(state, night)) return true;
+  for (const s of circleSites(state.world.layout)) if (idolNight(state, s, night)) return true;
+  return false;
+}
+
 /** Whether it is a bright night now at a point (wu): night has fallen and it is bright there (Moon Roses open, the sky lightens). */
 export function brightNow(state: SimState, x: number, z: number): boolean {
   const c = clockAt(state.step);
