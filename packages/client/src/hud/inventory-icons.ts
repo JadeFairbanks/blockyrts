@@ -123,7 +123,6 @@ set(Res.Sunheart, 'trinket_sunheart_gold');
 set(Res.Bluestone, 'bluestone');
 set(Res.MoonRose, 'moon_rose');
 set(Res.ObsidianHandAxe, 'axe_hand_obsidian');
-// Patch 5: obsidian, rendered from Jade's own stone circle model of it.
 set(Res.Obsidian, 'obsidian');
 set(Res.PoisonTips, 'arrow_poison_flint');
 // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes are goods in the stock, each with the picture its slot shows.
@@ -177,7 +176,7 @@ export const SUPPLY_ICON = 'icon_supply';
 // Only the icons above go into the build, each as its own file fetched when a slot first shows it.
 const URLS = import.meta.glob<string>(
   [
-    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,moon_rose,stone,flint,marble,bluestone,earth,clay,sand,coal,charcoal}.png',
+    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,moon_rose,stone,flint,obsidian,marble,bluestone,earth,clay,sand,coal,charcoal}.png',
     '../../../assets/src/ui/icon_{copper_ore,tin_ore,bog_iron,iron_rock,vein_iron_ore,lead_ore,saltpetre,sulphur,silver,gold,emerald,ruby,diamond,hexstone,mana_crystal}.png',
     '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
@@ -188,7 +187,7 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
     '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold,bluestone}.png',
-    '../../../assets/src/ui/icon_{obsidian,ancient_seed,hawthorne_fruit,pan_flute,honey,enchanted_wine,hawthorne_cider,moon_idol,headless_idol}.png',
+    '../../../assets/src/ui/icon_{ancient_seed,hawthorne_fruit,pan_flute,honey,enchanted_wine,hawthorne_cider,moon_idol,headless_idol}.png',
   ],
   { eager: true, query: '?no-inline', import: 'default' },
 );

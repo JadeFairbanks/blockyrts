@@ -14,7 +14,6 @@ import {
   RECIPES,
   RESEARCH,
   RESEARCH_PRODUCT,
-  School,
   SLAUGHTER_PRODUCT,
   SLAUGHTERED,
   SPECIES,
@@ -56,6 +55,9 @@ describe('one picture per thing', () => {
     expect(troopIconFile(Troop.Ranger, 1)).toBe('icon_train_warrior_sling');
     expect(troopIconFile(Troop.Ranger, 7)).toBe('icon_train_warrior_crossbow');
     expect(troopIconFile(Troop.Long, 6)).toBe('icon_train_warrior_pike');
+    // Patch 5: the Zweihander and the brawler have busts of their own.
+    expect(troopIconFile(Troop.Long, 8)).toBe('icon_train_warrior_zweihander');
+    expect(troopIconFile(Troop.Brawler, 8)).toBe('icon_train_warrior_brawler');
   });
 
   it('shows the same picture in the queue as in the selection grid (no letters for workers and mages)', () => {
@@ -103,7 +105,7 @@ describe('one picture per thing', () => {
     drawn(actionIcon('more', 'More 2/3'), 'more');
     expect(actionIcon('more', 'More 2/3')!.tag).toBe('2/3');
     expect(actionIcon('cancel', 'Done')!.badge).toBe('ok');
-    for (const s of SPELLS) if (s.school !== School.Grove) drawn(spellIcon(s.id), s.name);
+    for (const s of SPELLS) drawn(spellIcon(s.id), s.name);
     for (const kind of ['worker', 'warrior', 'mage'] as const) {
       drawn(equipIcon(kind), `${kind} equipment`);
       expect(equipIcon(kind).badge).toBe('max');
