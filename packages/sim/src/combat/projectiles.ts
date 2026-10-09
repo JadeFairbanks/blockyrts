@@ -160,6 +160,9 @@ function flightFrom(state: SimState, i: number): readonly [number, number, numbe
 /** Where a flyer will be after some more steps of its own, the first at a step given (mob-ai.ts flyerAhead, set in step.ts): its swoop is no straight run to lead. */
 export const aimHooks: { ahead: (state: SimState, t: number, from: number, moves: number) => [number, number, number] | null } = { ahead: () => null };
 
+/** Jade's Patch 5: what a shot does to the unit it struck beside its damage (threats/encounters.ts: the Lich's Acrid Wind may bring Touch of the Grave). */
+export const shotHooks: { hit: (state: SimState, shot: number, shooter: number, t: number) => void } = { hit: () => {} };
+
 /**
  * Fires a shot at a target unit: it aims at where the target will be when
  * the shot arrives (two passes of the lead; a flyer where its swoop takes
@@ -373,6 +376,7 @@ export function updateProjectiles(state: SimState): void {
           hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
           if (p.flags & ProjectileFlag.Venom) envenom(state, hit, p.shooter);
+          shotHooks.hit(state, p.shot, p.shooter, hit);
         }
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, hit, null);
         splash(state, p, x, y, z, hit);

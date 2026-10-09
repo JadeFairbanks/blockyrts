@@ -19,13 +19,14 @@ import { WALKER } from '../nav/grid.ts';
 import { bodyHeight, dealtTenths, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc, Side, sideOf, wholeDamage } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
 import { addMob, combatTroop, engageUnit, inheritRole, lateHooks, playerUnit, turnedOnTroops } from '../combat/mob-ai.ts';
-import { Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
+import { blowTenths, Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
 import { buildingTop, FIRE, launch, POISON } from '../combat/projectiles.ts';
 import { knockBack } from '../mounts/riding.ts';
 import { leaveBuilding } from '../units/behaviour.ts';
 import { smoulder } from './burns.ts';
 import { necromancerAct } from './necromancer.ts';
 import { Role } from './types.ts';
+import { MarkKind, markOn } from './marks.ts';
 
 const M = WU_PER_METRE;
 const SEC = STEPS_PER_SECOND;
@@ -100,6 +101,8 @@ export function inLight(state: SimState, x: number, z: number): boolean {
 /** A void stalker unseen by a unit at this distance: it has not attacked yet, it is beyond 4 m, and no light shows it. */
 export function cloaked(state: SimState, j: number, distance: number): boolean {
   const e = state.entities;
+  // A Satyr Trickster vanished (SCS-2): unseen until he comes back, whatever the light.
+  if (e.kind[j] === UnitKind.Mob && e.mob[j] === Mob.SatyrTrickster) return markOn(state, e.id[j]!, MarkKind.Vanished) >= 0;
   if (e.kind[j] !== UnitKind.Mob || e.mob[j] !== Mob.VoidStalker || e.strikes[j] !== 0) return false;
   return distance > LATE.cloak.seenWu && !inLight(state, e.x[j]!, e.z[j]!);
 }
@@ -419,7 +422,7 @@ function breathe(state: SimState, i: number, reach: number, width: number, total
 /** A ranged attack that does not fly: a hollow priest's curse, a void witch's draining beam, a drake's breath. */
 function strike(state: SimState, i: number, spec: MobSpec, t: number): void {
   const e = state.entities;
-  const damage = dealtTenths(state, i, spec.damageTenths);
+  const damage = dealtTenths(state, i, blowTenths(state.rng.combat, spec));
   if (spec.strike === Strike.Breath) {
     breathe(state, i, spec.range, LATE.line.width, damage);
     return;

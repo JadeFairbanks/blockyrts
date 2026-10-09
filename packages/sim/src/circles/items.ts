@@ -1,8 +1,9 @@
 // The Stone Circle items a player uses from the inventory (decisions 3.6:
 // one right-click menu for every usable item, "Use" greyed out with a reason
 // when it cannot be used): the Pan Flute (SC-11), the Moon Goddess idol
-// (SCA-5, answer 2.8) and enchanted wine from a mage's bag (answer 2.5). Each
-// is a row, so more items can be added the same way.
+// (SCA-5, answer 2.8), the Headless God Idol (SCB-4: threats/headless.ts) and
+// enchanted wine from a mage's bag (answer 2.5). Each is a row, so more items
+// can be added the same way.
 
 import { Nature, speciesSpec } from '../animals/species.ts';
 import { Res } from '../economy/resources.ts';
@@ -14,6 +15,7 @@ import { UnitKind, WILD, type SimState } from '../state.ts';
 import { homeBaseNear } from '../units/forage.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import { hash32 } from '../rng.ts';
+import { headlessProblem, useHeadless } from '../threats/headless.ts';
 import { nextNight } from './bright.ts';
 import { IDOL_USE_EVERY_NIGHTS, circleMetres as m, PAN_FLUTE_RADIUS_M, PAN_FLUTE_STOP_M, PAN_FLUTE_USES } from './data.ts';
 
@@ -26,10 +28,10 @@ export interface ItemUse {
   from: UseFrom;
   /** The menu's word for using it. */
   label: string;
-  /** Why it cannot be used now, or '' (unit: the unit whose bag it is in, -1 for the inventory). */
-  problem: (state: SimState, player: number, unit: number) => string;
+  /** Why it cannot be used now, or '' (unit: the unit whose bag it is in, -1 for the inventory; arg: what it is used on, -1 for none: the Headless God Idol's faction). */
+  problem: (state: SimState, player: number, unit: number, arg: number) => string;
   /** Uses it (the order is checked against `problem` first). */
-  use: (state: SimState, player: number, unit: number) => void;
+  use: (state: SimState, player: number, unit: number, arg: number) => void;
 }
 
 /** Enchanted wine refills this much mana (answer 2.5). */
@@ -114,6 +116,14 @@ export const ITEM_USES: readonly ItemUse[] = [
     },
   },
   {
+    // SCB-4: "unleash devastating waves of monsters against a faction you are at war with or declare war on one with it", on the faction chosen.
+    res: Res.HeadlessIdol,
+    from: UseFrom.Stock,
+    label: 'Use',
+    problem: (state, player, _unit, arg) => headlessProblem(state, player, arg),
+    use: (state, player, _unit, arg) => useHeadless(state, player, arg),
+  },
+  {
     res: Res.EnchantedWine,
     from: UseFrom.Bag,
     label: 'Drink',
@@ -138,23 +148,23 @@ export function itemUse(res: number): ItemUse | undefined {
 }
 
 /** Why an item cannot be used now ('' when it can; a reason for every item without a use). */
-export function useProblem(state: SimState, player: number, res: number, unit = -1): string {
+export function useProblem(state: SimState, player: number, res: number, unit = -1, arg = -1): string {
   const u = itemUse(res);
   if (!u) return 'This item has no use of its own.';
-  return u.problem(state, player, unit);
+  return u.problem(state, player, unit, arg);
 }
 
 /** Uses an item (the useItem order). */
-export function useItem(state: SimState, player: number, res: number, unit: number): void {
+export function useItem(state: SimState, player: number, res: number, unit: number, arg = -1): void {
   const u = itemUse(res);
   if (!u) return;
-  const why = u.problem(state, player, unit);
+  const why = u.problem(state, player, unit, arg);
   if (why) {
     if (unit >= 0 && state.entities.owner[unit] === player) say(state, unit, why, true);
     else state.events.push({ player, kind: 'alert', text: why });
     return;
   }
-  u.use(state, player, unit);
+  u.use(state, player, unit, arg);
 }
 
 function bagHas(state: SimState, i: number, res: number): boolean {

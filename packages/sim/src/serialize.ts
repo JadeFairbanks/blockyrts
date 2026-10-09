@@ -17,7 +17,7 @@ import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orde
 import { readWorld, writeWorld } from './world/serialize-world.ts';
 import { colKey, colKeyX, colKeyZ } from './world/world.ts';
 import { floorDiv } from './fixed.ts';
-import type { Burn, DuskReading, Keeper, Ruin, ThreatState, TribeBand, Village, WildPatch } from './threats/types.ts';
+import type { Burn, DuskReading, Encounter, Keeper, Mark, Ruin, ThreatState, TribeBand, Village, WildPatch } from './threats/types.ts';
 import { FACTION_FIELDS, FACTION_LISTS, type Faction, type Offer, type PeoplesState } from './peoples/types.ts';
 import { circlesJson, readCircles, writeCircles } from './circles/state.ts';
 
@@ -28,6 +28,12 @@ const BURN_FIELDS = ['building', 'until', 'perSecond'] as const satisfies Readon
 const DUSK_FIELDS = ['townPm', 'provokedPm', 'depthPm', 'ax', 'az', 'band', 'building'] as const satisfies ReadonlyArray<keyof DuskReading>;
 const WILD_FIELDS = ['px', 'pz', 'group', 'size'] as const satisfies ReadonlyArray<keyof WildPatch>;
 const KEEPER_FIELDS = ['id', 'kind', 'x', 'z', 'r', 'mode', 'unit', 'cx', 'cz', 'pi', 'next', 'roam', 'greeted', 'seen', 'since', 'still', 'riled'] as const satisfies ReadonlyArray<keyof Keeper>;
+const ENCOUNTER_FIELDS = [
+  'circle', 'type', 'leader', 'mode', 'foes', 'sworn', 'warned', 'sorry', 'unit', 'next', 'still', 'since', 'roam', 'plantAt', 'fought', 'planted', 'planting', 'quietSince', 'heldHp',
+  'heldMax', 'changed', 'leapX0', 'leapZ0', 'leapX1', 'leapZ1', 'leapAt', 'leapEnd', 'leapNext', 'toss', 'tossX0', 'tossZ0', 'tossX1', 'tossZ1', 'tossAt', 'tossEnd', 'tossNext',
+  'lashNext', 'rootsNext', 'riteNext', 'fruit', 'honey', 'wine', 'day',
+] as const satisfies ReadonlyArray<keyof Encounter>;
+const MARK_FIELDS = ['id', 'kind', 'until', 'from', 'next'] as const satisfies ReadonlyArray<keyof Mark>;
 
 function writeRecords<T>(w: ByteWriter, list: readonly T[], fields: readonly string[]): void {
   w.u32(list.length);
@@ -75,6 +81,8 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
     w.i32(colKeyZ(k));
   }
   writeRecords(w, t.keepers, KEEPER_FIELDS);
+  writeRecords(w, t.encounters, ENCOUNTER_FIELDS);
+  writeRecords(w, t.marks, MARK_FIELDS);
 }
 
 function readThreats(r: ByteReader): ThreatState {
@@ -106,7 +114,9 @@ function readThreats(r: ByteReader): ThreatState {
     guarded.add(colKey(x, r.i32()));
   }
   const keepers = readRecordList<Keeper>(r, KEEPER_FIELDS);
-  return { ruins, villages, bands, burns, dusk, fog, checked, tunnels, bossNext, bossHp, bossId, wild, guarded, keepers };
+  const encounters = readRecordList<Encounter>(r, ENCOUNTER_FIELDS);
+  const marks = readRecordList<Mark>(r, MARK_FIELDS);
+  return { ruins, villages, bands, burns, dusk, fog, checked, tunnels, bossNext, bossHp, bossId, wild, guarded, keepers, encounters, marks };
 }
 
 /** The threats as canonical text for diffing: each record as its fields in serialisation order. */
@@ -116,6 +126,7 @@ function threatsJson(t: ThreatState): string {
     ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
     burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
     boss: [t.bossNext, t.bossHp, t.bossId], wild: rows(t.wild, WILD_FIELDS), guarded: [...t.guarded].sort((a, b) => a - b), keepers: rows(t.keepers, KEEPER_FIELDS),
+    encounters: rows(t.encounters, ENCOUNTER_FIELDS), marks: rows(t.marks, MARK_FIELDS),
   });
 }
 
@@ -206,10 +217,11 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * spells are a new column). 34: Patch 5's stone circles (the Goddess's
  * blessing, the idols, the Pan Flute's plays, the Sweet Hawthornes and a
  * unit's circle order). 35: Patch 5's keepers (each Bog guardian's and Fae
- * Guardian's record). Every patch raises it, and a snapshot from any other
+ * Guardian's record). 36: Patch 5's stone circle keepers (each circle's
+ * encounter and what lies on units) and the Headless God Idol's nights. Every patch raises it, and a snapshot from any other
  * version is refused, never carried over (Jade, Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 35;
+export const SNAPSHOT_VERSION = 36;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 

@@ -4,10 +4,13 @@
 // state, never stored.
 
 import { clockAt } from '../clock.ts';
+import { Res } from '../economy/resources.ts';
 import type { SimState } from '../state.ts';
+import { headlessTargets } from '../threats/headless.ts';
 import { actProblem, chestSlots, CircleAct } from './act.ts';
 import { brightFor, idolNight, nextNight, nightsToBright, skyBright } from './bright.ts';
 import { CircleType } from './data.ts';
+import { circleHooks, type ApeView } from './disturb.ts';
 import { ITEM_USES, UseFrom } from './items.ts';
 import { circleSites } from './place.ts';
 
@@ -34,6 +37,10 @@ export interface CirclesView {
   chests: Array<[number, Array<[number, number] | null>]>;
   /** The items in the player's inventory that have a use (a mage's wine is used from the mage's own bag): resource, the menu's word, and why it cannot be used now ('' when it can). */
   uses: Array<[number, string, string]>;
+  /** Each Great White Ape alive (SCA-2: his goods; SCA-4: he warns the one who would take his idol). */
+  apes: ApeView[];
+  /** The factions the Headless God Idol can turn the player's waves on (SCB-4): id, and whether they are at war already. */
+  headless: Array<[number, boolean]>;
 }
 
 /** The circles as a player sees them; `opened` are the chest keys the player has opened. */
@@ -60,6 +67,8 @@ export function circlesView(state: SimState, player: number, opened: readonly nu
     taken: state.circles.taken.slice(),
     acts,
     chests: opened.map((key) => [key, chestSlots(state, key >> 3, key & 7)]),
-    uses: ITEM_USES.filter((u) => u.from === UseFrom.Stock && (pool[u.res] ?? 0) > 0).map((u) => [u.res, u.label, u.problem(state, player, -1)]),
+    uses: ITEM_USES.filter((u) => u.from === UseFrom.Stock && (pool[u.res] ?? 0) > 0).map((u) => [u.res, u.label, u.problem(state, player, -1, -1)]),
+    apes: circleHooks.apes(state, player),
+    headless: (pool[Res.HeadlessIdol] ?? 0) > 0 ? headlessTargets(state, player).map((f) => [f.id, (f.war & (1 << player)) !== 0]) : [],
   };
 }

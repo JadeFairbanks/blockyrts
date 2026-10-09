@@ -763,6 +763,8 @@ export interface UseItemOrder {
   player: number;
   res: number;
   unit: number;
+  /** What it is used on (the Headless God Idol: a faction's id), -1 or left out for none. */
+  arg?: number;
 }
 
 export type Order =
@@ -1089,10 +1091,15 @@ export function validateOrder(o: Order): void {
       // Planting and cutting down (acts 4 and 5) name a column: `circle` its x and `arg` its z.
       if (o.act === 4 || o.act === 5) {
         if (!isInt(o.circle) || !isInt(o.arg) || Math.abs(o.circle) > 300_000 || Math.abs(o.arg) > 300_000) throw new Error('bad stone circle order');
+      } else if (o.act === 6) {
+        // Buying from the Great White Ape: arg is the good.
+        if (o.circle < 0 || o.circle > 255 || o.arg < 0 || o.arg > 2) throw new Error('bad stone circle order');
       } else if (o.circle < 0 || o.circle > 255 || o.act < 0 || o.act > 3 || o.arg < 0 || o.arg > 63) throw new Error('bad stone circle order');
       return;
     case 'useItem':
-      if (o.res < 0 || o.res > 255 || o.unit < 0) throw new Error('bad item use');
+      // The client sends unit -1 for an item used from the inventory.
+      if (o.res < 0 || o.res > 255 || o.unit < -1) throw new Error('bad item use');
+      if (o.arg !== undefined && (!isInt(o.arg) || o.arg < -1 || o.arg > 0xffff)) throw new Error('bad item use');
       return;
     case 'rally':
       if (typeof o.add !== 'boolean' || !['ground', 'unit', 'node'].includes(o.point)) throw new Error('bad rally point');

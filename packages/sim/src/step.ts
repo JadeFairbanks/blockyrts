@@ -36,6 +36,7 @@ import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts
 import { trackRuns } from './mounts/riding.ts';
 import { runEngine } from './siege/engines.ts';
 import { installLateMobs } from './threats/late-mobs.ts';
+import { installEncounters } from './threats/encounters.ts';
 import { brightTonight } from './threats/bright.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
@@ -54,6 +55,7 @@ installAnimalHooks();
 installCrewHooks(crewHooks);
 installFoes();
 installLateMobs();
+installEncounters();
 mountHooks.rearRider = rearRider;
 stockHooks.chunk = guardSpring;
 stockHooks.cell = (state, cellId) => {

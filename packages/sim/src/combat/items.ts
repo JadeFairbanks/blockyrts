@@ -59,6 +59,10 @@ export const Shot = {
   EnergyDart: 22,
   /** Jade's Patch 5 (MF-7): the Fae Guardian's pink-magenta bolt. */
   FairyBolt: 23,
+  /** Jade's Patch 5 stone circles: a Satyr Reveler's bolt (SCS-3), Silenus' nature bolt (SCS-4) and the Lich's Acrid Wind (SCB-2). */
+  RevelerBolt: 24,
+  NatureBolt: 25,
+  AcridWind: 26,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -293,9 +297,17 @@ export const SHOTS: readonly ShotSpec[] = [
   // Jade's Patch 5 (MF-7, decisions 2.2): the Fae Guardian's bolt, 30 to all within 2 m of where it lands besides the 30 to whoever it strikes, in a big
   // explosion of its own pink-magenta; it flies straight at 16 m/s (s).
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'fairy bolt', model: 'fairy_bolt', vsWalls: 0, splash: 30, splashRadius: cm(200), burst: 'fairy' },
+  // Jade's Patch 5 stone circles (s): the reveler's bolt and Silenus' nature bolt fly straight at 16 m/s, the Lich's Acrid Wind, a blast of grave-tainted
+  // wind, at 12 m/s; all three are magic, as her words say.
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'reveler bolt', model: 'reveler_bolt', vsWalls: 0, magic: true },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'nature bolt', model: 'nature_bolt', vsWalls: 0, magic: true },
+  { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: false, name: 'acrid wind', model: 'acrid_wind', vsWalls: 0, magic: true },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
 export function spellShot(shot: number): boolean {
-  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.EnergyDart || shot === Shot.FairyBolt;
+  return (
+    shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.EnergyDart ||
+    shot === Shot.FairyBolt || shot === Shot.RevelerBolt || shot === Shot.NatureBolt || shot === Shot.AcridWind
+  );
 }

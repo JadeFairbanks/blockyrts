@@ -209,7 +209,8 @@ export function validTarget(state: SimState, i: number, t: number, chase = false
   if (t < 0 || t === i || e.hp[t]! <= 0 || e.inside[t] !== 0) return false;
   if (hostile(state, i, t)) return true;
   if (!chase || sideOf(state, i) !== Side.Players) return false;
-  return huntable(state, t) || sideOf(state, t) === Side.Players || (e.kind[i] === UnitKind.Worker && salvageable(state, t));
+  // A stone circle's keeper at peace (Jade's Patch 5) is a monster all the same: told to, they attack it.
+  return huntable(state, t) || sideOf(state, t) === Side.Players || sideOf(state, t) === Side.Monsters || (e.kind[i] === UnitKind.Worker && salvageable(state, t));
 }
 
 /** A building the neutral peoples left behind: workers may break it down for its materials. */

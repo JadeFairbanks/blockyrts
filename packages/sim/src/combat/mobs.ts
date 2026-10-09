@@ -115,6 +115,15 @@ export const Mob = {
   FaeGuardian: 83,
   /** ...and high and fast once she has been attacked, for good. */
   FaeGuardianAloft: 84,
+  /** Jade's Patch 5 (SCA-1 to SCA-3): the guardian and priest of a Great White Ape Lunar Circle (threats/encounters.ts). */
+  GreatWhiteApe: 85,
+  /** Jade's Patch 5 (SCS-1 to SCS-5): the demigod of a Silenus Circle, his tiger form, and his band of satyrs. */
+  Silenus: 86,
+  Sabretooth: 87,
+  SatyrTrickster: 88,
+  SatyrReveler: 89,
+  /** Jade's Patch 5 (SCB-1 to SCB-3): the skeletal magus of a Boneyard Circle. */
+  Lich: 90,
 } as const;
 export type Mob = (typeof Mob)[keyof typeof Mob];
 
@@ -212,6 +221,12 @@ export interface MobSpec {
   slamRadius: number;
   /** A texture look on the model: '' or 'rift' (the Rift-touched beasts). */
   tint: string;
+  /**
+   * Jade's Patch 5: a blow that falls anywhere between damageTenths and this
+   * (her "10-25 dmg"), rolled on the 'combat' stream for each blow; 0 for a
+   * blow of damageTenths every time.
+   */
+  damageMaxTenths: number;
 }
 
 /** A mob as written in the table below: everything but its threat, which is worked out (combat/threat.ts). */
@@ -227,10 +242,11 @@ const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STE
 const BP = 10000;
 const base = {
   traits: [], splitsInto: [], armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poisonTenths: 0, mana: 0,
-  strike: Strike.Shot, demon: Demon.None, perNight: 0, woodClimber: false, knockWu: 0, slamRadius: 0, tint: '',
+  strike: Strike.Shot, demon: Demon.None, perNight: 0, woodClimber: false, knockWu: 0, slamRadius: 0, tint: '', damageMaxTenths: 0,
 } as const;
 
 /** The role values of threats/types.ts Role, kept here so this data file imports nothing of the threats. */
+const ENCOUNTER = 11;
 const RESIDENT = 2;
 const TRIBE = 3;
 const VILLAGE = 4;
@@ -592,6 +608,55 @@ const MOB_ROWS: readonly MobRow[] = [
   FAE,
   // MF-3: "When aggroed, it flies higher, only able to be hit by ranged (including spells with enough range) ... and it starts moving faster" (s: 4.5 m/s).
   { ...FAE, id: Mob.FaeGuardianAloft, moves: Moves.HighFlyer, speed: v10(45) },
+  // Jade's Patch 5 stone circles (threats/encounters.ts brings them and gives them their abilities; XP by the header rule, health / 50).
+  {
+    // SCA-2: "A giant, 3.2 metre tall hunched white silverback gorilla ... 1500 HP ... attacks slowly, but his devastating thrashing arms can deal anywhere
+    // between 10 and 25 dmg". A thrash every 3.5 s, his walk 1.8 m/s (raging he runs), armour and reach (s). No drops (s: Jade named none).
+    ...base, id: Mob.GreatWhiteApe, name: 'Great White Ape', model: 'great_white_ape', firstNight: 0, hp: 1500, armourBp: 1500, damageTenths: 100, damageMaxTenths: 250,
+    attackSteps: ds(35), reach: cm(250), speed: v10(18), vsWalls: 40,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 300, halfWidth: cm(90), height: cm(320), blockBp: 0,
+    drops: [],
+  },
+  {
+    // SCS-4: "750 HP. 18-35 dmg per hit. Base attack = ranged; magical; nature", his "huge claw-like hands" in reach; 2.5 m tall. His nature bolt every
+    // 3 s at up to 18 m, his walk 1.8 m/s, armour (s). He drops hawthorne cider (s: Jade named none; the revelers' god drinks it too).
+    ...base, id: Mob.Silenus, name: 'Silenus', model: 'silenus', firstNight: 0, hp: 750, armourBp: 1500, damageTenths: 180, damageMaxTenths: 350, attackSteps: ds(30),
+    reach: cm(200), range: cm(1800), shot: Shot.NatureBolt, spreadBp: 200, speed: v10(18), vsWalls: 20,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 150, halfWidth: cm(55), height: cm(250),
+    drops: [{ res: Res.HawthorneCider, min: 2, max: 4, chancePm: 1000 }],
+  },
+  {
+    // SCS-5: "a 240 HP Sabretooth Tiger which can [leap] up to 20 m and deals 20-35 dmg per hit". A bite every 1.5 s, 6 m/s (s). Silenus comes back when
+    // it falls, so it never drops anything.
+    ...base, id: Mob.Sabretooth, name: 'Sabretooth tiger', model: 'sabretooth_tiger', firstNight: 0, hp: 240, armourBp: 1000, damageTenths: 200, damageMaxTenths: 350,
+    attackSteps: ds(15), reach: cm(180), speed: v10(60), vsWalls: 20,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 48, halfWidth: cm(60), height: cm(140),
+    drops: [],
+  },
+  {
+    // SCS-2: "100 HP. 18-23 DMG per hit", "two obsidian handaxes" (his model holds them), "a chance to drop Obsidian Weaponry on death": an obsidian
+    // hand-axe one kill in four (s). A double chop every 1.6 s, 3.2 m/s (s).
+    ...base, id: Mob.SatyrTrickster, name: 'Satyr Trickster', model: 'satyr_trickster', firstNight: 0, hp: 100, damageTenths: 180, damageMaxTenths: 230, attackSteps: ds(16),
+    reach: cm(140), speed: v10(32), vsWalls: 10,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 20, halfWidth: cm(35), height: cm(200),
+    drops: [{ res: Res.ObsidianHandAxe, min: 1, max: 1, chancePm: 250 }],
+  },
+  {
+    // SCS-3: "75 HP. 10-20 dmg per hit. Base attack = Ranged, magical", "a bottle of Hawthorne Cider, which he drops upon death". A bolt every 2.5 s at up
+    // to 16 m, 3 m/s (s).
+    ...base, id: Mob.SatyrReveler, name: 'Satyr Reveler', model: 'satyr_reveler', firstNight: 0, hp: 75, damageTenths: 100, damageMaxTenths: 200, attackSteps: ds(25),
+    reach: cm(120), range: cm(1600), shot: Shot.RevelerBolt, spreadBp: 300, speed: v10(30), vsWalls: 5,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 15, halfWidth: cm(35), height: cm(200),
+    drops: [{ res: Res.HawthorneCider, min: 1, max: 1, chancePm: 1000 }],
+  },
+  {
+    // SCB-2: "750 HP", his Acrid Wind "deals 5-16 dmg" (his attack, every 3 s at up to 18 m, s); he hovers at 1.6 m/s (s). Undead. His drops (s: Jade named
+    // none): 3 mana crystals, 2 to 4 gold, and a diamond half the time.
+    ...base, id: Mob.Lich, name: 'Lich', model: 'lich', firstNight: 0, hp: 750, armourBp: 1000, damageTenths: 50, damageMaxTenths: 160, attackSteps: ds(30),
+    reach: cm(150), range: cm(1800), shot: Shot.AcridWind, spreadBp: 200, speed: v10(16), vsWalls: 10,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 150, halfWidth: cm(45), height: cm(230), undead: true,
+    drops: [{ res: Res.ManaCrystal, min: 3, max: 3, chancePm: 1000 }, { res: Res.Gold, min: 2, max: 4, chancePm: 1000 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 500 }],
+  },
 ];
 
 /**
@@ -652,6 +717,12 @@ export function flies(spec: MobSpec): boolean {
 /** Breakers that blow themselves up against what blocks them (skeleton bombers); every other breaker smashes it. */
 export function bomber(spec: MobRow): boolean {
   return spec.id === Mob.SkeletonBomber;
+}
+
+/** A mob's blow in tenths for this blow: damageTenths, or a roll up to damageMaxTenths on the 'combat' stream (Jade's Patch 5 stone circle mobs). */
+export function blowTenths(rng: { nextInt(n: number): number }, spec: MobSpec): number {
+  if (spec.damageMaxTenths <= spec.damageTenths) return spec.damageTenths;
+  return spec.damageTenths + rng.nextInt(spec.damageMaxTenths - spec.damageTenths + 1);
 }
 
 export function mobSpec(id: number): MobSpec {
