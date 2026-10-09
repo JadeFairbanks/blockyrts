@@ -3171,7 +3171,7 @@ describe the game before Patch 5.*
    m9-online refuses a save of format 8.
 2. **The tiers.** `pnpm dev`, open http://localhost:5173/?seed=1 and select
    the Big House: its chip reads "Tier 1 of 4" and Upgrade offers the Hall
-   for 110 lumber, 45 stone and 15 sticks. Type M N B V C X Z and press
+   for 118 lumber and 45 stone. Type M N B V C X Z and press
    **Citadel**: the main base is the Citadel (tier 4), drawn as before with
    its cannon ports. **Troop kit** raises it to the Keep (tier 3).
 3. **What each tier opens.** With a Big House, the build menu greys out the
@@ -3297,6 +3297,43 @@ for players.
    the words).
 6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
    <folder>` drives all of this in a browser and saves pictures of it.
+
+## How a tester checks the late-night lag, the cursor, the void and the minimap (Patch 5)
+
+*Patch 5 bugs BG-2 to BG-5: the lag and slowed clock around night 15, the
+cursor vanishing after switching tabs, black void showing in ravines and pits,
+and the minimap failing far from the base. Causes and picks in
+blueprint/patch5-bugs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-night-lag.test.ts:
+   through six rounds of digging, heaping and water running into the holes,
+   the town fields and coarse crossings kept up to date in place match ones
+   built afresh from a copy of the game (as after loading a save), and they
+   were repaired rather than rebuilt; water reads only as wading, swimming
+   and a swimmer's level. packages/client/test/mesher.test.ts checks a ravine
+   wall drawn down to a floor below its own lowest layer, a chunk's edge drawn
+   down to the lowest its neighbour can show at less detail, and far chunks'
+   skirts hanging below all land. packages/client/test/minimap-transform.test.ts
+   checks the minimap shows small land whole and, past 600 m, a window round
+   the camera that keeps its scale and stays put under a click or drag.
+2. **Night 15.** Play into a siege (or press Wave in the tester tools near
+   the town at night) with breakers smashing ground near the town and water
+   flowing into the holes. The game keeps time: the day clock runs at its
+   normal pace and two players stay in step.
+3. **The cursor.** In a game, switch to another tab and back (or alt-tab
+   away and back) without moving the mouse: the cursor shows at once. With
+   cursor lock on, it shows again when the lock returns.
+4. **No void.** Find a ravine and look along it and down into it from every
+   side, close up and zoomed out, and dig a pit next to higher ground (Dig in
+   the tester tools, or workers' Dig): walls go all the way down to the floor
+   and no black shows anywhere below the land.
+5. **The minimap far out.** Send units a long way from the base (or use
+   Reveal at spots far apart). Once the explored land is more than about
+   600 m across, the minimap stops shrinking: it shows a window round the
+   camera at a readable scale, moves with the camera when the camera leaves
+   it, and stays still while you click or drag on it. Lairs off the window
+   show pinned to its edge, fainter, on the side they lie; pings off it ring
+   at the edge.
 
 ## How a tester checks Patch 5's trade, mercenaries and carts
 

@@ -61,6 +61,34 @@ export class QuadBuffer {
 
 const colourOf = (mat: number): number => MATERIALS[mat]?.colour ?? 0xff00ff;
 
+/**
+ * Below all land, terrain units: the generator's lowest ground is a few
+ * hundred units under sea level and digging stops 27 under that. The void
+ * under the world showed in ravines (Patch 5 BG-4) wherever a side stopped
+ * short of the land next to it: a column's layers end at its own bottom
+ * (36 units under its ground or sea level), which a ravine floor or a dug
+ * pit beside it can lie below, and far chunks' skirts hung only 24 units
+ * while the land drops up to 25 m across a chunk's edge. So the lowest
+ * layer's sides reach down to whatever the neighbour shows, and skirts reach
+ * here.
+ */
+const FLOOR = -1024;
+
+/**
+ * The lowest top a neighbouring chunk can draw along its edge next to a
+ * border column, at any detail: its own edge column, or a far chunk's
+ * sample up to two columns in, within the 4-column cell holding it.
+ */
+function lowestAlong(nb: ChunkColumns, alongX: boolean, sign: 1 | -1, b: number): number {
+  const b0 = b & ~3;
+  let low = Infinity;
+  for (let d = 0; d < 4; d++) {
+    const across = sign > 0 ? d : N - 1 - d;
+    for (let t = b0; t < b0 + 4; t++) low = Math.min(low, nb.top(alongX ? t * N + across : across * N + t));
+  }
+  return low;
+}
+
 /** The chunk and its four neighbours (-x, +x, -z, +z); a missing neighbour hides that border's faces. */
 export interface ChunkNeighbourhood {
   centre: ChunkColumns;
@@ -170,9 +198,20 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
           else if (nz >= N) { nb = h.south; nz -= N; }
           const ni = nz * N + nx;
           const s = c.start[i]! * 3;
+          // At the chunk's edge the neighbour may be drawn at less detail, lower
+          // than its real columns, so the sides are drawn down to the lowest it
+          // can show there; inside the neighbour's land they are never seen.
+          const low = nb && nb !== c ? lowestAlong(nb, alongX, sign, b) : Infinity;
           for (let k = 0; k < c.count[i]!; k++) {
             const m = L[s + k * 3 + 2]!;
-            exposed(L[s + k * 3]!, L[s + k * 3 + 1]!, nb, ni, pieces);
+            const y0 = k === 0 ? FLOOR : L[s + k * 3]!;
+            const y1 = L[s + k * 3 + 1]!;
+            exposed(y0, Math.min(y1, low), nb, ni, pieces);
+            const from = Math.max(y0, low);
+            if (from < y1) {
+              if (pieces.length > 0 && pieces[pieces.length - 1] === from) pieces[pieces.length - 1] = y1;
+              else pieces.push(from, y1);
+            }
             for (let p = 0; p < pieces.length; p += 2) {
               const key = ((pieces[p]! + 16384) * 32768 + (pieces[p + 1]! + 16384)) * 64 + m;
               seen.add(key);
@@ -281,7 +320,6 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
       q.add(i * cell, (Math.floor(k / 256) - 32768) * UNIT_M, j * cell, w * cell, 0, 0, 0, 0, d * cell, 0, 1, 0, colourOf(k & 255));
     }
   }
-  const SKIRT = 24;
   for (let j = 0; j < size; j++) {
     for (let i = 0; i < size; i++) {
       const k = j * size + i;
@@ -291,7 +329,7 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
         const ni = i + di;
         const nj = j + dj;
         const inside = ni >= 0 && nj >= 0 && ni < size && nj < size;
-        const low = inside ? lr.top[nj * size + ni]! : top - SKIRT;
+        const low = inside ? lr.top[nj * size + ni]! : FLOOR;
         if (low >= top) continue;
         const y0 = low * UNIT_M;
         const y1 = top * UNIT_M;
