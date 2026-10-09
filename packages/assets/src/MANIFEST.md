@@ -687,6 +687,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | spark | models/projectiles-and-spells/spark/spark.bbmodel | 17 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: a goblin mage's Spark toss in flight; head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | touch_of_the_grave_aura | models/projectiles-and-spells/touch_of_the_grave_aura/touch_of_the_grave_aura.bbmodel | 9 | 256x256 | Jade's own model (Stone Circle set) |
 | web_glob | models/projectiles-and-spells/web_glob/web_glob.bbmodel | 9 | 32x32 |  |
+| nature_bolt | models/projectiles-and-spells/nature_bolt/nature_bolt.bbmodel | 17 | 32x32 |  |
 
 ## textures
 
