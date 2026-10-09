@@ -64,6 +64,9 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | lynx | models/animals/lynx/lynx.bbmodel | 80 | 256x128 | Jade's own model (models/existing_mobs/lynx), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 80 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | viper | models/animals/viper/viper.bbmodel | 85 | 256x128 | Jade's own model (models/existing_mobs/viper), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 85 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | wild_boar | models/animals/wild_boar/wild_boar.bbmodel | 97 | 256x256 | Jade's own model (models/existing_mobs/wild_boar), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 97 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves); its `hips` bone renamed `pelvis` (a four-legged body, not the humanoid baseline) |
+| ox_harness | models/animals/ox_harness/ox_harness.bbmodel | 15 | 128x128 | placement: worn on the ox skeleton, so it sits at the ox's body height and centre, like horse_harness |
+| goose | models/animals/goose/goose.bbmodel | 23 | 64x64 | the `head` pivot moved to the top of the long neck, so `peck` does not reach the ground |
+| pheasant | models/animals/pheasant/pheasant.bbmodel | 28 | 64x32 |  |
 
 ## monsters
 
@@ -289,6 +292,9 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | pie | models/items/pie/pie.bbmodel | 4 | 32x32 |  |
 | bandage_roll | models/items/bandage_roll/bandage_roll.bbmodel | 3 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
 | healing_remedy | models/items/healing_remedy/healing_remedy.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| hat_farmer | models/items/hat_farmer/hat_farmer.bbmodel | 10 | 64x64 |  |
+| crew_outfit | models/items/crew_outfit/crew_outfit.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the apron, cuffs, cap, pouch and sash on the warrior bones |
+| farm_fare | models/items/farm_fare/farm_fare.bbmodel | 11 | 32x32 |  |
 
 ## mechanical
 
