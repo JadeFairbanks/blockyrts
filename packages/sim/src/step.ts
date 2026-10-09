@@ -4,6 +4,8 @@
 import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
 import { installCrewHooks, updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
+import { updateTaverns } from './buildings/tavern.ts';
+import { updateDreadnoughts } from './units/dreadnought.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
@@ -194,6 +196,9 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   settleDeaths(state);
   updateLoot(state);
   updateBuildings(state);
+  // Patch 5: open Taverns burn food into silver, and Dreadnoughts speak their minds.
+  updateTaverns(state);
+  updateDreadnoughts(state);
   updateMines(state);
   updateElimination(state);
   state.world.flowWater();

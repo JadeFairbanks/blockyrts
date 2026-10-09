@@ -21,6 +21,7 @@ import { BuildingKind } from '../buildings/data.ts';
 import { FOODS, RESOURCES, Res } from './resources.ts';
 import { Role } from '../threats/types.ts';
 import { speakerName } from '../peoples/speech.ts';
+import { DREADNOUGHT, isDreadnought } from '../units/dreadnought.ts';
 
 /** Rations (F9): who is fed. */
 export const Rations = { Everyone: 0, TroopsOnly: 1, WorkersOnly: 2 } as const;
@@ -159,7 +160,8 @@ export function mealQuarters(state: SimState, i: number): number {
   if (k === UnitKind.Worker || k === UnitKind.Warrior || k === UnitKind.Mage) {
     // The peoples' units are never a player's; a hired mercenary is, for good (Patch 5), and eats like any troop.
     if (e.role[i] === Role.People) return 0;
-    perCycle = NUTRITION_PER_CYCLE;
+    // The Dreadnought eats 3 food a meal (Patch 5, Jade), in quarters.
+    perCycle = isDreadnought(e, i) ? DREADNOUGHT.mealFood * QUARTERS : NUTRITION_PER_CYCLE;
     // A ridden horse eats as a working one (Table 6).
     if (e.mount[i] === Mount.Horse) perCycle += HORSE_UPKEEP;
   } else if (k === UnitKind.Animal) perCycle = animalUpkeep.of(state, i);

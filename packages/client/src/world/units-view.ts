@@ -27,6 +27,7 @@ import * as THREE from 'three';
 import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
+import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
 import type { OwnDraw } from './hidden-outlines.ts';
 
@@ -387,6 +388,8 @@ interface Corpse {
   colour: THREE.Color | null;
   /** A stand-in block's mob kind, when the model is missing. */
   mob: number;
+  /** Parts it falls with (the Dreadnought's mace, Patch 5). */
+  parts?: readonly string[];
 }
 
 /** One instanced model of a body with a set of parts, and how many of its instances this frame are the local player's own units, and outlined. */
@@ -839,6 +842,9 @@ export class UnitsView {
   private readonly tinkerStart = new Map<number, number>();
   /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
   private readonly fired = new Map<number, number>();
+  /** The Dreadnoughts' blows and war cries (Patch 5), and his swing's crescents. */
+  private readonly dread = new DreadnoughtLooks();
+  private readonly crescents: Crescents;
   /** Where each soldier's gun's muzzle was last drawn, by entity id (Patch 5, MB-7): its flash and smoke start there. */
   private readonly muzzles = new Map<number, THREE.Vector3>();
   /** Each held item's slot_muzzle in its own space, or null when it has none. */
@@ -866,6 +872,7 @@ export class UnitsView {
     this.streaks.count = 0;
     this.streaks.frustumCulled = false;
     scene.add(this.streaks);
+    this.crescents = new Crescents(scene);
     this.blocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial(), MAX_UNITS);
     this.blocks.count = 0;
     this.blocks.frustumCulled = false;
@@ -976,6 +983,7 @@ export class UnitsView {
     this.shots.visible = !hidden;
     this.beams.visible = !hidden;
     this.particles.mesh.visible = !hidden;
+    this.crescents.setVisible(!hidden);
   }
 
   /** Notes one of the local player's own units drawn this frame: its id, its feet (metres), its height and reach round its middle. */
@@ -1087,9 +1095,13 @@ export class UnitsView {
       if (!seen(x, z)) continue;
       // An animal leaves a carcass where it fell, drawn with the props.
       if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
-        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? 'warrior' : h.kind === UnitKind.Mage ? 'mage' : 'worker';
-        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1 });
+        // The Dreadnought falls as himself, with his mace (Patch 5).
+        const dread = h.kind === UnitKind.Warrior && h.troop === Troop.Dreadnought;
+        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : dread ? DREADNOUGHT_MODEL : h.kind === UnitKind.Warrior ? 'warrior' : h.kind === UnitKind.Mage ? 'mage' : 'worker';
+        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1, ...(dread ? { parts: DREADNOUGHT_PARTS } : {}) });
       }
+      if (h.look === 'sweep') this.crescents.spawn(x, y, z, ((h.heading ?? 0) / 65536) * Math.PI * 2, now);
+      if (h.look === 'warcry') this.dread.cry(h.id, now);
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
       // Jade's Patch 5: Morvath's staff bursts violet over its 1 m, the life he drains streams to him, and a summoner or Morvath at his spell plays its clip through.
@@ -1293,24 +1305,26 @@ export class UnitsView {
       // The neutral peoples (and the mercenaries they hire out): their own bodies once the models are in, until then a person's body in their people's colour.
       const people = owner === PEOPLES || d[o + S.group] !== 0;
       if (owner === PEOPLES && !f.seen(x, z)) continue;
+      // The Dreadnought (Patch 5): the heavy knight with his mace, his clips picked by dreadnought-look.ts.
+      const dread = isDreadnoughtRow(d, o);
       // A rider sits at its mount's rider slot, its hips on the saddle.
       const mount = d[o + S.mount]!;
       let ry = y;
-      const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : 1.69;
+      const tall = owner === PEOPLES ? peopleUnitSpec(d[o + S.mob]!).heightCm / 100 : dread ? DREADNOUGHT_M : 1.69;
       if (mount !== 0) {
         const seat = this.drawMount(d, o, mount, x, y, z, heading, clipT, owner === PEOPLES ? null : colour, blocks, own ? id : 0, outlined);
         blocks = seat.blocks;
         ry = seat.y - tall * HIP_SHARE;
       }
       const kin = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
-      const pool = kin ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
+      const pool = kin ?? this.body(dread ? DREADNOUGHT_MODEL : kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
       const body = pool?.model ?? null;
       // A cart carries the load in its bed; otherwise it is in the arms, the hand or on the shoulder.
       const cart = d[o + S.kit]!;
       const load = this.carried(d, o);
       const inCart = cart === Res.HandCart || cart === Res.OxCart;
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold };
-      const look = kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
+      const look: Look = dread ? { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' } : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
       if (kin) {
@@ -1326,8 +1340,10 @@ export class UnitsView {
         const slot = pool.take(look.parts);
         if (slot) {
           const pose = mount === 0 && sat >= 0 ? tinkerPose(pool.model.clips, sat, id) : null;
-          const clip = pose?.clip ?? (mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : gaitClip(pool.model.clips, look.clip, d[o + S.flags]!));
-          const time = pose?.t ?? (mount === 0 && !hop && look.t !== undefined ? look.t : clipT);
+          // He picks his own clip (dreadnought-look.ts); his walk turns to a run at his run as anyone's does.
+          const dc = dread && mount === 0 ? this.dread.clip(d, o, id, now, swingT, clipT, pool.model.clips, hop, moving) : null;
+          const clip = dc ? gaitClip(pool.model.clips, dc[0], d[o + S.flags]!) : (pose?.clip ?? (mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : gaitClip(pool.model.clips, look.clip, d[o + S.flags]!)));
+          const time = dc?.[1] ?? pose?.t ?? (mount === 0 && !hop && look.t !== undefined ? look.t : clipT);
           slot.m.setInstance(slot.i, x, ry, z, heading, clip, time, tint);
           if (own) pool.mark(slot, id, outlined);
           drawn = true;
@@ -1387,6 +1403,7 @@ export class UnitsView {
     for (const id of this.shotAt.keys()) if (!live.has(id)) this.shotAt.delete(id);
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
+    this.dread.keep(live);
     for (const id of this.held.keys()) if (!live.has(id)) this.held.delete(id);
     for (const id of this.forms.keys()) if (!live.has(id)) this.forms.delete(id);
     for (const id of this.morvathAt.keys()) if (!live.has(id)) this.morvathAt.delete(id);
@@ -1406,6 +1423,7 @@ export class UnitsView {
     this.particles.update(dt);
     this.sparks.update(dt);
     this.smoke.update(dt);
+    this.crescents.update(now);
   }
 
   /**
@@ -1530,7 +1548,7 @@ export class UnitsView {
       const sink = age > CORPSE_LIE_S ? ((age - CORPSE_LIE_S) / CORPSE_SINK_S) * 0.6 : 0;
       const pool = this.body(c.model);
       if (pool) {
-        const slot = pool.take([]);
+        const slot = pool.take(c.parts ?? []);
         // Morvath aloft falls with his second form's death (Jade's Patch 5).
         const death = c.mob === Mob.MorvathAloft && pool.model.clips.has('death_phase_two') ? 'death_phase_two' : 'death';
         if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, death, age, c.colour, c.mob >= 0 ? mobScale(c.model, mobSpec(c.mob).height) : 1);
@@ -1769,12 +1787,12 @@ const HOP_ARC_M = 0.22;
  * height on an arc from the level it left to the one it lands on, and
  * whether it goes up. Null when it is not hopping.
  */
-export function hopAt(d: Int32Array, o: number, alpha: number): { y: number; up: boolean } | null {
+export function hopAt(d: Int32Array, o: number, alpha: number): { y: number; up: boolean; t: number } | null {
   const left = d[o + S.hop]!;
   if (left <= 0) return null;
   const t = Math.min(1, Math.max(0, (HOP_STEPS - left + alpha) / HOP_STEPS));
   const rise = d[o + S.hopRise]! / WU_PER_METRE;
-  return { y: d[o + S.y]! / WU_PER_METRE - rise * (1 - t) + HOP_ARC_M * 4 * t * (1 - t), up: rise > 0 };
+  return { y: d[o + S.y]! / WU_PER_METRE - rise * (1 - t) + HOP_ARC_M * 4 * t * (1 - t), up: rise > 0, t };
 }
 
 /** The pose of a hop: the body's climb clip going up (or a jump clip, if it has one), else what it was doing. */

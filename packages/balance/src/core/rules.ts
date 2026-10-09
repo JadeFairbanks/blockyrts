@@ -93,6 +93,9 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
   'units/night-work.ts:NIGHT_WORK_ASK', 'units/unit-orders.ts:ENTER_NIGHT', 'units/unit-orders.ts:FORAGE_HOME', 'units/unit-orders.ts:FORAGE_NIGHT',
+  // The Dreadnought (Patch 5): his lines and description are words, his gear is worked out from DREADNOUGHT_KIT, and his second blow's slot is plumbing.
+  'units/dreadnought.ts:DREADNOUGHT_REMARKS', 'units/dreadnought.ts:DREADNOUGHT_HIRED', 'buildings/production.ts:DREADNOUGHT_TEXT',
+  'units/kits.ts:DREADNOUGHT_GEAR', 'units/kits.ts:SECOND_BLOW',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -104,6 +107,9 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'buildings/recipes.ts': 'recipes',
   'buildings/lights.ts': 'land',
   'buildings/mining.ts': 'world',
+  // Patch 5: the Tavern's row, and the Dreadnought's it hires.
+  'buildings/tavern.ts': 'buildings',
+  'units/dreadnought.ts': 'training',
   'combat/items.ts': 'ranged',
   'combat/projectiles.ts': 'ranged',
   'combat/blasts.ts': 'ranged',
