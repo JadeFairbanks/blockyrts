@@ -42,7 +42,8 @@ import { debugThreat } from './threats/debug.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
-import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
+import { knowsSpell, spellProblem } from './magic/cast.ts';
+import { setAutocast } from './magic/mages.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
@@ -906,28 +907,28 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         }
         const t = o.target ? e.indexOf(o.target) : -1;
         if (o.target && (t < 0 || e.hp[t]! <= 0)) break;
-        const tx = t >= 0 ? e.x[t]! : o.x;
-        const tz = t >= 0 ? e.z[t]! : o.z;
-        // One mage casts it (s): one with the mana and the spell ready, else the one ready soonest; the nearest breaks a tie.
-        let best = -1;
-        let bestKey = 0;
-        let bestD = 0;
-        for (const i of knowers) {
-          const enough = e.mana[i]! >= s.mana * MANA_SCALE;
-          const ready = Math.max(0, spellReadyAt(state, i, s.id) - state.step);
-          const key = (enough ? 0 : 1 << 24) + ready;
-          const d = dist2(e.x[i]!, e.z[i]!, tx, tz);
-          if (best < 0 || key < bestKey || (key === bestKey && d < bestD)) {
-            best = i;
-            bestKey = key;
-            bestD = d;
-          }
-        }
-        if (e.mana[best]! < s.mana * MANA_SCALE) {
+        // Patch 5 (VX-10): "Make a selection group of mages all use the spell that is used": every selected mage who knows it and has the mana casts it.
+        const able = knowers.filter((i) => e.mana[i]! >= s.mana * MANA_SCALE);
+        if (able.length === 0) {
           alert(state, o.player, `Not enough mana for ${s.name} (${s.mana}).`);
           break;
         }
-        giveOrder(state, best, { t: 'cast', spell: s.id, id: t >= 0 ? o.target : 0, x: clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), z: clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU), auto: 0, until: 0 }, o.queued === true);
+        for (const i of able) giveOrder(state, i, { t: 'cast', spell: s.id, id: t >= 0 ? o.target : 0, x: clamp(o.x, -WORLD_EDGE_WU, WORLD_EDGE_WU), z: clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU), auto: 0, until: 0 }, o.queued === true);
+        break;
+      }
+      case 'autocast': {
+        // Patch 5 (MB-18): a right click on a spell's button; each selected mage of its school takes it on or off (magic/mages.ts setAutocast).
+        const s = SPELLS[o.spell];
+        if (!s) break;
+        const mages = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] === UnitKind.Mage && e.school[i] === s.school);
+        let why = '';
+        let changed = false;
+        for (const i of mages) {
+          const w = setAutocast(state, i, s.id, o.on === 1, (sp) => knowsSpell(state, i, sp));
+          if (w) why ||= w;
+          else changed = true;
+        }
+        if (!changed && why) alert(state, o.player, why);
         break;
       }
       case 'eat':
