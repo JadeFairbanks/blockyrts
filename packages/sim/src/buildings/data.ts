@@ -201,7 +201,7 @@ function tower(kind: BuildingKind, name: string, cost: Cost, ws: number, health:
  */
 function rampart(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number): SpecInput {
   return {
-    kind, name, purpose: 'A chunk of packed earth 2 m tall and 1 m across, placed a stretch at a time from point to point. As strong as one wooden wall column, so weaker for its length; climbers go over it, breakers smash it. Each takes a worker\'s full load of earth.',
+    kind, name, purpose: 'A chunk of packed earth 2 m tall and 1 m across, placed a stretch at a time from point to point. As strong as one wooden wall column, so weaker for its length, and a wall in every other way: your units cannot climb it, climbing monsters go over it as they go over any wall, and breakers smash it. Each takes a worker\'s full load of earth.',
     ...DEFENCES, w: 2, d: 2, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm: 200, defence: 'wall', wooden: false,
     levels: [lvl(name, cost, ws, health)],
