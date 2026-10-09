@@ -29,7 +29,7 @@ import {
   hurtUnit,
   isTrophy,
   itemEffect,
-  itemGear,
+  ownGear,
   LOOT_EFFECTS,
   LootEffect,
   Mob,
@@ -42,6 +42,7 @@ import {
   Res,
   Role,
   School,
+  settleDeaths,
   shotArmourCutBp,
   sightOf,
   spellPowerBp,
@@ -116,7 +117,7 @@ describe('Patch 7: the effects ride on the looted pieces', () => {
       [Res.FaeGuardianRobe, LootEffect.FaeSet],
     ];
     for (const [res, fx] of want) {
-      expect(gearEffect(itemGear(res)), `${res}`).toBe(fx);
+      expect(gearEffect(ownGear(res)), `${res}`).toBe(fx);
       expect(itemEffect(res)).toBe(fx);
     }
     expect(itemEffect(Res.BogGuardianClub)).toBe(LootEffect.BogTrophy);
@@ -133,7 +134,7 @@ describe('Fury (the fiend cleaver)', () => {
     const { s, x, z } = setup();
     const e = s.entities;
     const w = addWarrior(s, 0, x, z);
-    e.weapon[w] = itemGear(Res.FiendCleaver);
+    e.weapon[w] = ownGear(Res.FiendCleaver);
     expect(hexed(s, w, 120)).toBe(120);
     e.hp[w] = Math.floor((e.maxHp[w]! * FURY.underPm) / 1000);
     expect(hexed(s, w, 120)).toBe(120);
@@ -148,7 +149,7 @@ describe('Warlord (the archfiend greatsword)', () => {
     const { s, x, z } = setup();
     const e = s.entities;
     const holder = addWarrior(s, 0, x, z);
-    e.weapon[holder] = itemGear(Res.ArchfiendGreatsword);
+    e.weapon[holder] = ownGear(Res.ArchfiendGreatsword);
     const near = addWarrior(s, 0, x + 14 * M, z);
     const far = addWarrior(s, 0, x + 16 * M, z);
     const worker = e.indexOf(1);
@@ -161,7 +162,7 @@ describe('Warlord (the archfiend greatsword)', () => {
     expect(dealt(s, worker, 100)).toBe(100);
     // Two greatswords in reach count once.
     const second = addWarrior(s, 0, x + 13 * M, z);
-    e.weapon[second] = itemGear(Res.ArchfiendGreatsword);
+    e.weapon[second] = ownGear(Res.ArchfiendGreatsword);
     regrid(s);
     expect(dealt(s, near, 100)).toBe(base + WARLORD.damageBp / 100);
   });
@@ -172,7 +173,7 @@ describe('Reaper (the Elf glaive)', () => {
     const { s, x, z } = setup();
     const e = s.entities;
     const w = addWarrior(s, 0, x, z, Troop.Long);
-    e.weapon[w] = itemGear(Res.ElfGlaive);
+    e.weapon[w] = ownGear(Res.ElfGlaive);
     expect(effectMoveBp(s, w)).toBe(REAPER.moveBp);
     expect(LOOT_EFFECTS[LootEffect.Reaper]!.text).toMatch(/Critical hits/);
   });
@@ -184,7 +185,7 @@ describe('Far sight (the Elf longbow)', () => {
     const e = s.entities;
     const r = addWarrior(s, 0, x, z, Troop.Ranger, 3);
     const plain = addWarrior(s, 0, x, z, Troop.Ranger, 3);
-    e.ranged[r] = itemGear(Res.ElfLongbow);
+    e.ranged[r] = ownGear(Res.ElfLongbow);
     expect(shotArmourCutBp(s, r)).toBe(FAR_SIGHT.armourCutBp);
     expect(shotArmourCutBp(s, plain)).toBe(0);
     s.step = 10;
@@ -209,13 +210,13 @@ describe('the Fae set (the Fae star wand and the Fae Guardian robe)', () => {
     const { s, x, z } = setup();
     const e = s.entities;
     const m = addMage(s, 0, x, z, School.Support);
-    e.weapon[m] = itemGear(Res.FaeStarWand);
-    e.armour[m] = itemGear(Res.FaeGuardianRobe);
+    e.weapon[m] = ownGear(Res.FaeStarWand);
+    e.armour[m] = ownGear(Res.FaeGuardianRobe);
     const m2 = addMage(s, 0, x + M, z, School.Support);
-    e.weapon[m2] = itemGear(Res.FaeStarWand);
-    e.armour[m2] = itemGear(Res.FaeGuardianRobe);
+    e.weapon[m2] = ownGear(Res.FaeStarWand);
+    e.armour[m2] = ownGear(Res.FaeGuardianRobe);
     const half = addMage(s, 0, x + 30 * M, z, School.Support);
-    e.weapon[half] = itemGear(Res.FaeStarWand);
+    e.weapon[half] = ownGear(Res.FaeStarWand);
     const near = addWarrior(s, 0, x + 5 * M, z);
     const far = addWarrior(s, 0, x + 12 * M, z);
     const byHalf = addWarrior(s, 0, x + 31 * M, z);
@@ -278,7 +279,7 @@ describe('the trophies', () => {
     const again = plant(s, BuildingKind.BogTrophy, x, z);
     pool[Res.BogGuardianClub] = 0;
     hurtBuilding(s, again, 10000, x, 0, z);
-    run(s, 1);
+    settleDeaths(s);
     expect(s.buildings.get(again.id)).toBeUndefined();
     expect(pool[Res.BogGuardianClub]).toBe(1);
     expect(s.events.some((ev) => ev.kind === 'alert' && /back in your stock/.test(ev.text))).toBe(true);

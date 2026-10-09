@@ -59,8 +59,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'threats/keepers.ts:KeeperKind', 'threats/keepers.ts:KeeperMode', 'threats/keepers.ts:KeeperAsk',
   // Patch 5: the stone circle keepers' moods and question id, and what can lie on a unit.
   'threats/encounters.ts:EncounterMode', 'threats/encounters.ts:EncounterAsk', 'threats/marks.ts:MarkKind',
-  // Patch 7: the looted pieces' effect ids.
-  'units/kits.ts:LootEffect',
+  // Patch 7: the looted pieces' effect ids, and their names and words (worked out from the numbers in units/effects.ts).
+  'units/kits.ts:LootEffect', 'units/effects.ts:LOOT_EFFECTS',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/behaviour.ts:PATH_LEG', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
@@ -461,6 +461,10 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'DREADNOUGHT_KIT:stature': 'Stature of his harness', 'LOOT_KITS:size': 'Heft (weapons, wands, shields) or Stature (armour, robes)',
   'LOOT_KITS:rarity': 'Rarity (0 common, 1 rare, 2 epic, 3 legendary)', 'LOOT_KITS:tier': 'Material tier (its look and sound)', 'LOOT_KITS:scrap': 'Scrap yield',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
+  // Patch 7: what the epic and legendary looted pieces do (units/effects.ts).
+  'FURY:attackBp': 'Attacks faster by', 'FURY:underPm': 'While below this share of its health', 'WARLORD:damageBp': 'More damage for the troops near',
+  'REAPER:moveBp': 'Moves faster by', 'FAR_SIGHT:armourCutBp': 'Armour its arrows ignore', 'FAR_SIGHT:darkSight': 'Extra sight at dusk and night',
+  'FAE_SET:heal': 'Healing', 'FAE_SET:everySteps': 'Heals every', 'BOG_TROPHY:slowBp': 'Night monsters slowed by', 'VICTORS_TROPHY:bonusBp': 'Bonus to everything',
   'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
   'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',
   WILD_PATCH_M: 'Wild patch size', WILD_SAMPLES: 'Spots tested per side of a patch',
@@ -573,6 +577,8 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   timeS: 'wholeSeconds', troopS: 'wholeSeconds', swingDs: 'deciseconds', attackDs: 'deciseconds',
   reachCm: 'metresCm', rangeM: 'metres', troopFood: 'nutrition', fromArmour: 'level',
   'WAND_KITS:mana': 'number', PROSPECT_TOOL_TIER: 'level',
+  // Patch 7: the loot effects.
+  'FAR_SIGHT:darkSight': 'metresWu', 'FAE_SET:heal': 'health',
   // The swoop (Jade's patch notes 1) and the wandering night monsters.
   'SWOOP:diveSpeed': 'speed', 'SWOOP:climbSpeed': 'speed', 'SWOOP:pullLowCm': 'metresCm', 'SWOOP:pullHighCm': 'metresCm',
   WILD_FROM_NIGHT: 'night', WILD_HORDE_FROM_NIGHT: 'night', WILD_HORDE_PCT_PER_NIGHT: 'percent', WILD_HORDE_MIN: 'count', WILD_HORDE_MAX: 'count',

@@ -1012,7 +1012,8 @@ export class Commands {
 
   /**
    * The build menu (Jade's Patch 2: one Build button, fourteen buildings): a
-   * button per building, with Defences and Lights opening their submenus. A
+   * button per building, with Defences and Lights opening their submenus
+   * (Patch 7: and Trophies, while there is one in the stock to place). A
    * submenu longer than the card (Defences' 17 choices) shows pages. Each
    * button is on a letter of its own, as everywhere on the card (Jade's
    * Patch 4; before, the key in its place on the keyboard's grid, Q to V,
@@ -1026,6 +1027,8 @@ export class Commands {
     else {
       slots.forEach((specs, i) => {
         const group = specs[0]?.group;
+        // Patch 7: the trophies show once there is one in the stock to place (each piece's tooltip sends the player here).
+        if (group === 'Trophies' && !specs.some((t) => t.trophy && this.d.game.have(t.trophy.item) > 0)) return;
         if (specs.length === 1 && !group) list.push(this.buildEntry(specs[0]!, 0, specs[0]!.name));
         else if (specs.length > 0) {
           const name = group ?? specs.map((s) => s.name).join(', ');
