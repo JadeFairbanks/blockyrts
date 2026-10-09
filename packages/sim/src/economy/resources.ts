@@ -111,7 +111,7 @@ export const Res = {
   AnyMeat: 107,
   AnyFish: 108,
   AnyLumber: 109,
-  // Patch 5: the Stone Circle goods (Stone Circle doc; decisions 2.5).
+  // Patch 5: the Stone Circle goods traded first (Stone Circle doc; decisions 2.5).
   Bluestone: 110,
   MoonRose: 111,
   /**
@@ -193,6 +193,18 @@ export const Res = {
   Mushrooms: 176,
   /** Patch 5 (Jade): ground from bone at the Workshop, 1 to 1; 2 fertilize a farm. */
   Bonemeal: 177,
+  // Patch 5's other Stone Circle goods (circles/data.ts; Jade's Stone Circle document and her answers 2.5 and 10).
+  AncientSeed: 178,
+  HawthorneFruit: 179,
+  PanFlute: 180,
+  BluestoneTrinket: 181,
+  Honey: 182,
+  EnchantedWine: 183,
+  HawthorneCider: 184,
+  MoonIdol: 185,
+  HeadlessIdol: 186,
+  /** Jade's GP-29: the bog pear, 14 food, wanted by the Halfling Elder (QV-16). */
+  BogPear: 187,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -415,9 +427,9 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
-  // Patch 5 (s: weights as marble and herbs). Bluestone stands in for marble 1 for 1 and sells well; Moon Roses are the Elves' best trade good.
-  r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 100, 'Bluestone rubble at the stone circles. Stands in for marble; sells well.'),
-  r(Res.MoonRose, 'Moon Rose', 'Moon Rose', A, 5, 'Moon Rose bushes at a lunar stone circle, picked on Bright Nights. The Elves pay more for them than for anything else.'),
+  // Patch 5's Stone Circle goods traded first (s: weights as marble and herbs).
+  r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 100, 'Bluestone rubble and the trilithons of stone circles (iron tools or better). Stands in for marble in any recipe, and sells well.'),
+  r(Res.MoonRose, 'Moon Rose', 'Moon Rose', A, 5, 'Moon Rose bushes at a Lunar stone circle, open only on a Bright Night. The Moon Goddess asks for them among her gifts, and the Elves pay more for them than for anything else.'),
   ...gearItems(),
   r(Res.ObsidianHandAxe, 'Obsidian hand-axe', 'Obsidian axe', Gr, 30, `The satyrs' weapon. ${GEAR_SOURCE} It fits as a bronze shortsword: a close melee troop takes it in place of one.`, 0, false),
   r(Res.Obsidian, 'Obsidian', 'Obsidian', A, 10, 'Stone circle chests. Counts as flint wherever flint is needed.'),
@@ -428,6 +440,18 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Blueberries, 'Blueberries', 'Blueberries', F, 5, 'Blueberry bushes, in the Fringe and the Deepwoods: a bunch is 1 food.', 1),
   r(Res.Mushrooms, 'Edible mushrooms', 'Mushrooms', F, 3, 'At the feet of trees, from the Heartland to the Deepwoods: 1 food each.', 1),
   r(Res.Bonemeal, 'Bonemeal', 'Bonemeal', A, 10, 'Ground from bone at the Workshop. Fertilize a farm with 2 for 30% more farm fare for 2 minutes.'),
+  // The other Stone Circle goods (Jade's Stone Circle document; weights (s); food values in farm fare from her answers 2.5: farm fare is 2).
+  r(Res.AncientSeed, 'Ancient Seed', 'Ancient seeds', A, 1, 'Bluestone chests in stone circles. A small teardrop shaped black seed: right click it to plant a Sweet Hawthorne in grass or dirt.', 0, false),
+  r(Res.HawthorneFruit, 'Hawthorne fruit', 'Hawthorne', F, 5, 'Sweet Hawthorne trees: a large ruby-red fruit the size of a small apple, honey-sweet with deeper spice notes. Worth two farm fare.', 4),
+  r(Res.PanFlute, 'Pan Flute', 'Pan Flutes', T, 3, 'Bluestone chests in stone circles. Right click it to play a peaceful tune that draws every neutral animal within 300 m toward your base. It can be played 10 times.', 0, false),
+  r(Res.BluestoneTrinket, 'Bluestone Trinket', 'Bluestone trinkets', T, 1, 'Bluestone chests in stone circles. Highly valued in trade: 50% more than bronze trinkets.', 0, false),
+  r(Res.Honey, 'Honey', 'Honey', F, 10, 'Bought from the Great White Ape. Worth three farm fare.', 6),
+  r(Res.EnchantedWine, 'Enchanted wine', 'Wine', F, 10, 'Bought from the Great White Ape. Worth two farm fare; used from a mage\'s bag it also refills 50 mana.', 4),
+  r(Res.HawthorneCider, 'Hawthorne cider', 'Cider', F, 10, 'Dropped by satyr revelers. Worth two farm fare.', 4),
+  r(Res.MoonIdol, 'Moon Goddess Idol', 'Moon idol', T, 15, 'Taken from the altar of a Great White Ape Lunar Circle. Right click it to make the next night a Bright Night for you, once every 10 nights.', 0, false),
+  r(Res.HeadlessIdol, 'Headless God Idol', 'Headless idol', T, 15, 'Taken from the altar of a Boneyard Circle.', 0, false),
+  // GP-29: "edible ... It is a dark purple color ... a single pumpkin sized pear ... giving 14 food value" (s: 5 lb).
+  r(Res.BogPear, 'Bog pear', 'Bog pears', F, 50, 'Low dark purple bushes at the bogs a Bog guardian keeps: a pumpkin-sized pear worth 14 food. A Halfling Elder wants one.', 14),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;
@@ -499,6 +523,16 @@ export function resourceByName(name: string): number {
       return Res.Emeralds;
     case 'mana crystal':
       return Res.ManaCrystal;
+    case 'bluestone':
+      return Res.Bluestone;
+    case 'hawthorne fruit':
+      return Res.HawthorneFruit;
+    case 'moon rose':
+      return Res.MoonRose;
+    case 'bog pear':
+      return Res.BogPear;
+    case 'bone':
+      return Res.Bone;
     // A carcass gives its animal's meat and a fish stretch its species (units/behaviour.ts nodeResource): these stand for the kind.
     case 'meat':
       return Res.AnyMeat;

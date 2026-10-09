@@ -52,6 +52,8 @@ export function isAnyRes(res: number): boolean {
 export const STAND_INS: ReadonlyArray<readonly [Res, readonly Res[]]> = [
   [Res.Rope, [Res.Rope, Res.SpiderSilk]],
   [Res.Flint, [Res.Flint, Res.Obsidian]],
+  // Jade's answer 2.5 (Patch 5 stone circles): bluestone stands in for marble 1 for 1.
+  [Res.Marble, [Res.Marble, Res.Bluestone]],
 ];
 const STAND_IN_KINDS = new Map<number, readonly Res[]>(STAND_INS);
 

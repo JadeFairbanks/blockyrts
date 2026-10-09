@@ -44,6 +44,7 @@ import {
   Mount,
   Mob,
   STEPS_PER_SECOND,
+  IDOL_AREA_M,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
@@ -57,18 +58,23 @@ import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { propDetails, propLabel } from './plant-text.ts';
-import { PropModelsView } from './prop-models-view.ts';
+import { circlePieceDetails, circlePieceLabel } from './circle-text.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { TavernView } from './tavern-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { FishView } from './fish-view.ts';
 import { LootView } from './loot-view.ts';
+import { glitterOfResource, WorldFx, type GlitterSpot } from './sparkle.ts';
 import { Overlay } from './overlay.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
+import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
+import { loadTerrainTextures, loadWaterTextures, setTerrainBands, terrainPatch, terrainUniforms, waterPatch, waterUniforms } from './terrain-textures.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
 import { HoverOutline, type HoverParts } from './hover-outline.ts';
 import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
+import { cycleSeconds, newSkyMoment, SKY_MID_DAY, skyAt } from './sky-light.ts';
+import { FogDrift } from './fog-drift.ts';
 
 /** How long a Bog guardian's warning shows in each player's tooltip, seconds of it being up (Jade's MB-12: "stops showing after 10 seconds for each player for each Bog guardian"). */
 const KEEPER_WARNING_S = 10;
@@ -84,6 +90,31 @@ const FOG_COLOUR = 0x8a9098;
 const FOG_NEAR_M = 28;
 const FOG_FAR_M = 95;
 const FOG_OFF_M = 100000;
+/**
+ * The day's light from the lighting sheet (sky-light.ts), matched so its
+ * mid-day is as bright as the game's: the sun's strength at the sheet's 1, and
+ * the ambient light's at the sheet's mid-day. The sheet's distance fog is a
+ * fraction of this view depth (the top of the screen at the farthest zoom is
+ * about 86 m away), and fades out over as far again.
+ */
+const SUN_PEAK = 1.7;
+const HEMI_DAY = 1.15;
+const HEMI_DAY_COLOUR = new THREE.Color(0xdfefff);
+const VIEW_DEPTH_M = 100;
+/**
+ * A Bright Night (Patch 5, SCA-6: "Illuminated by a full, smiling moon whose
+ * light casts an eerie but also comforting subtle white glowing gradient over
+ * the night"): the night lit whiter and brighter, and a pale moonlit haze that
+ * grows with distance, so the land glows towards the top of the screen. Near a
+ * Lunar circle the Moon Roses' musk tints the air slightly rosy (SCA-8) (s).
+ */
+const BRIGHT_HEMI = new THREE.Color(0xc4d0ec);
+const BRIGHT_MOON = new THREE.Color(0xe6ecff);
+const BRIGHT_HAZE = 0x8f9bb8;
+const BRIGHT_HAZE_NEAR_M = 40;
+const BRIGHT_HAZE_FAR_M = 520;
+const ROSY = new THREE.Color(0xffc8dc);
+const ROSY_M = 70;
 /** The minimap keeps this much land round a mark outside the explored land, metres, so a lair's dot is never cut at its edge. */
 const MARK_MARGIN_M = 10;
 const FOG_TILES_PER_CHUNK = 16;
@@ -146,6 +177,7 @@ function geometryOf(a: MeshArrays): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.BufferAttribute(a.positions, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(a.normals, 3, true));
   g.setAttribute('color', new THREE.BufferAttribute(a.colors, 3, true));
+  g.setAttribute('mat', new THREE.BufferAttribute(a.mats, 1));
   g.setIndex(new THREE.BufferAttribute(a.indices, 1));
   g.computeBoundingSphere();
   return g;
@@ -173,10 +205,15 @@ interface ChunkView {
   heights: Int16Array | null;
   size: number;
   props: Selectable[];
+  /** Its gold and silver, to glitter (Patch 5, VX-6). */
+  glitter: GlitterSpot[];
   meshedAt: number;
   /** The scenery cubes, and each prop's cubes in them by its key (first, count), for the hover outline. */
   cubes: THREE.InstancedMesh | null;
   ranges: Map<string, readonly [number, number]>;
+  /** Its props drawn with their own models (Patch 5), and the models it would use that have not loaded yet. */
+  models: PlacedProp[];
+  wants: string[];
 }
 
 export interface WorldViewOptions {
@@ -201,6 +238,9 @@ export class WorldView {
   private nextId = 1;
   private readonly chunks = new Map<string, ChunkView>();
   private readonly terrainMat: THREE.MeshLambertMaterial;
+  /** The land's tiles and where the bands lie, for its shader. */
+  private readonly terrain = terrainUniforms();
+  private readonly water = waterUniforms();
   private readonly waterMat: THREE.MeshLambertMaterial;
   private readonly cubeMat: THREE.MeshLambertMaterial;
   private readonly cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
@@ -248,10 +288,21 @@ export class WorldView {
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
+  /** The world props' own models (Patch 5). */
+  private readonly propModels: PropModelsView;
+  /** Prop models loaded since the mesh workers were last told, and when they were. */
+  private propModelsNew: string[] = [];
+  private propModelsToldAt = 0;
+  /** Prop models a chunk asked the library for. */
+  private readonly propModelsAsked = new Set<string>();
+  /** Gold and silver glitter (Patch 5, VX-6). */
+  private readonly fx: WorldFx;
+  private glitterDirty = true;
+  private lastFx = 0;
+  /** A fog night's drifting fog banks (Patch 5). */
+  private readonly fogDrift: FogDrift;
   /** The live fish in the water and the woodsmen's catches (Patch 5, FR-2). */
   private readonly fishView: FishView;
-  /** Props drawn as their catalogue models (Patch 5: the bogs' silver nuggets, the large mana crystals). */
-  private readonly propModels: PropModelsView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -285,6 +336,7 @@ export class WorldView {
     sun.shadow.bias = -0.0005;
     scene.add(sun, sun.target);
     this.sun = sun;
+    this.fogDrift = new FogDrift(scene, (x, z) => this.heightAt(x, z));
 
     const tex = new THREE.DataTexture(this.fowData, FOW_TILES, FOW_TILES, THREE.RedFormat, THREE.UnsignedByteType);
     tex.magFilter = THREE.LinearFilter;
@@ -292,9 +344,24 @@ export class WorldView {
     tex.needsUpdate = true;
     this.fow = { fowTex: { value: tex }, fowArea: { value: new THREE.Vector3(0, 0, FOW_TILES * FOW_TILE_M) }, fowAll: { value: 0 } };
     this.terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-    patchMaterial(this.terrainMat, this.fow, true);
+    // The land's pixel tiles (Patch 5, VX-1) over the fog of war's patch; flat colour and noise until they load.
+    const fog = fowPatch(this.fow, false);
+    const tiles = terrainPatch(this.terrain);
+    this.terrainMat.onBeforeCompile = (shader) => {
+      fog(shader);
+      tiles(shader);
+    };
+    this.terrainMat.customProgramCacheKey = () => 'fow-terrain';
+    void loadTerrainTextures(this.terrain).catch((err: unknown) => console.warn('terrain textures not loaded; drawing flat colours', err));
     this.waterMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false });
-    patchMaterial(this.waterMat, this.fow, false);
+    // The water's animated tiles (Patch 5) over the fog of war's patch; flat blue until they load.
+    const waterTiles = waterPatch(this.water);
+    this.waterMat.onBeforeCompile = (shader) => {
+      fog(shader);
+      waterTiles(shader);
+    };
+    this.waterMat.customProgramCacheKey = () => 'fow-water';
+    void loadWaterTextures(this.water).catch((err: unknown) => console.warn('water tiles not loaded; drawing flat blue', err));
     this.cubeMat = new THREE.MeshLambertMaterial();
     patchMaterial(this.cubeMat, this.fow, true);
 
@@ -314,8 +381,9 @@ export class WorldView {
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
-    this.fishView = new FishView(scene);
     this.propModels = new PropModelsView(scene, { key: 'fow', apply: fowPatch(this.fow, false) });
+    this.fx = new WorldFx(scene);
+    this.fishView = new FishView(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -362,11 +430,11 @@ export class WorldView {
       const at = /^p:(-?\d+),(-?\d+):/.exec(t.key);
       const c = at ? this.chunks.get(ck(Number(at[1]), Number(at[2]))) : undefined;
       const range = c?.ranges.get(t.key);
-      if (c?.cubes && range && range[1] > 0 && !this.propModels.drawn(t.key)) cubes.push({ mesh: c.cubes, first: range[0], count: range[1] });
+      if (c?.cubes && range && range[1] > 0) cubes.push({ mesh: c.cubes, first: range[0], count: range[1] });
     }
     return {
       units: this.hoverUnits.size > 0 ? { group: this.unitsView.bodyGroup, pass: (m) => this.unitsView.passPools(m) } : null,
-      models: [...models, ...this.propModels.hoverModels()],
+      models: [...models, ...this.propModels.hovered()],
       meshes,
       sprites: this.lootView.hoverSprites(this.hoverKeys),
       cubes,
@@ -396,6 +464,44 @@ export class WorldView {
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
     this.propModels.setModels(lib);
+    for (const id of lib.models.keys()) if (PROP_VIEW_IDS.has(id)) this.propModelsNew.push(id);
+    for (const c of this.chunks.values()) this.askPropModels(c.wants);
+    lib.onLoad((m) => {
+      if (PROP_VIEW_IDS.has(m.id)) this.propModelsNew.push(m.id);
+    });
+  }
+
+  /** The prop models chunks in view are waiting for load next. */
+  private askPropModels(ids: readonly string[]): void {
+    const lib = this.models;
+    if (!lib) return;
+    for (const id of ids) {
+      if (this.propModelsAsked.has(id)) continue;
+      this.propModelsAsked.add(id);
+      lib.request(id);
+    }
+  }
+
+  /**
+   * Tells the mesh workers about the prop models loaded since last time (at
+   * most once a second, as they arrive in a rush), and remeshes the chunks
+   * that wanted them: their props swap from cubes to models.
+   */
+  private tellPropModels(now: number): void {
+    const lib = this.models;
+    if (!lib || this.propModelsNew.length === 0 || now - this.propModelsToldAt < 1000) return;
+    this.propModelsToldAt = now;
+    const ids = new Set(this.propModelsNew);
+    this.propModelsNew = [];
+    const bounds: Array<[string, number, number, number, number, number, number]> = [];
+    for (const id of ids) {
+      const b = lib.models.get(id)?.boundingBox;
+      if (b) bounds.push([id, b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z]);
+    }
+    for (const w of this.workers) w.postMessage({ type: 'propModels', bounds } satisfies ToMesh);
+    for (const c of this.chunks.values()) if (c.wants.some((id) => ids.has(id))) c.version++;
+    // An idol's model draws on an altar already in view.
+    this.propModels.invalidate();
   }
 
   // ---- From the sim worker ----
@@ -600,6 +706,7 @@ export class WorldView {
     // Lairs and villages found, a village going to war or a lair cleared repaint the minimap.
     game.onInfoUpdate((info) => {
       this.lootView.sync(info.loot);
+      this.glitterDirty = true;
       const sig = `${info.marks.map((m) => `${m.mob},${m.x},${m.z},${m.war ? 1 : 0}`).join(';')}|${info.peoples.map((f) => `${f.id},${f.x >> 12},${f.z >> 12},${f.war ? 1 : 0},${f.status}`).join(';')}`;
       if (sig !== this.marksSig) {
         this.marksSig = sig;
@@ -695,9 +802,14 @@ export class WorldView {
     this.minimapFocus = focus;
     this.updateUnits(now);
     this.lootView.update(now);
+    this.tellPropModels(now);
+    this.propModels.update(this.modelChunks(), this.game?.info?.circles, this.hoverKeys);
+    this.updateFx(now);
     this.fishView.update(now, focus, (id) => this.game?.unit(id) ?? null);
-    this.propModels.update(this.hoverKeys);
     this.updateSky();
+    this.fogDrift.update(this.fogK, focus, now);
+    this.terrain.terrainTime.value = now / 1000;
+    this.water.waterTime.value = now / 1000;
     if (this.game) this.buildings.update(this.game, now, focus);
     if (this.game) this.taverns.update(this.game, now, focus, this.buildings.darkness);
     const fcx = Math.floor(focus.x / CHUNK_M);
@@ -718,6 +830,11 @@ export class WorldView {
       this.fowLastSeen = now;
       this.rebuildFog();
     }
+  }
+
+  /** The props drawn with models, chunk by chunk. */
+  private *modelChunks(): Iterable<readonly PlacedProp[]> {
+    for (const c of this.chunks.values()) if (c.lod === 1 && c.models.length > 0) yield c.models;
   }
 
   /** Which chunks to draw at which detail around the focus; explored land and its edge only, unless showing all. */
@@ -743,7 +860,7 @@ export class WorldView {
     for (const [key, w] of want) {
       if (this.chunks.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number) as [number, number];
-      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], meshedAt: 0, cubes: null, ranges: new Map() });
+      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0, cubes: null, ranges: new Map(), models: [], wants: [] });
     }
   }
 
@@ -777,6 +894,10 @@ export class WorldView {
   }
 
   private onMesh(msg: FromMesh, worker: number): void {
+    if (msg.type === 'bands') {
+      setTerrainBands(this.terrain, msg.anchors.map(([x, z]) => ({ x: x * COLUMN_M, z: z * COLUMN_M })), msg.starts.map((s) => s * COLUMN_M));
+      return;
+    }
     if (msg.type === 'minimap') {
       this.onMinimap(msg.cx, msg.cz, msg.rgba);
       return;
@@ -811,9 +932,15 @@ export class WorldView {
     c.heights = m.heights;
     c.size = m.size;
     c.props = m.props.map((p) => this.propSelectable(c, p));
+    c.glitter = this.glitterOf(c, m.props);
+    this.glitterDirty = true;
     this.fishView.setChunk(ck(c.cx, c.cz), c.cx, c.cz, m.props);
     for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
-    this.propModels.chunk(ck(c.cx, c.cz), c.cx, c.cz, CHUNK_M, c.cubes, m.props);
+    c.models = [];
+    for (const p of m.props) if (p.model) c.models.push({ key: `p:${c.cx},${c.cz}:${p.index}`, kind: p.kind, variant: p.variant, ox: c.cx * CHUNK_M, oz: c.cz * CHUNK_M, model: p.model });
+    c.wants = m.wants;
+    this.askPropModels(m.wants);
+    this.propModels.invalidate();
     c.meshedAt = performance.now();
   }
 
@@ -855,16 +982,40 @@ export class WorldView {
       typeKey: `node:${info.name.toLowerCase()}`,
       centre: new THREE.Vector3(x, p.y, z),
       halfSize: new THREE.Vector3(p.hx, p.hy, p.hz),
-      label: propLabel(p.kind, p.stage, p.amount),
-      details: propDetails(p.kind, p.stage, p.amount, p.most, p.nextAt < 0 ? -1 : p.nextAt - this.simStep),
+      label: circlePieceLabel(p.kind, p.variant, p.amount) ?? propLabel(p.kind, p.stage, p.amount),
+      details: [...propDetails(p.kind, p.stage, p.amount, p.most, p.nextAt < 0 ? -1 : p.nextAt - this.simStep), ...circlePieceDetails(p.kind, p.stage, p.amount, p.variant)],
       // A sapling holds nothing yet, so there is nothing to gather.
       resource: info.resource && p.amount > 0 ? info.resource : '',
+      prop: { kind: p.kind, variant: p.variant, gx: c.cx * COLUMNS_PER_CHUNK + p.lx, gz: c.cz * COLUMNS_PER_CHUNK + p.lz, amount: p.amount },
     };
   }
 
+  /** A chunk's gold and silver props that still hold some, to glitter. */
+  private glitterOf(c: ChunkView, props: readonly PropSummary[]): GlitterSpot[] {
+    const out: GlitterSpot[] = [];
+    for (const p of props) {
+      const colour = p.amount > 0 ? glitterOfResource(propInfo(p.kind).resource) : 0;
+      if (colour) out.push({ x: c.cx * CHUNK_M + p.x, y: p.y, z: c.cz * CHUNK_M + p.z, r: Math.max(p.hx, p.hz, 0.2), colour });
+    }
+    return out;
+  }
+
+  /** The glitter winks on what is near the view, the flashes fade. */
+  private updateFx(now: number): void {
+    const dt = this.lastFx ? Math.min(0.1, (now - this.lastFx) / 1000) : 0;
+    this.lastFx = now;
+    if (this.glitterDirty) {
+      this.glitterDirty = false;
+      const spots = this.lootView.glitter();
+      for (const c of this.chunks.values()) if (c.lod === 1) for (const g of c.glitter) spots.push(g);
+      this.fx.setSpots(spots);
+    }
+    this.fx.update(dt, (x, z) => this.seenNow(x, z));
+  }
+
   private dropChunk(c: ChunkView): void {
+    this.glitterDirty = true;
     this.fishView.dropChunk(ck(c.cx, c.cz));
-    this.propModels.drop(ck(c.cx, c.cz));
     if (!c.group) return;
     this.scene.remove(c.group);
     c.group.traverse((o) => {
@@ -875,6 +1026,8 @@ export class WorldView {
     c.lod = 0;
     c.cubes = null;
     c.ranges.clear();
+    if (c.models.length > 0) this.propModels.invalidate();
+    c.models = [];
   }
 
   // ---- Fog of war ----
@@ -1039,14 +1192,14 @@ export class WorldView {
 
   // ---- Day and night ----
 
-  private readonly dayHemi = new THREE.Color(0xdfefff);
-  private readonly nightHemi = new THREE.Color(0x5a6a9a);
-  private readonly duskHemi = new THREE.Color(0xffb880);
-  private readonly daySun = new THREE.Color(0xfff2dc);
-  private readonly nightSun = new THREE.Color(0x8aa0d8);
-  private readonly duskSun = new THREE.Color(0xff9a5a);
+  /** The sheet's light now, and how much stronger the game's ambient light is than the sheet's numbers. */
+  private readonly sky = newSkyMoment();
+  private readonly hemiScale = (HEMI_DAY * luminance(HEMI_DAY_COLOUR)) / (SKY_MID_DAY.ambientI * luminance(SKY_MID_DAY.ambient));
   /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
   private fogK = 0;
+  /** How bright the night is drawn, 0 to 1, and how rosy, easing towards a Bright Night's (Patch 5). */
+  private brightK = 0;
+  private rosyK = 0;
   private lastSky = 0;
 
   /** How dark it is: 0 by day, rising through dusk to 1 at night, falling through dawn. */
@@ -1065,32 +1218,76 @@ export class WorldView {
     }
   }
 
-  /** The light of the period: warm at dusk and dawn, dim and blue at night (still bright enough to play). */
+  /**
+   * The light of the moment, from the lighting sheet: warm white by day, deep
+   * orange at dusk, cool blue moonlight at night and pink-gold at dawn, with
+   * the fog night's own values while the fog is in.
+   */
   private updateSky(): void {
     const k = this.darkness();
-    const warm = Math.max(0, 1 - Math.abs(k - 0.5) * 2) * 0.8;
-    this.hemi.intensity = 1.15 - 0.72 * k;
-    this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
-    this.sun.intensity = 1.7 - 1.35 * k;
-    this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
-    this.buildings.darkness = k;
-    this.unitsView.darkness = k;
+    const c = clockAt(this.simStep);
     // The fog rolls in and lifts over a few seconds.
     const now = performance.now();
     const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
     this.lastSky = now;
     const want = this.game?.info?.fog ? 1 : 0;
     this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
+    const m = skyAt(cycleSeconds(c.period, c.into / Math.max(1, c.into + c.left)), this.fogK, this.sky);
+    this.hemi.color.copy(m.ambient);
+    this.hemi.intensity = m.ambientI * this.hemiScale;
+    this.sun.color.copy(m.light);
+    this.sun.intensity = m.lightI * SUN_PEAK;
+    this.sun.shadow.intensity = Math.min(1, m.shadow / SKY_MID_DAY.shadow);
+    (this.scene.background as THREE.Color).copy(m.edge);
+    this.buildings.darkness = k;
+    this.unitsView.darkness = k;
+    this.buildings.fog = this.fogK * k;
+    this.terrain.terrainNight.value = k;
+    // A Bright Night comes on and goes over a few seconds too, and only shows in the dark.
+    const [bright, rosy] = this.brightHere();
+    this.brightK += Math.sign(bright - this.brightK) * Math.min(Math.abs(bright - this.brightK), dt / 4);
+    this.rosyK += Math.sign(rosy - this.rosyK) * Math.min(Math.abs(rosy - this.rosyK), dt / 4);
+    const b = this.brightK * k;
+    if (b > 0.001) {
+      this.hemi.intensity += 0.4 * b;
+      this.hemi.color.lerp(BRIGHT_HEMI, 0.7 * b).lerp(ROSY, 0.18 * this.rosyK * k);
+      this.sun.intensity += 0.5 * b;
+      this.sun.color.lerp(BRIGHT_MOON, 0.8 * b);
+    }
     const fog = this.scene.fog as THREE.Fog;
-    if (this.fogK <= 0.001) {
-      fog.near = FOG_OFF_M;
-      fog.far = FOG_OFF_M * 2;
+    if (this.fogK <= 0.001 && b > 0.001) {
+      // The moonlit haze: nothing near, paler with distance.
+      fog.near = BRIGHT_HAZE_NEAR_M;
+      fog.far = BRIGHT_HAZE_FAR_M / b;
+      fog.color.setHex(BRIGHT_HAZE).lerp(ROSY, 0.25 * this.rosyK);
+    } else if (this.fogK <= 0.001) {
+      // The sheet's haze: none by day, closing in on the far land at dusk and night.
+      fog.near = m.fogD >= 0.999 ? FOG_OFF_M : VIEW_DEPTH_M * m.fogD;
+      fog.far = fog.near * 2;
+      fog.color.copy(m.fog);
     } else {
       const off = (1 - this.fogK) * 400;
       fog.near = FOG_NEAR_M + off;
       fog.far = FOG_FAR_M + off;
-      fog.color.setHex(FOG_COLOUR).multiplyScalar(1 - 0.6 * k);
+      fog.color.copy(m.fog);
     }
+  }
+
+  /**
+   * Whether the night is bright where the camera looks (anyone's Bright Night,
+   * or a Moon Goddess idol's night within 200 m of its circle), and whether
+   * the Moon Roses' musk is in the air there (a bright night near a Lunar circle).
+   */
+  private brightHere(): [number, number] {
+    const v = this.game?.info?.circles;
+    const f = this.minimapFocus;
+    if (!v || !f) return [0, 0];
+    let bright = v.brightSky;
+    for (const [, x, z] of v.idolAreas) if (Math.hypot(x / WU_PER_METRE - f.x, z / WU_PER_METRE - f.z) < IDOL_AREA_M) bright = true;
+    if (!bright) return [0, 0];
+    let rosy = 0;
+    for (const [x, z] of v.roses) if (Math.hypot(x / WU_PER_METRE - f.x, z / WU_PER_METRE - f.z) < ROSY_M) rosy = 1;
+    return [1, rosy];
   }
 
   // ---- Hooks ----
@@ -1323,6 +1520,13 @@ export class WorldView {
   dispose(): void {
     for (const w of this.workers) w.terminate();
     for (const c of this.chunks.values()) this.dropChunk(c);
+    this.propModels.dispose();
+    this.fogDrift.dispose();
     this.models?.dispose();
   }
+}
+
+/** A colour's brightness to the eye, in linear light. */
+function luminance(c: THREE.Color): number {
+  return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 }

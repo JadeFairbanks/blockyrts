@@ -131,9 +131,11 @@ const X = Band.Deadlands;
  * Plant food (Patch 5, Jade: "Herbivore animals and chickens must be tamed
  * with plant based foods (farm fare, berries, etc)"): what bait is and what
  * Barn animals eat at night: farm fare first, then the wild foods (GP-30,
- * GP-32; s: mushrooms count as plant food). New forage goods join it here.
+ * GP-32; s: mushrooms count as plant food). New forage goods join it here:
+ * the Sweet Hawthorne's fruit last (the Stone circles' s); never the bog
+ * pear, kept for the Halfling Elder who wants one (QV-16).
  */
-export const PLANT_FOODS: readonly Res[] = [Res.FarmFare, Res.BlackBerries, Res.Raspberries, Res.Blueberries, Res.Mushrooms];
+export const PLANT_FOODS: readonly Res[] = [Res.FarmFare, Res.BlackBerries, Res.Raspberries, Res.Blueberries, Res.Mushrooms, Res.HawthorneFruit];
 /** Pairs bred every 10 days before Patch 5 (doc); prey animals breed 50% more now (Jade, BL-10): every 6⅔ days. Bears keep the old pace. */
 const OLD_BREED_STEPS = 10 * CYCLE_STEPS;
 const PREY_BREED_STEPS = floorDiv(OLD_BREED_STEPS * 2, 3);

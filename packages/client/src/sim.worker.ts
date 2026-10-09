@@ -30,6 +30,7 @@ import {
   bagItems,
   canLoot,
   carryView,
+  circlesView,
   FOG_TILE_COLUMNS,
   BuildingKind,
   forgeStepOf,
@@ -129,6 +130,8 @@ let clock = 0;
 let speed = 1;
 /** The local player's events since the last info post. */
 let events: SimEvent[] = [];
+/** The stone circle chests the local player has opened (circle * 8 + chest), whose slots the info carries. */
+const openedChests: number[] = [];
 /** Hits since the last state post. */
 let hits: HitEvent[] = [];
 /** Paused: alone from the menu, online by the relay (a player missing, a manual pause, a reload). */
@@ -495,6 +498,7 @@ function postInfo(s: SimState): void {
       woodsmen,
       carry,
       effects,
+      circles: circlesView(s, PLAYER, openedChests),
     },
     [pool.buffer, open.buffer],
   );
@@ -555,7 +559,11 @@ function runStep(s: SimState, orders: Order[]): void {
     lastHashStep = r.step;
     if (net) send({ type: 'hash', epoch: net.epoch, step: r.step, hash: r.hash });
   }
-  for (const ev of s.events) if (heard(s, ev)) events.push(ev);
+  for (const ev of s.events) {
+    if (!heard(s, ev)) continue;
+    events.push(ev);
+    if (ev.chest !== undefined && ev.player === PLAYER && !openedChests.includes(ev.chest)) openedChests.push(ev.chest);
+  }
   for (const h of s.hits) hits.push(h);
   postState(s);
   // Autosave at every dawn (Saving and disconnects): the same bytes on every machine.

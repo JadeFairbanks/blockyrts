@@ -1,39 +1,48 @@
-// Props drawn as their catalogue models (Jade's Patch 5): a bog's silver
-// nuggets and a Fae Guardian's large mana crystal node (prop-models.ts
-// CATALOGUE_PROPS). The chunk's cubes (props-gen.ts) stand in until a model
-// has loaded; then its cubes are hidden and the model stands on the prop's
-// column, turned by its spot. Only the near chunks have props to draw.
+// The world props' own models (Patch 5): every tree, sapling and seed, bush,
+// rock, ore and carcass, and the stone circles' pieces (a fish stretch's live
+// fish are fish-view.ts's), drawn
+// with its catalogue model (prop-models.ts) in the full-detail chunks round
+// the camera, one instanced draw per model. A prop's cubes stand in until its
+// model has loaded (the mesh workers leave them out from then on). The idols
+// stand on their altars until taken, and a chest the player has opened
+// stands open.
 import * as THREE from 'three';
-import { hash2 } from '@blockyrts/sim';
-import { InstancedModel, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
-import type { PropSummary } from './mesh-messages.ts';
-import { CATALOGUE_PROPS } from './prop-models.ts';
+import { CircleType, PropKind, variantCircle, variantLook, variantType, type CirclesView } from '@blockyrts/sim';
+import { InstancedModel, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
+import type { PropModelPlace } from './mesh-messages.ts';
+import { PROP_MODEL_IDS } from './prop-models.ts';
 
-/** The most of each model drawn at once (s: a guarded bog has up to 6 nuggets, a band about 3 crystals). */
-const MAX_INSTANCES = 256;
-
-interface Placed {
-  /** The prop's selection key (`p:cx,cz:index`), for the hover outline. */
+/** A prop drawn with its model: its selectable's key, where it stands (world metres) and what it is. */
+export interface PlacedProp {
   key: string;
-  id: string;
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  first: number;
-  cubes: number;
+  kind: number;
+  variant: number;
+  /** The chunk's corner, metres. */
+  ox: number;
+  oz: number;
+  model: PropModelPlace;
 }
 
-interface ChunkProps {
-  mesh: THREE.InstancedMesh | null;
-  list: Placed[];
-}
+/** The idol on a circle type's altar (SCA-4, SCB-1). */
+const IDOL_MODEL: Readonly<Record<number, string>> = {
+  [CircleType.Lunar]: 'moon_goddess_idol',
+  [CircleType.Boneyard]: 'headless_god_idol',
+};
+
+/** Every model id this view may draw. */
+export const PROP_VIEW_IDS: ReadonlySet<string> = new Set([...PROP_MODEL_IDS, ...Object.values(IDOL_MODEL)]);
+
+/** Room for this many instances of one model at first; a draw grows by doubling. */
+const FIRST_ROOM = 64;
+const BONE = new THREE.Matrix4();
+const AT = new THREE.Vector3();
 
 export class PropModelsView {
   private lib: ModelLibrary | null = null;
-  private readonly chunks = new Map<string, ChunkProps>();
+  /** By model id. */
   private readonly draws = new Map<string, InstancedModel>();
-  private readonly wanted = new Set<string>();
+  private dirty = true;
+  private sig = '';
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -42,94 +51,123 @@ export class PropModelsView {
 
   setModels(lib: ModelLibrary): void {
     this.lib = lib;
-    lib.onLoad((m) => {
-      if (!this.wanted.has(m.id)) return;
-      for (const c of this.chunks.values()) this.hide(c);
-    });
-    for (const c of this.chunks.values()) this.hide(c);
+    this.dirty = true;
   }
 
-  /** A chunk's props as meshed (world-view.ts install): the ones with a catalogue model are drawn by it. */
-  chunk(key: string, cx: number, cz: number, chunkM: number, mesh: THREE.InstancedMesh | null, props: readonly PropSummary[]): void {
-    const list: Placed[] = [];
-    for (const p of props) {
-      const id = CATALOGUE_PROPS[p.kind];
-      if (!id) continue;
-      const x = cx * chunkM + p.baseX;
-      const z = cz * chunkM + p.baseZ;
-      const yaw = ((hash2(Math.round(x * 100), Math.round(z * 100), 0x70726f70) & 0xffff) / 0x10000) * Math.PI * 2;
-      list.push({ key: `p:${cx},${cz}:${p.index}`, id, x, y: p.baseY, z, yaw, first: p.first, cubes: p.cubes });
-    }
-    if (list.length === 0) {
-      this.chunks.delete(key);
-      return;
-    }
-    const c = { mesh, list };
-    this.chunks.set(key, c);
-    this.hide(c);
+  /** The chunks or their props changed: rebuilt on the next update. */
+  invalidate(): void {
+    this.dirty = true;
   }
 
-  /** A chunk gone, or meshed far off with no props. */
-  drop(key: string): void {
-    this.chunks.delete(key);
+  /** The draws with an instance under the cursor, for the hover outline. */
+  hovered(): InstancedModel[] {
+    return [...this.draws.values()].filter((d) => d.hoveredCount > 0);
   }
 
-  /** Whether the model stands for this prop now (its cubes hidden): the hover outline draws it instead. */
-  drawn(key: string): boolean {
-    for (const c of this.chunks.values()) for (const p of c.list) if (p.key === key) return this.lib?.models.has(p.id) ?? false;
-    return false;
-  }
-
-  /** Each frame: every prop whose model has loaded, hovered ones marked for the outline. */
-  update(hovered: ReadonlySet<string>): void {
+  /**
+   * Brings the draws in line with the props in view: rebuilt when the chunks,
+   * the hover, the idols taken or the chests opened change.
+   */
+  update(props: Iterable<readonly PlacedProp[]>, circles: CirclesView | null | undefined, hover: ReadonlySet<string>): void {
     const lib = this.lib;
     if (!lib) return;
-    const counts = new Map<string, number>();
-    for (const c of this.chunks.values()) {
-      for (const p of c.list) {
-        if (!lib.models.has(p.id)) continue;
-        let d = this.draws.get(p.id);
-        if (!d) {
-          d = new InstancedModel(lib.get(p.id), MAX_INSTANCES, this.patch);
-          d.object.frustumCulled = false;
-          this.scene.add(d.object);
-          this.draws.set(p.id, d);
+    const taken = circles?.taken ?? [];
+    const opened = circles?.chests.map((c) => c[0]) ?? [];
+    const sig = `${taken.join(',')}|${opened.join(',')}|${[...hover].join(',')}`;
+    if (sig !== this.sig) {
+      this.sig = sig;
+      this.dirty = true;
+    }
+    if (this.dirty) this.rebuild(lib, props, new Set(taken), new Set(opened), hover);
+  }
+
+  private draw(lib: ModelLibrary, key: string, id: string, need: number): InstancedModel | null {
+    const model = lib.models.get(id);
+    if (!model) return null;
+    let d = this.draws.get(key);
+    if (d && d.maxInstances >= need) return d;
+    let room = d ? d.maxInstances : FIRST_ROOM;
+    while (room < need) room *= 2;
+    if (d) {
+      this.scene.remove(d.object);
+      d.dispose();
+    }
+    d = new InstancedModel(model, room, this.patch);
+    this.scene.add(d.object);
+    this.draws.set(key, d);
+    return d;
+  }
+
+  private rebuild(lib: ModelLibrary, chunks: Iterable<readonly PlacedProp[]>, taken: ReadonlySet<number>, opened: ReadonlySet<number>, hover: ReadonlySet<string>): void {
+    this.dirty = false;
+    // Gathered first, so each draw is made once with room for all of its instances.
+    const byKey = new Map<string, { id: string; list: PlacedProp[] }>();
+    const idols: Array<{ p: PlacedProp; id: string }> = [];
+    for (const list of chunks) {
+      for (const p of list) {
+        const m = p.model;
+        if (!lib.models.has(m.id)) continue;
+        let e = byKey.get(m.id);
+        if (!e) byKey.set(m.id, (e = { id: m.id, list: [] }));
+        e.list.push(p);
+        if (p.kind === PropKind.CircleAltar) {
+          const idol = IDOL_MODEL[variantType(p.variant)];
+          if (idol && !taken.has(variantCircle(p.variant))) idols.push({ p, id: idol });
         }
-        const n = counts.get(p.id) ?? 0;
-        if (n >= MAX_INSTANCES) continue;
-        counts.set(p.id, n + 1);
-        d.setInstance(n, p.x, p.y, p.z, p.yaw, '', 0, null);
-        if (hovered.has(p.key)) d.setHover(n);
       }
     }
-    for (const [id, d] of this.draws) {
-      d.setCount(counts.get(id) ?? 0);
+    const counts = new Map<string, number>();
+    const altars = new Map<string, { draw: InstancedModel; i: number; model: ModelData }>();
+    for (const [key, { id, list }] of byKey) {
+      const d = this.draw(lib, key, id, list.length);
+      if (!d) continue;
+      let n = 0;
+      for (const p of list) {
+        const m = p.model;
+        const x = p.ox + m.x;
+        const z = p.oz + m.z;
+        const clip = p.kind === PropKind.BluestoneChest && opened.has(variantCircle(p.variant) * 8 + variantLook(p.variant)) ? 'idle_open' : '';
+        d.setInstance(n, x, m.y, z, m.yaw, clip, 0, null, m.scale);
+        if (hover.has(p.key)) d.setHover(n);
+        if (p.kind === PropKind.CircleAltar) altars.set(p.key, { draw: d, i: n, model: d.model });
+        n++;
+      }
+      counts.set(key, n);
+    }
+    // The idols on their altars' slot.
+    const idolCounts = new Map<string, PlacedProp[]>();
+    for (const { p, id } of idols) {
+      if (!lib.models.has(id) || !altars.has(p.key)) continue;
+      const list = idolCounts.get(id) ?? [];
+      list.push(p);
+      idolCounts.set(id, list);
+    }
+    for (const [id, list] of idolCounts) {
+      const d = this.draw(lib, id, id, list.length);
+      if (!d) continue;
+      let n = 0;
+      for (const p of list) {
+        const a = altars.get(p.key)!;
+        const slot = a.model.boneNames.indexOf('slot_idol');
+        a.draw.boneWorld(a.i, Math.max(0, slot), BONE);
+        AT.setFromMatrixPosition(BONE);
+        d.setInstance(n, AT.x, AT.y, AT.z, p.model.yaw, '', 0, null, 1);
+        if (hover.has(p.key)) d.setHover(n);
+        n++;
+      }
+      counts.set(id, n);
+    }
+    for (const [key, d] of this.draws) {
+      d.setCount(counts.get(key) ?? 0);
       d.commit();
     }
   }
 
-  /** The models with a hovered prop this frame, for the hover outline. */
-  hoverModels(): InstancedModel[] {
-    return [...this.draws.values()].filter((d) => d.hoveredCount > 0);
-  }
-
-  /** Hides the cubes of the props whose model has loaded, asking for those not loaded yet. */
-  private hide(c: ChunkProps): void {
-    const lib = this.lib;
-    if (!lib || !c.mesh) return;
-    const m = new THREE.Matrix4().makeScale(0, 0, 0);
-    let changed = false;
-    for (const p of c.list) {
-      if (!lib.models.has(p.id)) {
-        if (!this.wanted.has(p.id) && lib.listed(p.id)) {
-          this.wanted.add(p.id);
-          lib.request(p.id);
-        }
-        continue;
-      }
-      for (let k = p.first; k < p.first + p.cubes; k++) c.mesh.setMatrixAt(k, m);
-      changed = true;
+  dispose(): void {
+    for (const d of this.draws.values()) {
+      this.scene.remove(d.object);
+      d.dispose();
     }
-    if (changed) c.mesh.instanceMatrix.needsUpdate = true;
+    this.draws.clear();
   }
 }
