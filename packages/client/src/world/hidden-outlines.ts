@@ -189,7 +189,7 @@ export function grow(b: PixelBox, m: number, w: number, h: number): PixelBox {
   return { x, y, w: Math.min(w, b.x + b.w + m) - x, h: Math.min(h, b.y + b.h + m) - y };
 }
 
-const QUAD_VERTEX = /* glsl */ `
+export const QUAD_VERTEX = /* glsl */ `
 varying vec2 vUv;
 void main() {
   vUv = position.xy * 0.5 + 0.5;
@@ -199,7 +199,7 @@ void main() {
 
 // A line round the mask's edge: the pixel is outside the silhouette and the
 // silhouette lies within the line's width, or a faint dark edge just past it.
-const OUTLINE_FRAGMENT = /* glsl */ `
+export const OUTLINE_FRAGMENT = /* glsl */ `
 uniform sampler2D mask;
 uniform vec2 texel;
 uniform float line;
