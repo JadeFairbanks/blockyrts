@@ -65,7 +65,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | viper | models/animals/viper/viper.bbmodel | 85 | 256x128 | Jade's own model (models/existing_mobs/viper), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 85 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | wild_boar | models/animals/wild_boar/wild_boar.bbmodel | 97 | 256x256 | Jade's own model (models/existing_mobs/wild_boar), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 97 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves); its `hips` bone renamed `pelvis` (a four-legged body, not the humanoid baseline) |
 | ox_harness | models/animals/ox_harness/ox_harness.bbmodel | 15 | 128x128 | placement: worn on the ox skeleton, so it sits at the ox's body height and centre, like horse_harness |
-| goose | models/animals/goose/goose.bbmodel | 23 | 64x64 | the `head` pivot moved to the top of the long neck, so `peck` does not reach the ground |
+| wild_goose | models/animals/wild_goose/wild_goose.bbmodel | 24 | 64x64 | the `head` pivot moved to the top of the long neck, so `peck` does not reach the ground |
 | pheasant | models/animals/pheasant/pheasant.bbmodel | 28 | 64x32 |  |
 
 ## monsters
@@ -1560,6 +1560,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | team_swatch_6 | ui/team_swatch_6.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 6 (orange, RGB (200, 104, 36)), 12x12 swatch. |
 | team_swatch_7 | ui/team_swatch_7.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 7 (green, RGB (64, 128, 52)), 12x12 swatch. |
 | team_swatch_8 | ui/team_swatch_8.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 8 (pink, RGB (196, 100, 140)), 12x12 swatch. |
+| icon_wild_goose | ui/icon_wild_goose.png | 1 | 32x32 | K4 animal icon wild_goose (rendered from wild_goose.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 
 ## sky
 
