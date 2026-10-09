@@ -168,7 +168,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'equip';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'equip' | 'plant';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -1417,6 +1417,23 @@ export class Commands {
     this.d.changed();
   }
 
+  /** The item menu's Plant seed (Patch 5, SC-8): the next left click on grass or dirt sends a worker to plant an Ancient Seed there. */
+  startPlant(): void {
+    this.placing = null;
+    this.targeting = { command: 'plant', key: '' };
+    this.d.message('Left click grass or dirt to plant the Ancient Seed there. Right click or Esc cancels.');
+    this.d.changed();
+  }
+
+  /** The selected workers (or the nearest worker, when none is selected) go and plant the seed on that column (the sim says why when it cannot). */
+  private plantAt(ground: THREE.Vector3): boolean {
+    const x = Math.floor(ground.x / COLUMN_M);
+    const z = Math.floor(ground.z / COLUMN_M);
+    this.d.send({ kind: 'circle', player: this.d.player, units: this.unitIds((u) => u.typeKey === 'worker'), circle: x, act: CircleAct.Plant, arg: z, queued: this.d.queued() });
+    this.d.marker(ground, 'move');
+    return true;
+  }
+
   /** The clicked unit walks to the nearest place to upgrade and puts the item on (the sim says why when it cannot). */
   private equipOn(item: Selectable, res: number): boolean {
     const id = item.kind === 'unit' && item.owner === this.d.player && geared(item) ? entityIdOf(item.key) : null;
@@ -1630,6 +1647,10 @@ export class Commands {
       case 'equip':
         ok = item !== null && this.equipOn(item, t.res ?? -1);
         if (!ok) this.d.message('Pick one of your workers, troops or mages to equip it.', 'alert');
+        break;
+      case 'plant':
+        ok = ground !== null && this.plantAt(ground);
+        if (!ok) this.d.message('Pick a spot of grass or dirt to plant the Ancient Seed.', 'alert');
         break;
     }
     if (ok && !this.d.held(t.key) && !this.d.queued()) {

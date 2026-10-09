@@ -4123,9 +4123,11 @@ lighting sheet. Start a game with `?seed=3` (the same world each time).
 5. **Bright Night.** The night turns white and bright, the clock says Bright
    Night, the moon by the clock is full and the far land glows pale; near a
    Lunar circle the air is faintly rosy and the Moon Roses open.
-6. **Sweet Hawthorne.** Plant seed, in the inventory's right-click menu,
-   sends a worker to plant an Ancient Seed on grass or dirt; it grows over
-   5 nights. Farms and animals within 30 m do 35% better (the selection
+6. **Sweet Hawthorne.** Right click an Ancient Seed in the stock and pick
+   **Plant seed**, then left click grass or dirt: the selected workers (or
+   the nearest worker) plant it there; it grows over 5 nights. The same
+   menu plays the Pan Flute, uses the Moon Goddess idol and, on a mage's own
+   inventory, drinks enchanted wine for 50 mana. Farms and animals within 30 m do 35% better (the selection
    panel says so). Right click a tree with no fruit with a worker to cut it
    down for 15 hardwood lumber.
 7. **The land.** Grass, soil, sand, clay, stone and ore seams have pixel
@@ -4135,17 +4137,19 @@ lighting sheet. Start a game with `?seed=3` (the same world each time).
    shallow water is see-through blue-green, deep water (where units cannot
    wade) a solid darker blue, bog water brown-green, with foam along the
    shore. Before: flat colours with noise.
-8. **Props.** Trees, saplings, seeds, bushes, rocks, ore nodes, carcasses
-   and fish are each drawn with their own model; a moment of coloured
-   cubes may show while a model loads.
+8. **Props.** Trees, saplings, seeds, berry bushes and the bog pear bush,
+   mushrooms, flax, rocks, ore nodes, boulders, hot springs, carcasses and
+   fish are each drawn with their own model; a picked bush shows bare, and a
+   rock half mined shows worn down. A moment of coloured cubes may show
+   while a model loads.
 9. **The day.** Press **Speed** to watch a day turn: warm white light by
    day, deep orange at dusk, blue moonlight at night, pink-gold at dawn,
    the far land hazing over at dusk and night. The little sky beside the
    clock shows the sun crossing from dawn to dusk, the moon at night, the
    stars and clouds. **Fog** brings a fog night: fog drifts low over the
    ground and the lights shrink to small orange halos.
-10. **Flashes and glitter.** Musket shots flash at the muzzle; gold and
-    silver on the ground glitter in their colour.
+10. **Glitter.** Gold and silver on the ground and in ore nodes glitter in
+    their colour.
 
 ## License
 

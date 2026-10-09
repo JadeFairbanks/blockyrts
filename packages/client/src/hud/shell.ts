@@ -74,7 +74,7 @@ import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
-import { CirclesUi } from './circles-ui.ts';
+import { CirclesUi, registerCircleItemUses } from './circles-ui.ts';
 import { SkyDial } from './sky-dial.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
@@ -424,6 +424,7 @@ export class GameShell {
         return { most: room.cols * room.rows };
       },
     });
+    registerCircleItemUses(opts.game, opts.player, (o) => opts.issueOrder(o), () => this.commands.startPlant());
     this.input = new InputManager(
       {
         game: this.gameMouse(),

@@ -32,7 +32,7 @@ export interface CirclesView {
   acts: Array<[number, string, string]>;
   /** The chests the player opened: key (circle * 8 + chest) and their five slots, (resource, count) or null once taken. */
   chests: Array<[number, Array<[number, number] | null>]>;
-  /** The items in the player's inventory that have a use (a mage's wine is used from her bag): resource, the menu's word, and why it cannot be used now ('' when it can). */
+  /** The items in the player's inventory that have a use (a mage's wine is used from the mage's own bag): resource, the menu's word, and why it cannot be used now ('' when it can). */
   uses: Array<[number, string, string]>;
 }
 

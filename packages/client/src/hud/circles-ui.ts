@@ -16,11 +16,13 @@ import {
   goodName,
   IDOL_USE_EVERY_NIGHTS,
   Res,
+  UnitKind,
   type Order,
 } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { ButtonRegistry } from './buttons.ts';
 import { goodRow } from './goods-ui.ts';
+import { registerItemUse } from './item-menu.ts';
 import type { HudPanels } from './panels.ts';
 import { Buttons, el, frame } from './peoples-ui.ts';
 
@@ -36,6 +38,45 @@ export function idolWarning(type: number): string {
     return `Once the Moon Goddess Idol leaves her altar, the Bright Nights round this circle end. Used from your inventory, the idol makes a night bright for you, once every ${IDOL_USE_EVERY_NIGHTS} nights.`;
   }
   return 'The Headless God Idol leaves its altar for good.';
+}
+
+/**
+ * The Stone Circle items' own entries in the item menu (decisions 3.6: "Use,
+ * Equip, Plant seed, ..."): Plant seed for an Ancient Seed (SC-8), Play for
+ * the Pan Flute (SC-11), Use for the Moon Goddess idol (answer 2.8) and Drink
+ * for enchanted wine in a mage's own inventory (answer 2.5). Each is greyed
+ * out with the sim's reason when it cannot be used now (circles/items.ts).
+ */
+export function registerCircleItemUses(game: GameInfo, player: number, send: (o: Order) => void, startPlant: () => void): void {
+  const inStock = (at: { unit: number | null }, what: string): string =>
+    at.unit !== null ? `Unload it to the stock first: ${what} is used from there.` : '';
+  const simWhy = (res: number): string => game.info?.circles?.uses.find((u) => u[0] === res)?.[2] ?? 'There is none in the stock.';
+  registerItemUse(Res.AncientSeed, {
+    name: 'Plant seed',
+    description: 'Then left click grass or dirt: your selected workers, or the nearest worker, go and plant it there. It grows into a Sweet Hawthorne over 5 nights.',
+    why: (at) => inStock(at, 'an Ancient Seed') || (game.have(Res.AncientSeed) > 0 ? '' : 'There is none in the stock.'),
+    run: () => startPlant(),
+  });
+  registerItemUse(Res.PanFlute, {
+    name: 'Play',
+    description: 'Play a peaceful tune: every neutral animal within 300 m makes its way to your main base. It can be played 10 times.',
+    why: (at) => inStock(at, 'the Pan Flute') || simWhy(Res.PanFlute),
+    run: () => send({ kind: 'useItem', player, res: Res.PanFlute, unit: -1 }),
+  });
+  registerItemUse(Res.MoonIdol, {
+    description: `Make the coming night a Bright Night for you, once every ${IDOL_USE_EVERY_NIGHTS} nights.`,
+    why: (at) => inStock(at, 'the idol') || simWhy(Res.MoonIdol),
+    run: () => send({ kind: 'useItem', player, res: Res.MoonIdol, unit: -1 }),
+  });
+  registerItemUse(Res.EnchantedWine, {
+    name: 'Drink',
+    description: 'A mage drinks it and gets back 50 mana. In the stock it is food like any other.',
+    why: (at) => {
+      if (at.unit === null) return 'A mage drinks it from their own inventory: right click it there.';
+      return game.unit(at.unit)?.kind === UnitKind.Mage ? '' : 'Only a mage can drink enchanted wine for mana.';
+    },
+    run: (at) => send({ kind: 'useItem', player, res: Res.EnchantedWine, unit: at.unit ?? -1 }),
+  });
 }
 
 export class CirclesUi {

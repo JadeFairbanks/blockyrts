@@ -121,7 +121,7 @@ export const ITEM_USES: readonly ItemUse[] = [
       const e = state.entities;
       if (unit < 0 || e.owner[unit] !== player || e.kind[unit] !== UnitKind.Mage) return 'Only a mage can drink enchanted wine for mana.';
       if (!bagHas(state, unit, Res.EnchantedWine)) return 'This mage carries no enchanted wine.';
-      return e.mana[unit]! >= manaCap(state, unit) ? 'Her mana is already full.' : '';
+      return e.mana[unit]! >= manaCap(state, unit) ? 'This mage\'s mana is already full.' : '';
     },
     use: (state, _player, unit) => {
       const e = state.entities;
