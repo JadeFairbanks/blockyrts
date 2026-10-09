@@ -155,8 +155,9 @@ const STOW_TURN: Readonly<Record<string, THREE.Matrix4>> = {
 /** The prospecting hammer of a tool kit tier from PROSPECT_TOOL_TIER (copper; it prospects twice as fast), by its metal's look where the catalogue has one. */
 const PROSPECT_HAMMERS: readonly string[] = ['', '', '', 'prospecting_hammer', 'prospecting_hammer', 'prospecting_hammer@iron_wrought', 'prospecting_hammer@iron_refined', 'prospecting_hammer@iron_refined', 'prospecting_hammer@iron_refined'];
 
-/** A carried good's catalogue model by Res, '' where there is none (farm fare). */
+/** A carried good's catalogue model by Res. */
 const GOODS: Partial<Record<number, string>> = {
+  [Res.FarmFare]: 'farm_fare',
   [Res.SoftwoodLumber]: 'log_softwood',
   [Res.HardwoodLumber]: 'log_hardwood',
   [Res.Herbs]: 'herb_bundle',
@@ -256,18 +257,6 @@ const MOB_COLOURS = [
 /** Each people's colour, for their units until their models are in (Halflings, Runkin, Elves, Dwarves). */
 const PEOPLE_COLOURS = [new THREE.Color(0x8ac850), new THREE.Color(0xb08050), new THREE.Color(0x50c0a8), new THREE.Color(0xa8a8b8)];
 
-/** The artillery crewman's stand-in look (Patch 2, until its own model): an unarmed warrior, its tunic in its player's colour gone sooty (s). */
-const SOOT = new THREE.Color(0x2a2420);
-const SOOTY = new Map<number, THREE.Color>();
-function sooty(colour: THREE.Color): THREE.Color {
-  const hex = colour.getHex();
-  let c = SOOTY.get(hex);
-  if (!c) {
-    c = colour.clone().lerp(SOOT, 0.55);
-    SOOTY.set(hex, c);
-  }
-  return c;
-}
 
 /** Colour of an animal's stand-in block, by Species (14 on: the territorial creatures). */
 const ANIMAL_COLOURS = [
@@ -908,8 +897,7 @@ export class UnitsView {
   }
 
   private body(wanted: string): BodyPool | null {
-    // A model still to be made borrows a near kin's until it is in the catalogue.
-    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted) : wanted;
+    const id = wanted;
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
@@ -1276,24 +1264,24 @@ export class UnitsView {
         const pool = this.body(spec.model);
         if (pool) {
           const slot = pool.take([]);
-          // A stand-in model is sized to the animal's own height; the young are the adult model at half size.
-          const fit = pool.model.id === spec.model ? 1 : spec.height / WU_PER_METRE / Math.max(0.05, pool.model.boundingBox.max.y - pool.model.boundingBox.min.y);
+          // The young are the adult model at half size.
           if (slot) {
             // Hitched to its worker: it pulls as it goes.
             const wo = d[o + S.partner] !== 0 ? this.byId.get(d[o + S.partner]!) : undefined;
             const hitched = wo !== undefined && d[wo + S.kind] === UnitKind.Worker;
             const clip = hitched && moving && pool.model.clips.has('pull') ? 'pull' : animalClip(pool.model, d, o, moving);
-            slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, null, fit * scale);
+            slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, null, scale);
             if (own) {
               pool.mark(slot, id, outlined);
               this.noteOwn(id, x, y, z, (spec.height * scale) / WU_PER_METRE, (spec.halfWidth * 1.6 * scale) / WU_PER_METRE, outlined);
             }
-            // A horse hitched to its worker wears its harness, and an ox or horse hauling an ox cart has the cart behind it.
+            // A horse or ox hitched to its worker wears its harness, and an ox or horse hauling an ox cart has the cart behind it.
             if (hitched) {
-              if (spec.id === Species.Horse) this.wear(pool, 'horse_harness', x, y, z, heading, clip, clipT, colour, own ? id : 0, outlined);
+              const harness = spec.id === Species.Horse ? 'horse_harness' : spec.id === Species.Ox ? 'ox_harness' : '';
+              if (harness) this.wear(pool, harness, x, y, z, heading, clip, clipT, colour, own ? id : 0, outlined);
               if (d[wo + S.kit] === Res.OxCart) {
                 const hb = pool.bone('slot_harness');
-                const ahead = hb >= 0 ? -(pool.model.restWorld[hb]?.elements[14] ?? -0.7) * fit * scale : 0.7;
+                const ahead = hb >= 0 ? -(pool.model.restWorld[hb]?.elements[14] ?? -0.7) * scale : 0.7;
                 const back = OX_CART_HITCH_M - ahead;
                 this.drawCart(f, 'cart_ox', x + Math.sin(heading) * back, z + Math.cos(heading) * back, heading, moving, f.colours[d[wo + S.owner]!] ?? null, this.carried(d, wo).good);
               }
@@ -1337,8 +1325,7 @@ export class UnitsView {
       const inCart = cart === Res.HandCart || cart === Res.OxCart;
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold };
       const look: Look = dread ? { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' } : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
-      const crewman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Crew && colour !== null;
-      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : crewman ? sooty(colour) : colour;
+      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
       if (kin) {
         // With the weapons and gear its model is made with.
@@ -1398,7 +1385,7 @@ export class UnitsView {
       // A hand cart is pushed ahead of its worker; an ox cart with nothing hitched is pulled by the worker at its shafts.
       if (cart === Res.HandCart) this.drawCart(f, 'cart_hand', x - Math.sin(heading) * HAND_CART_AHEAD_M, z - Math.cos(heading) * HAND_CART_AHEAD_M, heading, moving, colour, load.good);
       else if (cart === Res.OxCart && d[o + S.partner] === 0) this.drawCart(f, 'cart_ox', x + Math.sin(heading) * (OX_CART_HITCH_M - 0.3), z + Math.cos(heading) * (OX_CART_HITCH_M - 0.3), heading, moving, colour, load.good);
-      // A good with no model of its own (farm fare) is still a box on the back.
+      // A good with no model of its own is still a box on the back.
       const carry = d[o + S.carryRes]!;
       if (!inCart && carry !== NO_CARRY && d[o + S.carryAmt]! > 0 && !load.good) {
         // On the back: behind the unit (the model faces -Z at heading 0).
@@ -1710,7 +1697,6 @@ function structureModel(model: string, id: number): string {
  * Models still to be made (models/troop_kits_models.md), drawn with a near
  * kin's model until theirs is in the catalogue (s).
  */
-const STAND_IN_MODELS: Readonly<Record<string, string>> = { wild_goose: 'chicken_hen', pheasant: 'chicken_hen' };
 
 /** Each model's height as drawn for the first mob that uses it, metres. */
 const MOB_MODEL_HEIGHT = new Map<string, number>();
@@ -1996,7 +1982,10 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
   for (const p of piecesOf(d[o + S.shield]!)) wear(look, p, parts);
   for (const p of piecesOf(d[o + S.armour]!)) wear(look, p, parts);
   rankBands(look, d[o + S.rank]!);
-  if (d[o + S.task] === Task.Crew && d[o + S.troop] === Troop.Crew && swing === 0 && body) {
+  // The artillery crewman: Jade's warrior body in the crew outfit (Patch 5).
+  const crew = d[o + S.troop] === Troop.Crew;
+  if (crew) look.worn.push('crew_outfit');
+  if (d[o + S.task] === Task.Crew && crew && swing === 0 && body) {
     if (c.moving) look.clip = 'cannon_push';
     else {
       const lengths = CREW_DRILL.map(([clip]) => body.clips.get(clip)?.length ?? 1);
@@ -2011,6 +2000,8 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
     }
     return look;
   }
+  // Away from the gun, the crewman's rammer is in hand.
+  if (crew && piecesOf(inHand).length === 0) wear(look, 'cannon_rammer', parts);
   const clip = warriorClip(d, o, inHand, c);
   look.clip = clipOr(body, clip.clip, c.moving);
   if (clip.t !== undefined) look.t = clip.t;
