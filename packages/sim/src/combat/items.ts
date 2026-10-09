@@ -222,6 +222,8 @@ export interface ShotSpec {
    * at most this share of the distance, bp (none for no limit).
    */
   maxRiseBp?: number;
+  /** Patch 5 (MB-20): a bolt of magic; where it ends the screen shows a burst of its light (a 'zap' hit). */
+  magic?: boolean;
 }
 
 /** MB-23's limit for the mages' bolts (s): the arc's top at most a third of the distance above the straight line, so a bolt never climbs 8 m to come down 2 m away. */
@@ -237,10 +239,10 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'fire arrow', model: 'arrow_fire', vsWalls: 0 },
   { speed: floorDiv(cm(2800), STEPS_PER_SECOND), arcs: true, name: 'bolt', model: 'bolt', vsWalls: 0 },
   // Patch 5: the spark, the mana bolt, the Arcane bolt and the hellfire fly as Jade's own models (spell_projectiles_replacements).
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spark', vsWalls: 0 },
-  { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'mana_bolt', vsWalls: 0 },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'spark', model: 'spark', vsWalls: 0, magic: true },
+  { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'mana bolt', model: 'mana_bolt', vsWalls: 0, magic: true },
   // Milestone 6: the battle mages' projectiles (s): the orb at 20 m/s, the fireball lobbed at 16 m/s. Patch 5 (MB-23): the orb arcs too, and both keep under the bolts' arc limit.
-  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'arcane bolt', model: 'arcane_bolt', vsWalls: 2, maxRiseBp: BOLT_RISE_BP },
+  { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'arcane bolt', model: 'arcane_bolt', vsWalls: 2, maxRiseBp: BOLT_RISE_BP, magic: true },
   { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'fireball', model: 'spell_fireball', vsWalls: 30, maxRiseBp: BOLT_RISE_BP },
   // Milestone 7: a Grovesinger's thorn flies as an arrow does (s).
   { speed: floorDiv(cm(2000), STEPS_PER_SECOND), arcs: true, name: 'thorn', model: 'spell_thorn_volley', vsWalls: 0 },
@@ -255,9 +257,9 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(8000), STEPS_PER_SECOND), arcs: false, name: 'musket ball', model: 'musket_ball', vsWalls: 2 },
   { speed: floorDiv(cm(1500), STEPS_PER_SECOND), arcs: true, name: 'bone boulder', model: 'bone_boulder', vsWalls: 60, splash: 25, splashRadius: cm(200) },
   { speed: floorDiv(cm(1200), STEPS_PER_SECOND), arcs: true, name: 'burning pitch', model: 'spell_fireball', vsWalls: 20, splash: 20, splashRadius: cm(200), ignite: true },
-  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'hellfire', vsWalls: 30, splash: 15, splashRadius: cm(200), vsWoodBp: 30000 },
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: true, name: 'hellfire', model: 'hellfire', vsWalls: 30, splash: 15, splashRadius: cm(200), vsWoodBp: 30000, magic: true },
   // Patch 5 (MB-16): the Energy dart, a little faster than the Arcane bolt (s), under the same arc limit.
-  { speed: floorDiv(cm(2200), STEPS_PER_SECOND), arcs: true, name: 'energy dart', model: 'energy_dart', vsWalls: 1, maxRiseBp: BOLT_RISE_BP },
+  { speed: floorDiv(cm(2200), STEPS_PER_SECOND), arcs: true, name: 'energy dart', model: 'energy_dart', vsWalls: 1, maxRiseBp: BOLT_RISE_BP, magic: true },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */

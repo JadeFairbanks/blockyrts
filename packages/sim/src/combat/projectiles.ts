@@ -306,7 +306,8 @@ export function updateProjectiles(state: SimState): void {
     const mx = (ax + bx) >> 1;
     const mz = (az + bz) >> 1;
     state.grid.near(mx, mz, (length2d(bx - ax, bz - az) >> 1) + 2 * WU_PER_METRE, near);
-    for (let q = 1; q <= n && !done; q++) {
+    let q = 1;
+    for (; q <= n && !done; q++) {
       const x = ax + floorDiv((bx - ax) * q, n);
       const y = ay + floorDiv((by - ay) * q, n);
       const z = az + floorDiv((bz - az) * q, n);
@@ -383,6 +384,8 @@ export function updateProjectiles(state: SimState): void {
         break;
       }
     }
+    // Patch 5 (MB-20): where a bolt of magic ends (every way out of the loop above breaks at the point it stopped), for its burst of light.
+    if (done && SHOTS[p.shot]!.magic) state.hits.push({ look: 'zap', x: ax + floorDiv((bx - ax) * q, n), y: ay + floorDiv((by - ay) * q, n), z: az + floorDiv((bz - az) * q, n), id: 0, shot: p.shot });
     if (!done && p.age < MAX_AGE) keep.push(p);
   }
   state.projectiles = keep;
