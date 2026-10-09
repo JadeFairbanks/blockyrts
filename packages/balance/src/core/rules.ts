@@ -91,7 +91,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/night-work.ts:NIGHT_WORK_ASK', 'units/unit-orders.ts:ENTER_NIGHT', 'units/unit-orders.ts:FORAGE_HOME', 'units/unit-orders.ts:FORAGE_NIGHT',
   // Stone circles (Patch 5): the kinds, states, acts and pieces are ids; the names and the idol's tool tip are words; the hook and the item uses are code.
   'circles/data.ts:CircleType', 'circles/data.ts:CIRCLE_TYPE_NAMES', 'circles/data.ts:Trilithon', 'circles/data.ts:CircleProp', 'circles/data.ts:MOON_IDOL_TIP',
-  'circles/act.ts:CircleAct', 'circles/act.ts:CIRCLE_ACTS', 'circles/act.ts:Disturb', 'circles/act.ts:circleHooks',
+  'circles/act.ts:CircleAct', 'circles/act.ts:CIRCLE_ACTS', 'circles/disturb.ts:Disturb', 'circles/disturb.ts:circleHooks', 'circles/place.ts:PIECE_KINDS',
   'circles/items.ts:UseFrom', 'circles/items.ts:ITEM_USES',
 ]);
 

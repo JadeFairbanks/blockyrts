@@ -14,12 +14,20 @@ import {
   CircleProp,
   circleSites,
   CircleType,
+  circlesAtPeriod,
   cloneState,
   createWorld,
   CYCLE_STEPS,
   hashState,
   nextNight,
+  RUIN_CLEAR_M,
+  hawthorneNear,
   payAny,
+  Period,
+  pieceSlot,
+  PIECE_KINDS,
+  PropKind,
+  PROPS,
   Res,
   RESOURCE_COUNT,
   RINGS,
@@ -151,5 +159,68 @@ describe('the Goddess, her idol and the chests (answer 9, SCA-4, SC-6)', () => {
     const copy = cloneState(s);
     expect(chestSlots(copy, c.id, 0)).toEqual(after);
     expect(hashState(copy)).toBe(hashState(s));
+  });
+});
+
+describe('stone circles in the world', () => {
+  const COL = 3600;
+  it('stand as props, every piece where it was placed, with nothing else scattered in the ruin', () => {
+    const { s, c } = withCircle(CircleType.Lunar);
+    const layout = s.world.layout;
+    const pieces = circlePieces(layout, c.id);
+    for (const p of pieces) {
+      const at = pieceSlot(layout, p);
+      const v = s.world.prop(at.cx, at.cz, at.index, s.step)!;
+      expect(v.kind).toBe(PIECE_KINDS[p.prop]);
+      expect(at.cx * 64 + v.lx).toBe(p.gx);
+      expect(at.cz * 64 + v.lz).toBe(p.gz);
+    }
+    const circleKinds = new Set(PIECE_KINDS.filter((k) => k >= 0));
+    const r = Math.ceil((RUIN_CLEAR_M * 8000) / COL) + 1;
+    const gx = Math.floor(c.x / COL);
+    const gz = Math.floor(c.z / COL);
+    for (let cz = (gz - r) >> 6; cz <= (gz + r) >> 6; cz++) {
+      for (let cx = (gx - r) >> 6; cx <= (gx + r) >> 6; cx++) {
+        for (const v of s.world.props(cx, cz, s.step)) {
+          const d = Math.hypot((cx * 64 + v.lx) * COL + COL / 2 - c.x, (cz * 64 + v.lz) * COL + COL / 2 - c.z);
+          if (d < RUIN_CLEAR_M * 8000) expect(circleKinds.has(v.kind)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('opens the Moon Roses on a bright night there and shuts them at daybreak (SCA-8)', () => {
+    const { s, c } = withCircle(CircleType.Lunar);
+    const rose = circlePieces(s.world.layout, c.id).find((p) => p.prop === CircleProp.MoonRose)!;
+    const at = pieceSlot(s.world.layout, rose);
+    expect(s.world.prop(at.cx, at.cz, at.index, s.step)!.amount).toBe(0);
+    const night = nextNight(s.step);
+    s.circles.blessed[0] = night;
+    circlesAtPeriod(s, Period.Night, night);
+    expect(s.world.prop(at.cx, at.cz, at.index, s.step)!.amount).toBe(3);
+    circlesAtPeriod(s, Period.Day, night + 1);
+    expect(s.world.prop(at.cx, at.cz, at.index, s.step)!.amount).toBe(0);
+  });
+
+  it('grows a Sweet Hawthorne from an Ancient Seed that a worker plants, which farms near it then feel (SC-8, SC-9)', () => {
+    const s = createWorld(3, { players: 1, peaceful: true });
+    const e = s.entities;
+    const i = e.indexOf(1);
+    const gx = Math.floor(e.x[i]! / COL) + 6;
+    const gz = Math.floor(e.z[i]! / COL);
+    s.players[0]!.pool[Res.AncientSeed] = 1;
+    step(s, [{ kind: 'circle', player: 0, units: [], circle: gx, act: CircleAct.Plant, arg: gz }]);
+    for (let k = 0; k < 400 && s.circles.planted.length === 0; k++) step(s);
+    expect(s.players[0]!.pool[Res.AncientSeed]).toBe(0);
+    expect(s.circles.planted.slice(0, 2)).toEqual([gx, gz]);
+    const x = gx * COL + COL / 2;
+    const z = gz * COL + COL / 2;
+    expect(hawthorneNear(s, x, z)).toBe(false);
+    s.step += PROPS[PropKind.HawthorneSapling]!.regrowSteps;
+    circlesAtPeriod(s, Period.Day, 9);
+    const tree = s.world.props(gx >> 6, gz >> 6, s.step).find((v) => v.kind === PropKind.SweetHawthorne && (gx >> 6) * 64 + v.lx === gx)!;
+    expect(tree.amount).toBe(10);
+    expect(hawthorneNear(s, x + 20 * 8000, z)).toBe(true);
+    expect(hawthorneNear(s, x + 40 * 8000, z)).toBe(false);
   });
 });

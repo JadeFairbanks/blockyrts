@@ -1,8 +1,8 @@
 // What the stone circles keep in the game state. The circles themselves,
 // their trilithons, chests and plants, are made from the seed (place.ts) and
 // changed like any other prop; this is only what belongs to the players: the
-// Goddess's blessing, the idols' nights, the Pan Flute's plays, and which
-// altars have lost their idol.
+// Goddess's blessing, the idols' nights, the Pan Flute's plays, which
+// altars have lost their idol, and the Sweet Hawthornes planted and cut down.
 
 import type { ByteReader, ByteWriter } from '../bytes.ts';
 
@@ -17,13 +17,17 @@ export interface CircleState {
   taken: number[];
   /** Chests something was taken from: pairs of (circle * 8 + chest number, the slots still filled, a bit each), sorted by the first. */
   chests: number[];
+  /** Sweet Hawthornes grown from an Ancient Seed (SC-8): triples of (column x, column z, the step it was planted, or -1 once grown into a tree). */
+  planted: number[];
+  /** The stone circles' own Sweet Hawthornes that were cut down: pairs of (column x, column z). */
+  felled: number[];
 }
 
 export function newCircles(players: number): CircleState {
-  return { blessed: Array(players).fill(-1), idolNight: Array(players).fill(-1), flute: Array(players).fill(0), taken: [], chests: [] };
+  return { blessed: Array(players).fill(-1), idolNight: Array(players).fill(-1), flute: Array(players).fill(0), taken: [], chests: [], planted: [], felled: [] };
 }
 
-const LISTS = ['blessed', 'idolNight', 'flute', 'taken', 'chests'] as const;
+const LISTS = ['blessed', 'idolNight', 'flute', 'taken', 'chests', 'planted', 'felled'] as const;
 
 export function writeCircles(w: ByteWriter, c: CircleState): void {
   for (const k of LISTS) {
@@ -44,7 +48,9 @@ export function readCircles(r: ByteReader): CircleState {
   const flute = read();
   const taken = read();
   const chests = read();
-  return { blessed, idolNight, flute, taken, chests };
+  const planted = read();
+  const felled = read();
+  return { blessed, idolNight, flute, taken, chests, planted, felled };
 }
 
 /** The circles' state as canonical text for diffing. */

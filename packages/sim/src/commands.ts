@@ -40,7 +40,7 @@ import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
-import { actSpot, CircleAct, doAct, unitAt } from './circles/act.ts';
+import { actSpot, CircleAct, doAct, onColumn, planter, unitAt } from './circles/act.ts';
 import { useItem } from './circles/items.ts';
 
 /** Groups this large share one flow field (technical decision 6). */
@@ -466,8 +466,13 @@ function orderCircle(state: SimState, o: Extract<Order, { kind: 'circle' }>): vo
   const spot = actSpot(state, o.circle, o.act, o.arg);
   if (!spot) return;
   const e = state.entities;
-  const units = ownUnits(state, o.player, o.units, true).filter((i) => canLoot(state, i));
-  const here = unitAt(state, o.player, spot[0], spot[1]);
+  let units = ownUnits(state, o.player, o.units, true).filter((i) => canLoot(state, i));
+  // SC-8: with no unit chosen, the nearest worker not at a farm or barn plants the seed.
+  if (units.length === 0 && o.act === CircleAct.Plant) {
+    const k = planter(state, o.player, spot[0], spot[1]);
+    if (k >= 0) units = [k];
+  }
+  const here = onColumn(o.act) ? -1 : unitAt(state, o.player, spot[0], spot[1]);
   if (here >= 0 && (o.act === CircleAct.TakeChest || units.length === 0)) {
     doAct(state, here, o.circle, o.act, o.arg);
     return;

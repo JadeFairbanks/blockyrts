@@ -35,6 +35,7 @@ import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
+import { propTaken } from '../circles/disturb.ts';
 import { askHooks, speakerName } from '../peoples/speech.ts';
 import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend, runRetrain } from '../siege/engines.ts';
@@ -742,6 +743,8 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       const taken = state.world.harvest(o.cx, o.cz, o.i, want, state.step);
       // An Elf may be watching (Elves: tree warnings).
       if (taken > 0 && isTree(view.kind)) peoplesHooks.treeCut(state, i, columnCentre(nx), columnCentre(nz));
+      // A stone circle's guardian may be watching (circles/disturb.ts).
+      if (taken > 0) propTaken(state, i, view.kind, nx, nz);
       if (taken > 0) {
         e.carryAmt[i] = (e.carryRes[i] === res ? e.carryAmt[i]! : 0) + taken;
         e.carryRes[i] = res;

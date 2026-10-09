@@ -4,41 +4,39 @@
 // the act happens once it stands within reach.
 
 import { canAfford, pay, Res, RESOURCES, type Cost } from '../economy/resources.ts';
-import { floorDiv, length2d, WU_PER_COLUMN } from '../fixed.ts';
+import { floorDiv, headingTowards, length2d, WU_PER_COLUMN } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
+import { peoplesHooks } from '../peoples/hooks.ts';
 import { say } from '../peoples/speech.ts';
 import type { SimState } from '../state.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
 import { dropLoot } from '../units/loot.ts';
 import { Act, FAILED, MOVING, walkTo } from '../units/behaviour.ts';
+import { OrderKind, UnitKind } from '../state.ts';
+import { BuildingKind } from '../buildings/data.ts';
+import { PropKind } from '../world/props.ts';
 import { nextNight } from './bright.ts';
-import { CircleProp, CircleType, GIFT_GOLD, GIFT_ROSES, GIFT_SILVER, circleMetres as m, REACH_M } from './data.ts';
-import { chestLoot, circlePieces, circleSite, idolOf, type CirclePiece } from './place.ts';
+import { CircleProp, CircleType, CLEARING_M, GIFT_GOLD, GIFT_ROSES, GIFT_SILVER, HAWTHORNE_FELL_STEPS, HAWTHORNE_LUMBER, circleMetres as m, PLANT_STEPS, REACH_M } from './data.ts';
+import { Disturb, disturbed } from './disturb.ts';
+import { chestLoot, circleNear, circlePieces, circleSite, idolOf, type CirclePiece } from './place.ts';
+import { hawthorneFelled, plantHawthorne, plantSpotProblem, propOn } from './trees.ts';
 
 const COL = WU_PER_COLUMN;
 const CONTINUE = false;
 const DONE = true;
 
-/** The acts, as a circle order's `act`. */
-export const CircleAct = { Gift: 0, TakeIdol: 1, OpenChest: 2, TakeChest: 3 } as const;
-export type CircleAct = (typeof CircleAct)[keyof typeof CircleAct];
-export const CIRCLE_ACTS = 4;
-
-/** What a player's side did to a circle, for its guardian (SCA-3; the encounters set the hook). */
-export const Disturb = { Chest: 0, Idol: 1, CutHawthorne: 2, Trilithon: 3, Fruit: 4 } as const;
-export type Disturb = (typeof Disturb)[keyof typeof Disturb];
-
 /**
- * Hooks for the circles' encounters (the Great White Ape, Silenus, the
- * Lich): told whenever a player's unit disturbs a circle. Set by the module
- * that brings them in; until then nothing listens.
+ * The acts, as a circle order's `act`. Planting an Ancient Seed (SC-8) and
+ * cutting down a bare Sweet Hawthorne are done on a column anywhere: their
+ * order's `circle` is the column's x and `arg` its z.
  */
-export const circleHooks: {
-  disturbed: ((state: SimState, circle: number, unit: number, what: Disturb) => void) | null;
-} = { disturbed: null };
+export const CircleAct = { Gift: 0, TakeIdol: 1, OpenChest: 2, TakeChest: 3, Plant: 4, Fell: 5 } as const;
+export type CircleAct = (typeof CircleAct)[keyof typeof CircleAct];
+export const CIRCLE_ACTS = 6;
 
-function disturbed(state: SimState, circle: number, unit: number, what: Disturb): void {
-  circleHooks.disturbed?.(state, circle, unit, what);
+/** Whether an act is done on a column rather than at a circle. */
+export function onColumn(act: number): boolean {
+  return act === CircleAct.Plant || act === CircleAct.Fell;
 }
 
 // ----- chests -----
@@ -83,6 +81,7 @@ export function chestSlots(state: SimState, circle: number, n: number): Array<[n
 
 /** Where a unit goes for an act, wu: the altar in the middle, or the chest. */
 export function actSpot(state: SimState, circle: number, act: number, arg: number): [number, number] | null {
+  if (onColumn(act)) return [circle * COL + (COL >> 1), arg * COL + (COL >> 1)];
   const s = circleSite(state.world.layout, circle);
   if (!s) return null;
   if (act === CircleAct.Gift || act === CircleAct.TakeIdol) return [s.x, s.z];
@@ -99,6 +98,15 @@ export function giftCost(state: SimState, player: number): Cost {
 
 /** Why a player cannot do an act at a circle now, or '' (for the panel's greyed buttons, and checked again on arrival). */
 export function actProblem(state: SimState, player: number, circle: number, act: number, arg: number): string {
+  if (act === CircleAct.Plant) {
+    if (state.players[player]!.pool[Res.AncientSeed]! <= 0) return 'You have no Ancient Seed.';
+    return plantSpotProblem(state, circle, arg);
+  }
+  if (act === CircleAct.Fell) {
+    const tree = propOn(state, circle, arg, PropKind.SweetHawthorne);
+    if (!tree) return 'There is no Sweet Hawthorne there.';
+    return tree.amount > 0 ? 'Pick its fruit first: a Sweet Hawthorne is cut down once it is bare.' : '';
+  }
   const s = circleSite(state.world.layout, circle);
   if (!s) return 'There is no stone circle there.';
   switch (act) {
@@ -141,6 +149,27 @@ export function unitAt(state: SimState, player: number, x: number, z: number): n
   return best;
 }
 
+/** SC-8: the worker who plants a seed at a point (wu), "the nearest worker (who is not working in a farm or barn)", or -1. */
+export function planter(state: SimState, player: number, x: number, z: number): number {
+  const e = state.entities;
+  let best = -1;
+  let bestD = Infinity;
+  for (let i = 0; i < e.count; i++) {
+    if (e.owner[i] !== player || e.kind[i] !== UnitKind.Worker || e.hp[i]! <= 0 || e.inside[i] !== 0) continue;
+    const o = e.queue[i]![0];
+    if (o?.t === 'job') {
+      const kind = state.buildings.get(o.b)?.kind;
+      if (kind === BuildingKind.Farm || kind === BuildingKind.Barn) continue;
+    }
+    const d = length2d(e.x[i]! - x, e.z[i]! - z);
+    if (d < bestD) {
+      best = i;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 // ----- doing it -----
 
 /** Does an act with a unit that stands within reach, or has it say why it cannot. */
@@ -150,6 +179,24 @@ export function doAct(state: SimState, i: number, circle: number, act: number, a
   const why = actProblem(state, player, circle, act, arg);
   if (why) {
     say(state, i, why, true);
+    return;
+  }
+  if (act === CircleAct.Plant) {
+    const pool = state.players[player]!.pool;
+    pool[Res.AncientSeed] = pool[Res.AncientSeed]! - 1;
+    plantHawthorne(state, circle, arg);
+    state.events.push({ player, kind: 'info', text: 'The Ancient Seed is in the ground. A Sweet Hawthorne will grow there over the next few nights.', x: e.x[i]!, z: e.z[i]! });
+    return;
+  }
+  if (act === CircleAct.Fell) {
+    const tree = propOn(state, circle, arg, PropKind.SweetHawthorne)!;
+    const [x, z] = actSpot(state, circle, act, arg)!;
+    state.world.removeProp(tree.cx, tree.cz, tree.index);
+    hawthorneFelled(state, circle, arg);
+    dropLoot(state, x, z, [[Res.HardwoodLumber, HAWTHORNE_LUMBER]], { killer: i, owner: player, brag: 0, src: 0 });
+    peoplesHooks.treeCut(state, i, x, z);
+    const ruin = circleNear(state.world.layout, x, z, CLEARING_M);
+    if (ruin) disturbed(state, ruin.id, i, Disturb.CutHawthorne);
     return;
   }
   const s = circleSite(state.world.layout, circle)!;
@@ -206,9 +253,23 @@ export function runCircle(state: SimState, i: number, o: Extract<UnitOrder, { t:
     const r = walkTo(state, i, { ...pointGoal(floorDiv(x, COL), floorDiv(z, COL)), max: floorDiv(m(REACH_M), COL) - 1 });
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) {
-      say(state, i, 'I cannot reach that spot in the stone circle.', true);
+      say(state, i, onColumn(o.act) ? 'I cannot reach that spot.' : 'I cannot reach that spot in the stone circle.', true);
       return DONE;
     }
+  }
+  // Planting and cutting down take a while at the spot (s).
+  if (onColumn(o.act)) {
+    if (e.act[i] !== Act.Work) {
+      if (actProblem(state, e.owner[i]!, o.circle, o.act, o.arg)) {
+        doAct(state, i, o.circle, o.act, o.arg);
+        return DONE;
+      }
+      e.act[i] = Act.Work;
+      e.waitUntil[i] = state.step + (o.act === CircleAct.Plant ? PLANT_STEPS : HAWTHORNE_FELL_STEPS);
+      e.heading[i] = headingTowards(x - e.x[i]!, z - e.z[i]!);
+    }
+    e.order[i] = o.act === CircleAct.Plant ? OrderKind.Farm : OrderKind.Chop;
+    if (state.step < e.waitUntil[i]!) return CONTINUE;
   }
   doAct(state, i, o.circle, o.act, o.arg);
   return DONE;

@@ -363,6 +363,8 @@ export function resourceByName(name: string): number {
       return Res.HawthorneFruit;
     case 'moon rose':
       return Res.MoonRose;
+    case 'bone':
+      return Res.Bone;
     // A carcass gives its animal's meat and a fish stretch its species (units/behaviour.ts nodeResource): these stand for the kind.
     case 'meat':
       return Res.AnyMeat;

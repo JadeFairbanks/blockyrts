@@ -7,6 +7,7 @@ import { cos16, floorDiv, headingTowards, length2d, sin16, WU_PER_COLUMN } from 
 import { hash32 } from '../rng.ts';
 import { Band, CELL_RING_SHIFT, type WorldLayout } from '../world/layout.ts';
 import { CHUNK_SHIFT, chunkKey } from '../world/chunk.ts';
+import { PropKind, PROPS, PropShape } from '../world/props.ts';
 import { Res } from '../economy/resources.ts';
 import {
   BONE_PILE_BONE,
@@ -97,11 +98,6 @@ function pick(table: readonly number[], roll: number): number {
   return table.length - 1;
 }
 
-/** The band at a column. */
-function bandAtColumn(layout: WorldLayout, x: number, z: number): Band {
-  return layout.cell(layout.nearest(x, z)).band;
-}
-
 /** Places the circles of one layout: 0 to 4 in each of the Fringe, the Deepwoods and the Barrens (SC-2; Jade 2026-10-08). */
 function placeCircles(layout: WorldLayout): CircleSite[] {
   const seed = layout.seed;
@@ -120,7 +116,7 @@ function placeCircles(layout: WorldLayout): CircleSite[] {
         const spread = Math.max(1, floorDiv(cell.size, 8));
         const cx = cell.x + (hash32(h, 2) % (spread * 2 + 1)) - spread;
         const cz = cell.z + (hash32(h, 3) % (spread * 2 + 1)) - spread;
-        if (bandAtColumn(layout, cx, cz) !== band) continue;
+        if (layout.bandAt(cx, cz) !== band) continue;
         const x = cx * COL + (COL >> 1);
         const z = cz * COL + (COL >> 1);
         if (out.some((c) => length2d(c.x - x, c.z - z) < m(CIRCLE_SPACING_M))) continue;
@@ -316,6 +312,136 @@ export function clearForGenerated(layout: WorldLayout, gx: number, gz: number, t
   const x = gx * COL + (COL >> 1);
   const z = gz * COL + (COL >> 1);
   return !circleNear(layout, x, z, tree ? CLEARING_M : RUIN_CLEAR_M);
+}
+
+/** The circles whose clearing reaches into a chunk (for the generator: most chunks have none, and skip every check). */
+export function circlesNearChunk(layout: WorldLayout, cx: number, cz: number): readonly CircleSite[] {
+  const r = floorDiv(m(CLEARING_M), COL) + 1;
+  const x0 = cx << CHUNK_SHIFT;
+  const z0 = cz << CHUNK_SHIFT;
+  const x1 = x0 + (1 << CHUNK_SHIFT) - 1;
+  const z1 = z0 + (1 << CHUNK_SHIFT) - 1;
+  return builtFor(layout).sites.filter((s) => {
+    const gx = floorDiv(s.x, COL);
+    const gz = floorDiv(s.z, COL);
+    return gx + r >= x0 && gx - r <= x1 && gz + r >= z0 && gz - r <= z1;
+  });
+}
+
+/**
+ * What world generation may put of its own on a column near these circles
+ * (SC-2): nothing inside a ruin (0), no trees in its 60 m clearing (1), or
+ * anything (2).
+ */
+export function circleRoom(sites: readonly CircleSite[], gx: number, gz: number): 0 | 1 | 2 {
+  const x = gx * COL + (COL >> 1);
+  const z = gz * COL + (COL >> 1);
+  let room: 0 | 1 | 2 = 2;
+  for (const s of sites) {
+    const d = length2d(s.x - x, s.z - z);
+    if (d < m(RUIN_CLEAR_M)) return 0;
+    if (d < m(CLEARING_M)) room = 1;
+  }
+  return room;
+}
+
+/** Whether a circle's ruin lies within `columns` of a column: ponds, streams, bogs and hot springs keep clear of the stones. */
+export function ruinWithin(layout: WorldLayout, gx: number, gz: number, columns: number): boolean {
+  const x = gx * COL + (COL >> 1);
+  const z = gz * COL + (COL >> 1);
+  for (const s of builtFor(layout).sites) if (length2d(s.x - x, s.z - z) < m(RUIN_CLEAR_M) + columns * COL) return true;
+  return false;
+}
+
+/** The ruin's ground is levelled out to RUIN_CLEAR_M from the middle, blending into the land over this much more (s). */
+const RUIN_BLEND_M = 12;
+
+/**
+ * How level a ruin keeps the ground at a column, per 1024: 1024 inside the
+ * ruin, fading to 0 over RUIN_BLEND_M beyond it, so the stones stand on the
+ * land's smooth shape without terraces, mesas, ravines or boulders (s).
+ */
+export function ruinLevel(layout: WorldLayout, gx: number, gz: number): number {
+  const sites = builtFor(layout).sites;
+  if (sites.length === 0) return 0;
+  const inner = floorDiv(m(RUIN_CLEAR_M), COL);
+  const outer = inner + floorDiv(m(RUIN_BLEND_M), COL);
+  let best = 0;
+  for (const s of sites) {
+    const dx = Math.abs(gx - floorDiv(s.x, COL));
+    const dz = Math.abs(gz - floorDiv(s.z, COL));
+    if (dx >= outer || dz >= outer) continue;
+    const d = length2d(dx, dz);
+    if (d >= outer) continue;
+    const w = d <= inner ? 1024 : floorDiv((outer - d) * 1024, outer - inner);
+    if (w > best) best = w;
+  }
+  return best;
+}
+
+/** The prop kind each piece is (CircleProp order); -1 for the idols, drawn on their altar rather than placed. */
+export const PIECE_KINDS: readonly number[] = [
+  PropKind.Trilithon,
+  PropKind.BluestoneRubble,
+  PropKind.BluestoneChest,
+  PropKind.CircleAltar,
+  -1,
+  -1,
+  PropKind.SweetHawthorne,
+  PropKind.MoonRoseBush,
+  PropKind.RuinBush,
+  PropKind.RuinFern,
+  PropKind.RuinMoss,
+  PropKind.RuinFlower,
+  PropKind.BonePile,
+  PropKind.BoneyardDeadTree,
+  PropKind.BoneyardThorn,
+  PropKind.CirclePine,
+];
+
+/** A piece's prop variant: its heading (16 bits), its look (4 bits), its circle's type (2 bits) and its circle (8 bits). */
+export function pieceVariant(p: CirclePiece, type: CircleType): number {
+  return (p.heading & 0xffff) | ((p.look & 15) << 16) | ((type & 3) << 20) | ((p.circle & 255) << 22);
+}
+/** A circle piece's heading, from its prop variant (a 16-bit angle). */
+export function variantHeading(variant: number): number {
+  return variant & 0xffff;
+}
+/** A circle piece's look, from its prop variant: a trilithon's state, a pile's size, which flower or moss, a chest's number. */
+export function variantLook(variant: number): number {
+  return (variant >>> 16) & 15;
+}
+/** The type of a circle piece's circle, from its prop variant: its trilithons and altar take that type's look. */
+export function variantType(variant: number): CircleType {
+  return ((variant >>> 20) & 3) as CircleType;
+}
+/** A circle piece's circle, from its prop variant. */
+export function variantCircle(variant: number): number {
+  return (variant >>> 22) & 255;
+}
+
+/** A piece as a generated prop: its kind, what it holds, its age (grown: its growing time and more) and its variant; null for an idol. */
+export function pieceRecord(layout: WorldLayout, p: CirclePiece): { kind: number; amount: number; age: number; variant: number } | null {
+  const kind = PIECE_KINDS[p.prop] ?? -1;
+  if (kind < 0) return null;
+  const s = builtFor(layout).sites[p.circle]!;
+  // The Moon Roses are shut until a Bright Night opens them (circles/update.ts).
+  const amount = p.prop === CircleProp.MoonRose ? 0 : p.amount;
+  const grow = PROPS[kind]!.regrowSteps;
+  const age = PROPS[kind]!.shape === PropShape.Tree && grow > 0 ? grow + (hash32(layout.seed ^ SALT.piece, p.gx, p.gz) % grow) : 0;
+  return { kind, amount, age, variant: pieceVariant(p, s.type) };
+}
+
+/** Where a piece stands as a prop: its chunk and its index among the chunk's props (the pieces come first in every chunk). */
+export function pieceSlot(layout: WorldLayout, p: CirclePiece): { cx: number; cz: number; index: number } {
+  const cx = p.gx >> CHUNK_SHIFT;
+  const cz = p.gz >> CHUNK_SHIFT;
+  let index = 0;
+  for (const q of piecesInChunk(layout, cx, cz)) {
+    if (q === p) break;
+    if ((PIECE_KINDS[q.prop] ?? -1) >= 0) index++;
+  }
+  return { cx, cz, index };
 }
 
 /** The chunks a circle's clearing reaches into, as [cx, cz] pairs (for the generator to know which chunks to look at). */

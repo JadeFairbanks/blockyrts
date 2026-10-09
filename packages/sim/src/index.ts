@@ -107,5 +107,8 @@ export * from './circles/place.ts';
 export * from './circles/state.ts';
 export * from './circles/bright.ts';
 export * from './circles/act.ts';
+export * from './circles/disturb.ts';
+export * from './circles/trees.ts';
+export * from './circles/update.ts';
 export * from './circles/items.ts';
 export * from './circles/info.ts';

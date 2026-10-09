@@ -6,6 +6,7 @@
 
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
+import { HAWTHORNE_FRUIT, HAWTHORNE_GROW_NIGHTS, HAWTHORNE_REGROW_DAYS, RUBBLE_BLUESTONE } from '../circles/data.ts';
 const MINUTE = 60 * STEPS_PER_SECOND;
 
 /**
@@ -79,6 +80,27 @@ export const PropKind = {
   /** Small silver and gold nodes on the mountains (WL-4). */
   SilverNode: 40,
   GoldNode: 41,
+  /**
+   * Patch 5's stone circles (circles/place.ts places them; their variant
+   * holds each piece's heading, look, circle type and circle): the stones,
+   * the chests and the altar, the Sweet Hawthorne and its sapling, the Moon
+   * Rose bushes, the bones, and the plants and trees that dress the ruins.
+   */
+  Trilithon: 42,
+  BluestoneRubble: 43,
+  BluestoneChest: 44,
+  CircleAltar: 45,
+  SweetHawthorne: 46,
+  HawthorneSapling: 47,
+  MoonRoseBush: 48,
+  BonePile: 49,
+  RuinBush: 50,
+  RuinFern: 51,
+  RuinMoss: 52,
+  RuinFlower: 53,
+  BoneyardDeadTree: 54,
+  BoneyardThorn: 55,
+  CirclePine: 56,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -192,6 +214,29 @@ export const PROPS: readonly PropInfo[] = [
   // worth from single silver ore node ... the nodes also give more stone than the ore", copper picks or better.
   { ...node(PropKind.SilverNode, 'Silver ore node', PropShape.Rocks, 'silver', 1, 2, 20, 1, Tool.Copper, P5), yieldMax: 4, leaves: { kind: PropKind.LooseStone, min: 10, max: 20 } },
   { ...node(PropKind.GoldNode, 'Gold ore node', PropShape.Rocks, 'gold', 1, 1, 20, 1, Tool.Copper, P5), yieldMax: 2, leaves: { kind: PropKind.LooseStone, min: 6, max: 12 } },
+  // Patch 5's stone circles (circles/data.ts). Bluestone "can be mined with iron tools or tools superior to iron" (SC-5);
+  // a trilithon holds its state's bluestone (TRILITHONS), a rubble pile its size's (s: 5 a load, 30 s a trilithon's).
+  node(PropKind.Trilithon, 'Trilithon', PropShape.Rocks, 'bluestone', 12, 5, 30, 2, Tool.Iron, P5),
+  { ...node(PropKind.BluestoneRubble, 'Bluestone rubble', PropShape.Rocks, 'bluestone', RUBBLE_BLUESTONE.small, 5, 20, 1, Tool.Iron, P5), yieldMax: RUBBLE_BLUESTONE.large },
+  // Opened and used by a unit (circles/act.ts), never gathered.
+  node(PropKind.BluestoneChest, 'Bluestone chest', PropShape.Rocks, '', 0, 0, 0, 0, Tool.None, P5),
+  node(PropKind.CircleAltar, 'Altar', PropShape.Rocks, '', 0, 0, 0, 0, Tool.None, P5),
+  // SC-9: "gives 10 hawthorne fruit. It takes 3 days for a hawthorne harvest to regrow"; picked by a worker or a woodsman.
+  { ...berries(PropKind.SweetHawthorne, 'Sweet Hawthorne', 'hawthorne fruit'), yield: HAWTHORNE_FRUIT, yieldMax: HAWTHORNE_FRUIT, perLoad: HAWTHORNE_FRUIT, regrowSteps: HAWTHORNE_REGROW_DAYS * CYCLE_STEPS },
+  // SC-8: an Ancient Seed's sapling "grows into a Sweet Hawthorne tree over four to six nights" (s: 5), holding nothing until then.
+  { ...tree(PropKind.HawthorneSapling, 'Sweet Hawthorne', 0, 20, 1, Tool.Hardwood, HAWTHORNE_GROW_NIGHTS * CYCLE_STEPS, P5, ''), seeds: 0 },
+  // SCA-8: its roses open only on a Bright Night (circles/update.ts gives it ROSES_PER_BUSH then, and none at daybreak).
+  { ...berries(PropKind.MoonRoseBush, 'Moon Rose bush', 'moon rose'), yield: 0, yieldMax: 0, perLoad: 3, regrowSteps: CYCLE_STEPS },
+  // Jade's model notes: "Gatherable as bones if desired."
+  { ...node(PropKind.BonePile, 'Bone pile', PropShape.Patch, 'bone', 5, 5, 10, 1, Tool.None, P5), yieldMax: 10 },
+  node(PropKind.RuinBush, 'Bush', PropShape.Plant, '', 0, 0, 0, 0, Tool.None, P5),
+  node(PropKind.RuinFern, 'Fern', PropShape.Plant, '', 0, 0, 0, 0, Tool.None, P5),
+  node(PropKind.RuinMoss, 'Moss', PropShape.Plant, '', 0, 0, 0, 0, Tool.None, P5),
+  node(PropKind.RuinFlower, 'Flowers', PropShape.Plant, '', 0, 0, 0, 0, Tool.None, P5),
+  // A Boneyard Circle's dead trees and thorn bushes (SCB-1) and a ruin's softwood (SC-2): the same as any other.
+  { ...tree(PropKind.BoneyardDeadTree, 'Dead tree', 10, 15, 1, Tool.Hardwood, 0, P5, 'softwood lumber'), seeds: 0 },
+  { ...tree(PropKind.BoneyardThorn, 'Thorn bush', 10, 10, 1, Tool.Hardwood, 0, P5, 'sticks'), perLoad: 10, seeds: 0 },
+  tree(PropKind.CirclePine, 'Pine', 20, 15, 1, Tool.Hardwood, 60 * MINUTE, P5, 'softwood lumber'),
 ];
 
 /** Whether a prop is a fish stretch. */

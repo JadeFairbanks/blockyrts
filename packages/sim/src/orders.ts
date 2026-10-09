@@ -624,8 +624,11 @@ export interface LeaveOrder {
 /**
  * A unit at a stone circle (Patch 5, circles/act.ts): the nearest of the
  * units walks to the altar or a chest and does `act` (CircleAct: leave the
- * Goddess her gifts, take the idol, open a chest, take a chest's slot).
- * `arg` is the chest number, or for taking, chest * 8 + slot.
+ * Goddess her gifts, take the idol, open a chest, take a chest's slot), or
+ * plants an Ancient Seed or cuts down a bare Sweet Hawthorne on a column.
+ * `arg` is the chest number, or for taking, chest * 8 + slot; for planting
+ * and cutting down, `circle` is the column's x and `arg` its z, and with no
+ * units the nearest worker not at a farm or barn plants the seed (SC-8).
  */
 export interface CircleOrder extends UnitsOrder {
   kind: 'circle';
@@ -908,7 +911,10 @@ export function validateOrder(o: Order): void {
       if (o.what < 0 || o.what > 2 || o.id < 0 || o.id > 0xffff || o.units.length > 256) throw new Error('bad greyed-out click');
       return;
     case 'circle':
-      if (o.circle < 0 || o.circle > 255 || o.act < 0 || o.act > 3 || o.arg < 0 || o.arg > 63) throw new Error('bad stone circle order');
+      // Planting and cutting down (acts 4 and 5) name a column: `circle` its x and `arg` its z.
+      if (o.act === 4 || o.act === 5) {
+        if (!isInt(o.circle) || !isInt(o.arg) || Math.abs(o.circle) > 300_000 || Math.abs(o.arg) > 300_000) throw new Error('bad stone circle order');
+      } else if (o.circle < 0 || o.circle > 255 || o.act < 0 || o.act > 3 || o.arg < 0 || o.arg > 63) throw new Error('bad stone circle order');
       return;
     case 'useItem':
       if (o.res < 0 || o.res > 255 || o.unit < 0) throw new Error('bad item use');
