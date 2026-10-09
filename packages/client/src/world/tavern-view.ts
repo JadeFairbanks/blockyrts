@@ -2,14 +2,13 @@
 // for business, "the lights are on and flickering with occasional
 // silhouettes in the windows and it just generally looks like a party in
 // there": each of its 16 windows glows and flickers on its own, now and then
-// someone walks past inside, a warm light spills out of the door at night,
-// and the chimney smokes hard. Closed, the windows and the lantern go dark
-// (the model paints them lit) and the chimney only smokes a little. Its bars
-// are in the shared stack over buildings (UI-18): the stack draws a
-// Dreadnought being hired as any queue's gold bar, and hud/tavern-bars.ts adds
-// the till's silver bar to the next ingot while it is open. [The lit windows and
-// chimney smoke of other buildings (VX-2, VX-3) belong to other threads; this
-// smoke is the Tavern's own until those land.]
+// someone walks past inside, and a warm light spills out of the door at
+// night. Closed, the windows and the lantern go dark (the model paints them
+// lit). Its chimney smokes with the other buildings' chimneys, while it is open
+// from dusk to dawn (building-glow.ts). Its bars are in the shared stack over
+// buildings (UI-18): the stack draws a Dreadnought being hired as any queue's
+// gold bar, and hud/tavern-bars.ts adds the till's silver bar to the next
+// ingot while it is open.
 import * as THREE from 'three';
 import { BuildingKind } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
@@ -39,17 +38,11 @@ const WINDOWS: ReadonlyArray<readonly [number, number, number, number, number, n
   [-34, 168, -32.3, -26, 178, -29.5, 'z-'],
   [26, 168, -32.3, 34, 178, -29.5, 'z-'],
 ];
-/** The lantern over the door (glow_lantern), and the chimney pot's top (fx_smoke), model units. */
+/** The lantern over the door (glow_lantern), model units. */
 const LANTERN = [-2.6, 58.8, -46.6, 2.6, 64.8, -43.4] as const;
-const CHIMNEY = [70.75, 245, 8] as const;
 
 const MAX_TAVERNS = 24;
 const MAX_PANES = MAX_TAVERNS * WINDOWS.length;
-const MAX_PUFFS = 240;
-/** Seconds between puffs from the chimney, open and closed; how long one lasts. */
-const PUFF_OPEN_S = 0.35;
-const PUFF_CLOSED_S = 1.4;
-const PUFF_LIFE_S = 3.2;
 
 const WARM = new THREE.Color(0xffb050);
 
@@ -65,28 +58,14 @@ function hash(a: number, b: number): number {
   return (h >>> 0) / 4294967296;
 }
 
-interface Puff {
-  x: number;
-  y: number;
-  z: number;
-  vx: number;
-  vz: number;
-  age: number;
-}
-
 export class TavernView {
   private readonly covers: THREE.InstancedMesh;
   private readonly lanterns: THREE.InstancedMesh;
   private readonly halos: THREE.InstancedMesh;
   private readonly figures: THREE.InstancedMesh;
-  private readonly smoke: THREE.InstancedMesh;
   private readonly light = new THREE.PointLight(0xffa850, 0, 9, 1.6);
-  private readonly puffs: Puff[] = [];
-  /** When each Tavern last puffed, s. */
-  private readonly lastPuff = new Map<number, number>();
   private readonly dummy = new THREE.Object3D();
   private readonly colour = new THREE.Color();
-  private last = 0;
 
   constructor(scene: THREE.Scene) {
     const plane = new THREE.PlaneGeometry(1, 1);
@@ -104,7 +83,6 @@ export class TavernView {
     this.halos.renderOrder = 4;
     this.figures.renderOrder = 3;
     this.covers.renderOrder = 3;
-    this.smoke = make(new THREE.MeshLambertMaterial({ color: 0x9a9894, transparent: true, opacity: 0.5, depthWrite: false }), MAX_PUFFS, new THREE.BoxGeometry(1, 1, 1));
     scene.add(this.light);
   }
 
@@ -122,8 +100,6 @@ export class TavernView {
   /** Brings the effects in line with the latest info; call once a frame. darkness: 0 by day, 1 at night. */
   update(info: GameInfo, now: number, focus: THREE.Vector3, darkness: number): void {
     const t = now / 1000;
-    const dt = this.last ? Math.min(0.1, t - this.last) : 0;
-    this.last = t;
     const taverns = [...info.buildings.values()].filter((b) => b.kind === BuildingKind.Tavern && b.complete).slice(0, MAX_TAVERNS);
     let covers = 0;
     let halos = 0;
@@ -176,21 +152,11 @@ export class TavernView {
         this.lanterns.setMatrixAt(lanterns, d.matrix);
         lanterns++;
       }
-      // The chimney: a puff every so often, more while open.
-      const every = open ? PUFF_OPEN_S : PUFF_CLOSED_S;
-      const lastPuff = this.lastPuff.get(b.id) ?? -Infinity;
-      if (t - lastPuff >= every && this.puffs.length < MAX_PUFFS) {
-        this.lastPuff.set(b.id, t);
-        this.at(o, CHIMNEY[0], CHIMNEY[1], CHIMNEY[2], p);
-        this.puffs.push({ x: p.x, y: p.y + 0.05, z: p.z, vx: (Math.random() - 0.5) * 0.25 + 0.12, vz: (Math.random() - 0.5) * 0.25, age: 0 });
-      }
     }
-    for (const id of this.lastPuff.keys()) if (!info.buildings.has(id)) this.lastPuff.delete(id);
     this.finish(this.covers, covers);
     this.finish(this.halos, halos);
     this.finish(this.figures, figures);
     this.finish(this.lanterns, lanterns);
-    this.updateSmoke(dt);
     if (nearest && darkness > 0.02) {
       this.light.position.copy(nearest.p);
       this.light.intensity = 5 * darkness * nearest.flicker;
@@ -221,28 +187,5 @@ export class TavernView {
     m.count = n;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }
-
-  /** Puffs rise and drift, swelling as they thin out. */
-  private updateSmoke(dt: number): void {
-    const d = this.dummy;
-    let w = 0;
-    for (const s of this.puffs) {
-      s.age += dt;
-      if (s.age >= PUFF_LIFE_S) continue;
-      s.x += s.vx * dt;
-      s.z += s.vz * dt;
-      s.y += 0.55 * dt;
-      const k = s.age / PUFF_LIFE_S;
-      this.puffs[w] = s;
-      d.position.set(s.x, s.y, s.z);
-      d.rotation.set(0, s.age * 0.6, 0);
-      d.scale.setScalar(0.18 + 0.4 * k - 0.25 * k * k * k);
-      d.updateMatrix();
-      this.smoke.setMatrixAt(w, d.matrix);
-      w++;
-    }
-    this.puffs.length = w;
-    this.finish(this.smoke, w);
   }
 }
