@@ -14,9 +14,9 @@ import { buildingCentre, isLit, snuffLight } from '../buildings/lights.ts';
 import { garrisonRoom, type Building } from '../buildings/store.ts';
 import { clockAt } from '../clock.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { UnitKind, standY, type SimState } from '../state.ts';
+import { MONSTERS, UnitKind, standY, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
-import { bodyHeight, dealtTenths, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc, wholeDamage } from '../combat/combat.ts';
+import { bodyHeight, dealtTenths, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc, Side, sideOf, wholeDamage } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
 import { addMob, combatTroop, engageUnit, inheritRole, lateHooks, playerUnit, turnedOnTroops } from '../combat/mob-ai.ts';
 import { Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
@@ -24,6 +24,7 @@ import { buildingTop, FIRE, launch, POISON } from '../combat/projectiles.ts';
 import { knockBack } from '../mounts/riding.ts';
 import { leaveBuilding } from '../units/behaviour.ts';
 import { smoulder } from './burns.ts';
+import { Role } from './types.ts';
 
 const M = WU_PER_METRE;
 const SEC = STEPS_PER_SECOND;
@@ -65,6 +66,14 @@ export const LATE = {
   crown: { radius: 30 * M },
   rift: { cooldown: 60 * SEC, open: 30 * SEC, every: 3 * SEC },
   ruin: { radius: 20 * M, damage: 300, warning: 3 * SEC, cooldown: 20 * SEC },
+  /**
+   * Morvath's staff (Jade's Patch 5 MB-4): 200 to his target (his row), and
+   * 100 to everyone else within 1 m of it, his own monsters too; he takes in
+   * every point it drains from them, and none from the players' units.
+   */
+  staff: { splashTenths: 1000, radius: M },
+  /** His wings (MB-4): once, as he takes to the air, he drains up to 500 from the players' units within 12 m over 5 s (s: 12 m), and takes it in. */
+  wings: { total: 500, steps: 5 * SEC, radius: 12 * M },
 } as const;
 
 const BP = 10000;
@@ -422,6 +431,7 @@ function strike(state: SimState, i: number, spec: MobSpec, t: number): void {
 function hit(state: SimState, i: number, spec: MobSpec, t: number, d: number): void {
   const e = state.entities;
   e.strikes[i] = Math.min(255, e.strikes[i]! + 1);
+  if (spec.id === Mob.Morvath || spec.id === Mob.MorvathAloft) staffSplash(state, i, t);
   if (e.hp[t]! <= 0) return;
   // A ram or a cleave throws the smaller back (Rift beetle, Rift minotaur, demon brute, Rift colossus).
   if (spec.knockWu > 0 && bodyHeight(state, t) < spec.height) knockBack(state, i, t, spec.knockWu);
@@ -475,13 +485,16 @@ function morvath(state: SimState, i: number, second: boolean): void {
       if (length2d(x - e.x[i]!, z - e.z[i]!) <= LATE.crown.radius) snuffLight(b);
     }
   }
-  // Second form.
+  // Second form: he spreads his wings and, once, drains the life of those round him.
   if (e.mob[i] === Mob.Morvath && e.hp[i]! * 2 <= e.maxHp[i]!) {
     e.mob[i] = Mob.MorvathAloft;
     e.speed[i] = mobSpec(Mob.MorvathAloft).speed;
     e.y[i] = standY(state, e.x[i]!, e.z[i]!) + FLY_HEIGHT;
-    state.events.push({ player: e.foe[i]!, kind: 'alert', text: 'Morvath takes to the air. Only bows, guns and magic can reach him now.', x: e.x[i]!, z: e.z[i]! });
+    e.drainUntil[i] = now + LATE.wings.steps;
+    e.drainLeft[i] = LATE.wings.total;
+    state.events.push({ player: e.foe[i]!, kind: 'alert', text: 'Morvath spreads his wings and drains the life of all near him. Only bows, guns and magic can reach him now.', x: e.x[i]!, z: e.z[i]! });
   }
+  if (e.drainLeft[i]! > 0 && now < e.drainUntil[i]! && (e.drainUntil[i]! - now) % SEC === 0) wingDrain(state, i);
   // Violet ruin: marked, then 3 s later it falls.
   if (e.castAt[i] !== 0 && now >= e.castAt[i]!) {
     e.castAt[i] = 0;
@@ -508,6 +521,61 @@ function morvath(state: SimState, i: number, second: boolean): void {
     const mob = red[state.rng.combat.nextInt(red.length)]!;
     const [fx, fz] = forward(e.heading[i]!);
     addMob(state, mob, e.foe[i]!, e.x[i]! - floorDiv(fx * 4 * M, 65536), e.z[i]! - floorDiv(fz * 4 * M, 65536), night);
+  }
+}
+
+/** Life drained into Morvath: white motes from where it was taken, one for every 2 health, and his health back by as much. */
+function drainInto(state: SimState, i: number, j: number, d: number): void {
+  if (d <= 0) return;
+  const e = state.entities;
+  state.hits.push({ look: 'drain', x: e.x[j]!, y: e.y[j]! + floorDiv(bodyHeight(state, j), 2), z: e.z[j]!, id: e.id[j]!, to: e.id[i]!, n: Math.max(1, floorDiv(d, 2)) });
+  e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + d);
+}
+
+/**
+ * Morvath's staff splash (MB-4): everyone within 1 m of where his blow fell
+ * but the one it struck takes 100 (with his strength over the nights), the
+ * players' and the peoples' units and his own monsters alike; what it takes
+ * from his own he takes in.
+ */
+function staffSplash(state: SimState, i: number, t: number): void {
+  const e = state.entities;
+  const x = e.x[t]!;
+  const z = e.z[t]!;
+  const r = LATE.staff.radius;
+  state.hits.push({ look: 'violet', x, y: standY(state, x, z), z, id: e.id[i]! });
+  const damage = dealtTenths(state, i, LATE.staff.splashTenths);
+  for (const j of state.grid.nearOthers(x, z, r + 2 * M)) {
+    if (j === t || j === i || e.hp[j]! <= 0 || length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
+    const own = e.kind[j] === UnitKind.Mob && e.owner[j] === MONSTERS && e.role[j] !== Role.Structure;
+    if (!own && !playerUnit(state, j)) continue;
+    const d = hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false });
+    if (own) drainInto(state, i, j, d);
+  }
+}
+
+/** A second of Morvath's wing drain: a fifth of what is left shared among the players' units within 12 m, nearest first for any odd point, taken in. */
+function wingDrain(state: SimState, i: number): void {
+  const e = state.entities;
+  const seconds = Math.max(1, floorDiv(e.drainUntil[i]! - state.step + SEC - 1, SEC));
+  const share = floorDiv(e.drainLeft[i]! + seconds - 1, seconds);
+  e.drainLeft[i] = e.drainLeft[i]! - share;
+  const r = LATE.wings.radius;
+  const near: Array<[number, number]> = [];
+  for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, r + 2 * M)) {
+    if (!playerUnit(state, j) || sideOf(state, j) !== Side.Players) continue;
+    const d = length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!);
+    if (d <= r + halfWidth(state, j)) near.push([j, d]);
+  }
+  if (near.length === 0) return;
+  near.sort((a, b) => a[1] - b[1] || e.id[a[0]]! - e.id[b[0]]!);
+  const each = floorDiv(share, near.length);
+  let odd = share - each * near.length;
+  for (const [j] of near) {
+    const want = each + (odd > 0 ? 1 : 0);
+    if (odd > 0) odd--;
+    if (want <= 0) continue;
+    drainInto(state, i, j, hurtUnit(state, j, { damage: want, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, exact: true }));
   }
 }
 

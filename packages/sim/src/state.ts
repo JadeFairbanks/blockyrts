@@ -290,6 +290,9 @@ export const UNIT_FIELDS = [
    * experience a minute, a step at a time.
    */
   ['workXp', 'u32'],
+  /** Morvath's wings (Jade's Patch 5 MB-4): life still to drain from the players' units round him, until this step. */
+  ['drainUntil', 'u32'],
+  ['drainLeft', 'i32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -431,6 +434,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hungry: Uint32Array;
   declare tinker: Uint16Array;
   declare workXp: Uint32Array;
+  declare drainUntil: Uint32Array;
+  declare drainLeft: Int32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -822,7 +827,8 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
+/** 'violet': Morvath's staff splash (Patch 5 MB-4), a ring of vivid purple. 'drain': life drained into a monster, white motes from where it was taken to `to`, `n` of them (one for every 2 health). 'crimson': the necromancer's bolt bursting (MB-5). */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'violet' | 'drain' | 'crimson';
 
 export interface HitEvent {
   look: HitLook;
@@ -837,6 +843,9 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
+  /** A drain (look 'drain'): the entity the motes fly into, and how many. */
+  to?: number;
+  n?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */
