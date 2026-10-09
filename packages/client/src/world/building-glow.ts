@@ -36,6 +36,7 @@ import type { BuildingInfo } from '../messages.ts';
 import type { ModelLibrary } from '../models/index.ts';
 import { Face, type Look, type Pane } from './building-looks.ts';
 import type { FowUniforms } from './fog-material.ts';
+import { showInstances } from './instances.ts';
 
 /** Metres per Blockbench unit (the model converter's UNIT_METRES). */
 const BB_M = 0.028125;
@@ -251,20 +252,6 @@ const MAGIC_WHITE = new THREE.Color(0xe4dcff);
 function place(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z: number, c: number, s: number, sx: number, sy: number, sz: number): void {
   M.set(c * sx, 0, s * sz, x, 0, sy, 0, y, -s * sx, 0, c * sz, z, 0, 0, 0, 1);
   mesh.setMatrixAt(i, M);
-}
-
-/** Draws the first n instances, uploading only those. */
-function show(mesh: THREE.InstancedMesh, n: number): void {
-  mesh.count = n;
-  if (n === 0) return;
-  mesh.instanceMatrix.clearUpdateRanges();
-  mesh.instanceMatrix.addUpdateRange(0, n * 16);
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) {
-    mesh.instanceColor.clearUpdateRanges();
-    mesh.instanceColor.addUpdateRange(0, n * 3);
-    mesh.instanceColor.needsUpdate = true;
-  }
 }
 
 /** A steady 0 to 1 from a number. */
@@ -618,10 +605,10 @@ export class BuildingGlow {
     }
     this.puffN = w;
     this.smokeMat.color.copy(SMOKE_DAY).lerp(SMOKE_NIGHT, this.dark);
-    show(this.panes, this.paneN);
-    show(this.flames, this.tongueN);
-    show(this.sparks, this.sparkN);
-    show(this.puffs, this.puffN);
+    showInstances(this.panes, this.paneN);
+    showInstances(this.flames, this.tongueN);
+    showInstances(this.sparks, this.sparkN);
+    showInstances(this.puffs, this.puffN);
     if (this.puffN > 0) {
       this.puffAlpha.clearUpdateRanges();
       this.puffAlpha.addUpdateRange(0, this.puffN);

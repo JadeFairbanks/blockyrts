@@ -11,6 +11,12 @@ import { BAKED_STRIDE, type BakedClip, type ModelData } from './library.ts';
 
 /** Texels per row of the bone texture (a multiple of 4, so a matrix never straddles rows). */
 const TEXTURE_WIDTH = 2048;
+/**
+ * Instances the bone texture has room for at first; it doubles as more are
+ * drawn, up to maxInstances. Sized for maxInstances from the start, a unit
+ * pool's texture took 5 to 16 MB, mostly empty, on the card and in memory.
+ */
+const FIRST_BONE_ROOM = 64;
 /** Most equipment parts a model may have (the body takes visibility slot 0). */
 export const MAX_PARTS = 63;
 
@@ -41,6 +47,13 @@ export const MarkMode = { Ids: 0, Own: 1, Outlined: 2, Hover: 3 } as const;
 const MARK_MODE: THREE.IUniform<number> = { value: MarkMode.Ids };
 export function setMarkMode(mode: number): void {
   MARK_MODE.value = mode;
+}
+
+/** Each InstancedModel by its scene object, so a pass over the scene can find the posed models in it. */
+const BY_OBJECT = new WeakMap<THREE.Object3D, InstancedModel>();
+/** The InstancedModel that draws this object, if one does. */
+export function instancedModelOf(object: THREE.Object3D): InstancedModel | undefined {
+  return BY_OBJECT.get(object);
 }
 
 /** A patch for the main material's shader, run after the model's own (the fog of war, world/fog-material.ts). */
@@ -130,6 +143,18 @@ void main() {
 }
 `;
 
+/** A bone texture with room for this many instances' matrices, and the array behind it. */
+function boneTextureFor(instances: number, bones: number): [Float32Array, THREE.DataTexture] {
+  const height = Math.max(1, Math.ceil((instances * bones * 4) / TEXTURE_WIDTH));
+  const data = new Float32Array(TEXTURE_WIDTH * height * 4);
+  const texture = new THREE.DataTexture(data, TEXTURE_WIDTH, height, THREE.RGBAFormat, THREE.FloatType);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return [data, texture];
+}
+
 function srgbToLinear(c: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
@@ -169,8 +194,10 @@ export class InstancedModel {
   private readonly geometry: THREE.InstancedBufferGeometry;
   private readonly material: THREE.MeshLambertMaterial;
   private readonly depthMaterial: THREE.MeshDepthMaterial;
-  private readonly boneTexture: THREE.DataTexture;
-  private readonly boneData: Float32Array;
+  private boneTexture: THREE.DataTexture;
+  private boneData: Float32Array;
+  /** Instances the bone texture has room for now. */
+  private boneRoom: number;
   private readonly team: THREE.InstancedBufferAttribute;
   /** Per instance: 0, or the id of a local player's unit (negative when it is to be outlined). */
   private readonly mark: THREE.InstancedBufferAttribute;
@@ -203,14 +230,8 @@ export class InstancedModel {
     this.inst = new Float32Array(this.maxInstances * INST_STRIDE);
     this.instClip = new Int32Array(this.maxInstances).fill(-1);
 
-    const texels = this.maxInstances * model.boneCount * 4;
-    const height = Math.max(1, Math.ceil(texels / TEXTURE_WIDTH));
-    this.boneData = new Float32Array(TEXTURE_WIDTH * height * 4);
-    this.boneTexture = new THREE.DataTexture(this.boneData, TEXTURE_WIDTH, height, THREE.RGBAFormat, THREE.FloatType);
-    this.boneTexture.magFilter = THREE.NearestFilter;
-    this.boneTexture.minFilter = THREE.NearestFilter;
-    this.boneTexture.generateMipmaps = false;
-    this.boneTexture.needsUpdate = true;
+    this.boneRoom = Math.min(this.maxInstances, FIRST_BONE_ROOM);
+    [this.boneData, this.boneTexture] = boneTextureFor(this.boneRoom, model.boneCount);
 
     this.geometry = new THREE.InstancedBufferGeometry();
     for (const name of ['position', 'normal', 'uv', 'bone', 'part']) {
@@ -292,6 +313,7 @@ export class InstancedModel {
     // Instances are placed by the bone texture, so the mesh's own bounds mean nothing.
     this.object.frustumCulled = false;
     this.object.visible = false;
+    BY_OBJECT.set(this.object, this);
   }
 
   /** Multiplies the model's texture by a colour (0xrrggbb), for every instance: a stand-in model dressed as another building. */
@@ -416,6 +438,14 @@ export class InstancedModel {
   /** Evaluates the clips for every drawn instance and uploads the bone texture. Call once per frame. */
   commit(): void {
     const bones = this.model.boneCount;
+    if (this.count > this.boneRoom) {
+      // Every drawn instance's matrices are written below, so the bigger texture starts empty.
+      while (this.boneRoom < this.count) this.boneRoom *= 2;
+      this.boneRoom = Math.min(this.boneRoom, this.maxInstances);
+      this.boneTexture.dispose();
+      [this.boneData, this.boneTexture] = boneTextureFor(this.boneRoom, bones);
+      this.uniforms.boneTexture_bf.value = this.boneTexture;
+    }
     const out = this.boneData;
     for (let i = 0; i < this.count; i++) {
       const o = i * INST_STRIDE;
@@ -461,10 +491,10 @@ export class InstancedModel {
         }
       }
     }
-    // Upload only the rows in use when that is a small part of the texture.
+    // Upload only the rows in use (the texture grows by doubling, so often half of it is spare).
     const rows = Math.ceil((this.count * bones * 4) / TEXTURE_WIDTH);
     this.boneTexture.clearUpdateRanges();
-    if (rows > 0 && rows * 2 < this.boneTexture.image.height) {
+    if (rows > 0 && rows < this.boneTexture.image.height) {
       for (let r = 0; r < rows; r++) this.boneTexture.addUpdateRange(r * TEXTURE_WIDTH * 4, TEXTURE_WIDTH * 4);
     }
     this.boneTexture.needsUpdate = true;

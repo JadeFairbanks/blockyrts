@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Res, RESOURCES, TRINKET_BASE, TRINKET_METALS } from '@blockyrts/sim';
+import { showInstances } from './instances.ts';
 
 /** The glitter's colours (AR-16, AR-17: silver white-grey, gold yellow), a touch brighter than the metal. */
 export const GOLD_GLINT = 0xffd75a;
@@ -124,9 +125,7 @@ class Pool {
       w++;
     }
     this.n = w;
-    this.mesh.count = w;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    showInstances(this.mesh, w);
   }
 }
 
@@ -210,9 +209,7 @@ class Steam {
       w++;
     }
     this.n = w;
-    this.mesh.count = w;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    showInstances(this.mesh, w);
   }
 }
 

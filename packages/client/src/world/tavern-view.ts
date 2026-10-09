@@ -15,6 +15,7 @@ import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { catalogueIds } from './buildings-view.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
+import { showInstances } from './instances.ts';
 
 /** One model unit, metres (16 to a column). */
 const U = COLUMN_M / 16;
@@ -184,8 +185,6 @@ export class TavernView {
   }
 
   private finish(m: THREE.InstancedMesh, n: number): void {
-    m.count = n;
-    m.instanceMatrix.needsUpdate = true;
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    showInstances(m, n);
   }
 }

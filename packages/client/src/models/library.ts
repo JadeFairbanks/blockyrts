@@ -135,6 +135,19 @@ function bake(gltfClip: THREE.AnimationClip | undefined, sidecar: ModelSidecar, 
   return { frames, data };
 }
 
+/**
+ * An attribute's first `size` components per vertex as a fresh Float32Array.
+ * A plain one (not interleaved, not normalised) is copied straight from its
+ * array, the same numbers as reading it value by value at a fraction of the
+ * cost; that cost was paid on the main thread for every model loaded.
+ */
+function floats(a: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, size: number): Float32Array {
+  if (!(a as THREE.InterleavedBufferAttribute).isInterleavedBufferAttribute && !a.normalized && size === a.itemSize) {
+    return Float32Array.from(a.array.subarray(0, a.count * size));
+  }
+  return Float32Array.from({ length: a.count * size }, (_, k) => a.getComponent(Math.floor(k / size), k % size));
+}
+
 async function loadModel(loader: GLTFLoader, baseUrl: string, entry: ModelIndex['models'][number]): Promise<ModelData> {
   const [sidecar, glbBytes] = await Promise.all([
     fetchOk(baseUrl + entry.json).then((r) => r.json() as Promise<ModelSidecar>),
@@ -160,12 +173,12 @@ async function loadModel(loader: GLTFLoader, baseUrl: string, entry: ModelIndex[
   for (const name of ['position', 'normal', 'uv'] as const) {
     const a = source.getAttribute(name);
     if (!a) throw new Error(`${entry.glb} has no ${name} attribute`);
-    geometry.setAttribute(name, new THREE.BufferAttribute(Float32Array.from({ length: a.count * a.itemSize }, (_, k) => a.getComponent(Math.floor(k / a.itemSize), k % a.itemSize)), a.itemSize));
+    geometry.setAttribute(name, new THREE.BufferAttribute(floats(a, a.itemSize), a.itemSize));
   }
   for (const [from, to] of [['_bone', 'bone'], ['_part', 'part']] as const) {
     const a = source.getAttribute(from);
     if (!a) throw new Error(`${entry.glb} has no ${from.toUpperCase()} attribute`);
-    geometry.setAttribute(to, new THREE.BufferAttribute(Float32Array.from({ length: a.count }, (_, k) => a.getX(k)), 1));
+    geometry.setAttribute(to, new THREE.BufferAttribute(floats(a, 1), 1));
   }
   if (source.index) geometry.setIndex(new THREE.BufferAttribute(Uint32Array.from(source.index.array), 1));
   source.dispose();

@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { School, Shot, Spell, SPELLS, type HitEvent } from '@blockyrts/sim';
 import { SpellOn } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
+import { showInstances } from './instances.ts';
 
 const SPRITES = import.meta.glob<string>(
   [
@@ -415,8 +416,7 @@ class GlowStatic {
 
   commit(visible: boolean): void {
     for (const e of this.meshes.values()) {
-      e.mesh.count = e.n;
-      e.mesh.instanceMatrix.needsUpdate = true;
+      showInstances(e.mesh, e.n);
       e.mesh.visible = visible;
       e.n = 0;
     }
