@@ -3,11 +3,12 @@
 // particle_spark_white) and a soft light, trails behind every bolt of magic in
 // flight, the bolts as their own models lit by their own light, each spell's
 // landing model played through its clips (rise, loop, fade), the Beam as a
-// stream of light out of the wand's tip, and Area blast's ring of force. It
+// stream of light out of the wand's tip, a spell's light gathering at the tip
+// while it is cast, and Area blast's ring of force. It
 // only reads what the state messages carry (hits, shots, beams, the spells on
 // a unit); nothing here goes back to the sim.
 import * as THREE from 'three';
-import { Shot, Spell, SPELLS, type HitEvent } from '@blockyrts/sim';
+import { School, Shot, Spell, SPELLS, type HitEvent } from '@blockyrts/sim';
 import { SpellOn } from '../messages.ts';
 import { InstancedModel, type ModelData, type ModelLibrary } from '../models/index.ts';
 
@@ -296,6 +297,9 @@ const BOLTS: Partial<Record<number, BoltLook>> = {
   [Shot.Thorn]: { sheet: 'green', tint: 0xffffff, rate: 16, size: 0.16, life: 0.35, halo: 0, glow: 0, sparks: 0, burst: 0, flash: 0 },
 };
 
+/** The glow at the wand's tip while a spell without a bolt is cast, by school: support gold-white, battle violet, the Grovesingers green. */
+const CAST_GLOW: Partial<Record<number, number>> = { [School.Support]: 0xfff0c8, [School.Battle]: 0xb890ff, [School.Grove]: 0xb8f0a0 };
+
 /** The bolts drawn here as their own models: the shot's model in the sim's table. */
 const BOLT_MODELS: Partial<Record<number, string>> = {
   [Shot.ArcaneBolt]: 'arcane_bolt',
@@ -580,6 +584,32 @@ export class SpellFx {
       for (let k = this.count(b.sparks * dt); k > 0; k--) this.mote('spark', tailX, tailY, tailZ, (Math.random() - 0.5) * 1.5, Math.random() * 1.2, (Math.random() - 0.5) * 1.5, 0.35, 0.1, sc, { gravity: 5 });
     }
     return model !== undefined || (id !== '' && this.lib?.listed(id) === true);
+  }
+
+  /**
+   * A mage casting (VX-5: "somewhat flashy effects ... to augment models for
+   * magic"): her spell's own light gathers at the wand's tip over the cast,
+   * motes drawn in from round her hand to a glow that pulses there.
+   */
+  casting(spell: number, tip: THREE.Vector3): void {
+    const s = SPELLS[spell];
+    if (!s) return;
+    const bolt = BOLTS[s.shot];
+    const l = LANDINGS[spell];
+    const c = this.colour.set(bolt?.tint ?? l?.colour ?? 0xffffff);
+    const sheet = bolt?.sheet ?? l?.sheet ?? 'violet';
+    for (let k = this.count(70 * this.dt); k > 0; k--) {
+      // From a point round the tip, straight in, so it reaches the tip as it fades.
+      const a = Math.random() * Math.PI * 2;
+      const e = (Math.random() - 0.5) * Math.PI;
+      const r = 0.4 + Math.random() * 0.3;
+      const life = 0.3 + Math.random() * 0.15;
+      const dx = Math.cos(a) * Math.cos(e) * r;
+      const dy = Math.sin(e) * r;
+      const dz = Math.sin(a) * Math.cos(e) * r;
+      this.mote(sheet, tip.x + dx, tip.y + dy, tip.z + dz, -dx / life, -dy / life, -dz / life, life, 0.3, c, { grow: -1.2 });
+    }
+    this.mote('glow', tip.x, tip.y, tip.z, 0, 0, 0, 0.06, 0.35 + 0.1 * Math.sin(this.t * 30), this.colour.set(bolt?.glow || CAST_GLOW[s.school] || 0xd8c8ff), { alpha: 0.85 });
   }
 
   /** The sparkle round a unit under spells (SpellOn bits), its feet at y and this tall. */

@@ -3575,7 +3575,8 @@ effects are `packages/client/src/world/spell-fx.ts`.*
    its own model with a glowing trail and bursts of light where it ends; the
    goblin mage's spark, the mana wraith's bolt and the flamecaller's
    hellfire fly as their own models too. A held Beam is a stream of light
-   from the wand's tip.
+   from the wand's tip, and while any spell is being cast its light gathers
+   at the tip of her wand.
 8. **Training.** Send a mage to rank training at a Magi Sanctum (U) and
    select the Sanctum: she shows under "Training 1" on a card the size of the
    queue's, with her bar filling, and a gold bar fills in the Sanctum's bar

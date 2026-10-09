@@ -678,8 +678,8 @@ export class UnitsView {
             const b = pool.bone(bone);
             if (b >= 0) this.attach.add(item, slot.m.boneWorld(slot.i, b, this.mat));
           }
-          // Patch 5 (MB-22): a held Beam leaves from her wand's tip.
-          const hand = kind === UnitKind.Mage && d[o + S.beam] !== 0 ? pool.bone('slot_hand_r') : -1;
+          // Patch 5 (MB-22, VX-5): a held Beam leaves from her wand's tip, and a spell's light gathers there while she casts.
+          const hand = kind === UnitKind.Mage && (d[o + S.beam] !== 0 || d[o + S.cast] !== 0) ? pool.bone('slot_hand_r') : -1;
           if (hand >= 0) this.tips.set(id, wandTip(slot.m, slot.i, hand, this.lib?.models.get(look.attach.find(([, b]) => b === 'slot_hand_r')?.[0] ?? ''), new THREE.Vector3()));
         }
       } else {
@@ -806,7 +806,7 @@ export class UnitsView {
     return blocks + 1;
   }
 
-  /** A held Beam (Patch 5, MB-22): a stream of light from her wand's tip (her hand before her pose is known) to the target's chest. */
+  /** A held Beam (Patch 5, MB-22): a stream of light from her wand's tip (her hand before her pose is known) to the target's chest; and the light of a spell being cast (VX-5). */
   private drawBeams(f: UnitsFrame): void {
     const d = f.curr.data;
     let k = 0;
@@ -820,6 +820,14 @@ export class UnitsView {
       const from = this.tips.get(d[o + S.id]!) ?? new THREE.Vector3(a.x, a.y + 1.1, a.z);
       this.spellFx.beam(from, new THREE.Vector3(b.x, b.y + 0.9, b.z));
       k++;
+    }
+    // Patch 5 (VX-5): a mage casting, her spell's light gathering at her wand's tip.
+    for (let i = 0; i < f.curr.count; i++) {
+      const o = i * STATE_STRIDE;
+      const cast = d[o + S.cast]!;
+      if (cast === 0 || d[o + S.beam] !== 0 || d[o + S.kind] !== UnitKind.Mage) continue;
+      const tip = this.tips.get(d[o + S.id]!);
+      if (tip && f.seen(tip.x, tip.z)) this.spellFx.casting(cast - 1, tip);
     }
   }
 
