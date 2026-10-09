@@ -18,12 +18,11 @@ import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts'
 import { forward } from '../combat/combat.ts';
 import { addMob, inheritRole } from '../combat/mob-ai.ts';
 import { Mob, type MobSpec } from '../combat/mobs.ts';
-import { isAnyRes } from '../economy/food-kinds.ts';
 import { Res } from '../economy/resources.ts';
 import { forgeStepOf } from '../buildings/production.ts';
 import { hash32 } from '../rng.ts';
 import { footprintWu, isGod, seesForSide, sightOf, buildingSight, type SimState } from '../state.ts';
-import { ARMOUR_KITS, CLOSE_KITS, TIER_NEEDS, TOP_TIER } from '../units/kits.ts';
+import { ARMOUR_KITS, CLOSE_KITS, LONG_KITS, RANGER_KITS, TIER_NEEDS, TOP_TIER } from '../units/kits.ts';
 import type { Rolled } from './loot.ts';
 import { Role } from './types.ts';
 
@@ -181,18 +180,17 @@ export function topKitTier(state: SimState, player: number): number {
 }
 
 /**
- * What one of his weapon or armour drops is, as loot. Until gear can lie on
- * the ground as an item (the Gear thread's GP-1), a weapon or armour in
- * plunder comes as the materials that made it, as a goblin's club does
- * (threats/loot.ts): the close-melee weapon or the armour of that tier,
- * its first way of paying, less any "either lumber". The Gear thread sets
- * this hook to drop the piece itself.
+ * What one of his weapon or armour drops is, as loot: the piece itself, a
+ * good of the stock's Gear row since Patch 5's GP-1 (units/kits.ts). A
+ * weapon is the close-melee, long-melee or ranger line's of that tier, by a
+ * roll; an armour is the tier's armour. Shields are neither (Jade, MB-5:
+ * "weapons OR armor").
  */
 export const necromancerHooks = {
-  gear: (_state: SimState, tier: number, armour: boolean): Array<[number, number]> => {
-    const kit = armour ? ARMOUR_KITS[tier] : CLOSE_KITS[tier];
-    const cost = kit?.cost[0] ?? [];
-    return cost.filter(([r]) => !isAnyRes(r)).map(([r, n]) => [r, n] as [number, number]);
+  gear: (state: SimState, tier: number, armour: boolean): Array<[number, number]> => {
+    const lines = armour ? [ARMOUR_KITS] : [CLOSE_KITS, LONG_KITS, RANGER_KITS];
+    const item = lines[lines.length === 1 ? 0 : state.rng.combat.nextInt(lines.length)]![tier]?.items[0];
+    return item === undefined ? [] : [[item, 1]];
   },
 };
 

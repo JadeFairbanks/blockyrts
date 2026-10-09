@@ -41,8 +41,13 @@ import {
   WU_PER_METRE,
   type SimState,
 } from '../src/index.ts';
+import { ARMOUR_KITS, CLOSE_KITS, LONG_KITS, RANGER_KITS } from '../src/units/kits.ts';
 
 const M = WU_PER_METRE;
+/** Every weapon and armour good, and those of tier 3 to 5. */
+const GEAR_LINES = [CLOSE_KITS, LONG_KITS, RANGER_KITS, ARMOUR_KITS];
+const GEAR_ANY = new Set<number>(GEAR_LINES.flatMap((t) => t.flatMap((k) => k.items)));
+const GEAR_3_TO_5 = new Set<number>(GEAR_LINES.flatMap((t) => t.filter((k) => k.tier >= 3 && k.tier <= 5).flatMap((k) => k.items)));
 const NIGHT_START = DAY_STEPS + DUSK_STEPS;
 
 /** The threat each player's planned night holds, at nightfall of a night. */
@@ -164,7 +169,7 @@ describe('the necromancer (MB-5)', () => {
     expect(raised().length).toBeGreaterThanOrEqual(first.length + 9);
   });
 
-  it('drops weapon or armour materials, ingots of one kind, bones and now and then a mana crystal', () => {
+  it('drops 2 to 4 weapons or armours of tier 3 to 5, ingots of one kind, bones and now and then a mana crystal', () => {
     const s = createWorld(3, { players: 1 });
     let crystals = 0;
     for (let k = 0; k < 400; k++) {
@@ -173,8 +178,11 @@ describe('the necromancer (MB-5)', () => {
       expect(bones).toBeGreaterThanOrEqual(2);
       expect(bones).toBeLessThanOrEqual(8);
       if (items.some(([r]) => r === Res.ManaCrystal)) crystals++;
-      // The pieces' metal: tier 3 to 5 for a town that can make no higher.
-      expect(items.some(([r]) => r === Res.CopperIngot || r === Res.BronzeIngot || r === Res.WroughtIron)).toBe(true);
+      // The pieces themselves, tier 3 to 5 for a town that can make no higher.
+      const pieces = items.filter(([r]) => GEAR_3_TO_5.has(r)).reduce((a, [, n]) => a + n, 0);
+      expect(pieces).toBeGreaterThanOrEqual(2);
+      expect(pieces).toBeLessThanOrEqual(4);
+      expect(items.some(([r]) => GEAR_ANY.has(r) && !GEAR_3_TO_5.has(r))).toBe(false);
     }
     expect(crystals).toBeGreaterThan(20);
     expect(crystals).toBeLessThan(70);

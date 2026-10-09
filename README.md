@@ -3450,9 +3450,11 @@ blueprint/patch5-mobs-picks.md.*
    in crimson round him, then again every 60 s, saying so in a bubble that
    stays 20 s. Every 10 s he casts his crimson bolt: 35 to whoever it hits
    and 35 to anyone within 0.5 m of it. He burns at dawn with his wave.
-   Killed, he drops metal and leather from 2 to 4 weapons or armours (tier 3
-   to 5, higher once you can make higher), 1 to 5 ingots of one kind, 2 to 8
-   bones and now and then a mana crystal.
+   Killed, he drops 2 to 4 weapons or armours, the pieces themselves for the
+   Gear row of the stock (tier 3 to 5, higher once you can make higher), 1 to
+   5 ingots of one kind (carbon steel among them), 2 to 8 bones and now and
+   then a mana crystal. Morvath's drain streams one white mote for every 2
+   health it takes.
 7. **Crystal guardians.** Go out to the Deadlands (Reveal shows the far
    bands). Each mana crystal there gets 2 or 3 ash golems and mana wraiths
    when one of your units first comes within 60 m. They glow with thin
