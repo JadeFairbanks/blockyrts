@@ -9,7 +9,7 @@ import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../b
 import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
-import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
+import { constructionHealth, footprintRect, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { isDark } from '../clock.ts';
 import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
@@ -26,7 +26,7 @@ import type { PropView } from '../world/world.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
-import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
+import { freePost, menOnTop, onTop, spreadTop, topRoom as roomUpTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
 import { digStairsOut, runDig, runStairs } from './dig.ts';
 import { toolNeeded, toolTier } from './tools.ts';
@@ -497,7 +497,8 @@ export function destroyBuilding(state: SimState, id: number): void {
     dropQueue(state, j);
     e.act[j] = Act.Start;
     resetWalk(state, j);
-    e.hp[j] = e.hp[j]! - floorDiv(e.maxHp[j]! * SHELTER_LOSS_PER_MILLE, 1000);
+    // A fixed engine falls with its Citadel's platform (Patch 5); its crew come down as the men up top do.
+    e.hp[j] = e.kind[j] === UnitKind.Engine ? 0 : e.hp[j]! - floorDiv(e.maxHp[j]! * SHELTER_LOSS_PER_MILLE, 1000);
     // Killed by the fall: settled with the step's other deaths.
     if (e.hp[j]! <= 0) {
       e.hp[j] = 0;
@@ -993,7 +994,8 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   const e = state.entities;
   const b = state.buildings.get(o.b);
   const worker = e.kind[i] === UnitKind.Worker;
-  const topRoom = b && canGarrison(state, i) ? garrisonRoom(b) : 0;
+  // A Citadel's engine platform takes men too while no engine stands there (Patch 5).
+  const topRoom = b && canGarrison(state, i) ? roomUpTop(state, b) : 0;
   const shelter = b && worker ? shelterRoom(b) : 0;
   const up = topRoom > 0 && (!worker || o.auto === ENTER_TOP);
   if (!b || b.owner !== e.owner[i] || (!up && shelter === 0)) return DONE;
@@ -1006,7 +1008,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
   // The top's places and the shelter's are counted apart.
-  const top = up && unitsOnTop(state, b.id).length < topRoom;
+  const top = up && menOnTop(state, b.id).length < topRoom;
   if (!top && (shelter === 0 || shelteredIn(state, b.id).length >= shelter)) {
     alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!, i);
     return DONE;
@@ -1030,7 +1032,7 @@ function shelterFallback(state: SimState): number {
 /** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
 function climbUp(state: SimState, i: number, b: Building, o: Extract<UnitOrder, { t: 'enter' }>, room: number): void {
   const e = state.entities;
-  if (unitsOnTop(state, b.id).filter((j) => j !== i).length >= room) {
+  if (menOnTop(state, b.id).filter((j) => j !== i).length >= room) {
     if (e.kind[i] === UnitKind.Worker) o.auto = shelterFallback(state);
     return;
   }
@@ -1394,9 +1396,6 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runMend(state, i, o);
     case 'retrain':
       return runRetrain(state, i, o);
-    case 'port':
-      // Only an engine takes a cannon port (siege/engines.ts runEngine).
-      return DONE;
     case 'loot':
       return runLoot(state, i, o);
     case 'forage':

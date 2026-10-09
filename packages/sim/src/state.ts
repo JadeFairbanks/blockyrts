@@ -822,7 +822,8 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
+/** Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its blast, smoke and crater). */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'fell' | 'bomb';
 
 export interface HitEvent {
   look: HitLook;

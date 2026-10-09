@@ -98,5 +98,6 @@ export * from './mounts/data.ts';
 export * from './mounts/riding.ts';
 export * from './siege/data.ts';
 export * from './siege/engines.ts';
+export * from './siege/platform.ts';
 export * from './threats/late-mobs.ts';
 export * from './threats/boss.ts';

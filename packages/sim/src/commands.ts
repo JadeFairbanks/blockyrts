@@ -3,9 +3,9 @@
 // checked here against the state: a player only orders their own units and
 // buildings, and units that cannot carry an order out ignore it.
 
-import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
+import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
-import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
+import { chainPiece, plannedSpots, stretchRoom, stretchSpots } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
@@ -29,14 +29,14 @@ import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside } from './units/behaviour.ts';
-import { unitsOnTop } from './units/top.ts';
+import { menOnTop, onTop, platformCrew, topRoom } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
-import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
+import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 
@@ -84,6 +84,8 @@ function ownUnits(state: SimState, player: number, ids: readonly number[], allie
   for (const id of ids) {
     const i = e.indexOf(id);
     if (i < 0 || seen.has(i) || !commandable(state, player, i, allies) || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Animal) continue;
+    // A fixed engine's garrison crewmen are stuck up on its platform for good (Patch 5, Jade's CT-3): they take no orders.
+    if (platformCrew(state, i)) continue;
     seen.add(i);
     out.push(i);
   }
@@ -262,6 +264,41 @@ export function enterOrder(state: SimState, i: number, b: Building): UnitOrder |
   return null;
 }
 
+/**
+ * Enter on a building (Patch 5, Jade's CT-3): no engine goes into one (the
+ * cannon ports are gone). Anyone on foot goes up a tower or a main base's top
+ * while there is room, in this order: ranged troops, the best armed first,
+ * then mages, then melee troops, then workers; a worker with no room up top
+ * shelters inside. Those with no room stay where they are.
+ */
+function orderEnter(state: SimState, o: { player: number; units: number[]; building: number; queued?: boolean }): void {
+  const e = state.entities;
+  const b = state.buildings.get(o.building);
+  if (!b) return;
+  const units = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner);
+  let free = topRoom(state, b) - menOnTop(state, b.id).length;
+  // Places already promised to units on their way up.
+  for (let j = 0; j < e.count; j++) {
+    const q = e.queue[j]![0];
+    if (q?.t === 'enter' && q.b === b.id && q.auto === ENTER_TOP && e.inside[j] !== b.id && !units.includes(j)) free--;
+  }
+  const group = (i: number): number => (e.kind[i] === UnitKind.Warrior ? (e.ranged[i] !== 0 ? 0 : 2) : e.kind[i] === UnitKind.Mage ? 1 : 3);
+  const order = [...units].sort((p, q) => group(p) - group(q) || e.wTier[q]! - e.wTier[p]! || e.rank[q]! - e.rank[p]! || e.aTier[q]! - e.aTier[p]! || p - q);
+  let full = false;
+  for (const i of order) {
+    let u = enterOrder(state, i, b);
+    if (u?.t === 'enter' && u.auto === ENTER_TOP && !(e.inside[i] === b.id && onTop(state, i))) {
+      if (free > 0) free--;
+      else {
+        full = true;
+        u = e.kind[i] === UnitKind.Worker && shelterRoom(b) > 0 ? { t: 'enter', b: b.id, auto: shelterAuto(state) } : null;
+      }
+    }
+    if (u) giveOrder(state, i, u, o.queued === true);
+  }
+  if (full) alert(state, o.player, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} has no more room up top.`);
+}
+
 /** A worker sent to shelter by its player: in the dark it goes in for the night and comes out at dawn once no monster is near (Jade's Patch 4: any worker that retreated there at night); by day it stays until let out. */
 function shelterAuto(state: SimState): number {
   return isDark(state.step) ? ENTER_NIGHT : 0;
@@ -303,9 +340,9 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
         let bestD = 0;
         for (const b of state.buildings.list) {
           if (b.owner !== e.owner[i]) continue;
-          const room = worker ? shelterRoom(b) : garrisonRoom(b);
+          const room = worker ? shelterRoom(b) : topRoom(state, b);
           if (room === 0) continue;
-          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : unitsOnTop(state, b.id).length);
+          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : menOnTop(state, b.id).length);
           if (taken.get(b.id)! >= room) continue;
           const [bx, bz] = buildingCentre(b);
           const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
@@ -343,7 +380,9 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
 function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretch' }>): void {
   const e = state.entities;
   const spec = buildingSpec(o.building);
-  if (spec.defence !== 'wall' || spec.w !== 1 || spec.d !== 1) return;
+  // Walls a column at a time; the earth rampart a 2 x 2 chunk at a time (Patch 5).
+  const size = chainPiece(spec);
+  if (size === 0) return;
   const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
   if (workers.length === 0) return;
   const why = buildRequirement(state, o.player, o.building);
@@ -360,7 +399,7 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   const cost = buildCost(state, o.player, o.building);
   const pool = state.players[o.player]!.pool;
   const { room, short } = stretchRoom((r) => haveOf(pool, r), owed, cost);
-  const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
+  const cells = stretchSpots(o.x, o.z, o.dir, o.length, size).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;
   // A column planned already, or with a wall standing or started on it (a chain closing on its anchor, or joining a wall built before), is passed over without a word.
@@ -480,20 +519,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (b) giveAll(state, o, (i) => (e.carryAmt[i]! > 0 && e.owner[i] === b.owner ? { t: 'dropoff', b: o.building } : null), true);
         break;
       }
-      case 'enter': {
-        const b = state.buildings.get(o.building);
-        if (!b) break;
-        // A cannon is hauled up into a Citadel's cannon port (Table 4).
-        const cannons = b.owner === o.player ? ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine) : [];
-        if (cannons.length > 0) {
-          const why = portWhy(state, cannons[0]!, b);
-          if (why) alert(state, o.player, why);
-          else for (const i of cannons) giveOrder(state, i, { t: 'port', b: b.id }, o.queued === true);
-        }
-        // Anyone on foot goes up a tower or a main base's top; workers shelter where there is no top (units/top.ts).
-        giveAll(state, o, (i) => (e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner ? enterOrder(state, i, b) : null), true);
+      case 'enter':
+        orderEnter(state, o);
         break;
-      }
       case 'unload': {
         const b = ownBuilding(state, o.player, o.building);
         if (!b) break;
