@@ -4634,24 +4634,27 @@ blueprint/site-gate-labeling-picks.md; how it works in deploy/README.md,
 "Sign-in page and search".*
 
 1. **The tests.** `pnpm test` runs packages/client/test/site-gate.test.ts
-   (a made-up `$2y$` bcrypt login: the browser's bcryptjs result signs in
-   and sets the cookie, a wrong password or user name does not, a bad or
-   expired cookie gets the sign-in page, no login set up serves nothing, and
-   the game's files skip the middleware) and packages/client/test/site.test.ts
-   (the page's title, description, preview tags and structured data say "a
-   learning project" and nowhere "game").
+   (made-up logins: Deploy's hash of the password is stable and takes the
+   password as typed, even one that looks like a bcrypt hash; the browser's
+   bcryptjs result signs in and sets the cookie, a wrong password or user
+   name does not, a bad or expired cookie gets the sign-in page, no login set
+   up serves nothing, and the game's files skip the middleware) and
+   packages/client/test/site.test.ts (the page's title, description, preview
+   tags and structured data say "a learning project" and nowhere "game").
 2. **On the live site, after the next deploy.** Opening
    https://play.surviveandconquer.cc shows "Survive and Conquer, A learning
    project. Sign in to continue." with a user name and password. User name
-   `Admin` (any capitals) and the password whose hash is in the
-   `SITE_LOGIN_HASH` secret open the main menu; anything else says "That
-   user name and password do not match." The browser stays signed in for 30
-   days. The page source of the sign-in page has the learning-project title
-   and description and no hash.
+   `Admin` (any capitals) and the password in the `SITE_PASSWORD` secret (or
+   `SITE_LOGIN_HASH`, its older name), typed exactly, open the main menu;
+   anything else says "That user name and password do not match." The
+   browser stays signed in for 30 days. The page source of the sign-in page
+   has the learning-project title and description and no hash.
 3. **Locally.** Build the client, then from `deploy/pages` run
    `npx wrangler@4 pages dev ../../packages/client/dist --binding
-   SITE_LOGIN_HASH=<a bcrypt hash>` (after copying `static/_routes.json`
-   into the dist folder) and sign in at http://localhost:8788.
+   SITE_LOGIN_HASH=<hash>` (after copying `static/_routes.json` into the dist
+   folder), where the hash is what `SITE_PASSWORD=<a password> node
+   deploy/scripts/site-login-cli.ts` prints, and sign in at
+   http://localhost:8788.
 
 ## How a tester checks the installable app
 

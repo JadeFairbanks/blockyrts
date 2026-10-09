@@ -49,9 +49,12 @@ describe('site', () => {
     expect(deploy).not.toMatch(/balance/i);
     expect(deploy).toContain('VITE_SITE_URL');
     expect(deploy).toContain('cp deploy/pages/static/_routes.json deploy/pages/static/_headers packages/client/dist/');
-    expect(deploy).toContain('pages secret put SITE_LOGIN_HASH --project-name blockyrts');
-    // The secret is checked before anything is built or pushed.
-    expect(deploy.indexOf('SITE_LOGIN_HASH secret is missing')).toBeLessThan(deploy.indexOf('pnpm install'));
+    expect(deploy).toContain('pages secret put SITE_LOGIN_HASH --project-name blockyrts <"$RUNNER_TEMP/site-login-hash"');
+    // The login is made from the password before anything is built or pushed.
+    expect(deploy).toContain('SITE_PASSWORD: ${{ secrets.SITE_PASSWORD || secrets.SITE_LOGIN_HASH }}');
+    const made = deploy.indexOf('node deploy/scripts/site-login-cli.ts >"$RUNNER_TEMP/site-login-hash"');
+    expect(made).toBeGreaterThan(deploy.indexOf('pnpm install'));
+    expect(made).toBeLessThan(deploy.indexOf('pnpm --filter @blockyrts/client build'));
   });
 
   it('keeps only the pages.dev addresses out of search results', () => {

@@ -1,11 +1,12 @@
 // The sign-in page in front of the site (deploy/pages/functions/_middleware.ts,
-// deploy/README.md). The login here is made up, in the same $2y$ bcrypt form
-// as the real one, which lives only in the SITE_LOGIN_HASH secret.
+// deploy/README.md). The logins here are made up; the real password lives only
+// in the SITE_PASSWORD secret, and its hash only in the Pages project.
 import { readdirSync, readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import bcrypt from 'bcryptjs';
 import { describe, expect, it } from 'vitest';
 import { COOKIE, COOKIE_DAYS, cookieOk, GATE_SCRIPT, LOGIN_PATH, loginPage, onRequest, readLogin, SITE_USER } from '../../../deploy/pages/functions/_middleware.ts';
+import { COST, loginHash, sitePassword } from '../../../deploy/scripts/site-login.ts';
 import { GATE_SCRIPT as BUILT_GATE_SCRIPT, gateScript, SITE_DESCRIPTION, SITE_IMAGE } from '../site.ts';
 
 const PASSWORD = 'not the real password';
@@ -21,15 +22,41 @@ const call = ({ path = '/', init = {}, env = { SITE_LOGIN_HASH: HASH }, host = '
   });
 
 /** What the sign-in page's browser script sends: bcrypt of the typed password, from the built bcryptjs file. */
-async function browserProof(password: string): Promise<string> {
+async function browserProof(password: string, salt = login.salt): Promise<string> {
   // A page's globals: only what a browser has (bcryptjs takes setTimeout there).
   const page: { setTimeout: typeof setTimeout; bcrypt?: { hash: (p: string, s: string) => Promise<string> } } = { setTimeout };
   runInNewContext(gateScript(), page);
-  return page.bcrypt!.hash(password, login.salt);
+  return page.bcrypt!.hash(password, salt);
 }
 
-const post = (body: unknown): Promise<Response> =>
-  call({ path: LOGIN_PATH, init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } });
+const post = (body: unknown, env?: Call['env']): Promise<Response> =>
+  call({ path: LOGIN_PATH, init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, ...(env ? { env } : {}) });
+
+describe('the login Deploy makes from the password', () => {
+  // A password that looks like a bcrypt hash is still just the password.
+  const typed = bcrypt.hashSync('anything', 4).replace(/^\$2b\$/, '$2y$');
+
+  it('takes the password as typed, trimmed, and nothing blank or over bcrypt\'s 72 bytes', () => {
+    expect(sitePassword(` ${typed}\n`)).toBe(typed);
+    expect(sitePassword('a'.repeat(72))).toBe('a'.repeat(72));
+    for (const bad of [undefined, '', ' \n', 'a'.repeat(73), 'é'.repeat(37)]) expect(sitePassword(bad)).toBeNull();
+  });
+
+  it('makes the same bcrypt hash every deploy, with a salt that says nothing about the password', () => {
+    const hash = loginHash(typed);
+    expect(hash).toMatch(new RegExp(`^\\$2b\\$${COST}\\$[./A-Za-z0-9]{53}$`));
+    expect(loginHash(typed)).toBe(hash);
+    expect(bcrypt.compareSync(typed, hash)).toBe(true);
+    expect(loginHash('another password').slice(0, 29)).toBe(hash.slice(0, 29));
+  });
+
+  it('signs in with exactly that password, and not with its look-alikes', async () => {
+    const env = { SITE_LOGIN_HASH: loginHash(typed) };
+    const salt = readLogin(env.SITE_LOGIN_HASH)!.salt;
+    expect((await post({ username: SITE_USER, proof: await browserProof(typed, salt) }, env)).status).toBe(204);
+    for (const wrong of [typed.toLowerCase(), typed.slice(0, -1), 'anything']) expect((await post({ username: SITE_USER, proof: await browserProof(wrong, salt) }, env)).status).toBe(401);
+  });
+});
 
 describe('site login', () => {
   it('reads a $2y$ bcrypt hash as $2b$, and nothing that is not bcrypt', () => {
