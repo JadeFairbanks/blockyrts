@@ -356,7 +356,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
           title: 'The circles’ keepers',
           text: 'Each kind of circle has its keepers, who come when your units first get within 60 m.',
           details: [
-            'Lunar circles: the Great White Ape, 1,500 health, tends a garden, sells fruit, honey and wine for silver, and fights the night’s monsters on his grounds. Take from his chests, cut his hawthorne or break his stones and he warns you first; push on and he rages, leaping in and throwing your units.',
+            'Lunar circles: the Great White Ape, 1,500 health, tends a garden, sells fruit, honey and wine for silver, and fights the night’s monsters on his grounds. Take from his chests, cut his hawthorne or break his stones and he warns you first; push on and he rages, throwing your units and leaping in with a thunderclap that deals 5 to 10 damage to every unit within 6 m as he lands.',
             'Silenus circles: Silenus feasts with his satyrs (2 Tricksters and 2 Revelers, 3 of each at the largest circles) until struck or robbed; then they fight. Pressed hard, Silenus turns into a sabretooth tiger.',
             'Boneyard circles: a Lich, hostile to everyone, guarded by 5 necromancers who raise the dead as the fight begins. His Acrid Wind leaves a grave-touch that wears units down, and he drains his own followers to heal.',
             'The Headless God Idol, found at a Boneyard, turns one night’s waves on a people of your choosing. It can be used again after 15 nights.',

@@ -24,6 +24,7 @@ import {
   DREADNOUGHT,
   DREADNOUGHT_KIT,
   DUSK_STEPS,
+  ENCOUNTERS,
   FERTILIZE_BONEMEAL,
   FOG_CHANCE_PCT,
   FOG_FROM_NIGHT,
@@ -651,7 +652,7 @@ export const GUIDES: readonly Guide[] = [
         heading: "The circles' keepers",
         paragraphs: ['Each kind of stone circle has its own keepers:'],
         bullets: [
-          `Lunar circles: the [[Great White Ape]], ${mob('Great White Ape').hp.toLocaleString('en-GB')} health, tends a garden, sells fruit, honey and wine for silver, and fights the night's monsters on his grounds. Take from his chests, cut his hawthorne or break his stones and he warns you first; push on and he rages, leaping in and throwing your units.`,
+          `Lunar circles: the [[Great White Ape]], ${mob('Great White Ape').hp.toLocaleString('en-GB')} health, tends a garden, sells fruit, honey and wine for silver, and fights the night's monsters on his grounds. Take from his chests, cut his hawthorne or break his stones and he warns you first; push on and he rages, throwing your units and leaping in with a thunderclap that deals ${ENCOUNTERS.ape.leap.min} to ${ENCOUNTERS.ape.leap.max} damage to every unit within ${ENCOUNTERS.ape.leap.radiusM} m as he lands.`,
           'Silenus circles: [[Silenus]] feasts with his satyrs until struck or robbed; then they fight. Pressed hard, Silenus turns into a sabretooth tiger.',
           'Boneyards: a [[Lich]], hostile to everyone, guarded by necromancers who raise the dead as the fight begins. His Acrid Wind leaves a grave-touch that wears units down, and he drains his own followers to heal.',
         ],
