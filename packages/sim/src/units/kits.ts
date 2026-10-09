@@ -339,7 +339,7 @@ const shield = (tier: number, what: What, model: string, need: number, blockPct:
 export const SHIELD_KITS: readonly ShieldKit[] = [
   shield(0, 'No shield', '', 0, 0, [[]], 0),
   shield(1, Res.WoodenShield, 'shield_wood', 1, 15, only([[PL, 3], [LE, 1]]), 20),
-  shield(2, Res.BoiledLeatherTarge, 'shield_wicker', 3, 20, only([[PL, 3], [HL, 1]]), 24),
+  shield(2, Res.BoiledLeatherTarge, 'shield_wicker', 3, 20, only([[PL, 3], [HL, 1]]), 25),
   shield(3, Res.IronRimmedHeaterShield, 'shield_iron_kite@iron_refined', 6, 25, only([[IRON, 3], [PL, 1], [LE, 1]]), 36),
   shield(4, Res.SteelHeaterShield, 'shield_steel_heater@steel', 7, 30, only([[STEEL, 3], [LE, 1]]), 39),
   shield(5, Res.SteelRotella, 'shield_steel_heater@hq_steel', 8, 30, only([[CS, 3], [LE, 1]]), 39),
