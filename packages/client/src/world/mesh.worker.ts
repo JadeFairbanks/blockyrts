@@ -54,8 +54,8 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
     const lr = lowRes(w, cx, cz, lod);
     const { land, water } = meshLowRes(lr);
     const heights = lr.top;
-    const transfer: Transferable[] = [land.positions.buffer, land.normals.buffer, land.colors.buffer, land.indices.buffer, heights.buffer];
-    if (water) transfer.push(water.positions.buffer, water.normals.buffer, water.colors.buffer, water.indices.buffer);
+    const transfer: Transferable[] = [land.positions.buffer, land.normals.buffer, land.colors.buffer, land.indices.buffer, land.mats.buffer, heights.buffer];
+    if (water) transfer.push(water.positions.buffer, water.normals.buffer, water.colors.buffer, water.indices.buffer, water.mats.buffer);
     post({ type: 'mesh', id, cx, cz, lod, land, water, cubes: null, props: [], wants: [], heights, size: lr.size, ms: performance.now() - started }, transfer);
     return;
   }
@@ -126,8 +126,8 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
   const heights = new Int16Array(N * N);
   for (let i = 0; i < N * N; i++) heights[i] = centre.top(i);
   const cubeArray = new Float32Array(cubes);
-  const transfer: Transferable[] = [land.positions.buffer, land.normals.buffer, land.colors.buffer, land.indices.buffer, heights.buffer, cubeArray.buffer];
-  if (water) transfer.push(water.positions.buffer, water.normals.buffer, water.colors.buffer, water.indices.buffer);
+  const transfer: Transferable[] = [land.positions.buffer, land.normals.buffer, land.colors.buffer, land.indices.buffer, land.mats.buffer, heights.buffer, cubeArray.buffer];
+  if (water) transfer.push(water.positions.buffer, water.normals.buffer, water.colors.buffer, water.indices.buffer, water.mats.buffer);
   post({ type: 'mesh', id, cx, cz, lod, land, water, cubes: cubeArray, props, wants: [...wants], heights, size: N, ms: performance.now() - started }, transfer);
 }
 
@@ -157,9 +157,14 @@ function minimap(id: number, cx: number, cz: number): void {
 self.onmessage = (ev: MessageEvent<ToMesh>) => {
   const msg = ev.data;
   switch (msg.type) {
-    case 'init':
+    case 'init': {
       world = new World(msg.seed, msg.players);
+      // Where the bands lie, for the land's textures: measured from the start pockets once they are placed.
+      void world.gen.start;
+      const layout = world.layout;
+      post({ type: 'bands', anchors: layout.bandAnchors.map((a): [number, number] => [a.x, a.z]), starts: [...layout.bandStarts] }, []);
       break;
+    }
     case 'deltas':
       for (const d of msg.deltas) applyChunkDelta(world!, d);
       break;

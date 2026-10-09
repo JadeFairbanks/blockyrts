@@ -18,6 +18,8 @@ export interface MeshArrays {
   positions: Float32Array;
   normals: Int8Array;
   colors: Uint8Array;
+  /** Each vertex's material (sim Mat), for the land's textures; 255 for none. */
+  mats: Uint8Array;
   indices: Uint32Array;
 }
 
@@ -26,9 +28,10 @@ export class QuadBuffer {
   private pos: number[] = [];
   private nrm: number[] = [];
   private col: number[] = [];
+  private mat: number[] = [];
   quads = 0;
 
-  add(x: number, y: number, z: number, ux: number, uy: number, uz: number, vx: number, vy: number, vz: number, nx: number, ny: number, nz: number, rgb: number): void {
+  add(x: number, y: number, z: number, ux: number, uy: number, uz: number, vx: number, vy: number, vz: number, nx: number, ny: number, nz: number, rgb: number, mat = 255): void {
     // (u x v) must point along n for counter-clockwise front faces.
     const cx = uy * vz - uz * vy;
     const cy = uz * vx - ux * vz;
@@ -45,6 +48,7 @@ export class QuadBuffer {
     for (let k = 0; k < 4; k++) {
       this.nrm.push(nx * 127, ny * 127, nz * 127);
       this.col.push(r, g, b);
+      this.mat.push(mat);
     }
     this.quads++;
   }
@@ -55,7 +59,7 @@ export class QuadBuffer {
       const v = q * 4;
       indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
     }
-    return { positions: new Float32Array(this.pos), normals: new Int8Array(this.nrm), colors: new Uint8Array(this.col), indices };
+    return { positions: new Float32Array(this.pos), normals: new Int8Array(this.nrm), colors: new Uint8Array(this.col), mats: new Uint8Array(this.mat), indices };
   }
 }
 
@@ -144,7 +148,7 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
       }
       for (let r = 0; r < d; r++) done.fill(1, (lz + r) * N + lx, (lz + r) * N + lx + w);
       const top = Math.floor(k / 256) - 32768;
-      q.add(lx * COLUMN_M, top * UNIT_M, lz * COLUMN_M, w * COLUMN_M, 0, 0, 0, 0, d * COLUMN_M, 0, 1, 0, colourOf(k & 255));
+      q.add(lx * COLUMN_M, top * UNIT_M, lz * COLUMN_M, w * COLUMN_M, 0, 0, 0, 0, d * COLUMN_M, 0, 1, 0, colourOf(k & 255), k & 255);
     }
   }
 
@@ -160,8 +164,8 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
       const y1 = L[s + k * 3 + 1]!;
       const m = L[s + k * 3 + 2]!;
       // Only where air touches: layers often sit right on one another.
-      if (k < n - 1 && L[s + (k + 1) * 3]! > y1) q.add(lx * COLUMN_M, y1 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, 1, 0, colourOf(m));
-      if (k > 0 && L[s + (k - 1) * 3 + 1]! < y0) q.add(lx * COLUMN_M, y0 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, -1, 0, colourOf(m));
+      if (k < n - 1 && L[s + (k + 1) * 3]! > y1) q.add(lx * COLUMN_M, y1 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, 1, 0, colourOf(m), m);
+      if (k > 0 && L[s + (k - 1) * 3 + 1]! < y0) q.add(lx * COLUMN_M, y0 * UNIT_M, lz * COLUMN_M, COLUMN_M, 0, 0, 0, 0, COLUMN_M, 0, -1, 0, colourOf(m), m);
     }
   }
 
@@ -179,8 +183,8 @@ export function meshChunk(h: ChunkNeighbourhood): MeshArrays {
         const y1 = (rest % 32768) - 16384;
         const y0 = Math.floor(rest / 32768) - 16384;
         const plane = (sign > 0 ? a + 1 : a) * COLUMN_M;
-        if (alongX) q.add(plane, y0 * UNIT_M, from * COLUMN_M, 0, 0, (to - from) * COLUMN_M, 0, (y1 - y0) * UNIT_M, 0, sign, 0, 0, colourOf(mat));
-        else q.add(from * COLUMN_M, y0 * UNIT_M, plane, (to - from) * COLUMN_M, 0, 0, 0, (y1 - y0) * UNIT_M, 0, 0, 0, sign, colourOf(mat));
+        if (alongX) q.add(plane, y0 * UNIT_M, from * COLUMN_M, 0, 0, (to - from) * COLUMN_M, 0, (y1 - y0) * UNIT_M, 0, sign, 0, 0, colourOf(mat), mat);
+        else q.add(from * COLUMN_M, y0 * UNIT_M, plane, (to - from) * COLUMN_M, 0, 0, 0, (y1 - y0) * UNIT_M, 0, 0, 0, sign, colourOf(mat), mat);
       };
       for (let b = 0; b <= N; b++) {
         seen.clear();
@@ -317,14 +321,15 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
         d++;
       }
       for (let r = 0; r < d; r++) done.fill(1, (j + r) * size + i, (j + r) * size + i + w);
-      q.add(i * cell, (Math.floor(k / 256) - 32768) * UNIT_M, j * cell, w * cell, 0, 0, 0, 0, d * cell, 0, 1, 0, colourOf(k & 255));
+      q.add(i * cell, (Math.floor(k / 256) - 32768) * UNIT_M, j * cell, w * cell, 0, 0, 0, 0, d * cell, 0, 1, 0, colourOf(k & 255), k & 255);
     }
   }
   for (let j = 0; j < size; j++) {
     for (let i = 0; i < size; i++) {
       const k = j * size + i;
       const top = lr.top[k]!;
-      const colour = colourOf(lr.material[k] === 1 || lr.material[k] === 2 ? 3 : lr.material[k]!);
+      const sideMat = lr.material[k] === 1 || lr.material[k] === 2 ? 3 : lr.material[k]!;
+      const colour = colourOf(sideMat);
       for (const [di, dj] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
         const ni = i + di;
         const nj = j + dj;
@@ -333,8 +338,8 @@ export function meshLowRes(lr: LowResChunk): { land: MeshArrays; water: MeshArra
         if (low >= top) continue;
         const y0 = low * UNIT_M;
         const y1 = top * UNIT_M;
-        if (di !== 0) q.add((di > 0 ? i + 1 : i) * cell, y0, j * cell, 0, 0, cell, 0, y1 - y0, 0, di, 0, 0, colour);
-        else q.add(i * cell, y0, (dj > 0 ? j + 1 : j) * cell, cell, 0, 0, 0, y1 - y0, 0, 0, 0, dj, colour);
+        if (di !== 0) q.add((di > 0 ? i + 1 : i) * cell, y0, j * cell, 0, 0, cell, 0, y1 - y0, 0, di, 0, 0, colour, sideMat);
+        else q.add(i * cell, y0, (dj > 0 ? j + 1 : j) * cell, cell, 0, 0, 0, y1 - y0, 0, 0, 0, dj, colour, sideMat);
       }
       const w = lr.water[k]!;
       if (w !== NO_WATER && w > top * WATER_PER_UNIT) wq.add(i * cell, (w / WATER_PER_UNIT) * UNIT_M, j * cell, cell, 0, 0, 0, 0, cell, 0, 1, 0, 0x3b6fa8);

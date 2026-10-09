@@ -66,6 +66,7 @@ import { shotSound } from '../audio/sound-map.ts';
 import { Overlay } from './overlay.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
+import { loadTerrainTextures, setTerrainBands, terrainPatch, terrainUniforms } from './terrain-textures.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
 import { HoverOutline, type HoverParts } from './hover-outline.ts';
 import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
@@ -155,6 +156,7 @@ function geometryOf(a: MeshArrays): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.BufferAttribute(a.positions, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(a.normals, 3, true));
   g.setAttribute('color', new THREE.BufferAttribute(a.colors, 3, true));
+  g.setAttribute('mat', new THREE.BufferAttribute(a.mats, 1));
   g.setIndex(new THREE.BufferAttribute(a.indices, 1));
   g.computeBoundingSphere();
   return g;
@@ -215,6 +217,8 @@ export class WorldView {
   private nextId = 1;
   private readonly chunks = new Map<string, ChunkView>();
   private readonly terrainMat: THREE.MeshLambertMaterial;
+  /** The land's tiles and where the bands lie, for its shader. */
+  private readonly terrain = terrainUniforms();
   private readonly waterMat: THREE.MeshLambertMaterial;
   private readonly cubeMat: THREE.MeshLambertMaterial;
   private readonly cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
@@ -309,7 +313,15 @@ export class WorldView {
     tex.needsUpdate = true;
     this.fow = { fowTex: { value: tex }, fowArea: { value: new THREE.Vector3(0, 0, FOW_TILES * FOW_TILE_M) }, fowAll: { value: 0 } };
     this.terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-    patchMaterial(this.terrainMat, this.fow, true);
+    // The land's pixel tiles (Patch 5, VX-1) over the fog of war's patch; flat colour and noise until they load.
+    const fog = fowPatch(this.fow, false);
+    const tiles = terrainPatch(this.terrain);
+    this.terrainMat.onBeforeCompile = (shader) => {
+      fog(shader);
+      tiles(shader);
+    };
+    this.terrainMat.customProgramCacheKey = () => 'fow-terrain';
+    void loadTerrainTextures(this.terrain).catch((err: unknown) => console.warn('terrain textures not loaded; drawing flat colours', err));
     this.waterMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false });
     patchMaterial(this.waterMat, this.fow, false);
     this.cubeMat = new THREE.MeshLambertMaterial();
@@ -399,9 +411,21 @@ export class WorldView {
     this.portrait.setModels(lib);
     this.propModels.setModels(lib);
     for (const id of lib.models.keys()) if (PROP_VIEW_IDS.has(id)) this.propModelsNew.push(id);
+    for (const c of this.chunks.values()) this.askPropModels(c.wants);
     lib.onLoad((m) => {
       if (PROP_VIEW_IDS.has(m.id)) this.propModelsNew.push(m.id);
     });
+  }
+
+  /** The prop models chunks in view are waiting for load next. */
+  private askPropModels(ids: readonly string[]): void {
+    const lib = this.models;
+    if (!lib) return;
+    for (const id of ids) {
+      if (this.propModelsAsked.has(id)) continue;
+      this.propModelsAsked.add(id);
+      lib.request(id);
+    }
   }
 
   /**
@@ -815,6 +839,10 @@ export class WorldView {
   }
 
   private onMesh(msg: FromMesh, worker: number): void {
+    if (msg.type === 'bands') {
+      setTerrainBands(this.terrain, msg.anchors.map(([x, z]) => ({ x: x * COLUMN_M, z: z * COLUMN_M })), msg.starts.map((s) => s * COLUMN_M));
+      return;
+    }
     if (msg.type === 'minimap') {
       this.onMinimap(msg.cx, msg.cz, msg.rgba);
       return;
@@ -855,12 +883,7 @@ export class WorldView {
     c.models = [];
     for (const p of m.props) if (p.model) c.models.push({ key: `p:${c.cx},${c.cz}:${p.index}`, kind: p.kind, variant: p.variant, ox: c.cx * CHUNK_M, oz: c.cz * CHUNK_M, model: p.model });
     c.wants = m.wants;
-    // Its models load next.
-    for (const id of m.wants) {
-      if (this.propModelsAsked.has(id)) continue;
-      this.propModelsAsked.add(id);
-      this.models?.request(id);
-    }
+    this.askPropModels(m.wants);
     this.propModels.invalidate();
     c.meshedAt = performance.now();
   }

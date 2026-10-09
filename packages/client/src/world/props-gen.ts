@@ -348,6 +348,8 @@ function flaxCubes(look: number, tall: boolean, s: number, grown: boolean, r: Ra
 
 /** Adds one prop's cubes. */
 export function propCubes(p: PropLike, out: number[]): void {
+  // The stone circles' pieces are only ever Jade's models (prop-models.ts): nothing until they load.
+  if (p.kind >= PropKind.Trilithon && p.kind <= PropKind.CirclePine) return;
   const r = new Rand(p.variant);
   // Place within the column, off-centre a little.
   const x = (p.lx + 0.5) * COLUMN_M + r.range(-0.1, 0.1);

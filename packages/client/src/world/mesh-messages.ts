@@ -84,4 +84,11 @@ export interface MinimapResult {
   rgba: Uint8ClampedArray;
 }
 
-export type FromMesh = MeshResult | MinimapResult;
+/** Where the bands lie (columns): the main bases they are measured from, and where each after the Heartland starts. */
+export interface BandsResult {
+  type: 'bands';
+  anchors: Array<[number, number]>;
+  starts: number[];
+}
+
+export type FromMesh = MeshResult | MinimapResult | BandsResult;
