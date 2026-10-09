@@ -164,6 +164,7 @@ const GOODS: Partial<Record<number, string>> = {
   [Res.MoonRose]: 'moon_rose',
   [Res.Stone]: 'stone_chunk',
   [Res.Flint]: 'flint_nodule',
+  [Res.Obsidian]: 'obsidian',
   [Res.Coal]: 'coal_lump',
   [Res.Leather]: 'leather_folded',
   [Res.HardenedLeather]: 'leather_folded',
