@@ -10,7 +10,8 @@
 // is red. The Deadlands' volcanic rock glows along its cracks, and the water
 // takes the art set's animated tiles: shallow, deep (where units cannot wade)
 // and bog, with foam along the shore. The players' buildings wear the ground
-// round them (ground-marks.ts): trodden paths, and a Farm's tilled field.
+// round them (ground-marks.ts): trodden paths, and a Farm's tilled field; the
+// Big House stands on the ground it is on, drawn as grass if any of it is.
 import * as THREE from 'three';
 import { Mat } from '@blockyrts/sim';
 import type { ShaderPatch } from './fog-material.ts';
@@ -265,6 +266,11 @@ float groundMark(vec2 cell) {
   ivec2 m = ivec2(cell - terrainMarkOrigin);
   if (m.x < 0 || m.y < 0 || m.x >= ${MARK_COLUMNS} || m.y >= ${MARK_COLUMNS}) return 0.0;
   return floor(texelFetch(terrainMarks, m, 0).r * 255.0 + 0.5);
+}
+// Ground a path's grassy edge faces: no path or field on it.
+bool pathOpen(vec2 cell) {
+  float m = groundMark(cell);
+  return m < ${Mark.Path - 0.5} || m > ${Mark.TilledWet + 0.5};
 }`,
       )
       .replace(
@@ -295,16 +301,20 @@ float groundMark(vec2 cell) {
         if (mark > ${Mark.Path - 0.5} && mark < ${Mark.Path + 0.5}) {
           // A path: plain inside; at its edge one of the tiles with a grassy edge along row 0, turned to face the unmarked ground (0 -z, 1 +x, 2 +z, 3 -x).
           layer = ${markBase('path')}.0;
-          float edge = groundMark(cell + vec2(0.0, -1.0)) < 0.5 ? 0.0 : groundMark(cell + vec2(1.0, 0.0)) < 0.5 ? 1.0 : groundMark(cell + vec2(0.0, 1.0)) < 0.5 ? 2.0 : groundMark(cell + vec2(-1.0, 0.0)) < 0.5 ? 3.0 : -1.0;
+          float edge = pathOpen(cell + vec2(0.0, -1.0)) ? 0.0 : pathOpen(cell + vec2(1.0, 0.0)) ? 1.0 : pathOpen(cell + vec2(0.0, 1.0)) ? 2.0 : pathOpen(cell + vec2(-1.0, 0.0)) ? 3.0 : -1.0;
           if (edge >= 0.0) {
             layer += 1.0 + floor(h * 3.0);
             turn = edge;
           }
-        } else if (mark > ${Mark.Path + 0.5}) {
+        } else if (mark > ${Mark.Path + 0.5} && mark < ${Mark.TilledWet + 0.5}) {
           // A field: its furrows run along x, so it turns only half way round.
           layer = (mark > ${Mark.TilledWet - 0.5} ? ${markBase('soil_tilled_wet')}.0 : ${markBase('soil_tilled')}.0) + floor(h * 4.0);
           turn = turn >= 2.0 ? 2.0 : 0.0;
-        } else layer += floor(h * 4.0);
+        } else {
+          // Under the Big House: the band's grass (or dry grass) when any of it touches grass, else its own ground.
+          if (mark > ${Mark.Grass - 0.5} && mark < ${Mark.DryGrass + 0.5}) layer = texelFetch(terrainTable, ivec2(mark < ${Mark.Grass + 0.5} ? ${Mat.Grass} : ${Mat.DryGrass}, band), 0).r * 255.0;
+          layer += floor(h * 4.0);
+        }
         if (turn == 1.0) f = vec2(f.y, 1.0 - f.x);
         else if (turn == 2.0) f = 1.0 - f;
         else if (turn == 3.0) f = vec2(1.0 - f.y, f.x);
