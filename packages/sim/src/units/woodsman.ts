@@ -23,10 +23,10 @@ import { LONG_KITS, Troop, type Piece } from './kits.ts';
  */
 export const WOODSMAN = { food: 32, trainS: 30, damageLess: 2 };
 
-/** His own kit beside his weapon (Jade's WD-1: the leather or hides and the flax): his fishing rod and line and his leather pack, drawn on his model while he fishes (FR-2). */
+/** His own kit beside his weapon (Jade's WD-1: the leather or hides and the flax): his fishing rod and line, drawn in his hand only while he fishes (FR-2: "the model doesn't walk around with this showing"). */
 const WOODS_KIT: Piece = {
   tier: 1,
-  name: 'Fishing rod and pack',
+  name: 'Fishing rod and line',
   model: 'fishing_rod',
   cost: [
     [[Res.Leather, 1], [Res.Flax, 4]],
@@ -36,7 +36,7 @@ const WOODS_KIT: Piece = {
   need: 1,
 };
 
-/** What a new woodsman is paid for and made with: the wooden spear (Table 2d tier 1, 4 sticks) and his rod and pack. */
+/** What a new woodsman is paid for and made with: the wooden spear (Table 2d tier 1, 4 sticks) and his rod and line. */
 export const WOODSMAN_KIT: readonly Piece[] = [LONG_KITS[1]!, WOODS_KIT];
 /** His Command card letter at the Scholar's Lodge (no research there uses W). */
 export const WOODSMAN_KEY = 'W';

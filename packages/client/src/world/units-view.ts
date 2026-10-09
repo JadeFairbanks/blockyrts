@@ -136,8 +136,8 @@ function wear(look: Look, piece: string, parts: readonly string[], stow: number 
   look.attach.push([piece, slot || (stow === Stow.Back ? 'slot_back' : stow === Stow.Hip ? 'slot_hip_r' : slotOf(piece)), stow]);
 }
 
-/** Long pieces stowed point up (polearms, bows and guns, and the woodsman's rod); the rest hilt up, blade down. */
-const POINT_UP = /^(spear|pike|halberd|bow|crossbow|musket|fishing_rod)/;
+/** Long pieces stowed point up (polearms, bows and guns); the rest hilt up, blade down. */
+const POINT_UP = /^(spear|pike|halberd|bow|crossbow|musket)/;
 /** A stowed piece's turn from how it is held, by Stow and whether it points up: slanted across the back, straight down at the hip. */
 const STOW_TURN: Readonly<Record<string, THREE.Matrix4>> = {
   [`${Stow.Back}up`]: new THREE.Matrix4().makeRotationZ(0.45).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)),
@@ -1875,10 +1875,11 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
 }
 
 /**
- * The woodsman's look (Patch 5, Jade's WD-1 to WD-6): his long weapon in
- * hand, and his fishing rod on his back; while he fishes the rod (his body's
- * own part) is in his hand and the weapon on his back, while he forages both
- * are on his back. His clip: the blow of the weapon, hurt, swimming,
+ * The woodsman's look (Patch 5, Jade's WD-3, WD-6 and FR-2): his long weapon
+ * in hand; while he fishes his rod (his body's own part: "a visual fishing
+ * rod that does not need to be built ... the model doesn't walk around with
+ * this showing") is in his hand and the weapon on his back, and while he
+ * forages the weapon is on his back, his hands free. His clip: the blow of the weapon, hurt, swimming,
  * climbing, running away or walking, then casting his line and waiting for
  * the bite (cast again each time a fish comes up), picking low or high, on
  * guard with a target, else standing.
@@ -1892,7 +1893,6 @@ function woodsmanLook(d: Int32Array, o: number, body: ModelData | null, c: LookC
   const working = fishing || order === OrderKind.ForageLow || order === OrderKind.ForageHigh;
   for (const p of piecesOf(weapon)) wear(look, p, parts, working ? Stow.Back : Stow.None);
   if (fishing) wear(look, 'fishing_rod', parts);
-  else wear(look, 'fishing_rod', parts, Stow.Back, 'slot_quiver');
   const clip = warriorClip(d, o, weapon, c);
   const busy = d[o + S.swing] !== 0 || (d[o + S.flags]! & UnitFlag.Hurt) !== 0 || c.moving;
   if (fishing && !busy && body) {

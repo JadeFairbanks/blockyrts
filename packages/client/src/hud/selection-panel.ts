@@ -932,7 +932,7 @@ export class SelectionPanel {
         { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
       ];
     }
-    // The woodsman (Patch 5): his long weapon and his rod and pack, drawn while he fishes; no armour (Jade's WD-2).
+    // The woodsman (Patch 5): his long weapon, and his rod and line, drawn while he fishes; no armour (Jade's WD-2).
     if (u.troop === Troop.Woodsman) {
       const rod = WOODSMAN_KIT[1]!;
       return [
