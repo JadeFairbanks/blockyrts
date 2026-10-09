@@ -33,7 +33,7 @@ import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary
 import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
 import type { OwnDraw } from './hidden-outlines.ts';
-import { SpellFx, wandTip } from './spell-fx.ts';
+import { aimAlong, flightClip, ModelPools, SpellFx, wandTip } from './spell-fx.ts';
 import { Hearts } from './hearts.ts';
 
 const STEP_MS = 50;
@@ -969,6 +969,8 @@ export class UnitsView {
   private readonly ownedPool: OwnDraw[] = [];
   private readonly asked = new Set<string>();
   private readonly attach: AttachPool;
+  /** Shot models that play their own loop in flight (Jade's crimson and fairy bolts; PRE-3), tilted along their arc. */
+  private readonly flying: ModelPools;
   private readonly halos: Halos;
   private readonly particles: Particles;
   private readonly hearts: Hearts;
@@ -1038,6 +1040,7 @@ export class UnitsView {
     this.bodyGroup.name = 'unit models';
     scene.add(this.bodyGroup);
     this.attach = new AttachPool(scene, null);
+    this.flying = new ModelPools(scene, MAX_SHOTS, 0);
     this.halos = new Halos(scene);
     this.particles = new Particles(scene);
     this.hearts = new Hearts(scene);
@@ -1158,6 +1161,7 @@ export class UnitsView {
   /** Hides (or shows again) what hangs on or flies round the units, which hides nothing: carried items, loads, shots, beams and bursts. */
   hideExtras(hidden: boolean): void {
     this.attach.setVisible(!hidden);
+    this.flying.setVisible(!hidden);
     this.halos.mesh.visible = !hidden;
     this.loads.visible = !hidden;
     this.shots.visible = !hidden;
@@ -1703,6 +1707,7 @@ export class UnitsView {
     this.loads.instanceMatrix.needsUpdate = true;
     if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
     this.drawShots(f, prev ? alpha : 1, dt);
+    this.flying.commit();
     this.drawBeams(f);
     this.particles.update(dt);
     this.spellFx.end(this.where);
@@ -1927,6 +1932,15 @@ export class UnitsView {
       }
       const model = SHOT_MODELS[s[o + 6]!];
       if (model && this.lib?.listed(model)) {
+        // A model with a loop of its own plays it as it flies (PRE-3: "Make sure to use all of what I give you"), tilted along its arc.
+        const data = this.lib.models.get(model);
+        const loop = data ? flightClip(data) : '';
+        const slot = data && loop ? this.flying.take(data) : null;
+        if (slot) {
+          const { heading, pitch } = aimAlong(dir, SHOT_MODELS_BACKWARD.has(s[o + 6]!));
+          slot.m.setInstance(slot.i, x, y, z, heading, loop, f.now / 1000, null, size, pitch);
+          continue;
+        }
         dummy.scale.set(size, size, size);
         dummy.updateMatrix();
         this.attach.add(model, dummy.matrix);
