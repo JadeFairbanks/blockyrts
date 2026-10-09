@@ -253,7 +253,13 @@ export type ServerMessage =
    * for a new world built from the room's seed.
    */
   | { type: 'gameStart'; startStep: number; inputDelay: number; epoch: number; activeSlots: number; snapshot: Uint8Array }
-  | { type: 'frame'; frame: WireFrame }
+  /**
+   * Players' frames, for one or more steps. The relay sends a step's frames
+   * together once every playing slot's is in (a step cannot run before its
+   * last frame anyway), and a stalled step's frames after a short wait, so
+   * a page can still name who it is waiting for.
+   */
+  | { type: 'frames'; frames: WireFrame[] }
   /**
    * Whether the match is stopped and why. `held`: a player's pause is in
    * force (whatever else the match also waits on), put there by `bySlot`.
@@ -296,7 +302,7 @@ const S = {
   error: 101,
   roomState: 102,
   gameStart: 103,
-  frame: 104,
+  // 104 was a single frame, before frames went out a step at a time (protocol 6).
   pauseState: 105,
   hostChoiceNeeded: 106,
   inputDelay: 107,
@@ -309,6 +315,7 @@ const S = {
   chat: 114,
   mapPing: 115,
   pauseToggled: 116,
+  frames: 117,
 } as const;
 
 function writeFrame(w: Writer, f: WireFrame): void {
@@ -338,8 +345,25 @@ function enumValue<T extends number>(v: number, max: number, what: string): T {
   return v as T;
 }
 
+/** Room for a message's frames, so encoding them never has to grow the buffer. */
+function framesSize(frames: readonly WireFrame[]): number {
+  let n = 8;
+  for (const f of frames) n += 12 + f.orders.length;
+  return n;
+}
+
 export function encodeServer(m: ServerMessage): Uint8Array {
-  const w = new Writer(64);
+  const w = new Writer(
+    m.type === 'frames'
+      ? framesSize(m.frames)
+      : m.type === 'loadSnapshot'
+        ? 32 + m.data.length + framesSize(m.frames)
+        : m.type === 'resume'
+          ? 32 + framesSize(m.frames)
+          : m.type === 'gameStart'
+            ? 32 + m.snapshot.length
+            : 64,
+  );
   w.u8(S[m.type]);
   switch (m.type) {
     case 'welcome':
@@ -356,8 +380,8 @@ export function encodeServer(m: ServerMessage): Uint8Array {
     case 'gameStart':
       w.u32(m.startStep).u8(m.inputDelay).u16(m.epoch).u8(m.activeSlots).bytes(m.snapshot);
       break;
-    case 'frame':
-      writeFrame(w, m.frame);
+    case 'frames':
+      writeFrames(w, m.frames);
       break;
     case 'pauseState':
       w.bool(m.paused).u8(m.reason).bool(m.held).u8(m.bySlot).u8(m.waitingFor);
@@ -443,8 +467,8 @@ export function decodeServer(bytes: Uint8Array): ServerMessage {
     case S.gameStart:
       m = { type: 'gameStart', startStep: r.u32(), inputDelay: r.u8(), epoch: r.u16(), activeSlots: r.u8(), snapshot: r.bytes() };
       break;
-    case S.frame:
-      m = { type: 'frame', frame: readFrame(r) };
+    case S.frames:
+      m = { type: 'frames', frames: readFrames(r) };
       break;
     case S.pauseState:
       m = {

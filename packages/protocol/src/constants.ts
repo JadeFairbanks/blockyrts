@@ -1,7 +1,7 @@
 // Numbers and names the client and the server must agree on.
 
-/** Bumped whenever a message layout changes, so mismatched clients refuse to join. 5: Patch 5's open lobbies, private games, kicks and the debugger flag. */
-export const PROTOCOL_VERSION = 5;
+/** Bumped whenever a message layout changes, so mismatched clients refuse to join. 5: Patch 5's open lobbies, private games, kicks and the debugger flag. 6: the relay sends a step's frames in one message. */
+export const PROTOCOL_VERSION = 6;
 
 /**
  * The game's save format version. Every patch raises it, and a save from an

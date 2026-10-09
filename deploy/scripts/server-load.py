@@ -114,10 +114,14 @@ def window_rows(label, t0, cpu, mem, load, bw_in, bw_out):
 def health():
     if not HEALTH_URL:
         return "not checked (no DOMAIN)"
+    # Cloudflare turns away Python's default user agent, so say who is asking.
+    req = urllib.request.Request(HEALTH_URL, headers={"User-Agent": "blockyrts-server-load/1", "Accept": "application/json"})
     try:
-        with urllib.request.urlopen(HEALTH_URL, timeout=15) as r:
+        with urllib.request.urlopen(req, timeout=15) as r:
             body = json.load(r)
         return f"answering, build `{str(body.get('build', '?'))[:7]}`, {body.get('rooms', '?')} rooms open right now"
+    except urllib.error.HTTPError as e:
+        return f"did not answer (HTTP {e.code})"
     except Exception as e:  # noqa: BLE001 - any failure is the answer here
         return f"did not answer ({type(e).__name__})"
 
