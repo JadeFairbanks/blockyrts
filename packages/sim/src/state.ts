@@ -84,8 +84,10 @@ export const WILD = 253;
 /** The owner of the neutral peoples' units (Neutral villages and trade): their faction is the unit's group (peoples/). */
 export const PEOPLES = 252;
 
-/** Walking speed of a worker: 3 m/s, as wu per step (1,200). */
-export const WALK_SPEED_WU = floorDiv(3 * WU_PER_METRE, STEPS_PER_SECOND);
+/** Units on foot walk 15% slower than the old 3 m/s (Patch 5 GP-16: "Nerf the base walk speed of foot units by 15%"), bp. */
+export const FOOT_WALK_BP = 8500;
+/** Walking speed of the players' units on foot, as wu per step: 3 m/s at FOOT_WALK_BP, 2.55 m/s (1,020); running is 40% faster (units/moves.ts). */
+export const WALK_SPEED_WU = floorDiv(3 * WU_PER_METRE * FOOT_WALK_BP, STEPS_PER_SECOND * 10000);
 
 /** Table 1, worker rank 1 (Labourer): 60 health. */
 export const WORKER_HEALTH = 60;
@@ -292,6 +294,20 @@ export const UNIT_FIELDS = [
   ['workXp', 'u32'],
   /** 1 when a worker is on autorepair (Jade's Patch 5, UI-13; units/repairs.ts): it fixes what of its owner's is damaged within 8 m of it. */
   ['autoRepair', 'u8'],
+  /**
+   * Patch 5 (GP-16, units/moves.ts): 1 while the unit's Run/Walk button is
+   * on Run; how far it has run since it last paid for running, wu.
+   */
+  ['running', 'u8'],
+  ['ranWu', 'i32'],
+  /**
+   * Patch 5 (GP-18, units/moves.ts): 1 while the unit climbs a face of land
+   * or rock, up or down; where it comes off the face, wu.
+   */
+  ['onFace', 'u8'],
+  ['ledgeX', 'i32'],
+  ['ledgeY', 'i32'],
+  ['ledgeZ', 'i32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -434,6 +450,12 @@ export class EntityStore implements Record<FieldName, Column> {
   declare tinker: Uint16Array;
   declare workXp: Uint32Array;
   declare autoRepair: Uint8Array;
+  declare running: Uint8Array;
+  declare ranWu: Int32Array;
+  declare onFace: Uint8Array;
+  declare ledgeX: Int32Array;
+  declare ledgeY: Int32Array;
+  declare ledgeZ: Int32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */

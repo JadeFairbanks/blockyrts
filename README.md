@@ -3101,11 +3101,9 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    softwood takes it home before it digs; Unload sends a digger home and
    back to its dig; an earth bank still takes its Earth from the stock and
    nobody carries; four workers in a pit 12 columns square and 1 m deep
-   dig crude stairs out into its side, a clamber at a time, leave on the
-   ground what they cannot carry, pick it up when they come back, finish
-   the pit with every unit of earth accounted for and can all walk out,
-   and a save taken as one cuts its stairs carries on to the same hash;
-   four workers digging a pit 6 columns square and 3 m deep from its rim
+   get out of it with their loads, cutting no stairs (Patch 5), finish
+   the pit with every unit of earth accounted for, and a save taken half
+   way carries on to the same hash; four workers digging a pit 6 columns square and 3 m deep from its rim
    all get home with their loads. m4.test.ts still runs the miners' bag
    trips, a nearer Storehouse and the trip out at dawn.
 2. **A small dig.** `pnpm dev`, open http://localhost:5173/?seed=1, select
@@ -3129,8 +3127,10 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
 6. **Unload.** Select a digger carrying a load and press C (Unload): it
    takes the load home and goes back to the dig, where before it would
    have stopped.
-7. **Crude stairs (Jade).** Dig a square about 5 m across and three steps
-   deep (about 1 m) with all four workers. They step down into it to reach
+7. **Crude stairs (gone in Patch 5).** Patch 5 removed them: workers now
+   climb out of a pit with their loads (see "How a tester checks running,
+   climbing and jumping (Patch 5)"). [Before Patch 5: dig a square about
+   5 m across and three steps deep (about 1 m) with all four workers. They step down into it to reach
    its middle; once its sides are taller than a worker can step up (45 cm),
    a worker with a full load digs stairs out into the nearest side ("Digging
    stairs out" in its panel): a step 56 cm down beside the floor, then one
@@ -3138,7 +3138,7 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    left in a pile at their foot (an Earth icon on the ground); it walks up
    the stairs with its load, hands it in, and when it comes back it picks
    the pile up first ("Picking up loot") and then digs on. Later trips walk
-   up the same stairs, which stay when the pit is finished.
+   up the same stairs, which stay when the pit is finished.]
 8. **A deep pit.** Dig a square about 3 m across and 3 m deep: the workers
    dig it from its rim (they cannot drop that far) and all get home with
    their loads; before, one walking off from near the rim's corner could
@@ -3666,6 +3666,59 @@ in `packages/client/src/world/buildings-view.ts`, and their models placed by
     at 4, three gold at 5 (rank 1 has none). Select a mage with a robe: her
     picture in the selection grid and in a building's panel is her robe
     look's portrait, coloured as she is drawn.
+
+## How a tester checks running, climbing and jumping (Patch 5)
+
+*Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
+higher jumps) and MB-3 (monsters jump 1 m). Picks in
+blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/units/moves.ts` (the GAITS table: one row per kind of
+unit, in the balance editor under Units, "Running, jumping and climbing"),
+`packages/sim/src/nav/grid.ts` (what each mover can jump and climb) and
+`packages/sim/src/units/behaviour.ts` (moveSpeed, walkTo, runUnit).*
+
+1. **The tests.** `pnpm test` runs the "moving over the land" tests in
+   packages/sim/test/gap.test.ts: a 2 unit rise is a step, 5 units (56 cm)
+   a jump, 6 units a climb at 5 times a walk's cost a unit up; a worker
+   climbs a 4 m face that a fighter cannot; the peoples' units keep their
+   45 cm jump; monsters jump 1 m and a horse 2.5 m; a worker hops onto a
+   5 unit platform and climbs a 3 m block at a fifth of its walk, a save
+   taken while it climbs back down carries on to the same hash, and a
+   warrior never gets onto a 4.5 m one. patch4-dig-turn-in.test.ts runs
+   four workers out of a 1 m pit with their loads, cutting no stairs.
+2. **Slower walk.** `pnpm dev`, open http://localhost:5173/?seed=1. Units
+   on foot walk at 2.55 m/s, 15% slower than before; siege engines go 15%
+   slower too. Cavalry is unchanged and stays faster than a runner.
+3. **Run/Walk.** Select workers, warriors, mages or crewmen: the card has
+   a boot button marked Walk (H). Press it: it shows two boots
+   marked Run and they move 40% faster (3.57 m/s), with the run clip.
+   Every 50 m each one runs takes 1 food from the stock; a unit set back to
+   Walk keeps what it has run towards its next 50 m, so 40 m, Walk, then
+   10 m more of Run pays the 1 food. With no food in the stock runners walk
+   until there is some. A worker pulling a cart walks. With only cavalry
+   selected the button is greyed: horses do not run. The button is the
+   last on each card, so every other button keeps its place.
+4. **Climbing.** Raise a block with the tester tools, or find a cliff, and
+   Move a worker to its top: it walks to the foot of the face, turns to it
+   and climbs straight up at a fifth of its walk, then steps onto the top.
+   Workers climb faces up to 7 m, troops, mages and crewmen up to 4 m;
+   higher faces are walked round. Faces are climbed down the same way.
+   Units out by themselves on Hunt or Gather do not climb by day, nor jump
+   down more than they can jump back up; coming home at dusk they climb
+   where they must. Their reach from home (what they walk in dusk's 40 s)
+   counts each metre of height above or below the base as 5 m more, so a
+   deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
+   before still do. A climber plays its body's climb clip (Jade's improved
+   worker, warrior and mage bodies carry one).
+5. **Jumps.** Units on foot jump rises up to 56 cm (5 terrain units; 45 cm
+   before) and step up 22 cm. A horse jumps 2.5 m. Every monster jumps at
+   least 1 m; the ones that already climbed keep doing so.
+6. **Digging out.** Dig a pit about 5 m across and 1 m deep with four
+   workers: once its sides are taller than they can jump, workers with
+   full loads climb out up the side, take the load home and climb back
+   down. No stairs are cut.
+7. **Saves.** No save format change; the snapshot version goes to 27 (a
+   unit's Run/Walk, the run it owes food for, and the face it climbs).
 
 ## License
 

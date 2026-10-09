@@ -92,7 +92,8 @@ describe('the mage card', () => {
   it("has Attack, Patrol and Move, her five spells, then Eat, Upgrade equipment and Rank (Jade's Patch 2)", () => {
     const { c } = harness(game(), support, 'mage:support');
     const card = c.card();
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank']);
+    // Patch 5's Run/Walk last, the twelfth.
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank', 'Walk']);
     expect(card.slice(3, 8).map((e) => e.key)).toEqual(['KeyR', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
     // A cooldown only delays a spell; rank and research grey it out with the reason.
     expect(card[4]!.enabled).toBe(true);

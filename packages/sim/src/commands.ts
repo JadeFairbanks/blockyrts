@@ -12,7 +12,6 @@ import { garrisonRoom, type Building } from './buildings/store.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
 import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
-import { PERSON } from './nav/grid.ts';
 import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, DebugTool, PickOwn, type Order } from './orders.ts';
 import { isGod, NO_CARRY, placeBuilding, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
@@ -29,7 +28,8 @@ import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
 import { callRepairs } from './units/repairs.ts';
-import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
+import { hasRunButton } from './units/moves.ts';
+import { Act, columnCentre, findNode, giveOrder, moverOf, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
 import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
@@ -146,8 +146,10 @@ function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
   const goal = pointGoal(floorDiv(tx, WU_PER_COLUMN), floorDiv(tz, WU_PER_COLUMN));
   const field = state.paths.flowField(goal, { x0, z0, x1, z1 });
   units.forEach((i, k) => {
+    // One on a face finds its way once it is off it (units/moves.ts).
+    if (e.onFace[i] !== 0) return;
     const [gx, gz] = targets[k]!;
-    const r = state.paths.findWithField(field, PERSON, floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN), pointGoal(floorDiv(gx, WU_PER_COLUMN), floorDiv(gz, WU_PER_COLUMN)));
+    const r = state.paths.findWithField(field, moverOf(state, i), floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN), pointGoal(floorDiv(gx, WU_PER_COLUMN), floorDiv(gz, WU_PER_COLUMN)));
     const pts = r.points.map(columnCentre);
     if (r.reached) {
       if (pts.length > 0) {
@@ -754,6 +756,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (b) setKitLock(b, o.troop, o.lock);
         break;
       }
+      case 'pace':
+        for (const i of ownUnits(state, o.player, o.units, true)) if (hasRunButton(state, i)) e.running[i] = o.run === 1 ? 1 : 0;
+        break;
       case 'lock':
         if (o.lock < 0 || o.lock > 2) break;
         for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Warrior) e.lock[i] = o.lock;

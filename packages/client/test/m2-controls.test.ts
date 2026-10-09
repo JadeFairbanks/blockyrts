@@ -109,9 +109,9 @@ describe('the worker card', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
     // Move, Jade's gather, unload, repair, dig and prospect, one Build, then Eat, Upgrade equipment and the cart
-    // (Jade's Patch 3 cut rank training: a worker ranks up by working).
-    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'cart']);
-    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Unload', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Cart']);
+    // (Jade's Patch 3 cut rank training: a worker ranks up by working), and Patch 5's Run/Walk last.
+    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'cart', 'pace']);
+    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Unload', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Cart', 'Walk']);
     expect(button(card, 'prospect').enabled).toBe(true); // Prospect (milestone 4)
     expect(button(card, 'returnCargo').enabled).toBe(true); // worker 2 carries something
     expect(button(card, 'returnCargo').name).toBe('Unload');
