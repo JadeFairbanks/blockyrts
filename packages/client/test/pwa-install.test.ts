@@ -201,6 +201,8 @@ describe('Install app button', () => {
     safari16: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15',
     firefoxMac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:143.0) Gecko/20100101 Firefox/143.0',
     firefoxWindows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0',
+    firefoxWindows142: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0',
+    firefoxLinux: 'Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0',
     firefoxAndroid: 'Mozilla/5.0 (Android 15; Mobile; rv:143.0) Gecko/143.0 Firefox/143.0',
   };
   const way = (userAgent: string, more: Partial<InstallFacts> = {}) => installWay({ offer: false, installed: false, userAgent, touchPoints: 0, ...more });
@@ -229,9 +231,15 @@ describe('Install app button', () => {
     expect(INSTALL_STEPS['mac-safari'].join(' ')).toContain('Add to Dock');
   });
 
-  it("shows Firefox's menu steps on Android, and is hidden in Firefox on a computer", () => {
+  it("shows Firefox's web apps steps on Windows and its menu steps on Android", () => {
+    expect(way(UA.firefoxWindows)).toBe('windows-firefox');
+    expect(way(UA.firefoxWindows142)).toBe('none');
+    expect(INSTALL_STEPS['windows-firefox'].join(' ')).toContain('web apps button');
     expect(way(UA.firefoxAndroid, { touchPoints: 5 })).toBe('android-menu');
-    expect(way(UA.firefoxWindows)).toBe('none');
+  });
+
+  it('is hidden in Firefox on a Mac or Linux, which cannot install web apps yet', () => {
     expect(way(UA.firefoxMac)).toBe('none');
+    expect(way(UA.firefoxLinux)).toBe('none');
   });
 });

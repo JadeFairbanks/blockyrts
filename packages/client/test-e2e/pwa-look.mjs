@@ -18,9 +18,9 @@
 //   even with the worker installed; the manifest, icons and worker still
 //   load; and offline the worker opens no game page;
 // - the Install app button: shown for the browser's install offer (opening
-//   it once), hidden after an install; the steps for an iPhone and Safari on
-//   a Mac, and Firefox on Android; hidden for Firefox on a computer and when
-//   opened from the home screen;
+//   it once), hidden after an install; the steps for an iPhone, Safari on a
+//   Mac, and Firefox on Windows and Android; hidden for Firefox on a Mac and
+//   when opened from the home screen;
 // - unless --no-play, a match on seed 1 with the worker against one with
 //   service workers blocked: the frame times, and how many of the match's
 //   requests the worker answers once it is under way (none).
@@ -231,6 +231,7 @@ try {
     iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
     macSafari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
     firefox: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0',
+    firefoxMac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:143.0) Gecko/20100101 Firefox/143.0',
     androidFirefox: 'Mozilla/5.0 (Android 15; Mobile; rv:143.0) Gecko/143.0 Firefox/143.0',
   };
   const steps = async (name, opts, settings, words) => {
@@ -253,9 +254,10 @@ try {
   const phone = { userAgent: UA.iphone, viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true };
   await steps('iPhone', phone, { touch: true }, 'Add to Home Screen');
   await steps('Safari on a Mac', { userAgent: UA.macSafari }, {}, 'Add to Dock');
+  await steps('Firefox on Windows', { userAgent: UA.firefox }, {}, 'web apps button');
   await steps('Firefox on Android', { userAgent: UA.androidFirefox, viewport: { width: 915, height: 412 }, hasTouch: true, isMobile: true }, { touch: true }, 'Add app to Home screen');
   for (const [name, opts, settings, init] of [
-    ['Firefox on a computer', { userAgent: UA.firefox }, {}, null],
+    ['Firefox on a Mac', { userAgent: UA.firefoxMac }, {}, null],
     ['iPhone, opened from the home screen', phone, { touch: true }, () => Object.defineProperty(navigator, 'standalone', { get: () => true })],
   ]) {
     const c = await newContext(opts, settings);

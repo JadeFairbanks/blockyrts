@@ -2,9 +2,10 @@
 // public/manifest.webmanifest), with its own icon, opening full screen on
 // phones and tablets and in its own window on computers. Chrome and Edge
 // offer an install box of their own, which the button opens; Safari (every
-// browser on an iPhone or iPad, and Safari on a Mac) and Firefox on Android
-// have none, so there the button shows the steps instead. It is hidden once
-// the game is installed, and in browsers that cannot install it.
+// browser on an iPhone or iPad, and Safari on a Mac) and Firefox (on Windows
+// and Android) have none, so there the button shows the steps instead. It is
+// hidden once the game is installed, and in browsers that cannot install it,
+// such as Firefox on a Mac or Linux.
 
 import { button } from './dom.ts';
 
@@ -15,7 +16,7 @@ interface InstallOffer extends Event {
 }
 
 /** How this browser installs the game: its own install box, steps to follow, or not at all. */
-export type InstallWay = 'offer' | 'iphone' | 'mac-safari' | 'android-menu' | 'none';
+export type InstallWay = 'offer' | 'iphone' | 'mac-safari' | 'windows-firefox' | 'android-menu' | 'none';
 
 /** What the button's choice depends on. */
 export interface InstallFacts {
@@ -37,7 +38,10 @@ export function installWay(f: InstallFacts): InstallWay {
   // Safari 17 on a Mac added File > Add to Dock; other Mac browsers say their own names.
   const safari = /Version\/(\d+)[.\d]* Safari\//.exec(ua);
   if (/Macintosh/.test(ua) && safari && Number(safari[1]) >= 17 && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/.test(ua)) return 'mac-safari';
-  if (/Android/.test(ua) && /Firefox\//.test(ua)) return 'android-menu';
+  // Firefox 143 on Windows added web apps (from the Microsoft Store, 150); not yet on a Mac or Linux.
+  const firefox = /Firefox\/(\d+)/.exec(ua);
+  if (firefox && /Windows NT/.test(ua) && Number(firefox[1]) >= 143) return 'windows-firefox';
+  if (firefox && /Android/.test(ua)) return 'android-menu';
   return 'none';
 }
 
@@ -49,6 +53,11 @@ export const INSTALL_STEPS: Record<Exclude<InstallWay, 'offer' | 'none'>, readon
     'Open the game from its new icon on your home screen. Sign in again if it asks.',
   ],
   'mac-safari': ['In the menu bar at the top of the screen, choose File, then Add to Dock.', 'Click Add.', 'Open the game from its new icon in the Dock.'],
+  'windows-firefox': [
+    'Click the web apps button near the right end of the address bar. Firefox may point it out the first time.',
+    'Click Yes if Firefox asks to pin the game to the taskbar.',
+    'Open the game from its taskbar icon, or from the Firefox Web Apps folder in the Start menu.',
+  ],
   'android-menu': [
     "Open Firefox's menu: the ⋮ button.",
     'Tap Add app to Home screen (in some versions it says Install), then Add.',
