@@ -41,6 +41,7 @@ import { crewHooks, updateQuestions } from './units/questions.ts';
 import { releaseSheltered } from './units/night-work.ts';
 import { updateSpacing } from './units/spacing.ts';
 import { updateWorkAsks } from './units/work-asks.ts';
+import { updateMakeAsks } from './units/make-asks.ts';
 import { updateGods } from './debug/god.ts';
 
 installDeathHooks();
@@ -188,6 +189,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateQuestions(state);
   // Jade's Patch 4: an empty farm, a building no one works on and an idle worker ask by themselves.
   updateWorkAsks(state);
+  // Patch 5 (UI-8): the Workshop offers now and then to make something the stock pays for.
+  updateMakeAsks(state);
   settleDeaths(state);
   updateLoot(state);
   updateBuildings(state);
