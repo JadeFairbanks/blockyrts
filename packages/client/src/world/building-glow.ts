@@ -13,15 +13,27 @@
 // buildings-view.ts go to the nearest of them along with the flames. Smoke:
 // soft grey puffs from a farmhouse's chimney top at night while a worker is
 // in the Farm or at work on it, and smaller ones from the Big House's
-// campfire, day and night, over flames that rise, sway and flicker. The Big
-// House model has no spit roast, so none turns here.
+// campfire, day and night, over flames that rise, sway and flicker. Its spit
+// roast (the model's spit_roast bone) turns without stopping, in
+// buildings-view.ts with the model.
 //
-// All pooled: three instanced meshes, one particle buffer and a little state
+// The same smoke rises from the other chimneys that have work to show
+// (Patch 5): a Forge's and an Artillery Workshop's while they make something,
+// day or night (they do what the Kiln, the Powder mill and the Foundry did),
+// and the Tavern's while it is open for business from dusk to dawn (GP-19:
+// "a chimney with smoke effects, consistent with other smoke effects"). The
+// chimney tops are the models' own fx_smoke anchors, read from the loaded
+// models, so a remade model smokes from its new chimney. The Magi Sanctum's
+// crystal (its fx_magic) glows violet and motes of light circle up round it,
+// more of them while it trains a mage or researches.
+//
+// All pooled: four instanced meshes, one particle buffer and a little state
 // per building; nothing is made per frame. Nothing shows where the fog of war
 // hides it now (a lit window would tell who is home).
 import * as THREE from 'three';
 import { BuildingKind } from '@blockyrts/sim';
 import type { BuildingInfo } from '../messages.ts';
+import type { ModelLibrary } from '../models/index.ts';
 import { Face, type Look, type Pane } from './building-looks.ts';
 import type { FowUniforms } from './fog-material.ts';
 
@@ -30,6 +42,8 @@ const BB_M = 0.028125;
 const MAX_PANES = 1024;
 const MAX_PUFFS = 512;
 const MAX_TONGUES = 96;
+/** The Sanctum crystals' glow shells and motes. */
+const MAX_SPARKS = 256;
 /** Glowing buildings that may take a point light. */
 const MAX_SPOTS = 64;
 /** Buildings farther than this from the focus draw no panes, smoke or flames (m). */
@@ -46,6 +60,18 @@ const INSET_H = 0.84;
 const OCCUPIED_GLOW: ReadonlySet<number> = new Set([BuildingKind.Farm, BuildingKind.Barn]);
 /** Chimney smoke at night: puffs a second at full dark. */
 const CHIMNEY_RATE = 2.4;
+/** Kinds whose chimneys smoke while they work, day and night: the Forge and the Artillery Workshop. */
+const SMOKES_AT_WORK: ReadonlySet<number> = new Set([BuildingKind.Forge, BuildingKind.ArtilleryWorkshop]);
+/** A working chimney's smoke: puffs a second. */
+const WORK_SMOKE_RATE = 3;
+/** The Tavern's chimney while it is open from dusk to dawn: puffs a second (it smokes well, a party going on). */
+const TAVERN_SMOKE_RATE = 2.9;
+/** Every kind this file draws something for, besides the main bases. */
+const GLOWS: ReadonlySet<number> = new Set([...OCCUPIED_GLOW, ...SMOKES_AT_WORK, BuildingKind.Tavern, BuildingKind.MagiSanctum]);
+/** The Sanctum crystal: glow shells round it, and motes circling up it while it works and while it idles. */
+const SHELLS = 3;
+const MOTES_BUSY = 16;
+const MOTES_IDLE = 7;
 /** The Big House campfire's smoke, always: puffs a second. */
 const FIRE_SMOKE_RATE = 3;
 /** Flame tongues per campfire, besides its core. */
@@ -69,19 +95,34 @@ function row(face: number, plane: number, along: readonly number[], ys: readonly
 
 interface ModelGlow {
   panes: Pane[];
-  /** Chimney tops that smoke (the model's fx_smoke). */
-  smoke: THREE.Vector3[];
   /** Campfire hearths, where the flames stand. */
   fires: THREE.Vector3[];
 }
 
-function inMetres(panes: Pane[], smoke: ReadonlyArray<readonly [number, number, number]> = [], fires: ReadonlyArray<readonly [number, number, number]> = []): ModelGlow {
+function inMetres(panes: Pane[], fires: ReadonlyArray<readonly [number, number, number]> = []): ModelGlow {
   const v = ([x, y, z]: readonly [number, number, number]): THREE.Vector3 => new THREE.Vector3(x * BB_M, y * BB_M, z * BB_M);
   return {
     panes: panes.map((p) => ({ x: p.x * BB_M, y: p.y * BB_M, z: p.z * BB_M, w: p.w * BB_M, h: p.h * BB_M, face: p.face })),
-    smoke: smoke.map(v),
     fires: fires.map(v),
   };
+}
+
+/** A loaded model's effect anchors, metres from its origin: its chimney tops (fx_smoke, fx_smoke_2 ...) and its magic (fx_magic). */
+interface Anchors {
+  smoke: THREE.Vector3[];
+  magic: THREE.Vector3 | null;
+}
+
+/**
+ * Whether a finished building is at work now: something in its queue under
+ * way, workers at work there, or (the Magi Sanctum) a mage inside training.
+ * Its chimney smokes meanwhile, and its model plays its own working clip
+ * (buildings-view.ts).
+ */
+export function atWork(b: Pick<BuildingInfo, 'kind' | 'complete' | 'queue' | 'working' | 'inside'>): boolean {
+  if (!b.complete) return false;
+  if ((b.queue[0]?.stepsLeft ?? 0) > 0 || b.working > 0) return true;
+  return b.kind === BuildingKind.MagiSanctum && b.inside.length > 0;
 }
 
 /** The Citadel's four corner towers' arrow slits, two storeys on every face. */
@@ -105,9 +146,9 @@ function towerSlits(): Pane[] {
  * windows or built in torches", Jade).
  */
 const MODEL_GLOW: ReadonlyMap<string, ModelGlow> = new Map([
-  ['farmhouse_t1', inMetres([...row(Face.S, 36.5, [0], [45]), ...row(Face.W, -32.5, [0], [45]), ...row(Face.E, 32.5, [0], [45])], [[18, 111, 22]])],
-  ['farmhouse_t2', inMetres([...row(Face.S, 30.5, [-13.33, 13.33], [46.8]), ...row(Face.W, -40.5, [-10, 10], [46.8]), ...row(Face.E, 40.5, [-10, 10], [46.8])], [[28, 139, 12]])],
-  ['farmhouse_t3', inMetres([...row(Face.S, 30.5, [-14, 14], [48.6]), ...row(Face.W, -42.5, [0], [48.6]), ...row(Face.E, 42.5, [0], [48.6])], [[-30, 145, 0]])],
+  ['farmhouse_t1', inMetres([...row(Face.S, 36.5, [0], [45]), ...row(Face.W, -32.5, [0], [45]), ...row(Face.E, 32.5, [0], [45])])],
+  ['farmhouse_t2', inMetres([...row(Face.S, 30.5, [-13.33, 13.33], [46.8]), ...row(Face.W, -40.5, [-10, 10], [46.8]), ...row(Face.E, 40.5, [-10, 10], [46.8])])],
+  ['farmhouse_t3', inMetres([...row(Face.S, 30.5, [-14, 14], [48.6]), ...row(Face.W, -42.5, [0], [48.6]), ...row(Face.E, 42.5, [0], [48.6])])],
   // The stand-in barn: the hayloft door, the gable ends' loft windows and windows low on its walls.
   [
     'pen_barn',
@@ -123,7 +164,7 @@ const MODEL_GLOW: ReadonlyMap<string, ModelGlow> = new Map([
   // Big House: panes on the hall's walls (it has no windows of its own) and the campfire by its door.
   [
     'main_base_l1',
-    inMetres([...row(Face.S, 72, [-46, -24, -2], [40]), ...row(Face.W, -64, [-30, 4, 38], [40]), ...row(Face.E, 16, [-30, 4, 38], [40]), ...row(Face.N, -56, [-54], [40])], [], [[52, 4, -70]]),
+    inMetres([...row(Face.S, 72, [-46, -24, -2], [40]), ...row(Face.W, -64, [-30, 4, 38], [40]), ...row(Face.E, 16, [-30, 4, 38], [40]), ...row(Face.N, -56, [-54], [40])], [[52, 4, -70]]),
   ],
   // Hall: its windows, two storeys (none over the door).
   [
@@ -201,6 +242,9 @@ const FLAME_ORANGE = new THREE.Color(1.0, 0.5, 0.1);
 const FLAME_RED = new THREE.Color(0.78, 0.18, 0.05);
 const SMOKE_DAY = new THREE.Color(0.62, 0.62, 0.6);
 const SMOKE_NIGHT = new THREE.Color(0.3, 0.31, 0.34);
+/** The Sanctum crystal's colours (its glow_crystal and glow_crystal_core cubes). */
+const MAGIC = new THREE.Color(0x8a6bff);
+const MAGIC_WHITE = new THREE.Color(0xe4dcff);
 
 /** Instance matrix: turned (cos, sin) about +Y, sized, then moved. */
 function place(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z: number, c: number, s: number, sx: number, sy: number, sz: number): void {
@@ -268,6 +312,7 @@ function inSight(mat: THREE.Material, fow: FowUniforms, mode: 'add' | 'alpha' | 
 export class BuildingGlow {
   private readonly panes: THREE.InstancedMesh;
   private readonly flames: THREE.InstancedMesh;
+  private readonly sparks: THREE.InstancedMesh;
   private readonly puffs: THREE.InstancedMesh;
   private readonly puffAlpha: THREE.InstancedBufferAttribute;
   private readonly smokeMat: THREE.MeshBasicMaterial;
@@ -276,7 +321,10 @@ export class BuildingGlow {
   private puffN = 0;
   private paneN = 0;
   private tongueN = 0;
+  private sparkN = 0;
   private readonly states = new Map<number, GlowState>();
+  private lib: ModelLibrary | null = null;
+  private readonly anchorsById = new Map<string, Anchors>();
   private frame = 0;
   private last = 0;
   private dt = 0;
@@ -295,6 +343,9 @@ export class BuildingGlow {
     const flameMat = new THREE.MeshBasicMaterial();
     inSight(flameMat, fow, 'cut', false);
     this.flames = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), flameMat, MAX_TONGUES);
+    const sparkMat = new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false });
+    inSight(sparkMat, fow, 'add', false);
+    this.sparks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), sparkMat, MAX_SPARKS);
     const puffGeo = new THREE.BoxGeometry(1, 1, 1);
     this.puffAlpha = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS), 1);
     this.puffAlpha.setUsage(THREE.DynamicDrawUsage);
@@ -302,7 +353,7 @@ export class BuildingGlow {
     this.smokeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
     inSight(this.smokeMat, fow, 'alpha', true);
     this.puffs = new THREE.InstancedMesh(puffGeo, this.smokeMat, MAX_PUFFS);
-    for (const m of [this.panes, this.flames, this.puffs]) {
+    for (const m of [this.panes, this.flames, this.sparks, this.puffs]) {
       m.count = 0;
       m.frustumCulled = false;
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -310,6 +361,29 @@ export class BuildingGlow {
       m.setColorAt(0, COLOUR.setRGB(1, 1, 1));
       scene.add(m);
     }
+  }
+
+  /** The catalogue models, for their anchors. */
+  setModels(lib: ModelLibrary): void {
+    this.lib = lib;
+    this.anchorsById.clear();
+  }
+
+  /** A loaded model's anchors (none while it is not loaded). */
+  private anchors(id: string): Anchors {
+    const known = this.anchorsById.get(id);
+    if (known) return known;
+    const a: Anchors = { smoke: [], magic: null };
+    const m = this.lib?.models.get(id);
+    if (!m) return a;
+    m.boneNames.forEach((name, i) => {
+      const at = m.restWorld[i];
+      if (!at) return;
+      if (/^fx_smoke(_\d+)?$/.test(name)) a.smoke.push(new THREE.Vector3().setFromMatrixPosition(at));
+      else if (name === 'fx_magic') a.magic = new THREE.Vector3().setFromMatrixPosition(at);
+    });
+    this.anchorsById.set(id, a);
+    return a;
   }
 
   /** Starts a frame: now in ms, darkness 0 by day to 1 at night, the camera's focus. */
@@ -322,6 +396,7 @@ export class BuildingGlow {
     this.frame++;
     this.paneN = 0;
     this.tongueN = 0;
+    this.sparkN = 0;
     this.spotCount = 0;
   }
 
@@ -333,7 +408,7 @@ export class BuildingGlow {
    */
   add(b: BuildingInfo, own: boolean, models: readonly GlowModel[], look: Look | null, ax: number, az: number, ox: number, oz: number, y: number): void {
     const main = b.kind === BuildingKind.MainBase;
-    if (!main && !OCCUPIED_GLOW.has(b.kind)) return;
+    if (!main && !GLOWS.has(b.kind)) return;
     let st = this.states.get(b.id);
     if (!st) {
       st = { on: 0, smoke: 0, fire: 0, frame: 0 };
@@ -351,19 +426,23 @@ export class BuildingGlow {
       return;
     }
     const light = this.dark * st.on;
-    const smokes = b.kind === BuildingKind.Farm && occupied && this.dark > 0.3;
-    st.smoke = smokes ? st.smoke + this.dt * CHIMNEY_RATE * this.dark : 0;
+    const rate = this.smokeRate(b, occupied);
+    const smokes = rate > 0;
+    st.smoke = smokes ? st.smoke + this.dt * rate : 0;
     const first = this.paneN;
     SUM.set(0, 0, 0);
     if (models.length > 0) {
       for (const m of models) {
-        const g = MODEL_GLOW.get(m.id);
-        if (!g) continue;
         const x0 = ax + m.dx;
         const z0 = az + m.dz;
-        if (light > 0.01) this.addPanes(g.panes, x0, y, z0, m.scale, light, b.id);
-        if (smokes) for (const s of g.smoke) this.chimney(st, x0 + s.x * m.scale, y + s.y * m.scale, z0 + s.z * m.scale, m.scale);
-        if (main) for (const f of g.fires) this.fire(st, x0 + f.x * m.scale, y + f.y * m.scale, z0 + f.z * m.scale, m.scale, b.id);
+        const k = m.scale;
+        // A look of the model (damaged, unlit) has its windows and hearths where the model has them.
+        const g = MODEL_GLOW.get(m.id.replace(/@.*$/, ''));
+        if (g && light > 0.01) this.addPanes(g.panes, x0, y, z0, k, light, b.id);
+        if (g && main) for (const f of g.fires) this.fire(st, x0 + f.x * k, y + f.y * k, z0 + f.z * k, k, b.id);
+        if (smokes) for (const s of this.anchors(m.id).smoke) this.chimney(st, x0 + s.x * k, y + s.y * k, z0 + s.z * k, k);
+        const c = b.kind === BuildingKind.MagiSanctum ? this.anchors(m.id).magic : null;
+        if (c) this.magic(x0 + c.x * k, y + c.y * k, z0 + c.z * k, k, atWork(b), b.id);
       }
     } else if (look) {
       if (light > 0.01) this.addPanes(look.windows, ox, y, oz, 1, light, b.id);
@@ -380,6 +459,19 @@ export class BuildingGlow {
       spot.r = main ? 11 : 7;
       spot.k = (main ? 6 : 4) * light;
     }
+  }
+
+  /**
+   * Puffs a second from a building's chimneys now: a farm's at night while a
+   * worker is in it or at work on it (VX-3), a Forge's or an Artillery
+   * Workshop's while it works, day or night, and the Tavern's while it is open
+   * for business from dusk to dawn (GP-19); none by day or while it is closed.
+   */
+  private smokeRate(b: BuildingInfo, occupied: boolean): number {
+    if (b.kind === BuildingKind.Farm) return occupied && this.dark > 0.3 ? CHIMNEY_RATE * this.dark : 0;
+    if (SMOKES_AT_WORK.has(b.kind)) return atWork(b) ? WORK_SMOKE_RATE : 0;
+    if (b.kind === BuildingKind.Tavern) return b.tavern?.open === true && this.dark > 0 ? TAVERN_SMOKE_RATE : 0;
+    return 0;
   }
 
   private addPanes(panes: readonly Pane[], x0: number, y0: number, z0: number, k: number, light: number, seed: number): void {
@@ -441,6 +533,37 @@ export class BuildingGlow {
     for (; st.fire >= 1; st.fire--) this.spawn(x, y + 15 * u, z, k * 0.05, k * 0.18, 0.26, 2.0, 0.38);
   }
 
+  /**
+   * The Magi Sanctum's crystal: a violet glow round it in shells, the inner
+   * brightest, each turning its own way and all pulsing; and motes of light
+   * circling up round it, more of them while the Sanctum works. It shows
+   * most in the dark.
+   */
+  private magic(x: number, y: number, z: number, k: number, busy: boolean, seed: number): void {
+    const glow = (busy ? 1 : 0.55) * (0.3 + 0.7 * this.dark) * (0.85 + 0.15 * Math.sin(this.t * 2.1 + seed));
+    for (let i = 0; i < SHELLS && this.sparkN < MAX_SPARKS; i++) {
+      const a = this.t * (0.4 + 0.25 * i) * (i % 2 === 0 ? 1 : -1);
+      const w = (0.5 + 0.3 * i) * k;
+      place(this.sparks, this.sparkN, x, y, z, Math.cos(a), Math.sin(a), w, (1.5 + 0.4 * i) * k, w);
+      this.sparks.setColorAt(this.sparkN++, COLOUR.copy(MAGIC).multiplyScalar(glow * (0.32 - 0.09 * i)));
+    }
+    const n = busy ? MOTES_BUSY : MOTES_IDLE;
+    for (let i = 0; i < n && this.sparkN < MAX_SPARKS; i++) {
+      // Each mote rises from below the crystal to above it, closing in as it goes, then starts again somewhere else.
+      const period = 2.4 + 1.6 * hash(i * 17 + seed);
+      const run = this.t / period + i / n;
+      const cycle = Math.floor(run);
+      const t = run - cycle;
+      const h = hash(cycle * 31 + i * 7 + seed);
+      const a = this.t * (0.9 + 0.5 * h) + i * 2.4 + h * 6.28;
+      const r = (0.3 + 0.35 * h) * (1 - 0.4 * t) * k;
+      const s = (0.05 + 0.04 * hash(i * 5 + cycle)) * Math.sin(Math.PI * t) * k;
+      place(this.sparks, this.sparkN, x + Math.cos(a) * r, y + (2.2 * t - 0.8) * k, z + Math.sin(a) * r, Math.cos(a), Math.sin(a), s, s, s);
+      const twinkle = 0.7 + 0.3 * Math.sin(this.t * 9 + i * 3.1);
+      this.sparks.setColorAt(this.sparkN++, COLOUR.copy(MAGIC).lerp(MAGIC_WHITE, h).multiplyScalar(glow * 1.6 * twinkle));
+    }
+  }
+
   /** A puff: where, its size at birth and at the end, how fast it rises, how long it lasts and how thick it is. */
   private spawn(x: number, y: number, z: number, s0: number, s1: number, rise: number, life: number, alpha: number): void {
     if (this.puffN >= MAX_PUFFS) return;
@@ -496,6 +619,7 @@ export class BuildingGlow {
     this.smokeMat.color.copy(SMOKE_DAY).lerp(SMOKE_NIGHT, this.dark);
     show(this.panes, this.paneN);
     show(this.flames, this.tongueN);
+    show(this.sparks, this.sparkN);
     show(this.puffs, this.puffN);
     if (this.puffN > 0) {
       this.puffAlpha.clearUpdateRanges();
