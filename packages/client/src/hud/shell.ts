@@ -20,6 +20,7 @@ import {
   troopOf,
   mageLock,
   mageOf,
+  OrderKind,
   type HitEvent,
   type Order,
   type SimEvent,
@@ -32,6 +33,7 @@ import { godGhostRow } from '../game/god-ghost.ts';
 import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
 import { Btn, InputManager, type Mods, type MouseTarget, type TouchHooks } from '../input/input-manager.ts';
+import type { ToolCursor } from '../input/cursor.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { KeyCode } from '../input/tester-code.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
@@ -179,7 +181,8 @@ export interface PerfInfo {
   heapMb: number;
 }
 
-const CAMERA_SLOTS = 4;
+/** Saved camera spots, F5 up: the fourth gave its place (F8) to Repair all in Jade's Patch 5 (GP-25). */
+const CAMERA_SLOTS = 3;
 /** Urgent messages F4 steps back through. */
 const URGENT_KEEP = 8;
 /** Meal bubbles at most this often, ms (patch 1, s): a hundred units eat about once a second between them. */
@@ -230,6 +233,8 @@ export class GameShell {
   private readonly cardButtons: HudButton[] = [];
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
+  /** Selected units seen outside any building at the last info (CT-2, CT-3: leaveForBuildings). */
+  private seenOut = new Set<string>();
   /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
   private portraitKey: string | null = null;
   private portraitRect: DOMRect | null = null;
@@ -454,7 +459,9 @@ export class GameShell {
         return id !== null && this.game.buildings.get(id)?.shared === true;
       }
       if (t.kind !== 'unit' || t.owner >= info.players.length) return false;
-      if (((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
+      // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines.
+      const combat = t.typeKey.startsWith('warrior') || t.typeKey.startsWith('mage:') || t.typeKey.startsWith('engine:');
+      if (combat && ((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
       const id = entityIdOf(t.key);
       const u = id === null ? null : this.game.unit(id);
       return u !== null && (u.flags & UnitFlag.Shared) !== 0;
@@ -718,6 +725,7 @@ export class GameShell {
     if ((info.over > 0 || info.out) && !this.overShown) this.showGameOver(info);
     this.groups.refresh((k) => this.exists(k));
     this.selection.retain((k) => this.exists(k) || k.startsWith('p:'));
+    this.leaveForBuildings();
     // Planned buildings move only when the order lists change.
     let sig = '';
     for (const q of this.game.queues.values()) for (const ord of q) if (ord.t === 'build') sig += `${ord.kind},${ord.x},${ord.z};`;
@@ -1043,6 +1051,19 @@ export class GameShell {
         onRightClick: () => this.saveCamera(i),
       });
     }
+    util({
+      id: 'repairall',
+      face: '⚒',
+      name: 'Repair All',
+      keys: ['F8'],
+      description: 'Every worker within 20 m of one of your damaged buildings goes to repair it, idle workers first, the worst damaged building first. Farm and barn workers stay at their jobs. Once it is whole they go back to what they were doing, and those that were idle start gathering. A repair uses up the building\'s own materials for the health it gives back.',
+      className: 'repairall',
+      icon: actionIcon('repair', '⚒'),
+      onPress: () => {
+        this.opts.issueOrder({ kind: 'repairNearby', player: this.player });
+        this.message('Repair all: workers near damaged buildings are heading to repair them.');
+      },
+    });
     util({ id: 'menu', face: '☰', name: 'Menu', keys: ['F10'], description: 'Settings, hotkeys, full screen and quitting. Releases the cursor.', onPress: () => this.openMenu() });
 
     // Top right: Peoples, Allies and Send resources (multiplayer), Ping and Pause.
@@ -1322,9 +1343,34 @@ export class GameShell {
 
   private selectArmy(): void {
     const army: Selectable[] = [];
-    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && (t.typeKey === 'warrior' || t.typeKey.startsWith('mage:'))) army.push(t);
-    if (army.length === 0) this.message('You have no warriors or mages yet.');
+    let posted = 0;
+    for (const t of this.world.selectables.candidates()) {
+      if (t.kind !== 'unit' || t.owner !== this.player || (t.typeKey !== 'warrior' && !t.typeKey.startsWith('mage:'))) continue;
+      // Not the men on towers and tops (Jade's Patch 5, CT-4), so F2 never pulls them off their posts.
+      const id = entityIdOf(t.key);
+      if (id !== null && (this.game.unit(id)?.inside ?? 0) !== 0) posted++;
+      else army.push(t);
+    }
+    if (army.length === 0) this.message(posted > 0 ? 'Every warrior and mage you have is in a tower or a building.' : 'You have no warriors or mages yet.');
     else this.selection.set(army);
+  }
+
+  /**
+   * Jade's Patch 5 (CT-2, CT-3): a selected unit of the player's that goes
+   * into a building, up on its top or out to work its farm's field leaves the
+   * selection; one picked while already in stays. Run on each info.
+   */
+  private leaveForBuildings(): void {
+    const out = new Set<string>();
+    this.selection.retain((k) => {
+      const id = entityIdOf(k);
+      const u = id === null ? null : this.game.unit(id);
+      if (!u || u.owner !== this.player) return true;
+      const inside = u.inside !== 0 || (u.order === OrderKind.Farm && this.game.queues.get(id!)?.[0]?.t === 'job');
+      if (!inside) out.add(k);
+      return !inside || !this.seenOut.has(k);
+    });
+    this.seenOut = out;
   }
 
   /** F1: the next idle worker, centred; Shift or a double click: all of them. */
@@ -1768,7 +1814,9 @@ export class GameShell {
     // Cursor shape.
     const overMinimap = playing && this.input.inWindow && this.overMinimapCanvas(pos);
     const t = this.commands.targeting;
-    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
+    const tool = t ? TOOL_CURSORS[t.command] : undefined;
+    if (tool && inGameView) this.input.cursor.setShape({ kind: 'tool', tool });
+    else if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
     else if (this.commands.area && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_YELLOW });
     else if (this.godPick >= 0 && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_GREEN });
     else if (this.edgeDir) this.input.cursor.setShape({ kind: 'pan', dx: this.edgeDir.dx, dy: this.edgeDir.dy });
@@ -2097,9 +2145,10 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
+        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.auto ? ' auto-on' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
+        ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
@@ -2110,6 +2159,9 @@ export class GameShell {
     this.input.refreshHover();
   }
 }
+
+/** Commands whose cursor is the tool for the job (Jade's Patch 5, CT-1: "something basic and visually clear that fits it"). */
+const TOOL_CURSORS: Partial<Record<string, ToolCursor>> = { gather: 'axe', hunt: 'spear', repair: 'hammer' };
 
 /** The portrait's window is a button: its tooltip names what is shown, a click centres the camera on it. */
 const PORTRAIT_VIEW = { id: 'portrait-view', face: '', name: 'Portrait', keys: [], description: '', className: 'portrait-view' };
