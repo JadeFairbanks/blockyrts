@@ -12,6 +12,7 @@ import {
   dreadnoughtMelee,
   FIT_RANGES,
   fits,
+  gearScore,
   gearSpec,
   isGearItem,
   itemGear,
@@ -83,7 +84,7 @@ function blow(gear: number, h: KitHolder | null, m: MeleeStats): MeleeStats {
 export function gearNums(gear: number, h: KitHolder | null = null): GearNum[] {
   const g: GearSpec = gearSpec(gear);
   const out: GearNum[] = [];
-  if (g.melee) {
+  if (g.melee && !g.wand) {
     const m = blow(gear, h, g.melee);
     out.push(n('damage', 'Damage', m.damage, ''), n('swing', 'Swing', m.attackSteps / STEPS_PER_SECOND, 's', true), n('reach', 'Reach', m.reach / WU_PER_METRE, 'm'));
   } else if (g.ranged) {
@@ -91,6 +92,7 @@ export function gearNums(gear: number, h: KitHolder | null = null): GearNum[] {
     out.push(n('damage', 'Damage', r.damage, ''), n('shot', 'Shot every', r.attackSteps / STEPS_PER_SECOND, 's', true), n('range', 'Range', r.range / WU_PER_METRE, 'm'));
   }
   if (g.wand) out.push(n('power', 'Spell power', g.wand.powerPct, '%'), n('mana', 'Mana bar', g.wand.mana, ''));
+  if (g.wand?.regainPct) out.push(n('regain', 'Mana regain', g.wand.regainPct, '%'));
   if (g.armourBp !== undefined) out.push(n('protection', 'Protection', g.armourBp / 100, '%'));
   if (g.robe) out.push(n('regain', 'Mana regain', g.robe.regainPct, '%'));
   if (g.blockBp !== undefined) out.push(n('block', 'Block', g.blockBp / 100, '%'));
@@ -109,22 +111,26 @@ export function gearText(gear: number, h: KitHolder | null = null): string {
   return [say(rest), say(size)].filter((t) => t).join(' ');
 }
 
-/** The number a row ranks by and shows (plan 2.4), with its words for a menu's line ("damage a second"). */
+/**
+ * The number a row shows (plan 2.4), with its words for a menu's line:
+ * damage a second for a weapon (both blows of one that swings two, as the
+ * ranking counts them), spell power for a wand, protection for armour and a
+ * robe, block for a shield, the tier for tools.
+ */
 export function headNum(gear: number, h: KitHolder | null = null): { value: number; text: string; words: string } | null {
+  if (!gear) return null;
   const g = gearSpec(gear);
-  const hit = g.melee ? blow(gear, h, g.melee) : g.ranged;
-  if (hit) {
-    const v = round1((hit.damage * STEPS_PER_SECOND) / Math.max(1, hit.attackSteps));
-    return { value: v, text: `${fmt(v)}/s`, words: `${fmt(v)} damage a second` };
-  }
   if (g.wand) return { value: g.wand.powerPct, text: `${g.wand.powerPct}%`, words: `spell power ${g.wand.powerPct}%` };
+  if (g.tool !== undefined) return { value: g.tool, text: `tier ${g.tool}`, words: `tool tier ${g.tool}` };
   if (g.blockBp !== undefined) return { value: g.blockBp / 100, text: `${fmt(g.blockBp / 100)}%`, words: `block ${fmt(g.blockBp / 100)}%` };
   if (g.armourBp !== undefined) {
     const p = round1(g.armourBp / 100);
     return { value: p, text: `${fmt(p)}%`, words: `protection ${fmt(p)}%` };
   }
-  if (g.tool !== undefined) return { value: g.tool, text: `tier ${g.tool}`, words: `tool tier ${g.tool}` };
-  return null;
+  if (!g.melee && !g.ranged) return null;
+  // gearScore is damage a second in hundredths, the Dreadnought's 1.5 times in.
+  const v = round1(gearScore(gear, h ?? undefined) / 100);
+  return { value: v, text: `${fmt(v)}/s`, words: `${fmt(v)} damage a second` };
 }
 
 /** Which way a number moved from what the unit has, and by how much. */
@@ -134,14 +140,22 @@ function towards(has: number, is: number, lowBetter: boolean): { dir: 'up' | 'do
   return { dir: d > 0 !== lowBetter ? 'up' : 'down', by: fmt(Math.abs(d)) };
 }
 
-/** A menu row's value: its number and an arrow against what the unit has now (none when it has nothing on that line). */
+/**
+ * A menu row's value: its number, and an arrow against what the unit has now
+ * by the ranking itself (gearScore: a robe by its protection and regain
+ * together), so the arrows always agree with the order; none when it has
+ * nothing on that line.
+ */
 export function rowValue(gear: number, h: KitHolder | null, now: number): RowValue | undefined {
   const v = headNum(gear, h);
   if (!v) return undefined;
   const had = now ? headNum(now, h) : null;
   if (!had) return { text: v.text };
-  const t = towards(had.value, v.value, false);
-  return t.dir === 'same' ? { text: v.text, dir: 'same' } : { text: v.text, dir: t.dir, by: t.by };
+  const a = gearScore(gear, h ?? undefined);
+  const b = gearScore(now, h ?? undefined);
+  if (a === b) return { text: v.text, dir: 'same' };
+  const by = round1(Math.abs(v.value - had.value));
+  return { text: v.text, dir: a > b ? 'up' : 'down', ...(by > 0 ? { by: fmt(by) } : {}) };
 }
 
 /** The numbers of a piece beside those of what a unit has now (`now` 0: nothing to compare), as the tooltip's table rows. */

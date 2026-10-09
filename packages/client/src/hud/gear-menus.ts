@@ -20,10 +20,12 @@ import {
   isGearItem,
   itemGear,
   itemKind,
+  itemLine,
   type KitHolder,
   Line,
   LOOT_BAG_TENTHS_LB,
   type Order,
+  ownGearItem,
   replacedItem,
   RESOURCES,
   scrapSeconds,
@@ -56,10 +58,18 @@ export interface GearMenuDeps {
   use(unit: number, res: number): MenuChoice;
 }
 
-/** The kit rules' view of one unit, or null for one that wears no kit (an animal, an engine). */
+/** The kit rules' view of one unit, or null for one that wears no kit (an animal, an engine): as the sim's holderOf, its looted pieces' goods too. */
 export function holderOf(u: UnitInfo): KitHolder | null {
   const kind = holderKind(u.kind);
-  return kind ? { kind, troop: u.troop, w: u.wTier, a: u.aTier, s: u.sTier, t: u.tips } : null;
+  if (!kind) return null;
+  const h: KitHolder = { kind, troop: u.troop, w: u.wTier, a: u.aTier, s: u.sTier, t: u.tips };
+  const wItem = ownGearItem(kind === 'warrior' && u.troop === Troop.Ranger ? u.ranged : u.weapon);
+  const aItem = ownGearItem(u.armour);
+  const sItem = ownGearItem(u.shield);
+  if (wItem !== undefined) h.wItem = wItem;
+  if (aItem !== undefined) h.aItem = aItem;
+  if (sItem !== undefined) h.sItem = sItem;
+  return h;
 }
 
 /** The gear row a unit has on a line (0 weapon: a ranger's bow, a worker's tools, a mage's wand; 1 armour or robe; 2 shield), 0 for none. */
@@ -79,17 +89,10 @@ export function wornItem(u: UnitInfo, line: number): number | undefined {
   return h ? replacedItem(h, line) : undefined;
 }
 
-/** The line a kind of piece goes on: 0 a weapon, tools or a wand, 1 armour or a robe, 2 a shield, -1 none. */
-export function kindLine(kind: number): number {
-  if (kind === GearKind.Armour || kind === GearKind.Robe) return Line.Armour;
-  if (kind === GearKind.Shield) return Line.Shield;
-  return kind === GearKind.None ? -1 : Line.Weapon;
-}
-
 /** Whether a piece belongs on this unit's line at all, fitting or not (a swordsman's weapon slot lists every weapon, not tools or wands). */
 function sameFamily(u: UnitInfo, line: number, res: number): boolean {
   const kind = itemKind(res);
-  if (kindLine(kind) !== line) return false;
+  if (itemLine(res) !== line) return false;
   if (line !== Line.Weapon) return true;
   if (u.kind === UnitKind.Worker) return kind === GearKind.Tools;
   if (u.kind === UnitKind.Mage) return kind === GearKind.Wand;
@@ -125,7 +128,7 @@ function bagFull(u: UnitInfo, line: number, bag: ReadonlyArray<readonly [number,
 export function equipBagWhy(u: UnitInfo, res: number, d: GearMenuDeps): string {
   const h = holderOf(u);
   if (!h) return 'It wears no gear.';
-  const line = kindLine(itemKind(res));
+  const line = itemLine(res);
   return fitProblem(h, res) || (line >= 0 ? bagFull(u, line, d.bag(u.id), res) : '');
 }
 
@@ -303,7 +306,7 @@ export function bagMenu(u: UnitInfo, res: number, d: GearMenuDeps): PopMenu {
   const choices: MenuChoice[] = [d.use(u.id, res)];
   const gear = isGearItem(res);
   if (gear && h) {
-    const line = kindLine(itemKind(res));
+    const line = itemLine(res);
     const old = line >= 0 ? wornItem(u, line) : undefined;
     const why = equipBagWhy(u, res, d);
     const equip = (): void => d.send({ kind: 'equipBag', player: d.player, units, res });

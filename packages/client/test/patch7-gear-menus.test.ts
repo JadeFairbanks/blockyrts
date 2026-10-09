@@ -74,7 +74,7 @@ describe('a gear slot menu (the drafts\' scene 1)', () => {
     expect(l.bag).toEqual([Res.ObsidianHandAxe]);
     expect(l.stock).toEqual([Res.BasketHiltedBroadsword, Res.SteelSideSword, Res.WoodenCudgel]);
     expect(l.not.map((n) => n.res)).toEqual([Res.MinotaurGreatAxe]);
-    expect(l.not[0]!.why).toMatch(/^Too heavy/);
+    expect(l.not[0]!.why).toBe('Only spearmen, riders and woodsmen use spears and two-handed weapons.');
     const page = swapPage(u, 0, d);
     expect(page.choices.map((c) => c.group)).toEqual([
       'In its bag · puts it on now',
@@ -92,7 +92,7 @@ describe('a gear slot menu (the drafts\' scene 1)', () => {
     page.choices[0]!.run();
     page.choices[1]!.run();
     // A greyed row still sends its order: the unit says why.
-    expect(page.choices[4]!.why).toMatch(/^Too heavy/);
+    expect(page.choices[4]!.why).toMatch(/^Only spearmen/);
     page.choices[4]!.greyRun!();
     expect(sent).toEqual([
       { kind: 'equipBag', player: 0, units: [7], res: Res.ObsidianHandAxe },

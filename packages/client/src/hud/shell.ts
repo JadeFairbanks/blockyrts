@@ -1534,7 +1534,7 @@ export class GameShell {
     if (!isGearItem(res)) return null;
     const u = this.oneUnit();
     const h = u ? holderOf(u) : null;
-    const line = h ? itemLine(res, h) : -1;
+    const line = h ? itemLine(res) : -1;
     return compareTip(res, h, u && line >= 0 ? wornGear(u, line) : 0, `in the stock ×${this.game.pool()[res] ?? 0}`);
   }
 

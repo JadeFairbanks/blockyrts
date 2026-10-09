@@ -1109,7 +1109,7 @@ export class SelectionPanel {
   /** The gear row a unit has on the line a piece would go on, 0 for none (its bag's tooltips compare with it). */
   private wornFor(unit: number, res: number): number {
     const u = this.a.game.unit(unit);
-    const line = u ? itemLine(res, holderOf(u)!) : -1;
+    const line = u ? itemLine(res) : -1;
     return u && line >= 0 ? wornGear(u, line) : 0;
   }
 
