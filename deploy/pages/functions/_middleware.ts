@@ -7,12 +7,13 @@
 // deploy/pages/static/_routes.json; deploy/README.md has the whole picture.
 //
 // The login is the user name below and a bcrypt hash of the password, which
-// the Deploy workflow copies from the SITE_LOGIN_HASH Actions secret into the
-// Pages project, so neither the hash nor the password is in the repository.
-// The browser works out the bcrypt hash of what was typed (the hash's salt is
-// in the page) and sends that, because one bcrypt check costs several times
-// the free plan's 10 ms of CPU a request; this side only compares. A signed
-// cookie then keeps the browser signed in for COOKIE_DAYS.
+// the Deploy workflow makes from the SITE_PASSWORD Actions secret
+// (deploy/scripts/site-login.ts) and puts in the Pages project as the
+// SITE_LOGIN_HASH secret, so neither is in the repository. The browser works
+// out the bcrypt hash of what was typed (the hash's salt is in the page) and
+// sends that, because one bcrypt check costs several times the free plan's
+// 10 ms of CPU a request; this side only compares. A signed cookie then keeps
+// the browser signed in for COOKIE_DAYS.
 
 /** The user name, in any capitals. */
 export const SITE_USER = 'Admin';
@@ -174,7 +175,7 @@ export function loginPage(origin: string, salt: string): string {
         button.disabled = true;
         note.textContent = 'Checking...';
         try {
-          const proof = await bcrypt.hash(form.elements.password.value, form.dataset.salt);
+          const proof = await bcrypt.hash(form.elements.password.value.trim(), form.dataset.salt);
           const res = await fetch('${LOGIN_PATH}', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },

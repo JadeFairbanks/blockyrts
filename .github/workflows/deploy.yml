@@ -38,22 +38,19 @@ jobs:
             echo "::error::packages/server/Dockerfile does not exist yet; it arrives with the M9 server work."
             exit 1
           fi
-      - name: Check the site login is set
-        run: |
-          # The sign-in page's password, as a bcrypt hash (deploy/README.md).
-          bcrypt='^[$]2[aby][$][0-9]{2}[$][./A-Za-z0-9]{53}$'
-          if [[ ! "$SITE_LOGIN_HASH" =~ $bcrypt ]]; then
-            echo "::error::The SITE_LOGIN_HASH secret is missing or is not a bcrypt hash; add it in Settings > Secrets and variables > Actions (see deploy/README.md)."
-            exit 1
-          fi
-        env:
-          SITE_LOGIN_HASH: ${{ secrets.SITE_LOGIN_HASH }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Make the sign-in page's login
+        run: |
+          # The password is the SITE_PASSWORD Actions secret, exactly as typed on
+          # the sign-in page (deploy/README.md); only its bcrypt hash leaves here.
+          node deploy/scripts/site-login-cli.ts >"$RUNNER_TEMP/site-login-hash"
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD || secrets.SITE_LOGIN_HASH }}
       - name: Work out the game version
         id: version
         run: |
@@ -105,17 +102,16 @@ jobs:
           fi
           # The sign-in page (deploy/pages): the middleware in deploy/pages/functions,
           # _routes.json so the game's files skip it, and _headers. The login's
-          # hash goes to the Pages project as a secret before the deploy, which
-          # is when Pages reads it.
+          # hash (made above) goes to the Pages project as a secret before the
+          # deploy, which is when Pages reads it.
           cp deploy/pages/static/_routes.json deploy/pages/static/_headers packages/client/dist/
           cd deploy/pages
-          printf '%s' "$SITE_LOGIN_HASH" | pnpm dlx wrangler@4 pages secret put SITE_LOGIN_HASH --project-name blockyrts
+          pnpm dlx wrangler@4 pages secret put SITE_LOGIN_HASH --project-name blockyrts <"$RUNNER_TEMP/site-login-hash"
           pnpm dlx wrangler@4 pages deploy ../../packages/client/dist \
             --project-name blockyrts --branch main --commit-hash "$GITHUB_SHA"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
-          SITE_LOGIN_HASH: ${{ secrets.SITE_LOGIN_HASH }}
       - name: Tag the live commit
         if: steps.version.outputs.fresh == 'true'
         run: |
