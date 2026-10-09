@@ -22,6 +22,7 @@ import {
   mageLock,
   mageOf,
   OrderKind,
+  Troop,
   type HitEvent,
   type Order,
   type SimEvent,
@@ -84,6 +85,7 @@ import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
+import { troopIconFile } from './unit-icons.ts';
 import { CardPop, ITEM_MENU } from './card-pop.ts';
 import { itemChoices, type ItemMenuActions } from './item-menu.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
@@ -192,7 +194,9 @@ export interface PerfInfo {
 }
 
 /** Saved camera spots, F5 up: the fourth gave its place (F8) to Repair all in Jade's Patch 5 (GP-25). */
-const CAMERA_SLOTS = 3;
+const CAMERA_SLOTS = 2;
+/** The woodsman's type key (Patch 5): his own card, subgroup and Select all woodsmen button. */
+const WOODSMEN = 'warrior:woods';
 /** Urgent messages F4 steps back through. */
 const URGENT_KEEP = 8;
 /** Meal bubbles at most this often, ms (patch 1, s): a hundred units eat about once a second between them. */
@@ -530,8 +534,8 @@ export class GameShell {
         return id !== null && this.game.buildings.get(id)?.shared === true;
       }
       if (t.kind !== 'unit' || t.owner >= info.players.length) return false;
-      // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines.
-      const combat = t.typeKey.startsWith('warrior') || t.typeKey.startsWith('mage:') || t.typeKey.startsWith('engine:');
+      // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines, not workers or woodsmen.
+      const combat = (t.typeKey.startsWith('warrior') && t.typeKey !== WOODSMEN) || t.typeKey.startsWith('mage:') || t.typeKey.startsWith('engine:');
       if (combat && ((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
       const id = entityIdOf(t.key);
       const u = id === null ? null : this.game.unit(id);
@@ -1098,6 +1102,17 @@ export class GameShell {
       onDoubleClick: () => this.selectIdle(true),
     });
     util({ id: 'army', face: '⚔', name: 'Select Army', keys: k('army'), description: 'Select every combat unit you own (gatherers excluded).', onPress: () => this.selectArmy() });
+    // Jade's Patch 5 (WD-4): Select all woodsmen takes one of the camera spots' places, beside Select Army as the other selection button.
+    util({
+      id: 'woodsmen',
+      face: '♣',
+      name: 'Select All Woodsmen',
+      keys: k('woodsmen'),
+      description: 'Select every woodsman you own. Those sheltering in a building stay where they are. Select Army (F2) never takes woodsmen.',
+      className: 'woodsmen',
+      icon: { layers: [{ file: troopIconFile(Troop.Woodsman, 1) }] },
+      onPress: () => this.selectWoodsmen(),
+    });
     util({
       id: 'townhall',
       face: '⌂',
@@ -1469,6 +1484,20 @@ export class GameShell {
     }
     if (army.length === 0) this.message(posted > 0 ? 'Every warrior and mage you have is in a tower or a building.' : 'You have no warriors or mages yet.');
     else this.selection.set(army);
+  }
+
+  /** Jade's Patch 5 (WD-4): every woodsman of the player's, leaving out those inside a building, as F2 leaves its posted men. */
+  private selectWoodsmen(): void {
+    const woods: Selectable[] = [];
+    let inside = 0;
+    for (const t of this.world.selectables.candidates()) {
+      if (t.kind !== 'unit' || t.owner !== this.player || t.typeKey !== WOODSMEN) continue;
+      const id = entityIdOf(t.key);
+      if (id !== null && (this.game.unit(id)?.inside ?? 0) !== 0) inside++;
+      else woods.push(t);
+    }
+    if (woods.length === 0) this.message(inside > 0 ? 'Every woodsman you have is in a building.' : 'You have no woodsmen yet. A Scholar\'s Lodge trains them.');
+    else this.selection.set(woods);
   }
 
   /**

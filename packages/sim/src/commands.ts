@@ -83,8 +83,9 @@ export function commandable(state: SimState, player: number, i: number, allies: 
   const owner = e.owner[i]!;
   if (owner === player) return true;
   if (!allies || owner >= state.players.length) return false;
-  // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines; an inherited unit is anyone's still.
-  return e.shared[i] !== 0 || ((state.players[owner]!.share & (1 << player)) !== 0 && combatTroop(state, i));
+  // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines, not workers or woodsmen;
+  // an inherited unit is anyone's still.
+  return e.shared[i] !== 0 || ((state.players[owner]!.share & (1 << player)) !== 0 && combatTroop(state, i) && !isWoodsman(e, i));
 }
 
 /** The player's units among the ids, by index (with `allies`, also the units shared with them). */
