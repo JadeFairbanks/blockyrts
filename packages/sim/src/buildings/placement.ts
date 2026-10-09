@@ -17,6 +17,7 @@ import { Mat } from '../world/materials.ts';
 import { canBuildOver, stageInfo } from '../world/props.ts';
 import { RESEARCH } from '../combat/items.ts';
 import type { Cost } from '../economy/resources.ts';
+import { canAffordAny } from '../economy/food-kinds.ts';
 import { footprintRect, type Building } from './store.ts';
 
 /** Why a tile is red; 0 is green. */
@@ -194,9 +195,13 @@ export function costMultiplier(state: SimState, player: number, kind: number): n
   return kind === BuildingKind.ScholarsLodge ? countOf(state, player, kind) + 1 : 1;
 }
 
+/** What placing a building costs a player: its level 1 cost, or its other way to pay (`alt`, Patch 5) when the stock covers only that. */
 export function buildCost(state: SimState, player: number, kind: number): Cost {
   const m = costMultiplier(state, player, kind);
-  return levelSpec(kind, 1).cost.map(([r, n]) => [r, n * m] as const);
+  const l = levelSpec(kind, 1);
+  const pool = state.players[player]?.pool;
+  const cost = l.alt && pool && !canAffordAny(pool, l.cost) && canAffordAny(pool, l.alt) ? l.alt : l.cost;
+  return cost.map(([r, n]) => [r, n * m] as const);
 }
 
 /** The band of the land under a column. */

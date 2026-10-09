@@ -91,11 +91,13 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
       [BuildingKind.MainBase], [BuildingKind.Farm], [BuildingKind.Barn], [BuildingKind.Storehouse], [BuildingKind.FishingDock], [BuildingKind.Workshop],
       [BuildingKind.Forge], [BuildingKind.ArtilleryWorkshop], [BuildingKind.Barracks], [BuildingKind.MagiSanctum], [BuildingKind.ScholarsLodge], [BuildingKind.Mineshaft],
     ]);
-    expect(slots[12]!.every((b) => b.group === 'Defences')).toBe(true);
-    expect(slots[13]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.Bonfire]);
-    // Patch 4: no fifteenth place kept for Back on the grid's B.
-    expect(slots).toHaveLength(14);
-    expect(submenuChoices(slots[12]!).map((c) => c.name)).toEqual([
+    // Patch 5: the Tavern after the Mineshaft, then Defences and Lights.
+    expect(slots[12]!.map((b) => b.kind)).toEqual([BuildingKind.Tavern]);
+    expect(slots[13]!.every((b) => b.group === 'Defences')).toBe(true);
+    expect(slots[14]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.Bonfire]);
+    // Patch 4: no place kept for Back on the grid's B.
+    expect(slots).toHaveLength(15);
+    expect(submenuChoices(slots[13]!).map((c) => c.name)).toEqual([
       'Wooden wall', 'Hardwood wall', 'Stone wall', 'Earth rampart',
       'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
@@ -121,7 +123,7 @@ describe('the worker card', () => {
     for (const gone of ['attack', 'stop', 'hold', 'enter', 'patrol', 'buildBasic', 'buildAdvanced']) expect(card.some((e) => e.action === gone)).toBe(false);
   });
 
-  it('opens the one build menu on B: the fourteen buildings on their letters, Defences and Lights as submenus', () => {
+  it('opens the one build menu on B: the buildings on their letters, Defences and Lights as submenus', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     // A desktop card shows 40 buttons at the smallest size before it pages.
     (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 40 });
@@ -132,14 +134,15 @@ describe('the worker card', () => {
     expect(card[0]!.key).toBe('KeyH');
     expect(card[1]!.face).toBe('Farm');
     expect(card[1]!.key).toBe('KeyF');
-    expect(card[12]!.face).toBe('Defences');
-    expect(card[13]!.face).toBe('Lights');
-    // The fourteen and Back fit one page; Back is Esc (Patch 4; before, B on the grid).
-    expect(card).toHaveLength(15);
-    expect(card.slice(0, 14).every((e) => e.menu && /^Key[A-Z]$/.test(e.key))).toBe(true);
-    expect(card[14]!.face).toBe('Back');
-    expect(card[14]!.key).toBe('Escape');
-    card[12]!.run({ shift: false, ctrl: false });
+    expect(card[12]!.face).toBe('Tavern');
+    expect(card[13]!.face).toBe('Defences');
+    expect(card[14]!.face).toBe('Lights');
+    // The fifteen and Back fit one page; Back is Esc (Patch 4; before, B on the grid).
+    expect(card).toHaveLength(16);
+    expect(card.slice(0, 15).every((e) => e.menu && /^Key[A-Z]$/.test(e.key))).toBe(true);
+    expect(card[15]!.face).toBe('Back');
+    expect(card[15]!.key).toBe('Escape');
+    card[13]!.run({ shift: false, ctrl: false });
     card = c.card();
     // Defences' 13 choices fit a desktop card, every one on a letter of its own (Patch 5: earthworks and ramps are gone, the earth rampart joins).
     expect(card.map((e) => e.face)).toEqual([
@@ -152,8 +155,8 @@ describe('the worker card', () => {
     expect(new Set(card.map((e) => e.key)).size).toBe(card.length);
     expect(card.at(-1)!.key).toBe('Escape');
     expect(c.back()).toBe(true);
-    expect(c.card()[12]!.face).toBe('Defences');
-    c.card()[13]!.run({ shift: false, ctrl: false });
+    expect(c.card()[13]!.face).toBe('Defences');
+    c.card()[14]!.run({ shift: false, ctrl: false });
     expect(c.card().map((e) => e.face)).toEqual(['Torch post', 'Bonfire', 'Back']);
     expect(c.back()).toBe(true);
     expect(c.back()).toBe(true);

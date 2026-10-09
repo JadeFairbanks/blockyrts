@@ -57,6 +57,8 @@ import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
+import { DreadnoughtUi } from './dreadnought-ui.ts';
+import { tillBars } from './tavern-bars.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
 import { queueSeconds } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
@@ -224,6 +226,8 @@ export class GameShell {
   readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
+  /** The Tavern's Hire Dreadnought window (Patch 5). */
+  readonly hire: DreadnoughtUi;
   readonly inventory: InventoryUi;
   readonly chat: ChatBox;
   /** Waiting for a spot to ping (the Ping button). */
@@ -402,6 +406,7 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
+      hireDreadnought: (taverns) => this.hire.show(taverns),
       slots: () => {
         const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
         return { most: room.cols * room.rows };
@@ -440,6 +445,13 @@ export class GameShell {
       colour: (p) => session.colour(p),
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
+    this.hire = new DreadnoughtUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      message: (t) => this.message(t),
+      addArea: (id, el, target) => this.input.addArea(id, el, target),
+    });
+    // The Tavern's till in its bar stack (Patch 5, GP-20); a Dreadnought being hired is its queue's gold bar.
+    this.stackBars.push((key) => tillBars(key, this.game.buildings, this.player));
     this.chat = new ChatBox(this.layout.chat, session.chat);
     // One right-click menu for every item, in the stockpile and in one unit's inventory (Jade's Patch 5, decisions 3.6, item-menu.ts).
     this.itemActions = {
@@ -753,6 +765,7 @@ export class GameShell {
     for (const ev of info.events) this.onEvent(ev);
     this.peoples.refresh();
     this.allies.refresh();
+    this.hire.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
@@ -1385,7 +1398,7 @@ export class GameShell {
     const army: Selectable[] = [];
     let posted = 0;
     for (const t of this.world.selectables.candidates()) {
-      if (t.kind !== 'unit' || t.owner !== this.player || (t.typeKey !== 'warrior' && !t.typeKey.startsWith('mage:'))) continue;
+      if (t.kind !== 'unit' || t.owner !== this.player || (t.typeKey !== 'warrior' && t.typeKey !== 'warrior:dreadnought' && !t.typeKey.startsWith('mage:'))) continue;
       // Not the men on towers and tops (Jade's Patch 5, CT-4), so F2 never pulls them off their posts.
       const id = entityIdOf(t.key);
       if (id !== null && (this.game.unit(id)?.inside ?? 0) !== 0) posted++;
@@ -1601,6 +1614,7 @@ export class GameShell {
       else if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
+      else if (this.hire.closeTop()) return;
       else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
       else this.selection.clear();

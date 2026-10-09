@@ -3976,6 +3976,71 @@ the box and the press on a face).*
 7. **Saves.** No save format change; the snapshot version goes to 30 (a
    dig order's layer and missed columns, and digs drawn upwards).
 
+## How a tester checks the Tavern and the Dreadnought (Patch 5)
+
+*Jade's Patch 5, GP-19 to GP-21: the Tavern, which turns food into silver
+while it is open for business, and the Dreadnought it hires. Picks in
+blueprint/patch5-tavern-picks.md. The numbers are rows: `TAVERN` in
+`packages/sim/src/buildings/tavern.ts`, `DREADNOUGHT` in
+`packages/sim/src/units/dreadnought.ts`, his mace and plate in
+`DREADNOUGHT_KIT` (`packages/sim/src/units/kits.ts`), his walk, jump, climb
+and run food in his row of `GAITS` (`packages/sim/src/units/moves.ts`) and
+the Tavern's cost in `packages/sim/src/buildings/data.ts`; the balance
+editor shows them under Buildings, Training and Units.*
+
+1. **The tests.** `npx vitest run packages/sim/test/patch5-tavern.test.ts`:
+   the till fills to 1.055 silver after 19 foods, Withdraw funds takes the
+   whole ingot and leaves the fraction, a closed Tavern serves nothing; the
+   price takes 15 gold, 105 silver or a mix (a gold is worth 7 silver, a
+   little over is fine, under never); the main base tier caps him; he
+   smashes, then sweeps, by turns; he walks a fifth slower than a warrior,
+   never climbs, jumps 1.5 m and pays double for running.
+2. **Building it.** `pnpm dev`, open http://localhost:5173/?seed=1. The
+   build menu has **Tavern** after the Mineshaft (key V; on a phone-size
+   card the build menu now takes two pages, turned with **More**). Without a tier 3 main base it
+   is greyed and says so. It costs 80 lumber, 60 stone, 5 leather and a
+   gold ingot, or 7 silver ingots when there is no gold. For a quick look,
+   type M N B V C X Z and press **Godmode**: it builds at once.
+3. **Open for business.** Select the finished Tavern: the card has **Open
+   for business** (F), **Withdraw funds** (I) and **Hire Dreadnought** (H).
+   Press F: the button lights, a food goes every 3 s, and the panel shows
+   the till to 3 decimals (0.055 silver a food), a bar to the next ingot,
+   and the silver made and food served in all. A silver bar in the stack
+   over the Tavern fills the same way (a Dreadnought being hired shows as
+   the gold training bar). Press F again: it closes, and its silver bar goes.
+4. **Withdraw funds.** Greyed until the till holds a whole ingot. Press it
+   at 1.055: one silver goes into the stock and 0.055 stays. With no food
+   to spare the Tavern says so once and waits.
+5. **The look.** At dusk or night with the Tavern open, its windows glow
+   and flicker, a figure crosses a window now and then, the lantern by the
+   door lights the ground, and the chimney smokes well. Closed, the windows
+   and lantern go dark and the chimney gives a thin wisp.
+6. **Hiring.** At a tier 3 main base, press **Hire Dreadnought**: its
+   tooltip is his description and price. The window lists 100 food (not
+   negotiable) and gold and silver boxes with your stock; type or use − and
+   + in either, and the other fills to the price. **All gold** and **All
+   silver** pay all one way. The worth line warns when the mix is under the
+   price or more than 6 silver over, and **Hire** waits until it is right.
+   He takes 60 s at the Tavern, 8 supply, and walks out with a line.
+7. **The cap.** A tier 3 main base allows 1 alive (the one being hired
+   counts), a tier 4 main base 3; the button says which.
+8. **The Dreadnought.** He is a giant in plate with a spiked mace, 200
+   health, no shield and no ranks. His card has Attack, Patrol, Move and
+   Eat (no Hunt, no Equip); his panel shows the mace and plate and says he
+   keeps them. He walks a fifth slower than the others and eats 3 food a
+   meal. In a fight he smashes one foe for 140, then sweeps every foe in
+   front of him for 70, every 3 s by turns; a pale crescent flashes where
+   the sweep lands. Now and then he roars his war cry with a remark.
+   Godmode's grid has him too.
+9. **Getting about.** His card's last button is **Walk** (H): pressed, he
+   runs, 40% faster than his walk, paying 2 food for every 50 m (others pay
+   1). Send him at a rise of about 1.4 m: he jumps it, with his jump clip.
+   Send him at a cliff a warrior would climb: he walks round, or stops
+   where there is no way round. He never climbs.
+10. **Saves and checks.** No snapshot change: the Tavern's state is kept in
+    the building record as it was. The Tavern's kind id is 24 (the earth
+    rampart took 23).
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

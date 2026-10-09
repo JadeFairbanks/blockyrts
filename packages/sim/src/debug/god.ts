@@ -32,6 +32,7 @@ import { bossIndex, summonBoss } from '../threats/boss.ts';
 import { LAIRS } from '../threats/data.ts';
 import { addLair, nightNow } from '../threats/lairs.ts';
 import { BOSS_FIRST_NIGHT } from '../threats/types.ts';
+import { addDreadnought, isDreadnought } from '../units/dreadnought.ts';
 import { hasShield, TOP_MAGE_TIER, TOP_SHIELD_TIER, TOP_TIER, Troop, TROOP_TYPES, troopTierName, weaponTiers } from '../units/kits.ts';
 import { setWorkerRank, WORKER_XP_TENTHS } from '../units/ranks.ts';
 
@@ -69,7 +70,8 @@ function domestic(species: number): boolean {
 /** Everything godmode can place, in the grid's order: the players' units at their top kit, engines with their crews, animals, mobs (Morvath among them), then lairs with their guardians. */
 export const GOD_SPAWNS: readonly GodSpawn[] = [
   { name: 'Worker', what: 'worker', id: 0, model: '', side: 'player' },
-  ...TROOP_TYPES.map((t): GodSpawn => ({ name: troopTierName(t, weaponTiers(t)[1]), what: 'troop', id: t, model: '', side: 'player' })),
+  // Patch 5: the Dreadnought too, hired at the Tavern.
+  ...[...TROOP_TYPES, Troop.Dreadnought].map((t): GodSpawn => ({ name: troopTierName(t, weaponTiers(t)[1]), what: 'troop', id: t, model: '', side: 'player' })),
   { name: 'Support mage', what: 'mage', id: School.Support, model: '', side: 'player' },
   { name: 'Battle mage', what: 'mage', id: School.Battle, model: '', side: 'player' },
   { name: 'Artillery crewman', what: 'crewman', id: 0, model: '', side: 'player' },
@@ -120,6 +122,10 @@ export function godPlace(state: SimState, player: number, what: number, x: numbe
       break;
     }
     case 'troop': {
+      if (s.id === Troop.Dreadnought) {
+        e.heading[addDreadnought(state, player, x, z)] = 32768;
+        break;
+      }
       // At the top of its ladder: carbon steel, or the brawler's one kit, close melee with the top shield (Patch 5); cavalry on a horse.
       const i = addWarrior(state, player, x, z, s.id, weaponTiers(s.id)[1], TOP_TIER, hasShield(s.id) ? TOP_SHIELD_TIER : 0);
       e.heading[i] = 32768;
@@ -162,6 +168,8 @@ export function maxRanks(state: SimState, player: number): void {
       e.xp[i] = Math.max(e.xp[i]!, WORKER_XP_TENTHS[TOP_RANK]!);
       setWorkerRank(state, i, TOP_RANK);
     } else if (kind === UnitKind.Warrior) {
+      // The Dreadnought has no ranks (Patch 5); his 200 health stays his own.
+      if (isDreadnought(e, i)) continue;
       e.xp[i] = Math.max(e.xp[i]!, WARRIOR_XP_TENTHS[TOP_RANK]!);
       e.rank[i] = TOP_RANK;
       e.maxHp[i] = WARRIOR_HEALTH_BY_RANK[TOP_RANK]!;

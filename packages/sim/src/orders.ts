@@ -131,6 +131,21 @@ export interface ProduceOrder {
   count: number;
 }
 
+/** The Tavern's Open for business button (Patch 5): open 1 opens it, 0 closes it. */
+export interface TavernOpenOrder {
+  kind: 'tavernOpen';
+  player: number;
+  building: number;
+  open: number;
+}
+
+/** The Tavern's Withdraw funds button (Patch 5): the whole silver ingots in its till go to the player's stock. */
+export interface TavernWithdrawOrder {
+  kind: 'tavernWithdraw';
+  player: number;
+  building: number;
+}
+
 /** Cancel a queued item, refunded in full. */
 export interface CancelProduceOrder {
   kind: 'cancelProduce';
@@ -744,6 +759,8 @@ export type Order =
   | TrainRankOrder
   | RetrainOrder
   | ProduceOrder
+  | TavernOpenOrder
+  | TavernWithdrawOrder
   | CancelProduceOrder
   | UpgradeOrder
   | CancelBuildOrder
@@ -792,6 +809,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   trainRank: ['building'],
   retrain: [],
   produce: ['building', 'product', 'count'],
+  tavernOpen: ['building', 'open'],
+  tavernWithdraw: ['building'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
   cancelBuild: ['building'],
@@ -878,6 +897,9 @@ export function validateOrder(o: Order): void {
     case 'produce':
       // 1, or 5 with Shift; a stack of scraps (Patch 5) any number to 9999.
       if (o.count < 1 || o.count > 9999) throw new Error('produce count must be 1 to 9999');
+      return;
+    case 'tavernOpen':
+      if (o.open !== 0 && o.open !== 1) throw new Error('tavernOpen open must be 0 or 1');
       return;
     case 'dig':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');

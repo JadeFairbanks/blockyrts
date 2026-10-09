@@ -33,8 +33,11 @@ import type { EntityStore } from '../state.ts';
  * mages have none. Patch 2 adds the artillery crewman (Jade), trained at the
  * Artillery workshop: the only unit that crews an engine, bare-handed like a
  * tier 0 close melee, with no kit to upgrade (siege/data.ts CREWMAN).
+ * Patch 5 adds the Dreadnought (Jade, GP-21), hired at the Tavern: he comes
+ * with the mace and plate of his model and never changes them
+ * (DREADNOUGHT_KIT; units/dreadnought.ts).
  */
-export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5, Crew: 6 } as const;
+export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5, Crew: 6, Dreadnought: 7 } as const;
 export type Troop = (typeof Troop)[keyof typeof Troop];
 /** The troop types a Barracks trains (the crewman is the Artillery workshop's). */
 export const TROOP_TYPES: readonly Troop[] = [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler, Troop.Cavalry];
@@ -44,7 +47,7 @@ export const TROOP_TYPES: readonly Troop[] = [Troop.Close, Troop.Long, Troop.Ran
  * melee" and "long melee" are our words, never shown to the player, so the
  * two melee lines go by their best-known names here.
  */
-export const TROOP_NAMES: readonly string[] = ['Warrior', 'Swordsman', 'Spearman', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman'];
+export const TROOP_NAMES: readonly string[] = ['Warrior', 'Swordsman', 'Spearman', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman', 'Dreadnought'];
 /**
  * A troop's name by its weapon tier, [type][tier] (Patch 2, Jade): '' where a
  * type has no such tier. The brawler keeps its type name (Jade).
@@ -56,6 +59,7 @@ export const TROOP_TIER_NAMES: readonly (readonly string[])[] = [
   ['', 'Slinger', 'Yew archer', 'Copper archer', 'Bronze archer', 'Iron archer', 'Marksman', 'Crossbowman', 'Musketeer'],
   [],
   ['', 'Lancer', 'Flint lancer', 'Copper lancer', 'Bronze lancer', 'Iron lancer', 'Pike rider', 'Halberd rider', 'Greatsword rider'],
+  [],
   [],
 ];
 
@@ -71,7 +75,7 @@ export function aTroop(troop: number, weaponTier: number, start = false): string
   return `${start ? a.charAt(0).toUpperCase() + a.slice(1) : a} ${name}`;
 }
 /** Command card letters (s): A Close melee, Q Long melee, N Ranger, B Brawler and C Cavalry at the Barracks (Patch 2: the Stables are gone) (L is Follow, G a building's upgrade). */
-export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C', ''];
+export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C', '', ''];
 
 /**
  * Which line of kit an upgrade raises: a troop's weapon or armour, a worker's
@@ -479,6 +483,8 @@ export interface GearSpec {
   tier: number;
   model: string;
   melee?: MeleeStats;
+  /** A second blow swung in turn with the first, every other attack (Patch 5: the Dreadnought's mace, a smash then a sweep); atkWith is SECOND_BLOW while it swings. */
+  melee2?: MeleeStats;
   ranged?: RangedStats;
   /** Shields: projectile block, bp (Table 3). */
   blockBp?: number;
@@ -564,6 +570,51 @@ export const TOOL_GEAR: ReadonlyArray<readonly number[]> = TOOL_KITS.map((k) => 
 export const WAND_GEAR: readonly number[] = WAND_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Weapon, tier: k.tier, model: k.model, melee: WAND_TAP, wand: { powerPct: k.powerPct, mana: k.mana } })));
 export const ROBE_GEAR: readonly number[] = ROBE_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Armour, tier: k.tier, model: k.model, armourBp: k.protectionPct * 100, robe: { regainPct: k.regainPct } })));
 
+/** A blow of the Dreadnought's: damage, how it hits, and where in its clip it strikes. */
+export interface DreadnoughtBlow {
+  damage: number;
+  hit: Hit;
+  /** Tenths of a second from the swing's start to the blow. */
+  landDs: number;
+}
+
+/**
+ * The Dreadnought's kit (Patch 5, Jade, GP-21): the heavy mace and the plate
+ * of his model, never upgraded or switched (no shield). He attacks every 3
+ * s, a smash (single target, 140) then a swing (every enemy in the arc in
+ * front of him, 70), in turn. His armour is in line with high carbon steel:
+ * the tier 8 row's protection. The reach (s) suits his 2.5 m height; each
+ * blow lands where its clip strikes (s): the smash as the mace comes down,
+ * the swing half way through its clip, where its crescent shows.
+ */
+export const DREADNOUGHT_KIT = {
+  mace: 'Heavy spiked mace',
+  plate: 'Dreadnought plate',
+  attackDs: 30,
+  reachCm: 200,
+  smash: { damage: 140, hit: Hit.Stab, landDs: 9 } as DreadnoughtBlow,
+  swing: { damage: 70, hit: Hit.Sweep, landDs: 9 } as DreadnoughtBlow,
+  armourTier: TOP_TIER,
+};
+
+const dreadBlow = (b: DreadnoughtBlow): MeleeStats => ({
+  damage: b.damage, attackSteps: ds(DREADNOUGHT_KIT.attackDs), reach: cm(DREADNOUGHT_KIT.reachCm), hit: b.hit, blunt: true, oneHanded: false, crit: false, landSteps: ds(b.landDs),
+});
+
+/** The armour row his plate matches (DREADNOUGHT_KIT.armourTier, held to the ladder). */
+export function dreadnoughtArmour(): ArmourKit {
+  return ARMOUR_KITS[Math.max(0, Math.min(TOP_TIER, DREADNOUGHT_KIT.armourTier))]!;
+}
+
+/** The Dreadnought's gear: drawn as part of his own model (heavy_knight), so neither has a model of its own. */
+export const DREADNOUGHT_GEAR = {
+  mace: add({ name: DREADNOUGHT_KIT.mace, slot: Slot.Weapon, tier: TOP_TIER, model: '', melee: dreadBlow(DREADNOUGHT_KIT.smash), melee2: dreadBlow(DREADNOUGHT_KIT.swing) }),
+  plate: add({ name: DREADNOUGHT_KIT.plate, slot: Slot.Armour, tier: TOP_TIER, model: '', armourBp: dreadnoughtArmour().protectionPct * 100 }),
+} as const;
+
+/** atkWith while a weapon's second blow (GearSpec.melee2) swings: past the slots. */
+export const SECOND_BLOW = 5;
+
 /**
  * Gear rows of their own for the items that go on as another piece (Patch 5:
  * the satyrs' obsidian hand-axe as the bronze shortsword), with that piece's
@@ -626,7 +677,7 @@ export function hasShield(troop: number): boolean {
 export function weaponTiers(troop: number): readonly [number, number] {
   if (troop === Troop.Close) return [0, TOP_TIER];
   if (troop === Troop.Brawler) return [TOP_TIER, TOP_TIER];
-  if (troop === Troop.Crew) return [0, 0];
+  if (troop === Troop.Crew || troop === Troop.Dreadnought) return [0, 0];
   return [1, TOP_TIER];
 }
 
@@ -898,6 +949,13 @@ export function applyKit(e: EntityStore, i: number, kind: 'worker' | 'warrior' |
     return;
   }
   const t = e.troop[i]!;
+  if (t === Troop.Dreadnought) {
+    e.weapon[i] = DREADNOUGHT_GEAR.mace;
+    e.armour[i] = DREADNOUGHT_GEAR.plate;
+    e.shield[i] = 0;
+    e.ranged[i] = 0;
+    return;
+  }
   e.armour[i] = ARMOUR_GEAR[a] ?? 0;
   e.shield[i] = hasShield(t) ? (SHIELD_GEAR[e.sTier[i]!] ?? 0) : 0;
   e.ranged[i] = 0;
@@ -922,6 +980,7 @@ export function applyKit(e: EntityStore, i: number, kind: 'worker' | 'warrior' |
 
 /** A short name for a troop's kit: "Bronze spear, leather jerkin", and close melee's shield: "…, wooden shield". */
 export function kitName(troop: number, weapon: number, armourTier: number, shieldTier = 0): string {
+  if (troop === Troop.Dreadnought) return `${DREADNOUGHT_KIT.mace}, ${DREADNOUGHT_KIT.plate.toLowerCase()}`;
   const w = weaponPiece(troop, weapon)?.name ?? 'Fists';
   const a = armourTier > 0 ? ARMOUR_KITS[armourTier]!.name.toLowerCase() : 'no armour';
   const s = hasShield(troop) && shieldTier > 0 ? `, ${SHIELD_KITS[shieldTier]!.name.toLowerCase()}` : '';
@@ -958,7 +1017,7 @@ export function holderKind(unitKind: number): KitHolder['kind'] | undefined {
 export function lineTop(h: KitHolder, line: number): number {
   if (h.kind === 'mage') return line === Line.Weapon || line === Line.Armour ? TOP_MAGE_TIER : 0;
   if (h.kind === 'worker') return line === Line.Weapon ? TOP_TIER : 0;
-  if (h.troop === Troop.Crew) return 0;
+  if (h.troop === Troop.Crew || h.troop === Troop.Dreadnought) return 0;
   if (line === Line.Weapon) return h.troop === Troop.Brawler ? 0 : weaponTiers(h.troop)[1];
   if (line === Line.Shield) return hasShield(h.troop) ? TOP_SHIELD_TIER : 0;
   if (line === Line.Tips) return takesTips(h.troop, h.w) ? 1 : 0;
@@ -1037,6 +1096,7 @@ export function upgradeTarget(h: KitHolder, line: number, max: boolean, pool: In
   const cur = lineTier(h, line);
   if (top === 0) {
     if (line === Line.Tips) return { why: 'Only a bow or crossbow takes poison tips.' };
+    if (h.troop === Troop.Dreadnought) return { why: 'A Dreadnought keeps the mace and plate he came with.' };
     return { why: h.troop === Troop.Brawler && line === Line.Weapon ? 'A brawler is tier 8 only.' : h.troop === Troop.Crew ? 'An artillery crewman has no kit to upgrade.' : 'Nothing to upgrade.' };
   }
   if (cur >= top) return { why: 'Already the best there is.' };
