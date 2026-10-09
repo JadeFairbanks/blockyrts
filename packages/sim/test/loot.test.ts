@@ -240,8 +240,14 @@ describe('Hunt', () => {
     const [bx, bz] = buildingCentre(b);
     addAnimal(s, Species.Deer, WILD, bx + 18 * M, bz + 6 * M, 0, 0);
     const hunters = own(s, UnitKind.Warrior).map((i) => e.id[i]!);
-    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.Venison, on: 1 }]);
-    const meat = s.players[0]!.pool[Res.Venison]!;
+    // Patch 5: a deer that runs down into low ground past the reach (height counts, forage.ts fromHome) is let go,
+    // so the meat home may be a hare's.
+    run(s, 1, [
+      { kind: 'dontEat', player: 0, res: Res.Venison, on: 1 },
+      { kind: 'dontEat', player: 0, res: Res.HareMeat, on: 1 },
+    ]);
+    const meatOf = (): number => s.players[0]!.pool[Res.Venison]! + s.players[0]!.pool[Res.HareMeat]!;
+    const meat = meatOf();
     const seen: SimEvent[] = [];
     run(s, 1, [{ kind: 'hunt', player: 0, units: hunters, target: 0, auto: 1 }], seen);
     runUntil(s, () => s.step >= NIGHT_START, 3000, seen);
@@ -254,7 +260,7 @@ describe('Hunt', () => {
     }
     expect(speech(seen).some((ev) => ev.text === 'Spotted a deer.' && ev.quiet)).toBe(true);
     expect(speech(seen).some((ev) => ev.text === 'Getting dark. Heading home.' && ev.quiet)).toBe(true);
-    expect(s.players[0]!.pool[Res.Venison]).toBeGreaterThan(meat);
+    expect(meatOf()).toBeGreaterThan(meat);
     // Out again at daybreak.
     s.step = CYCLE_STEPS - 2;
     const morning: SimEvent[] = [];
