@@ -114,11 +114,83 @@ export const Res = {
   // Patch 5: the Stone Circle goods (Stone Circle doc; decisions 2.5).
   Bluestone: 110,
   MoonRose: 111,
+  /**
+   * Patch 5 (Jade, GP-1): weapons and armour are items again, one good for
+   * each piece of kit at each tier (units/kits.ts names which piece each one
+   * is). Nothing makes them: they come from monster waves, rewards and the
+   * old piece a unit takes off when it upgrades, and fit in place of making
+   * that piece. Close melee, long melee and cavalry, rangers, the brawler,
+   * armour, close melee's shields, workers' tool kits, wands and robes.
+   */
+  WoodenCudgel: 112,
+  FlintHandAxe: 113,
+  CopperShortSword: 114,
+  BronzeShortsword: 115,
+  WroughtIronSword: 116,
+  IronBroadsword: 117,
+  SteelSideSword: 118,
+  BasketHiltedBroadsword: 119,
+  FireHardenedSpear: 120,
+  FlintHeadedSpear: 121,
+  CopperLeafBladeSpear: 122,
+  BronzeSpear: 123,
+  CrudeIronSpear: 124,
+  IronPike: 125,
+  SteelHalberd: 126,
+  Zweihander: 127,
+  LeatherSling: 128,
+  YewLongbow: 129,
+  RecurveBowCopper: 130,
+  RecurveBowBronze: 131,
+  RecurveBowWroughtIron: 132,
+  RecurveBowIron: 133,
+  SteelProdCrossbow: 134,
+  FlintlockMusket: 135,
+  FlintlockPistol: 136,
+  LeatherJerkin: 137,
+  BoiledLeatherCuirass: 138,
+  CopperScaleJack: 139,
+  BronzeScaleArmour: 140,
+  WroughtIronMail: 141,
+  IronCoatOfPlates: 142,
+  SteelPlateHarness: 143,
+  FlutedGothicHarness: 144,
+  WoodenShield: 145,
+  BoiledLeatherTarge: 146,
+  IronRimmedHeaterShield: 147,
+  SteelHeaterShield: 148,
+  SteelRotella: 149,
+  WoodenTools: 150,
+  StoneAndFlintTools: 151,
+  CopperTools: 152,
+  BronzeTools: 153,
+  WroughtIronTools: 154,
+  IronTools: 155,
+  SteelTools: 156,
+  CarbonSteelTools: 157,
+  HazelWand: 158,
+  CopperTippedWand: 159,
+  BronzeBoundStaff: 160,
+  IronShodStaff: 161,
+  CrystalStaff: 162,
+  Archstaff: 163,
+  HomespunRobe: 164,
+  LeatherTrimmedRobe: 165,
+  HardenedLeatherRobe: 166,
+  WardedRobe: 167,
+  RuneStitchedVestments: 168,
+  ArchmagesMantle: 169,
+  /** The satyrs' drop (Patch 5, Stone Circle): a weapon item standing in for a bronze shortsword. */
+  ObsidianHandAxe: 170,
+  /** Patch 5's Stone Circle goods: obsidian counts as flint, 1 for 1, wherever flint is needed (STAND_INS). */
+  Obsidian: 171,
+  /** Patch 5 (Jade: venom makes poison arrow and bolt tips): made at the Workshop, put on a bow or crossbow ranger like a kit upgrade. */
+  PoisonTips: 172,
   /** Jade's Patch 5: the wild foods, 1 food each (GP-30, GP-32). */
-  BlackBerries: 112,
-  Raspberries: 113,
-  Blueberries: 114,
-  Mushrooms: 115,
+  BlackBerries: 173,
+  Raspberries: 174,
+  Blueberries: 175,
+  Mushrooms: 176,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -131,7 +203,7 @@ export function trinketRes(metal: number, tier: number): Res {
   return (TRINKET_BASE + metal * 4 + tier - 1) as Res;
 }
 
-export const ResGroup = { Main: 0, Additional: 1, Goods: 2, Food: 3, Trinkets: 4 } as const;
+export const ResGroup = { Main: 0, Additional: 1, Goods: 2, Food: 3, Trinkets: 4, Gear: 5 } as const;
 export type ResGroup = (typeof ResGroup)[keyof typeof ResGroup];
 
 export interface ResourceInfo {
@@ -172,6 +244,82 @@ function trinkets(): ResourceInfo[] {
   return out;
 }
 
+const Gr = ResGroup.Gear;
+/** Where every gear item comes from (Patch 5, GP-1 and GP-3). */
+const GEAR_SOURCE = 'A ready piece of kit, from monster waves and rewards, or the old piece a unit takes off when it upgrades. Nothing makes it: a unit trained or upgraded to it puts it on in place of having one made, and the Workshop scraps it for its materials.';
+
+/**
+ * The gear items in id order (Patch 5): name and carrying weight, tenths of a
+ * pound (s: gear worn weighs nothing, Jade 2026-10-03; carried in a bag it
+ * does): a one-handed weapon 3 lb, a two-handed one 5 lb, a sling half a
+ * pound, a bow 2 lb, a crossbow 6 lb, a musket 9 lb, the pistol and cutlass
+ * 5 lb, armour 6 lb in leather to 20 lb in plate, a shield or a tool kit 5
+ * lb, a wand 2 lb and a robe 3 lb.
+ */
+function gearItems(): ResourceInfo[] {
+  const rows: Array<[Res, string, number]> = [
+    [Res.WoodenCudgel, 'Wooden cudgel', 30],
+    [Res.FlintHandAxe, 'Flint hand-axe', 30],
+    [Res.CopperShortSword, 'Copper short sword', 30],
+    [Res.BronzeShortsword, 'Bronze shortsword', 30],
+    [Res.WroughtIronSword, 'Wrought iron sword', 30],
+    [Res.IronBroadsword, 'Iron broadsword', 30],
+    [Res.SteelSideSword, 'Steel side-sword', 30],
+    [Res.BasketHiltedBroadsword, 'Basket-hilted broadsword', 30],
+    [Res.FireHardenedSpear, 'Fire-hardened spear', 50],
+    [Res.FlintHeadedSpear, 'Flint-headed spear', 50],
+    [Res.CopperLeafBladeSpear, 'Copper leaf-blade spear', 50],
+    [Res.BronzeSpear, 'Bronze spear', 50],
+    [Res.CrudeIronSpear, 'Crude iron spear', 50],
+    [Res.IronPike, 'Iron pike', 50],
+    [Res.SteelHalberd, 'Steel halberd', 50],
+    [Res.Zweihander, 'Zweihänder', 50],
+    [Res.LeatherSling, 'Leather sling', 5],
+    [Res.YewLongbow, 'Yew longbow', 20],
+    [Res.RecurveBowCopper, 'Recurve bow, copper arrowheads', 20],
+    [Res.RecurveBowBronze, 'Recurve bow, bronze arrowheads', 20],
+    [Res.RecurveBowWroughtIron, 'Recurve bow, wrought-iron arrowheads', 20],
+    [Res.RecurveBowIron, 'Recurve bow, iron arrowheads', 20],
+    [Res.SteelProdCrossbow, 'Steel-prod crossbow', 60],
+    [Res.FlintlockMusket, 'Flintlock musket', 90],
+    [Res.FlintlockPistol, 'Flintlock pistol and cutlass', 50],
+    [Res.LeatherJerkin, 'Leather jerkin', 60],
+    [Res.BoiledLeatherCuirass, 'Boiled-leather cuirass', 60],
+    [Res.CopperScaleJack, 'Copper scale jack', 100],
+    [Res.BronzeScaleArmour, 'Bronze scale armour', 100],
+    [Res.WroughtIronMail, 'Wrought-iron mail', 150],
+    [Res.IronCoatOfPlates, 'Iron coat of plates', 150],
+    [Res.SteelPlateHarness, 'Steel plate harness', 200],
+    [Res.FlutedGothicHarness, 'Fluted Gothic harness', 200],
+    [Res.WoodenShield, 'Wooden shield', 50],
+    [Res.BoiledLeatherTarge, 'Boiled-leather targe', 50],
+    [Res.IronRimmedHeaterShield, 'Iron-rimmed heater shield', 50],
+    [Res.SteelHeaterShield, 'Steel heater shield', 50],
+    [Res.SteelRotella, 'Steel rotella', 50],
+    [Res.WoodenTools, 'Wooden tools', 50],
+    [Res.StoneAndFlintTools, 'Stone and flint tools', 50],
+    [Res.CopperTools, 'Copper tools', 50],
+    [Res.BronzeTools, 'Bronze tools', 50],
+    [Res.WroughtIronTools, 'Wrought iron tools', 50],
+    [Res.IronTools, 'Iron tools', 50],
+    [Res.SteelTools, 'Steel tools', 50],
+    [Res.CarbonSteelTools, 'Carbon steel tools', 50],
+    [Res.HazelWand, 'Hazel wand', 20],
+    [Res.CopperTippedWand, 'Copper-tipped wand', 20],
+    [Res.BronzeBoundStaff, 'Bronze-bound staff', 20],
+    [Res.IronShodStaff, 'Iron-shod staff', 20],
+    [Res.CrystalStaff, 'Crystal staff', 20],
+    [Res.Archstaff, 'Archstaff', 20],
+    [Res.HomespunRobe, 'Homespun robe', 30],
+    [Res.LeatherTrimmedRobe, 'Leather-trimmed robe', 30],
+    [Res.HardenedLeatherRobe, 'Hardened-leather robe', 30],
+    [Res.WardedRobe, 'Warded robe', 30],
+    [Res.RuneStitchedVestments, 'Rune-stitched vestments', 30],
+    [Res.ArchmagesMantle, "Archmage's mantle", 30],
+  ];
+  return rows.map(([id, name, weight]) => r(id, name, name, Gr, weight, GEAR_SOURCE, 0, false));
+}
+
 /**
  * Every resource, indexed by id. Weights from Table 12; nutrition from Table 6.
  * Patch 5 (Jade, BL-12: "make ore fairly heavy and make the cart hold a
@@ -208,7 +356,8 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Diamonds, 'Diamonds', 'Diamonds', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Silver, 'Silver', 'Silver', A, 10, 'Mineshafts, often with lead ore; rarely, a small node on a mountain (copper tools).'),
   r(Res.Marble, 'Marble', 'Marble', A, 100, 'Marble rock (bronze tools).'),
-  r(Res.Earth, 'Earth', 'Earth', A, 50, 'Digging soil.'),
+  // Patch 5 (BL-2: "make dirt weigh half as much"): 2.5 lb, 10 to a worker's 25 lb.
+  r(Res.Earth, 'Earth', 'Earth', A, 25, 'Digging soil.'),
   r(Res.Sticks, 'Sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or 4 from a lumber of either kind at a Storehouse or the Workshop.'),
   r(Res.Clay, 'Clay', 'Clay', A, 50, 'Clay banks by rivers and wetlands.'),
   r(Res.Sand, 'Sand', 'Sand', A, 50, 'Riverbeds and beaches.'),
@@ -267,6 +416,10 @@ export const RESOURCES: readonly ResourceInfo[] = [
   // Patch 5 (s: weights as marble and herbs). Bluestone stands in for marble 1 for 1 and sells well; Moon Roses are the Elves' best trade good.
   r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 100, 'Bluestone rubble at the stone circles. Stands in for marble; sells well.'),
   r(Res.MoonRose, 'Moon Rose', 'Moon Rose', A, 5, 'Moon Rose bushes at a lunar stone circle, picked on Bright Nights. The Elves pay more for them than for anything else.'),
+  ...gearItems(),
+  r(Res.ObsidianHandAxe, 'Obsidian hand-axe', 'Obsidian axe', Gr, 30, `The satyrs' weapon. ${GEAR_SOURCE} It fits as a bronze shortsword: a close melee troop takes it in place of one.`, 0, false),
+  r(Res.Obsidian, 'Obsidian', 'Obsidian', A, 10, 'Stone circle chests. Counts as flint wherever flint is needed.'),
+  r(Res.PoisonTips, 'Poison tips', 'Poison tips', G, 5, 'One venom at the Workshop. Upgrade equipment puts them on a bow or crossbow ranger, whose hits then poison.', 0, false),
   // A bunch of berries or a mushroom is 1 food (GP-30, GP-32); a bunch weighs half a pound, a mushroom 0.3 lb (s).
   r(Res.BlackBerries, 'Black berries', 'Black berries', F, 5, 'Black berry bushes: a bunch is 1 food.', 1),
   r(Res.Raspberries, 'Raspberries', 'Raspberries', F, 5, 'Raspberry bushes, in the Heartland and the Fringe: a bunch is 1 food.', 1),

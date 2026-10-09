@@ -21,6 +21,9 @@ export function troopIconFile(troop: number, wTier: number): string {
       return 'icon_train_warrior_mounted';
     case Troop.Crew:
       return 'icon_train_warrior_cannon_crew';
+    case Troop.Dreadnought:
+      // Patch 5: the brawler's mace-man stands in until the Dreadnought has a picture of his own.
+      return 'icon_train_warrior_mace';
     default:
       return 'icon_train_warrior_club';
   }
@@ -36,9 +39,9 @@ export function mageIconFile(battle: boolean, robe: number): string {
   return own || (battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
 }
 
-/** Models the kit has no picture of, and the nearest it has (the catalogue borrows the hen for the wild birds too). */
+/** Models the kit has no picture of yet, and the nearest it has (the wild birds' own come with the icon batch). */
 const MODEL_STAND_INS: Record<string, string> = {
-  wild_goose: 'portrait_hen',
+  goose: 'portrait_hen',
   pheasant: 'portrait_hen',
   cannon_bronze: 'icon_train_cannon',
   cannon_iron: 'icon_train_cannon',
@@ -113,6 +116,9 @@ export function buildingIconFile(kind: number, level: number): string {
       return 'icon_mineshaft_t1';
     case BuildingKind.Forge:
       return 'icon_forge_l1';
+    case BuildingKind.Tavern:
+      // Patch 5: the timber farmhouse's picture stands in until the Tavern has its own.
+      return 'icon_farmhouse_t2';
     default:
       return 'icon_storehouse';
   }
@@ -137,6 +143,7 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
   if (typeKey === 'worker') return WORKER_ICON;
   if (typeKey === 'warrior') return troopIconFile(look?.troop ?? Troop.Close, look?.wTier ?? 1);
   if (typeKey === 'warrior:crew') return troopIconFile(Troop.Crew, 0);
+  if (typeKey === 'warrior:dreadnought') return troopIconFile(Troop.Dreadnought, 0);
   if (typeKey === 'mage:support') return mageIconFile(false, look?.aTier ?? 0);
   if (typeKey === 'mage:battle') return mageIconFile(true, look?.aTier ?? 0);
   const [head, a, b] = typeKey.split(':');

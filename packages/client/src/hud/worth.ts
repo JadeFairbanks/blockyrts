@@ -4,7 +4,7 @@
 // expensive unit or building", with Tab stepping through the rest). Worth is
 // everything it cost: the goods (counted one for one) and the food, and for a
 // building every level up to the one it stands at.
-import { buildingSpec, engineSpec, Product, productSpec, troopProduct, type Cost } from '@blockyrts/sim';
+import { buildingSpec, DREADNOUGHT, dreadnoughtProduct, engineSpec, Product, productSpec, troopProduct, type Cost } from '@blockyrts/sim';
 
 /** What the worth of a unit type reads from one unit: its troop and kit tiers. */
 export interface UnitKit {
@@ -39,6 +39,8 @@ export function typeWorth(typeKey: string, kits: () => readonly UnitKit[] = () =
   if (typeKey === 'mage:support') return productWorth(Product.SupportMage);
   if (typeKey === 'mage:battle') return productWorth(Product.BattleMage);
   if (typeKey === 'warrior:crew') return productWorth(Product.Crewman);
+  // Patch 5: the Dreadnought, at his price in gold.
+  if (typeKey === 'warrior:dreadnought') return productWorth(dreadnoughtProduct(DREADNOUGHT.gold, 0));
   if (typeKey === 'warrior') {
     let best = 0;
     for (const k of kits()) if (k.troop > 0) best = Math.max(best, productWorth(troopProduct(k.troop, k.wTier, k.aTier)));

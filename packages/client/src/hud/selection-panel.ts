@@ -26,7 +26,9 @@ import {
   RATING_NAMES,
   RESOURCES,
   ROBE_KITS,
-  shieldRow,
+  SHIELD_KITS,
+  takesTips,
+  TIPS_KIT,
   speciesSpec,
   STEPS_PER_SECOND,
   TOOL_KITS,
@@ -37,6 +39,8 @@ import {
   WAND_KITS,
   weaponPiece,
   ARMOUR_KITS,
+  DREADNOUGHT_KIT,
+  dreadnoughtArmour,
   type Piece,
 } from '@blockyrts/sim';
 import type { GameInfo, UnitInfo } from '../game/game-info.ts';
@@ -49,7 +53,7 @@ import { productIcon } from './card-icons.ts';
 import { garrisonRoom } from './commands.ts';
 import { harvestText } from './farm-panel.ts';
 import { hungerLine, type HungerView } from './hunger.ts';
-import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { armourPic, robePic, shieldPic, tipsPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { kitUrl } from './kit-icons.ts';
 import { pieceStats } from './kit-text.ts';
@@ -125,6 +129,7 @@ const layer = (p: Pic, tag?: string): ButtonIcon => ({ layers: [p.filter ? { fil
 export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
+  if (typeKey === 'warrior:dreadnought') return 1.4;
   if (typeKey === 'warrior:crew') return 1.5;
   if (typeKey === 'mage:support') return 2;
   if (typeKey === 'mage:battle') return 3;
@@ -521,8 +526,8 @@ export class SelectionPanel {
       const pct = Math.max(0, Math.min(100, Math.round((h[0] * 100) / h[1])));
       return { pct, text: `${h[0]}/${h[1]}`, tip: `Health ${h[0]} of ${h[1]}.`, low: pct < 35 };
     }, 'Health');
-    // Another player's units show their experience too; the peoples' and the monsters' have no ranks.
-    if (u && hasRanks(u.kind) && u.owner < 8) {
+    // Another player's units show their experience too; the peoples' and the monsters' have no ranks, nor has the Dreadnought (Patch 5).
+    if (u && hasRanks(u.kind) && u.owner < 8 && !(u.kind === UnitKind.Warrior && u.troop === Troop.Dreadnought)) {
       const unit = u.id;
       label('XP:');
       this.bar('xp', box, () => {
@@ -580,7 +585,7 @@ export class SelectionPanel {
     b.queue.forEach((item, k) => {
       const ps = productSpec(item.product);
       const t = troopOf(item.product);
-      const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a).toLowerCase()})` : ps.name;
+      const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a, t.s).toLowerCase()})` : `${ps.name}${item.count ? ` (${item.count} left)` : ''}`;
       // The same picture as the unit once it is out, and as the button that queued it.
       const icon = productIcon(item.product);
       const btn = this.button(`queue${k}`, {
@@ -599,6 +604,8 @@ export class SelectionPanel {
         btn.el.append(bar);
         this.head = { btn, bar };
       }
+      // A stack being scrapped: how many are left, one fewer each time the bar fills (Patch 5, GP-3).
+      if (item.count) btn.el.append(tag(String(item.count)));
       q.append(btn.el);
     });
     for (let k = b.queue.length; k < QUEUE_LIMIT; k++) {
@@ -616,7 +623,7 @@ export class SelectionPanel {
   // ---- One building ----
 
   private buildingSig(b: BuildingInfo): string {
-    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : ''].join('/');
+    return [b.queue.map((q) => `${q.product}x${q.count ?? 1}`).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : '', b.tavern ? `${Number(b.tavern.open)}:${b.tavern.food}` : ''].join('/');
   }
 
   private oneBuilding(t: Selectable, b: BuildingInfo): void {
@@ -628,6 +635,7 @@ export class SelectionPanel {
     const cards = own && b.complete && cardsOf(b).length > 0 ? this.cards.render(this.body, [b]) : null;
     this.buildingFacts(b, own, cards ?? this.body);
     if (b.farm) this.farmBar(b);
+    if (own && b.tavern) this.tavernBar(b);
     if (own) this.garrison(b);
     if (!own && t.details) this.notes(t, t.details.slice(1));
   }
@@ -686,6 +694,30 @@ export class SelectionPanel {
       const time = v.stepsLeft > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'still';
       return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${v.items} in ${time}`, tip: [harvestText(v), v.band].filter((x) => x).join('\n') };
     }, 'Harvest', true, 'farm-bar');
+  }
+
+  /**
+   * A Tavern's till (Jade, GP-20): the silver in it to 3 decimals on a bar
+   * that fills to the next ingot while it is open for business, then its
+   * running counts, the silver it has made and the food it has served.
+   */
+  private tavernBar(b: BuildingInfo): void {
+    const t = b.tavern!;
+    const silver = (whole: number, thousandths: number): string => `${whole}.${String(thousandths).padStart(3, '0')}`;
+    const row = this.strip('tavern');
+    this.chip('till', { icon: pic('icon_silver'), name: 'The till', description: 'The silver in the till. Withdraw funds takes the whole ingots into your stock and leaves the rest.', className: 'crop' }, row);
+    const id = b.id;
+    this.bar('meal', row, () => {
+      const v = this.a.game.buildings.get(id)?.tavern;
+      if (!v) return null;
+      const s = Math.ceil(v.stepsLeft / STEPS_PER_SECOND);
+      const tip = v.open ? `Open for business: the next silver ingot in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}, while there is food to serve.` : 'Closed: no silver is made until it opens for business.';
+      return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${silver(v.whole, v.thousandths)} silver`, tip };
+    }, 'Silver in the till', true, 'tavern-bar');
+    const totals = this.strip('facts');
+    const made = silver(t.madeWhole, t.madeThousandths);
+    this.chip('made', { icon: pic('icon_silver'), face: made, name: 'Silver made', description: `This Tavern has made ${made} silver ingots in all.`, className: 'count' }, totals);
+    this.chip('served', { icon: pic('icon_food'), face: String(t.food), name: 'Food served', description: `This Tavern has served ${t.food} food in all.`, className: 'count' }, totals);
   }
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
@@ -776,7 +808,7 @@ export class SelectionPanel {
     const u = id === null ? null : this.a.game.unit(id);
     if (!u) return '';
     const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
-    return [u.kind, u.troop, u.wTier, u.aTier, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
+    return [u.kind, u.troop, u.wTier, u.aTier, u.sTier, u.tips, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
   }
 
   private oneThing(t: Selectable): void {
@@ -801,7 +833,7 @@ export class SelectionPanel {
     slots.forEach((s, k) => {
       const btn = this.chip(`slot${k}`, { icon: layer(s.pic, s.tag), name: s.name, description: s.text, className: 'kit-slot' }, row);
       if (s.line >= 0 && u.upLine - 1 === s.line) {
-        const piece = linePiece({ kind: u.kind === UnitKind.Worker ? 'worker' : u.kind === UnitKind.Mage ? 'mage' : 'warrior', troop: u.troop, w: u.wTier, a: u.aTier }, s.line, u.upTo);
+        const piece = linePiece({ kind: u.kind === UnitKind.Worker ? 'worker' : u.kind === UnitKind.Mage ? 'mage' : 'warrior', troop: u.troop, w: u.wTier, a: u.aTier, s: u.sTier, t: u.tips }, s.line, u.upTo);
         const unit = u.id;
         const bar = document.createElement('span');
         bar.className = 'up-bar';
@@ -881,15 +913,23 @@ export class SelectionPanel {
         { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
       ];
     }
+    // The Dreadnought (Patch 5, GP-21): the mace and plate he came with, never changed.
+    if (u.troop === Troop.Dreadnought) {
+      const k = DREADNOUGHT_KIT;
+      const keeps = 'He keeps it: it is never upgraded or changed.';
+      return [
+        { pic: { file: 'icon_mace_iron_refined' }, name: k.mace, text: `A smash of ${k.smash.damage} at one enemy, then a sweep of ${k.swing.damage} at every enemy in front of him, by turns, one every ${k.attackDs / 10} s; reach ${k.reachCm / 100} m.\n${keeps}`, line: -1 },
+        { pic: armourPic(dreadnoughtArmour().tier), name: k.plate, text: `Protection ${dreadnoughtArmour().protectionPct}%, as a ${dreadnoughtArmour().name} of high carbon steel. No shield.\n${keeps}`, line: -1 },
+      ];
+    }
     const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [
       { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
       { pic: armourPic(u.aTier), tag: String(u.aTier), ...named(ARMOUR_KITS[u.aTier], u.aTier, 'armour'), line: 1 },
     ];
-    // Close melee's shield comes with the armour: no number of its own.
-    if (u.troop === Troop.Close && u.aTier > 0) {
-      const s = shieldRow(u.aTier);
-      out.push({ pic: shieldPic(s.tier), name: s.name, text: `${pieceStats(s)}\nComes with the armour.`, line: -1 });
-    }
+    // Close melee's shield is its own slot from Patch 5, with its own tier.
+    if (u.troop === Troop.Close) out.push({ pic: shieldPic(u.sTier), tag: String(u.sTier), ...named(SHIELD_KITS[u.sTier], u.sTier, 'shield'), line: 2 });
+    // A bow or crossbow ranger's poison tips, while it has them.
+    if (u.tips > 0 && takesTips(u.troop, u.wTier)) out.push({ pic: tipsPic(u.wTier), name: TIPS_KIT.name, text: `${TIPS_KIT.name}: its arrows or bolts poison like a viper's bite.`, line: 3 });
     return out;
   }
 

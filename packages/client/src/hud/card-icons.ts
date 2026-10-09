@@ -3,7 +3,7 @@
 // the card's training, making, building and upgrade buttons ask for their
 // own picture here with what they know (the product, the building, the kit).
 // The words stay in the tooltip, which says a little more than the old face.
-import { engineSpec, mageOf, productSpec, recipeSpec, Research, School, SPELLS, speciesSpec, Troop, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+import { dreadnoughtOf, engineSpec, mageOf, productSpec, recipeSpec, Research, School, SPELLS, speciesSpec, Troop, troopOf, Product, RESEARCH_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { ButtonIcon, IconBadge } from './buttons.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON } from './unit-icons.ts';
@@ -117,6 +117,7 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product === Product.Crewman || product === Product.GarrisonCrewman) return one(troopIconFile(Troop.Crew, 0));
   const t = troopOf(product);
   if (t) return one(troopIconFile(t.troop, t.w));
+  if (dreadnoughtOf(product)) return one(troopIconFile(Troop.Dreadnought, 0));
   const m = mageOf(product);
   if (m) return one(m.school === School.Battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
   if (product < RESEARCH_PRODUCT) return undefined;
@@ -129,7 +130,9 @@ export function productIcon(product: number): ButtonIcon | undefined {
   }
   if (ps.slaughter !== undefined) return one(modelIconFile(speciesSpec(ps.slaughter).model));
   if (ps.recipe !== undefined) {
-    const out = recipeSpec(ps.recipe).outputs[0]?.[0];
+    // A scrap shows the piece it breaks up (Patch 5).
+    const r = recipeSpec(ps.recipe);
+    const out = r.scrap ?? r.outputs[0]?.[0];
     const icon = out === undefined ? undefined : goodIcon(out);
     return icon ? { layers: [{ file: icon.file, ...(icon.tint ? { filter: icon.tint } : {}) }] } : undefined;
   }

@@ -87,6 +87,8 @@ export function keyLabel(id: string): string {
     BracketLeft: '[',
     BracketRight: ']',
     Backslash: '\\',
+    Comma: ',',
+    Period: '.',
     Enter: 'Enter',
   };
   return names[id] ?? id;

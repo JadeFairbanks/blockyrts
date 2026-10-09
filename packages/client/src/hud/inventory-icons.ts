@@ -1,8 +1,27 @@
 // Each good's picture in the inventory grid: the catalogue's 32 x 32 interface
 // icons (packages/assets/src/ui, wishlist section K), drawn at their own size
 // so the pixels stay crisp. An icon may still take a tint (a good borrowing a
-// near one's icon) or have a solid background keyed out; none does today.
-import { Res, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
+// near one's icon, as obsidian borrows flint's) or have a solid background
+// keyed out.
+import {
+  ARMOUR_KITS,
+  BRAWLER_KIT,
+  CLOSE_KITS,
+  LONG_KITS,
+  RANGER_KITS,
+  Res,
+  ROBE_KITS,
+  SHIELD_KITS,
+  TOOL_KITS,
+  TRINKET_METALS,
+  TRINKET_TIERS,
+  trinketRes,
+  Troop,
+  WAND_KITS,
+  type Piece,
+} from '@blockyrts/sim';
+import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { kitUrl } from './kit-icons.ts';
 
 export interface GoodIcon {
   /** The file under packages/assets/src/ui, without .png. */
@@ -103,6 +122,32 @@ set(Res.Sunheart, 'trinket_sunheart_gold');
 // Patch 5's Stone Circle goods borrow marble's and the herbs' pictures, tinted, until icons of their own are made.
 set(Res.Bluestone, 'marble', { tint: 'sepia(1) hue-rotate(170deg) saturate(2.4) brightness(0.85)' });
 set(Res.MoonRose, 'medicinal_herbs', { tint: 'sepia(1) hue-rotate(230deg) saturate(1.6) brightness(1.25)' });
+// Patch 5: obsidian borrows flint's picture, darkened; the satyrs' hand-axe the flint war axe's.
+const OBSIDIAN = 'brightness(0.45) saturate(0.3) contrast(1.4)';
+set(Res.Obsidian, 'flint', { tint: OBSIDIAN });
+set(Res.ObsidianHandAxe, 'axe_war_flint', { tint: OBSIDIAN });
+set(Res.PoisonTips, 'arrow_poison_flint');
+// Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes are goods in the stock, each with the picture its slot shows.
+const KIT_PICS: ReadonlyArray<readonly [readonly Piece[], (tier: number) => Pic]> = [
+  [CLOSE_KITS, (t) => weaponPic(Troop.Close, t)],
+  [LONG_KITS, (t) => weaponPic(Troop.Long, t)],
+  [RANGER_KITS, (t) => weaponPic(Troop.Ranger, t)],
+  [[BRAWLER_KIT], () => weaponPic(Troop.Brawler, 8)],
+  [ARMOUR_KITS, armourPic],
+  [SHIELD_KITS, shieldPic],
+  [TOOL_KITS, toolPic],
+  [WAND_KITS, wandPic],
+  [ROBE_KITS, robePic],
+];
+for (const [table, picOf] of KIT_PICS) {
+  for (const p of table) {
+    for (const r of p.items) {
+      if (ICONS.has(r)) continue;
+      const pic = picOf(p.tier);
+      ICONS.set(r, { file: pic.file, ...(pic.filter ? { tint: pic.filter } : {}) });
+    }
+  }
+}
 // Jade's Patch 5 wild foods (GP-30, GP-31).
 set(Res.BlackBerries, 'black_berries');
 set(Res.Raspberries, 'raspberries');
@@ -136,7 +181,7 @@ const URLS = import.meta.glob<string>(
   { eager: true, query: '?no-inline', import: 'default' },
 );
 
-/** An icon file's URL in the build, or '' if the build left it out. */
+/** An icon file's URL in the build, or '' if the build left it out (gear borrows the interface kit's pictures, all in the build). */
 export function iconUrl(file: string): string {
-  return URLS[`../../../assets/src/ui/${file}.png`] ?? '';
+  return URLS[`../../../assets/src/ui/${file}.png`] ?? kitUrl(file);
 }

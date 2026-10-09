@@ -31,6 +31,9 @@ export interface UnitInfo {
   troop: number;
   wTier: number;
   aTier: number;
+  /** Close melee's shield tier, and 1 for a bow or crossbow ranger with poison tips on (Patch 5). */
+  sTier: number;
+  tips: number;
   /** An upgrade under way: per mille of its bar, its line + 1 (0 for none), the tier it goes to. */
   upDone: number;
   upLine: number;
@@ -146,6 +149,8 @@ export class GameInfo {
       troop: d[o + S.troop]!,
       wTier: d[o + S.wTier]!,
       aTier: d[o + S.aTier]!,
+      sTier: d[o + S.sTier]!,
+      tips: d[o + S.tips]!,
       upDone: d[o + S.upDone]!,
       upLine: d[o + S.upLine]!,
       upTo: d[o + S.upTo]!,

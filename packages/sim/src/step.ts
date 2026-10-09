@@ -4,6 +4,8 @@
 import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
 import { installCrewHooks, updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
+import { updateTaverns } from './buildings/tavern.ts';
+import { updateDreadnoughts } from './units/dreadnought.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
@@ -42,6 +44,7 @@ import { crewHooks, updateQuestions } from './units/questions.ts';
 import { releaseSheltered } from './units/night-work.ts';
 import { updateSpacing } from './units/spacing.ts';
 import { updateWorkAsks } from './units/work-asks.ts';
+import { updateMakeAsks } from './units/make-asks.ts';
 import { updateGods } from './debug/god.ts';
 
 installDeathHooks();
@@ -191,9 +194,14 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateQuestions(state);
   // Jade's Patch 4: an empty farm, a building no one works on and an idle worker ask by themselves.
   updateWorkAsks(state);
+  // Patch 5 (UI-8): the Workshop offers now and then to make something the stock pays for.
+  updateMakeAsks(state);
   settleDeaths(state);
   updateLoot(state);
   updateBuildings(state);
+  // Patch 5: open Taverns burn food into silver, and Dreadnoughts speak their minds.
+  updateTaverns(state);
+  updateDreadnoughts(state);
   updateMines(state);
   updateElimination(state);
   state.world.flowWater();

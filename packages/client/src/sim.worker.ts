@@ -18,6 +18,13 @@ import {
   validateOrder,
 } from '@blockyrts/sim';
 import {
+  DREADNOUGHT,
+  dreadnoughtCap,
+  dreadnoughtProblem,
+  dreadnoughtsAlive,
+  eatableFood,
+  mainBaseLevel,
+  tavernInfo,
   animalsAt,
   assigned,
   bagItems,
@@ -45,6 +52,7 @@ import {
   farmBandLine,
   farmHarvest,
   queueHead,
+  stackLeft,
   chunkDelta,
   claimShapes,
   clockAt,
@@ -92,7 +100,7 @@ import {
 import { cloaked, crewOf, haulerOf, isCrystalGuardian, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
@@ -199,6 +207,8 @@ function postState(s: SimState): void {
     data[o + S.shield] = e.shield[i]!;
     data[o + S.wTier] = e.wTier[i]!;
     data[o + S.aTier] = e.aTier[i]!;
+    data[o + S.sTier] = e.sTier[i]!;
+    data[o + S.tips] = e.tips[i]!;
     data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
     let flags = 0;
     if (e.climbUntil[i]! > s.step || e.onFace[i] !== 0) flags |= UnitFlag.Climbing;
@@ -311,12 +321,35 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
   };
 }
 
+/** A finished Tavern's panel (Patch 5), or null. */
+function tavernPanel(s: SimState, b: Building): TavernPanel | null {
+  const t = tavernInfo(b);
+  if (!t) return null;
+  const me = s.players[PLAYER];
+  const hireWhy = !usableBy(s, b, PLAYER) || !me ? 'Not your Tavern.' : dreadnoughtProblem(s, PLAYER) || (eatableFood(me) < DREADNOUGHT.food ? `Not enough food (${DREADNOUGHT.food} food).` : '');
+  return {
+    open: t.open,
+    whole: t.whole,
+    thousandths: t.thousandths,
+    done: Math.min(1000, Math.floor((t.done * 1000) / t.span)),
+    stepsLeft: t.open ? t.span - t.done : 0,
+    madeWhole: t.madeWhole,
+    madeThousandths: t.madeThousandths,
+    food: t.food,
+    hireWhy,
+    dreadnoughts: dreadnoughtsAlive(s, PLAYER),
+    cap: dreadnoughtCap(mainBaseLevel(s, PLAYER)),
+  };
+}
+
 /** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
   return b.queue.map((q, k) => {
-    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0 };
-    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft };
+    const n = stackLeft(q);
+    const count = n > 1 ? { count: n } : {};
+    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0, ...count };
+    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft, ...count };
   });
 }
 
@@ -360,8 +393,8 @@ function postInfo(s: SimState): void {
       troops:
         usableBy(s, b, PLAYER) && b.complete
           ? troopTypesAt(b).map((troop) => {
-              const { w, a } = troopDefault(s, b, troop, PLAYER);
-              return { troop, w, a, lock: b.locks[troop] ?? 0 };
+              const { w, a, s: sh } = troopDefault(s, b, troop, PLAYER);
+              return { troop, w, a, s: sh, lock: b.locks[troop] ?? 0 };
             })
           : [],
       mages:
@@ -373,6 +406,7 @@ function postInfo(s: SimState): void {
           : [],
       horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
+      tavern: tavernPanel(s, b),
     };
   });
   const e = s.entities;

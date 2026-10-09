@@ -17,7 +17,7 @@ import {
   type Order,
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { AREA_DEFAULT_UNITS, Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { AREA_DEFAULT_UNITS, Commands, stepDepth, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -255,7 +255,7 @@ describe('workers: tools and carts (Milestone 11)', () => {
 
 describe('the Big House', () => {
   /** What the sim worker sends for a Big House: its three troop types at tier 1, and what it makes. */
-  const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
+  const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, s: 0, lock: 0 }));
 
   it('trains close melee, long melee and rangers on A, Q and N, and makes rope on K (Patch 5: Make rope on the card)', () => {
     const g = game({ pool: [[Res.FarmFare, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
@@ -269,7 +269,7 @@ describe('the Big House', () => {
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
     expect(card[1]!.name).toBe('Train club fighter');
-    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
+    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0, shield tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
     // Patch 5: the Make button is Make rope itself, on K, with no menu behind it.
@@ -331,22 +331,37 @@ describe('digging', () => {
     c.areaUp();
     c.adjustArea(1);
     const plan = c.areaPlan()!;
-    expect(plan).toMatchObject({ x0: 0, z0: 0, x1: 4, z1: 1, tunnel: false, level: -(AREA_DEFAULT_UNITS + 3) });
+    expect(plan).toMatchObject({ x0: 0, z0: 0, x1: 4, z1: 1, up: false, level: -(AREA_DEFAULT_UNITS + 3) });
     c.areaDown(at(9, 9));
     expect(sent.at(-1)).toMatchObject({ kind: 'dig', units: [1, 2], x0: 0, z0: 0, x1: 4, z1: 1, level: -12, tunnel: 0 });
     expect(c.area).toBeNull();
   });
 
-  it('tunnels when the marked box climbs a face', () => {
-    const cliff = (x: number): number => (x > 1 ? 3 : 0);
-    const { c, sent } = harness(game(), workers, 'worker', cliff);
+  it("digs a hill in the box away rather than tunnelling, and past 0 depth draws the box upwards from the ground where the drag started (Jade's Patch 5, GP-4)", () => {
+    // A 3 m hill from x = 1 m.
+    const hill = (x: number): number => (x > 1 ? 3 : 0);
+    const { c, sent } = harness(game(), workers, 'worker', hill);
     c.startArea();
     c.areaDown(at(0.2, 0.2));
     c.updateArea(at(4, 1));
     c.areaUp();
-    expect(c.areaPlan()!.tunnel).toBe(true);
+    expect(c.areaPlan()).toMatchObject({ up: false, level: -AREA_DEFAULT_UNITS, level2: 0, top: 27 });
+    // Three presses to 0 (everything above the ground clicked), and one more: a box 34 cm tall from it.
+    for (let k = 0; k < 4; k++) c.adjustArea(-1);
+    expect(c.areaPlan()).toMatchObject({ up: true, level: 0, level2: 3 });
+    expect(c.card()[1]!.description).toContain('The box goes 0.34 m up from the ground where the drag started');
+    // On up to 3 m in 34 cm steps, then a metre a press.
+    for (let k = 0; k < 9; k++) c.adjustArea(-1);
+    expect(c.areaPlan()).toMatchObject({ up: true, level: 0, level2: 36 });
     c.confirmArea();
-    expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 1, level: 0, level2: 20 });
+    expect(sent.at(-1)).toMatchObject({ kind: 'dig', tunnel: 2, level: 0, level2: 36 });
+  });
+
+  it('steps the depth 34 cm near the ground, a metre from 3 m up and 2 m from 12 m up, as far as 40.5 m', () => {
+    expect([stepDepth(9, 1), stepDepth(27, 1), stepDepth(3, -1), stepDepth(0, -1), stepDepth(-24, -1)]).toEqual([12, 27, 0, -3, -27]);
+    expect([stepDepth(-27, -1), stepDepth(-36, 1), stepDepth(-27, 1)]).toEqual([-36, -27, -24]);
+    expect([stepDepth(-108, -1), stepDepth(-126, 1), stepDepth(-108, 1)]).toEqual([-126, -108, -99]);
+    expect([stepDepth(-342, -1), stepDepth(-360, -1)]).toEqual([-360, -360]);
   });
 
   it('starts a tunnel chain from a cliff face pressed on its side, floored at the ground in front (chains-controls.test.ts has the rest)', () => {
@@ -368,7 +383,26 @@ describe('digging', () => {
     c.startArea();
     c.areaDown(new THREE.Vector3(2.25, 0.1, 0.2));
     c.areaUp();
-    expect(c.areaPlan()!.tunnel).toBe(false);
+    expect(c.area!.chain).toBeNull();
+    expect(c.areaPlan()!.up).toBe(false);
+  });
+
+  it('finds the cliff a press on its side is on, whichever way the face looks and whichever column the point falls in (BG-6)', () => {
+    const units = 0.1125;
+    // High land west of x = 2.25 m (columns to 4): its face looks east, and a point on it falls in the low column 5.
+    const east = harness(game(), workers, 'worker', (x: number): number => (x < 2.25 ? 10 * units : 0));
+    east.c.startArea();
+    east.c.areaDown(new THREE.Vector3(2.2500001, 0.5, 0.2));
+    expect(east.c.area!.chain).toEqual({ x: 4, z: 0, floor: 0 });
+    // High land south of z = 0.9 m (rows from 2): its face looks north, and the point falls just short of row 2.
+    const north = harness(game(), workers, 'worker', (_x: number, z: number): number => (z >= 0.9 ? 10 * units : 0));
+    north.c.startArea();
+    north.c.areaDown(new THREE.Vector3(1, 0.5, 0.8999999));
+    expect(north.c.area!.chain).toEqual({ x: 2, z: 2, floor: 0 });
+    // The next click into the hill, on its top, runs the tunnel south into it, level with the ground in front.
+    north.c.updateArea(at(1, 4));
+    north.c.areaDown(at(1, 4));
+    expect(north.sent.at(-1)).toMatchObject({ kind: 'tunnelStretch', x: 2, z: 2, dir: 2, length: 6, level: 0 });
   });
 });
 

@@ -199,7 +199,7 @@ const LIST: readonly Base[] = [
     meat: 5, extra: [[Res.Hides, 3]], bands: [X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(150), loot: [{ res: Res.Gold, min: 2, max: 2, chancePm: 100 }],
   }),
   // Wild birds (s): geese in flocks by Heartland water, pheasants in the Fringe woods; hunted with N like deer, for meat and feathers.
-  sp({ name: 'Wild goose', model: 'wild_goose', nature: Nature.Shy, hp: 15, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5 }),
+  sp({ name: 'Wild goose', model: 'goose', nature: Nature.Shy, hp: 15, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5 }),
   sp({ name: 'Pheasant', model: 'pheasant', nature: Nature.Shy, hp: 10, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Feathers, 2]], bands: [F], perCell: 2, groupMin: 1, groupMax: 2 }),
 ];
 

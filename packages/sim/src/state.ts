@@ -159,11 +159,15 @@ export const UNIT_FIELDS = [
   /**
    * The kit (Troops and gear): a troop's type (units/kits.ts Troop, fixed
    * when it is trained) and its weapon and armour tiers; a worker's tool
-   * kit tier in wTier; a mage's wand and robe tiers.
+   * kit tier in wTier; a mage's wand and robe tiers. Close melee's shield
+   * tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison
+   * tips on (Patch 5).
    */
   ['troop', 'u8'],
   ['wTier', 'u8'],
   ['aTier', 'u8'],
+  ['sTier', 'u8'],
+  ['tips', 'u8'],
   /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. */
   ['weapon', 'u8'],
   ['ranged', 'u8'],
@@ -372,6 +376,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare troop: Uint8Array;
   declare wTier: Uint8Array;
   declare aTier: Uint8Array;
+  declare sTier: Uint8Array;
+  declare tips: Uint8Array;
   declare weapon: Uint8Array;
   declare ranged: Uint8Array;
   declare shield: Uint8Array;
@@ -808,6 +814,8 @@ export interface PendingSpawn {
   az: number;
   /** The lair it comes out of (an entity id), or 0 for the dark edge. */
   src: number;
+  /** A weapon, armour or shield it carries, dropped when it is killed (Patch 5, GP-1: threats/loot.ts giveWaveGear), or 0. */
+  gear: number;
 }
 
 /**
@@ -835,8 +843,13 @@ export interface Loot {
   src: number;
 }
 
-/** Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel chain (Patch 5 took out the earthworks: banks, fill and ramps). */
-export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2 } as const;
+/**
+ * Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel
+ * chain (Patch 5 took out the earthworks: banks, fill and ramps), and a dig
+ * drawn upwards (Jade's Patch 5, GP-4: a box from the ground clicked up to
+ * its roof, to level a hill or a mountain, dug from the top down).
+ */
+export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2, Up: 3 } as const;
 
 /** Whether a site is a tunnel: a marked box, or a stretch of a tunnel chain. */
 export function tunnelSite(kind: number): boolean {
@@ -857,9 +870,9 @@ export interface Site {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the floor to dig down to. Tunnels: the floor. */
+  /** Dig: the floor to dig down to. Tunnels and digs drawn upwards: the floor. */
   level: number;
-  /** Tunnels: the roof. */
+  /** Tunnels and digs drawn upwards: the roof (nothing above it is dug). */
   level2: number;
   /** TunnelLine: its width in columns. */
   axis: number;
@@ -872,9 +885,10 @@ export interface Site {
  * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
  * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
- * summoner `id`.
+ * summoner `id`. 'sweep': the Dreadnought's swing landing, its crescent drawn in front of him; 'warcry': a remark
+ * of his, said with his war cry.
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry';
 
 export interface HitEvent {
   look: HitLook;
@@ -883,9 +897,10 @@ export interface HitEvent {
   z: number;
   /** The entity hit, swinging or dying (0 for none). */
   id: number;
-  /** Death: what died (UnitKind and mob), for the death animation. */
+  /** Death: what died (UnitKind and mob, and a warrior's troop type: the Dreadnought falls as himself, Patch 5), for the death animation. */
   kind?: number;
   mob?: number;
+  troop?: number;
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
@@ -1120,13 +1135,14 @@ function yardSpot(x: number, z: number, bearing: number, out: number, across: nu
   return [x + floorDiv(out * c - across * s, 65536), z + floorDiv(out * s + across * c, 65536)];
 }
 
-/** A new troop of rank 1 of a type, with its weapon and armour tiers (a fist fighter by default); returns its index. */
-export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0): number {
+/** A new troop of rank 1 of a type, with its weapon, armour and (close melee) shield tiers (a fist fighter by default); returns its index. */
+export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0, shield = 0): number {
   const id = state.nextEntityId++;
   const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Warrior);
   state.entities.troop[i] = troop;
   state.entities.wTier[i] = weapon;
   state.entities.aTier[i] = armour;
+  state.entities.sTier[i] = shield;
   applyKit(state.entities, i, 'warrior');
   state.entities.hp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.maxHp[i] = WARRIOR_HEALTH_BY_RANK[1]!;

@@ -1335,6 +1335,26 @@ body.playing * {
 .send-list {
   margin-bottom: 6px;
 }
+/* Patch 5: the Tavern's Hire Dreadnought window (GP-21), a trade-style panel like the mercenaries' hire box. */
+.dread-dialog {
+  z-index: 5;
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
+  padding: 10px 12px 12px;
+  background: rgba(18, 22, 28, 0.96);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dread-dialog .send-list > * {
+  flex: none;
+}
+.dread-worth.warn {
+  color: #e8a050;
+}
 .net-banner {
   z-index: 6;
   top: 52px;
@@ -2219,12 +2239,14 @@ body.playing.touch .hud {
   filter: grayscale(1) brightness(0.5);
   opacity: 0.6;
 }
-.sel-strip.farm .hud-btn.sel-bar.meal {
+.sel-strip.farm .hud-btn.sel-bar.meal,
+.sel-strip.tavern .hud-btn.sel-bar.meal {
   flex: 1 1 auto;
   max-width: 260px;
   height: 16px;
 }
-.sel-strip.farm .hud-btn.sel-bar .num {
+.sel-strip.farm .hud-btn.sel-bar .num,
+.sel-strip.tavern .hud-btn.sel-bar .num {
   font-size: 14px;
   line-height: 16px;
 }
@@ -2403,6 +2425,24 @@ body.playing.touch .hud {
 .tier-row {
   display: flex;
   gap: 3px;
+}
+/* A card button's right-click dropdown (Patch 5: Scrap 1, Scrap 10, Scrap all), framed like the tier strip. */
+.hud .panel.card-pop {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 3px;
+  border: 6px solid transparent;
+  border-image: var(--kit-popup) 12 fill / 6px round;
+}
+.hud .panel.card-pop[hidden] {
+  display: none;
+}
+.hud-btn.pop-item {
+  min-width: 96px;
+  height: 28px;
 }
 .tier-point {
   position: absolute;

@@ -15,7 +15,7 @@ import { placedDims } from '../buildings/store.ts';
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked, sayUpTop } from '../peoples/speech.ts';
 import { Act, fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, nextBlow, Side, sideOf, soaring, startSwing } from './combat.ts';
 import { MOUNTED } from '../mounts/data.ts';
 import { CREW_GUARD_WU } from '../siege/data.ts';
 import { cloaked } from '../threats/late-mobs.ts';
@@ -339,7 +339,8 @@ function land(state: SimState, i: number): void {
   const t = e.indexOf(e.target[i]!);
   const r = rangedOf(state, i);
   if (!r || t < 0 || e.hp[t]! <= 0) return;
-  const flags = r.blunt ? ProjectileFlag.Blunt : 0;
+  // A bow or crossbow with poison tips on (Patch 5) poisons what it hits.
+  const flags = (r.blunt ? ProjectileFlag.Blunt : 0) | (e.tips[i] ? ProjectileFlag.Venom : 0);
   const [x, y, z] = shotOrigin(state, i);
   // A bow from the saddle misses twice as wide (Table 1's mounted row).
   const spread = e.mount[i] && r.shot === Shot.Arrow ? r.spreadBp * MOUNTED.bowSpreadMul : r.spreadBp;
@@ -387,7 +388,13 @@ function engage(state: SimState, i: number, t: number, canMove: boolean): boolea
   // Up top only a swooping flyer comes within reach (combat.ts canReach); nobody climbs down to chase.
   if (canReach(state, i, t, w)) {
     face(state, i, t);
-    if (state.step >= e.atkNext[i]!) startSwing(state, i, e.id[t]!, w.attackSteps, Slot.Weapon);
+    if (state.step >= e.atkNext[i]!) {
+      // A weapon with a second blow swings its two in turn (Patch 5: the Dreadnought's smash, then his sweep).
+      const blow = nextBlow(state, i);
+      e.atkWith[i] = blow;
+      const next = meleeOf(state, i);
+      startSwing(state, i, e.id[t]!, next.attackSteps, blow, next.landSteps);
+    }
     return true;
   }
   if (!canMove || garrisoned) return false;
