@@ -8,15 +8,19 @@
 // fallen building leaves its ruins for a while. Flames and point lights
 // burn on lit lights, the placement ghost is the building's model seen
 // through over its green and red tiles, and planned buildings are faint
-// ghosts of their first stage (the block look until a model loads). Lit
-// windows, chimney smoke and the Big House campfire are building-glow.ts's.
+// ghosts of their first stage (the block look until a model loads). A
+// finished building at work plays its model's own working clip (a Forge's
+// bellows and hammer, a Workshop's saw and lathe, a Mineshaft's winch, the
+// Sanctum's crystal turning), else its turning bones turn. Lit windows,
+// chimney smoke, the Big House campfire and the Sanctum crystal's glow are
+// building-glow.ts's.
 import * as THREE from 'three';
 import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, TURN_CLIP, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
-import { BuildingGlow } from './building-glow.ts';
+import { atWork, BuildingGlow } from './building-glow.ts';
 import { makeLook, type Look } from './building-looks.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
@@ -100,6 +104,9 @@ function lookState(b: BuildingInfo): string {
   // Walls and earth ramparts crack and break instead (damageLook).
   return buildingSpec(b.kind).defence !== 'wall' && b.hp * 1000 <= b.maxHp * DAMAGED_AT ? 'damaged' : '';
 }
+
+/** The clip a model plays while its building works (Patch 5). */
+const WORK_CLIP = 'working';
 
 /** A building's models in one of their looks (state sets and texture variants, `<id>@<look>`). */
 const dressed = (ms: readonly CatalogueModel[], look: string): CatalogueModel[] => ms.map((m) => ({ ...m, id: `${m.id}@${look}` }));
@@ -263,6 +270,7 @@ export class BuildingsView {
 
   setModels(lib: ModelLibrary): void {
     this.models = lib;
+    this.glow.setModels(lib);
     // Rebuild every building so those with catalogue models switch over, now and as models arrive.
     const rebuild = (): void => {
       for (const e of this.entries.values()) e.sig = '';
@@ -503,14 +511,15 @@ export class BuildingsView {
   /**
    * Catalogue models: one instanced draw per model id and tint (a stand-in
    * model dressed as another building draws apart), then the ruins. A
-   * finished building's turning bones (the Big House's spit roast) turn
-   * without stopping.
+   * finished building at work plays its model's working clip where it has
+   * one; else its turning bones (the Big House's spit roast) turn without
+   * stopping. Ruins and buildings being built stand still.
    */
   private drawModels(info: GameInfo, now: number): void {
     const lib = this.models;
     if (!lib) return;
     const counts = new Map<string, number>();
-    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean, turning: boolean): void => {
+    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean, moving: boolean): void => {
       const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
       let d = this.modelDraws.get(key);
       const most = buildingSpec(b.kind).defence === 'wall' ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES;
@@ -524,7 +533,8 @@ export class BuildingsView {
       const n = counts.get(key) ?? 0;
       if (n >= most) return;
       counts.set(key, n + 1);
-      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, turning ? TURN_CLIP : '', now / 1000, this.teamColour(b.owner), m.scale);
+      const clip = !moving ? '' : atWork(b) && lib.get(m.id).clips.has(WORK_CLIP) ? WORK_CLIP : TURN_CLIP;
+      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, clip, now / 1000, this.teamColour(b.owner), m.scale);
       if (hover) d.setHover(n);
     };
     for (const b of info.buildings.values()) {

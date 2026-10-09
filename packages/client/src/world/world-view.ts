@@ -248,7 +248,7 @@ export class WorldView {
   private viewRing = QUARTER_DETAIL_RING;
   private shadows = false;
   readonly buildings: BuildingsView;
-  /** The Tavern's lit windows, smoke and bar (Patch 5). */
+  /** The Tavern's lit windows, the figures in them and the light at its door (Patch 5); its chimney smoke is building-glow.ts's. */
   private readonly taverns: TavernView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
