@@ -243,7 +243,8 @@ describe('the fence against later nights', () => {
   });
 
   it('is broken by a skeleton bomber on night 10', () => {
-    const s = createWorld(1, { peaceful: true });
+    // The camp before Patch 7's starting spearman, whose reach through the fence can drop the bomber first.
+    const s = createWorld(1, { peaceful: true, spearmen: 0 });
     fenceIn(s);
     toNight(s, 10);
     const [cx, cz] = buildingCentre(bigHouse(s)!);
@@ -444,7 +445,8 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
   });
 
   it('waits for free supply before a troop starts', () => {
-    const s = createWorld(1, { playerUnits: 7, peaceful: true });
+    // 8 workers, 3 warriors and the spearman fill the Big House's 12 supply (Patch 7).
+    const s = createWorld(1, { playerUnits: 8, peaceful: true });
     const base = bigHouse(s)!;
     const texts: string[] = [];
     for (let k = 0; k < 200; k++) {

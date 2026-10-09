@@ -146,8 +146,8 @@ describe('the queue countdown is the sim\'s own time', () => {
   });
 
   it('is on hold (0 steps left) while nothing moves the item: no supply (Patch 2: crafting never waits for hands)', () => {
-    // Ten units fill the Big House's supply: a new worker waits at its first step.
-    const s = createWorld(1, { playerUnits: 10, warriors: 0, peaceful: true });
+    // Twelve units fill the Big House's supply (Patch 7): a new worker waits at its first step.
+    const s = createWorld(1, { playerUnits: 12, warriors: 0, peaceful: true });
     const house = bigHouse(s);
     produce(s, house, Product.Worker);
     expect(supplyUsed(s, 0)).toBe(supplyCap(s, 0));
