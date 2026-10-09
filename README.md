@@ -284,8 +284,9 @@ main base or farm left ends the game with the night count as the score.*
    the top with 10 m more sight. U lets them out.
 7. **Digging.** Workers, D, then drag over the ground: a see-through box shows
    the cut; + and - (or the wheel while marking) set the depth, about 34 cm a
-   step down to 3 m. Left click confirms. Marking a slope that rises more than
-   about 2 m starts a tunnel instead (+ and - then set its height); D again,
+   step down to 3 m. Left click confirms. A box over a hill digs it away
+   (Patch 5: below 0 depth the box goes up; before, a slope rising more than
+   about 2 m started a tunnel); D again,
    or a click on a cliff face, digs a level tunnel in a chain of stretches
    (see wall and tunnel chains below). Digging
    gives Earth (or stone, flint, sand...), which the workers carry to the
@@ -3693,9 +3694,8 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    and climbs straight up at a fifth of its walk, then steps onto the top.
    Workers climb faces up to 7 m, troops, mages and crewmen up to 4 m;
    higher faces are walked round. Faces are climbed down the same way.
-   Units out by themselves on Hunt or Gather do not climb by day, nor jump
-   down more than they can jump back up; coming home at dusk they climb
-   where they must. Their reach from home (what they walk in dusk's 40 s)
+   Units out by themselves on Hunt or Gather climb where they must too.
+   Their reach from home (what they walk in dusk's 40 s)
    counts each metre of height above or below the base as 5 m more, so a
    deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
    before still do. A climber plays its body's climb clip (Jade's improved
@@ -3709,6 +3709,58 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    down. No stairs are cut.
 7. **Saves.** No save format change; the snapshot version goes to 27 (a
    unit's Run/Walk, the run it owes food for, and the face it climbs).
+
+## How a tester checks digging and tunnels (Patch 5)
+
+*Patch 5's GP-4 (digging a hill away, digging in layers, reach), BL-2
+(digging 10 times faster, earth half the weight) and BG-6 (tunnelling into
+a cliff). Picks in blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/units/dig.ts` (its numbers are in the balance editor under
+World, "Digging") and `packages/client/src/hud/commands.ts` (the dig card,
+the box and the press on a face).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-digging.test.ts:
+   a lone worker digs a 4.5 m mound away inside a box drawn 5 m up, never
+   letting one column get more than 34 cm below another and never reaching
+   more than 2 m over its head (climbing the mound for its top), and leaves
+   the ground level with the click;
+   a pit goes down the same way, a layer at a time; four workers tunnel
+   8 columns into a 9 m cliff (too tall to climb) from its face, coming
+   back round the cliff from their main base behind it, and a worker walks
+   to the far end. packages/client/test/m3-controls.test.ts checks the
+   box going up past 0 depth and the press on a cliff face that looks
+   east or north.
+2. **Digging a hill away.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Find a hill (or raise one with the tester tools). Workers, D, and press
+   on the ground at the foot of the hill, at the height to dig down to,
+   then drag over the hill. The box covers the hill: Deeper and Shallower
+   (or the wheel) step the depth 34 cm; at 0 the dig takes everything above
+   the ground where the drag started; below 0 the box is drawn upwards from
+   there and takes only what is inside it. Steps are 34 cm up to 3 m, then
+   1 m up to 12 m, then 2 m, as far as 40.5 m. Left click marks it. The
+   workers start on the top of the hill (climbing up to it where they must)
+   and take it down a layer at a time across the whole hill.
+3. **Digging in layers.** Any dig, a pit too: the workers spread over the
+   box and take it down about 34 cm at a time everywhere, instead of
+   finishing one column before the next.
+4. **Reach.** A worker digs what is up to 2 m over its head (3.8 m above
+   its feet), from at most 1.8 m to the side, as before; higher up it
+   climbs to get at it.
+5. **Faster digging, lighter earth.** A bite of soil takes a tenth of the
+   time it did; a worker's 25 lb load holds 10 earth (5 before), a hand
+   cart 100.
+6. **Tunnelling into a cliff.** Workers, D, then press on the side of a
+   cliff, whichever way it faces: the tunnel's start is marked in the cliff
+   (it was marked on the ground in front of faces looking east or south).
+   Click on the top of the cliff further in: the tunnel runs into the
+   cliff, level with the ground in front. Two workers dig the face (it is
+   two columns wide) while the rest wait by it; they dig from the face
+   inwards, even when the base is behind the cliff. A unit standing on the
+   cliff above no longer holds the diggers up. On a cliff too tall to
+   climb, Move a unit to a spot over the tunnel's far end: it walks in
+   along the tunnel's floor.
+7. **Saves.** No save format change; the snapshot version goes to 28 (a
+   dig order's layer and missed columns, and digs drawn upwards).
 
 ## License
 

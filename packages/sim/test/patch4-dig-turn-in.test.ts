@@ -129,12 +129,12 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
       if (s.events.some((v) => v.text === 'The dig is finished.')) finishedAt = s.step;
       return finishedAt > 0 && e.carryAmt[0] === 0 && e.queue[0]!.length === 0;
     }, 30000);
-    // A load is 25 lb: 5 Earth (5 lb each).
-    expect(carryCapacity(s, 0, Res.Earth)).toBe(5);
-    expect(most).toBe(5);
-    // 28 full loads, and the last 4 handed in after the dig was finished.
-    expect(trips.length).toBe(29);
-    expect(trips.slice(0, -1).every((t) => t.res === Res.Earth && t.amount === 5)).toBe(true);
+    // A load is 25 lb: 10 Earth (2.5 lb each since Patch 5, BL-2; 5 lb before).
+    expect(carryCapacity(s, 0, Res.Earth)).toBe(10);
+    expect(most).toBe(10);
+    // 14 full loads, and the last 4 handed in after the dig was finished.
+    expect(trips.length).toBe(15);
+    expect(trips.slice(0, -1).every((t) => t.res === Res.Earth && t.amount === 10)).toBe(true);
     expect(trips.at(-1)!.amount).toBe(4);
     expect(trips.at(-1)!.step).toBeGreaterThan(finishedAt);
     expect(pool[Res.Earth]).toBe(earth + 144);
@@ -174,9 +174,9 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     const earth = pool[Res.Earth]!;
     run(s, 1, [dig(s, [0], x, z, 4, 4, y - 9)]);
     const { trips, most } = watchTrips(s, 0, () => s.sites.length === 0 && e.carryAmt[0] === 0, 30000);
-    expect(carryCapacity(s, 0, Res.Earth)).toBe(50);
-    expect(most).toBe(50);
-    expect(trips.map((t) => t.amount)).toEqual([50, 50, 44]);
+    expect(carryCapacity(s, 0, Res.Earth)).toBe(100);
+    expect(most).toBe(100);
+    expect(trips.map((t) => t.amount)).toEqual([100, 44]);
     expect(pool[Res.Earth]).toBe(earth + 144);
   });
 
@@ -192,9 +192,10 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     run(s, 1, [dig(s, [0], x, z, 3, 3, y - 6)]);
     const { trips } = watchTrips(s, 0, () => s.sites.length === 0 && e.carryAmt[0] === 0, 40000);
     expect([pool[Res.Earth]! - before[0]!, pool[Res.Stone]! - before[1]!]).toEqual([27, 27]);
-    // Six loads of each (5 five times and 2), the fewest trips there can be.
-    expect(trips.length).toBe(12);
-    for (const r of [Res.Earth, Res.Stone]) expect(trips.filter((t) => t.res === r).map((t) => t.amount).sort((a, b) => b - a)).toEqual([5, 5, 5, 5, 5, 2]);
+    // Three loads of earth (10, 10 and 7) and six of stone (5 five times and 2), the fewest trips there can be.
+    expect(trips.length).toBe(9);
+    expect(trips.filter((t) => t.res === Res.Earth).map((t) => t.amount).sort((a, b) => b - a)).toEqual([10, 10, 7]);
+    expect(trips.filter((t) => t.res === Res.Stone).map((t) => t.amount).sort((a, b) => b - a)).toEqual([5, 5, 5, 5, 5, 2]);
   });
 
   it('goes home with a load it brought of something else before it digs', () => {
@@ -222,14 +223,14 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     for (let k = 0; k < 4000 && !(e.act[0] === Act.Work && e.carryAmt[0] === 2); k++) step(s);
     expect(e.carryAmt[0]).toBe(2);
     run(s, 1, [{ kind: 'returnCargo', player: 0, units: [e.id[0]!] }]);
-    expect(e.queue[0]).toEqual([{ t: 'return' }, { t: 'dig', site }]);
+    expect(e.queue[0]).toMatchObject([{ t: 'return' }, { t: 'dig', site }]);
     for (let k = 0; k < 4000 && e.carryAmt[0]! > 0; k++) step(s);
     expect(e.carryAmt[0]).toBe(0);
-    expect(e.queue[0]).toEqual([{ t: 'dig', site }]);
+    expect(e.queue[0]).toMatchObject([{ t: 'dig', site }]);
     // Back at the pit, digging again.
     for (let k = 0; k < 4000 && e.carryAmt[0] === 0; k++) step(s);
     expect(e.carryRes[0]).toBe(Res.Earth);
-    expect(e.queue[0]![0]).toEqual({ t: 'dig', site });
+    expect(e.queue[0]![0]).toMatchObject({ t: 'dig', site });
   });
 
   it('diggers in a wide pit get out with their loads, cutting no stairs (Patch 5 GP-17), and carry on the same after a save', () => {
