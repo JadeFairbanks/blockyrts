@@ -30,14 +30,18 @@ import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../m
 import { School } from '../magic/spells.ts';
 import type { crewHooks } from '../units/questions.ts';
 import {
+  fromItem,
   kitName,
   mainCost,
   pieceProblem,
+  piecesProblem,
+  piecesSteps,
   piecesTime,
   planPieces,
   ROBE_KITS,
   TOOL_KITS,
   TOP_MAGE_TIER,
+  TOP_SHIELD_TIER,
   TOP_TIER,
   TRAINING,
   Troop,
@@ -48,6 +52,7 @@ import {
   WAND_KITS,
   weaponPiece,
   weaponTiers,
+  hasShield,
   type Piece,
 } from '../units/kits.ts';
 import { Mount } from '../mounts/data.ts';
@@ -74,8 +79,8 @@ export interface ProductSpec {
   engine?: number;
   /** An upgrade of the fixed engine on a Citadel's platform (Patch 5, CT-3): the engine it starts from. */
   upgrade?: number;
-  /** A new troop: its type and tiers. */
-  troop?: { troop: number; w: number; a: number };
+  /** A new troop: its type and tiers (close melee's shield too, Patch 5). */
+  troop?: { troop: number; w: number; a: number; s: number };
   /** A new mage trained at a Magi Sanctum with her kit picked (Patch 2): her school and wand and robe tiers. */
   mage?: { school: number; w: number; a: number };
   /** A new unit's kit (units/kits.ts), paid when queued, whichever way the stock allows. */
@@ -133,12 +138,12 @@ export function productSpec(product: Product): ProductSpec {
   }
   const t = troopOf(product);
   if (t) {
-    const pieces = troopPieces(t.troop, t.w, t.a);
+    const pieces = troopPieces(t.troop, t.w, t.a, t.s);
     const horse = t.troop === Troop.Cavalry ? ' and a tamed horse from the nearest Barn' : '';
     return {
       // Jade's Patch 5 (UI-11): a troop goes by its own name ("Club fighter"), never "close melee" or "long melee".
       product, name: troopTierName(t.troop, t.w), key: TROOP_KEYS[t.troop] ?? '', steps: (TRAINING.troopS + piecesTime(pieces)) * STEPS_PER_SECOND, cost: mainCost(pieces), pieces, food: TRAINING.troopFood, troop: t,
-      tooltip: `A new ${troopTierName(t.troop, t.w).toLowerCase()}: ${kitName(t.troop, t.w, t.a).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply.`,
+      tooltip: `A new ${troopTierName(t.troop, t.w).toLowerCase()}: ${kitName(t.troop, t.w, t.a, t.s).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply. Ready items in stock go on first, in a fifth of the time.`,
     };
   }
   if (product >= RESEARCH_PRODUCT && product < RECIPE_PRODUCT) {
@@ -178,7 +183,8 @@ export function productSpec(product: Product): ProductSpec {
     return { product, name: `Slaughter ${name === 'cattle' ? 'a cow' : `a ${name}`}`, key: '', steps: SLAUGHTER_STEPS, cost: [], food: 0, slaughter: s.id, tooltip: `Gives ${costText([[meatOf(s.id), s.meat], ...s.extra])}.` };
   }
   const r = recipeSpec(product - RECIPE_PRODUCT);
-  return { product, name: r.name, key: '', steps: r.steps, cost: r.inputs[0] ?? [], food: 0, recipe: r.id, tooltip: `Makes ${costText(r.outputs)}.` };
+  const tooltip = r.scrap !== undefined ? `Breaks one ${RESOURCES[r.scrap]!.name.toLowerCase()} from the stock back into ${costText(r.outputs)}. A stack of them takes one place in the queue.` : `Makes ${costText(r.outputs)}.`;
+  return { product, name: r.name, key: '', steps: r.steps, cost: r.inputs[0] ?? [], food: 0, recipe: r.id, tooltip };
 }
 
 // ----- troops (Troops and gear: Barracks panel) -----
@@ -191,18 +197,23 @@ export function troopTypesAt(b: Pick<Building, 'kind' | 'complete'>): Troop[] {
   return [];
 }
 
-/** The tiers a building offers a troop type: a main base tier 1 at most (Jade), the rest the whole ladder. */
-export function troopTiersAt(b: Pick<Building, 'kind'>, troop: number): { w: readonly [number, number]; a: readonly [number, number] } {
+/**
+ * The tiers a building offers a troop type: a main base tier 1 at most
+ * (Jade), the rest the whole ladder; close melee's shield likewise, a
+ * wooden shield at most at a main base (Patch 5, GP-26), none for the rest.
+ */
+export function troopTiersAt(b: Pick<Building, 'kind'>, troop: number): { w: readonly [number, number]; a: readonly [number, number]; s: readonly [number, number] } {
   const [lo, hi] = weaponTiers(troop);
-  if (b.kind === BuildingKind.MainBase) return { w: [lo, Math.min(hi, 1)], a: [0, 1] };
-  return { w: [lo, hi], a: [0, TOP_TIER] };
+  const s = hasShield(troop) ? TOP_SHIELD_TIER : 0;
+  if (b.kind === BuildingKind.MainBase) return { w: [lo, Math.min(hi, 1)], a: [0, 1], s: [0, Math.min(s, 1)] };
+  return { w: [lo, hi], a: [0, TOP_TIER], s: [0, s] };
 }
 
 /** Whether a building trains a troop of a type and tiers at all. */
-export function troopOffered(b: Building, troop: number, w: number, a: number): boolean {
+export function troopOffered(b: Building, troop: number, w: number, a: number, s = 0): boolean {
   if (!troopTypesAt(b).includes(troop as Troop)) return false;
   const t = troopTiersAt(b, troop);
-  return w >= t.w[0] && w <= t.w[1] && a >= t.a[0] && a <= t.a[1] && weaponPiece(troop, w) !== undefined;
+  return w >= t.w[0] && w <= t.w[1] && a >= t.a[0] && a <= t.a[1] && s >= t.s[0] && s <= t.s[1] && weaponPiece(troop, w) !== undefined;
 }
 
 /** A Barn's tamed, grown horses that are not out working. */
@@ -240,49 +251,64 @@ export function forgeStepOf(state: SimState, player: number): number {
   return forgeStep(bestLevel(state, player, BuildingKind.Forge) > 0, bestLevel(state, player, BuildingKind.MainBase));
 }
 
-/** Why a troop's kit cannot be had (research and the Forge step), or ''. */
+/** Why a unit's kit cannot be had from the stock (research and the Forge step; a ready item in stock needs neither, Patch 5), or ''. */
 function kitProblem(state: SimState, user: number, research: number, pieces: readonly Piece[]): string {
+  return piecesProblem(pieces, state.players[user]!.pool, research, forgeStepOf(state, user), (r) => RESEARCH[r]?.name ?? 'research');
+}
+
+/** Whether the stock gives a whole kit, each piece as a ready item or made from materials it has the research for (Patch 5, GP-1). */
+function kitFits(state: SimState, user: number, research: number, pieces: readonly Piece[]): boolean {
+  const plan = planPieces(pieces, state.players[user]!.pool);
+  if (!plan) return false;
   const forge = forgeStepOf(state, user);
-  for (const p of pieces) {
-    const why = pieceProblem(p, research, forge, (r) => RESEARCH[r]?.name ?? 'research');
-    if (why) return why;
-  }
-  return '';
+  return pieces.every((p, k) => fromItem(plan.ways, k) || !pieceProblem(p, research, forge, (r) => RESEARCH[r]?.name ?? 'research'));
+}
+
+/** The padlock's kit: 1 + shield tier x 100 + weapon tier x 10 + armour tier (Patch 2; the shield from Patch 5). */
+export function lockTiers(lock: number): { w: number; a: number; s: number } {
+  return { w: floorDiv(lock - 1, 10) % 10, a: (lock - 1) % 10, s: floorDiv(lock - 1, 100) };
 }
 
 /**
- * The panel's default for a troop type at a building (Barracks panel): its Lock if ticked; else the highest weapon tier the player can
- * make and afford, then the highest armour tier the rest of the stock
- * pays for, so a short metal goes to the weapon first. With nothing
- * affordable, the lowest tiers.
+ * The panel's default for a troop type at a building (Barracks panel): its
+ * Lock if ticked; else the highest weapon tier the stock gives, then the
+ * highest armour tier, then (close melee) the highest shield tier, from what
+ * is left, so a short metal goes to the weapon first and the shield last
+ * (Jade, GP-26). A ready item in stock is taken over making one, unless a
+ * higher tier can be made (GP-1). With nothing affordable, the lowest tiers
+ * and no shield.
  */
-export function troopDefault(state: SimState, b: Building, troop: number, user = b.owner): { w: number; a: number } {
+export function troopDefault(state: SimState, b: Building, troop: number, user = b.owner): { w: number; a: number; s: number } {
   const lock = b.locks[troop] ?? 0;
-  if (lock > 0) return { w: floorDiv(lock - 1, 10), a: (lock - 1) % 10 };
+  if (lock > 0) return lockTiers(lock);
   const t = troopTiersAt(b, troop);
-  const p = state.players[user]!;
-  const research = p.research | b.tech;
+  const research = state.players[user]!.research | b.tech;
+  const fits = (pieces: Piece[]): boolean => kitFits(state, user, research, pieces);
   let w = t.w[0];
   for (let k = t.w[1]; k >= t.w[0]; k--) {
-    const pieces = troopPieces(troop, k, 0);
-    if (!weaponPiece(troop, k) || kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    if (!weaponPiece(troop, k) || !fits(troopPieces(troop, k, 0))) continue;
     w = k;
     break;
   }
   let a = 0;
   for (let k = t.a[1]; k > t.a[0]; k--) {
-    const pieces = troopPieces(troop, w, k);
-    if (kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    if (!fits(troopPieces(troop, w, k))) continue;
     a = k;
     break;
   }
-  return { w, a };
+  let sh = 0;
+  for (let k = t.s[1]; k > t.s[0]; k--) {
+    if (!fits(troopPieces(troop, w, a, k))) continue;
+    sh = k;
+    break;
+  }
+  return { w, a, s: sh };
 }
 
 /** The product a troop button queues now: the building's default for the type. */
 export function defaultTroopProduct(state: SimState, b: Building, troop: number, user = b.owner): Product {
   const d = troopDefault(state, b, troop, user);
-  return troopProduct(troop, d.w, d.a);
+  return troopProduct(troop, d.w, d.a, d.s);
 }
 
 // ----- mages at the Magi Sanctum (Patch 2: the Barracks' cards, with wand and robe tiers 1 to 6) -----
@@ -321,19 +347,16 @@ export function mageDefault(state: SimState, b: Building, school: number, user =
   const lock = b.locks[mageLock(school)] ?? 0;
   if (lock > 0) return { w: floorDiv(lock - 1, 10), a: (lock - 1) % 10 };
   const [lo, hi] = MAGE_KIT_TIERS;
-  const p = state.players[user]!;
-  const research = p.research | b.tech;
+  const research = state.players[user]!.research | b.tech;
   let w = lo;
   for (let k = hi; k > lo; k--) {
-    const pieces = [WAND_KITS[k]!];
-    if (kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    if (!kitFits(state, user, research, [WAND_KITS[k]!])) continue;
     w = k;
     break;
   }
   let a = lo;
   for (let k = hi; k > lo; k--) {
-    const pieces = magePieces(w, k);
-    if (kitProblem(state, user, research, pieces) || !planPieces(pieces, p.pool)) continue;
+    if (!kitFits(state, user, research, magePieces(w, k))) continue;
     a = k;
     break;
   }
@@ -344,8 +367,9 @@ export function mageDefault(state: SimState, b: Building, school: number, user =
  * Shuts or opens a training card's padlock (Patch 2): a troop type (1 to 5)
  * at a Barracks or the Stables, or a mage school at a Magi Sanctum
  * (mageLock). `lock` is 0 to open it, else 1 + weapon (wand) tier x 10 +
- * armour (robe) tier, which must be tiers the building trains. The Big House
- * has no cards, so it takes no lock (Jade). False when nothing changed.
+ * armour (robe) tier, plus close melee's shield tier x 100 (lockTiers),
+ * which must be tiers the building trains. The Big House has no cards, so it
+ * takes no lock (Jade). False when nothing changed.
  */
 export function setKitLock(b: Building, card: number, lock: number): boolean {
   if (b.kind === BuildingKind.MainBase) return false;
@@ -353,9 +377,8 @@ export function setKitLock(b: Building, card: number, lock: number): boolean {
   const mage = mageSchoolsAt(b).includes(school);
   if (!mage && !(troopTypesAt(b) as number[]).includes(card)) return false;
   if (lock > 0) {
-    const w = floorDiv(lock - 1, 10);
-    const a = (lock - 1) % 10;
-    if (mage ? !mageOffered(b, school, w, a) : !troopOffered(b, card, w, a)) return false;
+    const { w, a, s } = lockTiers(lock);
+    if (mage ? s > 0 || !mageOffered(b, school, w, a) : !troopOffered(b, card, w, a, s)) return false;
   }
   while (b.locks.length <= card) b.locks.push(0);
   b.locks[card] = lock;
@@ -365,7 +388,7 @@ export function setKitLock(b: Building, card: number, lock: number): boolean {
 /** Whether a building offers a product at all (troops and Sanctum mages by type and tiers, the rest by productsOf). */
 export function offers(b: Building, product: Product): boolean {
   const t = troopOf(product);
-  if (t) return troopOffered(b, t.troop, t.w, t.a);
+  if (t) return troopOffered(b, t.troop, t.w, t.a, t.s);
   const m = mageOf(product);
   if (m) return mageOffered(b, m.school, m.w, m.a);
   return productsOf(b).includes(product);
@@ -517,6 +540,29 @@ export function productSteps(_state: SimState, _b: Building, product: Product): 
   return productSpec(product).steps;
 }
 
+/** Steps a new unit takes to train, as its queue item was paid: a piece that went on as a ready item takes a fifth of its time (Patch 5, GP-1). */
+export function trainSteps(item: Pick<QueueItem, 'product' | 'paid'>): number {
+  const spec = productSpec(item.product);
+  return spec.pieces ? spec.steps - piecesTime(spec.pieces) * STEPS_PER_SECOND + piecesSteps(spec.pieces, item.paid) : spec.steps;
+}
+
+/** The recipe a product makes, or undefined. */
+function recipeOf(product: Product): ReturnType<typeof recipeSpec> | undefined {
+  return product >= RECIPE_PRODUCT && product < SLAUGHTER_PRODUCT ? RECIPES[product - RECIPE_PRODUCT] : undefined;
+}
+
+/** Whether a product is queued as a stack, any number in one slot (Patch 5, GP-3: Scrap equipment). */
+export function stacks(product: Product): boolean {
+  return recipeOf(product)?.scrap !== undefined;
+}
+
+/** How many of a stacked queue item are left, the one under way among them (Patch 5, GP-3); 1 for anything else. */
+export function stackLeft(item: Pick<QueueItem, 'product' | 'paid'>): number {
+  const item0 = recipeOf(item.product)?.scrap;
+  if (item0 === undefined) return 1;
+  return item.paid.find(([r]) => r === item0)?.[1] ?? 0;
+}
+
 /** Supply a player has: the supply of every finished building at its current level (Table 4). */
 export function supplyCap(state: SimState, player: number): number {
   let n = 0;
@@ -560,9 +606,27 @@ export function supplyUsed(state: SimState, player: number): number {
   return n;
 }
 
-/** Queues an item for `by` (the owner unless set), who pays for it now. Returns '' or why it could not be queued. */
-export function queueProduct(state: SimState, b: Building, product: Product, by = b.owner, engine = 0): string {
+/**
+ * Queues an item for `by` (the owner unless set), who pays for it now. A
+ * stacked product (stacks) takes `count` of them in one slot, as many as the
+ * stock holds. Returns '' or why it could not be queued.
+ */
+export function queueProduct(state: SimState, b: Building, product: Product, by = b.owner, engine = 0, count = 1): string {
   if (!offers(b, product)) return 'This building cannot make that.';
+  // More of an item already being scrapped joins its stack, in the same slot (Patch 5, GP-3).
+  const stack = stacks(product) ? b.queue.find((q) => q.product === product && q.by === by) : undefined;
+  if (stack) {
+    const why = productProblem(state, b, product, by);
+    if (why) return why;
+    const item = recipeOf(product)!.scrap!;
+    const pool = state.players[by]!.pool;
+    const n = Math.min(Math.max(1, count), pool[item]!);
+    pool[item] = pool[item]! - n;
+    const at = stack.paid.findIndex(([r]) => r === item);
+    if (at >= 0) stack.paid[at] = [item, stack.paid[at]![1] + n];
+    else stack.paid.push([item, n]);
+    return '';
+  }
   if (b.queue.length >= QUEUE_LIMIT) return 'The queue is full.';
   const why = productProblem(state, b, product, by);
   if (why) return why;
@@ -578,7 +642,13 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
       else paid.push([res, n]);
     }
   };
-  if (spec.recipe !== undefined) {
+  const scrap = spec.recipe !== undefined ? recipeSpec(spec.recipe).scrap : undefined;
+  if (scrap !== undefined) {
+    // A stack of scraps: every item it scraps is taken now, and those not yet scrapped come back if it is cancelled.
+    const n = Math.min(Math.max(1, count), pool[scrap]!);
+    pool[scrap] = pool[scrap]! - n;
+    paid.push([scrap, n]);
+  } else if (spec.recipe !== undefined) {
     // "Meat" or "fish" in a recipe is paid with the kinds in stock, and those come back if it is cancelled.
     for (const [res, n] of payAny(pool, payableInputs(recipeSpec(spec.recipe), pool)!)) paid.push([res, n]);
   } else if (spec.food > 0) {
@@ -652,7 +722,7 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
-  const i = addWarrior(state, owner, x, z, t.troop as Troop, t.w, t.a);
+  const i = addWarrior(state, owner, x, z, t.troop as Troop, t.w, t.a, t.s);
   state.entities.heading[i] = 32768;
   // Cavalry rides out on the horse it was given (Jade: the horse is used up).
   if (t.troop === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, barnsNear(state, b, owner)[0]?.id ?? 0, Math.max(0, horse - 1));
@@ -926,7 +996,7 @@ export function queuePace(state: SimState, b: Building, head: QueueItem): QueueP
   }
   // A new unit, or an engine with its crew (Patch 2), waits at its first step until there is free supply for them.
   const held = head.progress === 0 && supplyNeed(head.product) > 0 && supplyUsed(state, head.by) + supplyNeed(head.product) > supplyCap(state, head.by);
-  if (trainsUnit(head.product)) return { whole: productSpec(head.product).steps, perStep: held ? 0 : 1 };
+  if (trainsUnit(head.product)) return { whole: trainSteps(head), perStep: held ? 0 : 1 };
   if (held) return { whole: productSteps(state, b, head.product), perStep: 0 };
   // Research loads at its facility's pace, and stops while the research facilities go unfed (Research; Food).
   // Crafting buildings work with no hands at CRAFT_PACE (Patch 2); engines, slaughter and the Big House's rope at 1.
@@ -982,7 +1052,15 @@ export function updateBuildings(state: SimState): void {
         b.alerted &= ~1;
         head.progress += pace.perStep;
         if (head.progress >= pace.whole) {
-          b.queue.shift();
+          const left = stackLeft(head);
+          if (left > 1) {
+            // A stack: one done, the bar starts again on the next (Patch 5, GP-3).
+            const at = head.paid.findIndex(([r]) => r === recipeOf(head.product)!.scrap);
+            head.paid[at] = [head.paid[at]![0], left - 1];
+            head.progress = 0;
+          } else {
+            b.queue.shift();
+          }
           finishProduct(state, b, head);
         }
       }

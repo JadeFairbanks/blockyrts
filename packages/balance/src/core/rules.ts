@@ -122,11 +122,13 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/questions.ts': 'questions',
   'units/greyed.ts': 'questions',
   'units/work-asks.ts': 'questions',
+  'units/make-asks.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
   'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
   'units/night-work.ts': 'nightwork',
   'units/dig.ts': 'world',
@@ -255,15 +257,15 @@ export const ENTRY_RECORDS: ReadonlySet<string> = new Set(['units/kits.ts:BRAWLE
 
 /**
  * Troops and gear: the kit tables' sub-menus, by export. Each row is a tier of
- * kit, labelled "Tier 4: Bronze shortsword" (shields by name: their tier is
- * the armour's they come with).
+ * kit, labelled "Tier 4: Bronze shortsword" (shields too from Patch 5, a line
+ * of their own).
  */
 export const KIT_MENUS: Readonly<Record<string, string>> = {
   TIER_NEEDS: 'Material tiers', TOOL_KITS: 'Tool kits', CLOSE_KITS: 'Close melee', LONG_KITS: 'Long melee and cavalry', RANGER_KITS: 'Rangers',
   BRAWLER_KIT: 'Brawlers', ARMOUR_KITS: 'Armour', SHIELD_KITS: 'Shields (close melee)', WAND_KITS: 'Wands', ROBE_KITS: 'Robes',
 };
-/** Kit tables whose rows are not labelled by their tier. */
-export const UNTIERED_KITS: ReadonlySet<string> = new Set(['SHIELD_KITS']);
+/** Kit tables whose rows are not labelled by their tier (none since Patch 5 gave shields tiers of their own). */
+export const UNTIERED_KITS: ReadonlySet<string> = new Set<string>();
 
 /**
  * Rows that are placeholders, not kit: a tier with nothing in it (no long
@@ -388,7 +390,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   spreadPct: 'Spread (of the range)', protectionPct: 'Protection', blockPct: 'Shield block', fromArmour: 'Comes with armour tier',
   tools: 'Tool tier for each job', powerPct: 'Spell power', 'WAND_KITS:mana': 'Extra mana', regainPct: 'Extra mana regain', 'TOOL_KITS:damage': 'A worker\'s damage',
   'CRIT:outerPm': 'Outer share of reach that crits', 'CRIT:bonusPct': 'Critical damage bonus', troopFood: 'Troop food', troopS: 'Troop training time',
-  upgradeTimePm: 'Upgrade time (of the new piece\'s time to make)', upgradeRefundPm: 'Refund of the old piece on upgrade',
+  upgradeTimePm: 'Least upgrade time (of the new piece\'s time to make)', fitTimePm: 'Time to put on a ready item (of the piece\'s time to make)',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
   'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
   'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',
@@ -464,6 +466,8 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
+  'units/make-asks.ts': 'The Workshop\'s offer to make something',
+  'threats/loot.ts': 'Weapons, armour and shields in the night waves',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 

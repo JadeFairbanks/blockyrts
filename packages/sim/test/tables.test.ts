@@ -16,7 +16,8 @@ import {
   ROBE_KITS,
   SHIELD_GEAR,
   SHIELD_KITS,
-  shieldRow,
+  TOP_SHIELD_TIER,
+  troopPieces,
   Shot,
   TIER_NEEDS,
   TOOL_GEAR,
@@ -127,7 +128,8 @@ describe('the kit tables', () => {
     expect(recurves.map((k) => k.tier)).toEqual([3, 4, 5, 6]);
     for (const k of recurves) {
       expect(k.name).toMatch(/^Recurve bow, /);
-      expect([k.shot, k.model, k.attackDs, k.rangeM, k.spreadPct, k.timeS]).toEqual([Shot.Arrow, 'bow_recurve', 20, 25, 6, 35]);
+      // 34 s each (Patch 5, BL-11: 35 s less up to 15% by tier, never below the tier under it).
+      expect([k.shot, k.model, k.attackDs, k.rangeM, k.spreadPct, k.timeS]).toEqual([Shot.Arrow, 'bow_recurve', 20, 25, 6, 34]);
     }
     expect(crossbow!.name).toMatch(/crossbow/i);
     expect(crossbow!.shot).toBe(Shot.Bolt);
@@ -140,21 +142,16 @@ describe('the kit tables', () => {
     for (let t = 1; t <= TOP_TIER; t++) expect(gearSpec(RANGER_GEAR[t]!).ranged!.shot).toBe(RANGER_KITS[t]!.shot);
   });
 
-  it('give close melee the shield of its armour tier: wooden, boiled-leather targe, iron-rimmed heater, steel heater, steel rotella', () => {
-    expect(shieldRow(0).tier).toBe(0);
-    const names = [1, 2, 3, 4, 5, 6, 7, 8].map((a) => shieldRow(a).name);
-    expect(names).toEqual([
-      'Wooden shield',
-      'Wooden shield',
-      'Boiled-leather targe',
-      'Boiled-leather targe',
-      'Boiled-leather targe',
-      'Iron-rimmed heater shield',
-      'Steel heater shield',
-      'Steel rotella',
-    ]);
-    // Blocking never falls as the armour gets better.
-    for (let a = 2; a <= TOP_TIER; a++) expect(shieldRow(a).blockPct).toBeGreaterThanOrEqual(shieldRow(a - 1).blockPct);
+  it('give close melee shields of their own, each a tier of its own slot (Patch 5, GP-26)', () => {
+    expect(SHIELD_KITS.map((k) => k.name)).toEqual(['No shield', 'Wooden shield', 'Boiled-leather targe', 'Iron-rimmed heater shield', 'Steel heater shield', 'Steel rotella']);
+    expect(SHIELD_KITS.map((k) => k.tier)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(TOP_SHIELD_TIER).toBe(SHIELD_KITS.length - 1);
+    // Blocking never falls up the ladder, and each shield is drawn.
+    for (let s = 2; s <= TOP_SHIELD_TIER; s++) expect(SHIELD_KITS[s]!.blockPct).toBeGreaterThanOrEqual(SHIELD_KITS[s - 1]!.blockPct);
+    for (let s = 1; s <= TOP_SHIELD_TIER; s++) expect(SHIELD_KITS[s]!.model).not.toBe('');
+    // Only close melee carries one, and it is the last piece of the kit the stock pays for.
+    expect(troopPieces(Troop.Close, 4, 4, 2).map((p) => p.name)).toEqual(['Bronze shortsword', 'Bronze scale armour', 'Boiled-leather targe']);
+    expect(troopPieces(Troop.Long, 4, 4, 2).map((p) => p.name)).toEqual(['Bronze spear', 'Bronze scale armour']);
   });
 
   it('build the gear catalogue from the rows', () => {

@@ -304,7 +304,7 @@ const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
 
 /** How near the shot's start (metres) a gun's drawn muzzle must be for its flash to come out of it. */
-const MUZZLE_NEAR_M = 1.5;
+const MUZZLE_NEAR_M = 2.5;
 
 /** Seconds a gun's smoke rises after a shot (Jade's MB-7): a cannon 5, a musket 4, the brawler's pistol 3. */
 const GUN_SMOKE = { cannon: 5, musket: 4, pistol: 3 };
@@ -865,7 +865,7 @@ export class UnitsView {
   private readonly tinkerStart = new Map<number, number>();
   /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
   private readonly fired = new Map<number, number>();
-  /** Where each unit's gun with a muzzle (the brawler's pistol) was last drawn, metres, by entity id: its flash comes out of it. */
+  /** Where each unit's gun with a muzzle (a musket, the brawler's pistol) was last drawn, metres, by entity id: its flash comes out of it. */
   private readonly muzzleAt = new Map<number, THREE.Vector3>();
   /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
   private readonly held = new Map<number, { clip: string; t0: number; until: number; then?: { clip: string; ms: number } }>();
