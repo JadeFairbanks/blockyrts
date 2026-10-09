@@ -94,10 +94,10 @@ export function chargeKnock(state: SimState, i: number, t: number): void {
   else if (near) knockBack(state, i, t, KNOCKBACK.near);
 }
 
-/** Whether a unit can be thrown back at all: not a building-like structure, an engine, a flyer, a climber on a wall, or one that cannot be moved (the infernal juggernaut, Morvath). */
+/** Whether a unit can be thrown back at all: not a building-like structure, an engine, a flyer, a climber on a wall or a face, or one that cannot be moved (the infernal juggernaut, Morvath). */
 function knockable(state: SimState, t: number): boolean {
   const e = state.entities;
-  if (e.hp[t]! <= 0 || e.inside[t] !== 0 || e.kind[t] === UnitKind.Engine) return false;
+  if (e.hp[t]! <= 0 || e.inside[t] !== 0 || e.kind[t] === UnitKind.Engine || e.onFace[t] !== 0) return false;
   if (e.kind[t] === UnitKind.Mob) {
     const s = mobSpec(e.mob[t]!);
     if (isStructure(s.id) || s.moves === Moves.Still || flies(s) || e.climbUntil[t] !== 0) return false;

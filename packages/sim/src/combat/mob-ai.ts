@@ -11,7 +11,7 @@ import { buildingCentre, dist2, isLit, snuffLight } from '../buildings/lights.ts
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { BIG_WALKER, CLIMBER, WALKER, type Mover } from '../nav/grid.ts';
+import { CLIMBER, MOB_WALKER, WALKER, type Mover } from '../nav/grid.ts';
 import { pointGoal, TILE_COLUMNS } from '../nav/path.ts';
 import { hash32 } from '../rng.ts';
 import { burnThisStep } from '../rules.ts';
@@ -97,11 +97,9 @@ export function classOf(spec: MobSpec): MobClass | -1 {
   return -1;
 }
 
-/** Big walking monsters (2.5 m and up) jump higher rises (Moving over the land: "scale with size") (s). */
-const BIG_HEIGHT = floorDiv(250 * WU_PER_METRE, 100);
-
+/** How a mob gets over the land: a climber climbs; every other walker jumps 1 m (Patch 5 MB-3; the big ones jumped 67 cm before, the rest 45 cm). */
 export function mobMover(spec: MobSpec): Mover {
-  return spec.moves === Moves.Climber ? CLIMBER : spec.height >= BIG_HEIGHT ? BIG_WALKER : WALKER;
+  return spec.moves === Moves.Climber ? CLIMBER : MOB_WALKER;
 }
 
 /** The middle of a player's town: their main base, else their first building, else null. */

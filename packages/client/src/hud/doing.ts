@@ -32,7 +32,6 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'port':
       return 'port';
     case 'dig':
-    case 'stairs':
       return 'dig';
     case 'prospect':
       return 'prospect';

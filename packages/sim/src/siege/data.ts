@@ -71,7 +71,10 @@ export interface EngineSpec {
 }
 
 const cm = (c: number): number => floorDiv(c * WU_PER_METRE, 100);
-const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STEPS_PER_SECOND);
+/** Engines go 15% slower than these rows' tenths of a m/s say (Patch 5 GP-16: "decrease the baseline speed of artillery by 15%"), as foot units walk (state.ts FOOT_WALK_BP). */
+export const ARTILLERY_PACE_BP = 8500;
+/** Tenths of a m/s, less the 15%, as wu per step. */
+const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE * ARTILLERY_PACE_BP, 10 * STEPS_PER_SECOND * 10000);
 const sec = (n: number): number => n * STEPS_PER_SECOND;
 /** Either lumber (Patch 5). */
 const L = Res.AnyLumber;
