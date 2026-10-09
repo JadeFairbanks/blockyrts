@@ -29,7 +29,7 @@ import { LootEffect, GEAR } from './kits.ts';
 /** Fury (the fiend's cleaver, as the fiend's frenzy): its holder attacks this much faster, bp, while its health is under this share of its most, per mille. */
 export const FURY = { attackBp: 2000, underPm: 500 };
 
-/** Warlord (the archfiend's greatsword, as the archfiend's command): the players' troops within this reach of its holder, him too, deal this much more damage, bp. */
+/** Warlord (the archfiend's greatsword, as the archfiend's command): the players' troops within this reach of its holder, the holder too, deal this much more damage, bp. */
 export const WARLORD = { damageBp: 1000, reach: 15 * WU_PER_METRE };
 
 /** Reaper (the Elf glaive): it keeps its critical hits at the edge of its reach, and its holder moves this much faster, bp. */
@@ -39,14 +39,14 @@ export const REAPER = { moveBp: 1000 };
  * Far sight (the Elf longbow): its arrows ignore this share of what they
  * hit's armour, bp, and its holder sees this much farther at dusk and night,
  * wu (s: 5 m, a little farther, as Jade's plan has it; a fog night halves it
- * with the rest of his sight).
+ * with the rest of the holder's sight).
  */
 export const FAR_SIGHT = { armourCutBp: 2000, darkSight: 5 * WU_PER_METRE };
 
 /**
  * The Fae set (the Fae star wand and the Fae Guardian's robe, worn
  * together; each also restores mana 25% faster on its own, on its row): the
- * players' units within this reach of the mage wearing both, her too, heal
+ * players' units within this reach of the mage wearing both, the mage too, heal
  * this much every so often (s: 1 health every 3 s, within 8 m).
  */
 export const FAE_SET = { heal: 1, everySteps: 3 * STEPS_PER_SECOND, reach: 8 * WU_PER_METRE };
@@ -80,14 +80,14 @@ const seconds = (steps: number): number => floorDiv(steps, STEPS_PER_SECOND);
 export const LOOT_EFFECTS: readonly EffectSpec[] = [
   { id: LootEffect.None, name: 'None', items: [], text: '' },
   { id: LootEffect.Fury, name: 'Fury', items: [Res.FiendCleaver], text: `Its holder attacks ${pct(FURY.attackBp)}% faster while below ${floorDiv(FURY.underPm, 10)}% health.` },
-  { id: LootEffect.Warlord, name: 'Warlord', items: [Res.ArchfiendGreatsword], text: `Your troops within ${metres(WARLORD.reach)} m of its holder, him too, deal ${pct(WARLORD.damageBp)}% more damage.` },
+  { id: LootEffect.Warlord, name: 'Warlord', items: [Res.ArchfiendGreatsword], text: `Your troops within ${metres(WARLORD.reach)} m of its holder, the holder too, deal ${pct(WARLORD.damageBp)}% more damage.` },
   { id: LootEffect.Reaper, name: 'Reaper', items: [Res.ElfGlaive], text: `Critical hits at the edge of its reach, and its holder moves ${pct(REAPER.moveBp)}% faster.` },
   { id: LootEffect.FarSight, name: 'Far sight', items: [Res.ElfLongbow], text: `Its arrows ignore ${pct(FAR_SIGHT.armourCutBp)}% of armour, and its holder sees ${metres(FAR_SIGHT.darkSight)} m farther at dusk and night.` },
   {
     id: LootEffect.FaeSet,
     name: 'Fae set',
     items: [Res.FaeStarWand, Res.FaeGuardianRobe],
-    text: `Each piece restores mana 25% faster. Worn together, your units within ${metres(FAE_SET.reach)} m of the mage, her too, heal ${FAE_SET.heal} health every ${seconds(FAE_SET.everySteps)} s.`,
+    text: `Each piece restores mana 25% faster. Worn together, your units within ${metres(FAE_SET.reach)} m of the mage, the mage too, heal ${FAE_SET.heal} health every ${seconds(FAE_SET.everySteps)} s.`,
   },
   { id: LootEffect.BogTrophy, name: 'Bog trophy', items: [Res.BogGuardianClub], text: `Place it anywhere as a trophy: night monsters within ${metres(BOG_TROPHY.reach)} m of it move ${pct(BOG_TROPHY.slowBp)}% slower.` },
   {
@@ -253,8 +253,8 @@ export function wearsFaeSet(state: SimState, i: number): boolean {
 
 /**
  * Every few seconds (FAE_SET.everySteps), each of the players' mages out in
- * the open wearing the whole Fae set heals the players' units round her, her
- * too, once each however many such mages are near (no two copies of an
+ * the open wearing the whole Fae set heals the players' units round the mage,
+ * the mage too, once each however many such mages are near (no two copies of an
  * effect count twice). A unit sheltering inside a building is out of reach.
  */
 export function updateLootEffects(state: SimState): void {
