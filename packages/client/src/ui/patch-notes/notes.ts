@@ -44,19 +44,61 @@ export interface PatchNote {
 
 export const PATCH_NOTES: readonly PatchNote[] = [
   {
-    name: 'Patch 5.1',
-    headline: 'Smoother play: the same picture for less work every frame, and no more freezes as night falls.',
+    name: 'Patch 6',
+    headline: 'Smoother and steadier: no more freezes as night falls, mineshafts on any flat ground, and the game as an app on your device.',
+    intro: [
+      'Saves from Patch 5 still load. If the game was open in your browser when Patch 6 went live, it asks you to reload the page.',
+      'The site now opens with a sign-in page. One sign-in keeps that browser signed in for 30 days.',
+    ],
     changes: {
       bugFixes: [
         {
           title: 'No more freezes as night falls',
-          text: 'The game no longer stands still for up to half a second when the first monsters of the night set out for your town, or stutters when your units come near new land. It now prepares the routes and the land it will need while it has time to spare, and dusk takes half the work it did.',
+          text: 'The game no longer stands still for up to half a second when the first monsters of the night set out for your town: that moment now takes about a twentieth of a second, and a shorter stall later in the night is gone. The game prepares the routes and the land it will need while it has time to spare, and dusk takes half the work it did.',
+        },
+        {
+          title: 'No more stutter while exploring',
+          text: 'The short stutter every 20 seconds or so, as your units came near new land, is gone: the land ahead is prepared before they reach it.',
+        },
+        {
+          title: 'Rejoining a game',
+          text: 'When a player reloaded the page or rejoined during a game, everyone could be left waiting on that player for good. Moves made while the game reopens are now kept until it is ready, and play carries on.',
+        },
+      ],
+      gameplay: [
+        {
+          title: 'Mineshafts',
+          text: 'A Mineshaft can now be built on any flat, dry ground, not only on bare stone: grass, dirt, sand and the rest. Water and steep ground are still refused. What a shaft brings up still depends on prospecting, not on the ground it stands on.',
+          picture: 'icon_mineshaft_t1',
+        },
+        {
+          title: 'Farms',
+          text: 'A Farm can no longer be placed where any part of it would stand on stone, marble, ore or volcanic rock; those tiles show red. Farms already built stay where they are.',
+          picture: 'icon_farmhouse_t1',
         },
       ],
       qol: [
         {
           title: 'Smoother frames',
-          text: 'The world looks exactly as before, but the game works less to draw it: only the trees, rocks and props on screen or casting a shadow onto it are drawn, unlit lamps cost nothing, and far less data goes to the graphics card. In a busy town the game’s own work per frame falls from about 8 ms to 6.5 ms.',
+          text: 'The world looks exactly as before, but the game works less to draw it: only the trees, rocks and props on screen or casting a shadow onto it are drawn, unlit lamps cost nothing, and about 95% less data goes to the graphics card. In a busy town the game’s own work per frame falls from about 8 ms to 6.5 ms.',
+        },
+        {
+          title: 'Install app',
+          text: 'The main menu has an Install app button beside Full screen. It adds the game to your device as an app with its own icon, opening in its own window, or full screen on phones and tablets. On iPhone and iPad, Safari on a Mac, and Firefox on Windows and Android, the button shows the few steps to follow. Where a browser cannot install apps, the button stays hidden.',
+        },
+        {
+          title: 'Ground under buildings',
+          text: 'Buildings you can walk into now stand on the ground they are built on instead of a trodden path: grass if any grass touches them, otherwise the ground most of them covers. A Barn always shows grass or dirt, and a Farm always dirt. Towers, gates, torch posts and bonfires keep the trodden path round them.',
+          picture: 'icon_barn',
+        },
+        {
+          title: 'Bolts in flight',
+          text: 'Spell bolts now play their own animation as they fly, tilted along their arc. The Satyr Revelers’ bolts and Acrid Wind burst where they land, facing the way they flew.',
+          picture: 'icon_spell_arcane_bolt',
+        },
+        {
+          title: 'Server',
+          text: 'The server now sends every player’s moves for each moment of play together in one message, more than halving its work in a full game.',
         },
       ],
     },
