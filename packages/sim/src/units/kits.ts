@@ -321,7 +321,7 @@ const armour = (tier: number, what: What, model: string, protectionPct: number, 
 export const ARMOUR_KITS: readonly ArmourKit[] = [
   armour(0, 'No armour', '', 0, [[]], 0),
   armour(1, Res.LeatherJerkin, 'armour_leather+boots@leather', 10, only([[LE, 3]]), 30),
-  armour(2, Res.BoiledLeatherCuirass, 'armour_leather+helmet_leather_cap+boots@leather', 20, only([[HL, 3], [LE, 2]]), 49),
+  armour(2, Res.BoiledLeatherCuirass, 'armour_leather_boiled+helmet_leather_cap+boots@leather', 20, only([[HL, 3], [LE, 2]]), 49),
   armour(3, Res.CopperScaleJack, 'armour_copper_scale+helmet_bronze+boots', 25, [[[CU, 5], [HL, 2], [LE, 1]], [[CU, 5], [HL, 2], [FX, 1]]], 77),
   armour(4, Res.BronzeScaleArmour, 'armour_bronze_scale+helmet_bronze+boots', 37, [[[BZ, 5], [HL, 2], [LE, 1]], [[BZ, 5], [HL, 2], [FX, 1]]], 84),
   armour(5, Res.WroughtIronMail, 'armour_iron_mail@iron_wrought+helmet_iron_nasal@iron_wrought+boots', 48, [[[WI, 5], [LE, 3]], [[WI, 5], [FX, 3]]], 84),
