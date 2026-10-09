@@ -403,7 +403,7 @@ function goToward(state: SimState, i: number, spec: MobSpec, px: number, pz: num
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const found = state.paths.find(mobMover(spec), cx, cz, { ...pointGoal(floorDiv(px, WU_PER_COLUMN), floorDiv(pz, WU_PER_COLUMN)), max: 1 }, state.nav.layerAt(cx, cz, floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT)));
   e.waitUntil[i] = state.step + REPATH_STEPS;
-  e.pathOk[i] = found.reached ? 1 : found.points.length === 0 ? NO_WAY : PART_WAY;
+  e.pathOk[i] = found.reached || found.more ? 1 : found.points.length === 0 ? NO_WAY : PART_WAY;
   if (found.points.length === 0) {
     e.path[i] = [];
     return BLOCKED_LAND;
@@ -686,7 +686,7 @@ function wayRound(state: SimState, i: number, spec: MobSpec): boolean {
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const found = state.paths.find(mobMover(spec), cx, cz, { ...pointGoal(floorDiv(e.x[t]!, WU_PER_COLUMN), floorDiv(e.z[t]!, WU_PER_COLUMN)), max: 1 }, state.nav.layerAt(cx, cz, floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT)));
   e.waitUntil[i] = state.step + REPATH_STEPS;
-  if (!found.reached || found.points.length === 0) return false;
+  if (!(found.reached || found.more) || found.points.length === 0) return false;
   const out: number[] = [];
   let walk = 0;
   let px = e.x[i]!;

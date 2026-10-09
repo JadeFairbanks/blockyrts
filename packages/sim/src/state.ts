@@ -142,10 +142,12 @@ export const UNIT_FIELDS = [
   ['nodeI', 'i32'],
   /** Next waypoint in its path. */
   ['pathAt', 'u16'],
-  /** 1 when its path reaches the goal, 0 when it only gets as near as it can. */
+  /** 1 when its path reaches the goal, 0 when it only gets as near as it can, 2 with no path yet, 4 on a leg of a long trip (Patch 5: behaviour.ts PATH_LEG). */
   ['pathOk', 'u8'],
   /** Failed path attempts in a row. */
   ['stuck', 'u8'],
+  /** The step before which a unit whose walk fails neither looks round nor says again that it is stuck (Patch 5, GP-22: units/stuck.ts). */
+  ['stuckSaid', 'u32'],
   /** Step at which to try again when waiting. */
   ['waitUntil', 'u32'],
   /** Mobs: which mob (combat/mobs.ts), the player it was sent against, and its strength per mille (+0.5% a night). */
@@ -367,6 +369,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare pathAt: Uint16Array;
   declare pathOk: Uint8Array;
   declare stuck: Uint8Array;
+  declare stuckSaid: Uint32Array;
   declare waitUntil: Uint32Array;
   declare mob: Uint8Array;
   declare foe: Uint8Array;
@@ -692,6 +695,8 @@ export interface SimEvent {
   look?: boolean;
   /** A lair that has just appeared (Patch 3): its mob kind, for the client's ping and sound. */
   lair?: number;
+  /** A unit's alert that it is stuck (Patch 5, GP-22): its owner's minimap pings it every 5 s until they look at it. */
+  stuck?: true;
   /**
    * Speech for the bubble only, never the message panel (patch 1): a unit's
    * meal ('meal') or its hunger ('hungry'); the panel has the starving alerts.
