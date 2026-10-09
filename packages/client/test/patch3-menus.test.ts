@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Engine, ENGINE_PRODUCT, Greyed, levelSpec, Product, RECIPE_PRODUCT, RECIPES, Res, RESEARCH_PRODUCT, RESOURCE_COUNT, SLAUGHTER_PRODUCT, Species, Troop, troopProduct, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { makeSub } from '../src/hud/menu-keys.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -134,9 +135,9 @@ describe('a card with one button that only opens a menu opens on that menu (Patc
     const card = c.card();
     expect(card.some((e) => e.action === 'craft')).toBe(false);
     expect(card.some((e) => e.action === 'back')).toBe(false);
-    // The Workshop's long list pages on More (V), as its Make menu did.
-    const shown = card.filter((e) => e.action !== 'more');
-    expect(shown.map((e) => e.product)).toEqual(products.slice(0, shown.length).map(([p]) => p));
+    // The Workshop's trinkets and scrapping sit behind buttons of their own (Patch 5).
+    const shown = card.filter((e) => e.action !== 'more' && e.product !== undefined);
+    expect(shown.map((e) => e.product)).toEqual(products.filter(([p]) => makeSub(p) < 0).slice(0, shown.length).map(([p]) => p));
     expect(Commands.lone(card)).toBe(false);
   });
 
@@ -168,7 +169,7 @@ describe('a click on a greyed-out action asks the sim (Patch 3)', () => {
   });
 
   it('sends the troop with the kit on its card for a Barracks button', () => {
-    const b = building(51, BuildingKind.Barracks, { troops: [{ troop: Troop.Close, w: 2, a: 1, lock: 0 }] });
+    const b = building(51, BuildingKind.Barracks, { troops: [{ troop: Troop.Close, w: 2, a: 1, s: 0, lock: 0 }] });
     const { c, sent } = harness(game([b]), [picked(b)], picked(b).typeKey);
     const close = c.card().find((e) => e.action === 'trainClose')!;
     expect(close.enabled).toBe(false);

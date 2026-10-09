@@ -255,7 +255,7 @@ describe('workers: tools and carts (Milestone 11)', () => {
 
 describe('the Big House', () => {
   /** What the sim worker sends for a Big House: its three troop types at tier 1, and what it makes. */
-  const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, lock: 0 }));
+  const troops = [Troop.Close, Troop.Long, Troop.Ranger].map((troop) => ({ troop, w: 1, a: 0, s: 0, lock: 0 }));
 
   it('trains close melee, long melee and rangers on A, Q and N, and makes rope on K (Patch 5: Make rope on the card)', () => {
     const g = game({ pool: [[Res.FarmFare, 100], [Res.Sticks, 10], [Res.Flax, 5]] });
@@ -269,7 +269,7 @@ describe('the Big House', () => {
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
     expect(card[1]!.name).toBe('Train club fighter');
-    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
+    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0, shield tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
     // Patch 5: the Make button is Make rope itself, on K, with no menu behind it.

@@ -4,7 +4,7 @@
 // a time once more than 16 types of goods are held. Pure logic, no DOM: the
 // slot order, which goods have slots, the scroll position, the count text and
 // the change over the last minute. inventory-ui.ts draws it.
-import { FISHES, MEATS, Res, RESOURCE_COUNT, STEPS_PER_SECOND, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
+import { FISHES, MEATS, Res, RESOURCE_COUNT, RESOURCES, ResGroup, STEPS_PER_SECOND, TRINKET_METALS, TRINKET_TIERS, trinketRes } from '@blockyrts/sim';
 
 /** Slots across and rows on screen. */
 export const INVENTORY_COLUMNS = 8;
@@ -18,12 +18,12 @@ TRINKET_METALS.forEach((_, m) => TRINKET_TIERS.forEach((_t, t) => trinkets.push(
  * Every good in slot order, by category, so a count changing never moves a
  * slot: woods, stone and flint, ores, metals, foods (each kind of meat and
  * fish apart, then the rest, and medicine), crafting goods, trinkets,
- * crystals. A recipe's "meat" and "fish" (any kind) are never held, so they
+ * crystals, gear. A recipe's "meat" and "fish" (any kind) are never held, so they
  * have no slot.
  */
 export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res[] }> = [
   { name: 'Woods', items: [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Sticks, Res.Planks, Res.Resin] },
-  { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Marble, Res.Bluestone, Res.Earth, Res.Clay, Res.Sand] },
+  { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Obsidian, Res.Marble, Res.Bluestone, Res.Earth, Res.Clay, Res.Sand] },
   {
     name: 'Ores',
     items: [Res.Coal, Res.Charcoal, Res.CopperOre, Res.TinOre, Res.BogIron, Res.IronRock, Res.VeinIron, Res.LeadOre, Res.Saltpetre, Res.Sulphur],
@@ -60,12 +60,15 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       Res.Bricks,
       Res.Glass,
       Res.Gunpowder,
+      Res.PoisonTips,
       Res.HandCart,
       Res.OxCart,
     ],
   },
   { name: 'Trinkets', items: [...trinkets, Res.Moonleaf, Res.Sunheart, Res.MoonRose] },
   { name: 'Crystals', items: [Res.Hexstone, Res.ManaCrystal, Res.Emeralds, Res.Rubies, Res.Diamonds] },
+  // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes in stock, as the kit tables list them.
+  { name: 'Gear', items: RESOURCES.filter((r) => r.group === ResGroup.Gear).map((r) => r.id) },
 ];
 
 /** Every good in slot order. */

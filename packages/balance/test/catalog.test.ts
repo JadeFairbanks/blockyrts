@@ -85,7 +85,7 @@ describe('catalog', () => {
     expect([...cat.fields.values()].filter((f) => f.module === 'units/kits.ts' && other.some((e) => e.id === f.entryId))).toEqual([]);
     expect(cat.entries.get('units/kits.ts:LONG_KITS:0')).toBeUndefined();
     expect(cat.entries.get('units/kits.ts:CLOSE_KITS:0')!.label).toBe('Tier 0: Fists');
-    expect(cat.entries.get('units/kits.ts:SHIELD_KITS:1')!.label).toBe('Wooden shield');
+    expect(cat.entries.get('units/kits.ts:SHIELD_KITS:1')!.label).toBe('Tier 1: Wooden shield');
   });
 
   it('leaves nothing under Other numbers', () => {

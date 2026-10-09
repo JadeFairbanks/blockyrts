@@ -10,7 +10,7 @@ import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loo
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags', 'mark'] as const satisfies ReadonlyArray<keyof Projectile>;
-const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
+const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src', 'gear'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
@@ -192,11 +192,13 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * unit's order types renumbered). 27: Patch 5's run, climb and jump (each
  * unit's Run/Walk setting, the run it owes food for, and the face it is
  * climbing; the crude stairs' order gone). 28: Patch 5's mobs (Morvath's wing
- * drain on each unit, the Deadlands' guarded mana crystals). Every patch
- * raises it, and a snapshot from any other version is refused, never carried
- * over (Jade, Patch 2: a standing rule).
+ * drain on each unit, the Deadlands' guarded mana crystals). 29: Patch 5's
+ * gear (close melee's shield and a ranger's poison tips on every unit, the
+ * shield in a troop's product and a Barracks padlock). Every patch raises it,
+ * and a snapshot from any other version is refused, never carried over (Jade,
+ * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 28;
+export const SNAPSHOT_VERSION = 29;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
