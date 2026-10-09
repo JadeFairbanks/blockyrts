@@ -199,12 +199,13 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * (a dig order's layer and missed columns, and digs drawn upwards). 31:
  * Patch 5's pathing (when a stuck unit may next say so). 32: Patch 5's farms
  * and animals (bonemeal, farm boosts, stacked queue items, the woodsman and
- * his woods order and food line). 33: Patch 5's stone circles (the Goddess's
+ * his woods order and food line). 33: Patch 5's mages (each mage's autocast
+ * spells are a new column). 34: Patch 5's stone circles (the Goddess's
  * blessing, the idols, the Pan Flute's plays, the Sweet Hawthornes and a
  * unit's circle order). Every patch raises it, and a snapshot from any other
  * version is refused, never carried over (Jade, Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 33;
+export const SNAPSHOT_VERSION = 34;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 

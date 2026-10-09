@@ -47,6 +47,8 @@ import {
   OUT_OF_REACH,
   HAND_CART_TENTHS_LB,
   nextMageTraining,
+  AUTOCAST_RULES,
+  CRYSTAL_STAND_IN,
   PickOwn,
   Product,
   productSpec,
@@ -140,7 +142,7 @@ export interface CardEntry {
   lit?: boolean;
   run(p: ButtonPress): void;
   double?(p: ButtonPress): void;
-  /** A right click (Jade's Patch 5, CT-1 and UI-13: the button's auto function; Fertilize's Auto fertilize), and a touch held on it. */
+  /** A right click (Jade's Patch 5, CT-1 and UI-13: the button's auto function; Fertilize's Auto fertilize; MB-18: a spell's autocast on or off, which works while the spell is greyed out too), and a touch held on it. */
   right?(p: ButtonPress): void;
   /** Its auto function is on for the selection (UI-13: autorepair): a small mark on the button. */
   auto?: boolean;
@@ -153,6 +155,10 @@ export interface CardEntry {
   /** What it trains or makes, so the card can mark what a building is making now. */
   product?: number;
   troop?: number;
+  /** A spell on autocast (Patch 5, MB-19): a ring of light runs round the button, not the doing-now arrow. */
+  autocast?: boolean;
+  /** A spell's cooldown (Patch 5, VX-9): how much of it is left, 0 to 1; the button is dark and a clock hand sweeps the dark off. */
+  cool?: number;
 }
 
 /** One choice of a right-click dropdown: a card button's, or an item's (item-menu.ts). */
@@ -630,7 +636,9 @@ export class Commands {
       const ids = this.unitIds((u) => u.typeKey === active);
       const school = active === 'mage:battle' ? 2 : 1;
       // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
-      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
+      // Patch 5: every spell of her school, and Run/Walk. A support mage's six spells with Energy dart leave no room for Patrol on the card's twelve (s).
+      const spells = cardSpells(school).map((spell) => this.spellEntry(ids, spell));
+      return [attack, ...(spells.length > 5 ? [] : [patrol]), move, ...spells, { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
     }
     if (active === 'warrior:crew') {
       // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine, and Retrain makes it a worker (Patch 3).
@@ -759,14 +767,16 @@ export class Commands {
             ? 'Then left click an enemy that is casting.'
             : 'Then left click a unit: an enemy, prey, or even one of your own.';
     const pick = s.target === 'counter' ? 'Pressed twice, each mage stops the nearest enemy spell.' : 'Pressed twice (or double clicked), every selected mage casts it on the best target herself.';
+    // Patch 5 (MB-14, MB-15, MB-18): right click for autocast, left click to cast it now.
+    const auto = states.length > 0 && states.every(([, , , on]) => on === 1);
     const lines = [
       s.text,
       `Mana ${s.mana}, ready again after ${Math.round(s.cooldown / 2) / 10} s, range ${Math.round(s.range / WU_PER_METRE)} m. Learned at rank ${s.rank}${s.hexcraft ? ', with Hexcraft' : ''}.`,
       aim,
       pick,
+      autocastLine(s.id),
     ];
-    if (s.target === 'counter') lines.push('A mage who knows it also casts it by herself when an enemy spell starts in range.');
-    if (s.id === SPELLS[schoolSpells(s.school)[0]!]!.id) lines.push('She casts this one by herself too.');
+    if (auto) lines.push('On autocast now.');
     if (wait > 0) lines.push(`Ready in ${Math.ceil(wait / 20)} s.`);
     const reason = usable.length > 0 ? '' : (states[0]?.[1] ?? 'Only mages cast spells.');
     const short = SPELL_FACES[spell] ?? shortFace(s.name);
@@ -785,7 +795,19 @@ export class Commands {
         this.d.changed();
       },
       double: () => this.castAuto(spell),
+      right: () => this.toggleAutocast(spell, !auto),
+      autocast: auto,
+      cool: wait > 0 ? Math.min(1, wait / Math.max(1, s.cooldown)) : 0,
     };
+  }
+
+  /** A spell's right click (Patch 5, MB-18): on autocast for every selected mage of its school, or off when all of them had it. */
+  private toggleAutocast(spell: number, on: boolean): void {
+    const school = SPELLS[spell]!.school;
+    const units = this.unitIds((u) => u.typeKey === (school === School.Battle ? 'mage:battle' : 'mage:support'));
+    if (units.length === 0) return;
+    this.d.send({ kind: 'autocast', player: this.d.player, units, spell, on: on ? 1 : 0 });
+    this.d.changed();
   }
 
   /** A spell pressed twice: each mage that knows it picks her own target. */
@@ -800,7 +822,7 @@ export class Commands {
   /** Rank training at a Magi Sanctum (Table 7): food and crystals for the first two ranks, a rank wand and her experience for the three above. */
   private mageRankEntry(ids: number[]): CardEntry {
     const name = 'Upgrade rank';
-    const desc = `Send them to train at a Magi Sanctum. ${MAGE_RANK_TRAINING.map((t) => `${t.name}: ${[t.food ? `${t.food} food` : '', t.crystals ? `${t.crystals} mana crystals` : ''].filter((x) => x).join(' and ')}${t.combat ? ', once her experience from combat is enough' : ''}, ${t.steps / 20} s`).join('; ')}. Experience from combat also raises her to Acolyte and Adept Acolyte by itself.`;
+    const desc = `Send them to train at a Magi Sanctum. ${MAGE_RANK_TRAINING.map((t) => `${t.name}: ${[t.food ? `${t.food} food` : '', t.crystals ? `${t.crystals} mana crystals` : ''].filter((x) => x).join(' and ')}${t.combat ? ', once her experience from combat is enough' : ''}, ${t.steps / 20} s`).join('; ')}. Three demon horns stand in for each mana crystal, and are spent first. Experience from combat also raises her to Acolyte and Adept Acolyte by itself.`;
     const units = ids.map((id) => this.d.game.unit(id)).filter((u): u is UnitInfo => u !== null);
     const why = (u: UnitInfo): string => {
       const t = nextMageTraining(u.rank);
@@ -808,7 +830,7 @@ export class Commands {
       const own = this.d.game.mageRankWhy(u.id);
       if (own) return own;
       if (this.d.game.food() < t.food) return `Not enough food (needs ${t.food}).`;
-      if (t.crystals && this.d.game.have(Res.ManaCrystal) < t.crystals) return `Needs ${t.crystals} mana crystals.`;
+      if (t.crystals && this.d.game.have(Res.ManaCrystal) + Math.floor(this.d.game.have(CRYSTAL_STAND_IN.res) / CRYSTAL_STAND_IN.per) < t.crystals) return `Needs ${t.crystals} mana crystals (or 3 demon horns for each).`;
       return '';
     };
     const able = units.filter((u) => why(u) === '');
@@ -1801,6 +1823,15 @@ export class Commands {
       return true;
     };
     if (s.target === 'point') {
+      // Patch 5 (MB-25): cast on a unit, it lands where that unit is when it goes off; cast on the ground, on the spot.
+      const on = item && item.kind === 'unit' && item.typeKey !== 'wanderer' && !this.ruin(item) ? entityIdOf(item.key) : null;
+      // On one of the peoples at peace it asks first, as Attack does.
+      const peace = on !== null && s.effect === 'blast' ? this.peopleAtPeace(item!) : null;
+      if (peace !== null) {
+        this.d.confirmWar(peace, () => send(on!, item!.centre));
+        return true;
+      }
+      if (on !== null) return send(on, item!.centre);
       const at = ground ?? item?.centre ?? null;
       if (at) return send(0, at);
       this.d.message(`Pick a spot on the ground for ${s.name}.`, 'alert');
@@ -2793,7 +2824,23 @@ export function garrisonRoom(b: Pick<BuildingInfo, 'kind' | 'level' | 'complete'
 
 
 /** Spell button faces where the name is too long for the button. */
-const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell.AreaBlast]: 'Blast', [Spell.Counterspell]: 'Counter' };
+const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell.AreaBlast]: 'Blast', [Spell.Counterspell]: 'Counter', [Spell.EnergyDart]: 'Dart' };
+
+/** A school's spells on the mage card: the rank 1 spells first (Patch 5: Energy dart beside Heal), then the rest in the table's order. */
+function cardSpells(school: number): number[] {
+  const all = schoolSpells(school);
+  return [...all.filter((sp) => SPELLS[sp]!.rank === 1), ...all.filter((sp) => SPELLS[sp]!.rank !== 1)];
+}
+
+/** What a spell's right click does, by what she uses it for on autocast (Patch 5: MB-14, MB-15, MB-17, MB-18). */
+function autocastLine(spell: number): string {
+  const s = SPELLS[spell]!;
+  if (s.role === 'counter') return 'Right click: autocast on or off. On autocast she stops an enemy spell by herself when one starts in range, beside her attack spell.';
+  if (s.role === 'heal') return "Right click: autocast on or off. On autocast she heals your units that have lost enough health to be worth a heal, and allies' too while you share control.";
+  if (s.role === 'buff') return 'Right click: autocast on or off. On autocast she casts it in a fight, on the unit most worth keeping that is in the most danger.';
+  if (AUTOCAST_RULES[s.school]?.oneAttack) return 'Right click: make it her autocast spell, the one she fights with on an Attack order. A battle mage always has one; Counterspell can be on beside it.';
+  return 'Right click: autocast on or off. On autocast it is the spell she fights with on an Attack order.';
+}
 
 /** The K button by building kind: its face and tooltip. */
 const MAKE_WORDS: Record<number, [string, string]> = {

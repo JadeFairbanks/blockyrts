@@ -38,7 +38,7 @@ import { addRun, climbOn, gaitMover, gaitOf, gaitSpec, payForRunning, RUN_BONUS_
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
 import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
-import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, setMageRank } from '../magic/mages.ts';
+import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, payRankCrystals, rankCrystalsIn, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { propTaken } from '../circles/disturb.ts';
@@ -1349,15 +1349,16 @@ function runMageTrain(state: SimState, i: number, b: Building): boolean {
     const r = walkTo(state, i, besideBuilding(b));
     if (r === MOVING) return CONTINUE;
     if (r === FAILED) return DONE;
-    if (player.pool[Res.ManaCrystal]! < t.crystals) {
-      alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals.`, e.x[i]!, e.z[i]!, i);
+    // Patch 5: three demon horns stand in for a mana crystal (magic/mages.ts payRankCrystals).
+    if (rankCrystalsIn(player.pool) < t.crystals) {
+      alert(state, b.owner, `Training a ${who} to ${t.name} needs ${t.crystals} mana crystals (or 3 demon horns for each).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
     if (t.food > 0 && !payFood(player, t.food)) {
       alert(state, b.owner, `Not enough food to train a ${who} to ${t.name} (${t.food} food).`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
-    player.pool[Res.ManaCrystal] = player.pool[Res.ManaCrystal]! - t.crystals;
+    payRankCrystals(player.pool, t.crystals);
     goInside(state, i, b);
     e.act[i] = Act.Inside;
     e.timer[i] = 0;

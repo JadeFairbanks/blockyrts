@@ -4290,9 +4290,9 @@ lighting sheet. Start a game with `?seed=3` (the same world each time).
    wade) a solid darker blue, bog water brown-green, with foam along the
    shore. Before: flat colours with noise.
 8. **Props.** Trees, saplings, seeds, berry bushes and the bog pear bush,
-   mushrooms, flax, rocks, ore nodes, boulders, hot springs, carcasses and
-   fish are each drawn with their own model; a picked bush shows bare, and a
-   rock half mined shows worn down. A moment of coloured cubes may show
+   mushrooms, flax, rocks, ore nodes, boulders, hot springs and carcasses
+   are each drawn with their own model (a fish stretch shows its live fish);
+   a picked bush shows bare, and a rock half mined shows worn down. A moment of coloured cubes may show
    while a model loads.
 9. **The day.** Press **Speed** to watch a day turn: warm white light by
    day, deep orange at dusk, blue moonlight at night, pink-gold at dawn,
@@ -4302,6 +4302,71 @@ lighting sheet. Start a game with `?seed=3` (the same world each time).
    ground and the lights shrink to small orange halos.
 10. **Glitter.** Gold and silver on the ground and in ore nodes glitter in
     their colour.
+
+## How a tester checks mages and spells (Patch 5)
+
+*Patch 5's mages (MB-14 to MB-25, VX-5, VX-8 to VX-10, and three demon horns
+for a mana crystal): autocast on a right click, Energy dart for the support
+mage, no melee for mages, a cast order for every selected mage, bolts that
+arc only so high, Area blast that lands on a unit or the ground and hurts
+everything that is not a player's, the training bar at the Magi Sanctum,
+the cooldown clock, and glowing spells. Picks in
+blueprint/patch5-mages-picks.md. The rules are `packages/sim/src/magic/`; the
+effects are `packages/client/src/world/spell-fx.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-mages.test.ts:
+   the autocast a mage starts with (a battle mage Arcane bolt and
+   Counterspell, a support mage Heal and Energy dart); a battle mage's attack
+   spells taking turns and the last one staying on; a support mage with
+   several or none, kept in a save; a fresh support mage darting a rat from
+   12 m; a mage with no attack spell on autocast, or no mana, never hitting
+   in melee; two battle mages both bolting on one cast order; Area blast cast
+   on a monster hurting it and a wild deer beside it but not the player's
+   warrior; and rank training paid with 6 demon horns, with the training
+   bar's numbers. packages/client/test/m6-controls.test.ts checks the card:
+   Energy dart beside Heal, the right click, the autocast ring and the
+   cooldown.
+2. **The card.** `pnpm dev`, open http://localhost:5173/?seed=1, and make
+   mages with the tester tools (**Mage kit**, then the Sanctum). Select a
+   support mage: twelve buttons, Energy dart (D) next to Heal. Heal and
+   Energy dart have a ring of violet and white light running round them:
+   they are on autocast. Right click Quicken: it gets the ring too; right
+   click it again: off. On a phone, hold the button and let go. Select a
+   battle mage: Arcane bolt and Counterspell ringed; right click Beam (rank 2)
+   and the ring moves from Arcane bolt to Beam; right click Beam again: "A
+   battle mage always keeps one spell on autocast."
+3. **The cooldown clock.** Cast a spell (left click it, then a target): the
+   button goes dark and a clock hand sweeps round from twelve, taking the
+   dark off until it is ready again.
+4. **Fighting.** Send a fresh support mage at a monster with Attack: she
+   darts it from range, a little arrow of gold light. Take Energy dart off
+   autocast and Attack again: "A support mage has no attack spell on
+   autocast. Right-click one of her spells to set one." A mage out of mana
+   never swings her wand. With several mages selected, a spell clicked on a
+   target is cast by every one that knows it and has the mana.
+5. **By herself.** A support mage heals your hurt units (not one missing
+   only a little), and an ally's while you share control; buffs on autocast
+   go out only in a fight, on the unit most worth keeping that is in the
+   most danger.
+6. **Area blast.** A rank 4 battle mage: click Area blast, then a monster,
+   or the ground. On a monster it lands where the monster is when it goes
+   off. A ring of violet force runs out to 4 m with a flash and a burst of
+   sparks; every monster, wild animal and people's unit in it is hurt
+   (casting on peoples at peace asks first, as Attack does); your units and
+   your allies' are not.
+7. **Bolts.** Arcane bolt, Energy dart and Fireball arc over a low wall in
+   the way, never climbing much more than a third of the distance; a wall
+   too high for that leaves the mage walking to a clear shot. Each flies as
+   its own model with a glowing trail and bursts of light where it ends; the
+   goblin mage's spark, the mana wraith's bolt and the flamecaller's
+   hellfire fly as their own models too. A held Beam is a stream of light
+   from the wand's tip, and while any spell is being cast its light gathers
+   at the tip of her wand.
+8. **Training.** Send a mage to rank training at a Magi Sanctum (U) and
+   select the Sanctum: she shows under "Training 1" on a card the size of the
+   queue's, with her bar filling, and a gold bar fills in the Sanctum's bar
+   stack over it. Rank training takes 3 demon horns for each
+   mana crystal it needs, horns first. Every rank's mana bar is 10 lower.
 
 ## License
 

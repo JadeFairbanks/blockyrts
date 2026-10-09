@@ -604,6 +604,16 @@ export interface CastOrder extends UnitsOrder {
   auto: number;
 }
 
+/**
+ * Patch 5 (MB-18): a right click on a spell's button turns its autocast on
+ * (on 1) or off (on 0) for the selected mages of its school.
+ */
+export interface AutocastOrder extends UnitsOrder {
+  kind: 'autocast';
+  spell: number;
+  on: number;
+}
+
 /** Tame a wild animal (one worker stands by it with food). */
 export interface TameOrder extends UnitsOrder {
   kind: 'tame';
@@ -771,6 +781,7 @@ export type Order =
   | SendResourcesOrder
   | LeaveOrder
   | CastOrder
+  | AutocastOrder
   | HuntOrder
   | TameOrder
   | EatOrder
@@ -911,6 +922,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   debugThreat: ['what', 'x', 'z'],
   hunt: ['target', 'auto'],
   cast: ['spell', 'target', 'x', 'z', 'auto'],
+  autocast: ['spell', 'on'],
   tame: ['target'],
   eat: ['building'],
   hitch: ['target'],
@@ -947,7 +959,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   useItem: ['res', 'unit'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -1046,6 +1058,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'cast':
       if (o.spell < 0 || o.spell > 255 || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad cast');
+      return;
+    case 'autocast':
+      if (o.spell < 0 || o.spell > 31 || (o.on !== 0 && o.on !== 1)) throw new Error('bad autocast');
       return;
     case 'tradeOffer':
       if (!Array.isArray(o.goods) || o.goods.length % 2 !== 0 || o.goods.length > 32 || !o.goods.every((v) => isInt(v) && v >= 0 && v < 0x10000)) throw new Error('trade goods must be up to 16 pairs of good and count');

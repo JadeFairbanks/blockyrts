@@ -1738,6 +1738,77 @@ body.playing.touch .hud {
   }
 }
 
+/* Patch 5 (MB-19): a spell on autocast. As in StarCraft 2, streaks of light
+   run round and round the button's edge; violet and white, so it never reads
+   as the gold doing-now marker above. */
+@property --spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.hud-btn.autocast {
+  box-shadow: inset 0 0 8px rgba(150, 120, 255, 0.55);
+}
+.hud-btn.autocast::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--spin),
+    transparent 0deg 110deg,
+    rgba(150, 110, 255, 0.95) 150deg,
+    #f6f2ff 176deg,
+    transparent 180deg 290deg,
+    rgba(120, 200, 255, 0.95) 330deg,
+    #f6f2ff 356deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: autocast-spin 1.2s linear infinite;
+  pointer-events: none;
+  z-index: 3;
+}
+@keyframes autocast-spin {
+  to {
+    --spin: 360deg;
+  }
+}
+
+/* Patch 5 (VX-9): a spell's cooldown. Cast, the button goes dark; a clock
+   hand sweeps round from twelve and takes the dark off until it is ready.
+   The card refreshes four times a second; the transition fills between. */
+@property --cool {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+.hud-btn > .cool {
+  --hand: calc((1 - var(--cool)) * 360deg);
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(transparent 0deg var(--hand), rgba(255, 240, 190, 0.9) var(--hand) calc(var(--hand) + 4deg), rgba(0, 0, 0, 0.64) calc(var(--hand) + 4deg) 360deg);
+  transition: --cool 0.25s linear;
+  pointer-events: none;
+  z-index: 1;
+}
+.hud-btn > .cool[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn.autocast::before {
+    animation: none;
+    background: rgba(170, 140, 255, 0.95);
+  }
+}
+
 /* ---- The wooden kit (patch notes 1: "beautify the HUD in the theme of the
    game"). The HUD's own frames from the art kit (K10: dark oiled wood, iron
    edging, round rivets) drawn at their pixel size, and Jersey 10 for titles
@@ -2331,6 +2402,20 @@ body.playing.touch .hud {
 .sel-strip.garrison .hud-btn.portrait {
   width: 30px;
   height: 30px;
+}
+/* Patch 5 (MB-24): mages training a rank at a Magi Sanctum, on cards the size of the queue's, each with its bar. */
+.sel-strip.garrison.training .hud-btn.portrait {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.sel-strip.garrison.training .hud-btn.portrait .btn-icon img {
+  width: 36px;
+  height: 36px;
+}
+.sel-strip.garrison.training .hud-btn.portrait .hp {
+  height: 4px;
+  background: var(--accent);
 }
 .sel-more {
   align-self: center;

@@ -261,6 +261,8 @@ export const UNIT_FIELDS = [
   ['healFrom', 'u32'],
   /** A support mage's health healed in combat not yet worth a tenth of experience (1 XP per 25 healed). */
   ['healXp', 'u8'],
+  /** Patch 5 (MB-14, MB-15, MB-18): a mage's spells on autocast, a bit per spell id (magic/spells.ts defaultAutocast). */
+  ['autocast', 'u32'],
   /** Milestone 7: an Elf Grovesinger's Barkskin on a unit until this step (Table 13: +25% armour). */
   ['barkUntil', 'u32'],
   /** A wild animal answering the Grovesinger's Call of the wild fights for her faction until this step, then goes wild again. */
@@ -446,6 +448,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare healLeft: Int32Array;
   declare healFrom: Uint32Array;
   declare healXp: Uint8Array;
+  declare autocast: Uint32Array;
   declare barkUntil: Uint32Array;
   declare calledUntil: Uint32Array;
   declare mount: Uint8Array;
@@ -905,9 +908,9 @@ export interface Site {
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
  * summoner `id`. 'sweep': the Dreadnought's swing landing, its crescent drawn in front of him; 'warcry': a remark
  * of his, said with his war cry. 'heart': two animals mating (BL-10), over each of them. 'catch': a woodsman's fish
- * coming up out of the water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1).
+ * coming up out of the water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1). 'zap': a bolt of magic ending (MB-20), its burst of light.
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'heart' | 'catch';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'heart' | 'catch' | 'zap';
 
 export interface HitEvent {
   look: HitLook;
@@ -923,7 +926,7 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
-  /** A shot leaving (look 'shot'): which (combat/items.ts Shot), for the muzzle's flash and smoke (Patch 5, MB-7). */
+  /** A shot leaving (look 'shot'): which (combat/items.ts Shot), for the muzzle's flash and smoke (Patch 5, MB-7); a bolt of magic ending (look 'zap', Patch 5, MB-20): which shot. */
   shot?: number;
   /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
   dmg?: number;
