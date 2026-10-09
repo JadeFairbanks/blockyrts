@@ -123,6 +123,42 @@ describe('the Great White Ape (SCA-1 to SCA-4)', () => {
     expect(r.mode).toBe(EncounterMode.Fighting);
     expect(r.foes & 1).toBe(1);
     expect(openQuestions(s).some((x) => x.q === EncounterAsk.Warn)).toBe(false);
+    // SCA-2 (the coordinator's ruling): the idol gone, he trades no more with the taker, but a player at peace with him buys on.
+    s.circles.taken.push(c.id);
+    const e = s.entities;
+    e.x[w] = c.x + 300 * 8000;
+    for (let k = 0; k < 30 * SEC && r.mode === EncounterMode.Fighting; k++) step(s);
+    expect(r.mode).not.toBe(EncounterMode.Fighting);
+    expect(circlesView(s, 0, []).apes[0]!.why).toBe("The Goddess's idol is gone, and the Ape trades no more with you.");
+    expect(circlesView(s, 1, []).apes[0]!.why).toBe('');
+  });
+
+  it('shakes every unit within 6 m with his thunderclap, a player at peace with him too', () => {
+    const { s, c } = withCircle(CircleType.Lunar);
+    const { w, r } = wakeAt(s, c);
+    const e = s.entities;
+    const a = e.indexOf(r.leader);
+    // Player 0's worker 14 m from him, player 1's (at peace) a metre beside it.
+    const other = [...Array(e.count).keys()].find((j) => e.owner[j] === 1 && e.kind[j] === UnitKind.Worker && e.hp[j]! > 0)!;
+    e.x[w] = e.x[a]! + 14 * 8000;
+    e.z[w] = e.z[a]!;
+    e.x[other] = e.x[w]! + 8000;
+    e.z[other] = e.z[w]!;
+    for (const j of [w, other]) {
+      e.y[j] = s.world.groundY(e.x[j]!, e.z[j]!, 0);
+      e.hp[j] = e.maxHp[j] = 1000;
+    }
+    disturbed(s, c.id, w, Disturb.Idol);
+    expect(r.foes).toBe(1);
+    let clap = false;
+    for (let k = 0; k < 10 * SEC && !clap; k++) {
+      step(s);
+      clap = s.hits.some((h) => h.look === 'thunder');
+    }
+    expect(clap).toBe(true);
+    expect(e.hp[other]).toBeLessThan(1000);
+    expect(e.hp[other]).toBeGreaterThanOrEqual(1000 - ENCOUNTERS.ape.leap.max);
+    expect(hostile(s, other, a)).toBe(false);
   });
 
   it('sells a bundle of fruit for a silver, three bundles a day', () => {
