@@ -67,6 +67,7 @@ import { glitterOfResource, WorldFx, type GlitterSpot } from './sparkle.ts';
 import { Overlay } from './overlay.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
+import { GroundMarks } from './ground-marks.ts';
 import { loadTerrainTextures, loadWaterTextures, setTerrainBands, terrainPatch, terrainUniforms, waterPatch, waterUniforms } from './terrain-textures.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
 import { HoverOutline, type HoverParts } from './hover-outline.ts';
@@ -236,6 +237,8 @@ export class WorldView {
   private readonly terrainMat: THREE.MeshLambertMaterial;
   /** The land's tiles and where the bands lie, for its shader. */
   private readonly terrain = terrainUniforms();
+  /** The trodden paths round the players' buildings and the Farms' tilled fields (Patch 5). */
+  private readonly groundMarks = new GroundMarks(this.terrain);
   private readonly water = waterUniforms();
   private readonly waterMat: THREE.MeshLambertMaterial;
   private readonly cubeMat: THREE.MeshLambertMaterial;
@@ -790,6 +793,7 @@ export class WorldView {
     this.terrain.terrainTime.value = now / 1000;
     this.water.waterTime.value = now / 1000;
     if (this.game) this.buildings.update(this.game, now, focus);
+    if (this.game) this.groundMarks.update(this.game.buildings, focus);
     if (this.game) this.taverns.update(this.game, now, focus, this.buildings.darkness);
     const fcx = Math.floor(focus.x / CHUNK_M);
     const fcz = Math.floor(focus.z / CHUNK_M);

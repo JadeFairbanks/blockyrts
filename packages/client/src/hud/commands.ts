@@ -1940,7 +1940,7 @@ export class Commands {
         return true;
       case PropKind.MoonRoseBush:
         if (p.amount > 0) return false;
-        this.d.message('The Moon Roses open only on a Bright Night.');
+        this.d.message('The Moon Roses open only on a bright night: a Bright Night, or one night in three by a Lunar circle with its idol.');
         return true;
       default:
         return false;

@@ -231,7 +231,7 @@ export const PROPS: readonly PropInfo[] = [
   { ...berries(PropKind.SweetHawthorne, 'Sweet Hawthorne', 'hawthorne fruit'), yield: HAWTHORNE_FRUIT, yieldMax: HAWTHORNE_FRUIT, perLoad: HAWTHORNE_FRUIT, regrowSteps: HAWTHORNE_REGROW_DAYS * CYCLE_STEPS },
   // SC-8: an Ancient Seed's sapling "grows into a Sweet Hawthorne tree over four to six nights" (s: 5), holding nothing until then.
   { ...tree(PropKind.HawthorneSapling, 'Sweet Hawthorne', 0, 20, 1, Tool.Hardwood, HAWTHORNE_GROW_NIGHTS * CYCLE_STEPS, P5, ''), seeds: 0 },
-  // SCA-8: its roses open only on a Bright Night (circles/update.ts gives it ROSES_PER_BUSH then, and none at daybreak).
+  // SCA-8: its roses open only on a bright night (anyone's Bright Night, or an idol's night there) (circles/update.ts gives it ROSES_PER_BUSH then, and none at daybreak).
   { ...berries(PropKind.MoonRoseBush, 'Moon Rose bush', 'moon rose'), yield: 0, yieldMax: 0, perLoad: 3, regrowSteps: CYCLE_STEPS },
   // Jade's model notes: "Gatherable as bones if desired."
   { ...node(PropKind.BonePile, 'Bone pile', PropShape.Patch, 'bone', 5, 5, 10, 1, Tool.None, P5), yieldMax: 10 },

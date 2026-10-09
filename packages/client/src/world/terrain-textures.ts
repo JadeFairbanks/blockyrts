@@ -9,10 +9,12 @@
 // than the Fringe's, the Deepwoods' floor is leaf litter, the Barrens' stone
 // is red. The Deadlands' volcanic rock glows along its cracks, and the water
 // takes the art set's animated tiles: shallow, deep (where units cannot wade)
-// and bog, with foam along the shore.
+// and bog, with foam along the shore. The players' buildings wear the ground
+// round them (ground-marks.ts): trodden paths, and a Farm's tilled field.
 import * as THREE from 'three';
 import { Mat } from '@blockyrts/sim';
 import type { ShaderPatch } from './fog-material.ts';
+import { Mark, MARK_COLUMNS, markUniforms, type MarkUniforms } from './ground-marks.ts';
 import { COLUMN_M } from './mesher.ts';
 
 const URLS = import.meta.glob<string>('../../../assets/src/textures/*.png', { eager: true, query: '?no-inline', import: 'default' });
@@ -39,6 +41,10 @@ export const TILE_SETS = [
   'barrens_ground',
   'barrens_rock',
   'gravel',
+  // The ground marks' tiles, drawn by the column (ground-marks.ts), not by material.
+  'path',
+  'soil_tilled',
+  'soil_tilled_wet',
 ] as const;
 export type TileSet = (typeof TILE_SETS)[number];
 const LAYERS_PER_SET = 6;
@@ -86,7 +92,7 @@ export function terrainFiles(): string[] {
   return TILE_SETS.flatMap((s) => setFiles(s)).filter((f) => f !== '');
 }
 
-export interface TerrainUniforms {
+export interface TerrainUniforms extends MarkUniforms {
   terrainTex: { value: THREE.DataArrayTexture | null };
   terrainTable: { value: THREE.DataTexture };
   /** The main bases' anchors the bands are measured from, metres (x, z), and how many. */
@@ -137,8 +143,14 @@ export function terrainUniforms(): TerrainUniforms {
     terrainGlow: { value: null },
     terrainTime: { value: 0 },
     terrainNight: { value: 0 },
+    ...markUniforms(),
   };
 }
+
+/** The first layer of a ground mark's tile set. */
+const markBase = (set: TileSet): number => TILE_SETS.indexOf(set) * LAYERS_PER_SET;
+/** Loose ground a path or a field can wear: grass, dry grass, soil, mud, sand, clay, ash and dead earth (not rock, ore or marble). */
+const LOOSE = [Mat.Grass, Mat.DryGrass, Mat.Soil, Mat.Mud, Mat.Sand, Mat.Clay, Mat.Ash, Mat.DeadEarth];
 
 /** Where the bands lie: the anchors (metres) and each band's start after the Heartland (metres). */
 export function setTerrainBands(u: TerrainUniforms, anchors: ReadonlyArray<{ x: number; z: number }>, bandStarts: readonly number[]): void {
@@ -245,8 +257,15 @@ uniform float terrainOn;
 uniform highp sampler2DArray terrainGlow;
 uniform float terrainTime;
 uniform float terrainNight;
+uniform sampler2D terrainMarks;
+uniform vec2 terrainMarkOrigin;
 flat varying float vMat;
-float terrainCrack = 0.0;`,
+float terrainCrack = 0.0;
+float groundMark(vec2 cell) {
+  ivec2 m = ivec2(cell - terrainMarkOrigin);
+  if (m.x < 0 || m.y < 0 || m.x >= ${MARK_COLUMNS} || m.y >= ${MARK_COLUMNS}) return 0.0;
+  return floor(texelFetch(terrainMarks, m, 0).r * 255.0 + 0.5);
+}`,
       )
       .replace(
         '#include <color_fragment>',
@@ -266,15 +285,29 @@ float terrainCrack = 0.0;`,
     if (terrainOn > 0.5 && layer < 254.5) {
       vec2 uv;
       if (top) {
-        vec2 c = vFowWorld.xz / 0.45;
+        vec2 c = vFowWorld.xz / ${COLUMN_M};
         vec2 cell = floor(c + 0.0005);
         float h = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
         vec2 f = fract(c + 0.0005);
         float turn = floor(fract(h * 7.31) * 4.0);
+        int m = int(vMat + 0.5);
+        float mark = ${LOOSE.map((m) => `m == ${m}`).join(' || ')} ? groundMark(cell) : 0.0;
+        if (mark > ${Mark.Path - 0.5} && mark < ${Mark.Path + 0.5}) {
+          // A path: plain inside; at its edge one of the tiles with a grassy edge along row 0, turned to face the unmarked ground (0 -z, 1 +x, 2 +z, 3 -x).
+          layer = ${markBase('path')}.0;
+          float edge = groundMark(cell + vec2(0.0, -1.0)) < 0.5 ? 0.0 : groundMark(cell + vec2(1.0, 0.0)) < 0.5 ? 1.0 : groundMark(cell + vec2(0.0, 1.0)) < 0.5 ? 2.0 : groundMark(cell + vec2(-1.0, 0.0)) < 0.5 ? 3.0 : -1.0;
+          if (edge >= 0.0) {
+            layer += 1.0 + floor(h * 3.0);
+            turn = edge;
+          }
+        } else if (mark > ${Mark.Path + 0.5}) {
+          // A field: its furrows run along x, so it turns only half way round.
+          layer = (mark > ${Mark.TilledWet - 0.5} ? ${markBase('soil_tilled_wet')}.0 : ${markBase('soil_tilled')}.0) + floor(h * 4.0);
+          turn = turn >= 2.0 ? 2.0 : 0.0;
+        } else layer += floor(h * 4.0);
         if (turn == 1.0) f = vec2(f.y, 1.0 - f.x);
         else if (turn == 2.0) f = 1.0 - f;
         else if (turn == 3.0) f = vec2(1.0 - f.y, f.x);
-        layer += floor(h * 4.0);
         uv = f;
       } else {
         float along = abs(vFowN.x) > 0.5 ? vFowWorld.z : vFowWorld.x;
