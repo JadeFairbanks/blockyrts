@@ -30,7 +30,7 @@ function matchPage(relay: RelayClient) {
     if (msg.type === 'pause') paused = msg.paused;
   };
   relay.on((m) => {
-    if (m.type === 'frame') send({ type: 'frames', frames: [m.frame] });
+    if (m.type === 'frames') send({ type: 'frames', frames: m.frames });
     if (m.type === 'pauseState') send({ type: 'pause', paused: m.paused });
     if (m.type === 'loadSnapshot') {
       loading = loadSnapshot(relay, m, () => {
@@ -64,10 +64,9 @@ describe('a snapshot loaded mid-match', () => {
     deliver(relay, await snapshotAt(40));
     // While the save opens, the relay lifts the pause and the next step's frames come in.
     deliver(relay, unpause);
-    deliver(relay, { type: 'frame', frame: frame(0, 43) });
-    deliver(relay, { type: 'frame', frame: frame(1, 43) });
+    deliver(relay, { type: 'frames', frames: [frame(0, 43), frame(1, 43)] });
     await page.loaded();
-    expect(page.posted).toEqual(['load', 'pause', 'frames', 'frames']);
+    expect(page.posted).toEqual(['load', 'pause', 'frames']);
     expect(page.paused()).toBe(false);
     for (let s = 40; s <= 43; s++) expect(page.sched().waitingOn(s)).toEqual([]);
   });
@@ -79,11 +78,10 @@ describe('a snapshot loaded mid-match', () => {
     relay.hold();
     deliver(relay, await snapshotAt(40));
     deliver(relay, unpause);
-    deliver(relay, { type: 'frame', frame: frame(0, 43) });
-    deliver(relay, { type: 'frame', frame: frame(1, 43) });
+    deliver(relay, { type: 'frames', frames: [frame(0, 43), frame(1, 43)] });
     relay.release();
     await page.loaded();
-    expect(page.posted).toEqual(['load', 'pause', 'frames', 'frames']);
+    expect(page.posted).toEqual(['load', 'pause', 'frames']);
     for (let s = 40; s <= 43; s++) expect(page.sched().waitingOn(s)).toEqual([]);
   });
 });
