@@ -65,10 +65,10 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       Res.OxCart,
     ],
   },
-  // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes in stock, as the kit tables list them.
-  { name: 'Gear', items: RESOURCES.filter((r) => r.group === ResGroup.Gear).map((r) => r.id) },
   { name: 'Trinkets', items: [...trinkets, Res.Moonleaf, Res.Sunheart] },
   { name: 'Crystals', items: [Res.Hexstone, Res.ManaCrystal, Res.Emeralds, Res.Rubies, Res.Diamonds] },
+  // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes in stock, as the kit tables list them.
+  { name: 'Gear', items: RESOURCES.filter((r) => r.group === ResGroup.Gear).map((r) => r.id) },
 ];
 
 /** Every good in slot order. */

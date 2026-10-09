@@ -485,7 +485,8 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
         }
       }
       // Made from other things: a building that makes it, the one with the shortest queue.
-      const recipes = RECIPES.filter((r) => r.outputs.some(([o]) => o === need.res));
+      // Never a scrap (Patch 5), which breaks up a piece of equipment rather than making the good.
+      const recipes = RECIPES.filter((r) => r.scrap === undefined && r.outputs.some(([o]) => o === need.res));
       let first: { b: Building; product: Product } | null = null;
       for (const r of recipes) {
         const product = RECIPE_PRODUCT + r.id;
@@ -748,7 +749,7 @@ function answerGreyed(state: SimState, o: AnswerOrder): void {
     case GreyAsk.Make: {
       const b = state.buildings.get(o.who);
       if (!b || !b.complete || !usableBy(state, b, player) || o.res < 0) return;
-      const products = RECIPES.filter((r) => r.outputs.some(([x]) => x === o.res)).map((r) => RECIPE_PRODUCT + r.id).filter((x) => offers(b, x));
+      const products = RECIPES.filter((r) => r.scrap === undefined && r.outputs.some(([x]) => x === o.res)).map((r) => RECIPE_PRODUCT + r.id).filter((x) => offers(b, x));
       const product = products.find((x) => productProblem(state, b, x, player) === '') ?? products[0];
       if (product === undefined) return;
       // The making button's order, once for each batch.

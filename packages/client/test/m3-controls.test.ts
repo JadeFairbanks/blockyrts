@@ -268,7 +268,7 @@ describe('the Big House', () => {
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
     expect(card[1]!.name).toBe('Train close melee');
-    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
+    expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0, shield tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
     // Patch 5: the Make button is Make rope itself, on K, with no menu behind it.

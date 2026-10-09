@@ -172,23 +172,24 @@ export function makesOne(kind: number): boolean {
 }
 
 /** A K menu's pages: the menu itself (its products, then its submenus' buttons) and each submenu, as binding names and names. */
-function makePages(kind: number): Array<{ sub: number; actions: Array<{ id: string; name: string }> }> {
+function makePages(kind: number): Array<{ sub: number; actions: Array<{ id: string; name: string; opens: boolean }> }> {
   const list = makeList(kind);
   const subs = MAKE_SUBMENUS.map((_, k) => k).filter((k) => list.some((p) => makeSub(p) === k));
-  const item = (p: number): { id: string; name: string } => ({ id: makeAction(kind, p), name: productSpec(p).name });
+  const item = (p: number): { id: string; name: string; opens: boolean } => ({ id: makeAction(kind, p), name: productSpec(p).name, opens: false });
   return [
-    { sub: -1, actions: [...list.filter((p) => makeSub(p) < 0).map(item), ...subs.map((k) => ({ id: makeSubAction(kind, k), name: MAKE_SUBMENUS[k]! }))] },
+    { sub: -1, actions: [...list.filter((p) => makeSub(p) < 0).map(item), ...subs.map((k) => ({ id: makeSubAction(kind, k), name: MAKE_SUBMENUS[k]!, opens: true }))] },
     ...subs.map((k) => ({ sub: k, actions: list.filter((p) => makeSub(p) === k).map(item) })),
   ];
 }
 
-/** Every K menu's default letters, by binding name: each page's own, as each fills the card alone. */
+/** Every K menu's default letters, by binding name: each page's own, as each fills the card alone; a submenu's button picks first (Trinkets on T, Scrap equipment on S). */
 const MAKE_KEYS: ReadonlyMap<string, string> = (() => {
   const out = new Map<string, string>();
   for (const kind of MAKERS) {
     for (const page of makePages(kind)) {
-      const letters = menuLetters(page.actions.map((a) => a.name));
-      page.actions.forEach((a, k) => out.set(a.id, letters[k] ? `Key${letters[k]}` : ''));
+      const order = [...page.actions.filter((a) => a.opens), ...page.actions.filter((a) => !a.opens)];
+      const letters = menuLetters(order.map((a) => a.name));
+      order.forEach((a, k) => out.set(a.id, letters[k] ? `Key${letters[k]}` : ''));
     }
   }
   return out;

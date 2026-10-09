@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Research, Res, RESOURCE_COUNT, Troop, troopProduct, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type CommandDeps } from '../src/hud/commands.ts';
-import { armourOptions, keepPicks, lockedCount, lockTiers, padlock, pickTier, troopChoice, troopWhy, weaponOptions } from '../src/hud/troops.ts';
+import { armourOptions, keepPicks, lockedCount, lockTiers, padlock, pickTier, shieldOptions, troopChoice, troopWhy, weaponOptions } from '../src/hud/troops.ts';
 import { type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -72,7 +72,7 @@ const STOCK: Array<[number, number]> = [[Res.FarmFare, 100], [Res.Sticks, 20], [
 describe('troopChoice', () => {
   it("is the sim's default for the building until a pick is made", () => {
     const b = barracks(101, 2, 1);
-    expect(troopChoice(b, Troop.Long)).toEqual({ w: 2, a: 1, picked: false, locked: false });
+    expect(troopChoice(b, Troop.Long)).toEqual({ w: 2, a: 1, s: 0, picked: false, locked: false });
     // The brawler is tier 8 only.
     expect(troopChoice(b, Troop.Brawler)).toMatchObject({ w: 8, a: 1 });
   });
@@ -81,9 +81,12 @@ describe('troopChoice', () => {
     const b = barracks(102, 1, 0);
     // An unlocked card sends nothing: the pick is the panel's.
     expect(pickTier([b], Troop.Close, 'w', 4)).toEqual([]);
-    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 0, picked: true, locked: false });
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 0, s: 0, picked: true, locked: false });
     pickTier([b], Troop.Close, 'a', 3);
-    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 3, picked: true, locked: false });
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 3, s: 0, picked: true, locked: false });
+    // Patch 5: close melee's shield is a line of its own.
+    pickTier([b], Troop.Close, 's', 2);
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 4, a: 3, s: 2, picked: true, locked: false });
     // Another troop type and another building keep their own.
     expect(troopChoice(b, Troop.Long).picked).toBe(false);
     expect(troopChoice(barracks(103), Troop.Close).picked).toBe(false);
@@ -91,22 +94,23 @@ describe('troopChoice', () => {
     keepPicks(new Set([102]));
     expect(troopChoice(b, Troop.Close).picked).toBe(true);
     keepPicks(new Set([103]));
-    expect(troopChoice(b, Troop.Close)).toEqual({ w: 1, a: 0, picked: false, locked: false });
+    expect(troopChoice(b, Troop.Close)).toEqual({ w: 1, a: 0, s: 0, picked: false, locked: false });
   });
 
   it('follows the padlock over any pick; a pick on a locked card moves the lock; a pick not offered is dropped', () => {
-    // Lock: 1 + weapon x 10 + armour.
+    // Lock: 1 + shield x 100 + weapon x 10 + armour.
     expect(lockTiers(0)).toBeNull();
-    expect(lockTiers(1 + 5 * 10 + 3)).toEqual({ w: 5, a: 3 });
+    expect(lockTiers(1 + 5 * 10 + 3)).toEqual({ w: 5, a: 3, s: 0 });
+    expect(lockTiers(1 + 2 * 100 + 5 * 10 + 3)).toEqual({ w: 5, a: 3, s: 2 });
     const b = barracks(104);
     pickTier([b], Troop.Ranger, 'w', 2);
     b.troops.find((t) => t.troop === Troop.Ranger)!.lock = 1 + 7 * 10 + 4;
-    expect(troopChoice(b, Troop.Ranger)).toEqual({ w: 7, a: 4, picked: false, locked: true });
+    expect(troopChoice(b, Troop.Ranger)).toEqual({ w: 7, a: 4, s: 0, picked: false, locked: true });
     expect(pickTier([b], Troop.Ranger, 'a', 2)).toEqual([{ building: 104, lock: 1 + 7 * 10 + 2 }]);
     // A main base trains tier 1 at most: a pick above that is not kept.
     const house = building(105, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, s: 0, lock: 0 }] });
     pickTier([house], Troop.Close, 'w', 4);
-    expect(troopChoice(house, Troop.Close)).toEqual({ w: 1, a: 0, picked: false, locked: false });
+    expect(troopChoice(house, Troop.Close)).toEqual({ w: 1, a: 0, s: 0, picked: false, locked: false });
   });
 });
 
@@ -153,13 +157,15 @@ describe('weaponOptions and armourOptions', () => {
     expect(weaponOptions(g, b, Troop.Ranger)[2]!.name).toBe('Recurve bow, copper arrowheads');
   });
 
-  it('offer a main base tier 1 at most, and put close melee shields in the armour names', () => {
+  it('offer a main base tier 1 at most, and close melee shields on a line of their own (Patch 5)', () => {
     const house = building(111, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, s: 0, lock: 0 }] });
     const g = game({ buildings: [house] });
     expect(weaponOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['Fists', 'Wooden cudgel']);
-    expect(armourOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin, wooden shield']);
-    expect(armourOptions(g, house, Troop.Long).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin']);
-    expect(armourOptions(g, barracks(112), Troop.Close)[3]!.name).toBe('Copper scale jack, boiled-leather targe');
+    expect(armourOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin']);
+    expect(shieldOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['No shield', 'Wooden shield']);
+    expect(shieldOptions(g, house, Troop.Long)).toEqual([]);
+    expect(shieldOptions(g, barracks(112), Troop.Close).map((o) => o.tier)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(shieldOptions(g, barracks(112), Troop.Close)[2]!.name).toBe('Boiled-leather targe');
   });
 });
 

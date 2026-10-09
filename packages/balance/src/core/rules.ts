@@ -115,10 +115,12 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/questions.ts': 'questions',
   'units/greyed.ts': 'questions',
   'units/work-asks.ts': 'questions',
+  'units/make-asks.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
   'units/night-work.ts': 'nightwork',
   'units/dig.ts': 'world',
@@ -434,6 +436,8 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
+  'units/make-asks.ts': 'The Workshop\'s offer to make something',
+  'threats/loot.ts': 'Weapons, armour and shields in the night waves',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
