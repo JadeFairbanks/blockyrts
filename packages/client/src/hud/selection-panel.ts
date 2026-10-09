@@ -18,6 +18,7 @@
 import {
   BuildingKind,
   buildingSpec,
+  CLOSE_KITS,
   engineSpec,
   isGame,
   itemsText,
@@ -36,6 +37,7 @@ import {
   speciesSpec,
   STEPS_PER_SECOND,
   TOOL_KITS,
+  TOP_TIER,
   troopOf,
   Troop,
   unitOrderText,
@@ -1079,6 +1081,11 @@ export class SelectionPanel {
       weapon,
       { pic: armourPic(u.aTier), tag: String(u.aTier), ...named(ARMOUR_KITS[u.aTier], u.aTier, 'armour'), line: 1 },
     ];
+    // The brawler's one kit is two pieces in hand, each its own slot: the flintlock pistol and the cutlass (the tier 8 close-melee row's numbers).
+    if (u.troop === Troop.Brawler) {
+      weapon.name = `Flintlock pistol, tier ${u.wTier}`;
+      out.splice(1, 0, { pic: { file: 'icon_cutlass' }, tag: String(u.wTier), name: `Cutlass, tier ${u.wTier}`, text: pieceStats(CLOSE_KITS[TOP_TIER]!), line: 0 });
+    }
     // Close melee's shield is its own slot from Patch 5, with its own tier.
     if (u.troop === Troop.Close) out.push({ pic: shieldPic(u.sTier), tag: String(u.sTier), ...named(SHIELD_KITS[u.sTier], u.sTier, 'shield'), line: 2 });
     // A bow or crossbow ranger's poison tips, while it has them.
