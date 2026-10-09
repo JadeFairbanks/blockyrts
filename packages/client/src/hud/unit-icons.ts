@@ -133,7 +133,8 @@ export interface UnitLook {
  * A selectable's picture by its type key (selection/types.ts and the world
  * view's keys): 'worker', 'warrior', 'mage:support', 'building:kind:level',
  * 'engine:id', 'animal:wild|own:id', 'mob:id', 'people:mob', 'merc:mob',
- * 'peoples:mob' and 'ruin:mob'. A warrior needs its kit (`look`). Resource
+ * 'peoples:mob', 'ruin:mob' and 'risen:mob' (Patch 7: a skeleton archer the
+ * Deathless Shroud raised). A warrior needs its kit (`look`). Resource
  * nodes and anything unknown have none ('').
  */
 export function selectableIconFile(typeKey: string, look?: UnitLook | null): string {
@@ -156,6 +157,7 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
     case 'mob':
     case 'peoples':
     case 'ruin':
+    case 'risen':
       return modelIconFile(mobSpec(n).model);
     case 'people':
     case 'merc':

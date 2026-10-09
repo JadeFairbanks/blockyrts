@@ -679,6 +679,8 @@ export class Commands {
         { ...pace, description: `${pace.description} A Dreadnought pays ${g.runFood} food for every ${RUN_FOOD_METRES} m he runs.` },
       ];
     }
+    // A skeleton archer the Deathless Shroud raised (Patch 7): ordered as a mercenary is, but it eats nothing and its bow is its own.
+    if (active.startsWith('risen:')) return [attack, patrol, move, pace];
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
     return [
       attack,

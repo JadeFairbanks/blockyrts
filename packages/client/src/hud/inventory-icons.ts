@@ -165,6 +165,7 @@ set(Res.HollowPriestRobe, 'hollow_priest_robe');
 set(Res.NecromancerRobe, 'necromancer_robe');
 set(Res.FlamecallerRobe, 'flamecaller_robe');
 set(Res.FaeGuardianRobe, 'fae_guardian_robe');
+set(Res.DeathlessShroud, 'deathless_shroud');
 set(Res.GoblinLeathers, 'goblin_leathers');
 set(Res.GoblinChiefHelmet, 'goblin_chief_helmet');
 set(Res.ArchfiendPlate, 'archfiend_plate');
