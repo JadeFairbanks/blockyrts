@@ -111,19 +111,24 @@ export const Res = {
   AnyMeat: 107,
   AnyFish: 108,
   AnyLumber: 109,
+  /** Jade's Patch 5: the wild foods, 1 food each (GP-30, GP-32). */
+  BlackBerries: 110,
+  Raspberries: 111,
+  Blueberries: 112,
+  Mushrooms: 113,
   // Patch 5's Stone Circle goods (circles/data.ts; Jade's Stone Circle document and her answers 2.5 and 10).
-  Bluestone: 110,
-  Obsidian: 111,
-  AncientSeed: 112,
-  HawthorneFruit: 113,
-  PanFlute: 114,
-  BluestoneTrinket: 115,
-  Honey: 116,
-  EnchantedWine: 117,
-  HawthorneCider: 118,
-  MoonRose: 119,
-  MoonIdol: 120,
-  HeadlessIdol: 121,
+  Bluestone: 114,
+  Obsidian: 115,
+  AncientSeed: 116,
+  HawthorneFruit: 117,
+  PanFlute: 118,
+  BluestoneTrinket: 119,
+  Honey: 120,
+  EnchantedWine: 121,
+  HawthorneCider: 122,
+  MoonRose: 123,
+  MoonIdol: 124,
+  HeadlessIdol: 125,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -184,7 +189,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Herbs, 'Medicinal herbs', 'Herbs', M, 5, 'Wild herbs, and some monsters.'),
   r(Res.Stone, 'Stone', 'Stone', M, 50, 'Loose stone, stone outcrops (a digging stick or stone maul) and digging rock.'),
   r(Res.Flint, 'Flint', 'Flint', M, 10, 'Flint scatter.'),
-  r(Res.Coal, 'Coal', 'Coal', M, 25, 'Surface coal seams (copper tools) and mineshafts.'),
+  r(Res.Coal, 'Coal', 'Coal', M, 25, 'Coal rocks (copper tools) and mineshafts.'),
   r(Res.Leather, 'Leather', 'Leather', M, 25, 'Cattle, and hides at the Workshop.', 0, false),
   r(Res.Venison, 'Venison', 'Venison', M, 25, 'Hunting deer.', 4),
   r(Res.Trout, 'Trout', 'Trout', M, 25, 'Fishing Heartland streams.', 3),
@@ -201,11 +206,11 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at the Forge (main base tier 3), after Steel.', 0, false),
   r(Res.Eggs, 'Eggs', 'Eggs', A, 5, 'Hens in a Barn.', 1),
   r(Res.Feathers, 'Feathers', 'Feathers', A, 1, 'Chickens, hunted wild geese and pheasants, and Runkin traders. Bow and crossbow rangers need them.'),
-  r(Res.Gold, 'Gold', 'Gold', A, 10, 'Mostly mineshafts; very rarely, on the surface.'),
+  r(Res.Gold, 'Gold', 'Gold', A, 10, 'Mostly mineshafts; very rarely, on the surface or in a small node on a mountain (copper tools).'),
   r(Res.Emeralds, 'Emeralds', 'Emeralds', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Rubies, 'Rubies', 'Rubies', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Diamonds, 'Diamonds', 'Diamonds', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
-  r(Res.Silver, 'Silver', 'Silver', A, 10, 'Mineshafts, often with lead ore.'),
+  r(Res.Silver, 'Silver', 'Silver', A, 10, 'Mineshafts, often with lead ore; rarely, a small node on a mountain (copper tools).'),
   r(Res.Marble, 'Marble', 'Marble', A, 100, 'Marble rock (bronze tools).'),
   r(Res.Earth, 'Earth', 'Earth', A, 50, 'Digging soil.'),
   r(Res.Sticks, 'Sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or 4 from a lumber of either kind at a Storehouse or the Workshop.'),
@@ -215,7 +220,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Saltpetre, 'Saltpetre', 'Saltpetre', A, 25, 'Cave floors in the Fringe and deeper.'),
   r(Res.Sulphur, 'Sulphur', 'Sulphur', A, 25, 'Volcanic ground and hot springs, far out.'),
   r(Res.FarmFare, 'Farm fare', 'Farm fare', A, 10, 'A hearty medley of vegetables, grown at the Farm.', 2),
-  r(Res.Flax, 'Flax', 'Flax', A, 5, 'Wild flax.'),
+  r(Res.Flax, 'Flax', 'Flax', A, 5, 'Wild flax, in its fields.'),
   r(Res.Hides, 'Hides', 'Hides', A, 25, 'Hunting wild animals.'),
   r(Res.Bone, 'Bone', 'Bone', A, 10, 'Hunting and some monsters.'),
   r(Res.Resin, 'Resin / pitch', 'Resin', A, 10, 'Softwood trees: 2 for every one felled.'),
@@ -263,6 +268,11 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
+  // A bunch of berries or a mushroom is 1 food (GP-30, GP-32); a bunch weighs half a pound, a mushroom 0.3 lb (s).
+  r(Res.BlackBerries, 'Black berries', 'Black berries', F, 5, 'Black berry bushes: a bunch is 1 food.', 1),
+  r(Res.Raspberries, 'Raspberries', 'Raspberries', F, 5, 'Raspberry bushes, in the Heartland and the Fringe: a bunch is 1 food.', 1),
+  r(Res.Blueberries, 'Blueberries', 'Blueberries', F, 5, 'Blueberry bushes, in the Fringe and the Deepwoods: a bunch is 1 food.', 1),
+  r(Res.Mushrooms, 'Edible mushrooms', 'Mushrooms', F, 3, 'At the feet of trees, from the Heartland to the Deepwoods: 1 food each.', 1),
   // Stone Circle goods (Jade's Stone Circle document; weights (s); food values in farm fare from her answers 2.5: farm fare is 2).
   r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 60, 'Bluestone rubble and the trilithons of stone circles (iron tools or better). Stands in for marble in any recipe, and sells well.'),
   r(Res.Obsidian, 'Obsidian', 'Obsidian', A, 10, 'Bluestone chests in stone circles.'),
@@ -333,6 +343,16 @@ export function resourceByName(name: string): number {
       return Res.Sulphur;
     case 'gold':
       return Res.Gold;
+    case 'silver':
+      return Res.Silver;
+    case 'black berries':
+      return Res.BlackBerries;
+    case 'raspberries':
+      return Res.Raspberries;
+    case 'blueberries':
+      return Res.Blueberries;
+    case 'mushrooms':
+      return Res.Mushrooms;
     case 'gem':
       return Res.Emeralds;
     case 'mana crystal':

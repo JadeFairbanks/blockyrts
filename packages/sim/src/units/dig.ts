@@ -14,7 +14,7 @@ import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN } f
 import { NO_CARRY, OrderKind, SiteKind, standY, tunnelSite, UnitKind, type Loot, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool, ToolJob } from '../world/props.ts';
-import { DIG_LIMIT_UNITS } from '../world/world.ts';
+import { digFloor } from '../world/world.ts';
 import { CLAMBER_UNITS, DROP_UNITS, PERSON, TOP, Walk } from '../nav/grid.ts';
 import { pointGoal } from '../nav/path.ts';
 import { Act, ARRIVED, columnCentre, FAILED, MOVING, resetWalk, toDropoff, unitLevel, walkTo } from './behaviour.ts';
@@ -83,7 +83,7 @@ function yieldOf(mat: number): number {
 function nextBite(state: SimState, s: Site, x: number, z: number): { mat: number; y: number } | null {
   const w = state.world;
   const layers = w.columnAt(x, z);
-  const limit = Math.min(0, w.naturalTop(x, z)) - DIG_LIMIT_UNITS;
+  const limit = digFloor(w.naturalTop(x, z));
   if (s.kind === SiteKind.Dig) {
     const top = layers[layers.length - 2]!;
     if (top <= s.level || top - 1 < limit) return null;
@@ -241,7 +241,7 @@ function stairColumns(state: SimState, i: number, x: number, z: number, y: numbe
     }
     // Cut down to a clamber above the last: solid all the way, and diggable with its tools.
     const want = cur + CLAMBER_UNITS;
-    if (want < Math.min(0, w.naturalTop(sx, sz)) - DIG_LIMIT_UNITS) return 0;
+    if (want < digFloor(w.naturalTop(sx, sz))) return 0;
     const layers = w.columnAt(sx, sz);
     let at = top;
     for (let r = layers.length - 3; r >= 0 && at > want; r -= 3) {

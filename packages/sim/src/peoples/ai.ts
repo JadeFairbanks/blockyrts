@@ -398,8 +398,7 @@ function groveMana(state: SimState, i: number): void {
   const e = state.entities;
   const max = GROVESINGER.mana * MANA_SCALE;
   if (e.mana[i]! >= max || inCombat(state, i)) return;
-  const layout = state.world.layout;
-  const band = layout.cell(layout.nearest(floorDiv(e.x[i]!, COL), floorDiv(e.z[i]!, COL))).band;
+  const band = state.world.gen.columnBand(floorDiv(e.x[i]!, COL), floorDiv(e.z[i]!, COL));
   const rate = band >= Band.Barrens ? GROVESINGER.barrenRefill : treeNear(state, e.x[i]!, e.z[i]!) ? GROVESINGER.nearTreeRefill : GROVESINGER.refill;
   // Hundredths of a point a second, for 2 s, in twentieths of a point.
   e.mana[i] = Math.min(max, e.mana[i]! + floorDiv(rate * MANA_EVERY_STEPS, 100));

@@ -101,6 +101,7 @@ export * from './siege/data.ts';
 export * from './siege/engines.ts';
 export * from './threats/late-mobs.ts';
 export * from './threats/boss.ts';
+export * from './threats/springs.ts';
 export * from './circles/data.ts';
 export * from './circles/place.ts';
 export * from './circles/state.ts';

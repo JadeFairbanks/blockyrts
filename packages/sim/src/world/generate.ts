@@ -4,11 +4,11 @@
 // function of the seed, the player count and the column's position.
 
 import { COLUMNS_PER_CHUNK, floorDiv, length2d } from '../fixed.ts';
-import { ChunkBuilder, NO_WATER, WATER_PER_UNIT, type ChunkColumns } from './chunk.ts';
-import { Band, EdgeType, Look, metresToColumns, metresToUnits, RING_SCALE_PER_MILLE, type Cell, type Edge, type WorldLayout } from './layout.ts';
+import { CHUNK_SHIFT, ChunkBuilder, NO_WATER, WATER_PER_UNIT, type ChunkColumns } from './chunk.ts';
+import { Band, BAND_WANDER_M, caveFoot, EdgeType, Look, metresToColumns, metresToUnits, type Cell, type Edge, type WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { centred, hash2, valueNoise } from './noise.ts';
-import { PropKind, PROPS } from './props.ts';
+import { PropKind, PROPS, PropShape } from './props.ts';
 import { distanceToPlot, distanceToWater, falloff, ironReach, keepToStretch, ownSideRoom, polar, POCKET_BLEND_COLUMNS, POCKET_FLAT_COLUMNS, START_OUTCROP_FAR_M, START_OUTCROP_NEAR_M, StartBasin, yardStretch, type Pocket } from './start.ts';
 
 /** A generated prop: a resource node, tree or bush on the land. */
@@ -78,7 +78,8 @@ interface Bog {
   z: number;
   r: number;
 }
-interface Spring {
+/** A hot spring: its pool's middle, columns, and its water level, terrain units. */
+export interface Spring {
   x: number;
   z: number;
   level: number;
@@ -87,20 +88,165 @@ interface CellFeatures {
   ponds: Pond[];
   streams: Stream[];
   bogs: Bog[];
-  spring: Spring | null;
+}
+/** WL-6's mini mountain: its peak, columns, its foot's radius, columns, and its height, terrain units. */
+export interface Landmark {
+  x: number;
+  z: number;
+  radius: number;
+  height: number;
 }
 
 /**
  * Stone outcrops in the Heartland's scatter, per 10,000 candidate spots (one
  * spot every 1.8 m of level open ground, after the trees): 4, twice the 2
  * before Patch 4 (Jade: "double the amount of stone outcroppings spawning
- * randomly in heartlands"). The Heartland is the start basin's cells; each
- * pocket's own flat ground takes no scatter, and its outcrop is Table 9's
- * (START_OUTCROP_NEAR_M). Every other node keeps its chance and its spot:
- * the new outcrops go only on spots where nothing stood before (nodeKind).
+ * randomly in heartlands"). Each pocket's own flat ground takes no
+ * scatter, and its outcrop is Table 9's (START_OUTCROP_NEAR_M).
  */
 export const HEARTLAND_STONE_OUTCROPS_PER_10000 = 4;
 
+/**
+ * Trees per 10,000 candidate spots, by cell look: on its open ground and in
+ * its thick parts (a meadow's groves, a wood's middle). Jade's Patch 5
+ * (WL-1): "Trees grow too thick ... forest areas become impassable ...
+ * Reduce the maximum forest density by a lot". Before Patch 5 a wood's middle
+ * took 3200 and its edges 700, a meadow's groves 1800 and its grass 300 (s).
+ */
+export const TREES_PER_10000: ReadonlyArray<readonly [number, number]> = [
+  [150, 900],
+  [400, 1200],
+  [120, 120],
+  [50, 50],
+  [300, 300],
+];
+/** The Heartland's trees at this share of those, per mille (WL-1: "This is especially egregious in heartlands") (s). */
+export const HEARTLAND_TREES_PM = 800;
+
+/** Nothing natural lies deeper than 6 m below sea level (Jade's Patch 5, WL-2: "hard cap"), terrain units. */
+export const NATURAL_FLOOR_UNITS = metresToUnits(6);
+/**
+ * Below this the land's large-scale lows ease off rather than run down to
+ * that floor, terrain units (s): they come no lower than twice this, so a
+ * ravine or a river in low land still has its depth before the floor.
+ */
+export const LOWLAND_KNEE_UNITS = 18;
+
+/**
+ * Gentle rolling hills (Jade's Patch 5, WL-3: "gentle rolling hills to some
+ * but not all sections of heartlands, barrens and deadlands"): how much of
+ * them each band has, in Band order, 1024 for all.
+ */
+export const HILL_BAND_WEIGHT: readonly number[] = [1024, 0, 0, 1024, 1024];
+/**
+ * Their height from trough to crest, terrain units (s): 64 (7.2 m) over
+ * about 115 m, with a quarter of that again in smaller swells, so they are
+ * never steeper than a unit walks.
+ */
+export const HILL_HEIGHT_UNITS = 64;
+/** No hills within 50 m of a start (WL-3), metres; they ease in over HILL_BLEND_M beyond. */
+export const HILL_START_CLEAR_M = 50;
+/**
+ * The ground stays flat round every cell's middle, where the villages, the
+ * peoples' camps, the lairs' clearings and the bogs lie (WL-3: "for village
+ * and other things like them the gound must be flat there. Bogs for example
+ * never on hills"): a quarter of the cell's size and this much more, metres (s).
+ */
+export const HILL_SITE_CLEAR_M = 20;
+export const HILL_BLEND_M = 25;
+
+/** WL-6: a mini mountain this far from the first player's Big House, metres (her 100 to 125 m), its peak 11 to 14 m high (9 m and up) (s). */
+export const LANDMARK_DISTANCE_M = 112;
+export const LANDMARK_PEAK_MIN_M = 11;
+export const LANDMARK_PEAK_MAX_M = 14;
+/** Its foot's radius, metres (s). */
+export const LANDMARK_RADIUS_M = 22;
+
+/** WL-5: a 3 m boulder in about one chunk in 4.5 ("about one every 4-5 generation chunks"), per mille. */
+export const BOULDER_CHUNK_PM = 222;
+/** None within this of a main base, metres (WL-5: "None within 40m of a players base"). */
+export const BOULDER_BASE_CLEAR_M = 40;
+
+/**
+ * WL-10: flax grows only in fields, in about a third of the Heartland's,
+ * the Fringe's and the Deepwoods' chunks: those with no trees or few, at
+ * most this many (s), never in a bog.
+ */
+export const FLAX_FIELD_MAX_TREES = 6;
+/**
+ * The share of those few-trees chunks that grow a field, per mille, by band
+ * at the chunk's middle: set so that about a third of all the band's chunks
+ * do (s; seeds 1 to 3 out to 460 m: a few-trees chunk is about 56% of the
+ * Heartland's and the Fringe's chunks and 80% of the Deepwoods', and four
+ * in five of those have open ground for a field).
+ */
+export const FLAX_CHUNK_PM: readonly number[] = [740, 760, 490, 0, 0];
+/** A field's plants, at most FLAX_FIELD_MAX ("Capped Max amount of flax per field"), in a clump of about this radius, metres (s). */
+export const FLAX_FIELD_MIN = 8;
+export const FLAX_FIELD_MAX = 16;
+export const FLAX_FIELD_RADIUS_M = 5;
+/** One plant in this many is the tall flax, twice the height and twice the flax (s). */
+export const FLAX_TALL_ONE_IN = 6;
+
+/**
+ * GP-30: a chunk's edible mushrooms, 0 to 10 by its trees, one for every
+ * MUSHROOM_TREES living trees there (s), each by a tree; none without
+ * trees, none in the Barrens or the Deadlands.
+ */
+export const MUSHROOMS_MAX = 10;
+export const MUSHROOM_TREES = 3;
+
+/**
+ * WL-11: a hot spring in 20% of the Barrens' and the Deadlands' chunks
+ * ("20% chance of being one in a generation chunk"). This share of their
+ * chunks tries for one, per mille: about one try in four finds no dry,
+ * level ground for its pool among SPRING_TRIES spots in the chunk (the
+ * Barrens' terraces, mesas and cliffs), so about 20% of them hold one (s;
+ * seeds 1 and 2, out to 1150 m).
+ */
+export const HOT_SPRING_CHUNK_PM = 270;
+
+/**
+ * WL-4: on a mountain's lower slopes, per 10,000 candidate spots (s):
+ * silver nodes very rarely, gold nodes very very rarely.
+ */
+export const MOUNTAIN_SILVER_PER_10000 = 6;
+export const MOUNTAIN_GOLD_PER_10000 = 2;
+
+/**
+ * WL-9: an iron rock's iron rock on average by band, in Band order: the
+ * Fringe's halved (and half as many), the Deepwoods' 20% less again, the
+ * Barrens' and the Deadlands' the Fringe's before Patch 5. Each rock holds
+ * 75% to 125% of its band's.
+ */
+export const IRON_ROCK_AVERAGE: readonly number[] = [0, 40, 32, 80, 80];
+/** WL-9: the Deepwoods' iron rocks come at this share of the Fringe's count, per mille (20% fewer again). */
+export const DEEPWOODS_IRON_ROCK_PM = 800;
+
+/**
+ * Resource nodes per 10,000 candidate spots, by band (Table 5's band
+ * column), after the trees. Jade's Patch 5: coal rocks (WL-7), iron rock
+ * (WL-9: the Fringe's halved, the Deepwoods' 20% fewer again, the Barrens'
+ * and the Deadlands' as the Fringe's was), no flax but in its fields
+ * (WL-10), marble that does spawn in the Fringe and the Deepwoods (GP-12),
+ * and the berry bushes, fairly rare (GP-32) (s).
+ */
+export const NODES_PER_10000: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
+  [
+    [PropKind.Hazel, 40], [PropKind.Herbs, 12], [PropKind.LooseStone, 10], [PropKind.FlintScatter, 8], [PropKind.StoneOutcrop, HEARTLAND_STONE_OUTCROPS_PER_10000],
+    [PropKind.CopperOutcrop, 2], [PropKind.TinOutcrop, 1], [PropKind.BlackBerryBush, 3], [PropKind.RaspberryBush, 2],
+  ],
+  [
+    [PropKind.StoneOutcrop, 10], [PropKind.CoalRock, 3], [PropKind.IronRock, 2], [PropKind.Herbs, 6], [PropKind.MarbleRock, 2],
+    [PropKind.BlackBerryBush, 3], [PropKind.RaspberryBush, 2], [PropKind.BlueberryBush, 2],
+  ],
+  [
+    [PropKind.StoneOutcrop, 8], [PropKind.MarbleRock, 4], [PropKind.LeadOre, 2], [PropKind.Herbs, 1], [PropKind.CoalRock, 2], [PropKind.IronRock, 2],
+    [PropKind.BlackBerryBush, 2], [PropKind.BlueberryBush, 2],
+  ],
+  [[PropKind.StoneOutcrop, 8], [PropKind.MarbleRock, 4], [PropKind.LeadOre, 2], [PropKind.SurfaceGold, 2], [PropKind.SurfaceGem, 1], [PropKind.CoalRock, 2], [PropKind.IronRock, 4]],
+  [[PropKind.MarbleRock, 4], [PropKind.SurfaceGold, 2], [PropKind.SurfaceGem, 2], [PropKind.ManaCrystal, 2], [PropKind.IronRock, 4]],
+];
 // Per-column flags kept while a chunk is generated, used to place props.
 const F_WATER = 1;
 const F_STONE = 2;
@@ -110,6 +256,8 @@ const F_SALTPETRE = 16;
 const F_MARSH = 32;
 const F_FLAT = 64;
 const F_BARRIER = 128;
+/** A mountain's lower slopes (WL-4's silver and gold nodes). */
+const F_MOUNTAIN = 256;
 
 /** Everything one column's generation works out. Reused between columns. */
 class Profile {
@@ -127,7 +275,10 @@ class Profile {
   cave1 = 0;
   seam = 0;
   cell: Cell | null = null;
+  /** The column's band and its cell's look in it (WL-8: the band follows the distance from the bases). */
   band: number = Band.Heartland;
+  look: number = Look.Meadow;
+  volcanic = false;
   bandF = 0;
   // Barrier effects while combining edges.
   raise = 0;
@@ -139,6 +290,42 @@ class Profile {
   marshWater = false;
   stone = false;
   ridgeCore = false;
+}
+
+/** Terraced hillsides per band, out of 1024 of the land (Barrens out only since Patch 5, WL-3). */
+const TERRACE_AMOUNT: readonly number[] = [0, 0, 0, 700, 900];
+/** Mesas per band, out of 65536 of the land (Barrens out only since Patch 5, WL-3; the Deepwoods had 6500). */
+const MESA_AMOUNT: readonly number[] = [0, 0, 0, 12000, 16000];
+
+/** The land of a chunk being generated, column by column, for placing its props. */
+interface ChunkLand {
+  top: Int16Array;
+  flags: Uint16Array;
+  surface: Uint8Array;
+  bands: Uint8Array;
+  looks: Uint8Array;
+  cellOf: Cell[];
+  /** Columns with a prop on them, or under a boulder. */
+  taken: Uint8Array;
+}
+type AddProp = (kind: number, lx: number, lz: number, amount: number, age: number, variant: number) => void;
+
+/** What a node holds as generated: its yield, or from its yield to its most by its variant (PropInfo.yieldMax). */
+export function amountOf(kind: number, variant: number): number {
+  const info = PROPS[kind]!;
+  return info.yieldMax > info.yield ? info.yield + ((variant >>> 6) % (info.yieldMax - info.yield + 1)) : info.yield;
+}
+
+/** How far a column's ground rises or falls to its four neighbours inside the chunk, terrain units. */
+function roughAt(top: Int16Array, lx: number, lz: number): number {
+  const i = lz * N + lx;
+  const y = top[i]!;
+  let rough = 0;
+  if (lx > 0) rough = Math.max(rough, Math.abs(top[i - 1]! - y));
+  if (lx < N - 1) rough = Math.max(rough, Math.abs(top[i + 1]! - y));
+  if (lz > 0) rough = Math.max(rough, Math.abs(top[i - N]! - y));
+  if (lz < N - 1) rough = Math.max(rough, Math.abs(top[i + N]! - y));
+  return rough;
 }
 
 /** Linear interpolation between band values by a band fraction (1024 per band). */
@@ -171,6 +358,58 @@ const FIT_ROUGH = 3;
 const FIT_SIDES: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 /** Where a walk out from a Big House starts, columns from its middle: the edge of its plot (landWalk). */
 const YARD_WALK_FROM = 8;
+/** How wide the land's large-scale amplitudes blend from one band to the next, metres (s: the bands are 150 to 180 m wide since Patch 5). */
+export const BAND_BLEND_M = 40;
+/** A hot spring's middle keeps this far inside its chunk, columns, so its pool, rim and slope (SPRING_REACH) stay in it. */
+const SPRING_MARGIN = 11;
+/** Spots a spring's chunk tries for its pool (dry, level, clear of cliffs, mesas and ponds) before it goes without (s). */
+const SPRING_TRIES = 24;
+/** A spring's pool reaches 5 columns from its middle, its stone rim 8 and the slope of its rim down to the land this far (s). */
+const SPRING_REACH = 10;
+/** Where a spring's land is probed, columns from its middle, and how far it may rise and fall there, terrain units (s): its rim's slope meets the land a step from the lowest of it. */
+const SPRING_PROBES: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [10, 0],
+  [-10, 0],
+  [0, 10],
+  [0, -10],
+  [7, 7],
+  [-7, 7],
+  [7, -7],
+  [-7, -7],
+];
+const SPRING_LEVEL_SPREAD = 8;
+/** Half a boulder's footprint, columns: 3 m across. */
+const BOULDER_HALF = 3;
+/** A mountain's pass blends into its flanks over this, columns (s; a ridge's over 10). */
+const MOUNTAIN_GAP_BLEND = 24;
+
+/** The three sites nearest a point, nearest first (ties to the lowest id). */
+function nearest3(x: number, z: number, cands: readonly Site[]): [Site, number, Site, number, Site, number] {
+  let a: Site = cands[0]!;
+  let b: Site = cands[0]!;
+  let c: Site = cands[0]!;
+  let da = Infinity;
+  let db = Infinity;
+  let dc = Infinity;
+  for (let i = 0; i < cands.length; i++) {
+    const site = cands[i]!;
+    const ex = site.x - x;
+    const ez = site.z - z;
+    const d = ex * ex + ez * ez;
+    if (d < da || (d === da && site.id < a.id)) {
+      c = b; dc = db;
+      b = a; db = da;
+      a = site; da = d;
+    } else if (d < db || (d === db && site.id < b.id)) {
+      c = b; dc = db;
+      b = site; db = d;
+    } else if (d < dc || (d === dc && site.id < c.id)) {
+      c = site; dc = d;
+    }
+  }
+  return [a, da, b, db, c, dc];
+}
 
 export class WorldGen {
   readonly layout: WorldLayout;
@@ -181,10 +420,12 @@ export class WorldGen {
   private readonly pocketPropCache = new Map<number, Array<{ x: number; z: number; kind: number; amount: number }>>();
   /** Cell sites near each chunk the start pockets' land was probed in. */
   private readonly probeCands = new Map<number, Site[]>();
-  /** Band boundaries as distances from the origin, columns. */
-  private readonly bandEdges: number[];
-  /** How wide the land blends from one band's look to the next: 120 m, 30% narrower with the rings (mini patch, s). */
-  private readonly bandBlend = metresToColumns(floorDiv(120 * RING_SCALE_PER_MILLE, 1000));
+  private readonly bandBlend = metresToColumns(BAND_BLEND_M);
+  /** The band borders' wander, trough to crest, columns (BAND_WANDER_M either way). */
+  private readonly wanderSpan = metresToColumns(BAND_WANDER_M) * 2;
+  /** WL-6's mini mountain within 100 to 125 m of the first player's start. */
+  readonly landmark: Landmark;
+  private readonly springs = new Map<number, Spring | null>();
   private readonly p = new Profile();
   private readonly s: number[];
 
@@ -192,14 +433,109 @@ export class WorldGen {
     this.layout = layout;
     this.start = new StartBasin(layout);
     this.seed = layout.seed;
-    const b = layout.bands;
-    const inner = (r: number): number => layout.ringRadius(r) - floorDiv(layout.ringSize(r), 2);
-    this.bandEdges = [layout.basinRadius, inner(b.deepwoods), inner(b.barrens), inner(b.deadlands)];
     // Independent noise seeds.
     this.s = [];
-    for (let i = 0; i < 32; i++) this.s.push(hash2(this.seed, 0x6e6f6973, i));
+    for (let i = 0; i < 40; i++) this.s.push(hash2(this.seed, 0x6e6f6973, i));
+    this.landmark = this.placeLandmark();
     // The pockets' water and iron go on fit land, judged on the land as generated (mini patch).
     this.start.settle(this);
+  }
+
+  /**
+   * WL-6 ("guarantee at least one 9m+ tall cliff face/mini mountain within
+   * 100-125m of one of the players spawn location"): a mini mountain whose
+   * peak stands 112 m from the first player's Big House, out on its own side,
+   * on the first of 32 bearings that keeps it clear of every other pocket, the
+   * villages and the barrier edges (s).
+   */
+  private placeLandmark(): Landmark {
+    const pk = this.start.pockets[0]!;
+    const h = (k: number): number => hash2(this.seed, 0x6c6d6b, k);
+    const radius = metresToColumns(LANDMARK_RADIUS_M);
+    const height = metresToUnits(LANDMARK_PEAK_MIN_M + (h(0) % (LANDMARK_PEAK_MAX_M - LANDMARK_PEAK_MIN_M + 1)));
+    const d = metresToColumns(LANDMARK_DISTANCE_M);
+    let first: Landmark | null = null;
+    for (let t = 0; t < 32; t++) {
+      const swing = ((t + 1) >> 1) * (t & 1 ? 2048 : -2048);
+      const c = polar(pk.x, pk.z, (pk.outward + swing + (h(1) & 0x7ff) - 1024) & 0xffff, d);
+      const lm = { x: c.x, z: c.z, radius, height };
+      first ??= lm;
+      const clear = radius + metresToColumns(30);
+      if (this.start.pockets.some((p) => length2d(p.x - lm.x, p.z - lm.z) < clear + POCKET_FLAT_COLUMNS)) continue;
+      if (this.start.villages.some((v) => length2d(v.x - lm.x, v.z - lm.z) < clear + v.radius)) continue;
+      if (this.clearOfBarriers(lm.x, lm.z, radius + metresToColumns(10))) return lm;
+    }
+    return first!;
+  }
+
+  /**
+   * Whether no barrier edge (anything but low hills) comes within `margin`
+   * columns of a point, allowing for the wander the edges take (profile).
+   */
+  private clearOfBarriers(x: number, z: number, margin: number): boolean {
+    const [a, da, b, db, c, dc] = nearest3(x, z, this.layout.sitesNear(x, z, metresToColumns(200)));
+    const wander = Math.max(40, Math.min(160, floorDiv(length2d(x, z), 30)));
+    for (const [v, dv] of [[b, db], [c, dc]] as const) {
+      if (v.id === a.id || !this.layout.adjacent(a.id, v.id)) continue;
+      const e = this.layout.edge(a.id, v.id);
+      if (e.type === EdgeType.Nothing || e.type === EdgeType.LowHills) continue;
+      const len = Math.max(1, length2d(v.x - a.x, v.z - a.z));
+      const reach = e.type === EdgeType.Cliff ? e.fade : e.type === EdgeType.River ? e.half + floorDiv(e.half, 3) + 2 : e.half;
+      if (floorDiv(dv - da, 2 * len) < reach + margin + wander) return false;
+    }
+    return true;
+  }
+
+  /** The distance from the nearest main base the bands are measured by at a column, with the borders' wander (WL-8), columns. */
+  private bandDistance(raw: number, x: number, z: number): number {
+    return raw + centred(valueNoise(this.s[32]!, x, z, 7), this.wanderSpan);
+  }
+
+  /** A column's band (WL-8: by its distance from the nearest main base, the border wandering a little). */
+  columnBand(x: number, z: number): Band {
+    return this.layout.bandAtDistance(this.bandDistance(this.layout.startDistance(x, z), x, z));
+  }
+
+  /**
+   * The hot spring a chunk holds, or null (Jade's Patch 5, WL-11: "hot
+   * springs/sulfur more common, 20% chance of being one in a generation
+   * chunk", in the Barrens and the Deadlands). Well inside the chunk, on
+   * the first of its tries where the land under the pool and its rim is
+   * dry and level (no cliff, ridge, mesa's edge, terrace step or pond
+   * there) and no village stands.
+   */
+  chunkSpring(cx: number, cz: number): Spring | null {
+    const key = (cx + 32768) * 65536 + (cz + 32768);
+    const known = this.springs.get(key);
+    if (known !== undefined) return known;
+    let spring: Spring | null = null;
+    // While its spots are tried the chunk holds none, so the land probed there is the land without one.
+    this.springs.set(key, null);
+    const h = hash2(this.seed ^ 0x73707267, cx, cz);
+    if (h % 1000 < HOT_SPRING_CHUNK_PM) {
+      const span = N - 2 * SPRING_MARGIN;
+      for (let k = 0; k < SPRING_TRIES && !spring; k++) {
+        const hk = hash2(h, 0x73707267, k);
+        const x = cx * N + SPRING_MARGIN + (hk % span);
+        const z = cz * N + SPRING_MARGIN + ((hk >>> 16) % span);
+        if (this.columnBand(x, z) < Band.Barrens || this.start.flatness(x, z) > 0) continue;
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (const [ox, oz] of SPRING_PROBES) {
+          const g = this.probeGround(x + ox, z + oz);
+          if (g === null) {
+            hi = Infinity;
+            break;
+          }
+          lo = Math.min(lo, g);
+          hi = Math.max(hi, g);
+        }
+        if (hi - lo > SPRING_LEVEL_SPREAD) continue;
+        spring = { x, z, level: hi + 1 };
+      }
+    }
+    this.springs.set(key, spring);
+    return spring;
   }
 
   /** The land's height at a column as generated, terrain units, or null where it lies under water. */
@@ -269,15 +605,56 @@ export class WorldGen {
     return true;
   }
 
-  /** Continuous band index (1024 per band) by distance from the origin, for amplitudes that must not seam. */
-  bandFrac(dist: number): number {
+  /** Continuous band index (1024 per band) at a column, for amplitudes that must not seam (WL-8: by the distance from the nearest main base). */
+  bandFrac(x: number, z: number): number {
+    return this.bandFracAt(this.bandDistance(this.layout.startDistance(x, z), x, z));
+  }
+
+  /** Continuous band index (1024 per band) at a band distance (bandDistance). */
+  private bandFracAt(d: number): number {
     let f = 0;
     const half = this.bandBlend >> 1;
-    for (const edge of this.bandEdges) {
-      const v = floorDiv((dist - (edge - half)) * 1024, this.bandBlend);
+    for (const edge of this.layout.bandStarts) {
+      const v = floorDiv((d - (edge - half)) * 1024, this.bandBlend);
       f += Math.max(0, Math.min(1024, v));
     }
     return f;
+  }
+
+  /** Whether a mesa stands at a column (from the Barrens out since Patch 5, WL-3). */
+  private mesaAt(x: number, z: number, bandF: number): boolean {
+    const mesaAmt = lerpBand(MESA_AMOUNT, bandF);
+    return mesaAmt > 0 && valueNoise(this.s[9]!, x, z, 7) > 65536 - mesaAmt;
+  }
+
+  /**
+   * Gentle rolling hills (Jade's Patch 5, WL-3), terrain units: in some of
+   * the Heartland, the Barrens and the Deadlands, never steeper than a unit
+   * walks; none within 50 m of a start, and flat round the middle of each of
+   * the three nearest cells (a, b, c), where villages, camps and bogs lie.
+   * `raw` is the column's distance from the nearest main base.
+   */
+  private hills(x: number, z: number, raw: number, bandF: number, a: Site, b: Site, c: Site): number {
+    let w = lerpBand(HILL_BAND_WEIGHT, bandF);
+    if (w === 0) return 0;
+    const s = this.s;
+    // Some sections, not all.
+    const m = valueNoise(s[33]!, x, z, 9);
+    w = (w * smooth10(Math.max(0, Math.min(1024, floorDiv((m - 30000) * 1024, 12288))))) >> 10;
+    if (w === 0) return 0;
+    const blend = metresToColumns(HILL_BLEND_M);
+    w = (w * (1024 - falloff(raw, metresToColumns(HILL_START_CLEAR_M), blend))) >> 10;
+    for (const site of [a, b, c]) {
+      if (w === 0) return 0;
+      const clear = (this.layout.ringSize(floorDiv(site.id, 65536)) >> 2) + metresToColumns(HILL_SITE_CLEAR_M);
+      const dx = Math.abs(x - site.x);
+      const dz = Math.abs(z - site.z);
+      if (dx >= clear + blend || dz >= clear + blend) continue;
+      w = (w * (1024 - falloff(length2d(dx, dz), clear, blend))) >> 10;
+    }
+    if (w === 0) return 0;
+    const n = centred(valueNoise(s[34]!, x, z, 8), HILL_HEIGHT_UNITS) + centred(valueNoise(s[35]!, x, z, 6), HILL_HEIGHT_UNITS >> 2);
+    return (n * w) >> 10;
   }
 
   private pair(u: Site, v: Site): PairInfo {
@@ -304,13 +681,15 @@ export class WorldGen {
   cellFeatures(cell: Cell): CellFeatures {
     let f = this.features.get(cell.id);
     if (f) return f;
-    f = { ponds: [], streams: [], bogs: [], spring: null };
+    f = { ponds: [], streams: [], bogs: [] };
     const h = (k: number): number => hash2(this.seed, 0x66656174 + cell.id, k);
     const at = (k: number, frac: number): { x: number; z: number } =>
       polar(cell.x, cell.z, h(k) & 0xffff, floorDiv(cell.size * ((h(k) >>> 16) % frac), 1000));
+    const lm = this.landmark;
     const clearOfPockets = (x: number, z: number, r: number): boolean =>
       this.start.pockets.every((p) => length2d(p.x - x, p.z - z) > POCKET_FLAT_COLUMNS + POCKET_BLEND_COLUMNS + r) &&
-      this.start.villages.every((v) => length2d(v.x - x, v.z - z) > v.radius + POCKET_BLEND_COLUMNS + r);
+      this.start.villages.every((v) => length2d(v.x - x, v.z - z) > v.radius + POCKET_BLEND_COLUMNS + r) &&
+      length2d(lm.x - x, lm.z - z) > lm.radius + 6 + r;
     const band = cell.band;
     const pondOdds = [400, 600, 700, 150, 0][band]!;
     const ponds = (h(1) % 1000 < pondOdds ? 1 : 0) + (h(2) % 1000 < floorDiv(pondOdds, 3) ? 1 : 0);
@@ -341,27 +720,40 @@ export class WorldGen {
     }
     const bogOdds = [500, 200, 0, 0, 0][band]!;
     if (h(4) % 1000 < bogOdds) {
-      const c = at(50, 250);
+      // On low ground (Jade's Patch 5, WL-3: "Bogs for example never on hills or high ground"): the lowest of six
+      // spots near the cell's middle, where the land keeps flat of hills (HILL_SITE_CLEAR_M).
+      let c = at(50, 250);
+      let low = this.smoothHeight(c.x, c.z);
+      for (let k = 1; k < 6; k++) {
+        const o = at(150 + k, 250);
+        const y = this.smoothHeight(o.x, o.z);
+        if (y < low) {
+          low = y;
+          c = o;
+        }
+      }
       const r = metresToColumns(6 + (h(51) % 4));
       if (clearOfPockets(c.x, c.z, r)) f.bogs.push({ x: c.x, z: c.z, r });
-    }
-    if (cell.hotSpring) {
-      const c = at(60, 200);
-      f.spring = { x: c.x, z: c.z, level: this.smoothHeight(c.x, c.z) + 1 };
     }
     this.features.set(cell.id, f);
     return f;
   }
 
-  /** The large-scale height of the land before barriers and detail, terrain units. */
-  smoothHeight(x: number, z: number): number {
-    const dist = length2d(x, z);
-    const bandF = this.bandFrac(dist);
+  /**
+   * The large-scale height of the land before hills, barriers and detail,
+   * terrain units. Its lows ease off below LOWLAND_KNEE_UNITS, never reaching
+   * twice that, so nothing natural comes near the 6 m floor but ravines and
+   * rivers (WL-2).
+   */
+  smoothHeight(x: number, z: number, bandF = this.bandFrac(x, z)): number {
     const s = this.s;
     const drift = centred(valueNoise(s[0]!, x, z, 11), lerpBand([0, 40, 100, 150, 200], bandF));
     const low = centred(valueNoise(s[1]!, x, z, 9), lerpBand([10, 40, 80, 110, 140], bandF));
     const mid = centred(valueNoise(s[2]!, x, z, 6), lerpBand([4, 16, 30, 40, 50], bandF));
-    return drift + low + mid;
+    const y = drift + low + mid;
+    if (y >= -LOWLAND_KNEE_UNITS) return y;
+    const e = -LOWLAND_KNEE_UNITS - y;
+    return -LOWLAND_KNEE_UNITS - floorDiv(LOWLAND_KNEE_UNITS * e, e + LOWLAND_KNEE_UNITS);
   }
 
   /** The pocket and village props of Table 9, in global columns. */
@@ -496,40 +888,26 @@ export class WorldGen {
     const p = this.p;
     const s = this.s;
     const dist = length2d(x, z);
-    const bandF = this.bandFrac(dist);
+    // The band by the distance from the nearest main base (WL-8).
+    const raw = this.layout.startDistance(x, z);
+    const dBand = this.bandDistance(raw, x, z);
+    const bandF = this.bandFracAt(dBand);
     p.bandF = bandF;
     // Cell membership and edges use warped coordinates so the edges wander.
     const amp = Math.max(40, Math.min(160, floorDiv(dist, 30)));
     const wx = x + centred(valueNoise(s[3]!, x, z, 7), amp) + centred(valueNoise(s[4]!, x, z, 5), amp >> 2);
     const wz = z + centred(valueNoise(s[5]!, x, z, 7), amp) + centred(valueNoise(s[6]!, x, z, 5), amp >> 2);
-    let a: Site = cands[0]!;
-    let b: Site = cands[0]!;
-    let c: Site = cands[0]!;
-    let da = Infinity;
-    let db = Infinity;
-    let dc = Infinity;
-    for (let i = 0; i < cands.length; i++) {
-      const site = cands[i]!;
-      const ex = site.x - wx;
-      const ez = site.z - wz;
-      const d = ex * ex + ez * ez;
-      if (d < da || (d === da && site.id < a.id)) {
-        c = b; dc = db;
-        b = a; db = da;
-        a = site; da = d;
-      } else if (d < db || (d === db && site.id < b.id)) {
-        c = b; dc = db;
-        b = site; db = d;
-      } else if (d < dc || (d === dc && site.id < c.id)) {
-        c = site; dc = d;
-      }
-    }
+    const [a, da, b, db, c, dc] = nearest3(wx, wz, cands);
     const cell = this.layout.cell(a.id);
     p.cell = cell;
-    p.band = cell.band;
+    const band = this.layout.bandAtDistance(dBand);
+    const look = this.layout.lookOf(cell, band);
+    p.band = band;
+    p.look = look;
+    p.volcanic = cell.volcanic && band === Band.Deadlands;
 
     // Base land: smooth hills, small detail, and the broken land of the deeper bands.
-    const smooth = this.smoothHeight(x, z);
+    const smooth = this.smoothHeight(x, z, bandF) + this.hills(x, z, raw, bandF, a, b, c);
     const small = centred(valueNoise(s[7]!, x, z, 3), lerpBand([3, 4, 5, 6, 7], bandF));
     let ground = smooth + small;
     p.smooth = smooth;
@@ -543,15 +921,15 @@ export class WorldGen {
     p.cave1 = 0;
     p.seam = 0;
     let plateau = false;
-    // Terraces: stepped hillsides in patches, more of them deeper (deep land is more broken).
-    const terraceAmt = lerpBand([0, 150, 400, 700, 900], bandF);
+    // Terraces: stepped hillsides in patches, more of them deeper (deep land is more broken); since Patch 5 only from
+    // the Barrens out, with no mini cliffs before them (WL-3).
+    const terraceAmt = band >= Band.Barrens ? lerpBand(TERRACE_AMOUNT, bandF) : 0;
     if (valueNoise(s[8]!, x, z, 7) < terraceAmt * 64) {
       const step = 6 + (bandF >> 10);
       ground = floorDiv(ground, step) * step;
     }
-    // Mesas from the Deepwoods out; a few have soil on top (the rare, valuable plateau).
-    const mesaAmt = lerpBand([0, 0, 6500, 12000, 16000], bandF);
-    if (mesaAmt > 0 && valueNoise(s[9]!, x, z, 7) > 65536 - mesaAmt) {
+    // Mesas from the Barrens out (the Deepwoods too before Patch 5); a few have soil on top (the rare, valuable plateau).
+    if (band >= Band.Barrens && this.mesaAt(x, z, bandF)) {
       const top = floorDiv(smooth + metresToUnits(6) + (valueNoise(s[10]!, x, z, 9) >> 12) * 4, 4) * 4;
       if (top > ground) {
         ground = top;
@@ -560,19 +938,19 @@ export class WorldGen {
       }
     }
     // Badlands: small ravines cut inside the cell.
-    if (cell.look === Look.Badlands) {
+    if (look === Look.Badlands) {
       const r = valueNoise(s[12]!, x, z, 6) - 32768;
       if (r > -1800 && r < 1800) ground -= metresToUnits(3) + ((r + 1800) >> 9);
     }
-    // Boulders on rocky ground.
-    const boulderRate = cell.look === Look.RockyScrub ? 30 : cell.look === Look.Badlands || cell.look === Look.DeadLand ? 15 : cell.band >= Band.Fringe ? 4 : 1;
+    // Boulders on rocky ground: before the Barrens low stones a unit steps over (WL-3: no mini cliffs).
+    const boulderRate = look === Look.RockyScrub ? 30 : look === Look.Badlands || look === Look.DeadLand ? 15 : band >= Band.Fringe ? 4 : 1;
     const hb = hash2(s[13]!, x >> 2, z >> 2);
     if (hb % 1000 < boulderRate) {
       const ox = ((x >> 2) << 2) + 1 + ((hb >>> 10) & 1);
       const oz = ((z >> 2) << 2) + 1 + ((hb >>> 11) & 1);
       const rad = 1 + ((hb >>> 12) & 1);
       if (Math.abs(x - ox) < rad && Math.abs(z - oz) < rad) {
-        ground += 4 + ((hb >>> 13) % 7);
+        ground += band >= Band.Barrens ? 4 + ((hb >>> 13) % 7) : 1 + ((hb >>> 13) & 1);
         p.stone = true;
       }
     }
@@ -594,6 +972,7 @@ export class WorldGen {
     const cx = this.pairEffect(a, c, da, dc, wx, wz, x, z, toAB, lab.edge?.type === EdgeType.River);
     // Only edges of the cell the column is in: the line between the other two runs on into this cell past their corner.
     if (bx || cx) p.flags |= F_BARRIER;
+    this.landmarkEffect(x, z);
     ground = ground + p.raise - p.carve;
     let waterLevel = -32768;
     let source = 0;
@@ -626,6 +1005,7 @@ export class WorldGen {
         surfaceHint = Mat.Mud;
       } else if (d <= pond.r + 3) ground = Math.max(ground, pond.level + 1);
     }
+    // Stream beds are sand: there is no gravel since Patch 5 (GP-45).
     for (const st of feat.streams) this.streamEffect(st, x, z, smooth, (g, lvl) => {
       ground = Math.min(ground, g);
       waterLevel = Math.max(waterLevel, lvl);
@@ -643,15 +1023,18 @@ export class WorldGen {
         }
       }
     }
-    if (feat.spring && Math.abs(x - feat.spring.x) <= 8 && Math.abs(z - feat.spring.z) <= 8) {
-      const d = length2d(x - feat.spring.x, z - feat.spring.z);
+    // A hot spring, in its own chunk (WL-11).
+    const spring = this.chunkSpring(x >> CHUNK_SHIFT, z >> CHUNK_SHIFT);
+    if (spring && Math.abs(x - spring.x) <= SPRING_REACH && Math.abs(z - spring.z) <= SPRING_REACH) {
+      const d = length2d(x - spring.x, z - spring.z);
       if (d <= 5) {
-        ground = feat.spring.level - 4 + (d >> 1);
-        waterLevel = feat.spring.level;
+        ground = spring.level - 4 + (d >> 1);
+        waterLevel = spring.level;
         surfaceHint = Mat.Stone;
-      } else if (d <= 8) {
-        ground = Math.max(ground, feat.spring.level + 1);
-        p.stone = true;
+      } else if (d <= SPRING_REACH) {
+        // A stone rim a unit above the water, its sinter falling away 2 units a column (a step) to meet the land.
+        ground = Math.max(ground, spring.level + 1 - 2 * Math.max(0, d - 6));
+        if (d <= 8) p.stone = true;
       }
     }
 
@@ -721,6 +1104,8 @@ export class WorldGen {
       }
     }
 
+    // Nothing natural more than 6 m below sea level (WL-2).
+    ground = Math.max(ground, -NATURAL_FLOOR_UNITS);
     p.ground = ground;
     // Water.
     if (waterLevel > ground && waterLevel < 1000 && waterLevel > -1000) {
@@ -733,11 +1118,11 @@ export class WorldGen {
     }
     if (p.marsh) p.flags |= F_MARSH;
     // Surface and soil.
-    const volcanic = cell.volcanic;
+    const volcanic = p.volcanic;
     const grassNoise = valueNoise(s[17]!, x, z, 4);
-    // Surfaces follow the cell's own band, so band borders run along cell edges rather than in circles.
-    const sb = cell.band << 10;
-    const grassiness = lerpBand([1000, 900, 700, 250, 0], sb) + (cell.look === Look.Meadow ? 80 : cell.look === Look.RockyScrub ? -250 : 0);
+    // Surfaces follow the column's band (WL-8: as the raven flies from the nearest main base, the border wandering a little).
+    const sb = band << 10;
+    const grassiness = lerpBand([1000, 900, 700, 250, 0], sb) + (look === Look.Meadow ? 80 : look === Look.RockyScrub ? -250 : 0);
     let soil = lerpBand([22, 14, 9, 3, 1], sb) + centred(valueNoise(s[18]!, x, z, 5), 6);
     let surface: number;
     if (p.flags & F_WATER) {
@@ -766,7 +1151,7 @@ export class WorldGen {
       surface = sb >= 4096 ? Mat.DeadEarth : Mat.Soil;
     }
     if (plateau && !(p.flags & F_WATER)) {
-      surface = cell.band >= Band.Deadlands ? Mat.DeadEarth : cell.band >= Band.Barrens ? Mat.DryGrass : Mat.Grass;
+      surface = band >= Band.Deadlands ? Mat.DeadEarth : band >= Band.Barrens ? Mat.DryGrass : Mat.Grass;
       soil = Math.max(soil, 6);
     }
     if (p.flags & F_FLAT && !(p.flags & F_WATER) && surface !== Mat.Mud) {
@@ -832,7 +1217,7 @@ export class WorldGen {
     let arch = false;
     for (const gap of e.gaps) {
       const q = Math.abs(t - gap.t);
-      const f = falloff(q, gap.half, 10);
+      const f = falloff(q, gap.half, e.mountain ? MOUNTAIN_GAP_BLEND : 10);
       if (f > g) {
         g = f;
         arch = gap.arch && q <= gap.half;
@@ -849,6 +1234,7 @@ export class WorldGen {
         return true;
       }
       case EdgeType.Ridge: {
+        if (e.mountain) return this.mountainEffect(e, d, t, g, side, x, z);
         const prof = shoulder(x1024, 360);
         if (prof === 0) return false;
         const rugged = 820 + (valueNoise(s[23]!, x, z, 3) >> 8);
@@ -864,16 +1250,7 @@ export class WorldGen {
         if (r > p.raise) p.raise = r;
         if (r > 12) p.stone = true;
         if (r > 30) p.ridgeCore = true;
-        const cave = e.cave;
-        if (cave && side === cave.side && r > cave.height + 10) {
-          const foot = floorDiv(e.half * 3, 4);
-          const cq = Math.abs(t - cave.t) + centred(valueNoise(s[24]!, x, z, 2), 3);
-          if (cq <= cave.half && d <= foot + 2 && d >= foot - cave.depth) {
-            p.cave0 = p.base;
-            p.cave1 = p.base + cave.height - (d < foot - cave.depth + 3 ? 4 : 0);
-            if (cave.saltpetre) p.flags |= F_SALTPETRE;
-          }
-        }
+        this.caveEffect(e, d, t, r, side, x, z);
         return true;
       }
       case EdgeType.Cliff: {
@@ -931,6 +1308,72 @@ export class WorldGen {
     }
   }
 
+  /** A ridge's or a mountain's cave, opening on its side at its foot (caveFoot), where it stands `r` units high. */
+  private caveEffect(e: Edge, d: number, t: number, r: number, side: number, x: number, z: number): void {
+    const p = this.p;
+    const cave = e.cave;
+    if (!cave || side !== cave.side || r <= cave.height + 10) return;
+    const foot = caveFoot(e);
+    const cq = Math.abs(t - cave.t) + centred(valueNoise(this.s[24]!, x, z, 2), 3);
+    if (cq <= cave.half && d <= foot + 2 && d >= foot - cave.depth) {
+      p.cave0 = p.base;
+      p.cave1 = p.base + cave.height - (d < foot - cave.depth + 3 ? 4 : 0);
+      if (cave.saltpetre) p.flags |= F_SALTPETRE;
+    }
+  }
+
+  /**
+   * A mountain (Jade's Patch 5, WL-4: "more realistic looking mountains
+   * (still just stone and dirt, no snow or new materials)"): broad and
+   * peaked rather than a wall, its crest rising and falling into peaks and
+   * saddles along its length, bare rock on its upper slopes and grass on its
+   * lower ones, with no steps; a ragged foot. Its passes blend into its
+   * flanks over MOUNTAIN_GAP_BLEND and lie open, with no arch over them.
+   */
+  private mountainEffect(e: Edge, d: number, t: number, g: number, side: number, x: number, z: number): boolean {
+    const p = this.p;
+    const s = this.s;
+    // Its foot a little ragged, so the slopes do not run in straight lines: never past its half width.
+    const xr = floorDiv(d * 1024, Math.max(1, e.half)) + ((valueNoise(s[36]!, x, z, 4) * 160) >> 16);
+    if (xr >= 1024) return false;
+    const u = 1024 - ((xr * xr) >> 10);
+    const prof = (u * u) >> 10;
+    // Peaks and saddles: 60% to 110% of its height along the crest (s), and a little roughness.
+    const crest = 614 + ((valueNoise(s[37]!, x, z, 6) * 512) >> 16);
+    const rough = 980 + (valueNoise(s[23]!, x, z, 3) >> 10);
+    let r = (((((e.height * prof) >> 10) * crest) >> 10) * rough) >> 10;
+    // Its passes lie open: no arch over a mountain's pass (a ridge's narrow gaps keep theirs).
+    r = (r * (1024 - g)) >> 10;
+    if (r > p.raise) p.raise = r;
+    // Rock above a line 40% to 65% of the way up (s), wandering; grass and earth below.
+    if (r > floorDiv(e.height * (410 + (valueNoise(s[38]!, x, z, 4) >> 8)), 1024)) p.stone = true;
+    if (r > 30) p.ridgeCore = true;
+    // Its lower slopes, where its silver and gold nodes lie (WL-4).
+    if (xr > 560 && r > 0 && g < 512) p.flags |= F_MOUNTAIN;
+    this.caveEffect(e, d, t, r, side, x, z);
+    return true;
+  }
+
+  /**
+   * WL-6's mini mountain: a peak 11 to 14 m high on a foot 44 m across, rock
+   * on its upper slopes, steep enough that its upper faces stand as cliffs.
+   */
+  private landmarkEffect(x: number, z: number): void {
+    const lm = this.landmark;
+    if (Math.abs(x - lm.x) >= lm.radius || Math.abs(z - lm.z) >= lm.radius) return;
+    const p = this.p;
+    const s = this.s;
+    const xr = floorDiv(length2d(x - lm.x, z - lm.z) * 1024, lm.radius) + ((valueNoise(s[36]!, x, z, 3) * 120) >> 16);
+    if (xr >= 1024) return;
+    const u = 1024 - ((xr * xr) >> 10);
+    const prof = (u * u) >> 10;
+    const rough = 980 + (valueNoise(s[23]!, x, z, 3) >> 10);
+    const r = (((lm.height * prof) >> 10) * rough) >> 10;
+    if (r > p.raise) p.raise = r;
+    if (r > floorDiv(lm.height * 2, 5)) p.stone = true;
+    if (xr > 560) p.flags |= F_MOUNTAIN;
+  }
+
   /** Sites near a chunk, enough to answer the three-nearest question for every column in it. */
   private chunkCandidates(cx: number, cz: number): Site[] {
     const x0 = cx * N + (N >> 1);
@@ -946,8 +1389,10 @@ export class WorldGen {
     const cands = this.chunkCandidates(cx, cz);
     const builder = new ChunkBuilder();
     const top = new Int16Array(N * N);
-    const flags = new Uint8Array(N * N);
+    const flags = new Uint16Array(N * N);
     const surface = new Uint8Array(N * N);
+    const bands = new Uint8Array(N * N);
+    const looks = new Uint8Array(N * N);
     const cellOf: Cell[] = [];
     const seamSeed = this.s[28]!;
     const oreSeed = this.s[29]!;
@@ -964,11 +1409,13 @@ export class WorldGen {
         top[i] = p.ground;
         flags[i] = p.flags;
         surface[i] = p.surface;
+        bands[i] = p.band;
+        looks[i] = p.look;
         cellOf.push(p.cell!);
       }
     }
     const columns = builder.finish(cx, cz);
-    const props = this.placeProps(cx, cz, top, flags, surface, cellOf);
+    const props = this.placeProps(cx, cz, { top, flags, surface, bands, looks, cellOf, taken: new Uint8Array(N * N) });
     return { columns, props };
   }
 
@@ -976,7 +1423,7 @@ export class WorldGen {
   private emit(b: ChunkBuilder, p: Profile, x: number, z: number, seamSeed: number, oreSeed: number): void {
     const ground = p.ground;
     const bottom = Math.min(ground, 0) - 36;
-    const volcanic = p.cell!.volcanic;
+    const volcanic = p.volcanic;
     const rock = volcanic ? Mat.Basalt : Mat.Stone;
     const soilTop = p.surface === Mat.Grass || p.surface === Mat.DryGrass ? 1 : 0;
     const soilMat =
@@ -1052,14 +1499,18 @@ export class WorldGen {
     if (p.slab1 > p.slab0 && p.slab0 > ground + 2) b.layer(p.slab0, p.slab1, rock);
   }
 
-  /** Places trees and resource nodes on a generated chunk (Table 5 by band; Table 9 in the pockets). */
-  private placeProps(cx: number, cz: number, top: Int16Array, flags: Uint8Array, surface: Uint8Array, cellOf: Cell[]): PropRecord[] {
+  /** Places trees and resource nodes on a generated chunk (Table 5 by band; Table 9 in the pockets; Jade's Patch 5 world). */
+  private placeProps(cx: number, cz: number, c: ChunkLand): PropRecord[] {
+    const { top, flags, surface, bands, looks, cellOf, taken } = c;
     const props: PropRecord[] = [];
     const x0 = cx * N;
     const z0 = cz * N;
     const add = (kind: number, lx: number, lz: number, amount: number, age: number, variant: number): void => {
       props.push({ kind, lx, lz, y: top[lz * N + lx]!, variant, age, amount });
+      taken[lz * N + lx] = 1;
     };
+    // Living trees' columns, for the mushrooms at their feet (GP-30) and the flax that wants few of them (WL-10).
+    const trees: number[] = [];
     // Table 9: the pockets' guaranteed set.
     for (const pocket of this.start.pockets) {
       if (Math.abs(pocket.x - (x0 + 32)) > N + 160 || Math.abs(pocket.z - (z0 + 32)) > N + 160) continue;
@@ -1069,8 +1520,10 @@ export class WorldGen {
         if (lx < 0 || lz < 0 || lx >= N || lz >= N) continue;
         const info = PROPS[pp.kind]!;
         add(pp.kind, lx, lz, pp.amount, info.regrowSteps + (hash2(this.seed, pp.x, pp.z) % 20000), hash2(this.seed ^ 0x5a5a, pp.x, pp.z));
+        if (info.shape === PropShape.Tree) trees.push(lz * N + lx);
       }
     }
+    this.placeBoulder(cx, cz, c, add);
     // Scatter on a 1.8 m grid: one candidate spot per 4 x 4 columns.
     const sd = this.s[30]!;
     const forest = this.s[31]!;
@@ -1083,15 +1536,8 @@ export class WorldGen {
         const lz = bz + ((h >>> 2) & 3);
         const i = lz * N + lx;
         const f = flags[i]!;
-        if (f & F_FLAT) continue;
-        const cell = cellOf[i]!;
-        const y = top[i]!;
-        // Level ground only: compare with the neighbours inside the chunk.
-        let rough = 0;
-        if (lx > 0) rough = Math.max(rough, Math.abs(top[i - 1]! - y));
-        if (lx < N - 1) rough = Math.max(rough, Math.abs(top[i + 1]! - y));
-        if (lz > 0) rough = Math.max(rough, Math.abs(top[i - N]! - y));
-        if (lz < N - 1) rough = Math.max(rough, Math.abs(top[i + N]! - y));
+        if (f & F_FLAT || taken[i]) continue;
+        const rough = roughAt(top, lx, lz);
         const roll = (h >>> 4) % 10000;
         const variant = hash2(sd ^ 0x7777, gx, gz);
         if (f & F_SALTPETRE) {
@@ -1104,18 +1550,27 @@ export class WorldGen {
           continue;
         }
         if (rough > 2) continue;
-        const band = cell.band;
-        const look = cell.look;
+        const band = bands[i]!;
+        const look = looks[i]!;
         const stony = (f & F_STONE) !== 0;
-        // Trees: dense in woodland, scattered in meadows, dead out in the Barrens and Deadlands.
+        // WL-4: a mountain's lower slopes before the Barrens hold silver nodes very rarely and gold nodes very very rarely.
+        if (f & F_MOUNTAIN && band < Band.Barrens) {
+          const mr = (variant >>> 12) % 10000;
+          const ore = mr < MOUNTAIN_GOLD_PER_10000 ? PropKind.GoldNode : mr < MOUNTAIN_GOLD_PER_10000 + MOUNTAIN_SILVER_PER_10000 ? PropKind.SilverNode : -1;
+          if (ore >= 0) {
+            add(ore, lx, lz, amountOf(ore, variant), 0, variant);
+            continue;
+          }
+        }
+        // Trees: in woods and groves, scattered in meadows, dead out in the Barrens and Deadlands (WL-1: far thinner).
         const forestN = valueNoise(forest, gx, gz, 6);
-        let treeRate = [40, 2600, 120, 50, 300][look]!;
-        if (look === Look.Meadow) treeRate = forestN > 52000 ? 1800 : 300;
-        else if (look === Look.Woodland) treeRate = forestN > 22000 ? 3200 : 700;
+        const rates = TREES_PER_10000[look]!;
+        let treeRate = (look === Look.Meadow && forestN > 52000) || (look === Look.Woodland && forestN > 22000) ? rates[1] : rates[0];
+        if (band === Band.Heartland) treeRate = floorDiv(treeRate * HEARTLAND_TREES_PM, 1000);
         if (band === Band.Deepwoods) treeRate = floorDiv(treeRate, 2);
         if (stony || f & F_MARSH) treeRate = floorDiv(treeRate, 8);
         if (roll < treeRate) {
-          const kind = this.treeKind(band, cell.look, variant);
+          const kind = this.treeKind(band, look, variant);
           if (kind < 0) continue;
           if ((kind === PropKind.Oak || kind === PropKind.Beech) && ((bx + bz) & 4) !== 0) continue;
           const info = PROPS[kind]!;
@@ -1123,6 +1578,7 @@ export class WorldGen {
           const grow = info.regrowSteps;
           const age = grow === 0 ? 0 : g < 6 ? (variant >>> 8) % floorDiv(grow, 10) : g < 16 ? floorDiv(grow, 10) + ((variant >>> 8) % floorDiv(grow * 9, 10)) : grow + ((variant >>> 8) % grow);
           add(kind, lx, lz, info.yield, age, variant);
+          if (kind !== PropKind.DeadTree && kind !== PropKind.Thornwood) trees.push(i);
           continue;
         }
         // Other nodes, per spot, in 1/10000 (s).
@@ -1131,24 +1587,24 @@ export class WorldGen {
         const kind = this.nodeKind(band, look, f, r2, variant, surface[i]!);
         if (kind < 0) continue;
         const info = PROPS[kind]!;
-        let amount = info.yield;
+        let amount = amountOf(kind, variant);
         if (kind === PropKind.SurfaceGold) amount = band >= Band.Deadlands ? 2 + (variant % 4) : 1 + (variant % 3);
         if (kind === PropKind.SurfaceGem && band >= Band.Deadlands) amount = 2 + (variant % 4);
+        if (kind === PropKind.IronRock) amount = floorDiv(IRON_ROCK_AVERAGE[band]! * (750 + ((variant >>> 6) % 501)), 1000);
         add(kind, lx, lz, amount, info.regrowSteps, variant);
       }
     }
-    // Hot spring sulphur and bog iron at their features.
+    this.placeFlax(cx, cz, c, trees.length, add);
+    this.placeMushrooms(cx, cz, c, trees, add);
+    // A hot spring's sulphur on its rim (WL-11), and bog iron at the Heartland's bogs.
+    const spring = this.chunkSpring(cx, cz);
+    if (spring) add(PropKind.HotSpringSulphur, spring.x + 7 - x0, spring.z - z0, 20, 0, hash2(this.seed, spring.x + 7 - x0, spring.z - z0));
     const seen = new Set<number>();
     for (let k = 0; k < cellOf.length; k += 97) {
       const cell = cellOf[k]!;
       if (seen.has(cell.id)) continue;
       seen.add(cell.id);
       const feat = this.cellFeatures(cell);
-      if (feat.spring) {
-        const sx = feat.spring.x + 7 - x0;
-        const sz = feat.spring.z - z0;
-        if (sx >= 0 && sz >= 0 && sx < N && sz < N) add(PropKind.HotSpringSulphur, sx, sz, 20, 0, hash2(this.seed, sx, sz));
-      }
       if (cell.band === Band.Heartland) {
         for (const bog of feat.bogs) {
           const bx = bog.x - x0;
@@ -1158,6 +1614,104 @@ export class WorldGen {
       }
     }
     return props;
+  }
+
+  /**
+   * WL-5: a 3 m boulder in about one chunk in 4.5, on dry level ground at
+   * least 40 m from every main base, clear of the props round it; nothing
+   * else is scattered under it.
+   */
+  private placeBoulder(cx: number, cz: number, c: ChunkLand, add: AddProp): void {
+    const h = hash2(this.seed ^ 0x626f756c, cx, cz);
+    if (h % 1000 >= BOULDER_CHUNK_PM) return;
+    const { top, flags, taken } = c;
+    const clear = metresToColumns(BOULDER_BASE_CLEAR_M) + BOULDER_HALF;
+    for (let k = 0; k < 8; k++) {
+      const hk = hash2(h, 0x626f, k);
+      const lx = BOULDER_HALF + 1 + (hk % (N - 2 * BOULDER_HALF - 2));
+      const lz = BOULDER_HALF + 1 + ((hk >>> 16) % (N - 2 * BOULDER_HALF - 2));
+      if (this.layout.startDistance(cx * N + lx, cz * N + lz) < clear) continue;
+      const y = top[lz * N + lx]!;
+      let fit = true;
+      for (let dz = -BOULDER_HALF; dz <= BOULDER_HALF && fit; dz++) {
+        for (let dx = -BOULDER_HALF; dx <= BOULDER_HALF && fit; dx++) {
+          const j = (lz + dz) * N + lx + dx;
+          if (taken[j] || flags[j]! & (F_WATER | F_MARSH | F_FLAT | F_BANK) || Math.abs(top[j]! - y) > 4) fit = false;
+        }
+      }
+      if (!fit) continue;
+      add(PropKind.Boulder, lx, lz, PROPS[PropKind.Boulder]!.yield, 0, hash2(hk, lx, lz));
+      for (let dz = -BOULDER_HALF; dz <= BOULDER_HALF; dz++) for (let dx = -BOULDER_HALF; dx <= BOULDER_HALF; dx++) taken[(lz + dz) * N + lx + dx] = 1;
+      return;
+    }
+  }
+
+  /**
+   * WL-10: a flax field in a chunk of the Heartland, the Fringe or the
+   * Deepwoods with no trees or few (about a third of their chunks): a clump
+   * of 8 to 16 plants about 10 m across, ragged at its edge, a column apart
+   * at least, never in a bog or on water. One plant in six is the tall flax.
+   */
+  private placeFlax(cx: number, cz: number, c: ChunkLand, treeCount: number, add: AddProp): void {
+    if (treeCount > FLAX_FIELD_MAX_TREES) return;
+    const { top, flags, bands, taken } = c;
+    const h = hash2(this.seed ^ 0x666c6178, cx, cz);
+    if ((h >>> 8) % 1000 >= FLAX_CHUNK_PM[bands[(N >> 1) * N + (N >> 1)]!]!) return;
+    const R = metresToColumns(FLAX_FIELD_RADIUS_M);
+    const span = N - 2 * (R + 1);
+    const open = (j: number, lx: number, lz: number): boolean =>
+      bands[j]! <= Band.Deepwoods && (flags[j]! & (F_WATER | F_MARSH | F_FLAT | F_BANK | F_SALTPETRE)) === 0 && roughAt(top, lx, lz) <= 2;
+    for (let k = 0; k < 4; k++) {
+      const hk = hash2(h, 0x6d6964, k);
+      const mx = R + 1 + (hk % span);
+      const mz = R + 1 + ((hk >>> 16) % span);
+      if (!open(mz * N + mx, mx, mz) || flags[mz * N + mx]! & F_STONE) continue;
+      const want = FLAX_FIELD_MIN + (hash2(hk, 0x6e, 0) % (FLAX_FIELD_MAX - FLAX_FIELD_MIN + 1));
+      let n = 0;
+      for (let t = 0; t < want * 6 && n < want; t++) {
+        const ht = hash2(hk, 0x706c74, t);
+        const dx = ((ht & 0xff) % (2 * R + 1)) - R;
+        const dz = (((ht >>> 8) & 0xff) % (2 * R + 1)) - R;
+        const lx = mx + dx;
+        const lz = mz + dz;
+        // A round clump with a ragged edge.
+        const edge = 560 + (valueNoise(this.s[39]!, cx * N + lx, cz * N + lz, 2) >> 7);
+        if ((dx * dx + dz * dz) * 1024 > R * R * edge) continue;
+        const j = lz * N + lx;
+        if (!open(j, lx, lz)) continue;
+        let near = false;
+        for (let oz = -1; oz <= 1 && !near; oz++) for (let ox = -1; ox <= 1 && !near; ox++) if (taken[j + oz * N + ox]) near = true;
+        if (near) continue;
+        const v = hash2(ht, lx, lz);
+        const kind = v % FLAX_TALL_ONE_IN === 0 ? PropKind.FlaxTall : PropKind.WildFlax;
+        add(kind, lx, lz, PROPS[kind]!.yield, PROPS[kind]!.regrowSteps, v);
+        n++;
+      }
+      return;
+    }
+  }
+
+  /**
+   * GP-30: a chunk's edible mushrooms, 0 to 10 by its living trees, each at
+   * the foot of one of them, 1 to 2 m from the trunk; none in the Barrens
+   * or the Deadlands.
+   */
+  private placeMushrooms(cx: number, cz: number, c: ChunkLand, trees: readonly number[], add: AddProp): void {
+    const want = Math.min(MUSHROOMS_MAX, floorDiv(trees.length, MUSHROOM_TREES));
+    if (want === 0) return;
+    const { top, flags, bands, taken } = c;
+    const h = hash2(this.seed ^ 0x6d757368, cx, cz);
+    let n = 0;
+    for (let t = 0; t < want * 4 && n < want; t++) {
+      const ht = hash2(h, 0x6d, t);
+      const tree = trees[ht % trees.length]!;
+      const at = polar(tree % N, floorDiv(tree, N), (ht >>> 8) & 0xffff, 2 + ((ht >>> 24) % 3));
+      if (at.x < 0 || at.z < 0 || at.x >= N || at.z >= N) continue;
+      const j = at.z * N + at.x;
+      if (taken[j] || bands[j]! > Band.Deepwoods || flags[j]! & (F_WATER | F_MARSH | F_FLAT | F_BANK) || roughAt(top, at.x, at.z) > 2) continue;
+      add(PropKind.Mushroom, at.x, at.z, PROPS[PropKind.Mushroom]!.yield, 0, hash2(ht, at.x, at.z));
+      n++;
+    }
   }
 
   private treeKind(band: number, look: number, v: number): number {
@@ -1174,37 +1728,21 @@ export class WorldGen {
     }
   }
 
-  /** Resource nodes by band (Table 5's band column); chances per candidate spot in 1/10000 (s). */
+  /** Resource nodes by band (NODES_PER_10000); chances per candidate spot in 1/10000 (s). */
   private nodeKind(band: number, look: number, f: number, r: number, v: number, surface: number): number {
-    const table: Array<[number, number]> = [];
-    switch (band) {
-      case Band.Heartland: {
-        // The first 2 outcrops keep their place in the roll from before Patch 4 and the rest come after the tin, so every
-        // node keeps the spot it had and the new outcrops go only where nothing stood.
-        const outcrops = Math.min(HEARTLAND_STONE_OUTCROPS_PER_10000, 2);
-        table.push([PropKind.Hazel, 40], [PropKind.Herbs, 12], [PropKind.WildFlax, 8], [PropKind.LooseStone, 10], [PropKind.FlintScatter, 8], [PropKind.StoneOutcrop, outcrops], [PropKind.CopperOutcrop, 2], [PropKind.TinOutcrop, 1]);
-        table.push([PropKind.StoneOutcrop, HEARTLAND_STONE_OUTCROPS_PER_10000 - outcrops]);
-        break;
-      }
-      case Band.Fringe:
-        table.push([PropKind.StoneOutcrop, 10], [PropKind.CoalSeam, 3], [PropKind.IronRock, 4], [PropKind.Herbs, 6], [PropKind.WildFlax, 5], [PropKind.MarbleRock, (v & 7) === 0 ? 1 : 0]);
-        break;
-      case Band.Deepwoods:
-        table.push([PropKind.StoneOutcrop, 8], [PropKind.MarbleRock, 4], [PropKind.LeadOre, 2], [PropKind.Herbs, 1], [PropKind.WildFlax, 1]);
-        break;
-      case Band.Barrens:
-        table.push([PropKind.StoneOutcrop, 8], [PropKind.MarbleRock, 4], [PropKind.LeadOre, 2], [PropKind.SurfaceGold, 2], [PropKind.SurfaceGem, 1]);
-        break;
-      default:
-        table.push([PropKind.MarbleRock, 4], [PropKind.SurfaceGold, 2], [PropKind.SurfaceGem, 2], [PropKind.ManaCrystal, 2]);
-        break;
-    }
-    if (band >= Band.Deadlands && (surface === Mat.Ash || surface === Mat.Basalt)) table.push([PropKind.Sulphur, 8]);
-    if (look === Look.RockyScrub || f & F_STONE) for (const t of table) if (PROPS[t[0]]!.shape === 3) t[1] *= 2;
+    // Rocks come twice as often on rocky ground.
+    const rocky = look === Look.RockyScrub || (f & F_STONE) !== 0;
     let acc = 0;
-    for (const [kind, chance] of table) {
+    for (const [kind, base] of NODES_PER_10000[band]!) {
+      let chance = base;
+      if (kind === PropKind.IronRock && band === Band.Deepwoods && (v >>> 3) % 1000 >= DEEPWOODS_IRON_ROCK_PM) chance = 0;
+      if (rocky && PROPS[kind]!.shape === PropShape.Rocks) chance *= 2;
       acc += chance;
       if (r < acc) return kind;
+    }
+    if (band >= Band.Deadlands && (surface === Mat.Ash || surface === Mat.Basalt)) {
+      acc += 8;
+      if (r < acc) return PropKind.Sulphur;
     }
     return -1;
   }

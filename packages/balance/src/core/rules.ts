@@ -170,6 +170,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'circles/bright.ts': 'circles',
   'circles/act.ts': 'circles',
   'circles/items.ts': 'circles',
+  'threats/springs.ts': 'lairs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
