@@ -7,7 +7,7 @@ import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, leve
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { chainPiece, plannedSpots, stretchRoom, stretchSpots } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, setKitLock, stacks, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { isTavern, setTavernOpen, withdrawFunds } from './buildings/tavern.ts';
 import { isDreadnought } from './units/dreadnought.ts';
@@ -663,7 +663,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'produce': {
         const b = usableBuilding(state, o.player, o.building);
         if (!b) break;
-        for (let k = 0; k < o.count; k++) {
+        // A stack (Scrap equipment, Patch 5) takes its whole count in one queue slot.
+        if (stacks(o.product)) {
+          const why = queueProduct(state, b, o.product, o.player, 0, o.count);
+          if (why) alert(state, o.player, why);
+          break;
+        }
+        for (let k = 0; k < Math.min(o.count, 5); k++) {
           const why = queueProduct(state, b, o.product, o.player);
           if (why) {
             // Several selected buildings each train one (Jade's Patch 5, GP-15): those the stock runs out for say why once.

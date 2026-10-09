@@ -16,8 +16,11 @@ import {
   Gait,
   gaitOf,
   gaitSpec,
+  hasShield,
   Hit,
   isDreadnought,
+  Line,
+  lineTop,
   meleeOf,
   moveSpeed,
   nextBlow,
@@ -34,6 +37,7 @@ import {
   UnitKind,
   WU_PER_METRE,
   WU_PER_TERRAIN_UNIT,
+  Troop,
   type Building,
   type Order,
   type SimState,
@@ -124,6 +128,8 @@ describe('Patch 5: the Dreadnought', () => {
     run(s, DREADNOUGHT.trainS * 20 + 40);
     const i = dreadnoughts(s)[0]!;
     const e = s.entities;
+    // No shield, nor a shield slot, unlike close melee (decisions 3.8).
+    expect([e.shield[i], hasShield(Troop.Dreadnought), lineTop({ kind: 'warrior', troop: Troop.Dreadnought, w: 0, a: 0, s: 0, t: 0 }, Line.Shield)]).toEqual([0, false, 0]);
     e.atkWith[i] = nextBlow(s, i);
     expect(e.atkWith[i]).toBe(Slot.Weapon);
     expect(meleeOf(s, i)).toMatchObject({ damage: 140, hit: Hit.Stab });

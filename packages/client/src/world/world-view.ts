@@ -99,13 +99,16 @@ const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:
 /** A gear id's name, or '' for an empty slot. */
 const gearName = (id: number): string => (id ? gearSpec(id).name : '');
 
+/** A troop's kit lines in words (units/kits.ts Line). */
+const LINE_WORDS = ['weapon', 'armour', 'shield', 'arrows'];
+
 /** "Upgrading the weapon to Bronze spear: 40%." for a unit with an upgrade under way, or ''. */
 function upgradeText(d: Int32Array, o: number, kind: 'worker' | 'warrior' | 'mage'): string {
   const line = d[o + S.upLine]! - 1;
   if (line < 0) return '';
-  const h = { kind, troop: d[o + S.troop]!, w: d[o + S.wTier]!, a: d[o + S.aTier]! };
+  const h = { kind, troop: d[o + S.troop]!, w: d[o + S.wTier]!, a: d[o + S.aTier]!, s: d[o + S.sTier]!, t: d[o + S.tips]! };
   const piece = linePiece(h, line, d[o + S.upTo]!);
-  const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
+  const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : (LINE_WORDS[line] ?? 'kit');
   const done = d[o + S.upDone]!;
   return `Upgrading the ${what}${piece ? ` to ${piece.name}` : ''}${done > 0 ? `: ${Math.floor(done / 10)}%` : ' (on the way)'}.`;
 }
@@ -423,9 +426,11 @@ export class WorldView {
         u.label = this.title(d, o, kind);
         // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
         const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
-        const gear = [gearName(d[o + S.ranged]!), weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
+        const tips = d[o + S.tips] ? 'poison tips' : '';
+        const gear = [gearName(d[o + S.ranged]!), tips, weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
+        const shield = troop === Troop.Close ? `, shield tier ${d[o + S.sTier]}` : '';
         // The Dreadnought's mace and plate are his own, with no tiers (Patch 5).
-        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, dread ? 'A smash, then a sweep at everything in front of him, every 3 s.' : `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}.`];
+        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, dread ? 'A smash, then a sweep at everything in front of him, every 3 s.' : `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}${shield}.`];
         this.lootLine(details, id);
         const up = upgradeText(d, o, 'warrior');
         if (up) details.push(up);
@@ -457,11 +462,13 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Mob) {
         const spec = mobSpec(d[o + S.mob]!);
-        u.label = spec.name;
+        // A mana crystal's guardian is named for what it guards (Jade's Patch 5, MB-13).
+        const guardian = (d[o + S.flags]! & UnitFlag.Guardian) !== 0;
+        u.label = guardian ? 'Mana crystal guardian' : spec.name;
         u.typeKey = `mob:${spec.id}`;
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
-        u.details = [health];
+        u.details = guardian ? [`${spec.name}. It keeps to its crystal and never comes back once killed.`, health] : [health];
       } else if (kind === UnitKind.Engine) {
         const spec = engineSpec(d[o + S.mob]!);
         u.label = spec.name;

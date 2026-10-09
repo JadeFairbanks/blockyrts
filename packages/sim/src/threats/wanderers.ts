@@ -30,6 +30,7 @@ import { hash32 } from '../rng.ts';
 import { OrderKind, PEOPLES, UnitKind, type SimState } from '../state.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import { CAMP_RADIUS_WU } from './data.ts';
+import { brightTonight } from './bright.ts';
 import { Role, type WildPatch } from './types.ts';
 
 const M = WU_PER_METRE;
@@ -449,13 +450,14 @@ function playersNear(state: SimState, x: number, z: number, r: number): boolean 
   return false;
 }
 
-/** The units that wake the wild: the players' out in the open, and the found peoples'. Their spots, wu. */
-function wakers(state: SimState): Array<[number, number]> {
+/** The units that wake the wild: the players' out in the open, and the found peoples'. Their spots, wu; with `bright`, leaving out the units of players on a Bright Night. */
+function wakers(state: SimState, bright?: readonly boolean[]): Array<[number, number]> {
   const e = state.entities;
   const out: Array<[number, number]> = [];
   for (let i = 0; i < e.count; i++) {
     if (e.hp[i]! <= 0 || e.inside[i] !== 0) continue;
-    if (e.owner[i]! < state.players.length || (e.owner[i] === PEOPLES && wildPrey(state, i))) out.push([e.x[i]!, e.z[i]!]);
+    const o = e.owner[i]!;
+    if (o < state.players.length ? !bright?.[o] : o === PEOPLES && wildPrey(state, i)) out.push([e.x[i]!, e.z[i]!]);
   }
   return out;
 }
@@ -518,7 +520,10 @@ export function updateWild(state: SimState): void {
   const spots = wakers(state);
   const groups = wandererGroups(state);
   emptyQuiet(state, spots, groups);
-  fill(state, spots, groups, c.cycle);
+  // Round only the units of players on a Bright Night, the wild wakes a third as full (Patch 5 decisions 2.8).
+  const bright = state.players.map((_, p) => brightTonight(state, p));
+  const dim = bright.some((b) => b) ? patchesNear(wakers(state, bright), WILD_WAKE_M * M) : null;
+  fill(state, spots, groups, c.cycle, dim);
 }
 
 /**
@@ -558,7 +563,7 @@ export function patchRolls(seed: number, night: number, px: number, pz: number):
 }
 
 /** Fills the patches near the wakers not filled tonight, in key order, while the cap allows. */
-function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, groups: Map<number, number[]>, night: number): void {
+function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, groups: Map<number, number[]>, night: number, dim: Map<number, [number, number]> | null): void {
   const t = state.threats;
   const done = new Set(t.wild.map((p) => patchKey(p.px, p.pz)));
   const todo = [...patchesNear(spots, WILD_WAKE_M * M).entries()].filter(([k]) => !done.has(k)).sort((a, b) => a[0] - b[0]);
@@ -568,7 +573,7 @@ function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, 
   const cap = WILD_CAP_PER_PLAYER * Math.max(1, state.players.filter((p) => !p.out).length);
   const w = wildsNow(state);
   const step = floorDiv(PATCH_WU, WILD_SAMPLES);
-  for (const [, [px, pz]] of todo) {
+  for (const [key, [px, pz]] of todo) {
     if (live >= cap) return;
     // How much of the patch is wild, and the wild spots out of sight of the players' units.
     let wild = 0;
@@ -592,7 +597,8 @@ function fill(state: SimState, spots: ReadonlyArray<readonly [number, number]>, 
     const wildPm = floorDiv(wild * 1000, WILD_SAMPLES * WILD_SAMPLES);
     let group = 0;
     let size = 0;
-    for (let roll = 0; roll < patchRolls(state.seed, night, px, pz); roll++) {
+    const rolls = dim && !dim.has(key) ? Math.min(1, patchRolls(state.seed, night, px, pz)) : patchRolls(state.seed, night, px, pz);
+    for (let roll = 0; roll < rolls; roll++) {
       const [mob, n] = patchRoll(state.seed, night, px, pz, wildPm, roll);
       if (n === 0) continue;
       const at = hash32(state.seed, SALT, night, px, pz, 5 + ROLL_KEYS * roll) % open.length;

@@ -26,7 +26,9 @@ import {
   RATING_NAMES,
   RESOURCES,
   ROBE_KITS,
-  shieldRow,
+  SHIELD_KITS,
+  takesTips,
+  TIPS_KIT,
   speciesSpec,
   STEPS_PER_SECOND,
   TOOL_KITS,
@@ -51,7 +53,7 @@ import { productIcon } from './card-icons.ts';
 import { garrisonRoom } from './commands.ts';
 import { harvestText } from './farm-panel.ts';
 import { hungerLine, type HungerView } from './hunger.ts';
-import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { armourPic, robePic, shieldPic, tipsPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { kitUrl } from './kit-icons.ts';
 import { pieceStats } from './kit-text.ts';
@@ -59,7 +61,7 @@ import { bestScale, MIDDLE_MARGIN } from './middle-fit.ts';
 import { queueText } from './queue-clock.ts';
 import { TrainingCards } from './training-cards.ts';
 import { cardsOf, keepPicks } from './troops.ts';
-import { BATTLE_MAGE_ICON, buildingIconFile, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
+import { buildingIconFile, mageIconFile, selectableIconFile, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
 import { hasRanks, xpView } from './xp-bar.ts';
 
@@ -159,10 +161,10 @@ function glyph(t: Selectable): string {
 }
 
 /** A unit's picture from the sim's copy of it (the units inside a building). */
-function unitInfoIcon(u: { kind: number; troop: number; wTier: number; school: number } | null): string {
+function unitInfoIcon(u: { kind: number; troop: number; wTier: number; aTier: number; school: number } | null): string {
   if (!u) return WORKER_ICON;
   if (u.kind === UnitKind.Warrior) return troopIconFile(u.troop, u.wTier);
-  if (u.kind === UnitKind.Mage) return u.school === 2 ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON;
+  if (u.kind === UnitKind.Mage) return mageIconFile(u.school === 2, u.aTier);
   return WORKER_ICON;
 }
 
@@ -583,7 +585,7 @@ export class SelectionPanel {
     b.queue.forEach((item, k) => {
       const ps = productSpec(item.product);
       const t = troopOf(item.product);
-      const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a).toLowerCase()})` : ps.name;
+      const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a, t.s).toLowerCase()})` : `${ps.name}${item.count ? ` (${item.count} left)` : ''}`;
       // The same picture as the unit once it is out, and as the button that queued it.
       const icon = productIcon(item.product);
       const btn = this.button(`queue${k}`, {
@@ -602,6 +604,8 @@ export class SelectionPanel {
         btn.el.append(bar);
         this.head = { btn, bar };
       }
+      // A stack being scrapped: how many are left, one fewer each time the bar fills (Patch 5, GP-3).
+      if (item.count) btn.el.append(tag(String(item.count)));
       q.append(btn.el);
     });
     for (let k = b.queue.length; k < QUEUE_LIMIT; k++) {
@@ -619,7 +623,7 @@ export class SelectionPanel {
   // ---- One building ----
 
   private buildingSig(b: BuildingInfo): string {
-    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : '', b.tavern ? `${Number(b.tavern.open)}:${b.tavern.food}` : ''].join('/');
+    return [b.queue.map((q) => `${q.product}x${q.count ?? 1}`).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : '', b.tavern ? `${Number(b.tavern.open)}:${b.tavern.food}` : ''].join('/');
   }
 
   private oneBuilding(t: Selectable, b: BuildingInfo): void {
@@ -804,7 +808,7 @@ export class SelectionPanel {
     const u = id === null ? null : this.a.game.unit(id);
     if (!u) return '';
     const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
-    return [u.kind, u.troop, u.wTier, u.aTier, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
+    return [u.kind, u.troop, u.wTier, u.aTier, u.sTier, u.tips, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
   }
 
   private oneThing(t: Selectable): void {
@@ -829,7 +833,7 @@ export class SelectionPanel {
     slots.forEach((s, k) => {
       const btn = this.chip(`slot${k}`, { icon: layer(s.pic, s.tag), name: s.name, description: s.text, className: 'kit-slot' }, row);
       if (s.line >= 0 && u.upLine - 1 === s.line) {
-        const piece = linePiece({ kind: u.kind === UnitKind.Worker ? 'worker' : u.kind === UnitKind.Mage ? 'mage' : 'warrior', troop: u.troop, w: u.wTier, a: u.aTier }, s.line, u.upTo);
+        const piece = linePiece({ kind: u.kind === UnitKind.Worker ? 'worker' : u.kind === UnitKind.Mage ? 'mage' : 'warrior', troop: u.troop, w: u.wTier, a: u.aTier, s: u.sTier, t: u.tips }, s.line, u.upTo);
         const unit = u.id;
         const bar = document.createElement('span');
         bar.className = 'up-bar';
@@ -922,11 +926,10 @@ export class SelectionPanel {
       { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
       { pic: armourPic(u.aTier), tag: String(u.aTier), ...named(ARMOUR_KITS[u.aTier], u.aTier, 'armour'), line: 1 },
     ];
-    // Close melee's shield comes with the armour: no number of its own.
-    if (u.troop === Troop.Close && u.aTier > 0) {
-      const s = shieldRow(u.aTier);
-      out.push({ pic: shieldPic(s.tier), name: s.name, text: `${pieceStats(s)}\nComes with the armour.`, line: -1 });
-    }
+    // Close melee's shield is its own slot from Patch 5, with its own tier.
+    if (u.troop === Troop.Close) out.push({ pic: shieldPic(u.sTier), tag: String(u.sTier), ...named(SHIELD_KITS[u.sTier], u.sTier, 'shield'), line: 2 });
+    // A bow or crossbow ranger's poison tips, while it has them.
+    if (u.tips > 0 && takesTips(u.troop, u.wTier)) out.push({ pic: tipsPic(u.wTier), name: TIPS_KIT.name, text: `${TIPS_KIT.name}: its arrows or bolts poison like a viper's bite.`, line: 3 });
     return out;
   }
 

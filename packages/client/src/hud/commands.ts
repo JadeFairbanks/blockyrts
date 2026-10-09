@@ -28,6 +28,7 @@ import {
   mainCost,
   buildingSpec,
   footprintDims,
+  hasShield,
   kitName,
   levelSpec,
   PARAPET_SLOTS,
@@ -46,6 +47,7 @@ import {
   productSpec,
   Res,
   RESEARCH_PRODUCT,
+  recipeSpec,
   RESOURCES,
   RUN_FOOD_METRES,
   schoolSpells,
@@ -84,6 +86,8 @@ import {
   TOOL_KITS,
   upgradePieces,
   equipmentPlans,
+  fromItem,
+  KIT_LINES,
   type EquipmentHolder,
   WU_PER_COLUMN,
   WU_PER_METRE,
@@ -103,7 +107,7 @@ import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonIcon, ButtonPress } from './buttons.ts';
 import { buildIcon, buildingUpgradeIcon, equipIcon, productIcon, trainTroopIcon } from './card-icons.ts';
-import { defenseAction, flatMake, makeAction, menuSlots, MORE_ACTION, placeAction, submenuAction, submenuChoices } from './menu-keys.ts';
+import { defenseAction, flatMake, MAKE_SUBMENUS, makeAction, makeList, makeSub, makeSubAction, menuSlots, MORE_ACTION, placeAction, SCRAP_SUB, submenuAction, submenuChoices } from './menu-keys.ts';
 import { buildingIconFile } from './unit-icons.ts';
 import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
@@ -131,11 +135,20 @@ export interface CardEntry {
   auto?: boolean;
   /** A click while it is greyed out (Jade's Patch 3): those who can sort out why ask, in bubbles (sim units/greyed.ts). */
   grey?(): void;
+  /** A right click's dropdown (Patch 5: Scrap 1, Scrap 10, Scrap all on the Workshop's scrapping). */
+  choices?(): CardChoice[];
   /** Its picture, when it has one of its own (card-icons.ts); else the shell picks one by action. */
   icon?: ButtonIcon | undefined;
   /** What it trains or makes, so the card can mark what a building is making now. */
   product?: number;
   troop?: number;
+}
+
+/** One choice of a card button's right-click dropdown. */
+export interface CardChoice {
+  name: string;
+  description: string;
+  run(): void;
 }
 
 /** The command card's buttons in book order, left to right and top to bottom (Jade's Patch 2: no gaps, Cancel last). */
@@ -299,6 +312,9 @@ export interface CardSize {
 
 const CLASSIC_SIZE: CardSize = { most: 15 };
 
+/** Scrap all: the most one order scraps (the sim's produce count), which the sim cuts to what the stock holds. */
+const SCRAP_ALL = 9999;
+
 /** Spacing of lights placed along a dragged line: 8 m, so their 5 m claims overlap. */
 export const LIGHT_LINE_SPACING_M = 8;
 
@@ -381,6 +397,12 @@ export class Commands {
     }
     if (this.targeting) {
       this.targeting = null;
+      this.d.changed();
+      return true;
+    }
+    // A K menu's submenu (Patch 5: the Workshop's Trinkets and Scrap equipment) backs out to the menu.
+    if (this.menu.sub >= 0 && this.menu.page !== 'build') {
+      this.menu = { ...this.menu, sub: -1, more: 0 };
       this.d.changed();
       return true;
     }
@@ -782,8 +804,9 @@ export class Commands {
       const kind = u ? holderKind(u.kind) : undefined;
       if (!u || !kind) continue;
       const q = this.d.game.queues.get(id) ?? [];
-      const pending = (line: number): boolean => q.some((o) => o.t === 'kitUp' && o.line === line);
-      out.push({ id, h: { kind, troop: u.troop, w: u.wTier, a: u.aTier }, rank: u.rank, pendingW: pending(Line.Weapon), pendingA: pending(Line.Armour) });
+      let pending = 0;
+      for (const o of q) if (o.t === 'kitUp') pending |= 1 << o.line;
+      out.push({ id, h: { kind, troop: u.troop, w: u.wTier, a: u.aTier, s: u.sTier, t: u.tips }, rank: u.rank, pending });
     }
     return out;
   }
@@ -792,35 +815,38 @@ export class Commands {
    * Upgrade equipment (Jade's Patch 2): one button for what the Max twins of
    * Upgrade weapon and Upgrade armour did. Each unit gets the best weapon (a
    * worker's tools, a mage's wand) researched that the stock pays for, then
-   * the best armour (a mage's robe) from what is left, weapons first for all
-   * of them and the highest ranks first, as the sim plans it
-   * (equipmentPlans). They walk to the nearest Barracks, Forge or main base
-   * (a mage also a Magi Sanctum) and sit tinkering there, with a bar over
-   * their heads, for each piece's time.
+   * the best armour (a mage's robe), then close melee's shield and a bow's
+   * poison tips (Patch 5) from what is left, weapons first for all of them
+   * and the highest ranks first, as the sim plans it (equipmentPlans). A
+   * ready item in stock goes on first, at no cost (Patch 5, GP-1). They walk
+   * to the nearest Barracks, Forge or main base (a mage also a Magi Sanctum)
+   * and sit tinkering there, with a bar over their heads, for each piece's
+   * time.
    */
   private equipEntry(ids: number[]): CardEntry {
     const list = this.holders(ids);
     const kind = list[0]?.h.kind ?? 'warrior';
     const name = 'Upgrade equipment';
-    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : 'the best weapon, then the best armour,';
+    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : 'the best weapon, then the best armour, then a shield (close melee) and poison tips (bows),';
     const where = kind === 'mage' ? 'the nearest Barracks, Forge, main base or Magi Sanctum' : 'the nearest Barracks, Forge or main base';
     const plans = equipmentPlans(list, this.d.game.pool(), this.d.game.tech());
-    const sent = plans.filter((p) => p.w > 0 || p.a > 0);
+    const sent = plans.filter((p) => p.to.some((to) => to > 0));
     const lines = [
       kind === 'worker'
         ? 'Each one gets the best tools researched that the stock pays for, the highest ranks first.'
-        : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left.`,
-      `They walk to ${where} and sit tinkering there, with a bar over their heads, for each piece's time. The stock pays now; the old kit goes back to the stock in full when the new one goes on.`,
+        : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left, and shields last.`,
+      'A ready item in stock goes on first, at no cost and in a fifth of the time, unless a better one can be made.',
+      `They walk to ${where} and sit tinkering there, with a bar over their heads, for each piece's time. The stock pays now; the old piece goes to stock as an item when the new one goes on.`,
     ];
     if (sent.length > 0) {
       const p = sent[0]!;
       const h = list.find((x) => x.id === p.id)!.h;
-      const pieces = [
-        [Line.Weapon, p.w],
-        [Line.Armour, p.a],
-      ]
-        .filter(([, to]) => to! > 0)
-        .map(([line, to]) => `${linePiece(h, line!, to!)?.name ?? 'the next tier'} (tier ${to}) for ${costText(mainCost(upgradePieces(h, line!, to!)))}`);
+      const pieces = KIT_LINES.filter((line) => p.to[line]! > 0).map((line) => {
+        const to = p.to[line]!;
+        const plan = p.plans[line];
+        const from = plan && fromItem(plan.ways) ? 'from stock' : `for ${costText(mainCost(upgradePieces(h, line, to)))}`;
+        return `${linePiece(h, line, to)?.name ?? 'the next tier'}${line === Line.Tips ? '' : ` (tier ${to})`} ${from}`;
+      });
       lines.push(`${sent.length === list.length ? 'All of them' : `${sent.length} of ${list.length}`} can go: the first to ${pieces.join(', and ')}.`);
     }
     const reason = list.length === 0 ? 'Select a unit.' : sent.length === 0 ? (plans[0]?.why ?? 'Nothing to upgrade.') : '';
@@ -1190,24 +1216,24 @@ export class Commands {
   private troopEntry(all: BuildingInfo[], troop: number, action: string, face: string): CardEntry {
     const first = all[0]!;
     const c = troopChoice(first, troop);
-    const why = troopWhy(this.d.game, first, troop, c.w, c.a);
+    const why = troopWhy(this.d.game, first, troop, c.w, c.a, c.s);
     const others = all.length > 1 ? ' With several selected, each one trains its own pick, as many as you can afford.' : '';
     const any = all.some((b) => {
       const k = troopChoice(b, troop);
-      return troopWhy(this.d.game, b, troop, k.w, k.a) === '';
+      return troopWhy(this.d.game, b, troop, k.w, k.a, k.s) === '';
     });
     return {
       action,
       face,
       name: `Train ${troopName(troop, c.w).toLowerCase()}`,
       key: this.key(action),
-      description: `${kitName(troop, c.w, c.a)} (weapon tier ${c.w}, armour tier ${c.a}). Cost: ${troopCostText(first, troop, c.w, c.a)}. Pick the kit in the panel.${others} Shift: queue 5.`,
+      description: `${kitName(troop, c.w, c.a, c.s)} (weapon tier ${c.w}, armour tier ${c.a}${hasShield(troop) ? `, shield tier ${c.s}` : ''}). Cost: ${troopCostText(first, troop, c.w, c.a, c.s)}. Pick the kit in the panel.${others} Shift: queue 5.`,
       icon: trainTroopIcon(troop, c.w),
       troop,
       enabled: any,
       reason: any ? '' : why,
       run: (press) => this.trainTroopAt(all, troop, press.shift ? 5 : 1),
-      grey: () => this.greyed(Greyed.Product, troopProduct(troop, c.w, c.a), first.id),
+      grey: () => this.greyed(Greyed.Product, troopProduct(troop, c.w, c.a, c.s), first.id),
     };
   }
 
@@ -1262,11 +1288,11 @@ export class Commands {
     const ready = all.filter((b) => {
       if (!b.complete) return false;
       const c = cardChoice(b, card);
-      return cardOffered(b, card, c.w, c.a);
+      return cardOffered(b, card, c.w, c.a, c.s);
     });
     this.eachTrains(ready, (b) => {
       const c = cardChoice(b, card);
-      return cardProduct(card, c.w, c.a);
+      return cardProduct(card, c.w, c.a, c.s);
     }, count);
   }
 
@@ -1295,12 +1321,65 @@ export class Commands {
     const all = this.buildings().filter((b) => b.kind === kind && b.complete);
     const first = all[0];
     const list: CardEntry[] = [];
+    const sub = this.menu.sub;
     if (first) {
-      first.products
-        .filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT)
-        .forEach(([p, why]) => list.push(this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true)));
+      const made = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+      for (const [p, why] of made) {
+        if (makeSub(p) !== sub) continue;
+        if (sub === SCRAP_SUB) {
+          // Only the equipment in stock (Jade, GP-3: "all your weapons/armors/sheilds").
+          if ((this.d.game.pool()[recipeSpec(productSpec(p).recipe!).scrap!] ?? 0) > 0) list.push(this.scrapEntry(all, kind, p, why));
+        } else list.push(this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true));
+      }
+      if (sub < 0) MAKE_SUBMENUS.forEach((_, k) => made.some(([p]) => makeSub(p) === k) && list.push(this.makeSubEntry(kind, k)));
     }
-    return this.paged(list, waiting || !back ? [] : [this.backEntry('Back to the building commands.')]);
+    const out = sub >= 0 ? this.backEntry(`Back to the ${buildingSpec(kind).name.toLowerCase()} menu.`) : back ? this.backEntry('Back to the building commands.') : null;
+    return this.paged(list, waiting || !out ? [] : [out]);
+  }
+
+  /** A K menu's submenu button: the Workshop's Trinkets and Scrap equipment (Patch 5, Jade's UI-8 and GP-3). */
+  private makeSubEntry(kind: number, sub: number): CardEntry {
+    const name = MAKE_SUBMENUS[sub]!;
+    const scrap = sub === SCRAP_SUB;
+    const pool = this.d.game.pool();
+    const held = scrap && makeList(kind).some((p) => makeSub(p) === sub && (pool[recipeSpec(productSpec(p).recipe!).scrap!] ?? 0) > 0);
+    const description = scrap
+      ? 'Open the scrapping menu: every weapon, armour, shield and other piece of equipment in the stock, each broken back into what it was made from, 10 s apiece. A stack takes one place in the queue. Right click one for Scrap 1, Scrap 10 or Scrap all. Esc goes back.'
+      : 'Open the trinkets menu: tokens, charms and the finer pieces, the better ones with the main base\'s tiers. Each one\'s key is on its button; Esc goes back.';
+    const run = (): void => {
+      this.menu = { ...this.menu, sub, more: 0 };
+      this.d.changed();
+    };
+    const e = this.entry(makeSubAction(kind, sub), name, description, run, { menu: true, name });
+    return scrap && !held ? { ...e, enabled: false, reason: 'No weapons, armour, shields or tools in stock.' } : e;
+  }
+
+  /** A piece of equipment to scrap: a click scraps one (Shift: 10); a right click opens Scrap 1, Scrap 10 and Scrap all. */
+  private scrapEntry(all: BuildingInfo[], kind: number, p: number, why: string): CardEntry {
+    const e = this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why, true);
+    const item = recipeSpec(productSpec(p).recipe!).scrap!;
+    const have = this.d.game.pool()[item] ?? 0;
+    const name = RESOURCES[item]!.name.toLowerCase();
+    return {
+      ...e,
+      description: `${productSpec(p).tooltip} ${have} in stock. 10 s each. Click: scrap 1. Shift + click: scrap 10. Right click: Scrap 1, Scrap 10 or Scrap all.`,
+      run: (press) => this.scrap(all, p, press.shift ? 10 : 1),
+      choices: () => [
+        { name: 'Scrap 1', description: `Scrap one ${name}.`, run: () => this.scrap(all, p, 1) },
+        { name: 'Scrap 10', description: `Scrap up to ten, in one place in the queue.`, run: () => this.scrap(all, p, 10) },
+        { name: 'Scrap all', description: `Scrap every one in the stock, in one place in the queue.`, run: () => this.scrap(all, p, SCRAP_ALL) },
+      ],
+    };
+  }
+
+  /** Scraps a stack at the building with the shortest queue: one order, one place in its queue (the sim takes as many as the stock holds). */
+  private scrap(all: BuildingInfo[], product: number, count: number): void {
+    const ready = all.filter((b) => b.complete).sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
+    const b = ready.find((x) => x.queue.some((q) => q.product === product)) ?? ready[0];
+    if (!b) return;
+    this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count });
+    if (!b.queue.some((q) => q.product === product)) b.queue.push({ product, done: 0, stepsLeft: 0 });
+    this.d.changed();
   }
 
   /**
@@ -2403,7 +2482,7 @@ const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.Forge]: ['Smelt', 'Open the forge menu: copper, tin and bronze ingots from the start; wrought iron, charcoal, bricks and glass from main base tier 2; pig iron, iron, steel, carbon steel and gunpowder from tier 3. It works with no workers. Kit is made where a unit trains or upgrades, not here. Each one\'s key is on its button; Esc goes back.'],
   [BuildingKind.Barn]: ['Slaughter', 'Slaughter one of the grown animals of the Barn for its meat and hides. The Barn keeps its breeding pairs longest. Esc goes back.'],
   [BuildingKind.MagiSanctum]: ['Research', 'Open the Magi Sanctum menu: Hexcraft research. Wands and robes are upgraded on the mages themselves. Esc goes back.'],
-  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, sticks, carts and trinkets, the better ones with the main base\'s tiers. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
+  [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, sticks, carts and poison tips, the better ones with the main base\'s tiers, with the trinkets under Trinkets and the breaking of weapons, armour and shields back into materials under Scrap equipment. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
   [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults and ballistas from main base tier 3, bronze and iron cannons at tier 4. It works with no workers. Esc goes back.'],
 };
 

@@ -130,7 +130,9 @@ export function productIcon(product: number): ButtonIcon | undefined {
   }
   if (ps.slaughter !== undefined) return one(modelIconFile(speciesSpec(ps.slaughter).model));
   if (ps.recipe !== undefined) {
-    const out = recipeSpec(ps.recipe).outputs[0]?.[0];
+    // A scrap shows the piece it breaks up (Patch 5).
+    const r = recipeSpec(ps.recipe);
+    const out = r.scrap ?? r.outputs[0]?.[0];
     const icon = out === undefined ? undefined : goodIcon(out);
     return icon ? { layers: [{ file: icon.file, ...(icon.tint ? { filter: icon.tint } : {}) }] } : undefined;
   }

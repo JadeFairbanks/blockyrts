@@ -166,12 +166,15 @@ describe('godmode (Patch 5)', () => {
     const troop = (t: number): number => [...Array(e.count).keys()].filter((i) => e.owner[i] === 0 && e.kind[i] === UnitKind.Warrior && e.troop[i] === t).sort((p, q) => e.id[q]! - e.id[p]!)[0]!;
     expect([e.wTier[troop(Troop.Close)], e.aTier[troop(Troop.Close)]]).toEqual([TOP_TIER, TOP_TIER]);
     expect(e.mount[troop(Troop.Cavalry)]).toBe(Mount.Horse);
-    // Morvath comes once; a second is refused while he is out. (Not by the head count: the units placed
-    // above fight the monsters placed beside them, and a slime killed in that step splits into three.)
+    // Morvath comes once; a second is refused while he is out.
     const morvath = GOD_SPAWNS.findIndex((g) => g.what === 'boss');
-    const heard = run(s, [at(morvath)]);
+    const next = s.nextEntityId;
+    run(s, [at(morvath)]);
     expect([...Array(e.count).keys()].filter((i) => e.kind[i] === UnitKind.Mob && e.mob[i] === Mob.Morvath).length).toBe(1);
-    expect(heard.some((ev) => ev.kind === 'alert' && ev.text === 'Morvath is already here.')).toBe(true);
+    // Nothing comes for the refused click: on this step the necromancer placed above may raise his dead (Patch 5, MB-5),
+    // wild animals may wander in, and a slime killed by the units placed above splits (the Dreadnought sweeps), but no other monster.
+    const added = [...Array(e.count).keys()].filter((i) => e.id[i]! >= next && e.kind[i] === UnitKind.Mob);
+    expect(added.filter((i) => e.mob[i] !== Mob.Zombie && e.mob[i] !== Mob.SkeletonArcher && e.mob[i] !== Mob.SmallSlime)).toEqual([]);
   });
 
   it('raises every unit to the top rank, heals everything, kills chosen units and clears the monsters round a point', () => {

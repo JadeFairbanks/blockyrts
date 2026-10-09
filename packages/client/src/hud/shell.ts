@@ -67,6 +67,7 @@ import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
+import { remarkLine, remarkVoice, sceneOf } from './remarks.ts';
 import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
 import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
 import { YesNoButtons } from './yes-no.ts';
@@ -78,6 +79,7 @@ import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
+import { CardPop } from './card-pop.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
 import { speechToPanel } from './wording.ts';
@@ -235,6 +237,8 @@ export class GameShell {
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
+  /** A card button's right-click dropdown (Patch 5: the Workshop's Scrap 1, Scrap 10, Scrap all). */
+  private readonly cardPop: CardPop;
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
   /** Selected units seen outside any building at the last info (CT-2, CT-3: leaveForBuildings). */
@@ -405,7 +409,7 @@ export class GameShell {
     this.input = new InputManager(
       {
         game: this.gameMouse(),
-        anyPress: (button, inHud, el) => this.panel.cards.pressed(button === Btn.Left, inHud, el),
+        anyPress: (button, inHud, el) => this.cardPop.pressed(inHud, el) || this.panel.cards.pressed(button === Btn.Left, inHud, el),
         hudPress: (_panel, button, area) => {
           // Clicking a HUD panel other than the minimap cancels a targeted command (not the ghost: the card is how the player picks another).
           if (this.commands.targeting && area !== 'minimap' && button !== Btn.Middle) {
@@ -494,6 +498,7 @@ export class GameShell {
       centreOn: (list) => this.centreOn(list),
       message: (t) => this.message(t),
     });
+    this.cardPop = new CardPop(this.layout.cardPop, this.buttons);
     this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionExtra, this.layout.selectionBody, this.layout.tierStrip, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),
@@ -532,7 +537,7 @@ export class GameShell {
       look: (t) => {
         const u = entityIdOf(t.key);
         const info = u === null ? null : this.game.unit(u);
-        return info ? { troop: info.troop, wTier: info.wTier } : null;
+        return info ? { troop: info.troop, wTier: info.wTier, aTier: info.aTier } : null;
       },
       queueLeft: (b) => {
         const head = b.queue[0];
@@ -967,9 +972,11 @@ export class GameShell {
       if (t.typeKey.startsWith('people:')) {
         const spec = PEOPLE_UNITS[Number(t.typeKey.slice(7))];
         if (spec) out.push([id, REMARK_KEYS[spec.people]!]);
-      } else if (t.owner === this.player) {
-        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey.startsWith('warrior') ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
-        if (key) out.push([id, key]);
+      } else if (t.owner < 8 && (t.typeKey === 'worker' || t.typeKey.startsWith('warrior') || t.typeKey.startsWith('mage:'))) {
+        // Every player's workers, troops and mages (Jade's Patch 5, GP-28), each in its own voice.
+        const u = this.game.unit(id);
+        const voice = u ? remarkVoice(u.kind, u.troop, u.mount) : '';
+        if (voice) out.push([id, voice]);
       }
     }
     return out;
@@ -1570,7 +1577,7 @@ export class GameShell {
     }
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
-      if (this.panel.cards.close()) return;
+      if (this.cardPop.close() || this.panel.cards.close()) return;
       if (this.godPick >= 0) this.dropSpawn();
       else if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
@@ -1801,7 +1808,10 @@ export class GameShell {
     const sitting = new Set(this.game.tinkering().map(([id]) => id));
     // No random remarks while the game is paused (Jade's patch notes 1). Bubbles sit over the bar stacks.
     const anchor = { head: (id: number) => this.overMarks(`e:${id}`, this.headOnScreen(id)), roof: (id: number) => this.overMarks(`b:${id}`, this.roofOnScreen(id)) };
-    this.bubbles.update(now, anchor, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
+    this.bubbles.update(now, anchor, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting, (id, voice) => {
+      const scene = sceneOf(this.game, id, voice);
+      return scene ? remarkLine(scene) : null;
+    });
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -2165,12 +2175,15 @@ export class GameShell {
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
+        ...(e.choices ? { onRightClick: () => this.cardPop.show(b.el, e.action, e.choices!()) } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);
       b.el.hidden = false;
     }
+    // The dropdown goes with the button it was opened on.
+    if (this.cardPop.open && !card.slice(0, fit.shown).some((e) => e.action === this.cardPop.action && e.enabled)) this.cardPop.close();
     this.input.refreshHover();
   }
 }

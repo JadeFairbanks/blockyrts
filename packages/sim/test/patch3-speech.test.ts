@@ -199,7 +199,7 @@ describe("a timed action's bubble (Jade's Patch 3: present tense, up while the b
     const pool = s.players[0]!.pool;
     const [hero] = units(s, UnitKind.Warrior);
     pool.fill(0);
-    // A flint hand-axe and a leather jerkin with a wooden shield.
+    // A flint hand-axe, a leather jerkin and a wooden shield (its own slot from Patch 5).
     pool[Res.Sticks] = 2;
     pool[Res.Flint] = 1;
     pool[Res.Leather] = 4;
@@ -207,16 +207,17 @@ describe("a timed action's bubble (Jade's Patch 3: present tense, up while the b
     const id = e.id[hero!]!;
     const said: Array<{ text: string; hold: string | undefined; sitting: boolean }> = [];
     let evs = run(s, 1, [{ kind: 'upgradeEquipment', player: 0, units: [id] }]);
-    for (let k = 0; k < 6000 && !(e.wTier[hero!] === 2 && e.aTier[hero!] === 1 && e.queue[hero!]!.length === 0); k++) {
+    for (let k = 0; k < 6000 && !(e.wTier[hero!] === 2 && e.aTier[hero!] === 1 && e.sTier[hero!] === 1 && e.queue[hero!]!.length === 0); k++) {
       for (const x of evs) if (x.kind === 'speech' && x.speaker === id) said.push({ text: x.text, hold: x.hold, sitting: tinkering(s, hero!) });
       evs = run(s, 1);
     }
     for (const x of evs) if (x.kind === 'speech' && x.speaker === id) said.push({ text: x.text, hold: x.hold, sitting: tinkering(s, hero!) });
-    const lines = said.filter((x) => !x.text.startsWith('Off to'));
-    expect(lines.map((x) => x.text)).toEqual(['Upgrading to flint hand-axe.', 'Upgrading to leather jerkin.', 'Upgraded to leather jerkin.']);
+    // (The empty stores leave it hungry on the way, which it says too.)
+    const lines = said.filter((x) => x.text.startsWith('Upgrad'));
+    expect(lines.map((x) => x.text)).toEqual(['Upgrading to flint hand-axe.', 'Upgrading to leather jerkin.', 'Upgrading to wooden shield.', 'Upgraded to wooden shield.']);
     // The present-tense lines come as the bar starts and are held for it.
-    expect(lines.slice(0, 2).every((x) => x.hold === 'bar' && x.sitting)).toBe(true);
-    expect(lines[2]!.hold).toBeUndefined();
+    expect(lines.slice(0, 3).every((x) => x.hold === 'bar' && x.sitting)).toBe(true);
+    expect(lines[3]!.hold).toBeUndefined();
   });
 });
 

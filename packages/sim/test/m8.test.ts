@@ -313,7 +313,7 @@ describe('tier 8: the Artillery workshop and the Citadel\'s engine platform', ()
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
     const p = s.players[0]!;
     p.pool[Res.Venison] = 200;
-    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder.
+    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder, and from Patch 5 two lead ore.
     for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1], [Res.LeadOre, 2]] as const) p.pool[r] = n;
     const product = troopProduct(Troop.Ranger, 8, 0);
     expect(productProblem(s, barracks, product)).toBe('Needs a Forge.');
@@ -393,6 +393,16 @@ describe('tier 8: the Artillery workshop and the Citadel\'s engine platform', ()
     run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: up, count: 1 }]);
     runUntil(s, () => e.mob[e.indexOf(gunId)] === Engine.Mangonel, engineSpec(Engine.Mangonel).steps + 10 * SEC);
     expect(e.inside[e.indexOf(gunId)]).toBe(base.id);
+    // Destroyed, its crew stay up there and man the next one built there, with no new crewmen.
+    const crewIds = crewSworn(s, e.indexOf(gunId)).map((j) => e.id[j]!);
+    expect(crewIds).toHaveLength(engineSpec(Engine.Mangonel).crew);
+    e.hp[e.indexOf(gunId)] = 0;
+    run(s, 5 * SEC);
+    expect(crewIds.every((id) => e.inside[e.indexOf(id)] === base.id)).toBe(true);
+    expect(productProblem(s, base, ENGINE_PRODUCT + Engine.Mangonel)).toBe('');
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: ENGINE_PRODUCT + Engine.Mangonel, count: 1 }]);
+    runUntil(s, () => platformEngine(s, base.id) >= 0, engineSpec(Engine.Mangonel).steps + 10 * SEC);
+    expect(crewSworn(s, platformEngine(s, base.id)).map((j) => e.id[j]!).sort()).toEqual([...crewIds].sort());
   });
 
   it('a Dwarf city fields gunners, cannon crew and two cannons', () => {

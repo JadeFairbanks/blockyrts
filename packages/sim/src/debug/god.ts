@@ -33,7 +33,7 @@ import { LAIRS } from '../threats/data.ts';
 import { addLair, nightNow } from '../threats/lairs.ts';
 import { BOSS_FIRST_NIGHT } from '../threats/types.ts';
 import { addDreadnought, isDreadnought } from '../units/dreadnought.ts';
-import { TOP_MAGE_TIER, TOP_TIER, Troop, TROOP_TYPES, troopTierName, weaponTiers } from '../units/kits.ts';
+import { hasShield, TOP_MAGE_TIER, TOP_SHIELD_TIER, TOP_TIER, Troop, TROOP_TYPES, troopTierName, weaponTiers } from '../units/kits.ts';
 import { setWorkerRank, WORKER_XP_TENTHS } from '../units/ranks.ts';
 
 /** What a godmode pool holds of every resource, filled again each step. */
@@ -126,8 +126,8 @@ export function godPlace(state: SimState, player: number, what: number, x: numbe
         e.heading[addDreadnought(state, player, x, z)] = 32768;
         break;
       }
-      // At the top of its ladder: carbon steel, or the brawler's one kit; cavalry on a horse.
-      const i = addWarrior(state, player, x, z, s.id, weaponTiers(s.id)[1], TOP_TIER);
+      // At the top of its ladder: carbon steel, or the brawler's one kit, close melee with the top shield (Patch 5); cavalry on a horse.
+      const i = addWarrior(state, player, x, z, s.id, weaponTiers(s.id)[1], TOP_TIER, hasShield(s.id) ? TOP_SHIELD_TIER : 0);
       e.heading[i] = 32768;
       if (s.id === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, 0, 0);
       break;

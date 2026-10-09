@@ -3,7 +3,8 @@
 // their kit drawn at its tier (Patch 5, Jade: "no invisible equippable gear"):
 // the weapon in hand and the other carried, shield, armour worn on the body,
 // helmet, quiver or bolt case, a worker's tool for the job in hand and the
-// rest of its kit hung on it, what it carries and its cart. Each task plays
+// rest of its kit hung on it, what it carries and its cart, and from rank 2
+// the rank's bands on the left arm. Each task plays
 // its own clip. Every night mob is on its catalogue model with the gear it is
 // made with (a coloured block until the model is in the library); the
 // injured and death clips, arrows, stones and webs in flight, and the little
@@ -18,9 +19,12 @@
 // stalker shows only as a shimmer. The models take the fog of war like the
 // land (remembered lairs and huts darkened), and the local player's own
 // units carry their ids for the hidden-unit outlines (Jade's Patch 3,
-// hidden-outlines.ts).
+// hidden-outlines.ts). Jade's Patch 5: Morvath takes flight with his own
+// clips and drains the life round him in white motes, his staff's blow
+// bursts violet, the necromancer flies his crimson bolt and raises his dead
+// in crimson, and a mana crystal's guardians pulse with thin blue light.
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
@@ -285,7 +289,17 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
   fell: { colour: 0x9a6a3a, n: 18, speed: 3, up: 3.2 },
   bomb: { colour: 0xff8020, n: 40, speed: 5, up: 3.5 },
   dirt: { colour: 0x6a4a2a, n: 14, speed: 2.2, up: 2.6 },
+  // Jade's Patch 5: the necromancer's bolt and his dead rising, and a summoner's call (onHits adds the violet ring and the white drain).
+  crimson: { colour: 0xc0102a, n: 18, speed: 2, up: 1.8 },
+  summon: { colour: 0x8a1030, n: 30, speed: 1.4, up: 2.6 },
 };
+
+/** Morvath's staff burst (Jade's Patch 5): vivid purple motes over its 1 m round where the blow lands. */
+const VIOLET = { colour: 0xa030ff, n: 40, radiusM: 1 };
+/** Life drained into Morvath: white motes streaming to him (the sim sends one for every 2 health). */
+const DRAIN_COLOUR = 0xf4f4ff;
+/** A mana crystal's guardian (Jade's Patch 5, MB-13): thin blue light rising round it, pulsing, motes a second at the peak and the pulse's length, s. */
+const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 
 /** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */
 const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
@@ -322,6 +336,9 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.7, w: 0.7, colour: 0xd8d0b8 },
   { len: 0.35, w: 0.35, colour: 0xff5010 },
   { len: 0.5, w: 0.45, colour: 0xff3010 },
+  // A bronze cannon's shot (Patch 5, MB-8), and the necromancer's crimson bolt (Jade's Patch 5), until their models are in the library.
+  { len: 0.12, w: 0.12, colour: 0x8a5a2a },
+  { len: 0.5, w: 0.2, colour: 0xc0102a },
 ];
 
 /** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5); the gunpowder ones trail a streak too. */
@@ -331,6 +348,11 @@ const SHOT_MODELS: Record<number, string> = {
   [Shot.Fireball]: SPELLS[Spell.Fireball]!.model,
   [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model,
 };
+/** Shot models made pointing down -Z (Jade's crimson bolt): turned about to fly head first. */
+const SHOT_MODELS_BACKWARD: ReadonlySet<number> = new Set([Shot.NecroBolt]);
+/** After his change, Morvath's wings stay spread this long, ms: the rest of the 5 s his wings drain (sim LATE.wings) after the 3.4 s change. */
+const MORVATH_WINGS_MS = 1600;
+const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 /** Where a spell lands, by Spell: the colour of its motes, how many and how far they fly. */
 const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up: number }> = [
@@ -625,6 +647,28 @@ class Particles {
     }
   }
 
+  /** Motes from a point that reach another as they fade (gravity allowed for), spread a little where they start. */
+  stream(x: number, y: number, z: number, tx: number, ty: number, tz: number, colour: number, n: number): void {
+    const c = new THREE.Color(colour);
+    for (let k = 0; k < n && this.n < MAX_PARTICLES; k++) {
+      const o = this.n * 8;
+      const life = 0.6 + Math.random() * 0.4;
+      const sx = x + (Math.random() - 0.5) * 0.4;
+      const sy = y + (Math.random() - 0.5) * 0.4;
+      const sz = z + (Math.random() - 0.5) * 0.4;
+      this.p[o] = sx;
+      this.p[o + 1] = sy;
+      this.p[o + 2] = sz;
+      this.p[o + 3] = (tx - sx) / life;
+      this.p[o + 4] = (ty - sy) / life + 4.9 * life;
+      this.p[o + 5] = (tz - sz) / life;
+      this.p[o + 6] = 0;
+      this.p[o + 7] = life;
+      this.colours[this.n] = c;
+      this.n++;
+    }
+  }
+
   update(dt: number): void {
     const p = this.p;
     let w = 0;
@@ -810,6 +854,11 @@ export class UnitsView {
   /** The Dreadnoughts' blows and war cries (Patch 5), and his swing's crescents. */
   private readonly dread = new DreadnoughtLooks();
   private readonly crescents: Crescents;
+  /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
+  private readonly held = new Map<number, { clip: string; t0: number; until: number; then?: { clip: string; ms: number } }>();
+  /** Each Morvath's form last seen, by entity id, and where each stands now (metres), for the life drained into him. */
+  private readonly forms = new Map<number, number>();
+  private readonly morvathAt = new Map<number, THREE.Vector3>();
   private lastFrame = 0;
 
   constructor(
@@ -960,6 +1009,57 @@ export class UnitsView {
     this.owned.push(rec);
   }
 
+  /** Plays a clip through on a monster from now (its whole length), then `then` for `thenMs`. */
+  private hold(id: number, clip: string, now: number, then?: { clip: string; ms: number }): void {
+    this.held.set(id, then ? { clip, t0: now, until: -1, then } : { clip, t0: now, until: -1 });
+  }
+
+  /** The clip a monster plays through now and how far into it, s, or null. */
+  private heldClip(id: number, model: ModelData, now: number): [string, number] | null {
+    const h = this.held.get(id);
+    if (!h) return null;
+    const c = model.clips.get(h.clip);
+    if (!c) {
+      this.held.delete(id);
+      return null;
+    }
+    if (h.until < 0) h.until = h.t0 + c.length * 1000;
+    if (now >= h.until) {
+      if (h.then && model.clips.has(h.then.clip)) {
+        this.held.set(id, { clip: h.then.clip, t0: h.until, until: h.until + h.then.ms });
+        return this.heldClip(id, model, now);
+      }
+      this.held.delete(id);
+      return null;
+    }
+    return [h.clip, (now - h.t0) / 1000];
+  }
+
+  /** Morvath seen this frame: where his middle is (metres), and as he takes flight his change and wings spread while he drains (5 s in all, sim LATE.wings). */
+  private noteMorvath(id: number, mob: number, x: number, y: number, z: number, now: number): void {
+    const was = this.forms.get(id);
+    this.forms.set(id, mob);
+    const at = this.morvathAt.get(id);
+    if (at) at.set(x, y, z);
+    else this.morvathAt.set(id, new THREE.Vector3(x, y, z));
+    if (was === Mob.Morvath && mob === Mob.MorvathAloft) this.hold(id, 'phase_two_transform', now, { clip: 'wings_spread', ms: MORVATH_WINGS_MS });
+  }
+
+  /** A mana crystal's guardian's glow: thin blue light rising up it, pulsing. */
+  private guardianGlow(x: number, y: number, z: number, halfW: number, height: number, t: number, dt: number): void {
+    const g = GUARDIAN_GLOW;
+    const pulse = 0.5 + 0.5 * Math.sin((t / g.pulseS) * Math.PI * 2);
+    let n = g.perSecond * pulse * dt;
+    while (n > 0) {
+      if (n < 1 && Math.random() >= n) break;
+      n--;
+      const a = Math.random() * Math.PI * 2;
+      const px = x + Math.cos(a) * halfW * 1.1;
+      const pz = z + Math.sin(a) * halfW * 1.1;
+      this.particles.stream(px, y + Math.random() * height * 0.3, pz, px, y + height * (0.8 + Math.random() * 0.4), pz, g.colour, 1);
+    }
+  }
+
   /**
    * A gun going off (Patch 5, Jade's MB-7): a flash of light, a spray of tiny
    * sparks out of the muzzle along `heading` (radians, three.js rotation.y),
@@ -995,6 +1095,20 @@ export class UnitsView {
       if (h.look === 'warcry') this.dread.cry(h.id, now);
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
+      // Jade's Patch 5: Morvath's staff bursts violet over its 1 m, the life he drains streams to him, and a summoner or Morvath at his spell plays its clip through.
+      if (h.look === 'violet') {
+        for (let k = 0; k < VIOLET.n; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const r = Math.sqrt(Math.random()) * VIOLET.radiusM;
+          this.particles.spawn(x + Math.cos(a) * r, y + 0.1, z + Math.sin(a) * r, VIOLET.colour, 1, 0.5, 1.6);
+        }
+      }
+      if (h.look === 'drain' && h.to !== undefined) {
+        const to = this.morvathAt.get(h.to);
+        if (to) this.particles.stream(x, y, z, to.x, to.y, to.z, DRAIN_COLOUR, Math.min(60, h.n ?? 1));
+      }
+      if (h.look === 'summon') this.hold(h.id, 'summon', now);
+      if (h.look === 'spell' && this.forms.has(h.id)) this.hold(h.id, 'cast_spell', now);
       // Patch 5 (MB-6): a cannonball's blast throws up dirt and smoke too; a wall breaker's leaves smoke rising (BL-7).
       if (h.look === 'blast' || h.look === 'bomb') {
         this.particles.spawn(x, y, z, 0x505050, 24, 3, 3);
@@ -1098,12 +1212,16 @@ export class UnitsView {
           continue;
         }
         if (spec.tint === 'rift' && Math.random() < dt * 5) this.particles.spawn(x, y + spec.height / WU_PER_METRE, z, 0xb040ff, 1, 0.6, 1.2);
+        if (mob === Mob.Morvath || mob === Mob.MorvathAloft) this.noteMorvath(id, mob, x, y + spec.height / WU_PER_METRE / 2, z, now);
+        if (flags & UnitFlag.Guardian) this.guardianGlow(x, y, z, spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE, t, dt);
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           // With the weapons and gear it is made with (Patch 5: they were all hidden before).
           const slot = pool.take(pool.model.sidecar.partsShown ?? []);
+          const kept = this.heldClip(id, pool.model, now);
+          const clip = kept ? kept[0] : mob === Mob.MorvathAloft ? aloftClip(pool.model, d, o) : mobClip(pool.model, d, o);
           if (slot) {
-            slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null, mobScale(spec.model, spec.height));
+            slot.m.setInstance(slot.i, x, y, z, heading, clip, kept ? kept[1] : clipT, null, mobScale(spec.model, spec.height));
             // A wall breaker's fuse fizzes with tiny sparks, from the fuse on its bomb (Patch 5, Jade's BL-7).
             const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('fx_fuse') : -1;
             if (fuse >= 0) {
@@ -1273,6 +1391,9 @@ export class UnitsView {
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     this.dread.keep(live);
+    for (const id of this.held.keys()) if (!live.has(id)) this.held.delete(id);
+    for (const id of this.forms.keys()) if (!live.has(id)) this.forms.delete(id);
+    for (const id of this.morvathAt.keys()) if (!live.has(id)) this.morvathAt.delete(id);
     blocks = this.drawCorpses(t, blocks);
     blocks = this.drawRuins(f, blocks);
     for (const b of this.bodies.values()) b.commit();
@@ -1415,7 +1536,9 @@ export class UnitsView {
       const pool = this.body(c.model);
       if (pool) {
         const slot = pool.take(c.parts ?? []);
-        if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, 'death', age, c.colour, c.mob >= 0 ? mobScale(c.model, mobSpec(c.mob).height) : 1);
+        // Morvath aloft falls with his second form's death (Jade's Patch 5).
+        const death = c.mob === Mob.MorvathAloft && pool.model.clips.has('death_phase_two') ? 'death_phase_two' : 'death';
+        if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, death, age, c.colour, c.mob >= 0 ? mobScale(c.model, mobSpec(c.mob).height) : 1);
       } else if (c.mob >= 0) {
         const spec = mobSpec(c.mob);
         const dummy = this.dummy;
@@ -1489,6 +1612,7 @@ export class UnitsView {
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
+      if (SHOT_MODELS_BACKWARD.has(s[o + 6]!)) dummy.quaternion.multiply(HALF_TURN);
       const gun = GUNPOWDER.has(s[o + 6]!);
       // A bronze cannon's shot is smaller than an iron one's (MB-8).
       const size = s[o + 6] === Shot.BronzeCannonball ? 0.75 : 1;
@@ -1602,6 +1726,13 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   if (flags & UnitFlag.Charging && has('charge')) return 'charge';
   if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : firstClip(model.clips, ['walk', 'ride']);
   return firstClip(model.clips, ['idle', 'ride_idle']);
+}
+
+/** Morvath aloft (Jade's Patch 5 model): his staff while he swings, his second form's walk and idle, hurt as before. */
+function aloftClip(model: ModelData, d: Int32Array, o: number): string {
+  if (d[o + S.swing] !== 0) return mobClip(model, d, o);
+  if (d[o + S.flags]! & UnitFlag.Hurt && model.clips.has('injured')) return 'injured';
+  return d[o + S.order] !== OrderKind.Idle ? firstClip(model.clips, ['walk_phase_two', 'walk']) : firstClip(model.clips, ['idle_phase_two', 'idle']);
 }
 
 /** The first of some clips a model has, else the last named. */
@@ -1735,6 +1866,7 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
       if (at) wear(look, p, parts, at[1], at[0]);
     }
   }
+  rankBands(look, d[o + S.rank]!);
   const cart = d[o + S.kit]!;
   let clip = 'idle';
   if (swing !== 0) clip = 'attack_1h_slash';
@@ -1756,6 +1888,11 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
   }
   look.clip = clipOr(body, clip, c.moving);
   return look;
+}
+
+/** A worker's or warrior's rank on the left upper arm, over any armour: bands from rank 2 (rank_mark_2 to _5; rank 1 has none). */
+function rankBands(look: Look, rank: number): void {
+  if (rank >= 2) look.worn.push(`rank_mark_${Math.min(5, rank)}`);
 }
 
 /** The job of the tool a worker has in hand, as the sim picks it (units/tools.ts toolInHand): building and relighting, chopping, mining and digging, or farming. */
@@ -1826,6 +1963,7 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
   else if (/^crossbow/.test(shot)) wear(look, 'bolt_case', parts);
   for (const p of piecesOf(d[o + S.shield]!)) wear(look, p, parts);
   for (const p of piecesOf(d[o + S.armour]!)) wear(look, p, parts);
+  rankBands(look, d[o + S.rank]!);
   if (d[o + S.task] === Task.Crew && d[o + S.troop] === Troop.Crew && swing === 0 && body) {
     if (c.moving) look.clip = 'cannon_push';
     else {

@@ -17,6 +17,15 @@ export const BAKE_FPS = 30;
 /** Floats per baked bone matrix: an affine 3 x 4 matrix, column-major. */
 export const BAKED_STRIDE = 12;
 
+/** The looping clip a model gets when it has a bone that turns round and round. */
+export const TURN_CLIP = 'turn';
+
+/** Seconds a turning bone takes to go once round. */
+const TURN_SECONDS = 4;
+
+/** Bones that turn round their own axis without stopping: the Big House's spit roast (Patch 5, VX-3). */
+const TURNING_BONES: ReadonlyMap<string, THREE.Vector3> = new Map([['spit_roast', new THREE.Vector3(1, 0, 0)]]);
+
 export interface BakedClip {
   name: string;
   /** Seconds. */
@@ -192,6 +201,32 @@ async function loadModel(loader: GLTFLoader, baseUrl: string, entry: ModelIndex[
         return data;
       },
       keys: c.keys,
+    });
+  }
+
+  // A turning bone's clip: quarter turns keyed, so each step slerps the right way round.
+  const quarters = [0, 1, 2, 3, 4];
+  const turning = sidecar.bones.flatMap((b, i) => {
+    const axis = TURNING_BONES.get(b.name);
+    if (!axis) return [];
+    const q = new THREE.Quaternion();
+    const values = quarters.flatMap((k) => q.setFromAxisAngle(axis, (k * Math.PI) / 2).premultiply((rest[i] as THREE.Object3D).quaternion).toArray());
+    return [new THREE.QuaternionKeyframeTrack(`${b.name}.quaternion`, quarters.map((k) => (k * TURN_SECONDS) / 4), values)];
+  });
+  if (turning.length > 0 && !clips.has(TURN_CLIP)) {
+    const length = TURN_SECONDS;
+    const gltfClip = new THREE.AnimationClip(TURN_CLIP, length, turning);
+    let data: Float32Array | null = null;
+    clips.set(TURN_CLIP, {
+      name: TURN_CLIP,
+      length,
+      loop: true,
+      frames: bakedFrames(length),
+      get data(): Float32Array {
+        data ??= bake(gltfClip, sidecar, rest, restInverse, length).data;
+        return data;
+      },
+      keys: [],
     });
   }
 

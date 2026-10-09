@@ -159,7 +159,7 @@ describe('early tools by job', () => {
     expect(toolNeeded(ToolJob.Break, Tool.Flint)).toBe('copper pickaxe');
   });
 
-  it('are had at the Big House on day 0: Upgrade Tools pays 6 sticks, 1 flint and 5 stone and takes 15 s', () => {
+  it('are had at the Big House on day 0: Upgrade Tools pays 6 sticks, 1 flint and 5 stone and takes 20 s', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
@@ -168,7 +168,7 @@ describe('early tools by job', () => {
     const flint = pool[Res.Flint]!;
     run(s, 1, [{ kind: 'upgradeKit', player: 0, units: [e.id[0]!], line: Line.Weapon, max: 0 }]);
     expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 6, flint - 1, stone - 5]);
-    // Half the kit's 30 s beside the Big House.
+    // The 30 s kit less the 10 s of the wooden one it replaces (Patch 5, BL-11: never quicker than training it), beside the Big House.
     let bar = 0;
     let beside = 0;
     runUntil(
@@ -183,10 +183,10 @@ describe('early tools by job', () => {
       },
       1000,
     );
-    expect(bar).toBe(300);
-    expect(beside).toBeGreaterThanOrEqual(299);
-    // The hardwood kit is scrapped with a full refund (3 sticks).
-    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 3, flint - 1, stone - 5]);
+    expect(bar).toBe(400);
+    expect(beside).toBeGreaterThanOrEqual(399);
+    // The wooden tools go to stock as an item (Patch 5, GP-3), no longer back to their sticks.
+    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone], pool[Res.WoodenTools]]).toEqual([sticks - 6, flint - 1, stone - 5, 1]);
   });
 
   it('quarry a stone outcrop with the digging stick, and mine copper only with a stone maul (Table 5)', () => {
@@ -348,6 +348,19 @@ describe('moving over the land', () => {
     // Down: a drop of up to 9 units is stepped or jumped down; more is climbed down.
     expect(s.nav.stepCost(x + 5, z, x + 4, z, fighter)).toBe(10);
     expect(s.nav.climbStep(x + 9, z, x + 10, z, worker, y + 36)).toBe(true);
+  });
+
+  it('never climbs an earth rampart: it blocks its columns like any wall (Patch 5 decision 3: climbing is for land and rock only)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const { x, z } = flatSpot(s, 8, 4);
+    const b = placeBuilding(s, 0, BuildingKind.EarthRampart, 0, x + 3, z + 1, true);
+    const solid: Array<[number, number]> = [];
+    for (let dz = -1; dz < 4; dz++) for (let dx = -1; dx < 4; dx++) if (s.buildings.solidAt(x + 3 + dx, z + 1 + dz) === b.id) solid.push([x + 3 + dx, z + 1 + dz]);
+    expect(solid).toHaveLength(4);
+    const [cx, cz] = solid[0]!;
+    // A worker climbs faces of land up to 7 m, but not the 2 m rampart.
+    expect(s.nav.stepCost(cx - 1, cz, cx, cz, gaitMover(Gait.Worker))).toBe(-1);
+    expect(s.nav.stepCost(cx - 1, cz, cx, cz, gaitMover(Gait.Fighter))).toBe(-1);
   });
 
   it('hops onto a 5 unit platform, climbs a 3 m face at a fifth of its walk, and a fighter never gets onto a 4.5 m one', () => {
