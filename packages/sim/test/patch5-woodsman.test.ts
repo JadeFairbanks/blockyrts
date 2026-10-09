@@ -191,7 +191,7 @@ describe('the woodsman (Patch 5)', () => {
     const w = addWarrior(s, 0, hx + 8 * M, hz, Troop.Woodsman, 1, 0);
     const sp = addWarrior(s, 0, hx + 10 * M, hz, Troop.Long, 1, 0);
     expect(meleeOf(s, sp).damage - meleeOf(s, w).damage).toBe(WOODSMAN.damageLess);
-    const h = { kind: 'warrior' as const, troop: Troop.Woodsman, w: 1, a: 0 };
+    const h = { kind: 'warrior' as const, troop: Troop.Woodsman, w: 1, a: 0, s: 0, t: 0 };
     expect(lineTop(h, Line.Armour)).toBe(0);
     expect(lineTop(h, Line.Weapon)).toBeGreaterThan(1);
     expect([BuildingKind.MainBase, BuildingKind.Forge, BuildingKind.Barracks].map((k) => upgradesAt(h, k))).toEqual([true, false, false]);

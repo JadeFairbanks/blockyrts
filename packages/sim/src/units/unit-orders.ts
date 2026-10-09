@@ -55,8 +55,14 @@ export type UnitOrder =
   | { t: 'kitUp'; line: number; to: number; ways: number; paid: number; b: number }
   /** A worker takes a cart from the pool at a main base (res: economy Res.HandCart or Res.OxCart), or hands its cart back there (res 0). */
   | { t: 'cart'; b: number; res: number }
-  /** Dig out, or heap up, a marked site (Digging and building up the land). */
-  | { t: 'dig'; site: number }
+  /**
+   * Dig out a marked site (Digging). `band`: the level, terrain units, the
+   * digger takes its column down to before it moves on to another (Jade's
+   * Patch 5, GP-4: the high points first, spread over the area); `miss`: the
+   * walks to a column it could not reach since its last load home, so it
+   * takes the nearest column rather than the highest (units/dig.ts).
+   */
+  | { t: 'dig'; site: number; band: number; miss: number }
   /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
@@ -151,7 +157,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   hold: [],
   kitUp: ['line', 'to', 'ways', 'paid', 'b'],
   cart: ['b', 'res'],
-  dig: ['site'],
+  dig: ['site', 'band', 'miss'],
   hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],

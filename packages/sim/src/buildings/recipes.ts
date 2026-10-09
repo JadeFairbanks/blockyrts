@@ -11,9 +11,10 @@
 // "Lumber" is either kind, softwood or hardwood (Patch 5, Jade: "Make all
 // things that require lumber or sticks able to use either type of lumber").
 
-import { Res, TRINKET_METALS, trinketRes, type Cost } from '../economy/resources.ts';
+import { Res, RESOURCES, TRINKET_METALS, trinketRes, type Cost } from '../economy/resources.ts';
 import { haveOf } from '../economy/food-kinds.ts';
 import { STEPS_PER_SECOND } from '../fixed.ts';
+import { gearItemPieces, scrapYield } from '../units/kits.ts';
 import { BuildingKind, FORGE_STEP_BASE } from './data.ts';
 
 export interface RecipeSpec {
@@ -41,6 +42,12 @@ export interface RecipeSpec {
    * its count goes down as each one is done.
    */
   stack?: boolean;
+  /**
+   * Scrap equipment (Patch 5, GP-3): the gear item it scraps. Queued as a
+   * stack (any number in one queue slot), the bar runs once per item and
+   * each one's materials come in as it finishes.
+   */
+  scrap?: Res;
 }
 
 const sec = (n: number): number => n * STEPS_PER_SECOND;
@@ -103,6 +110,18 @@ function trinketRecipes(): Array<Omit<RecipeSpec, 'id'>> {
   return out;
 }
 
+/**
+ * Scrap equipment at the Workshop (Patch 5, GP-3): a weapon, armour, shield,
+ * tool kit, wand or robe from stock back to the materials it is made from
+ * (units/kits.ts scrapYield), "a blanket 10s per item" (Jade): 20 s of work
+ * at the Workshop's CRAFT_PACE.
+ */
+function scrapRecipes(): Array<Omit<RecipeSpec, 'id'>> {
+  return gearItemPieces().map(([item, p]) => ({
+    name: `Scrap ${RESOURCES[item]!.name.toLowerCase()}`, at: WORKSHOP, base: 0, inputs: [[[item, 1]]], outputs: scrapYield(p), steps: sec(20), research: 0, scrap: item,
+  }));
+}
+
 const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   // Table 2b at the Forge, which only smelts, a metal at each of its steps (FORGE_STEP_BASE): copper, tin and bronze from the start (the
   // Casting Hearth before Patch 2), wrought iron at main base tier 2 (the Bloomery), then pig iron, iron, steel and carbon steel at
@@ -141,6 +160,9 @@ const LIST: ReadonlyArray<Omit<RecipeSpec, 'id'>> = [
   { name: 'Sunheart', at: WORKSHOP, base: 3, inputs: [[[Res.Gold, 3], [Res.Rubies, 2]]], outputs: [[Res.Sunheart, 1]], steps: sec(240), research: 0 },
   // Patch 5 (Jade: "Workshop now makes bonemeal from bones, 1:1"): 4 s a bone (s), 2 s at the Workshop's pace, in stacks.
   { name: 'Bonemeal', at: WORKSHOP, base: 0, inputs: [[[Res.Bone, 1]]], outputs: [[Res.Bonemeal, 1]], steps: sec(4), research: 0, stack: true },
+  // Poison tips (Patch 5, Jade: "Venom: Yes"): one venom tips one bow or crossbow ranger's arrows or bolts, put on with Upgrade equipment.
+  { name: 'Poison tips', at: WORKSHOP, base: 0, inputs: [[[Res.Venom, 1]]], outputs: [[Res.PoisonTips, 1]], steps: sec(20), research: 0 },
+  ...scrapRecipes(),
 ];
 
 export const RECIPES: readonly RecipeSpec[] = LIST.map((r, id) => ({ ...r, id }));

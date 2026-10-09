@@ -125,7 +125,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    Houses stand 10 to 15 m away (see "How a tester checks Jade's mini
    patch").
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
-   with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
+   with the wheel or Page Up and Page Down; Home resets the zoom; hold `,`
+   or `.` to turn the camera (Patch 5), a double tap turning it back to
+   north. Right-click
    to walk your units out: the land they see turns from black to colour,
    and stays darker, still in colour, once they have left (grey before
    Patch 3; see "How a tester checks the fog look and hidden-unit
@@ -284,8 +286,9 @@ main base or farm left ends the game with the night count as the score.*
    the top with 10 m more sight. U lets them out.
 7. **Digging.** Workers, D, then drag over the ground: a see-through box shows
    the cut; + and - (or the wheel while marking) set the depth, about 34 cm a
-   step down to 3 m. Left click confirms. Marking a slope that rises more than
-   about 2 m starts a tunnel instead (+ and - then set its height); D again,
+   step down to 3 m. Left click confirms. A box over a hill digs it away
+   (Patch 5: below 0 depth the box goes up; before, a slope rising more than
+   about 2 m started a tunnel); D again,
    or a click on a cliff face, digs a level tunnel in a chain of stretches
    (see wall and tunnel chains below). Digging
    gives Earth (or stone, flint, sand...), which the workers carry to the
@@ -3403,6 +3406,69 @@ blueprint/patch5-bugs-picks.md.*
    show pinned to its edge, fainter, on the side they lie; pings off it ring
    at the edge.
 
+## How a tester checks the mobs and waves (Patch 5)
+
+*Jade's Patch 5, section 14: the mob damage cuts, the waves going for every
+base and party, towers and walls broken to reach units, waves sized with the
+player count, the waves' side of Bright Nights, Morvath's new model and his
+staff and wings, the necromancer, the Deadlands' mana crystal guardians, and
+remarks about what is round each unit. Picks in
+blueprint/patch5-mobs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-mobs.test.ts:
+   the cut blows held in tenths (a 7.6 blow is 7 or 8, 8 six times in ten),
+   the waves for two and three players within a tenth of twice and three
+   times one player's, a Bright Night leaving out that player's share (and in
+   single player the whole wave), the night's groups aimed at the base and at
+   a party out in the open, the necromancer's nights, his coming one for each
+   player on top of the threat, his summons of 9 or 10 once seen and again 60
+   s later with his 20 s bubbles, his drops, and a crystal's 2 or 3 guardians
+   coming once, keeping within 5 m, going for a worker 6 m off and never
+   coming back once killed (the guarded crystals go in the save).
+   packages/client/test/pause-controls.test.ts checks a unit's remark waits
+   its 1 to 4.5 minutes and stands still while paused.
+2. **Damage.** Monsters hit 5% softer (daytime hunters 15%), except the ones
+   Jade set herself. A zombie's blow lands as 7 or 8 against unarmoured
+   units, never 7.6.
+3. **Where the waves go.** Send two or more workers 150 m out from the town
+   and play into a night: some groups come out of the dark near them and go
+   for them while the rest go for the town; in a game with two towns far
+   apart each is attacked. A tower whose archers shoot at monsters with no
+   loose units near gets broken; walls get broken when monsters must go
+   through to reach units, and go round when a short way round exists.
+4. **Bigger with more players.** In a two or three player game the night's
+   monsters come in about two or three times the number of a single player
+   game.
+5. **Morvath.** Place him with the debugger's godmode grid. He is the new
+   4.5 m model with his staff. His blow does 200 and bursts violet over 1 m
+   round where it lands; monsters caught in it heal him, white motes flying
+   from them to him. At half health he changes (his transform clip), spreads
+   his wings and drains up to 500 health from everyone near him over 5 s,
+   once, in white motes; then he flies with his second form's clips and
+   falls with his second form's death.
+6. **The necromancer.** On nights 10, 20, 30 and 40, then every 5th night to
+   60, every 2nd to 90 and every night after, one comes for each player with
+   the waves, on top of them (or place him with godmode). Once any of your
+   units or buildings sees him he raises 9 or 10 skeleton archers and zombies
+   in crimson round him, then again every 60 s, saying so in a bubble that
+   stays 20 s. Every 10 s he casts his crimson bolt: 35 to whoever it hits
+   and 35 to anyone within 0.5 m of it. He burns at dawn with his wave.
+   Killed, he drops metal and leather from 2 to 4 weapons or armours (tier 3
+   to 5, higher once you can make higher), 1 to 5 ingots of one kind, 2 to 8
+   bones and now and then a mana crystal.
+7. **Crystal guardians.** Go out to the Deadlands (Reveal shows the far
+   bands). Each mana crystal there gets 2 or 3 ash golems and mana wraiths
+   when one of your units first comes within 60 m. They glow with thin
+   pulsing blue light, read **Mana crystal guardian** when selected, never
+   burn in the sun, stay within 5 m of the crystal, chase no farther than
+   8 m from it, and go first for a worker sent to gather the crystal. Kill
+   them and that crystal is never guarded again.
+8. **Remarks.** Watch a town for a few minutes: each worker, troop, mage and
+   people's unit on screen says something about what is round it (a monster
+   or animal near, the building beside it, what it carries or does, a crowd,
+   being alone, the time of day) once every 1 to 4.5 minutes, now and then a
+   complaint when hurt or hungry. Nobody remarks while the game is paused.
+
 ## How a tester checks the defences and siege (Patch 5)
 
 *Patch 5's defences: wider gates, the earth rampart, walls that crack and
@@ -3417,9 +3483,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
 
 1. **Gates and towers.** Build, Defences: a gate is 6 columns wide, twice
    what it was, drawn as its gate model (turned for north to south). Towers
-   are 4 by 4 columns. The stone tower is drawn as its model, with its men
-   on its top; the wooden and hardwood towers stay blocks until their models'
-   roofs are raised (too low for a man standing under them).
+   are 4 by 4 columns. Every tower is drawn as its model, with its men on its
+   top; the wooden and hardwood towers' roofs stand clear of a man's head.
 2. **Walls.** Build a wall chain that turns a corner and runs on diagonally.
    Each column is drawn as its wall model, turned along the run; where the
    wall turns, and on a diagonal's steps, a corner post. Let monsters hit a
@@ -3429,7 +3494,7 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    no health bar; clicking it shows its health in the middle as before.
 3. **The earth rampart.** Defences, **Earth rampart** (M): placed in a chain
    from point to point like a wall, in chunks 2 by 2 columns (about 1 m
-   across), each 2 m tall and costing 5 earth (a worker's full load). It has
+   across), each 2 m tall and costing 10 earth (a worker's full load). It has
    the health of one wooden wall column, shows torn earth below 70% and 40%,
    and is not dug like the land. It is a wall in every other way: your units
    cannot climb it, and climbing monsters go over it as they go over any wall.
@@ -3445,8 +3510,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    its name) and Garrison (G). Each fixed engine costs what its mobile engine
    does (lead ore and its crew's food too) and needs what that one needs
    (research and tier). Build one: it stands on the flat platform at the top
-   with its garrison artillery crewmen (drawn as the mobile engine until the
-   fixed models land), and fires at monsters in reach. Stop, Unload and
+   with its garrison artillery crewmen, drawn as its own fixed model on
+   timber braces with no wheels, and fires at monsters in reach. Stop, Unload and
    right clicks never bring it or its crew down; its card has Attack only,
    and an attack order out of its reach is dropped with "That is beyond the
    ...'s reach." While one stands there the other buttons read **Upgrade to
@@ -3468,8 +3533,10 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    bronze cannon 4 (and 40 bronze ingots) and an iron cannon 6; the fixed
    ones the same. Without it the buttons grey with the lead ore named.
 9. **Guns.** A musketeer firing shows a flash and a spray of sparks at the
-   muzzle and smoke rising for 4 s; a brawler's pistol 3 s; a cannon 5 s,
-   bigger. The ball flies as its model (the bronze cannon's smaller) with a
+   musket's muzzle (the tip of its barrel) and smoke rising for 4 s; a
+   brawler's pistol 3 s; a cannon, mobile or fixed, 5 s and bigger, from the
+   mouth of its barrel. The bronze cannon is short and fat, the iron one long
+   and dark. The ball flies as its model (the bronze cannon's smaller) with a
    faint grey dash behind it by day and a bright orange streak at night.
    Each has its gun's sound.
 10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
@@ -3477,7 +3544,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
     fells it, leaving half its lumber. A catapult stone throws up dirt, no
     fire, leaves less earth, and fells only small trees. A bronze cannon's
     shot is smaller, with a smaller blast.
-11. **The wall breaker.** A skeleton bomber's fuse fizzes with tiny sparks.
+11. **The wall breaker.** A skeleton bomber, hooded with red eyes and a black
+    skull-marked bomb, has its fuse fizzing with tiny sparks at the fuse's tip.
     When it goes off: an explosion, smoke rising for 3 s and a shallow
     crater; it hurts units half as much as before. Kill one before it reaches
     a wall and nothing goes off, and no bomb falls.
@@ -3598,6 +3666,15 @@ Picks in blueprint/patch5-client-ui-picks.md.*
    buttons; buttons never grow past 128 px. The message panel starts folded
    to a small button at the left edge over the minimap's buttons, counting
    other players' messages until opened. Bubbles stay a second longer.
+10. **Turning the camera.** Hold `,` (comma): the camera turns left round
+    the middle of the view; hold `.` (full stop) and it turns right, a half
+    turn in about 1.5 s, looking down at the same angle, so the far side of
+    a building comes into view. The arrow keys and the screen edges still pan
+    along the screen, and sounds on the left of the screen still come from
+    the left. Tap either key twice quickly: the camera turns back to north.
+    Both keys can be rebound in Settings, under Camera and selection.
+    packages/client/test/patch5-camera-turn.test.ts checks the angle, the
+    middle of the view, panning and the turn back.
 
 ## How a tester checks unit and building looks (Patch 5)
 
@@ -3670,6 +3747,55 @@ in `packages/client/src/world/buildings-view.ts`, and their models placed by
     picture in the selection grid and in a building's panel is her robe
     look's portrait, coloured as she is drawn.
 
+## How a tester checks gear as items, shields and scrapping (Patch 5)
+
+*Patch 5's GP-1, GP-3, GP-26, BL-11, UI-8 and the troop side of the unused
+goods: weapons, armour and shields as goods in the stock, close melee's
+shield slot, scrapping at the Workshop, gear in the night waves, poison
+tips. Picks in blueprint/patch5-gear-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-gear.test.ts: a
+   ready item goes on first, free, in a fifth of the time and whatever is
+   researched, unless a higher tier can be made; a troop trains with an item
+   from the stock; training low and upgrading is never quicker than training
+   high on any ladder; a scrap stack takes one place in the queue, gives each
+   one's materials as it finishes, takes more of the same into its stack and
+   gives back the rest when cancelled; spider silk pays for rope and obsidian
+   for flint; the waves carry about 0.04 pieces a night per player.
+2. **A shield of their own.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   type M N B V C X Z, press **Troop kit** and **Citadel**, and build a
+   Barracks. The close melee card has three slots: weapon, armour and
+   shield, each opening its tier strip. With stock for everything it trains
+   the best weapon, then armour, then shield; with too little left, no
+   shield. The Big House's close melee come with a wooden shield when the
+   stock pays for one. Select a swordsman: the panel shows the shield in its
+   own slot with its tier, and **Upgrade equipment** raises it like the
+   weapon and armour.
+3. **The old piece goes to the stock.** Upgrade a unit's weapon. When it is
+   done the old weapon is in the stock's new **Gear** row (last), with its
+   picture. Train a unit of that kit, or upgrade another unit to it: the
+   item goes on first, costs nothing and takes a fifth of the time; the
+   tooltip says so.
+4. **Scrapping.** Build a Workshop and open its menu: **Trinkets** holds the
+   trinkets, **Scrap equipment** every piece of equipment in the stock
+   (greyed out with none). A click scraps one, Shift + click ten; a right
+   click opens **Scrap 1**, **Scrap 10** and **Scrap all**. A stack takes one
+   place in the queue with the count on its picture; each 10 s the count
+   drops by one and that piece's materials land in the stock. Cancel it: the
+   pieces not yet scrapped come back.
+5. **The Workshop asks.** Leave a Workshop with materials in the stock for a
+   few minutes: every 200 to 300 s it asks in its bubble whether to make
+   something it can make now. Yes queues one batch; No queues nothing.
+6. **Poison tips and the other goods.** With venom in the stock, the
+   Workshop makes poison tips (1 venom). **Upgrade equipment** on a bow or
+   crossbow ranger puts them on; its panel shows them, and its hits poison
+   (the poisoned mark on the target). Spider silk pays where a bow wants
+   rope, obsidian where a kit wants flint; the pistol and musket ask for lead
+   ore (1 and 2).
+7. **Gear in the waves.** Late enough (or with many nights of **Wave**), a
+   killed monster now and then drops a weapon, armour or shield of the
+   night's tier, which units carry home like other loot.
+
 ## How a tester checks running, climbing and jumping (Patch 5)
 
 *Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
@@ -3706,9 +3832,8 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    and climbs straight up at a fifth of its walk, then steps onto the top.
    Workers climb faces up to 7 m, troops, mages and crewmen up to 4 m;
    higher faces are walked round. Faces are climbed down the same way.
-   Units out by themselves on Hunt or Gather do not climb by day, nor jump
-   down more than they can jump back up; coming home at dusk they climb
-   where they must. Their reach from home (what they walk in dusk's 40 s)
+   Units out by themselves on Hunt or Gather climb where they must too.
+   Their reach from home (what they walk in dusk's 40 s)
    counts each metre of height above or below the base as 5 m more, so a
    deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
    before still do. A climber plays its body's climb clip (Jade's improved
@@ -3722,6 +3847,58 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    down. No stairs are cut.
 7. **Saves.** No save format change; the snapshot version goes to 27 (a
    unit's Run/Walk, the run it owes food for, and the face it climbs).
+
+## How a tester checks digging and tunnels (Patch 5)
+
+*Patch 5's GP-4 (digging a hill away, digging in layers, reach), BL-2
+(digging 10 times faster, earth half the weight) and BG-6 (tunnelling into
+a cliff). Picks in blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/units/dig.ts` (its numbers are in the balance editor under
+World, "Digging") and `packages/client/src/hud/commands.ts` (the dig card,
+the box and the press on a face).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-digging.test.ts:
+   a lone worker digs a 4.5 m mound away inside a box drawn 5 m up, never
+   letting one column get more than 34 cm below another and never reaching
+   more than 2 m over its head (climbing the mound for its top), and leaves
+   the ground level with the click;
+   a pit goes down the same way, a layer at a time; four workers tunnel
+   8 columns into a 9 m cliff (too tall to climb) from its face, coming
+   back round the cliff from their main base behind it, and a worker walks
+   to the far end. packages/client/test/m3-controls.test.ts checks the
+   box going up past 0 depth and the press on a cliff face that looks
+   east or north.
+2. **Digging a hill away.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Find a hill (or raise one with the tester tools). Workers, D, and press
+   on the ground at the foot of the hill, at the height to dig down to,
+   then drag over the hill. The box covers the hill: Deeper and Shallower
+   (or the wheel) step the depth 34 cm; at 0 the dig takes everything above
+   the ground where the drag started; below 0 the box is drawn upwards from
+   there and takes only what is inside it. Steps are 34 cm up to 3 m, then
+   1 m up to 12 m, then 2 m, as far as 40.5 m. Left click marks it. The
+   workers start on the top of the hill (climbing up to it where they must)
+   and take it down a layer at a time across the whole hill.
+3. **Digging in layers.** Any dig, a pit too: the workers spread over the
+   box and take it down about 34 cm at a time everywhere, instead of
+   finishing one column before the next.
+4. **Reach.** A worker digs what is up to 2 m over its head (3.8 m above
+   its feet), from at most 1.8 m to the side, as before; higher up it
+   climbs to get at it.
+5. **Faster digging, lighter earth.** A bite of soil takes a tenth of the
+   time it did; a worker's 25 lb load holds 10 earth (5 before), a hand
+   cart 100.
+6. **Tunnelling into a cliff.** Workers, D, then press on the side of a
+   cliff, whichever way it faces: the tunnel's start is marked in the cliff
+   (it was marked on the ground in front of faces looking east or south).
+   Click on the top of the cliff further in: the tunnel runs into the
+   cliff, level with the ground in front. Two workers dig the face (it is
+   two columns wide) while the rest wait by it; they dig from the face
+   inwards, even when the base is behind the cliff. A unit standing on the
+   cliff above no longer holds the diggers up. On a cliff too tall to
+   climb, Move a unit to a spot over the tunnel's far end: it walks in
+   along the tunnel's floor.
+7. **Saves.** No save format change; the snapshot version goes to 30 (a
+   dig order's layer and missed columns, and digs drawn upwards).
 
 ## How a tester checks the woodsman, fishing, farms and the Barn (Patch 5)
 
@@ -3766,8 +3943,9 @@ woods order), `buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
    eaten 2.5 (last 10 min)" (or his life, if shorter), red while he eats
    more than he brings in, green once he brings in more than 3 food over
    every 3 meals, yellow between.
-6. **Fertilize.** At the Workshop, make bonemeal from bone: one, ten or all
-   at once, each order one stack in the queue counting down. On a farm's
+6. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
+   click makes one, Shift + click ten, and a right click offers Make 1,
+   Make 10 or Make all, each order one stack in the queue counting down. On a farm's
    card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
    2 minutes; pressed again, more boosts wait behind it (up to 10). Right
    click turns Auto fertilize on or off. Beside the farm's workers,
@@ -3795,7 +3973,7 @@ woods order), `buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
 11. **Lights.** Farms and Barns with people in them have lit windows at
     night, main bases are lit every night, an occupied farm's chimney
     smokes at night, and the Big House campfire burns with flames and smoke.
-12. **Saves.** No save format change; the snapshot version goes to 28.
+12. **Saves.** No save format change; the snapshot version goes to 31.
 
 ## License
 

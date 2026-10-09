@@ -60,7 +60,6 @@ function block(w: number, d: number): LevelFootprint {
   return { rows: Array.from({ length: d }, () => '#'.repeat(w)) };
 }
 
-/** A tower's deck, 4.1 m up (the 5 m tower less its parapet): a man at each corner. */
 /** A wall column (Patch 5): its model centred on the column; the client turns it along its stretch, puts a corner piece where it turns, and swaps in its damage states (UI-9). */
 function wallAt(id: string): LevelFootprint[] {
   return [{ models: [{ id, x: 8, z: 8 }], rows: ['#'] }];
@@ -72,8 +71,8 @@ function gateAt(id: string): LevelFootprint[] {
 }
 
 /** A tower (Patch 5: 4 columns square, as its model is), its 4 places at the model's slot_tower_1 to 4, on its fighting deck `y` units up. */
-function towerAt(id: string, y: number, drawn = true): LevelFootprint[] {
-  return [{ ...(drawn ? { models: [{ id, x: 32, z: 32 }] } : {}), rows: ['####', '####', '####', '####'], posts: [[20, 20, y], [44, 20, y], [20, 44, y], [44, 44, y]] }];
+function towerAt(id: string, y: number): LevelFootprint[] {
+  return [{ models: [{ id, x: 32, z: 32 }], rows: ['####', '####', '####', '####'], posts: [[20, 20, y], [44, 20, y], [20, 44, y], [44, 44, y]] }];
 }
 
 /** The Farm (Patch 2): the tier 1 crop field and its farmhouse in the north-west corner. */
@@ -86,7 +85,7 @@ const FARM: readonly LevelFootprint[] = [
       '.#####......',
       '.#####......',
       '.#####......',
-      '.##.##......',
+      '.#####......',
       '............',
       '............',
       '............',
@@ -127,11 +126,11 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
     {
       models: [{ id: 'main_base_l3', x: 112, z: 112 }],
       rows: [
+        '....#....#....',
         '..............',
-        '..............',
-        '..............',
+        '...##.........',
         '..##########..',
-        '...########...',
+        '..##########..',
         '..##########..',
         '..##########..',
         '..##########..',
@@ -147,10 +146,10 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
     {
       models: [{ id: 'main_base_l6', x: 112, z: 112 }],
       rows: [
+        '....######....',
         '..............',
-        '..............',
-        '..............',
-        '..............',
+        '.###..........',
+        '..##.......#..',
         '##############',
         '##############',
         '##############',
@@ -159,7 +158,7 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
         '##############',
         '#####....#####',
         '..............',
-        '..............',
+        '..........#...',
         '..............',
       ],
       posts: [[88, 88, 223], [112, 88, 223], [136, 88, 223], [88, 112, 223], [136, 112, 223], [88, 136, 223], [112, 136, 223], [136, 136, 223]],
@@ -219,16 +218,16 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
     {
       models: [{ id: 'gunnery_yard', x: 96, z: 96 }],
       rows: [
-        '............',
-        '............',
-        '............',
-        '............',
-        '............',
-        '............',
-        '............',
-        '............',
-        '............',
-        '..##.##.##..',
+        '#...#..#..##',
+        '....#..#..##',
+        '###.........',
+        '###.........',
+        '.#..........',
+        '####...#####',
+        '####.....###',
+        '####........',
+        '####........',
+        '####.#.#..#.',
         '############',
         '############',
       ],
@@ -239,13 +238,13 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       models: [{ id: 'storehouse', x: 64, z: 64 }],
       rows: [
         '........',
-        '#.####.#',
+        '.#####..',
         '########',
         '########',
         '########',
         '########',
         '########',
-        '#......#',
+        '........',
       ],
     },
   ],
@@ -278,38 +277,38 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.GateStone]: gateAt('gate_stone'),
   // The wooden towers' roofs sit 52 units over their deck, too low for the men up there (60): drawn as blocks until their models
   // have the roof raised (asked of the models session, Patch 5).
-  [BuildingKind.Tower]: towerAt('tower_softwood', 124, false),
-  [BuildingKind.TowerHardwood]: towerAt('tower_hardwood', 124, false),
+  [BuildingKind.Tower]: towerAt('tower_softwood', 124),
+  [BuildingKind.TowerHardwood]: towerAt('tower_hardwood', 124),
   [BuildingKind.TowerStone]: towerAt('tower_stone', 171),
   // Patch 5 (Jade, GP-43): 2 columns square, as its model is.
   [BuildingKind.EarthRampart]: [{ models: [{ id: 'rampart_earth', x: 16, z: 16 }], rows: ['##', '##'] }],
   // Patch 5: every building its own model, centred in its footprint.
   [BuildingKind.Workshop]: [
     {
-      models: [{ id: 'workshop_t1', x: 61, z: 59 }],
+      models: [{ id: 'workshop_t1', x: 64, z: 64 }],
       rows: [
         '........',
-        '........',
-        '.#####..',
-        '.#####..',
-        '.#####..',
-        '.#####..',
-        '.#####..',
+        '.######.',
+        '#######.',
+        '#######.',
+        '.#######',
+        '########',
+        '########',
         '........',
       ],
     },
   ],
   [BuildingKind.ScholarsLodge]: [
     {
-      models: [{ id: 'scholars_lodge', x: 65, z: 56 }],
+      models: [{ id: 'scholars_lodge', x: 64, z: 64 }],
       rows: [
         '........',
-        '#####...',
+        '.####...',
+        '.####...',
         '########',
         '########',
         '########',
         '########',
-        '#####...',
         '........',
       ],
     },
@@ -318,56 +317,55 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
     {
       models: [{ id: 'magi_sanctum', x: 64, z: 64 }],
       rows: [
-        '........',
         '..####..',
         '..####..',
+        '.######.',
+        '.######.',
+        '.######.',
+        '.######.',
         '..####..',
-        '..####..',
-        '..####..',
-        '........',
         '........',
       ],
     },
   ],
-  // The hall is 13 columns long: drawn at three quarters to fit its 10 x 10 footprint.
   [BuildingKind.Barracks]: [
     {
-      models: [{ id: 'barracks', x: 79, z: 81, scalePm: 750 }],
+      models: [{ id: 'barracks', x: 80, z: 80 }],
       rows: [
-        '..........',
-        '..........',
-        '..........',
-        '..........',
-        '..........',
-        '########..',
-        '########..',
-        '########..',
-        '########..',
-        '..........',
+        '#.....####',
+        '##########',
+        '......##..',
+        '.########.',
+        '...####...',
+        '..#######.',
+        '##########',
+        '##########',
+        '#########.',
+        '..#######.',
       ],
     },
   ],
   [BuildingKind.Mineshaft]: [
     {
-      models: [{ id: 'mineshaft_t1', x: 48, z: 49 }],
+      models: [{ id: 'mineshaft_t1', x: 48, z: 48 }],
       rows: [
         '......',
-        '...##.',
-        '..##..',
-        '..##..',
-        '..##..',
-        '......',
+        '.####.',
+        '.####.',
+        '.####.',
+        '.####.',
+        '.####.',
       ],
     },
   ],
   [BuildingKind.Forge]: [
     {
-      models: [{ id: 'forge_l1', x: 65, z: 68 }],
+      models: [{ id: 'forge_l1', x: 64, z: 64 }],
       rows: [
         '........',
-        '.#......',
-        '.######.',
-        '.######.',
+        '........',
+        '.####...',
+        '.####...',
         '.######.',
         '.######.',
         '.######.',

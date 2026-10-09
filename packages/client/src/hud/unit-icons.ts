@@ -39,9 +39,9 @@ export function mageIconFile(battle: boolean, robe: number): string {
   return own || (battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
 }
 
-/** Models the kit has no picture of, and the nearest it has (the catalogue borrows the hen for the wild birds too). */
+/** Models the kit has no picture of yet, and the nearest it has (the wild birds' own come with the icon batch). */
 const MODEL_STAND_INS: Record<string, string> = {
-  wild_goose: 'portrait_hen',
+  goose: 'portrait_hen',
   pheasant: 'portrait_hen',
   cannon_bronze: 'icon_train_cannon',
   cannon_iron: 'icon_train_cannon',

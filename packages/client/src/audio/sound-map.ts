@@ -142,8 +142,14 @@ export function hitSound(look: HitLook, who: Who | null, arrow: boolean): string
     case 'burst':
       // A goblin mage snuffing a light, else a bloated corpse bursting.
       return who?.kind === 'building' ? 'torch_snuff' : 'explosion_small';
+    // A spell; Jade's Patch 5: the necromancer's crimson bolt and summons, Morvath's Rift (the drained life is silent).
     case 'spell':
+    case 'crimson':
+    case 'summon':
       return 'spell_cast';
+    case 'violet':
+      // Morvath's staff bursting violet where it lands.
+      return 'explosion_small';
     case 'shot':
       return shotSound(who);
     default:

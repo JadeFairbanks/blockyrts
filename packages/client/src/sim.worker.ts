@@ -46,6 +46,7 @@ import {
   farmBoost,
   farmHarvest,
   queueHead,
+  stackLeft,
   chunkDelta,
   claimShapes,
   clockAt,
@@ -90,7 +91,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { barnOf, cloaked, crewOf, haulerOf, isWoodsman, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
+import { barnOf, cloaked, crewOf, haulerOf, isCrystalGuardian, isWoodsman, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
@@ -200,6 +201,8 @@ function postState(s: SimState): void {
     data[o + S.shield] = e.shield[i]!;
     data[o + S.wTier] = e.wTier[i]!;
     data[o + S.aTier] = e.aTier[i]!;
+    data[o + S.sTier] = e.sTier[i]!;
+    data[o + S.tips] = e.tips[i]!;
     data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
     let flags = 0;
     if (e.climbUntil[i]! > s.step || e.onFace[i] !== 0) flags |= UnitFlag.Climbing;
@@ -217,6 +220,7 @@ function postState(s: SimState): void {
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
     if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
+    if (isCrystalGuardian(s, i)) flags |= UnitFlag.Guardian;
     // A Barn's hand (Patch 5): he wears the farmer's hat while he is one (Jade's GP-37).
     if (e.kind[i] === UnitKind.Worker && barnOf(s, i)) flags |= UnitFlag.BarnHand;
     data[o + S.flags] = flags;
@@ -317,7 +321,9 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
   return b.queue.map((q, k) => {
-    const count = q.count > 0 ? { count: q.count } : {};
+    // A stack: a bonemeal stack counts what is left after the one under way, a scrap stack all that are left.
+    const n = q.count > 0 ? q.count + 1 : stackLeft(q);
+    const count = n > 1 ? { count: n } : {};
     if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0, ...count };
     return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft, ...count };
   });
@@ -363,8 +369,8 @@ function postInfo(s: SimState): void {
       troops:
         usableBy(s, b, PLAYER) && b.complete
           ? troopTypesAt(b).map((troop) => {
-              const { w, a } = troopDefault(s, b, troop, PLAYER);
-              return { troop, w, a, lock: b.locks[troop] ?? 0 };
+              const { w, a, s: sh } = troopDefault(s, b, troop, PLAYER);
+              return { troop, w, a, s: sh, lock: b.locks[troop] ?? 0 };
             })
           : [],
       mages:

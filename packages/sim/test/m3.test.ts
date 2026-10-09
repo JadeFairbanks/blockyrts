@@ -184,13 +184,13 @@ describe('night 0', () => {
     expect(clockAt(s.step).period).toBe(Period.Dawn);
     expect(s.over).toBe(0);
     expect(bigHouse(s)!.hp).toBe(1200);
-    // Cudgels are too short to stab over the fence (a polearm's 2 m does): a zombie chews through a corner and the
-    // troops fight it there, so not all three come through; every worker does.
-    expect(alive(s, UnitKind.Warrior)).toBeGreaterThanOrEqual(1);
+    // Cudgels are too short to stab over the fence (a polearm's 2 m does): the night comes at the corner nearest the
+    // dark edge (Patch 5 MB-1: the waves go for the base), a zombie chews at it and the troops hold it there until the
+    // rats, the spider and the slime come over; on this seed none of the three comes through, but every worker does.
     expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): the slime comes
-    // last, for the side of the fence nearest the Big House's walls, and is still chewing at it when the sun comes up.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect([Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
+    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): a zombie is
+    // still chewing at the corner and the slime, last, at the fence when the sun comes up.
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect([Mob.Zombie, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
   });
 
   it('never ends the game while the Big House stands', () => {
@@ -325,28 +325,28 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.SoftwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.Feathers, Res.Rope]) pool[r] = 50;
     for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder, Res.LeadOre]) pool[r] = 20;
     pool[Res.Venison] = 200;
-    // One Barracks each, so they train side by side: a bronze shortsword with a jerkin and wooden shield, an iron pike,
+    // One Barracks each, so they train side by side: a bronze shortsword with a jerkin and wooden shield (its own slot, Patch 5), an iron pike,
     // a steel-prod crossbow with a boiled-leather cuirass, and the brawler's pistol and cutlass.
-    const kits: Array<[Troop, number, number]> = [
-      [Troop.Close, 4, 1],
-      [Troop.Long, 6, 0],
-      [Troop.Ranger, 7, 2],
-      [Troop.Brawler, 8, 0],
+    const kits: Array<[Troop, number, number, number]> = [
+      [Troop.Close, 4, 1, 1],
+      [Troop.Long, 6, 0, 0],
+      [Troop.Ranger, 7, 2, 0],
+      [Troop.Brawler, 8, 0, 0],
     ];
     const barracks = kits.map(() => built(s, BuildingKind.Barracks));
     // Patch 2: cavalry trains at the Barracks too.
     expect(troopTypesAt(barracks[0]!)).toEqual([Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler, Troop.Cavalry]);
-    kits.forEach(([t, w, a], k) => expect(productProblem(s, barracks[k]!, troopProduct(t, w, a))).toBe(''));
-    run(s, 1, kits.map(([t, w, a], k): Order => ({ kind: 'produce', player: 0, building: barracks[k]!.id, product: troopProduct(t, w, a), count: 1 })));
+    kits.forEach(([t, w, a, sh], k) => expect(productProblem(s, barracks[k]!, troopProduct(t, w, a, sh))).toBe(''));
+    run(s, 1, kits.map(([t, w, a, sh], k): Order => ({ kind: 'produce', player: 0, building: barracks[k]!.id, product: troopProduct(t, w, a, sh), count: 1 })));
     for (const b of barracks) expect(b.queue.length).toBe(1);
     // The ranger's takes longest: 45 s, the crossbow's 75 s and the cuirass's 50 s.
     runUntil(s, () => alive(s, UnitKind.Warrior) === 4, 170 * 20 + 40);
     const troops = new Map<number, number>();
     for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Warrior) troops.set(e.troop[i]!, i);
-    for (const [t, w, a] of kits) {
+    for (const [t, w, a, sh] of kits) {
       const i = troops.get(t)!;
       expect(i).toBeDefined();
-      expect([e.wTier[i], e.aTier[i]]).toEqual([w, a]);
+      expect([e.wTier[i], e.aTier[i], e.sTier[i]]).toEqual([w, a, sh]);
     }
     const close = troops.get(Troop.Close)!;
     expect([e.weapon[close], e.shield[close], e.armour[close], e.ranged[close]]).toEqual([CLOSE_GEAR[4], SHIELD_GEAR[1], ARMOUR_GEAR[1], 0]);
@@ -373,7 +373,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     expect(productProblem(s, barracks, troopProduct(Troop.Ranger, 5, 0))).toBe('Needs a tier 2 main base.');
     // Nothing affordable at a tier: the panel's default drops to the best the stock pays for.
     giveResearch(s, Research.Bronze);
-    expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1 });
+    expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1, s: 0 });
   });
 
   it('offers only tier 1 and below at the main base', () => {
@@ -386,7 +386,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     const base = bigHouse(s)!;
     expect(troopTypesAt(base)).toEqual([Troop.Close, Troop.Long, Troop.Ranger]);
     for (const t of [Troop.Close, Troop.Long, Troop.Ranger]) {
-      expect(troopTiersAt(base, t)).toEqual({ w: [t === Troop.Close ? 0 : 1, 1], a: [0, 1] });
+      expect(troopTiersAt(base, t)).toEqual({ w: [t === Troop.Close ? 0 : 1, 1], a: [0, 1], s: [0, t === Troop.Close ? 1 : 0] });
       expect(productProblem(s, base, troopProduct(t, 1, 1))).toBe('');
       expect(productProblem(s, base, troopProduct(t, 2, 0))).toBe('This building cannot make that.');
       expect(productProblem(s, base, troopProduct(t, 1, 2))).toBe('This building cannot make that.');
@@ -394,8 +394,9 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     expect(productProblem(s, base, troopProduct(Troop.Close, 0, 0))).toBe('');
     expect(productProblem(s, base, troopProduct(Troop.Brawler, 8, 0))).toBe('This building cannot make that.');
     expect(productProblem(s, base, troopProduct(Troop.Cavalry, 1, 0))).toBe('This building cannot make that.');
-    // The panel's default is the best the main base makes, however rich the stock.
-    expect(troopDefault(s, base, Troop.Close)).toEqual({ w: 1, a: 1 });
+    // The panel's default is the best the main base makes, however rich the stock: a wooden shield at most (Patch 5, GP-26).
+    expect(troopDefault(s, base, Troop.Close)).toEqual({ w: 1, a: 1, s: 1 });
+    expect(productProblem(s, base, troopProduct(Troop.Close, 1, 1, 2))).toBe('This building cannot make that.');
     // A tier 2 troop ordered there is refused and nothing is paid.
     const sticks = pool[Res.Sticks]!;
     const flint = pool[Res.Flint]!;
@@ -417,7 +418,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     mealFree(s, 8);
     const food = foodQuarters(player);
     const used = supplyUsed(s, 0);
-    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1, 1), count: 1 }]);
     // A wooden cudgel (3 sticks), a leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather).
     expect(kit()).toEqual([before[0]! - 3, before[1]! - 4, before[2]! - 3]);
     // Exactly 30 food, in quarters: nothing lost to rounding.
@@ -430,7 +431,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     expect(base.queue[0]!.progress).toBeGreaterThan(0);
     expect(supplyUsed(s, 0)).toBe(used + 1);
     // A second one, cancelled: everything it paid comes back.
-    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1), count: 1 }]);
+    run(s, 1, [{ kind: 'produce', player: 0, building: base.id, product: troopProduct(Troop.Close, 1, 1, 1), count: 1 }]);
     expect(base.queue.length).toBe(2);
     expect(kit()).not.toEqual(paid);
     run(s, 1, [{ kind: 'cancelProduce', player: 0, building: base.id, index: 1 }]);
@@ -480,7 +481,7 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
     // Each flint hand-axe (2 sticks, 1 flint) is paid when the button is pressed.
     expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks - 6, flint - 3]);
     units.forEach((i, k) => expect(pendingKitUp(s, i, Line.Weapon)).toMatchObject({ to: 2, b: places[k]!.id }));
-    // Half the hand-axe's 10 s beside the building.
+    // 45% of the hand-axe's 10 s beside the building (Patch 5, GP-3: a little quicker now the old piece goes to stock).
     const bars = units.map(() => 0);
     runUntil(
       s,
@@ -493,16 +494,16 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
       },
       3000,
     );
-    expect(bars).toEqual([100, 100, 100]);
+    expect(bars).toEqual([90, 90, 90]);
     for (const i of units) {
       expect(e.weapon[i]).toBe(CLOSE_GEAR[2]);
       expect(pendingKitUp(s, i, Line.Weapon)).toBeUndefined();
     }
-    // Each cudgel is scrapped with a full refund (3 sticks), so a step costs the difference.
-    expect([pool[Res.Sticks], pool[Res.Flint]]).toEqual([sticks - 6 + 9, flint - 3]);
+    // Each cudgel goes to stock as an item (Patch 5, GP-3), no longer back to its sticks.
+    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.WoodenCudgel]]).toEqual([sticks - 6, flint - 3, 3]);
   });
 
-  it('Max goes to the best tier researched and affordable, and the old kit comes back in full', () => {
+  it('Max goes to the best tier researched and affordable, and the old piece goes to stock', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
@@ -520,7 +521,7 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
     pool[Res.Leather] = 1;
     const i = 4;
     const h = kitHolder(s, i)!;
-    expect(h).toEqual({ kind: 'warrior', troop: Troop.Close, w: 1, a: 0 });
+    expect(h).toEqual({ kind: 'warrior', troop: Troop.Close, w: 1, a: 0, s: 0, t: 0 });
     expect(upgradeTarget(h, Line.Weapon, false, pool, techOf(s, 0))).toMatchObject({ to: 2 });
     expect(upgradeTarget(h, Line.Weapon, true, pool, techOf(s, 0))).toMatchObject({ to: 5 });
     const before = [...pool];
@@ -528,9 +529,9 @@ describe('upgrading units (Troops and gear: Upgrading units)', () => {
     expect([pool[Res.WroughtIron], pool[Res.HardwoodLumber], pool[Res.Leather]]).toEqual([0, 2, 0]);
     runUntil(s, () => e.wTier[i] === 5, 3000);
     expect(e.weapon[i]).toBe(CLOSE_GEAR[5]);
-    // Nothing else was touched, and the cudgel's 3 sticks came back.
-    for (const r of [Res.CopperIngot, Res.BronzeIngot, Res.IronIngot, Res.SteelIngot]) expect(pool[r], `res ${r}`).toBe(before[r]);
-    expect(pool[Res.Sticks]).toBe(before[Res.Sticks]! + 3);
+    // Nothing else was touched, and the cudgel went to stock as an item (Patch 5, GP-3).
+    for (const r of [Res.CopperIngot, Res.BronzeIngot, Res.IronIngot, Res.SteelIngot, Res.Sticks]) expect(pool[r], `res ${r}`).toBe(before[r]);
+    expect(pool[Res.WoodenCudgel]).toBe(before[Res.WoodenCudgel]! + 1);
     // With another iron ingot in stock, Max would go on to the iron broadsword.
     pool[Res.IronIngot] = 2;
     pool[Res.HardwoodLumber] = 1;

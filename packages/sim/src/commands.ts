@@ -7,7 +7,7 @@ import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, leve
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { chainPiece, plannedSpots, stretchRoom, stretchSpots } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, queueStack, setKitLock, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, queueStack, setKitLock, stacks, usableBy } from './buildings/production.ts';
 import { fertilizable, fertilize, setAutoFertilize } from './buildings/farm-boost.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
@@ -541,7 +541,7 @@ function applyTunnelStretch(state: SimState, o: Extract<Order, { kind: 'tunnelSt
     alert(state, o.player, site);
     return;
   }
-  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id, band: 0, miss: 0 }, o.queued === true);
 }
 
 /**
@@ -700,7 +700,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'produce': {
         const b = usableBuilding(state, o.player, o.building);
         if (!b) break;
-        for (let k = 0; k < o.count; k++) {
+        // A stack (Scrap equipment, Patch 5) takes its whole count in one queue slot.
+        if (stacks(o.product)) {
+          const why = queueProduct(state, b, o.product, o.player, 0, o.count);
+          if (why) alert(state, o.player, why);
+          break;
+        }
+        for (let k = 0; k < Math.min(o.count, 5); k++) {
           const why = queueProduct(state, b, o.product, o.player);
           if (why) {
             // Several selected buildings each train one (Jade's Patch 5, GP-15): those the stock runs out for say why once.
@@ -833,12 +839,12 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'dig': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const site = markSite(state, o.player, o.tunnel ? SiteKind.Tunnel : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
+        const site = markSite(state, o.player, o.tunnel === 1 ? SiteKind.Tunnel : o.tunnel === 2 ? SiteKind.Up : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
         if (typeof site === 'string') {
           alert(state, o.player, site);
           break;
         }
-        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id, band: 0, miss: 0 }, o.queued === true);
         break;
       }
       case 'wallStretch':

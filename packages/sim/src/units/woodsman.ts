@@ -28,6 +28,8 @@ const WOODS_KIT: Piece = {
   tier: 1,
   name: 'Fishing rod and line',
   model: 'fishing_rod',
+  // Not a gear item (GP-1): it comes with him and never goes to the stock.
+  items: [],
   cost: [
     [[Res.Leather, 1], [Res.Flax, 4]],
     [[Res.Hides, 1], [Res.Flax, 4]],

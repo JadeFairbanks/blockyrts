@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
-import { InstancedModel, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
+import { InstancedModel, TURN_CLIP, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
 import { BuildingGlow } from './building-glow.ts';
 import { makeLook, type Look } from './building-looks.ts';
@@ -293,9 +293,9 @@ export class BuildingsView {
   private hasModels(b: BuildingInfo, look: string, own: CatalogueModel[]): CatalogueModel[] {
     const lib = this.models;
     if (!lib || own.length === 0) return [];
-    // A wall's other shapes and damage looks load with it, so it swaps at once (Patch 5).
+    // A wall's other shapes, damage looks and ruins load with it, so it swaps at once (Patch 5).
     if (buildingSpec(b.kind).defence === 'wall') {
-      this.loaded(catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`]));
+      this.loaded(catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`, `${id}@ruined`]));
     }
     // Each model in the look where it has one.
     const want = look ? own.map((m) => (lib.listed(`${m.id}@${look}`) ? { ...m, id: `${m.id}@${look}` } : m)) : own;
@@ -368,10 +368,10 @@ export class BuildingsView {
         this.drop(e);
         this.entries.delete(id);
         // Only a fallen building leaves a finished one's place (cancelling takes back an unfinished one).
-        if (e.last.complete) this.fall(e.last, info.step);
+        if (e.last.complete) this.fall(e.last, info.step, e.models);
       }
     }
-    this.drawModels(info);
+    this.drawModels(info, now);
     this.placeLights(info, focus);
   }
 
@@ -429,9 +429,11 @@ export class BuildingsView {
   }
 
   /** A finished building fell: its ruins stand a while where it stood, when each of its models has them. */
-  private fall(b: BuildingInfo, step: number): void {
+  private fall(b: BuildingInfo, step: number, drawn: readonly CatalogueModel[]): void {
     const lib = this.models;
-    const models = dressed(catalogueIds(b), 'ruined');
+    // A wall's ruins keep its shape and turn (a corner's are the corner's), whatever its damage look.
+    const own = buildingSpec(b.kind).defence === 'wall' && drawn.length > 0 ? drawn.map((m) => ({ ...m, id: m.id.replace(/_(cracked|broken)$/, '') })) : catalogueIds(b);
+    const models = dressed(own, 'ruined');
     if (!lib || models.length === 0 || !models.every((m) => lib.listed(m.id))) return;
     this.loaded(models.map((m) => m.id));
     this.ruins.push({ b, models, fell: step });
@@ -498,12 +500,17 @@ export class BuildingsView {
     t.details = d;
   }
 
-  /** Catalogue models: one instanced draw per model id and tint (a stand-in model dressed as another building draws apart), then the ruins. */
-  private drawModels(info: GameInfo): void {
+  /**
+   * Catalogue models: one instanced draw per model id and tint (a stand-in
+   * model dressed as another building draws apart), then the ruins. A
+   * finished building's turning bones (the Big House's spit roast) turn
+   * without stopping.
+   */
+  private drawModels(info: GameInfo, now: number): void {
     const lib = this.models;
     if (!lib) return;
     const counts = new Map<string, number>();
-    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean): void => {
+    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean, turning: boolean): void => {
       const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
       let d = this.modelDraws.get(key);
       const most = buildingSpec(b.kind).defence === 'wall' ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES;
@@ -517,12 +524,12 @@ export class BuildingsView {
       const n = counts.get(key) ?? 0;
       if (n >= most) return;
       counts.set(key, n + 1);
-      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, '', 0, this.teamColour(b.owner), m.scale);
+      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, turning ? TURN_CLIP : '', now / 1000, this.teamColour(b.owner), m.scale);
       if (hover) d.setHover(n);
     };
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
-      if (e) for (const m of e.models) draw(m, b, 0, this.hovered.has(b.id));
+      if (e) for (const m of e.models) draw(m, b, 0, this.hovered.has(b.id), b.complete);
     }
     // Ruins stand, then sink out of sight.
     this.ruins = this.ruins.filter((r) => info.step - r.fell < RUIN_STEPS && info.step >= r.fell);
@@ -530,7 +537,7 @@ export class BuildingsView {
       const t = Math.max(0, info.step - r.fell - (RUIN_STEPS - RUIN_SINK_STEPS)) / RUIN_SINK_STEPS;
       for (const m of r.models) {
         if (!lib.models.has(m.id)) continue;
-        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale, false);
+        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale, false, false);
       }
     }
     for (const [id, d] of this.modelDraws) {

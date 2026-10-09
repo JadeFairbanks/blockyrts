@@ -19,9 +19,12 @@
 // stalker shows only as a shimmer. The models take the fog of war like the
 // land (remembered lairs and huts darkened), and the local player's own
 // units carry their ids for the hidden-unit outlines (Jade's Patch 3,
-// hidden-outlines.ts).
+// hidden-outlines.ts). Jade's Patch 5: Morvath takes flight with his own
+// clips and drains the life round him in white motes, his staff's blow
+// bursts violet, the necromancer flies his crimson bolt and raises his dead
+// in crimson, and a mana crystal's guardians pulse with thin blue light.
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
@@ -75,8 +78,10 @@ interface Look {
 
 /** The first catalogue model of a gear id ('' for none). */
 const gearModel = (id: number): string => piecesOf(id)[0] ?? '';
-/** Whether a gear id is held like a polearm: spears, pikes and halberds. */
-const polearm = (id: number): boolean => /^(spear|pike|halberd)/.test(gearModel(id));
+/** Whether a gear id is held like a polearm, in both hands: spears, pikes, halberds and the Zweihänder (the tier 8 two-handed weapon). */
+const polearm = (id: number): boolean => /^(spear|pike|halberd|zweihander)/.test(gearModel(id));
+/** Two-handed weapons that swing rather than thrust: the halberds and the Zweihänder. */
+const SWUNG = /^(halberd|zweihander)/;
 
 const PIECES = new Map<number, readonly string[]>();
 /** A gear id's catalogue models: its model ids joined by '+' in units/kits.ts (armour with its helmet and boots), each `<id>` or `<id>@<metal>`. */
@@ -105,7 +110,7 @@ const BODY_PROPS: Readonly<Record<string, string>> = {
   linstock: 'linstock',
   axe_hardwood: 'hardwood_axe',
   'hoe@hardwood': 'hoe',
-  hammer: 'hammer',
+  hammer_iron: 'hammer',
   fishing_rod: 'fishing_rod',
   spade: 'spade',
 };
@@ -150,8 +155,9 @@ const STOW_TURN: Readonly<Record<string, THREE.Matrix4>> = {
 /** The prospecting hammer of a tool kit tier from PROSPECT_TOOL_TIER (copper; it prospects twice as fast), by its metal's look where the catalogue has one. */
 const PROSPECT_HAMMERS: readonly string[] = ['', '', '', 'prospecting_hammer', 'prospecting_hammer', 'prospecting_hammer@iron_wrought', 'prospecting_hammer@iron_refined', 'prospecting_hammer@iron_refined', 'prospecting_hammer@iron_refined'];
 
-/** A carried good's catalogue model by Res, '' where there is none (farm fare). */
+/** A carried good's catalogue model by Res. */
 const GOODS: Partial<Record<number, string>> = {
+  [Res.FarmFare]: 'farm_fare',
   [Res.SoftwoodLumber]: 'log_softwood',
   [Res.HardwoodLumber]: 'log_hardwood',
   [Res.Herbs]: 'herb_bundle',
@@ -251,18 +257,6 @@ const MOB_COLOURS = [
 /** Each people's colour, for their units until their models are in (Halflings, Runkin, Elves, Dwarves). */
 const PEOPLE_COLOURS = [new THREE.Color(0x8ac850), new THREE.Color(0xb08050), new THREE.Color(0x50c0a8), new THREE.Color(0xa8a8b8)];
 
-/** The artillery crewman's stand-in look (Patch 2, until its own model): an unarmed warrior, its tunic in its player's colour gone sooty (s). */
-const SOOT = new THREE.Color(0x2a2420);
-const SOOTY = new Map<number, THREE.Color>();
-function sooty(colour: THREE.Color): THREE.Color {
-  const hex = colour.getHex();
-  let c = SOOTY.get(hex);
-  if (!c) {
-    c = colour.clone().lerp(SOOT, 0.55);
-    SOOTY.set(hex, c);
-  }
-  return c;
-}
 
 /** Colour of an animal's stand-in block, by Species (14 on: the territorial creatures). */
 const ANIMAL_COLOURS = [
@@ -286,9 +280,19 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
   fell: { colour: 0x9a6a3a, n: 18, speed: 3, up: 3.2 },
   bomb: { colour: 0xff8020, n: 40, speed: 5, up: 3.5 },
   dirt: { colour: 0x6a4a2a, n: 14, speed: 2.2, up: 2.6 },
+  // Jade's Patch 5: the necromancer's bolt and his dead rising, and a summoner's call (onHits adds the violet ring and the white drain).
+  crimson: { colour: 0xc0102a, n: 18, speed: 2, up: 1.8 },
+  summon: { colour: 0x8a1030, n: 30, speed: 1.4, up: 2.6 },
   // Patch 5 (FR-1): the splash where a woodsman's fish comes up out of the water (world/fish-view.ts draws the fish).
   catch: { colour: 0xcfe6f2, n: 7, speed: 1.2, up: 2 },
 };
+
+/** Morvath's staff burst (Jade's Patch 5): vivid purple motes over its 1 m round where the blow lands. */
+const VIOLET = { colour: 0xa030ff, n: 40, radiusM: 1 };
+/** Life drained into Morvath: white motes streaming to him (the sim sends one for every 2 health). */
+const DRAIN_COLOUR = 0xf4f4ff;
+/** A mana crystal's guardian (Jade's Patch 5, MB-13): thin blue light rising round it, pulsing, motes a second at the peak and the pulse's length, s. */
+const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 
 /** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */
 const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
@@ -325,6 +329,9 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.7, w: 0.7, colour: 0xd8d0b8 },
   { len: 0.35, w: 0.35, colour: 0xff5010 },
   { len: 0.5, w: 0.45, colour: 0xff3010 },
+  // A bronze cannon's shot (Patch 5, MB-8), and the necromancer's crimson bolt (Jade's Patch 5), until their models are in the library.
+  { len: 0.12, w: 0.12, colour: 0x8a5a2a },
+  { len: 0.5, w: 0.2, colour: 0xc0102a },
 ];
 
 /** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5); the gunpowder ones trail a streak too. */
@@ -334,6 +341,11 @@ const SHOT_MODELS: Record<number, string> = {
   [Shot.Fireball]: SPELLS[Spell.Fireball]!.model,
   [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model,
 };
+/** Shot models made pointing down -Z (Jade's crimson bolt): turned about to fly head first. */
+const SHOT_MODELS_BACKWARD: ReadonlySet<number> = new Set([Shot.NecroBolt]);
+/** After his change, Morvath's wings stay spread this long, ms: the rest of the 5 s his wings drain (sim LATE.wings) after the 3.4 s change. */
+const MORVATH_WINGS_MS = 1600;
+const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 /** Where a spell lands, by Spell: the colour of its motes, how many and how far they fly. */
 const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up: number }> = [
@@ -626,6 +638,28 @@ class Particles {
     }
   }
 
+  /** Motes from a point that reach another as they fade (gravity allowed for), spread a little where they start. */
+  stream(x: number, y: number, z: number, tx: number, ty: number, tz: number, colour: number, n: number): void {
+    const c = new THREE.Color(colour);
+    for (let k = 0; k < n && this.n < MAX_PARTICLES; k++) {
+      const o = this.n * 8;
+      const life = 0.6 + Math.random() * 0.4;
+      const sx = x + (Math.random() - 0.5) * 0.4;
+      const sy = y + (Math.random() - 0.5) * 0.4;
+      const sz = z + (Math.random() - 0.5) * 0.4;
+      this.p[o] = sx;
+      this.p[o + 1] = sy;
+      this.p[o + 2] = sz;
+      this.p[o + 3] = (tx - sx) / life;
+      this.p[o + 4] = (ty - sy) / life + 4.9 * life;
+      this.p[o + 5] = (tz - sz) / life;
+      this.p[o + 6] = 0;
+      this.p[o + 7] = life;
+      this.colours[this.n] = c;
+      this.n++;
+    }
+  }
+
   update(dt: number): void {
     const p = this.p;
     let w = 0;
@@ -813,6 +847,15 @@ export class UnitsView {
   private readonly tinkerStart = new Map<number, number>();
   /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
   private readonly fired = new Map<number, number>();
+  /** Where each soldier's gun's muzzle was last drawn, by entity id (Patch 5, MB-7): its flash and smoke start there. */
+  private readonly muzzles = new Map<number, THREE.Vector3>();
+  /** Each held item's slot_muzzle in its own space, or null when it has none. */
+  private readonly muzzleOf = new Map<string, THREE.Vector3 | null>();
+  /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
+  private readonly held = new Map<number, { clip: string; t0: number; until: number; then?: { clip: string; ms: number } }>();
+  /** Each Morvath's form last seen, by entity id, and where each stands now (metres), for the life drained into him. */
+  private readonly forms = new Map<number, number>();
+  private readonly morvathAt = new Map<number, THREE.Vector3>();
   private lastFrame = 0;
 
   constructor(
@@ -856,8 +899,7 @@ export class UnitsView {
   }
 
   private body(wanted: string): BodyPool | null {
-    // A model still to be made borrows a near kin's until it is in the catalogue (a Citadel's fixed engine, Patch 5: the engine it is built from).
-    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted.replace(/_fixed$/, '')) : wanted;
+    const id = wanted;
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
@@ -962,6 +1004,57 @@ export class UnitsView {
     this.owned.push(rec);
   }
 
+  /** Plays a clip through on a monster from now (its whole length), then `then` for `thenMs`. */
+  private hold(id: number, clip: string, now: number, then?: { clip: string; ms: number }): void {
+    this.held.set(id, then ? { clip, t0: now, until: -1, then } : { clip, t0: now, until: -1 });
+  }
+
+  /** The clip a monster plays through now and how far into it, s, or null. */
+  private heldClip(id: number, model: ModelData, now: number): [string, number] | null {
+    const h = this.held.get(id);
+    if (!h) return null;
+    const c = model.clips.get(h.clip);
+    if (!c) {
+      this.held.delete(id);
+      return null;
+    }
+    if (h.until < 0) h.until = h.t0 + c.length * 1000;
+    if (now >= h.until) {
+      if (h.then && model.clips.has(h.then.clip)) {
+        this.held.set(id, { clip: h.then.clip, t0: h.until, until: h.until + h.then.ms });
+        return this.heldClip(id, model, now);
+      }
+      this.held.delete(id);
+      return null;
+    }
+    return [h.clip, (now - h.t0) / 1000];
+  }
+
+  /** Morvath seen this frame: where his middle is (metres), and as he takes flight his change and wings spread while he drains (5 s in all, sim LATE.wings). */
+  private noteMorvath(id: number, mob: number, x: number, y: number, z: number, now: number): void {
+    const was = this.forms.get(id);
+    this.forms.set(id, mob);
+    const at = this.morvathAt.get(id);
+    if (at) at.set(x, y, z);
+    else this.morvathAt.set(id, new THREE.Vector3(x, y, z));
+    if (was === Mob.Morvath && mob === Mob.MorvathAloft) this.hold(id, 'phase_two_transform', now, { clip: 'wings_spread', ms: MORVATH_WINGS_MS });
+  }
+
+  /** A mana crystal's guardian's glow: thin blue light rising up it, pulsing. */
+  private guardianGlow(x: number, y: number, z: number, halfW: number, height: number, t: number, dt: number): void {
+    const g = GUARDIAN_GLOW;
+    const pulse = 0.5 + 0.5 * Math.sin((t / g.pulseS) * Math.PI * 2);
+    let n = g.perSecond * pulse * dt;
+    while (n > 0) {
+      if (n < 1 && Math.random() >= n) break;
+      n--;
+      const a = Math.random() * Math.PI * 2;
+      const px = x + Math.cos(a) * halfW * 1.1;
+      const pz = z + Math.sin(a) * halfW * 1.1;
+      this.particles.stream(px, y + Math.random() * height * 0.3, pz, px, y + height * (0.8 + Math.random() * 0.4), pz, g.colour, 1);
+    }
+  }
+
   /**
    * A gun going off (Patch 5, Jade's MB-7): a flash of light, a spray of tiny
    * sparks out of the muzzle along `heading` (radians, three.js rotation.y),
@@ -977,6 +1070,21 @@ export class UnitsView {
       this.sparks.spawn(x + fx * a, y, z + fz * a, 0xffb040, big ? 14 : 7, big ? 4.5 : 3, 1, 0.25);
     }
     this.smoke.add(x + fx * 0.2, y, z + fz * 0.2, seconds, big ? 0.7 : 0.35);
+  }
+
+  /** Where a gun held in hand (its item model's slot_muzzle) is now, for its flash and smoke when it fires. */
+  private noteMuzzle(id: number, item: string, hand: THREE.Matrix4): void {
+    let at = this.muzzleOf.get(item);
+    if (at === undefined) {
+      const model = this.lib?.models.get(item);
+      if (!model) return;
+      const b = model.boneNames.indexOf('slot_muzzle');
+      at = b >= 0 ? new THREE.Vector3().setFromMatrixPosition(model.restWorld[b]!) : null;
+      this.muzzleOf.set(item, at);
+    }
+    if (!at) return;
+    const v = this.muzzles.get(id) ?? new THREE.Vector3();
+    this.muzzles.set(id, v.copy(at).applyMatrix4(hand));
   }
 
   /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. A gun's shot leaving gets its flash and smoke (`who` finds the shooter: a pistol smokes less than a musket). */
@@ -996,6 +1104,20 @@ export class UnitsView {
       if (h.look === 'heart') this.hearts.spawn(x, y + speciesSpec(h.mob ?? 0).height / WU_PER_METRE + 0.3, z, now);
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
+      // Jade's Patch 5: Morvath's staff bursts violet over its 1 m, the life he drains streams to him, and a summoner or Morvath at his spell plays its clip through.
+      if (h.look === 'violet') {
+        for (let k = 0; k < VIOLET.n; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const r = Math.sqrt(Math.random()) * VIOLET.radiusM;
+          this.particles.spawn(x + Math.cos(a) * r, y + 0.1, z + Math.sin(a) * r, VIOLET.colour, 1, 0.5, 1.6);
+        }
+      }
+      if (h.look === 'drain' && h.to !== undefined) {
+        const to = this.morvathAt.get(h.to);
+        if (to) this.particles.stream(x, y, z, to.x, to.y, to.z, DRAIN_COLOUR, Math.min(60, h.n ?? 1));
+      }
+      if (h.look === 'summon') this.hold(h.id, 'summon', now);
+      if (h.look === 'spell' && this.forms.has(h.id)) this.hold(h.id, 'cast_spell', now);
       // Patch 5 (MB-6): a cannonball's blast throws up dirt and smoke too; a wall breaker's leaves smoke rising (BL-7).
       if (h.look === 'blast' || h.look === 'bomb') {
         this.particles.spawn(x, y, z, 0x505050, 24, 3, 3);
@@ -1009,9 +1131,13 @@ export class UnitsView {
         const u = who?.(h.id);
         if (u && u.kind !== UnitKind.Engine) {
           const seconds = u.ranged === PISTOL_GEAR ? GUN_SMOKE.pistol : h.shot === Shot.MusketBall ? GUN_SMOKE.musket : GUN_SMOKE.cannon;
-          this.gunFire(x, y, z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
+          // From the gun's muzzle as last drawn (Patch 5, MB-7), else where the shot leaves.
+          const m = this.muzzles.get(h.id);
+          const at = m && Math.abs(m.x - x) + Math.abs(m.z - z) < 2 ? m : null;
+          this.gunFire(at?.x ?? x, at?.y ?? y, at?.z ?? z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
         }
       }
+      if (h.look === 'death') this.muzzles.delete(h.id);
       const spell = h.look === 'spell' ? SPELL_LOOKS[h.spell ?? 0] : undefined;
       if (spell) this.particles.spawn(x, y, z, spell.colour, spell.n, spell.speed, spell.up);
     }
@@ -1099,14 +1225,18 @@ export class UnitsView {
           continue;
         }
         if (spec.tint === 'rift' && Math.random() < dt * 5) this.particles.spawn(x, y + spec.height / WU_PER_METRE, z, 0xb040ff, 1, 0.6, 1.2);
+        if (mob === Mob.Morvath || mob === Mob.MorvathAloft) this.noteMorvath(id, mob, x, y + spec.height / WU_PER_METRE / 2, z, now);
+        if (flags & UnitFlag.Guardian) this.guardianGlow(x, y, z, spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE, t, dt);
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           // With the weapons and gear it is made with (Patch 5: they were all hidden before).
           const slot = pool.take(pool.model.sidecar.partsShown ?? []);
+          const kept = this.heldClip(id, pool.model, now);
+          const clip = kept ? kept[0] : mob === Mob.MorvathAloft ? aloftClip(pool.model, d, o) : mobClip(pool.model, d, o);
           if (slot) {
-            slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null, mobScale(spec.model, spec.height));
+            slot.m.setInstance(slot.i, x, y, z, heading, clip, kept ? kept[1] : clipT, null, mobScale(spec.model, spec.height));
             // A wall breaker's fuse fizzes with tiny sparks, from the fuse on its bomb (Patch 5, Jade's BL-7).
-            const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('fx_fuse') : -1;
+            const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('slot_fuse') : -1;
             if (fuse >= 0) {
               const at = new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, fuse, this.mat));
               this.sparks.spawn(at.x, at.y, at.z, 0xffc040, 2, 0.7, 0.8, 0.15);
@@ -1134,24 +1264,24 @@ export class UnitsView {
         const pool = this.body(spec.model);
         if (pool) {
           const slot = pool.take([]);
-          // A stand-in model is sized to the animal's own height; the young are the adult model at half size.
-          const fit = pool.model.id === spec.model ? 1 : spec.height / WU_PER_METRE / Math.max(0.05, pool.model.boundingBox.max.y - pool.model.boundingBox.min.y);
+          // The young are the adult model at half size.
           if (slot) {
             // Hitched to its worker: it pulls as it goes.
             const wo = d[o + S.partner] !== 0 ? this.byId.get(d[o + S.partner]!) : undefined;
             const hitched = wo !== undefined && d[wo + S.kind] === UnitKind.Worker;
             const clip = hitched && moving && pool.model.clips.has('pull') ? 'pull' : animalClip(pool.model, d, o, moving);
-            slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, null, fit * scale);
+            slot.m.setInstance(slot.i, x, y, z, heading, clip, clipT, null, scale);
             if (own) {
               pool.mark(slot, id, outlined);
               this.noteOwn(id, x, y, z, (spec.height * scale) / WU_PER_METRE, (spec.halfWidth * 1.6 * scale) / WU_PER_METRE, outlined);
             }
-            // A horse hitched to its worker wears its harness, and an ox or horse hauling an ox cart has the cart behind it.
+            // A horse or ox hitched to its worker wears its harness, and an ox or horse hauling an ox cart has the cart behind it.
             if (hitched) {
-              if (spec.id === Species.Horse) this.wear(pool, 'horse_harness', x, y, z, heading, clip, clipT, colour, own ? id : 0, outlined);
+              const harness = spec.id === Species.Horse ? 'horse_harness' : spec.id === Species.Ox ? 'ox_harness' : '';
+              if (harness) this.wear(pool, harness, x, y, z, heading, clip, clipT, colour, own ? id : 0, outlined);
               if (d[wo + S.kit] === Res.OxCart) {
                 const hb = pool.bone('slot_harness');
-                const ahead = hb >= 0 ? -(pool.model.restWorld[hb]?.elements[14] ?? -0.7) * fit * scale : 0.7;
+                const ahead = hb >= 0 ? -(pool.model.restWorld[hb]?.elements[14] ?? -0.7) * scale : 0.7;
                 const back = OX_CART_HITCH_M - ahead;
                 this.drawCart(f, 'cart_ox', x + Math.sin(heading) * back, z + Math.cos(heading) * back, heading, moving, f.colours[d[wo + S.owner]!] ?? null, this.carried(d, wo).good);
               }
@@ -1197,8 +1327,7 @@ export class UnitsView {
       const caught = this.caughtAt.get(id);
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold, sinceCatch: caught === undefined ? -1 : (now - caught) / 1000 };
       const look = woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
-      const crewman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Crew && colour !== null;
-      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : crewman ? sooty(colour) : colour;
+      const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
       if (kin) {
         // With the weapons and gear its model is made with.
@@ -1225,6 +1354,7 @@ export class UnitsView {
             const m = slot.m.boneWorld(slot.i, b, this.mat);
             if (stow !== Stow.None) m.multiply(STOW_TURN[`${stow}${POINT_UP.test(item) ? 'up' : 'down'}`]!);
             this.attach.add(item, m, tint);
+            if (stow === Stow.None) this.noteMuzzle(id, item, m);
           }
           if (load.hold && !inCart) {
             const b = pool.bone(HOLD_SLOTS[load.hold]);
@@ -1255,7 +1385,7 @@ export class UnitsView {
       // A hand cart is pushed ahead of its worker; an ox cart with nothing hitched is pulled by the worker at its shafts.
       if (cart === Res.HandCart) this.drawCart(f, 'cart_hand', x - Math.sin(heading) * HAND_CART_AHEAD_M, z - Math.cos(heading) * HAND_CART_AHEAD_M, heading, moving, colour, load.good);
       else if (cart === Res.OxCart && d[o + S.partner] === 0) this.drawCart(f, 'cart_ox', x + Math.sin(heading) * (OX_CART_HITCH_M - 0.3), z + Math.cos(heading) * (OX_CART_HITCH_M - 0.3), heading, moving, colour, load.good);
-      // A good with no model of its own (farm fare) is still a box on the back.
+      // A good with no model of its own is still a box on the back.
       const carry = d[o + S.carryRes]!;
       if (!inCart && carry !== NO_CARRY && d[o + S.carryAmt]! > 0 && !load.good) {
         // On the back: behind the unit (the model faces -Z at heading 0).
@@ -1275,6 +1405,9 @@ export class UnitsView {
     for (const id of this.woodsmen) if (!live.has(id)) this.woodsmen.delete(id);
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
+    for (const id of this.held.keys()) if (!live.has(id)) this.held.delete(id);
+    for (const id of this.forms.keys()) if (!live.has(id)) this.forms.delete(id);
+    for (const id of this.morvathAt.keys()) if (!live.has(id)) this.morvathAt.delete(id);
     blocks = this.drawCorpses(t, blocks);
     blocks = this.drawRuins(f, blocks);
     for (const b of this.bodies.values()) b.commit();
@@ -1341,15 +1474,11 @@ export class UnitsView {
     const spec = engineSpec(d[o + S.mob]!);
     const id = d[o + S.id]!;
     const firing = d[o + S.order] === OrderKind.Shoot;
-    if (firing && this.fired.get(id) !== f.curr.step) {
-      this.fired.set(id, f.curr.step);
-      const ahead = 1.2;
-      const sx = x - Math.sin(heading) * ahead;
-      const sz = z - Math.cos(heading) * ahead;
-      // Patch 5 (MB-7): a cannon's flash, sparks and 5 s of smoke at its muzzle.
-      if (spec.cannon) this.gunFire(sx, y + 1, sz, heading, GUN_SMOKE.cannon);
-      else this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
-    }
+    const fires = firing && this.fired.get(id) !== f.curr.step;
+    if (fires) this.fired.set(id, f.curr.step);
+    if (fires && !spec.cannon) this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
+    // Patch 5 (MB-7, Jade: "Make sure it actually comes from the muzzle"): a cannon's flash, sparks and 5 s of smoke at its model's slot_muzzle, 1.2 m ahead while it is a block.
+    const muzzle = fires && spec.cannon ? new THREE.Vector3(x - Math.sin(heading) * 1.2, y + 1, z - Math.cos(heading) * 1.2) : null;
     const pool = this.body(spec.model);
     if (pool) {
       const slot = pool.take([]);
@@ -1358,13 +1487,17 @@ export class UnitsView {
       const clip = firing ? 'fire' : d[o + S.order] === OrderKind.Move ? (hauled ? 'move_towed' : firstClip(clips, ['move', 'move_towed'])) : d[o + S.target] !== 0 ? 'aim' : d[o + S.hp]! * 3 < d[o + S.maxHp]! ? firstClip(clips, ['damaged', 'idle']) : 'idle';
       if (slot) {
         slot.m.setInstance(slot.i, x, y, z, heading, clip, firing ? 0 : clipT, colour);
+        const b = muzzle ? pool.bone('slot_muzzle') : -1;
+        if (b >= 0) muzzle!.setFromMatrixPosition(slot.m.boneWorld(slot.i, b, this.mat));
         if (ownId) {
           pool.mark(slot, ownId, outlined);
           this.noteOwn(ownId, x, y, z, spec.height / WU_PER_METRE, (spec.halfWidth * 1.6) / WU_PER_METRE, outlined);
         }
       }
+      if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, heading, GUN_SMOKE.cannon);
       return blocks;
     }
+    if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, heading, GUN_SMOKE.cannon);
     if (blocks >= MAX_UNITS) return blocks;
     const dummy = this.dummy;
     dummy.position.set(x, y, z);
@@ -1417,7 +1550,9 @@ export class UnitsView {
       const pool = this.body(c.model);
       if (pool) {
         const slot = pool.take([]);
-        if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, 'death', age, c.colour, c.mob >= 0 ? mobScale(c.model, mobSpec(c.mob).height) : 1);
+        // Morvath aloft falls with his second form's death (Jade's Patch 5).
+        const death = c.mob === Mob.MorvathAloft && pool.model.clips.has('death_phase_two') ? 'death_phase_two' : 'death';
+        if (slot) slot.m.setInstance(slot.i, c.x, c.y - sink, c.z, c.heading, death, age, c.colour, c.mob >= 0 ? mobScale(c.model, mobSpec(c.mob).height) : 1);
       } else if (c.mob >= 0) {
         const spec = mobSpec(c.mob);
         const dummy = this.dummy;
@@ -1491,6 +1626,7 @@ export class UnitsView {
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
+      if (SHOT_MODELS_BACKWARD.has(s[o + 6]!)) dummy.quaternion.multiply(HALF_TURN);
       const gun = GUNPOWDER.has(s[o + 6]!);
       // A bronze cannon's shot is smaller than an iron one's (MB-8).
       const size = s[o + 6] === Shot.BronzeCannonball ? 0.75 : 1;
@@ -1562,7 +1698,6 @@ function structureModel(model: string, id: number): string {
  * Models still to be made (models/troop_kits_models.md), drawn with a near
  * kin's model until theirs is in the catalogue (s).
  */
-const STAND_IN_MODELS: Readonly<Record<string, string>> = { wild_goose: 'chicken_hen', pheasant: 'chicken_hen' };
 
 /** Each model's height as drawn for the first mob that uses it, metres. */
 const MOB_MODEL_HEIGHT = new Map<string, number>();
@@ -1604,6 +1739,13 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   if (flags & UnitFlag.Charging && has('charge')) return 'charge';
   if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : firstClip(model.clips, ['walk', 'ride']);
   return firstClip(model.clips, ['idle', 'ride_idle']);
+}
+
+/** Morvath aloft (Jade's Patch 5 model): his staff while he swings, his second form's walk and idle, hurt as before. */
+function aloftClip(model: ModelData, d: Int32Array, o: number): string {
+  if (d[o + S.swing] !== 0) return mobClip(model, d, o);
+  if (d[o + S.flags]! & UnitFlag.Hurt && model.clips.has('injured')) return 'injured';
+  return d[o + S.order] !== OrderKind.Idle ? firstClip(model.clips, ['walk_phase_two', 'walk']) : firstClip(model.clips, ['idle_phase_two', 'idle']);
 }
 
 /** The first of some clips a model has, else the last named. */
@@ -1726,18 +1868,22 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
     held = (pieces.length > ToolJob.Cut ? pieces[job] : job === ToolJob.Cut ? pieces[pieces.length - 1] : pieces[0]) ?? '';
   }
   if (held) wear(look, held, parts);
-  // The rest of the kit: every piece of every tool it has, each once, on the hips and back.
+  // The rest of the kit: every piece of every tool it has, each once, on the hips and back; a hammer hangs at the hip.
   const stows: ReadonlyArray<readonly [string, number]> = [['slot_hip_r', Stow.Hip], ['slot_hip_l', Stow.Hip], ['slot_back', Stow.Back], ['slot_quiver', Stow.Back]];
   const shown = new Set([held]);
-  let k = 0;
+  const rest: string[] = [];
   for (const tool of [hand, d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!]) {
     for (const p of tool ? piecesOf(tool) : []) {
       if (shown.has(p)) continue;
       shown.add(p);
-      const at = stows[k++];
-      if (at) wear(look, p, parts, at[1], at[0]);
+      rest.push(p);
     }
   }
+  rest.sort((a, b) => Number(/^hammer/.test(b)) - Number(/^hammer/.test(a)));
+  rest.forEach((p, k) => {
+    const at = stows[k];
+    if (at) wear(look, p, parts, at[1], at[0]);
+  });
   rankBands(look, d[o + S.rank]!);
   const cart = d[o + S.kit]!;
   let clip = 'idle';
@@ -1828,15 +1974,20 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
   const ranged = d[o + S.ranged]!;
   // A ranger's close weapon is its fists: its bow, sling or gun stays in hand.
   const inHand = swing === Slot.Ranged + 1 || (ranged && piecesOf(weapon).length === 0) ? ranged : weapon;
-  for (const p of piecesOf(inHand)) wear(look, p, parts);
-  for (const p of piecesOf(inHand === ranged ? weapon : ranged)) wear(look, p, parts, Stow.Back);
+  // The brawler's close weapon, the tier 8 close-melee row, is drawn as the brawler's cutlass (Table 2e).
+  const pieces = (gear: number): readonly string[] => (gear === weapon && d[o + S.troop] === Troop.Brawler ? ['cutlass'] : piecesOf(gear));
+  for (const p of pieces(inHand)) wear(look, p, parts);
+  for (const p of pieces(inHand === ranged ? weapon : ranged)) wear(look, p, parts, Stow.Back);
   const shot = gearModel(ranged);
   if (/^bow/.test(shot)) wear(look, 'quiver', parts);
   else if (/^crossbow/.test(shot)) wear(look, 'bolt_case', parts);
   for (const p of piecesOf(d[o + S.shield]!)) wear(look, p, parts);
   for (const p of piecesOf(d[o + S.armour]!)) wear(look, p, parts);
   rankBands(look, d[o + S.rank]!);
-  if (d[o + S.task] === Task.Crew && d[o + S.troop] === Troop.Crew && swing === 0 && body) {
+  // The artillery crewman: Jade's warrior body in the crew outfit (Patch 5).
+  const crew = d[o + S.troop] === Troop.Crew;
+  if (crew) look.worn.push('crew_outfit');
+  if (d[o + S.task] === Task.Crew && crew && swing === 0 && body) {
     if (c.moving) look.clip = 'cannon_push';
     else {
       const lengths = CREW_DRILL.map(([clip]) => body.clips.get(clip)?.length ?? 1);
@@ -1851,6 +2002,8 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
     }
     return look;
   }
+  // Away from the gun, the crewman's rammer is in hand.
+  if (crew && piecesOf(inHand).length === 0) wear(look, 'cannon_rammer', parts);
   const clip = warriorClip(d, o, inHand, c);
   look.clip = clipOr(body, clip.clip, c.moving);
   if (clip.t !== undefined) look.t = clip.t;
@@ -1872,7 +2025,7 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
   if (swing === Slot.Ranged + 1) {
     return { clip: /^bow/.test(model) ? 'bow_shoot' : model === 'sling' ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
   }
-  if (swing !== 0) return { clip: /^halberd/.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
+  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
   if (flags & UnitFlag.Hurt) return { clip: d[o + S.shield] !== 0 ? 'shield_block' : 'injured' };
   if (order === OrderKind.Swim) return { clip: 'swim' };
   if (order === OrderKind.Climb || flags & UnitFlag.Climbing) return { clip: 'climb' };

@@ -163,11 +163,15 @@ export const UNIT_FIELDS = [
   /**
    * The kit (Troops and gear): a troop's type (units/kits.ts Troop, fixed
    * when it is trained) and its weapon and armour tiers; a worker's tool
-   * kit tier in wTier; a mage's wand and robe tiers.
+   * kit tier in wTier; a mage's wand and robe tiers. Close melee's shield
+   * tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison
+   * tips on (Patch 5).
    */
   ['troop', 'u8'],
   ['wTier', 'u8'],
   ['aTier', 'u8'],
+  ['sTier', 'u8'],
+  ['tips', 'u8'],
   /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. */
   ['weapon', 'u8'],
   ['ranged', 'u8'],
@@ -312,6 +316,9 @@ export const UNIT_FIELDS = [
   ['ledgeX', 'i32'],
   ['ledgeY', 'i32'],
   ['ledgeZ', 'i32'],
+  /** Morvath's wings (Jade's Patch 5 MB-4): life still to drain from the players' units round him, until this step. */
+  ['drainUntil', 'u32'],
+  ['drainLeft', 'i32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -373,6 +380,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare troop: Uint8Array;
   declare wTier: Uint8Array;
   declare aTier: Uint8Array;
+  declare sTier: Uint8Array;
+  declare tips: Uint8Array;
   declare weapon: Uint8Array;
   declare ranged: Uint8Array;
   declare shield: Uint8Array;
@@ -460,6 +469,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare ledgeX: Int32Array;
   declare ledgeY: Int32Array;
   declare ledgeZ: Int32Array;
+  declare drainUntil: Uint32Array;
+  declare drainLeft: Int32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -702,9 +713,10 @@ export interface SimEvent {
  * How long a speech bubble stays (Jade's Patch 3): 'bar' while its speaker
  * sits at the timed action that made it speak, as long as the progress bar
  * over its head runs (units/tinker.ts); 'long' twice the usual time (the
- * main base's word of advice at the start).
+ * main base's word of advice at the start); 'linger' 20 s, unless the
+ * speaker says something else first (Jade's Patch 5: the necromancer).
  */
-export type BubbleHold = 'bar' | 'long';
+export type BubbleHold = 'bar' | 'long' | 'linger';
 
 export interface SimState {
   seed: number;
@@ -810,6 +822,8 @@ export interface PendingSpawn {
   az: number;
   /** The lair it comes out of (an entity id), or 0 for the dark edge. */
   src: number;
+  /** A weapon, armour or shield it carries, dropped when it is killed (Patch 5, GP-1: threats/loot.ts giveWaveGear), or 0. */
+  gear: number;
 }
 
 /**
@@ -837,8 +851,13 @@ export interface Loot {
   src: number;
 }
 
-/** Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel chain (Patch 5 took out the earthworks: banks, fill and ramps). */
-export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2 } as const;
+/**
+ * Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel
+ * chain (Patch 5 took out the earthworks: banks, fill and ramps), and a dig
+ * drawn upwards (Jade's Patch 5, GP-4: a box from the ground clicked up to
+ * its roof, to level a hill or a mountain, dug from the top down).
+ */
+export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2, Up: 3 } as const;
 
 /** Whether a site is a tunnel: a marked box, or a stretch of a tunnel chain. */
 export function tunnelSite(kind: number): boolean {
@@ -859,9 +878,9 @@ export interface Site {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the floor to dig down to. Tunnels: the floor. */
+  /** Dig: the floor to dig down to. Tunnels and digs drawn upwards: the floor. */
   level: number;
-  /** Tunnels: the roof. */
+  /** Tunnels and digs drawn upwards: the roof (nothing above it is dug). */
   level2: number;
   /** TunnelLine: its width in columns. */
   axis: number;
@@ -870,11 +889,14 @@ export interface Site {
 /**
  * What a hit looks like (Generated rocks and trees: hit particles). Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its
  * blast, smoke and crater); 'dirt', a catapult stone's or boulder's splash. 'tick': no look of its own, only the damage
- * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10). 'heart': two animals mating
- * (BL-10), over each of them. 'catch': a woodsman's fish coming up out of the water at (x, y, z) to him (id), its
- * stretch's prop kind in mob (FR-1).
+ * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10). Jade's Patch 5 mobs:
+ * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
+ * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
+ * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
+ * summoner `id`. 'heart': two animals mating (BL-10), over each of them. 'catch': a woodsman's fish coming up out of the
+ * water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1).
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'heart' | 'catch';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'heart' | 'catch';
 
 export interface HitEvent {
   look: HitLook;
@@ -893,6 +915,9 @@ export interface HitEvent {
   shot?: number;
   /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
   dmg?: number;
+  /** A drain (look 'drain'): the entity the motes fly into, and how many. */
+  to?: number;
+  n?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */
@@ -1120,13 +1145,14 @@ function yardSpot(x: number, z: number, bearing: number, out: number, across: nu
   return [x + floorDiv(out * c - across * s, 65536), z + floorDiv(out * s + across * c, 65536)];
 }
 
-/** A new troop of rank 1 of a type, with its weapon and armour tiers (a fist fighter by default); returns its index. */
-export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0): number {
+/** A new troop of rank 1 of a type, with its weapon, armour and (close melee) shield tiers (a fist fighter by default); returns its index. */
+export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0, shield = 0): number {
   const id = state.nextEntityId++;
   const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Warrior);
   state.entities.troop[i] = troop;
   state.entities.wTier[i] = weapon;
   state.entities.aTier[i] = armour;
+  state.entities.sTier[i] = shield;
   applyKit(state.entities, i, 'warrior');
   state.entities.hp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.maxHp[i] = WARRIOR_HEALTH_BY_RANK[1]!;

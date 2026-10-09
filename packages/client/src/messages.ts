@@ -47,7 +47,7 @@ export type ToWorker =
  * something hauls it; its meal and hunger; a timed action under way; what
  * work it is at, for its clip and the tool in its hand.
  */
-export const STATE_STRIDE = 57;
+export const STATE_STRIDE = 59;
 export const S = {
   id: 0,
   owner: 1,
@@ -133,8 +133,11 @@ export const S = {
   /** A timed action beside a building (Jade's Patch 2, sim units/tinker.ts): the steps done and the steps it takes, 0 when the unit is not sitting at one. */
   tinkerDone: 54,
   tinkerOf: 55,
+  /** Close melee's shield tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison tips on. */
+  sTier: 56,
+  tips: 57,
   /** A worker's work now (Task), for its clip and the tool in its hand (Patch 5); 0 for none. */
-  task: 56,
+  task: 58,
 } as const;
 
 /** What a worker is at (S.task): each has a clip of its own and the tool for it in hand (Patch 5, units-view.ts). */
@@ -147,9 +150,10 @@ export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 
  * Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there
  * though it is inside; Climbing: a monster on a wall or one of the players'
  * units on a face; Running: moving at its run; RunMode: its Run/Walk button
- * is on Run; BarnHand: a worker who is a Barn's barn hand).
+ * is on Run; Guardian: a mana crystal's guardian, Jade's Patch 5; BarnHand: a worker who
+ * is a Barn's barn hand).
  */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, BarnHand: 65536 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, Guardian: 65536, BarnHand: 131072 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -213,7 +217,12 @@ export interface BuildingInfo {
   /** Level being built as an upgrade, or 0, and how far, per mille. */
   upgrading: number;
   upgraded: number;
-  /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold); a stack (Patch 5's bonemeal) has `count` more to make after this one. */
+  /**
+   * Production queue: product, and for the first only the per mille done and
+   * the steps it has left at the sim's own pace now (0 while it is on hold);
+   * a stack (Patch 5: bonemeal, or gear being scrapped) has `count`, how many
+   * are left with the one under way.
+   */
   queue: Array<{ product: number; done: number; stepsLeft: number; count?: number }>;
   rally: RallyPoint[];
   /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
@@ -246,10 +255,11 @@ export interface BuildingInfo {
   /**
    * Barracks and main bases (own and usable): each troop type it
    * trains, with the panel's default weapon and armour tiers (the Lock's
-   * combination, else the best the stock pays for) and the Lock (0 off, else
-   * 1 + weapon x 10 + armour).
+   * combination, else the best the stock pays for; close melee's shield
+   * after them from Patch 5) and the Lock (0 off, else 1 + shield x 100 +
+   * weapon x 10 + armour).
    */
-  troops: Array<{ troop: number; w: number; a: number; lock: number }>;
+  troops: Array<{ troop: number; w: number; a: number; s: number; lock: number }>;
   /**
    * A Magi Sanctum (own and usable): each school it trains on its cards
    * (Patch 2), with the default wand and robe tiers (the padlock's kit, else

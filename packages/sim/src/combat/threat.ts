@@ -163,9 +163,9 @@ export interface ThreatInput {
   bluntBp: number;
   /** A shield's block against what flies, bp. */
   blockBp: number;
-  /** Its blow, and the poison the blow adds. */
-  damage: number;
-  poison: number;
+  /** Its blow, and the poison the blow adds, in tenths. */
+  damageTenths: number;
+  poisonTenths: number;
   attackSteps: number;
   area: Area;
   /** A shot's splash on the units round the one it hits. */
@@ -208,7 +208,7 @@ function targetsTenths(area: Area): number {
 /** Damage a second in hundredths: its blow on as many as it lands on, a shot's splash, and a share of what it does to walls. */
 export function damagePerSecond100(m: ThreatInput): number {
   const t = THREAT;
-  const strike = (m.damage + m.poison) * targetsTenths(m.area) * 10 + m.splash * t.splashTargetsTenths * 10 + m.vsWalls * t.wallsPct;
+  const strike = (m.damageTenths + m.poisonTenths) * targetsTenths(m.area) + m.splash * t.splashTargetsTenths * 10 + m.vsWalls * t.wallsPct;
   if (m.once) return floorDiv(strike, Math.max(1, t.onceSeconds));
   return floorDiv(strike * STEPS_PER_SECOND, Math.max(1, m.attackSteps));
 }
