@@ -295,6 +295,10 @@ const BOLTS: Partial<Record<number, BoltLook>> = {
   [Shot.ManaBolt]: { sheet: 'mana', tint: 0xffffff, rate: 55, size: 0.26, life: 0.5, halo: 0.7, glow: 0x60e0ff, sparks: 8, burst: 18, flash: 0.9 },
   [Shot.Hellfire]: { sheet: 'embers', tint: 0xff7050, rate: 80, size: 0.36, life: 0.6, halo: 1.2, glow: 0xff3010, sparks: 20, burst: 30, flash: 1.6 },
   [Shot.Thorn]: { sheet: 'green', tint: 0xffffff, rate: 16, size: 0.16, life: 0.35, halo: 0, glow: 0, sparks: 0, burst: 0, flash: 0 },
+  // Jade's Patch 5 stone circles: a Satyr Reveler's pale green bolt, Silenus' amber and leaf-green nature bolt, the Lich's grey-green Acrid Wind.
+  [Shot.RevelerBolt]: { sheet: 'green', tint: 0xe0ffc8, rate: 50, size: 0.22, life: 0.45, halo: 0.7, glow: 0xc8f0a0, sparks: 8, burst: 18, flash: 0.9 },
+  [Shot.NatureBolt]: { sheet: 'green', tint: 0xfff0b0, rate: 60, size: 0.26, life: 0.5, halo: 0.9, glow: 0xffb030, sparks: 12, burst: 24, flash: 1.1 },
+  [Shot.AcridWind]: { sheet: 'green', tint: 0x9aa880, rate: 70, size: 0.4, life: 0.7, halo: 0, glow: 0x8a9a70, sparks: 0, burst: 30, flash: 0 },
 };
 
 /** The glow at the wand's tip while a spell without a bolt is cast, by school: support gold-white, battle violet, the Grovesingers green. */
@@ -309,7 +313,12 @@ const BOLT_MODELS: Partial<Record<number, string>> = {
   [Shot.ManaBolt]: 'mana_bolt',
   [Shot.Hellfire]: 'hellfire',
   [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model,
+  [Shot.RevelerBolt]: 'reveler_bolt',
+  [Shot.NatureBolt]: 'nature_bolt',
+  [Shot.AcridWind]: 'acrid_wind',
 };
+/** Bolts whose head is down -Z though their trail behind is the longer end (Jade's nature and reveler bolts). */
+const HEAD_DOWN_MINUS_Z: ReadonlySet<string> = new Set(['nature_bolt', 'reveler_bolt']);
 
 /** The sparkle round a unit under a spell, by SpellOn bit. */
 const AURAS: ReadonlyArray<readonly [number, Sheet, number]> = [
@@ -538,6 +547,79 @@ export class SpellFx {
   }
 
   /**
+   * One of the stone circle keepers' models played through (Jade's Patch 5:
+   * the Lash of Thorns, the roots letting go): metres, turned to `heading`,
+   * for `life` s at least, riding on unit `follow` when it is not 0, `skip` s
+   * of its clips already played.
+   */
+  play(model: string, x: number, y: number, z: number, heading: number, life: number, follow = 0, scale = 1, skip = 0): void {
+    this.follows ||= follow !== 0;
+    this.playing.push({ model, x, y, z, heading, t0: this.t - skip, life, follow, from: scale, to: scale, grow: 0 });
+  }
+
+  /** A model's clips after its loop played through (entangling roots letting go of a unit), metres. */
+  release(model: string, x: number, y: number, z: number, heading: number): void {
+    const m = this.model(model);
+    if (!m) return;
+    const clips = [...m.clips.values()];
+    const loopAt = clips.findIndex((c) => c.loop);
+    if (loopAt < 0) return;
+    const intro = clips.slice(0, loopAt).reduce((s, c) => s + c.length, 0);
+    const outro = clips.slice(loopAt + 1).reduce((s, c) => s + (c.loop ? 0 : c.length), 0);
+    if (outro > 0) this.play(model, x, y, z, heading, intro + outro, 0, 1, intro);
+  }
+
+  /**
+   * One of the keepers' models drawn this frame only, `age` s into its clips
+   * (those before its loop once, then the loop for as long as it lasts): the
+   * roots round a unit they hold, Touch of the Grave on one it lies on, the
+   * rite's orb in the Lich's hand.
+   */
+  at(model: string, x: number, y: number, z: number, heading: number, age: number, scale = 1): void {
+    const m = this.model(model);
+    const slot = m ? this.landings.take(m) : null;
+    if (!m || !slot) return;
+    const { clip, t } = clipAt(m, age, Number.POSITIVE_INFINITY);
+    slot.m.setInstance(slot.i, x, y, z, heading, clip, t, null, scale);
+  }
+
+  /** A tether this frame (the Sacrificial Rite's beam, Jade's SCB-2 model): the model's segments laid end to end from one point to the other, turning, and motes flowing along it. */
+  chain(model: string, from: THREE.Vector3, to: THREE.Vector3, colour: number): void {
+    const dir = this.dir.subVectors(to, from);
+    const len = dir.length();
+    if (len < 0.1) return;
+    dir.divideScalar(len);
+    const seg = this.model(model);
+    if (seg) {
+      const step = Math.max(0.1, -seg.boundingBox.min.z);
+      for (let d = 0, k = 0; d < len && k < 200; d += step, k++) {
+        this.dummy.quaternion.setFromUnitVectors(Z_BACK, dir);
+        this.dummy.rotateZ(this.t * 5 + k * 0.9);
+        this.dummy.position.set(from.x + dir.x * d, from.y + dir.y * d, from.z + dir.z * d);
+        this.dummy.scale.set(1, 1, Math.min(1, (len - d) / step));
+        this.dummy.updateMatrix();
+        this.statics.add(seg, this.dummy.matrix);
+      }
+    }
+    const c = this.colour.set(colour);
+    for (let k = this.count(90 * this.dt); k > 0; k--) {
+      const d = Math.random() * len;
+      const speed = 6 + Math.random() * 4;
+      this.mote('glow', from.x + dir.x * d, from.y + dir.y * d, from.z + dir.z * d, dir.x * speed, dir.y * speed, dir.z * speed, Math.min(0.3, (len - d) / speed), 0.3, c);
+    }
+  }
+
+  /** A model from the library, asked for the first time it is wanted. */
+  private model(id: string): ModelData | undefined {
+    const m = this.lib?.models.get(id);
+    if (!m && this.lib?.listed(id) && !this.asked.has(id)) {
+      this.asked.add(id);
+      this.lib.request(id);
+    }
+    return m;
+  }
+
+  /**
    * A bolt of magic in flight (metres; dir is where it is going): its trail
    * and halo, and its model once that is in. True when it is drawn here, so
    * the caller draws no stand-in.
@@ -553,7 +635,7 @@ export class SpellFx {
     if (model) {
       // Head on the shot's point, tail behind it: Jade's bolts point their head down -Z, the older models up +Z.
       const b0 = model.boundingBox;
-      const forwardMinusZ = -b0.min.z > b0.max.z;
+      const forwardMinusZ = HEAD_DOWN_MINUS_Z.has(id) || -b0.min.z > b0.max.z;
       const len = forwardMinusZ ? -b0.min.z : b0.max.z;
       this.dummy.quaternion.setFromUnitVectors(forwardMinusZ ? Z_BACK : Z_FORWARD, dir);
       this.dummy.position.set(x - dir.x * len, y - dir.y * len, z - dir.z * len);

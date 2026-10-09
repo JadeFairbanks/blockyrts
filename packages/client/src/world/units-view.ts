@@ -301,7 +301,54 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
   catch: { colour: 0xcfe6f2, n: 7, speed: 1.2, up: 2 },
   // The Fae Guardian's bolt bursting (Jade's MF-7, decisions 2.2): its own pink-magenta at the middle (onHits spreads it over the 2 m).
   fairy: { colour: 0xeb3dda, n: 30, speed: 3.2, up: 2.6 },
+  // Jade's Patch 5 stone circle keepers: the Great White Ape springing, his thunderclap's dust, earth turned as he plants and moonlight as he worships;
+  // a satyr vanishing in a puff and leaping out of one; Silenus changing, his lash and roots; the Lich's rite and Touch of the Grave.
+  leap: { colour: 0x8a7a5a, n: 10, speed: 2, up: 1.5 },
+  thunder: { colour: 0xd8d0c0, n: 40, speed: 6, up: 2 },
+  plant: { colour: 0x6a4a2a, n: 10, speed: 1.2, up: 1.2 },
+  worship: { colour: 0xf4f0ff, n: 12, speed: 0.6, up: 2.4 },
+  vanish: { colour: 0x5a4a3a, n: 26, speed: 1.6, up: 1.8 },
+  ambush: { colour: 0x5a4a3a, n: 20, speed: 2.2, up: 1.4 },
+  transform: { colour: 0x7ab040, n: 40, speed: 3, up: 2.6 },
+  lash: { colour: 0x4a8a2a, n: 14, speed: 2.4, up: 1.6 },
+  roots: { colour: 0x6a5a30, n: 18, speed: 2, up: 1.6 },
+  rite: { colour: 0xc0102a, n: 24, speed: 1.6, up: 2.2 },
+  grave: { colour: 0x6a8a5a, n: 12, speed: 0.8, up: 1.4 },
 };
+
+/** The clips the stone circle keepers play through on their moves (Jade's Patch 5 models), by hit look: the first of them the model has. */
+const KEEPER_MOVES: Record<string, readonly string[]> = {
+  enrage: ['roar_enrage', 'roar'],
+  leap: ['leap_thunderclap', 'leap'],
+  grab: ['grab_toss'],
+  plant: ['plant'],
+  worship: ['worship'],
+  drink: ['drink'],
+  transform: ['transform_in', 'transform'],
+  ambush: ['ambush_reappear'],
+};
+/** And the clips they cast with, played on the caster (the hit's `to`): Silenus' or a reveler's lash, his roots, the Lich's rite. */
+const KEEPER_CASTS: Record<string, readonly string[]> = {
+  lash: ['cast_lash_of_thorns'],
+  roots: ['cast_entangling_roots'],
+  rite: ['cast_sacrificial_rite'],
+};
+/** The Great White Ape's thunderclap (SCA-2): dust over its 6 m. */
+const THUNDER_DUST = { colour: 0x8a7a5a, n: 60, radiusM: 6 };
+/** Jade's lash_of_thorns reaches this far, m: drawn from the caster's hand toward what it strikes, shrunk (to half at most) for a nearer one. */
+const LASH_MODEL_M = 10;
+/** How high the lash leaves the caster's hand, m. */
+const LASH_HAND_M = 1.1;
+/** The Sacrificial Rite (SCB-2): its beam from where the follower stood into the Lich's hand and the orb there show this long, ms, in this crimson. */
+const RITE_MS = 1600;
+const RITE_COLOUR = 0xd02040;
+/** The rite's orb sits this far below its own origin's height in his hand, m (Jade's model is 30 cm, its middle 17 cm up). */
+const RITE_ORB_DROP_M = 0.17;
+/** The Satyr Trickster's two hand-axes (SCS-2) are Jade's obsidian hand-axe, held, in each hand once it is in; his model's own until then. */
+const TRICKSTER_AXE = 'obsidian_handaxe_held';
+const TRICKSTER_OWN_AXES: ReadonlySet<string> = new Set(['axe_r', 'axe_l']);
+/** A monster's swing with a shot (sim combat/mob-ai.ts With.Shot, plus one). */
+const SHOT_SWING = 4;
 
 /** The Fae Guardian's bolt (Jade's MF-7, decisions 2.2): a big burst of her bolt's pink-magenta over the 2 m it splashes, and motes in its wake. */
 const FAIRY_BURST = { colours: [0xeb3dda, 0xff64f6, 0xd237c3], n: 70, radiusM: 2, trailPerSecond: 40 };
@@ -359,6 +406,10 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.3, w: 0.05, colour: 0xfff0b0 },
   // The Fae Guardian's bolt (Jade's Patch 5), until its model is in the library.
   { len: 0.5, w: 0.2, colour: 0xeb3dda },
+  // The stone circles (Jade's Patch 5): a reveler's bolt, Silenus' nature bolt, the Lich's Acrid Wind (spell-fx.ts draws them once their models are in).
+  { len: 0.3, w: 0.2, colour: 0xc8f0a0 },
+  { len: 0.4, w: 0.22, colour: 0xffb030 },
+  { len: 1, w: 0.6, colour: 0x8a9a70 },
 ];
 
 /** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5); the gunpowder ones trail a streak too. */
@@ -955,7 +1006,12 @@ export class UnitsView {
   /** Each held item's slot_muzzle in its own space, or null when it has none. */
   private readonly muzzleOf = new Map<string, THREE.Vector3 | null>();
   /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
-  private readonly held = new Map<number, { clip: string; t0: number; until: number; then?: { clip: string; ms: number } }>();
+  private readonly held = new Map<number, { clip: string; t0: number; until: number; alts?: readonly string[]; then?: { clip: string; ms: number } }>();
+  /** When entangling roots and Touch of the Grave were first seen on each unit (Jade's Patch 5), ms. */
+  private readonly rootedAt = new Map<number, number>();
+  private readonly graveAt = new Map<number, number>();
+  /** The Lich's Sacrificial Rite showing, by his id: where the follower stood (metres) and when it began, ms. */
+  private readonly rites = new Map<number, { x: number; y: number; z: number; t0: number }>();
   /** Each Morvath's form last seen, by entity id, and where each stands now (metres), for the life drained into him. */
   private readonly forms = new Map<number, number>();
   private readonly morvathAt = new Map<number, THREE.Vector3>();
@@ -1110,15 +1166,36 @@ export class UnitsView {
     this.owned.push(rec);
   }
 
-  /** Plays a clip through on a monster from now (its whole length), then `then` for `thenMs`. */
-  private hold(id: number, clip: string, now: number, then?: { clip: string; ms: number }): void {
-    this.held.set(id, then ? { clip, t0: now, until: -1, then } : { clip, t0: now, until: -1 });
+  /** Plays a clip through on a monster from now (its whole length; of several, the first its model has), then `then` for `thenMs`. */
+  private hold(id: number, clip: string | readonly string[], now: number, then?: { clip: string; ms: number }): void {
+    const [first, ...alts] = typeof clip === 'string' ? [clip] : clip;
+    this.held.set(id, { clip: first ?? '', t0: now, until: -1, ...(alts.length > 0 ? { alts } : {}), ...(then ? { then } : {}) });
+  }
+
+  /** Entangling roots round a unit they hold and Touch of the Grave on one it lies on, from when each was first seen; the roots let go as they end. */
+  private drawMarks(id: number, flags: number, x: number, y: number, z: number, now: number): void {
+    const turn = (id % 8) * (Math.PI / 4);
+    const rooted = this.rootedAt.get(id);
+    if (flags & UnitFlag.Rooted) {
+      if (rooted === undefined) this.rootedAt.set(id, now);
+      this.spellFx.at('entangling_roots', x, y, z, turn, (now - (rooted ?? now)) / 1000);
+    } else if (rooted !== undefined) {
+      this.rootedAt.delete(id);
+      this.spellFx.release('entangling_roots', x, y, z, turn);
+    }
+    const grave = this.graveAt.get(id);
+    if (flags & UnitFlag.Grave) {
+      if (grave === undefined) this.graveAt.set(id, now);
+      this.spellFx.at('touch_of_the_grave_aura', x, y, z, 0, (now - (grave ?? now)) / 1000);
+    } else if (grave !== undefined) this.graveAt.delete(id);
   }
 
   /** The clip a monster plays through now and how far into it, s, or null. */
   private heldClip(id: number, model: ModelData, now: number): [string, number] | null {
     const h = this.held.get(id);
     if (!h) return null;
+    if (h.alts && !model.clips.has(h.clip)) h.clip = h.alts.find((n) => model.clips.has(n)) ?? h.clip;
+    delete h.alts;
     const c = model.clips.get(h.clip);
     if (!c) {
       this.held.delete(id);
@@ -1194,7 +1271,7 @@ export class UnitsView {
   }
 
   /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. A gun's shot leaving gets its flash and smoke (`who` finds the shooter: a pistol smokes less than a musket). */
-  onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number, who?: (id: number) => { kind: number; ranged: number; x: number; z: number } | null): void {
+  onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number, who?: (id: number) => { kind: number; ranged: number; x: number; y: number; z: number } | null): void {
     for (const h of hits) {
       const x = h.x / WU_PER_METRE;
       const y = h.y / WU_PER_METRE;
@@ -1233,6 +1310,30 @@ export class UnitsView {
       // Jade's Patch 5 keepers (MB-11): the Bog guardian roars before he runs, and looks alarmed when his bog is disturbed.
       if (h.look === 'roar') this.hold(h.id, 'roar', now);
       if (h.look === 'alarm') this.hold(h.id, 'alarmed', now);
+      // The stone circle keepers (Jade's Patch 5 models) play their moves through, and cast with their own clips at what they strike.
+      const moves = KEEPER_MOVES[h.look];
+      if (moves) this.hold(h.id, moves, now);
+      const casts = KEEPER_CASTS[h.look];
+      if (casts && h.to !== undefined) this.hold(h.to, casts, now);
+      // The Great White Ape's thunderclap: dust thrown up all over its 6 m.
+      if (h.look === 'thunder') {
+        for (let k = 0; k < THUNDER_DUST.n; k++) {
+          const a = (k / THUNDER_DUST.n) * Math.PI * 2;
+          const r = THUNDER_DUST.radiusM * (0.3 + 0.7 * Math.random());
+          this.particles.spawn(x + Math.cos(a) * r, y + 0.1, z + Math.sin(a) * r, THUNDER_DUST.colour, 1, 1.2, 1.4);
+        }
+      }
+      // The Lash of Thorns (Jade's model) whips from the caster's hand to what it strikes.
+      if (h.look === 'lash' && h.to !== undefined) {
+        const c = who?.(h.to);
+        if (c) {
+          const cx = c.x / WU_PER_METRE;
+          const cz = c.z / WU_PER_METRE;
+          const far = Math.hypot(x - cx, z - cz);
+          this.spellFx.play('lash_of_thorns', cx, c.y / WU_PER_METRE + LASH_HAND_M, cz, Math.atan2(-(x - cx), -(z - cz)), 0, 0, Math.min(1, Math.max(0.5, far / LASH_MODEL_M)));
+        }
+      }
+      if (h.look === 'rite' && h.to !== undefined) this.rites.set(h.to, { x, y: y + 0.9, z, t0: now });
       if (h.look === 'fairy') {
         for (let k = 0; k < FAIRY_BURST.n; k++) {
           const a = Math.random() * Math.PI * 2;
@@ -1318,6 +1419,9 @@ export class UnitsView {
       // Lairs and the goblins' buildings stay on the map once found, like the land; creatures only while in sight.
       const structure = mobUnit && mobSpec(d[o + S.mob]!).role === Role.Structure;
       if (mobUnit && !(structure ? f.known(x, z) : f.seen(x, z))) continue;
+      // Entangling roots round a unit they hold, Touch of the Grave on one it lies on (Jade's Patch 5 models).
+      const marks = d[o + S.flags]! & (UnitFlag.Rooted | UnitFlag.Grave);
+      if (marks !== 0 || this.rootedAt.has(id) || this.graveAt.has(id)) this.drawMarks(id, marks, x, y, z, now);
       // How far into its swing: clips start when the swing does; a shot's end starts a reload.
       const swing = d[o + S.swing]!;
       live.add(id);
@@ -1359,8 +1463,10 @@ export class UnitsView {
         const sway = mob === Mob.FaeGuardianAloft ? FAE_WRATH_SWAY_M * (0.55 * Math.sin(t * 1.3 + id) + 0.3 * Math.sin(t * 2.9 + id * 1.7) + 0.15 * Math.sin(t * 5.3 + id * 0.3)) : 0;
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
-          // With the weapons and gear it is made with (Patch 5: they were all hidden before).
-          const slot = pool.take(pool.model.sidecar.partsShown ?? []);
+          // With the weapons and gear it is made with (Patch 5: they were all hidden before); the Satyr Trickster's axes are Jade's obsidian hand-axe once it is in.
+          const shown = pool.model.sidecar.partsShown ?? [];
+          const axes = spec.model === 'satyr_trickster' && this.attach.has(TRICKSTER_AXE);
+          const slot = pool.take(axes ? shown.filter((p) => !TRICKSTER_OWN_AXES.has(p)) : shown);
           const kept = this.heldClip(id, pool.model, now);
           const clip = kept ? kept[0] : mob === Mob.MorvathAloft ? aloftClip(pool.model, d, o) : mobClip(pool.model, d, o);
           if (slot) {
@@ -1370,6 +1476,21 @@ export class UnitsView {
             if (fuse >= 0) {
               const at = new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, fuse, this.mat));
               this.sparks.spawn(at.x, at.y, at.z, 0xffc040, 2, 0.7, 0.8, 0.15);
+            }
+            if (axes) {
+              for (const hand of ['slot_hand_r', 'slot_hand_l']) {
+                const b = pool.bone(hand);
+                if (b >= 0) this.attach.add(TRICKSTER_AXE, slot.m.boneWorld(slot.i, b, this.mat));
+              }
+            }
+            // The Sacrificial Rite (Jade's SCB-2 models): the orb in the Lich's left hand, the beam from where his follower stood into it.
+            const rite = this.rites.get(id);
+            if (rite && now - rite.t0 >= RITE_MS) this.rites.delete(id);
+            else if (rite) {
+              const b = pool.bone('slot_rite_l');
+              const hand = b >= 0 ? new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, b, this.mat)) : new THREE.Vector3(x, y + 1.4, z);
+              this.spellFx.at('sacrificial_rite_orb', hand.x, hand.y - RITE_ORB_DROP_M, hand.z, 0, (now - rite.t0) / 1000);
+              this.spellFx.chain('sacrificial_rite_beam', new THREE.Vector3(rite.x, rite.y, rite.z), hand, RITE_COLOUR);
             }
           }
         } else {
@@ -1548,6 +1669,9 @@ export class UnitsView {
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     this.dread.keep(live);
     for (const id of this.held.keys()) if (!live.has(id)) this.held.delete(id);
+    for (const id of this.rootedAt.keys()) if (!live.has(id)) this.rootedAt.delete(id);
+    for (const id of this.graveAt.keys()) if (!live.has(id)) this.graveAt.delete(id);
+    for (const id of this.rites.keys()) if (!live.has(id)) this.rites.delete(id);
     for (const id of this.forms.keys()) if (!live.has(id)) this.forms.delete(id);
     for (const id of this.morvathAt.keys()) if (!live.has(id)) this.morvathAt.delete(id);
     blocks = this.drawCorpses(t, blocks);
@@ -1869,6 +1993,12 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   const has = (n: string): boolean => model.clips.has(n);
   const flags = d[o + S.flags]!;
   if (d[o + S.swing] !== 0) {
+    // A caster's bolt (Jade's Patch 5 stone circle keepers): its cast clip for that bolt, else its ranged cast.
+    if (d[o + S.swing] === SHOT_SWING) {
+      const cast = `cast_${SHOTS[mobSpec(d[o + S.mob]!).shot]?.model ?? ''}`;
+      if (has(cast)) return cast;
+      if (has('attack_ranged_cast')) return 'attack_ranged_cast';
+    }
     for (const n of model.clips.keys()) if (n.startsWith('attack') || n === 'bow_shoot' || n === 'sling_throw' || n === 'detonate') return n;
   }
   if (flags & UnitFlag.Climbing && has('climb')) return 'climb';
@@ -1882,7 +2012,8 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   if (flags & UnitFlag.Charging && has('charge')) return 'charge';
   // Running away, or a keeper running (Jade's Patch 5: the Bog guardian once wronged, the Fae Guardian riled, who runs even as she hovers).
   if (flags & UnitFlag.Running && has('run') && (moving || moves === Moves.LowFlyer || moves === Moves.HighFlyer)) return 'run';
-  if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : firstClip(model.clips, ['walk', 'ride']);
+  // The Lich hovers from place to place (his model's move).
+  if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : firstClip(model.clips, ['walk', 'move', 'ride']);
   return firstClip(model.clips, ['idle', 'ride_idle']);
 }
 

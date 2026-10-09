@@ -1360,10 +1360,11 @@ function apesFor(state: SimState, player: number): ApeView[] {
 
 // ----- for the client -----
 
-/** Whether a circle's keeper runs now (the client's run clip): the Ape raging. */
+/** Whether a circle's keeper runs now (the client's run clip): the Ape raging, and the sabretooth always (6 m/s). */
 export function encounterRuns(state: SimState, i: number): boolean {
   const r = encounterOf(state, i);
   if (!r) return false;
+  if (state.entities.mob[i] === Mob.Sabretooth) return true;
   return r.type === CircleType.Lunar && r.leader === state.entities.id[i] && (r.mode === EncounterMode.Fighting || r.mode === EncounterMode.Rampage);
 }
 

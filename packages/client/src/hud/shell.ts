@@ -447,12 +447,13 @@ export class GameShell {
       openPeople: (faction) => this.peoples.open(faction),
       hireDreadnought: (taverns) => this.hire.show(taverns),
       openAltar: (circle, type) => this.circles.openAltar(circle, type),
+      openApe: (circle) => this.circles.openApe(circle),
       slots: () => {
         const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
         return { most: room.cols * room.rows };
       },
     });
-    registerCircleItemUses(opts.game, opts.player, (o) => opts.issueOrder(o), () => this.commands.startPlant());
+    registerCircleItemUses(opts.game, opts.player, (o) => opts.issueOrder(o), () => this.commands.startPlant(), () => this.circles.openHeadless());
     this.input = new InputManager(
       {
         game: this.gameMouse(),

@@ -87,7 +87,11 @@ export function headlessProblem(state: SimState, player: number, faction: number
 
 /** Uses the idol on a faction: war, if there was none, and the coming night's waves are theirs. */
 export function useHeadless(state: SimState, player: number, faction: number): void {
-  const f = factionById(state.peoples, faction)!;
+  const f = factionById(state.peoples, faction);
+  if (!f) {
+    state.events.push({ player, kind: 'alert', text: 'Choose the faction to unleash your waves on.' });
+    return;
+  }
   const night = nextNight(state.step);
   state.circles.headless[player] = night;
   state.circles.headlessFaction[player] = f.id;
