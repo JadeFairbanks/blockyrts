@@ -66,7 +66,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | viper | models/animals/viper/viper.bbmodel | 85 | 256x128 | Jade's own model (models/existing_mobs/viper), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 85 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | wild_boar | models/animals/wild_boar/wild_boar.bbmodel | 97 | 256x256 | Jade's own model (models/existing_mobs/wild_boar), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 97 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves); its `hips` bone renamed `pelvis` (a four-legged body, not the humanoid baseline) |
 | ox_harness | models/animals/ox_harness/ox_harness.bbmodel | 15 | 128x128 | placement: worn on the ox skeleton, so it sits at the ox's body height and centre, like horse_harness |
-| goose | models/animals/goose/goose.bbmodel | 23 | 64x64 | the `head` pivot moved to the top of the long neck, so `peck` does not reach the ground |
+| wild_goose | models/animals/wild_goose/wild_goose.bbmodel | 24 | 64x64 | the `head` pivot moved to the top of the long neck, so `peck` does not reach the ground |
 | pheasant | models/animals/pheasant/pheasant.bbmodel | 28 | 64x32 |  |
 
 ## monsters
@@ -1589,6 +1589,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_sword_copper_short | ui/icon_sword_copper_short.png | 1 | 32x32 | K2 item icon sword_copper_short (rendered from sword_copper_short.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_tavern | ui/icon_tavern.png | 1 | 32x32 | K3 building icon tavern (rendered from tavern.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_zweihander | ui/icon_zweihander.png | 1 | 32x32 | K2 item icon zweihander (rendered from zweihander.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_wild_goose | ui/icon_wild_goose.png | 1 | 32x32 | K4 animal icon wild_goose (rendered from wild_goose.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 
 ## sky
 
