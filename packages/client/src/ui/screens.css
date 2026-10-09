@@ -325,6 +325,17 @@
   flex: none;
 }
 
+/* Install app's steps, where the browser has no install box of its own (install.ts). */
+.install-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
 /* The game version, under the menu. */
 .main-menu .note.version {
   font-size: 12px;
