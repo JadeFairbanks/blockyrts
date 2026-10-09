@@ -133,9 +133,9 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.5, w: 0.45, colour: 0xff3010 },
 ];
 
-/** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5), but the gunpowder ones, which are streaks. */
+/** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5); the gunpowder ones trail a streak too. */
 const SHOT_MODELS: Record<number, string> = {
-  ...Object.fromEntries(SHOTS.map((s, i) => [i, s.model]).filter(([i]) => !GUNPOWDER.has(i as number))),
+  ...Object.fromEntries(SHOTS.map((s, i) => [i, s.model])),
   [Shot.ArcaneBolt]: SPELLS[Spell.ArcaneBolt]!.model,
   [Shot.Fireball]: SPELLS[Spell.Fireball]!.model,
   [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model,
@@ -1086,23 +1086,28 @@ export class UnitsView {
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
-      if (GUNPOWDER.has(s[o + 6]!)) {
-        // A bronze cannon's shot is smaller than an iron one's (MB-8).
+      const gun = GUNPOWDER.has(s[o + 6]!);
+      // A bronze cannon's shot is smaller than an iron one's (MB-8).
+      const size = s[o + 6] === Shot.BronzeCannonball ? 0.75 : 1;
+      if (gun) {
+        // The streak trails behind the ball, drawn as its model in front of it.
         const w = s[o + 6] === Shot.Cannonball ? streakW * 2 : s[o + 6] === Shot.BronzeCannonball ? streakW * 1.5 : streakW;
+        dummy.position.set(x - dir.x * streakLen * 0.5, y - dir.y * streakLen * 0.5, z - dir.z * streakLen * 0.5);
         dummy.scale.set(w, w, streakLen);
         dummy.updateMatrix();
         this.streaks.setMatrixAt(hot, dummy.matrix);
         this.streaks.setColorAt(hot, streakColour);
         hot++;
-        continue;
+        dummy.position.set(x, y, z);
       }
       const model = SHOT_MODELS[s[o + 6]!];
       if (model && this.lib?.listed(model)) {
-        dummy.scale.set(1, 1, 1);
+        dummy.scale.set(size, size, size);
         dummy.updateMatrix();
         this.attach.add(model, dummy.matrix);
         continue;
       }
+      if (gun) continue;
       dummy.scale.set(look.w, look.w, look.len);
       dummy.updateMatrix();
       this.shots.setMatrixAt(k, dummy.matrix);

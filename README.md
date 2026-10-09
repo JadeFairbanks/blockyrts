@@ -3437,7 +3437,9 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    Bronze cannon (N) and Iron cannon (I). There is no Engines button. The
    Magi Sanctum's Hexcraft is on its card the same way (H).
 5. **The Citadel.** With an Artillery workshop standing, raise the main base
-   to tier 4 (the Citadel). Its card has **Build defense** (D), which opens:
+   to tier 4 (the Citadel, drawn as its own model with a flat platform on
+   top and 8 men's places on the keep's wall walk). Its card has **Build
+   defense** (D), which opens:
    Springald, Mangonel, Bronze culverin, Iron bombard (each on the letter of
    its name) and Garrison (G). Each fixed engine costs what its mobile engine
    does (lead ore and its crew's food too) and needs what that one needs
@@ -3464,8 +3466,9 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    ones the same. Without it the buttons grey with the lead ore named.
 9. **Guns.** A musketeer firing shows a flash and a spray of sparks at the
    muzzle and smoke rising for 4 s; a brawler's pistol 3 s; a cannon 5 s,
-   bigger. By day the shot is a faint grey dash; at night a bright orange
-   streak. Each has its gun's sound.
+   bigger. The ball flies as its model (the bronze cannon's smaller) with a
+   faint grey dash behind it by day and a bright orange streak at night.
+   Each has its gun's sound.
 10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
     grass or soil it leaves a heap of earth to pick up. One that hits a tree
     fells it, leaving half its lumber. A catapult stone throws up dirt, no

@@ -18,7 +18,7 @@ function building(id: number, kind: number, level = 1, o: Partial<BuildingInfo> 
   return {
     id, owner: ME, kind, variant: 0, level, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Citadel', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 

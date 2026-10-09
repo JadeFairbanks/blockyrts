@@ -165,7 +165,7 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       posts: [[88, 88, 223], [112, 88, 223], [136, 88, 223], [88, 112, 223], [136, 112, 223], [88, 136, 223], [112, 136, 223], [136, 136, 223]],
     },
     {
-      models: [{ id: 'main_base_l10', x: 112, z: 112 }],
+      models: [{ id: 'main_base_citadel', x: 112, z: 112 }],
       rows: [
         '##############',
         '##############',
@@ -182,8 +182,10 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
         '##############',
         '##############',
       ],
-      posts: [[56, 6, 112], [168, 6, 112], [6, 100, 112], [218, 100, 112], [6, 148, 112], [218, 148, 112], [80, 217, 112], [144, 217, 112]],
-      // Patch 5: main_base_citadel's slot_engine, slot_crew_1 and 2, and slot_platform_1 to 4, on the deck 339 units up.
+      // Patch 5: main_base_citadel's slot_parapet_1 to 8 on the keep's narrow wall walk 253 units up, each moved
+      // the 2 or 3 units it takes to clear the keep's wall and the crenels for a man.
+      posts: [[89, 76, 253], [135, 76, 253], [160, 98, 253], [160, 150, 253], [135, 172, 253], [89, 172, 253], [64, 150, 253], [64, 98, 253]],
+      // Its slot_engine, slot_crew_1 and 2, and slot_platform_1 to 4, on the deck 339 units up.
       platform: {
         engine: [112, 124, 339],
         crew: [[92, 152, 339], [132, 152, 339]],

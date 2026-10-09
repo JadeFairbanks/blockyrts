@@ -148,7 +148,7 @@ function state(step: number, units: U[], hits: HitEvent[] = []): StateMessage {
 }
 
 function building(id: number, extra: Partial<BuildingInfo>): BuildingInfo {
-  return { id, owner: 0, kind: BuildingKind.TorchPost, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 40, maxHp: 40, complete: true, built: 1000, upgrading: 0, upgraded: 0, queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], shared: false, stock: [], rating: 0, herd: 0, troops: [], horses: 0, farm: null, ...extra };
+  return { id, owner: 0, kind: BuildingKind.TorchPost, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 40, maxHp: 40, complete: true, built: 1000, upgrading: 0, upgraded: 0, queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], shared: false, stock: [], rating: 0, herd: 0, troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...extra };
 }
 
 function info(step: number, buildings: BuildingInfo[], events: SimEvent[] = [], extra: Partial<InfoMessage> = {}): InfoMessage {

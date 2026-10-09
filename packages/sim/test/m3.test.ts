@@ -323,7 +323,7 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
     built(s, BuildingKind.Forge);
     mainBaseAt(s, 3);
     for (const r of [Res.Sticks, Res.Flint, Res.HardwoodLumber, Res.SoftwoodLumber, Res.Planks, Res.Leather, Res.HardenedLeather, Res.Flax, Res.Feathers, Res.Rope]) pool[r] = 50;
-    for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder]) pool[r] = 20;
+    for (const r of [Res.BronzeIngot, Res.WroughtIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel, Res.Gunpowder, Res.LeadOre]) pool[r] = 20;
     pool[Res.Venison] = 200;
     // One Barracks each, so they train side by side: a bronze shortsword with a jerkin and wooden shield, an iron pike,
     // a steel-prod crossbow with a boiled-leather cuirass, and the brawler's pistol and cutlass.
