@@ -63,6 +63,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
+  // Patch 5's farms and Barn: the leave question's kind and the barn hand's line, a stacked queue item's storage limit, and the plant foods' list.
+  'units/barn-hand.ts:BARN_LEAVE_ASK', 'units/barn-hand.ts:BARN_HAND_TEXT', 'buildings/production.ts:STACK_MAX', 'animals/species.ts:PLANT_FOODS',
   // The longest timed action the 16-bit tinker column can count (Patch 2): a storage limit, not balance.
   'units/tinker.ts:TINKER_MAX_STEPS',
   // The food kinds' lists (which goods are meats and fish, in the inventory's order) and the meal accounts' unit.
@@ -128,6 +130,9 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'economy/resources.ts': 'resources',
   'animals/species.ts': 'animals',
   'animals/animals.ts': 'animals',
+  'animals/barn.ts': 'animals',
+  'units/barn-hand.ts': 'animals',
+  'buildings/farm-boost.ts': 'food',
   'threats/data.ts': 'lairs',
   'threats/abilities.ts': 'lairs',
   'magic/spells.ts': 'magic',
@@ -407,6 +412,11 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Stone outcrops (Patch 4): the Heartland's scatter and each base's own.
   HEARTLAND_STONE_OUTCROPS_PER_10000: 'Stone outcrops in the Heartland, per 10,000 spots',
   START_OUTCROP_NEAR_M: 'Each base\'s stone outcrop, nearest its Big House\'s middle', START_OUTCROP_FAR_M: 'Each base\'s stone outcrop, farthest from its middle',
+  // Patch 5: fertilizing farms, the Barn and taming.
+  FERTILIZE_BONEMEAL: 'Bonemeal a boost costs', BOOST_STEPS: 'A boost lasts', BOOST_PCT: 'A boost makes a farm grow more by',
+  HAWTHORNE_PCT: 'A Sweet Hawthorne makes farms grow more by', HAWTHORNE_M: 'Farms and animals within this of a Sweet Hawthorne',
+  BOOST_QUEUE_LIMIT: 'Boosts that may wait behind the one running', FARM_PACE: 'A farmer\'s work a step on the harvest bar (units)',
+  BARN_YARD_WU: 'Barn animals graze within this of their Barn', GRAZE_SAVES_PM: 'Grazing saves (of a Barn animal\'s feed)', TAME_FOOD_PER_SECOND: 'Taming feeds an animal this much food a second',
 };
 
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */
@@ -433,6 +443,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
+  'buildings/farm-boost.ts': 'Fertilizing farms', 'animals/barn.ts': 'The Barn', 'units/barn-hand.ts': 'The barn hand',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
