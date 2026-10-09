@@ -3656,6 +3656,16 @@ in `packages/client/src/world/buildings-view.ts`, and their models placed by
    crack and break instead, as the defences section says), an out torch post is drawn
    unlit, and a building that falls leaves its ruins for 30 seconds before
    they sink away.
+9. **Ghosts and plans.** Pick a building to place: the ghost over the green
+   and red tiles is the building's own model, see-through (a wall chain's
+   columns join and turn their corners as built walls do). Shift-queue a few
+   builds for a worker: each planned building shows faintly as its first
+   building stage. Before: both were the block look.
+10. **Ranks and portraits.** A worker or warrior from rank 2 wears bands on
+    the left upper arm: one bronze band at rank 2, two bronze at 3, two steel
+    at 4, three gold at 5 (rank 1 has none). Select a mage with a robe: her
+    picture in the selection grid and in a building's panel is her robe
+    look's portrait, coloured as she is drawn.
 
 ## License
 

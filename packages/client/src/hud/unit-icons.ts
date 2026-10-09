@@ -30,6 +30,12 @@ export const WORKER_ICON = 'icon_train_worker_labourer';
 export const SUPPORT_MAGE_ICON = 'icon_train_mage_support';
 export const BATTLE_MAGE_ICON = 'icon_train_mage_battle';
 
+/** A mage's picture: her robe look's portrait from robe tier 1 (Patch 5, as she is drawn), else her school's training picture. */
+export function mageIconFile(battle: boolean, robe: number): string {
+  const own = robe > 0 ? firstKit(`portrait_mage_${battle ? 'battle' : 'support'}_${Math.min(6, robe)}`) : '';
+  return own || (battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
+}
+
 /** Models the kit has no picture of, and the nearest it has (the catalogue borrows the hen for the wild birds too). */
 const MODEL_STAND_INS: Record<string, string> = {
   wild_goose: 'portrait_hen',
@@ -116,6 +122,8 @@ export function buildingIconFile(kind: number, level: number): string {
 export interface UnitLook {
   troop: number;
   wTier: number;
+  /** The armour or robe tier: a mage's robe look (Patch 5). */
+  aTier?: number;
 }
 
 /**
@@ -129,8 +137,8 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
   if (typeKey === 'worker') return WORKER_ICON;
   if (typeKey === 'warrior') return troopIconFile(look?.troop ?? Troop.Close, look?.wTier ?? 1);
   if (typeKey === 'warrior:crew') return troopIconFile(Troop.Crew, 0);
-  if (typeKey === 'mage:support') return SUPPORT_MAGE_ICON;
-  if (typeKey === 'mage:battle') return BATTLE_MAGE_ICON;
+  if (typeKey === 'mage:support') return mageIconFile(false, look?.aTier ?? 0);
+  if (typeKey === 'mage:battle') return mageIconFile(true, look?.aTier ?? 0);
   const [head, a, b] = typeKey.split(':');
   const n = Number(head === 'animal' ? b : a);
   switch (head) {
