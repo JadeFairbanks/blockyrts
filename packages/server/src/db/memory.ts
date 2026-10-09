@@ -119,5 +119,19 @@ export class MemoryDatabase implements Database {
     return total;
   }
 
+  async outdatedSaves(formatVersion: number, limit: number): Promise<SaveRow[]> {
+    return this.sorted((s) => s.formatVersion < formatVersion && s.blobKey !== '')
+      .reverse()
+      .slice(0, limit);
+  }
+
+  async expireSave(id: string): Promise<void> {
+    const s = this.saves.get(id);
+    if (s) {
+      s.blobKey = '';
+      s.sizeBytes = 0;
+    }
+  }
+
   async close(): Promise<void> {}
 }

@@ -19,6 +19,8 @@ export interface Config {
   allowedOrigins: string[];
   /** 'cloudflare' reads the player's address from CF-Connecting-IP, 'x-forwarded-for' from that header; empty trusts no header. */
   trustedProxy: '' | 'cloudflare' | 'x-forwarded-for';
+  /** Usernames that may open the debugger (DEBUG_ACCOUNTS, comma-separated; Jade's two admin accounts when unset). */
+  debugAccounts: string[];
 }
 
 type Env = Record<string, string | undefined>;
@@ -52,6 +54,10 @@ export function loadConfig(env: Env = process.env): Config {
       .map((s) => s.trim().replace(/\/+$/, ''))
       .filter(Boolean),
     trustedProxy,
+    debugAccounts: get('DEBUG_ACCOUNTS', 'jade,proteus')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
   };
   if (store === 's3') {
     for (const [k, v] of Object.entries({ S3_ENDPOINT: config.s3.endpoint, S3_BUCKET: config.s3.bucket, S3_ACCESS_KEY_ID: config.s3.accessKeyId, S3_SECRET_ACCESS_KEY: config.s3.secretAccessKey })) {

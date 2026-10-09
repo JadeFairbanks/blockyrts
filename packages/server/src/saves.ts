@@ -10,6 +10,7 @@ import {
   AUTOSAVES_PER_MATCH,
   MAX_SAVE_BYTES,
   readSaveHeader,
+  SAVE_FORMAT_VERSION,
   WireError,
   type SaveHeader,
   type SaveSummary,
@@ -38,8 +39,12 @@ export function summary(row: SaveRow): SaveSummary {
     players: row.players.map((p) => ({ slot: p.slot, name: p.name, colour: p.colour })),
     sizeBytes: row.sizeBytes,
     createdAt: row.createdAt.toISOString(),
+    outdated: row.formatVersion < SAVE_FORMAT_VERSION,
   };
 }
+
+/** Saves whose files one pass of expireOutdated removes before it looks again. */
+const EXPIRE_BATCH = 100;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -114,6 +119,10 @@ export class SaveService {
     if (header.matchId !== matchId || header.seed !== match.seed) {
       throw new ApiFailure(400, ApiErrorCode.BadSave, 'That save belongs to a different game.');
     }
+    // A page left open from before a patch: its save would be out of date at once (Patch 5).
+    if (header.formatVersion !== SAVE_FORMAT_VERSION) {
+      throw new ApiFailure(409, ApiErrorCode.SaveOutdated, 'This game is out of date with the live game, so it cannot be saved. Reload the page.');
+    }
 
     return this.locked(owner, async () => {
       const prune = kind === 'autosave' ? (await this.db.listMatchSaves(matchId, 'autosave')).slice(AUTOSAVES_PER_MATCH - 1) : [];
@@ -169,6 +178,7 @@ export class SaveService {
   /** The save's bytes and metadata, for its owner. */
   async load(who: Identity | null, saveId: string): Promise<{ row: SaveRow; data: Uint8Array }> {
     const row = await this.owned(who, saveId);
+    if (row.formatVersion < SAVE_FORMAT_VERSION) throw new ApiFailure(410, ApiErrorCode.SaveOutdated, OUTDATED_TEXT);
     const data = await this.blobs.get(row.blobKey);
     if (!data) throw new ApiFailure(404, ApiErrorCode.NotFound, 'That save file is missing from storage.');
     return { row, data };
@@ -178,7 +188,33 @@ export class SaveService {
     const row = await this.owned(who, saveId);
     await this.locked(row.accountId, () => this.remove(row));
   }
+
+  /**
+   * Removes the files of every save older than the live game's save format
+   * (Jade, Patch 5: "Auto delete all saves from the server of games that are
+   * older than the current version"). Each row stays, with no file and no
+   * size, so its owner's Load screen still lists it as out of date until they
+   * acknowledge it, which deletes the row. The server runs this once when it
+   * starts, which is when a new version goes live. Returns how many it removed.
+   */
+  async expireOutdated(): Promise<number> {
+    let n = 0;
+    for (;;) {
+      const rows = await this.db.outdatedSaves(SAVE_FORMAT_VERSION, EXPIRE_BATCH);
+      for (const row of rows) {
+        await this.locked(row.accountId, async () => {
+          await this.blobs.delete(row.blobKey).catch((e: unknown) => console.warn(`could not delete blob ${row.blobKey}:`, e));
+          await this.db.expireSave(row.id);
+        });
+        n++;
+      }
+      if (rows.length < EXPIRE_BATCH) return n;
+    }
+  }
 }
+
+/** What an out-of-date save says (Patch 5). */
+export const OUTDATED_TEXT = 'This save is no longer valid: it is out of date with the live game.';
 
 function requireAccount(who: Identity | null): string {
   if (!who) throw new ApiFailure(401, ApiErrorCode.Unauthorized, 'Sign in first.');
