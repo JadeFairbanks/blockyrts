@@ -25,7 +25,8 @@ import type { GameInfo } from '../game/game-info.ts';
 import type { MouseTarget } from '../input/input-manager.ts';
 import type { PeopleInfo } from '../messages.ts';
 import type { ButtonPress, ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
-import { amountBox, FOCUS_BOX, goodCount, goodPic, goodRow } from './goods-ui.ts';
+import { amountBox, FOCUS_BOX, goodCount, goodLabel, goodPic, goodRow } from './goods-ui.ts';
+import { rarityClass } from './gear-compare.ts';
 import type { HudPanels } from './panels.ts';
 import { gameScroll } from './game-scroll.ts';
 
@@ -122,7 +123,10 @@ export class Buttons {
 
   /** A good's button: its picture, its name on the face and its count at the end. */
   good(parent: HTMLElement, good: number, count: number | string, def: Omit<HudButtonDef, 'id' | 'keys' | 'face'>, disabled = ''): HudButton {
-    const b = this.add(parent, { ...def, face: goodName(good) }, disabled);
+    const cls = rarityClass(good);
+    const b = this.add(parent, { ...def, face: goodName(good), ...(cls ? { nameClass: cls } : {}) }, disabled);
+    // A piece of gear's name in its rarity's colour (Patch 7).
+    if (cls) b.el.querySelector('.face')?.classList.add(cls);
     b.el.prepend(goodPic(good));
     b.el.append(goodCount(count));
     return b;
@@ -536,8 +540,7 @@ export class PeoplesUi {
         continue;
       }
       const line = el('div', 'good-row offer-line', offered);
-      line.append(goodPic(good));
-      el('span', 'good-name', line, goodName(good));
+      line.append(goodPic(good), goodLabel(good, goodName(good)));
       const most = this.have(good);
       const amount = amountBox(
         n,
@@ -597,8 +600,7 @@ export class PeoplesUi {
       );
       for (const [good, n] of pairsOf(b)) {
         const g = el('span', 'bundle-good', btn.el);
-        g.append(goodPic(good));
-        el('span', 'good-name', g, n === 1 ? goodName(good) : `${goodName(good)} ×${n}`);
+        g.append(goodPic(good), goodLabel(good, n === 1 ? goodName(good) : `${goodName(good)} ×${n}`));
       }
     });
     this.tradeButtons.add(actions, {

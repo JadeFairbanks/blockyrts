@@ -25,6 +25,8 @@ import {
   FERTILIZE_BONEMEAL,
   HAWTHORNE_PCT,
   isGame,
+  isGearItem,
+  itemLine,
   itemsText,
   kitName,
   linePiece,
@@ -66,6 +68,8 @@ import { effectLeftText, effectPct } from './effects.ts';
 import { harvestText } from './farm-panel.ts';
 import { hungerLine, type HungerView } from './hunger.ts';
 import { armourPic, robePic, shieldPic, tipsPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { compareTip, rarityClass, shineOf } from './gear-compare.ts';
+import { holderOf, slotHasMenu, wornGear, wornItem } from './gear-menus.ts';
 import { goodIcon } from './inventory-icons.ts';
 import { slotCount } from './inventory.ts';
 import { kitUrl } from './kit-icons.ts';
@@ -127,6 +131,10 @@ export interface PanelActions {
   effects(id: number): ReadonlyArray<readonly [number, number]>;
   /** The item menu (item-menu.ts) over a slot of one unit's inventory. */
   itemMenu(at: HTMLElement, unit: number, res: number): void;
+  /** A gear slot's menu (Patch 7, gear-menus.ts): Swap for…, Take off, Drop, Scrap. */
+  slotMenu(at: HTMLElement, unit: number, line: number): void;
+  /** Whether a good is kept in one of the player's units' bags (Keep in bag, Patch 7): a padlock on its slot. */
+  kept(unit: number, res: number): boolean;
   /** Unload all: everything a unit carries to the nearest drop-off. */
   unloadAll(unit: number): void;
   unitName(id: number): string;
@@ -334,8 +342,8 @@ export class SelectionPanel {
   }
 
   /** A picture that only explains itself: its tooltip carries the sentences. */
-  private chip(id: string, o: { icon?: ButtonIcon | undefined; face?: string; name: string; description: string; className?: string; foot?: string }, parent: HTMLElement): HudButton {
-    const b = this.button(id, { face: o.face ?? '', icon: o.icon, name: oneIsSingular(o.name), keys: [], description: o.description, ...(o.foot ? { foot: o.foot } : {}), className: `chip ${o.className ?? ''}`.trim() });
+  private chip(id: string, o: { icon?: ButtonIcon | undefined; face?: string; name: string; description: string; className?: string; foot?: string; more?: Partial<HudButtonDef> }, parent: HTMLElement): HudButton {
+    const b = this.button(id, { face: o.face ?? '', icon: o.icon, name: oneIsSingular(o.name), keys: [], description: o.description, ...(o.foot ? { foot: o.foot } : {}), className: `chip ${o.className ?? ''}`.trim(), ...o.more });
     parent.append(b.el);
     return b;
   }
@@ -945,7 +953,8 @@ export class SelectionPanel {
     if (!u) return '';
     const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
     const woods = this.a.game.woodsLine(u.id);
-    return [u.kind, u.troop, u.wTier, u.aTier, u.sTier, u.tips, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.'), woods ? `${woodsLineText(woods)}.${woods.keep}` : ''].join('/');
+    const kept = u.owner === this.a.player ? bag.filter(([r]) => this.a.kept(u.id, r)).map(([r]) => r).join('.') : '';
+    return [u.kind, u.troop, u.wTier, u.aTier, u.sTier, u.tips, u.weapon, u.ranged, u.armour, u.shield, u.tools[0], u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.'), kept, woods ? `${woodsLineText(woods)}.${woods.keep}` : ''].join('/');
   }
 
   private oneThing(t: Selectable): void {
@@ -980,9 +989,25 @@ export class SelectionPanel {
       this.content.classList.add('split');
     }
     const row = this.strip('kit', left);
+    const own = u.owner === this.a.player;
+    // A piece of gear let go on the kit goes to this unit (Patch 7, gear-drag.ts).
+    if (own) row.dataset.dropUnit = String(u.id);
     const slots = this.kitSlots(u);
+    const h = holderOf(u);
     slots.forEach((s, k) => {
-      const btn = this.chip(`slot${k}`, { icon: layer(s.pic, s.tag), name: s.name, description: s.text, className: 'kit-slot' }, row);
+      // Patch 7 (plan section 7): the weapon, armour and shield slots open their menu on a right click, and the piece on drags; its name is in its rarity's colour.
+      const res = s.line >= 0 && s.line <= 2 ? wornItem(u, s.line) : undefined;
+      const menu = own && s.line >= 0 && s.line <= 2 && slotHasMenu(u, s.line);
+      const unit = u.id;
+      const line = s.line;
+      const shine = res !== undefined ? shineOf(res) : undefined;
+      const more: Partial<HudButtonDef> = {
+        ...(res !== undefined ? { nameClass: rarityClass(res), compare: compareTip(res, h, 0, 'worn') } : {}),
+        ...(shine ? { shine } : {}),
+        ...(menu ? { onRightClick: () => this.a.slotMenu(btn.el, unit, line), foot: res !== undefined ? 'Right click: Swap for…, Take off, Drop or Scrap. Drag it onto the Workshop to scrap it.' : 'Right click: Swap for…' } : {}),
+        ...(menu && res !== undefined ? { holds: { res, unit, line } } : {}),
+      };
+      const btn = this.chip(`slot${k}`, { icon: layer(s.pic, s.tag), name: s.name, description: s.text, className: `kit-slot${menu ? ' gear-slot' : ''}`, more }, row);
       if (s.line >= 0 && u.upLine - 1 === s.line) {
         const piece = linePiece({ kind: u.kind === UnitKind.Worker ? 'worker' : u.kind === UnitKind.Mage ? 'mage' : 'warrior', troop: u.troop, w: u.wTier, a: u.aTier, s: u.sTier, t: u.tips }, s.line, u.upTo);
         const unit = u.id;
@@ -1080,9 +1105,19 @@ export class SelectionPanel {
    * it goes above the whole box. Under them the weight it carries of what it
    * can, and Unload all.
    */
+  /** The gear row a unit has on the line a piece would go on, 0 for none (its bag's tooltips compare with it). */
+  private wornFor(unit: number, res: number): number {
+    const u = this.a.game.unit(unit);
+    const line = u ? itemLine(res, holderOf(u)!) : -1;
+    return u && line >= 0 ? wornGear(u, line) : 0;
+  }
+
   private inventory(u: UnitInfo, carry: [number, number]): void {
+    const h = holderOf(u);
     const box = document.createElement('div');
     box.className = 'unit-inv';
+    // A piece let go on its inventory goes to this unit (Patch 7, gear-drag.ts).
+    box.dataset.dropUnit = String(u.id);
     this.body.append(box);
     const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
     const goods = unitGoods(u.carryAmt > 0 ? { res: u.carryRes, amt: u.carryAmt } : null, bag);
@@ -1094,18 +1129,31 @@ export class SelectionPanel {
       const r = RESOURCES[res]!;
       const g = goodIcon(res);
       const food = r.nutrition > 0 ? ` Each is ${r.nutrition} food.` : '';
+      const piece = isGearItem(res);
+      const kept = this.a.kept(unit, res);
+      const shine = shineOf(res);
       const btn: HudButton = this.button(`inv${k}`, {
         face: g ? '' : r.short,
         icon: g ? layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }) : undefined,
         name: r.name,
         keys: [],
-        description: `Carrying ${itemsText([[res, n]])}. ${r.source}${food}`,
-        foot: 'Right click: Unload, Drop or Use.',
-        className: 'chip unit-slot',
+        description: `Carrying ${itemsText([[res, n]])}. ${r.source}${food}${kept ? ' Kept in its bag: it is not handed in.' : ''}`,
+        foot: piece ? 'Right click: Equip, Keep in bag, Give, Unload, Drop or Scrap. Drag it onto this unit to equip it, onto another to give it.' : 'Right click: Use, Keep in bag, Give, Unload or Drop. Drag it onto another unit to give it.',
+        className: `chip unit-slot${kept ? ' kept' : ''}`,
         tipAbove: box,
         onRightClick: () => this.a.itemMenu(btn.el, unit, res),
+        // Patch 7: its name in its rarity's colour, its numbers beside what the unit has, and it drags.
+        holds: { res, unit, line: -1 },
+        ...(piece ? { nameClass: rarityClass(res), compare: () => compareTip(res, h, this.wornFor(u.id, res), 'in its bag') } : {}),
+        ...(shine ? { shine } : {}),
       });
       btn.el.append(tag(slotCount(n)));
+      // Keep in bag's padlock in the slot's corner (the drafts' scene 6).
+      if (kept) {
+        const lock = document.createElement('span');
+        lock.className = 'kept-lock';
+        btn.el.append(lock);
+      }
       grid.append(btn.el);
     });
     for (let k = goods.length; k < UNIT_SLOTS; k++) {
@@ -1277,6 +1325,9 @@ export class SelectionPanel {
         bar.className = 'hp';
         p.el.append(bar);
         this.bars.set(t.key, bar);
+        // A piece of gear let go on one of the player's own goes to it (Patch 7, gear-drag.ts).
+        const id = t.owner === this.a.player ? entityIdOf(t.key) : null;
+        if (id !== null) p.el.dataset.dropUnit = String(id);
         if (t.typeKey.startsWith('mage:')) {
           const mana = document.createElement('span');
           mana.className = 'mana';

@@ -49,6 +49,13 @@ export interface CompareTip {
   who: ReadonlyArray<{ text: string; ok: boolean }>;
 }
 
+/** A piece of gear a button shows (Patch 7): in the stock (unit null), in a unit's bag (line -1), or worn on a kit line (0 weapon, 1 armour, 2 shield). */
+export interface HeldPiece {
+  res: number;
+  unit: number | null;
+  line: number;
+}
+
 export interface HudButtonDef {
   id: string;
   /** A picture instead of the face (the face is then only in the tooltip). */
@@ -74,7 +81,7 @@ export interface HudButtonDef {
   /** The tooltip title's colour class (Patch 7: a piece's rarity, rarity-epic). */
   nameClass?: string;
   /** The tooltip compares a piece of gear with what the unit has (Patch 7). */
-  compare?: CompareTip;
+  compare?: CompareTip | (() => CompareTip | null);
   /** Its picture glints (an epic piece) or sparkles (a legendary one) (Patch 7, plan section 3). */
   shine?: 'glint' | 'sparkle';
   onPress?: (p: ButtonPress) => void;
@@ -82,10 +89,8 @@ export interface HudButtonDef {
   /** The right click works while it is greyed out too (Patch 5: a spell's autocast). */
   rightWhenGrey?: boolean;
   onDoubleClick?: (p: ButtonPress) => void;
-  /** A left press that moves on drags it (Patch 7: a piece of gear; input-manager.ts DragHooks says what it does). */
-  draggable?: boolean;
-  /** A dragged piece of gear let go on it goes to this unit (Patch 7: a portrait, a kit slot, a bag). */
-  dropUnit?: number;
+  /** The piece of gear it shows: a left press that moves on drags it (Patch 7; input-manager.ts DragHooks, gear-drag.ts). */
+  holds?: HeldPiece;
   /** A click or its key while it is greyed out (Patch 3: the command card asks those who can sort out why). */
   onGreyPress?: () => void;
 }
@@ -217,7 +222,7 @@ export class HudButton {
       foot: this.def.foot ?? '',
       reasonFirst: this.def.reasonFirst === true,
       nameClass: this.def.nameClass ?? '',
-      compare: this.def.compare ?? null,
+      compare: typeof this.def.compare === 'function' ? this.def.compare() : (this.def.compare ?? null),
     };
   }
 

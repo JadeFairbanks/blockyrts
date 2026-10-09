@@ -59,7 +59,7 @@ export interface TouchHooks {
 /**
  * Dragging a HUD button (Patch 7, plan section 7: a piece of gear from the
  * stock or a unit's bag onto a unit, its portrait or the Workshop): a left
- * press on a button whose def is draggable that moves this far (CSS px)
+ * press on a button that holds a piece (its def.holds) that moves this far (CSS px)
  * becomes a drag instead of a click.
  */
 export const DRAG_SLOP = 6;
@@ -342,7 +342,7 @@ export class InputManager {
           c.target.move(this.pos, mods);
         } else if (c.kind === 'button') {
           // A draggable button pulled far enough becomes a drag (Patch 7).
-          if (c.btn.def.draggable && this.hooks.drag && Math.hypot(this.pos.x - c.x0, this.pos.y - c.y0) >= DRAG_SLOP && this.hooks.drag.start(c.btn, this.pos)) {
+          if (c.btn.def.holds && this.hooks.drag && Math.hypot(this.pos.x - c.x0, this.pos.y - c.y0) >= DRAG_SLOP && this.hooks.drag.start(c.btn, this.pos)) {
             c.btn.el.classList.remove('pressed');
             this.captures.set(Btn.Left, { kind: 'drag' });
             this.tooltip.show(null);

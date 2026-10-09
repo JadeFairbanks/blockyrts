@@ -19,6 +19,8 @@ function actions(over: Partial<ItemMenuActions> = {}): { a: ItemMenuActions; don
     scrap: (res) => done.push(`scrap ${res}`),
     unload: (unit, res) => done.push(`unload ${unit} ${res}`),
     drop: (unit, res) => done.push(`drop ${unit} ${res}`),
+    selected: () => 0,
+    equipSelected: (res) => done.push(`equipSelected ${res}`),
     ...over,
   };
   return { a, done };
@@ -41,6 +43,16 @@ describe('one item menu for the stock and a unit (decisions 3.6)', () => {
     expect(none[2]!.why).toBe('There is none in the stock.');
     // No Workshop: Scrap says so.
     expect(itemChoices({ res: Res.SteelSideSword, unit: null }, actions({ scrapWhy: () => 'There is no Workshop to scrap it at.' }).a)[2]!.why).toBe('There is no Workshop to scrap it at.');
+  });
+
+  it('equips the selected units from the stock, and still offers Equip… to pick one (Patch 7)', () => {
+    const { a, done } = actions({ selected: () => 3 });
+    const c = itemChoices({ res: Res.SteelSideSword, unit: null }, a);
+    expect(names(c)).toEqual(['Use', 'Equip', 'Equip…', 'Scrap']);
+    expect(c[1]!.description).toContain('Each of the 3 selected units it fits takes one');
+    c[1]!.run();
+    c[2]!.run();
+    expect(done).toEqual([`equipSelected ${Res.SteelSideSword}`, `equip ${Res.SteelSideSword}`]);
   });
 
   it('keeps a food back with Don\'t eat, and lets it be eaten again', () => {

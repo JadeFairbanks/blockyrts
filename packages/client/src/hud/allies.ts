@@ -10,7 +10,7 @@ import { RESOURCES, type Order } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { MouseTarget } from '../input/input-manager.ts';
 import type { ButtonRegistry, HudButtonDef } from './buttons.ts';
-import { addAmount, amountBox, FOCUS_BOX, goodCount, goodPic } from './goods-ui.ts';
+import { addAmount, amountBox, FOCUS_BOX, goodCount, goodLabel, goodPic } from './goods-ui.ts';
 import type { HudPanels } from './panels.ts';
 import { gameScroll } from './game-scroll.ts';
 
@@ -274,8 +274,7 @@ export class AlliesUi {
       const have = this.have(res);
       const r = RESOURCES[res]!;
       const line = el('div', 'good-row offer-line', list);
-      line.append(goodPic(res));
-      el('span', 'good-name', line, r.name);
+      line.append(goodPic(res), goodLabel(res, r.name));
       const box = amountBox(n, have, `How many ${r.name.toLowerCase()} to send`, (v) => this.lines.set(res, v), () => this.boxLeft());
       this.a.addArea('send-amount', box, FOCUS_BOX);
       line.append(box);

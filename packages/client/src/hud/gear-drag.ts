@@ -12,12 +12,9 @@
 // unit says why in its bubble (the Dreadnought: "I need something for
 // smashing.").
 import type { DragHooks } from '../input/input-manager.ts';
-import type { HudButton } from './buttons.ts';
+import type { HeldPiece, HudButton } from './buttons.ts';
 import { goodIcon, iconUrl } from './inventory-icons.ts';
 import type { Pt } from './rects.ts';
-
-/** Where a dragged piece comes from: the stock, a unit's bag, or what a unit wears on a kit line (0 weapon, 1 armour, 2 shield). */
-export type DragFrom = { kind: 'stock'; res: number } | { kind: 'bag'; unit: number; res: number } | { kind: 'worn'; unit: number; line: number; res: number };
 
 /** What is under the cursor: one of the player's units, one of their Workshops, or nothing it can go to. */
 export type DropOn = { kind: 'unit'; unit: number } | { kind: 'workshop'; building: number } | { kind: 'none' };
@@ -32,12 +29,10 @@ export interface DropPlan {
 }
 
 export interface GearDragDeps {
-  /** The piece a button holds, or null when it is not a piece of gear that drags. */
-  from(btn: HudButton): DragFrom | null;
   /** What is under the cursor, and the element there. */
   target(p: Pt, el: Element | null): DropOn;
   /** What letting go of a piece there does, or null for nothing. */
-  plan(from: DragFrom, on: DropOn): DropPlan | null;
+  plan(from: HeldPiece, on: DropOn): DropPlan | null;
 }
 
 /** The picture's offset from the cursor, px, so the cursor's own point stays in sight. */
@@ -47,7 +42,7 @@ export class GearDrag implements DragHooks {
   private readonly ghost: HTMLElement;
   private readonly pic: HTMLImageElement;
   private readonly word: HTMLElement;
-  private held: DragFrom | null = null;
+  private held: HeldPiece | null = null;
 
   constructor(
     root: HTMLElement,
@@ -71,7 +66,7 @@ export class GearDrag implements DragHooks {
   }
 
   start(btn: HudButton, p: Pt): boolean {
-    const from = this.d.from(btn);
+    const from = btn.def.holds;
     if (!from) return false;
     this.held = from;
     const icon = goodIcon(from.res);

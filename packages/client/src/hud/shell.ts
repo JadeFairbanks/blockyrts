@@ -5,6 +5,9 @@
 import * as THREE from 'three';
 import {
   BuildingKind,
+  fitProblem,
+  isGearItem,
+  itemLine,
   buildingSpec,
   clockAt,
   GOD_SPAWNS,
@@ -30,7 +33,7 @@ import {
 import { cue } from '../audio/cues.ts';
 import { EDGE_DELAY_S, edgePanDirection, type PanDir } from '../camera/edge-pan.ts';
 import { RtsCamera, ZOOM_STEP, type CameraView } from '../camera/rts-camera.ts';
-import { GameInfo } from '../game/game-info.ts';
+import { GameInfo, type UnitInfo } from '../game/game-info.ts';
 import { godGhostRow } from '../game/god-ghost.ts';
 import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
@@ -61,7 +64,7 @@ import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
 import { DreadnoughtUi } from './dreadnought-ui.ts';
 import { tillBars } from './tavern-bars.ts';
-import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
+import { ButtonRegistry, Tooltip, type ButtonPress, type CompareTip, type HeldPiece, type HudButton } from './buttons.ts';
 import { queueSeconds } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
 import { Commands, stretchBoxes, TERRAIN_UNIT_M, type Card } from './commands.ts';
@@ -87,8 +90,11 @@ import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
 import { troopIconFile } from './unit-icons.ts';
-import { CardPop, ITEM_MENU } from './card-pop.ts';
+import { CardPop, ITEM_MENU, type MenuChoice } from './card-pop.ts';
 import { SCROLL_AREA, scrollTarget, syncScrollBars } from './game-scroll.ts';
+import { compareTip } from './gear-compare.ts';
+import { GearDrag, type DropOn, type DropPlan } from './gear-drag.ts';
+import { bagMenu, equipBagWhy, holderOf, slotMenu, wornGear, type GearMenuDeps } from './gear-menus.ts';
 import { itemChoices, type ItemMenuActions } from './item-menu.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
@@ -264,6 +270,10 @@ export class GameShell {
   private readonly cardPop: CardPop;
   /** What the item menu's choices do (item-menu.ts). */
   private readonly itemActions: ItemMenuActions;
+  /** What the gear menus read and send (Patch 7, gear-menus.ts). */
+  private readonly gearDeps: GearMenuDeps;
+  /** A piece of gear being dragged onto a unit or the Workshop (Patch 7, gear-drag.ts). */
+  private readonly gearDrag: GearDrag;
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
   /** Selected units seen outside any building at the last info (CT-2, CT-3: leaveForBuildings). */
@@ -462,9 +472,11 @@ export class GameShell {
       },
     });
     registerCircleItemUses(opts.game, opts.player, (o) => opts.issueOrder(o), () => this.commands.startPlant(), () => this.circles.openHeadless());
+    this.gearDrag = new GearDrag(this.layout.root, { target: (p, el) => this.dropOn(p, el), plan: (from, on) => this.dropPlan(from, on) });
     this.input = new InputManager(
       {
         game: this.gameMouse(),
+        drag: this.gearDrag,
         anyPress: (button, inHud, el) => this.cardPop.pressed(inHud, el) || this.panel.cards.pressed(button === Btn.Left, inHud, el),
         hudPress: (_panel, button, area) => {
           // Clicking a HUD panel other than the minimap cancels a targeted command (not the ghost: the card is how the player picks another).
@@ -519,11 +531,26 @@ export class GameShell {
       scrap: (res) => this.commands.scrapItem(res),
       unload: (unit, res) => opts.issueOrder({ kind: 'unloadItem', player: this.player, units: [unit], res }),
       drop: (unit, res) => opts.issueOrder({ kind: 'dropItem', player: this.player, units: [unit], res }),
+      // Patch 7 (plan section 7): with units selected, Equip gives one to each it fits while the stock lasts.
+      selected: () => this.geared().length,
+      equipSelected: (res) => opts.issueOrder({ kind: 'equip', player: this.player, units: this.geared(), res, queued: this.queued() }),
+    };
+    this.gearDeps = {
+      player: this.player,
+      bag: (unit) => this.game.info?.bags.find(([x]) => x === unit)?.[1] ?? [],
+      have: (res) => this.game.pool()[res] ?? 0,
+      kept: (unit, res) => this.game.info?.bagKept?.find(([x]) => x === unit)?.[1].includes(res) ?? false,
+      queued: () => this.queued(),
+      send: (o) => opts.issueOrder(o),
+      startGive: (unit, res) => this.commands.startGive(unit, res),
+      scrapWhy: (res) => this.commands.scrapWhy(res),
+      use: (unit, res) => itemChoices({ res, unit }, this.itemActions)[0]! as MenuChoice,
     };
     this.inventory = new InventoryUi(this.layout.stockpile, this.buttons, {
       menu: (at, res) => this.cardPop.show(at, ITEM_MENU, itemChoices({ res, unit: null }, this.itemActions)),
       addWheel: (id, el, onWheel) => this.input.addWheel(id, el, onWheel),
       pickSpawn: (k) => this.pickSpawn(k),
+      compare: (res) => this.stockCompare(res),
     });
     this.godCancel = this.buttons.add({
       id: 'god-cancel',
@@ -604,7 +631,16 @@ export class GameShell {
         const gone = info ? Math.max(0, this.game.step - info.step) : 0;
         return on ? on.map(([bit, left]) => [bit, Math.max(0, left - gone)] as const) : [];
       },
-      itemMenu: (at, unit, res) => this.cardPop.show(at, ITEM_MENU, itemChoices({ res, unit }, this.itemActions)),
+      // One unit's bag and its gear slots (Patch 7, gear-menus.ts).
+      itemMenu: (at, unit, res) => {
+        const u = this.game.unit(unit);
+        if (u) this.cardPop.show(at, ITEM_MENU, bagMenu(u, res, this.gearDeps));
+      },
+      slotMenu: (at, unit, line) => {
+        const u = this.game.unit(unit);
+        if (u) this.cardPop.show(at, ITEM_MENU, slotMenu(u, line, this.gearDeps));
+      },
+      kept: (unit, res) => this.gearDeps.kept(unit, res),
       unloadAll: (unit) => opts.issueOrder({ kind: 'unloadItem', player: this.player, units: [unit], res: -1 }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
       keyName: (action) => keyLabel(keyFor(this.settings.keys, action)),
@@ -1473,6 +1509,84 @@ export class GameShell {
     return this.queueMode || this.input.held('ShiftLeft') || this.input.held('ShiftRight');
   }
 
+  /** The player's selected units that wear gear (workers, troops, mages), for Equip from the stock (Patch 7). */
+  private geared(): number[] {
+    const out: number[] = [];
+    for (const t of this.selection.list()) {
+      const id = t.kind === 'unit' && t.owner === this.player ? entityIdOf(t.key) : null;
+      const u = id === null ? null : this.game.unit(id);
+      if (u && holderOf(u)) out.push(u.id);
+    }
+    return out;
+  }
+
+  /** The one unit of the player's selected, when that is the whole selection. */
+  private oneUnit(): UnitInfo | null {
+    const list = this.selection.list();
+    const t = list.length === 1 ? list[0]! : null;
+    const id = t && t.kind === 'unit' && t.owner === this.player ? entityIdOf(t.key) : null;
+    const u = id === null ? null : this.game.unit(id);
+    return u && holderOf(u) ? u : null;
+  }
+
+  /** A stock piece's tooltip (Patch 7, the hover): its numbers beside what the one selected unit has on that line, or alone. */
+  private stockCompare(res: number): CompareTip | null {
+    if (!isGearItem(res)) return null;
+    const u = this.oneUnit();
+    const h = u ? holderOf(u) : null;
+    const line = h ? itemLine(res, h) : -1;
+    return compareTip(res, h, u && line >= 0 ? wornGear(u, line) : 0, `in the stock ×${this.game.pool()[res] ?? 0}`);
+  }
+
+  /** What a dragged piece is over (Patch 7, gear-drag.ts): one of the player's units (in the world, its portrait, kit or inventory), one of their Workshops, or nothing. */
+  private dropOn(p: Pt, el: Element | null): DropOn {
+    if (this.panels.at(p) !== null) {
+      const at = el?.closest<HTMLElement>('[data-drop-unit]');
+      if (at) return { kind: 'unit', unit: Number(at.dataset.dropUnit) };
+      const one = el && this.layout.portraitPanel.contains(el) ? this.oneUnit() : null;
+      return one ? { kind: 'unit', unit: one.id } : { kind: 'none' };
+    }
+    const item = pickAt(this.items, p)?.item ?? null;
+    if (!item || item.owner !== this.player) return { kind: 'none' };
+    if (item.kind === 'unit') {
+      const id = entityIdOf(item.key);
+      const u = id === null ? null : this.game.unit(id);
+      return u && holderOf(u) ? { kind: 'unit', unit: u.id } : { kind: 'none' };
+    }
+    const id = item.kind === 'building' ? buildingIdOf(item.key) : null;
+    const b = id === null ? undefined : this.game.buildings.get(id);
+    return b && b.kind === BuildingKind.Workshop && b.complete ? { kind: 'workshop', building: b.id } : { kind: 'none' };
+  }
+
+  /**
+   * What letting go of a dragged piece does (Patch 7, plan section 7): a
+   * stock or bag piece on a unit equips it (from its own bag on the spot),
+   * a bag piece on another unit is given to it, any piece on the Workshop is
+   * scrapped there. Where the unit cannot take it the order still goes and
+   * it says why (the Dreadnought: "I need something for smashing.").
+   */
+  private dropPlan(from: HeldPiece, on: DropOn): DropPlan | null {
+    const send = (o: Order): void => this.opts.issueOrder(o);
+    const res = from.res;
+    const giver = from.unit;
+    if (on.kind === 'workshop') {
+      const why = isGearItem(res) ? this.commands.scrapWhy(res) : null;
+      if (why === null) return null;
+      if (giver === null) return { label: 'Scrap', why, run: () => this.commands.scrapAt(on.building, res) };
+      return { label: 'Scrap at the Workshop', why, run: () => send({ kind: 'scrapItem', player: this.player, units: [giver], res, worn: from.line >= 0 ? 1 : 0, building: on.building }) };
+    }
+    const u = on.kind === 'unit' ? this.game.unit(on.unit) : null;
+    const h = u ? holderOf(u) : null;
+    // A worn piece goes only to the Workshop.
+    if (!u || !h || from.line >= 0) return null;
+    if (giver !== null && giver !== u.id) {
+      return { label: `Give to ${this.fresh.get(`e:${u.id}`)?.label ?? 'it'}`, why: '', run: () => send({ kind: 'giveItem', player: this.player, units: [giver], res, target: u.id }) };
+    }
+    if (!isGearItem(res)) return null;
+    if (giver === null) return { label: 'Equip', why: fitProblem(h, res), run: () => send({ kind: 'equip', player: this.player, units: [u.id], res, queued: this.queued() }) };
+    return { label: 'Equip', why: equipBagWhy(u, res, this.gearDeps), run: () => send({ kind: 'equipBag', player: this.player, units: [u.id], res }) };
+  }
+
   /** What is under a screen point, and the ground there. */
   private under(p: Pt): { item: Selectable | null; ground: THREE.Vector3 | null } {
     const hit = pickAt(this.items, p);
@@ -1712,8 +1826,8 @@ export class GameShell {
       return;
     }
     if (id === 'Escape') {
-      // Esc backs out of a pending order, ghost or menu first, then clears the selection.
-      if (this.cardPop.close() || this.panel.cards.close()) return;
+      // Esc backs out of a dragged piece, a pending order, ghost or menu first, then clears the selection.
+      if (this.input.cancelDrag() || this.cardPop.close() || this.panel.cards.close()) return;
       if (this.godPick >= 0) this.dropSpawn();
       else if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();

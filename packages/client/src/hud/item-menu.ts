@@ -50,8 +50,12 @@ export interface ItemMenuActions {
   /** Whether a food is kept back from meals (Don't eat). */
   kept(res: number): boolean;
   dontEat(res: number, on: boolean): void;
-  /** Equip: the next left click on one of the player's units sends it to put the item on. */
+  /** Equip…: the next left click on one of the player's units sends it to put the item on. */
   equip(res: number): void;
+  /** How many of the player's units that wear gear are selected (Patch 7). */
+  selected(): number;
+  /** Equip: each selected unit it fits takes one, while the stock lasts (Patch 7, plan section 7). */
+  equipSelected(res: number): void;
   /** Scrap: null when the item is not scrapped at all, '' when one can be now, else why not. */
   scrapWhy(res: number): string | null;
   scrap(res: number): void;
@@ -73,10 +77,24 @@ export function itemChoices(at: ItemAt, a: ItemMenuActions): CardChoice[] {
   out.push(use ? greyed({ name: use.name ?? 'Use', description: use.description, run: () => use.run(at) }, use.why(at)) : { name: 'Use', description: `Use the ${name}.`, why: NO_USE, run: () => undefined });
   const none = stock && a.have(at.res) <= 0 ? 'There is none in the stock.' : '';
   if (stock && equippable(at.res)) {
+    // Patch 7 (plan section 7): with units selected, Equip gives one piece to each it fits; Equip… still picks one unit with a click.
+    const n = a.selected();
+    if (n > 0) {
+      out.push(
+        greyed(
+          {
+            name: 'Equip',
+            description: `${n === 1 ? 'The selected unit walks' : `Each of the ${n} selected units it fits takes one while the stock lasts, best first: it walks`} to the nearest main base, Storehouse, Barracks or Forge (a mage also a Magi Sanctum) and puts on the ${name} there. Its old piece goes to the stock. A unit it does not fit says why.`,
+            run: () => a.equipSelected(at.res),
+          },
+          none,
+        ),
+      );
+    }
     out.push(
       greyed(
         {
-          name: 'Equip',
+          name: n > 0 ? 'Equip…' : 'Equip',
           description: `Then left click one of your units: it walks to the nearest main base, Storehouse, Barracks or Forge (a mage also a Magi Sanctum) and puts on the ${name} from the stock there, in a fifth of the usual time. Its old piece goes to the stock.`,
           run: () => a.equip(at.res),
         },

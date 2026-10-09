@@ -179,7 +179,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage' | 'equip' | 'plant';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage' | 'equip' | 'plant' | 'give';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -290,8 +290,10 @@ export interface Targeting {
   key: string;
   /** For 'cast': the spell waiting for its target. */
   spell?: number;
-  /** For 'equip': the item from the stock (Patch 5, GP-2). */
+  /** For 'equip': the item from the stock (Patch 5, GP-2); for 'give', the item in the giver's bag. */
   res?: number;
+  /** For 'give': the unit handing it over (Patch 7). */
+  giver?: number;
 }
 
 export interface Placing {
@@ -1532,6 +1534,14 @@ export class Commands {
     this.d.changed();
   }
 
+  /** Give… from a unit's bag (Patch 7, plan section 7): the next left click on another of the player's units sends the giver to hand it over. */
+  startGive(giver: number, res: number): void {
+    this.placing = null;
+    this.targeting = { command: 'give', key: '', res, giver };
+    this.d.message(`Left click another of your units to give it the ${RESOURCES[res]?.name.toLowerCase() ?? 'item'}. Right click or Esc cancels.`);
+    this.d.changed();
+  }
+
   /** The item menu's Plant seed (Patch 5, SC-8): the next left click on grass or dirt sends a worker to plant an Ancient Seed there. */
   startPlant(): void {
     this.placing = null;
@@ -1558,6 +1568,15 @@ export class Commands {
     return true;
   }
 
+  /** The giver walks to the clicked unit and hands one over (the receiver says so when its bag is full). */
+  private giveTo(item: Selectable, giver: number, res: number): boolean {
+    const id = item.kind === 'unit' && item.owner === this.d.player && geared(item) ? entityIdOf(item.key) : null;
+    if (id === null || id === giver || res < 0) return false;
+    this.d.send({ kind: 'giveItem', player: this.d.player, units: [giver], res, target: id });
+    this.d.marker(item.centre, 'move');
+    return true;
+  }
+
   /** The Workshop product that scraps an item, or -1 when it is not scrapped. */
   private scrapProduct(res: number): number {
     return makeList(BuildingKind.Workshop).find((p) => makeSub(p) === SCRAP_SUB && recipeSpec(productSpec(p).recipe!).scrap === res) ?? -1;
@@ -1578,6 +1597,14 @@ export class Commands {
     const p = this.scrapProduct(res);
     if (p < 0 || this.scrapWhy(res) !== '') return;
     this.scrap(this.workshops(), p, 1);
+  }
+
+  /** Scraps one of an item from the stock at this Workshop (Patch 7: dragged onto it). */
+  scrapAt(building: number, res: number): void {
+    const p = this.scrapProduct(res);
+    const b = this.d.game.buildings.get(building);
+    if (p < 0 || !b || this.scrapWhy(res) !== '') return;
+    this.scrap([b], p, 1);
   }
 
   /** The player's finished Workshops, wherever they are. */
@@ -1801,6 +1828,10 @@ export class Commands {
       case 'equip':
         ok = item !== null && this.equipOn(item, t.res ?? -1);
         if (!ok) this.d.message('Pick one of your workers, troops or mages to equip it.', 'alert');
+        break;
+      case 'give':
+        ok = item !== null && this.giveTo(item, t.giver ?? -1, t.res ?? -1);
+        if (!ok) this.d.message('Pick another of your workers, troops or mages to give it to.', 'alert');
         break;
       case 'plant':
         ok = ground !== null && this.plantAt(ground);
