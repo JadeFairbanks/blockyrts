@@ -18,11 +18,11 @@
 // draws, and goes in his bag. Only woodsmen fish.
 
 import { dist2 } from '../buildings/lights.ts';
+import { rosesOpen } from '../circles/bright.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { fishOf } from '../economy/food-kinds.ts';
 import { atan2Angle, floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
-import { brightTonight } from '../threats/bright.ts';
 import { chatter } from '../peoples/speech.ts';
 import { OrderKind, standY, type SimState } from '../state.ts';
 import { CHUNK_SHIFT, chunkKey, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
@@ -82,15 +82,16 @@ function fishToKeep(view: PropView, picked: boolean): number {
 }
 
 /**
- * Whether he is out for the Moon Roses: on his owner's Bright Night a
- * woodsman who forages stays out for them, since they bloom only then, from
- * nightfall to daybreak (SCA-8; the Food thread's hand-off in
- * patch5-food-picks.md; s: his owner's own Bright Nights, when no wave comes
- * for them).
+ * Whether he is out for the Moon Roses: they open only where a night is
+ * bright, from nightfall to daybreak, and "can be picked during a bright
+ * night by a unit (worker/woodsman)" (SCA-8; decisions 2.8: one night in
+ * three round a Lunar circle with its idol on the altar, and every Lunar
+ * circle on a Bright Night), so on any night they open a woodsman who
+ * forages goes out for the open ones in his reach, and for nothing else.
  */
-function roseHours(state: SimState, i: number, o: WoodsOrder): boolean {
-  const p = clockAt(state.step).period;
-  return o.forage !== 0 && (p === Period.Night || p === Period.Dawn) && brightTonight(state, state.entities.owner[i]!);
+function roseHours(state: SimState, o: WoodsOrder): boolean {
+  const c = clockAt(state.step);
+  return o.forage !== 0 && (c.period === Period.Night || c.period === Period.Dawn) && rosesOpen(state, c.cycle);
 }
 
 /** Whether a spot is worth his while now: fish to spare on a stretch he fishes, wild food on a plant he forages; only an open Moon Rose in rose hours. */
@@ -138,7 +139,7 @@ function nearestSpot(state: SimState, i: number, h: Home | undefined, o: WoodsOr
   const x = e.x[i]!;
   const z = e.z[i]!;
   const world = state.world;
-  const roses = roseHours(state, i, o);
+  const roses = roseHours(state, o);
   const reach = (h ? h.reach + length2d(x - h.x, z - h.z) : WOODS.leashM * M + length2d(x - o.x, z - o.z)) + M;
   const rc = floorDiv(reach, WU_PER_COLUMN) + 1;
   const gx = col(x);
@@ -236,7 +237,7 @@ export function runWoods(state: SimState, i: number, o: WoodsOrder): boolean {
     e.act[i] = Act.Walk;
     e.timer[i] = 0;
   }
-  const roses = roseHours(state, i, o);
+  const roses = roseHours(state, o);
   if (isDark(state.step) && !roses) return woodsHome(state, i, o);
   if (o.k & WOODS_HOME) {
     if (roses) {
