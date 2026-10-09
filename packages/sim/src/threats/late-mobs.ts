@@ -24,6 +24,7 @@ import { buildingTop, FIRE, launch, POISON } from '../combat/projectiles.ts';
 import { knockBack } from '../mounts/riding.ts';
 import { leaveBuilding } from '../units/behaviour.ts';
 import { smoulder } from './burns.ts';
+import { necromancerAct } from './necromancer.ts';
 import { Role } from './types.ts';
 
 const M = WU_PER_METRE;
@@ -267,6 +268,8 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
       state.hits.push({ look: 'spell', x: e.x[i]!, y: e.y[i]! + spec.height, z: e.z[i]!, id: e.id[i]! });
       return true;
     }
+    case Mob.Necromancer:
+      return necromancerAct(state, i, spec, t);
     default:
       return false;
   }
@@ -513,6 +516,7 @@ function morvath(state: SimState, i: number, second: boolean): void {
   if (now >= e.ability2At[i]!) {
     e.ability2At[i] = now + LATE.rift.cooldown;
     e.beamUntil[i] = now + LATE.rift.open;
+    state.hits.push({ look: 'summon', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
     state.events.push({ player: e.foe[i]!, kind: 'alert', text: 'Morvath opens the Rift. Demons pour through.', x: e.x[i]!, z: e.z[i]! });
   }
   if (now < e.beamUntil[i]! && (e.beamUntil[i]! - now) % LATE.rift.every === 0) {

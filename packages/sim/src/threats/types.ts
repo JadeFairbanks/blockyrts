@@ -105,13 +105,15 @@ export interface ThreatState {
   bossId: number;
   /** Patches of the wild filled with wandering monsters tonight, in the order they were filled; emptied at dawn (Jade's patch notes 1). */
   wild: WildPatch[];
+  /** Jade's Patch 5 (MB-13): the Deadlands' mana crystals whose guardians have come (world.ts colKey of each crystal's column); never again. */
+  guarded: Set<number>;
 }
 
 /** Morvath's first night (roster 5.25). */
 export const BOSS_FIRST_NIGHT = 110;
 
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [] };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [], guarded: new Set() };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */
@@ -134,5 +136,7 @@ export const Role = {
   Mercenary: 7,
   /** A wandering night monster of band `group` (threats/wanderers.ts): it roams round its spot (homeX, homeZ) in the wild and goes only for prey close by. */
   Wild: 8,
+  /** Jade's Patch 5 (MB-13): a guardian of the Deadlands' mana crystal at (homeX, homeZ) (threats/guardians.ts): keeps within 5 m of it, chases 8 m. */
+  Guardian: 9,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];

@@ -103,3 +103,5 @@ export * from './siege/engines.ts';
 export * from './threats/late-mobs.ts';
 export * from './threats/boss.ts';
 export * from './threats/bright.ts';
+export * from './threats/necromancer.ts';
+export * from './threats/guardians.ts';

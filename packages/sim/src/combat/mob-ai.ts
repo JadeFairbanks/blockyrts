@@ -940,7 +940,7 @@ function actMob(state: SimState, i: number, spec: MobSpec): void {
   const k = troopAggro(state, i, spec, t, may);
   if (k >= 0) t = k;
   else if (t < 0) t = pickUnit(state, i, spec);
-  if (spec.firstNight >= LATE_FIRST_NIGHT && lateHooks.act(state, i, spec, t)) return;
+  if ((spec.firstNight >= LATE_FIRST_NIGHT || spec.id === Mob.Necromancer) && lateHooks.act(state, i, spec, t)) return;
   if (t < 0) {
     e.target[i] = 0;
     const perch = shotFrom(state, i, spec);
@@ -1303,6 +1303,8 @@ export function updateSun(state: SimState): void {
 /** A lair's resident stands in its shade by day: within 30 m of its lair while the lair stands (s). */
 function inShade(state: SimState, i: number): boolean {
   const e = state.entities;
+  // A mana crystal's guardian never burns (Jade's Patch 5, MB-13).
+  if (e.role[i] === Role.Guardian) return true;
   if (e.role[i] !== Role.Resident) return false;
   const l = e.indexOf(e.group[i]!);
   return l >= 0 && e.hp[l]! > 0 && length2d(e.x[l]! - e.x[i]!, e.z[l]! - e.z[i]!) <= LAIR_LEASH_WU;

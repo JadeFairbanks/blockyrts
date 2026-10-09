@@ -34,6 +34,7 @@ import { DEPTH_AHEAD, LAIR_SHARE_DELAY_STEPS } from '../threats/data.ts';
 import { fogged, throughFog } from '../threats/fog.ts';
 import { lairBudgetTenths, lairsOf, lairSpawns } from '../threats/lairs.ts';
 import { brightTonight } from '../threats/bright.ts';
+import { necromancerNight } from '../threats/necromancer.ts';
 import { Role } from '../threats/types.ts';
 
 /** Spawns stand off at least this far from claimed land and from the players' units (Table 8). */
@@ -177,6 +178,8 @@ export function nightMobs(state: SimState, player: number, night: number): Plann
     const ahead = DEPTH_AHEAD[r.band] ?? 0;
     for (const mob of pickMobs(state, floorDiv(base * r.depthPm, 1000), unlocked(night + ahead), night + ahead, count)) out.push({ mob, role: Role.Aimed, ax: r.ax, az: r.az, src: 0 });
   }
+  // A necromancer on his nights, on top of the budget (Jade's Patch 5, MB-5).
+  if (necromancerNight(night)) out.push(edge(Mob.Necromancer));
   return out;
 }
 
@@ -216,7 +219,8 @@ export function planNight(state: SimState, player: number, night: number, start:
   for (const key of [...byKind.keys()].sort((a, b) => a - b)) {
     const list = byKind.get(key)!;
     const comes = mobSpec(list[0]!.mob).comes;
-    if (comes === Comes.Wave) {
+    // A necromancer (never bought, Comes.Never) comes as a wave does, at the start of the night.
+    if (comes === Comes.Wave || comes === Comes.Never) {
       // One wave of each kind, all from one spot.
       const at = start + rng.nextInt(10 * STEPS_PER_SECOND);
       const g = group++;

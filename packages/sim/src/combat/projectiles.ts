@@ -384,7 +384,7 @@ function splash(state: SimState, p: Projectile, x: number, y: number, z: number,
   if (!sp.splash || !sp.splashRadius) return;
   const e = state.entities;
   const r = sp.splashRadius;
-  state.hits.push({ look: 'blast', x, y, z, id: p.shooter });
+  state.hits.push({ look: sp.burst ?? 'blast', x, y, z, id: p.shooter });
   for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
     if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;

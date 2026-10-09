@@ -674,9 +674,10 @@ export interface SimEvent {
  * How long a speech bubble stays (Jade's Patch 3): 'bar' while its speaker
  * sits at the timed action that made it speak, as long as the progress bar
  * over its head runs (units/tinker.ts); 'long' twice the usual time (the
- * main base's word of advice at the start).
+ * main base's word of advice at the start); 'linger' 20 s, unless the
+ * speaker says something else first (Jade's Patch 5: the necromancer).
  */
-export type BubbleHold = 'bar' | 'long';
+export type BubbleHold = 'bar' | 'long' | 'linger';
 
 export interface SimState {
   seed: number;
@@ -839,9 +840,15 @@ export interface Site {
   axis: number;
 }
 
-/** What a hit looks like (Generated rocks and trees: hit particles). */
-/** 'violet': Morvath's staff splash (Patch 5 MB-4), a ring of vivid purple. 'drain': life drained into a monster, white motes from where it was taken to `to`, `n` of them (one for every 2 health). 'crimson': the necromancer's bolt bursting (MB-5). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'violet' | 'drain' | 'crimson';
+/**
+ * What a hit looks like (Generated rocks and trees: hit particles). Jade's
+ * Patch 5: 'violet' Morvath's staff splash (MB-4), a ring of vivid purple;
+ * 'drain' life drained into a monster, white motes from where it was taken
+ * to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's
+ * bolt bursting and his dead rising (MB-5); 'summon' a summoner calling up
+ * its kin (the necromancer, Morvath opening the Rift), at the summoner `id`.
+ */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'violet' | 'drain' | 'crimson' | 'summon';
 
 export interface HitEvent {
   look: HitLook;

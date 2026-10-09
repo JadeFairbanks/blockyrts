@@ -107,6 +107,8 @@ export const Mob = {
   RiftMinotaur: 79,
   /** Morvath's second form: at half health he takes flight (roster 5.25). */
   MorvathAloft: 80,
+  /** Jade's Patch 5 (MB-5): comes with the waves on his nights, on top of their threat (threats/necromancer.ts). */
+  Necromancer: 81,
 } as const;
 export type Mob = (typeof Mob)[keyof typeof Mob];
 
@@ -554,6 +556,14 @@ const MOB_ROWS: readonly MobRow[] = [
     drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 500 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 250 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }],
   },
   { ...MORVATH, id: Mob.MorvathAloft, moves: Moves.HighFlyer, speed: v10(40) },
+  {
+    // Jade's Patch 5 (MB-5): his crimson bolt every 10 s, 35 to whoever it strikes and 35 within 0.5 m (Shot.NecroBolt); his summons and drops are
+    // threats/necromancer.ts. Never bought from the budget. Health, armour, range and speed (s); XP by the header rule, health / 50.
+    ...base, id: Mob.Necromancer, traits: [Trait.Summons], name: 'Necromancer', model: 'necromancer', firstNight: 10, hp: 300, armourBp: 1000, damageTenths: 350, attackSteps: ds(100),
+    reach: cm(120), range: cm(1800), shot: Shot.NecroBolt, spreadBp: 300, speed: v10(20), vsWalls: 5,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Never, xpTenths: 60, halfWidth: cm(35), height: cm(200),
+    drops: [],
+  },
 ];
 
 /**

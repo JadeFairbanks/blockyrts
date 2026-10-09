@@ -50,6 +50,8 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
 
 /** Single exports that are plumbing, ids or names rather than balance. */
 export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
+  // Patch 5: which ingots the necromancer drops and which kinds guard a mana crystal are lists of ids, told in their files' words.
+  'threats/necromancer.ts:NECROMANCER_INGOTS', 'threats/guardians.ts:GUARDIAN_KINDS',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
@@ -161,6 +163,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'mobs',
   'threats/wanderers.ts': 'mobs',
   'threats/bright.ts': 'mobs',
+  'threats/necromancer.ts': 'mobs',
+  'threats/guardians.ts': 'mobs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
@@ -325,6 +329,15 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'WAVE_AIMS:buildingWorth': 'Worth to the waves: a building', 'WAVE_AIMS:unitWorth': 'Worth to the waves: a unit out in the open',
   'WAVE_AIMS:edgeSpreadM': 'Comes out at most this much farther than the nearest edge', 'WAVE_AIMS:baseReachM': 'Takes up the town\'s paths within',
   'PERCH_ATTACK:steps': 'Shot at from a building this lately', 'PERCH_ATTACK:withinWu': 'Breaks that building within',
+  // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
+  'staff:splashTenths': 'Staff splash', 'staff:radius': 'Staff splash within', 'wings:steps': 'Wings drain over', 'wings:total': 'Wings drain at most', 'wings:radius': 'Wings drain within',
+  'NECROMANCER:summonSteps': 'Summons every', 'NECROMANCER:summonMin': 'Summons at least', 'NECROMANCER:summonMax': 'Summons at most', 'NECROMANCER:ringM': 'They rise round him within',
+  'NECROMANCER:bubbleS': 'His bubbles stay', 'NECROMANCER:gearMin': 'Drops: weapons or armours, at least', 'NECROMANCER:gearMax': 'Drops: weapons or armours, at most',
+  'NECROMANCER:gearLowTier': 'Drops: lowest tier', 'NECROMANCER:gearHighTier': 'Drops: highest tier (or the highest a player can make)',
+  'NECROMANCER:ingotMin': 'Drops: ingots, at least', 'NECROMANCER:ingotMax': 'Drops: ingots, at most', 'NECROMANCER:boneMin': 'Drops: bones, at least', 'NECROMANCER:boneMax': 'Drops: bones, at most',
+  'NECROMANCER:crystalPm': 'Drops: a mana crystal, chance',
+  'CRYSTAL_GUARDS:min': 'Guardians a crystal, at least', 'CRYSTAL_GUARDS:max': 'Guardians a crystal, at most', 'CRYSTAL_GUARDS:leashM': 'Keep within', 'CRYSTAL_GUARDS:chaseM': 'Chase no farther than',
+  'CRYSTAL_GUARDS:wakeM': 'Come when a unit first comes within', 'CRYSTAL_GUARDS:postM': 'Stand round it at', 'CRYSTAL_GUARDS:everySteps': 'Looked for every',
   speed10: 'Walking speed', walkShoot: 'Shoots while walking', fighter: 'Fighter (villagers flee instead)', ringWu: 'Buildings stand this far out',
   structures: 'Buildings', animals: 'Animals kept', good: 'Good', 'STOCK:count': 'Held when full', 'CARAVAN_GOODS:count': 'Held when full',
   'STOCK:pct': 'Sells at (of its worth)', 'CARAVAN_GOODS:pct': 'Sells at (of its worth)', price: 'Set price', daily: 'Refills every dawn',
@@ -438,6 +451,8 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
+  'threats/necromancer.ts': 'The necromancer', 'mobs:threats/necromancer.ts': 'The necromancer',
+  'threats/guardians.ts': 'Mana crystal guardians', 'mobs:threats/guardians.ts': 'Mana crystal guardians',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
@@ -481,6 +496,11 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   // Patch 5: what the waves go for (combat/aims.ts) and the towers they break.
   'WAVE_AIMS:baseM': 'metres', 'WAVE_AIMS:openM': 'metres', 'WAVE_AIMS:partyM': 'metres', 'WAVE_AIMS:edgeSpreadM': 'metres', 'WAVE_AIMS:baseReachM': 'metres',
   'WAVE_AIMS:buildingWorth': 'number', 'WAVE_AIMS:unitWorth': 'number',
+  // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
+  'staff:splashTenths': 'damageTenths', 'wings:total': 'health',
+  'NECROMANCER:ringM': 'metres', 'NECROMANCER:bubbleS': 'wholeSeconds', 'NECROMANCER:summonMin': 'count', 'NECROMANCER:summonMax': 'count',
+  'NECROMANCER:gearMin': 'count', 'NECROMANCER:gearMax': 'count', 'NECROMANCER:ingotMin': 'count', 'NECROMANCER:ingotMax': 'count', 'NECROMANCER:boneMin': 'count', 'NECROMANCER:boneMax': 'count',
+  'CRYSTAL_GUARDS:min': 'count', 'CRYSTAL_GUARDS:max': 'count', 'CRYSTAL_GUARDS:leashM': 'metres', 'CRYSTAL_GUARDS:chaseM': 'metres', 'CRYSTAL_GUARDS:wakeM': 'metres', 'CRYSTAL_GUARDS:postM': 'metres',
 };
 
 /** Suffixes in export names that give a scalar its unit. Checked in order. */
