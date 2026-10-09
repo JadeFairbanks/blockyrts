@@ -101,6 +101,11 @@ export class RelayClient {
       rememberRejoin(m.code, m.rejoinToken);
     }
     if (m.type === 'roomClosed') this.wanted = false;
+    this.deliver(m);
+  }
+
+  /** To the listeners, or kept back while holding. */
+  private deliver(m: ServerMessage): void {
     if (this.held) this.held.push(m);
     else for (const f of [...this.listeners]) f(m);
   }
@@ -110,11 +115,11 @@ export class RelayClient {
     this.held ??= [];
   }
 
-  /** Stops holding: what was kept back goes to the listeners now, in order. */
+  /** Stops holding: what was kept back goes to the listeners now, in order; if one of them holds again, the rest waits. */
   release(): void {
     const h = this.held ?? [];
     this.held = null;
-    for (const m of h) for (const f of [...this.listeners]) f(m);
+    for (const m of h) this.deliver(m);
   }
 
   /** The connection dropped: try again, and rejoin the room if there is one. */
