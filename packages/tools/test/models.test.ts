@@ -7,6 +7,7 @@ import { convertModel, type ConvertedModel } from '../src/models/convert.ts';
 import { readGlb } from '../src/models/glb.ts';
 import { deviationsFor, parseManifestDeviations } from '../src/models/manifest.ts';
 import { encodePng } from '../src/models/png.ts';
+import { textureLooks } from '../src/models/texture-looks.ts';
 
 const BASE = ['worker', 'warrior', 'mage'];
 
@@ -250,5 +251,18 @@ describe('the model converter on a bad model', () => {
     expect(r.violations.find((v) => v.rule === 'cube-budget')?.waived).toBe(true);
     expect(r.errors.map((v) => v.rule).sort()).toEqual(['bone-name', 'texture-size']);
     expect(deviationsFor(rows, 'other')).toEqual([]);
+  });
+});
+
+describe('texture looks (Patch 5 stone circles)', () => {
+  it('draws each extra texture of a file as a look of its own, `<id>~<look>`', () => {
+    const raw = {
+      textures: [{ name: 'rock.png', width: 16, height: 16 }, { name: 'rock_mossy.png', width: 16, height: 16 }, { name: 'other.png', width: 16, height: 16 }],
+      elements: [{ faces: { north: { texture: 0 }, south: { texture: null } } }],
+    };
+    const looks = textureLooks(raw, 'rock');
+    expect(looks.map((l) => l.look)).toEqual(['mossy']);
+    expect((looks[0]!.raw as typeof raw).elements[0]!.faces.north.texture).toBe(1);
+    expect(raw.elements[0]!.faces.north.texture).toBe(0);
   });
 });

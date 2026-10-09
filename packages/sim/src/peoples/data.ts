@@ -504,6 +504,8 @@ export const RES_VALUE_TENTHS: Readonly<Partial<Record<number, number>>> = {
   // Not in Table 11 (s): rope as two flax; hardened leather and carts as twice their inputs.
   [Res.HardenedLeather]: 160, [Res.HandCart]: 340, [Res.OxCart]: 1360, [Res.Rope]: 20,
   [Res.Moonleaf]: 7250, [Res.Sunheart]: 12000,
+  // Patch 5 SC-12, the Bluestone Trinket: "50% more valued than bronze trinkets": 1.5 x the bronze Heirloom's 144 vp (s).
+  [Res.BluestoneTrinket]: 2160,
 };
 
 /** A food not in RES_VALUE_TENTHS is worth 0.75 x its nutrition (Table 11's cooked foods, which Patch 2 cut): hundredths of a vp per point of nutrition. */

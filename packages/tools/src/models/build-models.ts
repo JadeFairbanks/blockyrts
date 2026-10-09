@@ -18,6 +18,7 @@ import { convertModel, type ConvertedModel } from './convert.ts';
 import { deviationsFor, parseManifestDeviations } from './manifest.ts';
 import { CATEGORIES } from './rules.ts';
 import { STATE_SEP, STATE_SET_CATEGORIES, stateSetVariants } from './state-sets.ts';
+import { LOOK_SEP, textureLooks } from './texture-looks.ts';
 
 export const ASSETS_DIR = fileURLToPath(new URL('../../../assets/', import.meta.url));
 export const DEFAULT_OUT_DIR = fileURLToPath(new URL('../../../client/public/models/', import.meta.url));
@@ -104,6 +105,13 @@ export function buildModels(options: { assetsDir?: string; outDir?: string | nul
             const variant = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
             models.push(variant);
             if (variant.errors.length === 0 && variant.glb && variant.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json` });
+          }
+          // And each texture look (texture-looks.ts), the same way.
+          for (const v of textureLooks(raw, id)) {
+            const vid = `${id}${LOOK_SEP}${v.look}`;
+            const look = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
+            models.push(look);
+            if (look.errors.length === 0 && look.glb && look.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json` });
           }
         }
       }

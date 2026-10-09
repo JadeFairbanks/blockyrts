@@ -133,6 +133,12 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | myconid | models/monsters/myconid/myconid.bbmodel | 69 | 256x256 | Jade's own model (models/existing_mobs/myconid), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 69 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | sapling_treant | models/monsters/sapling_treant/sapling_treant.bbmodel | 100 | 128x128 | Jade's own model (models/existing_mobs/sapling_treant), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 100 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | slime | models/monsters/slime/slime.bbmodel | 34 | 256x128 | Jade's own model (models/existing_mobs/slime), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 34 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
+| great_white_ape | models/monsters/great_white_ape/great_white_ape.bbmodel | 80 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 80 cubes |
+| lich | models/monsters/lich/lich.bbmodel | 127 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 127 cubes; skeleton: it hovers (hips under a hover bone, head under a neck) with no legs under its robes |
+| sabretooth_tiger | models/monsters/sabretooth_tiger/sabretooth_tiger.bbmodel | 110 | 1024x1024 | Jade's own model (Stone Circle set), kept as made: cube budget, 110 cubes |
+| satyr_reveler | models/monsters/satyr_reveler/satyr_reveler.bbmodel | 194 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 194 cubes with the cider bottle; skeleton: a neck between torso and head, goat ankles between shins and hooves; placement: the footprint sits back on the goat legs |
+| satyr_trickster | models/monsters/satyr_trickster/satyr_trickster.bbmodel | 190 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 190 cubes with the two axes; skeleton: a neck between torso and head, goat ankles between shins and hooves; placement: the footprint sits back on the goat legs |
+| silenus | models/monsters/silenus/silenus.bbmodel | 222 | 1024x1024 | Jade's own model (Stone Circle set), kept as made: cube budget, 222 cubes; skeleton: a neck between torso and head, goat ankles between shins and hooves; placement: the footprint sits back on the goat legs |
 
 ## items
 
@@ -287,6 +293,18 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | pie | models/items/pie/pie.bbmodel | 4 | 32x32 |  |
 | bandage_roll | models/items/bandage_roll/bandage_roll.bbmodel | 3 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
 | healing_remedy | models/items/healing_remedy/healing_remedy.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| ancient_seed | models/items/ancient_seed/ancient_seed.bbmodel | 7 | 64x64 | Jade's own model (Stone Circle set) |
+| bluestone | models/items/bluestone/bluestone.bbmodel | 10 | 128x128 | Jade's own model (Stone Circle set) |
+| bluestone_trinket | models/items/bluestone_trinket/bluestone_trinket.bbmodel | 8 | 64x64 | Jade's own model (Stone Circle set) |
+| enchanted_wine | models/items/enchanted_wine/enchanted_wine.bbmodel | 11 | 128x128 | Jade's own model (Stone Circle set) |
+| hawthorne_cider | models/items/hawthorne_cider/hawthorne_cider.bbmodel | 20 | 128x128 | Jade's own model (Stone Circle set), kept as made: cube budget, 20 cubes for the bottle's detail |
+| hawthorne_fruit | models/items/hawthorne_fruit/hawthorne_fruit.bbmodel | 10 | 128x128 | Jade's own model (Stone Circle set) |
+| headless_god_idol | models/items/headless_god_idol/headless_god_idol.bbmodel | 85 | 256x256 | Jade's own model (Stone Circle set), kept as made: cube budget, 85 cubes for the figure |
+| honey_pot | models/items/honey_pot/honey_pot.bbmodel | 8 | 128x128 | Jade's own model (Stone Circle set) |
+| moon_goddess_idol | models/items/moon_goddess_idol/moon_goddess_idol.bbmodel | 166 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 166 cubes for the figure |
+| obsidian_chunk | models/items/obsidian_chunk/obsidian_chunk.bbmodel | 6 | 128x128 | Jade's own model (Stone Circle set) |
+| obsidian_handaxe | models/items/obsidian_handaxe/obsidian_handaxe.bbmodel | 35 | 256x256 | Jade's own model (Stone Circle set), kept as made: cube budget, 35 cubes for the knapped blade |
+| pan_flute | models/items/pan_flute/pan_flute.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set), kept as made: cube budget, 16 cubes for its pipes |
 
 ## mechanical
 
@@ -528,6 +546,33 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | water_trough | models/world-props/water_trough/water_trough.bbmodel | 6 | 64x64 |  |
 | grave_marker | models/world-props/grave_marker/grave_marker.bbmodel | 10 | 64x64 |  |
 | bone_pile | models/world-props/bone_pile/bone_pile.bbmodel | 29 | 32x64 |  |
+| altar_boneyard | models/world-props/altar_boneyard/altar_boneyard.bbmodel | 58 | 512x512 + 1 variant (boneyard) | Jade's own model (Stone Circle set); its boneyard look is drawn as `altar_boneyard~boneyard` |
+| altar_lunar | models/world-props/altar_lunar/altar_lunar.bbmodel | 44 | 512x512 + 1 variant (lunar) | Jade's own model (Stone Circle set); its lunar look is drawn as `altar_lunar~lunar` |
+| bluestone_chest | models/world-props/bluestone_chest/bluestone_chest.bbmodel | 21 | 512x512 | Jade's own model (Stone Circle set) |
+| bluestone_rubble_large | models/world-props/bluestone_rubble_large/bluestone_rubble_large.bbmodel | 23 | 256x256 | Jade's own model (Stone Circle set) |
+| bluestone_rubble_small | models/world-props/bluestone_rubble_small/bluestone_rubble_small.bbmodel | 13 | 128x128 | Jade's own model (Stone Circle set) |
+| bone_pile_large | models/world-props/bone_pile_large/bone_pile_large.bbmodel | 63 | 256x256 | Jade's own model (Stone Circle set) |
+| bone_pile_small | models/world-props/bone_pile_small/bone_pile_small.bbmodel | 22 | 128x128 | Jade's own model (Stone Circle set), kept as made: placement, the heap lies a little off the middle |
+| boneyard_dead_tree | models/world-props/boneyard_dead_tree/boneyard_dead_tree.bbmodel | 27 | 256x256 | Jade's own model (Stone Circle set) |
+| boneyard_thorn_bush | models/world-props/boneyard_thorn_bush/boneyard_thorn_bush.bbmodel | 25 | 512x512 | Jade's own model (Stone Circle set) |
+| flower_bluebell | models/world-props/flower_bluebell/flower_bluebell.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| flower_moon_daisy | models/world-props/flower_moon_daisy/flower_moon_daisy.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| flower_moonflower | models/world-props/flower_moonflower/flower_moonflower.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| moon_rose_bush_bloomed | models/world-props/moon_rose_bush_bloomed/moon_rose_bush_bloomed.bbmodel | 127 | 512x512 | Jade's own model (Stone Circle set) |
+| moon_rose_bush_closed | models/world-props/moon_rose_bush_closed/moon_rose_bush_closed.bbmodel | 72 | 512x512 | Jade's own model (Stone Circle set) |
+| moss_clump_a | models/world-props/moss_clump_a/moss_clump_a.bbmodel | 10 | 128x128 | Jade's own model (Stone Circle set) |
+| moss_clump_b | models/world-props/moss_clump_b/moss_clump_b.bbmodel | 18 | 128x128 | Jade's own model (Stone Circle set) |
+| ruin_bush | models/world-props/ruin_bush/ruin_bush.bbmodel | 24 | 512x512 | Jade's own model (Stone Circle set), kept as made: placement, it rests 2 units up |
+| ruin_fern | models/world-props/ruin_fern/ruin_fern.bbmodel | 10 | 256x256 | Jade's own model (Stone Circle set) |
+| softwood_pine | models/world-props/softwood_pine/softwood_pine.bbmodel | 51 | 512x512 | Jade's own model (Stone Circle set) |
+| sweet_hawthorne_sapling | models/world-props/sweet_hawthorne_sapling/sweet_hawthorne_sapling.bbmodel | 31 | 256x256 | Jade's own model (Stone Circle set) |
+| sweet_hawthorne_tree | models/world-props/sweet_hawthorne_tree/sweet_hawthorne_tree.bbmodel | 81 | 512x512 | Jade's own model (Stone Circle set) |
+| sweet_hawthorne_tree_fruit | models/world-props/sweet_hawthorne_tree_fruit/sweet_hawthorne_tree_fruit.bbmodel | 270 | 512x512 | Jade's own model (Stone Circle set) |
+| trilithon_crumbled | models/world-props/trilithon_crumbled/trilithon_crumbled.bbmodel | 83 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_crumbled~lunar`, `trilithon_crumbled~boneyard` |
+| trilithon_destroyed | models/world-props/trilithon_destroyed/trilithon_destroyed.bbmodel | 43 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_destroyed~lunar`, `trilithon_destroyed~boneyard` |
+| trilithon_intact | models/world-props/trilithon_intact/trilithon_intact.bbmodel | 58 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_intact~lunar`, `trilithon_intact~boneyard` |
+| trilithon_poor | models/world-props/trilithon_poor/trilithon_poor.bbmodel | 68 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_poor~lunar`, `trilithon_poor~boneyard` |
+| trilithon_worn | models/world-props/trilithon_worn/trilithon_worn.bbmodel | 226 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_worn~lunar`, `trilithon_worn~boneyard` |
 
 ## projectiles-and-spells
 
@@ -572,6 +617,13 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | ruin_column | models/projectiles-and-spells/spell_violet_ruin/ruin_column.bbmodel | 88 | 256x1024 | one of the two parts of spell_violet_ruin (its folder): the 640 u (18 m) column; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | ruin_warning | models/projectiles-and-spells/spell_violet_ruin/ruin_warning.bbmodel | 176 | 64x64 | one of the two parts of spell_violet_ruin (its folder): the warning ring on the ground; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_crown_of_night | models/projectiles-and-spells/spell_crown_of_night/spell_crown_of_night.bbmodel | 72 | 16x16 | made by the model thread (the bot's batches left it out); `spread` stretches the `ring` bone in x and z to 66.75x (30 m radius); no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| acrid_wind | models/projectiles-and-spells/acrid_wind/acrid_wind.bbmodel | 61 | 512x512 | Jade's own model (Stone Circle set) |
+| entangling_roots | models/projectiles-and-spells/entangling_roots/entangling_roots.bbmodel | 148 | 512x512 | Jade's own model (Stone Circle set) |
+| lash_of_thorns | models/projectiles-and-spells/lash_of_thorns/lash_of_thorns.bbmodel | 179 | 256x256 | Jade's own model (Stone Circle set) |
+| reveler_bolt | models/projectiles-and-spells/reveler_bolt/reveler_bolt.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| sacrificial_rite_beam | models/projectiles-and-spells/sacrificial_rite_beam/sacrificial_rite_beam.bbmodel | 12 | 256x256 | Jade's own model (Stone Circle set) |
+| sacrificial_rite_orb | models/projectiles-and-spells/sacrificial_rite_orb/sacrificial_rite_orb.bbmodel | 8 | 128x128 | Jade's own model (Stone Circle set) |
+| touch_of_the_grave_aura | models/projectiles-and-spells/touch_of_the_grave_aura/touch_of_the_grave_aura.bbmodel | 9 | 256x256 | Jade's own model (Stone Circle set) |
 
 ## textures
 
