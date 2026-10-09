@@ -368,7 +368,7 @@ export const GUIDES: readonly Guide[] = [
       {
         heading: 'Loot',
         paragraphs: [
-          'Later night waves carry gear and drop it when they fall, at about the tier you would expect by then. Poison tips, made from venom, add poison damage to arrows and bolts and are never used up. Spider silk counts as rope, and obsidian as flint. See [[Weapons, armour and shields in the night waves]] and [[Poison tips]].',
+          'Monsters that carry weapons or armour now and then drop one of their own pieces when they fall: rarely in the night waves, more often in goblin villages and hostile tribes. The peoples\' fighters drop theirs too. Poison tips, made from venom, add poison damage to arrows and bolts and are never used up. Spider silk counts as rope, and obsidian as flint. See [[Poison tips]].',
         ],
       },
     ],
@@ -431,7 +431,7 @@ export const GUIDES: readonly Guide[] = [
       {
         heading: 'The Necromancer',
         paragraphs: [
-          `From night ${mob('Necromancer').firstNight}, the [[Necromancer]] raises ${NECROMANCER.summonMin} or ${NECROMANCER.summonMax} skeleton archers and zombies round him every ${secs(NECROMANCER.summonSteps)} seconds. He and his raised dead burn away at dawn. He drops ${NECROMANCER.gearMin} to ${NECROMANCER.gearMax} pieces of gear, ingots and bones, and sometimes a mana crystal.`,
+          `From night ${mob('Necromancer').firstNight}, the [[Necromancer]] raises ${NECROMANCER.summonMin} or ${NECROMANCER.summonMax} skeleton archers and zombies round him every ${secs(NECROMANCER.summonSteps)} seconds. He and his raised dead burn away at dawn. He drops ingots and bones, sometimes a mana crystal, and now and then his own staff or robe.`,
         ],
         picture: 'portrait_necromancer',
       },
