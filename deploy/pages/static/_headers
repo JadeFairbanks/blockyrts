@@ -1,7 +1,8 @@
-# Cloudflare Pages headers for the game site (deploy/README.md). The site is
-# public and listed; only the pages.dev addresses (the mirror and each
-# deploy's preview) stay out of search results, so searches find the play
-# domain alone.
+# Cloudflare Pages headers for the site's static files (deploy/README.md):
+# only the pages.dev addresses (the mirror and each deploy's preview) stay out
+# of search results, so searches find the play domain alone. These rules do
+# not reach the pages the sign-in middleware answers, so it repeats the
+# mirror's noindex itself (deploy/pages/functions/_middleware.ts).
 https://:project.pages.dev/*
   X-Robots-Tag: noindex
 https://:version.:project.pages.dev/*
