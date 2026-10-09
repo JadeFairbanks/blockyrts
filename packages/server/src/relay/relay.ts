@@ -75,7 +75,8 @@ export class Relay {
     this.now = opts.now ?? Date.now;
     this.log = opts.log ?? ((m) => console.log(m));
     this.wss = new WebSocketServer({ noServer: true, maxPayload: MAX_SAVE_BYTES + 4096 });
-    this.timer = setInterval(() => this.tick(), 250);
+    // Often enough for a held frame's short wait (room.ts, FRAME_HOLD_MS).
+    this.timer = setInterval(() => this.tick(), 50);
     this.timer.unref();
   }
 
@@ -171,7 +172,9 @@ export class Relay {
 
   private async onMessage(c: Client, data: RawData, isBinary: boolean, cookieToken: string): Promise<void> {
     if (!isBinary) return this.refuse(c, 'Only binary messages are accepted.');
-    const bytes = Array.isArray(data) ? new Uint8Array(Buffer.concat(data)) : new Uint8Array(data as ArrayBuffer);
+    // A view, not a copy: the decoder copies out the few bytes it keeps (a frame's orders, a snapshot).
+    const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.isBuffer(data) ? data : Buffer.from(data);
+    const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     let msg: ClientMessage;
     try {
       msg = decodeClient(bytes);

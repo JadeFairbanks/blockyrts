@@ -80,6 +80,13 @@ export const DEFAULT_TIMINGS: RoomTimings = {
 };
 /** Hash checkpoints remembered after agreement, for players who report late. */
 const AGREED_KEPT = 30;
+/**
+ * How long a frame waits for the rest of its step before it goes out anyway.
+ * A step cannot run before its last frame, so holding the others costs no
+ * time; this only makes sure a stalled step's frames still reach everyone, so
+ * each page can name who it is waiting for (it does after a second).
+ */
+export const FRAME_HOLD_MS = 100;
 /** Pending hash checks older than this many steps behind the newest are settled with the reports they have. */
 const HASH_SETTLE_STEPS = 10 * HASH_INTERVAL_STEPS;
 
@@ -188,6 +195,15 @@ export class Room {
   private log: WireFrame[] = [];
   /** Every frame for a step at or after this is in the log. */
   private logFloor = 0;
+  /**
+   * Frames relayed but not sent yet: a step's frames go out together in one
+   * message once every playing slot's is in, or after FRAME_HOLD_MS. One
+   * message a step instead of one a frame is an eighth of the sends for a
+   * full room, for the server, the tunnel and every page.
+   */
+  private held: WireFrame[] = [];
+  /** When each held frame arrived. */
+  private heldAt: number[] = [];
   private readonly hashes = new Map<number, Map<number, number>>();
   private readonly agreed = new Map<number, number>();
   private newestHashStep = 0;
@@ -548,7 +564,7 @@ export class Room {
     }
     switch (msg.type) {
       case 'frame':
-        this.onFrame(p, msg.step, msg.orders);
+        this.onFrame(p, msg.step, msg.orders, now);
         break;
       case 'hash':
         this.onHash(p, msg.epoch, msg.step, msg.hash, now);
@@ -687,7 +703,7 @@ export class Room {
 
   // ------------------------------------------------------------- lockstep
 
-  private onFrame(p: Player, step: number, orders: Uint8Array): void {
+  private onFrame(p: Player, step: number, orders: Uint8Array, now: number): void {
     if (this.phase !== RoomPhase.Running || !this.active.has(p.slot) || p.syncing) return;
     const expected = this.expectedNext[p.slot]!;
     if (step < expected) return; // already have it (a resend after a rejoin)
@@ -696,11 +712,15 @@ export class Room {
       return;
     }
     this.expectedNext[p.slot] = expected + 1;
+    // Nearly every frame is empty: the two-minute log keeps the one shared empty payload, not a copy per frame.
     // Only the admin accounts may use the debugger (Jade, Patch 5): anyone else's debugger orders never reach the match.
-    this.relay({ slot: p.slot, step, flags: 0, orders: p.conn?.debugger ? orders : withoutDebugOrders(orders) });
+    const kept = orders.length === NO_ORDERS.length && orders[0] === NO_ORDERS[0] ? NO_ORDERS : p.conn?.debugger ? orders : withoutDebugOrders(orders);
+    this.relay({ slot: p.slot, step, flags: 0, orders: kept }, now);
+    this.sendFrames(false);
   }
 
-  private relay(f: WireFrame): void {
+  /** Logs a frame for rejoins and holds it until its step is complete (sendFrames). */
+  private relay(f: WireFrame, now: number): void {
     this.log.push(f);
     let newest = 0;
     for (const s of this.active) newest = Math.max(newest, this.expectedNext[s]!);
@@ -711,7 +731,37 @@ export class Room {
       while (cut < this.log.length && this.log[cut]!.step < floor) cut++;
       if (cut > 256) this.log = this.log.slice(cut);
     }
-    this.broadcast({ type: 'frame', frame: f }, (p) => !p.syncing);
+    this.held.push(f);
+    this.heldAt.push(now);
+  }
+
+  /**
+   * Sends every held frame whose step every playing slot has now sent, in one
+   * message to everyone; with `all`, the held frames of unfinished steps too.
+   */
+  private sendFrames(all: boolean): void {
+    if (this.held.length === 0) return;
+    let complete = Infinity;
+    if (!all) {
+      for (const s of this.active) complete = Math.min(complete, this.expectedNext[s]!);
+      let any = false;
+      for (const f of this.held) any ||= f.step < complete;
+      if (!any) return;
+    }
+    const out: WireFrame[] = [];
+    const keep: WireFrame[] = [];
+    const keepAt: number[] = [];
+    for (let i = 0; i < this.held.length; i++) {
+      const f = this.held[i]!;
+      if (f.step < complete) out.push(f);
+      else {
+        keep.push(f);
+        keepAt.push(this.heldAt[i]!);
+      }
+    }
+    this.held = keep;
+    this.heldAt = keepAt;
+    this.broadcast({ type: 'frames', frames: out }, (p) => !p.syncing);
   }
 
   private framesFrom(step: number): WireFrame[] {
@@ -873,13 +923,13 @@ export class Room {
     // leave marker takes the place of their next frame, so every machine
     // applies it at the same step.
     const step = this.expectedNext[slot]!;
-    this.relay({ slot, step, flags: FrameFlag.Leave, orders: NO_ORDERS });
+    this.relay({ slot, step, flags: FrameFlag.Leave, orders: NO_ORDERS }, now);
     this.active.delete(slot);
+    this.sendFrames(false);
     gone.presence = Presence.Gone;
     this.hooks.log(`room ${this.code}: carrying on without ${gone.name} from step ${step}`);
     this.sendRoomState();
     this.sendPause();
-    void now;
   }
 
   private onLeave(p: Player, now: number): void {
@@ -901,9 +951,10 @@ export class Room {
 
   // ------------------------------------------------------------- time
 
-  /** Heartbeats, drop detection, the 30 s host choice and the input delay; called a few times a second. */
+  /** Held frames past their wait, heartbeats, drop detection, the 30 s host choice and the input delay; called many times a second. */
   tick(now: number): void {
     if (this.phase === RoomPhase.Ended) return;
+    if (this.held.length > 0 && now - this.heldAt[0]! >= FRAME_HOLD_MS) this.sendFrames(true);
     for (const p of this.players) {
       if (p?.conn && p.presence === Presence.Connected && now - p.lastSeen > this.t.dropAfterMs) {
         const conn = p.conn;

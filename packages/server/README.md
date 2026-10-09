@@ -17,7 +17,14 @@ docker build -f packages/server/Dockerfile --build-arg BUILD_SHA=$(git rev-parse
 ```
 
 With no settings it keeps everything in memory, which is fine for local play
-and tests. `GET /healthz` answers `{"ok":true,"build":"<BUILD_SHA>","rooms":N}`.
+and tests.
+
+`pnpm --filter @blockyrts/server bench:relay` measures what full rooms cost
+the server: it builds the bundle, runs it with a small probe, opens 1 to 48
+rooms of 8 players that follow the browser's lockstep loop, and prints CPU,
+event-loop delay, memory, messages and socket writes per second for each
+(`--rooms`, `--seconds`, `--desync`, `--profile <dir>`; the file's header
+says more). `GET /healthz` answers `{"ok":true,"build":"<BUILD_SHA>","rooms":N}`.
 Database migrations run on start; `--migrate` runs them alone. With no
 email service an admin sets a password by hand:
 `node dist/main.js --set-password <email or username>` (reads the new password
@@ -45,7 +52,9 @@ from standard input).
 
 - `src/relay/room.ts`: a room's lobby (slots, colours, ready, start, the host
   role passing on in join order), the lockstep relay (one frame per player per
-  step, strictly in order, echoed to everyone; a two-minute log), pause on
+  step, strictly in order; a step's frames go to everyone together in one
+  message once all are in, or after 100 ms if one is missing; a two-minute
+  log), pause on
   disconnect (heartbeat every second, dropped after 3 s), the host's choice
   after 30 s (wait, carry on without them, save and quit), rejoin from the log
   or from a present player's snapshot, hash comparison every 20 steps with
