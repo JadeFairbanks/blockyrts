@@ -1,4 +1,4 @@
-# Asset manifest
+| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | K1 resource icon mushrooms (rendered from mushroom.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | K1 resource icon blueberries (rendered from blueberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | K1 resource icon raspberries (rendered from raspberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | K1 resource icon black_berries (rendered from black_berries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |# Asset manifest
 
 One row per model file under `models/`. Cube counts include cubes hidden by default; texture sizes are the embedded texture (also committed as `<file>.png`), followed by any colour or material variants (`<file>_<variant>.png`, same UV layout). Each model's full notes (hit box, move speeds, key times, attachment points, second grip distances) are in its Blockbench description.
 
@@ -313,6 +313,10 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
 | obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
 | armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
+| black_berries | models/items/black_berries/black_berries.bbmodel | 11 | 32x16 |  |
+| raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
+| blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
+| mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
 
 ## mechanical
 
@@ -1615,6 +1619,10 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_spell_thorn_volley | ui/icon_spell_thorn_volley.png | 1 | 32x32 | K4 spell icon thorn_volley (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_train_warrior_brawler | ui/icon_train_warrior_brawler.png | 1 | 32x32 | K4 training icon train_warrior_brawler: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
 | icon_train_warrior_zweihander | ui/icon_train_warrior_zweihander.png | 1 | 32x32 | K4 training icon train_warrior_zweihander: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
+| icon_dreadnought | ui/icon_dreadnought.png | 1 | 32x32 | K4 training icon for the Dreadnought (rendered from heavy_knight.bbmodel in Patch 5): the portrait framing at 32x32 on the portrait background. |
+| portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_pheasant | ui/portrait_pheasant.png | 1 | 64x64 | K6 unit portrait pheasant: animal: pheasant. 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 
 ## sky
 

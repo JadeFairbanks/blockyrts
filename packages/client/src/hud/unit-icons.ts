@@ -25,8 +25,8 @@ export function troopIconFile(troop: number, wTier: number): string {
       // His own picture once the catalogue has one; the spearman's until then (Patch 5).
       return modelIconFile('woodsman') || 'icon_train_warrior_spear';
     case Troop.Dreadnought:
-      // Patch 5: the brawler's mace-man stands in until the Dreadnought has a picture of his own.
-      return 'icon_train_warrior_mace';
+      // Patch 5: rendered from his own model, heavy_knight.
+      return 'icon_dreadnought';
     default:
       return 'icon_train_warrior_club';
   }

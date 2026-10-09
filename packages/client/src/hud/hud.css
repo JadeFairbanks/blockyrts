@@ -1366,6 +1366,17 @@ body.playing * {
 .dread-dialog .send-list > * {
   flex: none;
 }
+.dread-intro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dread-portrait {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
 .dread-worth.warn {
   color: #e8a050;
 }
