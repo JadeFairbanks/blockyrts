@@ -382,6 +382,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     game.onState(msg);
     world.onState(msg);
     audio.onState(msg);
+    shell.onHits(msg.hits);
     lastUnits = msg.count;
     lastStep = msg.step;
     stepsSeen++;

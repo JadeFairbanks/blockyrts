@@ -19,6 +19,7 @@ import {
   troopOf,
   mageLock,
   mageOf,
+  type HitEvent,
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
@@ -60,7 +61,8 @@ import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
-import { TinkerBars } from './tinker-bars.ts';
+import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
+import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
 import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -89,6 +91,8 @@ export interface WorldHooks {
   ground: GroundPicker;
   selectables: SelectableSource;
   minimap: MinimapSource;
+  /** What the cursor is over, or a drag box would pick, for its silhouette outline (Patch 5, UI-5). */
+  hover?(list: readonly Selectable[]): void;
   limits(): CameraLimits;
 }
 
@@ -201,7 +205,13 @@ export class GameShell {
   private readonly minimap: Minimap;
   private readonly messages: MessagePanel;
   private readonly bubbles: SpeechBubbles;
-  private readonly tinkerBars: TinkerBars;
+  private readonly marks: WorldMarks;
+  private readonly markSource: MarkSource;
+  /**
+   * Other parts' progress bars in a thing's stack over the world (Patch 5, UI-18): each gives the bars for a
+   * key ('e:<id>' or 'b:<id>'), in the order they stack, and the bar stack draws them with the rest.
+   */
+  readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
   readonly inventory: InventoryUi;
@@ -209,6 +219,8 @@ export class GameShell {
   /** Waiting for a spot to ping (the Ping button). */
   private pinging = false;
   private readonly visuals: SelectionVisuals;
+  /** Patch 5 (GP-23): the flags at the ends of the selected units' orders and rally points, and the dots on attack targets. */
+  private readonly flags: OrderFlags;
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
@@ -290,9 +302,24 @@ export class GameShell {
     this.tooltip = new Tooltip(parent);
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
     this.visuals = new SelectionVisuals(opts.scene);
+    this.flags = new OrderFlags(opts.scene);
+    // GP-23: a unit on an attack-move or an attack has a red ring.
+    this.visuals.ringColour = (t) => {
+      const id = t.owner === this.player ? entityIdOf(t.key) : null;
+      const k = id === null ? undefined : this.game.queues.get(id)?.[0]?.t;
+      return k === 'attackMove' || k === 'attack' ? ATTACK_COLOUR : null;
+    };
     this.minimap = new Minimap(this.layout.minimapEl, this.world.minimap);
-    // The tinkering bars go in first, so speech bubbles draw over them.
-    this.tinkerBars = new TinkerBars(this.layout.root);
+    // The bars, stars and damage numbers over the world go in first, so speech bubbles draw over them (Patch 5).
+    this.marks = new WorldMarks(this.layout.root);
+    this.markSource = {
+      player: opts.player,
+      players: opts.players,
+      colour: (p) => opts.session.colour(p),
+      row: (id) => this.game.unitRow(id),
+      building: (id) => this.game.buildings.get(id),
+      extra: (key) => (this.stackBars.length === 0 ? [] : this.stackBars.flatMap((f) => f(key))),
+    };
     this.bubbles = new SpeechBubbles(this.layout.root);
     this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
       jumpTo: (x, z) => this.jumpTo(x, z),
@@ -727,6 +754,40 @@ export class GameShell {
       this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
       this.urgentAt = -1;
     }
+  }
+
+  /** The bar stacks, stars and damage numbers over the world this frame (Patch 5: UI-9, 10, 12, 18). */
+  private drawMarks(now: number): void {
+    const entries: MarkEntry[] = [];
+    for (const t of this.fresh.values()) {
+      if (t.kind === 'node' || !this.extras.seen(t.centre.x, t.centre.z)) continue;
+      const e = markEntry(t, this.markSource);
+      if (e) entries.push(e);
+    }
+    this.marks.draw(entries, this.projectMark, this.width, this.height, window.devicePixelRatio || 1, now);
+  }
+
+  private readonly markTmp = new THREE.Vector3();
+  private readonly projectMark = (x: number, y: number, z: number, out: { x: number; y: number }): boolean => this.cam.project(this.markTmp.set(x, y, z), out);
+
+  /** A bubble's anchor lifted over the thing's bar stack, when it has one this frame. */
+  private overMarks(key: string, at: { x: number; y: number } | null): { x: number; y: number } | null {
+    const top = at ? this.marks.top(key) : null;
+    return at && top !== null ? { x: at.x, y: Math.min(at.y, top - 2) } : at;
+  }
+
+  /** A state message's hits: the damage numbers over what they hit (Patch 5, UI-10). */
+  onHits(hits: readonly HitEvent[]): void {
+    this.marks.hits(hits, (x, z) => this.extras.seen(x, z), (h, x, y, z) => this.hitAnchor(h, x, y, z), WU_PER_METRE, performance.now());
+  }
+
+  /** Where a hit's number starts: halfway up the unit it hit, or halfway up the building where the blow landed (UI-10). */
+  private hitAnchor(h: HitEvent, x: number, y: number, z: number): { x: number; y: number; z: number } {
+    const u = this.fresh.get(`e:${h.id}`);
+    if (u && Math.abs(u.centre.x - x) < 1.5 && Math.abs(u.centre.z - z) < 1.5) return { x: u.centre.x, y: u.centre.y, z: u.centre.z };
+    const b = this.fresh.get(`b:${h.id}`);
+    if (b && Math.abs(b.centre.x - x) <= b.halfSize.x + 1 && Math.abs(b.centre.z - z) <= b.halfSize.z + 1) return { x, y: b.centre.y, z };
+    return { x, y, z };
   }
 
   /** The top of a unit's head on screen, px, or null when it is off screen or out of sight. */
@@ -1579,14 +1640,17 @@ export class GameShell {
     const inGameView = playing && this.input.inWindow && this.panels.at(pos) === null;
     this.selector.hover(pos);
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
-    this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
+    this.world.hover?.(this.selector.highlighted);
+    this.visuals.update(this.selection.list(), this.player, now);
     this.minimap.draw(this.cam.footprint());
-    // The units at a timed action: their bars, and the bubbles that stay while the bars run (Jade's Patch 3).
-    const tinkering = this.game.tinkering();
-    const sitting = new Set(tinkering.map(([id]) => id));
-    // No random remarks while the game is paused (Jade's patch notes 1).
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
-    this.tinkerBars.update(tinkering, (id) => this.headOnScreen(id));
+    // Patch 5: each unit's and building's bar stack, the stars over other players' things and the damage numbers
+    // (world-marks.ts); the units at a timed action have their bar there.
+    this.drawMarks(now);
+    // The bubbles that stay while a timed action's bar runs (Jade's Patch 3).
+    const sitting = new Set(this.game.tinkering().map(([id]) => id));
+    // No random remarks while the game is paused (Jade's patch notes 1). Bubbles sit over the bar stacks.
+    const anchor = { head: (id: number) => this.overMarks(`e:${id}`, this.headOnScreen(id)), roof: (id: number) => this.overMarks(`b:${id}`, this.roofOnScreen(id)) };
+    this.bubbles.update(now, anchor, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1637,19 +1701,23 @@ export class GameShell {
     o.begin();
     const lift = 0.15;
     const pt = (x: number, z: number): THREE.Vector3 => new THREE.Vector3(x, h(x, z) + lift, z);
+    this.flags.begin();
     for (const t of this.selection.list()) {
       const b = this.buildingOf(t);
       if (b && b.owner === this.player && b.rally.length > 0) {
         let from = pt(t.centre.x, t.centre.z);
-        for (const r of b.rally) {
-          const to = this.rallyPoint(r);
+        for (let k = 0; k < b.rally.length; k++) {
+          const to = this.rallyPoint(b.rally[k]!);
           if (!to) continue;
           o.dashed(from, to, RALLY);
-          o.ring(to.x, to.z, 0.5, RALLY, h);
+          // Patch 5 (GP-23): the route ends in a little yellow flag.
+          if (k === b.rally.length - 1) this.flags.flag(to.x, to.y - lift, to.z, RALLY_COLOUR);
+          else o.ring(to.x, to.z, 0.5, RALLY, h);
           from = to;
         }
       }
     }
+    this.drawOrderLines(o, h, lift);
     if (this.queued()) {
       for (const t of this.selection.list()) {
         const id = entityIdOf(t.key);
@@ -1665,6 +1733,7 @@ export class GameShell {
         }
       }
     }
+    this.flags.end();
     this.drawSites(o, h);
     if (ghost) {
       // Only the footprint decides whether a building can go there, and its green and red tiles show it;
@@ -1676,6 +1745,62 @@ export class GameShell {
       }
     }
     o.end();
+  }
+
+  /** Patch 5 (GP-23): a dotted line from each moving group of the selection to where its order ends, and the flag or dot there. */
+  private drawOrderLines(o: Overlay, h: (x: number, z: number) => number, lift: number): void {
+    const movers: Mover[] = [];
+    for (const t of this.selection.list()) {
+      const id = t.owner === this.player ? entityIdOf(t.key) : null;
+      const ord = id === null ? undefined : this.game.queues.get(id)?.[0];
+      const m = ord ? this.mover(t, ord) : null;
+      if (m) movers.push(m);
+    }
+    if (movers.length === 0) return;
+    const flagged = new Set<string>();
+    const flag = (x: number, z: number, kind: string, c: THREE.Color): void => {
+      const key = `${kind}:${x.toFixed(1)}:${z.toFixed(1)}`;
+      if (flagged.has(key)) return;
+      flagged.add(key);
+      this.flags.flag(x, h(x, z), z, c);
+    };
+    for (const l of orderLines(movers)) {
+      const c = orderColour(l.kind);
+      o.dotted(l.x, l.z, l.endX, l.endZ, (x, z) => h(x, z) + lift, c);
+      if (l.kind === 'attack') {
+        const tg = this.fresh.get(`e:${l.target}`);
+        if (tg && !flagged.has(tg.key)) {
+          flagged.add(tg.key);
+          this.flags.dot(tg.centre.x, tg.centre.y, tg.centre.z);
+        }
+        continue;
+      }
+      flag(l.endX, l.endZ, l.kind, c);
+      if (l.kind === 'patrol' && l.backX !== undefined && l.backZ !== undefined) flag(l.backX, l.backZ, l.kind, c);
+    }
+  }
+
+  /** A selected unit on a move, an attack-move, a patrol or an attack: where it stands and where its order ends (GP-23). */
+  private mover(t: Selectable, ord: import('@blockyrts/sim').UnitOrder): Mover | null {
+    const at = { x: t.centre.x, z: t.centre.z };
+    switch (ord.t) {
+      case 'move':
+      case 'attackMove':
+        return { ...at, kind: ord.t, endX: ord.x / WU_PER_METRE, endZ: ord.z / WU_PER_METRE };
+      case 'patrol': {
+        const there = ord.leg === 0 ? [ord.x, ord.z] : [ord.x2, ord.z2];
+        const back = ord.leg === 0 ? [ord.x2, ord.z2] : [ord.x, ord.z];
+        return { ...at, kind: 'patrol', endX: there[0]! / WU_PER_METRE, endZ: there[1]! / WU_PER_METRE, backX: back[0]! / WU_PER_METRE, backZ: back[1]! / WU_PER_METRE };
+      }
+      case 'attack': {
+        const tg = this.fresh.get(`e:${ord.id}`);
+        if (tg) return { ...at, kind: 'attack', endX: tg.centre.x, endZ: tg.centre.z, target: ord.id };
+        const u = this.game.unit(ord.id);
+        return u ? { ...at, kind: 'attack', endX: u.x / WU_PER_METRE, endZ: u.z / WU_PER_METRE, target: ord.id } : null;
+      }
+      default:
+        return null;
+    }
   }
 
   /**
