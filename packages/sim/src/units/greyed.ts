@@ -49,7 +49,7 @@ import { UnitKind, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { propJob, PROPS } from '../world/props.ts';
 import { giveOrder, nodeResource } from './behaviour.ts';
-import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf, type NodePick } from './forage.ts';
+import { chooseNode, fromBuilding, fromHome, GATHER_SWITCH_M, homeOf, type NodePick } from './forage.ts';
 import { inFront, kitHolder, nearestUpgradePlace, pendingKitUp, techOf } from './gear.ts';
 import { Line, pieceProblem, planPieces, TIER_NEEDS, TOOL_GEAR, TOOL_KITS, upgradePieces, type Piece } from './kits.ts';
 import { TOOL_FIELDS } from './tools.ts';
@@ -301,7 +301,7 @@ function findNode(state: SimState, i: number, want: ReadonlyMap<number, number>)
   const z = e.z[i]!;
   const h = homeOf(state, i);
   const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * WU_PER_METRE;
-  const fits = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+  const fits = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
   return chooseNode(state, i, x, z, max, new Map(want), fits);
 }
 

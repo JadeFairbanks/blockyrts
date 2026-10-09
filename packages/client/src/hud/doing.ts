@@ -31,7 +31,6 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'mend':
       return 'repair';
     case 'dig':
-    case 'stairs':
       return 'dig';
     case 'prospect':
       return 'prospect';

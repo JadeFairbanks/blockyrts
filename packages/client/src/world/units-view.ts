@@ -1196,7 +1196,7 @@ export class UnitsView {
         const slot = pool.take(look.parts);
         if (slot) {
           const pose = mount === 0 && sat >= 0 ? tinkerPose(pool.model.clips, sat, id) : null;
-          const clip = pose?.clip ?? (mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : look.clip);
+          const clip = pose?.clip ?? (mount !== 0 ? rideClip(pool.model.clips, d, o) : hop ? hopClip(pool.model.clips, look.clip, hop.up) : gaitClip(pool.model.clips, look.clip, d[o + S.flags]!));
           const time = pose?.t ?? (mount === 0 && !hop && look.t !== undefined ? look.t : clipT);
           slot.m.setInstance(slot.i, x, ry, z, heading, clip, time, tint);
           if (own) pool.mark(slot, id, outlined);
@@ -1638,6 +1638,15 @@ export function hopAt(d: Int32Array, o: number, alpha: number): { y: number; up:
 function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean): string {
   if (clips.has('jump')) return 'jump';
   if (up && clips.has('climb')) return 'climb';
+  return clip;
+}
+
+/**
+ * Patch 5's Run/Walk: a unit set to Run plays its body's run where its look
+ * walks (the looks themselves play `climb` on a face).
+ */
+function gaitClip(clips: ReadonlyMap<string, unknown>, clip: string, flags: number): string {
+  if (flags & UnitFlag.Running && clip === 'walk') return firstClip(clips, ['run', 'walk']);
   return clip;
 }
 
