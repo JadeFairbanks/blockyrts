@@ -29,6 +29,9 @@ export interface PropSummary {
   stage: number;
   /** The sim step it reaches its next growth stage, or -1 once grown. */
   nextAt: number;
+  /** Its cubes in the chunk's cube mesh: the first and how many (Patch 5, UI-5: the hover outline draws just them). */
+  first: number;
+  cubes: number;
 }
 
 export interface MeshResult {

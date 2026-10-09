@@ -290,6 +290,8 @@ export const UNIT_FIELDS = [
    * experience a minute, a step at a time.
    */
   ['workXp', 'u32'],
+  /** 1 when a worker is on autorepair (Jade's Patch 5, UI-13; units/repairs.ts): it fixes what of its owner's is damaged within 8 m of it. */
+  ['autoRepair', 'u8'],
   /** Morvath's wings (Jade's Patch 5 MB-4): life still to drain from the players' units round him, until this step. */
   ['drainUntil', 'u32'],
   ['drainLeft', 'i32'],
@@ -434,6 +436,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hungry: Uint32Array;
   declare tinker: Uint16Array;
   declare workXp: Uint32Array;
+  declare autoRepair: Uint8Array;
   declare drainUntil: Uint32Array;
   declare drainLeft: Int32Array;
   count = 0;
@@ -841,14 +844,15 @@ export interface Site {
 }
 
 /**
- * What a hit looks like (Generated rocks and trees: hit particles). Jade's
- * Patch 5: 'violet' Morvath's staff splash (MB-4), a ring of vivid purple;
- * 'drain' life drained into a monster, white motes from where it was taken
- * to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's
- * bolt bursting and his dead rising (MB-5); 'summon' a summoner calling up
- * its kin (the necromancer, Morvath opening the Rift), at the summoner `id`.
+ * What a hit looks like (Generated rocks and trees: hit particles). Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its
+ * blast, smoke and crater); 'dirt', a catapult stone's or boulder's splash. 'tick': no look of its own, only the damage
+ * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10). Jade's Patch 5 mobs:
+ * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
+ * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
+ * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
+ * summoner `id`.
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'violet' | 'drain' | 'crimson' | 'summon';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon';
 
 export interface HitEvent {
   look: HitLook;
@@ -863,6 +867,10 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
+  /** A shot leaving (look 'shot'): which (combat/items.ts Shot), for the muzzle's flash and smoke (Patch 5, MB-7). */
+  shot?: number;
+  /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
+  dmg?: number;
   /** A drain (look 'drain'): the entity the motes fly into, and how many. */
   to?: number;
   n?: number;

@@ -18,7 +18,8 @@ import { burnThisStep } from '../rules.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
 import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealtTenths, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight, wholeDamage } from './combat.ts';
-import { onTop } from '../units/top.ts';
+import { crater } from './blasts.ts';
+import { onPlatform, onTop } from '../units/top.ts';
 import { aimsOf, atBase, nearestAim, WAVE_AIMS } from './aims.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
@@ -155,10 +156,22 @@ function swoops(spec: MobSpec): boolean {
   return flies(spec) && spec.range === 0;
 }
 
-/** A unit a mob may go for: one of playerUnit's, or for a swooping flyer also the players' men up top. */
+/**
+ * A unit a mob may go for: one of playerUnit's; for a swooping flyer also the
+ * players' men up top; for any flyer or ranged attacker also everything on a
+ * Citadel's engine platform (Patch 5, Jade's CT-3: its engine and crew "can
+ * be targeted by air and ranged units").
+ */
 function prey(state: SimState, spec: MobSpec, j: number): boolean {
   if (playerUnit(state, j)) return true;
-  return swoops(spec) && state.entities.hp[j]! > 0 && onTop(state, j) && sideOf(state, j) === Side.Players;
+  if (state.entities.hp[j]! <= 0 || sideOf(state, j) !== Side.Players) return false;
+  if (swoops(spec) && onTop(state, j)) return true;
+  return looksUp(spec) && onPlatform(state, j);
+}
+
+/** Whether a mob looks among the units up on buildings: a flyer, or a ranged attacker for the engine platform. */
+function looksUp(spec: MobSpec): boolean {
+  return flies(spec) || spec.range > 0;
 }
 
 // ----- turning on the troops (Jade's Patch 4) -----
@@ -224,7 +237,7 @@ export function troopAggro(state: SimState, i: number, spec: MobSpec, cur: numbe
   const look = fogged(state) ? TROOP_AGGRO.lookWu >> 1 : TROOP_AGGRO.lookWu;
   const r = Math.max(look, gap(state, i, h));
   const near = state.grid.nearOthers(e.x[i]!, e.z[i]!, r);
-  if (swoops(spec)) near.push(...state.grid.nearTops(e.x[i]!, e.z[i]!, r));
+  if (looksUp(spec)) near.push(...state.grid.nearTops(e.x[i]!, e.z[i]!, r));
   let best = -1;
   let bestD = 0;
   for (const j of near) {
@@ -252,7 +265,7 @@ function pickUnit(state: SimState, i: number, spec: MobSpec): number {
   let bestD = 0;
   // Only units the monsters do not own can be prey: the same answer as near(), without the horde.
   const near = state.grid.nearOthers(e.x[i]!, e.z[i]!, range);
-  if (swoops(spec)) near.push(...state.grid.nearTops(e.x[i]!, e.z[i]!, range));
+  if (looksUp(spec)) near.push(...state.grid.nearTops(e.x[i]!, e.z[i]!, range));
   for (const j of near) {
     if (!prey(state, spec, j)) continue;
     const d = gap(state, i, j);
@@ -554,11 +567,16 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   }
 }
 
-/** A bomber or a loose bomb goes off: walls and buildings within 2.5 m, units within 3 m; against bare land it caves the edge in. */
+/**
+ * A bomber or a loose bomb goes off: walls and buildings within 2.5 m, units
+ * within 3 m; against bare land it caves the edge in. Patch 5 (Jade's BL-7):
+ * its blast and rising smoke show ('bomb'), and it leaves a shallow crater.
+ */
 export function explode(state: SimState, i: number, breach: boolean): void {
   const e = state.entities;
-  blast(state, e.x[i]!, e.y[i]! + WU_PER_METRE, e.z[i]!, BOMB_UNITS, BOMB_BUILDINGS, e.id[i]!);
+  blast(state, e.x[i]!, e.y[i]! + WU_PER_METRE, e.z[i]!, BOMB_UNITS, BOMB_BUILDINGS, e.id[i]!, 'bomb');
   if (breach) caveIn(state, e.x[i]!, e.z[i]!, BLAST.buildingRadius);
+  crater(state, e.x[i]!, e.z[i]!);
   // Went off by itself: no loose bomb is left behind.
   e.fuseAt[i] = 1;
   e.hitters[i] = [];

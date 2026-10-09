@@ -148,12 +148,14 @@ const LIST: readonly Base[] = [
   sp({
     name: 'Horse', model: 'horse', youngVariant: 'foal', nature: Nature.Shy, hp: 160, damageTenths: 80, attackSteps: ds(15), reach: m(15), walk: mps(20), run: mps(80), halfWidth: m(5), height: m(16),
     meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: FARM_FOOD, tameSteps: sec(45), tameAt: [BuildingKind.Barn], upkeep: 2, barnFeed: 2,
-    cartTenthsLb: 4000, cartSpeed: mps(25), packTenthsLb: 1000,
+    // Patch 5 (BL-12): a horse cart holds 700 lb (it held 400) (s).
+    cartTenthsLb: 7000, cartSpeed: mps(25), packTenthsLb: 1000,
   }),
   sp({
     name: 'Ox', model: 'ox', youngVariant: 'young', nature: Nature.Shy, hp: 250, armourBp: 1000, damageTenths: 100, attackSteps: ds(18), reach: m(15), walk: mps(15), run: mps(40), halfWidth: m(6), height: m(15),
     meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], upkeep: 3, barnFeed: 2,
-    cartTenthsLb: 6000, cartSpeed: mps(15), packTenthsLb: 1500,
+    // Patch 5 (BL-12): an ox cart holds 1000 lb (it held 600) (s).
+    cartTenthsLb: 10000, cartSpeed: mps(15), packTenthsLb: 1500,
   }),
   // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1).
   sp({ name: 'Hare', model: 'hare', youngVariant: 'young', nature: Nature.Shy, hp: 20, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(15), run: mps(60), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 4 }),

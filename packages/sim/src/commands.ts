@@ -5,7 +5,7 @@
 
 import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from './buildings/data.ts';
 import { buildingCentre, dist2 } from './buildings/lights.ts';
-import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
+import { chainPiece, plannedSpots, stretchRoom, stretchSpots } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
 import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
@@ -18,18 +18,19 @@ import { canonicalOrders, DebugTool, PickOwn, type Order } from './orders.ts';
 import { isGod, NO_CARRY, placeBuilding, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
 import { huntable } from './combat/combat.ts';
 import { Rations } from './economy/food.ts';
-import { hitchProblem, tameProblem, unhitch } from './units/field.ts';
-import { canGarrison, pickTarget, validTarget } from './combat/fight.ts';
+import { hitchProblem, HUNT_PICKED, tameProblem, unhitch } from './units/field.ts';
+import { canGarrison, pickTarget, rangedOf, validTarget } from './combat/fight.ts';
 import { RESEARCH } from './combat/items.ts';
-import { addMob } from './combat/mob-ai.ts';
+import { addMob, combatTroop } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt, isDark } from './clock.ts';
 import { orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
+import { callRepairs } from './units/repairs.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
-import { unitsOnTop } from './units/top.ts';
+import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
@@ -37,7 +38,7 @@ import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
 import { knowsSpell, spellProblem, spellReadyAt } from './magic/cast.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
-import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, portWhy, withoutTheirCrew } from './siege/engines.ts';
+import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 
@@ -74,7 +75,8 @@ export function commandable(state: SimState, player: number, i: number, allies: 
   const owner = e.owner[i]!;
   if (owner === player) return true;
   if (!allies || owner >= state.players.length) return false;
-  return e.shared[i] !== 0 || (state.players[owner]!.share & (1 << player)) !== 0;
+  // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines; an inherited unit is anyone's still.
+  return e.shared[i] !== 0 || ((state.players[owner]!.share & (1 << player)) !== 0 && combatTroop(state, i));
 }
 
 /** The player's units among the ids, by index (with `allies`, also the units shared with them). */
@@ -85,6 +87,8 @@ function ownUnits(state: SimState, player: number, ids: readonly number[], allie
   for (const id of ids) {
     const i = e.indexOf(id);
     if (i < 0 || seen.has(i) || !commandable(state, player, i, allies) || e.kind[i] === UnitKind.Wanderer || e.kind[i] === UnitKind.Animal) continue;
+    // A fixed engine's garrison crewmen are stuck up on its platform for good (Patch 5, Jade's CT-3): they take no orders.
+    if (platformCrew(state, i)) continue;
     seen.add(i);
     out.push(i);
   }
@@ -293,6 +297,92 @@ export function enterOrder(state: SimState, i: number, b: Building): UnitOrder |
   return null;
 }
 
+/**
+ * Who goes up a building's top first (Jade's Patch 5, CT-3): ranged troops,
+ * the best armed and then the highest rank first; then mages; then the rest
+ * on foot; workers last. Lower first.
+ */
+function topOrder(state: SimState, i: number): number {
+  const e = state.entities;
+  const k = e.kind[i];
+  const group = k === UnitKind.Warrior && rangedOf(state, i) ? 0 : k === UnitKind.Mage ? 1 : k === UnitKind.Worker ? 3 : 2;
+  return group * 0x10000 - e.wTier[i]! * 0x100 - e.rank[i]!;
+}
+
+/** Units of the player's headed for a building with an enter order (anywhere in their lists), not in it yet: [up its top, sheltering]. */
+function headedIn(state: SimState, b: Building): [number, number] {
+  const e = state.entities;
+  let up = 0;
+  let shelter = 0;
+  for (let j = 0; j < e.count; j++) {
+    if (e.inside[j] === b.id || e.hp[j]! <= 0) continue;
+    const o = e.queue[j]!.find((q) => q.t === 'enter' && q.b === b.id);
+    if (o?.t !== 'enter') continue;
+    if (o.auto === ENTER_TOP) up++;
+    else shelter++;
+  }
+  return [up, shelter];
+}
+
+/**
+ * Into a building (Jade's Patch 5, CT-2 and CT-3): only as many go as it has
+ * room for, the rest keep what they were doing (and stay selected). Up its
+ * top go the best ranged troops first, then mages, then the rest, workers
+ * last; workers that find no room up there shelter inside while there is
+ * room. Engines never go in (Patch 5: the cannon ports are gone).
+ */
+function applyEnter(state: SimState, o: Extract<Order, { kind: 'enter' }>, b: Building): void {
+  const e = state.entities;
+  const units = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner && e.inside[i] !== b.id);
+  if (units.length === 0) return;
+  const [upHeaded, shelterHeaded] = headedIn(state, b);
+  // A Citadel's top holds its engine platform's 4 too while no fixed engine stands there (units/top.ts).
+  let up = garrisonRoom(b) > 0 ? topRoom(state, b) - menOnTop(state, b.id).length - upHeaded : 0;
+  let shelter = shelterRoom(b) - shelteredIn(state, b.id).length - shelterHeaded;
+  units.sort((a, c) => topOrder(state, a) - topOrder(state, c) || a - c);
+  let sent = 0;
+  let tried = 0;
+  for (const i of units) {
+    const order = enterOrder(state, i, b);
+    if (!order || order.t !== 'enter') continue;
+    tried++;
+    if (order.auto === ENTER_TOP && up > 0) up--;
+    else if (e.kind[i] === UnitKind.Worker && shelter > 0) {
+      shelter--;
+      order.auto = shelterAuto(state);
+    } else continue;
+    giveOrder(state, i, order, o.queued === true);
+    sent++;
+  }
+  if (tried > 0 && sent === 0) alert(state, o.player, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`);
+}
+
+/**
+ * Workers to a farm, a mineshaft or a dock (Jade's Patch 5, CT-2): only as
+ * many as it has places for, the nearest first; the rest keep what they were
+ * doing. Shift-clicking several farms shares the workers out: one already
+ * given a job by an earlier click is left to it.
+ */
+function applyAssign(state: SimState, o: Extract<Order, { kind: 'assign' }>, b: Building): void {
+  const e = state.entities;
+  let taken = 0;
+  for (let j = 0; j < e.count; j++) if (e.hp[j]! > 0 && e.queue[j]!.some((q) => q.t === 'job' && q.b === b.id)) taken++;
+  let room = levelSpec(b.kind, b.level).workers - taken;
+  const [bx, bz] = buildingCentre(b);
+  const workers = ownUnits(state, o.player, o.units)
+    .filter((i) => e.kind[i] === UnitKind.Worker && !e.queue[i]!.some((q) => q.t === 'job' && (q.b === b.id || o.queued === true)))
+    .sort((a, c) => dist2(e.x[a]!, e.z[a]!, bx, bz) - dist2(e.x[c]!, e.z[c]!, bx, bz) || a - c);
+  if (workers.length === 0) return;
+  if (room <= 0) {
+    alert(state, o.player, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} has all the workers it can take.`);
+    return;
+  }
+  for (const i of workers) {
+    if (room-- <= 0) break;
+    giveOrder(state, i, { t: 'job', b: b.id }, o.queued === true);
+  }
+}
+
 /** A worker sent to shelter by its player: in the dark it goes in for the night and comes out at dawn once no monster is near (Jade's Patch 4: any worker that retreated there at night); by day it stays until let out. */
 function shelterAuto(state: SimState): number {
   return isDark(state.step) ? ENTER_NIGHT : 0;
@@ -334,9 +424,9 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
         let bestD = 0;
         for (const b of state.buildings.list) {
           if (b.owner !== e.owner[i]) continue;
-          const room = worker ? shelterRoom(b) : garrisonRoom(b);
+          const room = worker ? shelterRoom(b) : topRoom(state, b);
           if (room === 0) continue;
-          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : unitsOnTop(state, b.id).length);
+          if (!taken.has(b.id)) taken.set(b.id, worker ? shelteredIn(state, b.id).length : menOnTop(state, b.id).length);
           if (taken.get(b.id)! >= room) continue;
           const [bx, bz] = buildingCentre(b);
           const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
@@ -374,7 +464,9 @@ function pickOwn(state: SimState, player: number, units: number[], command: numb
 function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretch' }>): void {
   const e = state.entities;
   const spec = buildingSpec(o.building);
-  if (spec.defence !== 'wall' || spec.w !== 1 || spec.d !== 1) return;
+  // Walls a column at a time; the earth rampart a 2 x 2 chunk at a time (Patch 5).
+  const size = chainPiece(spec);
+  if (size === 0) return;
   const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
   if (workers.length === 0) return;
   const why = buildRequirement(state, o.player, o.building);
@@ -391,7 +483,7 @@ function applyWallStretch(state: SimState, o: Extract<Order, { kind: 'wallStretc
   const cost = buildCost(state, o.player, o.building);
   const pool = state.players[o.player]!.pool;
   const { room, short } = stretchRoom((r) => haveOf(pool, r), owed, cost);
-  const cells = stretchCells(o.x, o.z, o.dir, o.length).slice(o.skip);
+  const cells = stretchSpots(o.x, o.z, o.dir, o.length, size).slice(o.skip);
   const open: Array<[number, number]> = [];
   let blocked = 0;
   // A column planned already, or with a wall standing or started on it (a chain closing on its anchor, or joining a wall built before), is passed over without a word.
@@ -458,6 +550,8 @@ function orderPickUp(state: SimState, o: Extract<Order, { kind: 'pickUp' }>): vo
 /** Applies one step's orders, in the canonical order. */
 export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
+  /** What a produce order was refused for this step, by player: said once. */
+  const refused = new Set<string>();
   for (const o of canonicalOrders(orders)) {
     if (o.player >= state.players.length && o.kind !== 'terrain' && o.kind !== 'debugHarvest') continue;
     // An eliminated player gives no more orders.
@@ -487,6 +581,12 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'repairAll':
         giveAll(state, o, () => ({ t: 'repairAll' }));
+        break;
+      case 'autoRepair':
+        for (const i of ownUnits(state, o.player, o.units)) if (e.kind[i] === UnitKind.Worker) e.autoRepair[i] = o.on;
+        break;
+      case 'repairNearby':
+        callRepairs(state, o.player);
         break;
       case 'returnCargo': {
         // A digger with a load goes back to its dig after, as a gatherer goes back to its node (Patch 4).
@@ -520,15 +620,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'enter': {
         const b = state.buildings.get(o.building);
         if (!b) break;
-        // A cannon is hauled up into a Citadel's cannon port (Table 4).
-        const cannons = b.owner === o.player ? ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Engine) : [];
-        if (cannons.length > 0) {
-          const why = portWhy(state, cannons[0]!, b);
-          if (why) alert(state, o.player, why);
-          else for (const i of cannons) giveOrder(state, i, { t: 'port', b: b.id }, o.queued === true);
-        }
         // Anyone on foot goes up a tower or a main base's top; workers shelter where there is no top (units/top.ts).
-        giveAll(state, o, (i) => (e.kind[i] !== UnitKind.Engine && e.owner[i] === b.owner ? enterOrder(state, i, b) : null), true);
+        // No engine goes in: the cannon ports are gone (Patch 5, CT-3).
+        applyEnter(state, o, b);
         break;
       }
       case 'unload': {
@@ -536,13 +630,15 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (!b) break;
         for (const j of unitsInside(state, b.id)) {
           if (o.unit !== 0 && e.id[j] !== o.unit) continue;
+          // The fixed engine and its crew stay on the Citadel's platform (Patch 5).
+          if (e.kind[j] === UnitKind.Engine || platformCrew(state, j)) continue;
           stopUnit(state, j);
         }
         break;
       }
       case 'assign': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b && takesWorkers(b)) giveAll(state, o, () => ({ t: 'job', b: b.id }));
+        if (b && takesWorkers(b)) applyAssign(state, o, b);
         break;
       }
       case 'relight': {
@@ -565,7 +661,9 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         for (let k = 0; k < o.count; k++) {
           const why = queueProduct(state, b, o.product, o.player);
           if (why) {
-            alert(state, o.player, why);
+            // Several selected buildings each train one (Jade's Patch 5, GP-15): those the stock runs out for say why once.
+            if (!refused.has(`${o.player}:${why}`)) alert(state, o.player, why);
+            refused.add(`${o.player}:${why}`);
             break;
           }
         }
@@ -688,7 +786,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
           alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
           break;
         }
-        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]!, k: 0, kx: 0, kz: 0 }, o.queued === true);
+        // A picked animal with auto (Jade's Patch 5, CT-1: Hunt's left click) is chased first, then the hunt goes on.
+        for (const i of hunters) giveOrder(state, i, { t: 'hunt', id: o.target, auto: o.auto ? 1 : 0, x: e.x[i]!, z: e.z[i]!, k: o.target && o.auto ? HUNT_PICKED : 0, kx: 0, kz: 0 }, o.queued === true);
         // Workers in the same selection follow and haul the carcasses, shared out between the hunters.
         units.filter((i) => e.kind[i] === UnitKind.Worker).forEach((i, k) => giveOrder(state, i, { t: 'hunt', id: e.id[hunters[k % hunters.length]!]!, auto: 0, x: 0, z: 0, k: 0, kx: 0, kz: 0 }, o.queued === true));
         break;

@@ -163,12 +163,12 @@ function unitInfoIcon(u: { kind: number; troop: number; wTier: number; school: n
   return WORKER_ICON;
 }
 
-/** A name without its rank in brackets: "Close melee (Veteran)" is "Close melee", the rank going to its badge. */
+/** A name without its rank in brackets: "Iron swordsman (Veteran)" is "Iron swordsman", the rank going to its badge. */
 export function bareName(label: string): string {
   return label.replace(/ \([^)]*\)$/, '');
 }
 
-/** "5 Close melee, 4 Rangers": the troops of a selection by name, most first. */
+/** "5 Iron swordsmen, 4 Slingers": the troops of a selection by name, most first. */
 export function armyMix(items: readonly Selectable[]): string {
   const counts = new Map<string, number>();
   for (const t of items) counts.set(bareName(t.label), (counts.get(bareName(t.label)) ?? 0) + 1);
@@ -690,7 +690,8 @@ export class SelectionPanel {
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
   private garrison(b: BuildingInfo): void {
-    const top = garrisonRoom(b);
+    // The sim's count: a Citadel's engine platform adds 4 while no fixed engine stands there (Patch 5).
+    const top = garrisonRoom(b) > 0 ? Math.max(garrisonRoom(b), b.room ?? 0) : 0;
     if (top > 0) {
       const row = this.strip('garrison');
       this.chip('top', {

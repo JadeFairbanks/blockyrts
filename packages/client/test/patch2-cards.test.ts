@@ -19,7 +19,7 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -127,12 +127,12 @@ describe('the Several panel', () => {
   const unit = (label: string): Selectable => ({ key: label, kind: 'unit', owner: ME, typeKey: 'warrior', centre: new THREE.Vector3(), halfSize: new THREE.Vector3(), label });
 
   it("keeps the rank out of the title (the XP bar's tooltip names it, Patch 3)", () => {
-    expect(bareName('Close melee (Veteran)')).toBe('Close melee');
+    expect(bareName('Iron swordsman (Veteran)')).toBe('Iron swordsman');
     expect(bareName('Barracks')).toBe('Barracks');
   });
 
   it("sums the troops' tab in the crossed swords' tooltip, most first", () => {
-    const items = [...Array.from({ length: 5 }, () => unit('Close melee (Recruit)')), unit('Ranger (Soldier)'), unit('Ranger (Recruit)'), unit('Cavalry (Hero)')];
-    expect(armyMix(items)).toBe('5 Close melee, 2 Rangers, 1 Cavalry');
+    const items = [...Array.from({ length: 5 }, () => unit('Iron swordsman (Recruit)')), unit('Ranger (Soldier)'), unit('Ranger (Recruit)'), unit('Cavalry (Hero)')];
+    expect(armyMix(items)).toBe('5 Iron swordsmen, 2 Rangers, 1 Cavalry');
   });
 });

@@ -3466,6 +3466,199 @@ blueprint/patch5-mobs-picks.md.*
    being alone, the time of day) once every 1 to 4.5 minutes, now and then a
    complaint when hurt or hungry. Nobody remarks while the game is paused.
 
+## How a tester checks the defences and siege (Patch 5)
+
+*Patch 5's defences: wider gates, the earth rampart, walls that crack and
+break, the Citadel's engine platform and its fixed engines, lead ore in
+gunpowder kit, and guns and blasts that look and sound the part. Picks in
+blueprint/patch5-defences-picks.md.* `npx vitest run
+packages/sim/test/m8.test.ts packages/client/test/m8-controls.test.ts
+packages/client/test/patch4-hotkeys.test.ts` covers the platform, the cards
+and the keys headless. The debugger's **Godmode** makes the checks quick:
+buildings stand at once, upgrades and training finish at once, and its grid
+places monsters (a skeleton bomber is the wall breaker) and your own units.
+
+1. **Gates and towers.** Build, Defences: a gate is 6 columns wide, twice
+   what it was, drawn as its gate model (turned for north to south). Towers
+   are 4 by 4 columns. The stone tower is drawn as its model, with its men
+   on its top; the wooden and hardwood towers stay blocks until their models'
+   roofs are raised (too low for a man standing under them).
+2. **Walls.** Build a wall chain that turns a corner and runs on diagonally.
+   Each column is drawn as its wall model, turned along the run; where the
+   wall turns, and on a diagonal's steps, a corner post. Let monsters hit a
+   stretch (or hit it with an engine's Attack): below 70% health it shows
+   cracks, below 40% it is snapped with the top half hanging to the ground,
+   and it still blocks the same. Repair it and the looks go back. A wall has
+   no health bar; clicking it shows its health in the middle as before.
+3. **The earth rampart.** Defences, **Earth rampart** (M): placed in a chain
+   from point to point like a wall, in chunks 2 by 2 columns (about 1 m
+   across), each 2 m tall and costing 5 earth (a worker's full load). It has
+   the health of one wooden wall column, shows torn earth below 70% and 40%,
+   and is not dug like the land.
+4. **The Artillery workshop.** Its card shows Train artillery crewman (E) and
+   the four engines as buttons of their own: Catapult (C), Ballista (B),
+   Bronze cannon (N) and Iron cannon (I). There is no Engines button. The
+   Magi Sanctum's Hexcraft is on its card the same way (H).
+5. **The Citadel.** With an Artillery workshop standing, raise the main base
+   to tier 4 (the Citadel, drawn as its own model with a flat platform on
+   top and 8 men's places on the keep's wall walk). Its card has **Build
+   defense** (D), which opens:
+   Springald, Mangonel, Bronze culverin, Iron bombard (each on the letter of
+   its name) and Garrison (G). Each fixed engine costs what its mobile engine
+   does (lead ore and its crew's food too) and needs what that one needs
+   (research and tier). Build one: it stands on the flat platform at the top
+   with its garrison artillery crewmen (drawn as the mobile engine until the
+   fixed models land), and fires at monsters in reach. Stop, Unload and
+   right clicks never bring it or its crew down; its card has Attack only,
+   and an attack order out of its reach is dropped with "That is beyond the
+   ...'s reach." While one stands there the other buttons read **Upgrade to
+   ...** for the higher ones (the cost and time difference; it cannot fire
+   while the upgrade builds, and a springald becoming a mangonel brings a
+   second crewman free). **Garrison** stays greyed until the engine is short
+   of crew: kill one of its crew (Kill selected) and it lights up. Only
+   flyers and ranged monsters can hit the engine and the men up there.
+6. **Men up top.** With no fixed engine on the platform, select more men
+   than fit (archers, melee, mages, workers) and right click the Citadel:
+   the best ranged troops go up first, then mages, then melee; the panel's
+   count is out of 12 (8 on the parapets, 4 on the platform). Once an engine
+   is built up there, the platform's men come down to make room.
+7. **No cannon ports.** A cannon's card has Attack, Move and Hitch; right
+   clicking the Citadel with a cannon does nothing.
+8. **Lead ore.** A musketeer's kit takes 2 lead ore, a brawler's pistol 1, a
+   bronze cannon 4 (and 40 bronze ingots) and an iron cannon 6; the fixed
+   ones the same. Without it the buttons grey with the lead ore named.
+9. **Guns.** A musketeer firing shows a flash and a spray of sparks at the
+   muzzle and smoke rising for 4 s; a brawler's pistol 3 s; a cannon 5 s,
+   bigger. The ball flies as its model (the bronze cannon's smaller) with a
+   faint grey dash behind it by day and a bright orange streak at night.
+   Each has its gun's sound.
+10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
+    grass or soil it leaves a heap of earth to pick up. One that hits a tree
+    fells it, leaving half its lumber. A catapult stone throws up dirt, no
+    fire, leaves less earth, and fells only small trees. A bronze cannon's
+    shot is smaller, with a smaller blast.
+11. **The wall breaker.** A skeleton bomber's fuse fizzes with tiny sparks.
+    When it goes off: an explosion, smoke rising for 3 s and a shallow
+    crater; it hurts units half as much as before. Kill one before it reaches
+    a wall and nothing goes off, and no bomb falls.
+12. **Engines on your own.** Select an engine, Attack, and click one of your
+    own units: it fires at it.
+
+## How a tester checks Patch 5's trade, mercenaries and carts
+
+*Jade's Patch 5, section 21: trade within 10 m of any of a people's
+buildings, a day of trade per settlement shared by every player, typed
+amounts, no earth, cheap stone (GP-46, BL-3); gold and silver welcome
+everywhere and mercenaries hired for good, with gold too (BL-4); diamonds,
+bluestone and Moon Roses (decisions 2.5); the To send list (UI-15); carts
+worth using (BL-12); and trade menus that keep their × and never squeeze
+their lists (decisions 2.16). Picks in blueprint/patch5-peoples-picks.md.
+The numbers are rows in `packages/sim/src/peoples/data.ts`
+(`DAILY_TRADE_TENTHS`, `GOOD_PAY_PCT`, `HIRE_SILVER`, `TRADE_RANGE_WU`).*
+
+1. **The tests.** `pnpm test`: the sim's m7 tests trade from 10 m of a
+   building, fill and trim a day of trade, price stone, diamonds and
+   silver, and hire mercenaries for silver or gold who stay after dusk;
+   patch4-dig-turn-in fills a 250 lb hand cart.
+2. **Reach.** `pnpm dev`, open http://localhost:5173/?seed=1, type M N B V
+   C X Z and press **People** until a Halfling village stands in view, then
+   **Trade kit**. Right click any of their buildings with nothing selected:
+   the trade menu opens and says "Bring one of your units within 10 m of
+   one of their buildings." Select a warrior and right click the building
+   again: the warrior walks over, and the warning goes once it is within
+   10 m.
+3. **The menu.** The title and its × stay at the top however long the
+   lists are; the body scrolls under them. Every good in They sell today,
+   Your goods and the offer box shows its picture, name and count at full
+   size, and a long list scrolls. On a narrow window the columns stack.
+4. **Typed amounts.** Click a good: it goes into the offer box with a
+   number box. Click the box, type 37 and press Enter: the offer holds 37
+   (no more than you have). **All** puts in all of it, **×** takes it out,
+   **Clear** empties the box.
+5. **A day of trade.** The Their trade left today bar starts full. Offer a
+   lot of gold: the worth bar fills and "More than they will trade today"
+   shows. Make the offer: they trim it to what fits and say so; take a
+   bundle and the bar runs low. A second player trading with them draws
+   on the same bar. At dawn it is full again. A Dwarf city's bar holds
+   the most and a Runkin camp's the least.
+6. **Earth and stone.** Earth in Your goods is greyed ("Nobody takes
+   earth"); offering it anyway gets a line about dirt. Stone is taken at
+   a fifth of its worth.
+7. **Gold, silver and diamonds.** Halflings now take gold and silver (and
+   still refuse gems); Dwarves and Elves pay one and a half times a
+   diamond's worth.
+8. **Mercenaries.** Press **People** until a mercenary camp shows and
+   right click it: the hire box lists 7 silver or 1 gold a head (14 or 2 in
+   the Deepwoods), your silver, gold and supply room, and **Pay in silver**
+   and **Pay in gold**. Hire two: supply goes up by 2, and at dusk they stay
+   with you (no walking home). With no supply room left, the box says so.
+9. **Send resources** (two players). Press ]: pick stone and copper ore,
+   each goes on the To send list with its picture and an amount. Type,
+   +10, +100, All and × change a line. The Send button's tooltip names
+   exactly what goes; pressing it sends the whole list and empties it.
+10. **Carts.** A worker with a hand cart cuts a tree, then walks on to the
+    next tree before going home, until 250 lb are on the cart. Copper,
+    tin, lead and the iron ores weigh 8 lb each, so a miner on foot brings
+    3 at a time and a hand cart 30.
+11. **Saves and checks.** Snapshot version 24 (the faction record keeps one
+    number for the day's trade); check scripts' hashes move with it.
+
+## How a tester checks the controls, HUD and markers (Patch 5)
+
+*Jade's Patch 5, sections 11, 26 and 27: left click to target and right click
+for the auto function, autorepair and repair costs, Repair All, units leaving
+the selection as they go into buildings, double-click types, F2, training at
+several buildings, shared control of combat units only; the HUD look; and the
+bars, damage numbers, stars, hover outline and order lines over the world.
+Picks in blueprint/patch5-client-ui-picks.md.*
+
+1. **The tests.** `pnpm test`: packages/sim/test/patch5-controls.test.ts
+   (repair costs, autorepair, Repair All, room-limited entering with the best
+   ranged first, farms sharing workers out, shared control, a refused
+   training said once), packages/client/test/patch5-selection.test.ts
+   (double-click types), patch5-world-marks.test.ts (bars, stars, order
+   lines) and m3-controls (left and right click on Gather, Hunt and Repair).
+2. **Bars and numbers.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   type M N B V C X Z, then press Wave near the base at night. Over anything
+   below 95% health a bar shrinks from green to red; mages have a blue mana
+   bar under it. Red "-N" numbers rise off each hit and fade; a hit of 100 or
+   more is bigger and shakes. Walls carry no bar. A building training a unit
+   has a gold bar under its health bar.
+3. **Stars.** In a game with a second player, the other player's units and
+   buildings carry a small star in their colour with a thin black border;
+   yours never do, nor do monsters.
+4. **Hover and order lines.** Point at a unit, a building, loot or a tree: a
+   white line runs round its outline. Select a group and right click far off:
+   a dotted line runs from the group to a green flag. Attack-move (A, then
+   ground) gives a red flag and red rings; Patrol a blue flag at each end; a
+   direct attack a tiny red dot on the target; a rally point a yellow flag.
+5. **Gather and Hunt.** Select workers and press Gather: the cursor is an
+   axe; click a tree and they fell it, take each load home and go back.
+   Right click Gather instead: they gather by themselves. Select warriors and
+   press Hunt: the cursor is a spear; click a deer and they chase it, then go
+   on hunting. Right click Hunt: they hunt by themselves.
+6. **Repairs.** Damage a building (tester tools), select workers and right
+   click Repair: the button shows AUTO, and workers within 8 m of the damage
+   walk over and fix it, then go back to gathering. The stock drops by the
+   building's own materials as it heals. Press F8 (Repair All, where camera
+   spot 4 was): the workers within 20 m of each damaged building go, idle
+   ones first; farm workers stay at their farm, and the idle ones gather
+   afterwards. With no materials, a worker says "Not enough ... to repair".
+7. **Into buildings.** Select 4 workers and right click a new farm: 2 go,
+   and leave the selection once they start working; 2 stay selected. Select
+   6 workers, hold Shift and right click three farms: 2 go to each. Select a
+   mixed army and right click a tower: the best rangers go up first, then
+   mages, up to its 4 places, and those leave the selection.
+8. **Selection.** In a mixed selection, double click a spearman: only the
+   spearmen of that selection stay. Press F2 with men on a tower: those on
+   the tower are not selected. Select two main bases and press Train worker:
+   each starts one; with food for one only, one starts and the message says
+   why once.
+9. **The HUD.** Hotkeys and tiny numbers are crisp; pictures fill the
+   buttons; buttons never grow past 128 px. The message panel starts folded
+   to a small button at the left edge over the minimap's buttons, counting
+   other players' messages until opened. Bubbles stay a second longer.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

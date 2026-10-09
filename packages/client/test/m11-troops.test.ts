@@ -20,7 +20,7 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -200,8 +200,8 @@ describe('the Barracks card', () => {
     const { c, sent } = harness(g, b);
     const card = c.card();
     expect(card.slice(0, 4).map((e) => [e.action, e.face, e.key])).toEqual([
-      ['trainClose', 'Close', 'KeyA'],
-      ['trainLong', 'Long', 'KeyQ'],
+      ['trainClose', 'Sword', 'KeyA'],
+      ['trainLong', 'Spear', 'KeyQ'],
       ['trainRanger', 'Ranger', 'KeyN'],
       ['trainBrawler', 'Brawler', 'KeyB'],
     ]);

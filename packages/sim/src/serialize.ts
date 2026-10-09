@@ -186,13 +186,15 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * an older snapshot's land no longer matches its seed). 22: Patch 5's foundations
  * (four main base tiers, no blood nights, no earthworks, ramps or gravel). 23:
  * Patch 5's debugger (godmode keeps each player's own stock aside). 24:
- * Patch 5's mobs (Morvath's wing drain on each unit, the Deadlands' guarded
- * mana crystals). Every
- * patch raises it, and a snapshot
- * from any other version is refused, never carried over (Jade, Patch 2: a
- * standing rule).
+ * Patch 5's trade (a settlement's day of trade is one number; bluestone and
+ * Moon Roses join the resources). 25: Patch 5's controls (a worker's
+ * autorepair switch). 26: Patch 5's defences (the cannon ports' order gone, a
+ * unit's order types renumbered). 27: Patch 5's mobs (Morvath's wing drain on
+ * each unit, the Deadlands' guarded mana crystals). Every patch raises it, and
+ * a snapshot from any other version is refused, never carried over (Jade,
+ * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 24;
+export const SNAPSHOT_VERSION = 27;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 

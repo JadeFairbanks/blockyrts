@@ -114,6 +114,32 @@ export function stretchCells(x: number, z: number, dir: number, length: number, 
 }
 
 /**
+ * The corners of the pieces of a chain of square pieces `size` columns across
+ * (Patch 5: the earth rampart's 2 x 2 chunks), from the anchor outward: one
+ * every `size` columns along the stretch, and on a diagonal one more beside
+ * each step, as stretchCells joins a wall's, so no two pieces meet only at a
+ * corner. A size of 1 is stretchCells itself.
+ */
+export function stretchSpots(x: number, z: number, dir: number, length: number, size: number): Array<[number, number]> {
+  if (size <= 1) return stretchCells(x, z, dir, length);
+  const [dx, dz] = STRETCH_DIRS[dir]!;
+  const out: Array<[number, number]> = [];
+  const diagonal = dx !== 0 && dz !== 0;
+  for (let k = 0; k * size <= length; k++) {
+    const cx = x + dx * k * size;
+    const cz = z + dz * k * size;
+    if (diagonal && k > 0) out.push([cx, cz - dz * size]);
+    out.push([cx, cz]);
+  }
+  return out;
+}
+
+/** Whether a building kind is placed in chains of stretches (Building placement: wall chains): the walls, one column each, and the earth rampart's square chunks (Patch 5). */
+export function chainPiece(spec: { defence?: string; w: number; d: number }): number {
+  return spec.defence === 'wall' && spec.w === spec.d ? spec.w : 0;
+}
+
+/**
  * The planned builds in a player's order lists that are not started yet,
  * each spot once however many workers have it queued, keyed "x,z" (the
  * footprint corner) with the building kind. `standing` says whether a
