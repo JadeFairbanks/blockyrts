@@ -25,6 +25,7 @@ import { isStructure } from '../combat/mobs.ts';
 import { clearLob, fireAt, ProjectileFlag } from '../combat/projectiles.ts';
 import { Act, besideBuilding, exitColumn, columnCentre, FAILED, giveOrder, leaveBuilding, MOVING, resetWalk, walkTo } from '../units/behaviour.ts';
 import { applyKit, Troop } from '../units/kits.ts';
+import { platformCrew, platformEngine } from '../units/top.ts';
 import { WORKER_HEALTH_BY_RANK, Work, workXp } from '../units/ranks.ts';
 import { tinker } from '../units/tinker.ts';
 import { say, sayTinkering } from '../peoples/speech.ts';
@@ -340,12 +341,18 @@ export function withoutTheirCrew(state: SimState, units: readonly number[]): num
 /**
  * The crew order: walk to the engine and stand by it for good. Crew fight
  * only what their weapons reach (combat/fight.ts). A garrison crewman stands
- * by a fixed engine up on its platform; if the engine is destroyed he comes
- * down by the door as an artillery crewman (s).
+ * by a fixed engine up on its platform; if the engine is destroyed he stays
+ * up there (Jade, CT-3: "stuck up there all game until killed or they die")
+ * and mans the next engine built there that is short of crew.
  */
 export function runCrew(state: SimState, j: number, o: Extract<UnitOrder, { t: 'crew' }>): boolean {
   const e = state.entities;
   const i = e.indexOf(o.id);
+  if ((i < 0 || e.hp[i]! <= 0) && platformCrew(state, j)) {
+    const k = platformEngine(state, e.inside[j]!);
+    if (k >= 0 && e.owner[k] === e.owner[j] && crewSworn(state, k).length < engineSpec(e.mob[k]!).crew) o.id = e.id[k]!;
+    return CONTINUE;
+  }
   const why = crewWhy(state, j, i);
   if (why) {
     if (i >= 0 && e.hp[i]! > 0) state.events.push({ player: e.owner[j]!, kind: 'alert', text: why, x: e.x[j]!, z: e.z[j]! });
