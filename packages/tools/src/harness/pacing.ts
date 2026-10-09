@@ -140,9 +140,9 @@ const base = (n: number): Rung[] => Array.from({ length: n - 1 }, (_, k) => B(Bu
 /** The ladder (only its structure; every cost, time and rate comes from the sim). Each tier includes the ones before. */
 export const TIERS: readonly Tier[] = [
   {
-    // Close melee in bronze: the shortsword, bronze scale and the targe that comes with it.
+    // Close melee in bronze: the shortsword, bronze scale and a boiled-leather targe (Patch 5: the shield its own line).
     name: 'Bronze', target: [4, 6],
-    rungs: [B(BuildingKind.Forge, 1), B(BuildingKind.ScholarsLodge, 1), R(Research.Bronze), K(troopPieces(Troop.Close, 4, 4), 5)],
+    rungs: [B(BuildingKind.Forge, 1), B(BuildingKind.ScholarsLodge, 1), R(Research.Bronze), K(troopPieces(Troop.Close, 4, 4, 2), 5)],
   },
   {
     // Rangers with wrought-iron arrowheads, and wrought-iron mail (the crossbow is steel now, tier 7).
