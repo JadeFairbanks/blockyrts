@@ -438,7 +438,7 @@ export class WorldView {
       const group = d[o + S.group]!;
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
-    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
+    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now(), (id) => this.game?.unit(id) ?? null);
   }
 
   /** A worker's, troop's or mage's name: the sim's unitTitle, so it reads the same as its bubbles and lines. */
@@ -961,6 +961,7 @@ export class WorldView {
     this.sun.intensity = 1.7 - 1.35 * k;
     this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
     this.buildings.darkness = k;
+    this.unitsView.darkness = k;
     // The fog rolls in and lifts over a few seconds.
     const now = performance.now();
     const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;

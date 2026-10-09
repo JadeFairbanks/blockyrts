@@ -836,7 +836,7 @@ export interface Site {
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
 /** Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its blast, smoke and crater). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'fell' | 'bomb';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'fell' | 'bomb' | 'dirt';
 
 export interface HitEvent {
   look: HitLook;
@@ -851,6 +851,8 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
+  /** A shot leaving (look 'shot'): which (combat/items.ts Shot), for the muzzle's flash and smoke (Patch 5, MB-7). */
+  shot?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */

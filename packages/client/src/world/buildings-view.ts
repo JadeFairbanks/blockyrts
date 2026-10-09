@@ -17,6 +17,8 @@ import { COLUMN_M, UNIT_M } from './mesher.ts';
 const POINT_LIGHTS = 6;
 const MAX_TILES = 4096;
 const MAX_MODEL_INSTANCES = 64;
+/** Wall columns and rampart chunks come by the hundred (Patch 5: each is a catalogue model). */
+const WALL_MODEL_INSTANCES = 1024;
 const GREEN = new THREE.Color(0x3ee05a);
 const RED = new THREE.Color(0xe0402a);
 
@@ -27,8 +29,18 @@ interface Entry {
   flames: THREE.Mesh[];
   look: Look;
   selectable: Selectable;
-  /** Catalogue model ids drawn for it, with local offsets (metres), size and any tint. */
-  models: Array<{ id: string; dx: number; dz: number; scale: number; tint?: number }>;
+  /** Catalogue model ids drawn for it, with local offsets (metres), size, any tint and its turn about +Y (radians). */
+  models: CatalogueModel[];
+}
+
+/** A catalogue model of a building: its id, where it goes from the anchor (metres), its size, any tint and its turn about +Y (radians). */
+export interface CatalogueModel {
+  id: string;
+  dx: number;
+  dz: number;
+  scale: number;
+  tint?: number;
+  yaw?: number;
 }
 
 export interface GhostSpot {
@@ -51,16 +63,76 @@ export interface Ghost {
 /** Blockbench units to a column: where the footprint table puts a model's origin. */
 const MODEL_UNITS_PER_COLUMN = 16;
 
-/** Catalogue models for a building at its level, where they go from its anchor (metres), their size and any tint (the footprint table, footprints.ts). */
-export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): Array<{ id: string; dx: number; dz: number; scale: number; tint?: number }> {
+/**
+ * Catalogue models for a building at its level, where they go from its
+ * anchor (metres), their size and any tint (the footprint table,
+ * footprints.ts). A gate turned north to south has its model turned with its
+ * footprint (Patch 5: the gates' models run east to west).
+ */
+export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): CatalogueModel[] {
   const d = footprintDims(b.kind, b.variant, b.level);
+  const turned = buildingSpec(b.kind).turns === true && b.variant === 1;
   return (levelFootprint(b.kind, b.level).models ?? []).map((m) => ({
     id: m.id,
-    dx: (d.ox + m.x / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
-    dz: (d.oz + m.z / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
+    dx: (d.ox + (turned ? m.z : m.x) / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
+    dz: (d.oz + (turned ? m.x : m.z) / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
     scale: m.scale ?? 1,
     ...(m.tint !== undefined ? { tint: m.tint } : {}),
+    ...(turned ? { yaw: Math.PI / 2 } : {}),
   }));
+}
+
+/** Below these per mille of its health a wall or an earth rampart shows its cracked, then its broken model, and its whole one again once repaired (Patch 5, Jade's UI-9: the look in place of a health bar). */
+export const CRACKED_PER_MILLE = 700;
+export const BROKEN_PER_MILLE = 400;
+
+/** The damage look of a wall or an earth rampart: '', '_cracked' or '_broken' on its model id; '' for every other building. */
+export function damageLook(b: Pick<BuildingInfo, 'kind' | 'hp' | 'maxHp' | 'complete'>): string {
+  if (!b.complete || buildingSpec(b.kind).defence !== 'wall' || b.maxHp <= 0) return '';
+  const pm = (b.hp * 1000) / b.maxHp;
+  return pm < BROKEN_PER_MILLE ? '_broken' : pm < CRACKED_PER_MILLE ? '_cracked' : '';
+}
+
+/**
+ * How a wall column or rampart chunk stands among the defences beside it
+ * (Patch 5): a straight piece along x, or turned along z when its only
+ * neighbours are north or south of it; a wall column joined on two sides
+ * that meet at a corner is its corner piece, turned to them (the corner
+ * models join north and west). `joined` says whether a defence stands on a
+ * column.
+ */
+export function wallShape(b: Pick<BuildingInfo, 'kind' | 'x' | 'z'>, joined: (x: number, z: number) => boolean): { corner: boolean; yaw: number } {
+  const n = buildingSpec(b.kind).w;
+  const e = joined(b.x + n, b.z);
+  const w = joined(b.x - 1, b.z);
+  const s = joined(b.x, b.z + n);
+  const no = joined(b.x, b.z - 1);
+  if (n === 1 && (e || w) && (no || s)) {
+    if (no && w) return { corner: true, yaw: 0 };
+    if (w && s) return { corner: true, yaw: Math.PI / 2 };
+    if (s && e) return { corner: true, yaw: Math.PI };
+    return { corner: true, yaw: -Math.PI / 2 };
+  }
+  return { corner: false, yaw: (no || s) && !(e || w) ? Math.PI / 2 : 0 };
+}
+
+/** The columns every finished or started defence stands on (walls, ramparts, gates, towers), keyed "x,z". */
+function defenceColumns(info: GameInfo): Set<string> {
+  const out = new Set<string>();
+  for (const b of info.buildings.values()) {
+    if (!buildingSpec(b.kind).defence) continue;
+    const d = footprintDims(b.kind, b.variant, b.level);
+    for (const [cx, cz] of d.cells) out.add(`${b.x + d.ox + cx},${b.z + d.oz + cz}`);
+  }
+  return out;
+}
+
+/** A wall's or rampart's models in its shape and damage look (Patch 5). */
+function shapedIds(b: BuildingInfo, joins: Set<string>): CatalogueModel[] {
+  const ids = catalogueIds(b);
+  const shape = wallShape(b, (x, z) => joins.has(`${x},${z}`));
+  const look = damageLook(b);
+  return ids.map((m) => ({ ...m, id: `${shape.corner ? m.id.replace(/^wall_/, 'wall_corner_') : m.id}${look}`, yaw: shape.yaw }));
 }
 
 export class BuildingsView {
@@ -139,15 +211,17 @@ export class BuildingsView {
     return l;
   }
 
-  private hasModels(b: BuildingInfo): Array<{ id: string; dx: number; dz: number; scale: number }> {
+  private hasModels(b: BuildingInfo, ids: CatalogueModel[]): CatalogueModel[] {
     const lib = this.models;
     if (!lib || !b.complete) return [];
-    const ids = catalogueIds(b);
-    for (const m of ids) {
-      if (lib.models.has(m.id) || this.wanted.has(m.id)) continue;
+    // A wall's other shapes and damage looks load with it, so it swaps at once (Patch 5).
+    const wall = buildingSpec(b.kind).defence === 'wall';
+    const all = wall ? catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`]) : ids.map((m) => m.id);
+    for (const id of new Set(all)) {
+      if (lib.models.has(id) || this.wanted.has(id) || !lib.listed(id)) continue;
       // Load it next; the building switches over when it arrives.
-      this.wanted.add(m.id);
-      lib.request(m.id);
+      this.wanted.add(id);
+      lib.request(id);
     }
     return ids.length > 0 && ids.every((m) => lib.models.has(m.id)) ? ids : [];
   }
@@ -155,15 +229,19 @@ export class BuildingsView {
   /** Brings the meshes in line with the latest info; call once a frame. */
   update(info: GameInfo, now: number, focus: THREE.Vector3): void {
     const seen = new Set<number>();
+    const joins = defenceColumns(info);
     for (const b of info.buildings.values()) {
       seen.add(b.id);
       // A field where nothing grows lies bare.
       const fallow = b.farm !== null && !b.farm.grows;
-      const sig = `${b.kind}:${b.level}:${b.variant}:${b.owner}:${fallow ? 1 : 0}:${b.complete ? 1 : 0}:${b.upgrading}`;
+      // A wall's or rampart's piece and damage look change with its neighbours and its health (Patch 5).
+      const ids = buildingSpec(b.kind).defence === 'wall' ? shapedIds(b, joins) : null;
+      const shape = ids ? `:${ids.map((m) => `${m.id}@${m.yaw ?? 0}`).join(',')}` : '';
+      const sig = `${b.kind}:${b.level}:${b.variant}:${b.owner}:${fallow ? 1 : 0}:${b.complete ? 1 : 0}:${b.upgrading}${shape}`;
       let e = this.entries.get(b.id);
       if (!e || e.sig !== sig) {
         if (e) this.drop(e);
-        e = this.make(b, sig, fallow);
+        e = this.make(b, sig, fallow, ids ?? catalogueIds(b));
         this.entries.set(b.id, e);
       }
       // The look is drawn from its level's corner (a footprint that grows grows round the anchor); the scaffold from the anchor.
@@ -196,9 +274,9 @@ export class BuildingsView {
     this.placeLights(info, focus);
   }
 
-  private make(b: BuildingInfo, sig: string, fallow: boolean): Entry {
+  private make(b: BuildingInfo, sig: string, fallow: boolean, ids: CatalogueModel[]): Entry {
     const look = this.look(b.kind, b.level, b.variant, b.owner, fallow);
-    const models = this.hasModels(b);
+    const models = this.hasModels(b, ids);
     let mesh: THREE.Mesh | null = null;
     if (models.length === 0) {
       mesh = new THREE.Mesh(look.geometry, this.material);
@@ -302,17 +380,18 @@ export class BuildingsView {
       for (const m of e.models) {
         const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
         let draw = this.modelDraws.get(key);
+        const most = buildingSpec(b.kind).defence === 'wall' ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES;
         if (!draw) {
-          draw = new InstancedModel(lib.get(m.id), MAX_MODEL_INSTANCES, this.modelFog);
+          draw = new InstancedModel(lib.get(m.id), most, this.modelFog);
           if (m.tint !== undefined) draw.tint(m.tint);
           draw.object.frustumCulled = false;
           this.scene.add(draw.object);
           this.modelDraws.set(key, draw);
         }
         const n = counts.get(key) ?? 0;
-        if (n >= MAX_MODEL_INSTANCES) continue;
+        if (n >= most) continue;
         counts.set(key, n + 1);
-        draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, 0, '', 0, this.teamColour(b.owner), m.scale);
+        draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, m.yaw ?? 0, '', 0, this.teamColour(b.owner), m.scale);
       }
     }
     for (const [id, draw] of this.modelDraws) {

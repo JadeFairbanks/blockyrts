@@ -44,6 +44,7 @@ import {
   RESOURCES,
   schoolSpells,
   plannedSpots,
+  chainPiece,
   platformProducts,
   siteCells,
   SiteKind,
@@ -52,6 +53,7 @@ import {
   speciesSpec,
   stretchBetween,
   stretchCells,
+  stretchSpots,
   stretchEnd,
   stretchRoom,
   STRETCH_DIRS,
@@ -1932,7 +1934,8 @@ export class Commands {
     if (est.open === 0 && est.blocked === 0) return p.chain ? { text: 'Walled already', hint: 'Click to go on from its end, right click to finish', short: false } : { text: 'Click to go on from this wall', hint: 'Then click further on to build a stretch', short: false };
     const name = buildingSpec(p.kind).name.toLowerCase();
     const n = Math.min(est.open, est.room);
-    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${count(est.open, 'wall')}: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
+    const piece = chainPiece(buildingSpec(p.kind)) > 1 ? 'chunk' : 'wall';
+    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${count(est.open, piece)}: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
     if (est.blocked > 0) parts.push(`${est.blocked} skipped`);
     if (n < est.open) parts.push(n === 0 ? `not enough ${RESOURCES[est.short]!.name.toLowerCase()}` : `enough for ${n}`);
     const hint = p.chain ? 'Click to build to here, right click to finish' : 'Click to place it, then click further on for a stretch';
@@ -1961,10 +1964,9 @@ export class Commands {
     return s.w === 1 && s.d === 1 && !Commands.chained(kind);
   }
 
-  /** Whether a building kind is placed in chains of stretches, click by click (walls; Building placement: wall chains). */
+  /** Whether a building kind is placed in chains of stretches, click by click (walls, and the earth rampart's chunks from Patch 5; Building placement: wall chains). */
   static chained(kind: number): boolean {
-    const s = buildingSpec(kind);
-    return s.defence === 'wall' && s.w === 1 && s.d === 1;
+    return chainPiece(buildingSpec(kind)) > 0;
   }
 
   /** Each frame while placing: the corner under the cursor and the spots of a drag; asks the sim for tiles when they change. */
@@ -2037,9 +2039,15 @@ export class Commands {
     return out;
   }
 
-  /** The columns with a wall standing or started on them: a stretch passes over them without a word, as the sim does, so a chain can close on its anchor or go on from a wall built before. */
+  /** The columns with a wall (or an earth rampart) standing or started on them: a stretch passes over them without a word, as the sim does, so a chain can close on its anchor or go on from a wall built before. */
   private walledColumns(): Set<string> {
-    return new Set([...this.d.game.buildings.values()].filter((b) => buildingSpec(b.kind).defence === 'wall').map((b) => `${b.x},${b.z}`));
+    const out = new Set<string>();
+    for (const b of this.d.game.buildings.values()) {
+      const s = buildingSpec(b.kind);
+      if (s.defence !== 'wall') continue;
+      for (let dz = 0; dz < s.d; dz++) for (let dx = 0; dx < s.w; dx++) out.add(`${b.x + dx},${b.z + dz}`);
+    }
+    return out;
   }
 
   /** The wall chain's next stretch: from the anchor towards the cursor, or the one wall under the cursor before the first click. */
@@ -2047,8 +2055,11 @@ export class Commands {
     const p = this.placing;
     if (!p || Number.isNaN(p.x)) return null;
     if (!p.chain) return { x: p.x, z: p.z, dir: 0, length: 0, cells: [[p.x, p.z]] };
-    const { dir, length } = snapStretch(p.chain.x, p.chain.z, p.x, p.z, WALL_STRETCH_MAX_COLUMNS);
-    return { x: p.chain.x, z: p.chain.z, dir, length, cells: stretchCells(p.chain.x, p.chain.z, dir, length) };
+    const snap = snapStretch(p.chain.x, p.chain.z, p.x, p.z, WALL_STRETCH_MAX_COLUMNS);
+    // The earth rampart goes a 2 x 2 chunk at a time (Patch 5): its stretch ends on a whole chunk.
+    const size = chainPiece(buildingSpec(p.kind));
+    const length = snap.length - (snap.length % size);
+    return { x: p.chain.x, z: p.chain.z, dir: snap.dir, length, cells: stretchSpots(p.chain.x, p.chain.z, snap.dir, length, size) };
   }
 
   /**

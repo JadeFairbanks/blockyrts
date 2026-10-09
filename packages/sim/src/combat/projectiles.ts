@@ -13,7 +13,7 @@ import { OrderKind, PEOPLES, UnitKind, type Projectile, type SimState } from '..
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
 import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, shotMayHit, Side, sideOf } from './combat.ts';
-import { SHOTS } from './items.ts';
+import { Shot, SHOTS } from './items.ts';
 import { isStructure } from './mobs.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import { WEB } from './mobs.ts';
@@ -211,7 +211,7 @@ export function launch(state: SimState, shooter: number, x0: number, y0: number,
     shot, side: sideOf(state, shooter), shooter: e.id[shooter]!, owner: e.owner[shooter]!, faction: e.owner[shooter] === PEOPLES ? e.group[shooter]! : 0,
     x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, flags, mark,
   });
-  state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]! });
+  state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]!, shot });
 }
 
 /**
@@ -406,7 +406,8 @@ function splash(state: SimState, p: Projectile, x: number, y: number, z: number,
   if (!sp.splash || !sp.splashRadius) return;
   const e = state.entities;
   const r = sp.splashRadius;
-  state.hits.push({ look: 'blast', x, y, z, id: p.shooter });
+  // Patch 5 (MB-6): a catapult stone or a thrown boulder throws up dirt; powder and fire blow up.
+  state.hits.push({ look: p.shot === Shot.CatapultStone || p.shot === Shot.BoneBoulder ? 'dirt' : 'blast', x, y, z, id: p.shooter });
   for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
     if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
