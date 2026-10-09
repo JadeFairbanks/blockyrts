@@ -5,19 +5,27 @@
 // arrows with a thumb between them. The mouse wheel over the grid scrolls a
 // row at a time. Right click on a food keeps it back from meals (Food,
 // supply and health: Don't eat), shown crossed out. Food counts are whole
-// items; the Food cell is the food value of them all (patch 1).
-import { foodAmountText, FOODS, RESOURCES, type Res } from '@blockyrts/sim';
+// items; the Food cell is the food value of them all (patch 1). In the
+// debugger's godmode (Jade's Patch 5) the grid holds everything godmode can
+// place instead of the goods: a click puts one on the cursor.
+import { foodAmountText, FOODS, GOD_SPAWNS, RESOURCES, type Res } from '@blockyrts/sim';
 import type { InfoMessage } from '../messages.ts';
 import type { ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
 import { FOOD_ICON, goodIcon, iconUrl, SUPPLY_ICON, type GoodIcon } from './inventory-icons.ts';
-import { changeText, INVENTORY_ROWS, INVENTORY_SLOTS, InventoryGrid, PoolHistory, slotCount, WheelRows } from './inventory.ts';
+import { changeText, INVENTORY_COLUMNS, INVENTORY_ROWS, INVENTORY_SLOTS, InventoryGrid, PoolHistory, slotCount, WheelRows } from './inventory.ts';
+import { godSpawnIconFile } from './unit-icons.ts';
 
 export interface InventoryActions {
   /** Keeps a food back from meals (on) or lets it be eaten again. */
   dontEat(res: number, on: boolean): void;
   /** Sends wheel deltas over an element to a handler (the cursor may be locked). */
   addWheel(id: string, el: HTMLElement, onWheel: (dy: number) => void): void;
+  /** Godmode: puts one of GOD_SPAWNS on the cursor to place. */
+  pickSpawn(k: number): void;
 }
+
+/** Rows of godmode's grid. */
+const GOD_ROWS = Math.ceil(GOD_SPAWNS.length / INVENTORY_COLUMNS);
 
 function el(cls: string, parent: HTMLElement): HTMLElement {
   const e = document.createElement('div');
@@ -111,6 +119,9 @@ export class InventoryUi {
   private readonly thumb: HTMLElement;
   private info: InfoMessage | null = null;
   private foodTotal = 0;
+  /** Godmode shows what it can place, from this row; the goods' own grid waits, untouched, until it ends. */
+  private god = false;
+  private godTop = 0;
 
   constructor(
     container: HTMLElement,
@@ -188,33 +199,81 @@ export class InventoryUi {
   update(info: InfoMessage, food: number): void {
     this.info = info;
     this.foodTotal = food;
-    this.grid.update(info.pool);
-    this.history.add(info.step, info.pool);
+    const god = info.god === true;
+    if (god !== this.god) {
+      this.god = god;
+      this.godTop = 0;
+    }
+    // Godmode's full pool gives no good a slot and no change over the last minute.
+    if (!god) {
+      this.grid.update(info.pool);
+      this.history.add(info.step, info.pool);
+    }
     this.render();
   }
 
   /** Scrolls by whole rows. */
   scroll(rows: number): void {
-    if (this.grid.scroll(rows)) this.render();
+    if (this.god) {
+      const top = Math.max(0, Math.min(GOD_ROWS - INVENTORY_ROWS, this.godTop + rows));
+      if (top === this.godTop) return;
+      this.godTop = top;
+      this.render();
+    } else if (this.grid.scroll(rows)) this.render();
   }
 
   private render(): void {
     const info = this.info;
-    const visible = this.grid.visible();
-    visible.forEach((res, i) => this.renderSlot(this.slots[i]!, res));
+    if (this.god) this.slots.forEach((slot, i) => this.renderSpawn(slot, this.godTop * INVENTORY_COLUMNS + i));
+    else this.grid.visible().forEach((res, i) => this.renderSlot(this.slots[i]!, res));
 
-    this.food.setFace(String(this.foodTotal));
+    this.food.setFace(this.god ? '∞' : String(this.foodTotal));
     this.food.el.classList.toggle('starving', info !== null && (info.starveWorkers || info.starveTroops));
     this.supply.setFace(info ? `${info.supplyUsed}/${info.supplyCap}` : '0/0');
     this.supply.el.classList.toggle('full', info !== null && info.supplyUsed >= info.supplyCap);
 
     const none = 'Every good you hold fits on screen.';
-    this.up.setEnabled(this.grid.canScroll(-1), this.grid.maxTop() === 0 ? none : 'This is the top row.');
-    this.down.setEnabled(this.grid.canScroll(1), this.grid.maxTop() === 0 ? none : 'This is the bottom row.');
-    const rows = this.grid.rows();
-    this.thumb.style.top = `${(100 * this.grid.top) / rows}%`;
+    const top = this.god ? this.godTop : this.grid.top;
+    const maxTop = this.god ? GOD_ROWS - INVENTORY_ROWS : this.grid.maxTop();
+    this.up.setEnabled(top > 0, maxTop === 0 ? none : 'This is the top row.');
+    this.down.setEnabled(top < maxTop, maxTop === 0 ? none : 'This is the bottom row.');
+    const rows = this.god ? GOD_ROWS : this.grid.rows();
+    this.thumb.style.top = `${(100 * top) / rows}%`;
     this.thumb.style.height = `${(100 * INVENTORY_ROWS) / rows}%`;
-    this.thumb.parentElement!.classList.toggle('idle', this.grid.maxTop() === 0);
+    this.thumb.parentElement!.classList.toggle('idle', maxTop === 0);
+  }
+
+  /** A godmode slot: something to place, its picture, its name in the tooltip; a click puts it on the cursor. */
+  private renderSpawn(slot: Slot, k: number): void {
+    const g = GOD_SPAWNS[k];
+    if (!g) {
+      if (slot.sig !== '') {
+        slot.sig = '';
+        slot.btn.el.hidden = true;
+        slot.cell.classList.add('empty');
+      }
+      return;
+    }
+    const src = iconUrl(godSpawnIconFile(g));
+    const sig = `god|${k}|${src.length}`;
+    if (sig === slot.sig) return;
+    slot.sig = sig;
+    const whose = g.side === 'player' ? 'Yours once placed.' : g.side === 'wild' ? 'Wild once placed.' : 'Hostile once placed: it comes for you.';
+    const extra = g.what === 'engine' ? ' It comes with its full crew.' : g.what === 'lair' ? ' Its guardians come with it.' : g.what === 'troop' || g.what === 'mage' ? ' At the top of its kit.' : '';
+    slot.btn.redefine({
+      id: slot.btn.def.id,
+      // Nothing to show it by: its name's first letters.
+      face: src ? '' : g.name.split(' ').map((w) => w[0]).join('').slice(0, 3),
+      name: g.name,
+      keys: [],
+      description: `Godmode: click to hold it on the cursor, then click the ground to place it, as many as you like. ${whose}${extra} Right click, Esc, or the Cancel placement button puts it away.`,
+      className: 'inv-slot god-spawn',
+      onPress: () => this.actions.pickSpawn(k),
+    });
+    if (slot.pic.getAttribute('src') !== src) slot.pic.src = src;
+    slot.pic.style.filter = '';
+    slot.btn.el.hidden = false;
+    slot.cell.classList.remove('empty');
   }
 
   private renderSlot(slot: Slot, res: number): void {

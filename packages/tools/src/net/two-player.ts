@@ -128,7 +128,7 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
   let guest = new TestPlayer({ url: wsUrl, token: guestToken, label: 'guest', log, realTime });
   await host.connect();
   await guest.connect();
-  host.send({ type: 'createRoom', seed, saveId: '' });
+  host.send({ type: 'createRoom', seed, saveId: '', private: false });
   await host.waitFor(isMsg('roomState'));
   const code = host.room!.code;
   check.ok(/^[A-Z2-9]{6}$/.test(code), `the host gets the join code ${code}`);
@@ -224,7 +224,7 @@ export async function runTwoPlayerScenario(opts: ScenarioOptions): Promise<Scena
 
   // ---- the host loads the save; the guest rejoins by code; the match goes on
   await host.connect();
-  host.send({ type: 'createRoom', seed: null, saveId: saved.body.id });
+  host.send({ type: 'createRoom', seed: null, saveId: saved.body.id, private: false });
   await host.waitFor(isMsg('roomState', (m) => m.fromSave));
   const code2 = host.room!.code;
   check.ok(host.room!.players.some((p) => p.slot === 1 && p.presence === Presence.Reserved), 'the loaded game keeps a place for the guest');

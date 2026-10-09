@@ -44,7 +44,7 @@ export const GROUPS: readonly GroupSpec[] = [
 export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
   'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
-  'nav/path.ts', 'threats/debug.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
+  'nav/path.ts', 'threats/debug.ts', 'debug/god.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
   'magic/cast.ts', 'units/names.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
 ]);
 
@@ -286,7 +286,7 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   'PEOPLE_UNITS:people': 'people', 'PEOPLE_UNITS:weapon': 'gear', 'PEOPLE_UNITS:ranged': 'gear', 'PEOPLE_UNITS:armour': 'gear', 'PEOPLE_UNITS:shield': 'gear',
   // A people's lean: the goods it sells cheap and pays extra for (resources, live animals or engines).
   'LEANS:sells': 'good', 'LEANS:lacks': 'good',
-  RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'TRADE_BUILDINGS:*': 'mob', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
+  RUNKIN_WOLF: 'species', ELF_BEAR: 'species', 'PLUNDER_GOODS:*': 'res', 'MERC_UNITS:*': 'peopleUnit',
   // Troops and gear: a kit row's material tier, and a tool kit's tool tier for each job.
   need: 'tierNeed', 'TOOL_KITS:tools': 'tool',
   // Patch 3: a mob's listed traits (combat/threat.ts Trait).
@@ -489,13 +489,15 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
 /** Units for every number in a table, by export (after the key's own unit). */
 export const EXPORT_UNITS: Readonly<Record<string, UnitId>> = {
   RES_VALUE_TENTHS: 'vpTenths', LIVE_VALUE_TENTHS: 'vpTenths', TRINKET_METAL_TENTHS: 'vpTenths',
-  DAILY_BUY_TENTHS: 'vpTenths', REPARATIONS_TENTHS: 'vpTenths', REPARATIONS_PER_KILL_TENTHS: 'vpTenths', PLUNDER_TENTHS_PER_PERSON: 'vpTenths',
+  DAILY_TRADE_TENTHS: 'vpTenths', REPARATIONS_TENTHS: 'vpTenths', REPARATIONS_PER_KILL_TENTHS: 'vpTenths', PLUNDER_TENTHS_PER_PERSON: 'vpTenths',
   MERC_UNITS: 'number', ONE_IN: 'number',
 };
 
 /** What the keys or indices of a table stand for, by export: one kind per level, null where they are plain positions. */
 export const INDEX_REFS: Readonly<Record<string, ReadonlyArray<RefKind | null>>> = {
   BAND_SIZE_PCT: ['band'], BAND_STOCK_PCT: ['band'], ONE_IN: [null, 'band'], PAY_PCT: ['people', 'cat'], LEANS: ['people'],
+  // Patch 5 trade (GP-46, BL-4): a day of trade by kind of settlement, what each people pays for a few goods, a mercenary's price by band.
+  DAILY_TRADE_TENTHS: ['faction'], GOOD_PAY_PCT: ['res', 'people'], HIRE_SILVER: ['band'],
   STOCK: ['faction'], LAYOUTS: ['faction'], PLUNDER_GOODS: ['people'], RES_VALUE_TENTHS: ['res'],
   LIVE_VALUE_TENTHS: ['species'], SALVAGE: ['mob'], MERC_UNITS: ['band'], TRINKET_METAL_TENTHS: ['trinketMetal'],
   BUILDING_SIGHT_M: ['building'], TRAIT_PCT: ['trait'],

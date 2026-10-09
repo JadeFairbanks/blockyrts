@@ -52,8 +52,8 @@ export interface Faction {
   /** What it sells, as (good, count) pairs, and its full counts. */
   stock: number[];
   stockMax: number[];
-  /** Value bought today by category (tenths), and the day (cycle) the counts are for. */
-  bought: number[];
+  /** Value traded today (tenths), by every player together (Patch 5, GP-46), and the day (cycle) the counts are for. */
+  bought: number;
   day: number;
   /** When it next does something on a timer: a caravan, a raid, gaining back a person, a mercenary; 0 for none. */
   nextAt: number;
@@ -103,8 +103,9 @@ export function newPeoples(): PeoplesState {
 export const FACTION_FIELDS = [
   'id', 'kind', 'people', 'parent', 'cell', 'x', 'z', 'band', 'lean', 'seed', 'status', 'built', 'war', 'met', 'traded', 'seen', 'founded', 'dead', 'lastTaker',
   'surrender', 'leader', 'day', 'nextAt', 'regrowAt', 'visits', 'leaveAt', 'leftAt', 'toX', 'toZ', 'toCell', 'survivors', 'rebuildUntil', 'size', 'oxen',
+  'bought',
 ] as const satisfies ReadonlyArray<keyof Faction>;
-export const FACTION_LISTS = ['kills', 'closedUntil', 'lastOffer', 'declines', 'warnings', 'warnedAt', 'stock', 'stockMax', 'bought', 'caravanAt'] as const satisfies ReadonlyArray<keyof Faction>;
+export const FACTION_LISTS = ['kills', 'closedUntil', 'lastOffer', 'declines', 'warnings', 'warnedAt', 'stock', 'stockMax', 'caravanAt'] as const satisfies ReadonlyArray<keyof Faction>;
 
 /** Not state: each peoples state's factions by id (rebuilt when the list changes). */
 const index = new WeakMap<PeoplesState, { list: Faction[]; length: number; byId: Map<number, Faction> }>();

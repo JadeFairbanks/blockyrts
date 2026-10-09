@@ -130,7 +130,7 @@ export const Role = {
   Structure: 5,
   /** One of a neutral people's units of faction `group` (peoples/): their fighters, villagers, beasts and caravan wagons. */
   People: 6,
-  /** A mercenary of camp `group`, hired by its owner until dusk (peoples/). */
+  /** A mercenary of camp `group`, hired by its owner for good (peoples/; Patch 5). */
   Mercenary: 7,
   /** A wandering night monster of band `group` (threats/wanderers.ts): it roams round its spot (homeX, homeZ) in the wild and goes only for prey close by. */
   Wild: 8,

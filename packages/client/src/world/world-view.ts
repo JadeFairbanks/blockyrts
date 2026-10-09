@@ -37,10 +37,8 @@ import {
   School,
   FactionKind,
   LEADER_NAMES,
-  Mob,
   PEOPLES,
   peopleUnitSpec,
-  TRADE_BUILDINGS,
   engineSpec,
   mountSpec,
   Mount,
@@ -309,6 +307,7 @@ export class WorldView {
   setModels(lib: ModelLibrary): void {
     this.models = lib;
     this.unitsView.setModels(lib);
+    this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
   }
@@ -468,17 +467,18 @@ export class WorldView {
       u.label = spec.name;
       u.typeKey = `peoples:${mob}`;
       u.owner = PEOPLES;
-      const trade = TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon;
-      u.details = [title, health, f?.war ? 'At war with you.' : trade ? 'Right click it with one of your units to trade.' : ''].filter(Boolean);
+      // Patch 5 (GP-46): any of their buildings opens trade, or the hire box at a mercenary camp.
+      const what = f?.kind === FactionKind.MercCamp ? 'Right click it to hire mercenaries.' : 'Right click it to trade. One of your units must be within 10 m of one of their buildings.';
+      u.details = [title, health, f?.war ? 'At war with you.' : what];
       return;
     }
     const spec = peopleUnitSpec(mob);
     if (owner !== PEOPLES) {
-      // A mercenary the local player (or an ally) hired: theirs until dusk.
+      // A mercenary the local player (or an ally) hired: theirs for good (Patch 5).
       if (owner === NEUTRAL || owner >= 8) return;
       u.label = `Mercenary ${spec.name.toLowerCase()}`;
       u.typeKey = `merc:${mob}`;
-      u.details = [health, owner === this.player ? 'Hired until dusk, when it walks back to its camp.' : 'Hired by an ally until dusk.'];
+      u.details = [health, owner === this.player ? 'Hired for good. It takes 1 supply and eats like any troop.' : 'Hired by an ally.'];
       return;
     }
     const id = d[o + S.id]!;
@@ -487,7 +487,7 @@ export class WorldView {
     u.typeKey = `people:${mob}`;
     u.owner = PEOPLES;
     u.halfSize.set(0.3, spec.heightCm / 200, 0.3);
-    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click with one of your units to hire mercenaries.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click with one of your units to trade.' : '';
+    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click to hire mercenaries. One of your units must be within 10 m of their camp.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click to trade. One of your units must be within 10 m of one of their buildings.' : '';
     const details = [title, health];
     if (kind === UnitKind.Mage) details.push(`Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`);
     if (what) details.push(what);
@@ -828,7 +828,49 @@ export class WorldView {
 
   // ---- Units ----
 
+  /** Godmode's unit on the cursor (Jade's Patch 5): one state row, drawn solid by a units view of its own where the cursor points. */
+  private ghostUnits: UnitsView | null = null;
+  private readonly ghostMsg: StateMessage = { type: 'state', step: 0, hash: 0, hashStep: 0, count: 0, data: new Int32Array(STATE_STRIDE), shots: new Int32Array(0), hits: [] };
+
+  /** Shows a unit's state row standing at a point (metres) on the ground, or nothing (null). */
+  setUnitGhost(row: Int32Array | null, x: number, z: number): void {
+    const m = this.ghostMsg;
+    if (!row) {
+      m.count = 0;
+      return;
+    }
+    if (!this.ghostUnits) {
+      this.ghostUnits = new UnitsView(this.scene);
+      if (this.models) this.ghostUnits.setModels(this.models);
+    }
+    m.data.set(row);
+    m.data[S.x] = Math.round(x * WU_PER_METRE);
+    m.data[S.z] = Math.round(z * WU_PER_METRE);
+    m.data[S.y] = Math.round(this.groundAt(x, z) * WU_PER_METRE);
+    m.count = 1;
+  }
+
+  private updateGhostUnit(now: number): void {
+    const g = this.ghostUnits;
+    if (!g) return;
+    g.update({
+      curr: this.ghostMsg,
+      prev: null,
+      sinceMs: 0,
+      now,
+      player: this.player,
+      colours: this.colours,
+      neutral: NEUTRAL_COLOUR,
+      seen: () => true,
+      known: () => true,
+      ruins: [],
+      groundAt: (x, z) => this.groundAt(x, z),
+      place: () => undefined,
+    });
+  }
+
   private updateUnits(now: number): void {
+    this.updateGhostUnit(now);
     const curr = this.curr;
     if (!curr) return;
     this.unitsView.update({
