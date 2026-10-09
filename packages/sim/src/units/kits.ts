@@ -23,14 +23,17 @@ import type { EntityStore } from '../state.ts';
  * The five troop types (Jade), fixed when a troop is trained; workers and
  * mages have none. Patch 2 adds the artillery crewman (Jade), trained at the
  * Artillery workshop: the only unit that crews an engine, bare-handed like a
- * tier 0 close melee, with no kit to upgrade (siege/data.ts CREWMAN).
+ * tier 0 close melee, with no kit to upgrade (siege/data.ts CREWMAN). Patch 5
+ * adds the woodsman (Jade's WD-1 to WD-7), trained at the Scholar's Lodge:
+ * a forager and fisher who carries a long weapon of any tier and no armour
+ * (units/woodsman.ts).
  */
-export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5, Crew: 6 } as const;
+export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalry: 5, Crew: 6, Woodsman: 7 } as const;
 export type Troop = (typeof Troop)[keyof typeof Troop];
 /** The troop types a Barracks trains (the crewman is the Artillery workshop's). */
 export const TROOP_TYPES: readonly Troop[] = [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler, Troop.Cavalry];
 /** The troop types' names, for the training buttons; a trained troop goes by its weapon tier's name (TROOP_TIER_NAMES). */
-export const TROOP_NAMES: readonly string[] = ['Warrior', 'Close melee', 'Long melee', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman'];
+export const TROOP_NAMES: readonly string[] = ['Warrior', 'Close melee', 'Long melee', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman', 'Woodsman'];
 /**
  * A troop's name by its weapon tier, [type][tier] (Patch 2, Jade): '' where a
  * type has no such tier. The brawler keeps its type name (Jade).
@@ -42,6 +45,8 @@ export const TROOP_TIER_NAMES: readonly (readonly string[])[] = [
   ['', 'Slinger', 'Yew archer', 'Copper archer', 'Bronze archer', 'Iron archer', 'Marksman', 'Crossbowman', 'Musketeer'],
   [],
   ['', 'Lancer', 'Flint lancer', 'Copper lancer', 'Bronze lancer', 'Iron lancer', 'Pike rider', 'Halberd rider', 'Greatsword rider'],
+  [],
+  // The woodsman keeps his name whatever he carries (s).
   [],
 ];
 
@@ -57,7 +62,7 @@ export function aTroop(troop: number, weaponTier: number, start = false): string
   return `${start ? a.charAt(0).toUpperCase() + a.slice(1) : a} ${name}`;
 }
 /** Command card letters (s): A Close melee, Q Long melee, N Ranger, B Brawler and C Cavalry at the Barracks (Patch 2: the Stables are gone) (L is Follow, G a building's upgrade). */
-export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C', ''];
+export const TROOP_KEYS: readonly string[] = ['', 'A', 'Q', 'N', 'B', 'C', '', ''];
 
 /** Which line of kit an upgrade raises: a troop's weapon or armour, a worker's tools, a mage's wand or robe. */
 export const Line = { Weapon: 0, Armour: 1 } as const;
@@ -519,7 +524,7 @@ export function hasShield(troop: number): boolean {
   return troop === Troop.Close;
 }
 
-/** The lowest and highest weapon tiers a troop type has (close melee 0 to 8, long melee, rangers and cavalry 1 to 8, brawlers 8 only, crewmen their fists only). */
+/** The lowest and highest weapon tiers a troop type has (close melee 0 to 8, long melee, rangers, cavalry and woodsmen 1 to 8, brawlers 8 only, crewmen their fists only). */
 export function weaponTiers(troop: number): readonly [number, number] {
   if (troop === Troop.Close) return [0, TOP_TIER];
   if (troop === Troop.Brawler) return [TOP_TIER, TOP_TIER];
@@ -534,6 +539,7 @@ export function weaponPiece(troop: number, tier: number): Piece | undefined {
       return CLOSE_KITS[tier];
     case Troop.Long:
     case Troop.Cavalry:
+    case Troop.Woodsman:
       return tier > 0 ? LONG_KITS[tier] : undefined;
     case Troop.Ranger:
       return tier > 0 ? RANGER_KITS[tier] : undefined;
@@ -698,6 +704,7 @@ export function applyKit(e: EntityStore, i: number, kind: 'worker' | 'warrior' |
   switch (t) {
     case Troop.Long:
     case Troop.Cavalry:
+    case Troop.Woodsman:
       e.weapon[i] = LONG_GEAR[w] || CLOSE_GEAR[0]!;
       break;
     case Troop.Ranger:
@@ -744,6 +751,8 @@ export function lineTop(h: KitHolder, line: number): number {
   if (h.kind === 'worker') return line === Line.Weapon ? TOP_TIER : 0;
   if (h.troop === Troop.Crew) return 0;
   if (line === Line.Weapon) return h.troop === Troop.Brawler ? 0 : weaponTiers(h.troop)[1];
+  // The woodsman wears no armour (Jade's WD-2).
+  if (h.troop === Troop.Woodsman) return 0;
   return TOP_TIER;
 }
 

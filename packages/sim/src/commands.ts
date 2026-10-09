@@ -29,6 +29,7 @@ import { orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts'
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
+import { isWoodsman } from './units/woodsman.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
 import { unitsOnTop } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
@@ -714,8 +715,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.target && (t < 0 || !huntable(state, t))) break;
         if (!o.target && !o.auto) break;
         const units = ownUnits(state, o.player, o.units, true);
-        // Artillery crewmen stay by their engines (Patch 2).
-        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior && !isCrewman(state, i));
+        // Artillery crewmen stay by their engines (Patch 2); woodsmen forage and fish instead (Patch 5).
+        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior && !isCrewman(state, i) && !isWoodsman(e, i));
         if (hunters.length === 0) {
           alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
           break;

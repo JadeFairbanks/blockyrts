@@ -443,6 +443,8 @@ export class EntityStore implements Record<FieldName, Column> {
   cools: number[][] = [];
   /** The players' units: loot carried to hand in, as (resource, count) pairs (units/loot.ts). */
   bag: number[][] = [];
+  /** Woodsmen: food brought in and eaten, minute by minute (units/woodsman.ts); empty for everyone else. */
+  ledger: number[][] = [];
 
   private readonly index = new Map<number, number>();
 
@@ -490,6 +492,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters[i] = [];
     this.cools[i] = [];
     this.bag[i] = [];
+    this.ledger[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
     return i;
@@ -508,6 +511,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters.splice(i, 1);
     this.cools.splice(i, 1);
     this.bag.splice(i, 1);
+    this.ledger.splice(i, 1);
     this.count--;
     this.reindex();
   }

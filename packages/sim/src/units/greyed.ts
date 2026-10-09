@@ -45,6 +45,7 @@ import type { AnswerOrder, GreyedOrder } from '../orders.ts';
 import { say, sayBuilding } from '../peoples/speech.ts';
 import { engineSpec } from '../siege/data.ts';
 import { isCrewman } from '../siege/engines.ts';
+import { isWoodsman } from './woodsman.ts';
 import { UnitKind, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { propJob, PROPS } from '../world/props.ts';
@@ -329,7 +330,7 @@ function workersInOrder(state: SimState, player: number, ax: number, az: number,
 function hunters(state: SimState, player: number, ax: number, az: number, used: Set<string>): number[] {
   const e = state.entities;
   const free = (i: number): boolean => {
-    if (e.kind[i] !== UnitKind.Warrior || isCrewman(state, i) || !askable(state, player, i, used)) return false;
+    if (e.kind[i] !== UnitKind.Warrior || isCrewman(state, i) || isWoodsman(e, i) || !askable(state, player, i, used)) return false;
     const q = e.queue[i]!;
     return e.target[i] === 0 && e.chasing[i] === 0 && (q.length === 0 || (q.length === 1 && q[0]!.t === 'hold'));
   };
@@ -739,7 +740,7 @@ function answerGreyed(state: SimState, o: AnswerOrder): void {
       // The Hunt button's order: out after game, over and over, home at dusk.
       for (const id of o.units) {
         const i = e.indexOf(id);
-        if (i < 0 || e.owner[i] !== player || e.hp[i]! <= 0 || e.kind[i] !== UnitKind.Warrior || isCrewman(state, i)) continue;
+        if (i < 0 || e.owner[i] !== player || e.hp[i]! <= 0 || e.kind[i] !== UnitKind.Warrior || isCrewman(state, i) || isWoodsman(e, i)) continue;
         giveOrder(state, i, { t: 'hunt', id: 0, auto: 1, x: e.x[i]!, z: e.z[i]!, k: 0, kx: 0, kz: 0 }, false);
       }
       return;

@@ -32,6 +32,7 @@ import { MONSTERS, UnitKind, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { Act, assigned, columnCentre, giveOrder, isFarm, leaveBuilding, nodeView, resetWalk, takesWorkers } from './behaviour.ts';
 import { fromBuilding, nightHooks, startForage } from './forage.ts';
+import { isWoodsman } from './woodsman.ts';
 import { bagEmpty } from './loot.ts';
 import { answerKinds, askNow, isAsking } from './questions.ts';
 import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, FORAGE_OWN, type UnitOrder } from './unit-orders.ts';
@@ -71,7 +72,8 @@ export function byMainBase(state: SimState, x: number, z: number, m: number): bo
 /** A troop, as Jade means it: any combat unit (combat/mob-ai.ts combatTroop, the same as Patch 4's monsters turning on the troops: every warrior type, an artillery crewman too, a mage or an engine) of any player's, a hired mercenary too, alive. */
 function isTroop(state: SimState, j: number): boolean {
   const e = state.entities;
-  return e.hp[j]! > 0 && e.owner[j]! < state.players.length && combatTroop(state, j);
+  // A woodsman is a gatherer, not a guard (s).
+  return e.hp[j]! > 0 && e.owner[j]! < state.players.length && combatTroop(state, j) && !isWoodsman(e, j);
 }
 
 /** Whether a troop stands within NIGHT_WORK_TROOP_M of a point (wu), on the ground or up on a building's top. */

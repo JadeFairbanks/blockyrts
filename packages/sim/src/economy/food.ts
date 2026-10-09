@@ -21,6 +21,7 @@ import { BuildingKind } from '../buildings/data.ts';
 import { FOODS, RESOURCES, Res } from './resources.ts';
 import { Role } from '../threats/types.ts';
 import { speakerName } from '../peoples/speech.ts';
+import { isWoodsman, ledgerAdd } from '../units/woodsman.ts';
 
 /** Rations (F9): who is fed. */
 export const Rations = { Everyone: 0, TroopsOnly: 1, WorkersOnly: 2 } as const;
@@ -136,10 +137,11 @@ export function payFood(p: PlayerState, food: number): FoodTaken | null {
 
 // ----- who eats -----
 
-/** Whether a unit is in the troops' group for rations (warriors, mages, hired mercenaries) rather than the workers' (workers, working animals). */
+/** Whether a unit is in the troops' group for rations (warriors, mages, hired mercenaries) rather than the workers' (workers, woodsmen, working animals). */
 function isTroop(state: SimState, i: number): boolean {
   const k = state.entities.kind[i];
-  return k === UnitKind.Warrior || k === UnitKind.Mage;
+  // The woodsman eats like a worker (decisions 3.4), with the workers.
+  return (k === UnitKind.Warrior && !isWoodsman(state.entities, i)) || k === UnitKind.Mage;
 }
 
 /**
@@ -296,6 +298,8 @@ function unitMeal(state: SimState, i: number): boolean {
   const taken = fed ? takeFood(p, quarters) : null;
   if (taken) {
     chatter(state, i, ateLine(state, i, taken, was !== 0), 'meal');
+    // A woodsman's food line counts what he eats (Jade's WD-7).
+    ledgerAdd(state, i, 0, quarters);
     e.hungry[i] = 0;
     return was !== 0;
   }

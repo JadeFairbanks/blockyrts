@@ -24,6 +24,8 @@ export const Product = {
   BattleMage: 5,
   /** Patch 2: an artillery crewman, trained at the Artillery workshop (siege/data.ts CREWMAN). */
   Crewman: 6,
+  /** Patch 5: a woodsman, trained at the Scholar's Lodge (units/woodsman.ts). */
+  Woodsman: 7,
 } as const;
 export type Product = number;
 /**

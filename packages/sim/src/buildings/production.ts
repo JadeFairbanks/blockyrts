@@ -52,6 +52,7 @@ import {
   type Piece,
 } from '../units/kits.ts';
 import { Mount } from '../mounts/data.ts';
+import { openLedger, WOODSMAN, WOODSMAN_KEY, WOODSMAN_KIT } from '../units/woodsman.ts';
 import { seatOnHorse } from '../mounts/riding.ts';
 
 export interface ProductSpec {
@@ -107,6 +108,12 @@ export function productSpec(product: Product): ProductSpec {
     return {
       product, name: support ? 'Support mage' : 'Battle mage', key: support ? 'S' : 'M', steps: MAGE_TRAIN_STEPS + kitSteps(MAGE_KIT), cost: mainCost(MAGE_KIT), pieces: MAGE_KIT, food: MAGE_FOOD,
       tooltip: `A new Novice Acolyte who ${support ? 'heals and strengthens your units' : 'attacks with spells'}, with a hazel wand and a homespun robe (Table 7). Needs free supply.`,
+    };
+  }
+  if (product === Product.Woodsman) {
+    return {
+      product, name: TROOP_NAMES[Troop.Woodsman]!, key: WOODSMAN_KEY, steps: (WOODSMAN.trainS + piecesTime(WOODSMAN_KIT)) * STEPS_PER_SECOND, cost: mainCost(WOODSMAN_KIT), pieces: WOODSMAN_KIT, food: WOODSMAN.food,
+      tooltip: `A new woodsman (Patch 5): he forages wild food and fishes, both at once if you like, and fights back with his wooden spear when attacked. Pays ${WOODSMAN.food} food, 1 leather or 1 hides, 4 sticks and 4 flax. Needs free supply.`,
     };
   }
   if (product === Product.Crewman) {
@@ -366,6 +373,8 @@ export function productsOf(b: Building): Product[] {
     // Its mages come from its cards with their kit picked (mageSchoolsAt, Patch 2); research is made here.
     for (const r of RESEARCH) if (r.at === b.kind && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
   } else if (b.kind === BuildingKind.ScholarsLodge) {
+    // The woodsman first (Patch 5, Jade's WD-1), then its research.
+    out.push(Product.Woodsman);
     for (const r of RESEARCH) if (r.id !== Research.None && !r.retired && r.at === undefined) out.push(RESEARCH_PRODUCT + r.id);
   } else if (buildingSpec(b.kind).trainsWorkers) out.push(Product.Worker);
   if (b.kind === BuildingKind.Barn) for (const s of SLAUGHTERED) out.push(SLAUGHTER_PRODUCT + s);
@@ -497,7 +506,7 @@ export function researchFacilities(state: SimState, player: number): number {
 
 /** Products that are new units: workers, troops, mages and artillery crewmen. */
 export function trainsUnit(product: number): boolean {
-  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product >= TROOP_PRODUCT;
+  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product === Product.Woodsman || product >= TROOP_PRODUCT;
 }
 
 /** Supply a product's new units take: 1 for a unit trained, an engine's crew (Patch 2), else 0. */
@@ -662,6 +671,19 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
   state.events.push({ player: owner, kind: 'info', text: `A new ${troopTierName(t.troop, t.w).toLowerCase()} is ready.`, x, z });
+}
+
+/** A new woodsman (Patch 5) comes out with his wooden spear and follows the rally route. */
+function spawnWoodsman(state: SimState, b: Building, owner: number): void {
+  const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
+  const x = columnCentre(cx);
+  const z = columnCentre(cz);
+  const i = addWarrior(state, owner, x, z, Troop.Woodsman, 1, 0);
+  state.entities.heading[i] = 32768;
+  openLedger(state, i);
+  const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
+  for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
+  state.events.push({ player: owner, kind: 'info', text: 'A new woodsman is ready.', x, z });
 }
 
 function spawnMage(state: SimState, b: Building, school: number, owner: number, wand = 1, robe = 1): void {
@@ -962,6 +984,7 @@ export function updateBuildings(state: SimState): void {
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
           else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by, head.engine);
+          else if (head.product === Product.Woodsman) spawnWoodsman(state, b, head.by);
           else spawnWorker(state, b, head.by);
         }
       } else {

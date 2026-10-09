@@ -232,6 +232,9 @@ export function serializeState(state: SimState): Uint8Array {
     const g = e.bag[i]!;
     w.u16(g.length);
     for (const v of g) w.i32(v);
+    const l = e.ledger[i]!;
+    w.u16(l.length);
+    for (const v of l) w.i32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
@@ -313,6 +316,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const ng = r.u16();
     for (let k = 0; k < ng; k++) g.push(r.i32());
     e.bag[i] = g;
+    const l: number[] = [];
+    const nl = r.u16();
+    for (let k = 0; k < nl; k++) l.push(r.i32());
+    e.ledger[i] = l;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -437,6 +444,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const ga = JSON.stringify(ea.bag[i]);
     const gb = JSON.stringify(eb.bag[i]);
     if (ga !== gb) return `entities[${i}].bag: ${ga} vs ${gb}`;
+    const la = JSON.stringify(ea.ledger[i]);
+    const lb = JSON.stringify(eb.ledger[i]);
+    if (la !== lb) return `entities[${i}].ledger: ${la} vs ${lb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;
