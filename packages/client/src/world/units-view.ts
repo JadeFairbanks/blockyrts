@@ -77,8 +77,10 @@ interface Look {
 
 /** The first catalogue model of a gear id ('' for none). */
 const gearModel = (id: number): string => piecesOf(id)[0] ?? '';
-/** Whether a gear id is held like a polearm: spears, pikes and halberds. */
-const polearm = (id: number): boolean => /^(spear|pike|halberd)/.test(gearModel(id));
+/** Whether a gear id is held like a polearm, in both hands: spears, pikes, halberds and the Zweihänder (the tier 8 two-handed weapon). */
+const polearm = (id: number): boolean => /^(spear|pike|halberd|zweihander)/.test(gearModel(id));
+/** Two-handed weapons that swing rather than thrust: the halberds and the Zweihänder. */
+const SWUNG = /^(halberd|zweihander)/;
 
 const PIECES = new Map<number, readonly string[]>();
 /** A gear id's catalogue models: its model ids joined by '+' in units/kits.ts (armour with its helmet and boots), each `<id>` or `<id>@<metal>`. */
@@ -2012,7 +2014,7 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
   if (swing === Slot.Ranged + 1) {
     return { clip: /^bow/.test(model) ? 'bow_shoot' : model === 'sling' ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
   }
-  if (swing !== 0) return { clip: /^halberd/.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
+  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
   if (flags & UnitFlag.Hurt) return { clip: d[o + S.shield] !== 0 ? 'shield_block' : 'injured' };
   if (order === OrderKind.Swim) return { clip: 'swim' };
   if (order === OrderKind.Climb || flags & UnitFlag.Climbing) return { clip: 'climb' };
