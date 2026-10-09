@@ -343,7 +343,7 @@ const shield = (tier: number, what: What, model: string, need: number, blockPct:
 export const SHIELD_KITS: readonly ShieldKit[] = [
   shield(0, 'No shield', '', 0, 0, [[]], 0),
   shield(1, Res.WoodenShield, 'shield_wood', 1, 15, only([[PL, 3], [LE, 1]]), 20),
-  shield(2, Res.BoiledLeatherTarge, 'shield_targe', 3, 20, only([[PL, 3], [HL, 1]]), 24),
+  shield(2, Res.BoiledLeatherTarge, 'shield_targe', 3, 20, only([[PL, 3], [HL, 1]]), 25),
   shield(3, Res.IronRimmedHeaterShield, 'shield_iron_kite@iron_refined', 6, 25, only([[IRON, 3], [PL, 1], [LE, 1]]), 36),
   shield(4, Res.SteelHeaterShield, 'shield_steel_heater@steel', 7, 30, only([[STEEL, 3], [LE, 1]]), 39),
   shield(5, Res.SteelRotella, 'shield_rotella', 8, 30, only([[CS, 3], [LE, 1]]), 39),
@@ -615,6 +615,31 @@ export const DREADNOUGHT_GEAR = {
 /** atkWith while a weapon's second blow (GearSpec.melee2) swings: past the slots. */
 export const SECOND_BLOW = 5;
 
+/**
+ * Gear rows of their own for the items that go on as another piece (Patch 5:
+ * the satyrs' obsidian hand-axe as the bronze shortsword), with that piece's
+ * stats under the item's name and look, so a unit keeps the item it was
+ * given: drawn and named as itself, and back to stock as itself.
+ */
+const OWN_ROWS: Array<readonly [item: Res, gear: number]> = [];
+function ownRow(item: Res, k: MeleeKit, model: string): number {
+  const id = add({ name: RESOURCES[item]!.name, slot: Slot.Weapon, tier: k.tier, model, melee: meleeStats(k, true, false) });
+  OWN_ROWS.push([item, id]);
+  return id;
+}
+/** The obsidian hand-axe in hand: the bronze shortsword's numbers, its own model. */
+export const OBSIDIAN_AXE_GEAR: number = ownRow(Res.ObsidianHandAxe, CLOSE_KITS[4]!, 'axe_hand_obsidian');
+
+/** The gear row of its own an item goes on as, or 0 when it takes its piece's row. */
+export function ownGear(item: Res | undefined): number {
+  return OWN_ROWS.find(([r]) => r === item)?.[1] ?? 0;
+}
+
+/** The item a gear row of its own is, or undefined. */
+export function ownGearItem(gear: number): Res | undefined {
+  return OWN_ROWS.find(([, g]) => g === gear)?.[0];
+}
+
 function capital(s: string): string {
   return s ? s[0]!.toUpperCase() + s.slice(1) : s;
 }
@@ -804,6 +829,14 @@ export function fromItem(ways: number, piece = 0): boolean {
   return code % 8 === ITEM_WAY;
 }
 
+/** The ready item a plan put a set's piece on as, or undefined when it was made from materials. */
+export function planItem(p: Piece, ways: number, piece = 0): Res | undefined {
+  let code = ways;
+  for (let k = 0; k < piece; k++) code = floorDiv(code, DIGIT);
+  const digit = code % DIGIT;
+  return digit % 8 === ITEM_WAY ? (p.items[floorDiv(digit, 8)] ?? p.items[0]) : undefined;
+}
+
 /** The cost of a set of pieces paid the ways a plan chose, kind by kind (to give it back); with 0, the first ways in softwood and the goods themselves. */
 export function piecesCost(pieces: readonly Piece[], ways: number): Cost {
   const cost: Array<[Res, number]> = [];
@@ -940,7 +973,8 @@ export function applyKit(e: EntityStore, i: number, kind: 'worker' | 'warrior' |
       e.ranged[i] = PISTOL_GEAR;
       break;
     default:
-      e.weapon[i] = CLOSE_GEAR[w] ?? CLOSE_GEAR[0]!;
+      // An item with a row of its own (the obsidian hand-axe) stays in hand while its tier does.
+      if (ownGearItem(e.weapon[i]!) === undefined || GEAR[e.weapon[i]!]!.tier !== w) e.weapon[i] = CLOSE_GEAR[w] ?? CLOSE_GEAR[0]!;
   }
 }
 
@@ -955,7 +989,7 @@ export function kitName(troop: number, weapon: number, armourTier: number, shiel
 
 // ----- upgrading -----
 
-/** What an upgrade looks at: the unit's kind, troop type and tiers (weapon, armour, shield and poison tips). */
+/** What an upgrade looks at: the unit's kind, troop type and tiers (weapon, armour, shield and poison tips), and the weapon's item when it has a row of its own. */
 export interface KitHolder {
   kind: 'worker' | 'warrior' | 'mage';
   troop: number;
@@ -963,6 +997,7 @@ export interface KitHolder {
   a: number;
   s: number;
   t: number;
+  wItem?: Res;
 }
 
 /** A unit's kind as the kit rules see it, from its UnitKind (0 worker, 1 warrior, 5 mage). */
@@ -1015,7 +1050,8 @@ export function upgradePieces(h: KitHolder, line: number, to: number): Piece[] {
 /** The item a line's piece goes to stock as when the unit takes it off for a better one (Patch 5, GP-3), or undefined at tier 0. */
 export function replacedItem(h: KitHolder, line: number): Res | undefined {
   const from = lineTier(h, line);
-  return from > 0 ? linePiece(h, line, from)?.items[0] : undefined;
+  if (from === 0) return undefined;
+  return (line === Line.Weapon ? h.wItem : undefined) ?? linePiece(h, line, from)?.items[0];
 }
 
 /**

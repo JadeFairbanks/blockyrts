@@ -233,12 +233,15 @@ describe('meals', () => {
     expect(meal.map((v) => v.text)).toEqual(['Food at last! I ate some salmon. My horse ate too.']);
   });
 
-  it('a unit eating at a main base says it is eating its fill, its bubble held while the bar runs', () => {
+  it('a unit eating at a main base says how much food it needs and what it eats, its bubble held while the bar runs', () => {
     const s = stocked([Res.FarmFare]);
     const w = eaters(s)[0]!;
+    // At full health it does not eat (Jade's Patch 5, GP-27); nearly dead it needs 4 (GP-13).
+    expect(eatAt(s, w)).toBe('I am not hurt.');
+    s.entities.hp[w] = 1;
     expect(eatAt(s, w)).toBe('');
     const said = s.events.filter((v) => v.speaker === s.entities.id[w]! && v.bubble === 'meal');
-    expect(said.map((v) => v.text)).toEqual(["I'm eating my fill of farm fare."]);
+    expect(said.map((v) => v.text)).toEqual(["I need 4 food to heal. I'm eating farm fare."]);
     expect(said[0]!.hold).toBe('bar');
   });
 

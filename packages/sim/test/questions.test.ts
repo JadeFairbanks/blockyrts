@@ -16,7 +16,6 @@ import {
   DAY_STEPS,
   deserializeState,
   DUSK_STEPS,
-  EAT_NUTRITION,
   FIRST_KIT_ASK_STEPS,
   hashState,
   maxHealth,
@@ -171,7 +170,8 @@ describe('the questions (Patch 2, round 3)', () => {
     const ev = untilAsked(s, (x) => x.ask!.q === Ask.Heal, 2 * STEPS_PER_SECOND);
     expect(ev.text).toBe("I'm hurt. Can I eat to heal?");
     expect(ev.speaker).toBe(e.id[w!]);
-    expect(ev.ask!.yes).toContain(`From the stock: ${EAT_NUTRITION} food`);
+    // Patch 5 (GP-13): 1 food for each quarter of its health missing, 40% here.
+    expect(ev.ask!.yes).toContain('From the stock: 1 food for each quarter of health missing (2 food), healing it fully');
     run(s, 1, [answer(ev, true)]);
     expect(e.queue[w!]![0]!.t).toBe('eat');
   });

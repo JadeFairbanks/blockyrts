@@ -44,6 +44,8 @@ export interface HudButtonDef {
   foot?: string;
   /** The tooltip leads with why it is greyed out (Patch 2: a training card's picture). */
   reasonFirst?: boolean;
+  /** The tooltip goes above this instead of the button (Patch 5, GP-7: above one unit's whole inventory, hiding none of it). */
+  tipAbove?: HTMLElement;
   /** Extra classes for the button element. */
   className?: string;
   onPress?: (p: ButtonPress) => void;
@@ -226,9 +228,10 @@ export class Tooltip {
     const margin = 6;
     let x = r.left + r.width / 2 - t.width / 2;
     x = Math.max(margin, Math.min(window.innerWidth - t.width - margin, x));
-    // Above the button if there is room, else below.
-    let y = r.top - t.height - margin;
-    if (y < margin) y = r.bottom + margin;
+    // Above the button (or what it names) if there is room, else below.
+    const a = b.def.tipAbove?.isConnected ? b.def.tipAbove.getBoundingClientRect() : r;
+    let y = a.top - t.height - margin;
+    if (y < margin) y = a.bottom + margin;
     this.el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }
 

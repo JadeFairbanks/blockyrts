@@ -196,7 +196,7 @@ describe("seated meals (Jade's Patch 2: eating is a timed action)", () => {
     e.hp[i] = Math.floor(e.maxHp[i]! / 4);
     let meals = 0;
     const count = (): void => {
-      meals += s.events.filter((v) => v.kind === 'speech' && v.speaker === id && v.text.startsWith("I'm eating my fill of ")).length;
+      meals += s.events.filter((v) => v.kind === 'speech' && v.speaker === id && v.text.startsWith('I need ')).length;
     };
     step(s, [{ kind: 'eat', player: 0, units: [id], building: 0 }]);
     count();
