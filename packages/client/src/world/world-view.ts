@@ -1211,6 +1211,7 @@ export class WorldView {
     (this.scene.background as THREE.Color).copy(m.edge);
     this.buildings.darkness = k;
     this.buildings.fog = this.fogK * k;
+    this.terrain.terrainNight.value = k;
     // A Bright Night comes on and goes over a few seconds too, and only shows in the dark.
     const [bright, rosy] = this.brightHere();
     this.brightK += Math.sign(bright - this.brightK) * Math.min(Math.abs(bright - this.brightK), dt / 4);

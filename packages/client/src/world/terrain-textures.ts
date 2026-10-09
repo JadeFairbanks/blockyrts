@@ -99,6 +99,8 @@ export interface TerrainUniforms {
   /** The volcanic rock's crack masks (the four tops and the side), and the time for their glow, seconds. */
   terrainGlow: { value: THREE.DataArrayTexture | null };
   terrainTime: { value: number };
+  /** 0 by day to 1 at night: the cracks glow faintly by day and read at night. */
+  terrainNight: { value: number };
 }
 
 /** The table the shader reads a face's tiles from: material across, band down; red the first top layer, green the side, blue the lip. */
@@ -134,6 +136,7 @@ export function terrainUniforms(): TerrainUniforms {
     terrainOn: { value: 0 },
     terrainGlow: { value: null },
     terrainTime: { value: 0 },
+    terrainNight: { value: 0 },
   };
 }
 
@@ -241,6 +244,7 @@ uniform vec4 terrainBands;
 uniform float terrainOn;
 uniform highp sampler2DArray terrainGlow;
 uniform float terrainTime;
+uniform float terrainNight;
 flat varying float vMat;
 float terrainCrack = 0.0;`,
       )
@@ -294,7 +298,7 @@ float terrainCrack = 0.0;`,
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-  totalEmissiveRadiance += terrainCrack * vec3(1.0, 0.38, 0.09) * (0.55 + 0.25 * sin(terrainTime * 1.7 + vFowWorld.x * 0.9 + vFowWorld.z * 0.6));`,
+  totalEmissiveRadiance += terrainCrack * vec3(1.0, 0.38, 0.09) * (0.1 + 0.4 * terrainNight) * (0.8 + 0.2 * sin(terrainTime * 1.7 + vFowWorld.x * 0.9 + vFowWorld.z * 0.6));`,
       );
   };
 }
