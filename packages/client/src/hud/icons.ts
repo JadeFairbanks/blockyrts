@@ -58,11 +58,11 @@ const RANGER: readonly Pic[] = [
 /** The brawler's flintlock pistol. */
 const BRAWLER: Pic = { file: 'icon_pistol' };
 
-/** Armour by tier: none, the two leathers, copper and bronze scale, mail, the iron coat of plates, the two harnesses. */
+/** Armour by tier: none, the leather jerkin, the boiled-leather cuirass, copper and bronze scale, mail, the iron coat of plates, the two harnesses. */
 const ARMOUR: readonly Pic[] = [
   { file: 'icon_armour_leather', filter: NONE },
   { file: 'icon_armour_leather' },
-  { file: 'icon_armour_leather', filter: 'brightness(0.72) saturate(1.2)' },
+  { file: 'icon_armour_leather_boiled' },
   { file: 'icon_armour_copper_scale' },
   { file: 'icon_armour_bronze_scale' },
   { file: 'icon_armour_iron_mail_iron_wrought' },

@@ -12,11 +12,11 @@ export function troopIconFile(troop: number, wTier: number): string {
     case Troop.Close:
       return wTier <= 1 ? 'icon_train_warrior_club' : wTier === 2 ? 'icon_train_warrior_axe' : 'icon_train_warrior_sword';
     case Troop.Long:
-      return wTier >= 7 ? 'icon_train_warrior_halberd' : wTier === 6 ? 'icon_train_warrior_pike' : 'icon_train_warrior_spear';
+      return wTier >= 8 ? 'icon_train_warrior_zweihander' : wTier === 7 ? 'icon_train_warrior_halberd' : wTier === 6 ? 'icon_train_warrior_pike' : 'icon_train_warrior_spear';
     case Troop.Ranger:
       return wTier >= 8 ? 'icon_train_warrior_musket' : wTier === 7 ? 'icon_train_warrior_crossbow' : wTier >= 2 ? 'icon_train_warrior_bow' : 'icon_train_warrior_sling';
     case Troop.Brawler:
-      return 'icon_train_warrior_mace';
+      return 'icon_train_warrior_brawler';
     case Troop.Cavalry:
       return 'icon_train_warrior_mounted';
     case Troop.Crew:
@@ -42,26 +42,16 @@ export function mageIconFile(battle: boolean, robe: number): string {
   return own || (battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
 }
 
-/** Models the kit has no picture of yet, and the nearest it has. */
-const MODEL_STAND_INS: Record<string, string> = {
-  cannon_bronze: 'icon_train_cannon',
-  cannon_iron: 'icon_train_cannon',
-  cannon_dwarf: 'icon_train_cannon',
-  dwarf_cannon_crew: 'icon_train_warrior_cannon_crew',
-  bomb_keg: 'icon_gunpowder',
-};
-
 /**
  * A catalogue model's picture: its portrait, or a near one for a model named
- * with a prefix (chicken_hen is the hen), else its icon (the wild goose and
- * the pheasant, Patch 5). Lairs and the peoples' buildings have none: their
- * portrait is the rendered still.
+ * with a prefix (chicken_hen is the hen), else its icon (Patch 5: the wild
+ * goose, the pheasant, the cannons, the Citadel's fixed engines and the bomb
+ * keg). Lairs and the peoples' buildings have none: their portrait is the
+ * rendered still.
  */
 export function modelIconFile(model: string): string {
   const bare = model.replace(/^(chicken|fish|wild)_/, '');
-  const own = firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, `icon_${model}`, MODEL_STAND_INS[model] ?? '');
-  // A Citadel's fixed engine has the picture of the engine it is built from until it has one of its own (Patch 5).
-  return own || (model.endsWith('_fixed') ? modelIconFile(model.slice(0, -'_fixed'.length)) : '');
+  return firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, `icon_${model}`);
 }
 
 /** A building's picture by kind and level (the main base's tiers). */
