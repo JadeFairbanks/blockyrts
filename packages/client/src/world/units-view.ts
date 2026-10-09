@@ -1065,9 +1065,10 @@ function hopClip(clips: ReadonlyMap<string, unknown>, clip: string, up: boolean)
 }
 
 /**
- * Patch 5's run and climb: a unit on a face climbs (the body's climb clip
- * once it has one, else what it was doing), and a unit set to Run runs where
- * it would walk.
+ * Patch 5's run and climb: a unit on a face plays its body's `climb` clip
+ * (Jade's improved worker, warrior and mage bodies carry one; a body without
+ * it goes on with what it was doing), and a unit set to Run runs where it
+ * would walk.
  */
 function gaitClip(clips: ReadonlyMap<string, unknown>, clip: string, flags: number): string {
   if (flags & UnitFlag.Climbing) return firstClip(clips, ['climb', clip]);

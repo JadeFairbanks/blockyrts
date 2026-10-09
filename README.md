@@ -3559,8 +3559,9 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    where they must. Their reach from home (what they walk in dusk's 40 s)
    counts each metre of height above or below the base as 5 m more, so a
    deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
-   before still do. The bodies have no climb clip yet: a climber shows its
-   walk until the models carry one, and the climb clip shows from then on.
+   before still do. A climber plays its body's climb clip: Jade's improved
+   worker, warrior and mage bodies carry one (on main once the unit looks
+   work lands); a body without one goes on with its walk.
 5. **Jumps.** Units on foot jump rises up to 56 cm (5 terrain units; 45 cm
    before) and step up 22 cm. A horse jumps 2.5 m. Every monster jumps at
    least 1 m; the ones that already climbed keep doing so.
