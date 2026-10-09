@@ -1868,6 +1868,8 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
     held = (pieces.length > ToolJob.Cut ? pieces[job] : job === ToolJob.Cut ? pieces[pieces.length - 1] : pieces[0]) ?? '';
   }
   if (held) wear(look, held, parts);
+  // A Barn's hand wears the farmer's straw hat while he is one (Patch 5, Jade's GP-37 and decisions 2.10).
+  if (d[o + S.flags]! & UnitFlag.BarnHand) wear(look, 'hat_farmer', parts, Stow.None, 'slot_head');
   // The rest of the kit: every piece of every tool it has, each once, on the hips and back; a hammer hangs at the hip.
   const stows: ReadonlyArray<readonly [string, number]> = [['slot_hip_r', Stow.Hip], ['slot_hip_l', Stow.Hip], ['slot_back', Stow.Back], ['slot_quiver', Stow.Back]];
   const shown = new Set([held]);
