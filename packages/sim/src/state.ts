@@ -843,8 +843,13 @@ export interface Loot {
   src: number;
 }
 
-/** Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel chain (Patch 5 took out the earthworks: banks, fill and ramps). */
-export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2 } as const;
+/**
+ * Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel
+ * chain (Patch 5 took out the earthworks: banks, fill and ramps), and a dig
+ * drawn upwards (Jade's Patch 5, GP-4: a box from the ground clicked up to
+ * its roof, to level a hill or a mountain, dug from the top down).
+ */
+export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2, Up: 3 } as const;
 
 /** Whether a site is a tunnel: a marked box, or a stretch of a tunnel chain. */
 export function tunnelSite(kind: number): boolean {
@@ -865,9 +870,9 @@ export interface Site {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the floor to dig down to. Tunnels: the floor. */
+  /** Dig: the floor to dig down to. Tunnels and digs drawn upwards: the floor. */
   level: number;
-  /** Tunnels: the roof. */
+  /** Tunnels and digs drawn upwards: the roof (nothing above it is dug). */
   level2: number;
   /** TunnelLine: its width in columns. */
   axis: number;

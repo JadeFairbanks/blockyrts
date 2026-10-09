@@ -51,6 +51,7 @@ import {
   siteCells,
   SiteKind,
   SITE_MAX_COLUMNS,
+  DIG_UP_MAX_UNITS,
   snapStretch,
   speciesSpec,
   stretchBetween,
@@ -171,7 +172,7 @@ export interface Area {
   from: { x: number; z: number } | null;
   to: { x: number; z: number } | null;
   dragging: boolean;
-  /** Dig depth, terrain units. */
+  /** Dig depth, terrain units: below 0 the box goes up from the ground where the drag started, by as much (Jade's Patch 5, GP-4). */
   units: number;
   /** A tunnel's height, terrain units. */
   tunnelUnits: number;
@@ -200,8 +201,8 @@ export interface AreaPlan {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the face is a hillside, so this is a tunnel. */
-  tunnel: boolean;
+  /** A box drawn upwards from the ground where the drag started (a negative depth, GP-4): only what is inside it is dug. */
+  up: boolean;
   /** As in the dig order (terrain units). */
   level: number;
   level2: number;
@@ -213,14 +214,30 @@ export interface AreaPlan {
 
 /** A terrain unit in metres (about 11 cm). */
 export const TERRAIN_UNIT_M = WU_PER_TERRAIN_UNIT / WU_PER_METRE;
-/** Depth and height steps of the + and - buttons and the wheel: 3 units, about 34 cm (s). */
+/** Depth and height steps of the + and - buttons and the wheel: 3 units, about 34 cm (s); a box drawn upwards steps 1 m from 3 m up and 2 m from 12 m up (AREA_UP_STEPS), so a mountain is covered in a few dozen presses (s). */
 export const AREA_STEP_UNITS = 3;
 /** Depth of a new dig: 9 units, about 1 m (s). */
 export const AREA_DEFAULT_UNITS = 9;
 /** The dig limit: 3 m below the natural ground (Digging and building up the land). */
 export const AREA_MAX_UNITS = 27;
-/** A dig starts a tunnel when the box rises this far above where the drag started: a face about 2.25 m tall (s). */
-export const TUNNEL_FACE_UNITS = 20;
+/** Up from these heights (terrain units over the ground where the drag started) a box drawn upwards steps this many units at a press (s). */
+export const AREA_UP_STEPS: ReadonlyArray<readonly [number, number]> = [[108, 18], [27, 9]];
+
+/** The depth one press or wheel notch from `units` makes, deeper (dir 1) or higher (dir -1), from 3 m deep to DIG_UP_MAX_UNITS up (GP-4). */
+export function stepDepth(units: number, dir: number): number {
+  // The step on the side it goes towards: a notch up from 3 m up is a metre; one down to 3 m up is a metre too.
+  const up = dir < 0 ? -units : -units - 1;
+  const size = AREA_UP_STEPS.find(([from]) => up >= from)?.[1] ?? AREA_STEP_UNITS;
+  return Math.max(-DIG_UP_MAX_UNITS, Math.min(AREA_MAX_UNITS, units + dir * size));
+}
+
+/** The dig card's words for a depth. */
+function depthWords(units: number): string {
+  const m = (Math.abs(units) * TERRAIN_UNIT_M).toFixed(2);
+  if (units > 0) return `The dig is ${m} m deep, and takes everything above that in the box.`;
+  if (units === 0) return 'The dig takes everything above the ground where the drag started.';
+  return `The box goes ${m} m up from the ground where the drag started (depth -${m} m), and the dig takes what is inside it.`;
+}
 /** A press on the side of land at least this much taller than the ground in front of it (a rise nobody can jump, 5 units) starts a tunnel chain into that face (s). */
 export const FACE_MIN_UNITS = 5;
 
@@ -1342,15 +1359,21 @@ export class Commands {
     const a = this.area!;
     const plan = this.areaPlan();
     const chain = a.tunnel || a.chain !== null;
-    const tunnel = chain || plan?.tunnel === true;
-    const what = tunnel ? 'tunnel height' : 'depth';
-    const m = ((tunnel ? a.tunnelUnits : a.units) * TERRAIN_UNIT_M).toFixed(2);
-    card[0] = this.entry('deeper', tunnel ? 'Higher' : 'Deeper', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
-    card[1] = this.entry('shallower', tunnel ? 'Lower' : 'Shallower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
+    if (chain) {
+      const m = (a.tunnelUnits * TERRAIN_UNIT_M).toFixed(2);
+      card[0] = this.entry('deeper', 'Higher', `The tunnel height is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: 'More tunnel height' });
+      card[1] = this.entry('shallower', 'Lower', `The tunnel height is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: 'Less tunnel height' });
+    } else {
+      const now = depthWords(a.units);
+      // How far one press goes from here, or that it goes no further.
+      const by = (u: number, more: string): string => (u === 0 ? `It goes no ${more}.` : `Press for ${u >= 9 ? `${(u * TERRAIN_UNIT_M).toFixed(0)} m` : `about ${Math.round(u * TERRAIN_UNIT_M * 100)} cm`} ${more}.`);
+      card[0] = this.entry('deeper', 'Deeper', `${now} ${by(stepDepth(a.units, 1) - a.units, 'deeper')} The wheel does the same while marking.`, () => this.adjustArea(1), { name: 'More depth' });
+      card[1] = this.entry('shallower', 'Shallower', `${now} ${by(a.units - stepDepth(a.units, -1), 'higher')} Past 0 the box is drawn upwards from the ground where the drag started, to dig away a hill or a mountain.`, () => this.adjustArea(-1), { name: 'Less depth' });
+    }
     card[2] = this.entry('tunnel', 'Tunnel', TUNNEL_CHAIN_HELP, () => this.toggleTunnel(), { key: this.key('dig'), lit: chain, name: 'Dig a tunnel' });
     if (chain) return card;
     const ready = plan !== null && !a.dragging;
-    const name = tunnel ? 'Dig the tunnel' : 'Dig it out';
+    const name = 'Dig it out';
     card[4] = {
       action: 'markArea',
       face: 'Mark',
@@ -1859,7 +1882,7 @@ export class Commands {
       return true;
     }
     const box = { player: this.d.player, units: workers, x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1, level: site.level, level2: site.level2, queued: this.d.queued() };
-    this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : 0 });
+    this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : site.kind === SiteKind.Up ? 2 : 0 });
     this.d.marker(at, 'target');
     return true;
   }
@@ -1884,12 +1907,13 @@ export class Commands {
   updateArea(ground: THREE.Vector3 | null): void {
     const a = this.area;
     if (!a || !ground) return;
-    const x = Math.floor(ground.x / COLUMN_M);
-    const z = Math.floor(ground.z / COLUMN_M);
     if (a.chain) {
-      if (!a.cursor || a.cursor.x !== x || a.cursor.z !== z) a.cursor = { x, z };
+      const c = this.chainColumn(ground);
+      if (!a.cursor || a.cursor.x !== c.x || a.cursor.z !== c.z) a.cursor = c;
       return;
     }
+    const x = Math.floor(ground.x / COLUMN_M);
+    const z = Math.floor(ground.z / COLUMN_M);
     if (!a.dragging) return;
     if (a.to && a.to.x === x && a.to.z === z) return;
     a.to = { x, z };
@@ -1911,7 +1935,7 @@ export class Commands {
     if (!ground) return;
     const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
     // A press on the side of a cliff or hillside starts a tunnel chain into it instead.
-    if (this.faceAt(ground, c.x, c.z)) {
+    if (this.faceAt(ground)) {
       this.tunnelClick(ground);
       return;
     }
@@ -1931,9 +1955,9 @@ export class Commands {
   private tunnelClick(ground: THREE.Vector3 | null): void {
     const a = this.area;
     if (!a || !ground) return;
-    const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
+    const c = this.chainColumn(ground);
     if (!a.chain) {
-      const face = this.faceAt(ground, c.x, c.z);
+      const face = this.faceAt(ground);
       a.chain = face ? { x: face.x, z: face.z, floor: face.floor } : { x: c.x, z: c.z, floor: this.groundUnits(c.x, c.z) };
       a.cursor = c;
       a.from = null;
@@ -1985,25 +2009,43 @@ export class Commands {
 
   /**
    * Whether a point the cursor picked is on the side of a cliff or hillside
-   * rather than on top of the ground: below its column's top, on the edge of
-   * the column next to lower ground at least FACE_MIN_UNITS down. Returns the
-   * face column, the way out of it and the ground in front of it, or null.
+   * rather than on top of the ground: on a column edge, below the top of the
+   * column on one side of it, with ground at least FACE_MIN_UNITS lower on
+   * the other. Returns the face column (the high side, whichever way the face
+   * looks: a point on an edge can fall in either column, BG-6), the way out
+   * of it and the ground in front of it, or null.
    */
-  private faceAt(p: THREE.Vector3, x: number, z: number): { x: number; z: number; nx: number; nz: number; floor: number } | null {
-    const top = this.groundUnits(x, z);
-    if (p.y / TERRAIN_UNIT_M > top - 1) return null;
-    // Which side of the column the point is on: the nearest edge with low ground beyond it.
-    const fx = p.x / COLUMN_M - x;
-    const fz = p.z / COLUMN_M - z;
+  private faceAt(p: THREE.Vector3): { x: number; z: number; nx: number; nz: number; floor: number } | null {
+    const y = p.y / TERRAIN_UNIT_M;
+    const u = p.x / COLUMN_M;
+    const v = p.z / COLUMN_M;
     let best: { x: number; z: number; nx: number; nz: number; floor: number } | null = null;
     let bestD = 0.2;
-    for (const [nx, nz, d] of [[-1, 0, fx], [1, 0, 1 - fx], [0, -1, fz], [0, 1, 1 - fz]] as const) {
-      const floor = this.groundUnits(x + nx, z + nz);
-      if (top - floor < FACE_MIN_UNITS || d >= bestD) continue;
-      best = { x, z, nx, nz, floor };
-      bestD = d;
+    // The nearest edge across x, then across z; the face column is on whichever side of it is high.
+    for (const [along, across, onX] of [[u, v, true], [v, u, false]] as const) {
+      const edge = Math.round(along);
+      const d = Math.abs(along - edge);
+      if (d >= bestD) continue;
+      const k = Math.floor(across);
+      for (const side of [-1, 0]) {
+        const face = edge + side;
+        const front = edge - 1 - side;
+        const [fx, fz] = onX ? [face, k] : [k, face];
+        const [ox, oz] = onX ? [front, k] : [k, front];
+        const top = this.groundUnits(fx, fz);
+        const floor = this.groundUnits(ox, oz);
+        if (y > top - 1 || top - floor < FACE_MIN_UNITS) continue;
+        best = { x: fx, z: fz, nx: ox - fx, nz: oz - fz, floor };
+        bestD = d;
+      }
     }
     return best;
+  }
+
+  /** The column a click of a tunnel chain means: the face column when it is on the side of a cliff, else the column under it. */
+  private chainColumn(p: THREE.Vector3): { x: number; z: number } {
+    const face = this.faceAt(p);
+    return face ? { x: face.x, z: face.z } : { x: Math.floor(p.x / COLUMN_M), z: Math.floor(p.z / COLUMN_M) };
   }
 
   areaUp(): void {
@@ -2013,12 +2055,12 @@ export class Commands {
     this.d.changed();
   }
 
-  /** + / - and the wheel: deeper or shallower (higher or lower for banks and tunnels). */
+  /** + / - and the wheel: deeper or shallower, on past 0 into a box drawn upwards (GP-4); higher or lower for tunnels. */
   adjustArea(dir: number): void {
     const a = this.area;
     if (!a) return;
-    if (a.chain || a.tunnel || this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
-    else a.units = Math.max(AREA_STEP_UNITS, Math.min(AREA_MAX_UNITS, a.units + dir * AREA_STEP_UNITS));
+    if (a.chain || a.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
+    else a.units = stepDepth(a.units, dir);
     this.d.changed();
   }
 
@@ -2046,8 +2088,9 @@ export class Commands {
         low = Math.min(low, h);
       }
     }
-    const tunnel = top - start >= TUNNEL_FACE_UNITS;
-    const plan: AreaPlan = { x0, z0, x1, z1, tunnel, level: tunnel ? start : start - a.units, level2: tunnel ? start + a.tunnelUnits : 0, start, top, low };
+    // Patch 5 (GP-4): a box over a hill digs it away rather than tunnelling into it (tunnels are the Tunnel button's, or a press on a face).
+    const up = a.units < 0;
+    const plan: AreaPlan = { x0, z0, x1, z1, up, level: up ? start : start - a.units, level2: up ? start - a.units : 0, start, top, low };
     this.plan = { sig, plan };
     return plan;
   }
@@ -2059,8 +2102,9 @@ export class Commands {
     const units = this.workerIds();
     if (!a || !plan || units.length === 0) return;
     const box = { player: this.d.player, units, x0: plan.x0, z0: plan.z0, x1: plan.x1, z1: plan.z1, level: plan.level, level2: plan.level2, queued: this.d.queued() };
-    this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
-    this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
+    this.d.send({ kind: 'dig', ...box, tunnel: plan.up ? 2 : 0 });
+    const m = (u: number): string => (u * TERRAIN_UNIT_M).toFixed(1);
+    this.d.message(plan.up ? `Digging away ${m(plan.level2 - plan.level)} m up from where the drag started.` : plan.level === plan.start ? 'Digging away everything above where the drag started.' : `Digging out ${m(plan.start - plan.level)} m deep.`);
     const cx = ((plan.x0 + plan.x1 + 1) / 2) * COLUMN_M;
     const cz = ((plan.z0 + plan.z1 + 1) / 2) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'target');
