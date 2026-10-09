@@ -3,7 +3,7 @@
 // host's Start button. A continued game waits here until everyone who was in
 // it is back. It ends when the relay starts the match, and hands the match
 // what it needs.
-import { PLAYER_COLOURS, Presence, RoomPhase, type RoomStateMessage, type ServerMessage } from '@blockyrts/protocol';
+import { CloseReason, PLAYER_COLOURS, Presence, RoomPhase, type RoomStateMessage, type ServerMessage } from '@blockyrts/protocol';
 import { seatsOf, type MatchPlan } from '../game/match.ts';
 import { inviteLink } from '../net/api.ts';
 import type { RelayClient } from '../net/relay.ts';
@@ -96,7 +96,11 @@ export function lobby(screen: Screen, relay: RelayClient, first: RoomStateMessag
         });
       } else if (m.type === 'roomClosed') {
         relay.close();
-        finish(null);
+        if (m.reason === CloseReason.Kicked) {
+          off();
+          offStatus();
+          reject(new Error('The host removed you from that game.'));
+        } else finish(null);
       }
     });
     const offStatus = relay.onStatus((s) => {
@@ -127,6 +131,14 @@ export function lobby(screen: Screen, relay: RelayClient, first: RoomStateMessag
       button(copyRow, 'Copy the invite link', () => void copy(link).then((ok) => (copied.textContent = ok ? 'Link copied: send it to your friends.' : `Copy this link: ${link}`)));
       button(copyRow, 'Copy the code', () => void copy(room.code).then((ok) => (copied.textContent = ok ? 'Code copied: friends type it in Join game.' : `The code is ${room.code}.`)));
       el('p', 'note', `Friends open ${link}, or choose Join game and type the code. Up to 8 players. World seed ${room.seed}.`, box);
+      el(
+        'p',
+        'note',
+        room.private
+          ? 'Private game: it shows in the open games list, but only players with the code can join.'
+          : 'Public game: anyone can join it from the open games list.',
+        box,
+      );
 
       el('h3', '', 'Players', box);
       const list = el('div', 'lobby-players', undefined, box);
@@ -150,6 +162,17 @@ export function lobby(screen: Screen, relay: RelayClient, first: RoomStateMessag
                     ? 'ready'
                     : 'not ready';
         el('span', `lobby-state${p.ready ? ' ready' : ''}`, state, row);
+        // The host may remove anyone else; a saved game's own players keep their places (Jade, Patch 5).
+        if (host && p.slot !== room.yourSlot && p.presence !== Presence.Reserved && !(room.fromSave && p.accountId)) {
+          button(
+            row,
+            'Remove',
+            () => {
+              if (window.confirm(`Remove ${p.name} from this game? They will not be able to join it again.`)) relay.send({ type: 'kick', slot: p.slot });
+            },
+            'kick',
+          );
+        }
       }
       if (room.players.some((p) => p.guest && p.slot === room.yourSlot)) {
         el('p', 'note', 'You are a guest: a guest’s progress is not saved. The host needs an account to save the game.', box);

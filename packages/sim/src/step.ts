@@ -42,6 +42,7 @@ import { crewHooks, updateQuestions } from './units/questions.ts';
 import { releaseSheltered } from './units/night-work.ts';
 import { updateSpacing } from './units/spacing.ts';
 import { updateWorkAsks } from './units/work-asks.ts';
+import { updateGods } from './debug/god.ts';
 
 installDeathHooks();
 installAnimalHooks();
@@ -160,6 +161,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   const e = state.entities;
   state.grid.rebuild(e, (i) => onTop(state, i));
   applyOrders(state, orders);
+  // The debugger's godmode: a full pool every step (Jade's Patch 5).
+  updateGods(state);
   periodChange(state);
   // Workers in for the night come out at dawn once no monster is near, or in the day (Jade's Patch 4).
   releaseSheltered(state);

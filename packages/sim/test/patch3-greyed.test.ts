@@ -87,18 +87,17 @@ describe('a click on a greyed-out building (Patch 3)', () => {
   it('asks for both reasons at once: the main base to go up a tier, and a worker to gather what is short', () => {
     const s = plainWorld();
     const pool = s.players[0]!.pool;
-    // The Hall is paid for (its 15 sticks too); the Barracks needs it and 20 sticks, 5 more than the stock holds.
+    // The Hall is paid for; the Barracks needs it and 20 sticks.
     pool[Res.SoftwoodLumber] = 300;
     pool[Res.Stone] = 300;
-    pool[Res.Sticks] = 15;
     const qs = asked(s, [click(Greyed.Building, BuildingKind.Barracks, 0, workerIds(s))]);
     expect(qs.map((x) => x.ask!.q).sort()).toEqual([GreyAsk.Gather, GreyAsk.Upgrade].sort());
     const up = qs.find((x) => x.ask!.q === GreyAsk.Upgrade)!;
     expect(up.building).toBe(bigHouse(s).id);
     expect(up.text).toBe('We need a tier 2 main base for the Barracks. Upgrade to Hall?');
-    expect(up.ask!.yes).toContain('From the stock now: 110 lumber, 45 stone, 15 sticks.');
+    expect(up.ask!.yes).toContain('From the stock now: 118 lumber, 45 stone.');
     const gather = qs.find((x) => x.ask!.q === GreyAsk.Gather)!;
-    expect(gather.text).toBe('We need 5 more sticks for the Barracks. Shall I go and gather some?');
+    expect(gather.text).toBe('We need 20 more sticks for the Barracks. Shall I go and gather some?');
     expect(gather.ask!.res).toBe(Res.Sticks);
     expect(s.entities.kind[s.entities.indexOf(gather.speaker!)]).toBe(UnitKind.Worker);
     // Yes to both: the Big House starts its upgrade, the worker goes for sticks.
@@ -224,11 +223,10 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
   it('asks the main base to upgrade for its own greyed Upgrade only through what it is short of', () => {
     const s = plainWorld();
     const qs = asked(s, [click(Greyed.Upgrade, 0, bigHouse(s).id)]);
-    // The Hall needs lumber, stone and sticks: workers for each, the lumber as softwood (Patch 5).
+    // The Hall needs lumber and stone: workers for each, the lumber as softwood (Patch 5).
     expect(qs.map((x) => [x.ask!.q, x.ask!.res]).sort()).toEqual([
       [GreyAsk.Gather, Res.SoftwoodLumber],
       [GreyAsk.Gather, Res.Stone],
-      [GreyAsk.Gather, Res.Sticks],
     ].sort());
     expect(qs[0]!.text).toMatch(/for the Hall\. Shall I go and gather some\?$/);
   });

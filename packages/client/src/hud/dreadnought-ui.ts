@@ -1,16 +1,20 @@
 // The Hire Dreadnought window (Patch 5, Jade, GP-21): the Tavern's Hire
 // Dreadnought button opens it. It shows what the player will pay: the 100
 // food, which is not negotiable, and the ingots, which the player sets with
-// + and - or types: gold, silver or a mix of the two (one gold ingot is
+// - and + or types: gold, silver or a mix of the two (one gold ingot is
 // worth 7 silver), so the ingots are worth at least the price. A little over
 // is allowed and not given back; under never. Hire queues him at the Tavern
-// with the shortest queue and closes the window. A HUD panel with HUD
-// buttons, like the Send resources window, so it works with the mouse alone
-// and with the cursor locked.
+// with the shortest queue and closes the window. Laid out like every
+// trade-style menu (decisions 2.16, goods-ui.ts): the title and its x stay in
+// sight, only the body scrolls, and each good keeps its picture, name and
+// count at full size. A HUD panel with HUD buttons, so it works with the
+// mouse alone and with the cursor locked.
 import { DREADNOUGHT, dreadnoughtPrice, dreadnoughtProduct, ingotWorth, paysForDreadnought, productSpec, Res, STEPS_PER_SECOND, type Order } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { MouseTarget } from '../input/input-manager.ts';
 import type { ButtonRegistry, HudButtonDef } from './buttons.ts';
+import { amountBox, FOCUS_BOX, goodCount, goodPic } from './goods-ui.ts';
+import { FOOD_ICON, iconUrl } from './inventory-icons.ts';
 import type { HudPanels } from './panels.ts';
 
 export interface HireActions {
@@ -43,13 +47,6 @@ export function paymentLine(gold: number, silver: number): string {
   return `Worth ${s(worth)}: the price exactly.`;
 }
 
-/** A typed number of ingots: digits only, empty is 0; -1 for anything else. */
-function parseIngots(text: string): number {
-  const t = text.replace(/[\s,_]/g, '');
-  if (!/^\d{0,4}$/.test(t)) return -1;
-  return Number(t || '0');
-}
-
 function el(tag: string, cls: string, parent?: HTMLElement, text?: string): HTMLElement {
   const e = document.createElement(tag);
   e.className = cls;
@@ -60,9 +57,7 @@ function el(tag: string, cls: string, parent?: HTMLElement, text?: string): HTML
 
 export class DreadnoughtUi {
   private readonly box: HTMLElement;
-  private readonly inputs: Record<'gold' | 'silver', HTMLInputElement>;
   private ids: string[] = [];
-  private n = 0;
   private sig = '';
   /** The Taverns it hires at, and the ingots set. */
   private taverns: number[] = [];
@@ -77,47 +72,9 @@ export class DreadnoughtUi {
     private readonly player: number,
     private readonly a: HireActions,
   ) {
-    this.box = el('div', 'panel send-dialog hire-dialog', root);
+    this.box = el('div', 'panel dread-dialog', root);
     this.box.hidden = true;
-    this.box.dataset.scroll = '';
-    panels.register('hire', this.box);
-    this.inputs = { gold: this.input('gold'), silver: this.input('silver') };
-  }
-
-  /** A typed ingot count: gold typed sets the silver to what makes up the price; silver typed stays as typed. */
-  private input(which: 'gold' | 'silver'): HTMLInputElement {
-    const i = document.createElement('input');
-    i.className = 'send-amount hire-amount';
-    i.inputMode = 'numeric';
-    i.autocomplete = 'off';
-    i.setAttribute('aria-label', which === 'gold' ? 'Gold ingots to pay' : 'Silver ingots to pay');
-    i.addEventListener('input', () => {
-      const v = parseIngots(i.value);
-      if (v < 0) return;
-      if (which === 'gold') {
-        this.gold = v;
-        this.silver = silverFor(v);
-      } else this.silver = v;
-    });
-    i.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === 'Escape') {
-        e.preventDefault();
-        i.blur();
-      }
-    });
-    i.addEventListener('blur', () => {
-      this.sig = '';
-      this.refresh();
-    });
-    this.a.addArea(`hire-${which}`, i, {
-      down: () => {
-        i.focus();
-        i.select();
-      },
-      move: () => undefined,
-      up: () => undefined,
-    });
-    return i;
+    panels.register('dreadnought', this.box);
   }
 
   get open(): boolean {
@@ -134,6 +91,7 @@ export class DreadnoughtUi {
   }
 
   close(): void {
+    this.blurBox();
     this.box.hidden = true;
     this.clear();
   }
@@ -150,19 +108,43 @@ export class DreadnoughtUi {
     this.ids = [];
   }
 
-  private button(parent: HTMLElement, def: Omit<HudButtonDef, 'id' | 'keys'>, disabled = ''): void {
-    const id = `hire-${this.n++}`;
-    const b = this.buttons.add({ keys: [], ...def, id });
+  /** A button with an id of its own, the same each time the window is drawn, so a press survives a redraw. */
+  private button(id: string, parent: HTMLElement, def: Omit<HudButtonDef, 'id' | 'keys'>, disabled = ''): HTMLElement {
+    const b = this.buttons.add({ keys: [], ...def, id: `dread-${id}` });
     if (disabled) b.setEnabled(false, disabled);
-    this.ids.push(id);
+    this.ids.push(`dread-${id}`);
     parent.append(b.el);
+    return b.el;
+  }
+
+  private blurBox(): void {
+    const a = document.activeElement;
+    if (a instanceof HTMLInputElement && this.box.contains(a)) a.blur();
+  }
+
+  /** A change made with a button: any number being typed is left first, then the window is drawn again. */
+  private change(fn: () => void): void {
+    this.blurBox();
+    fn();
+    this.sig = '';
+    this.refresh();
+  }
+
+  /** Leaving a number box draws the window again, unless the press went to the other box. */
+  private boxLeft(): void {
+    window.setTimeout(() => {
+      const a = document.activeElement;
+      if (a instanceof HTMLInputElement && this.box.contains(a)) return;
+      this.sig = '';
+      this.refresh();
+    }, 0);
   }
 
   /** The player's own finished Taverns of those it was opened for, the shortest queue first. */
   private ready(): number[] {
     const out = this.taverns.filter((id) => {
       const b = this.game.buildings.get(id);
-      return b !== undefined && b.complete && b.tavern !== null && b.tavern !== undefined;
+      return b !== undefined && b.complete && (b.tavern ?? null) !== null;
     });
     return out.sort((x, y) => (this.game.buildings.get(x)?.queue.length ?? 0) - (this.game.buildings.get(y)?.queue.length ?? 0) || x - y);
   }
@@ -192,46 +174,60 @@ export class DreadnoughtUi {
     const why = this.why(at);
     const sig = `${this.gold}|${this.silver}|${this.game.have(Res.Gold)}|${this.game.have(Res.Silver)}|${this.game.food()}|${why}`;
     if (sig === this.sig) return;
+    const a = document.activeElement;
+    if (a instanceof HTMLInputElement && this.box.contains(a)) return; // not while typing
     this.sig = sig;
-    const typing = document.activeElement === this.inputs.gold || document.activeElement === this.inputs.silver;
-    if (typing) return;
     this.clear();
-    const box = this.box;
-    box.replaceChildren();
-    const head = el('div', 'dlg-head', box);
+    this.box.replaceChildren();
+    const head = el('div', 'dlg-head', this.box);
     el('h3', 'dlg-title', head, 'Hire Dreadnought');
-    this.button(head, { face: '×', name: 'Close', description: 'Close the window (Esc).', className: 'dlg-close', onPress: () => this.close() });
+    this.button('close', head, { face: '×', name: 'Close', description: 'Close the window (Esc).', className: 'dlg-close', onPress: () => this.close() });
+    const body = el('div', 'dlg-body', this.box);
+    body.dataset.scroll = '';
     const ps = productSpec(dreadnoughtProduct(DREADNOUGHT.gold, 0));
-    el('p', 'dlg-note', box, `Pay ${DREADNOUGHT.food} food and ingots worth ${DREADNOUGHT.gold} gold: gold, silver or a mix, one gold ingot worth ${DREADNOUGHT.silverPerGold} silver. He takes ${ps.steps / STEPS_PER_SECOND} s to hire.`);
-    const food = el('div', 'dlg-row hire-row', box);
-    el('span', 'send-label hire-label', food, 'Food');
-    el('span', 'hire-fixed', food, `${DREADNOUGHT.food}`);
-    el('span', 'hire-have', food, `you have ${this.game.food()}`);
-    const row = (which: 'gold' | 'silver', label: string, have: number): void => {
-      const r = el('div', 'dlg-row hire-row', box);
-      el('span', 'send-label hire-label', r, label);
+    el('p', 'dlg-note', body, `Pay ${DREADNOUGHT.food} food and ingots worth ${DREADNOUGHT.gold} gold: gold, silver or a mix, one gold ingot worth ${DREADNOUGHT.silverPerGold} silver. He takes ${ps.steps / STEPS_PER_SECOND} s to hire.`);
+    el('div', 'trade-head', body, 'You pay');
+    const list = el('div', 'send-list', body);
+    // The food: not negotiable.
+    const food = el('div', 'good-row', list);
+    const pic = document.createElement('img');
+    pic.className = 'good-pic';
+    pic.src = iconUrl(FOOD_ICON);
+    pic.alt = '';
+    pic.draggable = false;
+    food.append(pic);
+    el('span', 'good-name', food, `${DREADNOUGHT.food} food, not negotiable`);
+    food.append(goodCount(`you have ${this.game.food()}`));
+    const ingots = (which: 'gold' | 'silver'): void => {
+      const res = which === 'gold' ? Res.Gold : Res.Silver;
+      const have = this.game.have(res);
+      const now = which === 'gold' ? this.gold : this.silver;
       const set = (v: number): void => {
         if (which === 'gold') {
           this.gold = Math.max(0, Math.min(DREADNOUGHT.gold, v));
           this.silver = silverFor(this.gold);
         } else this.silver = Math.max(0, v);
-        this.sig = '';
-        this.refresh();
       };
-      const now = which === 'gold' ? this.gold : this.silver;
-      this.button(r, { face: '−', name: 'One fewer', description: which === 'gold' ? 'One gold ingot fewer: the silver makes up the rest.' : 'One silver ingot fewer.', className: 'dlg-btn', onPress: () => set(now - 1) }, now <= 0 ? 'None to take off.' : '');
-      this.inputs[which].value = String(now);
-      r.append(this.inputs[which]);
-      this.button(r, { face: '+', name: 'One more', description: which === 'gold' ? 'One gold ingot more: the silver goes down to what makes up the rest.' : 'One silver ingot more.', className: 'dlg-btn', onPress: () => set(now + 1) }, which === 'gold' && now >= DREADNOUGHT.gold ? `At most ${DREADNOUGHT.gold} gold ingots.` : '');
-      el('span', 'hire-have', r, `you have ${have}`);
+      const line = el('div', 'good-row offer-line', list);
+      line.append(goodPic(res));
+      el('span', 'good-name', line, which === 'gold' ? 'Gold ingots' : 'Silver ingots');
+      this.button(`${which}-less`, line, { face: '−', name: 'One fewer', description: which === 'gold' ? 'One gold ingot fewer: the silver makes up the rest.' : 'One silver ingot fewer.', className: 'dlg-btn mini', onPress: () => this.change(() => set(now - 1)) }, now <= 0 ? 'None to take off.' : '');
+      // Gold typed sets the silver to what makes up the price; silver typed stays as typed.
+      const most = which === 'gold' ? DREADNOUGHT.gold : dreadnoughtPrice() + DREADNOUGHT.overSilver;
+      const box = amountBox(now, most, which === 'gold' ? 'Gold ingots to pay' : 'Silver ingots to pay', (v) => set(v), () => this.boxLeft());
+      this.a.addArea('dread-amount', box, FOCUS_BOX);
+      line.append(box);
+      this.button(`${which}-more`, line, { face: '+', name: 'One more', description: which === 'gold' ? 'One gold ingot more: the silver goes down to what makes up the rest.' : 'One silver ingot more.', className: 'dlg-btn mini', onPress: () => this.change(() => set(now + 1)) }, now >= most ? `At most ${most}.` : '');
+      line.append(goodCount(`you have ${have}`));
     };
-    row('gold', 'Gold ingots', this.game.have(Res.Gold));
-    row('silver', 'Silver ingots', this.game.have(Res.Silver));
-    el('p', `dlg-note hire-worth${paysForDreadnought(this.gold, this.silver) ? '' : ' warn'}`, box, paymentLine(this.gold, this.silver));
-    const actions = el('div', 'dlg-row', box);
-    this.button(actions, { face: 'All gold', name: 'All gold', description: `${DREADNOUGHT.gold} gold ingots.`, className: 'dlg-btn', onPress: () => this.pick(DREADNOUGHT.gold, 0) });
-    this.button(actions, { face: 'All silver', name: 'All silver', description: `${dreadnoughtPrice()} silver ingots.`, className: 'dlg-btn', onPress: () => this.pick(0, dreadnoughtPrice()) });
+    ingots('gold');
+    ingots('silver');
+    el('p', `dlg-note dread-worth${paysForDreadnought(this.gold, this.silver) ? '' : ' warn'}`, body, paymentLine(this.gold, this.silver));
+    const actions = el('div', 'dlg-row', body);
+    this.button('gold', actions, { face: 'All gold', name: 'All gold', description: `${DREADNOUGHT.gold} gold ingots.`, className: 'dlg-btn', onPress: () => this.change(() => this.pick(DREADNOUGHT.gold, 0)) });
+    this.button('silver', actions, { face: 'All silver', name: 'All silver', description: `${dreadnoughtPrice()} silver ingots.`, className: 'dlg-btn', onPress: () => this.change(() => this.pick(0, dreadnoughtPrice())) });
     this.button(
+      'hire',
       actions,
       {
         face: 'Hire',
@@ -247,11 +243,10 @@ export class DreadnoughtUi {
   private pick(gold: number, silver: number): void {
     this.gold = gold;
     this.silver = silver;
-    this.sig = '';
-    this.refresh();
   }
 
   private hire(): void {
+    this.blurBox();
     const at = this.ready();
     if (at.length === 0 || this.why(at)) return;
     this.a.send({ kind: 'produce', player: this.player, building: at[0]!, product: dreadnoughtProduct(this.gold, this.silver), count: 1 });
