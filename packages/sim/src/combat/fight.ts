@@ -29,6 +29,7 @@ import { School } from '../magic/spells.ts';
 import { beyondReach } from '../units/forage.ts';
 import { chatter } from '../peoples/speech.ts';
 import { tinkering } from '../units/tinker.ts';
+import { WOODS_HOME } from '../units/unit-orders.ts';
 
 /** How far a unit chases a target it picked itself before giving up (the leash, s): 20 m. */
 export const LEASH_WU = 20 * WU_PER_METRE;
@@ -55,6 +56,17 @@ const enum Mode {
   Guard,
 }
 
+/** A woodsman fights back for this long after a blow (s): 5 s. */
+const STRUCK_STEPS = 5 * STEPS_PER_SECOND;
+
+/** Whether a unit was hurt by a foe lately that is still alive and still its enemy. */
+function struck(state: SimState, i: number): boolean {
+  const e = state.entities;
+  if (e.attacker[i] === 0 || state.step - e.hurtAt[i]! > STRUCK_STEPS) return false;
+  const a = e.indexOf(e.attacker[i]!);
+  return a >= 0 && e.hp[a]! > 0 && hostile(state, i, a);
+}
+
 function modeOf(state: SimState, i: number): Mode {
   const e = state.entities;
   const o = e.queue[i]![0];
@@ -68,6 +80,9 @@ function modeOf(state: SimState, i: number): Mode {
     case 'loot':
       // Fetching loot or handing it in by itself, a fighter still fights back as an idle one does.
       return o.back !== 0 && e.kind[i] !== UnitKind.Worker ? Mode.Idle : Mode.None;
+    case 'woods':
+      // The woodsman fights back like a warrior when attacked (Jade's WD-4), then goes back to his work; home for the night he stands by as a hunter does.
+      return (o.k & WOODS_HOME) !== 0 || e.target[i] !== 0 || e.chasing[i] !== 0 || struck(state, i) ? Mode.Idle : Mode.None;
     case 'attackMove':
     case 'patrol':
       return Mode.Seek;

@@ -234,8 +234,9 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl('Storehouse', [[L, 15]], 100, 600, { gives: 'drop-off for everything' })],
   },
   {
-    kind: BuildingKind.FishingDock, name: 'Fishing dock', purpose: 'Workers fish faster and in deeper water, and shelter inside.',
-    slot: 5, w: 6, d: 4, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    // Patch 5 (Jade's FR-1): "No docks, docks do not exist, only woodsmen can fish". Its id stays, off the build menu and never built.
+    kind: BuildingKind.FishingDock, name: 'Fishing dock', purpose: 'Removed: only woodsmen fish.',
+    slot: 0, w: 6, d: 4, dropoff: 'none', trainsWorkers: false, live: false, comesWith: 'There are no fishing docks: woodsmen fish.',
     levels: [lvl('Fishing dock', [[L, 10], [Res.Rope, 5]], 150, 400, { shelters: 3, workers: 3, gives: '3 workers fish at net speed in any depth and shelter inside' })],
   },
   {

@@ -30,8 +30,10 @@ import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
 import { isWoodsman } from './units/woodsman.ts';
+import { isForage, setWoods } from './units/woods.ts';
+import { isFish } from './world/props.ts';
 import { callRepairs } from './units/repairs.ts';
-import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, nodeView, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
 import { unitsOnTop } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
@@ -172,6 +174,17 @@ function giveAll(state: SimState, o: { player: number; units: number[]; queued?:
     const u = make(i);
     if (u) giveOrder(state, i, u, o.queued === true);
   }
+}
+
+/** Turns fishing or foraging on (or off) for the woodsmen among a command's units; with none of them, says who does it. */
+function woodsAt(state: SimState, o: { player: number; units: number[]; queued?: boolean }, what: number, spot: { cx: number; cz: number; i: number } | null, on = 1): void {
+  const e = state.entities;
+  const men = ownUnits(state, o.player, o.units).filter((i) => isWoodsman(e, i));
+  if (men.length === 0) {
+    alert(state, o.player, what === 1 ? 'Only woodsmen fish. Train them at the Scholar\'s Lodge.' : 'Only woodsmen forage. Train them at the Scholar\'s Lodge.');
+    return;
+  }
+  for (const i of men) setWoods(state, i, what, on, spot, o.queued === true);
 }
 
 /** Upgrades a building to its next level: paid now by `by` (the owner, or a player using an inherited building), then built by workers. Returns '' or why not. */
@@ -566,9 +579,30 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'follow':
         giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }), true, true);
         break;
-      case 'gather':
+      case 'gather': {
+        // Fish only woodsmen catch (Patch 5, Jade's FR-1): a fish stretch sends them fishing there, and workers nowhere.
+        const v = nodeView(state, o.cx, o.cz, o.index);
+        if (v && isFish(v.kind)) {
+          woodsAt(state, o, 1, { cx: o.cx, cz: o.cz, i: o.index });
+          break;
+        }
         giveAll(state, o, () => ({ t: 'gather', cx: o.cx, cz: o.cz, i: o.index }), true);
         break;
+      }
+      case 'woods': {
+        // The woodsman's Fish and Forage buttons (Patch 5): a picked spot must be what the button works.
+        let spot: { cx: number; cz: number; i: number } | null = null;
+        if (o.index >= 0) {
+          const v = nodeView(state, o.cx, o.cz, o.index);
+          if (!v || (o.what === 1 ? !isFish(v.kind) : !isForage(v.kind))) {
+            alert(state, o.player, o.what === 1 ? 'Woodsmen fish at a stretch of water with fish in it.' : 'Woodsmen forage wild food: berries, mushrooms and the like.');
+            break;
+          }
+          spot = { cx: o.cx, cz: o.cz, i: o.index };
+        }
+        woodsAt(state, o, o.what, spot, o.on);
+        break;
+      }
       case 'build': {
         const spec = buildingSpec(o.building);
         if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;

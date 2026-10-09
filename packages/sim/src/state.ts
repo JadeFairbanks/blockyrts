@@ -56,6 +56,10 @@ export const OrderKind = {
   Cast: 12,
   /** Sitting by a building with its hands at work, the bar over its head filling (Jade's Patch 2: units/tinker.ts). */
   Tinker: 13,
+  /** The woodsman (Patch 5): fishing with his rod (fish_cast, then fish_wait), and picking wild food low (forage_low) or high (forage_high), units/woods.ts. Numbered apart from the rest so other kinds added beside them never share a number. */
+  Fish: 24,
+  ForageLow: 25,
+  ForageHigh: 26,
 } as const;
 export type OrderKind = (typeof OrderKind)[keyof typeof OrderKind];
 
@@ -842,8 +846,8 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-/** 'tick': no look of its own, only the damage of a blow that lands every step (a beam), which the screen adds up for its number (Patch 5, UI-10). 'heart': two animals mating (Patch 5, Jade's BL-10), over each of them. */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'heart';
+/** 'tick': no look of its own, only the damage of a blow that lands every step (a beam), which the screen adds up for its number (Patch 5, UI-10). 'heart': two animals mating (Patch 5, Jade's BL-10), over each of them. 'catch': a woodsman's fish coming up out of the water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1). */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'heart' | 'catch';
 
 export interface HitEvent {
   look: HitLook;

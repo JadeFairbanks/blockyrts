@@ -22,7 +22,7 @@ import { CREWMAN, engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
 import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { addAnimal, animalsAt, barnFeedText, layingHens, stallsTaken } from '../animals/animals.ts';
-import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
+import { RATING_NAMES, workedOut } from './mining.ts';
 import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../combat/items.ts';
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
 import { FARM_PACE, farmPace, updateFarmBoost } from './farm-boost.ts';
@@ -1022,6 +1022,5 @@ export function buildingStatus(state: SimState, b: Building): string {
     const waiting = b.stock.length > 0 ? `; dug out for the next bag: ${costText(b.stock.map(([r, n]) => [r as Res, n] as const))}` : '';
     return `${workedOut(state, b) ? 'Worked out' : miners}${rating}${waiting}`;
   }
-  if (b.kind === BuildingKind.FishingDock) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} fishing${dockStretch(state, b) ? '' : '; no stretch within 30 m has fish to spare'}`;
   return '';
 }

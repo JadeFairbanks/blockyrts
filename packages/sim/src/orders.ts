@@ -507,6 +507,21 @@ export interface HuntOrder extends UnitsOrder {
   auto: number;
 }
 
+/**
+ * The woodsman's Fish and Forage buttons (Patch 5, Jade's WD-1, WD-5 and
+ * CT-1, units/woods.ts): `what` 1 fishing, 2 foraging; `on` 1 turns it on
+ * (auto), 0 off, the other one left as it is. A picked spot (cx, cz, index;
+ * index -1 for none) is worked first, then the work goes on as usual.
+ */
+export interface WoodsOrder extends UnitsOrder {
+  kind: 'woods';
+  what: number;
+  on: number;
+  cx: number;
+  cz: number;
+  index: number;
+}
+
 /** Pick up loot lying on the ground (a right-click on it): the units walk over, and those with room take it. */
 export interface PickUpOrder extends UnitsOrder {
   kind: 'pickUp';
@@ -722,6 +737,7 @@ export type Order =
   | ProduceOrder
   | StackOrder
   | FertilizeOrder
+  | WoodsOrder
   | CancelProduceOrder
   | UpgradeOrder
   | CancelBuildOrder
@@ -773,6 +789,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   produce: ['building', 'product', 'count'],
   stack: ['building', 'product', 'count'],
   fertilize: ['auto'],
+  woods: ['what', 'on', 'cx', 'cz', 'index'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
   cancelBuild: ['building'],
@@ -828,7 +845,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill', 'woods']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -856,6 +873,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'stack':
       if (o.count < 0 || o.count > 9999) throw new Error('a stack is 0 (all) to 9999');
+      return;
+    case 'woods':
+      if ((o.what !== 1 && o.what !== 2) || (o.on !== 0 && o.on !== 1) || o.index < -1) throw new Error('bad woods order');
       return;
     case 'fertilize':
       if (!Array.isArray(o.buildings) || o.buildings.length > 64 || !o.buildings.every(isInt) || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad fertilize order');

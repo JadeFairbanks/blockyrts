@@ -37,6 +37,8 @@ export * from './buildings/farm-boost.ts';
 export * from './units/field.ts';
 export * from './units/loot.ts';
 export * from './units/forage.ts';
+export * from './units/woodsman.ts';
+export * from './units/woods.ts';
 export * from './nav/grid.ts';
 export * from './nav/path.ts';
 export * from './units/unit-orders.ts';

@@ -88,7 +88,8 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
   it('puts each building in its place, Defences and Lights as submenus', () => {
     const slots = menuSlots();
     expect(slots.slice(0, 12).map((specs) => specs.map((b) => b.kind))).toEqual([
-      [BuildingKind.MainBase], [BuildingKind.Farm], [BuildingKind.Barn], [BuildingKind.Storehouse], [BuildingKind.FishingDock], [BuildingKind.Workshop],
+      // Patch 5: no fishing dock (only woodsmen fish), so its place is empty.
+      [BuildingKind.MainBase], [BuildingKind.Farm], [BuildingKind.Barn], [BuildingKind.Storehouse], [], [BuildingKind.Workshop],
       [BuildingKind.Forge], [BuildingKind.ArtilleryWorkshop], [BuildingKind.Barracks], [BuildingKind.MagiSanctum], [BuildingKind.ScholarsLodge], [BuildingKind.Mineshaft],
     ]);
     expect(slots[12]!.every((b) => b.group === 'Defences')).toBe(true);
