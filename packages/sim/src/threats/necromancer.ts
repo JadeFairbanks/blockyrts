@@ -54,8 +54,8 @@ export const NECROMANCER = {
   crystalPm: 100,
 };
 
-/** The ingots one of his drops can be (s): the forge's working metals, not silver, gold or carbon steel. */
-export const NECROMANCER_INGOTS: readonly Res[] = [Res.CopperIngot, Res.TinIngot, Res.BronzeIngot, Res.WroughtIron, Res.PigIron, Res.IronIngot, Res.SteelIngot];
+/** The ingots one of his drops can be: "1-5 ingots of a random type" (MB-5), every ingot good the forge makes. Silver and gold are raw finds, not ingots. */
+export const NECROMANCER_INGOTS: readonly Res[] = [Res.CopperIngot, Res.TinIngot, Res.BronzeIngot, Res.WroughtIron, Res.PigIron, Res.IronIngot, Res.SteelIngot, Res.CarbonSteel];
 
 /** Whether a necromancer comes with a night's waves (decisions 3.4: 10, 20, 30, 40, then every 5th to 60, every 2nd from 60, and every night from 90). */
 export function necromancerNight(night: number): boolean {

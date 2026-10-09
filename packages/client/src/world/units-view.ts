@@ -297,6 +297,8 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
 const VIOLET = { colour: 0xa030ff, n: 40, radiusM: 1 };
 /** Life drained into Morvath: white motes streaming to him (the sim sends one for every 2 health). */
 const DRAIN_COLOUR = 0xf4f4ff;
+/** The most motes one drain streams: 300 health's worth, so a late-night blow keeps Jade's one for every 2 health. */
+const DRAIN_MOTES_MAX = 150;
 /** A mana crystal's guardian (Jade's Patch 5, MB-13): thin blue light rising round it, pulsing, motes a second at the peak and the pulse's length, s. */
 const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 
@@ -1093,7 +1095,7 @@ export class UnitsView {
       }
       if (h.look === 'drain' && h.to !== undefined) {
         const to = this.morvathAt.get(h.to);
-        if (to) this.particles.stream(x, y, z, to.x, to.y, to.z, DRAIN_COLOUR, Math.min(60, h.n ?? 1));
+        if (to) this.particles.stream(x, y, z, to.x, to.y, to.z, DRAIN_COLOUR, Math.min(DRAIN_MOTES_MAX, h.n ?? 1));
       }
       if (h.look === 'summon') this.hold(h.id, 'summon', now);
       if (h.look === 'spell' && this.forms.has(h.id)) this.hold(h.id, 'cast_spell', now);
