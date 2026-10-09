@@ -17,11 +17,11 @@ import {
   WATER_PER_UNIT,
   type ChunkColumns,
 } from './chunk.ts';
-import { NATURAL_FLOOR_UNITS, WorldGen, type PropRecord } from './generate.ts';
+import { BOULDER_HALF, NATURAL_FLOOR_UNITS, WorldGen, type PropRecord } from './generate.ts';
 import { WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { hash2 } from './noise.ts';
-import { fishAt, growth, growthStages, isFish, isTree, propInfo, PROPS, Stage } from './props.ts';
+import { fishAt, growth, growthStages, isFish, isTree, propInfo, PropKind, PROPS, Stage } from './props.ts';
 
 const N = COLUMNS_PER_CHUNK;
 /** A column and its four sides; the four sides alone. */
@@ -525,8 +525,28 @@ export class World {
       m = new Map();
       this.propChanges.set(key, m);
     }
+    const was = m.get(index);
     m.set(index, change);
     this.dirty.add(key);
+    // A boulder mined away or cleared frees its footprint on the walk map (Patch 5, GP-22).
+    if (change.removed && !was?.removed) {
+      const r = this.propRecords(cx, cz)[index];
+      if (r?.kind === PropKind.Boulder) {
+        for (let dz = -BOULDER_HALF; dz <= BOULDER_HALF; dz++) for (let dx = -BOULDER_HALF; dx <= BOULDER_HALF; dx++) this.touchNav(key, (r.lz + dz) * N + r.lx + dx);
+      }
+    }
+  }
+
+  /** The boulders standing in a chunk, as local x, z and ground-height triples: the walk map raises their footprints (Patch 5, GP-22). */
+  boulders(cx: number, cz: number): number[] {
+    const list = this.propRecords(cx, cz);
+    const changes = this.propChanges.get(chunkKey(cx, cz));
+    const out: number[] = [];
+    for (let k = 0; k < list.length; k++) {
+      const p = list[k]!;
+      if (p.kind === PropKind.Boulder && !changes?.get(k)?.removed) out.push(p.lx, p.lz, p.y);
+    }
+    return out;
   }
 
   /** The chunk's props as they stand at a step, with growth and regrowth applied. Felled ones are left out. */
