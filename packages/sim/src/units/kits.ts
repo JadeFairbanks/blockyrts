@@ -304,9 +304,12 @@ export function shieldRow(armourTier: number): ShieldKit {
 /** The metal's look on a tool's model: its texture variant (Patch 5, every tier drawn). */
 const TOOL_METAL_LOOK: Readonly<Record<string, string>> = { Copper: 'copper', Bronze: 'bronze', 'Wrought iron': 'iron_wrought', Iron: 'iron_refined', Steel: 'steel', 'Carbon steel': 'hq_steel' };
 
+/** One kit for all four jobs, drawn as all its pieces (Patch 5: the job's in hand, the rest at the hips and back). */
+const everyJob = (model: string): string[] => [model, model, model, model];
+
 const metalTools = (tier: number, metal: string, tool: Tool, damage: number, ingot: Res, timeS: number): ToolKit => ({
   tier, name: `${metal} tools`, model: `axe@${TOOL_METAL_LOOK[metal]}`, tools: [tool, tool, tool, tool], names: [`${metal} axe`, `${metal} pickaxe`, `${metal} hammer`, `${metal} sickle`].map((n) => n.toLowerCase()),
-  models: [`axe@${TOOL_METAL_LOOK[metal]}`, `pick@${TOOL_METAL_LOOK[metal]}`, 'hammer', `sickle@${TOOL_METAL_LOOK[metal]}`], damage, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
+  models: everyJob(`axe@${TOOL_METAL_LOOK[metal]}+pick@${TOOL_METAL_LOOK[metal]}+hammer+sickle@${TOOL_METAL_LOOK[metal]}`), damage, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
 });
 
 /**
@@ -321,11 +324,11 @@ export const TOOL_KITS: readonly ToolKit[] = [
   { tier: 0, name: 'No tools', model: '', tools: [0, 0, 0, 0], names: ['', '', '', ''], models: ['', '', '', ''], damage: 2, cost: [[]], timeS: 0, need: 0 },
   {
     tier: 1, name: 'Wooden tools', model: 'axe_hardwood', tools: [Tool.Hardwood, Tool.Hardwood, Tool.Hardwood, Tool.Hardwood],
-    names: ['wooden axe', 'digging stick', 'wooden mallet', 'wooden hoe'], models: ['axe_hardwood', 'digging_stick', 'mallet', 'hoe@hardwood'], damage: 2, cost: only([[ST, 3]]), timeS: 10, need: 1,
+    names: ['wooden axe', 'digging stick', 'wooden mallet', 'wooden hoe'], models: everyJob('axe_hardwood+digging_stick+mallet+hoe@hardwood'), damage: 2, cost: only([[ST, 3]]), timeS: 10, need: 1,
   },
   {
     tier: 2, name: 'Stone and flint tools', model: 'axe_flint', tools: [Tool.Flint, Tool.Stone, Tool.Stone, Tool.Flint],
-    names: ['flint axe and knife', 'stone maul', 'stone hammer', 'flint axe and knife'], models: ['axe_flint', 'maul_stone', 'hammer_stone', 'knife'], damage: 3, cost: only([[ST, 6], [FL, 1], [STONE, 5]]), timeS: 30, need: 2,
+    names: ['flint axe and knife', 'stone maul', 'stone hammer', 'flint axe and knife'], models: ['axe_flint+knife', 'maul_stone', 'hammer_stone', 'axe_flint+knife'], damage: 3, cost: only([[ST, 6], [FL, 1], [STONE, 5]]), timeS: 30, need: 2,
   },
   metalTools(3, 'Copper', Tool.Copper, 4, CU, 35),
   metalTools(4, 'Bronze', Tool.Bronze, 5, BZ, 35),
@@ -361,7 +364,7 @@ export const WAND_KITS: readonly WandKit[] = [
   wand(6, 'Archstaff', 'wand_grand_magician', 125, 50, [[LU, 2], [CS, 2], [MC, 5]], 60),
 ];
 
-/** Mages' robes: the robe sets protection and mana regain. They show on the mage model itself (no separate model until the model thread makes them). */
+/** Mages' robes: the robe sets protection and mana regain. Each tier is drawn as the mage's robe look, mage_battle_<tier> or mage_support_<tier> (client units-view.ts). */
 export const ROBE_KITS: readonly RobeKit[] = [
   robe(0, 'No robe', '', 0, 0, [], 0),
   robe(1, 'Homespun robe', '', 0, 0, [[FX, 3]], 10),

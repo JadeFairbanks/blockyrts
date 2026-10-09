@@ -20,7 +20,7 @@
 // units carry their ids for the hidden-unit outlines (Jade's Patch 3,
 // hidden-outlines.ts).
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, Slot, Species, speciesSpec, Spell, SPELLS, TRINKET_BASE, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
@@ -1492,17 +1492,25 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
   else if (task === Task.Dig) held = 'spade';
   else if (task === Task.Relight) held = 'torch_hand';
   else if (task === Task.Prospect && d[o + S.wTier]! >= PROSPECT_TOOL_TIER) held = PROSPECT_HAMMERS[d[o + S.wTier]!] ?? 'prospecting_hammer';
-  if (!held && hand) held = gearModel(hand);
+  if (!held && hand) {
+    // A kit of one piece a job (axe, pick or maul, hammer, sickle or hoe) shows the job's; the flint axe and knife its knife to cut.
+    const pieces = piecesOf(hand);
+    const job = jobOf(task, order);
+    held = (pieces.length > ToolJob.Cut ? pieces[job] : job === ToolJob.Cut ? pieces[pieces.length - 1] : pieces[0]) ?? '';
+  }
   if (held) wear(look, held, parts);
-  // The rest of the kit: every tool it has for a job, each once.
+  // The rest of the kit: every piece of every tool it has, each once, on the hips and back.
   const stows: ReadonlyArray<readonly [string, number]> = [['slot_hip_r', Stow.Hip], ['slot_hip_l', Stow.Hip], ['slot_back', Stow.Back], ['slot_quiver', Stow.Back]];
-  const kit = [d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!];
+  const shown = new Set([held]);
   let k = 0;
-  kit.forEach((tool, j) => {
-    if (!tool || kit.indexOf(tool) !== j || (tool === hand && held === gearModel(hand))) return;
-    const at = stows[k++];
-    if (at) wear(look, gearModel(tool), parts, at[1], at[0]);
-  });
+  for (const tool of [hand, d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!]) {
+    for (const p of tool ? piecesOf(tool) : []) {
+      if (shown.has(p)) continue;
+      shown.add(p);
+      const at = stows[k++];
+      if (at) wear(look, p, parts, at[1], at[0]);
+    }
+  }
   const cart = d[o + S.kit]!;
   let clip = 'idle';
   if (swing !== 0) clip = 'attack_1h_slash';
@@ -1524,6 +1532,13 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
   }
   look.clip = clipOr(body, clip, c.moving);
   return look;
+}
+
+/** The job of the tool a worker has in hand, as the sim picks it (units/tools.ts toolInHand): building and relighting, chopping, mining and digging, or farming. */
+function jobOf(task: number, order: number): number {
+  if (task === Task.Build || task === Task.Relight) return ToolJob.Build;
+  if (order === OrderKind.Mine || order === OrderKind.Dig) return ToolJob.Break;
+  return order === OrderKind.Farm ? ToolJob.Cut : ToolJob.Chop;
 }
 
 /** A mage's body: her school's robe at her robe tier once it is in the library (Patch 5: battle blue to red, support green to white), else the plain mage. */
