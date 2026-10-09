@@ -26,6 +26,29 @@ export interface ButtonIcon {
   tag?: string;
 }
 
+/** A row of a gear tooltip's comparison: the number the unit has now, this piece's, and an arrow for better or worse. */
+export interface CompareRow {
+  label: string;
+  /** What the unit has now; none when there is nothing to compare with. */
+  has?: string;
+  is: string;
+  dir?: 'up' | 'down' | 'same';
+  by?: string;
+}
+
+/**
+ * A gear tooltip (Patch 7, plan section 7, "Hover"): a line under the title
+ * (its rarity, Heft or Stature, where it is), its numbers beside the selected
+ * unit's piece with up and down arrows, and who can use it.
+ */
+export interface CompareTip {
+  sub: string;
+  /** The columns' heads (what the unit has, this piece), or null when only this piece's numbers show. */
+  heads: readonly [string, string] | null;
+  rows: readonly CompareRow[];
+  who: ReadonlyArray<{ text: string; ok: boolean }>;
+}
+
 export interface HudButtonDef {
   id: string;
   /** A picture instead of the face (the face is then only in the tooltip). */
@@ -48,11 +71,21 @@ export interface HudButtonDef {
   tipAbove?: HTMLElement;
   /** Extra classes for the button element. */
   className?: string;
+  /** The tooltip title's colour class (Patch 7: a piece's rarity, rarity-epic). */
+  nameClass?: string;
+  /** The tooltip compares a piece of gear with what the unit has (Patch 7). */
+  compare?: CompareTip;
+  /** Its picture glints (an epic piece) or sparkles (a legendary one) (Patch 7, plan section 3). */
+  shine?: 'glint' | 'sparkle';
   onPress?: (p: ButtonPress) => void;
   onRightClick?: (p: ButtonPress) => void;
   /** The right click works while it is greyed out too (Patch 5: a spell's autocast). */
   rightWhenGrey?: boolean;
   onDoubleClick?: (p: ButtonPress) => void;
+  /** A left press that moves on drags it (Patch 7: a piece of gear; input-manager.ts DragHooks says what it does). */
+  draggable?: boolean;
+  /** A dragged piece of gear let go on it goes to this unit (Patch 7: a portrait, a kit slot, a bag). */
+  dropUnit?: number;
   /** A click or its key while it is greyed out (Patch 3: the command card asks those who can sort out why). */
   onGreyPress?: () => void;
 }
@@ -86,7 +119,7 @@ export class HudButton {
   /** Draws the button's picture, or takes it away; the text face shows when there is none (or the kit lacks it). */
   private setIcon(icon: ButtonIcon | undefined): void {
     const layers = icon ? icon.layers.filter((l) => kitUrl(l.file) !== '') : [];
-    const sig = layers.length > 0 ? JSON.stringify([layers, icon!.badge, icon!.tag]) : '';
+    const sig = layers.length > 0 ? JSON.stringify([layers, icon!.badge, icon!.tag, this.def.shine]) : '';
     if (sig === this.iconSig) return;
     this.iconSig = sig;
     this.iconEl?.remove();
@@ -104,6 +137,7 @@ export class HudButton {
       if (l.filter) img.style.filter = l.filter;
       host.append(img);
     }
+    if (this.def.shine) host.append(shineEl(this.def.shine));
     if (icon!.badge) {
       const b = document.createElement('span');
       b.className = `btn-badge ${icon!.badge}`;
@@ -174,8 +208,17 @@ export class HudButton {
   }
 
   /** The tooltip lines: name and hotkey, what it does, why it is greyed out (or another reason it gives), and what a click does. */
-  tooltip(): { title: string; key: string; body: string; reason: string; foot: string; reasonFirst: boolean } {
-    return { title: this.def.name, key: this.badge(), body: this.def.description, reason: this.disabledReason || this.note, foot: this.def.foot ?? '', reasonFirst: this.def.reasonFirst === true };
+  tooltip(): { title: string; key: string; body: string; reason: string; foot: string; reasonFirst: boolean; nameClass: string; compare: CompareTip | null } {
+    return {
+      title: this.def.name,
+      key: this.badge(),
+      body: this.def.description,
+      reason: this.disabledReason || this.note,
+      foot: this.def.foot ?? '',
+      reasonFirst: this.def.reasonFirst === true,
+      nameClass: this.def.nameClass ?? '',
+      compare: this.def.compare ?? null,
+    };
   }
 
   /** An orange tooltip line on a button that still works (a tier the stock is short of: it can be picked). */
@@ -255,12 +298,13 @@ export class Tooltip {
   private fill(b: HudButton): void {
     const raw = b.tooltip();
     const t = { title: oneIsSingular(raw.title), key: raw.key, body: oneIsSingular(raw.body), reason: oneIsSingular(raw.reason), foot: oneIsSingular(raw.foot) };
-    const sig = `${t.title}|${t.key}|${t.body}|${t.reason}|${t.foot}|${raw.reasonFirst}`;
+    const sig = `${t.title}|${t.key}|${t.body}|${t.reason}|${t.foot}|${raw.reasonFirst}|${raw.nameClass}|${raw.compare ? JSON.stringify(raw.compare) : ''}`;
     if (sig === this.sig) return;
     this.sig = sig;
     this.el.replaceChildren();
+    this.el.classList.toggle('gear-tip', raw.compare !== null);
     const head = document.createElement('div');
-    head.className = 'tt-head';
+    head.className = `tt-head ${raw.nameClass}`.trim();
     head.textContent = t.title;
     if (t.key) {
       const k = document.createElement('span');
@@ -276,7 +320,9 @@ export class Tooltip {
     reason.className = 'tt-reason';
     reason.textContent = t.reason;
     reason.hidden = t.reason === '';
-    this.el.append(head, ...(raw.reasonFirst ? [reason, body] : [body, reason]));
+    this.el.append(head);
+    if (raw.compare) this.el.append(compareEl(raw.compare));
+    this.el.append(...(raw.reasonFirst ? [reason, body] : [body, reason]));
     if (t.foot) {
       const foot = document.createElement('div');
       foot.className = 'tt-foot';
@@ -315,4 +361,68 @@ export function badgeSvg(b: IconBadge): string {
   const svg = `<svg viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges" aria-hidden="true"><path d="${dark}" fill="#1a120c"/><path d="${lit}" fill="${colour}"/></svg>`;
   badgeCache.set(b, svg);
   return svg;
+}
+
+/** A gear tooltip's comparison: the line under the title, the table of numbers with arrows, and who can use the piece (Patch 7). */
+export function compareEl(c: CompareTip): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'tt-compare';
+  if (c.sub) {
+    const sub = document.createElement('div');
+    sub.className = 'tt-sub';
+    sub.textContent = c.sub;
+    box.append(sub);
+  }
+  if (c.rows.length > 0) {
+    const table = document.createElement('table');
+    table.className = 'tt-table';
+    const cell = (tr: HTMLElement, tag: 'th' | 'td', text: string, cls = ''): HTMLElement => {
+      const td = document.createElement(tag);
+      td.textContent = text;
+      if (cls) td.className = cls;
+      tr.append(td);
+      return td;
+    };
+    if (c.heads) {
+      const tr = document.createElement('tr');
+      cell(tr, 'th', '');
+      cell(tr, 'th', c.heads[0]);
+      cell(tr, 'th', c.heads[1]);
+      table.append(tr);
+    }
+    for (const r of c.rows) {
+      const tr = document.createElement('tr');
+      cell(tr, 'td', r.label, 'tt-label');
+      if (c.heads) cell(tr, 'td', r.has ?? '–');
+      const is = cell(tr, 'td', r.is);
+      if (r.dir) {
+        const m = document.createElement('span');
+        m.className = `tt-mark ${r.dir}`;
+        m.textContent = r.dir === 'up' ? ` ▲${r.by ?? ''}` : r.dir === 'down' ? ` ▼${r.by ?? ''}` : ' same';
+        is.append(m);
+      }
+      table.append(tr);
+    }
+    box.append(table);
+  }
+  if (c.who.length > 0) {
+    const who = document.createElement('div');
+    who.className = 'tt-who';
+    for (const w of c.who) {
+      const s = document.createElement('span');
+      s.className = w.ok ? 'ok' : 'no';
+      s.textContent = `${w.ok ? '✓' : '✗'} ${w.text}`;
+      who.append(s);
+    }
+    box.append(who);
+  }
+  return box;
+}
+
+/** The light that runs over an epic piece's picture, or the stars that wink on a legendary one's (hud.css .shine). */
+export function shineEl(kind: 'glint' | 'sparkle'): HTMLElement {
+  const s = document.createElement('span');
+  s.className = `shine ${kind}`;
+  s.setAttribute('aria-hidden', 'true');
+  return s;
 }
