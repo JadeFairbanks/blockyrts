@@ -42,15 +42,17 @@ this one came back after it, in a different form.)
 - `deploy/pages/functions/_middleware.ts` is a Pages Functions middleware.
   Without the sign-in cookie it answers every page with the sign-in form; with
   it, the site as usual. The user name is in the file (`Admin`, any capitals).
-  The password is a bcrypt hash in the `SITE_LOGIN_HASH` secret (below); the
-  Deploy workflow copies it into the Pages project as a secret of the same
-  name before each deploy, so neither the hash nor the password is in the
-  repository. One bcrypt check costs several times the free plan's 10 ms of
+  The password is the `SITE_PASSWORD` secret (below), exactly as visitors type
+  it (spaces at either end are dropped). Before each deploy the Deploy
+  workflow makes its bcrypt hash (`deploy/scripts/site-login.ts`, with a fixed
+  salt, so the hash stays the same from deploy to deploy) and puts the hash in
+  the Pages project as the `SITE_LOGIN_HASH` secret, so neither the password
+  nor the hash is in the repository. One bcrypt check costs several times the free plan's 10 ms of
   CPU a request, so the browser does it: the page carries the hash's salt,
   works out the bcrypt hash of what was typed with bcryptjs
   (`/gate/bcrypt.js`, which the client build writes) and posts it to
   `/login`, where the middleware only compares it and sets a signed cookie
-  for 30 days. Changing the hash signs everyone out.
+  for 30 days. Changing the password signs everyone out.
 - `deploy/pages/static/_routes.json` lets the game's files (`/assets/`,
   `/models/`, `/audio/`), `/gate/`, the icon, the preview picture,
   `robots.txt`, `sitemap.xml` and the installable app's files (below) skip
@@ -73,9 +75,8 @@ this one came back after it, in a different form.)
 The balance editor is no longer published at `/balance/`; it stays a private
 tool (`pnpm balance:dev`).
 
-To change the password, put a new bcrypt hash (from any bcrypt or htpasswd
-generator; `$2y$`, `$2b$` and `$2a$` all work) in the `SITE_LOGIN_HASH`
-secret and run Deploy. To take the sign-in page off, delete
+To change the password, put the new one (up to 72 characters) in the
+`SITE_PASSWORD` secret and run Deploy. To take the sign-in page off, delete
 `deploy/pages/functions` and `_routes.json` and their steps in the Deploy
 workflow.
 
@@ -118,7 +119,7 @@ deploy. Local builds show the next number marked as a dev build.
 | `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare account ID |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | secrets | R2 API token, Object Read & Write, bucket `blockyrts-saves` (create the bucket first) |
 | `RESEND_API_KEY` | secret, optional | Resend sending key for `mail.<DOMAIN>`; without it password-reset email is off |
-| `SITE_LOGIN_HASH` | secret | The sign-in page's password as a bcrypt hash; Deploy stops without it |
+| `SITE_PASSWORD` | secret | The sign-in page's password, as typed; Deploy stops without it (a `SITE_LOGIN_HASH` secret is read the same way when `SITE_PASSWORD` is not set) |
 
 ## Contract with `packages/server` (owned by the server thread)
 
