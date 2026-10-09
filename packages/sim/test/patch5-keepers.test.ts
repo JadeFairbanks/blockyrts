@@ -332,7 +332,7 @@ describe('what the keepers drop (MB-11, MF-6, MF-11)', () => {
       expect(items.find(([r]) => r === Res.Gold)?.[1] ?? 0).toBeLessThanOrEqual(2);
       expect(items.filter(([r]) => r === Res.Emeralds || r === Res.Rubies || r === Res.Diamonds).length).toBeLessThanOrEqual(1);
     }
-    const mage = new Set([...WAND_KITS, ...ROBE_KITS].filter((k) => k.tier > 0).flatMap((k) => k.items));
+    const mage = new Set<number>([...WAND_KITS, ...ROBE_KITS].filter((k) => k.tier > 0).flatMap((k) => k.items));
     for (let n = 0; n < 100; n++) {
       const items = keeperLoot(s, Mob.FaeGuardianAloft)!.items;
       expect(items.filter(([r]) => mage.has(r)).length).toBe(1);
