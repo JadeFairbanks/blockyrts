@@ -74,6 +74,16 @@ export interface Faction {
   size: number;
   /** Halfling village: war oxen still in its barn, ridden out when a war starts. */
   oxen: number;
+  /**
+   * Per player, its quest (Jade's Patch 5, peoples/quests.ts; an Elf
+   * caravan's is its kingdom's): the stage (quest-data.ts QuestStage); the
+   * step it is next offered or asked about; its kills so far; and the tribe
+   * band it is after (the Runkin's raid; 0 for none).
+   */
+  quest: number[];
+  questAt: number[];
+  questCount: number[];
+  questTarget: number[];
 }
 
 /** A player's open offer to a faction, with the three answers the faction gave (each a list of (good, count) pairs). */
@@ -105,7 +115,9 @@ export const FACTION_FIELDS = [
   'surrender', 'leader', 'day', 'nextAt', 'regrowAt', 'visits', 'leaveAt', 'leftAt', 'toX', 'toZ', 'toCell', 'survivors', 'rebuildUntil', 'size', 'oxen',
   'bought',
 ] as const satisfies ReadonlyArray<keyof Faction>;
-export const FACTION_LISTS = ['kills', 'closedUntil', 'lastOffer', 'declines', 'warnings', 'warnedAt', 'stock', 'stockMax', 'caravanAt'] as const satisfies ReadonlyArray<keyof Faction>;
+export const FACTION_LISTS = [
+  'kills', 'closedUntil', 'lastOffer', 'declines', 'warnings', 'warnedAt', 'stock', 'stockMax', 'caravanAt', 'quest', 'questAt', 'questCount', 'questTarget',
+] as const satisfies ReadonlyArray<keyof Faction>;
 
 /** Not state: each peoples state's factions by id (rebuilt when the list changes). */
 const index = new WeakMap<PeoplesState, { list: Faction[]; length: number; byId: Map<number, Faction> }>();

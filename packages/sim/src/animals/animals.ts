@@ -1087,6 +1087,7 @@ function onAnimalDeath(state: SimState, i: number): void {
     brag = lootBrag(s.loot, rolled, false);
   }
   const side = killer >= 0 ? e.owner[killer]! : owner < state.players.length ? owner : -1;
+  if (killer >= 0) peoplesHooks.kill(state, i, e.owner[killer]!);
   dropLoot(state, e.x[i]!, e.z[i]!, items, { killer, owner: side, brag, src: 0, prey: s.id + 1 });
   if (owner < state.players.length) state.events.push({ player: owner, kind: 'alert', text: `A tamed ${s.name.toLowerCase()} has been killed.`, x: e.x[i]!, z: e.z[i]! });
   // Its worker lets go of the cart.

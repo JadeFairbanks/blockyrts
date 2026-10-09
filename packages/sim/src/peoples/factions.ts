@@ -89,6 +89,7 @@ export function newFaction(state: SimState, kind: number, cell: number, x: numbe
     closedUntil: per(), lastOffer: per(), declines: per(), warnings: per(), warnedAt: per(),
     stock: [], stockMax: [], bought: 0, day: 0, nextAt: 0, regrowAt: 0,
     caravanAt: per(), visits: -1, leaveAt: 0, leftAt: 0, toX: 0, toZ: 0, toCell: 0, survivors: 0, rebuildUntil: 0, size: 0, oxen: 0,
+    quest: per(), questAt: per(), questCount: per(), questTarget: per(),
   };
   state.peoples.factions.push(f);
   return f;

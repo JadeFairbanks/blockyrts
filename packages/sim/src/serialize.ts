@@ -206,10 +206,12 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * spells are a new column). 34: Patch 5's stone circles (the Goddess's
  * blessing, the idols, the Pan Flute's plays, the Sweet Hawthornes and a
  * unit's circle order). 35: Patch 5's keepers (each Bog guardian's and Fae
- * Guardian's record). Every patch raises it, and a snapshot from any other
- * version is refused, never carried over (Jade, Patch 2: a standing rule).
+ * Guardian's record). 36: Patch 5's quests (each faction's quest stage, turn,
+ * kills and band for each player). Every patch raises it, and a snapshot from
+ * any other version is refused, never carried over (Jade, Patch 2: a standing
+ * rule).
  */
-export const SNAPSHOT_VERSION = 35;
+export const SNAPSHOT_VERSION = 36;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
