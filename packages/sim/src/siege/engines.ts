@@ -1,18 +1,20 @@
 // Siege engines and cannons on the field (Table 2f; Table 12's haul row;
-// Main base: the Citadel's cannon ports; Table 19's Dwarf city cannons). An
-// engine is a unit that never eats, never heals and is repaired by workers.
-// It moves only while a hitched horse or ox walks beside it, or while
-// enough of its crew stand by to push it, and rolls on wheels (gentle slopes, not
-// steps). It fires while its crew stand by it and it stands still: at what
-// it was told to attack, else at the nearest foe in range. Patch 2 (Jade):
-// an engine rolls out of the Artillery workshop with its full crew of
-// artillery crewmen, the only units that crew one, and its shots take
-// nothing from the stock. A cannon hauled into a Citadel's port fires from
-// the roof, its crew inside with it.
+// Table 19's Dwarf city cannons). An engine is a unit that never eats, never
+// heals and is repaired by workers. It moves only while a hitched horse or
+// ox walks beside it, or while enough of its crew stand by to push it, and
+// rolls on wheels (gentle slopes, not steps). It fires while its crew stand
+// by it and it stands still: at what it was told to attack (Patch 5, Jade's
+// MB-10: the players' own units too), else at the nearest foe in range.
+// Patch 2 (Jade): an engine rolls out of the Artillery workshop with its full
+// crew of artillery crewmen, the only units that crew one, and its shots take
+// nothing from the stock. Patch 5 (Jade, CT-3): the Citadel's cannon ports
+// are gone and no engine goes into a building; a fixed engine stands on the
+// Citadel's engine platform for good, crewed by garrison crewmen up there
+// with it (siege/platform.ts).
 
 import { BuildingKind } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
-import type { Building } from '../buildings/store.ts';
+import { ENGINE_PRODUCT, TROOP_PRODUCT, type Building } from '../buildings/store.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
 import { addWarrior, OrderKind, PEOPLES, standY, UnitKind, type SimState } from '../state.ts';
@@ -20,14 +22,14 @@ import { Species, speciesSpec } from '../animals/species.ts';
 import { PeopleUnit } from '../peoples/data.ts';
 import { gap, hostile, isMob } from '../combat/combat.ts';
 import { isStructure } from '../combat/mobs.ts';
-import { buildingTop, clearLob, fireAt, ProjectileFlag } from '../combat/projectiles.ts';
+import { clearLob, fireAt, ProjectileFlag } from '../combat/projectiles.ts';
 import { Act, besideBuilding, exitColumn, columnCentre, FAILED, giveOrder, leaveBuilding, MOVING, resetWalk, walkTo } from '../units/behaviour.ts';
 import { applyKit, Troop } from '../units/kits.ts';
 import { WORKER_HEALTH_BY_RANK, Work, workXp } from '../units/ranks.ts';
 import { tinker } from '../units/tinker.ts';
 import { say, sayTinkering } from '../peoples/speech.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
-import { CANNON_PORTS, CITADEL_LEVEL, CREW_REACH_WU, CREWMAN_RETRAIN_STEPS, Engine, engineSpec, HAUL_REACH_WU, type EngineSpec } from './data.ts';
+import { CREW_REACH_WU, CREWMAN_RETRAIN_STEPS, Engine, engineSpec, HAUL_REACH_WU, upgradeOf, type EngineSpec } from './data.ts';
 
 const CONTINUE = false;
 const DONE = true;
@@ -102,7 +104,7 @@ export function haulerOf(state: SimState, i: number): number {
   return length2d(e.x[a]! - e.x[i]!, e.z[a]! - e.z[i]!) <= HAUL_REACH_WU ? a : -1;
 }
 
-/** The crew standing by an engine now: units whose order is to crew it, beside it (or in the same building as a port cannon). */
+/** The crew standing by an engine now: units whose order is to crew it, beside it (or up on the platform with a fixed engine, Patch 5). */
 export function crewOf(state: SimState, i: number): number[] {
   const e = state.entities;
   const out: number[] = [];
@@ -159,17 +161,25 @@ export function stuckWhy(state: SimState, i: number): string {
  */
 export function fireWhy(state: SimState, i: number): string {
   if (haulerOf(state, i) >= 0) return '';
-  const spec = engineSpec(state.entities.mob[i]!);
+  const e = state.entities;
+  // Patch 5 (Jade, CT-3): a fixed engine cannot fire while its upgrade is being built.
+  const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
+  if (b && upgrading(b)) return 'It cannot fire while its upgrade is being built.';
+  const spec = engineSpec(e.mob[i]!);
   const crew = crewOf(state, i).length;
   if (crew < spec.crew) return `It needs ${spec.crew === 1 ? 'its crewman' : `${spec.crew} crewmen`} standing by it to fire (${crew} now).`;
   return '';
 }
 
-/** Whether a target is one this engine may shoot: a foe in range, past its minimum range, outside. */
-function canShoot(state: SimState, i: number, t: number, spec: EngineSpec, structures: boolean): boolean {
+/**
+ * Whether a target is one this engine may shoot: in range, past its minimum
+ * range, outside; by itself a foe but no structure, on an order anything it
+ * was told to attack (Patch 5, Jade's MB-10: the players' own units too).
+ */
+function canShoot(state: SimState, i: number, t: number, spec: EngineSpec, ordered: boolean): boolean {
   const e = state.entities;
-  if (t < 0 || t === i || e.hp[t]! <= 0 || e.inside[t] !== 0 || !hostile(state, i, t)) return false;
-  if (!structures && isMob(state, t) && isStructure(e.mob[t]!)) return false;
+  if (t < 0 || t === i || e.hp[t]! <= 0 || e.inside[t] !== 0) return false;
+  if (!ordered && (!hostile(state, i, t) || (isMob(state, t) && isStructure(e.mob[t]!)))) return false;
   const d = gap(state, i, t);
   return d <= spec.range && d >= spec.minRange;
 }
@@ -198,8 +208,8 @@ function fire(state: SimState, i: number, t: number, spec: EngineSpec): boolean 
   const dz = e.z[t]! - e.z[i]!;
   if (dx !== 0 || dz !== 0) e.heading[i] = headingTowards(dx, dz);
   if (state.step < e.atkNext[i]! || fireWhy(state, i) !== '') return false;
-  const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
-  const y = b ? buildingTop(b) + MUZZLE_WU : e.y[i]! + MUZZLE_WU;
+  // A fixed engine stands on its platform, so its own height is the deck's.
+  const y = e.y[i]! + MUZZLE_WU;
   if (clearLob(state, spec.shot, e.x[i]!, y, e.z[i]!, e.x[t]!, e.y[t]!, e.z[t]!, true) === 0) return false;
   const flags = ProjectileFlag.Siege | (spec.pierce ? ProjectileFlag.Pierce : ProjectileFlag.Blunt);
   fireAt(state, i, e.x[i]!, y, e.z[i]!, t, spec.shot, spec.damage, spec.spreadBp, flags);
@@ -208,29 +218,37 @@ function fire(state: SimState, i: number, t: number, spec: EngineSpec): boolean 
   return true;
 }
 
-const ENGINE_ORDERS: ReadonlySet<string> = new Set(['move', 'attackMove', 'port', 'attack', 'hold']);
+const ENGINE_ORDERS: ReadonlySet<string> = new Set(['move', 'attackMove', 'attack', 'hold']);
+/** A fixed engine never leaves its platform (Patch 5): it takes only attacks and holds. */
+const FIXED_ORDERS: ReadonlySet<string> = new Set(['attack', 'hold']);
 
-/** One step of an engine: its orders (move, attack, hold, a port), and firing at what it may. */
+/** Whether the engine on a Citadel's platform is being upgraded now: its upgrade is the item the Citadel is building (Jade, CT-3: it cannot attack meanwhile). */
+export function upgrading(b: Building): boolean {
+  const head = b.queue[0];
+  return head !== undefined && head.product >= ENGINE_PRODUCT && head.product < TROOP_PRODUCT && upgradeOf(head.product - ENGINE_PRODUCT) !== undefined;
+}
+
+/** One step of an engine: its orders (move, attack, hold), and firing at what it may. */
 export function runEngine(state: SimState, i: number): void {
   const e = state.entities;
   const spec = engineSpec(e.mob[i]!);
   e.order[i] = OrderKind.Idle;
-  // An engine takes only moves, attacks, holds and ports; anything else given to a mixed group is dropped.
-  while (e.queue[i]!.length > 0 && !ENGINE_ORDERS.has(e.queue[i]![0]!.t)) e.queue[i]!.shift();
+  // An engine takes only moves, attacks and holds (a fixed one no moves); anything else given to a mixed group is dropped.
+  const takes = spec.mobile >= 0 ? FIXED_ORDERS : ENGINE_ORDERS;
+  while (e.queue[i]!.length > 0 && !takes.has(e.queue[i]![0]!.t)) e.queue[i]!.shift();
   const o = e.queue[i]![0];
-  if (o && (o.t === 'move' || o.t === 'attackMove' || o.t === 'port')) {
-    if (e.inside[i] !== 0 && o.t !== 'port') leaveBuilding(state, i);
+  if (o && (o.t === 'move' || o.t === 'attackMove')) {
     if (moveEngine(state, i, o)) {
       e.queue[i]!.shift();
       resetWalk(state, i);
     }
-    // Moving, it does not fire; an attack-move stops to fire at what comes in range, and a cannon in its port fires from the roof.
-    const ported = o.t === 'port' && e.inside[i] === o.b;
-    if (!ported && (o.t !== 'attackMove' || e.order[i] === OrderKind.Move)) return;
+    // Moving, it does not fire; an attack-move stops to fire at what comes in range.
+    if (o.t !== 'attackMove' || e.order[i] === OrderKind.Move) return;
   }
   if (o?.t === 'attack') {
     const t = e.indexOf(o.id);
-    if (t < 0 || e.hp[t]! <= 0 || !hostile(state, i, t)) {
+    // Told to, it fires at anything out in the open (Jade's MB-10); the order was checked when it was given.
+    if (t < 0 || e.hp[t]! <= 0 || e.inside[t] !== 0) {
       e.queue[i]!.shift();
       e.target[i] = 0;
       return;
@@ -241,19 +259,21 @@ export function runEngine(state: SimState, i: number): void {
     }
     // Out of range: closer, if it can move (never closer than its minimum range).
     const d = gap(state, i, t);
-    if (d > spec.range && e.inside[i] === 0 && engineSpeed(state, i) > 0) {
+    if (d > spec.range && spec.mobile < 0 && engineSpeed(state, i) > 0) {
       e.speed[i] = engineSpeed(state, i);
       const r = walkTo(state, i, { ...pointGoal(floorDiv(e.x[t]!, WU_PER_COLUMN), floorDiv(e.z[t]!, WU_PER_COLUMN)), max: floorDiv(spec.range - 2 * M, WU_PER_COLUMN) });
       if (r === MOVING) e.order[i] = OrderKind.Move;
       return;
     }
-    if (d < spec.minRange) {
+    // Too close, or beyond a fixed engine's reach (s): the order is done.
+    if (d < spec.minRange || spec.mobile >= 0) {
+      if (spec.mobile >= 0 && d > spec.range) state.events.push({ player: e.owner[i]!, kind: 'alert', text: `That is beyond the ${spec.name.toLowerCase()}'s reach.`, x: e.x[i]!, z: e.z[i]! });
       e.queue[i]!.shift();
       e.target[i] = 0;
     }
     return;
   }
-  // Idle, holding, in a port or attack-moving: the nearest foe in range.
+  // Idle, holding or attack-moving: the nearest foe in range.
   let t = e.indexOf(e.target[i]!);
   if (!canShoot(state, i, t, spec, false)) t = pickShot(state, i, spec);
   if (t < 0) {
@@ -263,10 +283,9 @@ export function runEngine(state: SimState, i: number): void {
   fire(state, i, t, spec);
 }
 
-/** A step of an engine's move (to a point, or to a Citadel's port); true when the order is done. */
-function moveEngine(state: SimState, i: number, o: Extract<UnitOrder, { t: 'move' | 'attackMove' | 'port' }>): boolean {
+/** A step of an engine's move to a point; true when the order is done. */
+function moveEngine(state: SimState, i: number, o: Extract<UnitOrder, { t: 'move' | 'attackMove' }>): boolean {
   const e = state.entities;
-  if (o.t === 'port') return toPort(state, i, o.b);
   const speed = engineSpeed(state, i);
   if (speed <= 0) return waitForHaul(state, i);
   e.speed[i] = speed;
@@ -290,61 +309,6 @@ function waitForHaul(state: SimState, i: number): false {
   return false;
 }
 
-/** Cannon ports a Citadel has (Table 4: 4 on a tier 4 main base), or 0. */
-export function portRoom(b: Building): number {
-  return b.complete && b.kind === BuildingKind.MainBase && b.level >= CITADEL_LEVEL ? CANNON_PORTS : 0;
-}
-
-/** Cannons in a building's ports now. */
-export function inPorts(state: SimState, b: Building): number {
-  const e = state.entities;
-  let n = 0;
-  for (let j = 0; j < e.count; j++) if (e.kind[j] === UnitKind.Engine && e.inside[j] === b.id && e.hp[j]! > 0) n++;
-  return n;
-}
-
-/** Hauled to the Citadel's door, the cannon goes up into a free port (s: its crew follow it in). */
-function toPort(state: SimState, i: number, id: number): boolean {
-  const e = state.entities;
-  const b = state.buildings.get(id);
-  if (!b || b.owner !== e.owner[i] || portRoom(b) === 0) return true;
-  if (e.inside[i] === b.id) return false;
-  const speed = engineSpeed(state, i);
-  if (speed <= 0) return waitForHaul(state, i);
-  e.speed[i] = speed;
-  const r = walkTo(state, i, besideBuilding(b));
-  if (r === MOVING) {
-    e.order[i] = OrderKind.Move;
-    return false;
-  }
-  if (r === FAILED) return true;
-  if (inPorts(state, b) >= portRoom(b)) {
-    state.events.push({ player: e.owner[i]!, kind: 'alert', text: 'Every cannon port is taken.', x: e.x[i]!, z: e.z[i]! });
-    return true;
-  }
-  // The animal is let go at the door.
-  const a = e.partner[i] ? e.indexOf(e.partner[i]!) : -1;
-  if (a >= 0 && e.partner[a] === e.id[i]) e.partner[a] = 0;
-  e.partner[i] = 0;
-  const [cx, cz] = buildingCentre(b);
-  const k = inPorts(state, b);
-  // The ports stand at the roof's four corners (s).
-  e.inside[i] = b.id;
-  e.x[i] = cx + ((k & 1) * 2 - 1) * 2 * M;
-  e.z[i] = cz + ((k & 2) - 1) * 2 * M;
-  e.y[i] = buildingTop(b);
-  return false;
-}
-
-/** Why a cannon cannot go into a building's port, or ''. */
-export function portWhy(state: SimState, i: number, b: Building): string {
-  const spec = engineSpec(state.entities.mob[i]!);
-  if (!spec.cannon) return 'Only cannons go in the Citadel\'s cannon ports.';
-  if (portRoom(b) === 0) return 'Only a Citadel (main base tier 4) has cannon ports.';
-  if (inPorts(state, b) >= portRoom(b)) return 'Every cannon port is taken.';
-  return '';
-}
-
 // ----- crew, hauling and repair -----
 
 /** Why a unit cannot crew an engine, or '' (Patch 2, Jade: only artillery crewmen crew catapults, ballistas and cannons). */
@@ -352,6 +316,8 @@ export function crewWhy(state: SimState, j: number, i: number): string {
   const e = state.entities;
   if (i < 0 || e.kind[i] !== UnitKind.Engine || e.owner[i] !== e.owner[j] || e.hp[i]! <= 0) return 'Only your own engines and cannons take a crew.';
   if (!isCrewman(state, j)) return 'Only artillery crewmen crew engines and cannons. Train them at an Artillery workshop.';
+  // Patch 5 (Jade, CT-3): no one goes up to a fixed engine; its crew are the garrison crewmen up there with it.
+  if (engineSpec(e.mob[i]!).mobile >= 0 && e.inside[j] !== e.inside[i]) return 'Only garrison artillery crewmen crew a fixed engine. Train them at the Citadel (Build defense).';
   return '';
 }
 
@@ -371,27 +337,24 @@ export function withoutTheirCrew(state: SimState, units: readonly number[]): num
   });
 }
 
-/** The crew order: walk to the engine and stand by it for good (into the Citadel with a port cannon). Crew fight only what their weapons reach (combat/fight.ts). */
+/**
+ * The crew order: walk to the engine and stand by it for good. Crew fight
+ * only what their weapons reach (combat/fight.ts). A garrison crewman stands
+ * by a fixed engine up on its platform; if the engine is destroyed he comes
+ * down by the door as an artillery crewman (s).
+ */
 export function runCrew(state: SimState, j: number, o: Extract<UnitOrder, { t: 'crew' }>): boolean {
   const e = state.entities;
   const i = e.indexOf(o.id);
   const why = crewWhy(state, j, i);
   if (why) {
     if (i >= 0 && e.hp[i]! > 0) state.events.push({ player: e.owner[j]!, kind: 'alert', text: why, x: e.x[j]!, z: e.z[j]! });
+    if (e.inside[j] !== 0) leaveBuilding(state, j);
     return DONE;
   }
   if (e.act[j] === Act.Start) e.act[j] = Act.Walk;
-  if (e.inside[i] !== 0) {
-    if (e.inside[j] === e.inside[i]) return CONTINUE;
-    const b = state.buildings.get(e.inside[i]!);
-    if (!b) return DONE;
-    if (walkTo(state, j, besideBuilding(b)) === MOVING) return CONTINUE;
-    e.inside[j] = b.id;
-    e.x[j] = e.x[i]!;
-    e.z[j] = e.z[i]!;
-    e.y[j] = e.y[i]!;
-    return CONTINUE;
-  }
+  // Up on the platform with his fixed engine (crewWhy lets no one else crew it).
+  if (e.inside[i] !== 0) return CONTINUE;
   if (e.inside[j] !== 0) leaveBuilding(state, j);
   const d = length2d(e.x[i]! - e.x[j]!, e.z[i]! - e.z[j]!);
   if (d > CREW_REACH_WU - M) {
@@ -447,7 +410,7 @@ export function runRetrain(state: SimState, j: number, o: Extract<UnitOrder, { t
   }
   if (e.act[j] !== Act.Work) {
     if (e.act[j] === Act.Start) {
-      // Up on a wall or inside a building (a port cannon's crew in the Citadel): out first.
+      // Up on a wall or inside a building: out first.
       if (e.inside[j] !== 0) leaveBuilding(state, j);
       e.act[j] = Act.Walk;
     }

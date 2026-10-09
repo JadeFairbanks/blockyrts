@@ -18,8 +18,9 @@ import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CR
 import { buildingCentre, dist2 } from './lights.ts';
 import { bandAt } from './placement.ts';
 import { ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
-import { CREWMAN, engineSpec, PLAYER_ENGINES } from '../siege/data.ts';
+import { CREWMAN, engineSpec, PLAYER_ENGINES, upgradeOf } from '../siege/data.ts';
 import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines.ts';
+import { finishUpgrade, platformOf, platformProblem, platformProducts, spawnFixedEngine, spawnGarrisonCrewman, engineUpgradeCost, engineUpgradeCrew, engineUpgradeSteps } from '../siege/platform.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { addAnimal, animalsAt, barnFeedText, layingHens, stallsTaken } from '../animals/animals.ts';
 import { RATING_NAMES, workedOut } from './mining.ts';
@@ -72,8 +73,10 @@ export interface ProductSpec {
   recipe?: number;
   /** Slaughter: the species. */
   slaughter?: number;
-  /** A siege engine or cannon (siege/data.ts Engine). */
+  /** A siege engine or cannon (siege/data.ts Engine); for an upgrade of the fixed engine on a Citadel's platform, the engine it becomes. */
   engine?: number;
+  /** An upgrade of the fixed engine on a Citadel's platform (Patch 5, CT-3): the engine it starts from. */
+  upgrade?: number;
   /** A new troop: its type and tiers. */
   troop?: { troop: number; w: number; a: number };
   /** A new mage trained at a Magi Sanctum with her kit picked (Patch 2): her school and wand and robe tiers. */
@@ -116,6 +119,12 @@ export function productSpec(product: Product): ProductSpec {
       tooltip: `A new woodsman (Patch 5): he forages wild food and fishes, both at once if you like, and fights back with his wooden spear when attacked. Pays ${WOODSMAN.food} food, 1 leather or 1 hides, 4 sticks and 4 flax. Needs free supply.`,
     };
   }
+  if (product === Product.GarrisonCrewman) {
+    return {
+      product, name: 'Garrison artillery crewman', key: 'G', steps: CREWMAN.seconds * STEPS_PER_SECOND, cost: [], food: CREWMAN.food,
+      tooltip: `A new garrison artillery crewman (Patch 5): he goes up to the Citadel's engine platform to crew its fixed engine, and stays up there for good. Pays ${CREWMAN.food} food. Needs free supply. Only while the fixed engine up there is short of crew.`,
+    };
+  }
   if (product === Product.Crewman) {
     return {
       product, name: TROOP_NAMES[Troop.Crew]!, key: 'C', steps: CREWMAN.seconds * STEPS_PER_SECOND, cost: [], food: CREWMAN.food,
@@ -145,9 +154,28 @@ export function productSpec(product: Product): ProductSpec {
     const r = RESEARCH[product - RESEARCH_PRODUCT]!;
     return { product, name: r.name, key: r.key, steps: r.steps, cost: r.cost, food: 0, research: r.id, tooltip: `Research. Opens ${r.opens}` };
   }
+  const up = product >= ENGINE_PRODUCT ? upgradeOf(product - ENGINE_PRODUCT) : undefined;
+  if (up) {
+    // Patch 5 (Jade, CT-3): the difference in cost and time, and the food of the crewman it brings.
+    const to = engineSpec(up.to);
+    const more = engineUpgradeCrew(up.from, up.to);
+    const crewman = more > 0 ? ` From one crewman to two: if the one is alive when it is done, the second comes with it (pays his food, ${more * CREWMAN.food}, and needs free supply).` : '';
+    return {
+      product, name: `Upgrade to ${to.name}`, key: '', steps: engineUpgradeSteps(up.from, up.to), cost: engineUpgradeCost(up.from, up.to), food: more * CREWMAN.food, engine: up.to, upgrade: up.from,
+      tooltip: `The ${engineSpec(up.from).name.toLowerCase()} on the engine platform becomes ${/^[aeiou]/i.test(to.name) ? 'an' : 'a'} ${to.name.toLowerCase()}, for what the ${to.name.toLowerCase()} costs beyond it. It cannot fire while the upgrade is being built.${crewman}`,
+    };
+  }
   if (product >= ENGINE_PRODUCT) {
     const s = engineSpec(product - ENGINE_PRODUCT);
     const crew = s.crew === 1 ? 'its artillery crewman' : `its ${s.crew} artillery crewmen`;
+    if (s.mobile >= 0) {
+      // Patch 5 (Jade, CT-3): the mobile engine's cost and time, crew food and all.
+      const garrison = s.crew === 1 ? 'its garrison crewman' : `its ${s.crew} garrison crewmen`;
+      return {
+        product, name: s.name, key: '', steps: s.steps, cost: s.cost, food: s.crew * CREWMAN.food, engine: s.id,
+        tooltip: `A ${engineSpec(s.mobile).name.toLowerCase()} on braces, built on the Citadel's engine platform with ${garrison}. It never leaves the platform; its crew stay up there with it. Pays the crew's food too (${s.crew * CREWMAN.food}), and needs free supply for them.`,
+      };
+    }
     return {
       product, name: s.name, key: '', steps: s.steps, cost: s.cost, food: s.crew * CREWMAN.food, engine: s.id,
       tooltip: `A ${s.name.toLowerCase()} rolls out with ${crew} when it is done (Table 2f; Patch 2), and fires without ammunition. Pays the crew's food too (${s.crew * CREWMAN.food}), and needs free supply for them.`,
@@ -383,6 +411,8 @@ export function productsOf(b: Building): Product[] {
   if (b.kind === BuildingKind.ArtilleryWorkshop) out.push(Product.Crewman);
   for (const id of recipesAt(b.kind)) out.push(RECIPE_PRODUCT + id);
   for (const id of PLAYER_ENGINES) if (engineSpec(id).at === b.kind) out.push(ENGINE_PRODUCT + id);
+  // The Citadel's Build defense: fixed engines for its platform, their upgrades and garrison crewmen (Patch 5).
+  if (platformOf(b)) out.push(...platformProducts());
   return out;
 }
 
@@ -447,6 +477,10 @@ export function productProblem(state: SimState, b: Building, product: Product, u
   const god = player.god === 1;
   const research = god ? -1 : player.research | b.tech;
   const spec = productSpec(product);
+  if (product === Product.GarrisonCrewman) {
+    const why = platformProblem(state, b, product, user);
+    if (why) return why;
+  }
   if (spec.slaughter !== undefined) {
     const queued = b.queue.filter((q) => q.product === product).length;
     if (slaughterable(state, b, spec.slaughter).length <= queued) return `No grown ${speciesSpec(spec.slaughter).name.toLowerCase()} left in this Barn to slaughter.`;
@@ -460,6 +494,9 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     const why = baseProblem(state, user, s.base);
     if (why) return why;
     if (!hasResearch(research, s.research as Research)) return `Needs ${RESEARCH[s.research]!.name} researched first.`;
+    // A fixed engine or its upgrade: an Artillery workshop, and the platform free or holding the engine it starts from (Patch 5).
+    const platform = s.mobile >= 0 ? platformProblem(state, b, product, user) : '';
+    if (platform) return platform;
     // The engine's materials here; its crew's food below.
     for (const [res, n] of spec.cost) if (haveOf(pool, res) < n) return `Not enough resources (${costText(spec.cost)}).`;
   } else if (spec.recipe !== undefined) {
@@ -505,15 +542,18 @@ export function researchFacilities(state: SimState, player: number): number {
   return n;
 }
 
-/** Products that are new units: workers, troops, mages and artillery crewmen. */
+/** Products that are new units: workers, troops, mages and artillery crewmen (garrison ones too). */
 export function trainsUnit(product: number): boolean {
-  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product === Product.Woodsman || product >= TROOP_PRODUCT;
+  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product === Product.GarrisonCrewman || product === Product.Woodsman || product >= TROOP_PRODUCT;
 }
 
 /** Supply a product's new units take: 1 for a unit trained, an engine's crew (Patch 2), else 0. */
 export function supplyNeed(product: number): number {
   if (trainsUnit(product)) return 1;
-  if (product >= ENGINE_PRODUCT && product < TROOP_PRODUCT) return engineSpec(product - ENGINE_PRODUCT).crew;
+  if (product >= ENGINE_PRODUCT && product < TROOP_PRODUCT) {
+    const up = upgradeOf(product - ENGINE_PRODUCT);
+    return up ? engineUpgradeCrew(up.from, up.to) : engineSpec(product - ENGINE_PRODUCT).crew;
+  }
   return 0;
 }
 
@@ -704,7 +744,9 @@ export function enginesShortOfCrew(state: SimState, player: number, x: number, z
   const out: Array<[number, number]> = [];
   for (let i = 0; i < e.count; i++) {
     if (e.kind[i] !== UnitKind.Engine || e.owner[i] !== player || e.hp[i]! <= 0) continue;
-    if (crewSworn(state, i).length < engineSpec(e.mob[i]!).crew) out.push([i, dist2(e.x[i]!, e.z[i]!, x, z)]);
+    // A fixed engine takes only garrison crewmen, trained at its Citadel (Patch 5).
+    const spec = engineSpec(e.mob[i]!);
+    if (spec.mobile < 0 && crewSworn(state, i).length < spec.crew) out.push([i, dist2(e.x[i]!, e.z[i]!, x, z)]);
   }
   return out.sort((p, q) => p[1] - q[1] || e.id[p[0]]! - e.id[q[0]]!).map(([i]) => i);
 }
@@ -735,8 +777,18 @@ export function nearestCrewTrainer(state: SimState, engine: number): Building | 
  * in, so this module never imports the questions.
  */
 export function installCrewHooks(hooks: typeof crewHooks): void {
-  hooks.trainer = nearestCrewTrainer;
-  hooks.train = (state, engine, at) => queueProduct(state, at, Product.Crewman, state.entities.owner[engine]!, state.entities.id[engine]!);
+  // A fixed engine's crewman is a garrison crewman from the Citadel it stands on (Patch 5).
+  hooks.trainer = (state, engine) => {
+    const e = state.entities;
+    if (engineSpec(e.mob[engine]!).mobile < 0) return nearestCrewTrainer(state, engine);
+    const b = state.buildings.get(e.inside[engine]!);
+    return b && platformOf(b) && usableBy(state, b, e.owner[engine]!) ? b : undefined;
+  };
+  hooks.train = (state, engine, at) => {
+    const e = state.entities;
+    const fixed = engineSpec(e.mob[engine]!).mobile >= 0;
+    return queueProduct(state, at, fixed ? Product.GarrisonCrewman : Product.Crewman, e.owner[engine]!, e.id[engine]!);
+  };
   // What Yes takes is food, which the hook's resource list cannot hold; the queue's tooltip names it.
   hooks.cost = () => [];
 }
@@ -777,13 +829,20 @@ export function slaughterable(state: SimState, b: Building, species: number): nu
   return out.sort((p, q) => (e.sex[q] === spare ? 1 : 0) - (e.sex[p] === spare ? 1 : 0) || e.id[q]! - e.id[p]!);
 }
 
-/** A research step, a recipe, a slaughter or an engine is done, for the player who queued it. */
-function finishProduct(state: SimState, b: Building, product: number, by: number): void {
+/** A research step, a recipe, a slaughter, an engine or an upgrade of one is done, for the player who queued it. */
+function finishProduct(state: SimState, b: Building, item: QueueItem): void {
+  const { product, by } = item;
   const player = state.players[by]!;
   const spec = productSpec(product);
   const [x, z] = buildingCentre(b);
+  if (spec.upgrade !== undefined) {
+    finishUpgrade(state, b, item);
+    return;
+  }
   if (spec.engine !== undefined) {
-    spawnEngine(state, b, spec.engine, by);
+    // A fixed engine goes up on the Citadel's platform (Patch 5); any other rolls out with its crew.
+    if (engineSpec(spec.engine).mobile >= 0) spawnFixedEngine(state, b, spec.engine, by);
+    else spawnEngine(state, b, spec.engine, by);
     return;
   }
   if (spec.slaughter !== undefined) {
@@ -986,6 +1045,10 @@ export function updateBuildings(state: SimState): void {
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
           else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by, head.engine);
           else if (head.product === Product.Woodsman) spawnWoodsman(state, b, head.by);
+          // A garrison crewman with no fixed engine short of crew any more comes out as an artillery crewman.
+          else if (head.product === Product.GarrisonCrewman) {
+            if (!spawnGarrisonCrewman(state, b)) spawnCrewman(state, b, head.by, 0);
+          }
           else spawnWorker(state, b, head.by);
         }
       } else {
@@ -995,7 +1058,7 @@ export function updateBuildings(state: SimState): void {
           // A stack (Patch 5) keeps its slot until the last of it is done.
           if (head.count > 0) nextOfStack(head);
           else b.queue.shift();
-          finishProduct(state, b, head.product, head.by);
+          finishProduct(state, b, head);
         }
       }
     }

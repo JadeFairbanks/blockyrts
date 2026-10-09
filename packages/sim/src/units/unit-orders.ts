@@ -86,8 +86,6 @@ export type UnitOrder =
   | { t: 'crew'; id: number }
   /** A worker repairs a siege engine or cannon (id). */
   | { t: 'mend'; id: number }
-  /** A cannon is hauled into one of the Citadel's (building b) cannon ports. */
-  | { t: 'port'; b: number }
   /**
    * Loot (units/loot.ts): pick up the loot `id` lying on the ground (and
    * whatever else lies right by it), then with `hand` hand the bag in at the
@@ -138,7 +136,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain', 'stairs', 'woods'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'stairs', 'woods'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -170,7 +168,6 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
   crew: ['id'],
   mend: ['id'],
-  port: ['b'],
   loot: ['id', 'hand', 'back', 'x', 'z'],
   forage: ['res', 'x', 'z', 'k', 'ang'],
   retrain: ['b'],
@@ -257,8 +254,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Crewing';
     case 'mend':
       return 'Repairing';
-    case 'port':
-      return 'Going to a cannon port';
     case 'loot':
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
     case 'forage': {

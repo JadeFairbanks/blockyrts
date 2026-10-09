@@ -7,7 +7,7 @@
 // before, their keys went by position on the keyboard, Q to B, and could not
 // be rebound.
 import { School, SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
-import { buildMenuActions, makeMenuActions } from '../hud/menu-keys.ts';
+import { buildMenuActions, defenseMenuActions, makeMenuActions } from '../hud/menu-keys.ts';
 
 export interface Action {
   id: string;
@@ -25,7 +25,6 @@ export const ACTIONS: readonly Action[] = [
   // Upgrade equipment takes the old Upgrade weapon key (s).
   { id: 'equip', name: 'Upgrade equipment (the best weapon, then armour, the stock pays for)', key: 'KeyQ', group: 'Units' },
   { id: 'hitch', name: 'Hitch an animal or let it go (siege engines and cannons)', key: 'KeyR', group: 'Units' },
-  { id: 'port', name: 'Into a cannon port (cannons)', key: 'KeyE', group: 'Units' },
   { id: 'hunt', name: 'Hunt (warriors go out after game, home by nightfall)', key: 'KeyN', group: 'Units' },
   { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
   // Patch 2: the artillery crewman's own order, on a key no other unit card uses here (s).
@@ -64,8 +63,11 @@ export const ACTIONS: readonly Action[] = [
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
   // Patch 5: a farm's Fertilize (right click: Auto fertilize).
   { id: 'fertilize', name: 'Fertilize (farms; right click turns Auto fertilize on or off)', key: 'KeyF', group: 'Buildings' },
+  // Patch 5: the Citadel's Build defense menu, on D, a letter no building card uses.
+  { id: 'buildDefense', name: 'Build defense (the Citadel\'s engine platform)', key: 'KeyD', group: 'Buildings' },
   // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
   ...makeMenuActions(),
+  ...defenseMenuActions(),
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
