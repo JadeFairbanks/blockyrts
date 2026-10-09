@@ -5,7 +5,6 @@
     "/assets/*",
     "/models/*",
     "/audio/*",
-    "/gate/*",
     "/favicon.svg",
     "/og-image.jpg",
     "/manifest.webmanifest",

@@ -33,35 +33,34 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 
 ## Sign-in page and search
 
-A sign-in page stands in front of the whole site, the play domain and the
-`blockyrts.pages.dev` mirror alike, so passers-by do not reach the game or its
-server. It is a deterrent, not security: the server's own address is not
-behind it. (The indev password gate from before Patch 5 came off with Patch 5;
-this one came back after it, in a different form.)
+The browser's own user name and password box stands in front of the whole
+site, the play domain and the `blockyrts.pages.dev` mirror alike, so
+passers-by do not reach the game or its server. It is a deterrent, not
+security: the server's own address is not behind it. (The indev password
+gate from before Patch 5 came off with Patch 5; this one came back after it.)
 
 - `deploy/pages/functions/_middleware.ts` is a Pages Functions middleware.
-  Without the sign-in cookie it answers every page with the sign-in form; with
-  it, the site as usual. The user name is in the file (`Admin`, any capitals).
-  The password is the `SITE_PASSWORD` secret (below), exactly as visitors type
-  it (spaces at either end are dropped). Before each deploy the Deploy
-  workflow makes its bcrypt hash (`deploy/scripts/site-login.ts`, with a fixed
-  salt, so the hash stays the same from deploy to deploy) and puts the hash in
-  the Pages project as the `SITE_LOGIN_HASH` secret, so neither the password
-  nor the hash is in the repository. One bcrypt check costs several times the free plan's 10 ms of
-  CPU a request, so the browser does it: the page carries the hash's salt,
-  works out the bcrypt hash of what was typed with bcryptjs
-  (`/gate/bcrypt.js`, which the client build writes) and posts it to
-  `/login`, where the middleware only compares it and sets a signed cookie
-  for 30 days. Changing the password signs everyone out.
+  Without the sign-in cookie or the right user name and password it answers
+  every page with 401 and `WWW-Authenticate: Basic`, which makes the browser
+  ask; with them, the site as usual. The user name is in the file (`Admin`,
+  any capitals). The password is the `SITE_PASSWORD` secret (below), exactly
+  as visitors type it (spaces at either end are dropped); Deploy copies it
+  into the Pages project as a secret of the same name before each deploy, so
+  it is not in the repository. The check is a plain comparison (of the two
+  passwords' SHA-256), well inside the free plan's 10 ms of CPU a request.
+  After the right answer the middleware sets a signed cookie for 30 days, so
+  the box does not come back each time the browser restarts. Changing the
+  password signs everyone out.
 - `deploy/pages/static/_routes.json` lets the game's files (`/assets/`,
-  `/models/`, `/audio/`), `/gate/`, the icon, the preview picture,
-  `robots.txt`, `sitemap.xml` and the installable app's files (below) skip
-  the middleware, so loading the game costs no Functions requests (the free
-  plan has 100,000 a day).
+  `/models/`, `/audio/`), the icon, the preview picture, `robots.txt`,
+  `sitemap.xml` and the installable app's files (below) skip the middleware,
+  so loading the game costs no Functions requests (the free plan has 100,000
+  a day).
 - The site calls itself a learning project, not a game, everywhere search
-  engines and link previews look. Search engines and previews read the
-  sign-in page, which carries the title, description, preview tags and
-  structured data. Behind it, `packages/client/index.html` carries the same
+  engines and link previews look. Search engines and previews read the page
+  behind the box (what a visitor sees after closing it), which carries the
+  title, description, preview tags and structured data; since it comes with
+  a 401, search engines may also leave the site out altogether. Behind it, `packages/client/index.html` carries the same
   words and a short summary for readers without JavaScript, and
   `packages/client/site.ts` is a Vite plugin: when the build is given the
   site's address as `VITE_SITE_URL` (Deploy sets `https://play.<DOMAIN>`), it
@@ -75,8 +74,8 @@ this one came back after it, in a different form.)
 The balance editor is no longer published at `/balance/`; it stays a private
 tool (`pnpm balance:dev`).
 
-To change the password, put the new one (up to 72 characters) in the
-`SITE_PASSWORD` secret and run Deploy. To take the sign-in page off, delete
+To change the password, put the new one in the `SITE_PASSWORD` secret and
+run Deploy. To take the sign-in box off, delete
 `deploy/pages/functions` and `_routes.json` and their steps in the Deploy
 workflow.
 
@@ -123,7 +122,7 @@ and the next ordinary deploy still goes up by 0.1 from it.
 | `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare account ID |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | secrets | R2 API token, Object Read & Write, bucket `blockyrts-saves` (create the bucket first) |
 | `RESEND_API_KEY` | secret, optional | Resend sending key for `mail.<DOMAIN>`; without it password-reset email is off |
-| `SITE_PASSWORD` | secret | The sign-in page's password, as typed; Deploy stops without it (a `SITE_LOGIN_HASH` secret is read the same way when `SITE_PASSWORD` is not set) |
+| `SITE_PASSWORD` | secret | The sign-in box's password, as typed; Deploy stops without it (a `SITE_LOGIN_HASH` secret is read the same way when `SITE_PASSWORD` is not set) |
 
 ## Contract with `packages/server` (owned by the server thread)
 

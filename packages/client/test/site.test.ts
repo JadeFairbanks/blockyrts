@@ -1,10 +1,10 @@
 // The site's version line, and its search and preview pieces: the site is a
-// learning project behind a sign-in page (site-gate.test.ts; deploy/README.md).
+// learning project behind a sign-in box (site-gate.test.ts; deploy/README.md).
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { deployVersion, fromTenths, toTenths } from '../../../deploy/scripts/game-version.ts';
 import file from '../../../version.json';
-import { GATE_SCRIPT, gateScript, robotsTxt, SITE_DESCRIPTION, SITE_IMAGE, siteHead, sitemapXml, sitePlugin, siteUrl } from '../site.ts';
+import { robotsTxt, SITE_DESCRIPTION, SITE_IMAGE, siteHead, sitemapXml, sitePlugin, siteUrl } from '../site.ts';
 
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -55,12 +55,10 @@ describe('site', () => {
     expect(deploy).not.toMatch(/balance/i);
     expect(deploy).toContain('VITE_SITE_URL');
     expect(deploy).toContain('cp deploy/pages/static/_routes.json deploy/pages/static/_headers packages/client/dist/');
-    expect(deploy).toContain('pages secret put SITE_LOGIN_HASH --project-name blockyrts <"$RUNNER_TEMP/site-login-hash"');
-    // The login is made from the password before anything is built or pushed.
-    expect(deploy).toContain('SITE_PASSWORD: ${{ secrets.SITE_PASSWORD || secrets.SITE_LOGIN_HASH }}');
-    const made = deploy.indexOf('node deploy/scripts/site-login-cli.ts >"$RUNNER_TEMP/site-login-hash"');
-    expect(made).toBeGreaterThan(deploy.indexOf('pnpm install'));
-    expect(made).toBeLessThan(deploy.indexOf('pnpm --filter @blockyrts/client build'));
+    expect(deploy).toContain(`printf '%s' "$SITE_PASSWORD" | pnpm dlx wrangler@4 pages secret put SITE_PASSWORD --project-name blockyrts`);
+    expect(deploy.split('SITE_PASSWORD: ${{ secrets.SITE_PASSWORD || secrets.SITE_LOGIN_HASH }}')).toHaveLength(3);
+    // The password is checked before anything is built or pushed.
+    expect(deploy.indexOf('SITE_PASSWORD secret is missing')).toBeLessThan(deploy.indexOf('pnpm install'));
   });
 
   it('keeps only the pages.dev addresses out of search results', () => {
@@ -101,13 +99,11 @@ describe('site', () => {
     expect(JSON.parse(json ?? '')).toEqual({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Survive and Conquer', description: SITE_DESCRIPTION, url: 'https://play.example.com/' });
   });
 
-  it('writes the sign-in page\'s bcryptjs beside index.html in every build', () => {
+  it('writes robots.txt alone beside index.html in a build without an address', () => {
     const files = new Map<string, string>();
     const hook = sitePlugin(null).generateBundle;
     const run = (typeof hook === 'function' ? hook : hook?.handler) as (this: unknown) => void;
     run.call({ emitFile: (f: { fileName: string; source: string }) => files.set(f.fileName, f.source) });
-    expect(files.get(GATE_SCRIPT)).toBe(gateScript());
-    expect(gateScript()).toContain('global.bcrypt = ');
-    expect([...files.keys()].sort()).toEqual([GATE_SCRIPT, 'robots.txt']);
+    expect([...files.keys()]).toEqual(['robots.txt']);
   });
 });

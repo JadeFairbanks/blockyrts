@@ -1,37 +1,32 @@
-// Cloudflare Pages middleware: a sign-in page in front of the whole site (the
-// play domain and the pages.dev mirror), so passers-by do not reach the game
-// or its server. It is a deterrent, not security. The game's files (/assets/,
-// /models/, /audio/), the sign-in page's script (/gate/), the icon, the
+// Cloudflare Pages middleware: the browser's own user name and password box in
+// front of the whole site (the play domain and the pages.dev mirror), so
+// passers-by do not reach the game or its server. It is a deterrent, not
+// security. The game's files (/assets/, /models/, /audio/), the icon, the
 // preview picture, robots.txt, sitemap.xml and the installable app's
 // manifest, service worker and icons skip it, see
 // deploy/pages/static/_routes.json; deploy/README.md has the whole picture.
 //
-// The login is the user name below and a bcrypt hash of the password, which
-// the Deploy workflow makes from the SITE_PASSWORD Actions secret
-// (deploy/scripts/site-login.ts) and puts in the Pages project as the
-// SITE_LOGIN_HASH secret, so neither is in the repository. The browser works
-// out the bcrypt hash of what was typed (the hash's salt is in the page) and
-// sends that, because one bcrypt check costs several times the free plan's
-// 10 ms of CPU a request; this side only compares. A signed cookie then keeps
-// the browser signed in for COOKIE_DAYS.
+// The login is the user name below and the password in the Pages project's
+// SITE_PASSWORD secret, which the Deploy workflow copies from the Actions
+// secret, so the password is not in the repository. Checking it is a plain
+// comparison, well inside the free plan's 10 ms of CPU a request. After a
+// right answer a signed cookie keeps the browser signed in for COOKIE_DAYS,
+// so the box does not come back each time the browser restarts.
 
 /** The user name, in any capitals. */
 export const SITE_USER = 'Admin';
 export const COOKIE = 'sac_login';
 export const COOKIE_DAYS = 30;
-/** Where the sign-in page posts what was typed. */
-export const LOGIN_PATH = '/login';
-/** The sign-in page's copy of bcryptjs, which the client build writes (packages/client/site.ts). */
-export const GATE_SCRIPT = '/gate/bcrypt.js';
+const REALM = 'Survive and Conquer';
 
-// How the sign-in page describes the site to visitors, search engines and
-// link previews: packages/client/site.ts has the same words for index.html.
+// How the box's page describes the site to visitors, search engines and link
+// previews: packages/client/site.ts has the same words for index.html.
 const TITLE = 'Survive and Conquer';
 const DESCRIPTION = 'Survive and Conquer is a learning project.';
 const IMAGE = '/og-image.jpg';
 
 interface Env {
-  SITE_LOGIN_HASH?: string;
+  SITE_PASSWORD?: string;
 }
 
 interface PagesContext {
@@ -40,25 +35,12 @@ interface PagesContext {
   next: () => Promise<Response>;
 }
 
-/** A bcrypt hash's parts: the salt the browser hashes with, and the 31-character result to match. */
-export interface Login {
-  salt: string;
-  check: string;
-  key: string;
+/** The password, without spaces at either end, or null when there is none. */
+export function readPassword(raw: string | undefined): string | null {
+  return raw?.trim() || null;
 }
 
-const B64 = '[./A-Za-z0-9]';
-
-/**
- * Reads a bcrypt hash. $2y$ (PHP's name) and $2a$ are the same algorithm as
- * $2b$, which the sign-in page's bcryptjs is given; $2x$ (PHP's old, broken
- * variant) is not accepted.
- */
-export function readLogin(hash: string | undefined): Login | null {
-  const key = hash?.trim() ?? '';
-  const m = new RegExp(`^\\$2[aby]\\$(\\d\\d)\\$(${B64}{22})(${B64}{31})$`).exec(key);
-  return m ? { salt: `$2b$${m[1]}$${m[2]}`, check: m[3]!, key } : null;
-}
+const enc = new TextEncoder();
 
 /** Compares two strings without stopping at the first difference. */
 function same(a: string, b: string): boolean {
@@ -68,54 +50,53 @@ function same(a: string, b: string): boolean {
   return diff === 0;
 }
 
-async function sign(key: string, expires: number): Promise<string> {
-  const enc = new TextEncoder();
-  const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', k, enc.encode(`${COOKIE}:${expires}`));
-  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
+const hex = (bytes: ArrayBuffer): string => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/** Compares the two passwords' SHA-256, so neither the time taken nor an early stop tells anything about the password. */
+async function samePassword(typed: string, password: string): Promise<boolean> {
+  const [a, b] = await Promise.all([typed, password].map((s) => crypto.subtle.digest('SHA-256', enc.encode(s))));
+  return same(hex(a!), hex(b!));
 }
 
-/** True when the request carries an unexpired sign-in cookie made with this login. */
-export async function cookieOk(header: string | null, login: Login, nowS: number): Promise<boolean> {
+/** True when an Authorization header carries the user name and password the box asks for. */
+export async function loginOk(header: string | null, password: string): Promise<boolean> {
+  const m = /^Basic\s+([A-Za-z0-9+/]+={0,2})\s*$/i.exec(header ?? '');
+  if (!m || m[1]!.length > 1000) return false;
+  let pair: string;
+  try {
+    pair = new TextDecoder().decode(Uint8Array.from(atob(m[1]!), (c) => c.charCodeAt(0)));
+  } catch {
+    return false;
+  }
+  const colon = pair.indexOf(':');
+  if (colon < 0) return false;
+  const userOk = pair.slice(0, colon).trim().toLowerCase() === SITE_USER.toLowerCase();
+  return (await samePassword(pair.slice(colon + 1).trim(), password)) && userOk;
+}
+
+async function sign(key: string, expires: number): Promise<string> {
+  const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return hex(await crypto.subtle.sign('HMAC', k, enc.encode(`${COOKIE}:${expires}`)));
+}
+
+/** True when the request carries an unexpired sign-in cookie made with this password. */
+export async function cookieOk(header: string | null, password: string, nowS: number): Promise<boolean> {
   const m = new RegExp(`(?:^|;)\\s*${COOKIE}=(\\d{1,12})\\.([0-9a-f]{64})\\s*(?:;|$)`).exec(header ?? '');
   if (!m) return false;
   const expires = Number(m[1]);
   if (expires <= nowS) return false;
-  return same(m[2]!, await sign(login.key, expires));
+  return same(m[2]!, await sign(password, expires));
 }
 
-/** The answer to the sign-in page's post: a cookie for the right user name and bcrypt result. */
-export async function signIn(request: Request, login: Login, nowS: number): Promise<Response> {
-  const text = await request.text();
-  let body: { username?: unknown; proof?: unknown } = {};
-  try {
-    const parsed: unknown = text.length < 1000 ? JSON.parse(text) : null;
-    if (parsed && typeof parsed === 'object') body = parsed;
-  } catch {
-    // Not JSON: no match.
-  }
-  const user = typeof body.username === 'string' ? body.username.trim().toLowerCase() : '';
-  const proof = typeof body.proof === 'string' ? body.proof : '';
-  const ok = user === SITE_USER.toLowerCase() && new RegExp(`^\\$2[aby]\\$\\d\\d\\$${B64}{53}$`).test(proof) && same(proof.slice(-31), login.check);
-  if (!ok) return plain(401, 'That user name and password do not match.');
+async function signedCookie(password: string, nowS: number): Promise<string> {
   const expires = nowS + COOKIE_DAYS * 86400;
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'set-cookie': `${COOKIE}=${expires}.${await sign(login.key, expires)}; Path=/; Max-Age=${COOKIE_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax`,
-      'cache-control': 'no-store',
-    },
-  });
-}
-
-function plain(status: number, text: string): Response {
-  return new Response(`${text}\n`, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+  return `${COOKIE}=${expires}.${await sign(password, expires)}; Path=/; Max-Age=${COOKIE_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 const attr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-/** The sign-in page, which is also what search engines and link previews read. */
-export function loginPage(origin: string, salt: string): string {
+/** The page behind the box: what a visitor sees after closing it, and what search engines and link previews read. */
+export function signInPage(origin: string): string {
   const title = `${TITLE}: a learning project`;
   const site = { '@context': 'https://schema.org', '@type': 'WebSite', name: TITLE, description: DESCRIPTION, url: `${origin}/` };
   return `<!doctype html>
@@ -145,53 +126,21 @@ export function loginPage(origin: string, salt: string): string {
       html, body { margin: 0; min-height: 100%; background: #1b1f24; color: #e8e2d4; font: 16px/1.5 system-ui, sans-serif; }
       main { max-width: 22em; margin: 12vh auto 0; padding: 0 16px; }
       h1 { margin: 0; font-size: 1.6em; }
-      p { margin: 0.25em 0 1.25em; color: #b9b2a3; }
-      label { display: block; margin-bottom: 0.9em; }
-      input { box-sizing: border-box; width: 100%; margin-top: 0.25em; padding: 0.5em 0.6em; border: 1px solid #4a515b; border-radius: 4px; background: #262b32; color: inherit; font: inherit; }
-      button { padding: 0.5em 1.4em; border: 0; border-radius: 4px; background: #c9a24b; color: #1b1f24; font: inherit; font-weight: 600; cursor: pointer; }
-      button:disabled { opacity: 0.6; cursor: wait; }
-      #note { min-height: 1.5em; margin-top: 1em; }
+      p { margin: 0.25em 0; color: #b9b2a3; }
     </style>
   </head>
   <body>
     <main>
       <h1>${TITLE}</h1>
-      <p>A learning project. Sign in to continue.</p>
-      <form id="login" data-salt="${attr(salt)}">
-        <label>User name <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required /></label>
-        <label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
-        <button>Sign in</button>
-        <p id="note" role="status"></p>
-      </form>
-      <noscript><p>Signing in needs JavaScript.</p></noscript>
+      <p>A learning project. Reload the page to sign in.</p>
     </main>
-    <script src="${GATE_SCRIPT}"></script>
-    <script>
-      const form = document.getElementById('login');
-      const note = document.getElementById('note');
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const button = form.querySelector('button');
-        button.disabled = true;
-        note.textContent = 'Checking...';
-        try {
-          const proof = await bcrypt.hash(form.elements.password.value.trim(), form.dataset.salt);
-          const res = await fetch('${LOGIN_PATH}', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ username: form.elements.username.value, proof }),
-          });
-          if (res.ok) return location.reload();
-          note.textContent = res.status === 401 ? 'That user name and password do not match.' : 'Signing in did not work. Try again.';
-        } catch {
-          note.textContent = 'Signing in did not work. Try again.';
-        }
-        button.disabled = false;
-      });
-    </script>
   </body>
 </html>
 `;
+}
+
+function plain(status: number, text: string): Response {
+  return new Response(`${text}\n`, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
 }
 
 export async function onRequest({ request, env, next }: PagesContext): Promise<Response> {
@@ -206,14 +155,23 @@ export async function onRequest({ request, env, next }: PagesContext): Promise<R
 }
 
 async function gate(url: URL, request: Request, env: Env, next: () => Promise<Response>): Promise<Response> {
-  const login = readLogin(env.SITE_LOGIN_HASH);
-  // Without a login set up, nothing is served (the Deploy workflow checks first).
-  if (!login) return plain(503, 'This site is not set up yet.');
+  const password = readPassword(env.SITE_PASSWORD);
+  // Without a password set up, nothing is served (the Deploy workflow checks first).
+  if (!password) return plain(503, 'This site is not set up yet.');
   const nowS = Math.floor(Date.now() / 1000);
-  if (url.pathname === LOGIN_PATH && request.method === 'POST') return signIn(request, login, nowS);
-  if (await cookieOk(request.headers.get('cookie'), login, nowS)) return next();
-  if (request.method !== 'GET' && request.method !== 'HEAD') return plain(401, 'Sign in first.');
-  return new Response(loginPage(url.origin, login.salt), {
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+  if (await cookieOk(request.headers.get('cookie'), password, nowS)) return next();
+  if (await loginOk(request.headers.get('authorization'), password)) {
+    const res = await next();
+    const out = new Response(res.body, res);
+    out.headers.append('set-cookie', await signedCookie(password, nowS));
+    return out;
+  }
+  return new Response(request.method === 'HEAD' ? null : signInPage(url.origin), {
+    status: 401,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'www-authenticate': `Basic realm="${REALM}", charset="UTF-8"`,
+      'cache-control': 'no-store',
+    },
   });
 }

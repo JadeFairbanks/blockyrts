@@ -75,9 +75,6 @@ importers:
       '@types/three':
         specifier: 0.186.0
         version: 0.186.0
-      bcryptjs:
-        specifier: ^3.0.3
-        version: 3.0.3
       vite:
         specifier: ^7.3.0
         version: 7.3.6(@types/node@22.20.5)(lightningcss@1.33.0)(tsx@4.23.15)
@@ -986,10 +983,6 @@ packages:
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
-
-  bcryptjs@3.0.3:
-    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
-    hasBin: true
 
   bowser@2.14.1:
     resolution: {integrity: sha512-tzPjzCxygAKWFOJP011oxFHs57HzIhOEracIgAePE4pqB3LikALKnSzUyU4MGs9/iCEUuHlAJTjTc5M+u7YEGg==}
@@ -2406,8 +2399,6 @@ snapshots:
   balanced-match@1.0.2: {}
 
   balanced-match@4.0.4: {}
-
-  bcryptjs@3.0.3: {}
 
   bowser@2.14.1: {}
 
