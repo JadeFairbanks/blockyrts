@@ -15,11 +15,12 @@ import { peoplesHooks } from '../peoples/hooks.ts';
 import { askHooks } from '../peoples/speech.ts';
 import { killXpTenths } from '../rules.ts';
 import { destroyBuilding, dropQueue, isFarm } from '../units/behaviour.ts';
-import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp } from './combat.ts';
+import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp, wholeDamage } from './combat.ts';
 import { addMob, inheritRole } from './mob-ai.ts';
 import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
 import { clearLair } from '../threats/lairs.ts';
 import { rollDropList } from '../threats/loot.ts';
+import { necromancerLoot } from '../threats/necromancer.ts';
 import { bagEmpty, bagItems, dropLoot, lootBrag, notableMob } from '../units/loot.ts';
 import { Role } from '../threats/types.ts';
 import { onVillageLoss } from '../threats/villages.ts';
@@ -48,7 +49,7 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   const killer = taker >= 0 && taker < state.players.length ? killerOf(state, i, taker) : -1;
   if (taker >= 0 && taker < state.players.length) {
     // Drops: now and then, never on every kill; one roll per row on the 'combat' stream. They are loot for the killer to carry home.
-    const rolled = rollDropList(state, spec.drops);
+    const rolled = spec.id === Mob.Necromancer ? necromancerLoot(state, taker) : rollDropList(state, spec.drops);
     const items = rolled.items.slice();
     // A goblin gives back what it took from a worker.
     if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) items.push([e.carryRes[i]!, e.carryAmt[i]!]);
@@ -69,7 +70,7 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   switch (spec.id) {
     case Mob.BloatedCorpse:
       // Bursts, even when the sun killed it.
-      blast(state, x, e.y[i]! + WU_PER_METRE, z, BURST_BLAST, null, e.id[i]!);
+      blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: wholeDamage(state, i, BURST_BLAST.damageTenths), radius: BURST_BLAST.radius }, null, e.id[i]!);
       break;
     case Mob.BombKeg:
       // A loose bomb that is hit goes off at once.

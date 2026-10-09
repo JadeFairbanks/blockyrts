@@ -406,8 +406,8 @@ function splash(state: SimState, p: Projectile, x: number, y: number, z: number,
   if (!sp.splash || !sp.splashRadius) return;
   const e = state.entities;
   const r = sp.splashRadius;
-  // Patch 5 (MB-6): a catapult stone or a thrown boulder throws up dirt; powder and fire blow up.
-  state.hits.push({ look: p.shot === Shot.CatapultStone || p.shot === Shot.BoneBoulder ? 'dirt' : 'blast', x, y, z, id: p.shooter });
+  // Patch 5 (MB-6): a catapult stone or a thrown boulder throws up dirt; powder and fire blow up; a shot with its own burst shows that (MB-5).
+  state.hits.push({ look: sp.burst ?? (p.shot === Shot.CatapultStone || p.shot === Shot.BoneBoulder ? 'dirt' : 'blast'), x, y, z, id: p.shooter });
   for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
     if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;

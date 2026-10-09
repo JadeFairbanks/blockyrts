@@ -6,13 +6,14 @@
 // (a wall or rampart its cracked, then broken model, and its piece turns and
 // corners with the defences beside it), an out light its unlit one, and a
 // fallen building leaves its ruins for a while. Flames and point lights
-// burn on lit lights, the placement ghost shows its green and red tiles, and
-// planned buildings are faint ghosts.
+// burn on lit lights, the placement ghost is the building's model seen
+// through over its green and red tiles, and planned buildings are faint
+// ghosts of their first stage (the block look until a model loads).
 import * as THREE from 'three';
 import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
-import { InstancedModel, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
+import { InstancedModel, TURN_CLIP, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
 import { makeLook, type Look } from './building-looks.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
@@ -33,6 +34,9 @@ const DAMAGED_AT = 500;
 /** How long a fallen building's ruins stand (sim steps, 20 a second), sinking into the ground over the last of them. */
 const RUIN_STEPS = 600;
 const RUIN_SINK_STEPS = 100;
+/** How see-through the placement ghost and a planned building are. */
+const GHOST_OPACITY = 0.45;
+const PLANNED_OPACITY = 0.22;
 /** The effect anchors in a model where a lit light's flames burn. */
 const FLAME_BONES = ['fx_flame', 'fx_fire'];
 const UP = new THREE.Vector3(0, 1, 0);
@@ -60,6 +64,16 @@ interface Entry {
   models: CatalogueModel[];
   /** The building as last seen, for its ruins. */
   last: BuildingInfo;
+}
+
+/** A model of the placement ghost or a planned building, and where its anchor goes (metres). */
+interface GhostModel {
+  m: CatalogueModel;
+  x: number;
+  y: number;
+  z: number;
+  /** A wall or rampart piece: they come by the hundred. */
+  wall: boolean;
 }
 
 /** A fallen building's ruins: where it stood and the step it fell. */
@@ -186,6 +200,12 @@ export class BuildingsView {
   private readonly ghostMeshes: THREE.Mesh[] = [];
   private ghostSig = '';
   private readonly plannedMeshes: THREE.Mesh[] = [];
+  /** The ghost's and the planned buildings' models, where each goes (anchor metres), drawn see-through ('g:' and 'p:' draws). */
+  private ghostModels: GhostModel[] = [];
+  private plannedModels: GhostModel[] = [];
+  private readonly ghostDraws = new Map<string, InstancedModel>();
+  /** The last planned call, made again when a model it waits for arrives. */
+  private replan: (() => void) | null = null;
   private models: ModelLibrary | null = null;
   /** Catalogue ids a building on the map has asked for. */
   private readonly wanted = new Set<string>();
@@ -230,6 +250,8 @@ export class BuildingsView {
     // Rebuild every building so those with catalogue models switch over, now and as models arrive.
     const rebuild = (): void => {
       for (const e of this.entries.values()) e.sig = '';
+      this.ghostSig = '';
+      this.replan?.();
     };
     rebuild();
     lib.onLoad((m) => {
@@ -330,7 +352,7 @@ export class BuildingsView {
         if (e.last.complete) this.fall(e.last, info.step);
       }
     }
-    this.drawModels(info);
+    this.drawModels(info, now);
     this.placeLights(info, focus);
   }
 
@@ -457,12 +479,17 @@ export class BuildingsView {
     t.details = d;
   }
 
-  /** Catalogue models: one instanced draw per model id and tint (a stand-in model dressed as another building draws apart), then the ruins. */
-  private drawModels(info: GameInfo): void {
+  /**
+   * Catalogue models: one instanced draw per model id and tint (a stand-in
+   * model dressed as another building draws apart), then the ruins. A
+   * finished building's turning bones (the Big House's spit roast) turn
+   * without stopping.
+   */
+  private drawModels(info: GameInfo, now: number): void {
     const lib = this.models;
     if (!lib) return;
     const counts = new Map<string, number>();
-    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean): void => {
+    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean, turning: boolean): void => {
       const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
       let d = this.modelDraws.get(key);
       const most = buildingSpec(b.kind).defence === 'wall' ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES;
@@ -476,12 +503,12 @@ export class BuildingsView {
       const n = counts.get(key) ?? 0;
       if (n >= most) return;
       counts.set(key, n + 1);
-      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, '', 0, this.teamColour(b.owner), m.scale);
+      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, turning ? TURN_CLIP : '', now / 1000, this.teamColour(b.owner), m.scale);
       if (hover) d.setHover(n);
     };
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
-      if (e) for (const m of e.models) draw(m, b, 0, this.hovered.has(b.id));
+      if (e) for (const m of e.models) draw(m, b, 0, this.hovered.has(b.id), b.complete);
     }
     // Ruins stand, then sink out of sight.
     this.ruins = this.ruins.filter((r) => info.step - r.fell < RUIN_STEPS && info.step >= r.fell);
@@ -489,7 +516,7 @@ export class BuildingsView {
       const t = Math.max(0, info.step - r.fell - (RUIN_STEPS - RUIN_SINK_STEPS)) / RUIN_SINK_STEPS;
       for (const m of r.models) {
         if (!lib.models.has(m.id)) continue;
-        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale, false);
+        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale, false, false);
       }
     }
     for (const [id, d] of this.modelDraws) {
@@ -547,22 +574,30 @@ export class BuildingsView {
     this.ghostSig = sig;
     for (const m of this.ghostMeshes) this.scene.remove(m);
     this.ghostMeshes.length = 0;
+    this.ghostModels = [];
     let n = 0;
     if (g) {
       const s = footprintDims(g.kind, g.variant);
       const look = this.look(g.kind, 1, g.variant, owner, false);
       const colour = new THREE.Color();
       const m4 = new THREE.Matrix4();
+      // A wall chain's columns join one another, its corners turned as built.
+      const chain = new Set(g.spots.map((p) => `${p.x},${p.z}`));
       for (const spot of g.spots) {
         // The floor is the middle column's height, as in the sim.
         const midX = (spot.x + (s.w >> 1) + 0.5) * COLUMN_M;
         const midZ = (spot.z + (s.d >> 1) + 0.5) * COLUMN_M;
         const floor = heightAt(midX, midZ);
-        const mesh = new THREE.Mesh(look.geometry, this.ghostMaterial);
-        mesh.position.set(spot.x * COLUMN_M, floor, spot.z * COLUMN_M);
-        mesh.renderOrder = 6;
-        this.scene.add(mesh);
-        this.ghostMeshes.push(mesh);
+        const models = this.ghostLook(g.kind, g.variant, spot.x, spot.z, '', chain);
+        if (models) {
+          for (const m of models) this.ghostModels.push({ m, x: spot.x * COLUMN_M, y: floor, z: spot.z * COLUMN_M, wall: buildingSpec(g.kind).defence === 'wall' });
+        } else {
+          const mesh = new THREE.Mesh(look.geometry, this.ghostMaterial);
+          mesh.position.set(spot.x * COLUMN_M, floor, spot.z * COLUMN_M);
+          mesh.renderOrder = 6;
+          this.scene.add(mesh);
+          this.ghostMeshes.push(mesh);
+        }
         for (let dz = 0; dz < s.d; dz++) {
           for (let dx = 0; dx < s.w; dx++) {
             if (n >= MAX_TILES) break;
@@ -582,12 +617,16 @@ export class BuildingsView {
     this.tiles.count = n;
     this.tiles.instanceMatrix.needsUpdate = true;
     if (this.tiles.instanceColor) this.tiles.instanceColor.needsUpdate = true;
+    this.drawGhosts('g', this.ghostModels, GHOST_OPACITY, owner);
   }
 
   /** Planned but not started buildings in the local player's units' order lists: faint ghosts. */
   setPlanned(queues: ReadonlyMap<number, UnitOrder[]>, owner: number, heightAt: (x: number, z: number) => number): void {
+    this.replan = () => this.setPlanned(queues, owner, heightAt);
     for (const m of this.plannedMeshes) this.scene.remove(m);
     this.plannedMeshes.length = 0;
+    this.plannedModels = [];
+    const builds: Array<{ kind: number; variant: number; x: number; z: number }> = [];
     const seen = new Set<string>();
     for (const q of queues.values()) {
       for (const o of q) {
@@ -595,14 +634,73 @@ export class BuildingsView {
         const key = `${o.kind}:${o.x}:${o.z}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        const s = footprintDims(o.kind, o.variant);
-        const look = this.look(o.kind, 1, o.variant, owner, false);
-        const mesh = new THREE.Mesh(look.geometry, this.plannedMaterial);
-        mesh.position.set(o.x * COLUMN_M, heightAt((o.x + (s.w >> 1) + 0.5) * COLUMN_M, (o.z + (s.d >> 1) + 0.5) * COLUMN_M), o.z * COLUMN_M);
-        mesh.renderOrder = 6;
-        this.scene.add(mesh);
-        this.plannedMeshes.push(mesh);
+        builds.push(o);
       }
+    }
+    // Planned walls join the planned walls beside them.
+    const planned = new Set(builds.map((o) => `${o.x},${o.z}`));
+    for (const o of builds) {
+      const s = footprintDims(o.kind, o.variant);
+      const y = heightAt((o.x + (s.w >> 1) + 0.5) * COLUMN_M, (o.z + (s.d >> 1) + 0.5) * COLUMN_M);
+      // Its first stage where its models have stages, else the finished building.
+      const models = this.ghostLook(o.kind, o.variant, o.x, o.z, STAGES[0], planned);
+      if (models) {
+        for (const m of models) this.plannedModels.push({ m, x: o.x * COLUMN_M, y, z: o.z * COLUMN_M, wall: buildingSpec(o.kind).defence === 'wall' });
+        continue;
+      }
+      const mesh = new THREE.Mesh(this.look(o.kind, 1, o.variant, owner, false).geometry, this.plannedMaterial);
+      mesh.position.set(o.x * COLUMN_M, y, o.z * COLUMN_M);
+      mesh.renderOrder = 6;
+      this.scene.add(mesh);
+      this.plannedMeshes.push(mesh);
+    }
+    this.drawGhosts('p', this.plannedModels, PLANNED_OPACITY, owner);
+  }
+
+  /**
+   * A ghost's models at level 1, in a look where they have it, or null while
+   * they load (or for a building with none): a wall column shaped and turned
+   * by the columns of `joins` beside it, as a built one is by its neighbours.
+   */
+  private ghostLook(kind: number, variant: number, x: number, z: number, look: string, joins: ReadonlySet<string>): CatalogueModel[] | null {
+    const lib = this.models;
+    if (!lib) return null;
+    const b = { kind, level: 1, variant, x, z };
+    let ms = catalogueIds(b);
+    if (ms.length === 0) return null;
+    if (buildingSpec(kind).defence === 'wall') {
+      const shape = wallShape(b, (cx, cz) => joins.has(`${cx},${cz}`));
+      ms = ms.map((m) => ({ ...m, id: shape.corner ? m.id.replace(/^wall_/, 'wall_corner_') : m.id, yaw: shape.yaw }));
+    }
+    if (look) ms = ms.map((m) => (lib.listed(`${m.id}@${look}`) ? { ...m, id: `${m.id}@${look}` } : m));
+    return this.loaded(ms.map((m) => m.id)) ? ms : null;
+  }
+
+  /** Draws see-through models ('g': the placement ghost, 'p': planned buildings), one instanced draw per model id. */
+  private drawGhosts(prefix: string, list: readonly GhostModel[], opacity: number, owner: number): void {
+    const lib = this.models;
+    const counts = new Map<string, number>();
+    if (lib) {
+      for (const g of list) {
+        const key = `${prefix}:${g.m.id}`;
+        let d = this.ghostDraws.get(key);
+        if (!d) {
+          d = new InstancedModel(lib.get(g.m.id), g.wall ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES, this.modelFog);
+          d.seeThrough(opacity);
+          d.object.frustumCulled = false;
+          this.scene.add(d.object);
+          this.ghostDraws.set(key, d);
+        }
+        const n = counts.get(key) ?? 0;
+        if (n >= d.maxInstances) continue;
+        counts.set(key, n + 1);
+        d.setInstance(n, g.x + g.m.dx, g.y, g.z + g.m.dz, g.m.yaw ?? 0, '', 0, this.teamColour(owner), g.m.scale);
+      }
+    }
+    for (const [key, d] of this.ghostDraws) {
+      if (!key.startsWith(`${prefix}:`)) continue;
+      d.setCount(counts.get(key) ?? 0);
+      d.commit();
     }
   }
 }

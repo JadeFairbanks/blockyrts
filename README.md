@@ -3404,6 +3404,69 @@ blueprint/patch5-bugs-picks.md.*
    show pinned to its edge, fainter, on the side they lie; pings off it ring
    at the edge.
 
+## How a tester checks the mobs and waves (Patch 5)
+
+*Jade's Patch 5, section 14: the mob damage cuts, the waves going for every
+base and party, towers and walls broken to reach units, waves sized with the
+player count, the waves' side of Bright Nights, Morvath's new model and his
+staff and wings, the necromancer, the Deadlands' mana crystal guardians, and
+remarks about what is round each unit. Picks in
+blueprint/patch5-mobs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-mobs.test.ts:
+   the cut blows held in tenths (a 7.6 blow is 7 or 8, 8 six times in ten),
+   the waves for two and three players within a tenth of twice and three
+   times one player's, a Bright Night leaving out that player's share (and in
+   single player the whole wave), the night's groups aimed at the base and at
+   a party out in the open, the necromancer's nights, his coming one for each
+   player on top of the threat, his summons of 9 or 10 once seen and again 60
+   s later with his 20 s bubbles, his drops, and a crystal's 2 or 3 guardians
+   coming once, keeping within 5 m, going for a worker 6 m off and never
+   coming back once killed (the guarded crystals go in the save).
+   packages/client/test/pause-controls.test.ts checks a unit's remark waits
+   its 1 to 4.5 minutes and stands still while paused.
+2. **Damage.** Monsters hit 5% softer (daytime hunters 15%), except the ones
+   Jade set herself. A zombie's blow lands as 7 or 8 against unarmoured
+   units, never 7.6.
+3. **Where the waves go.** Send two or more workers 150 m out from the town
+   and play into a night: some groups come out of the dark near them and go
+   for them while the rest go for the town; in a game with two towns far
+   apart each is attacked. A tower whose archers shoot at monsters with no
+   loose units near gets broken; walls get broken when monsters must go
+   through to reach units, and go round when a short way round exists.
+4. **Bigger with more players.** In a two or three player game the night's
+   monsters come in about two or three times the number of a single player
+   game.
+5. **Morvath.** Place him with the debugger's godmode grid. He is the new
+   4.5 m model with his staff. His blow does 200 and bursts violet over 1 m
+   round where it lands; monsters caught in it heal him, white motes flying
+   from them to him. At half health he changes (his transform clip), spreads
+   his wings and drains up to 500 health from everyone near him over 5 s,
+   once, in white motes; then he flies with his second form's clips and
+   falls with his second form's death.
+6. **The necromancer.** On nights 10, 20, 30 and 40, then every 5th night to
+   60, every 2nd to 90 and every night after, one comes for each player with
+   the waves, on top of them (or place him with godmode). Once any of your
+   units or buildings sees him he raises 9 or 10 skeleton archers and zombies
+   in crimson round him, then again every 60 s, saying so in a bubble that
+   stays 20 s. Every 10 s he casts his crimson bolt: 35 to whoever it hits
+   and 35 to anyone within 0.5 m of it. He burns at dawn with his wave.
+   Killed, he drops metal and leather from 2 to 4 weapons or armours (tier 3
+   to 5, higher once you can make higher), 1 to 5 ingots of one kind, 2 to 8
+   bones and now and then a mana crystal.
+7. **Crystal guardians.** Go out to the Deadlands (Reveal shows the far
+   bands). Each mana crystal there gets 2 or 3 ash golems and mana wraiths
+   when one of your units first comes within 60 m. They glow with thin
+   pulsing blue light, read **Mana crystal guardian** when selected, never
+   burn in the sun, stay within 5 m of the crystal, chase no farther than
+   8 m from it, and go first for a worker sent to gather the crystal. Kill
+   them and that crystal is never guarded again.
+8. **Remarks.** Watch a town for a few minutes: each worker, troop, mage and
+   people's unit on screen says something about what is round it (a monster
+   or animal near, the building beside it, what it carries or does, a crowd,
+   being alone, the time of day) once every 1 to 4.5 minutes, now and then a
+   complaint when hurt or hungry. Nobody remarks while the game is paused.
+
 ## How a tester checks the defences and siege (Patch 5)
 
 *Patch 5's defences: wider gates, the earth rampart, walls that crack and
@@ -3432,7 +3495,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    from point to point like a wall, in chunks 2 by 2 columns (about 1 m
    across), each 2 m tall and costing 5 earth (a worker's full load). It has
    the health of one wooden wall column, shows torn earth below 70% and 40%,
-   and is not dug like the land.
+   and is not dug like the land. It is a wall in every other way: your units
+   cannot climb it, and climbing monsters go over it as they go over any wall.
 4. **The Artillery workshop.** Its card shows Train artillery crewman (E) and
    the four engines as buttons of their own: Catapult (C), Ballista (B),
    Bronze cannon (N) and Iron cannon (I). There is no Engines button. The
@@ -3454,7 +3518,9 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    while the upgrade builds, and a springald becoming a mangonel brings a
    second crewman free). **Garrison** stays greyed until the engine is short
    of crew: kill one of its crew (Kill selected) and it lights up. Only
-   flyers and ranged monsters can hit the engine and the men up there.
+   flyers and ranged monsters can hit the engine and the men up there. Kill
+   the engine itself and its crew stay up on the platform for good; build
+   another and they man it, with new crewmen only for the places still empty.
 6. **Men up top.** With no fixed engine on the platform, select more men
    than fit (archers, melee, mages, workers) and right click the Citadel:
    the best ranged troops go up first, then mages, then melee; the panel's
@@ -3657,6 +3723,16 @@ in `packages/client/src/world/buildings-view.ts`, and their models placed by
    crack and break instead, as the defences section says), an out torch post is drawn
    unlit, and a building that falls leaves its ruins for 30 seconds before
    they sink away.
+9. **Ghosts and plans.** Pick a building to place: the ghost over the green
+   and red tiles is the building's own model, see-through (a wall chain's
+   columns join and turn their corners as built walls do). Shift-queue a few
+   builds for a worker: each planned building shows faintly as its first
+   building stage. Before: both were the block look.
+10. **Ranks and portraits.** A worker or warrior from rank 2 wears bands on
+    the left upper arm: one bronze band at rank 2, two bronze at 3, two steel
+    at 4, three gold at 5 (rank 1 has none). Select a mage with a robe: her
+    picture in the selection grid and in a building's panel is her robe
+    look's portrait, coloured as she is drawn.
 
 ## How a tester checks running, climbing and jumping (Patch 5)
 
@@ -3759,7 +3835,7 @@ the box and the press on a face).*
    cliff above no longer holds the diggers up. On a cliff too tall to
    climb, Move a unit to a spot over the tunnel's far end: it walks in
    along the tunnel's floor.
-7. **Saves.** No save format change; the snapshot version goes to 28 (a
+7. **Saves.** No save format change; the snapshot version goes to 29 (a
    dig order's layer and missed columns, and digs drawn upwards).
 
 ## License

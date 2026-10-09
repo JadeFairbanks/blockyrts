@@ -308,6 +308,9 @@ export const UNIT_FIELDS = [
   ['ledgeX', 'i32'],
   ['ledgeY', 'i32'],
   ['ledgeZ', 'i32'],
+  /** Morvath's wings (Jade's Patch 5 MB-4): life still to drain from the players' units round him, until this step. */
+  ['drainUntil', 'u32'],
+  ['drainLeft', 'i32'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -456,6 +459,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare ledgeX: Int32Array;
   declare ledgeY: Int32Array;
   declare ledgeZ: Int32Array;
+  declare drainUntil: Uint32Array;
+  declare drainLeft: Int32Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */
@@ -694,9 +699,10 @@ export interface SimEvent {
  * How long a speech bubble stays (Jade's Patch 3): 'bar' while its speaker
  * sits at the timed action that made it speak, as long as the progress bar
  * over its head runs (units/tinker.ts); 'long' twice the usual time (the
- * main base's word of advice at the start).
+ * main base's word of advice at the start); 'linger' 20 s, unless the
+ * speaker says something else first (Jade's Patch 5: the necromancer).
  */
-export type BubbleHold = 'bar' | 'long';
+export type BubbleHold = 'bar' | 'long' | 'linger';
 
 export interface SimState {
   seed: number;
@@ -867,9 +873,13 @@ export interface Site {
 /**
  * What a hit looks like (Generated rocks and trees: hit particles). Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its
  * blast, smoke and crater); 'dirt', a catapult stone's or boulder's splash. 'tick': no look of its own, only the damage
- * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10).
+ * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10). Jade's Patch 5 mobs:
+ * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
+ * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
+ * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
+ * summoner `id`.
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon';
 
 export interface HitEvent {
   look: HitLook;
@@ -888,6 +898,9 @@ export interface HitEvent {
   shot?: number;
   /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
   dmg?: number;
+  /** A drain (look 'drain'): the entity the motes fly into, and how many. */
+  to?: number;
+  n?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */

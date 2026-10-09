@@ -59,18 +59,18 @@ describe('patch notes 1: no random remarks while paused', () => {
     const root = new FakeEl();
     const bubbles = new SpeechBubbles(root as unknown as HTMLElement);
     const say = vi.spyOn(bubbles, 'say');
-    // Each wait is 9 s, the middle of its 5.4 to 12.6 s: with short waits drawn, a third remark could come before 75 s.
+    // Each unit's wait is 165 s, the middle of its 1 to 4.5 minutes (Jade's Patch 5, GP-28), counted from when it is first on screen.
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     bubbles.update(0, anchor, speakers);
-    expect(say).toHaveBeenCalledTimes(1); // the first remark is due at once
-    // A minute paused, frame by frame: nobody speaks.
-    for (let t = 1000; t <= 61000; t += 50) bubbles.update(t, anchor, speakers, true);
+    for (let t = 50; t <= 164_000; t += 50) bubbles.update(t, anchor, speakers);
+    expect(say).toHaveBeenCalledTimes(0);
+    // A minute paused just before it is due, frame by frame: nobody speaks.
+    for (let t = 164_050; t <= 224_000; t += 50) bubbles.update(t, anchor, speakers, true);
+    expect(say).toHaveBeenCalledTimes(0);
+    // Carrying on, the wait still has its last second to run from before the pause.
+    for (let t = 224_050; t <= 224_500; t += 50) bubbles.update(t, anchor, speakers);
+    expect(say).toHaveBeenCalledTimes(0);
+    for (let t = 224_550; t <= 226_000; t += 50) bubbles.update(t, anchor, speakers);
     expect(say).toHaveBeenCalledTimes(1);
-    // Carrying on, the next remark still waits its 5.4 to 12.6 s from before the pause.
-    bubbles.update(61050, anchor, speakers);
-    bubbles.update(65000, anchor, speakers);
-    expect(say).toHaveBeenCalledTimes(1);
-    for (let t = 65050; t <= 75000; t += 50) bubbles.update(t, anchor, speakers);
-    expect(say).toHaveBeenCalledTimes(2);
   });
 });

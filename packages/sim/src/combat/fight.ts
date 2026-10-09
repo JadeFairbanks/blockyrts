@@ -259,7 +259,7 @@ export function pickTarget(state: SimState, i: number, range: number, structures
     // Lairs and village buildings are broken on an order or an attack-move, never taken up by an idle unit (s).
     if (!structures && isMob(state, j) && isStructure(e.mob[j]!)) continue;
     if (cloaked(state, j, d)) continue;
-    const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damage === 0;
+    const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damageTenths === 0;
     const attacking = e.target[j] === e.id[i] || (e.attacker[i] === e.id[j] && state.step - e.hurtAt[i]! < 100);
     const tier = attacking ? 0 : e.mob[j] === Mob.BombKeg && isMob(state, j) ? 2 : harmless ? 2 : 1;
     if (tier < bestTier || (tier === bestTier && (d < bestD || (d === bestD && e.id[j]! < e.id[best]!)))) {
@@ -500,6 +500,12 @@ export function fightStep(state: SimState, i: number): boolean {
     leashed = true;
   }
   if (t >= 0 && gap(state, i, t) > acquire + LEASH_WU) t = -1;
+  // Held on a target it cannot get at (a zombie chewing the far side of a wall), it turns on whatever is biting it from within reach.
+  if (t >= 0 && !hold && !rangedOf(state, i) && state.step - e.hurtAt[i]! < 100 && e.attacker[i] !== e.id[t]) {
+    const a = e.indexOf(e.attacker[i]!);
+    const w = meleeOf(state, i);
+    if (a >= 0 && validTarget(state, i, a) && canHarm(state, i, a) && canReach(state, i, a, w) && !canReach(state, i, t, w)) t = a;
+  }
   if (t < 0) {
     if (e.target[i] !== 0) disengage(state, i);
     // Walking back from a leashed chase, it takes no new target until it is halfway home.

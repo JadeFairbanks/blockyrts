@@ -28,7 +28,7 @@ import type { PropView } from '../world/world.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels, rawLimitTenthsLb } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
-import { freePost, menOnTop, onTop, spreadTop, topRoom as roomUpTop } from './top.ts';
+import { freePost, menOnTop, onTop, platformCrew, spreadTop, topRoom as roomUpTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
 import { runDig } from './dig.ts';
 import { addRun, climbOn, gaitMover, gaitOf, gaitSpec, payForRunning, RUN_BONUS_BP, runsNow, startClimb } from './moves.ts';
@@ -528,7 +528,7 @@ export function destroyBuilding(state: SimState, id: number): void {
     dropQueue(state, j);
     e.act[j] = Act.Start;
     resetWalk(state, j);
-    // A fixed engine falls with its Citadel's platform (Patch 5); its crew come down as the men up top do.
+    // A fixed engine falls with its Citadel's platform (Patch 5); its garrison crewmen share the fate of the men up top.
     e.hp[j] = e.kind[j] === UnitKind.Engine ? 0 : e.hp[j]! - floorDiv(e.maxHp[j]! * SHELTER_LOSS_PER_MILLE, 1000);
     // Killed by the fall: settled with the step's other deaths.
     if (e.hp[j]! <= 0) {
@@ -570,10 +570,10 @@ export function fleeFrom(state: SimState, i: number, ax: number, az: number): vo
 // ----- the orders -----
 
 /** Whether an order keeps a unit inside the building it is in. */
-function keepsInside(state: SimState, o: UnitOrder | undefined, inside: number): boolean {
+function keepsInside(state: SimState, i: number, o: UnitOrder | undefined, inside: number): boolean {
   if (!o || inside === 0) return false;
-  // A garrison crewman stays up on the Citadel's platform with his fixed engine (Patch 5).
-  if (o.t === 'crew') return state.entities.inside[state.entities.indexOf(o.id)] === inside;
+  // A garrison crewman stays up on the Citadel's platform for good, with his fixed engine or waiting for the next (Patch 5).
+  if (o.t === 'crew') return platformCrew(state, i);
   return (o.t === 'enter' || o.t === 'job' || o.t === 'train') && o.b === inside;
 }
 
@@ -1507,13 +1507,13 @@ function unitStep(state: SimState, i: number): void {
       else if (guard === 0) lootIdle(state, i);
       return;
     }
-    if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(state, o, e.inside[i]!)) leaveBuilding(state, i);
+    if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(state, i, o, e.inside[i]!)) leaveBuilding(state, i);
     if (!runOrder(state, i, o)) return;
     // Done: on to the next order.
     if (e.queue[i]![0] === o) e.queue[i]!.shift();
     e.act[i] = Act.Start;
     e.timer[i] = 0;
     resetWalk(state, i);
-    if (e.queue[i]!.length > 0 && e.inside[i] !== 0 && !keepsInside(state, e.queue[i]![0], e.inside[i]!)) leaveBuilding(state, i);
+    if (e.queue[i]!.length > 0 && e.inside[i] !== 0 && !keepsInside(state, i, e.queue[i]![0], e.inside[i]!)) leaveBuilding(state, i);
   }
 }
