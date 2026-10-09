@@ -125,7 +125,9 @@ reveal; two machines with the same seed show the same land and the same hash.*
    Houses stand 10 to 15 m away (see "How a tester checks Jade's mini
    patch").
 2. Pan with the screen edges, the arrow keys or a middle-button drag; zoom
-   with the wheel or Page Up and Page Down; Home resets the zoom. Right-click
+   with the wheel or Page Up and Page Down; Home resets the zoom; hold `,`
+   or `.` to turn the camera (Patch 5), a double tap turning it back to
+   north. Right-click
    to walk your units out: the land they see turns from black to colour,
    and stays darker, still in colour, once they have left (grey before
    Patch 3; see "How a tester checks the fog look and hidden-unit
@@ -3661,6 +3663,15 @@ Picks in blueprint/patch5-client-ui-picks.md.*
    buttons; buttons never grow past 128 px. The message panel starts folded
    to a small button at the left edge over the minimap's buttons, counting
    other players' messages until opened. Bubbles stay a second longer.
+10. **Turning the camera.** Hold `,` (comma): the camera turns left round
+    the middle of the view; hold `.` (full stop) and it turns right, a half
+    turn in about 1.5 s, looking down at the same angle, so the far side of
+    a building comes into view. The arrow keys and the screen edges still pan
+    along the screen, and sounds on the left of the screen still come from
+    the left. Tap either key twice quickly: the camera turns back to north.
+    Both keys can be rebound in Settings, under Camera and selection.
+    packages/client/test/patch5-camera-turn.test.ts checks the angle, the
+    middle of the view, panning and the turn back.
 
 ## How a tester checks unit and building looks (Patch 5)
 
