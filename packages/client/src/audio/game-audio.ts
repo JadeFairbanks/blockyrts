@@ -101,11 +101,15 @@ export class GameAudio {
 
   // ---- Each frame ----
 
-  /** The camera's ground point (metres): the listener, the music for the time of day and how fierce the fighting on screen is. */
-  frame(focusX: number, focusZ: number, now: number): void {
+  /**
+   * The camera's ground point (metres): the listener, the music for the time
+   * of day and how fierce the fighting on screen is. right is the screen's
+   * right along the ground, which turns with the camera (Patch 5).
+   */
+  frame(focusX: number, focusZ: number, now: number, rightX = 1, rightZ = 0): void {
     this.focusX = focusX;
     this.focusZ = focusZ;
-    this.engine.setListener(focusX, focusZ, 1, 0);
+    this.engine.setListener(focusX, focusZ, rightX, rightZ);
     if (!this.paused) this.work(now / 1000);
   }
 

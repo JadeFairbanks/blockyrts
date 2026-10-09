@@ -74,6 +74,10 @@ export const ACTIONS: readonly Action[] = [
   { id: 'townhall', name: 'Town Hall', key: 'Backspace', group: 'Camera and selection' },
   // Jade's patch notes 1: Space centres the camera on the selection, so the latest urgent message moves to F4 (s).
   { id: 'centre', name: 'Centre on the selection', key: 'Space', group: 'Camera and selection' },
+  // Jade's Patch 5: two keys that turn the camera round the middle of the view while held, the downward angle fixed; a double
+  // tap of either turns it back to north. Comma and full stop: side by side, and on no card (s).
+  { id: 'turnLeft', name: 'Turn the camera left (hold; double tap to turn back to north)', key: 'Comma', group: 'Camera and selection' },
+  { id: 'turnRight', name: 'Turn the camera right (hold; double tap to turn back to north)', key: 'Period', group: 'Camera and selection' },
   { id: 'urgent', name: 'Latest urgent message', key: 'F4', group: 'Camera and selection' },
   { id: 'follow', name: 'Follow', key: 'KeyL', group: 'Camera and selection' },
   { id: 'home', name: 'Everyone Home', key: 'KeyJ', group: 'Camera and selection' },
