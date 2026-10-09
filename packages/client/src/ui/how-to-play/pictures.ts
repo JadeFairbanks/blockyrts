@@ -4,14 +4,21 @@
 // sim's tables; the page turns file names into URLs with picture-url.ts).
 // A row with a `model` (or a `mob` whose model it borrows) gets its
 // portrait without being listed here, so new creatures and units have
-// pictures as soon as the kit draws them.
+// pictures as soon as the kit draws them. A row with a model and no kit
+// picture (a lair, a people's building, a tree or rock) names its model
+// instead (entryModel), and the page draws that model once (model-view.ts):
+// pages never get a picture made for them.
 import type { Entry, SimModules } from '@blockyrts/balance';
 import { valueAt } from '@blockyrts/balance';
-import { MOBS, RESEARCH_PRODUCT, SPELLS, Troop } from '@blockyrts/sim';
+import { MOBS, RESEARCH_PRODUCT, SPELLS, Stage, Troop } from '@blockyrts/sim';
 import { productIcon } from '../../hud/card-icons.ts';
 import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from '../../hud/icons.ts';
 import { goodIcon } from '../../hud/inventory-icons.ts';
+import { propModel } from '../../world/prop-models.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, WORKER_ICON } from '../../hud/unit-icons.ts';
+
+/** The portraits of the movers on the Moving over terrain pages (units/moves.ts GAITS, by id). */
+const GAIT_PORTRAITS = ['portrait_worker_labourer', 'portrait_woodsman', 'portrait_warrior_sword', 'portrait_warrior_mounted', 'portrait_heavy_knight', 'portrait_catapult'];
 
 export type { Pic };
 
@@ -75,6 +82,11 @@ export function entryPic(entry: Entry, mods: SimModules): Pic | null {
       return wandPic(tier);
     case 'ROBE_KITS':
       return robePic(tier);
+    case 'GAITS':
+      return pic(GAIT_PORTRAITS[num('id')]);
+    case 'PROPS':
+      // A fish stretch, sand and the like have no model: the good they give.
+      return propModelOf(num('kind')) ? null : goodPic(num('resource'));
     default:
       break;
   }
@@ -83,4 +95,23 @@ export function entryPic(entry: Entry, mods: SimModules): Pic | null {
   if (own) return own;
   if (typeof rec.mob === 'number') return modelPic(MOBS.find((m) => m.id === rec.mob)?.model);
   return null;
+}
+
+/** A grown prop's model, as the world draws it in a Lunar circle's look (rubble and bone piles large), or ''. */
+function propModelOf(kind: number): string {
+  return kind < 0 ? '' : propModel(kind, Stage.Grown, (3 << 16) | (1 << 20), 1000)?.id ?? '';
+}
+
+/**
+ * The catalogue model a page draws when it has no kit picture: its row's
+ * own `model`, the model of the `mob` it stands for, or a prop's model; ''
+ * for none. The page draws it once, still (model-view.ts).
+ */
+export function entryModel(entry: Entry, mods: SimModules): string {
+  const rec = valueAt(mods[entry.module] ?? {}, entry.path) as Record<string, unknown> | undefined;
+  if (!rec || typeof rec !== 'object') return '';
+  if (String(entry.path[0]) === 'PROPS') return propModelOf(typeof rec.kind === 'number' ? rec.kind : -1);
+  if (typeof rec.model === 'string' && /^[a-z0-9_~@]+$/.test(rec.model)) return rec.model;
+  if (typeof rec.mob === 'number') return MOBS.find((m) => m.id === rec.mob)?.model ?? '';
+  return '';
 }

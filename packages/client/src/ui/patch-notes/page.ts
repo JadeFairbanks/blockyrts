@@ -1,15 +1,19 @@
 // The patch notes screen, opened from the main menu's Patch notes button:
 // every update, newest first, each in its four categories, with a list of
-// updates down the side to jump between them. Opening it marks the newest
-// update as read in this browser (the menu's "New update" mark dims).
+// updates (and each update's categories) down the side to jump between them.
+// Opening it marks the newest update as read in this browser (the menu's
+// "New update" mark dims). The newest update without a date of its own shows
+// the day the site was built (BUILD_DAY, set by the deploy's build).
 import '../book.css';
-import { GAME_VERSION } from '../../version.ts';
+import { BUILD_DAY, GAME_VERSION } from '../../version.ts';
 import { PATCH_NOTES_HASH } from '../book-links.ts';
 import { button, el } from '../dom.ts';
 import { pictureUrl } from '../how-to-play/picture-url.ts';
 import { markLatestSeen, NOTE_CATEGORIES, PATCH_NOTES, type PatchNote } from './notes.ts';
 
 const anchorOf = (n: PatchNote): string => n.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+/** An update's date: its own, or for the newest the day the site was built. */
+const dateOf = (n: PatchNote, i: number): string => n.date ?? (i === 0 ? BUILD_DAY : '');
 
 function dateText(iso: string): string {
   const d = new Date(`${iso}T12:00:00Z`);
@@ -38,16 +42,34 @@ export function patchNotes(app: HTMLElement): Promise<void> {
   const main = el('main', 'book-main', undefined, body);
 
   el('div', 'side-head', 'Updates', side);
+  const jump = (id: string, row: HTMLElement): void => {
+    main.querySelector(`#${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    side.querySelectorAll('.side-link').forEach((x) => x.classList.toggle('on', x === row));
+  };
   PATCH_NOTES.forEach((n, i) => {
     const row = el('a', `side-link${i === 0 ? ' on' : ''}`, undefined, side);
     row.href = `#${anchorOf(n)}`;
     row.addEventListener('click', (e) => {
       e.preventDefault();
-      main.querySelector(`#${anchorOf(n)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      side.querySelectorAll('.side-link').forEach((x) => x.classList.toggle('on', x === row));
+      jump(anchorOf(n), row);
     });
     el('span', '', n.name, row);
-    el('small', '', i === 0 ? 'Latest' : n.date ? dateText(n.date) : '', row);
+    const date = dateOf(n, i);
+    el('small', '', i === 0 ? 'Latest' : date ? dateText(date) : '', row);
+    // The newest update's categories, one link each, so a long update reads by part.
+    if (i !== 0) return;
+    for (const c of NOTE_CATEGORIES) {
+      const items = n.changes[c.id];
+      if (!items?.length) continue;
+      const sub = el('a', 'side-link side-sub', undefined, side);
+      sub.href = `#${anchorOf(n)}-${c.id}`;
+      sub.addEventListener('click', (e) => {
+        e.preventDefault();
+        jump(`${anchorOf(n)}-${c.id}`, sub);
+      });
+      el('span', '', c.title, sub);
+      el('small', '', String(items.length), sub);
+    }
   });
 
   PATCH_NOTES.forEach((n, i) => {
@@ -56,7 +78,8 @@ export function patchNotes(app: HTMLElement): Promise<void> {
     const head = el('header', 'patch-head', undefined, page);
     if (i === 0) el('span', 'new-flag', 'Latest update', head);
     el('h1', '', n.name, head);
-    const meta = [n.version ?? (i === 0 ? GAME_VERSION : ''), n.date ? dateText(n.date) : ''].filter(Boolean).join(' · ');
+    const date = dateOf(n, i);
+    const meta = [n.version ?? (i === 0 ? GAME_VERSION : ''), date ? dateText(date) : ''].filter(Boolean).join(' · ');
     if (meta) el('p', 'patch-meta', meta, head);
     el('p', 'lead', n.headline, page);
     for (const p of n.intro ?? []) el('p', '', p, page);
@@ -64,6 +87,7 @@ export function patchNotes(app: HTMLElement): Promise<void> {
       const items = n.changes[c.id];
       if (!items?.length) continue;
       const sec = el('section', `patch-cat cat-${c.id}`, undefined, page);
+      sec.id = `${anchorOf(n)}-${c.id}`;
       const h = el('h2', '', undefined, sec);
       picture(c.picture, 'icon', h);
       el('span', '', c.title, h);
@@ -79,6 +103,15 @@ export function patchNotes(app: HTMLElement): Promise<void> {
         if (item.details?.length) {
           const ul = el('ul', 'details', undefined, text);
           for (const d of item.details) el('li', '', d, ul);
+        }
+        // A screenshot of the game, shown wide under the item's text.
+        const shot = item.shot ? pictureUrl(item.shot) : '';
+        if (shot) {
+          const fig = el('figure', 'patch-shot', undefined, text);
+          const img = el('img', 'pic shot', undefined, fig);
+          img.src = shot;
+          img.alt = item.title ?? '';
+          img.loading = 'lazy';
         }
       }
     }

@@ -3300,6 +3300,35 @@ for players.
    the words).
 6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
    <folder>` drives all of this in a browser and saves pictures of it.
+7. The guides (Guides in the sidebar) cover every part of the game: the
+   premise, getting started, day and night, the main base's tiers, food,
+   animals, woodsmen, gear, troops, defences, monsters, mages, moving and
+   digging, the peoples, quests, stone circles, keepers, the Tavern, the
+   world and reading the numbers. Every number in them is read from the game
+   (`packages/client/src/ui/how-to-play/guides.ts`), and every [[link]] in
+   them opens its page (a test checks). No guide mentions a patch.
+8. Labels read as plain words: "Body width 0.8 m", not "Half width" in world
+   units, and a keeper's "Sounds the alarm every" at least 5 s, at most 20 s,
+   not "Alarm s" 1 and 2 (`plain-words.ts`).
+9. A page with no icon or portrait (Elf hall, Barrow, Intact trilithon, Pine,
+   Boulder) draws the thing's own model once, at the top of the page. Some
+   guides show a model too: a torch for Day and night, an Elf hall for
+   Playing together, a Dwarf city gate for the peoples, a signpost for the
+   world and a trilithon for stone circles.
+10. The patch notes: the newest update shows the game's version and the day
+    the site was built for it (left blank in a dev build), with a link to
+    each of its four categories under it in the sidebar. The Quests and Quest
+    menu notes carry screenshots of a leader's offer and the quest menu.
+
+Pictures in How to Play: a page about a thing shows its kit icon or
+portrait, or draws its model; nothing gets a picture made for it.
+Screenshots of the game are only for the guides and the patch notes, taken
+by `pnpm --filter @blockyrts/client shots [name ...]`
+(`packages/client/scripts/make-shots.mjs`, after
+`pnpm --filter @blockyrts/tools models:build`). When an update changes
+something so that a screenshot no longer shows the game as it is, the
+screenshot is removed, not retaken, and its guide names the thing's model
+(`model:<id>`) or kit picture instead.
 
 ## How a tester checks Patch 5's world
 
