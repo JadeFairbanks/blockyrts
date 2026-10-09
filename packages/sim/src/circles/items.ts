@@ -13,6 +13,7 @@ import { manaCap } from '../magic/mages.ts';
 import { say } from '../peoples/speech.ts';
 import { UnitKind, WILD, type SimState } from '../state.ts';
 import { homeBaseNear } from '../units/forage.ts';
+import { bagCount, takeFromBag } from '../units/loot.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import { hash32 } from '../rng.ts';
 import { headlessProblem, useHeadless } from '../threats/headless.ts';
@@ -130,7 +131,7 @@ export const ITEM_USES: readonly ItemUse[] = [
     problem: (state, player, unit) => {
       const e = state.entities;
       if (unit < 0 || e.owner[unit] !== player || e.kind[unit] !== UnitKind.Mage) return 'Only a mage can drink enchanted wine for mana.';
-      if (!bagHas(state, unit, Res.EnchantedWine)) return 'This mage carries no enchanted wine.';
+      if (bagCount(state, unit, Res.EnchantedWine) <= 0) return 'This mage carries no enchanted wine.';
       return e.mana[unit]! >= manaCap(state, unit) ? 'This mage\'s mana is already full.' : '';
     },
     use: (state, _player, unit) => {
@@ -167,18 +168,3 @@ export function useItem(state: SimState, player: number, res: number, unit: numb
   u.use(state, player, unit, arg);
 }
 
-function bagHas(state: SimState, i: number, res: number): boolean {
-  const g = state.entities.bag[i]!;
-  for (let k = 0; k < g.length; k += 2) if (g[k] === res && g[k + 1]! > 0) return true;
-  return false;
-}
-
-function takeFromBag(state: SimState, i: number, res: number, n: number): void {
-  const g = state.entities.bag[i]!;
-  for (let k = 0; k < g.length; k += 2) {
-    if (g[k] !== res) continue;
-    g[k + 1] = g[k + 1]! - n;
-    if (g[k + 1]! <= 0) g.splice(k, 2);
-    return;
-  }
-}

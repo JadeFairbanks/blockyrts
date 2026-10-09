@@ -577,6 +577,45 @@ export interface EquipOrder extends UnitsOrder {
   res: number;
 }
 
+/**
+ * Equip from a unit's own bag (Patch 7, plan section 7): the piece goes on
+ * where the unit stands, no trip to a store point, and the piece it had goes
+ * into its bag; refused ("Bag full") when that would not fit (units/handling.ts).
+ */
+export interface EquipBagOrder extends UnitsOrder {
+  kind: 'equipBag';
+  res: number;
+}
+
+/** A worn piece (Patch 7, the gear slot menu): `line` 0 weapon (tools, wand), 1 armour (robe), 2 shield; `drop` 0 Take off into the bag, 1 Drop on the ground. */
+export interface TakeOffOrder extends UnitsOrder {
+  kind: 'takeOff';
+  line: number;
+  drop: number;
+}
+
+/** Keep in bag (Patch 7): `on` 1 locks a good in each unit's bag against the automatic hand-in, 0 frees it (units/loot.ts). */
+export interface KeepItemOrder extends UnitsOrder {
+  kind: 'keepItem';
+  res: number;
+  on: number;
+}
+
+/** Give (Patch 7): the first of the units carrying the good walks to `target` (another of the player's units, an entity id) and hands one into its bag. */
+export interface GiveItemOrder extends UnitsOrder {
+  kind: 'giveItem';
+  res: number;
+  target: number;
+}
+
+/** Scrap from a unit (Patch 7): it walks to the Workshop (`building`, or 0 for the nearest) with the piece, from its bag (`worn` 0) or worn (1), and hands it in there to be scrapped. */
+export interface ScrapItemOrder extends UnitsOrder {
+  kind: 'scrapItem';
+  res: number;
+  worn: number;
+  building: number;
+}
+
 /** A unit in a main base moves between the ramparts and deeper inside (Patch 5, GP-10), where there is room. */
 export interface ShelterOrder {
   kind: 'shelter';
@@ -771,6 +810,11 @@ export type Order =
   | UnloadItemOrder
   | DropItemOrder
   | EquipOrder
+  | EquipBagOrder
+  | TakeOffOrder
+  | KeepItemOrder
+  | GiveItemOrder
+  | ScrapItemOrder
   | ShelterOrder
   | CircleOrder
   | UseItemOrder
@@ -953,6 +997,11 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   unloadItem: ['res'],
   dropItem: ['res'],
   equip: ['res'],
+  equipBag: ['res'],
+  takeOff: ['line', 'drop'],
+  keepItem: ['res', 'on'],
+  giveItem: ['res', 'target'],
+  scrapItem: ['res', 'worn', 'building'],
   shelter: ['building', 'unit'],
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
@@ -961,7 +1010,10 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   useItem: ['res', 'unit'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'equipBag', 'takeOff', 'keepItem', 'giveItem', 'scrapItem', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
+
+/** The highest good an order may name (Patch 7: goods are saved in two bytes). */
+const GOOD_MAX = 0xfffe;
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -1057,6 +1109,19 @@ export function validateOrder(o: Order): void {
       return;
     case 'pickOwn':
       if (o.command < 0 || o.command > 3) throw new Error('bad pick-own command');
+      return;
+    case 'equipBag':
+    case 'giveItem':
+      if (o.res < 0 || o.res > GOOD_MAX) throw new Error(`bad ${o.kind}: a good`);
+      return;
+    case 'keepItem':
+      if (o.res < 0 || o.res > GOOD_MAX || (o.on !== 0 && o.on !== 1)) throw new Error('bad Keep in bag');
+      return;
+    case 'scrapItem':
+      if (o.res < 0 || o.res > GOOD_MAX || (o.worn !== 0 && o.worn !== 1)) throw new Error('bad scrap from a unit');
+      return;
+    case 'takeOff':
+      if (o.line < 0 || o.line > 2 || (o.drop !== 0 && o.drop !== 1)) throw new Error('bad take off: line 0 to 2, drop 0 or 1');
       return;
     case 'cast':
       if (o.spell < 0 || o.spell > 255 || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad cast');
