@@ -217,8 +217,12 @@ export interface BuildingInfo {
   working: number;
   /** Units in it: sheltering inside, and up on its top (also in `up`). */
   inside: number[];
-  /** The units up on its top (towers, a main base from tier 2), entity ids. */
+  /** The men up on its top (towers, a main base from tier 2), entity ids: not a Citadel's fixed engine and its crew (Patch 5). */
   up: number[];
+  /** How many men its top takes now: a Citadel's engine platform takes 4 more while no fixed engine stands there (Patch 5). */
+  room: number;
+  /** A Citadel's fixed engine on its engine platform, entity id, or 0 (Patch 5). */
+  fixedEngine: number;
   /** The panel's status line. */
   status: string;
   name: string;

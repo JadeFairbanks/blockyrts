@@ -14,7 +14,7 @@
 // units carry their ids for the hidden-unit outlines (Jade's Patch 3,
 // hidden-outlines.ts).
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, RESOURCES, Role, Shot, Slot, speciesSpec, Spell, SPELLS, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, RESOURCES, Role, Shot, SHOTS, Slot, speciesSpec, Spell, SPELLS, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
@@ -24,6 +24,7 @@ const STEP_MS = 50;
 const MAX_UNITS = 2048;
 const MAX_SHOTS = 1024;
 const MAX_PARTICLES = 3000;
+const MAX_SMOKE = 1500;
 const MAX_ATTACH = 2048;
 /** How long the dead lie before they sink away, and how long sinking takes, seconds. */
 const CORPSE_LIE_S = 4;
@@ -89,7 +90,20 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
   burst: { colour: 0x6a8a30, n: 24, speed: 3.2, up: 2.4 },
   blast: { colour: 0xff8020, n: 36, speed: 5, up: 3.5 },
   death: { colour: 0x7a6a50, n: 8, speed: 1.2, up: 0.8 },
+  // Patch 5: a tree a cannonball blows apart (MB-6), a wall breaker going off (BL-7), a catapult stone or boulder landing.
+  fell: { colour: 0x9a6a3a, n: 18, speed: 3, up: 3.2 },
+  bomb: { colour: 0xff8020, n: 40, speed: 5, up: 3.5 },
+  dirt: { colour: 0x6a4a2a, n: 14, speed: 2.2, up: 2.6 },
 };
+
+/** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */
+const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
+
+/** Seconds a gun's smoke rises after a shot (Jade's MB-7): a cannon 5, a musket 4, the brawler's pistol 3. */
+const GUN_SMOKE = { cannon: 5, musket: 4, pistol: 3 };
+
+/** A wall breaker's smoke after it goes off, seconds (Jade's BL-7). */
+const BOMB_SMOKE_S = 3;
 
 /** Shots by Shot id: length, thickness, colour. */
 const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
@@ -119,8 +133,13 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.5, w: 0.45, colour: 0xff3010 },
 ];
 
-/** Shots drawn with a spell's catalogue model once it is listed. */
-const SHOT_MODELS: Record<number, string> = { [Shot.ArcaneBolt]: SPELLS[Spell.ArcaneBolt]!.model, [Shot.Fireball]: SPELLS[Spell.Fireball]!.model, [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model };
+/** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5); the gunpowder ones trail a streak too. */
+const SHOT_MODELS: Record<number, string> = {
+  ...Object.fromEntries(SHOTS.map((s, i) => [i, s.model])),
+  [Shot.ArcaneBolt]: SPELLS[Spell.ArcaneBolt]!.model,
+  [Shot.Fireball]: SPELLS[Spell.Fireball]!.model,
+  [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model,
+};
 
 /** Where a spell lands, by Spell: the colour of its motes, how many and how far they fly. */
 const SPELL_LOOKS: ReadonlyArray<{ colour: number; n: number; speed: number; up: number }> = [
@@ -312,7 +331,7 @@ class AttachPool {
   }
 }
 
-/** Little cubes thrown out by hits, falling and fading. */
+/** Little cubes thrown out by hits, falling and fading; glowing ones (sparks, a muzzle's flash) are unlit, so they show in the dark. */
 class Particles {
   readonly mesh: THREE.InstancedMesh;
   private readonly p = new Float32Array(MAX_PARTICLES * 8); // x y z vx vy vz age life
@@ -320,14 +339,14 @@ class Particles {
   private n = 0;
   private readonly dummy = new THREE.Object3D();
 
-  constructor(scene: THREE.Scene) {
-    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), new THREE.MeshLambertMaterial(), MAX_PARTICLES);
+  constructor(scene: THREE.Scene, size = 0.07, glow = false) {
+    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size), glow ? new THREE.MeshBasicMaterial() : new THREE.MeshLambertMaterial(), MAX_PARTICLES);
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     scene.add(this.mesh);
   }
 
-  spawn(x: number, y: number, z: number, colour: number, n: number, speed: number, up: number): void {
+  spawn(x: number, y: number, z: number, colour: number, n: number, speed: number, up: number, life = 0.5): void {
     const c = new THREE.Color(colour);
     for (let k = 0; k < n && this.n < MAX_PARTICLES; k++) {
       const o = this.n * 8;
@@ -340,7 +359,7 @@ class Particles {
       this.p[o + 4] = up * (0.5 + Math.random() * 0.5);
       this.p[o + 5] = Math.sin(a) * s;
       this.p[o + 6] = 0;
-      this.p[o + 7] = 0.5 + Math.random() * 0.4;
+      this.p[o + 7] = life + Math.random() * life * 0.8;
       this.colours[this.n] = c;
       this.n++;
     }
@@ -377,6 +396,90 @@ class Particles {
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 }
+
+/**
+ * Rising smoke (Patch 5): puffs from where a gun fired (Jade's MB-7: 3 to 5
+ * seconds) or a wall breaker went off (BL-7: 3 seconds), drifting up and
+ * swelling, paling and thinning out as they go.
+ */
+class Smoke {
+  readonly mesh: THREE.InstancedMesh;
+  private readonly p = new Float32Array(MAX_SMOKE * 7); // x y z vx vz age life
+  private n = 0;
+  private readonly sources: Array<{ x: number; y: number; z: number; left: number; rate: number; size: number; carry: number }> = [];
+  private readonly dummy = new THREE.Object3D();
+  private readonly colour = new THREE.Color();
+  private readonly sizes = new Float32Array(MAX_SMOKE);
+
+  constructor(scene: THREE.Scene) {
+    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.55, depthWrite: false }), MAX_SMOKE);
+    this.mesh.frustumCulled = false;
+    this.mesh.count = 0;
+    scene.add(this.mesh);
+  }
+
+  /** Smoke rising from a point for `seconds`, puffs `size` metres across. */
+  add(x: number, y: number, z: number, seconds: number, size: number): void {
+    if (this.sources.length < 96) this.sources.push({ x, y, z, left: seconds, rate: 5, size, carry: 1 });
+  }
+
+  update(dt: number): void {
+    for (let k = this.sources.length - 1; k >= 0; k--) {
+      const s = this.sources[k]!;
+      // Thick at first, thinning out in its last second.
+      s.carry += s.rate * dt * Math.min(1, s.left);
+      while (s.carry >= 1) {
+        s.carry--;
+        this.puff(s.x, s.y, s.z, s.size);
+      }
+      s.left -= dt;
+      if (s.left <= 0) this.sources.splice(k, 1);
+    }
+    const p = this.p;
+    let w = 0;
+    for (let r = 0; r < this.n; r++) {
+      const o = r * 7;
+      const age = p[o + 5]! + dt;
+      if (age >= p[o + 6]!) continue;
+      const d = w * 7;
+      p[d + 3] = p[o + 3]!;
+      p[d + 4] = p[o + 4]!;
+      p[d] = p[o]! + p[d + 3]! * dt;
+      p[d + 1] = p[o + 1]! + (0.5 + age * 0.25) * dt;
+      p[d + 2] = p[o + 2]! + p[d + 4]! * dt;
+      p[d + 5] = age;
+      p[d + 6] = p[o + 6]!;
+      this.sizes[w] = this.sizes[r]!;
+      const k = age / p[d + 6]!;
+      this.dummy.position.set(p[d]!, p[d + 1]!, p[d + 2]!);
+      this.dummy.scale.setScalar(this.sizes[w]! * (0.4 + 1.2 * k) * (1 - k * k * k));
+      this.dummy.updateMatrix();
+      this.mesh.setMatrixAt(w, this.dummy.matrix);
+      this.mesh.setColorAt(w, this.colour.setHex(0x5a5a58).lerp(SMOKE_PALE, k));
+      w++;
+    }
+    this.n = w;
+    this.mesh.count = w;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  private puff(x: number, y: number, z: number, size: number): void {
+    if (this.n >= MAX_SMOKE) return;
+    const o = this.n * 7;
+    this.p[o] = x + (Math.random() - 0.5) * size * 0.4;
+    this.p[o + 1] = y;
+    this.p[o + 2] = z + (Math.random() - 0.5) * size * 0.4;
+    this.p[o + 3] = (Math.random() - 0.5) * 0.35;
+    this.p[o + 4] = (Math.random() - 0.5) * 0.35;
+    this.p[o + 5] = 0;
+    this.p[o + 6] = 1.6 + Math.random() * 0.9;
+    this.sizes[this.n] = size * (0.7 + Math.random() * 0.6);
+    this.n++;
+  }
+}
+
+const SMOKE_PALE = new THREE.Color(0xb8b8b2);
 
 export interface UnitsFrame {
   curr: StateMessage;
@@ -417,6 +520,13 @@ export class UnitsView {
   private readonly asked = new Set<string>();
   private readonly attach: AttachPool;
   private readonly particles: Particles;
+  /** Sparks and a muzzle's flash (Patch 5, MB-7): unlit, tiny, so they show at night. */
+  private readonly sparks: Particles;
+  private readonly smoke: Smoke;
+  /** A gunpowder shot in flight (VX-4): unlit streaks, faint by day and bright orange in the dark. */
+  private readonly streaks: THREE.InstancedMesh;
+  /** 0 by day, 1 at night (world-view sets it each frame): how a gunpowder shot shows. */
+  darkness = 0;
   private readonly blocks: THREE.InstancedMesh;
   private readonly loads: THREE.InstancedMesh;
   private readonly shots: THREE.InstancedMesh;
@@ -443,6 +553,12 @@ export class UnitsView {
     scene.add(this.bodyGroup);
     this.attach = new AttachPool(scene, null);
     this.particles = new Particles(scene);
+    this.sparks = new Particles(scene, 0.03, true);
+    this.smoke = new Smoke(scene);
+    this.streaks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }), MAX_SHOTS);
+    this.streaks.count = 0;
+    this.streaks.frustumCulled = false;
+    scene.add(this.streaks);
     this.blocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial(), MAX_UNITS);
     this.blocks.count = 0;
     this.blocks.frustumCulled = false;
@@ -467,8 +583,8 @@ export class UnitsView {
   }
 
   private body(wanted: string): BodyPool | null {
-    // A model still to be made borrows a near kin's until it is in the catalogue.
-    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted) : wanted;
+    // A model still to be made borrows a near kin's until it is in the catalogue (a Citadel's fixed engine, Patch 5: the engine it is built from).
+    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted.replace(/_fixed$/, '')) : wanted;
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
@@ -521,8 +637,25 @@ export class UnitsView {
     this.owned.push(rec);
   }
 
-  /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. */
-  onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number): void {
+  /**
+   * A gun going off (Patch 5, Jade's MB-7): a flash of light, a spray of tiny
+   * sparks out of the muzzle along `heading` (radians, three.js rotation.y),
+   * and smoke rising for `seconds`.
+   */
+  private gunFire(x: number, y: number, z: number, heading: number, seconds: number): void {
+    const big = seconds >= GUN_SMOKE.cannon;
+    const fx = -Math.sin(heading);
+    const fz = -Math.cos(heading);
+    this.sparks.spawn(x, y, z, 0xfff4c0, big ? 10 : 5, 0.6, 0.3, 0.08);
+    for (let k = 0; k < (big ? 4 : 2); k++) {
+      const a = 0.15 * k;
+      this.sparks.spawn(x + fx * a, y, z + fz * a, 0xffb040, big ? 14 : 7, big ? 4.5 : 3, 1, 0.25);
+    }
+    this.smoke.add(x + fx * 0.2, y, z + fz * 0.2, seconds, big ? 0.7 : 0.35);
+  }
+
+  /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. A gun's shot leaving gets its flash and smoke (`who` finds the shooter: a pistol smokes less than a musket). */
+  onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number, who?: (id: number) => { kind: number; ranged: number; x: number; z: number } | null): void {
     for (const h of hits) {
       const x = h.x / WU_PER_METRE;
       const y = h.y / WU_PER_METRE;
@@ -535,7 +668,22 @@ export class UnitsView {
       }
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
-      if (h.look === 'blast') this.particles.spawn(x, y, z, 0x505050, 24, 3, 3);
+      // Patch 5 (MB-6): a cannonball's blast throws up dirt and smoke too; a wall breaker's leaves smoke rising (BL-7).
+      if (h.look === 'blast' || h.look === 'bomb') {
+        this.particles.spawn(x, y, z, 0x505050, 24, 3, 3);
+        this.particles.spawn(x, y, z, 0x6a4a2a, 16, 2.6, 3);
+        this.sparks.spawn(x, y + 0.2, z, 0xffd060, 30, 6, 3, 0.3);
+      }
+      if (h.look === 'bomb') this.smoke.add(x, y + 0.3, z, BOMB_SMOKE_S, 0.9);
+      if (h.look === 'fell') this.particles.spawn(x, y + 1, z, 0x3a6a2a, 14, 2.4, 2.4);
+      // A soldier's musket or pistol (an engine's muzzle flash is drawn with the engine, at its muzzle).
+      if (h.look === 'shot' && h.shot !== undefined && GUNPOWDER.has(h.shot)) {
+        const u = who?.(h.id);
+        if (u && u.kind !== UnitKind.Engine) {
+          const seconds = u.ranged === PISTOL_GEAR ? GUN_SMOKE.pistol : h.shot === Shot.MusketBall ? GUN_SMOKE.musket : GUN_SMOKE.cannon;
+          this.gunFire(x, y, z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
+        }
+      }
       const spell = h.look === 'spell' ? SPELL_LOOKS[h.spell ?? 0] : undefined;
       if (spell) this.particles.spawn(x, y, z, spell.colour, spell.n, spell.speed, spell.up);
     }
@@ -559,7 +707,7 @@ export class UnitsView {
     this.owned.length = 0;
     for (let i = 0; i < curr.count; i++) {
       const o = i * STATE_STRIDE;
-      // A cannon in a Citadel's port and the men up on a tower or a main base's top are drawn there; everything else inside a building is hidden.
+      // A Citadel's fixed engine and the men up on a tower or a main base's top are drawn there; everything else inside a building is hidden.
       if (d[o + S.inside] !== 0 && d[o + S.kind] !== UnitKind.Engine && !(d[o + S.flags]! & UnitFlag.OnTop)) continue;
       const id = d[o + S.id]!;
       this.hoverNow.on = f.hovered?.has(id) ?? false;
@@ -617,7 +765,15 @@ export class UnitsView {
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           const slot = pool.take([]);
-          if (slot) slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null, mobScale(spec.model, spec.height));
+          if (slot) {
+            slot.m.setInstance(slot.i, x, y, z, heading, mobClip(pool.model, d, o), clipT, null, mobScale(spec.model, spec.height));
+            // A wall breaker's fuse fizzes with tiny sparks, from the fuse on its bomb (Patch 5, Jade's BL-7).
+            const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('fx_fuse') : -1;
+            if (fuse >= 0) {
+              const at = new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, fuse, this.mat));
+              this.sparks.spawn(at.x, at.y, at.z, 0xffc040, 2, 0.7, 0.8, 0.15);
+            }
+          }
         } else {
           dummy.position.set(x, y, z);
           dummy.rotation.set(0, heading, 0);
@@ -744,6 +900,8 @@ export class UnitsView {
     this.drawShots(f, prev ? alpha : 1);
     this.drawBeams(f);
     this.particles.update(dt);
+    this.sparks.update(dt);
+    this.smoke.update(dt);
   }
 
   /**
@@ -796,10 +954,9 @@ export class UnitsView {
       const ahead = 1.2;
       const sx = x - Math.sin(heading) * ahead;
       const sz = z - Math.cos(heading) * ahead;
-      if (spec.cannon) {
-        this.particles.spawn(sx, y + 1, sz, 0xffd060, 10, 3, 1.5);
-        this.particles.spawn(sx, y + 1, sz, 0x8a8a8a, 20, 1.2, 1.6);
-      } else this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
+      // Patch 5 (MB-7): a cannon's flash, sparks and 5 s of smoke at its muzzle.
+      if (spec.cannon) this.gunFire(sx, y + 1, sz, heading, GUN_SMOKE.cannon);
+      else this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
     }
     const pool = this.body(spec.model);
     if (pool) {
@@ -919,6 +1076,13 @@ export class UnitsView {
     const dummy = this.dummy;
     const dir = new THREE.Vector3();
     let k = 0;
+    let hot = 0;
+    // Hot lead (VX-4): by day a faint short grey dash, at night a long bright orange streak.
+    const dark = Math.min(1, Math.max(0, this.darkness));
+    const streakLen = 0.25 + 1.25 * dark;
+    const streakW = 0.025 + 0.03 * dark;
+    const streakColour = new THREE.Color(0x8a8478).lerp(STREAK_HOT, dark);
+    (this.streaks.material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.65 * dark;
     for (let i = 0; i < n; i++) {
       const o = i * SHOT_STRIDE;
       const x0 = s[o]! / WU_PER_METRE;
@@ -935,13 +1099,28 @@ export class UnitsView {
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
+      const gun = GUNPOWDER.has(s[o + 6]!);
+      // A bronze cannon's shot is smaller than an iron one's (MB-8).
+      const size = s[o + 6] === Shot.BronzeCannonball ? 0.75 : 1;
+      if (gun) {
+        // The streak trails behind the ball, drawn as its model in front of it.
+        const w = s[o + 6] === Shot.Cannonball ? streakW * 2 : s[o + 6] === Shot.BronzeCannonball ? streakW * 1.5 : streakW;
+        dummy.position.set(x - dir.x * streakLen * 0.5, y - dir.y * streakLen * 0.5, z - dir.z * streakLen * 0.5);
+        dummy.scale.set(w, w, streakLen);
+        dummy.updateMatrix();
+        this.streaks.setMatrixAt(hot, dummy.matrix);
+        this.streaks.setColorAt(hot, streakColour);
+        hot++;
+        dummy.position.set(x, y, z);
+      }
       const model = SHOT_MODELS[s[o + 6]!];
       if (model && this.lib?.listed(model)) {
-        dummy.scale.set(1, 1, 1);
+        dummy.scale.set(size, size, size);
         dummy.updateMatrix();
         this.attach.add(model, dummy.matrix);
         continue;
       }
+      if (gun) continue;
       dummy.scale.set(look.w, look.w, look.len);
       dummy.updateMatrix();
       this.shots.setMatrixAt(k, dummy.matrix);
@@ -951,8 +1130,13 @@ export class UnitsView {
     this.shots.count = k;
     this.shots.instanceMatrix.needsUpdate = true;
     if (this.shots.instanceColor) this.shots.instanceColor.needsUpdate = true;
+    this.streaks.count = hot;
+    this.streaks.instanceMatrix.needsUpdate = true;
+    if (this.streaks.instanceColor) this.streaks.instanceColor.needsUpdate = true;
   }
 }
+
+const STREAK_HOT = new THREE.Color(0xffa030);
 
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 

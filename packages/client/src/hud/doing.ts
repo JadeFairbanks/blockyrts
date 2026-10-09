@@ -30,8 +30,6 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'repairAll':
     case 'mend':
       return 'repair';
-    case 'port':
-      return 'port';
     case 'dig':
       return 'dig';
     case 'prospect':

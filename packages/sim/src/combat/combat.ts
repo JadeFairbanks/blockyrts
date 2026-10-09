@@ -613,9 +613,9 @@ export function settleDeaths(state: SimState): void {
 }
 
 /** Units of the players and the peoples, and buildings, within a radius of a point take a blast (monster blasts never hurt monsters). */
-export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number): void {
+export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number, look: HitLook = buildings ? 'blast' : 'burst'): void {
   const e = state.entities;
-  state.hits.push({ look: buildings ? 'blast' : 'burst', x, y, z, id: from });
+  state.hits.push({ look, x, y, z, id: from });
   for (const j of state.grid.nearOthers(x, z, units.radius)) {
     const side = sideOf(state, j);
     if (e.hp[j]! <= 0 || (side !== Side.Players && side !== Side.Peoples)) continue;

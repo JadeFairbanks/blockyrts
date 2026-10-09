@@ -71,13 +71,6 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
       // Bursts, even when the sun killed it.
       blast(state, x, e.y[i]! + WU_PER_METRE, z, BURST_BLAST, null, e.id[i]!);
       break;
-    case Mob.SkeletonBomber:
-      // Killed before it went off: its bomb rolls loose and goes off 2 s later.
-      if (e.fuseAt[i] !== 1 && e.hp[i] === 0) {
-        const k = addMob(state, Mob.BombKeg, e.foe[i]!, x, z, Math.max(0, night));
-        e.fuseAt[k] = state.step + BLAST.fuse;
-      }
-      break;
     case Mob.BombKeg:
       // A loose bomb that is hit goes off at once.
       if (e.fuseAt[i] !== 1) blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: BLAST.unit, radius: BLAST.unitRadius }, { damage: BLAST.building, radius: BLAST.buildingRadius }, e.id[i]!);

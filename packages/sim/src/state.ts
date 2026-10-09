@@ -859,9 +859,12 @@ export interface Site {
   axis: number;
 }
 
-/** What a hit looks like (Generated rocks and trees: hit particles). */
-/** 'tick': no look of its own, only the damage of a blow that lands every step (a beam), which the screen adds up for its number (Patch 5, UI-10). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick';
+/**
+ * What a hit looks like (Generated rocks and trees: hit particles). Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its
+ * blast, smoke and crater); 'dirt', a catapult stone's or boulder's splash. 'tick': no look of its own, only the damage
+ * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10).
+ */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt';
 
 export interface HitEvent {
   look: HitLook;
@@ -876,6 +879,8 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
+  /** A shot leaving (look 'shot'): which (combat/items.ts Shot), for the muzzle's flash and smoke (Patch 5, MB-7). */
+  shot?: number;
   /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
   dmg?: number;
 }

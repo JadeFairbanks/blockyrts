@@ -13,12 +13,13 @@ import { OrderKind, PEOPLES, UnitKind, type Projectile, type SimState } from '..
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
 import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, shotMayHit, Side, sideOf } from './combat.ts';
-import { SHOTS } from './items.ts';
+import { Shot, SHOTS } from './items.ts';
 import { isStructure } from './mobs.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import { WEB } from './mobs.ts';
 import { smoulder, SPARK } from '../threats/burns.ts';
 import { fireballBurst } from '../magic/cast.ts';
+import { chipGround, fellTree } from './blasts.ts';
 
 /** Gravity, wu per step per step: 9.8 m/s2 at 20 steps a second. Even, so half of it times k squared stays whole. */
 export const GRAVITY = 196;
@@ -76,6 +77,16 @@ function treeAt(state: SimState, x: number, z: number): number {
     treeCache.chunks.set(key, m);
   }
   return m.get((z - (cz << CHUNK_SHIFT)) * 64 + (x - (cx << CHUNK_SHIFT))) ?? 0;
+}
+
+/** A tree an engine's shot felled: the column's height is forgotten for the rest of the step. */
+function forgetTrees(x: number, z: number): void {
+  treeCache.chunks.delete(((z >> CHUNK_SHIFT) + 0x8000) * 0x10000 + ((x >> CHUNK_SHIFT) + 0x8000));
+}
+
+/** Whose units pick up what an engine's shot leaves lying (earth, a felled tree's lumber): its owner's, or anyone's for a people's engine. */
+function lootOwner(state: SimState, p: Projectile): number {
+  return p.owner < state.players.length ? p.owner : -1;
 }
 
 /** Flight times an arcing shot tries, in percent of the flattest: a higher lob clears a wall in the way (Finding a clear shot). */
@@ -149,7 +160,9 @@ export function fireAt(state: SimState, shooter: number, fromX: number, fromY: n
   // A flyer's spot after a flight of so many steps: a shot reaches its mark in its flight's last step, and a target later in the step's order than the shooter has its own move this step still to come.
   const flyerAt = (steps: number): [number, number, number] | null => (t > shooter ? aimHooks.ahead(state, t, state.step, steps) : aimHooks.ahead(state, t, state.step + 1, steps - 1));
   let steps = solve(shot, fromX, fromY, fromZ, ax, ay, az).t;
-  const ahead = flyerAt(steps);
+  // Patch 5 (Jade, MB-6): an engine fires where its target is now, with no lead.
+  const lead = (flags & ProjectileFlag.Siege) === 0;
+  const ahead = lead ? flyerAt(steps) : null;
   if (ahead) {
     // A swoop changes its height step by step: lead it until the flight time to the spot settles.
     let at = ahead;
@@ -162,7 +175,7 @@ export function fireAt(state: SimState, shooter: number, fromX: number, fromY: n
     ax = at[0];
     ay = at[1] + mid;
     az = at[2];
-  } else {
+  } else if (lead) {
     const [vx, vz] = velocityOf(state, t);
     for (let pass = 0; pass < 2; pass++) {
       const s = solve(shot, fromX, fromY, fromZ, ax, ay, az);
@@ -198,7 +211,7 @@ export function launch(state: SimState, shooter: number, x0: number, y0: number,
     shot, side: sideOf(state, shooter), shooter: e.id[shooter]!, owner: e.owner[shooter]!, faction: e.owner[shooter] === PEOPLES ? e.group[shooter]! : 0,
     x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, flags, mark,
   });
-  state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]! });
+  state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]!, shot });
 }
 
 /**
@@ -290,6 +303,9 @@ export function updateProjectiles(state: SimState): void {
     const mx = (ax + bx) >> 1;
     const mz = (az + bz) >> 1;
     state.grid.near(mx, mz, (length2d(bx - ax, bz - az) >> 1) + 2 * WU_PER_METRE, near);
+    // A shot at a unit up on a building (the Citadel's engine platform, Patch 5) can hit it there; no other unit inside is in the grid.
+    const marked = p.mark ? e.indexOf(p.mark) : -1;
+    if (marked >= 0 && e.inside[marked] !== 0) near.push(marked);
     for (let q = 1; q <= n && !done; q++) {
       const x = ax + floorDiv((bx - ax) * q, n);
       const y = ay + floorDiv((by - ay) * q, n);
@@ -355,6 +371,9 @@ export function updateProjectiles(state: SimState): void {
       if (tree > 0 && y < tree && y > state.world.topAt(cx, cz) * WU_PER_TERRAIN_UNIT) {
         state.hits.push({ look: 'wood', x, y, z, id: 0 }, { look: 'shake', x: cx * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), y, z: cz * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), id: 0 });
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, -1, null);
+        // An engine's shot blows the tree apart and fells it, if it is not too big for it (Patch 5, MB-6).
+        const fells = SHOTS[p.shot]!.fells;
+        if (fells !== undefined && p.flags & ProjectileFlag.Siege && fellTree(state, cx, cz, fells, lootOwner(state, p))) forgetTrees(cx, cz);
         splash(state, p, x, y, z, -1);
         done = true;
         break;
@@ -363,6 +382,9 @@ export function updateProjectiles(state: SimState): void {
         state.hits.push({ look: 'stone', x, y, z, id: 0 });
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, -1, null);
         splash(state, p, x, y, z, -1);
+        // It chips the earth where it lands (Patch 5, MB-6).
+        const chips = SHOTS[p.shot]!.chips;
+        if (chips && p.flags & ProjectileFlag.Siege) chipGround(state, x, z, chips, lootOwner(state, p));
         done = true;
         break;
       }
@@ -384,7 +406,8 @@ function splash(state: SimState, p: Projectile, x: number, y: number, z: number,
   if (!sp.splash || !sp.splashRadius) return;
   const e = state.entities;
   const r = sp.splashRadius;
-  state.hits.push({ look: 'blast', x, y, z, id: p.shooter });
+  // Patch 5 (MB-6): a catapult stone or a thrown boulder throws up dirt; powder and fire blow up.
+  state.hits.push({ look: p.shot === Shot.CatapultStone || p.shot === Shot.BoneBoulder ? 'dirt' : 'blast', x, y, z, id: p.shooter });
   for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
     if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;

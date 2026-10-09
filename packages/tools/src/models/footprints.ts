@@ -150,14 +150,14 @@ function fillClosedPockets(solid: boolean[][], w: number, d: number): void {
   for (let j = 0; j < d; j++) for (let i = 0; i < w; i++) if (!seen[j]![i]) solid[j]![i] = true;
 }
 
-/** The height (units) of the highest surface under a point, or 0 for bare ground. */
-export function topAt(boxes: readonly Box[], x: number, z: number): number {
-  const near = boxes.filter((b) => b.min[0] <= x && b.max[0] >= x && b.min[2] <= z && b.max[2] >= z);
+/** The height (units) of the highest surface under a point, at or below `below` (a deck under a roof, Patch 5's wooden towers), or 0 for bare ground. */
+export function topAt(boxes: readonly Box[], x: number, z: number, below = Infinity): number {
+  const near = boxes.filter((b) => b.min[0] <= x && b.max[0] >= x && b.min[2] <= z && b.max[2] >= z && b.min[1] < below);
   let top = 0;
   for (const b of near) {
     if (b.max[1] <= top) continue;
-    // Down from the cube's top in quarter units to where the point first enters it.
-    for (let y = Math.ceil(b.max[1] * 4) / 4; y > top; y -= 0.25) {
+    // Down from the cube's top (or from `below`) in quarter units to where the point first enters it.
+    for (let y = Math.min(Math.ceil(b.max[1] * 4) / 4, Math.floor(below * 4) / 4); y > top; y -= 0.25) {
       if (inside(b, [x, y, z])) {
         top = y;
         break;
@@ -203,7 +203,7 @@ export function checkFootprints(read: (id: string) => unknown): LevelCheck[] {
       const d = f.rows.length;
       const posts: string[] = [];
       for (const [x, z, y] of f.posts ?? []) {
-        const top = topAt(boxes, x, z);
+        const top = topAt(boxes, x, z, y + POST_SLACK);
         if (Math.abs(top - y) > POST_SLACK) posts.push(`post (${x}, ${z}) at ${y} units, but the top under it is at ${top}`);
         else if (!roomToStand(boxes, x, top, z)) posts.push(`post (${x}, ${z}) has no room for a man standing at ${top} units`);
       }
