@@ -36,7 +36,7 @@ export const ACTIONS: readonly Action[] = [
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather (workers fetch what the camp needs, home by nightfall)', key: 'KeyG', group: 'Workers' },
-  { id: 'returnCargo', name: 'Unload (take what they carry to a drop-off)', key: 'KeyC', group: 'Workers' },
+  { id: 'returnCargo', name: 'Unload all (one unit: everything it carries to a drop-off)', key: 'KeyC', group: 'Workers' },
   { id: 'repair', name: 'Repair', key: 'KeyR', group: 'Workers' },
   { id: 'dig', name: 'Dig', key: 'KeyD', group: 'Workers' },
   { id: 'prospect', name: 'Prospect', key: 'KeyT', group: 'Workers' },

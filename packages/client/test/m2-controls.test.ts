@@ -46,7 +46,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -108,13 +108,12 @@ describe('the worker card', () => {
   it('has only the buttons Jade\'s Patch 2 list names, in book order with no gaps', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
-    // Move, Jade's gather, unload, repair, dig and prospect, one Build, then Eat, Upgrade equipment and the cart
-    // (Jade's Patch 3 cut rank training: a worker ranks up by working), and Patch 5's Run/Walk last.
-    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'cart', 'pace']);
-    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Unload', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Cart', 'Walk']);
+    // Move, Jade's gather, repair, dig and prospect, one Build, then Eat, Upgrade equipment and the cart
+    // (Jade's Patch 3 cut rank training: a worker ranks up by working; Patch 5's GP-8 cut Unload, now in one unit's inventory),
+    // and Patch 5's Run/Walk last.
+    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'cart', 'pace']);
+    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Cart', 'Walk']);
     expect(button(card, 'prospect').enabled).toBe(true); // Prospect (milestone 4)
-    expect(button(card, 'returnCargo').enabled).toBe(true); // worker 2 carries something
-    expect(button(card, 'returnCargo').name).toBe('Unload');
     expect(button(card, 'equip').reason).toBe('Not enough resources (3 sticks).');
     expect(button(card, 'cart').reason).toBe('There are no carts in the stock (make one at a Workshop).');
     expect(card.map((e) => e.key)).toContain('KeyG');
@@ -293,7 +292,7 @@ describe('hotkey bindings', () => {
     expect(keyFor({}, 'gather')).toBe('KeyG');
     expect(keyFor({ gather: 'KeyK' }, 'gather')).toBe('KeyK');
     expect(sanitizeBindings({ gather: 'KeyK', nonsense: 'KeyX', move: 5 })).toEqual({ gather: 'KeyK' });
-    expect(clashes({}, 'gather', 'KeyC')).toEqual(['Unload (take what they carry to a drop-off)']);
+    expect(clashes({}, 'gather', 'KeyC')).toEqual(['Unload all (one unit: everything it carries to a drop-off)']);
     expect(new Set(ACTIONS.map((a) => a.id)).size).toBe(ACTIONS.length);
     // Jade's Patch 2 cut these buttons, so their keys go too, and an old saved binding for one is dropped.
     for (const gone of ['stop', 'hold', 'enter', 'upgradeWeapon', 'upgradeArmour', 'upgradeWeaponMax', 'upgradeArmourMax', 'lock', 'train', 'buildBasic', 'buildAdvanced']) expect(ACTIONS.some((a) => a.id === gone)).toBe(false);

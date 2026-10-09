@@ -7,13 +7,16 @@
 // button, and under it "XP:" and the experience bar for a unit with ranks (a
 // mage's mana, a rider's mount or a building's progress as a row more).
 // Under it: for nothing selected, the three help lines; for one unit, its
-// kit slots with tier numbers and what applies now (loot, load, the next
-// meal, spells on it) and a word for what it is doing; for one building,
+// kit slots with tier numbers and what applies now (the next meal, spells on
+// it, each with its bar) and a word for what it is doing, and for one of the
+// player's own its inventory under the bars (Jade's Patch 5, GP-7: the
+// divider runs on down between them); for one building,
 // its queue as large pictures, its training cards (training-cards.ts) or its
 // level, workers, lights, farm bar, men up top and inside; for several, tabs
 // with a picture and a count, and portraits with their bars. The title row
 // and all under it grow together to fill the section (middle-fit.ts).
 import {
+  BuildingKind,
   buildingSpec,
   engineSpec,
   isGame,
@@ -49,15 +52,18 @@ import { buildingIdOf, entityIdOf, NOBODY, type Selectable } from '../selection/
 import type { ButtonIcon, ButtonPress, ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
 import { productIcon } from './card-icons.ts';
 import { garrisonRoom } from './commands.ts';
+import { effectLeftText, effectPct } from './effects.ts';
 import { harvestText } from './farm-panel.ts';
 import { hungerLine, type HungerView } from './hunger.ts';
 import { armourPic, robePic, shieldPic, tipsPic, toolPic, wandPic, weaponPic, type Pic } from './icons.ts';
 import { goodIcon } from './inventory-icons.ts';
+import { slotCount } from './inventory.ts';
 import { kitUrl } from './kit-icons.ts';
 import { pieceStats } from './kit-text.ts';
 import { bestScale, MIDDLE_MARGIN } from './middle-fit.ts';
 import { queueText } from './queue-clock.ts';
 import { TrainingCards } from './training-cards.ts';
+import { UNIT_SLOTS, unitGoods, weightView } from './unit-inventory.ts';
 import { cardsOf, keepPicks } from './troops.ts';
 import { buildingIconFile, mageIconFile, selectableIconFile, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
@@ -102,9 +108,21 @@ export interface PanelActions {
   dropType(typeKey: string): void;
   cancelQueued(building: number, index: number): void;
   letOut(building: number, unit: number): void;
+  /** A unit in a main base between its ramparts and deeper inside (Patch 5, GP-10). */
+  shelterSwap(building: number, unit: number): void;
+  /** One of the player's units' weight carried and the most it can carry, tenths of a pound (Patch 5, GP-7), or null. */
+  carry(id: number): [number, number] | null;
+  /** The spells on a unit and the steps each has left (Patch 5, GP-34). */
+  effects(id: number): ReadonlyArray<readonly [number, number]>;
+  /** The item menu (item-menu.ts) over a slot of one unit's inventory. */
+  itemMenu(at: HTMLElement, unit: number, res: number): void;
+  /** Unload all: everything a unit carries to the nearest drop-off. */
+  unloadAll(unit: number): void;
   unitName(id: number): string;
   /** The label of the key bound to an action now. */
   keyName(action: string): string;
+  /** The key bound to an action now (a key code, for a button's keys). */
+  keyCode(action: string): string;
   /** The training cards: the game they read, training (Shift: 5), the padlock, and a change that redraws the card. */
   game: GameInfo;
   trainCard(buildings: number[], card: number, count: number): void;
@@ -271,6 +289,7 @@ export class SelectionPanel {
     this.live = [];
     this.body.replaceChildren();
     this.extra.replaceChildren();
+    this.content.classList.remove('split');
   }
 
   /** Drops the buttons the last redraw did not use. */
@@ -444,7 +463,8 @@ export class SelectionPanel {
     const t = this.title;
     t.classList.remove('long', 'one');
     if (t.textContent !== this.titleText) t.textContent = this.titleText;
-    const row = t.parentElement?.clientWidth ?? 0;
+    // One unit's split layout (GP-7) lays the title row's pieces out on the block itself.
+    const row = (this.content.classList.contains('split') ? this.content : t.parentElement)?.clientWidth ?? 0;
     const corner = t.parentElement?.querySelector<HTMLElement>('.sel-corner')?.offsetWidth ?? 0;
     const most = this.extra.childElementCount > 0 ? Math.floor(row * TITLE_SHARE) : row - corner - 4;
     t.style.maxWidth = `${Math.max(0, most)}px`;
@@ -499,10 +519,11 @@ export class SelectionPanel {
   /**
    * The title row after the name (Jade's Patch 3): a divider, then a row per
    * bar, each its word and a bar running to the clear button, all as tall as
-   * the health bar. "HP:" the health with its numbers on it; "XP:" a unit's
-   * experience toward its next rank (workers, troops, mages), solid light
-   * blue, the numbers in its tooltip; "MP:" a mage's mana; the mount's health
-   * for a rider; a building's construction or upgrade.
+   * the health bar. "HP:" the health with its numbers on it; "MP:" a mage's
+   * mana; "XP:" a unit's experience toward its next rank (workers, troops,
+   * mages), solid light blue, the numbers in its tooltip, under the mana
+   * (Jade's Patch 5, GP-33); the mount's health for a rider; a building's
+   * construction or upgrade.
    */
   private titleBars(t: Selectable, b: BuildingInfo | undefined, u: UnitInfo | null): void {
     const divider = document.createElement('span');
@@ -523,7 +544,15 @@ export class SelectionPanel {
       const pct = Math.max(0, Math.min(100, Math.round((h[0] * 100) / h[1])));
       return { pct, text: `${h[0]}/${h[1]}`, tip: `Health ${h[0]} of ${h[1]}.`, low: pct < 35 };
     }, 'Health');
-    // Another player's units show their experience too; the peoples' and the monsters' have no ranks.
+    if (u && u.kind === UnitKind.Mage) {
+      label('MP:');
+      this.bar('mana', box, () => {
+        const m = this.a.mana(t);
+        if (!m) return null;
+        return { pct: m[1] > 0 ? Math.max(0, Math.min(100, Math.round((m[0] * 100) / m[1]))) : 0, text: '', tip: `Mana ${m[0]} of ${m[1]}.` };
+      }, 'Mana', false);
+    }
+    // Another player's units show their experience too; the peoples' and the monsters' have no ranks. Under the mana (Jade's Patch 5, GP-33).
     if (u && hasRanks(u.kind) && u.owner < 8) {
       const unit = u.id;
       label('XP:');
@@ -532,14 +561,6 @@ export class SelectionPanel {
         const x = v ? xpView(v.kind, v.rank, v.xp, v.xpNext) : null;
         return x ? { pct: x.pct, text: '', tip: x.tip } : null;
       }, 'Experience', false);
-    }
-    if (u && u.kind === UnitKind.Mage) {
-      label('MP:');
-      this.bar('mana', box, () => {
-        const m = this.a.mana(t);
-        if (!m) return null;
-        return { pct: m[1] > 0 ? Math.max(0, Math.min(100, Math.round((m[0] * 100) / m[1]))) : 0, text: '', tip: `Mana ${m[0]} of ${m[1]}.` };
-      }, 'Mana', false);
     }
     if (u && u.mount !== Mount.None) {
       const unit = u.id;
@@ -692,42 +713,78 @@ export class SelectionPanel {
     }, 'Harvest', true, 'farm-bar');
   }
 
-  /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
+  /**
+   * Up top and inside: a picture and a count, then their portraits, each
+   * one's tooltip saying what a click does. Inside, the count is a button,
+   * Eject (Jade's Patch 5, GP-9), that lets everyone inside out. In a main
+   * base with ramparts each portrait has a small arrow (GP-10) that moves
+   * that one up on the ramparts or deeper inside, and back.
+   */
   private garrison(b: BuildingInfo): void {
     // The sim's count: a Citadel's engine platform adds 4 while no fixed engine stands there (Patch 5).
     const top = garrisonRoom(b) > 0 ? Math.max(garrisonRoom(b), b.room ?? 0) : 0;
+    const swap = b.kind === BuildingKind.MainBase && top > 0;
     if (top > 0) {
       const row = this.strip('garrison');
       this.chip('top', {
         icon: pic('icon_tower_softwood'),
         face: `Up top ${b.up.length}/${top}`,
         name: `Up top: ${b.up.length} of ${top}`,
-        description: b.up.length > 0 ? 'Click one to bring it down.' : 'Select men and right click it.',
+        description: b.up.length > 0 ? `Click one to bring it down.${swap ? ' Its arrow sends it deeper inside.' : ''}` : 'Select men and right click it.',
         className: 'word',
       }, row);
-      this.portraits(b, b.up, 'top', 'Click to bring this one down.', row);
+      this.portraits(b, b.up, 'top', 'Click to bring this one down.', row, swap ? 'down' : null);
     }
     const sheltering = b.inside.filter((id) => !b.up.includes(id));
     if (sheltering.length > 0) {
       const row = this.strip('garrison');
-      this.chip('inside', { icon: pic('icon_status_sheltered'), face: `Inside ${sheltering.length}`, name: `Inside: ${sheltering.length}`, description: 'Click one to let it out.', className: 'word' }, row);
-      this.portraits(b, sheltering, 'inside', 'Click to let this one out.', row);
+      const eject = this.button('inside', {
+        face: `Eject ${sheltering.length}`,
+        icon: pic('icon_status_sheltered'),
+        name: `Eject ${sheltering.length}`,
+        keys: [],
+        description: `Everyone sheltering inside comes out${top > 0 ? '; those up on the ramparts stay' : ''}. Click one of their pictures to let only that one out${swap ? ', or its arrow to send it up on the ramparts' : ''}.`,
+        className: 'eject',
+        onPress: () => {
+          for (const id of sheltering) this.a.letOut(b.id, id);
+        },
+      });
+      row.append(eject.el);
+      this.portraits(b, sheltering, 'inside', 'Click to let this one out.', row, swap ? 'up' : null);
     }
   }
 
-  /** A row of portraits of units in a building, each letting that one out when clicked. */
-  private portraits(b: BuildingInfo, ids: readonly number[], key: string, description: string, parent: HTMLElement): void {
+  /** A row of portraits of units in a building, each letting that one out when clicked; with `swap`, an arrow on each that moves it up or down (GP-10). */
+  private portraits(b: BuildingInfo, ids: readonly number[], key: string, description: string, parent: HTMLElement, swap: 'up' | 'down' | null = null): void {
     for (const id of ids) {
+      const u = this.a.game.unit(id);
       const btn = this.button(`${key}${id}`, {
         face: '',
-        icon: pic(unitInfoIcon(this.a.game.unit(id))),
+        icon: pic(unitInfoIcon(u)),
         name: this.a.unitName(id),
         keys: [],
         description,
         className: 'portrait',
         onPress: () => this.a.letOut(b.id, id),
       });
-      parent.append(btn.el);
+      // Anyone on foot moves between the two (riders never come in).
+      if (!swap || !u || u.mount !== Mount.None || !(u.kind === UnitKind.Worker || u.kind === UnitKind.Warrior || u.kind === UnitKind.Mage)) {
+        parent.append(btn.el);
+        continue;
+      }
+      const cell = document.createElement('span');
+      cell.className = 'garrison-unit';
+      const down = swap === 'down';
+      const arrow = this.button(`swap${id}`, {
+        face: down ? '▼' : '▲',
+        name: down ? 'Deeper inside' : 'Up on the ramparts',
+        keys: [],
+        description: down ? 'Move this one down, deeper inside the main base: out of reach and out of the fight. Click again on its arrow there to bring it back up.' : 'Move this one up on the ramparts, to fight from the walls. Click again on its arrow there to send it back in.',
+        className: 'shelter-swap',
+        onPress: () => this.a.shelterSwap(b.id, id),
+      });
+      cell.append(btn.el, arrow.el);
+      parent.append(cell);
     }
   }
 
@@ -798,9 +855,23 @@ export class SelectionPanel {
     else this.notes(t, t.details ?? []);
   }
 
-  /** A worker's, troop's or mage's kit slots, then what applies now, then a word for what it is doing. */
+  /**
+   * A worker's, troop's or mage's kit slots and its meal right after them,
+   * then the spells on it, each with a bar for the time it has left (Jade's
+   * Patch 5, GP-34), and a word for what it is doing. One of the player's own
+   * has its inventory to the right, under the bars (GP-7, her picture of
+   * the middle: the divider runs on down between the two).
+   */
   private unitBody(t: Selectable, u: UnitInfo): void {
-    const row = this.strip('kit');
+    const carry = u.owner === this.a.player ? this.a.carry(u.id) : null;
+    let left = this.body;
+    if (carry) {
+      left = document.createElement('div');
+      left.className = 'sel-left';
+      this.body.append(left);
+      this.content.classList.add('split');
+    }
+    const row = this.strip('kit', left);
     const slots = this.kitSlots(u);
     slots.forEach((s, k) => {
       const btn = this.chip(`slot${k}`, { icon: layer(s.pic, s.tag), name: s.name, description: s.text, className: 'kit-slot' }, row);
@@ -826,16 +897,15 @@ export class SelectionPanel {
         });
       }
     });
-    const gap = document.createElement('span');
-    gap.className = 'kit-gap';
-    row.append(gap);
-    // Loot in the bag (own units), a worker's load, the next meal, the spells on it.
-    const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
-    if (bag.length > 0) this.chip('loot', { icon: pic('icon_status_carrying'), name: 'Loot', description: `${itemsText(bag)}.`, className: 'count' }, row).el.append(tag(String(bag.reduce((n, [, c]) => n + c, 0))));
-    if (u.kind === UnitKind.Worker && u.carryAmt > 0 && RESOURCES[u.carryRes]) {
-      const g = goodIcon(u.carryRes);
-      const c = this.chip('carry', { icon: g ? layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }) : pic('icon_status_carrying'), name: 'Carrying', description: `Carrying ${itemsText([[u.carryRes, u.carryAmt]])}.`, className: 'count' }, row);
-      c.el.append(tag(String(u.carryAmt)));
+    // Another player's unit: its loot and load as pictures here (its own inventory shows only for the player's own units).
+    if (!carry) {
+      const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
+      if (bag.length > 0) this.chip('loot', { icon: pic('icon_status_carrying'), name: 'Loot', description: `${itemsText(bag)}.`, className: 'count' }, row).el.append(tag(String(bag.reduce((n, [, c]) => n + c, 0))));
+      if (u.kind === UnitKind.Worker && u.carryAmt > 0 && RESOURCES[u.carryRes]) {
+        const g = goodIcon(u.carryRes);
+        const c = this.chip('carry', { icon: g ? layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }) : pic('icon_status_carrying'), name: 'Carrying', description: `Carrying ${itemsText([[u.carryRes, u.carryAmt]])}.`, className: 'count' }, row);
+        c.el.append(tag(String(u.carryAmt)));
+      }
     }
     if (this.a.hunger(t)) {
       const meal = this.chip('meal', { icon: pic('icon_status_hungry'), name: 'Hunger', description: '', className: 'meal' }, row);
@@ -863,12 +933,88 @@ export class SelectionPanel {
     }
     for (const [bit, file, name] of SPELL_PICS) {
       if ((u.spells & bit) === 0) continue;
-      this.chip(`spell${bit}`, { icon: pic(file), name, description: `${name}: a mage's spell is on it.`, className: 'spell' }, row);
+      const text = bit === SpellOn.Hexed ? `${name}: a curse is on it.` : `${name}: a mage's spell is on it.`;
+      const chip = this.chip(`spell${bit}`, { icon: pic(file), name, description: text, className: 'spell' }, row);
+      // Its time left, a bar like the meal's (GP-34).
+      const bar = document.createElement('span');
+      bar.className = 'meal-bar';
+      const fill = document.createElement('span');
+      bar.append(fill);
+      chip.el.append(bar);
+      const unit = u.id;
+      this.live.push({
+        fill,
+        num: null,
+        btn: chip,
+        read: () => {
+          const left = this.a.effects(unit).find(([b]) => b === bit)?.[1] ?? 0;
+          return { pct: effectPct(bit, left), text: '', tip: left > 0 ? `${text} ${effectLeftText(left, STEPS_PER_SECOND)}` : text };
+        },
+      });
     }
     if (u.owner === this.a.player) {
       const q = this.a.game.queues.get(u.id) ?? [];
-      this.row('doing', `${unitOrderText(q[0])}${q.length > 1 ? ` +${q.length - 1}` : ''}`);
+      this.row('doing', `${unitOrderText(q[0])}${q.length > 1 ? ` +${q.length - 1}` : ''}`, left);
     }
+    if (carry) this.inventory(u, carry);
+  }
+
+  /**
+   * One unit's inventory (Jade's Patch 5, GP-7): a slot per good it carries,
+   * its gathered load and its loot together, wells for the rest; each slot's
+   * right click opens the item menu (Unload, Drop, Use), and every tooltip in
+   * it goes above the whole box. Under them the weight it carries of what it
+   * can, and Unload all.
+   */
+  private inventory(u: UnitInfo, carry: [number, number]): void {
+    const box = document.createElement('div');
+    box.className = 'unit-inv';
+    this.body.append(box);
+    const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
+    const goods = unitGoods(u.carryAmt > 0 ? { res: u.carryRes, amt: u.carryAmt } : null, bag);
+    const grid = document.createElement('div');
+    grid.className = 'unit-slots';
+    box.append(grid);
+    const unit = u.id;
+    goods.forEach(([res, n], k) => {
+      const r = RESOURCES[res]!;
+      const g = goodIcon(res);
+      const food = r.nutrition > 0 ? ` Each is ${r.nutrition} food.` : '';
+      const btn: HudButton = this.button(`inv${k}`, {
+        face: g ? '' : r.short,
+        icon: g ? layer(g.tint ? { file: g.file, filter: g.tint } : { file: g.file }) : undefined,
+        name: r.name,
+        keys: [],
+        description: `Carrying ${itemsText([[res, n]])}. ${r.source}${food}`,
+        foot: 'Right click: Unload, Drop or Use.',
+        className: 'chip unit-slot',
+        tipAbove: box,
+        onRightClick: () => this.a.itemMenu(btn.el, unit, res),
+      });
+      btn.el.append(tag(slotCount(n)));
+      grid.append(btn.el);
+    });
+    for (let k = goods.length; k < UNIT_SLOTS; k++) {
+      const well = document.createElement('span');
+      well.className = 'unit-slot empty';
+      grid.append(well);
+    }
+    const foot = document.createElement('div');
+    foot.className = 'unit-inv-foot';
+    box.append(foot);
+    const w = weightView(carry[0], carry[1]);
+    const weight = this.button('weight', { face: w.text, name: w.name, keys: [], description: w.tip, className: `chip word weight${w.full ? ' warn' : ''}`, tipAbove: box });
+    const unload = this.button('unload-all', {
+      face: 'Unload all',
+      name: 'Unload all',
+      keys: [this.a.keyCode('returnCargo')],
+      description: 'Take everything it carries to the nearest drop-off that takes it, then carry on with what it was doing.',
+      className: 'unload-all',
+      tipAbove: box,
+      onPress: () => this.a.unloadAll(unit),
+    });
+    if (goods.length === 0) unload.setEnabled(false, 'It is not carrying anything.');
+    foot.append(weight.el, unload.el);
   }
 
   /** The kit a unit wears, slot by slot: picture, tier number, name and numbers. */
