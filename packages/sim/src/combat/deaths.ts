@@ -19,12 +19,13 @@ import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp, wholeDamage } fr
 import { addMob, inheritRole } from './mob-ai.ts';
 import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
 import { clearLair } from '../threats/lairs.ts';
-import { rollDropList } from '../threats/loot.ts';
+import { rollDropList, rollGear } from '../threats/loot.ts';
 import { necromancerLoot } from '../threats/necromancer.ts';
 import { keeperLoot } from '../threats/keepers.ts';
 import { bagEmpty, bagItems, dropLoot, lootBrag, notableMob } from '../units/loot.ts';
 import { Role } from '../threats/types.ts';
 import { onVillageLoss } from '../threats/villages.ts';
+import { peopleGearDrop } from '../peoples/war.ts';
 
 /** A broken wall says so at most once every 5 s per player. */
 const WALL_ALERT_STEPS = 100;
@@ -50,7 +51,9 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   const killer = taker >= 0 && taker < state.players.length ? killerOf(state, i, taker) : -1;
   if (taker >= 0 && taker < state.players.length) {
     // Drops: now and then, never on every kill; one roll per row on the 'combat' stream. They are loot for the killer to carry home.
-    const rolled = spec.id === Mob.Necromancer ? necromancerLoot(state, taker) : (keeperLoot(state, spec.id) ?? rollDropList(state, spec.drops));
+    const rolled = spec.id === Mob.Necromancer ? necromancerLoot(state) : (keeperLoot(state, spec.id) ?? rollDropList(state, spec.drops));
+    // Patch 7: now and then one of the weapons or armour it carries.
+    rollGear(state, spec.gear, rolled);
     const items = rolled.items.slice();
     // A goblin gives back what it took from a worker.
     if (e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY) items.push([e.carryRes[i]!, e.carryAmt[i]!]);
@@ -96,7 +99,13 @@ function onUnitDeath(state: SimState, i: number): void {
   const e = state.entities;
   // One of the peoples: their losses, the killers' experience (health / 50, as daytime foes) and their war.
   if (e.owner[i] === PEOPLES) {
-    peoplesHooks.death(state, i, shareKillXp(state, i, killXpTenths(null, e.maxHp[i]!)));
+    const taker = shareKillXp(state, i, killXpTenths(null, e.maxHp[i]!));
+    // Patch 7: now and then one of the pieces it carries, at war or not (Jade), as loot for the player whose side killed it.
+    if (taker >= 0 && taker < state.players.length) {
+      const piece = peopleGearDrop(state, i);
+      if (piece !== undefined) dropLoot(state, e.x[i]!, e.z[i]!, [[piece, 1]], { killer: killerOf(state, i, taker), owner: taker, brag: 0, src: 0 });
+    }
+    peoplesHooks.death(state, i, taker);
     return;
   }
   // An engine it crewed may ask for another (Patch 2, round 3).

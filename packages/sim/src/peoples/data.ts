@@ -578,6 +578,14 @@ export const SPECIAL_TRINKET_MULT_TENTHS = SPECIAL_TRINKET_MULTIPLIER_TENTHS;
 export const SURRENDER_DEAD_PCT = 50;
 /** Plunder (Table 11): livestock, the metal of the fighters' weapons and 10 vp of loot per villager in food and metal. */
 export const PLUNDER_TENTHS_PER_PERSON = 100;
+/**
+ * Patch 7 (plan sections 4.4 and 5): one of their fighters drops one of the
+ * pieces it carries this share of the kills, per mille, at war or not (Jade:
+ * "No neutral peoples have the same weapon drop chance regardless of at war
+ * or not"); its armour or shield this share of those drops, else a weapon
+ * (the one it has when it lacks the other).
+ */
+export const PEOPLE_GEAR_DROP = { chancePm: 100, armourPm: 500 };
 /** The loot's food and metal by people (s). */
 export const PLUNDER_GOODS: Readonly<Record<People, readonly [Res, Res]>> = {
   [People.Halfling]: [Res.FarmFare, Res.WroughtIron],

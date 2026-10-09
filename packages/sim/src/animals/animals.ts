@@ -34,7 +34,7 @@ import { PropKind } from '../world/props.ts';
 import { deathHooks, gap, hurtUnit, sideOf, Side, wholeDamage } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
-import { rollDropList } from '../threats/loot.ts';
+import { rollDropList, rollGear } from '../threats/loot.ts';
 import { dropLoot, lootBrag } from '../units/loot.ts';
 import { meatOf } from '../economy/food-kinds.ts';
 import { BEAR_CAP, breeds, inPairs, Nature, PLANT_FOODS, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
@@ -1121,9 +1121,10 @@ function onAnimalDeath(state: SimState, i: number): void {
   if (meat > 0) items.push([meatOf(s.id), meat]);
   for (const [r, n] of s.extra) items.push([r, n]);
   let brag = 0;
-  // A creature's other drops, for the side whose unit last hurt it.
-  if (s.loot.length > 0 && killer >= 0) {
+  // A creature's other drops, for the side whose unit last hurt it, and now and then a piece it carries (Patch 7).
+  if ((s.loot.length > 0 || s.gear.length > 0) && killer >= 0) {
     const rolled = rollDropList(state, s.loot);
+    rollGear(state, s.gear, rolled);
     items.push(...rolled.items);
     brag = lootBrag(s.loot, rolled, false);
   }

@@ -10,7 +10,7 @@ import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loo
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags', 'mark'] as const satisfies ReadonlyArray<keyof Projectile>;
-const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src', 'gear'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
+const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
