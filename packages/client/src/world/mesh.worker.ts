@@ -15,7 +15,7 @@ import {
   type LowResChunk,
 } from '@blockyrts/sim';
 import { CUBE_STRIDE, propCubes, sceneryCubes } from './props-gen.ts';
-import { meshChunk, meshLowRes, meshWater } from './mesher.ts';
+import { COLUMN_M, meshChunk, meshLowRes, meshWater, UNIT_M } from './mesher.ts';
 import type { FromMesh, PropSummary, ToMesh } from './mesh-messages.ts';
 
 let world: World | null = null;
@@ -87,7 +87,7 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
     const tree = propInfo(p.kind).shape === PropShape.Tree;
     const hx = tree ? Math.min((x1 - x0) / 2, 1.2) : Math.max(0.3, (x1 - x0) / 2);
     const hz = tree ? Math.min((z1 - z0) / 2, 1.2) : Math.max(0.3, (z1 - z0) / 2);
-    props.push({ index: p.index, kind: p.kind, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt: p.next < 0 ? -1 : simStep + p.next, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE });
+    props.push({ index: p.index, kind: p.kind, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt: p.next < 0 ? -1 : simStep + p.next, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE, baseX: (p.lx + 0.5) * COLUMN_M, baseY: p.y * UNIT_M, baseZ: (p.lz + 0.5) * COLUMN_M });
   }
   if (scenery) {
     const edited = w.editedColumns.get(chunkKey(cx, cz));

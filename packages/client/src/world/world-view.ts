@@ -57,13 +57,14 @@ import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { propDetails, propLabel } from './plant-text.ts';
+import { PropModelsView } from './prop-models-view.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { TavernView } from './tavern-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { LootView } from './loot-view.ts';
 import { Overlay } from './overlay.ts';
-import { patchMaterial, type FowUniforms } from './fog-material.ts';
+import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
 import { HoverOutline, type HoverParts } from './hover-outline.ts';
 import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
@@ -246,6 +247,8 @@ export class WorldView {
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
+  /** Props drawn as their catalogue models (Patch 5: the bogs' silver nuggets, the large mana crystals). */
+  private readonly propModels: PropModelsView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -308,6 +311,7 @@ export class WorldView {
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
+    this.propModels = new PropModelsView(scene, { key: 'fow', apply: fowPatch(this.fow, false) });
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -354,11 +358,11 @@ export class WorldView {
       const at = /^p:(-?\d+),(-?\d+):/.exec(t.key);
       const c = at ? this.chunks.get(ck(Number(at[1]), Number(at[2]))) : undefined;
       const range = c?.ranges.get(t.key);
-      if (c?.cubes && range && range[1] > 0) cubes.push({ mesh: c.cubes, first: range[0], count: range[1] });
+      if (c?.cubes && range && range[1] > 0 && !this.propModels.drawn(t.key)) cubes.push({ mesh: c.cubes, first: range[0], count: range[1] });
     }
     return {
       units: this.hoverUnits.size > 0 ? { group: this.unitsView.bodyGroup, pass: (m) => this.unitsView.passPools(m) } : null,
-      models,
+      models: [...models, ...this.propModels.hoverModels()],
       meshes,
       sprites: this.lootView.hoverSprites(this.hoverKeys),
       cubes,
@@ -386,6 +390,7 @@ export class WorldView {
     this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
+    this.propModels.setModels(lib);
   }
 
   // ---- From the sim worker ----
@@ -683,6 +688,7 @@ export class WorldView {
     this.minimapFocus = focus;
     this.updateUnits(now);
     this.lootView.update(now);
+    this.propModels.update(this.hoverKeys);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
     if (this.game) this.taverns.update(this.game, now, focus, this.buildings.darkness);
@@ -798,6 +804,7 @@ export class WorldView {
     c.size = m.size;
     c.props = m.props.map((p) => this.propSelectable(c, p));
     for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
+    this.propModels.chunk(ck(c.cx, c.cz), c.cx, c.cz, CHUNK_M, c.cubes, m.props);
     c.meshedAt = performance.now();
   }
 
@@ -847,6 +854,7 @@ export class WorldView {
   }
 
   private dropChunk(c: ChunkView): void {
+    this.propModels.drop(ck(c.cx, c.cz));
     if (!c.group) return;
     this.scene.remove(c.group);
     c.group.traverse((o) => {
