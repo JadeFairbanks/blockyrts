@@ -19,6 +19,7 @@ import {
   createWorld,
   CYCLE_STEPS,
   hashState,
+  haveOf,
   nextNight,
   RUIN_CLEAR_M,
   hawthorneNear,
@@ -99,13 +100,14 @@ describe('stone circles (SC-2, SC-3)', () => {
 });
 
 describe('the circle goods (answer 2.5)', () => {
-  it('pay for marble with bluestone and for flint with obsidian, 1 for 1, once the good itself runs out', () => {
+  it('pay for marble with bluestone and for flint with obsidian, 1 for 1, from whichever the stock holds more of', () => {
     const pool = new Int32Array(RESOURCE_COUNT);
     pool[Res.Flint] = 2;
     pool[Res.Obsidian] = 5;
     pool[Res.Bluestone] = 4;
-    expect(payAny(pool, [[Res.Flint, 4], [Res.Marble, 3]])).toEqual([[Res.Flint, 2], [Res.Bluestone, 3], [Res.Obsidian, 2]].sort((a, b) => a[0]! - b[0]!));
-    expect([pool[Res.Flint], pool[Res.Obsidian], pool[Res.Bluestone]]).toEqual([0, 3, 1]);
+    expect(haveOf(pool, Res.Marble)).toBe(4);
+    expect(payAny(pool, [[Res.Flint, 4], [Res.Marble, 3]])).toEqual([[Res.Flint, 1], [Res.Bluestone, 3], [Res.Obsidian, 3]].sort((a, b) => a[0]! - b[0]!));
+    expect([pool[Res.Flint], pool[Res.Obsidian], pool[Res.Bluestone]]).toEqual([1, 2, 1]);
   });
 });
 
