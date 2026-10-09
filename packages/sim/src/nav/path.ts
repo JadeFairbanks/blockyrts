@@ -407,6 +407,22 @@ export class Pathfinder {
     return out;
   }
 
+  /** Whether a chunk's coarse edges for a mover are built and current, so no search has to build them (warmCaches). */
+  coarseReady(cx: number, cz: number, m: Mover): boolean {
+    const c = this.coarse.get(m.id)?.get(chunkKey(cx, cz));
+    if (!c) return false;
+    const w = this.grid.world;
+    if (c.epoch === w.navEpoch) return true;
+    let n = 0;
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (w.navVersion(chunkKey(cx + dx, cz + dz)) !== c.versions[n++]) return false;
+    return true;
+  }
+
+  /** Builds (or brings up to date) a chunk's coarse edges for a mover ahead of need (warmCaches). */
+  warmCoarse(cx: number, cz: number, m: Mover): void {
+    this.coarseChunk(cx, cz, m);
+  }
+
   /** The cheapest crossing from tile (tx, tz) to its neighbour in direction d, x4, or 0 if there is none. */
   private tileEdge(tx: number, tz: number, d: number, m: Mover): number {
     const [dx, dz] = DIRS[d]!;

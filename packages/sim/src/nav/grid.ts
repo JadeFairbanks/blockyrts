@@ -173,6 +173,17 @@ export class NavGrid {
     return c;
   }
 
+  /** Whether a chunk's walk map is built and current (warmCaches). */
+  ready(cx: number, cz: number): boolean {
+    const key = chunkKey(cx, cz);
+    return this.chunks.get(key)?.version === this.world.navVersion(key);
+  }
+
+  /** Builds a chunk's walk map ahead of need (warmCaches). */
+  warm(cx: number, cz: number): void {
+    this.chunk(cx, cz);
+  }
+
   private build(cx: number, cz: number, key: number, version: number): NavChunk {
     const cols = this.world.columns(cx, cz);
     const level = new Int16Array(N * N);

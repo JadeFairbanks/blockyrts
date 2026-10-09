@@ -14,7 +14,7 @@
 // line round the mask's edge, both kept to the outlined units' corner of the
 // screen. With no unit outlined that part costs nothing.
 import * as THREE from 'three';
-import { MarkMode, setMarkMode } from '../models/index.ts';
+import { instancedModelOf, MarkMode, setMarkMode, type InstancedModel } from '../models/index.ts';
 
 /** A unit is outlined once this share of it or more is hidden (Jade). */
 export const HIDDEN_ON = 0.8;
@@ -254,6 +254,7 @@ export class HiddenOutlines {
   private readonly savedClear = new THREE.Color();
   private readonly savedScissor = new THREE.Vector4();
   private readonly hiddenNow: THREE.Object3D[] = [];
+  private readonly flatNow: InstancedModel[] = [];
   readonly stats: OutlineStats = { samples: 0, sampleMs: 0, outlineFrames: 0, outlineMs: 0, outlined: 0 };
 
   constructor(
@@ -339,9 +340,18 @@ export class HiddenOutlines {
     // Glass-like things (water, ghosts, lines, loot) and what hangs on the units hide no one.
     const hide = this.hiddenNow;
     hide.length = 0;
+    // The posed models (props, buildings, fish) keep their own material through the
+    // flat black override, so they are switched to their flat one by hand: the
+    // same black, without the lit, fogged shading and the shader setup it costs.
+    const flat = this.flatNow;
+    flat.length = 0;
     scene.traverseVisible((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       if (m && (Array.isArray(m) ? m.some((x) => x.transparent) : m.transparent)) hide.push(o);
+      else {
+        const model = instancedModelOf(o);
+        if (model) flat.push(model);
+      }
     });
     for (const o of hide) o.visible = false;
     this.units.hideExtras(true);
@@ -359,6 +369,7 @@ export class HiddenOutlines {
       renderer.setRenderTarget(rt);
       scene.overrideMaterial = this.occluder;
       setMarkMode(MarkMode.Ids);
+      for (const model of flat) model.useMarkMaterial(true);
       this.units.passPools(MarkMode.Ids);
       renderer.render(scene, cam);
       // Right: the player's units alone, all of each.
@@ -369,6 +380,8 @@ export class HiddenOutlines {
       this.units.passPools(MarkMode.Own);
       renderer.render(this.units.bodyGroup, cam);
     } finally {
+      for (const model of flat) model.useMarkMaterial(false);
+      flat.length = 0;
       this.units.passPools(null);
       this.units.hideExtras(false);
       for (const o of hide) o.visible = true;

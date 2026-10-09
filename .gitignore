@@ -4,3 +4,4 @@ coverage/
 *.log
 .vite/
 packages/client/public/models/
+.wrangler/

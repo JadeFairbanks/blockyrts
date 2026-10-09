@@ -383,6 +383,47 @@ function updateStocking(state: SimState): void {
   }
 }
 
+/**
+ * The columns the next stocking checks will start looking for land from, as
+ * x, z pairs, for building the land round them between steps (warmCaches):
+ * in each cell the players' units are in or next to, for each species still
+ * to stock there, where stockCell would try its groups (every try, as any may
+ * be the one), and the banks and bogs the water creatures and frogs take.
+ * Only a guide: land it misses is built when asked, as before.
+ */
+export function stockingAhead(state: SimState): number[] {
+  const e = state.entities;
+  const layout = state.world.layout;
+  const cells = new Set<number>();
+  for (let i = 0; i < e.count; i++) {
+    if (e.owner[i]! >= state.players.length || e.inside[i] !== 0 || e.kind[i] === UnitKind.Animal) continue;
+    cells.add(layout.nearest(floorDiv(e.x[i]!, COLUMN), floorDiv(e.z[i]!, COLUMN)));
+  }
+  const all = new Set<number>(cells);
+  for (const c of cells) for (const n of layout.neighboursOf(c)) all.add(n);
+  const out: number[] = [];
+  for (const c of all) {
+    if (unstocked(state, c) < 0) continue;
+    const cell = layout.cell(c);
+    const spread = Math.max(20, floorDiv(cell.size * 2, 5));
+    const feats = state.world.gen.cellFeatures(cell);
+    for (const p of feats.ponds) out.push(p.x + p.r + 1, p.z, p.x - p.r - 1, p.z, p.x, p.z + p.r + 1, p.x, p.z - p.r - 1);
+    for (const st of feats.streams) for (const f of [-300, 0, 300]) out.push(st.x + floorDiv(st.dx * f, 1000), st.z + floorDiv(st.dz * f, 1000));
+    for (const b of feats.bogs) out.push(b.x, b.z, b.x + (b.r >> 1), b.z, b.x - (b.r >> 1), b.z, b.x, b.z + (b.r >> 1), b.x, b.z - (b.r >> 1));
+    for (const sp of SPECIES) {
+      if (state.stockedCells.has(stockKey(c, sp.id))) continue;
+      const groups = groupsIn(state, sp, c, cell.band);
+      for (let g = 0; g < groups; g++) {
+        for (let t = 0; t < 4; t++) {
+          const h = hash(state, c, sp.id, g, t);
+          out.push(cell.x + ((h & 0xffff) % (spread * 2 + 1)) - spread, cell.z + (((h >>> 16) & 0xffff) % (spread * 2 + 1)) - spread);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 // ----- behaviour -----
 
 function speedOf(state: SimState, i: number, running: boolean): number {

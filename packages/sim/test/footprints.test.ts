@@ -330,3 +330,19 @@ describe('farms and stone (after Patch 5)', () => {
     expect(again.complete).toBe(true);
   });
 });
+
+describe('mineshafts on any ground (after Patch 5)', () => {
+  it('lets a mineshaft stand on flat grass or dirt, not only stone, and still refuses a steep tile', () => {
+    const s = createWorld(1, { peaceful: true });
+    const h = bigHouse(s);
+    const [x, z] = spotNear(s, BuildingKind.Mineshaft, h.x + 24, h.z);
+    const { w, d } = footprintDims(BuildingKind.Mineshaft, 0);
+    const top = s.world.topAt(x, z);
+    for (const mat of [Mat.Grass, Mat.Soil]) {
+      s.world.editBox(x, z, x + w - 1, z + d - 1, top - 1, top, mat);
+      expect(placementBlocked(s, 0, BuildingKind.Mineshaft, x, z)).toBe(Blocked.None);
+    }
+    s.world.editBox(x + 1, z + 1, x + 1, z + 1, top, top + 6, Mat.Soil);
+    expect(placementBlocked(s, 0, BuildingKind.Mineshaft, x, z)).toBe(Blocked.Steep);
+  });
+});
