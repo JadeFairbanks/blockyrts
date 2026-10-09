@@ -11,7 +11,9 @@
 // converter (packages/tools/src/models).
 import {
   CircleType,
+  propInfo,
   PropKind,
+  PROPS,
   Species,
   Stage,
   stageInfo,
@@ -48,25 +50,21 @@ const TREE_SPECIES: Readonly<Record<number, { species: string; seed: 'seed_softw
 };
 
 /**
- * Models Jade's Patch 5 asks for that the catalogue does not have yet (WL-4,
- * WL-5, WL-7, WL-10, WL-11, GP-30, GP-31): they come from the Blockbench
- * session on her PC, and props-gen.ts draws these props until they do. An
- * id leaves this list when its model lands.
+ * Models a prop is drawn with that the catalogue does not have yet: they
+ * come from the Blockbench session on Jade's PC, and props-gen.ts draws
+ * these props until they do. An id leaves this list when its model lands;
+ * none is waiting now (Patch 5's world props came in asset PR #162).
  */
-export const PENDING_PROP_MODELS: ReadonlySet<string> = new Set([
-  'bush_blackberry',
-  'bush_raspberry',
-  'bush_blueberry',
-  'mushroom_edible',
-  'flax_wild_2',
-  'flax_wild_3',
-  'flax_tall',
-  'ore_node_silver',
-  'ore_node_gold',
-  'boulder_large',
-  'hot_spring',
-  'bush_bog_pear',
+export const PENDING_PROP_MODELS: ReadonlySet<string> = new Set<string>([]);
+
+/** Rocks and patches whose model has a `depleted` set: drawn with it once half or more of what they can hold is gone (s). */
+const DEPLETED: ReadonlySet<string> = new Set([
+  'stone_scatter', 'flint_scatter', 'rock_stone', 'rock_copper', 'rock_tin', 'rock_coal', 'bog_iron_patch', 'rock_iron', 'clay_bank',
+  'rock_marble', 'rock_saltpetre', 'rock_lead', 'rock_sulphur', 'gold_glint', 'gem_glint', 'mana_crystal_node', 'boulder_large',
 ]);
+
+/** Wild flax's three looks (WL-10: "three flax models"), one per clump by its variant. */
+const WILD_FLAX = ['flax_wild', 'flax_wild_2', 'flax_wild_3'] as const;
 
 /** A berry bush's model: picked, its `picked` set (the bush with no berries). */
 const BERRY_BUSH: Readonly<Record<number, string>> = {
@@ -173,7 +171,10 @@ export function propModel(kind: number, stage: number, variant = 0, amount = 1):
     return at(tree.tree ?? `tree_${tree.species}`, size);
   }
   const still = STILL[kind];
-  if (still) return at(still);
+  if (still) {
+    const most = propInfo(kind).yieldMax;
+    return at(DEPLETED.has(still) && most > 0 && amount * 2 <= most ? `${still}@depleted` : still);
+  }
   switch (kind) {
     case PropKind.DeadTree:
       return at('tree_dead');
@@ -187,8 +188,10 @@ export function propModel(kind: number, stage: number, variant = 0, amount = 1):
       return at('bush_hazel', size);
     case PropKind.Herbs:
       return stage === Stage.Sapling ? at('herb_patch@picked') : at('herb_patch', size);
-    case PropKind.WildFlax:
-      return stage === Stage.Sapling ? at('flax_wild@picked') : at('flax_wild', size);
+    case PropKind.WildFlax: {
+      const id = WILD_FLAX[(variant >>> 0) % WILD_FLAX.length]!;
+      return stage === Stage.Sapling ? at(`${id}@picked`) : at(id, size);
+    }
     case PropKind.FlaxTall:
       return stage === Stage.Sapling ? at('flax_tall@picked') : at('flax_tall', size);
     case PropKind.BlackBerryBush:
@@ -240,7 +243,7 @@ export function propModel(kind: number, stage: number, variant = 0, amount = 1):
 /** Every catalogue id propModel can name (the pending ones too): what the view asks the library to load. */
 export const PROP_MODEL_IDS: readonly string[] = (() => {
   const ids = new Set<string>();
-  for (let kind = 0; kind <= PropKind.CirclePine; kind++) {
+  for (let kind = 0; kind < PROPS.length; kind++) {
     for (let stage = Stage.Seed; stage <= Stage.Grown; stage++) {
       for (let look = 0; look < 6; look++) {
         for (const type of [CircleType.Generic, CircleType.Lunar, CircleType.Silenus, CircleType.Boneyard]) {

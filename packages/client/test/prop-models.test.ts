@@ -120,5 +120,13 @@ describe('every world prop drawn with its own model (Patch 5)', () => {
     expect(propModel(PropKind.SweetHawthorne, Stage.Young, 0, 0)!.id).toBe('sweet_hawthorne_tree');
     expect(propModel(PropKind.HawthorneSapling, Stage.Sapling, 0, 0)!.id).toBe('sweet_hawthorne_sapling');
   });
-});
 
+  it('wears a rock down to its depleted look, varies wild flax and picks the bog pear bare (asset PR #162)', () => {
+    expect(propModel(PropKind.Boulder, Stage.Grown, 0, 400)!.id).toBe('boulder_large');
+    expect(propModel(PropKind.Boulder, Stage.Grown, 0, 150)!.id).toBe('boulder_large@depleted');
+    expect(propModel(PropKind.CoalRock, Stage.Grown, 0, 30)!.id).toBe('rock_coal');
+    expect(new Set([0, 1, 2].map((v) => propModel(PropKind.WildFlax, Stage.Grown, v)!.id))).toEqual(new Set(['flax_wild', 'flax_wild_2', 'flax_wild_3']));
+    expect(propModel(PropKind.BogPearBush, Stage.Grown, 0, 1)!.id).toBe('bush_bog_pear');
+    expect(propModel(PropKind.BogPearBush, Stage.Young, 0, 0)!.id).toBe('bush_bog_pear@picked');
+  });
+});
