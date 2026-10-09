@@ -3540,6 +3540,62 @@ The numbers are rows in `packages/sim/src/peoples/data.ts`
 11. **Saves and checks.** Snapshot version 24 (the faction record keeps one
     number for the day's trade); check scripts' hashes move with it.
 
+## How a tester checks the controls, HUD and markers (Patch 5)
+
+*Jade's Patch 5, sections 11, 26 and 27: left click to target and right click
+for the auto function, autorepair and repair costs, Repair All, units leaving
+the selection as they go into buildings, double-click types, F2, training at
+several buildings, shared control of combat units only; the HUD look; and the
+bars, damage numbers, stars, hover outline and order lines over the world.
+Picks in blueprint/patch5-client-ui-picks.md.*
+
+1. **The tests.** `pnpm test`: packages/sim/test/patch5-controls.test.ts
+   (repair costs, autorepair, Repair All, room-limited entering with the best
+   ranged first, farms sharing workers out, shared control, a refused
+   training said once), packages/client/test/patch5-selection.test.ts
+   (double-click types), patch5-world-marks.test.ts (bars, stars, order
+   lines) and m3-controls (left and right click on Gather, Hunt and Repair).
+2. **Bars and numbers.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   type M N B V C X Z, then press Wave near the base at night. Over anything
+   below 95% health a bar shrinks from green to red; mages have a blue mana
+   bar under it. Red "-N" numbers rise off each hit and fade; a hit of 100 or
+   more is bigger and shakes. Walls carry no bar. A building training a unit
+   has a gold bar under its health bar.
+3. **Stars.** In a game with a second player, the other player's units and
+   buildings carry a small star in their colour with a thin black border;
+   yours never do, nor do monsters.
+4. **Hover and order lines.** Point at a unit, a building, loot or a tree: a
+   white line runs round its outline. Select a group and right click far off:
+   a dotted line runs from the group to a green flag. Attack-move (A, then
+   ground) gives a red flag and red rings; Patrol a blue flag at each end; a
+   direct attack a tiny red dot on the target; a rally point a yellow flag.
+5. **Gather and Hunt.** Select workers and press Gather: the cursor is an
+   axe; click a tree and they fell it, take each load home and go back.
+   Right click Gather instead: they gather by themselves. Select warriors and
+   press Hunt: the cursor is a spear; click a deer and they chase it, then go
+   on hunting. Right click Hunt: they hunt by themselves.
+6. **Repairs.** Damage a building (tester tools), select workers and right
+   click Repair: the button shows AUTO, and workers within 8 m of the damage
+   walk over and fix it, then go back to gathering. The stock drops by the
+   building's own materials as it heals. Press F8 (Repair All, where camera
+   spot 4 was): the workers within 20 m of each damaged building go, idle
+   ones first; farm workers stay at their farm, and the idle ones gather
+   afterwards. With no materials, a worker says "Not enough ... to repair".
+7. **Into buildings.** Select 4 workers and right click a new farm: 2 go,
+   and leave the selection once they start working; 2 stay selected. Select
+   6 workers, hold Shift and right click three farms: 2 go to each. Select a
+   mixed army and right click a tower: the best rangers go up first, then
+   mages, up to its 4 places, and those leave the selection.
+8. **Selection.** In a mixed selection, double click a spearman: only the
+   spearmen of that selection stay. Press F2 with men on a tower: those on
+   the tower are not selected. Select two main bases and press Train worker:
+   each starts one; with food for one only, one starts and the message says
+   why once.
+9. **The HUD.** Hotkeys and tiny numbers are crisp; pictures fill the
+   buttons; buttons never grow past 128 px. The message panel starts folded
+   to a small button at the left edge over the minimap's buttons, counting
+   other players' messages until opened. Bubbles stay a second longer.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

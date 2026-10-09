@@ -19,6 +19,7 @@ export function orderAction(o: UnitOrder | undefined, typeKey: string): string |
     case 'patrol':
       return 'patrol';
     case 'gather':
+    case 'forage':
     case 'dropoff':
       return 'gather';
     case 'return':

@@ -9,7 +9,6 @@ import {
   School,
   speakerName,
   Troop,
-  TROOP_NAMES,
   TROOP_TIER_NAMES,
   TROOP_TYPES,
   troopTierName,
@@ -33,7 +32,8 @@ describe('troop names', () => {
       for (let w = 0; w <= 8; w++) {
         const name = troopTierName(t, w);
         if (t === Troop.Brawler) expect(name).toBe('Brawler');
-        else if (w >= lo && w <= hi) expect(name).not.toBe(TROOP_NAMES[t]);
+        // Its own name at every tier it has (Patch 5: the spear line's type name is its first tier's, Spearman).
+        else if (w >= lo && w <= hi) expect(TROOP_TIER_NAMES[t]![w]).toBeTruthy();
         else expect(TROOP_TIER_NAMES[t]![w] ?? '').toBe('');
       }
     }

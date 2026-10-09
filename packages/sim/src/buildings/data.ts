@@ -273,7 +273,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl('Artillery workshop', [[L, 50], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 10]], 400, 1200, { needsBase: 3, gives: 'catapults, ballistas, cannons' })],
   },
   {
-    kind: BuildingKind.Barracks, name: 'Barracks', purpose: 'Trains troops of every type and tier (close melee, long melee, ranger, brawler, and cavalry from main base tier 2 on a horse from the nearest Barn), trains them to Soldier and Veteran, and upgrades their gear.',
+    kind: BuildingKind.Barracks, name: 'Barracks', purpose: 'Trains troops of every type and tier (fighters and swordsmen, spearmen and halberdiers, rangers, brawlers, and cavalry from main base tier 2 on a horse from the nearest Barn), trains them to Soldier and Veteran, and upgrades their gear.',
     slot: 9, w: 10, d: 10, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Barracks', [[L, 80], [ST, 40], [Res.Sticks, 20]], 400, 1000, { needsBase: 2, gives: 'troops of every type and tier, rank training' })],
   },

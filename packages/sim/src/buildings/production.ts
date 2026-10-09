@@ -136,8 +136,9 @@ export function productSpec(product: Product): ProductSpec {
     const pieces = troopPieces(t.troop, t.w, t.a);
     const horse = t.troop === Troop.Cavalry ? ' and a tamed horse from the nearest Barn' : '';
     return {
-      product, name: TROOP_NAMES[t.troop] ?? 'Troop', key: TROOP_KEYS[t.troop] ?? '', steps: (TRAINING.troopS + piecesTime(pieces)) * STEPS_PER_SECOND, cost: mainCost(pieces), pieces, food: TRAINING.troopFood, troop: t,
-      tooltip: `A new ${(TROOP_NAMES[t.troop] ?? 'troop').toLowerCase()} troop: ${kitName(t.troop, t.w, t.a).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply.`,
+      // Jade's Patch 5 (UI-11): a troop goes by its own name ("Club fighter"), never "close melee" or "long melee".
+      product, name: troopTierName(t.troop, t.w), key: TROOP_KEYS[t.troop] ?? '', steps: (TRAINING.troopS + piecesTime(pieces)) * STEPS_PER_SECOND, cost: mainCost(pieces), pieces, food: TRAINING.troopFood, troop: t,
+      tooltip: `A new ${troopTierName(t.troop, t.w).toLowerCase()}: ${kitName(t.troop, t.w, t.a).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply.`,
     };
   }
   if (product >= RESEARCH_PRODUCT && product < RECIPE_PRODUCT) {

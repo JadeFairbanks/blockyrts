@@ -264,10 +264,10 @@ describe('the Big House', () => {
     const { c, sent } = harness(g, [{ ...sel('b:20', 'building:0:1'), kind: 'building' }], 'building:0:1');
     const card = c.card();
     // Worker first, so the troop types move one along.
-    expect(card.slice(0, 4).map((e) => e!.face)).toEqual(['Worker', 'Close', 'Long', 'Ranger']);
+    expect(card.slice(0, 4).map((e) => e!.face)).toEqual(['Worker', 'Sword', 'Spear', 'Ranger']);
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
-    expect(card[1]!.name).toBe('Train close melee');
+    expect(card[1]!.name).toBe('Train club fighter');
     expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));
@@ -372,15 +372,29 @@ describe('digging', () => {
 });
 
 describe("Hunt, Gather and loot (Jade's play-test notes)", () => {
-  it('sends the warriors out hunting with one press of Hunt, and the workers gathering with one press of Gather', () => {
+  it('Hunt and Gather: a left click picks a target and the round goes on after it, a right click (or two presses) is the auto function (Patch 5, CT-1)', () => {
     const g = game();
     const h = harness(g, warriors, 'warrior');
     button(h.c.card(), 'hunt')!.run(PRESS);
+    expect(h.c.targeting?.command).toBe('hunt');
+    expect(button(h.c.card(), 'hunt')!.lit).toBe(true);
+    const deer: Selectable = { key: 'e:50', kind: 'unit', owner: 255, typeKey: 'animal:wild:1', centre: at(4, 4), halfSize: new THREE.Vector3(0.4, 0.5, 0.4), label: 'Deer' };
+    h.c.confirmTarget(deer, at(4, 4));
+    expect(h.sent.at(-1)).toMatchObject({ kind: 'hunt', units: [3, 4], target: 50, auto: 1 });
+    button(h.c.card(), 'hunt')!.right!(PRESS);
     expect(h.sent.at(-1)).toMatchObject({ kind: 'hunt', units: [3, 4], target: 0, auto: 1 });
     const w = harness(g, workers, 'worker');
     expect(button(w.c.card(), 'gather')!.face).toBe('Gather');
     button(w.c.card(), 'gather')!.run(PRESS);
+    expect(w.c.targeting?.command).toBe('gather');
+    const pine: Selectable = { key: 'p:1,2:3', kind: 'node', owner: 255, typeKey: 'node:pine', centre: at(2, 2), halfSize: new THREE.Vector3(0.4, 2, 0.4), label: 'Pine', resource: 'softwood' };
+    w.c.confirmTarget(pine, at(2, 2));
+    expect(w.sent.at(-1)).toMatchObject({ kind: 'gather', units: [1, 2], cx: 1, cz: 2, index: 3 });
+    button(w.c.card(), 'gather')!.right!(PRESS);
     expect(w.sent.at(-1)).toMatchObject({ kind: 'forage', units: [1, 2] });
+    // Repair's right click turns autorepair on for the selected workers.
+    button(w.c.card(), 'repair')!.right!(PRESS);
+    expect(w.sent.at(-1)).toMatchObject({ kind: 'autoRepair', units: [1, 2], on: 1 });
   });
 
   it('right-clicking loot on the ground sends the selected units to pick it up', () => {

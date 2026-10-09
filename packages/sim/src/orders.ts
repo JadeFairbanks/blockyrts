@@ -61,6 +61,18 @@ export interface RepairAllOrder extends UnitsOrder {
   kind: 'repairAll';
 }
 
+/** A right click on Repair (Jade's Patch 5, UI-13): the selected workers' autorepair on (1) or off (0). */
+export interface AutoRepairOrder extends UnitsOrder {
+  kind: 'autoRepair';
+  on: number;
+}
+
+/** Repair all (Jade's Patch 5, GP-25): the workers near each damaged building go and repair it (units/repairs.ts). */
+export interface RepairNearbyOrder {
+  kind: 'repairNearby';
+  player: number;
+}
+
 /** Return Cargo (C): to the nearest drop-off, then back to the node. */
 export interface ReturnCargoOrder extends UnitsOrder {
   kind: 'returnCargo';
@@ -675,6 +687,8 @@ export type Order =
   | BuildOrder
   | WorkOrder
   | RepairAllOrder
+  | AutoRepairOrder
+  | RepairNearbyOrder
   | ReturnCargoOrder
   | DropoffOrder
   | EnterOrder
@@ -721,6 +735,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   build: ['building', 'variant', 'x', 'z'],
   work: ['building'],
   repairAll: [],
+  autoRepair: ['on'],
+  repairNearby: [],
   returnCargo: [],
   dropoff: ['building'],
   enter: ['building'],
@@ -785,7 +801,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -826,6 +842,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'debugGod':
       if (o.on !== 0 && o.on !== 1) throw new Error('godmode is on or off');
+      return;
+    case 'autoRepair':
+      if (o.on !== 0 && o.on !== 1) throw new Error('autorepair is on or off');
       return;
     case 'debugPlace':
       if (o.what < 0 || o.what > 0xffff) throw new Error('bad godmode placement');
