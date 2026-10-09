@@ -3782,6 +3782,75 @@ tips. Picks in blueprint/patch5-gear-picks.md.*
    killed monster now and then drops a weapon, armour or shield of the
    night's tier, which units carry home like other loot.
 
+## How a tester checks the unit inventory, the item menu and the main base shelter (Patch 5)
+
+*Patch 5's GP-2, GP-5 to GP-10, GP-13, GP-27, GP-33 and GP-34, with
+decisions 3.6 and 3.8: one unit's inventory in the middle of the HUD, one
+right-click menu for every item, Equip from the stock, drop-offs by
+themselves, troops sheltering in the main base, and eating to heal. Picks in
+blueprint/patch5-gear-picks.md (section 12).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-inventory.test.ts
+   (units near a drop-off hand in by themselves; Drop puts a good on the
+   ground that nobody picks up by themselves; Unload takes one good; Equip
+   pays the item and sends the unit to put it on, or says why it cannot;
+   who goes inside a main base and who goes up; the panel's switch; one "I
+   feel safe in here." for a run of workers; the food a wound needs) and
+   packages/client/test/patch5-inventory.test.ts (the item menu's choices in
+   order, greyed with their reasons; an item's own use; the inventory's
+   slots and weight; the bars on spells).
+2. **One unit's inventory.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   type M N B V C X Z and select one worker. The divider after the name runs
+   down the panel: on the left the kit slots with the meal right after them
+   (no gap), on the right, under the HP, MP and XP bars, an inventory box of
+   8 slots holding what it carries, its load and its loot together. Under
+   them **x/y lb** (what it carries of what it can, each number explained in
+   its tooltip) and **Unload all** (C), greyed when it carries nothing.
+   Tooltips there open above the box. Select two units, or someone else's:
+   no box. The worker card has no Unload any more.
+3. **The item menu.** Right click a slot of the unit's inventory: **Use**
+   (greyed: "It has no use of its own."), **Unload** (that good to the
+   nearest drop-off that takes it, then back to work) and **Drop** (on the
+   ground there; nobody picks it up by themselves). Right click a slot of
+   the stockpile: a weapon, armour, shield, tool, wand or robe offers Use,
+   **Equip** and **Scrap** (greyed with why: no Workshop, none in the
+   stock); a food offers Use and **Don't eat** (then **Eat again**).
+4. **Equip.** Press **Troop kit** on the debug bar, train a swordsman at
+   the Big House and another at the Barracks with a better sword, and raise
+   the second one's weapon with **Upgrade equipment**: its old sword goes to
+   the stock. Right click that sword in the stockpile, pick **Equip** and
+   left click the first swordsman: it says it is off to the nearest
+   Barracks, Forge or main base for it, walks there and puts it on in a
+   fifth of the time, and its old sword goes to the stock in turn. Left
+   click a spearman instead: "I cannot use a …"; the second swordsman: "I
+   already have better." Right click or Esc cancels the pick.
+5. **Drop-offs by themselves.** Send a worker gathering beside the main
+   base or a stockpile, or walk a troop with loot within 5 m of the main
+   base: what it carries goes into the stock by itself about once a
+   second, with no walk and no stop to what it does.
+6. **The main base.** Select some workers carrying nothing and right click
+   the main base: they go inside, and the main base says "I feel safe in
+   here." once for the lot. Workers carrying goods turn them in first (loot
+   too); the rest of a mixed selection goes in. Select swordsmen, archers
+   and a mage and right click a tier 2 or higher main base: the swordsmen
+   go deeper inside, the archers and the mage up on the ramparts (the Big
+   House takes everyone inside). Riders and engines do not go in. In the
+   main base's panel, the inside row starts with **Eject n** (everyone
+   sheltering inside comes out, the ramparts stay), and each portrait has a
+   small arrow: ▼ moves one from the ramparts deeper inside, ▲ back up.
+7. **Eating.** Let a unit get hurt in a night's fight, select it and
+   press **Eat**: it walks to the main base or a storehouse and says "I need
+   n food to heal. I'm eating …": 1 food for each quarter of its health it
+   lacks, 4 for one near death, and it heals all of it over 10 s. With too
+   little food it eats what there is and heals a quarter for each, and a
+   remedy or bandage in the stock heals more. At full health Eat is greyed
+   ("It is at full health."), and a unit healed on its way does not sit
+   down to eat.
+8. **The bars.** Select a mage: the bars read HP, MP, then XP.
+   Cast Quicken, Fortify or Heal on a unit and select it: each spell's
+   picture has a bar that runs down over the spell's time, its tooltip
+   saying how many seconds are left.
+
 ## How a tester checks running, climbing and jumping (Patch 5)
 
 *Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
