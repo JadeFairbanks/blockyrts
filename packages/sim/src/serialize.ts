@@ -223,11 +223,12 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * nights. 38: who took each Ape's idol. 39: Patch 7's gear catalogue (goods
  * and gear rows in two bytes: a unit's carried good, weapon, ranged weapon,
  * shield, armour and cart, the stock's length, and a building's stock and
- * payments). Every patch raises it, and a
+ * payments). 40: what each unit keeps in its bag (Patch 7, Keep in bag).
+ * Every patch raises it, and a
  * snapshot from any other version is refused, never carried over (Jade,
  * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 39;
+export const SNAPSHOT_VERSION = 40;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
