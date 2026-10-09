@@ -4235,7 +4235,9 @@ picking berries),
 2. **Training.** `pnpm dev`, open http://localhost:5173/?seed=2. Build a
    Scholar's Lodge: its card has Woodsman (W) for 32 food, 4 sticks, 1
    leather (or 1 hides) and 4 flax, in 50 s. He comes out with a wooden
-   spear in his hand and no armour.
+   spear in his hand and no armour. The Woodsman button, his place in the
+   queue and his picture in the selection grid are his own portrait, a
+   woodsman's head and shoulders, not the spearman's.
 3. **His card.** Attack (A), Move (M), Fish (I), Forage (G), Eat (F),
    Upgrade equipment (Q) and Run or Walk (H). F2 does not select him.
    Upgrade equipment offers only long weapons, and only at a main base; he
@@ -4274,7 +4276,9 @@ picking berries),
    every 3 meals, yellow between.
 8. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
    click makes one, Shift + click ten, and a right click offers Make 1,
-   Make 10 or Make all, each order one stack in the queue counting down. On a farm's
+   Make 10 or Make all, each order one stack in the queue counting down.
+   Bonemeal's icon is a tied sack with a small bone leaning on it, and a
+   worker carrying bonemeal holds that sack. On a farm's
    card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
    2 minutes; pressed again, more boosts wait behind it (up to 10). Right
    click turns Auto fertilize on or off. Beside the farm's workers,
