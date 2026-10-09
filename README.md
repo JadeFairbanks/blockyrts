@@ -3725,6 +3725,12 @@ Picks in blueprint/patch5-client-ui-picks.md.*
     Both keys can be rebound in Settings, under Camera and selection.
     packages/client/test/patch5-camera-turn.test.ts checks the angle, the
     middle of the view, panning and the turn back.
+11. **Select All Woodsmen.** Above the minimap, the button beside Select
+    Army (F7, where camera spot 3 was) selects every woodsman you own, but
+    not those sheltering in a building; with none it says so. Two camera
+    spots are left, F5 and F6. In a game with a second player who shares
+    control, their woodsmen and workers do not take your orders; their
+    troops do (patch5-controls.test.ts).
 
 ## How a tester checks unit and building looks (Patch 5)
 
