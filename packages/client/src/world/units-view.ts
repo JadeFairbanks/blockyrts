@@ -303,9 +303,6 @@ const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 /** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */
 const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
 
-/** How near the shot's start (metres) a gun's drawn muzzle must be for its flash to come out of it. */
-const MUZZLE_NEAR_M = 2.5;
-
 /** Seconds a gun's smoke rises after a shot (Jade's MB-7): a cannon 5, a musket 4, the brawler's pistol 3. */
 const GUN_SMOKE = { cannon: 5, musket: 4, pistol: 3 };
 
@@ -507,20 +504,6 @@ class AttachPool {
   setLibrary(lib: ModelLibrary): void {
     this.lib = lib;
   }
-
-  /** Where an item's muzzle is (its slot_muzzle bone, metres in the item's own space), null when it has none or is not loaded yet. */
-  muzzle(id: string): THREE.Vector3 | null {
-    const model = this.lib?.models.get(id);
-    if (!model) return null;
-    let at = this.muzzles.get(id);
-    if (at === undefined) {
-      const b = model.boneNames.indexOf('slot_muzzle');
-      at = b >= 0 ? new THREE.Vector3().setFromMatrixPosition(model.restWorld[b]!) : null;
-      this.muzzles.set(id, at);
-    }
-    return at;
-  }
-  private readonly muzzles = new Map<string, THREE.Vector3 | null>();
 
   /** Whether the item is drawn now (loaded), asking for it otherwise. */
   has(id: string): boolean {
@@ -865,8 +848,10 @@ export class UnitsView {
   private readonly tinkerStart = new Map<number, number>();
   /** The state step each engine last fired on, by entity id: its smoke is thrown once per shot. */
   private readonly fired = new Map<number, number>();
-  /** Where each unit's gun with a muzzle (a musket, the brawler's pistol) was last drawn, metres, by entity id: its flash comes out of it. */
-  private readonly muzzleAt = new Map<number, THREE.Vector3>();
+  /** Where each soldier's gun's muzzle was last drawn, by entity id (Patch 5, MB-7): its flash and smoke start there. */
+  private readonly muzzles = new Map<number, THREE.Vector3>();
+  /** Each held item's slot_muzzle in its own space, or null when it has none. */
+  private readonly muzzleOf = new Map<string, THREE.Vector3 | null>();
   /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
   private readonly held = new Map<number, { clip: string; t0: number; until: number; then?: { clip: string; ms: number } }>();
   /** Each Morvath's form last seen, by entity id, and where each stands now (metres), for the life drained into him. */
@@ -914,8 +899,8 @@ export class UnitsView {
   }
 
   private body(wanted: string): BodyPool | null {
-    // A model still to be made borrows a near kin's until it is in the catalogue (a Citadel's fixed engine, Patch 5: the engine it is built from).
-    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted.replace(/_fixed$/, '')) : wanted;
+    // A model still to be made borrows a near kin's until it is in the catalogue.
+    const id = this.lib && !this.lib.listed(wanted) ? (STAND_IN_MODELS[wanted] ?? wanted) : wanted;
     let b = this.bodies.get(id);
     if (b) return b;
     const model = this.lib?.models.get(id);
@@ -1088,6 +1073,21 @@ export class UnitsView {
     this.smoke.add(x + fx * 0.2, y, z + fz * 0.2, seconds, big ? 0.7 : 0.35);
   }
 
+  /** Where a gun held in hand (its item model's slot_muzzle) is now, for its flash and smoke when it fires. */
+  private noteMuzzle(id: number, item: string, hand: THREE.Matrix4): void {
+    let at = this.muzzleOf.get(item);
+    if (at === undefined) {
+      const model = this.lib?.models.get(item);
+      if (!model) return;
+      const b = model.boneNames.indexOf('slot_muzzle');
+      at = b >= 0 ? new THREE.Vector3().setFromMatrixPosition(model.restWorld[b]!) : null;
+      this.muzzleOf.set(item, at);
+    }
+    if (!at) return;
+    const v = this.muzzles.get(id) ?? new THREE.Vector3();
+    this.muzzles.set(id, v.copy(at).applyMatrix4(hand));
+  }
+
   /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. A gun's shot leaving gets its flash and smoke (`who` finds the shooter: a pistol smokes less than a musket). */
   onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number, who?: (id: number) => { kind: number; ranged: number; x: number; z: number } | null): void {
     for (const h of hits) {
@@ -1129,12 +1129,13 @@ export class UnitsView {
         const u = who?.(h.id);
         if (u && u.kind !== UnitKind.Engine) {
           const seconds = u.ranged === PISTOL_GEAR ? GUN_SMOKE.pistol : h.shot === Shot.MusketBall ? GUN_SMOKE.musket : GUN_SMOKE.cannon;
-          // Out of its gun's muzzle where it was drawn by the shooter (not a place left from long ago).
-          const drawn = this.muzzleAt.get(h.id);
-          const at = drawn && Math.abs(drawn.x - x) < MUZZLE_NEAR_M && Math.abs(drawn.z - z) < MUZZLE_NEAR_M ? drawn : null;
+          // From the gun's muzzle as last drawn (Patch 5, MB-7), else where the shot leaves.
+          const m = this.muzzles.get(h.id);
+          const at = m && Math.abs(m.x - x) + Math.abs(m.z - z) < 2 ? m : null;
           this.gunFire(at?.x ?? x, at?.y ?? y, at?.z ?? z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
         }
       }
+      if (h.look === 'death') this.muzzles.delete(h.id);
       const spell = h.look === 'spell' ? SPELL_LOOKS[h.spell ?? 0] : undefined;
       if (spell) this.particles.spawn(x, y, z, spell.colour, spell.n, spell.speed, spell.up);
     }
@@ -1233,7 +1234,7 @@ export class UnitsView {
           if (slot) {
             slot.m.setInstance(slot.i, x, y, z, heading, clip, kept ? kept[1] : clipT, null, mobScale(spec.model, spec.height));
             // A wall breaker's fuse fizzes with tiny sparks, from the fuse on its bomb (Patch 5, Jade's BL-7).
-            const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('fx_fuse') : -1;
+            const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('slot_fuse') : -1;
             if (fuse >= 0) {
               const at = new THREE.Vector3().setFromMatrixPosition(slot.m.boneWorld(slot.i, fuse, this.mat));
               this.sparks.spawn(at.x, at.y, at.z, 0xffc040, 2, 0.7, 0.8, 0.15);
@@ -1348,8 +1349,7 @@ export class UnitsView {
             const m = slot.m.boneWorld(slot.i, b, this.mat);
             if (stow !== Stow.None) m.multiply(STOW_TURN[`${stow}${POINT_UP.test(item) ? 'up' : 'down'}`]!);
             this.attach.add(item, m, tint);
-            const muzzle = stow === Stow.None ? this.attach.muzzle(item) : null;
-            if (muzzle) this.muzzleAt.set(id, (this.muzzleAt.get(id) ?? new THREE.Vector3()).copy(muzzle).applyMatrix4(m));
+            if (stow === Stow.None) this.noteMuzzle(id, item, m);
           }
           if (load.hold && !inCart) {
             const b = pool.bone(HOLD_SLOTS[load.hold]);
@@ -1466,15 +1466,11 @@ export class UnitsView {
     const spec = engineSpec(d[o + S.mob]!);
     const id = d[o + S.id]!;
     const firing = d[o + S.order] === OrderKind.Shoot;
-    if (firing && this.fired.get(id) !== f.curr.step) {
-      this.fired.set(id, f.curr.step);
-      const ahead = 1.2;
-      const sx = x - Math.sin(heading) * ahead;
-      const sz = z - Math.cos(heading) * ahead;
-      // Patch 5 (MB-7): a cannon's flash, sparks and 5 s of smoke at its muzzle.
-      if (spec.cannon) this.gunFire(sx, y + 1, sz, heading, GUN_SMOKE.cannon);
-      else this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
-    }
+    const fires = firing && this.fired.get(id) !== f.curr.step;
+    if (fires) this.fired.set(id, f.curr.step);
+    if (fires && !spec.cannon) this.particles.spawn(x, y + 1.2, z, 0x8a5a2a, 6, 1.2, 1.4);
+    // Patch 5 (MB-7, Jade: "Make sure it actually comes from the muzzle"): a cannon's flash, sparks and 5 s of smoke at its model's slot_muzzle, 1.2 m ahead while it is a block.
+    const muzzle = fires && spec.cannon ? new THREE.Vector3(x - Math.sin(heading) * 1.2, y + 1, z - Math.cos(heading) * 1.2) : null;
     const pool = this.body(spec.model);
     if (pool) {
       const slot = pool.take([]);
@@ -1483,13 +1479,17 @@ export class UnitsView {
       const clip = firing ? 'fire' : d[o + S.order] === OrderKind.Move ? (hauled ? 'move_towed' : firstClip(clips, ['move', 'move_towed'])) : d[o + S.target] !== 0 ? 'aim' : d[o + S.hp]! * 3 < d[o + S.maxHp]! ? firstClip(clips, ['damaged', 'idle']) : 'idle';
       if (slot) {
         slot.m.setInstance(slot.i, x, y, z, heading, clip, firing ? 0 : clipT, colour);
+        const b = muzzle ? pool.bone('slot_muzzle') : -1;
+        if (b >= 0) muzzle!.setFromMatrixPosition(slot.m.boneWorld(slot.i, b, this.mat));
         if (ownId) {
           pool.mark(slot, ownId, outlined);
           this.noteOwn(ownId, x, y, z, spec.height / WU_PER_METRE, (spec.halfWidth * 1.6) / WU_PER_METRE, outlined);
         }
       }
+      if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, heading, GUN_SMOKE.cannon);
       return blocks;
     }
+    if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, heading, GUN_SMOKE.cannon);
     if (blocks >= MAX_UNITS) return blocks;
     const dummy = this.dummy;
     dummy.position.set(x, y, z);
