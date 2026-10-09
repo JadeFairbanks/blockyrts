@@ -239,12 +239,12 @@ export const SPELLS: readonly SpellSpec[] = [
     amount: 0, radius: 30 * M, steps: 15 * SEC, bp: 0, vsWalls: 0, clip: 'cast_area', model: 'spell_call_of_the_wild', icon: 'icon_spell_call_wild', auto: true, role: 'grove',
     text: 'Wild animals within 30 m fight for the Elves for 15 s.',
   },
-  // Patch 5 (MB-16): the support mage's attack, weaker than the Arcane bolt (s: 12 damage, 6 mana, every 1.5 s, 16 m), from a fresh Novice Acolyte.
+  // Patch 5 (MB-16): the support mage's attack, from a fresh Novice Acolyte. Jade: "it should cost mana, and it should do ~30% less damage than arcane bolt despite costing as much": the Arcane bolt's 10 mana for 14 damage (20 less 30%); every 1.5 s, 16 m (s).
   {
     id: Spell.EnergyDart, name: 'Energy dart', key: 'D', school: School.Support, rank: 1, hexcraft: false,
-    mana: 6, cooldown: 30, range: 16 * M, projectile: true, shot: Shot.EnergyDart, target: 'enemy', effect: 'bolt',
-    amount: 12, radius: 0, steps: 0, bp: 0, vsWalls: 1, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_spell_arcane_bolt', auto: true, role: 'attack',
-    text: 'An arrow made of light flies at one enemy for 12 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
+    mana: 10, cooldown: 30, range: 16 * M, projectile: true, shot: Shot.EnergyDart, target: 'enemy', effect: 'bolt',
+    amount: 14, radius: 0, steps: 0, bp: 0, vsWalls: 1, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_energy_dart', auto: true, role: 'attack',
+    text: 'An arrow made of light flies at one enemy for 14 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
   },
 ];
 
