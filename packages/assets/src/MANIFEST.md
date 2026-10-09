@@ -1,4 +1,4 @@
-# Asset manifest
+| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | K1 resource icon mushrooms (rendered from mushroom.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | K1 resource icon blueberries (rendered from blueberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | K1 resource icon raspberries (rendered from raspberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | K1 resource icon black_berries (rendered from black_berries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |# Asset manifest
 
 One row per model file under `models/`. Cube counts include cubes hidden by default; texture sizes are the embedded texture (also committed as `<file>.png`), followed by any colour or material variants (`<file>_<variant>.png`, same UV layout). Each model's full notes (hit box, move speeds, key times, attachment points, second grip distances) are in its Blockbench description.
 
@@ -313,6 +313,10 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
 | obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
 | armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
+| black_berries | models/items/black_berries/black_berries.bbmodel | 11 | 32x16 |  |
+| raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
+| blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
+| mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
 
 ## mechanical
 
