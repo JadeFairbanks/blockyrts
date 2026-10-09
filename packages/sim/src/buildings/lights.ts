@@ -6,7 +6,7 @@
 // badger, Morvath's Crown of night), and a worker relights it in 2 s at no cost.
 
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { MOB_WALKER, Walk } from '../nav/grid.ts';
+import { MOB_WALKER, TOP, Walk } from '../nav/grid.ts';
 import { TILE_COLUMNS } from '../nav/path.ts';
 import type { SimState } from '../state.ts';
 import type { World } from '../world/world.ts';
@@ -128,7 +128,88 @@ function binaryHas(list: readonly number[], k: number): boolean {
   return false;
 }
 
-const DIRS4: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/**
+ * A set of columns (x, z), each with a number: open addressing over typed
+ * arrays, many times quicker than a Set or Map of column keys for the
+ * enclosure flood, which can visit 65,536 columns at a time. Only ever asked
+ * whether it holds a column, never walked, so the order it keeps is no part
+ * of any answer. Not state.
+ */
+class ColumnTable {
+  private mask = 0;
+  private xs = new Int32Array(0);
+  private zs = new Int32Array(0);
+  private vals = new Int32Array(0);
+  /** A slot is in use when its stamp is the table's current one, so clear() only moves to a new stamp. */
+  private stamps = new Uint32Array(0);
+  private stamp = 1;
+  size = 0;
+
+  constructor(slots: number) {
+    this.alloc(slots);
+  }
+
+  private alloc(slots: number): void {
+    this.mask = slots - 1;
+    this.xs = new Int32Array(slots);
+    this.zs = new Int32Array(slots);
+    this.vals = new Int32Array(slots);
+    this.stamps = new Uint32Array(slots);
+    this.stamp = 1;
+  }
+
+  clear(): void {
+    this.size = 0;
+    if (++this.stamp === 0xffffffff) {
+      this.stamps.fill(0);
+      this.stamp = 1;
+    }
+  }
+
+  /** The slot holding (x, z), or the empty slot it would go in. */
+  private slot(x: number, z: number): number {
+    let h = Math.imul(x, 0x9e3779b1) ^ Math.imul(z, 0x85ebca6b);
+    h ^= h >>> 15;
+    h = Math.imul(h, 0x2c1b3c6d);
+    h ^= h >>> 12;
+    let i = h & this.mask;
+    while (this.stamps[i] === this.stamp && (this.xs[i] !== x || this.zs[i] !== z)) i = (i + 1) & this.mask;
+    return i;
+  }
+
+  has(x: number, z: number): boolean {
+    return this.stamps[this.slot(x, z)] === this.stamp;
+  }
+
+  /** The column's number, or -1 if it is not in the table. */
+  get(x: number, z: number): number {
+    const i = this.slot(x, z);
+    return this.stamps[i] === this.stamp ? this.vals[i]! : -1;
+  }
+
+  /** Puts the column in (or sets its number). */
+  set(x: number, z: number, v = 0): void {
+    const i = this.slot(x, z);
+    if (this.stamps[i] !== this.stamp) {
+      this.stamps[i] = this.stamp;
+      this.xs[i] = x;
+      this.zs[i] = z;
+      this.size++;
+    }
+    this.vals[i] = v;
+    if (this.size * 2 > this.mask) this.grow();
+  }
+
+  private grow(): void {
+    const { xs, zs, vals, stamps, stamp } = this;
+    this.alloc((this.mask + 1) * 2);
+    this.size = 0;
+    for (let i = 0; i < stamps.length; i++) if (stamps[i] === stamp) this.set(xs[i]!, zs[i]!, vals[i]!);
+  }
+}
+
+/** The flood's scratch, kept between runs. Not state. */
+let flood: { seen: ColumnTable; open: ColumnTable; shut: ColumnTable; queue: Int32Array } | undefined;
 
 function colKey(x: number, z: number): number {
   return (z + 0x40000) * 0x80000 + (x + 0x40000);
@@ -158,10 +239,12 @@ export function computeEnclosed(state: SimState): void {
     state.enclosed = last.enclosed.slice();
     return;
   }
-  const keys: number[] = [];
-  const open = new Set<number>();
+  flood ??= { seen: new ColumnTable(1 << 18), open: new ColumnTable(1 << 18), shut: new ColumnTable(1 << 12), queue: new Int32Array(2 * (ENCLOSURE_MAX_COLUMNS + 1)) };
+  const { seen, open, shut, queue } = flood;
+  open.clear();
   /** Closed columns to their region, and each region's tiles (x, z pairs). */
-  const shut = new Map<number, number>();
+  shut.clear();
+  const keys: number[] = [];
   const regions: number[][] = [];
   for (const b of state.buildings.list) {
     const s = buildingSpec(b.kind);
@@ -171,34 +254,41 @@ export function computeEnclosed(state: SimState): void {
     const sx = b.x + d.ox + (d.w >> 1);
     let sz = b.z + d.oz + d.d;
     if (nav.flags(sx, sz) & Walk.Blocked) sz++;
-    const k0 = colKey(sx, sz);
-    if (open.has(k0)) continue;
-    const region = shut.get(k0);
-    if (region !== undefined) {
+    if (open.has(sx, sz)) continue;
+    const region = shut.get(sx, sz);
+    if (region >= 0) {
       // Another building in a region already closed off: its owner claims it too.
       const tiles = regions[region]!;
       for (let q = 0; q < tiles.length; q += 2) keys.push(enclosedKey(b.owner, tiles[q]!, tiles[q + 1]!));
       continue;
     }
-    const seen = new Set<number>([k0]);
-    const queue: number[] = [sx, sz];
+    // Breadth first, each column's neighbours east, west, south, north. The
+    // queue holds exactly the columns seen.
+    seen.clear();
+    seen.set(sx, sz);
+    queue[0] = sx;
+    queue[1] = sz;
+    let end = 2;
     let overflow = false;
-    for (let q = 0; q < queue.length && !overflow; q += 2) {
+    for (let q = 0; q < end && !overflow; q += 2) {
       const x = queue[q]!;
       const z = queue[q + 1]!;
-      for (const [dx, dz] of DIRS4) {
-        const nx = x + dx;
-        const nz = z + dz;
-        const k = colKey(nx, nz);
-        if (seen.has(k)) continue;
-        if (open.has(k)) {
+      for (let dir = 0; dir < 4; dir++) {
+        const nx = dir === 0 ? x + 1 : dir === 1 ? x - 1 : x;
+        const nz = dir === 2 ? z + 1 : dir === 3 ? z - 1 : z;
+        if (seen.has(nx, nz)) continue;
+        if (open.has(nx, nz)) {
           overflow = true;
           break;
         }
-        // Could a monster standing there step or jump in here (1 m, Patch 5 MB-3)?
-        if (nav.stepCost(nx, nz, x, z, MOB_WALKER) < 0) continue;
-        seen.add(k);
-        queue.push(nx, nz);
+        // Could a monster standing there step or jump in here (1 m, Patch 5
+        // MB-3)? A straight step is refused (stepCost -1) just when there is
+        // no walk level to reach.
+        if (nav.layerTo(nx, nz, TOP, x, z, MOB_WALKER) < 0) continue;
+        seen.set(nx, nz);
+        queue[end] = nx;
+        queue[end + 1] = nz;
+        end += 2;
         if (seen.size > ENCLOSURE_MAX_COLUMNS) {
           overflow = true;
           break;
@@ -206,13 +296,13 @@ export function computeEnclosed(state: SimState): void {
       }
     }
     if (overflow) {
-      for (const k of seen) open.add(k);
+      for (let q = 0; q < end; q += 2) open.set(queue[q]!, queue[q + 1]!);
       continue;
     }
     const tileSet = new Set<number>();
     const tiles: number[] = [];
-    for (let q = 0; q < queue.length; q += 2) {
-      shut.set(colKey(queue[q]!, queue[q + 1]!), regions.length);
+    for (let q = 0; q < end; q += 2) {
+      shut.set(queue[q]!, queue[q + 1]!, regions.length);
       const tx = floorDiv(queue[q]!, TILE_COLUMNS);
       const tz = floorDiv(queue[q + 1]!, TILE_COLUMNS);
       const tk = colKey(tx, tz);

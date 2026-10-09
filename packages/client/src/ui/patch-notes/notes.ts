@@ -44,7 +44,27 @@ export interface PatchNote {
 
 export const PATCH_NOTES: readonly PatchNote[] = [
   {
+    name: 'Patch 5.1',
+    headline: 'Smoother play: the same picture for less work every frame, and no more freezes as night falls.',
+    changes: {
+      bugFixes: [
+        {
+          title: 'No more freezes as night falls',
+          text: 'The game no longer stands still for up to half a second when the first monsters of the night set out for your town, or stutters when your units come near new land. It now prepares the routes and the land it will need while it has time to spare, and dusk takes half the work it did.',
+        },
+      ],
+      qol: [
+        {
+          title: 'Smoother frames',
+          text: 'The world looks exactly as before, but the game works less to draw it: only the trees, rocks and props on screen or casting a shadow onto it are drawn, unlit lamps cost nothing, and far less data goes to the graphics card. In a busy town the game’s own work per frame falls from about 8 ms to 6.5 ms.',
+        },
+      ],
+    },
+  },
+  {
     name: 'Patch 5',
+    version: 'indev 1.0',
+    date: '2026-10-09',
     headline: 'The biggest update yet: quests, stone circles, the Tavern, gear you can hold, and a whole new look for the world.',
     intro: [
       'Patch 5 brings the game to indev 1.0. Saves from indev 0.9 and older will not load: they show in the list as no longer valid, and can be cleared from there.',

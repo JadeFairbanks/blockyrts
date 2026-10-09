@@ -250,6 +250,12 @@ export class WorldView {
   private readonly waterMat: THREE.MeshLambertMaterial;
   private readonly cubeMat: THREE.MeshLambertMaterial;
   private readonly cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+  /**
+   * The cubes' shadow material: three.js's own kind, but theirs alone. Shared
+   * with the land, it was rebuilt for instancing and back at every turn
+   * between a chunk's cubes and its land, dozens of times a frame.
+   */
+  private readonly cubeDepthMat = new THREE.MeshDepthMaterial();
   private readonly fow: FowUniforms;
   private readonly fowData = new Uint8Array(FOW_TILES * FOW_TILES);
   private fowDirty = true;
@@ -804,6 +810,11 @@ export class WorldView {
     if (this.shadows) aimSun(this.sun, camera, focus.y);
   }
 
+  /** Keeps the prop models to those in sight or shadowing it; call once the camera has moved for the frame, just before it is drawn. */
+  cullProps(camera: THREE.Camera): void {
+    this.propModels.cull(camera);
+  }
+
   update(now: number, focus: THREE.Vector3): void {
     this.minimapFocus = focus;
     this.updateUnits(now);
@@ -955,6 +966,7 @@ export class WorldView {
   private cubesMesh(cubes: Float32Array): THREE.InstancedMesh {
     const n = cubes.length / CUBE_STRIDE;
     const mesh = new THREE.InstancedMesh(this.cubeGeo, this.cubeMat, n);
+    mesh.customDepthMaterial = this.cubeDepthMat;
     const mat = mesh.instanceMatrix.array as Float32Array;
     const colours = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {

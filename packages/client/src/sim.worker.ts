@@ -104,6 +104,7 @@ import {
   schoolSpells,
   spellProblem,
   spellReadyAt,
+  warmCaches,
 } from '@blockyrts/sim';
 import { barnOf, cloaked, crewOf, encounterRuns, graveNow, haulerOf, isCrystalGuardian, isWoodsman, keeperRuns, keeperWarns, menOnTop, rootedNow, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
@@ -115,7 +116,7 @@ import { GroundCache } from './world/ground-under.ts';
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
 const MAX_CATCH_UP = 5;
-/** Generating a chunk takes a few milliseconds; only start one with this much time left before the next step. */
+/** Generating a chunk or a chunk's crossings takes a few milliseconds; only start one with this much time left before the next step. */
 const PREFETCH_MARGIN_MS = 25;
 /** The local player's index in the sim (0 alone; in an online match, their seat). */
 let PLAYER = 0;
@@ -544,8 +545,8 @@ function postWorld(s: SimState, all = false): void {
   }
 }
 
-/** Generates one chunk the units are about to need, if any is missing. */
-function prefetch(s: SimState): void {
+/** Generates one chunk the units are about to need, if any is missing; false when none is. */
+function prefetch(s: SimState): boolean {
   const e = s.entities;
   for (let i = 0; i < e.count; i++) {
     const ux = Math.floor(e.x[i]! / CHUNK_WU);
@@ -554,11 +555,12 @@ function prefetch(s: SimState): void {
       for (let dx = -1; dx <= 1; dx++) {
         if (!s.world.isCached(ux + dx, uz + dz)) {
           s.world.generated(ux + dx, uz + dz);
-          return;
+          return true;
         }
       }
     }
   }
+  return false;
 }
 
 /** Runs one step with these orders and posts what the page needs. */
@@ -669,7 +671,14 @@ function tick(): void {
     postWorld(state);
     postVision(state);
     postInfo(state);
-  } else if (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) prefetch(state);
+  } else {
+    // Between steps, while the next is not due: the land the units are about to need, then the walk maps and
+    // crossings of the monsters' fields round the towns (warmCaches), so no step has to build them. All pure
+    // caches of the state, so the game plays the same; only the stalls go.
+    while (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) {
+      if (!prefetch(state) && !warmCaches(state)) break;
+    }
+  }
 }
 
 /** Starts (or restarts) from a state: everything the page draws is sent again. */
