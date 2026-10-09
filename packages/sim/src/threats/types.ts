@@ -142,6 +142,8 @@ export interface Encounter {
   /** The Ape (SCA-3), bits by player: whose warning is up, and who said Sorry. */
   warned: number;
   sorry: number;
+  /** The Ape, bits by player: who took his Goddess's idol (he trades no more with them). */
+  robbed: number;
   /** The unit it is about (an entity id, 0 for none): the one the Ape watches or warned. */
   unit: number;
   /** Steps: its next line, it stands until `still`, its mode last changed, its next spot to wander to, its next planting (the Ape) or its next look round. */

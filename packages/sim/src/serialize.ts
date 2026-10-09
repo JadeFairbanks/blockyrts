@@ -29,7 +29,7 @@ const DUSK_FIELDS = ['townPm', 'provokedPm', 'depthPm', 'ax', 'az', 'band', 'bui
 const WILD_FIELDS = ['px', 'pz', 'group', 'size'] as const satisfies ReadonlyArray<keyof WildPatch>;
 const KEEPER_FIELDS = ['id', 'kind', 'x', 'z', 'r', 'mode', 'unit', 'cx', 'cz', 'pi', 'next', 'roam', 'greeted', 'seen', 'since', 'still', 'riled'] as const satisfies ReadonlyArray<keyof Keeper>;
 const ENCOUNTER_FIELDS = [
-  'circle', 'type', 'leader', 'mode', 'foes', 'sworn', 'warned', 'sorry', 'unit', 'next', 'still', 'since', 'roam', 'plantAt', 'fought', 'planted', 'planting', 'quietSince', 'heldHp',
+  'circle', 'type', 'leader', 'mode', 'foes', 'sworn', 'warned', 'sorry', 'robbed', 'unit', 'next', 'still', 'since', 'roam', 'plantAt', 'fought', 'planted', 'planting', 'quietSince', 'heldHp',
   'heldMax', 'changed', 'leapX0', 'leapZ0', 'leapX1', 'leapZ1', 'leapAt', 'leapEnd', 'leapNext', 'toss', 'tossX0', 'tossZ0', 'tossX1', 'tossZ1', 'tossAt', 'tossEnd', 'tossNext',
   'lashNext', 'rootsNext', 'riteNext', 'fruit', 'honey', 'wine', 'day',
 ] as const satisfies ReadonlyArray<keyof Encounter>;
@@ -220,10 +220,11 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * Guardian's record). 36: Patch 5's quests (each faction's quest stage, turn,
  * kills and band for each player). 37: Patch 5's stone circle keepers (each
  * circle's encounter and what lies on units) and the Headless God Idol's
- * nights. Every patch raises it, and a snapshot from any other version is
- * refused, never carried over (Jade, Patch 2: a standing rule).
+ * nights. 38: who took each Ape's idol. Every patch raises it, and a
+ * snapshot from any other version is refused, never carried over (Jade,
+ * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 37;
+export const SNAPSHOT_VERSION = 38;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
