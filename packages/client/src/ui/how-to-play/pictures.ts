@@ -7,12 +7,11 @@
 // pictures as soon as the kit draws them.
 import type { Entry, SimModules } from '@blockyrts/balance';
 import { valueAt } from '@blockyrts/balance';
-import { MOBS, RESEARCH_PRODUCT, School, SPELLS, Troop } from '@blockyrts/sim';
+import { MOBS, RESEARCH_PRODUCT, SPELLS, Troop } from '@blockyrts/sim';
 import { productIcon } from '../../hud/card-icons.ts';
 import { armourPic, robePic, shieldPic, toolPic, wandPic, weaponPic, type Pic } from '../../hud/icons.ts';
 import { goodIcon } from '../../hud/inventory-icons.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, modelIconFile, WORKER_ICON } from '../../hud/unit-icons.ts';
-import { pictureUrl } from './picture-url.ts';
 
 export type { Pic };
 
@@ -51,11 +50,8 @@ export function entryPic(entry: Entry, mods: SimModules): Pic | null {
     }
     case 'RESEARCH':
       return pic(productIcon(RESEARCH_PRODUCT + num('id'))?.layers[0]?.file);
-    case 'SPELLS': {
-      // The kit draws no icons for the Elf Grovesingers' spells: their caster's portrait stands in.
-      const s = SPELLS[num('id')];
-      return pic(s && !pictureUrl(s.icon) && s.school === School.Grove ? 'portrait_elf_grovesinger' : s?.icon);
-    }
+    case 'SPELLS':
+      return pic(SPELLS[num('id')]?.icon);
     case 'MAGE_RANKS':
       return pic(BATTLE_MAGE_ICON);
     case 'PRODUCTS':
