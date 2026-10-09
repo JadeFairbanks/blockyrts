@@ -31,6 +31,8 @@ import {
   equipmentPlans,
   ITEM_WAY,
   holderKind,
+  holderOf,
+  holderTakesTips,
   Line,
   KIT_LINES,
   linePiece,
@@ -41,8 +43,8 @@ import {
   ownGearItem,
   piecesCost,
   planItem,
+  putGearRow,
   replacedItem,
-  takesTips,
   TIPS_KIT,
   Troop,
   upgradePieces,
@@ -62,11 +64,8 @@ export function kitHolder(state: SimState, i: number): KitHolder | undefined {
   if (e.role[i] === Role.Mercenary || e.role[i] === Role.People) return undefined;
   const kind = holderKind(e.kind[i]!);
   if (!kind) return undefined;
-  const h: KitHolder = { kind, troop: e.troop[i]!, w: e.wTier[i]!, a: e.aTier[i]!, s: e.sTier[i]!, t: e.tips[i]! };
-  // A weapon with a gear row of its own (the obsidian hand-axe) goes back to stock as itself.
-  const wItem = ownGearItem(e.weapon[i]!);
-  if (wItem !== undefined) h.wItem = wItem;
-  return h;
+  // A piece with a gear row of its own (a looted piece, the obsidian hand-axe) goes back to stock as itself.
+  return holderOf(e, i, kind);
 }
 
 /** What a player has for the kit's needs: research, the Forge step their town is at and research names. */
@@ -162,9 +161,9 @@ function pieceName(h: KitHolder, line: number, tier: number): string {
   return p ? p.name.toLowerCase() : 'kit';
 }
 
-/** The gear row of its own an upgrade puts on (the obsidian hand-axe, paid with it), or 0. */
+/** The gear row of its own an upgrade puts on (a looted piece, the obsidian hand-axe, paid with it), or 0. */
 function ownPutOn(h: KitHolder, o: KitUpOrder): number {
-  const p = o.line === Line.Weapon ? linePiece(h, o.line, o.to) : undefined;
+  const p = linePiece(h, o.line, o.to);
   return p ? ownGear(planItem(p, o.ways)) : 0;
 }
 
@@ -466,13 +465,13 @@ function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): v
   else if (o.line === Line.Shield) e.sTier[i] = o.to;
   else if (o.line === Line.Tips) e.tips[i] = o.to;
   else e.aTier[i] = o.to;
-  if (e.tips[i]! > 0 && !takesTips(h.troop, e.wTier[i]!)) {
+  applyKit(e, i, h.kind);
+  const own = ownPutOn(h, o);
+  if (own) putGearRow(e, i, own);
+  if (e.tips[i]! > 0 && !holderTakesTips(holderOf(e, i, h.kind))) {
     e.tips[i] = 0;
     toStock(state, owner, TIPS_KIT.items[0]);
   }
-  applyKit(e, i, h.kind);
-  const own = ownPutOn(h, o);
-  if (own) e.weapon[i] = own;
   // Done, after its last piece: the next piece's bar would cover the line at once (Jade's Patch 3: no past tense while a bar runs).
   if (e.queue[i]![1]?.t === 'kitUp') return;
   say(state, i, h.kind === 'worker' ? `New tools: ${newPieceName(h, o)}.` : `Upgraded to ${newPieceName(h, o)}.`, false, true);

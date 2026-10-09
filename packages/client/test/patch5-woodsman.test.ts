@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Product, RESOURCE_COUNT, Troop, UnitKind, type Order, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Product, NO_CARRY, RESOURCE_COUNT, Troop, UnitKind, type Order, type UnitOrder } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { woodsLineText } from '../src/hud/woods.ts';
@@ -40,7 +40,7 @@ function game(buildings: BuildingInfo[], queue: UnitOrder[] = []): GameInfo {
     data[o + S.rank] = 1;
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
-    data[o + S.carryRes] = 255;
+    data[o + S.carryRes] = NO_CARRY;
   }
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: 2, data, shots: new Int32Array(0), hits: [] });
   const info: InfoMessage = {

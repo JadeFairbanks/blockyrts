@@ -220,11 +220,14 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * Guardian's record). 36: Patch 5's quests (each faction's quest stage, turn,
  * kills and band for each player). 37: Patch 5's stone circle keepers (each
  * circle's encounter and what lies on units) and the Headless God Idol's
- * nights. 38: who took each Ape's idol. Every patch raises it, and a
+ * nights. 38: who took each Ape's idol. 39: Patch 7's gear catalogue (goods
+ * and gear rows in two bytes: a unit's carried good, weapon, ranged weapon,
+ * shield, armour and cart, the stock's length, and a building's stock and
+ * payments). Every patch raises it, and a
  * snapshot from any other version is refused, never carried over (Jade,
  * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 38;
+export const SNAPSHOT_VERSION = 39;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
@@ -283,7 +286,8 @@ export function serializeState(state: SimState): Uint8Array {
   }
   w.u8(state.players.length);
   for (const p of state.players) {
-    w.u8(p.pool.length);
+    // Patch 7: two bytes, for goods past 255.
+    w.u16(p.pool.length);
     for (const v of p.pool) w.i32(v);
     for (const f of PLAYER_FIELDS) w.i32(p[f]);
     for (const v of p.open) w.i32(v);
@@ -370,7 +374,7 @@ export function deserializeState(bytes: Uint8Array): SimState {
   const players: PlayerState[] = [];
   const np = r.u8();
   for (let k = 0; k < np; k++) {
-    const len = r.u8();
+    const len = r.u16();
     const pool = new Int32Array(RESOURCE_COUNT);
     for (let j = 0; j < len; j++) {
       const v = r.i32();

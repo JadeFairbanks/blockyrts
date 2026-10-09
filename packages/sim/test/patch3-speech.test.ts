@@ -239,7 +239,8 @@ describe("the start's two upgrade questions (Jade's Patch 3)", () => {
   it('has the workers ask about their tools as the warriors ask about their kit', () => {
     const { s, kit, tools } = start();
     const e = s.entities;
-    expect(kit.text).toBe('Three of us could use better kit. Upgrade?');
+    // Patch 7: three warriors and the starting spearman.
+    expect(kit.text).toBe('Four of us could use better kit. Upgrade?');
     expect(tools.text).toBe('Four of us could use better tools. Upgrade?');
     expect([...tools.ask!.units].sort()).toEqual(units(s, UnitKind.Worker).map((i) => e.id[i]!).sort());
     // The start's stock pays for three workers' tools: the tooltip says so.
@@ -296,13 +297,14 @@ describe("the start's two upgrade questions (Jade's Patch 3)", () => {
     expect(told.length).toBe(1);
     expect(told[0]).toMatchObject({ player: 0, speaker: tools.speaker, text: tools.text });
     expect(told[0]!.ask!.id).toBe(tools.ask!.id);
-    const yes = 'The stock pays for 2 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 12 sticks, 2 flint, 10 stone.';
+    // Patch 7: the starting spearman's kit takes its share too, so one worker's tools are left.
+    const yes = 'The stock pays for 1 of the 4, the highest rank first: they go to the nearest Forge, Barracks or main base and take the best tools it pays for; the rest keep their tools. From the stock: 6 sticks, 1 flint, 5 stone.';
     expect(told[0]!.ask!.yes).toBe(yes);
     expect(openQuestions(s).find((x) => x.id === tools.ask!.id)!.yes).toBe(yes);
-    // It is what Yes now does: two workers go.
+    // It is what Yes now does: one worker goes.
     const before = pending(s).size;
     run(s, 1, [answer(tools, true)]);
-    expect(pending(s).size - before).toBe(2);
+    expect(pending(s).size - before).toBe(1);
   });
 
   it('withdraws the tools question when the stock pays for none of them, and asks again once it does', () => {
