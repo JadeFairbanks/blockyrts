@@ -32,6 +32,7 @@ import { onSettingsChange, VIEW_RINGS, type Settings } from '../settings/setting
 import { accountPage } from '../ui/account.ts';
 import { Screen } from '../ui/dom.ts';
 import { FirstDayHints } from '../ui/hints.ts';
+import { skipUnlitPointLights } from '../world/point-lights.ts';
 import { WorldView } from '../world/world-view.ts';
 import { addDebugger } from './debugger.ts';
 import { GameInfo } from './game-info.ts';
@@ -92,6 +93,21 @@ export function seatsOf(room: RoomStateMessage, activeSlots: number): Seat[] {
   });
 }
 
+/**
+ * Opens a snapshot the relay sent (a rejoin, or everyone's reload after a desync) and hands its sim state to `load`,
+ * which passes it to the worker. The relay keeps talking while the save opens: the pause lifts and frames for the
+ * steps after the snapshot come in. They are held until the load has gone to the worker, so they reach its new
+ * scheduler; before the load they would go to the scheduler it replaces, and a frame lost there is never sent again.
+ */
+export async function loadSnapshot(relay: RelayClient, m: Extract<ServerMessage, { type: 'loadSnapshot' }>, load: (sim: Uint8Array) => void): Promise<void> {
+  relay.hold();
+  try {
+    load((await openSave(m.data)).sim);
+  } finally {
+    relay.release();
+  }
+}
+
 export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchContext): Promise<void> {
   const { api, settings } = ctx;
   const online = plan.online;
@@ -111,6 +127,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   history.replaceState(null, '', online ? `/join/${online.room.code}` : `/?seed=${plan.seed}&players=${players}`);
 
   const canvas = document.getElementById('view') as HTMLCanvasElement;
+  skipUnlitPointLights();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   // three.js r186 has only the one filtered kind of shadow map left (it swapped PCFSoftShadowMap for it with a warning).
   renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -501,13 +518,12 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         })();
         break;
       case 'loadSnapshot':
-        void (async () => {
-          const opened = await openSave(m.data);
+        void loadSnapshot(relay!, m, (sim) => {
           lastStep = m.step;
-          send({ type: 'load', snapshot: opened.sim, frames: m.frames, nextFrameStep: m.nextFrameStep, slot: room!.yourSlot, seats: seatSlots(seats), epoch: m.epoch, activeSlots: m.activeSlots, inputDelay: m.inputDelay });
+          send({ type: 'load', snapshot: sim, frames: m.frames, nextFrameStep: m.nextFrameStep, slot: room!.yourSlot, seats: seatSlots(seats), epoch: m.epoch, activeSlots: m.activeSlots, inputDelay: m.inputDelay });
           if (resynced) shell.message('This game had gone out of step with the others, so it was reloaded from their copy. Play carries on.', 'alert');
           resynced = false;
-        })();
+        });
         break;
       case 'resume':
         send({ type: 'resume', epoch: m.epoch, frames: m.frames, nextFrameStep: m.nextFrameStep, activeSlots: m.activeSlots, inputDelay: m.inputDelay });
@@ -577,7 +593,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   relay?.release();
   shell.start();
   // For browser checks in development (test-e2e): the shell and the world are reachable from the console.
-  if (import.meta.env.DEV) Object.assign(window as object, { shell, world, relay });
+  if (import.meta.env.DEV) Object.assign(window as object, { shell, world, relay, renderer });
 
   let lastFrame = performance.now();
   // The debug readout's fps line: frames, main-thread time and draw calls over the last second.
@@ -595,6 +611,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     audio.frame(shell.cam.focus.x, shell.cam.focus.z, now, right.x, right.z);
     // The shadow box follows the camera as it stands this frame.
     world.aimSun(shell.cam.camera, shell.cam.focus);
+    world.cullProps(shell.cam.camera);
     renderer.render(scene, shell.cam.camera);
     // The draw calls are the world's: read them before the portrait's own render resets them.
     const drawCalls = renderer.info.render.calls;

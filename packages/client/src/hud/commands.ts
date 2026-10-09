@@ -2880,4 +2880,4 @@ export function toolKitText(tier: number): string {
   return TOOL_KITS[tier]?.name ?? 'no tools';
 }
 
-const BLOCKED_TEXT = ['', 'the ground is too steep.', 'it cannot be built on water.', 'another building is in the way.', 'a tree, rock or bush is in the way.', 'that land is unexplored.'];
+const BLOCKED_TEXT = ['', 'the ground is too steep.', 'it cannot be built on water.', 'another building is in the way.', 'a tree, rock or bush is in the way.', 'that land is unexplored.', '', '', 'a fishing dock must stand at the water\'s edge.', 'a farm cannot be built on stone.'];

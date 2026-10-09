@@ -104,17 +104,19 @@ import {
   schoolSpells,
   spellProblem,
   spellReadyAt,
+  warmCaches,
 } from '@blockyrts/sim';
 import { barnOf, cloaked, crewOf, encounterRuns, graveNow, haulerOf, isCrystalGuardian, isWoodsman, keeperRuns, keeperWarns, menOnTop, rootedNow, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
+import { GroundCache } from './world/ground-under.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
 const MAX_CATCH_UP = 5;
-/** Generating a chunk takes a few milliseconds; only start one with this much time left before the next step. */
+/** Generating a chunk or a chunk's crossings takes a few milliseconds; only start one with this much time left before the next step. */
 const PREFETCH_MARGIN_MS = 25;
 /** The local player's index in the sim (0 alone; in an online match, their seat). */
 let PLAYER = 0;
@@ -358,6 +360,9 @@ function tavernPanel(s: SimState, b: Building): TavernPanel | null {
   };
 }
 
+/** The ground each building is drawn standing on (ground-under.ts), worked out again only when the land under it changes. */
+const grounds = new GroundCache();
+
 /** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
@@ -425,6 +430,7 @@ function postInfo(s: SimState): void {
       farm: farmInfo(s, b),
       boost: farmBoost(s, b),
       tavern: tavernPanel(s, b),
+      ground: grounds.of(s.world, b),
     };
   });
   const e = s.entities;
@@ -539,8 +545,8 @@ function postWorld(s: SimState, all = false): void {
   }
 }
 
-/** Generates one chunk the units are about to need, if any is missing. */
-function prefetch(s: SimState): void {
+/** Generates one chunk the units are about to need, if any is missing; false when none is. */
+function prefetch(s: SimState): boolean {
   const e = s.entities;
   for (let i = 0; i < e.count; i++) {
     const ux = Math.floor(e.x[i]! / CHUNK_WU);
@@ -549,11 +555,12 @@ function prefetch(s: SimState): void {
       for (let dx = -1; dx <= 1; dx++) {
         if (!s.world.isCached(ux + dx, uz + dz)) {
           s.world.generated(ux + dx, uz + dz);
-          return;
+          return true;
         }
       }
     }
   }
+  return false;
 }
 
 /** Runs one step with these orders and posts what the page needs. */
@@ -664,12 +671,20 @@ function tick(): void {
     postWorld(state);
     postVision(state);
     postInfo(state);
-  } else if (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) prefetch(state);
+  } else {
+    // Between steps, while the next is not due: the land the units are about to need, then the walk maps and
+    // crossings of the monsters' fields round the towns (warmCaches), so no step has to build them. All pure
+    // caches of the state, so the game plays the same; only the stalls go.
+    while (stepMs - (performance.now() - clock) > PREFETCH_MARGIN_MS) {
+      if (!prefetch(state) && !warmCaches(state)) break;
+    }
+  }
 }
 
 /** Starts (or restarts) from a state: everything the page draws is sent again. */
 function begin(s: SimState): void {
   state = s;
+  grounds.clear();
   clock = performance.now();
   lastHash = 0;
   lastHashStep = 0;

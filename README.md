@@ -375,7 +375,7 @@ workers but not troops.*
    Badgers knock over torches far from the main base.
 8. **Mining and fishing.** Select workers and press T, then click the
    ground: they prospect it (Poor, Fair, Good or Rich), which sets what a
-   mineshaft there brings up (Table 5). A Mineshaft goes on bare stone; four
+   mineshaft there brings up (Table 5). A Mineshaft goes on any flat, dry ground; four
    miners inside bring up stone, ore, coal and at tier 2 vein iron, gold or
    silver and gems, kept at the shaft. Right click the shaft with workers to
    haul it home; a worker with an ox cart (crafted, then right click a tamed
@@ -3991,7 +3991,7 @@ in `packages/client/src/world/buildings-view.ts`, and their models placed by
 7. **Monsters and peoples.** Monsters and peoples' units hold the weapons
    their models come with.
 8. **Buildings.** With **Godmode**, place a Workshop, Forge, Barracks, Magi
-   Sanctum, Scholar's Lodge, Mineshaft (on flat bare stone), Barn and
+   Sanctum, Scholar's Lodge, Mineshaft (on any flat, dry ground), Barn and
    Bonfire: each is its own model (before: the same plank house in different
    sizes, the Barn a painted pen and the Bonfire a doubled campfire). Units
    walk round what is drawn. Without godmode, a building being built shows its model's stage for the

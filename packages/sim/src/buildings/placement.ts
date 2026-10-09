@@ -30,14 +30,16 @@ export const Blocked = {
   Unexplored: 5,
   /** Retired with the wall torch (Patch 2); the number stays so the others keep theirs. */
   NoWall: 6,
-  /** A mineshaft stands on bare rock. */
+  /** Retired: a mineshaft once had to stand on bare rock; it now goes on any flat, dry land (after Patch 5). */
   NotStone: 7,
   /** A fishing dock stands at the water's edge. */
   NoShore: 8,
+  /** A farm is never built on stone (Jade, after Patch 5): rock, marble, ore or volcanic rock at the top of a column. */
+  Stone: 9,
 } as const;
 export type Blocked = (typeof Blocked)[keyof typeof Blocked];
 
-export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', '', 'A mineshaft must stand on flat bare stone.', 'A fishing dock must stand at the water\'s edge.'] as const;
+export const BLOCKED_TEXT = ['', 'The ground is too steep.', 'It cannot be built on water.', 'Another building is in the way.', 'A resource is in the way.', 'That land is unexplored.', '', '', 'A fishing dock must stand at the water\'s edge.', 'A farm cannot be built on stone.'] as const;
 
 /** How far a column may stand above or below the building's floor, in terrain units (about 45 cm). */
 export const LEVEL_TOLERANCE_UNITS = 4;
@@ -52,8 +54,12 @@ export function placementTiles(state: SimState, player: number, kind: number, x:
   const floor = state.world.topAt(x + (spec.w >> 1), z + (spec.d >> 1));
   const [x0, z0, x1, z1] = footprintRect({ kind, x, z, variant });
   const props = propColumns(state, x0, z0, x1, z1);
+  const farm = kind === BuildingKind.Farm;
   for (let dz = 0; dz < spec.d; dz++) {
-    for (let dx = 0; dx < spec.w; dx++) out[dz * spec.w + dx] = tileBlocked(state, x + dx, z + dz, floor, props.has(dz * spec.w + dx));
+    for (let dx = 0; dx < spec.w; dx++) {
+      const r = tileBlocked(state, x + dx, z + dz, floor, props.has(dz * spec.w + dx));
+      out[dz * spec.w + dx] = r === Blocked.None && farm && onRock(state, x + dx, z + dz) ? Blocked.Stone : r;
+    }
   }
   return out;
 }
@@ -135,25 +141,18 @@ export function clearingOn(state: SimState, kind: number, x: number, z: number, 
 /** The first red tile's reason, or None when every tile is green. */
 export function placementBlocked(state: SimState, player: number, kind: number, x: number, z: number, variant = 0): Blocked {
   for (const r of placementTiles(state, player, kind, x, z, variant)) if (r !== Blocked.None) return r as Blocked;
-  if (kind === BuildingKind.Mineshaft && !onStone(state, x, z, variant)) return Blocked.NotStone;
   if (kind === BuildingKind.FishingDock && !waterBeside(state, { kind, x, z, variant })) return Blocked.NoShore;
   return Blocked.None;
 }
 
-/** Rock a mineshaft can be sunk through: stone, marble or an ore at the top of the column. */
+/** Bare rock at the top of a column: stone, marble or an ore. */
 const ROCK: ReadonlySet<number> = new Set([Mat.Stone, Mat.Marble, Mat.CopperOre, Mat.TinOre, Mat.IronRock, Mat.VeinIron, Mat.Coal]);
 
-/** Whether at least half of a footprint's columns are bare rock (Mineshafts: built on flat stone; the half is (s)). */
-export function onStone(state: SimState, x: number, z: number, variant = 0): boolean {
-  const spec = footprintDims(BuildingKind.Mineshaft, variant);
-  let rock = 0;
-  for (let dz = 0; dz < spec.d; dz++) {
-    for (let dx = 0; dx < spec.w; dx++) {
-      const layers = state.world.columnAt(x + dx, z + dz);
-      if (ROCK.has(layers[layers.length - 1]!)) rock++;
-    }
-  }
-  return rock * 2 >= spec.w * spec.d;
+/** Whether a column's top is stone a farm cannot stand on: bare rock, marble, an ore or volcanic rock. */
+function onRock(state: SimState, x: number, z: number): boolean {
+  const layers = state.world.columnAt(x, z);
+  const top = layers[layers.length - 1]!;
+  return ROCK.has(top) || top === Mat.Basalt;
 }
 
 
