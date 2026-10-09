@@ -289,6 +289,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | pie | models/items/pie/pie.bbmodel | 4 | 32x32 |  |
 | bandage_roll | models/items/bandage_roll/bandage_roll.bbmodel | 3 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
 | healing_remedy | models/items/healing_remedy/healing_remedy.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| bog_pear | models/items/bog_pear/bog_pear.bbmodel | 10 | 64x64 |  |
 
 ## mechanical
 
@@ -491,7 +492,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | crop_herbs | models/world-props/crop_herbs/crop_herbs.bbmodel | 46 | 32x64 | 40 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_stone | models/world-props/rock_stone/rock_stone.bbmodel | 16 | 128x256 | 6 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_flint | models/world-props/rock_flint/rock_flint.bbmodel | 24 | 128x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
-| rock_coal | models/world-props/rock_coal/rock_coal.bbmodel | 23 | 128x256 | 8 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_coal | models/world-props/rock_coal/rock_coal.bbmodel | 31 | 256x256 | 7 cubes in state sets hidden by default (depleted); remade in Patch 5 |
 | rock_copper | models/world-props/rock_copper/rock_copper.bbmodel | 25 | 128x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_tin | models/world-props/rock_tin/rock_tin.bbmodel | 25 | 64x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_iron | models/world-props/rock_iron/rock_iron.bbmodel | 18 | 128x256 | 7 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
@@ -538,6 +539,18 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | water_trough | models/world-props/water_trough/water_trough.bbmodel | 6 | 64x64 |  |
 | grave_marker | models/world-props/grave_marker/grave_marker.bbmodel | 10 | 64x64 |  |
 | bone_pile | models/world-props/bone_pile/bone_pile.bbmodel | 29 | 32x64 |  |
+| bush_blackberry | models/world-props/bush_blackberry/bush_blackberry.bbmodel | 136 | 256x128 | 48 cubes in state sets hidden by default (picked) |
+| bush_blueberry | models/world-props/bush_blueberry/bush_blueberry.bbmodel | 63 | 256x128 | 15 cubes in state sets hidden by default (picked) |
+| bush_raspberry | models/world-props/bush_raspberry/bush_raspberry.bbmodel | 140 | 128x128 | 52 cubes in state sets hidden by default (picked) |
+| bush_bog_pear | models/world-props/bush_bog_pear/bush_bog_pear.bbmodel | 80 | 256x128 | 35 cubes in state sets hidden by default (picked) |
+| mushroom_edible | models/world-props/mushroom_edible/mushroom_edible.bbmodel | 21 | 128x64 | 5 cubes in state sets hidden by default (picked) |
+| flax_wild_2 | models/world-props/flax_wild_2/flax_wild_2.bbmodel | 34 | 64x64 | 9 cubes in state sets hidden by default (picked) |
+| flax_wild_3 | models/world-props/flax_wild_3/flax_wild_3.bbmodel | 54 | 64x64 | 12 cubes in state sets hidden by default (picked) |
+| flax_tall | models/world-props/flax_tall/flax_tall.bbmodel | 62 | 128x128 | 12 cubes in state sets hidden by default (picked) |
+| ore_node_silver | models/world-props/ore_node_silver/ore_node_silver.bbmodel | 18 | 256x128 |  |
+| ore_node_gold | models/world-props/ore_node_gold/ore_node_gold.bbmodel | 17 | 256x128 |  |
+| boulder_large | models/world-props/boulder_large/boulder_large.bbmodel | 81 | 1024x512 | 18 cubes in state sets hidden by default (depleted) |
+| hot_spring | models/world-props/hot_spring/hot_spring.bbmodel | 54 | 256x128 | ; the ground cubes sink up to 1.2 u |
 
 ## projectiles-and-spells
 
