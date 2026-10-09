@@ -3482,9 +3482,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
 
 1. **Gates and towers.** Build, Defences: a gate is 6 columns wide, twice
    what it was, drawn as its gate model (turned for north to south). Towers
-   are 4 by 4 columns. The stone tower is drawn as its model, with its men
-   on its top; the wooden and hardwood towers stay blocks until their models'
-   roofs are raised (too low for a man standing under them).
+   are 4 by 4 columns. Every tower is drawn as its model, with its men on its
+   top; the wooden and hardwood towers' roofs stand clear of a man's head.
 2. **Walls.** Build a wall chain that turns a corner and runs on diagonally.
    Each column is drawn as its wall model, turned along the run; where the
    wall turns, and on a diagonal's steps, a corner post. Let monsters hit a
@@ -3494,7 +3493,7 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    no health bar; clicking it shows its health in the middle as before.
 3. **The earth rampart.** Defences, **Earth rampart** (M): placed in a chain
    from point to point like a wall, in chunks 2 by 2 columns (about 1 m
-   across), each 2 m tall and costing 5 earth (a worker's full load). It has
+   across), each 2 m tall and costing 10 earth (a worker's full load). It has
    the health of one wooden wall column, shows torn earth below 70% and 40%,
    and is not dug like the land. It is a wall in every other way: your units
    cannot climb it, and climbing monsters go over it as they go over any wall.
@@ -3510,8 +3509,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    its name) and Garrison (G). Each fixed engine costs what its mobile engine
    does (lead ore and its crew's food too) and needs what that one needs
    (research and tier). Build one: it stands on the flat platform at the top
-   with its garrison artillery crewmen (drawn as the mobile engine until the
-   fixed models land), and fires at monsters in reach. Stop, Unload and
+   with its garrison artillery crewmen, drawn as its own fixed model on
+   timber braces with no wheels, and fires at monsters in reach. Stop, Unload and
    right clicks never bring it or its crew down; its card has Attack only,
    and an attack order out of its reach is dropped with "That is beyond the
    ...'s reach." While one stands there the other buttons read **Upgrade to
@@ -3533,8 +3532,10 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    bronze cannon 4 (and 40 bronze ingots) and an iron cannon 6; the fixed
    ones the same. Without it the buttons grey with the lead ore named.
 9. **Guns.** A musketeer firing shows a flash and a spray of sparks at the
-   muzzle and smoke rising for 4 s; a brawler's pistol 3 s; a cannon 5 s,
-   bigger. The ball flies as its model (the bronze cannon's smaller) with a
+   musket's muzzle (the tip of its barrel) and smoke rising for 4 s; a
+   brawler's pistol 3 s; a cannon, mobile or fixed, 5 s and bigger, from the
+   mouth of its barrel. The bronze cannon is short and fat, the iron one long
+   and dark. The ball flies as its model (the bronze cannon's smaller) with a
    faint grey dash behind it by day and a bright orange streak at night.
    Each has its gun's sound.
 10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
@@ -3542,7 +3543,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
     fells it, leaving half its lumber. A catapult stone throws up dirt, no
     fire, leaves less earth, and fells only small trees. A bronze cannon's
     shot is smaller, with a smaller blast.
-11. **The wall breaker.** A skeleton bomber's fuse fizzes with tiny sparks.
+11. **The wall breaker.** A skeleton bomber, hooded with red eyes and a black
+    skull-marked bomb, has its fuse fizzing with tiny sparks at the fuse's tip.
     When it goes off: an explosion, smoke rising for 3 s and a shallow
     crater; it hurts units half as much as before. Kill one before it reaches
     a wall and nothing goes off, and no bomb falls.
