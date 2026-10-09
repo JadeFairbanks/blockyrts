@@ -152,7 +152,7 @@ describe('going into buildings (Patch 5, CT-2 and CT-3)', () => {
 });
 
 describe('shared control and training (Patch 5, UI-14 and GP-15)', () => {
-  it('shares combat units only, and says once what the stock lacks for several trainings in a step', () => {
+  it('shares combat units only (not workers or woodsmen), and says once what the stock lacks for several trainings in a step', () => {
     const s = createWorld(1, { peaceful: true, players: 2 });
     const e = s.entities;
     s.players[1]!.share = 1;
@@ -160,6 +160,9 @@ describe('shared control and training (Patch 5, UI-14 and GP-15)', () => {
     const theirTroop = addWarrior(s, 1, e.x[theirWorker]!, e.z[theirWorker]!);
     expect(commandable(s, 0, theirTroop, true)).toBe(true);
     expect(commandable(s, 0, theirWorker, true)).toBe(false);
+    // Nor their woodsmen (decisions: "Workers, woodsmen and buildings are no longer shared").
+    const theirWoodsman = addWarrior(s, 1, e.x[theirWorker]!, e.z[theirWorker]!, Troop.Woodsman, 1, 0);
+    expect(commandable(s, 0, theirWoodsman, true)).toBe(false);
 
     const b = bigHouse(s);
     for (const r of FOODS) s.players[0]!.pool[r] = 0;

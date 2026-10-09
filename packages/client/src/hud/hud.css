@@ -2987,7 +2987,8 @@ body.playing.touch .hud {
 .hud-btn.auto-on {
   box-shadow: inset 0 0 0 1px rgba(142, 240, 142, 0.55);
 }
-.hud-btn.util.repairall .btn-icon img {
+.hud-btn.util.repairall .btn-icon img,
+.hud-btn.util.woodsmen .btn-icon img {
   width: 20px;
   height: 20px;
   margin-top: 9px;
