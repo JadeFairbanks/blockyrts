@@ -42,9 +42,10 @@ describe('one picture per thing', () => {
     for (const kind of Object.values(BuildingKind)) {
       for (let level = 1; level <= 10; level++) expect(hasKit(buildingIconFile(kind, level)), `kind ${kind} level ${level}`).toBe(true);
     }
-    // Patch 5: the main base's four tiers are drawn as the old levels 1, 3, 6 and 10.
+    // Patch 5: the main base's first three tiers are drawn as the old levels 1, 3 and 6, the fourth as the Citadel.
     expect(buildingIconFile(BuildingKind.MainBase, 2)).toBe('icon_main_base_l3');
-    expect(buildingIconFile(BuildingKind.MainBase, 4)).toBe('icon_main_base_l10');
+    expect(buildingIconFile(BuildingKind.MainBase, 4)).toBe('icon_main_base_citadel');
+    expect(buildingIconFile(BuildingKind.EarthRampart, 1)).toBe('icon_rampart_earth');
     // Patch 2: only the main base keeps levels; every other building has its one picture.
     expect(buildingIconFile(BuildingKind.Forge, 9)).toBe('icon_forge_l1');
   });
