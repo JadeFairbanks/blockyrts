@@ -1,6 +1,7 @@
 // What the selection looks like in the world: a ring on the ground under each
-// selected thing, a bright box around what a drag box (or the cursor) would
-// pick, and a short ring at the target of each accepted order.
+// selected thing and a short ring at the target of each accepted order. What
+// a drag box (or the cursor) would pick has a white silhouette outline (Patch
+// 5, UI-5: world/hover-outline.ts) in place of the box it had here.
 import * as THREE from 'three';
 import type { Selectable } from './types.ts';
 
@@ -8,7 +9,6 @@ const RING_SEGMENTS = 24;
 const OWN = new THREE.Color(0x63e06b);
 const NOBODY_COL = new THREE.Color(0xf2d24b);
 const OTHER = new THREE.Color(0xff5c5c);
-const HOVER = new THREE.Color(0xffffff);
 
 interface Marker {
   x: number;
@@ -50,13 +50,16 @@ export class SelectionVisuals {
   /** Another player's unit this player may command (Allies panel): a ring in that player's colour, else null. */
   sharedColour: (t: Selectable) => THREE.Color | null = () => null;
 
-  update(selected: readonly Selectable[], highlighted: readonly Selectable[], player: number, now: number): void {
+  /** A selected unit's ring in another colour, or null: red while it is on an attack-move (Patch 5, GP-23). */
+  ringColour: (t: Selectable) => THREE.Color | null = () => null;
+
+  update(selected: readonly Selectable[], player: number, now: number): void {
     this.n = 0;
     for (const t of selected) {
       const r = Math.max(t.halfSize.x, t.halfSize.z) * 1.35 + 0.2;
-      this.ring(t.centre.x, t.centre.y - t.halfSize.y + 0.05, t.centre.z, r, (t.owner !== player ? this.sharedColour(t) : null) ?? SelectionVisuals.colourFor(t, player));
+      const c = this.ringColour(t) ?? (t.owner !== player ? this.sharedColour(t) : null) ?? SelectionVisuals.colourFor(t, player);
+      this.ring(t.centre.x, t.centre.y - t.halfSize.y + 0.05, t.centre.z, r, c);
     }
-    for (const t of highlighted) this.box(t);
     for (let i = this.markers.length - 1; i >= 0; i--) {
       const m = this.markers[i]!;
       const age = (now - m.born) / 1000 / MARKER_S;
@@ -108,22 +111,6 @@ export class SelectionVisuals {
       const a1 = ((i + 1) / RING_SEGMENTS) * Math.PI * 2;
       this.vertex(x + Math.cos(a0) * r, y, z + Math.sin(a0) * r, c);
       this.vertex(x + Math.cos(a1) * r, y, z + Math.sin(a1) * r, c);
-    }
-  }
-
-  private box(t: Selectable): void {
-    this.reserve(24);
-    const pad = 0.08;
-    const hx = t.halfSize.x + pad;
-    const hy = t.halfSize.y + pad;
-    const hz = t.halfSize.z + pad;
-    const c = t.centre;
-    const corners: [number, number, number][] = [];
-    for (let i = 0; i < 8; i++) corners.push([c.x + (i & 1 ? hx : -hx), c.y + (i & 2 ? hy : -hy), c.z + (i & 4 ? hz : -hz)]);
-    const edges = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7];
-    for (const e of edges) {
-      const k = corners[e]!;
-      this.vertex(k[0], k[1], k[2], HOVER);
     }
   }
 }

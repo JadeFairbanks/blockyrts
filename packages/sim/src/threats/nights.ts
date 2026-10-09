@@ -13,6 +13,7 @@ import { Nature, speciesSpec } from '../animals/species.ts';
 import { addMob } from '../combat/mob-ai.ts';
 import { Mob } from '../combat/mobs.ts';
 import { edgePointNear } from '../combat/spawn.ts';
+import { brightTonight } from './bright.ts';
 import { bandAtWu } from './cells.ts';
 import { DEPTH_PM, FOG_CHANCE_PCT, FOG_FROM_NIGHT } from './data.ts';
 import { placeLairs } from './lairs.ts';
@@ -102,7 +103,8 @@ export function startFog(state: SimState, night: number): void {
  */
 export function duskHorde(state: SimState, night: number): void {
   for (let p = 0; p < state.players.length; p++) {
-    if (state.players[p]!.out) continue;
+    // A Bright Night sends no goblins for the lights either (Patch 5 decisions 2.8: no waves).
+    if (state.players[p]!.out || brightTonight(state, p)) continue;
     const { halves, limit } = outlyingLights(state, p, night);
     if (halves <= limit * 2) continue;
     const over = floorDiv(halves + 1, 2) - limit;

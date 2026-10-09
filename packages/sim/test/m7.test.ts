@@ -5,7 +5,7 @@ import {
   buildingCentre,
   clockAt,
   createWorld,
-  DAILY_BUY_TENTHS,
+  dailyTradeTenths,
   CARAVAN_EVERY_STEPS,
   CYCLE_STEPS,
   DEBUG_CARAVAN,
@@ -18,6 +18,7 @@ import {
   factionMembers,
   fightersOf,
   hashState,
+  hireSilver,
   hurtUnit,
   isPerson,
   landAt,
@@ -29,9 +30,11 @@ import {
   MONSTERS,
   NEUTRAL,
   offerOf,
+  OUT_OF_REACH,
   onTreeCut,
   People,
   PEOPLES,
+  payPct,
   peopleOf,
   Period,
   PLUNDER_GOODS,
@@ -47,6 +50,7 @@ import {
   Status,
   step,
   structuresOf,
+  supplyUsed,
   tradeProblem,
   trinketRes,
   UnitKind,
@@ -96,10 +100,12 @@ function place(s: SimState, what: number, dx = 60, dz = 0): Faction {
   return f;
 }
 
-/** Brings a unit to stand next to a faction and keeps it there. */
-function bring(s: SimState, i: number, f: Faction, dx = 12): void {
-  landAt(s, i, f.x + dx * M, f.z);
-  s.entities.queue[i] = [];
+/** Brings a unit to stand `dx` metres east of one of a faction's buildings (Patch 5: trade within 10 m of one) and keeps it there. */
+function bring(s: SimState, i: number, f: Faction, dx = 6): void {
+  const e = s.entities;
+  const b = structuresOf(s, f.id)[0]!;
+  landAt(s, i, e.x[b]! + dx * M, e.z[b]!);
+  e.queue[i] = [];
 }
 
 /** A player's unit kills some of the peoples, as a blow in a step would (the events stay to be read). */
@@ -213,25 +219,71 @@ describe('trade', () => {
     expect([Res.SteelIngot, Res.CarbonSteel, Res.HardenedLeather].some((r) => elfGoods.has(r))).toBe(true);
   });
 
-  it('needs a unit within 15 m, and the Halflings will not take gold', () => {
+  it('needs a unit within 10 m of one of their buildings; the Halflings take gold but not gems, and nobody takes earth', () => {
     const s = createWorld(1);
     const f = place(s, FactionKind.HalflingVillage, 120);
     s.players[0]!.pool[Res.Gold] = 5;
     run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.Gold, 5] }]);
-    expect(texts(s)).toContain('Bring one of your units within 15 m of them.');
-    bring(s, unit(s, UnitKind.Worker), f);
+    expect(texts(s)).toContain(OUT_OF_REACH);
+    // Next to one of its people but 20 m from every building is still too far (Patch 5, GP-46).
+    const w = unit(s, UnitKind.Worker);
+    const e = s.entities;
+    const far = peopleOf(s, f.id).find((j) => structuresOf(s, f.id).every((b) => Math.hypot(e.x[b]! - e.x[j]!, e.z[b]! - e.z[j]!) > 20 * M));
+    if (far !== undefined) {
+      landAt(s, w, e.x[far]! + M, e.z[far]!);
+      e.queue[w] = [];
+      run(s, 1);
+      expect(tradeProblem(s, f, 0)).toBe(OUT_OF_REACH);
+    }
+    bring(s, w, f);
+    run(s, 1);
+    expect(tradeProblem(s, f, 0)).toBe('');
     run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.Gold, 5] }]);
+    expect(offerOf(s, f.id, 0)).toBeDefined();
+    run(s, 1, [{ kind: 'tradeWithdraw', player: 0, faction: f.id }]);
+    s.players[0]!.pool[Res.Emeralds] = 2;
+    run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.Emeralds, 2] }]);
     expect(texts(s)).toContain(LINES[People.Halfling].refuse);
+    expect(offerOf(s, f.id, 0)).toBeUndefined();
+    s.players[0]!.pool[Res.Earth] = 50;
+    run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.Earth, 50] }]);
+    expect(texts(s)).toContain(LINES[People.Halfling].dirt);
     expect(offerOf(s, f.id, 0)).toBeUndefined();
   });
 
-  it('buys no more than 300 vp of one kind of good a day', () => {
+  it('trades a fixed worth a day per settlement, shared by every player, cutting a bigger offer down to fit', () => {
     const s = createWorld(1);
     const f = place(s, FactionKind.DwarfColony);
     bring(s, unit(s, UnitKind.Worker), f);
+    const day = dailyTradeTenths(f);
+    expect(day).toBeGreaterThan(0);
     s.players[0]!.pool[Res.FarmFare] = 5000;
     run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.FarmFare, 5000] }]);
-    expect(offerOf(s, f.id, 0)!.worth).toBe(DAILY_BUY_TENTHS);
+    const o = offerOf(s, f.id, 0)!;
+    expect(o.worth).toBeLessThanOrEqual(day);
+    expect(o.worth).toBeGreaterThan(day - 20);
+    // Only what fits is offered: the rest stays with the player.
+    expect(o.goods[1]!).toBeLessThan(5000);
+    expect(texts(s)).toContain(LINES[People.Dwarf].trimmed);
+    run(s, 1, [{ kind: 'tradeTake', player: 0, faction: f.id, bundle: 0 }]);
+    expect(s.players[0]!.pool[Res.FarmFare]).toBe(5000 - o.goods[1]!);
+    expect(f.bought).toBe(o.worth);
+    // The day's trade is used up for everyone until dawn.
+    run(s, 1, [{ kind: 'tradeOffer', player: 0, faction: f.id, goods: [Res.FarmFare, 10] }]);
+    expect(offerOf(s, f.id, 0)).toBeUndefined();
+    expect(texts(s)).toContain(LINES[People.Dwarf].full);
+  });
+
+  it('pays little for stone, and the Dwarves and Elves pay high for diamonds', () => {
+    const s = createWorld(1);
+    const dwarves = place(s, FactionKind.DwarfColony);
+    const halflings = place(s, FactionKind.HalflingVillage, -80);
+    expect(payPct(dwarves, Res.Stone)).toBeLessThan(payPct(dwarves, Res.Flint));
+    expect(payPct(dwarves, Res.Diamonds)).toBeGreaterThan(payPct(dwarves, Res.Emeralds));
+    expect(payPct(halflings, Res.Silver)).toBeGreaterThan(0);
+    expect(payPct(halflings, Res.Earth)).toBe(-1);
+    // The Dwarves sell stone at its full worth, five times what they pay for it.
+    expect(priceTenths(dwarves, Res.Stone)).toBeGreaterThan(Math.floor((10 * payPct(dwarves, Res.Stone)) / 100));
   });
 
   it('turns sour on the same offer after three refusals, and opens again at dawn', () => {
@@ -307,7 +359,9 @@ describe('war', () => {
     expect(empty).toBeGreaterThanOrEqual(0);
     runUntil(s, () => f.status === Status.Gone, 120 * SEC);
     expect(peopleOf(s, f.id).length).toBe(0);
-    // A worker breaks one down for its materials.
+    // A worker breaks one down for its materials. Since Patch 5 the night's waves go for the players' units out in the
+    // open (MB-1), and this one stands alone 70 m out into the night, so the night stays away for it.
+    s.peaceful = 1;
     const w = unit(s, UnitKind.Worker);
     landAt(s, w, e.x[empty]! + 2 * M, e.z[empty]!);
     const before = s.players[0]!.pool.reduce((a, b) => a + b, 0);
@@ -463,27 +517,34 @@ describe('caravans and mercenaries', () => {
     }
   });
 
-  it('hires mercenaries for silver until dusk', () => {
+  it('hires mercenaries for good, for silver or gold, and they take supply', () => {
     const s = createWorld(1);
     const f = place(s, FactionKind.MercCamp);
     bring(s, unit(s, UnitKind.Worker), f, 6);
     run(s, 2);
     const size = f.survivors;
     expect(size).toBeGreaterThanOrEqual(2);
+    const silver = hireSilver(f);
     s.players[0]!.pool[Res.Silver] = 1;
     run(s, 1, [{ kind: 'hire', player: 0, faction: f.id, count: 2 }]);
-    expect(texts(s)).toContain('Hiring 2 costs 4 silver; you have 1.');
-    s.players[0]!.pool[Res.Silver] = 10;
-    run(s, 1, [{ kind: 'hire', player: 0, faction: f.id, count: 2 }]);
-    expect(s.players[0]!.pool[Res.Silver]).toBe(6);
+    expect(texts(s)).toContain(`Hiring 2 costs ${2 * silver} silver; you have 1.`);
+    s.players[0]!.pool[Res.Silver] = 2 * silver + 4;
+    const supply = supplyUsed(s, 0);
+    run(s, 1, [{ kind: 'hire', player: 0, faction: f.id, count: 1 }]);
+    expect(s.players[0]!.pool[Res.Silver]).toBe(silver + 4);
     expect(texts(s)).toContain(MERC_LINES.hired);
+    // Or in gold, 1 gold to 7 silver (Patch 5, BL-4).
+    s.players[0]!.pool[Res.Gold] = 5;
+    run(s, 1, [{ kind: 'hire', player: 0, faction: f.id, count: 1, gold: 1 }]);
+    expect(s.players[0]!.pool[Res.Gold]).toBe(5 - Math.ceil(silver / 7));
     const e = s.entities;
     const hired: number[] = [];
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.role[i] === Role.Mercenary) hired.push(i);
     expect(hired.length).toBe(2);
     const hiredIds = hired.map((j) => e.id[j]!);
     expect(f.survivors).toBe(size - 2);
-    // Theirs to command.
+    expect(supplyUsed(s, 0)).toBe(supply + 2);
+    // Theirs to command, and theirs still after dusk.
     const id = e.id[hired[0]!]!;
     run(s, 1, [{ kind: 'move', player: 0, units: [id], x: f.x + 20 * M, z: f.z }]);
     expect(e.queue[e.indexOf(id)]!.length).toBeGreaterThan(0);
@@ -492,9 +553,9 @@ describe('caravans and mercenaries', () => {
     // By id: a death elsewhere can move a unit's index.
     for (const hid of hiredIds) {
       const j = e.indexOf(hid);
-      if (j >= 0 && e.hp[j]! > 0) expect(e.owner[j]).toBe(PEOPLES);
+      if (j >= 0 && e.hp[j]! > 0) expect(e.owner[j]).toBe(0);
     }
-    expect(f.survivors).toBe(size);
+    expect(f.survivors).toBe(size - 2);
   });
 });
 

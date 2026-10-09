@@ -23,7 +23,7 @@ TRINKET_METALS.forEach((_, m) => TRINKET_TIERS.forEach((_t, t) => trinkets.push(
  */
 export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res[] }> = [
   { name: 'Woods', items: [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Sticks, Res.Planks, Res.Resin] },
-  { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Marble, Res.Earth, Res.Clay, Res.Sand] },
+  { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Marble, Res.Bluestone, Res.Earth, Res.Clay, Res.Sand] },
   {
     name: 'Ores',
     items: [Res.Coal, Res.Charcoal, Res.CopperOre, Res.TinOre, Res.BogIron, Res.IronRock, Res.VeinIron, Res.LeadOre, Res.Saltpetre, Res.Sulphur],
@@ -68,7 +68,7 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       Res.OxCart,
     ],
   },
-  { name: 'Trinkets', items: [...trinkets, Res.Moonleaf, Res.Sunheart] },
+  { name: 'Trinkets', items: [...trinkets, Res.Moonleaf, Res.Sunheart, Res.MoonRose] },
   { name: 'Crystals', items: [Res.Hexstone, Res.ManaCrystal, Res.Emeralds, Res.Rubies, Res.Diamonds] },
 ];
 

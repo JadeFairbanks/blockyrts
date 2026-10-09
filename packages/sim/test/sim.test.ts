@@ -57,8 +57,8 @@ describe('the step function', () => {
     expect(e.order[0]).toBe(OrderKind.Move);
     // Facing roughly +X (49152); the path may bend round a rise.
     expect(Math.abs(e.heading[0]! - 49152)).toBeLessThan(2048);
-    // 12 m at 3 m/s is 4 s, 80 steps, plus a little for the path's bends.
-    for (let n = 1; n < 90; n++) step(s);
+    // 12 m at 2.55 m/s (Patch 5: 15% slower) is 4.7 s, 95 steps, plus a little for the path's bends.
+    for (let n = 1; n < 106; n++) step(s);
     expect(e.x[0]).toBe(goal.x);
     expect(e.z[0]).toBe(goal.z);
     expect(e.order[0]).toBe(OrderKind.Idle);

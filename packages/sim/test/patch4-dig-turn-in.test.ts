@@ -19,14 +19,11 @@ import {
   Mat,
   NO_CARRY,
   placeBuilding,
-  PERSON,
   placementBlocked,
-  pointGoal,
   Res,
   serializeState,
   step,
   TOOL_GEAR,
-  TOP,
   ToolJob,
   WU_PER_COLUMN,
   type Building,
@@ -168,7 +165,7 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     for (const t of trips) expect(Math.hypot(t.x - sx, t.z - sz)).toBeLessThan(Math.hypot(t.x - hx, t.z - hz));
   });
 
-  it("fills a hand cart's 150 lb before the trip home", () => {
+  it("fills a hand cart's 250 lb before the trip home (Patch 5, BL-12: it held 150 lb)", () => {
     const s = camp([0]);
     const e = s.entities;
     e.kit[0] = Res.HandCart;
@@ -177,9 +174,9 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     const earth = pool[Res.Earth]!;
     run(s, 1, [dig(s, [0], x, z, 4, 4, y - 9)]);
     const { trips, most } = watchTrips(s, 0, () => s.sites.length === 0 && e.carryAmt[0] === 0, 30000);
-    expect(carryCapacity(s, 0, Res.Earth)).toBe(30);
-    expect(most).toBe(30);
-    expect(trips.map((t) => t.amount)).toEqual([30, 30, 30, 30, 24]);
+    expect(carryCapacity(s, 0, Res.Earth)).toBe(50);
+    expect(most).toBe(50);
+    expect(trips.map((t) => t.amount)).toEqual([50, 50, 44]);
     expect(pool[Res.Earth]).toBe(earth + 144);
   });
 
@@ -235,63 +232,45 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     expect(e.queue[0]![0]).toEqual({ t: 'dig', site });
   });
 
-  it('diggers shut in a wide pit they stepped down into dig crude stairs out, leave on the ground what they cannot carry, and pick it up when they come back', () => {
+  it('diggers in a wide pit get out with their loads, cutting no stairs (Patch 5 GP-17), and carry on the same after a save', () => {
     const s = camp([0, 1, 2, 3]);
     const e = s.entities;
     const pool = s.players[0]!.pool;
     const team = [0, 1, 2, 3];
     for (const i of team) e.toolBreak[i] = TOOL_GEAR[8]![ToolJob.Break]!;
-    // 12 by 12 columns (5.4 m a side), 1 m deep: the middle is out of reach from the edge, so they step down into it,
-    // and 1 m is more than a person clambers up (45 cm). Before Patch 4 they were left in it for good.
+    // 12 by 12 columns (5.4 m a side), 1 m deep: the middle is out of reach from the edge, so they go down into it, and
+    // 1 m is more than a worker jumps up (56 cm). Patch 4 had them cut crude stairs out; Patch 5's workers climb where they must.
     const { x, z, y } = flatSpot(s, 12, 12);
     const earth = pool[Res.Earth]!;
     run(s, 1, [dig(s, team, x, z, 12, 12, y - 9)]);
-    let stairs = 0;
-    let fetched = 0;
     let stuck = 0;
-    let leftMost = 0;
     let half: Uint8Array | null = null;
-    const spoil = (): number => s.loot.filter((l) => l.owner === 0 && l.src === 0 && l.res === Res.Earth).reduce((n, l) => n + l.amt, 0);
     for (let k = 0; k < 40000 && (s.sites.length > 0 || team.some((i) => e.carryAmt[i]! > 0 || e.queue[i]!.length > 0)); k++) {
       step(s);
-      for (const i of team) {
-        const [now, next] = e.queue[i]!;
-        if (now?.t === 'stairs' && e.act[i] === Act.Work) stairs++;
-        if (now?.t === 'loot' && next?.t === 'dig') fetched++;
-      }
-      leftMost = Math.max(leftMost, spoil());
+      // No wild animal wanders into the pit (one that falls in stays there, and a column it stands on waits for it).
+      for (let j = e.count - 1; j >= 0; j--) if (e.owner[j] !== 0) e.remove(e.id[j]!);
       stuck += s.events.filter((v) => v.text === 'I cannot reach a drop-off.').length;
-      // Saved and loaded while one cuts its stairs, it carries on the same.
-      if (!half && team.some((i) => e.queue[i]![0]?.t === 'stairs')) half = serializeState(s);
+      // Saved and loaded half way, it carries on the same.
+      if (!half && pool[Res.Earth]! - earth >= 12 * 12 * 9 / 2) half = serializeState(s);
     }
     expect(s.sites.length).toBe(0);
     expect(stuck).toBe(0);
-    expect(stairs).toBeGreaterThan(0);
-    // A worker with a full load cannot carry its stairs' earth too: it lies on the ground at the dig until it comes back for it.
-    expect(leftMost).toBeGreaterThan(0);
-    expect(fetched).toBeGreaterThan(0);
-    // The stairs are cut into the pit's side, a clamber (45 cm, 4 units) at a time: 5 units down beside the floor, then 1.
-    let cut = 0;
-    let steps = 0;
+    // Nothing outside the pit is dug: no stairs.
     for (let zz = z - 4; zz < z + 16; zz++) {
       for (let xx = x - 4; xx < x + 16; xx++) {
         if (xx >= x && xx < x + 12 && zz >= z && zz < z + 12) continue;
-        const top = s.world.topAt(xx, zz);
-        if (top < y) cut += y - top;
-        if (top === y - 5) steps++;
+        expect(s.world.topAt(xx, zz)).toBe(y);
       }
     }
-    expect(steps).toBeGreaterThan(0);
-    // Every unit of earth dug, the pit's and the stairs', is in the stock or still on the ground, none lost.
-    expect(pool[Res.Earth]! - earth + spoil() + team.reduce((n, i) => n + bagEarth(e.bag[i]!), 0)).toBe(12 * 12 * 9 + cut);
-    // Everyone ends with nothing in hand, and none is shut in: the stairs lead out of the pit.
-    for (const i of team) {
-      expect(e.carryAmt[i]).toBe(0);
-      expect(s.paths.find(PERSON, col(e.x[i]!), col(e.z[i]!), pointGoal(x - 3, z - 3), TOP).reached).toBe(true);
-    }
+    // Every unit of earth dug is in the stock, none lost.
+    expect(pool[Res.Earth]! - earth + team.reduce((n, i) => n + bagEarth(e.bag[i]!), 0)).toBe(12 * 12 * 9);
+    for (const i of team) expect(e.carryAmt[i]).toBe(0);
     expect(half).not.toBeNull();
     const copy = deserializeState(half!);
-    while (copy.step < s.step) step(copy);
+    while (copy.step < s.step) {
+      step(copy);
+      for (let j = copy.entities.count - 1; j >= 0; j--) if (copy.entities.owner[j] !== 0) copy.entities.remove(copy.entities.id[j]!);
+    }
     expect(hashState(copy)).toBe(hashState(s));
   });
   it('diggers leaving the rim of a pit too deep to step into walk round its corner home, and finish it', () => {

@@ -111,11 +111,14 @@ export const Res = {
   AnyMeat: 107,
   AnyFish: 108,
   AnyLumber: 109,
+  // Patch 5: the Stone Circle goods (Stone Circle doc; decisions 2.5).
+  Bluestone: 110,
+  MoonRose: 111,
   /** Jade's Patch 5: the wild foods, 1 food each (GP-30, GP-32). */
-  BlackBerries: 110,
-  Raspberries: 111,
-  Blueberries: 112,
-  Mushrooms: 113,
+  BlackBerries: 112,
+  Raspberries: 113,
+  Blueberries: 114,
+  Mushrooms: 115,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -169,7 +172,13 @@ function trinkets(): ResourceInfo[] {
   return out;
 }
 
-/** Every resource, indexed by id. Weights from Table 12; nutrition from Table 6. */
+/**
+ * Every resource, indexed by id. Weights from Table 12; nutrition from Table 6.
+ * Patch 5 (Jade, BL-12: "make ore fairly heavy and make the cart hold a
+ * lot"): copper, tin and lead ore, bog iron, iron rock and vein iron weigh 8 lb
+ * each (s; they were 5), so a worker on foot brings 3 a trip and a cart is
+ * worth taking (units/weight.ts).
+ */
 export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.SoftwoodLumber, 'Softwood lumber', 'Softwood', M, 50, 'Softwood trees: pine, spruce, small softwood.'),
   r(Res.HardwoodLumber, 'Hardwood lumber', 'Hardwood', M, 50, 'Hardwood trees: birch and hornbeam (a flint axe), oak and beech (a copper axe).'),
@@ -180,14 +189,14 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Leather, 'Leather', 'Leather', M, 25, 'Cattle, and hides at the Workshop.', 0, false),
   r(Res.Venison, 'Venison', 'Venison', M, 25, 'Hunting deer.', 4),
   r(Res.Trout, 'Trout', 'Trout', M, 25, 'Fishing Heartland streams.', 3),
-  r(Res.CopperOre, 'Copper ore', 'Copper ore', M, 50, 'Copper outcrops (a stone maul).'),
-  r(Res.TinOre, 'Tin ore', 'Tin ore', M, 50, 'Tin outcrops (a stone maul).'),
+  r(Res.CopperOre, 'Copper ore', 'Copper ore', M, 80, 'Copper outcrops (a stone maul).'),
+  r(Res.TinOre, 'Tin ore', 'Tin ore', M, 80, 'Tin outcrops (a stone maul).'),
   r(Res.CopperIngot, 'Copper ingot', 'Copper', M, 50, 'Smelted at a forge.', 0, false),
   r(Res.TinIngot, 'Tin ingot', 'Tin', M, 50, 'Smelted at a forge.', 0, false),
   r(Res.BronzeIngot, 'Bronze ingot', 'Bronze', M, 50, 'Copper and tin at a forge.', 0, false),
-  r(Res.BogIron, 'Bog iron', 'Bog iron', M, 50, 'Bog iron patches (bronze tools).'),
-  r(Res.IronRock, 'Iron rock', 'Iron rock', M, 50, 'Iron rock (bronze tools).'),
-  r(Res.VeinIron, 'Vein iron ore', 'Vein iron', M, 50, 'Seams inside ridges (wrought iron tools) and mineshafts.'),
+  r(Res.BogIron, 'Bog iron', 'Bog iron', M, 80, 'Bog iron patches (bronze tools).'),
+  r(Res.IronRock, 'Iron rock', 'Iron rock', M, 80, 'Iron rock (bronze tools).'),
+  r(Res.VeinIron, 'Vein iron ore', 'Vein iron', M, 80, 'Seams inside ridges (wrought iron tools) and mineshafts.'),
   r(Res.PigIron, 'Pig iron ingot', 'Pig iron', M, 50, 'Vein iron at the Forge (main base tier 3).', 0, false),
   r(Res.IronIngot, 'Iron ingot', 'Iron', M, 50, 'Pig iron at the Forge (main base tier 3).', 0, false),
   r(Res.SteelIngot, 'Steel ingot', 'Steel', M, 50, 'Iron at the Forge (main base tier 3), after Steel.', 0, false),
@@ -215,7 +224,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.DemonHorn, 'Demon horn', 'Horn', A, 20, 'Dropped by red demons and the archfiend.'),
   r(Res.Hexstone, 'Hexstone', 'Hexstone', A, 5, 'Dropped by goblins.'),
   r(Res.Venom, 'Venom', 'Venom', A, 5, 'Dropped by vipers, scorpions, centipedes and hornets.'),
-  r(Res.LeadOre, 'Lead ore', 'Lead ore', A, 50, 'Deepwoods and deeper, beside silver-grey rock (bronze tools).'),
+  r(Res.LeadOre, 'Lead ore', 'Lead ore', A, 80, 'Deepwoods and deeper, beside silver-grey rock (bronze tools). Every gunpowder weapon and cannon takes some.'),
   r(Res.ManaCrystal, 'Mana crystal', 'Mana', A, 5, 'Rare nodes in the Deadlands, and some magical creatures.'),
   r(Res.Planks, 'Planks', 'Planks', G, 50, 'Lumber at the Workshop.', 0, false),
   r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at the Forge (main base tier 2).', 0, false),
@@ -255,6 +264,9 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
+  // Patch 5 (s: weights as marble and herbs). Bluestone stands in for marble 1 for 1 and sells well; Moon Roses are the Elves' best trade good.
+  r(Res.Bluestone, 'Bluestone', 'Bluestone', A, 100, 'Bluestone rubble at the stone circles. Stands in for marble; sells well.'),
+  r(Res.MoonRose, 'Moon Rose', 'Moon Rose', A, 5, 'Moon Rose bushes at a lunar stone circle, picked on Bright Nights. The Elves pay more for them than for anything else.'),
   // A bunch of berries or a mushroom is 1 food (GP-30, GP-32); a bunch weighs half a pound, a mushroom 0.3 lb (s).
   r(Res.BlackBerries, 'Black berries', 'Black berries', F, 5, 'Black berry bushes: a bunch is 1 food.', 1),
   r(Res.Raspberries, 'Raspberries', 'Raspberries', F, 5, 'Raspberry bushes, in the Heartland and the Fringe: a bunch is 1 food.', 1),

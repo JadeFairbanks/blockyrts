@@ -3101,11 +3101,9 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    softwood takes it home before it digs; Unload sends a digger home and
    back to its dig; an earth bank still takes its Earth from the stock and
    nobody carries; four workers in a pit 12 columns square and 1 m deep
-   dig crude stairs out into its side, a clamber at a time, leave on the
-   ground what they cannot carry, pick it up when they come back, finish
-   the pit with every unit of earth accounted for and can all walk out,
-   and a save taken as one cuts its stairs carries on to the same hash;
-   four workers digging a pit 6 columns square and 3 m deep from its rim
+   get out of it with their loads, cutting no stairs (Patch 5), finish
+   the pit with every unit of earth accounted for, and a save taken half
+   way carries on to the same hash; four workers digging a pit 6 columns square and 3 m deep from its rim
    all get home with their loads. m4.test.ts still runs the miners' bag
    trips, a nearer Storehouse and the trip out at dawn.
 2. **A small dig.** `pnpm dev`, open http://localhost:5173/?seed=1, select
@@ -3129,8 +3127,10 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
 6. **Unload.** Select a digger carrying a load and press C (Unload): it
    takes the load home and goes back to the dig, where before it would
    have stopped.
-7. **Crude stairs (Jade).** Dig a square about 5 m across and three steps
-   deep (about 1 m) with all four workers. They step down into it to reach
+7. **Crude stairs (gone in Patch 5).** Patch 5 removed them: workers now
+   climb out of a pit with their loads (see "How a tester checks running,
+   climbing and jumping (Patch 5)"). [Before Patch 5: dig a square about
+   5 m across and three steps deep (about 1 m) with all four workers. They step down into it to reach
    its middle; once its sides are taller than a worker can step up (45 cm),
    a worker with a full load digs stairs out into the nearest side ("Digging
    stairs out" in its panel): a step 56 cm down beside the floor, then one
@@ -3138,7 +3138,7 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    left in a pile at their foot (an Earth icon on the ground); it walks up
    the stairs with its load, hands it in, and when it comes back it picks
    the pile up first ("Picking up loot") and then digs on. Later trips walk
-   up the same stairs, which stay when the pit is finished.
+   up the same stairs, which stay when the pit is finished.]
 8. **A deep pit.** Dig a square about 3 m across and 3 m deep: the workers
    dig it from its rim (they cannot drop that far) and all get home with
    their loads; before, one walking off from near the rim's corner could
@@ -3452,6 +3452,389 @@ blueprint/patch5-bugs-picks.md.*
    it, and stays still while you click or drag on it. Lairs off the window
    show pinned to its edge, fainter, on the side they lie; pings off it ring
    at the edge.
+
+## How a tester checks the mobs and waves (Patch 5)
+
+*Jade's Patch 5, section 14: the mob damage cuts, the waves going for every
+base and party, towers and walls broken to reach units, waves sized with the
+player count, the waves' side of Bright Nights, Morvath's new model and his
+staff and wings, the necromancer, the Deadlands' mana crystal guardians, and
+remarks about what is round each unit. Picks in
+blueprint/patch5-mobs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-mobs.test.ts:
+   the cut blows held in tenths (a 7.6 blow is 7 or 8, 8 six times in ten),
+   the waves for two and three players within a tenth of twice and three
+   times one player's, a Bright Night leaving out that player's share (and in
+   single player the whole wave), the night's groups aimed at the base and at
+   a party out in the open, the necromancer's nights, his coming one for each
+   player on top of the threat, his summons of 9 or 10 once seen and again 60
+   s later with his 20 s bubbles, his drops, and a crystal's 2 or 3 guardians
+   coming once, keeping within 5 m, going for a worker 6 m off and never
+   coming back once killed (the guarded crystals go in the save).
+   packages/client/test/pause-controls.test.ts checks a unit's remark waits
+   its 1 to 4.5 minutes and stands still while paused.
+2. **Damage.** Monsters hit 5% softer (daytime hunters 15%), except the ones
+   Jade set herself. A zombie's blow lands as 7 or 8 against unarmoured
+   units, never 7.6.
+3. **Where the waves go.** Send two or more workers 150 m out from the town
+   and play into a night: some groups come out of the dark near them and go
+   for them while the rest go for the town; in a game with two towns far
+   apart each is attacked. A tower whose archers shoot at monsters with no
+   loose units near gets broken; walls get broken when monsters must go
+   through to reach units, and go round when a short way round exists.
+4. **Bigger with more players.** In a two or three player game the night's
+   monsters come in about two or three times the number of a single player
+   game.
+5. **Morvath.** Place him with the debugger's godmode grid. He is the new
+   4.5 m model with his staff. His blow does 200 and bursts violet over 1 m
+   round where it lands; monsters caught in it heal him, white motes flying
+   from them to him. At half health he changes (his transform clip), spreads
+   his wings and drains up to 500 health from everyone near him over 5 s,
+   once, in white motes; then he flies with his second form's clips and
+   falls with his second form's death.
+6. **The necromancer.** On nights 10, 20, 30 and 40, then every 5th night to
+   60, every 2nd to 90 and every night after, one comes for each player with
+   the waves, on top of them (or place him with godmode). Once any of your
+   units or buildings sees him he raises 9 or 10 skeleton archers and zombies
+   in crimson round him, then again every 60 s, saying so in a bubble that
+   stays 20 s. Every 10 s he casts his crimson bolt: 35 to whoever it hits
+   and 35 to anyone within 0.5 m of it. He burns at dawn with his wave.
+   Killed, he drops metal and leather from 2 to 4 weapons or armours (tier 3
+   to 5, higher once you can make higher), 1 to 5 ingots of one kind, 2 to 8
+   bones and now and then a mana crystal.
+7. **Crystal guardians.** Go out to the Deadlands (Reveal shows the far
+   bands). Each mana crystal there gets 2 or 3 ash golems and mana wraiths
+   when one of your units first comes within 60 m. They glow with thin
+   pulsing blue light, read **Mana crystal guardian** when selected, never
+   burn in the sun, stay within 5 m of the crystal, chase no farther than
+   8 m from it, and go first for a worker sent to gather the crystal. Kill
+   them and that crystal is never guarded again.
+8. **Remarks.** Watch a town for a few minutes: each worker, troop, mage and
+   people's unit on screen says something about what is round it (a monster
+   or animal near, the building beside it, what it carries or does, a crowd,
+   being alone, the time of day) once every 1 to 4.5 minutes, now and then a
+   complaint when hurt or hungry. Nobody remarks while the game is paused.
+
+## How a tester checks the defences and siege (Patch 5)
+
+*Patch 5's defences: wider gates, the earth rampart, walls that crack and
+break, the Citadel's engine platform and its fixed engines, lead ore in
+gunpowder kit, and guns and blasts that look and sound the part. Picks in
+blueprint/patch5-defences-picks.md.* `npx vitest run
+packages/sim/test/m8.test.ts packages/client/test/m8-controls.test.ts
+packages/client/test/patch4-hotkeys.test.ts` covers the platform, the cards
+and the keys headless. The debugger's **Godmode** makes the checks quick:
+buildings stand at once, upgrades and training finish at once, and its grid
+places monsters (a skeleton bomber is the wall breaker) and your own units.
+
+1. **Gates and towers.** Build, Defences: a gate is 6 columns wide, twice
+   what it was, drawn as its gate model (turned for north to south). Towers
+   are 4 by 4 columns. The stone tower is drawn as its model, with its men
+   on its top; the wooden and hardwood towers stay blocks until their models'
+   roofs are raised (too low for a man standing under them).
+2. **Walls.** Build a wall chain that turns a corner and runs on diagonally.
+   Each column is drawn as its wall model, turned along the run; where the
+   wall turns, and on a diagonal's steps, a corner post. Let monsters hit a
+   stretch (or hit it with an engine's Attack): below 70% health it shows
+   cracks, below 40% it is snapped with the top half hanging to the ground,
+   and it still blocks the same. Repair it and the looks go back. A wall has
+   no health bar; clicking it shows its health in the middle as before.
+3. **The earth rampart.** Defences, **Earth rampart** (M): placed in a chain
+   from point to point like a wall, in chunks 2 by 2 columns (about 1 m
+   across), each 2 m tall and costing 5 earth (a worker's full load). It has
+   the health of one wooden wall column, shows torn earth below 70% and 40%,
+   and is not dug like the land. It is a wall in every other way: your units
+   cannot climb it, and climbing monsters go over it as they go over any wall.
+4. **The Artillery workshop.** Its card shows Train artillery crewman (E) and
+   the four engines as buttons of their own: Catapult (C), Ballista (B),
+   Bronze cannon (N) and Iron cannon (I). There is no Engines button. The
+   Magi Sanctum's Hexcraft is on its card the same way (H).
+5. **The Citadel.** With an Artillery workshop standing, raise the main base
+   to tier 4 (the Citadel, drawn as its own model with a flat platform on
+   top and 8 men's places on the keep's wall walk). Its card has **Build
+   defense** (D), which opens:
+   Springald, Mangonel, Bronze culverin, Iron bombard (each on the letter of
+   its name) and Garrison (G). Each fixed engine costs what its mobile engine
+   does (lead ore and its crew's food too) and needs what that one needs
+   (research and tier). Build one: it stands on the flat platform at the top
+   with its garrison artillery crewmen (drawn as the mobile engine until the
+   fixed models land), and fires at monsters in reach. Stop, Unload and
+   right clicks never bring it or its crew down; its card has Attack only,
+   and an attack order out of its reach is dropped with "That is beyond the
+   ...'s reach." While one stands there the other buttons read **Upgrade to
+   ...** for the higher ones (the cost and time difference; it cannot fire
+   while the upgrade builds, and a springald becoming a mangonel brings a
+   second crewman free). **Garrison** stays greyed until the engine is short
+   of crew: kill one of its crew (Kill selected) and it lights up. Only
+   flyers and ranged monsters can hit the engine and the men up there. Kill
+   the engine itself and its crew stay up on the platform for good; build
+   another and they man it, with new crewmen only for the places still empty.
+6. **Men up top.** With no fixed engine on the platform, select more men
+   than fit (archers, melee, mages, workers) and right click the Citadel:
+   the best ranged troops go up first, then mages, then melee; the panel's
+   count is out of 12 (8 on the parapets, 4 on the platform). Once an engine
+   is built up there, the platform's men come down to make room.
+7. **No cannon ports.** A cannon's card has Attack, Move and Hitch; right
+   clicking the Citadel with a cannon does nothing.
+8. **Lead ore.** A musketeer's kit takes 2 lead ore, a brawler's pistol 1, a
+   bronze cannon 4 (and 40 bronze ingots) and an iron cannon 6; the fixed
+   ones the same. Without it the buttons grey with the lead ore named.
+9. **Guns.** A musketeer firing shows a flash and a spray of sparks at the
+   muzzle and smoke rising for 4 s; a brawler's pistol 3 s; a cannon 5 s,
+   bigger. The ball flies as its model (the bronze cannon's smaller) with a
+   faint grey dash behind it by day and a bright orange streak at night.
+   Each has its gun's sound.
+10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
+    grass or soil it leaves a heap of earth to pick up. One that hits a tree
+    fells it, leaving half its lumber. A catapult stone throws up dirt, no
+    fire, leaves less earth, and fells only small trees. A bronze cannon's
+    shot is smaller, with a smaller blast.
+11. **The wall breaker.** A skeleton bomber's fuse fizzes with tiny sparks.
+    When it goes off: an explosion, smoke rising for 3 s and a shallow
+    crater; it hurts units half as much as before. Kill one before it reaches
+    a wall and nothing goes off, and no bomb falls.
+12. **Engines on your own.** Select an engine, Attack, and click one of your
+    own units: it fires at it.
+
+## How a tester checks Patch 5's trade, mercenaries and carts
+
+*Jade's Patch 5, section 21: trade within 10 m of any of a people's
+buildings, a day of trade per settlement shared by every player, typed
+amounts, no earth, cheap stone (GP-46, BL-3); gold and silver welcome
+everywhere and mercenaries hired for good, with gold too (BL-4); diamonds,
+bluestone and Moon Roses (decisions 2.5); the To send list (UI-15); carts
+worth using (BL-12); and trade menus that keep their × and never squeeze
+their lists (decisions 2.16). Picks in blueprint/patch5-peoples-picks.md.
+The numbers are rows in `packages/sim/src/peoples/data.ts`
+(`DAILY_TRADE_TENTHS`, `GOOD_PAY_PCT`, `HIRE_SILVER`, `TRADE_RANGE_WU`).*
+
+1. **The tests.** `pnpm test`: the sim's m7 tests trade from 10 m of a
+   building, fill and trim a day of trade, price stone, diamonds and
+   silver, and hire mercenaries for silver or gold who stay after dusk;
+   patch4-dig-turn-in fills a 250 lb hand cart.
+2. **Reach.** `pnpm dev`, open http://localhost:5173/?seed=1, type M N B V
+   C X Z and press **People** until a Halfling village stands in view, then
+   **Trade kit**. Right click any of their buildings with nothing selected:
+   the trade menu opens and says "Bring one of your units within 10 m of
+   one of their buildings." Select a warrior and right click the building
+   again: the warrior walks over, and the warning goes once it is within
+   10 m.
+3. **The menu.** The title and its × stay at the top however long the
+   lists are; the body scrolls under them. Every good in They sell today,
+   Your goods and the offer box shows its picture, name and count at full
+   size, and a long list scrolls. On a narrow window the columns stack.
+4. **Typed amounts.** Click a good: it goes into the offer box with a
+   number box. Click the box, type 37 and press Enter: the offer holds 37
+   (no more than you have). **All** puts in all of it, **×** takes it out,
+   **Clear** empties the box.
+5. **A day of trade.** The Their trade left today bar starts full. Offer a
+   lot of gold: the worth bar fills and "More than they will trade today"
+   shows. Make the offer: they trim it to what fits and say so; take a
+   bundle and the bar runs low. A second player trading with them draws
+   on the same bar. At dawn it is full again. A Dwarf city's bar holds
+   the most and a Runkin camp's the least.
+6. **Earth and stone.** Earth in Your goods is greyed ("Nobody takes
+   earth"); offering it anyway gets a line about dirt. Stone is taken at
+   a fifth of its worth.
+7. **Gold, silver and diamonds.** Halflings now take gold and silver (and
+   still refuse gems); Dwarves and Elves pay one and a half times a
+   diamond's worth.
+8. **Mercenaries.** Press **People** until a mercenary camp shows and
+   right click it: the hire box lists 7 silver or 1 gold a head (14 or 2 in
+   the Deepwoods), your silver, gold and supply room, and **Pay in silver**
+   and **Pay in gold**. Hire two: supply goes up by 2, and at dusk they stay
+   with you (no walking home). With no supply room left, the box says so.
+9. **Send resources** (two players). Press ]: pick stone and copper ore,
+   each goes on the To send list with its picture and an amount. Type,
+   +10, +100, All and × change a line. The Send button's tooltip names
+   exactly what goes; pressing it sends the whole list and empties it.
+10. **Carts.** A worker with a hand cart cuts a tree, then walks on to the
+    next tree before going home, until 250 lb are on the cart. Copper,
+    tin, lead and the iron ores weigh 8 lb each, so a miner on foot brings
+    3 at a time and a hand cart 30.
+11. **Saves and checks.** Snapshot version 24 (the faction record keeps one
+    number for the day's trade); check scripts' hashes move with it.
+
+## How a tester checks the controls, HUD and markers (Patch 5)
+
+*Jade's Patch 5, sections 11, 26 and 27: left click to target and right click
+for the auto function, autorepair and repair costs, Repair All, units leaving
+the selection as they go into buildings, double-click types, F2, training at
+several buildings, shared control of combat units only; the HUD look; and the
+bars, damage numbers, stars, hover outline and order lines over the world.
+Picks in blueprint/patch5-client-ui-picks.md.*
+
+1. **The tests.** `pnpm test`: packages/sim/test/patch5-controls.test.ts
+   (repair costs, autorepair, Repair All, room-limited entering with the best
+   ranged first, farms sharing workers out, shared control, a refused
+   training said once), packages/client/test/patch5-selection.test.ts
+   (double-click types), patch5-world-marks.test.ts (bars, stars, order
+   lines) and m3-controls (left and right click on Gather, Hunt and Repair).
+2. **Bars and numbers.** `pnpm dev`, open http://localhost:5173/?seed=1 and
+   type M N B V C X Z, then press Wave near the base at night. Over anything
+   below 95% health a bar shrinks from green to red; mages have a blue mana
+   bar under it. Red "-N" numbers rise off each hit and fade; a hit of 100 or
+   more is bigger and shakes. Walls carry no bar. A building training a unit
+   has a gold bar under its health bar.
+3. **Stars.** In a game with a second player, the other player's units and
+   buildings carry a small star in their colour with a thin black border;
+   yours never do, nor do monsters.
+4. **Hover and order lines.** Point at a unit, a building, loot or a tree: a
+   white line runs round its outline. Select a group and right click far off:
+   a dotted line runs from the group to a green flag. Attack-move (A, then
+   ground) gives a red flag and red rings; Patrol a blue flag at each end; a
+   direct attack a tiny red dot on the target; a rally point a yellow flag.
+5. **Gather and Hunt.** Select workers and press Gather: the cursor is an
+   axe; click a tree and they fell it, take each load home and go back.
+   Right click Gather instead: they gather by themselves. Select warriors and
+   press Hunt: the cursor is a spear; click a deer and they chase it, then go
+   on hunting. Right click Hunt: they hunt by themselves.
+6. **Repairs.** Damage a building (tester tools), select workers and right
+   click Repair: the button shows AUTO, and workers within 8 m of the damage
+   walk over and fix it, then go back to gathering. The stock drops by the
+   building's own materials as it heals. Press F8 (Repair All, where camera
+   spot 4 was): the workers within 20 m of each damaged building go, idle
+   ones first; farm workers stay at their farm, and the idle ones gather
+   afterwards. With no materials, a worker says "Not enough ... to repair".
+7. **Into buildings.** Select 4 workers and right click a new farm: 2 go,
+   and leave the selection once they start working; 2 stay selected. Select
+   6 workers, hold Shift and right click three farms: 2 go to each. Select a
+   mixed army and right click a tower: the best rangers go up first, then
+   mages, up to its 4 places, and those leave the selection.
+8. **Selection.** In a mixed selection, double click a spearman: only the
+   spearmen of that selection stay. Press F2 with men on a tower: those on
+   the tower are not selected. Select two main bases and press Train worker:
+   each starts one; with food for one only, one starts and the message says
+   why once.
+9. **The HUD.** Hotkeys and tiny numbers are crisp; pictures fill the
+   buttons; buttons never grow past 128 px. The message panel starts folded
+   to a small button at the left edge over the minimap's buttons, counting
+   other players' messages until opened. Bubbles stay a second longer.
+
+## How a tester checks unit and building looks (Patch 5)
+
+*Jade's Patch 5 file: every piece of gear a unit carries is drawn on it, at
+its tier (hard rule: no invisible equippable gear); shields are drawn; every
+task has its own worker clip; mages wear their robes, battle robes going blue
+to red with tier and support robes green to white, with a flaming halo on the
+top battle mage and a sparkling one on the top support mage; and every
+building looks like itself. Picks in blueprint/patch5-looks-picks.md. The
+units are drawn in `packages/client/src/world/units-view.ts`, the buildings
+in `packages/client/src/world/buildings-view.ts`, and their models placed by
+`packages/sim/src/buildings/footprints.ts`.*
+
+1. **The tests.** `pnpm test` measures every newly modelled footprint
+   against its model (`packages/tools/test/footprints.test.ts`) and builds
+   every model, each metal tier's look and each building's stages, ruins and
+   damaged look (`packages/tools/test/models.test.ts`).
+2. **Jade's bodies.** `pnpm dev`, open http://localhost:5173/?seed=1: the
+   workers, warriors and mages are Jade's improved models with her clips.
+   Each worker carries every tool of their kit: the one in use in the hand,
+   the rest on the hips and back.
+3. **Troops at every tier.** Type M N B V C X Z, press **Troop kit**, select
+   the Barracks and train each troop type at a few tiers (or press
+   **Godmode** and place each troop from the inventory grid: they come at
+   the top of their kit). Each weapon is its own model at its tier (a flint
+   spear, a bronze short sword, wrought then refined iron swords, steel and
+   high quality steel), held in the hand; a ranger's bow or crossbow is in
+   the left hand, the quiver or bolt case on the back or hip. Armour,
+   helmets and boots are worn on the body and move with it; close melee
+   troops carry their shield on the left arm, painted in the team colour.
+   Each attack, reload and block has its own clip.
+4. **Mages.** Press **Sanctum** and **Mage kit**, train a support and a
+   battle mage and upgrade their robes: each robe tier is its own look, the
+   battle robe from blue through purple to red, the support robe from green
+   to white. Every wand tier is its own model in the hand. Press **Max
+   rank**: the top battle mage wears a ring of flickering flames over the
+   head, the top support mage a ring of sparkling white and gold.
+5. **Work clips.** Send workers to chop, mine, gather, fish, butcher a
+   carcass, hoe a farm, build, relight an out torch (they carry a torch to
+   it), dig and tame: each has its own clip and the tool for it in hand
+   (a spade to dig, a rod to fish, casting then waiting). Prospecting (T)
+   shows the prospect clip with a hammer at a metal tier, and a progress bar
+   over the worker like tinkering.
+6. **Carried goods.** A worker carrying a load shows what it is, each good
+   its own model (long loads on the shoulder, the rest in the arms or one
+   hand), instead of a plain box (farm fare, with no model yet, keeps it); a worker with a hand cart pushes it ahead, and an ox or horse
+   hitched to a worker pulls an ox cart. A horse wears its tack under a rider
+   and its harness when hitched. Artillery crewmen work the rammer, ladle and
+   linstock as they load, aim and fire.
+7. **Monsters and peoples.** Monsters and peoples' units hold the weapons
+   their models come with.
+8. **Buildings.** With **Godmode**, place a Workshop, Forge, Barracks, Magi
+   Sanctum, Scholar's Lodge, Mineshaft (on flat bare stone), Barn and
+   Bonfire: each is its own model (before: the same plank house in different
+   sizes, the Barn a painted pen and the Bonfire a doubled campfire). Units
+   walk round what is drawn. Without godmode, a building being built shows its model's stage for the
+   work done (foundations, walls, roof, each with its own scaffolding);
+   at or below half health it shows its damaged look (walls and ramparts
+   crack and break instead, as the defences section says), an out torch post is drawn
+   unlit, and a building that falls leaves its ruins for 30 seconds before
+   they sink away.
+9. **Ghosts and plans.** Pick a building to place: the ghost over the green
+   and red tiles is the building's own model, see-through (a wall chain's
+   columns join and turn their corners as built walls do). Shift-queue a few
+   builds for a worker: each planned building shows faintly as its first
+   building stage. Before: both were the block look.
+10. **Ranks and portraits.** A worker or warrior from rank 2 wears bands on
+    the left upper arm: one bronze band at rank 2, two bronze at 3, two steel
+    at 4, three gold at 5 (rank 1 has none). Select a mage with a robe: her
+    picture in the selection grid and in a building's panel is her robe
+    look's portrait, coloured as she is drawn.
+
+## How a tester checks running, climbing and jumping (Patch 5)
+
+*Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
+higher jumps) and MB-3 (monsters jump 1 m). Picks in
+blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/units/moves.ts` (the GAITS table: one row per kind of
+unit, in the balance editor under Units, "Running, jumping and climbing"),
+`packages/sim/src/nav/grid.ts` (what each mover can jump and climb) and
+`packages/sim/src/units/behaviour.ts` (moveSpeed, walkTo, runUnit).*
+
+1. **The tests.** `pnpm test` runs the "moving over the land" tests in
+   packages/sim/test/gap.test.ts: a 2 unit rise is a step, 5 units (56 cm)
+   a jump, 6 units a climb at 5 times a walk's cost a unit up; a worker
+   climbs a 4 m face that a fighter cannot; the peoples' units keep their
+   45 cm jump; monsters jump 1 m and a horse 2.5 m; a worker hops onto a
+   5 unit platform and climbs a 3 m block at a fifth of its walk, a save
+   taken while it climbs back down carries on to the same hash, and a
+   warrior never gets onto a 4.5 m one. patch4-dig-turn-in.test.ts runs
+   four workers out of a 1 m pit with their loads, cutting no stairs.
+2. **Slower walk.** `pnpm dev`, open http://localhost:5173/?seed=1. Units
+   on foot walk at 2.55 m/s, 15% slower than before; siege engines go 15%
+   slower too. Cavalry is unchanged and stays faster than a runner.
+3. **Run/Walk.** Select workers, warriors, mages or crewmen: the card has
+   a boot button marked Walk (H). Press it: it shows two boots
+   marked Run and they move 40% faster (3.57 m/s), with the run clip.
+   Every 50 m each one runs takes 1 food from the stock; a unit set back to
+   Walk keeps what it has run towards its next 50 m, so 40 m, Walk, then
+   10 m more of Run pays the 1 food. With no food in the stock runners walk
+   until there is some. A worker pulling a cart walks. With only cavalry
+   selected the button is greyed: horses do not run. The button is the
+   last on each card, so every other button keeps its place.
+4. **Climbing.** Raise a block with the tester tools, or find a cliff, and
+   Move a worker to its top: it walks to the foot of the face, turns to it
+   and climbs straight up at a fifth of its walk, then steps onto the top.
+   Workers climb faces up to 7 m, troops, mages and crewmen up to 4 m;
+   higher faces are walked round. Faces are climbed down the same way.
+   Units out by themselves on Hunt or Gather do not climb by day, nor jump
+   down more than they can jump back up; coming home at dusk they climb
+   where they must. Their reach from home (what they walk in dusk's 40 s)
+   counts each metre of height above or below the base as 5 m more, so a
+   deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
+   before still do. A climber plays its body's climb clip (Jade's improved
+   worker, warrior and mage bodies carry one).
+5. **Jumps.** Units on foot jump rises up to 56 cm (5 terrain units; 45 cm
+   before) and step up 22 cm. A horse jumps 2.5 m. Every monster jumps at
+   least 1 m; the ones that already climbed keep doing so.
+6. **Digging out.** Dig a pit about 5 m across and 1 m deep with four
+   workers: once its sides are taller than they can jump, workers with
+   full loads climb out up the side, take the load home and climb back
+   down. No stairs are cut.
+7. **Saves.** No save format change; the snapshot version goes to 27 (a
+   unit's Run/Walk, the run it owes food for, and the face it climbs).
 
 ## License
 

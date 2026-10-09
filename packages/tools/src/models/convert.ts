@@ -78,6 +78,8 @@ export interface ModelSidecar {
    * _PART is 0 for the body and 1 + the index in this list for a part's cubes.
    */
   parts: string[];
+  /** The parts shown in Blockbench by default: the model's own kit (a goblin's dagger and shield), not its stowed alternatives. */
+  partsShown: string[];
   clips: SidecarClip[];
   /** Rest-pose bounds of the body without equipment parts, metres (for click hit areas). */
   bounds: { min: Vec3; max: Vec3 };
@@ -317,6 +319,7 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
   const placed = new Set<string>();
   const bones: Bone[] = [];
   const parts: string[] = [];
+  const partsShown: string[] = [];
   const looseCubes: BbCube[] = [];
   /** Cubes of state sets hidden by default: the rules still see them (the manifest counts them), the mesh leaves them out. */
   const hiddenCubes = new Set<string>();
@@ -337,6 +340,7 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
     if (part < 0 && inSlot && !isSlot) {
       parts.push(node.name);
       myPart = parts.length - 1;
+      if (node.visible && !hidden) partsShown.push(node.name);
     }
     const index = bones.length;
     bones.push({ name: node.name, parent, origin: node.origin, rotation: node.rotation, uuid: node.uuid, part: myPart, isSlot, cubes: [], synthetic: false });
@@ -647,6 +651,7 @@ export function convertModel(raw: unknown, info: ModelInfo, deviations: readonly
       };
     }),
     parts,
+    partsShown,
     clips: sidecarClips,
     bounds: bodyBounds.rounded(),
     boundsWithParts: allBounds.rounded(),

@@ -9,6 +9,7 @@ import { buildingName, buildingSpec } from '../buildings/data.ts';
 import { computeEnclosed } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import { hash32 } from '../rng.ts';
 import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus, XP_TENTHS } from '../rules.ts';
 import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { atWar } from '../peoples/types.ts';
@@ -297,7 +298,9 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const fresh = e.hurtAt[i] === 0 || state.step - e.hurtAt[i]! > FRESH_HURT_STEPS;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
-  if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3), z: e.z[i]!, id: e.id[i]! });
+  const hy = e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3);
+  if (!blow.exact) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d });
+  else noteSteadyHit(state, i, hitLook(state, i, block > 0), hy, d);
   // The players' units that hit a mob or a people's unit in the last 10 s share its experience.
   if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
@@ -317,7 +320,9 @@ function hurtMount(state: SimState, i: number, blow: Blow): number {
   e.mountHp[i] = e.mountHp[i]! - d;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
-  if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: 'blood', x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i), 3), z: e.z[i]!, id: e.id[i]! });
+  const hy = e.y[i]! + floorDiv(bodyHeight(state, i), 3);
+  if (!blow.exact) state.hits.push({ look: 'blood', x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d });
+  else noteSteadyHit(state, i, 'blood', hy, d);
   if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
     if (j >= 0 && sideOf(state, j) === Side.Players) noteHitter(state, i, blow.from);
@@ -325,6 +330,16 @@ function hurtMount(state: SimState, i: number, blow: Blow): number {
   if (e.mountHp[i]! <= 0) loseMount(state, i);
   else if (blow.from) hurtHooks.unit(state, i, blow.from, false);
   return d;
+}
+
+/**
+ * A blow that lands every step (a beam, Exact): its look only every 10th step, as before, but its damage every step
+ * as a 'tick' the screen adds up into one number (Patch 5, UI-10).
+ */
+function noteSteadyHit(state: SimState, i: number, look: HitLook, y: number, d: number): void {
+  const e = state.entities;
+  if (state.step % 10 === 0) state.hits.push({ look, x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]! });
+  state.hits.push({ look: 'tick', x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]!, dmg: d });
 }
 
 /** A hurt is fresh when the unit was not hurt in the 2 s before it (workers flee once, not at every blow). */
@@ -348,7 +363,7 @@ function noteHitter(state: SimState, i: number, id: number): void {
 export function hurtBuilding(state: SimState, b: Building, damage: number, x: number, y: number, z: number): void {
   if (damage <= 0 || b.hp <= 0) return;
   b.hp -= damage;
-  state.hits.push({ look: buildingSpec(b.kind).wooden === false ? 'stone' : 'wood', x, y, z, id: b.id });
+  state.hits.push({ look: buildingSpec(b.kind).wooden === false ? 'stone' : 'wood', x, y, z, id: b.id, dmg: damage });
   if (b.hp <= 0) {
     b.hp = 0;
     state.falling.push(b.id);
@@ -365,6 +380,27 @@ export function dealt(state: SimState, i: number, base: number): number {
   }
   const rally = e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0;
   return withBonus(base, rankDamageBonusBp(e.kind[i] === UnitKind.Mage ? 1 : e.rank[i]!) + rally);
+}
+
+/**
+ * Damage held in tenths as whole damage: the tenths over the whole come up
+ * as one more that share of the time, by a hash of the hitter and the step
+ * (the same on every machine), so a blow of 8.5 is 8 or 9 half the time
+ * each. Patch 5's damage cuts (BL-5, BL-9) left halves and tenths.
+ */
+export function wholeDamage(state: SimState, i: number, tenths: number): number {
+  const whole = floorDiv(tenths, 10);
+  const rest = tenths - whole * 10;
+  if (rest === 0) return whole;
+  return whole + ((hash32(state.seed ^ 0x646d6774, state.entities.id[i]!, state.step) >>> 0) % 10 < rest ? 1 : 0);
+}
+
+/** A mob's or an animal's blow held in tenths, as whole damage: a mob's strength over the nights and a command on the tenths first (dealt). */
+export function dealtTenths(state: SimState, i: number, tenths: number): number {
+  const e = state.entities;
+  if (e.kind[i] !== UnitKind.Mob) return wholeDamage(state, i, tenths);
+  const d = floorDiv(tenths * e.power[i]!, 1000);
+  return wholeDamage(state, i, e.rallyUntil[i]! > state.step ? withBonus(d, 2000) : d);
 }
 
 /** The forward vector of a heading, scaled by 65536. */
@@ -599,9 +635,9 @@ export function settleDeaths(state: SimState): void {
 }
 
 /** Units of the players and the peoples, and buildings, within a radius of a point take a blast (monster blasts never hurt monsters). */
-export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number): void {
+export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number, look: HitLook = buildings ? 'blast' : 'burst'): void {
   const e = state.entities;
-  state.hits.push({ look: buildings ? 'blast' : 'burst', x, y, z, id: from });
+  state.hits.push({ look, x, y, z, id: from });
   for (const j of state.grid.nearOthers(x, z, units.radius)) {
     const side = sideOf(state, j);
     if (e.hp[j]! <= 0 || (side !== Side.Players && side !== Side.Peoples)) continue;
@@ -623,7 +659,7 @@ export function blast(state: SimState, x: number, y: number, z: number, units: {
   }
 }
 
-export const BURST_BLAST = { damage: BURST.damage, radius: BURST.radius };
+export const BURST_BLAST = { damageTenths: BURST.damageTenths, radius: BURST.radius };
 export const BOMB_UNITS = { damage: BLAST.unit, radius: BLAST.unitRadius };
 export const BOMB_BUILDINGS = { damage: BLAST.building, radius: BLAST.buildingRadius };
 

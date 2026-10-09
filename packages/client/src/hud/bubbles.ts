@@ -13,19 +13,28 @@
 // Jade's Patch 3: what a unit says as it sits down to a timed action stays
 // up while the bar over its head runs (hold 'bar'), and the main base's
 // word of advice at the start stays twice as long as a bubble (hold 'long').
+// Jade's Patch 5: a necromancer's bubble stays 20 s unless he says something
+// else first (hold 'linger'), and each unit on screen remarks on what is
+// round it once every 1 to 4.5 minutes of play (GP-28, hud/remarks.ts).
 import { REMARKS, type BubbleHold } from '@blockyrts/sim';
 import { oneIsSingular } from './wording.ts';
 import type { YesNoButtons } from './yes-no.ts';
 
-/** How long a bubble stays, ms: a base and a little more per character (s). */
-const BUBBLE_MS = 3500;
+/** How long a bubble stays, ms: a base and a little more per character (s). Jade's Patch 5 (UI-19): a second longer than before (3.5 s). */
+const BUBBLE_MS = 4500;
 const BUBBLE_MS_PER_CHAR = 40;
 /** A long bubble (hold 'long') stays this many times as long (Jade's Patch 3: twice). */
 const LONG_BUBBLE_TIMES = 2;
 /** At most this many bubbles at once; the oldest goes. */
 const MAX_BUBBLES = 10;
-/** A random remark from some unit on screen about this often, ms (s). */
-const REMARK_EVERY_MS = 9000;
+/** A 'linger' bubble stays this long, ms (Jade's Patch 5: the necromancer's 20 s). */
+const LINGER_MS = 20_000;
+/** Each unit on screen remarks once in this many ms of play, a fresh wait each time (Jade's Patch 5: 1 to 4.5 minutes)... */
+const REMARK_MIN_MS = 60_000;
+const REMARK_MAX_MS = 270_000;
+/** ...the speakers are looked over this often, ms, and at most this many remark at once (s). */
+const REMARK_POLL_MS = 500;
+const REMARKS_AT_ONCE = 2;
 
 export interface BubbleAnchor {
   /** Screen position of the top of the unit's head, px, or null when off screen or out of sight. */
@@ -70,6 +79,9 @@ export class SpeechBubbles {
   private readonly questions: QuestionBubble[] = [];
   private nextRemark = 0;
   private lastUpdate = -1;
+  /** Ms of play (the game not paused), which the remarks wait on, and when each unit on screen remarks next. */
+  private playMs = 0;
+  private readonly remarkAt = new Map<number, number>();
 
   constructor(parent: HTMLElement) {
     this.layer = document.createElement('div');
@@ -92,7 +104,7 @@ export class SpeechBubbles {
     el.textContent = oneIsSingular(text);
     el.hidden = true;
     this.layer.append(el);
-    const ms = (BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR) * (hold === 'long' ? LONG_BUBBLE_TIMES : 1);
+    const ms = hold === 'linger' ? LINGER_MS : (BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR) * (hold === 'long' ? LONG_BUBBLE_TIMES : 1);
     this.bubbles.push({ key, who, el, until: now + ms, bar: hold === 'bar' && !who.building, sat: false });
     while (this.bubbles.length > MAX_BUBBLES) this.bubbles.shift()!.el.remove();
   }
@@ -149,14 +161,23 @@ export class SpeechBubbles {
   }
 
   /**
-   * Places every bubble over its speaker, drops the old ones, and now and then
-   * has a unit on screen make a random remark (`speakers`: candidates with
-   * their remark list key, e.g. 'halfling' or 'worker'). `paused`: the game
-   * is stopped, so nobody remarks and the wait for the next remark stands
-   * still. `step`: the game's step, which questions wait on. `sitting`: the
-   * units sitting at a timed action now, whose 'bar' bubbles stay.
+   * Places every bubble over its speaker, drops the old ones, and has each
+   * unit on screen remark once every 1 to 4.5 minutes of play (`speakers`:
+   * candidates with their voice, e.g. 'halfling' or 'worker'; `line` what one
+   * says, from what is round it, else a line of its REMARKS). `paused`: the
+   * game is stopped, so nobody remarks and the waits stand still. `step`:
+   * the game's step, which questions wait on. `sitting`: the units sitting at
+   * a timed action now, whose 'bar' bubbles stay.
    */
-  update(now: number, anchor: BubbleAnchor, speakers: () => Array<[number, string]>, paused = false, step = 0, sitting: ReadonlySet<number> = new Set()): void {
+  update(
+    now: number,
+    anchor: BubbleAnchor,
+    speakers: () => Array<[number, string]>,
+    paused = false,
+    step = 0,
+    sitting: ReadonlySet<number> = new Set(),
+    line?: (id: number, voice: string) => string | null,
+  ): void {
     const dt = this.lastUpdate < 0 ? 0 : now - this.lastUpdate;
     this.lastUpdate = now;
     const at = (who: Speaker): { x: number; y: number } | null => (who.building ? anchor.roof(who.id) : anchor.head(who.id));
@@ -183,18 +204,31 @@ export class SpeechBubbles {
       }
       place(q.el, at(q.who));
     }
-    if (paused) {
-      this.nextRemark += dt;
-      return;
+    if (paused) return;
+    this.playMs += dt;
+    if (this.playMs < this.nextRemark) return;
+    this.nextRemark = this.playMs + REMARK_POLL_MS;
+    const wait = (): number => REMARK_MIN_MS + Math.random() * (REMARK_MAX_MS - REMARK_MIN_MS);
+    const seen = new Set<number>();
+    let said = 0;
+    for (const [id, voice] of speakers()) {
+      seen.add(id);
+      const at = this.remarkAt.get(id);
+      // A unit just come on screen waits its first while, as it does between remarks.
+      if (at === undefined) {
+        this.remarkAt.set(id, this.playMs + wait());
+        continue;
+      }
+      if (at > this.playMs || said >= REMARKS_AT_ONCE) continue;
+      this.remarkAt.set(id, this.playMs + wait());
+      if (this.bubbles.some((b) => b.key === `e:${id}`) || this.asking({ id }) || anchor.head(id) === null) continue;
+      const own = REMARKS[voice];
+      const text = line ? line(id, voice) : own && own.length > 0 ? own[Math.floor(Math.random() * own.length)]! : null;
+      if (!text) continue;
+      this.say(id, text, now, 'remark');
+      said++;
     }
-    if (now < this.nextRemark) return;
-    this.nextRemark = now + REMARK_EVERY_MS * (0.6 + Math.random() * 0.8);
-    const list = speakers().filter(([id]) => !this.bubbles.some((b) => b.key === `e:${id}`) && !this.asking({ id }) && anchor.head(id) !== null);
-    if (list.length === 0) return;
-    const [id, key] = list[Math.floor(Math.random() * list.length)]!;
-    const lines = REMARKS[key];
-    if (!lines || lines.length === 0) return;
-    this.say(id, lines[Math.floor(Math.random() * lines.length)]!, now, 'remark');
+    for (const id of this.remarkAt.keys()) if (!seen.has(id)) this.remarkAt.delete(id);
   }
 
   private drop(key: string): void {

@@ -173,8 +173,8 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     const e = s.entities;
     runUntil(s, () => unitsOnTop(s, t.id).length === 4, 3000);
     const up = unitsOnTop(s, t.id);
-    // The deck is 146 units (4.1 m) up; each stands on a corner of his own.
-    for (const i of up) expect(e.y[i]).toBe(t.y * WU_PER_TERRAIN_UNIT + 146 * WU_PER_MODEL_UNIT);
+    // The deck is 124 units (3.5 m) up (Patch 5: the tower models' deck); each stands on a corner of his own.
+    for (const i of up) expect(e.y[i]).toBe(t.y * WU_PER_TERRAIN_UNIT + 124 * WU_PER_MODEL_UNIT);
     expect(new Set(up.map((i) => `${e.x[i]},${e.z[i]}`)).size).toBe(4);
     run(s, 600);
     // The fifth found it full: a tower has no shelter below.

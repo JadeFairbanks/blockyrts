@@ -57,7 +57,7 @@ import { bestScale, MIDDLE_MARGIN } from './middle-fit.ts';
 import { queueText } from './queue-clock.ts';
 import { TrainingCards } from './training-cards.ts';
 import { cardsOf, keepPicks } from './troops.ts';
-import { BATTLE_MAGE_ICON, buildingIconFile, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
+import { buildingIconFile, mageIconFile, selectableIconFile, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
 import { hasRanks, xpView } from './xp-bar.ts';
 
@@ -156,19 +156,19 @@ function glyph(t: Selectable): string {
 }
 
 /** A unit's picture from the sim's copy of it (the units inside a building). */
-function unitInfoIcon(u: { kind: number; troop: number; wTier: number; school: number } | null): string {
+function unitInfoIcon(u: { kind: number; troop: number; wTier: number; aTier: number; school: number } | null): string {
   if (!u) return WORKER_ICON;
   if (u.kind === UnitKind.Warrior) return troopIconFile(u.troop, u.wTier);
-  if (u.kind === UnitKind.Mage) return u.school === 2 ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON;
+  if (u.kind === UnitKind.Mage) return mageIconFile(u.school === 2, u.aTier);
   return WORKER_ICON;
 }
 
-/** A name without its rank in brackets: "Close melee (Veteran)" is "Close melee", the rank going to its badge. */
+/** A name without its rank in brackets: "Iron swordsman (Veteran)" is "Iron swordsman", the rank going to its badge. */
 export function bareName(label: string): string {
   return label.replace(/ \([^)]*\)$/, '');
 }
 
-/** "5 Close melee, 4 Rangers": the troops of a selection by name, most first. */
+/** "5 Iron swordsmen, 4 Slingers": the troops of a selection by name, most first. */
 export function armyMix(items: readonly Selectable[]): string {
   const counts = new Map<string, number>();
   for (const t of items) counts.set(bareName(t.label), (counts.get(bareName(t.label)) ?? 0) + 1);
@@ -690,7 +690,8 @@ export class SelectionPanel {
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
   private garrison(b: BuildingInfo): void {
-    const top = garrisonRoom(b);
+    // The sim's count: a Citadel's engine platform adds 4 while no fixed engine stands there (Patch 5).
+    const top = garrisonRoom(b) > 0 ? Math.max(garrisonRoom(b), b.room ?? 0) : 0;
     if (top > 0) {
       const row = this.strip('garrison');
       this.chip('top', {

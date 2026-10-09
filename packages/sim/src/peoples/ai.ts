@@ -7,10 +7,11 @@
 // fighters go for the enemy's units near home and give up the chase farther
 // out; a war band marches on the enemy's buildings and breaks them. Out of a
 // fight they heal, and at peace a faction gains back a person every 3 days.
-// Elf caravans visit those who have met the Elves, mercenaries work for a
-// day, and the Grovesingers' mana comes from the trees.
+// Elf caravans visit those who have met the Elves, mercenaries are hired for
+// good (Patch 5), and the Grovesingers' mana comes from the trees.
 
 import { buildingCentre } from '../buildings/lights.ts';
+import { supplyCap, supplyUsed } from '../buildings/production.ts';
 import { isDark, Period } from '../clock.ts';
 import { floorDiv, isqrt, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
@@ -24,7 +25,6 @@ import { Res } from '../economy/resources.ts';
 import { inCombat } from '../magic/mages.ts';
 import { MANA_SCALE, School } from '../magic/spells.ts';
 import { giveOrder } from '../units/behaviour.ts';
-import { handIn } from '../units/loot.ts';
 import { nearestBuilding } from '../threats/foes.ts';
 import { Role } from '../threats/types.ts';
 import { Band } from '../world/layout.ts';
@@ -32,12 +32,12 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
 import {
   CARAVAN_EVERY_STEPS, CARAVAN_FROM_WU, CARAVAN_STOP_WU, CHASE_WU, DEFEND_WU, FactionKind, GROVESINGER, HEAL_AFTER_STEPS, HEAL_EVERY_STEPS, HIRE_SILVER, LAYOUTS, LEAVE_STEPS, LINES,
-  MERC_LINES, MERC_REFILL_STEPS, MERC_UNITS, People, peopleUnitSpec, REGROW_STEPS, SPEECH_NEAR_WU, Status, THINK_STEPS, TRADE_RANGE_WU, WANDER_DUSKS, WANDER_WU,
+  MERC_LINES, MERC_REFILL_STEPS, MERC_UNITS, People, peopleUnitSpec, REGROW_STEPS, SILVER_PER_GOLD, SPEECH_NEAR_WU, Status, THINK_STEPS, WANDER_DUSKS, WANDER_WU,
 } from './data.ts';
 import { addPerson, buildFaction, elfKingdom, fightersOf, isPerson, factionMembers, newFaction, peopleOf, ringPoint, structuresOf } from './factions.ts';
 import { sayForeign } from './speech.ts';
 import { restock } from './stock.ts';
-import { UNTIL_DAWN } from './trade.ts';
+import { inReach, OUT_OF_REACH, UNTIL_DAWN } from './trade.ts';
 import { factionById, warFaction, type Faction } from './types.ts';
 import { leave, updateLeaving, updateRaids } from './war.ts';
 
@@ -51,7 +51,7 @@ const BEAST_AGGRO_WU = 15 * M;
 const BEAST_LEASH_WU = 30 * M;
 /** Grovesingers look for a tree, and refill, every 2 s. */
 const MANA_EVERY_STEPS = 2 * SEC;
-/** A raider marker in the unit's foe field: the player it raids, plus one. A mercenary walking home is marked 255. */
+/** A raider marker in the unit's foe field: the player it raids, plus one. One of a war band walking home is marked 255. */
 const HOMEWARD = 255;
 
 /** Whether one of a faction's units thinks this step (each every 10 steps, staggered by id). */
@@ -148,7 +148,7 @@ function think(state: SimState, f: Faction, i: number, war: boolean): void {
   toPost(state, i);
 }
 
-/** A mercenary or a war band going home: gone once there, or when its walk ends. */
+/** One of a war band going home: gone once there, or when its walk ends. */
 function homeward(state: SimState, i: number, f: Faction | undefined): void {
   const e = state.entities;
   if (!f || length2d(e.x[i]! - f.x, e.z[i]! - f.z) <= 4 * M || e.queue[i]!.length === 0) vanish(state, i);
@@ -258,17 +258,29 @@ function followWagon(state: SimState, f: Faction, i: number): void {
 
 // ----- mercenaries -----
 
-/** A player hires mercenaries for the day: 2 silver each, from a camp with a unit of theirs within 15 m. */
-export function hire(state: SimState, player: number, factionId: number, count: number): void {
+/** What one mercenary costs at a camp, in silver (Patch 5, BL-4: hired for good), and in gold at 7 silver to the gold, rounded up. */
+export function hireSilver(f: Faction): number {
+  return HIRE_SILVER[f.band as 1 | 2] ?? HIRE_SILVER[Band.Fringe]!;
+}
+export function hireGold(f: Faction): number {
+  return floorDiv(hireSilver(f) + SILVER_PER_GOLD - 1, SILVER_PER_GOLD);
+}
+
+/**
+ * A player hires mercenaries from a camp with a unit of theirs within 10 m of
+ * its tents, paying in silver or in gold (Patch 5, BL-4). They are the
+ * player's for good and take supply like any troop (s); the camp gains one
+ * back every 2 days.
+ */
+export function hire(state: SimState, player: number, factionId: number, count: number, gold = false): void {
   const f = factionById(state.peoples, factionId);
   const p = state.players[player];
   if (!f || !p || f.kind !== FactionKind.MercCamp || f.status !== Status.Settled) return;
   const e = state.entities;
-  const near = factionMembers(state, f.id).some((m) => state.grid.near(e.x[m]!, e.z[m]!, TRADE_RANGE_WU).some((j) => e.owner[j] === player && e.hp[j]! > 0 && length2d(e.x[j]! - e.x[m]!, e.z[j]! - e.z[m]!) <= TRADE_RANGE_WU));
   // The camp's captain speaks for it, else whoever of it is about.
   const speaker = f.leader ? e.indexOf(f.leader) : peopleOf(state, f.id)[0] ?? structuresOf(state, f.id)[0] ?? -1;
-  if (!near) {
-    state.events.push({ player, kind: 'alert', text: 'Bring one of your units within 15 m of the camp to hire.', faction: f.id });
+  if (!inReach(state, f, player)) {
+    state.events.push({ player, kind: 'alert', text: OUT_OF_REACH, faction: f.id });
     return;
   }
   if (isDark(state.step)) {
@@ -280,12 +292,19 @@ export function hire(state: SimState, player: number, factionId: number, count: 
     if (speaker >= 0) sayForeign(state, speaker, MERC_LINES.none, true, player, f.id);
     return;
   }
-  const cost = n * HIRE_SILVER;
-  if (p.pool[Res.Silver]! < cost) {
-    state.events.push({ player, kind: 'alert', text: `Hiring ${n} costs ${cost} silver; you have ${p.pool[Res.Silver]}.`, faction: f.id });
+  const room = supplyCap(state, player) - supplyUsed(state, player);
+  if (room < n) {
+    state.events.push({ player, kind: 'alert', text: `Hiring ${n} needs ${n} supply; you have room for ${Math.max(0, room)}.`, faction: f.id });
     return;
   }
-  p.pool[Res.Silver] = p.pool[Res.Silver]! - cost;
+  const metal = gold ? Res.Gold : Res.Silver;
+  const cost = n * (gold ? hireGold(f) : hireSilver(f));
+  const name = gold ? 'gold' : 'silver';
+  if (p.pool[metal]! < cost) {
+    state.events.push({ player, kind: 'alert', text: `Hiring ${n} costs ${cost} ${name}; you have ${p.pool[metal]}.`, faction: f.id });
+    return;
+  }
+  p.pool[metal] = p.pool[metal]! - cost;
   f.survivors -= n;
   f.met |= 1 << player;
   const units = MERC_UNITS[f.band as 1 | 2] ?? MERC_UNITS[Band.Fringe]!;
@@ -296,32 +315,7 @@ export function hire(state: SimState, player: number, factionId: number, count: 
     e.role[i] = Role.Mercenary;
   }
   if (speaker >= 0) sayForeign(state, speaker, MERC_LINES.hired, true, player, f.id);
-  state.events.push({ player, kind: 'info', text: `${n} mercenar${n === 1 ? 'y' : 'ies'} hired until dusk.`, x: f.x, z: f.z, faction: f.id });
-}
-
-/** At dusk the day's work is done: every hired mercenary walks back to its camp and is there again tomorrow. */
-function mercenariesHome(state: SimState): void {
-  const e = state.entities;
-  const told = new Set<number>();
-  for (let i = 0; i < e.count; i++) {
-    if (e.role[i] !== Role.Mercenary || e.hp[i]! <= 0 || e.owner[i] === PEOPLES) continue;
-    const f = factionById(state.peoples, e.group[i]!);
-    const player = e.owner[i]!;
-    if (!told.has(player * 65536 + e.group[i]!)) {
-      told.add(player * 65536 + e.group[i]!);
-      state.events.push({ player, kind: 'speech', text: MERC_LINES.home, speaker: e.id[i]!, name: `Mercenary ${peopleUnitSpec(e.mob[i]!).name.toLowerCase()}`, x: e.x[i]!, z: e.z[i]! });
-    }
-    // Whatever loot it picked up is handed over to its hirer as it leaves (s).
-    handIn(state, i);
-    e.owner[i] = PEOPLES;
-    e.foe[i] = HOMEWARD;
-    e.queue[i] = [];
-    e.target[i] = 0;
-    if (f) {
-      f.survivors = Math.min(f.size, f.survivors + 1);
-      giveOrder(state, i, { t: 'move', x: f.x, z: f.z }, false);
-    } else vanish(state, i);
-  }
+  state.events.push({ player, kind: 'info', text: `${n} mercenar${n === 1 ? 'y' : 'ies'} hired for ${cost} ${name}. They are yours for good.`, x: f.x, z: f.z, faction: f.id });
 }
 
 // ----- the beasts -----
@@ -477,11 +471,10 @@ function everyoneBits(state: SimState): number {
   return bits;
 }
 
-/** What a period's start brings the peoples: at dusk caravans count down and leave, mercenaries go home; at daybreak stock and moods refresh. */
+/** What a period's start brings the peoples: at dusk caravans count down and leave; at daybreak stock and moods refresh. */
 export function peoplesAtPeriod(state: SimState, period: Period): void {
   const ps = state.peoples;
   if (period === Period.Dusk) {
-    mercenariesHome(state);
     for (const f of ps.factions) {
       if (f.kind !== FactionKind.ElfCaravan || f.status !== Status.Settled) continue;
       // A visiting caravan leaves at dusk; a wandering one at the second dusk after it was found.

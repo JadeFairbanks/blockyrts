@@ -7,7 +7,7 @@
 // before, their keys went by position on the keyboard, Q to B, and could not
 // be rebound.
 import { School, SCHOOL_NAMES, SPELLS } from '@blockyrts/sim';
-import { buildMenuActions, makeMenuActions } from '../hud/menu-keys.ts';
+import { buildMenuActions, defenseMenuActions, makeMenuActions } from '../hud/menu-keys.ts';
 
 export interface Action {
   id: string;
@@ -22,10 +22,11 @@ export const ACTIONS: readonly Action[] = [
   { id: 'attack', name: 'Attack', key: 'KeyA', group: 'Units' },
   { id: 'patrol', name: 'Patrol', key: 'KeyP', group: 'Units' },
   { id: 'move', name: 'Move', key: 'KeyM', group: 'Units' },
+  // Patch 5: Run or Walk, on a key no unit card uses (s).
+  { id: 'pace', name: 'Run or walk (units on foot)', key: 'KeyH', group: 'Units' },
   // Upgrade equipment takes the old Upgrade weapon key (s).
   { id: 'equip', name: 'Upgrade equipment (the best weapon, then armour, the stock pays for)', key: 'KeyQ', group: 'Units' },
   { id: 'hitch', name: 'Hitch an animal or let it go (siege engines and cannons)', key: 'KeyR', group: 'Units' },
-  { id: 'port', name: 'Into a cannon port (cannons)', key: 'KeyE', group: 'Units' },
   { id: 'hunt', name: 'Hunt (warriors go out after game, home by nightfall)', key: 'KeyN', group: 'Units' },
   { id: 'eat', name: 'Eat at a building', key: 'KeyF', group: 'Units' },
   // Patch 2: the artillery crewman's own order, on a key no other unit card uses here (s).
@@ -53,8 +54,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'cancelBuild', name: 'Cancel construction or upgrade', key: 'KeyX', group: 'Buildings' },
   { id: 'trainWorker', name: 'Train Worker', key: 'KeyW', group: 'Buildings' },
   // The troop types (Troops and gear): L is Follow and G a building's upgrade, so long melee is on Q (s).
-  { id: 'trainClose', name: 'Train Close melee (Barracks, main base)', key: 'KeyA', group: 'Buildings' },
-  { id: 'trainLong', name: 'Train Long melee (Barracks, main base)', key: 'KeyQ', group: 'Buildings' },
+  { id: 'trainClose', name: 'Train fighters and swordsmen (Barracks, main base)', key: 'KeyA', group: 'Buildings' },
+  { id: 'trainLong', name: 'Train spearmen and halberdiers (Barracks, main base)', key: 'KeyQ', group: 'Buildings' },
   { id: 'trainRanger', name: 'Train Ranger (Barracks, main base)', key: 'KeyN', group: 'Buildings' },
   { id: 'trainBrawler', name: 'Train Brawler (Barracks)', key: 'KeyB', group: 'Buildings' },
   { id: 'trainCavalry', name: 'Train Cavalry (Barracks)', key: 'KeyC', group: 'Buildings' },
@@ -62,8 +63,11 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
   { id: 'trainCrewman', name: 'Train Artillery crewman (Artillery workshop)', key: 'KeyE', group: 'Buildings' },
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
+  // Patch 5: the Citadel's Build defense menu, on D, a letter no building card uses.
+  { id: 'buildDefense', name: 'Build defense (the Citadel\'s engine platform)', key: 'KeyD', group: 'Buildings' },
   // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
   ...makeMenuActions(),
+  ...defenseMenuActions(),
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
@@ -95,11 +99,33 @@ export function keyFor(bindings: Readonly<Record<string, string>>, action: strin
   return bindings[action] ?? DEFAULTS.get(action) ?? '';
 }
 
+/**
+ * The build menu's building kinds as indev 0.9 numbered them, by their names
+ * now: a binding saved then ('build-19-0', the hardwood wall) keeps its
+ * building (Patch 5 cut the earthworks and the ramp, and the numbers after
+ * them closed up). K menu bindings saved then went by recipe numbers that
+ * shifted too; they are dropped, so those buttons are back on their default
+ * letters rather than on another product's.
+ */
+const KINDS_09 = [
+  'MainBase', 'Farm', 'Barn', 'Storehouse', 'FishingDock', 'Workshop', 'Forge', 'ArtilleryWorkshop', 'Barracks', 'MagiSanctum', 'ScholarsLodge', 'Mineshaft',
+  'Wall', 'Gate', 'Tower', 'Earthworks', 'Ramp', 'TorchPost', 'Bonfire', 'WallHardwood', 'WallStone', 'GateHardwood', 'GateStone', 'TowerHardwood', 'TowerStone',
+];
+
+/** A binding name as stored, brought up to date: indev 0.9's numbered build menu names become named ones. */
+function migrateAction(id: string): string {
+  const old = /^build-(\d+)-(\d+)$/.exec(id);
+  if (!old) return id;
+  const name = KINDS_09[Number(old[1])];
+  return name ? `build-${name}-${old[2]}` : id;
+}
+
 /** Keeps only known actions bound to plausible key names. */
 export function sanitizeBindings(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {};
   if (raw === null || typeof raw !== 'object') return out;
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [stored, v] of Object.entries(raw as Record<string, unknown>)) {
+    const k = migrateAction(stored);
     if (DEFAULTS.has(k) && typeof v === 'string' && /^[A-Za-z0-9]{1,20}$/.test(v)) out[k] = v;
   }
   return out;

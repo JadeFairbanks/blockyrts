@@ -58,13 +58,6 @@ export type UnitOrder =
   /** Dig out, or heap up, a marked site (Digging and building up the land). */
   | { t: 'dig'; site: number }
   /**
-   * Crude stairs out of a hole a worker is shut in (Patch 4, units/dig.ts):
-   * from the floor column (x, z), level y terrain units, n columns cut
-   * outward in direction dir (0 +x, 1 -x, 2 +z, 3 -z), each a clamber above
-   * the last. Put in front of the order that wants it out.
-   */
-  | { t: 'stairs'; x: number; z: number; y: number; dir: number; n: number }
-  /**
    * N Hunt (Semi-automation: hunting). A warrior chases the animal `id` (0:
    * none yet); with auto (double-tapped) it takes the nearest game within its
    * 40 m leash of (x, z) wu, carries what it can home and repeats. A worker
@@ -86,8 +79,6 @@ export type UnitOrder =
   | { t: 'crew'; id: number }
   /** A worker repairs a siege engine or cannon (id). */
   | { t: 'mend'; id: number }
-  /** A cannon is hauled into one of the Citadel's (building b) cannon ports. */
-  | { t: 'port'; b: number }
   /**
    * Loot (units/loot.ts): pick up the loot `id` lying on the ground (and
    * whatever else lies right by it), then with `hand` hand the bag in at the
@@ -121,7 +112,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'port', 'loot', 'forage', 'retrain', 'stairs'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -144,7 +135,6 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   kitUp: ['line', 'to', 'ways', 'paid', 'b'],
   cart: ['b', 'res'],
   dig: ['site'],
-  stairs: ['x', 'z', 'y', 'dir', 'n'],
   hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
   eat: ['b'],
@@ -153,7 +143,6 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
   crew: ['id'],
   mend: ['id'],
-  port: ['b'],
   loot: ['id', 'hand', 'back', 'x', 'z'],
   forage: ['res', 'x', 'z', 'k', 'ang'],
   retrain: ['b'],
@@ -221,8 +210,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Fetching a cart';
     case 'dig':
       return 'Digging';
-    case 'stairs':
-      return 'Digging stairs out';
     case 'hunt':
       return 'Hunting';
     case 'tame':
@@ -239,8 +226,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Crewing';
     case 'mend':
       return 'Repairing';
-    case 'port':
-      return 'Going to a cannon port';
     case 'loot':
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
     case 'forage':

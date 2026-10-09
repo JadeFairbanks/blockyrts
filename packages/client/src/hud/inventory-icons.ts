@@ -100,6 +100,9 @@ TRINKET_METALS.forEach((metal, m) =>
 // Moonleaf is made of silver and emeralds, Sunheart of gold and rubies.
 set(Res.Moonleaf, 'trinket_moonleaf_silver');
 set(Res.Sunheart, 'trinket_sunheart_gold');
+// Patch 5's Stone Circle goods borrow marble's and the herbs' pictures, tinted, until icons of their own are made.
+set(Res.Bluestone, 'marble', { tint: 'sepia(1) hue-rotate(170deg) saturate(2.4) brightness(0.85)' });
+set(Res.MoonRose, 'medicinal_herbs', { tint: 'sepia(1) hue-rotate(230deg) saturate(1.6) brightness(1.25)' });
 // Jade's Patch 5 wild foods (GP-30, GP-31).
 set(Res.BlackBerries, 'black_berries');
 set(Res.Raspberries, 'raspberries');

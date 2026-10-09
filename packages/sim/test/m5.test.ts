@@ -137,7 +137,8 @@ describe('lairs', () => {
     const e = s.entities;
     let near = 0;
     for (let i = 0; i < e.count; i++) {
-      if (e.kind[i] !== UnitKind.Mob || e.role[i] !== Role.Night) continue;
+      // Since Patch 5 (MB-1) a lair's own go for the player's target nearest it.
+      if (e.kind[i] !== UnitKind.Mob || (e.role[i] !== Role.Night && e.role[i] !== Role.Aimed)) continue;
       if (Math.hypot(e.x[i]! - e.x[cave]!, e.z[i]! - e.z[cave]!) < 6 * M) near++;
     }
     expect(near).toBeGreaterThan(0);

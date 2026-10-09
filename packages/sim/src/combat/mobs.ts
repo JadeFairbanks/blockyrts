@@ -107,6 +107,8 @@ export const Mob = {
   RiftMinotaur: 79,
   /** Morvath's second form: at half health he takes flight (roster 5.25). */
   MorvathAloft: 80,
+  /** Jade's Patch 5 (MB-5): comes with the waves on his nights, on top of their threat (threats/necromancer.ts). */
+  Necromancer: 81,
 } as const;
 export type Mob = (typeof Mob)[keyof typeof Mob];
 
@@ -150,7 +152,8 @@ export interface MobSpec {
   /** Arrows, bolts and stabs (piercing) do this share, bp; blunt hits do bluntBp. */
   pierceBp: number;
   bluntBp: number;
-  damage: number;
+  /** Its blow in tenths (Patch 5's damage cuts left halves and tenths): each blow comes out whole, the tenths as that share of one more (combat/combat.ts dealtTenths). */
+  damageTenths: number;
   attackSteps: number;
   /** Melee reach, wu. */
   reach: number;
@@ -186,8 +189,8 @@ export interface MobSpec {
   xpTenths: number;
   /** A shield that blocks this share of projectile damage, bp (hobgoblins 50%). */
   blockBp: number;
-  /** Poison its hit adds over 5 s (giant centipede), 0 for none. */
-  poison: number;
+  /** Poison its hit adds over 5 s (giant centipede), in tenths like its blow; 0 for none. */
+  poisonTenths: number;
   /** Casters: the most mana it holds (goblin mage 60); 0 for none. */
   mana: number;
   /** Milestone 8. How its ranged attack lands (Strike), and what kind of demon it is (Demon). */
@@ -217,7 +220,7 @@ const v10 = (tenths: number): number => floorDiv(tenths * WU_PER_METRE, 10 * STE
 
 const BP = 10000;
 const base = {
-  traits: [], splitsInto: [], armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poison: 0, mana: 0,
+  traits: [], splitsInto: [], armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poisonTenths: 0, mana: 0,
   strike: Strike.Shot, demon: Demon.None, perNight: 0, woodClimber: false, knockWu: 0, slamRadius: 0, tint: '',
 } as const;
 
@@ -231,7 +234,7 @@ const PEOPLE = 6;
 
 /** Something that stands and is broken: no attack, no move, never burnt by the sun, and no experience for it. */
 const stand = (id: Mob, name: string, model: string, firstNight: number, hp: number, widthCm: number, heightCm: number): MobRow => ({
-  ...base, id, name, model, firstNight, hp, damage: 0, attackSteps: ds(10), reach: 0, speed: 0, vsWalls: 0,
+  ...base, id, name, model, firstNight, hp, damageTenths: 0, attackSteps: ds(10), reach: 0, speed: 0, vsWalls: 0,
   moves: Moves.Still, sun: Sun.Proof, comes: Comes.Never, halfWidth: cm(widthCm >> 1), height: cm(heightCm), drops: [], role: STRUCTURE,
 });
 
@@ -244,7 +247,7 @@ const GOBLIN_LOOT: readonly Drop[] = [
 /** The boss (roster 5.25), and his second form aloft: a high flyer at 4 m/s (s). */
 const MORVATH: MobRow = {
   // The boss (roster 5.25): never bought from the budget; threats/boss.ts brings him. XP by the header rule, health / 50 (s).
-  ...base, id: Mob.Morvath, name: 'Morvath, the Hollow Crown', model: 'morvath', firstNight: 110, hp: 25000, armourBp: 5000, damage: 80, attackSteps: ds(20), reach: cm(400), speed: v10(25), vsWalls: 400,
+  ...base, id: Mob.Morvath, name: 'Morvath, the Hollow Crown', model: 'morvath', firstNight: 110, hp: 25000, armourBp: 5000, damageTenths: 2000, attackSteps: ds(20), reach: cm(400), speed: v10(25), vsWalls: 400,
   moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 5000, halfWidth: cm(80), height: cm(450), demon: Demon.Purple,
   drops: [{ res: Res.ManaCrystal, min: 20, max: 20, chancePm: 1000 }, { res: Res.Gold, min: 10, max: 10, chancePm: 1000 }, { res: Res.Diamonds, min: 3, max: 3, chancePm: 1000 }],
 };
@@ -252,128 +255,128 @@ const MORVATH: MobRow = {
 /** Every mob as written; MOBS adds each one's threat. */
 const MOB_ROWS: readonly MobRow[] = [
   {
-    ...base, id: Mob.Zombie, traits: [Trait.Debuffs], name: 'Zombie', model: 'zombie', firstNight: 0, hp: 60, damage: 8, attackSteps: ds(16), reach: cm(120), speed: v10(14), vsWalls: 4,
+    ...base, id: Mob.Zombie, traits: [Trait.Debuffs], name: 'Zombie', model: 'zombie', firstNight: 0, hp: 60, damageTenths: 76, attackSteps: ds(16), reach: cm(120), speed: v10(14), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Wave, halfWidth: cm(30), height: cm(170), undead: true,
     drops: [{ res: Res.Bone, min: 1, max: 1, chancePm: 150 }, { res: Res.CopperOre, min: 1, max: 1, chancePm: 20 }, { res: Res.Gold, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.CaveBat, name: 'Cave bat', model: 'cave_bat', firstNight: 0, hp: 25, damage: 6, attackSteps: ds(10), reach: cm(100), speed: v10(60), vsWalls: 0,
+    ...base, id: Mob.CaveBat, name: 'Cave bat', model: 'cave_bat', firstNight: 0, hp: 25, damageTenths: 57, attackSteps: ds(10), reach: cm(100), speed: v10(60), vsWalls: 0,
     moves: Moves.LowFlyer, sun: Sun.Flees, comes: Comes.Wave, halfWidth: cm(40), height: cm(40),
     drops: [{ res: Res.Bone, min: 1, max: 1, chancePm: 50 }],
   },
   {
-    ...base, id: Mob.GiantRat, name: 'Giant rat', model: 'giant_rat', firstNight: 0, hp: 26, damage: 5, attackSteps: ds(8), reach: cm(100), speed: v10(45), climbSpeed: v10(5), vsWalls: 3,
+    ...base, id: Mob.GiantRat, name: 'Giant rat', model: 'giant_rat', firstNight: 0, hp: 26, damageTenths: 50, attackSteps: ds(8), reach: cm(100), speed: v10(45), climbSpeed: v10(5), vsWalls: 3,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Pack, halfWidth: cm(30), height: cm(50),
     drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 80 }, { res: Res.RatMeat, min: 1, max: 1, chancePm: 50 }],
   },
   {
-    ...base, id: Mob.GiantSpider, traits: [Trait.Debuffs], name: 'Giant spider', model: 'giant_spider', firstNight: 0, hp: 40, armourBp: 1000, damage: 16, attackSteps: ds(13), reach: cm(150),
+    ...base, id: Mob.GiantSpider, traits: [Trait.Debuffs], name: 'Giant spider', model: 'giant_spider', firstNight: 0, hp: 40, armourBp: 1000, damageTenths: 160, attackSteps: ds(13), reach: cm(150),
     range: cm(800), shot: Shot.Web, spreadBp: 500, speed: v10(35), climbSpeed: v10(8), vsWalls: 5,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(60), height: cm(60),
     drops: [{ res: Res.SpiderSilk, min: 1, max: 2, chancePm: 200 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 10 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.Slime, traits: [Trait.Debuffs], splitsInto: [[Mob.SmallSlime, 2]], name: 'Slime', model: 'slime', firstNight: 0, hp: 90, pierceBp: 5000, damage: 10, attackSteps: ds(18), reach: cm(120), speed: v10(12), vsWalls: 6,
+    ...base, id: Mob.Slime, traits: [Trait.Debuffs], splitsInto: [[Mob.SmallSlime, 2]], name: 'Slime', model: 'slime', firstNight: 0, hp: 90, pierceBp: 5000, damageTenths: 95, attackSteps: ds(18), reach: cm(120), speed: v10(12), vsWalls: 6,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(40), height: cm(42), undead: true,
     drops: [{ res: Res.Bone, min: 1, max: 1, chancePm: 100 }, { res: Res.CopperOre, min: 1, max: 1, chancePm: 25 }, { res: Res.TinOre, min: 1, max: 1, chancePm: 25 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.SmallSlime, name: 'Small slime', model: 'slime', firstNight: 0, hp: 30, pierceBp: 5000, damage: 5, attackSteps: ds(18), reach: cm(100), speed: v10(12), vsWalls: 3,
+    ...base, id: Mob.SmallSlime, name: 'Small slime', model: 'slime', firstNight: 0, hp: 30, pierceBp: 5000, damageTenths: 48, attackSteps: ds(18), reach: cm(100), speed: v10(12), vsWalls: 3,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Never, halfWidth: cm(20), height: cm(21), undead: true,
     drops: [],
   },
   {
-    ...base, id: Mob.SkeletonArcher, name: 'Skeleton archer', model: 'skeleton_archer', firstNight: 5, hp: 45, pierceBp: 5000, bluntBp: 15000, damage: 9, attackSteps: ds(22), reach: cm(120),
+    ...base, id: Mob.SkeletonArcher, name: 'Skeleton archer', model: 'skeleton_archer', firstNight: 5, hp: 45, pierceBp: 5000, bluntBp: 15000, damageTenths: 86, attackSteps: ds(22), reach: cm(120),
     range: cm(1800), shot: Shot.BoneArrow, spreadBp: 700, speed: v10(22), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Wave, halfWidth: cm(30), height: cm(175), undead: true,
     drops: [{ res: Res.Bone, min: 1, max: 1, chancePm: 150 }],
   },
   {
-    ...base, id: Mob.BloatedCorpse, traits: [Trait.Bursts], name: 'Bloated corpse', model: 'bloated_corpse', firstNight: 10, hp: 260, armourBp: 1000, damage: 28, attackSteps: ds(24), reach: cm(150), speed: v10(11), vsWalls: 15,
+    ...base, id: Mob.BloatedCorpse, traits: [Trait.Bursts], name: 'Bloated corpse', model: 'bloated_corpse', firstNight: 10, hp: 260, armourBp: 1000, damageTenths: 266, attackSteps: ds(24), reach: cm(150), speed: v10(11), vsWalls: 15,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(55), height: cm(190), arc: true, undead: true,
     drops: [{ res: Res.Bone, min: 2, max: 2, chancePm: 200 }, { res: Res.CopperOre, min: 1, max: 1, chancePm: 20 }, { res: Res.Silver, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.SkeletonBomber, name: 'Skeleton bomber', model: 'skeleton_bomber', firstNight: 10, hp: 35, pierceBp: 5000, bluntBp: 15000, damage: 60, attackSteps: ds(10), reach: cm(120), speed: v10(32), vsWalls: 300,
+    ...base, id: Mob.SkeletonBomber, name: 'Skeleton bomber', model: 'skeleton_bomber', firstNight: 10, hp: 35, pierceBp: 5000, bluntBp: 15000, damageTenths: 600, attackSteps: ds(10), reach: cm(120), speed: v10(32), vsWalls: 300,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(35), height: cm(175), undead: true,
     drops: [{ res: Res.Saltpetre, min: 1, max: 1, chancePm: 100 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 50 }, { res: Res.Bone, min: 1, max: 1, chancePm: 100 }],
   },
   {
-    ...base, id: Mob.BombKeg, name: 'Loose bomb', model: 'bomb_keg', firstNight: 10, hp: 1, damage: 60, attackSteps: ds(20), reach: 0, speed: 0, vsWalls: 300,
+    ...base, id: Mob.BombKeg, name: 'Loose bomb', model: 'bomb_keg', firstNight: 10, hp: 1, damageTenths: 600, attackSteps: ds(20), reach: 0, speed: 0, vsWalls: 300,
     moves: Moves.Still, sun: Sun.Burns, comes: Comes.Never, halfWidth: cm(30), height: cm(65),
     drops: [],
   },
   {
-    ...base, id: Mob.GoblinCutter, name: 'Goblin cutter', model: 'goblin', firstNight: 15, hp: 40, armourBp: 1000, damage: 7, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
+    ...base, id: Mob.GoblinCutter, name: 'Goblin cutter', model: 'goblin', firstNight: 15, hp: 40, armourBp: 1000, damageTenths: 67, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Wave, halfWidth: cm(30), height: cm(120),
     drops: [{ res: Res.CopperOre, min: 1, max: 1, chancePm: 50 }, { res: Res.TinOre, min: 1, max: 1, chancePm: 50 }, { res: Res.Hides, min: 1, max: 1, chancePm: 50 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.GoblinSlinger, name: 'Goblin slinger', model: 'goblin_slinger', firstNight: 15, hp: 30, damage: 6, attackSteps: ds(18), reach: cm(100), range: cm(1400), shot: Shot.GoblinStone, spreadBp: 800, speed: v10(34), vsWalls: 1,
+    ...base, id: Mob.GoblinSlinger, name: 'Goblin slinger', model: 'goblin_slinger', firstNight: 15, hp: 30, damageTenths: 57, attackSteps: ds(18), reach: cm(100), range: cm(1400), shot: Shot.GoblinStone, spreadBp: 800, speed: v10(34), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Wave, halfWidth: cm(30), height: cm(120),
     drops: [{ res: Res.CopperOre, min: 1, max: 1, chancePm: 50 }, { res: Res.TinOre, min: 1, max: 1, chancePm: 50 }, { res: Res.Hides, min: 1, max: 1, chancePm: 50 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.GoblinChief, traits: [Trait.Rallies], name: 'Goblin chief', model: 'goblin_chief', firstNight: 15, hp: 150, armourBp: 1500, damage: 18, attackSteps: ds(14), reach: cm(150), speed: v10(32), vsWalls: 8,
+    ...base, id: Mob.GoblinChief, traits: [Trait.Rallies], name: 'Goblin chief', model: 'goblin_chief', firstNight: 15, hp: 150, armourBp: 1500, damageTenths: 171, attackSteps: ds(14), reach: cm(150), speed: v10(32), vsWalls: 8,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(35), height: cm(140),
     drops: [{ res: Res.CopperOre, min: 1, max: 1, chancePm: 50 }, { res: Res.TinOre, min: 1, max: 1, chancePm: 50 }, { res: Res.Hides, min: 1, max: 1, chancePm: 50 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.GraveHound, traits: [Trait.Rallies], name: 'Grave hound', model: 'grave_hound', firstNight: 20, hp: 70, damage: 11, attackSteps: ds(9), reach: cm(120), speed: v10(55), vsWalls: 2,
+    ...base, id: Mob.GraveHound, traits: [Trait.Rallies], name: 'Grave hound', model: 'grave_hound', firstNight: 20, hp: 70, damageTenths: 105, attackSteps: ds(9), reach: cm(120), speed: v10(55), vsWalls: 2,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Pack, halfWidth: cm(30), height: cm(80), undead: true,
     drops: [{ res: Res.Bone, min: 1, max: 2, chancePm: 200 }],
   },
   // Lair guardians (roster 6.1). The centipede's attack time is the Rift centipede's 1.2 s (s); the wraith's bolt every 2 s (s).
   {
-    ...base, id: Mob.GiantCentipede, name: 'Giant centipede', model: 'giant_centipede', firstNight: 0, hp: 150, armourBp: 2500, damage: 14, poison: 10, attackSteps: ds(12), reach: cm(150), speed: v10(35), climbSpeed: v10(8), vsWalls: 5,
+    ...base, id: Mob.GiantCentipede, name: 'Giant centipede', model: 'giant_centipede', firstNight: 0, hp: 150, armourBp: 2500, damageTenths: 119, poisonTenths: 85, attackSteps: ds(12), reach: cm(150), speed: v10(35), climbSpeed: v10(8), vsWalls: 5,
     moves: Moves.Climber, sun: Sun.Flees, comes: Comes.Never, xpTenths: 30, halfWidth: cm(50), height: cm(50), role: RESIDENT,
     drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 300 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.Myconid, name: 'Myconid', model: 'myconid', firstNight: 0, hp: 100, damage: 10, attackSteps: ds(15), reach: cm(150), speed: v10(15), vsWalls: 3,
+    ...base, id: Mob.Myconid, name: 'Myconid', model: 'myconid', firstNight: 0, hp: 100, damageTenths: 85, attackSteps: ds(15), reach: cm(150), speed: v10(15), vsWalls: 3,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Never, xpTenths: 20, halfWidth: cm(40), height: cm(120), role: RESIDENT,
     drops: [{ res: Res.ManaCrystal, min: 1, max: 1, chancePm: 200 }, { res: Res.Herbs, min: 1, max: 1, chancePm: 1000 }],
   },
   {
-    ...base, id: Mob.AshGolem, name: 'Ash golem', model: 'ash_golem', firstNight: 45, hp: 1200, armourBp: 5000, damage: 50, attackSteps: ds(22), reach: cm(250), speed: v10(20), vsWalls: 60,
+    ...base, id: Mob.AshGolem, name: 'Ash golem', model: 'ash_golem', firstNight: 45, hp: 1200, armourBp: 5000, damageTenths: 425, attackSteps: ds(22), reach: cm(250), speed: v10(20), vsWalls: 60,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 240, halfWidth: cm(110), height: cm(350), arc: true, role: RESIDENT,
     drops: [{ res: Res.Coal, min: 4, max: 4, chancePm: 1000 }, { res: Res.Sulphur, min: 2, max: 2, chancePm: 1000 }, { res: Res.IronRock, min: 2, max: 2, chancePm: 1000 }],
   },
   {
-    ...base, id: Mob.ManaWraith, name: 'Mana wraith', model: 'mana_wraith', firstNight: 80, hp: 300, pierceBp: 5000, damage: 25, attackSteps: ds(20), reach: cm(150),
+    ...base, id: Mob.ManaWraith, name: 'Mana wraith', model: 'mana_wraith', firstNight: 80, hp: 300, pierceBp: 5000, damageTenths: 213, attackSteps: ds(20), reach: cm(150),
     range: cm(1800), shot: Shot.ManaBolt, spreadBp: 300, speed: v10(30), vsWalls: 0,
     moves: Moves.LowFlyer, sun: Sun.Flees, comes: Comes.Never, xpTenths: 60, halfWidth: cm(45), height: cm(180), role: RESIDENT,
     drops: [{ res: Res.ManaCrystal, min: 2, max: 3, chancePm: 1000 }],
   },
   // Hostile tribes (roster 6.1, Table 16). They roam by day, so none of them burns or flees in the sun (s: the roster's kobold "flees").
   {
-    ...base, id: Mob.Gnoll, name: 'Gnoll', model: 'gnoll', firstNight: 0, hp: 80, armourBp: 1500, damage: 10, attackSteps: ds(13), reach: cm(200), speed: v10(35), vsWalls: 4,
+    ...base, id: Mob.Gnoll, name: 'Gnoll', model: 'gnoll', firstNight: 0, hp: 80, armourBp: 1500, damageTenths: 100, attackSteps: ds(13), reach: cm(200), speed: v10(35), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 30, halfWidth: cm(35), height: cm(190), role: TRIBE,
     drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 30 }],
   },
   {
-    ...base, id: Mob.Kobold, name: 'Kobold', model: 'kobold', firstNight: 0, hp: 28, armourBp: 500, damage: 6, attackSteps: ds(10), reach: cm(200), speed: v10(35), climbSpeed: v10(8), vsWalls: 2,
+    ...base, id: Mob.Kobold, name: 'Kobold', model: 'kobold', firstNight: 0, hp: 28, armourBp: 500, damageTenths: 60, attackSteps: ds(10), reach: cm(200), speed: v10(35), climbSpeed: v10(8), vsWalls: 2,
     moves: Moves.Climber, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(25), height: cm(110), role: TRIBE,
     drops: [{ res: Res.CopperOre, min: 1, max: 1, chancePm: 200 }, { res: Res.TinOre, min: 1, max: 1, chancePm: 200 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.Hobgoblin, name: 'Hobgoblin', model: 'hobgoblin', firstNight: 0, hp: 60, armourBp: 4000, damage: 10, attackSteps: ds(14), reach: cm(150), speed: v10(28), vsWalls: 8,
+    ...base, id: Mob.Hobgoblin, name: 'Hobgoblin', model: 'hobgoblin', firstNight: 0, hp: 60, armourBp: 4000, damageTenths: 100, attackSteps: ds(14), reach: cm(150), speed: v10(28), vsWalls: 8,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 40, blockBp: 5000, halfWidth: cm(35), height: cm(180), role: TRIBE,
     drops: [{ res: Res.WroughtIron, min: 1, max: 1, chancePm: 200 }, { res: Res.Silver, min: 1, max: 1, chancePm: 30 }],
   },
   // Goblin villages (roster 6.3): 1.2 m tall, out by day, home at night. XP by the header rule: HP / 50, at least 1.
   {
-    ...base, id: Mob.VillageGoblin, name: 'Goblin', model: 'goblin', firstNight: 0, hp: 30, armourBp: 1000, damage: 7, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
+    ...base, id: Mob.VillageGoblin, name: 'Goblin', model: 'goblin', firstNight: 0, hp: 30, armourBp: 1000, damageTenths: 70, attackSteps: ds(9), reach: cm(100), speed: v10(34), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
     drops: [{ res: Res.Sticks, min: 3, max: 3, chancePm: 100 }, ...GOBLIN_LOOT],
   },
   {
-    ...base, id: Mob.GoblinArcher, name: 'Goblin archer', model: 'goblin_archer', firstNight: 0, hp: 20, damage: 7, attackSteps: ds(20), reach: cm(100), range: cm(1600), shot: Shot.Arrow, spreadBp: 800, speed: v10(34), vsWalls: 1,
+    ...base, id: Mob.GoblinArcher, name: 'Goblin archer', model: 'goblin_archer', firstNight: 0, hp: 20, damageTenths: 70, attackSteps: ds(20), reach: cm(100), range: cm(1600), shot: Shot.Arrow, spreadBp: 800, speed: v10(34), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE,
     drops: [{ res: Res.Feathers, min: 2, max: 4, chancePm: 300 }, { res: Res.Leather, min: 1, max: 1, chancePm: 150 }, { res: Res.Hexstone, min: 1, max: 1, chancePm: 50 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 25, damage: 8, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
+    ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 25, damageTenths: 80, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE, mana: 60,
     drops: [{ res: Res.Hexstone, min: 1, max: 2, chancePm: 400 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 40 }],
   },
@@ -415,7 +418,7 @@ const MOB_ROWS: readonly MobRow[] = [
   // Milestone 8. A goblin wolf rider (roster 6.3, Table 14): the rider's 45 health (50 before Patch 3) with its wolf's 70 beside it (the entity's mount),
   // the rider's spear 9 a second at 2 m and the wolf's bite; at a gallop of 5.5 m/s. Without its wolf it is a goblin on foot.
   {
-    ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 45, armourBp: 1000, damage: 9, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
+    ...base, id: Mob.GoblinWolfRider, name: 'Goblin wolf rider', model: 'goblin_wolf_rider', firstNight: 0, hp: 45, armourBp: 1000, damageTenths: 90, attackSteps: ds(10), reach: cm(200), speed: v10(55), vsWalls: 4,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 20, halfWidth: cm(45), height: cm(190), role: VILLAGE,
     drops: [{ res: Res.BronzeIngot, min: 1, max: 1, chancePm: 150 }, { res: Res.Leather, min: 1, max: 2, chancePm: 300 }, { res: Res.Hides, min: 1, max: 1, chancePm: 1000 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 30 }],
   },
@@ -423,136 +426,144 @@ const MOB_ROWS: readonly MobRow[] = [
   stand(Mob.GoblinWolfPen, 'Goblin wolf pen', 'goblin_wolf_pen', 0, 300, 500, 200),
   // Night mobs 25 to 110 (roster 5.0 stats; abilities in threats/late-mobs.ts). Attack times the roster leaves open are (s).
   {
-    ...base, id: Mob.BarrowKnight, traits: [Trait.ShieldWall], name: 'Barrow knight', model: 'barrow_knight', firstNight: 25, hp: 320, armourBp: 3500, pierceBp: 5000, bluntBp: 15000, damage: 24, attackSteps: ds(16), reach: cm(150), speed: v10(24), vsWalls: 10,
+    ...base, id: Mob.BarrowKnight, traits: [Trait.ShieldWall], name: 'Barrow knight', model: 'barrow_knight', firstNight: 25, hp: 320, armourBp: 3500, pierceBp: 5000, bluntBp: 15000, damageTenths: 228, attackSteps: ds(16), reach: cm(150), speed: v10(24), vsWalls: 10,
     moves: Moves.Walker, sun: Sun.Smoulders, comes: Comes.Trickle, halfWidth: cm(35), height: cm(185), undead: true,
     drops: [{ res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Bone, min: 2, max: 2, chancePm: 150 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.PlagueBearer, traits: [Trait.Aura, Trait.Debuffs], name: 'Plague bearer', model: 'plague_bearer', firstNight: 30, hp: 180, armourBp: 1000, damage: 10, attackSteps: ds(16), reach: cm(200), speed: v10(16), vsWalls: 5,
+    ...base, id: Mob.PlagueBearer, traits: [Trait.Aura, Trait.Debuffs], name: 'Plague bearer', model: 'plague_bearer', firstNight: 30, hp: 180, armourBp: 1000, damageTenths: 95, attackSteps: ds(16), reach: cm(200), speed: v10(16), vsWalls: 5,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(35), height: cm(180), arc: true, undead: true,
     drops: [{ res: Res.Herbs, min: 1, max: 2, chancePm: 150 }, { res: Res.Bone, min: 1, max: 1, chancePm: 100 }],
   },
   {
-    ...base, id: Mob.Gravewing, traits: [Trait.Snatches], name: 'Gravewing', model: 'gravewing', firstNight: 30, hp: 70, damage: 12, attackSteps: ds(12), reach: cm(150), speed: v10(70), vsWalls: 0,
+    ...base, id: Mob.Gravewing, traits: [Trait.Snatches], name: 'Gravewing', model: 'gravewing', firstNight: 30, hp: 70, damageTenths: 114, attackSteps: ds(12), reach: cm(150), speed: v10(70), vsWalls: 0,
     moves: Moves.HighFlyer, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(60), height: cm(80), undead: true,
     drops: [{ res: Res.Feathers, min: 2, max: 4, chancePm: 250 }, { res: Res.Bone, min: 1, max: 1, chancePm: 100 }],
   },
   {
-    ...base, id: Mob.BoneColossus, traits: [Trait.HitsDefences], name: 'Bone colossus', model: 'bone_colossus', firstNight: 35, hp: 900, armourBp: 3000, pierceBp: 5000, bluntBp: 15000, damage: 45, attackSteps: ds(28), reach: cm(250),
+    ...base, id: Mob.BoneColossus, traits: [Trait.HitsDefences], name: 'Bone colossus', model: 'bone_colossus', firstNight: 35, hp: 900, armourBp: 3000, pierceBp: 5000, bluntBp: 15000, damageTenths: 428, attackSteps: ds(28), reach: cm(250),
     range: cm(2000), shot: Shot.BoneBoulder, spreadBp: 500, speed: v10(13), vsWalls: 120,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(100), height: cm(340), arc: true, undead: true,
     drops: [{ res: Res.Bone, min: 2, max: 4, chancePm: 500 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.HollowPriest, traits: [Trait.Summons], name: 'Hollow priest', model: 'hollow_priest', firstNight: 40, hp: 140, damage: 14, attackSteps: ds(25), reach: cm(120), range: cm(1600), strike: Strike.Curse, speed: v10(20), vsWalls: 0,
+    ...base, id: Mob.HollowPriest, traits: [Trait.Summons], name: 'Hollow priest', model: 'hollow_priest', firstNight: 40, hp: 140, damageTenths: 133, attackSteps: ds(25), reach: cm(120), range: cm(1600), strike: Strike.Curse, speed: v10(20), vsWalls: 0,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(35), height: cm(190), undead: true,
     drops: [{ res: Res.ManaCrystal, min: 1, max: 1, chancePm: 80 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.Cinderling, traits: [Trait.Ignites], name: 'Cinderling', model: 'cinderling', firstNight: 45, hp: 40, damage: 6, attackSteps: ds(8), reach: cm(100), speed: v10(45), climbSpeed: v10(8), vsWalls: 4,
+    ...base, id: Mob.Cinderling, traits: [Trait.Ignites], name: 'Cinderling', model: 'cinderling', firstNight: 45, hp: 40, damageTenths: 57, attackSteps: ds(8), reach: cm(100), speed: v10(45), climbSpeed: v10(8), vsWalls: 4,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Wave, halfWidth: cm(30), height: cm(90), demon: Demon.Red, woodClimber: true,
     drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 150 }, { res: Res.Coal, min: 1, max: 1, chancePm: 100 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.Hellhound, traits: [Trait.Aura, Trait.Ignites], name: 'Hellhound', model: 'hellhound', firstNight: 50, hp: 160, armourBp: 1000, damage: 18, attackSteps: ds(10), reach: cm(120), speed: v10(60), vsWalls: 6,
+    ...base, id: Mob.Hellhound, traits: [Trait.Aura, Trait.Ignites], name: 'Hellhound', model: 'hellhound', firstNight: 50, hp: 160, armourBp: 1000, damageTenths: 171, attackSteps: ds(10), reach: cm(120), speed: v10(60), vsWalls: 6,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Pack, halfWidth: cm(40), height: cm(120), demon: Demon.Red,
     drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 180 }, { res: Res.Coal, min: 1, max: 1, chancePm: 100 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.Fiend, traits: [Trait.Fury], name: 'Fiend', model: 'fiend', firstNight: 55, hp: 380, armourBp: 3000, damage: 30, attackSteps: ds(15), reach: cm(180), speed: v10(28), vsWalls: 15,
+    ...base, id: Mob.Fiend, traits: [Trait.Fury], name: 'Fiend', model: 'fiend', firstNight: 55, hp: 380, armourBp: 3000, damageTenths: 285, attackSteps: ds(15), reach: cm(180), speed: v10(28), vsWalls: 15,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Wave, halfWidth: cm(45), height: cm(220), arc: true, demon: Demon.Red,
     drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 150 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 100 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 80 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
   },
   {
     // Fire drop from above (s: every 2 s, from up to 8 m), the claw when it swoops.
-    ...base, id: Mob.Scorchwing, traits: [Trait.Ignites], name: 'Scorchwing', model: 'scorchwing', firstNight: 60, hp: 150, armourBp: 1000, damage: 14, attackSteps: ds(20), reach: cm(150),
+    ...base, id: Mob.Scorchwing, traits: [Trait.Ignites], name: 'Scorchwing', model: 'scorchwing', firstNight: 60, hp: 150, armourBp: 1000, damageTenths: 133, attackSteps: ds(20), reach: cm(150),
     range: cm(800), shot: Shot.FirePitch, spreadBp: 400, speed: v10(65), vsWalls: 20,
     moves: Moves.LowFlyer, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(80), height: cm(160), demon: Demon.Red,
     drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 150 }, { res: Res.Coal, min: 1, max: 1, chancePm: 100 }],
   },
   {
-    ...base, id: Mob.DemonBrute, name: 'Demon brute', model: 'demon_brute', firstNight: 65, hp: 1400, armourBp: 3500, damage: 50, attackSteps: ds(25), reach: cm(250), speed: v10(18), vsWalls: 180,
+    ...base, id: Mob.DemonBrute, name: 'Demon brute', model: 'demon_brute', firstNight: 65, hp: 1400, armourBp: 3500, damageTenths: 475, attackSteps: ds(25), reach: cm(250), speed: v10(18), vsWalls: 180,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(110), height: cm(300), arc: true, demon: Demon.Red, knockWu: cm(200),
     drops: [{ res: Res.Sulphur, min: 2, max: 3, chancePm: 250 }, { res: Res.DemonHorn, min: 1, max: 2, chancePm: 200 }, { res: Res.WroughtIron, min: 1, max: 1, chancePm: 100 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.Flamecaller, traits: [Trait.Ignites], name: 'Flamecaller', model: 'flamecaller', firstNight: 70, hp: 220, armourBp: 1000, damage: 30, attackSteps: ds(30), reach: cm(120),
+    ...base, id: Mob.Flamecaller, traits: [Trait.Ignites], name: 'Flamecaller', model: 'flamecaller', firstNight: 70, hp: 220, armourBp: 1000, damageTenths: 285, attackSteps: ds(30), reach: cm(120),
     range: cm(2200), shot: Shot.Hellfire, spreadBp: 300, speed: v10(22), vsWalls: 30,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(35), height: cm(210), demon: Demon.Red,
     drops: [{ res: Res.Sulphur, min: 1, max: 2, chancePm: 200 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 80 }, { res: Res.ManaCrystal, min: 1, max: 1, chancePm: 50 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.ChainFiend, traits: [Trait.HitsDefences], name: 'Chain fiend', model: 'chain_fiend', firstNight: 75, hp: 450, armourBp: 2500, damage: 26, attackSteps: ds(14), reach: cm(180), speed: v10(30), climbSpeed: v10(10), vsWalls: 10,
+    ...base, id: Mob.ChainFiend, traits: [Trait.HitsDefences], name: 'Chain fiend', model: 'chain_fiend', firstNight: 75, hp: 450, armourBp: 2500, damageTenths: 247, attackSteps: ds(14), reach: cm(180), speed: v10(30), climbSpeed: v10(10), vsWalls: 10,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(40), height: cm(240), demon: Demon.Red,
     drops: [{ res: Res.WroughtIron, min: 1, max: 1, chancePm: 120 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 120 }],
   },
   {
-    ...base, id: Mob.VoidStalker, traits: [Trait.Hidden], name: 'Void stalker', model: 'void_stalker', firstNight: 80, hp: 500, armourBp: 2000, damage: 30, attackSteps: ds(10), reach: cm(150), speed: v10(45), vsWalls: 5,
+    ...base, id: Mob.VoidStalker, traits: [Trait.Hidden], name: 'Void stalker', model: 'void_stalker', firstNight: 80, hp: 500, armourBp: 2000, damageTenths: 285, attackSteps: ds(10), reach: cm(150), speed: v10(45), vsWalls: 5,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Trickle, halfWidth: cm(35), height: cm(200), demon: Demon.Purple,
     drops: [{ res: Res.ManaCrystal, min: 1, max: 2, chancePm: 200 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.InfernalJuggernaut, traits: [Trait.Aura, Trait.WeakBack], name: 'Infernal juggernaut', model: 'infernal_juggernaut', firstNight: 85, hp: 3000, armourBp: 5000, damage: 60, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 300,
+    ...base, id: Mob.InfernalJuggernaut, traits: [Trait.Aura, Trait.WeakBack], name: 'Infernal juggernaut', model: 'infernal_juggernaut', firstNight: 85, hp: 3000, armourBp: 5000, damageTenths: 570, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 300,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(150), height: cm(400), arc: true, demon: Demon.Red,
     drops: [{ res: Res.IronIngot, min: 1, max: 1, chancePm: 150 }, { res: Res.Sulphur, min: 1, max: 2, chancePm: 400 }, { res: Res.Coal, min: 1, max: 2, chancePm: 400 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
   {
     // Drain: 20 a second, so one strike a second (s).
-    ...base, id: Mob.VoidWitch, traits: [Trait.Heals, Trait.Debuffs, Trait.Blinks], name: 'Void witch', model: 'void_witch', firstNight: 90, hp: 600, armourBp: 1000, damage: 20, attackSteps: ds(10), reach: cm(150), range: cm(2000), strike: Strike.Drain, speed: v10(25), vsWalls: 0,
+    ...base, id: Mob.VoidWitch, traits: [Trait.Heals, Trait.Debuffs, Trait.Blinks], name: 'Void witch', model: 'void_witch', firstNight: 90, hp: 600, armourBp: 1000, damageTenths: 190, attackSteps: ds(10), reach: cm(150), range: cm(2000), strike: Strike.Drain, speed: v10(25), vsWalls: 0,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(40), height: cm(220), demon: Demon.Purple, mana: 0,
     drops: [{ res: Res.ManaCrystal, min: 2, max: 3, chancePm: 300 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 10 }],
   },
   {
     // Void breath: 40 a second along a 12 m line, so one strike a second (s).
-    ...base, id: Mob.AbyssalDrake, name: 'Abyssal drake', model: 'abyssal_drake', firstNight: 95, hp: 1800, armourBp: 3000, damage: 40, attackSteps: ds(10), reach: cm(200), range: cm(1200), strike: Strike.Breath, speed: v10(90), vsWalls: 40,
+    ...base, id: Mob.AbyssalDrake, name: 'Abyssal drake', model: 'abyssal_drake', firstNight: 95, hp: 1800, armourBp: 3000, damageTenths: 380, attackSteps: ds(10), reach: cm(200), range: cm(1200), strike: Strike.Breath, speed: v10(90), vsWalls: 40,
     moves: Moves.HighFlyer, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(200), height: cm(250), demon: Demon.Purple,
     drops: [{ res: Res.ManaCrystal, min: 1, max: 2, chancePm: 350 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.Archfiend, traits: [Trait.Rallies, Trait.Summons], name: 'Archfiend', model: 'archfiend', firstNight: 100, hp: 4000, armourBp: 4500, damage: 70, attackSteps: ds(20), reach: cm(250), speed: v10(30), vsWalls: 60,
+    ...base, id: Mob.Archfiend, traits: [Trait.Rallies, Trait.Summons], name: 'Archfiend', model: 'archfiend', firstNight: 100, hp: 4000, armourBp: 4500, damageTenths: 665, attackSteps: ds(20), reach: cm(250), speed: v10(30), vsWalls: 60,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(60), height: cm(320), arc: true, demon: Demon.Purple, perNight: 1,
     drops: [{ res: Res.ManaCrystal, min: 2, max: 2, chancePm: 400 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 300 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }, { res: Res.Rubies, alt: Res.Diamonds, min: 1, max: 1, chancePm: 50 }],
   },
   {
     // The slam every 3 s (s) on everything within 6 m.
-    ...base, id: Mob.RiftColossus, traits: [Trait.HitsDefences], name: 'Rift colossus', model: 'rift_colossus', firstNight: 105, hp: 8000, armourBp: 5000, damage: 60, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 600,
+    ...base, id: Mob.RiftColossus, traits: [Trait.HitsDefences], name: 'Rift colossus', model: 'rift_colossus', firstNight: 105, hp: 8000, armourBp: 5000, damageTenths: 570, attackSteps: ds(30), reach: cm(300), speed: v10(12), vsWalls: 600,
     moves: Moves.Breaker, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(200), height: cm(600), demon: Demon.Purple, perNight: 2, slamRadius: cm(600), knockWu: cm(200),
     drops: [{ res: Res.ManaCrystal, min: 2, max: 2, chancePm: 500 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 50 }],
   },
   MORVATH,
   // The Rift-touched beasts (roster 5.24): 1.5 times the creature's health and 1.25 times its damage; they burn at dawn.
   {
-    // Pinch 12, and on every other hit the sting: 10 and 30 poison over 5 s.
-    ...base, id: Mob.RiftScorpion, traits: [Trait.Poisons], name: 'Rift scorpion', model: 'giant_scorpion', tint: 'rift', firstNight: 50, hp: 165, armourBp: 3500, damage: 12, attackSteps: ds(12), reach: cm(150), speed: v10(30), climbSpeed: v10(8), vsWalls: 5,
+    // Pinch 11.4, and on every other hit the sting: 9.5 and 28.5 poison over 5 s (Patch 5's 5% cut).
+    ...base, id: Mob.RiftScorpion, traits: [Trait.Poisons], name: 'Rift scorpion', model: 'giant_scorpion', tint: 'rift', firstNight: 50, hp: 165, armourBp: 3500, damageTenths: 114, attackSteps: ds(12), reach: cm(150), speed: v10(30), climbSpeed: v10(8), vsWalls: 5,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Pack, halfWidth: cm(60), height: cm(50),
     drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 200 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 80 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.RiftCentipede, name: 'Rift centipede', model: 'giant_centipede', tint: 'rift', firstNight: 55, hp: 225, armourBp: 2500, damage: 17, poison: 12, attackSteps: ds(12), reach: cm(150), speed: v10(35), climbSpeed: v10(10), vsWalls: 5,
+    ...base, id: Mob.RiftCentipede, name: 'Rift centipede', model: 'giant_centipede', tint: 'rift', firstNight: 55, hp: 225, armourBp: 2500, damageTenths: 162, poisonTenths: 114, attackSteps: ds(12), reach: cm(150), speed: v10(35), climbSpeed: v10(10), vsWalls: 5,
     moves: Moves.Climber, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(50), height: cm(50),
     drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 150 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 80 }],
   },
   {
-    ...base, id: Mob.RiftHornet, traits: [Trait.Debuffs], name: 'Rift hornet', model: 'giant_hornet', tint: 'rift', firstNight: 60, hp: 60, damage: 15, attackSteps: ds(15), reach: cm(100), speed: v10(65), vsWalls: 0,
+    ...base, id: Mob.RiftHornet, traits: [Trait.Debuffs], name: 'Rift hornet', model: 'giant_hornet', tint: 'rift', firstNight: 60, hp: 60, damageTenths: 143, attackSteps: ds(15), reach: cm(100), speed: v10(65), vsWalls: 0,
     moves: Moves.LowFlyer, sun: Sun.Burns, comes: Comes.Wave, halfWidth: cm(30), height: cm(30),
     drops: [{ res: Res.Venom, min: 1, max: 1, chancePm: 100 }],
   },
   {
-    ...base, id: Mob.RiftBeetle, name: 'Rift beetle', model: 'giant_beetle', tint: 'rift', firstNight: 65, hp: 180, armourBp: 4000, damage: 17, attackSteps: ds(15), reach: cm(150), speed: v10(32), vsWalls: 40,
+    ...base, id: Mob.RiftBeetle, name: 'Rift beetle', model: 'giant_beetle', tint: 'rift', firstNight: 65, hp: 180, armourBp: 4000, damageTenths: 162, attackSteps: ds(15), reach: cm(150), speed: v10(32), vsWalls: 40,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Pack, halfWidth: cm(60), height: cm(60), knockWu: cm(100),
     drops: [{ res: Res.Sulphur, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 10 }],
   },
   {
-    ...base, id: Mob.RiftGriffin, traits: [Trait.Snatches], name: 'Rift griffin', model: 'griffin', tint: 'rift', firstNight: 70, hp: 900, armourBp: 2000, damage: 44, attackSteps: ds(15), reach: cm(200), speed: v10(100), vsWalls: 10,
+    ...base, id: Mob.RiftGriffin, traits: [Trait.Snatches], name: 'Rift griffin', model: 'griffin', tint: 'rift', firstNight: 70, hp: 900, armourBp: 2000, damageTenths: 418, attackSteps: ds(15), reach: cm(200), speed: v10(100), vsWalls: 10,
     moves: Moves.LowFlyer, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(100), height: cm(180),
     drops: [{ res: Res.Feathers, min: 2, max: 2, chancePm: 500 }, { res: Res.ManaCrystal, min: 1, max: 1, chancePm: 100 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.RiftMinotaur, name: 'Rift minotaur', model: 'minotaur', tint: 'rift', firstNight: 75, hp: 1350, armourBp: 3000, damage: 56, attackSteps: ds(20), reach: cm(250), speed: v10(35), vsWalls: 90,
+    ...base, id: Mob.RiftMinotaur, name: 'Rift minotaur', model: 'minotaur', tint: 'rift', firstNight: 75, hp: 1350, armourBp: 3000, damageTenths: 532, attackSteps: ds(20), reach: cm(250), speed: v10(35), vsWalls: 90,
     moves: Moves.Breaker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(80), height: cm(260), arc: true, knockWu: cm(200),
     drops: [{ res: Res.Hides, min: 1, max: 1, chancePm: 500 }, { res: Res.Sulphur, min: 1, max: 1, chancePm: 250 }, { res: Res.Gold, min: 1, max: 1, chancePm: 50 }],
   },
   { ...MORVATH, id: Mob.MorvathAloft, moves: Moves.HighFlyer, speed: v10(40) },
+  {
+    // Jade's Patch 5 (MB-5): his crimson bolt every 10 s, 35 to whoever it strikes and 35 within 0.5 m (Shot.NecroBolt); his summons and drops are
+    // threats/necromancer.ts. Never bought from the budget. Health, armour, range and speed (s); XP by the header rule, health / 50.
+    ...base, id: Mob.Necromancer, traits: [Trait.Summons], name: 'Necromancer', model: 'necromancer', firstNight: 10, hp: 300, armourBp: 1000, damageTenths: 350, attackSteps: ds(100),
+    reach: cm(120), range: cm(1800), shot: Shot.NecroBolt, spreadBp: 300, speed: v10(20), vsWalls: 5,
+    moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Never, xpTenths: 60, halfWidth: cm(35), height: cm(200),
+    drops: [],
+  },
 ];
 
 /**
@@ -575,7 +586,7 @@ export function threatInput(r: MobRow): ThreatInput {
   traits.push(...r.traits);
   const splash = ranged && r.strike === Strike.Shot ? (SHOTS[r.shot]?.splash ?? 0) : 0;
   return {
-    hp: r.hp, armourBp: r.armourBp, pierceBp: r.pierceBp, bluntBp: r.bluntBp, blockBp: r.blockBp, damage: r.damage, poison: r.poison,
+    hp: r.hp, armourBp: r.armourBp, pierceBp: r.pierceBp, bluntBp: r.bluntBp, blockBp: r.blockBp, damageTenths: r.damageTenths, poisonTenths: r.poisonTenths,
     attackSteps: r.attackSteps, area, splash, vsWalls: r.vsWalls, range: ranged ? r.range : 0, reach: r.reach, speed: r.speed, once, traits,
   };
 }
@@ -648,10 +659,16 @@ export const GRASP = { slowBp: 2000, steps: ds(20) };
 export const WEB = { slowBp: 5000, steps: ds(30), cooldown: ds(100) };
 /** Slime engulf: holds a worker still for 2 s. */
 export const ENGULF_STEPS = ds(20);
-/** Bloated corpse burst: 40 to the players' units within 3 m. */
-export const BURST = { damage: 40, radius: cm(300) };
-/** Bomber blast: 300 to walls and buildings where it goes off, half that at 2.5 m (s: the roster had 220, which cannot break a 300 HP softwood column), 60 to units within 3 m; a loose bomb goes off 2 s after it falls. */
-export const BLAST = { building: 300, buildingRadius: cm(250), unit: 60, unitRadius: cm(300), fuse: ds(20) };
+/** Bloated corpse burst: 38 to the players' units within 3 m (40 before Patch 5's 5% cut), in tenths. */
+export const BURST = { damageTenths: 380, radius: cm(300) };
+/**
+ * Bomber blast: 300 to walls and buildings where it goes off, half that at
+ * 2.5 m (s: the roster had 220, which cannot break a 300 HP softwood column),
+ * 30 to units within 3 m (Patch 5, Jade's BL-7: half the 60 it did). A loose
+ * bomb goes off 2 s after it falls; since Patch 5 (BL-7) a wall breaker
+ * killed before it goes off drops none.
+ */
+export const BLAST = { building: 300, buildingRadius: cm(250), unit: 30, unitRadius: cm(300), fuse: ds(20) };
 /** A bomber goes for 5 or more of the players' units within 8 m of it on its way. */
 export const CLUSTER = { units: 5, radius: cm(800) };
 /** Goblins within 10 m of a chief run 20% faster. */

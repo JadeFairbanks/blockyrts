@@ -42,7 +42,7 @@ export function peoplesOrder(state: SimState, o: PeoplesOrder): void {
       payReparations(state, o.player, o.faction);
       break;
     case 'hire':
-      hire(state, o.player, o.faction, o.count);
+      hire(state, o.player, o.faction, o.count, o.gold === 1);
       break;
     case 'debugPeoples':
       debugPeoples(state, o.player, o.what, o.x, o.z);

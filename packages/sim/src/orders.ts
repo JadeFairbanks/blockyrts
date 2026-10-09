@@ -61,6 +61,18 @@ export interface RepairAllOrder extends UnitsOrder {
   kind: 'repairAll';
 }
 
+/** A right click on Repair (Jade's Patch 5, UI-13): the selected workers' autorepair on (1) or off (0). */
+export interface AutoRepairOrder extends UnitsOrder {
+  kind: 'autoRepair';
+  on: number;
+}
+
+/** Repair all (Jade's Patch 5, GP-25): the workers near each damaged building go and repair it (units/repairs.ts). */
+export interface RepairNearbyOrder {
+  kind: 'repairNearby';
+  player: number;
+}
+
 /** Return Cargo (C): to the nearest drop-off, then back to the node. */
 export interface ReturnCargoOrder extends UnitsOrder {
   kind: 'returnCargo';
@@ -273,6 +285,14 @@ export interface TroopLockOrder {
   lock: number;
 }
 
+/** Run/Walk (Patch 5 GP-16): run 1 sets the units on foot to Run, 0 to Walk. */
+export interface PaceOrder {
+  kind: 'pace';
+  player: number;
+  units: number[];
+  run: number;
+}
+
 /** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
 export interface LockOrder {
   kind: 'lock';
@@ -384,12 +404,13 @@ export interface ReparationsOrder {
   faction: number;
 }
 
-/** Hire mercenaries from a camp for the day (2 silver each). */
+/** Hire mercenaries from a camp for good (Patch 5): paid in silver, or in gold when `gold` is 1. */
 export interface HireOrder {
   kind: 'hire';
   player: number;
   faction: number;
   count: number;
+  gold?: number;
 }
 
 /** Debug: one of the peoples at a point (wu): a faction kind (peoples/data.ts FactionKind), 7 an Elf caravan to the player now, 8 meet the Elves. */
@@ -649,6 +670,7 @@ export type Order =
   | CartOrder
   | TroopLockOrder
   | LockOrder
+  | PaceOrder
   | DigOrder
   | WallStretchOrder
   | TunnelStretchOrder
@@ -674,6 +696,8 @@ export type Order =
   | BuildOrder
   | WorkOrder
   | RepairAllOrder
+  | AutoRepairOrder
+  | RepairNearbyOrder
   | ReturnCargoOrder
   | DropoffOrder
   | EnterOrder
@@ -720,6 +744,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   build: ['building', 'variant', 'x', 'z'],
   work: ['building'],
   repairAll: [],
+  autoRepair: ['on'],
+  repairNearby: [],
   returnCargo: [],
   dropoff: ['building'],
   enter: ['building'],
@@ -746,6 +772,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   cart: ['back'],
   troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
+  pace: ['run'],
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
   tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
@@ -784,7 +811,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -826,6 +853,9 @@ export function validateOrder(o: Order): void {
     case 'debugGod':
       if (o.on !== 0 && o.on !== 1) throw new Error('godmode is on or off');
       return;
+    case 'autoRepair':
+      if (o.on !== 0 && o.on !== 1) throw new Error('autorepair is on or off');
+      return;
     case 'debugPlace':
       if (o.what < 0 || o.what > 0xffff) throw new Error('bad godmode placement');
       return;
@@ -840,6 +870,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'cart':
       if (o.back !== 0 && o.back !== 1) throw new Error('bad cart order');
+      return;
+    case 'pace':
+      if (o.run !== 0 && o.run !== 1) throw new Error('bad Run/Walk order');
       return;
     case 'troopLock':
       if (o.troop < 1 || o.troop > 7 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
@@ -864,6 +897,7 @@ export function validateOrder(o: Order): void {
       return;
     case 'hire':
       if (o.count < 1 || o.count > 6) throw new Error('hire 1 to 6');
+      if (o.gold !== undefined && o.gold !== 0 && o.gold !== 1) throw new Error('hire pays in silver (0) or gold (1)');
       return;
     case 'shareControl':
       if (o.with < 0 || o.with > 7 || (o.on !== 0 && o.on !== 1)) throw new Error('bad share control');
