@@ -3,8 +3,9 @@
 // Build defense menu builds a fixed engine up there (FIXED_ENGINES: the
 // mobile engines' numbers, cost and time, on braces instead of wheels), which
 // never comes down. It comes with its crew of garrison artillery crewmen, who
-// stay up there with it for good; the engine and its crew are hurt and killed
-// apart, by flyers and ranged attackers only. The same menu upgrades the
+// stay up there for good, even when the engine is destroyed (they man the
+// next one); the engine and its crew are hurt and killed apart, by flyers and
+// ranged attackers only. The same menu upgrades the
 // engine to one higher on the ladder, for the difference in cost and time (it
 // cannot fire while the upgrade builds), and trains a garrison crewman while
 // the engine is short of one. While no engine stands there, up to 4 regular
@@ -18,8 +19,8 @@ import { giveFood } from '../economy/food.ts';
 import type { Cost, Res } from '../economy/resources.ts';
 import { floorDiv } from '../fixed.ts';
 import type { SimState } from '../state.ts';
-import { stopUnit } from '../units/behaviour.ts';
-import { menOnTop, platformEngine, postAt, spreadTop, topRoom } from '../units/top.ts';
+import { giveOrder, stopUnit } from '../units/behaviour.ts';
+import { menOnTop, platformEngine, postAt, spreadTop, strandedCrew, topRoom } from '../units/top.ts';
 import { CITADEL_LEVEL, type Engine, engineSpec, engineUpgrade, FIXED_ENGINES, UPGRADE_MIN_TIME_BP, upgradeClimbs, upgradeOf } from './data.ts';
 import { addCrewman, addEngine, crewSworn } from './engines.ts';
 
@@ -64,10 +65,10 @@ function platformQueued(b: Building): QueueItem | undefined {
   return b.queue.find((q) => q.product >= ENGINE_PRODUCT && q.product < TROOP_PRODUCT);
 }
 
-/** Crewmen the fixed engine on a Citadel's platform is short: its crew less those crewing it and the garrison crewmen queued for it. */
+/** Crewmen the fixed engine on a Citadel's platform is short: its crew less those crewing it, those up there about to, and those queued for it. */
 export function crewShort(state: SimState, b: Building, engine: number): number {
   const queued = b.queue.filter((q) => q.product === Product.GarrisonCrewman).length;
-  return engineSpec(state.entities.mob[engine]!).crew - crewSworn(state, engine).length - queued;
+  return engineSpec(state.entities.mob[engine]!).crew - crewSworn(state, engine).length - strandedCrew(state, b.id).length - queued;
 }
 
 const lower = (name: string): string => name.toLowerCase();
@@ -103,7 +104,7 @@ export function platformProblem(state: SimState, b: Building, product: number, u
 /** A garrison crewman for an engine on its Citadel's platform, at the first free crew place up there; returns his index. */
 function addPlatformCrewman(state: SimState, b: Building, engine: number, pl: Platform): number {
   const e = state.entities;
-  const crew = crewSworn(state, engine);
+  const crew = [...crewSworn(state, engine), ...strandedCrew(state, b.id)];
   const places = pl.crew.map((p) => postAt(b, p));
   const free = places.find(([x, , z]) => !crew.some((j) => e.x[j] === x && e.z[j] === z)) ?? places[crew.length % places.length]!;
   const j = addCrewman(state, e.owner[engine]!, free[0], free[2], engine);
@@ -111,6 +112,17 @@ function addPlatformCrewman(state: SimState, b: Building, engine: number, pl: Pl
   e.y[j] = free[1];
   e.heading[j] = e.heading[engine]!;
   return j;
+}
+
+/** Mans a fixed engine with n more garrison crewmen: first those a destroyed engine left up there (Jade, CT-3), then new ones. */
+function manEngine(state: SimState, b: Building, engine: number, pl: Platform, n: number): void {
+  const e = state.entities;
+  for (const j of strandedCrew(state, b.id)) {
+    if (n <= 0) return;
+    giveOrder(state, j, { t: 'crew', id: e.id[engine]! }, false);
+    n--;
+  }
+  for (; n > 0; n--) addPlatformCrewman(state, b, engine, pl);
 }
 
 /** Men up top beyond the Citadel's room once an engine takes the platform come down (those on the platform first); the rest stand on the places left. */
@@ -129,7 +141,11 @@ function makeRoom(state: SimState, b: Building, pl: Platform): void {
   spreadTop(state, b);
 }
 
-/** A fixed engine is done: it stands on the Citadel's platform with its full crew at their places (Jade: "you get the first one(s) with the engine"). */
+/**
+ * A fixed engine is done: it stands on the Citadel's platform with its full
+ * crew at their places (Jade: "you get the first one(s) with the engine"),
+ * the crewmen a destroyed one left up there among them.
+ */
 export function spawnFixedEngine(state: SimState, b: Building, kind: number, owner: number): void {
   const pl = platformOf(b);
   if (!pl) return;
@@ -139,7 +155,7 @@ export function spawnFixedEngine(state: SimState, b: Building, kind: number, own
   e.inside[i] = b.id;
   e.y[i] = y;
   const spec = engineSpec(kind);
-  for (let k = 0; k < spec.crew; k++) addPlatformCrewman(state, b, i, pl);
+  manEngine(state, b, i, pl, spec.crew);
   makeRoom(state, b, pl);
   const crew = spec.crew === 1 ? 'its garrison crewman' : `its ${spec.crew} garrison crewmen`;
   state.events.push({ player: owner, kind: 'info', text: `${article(spec.name)} ${lower(spec.name)} stands on the Citadel's engine platform, with ${crew}. It never leaves it.`, x, z });
@@ -186,6 +202,6 @@ export function finishUpgrade(state: SimState, b: Building, item: QueueItem): vo
   e.mob[on] = up.to;
   e.maxHp[on] = after.hp;
   e.hp[on] = Math.max(1, after.hp - lost);
-  if (crewSworn(state, on).length >= before.crew) for (let k = engineUpgradeCrew(up.from, up.to); k > 0; k--) addPlatformCrewman(state, b, on, pl);
+  if (crewSworn(state, on).length >= before.crew) manEngine(state, b, on, pl, engineUpgradeCrew(up.from, up.to));
   state.events.push({ player: item.by, kind: 'info', text: `The ${lower(before.name)} on the engine platform is now ${article(after.name).toLowerCase()} ${lower(after.name)}.`, x: e.x[on]!, z: e.z[on]! });
 }
