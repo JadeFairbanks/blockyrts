@@ -134,17 +134,20 @@ export function hearers(state: SimState, x: number, z: number): number {
 /**
  * Another people's unit says something: a bubble for whoever sees it; an
  * important line also reaches the panel of the players near enough. To one
- * player only (`player`), as the trade menu's answers are.
+ * player only (`player`), as the trade menu's answers are. `hold` keeps its
+ * bubble up longer than usual (BubbleHold).
  */
-export function sayForeign(state: SimState, i: number, text: string, important: boolean, player = -1, faction = 0): void {
+export function sayForeign(state: SimState, i: number, text: string, important: boolean, player = -1, faction = 0, hold?: BubbleHold): void {
   if (!text || i < 0) return;
   const e = state.entities;
   const x = e.x[i]!;
   const z = e.z[i]!;
-  state.events.push({
+  const ev: SimEvent = {
     player, kind: 'speech', text, speaker: e.id[i]!, name: speakerName(state, i), foreign: true, important, near: important ? hearers(state, x, z) : 0, x, z,
     faction: faction || e.group[i]!,
-  });
+  };
+  if (hold) ev.hold = hold;
+  state.events.push(ev);
 }
 
 /**

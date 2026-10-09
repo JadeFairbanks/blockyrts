@@ -120,6 +120,8 @@ export * from './threats/boss.ts';
 export * from './threats/bright.ts';
 export * from './threats/necromancer.ts';
 export * from './threats/guardians.ts';
+export * from './threats/keepers.ts';
+export * from './threats/keeper-lines.ts';
 export * from './threats/springs.ts';
 export * from './circles/data.ts';
 export * from './circles/place.ts';

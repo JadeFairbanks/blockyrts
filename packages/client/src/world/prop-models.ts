@@ -57,7 +57,7 @@ export const PENDING_PROP_MODELS: ReadonlySet<string> = new Set<string>([]);
 /** Rocks and patches whose model has a `depleted` set: drawn with it once half or more of what they can hold is gone (s). */
 const DEPLETED: ReadonlySet<string> = new Set([
   'stone_scatter', 'flint_scatter', 'rock_stone', 'rock_copper', 'rock_tin', 'rock_coal', 'bog_iron_patch', 'rock_iron', 'clay_bank',
-  'rock_marble', 'rock_saltpetre', 'rock_lead', 'rock_sulphur', 'gold_glint', 'gem_glint', 'mana_crystal_node', 'boulder_large',
+  'rock_marble', 'rock_saltpetre', 'rock_lead', 'rock_sulphur', 'gold_glint', 'gem_glint', 'mana_crystal_node', 'boulder_large', 'mana_crystal_large',
 ]);
 
 /** Wild flax's three looks (WL-10: "three flax models"), one per clump by its variant. */
@@ -94,6 +94,9 @@ const STILL: Readonly<Record<number, string>> = {
   [PropKind.SilverNode]: 'ore_node_silver',
   [PropKind.GoldNode]: 'ore_node_gold',
   [PropKind.HotSpringSulphur]: 'hot_spring',
+  // The keepers' goods (MB-11, MF-2): a bog's silver nuggets and the Fae Guardian's large crystal node.
+  [PropKind.SilverNugget]: 'silver_nugget',
+  [PropKind.LargeManaCrystal]: 'mana_crystal_large',
   // The stone circles' dressing (SC-2, SCB-1).
   [PropKind.BluestoneChest]: 'bluestone_chest',
   [PropKind.RuinBush]: 'ruin_bush',

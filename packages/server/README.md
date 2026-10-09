@@ -67,5 +67,11 @@ from standard input).
 - `src/http.ts`: the JSON API (routes in `@blockyrts/protocol`'s `ApiRoutes`),
   CORS for the game page, per-address limits on sign-in, sign-up, guests and
   reset emails.
+- `src/mail-jobs.ts`: an email to every account (Patch 5), asked for by the
+  "Email players" workflow through the save store: `jobs/mail.json` is
+  checked every 30 s, each account gets a named message at most once (the
+  `mail_sent` table), a dry run only counts, and the counts go back to
+  `jobs/results/<request>.json` with no addresses in them
+  (deploy/README.md, "Emailing players").
 - `src/db`: PostgreSQL and in-memory stores behind one interface;
   `src/blobs.ts`: S3, disk and memory save stores.

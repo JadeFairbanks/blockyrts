@@ -78,12 +78,12 @@ const WORKER: Lines = {
   repair: ['Who keeps breaking these?', 'Good as new. Ish.', 'A nail here, a nail there, and a prayer.'],
   dig: ['Dig a hole, they said. It\'ll be fun, they said.', 'Found a rock. Under another rock.', 'I think I hit the bottom of the world.'],
   prospect: ['I can smell ore. Or that\'s my boots.', 'This rock looks rich. Or shiny. Or both.'],
-  hunt: ['Here, deer deer deer.', 'Quiet. I\'m being very sneaky.'],
-  eat: ['Best part of the day.', 'Who cooked this? I have questions.'],
+  hunt: ['Here, deer deer deer.', 'Quiet. I\'m being very sneaky.', 'If it runs, I didn\'t want it anyway.'],
+  eat: ['Best part of the day. Second best is the nap after.', 'Who cooked this? I have questions.'],
   idle: ['Standing very still is also a skill.', 'Is it a break if nobody told me to stop?', 'Waiting for orders. Any minute now.'],
   crowd: ['Bit crowded. Somebody\'s elbow is in my ear.', 'Form an orderly queue, please.', 'Too many cooks round here.'],
   alone: ['Just me and the birds, then.', 'Quiet out here. Too quiet. Nice, though.', 'If I sing, nobody can complain.'],
-  night: ['The dark has noises in it.', 'Who\'s on torch duty? Not me, I hope.', 'Night work. The stars aren\'t paying me either.'],
+  night: ['The dark is making noises again. Rude.', 'Who\'s on torch duty? Not me, I hope.', 'Night work. The stars aren\'t paying me either.'],
   dusk: ['Sun\'s going down. Time to walk faster.', 'Dusk already? I\'d barely got started.'],
   dawn: ['Made it through another night. Breakfast?', 'Morning! Everyone still got all their fingers?'],
   day: ['Lovely day for carrying heavy things.', 'Not a cloud in the sky. Suspicious.', 'Sun on my back, work in my hands. Could be worse.'],
@@ -94,18 +94,18 @@ const WORKER: Lines = {
 const TROOP: Lines = {
   monster: ['I\'ve got dibs on the {m}.', 'Hold the line. The {m} looks bigger up close.', 'Steady. The {m} is more scared of us. Probably.'],
   animal: ['That {a} would make a fine supper.', 'At ease, {a}. You\'re not on the list.'],
-  building: ['Guarding the {b}. It\'s not going anywhere.', 'Nobody touches the {b} on my watch.'],
-  inside: ['Snug in here. I could get used to this.', 'Who\'s been sharpening blades indoors?'],
-  carrying: ['Plunder! Well, {r}. Still counts.'],
-  attack: ['For the town!', 'Finally, some exercise.'],
+  building: ['Guarding the {b}. It\'s not going anywhere.', 'Nobody touches the {b} on my watch. Except the builders. And the rats.'],
+  inside: ['Snug in here. Wake me if anything explodes.', 'Who left a sword on my pillow? Again?'],
+  carrying: ['Plunder! Well, {r}. Still counts.', 'I\'m a soldier, not a cart. Fine. Carrying the {r}.'],
+  attack: ['For the town! And second breakfast!', 'Finally, some exercise.'],
   move: ['Left, right, left... which one was I on?', 'Marching again. My boots have opinions.'],
   idle: ['Polished my armour. Twice.', 'Ready when you are. Quite ready. Very ready.', 'Is standing guard a promotion?'],
   crowd: ['Nice formation. Mostly.', 'Whoever has the onions, step back.'],
   alone: ['A lone guard is a bored guard.', 'Just me and my spear. Good listener, my spear.'],
-  night: ['Eyes on the dark, all of you.', 'Something moved. Or I need sleep.'],
-  dusk: ['Light the torches. Here they come soon.', 'Sun\'s going. Time to earn our supper.'],
-  dawn: ['Still breathing. Good night\'s work.', 'Dawn. The monsters can sleep it off.'],
-  day: ['Quiet day. I don\'t trust it.', 'Fine weather for drills.'],
+  night: ['Eyes on the dark. No, the other dark.', 'Something moved. Or I need sleep.'],
+  dusk: ['Light the torches. Monsters hate a well-lit town.', 'Sun\'s going. Somebody hold my lunch.'],
+  dawn: ['Still breathing. I\'ll take it.', 'Dawn. Look at them run. Cowards.'],
+  day: ['Quiet day. I don\'t trust it.', 'Fine weather for drills. Shame about the drills.'],
   hurt: ['Still standing. Barely, but standing.', 'Someone fetch a mage. A gentle one.'],
   hungry: ['An army marches on its stomach, and mine is empty.', 'Rations, please. Before I eat my belt.'],
 };
@@ -117,8 +117,11 @@ const CAVALRY: Lines = {
 };
 
 const CREW: Lines = {
-  monster: ['Load, aim, pray. Mostly pray.', 'Point it at the {m}. No, the other way.'],
-  idle: ['Ears still ringing. What? What?', 'Gun\'s clean. Mostly.'],
+  monster: ['Load, aim, pray. Mostly pray.', 'Point it at the {m}. No, the other way.', 'Hold still, {m}. This only hurts a lot.'],
+  idle: ['Ears still ringing. What? What?', 'Gun\'s clean. Mostly.', 'I named the gun. The gun doesn\'t know.'],
+  alone: ['Just me and the gun. It does all the talking.'],
+  dusk: ['Light the fuses. Not yet! Not yet.'],
+  dawn: ['We made it. My eyebrows did not.'],
   night: ['Can\'t aim in the dark. Can still shoot, though.'],
   day: ['Nice day to make loud noises.'],
   crowd: ['Mind the barrel, it bites.'],
@@ -127,25 +130,26 @@ const CREW: Lines = {
 };
 
 const MAGE: Lines = {
-  monster: ['Stay behind me. I\'ve read about {m}s.', 'The {m} reeks of bad magic. And worse breath.'],
+  monster: ['Stay behind me. I once read a pamphlet about this.', 'The {m} reeks of bad magic. And worse breath.'],
   animal: ['The {a} has a lovely aura. Mostly fleas.'],
-  building: ['The air hums near the {b}.', 'This {b} has good bones. Magically speaking.'],
-  inside: ['Books, a candle and a roof. Bliss.'],
-  idle: ['Mana is gathering. Patience.', 'Do not touch the robe.', 'I could turn you into a newt. I won\'t. Today.'],
+  building: ['The {b} hums. Or someone left a kettle on.', 'This {b} has good bones. Magically speaking.'],
+  inside: ['Books, a candle and a roof. Bliss.', 'Don\'t touch that jar. Or that one. Touch nothing.'],
+  idle: ['Mana is gathering. Like moss. Slowly.', 'Do not touch the robe.', 'I could turn you into a newt. I won\'t. Today.'],
   crowd: ['Personal space, please. Spells need elbow room.'],
   alone: ['Peace and quiet at last. Perfect for brooding.'],
-  night: ['The stars hum tonight.', 'Night magic. Spookier, but the same.'],
+  night: ['The stars are out. Show-offs.', 'Night magic. Same spells, more dramatic lighting.'],
+  dusk: ['Dusk. The best light for looking mysterious.'],
   dawn: ['The dawn tingles. Or that\'s the cold.'],
   day: ['Sunlight is bad for the complexion. Good for the mana.'],
   lowMana: ['Running low on mana. Don\'t tell anyone.', 'Out of sparkles. Give me a minute.'],
   hurt: ['A healer would be nice. Oh. That\'s me.'],
-  hungry: ['Can\'t focus on an empty stomach.'],
+  hungry: ['Can\'t focus on an empty stomach. I nearly turned a rock into a sandwich.'],
 };
 
 /** The peoples remark on these besides their own lines. */
 const PEOPLE: Lines = {
-  monster: ['Look out! {A m}!', 'That {m} is too close for my liking.'],
-  night: ['Dark already. Stay near the fire.'],
+  monster: ['Look out! {A m}!', 'That {m} is close enough to smell. I wish it wasn\'t.'],
+  night: ['Dark already. Last one to the fire is monster food.'],
 };
 
 /** How much each kind of remark weighs: what is round them most, the complaints least (Jade). */
@@ -162,13 +166,14 @@ function linesFor(voice: string): Lines {
   return PEOPLE;
 }
 
-/** "a zombie", "an ash golem". */
+/** "a zombie", "an ash golem"; a name ("Morvath") stands alone. */
 function article(word: string): string {
+  if (/^[A-Z]/.test(word)) return word;
   return /^[aeiou]/.test(word) ? `an ${word}` : `a ${word}`;
 }
 
 function fill(line: string, s: RemarkScene): string {
-  return line
+  return (/^[A-Z]/.test(s.monster) ? line.replace(/\b[Tt]he \{m\}/, '{m}') : line)
     .replace('{A m}', capital(article(s.monster)))
     .replace('{a m}', article(s.monster))
     .replace('{m}', s.monster)

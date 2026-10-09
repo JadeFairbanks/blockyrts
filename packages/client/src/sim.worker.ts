@@ -103,7 +103,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { barnOf, cloaked, crewOf, haulerOf, isCrystalGuardian, isWoodsman, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
+import { barnOf, cloaked, crewOf, haulerOf, isCrystalGuardian, isWoodsman, keeperRuns, keeperWarns, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
@@ -235,6 +235,8 @@ function postState(s: SimState): void {
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
     if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
     if (isCrystalGuardian(s, i)) flags |= UnitFlag.Guardian;
+    if (keeperRuns(s, i)) flags |= UnitFlag.Running;
+    if (keeperWarns(s, i)) flags |= UnitFlag.Warns;
     // A Barn's hand (Patch 5): he wears the farmer's hat while he is one (Jade's GP-37).
     if (e.kind[i] === UnitKind.Worker && barnOf(s, i)) flags |= UnitFlag.BarnHand;
     data[o + S.flags] = flags;

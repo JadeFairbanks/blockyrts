@@ -563,6 +563,24 @@ export function propCubes(p: PropLike, out: number[]): void {
     case PropKind.FishCatfish:
       // A fishing stretch: no cubes since Patch 5 (FR-1); its live fish swim in the water (world/fish-view.ts).
       return;
+    case PropKind.SilverNugget: {
+      // Jade's Patch 5 (MB-11): a few small silver nuggets on a guarded bog's ground.
+      for (let t = r.int(1, 3); t > 0; t--) {
+        const w = r.range(0.06, 0.11);
+        cube(r.range(-0.15, 0.15), 0, r.range(-0.15, 0.15), w, w * r.range(0.5, 0.8), w * r.range(0.8, 1.2), shade(0xd6dae2, r.range(0.9, 1.12)));
+      }
+      return;
+    }
+    case PropKind.LargeManaCrystal: {
+      // Jade's Patch 5 (MF-2, MF-4): a Fae Guardian's large mana crystal node, a tall cluster on a rock (s).
+      cube(0, 0, 0, 1.4, 0.35, 1.2, shade(0x86888a, r.range(0.9, 1.05)));
+      cube(0, 0.35, 0, 0.42, 2.6, 0.42, shade(0x5ad8e8, 1.1));
+      for (let t = r.int(5, 8); t > 0; t--) {
+        const w = r.range(0.2, 0.36);
+        cube(r.range(-0.55, 0.55), 0.3, r.range(-0.45, 0.45), w, r.range(0.8, 2), w, shade(0x5ad8e8, r.range(0.8, 1.15)));
+      }
+      return;
+    }
     case PropKind.SurfaceGem:
     case PropKind.ManaCrystal: {
       const colour = p.kind === PropKind.ManaCrystal ? 0x5ad8e8 : 0xc03a6a;

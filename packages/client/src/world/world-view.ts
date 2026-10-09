@@ -43,6 +43,8 @@ import {
   engineSpec,
   mountSpec,
   Mount,
+  Mob,
+  STEPS_PER_SECOND,
   IDOL_AREA_M,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
@@ -75,6 +77,8 @@ import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
 import { cycleSeconds, newSkyMoment, SKY_MID_DAY, skyAt } from './sky-light.ts';
 import { FogDrift } from './fog-drift.ts';
 
+/** How long a Bog guardian's warning shows in each player's tooltip, seconds of it being up (Jade's MB-12: "stops showing after 10 seconds for each player for each Bog guardian"). */
+const KEEPER_WARNING_S = 10;
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
 const FULL_DETAIL_RING = 2;
 const HALF_DETAIL_RING = 4;
@@ -281,6 +285,8 @@ export class WorldView {
   private hoverList: readonly Selectable[] = [];
   private readonly hoverKeys = new Set<string>();
   private readonly hoverUnits = new Set<number>();
+  /** Steps this player's tooltip has been on each Bog guardian (Jade's MB-12: his warning shows for 10 s), by entity id. */
+  private readonly warnedSteps = new Map<number, number>();
   private readonly hoverBuildings = new Set<number>();
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
@@ -439,6 +445,19 @@ export class WorldView {
     };
   }
 
+  /**
+   * A keeper's warning in its tooltip (Jade's Patch 5): the Bog guardian's
+   * for the first 10 s this player's tooltip is on each of them (MB-12), the
+   * Fae Guardian's until she has been riled (MF-12: the sim stops her Warns).
+   */
+  private keeperWarning(id: number, mob: number, stepGap: number): string | null {
+    if (mob !== Mob.BogGuardian) return mob === Mob.FaeGuardian || mob === Mob.FaeGuardianAloft ? 'Guards a mana crystal - thieves beware!' : null;
+    const shown = this.warnedSteps.get(id) ?? 0;
+    if (shown >= KEEPER_WARNING_S * STEPS_PER_SECOND) return null;
+    if (this.hoverUnits.has(id)) this.warnedSteps.set(id, shown + stepGap);
+    return 'Guards this bog - vagabonds beware!';
+  }
+
   /** The model library (opened by main.ts before the match starts); models swap in as they load. */
   setModels(lib: ModelLibrary): void {
     this.models = lib;
@@ -494,6 +513,7 @@ export class WorldView {
     this.prev = this.curr;
     this.curr = msg;
     this.currAt = performance.now();
+    const stepGap = Math.max(0, msg.step - this.simStep);
     this.simStep = msg.step;
     const d = msg.data;
     this.units.length = msg.count;
@@ -588,7 +608,8 @@ export class WorldView {
         u.typeKey = `mob:${spec.id}`;
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
-        u.details = guardian ? [`${spec.name}. It keeps to its crystal and never comes back once killed.`, health] : [health];
+        const warning = (d[o + S.flags]! & UnitFlag.Warns) !== 0 ? this.keeperWarning(id, spec.id, stepGap) : null;
+        u.details = guardian ? [`${spec.name}. It keeps to its crystal and never comes back once killed.`, health] : warning ? [warning, health] : [health];
       } else if (kind === UnitKind.Engine) {
         const spec = engineSpec(d[o + S.mob]!);
         u.label = spec.name;

@@ -148,7 +148,8 @@ export function hitSound(look: HitLook, who: Who | null, arrow: boolean): string
     case 'summon':
       return 'spell_cast';
     case 'violet':
-      // Morvath's staff bursting violet where it lands.
+    case 'fairy':
+      // Morvath's staff bursting violet where it lands, and the Fae Guardian's bolt bursting.
       return 'explosion_small';
     case 'shot':
       return shotSound(who);

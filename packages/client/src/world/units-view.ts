@@ -23,6 +23,9 @@
 // clips and drains the life round him in white motes, his staff's blow
 // bursts violet, the necromancer flies his crimson bolt and raises his dead
 // in crimson, and a mana crystal's guardians pulse with thin blue light.
+// The keepers: the Bog guardian roars, runs and looks alarmed with his own
+// clips, and the Fae Guardian's bolt bursts pink-magenta over its 2 m while
+// she sways up and down in her wrath.
 import * as THREE from 'three';
 import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
@@ -296,12 +299,21 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
   summon: { colour: 0x8a1030, n: 30, speed: 1.4, up: 2.6 },
   // Patch 5 (FR-1): the splash where a woodsman's fish comes up out of the water (world/fish-view.ts draws the fish).
   catch: { colour: 0xcfe6f2, n: 7, speed: 1.2, up: 2 },
+  // The Fae Guardian's bolt bursting (Jade's MF-7, decisions 2.2): its own pink-magenta at the middle (onHits spreads it over the 2 m).
+  fairy: { colour: 0xeb3dda, n: 30, speed: 3.2, up: 2.6 },
 };
+
+/** The Fae Guardian's bolt (Jade's MF-7, decisions 2.2): a big burst of her bolt's pink-magenta over the 2 m it splashes, and motes in its wake. */
+const FAIRY_BURST = { colours: [0xeb3dda, 0xff64f6, 0xd237c3], n: 70, radiusM: 2, trailPerSecond: 40 };
+/** The Fae Guardian in her wrath (MF-3): rising and falling smoothly but erratically, metres either way. */
+const FAE_WRATH_SWAY_M = 1.6;
 
 /** Morvath's staff burst (Jade's Patch 5): vivid purple motes over its 1 m round where the blow lands. */
 const VIOLET = { colour: 0xa030ff, n: 40, radiusM: 1 };
 /** Life drained into Morvath: white motes streaming to him (the sim sends one for every 2 health). */
 const DRAIN_COLOUR = 0xf4f4ff;
+/** The most motes one drain streams: 300 health's worth, so a late-night blow keeps Jade's one for every 2 health. */
+const DRAIN_MOTES_MAX = 150;
 /** A mana crystal's guardian (Jade's Patch 5, MB-13): thin blue light rising round it, pulsing, motes a second at the peak and the pulse's length, s. */
 const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 
@@ -345,6 +357,8 @@ const SHOT_LOOKS: ReadonlyArray<{ len: number; w: number; colour: number }> = [
   { len: 0.5, w: 0.2, colour: 0xc0102a },
   // Patch 5: a support mage's Energy dart, pale gold light (spell-fx.ts draws it once its model is in).
   { len: 0.3, w: 0.05, colour: 0xfff0b0 },
+  // The Fae Guardian's bolt (Jade's Patch 5), until its model is in the library.
+  { len: 0.5, w: 0.2, colour: 0xeb3dda },
 ];
 
 /** Shots drawn with their catalogue model once it is listed: the spells' own, and every other shot's (Patch 5); the gunpowder ones trail a streak too. */
@@ -354,8 +368,8 @@ const SHOT_MODELS: Record<number, string> = {
   [Shot.Fireball]: SPELLS[Spell.Fireball]!.model,
   [Shot.Thorn]: SPELLS[Spell.ThornVolley]!.model,
 };
-/** Shot models made pointing down -Z (Jade's crimson bolt): turned about to fly head first. */
-const SHOT_MODELS_BACKWARD: ReadonlySet<number> = new Set([Shot.NecroBolt]);
+/** Shot models made pointing down -Z (Jade's crimson bolt and fairy bolt): turned about to fly head first. */
+const SHOT_MODELS_BACKWARD: ReadonlySet<number> = new Set([Shot.NecroBolt, Shot.FairyBolt]);
 /** After his change, Morvath's wings stay spread this long, ms: the rest of the 5 s his wings drain (sim LATE.wings) after the 3.4 s change. */
 const MORVATH_WINGS_MS = 1600;
 const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
@@ -1114,9 +1128,20 @@ export class UnitsView {
       }
       if (h.look === 'drain' && h.to !== undefined) {
         const to = this.morvathAt.get(h.to);
-        if (to) this.particles.stream(x, y, z, to.x, to.y, to.z, DRAIN_COLOUR, Math.min(60, h.n ?? 1));
+        if (to) this.particles.stream(x, y, z, to.x, to.y, to.z, DRAIN_COLOUR, Math.min(DRAIN_MOTES_MAX, h.n ?? 1));
       }
       if (h.look === 'summon') this.hold(h.id, 'summon', now);
+      // Jade's Patch 5 keepers (MB-11): the Bog guardian roars before he runs, and looks alarmed when his bog is disturbed.
+      if (h.look === 'roar') this.hold(h.id, 'roar', now);
+      if (h.look === 'alarm') this.hold(h.id, 'alarmed', now);
+      if (h.look === 'fairy') {
+        for (let k = 0; k < FAIRY_BURST.n; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const r = Math.sqrt(Math.random()) * FAIRY_BURST.radiusM;
+          this.particles.spawn(x + Math.cos(a) * r, y + 0.15, z + Math.sin(a) * r, FAIRY_BURST.colours[k % FAIRY_BURST.colours.length]!, 1, 0.9, 2.2);
+        }
+        this.sparks.spawn(x, y + 0.3, z, 0xff64f6, 30, 5, 3, 0.3);
+      }
       if (h.look === 'spell' && this.forms.has(h.id)) this.hold(h.id, 'cast_spell', now);
       // Patch 5 (MB-6): a cannonball's blast throws up dirt and smoke too; a wall breaker's leaves smoke rising (BL-7).
       if (h.look === 'blast' || h.look === 'bomb') {
@@ -1229,6 +1254,8 @@ export class UnitsView {
         if (spec.tint === 'rift' && Math.random() < dt * 5) this.particles.spawn(x, y + spec.height / WU_PER_METRE, z, 0xb040ff, 1, 0.6, 1.2);
         if (mob === Mob.Morvath || mob === Mob.MorvathAloft) this.noteMorvath(id, mob, x, y + spec.height / WU_PER_METRE / 2, z, now);
         if (flags & UnitFlag.Guardian) this.guardianGlow(x, y, z, spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE, t, dt);
+        // The Fae Guardian in her wrath rises and falls, smoothly but erratically (MF-3): drawn only, the sim keeps her height.
+        const sway = mob === Mob.FaeGuardianAloft ? FAE_WRATH_SWAY_M * (0.55 * Math.sin(t * 1.3 + id) + 0.3 * Math.sin(t * 2.9 + id * 1.7) + 0.15 * Math.sin(t * 5.3 + id * 0.3)) : 0;
         const pool = this.body(structureModel(spec.model, id));
         if (pool) {
           // With the weapons and gear it is made with (Patch 5: they were all hidden before).
@@ -1236,7 +1263,7 @@ export class UnitsView {
           const kept = this.heldClip(id, pool.model, now);
           const clip = kept ? kept[0] : mob === Mob.MorvathAloft ? aloftClip(pool.model, d, o) : mobClip(pool.model, d, o);
           if (slot) {
-            slot.m.setInstance(slot.i, x, y, z, heading, clip, kept ? kept[1] : clipT, null, mobScale(spec.model, spec.height));
+            slot.m.setInstance(slot.i, x, y + sway, z, heading, clip, kept ? kept[1] : clipT, null, mobScale(spec.model, spec.height));
             // A wall breaker's fuse fizzes with tiny sparks, from the fuse on its bomb (Patch 5, Jade's BL-7).
             const fuse = spec.model === 'skeleton_bomber' && Math.random() < dt * 14 ? pool.bone('slot_fuse') : -1;
             if (fuse >= 0) {
@@ -1433,7 +1460,7 @@ export class UnitsView {
     this.loads.count = loads;
     this.loads.instanceMatrix.needsUpdate = true;
     if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
-    this.drawShots(f, prev ? alpha : 1);
+    this.drawShots(f, prev ? alpha : 1, dt);
     this.drawBeams(f);
     this.particles.update(dt);
     this.spellFx.end(this.where);
@@ -1607,7 +1634,7 @@ export class UnitsView {
     return blocks;
   }
 
-  private drawShots(f: UnitsFrame, alpha: number): void {
+  private drawShots(f: UnitsFrame, alpha: number, dt: number): void {
     const s = f.curr.shots;
     const n = Math.min(MAX_SHOTS, Math.floor(s.length / SHOT_STRIDE));
     const dummy = this.dummy;
@@ -1633,6 +1660,7 @@ export class UnitsView {
       const z = z0 + (z1 - z0) * alpha;
       if (!f.seen(x, z)) continue;
       const look = SHOT_LOOKS[s[o + 6]!] ?? SHOT_LOOKS[0]!;
+      if (s[o + 6] === Shot.FairyBolt && Math.random() < dt * FAIRY_BURST.trailPerSecond) this.particles.spawn(x, y, z, FAIRY_BURST.colours[0]!, 1, 0.3, 0.4);
       dummy.position.set(x, y, z);
       dir.set(x1 - x0, y1 - y0, z1 - z0);
       if (dir.lengthSq() > 1e-9) dummy.quaternion.setFromUnitVectors(Z_AXIS, dir.normalize());
@@ -1750,6 +1778,8 @@ function mobClip(model: ModelData, d: Int32Array, o: number): string {
   if ((moves === Moves.LowFlyer || moves === Moves.HighFlyer) && has('fly')) return 'fly';
   // A goblin wolf rider's model rides (charge, ride, ride_idle) where others walk.
   if (flags & UnitFlag.Charging && has('charge')) return 'charge';
+  // Running away, or a keeper running (Jade's Patch 5: the Bog guardian once wronged, the Fae Guardian riled, who runs even as she hovers).
+  if (flags & UnitFlag.Running && has('run') && (moving || moves === Moves.LowFlyer || moves === Moves.HighFlyer)) return 'run';
   if (moving) return flags & UnitFlag.Fleeing && has('run') ? 'run' : firstClip(model.clips, ['walk', 'ride']);
   return firstClip(model.clips, ['idle', 'ride_idle']);
 }

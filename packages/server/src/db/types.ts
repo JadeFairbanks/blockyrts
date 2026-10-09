@@ -53,6 +53,13 @@ export interface SaveRow {
   createdAt: Date;
 }
 
+/** An email to every account (Patch 5): where one named message stands for one account. */
+export interface MailRecord {
+  accountId: string;
+  /** 'sending' is left behind when a run stops part-way: the message may have gone, so it is never sent again. */
+  state: 'sending' | 'sent';
+}
+
 /** Thrown by createAccount when the email or username is already taken. */
 export class DuplicateError extends Error {
   readonly field: 'email' | 'username';
@@ -70,6 +77,15 @@ export interface Database {
   /** Case-insensitive match on email or username. */
   findAccountByLogin(login: string): Promise<AccountRow | null>;
   setPasswordHash(accountId: string, hash: string): Promise<void>;
+  /** Every account, oldest first (an email to every account, Patch 5). */
+  listAccounts(): Promise<AccountRow[]>;
+
+  /** The accounts a named message was sent, or was being sent, to. */
+  mailRecords(name: string): Promise<MailRecord[]>;
+  /** Marks a named message as being sent to an account; false if it already was or has been. Atomic. */
+  claimMail(name: string, accountId: string, now: Date): Promise<boolean>;
+  /** After claimMail: sent marks it sent; not sent removes the mark, so a later run tries again. */
+  settleMail(name: string, accountId: string, sent: boolean, now: Date): Promise<void>;
 
   createSession(row: SessionRow): Promise<void>;
   /** The session if it exists and has not expired at `now`. */

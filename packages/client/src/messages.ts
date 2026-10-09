@@ -151,9 +151,10 @@ export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 
  * though it is inside; Climbing: a monster on a wall or one of the players'
  * units on a face; Running: moving at its run; RunMode: its Run/Walk button
  * is on Run; Guardian: a mana crystal's guardian, Jade's Patch 5; BarnHand: a worker who
- * is a Barn's barn hand).
+ * is a Barn's barn hand; Warns: a keeper whose tooltip still warns, Jade's Patch 5 MB-12
+ * and MF-12. A keeper that runs carries Running too).
  */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, Guardian: 65536, BarnHand: 131072 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, Guardian: 65536, BarnHand: 131072, Warns: 262144 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
