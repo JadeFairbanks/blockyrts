@@ -27,12 +27,41 @@ const TREE_SPECIES: Readonly<Record<number, { species: string; seed: 'seed_softw
 };
 
 /**
+ * Models Jade's Patch 5 asks for that the catalogue does not have yet (WL-4,
+ * WL-5, WL-7, WL-10, WL-11, GP-30, GP-31): they come from the Blockbench
+ * session on her PC, and props-gen.ts draws these props until they do. An
+ * id leaves this list when its model lands.
+ */
+export const PENDING_PROP_MODELS: ReadonlySet<string> = new Set([
+  'bush_blackberry',
+  'bush_raspberry',
+  'bush_blueberry',
+  'mushroom_edible',
+  'flax_wild_2',
+  'flax_wild_3',
+  'flax_tall',
+  'coal_rock',
+  'ore_node_silver',
+  'ore_node_gold',
+  'boulder_large',
+  'hot_spring',
+]);
+
+/** A berry bush's model: picked, its `picked` set (the bush with no berries). */
+const BERRY_BUSH: Readonly<Record<number, string>> = {
+  [PropKind.BlackBerryBush]: 'bush_blackberry',
+  [PropKind.RaspberryBush]: 'bush_raspberry',
+  [PropKind.BlueberryBush]: 'bush_blueberry',
+};
+
+/**
  * The model and scale for a plant at a growth stage, or null for props this
  * table does not cover (rocks and the rest wait for the wiring pass too).
  * Trees: the seed, then the species' sapling, then the grown tree at each
  * stage's size. Hazel: the bush's `regrown` shoots, small as a sapling and
  * full-size as a young bush, then the whole bush (its `cut` stub is what
  * Jade asked not to see). Herbs and flax: the `picked` look while sprouting.
+ * Berry bushes: their `picked` look until the berries grow back.
  */
 export function propModel(kind: number, stage: number): PropModel | null {
   const row = stageInfo(kind, stage);
@@ -56,6 +85,14 @@ export function propModel(kind: number, stage: number): PropModel | null {
       return stage === Stage.Sapling ? { id: 'herb_patch@picked', scale: 1 } : { id: 'herb_patch', scale: size };
     case PropKind.WildFlax:
       return stage === Stage.Sapling ? { id: 'flax_wild@picked', scale: 1 } : { id: 'flax_wild', scale: size };
+    case PropKind.FlaxTall:
+      return stage === Stage.Sapling ? { id: 'flax_tall@picked', scale: 1 } : { id: 'flax_tall', scale: size };
+    case PropKind.BlackBerryBush:
+    case PropKind.RaspberryBush:
+    case PropKind.BlueberryBush: {
+      const id = BERRY_BUSH[kind]!;
+      return stage === Stage.Young ? { id: `${id}@picked`, scale: 1 } : { id, scale: 1 };
+    }
     default:
       return null;
   }

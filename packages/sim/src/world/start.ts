@@ -341,6 +341,8 @@ export class StartBasin {
       this.pockets.push({ player: p, x: st.x, z: st.z, outward: st.outward, yard: st.yard, water, bog, iron: { x: st.x, z: st.z } });
       this.pockets[p]!.iron = this.ironTry(p, water, 0).value;
     }
+    // Jade's Patch 5 (WL-8): the bands are measured from the main bases, which stand at the pockets' middles.
+    layout.setBandAnchors(this.pockets);
     // Table 9 (s): one Halfling village per basin cell, each in its own pocket at least 120 m from every player
     // pocket. The basin is too small to hold them beside the player pockets, so they sit in the first ring. The
     // mini patch brings the rings 30% closer, so the 120 m comes 30% closer with them (84 m), which keeps the

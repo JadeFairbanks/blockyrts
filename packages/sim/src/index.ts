@@ -113,3 +113,4 @@ export * from './threats/boss.ts';
 export * from './threats/bright.ts';
 export * from './threats/necromancer.ts';
 export * from './threats/guardians.ts';
+export * from './threats/springs.ts';

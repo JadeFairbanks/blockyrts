@@ -26,6 +26,7 @@ import { installFoes } from './threats/foes.ts';
 import { onFoeHurt, threatsAtPeriod, updateThreats } from './threats/update.ts';
 import { checkCell } from './threats/villages.ts';
 import { updateSeen } from './threats/lairs.ts';
+import { guardSpring, updateSprings } from './threats/springs.ts';
 import { updateMagic } from './magic/cast.ts';
 import { refillMages } from './magic/mages.ts';
 import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
@@ -53,6 +54,7 @@ installCrewHooks(crewHooks);
 installFoes();
 installLateMobs();
 mountHooks.rearRider = rearRider;
+stockHooks.chunk = guardSpring;
 stockHooks.cell = (state, cellId) => {
   checkCell(state, cellId);
   // Runkin who left a camp settle in the cell they went to; else the cell may hold one of the peoples.
@@ -184,6 +186,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateProjectiles(state);
   updateSun(state);
   updateThreats(state);
+  updateSprings(state);
   updatePeoples(state);
   updateMagic(state);
   refillMages(state);

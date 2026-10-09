@@ -180,6 +180,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/bright.ts': 'mobs',
   'threats/necromancer.ts': 'mobs',
   'threats/guardians.ts': 'mobs',
+  'threats/springs.ts': 'lairs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
