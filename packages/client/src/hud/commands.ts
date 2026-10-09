@@ -1309,6 +1309,12 @@ export class Commands {
     if (s.target === 'point') {
       // Patch 5 (MB-25): cast on a unit, it lands where that unit is when it goes off; cast on the ground, on the spot.
       const on = item && item.kind === 'unit' && item.typeKey !== 'wanderer' && !this.ruin(item) ? entityIdOf(item.key) : null;
+      // On one of the peoples at peace it asks first, as Attack does.
+      const peace = on !== null && s.effect === 'blast' ? this.peopleAtPeace(item!) : null;
+      if (peace !== null) {
+        this.d.confirmWar(peace, () => send(on!, item!.centre));
+        return true;
+      }
       if (on !== null) return send(on, item!.centre);
       const at = ground ?? item?.centre ?? null;
       if (at) return send(0, at);

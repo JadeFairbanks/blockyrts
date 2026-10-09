@@ -292,6 +292,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'id', 'kind', 'live', 'comesWith', 'menu', 'slot', 'craftSlot', 'w', 'd', 'solid', 'variants', 'turns', 'product', 'key', 'colour',
   'defence', 'dropoff', 'site', 'raw', 'shape', 'trainsWorkers', 'heavy', 'oneHanded', 'tip', 'BUILDINGS:slot', 'BUILDINGS:group', 'crafts',
   'SPELLS:school', 'SPELLS:projectile', 'MAGE_RANKS:rank', 'MAGE_RANK_TRAINING:rank', 'PEOPLE_UNITS:people',
+  // Patch 5: the shot a spell flies as (a row of SHOTS) is a link, not a number.
+  'SPELLS:shot',
   // The peoples' gear is fixed rows of the gear catalogue (Troops and gear), not numbers to tune here.
   'PEOPLE_UNITS:weapon', 'PEOPLE_UNITS:ranged', 'PEOPLE_UNITS:armour', 'PEOPLE_UNITS:shield',
   // A kit row's tier is its place in the table, and its material tier follows from it (a shield's from the armour it comes with).
