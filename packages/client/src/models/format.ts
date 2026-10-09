@@ -5,7 +5,8 @@ export type Vec3 = [number, number, number];
 
 export interface ModelIndex {
   version: 1;
-  models: { id: string; category: string; glb: string; json: string }[];
+  /** lazy: loaded only once the game asks for it (request or ready), never in the background. */
+  models: { id: string; category: string; glb: string; json: string; lazy?: true }[];
 }
 
 export interface SidecarBone {

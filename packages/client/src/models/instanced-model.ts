@@ -132,6 +132,24 @@ function srgbToLinear(c: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
+/**
+ * Patches a material for a THREE.InstancedMesh whose geometry has a vec4
+ * instanced `team` attribute (rgb: the team colour, linear; a: 1 to recolour)
+ * to take the team colour where its texture has the key, as InstancedModel
+ * does: the items hung on units (Patch 5, world/units-view.ts).
+ */
+export function useTeamKey(material: THREE.MeshLambertMaterial): void {
+  const key = TEAM_KEY_RGB.map((c) => srgbToLinear(c / 255));
+  const keyLuma = 0.2126 * (key[0] ?? 0) + 0.7152 * (key[1] ?? 0) + 0.0722 * (key[2] ?? 0);
+  const [kr, kg, kb] = TEAM_KEY_RGB;
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, { teamKeyChroma_bf: { value: new THREE.Vector2(kr / kb, kg / kb) }, teamKeyLuma_bf: { value: keyLuma } });
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 team;\nvarying vec4 team_bf;').replace('void main() {', 'void main() {\n  team_bf = team;');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', FRAGMENT_PARS).replace('#include <map_fragment>', FRAGMENT_TEAM);
+  };
+  material.customProgramCacheKey = () => `${SHADER_KEY}-team-items`;
+}
+
 interface SharedUniforms {
   boneTexture_bf: THREE.IUniform<THREE.DataTexture>;
   boneCount_bf: THREE.IUniform<number>;
