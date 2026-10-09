@@ -3478,6 +3478,65 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
 12. **Engines on your own.** Select an engine, Attack, and click one of your
     own units: it fires at it.
 
+## How a tester checks Patch 5's trade, mercenaries and carts
+
+*Jade's Patch 5, section 21: trade within 10 m of any of a people's
+buildings, a day of trade per settlement shared by every player, typed
+amounts, no earth, cheap stone (GP-46, BL-3); gold and silver welcome
+everywhere and mercenaries hired for good, with gold too (BL-4); diamonds,
+bluestone and Moon Roses (decisions 2.5); the To send list (UI-15); carts
+worth using (BL-12); and trade menus that keep their × and never squeeze
+their lists (decisions 2.16). Picks in blueprint/patch5-peoples-picks.md.
+The numbers are rows in `packages/sim/src/peoples/data.ts`
+(`DAILY_TRADE_TENTHS`, `GOOD_PAY_PCT`, `HIRE_SILVER`, `TRADE_RANGE_WU`).*
+
+1. **The tests.** `pnpm test`: the sim's m7 tests trade from 10 m of a
+   building, fill and trim a day of trade, price stone, diamonds and
+   silver, and hire mercenaries for silver or gold who stay after dusk;
+   patch4-dig-turn-in fills a 250 lb hand cart.
+2. **Reach.** `pnpm dev`, open http://localhost:5173/?seed=1, type M N B V
+   C X Z and press **People** until a Halfling village stands in view, then
+   **Trade kit**. Right click any of their buildings with nothing selected:
+   the trade menu opens and says "Bring one of your units within 10 m of
+   one of their buildings." Select a warrior and right click the building
+   again: the warrior walks over, and the warning goes once it is within
+   10 m.
+3. **The menu.** The title and its × stay at the top however long the
+   lists are; the body scrolls under them. Every good in They sell today,
+   Your goods and the offer box shows its picture, name and count at full
+   size, and a long list scrolls. On a narrow window the columns stack.
+4. **Typed amounts.** Click a good: it goes into the offer box with a
+   number box. Click the box, type 37 and press Enter: the offer holds 37
+   (no more than you have). **All** puts in all of it, **×** takes it out,
+   **Clear** empties the box.
+5. **A day of trade.** The Their trade left today bar starts full. Offer a
+   lot of gold: the worth bar fills and "More than they will trade today"
+   shows. Make the offer: they trim it to what fits and say so; take a
+   bundle and the bar runs low. A second player trading with them draws
+   on the same bar. At dawn it is full again. A Dwarf city's bar holds
+   the most and a Runkin camp's the least.
+6. **Earth and stone.** Earth in Your goods is greyed ("Nobody takes
+   earth"); offering it anyway gets a line about dirt. Stone is taken at
+   a fifth of its worth.
+7. **Gold, silver and diamonds.** Halflings now take gold and silver (and
+   still refuse gems); Dwarves and Elves pay one and a half times a
+   diamond's worth.
+8. **Mercenaries.** Press **People** until a mercenary camp shows and
+   right click it: the hire box lists 7 silver or 1 gold a head (14 or 2 in
+   the Deepwoods), your silver, gold and supply room, and **Pay in silver**
+   and **Pay in gold**. Hire two: supply goes up by 2, and at dusk they stay
+   with you (no walking home). With no supply room left, the box says so.
+9. **Send resources** (two players). Press ]: pick stone and copper ore,
+   each goes on the To send list with its picture and an amount. Type,
+   +10, +100, All and × change a line. The Send button's tooltip names
+   exactly what goes; pressing it sends the whole list and empties it.
+10. **Carts.** A worker with a hand cart cuts a tree, then walks on to the
+    next tree before going home, until 250 lb are on the cart. Copper,
+    tin, lead and the iron ores weigh 8 lb each, so a miner on foot brings
+    3 at a time and a hand cart 30.
+11. **Saves and checks.** Snapshot version 24 (the faction record keeps one
+    number for the day's trade); check scripts' hashes move with it.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).

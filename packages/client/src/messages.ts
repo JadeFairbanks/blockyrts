@@ -371,14 +371,15 @@ export interface PeopleInfo {
   stock: number[];
   /** What it pays, percent of value, by trade category (-1 refused). */
   wants: number[];
-  /** What it will still buy today, tenths, by category. */
-  room: number[];
+  /** What is left of its day of trade, shared by every player, and the whole day's, tenths (Patch 5, GP-46). */
+  room: number;
+  day: number;
   /** What it pays for each good the local player has (good, percent) pairs, refused -1. */
   pays: number[];
   /** The local player's open offer and its three answers. */
   offer: { goods: number[]; worth: number; bundles: number[][] } | null;
-  /** Mercenary camps: how many are there to hire now and when full, and why none can be hired now ('' when they can). */
-  hire: { left: number; size: number; why: string } | null;
+  /** Mercenary camps: how many are there to hire now and when full, why none can be hired now ('' when they can), and a head's price in silver or in gold. */
+  hire: { left: number; size: number; why: string; silver: number; gold: number } | null;
   /** An Elf caravan come to the local player's main base. */
   visiting: boolean;
 }
