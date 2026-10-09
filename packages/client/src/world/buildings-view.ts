@@ -1,24 +1,34 @@
 // Buildings on screen: each one's look at its level (a catalogue model when
 // the model library has one, else the blocks from building-looks.ts),
 // construction rising with its progress and scaffolding while it is built or
-// upgraded, flames and point lights on lit lights, the placement ghost with
-// its green and red tiles, and the faint ghosts of planned buildings.
+// upgraded, flames and point lights on lit lights, lit windows, chimney smoke
+// and the Big House campfire (building-glow.ts), the placement ghost with its
+// green and red tiles, and the faint ghosts of planned buildings.
 import * as THREE from 'three';
 import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { NOBODY, type Selectable } from '../selection/types.ts';
+import { BuildingGlow } from './building-glow.ts';
 import { makeLook, type Look } from './building-looks.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
 
-/** Point lights for the flames nearest the camera (a fixed number, so shaders never recompile). */
+/** Point lights for the flames and lit windows nearest the camera (a fixed number, so shaders never recompile). */
 const POINT_LIGHTS = 6;
 const MAX_TILES = 4096;
 const MAX_MODEL_INSTANCES = 64;
 const GREEN = new THREE.Color(0x3ee05a);
 const RED = new THREE.Color(0xe0402a);
+
+/** Something that may take a point light: where, its reach and brightness, and its distance from the focus squared. */
+interface LightSpot {
+  p: THREE.Vector3;
+  r: number;
+  k: number;
+  d: number;
+}
 
 interface Entry {
   sig: string;
@@ -73,6 +83,11 @@ export class BuildingsView {
   private readonly flameGeo = new THREE.BoxGeometry(0.16, 0.26, 0.16).translate(0, 0.13, 0);
   private readonly flameMat = new THREE.MeshBasicMaterial({ color: 0xffa030 });
   private readonly lights: THREE.PointLight[] = [];
+  /** What may take a point light this frame, the first spotCount of them. */
+  private readonly spots: LightSpot[] = [];
+  private spotCount = 0;
+  /** Lit windows, chimney smoke and the Big House campfire. */
+  private readonly glow: BuildingGlow;
   private readonly tiles: THREE.InstancedMesh;
   private readonly ghostMeshes: THREE.Mesh[] = [];
   private ghostSig = '';
@@ -105,6 +120,7 @@ export class BuildingsView {
       scene.add(l);
       this.lights.push(l);
     }
+    this.glow = new BuildingGlow(scene, fow);
     const tileGeo = new THREE.PlaneGeometry(COLUMN_M * 0.9, COLUMN_M * 0.9).rotateX(-Math.PI / 2);
     this.tiles = new THREE.InstancedMesh(tileGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false }), MAX_TILES);
     this.tiles.count = 0;
@@ -155,6 +171,7 @@ export class BuildingsView {
   /** Brings the meshes in line with the latest info; call once a frame. */
   update(info: GameInfo, now: number, focus: THREE.Vector3): void {
     const seen = new Set<number>();
+    this.glow.begin(now, this.darkness, focus);
     for (const b of info.buildings.values()) {
       seen.add(b.id);
       // A field where nothing grows lies bare.
@@ -184,8 +201,10 @@ export class BuildingsView {
         const flicker = 0.85 + 0.25 * Math.sin(now / 90 + b.id * 1.7) * Math.sin(now / 37 + b.id);
         f.scale.set(1, flicker, 1);
       }
+      this.glow.add(b, b.owner === info.player, e.models, e.mesh ? e.look : null, b.x * COLUMN_M, b.z * COLUMN_M, ox, oz, oy);
       this.fillSelectable(e.selectable, b, info);
     }
+    this.glow.end();
     for (const [id, e] of this.entries) {
       if (!seen.has(id)) {
         this.drop(e);
@@ -321,27 +340,49 @@ export class BuildingsView {
     }
   }
 
-  /** The flames nearest the focus get the point lights, brighter in the dark. */
+  /** The flames and lit windows nearest the focus get the point lights, brighter in the dark. */
   private placeLights(info: GameInfo, focus: THREE.Vector3): void {
-    const lit: Array<{ p: THREE.Vector3; r: number; d: number }> = [];
+    this.spotCount = 0;
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
       const light = buildingSpec(b.kind).light;
       if (!e || !light || !b.lit) continue;
-      for (const f of e.flames) lit.push({ p: f.position, r: light.lightM, d: f.position.distanceToSquared(focus) });
+      for (const f of e.flames) this.addSpot(f.position, 0.3, light.lightM * 1.4, 9 * this.darkness, focus);
     }
-    lit.sort((a, b) => a.d - b.d);
+    for (let i = 0; i < this.glow.spotCount; i++) {
+      const g = this.glow.spots[i]!;
+      this.addSpot(g.p, 0, g.r, g.k, focus);
+    }
+    // The nearest first, picked out without sorting.
     for (let i = 0; i < this.lights.length; i++) {
       const l = this.lights[i]!;
-      const s = lit[i];
-      if (!s || this.darkness <= 0.02) {
+      let best: LightSpot | null = null;
+      for (let j = 0; j < this.spotCount; j++) {
+        const s = this.spots[j]!;
+        if (!best || s.d < best.d) best = s;
+      }
+      if (!best || best.d === Infinity || this.darkness <= 0.02) {
         l.intensity = 0;
         continue;
       }
-      l.position.copy(s.p).y += 0.3;
-      l.distance = s.r * 1.4;
-      l.intensity = 9 * this.darkness;
+      best.d = Infinity;
+      l.position.copy(best.p);
+      l.distance = best.r;
+      l.intensity = best.k;
     }
+  }
+
+  private addSpot(p: THREE.Vector3, up: number, r: number, k: number, focus: THREE.Vector3): void {
+    let s = this.spots[this.spotCount];
+    if (!s) {
+      s = { p: new THREE.Vector3(), r: 0, k: 0, d: 0 };
+      this.spots.push(s);
+    }
+    this.spotCount++;
+    s.p.copy(p).y += up;
+    s.r = r;
+    s.k = k;
+    s.d = s.p.distanceToSquared(focus);
   }
 
   /** Every building's selectable, for the selection code. */

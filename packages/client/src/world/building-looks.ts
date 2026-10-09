@@ -2,7 +2,8 @@
 // a few coloured blocks per kind and level, merged into one geometry with
 // vertex colours (one draw call per building). Every main base tier has its
 // own look (Main base: Big House to Citadel), the Farm shows its crop, and
-// lights carry a flame.
+// lights carry a flame. Houses note where their windows are and chimneys
+// where they smoke, for the night glow (building-glow.ts).
 //
 // Local space: origin at the footprint's corner (smallest x and z) on the
 // floor, metres, x east, z south.
@@ -11,12 +12,29 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { BuildingKind, buildingSpec, footprintDims, MAIN_BASE_TIER_LEVELS } from '@blockyrts/sim';
 import { COLUMN_M } from './mesher.ts';
 
+/** Which way a wall faces: north (-Z), south (+Z), west (-X), east (+X). */
+export const Face = { N: 0, S: 1, W: 2, E: 3 } as const;
+
+/** A window: the middle of its pane on the wall's outer face, its width and height, and the way the wall faces. */
+export interface Pane {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  h: number;
+  face: number;
+}
+
 export interface Look {
   geometry: THREE.BufferGeometry;
   /** Height of the tallest part, metres. */
   height: number;
   /** Where flames burn (lights), local metres. */
   flames: THREE.Vector3[];
+  /** Where windows are, local metres (none drawn: they glow at night, building-glow.ts). */
+  windows: Pane[];
+  /** Chimney tops, local metres. */
+  smoke: THREE.Vector3[];
 }
 
 const C = {
@@ -45,6 +63,8 @@ class Parts {
   readonly list: THREE.BufferGeometry[] = [];
   height = 0;
   readonly flames: THREE.Vector3[] = [];
+  readonly panes: Pane[] = [];
+  readonly chimneys: THREE.Vector3[] = [];
 
   private add(g: THREE.BufferGeometry, colour: number): void {
     const g2 = g.index ? g.toNonIndexed() : g;
@@ -148,11 +168,39 @@ class Parts {
     return this;
   }
 
-  /** A simple house: walls, a gable roof, a door on the south face. */
+  /** A chimney top that smokes. */
+  smoke(x: number, y: number, z: number): this {
+    this.chimneys.push(new THREE.Vector3(x, y, z));
+    return this;
+  }
+
+  /** Windows round a box's walls with their middles at height y, about every 1.6 m, none over the door in the middle of the south face. */
+  windows(x: number, z: number, w: number, d: number, y: number): this {
+    const side = (len: number, face: number): void => {
+      const door = face === Face.S;
+      let n = Math.max(1, Math.round(len / 1.6));
+      if (door && n % 2 === 1) n++;
+      for (let i = 0; i < n; i++) {
+        const t = (len * (i + 0.5)) / n;
+        if (door && Math.abs(t - len / 2) < 0.5) continue;
+        const px = face === Face.W ? x : face === Face.E ? x + w : x + t;
+        const pz = face === Face.N ? z : face === Face.S ? z + d : z + t;
+        this.panes.push({ x: px, y, z: pz, w: 0.24, h: 0.34, face });
+      }
+    };
+    side(w, Face.N);
+    side(w, Face.S);
+    side(d, Face.W);
+    side(d, Face.E);
+    return this;
+  }
+
+  /** A simple house: walls, a gable roof, a door on the south face, windows. */
   house(x: number, z: number, w: number, d: number, wallH: number, wall: number, roof: number, roofH = wallH * 0.7): this {
     this.box(x, 0, z, w, wallH, d, wall);
     this.box(x + w / 2 - 0.3, 0, z + d - 0.02, 0.6, Math.min(1.9, wallH * 0.85), 0.06, C.darkWood);
     this.gable(x, wallH, z, w, d, roofH, roof, w >= d);
+    this.windows(x, z, w, d, wallH * 0.55);
     return this;
   }
 
@@ -160,7 +208,7 @@ class Parts {
     const geometry = mergeGeometries(this.list, false)!;
     for (const g of this.list) g.dispose();
     geometry.computeBoundingSphere();
-    return { geometry, height: this.height, flames: this.flames };
+    return { geometry, height: this.height, flames: this.flames, windows: this.panes, smoke: this.chimneys };
   }
 }
 
@@ -187,6 +235,7 @@ function mainBase(p: Parts, level: number, team: number): void {
       p.gable(o + 0.1, 3.0, o + 0.1, s - 0.2, s - 0.2, 2.2, C.redRoof);
       p.box(o + s - 1.0, 2.5, o + 0.6, 0.6, 3.2, 0.6, C.darkStone);
       p.box(o + s / 2 - 0.35, 0, o + s - 0.02, 0.7, 1.9, 0.06, C.darkWood);
+      p.windows(o, o, s, s, 0.9).windows(o + 0.1, o + 0.1, s - 0.2, s - 0.2, 2.2);
       break;
     case 4: // Stockade Hall: the hall behind a palisade with a gatehouse.
       p.box(o + 0.5, 0, o + 0.5, s - 1, 1.4, s - 1, C.stone);
@@ -213,6 +262,7 @@ function mainBase(p: Parts, level: number, team: number): void {
         p.box(o + 0.4, 6.0, o + t, 0.35, 0.45, 0.35, C.stone).box(o + s - 0.75, 6.0, o + t, 0.35, 0.45, 0.35, C.stone);
       }
       p.box(o + s / 2 - 0.4, 0, o + s - 0.42, 0.8, 2.0, 0.06, C.darkWood);
+      p.windows(o + 0.4, o + 0.4, s - 0.8, s - 0.8, 2.6).windows(o + 0.4, o + 0.4, s - 0.8, s - 0.8, 4.4);
       banner(o + s / 2, o + s / 2, 6.0);
       break;
     default: {
@@ -220,6 +270,7 @@ function mainBase(p: Parts, level: number, team: number): void {
       const facing = level >= 9 ? C.marble : C.stone;
       const keepH = 6 + (level - 7) * 0.8;
       p.box(o + 1.1, 0, o + 1.1, s - 2.2, keepH, s - 2.2, facing);
+      p.windows(o + 1.1, o + 1.1, s - 2.2, s - 2.2, keepH * 0.5).windows(o + 1.1, o + 1.1, s - 2.2, s - 2.2, keepH * 0.75);
       const tower = (x: number, z: number): void => {
         p.cyl(x, 0, z, 0.6, keepH - 1.0, facing, 10);
         if (level >= 9) p.cone(x, keepH - 1.0, z, 0.75, 1.4, C.slate, 10);
@@ -261,7 +312,11 @@ function farm(p: Parts, kind: number, level: number, variant: number, fallow: bo
   }
   // The farmhouse in the corner, better at each tier.
   const wall = level >= 3 ? C.stone : C.plank;
-  p.house(0, 0, houseW, houseD, 1.4 + level * 0.15, wall, level >= 2 ? C.redRoof : C.thatch, 1.0);
+  const wallH = 1.4 + level * 0.15;
+  p.house(0, 0, houseW, houseD, wallH, wall, level >= 2 ? C.redRoof : C.thatch, 1.0);
+  // A chimney through the roof, which smokes at night while someone is home (Jade, VX-3).
+  p.box(houseW * 0.72 - 0.11, wallH * 0.5, houseD * 0.6 - 0.11, 0.22, wallH * 0.5 + 1.1, 0.22, C.darkStone);
+  p.smoke(houseW * 0.72, wallH + 1.12, houseD * 0.6);
   if (level >= 2) p.fence(0.05, 0.05, w - 0.1, d - 0.1, C.wood);
   if (level >= 2) p.box(houseW + 0.1, 0, 0.1, 0.9, 1.0, 0.9, C.darkWood).gable(houseW + 0.1, 1.0, 0.1, 0.9, 0.9, 0.5, C.thatch);
   if (level >= 3) {
