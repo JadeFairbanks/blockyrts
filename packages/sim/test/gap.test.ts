@@ -12,6 +12,9 @@ import {
   BuildingKind,
   CHUNK_SHIFT,
   createWorld,
+  deserializeState,
+  hashState,
+  serializeState,
   digRate,
   gearSpec,
   Line,
@@ -374,11 +377,25 @@ describe('moving over the land', () => {
     expect(e.y[0]).toBe((y + 27) * WU_PER_TERRAIN_UNIT);
     // 27 units up at a fifth of 2.55 m/s: about 119 steps on the face (more with the climb back down off the platform).
     expect(onFace).toBeGreaterThanOrEqual(Math.floor((27 * WU_PER_TERRAIN_UNIT * 5) / WALK_SPEED_WU));
-    // A fighter (the first warrior) cannot climb the 4.5 m block.
+    // Saved and loaded while it climbs back down the 3 m face, it carries on the same.
+    run(s, 1, [{ kind: 'move', player: 0, units: [id], x: centre(x + 13), z: centre(z + 6) }]);
+    runUntil(s, () => e.onFace[0] !== 0 && e.y[0]! < (y + 20) * WU_PER_TERRAIN_UNIT, 2000);
+    expect(e.onFace[0]).toBe(1);
+    const half = serializeState(s);
+    run(s, 300);
+    const copy = deserializeState(half);
+    while (copy.step < s.step) step(copy);
+    expect(hashState(copy)).toBe(hashState(s));
+    // A fighter (the first warrior), set down beside the 4.5 m block, cannot climb it.
     const w = e.indexOf(e.id[4]!);
     expect(e.kind[w]).toBe(1);
+    e.x[w] = centre(x + 13);
+    e.z[w] = centre(z + 6);
+    e.y[w] = y * WU_PER_TERRAIN_UNIT;
     run(s, 1, [{ kind: 'move', player: 0, units: [e.id[w]!], x: centre(x + 16), z: centre(z + 2) }]);
     run(s, 2000);
+    const onBlock = col(e.x[w]!) >= x + 14 && col(e.x[w]!) <= x + 18 && col(e.z[w]!) >= z && col(e.z[w]!) <= z + 4;
+    expect(onBlock).toBe(false);
     expect(e.y[w]! < (y + 40) * WU_PER_TERRAIN_UNIT).toBe(true);
   });
 });

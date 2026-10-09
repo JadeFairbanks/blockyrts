@@ -3101,9 +3101,9 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    softwood takes it home before it digs; Unload sends a digger home and
    back to its dig; an earth bank still takes its Earth from the stock and
    nobody carries; four workers in a pit 12 columns square and 1 m deep
-   climb out of it with their loads, cutting no stairs (Patch 5), finish
-   the pit with every unit of earth accounted for, and a save taken while
-   one is on the face carries on to the same hash; four workers digging a pit 6 columns square and 3 m deep from its rim
+   get out of it with their loads, cutting no stairs (Patch 5), finish
+   the pit with every unit of earth accounted for, and a save taken half
+   way carries on to the same hash; four workers digging a pit 6 columns square and 3 m deep from its rim
    all get home with their loads. m4.test.ts still runs the miners' bag
    trips, a nearer Storehouse and the trip out at dawn.
 2. **A small dig.** `pnpm dev`, open http://localhost:5173/?seed=1, select
@@ -3350,26 +3350,32 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    a jump, 6 units a climb at 5 times a walk's cost a unit up; a worker
    climbs a 4 m face that a fighter cannot; the peoples' units keep their
    45 cm jump; monsters jump 1 m and a horse 2.5 m; a worker hops onto a
-   5 unit platform and climbs a 3 m block at a fifth of its walk, and a
+   5 unit platform and climbs a 3 m block at a fifth of its walk, a save
+   taken while it climbs back down carries on to the same hash, and a
    warrior never gets onto a 4.5 m one. patch4-dig-turn-in.test.ts runs
    four workers out of a 1 m pit with their loads, cutting no stairs.
 2. **Slower walk.** `pnpm dev`, open http://localhost:5173/?seed=1. Units
    on foot walk at 2.55 m/s, 15% slower than before; siege engines go 15%
    slower too. Cavalry is unchanged and stays faster than a runner.
 3. **Run/Walk.** Select workers, warriors, mages or crewmen: the card has
-   a boot button marked Walk (H), after Move. Press it: it shows two boots
+   a boot button marked Walk (H). Press it: it shows two boots
    marked Run and they move 40% faster (3.57 m/s), with the run clip.
    Every 50 m each one runs takes 1 food from the stock; a unit set back to
    Walk keeps what it has run towards its next 50 m, so 40 m, Walk, then
    10 m more of Run pays the 1 food. With no food in the stock runners walk
    until there is some. A worker pulling a cart walks. With only cavalry
-   selected the button is greyed: horses do not run.
+   selected the button is greyed: horses do not run. The button is the
+   last on each card, so every other button keeps its place.
 4. **Climbing.** Raise a block with the tester tools, or find a cliff, and
    Move a worker to its top: it walks to the foot of the face, turns to it
    and climbs straight up at a fifth of its walk, then steps onto the top.
    Workers climb faces up to 7 m, troops, mages and crewmen up to 4 m;
    higher faces are walked round. Faces are climbed down the same way.
-   Units never climb walls or buildings; monsters that climbed walls
+   Units out by themselves on Hunt or Gather do not climb by day, nor jump
+   down more than they can jump back up; coming home at dusk they climb
+   where they must. Their reach from home (what they walk in dusk's 40 s)
+   counts each metre of height above or below the base as 5 m more, so a
+   deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
    before still do. The bodies have no climb clip yet: a climber shows its
    walk until the models carry one, and the climb clip shows from then on.
 5. **Jumps.** Units on foot jump rises up to 56 cm (5 terrain units; 45 cm

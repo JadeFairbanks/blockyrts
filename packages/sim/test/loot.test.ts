@@ -21,6 +21,7 @@ import {
   exploreTarget,
   FOG_TILE_COLUMNS,
   fromBuilding,
+  fromHome,
   hashState,
   HOME_SLACK_M,
   homeOf,
@@ -225,7 +226,8 @@ describe('Hunt', () => {
     expect(h.reach).toBeLessThanOrEqual(HOME_SLACK_M * M + Math.floor((s.entities.speed[a]! * DUSK_STEPS * 1000) / 1000));
     const [bx, bz] = buildingCentre(b);
     let x = bx;
-    while (fromBuilding(b, x, bz) <= h.reach) x += M / 4;
+    // Patch 5: the ground's height above or below the base counts too (forage.ts fromHome).
+    while (fromHome(s, b, x, bz) <= h.reach) x += M / 4;
     expect(beyondReach(s, a, x, bz)).toBe(true);
     expect(beyondReach(s, a, x - M / 2, bz)).toBe(false);
   });

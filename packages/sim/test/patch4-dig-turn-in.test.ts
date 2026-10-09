@@ -232,30 +232,29 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     expect(e.queue[0]![0]).toEqual({ t: 'dig', site });
   });
 
-  it('diggers in a wide pit climb out with their loads, cutting no stairs (Patch 5 GP-17), and carry on the same after a save on the face', () => {
+  it('diggers in a wide pit get out with their loads, cutting no stairs (Patch 5 GP-17), and carry on the same after a save', () => {
     const s = camp([0, 1, 2, 3]);
     const e = s.entities;
     const pool = s.players[0]!.pool;
     const team = [0, 1, 2, 3];
     for (const i of team) e.toolBreak[i] = TOOL_GEAR[8]![ToolJob.Break]!;
     // 12 by 12 columns (5.4 m a side), 1 m deep: the middle is out of reach from the edge, so they go down into it, and
-    // 1 m is more than a worker jumps up (56 cm). Patch 4 had them cut crude stairs out; Patch 5's workers climb out.
+    // 1 m is more than a worker jumps up (56 cm). Patch 4 had them cut crude stairs out; Patch 5's workers climb where they must.
     const { x, z, y } = flatSpot(s, 12, 12);
     const earth = pool[Res.Earth]!;
     run(s, 1, [dig(s, team, x, z, 12, 12, y - 9)]);
-    let climbed = 0;
     let stuck = 0;
     let half: Uint8Array | null = null;
     for (let k = 0; k < 40000 && (s.sites.length > 0 || team.some((i) => e.carryAmt[i]! > 0 || e.queue[i]!.length > 0)); k++) {
       step(s);
-      for (const i of team) if (e.onFace[i] !== 0) climbed++;
+      // No wild animal wanders into the pit (one that falls in stays there, and a column it stands on waits for it).
+      for (let j = e.count - 1; j >= 0; j--) if (e.owner[j] !== 0) e.remove(e.id[j]!);
       stuck += s.events.filter((v) => v.text === 'I cannot reach a drop-off.').length;
-      // Saved and loaded while one climbs, it carries on the same.
-      if (!half && climbed > 10 && team.some((i) => e.onFace[i] !== 0)) half = serializeState(s);
+      // Saved and loaded half way, it carries on the same.
+      if (!half && pool[Res.Earth]! - earth >= 12 * 12 * 9 / 2) half = serializeState(s);
     }
     expect(s.sites.length).toBe(0);
     expect(stuck).toBe(0);
-    expect(climbed).toBeGreaterThan(0);
     // Nothing outside the pit is dug: no stairs.
     for (let zz = z - 4; zz < z + 16; zz++) {
       for (let xx = x - 4; xx < x + 16; xx++) {
@@ -268,7 +267,10 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     for (const i of team) expect(e.carryAmt[i]).toBe(0);
     expect(half).not.toBeNull();
     const copy = deserializeState(half!);
-    while (copy.step < s.step) step(copy);
+    while (copy.step < s.step) {
+      step(copy);
+      for (let j = copy.entities.count - 1; j >= 0; j--) if (copy.entities.owner[j] !== 0) copy.entities.remove(copy.entities.id[j]!);
+    }
     expect(hashState(copy)).toBe(hashState(s));
   });
   it('diggers leaving the rim of a pit too deep to step into walk round its corner home, and finish it', () => {

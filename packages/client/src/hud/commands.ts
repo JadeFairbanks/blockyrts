@@ -512,7 +512,6 @@ export class Commands {
       const unload = 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node or the dig.';
       return [
         move,
-        pace,
         this.entry(
           'gather',
           'Gather',
@@ -546,13 +545,14 @@ export class Commands {
         this.eatEntry(),
         this.equipEntry(workers),
         this.cartEntry(workers),
+        pace,
       ];
     }
     if (active.startsWith('mage:')) {
       const ids = this.unitIds((u) => u.typeKey === active);
       const school = active === 'mage:battle' ? 2 : 1;
       // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
-      return [attack, patrol, move, pace, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids)];
+      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
     }
     if (active === 'warrior:crew') {
       // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine, and Retrain makes it a worker (Patch 3).
@@ -560,7 +560,6 @@ export class Commands {
         attack,
         patrol,
         move,
-        pace,
         this.entry(
           'crew',
           'Crew',
@@ -570,6 +569,7 @@ export class Commands {
         ),
         this.eatEntry(),
         this.retrainEntry(),
+        pace,
       ];
     }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
@@ -577,7 +577,6 @@ export class Commands {
       attack,
       patrol,
       move,
-      pace,
       this.entry(
         'hunt',
         'Hunt',
@@ -586,6 +585,7 @@ export class Commands {
       ),
       this.eatEntry(),
       this.equipEntry(troops),
+      pace,
     ];
   }
 
