@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   Act,
+  addAnimal,
   biteSteps,
   createWorld,
   DIG_SPEED_TIMES,
@@ -15,6 +16,7 @@ import {
   REACH_UP_UNITS,
   Res,
   SiteKind,
+  Species,
   SPREAD_UNITS,
   step,
   stretchCells,
@@ -24,6 +26,7 @@ import {
   TUNNEL_WIDTH_COLUMNS,
   UnitKind,
   WU_PER_COLUMN,
+  WILD,
   WU_PER_TERRAIN_UNIT,
   type Order,
   type SimState,
@@ -138,6 +141,23 @@ describe("digging (Jade's Patch 5)", () => {
     run(s, 1, [{ kind: 'dig', player: 0, units: [e.id[0]!], x0: x, z0: z, x1: x + 3, z1: z + 3, level: y - 9, level2: 0, tunnel: 0 }]);
     digInLayers(s, x, z, x + 3, z + 3);
     expect(tops(s, x, z, x + 3, z + 3)).toEqual([y - 9, y - 9]);
+  });
+
+  it('digs the ground from under a wild animal stuck in the pit, which drops with the floor, rather than waiting for it for ever', () => {
+    const s = camp([0]);
+    const e = s.entities;
+    const { x, z, y } = flatSpot(s, 3, 3);
+    const deer = e.id[addAnimal(s, Species.Deer, WILD, centre(x + 1), centre(z + 1), 0, 0)]!;
+    run(s, 1, [{ kind: 'dig', player: 0, units: [e.id[0]!], x0: x, z0: z, x1: x + 2, z1: z + 2, level: y - 9, level2: 0, tunnel: 0 }]);
+    // It stays in the middle of the pit (it cannot get out of a deep one).
+    runUntil(s, () => {
+      const a = e.indexOf(deer);
+      e.x[a] = centre(x + 1);
+      e.z[a] = centre(z + 1);
+      return s.sites.length === 0;
+    }, 20000);
+    expect(tops(s, x, z, x + 2, z + 2)).toEqual([y - 9, y - 9]);
+    expect(e.y[e.indexOf(deer)]).toBe((y - 9) * WU_PER_TERRAIN_UNIT);
   });
 
   it('takes a tenth of the time a bite took, and a load holds twice the earth (BL-2)', () => {
