@@ -33,9 +33,10 @@ const INST_STRIDE = 6;
  * instance, the local player's units in their mark's id (rgb, alpha 0) and
  * the rest opaque black, as things that hide them; Own draws only the local
  * player's units, in their ids; Outlined draws only those marked for an
- * outline, in white.
+ * outline, in white; Hover (Patch 5, UI-5) draws only what the cursor is
+ * over, in white, for its silhouette outline.
  */
-export const MarkMode = { Ids: 0, Own: 1, Outlined: 2 } as const;
+export const MarkMode = { Ids: 0, Own: 1, Outlined: 2, Hover: 3 } as const;
 /** Shared by every model's mark material, so one call sets the mode for a pass. */
 const MARK_MODE: THREE.IUniform<number> = { value: MarkMode.Ids };
 export function setMarkMode(mode: number): void {
@@ -99,12 +100,13 @@ if (team_bf.a > 0.5) {
 const MARK_VERTEX = /* glsl */ `
 ${VERTEX_PARS}
 attribute float mark;
+attribute float hover;
 uniform float markMode_bf;
 varying vec2 vUv_bf;
 flat varying vec4 vMark_bf;
 void main() {
   float own = abs(mark) > 0.5 ? 1.0 : 0.0;
-  float keep = markMode_bf < 0.5 ? 1.0 : markMode_bf < 1.5 ? own : step(mark, -0.5);
+  float keep = markMode_bf < 0.5 ? 1.0 : markMode_bf < 1.5 ? own : markMode_bf < 2.5 ? step(mark, -0.5) : step(0.5, hover);
   if (keep < 0.5 || partVisible_bf[int(part + 0.5)] < 0.5) {
     gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
     return;
@@ -154,6 +156,9 @@ export class InstancedModel {
   private readonly team: THREE.InstancedBufferAttribute;
   /** Per instance: 0, or the id of a local player's unit (negative when it is to be outlined). */
   private readonly mark: THREE.InstancedBufferAttribute;
+  /** Per instance: 1 when the cursor is over it (Patch 5, UI-5), else 0. */
+  private readonly hover: THREE.InstancedBufferAttribute;
+  private hovered = 0;
   private markMat: THREE.ShaderMaterial | null = null;
   private readonly uniforms: SharedUniforms;
   private readonly clipList: BakedClip[];
@@ -202,6 +207,9 @@ export class InstancedModel {
     this.mark = new THREE.InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
     this.mark.setUsage(THREE.DynamicDrawUsage);
     this.geometry.setAttribute('mark', this.mark);
+    this.hover = new THREE.InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
+    this.hover.setUsage(THREE.DynamicDrawUsage);
+    this.geometry.setAttribute('hover', this.hover);
     this.geometry.instanceCount = 0;
 
     const partVisible = new Array<number>(MAX_PARTS + 1).fill(0);
@@ -296,6 +304,7 @@ export class InstancedModel {
     this.inst[o + 5] = scale;
     this.instClip[i] = this.clipIndex.get(clip) ?? -1;
     (this.mark.array as Float32Array)[i] = 0;
+    (this.hover.array as Float32Array)[i] = 0;
     const t = this.team.array as Float32Array;
     if (teamColour) {
       t[i * 4] = teamColour.r;
@@ -313,6 +322,17 @@ export class InstancedModel {
   setMark(i: number, id: number, outlined: boolean): void {
     if (i < 0 || i >= this.maxInstances) return;
     (this.mark.array as Float32Array)[i] = outlined ? -id : id;
+  }
+
+  /** Marks instance i, after its setInstance, as under the cursor: the Hover pass draws it (Patch 5, UI-5). */
+  setHover(i: number): void {
+    if (i < 0 || i >= this.maxInstances) return;
+    (this.hover.array as Float32Array)[i] = 1;
+  }
+
+  /** How many instances were under the cursor as of the last commit. */
+  get hoveredCount(): number {
+    return this.hovered;
   }
 
   /** The flat material that draws ids and outlines (see MarkMode), made on first use. */
@@ -418,6 +438,12 @@ export class InstancedModel {
     this.mark.clearUpdateRanges();
     this.mark.addUpdateRange(0, this.count);
     this.mark.needsUpdate = true;
+    const hover = this.hover.array as Float32Array;
+    this.hovered = 0;
+    for (let i = 0; i < this.count; i++) if (hover[i]! > 0.5) this.hovered++;
+    this.hover.clearUpdateRanges();
+    this.hover.addUpdateRange(0, this.count);
+    this.hover.needsUpdate = true;
   }
 
   /**
